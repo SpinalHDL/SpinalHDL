@@ -25,9 +25,9 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         assumeInitial(reset)
 
         when(input.valid) {
-          assume(!results.sExist(x => x.valid && x.payload === input.payload))          
+          assume(!results.sExist(x => x.valid && x.payload === input.payload))
         }
-        when(past(input.valid) && withPast()){ assert(results(0).valid && results(0).payload === past(input.payload)) }
+        when(past(input.valid) && withPast()) { assert(results(0).valid && results(0).payload === past(input.payload)) }
 
         val dataOverflow = anyconst(cloneOf(input.payload))
         assert(
@@ -35,8 +35,9 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         )
         assume(!controls.sExist(_.payload === dataOverflow))
         val overflowCount = results.sCount(x => x.valid && x.payload === dataOverflow)
-        when(past(dut.io.willOverflow && results.last.payload === dataOverflow)) { 
-          assert(results.last.valid && past(overflowCount) > overflowCount)}
+        when(past(dut.io.willOverflow && results.last.payload === dataOverflow)) {
+          assert(results.last.valid && past(overflowCount) > overflowCount)
+        }
 
         val dataOut = anyconst(cloneOf(input.payload))
         val dataIn = anyconst(cloneOf(input.payload))
@@ -46,13 +47,14 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         } else {
           assume(controls.map(x => x.payload =/= dataOut).reduce(_ && _))
 
+          val inExists = results.sExist(y => y.valid && y.payload === dataIn)
           controls
             .zip(results)
             .map {
               case (in, out) => {
                 val inputFire = if (in == controls.last) input.valid else False
-                when(past(in.payload === dataIn && in.fire && !out.fire && !inputFire)) {
-                  assert(results.sExist(y => y.valid && y.payload === dataIn))
+                when(past(in.payload === dataIn && in.fire && !out.fire && !inputFire) && past(!inExists)) {
+                  assert(inExists)
                 }
               }
             }
