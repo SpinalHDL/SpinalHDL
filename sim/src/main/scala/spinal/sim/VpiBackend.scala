@@ -68,12 +68,12 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
                       else "linux"))}"
   )
 
-  CFLAGS += includes.map(path =>
+  CFLAGS += " " + includes.map(path =>
     if (isWindows)
       '"' + path + '"'
     else
       path
-  ).map(path => s"-I$path").mkString(" ")
+  ).map(path => s"-I$path").mkString(" ") + " "
 
   def doCmd(command: String, cwd: File, message : String) = {
     val logger = new Logger()
