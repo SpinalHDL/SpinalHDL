@@ -21,11 +21,14 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         dut.io.outStreams.zip(results).map { case (from, to) => from >> to }
         dut.io.inStreams.zip(controls).map { case (to, from) => from >> to }
 
+        def outCount(data: UInt) = { results.sCount(x => x.valid && x.payload === data) }
+        def outExists(data: UInt) = { results.sExist(x => x.valid && x.payload === data) }
+
         val reset = ClockDomain.current.isResetActive
         assumeInitial(reset)
 
         when(input.valid) {
-          assume(!results.sExist(x => x.valid && x.payload === input.payload))
+          assume(!outExists(input.payload))
         }
         when(past(input.valid) && withPast()) { assert(results(0).valid && results(0).payload === past(input.payload)) }
 
@@ -33,9 +36,9 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         assert(
           (input.valid && results.sCount(_.valid) === depth - 1 && results.sCount(_.fire) === 0) === dut.io.willOverflow
         )
-        assume(!controls.sExist(_.payload === dataOverflow))
-        val overflowCount = results.sCount(x => x.valid && x.payload === dataOverflow)
-        when(past(dut.io.willOverflow && results.last.payload === dataOverflow)) {
+        val overflowModify = controls.sExist(x => x.fire && x.payload === dataOverflow)
+        val overflowCount = outCount(dataOverflow)
+        when(past(dut.io.willOverflow && results.last.payload === dataOverflow && !overflowModify)) {
           assert(results.last.valid && past(overflowCount) > overflowCount)
         }
 
@@ -47,14 +50,13 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         } else {
           assume(controls.map(x => x.payload =/= dataOut).reduce(_ && _))
 
-          val inExists = results.sExist(y => y.valid && y.payload === dataIn)
           controls
             .zip(results)
             .map {
               case (in, out) => {
                 val inputFire = if (in == controls.last) input.valid else False
-                when(past(in.payload === dataIn && in.fire && !out.fire && !inputFire) && past(!inExists)) {
-                  assert(inExists)
+                when(past(in.payload === dataIn && in.fire && !out.fire && !inputFire) && past(!outExists(dataIn))) {
+                  assert(outExists(dataIn))
                 }
               }
             }
@@ -64,7 +66,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         }
 
         val inputCount = U(input.valid && input.payload === dataOut)
-        val validCount = results.sCount(x => x.valid && x.payload === dataOut)
+        val validCount = outCount(dataOut)
 
         val overflowCondition = dut.io.willOverflow && results.last.payload === dataOut
         def modifying(in: Stream[UInt], out: Stream[UInt]) = {
