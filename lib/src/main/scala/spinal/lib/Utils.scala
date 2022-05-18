@@ -1149,7 +1149,8 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int
             val inPort = io.inStreams(streamId)
             inPort.ready := stream.valid
             when(inPort.fire) {
-              when(stream.fire) { next.payload := inPort.payload }
+              val lastAndOverflow = if( left == 2 ) io.willOverflow else False
+              when(stream.fire || lastAndOverflow) { next.payload := inPort.payload }
                 .otherwise { rData := inPort.payload }
             }
 

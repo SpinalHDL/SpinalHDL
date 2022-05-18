@@ -24,13 +24,22 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         val reset = ClockDomain.current.isResetActive
         assumeInitial(reset)
 
+        when(input.valid) {
+          assume(!results.sExist(x => x.valid && x.payload === input.payload))          
+        }
+        when(past(input.valid) && withPast()){ assert(results(0).valid && results(0).payload === past(input.payload)) }
+
+        val dataOverflow = anyconst(cloneOf(input.payload))
         assert(
           (input.valid && results.sCount(_.valid) === depth - 1 && results.sCount(_.fire) === 0) === dut.io.willOverflow
         )
+        assume(!controls.sExist(_.payload === dataOverflow))
+        val overflowCount = results.sCount(x => x.valid && x.payload === dataOverflow)
+        when(past(dut.io.willOverflow && results.last.payload === dataOverflow)) { 
+          assert(results.last.valid && past(overflowCount) > overflowCount)}
 
         val dataOut = anyconst(cloneOf(input.payload))
         val dataIn = anyconst(cloneOf(input.payload))
-        assume(dataOut =/= dataIn)
 
         if (outOnly) {
           controls.map(x => assume(x.valid === False))
@@ -65,11 +74,11 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
             .zip(results.filter(_ != results.last))
             .map { case (in, out) => modifying(in, out) }
         ) + U(modifying(controls.last, results.last) && !overflowCondition)
-        val overflowCount = U(overflowCondition)
+        val outOverflowCount = U(overflowCondition)
         val fireCount = results.sCount(x => x.fire && x.payload === dataOut)
 
         when(withPast()) {
-          assert(past(validCount - fireCount + inputCount - overflowCount - modifyCount) === validCount)
+          assert(past(validCount - fireCount + inputCount - outOverflowCount - modifyCount) === validCount)
         }
         results.map(x => cover(x.fire))
         cover(results(0).fire && results(2).fire)
