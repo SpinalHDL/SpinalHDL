@@ -8,8 +8,8 @@ import spinal.lib.bus.amba4.axi.{Axi4, Axi4ReadOnly, Axi4WriteOnly, Axi4Config, 
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
   def tester(inConfig: Axi4Config, outConfig: Axi4Config) {
     FormalConfig
-    //   .withBMC(10)
-    //   .withProve(10)
+      //   .withBMC(10)
+      //   .withProve(10)
       .withCover(10)
       .withDebug
       .doVerify(new Component {
@@ -23,13 +23,13 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val output = master(Axi4WriteOnly(outConfig))
         dut.io.output >> output
-        
-        val maxStall = 20
-        val inputAssumes = dut.io.input.withAssumes(maxStall)
-        val outputAsserts = dut.io.output.withAsserts(maxStall)
 
-        dut.io.output.withCovers()
-        dut.io.input.withCovers()
+        val maxStall = 16
+        val inputAssumes = input.withAssumes(maxStall)
+        val outputAsserts = output.withAsserts(maxStall)
+
+        output.withCovers()
+        input.withCovers()
       })
   }
 
