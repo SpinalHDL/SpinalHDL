@@ -35,7 +35,7 @@ object DocTemplate {
       """
         |      .theme-spring{
         |          border-collapse: collapse;
-        |          font-size: 1.em;
+        |          font-size: 1.0em;
         |          min-width: 800px;
         |          border-radius: 5px 5px 0 0 ;
         |          overflow: hidden;
@@ -61,7 +61,7 @@ object DocTemplate {
         |          border-bottom: 3px solid #009879;
         |      }
         |      .theme-spring tbody tr.active-row {
-        |          font-weight: blod;
+        |          font-weight: bold;
         |          color: #009879;
         |      }
         |      .theme-spring tbody td.reserved{

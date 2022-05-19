@@ -132,6 +132,10 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   }
 
   def setEncoding(encoding: SpinalEnumEncoding): Unit = enumDef.defaultEncoding = encoding
+  def setEncoding(spec: (State, BigInt)*): Unit = {
+    val mapping = spec.map(e => states.indexOf(e._1) -> e._2).toMapLinked()
+    enumDef.defaultEncoding = SpinalEnumEncoding(mapping.apply)
+  }
 
   @dontName val postBuildTasks = ArrayBuffer[() => Unit]()
 

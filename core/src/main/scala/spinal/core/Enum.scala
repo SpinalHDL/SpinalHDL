@@ -372,10 +372,10 @@ object SpinalEnumEncoding{
     list(name)(map)
   }
 
-  def apply(name: String, spec: BigInt => BigInt): SpinalEnumEncoding = apply(spec).setName(name)
+  def apply(name: String, spec: Int => BigInt): SpinalEnumEncoding = apply(spec).setName(name)
 
-  def apply(spec: BigInt => BigInt): SpinalEnumEncoding = new SpinalEnumEncoding {
-    override def getWidth(senum: SpinalEnum): Int = log2Up(senum.elements.map(getValue(_)).max)
+  def apply(spec: Int => BigInt): SpinalEnumEncoding = new SpinalEnumEncoding {
+    override def getWidth(senum: SpinalEnum): Int = log2Up(senum.elements.map(getValue(_)).max+1)
     override def isNative: Boolean = false
     override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = spec(element.position)
     override def getElement[T <: SpinalEnum](element: BigInt, senum: T) = ???

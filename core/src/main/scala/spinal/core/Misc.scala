@@ -115,7 +115,7 @@ object HardType{
   def apply[T <: Data](t : => T) = new HardType(t)
 }
 
-class HardType[T <: Data](t : => T){
+class HardType[T <: Data](t : => T) extends OverridedEqualsHashCode{
   def apply()   = {
     val id = GlobalData.get.instanceCounter
     val called = t

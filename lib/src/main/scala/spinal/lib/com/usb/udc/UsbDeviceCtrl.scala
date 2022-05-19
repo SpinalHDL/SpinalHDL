@@ -415,6 +415,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
         when(token.endpoint =/= 0){
           goto(IDLE)
         } otherwise {
+          ep.word(15 downto 4) := 0 //Ensure no offset is applyed from memory address 0x40-0x47
           desc.offset := 0x40-12
           desc.length := 8
           desc.direction := False
@@ -652,8 +653,11 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
         when(desc.interrupt) {
           regs.interrupts.endpoints(token.endpoint.resized) := True
         }
-        when(regs.address.trigger && token.isIn) {
-          regs.address.enable := True
+        when(token.endpoint === 0) {
+          when(regs.address.trigger && token.isIn) {
+            regs.address.enable := True
+          }
+          regs.address.trigger := False
         }
         when(!desc.full){ //When a descriptor is completed but not full, unlink the linked list for the software to fix things
           memory.internal.writeCmd.data(4, 12 bits) := 0

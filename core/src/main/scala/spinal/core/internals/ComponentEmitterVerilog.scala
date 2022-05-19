@@ -648,7 +648,7 @@ class ComponentEmitterVerilog(
               case m: String => m
               case m: SpinalEnumCraft[_] => "%s"
               case m: Expression => "%x"
-              case `REPORT_TIME` => "%d"
+              case `REPORT_TIME` => "%t"
               case x => SpinalError(s"""L\"\" can't manage the parameter '${x}' type. Located at :\n${statement.getScalaLocationLong}""")
             }).mkString.replace("\n", "\\n")
 
