@@ -1117,11 +1117,11 @@ object HistoryModifyable {
   }
 }
 
-class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int) extends Component {
+class HistoryModifyable[T <: Data](val payloadType: HardType[T], val depth: Int) extends Component {
   val io = new Bundle {
     val input = slave(Flow(payloadType))
-    val outStreams = Vec(master(Stream(payloadType)), length - 1)
-    val inStreams = Vec(slave(Stream(payloadType)), length - 1)
+    val outStreams = Vec(master(Stream(payloadType)), depth)
+    val inStreams = Vec(slave(Stream(payloadType)), depth)
     val willOverflow = out(Bool())
   }
   def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
@@ -1131,7 +1131,7 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int
       case _ =>
         prev :: builder(
           {
-            val streamId = length - left
+            val streamId = depth + 1 - left
 
             val stream = Stream(payloadType)
             val rValid = RegNextWhen(prev.valid, stream.ready) init (False)
@@ -1164,9 +1164,9 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int
   inputBuffer.valid := io.input.valid
   inputBuffer.payload := io.input.payload
 
-  val connections = Vec(builder(inputBuffer, length))
-  connections(length - 1).ready := False
-  val cachedConnections = (1 until length).map( x => connections(x))
+  val connections = Vec(builder(inputBuffer, depth + 1))
+  connections(depth).ready := False
+  val cachedConnections = (1 to depth).map( x => connections(x))
   val readyAvailable = cachedConnections.map(!_.valid)
 
   val full = CountOne(readyAvailable) === 0
