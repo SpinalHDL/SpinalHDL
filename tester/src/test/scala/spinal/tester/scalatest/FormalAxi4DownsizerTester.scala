@@ -6,13 +6,7 @@ import spinal.lib._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.HistoryModifyable
 
-object FormalAxi4Record {
-  def apply(config: Axi4Config, maxStbs: Int) = {
-    new FormalAxi4Record(config, maxStbs)
-  }
-}
-
-class FormalAxi4Record(val config: Axi4Config, maxStbs: Int) extends Bundle {
+case class FormalAxi4Record(val config: Axi4Config, maxStbs: Int) extends Bundle {
   val addr = UInt(7 bits)
   val id = if (config.useId) UInt(config.idWidth bits) else null
   val len = if (config.useLen) UInt(8 bits) else null
@@ -56,14 +50,14 @@ class FormalAxi4Record(val config: Axi4Config, maxStbs: Int) extends Bundle {
 
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
   def outputAsserter(axi: Axi4WriteOnly, maxBursts: Int = 16, maxStbs: Int = 256) {
-    val histInput = Flow(FormalAxi4Record(axi.config, maxStbs))
-    histInput.payload.assignFromBits(B(0,histInput.getBitsWidth bits))
+    val oRecord = FormalAxi4Record(axi.config, maxStbs)
+    oRecord.assignFromBits(B(0, oRecord.getBitsWidth bits))
+
+    val histInput = Flow(cloneOf(oRecord))
+    histInput.payload := oRecord
     histInput.valid := False
     val hist = HistoryModifyable(histInput, maxBursts)
     hist.io.inStreams.map(_.valid := False)
-
-    val oRecord = cloneOf(histInput.payload)
-    oRecord.assignFromBits(0)
 
     val (awExist, awId) = hist.io.outStreams.sFindFirst(x => x.valid && !x.awDone)
     val (wExist, wId) = hist.io.outStreams.sFindFirst(x => x.valid && !x.seenLast)
