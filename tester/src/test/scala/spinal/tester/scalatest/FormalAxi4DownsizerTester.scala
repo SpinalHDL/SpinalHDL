@@ -57,33 +57,59 @@ class FormalAxi4Record(val config: Axi4Config, maxStbs: Int) extends Bundle {
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
   def outputAsserter(axi: Axi4WriteOnly, maxBursts: Int = 16, maxStbs: Int = 256) {
     val histInput = Flow(FormalAxi4Record(axi.config, maxStbs))
-    histInput.payload.assignFromBits(B(0, histInput.payload.getBitsWidth bits))
+    histInput.payload.assignFromBits(B(0,histInput.getBitsWidth bits))
     histInput.valid := False
     val hist = HistoryModifyable(histInput, maxBursts)
+    hist.io.inStreams.map(_.valid := False)
 
     val oRecord = cloneOf(histInput.payload)
-    oRecord.assignFromBits(B(0, oRecord.getBitsWidth bits))
+    oRecord.assignFromBits(0)
 
     val (awExist, awId) = hist.io.outStreams.sFindFirst(x => x.valid && !x.awDone)
-    val awRecord = CombInit(oRecord)
-    when(axi.aw.valid) {
-      when(awExist) { awRecord := hist.io.outStreams(awId) }
-    }
-    awRecord.assignFromAx(axi.aw.asInstanceOf[Stream[Axi4Ax]])
-
     val (wExist, wId) = hist.io.outStreams.sFindFirst(x => x.valid && !x.seenLast)
-    val wRecord = CombInit(oRecord)
-    when(axi.w.valid) {
-      when(wExist) { wRecord := hist.io.outStreams(wId) }
-      wRecord.assignFromW(axi.w, hist.io.outStreams(wId).count)
-    }
-
     val (bExist, bId) = hist.io.outStreams.sFindFirst(x => x.valid /*&& axi.b.id === x.id*/ && !x.bResp)
-    when(axi.b.valid) {
-      val inRecord = histInput.payload
-      when(bExist) { inRecord := hist.io.inStreams(bId) }
-      inRecord.assignFromB(axi.b)
 
+    val awRecord = CombInit(oRecord)
+    val awValid = False
+    when(axi.aw.valid) {
+      val ax = axi.aw.asInstanceOf[Stream[Axi4Ax]]
+      when(awExist) { 
+        awRecord := hist.io.outStreams(awId)
+        awRecord.assignFromAx(ax)
+        awValid := True
+      }
+      .otherwise { histInput.assignFromAx(ax) }
+    }
+    hist.io.inStreams(awId).valid := awValid
+
+    val wRecord = CombInit(oRecord)
+    val wValid = False
+    when(axi.w.valid) {
+      when(wExist) {
+        wRecord := hist.io.outStreams(wId)
+        when(awValid && wId === awId) {
+          awRecord.assignFromW(axi.w, wRecord.count)
+        }.otherwise { wRecord.assignFromW(axi.w, wRecord.count); wValid := True }
+      }.otherwise { histInput.assignFromW(axi.w, U(0, 9 bits)) }
+    }
+    hist.io.inStreams(wId).valid := wValid
+
+    val bRecord = CombInit(oRecord)
+    val bValid = False
+    when(axi.b.valid) {
+      when(bExist) {  
+        bRecord := hist.io.outStreams(bId)
+        when(awValid && bId === awId) {
+          awRecord.assignFromB(axi.b)
+        }.elsewhen(wValid && bId === wId) {
+          wRecord.assignFromB(axi.b)
+        }.otherwise { bRecord.assignFromB(axi.b); bValid := True }
+      }.otherwise {histInput.assignFromB(axi.b)}
+    }
+    hist.io.inStreams(bId).valid := bValid
+
+    when(!(awExist || wExist || bExist)) {
+      histInput.valid := True
     }
 
   }
