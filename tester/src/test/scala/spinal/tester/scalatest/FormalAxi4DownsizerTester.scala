@@ -98,11 +98,13 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }.elsewhen(wValid && bId === wId) {
           wRecord.assignFromB(axi.b)
         }.otherwise { bRecord.assignFromB(axi.b); bValid := True }
-      }.otherwise {histInput.assignFromB(axi.b)}
+
+        hist.io.outStreams(bId).ready := axi.b.ready & bRecord.awDone & bRecord.seenLast
+      } //.otherwise {histInput.assignFromB(axi.b)}
     }
     hist.io.inStreams(bId).valid := bValid
 
-    when(!(awExist || wExist || bExist)) {
+    when(!(awExist || wExist)) {
       histInput.valid := True
     }
 
