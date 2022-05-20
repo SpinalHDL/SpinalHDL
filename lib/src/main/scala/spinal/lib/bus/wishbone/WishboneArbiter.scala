@@ -46,19 +46,20 @@ class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Compone
     Wishbone.driveWeak(io.output.TGD_MISO, in.TGD_MISO, null, false, false)
   }
 
-  //Implement a blocking round robin algorithm.
+  //Implement a round robin algorithm.
   //The channel will remain selected is either LOCK or CYC are equals to true
   //and pass to the next channel after the master clears CYC and LOCK
   //this output a One Hot encoded vector/bit array
   val requests =  if(config.useLOCK)  Vec(io.inputs.map(func => func.CYC && !func.LOCK))
-                  else                Vec(io.inputs.map(_.CYC))
+                  else                Vec(io.inputs.map(func => func.CYC))
 
   val maskLock : Vec[Bool] = RegInit(B(1,inputCount bits).asBools)
   val roundRobin : Vec[Bool] = OHMasking.roundRobin(requests, maskLock)
+  val selector: Vec[Bool] = RegNext(roundRobin.orR ? roundRobin | maskLock,
+                                    B(1, inputCount bits).asBools)
 
-  val selector : Vec[Bool] = RegNext(roundRobin,roundRobin.getZero)
-  when(io.output.CYC && selector.orR){
-    maskLock := selector
+  when (roundRobin.orR) {
+    maskLock := roundRobin
   }
 
   //Implement the selector for the output slave signals
