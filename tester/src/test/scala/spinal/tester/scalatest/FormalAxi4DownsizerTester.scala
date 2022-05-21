@@ -58,6 +58,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
     histInput.valid := False
     val hist = HistoryModifyable(histInput, maxBursts)
     hist.io.inStreams.map(_.valid := False)
+    hist.io.outStreams.map(_.ready := False)
 
     val (awExist, awId) = hist.io.outStreams.sFindFirst(x => x.valid && !x.awDone)
     val (wExist, wId) = hist.io.outStreams.sFindFirst(x => x.valid && !x.seenLast)
