@@ -79,8 +79,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val realLen = axi.aw.len +^ 1
         dataErrors(0) := awSelect.seenLast & realLen > awSelect.count
-        // assert(!awRecord.seenLast & realLen === awRecord.count)
-        // assert(realLen < awRecord.count)
+        dataErrors(1) := !awSelect.seenLast & realLen === awSelect.count
+        dataErrors(2) := realLen < awSelect.count
       }
       .otherwise { histInput.assignFromAx(ax) }
     }
@@ -100,8 +100,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           awRecord.assignFromW(axi.w, wSelect.count)
         }.otherwise { wRecord.assignFromW(axi.w, wSelect.count); wValid := True }
       }.otherwise { histInput.assignFromW(axi.w, U(0, 9 bits)) }
-      // assert(wRecord.awDone & (axi.w.last & (wRecord.count =/= wRecord.len)))
-      // assert(wRecord.awDone & (!axi.w.last & (wRecord.count === wRecord.len)))
+      dataErrors(3) := wSelect.awDone & (axi.w.last & (wSelect.count =/= wSelect.len))
+      dataErrors(4) := wSelect.awDone & (!axi.w.last & (wSelect.count === wSelect.len))
     }
     when(wValid) {      
       hist.io.inStreams(wId).payload := wRecord
