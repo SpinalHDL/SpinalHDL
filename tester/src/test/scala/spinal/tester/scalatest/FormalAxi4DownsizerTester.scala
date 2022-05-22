@@ -22,7 +22,6 @@ case class FormalAxi4Record(val config: Axi4Config, maxStbs: Int) extends Bundle
   val bResp = Bool()
 
   def assignFromAx(ax: Stream[Axi4Ax]) {
-    when(ax.valid) {
       addr := ax.addr.resized
       isLockExclusive := ax.lock === Axi4.lock.EXCLUSIVE
       // burst := ax.burst
@@ -30,21 +29,16 @@ case class FormalAxi4Record(val config: Axi4Config, maxStbs: Int) extends Bundle
       size := ax.size
       // id := ax.id
       awDone := ax.ready
-    }
   }
 
   def assignFromW(w: Stream[Axi4W], selectCount: UInt) {
-    when(w.valid) {
       seenLast := w.last & w.ready
       strbs(selectCount.resized) := w.strb
       when(w.ready) { count := selectCount + 1 }
-    }
   }
 
   def assignFromB(b: Stream[Axi4B]) {
-    when(b.valid) {
       bResp := b.ready
-    }
   }
 }
 
