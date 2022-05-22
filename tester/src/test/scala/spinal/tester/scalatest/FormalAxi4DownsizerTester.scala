@@ -6,7 +6,7 @@ import spinal.lib._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.HistoryModifyable
 
-case class FormalAxi4Record(val config: Axi4Config, maxStbs: Int) extends Bundle {
+case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundle {
   val addr = UInt(7 bits)
   val id = if (config.useId) UInt(config.idWidth bits) else null
   val len = if (config.useLen) UInt(8 bits) else null
@@ -15,36 +15,36 @@ case class FormalAxi4Record(val config: Axi4Config, maxStbs: Int) extends Bundle
   val isLockExclusive = if (config.useLock) Bool() else null
   val awDone = Bool()
 
-  val strbs = if (config.useStrb) Vec(Bits(config.bytePerWord bits), maxStbs) else null
+  val strbs = if (config.useStrb) Vec(Bits(config.bytePerWord bits), maxStrbs) else null
   val count = UInt(9 bits)
   val seenLast = if (config.useLast) Bool() else null
 
   val bResp = Bool()
 
   def assignFromAx(ax: Stream[Axi4Ax]) {
-      addr := ax.addr.resized
-      isLockExclusive := ax.lock === Axi4.lock.EXCLUSIVE
-      // burst := ax.burst
-      len := ax.len
-      size := ax.size
-      // id := ax.id
-      awDone := ax.ready
+    addr := ax.addr.resized
+    isLockExclusive := ax.lock === Axi4.lock.EXCLUSIVE
+    // burst := ax.burst
+    len := ax.len
+    size := ax.size
+    // id := ax.id
+    awDone := ax.ready
   }
 
   def assignFromW(w: Stream[Axi4W], selectCount: UInt) {
-      seenLast := w.last & w.ready
-      strbs(selectCount.resized) := w.strb
-      when(w.ready) { count := selectCount + 1 }.otherwise{ count := selectCount }
+    seenLast := w.last & w.ready
+    strbs(selectCount.resized) := w.strb
+    when(w.ready) { count := selectCount + 1 }.otherwise{ count := selectCount }
   }
 
   def assignFromB(b: Stream[Axi4B]) {
-      bResp := b.ready
+    bResp := b.ready
   }
 }
 
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
-  def outputAsserter(axi: Axi4WriteOnly, maxBursts: Int = 16, maxStbs: Int = 256) = new Area {
-    val oRecord = FormalAxi4Record(axi.config, maxStbs)
+  def outputAsserter(axi: Axi4WriteOnly, maxBursts: Int = 16, maxStrbs: Int = 256) = new Area {
+    val oRecord = FormalAxi4Record(axi.config, maxStrbs)
     oRecord.assignFromBits(B(0, oRecord.getBitsWidth bits))
 
     val histInput = Flow(cloneOf(oRecord))
