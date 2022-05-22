@@ -41,18 +41,23 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
     bResp := b.ready
   }
 
-  def checkBurst() {
-    val bytes = (len +^ 1) << size
-    val results = Vec(Bool(), maxStrbs)
-    results.map(_:=False)
-    for(i <- 0 until maxStrbs) {
-      when( i < count ) {
-        val strbMax = (1 << config.bytePerWord) - 1
-        val mask = (U(1) << (U(1) << size)) - 1
-        val unalignedMask = mask & (mask << (addr & ((U(1) << size) - 1)))
-        val byteLaneMask = unalignedMask << (addr & ((U(strbMax) << size) & strbMax))
-        results(i) := (strbs(i) & ~byteLaneMask.asBits).orR
+  def checkBurst(cond: Bool) = new Area{
+    val result = Bool()
+    result := False
+    when(cond) {
+      val bytes = (len +^ 1) << size
+      val results = Vec(Bool(), maxStrbs)
+      results.map(_:=False)
+      for(i <- 0 until maxStrbs) {
+        when( i < count ) {
+          val strbMax = (1 << config.bytePerWord) - 1
+          val mask = ((U(1) << (U(1) << size)) - 1).resize(config.bytePerWord bits)
+          val unalignedMask = mask & (mask << (addr & ((U(1) << size) - 1).resized)).resized
+          val byteLaneMask = (unalignedMask << (addr & ((U(strbMax) << size) & strbMax).resized)).resize(config.bytePerWord bits)
+          results(i) := (strbs(i) & ~byteLaneMask.asBits).orR
+        }
       }
+      result := results.reduce(_ | _)
     }
   }
 }
@@ -145,7 +150,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         respErrors(1) := bSelect.awDone & !bSelect.seenLast
         respErrors(2) := bSelect.awDone & bSelect.isLockExclusive & axi.b.resp === Axi4.resp.EXOKAY
         // respErrors(3) := axi.b.ready & bSelect.awDone & bSelect.seenLast & checkStrb()
-        bSelect.checkBurst()
       }.otherwise {
         respErrors(0) := True
       }
@@ -154,7 +158,9 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
     when(bValid) {      
       hist.io.inStreams(bId).payload := bRecord
       hist.io.inStreams(bId).valid := bValid
-    }
+    }    
+    val burst = bSelect.checkBurst(axi.b.valid & bExist)
+    assert(burst.result)
 
     when((axi.aw.valid & !awExist) | (axi.w.valid & !wExist)) {
       histInput.valid := True
