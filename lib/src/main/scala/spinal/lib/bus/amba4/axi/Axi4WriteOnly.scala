@@ -112,14 +112,14 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
       def assignFromW(w: Stream[Axi4W], selected: FormalAxi4Record) = new Area {
         seenLast := w.last & w.ready
-        // for(i <- 0 until maxStrbs) {
-        //   when(selected.count === i) {
-        //     strbs(i) := w.strb
-        //   }.otherwise {
-        //     strbs(i) := selected.strbs(i)
-        //   }
-        // }
-        strbs(0) := w.strb
+        for(i <- 0 until maxStrbs) {
+          when(selected.count === i) {
+            strbs(i) := w.strb
+          }.otherwise {
+            strbs(i) := selected.strbs(i)
+          }
+        }
+        // strbs(selected.count.resized) := w.strb
         when(w.ready) { count := selected.count + 1 }.otherwise { count := selected.count }
       }
 
@@ -220,6 +220,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         dataErrors(4) := selected.awDone & (!w.last & (selected.count === selected.len))
       }
       when(wValid) {
+        hist.io.inStreams(wId).strbs.zip(wRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(wId).payload := wRecord
         hist.io.inStreams(wId).valid := wValid
       }
@@ -253,6 +254,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         }
       }
       when(bValid) {
+        hist.io.inStreams(bId).strbs.zip(bRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(bId).payload := bRecord
         hist.io.inStreams(bId).valid := bValid
       }
