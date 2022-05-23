@@ -646,6 +646,7 @@ case class SpinalSimConfig(
 
   def withVCSSimSetup(setupFile: String, beforeAnalysis: () => Unit): this.type = {
     _vcsSimSetupFile = setupFile
+    _vcsEnvSetup = beforeAnalysis
     this
   }
 
