@@ -83,8 +83,8 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     master(aw, w)
     slave(b)
   }
-  
-  val checker = GenerationFlags.formal {    
+
+  val checker = GenerationFlags.formal {
     case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundle {
       val addr = UInt(7 bits)
       val id = if (config.useId) UInt(config.idWidth bits) else null
@@ -113,26 +113,26 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       def assignFromW(w: Stream[Axi4W], selectCount: UInt) {
         seenLast := w.last & w.ready
         strbs(selectCount.resized) := w.strb
-        when(w.ready) { count := selectCount + 1 }.otherwise{ count := selectCount }
+        when(w.ready) { count := selectCount + 1 }.otherwise { count := selectCount }
       }
 
       def assignFromB(b: Stream[Axi4B]) {
         bResp := b.ready
       }
 
-      def checkStrbs(cond: Bool) = new Area{
+      def checkStrbs(cond: Bool) = new Area {
         val strbMaxMask = U((1 << config.bytePerWord) - 1, config.bytePerWord bits)
         val addrStrbMaxMask = (U(config.bytePerWord) - 1).resize(addr.getBitsWidth)
         val strbError = Bool()
         strbError := False
         when(cond) {
-          val bytes = (len +^ 1) << size      
+          val bytes = (len +^ 1) << size
           val sizeMask = ((U(1) << (U(1) << size)) - 1).resize(config.bytePerWord bits)
           val addrSizeMask = ((U(1) << size) - 1).resize(addr.getBitsWidth)
           val strbsErrors = Vec(Bool(), maxStrbs)
-          strbsErrors.map(_:=False)
-          for(i <- 0 until maxStrbs) {
-            when( i < count ) {
+          strbsErrors.map(_ := False)
+          for (i <- 0 until maxStrbs) {
+            when(i < count) {
               val targetAddress = (addr + i << size).resize(addr.getBitsWidth)
               val offset = targetAddress & addrStrbMaxMask & ~addrSizeMask
               val byteLaneMask = (sizeMask << offset).resize(config.bytePerWord bits)
@@ -177,45 +177,49 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
       val awRecord = CombInit(oRecord)
       val awValid = False
-      val awSelect = CombInit(oRecord)
-      when(aw.valid) {
-        val ax = aw.asInstanceOf[Stream[Axi4Ax]]
-        when(awExist) { 
-          awRecord := hist.io.outStreams(awId)
-          awRecord.allowOverride
-          awRecord.assignFromAx(ax)
-          awValid := True
-          awSelect := hist.io.outStreams(awId)
+      val addressLogic = new Area {
+        val selected = CombInit(oRecord)
+        when(aw.valid) {
+          val ax = aw.asInstanceOf[Stream[Axi4Ax]]
+          when(awExist) {
+            awRecord := hist.io.outStreams(awId)
+            awRecord.allowOverride
+            awRecord.assignFromAx(ax)
+            awValid := True
+            selected := hist.io.outStreams(awId)
 
-          val realLen = aw.len +^ 1
-          dataErrors(0) := awSelect.seenLast & realLen > awSelect.count
-          dataErrors(1) := !awSelect.seenLast & realLen === awSelect.count
-          dataErrors(2) := realLen < awSelect.count
+            val realLen = aw.len +^ 1
+            dataErrors(0) := selected.seenLast & realLen > selected.count
+            dataErrors(1) := !selected.seenLast & realLen === selected.count
+            dataErrors(2) := realLen < selected.count
+          }
+            .otherwise { histInput.assignFromAx(ax) }
         }
-        .otherwise { histInput.assignFromAx(ax) }
-      }
-      when(awValid) {
-        hist.io.inStreams(awId).payload := awRecord
-        hist.io.inStreams(awId).valid := awValid
+        when(awValid) {
+          hist.io.inStreams(awId).payload := awRecord
+          hist.io.inStreams(awId).valid := awValid
+        }
       }
 
       val wRecord = CombInit(oRecord)
       val wValid = False
-      val wSelect = CombInit(oRecord)
-      when(w.valid) {
-        when(wExist) {
-          wRecord := hist.io.outStreams(wId)
-          wSelect := hist.io.outStreams(wId)
-          when(awValid && wId === awId) {
-            awRecord.assignFromW(w, wSelect.count)
-          }.otherwise { wRecord.assignFromW(w, wSelect.count); wValid := True }
-        }.otherwise { histInput.assignFromW(w, U(0, 9 bits)) }
-        dataErrors(3) := wSelect.awDone & (w.last & (wSelect.count =/= wSelect.len))
-        dataErrors(4) := wSelect.awDone & (!w.last & (wSelect.count === wSelect.len))
-      }
-      when(wValid) {      
-        hist.io.inStreams(wId).payload := wRecord
-        hist.io.inStreams(wId).valid := wValid
+      val dataLogic = new Area {
+        val selected = CombInit(oRecord)
+        when(w.valid) {
+          when(wExist) {
+            wRecord := hist.io.outStreams(wId)
+            selected := hist.io.outStreams(wId)
+            when(awValid && wId === awId) {
+              awRecord.assignFromW(w, selected.count)
+            }.otherwise { wRecord.assignFromW(w, selected.count); wValid := True }
+          }.otherwise { histInput.assignFromW(w, U(0, 9 bits)) }
+          dataErrors(3) := selected.awDone & (w.last & (selected.count =/= selected.len))
+          dataErrors(4) := selected.awDone & (!w.last & (selected.count === selected.len))
+        }
+        when(wValid) {
+          hist.io.inStreams(wId).payload := wRecord
+          hist.io.inStreams(wId).valid := wValid
+        }
       }
 
       val respErrors = Vec(Bool(), 4)
@@ -223,34 +227,35 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
       val bRecord = CombInit(oRecord)
       val bValid = False
-      val bSelect = CombInit(oRecord)
-      when(b.valid) {
-        when(bExist) {  
-          bRecord := hist.io.outStreams(bId)
-          bSelect := hist.io.outStreams(bId)
-          when(awValid && bId === awId) {
-            awRecord.assignFromB(b)
-          }.elsewhen(wValid && bId === wId) {
-            wRecord.assignFromB(b)
-          }.otherwise { bRecord.assignFromB(b); bValid := True }
+      val responseLogic = new Area {
+        val selected = CombInit(oRecord)
+        when(b.valid) {
+          when(bExist) {
+            bRecord := hist.io.outStreams(bId)
+            selected := hist.io.outStreams(bId)
+            when(awValid && bId === awId) {
+              awRecord.assignFromB(b)
+            }.elsewhen(wValid && bId === wId) {
+              wRecord.assignFromB(b)
+            }.otherwise { bRecord.assignFromB(b); bValid := True }
 
-          hist.io.outStreams(bId).ready := b.ready & bRecord.awDone & bRecord.seenLast
+            hist.io.outStreams(bId).ready := b.ready & bRecord.awDone & bRecord.seenLast
 
-          respErrors(0) := !bSelect.awDone
-          respErrors(1) := bSelect.awDone & !bSelect.seenLast
-          respErrors(2) := bSelect.awDone & bSelect.isLockExclusive & b.resp === Axi4.resp.EXOKAY
-          // respErrors(3) := b.ready & bSelect.awDone & bSelect.seenLast & checkStrb()
-        }.otherwise {
-          respErrors(0) := True
+            respErrors(0) := !selected.awDone
+            respErrors(1) := selected.awDone & !selected.seenLast
+            respErrors(2) := selected.awDone & selected.isLockExclusive & b.resp === Axi4.resp.EXOKAY
+            // respErrors(3) := b.ready & selected.awDone & selected.seenLast & checkStrb()
+          }.otherwise {
+            respErrors(0) := True
+          }
         }
-        // when(b.ready) { assert(bExist) }
+        when(bValid) {
+          hist.io.inStreams(bId).payload := bRecord
+          hist.io.inStreams(bId).valid := bValid
+        }
+        val strbsChecker = selected.checkStrbs(b.valid & bExist)
       }
-      when(bValid) {      
-        hist.io.inStreams(bId).payload := bRecord
-        hist.io.inStreams(bId).valid := bValid
-      }    
-      val strbsChecker = bSelect.checkStrbs(b.valid & bExist)
-      val strbError = strbsChecker.strbError
+      val strbError = responseLogic.strbsChecker.strbError
 
       when((aw.valid & !awExist) | (w.valid & !wExist)) {
         histInput.valid := True
