@@ -83,31 +83,178 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     master(aw, w)
     slave(b)
   }
+  
+  val checker = GenerationFlags.formal {    
+    case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundle {
+      val addr = UInt(7 bits)
+      val id = if (config.useId) UInt(config.idWidth bits) else null
+      val len = if (config.useLen) UInt(8 bits) else null
+      val size = if (config.useSize) UInt(3 bits) else null
+      val burst = if (config.useBurst) Bits(2 bits) else null
+      val isLockExclusive = if (config.useLock) Bool() else null
+      val awDone = Bool()
 
-  def formalWrite(operation: (Bool) => spinal.core.internals.AssertStatement) = new Area {
-    import spinal.core.formal._
-    val reset = ClockDomain.current.isResetActive
+      val strbs = if (config.useStrb) Vec(Bits(config.bytePerWord bits), maxStrbs) else null
+      val count = UInt(9 bits)
+      val seenLast = if (config.useLast) Bool() else null
 
-    when(reset || past(reset)) {
-      operation(aw.valid === False)
-      operation(w.valid === False)
+      val bResp = Bool()
+
+      def assignFromAx(ax: Stream[Axi4Ax]) {
+        addr := ax.addr.resized
+        isLockExclusive := ax.lock === Axi4.lock.EXCLUSIVE
+        // burst := ax.burst
+        len := ax.len
+        size := ax.size
+        // id := ax.id
+        awDone := ax.ready
+      }
+
+      def assignFromW(w: Stream[Axi4W], selectCount: UInt) {
+        seenLast := w.last & w.ready
+        strbs(selectCount.resized) := w.strb
+        when(w.ready) { count := selectCount + 1 }.otherwise{ count := selectCount }
+      }
+
+      def assignFromB(b: Stream[Axi4B]) {
+        bResp := b.ready
+      }
+
+      def checkStrbs(cond: Bool) = new Area{
+        val strbMaxMask = U((1 << config.bytePerWord) - 1, config.bytePerWord bits)
+        val addrStrbMaxMask = (U(config.bytePerWord) - 1).resize(addr.getBitsWidth)
+        val strbError = Bool()
+        strbError := False
+        when(cond) {
+          val bytes = (len +^ 1) << size      
+          val sizeMask = ((U(1) << (U(1) << size)) - 1).resize(config.bytePerWord bits)
+          val addrSizeMask = ((U(1) << size) - 1).resize(addr.getBitsWidth)
+          val strbsErrors = Vec(Bool(), maxStrbs)
+          strbsErrors.map(_:=False)
+          for(i <- 0 until maxStrbs) {
+            when( i < count ) {
+              val targetAddress = (addr + i << size).resize(addr.getBitsWidth)
+              val offset = targetAddress & addrStrbMaxMask & ~addrSizeMask
+              val byteLaneMask = (sizeMask << offset).resize(config.bytePerWord bits)
+              strbsErrors(i) := (strbs(i) & ~byteLaneMask.asBits).orR
+            }
+          }
+          strbError := strbsErrors.reduce(_ | _)
+        }
+      }
     }
 
-    val maxSize = log2Up(config.bytePerWord)
-    val len = Reg(UInt(8 bits)) init (0)
-    val size = Reg(UInt(3 bits)) init (maxSize)
-    when(aw.fire) {
-      if (config.useLen) len := aw.len else len := 0
-      if (config.useSize) size := aw.size else size := 0
-    }
-  }
+    new Area {
+      import spinal.core.formal._
 
-  def formalResponse(operation: (Bool) => spinal.core.internals.AssertStatement) = new Area {
-    import spinal.core.formal._
-    val reset = ClockDomain.current.isResetActive
+      val maxStrbs = 4
+      val maxBursts = 4
 
-    when(reset || past(reset)) {
-      operation(b.valid === False)
+      val reset = ClockDomain.current.isResetActive
+      val errorValidWhileReset = (reset | past(reset)) & (aw.valid === True | w.valid === True)
+      val errorRespWhileReset = (reset | past(reset)) & (b.valid === True)
+
+      val oRecord = FormalAxi4Record(config, maxStrbs)
+      oRecord.assignFromBits(B(0, oRecord.getBitsWidth bits))
+
+      val histInput = Flow(cloneOf(oRecord))
+      histInput.payload := oRecord
+      histInput.valid := False
+      val hist = HistoryModifyable(histInput, maxBursts)
+      hist.io.inStreams.map(_.valid := False)
+      hist.io.inStreams.map(_.payload := oRecord)
+      hist.io.outStreams.map(_.ready := False)
+
+      val (awExist, awFoundId) = hist.io.outStreams.reverse.sFindFirst(x => x.valid && !x.awDone)
+      val (wExist, wFoundId) = hist.io.outStreams.reverse.sFindFirst(x => x.valid && !x.seenLast)
+      val (bExist, bFoundId) = hist.io.outStreams.reverse.sFindFirst(x => x.valid /*&& b.id === x.id*/ && !x.bResp)
+      val awId = maxBursts - 1 - awFoundId
+      val wId = maxBursts - 1 - wFoundId
+      val bId = maxBursts - 1 - bFoundId
+
+      val dataErrors = Vec(Bool(), 5)
+      dataErrors.map(_ := False)
+
+      val awRecord = CombInit(oRecord)
+      val awValid = False
+      val awSelect = CombInit(oRecord)
+      when(aw.valid) {
+        val ax = aw.asInstanceOf[Stream[Axi4Ax]]
+        when(awExist) { 
+          awRecord := hist.io.outStreams(awId)
+          awRecord.allowOverride
+          awRecord.assignFromAx(ax)
+          awValid := True
+          awSelect := hist.io.outStreams(awId)
+
+          val realLen = aw.len +^ 1
+          dataErrors(0) := awSelect.seenLast & realLen > awSelect.count
+          dataErrors(1) := !awSelect.seenLast & realLen === awSelect.count
+          dataErrors(2) := realLen < awSelect.count
+        }
+        .otherwise { histInput.assignFromAx(ax) }
+      }
+      when(awValid) {
+        hist.io.inStreams(awId).payload := awRecord
+        hist.io.inStreams(awId).valid := awValid
+      }
+
+      val wRecord = CombInit(oRecord)
+      val wValid = False
+      val wSelect = CombInit(oRecord)
+      when(w.valid) {
+        when(wExist) {
+          wRecord := hist.io.outStreams(wId)
+          wSelect := hist.io.outStreams(wId)
+          when(awValid && wId === awId) {
+            awRecord.assignFromW(w, wSelect.count)
+          }.otherwise { wRecord.assignFromW(w, wSelect.count); wValid := True }
+        }.otherwise { histInput.assignFromW(w, U(0, 9 bits)) }
+        dataErrors(3) := wSelect.awDone & (w.last & (wSelect.count =/= wSelect.len))
+        dataErrors(4) := wSelect.awDone & (!w.last & (wSelect.count === wSelect.len))
+      }
+      when(wValid) {      
+        hist.io.inStreams(wId).payload := wRecord
+        hist.io.inStreams(wId).valid := wValid
+      }
+
+      val respErrors = Vec(Bool(), 4)
+      respErrors.map(_ := False)
+
+      val bRecord = CombInit(oRecord)
+      val bValid = False
+      val bSelect = CombInit(oRecord)
+      when(b.valid) {
+        when(bExist) {  
+          bRecord := hist.io.outStreams(bId)
+          bSelect := hist.io.outStreams(bId)
+          when(awValid && bId === awId) {
+            awRecord.assignFromB(b)
+          }.elsewhen(wValid && bId === wId) {
+            wRecord.assignFromB(b)
+          }.otherwise { bRecord.assignFromB(b); bValid := True }
+
+          hist.io.outStreams(bId).ready := b.ready & bRecord.awDone & bRecord.seenLast
+
+          respErrors(0) := !bSelect.awDone
+          respErrors(1) := bSelect.awDone & !bSelect.seenLast
+          respErrors(2) := bSelect.awDone & bSelect.isLockExclusive & b.resp === Axi4.resp.EXOKAY
+          // respErrors(3) := b.ready & bSelect.awDone & bSelect.seenLast & checkStrb()
+        }.otherwise {
+          respErrors(0) := True
+        }
+        // when(b.ready) { assert(bExist) }
+      }
+      when(bValid) {      
+        hist.io.inStreams(bId).payload := bRecord
+        hist.io.inStreams(bId).valid := bValid
+      }    
+      val strbsChecker = bSelect.checkStrbs(b.valid & bExist)
+      val strbError = strbsChecker.strbError
+
+      when((aw.valid & !awExist) | (w.valid & !wExist)) {
+        histInput.valid := True
+      }
     }
   }
 
@@ -122,8 +269,10 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when(aw.valid) {
       aw.payload.withAsserts()
     }
-    val write = formalWrite(assert)
-    formalResponse(assume)
+    checker.dataErrors.map(x => assert(!x))
+    checker.respErrors.map(x => assume(!x))
+    assert(!checker.errorValidWhileReset)
+    assume(!checker.errorRespWhileReset)
   }
 
   def withAssumes(maxStallCycles: Int = 0) = new Area {
@@ -137,8 +286,10 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when(aw.valid) {
       aw.payload.withAssumes()
     }
-    val write = formalWrite(assume)
-    formalResponse(assert)
+    checker.dataErrors.map(x => assume(!x))
+    checker.respErrors.map(x => assert(!x))
+    assume(!checker.errorValidWhileReset)
+    assert(!checker.errorRespWhileReset)
   }
 
   def withCovers() = {
