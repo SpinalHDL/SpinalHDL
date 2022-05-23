@@ -270,7 +270,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       aw.payload.withAsserts()
     }
     checker.dataErrors.map(x => assert(!x))
-    checker.respErrors.map(x => assume(!x))
+    checker.respErrors.map(x => assert(!x))
     assert(!checker.errorValidWhileReset)
     assume(!checker.errorRespWhileReset)
   }
@@ -287,7 +287,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       aw.payload.withAssumes()
     }
     checker.dataErrors.map(x => assume(!x))
-    checker.respErrors.map(x => assert(!x))
+    checker.respErrors.map(x => assume(!x))
     assume(!checker.errorValidWhileReset)
     assert(!checker.errorRespWhileReset)
   }
