@@ -41,23 +41,26 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
     bResp := b.ready
   }
 
-  def checkBurst(cond: Bool) = new Area{
-    val result = Bool()
-    result := False
+  def checkStrbs(cond: Bool) = new Area{
+    val strbMaxMask = U((1 << config.bytePerWord) - 1, config.bytePerWord bits)
+    val addrStrbMaxMask = (U(config.bytePerWord) - 1).resize(addr.getBitsWidth)
+    val strbError = Bool()
+    strbError := False
     when(cond) {
-      val bytes = (len +^ 1) << size
-      val results = Vec(Bool(), maxStrbs)
-      results.map(_:=False)
+      val bytes = (len +^ 1) << size      
+      val sizeMask = ((U(1) << (U(1) << size)) - 1).resize(config.bytePerWord bits)
+      val addrSizeMask = ((U(1) << size) - 1).resize(addr.getBitsWidth)
+      val strbsErrors = Vec(Bool(), maxStrbs)
+      strbsErrors.map(_:=False)
       for(i <- 0 until maxStrbs) {
         when( i < count ) {
-          val strbMax = (1 << config.bytePerWord) - 1
-          val mask = ((U(1) << (U(1) << size)) - 1).resize(config.bytePerWord bits)
-          val unalignedMask = mask & (mask << (addr & ((U(1) << size) - 1).resized)).resized
-          val byteLaneMask = (unalignedMask << (addr & ((U(strbMax) << size) & strbMax).resized)).resize(config.bytePerWord bits)
-          results(i) := (strbs(i) & ~byteLaneMask.asBits).orR
+          val targetAddress = (addr + i << size).resize(addr.getBitsWidth)
+          val offset = targetAddress & addrStrbMaxMask & ~addrSizeMask
+          val byteLaneMask = (sizeMask << offset).resize(config.bytePerWord bits)
+          strbsErrors(i) := (strbs(i) & ~byteLaneMask.asBits).orR
         }
       }
-      result := results.reduce(_ | _)
+      strbError := strbsErrors.reduce(_ | _)
     }
   }
 }
@@ -159,8 +162,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
       hist.io.inStreams(bId).payload := bRecord
       hist.io.inStreams(bId).valid := bValid
     }    
-    val burst = bSelect.checkBurst(axi.b.valid & bExist)
-    assert(burst.result)
+    val strbsChecker = bSelect.checkStrbs(axi.b.valid & bExist)
 
     when((axi.aw.valid & !awExist) | (axi.w.valid & !wExist)) {
       histInput.valid := True
@@ -193,6 +195,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val outChecker = outputAsserter(output, 4, 4)
         outChecker.dataErrors.map(x => assert(!x))
         outChecker.respErrors.map(x => assume(!x))
+        assert(!outChecker.strbsChecker.strbError)
         
         output.withCovers()
         input.withCovers()
