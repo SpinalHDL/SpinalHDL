@@ -290,7 +290,7 @@ class Pipeline extends Area{
     }
 
     for(c <- connections){
-      if(c.isUnnamed) c.setName(s"${c.m}_to_${c.s}")
+      if(c.isUnnamed) c.setName(s"${c.m.getName()}_to_${c.s.getName()}")
     }
   }
 
