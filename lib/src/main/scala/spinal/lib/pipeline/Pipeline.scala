@@ -44,7 +44,7 @@ class Pipeline extends Area{
 
   def connect(sequentially : Seq[Stage])(logics : => Seq[ConnectionLogic]): Unit ={
     for((m, s) <- (sequentially.dropRight(1), sequentially.tail).zipped){
-      connect(m, s)(logics :_*)
+      connect(m, s)(logics.toList :_*)
     }
   }
 
