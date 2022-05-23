@@ -121,19 +121,18 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       }
 
       def checkStrbs(cond: Bool) = new Area {
-        val strbMaxMask = U((1 << config.bytePerWord) - 1, config.bytePerWord bits)
+        // val strbMaxMask = U((1 << config.bytePerWord) - 1, config.bytePerWord bits)
         val addrStrbMaxMask = (U(config.bytePerWord) - 1).resize(addr.getBitsWidth)
-        val strbError = Bool()
-        strbError := False
+        val strbError = CombInit(False)
         when(cond) {
-          val bytes = (len +^ 1) << size
+          // val bytes = (len +^ 1) << size
           val sizeMask = ((U(1) << (U(1) << size)) - 1).resize(config.bytePerWord bits)
           val addrSizeMask = ((U(1) << size) - 1).resize(addr.getBitsWidth)
           val strbsErrors = Vec(Bool(), maxStrbs)
           strbsErrors.map(_ := False)
           for (i <- 0 until maxStrbs) {
             when(i < count) {
-              val targetAddress = (addr + i << size).resize(addr.getBitsWidth)
+              val targetAddress = (addr + (i << size)).resize(addr.getBitsWidth)
               val offset = targetAddress & addrStrbMaxMask & ~addrSizeMask
               val byteLaneMask = (sizeMask << offset).resize(config.bytePerWord bits)
               strbsErrors(i) := (strbs(i) & ~byteLaneMask.asBits).orR
@@ -243,7 +242,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
             respErrors(0) := !selected.awDone
             respErrors(1) := selected.awDone & !selected.seenLast
-            respErrors(2) := selected.awDone & selected.isLockExclusive & b.resp === Axi4.resp.EXOKAY
+            respErrors(2) := selected.awDone & b.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
             // respErrors(3) := b.ready & selected.awDone & selected.seenLast & checkStrb()
           }.otherwise {
             respErrors(0) := True
@@ -253,7 +252,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
           hist.io.inStreams(bId).payload := bRecord
           hist.io.inStreams(bId).valid := bValid
         }
-        val strbsChecker = selected.checkStrbs(b.valid & bExist)
+        val strbsChecker = selected.checkStrbs(b.valid & bExist & b.ready & selected.awDone & selected.seenLast)
       }
       val strbError = responseLogic.strbsChecker.strbError
 
@@ -276,6 +275,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     }
     checker.dataErrors.map(x => assert(!x))
     checker.respErrors.map(x => assume(!x))
+    assert(!checker.strbError)
     assert(!checker.errorValidWhileReset)
     assume(!checker.errorRespWhileReset)
   }
@@ -293,6 +293,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     }
     checker.dataErrors.map(x => assume(!x))
     checker.respErrors.map(x => assume(!x))
+    assume(!checker.strbError)
     assume(!checker.errorValidWhileReset)
     assert(!checker.errorRespWhileReset)
   }
