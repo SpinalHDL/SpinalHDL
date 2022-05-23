@@ -5,7 +5,7 @@ import spinal.lib._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.Seq._
+import scala.collection.Seq
 
 
 class Pipeline extends Area{
