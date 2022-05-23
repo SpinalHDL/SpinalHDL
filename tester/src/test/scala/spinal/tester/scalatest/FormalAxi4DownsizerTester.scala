@@ -163,6 +163,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
       hist.io.inStreams(bId).valid := bValid
     }    
     val strbsChecker = bSelect.checkStrbs(axi.b.valid & bExist)
+    val strbError = strbsChecker.strbError
 
     when((axi.aw.valid & !awExist) | (axi.w.valid & !wExist)) {
       histInput.valid := True
@@ -195,7 +196,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val outChecker = outputAsserter(output, 4, 4)
         outChecker.dataErrors.map(x => assert(!x))
         outChecker.respErrors.map(x => assume(!x))
-        assert(!outChecker.strbsChecker.strbError)
+        assert(!outChecker.strbError)
         
         output.withCovers()
         input.withCovers()
