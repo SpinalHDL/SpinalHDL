@@ -206,6 +206,8 @@ case class SpinalVCSBackendConfig[T <: Component](override val rtl : SpinalRepor
                                                   override val usePluginsCache   : Boolean = true,
                                                   override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
                                                   override val enableLogging     : Boolean = false,
+                                                  val simSetupFile               : String = null,
+                                                  val envSetup                   : () => Unit = null,
                                                   val compileFlags               : List[String] = null,
                                                   val elaborateFlags             : List[String] = null,
                                                   val runFlags                   : List[String] = null,
@@ -295,6 +297,8 @@ object SpinalVCSBackend {
     vconfig.vcsCC = config.vcsCC
     vconfig.waveDepth = config.waveDepth
     vconfig.wavePath = config.wavePath
+    vconfig.simSetupFile = config.simSetupFile
+    vconfig.envSetup = config.envSetup
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
 
@@ -608,8 +612,10 @@ case class SpinalSimConfig(
                             var _vcsCC             : Option[String] = None,
                             var _vcsLd             : Option[String] = None,
                             var _vcsUserFlags      : VCSFlags = VCSFlags(),
-                            var _xciSourcesPaths    : ArrayBuffer[String] = ArrayBuffer[String](),
-                            var _bdSourcesPaths     : ArrayBuffer[String] = ArrayBuffer[String]()
+                            var _vcsSimSetupFile   : String = null,
+                            var _vcsEnvSetup       : () => Unit = null,
+                            var _xciSourcesPaths   : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _bdSourcesPaths    : ArrayBuffer[String] = ArrayBuffer[String]()
   ){
 
 
@@ -635,6 +641,11 @@ case class SpinalSimConfig(
   def withVCS(vcsFlags: VCSFlags = VCSFlags()) : this.type = {
     _backend = SpinalSimBackendSel.VCS
     _vcsUserFlags = vcsFlags
+    this
+  }
+
+  def withVCSSimSetup(setupFile: String, beforeAnalysis: () => Unit): this.type = {
+    _vcsSimSetupFile = setupFile
     this
   }
 
@@ -963,7 +974,9 @@ case class SpinalSimConfig(
           vcsLd = _vcsLd,
           compileFlags = _vcsUserFlags.compileFlags,
           elaborateFlags = _vcsUserFlags.elaborateFlags,
-          runFlags = _vcsUserFlags.runFlags
+          runFlags = _vcsUserFlags.runFlags,
+          simSetupFile = _vcsSimSetupFile,
+          envSetup = _vcsEnvSetup
         )
         val backend = SpinalVCSBackend(vConfig)
         new SimCompiled(report) {
