@@ -47,7 +47,7 @@ case class BmbExclusiveMonitorGenerator()
     pendingWriteMax = 64
   ))
 
-  sexport(new MemoryConnection(input, output, 0))
+  sexport(new MemoryConnection(input, output, 0, null))
 }
 
 case class BmbInvalidateMonitorGenerator()
@@ -81,7 +81,7 @@ case class BmbInvalidateMonitorGenerator()
     pendingInvMax = 16
   ))
 
-  sexport(new MemoryConnection(input, output, 0))
+  sexport(new MemoryConnection(input, output, 0, null))
 }
 
 case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
