@@ -174,8 +174,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     val wId = maxBursts - 1 - wFoundId
     val bId = maxBursts - 1 - bFoundId
 
-    val dataErrors = Vec(Bool(), 5)
+    val dataErrors = Vec(Bool(), 6)
     dataErrors.map(_ := False)
+    
+    dataErrors(5).allowOverride
+    dataErrors(5) := hist.io.outStreams.map(x => x.valid & x.awDone & x.seenLast & (x.len +^ 1) =/= x.count).reduce(_ | _)
 
     val awRecord = CombInit(oRecord)
     val awValid = False
