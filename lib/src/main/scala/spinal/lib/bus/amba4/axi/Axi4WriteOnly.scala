@@ -112,14 +112,13 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
       def assignFromW(w: Stream[Axi4W], selected: FormalAxi4Record) = new Area {
         seenLast := w.last & w.ready
-        for(i <- 0 until maxStrbs) {
+        for (i <- 0 until maxStrbs) {
           when(selected.count === i) {
             strbs(i) := w.strb
           }.otherwise {
             strbs(i) := selected.strbs(i)
           }
         }
-        // strbs(selected.count.resized) := w.strb
         when(w.ready) { count := selected.count + 1 }.otherwise { count := selected.count }
       }
 
@@ -176,9 +175,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
     val dataErrors = Vec(Bool(), 6)
     dataErrors.map(_ := False)
-    
+
     dataErrors(5).allowOverride
-    dataErrors(5) := hist.io.outStreams.map(x => x.valid & x.awDone & x.seenLast & (x.len +^ 1) =/= x.count).reduce(_ | _)
+    dataErrors(5) := hist.io.outStreams
+      .map(x => x.valid & x.awDone & x.seenLast & (x.len +^ 1) =/= x.count)
+      .reduce(_ | _)
 
     val awRecord = CombInit(oRecord)
     val awValid = False
@@ -320,6 +321,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       when(b.fire) {
         b.payload.withCovers()
       }
-    }  
+    }
   }
 }
