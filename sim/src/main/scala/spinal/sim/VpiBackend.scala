@@ -548,6 +548,8 @@ class VCSBackendConfig extends VpiBackendConfig {
   var vcsLd: Option[String] = None
   var elaborationFlags: String = ""
   var waveDepth = 0
+  var simSetupFile: String = _
+  var envSetup: ()=> Unit = _
 }
 
 class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
@@ -682,7 +684,16 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     cmd
   }
 
-  // todo 1. use three-step flow; 2. try fsdb system task.
+  def setupEnvironment(): Unit = {
+    if (config.simSetupFile != null) {
+      val simSetupFile = new File(config.simSetupFile)
+      FileUtils.copyFileToDirectory(simSetupFile, new File(workspacePath))
+    }
+    if (config.envSetup != null) {
+      config.envSetup()
+    }
+  }
+
   def analyzeRTL(): Unit = {
     val verilogSourcePaths = rtlSourcesPaths.filter {
       s => s.endsWith(".v") || s.endsWith(".sv") || s.endsWith(".vl") || s.endsWith(".vh") || s.endsWith(".svh") || s.endsWith(".vr")
@@ -772,6 +783,8 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     }
 
     println(f"[Progress] VCS compilation started.")
+    setupEnvironment()
+    println(f"[Progress] VCS user environment setup.")
     val startAt = System.nanoTime()
     analyzeSource()
     elaborate()
