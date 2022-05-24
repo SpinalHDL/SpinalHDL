@@ -179,14 +179,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def queue(size: Int): Stream[T] = new Composite(this){
     val fifo = new StreamFifo(payloadType, size)
     fifo.io.push << self
-  }.fifo.io.pop
+  }.fifo.io.pop.combStage()
 
 /** Connect this to an clock crossing fifo and return its pop stream
   */
   def queue(size: Int, pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
     val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock).setCompositeName(this,"queue", true)
     fifo.io.push << this
-    return fifo.io.pop
+    fifo.io.pop.combStage()
   }
 
 /** Connect this to a fifo and return its pop stream and its occupancy
@@ -194,13 +194,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
     val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithOccupancy", true)
     fifo.io.push << this
-    return (fifo.io.pop, fifo.io.occupancy)
+    (fifo.io.pop.combStage(), fifo.io.occupancy)
   }
 
   def queueWithAvailability(size: Int): (Stream[T], UInt) = {
     val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithAvailability", true)
     fifo.io.push << this
-    return (fifo.io.pop, fifo.io.availability)
+    (fifo.io.pop.combStage(), fifo.io.availability)
   }
 
 /** Connect this to a cross clock domain fifo and return its pop stream and its push side occupancy
@@ -208,7 +208,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def queueWithPushOccupancy(size: Int, pushClock: ClockDomain, popClock: ClockDomain): (Stream[T], UInt) = {
     val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock).setCompositeName(this,"queueWithPushOccupancy", true)
     fifo.io.push << this
-    return (fifo.io.pop, fifo.io.pushOccupancy)
+    (fifo.io.pop.combStage(), fifo.io.pushOccupancy)
   }
 
 
@@ -218,19 +218,19 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val fifo = new StreamFifoLowLatency(payloadType, size, latency)
     fifo.setPartialName(this, "fifo", true)
     fifo.io.push << this
-    fifo.io.pop
+    fifo.io.pop.combStage()
   }
 
   def ccToggle(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
     val cc = new StreamCCByToggle(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
-    cc.io.output
+    cc.io.output.combStage()
   }
 
   def ccToggleWithoutBuffer(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
     val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withOutputBuffer=false, withInputWait=true).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
-    cc.io.output
+    cc.io.output.combStage()
   }
 
 
@@ -245,7 +245,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.valid := this.valid
     ret.payload := this.payload
     this.ready := ret.ready && counter.willOverflowIfInc
-    (ret, counter)
+    (ret.combStage(), counter)
   }
   
   /**
@@ -271,7 +271,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       this.ready := True
       next.valid := False
     }
-    next
+    next.combStage()
   }
 
 /** Return True when a transaction is present on the bus but the ready signal is low
@@ -294,7 +294,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this.valid := that.valid
     that.ready := this.ready
     this.payload := that.payload
-    that
+    that.combStage()
   }
 
   /** Drive arbitration signals of this from that
@@ -308,7 +308,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this.valid := that.valid
     that.ready := this.ready
     dataAssignment(this.payload, that.payload)
-    this
+    this.combStage()
   }
 
   def translateInto[T2 <: Data](into: Stream[T2])(dataAssignment: (T2, T) => Unit): Stream[T2] = {
@@ -322,7 +322,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val next = new Stream(that).setCompositeName(this, "translated", true)
     next.arbitrationFrom(this)
     next.payload := that
-    next
+    next.combStage()
   }
 
 /** Change the payload's content type. The new type must have the same bit length as the current one.
@@ -331,14 +331,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val next = new Stream(that).setCompositeName(this, "transmuted", true)
     next.arbitrationFrom(this)
     next.payload.assignFromBits(this.payload.asBits)
-    next
+    next.combStage()
   }
 
 
   def swapPayload[T2 <: Data](that: HardType[T2]) = {
     val next = new Stream(that).setCompositeName(this, "swap", true)
     next.arbitrationFrom(this)
-    next
+    next.combStage()
   }
 
 
@@ -422,7 +422,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next.valid := this.valid && cond
     this.ready := next.ready && cond
     next.payload := this.payload
-    return next
+    next.combStage()
   }
 
 /** Drop transactions of this when cond is True. Return the resulting stream
@@ -435,7 +435,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       next.valid := False
       this.ready := True
     }
-    next
+    next.combStage()
   }
 
   def clearValidWhen(cond : Bool): Stream[T] = {
@@ -443,7 +443,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next.valid := this.valid && !cond
     next.payload := this.payload
     this.ready := next.ready
-    next
+    next.combStage()
   }
 
   /** Stop transactions on this when cond is True. Return the resulting stream
@@ -458,7 +458,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def fragmentTransaction(bitsWidth: Int): Stream[Fragment[Bits]] = {
     val converter = new StreamToStreamFragmentBits(payload, bitsWidth)
     converter.io.input << this
-    return converter.io.output
+    converter.io.output.combStage()
   }
   
   /**
@@ -471,7 +471,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.arbitrationFrom(this)
     ret.last := last
     ret.fragment := this.payload
-    return ret
+    ret.combStage()
   }
   
   /** 
@@ -485,7 +485,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       counter.increment()
     }
     val last = counter.willOverflowIfInc
-    return addFragmentLast(last)
+    addFragmentLast(last)
   }
   
   def setIdle(): this.type = {
@@ -504,7 +504,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next.valid := self.valid
     next.payload := self.payload
     self.ready := next.ready && cond
-  }.next
+  }.next.combStage()
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 
@@ -669,7 +669,7 @@ class StreamArbiterFactory {
   def on[T <: Data](inputs: Seq[Stream[T]]): Stream[T] = {
     val arbiter = build(inputs(0).payloadType, inputs.size)
     (arbiter.io.inputs, inputs).zipped.foreach(_ << _)
-    return arbiter.io.output
+    arbiter.io.output.combStage()
   }
 
   def lowerFirst: this.type = {
@@ -706,7 +706,7 @@ object StreamDispatcherSequential {
   def apply[T <: Data](input: Stream[T], outputCount: Int): Vec[Stream[T]] = {
     val select = Counter(outputCount)
     when (input.fire) {
-    select.increment()
+      select.increment()
     }
     StreamDemux(input, select, outputCount)
   }
@@ -801,7 +801,7 @@ object StreamMux {
     val c = new StreamMux(inputs(0).payload, inputs.length)
     (c.io.inputs, inputs).zipped.foreach(_ << _)
     c.io.select := select
-    c.io.output
+    c.io.output.combStage()
   }
 }
 
@@ -853,7 +853,7 @@ object StreamFork {
   def apply[T <: Data](input: Stream[T], portCount: Int, synchronous: Boolean = false): Vec[Stream[T]] = {
     val fork = new StreamFork(input.payloadType, portCount, synchronous).setCompositeName(input, "fork", true)
     fork.io.input << input
-    return fork.io.outputs
+    fork.io.outputs
   }
 }
 
@@ -955,7 +955,7 @@ object StreamJoin {
     sources.foreach(_.ready := combined.fire)
     combined.payload._1 := source1.payload
     combined.payload._2 := source2.payload
-    combined
+    combined.combStage()
   }
 
   /**
@@ -967,7 +967,7 @@ object StreamJoin {
     combined.payload := payload
     combined.valid := sources.map(_.valid).reduce(_ && _)
     sources.foreach(_.ready := combined.fire)
-    combined
+    combined.combStage()
   }
   
   def arg(sources : Stream[_]*) : Event = apply(sources.seq)
@@ -978,7 +978,7 @@ object StreamJoin {
     val eventFire = event.fire
     event.valid := sources.map(_.valid).reduce(_ && _)
     sources.foreach(_.ready := eventFire)
-    event
+    event.combStage()
   }
   
   /**
@@ -1308,7 +1308,7 @@ object StreamCCByToggle {
   def apply[T <: Data](input: Stream[T], inputClock: ClockDomain, outputClock: ClockDomain): Stream[T] = {
     val c = new StreamCCByToggle[T](input.payload, inputClock, outputClock)
     c.io.input << input
-    return c.io.output
+    c.io.output.combStage()
   }
 
   def apply[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain): StreamCCByToggle[T] = {
@@ -1499,19 +1499,19 @@ object StreamFragmentWidthAdapter {
   def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], order : SlicesOrder) : Stream[Fragment[T2]] = {
     val ret = Stream(Fragment(outputPayloadType()))
     StreamFragmentWidthAdapter(input,ret,order,false)
-    ret
+    ret.combStage()
   }
 
   def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], order : SlicesOrder, padding : Boolean) : Stream[Fragment[T2]] = {
     val ret = Stream(Fragment(outputPayloadType()))
     StreamFragmentWidthAdapter(input,ret,order,padding)
-    ret
+    ret.combStage()
   }
 
   def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[Fragment[T2]] = {
     val ret = Stream(Fragment(outputPayloadType()))
     StreamFragmentWidthAdapter(input,ret,endianness,padding)
-    ret
+    ret.combStage()
   }
 }
 
@@ -1575,8 +1575,6 @@ case class StreamFifoMultiChannelSharedSpace[T <: Data](payloadType : HardType[T
 
   val pushNextEntry = UInt(ptrWidth bits)
   val popNextEntry = nextRam.wordType()
-
-
 
   val channels = for (channelId <- 0 until channelCount) yield new Area {
     val valid = RegInit(False)
@@ -1642,12 +1640,11 @@ case class StreamFifoMultiChannelSharedSpace[T <: Data](payloadType : HardType[T
   val allocationByFifo = withAllocationFifo generate new Area{
     ???
   }
-
-
 }
 
 object StreamFifoMultiChannelBench extends App{
   val payloadType = HardType(Bits(8 bits))
+
   class BenchFpga(channelCount : Int) extends Rtl{
     override def getName(): String = "Bench" + channelCount
     override def getRtlPath(): String = getName() + ".v"
@@ -1667,6 +1664,7 @@ object StreamFifoMultiChannelBench extends App{
       setDefinitionName(BenchFpga.this.getName())
     })
   }
+
   class BenchFpga2(channelCount : Int) extends Rtl{
     override def getName(): String = "BenchToStream" + channelCount
     override def getRtlPath(): String = getName() + ".v"
@@ -1689,94 +1687,93 @@ object StreamFifoMultiChannelBench extends App{
 
   val targets = XilinxStdTargets()// ++ AlteraStdTargets()
 
-
   Bench(rtls, targets)
 }
 
 object StreamTransactionCounter {
-    def apply[T <: Data, T2 <: Data](
-        trigger: Stream[T],
-        target: Stream[T2],
-        count: UInt,
-        noDelay: Boolean = false
-    ): StreamTransactionCounter = {
-        val inst = new StreamTransactionCounter(count.getWidth, noDelay)
-        inst.io.ctrlFire := trigger.fire
-        inst.io.targetFire := target.fire
-        inst.io.count := count
-        inst
-    }
+  def apply[T <: Data, T2 <: Data](
+      trigger: Stream[T],
+      target: Stream[T2],
+      count: UInt,
+      noDelay: Boolean = false
+  ): StreamTransactionCounter = {
+    val inst = new StreamTransactionCounter(count.getWidth, noDelay)
+    inst.io.ctrlFire := trigger.fire
+    inst.io.targetFire := target.fire
+    inst.io.count := count
+    inst
+  }
 }
 
 class StreamTransactionCounter(
     countWidth: Int,
     noDelay: Boolean = false
 ) extends Component {
-    val io = new Bundle {
-        val ctrlFire   = in Bool ()
-        val targetFire = in Bool ()
-        val count      = in UInt (countWidth bits)
-        val working    = out Bool ()
-        val last       = out Bool ()
-        val done       = out Bool ()
-        val value      = out UInt (countWidth bit)
+  val io = new Bundle {
+    val ctrlFire   = in Bool ()
+    val targetFire = in Bool ()
+    val count      = in UInt (countWidth bits)
+    val working    = out Bool ()
+    val last       = out Bool ()
+    val done       = out Bool ()
+    val value      = out UInt (countWidth bit)
+  }
+
+  val countReg = RegNextWhen(io.count, io.ctrlFire)
+  val counter  = Counter(io.count.getBitsWidth bits)
+  val expected = cloneOf(io.count)
+  expected := countReg
+
+  val lastOne = counter === expected
+  val running = Reg(Bool()) init False
+
+  val done         = lastOne && io.targetFire
+  val doneWithFire = if (noDelay) False else True
+  when(done && io.ctrlFire) {
+    running := doneWithFire
+  } elsewhen (io.ctrlFire) {
+    running := True
+  } elsewhen done {
+    running := False
+  }
+
+  when(done) {
+    counter.clear()
+  } elsewhen (io.targetFire) {
+    counter.increment()
+  }
+
+  if (noDelay) {
+    when(io.ctrlFire) {
+      expected := io.count
     }
+  }
 
-    val countReg = RegNextWhen(io.count, io.ctrlFire)
-    val counter  = Counter(io.count.getBitsWidth bits)
-    val expected = cloneOf(io.count)
-    expected := countReg
-
-    val lastOne = counter === expected
-    val running = Reg(Bool()) init False
-
-    val done         = lastOne && io.targetFire
-    val doneWithFire = if (noDelay) False else True
-    when(done && io.ctrlFire) {
-        running := doneWithFire
-    } elsewhen (io.ctrlFire) {
-        running := True
-    } elsewhen done {
-        running := False
-    }
-
-    when(done) {
-        counter.clear()
-    } elsewhen (io.targetFire) {
-        counter.increment()
-    }
-
-    if (noDelay) {
-        when(io.ctrlFire) {
-            expected := io.count
-        }
-    }
-
-    io.working := running
-    io.last := lastOne
-    io.done := lastOne && io.targetFire
-    io.value := counter
+  io.working := running
+  io.last := lastOne
+  io.done := lastOne && io.targetFire
+  io.value := counter
 }
 
 object StreamTransactionExtender {
-    def apply[T <: Data](input: Stream[T], count: UInt)(
-        driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
-    ): Stream[T] = {
-        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
-        c.io.input << input
-        c.io.count := count
-        c.io.output
-    }
+  def apply[T <: Data](input: Stream[T], count: UInt)(
+      driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
+  ): Stream[T] = {
+    val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
+    c.io.input << input
+    c.io.count := count
+    c.io.output.combStage()
+  }
 
-    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
-        driver: (UInt, T, Bool) => T2
-    ): StreamTransactionExtender[T, T2] = {
-        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
-        c.io.input << input
-        c.io.count := count
-        output << c.io.output
-        c
-    }
+  def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
+      driver: (UInt, T, Bool) => T2
+  ): StreamTransactionExtender[T, T2] = {
+    val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
+    c.io.input << input
+    c.io.count := count
+    output << c.io.output
+    c
+  }
 }
 
 /* Extend one input transfer into serveral outputs, io.count represent delivering output (count + 1) times. */
@@ -1786,35 +1783,35 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     countWidth: Int,
     driver: (UInt, T, Bool) => T2
 ) extends Component {
-    val io = new Bundle {
-        val count   = in UInt (countWidth bit)
-        val input   = slave Stream dataType
-        val output  = master Stream outDataType
-        val working = out Bool ()
-        val first   = out Bool ()
-        val last    = out Bool ()
-        val done    = out Bool ()
-    }
+  val io = new Bundle {
+    val count   = in UInt (countWidth bit)
+    val input   = slave Stream dataType
+    val output  = master Stream outDataType
+    val working = out Bool ()
+    val first   = out Bool ()
+    val last    = out Bool ()
+    val done    = out Bool ()
+  }
 
-    val counter  = StreamTransactionCounter(io.input, io.output, io.count)
-    val payload  = Reg(io.input.payloadType)
-    val lastOne  = counter.io.last
-    val outValid = RegInit(False)
+  val counter  = StreamTransactionCounter(io.input, io.output, io.count)
+  val payload  = Reg(io.input.payloadType)
+  val lastOne  = counter.io.last
+  val outValid = RegInit(False)
 
-    when(counter.io.done) {
-        outValid := False
-    }
+  when(counter.io.done) {
+    outValid := False
+  }
 
-    when(io.input.fire) {
-        payload := io.input.payload
-        outValid := True
-    }
+  when(io.input.fire) {
+    payload := io.input.payload
+    outValid := True
+  }
 
-    io.output.payload := driver(counter.io.value, payload, lastOne)
-    io.output.valid := outValid
-    io.input.ready := (!outValid || counter.io.done)
-    io.last := lastOne
-    io.done := counter.io.done
-    io.first := (counter.io.value === 0) && counter.io.working
-    io.working := counter.io.working
+  io.output.payload := driver(counter.io.value, payload, lastOne)
+  io.output.valid := outValid
+  io.input.ready := (!outValid || counter.io.done)
+  io.last := lastOne
+  io.done := counter.io.done
+  io.first := (counter.io.value === 0) && counter.io.working
+  io.working := counter.io.working
 }
