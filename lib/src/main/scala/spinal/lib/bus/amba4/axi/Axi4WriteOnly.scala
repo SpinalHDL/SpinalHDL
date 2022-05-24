@@ -84,7 +84,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     slave(b)
   }
 
-  def withFormal(maxBursts: Int = 16, maxStrbs: Int = 256) = new Area {
+  def formalContext(maxBursts: Int = 16, maxStrbs: Int = 256) = new Area {
     case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundle {
       val addr = UInt(7 bits)
       val id = if (config.useId) UInt(config.idWidth bits) else null
@@ -265,60 +265,58 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when((aw.valid & !awExist) | (w.valid & !wExist)) {
       histInput.valid := True
     }
-  }
 
-  def withAsserts(maxStallCycles: Int = 0) = new Area {
-    aw.withAsserts()
-    aw.withTimeoutAssumes(maxStallCycles)
-    w.withAsserts()
-    w.withTimeoutAssumes(maxStallCycles)
-    b.withAssumes()
-    b.withTimeoutAsserts(maxStallCycles)
+    def withAsserts(maxStallCycles: Int = 0) = new Area {
+      aw.withAsserts()
+      aw.withTimeoutAssumes(maxStallCycles)
+      w.withAsserts()
+      w.withTimeoutAssumes(maxStallCycles)
+      b.withAssumes()
+      b.withTimeoutAsserts(maxStallCycles)
 
-    when(aw.valid) {
-      aw.payload.withAsserts()
+      when(aw.valid) {
+        aw.payload.withAsserts()
+      }
+
+      dataErrors.map(x => assert(!x))
+      respErrors.map(x => assume(!x))
+      assert(!strbError)
+      assert(!errorValidWhileReset)
+      assume(!errorRespWhileReset)
     }
 
-    val checker = withFormal(4, 4)
-    checker.dataErrors.map(x => assert(!x))
-    checker.respErrors.map(x => assume(!x))
-    assert(!checker.strbError)
-    assert(!checker.errorValidWhileReset)
-    assume(!checker.errorRespWhileReset)
-  }
+    def withAssumes(maxStallCycles: Int = 0) = new Area {
+      aw.withAssumes()
+      aw.withTimeoutAsserts(maxStallCycles)
+      w.withAssumes()
+      w.withTimeoutAsserts(maxStallCycles)
+      b.withAsserts()
+      b.withTimeoutAssumes(maxStallCycles)
 
-  def withAssumes(maxStallCycles: Int = 0) = new Area {
-    aw.withAssumes()
-    aw.withTimeoutAsserts(maxStallCycles)
-    w.withAssumes()
-    w.withTimeoutAsserts(maxStallCycles)
-    b.withAsserts()
-    b.withTimeoutAssumes(maxStallCycles)
+      when(aw.valid) {
+        aw.payload.withAssumes()
+      }
 
-    when(aw.valid) {
-      aw.payload.withAssumes()
+      dataErrors.map(x => assume(!x))
+      respErrors.map(x => assume(!x))
+      assume(!strbError)
+      assume(!errorValidWhileReset)
+      assert(!errorRespWhileReset)
     }
 
-    val checker = withFormal(4, 4)
-    checker.dataErrors.map(x => assume(!x))
-    checker.respErrors.map(x => assume(!x))
-    assume(!checker.strbError)
-    assume(!checker.errorValidWhileReset)
-    assert(!checker.errorRespWhileReset)
-  }
-
-  def withCovers() = {
-    aw.withCovers(2)
-    when(aw.fire) {
-      aw.payload.withCovers()
-    }
-    w.withCovers(2)
-    when(w.fire) {
-      w.payload.withCovers()
-    }
-    b.withCovers(2)
-    when(b.fire) {
-      b.payload.withCovers()
-    }
+    def withCovers() = {
+      aw.withCovers(2)
+      when(aw.fire) {
+        aw.payload.withCovers()
+      }
+      w.withCovers(2)
+      when(w.fire) {
+        w.payload.withCovers()
+      }
+      b.withCovers(2)
+      when(b.fire) {
+        b.payload.withCovers()
+      }
+    }  
   }
 }
