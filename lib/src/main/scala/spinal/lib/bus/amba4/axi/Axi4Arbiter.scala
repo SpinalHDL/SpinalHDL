@@ -51,7 +51,8 @@ case class Axi4WriteOnlyArbiter(outputConfig: Axi4Config,
                                 inputsCount : Int,
                                 routeBufferSize : Int,
                                 routeBufferLatency : Int = 0,
-                                routeBufferS2mPipe : Boolean = false) extends Component {
+                                routeBufferS2mPipe : Boolean = false,
+                                routeBufferM2sPipe : Boolean = false) extends Component {
   assert(routeBufferSize >= 1)
   val inputConfig = Axi4ReadOnlyArbiter.getInputConfig(outputConfig,inputsCount)
   val io = new Bundle{
@@ -69,6 +70,7 @@ case class Axi4WriteOnlyArbiter(outputConfig: Axi4Config,
   
   // Route writeData
   var routeBuffer = cmdRouteFork.translateWith(cmdArbiter.io.chosen).queueLowLatency(routeBufferSize, latency = routeBufferLatency)
+  if(routeBufferM2sPipe) routeBuffer = routeBuffer.m2sPipe()
   if(routeBufferS2mPipe) routeBuffer = routeBuffer.s2mPipe()
   val routeDataInput = io.inputs(routeBuffer.payload).writeData
   io.output.writeData.valid := routeBuffer.valid && routeDataInput.valid
