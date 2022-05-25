@@ -285,8 +285,9 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
 }
 
 
-class VecBitwisePimper[T <: Data with BitwiseOp[T]](pimped : Vec[T]) {
-  def rawrrr(other : Vec[T]) : Vec[T] = {
-    Vec((pimped, other).zipped.map(_ ^ _))
-  }
+class VecBitwisePimper[T <: Data with BitwiseOp[T]](pimped : Vec[T]) extends BitwiseOp[Vec[T]] {
+  override def |(other: Vec[T]): Vec[T] = Vec((pimped, other).zipped.map(_ | _))
+  override def &(other: Vec[T]): Vec[T] = Vec((pimped, other).zipped.map(_ & _))
+  override def ^(other: Vec[T]): Vec[T] = Vec((pimped, other).zipped.map(_ ^ _))
+  override def unary_~ : Vec[T] = Vec(pimped.map(~ _))
 }
