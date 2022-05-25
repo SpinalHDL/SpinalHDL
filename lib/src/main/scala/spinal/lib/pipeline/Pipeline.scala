@@ -28,7 +28,7 @@ class Pipeline extends Area{
     s
   }
 
-  def addStage(s : Stage): Stage ={
+  def addStage[T <: Stage](s : T): T ={
     stagesSet += s
     s
   }
