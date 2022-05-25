@@ -9,6 +9,8 @@ import scala.collection.Seq
 
 
 class Pipeline extends Area{
+  @dontName implicit val _ : Pipeline = this
+
   case class ConnectionModel() extends Nameable {
     var m, s : Stage = null
     val logics = ArrayBuffer[ConnectionLogic]()
@@ -24,7 +26,6 @@ class Pipeline extends Area{
 
   def newStage() : Stage = {
     val s = new Stage
-    stagesSet += s
     s
   }
 

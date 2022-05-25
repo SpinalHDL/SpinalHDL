@@ -6,7 +6,10 @@ import spinal.idslplugin.Location
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class Stage extends Area {
+class Stage(implicit _pip: Pipeline = null)  extends Area {
+  if(_pip != null) {
+    _pip.addStage(this)
+  }
   val internals = new {
     val input = new {
       val valid = Bool()
