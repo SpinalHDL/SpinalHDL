@@ -135,10 +135,10 @@ class HardType[T <: Data](t : => T) extends OverridedEqualsHashCode{
 
 
 object signalCache{
-  def apply[T <: Data](key: Any)(factory: => T): T = {
+  def apply[T](key: Any)(factory: => T): T = {
     Component.current.userCache.getOrElseUpdate(key, factory).asInstanceOf[T]
   }
-  def apply[T <: Data](key: Any, subKey: Any)(factory: => T): T = {
+  def apply[T](key: Any, subKey: Any)(factory: => T): T = {
     apply((key, subKey))(factory)
   }
 }
