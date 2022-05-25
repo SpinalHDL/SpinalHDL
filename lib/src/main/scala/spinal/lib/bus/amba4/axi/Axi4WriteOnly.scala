@@ -149,9 +149,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       }
 
       def checkLen(): Bool = {
-        // awDone & seenLast & (len +^1) =/= count
-        // awDone & !seenLast & count === len
-        (awDone & seenLast & (len +^1) =/= count) //| (awDone & !seenLast & count >= len)
+        val realLen = len +^1
+        val transDoneWithWrongLen = seenLast & realLen =/= count
+        val getLimitLenWhileTransfer = !seenLast & realLen === count
+        val wrongLen = realLen < count
+        awDone & (transDoneWithWrongLen | getLimitLenWhileTransfer | wrongLen)
       }
     }
 
@@ -179,13 +181,10 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     val wId = maxBursts - 1 - wFoundId
     val bId = maxBursts - 1 - bFoundId
 
-    val dataErrors = Vec(Bool(), 8)
+    val dataErrors = Vec(Bool(), 4)
     dataErrors.map(_ := False)
     
-    when(histInput.valid) { dataErrors(5) := histInput.checkLen() }    
-    // dataErrors(5) := hist.io.outStreams
-    //   .map(x => x.valid & x.awDone & x.seenLast & (x.len +^ 1) =/= x.count)
-    //   .reduce(_ | _)
+    when(histInput.valid) { dataErrors(0) := histInput.checkLen() }
 
     val awRecord = CombInit(oRecord)
     val awValid = False
@@ -201,9 +200,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
           selected := hist.io.outStreams(awId)
 
           val realLen = aw.len +^ 1
-          // dataErrors(0) := selected.seenLast & realLen > selected.count
-          dataErrors(1) := !selected.seenLast & realLen === selected.count
-          dataErrors(2) := realLen < selected.count
         }
           .otherwise { histInput.assignFromAx(ax) }
       }
@@ -211,7 +207,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         hist.io.inStreams(awId).strbs.zip(awRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(awId).payload := awRecord
         hist.io.inStreams(awId).valid := awValid
-        dataErrors(6) := awRecord.checkLen()
+        dataErrors(1) := awRecord.checkLen()
       }
     }
 
@@ -226,15 +222,14 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
           when(awValid && wId === awId) {
             awRecord.assignFromW(w, selected)
           }.otherwise { wRecord.assignFromW(w, selected); wValid := True }
-          dataErrors(3) := selected.awDone & (w.last & (selected.count =/= selected.len))
-          dataErrors(4) := selected.awDone & (!w.last & (selected.count === selected.len))
+          dataErrors(2) := selected.awDone & (w.last & (selected.count =/= selected.len))
+          dataErrors(3) := selected.awDone & (!w.last & (selected.count === selected.len))
         }.otherwise { histInput.assignFromW(w, oRecord) }
       }
       when(wValid) {
         hist.io.inStreams(wId).strbs.zip(wRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(wId).payload := wRecord
         hist.io.inStreams(wId).valid := wValid
-        // dataErrors(7) := wRecord.checkLen()
       }
     }
 
