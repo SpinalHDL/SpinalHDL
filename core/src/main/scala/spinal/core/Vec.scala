@@ -283,3 +283,10 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
 
   override def toString() = s"${getDisplayName()} : Vec of $length elements"
 }
+
+
+class VecBitwisePimper[T <: Data with BitwiseOp[T]](pimped : Vec[T]) {
+  def rawrrr(other : Vec[T]) : Vec[T] = {
+    Vec((pimped, other).zipped.map(_ ^ _))
+  }
+}
