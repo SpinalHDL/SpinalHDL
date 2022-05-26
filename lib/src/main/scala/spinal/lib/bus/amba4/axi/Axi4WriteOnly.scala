@@ -159,10 +159,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
     import spinal.core.formal._
 
-    val reset = ClockDomain.current.isResetActive
-    val errorValidWhileReset = (reset | past(reset)) & (aw.valid === True | w.valid === True)
-    val errorRespWhileReset = (reset | past(reset)) & (b.valid === True)
-
     val oRecord = FormalAxi4Record(config, maxStrbs)
     oRecord.assignFromBits(B(0, oRecord.getBitsWidth bits))
 
@@ -181,7 +177,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     val wId = maxBursts - 1 - wFoundId
     val bId = maxBursts - 1 - bFoundId
 
-    val dataErrors = Vec(Bool(), 4)
+    val dataErrors = Vec(Bool(), 3)
     dataErrors.map(_ := False)
     
     when(histInput.valid) { dataErrors(0) := histInput.checkLen() }
@@ -222,14 +218,13 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
           when(awValid && wId === awId) {
             awRecord.assignFromW(w, selected)
           }.otherwise { wRecord.assignFromW(w, selected); wValid := True }
-          dataErrors(2) := selected.awDone & (w.last & (selected.count =/= selected.len))
-          dataErrors(3) := selected.awDone & (!w.last & (selected.count === selected.len))
         }.otherwise { histInput.assignFromW(w, oRecord) }
       }
       when(wValid) {
         hist.io.inStreams(wId).strbs.zip(wRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(wId).payload := wRecord
         hist.io.inStreams(wId).valid := wValid
+        dataErrors(2) := wRecord.checkLen()
       }
     }
 
@@ -266,10 +261,18 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       }
       val strbsChecker = selected.checkStrbs(b.valid & bExist & b.ready & selected.awDone & selected.seenLast)
     }
-    val strbError = responseLogic.strbsChecker.strbError
 
     when((aw.valid & !awExist) | (w.valid & !wExist)) {
       histInput.valid := True
+    }
+
+    val errors = new Area {
+      val reset = ClockDomain.current.isResetActive
+      val ValidWhileReset = (reset | past(reset)) & (aw.valid === True | w.valid === True)
+      val RespWhileReset = (reset | past(reset)) & (b.valid === True)
+      val WrongStrb = responseLogic.strbsChecker.strbError
+      val WrongResponse = respErrors.reduce(_ | _)
+      val DataNumberDonotFitLen = dataErrors.reduce(_ | _)
     }
 
     def withAsserts(maxStallCycles: Int = 0) = new Area {
@@ -284,11 +287,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         aw.payload.withAsserts()
       }
 
-      dataErrors.map(x => assert(!x))
-      respErrors.map(x => assume(!x))
-      assert(!strbError)
-      assert(!errorValidWhileReset)
-      assume(!errorRespWhileReset)
+      assert(!errors.DataNumberDonotFitLen)
+      assume(!errors.WrongResponse)
+      assert(!errors.WrongStrb)
+      assert(!errors.ValidWhileReset)
+      assume(!errors.RespWhileReset)
     }
 
     def withAssumes(maxStallCycles: Int = 0) = new Area {
@@ -303,11 +306,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         aw.payload.withAssumes()
       }
 
-      dataErrors.map(x => assume(!x))
-      respErrors.map(x => assume(!x))
-      assume(!strbError)
-      assume(!errorValidWhileReset)
-      assert(!errorRespWhileReset)
+      assume(!errors.DataNumberDonotFitLen)
+      assert(!errors.WrongResponse)
+      assume(!errors.WrongStrb)
+      assume(!errors.ValidWhileReset)
+      assert(!errors.RespWhileReset)
     }
 
     def withCovers() = {
