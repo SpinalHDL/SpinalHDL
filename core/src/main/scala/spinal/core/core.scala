@@ -364,6 +364,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     */
   implicit def DataPimped[T <: Data](that: T): DataPimper[T] = new DataPimper(that)
   implicit def BaseTypePimped[T <: BaseType](that: T): BaseTypePimper[T] = new BaseTypePimper(that)
+  implicit def VecBitwisePimped[T <: Data with BitwiseOp[T]](that: Vec[T]): VecBitwisePimper[T] = new VecBitwisePimper(that)
 
   /**
     * Implicit SInt helper
