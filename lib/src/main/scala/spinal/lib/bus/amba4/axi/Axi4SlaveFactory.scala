@@ -35,11 +35,11 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
 
   // only one outstanding request is supported
   writeRsp.setOKAY()
-  writeRsp.id := writeCmd.id
+  if(bus.config.useId) writeRsp.id := writeCmd.id
   readRsp.setOKAY()
   readRsp.data := 0
   readRsp.last := readDataStage.last
-  readRsp.id := readDataStage.id
+  if(bus.config.useId) readRsp.id := readDataStage.id
 
   val writeOccur = writeJoinEvent.fire
   val readOccur = bus.readRsp.fire
