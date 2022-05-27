@@ -7,6 +7,10 @@
 #include <string>
 #include <exception>
 
+extern "C" {
+    typedef XSI_INT64 (*t_fp_xsi_get_time)(xsiHandle);
+}
+
 namespace Xsi {
 
 class LoaderException : public std::exception {
