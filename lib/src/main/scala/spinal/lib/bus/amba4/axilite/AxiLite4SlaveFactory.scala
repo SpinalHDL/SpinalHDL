@@ -48,7 +48,7 @@ class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) ex
     switch(writeAddress()) {
       for ((address, jobs) <- elementsPerAddress)address match {
         case address : SingleMapping =>
-          assert(address.address % log2Up(bus.config.dataWidth/8) == 0)
+          assert(address.address % (bus.config.dataWidth/8) == 0)
           is(address.address) {
             doMappedWriteElements(jobs, writeJoinEvent.valid, writeOccur, bus.writeData.data)
           }
@@ -66,7 +66,7 @@ class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) ex
     switch(readAddress()) {
       for ((address, jobs) <- elementsPerAddress) address match {
         case address : SingleMapping =>
-          assert(address.address % log2Up(bus.config.dataWidth/8) == 0)
+          assert(address.address % (bus.config.dataWidth/8) == 0)
           is(address.address) {
             doMappedReadElements(jobs, readDataStage.valid, readOccur, readRsp.data)
           }
