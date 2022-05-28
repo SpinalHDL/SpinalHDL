@@ -112,24 +112,24 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       def assignFromAx(ax: Stream[Axi4Ax]) {
         addr := ax.addr.resized
         isLockExclusive := ax.lock === Axi4.lock.EXCLUSIVE
-        if(config.useBurst) burst := ax.burst
-        if(config.useLen) len := ax.len
-        if(config.useSize) size := ax.size
-        if(config.useId) id := ax.id
+        if (config.useBurst) burst := ax.burst
+        if (config.useLen) len := ax.len
+        if (config.useSize) size := ax.size
+        if (config.useId) id := ax.id
         awDone := ax.ready
       }
 
       def assignFromW(w: Stream[Axi4W], selected: FormalAxi4Record) = new Area {
-        seenLast := w.last & w.ready        
+        seenLast := w.last & w.ready
         when(w.ready) { count := selected.count + 1 }.otherwise { count := selected.count }
-        if(config.useStrb) {
-        for (i <- 0 until maxStrbs) {
-          when(selected.count === i) {
-            strbs(i) := w.strb
-          }.otherwise {
-            strbs(i) := selected.strbs(i)
+        if (config.useStrb) {
+          for (i <- 0 until maxStrbs) {
+            when(selected.count === i) {
+              strbs(i) := w.strb
+            }.otherwise {
+              strbs(i) := selected.strbs(i)
+            }
           }
-        }
         }
       }
 
@@ -148,7 +148,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
           for (i <- 0 until maxStrbs) {
             when(i < count) {
               val targetAddress = (addr + (i << size)).resize(addr.getBitsWidth)
-              if(config.useBurst) when(burst === Axi4.burst.FIXED) { targetAddress:= addr }
+              if (config.useBurst) when(burst === Axi4.burst.FIXED) { targetAddress := addr }
               val offset = targetAddress & addrStrbMaxMask & ~addrSizeMask
               val byteLaneMask = (sizeMask << offset).resize(config.bytePerWord bits)
               strbsErrors(i) := (strbs(i) & ~byteLaneMask.asBits).orR
@@ -159,7 +159,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       }
 
       def checkLen(): Bool = {
-        val realLen = len +^1
+        val realLen = len +^ 1
         val transDoneWithWrongLen = seenLast & realLen =/= count
         val getLimitLenWhileTransfer = !seenLast & realLen === count
         val wrongLen = realLen < count
@@ -181,14 +181,15 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
     val (awExist, awFoundId) = hist.io.outStreams.reverse.sFindFirst(x => x.valid && !x.awDone)
     val (wExist, wFoundId) = hist.io.outStreams.reverse.sFindFirst(x => x.valid && !x.seenLast)
-    val (bExist, bFoundId) = hist.io.outStreams.reverse.sFindFirst(x => x.valid && !x.bResp && {if(config.useId) b.id === x.id else True})
+    val (bExist, bFoundId) =
+      hist.io.outStreams.reverse.sFindFirst(x => x.valid && !x.bResp && { if (config.useId) b.id === x.id else True })
     val awId = maxBursts - 1 - awFoundId
     val wId = maxBursts - 1 - wFoundId
     val bId = maxBursts - 1 - bFoundId
 
     val dataErrors = Vec(Bool(), 3)
     dataErrors.map(_ := False)
-    
+
     when(histInput.valid) { dataErrors(0) := histInput.checkLen() }
 
     val awRecord = CombInit(oRecord)
@@ -207,7 +208,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
           .otherwise { histInput.assignFromAx(ax) }
       }
       when(awValid) {
-        if(config.useStrb) hist.io.inStreams(awId).strbs.zip(awRecord.strbs).map { case (x, y) => x := y }
+        if (config.useStrb) hist.io.inStreams(awId).strbs.zip(awRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(awId).payload := awRecord
         hist.io.inStreams(awId).valid := awValid
         dataErrors(1) := awRecord.checkLen()
@@ -228,7 +229,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         }.otherwise { histInput.assignFromW(w, oRecord) }
       }
       when(wValid) {
-        if(config.useStrb) hist.io.inStreams(wId).strbs.zip(wRecord.strbs).map { case (x, y) => x := y }
+        if (config.useStrb) hist.io.inStreams(wId).strbs.zip(wRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(wId).payload := wRecord
         hist.io.inStreams(wId).valid := wValid
         dataErrors(2) := wRecord.checkLen()
@@ -256,17 +257,20 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
           respErrors(0) := !selected.awDone
           respErrors(1) := selected.awDone & !selected.seenLast
-          if(config.useResp && config.useLock) respErrors(2) := selected.awDone & b.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
+          if (config.useResp && config.useLock)
+            respErrors(2) := selected.awDone & b.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
         }.otherwise {
           respErrors(0) := True
         }
       }
       when(bValid) {
-        if(config.useStrb) hist.io.inStreams(bId).strbs.zip(bRecord.strbs).map { case (x, y) => x := y }
+        if (config.useStrb) hist.io.inStreams(bId).strbs.zip(bRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(bId).payload := bRecord
         hist.io.inStreams(bId).valid := bValid
       }
-      val strbsChecker = if(config.useStrb) selected.checkStrbs(b.valid & bExist & b.ready & selected.awDone & selected.seenLast) else null
+      val strbsChecker =
+        if (config.useStrb) selected.checkStrbs(b.valid & bExist & b.ready & selected.awDone & selected.seenLast)
+        else null
     }
 
     when((aw.valid & !awExist) | (w.valid & !wExist)) {
@@ -277,7 +281,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       val reset = ClockDomain.current.isResetActive
       val ValidWhileReset = (reset | past(reset)) & (aw.valid === True | w.valid === True)
       val RespWhileReset = (reset | past(reset)) & (b.valid === True)
-      val WrongStrb = if(config.useStrb) responseLogic.strbsChecker.strbError else False
+      val WrongStrb = if (config.useStrb) responseLogic.strbsChecker.strbError else False
       val WrongResponse = respErrors.reduce(_ | _)
       val DataNumberDonotFitLen = dataErrors.reduce(_ | _)
     }
