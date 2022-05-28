@@ -462,3 +462,94 @@ object Axi4R{
     }
   }
 }
+
+
+case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundle {
+  val addr = UInt(7 bits)
+  val id = if (config.useId) UInt(config.idWidth bits) else null
+  val len = UInt(8 bits)
+  val size = UInt(3 bits)
+  val burst = if (config.useBurst) Bits(2 bits) else null
+  val isLockExclusive = if (config.useLock) Bool() else null
+  val awDone = Bool()
+
+  val strbs = if (config.useStrb) Vec(Bits(config.bytePerWord bits), maxStrbs) else null
+  val count = UInt(9 bits)
+  val seenLast = Bool()
+
+  val bResp = Bool()
+
+  def init():FormalAxi4Record = {
+    val oRecord = FormalAxi4Record(config, maxStrbs)
+    oRecord.assignFromBits(B(0, oRecord.getBitsWidth bits))
+    size := U(log2Up(config.bytePerWord), 3 bits)
+    if(config.useBurst) burst := B(Axi4.burst.INCR)
+    this.assignUnassignedByName(oRecord)
+    this
+  }
+
+  def assignFromAx(ax: Stream[Axi4Ax]) {
+    addr := ax.addr.resized
+    isLockExclusive := ax.lock === Axi4.lock.EXCLUSIVE
+    if (config.useBurst) burst := ax.burst
+    if (config.useLen) len := ax.len
+    if (config.useSize) size := ax.size
+    if (config.useId) id := ax.id
+    awDone := ax.ready
+  }
+
+  def assignFromW(w: Stream[Axi4W], selected: FormalAxi4Record) = new Area {
+    seenLast := w.last & w.ready
+    when(w.ready) { count := selected.count + 1 }.otherwise { count := selected.count }
+    if (config.useStrb) {
+      for (i <- 0 until maxStrbs) {
+        when(selected.count === i) {
+          strbs(i) := w.strb
+        }.otherwise {
+          strbs(i) := selected.strbs(i)
+        }
+      }
+    }
+  }
+
+  def assignFromR(r: Stream[Axi4R], selected: FormalAxi4Record) = new Area {
+    seenLast := r.last & r.ready
+    when(r.ready) { count := selected.count + 1 }.otherwise { count := selected.count }
+    bResp := r.ready
+    //TODO: check if id must be set.
+    // if (config.useId) id := r.id
+  }
+
+  def assignFromB(b: Stream[Axi4B]) {
+    bResp := b.ready
+  }
+
+  def checkStrbs(cond: Bool) = new Area {
+    val addrStrbMaxMask = (U(config.bytePerWord) - 1).resize(addr.getBitsWidth)
+    val strbError = CombInit(False)
+    when(cond) {
+      val sizeMask = ((U(1) << (U(1) << size)) - 1).resize(config.bytePerWord bits)
+      val addrSizeMask = ((U(1) << size) - 1).resize(addr.getBitsWidth)
+      val strbsErrors = Vec(Bool(), maxStrbs)
+      strbsErrors.map(_ := False)
+      for (i <- 0 until maxStrbs) {
+        when(i < count) {
+          val targetAddress = (addr + (i << size)).resize(addr.getBitsWidth)
+          if (config.useBurst) when(burst === Axi4.burst.FIXED) { targetAddress := addr }
+          val offset = targetAddress & addrStrbMaxMask & ~addrSizeMask
+          val byteLaneMask = (sizeMask << offset).resize(config.bytePerWord bits)
+          strbsErrors(i) := (strbs(i) & ~byteLaneMask.asBits).orR
+        }
+      }
+      strbError := strbsErrors.reduce(_ | _)
+    }
+  }
+
+  def checkLen(): Bool = {
+    val realLen = len +^ 1
+    val transDoneWithWrongLen = seenLast & realLen =/= count
+    val getLimitLenWhileTransfer = !seenLast & realLen === count
+    val wrongLen = realLen < count
+    awDone & (transDoneWithWrongLen | getLimitLenWhileTransfer | wrongLen)
+  }
+}
