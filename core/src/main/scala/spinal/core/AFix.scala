@@ -11,6 +11,11 @@ object AFix {
     ret.raw := u.asBits
     ret
   }
+  def apply(u: UInt, maxValue: BigInt): AFix = {
+    val ret = new AFix(maxValue, 0, 0 exp)
+    ret.raw := u.asBits
+    ret
+  }
 
   def apply(s: SInt): AFix = AFix(s, 0 exp)
   def apply(s: SInt, exp: ExpNumber): AFix = {
@@ -44,6 +49,9 @@ object AFix {
       ret.raw := BigIntToSInt(num).asBits
     ret
   }
+
+  def apply(num: BigInt): AFix = apply(num, 0 exp)
+
 
   def apply(amplitude : ExpNumber, resolution : ExpNumber, signed : Boolean) : AFix = {
     val maxValue = BigInt(2).pow(amplitude.value-resolution.value)-1
@@ -975,6 +983,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def :=(s: SInt) = this assignFrom(s)
   def :=(u: UFix) = this assignFrom(u)
   def :=(s: SFix) = this assignFrom(s)
+  def :=(a: AFix) = this assignFrom(a)
 
   override def clone: this.type = new AFix(maxValue, minValue, exp).asInstanceOf[this.type]
 }
