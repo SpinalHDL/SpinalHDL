@@ -194,6 +194,8 @@ object OHMasking{
       value.assignFromBits(masked.asBits)
   }.value
 
+  def lastV2[T <: Data](that : T, firstOrder : Int = LutInputs.get) : T = firstV2(that.asBits.reversed, firstOrder).reversed.as(that)
+
   def firstV2[T <: Data](that : T, firstOrder : Int = LutInputs.get) : T = {
     val lutSize = LutInputs.get
     val input = that.asBits.asBools.setCompositeName(that, "bools")
