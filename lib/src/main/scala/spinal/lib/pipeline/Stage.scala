@@ -205,6 +205,12 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     s
   }
 
+  def insert[T <: Data](that : Stageable[T])(implicit key : StageableOffset = StageableOffsetNone) : Stageable[T] = {
+    val s = Stageable(that)
+    this(s) := that
+    s
+  }
+
   //  def <<(that : Stage) = {
   //
   //    that
