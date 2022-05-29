@@ -516,8 +516,6 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
     seenLast := r.last & r.ready
     when(r.ready) { count := selected.count + 1 }.otherwise { count := selected.count }
     bResp := r.ready
-    //TODO: check if id must be set.
-    // if (config.useId) id := r.id
   }
 
   def assignFromB(b: Stream[Axi4B]) {
