@@ -1177,6 +1177,12 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val depth: Int)
     val readyId = OHToUInt(OHMasking.first(readyAvailable))
     cachedConnections(readyId).ready := io.input.valid
   }
+
+  def findFirst(condition: Stream[T] => Bool): (Bool, UInt) = {
+    val (exist, reversedId) = io.outStreams.reverse.sFindFirst(condition)
+    val realId = depth - 1 - reversedId
+    (exist, realId)
+  }
 }
 
 object SetCount

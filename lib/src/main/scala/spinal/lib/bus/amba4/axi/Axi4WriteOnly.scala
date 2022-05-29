@@ -97,13 +97,10 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     hist.io.inStreams.map(_.payload := oRecord)
     hist.io.outStreams.map(_.ready := False)
 
-    val (awExist, awFoundId) = hist.io.outStreams.reverse.sFindFirst(x => x.valid && !x.awDone)
-    val (wExist, wFoundId) = hist.io.outStreams.reverse.sFindFirst(x => x.valid && !x.seenLast)
-    val (bExist, bFoundId) =
-      hist.io.outStreams.reverse.sFindFirst(x => x.valid && !x.bResp && { if (config.useId) b.id === x.id else True })
-    val awId = maxBursts - 1 - awFoundId
-    val wId = maxBursts - 1 - wFoundId
-    val bId = maxBursts - 1 - bFoundId
+    val (awExist, awId) = hist.findFirst(x => x.valid && !x.awDone)
+    val (wExist, wId) = hist.findFirst(x => x.valid && !x.seenLast)
+    val (bExist, bId) =
+      hist.findFirst(x => x.valid && !x.bResp && { if (config.useId) b.id === x.id else True })
 
     val dataErrors = Vec(Bool(), 3)
     dataErrors.map(_ := False)
