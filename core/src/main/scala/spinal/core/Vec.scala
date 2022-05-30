@@ -284,10 +284,15 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
   override def toString() = s"${getDisplayName()} : Vec of $length elements"
 }
 
-
 class VecBitwisePimper[T <: Data with BitwiseOp[T]](pimped : Vec[T]) extends BitwiseOp[Vec[T]] {
-  override def |(other: Vec[T]): Vec[T] = Vec((pimped, other).zipped.map(_ | _))
-  override def &(other: Vec[T]): Vec[T] = Vec((pimped, other).zipped.map(_ & _))
-  override def ^(other: Vec[T]): Vec[T] = Vec((pimped, other).zipped.map(_ ^ _))
+  override def |(other: Vec[T]): Vec[T] = map2with(_ | _)(other)
+  override def &(other: Vec[T]): Vec[T] = map2with(_ & _)(other)
+  override def ^(other: Vec[T]): Vec[T] = map2with(_ ^ _)(other)
   override def unary_~ : Vec[T] = Vec(pimped.map(~ _))
+
+  private def map2with(f: (T, T) => T)(other: Vec[T]): Vec[T] = {
+    if (pimped.length != other.length)
+      SpinalError(s"Cannot apply a bitwize opration on vectors with different size (${pimped.length} vs ${other.length})")
+    Vec((pimped, other).zipped.map(f))
+  }
 }
