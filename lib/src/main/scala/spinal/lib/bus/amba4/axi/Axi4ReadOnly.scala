@@ -74,25 +74,40 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     slave(r)
   }
 
-  def formalCommon(operation: (Bool) => spinal.core.internals.AssertStatement) = {
-  }
+  def formalContext(maxBursts: Int = 16, maxStrbs: Int = 256, optimize: Boolean = true) = new Area {
+    val addrChecker = ar.payload.formalContext()
 
-  def withAsserts() = {
-    ar.withAsserts()
-    r.withAsserts()
+    def withAsserts(maxStallCycles: Int = 0) = {
+      ar.withAsserts()
+      ar.withTimeoutAssumes(maxStallCycles)
+      r.withAssumes()
+      r.withTimeoutAsserts(maxStallCycles)
 
-    // when(ar.valid) {
-    //   ar.payload.withAsserts()
-    // }
-    // formalCommon(assert)
-  }
+      when(ar.valid) {
+        addrChecker.withAsserts()
+      }    
+    }
 
-  def withAssumes() = {
-    ar.withAssumes()
-    r.withAssumes()
+    def withAssumes(maxStallCycles: Int = 0) = {
+      ar.withAssumes()
+      ar.withTimeoutAsserts(maxStallCycles)
+      r.withAsserts()
+      r.withTimeoutAssumes(maxStallCycles)
 
-    // when(ar.valid) {
-    //   ar.payload.withAssumes()
-    // }
+      when(ar.valid) {
+        addrChecker.withAssumes()
+      }
+    }
+
+    def withCovers() = {
+      ar.withCovers(2)
+      when(ar.fire) {
+        addrChecker.withCovers()
+      }
+      r.withCovers(2)
+      when(r.fire) {
+        r.payload.withCovers()
+      }
+    }
   }
 }

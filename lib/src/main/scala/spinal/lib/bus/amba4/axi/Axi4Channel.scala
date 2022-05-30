@@ -220,6 +220,12 @@ case class Axi4R(config: Axi4Config) extends Bundle {
   def isEXOKAY() : Bool = resp === EXOKAY
   def isSLVERR() : Bool = resp === SLVERR
   def isDECERR() : Bool = resp === DECERR
+
+  def withCovers() = {
+    if(config.useResp) {
+      Seq(OKAY, SLVERR, DECERR, EXOKAY).map(x => cover(resp === x))
+    }
+  }
 }
 
 
