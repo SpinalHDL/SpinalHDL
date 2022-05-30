@@ -38,117 +38,98 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   override def clone: this.type = new Axi4Ax(config,userWidth).asInstanceOf[this.type]
 
 
-  val checker = GenerationFlags.formal {
-    new Area {
-      import spinal.core.formal._
+  def formalContext() = new Area {
+    import spinal.core.formal._
 
-      val maxSize = log2Up(config.bytePerWord)
-      val formalLen = if (config.useLen) len else U(0, 8 bits)
-      val formalSize = if (config.useSize) size else U(maxSize, 3 bits)
-      val endAddr = addr + ((formalLen +^ 1) << formalSize) - 1
-      val in4KBoundary = endAddr(config.addressWidth - 1 downto 12) === addr(config.addressWidth - 1 downto 12)
+    val maxSize = log2Up(config.bytePerWord)
+    val formalLen = if (config.useLen) len else U(0, 8 bits)
+    val formalSize = if (config.useSize) size else U(maxSize, 3 bits)
+    val endAddr = addr + ((formalLen +^ 1) << formalSize) - 1
+    val in4KBoundary = endAddr(config.addressWidth - 1 downto 12) === addr(config.addressWidth - 1 downto 12)
 
-      val addrAlignedToSize = (addr(6 downto 0) & ((U(1, 7 bits) << formalSize) - 1)) === 0
-      val validWrapLen = Seq(2, 4, 8, 16).map(formalLen === _).reduce(_ || _)
-      val validCache = if (config.useCache) !Seq(4, 5, 8, 9, 0xc, 0xd).map(cache === _).reduce(_ || _) else null
+    val addrAlignMask = ((U(1) << formalSize) - 1).resize(7 bits)
+    val addrAlignedToSize = (addr(6 downto 0) & addrAlignMask) === 0
+    val validWrapLen = Seq(2, 4, 8, 16).map(formalLen === _).reduce(_ || _)
+    val validCache = if (config.useCache) !Seq(4, 5, 8, 9, 0xc, 0xd).map(cache === _).reduce(_ || _) else null
 
-      val errorUseReservedBurst = CombInit(False)
-      val errorAccessOutOf4KBound = Bool()
-      val errorWrapAddressNotAligned = CombInit(False)
-      val errorWrapInvalidLen = CombInit(False)
-      val errorFixedInvalidLen = CombInit(False)
-      val errorSizeOutOfRange = CombInit(formalSize > maxSize)
-      val errorCacheInvalid = Bool()
-      val errorExclusiveInvalidLen = CombInit(False)
-      val errorExclusiveInvalidCache = CombInit(False)
-
-      if (config.useBurst) {
-        errorAccessOutOf4KBound := False
-        errorUseReservedBurst := burst === RESERVED
-        switch(burst) {
-          is(INCR) {
-            if (config.addressWidth > 12) errorAccessOutOf4KBound := !in4KBoundary
-          }
-          is(WRAP) {
-            if (config.useSize) errorWrapAddressNotAligned := !addrAlignedToSize
-            if (config.useLen) errorWrapInvalidLen := !validWrapLen
-          }
-          is(FIXED) {
-            if (config.useLen) errorFixedInvalidLen := len(7 downto 4) =/= 0 // len <= 16
-          }
-        }
-      } else {
-        errorAccessOutOf4KBound := !in4KBoundary
-      }
-
-      if (config.useCache) errorCacheInvalid := !validCache else errorCacheInvalid := False
-      if (config.useLock) {
-        if (config.useLen) when(lock === Axi4.lock.EXCLUSIVE) { errorExclusiveInvalidLen := len(7 downto 4) =/= 0 }
-        if (config.useCache) when(lock === Axi4.lock.EXCLUSIVE) {
-          errorExclusiveInvalidCache := cache(3 downto 2) =/= 0
-        }
-      }
-    }
-  }
-
-  def withAsserts() = {
-    Seq(
-      checker.errorAccessOutOf4KBound,
-      checker.errorCacheInvalid,
-      checker.errorExclusiveInvalidCache,
-      checker.errorExclusiveInvalidLen,
-      checker.errorFixedInvalidLen,
-      checker.errorSizeOutOfRange,
-      checker.errorUseReservedBurst,
-      checker.errorWrapAddressNotAligned,
-      checker.errorWrapInvalidLen
-    ).map(x => assert(!x))
-  }
-
-  def withAssumes() = {
-    Seq(
-      checker.errorAccessOutOf4KBound,
-      checker.errorCacheInvalid,
-      checker.errorExclusiveInvalidCache,
-      checker.errorExclusiveInvalidLen,
-      checker.errorFixedInvalidLen,
-      checker.errorSizeOutOfRange,
-      checker.errorUseReservedBurst,
-      checker.errorWrapAddressNotAligned,
-      checker.errorWrapInvalidLen
-    ).map(x => assume(!x))
-  }
-
-  def withCovers() = {
-    // Unaligned burst access.
-    if (config.useSize && config.useBurst) {
-      cover(size === U(Axi4.size.BYTE_2) && addr(0) === True && burst === FIXED)
-      cover(size === U(Axi4.size.BYTE_2) && addr(1) === True && burst === INCR)
+    val errors = new Area {
+      val UseReservedBurst = CombInit(False)
+      val AccessOutOf4KBound = Bool()
+      val WrapAddressNotAligned = CombInit(False)
+      val WrapInvalidLen = CombInit(False)
+      val FixedInvalidLen = CombInit(False)
+      val SizeOutOfRange = CombInit(formalSize > maxSize)
+      val CacheInvalid = Bool()
+      val ExclusiveInvalidLen = CombInit(False)
+      val ExclusiveInvalidCache = CombInit(False)
     }
 
     if (config.useBurst) {
-      cover(burst === FIXED)
-      cover(burst === INCR)
-      cover(burst === WRAP)
+      errors.AccessOutOf4KBound := False
+      errors.UseReservedBurst := burst === RESERVED
+      switch(burst) {
+        is(INCR) {
+          if (config.addressWidth > 12) errors.AccessOutOf4KBound := !in4KBoundary
+        }
+        is(WRAP) {
+          if (config.useSize) errors.WrapAddressNotAligned := !addrAlignedToSize
+          if (config.useLen) errors.WrapInvalidLen := !validWrapLen
+        }
+        is(FIXED) {
+          if (config.useLen) errors.FixedInvalidLen := len(7 downto 4) =/= 0 // len <= 16
+        }
+      }
+    } else {
+      errors.AccessOutOf4KBound := !in4KBoundary
     }
 
+    if (config.useCache) errors.CacheInvalid := !validCache else errors.CacheInvalid := False
     if (config.useLock) {
-      cover(lock === Axi4.lock.NORMAL)
-      cover(lock === Axi4.lock.EXCLUSIVE)
+      if (config.useLen) when(lock === Axi4.lock.EXCLUSIVE) { errors.ExclusiveInvalidLen := len(7 downto 4) =/= 0 }
+      if (config.useCache) when(lock === Axi4.lock.EXCLUSIVE) {
+        errors.ExclusiveInvalidCache := cache(3 downto 2) =/= 0
+      }
     }
 
-    if (config.useCache) {
-      Seq(0, 1, 2, 3, 6, 7, 0xa, 0xb, 0xe, 0xf).map(x => cover(cache === x))
-      if (config.useLock) cover(lock === Axi4.lock.EXCLUSIVE && cache === M"--0-")
+    def withAsserts() = {
+      errors.foreachReflectableNameables(x => x match { case y: Bool => assert(!y); case _ => })
     }
 
-    if (config.useProt) {
-      cover(prot === M"--0")
-      cover(prot === M"--1")
-      cover(prot === M"-0-")
-      cover(prot === M"-1-")
-      cover(prot === M"0--")
-      cover(prot === M"1--")
+    def withAssumes() = {
+      errors.foreachReflectableNameables(x => x match { case y: Bool => assume(!y); case _ => })
+    }
+
+    def withCovers() = {
+      // Unaligned burst access.
+      if (config.useSize && config.useBurst) {
+        cover(size === U(Axi4.size.BYTE_2) && addr(0) === True && burst === FIXED)
+        cover(size === U(Axi4.size.BYTE_2) && addr(1) === True && burst === INCR)
+      }
+
+      if (config.useBurst) {
+        cover(burst === FIXED)
+        cover(burst === INCR)
+        cover(burst === WRAP)
+      }
+
+      if (config.useLock) {
+        cover(lock === Axi4.lock.NORMAL)
+        cover(lock === Axi4.lock.EXCLUSIVE)
+      }
+
+      if (config.useCache) {
+        Seq(0, 1, 2, 3, 6, 7, 0xa, 0xb, 0xe, 0xf).map(x => cover(cache === x))
+        if (config.useLock) cover(lock === Axi4.lock.EXCLUSIVE && cache === M"--0-")
+      }
+
+      if (config.useProt) {
+        cover(prot === M"--0")
+        cover(prot === M"--1")
+        cover(prot === M"-0-")
+        cover(prot === M"-1-")
+        cover(prot === M"0--")
+        cover(prot === M"1--")
+      }
     }
   }
 }

@@ -87,6 +87,8 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
   def formalContext(maxBursts: Int = 16, maxStrbs: Int = 256, optimize: Boolean = true) = new Area {
     import spinal.core.formal._
 
+    val addrChecker = aw.payload.formalContext()
+
     val oRecord = FormalAxi4Record(config, maxStrbs).init()
 
     val histInput = Flow(cloneOf(oRecord))
@@ -215,7 +217,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       b.withTimeoutAsserts(maxStallCycles)
 
       when(aw.valid) {
-        aw.payload.withAsserts()
+        addrChecker.withAsserts()
       }
 
       assert(!errors.DataNumberDonotFitLen)
@@ -234,7 +236,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       b.withTimeoutAssumes(maxStallCycles)
 
       when(aw.valid) {
-        aw.payload.withAssumes()
+        addrChecker.withAssumes()
       }
 
       assume(!errors.DataNumberDonotFitLen)
@@ -247,7 +249,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     def withCovers() = {
       aw.withCovers(2)
       when(aw.fire) {
-        aw.payload.withCovers()
+        addrChecker.withCovers()
       }
       w.withCovers(2)
       when(w.fire) {

@@ -81,9 +81,9 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     ar.withAsserts()
     r.withAsserts()
 
-    when(ar.valid) {
-      ar.payload.withAsserts()
-    }
+    // when(ar.valid) {
+    //   ar.payload.withAsserts()
+    // }
     // formalCommon(assert)
   }
 
@@ -91,8 +91,8 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     ar.withAssumes()
     r.withAssumes()
 
-    when(ar.valid) {
-      ar.payload.withAssumes()
-    }
+    // when(ar.valid) {
+    //   ar.payload.withAssumes()
+    // }
   }
 }
