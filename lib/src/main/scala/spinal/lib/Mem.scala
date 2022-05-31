@@ -134,24 +134,36 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret
   }
 
-  def readWriteSyncPort : MemReadWritePort[T] = {
-    val ret : MemReadWritePort[T] = MemReadWritePort(mem.wordType(),mem.addressWidth)
-    ret.rdata := mem.readWriteSync(ret.address,ret.wdata,ret.enable,ret.write)
-    ret
-  }
-
-  def readWriteSyncPortWithMask : MemReadWritePort[T] = {
-    val ret : MemReadWritePort[T] = MemReadWritePort(mem.wordType(),mem.addressWidth,useMask=true)
-    ret.rdata := mem.readWriteSync(ret.address,ret.wdata,ret.enable,ret.write,ret.mask)
+  def readWriteSyncPort(
+    maskWidth     : Int = -1,
+    readUnderWrite: ReadUnderWritePolicy = dontCare,
+    clockCrossing : Boolean = false,
+    duringWrite   : DuringWritePolicy = dontCare) : MemReadWritePort[T] = {
+    val ret : MemReadWritePort[T] = MemReadWritePort(
+      mem.wordType(),
+      mem.addressWidth,
+      maskWidth = maskWidth
+    )
+    ret.rdata := mem.readWriteSync(
+      ret.address,
+      ret.wdata,
+      ret.enable,
+      ret.write,
+      ret.mask,
+      readUnderWrite= readUnderWrite,
+      clockCrossing = clockCrossing ,
+      duringWrite   = duringWrite
+    )
     ret
   }
 }
 
 
-case class MemWriteCmd[T <: Data](mem : Mem[T], useMask : Boolean = false) extends Bundle{
+case class MemWriteCmd[T <: Data](mem : Mem[T], maskWidth : Int = -1) extends Bundle{
+  def useMask = maskWidth >= 0
   val address = mem.addressType()
   val data    = mem.wordType()
-  val mask    = ifGen(useMask)(Bits(widthOf(mem.wordType) bits))
+  val mask    = ifGen(useMask)(Bits(maskWidth bits))
 }
 
 case class MemWriteCmdWithMask[T <: Data](mem : Mem[T], maskWidth : Int) extends Bundle {
@@ -189,13 +201,17 @@ case class MemReadPortAsync[T <: Data](dataType : T,addressWidth : Int) extends 
   }
 }
 
-case class MemReadWritePort[T <: Data](dataType : T, addressWidth : Int, useMask : Boolean = false) extends Bundle with IMasterSlave{
+case class MemReadWritePort[T <: Data](
+  dataType : T,
+  addressWidth : Int,
+  maskWidth     : Int = -1) extends Bundle with IMasterSlave{
+  def useMask = maskWidth >= 0
   val address = UInt(addressWidth bit)
   val rdata   = cloneOf(dataType)
   val wdata   = cloneOf(dataType)
   val enable  = Bool()
   val write   = Bool()
-  val mask    = ifGen(useMask)(Bits(widthOf(dataType) bits))
+  val mask    = ifGen(useMask)(Bits(maskWidth bits))
   override def asMaster(): Unit = {
     out(address,wdata,enable,write)
     if(useMask) out(mask)
