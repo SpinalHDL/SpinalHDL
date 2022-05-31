@@ -68,9 +68,9 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
   val inConfig = Axi4Config(20, 64, 4, useBurst = false, useId = false)
   val outConfig = Axi4Config(20, 32, 4, useBurst = false, useId = false)
-  // test("64_32_write") {
-  //   writeTester(inConfig, outConfig)
-  // }
+  test("64_32_write") {
+    writeTester(inConfig, outConfig)
+  }
   test("64_32_read") {
     readTester(inConfig, outConfig)
   }
