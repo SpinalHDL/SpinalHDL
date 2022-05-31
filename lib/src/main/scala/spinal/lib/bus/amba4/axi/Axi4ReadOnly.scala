@@ -167,7 +167,11 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
 
       when(ar.valid) {
         addrChecker.withAsserts()
-      }    
+      }
+
+      assume(!errors.DataNumberDonotFitLen)
+      assume(!errors.NoAddrRequest)
+      assume(!errors.WrongResponseForExAccesss)
     }
 
     def withAssumes(maxStallCycles: Int = 0) = {
@@ -179,6 +183,10 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       when(ar.valid) {
         addrChecker.withAssumes()
       }
+
+      assert(!errors.DataNumberDonotFitLen)
+      assert(!errors.NoAddrRequest)
+      assert(!errors.WrongResponseForExAccesss)
     }
 
     def withCovers() = {
