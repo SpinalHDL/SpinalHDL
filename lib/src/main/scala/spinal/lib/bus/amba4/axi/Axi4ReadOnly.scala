@@ -98,7 +98,6 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     val errors = new Area {
       val DataNumberDonotFitLen = dataErrors.reduce(_ | _)
       val NoAddrRequest = CombInit(False)
-      val NotLastTransfer = CombInit(False)
       val WrongResponseForExAccesss = CombInit(False)
     }
 
@@ -141,10 +140,9 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
             arRecord.assignFromR(r, selected)
           }.otherwise { rRecord.assignFromR(r, selected); rValid := True }
 
-          hist.io.outStreams(rId).ready := r.ready & rRecord.axDone & rRecord.seenLast
+          hist.io.outStreams(rId).ready := r.ready & rRecord.axDone & r.last
 
           errors.NoAddrRequest := !selected.axDone
-          errors.NotLastTransfer := selected.axDone & !selected.seenLast
           if (config.useResp && config.useLock)
             errors.WrongResponseForExAccesss := selected.axDone & r.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
 
