@@ -74,8 +74,92 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     slave(r)
   }
 
-  def formalContext(maxBursts: Int = 16, maxStrbs: Int = 256, optimize: Boolean = true) = new Area {
+  def formalContext(maxBursts: Int = 16, optimize: Boolean = true) = new Area {
+    import spinal.core.formal._
     val addrChecker = ar.payload.formalContext()
+
+    val oRecord = FormalAxi4Record(config, 0).init()
+
+    val histInput = Flow(cloneOf(oRecord))
+    histInput.payload := oRecord
+    histInput.valid := False
+    val hist = HistoryModifyable(histInput, maxBursts)
+    hist.io.inStreams.map(_.valid := False)
+    hist.io.inStreams.map(_.payload := oRecord)
+    hist.io.outStreams.map(_.ready := False)
+
+    val (arExist, arId) = hist.findFirst(x => x.valid && !x.axDone)
+    val (rExist, rId) =
+      hist.findFirst(x => x.valid && !x.responsed && { if (config.useId) r.id === x.id else True })
+
+    val dataErrors = Vec(Bool(), 3)
+    dataErrors.map(_ := False)
+
+    val errors = new Area {
+      val DataNumberDonotFitLen = dataErrors.reduce(_ | _)
+      val NoAddrRequest = CombInit(False)
+      val NotLastTransfer = CombInit(False)
+      val WrongResponseForExAccesss = CombInit(False)
+    }
+
+    when(histInput.valid) { dataErrors(0) := histInput.checkLen() }
+
+    def validCond[T <: Data](x: Stream[T]): Bool = {
+      if (optimize) rose(x.valid) | x.fire | (past(x.fire) & x.valid)
+      else x.valid
+    }
+
+    val arRecord = CombInit(oRecord)
+    val arValid = False
+    val addressLogic = new Area {
+      when(validCond(ar)) {
+        val ax = ar.asInstanceOf[Stream[Axi4Ax]]
+        when(arExist) {
+          arRecord := hist.io.outStreams(arId)
+          arRecord.allowOverride
+          arRecord.assignFromAx(ax)
+          arValid := True
+        }
+          .otherwise { histInput.assignFromAx(ax) }
+      }
+      when(arValid) {
+        hist.io.inStreams(arId).payload := arRecord
+        hist.io.inStreams(arId).valid := arValid
+        dataErrors(1) := arRecord.checkLen()
+      }
+    }
+
+    val rRecord = CombInit(oRecord)
+    val rValid = False
+    val dataLogic = new Area {
+      val selected = CombInit(oRecord)
+      when(validCond(r)) {
+        when(rExist) {
+          rRecord := hist.io.outStreams(rId)
+          selected := hist.io.outStreams(rId)
+          when(arValid && rId === arId) {
+            arRecord.assignFromR(r, selected)
+          }.otherwise { rRecord.assignFromR(r, selected); rValid := True }
+
+          hist.io.outStreams(rId).ready := r.ready & rRecord.axDone & rRecord.seenLast
+
+          errors.NoAddrRequest := !selected.axDone
+          errors.NotLastTransfer := selected.axDone & !selected.seenLast
+          if (config.useResp && config.useLock)
+            errors.WrongResponseForExAccesss := selected.axDone & r.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
+
+        }.otherwise { errors.NoAddrRequest := True }
+      }
+      when(rValid) {
+        hist.io.inStreams(rId).payload := rRecord
+        hist.io.inStreams(rId).valid := rValid
+        dataErrors(2) := rRecord.checkLen()
+      }
+    }
+    
+    when(ar.valid & !arExist) {
+      histInput.valid := True
+    }
 
     def withAsserts(maxStallCycles: Int = 0) = {
       ar.withAsserts()
