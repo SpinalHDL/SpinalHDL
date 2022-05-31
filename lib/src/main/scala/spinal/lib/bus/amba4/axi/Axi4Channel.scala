@@ -458,13 +458,13 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
   val size = UInt(3 bits)
   val burst = if (config.useBurst) Bits(2 bits) else null
   val isLockExclusive = if (config.useLock) Bool() else null
-  val awDone = Bool()
+  val axDone = Bool()
 
   val strbs = if (config.useStrb) Vec(Bits(config.bytePerWord bits), maxStrbs) else null
   val count = UInt(9 bits)
   val seenLast = Bool()
 
-  val bResp = Bool()
+  val responsed = Bool()
 
   def init():FormalAxi4Record = {
     val oRecord = FormalAxi4Record(config, maxStrbs)
@@ -482,7 +482,7 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
     if (config.useLen) len := ax.len
     if (config.useSize) size := ax.size
     if (config.useId) id := ax.id
-    awDone := ax.ready
+    axDone := ax.ready
   }
 
   def assignFromW(w: Stream[Axi4W], selected: FormalAxi4Record) = new Area {
@@ -502,11 +502,11 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
   def assignFromR(r: Stream[Axi4R], selected: FormalAxi4Record) = new Area {
     seenLast := r.last & r.ready
     when(r.ready) { count := selected.count + 1 }.otherwise { count := selected.count }
-    bResp := r.ready
+    responsed := r.ready
   }
 
   def assignFromB(b: Stream[Axi4B]) {
-    bResp := b.ready
+    responsed := b.ready
   }
 
   def checkStrbs(cond: Bool) = new Area {
@@ -535,6 +535,6 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
     val transDoneWithWrongLen = seenLast & realLen =/= count
     val getLimitLenWhileTransfer = !seenLast & realLen === count
     val wrongLen = realLen < count
-    awDone & (transDoneWithWrongLen | getLimitLenWhileTransfer | wrongLen)
+    axDone & (transDoneWithWrongLen | getLimitLenWhileTransfer | wrongLen)
   }
 }

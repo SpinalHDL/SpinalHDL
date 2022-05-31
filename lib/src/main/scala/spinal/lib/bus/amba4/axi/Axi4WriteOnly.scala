@@ -99,10 +99,10 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     hist.io.inStreams.map(_.payload := oRecord)
     hist.io.outStreams.map(_.ready := False)
 
-    val (awExist, awId) = hist.findFirst(x => x.valid && !x.awDone)
+    val (awExist, awId) = hist.findFirst(x => x.valid && !x.axDone)
     val (wExist, wId) = hist.findFirst(x => x.valid && !x.seenLast)
     val (bExist, bId) =
-      hist.findFirst(x => x.valid && !x.bResp && { if (config.useId) b.id === x.id else True })
+      hist.findFirst(x => x.valid && !x.responsed && { if (config.useId) b.id === x.id else True })
 
     val dataErrors = Vec(Bool(), 3)
     dataErrors.map(_ := False)
@@ -117,7 +117,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     val awRecord = CombInit(oRecord)
     val awValid = False
     val addressLogic = new Area {
-      val selected = CombInit(oRecord)
       when(validCond(aw)) {
         val ax = aw.asInstanceOf[Stream[Axi4Ax]]
         when(awExist) {
@@ -125,7 +124,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
           awRecord.allowOverride
           awRecord.assignFromAx(ax)
           awValid := True
-          selected := hist.io.outStreams(awId)
         }
           .otherwise { histInput.assignFromAx(ax) }
       }
@@ -175,12 +173,12 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
             wRecord.assignFromB(b)
           }.otherwise { bRecord.assignFromB(b); bValid := True }
 
-          hist.io.outStreams(bId).ready := b.ready & bRecord.awDone & bRecord.seenLast
+          hist.io.outStreams(bId).ready := b.ready & bRecord.axDone & bRecord.seenLast
 
-          respErrors(0) := !selected.awDone
-          respErrors(1) := selected.awDone & !selected.seenLast
+          respErrors(0) := !selected.axDone
+          respErrors(1) := selected.axDone & !selected.seenLast
           if (config.useResp && config.useLock)
-            respErrors(2) := selected.awDone & b.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
+            respErrors(2) := selected.axDone & b.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
         }.otherwise {
           respErrors(0) := True
         }
@@ -191,7 +189,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         hist.io.inStreams(bId).valid := bValid
       }
       val strbsChecker =
-        if (config.useStrb) selected.checkStrbs(b.fire & bExist & selected.awDone & selected.seenLast)
+        if (config.useStrb) selected.checkStrbs(b.fire & bExist & selected.axDone & selected.seenLast)
         else null
     }
 
