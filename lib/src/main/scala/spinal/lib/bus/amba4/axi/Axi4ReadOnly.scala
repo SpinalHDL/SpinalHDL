@@ -74,7 +74,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     slave(r)
   }
 
-  def formalContext(maxBursts: Int = 16, optimize: Boolean = true) = new Area {
+  def formalContext(maxBursts: Int = 16) = new Area {
     import spinal.core.formal._
     val addrChecker = ar.payload.formalContext()
 
@@ -103,15 +103,10 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
 
     when(histInput.valid) { dataErrors(0) := histInput.checkLen() }
 
-    def validCond[T <: Data](x: Stream[T]): Bool = {
-      if (optimize) rose(x.valid) | x.fire | (past(x.fire) & x.valid)
-      else x.valid
-    }
-
     val arRecord = CombInit(oRecord)
     val arValid = False
     val addressLogic = new Area {
-      when(validCond(ar)) {
+      when(ar.valid) {
         val ax = ar.asInstanceOf[Stream[Axi4Ax]]
         when(arExist) {
           arRecord := hist.io.outStreams(arId)
@@ -132,7 +127,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     val rValid = False
     val dataLogic = new Area {
       val selected = CombInit(oRecord)
-      when(validCond(r)) {
+      when(r.valid) {
         when(rExist) {
           rRecord := hist.io.outStreams(rId)
           selected := hist.io.outStreams(rId)
