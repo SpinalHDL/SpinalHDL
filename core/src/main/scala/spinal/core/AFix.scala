@@ -12,8 +12,8 @@ object AFix {
     ret.raw := u.asBits
     ret
   }
-  def apply(u: UInt, maxValue: BigInt): AFix = {
-    val ret = new AFix(maxValue, 0, 0)
+  def apply(u: UInt, maxValue: BigInt, exp : ExpNumber): AFix = {
+    val ret = new AFix(maxValue, 0, exp.value)
     ret.raw := u.asBits.resized
     ret
   }
