@@ -13,7 +13,7 @@ object AFix {
   }
   def apply(u: UInt, maxValue: BigInt): AFix = {
     val ret = new AFix(maxValue, 0, 0 exp)
-    ret.raw := u.asBits
+    ret.raw := u.asBits.resized
     ret
   }
 
@@ -87,9 +87,28 @@ object AFix {
 //    new AFix(maxValue*BigInt(2).pow(-exp.value)+(BigInt(2).pow(-exp.value)*maxValue.signum-maxValue.signum),
 //      minValue*BigInt(2).pow(-exp.value), exp)
 
+  def holding(values: TraversableOnce[AFix]) : AFix = {
+    val param = holdingParams(values)
+    new AFix(
+      maxValue = param._1,
+      minValue = param._2,
+      exp      = param._3 exp
+    )
+  }
+
+
+  def holdingParams(values: TraversableOnce[AFix]) : (BigInt, BigInt, Int) = {
+    val ex = values.map(_.exp.value).min
+    (
+      values.map(e => e.maxValue << (e.exp.value - ex).max(0)).max,
+      values.map(e => e.minValue << (e.exp.value - ex).max(0)).min,
+      ex
+    )
+  }
 }
 
 class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) extends MultiData {
+  assert(maxValue >= minValue)
 
   val signed = (maxValue < 0) || (minValue < 0)
   val signWidth = if (signed) 1 else 0
@@ -118,12 +137,12 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     // Scale left or right ranges if there's a difference in precision
     if (expDiff > 0) {
       (l.maxValue*BigInt(2).pow(expDiff) + (if (l.maxValue != 0) expDiff else 0),
-       l.minValue*BigInt(2).pow(expDiff) + (if (l.minValue != 0) expDiff else 0),
-       r.maxValue, r.minValue)
+        l.minValue*BigInt(2).pow(expDiff) + (if (l.minValue != 0) expDiff else 0),
+        r.maxValue, r.minValue)
     } else if (expDiff < 0) {
       (l.maxValue, l.minValue,
-       r.maxValue*BigInt(2).pow(-expDiff) + (if (r.maxValue != 0) -expDiff else 0),
-       r.minValue*BigInt(2).pow(-expDiff) + (if (r.minValue != 0) -expDiff else 0))
+        r.maxValue*BigInt(2).pow(-expDiff) + (if (r.maxValue != 0) -expDiff else 0),
+        r.minValue*BigInt(2).pow(-expDiff) + (if (r.minValue != 0) -expDiff else 0))
     } else {
       (l.maxValue, l.minValue, r.maxValue, r.minValue)
     }
@@ -441,10 +460,34 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     ret
   }
 
+  def >>(shift: AFix): AFix = {
+    assert(shift.exp.value == 0)
+    assert(shift.minValue == 0)
+    val ret = new AFix(
+      this.maxValue * (BigInt(1) << shift.maxValue.toInt),
+      this.minValue * (BigInt(1) << shift.maxValue.toInt),
+      (this.exp.value - shift.maxValue) exp
+    )
+
+    ret.raw := (this.raw << shift.maxValue.toInt) >> U(shift)
+
+    ret
+  }
+
+  // Shift bits and decimal point left, loosing bits
+  def |<<(shift: Int): AFix = {
+    val width = widthOf(raw)-shift
+    val ret = new AFix(this.maxValue.min(BigInt(2).pow(width)-1), this.minValue.max(-BigInt(2).pow(width)), (this.exp.value + shift) exp)
+
+    ret.raw := this.raw.resized
+
+    ret
+  }
+
   def unary_-(): AFix = negate()
 
   def negate(): AFix = {
-    val ret = new AFix(-this.maxValue, -this.minValue, this.exp)
+    val ret = new AFix(-this.minValue, -this.maxValue, this.exp)
 
     if (this.signed) {
       when (!this.raw.msb) {
@@ -454,6 +497,19 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
       }
     } else {
       ret.raw := ((~this.raw).asUInt+1).resize(ret.bitWidth).asBits
+    }
+
+    ret
+  }
+
+
+  def negate(enable : Bool): AFix = {
+    val ret = new AFix(-this.minValue max this.maxValue, -this.maxValue min this.minValue, this.exp)
+
+    if (this.signed) {
+      ???
+    } else {
+      ret := U(this.raw).twoComplement(enable)
     }
 
     ret
@@ -522,6 +578,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     }
     ret
   }
+
+
 
   /**
    * Rounds a value down towards negative infinity (truncation)
@@ -906,6 +964,12 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     copy
   }
 
+  def rounded(rounding  : RoundType = RoundType.FLOOR) = truncated(
+    saturation = false,
+    overflow = false,
+    rounding = rounding
+  )
+
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     that match {
       case af: AFix =>
@@ -978,6 +1042,11 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   def asUFix(): UFix = this.asUInt().toUFix >> -this.exp.value
   def asSFix(): SFix = this.asSInt().toSFix >> -this.exp.value
+  def toAFix(that : HardType[AFix]) : AFix = {
+    val ret = that()
+    ret := this
+    ret
+  }
 
   def :=(u: UInt) = this assignFrom(u)
   def :=(s: SInt) = this assignFrom(s)
@@ -986,6 +1055,19 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def :=(a: AFix) = this assignFrom(a)
 
   override def clone: this.type = new AFix(maxValue, minValue, exp).asInstanceOf[this.type]
+
+  def hasParametersOf(that : AFix) : Boolean = this.maxValue == that.maxValue && this.minValue == that.minValue && this.exp.value == that.exp.value
+  override def getMuxType[T <: Data](list: TraversableOnce[T]) = {
+    val p = AFix.holdingParams(list.asInstanceOf[TraversableOnce[AFix]])
+    HardType(new AFix(p._1, p._2, p._3 exp).asInstanceOf[T])
+  }
+
+  override def toMuxInput[T <: Data](muxOutput: T) : T = {
+    if(this.hasParametersOf(muxOutput.asInstanceOf[AFix])) return this.asInstanceOf[T]
+    val ret = cloneOf(muxOutput)
+    ret.assignFrom(this)
+    ret
+  }
 }
 
 
