@@ -583,34 +583,35 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
 
   /**
-   * Rounds a value down towards negative infinity (truncation)
+   * Rounds a value down towards negative infinity (truncation) at the given exp point position
    * @return Rounded result
    */
-  def floor(): AFix = {
-    assert(this.exp < 0, f"Cannot floor() because number does not have enough fractional bits, needs at least -1 exp")
-    val shift = BigInt(2).pow(-this.exp)
-    val res = new AFix(this.maxValue / shift, this.minValue / shift, 0)
+  def floor(exp : Int): AFix = {
+    val drop = exp-this.exp
+    if(drop < 0) return CombInit(this)
+    val res = new AFix(this.maxValue >> drop, this.minValue >> drop, 0)
 
-    res.raw := this.raw.dropLow(-this.exp)
+    res.raw := this.raw.dropLow(drop)
     res
   }
 
-  def truncate(): AFix = this.floor()
+  def truncate(): AFix = this.floor(0)
 
   /**
-   * Rounds a value up towards positive infinity
+   * Rounds a value up towards positive infinity at the given exp point position
    * @return Rounded result
    */
-  def ceil(): AFix = {
-    assert(this.exp < 0, f"Cannot ceil() because number does not have enough fractional bits, needs at least -1 exp")
-    val shift = BigInt(2).pow(-this.exp)
-    val res = new AFix(this.maxValue / shift, this.minValue / shift, 0)
+  def ceil(exp : Int): AFix = {
+    val drop = exp-this.exp
+    if(drop < 0) return CombInit(this)
+    val step = BigInt(1) << drop
+    val res = new AFix((this.maxValue+step-1) >> drop, (this.minValue+step-1) >> drop, exp)
 
-    val fracOr = this.raw.takeLow(-this.exp).orR
+    val fracOr = this.raw.takeLow(drop).orR
     if (this.signed) {
-      res.raw := (this.raw.dropLow(-this.exp).asSInt + (False ## fracOr).asSInt).asBits
+      res.raw := (this.raw.dropLow(drop).asSInt.resize(widthOf(res.raw)) + (False ## fracOr).asSInt).asBits
     } else {
-      res.raw := (this.raw.dropLow(-this.exp).asUInt + fracOr.asUInt).asBits
+      res.raw := (this.raw.dropLow(drop).asUInt.resize(widthOf(res.raw)) + fracOr.asUInt).asBits
     }
     res
   }
@@ -635,7 +636,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
       res.raw := (this.raw.dropLow(-this.exp).asSInt + addValue).asBits
       res
     } else {
-      floor()
+      floor(0)
     }
   }
 
@@ -663,7 +664,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
       res.raw := (this.raw.dropLow(-this.exp).asSInt + addValue).asBits
       res
     } else {
-      ceil()
+      ceil(0)
     }
   }
 
@@ -936,8 +937,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
   private def _round(roundType: RoundType): AFix = {
     roundType match {
-      case RoundType.FLOOR       => this.floor()
-      case RoundType.CEIL        => this.ceil()
+      case RoundType.FLOOR       => this.floor(0)
+      case RoundType.CEIL        => this.ceil(0)
       case RoundType.FLOORTOZERO => this.floorToZero()
       case RoundType.CEILTOINF   => this.ceilToInf()
       case RoundType.ROUNDUP     => this.roundHalfUp()

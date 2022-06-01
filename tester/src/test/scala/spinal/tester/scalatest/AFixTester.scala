@@ -80,8 +80,8 @@ object AFixTester {
     io.outRaw := chosenOp.saturated()
 
     val roundResults = Vec(Seq(
-      chosenOp.ceil(),
-      chosenOp.floor(),
+      chosenOp.ceil(0),
+      chosenOp.floor(0),
       chosenOp.floorToZero(),
       chosenOp.ceilToInf(),
       chosenOp.roundHalfUp(),
