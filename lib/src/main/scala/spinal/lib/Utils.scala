@@ -1235,3 +1235,16 @@ class ClockDomainPimped(cd : ClockDomain){
     if(cond) this.withBufferedResetFrom(resetCd, bufferDepth) else cd
   }
 }
+
+object Shift{
+  //Accumulate shifted out bits into the lsb of the result
+  def rightWithScrap(that : Bits, by : UInt) : Bits = {
+    var logic = that
+    val scrap = False
+    for(i <- by.range){
+      scrap setWhen(by(i) && logic(0, 1 << i bits) =/= 0)
+      logic \= by(i) ? (logic |>> (BigInt(1) << i)) | logic
+    }
+    logic | scrap.asBits.resized
+  }
+}
