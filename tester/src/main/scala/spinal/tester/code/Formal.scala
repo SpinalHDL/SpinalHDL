@@ -99,7 +99,7 @@ object LimitedCounterMoreAssertFormal extends App {
 
     // Check that the value is incrementing.
     // hasPast is used to ensure that the past(dut.value) had at least one sampling out of reset
-    when(withPast() && past(dut.value) =/= 10){
+    when(pastValid() && past(dut.value) =/= 10){
       assert(dut.value === past(dut.value) + 1)
     }
   })
