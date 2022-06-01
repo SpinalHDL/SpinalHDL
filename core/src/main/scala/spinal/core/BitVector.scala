@@ -93,6 +93,7 @@ abstract class BitVector extends BaseType with Widthable {
 
   def andMask(that : Bool) : this.type = (that ? this otherwise this.getZero).asInstanceOf[this.type]
   def orMask(that : Bool) : this.type = (that ? cloneOf(this).setAll() otherwise this).asInstanceOf[this.type]
+  def xorMask(that : Bool) : this.type = (that ? (~this.asInstanceOf[BitVector with BitwiseOp[BitVector]]) otherwise this).asInstanceOf[this.type]
 
   /** Left rotation of that Bits */
   def rotateLeft(that: UInt): T = {
@@ -473,5 +474,10 @@ abstract class BitVector extends BaseType with Widthable {
       s"(${component.getPath() + "/" + this.getDisplayName()} : ${dirString()} $getClassIdentifier[$getWidthStringNoInferation bits])"
     else
       head.source.toString
+  }
+
+  override def getMuxType[T <: Data](list: TraversableOnce[T]) = {
+    val w = list.filter(!_.hasTag(tagAutoResize)).map(e => widthOf(e)).max
+    cloneOf(this).setWidth(w).asInstanceOf[T]
   }
 }
