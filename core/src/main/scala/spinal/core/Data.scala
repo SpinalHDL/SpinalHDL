@@ -707,6 +707,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 //  def propagatePullName() : this.type = this.addTag(PropagatePullNameTag)
 
   def assignFormalRandom(kind : Operator.Formal.RandomExpKind) : Unit = ???
+  def getMuxType[T <: Data](list : TraversableOnce[T]) : HardType[T] = HardType(cloneOf(this).asInstanceOf[T])
+  def toMuxInput[T <: Data](muxOutput : T) : T = this.asInstanceOf[T]
 }
 
 trait DataWrapper extends Data{
