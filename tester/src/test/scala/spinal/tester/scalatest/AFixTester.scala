@@ -9,7 +9,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 class SpinalSimAFixTester extends AnyFunSuite {
   def check(max : Int, min : Int, exp : Int)(f : AFix): Unit ={
-    assert(f.maxValue == max && f.minValue == min && f.exp.value == exp)
+    assert(f.maxValue == max && f.minValue == min && f.exp == exp)
   }
   test("instantiate") {
     SpinalVerilog(new Component{
@@ -51,10 +51,10 @@ object AFixTester {
 
   class AFixTester extends Component {
     val io = new Bundle {
-      val inFix = in(Vec(Seq(new AFix(32767, -32768, -4 exp),
-                             new AFix(32767, -32768, -6 exp))))
-      val outRaw = out(new AFix(68719476735L, -68719476736L, -13 exp))
-      val outFix = out(new AFix(8388607, -8388608, 0 exp))
+      val inFix = in(Vec(Seq(new AFix(32767, -32768, -4),
+                             new AFix(32767, -32768, -6))))
+      val outRaw = out(new AFix(68719476735L, -68719476736L, -13))
+      val outFix = out(new AFix(8388607, -8388608, 0))
       val opMode = in(Bits(2 bit))
       val roundMode = in(Bits(4 bit))
     }
@@ -67,9 +67,9 @@ object AFixTester {
     for (res <- opResultsSeq) {
       println(res)
     }
-    val rangeExpMin = opResultsSeq.minBy(_.exp.value).exp
-    val rangeMax = opResultsSeq.map(af => af.maxValue*BigInt(2).pow(af.exp.value - rangeExpMin.value)).max
-    val rangeMin = opResultsSeq.map(af => af.minValue*BigInt(2).pow(af.exp.value - rangeExpMin.value)).min
+    val rangeExpMin = opResultsSeq.minBy(_.exp).exp
+    val rangeMax = opResultsSeq.map(af => af.maxValue*BigInt(2).pow(af.exp - rangeExpMin)).max
+    val rangeMin = opResultsSeq.map(af => af.minValue*BigInt(2).pow(af.exp - rangeExpMin)).min
     val opResults = Vec(opResultsSeq.map(af => {
       val resized_af = new AFix(rangeMax, rangeMin, rangeExpMin)
       resized_af := af
@@ -80,8 +80,8 @@ object AFixTester {
     io.outRaw := chosenOp.saturated()
 
     val roundResults = Vec(Seq(
-      chosenOp.ceil(),
-      chosenOp.floor(),
+      chosenOp.ceil(0),
+      chosenOp.floor(0),
       chosenOp.floorToZero(),
       chosenOp.ceilToInf(),
       chosenOp.roundHalfUp(),

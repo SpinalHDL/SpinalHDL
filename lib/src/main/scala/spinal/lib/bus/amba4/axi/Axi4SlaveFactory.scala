@@ -35,11 +35,11 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
 
   // only one outstanding request is supported
   writeRsp.setOKAY()
-  writeRsp.id := writeCmd.id
+  if(bus.config.useId) writeRsp.id := writeCmd.id
   readRsp.setOKAY()
   readRsp.data := 0
   readRsp.last := readDataStage.last
-  readRsp.id := readDataStage.id
+  if(bus.config.useId) readRsp.id := readDataStage.id
 
   val writeOccur = writeJoinEvent.fire
   val readOccur = bus.readRsp.fire
@@ -62,7 +62,7 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
     switch(writeAddress()) {
       for ((address, jobs) <- elementsPerAddress ) address match {
         case address : SingleMapping =>
-          assert(address.address % log2Up(bus.config.dataWidth/8) == 0)
+          assert(address.address % (bus.config.dataWidth/8) == 0)
           is(address.address) {
             doMappedWriteElements(jobs, writeJoinEvent.valid, writeOccur, bus.writeData.data)
           }
@@ -80,7 +80,7 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
     switch(readAddress()) {
       for ((address, jobs) <- elementsPerAddress) address match {
         case address : SingleMapping =>
-          assert(address.address % log2Up(bus.config.dataWidth/8) == 0)
+          assert(address.address % (bus.config.dataWidth/8) == 0)
           is(address.address) {
             doMappedReadElements(jobs, readDataStage.valid, readOccur, readRsp.data)
           }

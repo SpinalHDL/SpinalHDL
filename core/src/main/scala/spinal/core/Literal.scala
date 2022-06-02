@@ -134,6 +134,7 @@ object U extends BitVectorLiteralFactory[UInt] {
   def apply(that: Bits): UInt = that.asUInt
   def apply(that: SInt): UInt = that.asUInt
   def apply(that: UFix): UInt = that.toUInt
+  def apply(that: AFix): UInt = that.asUInt()
 
   def apply(that: Bool, width : BitCount): UInt = that.asUInt.resize(width)
   def apply(that: Bits, width : BitCount): UInt = that.asUInt.resize(width)

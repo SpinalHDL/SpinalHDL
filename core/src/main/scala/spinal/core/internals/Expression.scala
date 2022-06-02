@@ -1377,27 +1377,38 @@ private[spinal] object Multiplex {
   }
 
   def complexData[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
+//    Vec(whenTrue, whenFalse).apply(U(sel))
+
+
     val outType = if (whenTrue.getClass.isAssignableFrom(whenFalse.getClass)) whenTrue
     else if (whenFalse.getClass.isAssignableFrom(whenTrue.getClass)) whenFalse
     else throw new Exception("can't mux that")
 
-    val muxOut = weakCloneOf(outType)
-    val muxInTrue = whenTrue
-    val muxInFalse = whenFalse
-//    val muxInTrue = weakCloneOf(muxOut)
-//    val muxInFalse = weakCloneOf(muxOut)
-//
-//    muxInTrue := whenTrue
-//    muxInFalse := whenFalse
+    val muxOut = outType.getMuxType(List(whenTrue, whenFalse))
 
-    for ((out, t,  f) <- (muxOut.flatten, muxInTrue.flatten, muxInFalse.flatten).zipped) {
-      if (out.getClass != t.getClass) SpinalError("Create a mux with incompatible true input type")
-      if (out.getClass != f.getClass) SpinalError("Create a mux with incompatible false input type")
-
-      out.assignFrom(Multiplex.baseType(sel, t.setAsTypeNode(), f.setAsTypeNode()))
-      out.setAsTypeNode()
+    val ret = muxOut()
+    def rec(ret : Data, elements : Seq[Data]): Unit ={
+      ret match {
+        case ret : MultiData =>{
+          val iRet = ret.elements.iterator
+          val iIn = elements.map(_.toMuxInput[Data](ret).asInstanceOf[MultiData].elements.iterator)
+          val continue = true
+          while(iRet.nonEmpty && continue){
+            val dst = iRet.next()
+            val srcs = iIn.map(_.next())
+            assert(srcs.forall(_._1 == dst._1), "Doesn't match ???")
+            rec(dst._2, srcs.map(_._2))
+          }
+        }
+        case ret : BaseType => {
+          val ab = ArrayBuffer[BaseType]()
+          ab ++= elements.map(_.toMuxInput(ret))
+          ret.assignFrom(Multiplex.baseType(sel, elements(0).toMuxInput(ret), elements(1).toMuxInput(ret)))
+        }
+      }
     }
-    muxOut
+    rec(ret, List(whenTrue, whenFalse))
+    ret
   }
 }
 

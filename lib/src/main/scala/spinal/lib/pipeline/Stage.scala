@@ -10,6 +10,17 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   if(_pip != null) {
     _pip.addStage(this)
   }
+
+  def chainConnect(connection: ConnectionLogic): Unit ={
+    _pip.connect(_pip.stagesSet.takeWhile(_ != this).last, this)(connection)
+  }
+
+  def this(connection: ConnectionLogic)(implicit _pip: Pipeline)  {
+    this()
+    chainConnect(connection)
+  }
+
+
   val internals = new {
     val input = new {
       val valid = Bool()
@@ -190,6 +201,12 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
 
   def insert[T <: Data](that : T) : Stageable[T] = {
     val s = Stageable(cloneOf(that))
+    this(s) := that
+    s
+  }
+
+  def insert[T <: Data](that : Stageable[T])(implicit key : StageableOffset = StageableOffsetNone) : Stageable[T] = {
+    val s = Stageable(that)
     this(s) := that
     s
   }
