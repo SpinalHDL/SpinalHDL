@@ -30,7 +30,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         when(input.valid) {
           assume(!outExists(input.payload))
         }
-        when(past(input.valid) && withPast()) { assert(results(0).valid && results(0).payload === past(input.payload)) }
+        when(past(input.valid) && pastValid()) { assert(results(0).valid && results(0).payload === past(input.payload)) }
 
         val dataOverflow = anyconst(cloneOf(input.payload))
         assert(
@@ -81,7 +81,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         val outOverflowCount = U(overflowCondition)
         val fireCount = results.sCount(x => x.fire && x.payload === dataOut)
 
-        when(withPast()) {
+        when(pastValid()) {
           assert(past(validCount - fireCount + inputCount - outOverflowCount - modifyCount) === validCount)
         }
         results.map(x => cover(x.fire))
