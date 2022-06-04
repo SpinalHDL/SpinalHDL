@@ -1,6 +1,6 @@
 package spinal.tester.code
 
-import scala.language.{postfixOps, _}
+import scala.language.postfixOps
 import spinal.core._
 
 object TupleTest {
@@ -14,7 +14,7 @@ object TupleTest {
 
     val de = (d, e)
     de.setName("de_game")
-    // assign {d, e, f} = {2{a}, b, c};
+    // assign {d, e, f} = {{2{a}}, b, c};
     (d, e, f) := (B(2, a), b, c)
   }
 
