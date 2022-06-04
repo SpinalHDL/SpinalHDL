@@ -19,11 +19,30 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         assumeInitial(reset)
 
+        val inData = anyconst(Bits(inConfig.dataWidth bits))
+        val inValid = CombInit(False)
+
         val input = slave(Axi4WriteOnly(inConfig))
         dut.io.input << input
+        when(input.w.fire && input.w.data === inData){ inValid := True }
 
         val output = master(Axi4WriteOnly(outConfig))
         dut.io.output >> output
+        val outHist = new HistoryModifyable(Bits(outConfig.dataWidth bits), 2)
+        outHist.io.input.valid := output.w.fire
+        outHist.io.input.payload := output.w.data
+        outHist.io.inStreams.map(_.valid := False)
+        outHist.io.outStreams.map(_.ready := False)
+        val d1 = inData(0, outConfig.dataWidth bits)
+        val d2 = inData(outConfig.dataWidth, outConfig.dataWidth bits)
+        assume(d1 =/= d2)
+        assume(input.w.data(outConfig.dataWidth, outConfig.dataWidth bits) =/= d1)
+        assume(input.w.data(0, outConfig.dataWidth bits) =/= d2)
+        when(inValid & output.w.fire & output.w.data === d2) {
+          val (d1Exist, d1Id) = outHist.io.outStreams.sFindFirst(x => x.valid & x.payload === d1)
+          assert(d1Exist)
+          assert(d1Id === 0)
+        }
 
         val maxStall = 16
         val inputChecker = input.formalContext(4, 4)
