@@ -1,6 +1,6 @@
 package spinal.tester.code
 
-import scala.language._
+import scala.language.{postfixOps, _}
 import spinal.core._
 
 object TupleTest {
@@ -10,11 +10,12 @@ object TupleTest {
     val c = in SInt(16 bit)
 
     val d, e = out Bits(16 bit)
-    val f = Bool()
+    val f = Bits(4 bit)
 
     val de = (d, e)
     de.setName("de_game")
-    (d, e, f) := (a, b, c)
+    // assign {d, e, f} = {2{a}, b, c};
+    (d, e, f) := (B(2, a), b, c)
   }
 
   def main(args: Array[String]): Unit = {
