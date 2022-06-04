@@ -119,10 +119,16 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   private val minShifted = minValue.abs - (if (minValue < 0) signWidth else 0)
   private val minBits = minShifted.bitLength
 
+  // Number of bits to represent the entire value
   val bitWidth = Math.max(maxBits, minBits) + signWidth
+  // Number of bits to represent the fractional value
   val fracWidth = Math.min(-exp, 0)
+  // Number of bits to represent the whole value, no sign
   val wholeWidth = bitWidth - fracWidth - signWidth
+  // Number of bits to represent the whole ("integer") value, with sign
   val intWidth = bitWidth - fracWidth
+  // Number of bits to represent the numeric value, no sign
+  val numWidth = bitWidth - signWidth
 
   val raw: Bits = Bits(bitWidth bit)
 
@@ -620,20 +626,21 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
    * Rounds a value towards zero
    * @return Rounded result
    */
-  def floorToZero(): AFix = {
+  def floorToZero(exp: Int): AFix = {
     assert(this.exp < 0, f"Cannot floorToZero() because number does not have enough fractional bits, needs at least -1 exp")
     if (this.signed) {
-      val shift = BigInt(2).pow(-this.exp)
-      val res = new AFix(this.maxValue / shift, this.minValue / shift, 0)
+      val drop = exp-this.exp
+      val step = BigInt(1) << drop
+      val res = new AFix((this.maxValue+step-1) >> drop, (this.minValue+step-1) >> drop, exp)
 
-      val fracOr = this.raw.takeLow(-this.exp).orR
+      val fracOr = this.raw.takeLow(drop).orR
       val addValue = SInt(2 bit)
       when(this.raw.msb && fracOr) {
         addValue := 1
       } otherwise {
         addValue := 0
       }
-      res.raw := (this.raw.dropLow(-this.exp).asSInt + addValue).asBits
+      res.raw := (this.raw.dropLow(drop).asSInt.resize(widthOf(res.raw)) + addValue).asBits
       res
     } else {
       floor(0)
@@ -644,13 +651,14 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
    * Rounds a value towards negative or positive infinity
    * @return Rounded result
    */
-  def ceilToInf(): AFix = {
+  def ceilToInf(exp: Int): AFix = {
     assert(this.exp < 0, f"Cannot ceilToInf() because number does not have enough fractional bits, needs at least -1 exp")
     if (this.signed) {
-      val shift = BigInt(2).pow(-this.exp)
-      val res = new AFix(this.maxValue / shift, this.minValue / shift, 0)
+      val drop = exp-this.exp
+      val step = BigInt(1) << drop
+      val res = new AFix((this.maxValue+step-1) >> drop, (this.minValue+step-1) >> drop, exp)
 
-      val fracOr = this.raw.takeLow(-this.exp).orR
+      val fracOr = this.raw.takeLow(drop).orR
       val addValue = SInt(2 bit)
       when(fracOr) {
         when(!this.raw.msb) {
@@ -661,7 +669,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
       } otherwise {
         addValue := 0
       }
-      res.raw := (this.raw.dropLow(-this.exp).asSInt + addValue).asBits
+      res.raw := (this.raw.dropLow(drop).asSInt.resize(widthOf(res.raw)) + addValue).asBits
       res
     } else {
       ceil(0)
@@ -939,8 +947,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     roundType match {
       case RoundType.FLOOR       => this.floor(0)
       case RoundType.CEIL        => this.ceil(0)
-      case RoundType.FLOORTOZERO => this.floorToZero()
-      case RoundType.CEILTOINF   => this.ceilToInf()
+      case RoundType.FLOORTOZERO => this.floorToZero(0)
+      case RoundType.CEILTOINF   => this.ceilToInf(0)
       case RoundType.ROUNDUP     => this.roundHalfUp()
       case RoundType.ROUNDDOWN   => this.roundHalfDown()
       case RoundType.ROUNDTOZERO => this.roundHalfToZero()
