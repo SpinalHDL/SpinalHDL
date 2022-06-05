@@ -20,21 +20,19 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         assumeInitial(reset)
 
         val inData = anyconst(Bits(inConfig.dataWidth bits))
-        val inValid = CombInit(False)
-        val inSizeFit = CombInit(False)
+        val inValid = RegInit(False)
 
         val input = slave(Axi4WriteOnly(inConfig))
         dut.io.input << input
-        when(input.aw.fire & input.aw.size === log2Up(inConfig.bytePerWord)) {inSizeFit := True}
-        when(input.w.fire & input.w.data === inData & inSizeFit){ inValid := True }
+        when(input.w.fire & input.w.data === inData){ inValid := True }
 
         val output = master(Axi4WriteOnly(outConfig))
         dut.io.output >> output
         val outHist = new HistoryModifyable(Bits(outConfig.dataWidth bits), 2)
+        outHist.init()
         outHist.io.input.valid := output.w.fire
         outHist.io.input.payload := output.w.data
-        outHist.io.inStreams.map(_.valid := False)
-        outHist.io.outStreams.map(_.ready := False)
+
         val highRange = outConfig.dataWidth until 2*outConfig.dataWidth
         val lowRange = 0 until outConfig.dataWidth
         val d1 = inData(lowRange)
@@ -45,17 +43,36 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         when(input.w.data(lowRange) === d1) { assume(input.w.data(highRange) === d2) }
         when(input.w.data(highRange) === d2) { assume(input.w.data(lowRange) === d1) }
 
-        when(inValid & output.w.fire & output.w.data === d2) {
-          val (d1Exist, d1Id) = outHist.io.outStreams.sFindFirst(x => x.valid & x.payload === d1)
-          assert(d1Exist)
-          assert(d1Id === 0)
-        }
-
         val maxStall = 16
         val inputChecker = input.formalContext(4, 4)
         inputChecker.withAssumes(maxStall)
         val outputChecker = output.formalContext(4, 4)
         outputChecker.withAsserts(maxStall)
+        
+        val inSize = Reg(cloneOf(input.aw.size))
+        when(input.w.fire & input.w.data === inData & !inValid) {
+          val inSelected = inputChecker.hist.io.outStreams(inputChecker.wId)
+          when(inputChecker.wExist & inSelected.payload.axDone) { 
+            inSize := inSelected.size 
+          }.otherwise { inSize := input.aw.size }
+        }
+
+        when(inValid & output.w.fire) {
+          val outSelected = outputChecker.hist.io.outStreams(outputChecker.wId)
+          when(output.w.fire){
+            when(outputChecker.wExist & inSize === 3) {
+              when(output.w.data === d2) {
+                val (d1Exist, d1Id) = outHist.io.outStreams.sFindFirst(x => x.valid & x.payload === d1)
+                assert(d1Exist)
+                assert(d1Id === 0)
+                inValid := False
+              }
+            }
+          } 
+          //elsewhen(inSelected.size < 3) {
+            
+          //}
+        }
         
         outputChecker.withCovers()
         inputChecker.withCovers()

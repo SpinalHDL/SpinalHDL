@@ -1126,6 +1126,12 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val depth: Int)
     val inStreams = Vec(slave(Stream(payloadType)), depth)
     val willOverflow = out(Bool())
   }
+
+  def init() = {
+    io.outStreams.map(_.ready := False)
+    io.inStreams.map(_.valid := False)
+  }
+
   def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
     left match {
       case 0 => Nil
