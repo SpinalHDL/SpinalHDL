@@ -20,11 +20,13 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         assumeInitial(reset)
 
         val inData = anyconst(Bits(inConfig.dataWidth bits))
-        val inValid = RegInit(False)
 
         val input = slave(Axi4WriteOnly(inConfig))
         dut.io.input << input
-        when(input.w.fire & input.w.data === inData){ inValid := True }
+        val inHist = new HistoryModifyable(cloneOf(input.aw.size), 4)
+        inHist.init()
+        inHist.io.input.valid := input.w.fire & input.w.data === inData
+        inHist.io.input.payload := 0
 
         val output = master(Axi4WriteOnly(outConfig))
         dut.io.output >> output
@@ -49,23 +51,24 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val outputChecker = output.formalContext(4, 4)
         outputChecker.withAsserts(maxStall)
         
-        val inSize = Reg(cloneOf(input.aw.size))
-        when(input.w.fire & input.w.data === inData & !inValid) {
+        when(inHist.io.input.valid) {
           val inSelected = inputChecker.hist.io.outStreams(inputChecker.wId)
           when(inputChecker.wExist & inSelected.payload.axDone) { 
-            inSize := inSelected.size 
-          }.otherwise { inSize := input.aw.size }
+            inHist.io.input.payload := inSelected.size 
+          }.otherwise { inHist.io.input.payload := input.aw.size }
         }
 
+        val (inValid, inId) = inHist.io.outStreams.sFindFirst(_.valid)
+        val inSelected = inHist.io.outStreams(inId)
         when(inValid & output.w.fire) {
           val outSelected = outputChecker.hist.io.outStreams(outputChecker.wId)
           when(output.w.fire){
-            when(outputChecker.wExist & inSize === 3) {
+            when(outputChecker.wExist & inSelected.payload === 3) {
               when(output.w.data === d2) {
                 val (d1Exist, d1Id) = outHist.io.outStreams.sFindFirst(x => x.valid & x.payload === d1)
                 assert(d1Exist)
                 assert(d1Id === 0)
-                inValid := False
+                inSelected.ready := True
               }
             }
           } 
