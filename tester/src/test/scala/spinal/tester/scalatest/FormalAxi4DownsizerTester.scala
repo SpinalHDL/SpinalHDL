@@ -52,9 +52,9 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         outputChecker.withAsserts(maxStall)
 
         when(inHist.io.input.valid) {
-          val inSelected = inputChecker.hist.io.outStreams(inputChecker.wId)
-          when(inputChecker.wExist & inSelected.payload.axDone) {
-            inHist.io.input.payload := inSelected.size
+          val inputSelected = inputChecker.hist.io.outStreams(inputChecker.wId)
+          when(inputChecker.wExist & inputSelected.payload.axDone) {
+            inHist.io.input.payload := inputSelected.size
           }.otherwise { inHist.io.input.payload := input.aw.size }
         }
 
