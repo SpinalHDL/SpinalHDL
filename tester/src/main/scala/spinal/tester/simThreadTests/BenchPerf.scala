@@ -92,7 +92,7 @@ class NativeThread{
 
 
 object BenchPerf extends App{
-  Affinity.setAffinity(1)
+  spinal.affinity.Affinity(1)
   for(repeat <- 0 until 1000) {
     val t1 = new NativeThread
     var i = 0
@@ -114,7 +114,7 @@ object TestAffinity extends App{
   for(repeat <- 0 to 3) {
     val t = new Thread(){
       override def run(): Unit = {
-        Affinity.setAffinity(repeat%3*2)
+        spinal.affinity.Affinity(repeat%3*2)
         while(true){}
       }
     }
