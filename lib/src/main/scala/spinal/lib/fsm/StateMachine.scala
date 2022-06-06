@@ -251,6 +251,8 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
       }
     }
 
+    // `always` and `postBuild` must be processed after states to get priority
+    // in the behavior of the elaborated design.
     alwaysTasks.foreach(_())
     postBuildTasks.foreach(_())
 
