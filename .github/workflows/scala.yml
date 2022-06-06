@@ -75,9 +75,20 @@ jobs:
       run: source tools.sh && install_packages && (cd ~/ && install_cocotb) && purge_cocotb
 
     ##############################################
-
+  
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
     - name: Compile tests
       run: sbt "+test:compile"
 
     - name: Run tests
       run: sbt "++2.11.12; test"
+  
+  formal:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: Run tests
+      run: sbt "++2.11.12; testFormal"
