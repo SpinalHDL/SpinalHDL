@@ -28,6 +28,7 @@ runs:
     ##############################################
 
     - name: Setup env
+      shell: bash
       run: |
         echo "$HOME/fpga-toolchain/bin" >> $GITHUB_PATH
         echo "$HOME/tools/bin" >> $GITHUB_PATH
@@ -43,6 +44,7 @@ runs:
         key: ${{ runner.os }}-tools_v3
 
     - name: Install cached tools
+      shell: bash
       if: steps.tools.outputs.cache-hit != 'true'
       run: source tools.sh && install_packages && (cd ~/ && install_tools) && purge_cocotb
 
@@ -57,10 +59,12 @@ runs:
         key: ${{ runner.os }}-fpga_toolchain_v2
 
     - name: Install fpga_toolchain
+      shell: bash
       if: steps.fpga_toolchain.outputs.cache-hit != 'true'
       run: source tools.sh && (cd ~/ && install_fpga_toolchain)
 
     ##############################################
 
     - name: Install uncached tools
+      shell: bash
       run: source tools.sh && install_packages && (cd ~/ && install_cocotb) && purge_cocotb
