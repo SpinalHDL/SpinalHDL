@@ -108,7 +108,7 @@ object AFix {
   }
 }
 
-class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends MultiData {
+class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends MultiData with Num[AFix] with MinMaxProvider {
   assert(maxValue >= minValue)
 
   val signed = (maxValue < 0) || (minValue < 0)
@@ -134,6 +134,16 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
   raw.setRefOwner(this)
   raw.setPartialName("", weak = true)
+
+  override def Q: QFormat = QFormat(bitWidth, fracWidth, signed)
+
+  /** This function differs from traditional Num[T] by returning a new AFix */
+  override def tag(q: QFormat): AFix = {
+    require(q.width == this.bitWidth)
+    val res = AFix(q.width-q.fraction exp, -q.fraction exp, q.signed)
+    res.raw := this.raw
+    res
+  }
 
   override def elements: ArrayBuffer[(String, Data)] = {
     ArrayBuffer("" -> raw)
@@ -195,6 +205,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     ret
   }
 
+  def +^(right: AFix): AFix = this + right
+
   /**
    * Adds `this` to the right hand side AFix value without expanding ranges or checks on value overflow
    * @param right Value to add to `this`
@@ -234,6 +246,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
     ret
   }
+
+  def -^(right: AFix): AFix = this - right
 
   /**
    * Subtracts `this` from the right hand side AFix value without expanding ranges or checks on value underflow
@@ -586,7 +600,46 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     ret
   }
 
+  /**
+   * Saturates the top m bits. Other AFix specific saturation functions are recommended.
+   * This function is bit orientated unlike other AFix functions.
+   * @param m - Number of high bits to saturate off
+   * @return
+   */
+  def sat(m: Int): AFix = {
+    val newMax = BigInt(2).pow(bitWidth-m).min(this.maxValue)
+    val newMin = if (signed) (-BigInt(2).pow(bitWidth-m)).max(this.minValue) else BigInt(0).max(this.minValue)
+    val ret = new AFix(newMax, newMin, exp)
 
+    if (this.signed) {
+      ret.raw := this.raw.asSInt.sat(m).resize(widthOf(ret.raw)).asBits
+    } else {
+      ret.raw := this.raw.asUInt.sat(m).resize(widthOf(ret.raw)).asBits
+    }
+
+    ret
+  }
+
+  /**
+   * Trims the bottom m bits. Other AFix specific rounding functions are recommended.
+   * This function is bit orientated unlike other AFix functions.
+   * @param m - Number of low bits to trim off
+   * @return
+   */
+  def trim(m: Int): AFix = {
+    val newMax = BigInt(2).pow(m).min(this.maxValue)
+    val newMin = if (signed) (-BigInt(2).pow(m)).max(this.minValue) else BigInt(0).max(this.minValue)
+    val newExp = if (m >= 0) exp+m else exp-m
+    val ret = new AFix(newMax, newMin, newExp)
+
+    if (this.signed) {
+      ret.raw := this.raw.asSInt.trim(m).resize(widthOf(ret.raw)).asBits
+    } else {
+      ret.raw := this.raw.asUInt.trim(m).resize(widthOf(ret.raw)).asBits
+    }
+
+    ret
+  }
 
   /**
    * Rounds a value down towards negative infinity (truncation) at the given exp point position
@@ -621,6 +674,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     }
     res
   }
+
+  def ceil(exp: Int, aligned: Boolean) = ceil(exp)
 
   /**
    * Rounds a value towards zero
@@ -676,6 +731,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     }
   }
 
+  def ceilToInf(exp: Int, aligned: Boolean): AFix = ceilToInf(exp)
+
   /**
    * Rounds a value up (ceiling) if x >= 0.5 otherwise rounds down (floor/truncate)
    * @return Rounded result
@@ -699,6 +756,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     }
     res
   }
+
+  def roundUp(exp: Int, aligned: Boolean): AFix = roundHalfUp()
 
   /**
    * Rounds a value down (floor/truncate) if x <= 0.5 otherwise rounds up (ceil)
@@ -724,6 +783,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     }
     res
   }
+
+  def roundDown(exp: Int, aligned: Boolean): AFix = roundHalfDown()
 
   /**
    * Rounds a value towards zero (floor/truncate) if x <= 0.5 otherwise rounds towards infinity
@@ -758,6 +819,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     }
   }
 
+  def roundToZero(exp: Int, aligned: Boolean): AFix = roundHalfToZero()
+
   /**
    * Rounds a value towards infinity if x >= 0.5 otherwise rounds towards zero
    * @return Rounded result
@@ -790,6 +853,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
       roundHalfDown()
     }
   }
+
+  def roundToInf(exp: Int, aligned: Boolean): AFix = roundHalfToInf()
 
   /**
    * Rounds a value towards the nearest even value including half values, otherwise rounds towards odd values
@@ -939,6 +1004,16 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
       res.raw := (this.raw.dropLow(-this.exp).asUInt + addValue).asBits
     }
     res
+  }
+
+  def round(exp: Int, aligned: Boolean): AFix = {
+    val trunc = this.getTag(classOf[TagAFixTruncated])
+
+    if (trunc.isDefined) {
+      this._round(trunc.get.rounding)
+    } else {
+      roundHalfToInf()
+    }
   }
 
   override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxValue}, min=${minValue}, exp=${exp}, bits=${raw.getWidth}]"
