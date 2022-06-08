@@ -167,7 +167,7 @@ object FormalFifo extends App {
     body
     false
   } catch {
-    case e => println(e); true
+    case e : Throwable => println(e); true
   })
 
   for (

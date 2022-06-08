@@ -11,7 +11,7 @@ class FormalSimpleTester extends SpinalFormalFunSuite {
     body
     false
   } catch{
-    case e => println(e); true
+    case e : Throwable => println(e); true
   })
   def startDoneTest(maxDelay : Int): Unit ={
     class StartDoneDut() extends Component {
