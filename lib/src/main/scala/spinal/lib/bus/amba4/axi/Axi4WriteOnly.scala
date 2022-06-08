@@ -201,7 +201,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       val DataNumberDonotFitLen = dataErrors.reduce(_ | _)
     }
 
-    def withMasterAsserts(maxStallCycles: Int = 0) = new Area {
+    def withMasterAsserts(maxStallCycles: Int = 0) = {
       aw.withAsserts()
       w.withAsserts()
       b.withTimeoutAsserts(maxStallCycles)
@@ -215,7 +215,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       assert(!errors.ValidWhileReset)
     }
 
-    def withMasterAssumes(maxStallCycles: Int = 0) = new Area {
+    def withMasterAssumes(maxStallCycles: Int = 0) = {
       aw.withTimeoutAssumes(maxStallCycles)
       w.withTimeoutAssumes(maxStallCycles)
       b.withAssumes()
@@ -224,7 +224,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       assume(!errors.RespWhileReset)
     }
     
-    def withSlaveAsserts(maxStallCycles: Int = 0) = new Area {
+    def withSlaveAsserts(maxStallCycles: Int = 0) = {
       aw.withTimeoutAsserts(maxStallCycles)
       w.withTimeoutAsserts(maxStallCycles)
       b.withAsserts()
@@ -233,7 +233,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       assert(!errors.RespWhileReset)
     }
 
-    def withSlaveAssumes(maxStallCycles: Int = 0) = new Area {
+    def withSlaveAssumes(maxStallCycles: Int = 0) = {
       aw.withAssumes()
       w.withAssumes()
       b.withTimeoutAssumes(maxStallCycles)
