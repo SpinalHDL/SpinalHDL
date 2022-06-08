@@ -534,6 +534,16 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this
   }
 
+  def withCovers(back2BackCycles: Int = 1): this.type  = {
+    import spinal.core.formal._
+    val hist = History(this.fire, back2BackCycles).reduce(_ && _)
+    cover(hist)
+    cover(this.isStall)
+    // doubt that if this is required in generic scenario.
+    // cover(this.ready && !this.valid)
+    this
+  }
+
   def withOrderAsserts(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
     import spinal.core.formal._
     val aheadOut = RegInit(False) setWhen (this.fire && dataAhead === this.payload)
@@ -560,6 +570,33 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     when(behindIn) { assume(aheadIn) }
 
     (aheadIn, behindIn)
+  }
+
+  /**
+   * Assert that this stream conforms to the stream semantics:
+   * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
+   * - After being asserted, valid should be acknowledged in limited cycles.
+   *
+   * @param maxStallCycles Check that the max cycles the interface would hold in stall.
+   */
+  def withTimeoutAsserts(maxStallCycles : Int = 0) : this.type = {
+    import spinal.core.formal._
+    if (maxStallCycles > 0) {
+      val counter = Counter(maxStallCycles, this.isStall)
+      when(this.fire) { counter.clear()} 
+      .otherwise { assert(!counter.willOverflow) }
+    }
+    this
+  }
+
+  def withTimeoutAssumes(maxStallCycles : Int = 0) : this.type = {
+    import spinal.core.formal._
+    if (maxStallCycles > 0) {
+      val counter = Counter(maxStallCycles, this.isStall)
+      when(this.fire) { counter.clear() } 
+      .elsewhen(counter.willOverflow) { assume(this.ready === True) }
+    }
+    this
   }
 }
 

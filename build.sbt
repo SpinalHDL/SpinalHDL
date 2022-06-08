@@ -203,6 +203,9 @@ assemblyJarName in assembly := "spinalhdl.jar"
 
 test in assembly := {}
 
+Test / testOptions += Tests.Argument("-l", "spinal.tester.formal")
+addCommandAlias("testFormal", "testOnly * -- -n spinal.tester.formal")
+
 assemblyOutputPath in assembly := file("./release/spinalhdl.jar")
 
 //To publish the scala doc :
