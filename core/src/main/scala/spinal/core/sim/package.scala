@@ -442,12 +442,12 @@ package object sim {
     val fractionLength = -bt.minExp
     val maxRawIntValue : BigInt
     val minRawIntValue : BigInt
-    private def maxValue = maxRawIntValue.doubleValue() / scala.math.pow(2, fractionLength)
-    private def minValue = minRawIntValue.doubleValue() / scala.math.pow(2, fractionLength)
+    private def maxValue = maxRawIntValue.doubleValue / scala.math.pow(2, fractionLength)
+    private def minValue = minRawIntValue.doubleValue / scala.math.pow(2, fractionLength)
 
     protected def rawAssign(that: BigInt): Unit
     def #= (that: BigDecimal): Unit = {
-      val rhs = (that * scala.math.pow(2, fractionLength)).toBigInt()
+      val rhs = (that * scala.math.pow(2, fractionLength)).toBigInt
       require(rhs <= maxRawIntValue, s"$that is overflow. Max value allowed is $maxValue")
       require(rhs >= minRawIntValue, s"$that is underflow.Min value allowed is $minValue")
       rawAssign(rhs)
@@ -462,7 +462,7 @@ package object sim {
     }
 
     def toBigDecimal: BigDecimal
-    def toDouble: Double = this.toBigDecimal.doubleValue()
+    def toDouble: Double = this.toBigDecimal.doubleValue
   }
 
   implicit class SimUFixPimper(bt: UFix) extends SimFix(bt){
@@ -491,11 +491,11 @@ package object sim {
     val fractionLength = bt.fracWidth
     val maxRawIntValue = bt.maxValue
     val minRawIntValue = bt.minValue
-    private def maxDouble = maxRawIntValue.doubleValue() / scala.math.pow(2, fractionLength)
-    private def minDouble = minRawIntValue.doubleValue() / scala.math.pow(2, fractionLength)
+    private def maxDouble = maxRawIntValue.doubleValue / scala.math.pow(2, fractionLength)
+    private def minDouble = minRawIntValue.doubleValue / scala.math.pow(2, fractionLength)
 
     def #= (that: BigDecimal): Unit = {
-      val rhs = (that * scala.math.pow(2, fractionLength)).toBigInt()
+      val rhs = (that * scala.math.pow(2, fractionLength)).toBigInt
       require(rhs <= maxRawIntValue, s"$that is overflow. Max value allowed is $maxDouble")
       require(rhs >= minRawIntValue, s"$that is underflow.Min value allowed is $minDouble")
       bt.raw #= rhs
@@ -510,7 +510,7 @@ package object sim {
     }
 
     def toBigDecimal: BigDecimal = BigDecimal(bt.raw.toBigInt) / scala.math.pow(2, fractionLength)
-    def toDouble: Double = this.toBigDecimal.doubleValue()
+    def toDouble: Double = this.toBigDecimal.doubleValue
 
   }
 
