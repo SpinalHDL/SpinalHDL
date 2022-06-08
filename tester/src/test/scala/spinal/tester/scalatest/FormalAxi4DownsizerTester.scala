@@ -47,9 +47,11 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val maxStall = 16
         val inputChecker = input.formalContext(4, 4)
-        inputChecker.withAssumes(maxStall)
+        inputChecker.withSlaveAsserts(maxStall)
+        inputChecker.withSlaveAssumes(maxStall)
         val outputChecker = output.formalContext(4, 4)
-        outputChecker.withAsserts(maxStall)
+        outputChecker.withMasterAsserts(maxStall)
+        outputChecker.withMasterAssumes(maxStall)
 
         when(inHist.io.input.valid) {
           val inputSelected = inputChecker.hist.io.outStreams(inputChecker.wId)
@@ -101,9 +103,11 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val maxStall = 16
         val inputChecker = input.formalContext(4)
-        inputChecker.withAssumes(maxStall)
+        inputChecker.withSlaveAsserts(maxStall)
+        inputChecker.withSlaveAssumes(maxStall)
         val outputChecker = output.formalContext(4)
-        outputChecker.withAsserts(maxStall)
+        outputChecker.withMasterAsserts(maxStall)
+        outputChecker.withMasterAssumes(maxStall)
 
         outputChecker.withCovers()
         inputChecker.withCovers()

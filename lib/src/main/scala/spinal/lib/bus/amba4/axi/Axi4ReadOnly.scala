@@ -154,34 +154,40 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       histInput.valid := True
     }
 
-    def withAsserts(maxStallCycles: Int = 0) = {
+    def withMasterAsserts(maxStallCycles: Int = 0) = {
       ar.withAsserts()
-      ar.withTimeoutAssumes(maxStallCycles)
-      r.withAssumes()
       r.withTimeoutAsserts(maxStallCycles)
 
       when(ar.valid) {
         addrChecker.withAsserts()
       }
+    }
+
+    def withMasterAssumes(maxStallCycles: Int = 0) = {
+      ar.withTimeoutAssumes(maxStallCycles)
+      r.withAssumes()
 
       assume(!errors.DataNumberDonotFitLen)
       assume(!errors.NoAddrRequest)
       assume(!errors.WrongResponseForExAccesss)
     }
 
-    def withAssumes(maxStallCycles: Int = 0) = {
-      ar.withAssumes()
+    def withSlaveAsserts(maxStallCycles: Int = 0) = {
       ar.withTimeoutAsserts(maxStallCycles)
       r.withAsserts()
+
+      assert(!errors.DataNumberDonotFitLen)
+      assert(!errors.NoAddrRequest)
+      assert(!errors.WrongResponseForExAccesss)
+    }
+
+    def withSlaveAssumes(maxStallCycles: Int = 0) = {
+      ar.withAssumes()
       r.withTimeoutAssumes(maxStallCycles)
 
       when(ar.valid) {
         addrChecker.withAssumes()
       }
-
-      assert(!errors.DataNumberDonotFitLen)
-      assert(!errors.NoAddrRequest)
-      assert(!errors.WrongResponseForExAccesss)
     }
 
     def withCovers() = {
