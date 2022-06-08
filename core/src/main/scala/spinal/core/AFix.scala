@@ -495,6 +495,16 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     ret
   }
 
+  def >>|(shift: AFix): AFix = {
+    assert(shift.exp == 0)
+    assert(shift.minValue == 0)
+    val ret = cloneOf(this)
+
+    ret.raw := this.raw >> U(shift)
+
+    ret
+  }
+
   // Shift bits and decimal point left, loosing bits
   def |<<(shift: Int): AFix = {
     val width = widthOf(raw)-shift
@@ -535,6 +545,21 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
     ret
   }
+
+  def resize(newExp : ExpNumber): AFix ={
+    assert(newExp.value < exp) //for now
+    val dif = exp - newExp.value
+    val ret = new AFix(
+      this.maxValue * (BigInt(1) << dif),
+      this.minValue * (BigInt(1) << dif),
+      newExp.value
+    )
+
+    ret.raw := this.raw << dif
+
+    ret
+  }
+
 
   /**
    * Saturates a number to the range of another number.
@@ -653,6 +678,18 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     res.raw := this.raw.dropLow(drop)
     res
   }
+
+  // Rounding which will set the LSB if any of the thrown bits is set
+  def scrap(exp : Int): AFix = {
+    val drop = exp-this.exp
+    if(drop < 0) return CombInit(this)
+    val res = new AFix(this.maxValue >> drop, this.minValue >> drop, 0)
+
+    res.raw := this.raw.dropLow(drop)
+    res.raw.lsb setWhen(this.raw.takeLow(drop).orR)
+    res
+  }
+
 
   def truncate(): AFix = this.floor(0)
 
@@ -1030,6 +1067,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
       case RoundType.ROUNDTOINF  => this.roundHalfToInf()
       case RoundType.ROUNDTOEVEN => this.roundHalfToEven()
       case RoundType.ROUNDTOODD  => this.roundHalfToOdd()
+      case RoundType.SCRAP        => this.scrap(0)
     }
   }
 
@@ -1064,21 +1102,16 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
           return
         }
 
-        val (du, dd, su, sd) = alignRanges(this, af)
-        if((du < su || dd > sd) && (trunc.isEmpty || (!trunc.get.saturation && !trunc.get.overflow))){
-          PendingError(s"Cannot assign ${af} to ${this} as it would get out of range $du < $su || $dd > $sd \n" + ScalaLocated.long)
-          return
-        }
-
         var af_rounded: AFix = af
         if (af.exp > this.exp) {
-          val exp_diff = af.exp - this.exp
-          af_rounded = af <<| exp_diff
+          af_rounded = af.resize(this.exp exp)
         } else if (af.exp < this.exp) {
           if (trunc.isDefined) {
             af_rounded = (af >> this.exp)._round(trunc.get.rounding) << this.exp
           }
         }
+
+
 
         var af_sat: AFix = af_rounded
         if (trunc.isDefined) {
@@ -1088,6 +1121,12 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
             af_sat = this.clone
             af_sat.raw := af_rounded.raw.resized
           }
+        }
+
+        val (du, dd, su, sd) = alignRanges(this, af_sat)
+        if((du < su || dd > sd) && (trunc.isEmpty || (!trunc.get.saturation && !trunc.get.overflow))){
+          PendingError(s"Cannot assign ${af} to ${this} as it would get out of range $du < $su || $dd > $sd \n" + ScalaLocated.long)
+          return
         }
 
         if (this.signed)

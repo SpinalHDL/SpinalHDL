@@ -214,7 +214,7 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
     val dataOut = cloneOf(io.input.readRsp)
     val data    = Bits(inputConfig.dataWidth bits)
     data := dataReg
-    when(dataCounter.io.last && dataOut.fire) {
+    when(dataCounter.io.last && dataOut.valid) {
         data(offset << 3, outputConfig.dataWidth bits) := dataIn.data
     }
 

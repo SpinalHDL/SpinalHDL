@@ -1,9 +1,12 @@
 package spinal.tester.scalatest
 
 import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.Tag
 import spinal.core._
 import spinal.core.formal._
 import spinal.idslplugin.Location
+
+object SpinalFormal extends Tag("spinal.tester.formal")
 
 class SpinalFormalFunSuite extends AnyFunSuite{  
   def assert(assertion: Bool)(implicit loc: Location) = {
@@ -15,7 +18,7 @@ class SpinalFormalFunSuite extends AnyFunSuite{
   }
 
   def test(testName: String)(testFun: => Unit): Unit = {
-    super.test("formal_" + testName) {
+    super.test("formal_" + testName, SpinalFormal) {
       testFun
     }
   }

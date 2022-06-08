@@ -1,0 +1,70 @@
+name: 'Prepare environment'
+description: 'Prepare the environment for building.'
+runs:
+  using: "composite"
+  steps:
+    - name: Set up JDK 11
+      uses: actions/setup-java@v2
+      with:
+        java-version: '11'
+        distribution: 'adopt'
+
+    - name: Cache pip
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-v2
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Cache SBT
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.ivy2/cache
+          ~/.sbt
+        key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt') }}
+
+    ##############################################
+
+    - name: Setup env
+      shell: bash
+      run: |
+        echo "$HOME/fpga-toolchain/bin" >> $GITHUB_PATH
+        echo "$HOME/tools/bin" >> $GITHUB_PATH
+
+    ##############################################
+
+    - name: Cache tools
+      id: tools
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/tools
+        key: ${{ runner.os }}-tools_v3
+
+    - name: Install cached tools
+      shell: bash
+      if: steps.tools.outputs.cache-hit != 'true'
+      run: source tools.sh && install_packages && (cd ~/ && install_tools) && purge_cocotb
+
+    ##############################################
+
+    - name: Cache fpga_toolchain
+      id: fpga_toolchain
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/fpga-toolchain
+        key: ${{ runner.os }}-fpga_toolchain_v2
+
+    - name: Install fpga_toolchain
+      shell: bash
+      if: steps.fpga_toolchain.outputs.cache-hit != 'true'
+      run: source tools.sh && (cd ~/ && install_fpga_toolchain)
+
+    ##############################################
+
+    - name: Install uncached tools
+      shell: bash
+      run: source tools.sh && install_packages && (cd ~/ && install_cocotb) && purge_cocotb

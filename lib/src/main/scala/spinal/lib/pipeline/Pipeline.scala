@@ -9,7 +9,7 @@ import scala.collection.Seq
 
 
 class Pipeline extends Area{
-  @dontName implicit val _ : Pipeline = this
+  @dontName implicit val _implicitPip : Pipeline = this
 
   case class ConnectionModel() extends Nameable {
     var m, s : Stage = null
