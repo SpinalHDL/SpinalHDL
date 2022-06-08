@@ -1027,21 +1027,16 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
           return
         }
 
-        val (du, dd, su, sd) = alignRanges(this, af)
-        if((du < su || dd > sd) && (trunc.isEmpty || (!trunc.get.saturation && !trunc.get.overflow))){
-          PendingError(s"Cannot assign ${af} to ${this} as it would get out of range $du < $su || $dd > $sd \n" + ScalaLocated.long)
-          return
-        }
-
         var af_rounded: AFix = af
         if (af.exp > this.exp) {
-          val exp_diff = af.exp - this.exp
-          af_rounded = af <<| exp_diff
+          af_rounded = af.resize(this.exp exp)
         } else if (af.exp < this.exp) {
           if (trunc.isDefined) {
             af_rounded = (af >> this.exp)._round(trunc.get.rounding) << this.exp
           }
         }
+
+
 
         var af_sat: AFix = af_rounded
         if (trunc.isDefined) {
@@ -1051,6 +1046,12 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
             af_sat = this.clone
             af_sat.raw := af_rounded.raw.resized
           }
+        }
+
+        val (du, dd, su, sd) = alignRanges(this, af_sat)
+        if((du < su || dd > sd) && (trunc.isEmpty || (!trunc.get.saturation && !trunc.get.overflow))){
+          PendingError(s"Cannot assign ${af} to ${this} as it would get out of range $du < $su || $dd > $sd \n" + ScalaLocated.long)
+          return
         }
 
         if (this.signed)
