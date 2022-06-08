@@ -1111,6 +1111,88 @@ object History {
 
 }
 
+object HistoryModifyable {
+  def apply[T <: Data](that: Flow[T], length: Int) = {
+    val hist = new HistoryModifyable(that.payloadType, length)
+    hist.io.input << that
+    hist
+  }
+}
+
+class HistoryModifyable[T <: Data](val payloadType: HardType[T], val depth: Int) extends Component {
+  val io = new Bundle {
+    val input = slave(Flow(payloadType))
+    val outStreams = Vec(master(Stream(payloadType)), depth)
+    val inStreams = Vec(slave(Stream(payloadType)), depth)
+    val willOverflow = out(Bool())
+  }
+
+  def init() = {
+    io.outStreams.map(_.ready := False)
+    io.inStreams.map(_.valid := False)
+  }
+
+  def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
+    left match {
+      case 0 => Nil
+      case 1 => prev :: Nil
+      case _ =>
+        prev :: builder(
+          {
+            val streamId = depth + 1 - left
+
+            val stream = Stream(payloadType)
+            val rValid = RegNextWhen(prev.valid, stream.ready) init (False)
+            val rData = RegNextWhen(prev.payload, stream.ready)
+            stream.valid := rValid
+            stream.payload := rData
+            prev.ready := stream.ready
+
+            val outPort = cloneOf(prev)
+            outPort.valid := stream.valid
+            outPort.payload := stream.payload
+            io.outStreams(streamId) << outPort
+
+            val next = stream.throwWhen(outPort.fire)
+            val inPort = io.inStreams(streamId)
+            inPort.ready := stream.valid
+            when(inPort.fire) {
+              val lastAndOverflow = if( left == 2 ) io.willOverflow else False
+              when(stream.fire || lastAndOverflow) { next.payload := inPort.payload }
+                .otherwise { rData := inPort.payload }
+            }
+
+            next
+          },
+          left - 1
+        )
+    }
+  }
+  val inputBuffer = Stream(payloadType);
+  inputBuffer.valid := io.input.valid
+  inputBuffer.payload := io.input.payload
+
+  val connections = Vec(builder(inputBuffer, depth + 1))
+  connections(depth).ready := False
+  val cachedConnections = (1 to depth).map( x => connections(x))
+  val readyAvailable = cachedConnections.map(!_.valid)
+
+  val full = CountOne(readyAvailable) === 0
+  io.willOverflow := this.full && io.input.valid && !io.outStreams.sExist(_.fire)
+  when(this.full) {
+    cachedConnections.last.ready := io.input.valid
+  }.otherwise {
+    val readyId = OHToUInt(OHMasking.first(readyAvailable))
+    cachedConnections(readyId).ready := io.input.valid
+  }
+
+  def findFirst(condition: Stream[T] => Bool): (Bool, UInt) = {
+    val (exist, reversedId) = io.outStreams.reverse.sFindFirst(condition)
+    val realId = depth - 1 - reversedId
+    (exist, realId)
+  }
+}
+
 object SetCount
 {
   def apply(in: Iterable[Bool]): UInt = {
