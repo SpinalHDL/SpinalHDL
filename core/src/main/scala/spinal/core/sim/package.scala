@@ -435,6 +435,84 @@ package object sim {
     }
   }
 
+  /**
+   * Add implicit function to UFix/SFix/AFix
+   */
+  abstract class SimFix[T <: XFix[_, _]](bt: T) {
+    val fractionLength = -bt.minExp
+    val maxRawIntValue : BigInt
+    val minRawIntValue : BigInt
+    private def maxValue = maxRawIntValue.doubleValue() / scala.math.pow(2, fractionLength)
+    private def minValue = minRawIntValue.doubleValue() / scala.math.pow(2, fractionLength)
+
+    protected def rawAssign(that: BigInt): Unit
+    def #= (that: BigDecimal): Unit = {
+      val rhs = (that * scala.math.pow(2, fractionLength)).toBigInt()
+      require(rhs <= maxRawIntValue, s"$that is overflow. Max value allowed is $maxValue")
+      require(rhs >= minRawIntValue, s"$that is underflow.Min value allowed is $minValue")
+      rawAssign(rhs)
+    }
+    def #= (that : Double): Unit = this #= BigDecimal(that)
+    def randomize(): BigDecimal = {
+      var rhs = Random.nextDouble()
+      rhs = Math.max(minValue, rhs)
+      rhs = Math.min(maxValue, rhs)
+      this #= rhs
+      rhs
+    }
+
+    def toBigDecimal: BigDecimal
+    def toDouble: Double = this.toBigDecimal.doubleValue()
+  }
+
+  implicit class SimUFixPimper(bt: UFix) extends SimFix(bt){
+    override val maxRawIntValue = bt.raw.maxValue
+    override val minRawIntValue: BigInt = 0
+
+    override protected def rawAssign(that: BigInt): Unit = bt.raw #= that
+    override def toBigDecimal: BigDecimal = {
+      BigDecimal(bt.raw.toBigInt) / scala.math.pow(2, fractionLength)
+    }
+  }
+
+  implicit class SimSFixPimper(bt: SFix) extends SimFix(bt){
+    override val maxRawIntValue = bt.raw.maxValue
+    override val minRawIntValue = bt.raw.minValue
+
+    override protected def rawAssign(that: BigInt): Unit = bt.raw #= that
+
+    override def toBigDecimal: BigDecimal = {
+      BigDecimal(bt.raw.toBigInt) / scala.math.pow(2, fractionLength)
+    }
+  }
+
+  // todo
+  implicit class SimAFixPimper(bt: AFix) {
+    val fractionLength = bt.fracWidth
+    val maxRawIntValue = bt.maxValue
+    val minRawIntValue = bt.minValue
+    private def maxDouble = maxRawIntValue.doubleValue() / scala.math.pow(2, fractionLength)
+    private def minDouble = minRawIntValue.doubleValue() / scala.math.pow(2, fractionLength)
+
+    def #= (that: BigDecimal): Unit = {
+      val rhs = (that * scala.math.pow(2, fractionLength)).toBigInt()
+      require(rhs <= maxRawIntValue, s"$that is overflow. Max value allowed is $maxDouble")
+      require(rhs >= minRawIntValue, s"$that is underflow.Min value allowed is $minDouble")
+      bt.raw #= rhs
+    }
+    def #= (that : Double): Unit = this #= BigDecimal(that)
+    def randomize(): BigDecimal = {
+      var rhs = Random.nextDouble()
+      rhs = Math.max(minDouble, rhs)
+      rhs = Math.min(maxDouble, rhs)
+      this #= rhs
+      rhs
+    }
+
+    def toBigDecimal: BigDecimal = BigDecimal(bt.raw.toBigInt) / scala.math.pow(2, fractionLength)
+    def toDouble: Double = this.toBigDecimal.doubleValue()
+
+  }
 
   /**
     * Add implicit function to ClockDomain
