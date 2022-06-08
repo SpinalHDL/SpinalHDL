@@ -582,7 +582,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def withTimeoutAsserts(maxStallCycles : Int = 0) : this.type = {
     import spinal.core.formal._
     if (maxStallCycles > 0) {
-      val counter = Counter(maxStallCycles, this.isStall)
+      val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
       when(this.fire) { counter.clear()} 
       .otherwise { assert(!counter.willOverflow) }
     }
@@ -592,7 +592,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def withTimeoutAssumes(maxStallCycles : Int = 0) : this.type = {
     import spinal.core.formal._
     if (maxStallCycles > 0) {
-      val counter = Counter(maxStallCycles, this.isStall)
+      val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
       when(this.fire) { counter.clear() } 
       .elsewhen(counter.willOverflow) { assume(this.ready === True) }
     }
