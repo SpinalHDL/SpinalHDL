@@ -92,16 +92,11 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     val (rExist, rId) =
       hist.findFirst(x => x.valid && !x.responsed && { if (config.useId) r.id === x.id else True })
 
-    val dataErrors = Vec(Bool(), 3)
-    dataErrors.map(_ := False)
-
     val errors = new Area {
-      val DataNumberDonotFitLen = dataErrors.reduce(_ | _)
+      val DataNumberDonotFitLen = hist.io.outStreams.map(x => x.valid & x.checkLen()).reduce(_ | _)
       val NoAddrRequest = CombInit(False)
       val WrongResponseForExAccesss = CombInit(False)
     }
-
-    when(histInput.valid) { dataErrors(0) := histInput.checkLen() }
 
     val arRecord = CombInit(oRecord)
     val arValid = False
@@ -119,7 +114,6 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       when(arValid) {
         hist.io.inStreams(arId).payload := arRecord
         hist.io.inStreams(arId).valid := arValid
-        dataErrors(1) := arRecord.checkLen()
       }
     }
 
@@ -146,7 +140,6 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       when(rValid) {
         hist.io.inStreams(rId).payload := rRecord
         hist.io.inStreams(rId).valid := rValid
-        dataErrors(2) := rRecord.checkLen()
       }
     }
     

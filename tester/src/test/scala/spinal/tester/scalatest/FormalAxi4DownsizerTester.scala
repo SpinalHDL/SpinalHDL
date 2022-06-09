@@ -102,12 +102,15 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         dut.io.output >> output
 
         val maxStall = 16
-        val inputChecker = input.formalContext(4)
+        val inputChecker = input.formalContext(3)
         inputChecker.withSlaveAsserts(maxStall)
         inputChecker.withSlaveAssumes(maxStall)
-        val outputChecker = output.formalContext(4)
+        val outputChecker = output.formalContext(6)
         outputChecker.withMasterAsserts(maxStall)
         outputChecker.withMasterAssumes(maxStall)
+
+        assert(!inputChecker.hist.io.willOverflow)
+        assert(!outputChecker.hist.io.willOverflow)
 
         outputChecker.withCovers()
         inputChecker.withCovers()

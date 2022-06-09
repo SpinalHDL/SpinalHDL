@@ -583,7 +583,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     import spinal.core.formal._
     if (maxStallCycles > 0) {
       val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
-      when(this.fire) { counter.clear()} 
+      when(!this.isStall) { counter.clear()} 
       .otherwise { assert(!counter.willOverflow) }
     }
     this
@@ -593,7 +593,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     import spinal.core.formal._
     if (maxStallCycles > 0) {
       val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
-      when(this.fire) { counter.clear() } 
+      when(!this.isStall) { counter.clear() } 
       .elsewhen(counter.willOverflow) { assume(this.ready === True) }
     }
     this
