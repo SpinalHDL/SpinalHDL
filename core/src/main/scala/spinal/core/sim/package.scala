@@ -24,6 +24,7 @@ import spinal.core.internals.BaseNode
 import spinal.core.sim.{SimBaseTypePimper, SpinalSimConfig}
 import spinal.sim._
 
+import java.math.BigInteger
 import scala.collection.generic.Shrinkable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -491,22 +492,42 @@ package object sim {
     val fractionLength = bt.fracWidth
     val maxRawIntValue = bt.maxValue
     val minRawIntValue = bt.minValue
-    private def maxDouble = maxRawIntValue.doubleValue / scala.math.pow(2, fractionLength)
-    private def minDouble = minRawIntValue.doubleValue / scala.math.pow(2, fractionLength)
+    private def exp = bt.exp
+    private def maxDecimal = BigDecimal(maxRawIntValue) * BigDecimal(2).pow(exp)
+    private def minDecimal = BigDecimal(minRawIntValue) * BigDecimal(2).pow(exp)
 
     def #= (that: BigDecimal): Unit = {
-      val rhs = (that * scala.math.pow(2, fractionLength)).toBigInt
-      require(rhs <= maxRawIntValue, s"$that is overflow. Max value allowed is $maxDouble")
-      require(rhs >= minRawIntValue, s"$that is underflow.Min value allowed is $minDouble")
+      val rhs = (that * BigDecimal(2).pow(-exp)).toBigInt
+      require(rhs <= maxRawIntValue, s"$that is overflow. Max value allowed is $maxDecimal")
+      require(rhs >= minRawIntValue, s"$that is underflow.Min value allowed is $minDecimal")
       bt.raw #= rhs
     }
     def #= (that : Double): Unit = this #= BigDecimal(that)
-    def randomize(): BigDecimal = {
-      var rhs = Random.nextDouble()
-      rhs = Math.max(minDouble, rhs)
-      rhs = Math.min(maxDouble, rhs)
-      this #= rhs
-      rhs
+
+    def randomize(inRange: Boolean = true): BigDecimal = {
+      if (inRange) {
+        var randBigInt: BigInt = null
+        do {
+          if (!bt.signed || !Random.nextBoolean()) {
+            randBigInt = BigInt(maxRawIntValue.bitLength, Random) * maxRawIntValue.signum
+          } else {
+            randBigInt = BigInt(minRawIntValue.bitLength, Random) * minRawIntValue.signum
+          }
+        } while (randBigInt > maxRawIntValue || randBigInt < minRawIntValue)
+
+        if (randBigInt.signum >= 0) {
+          bt.raw #= randBigInt
+        } else {
+          randBigInt = (randBigInt.abs - 1)
+          (0 to randBigInt.bitLength).foreach { idx =>
+            randBigInt = randBigInt.flipBit(idx)
+          }
+          bt.raw #= randBigInt
+        }
+      } else {
+        bt.raw.randomize()
+      }
+      bt.toBigDecimal
     }
 
     def toBigDecimal: BigDecimal = BigDecimal(bt.raw.toBigInt) / scala.math.pow(2, fractionLength)
