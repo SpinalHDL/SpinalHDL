@@ -54,7 +54,7 @@ class SpinalSimAFixTester extends AnyFunSuite {
       for(op <- OPS) {
         for(round <- ROUNDS) {
           for(i <- 0 until 1000) {
-            dut.io.inFix.foreach(_.raw.randomize())
+            dut.io.inFix.foreach(_.randomize())
             dut.io.opMode #= op
             dut.io.roundMode #= round
             sleep(1)
