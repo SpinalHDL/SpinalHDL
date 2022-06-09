@@ -1464,6 +1464,21 @@ object PlayHistory {
 }
 
 
+object PlayHistoryModifyable {
+  class TopLevel extends Component {
+    val input = slave(Flow(UInt(4 bits)))
+    val history = HistoryModifyable(input, 4)
+    val result = Vec(master(Stream(input.payload.clone)), 3)
+    history.io.outStreams.zip(result).map(x => x._1 >> x._2)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}
+
+
 object PlayRandBoot{
   class TopLevel extends Component {
     val toto = Reg(UInt(4 bits)).randBoot().dontSimplifyIt()

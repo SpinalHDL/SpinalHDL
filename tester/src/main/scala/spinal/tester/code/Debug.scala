@@ -9,10 +9,14 @@ import spinal.core.fiber.Handle
 import spinal.core.internals.Operator
 import spinal.lib._
 import spinal.core.sim._
+import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
+import spinal.lib.graphic.Rgb
 import spinal.lib.io.TriState
+import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
@@ -166,19 +170,126 @@ object InlineBbPlay extends App{
   SimConfig.doSim(new top()){dut => }
 }
 
+
+class TestCore(initial: Bool = False) extends Component {
+  val io = new Bundle {
+    val read = out(Reg(Bool())) init (False)
+  }
+}
+
+object Tesasdadt {
+  def main(args: Array[String]) {
+    SpinalVerilog(new TestCore(False))
+  }
+}
+
 object Debug2 extends App{
 
 
   SpinalConfig().includeFormal.generateSystemVerilog(new Component{
 
 
-    val cacheFsm = new StateMachine {
-      //    val idle = new State with EntryPoint
-      val idle = makeInstantEntry()
-      val flagCompare = new State
-      val allocation = new State
-      val writeBack = new State
-    }
+    val vec = Vec.fill(4)(Reg(UInt(8 bits)) init(0))
+    vec(in UInt(2 bits))(3) := in(Bool())
+//    val a = new AFix(maxValue=BigInt("2923003274661805836407369665432566039311865085951"), minValue = 0, exp = -158)
+//    val b = new AFix(maxValue=BigInt("162259276829213363391578010288128"), minValue = 0, exp = -104)
+//    b := a.rounded(rounding=RoundType.CEIL)
+
+//    val d = new AFix(maxValue=0xFFF00, minValue = 0, exp = -20)
+//    val e = new AFix(maxValue=BigInt(0xFFF), minValue = 0, exp = -12)
+//    e := d.ceil(-12)
+//    e := d.rounded(rounding=RoundType.CEIL)
+
+
+//    val x = 2.apply{True} //## 6{False}
+
+//    val a = in Bool()
+//    val clear = in Bool()
+//    val b = out Bool()
+//
+//    b := DelayWithInit(a, 4){d =>
+//      println(d.getBitsWidth)
+//    }
+
+
+//    val x = (0 to 10).map(e => AFix(10, -e exp))
+//    val x2 = (0 to 10).map(i => U(9))
+//    val x3 = Vec.tabulate(10)(w => UInt(w bits))
+//    case class Struct(w : Int) extends Bundle{
+//      val a = UInt(7 bits)
+//      val b = Bool()
+//      val c = (0 to 3).map(e => AFix(10, -e-w exp))
+////      val c = AFix(10, -w exp)
+//    }
+//    val x4 = Vec.tabulate(10)(w => Struct(w))
+//    val sel = UInt(4 bits)
+//    val y = x.read(sel)
+
+//    new AFix(10240, 10, -10 exp) := new AFix(10, 10, 0 exp)
+
+//    val m1 = new AFix(10240, 10, -10 exp)
+//    val m2 = new AFix(10, 10, 0 exp)
+//    val m3, m4 = Struct(4)
+//    val m5 = Struct(8)
+//    val m6 = Bits(8 bits)
+//    val m7 = Bits(10 bits)
+//    val m8 = UInt(8 bits)
+//    val m9 = UInt(10 bits)
+//    val m = in.Bool() ? m2 | m1
+//    val mx = in.Bool() ? m1 | m2
+//    val my = in.Bool() ? m6 | m7
+//    val mz = in.Bool() ? m8 | m9.resized
+
+    //    val x = BufferCC(
+//      Rgb(5,6,5),
+//      init = {
+//        val i = Rgb(5,6,5)
+//        i.r := 0
+//        i.g := 1
+//        i.b := 2
+//        i
+//      }
+//    )
+
+//    val x,y = Vec(True, True)
+//    val z = x rawrrr y
+//    val checker = GenerationFlags formal new Area {
+//
+//    }
+
+//    assert(False, L"miaou $False", FAILURE)
+//    val sel = in UInt(0 bits)
+//    val result = out(sel.muxListDc(List(0 -> U(32, 8 bits))))
+
+//    val muxSel = Seq(
+//      false -> True,
+//      true  -> False
+//    )
+//    val muxOut = False.muxList(muxSel)
+
+//    val muxSel = Seq(
+//      0 -> True,
+//      1  -> False
+//    )
+//    val muxOut = U(1).muxList(muxSel)
+
+//    val bus = new Area {
+//      val write = Bool()
+//      val address = UInt(8 bits)
+//    }
+//    class RegInst(address : Int) extends Area{
+//      val isWriting = bus.write && bus.address === address
+//    }
+//    val myReg = new RegInst(42)
+
+//    val x = History(False, 2)
+//    val cacheFsm = new StateMachine {
+//      //    val idle = new State with EntryPoint
+//      val idle = makeInstantEntry()
+//      val flagCompare = new State
+//      val allocation = new State
+//      val writeBack = new State
+//    }
 
 //    case class Wuff(val a : Int) extends Bundle{
 //      println(a)
@@ -297,19 +408,40 @@ object Debug3 extends App{
 
   SimConfig.withFstWave.compile(new Component {
     val fsm = new StateMachine{
-      val IDLE = makeInstantEntry()
+      val IDLE = new State
       val STATE_A, STATE_B, STATE_C = new State
-      
+
+      setEntry(IDLE)
+
       IDLE.whenIsActive(goto(STATE_A))
       STATE_A.whenIsActive(goto(STATE_B))
       STATE_B.whenIsActive(goto(STATE_C))
       STATE_C.whenIsActive(goto(STATE_B))
+
+//      setEncoding(SpinalEnumEncoding(id => id*2))
+
+//      val mapping = mutable.LinkedHashMap[Int , BigInt](
+//        states.indexOf(IDLE) -> 0,
+//        states.indexOf(STATE_A) -> 1,
+//        states.indexOf(STATE_B) -> 3,
+//        states.indexOf(STATE_C) -> 7,
+//        states.indexOf(stateBoot) -> 15
+//      )
+//      setEncoding(SpinalEnumEncoding(mapping.apply))
+      setEncoding(
+        IDLE -> 0,
+        STATE_A -> 1,
+        STATE_B -> 3,
+        STATE_C -> 7,
+        stateBoot -> 15
+      )
     }
   }).doSim{ dut =>
     dut.clockDomain.forkStimulus(10)
     dut.clockDomain.waitSampling(100)
   }
 }
+
 object Debug344 extends App{
   import spinal.core.sim._
 
@@ -860,10 +992,187 @@ object SynthesisPlay {
         setDefinitionName(s"firstUIntLut$width")
       })
     }
+
+    def shift(width : Int) = new Rtl {
+      override def getName(): String = s"shift$width"
+      override def getRtlPath(): String = s"$getName.v"
+      SpinalVerilog(new Component {
+        val input = buf(in(UInt(width bits)))
+        val sel = buf(in(UInt(log2Up(width) bits)))
+        val result = out(buf(Shift.rightWithScrap((input << width) ## False, sel)))
+//        val result = out(buf((input |<< sel).resize(width)))
+        setDefinitionName(s"shift$width")
+      })
+    }
 //    val rtls = List(16, 32, 64, 128).flatMap(w => List(firstOh(w),firstOhV2(w), robinOh(w)))
-    val rtls = List(16, 32, 64, 128).flatMap(w => List(firstOhV2(w), firstUIntV2(w)))
+//    val rtls = List(16, 32, 64, 128).flatMap(w => List(firstOhV2(w), firstUIntV2(w)))
+    val rtls = List(54, 106).flatMap(w => List(shift(w)))
     val targets = XilinxStdTargets().take(2)
 
     Bench(rtls, targets)
   }
+}
+
+
+class Demo extends Module {
+  val inStream = slave Stream Bits(8 bits)
+  val outStream = master Stream Bits(8 bits)
+  val inClkDomain = ClockDomain.current
+  val outArea = new SlowArea(4) {
+    outStream <-< inStream.ccToggle(inClkDomain, ClockDomain.current)
+    ClockDomain.current.clockEnable.simPublic()
+  }
+}
+
+object Demo extends App {
+  import spinal.lib.sim._
+  import spinal.core.sim._
+  SpinalSimConfig().compile(new Demo).doSim { dut =>
+    dut.clockDomain.forkStimulus(20)
+
+    var num = 0
+    def seqNumber(payload: Bits) = {
+      payload #= num
+      num += 1
+      true
+    }
+    val drv = StreamDriver(dut.inStream, dut.clockDomain)(seqNumber)
+    drv.transactionDelay = () => 0
+
+    dut.outStream.ready #= true
+    StreamMonitor(dut.inStream, dut.clockDomain)(p => print(s"in data ${SimData.copy(p)}"))
+    StreamMonitor(dut.outStream, dut.outArea.clockDomain)(p => print(s"out data ${SimData.copy(p)}"))
+
+    dut.clockDomain.waitSampling(100)
+    // print
+    // in data self : 0x0
+    // in data self : 0x1
+    // out data self : 0x0
+    // in data self : 0x2
+    // in data self : 0x3
+    // out data self : 0x2
+    // in data self : 0x4
+    // in data self : 0x5
+    // out data self : 0x4
+    // in data self : 0x6
+    // in data self : 0x7
+    // out data self : 0x6
+    // ...
+  }
+}
+
+
+
+object PlayPackedData extends App{
+  class PackedData[T <: Data](hardType : HardType[T], size : Int) extends MultiData {
+    override val elements = ArrayBuffer[(String, Data)]()
+    class Element(val name : String, val raw : Bits, val width : Int)
+    val elementsMap = mutable.LinkedHashMap[String, Element]()
+
+    packedBuild()
+
+    def packedBuild() {
+      val template = hardType()
+      for ((e, name) <- (template.flatten, template.flattenLocalName).zipped) {
+        val w = widthOf(e)
+        val ref = Bits(widthOf(e) * size bits)
+        elements += name -> ref
+        elementsMap(name) = new Element(name, ref, w)
+        ref.parent = this
+        if (OwnableRef.proposal(ref, this)) ref.setPartialName(name, Nameable.DATAMODEL_WEAK)
+      }
+    }
+
+    def pack(that : T, index : Int) = {
+      for((from, name) <- (that.flatten, that.flattenLocalName).zipped){
+        val to = elementsMap(name)
+        assert(widthOf(from) == to.width)
+        to.raw(to.width*index, to.width bits) := from.asBits
+      }
+    }
+
+    def unpack(index : Int) : T = {
+      val ret = hardType()
+      for((to, name) <- (ret.flatten, ret.flattenLocalName).zipped){
+        val from = elementsMap(name)
+        to.assignFromBits(from.raw(from.width*index, from.width bits))
+      }
+      ret
+    }
+
+    override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+      that match {
+        case that: PackedData[_] =>
+          ???
+        case _ => throw new Exception("Undefined assignment")
+      }
+    }
+  }
+
+  SpinalVerilog(new Component {
+    val x = new PackedData(AxiLite4(32,32), 4)//.assignDontCare()
+//    val y = AxiLite4(32,32)
+//    x.pack(y, 2)
+//    val z = x.unpack(2)
+  })
+}
+
+
+class AssertDemo extends Component {
+  val io = new Bundle {
+    val input = slave Stream(UInt(8 bits))
+    val output = master Stream(UInt(8 bits))
+  }
+
+  assert(False, L"${REPORT_TIME} time: ${io.input.payload}".toList)
+  io.output <-/< io.input
+}
+
+object AssertDemo {
+  def main(args: Array[String]): Unit = {
+    SimConfig.withIVerilog.doSim(new AssertDemo){ dut =>
+      dut.getAllIo.filter(_.isInput).foreach(_.randomize())
+      dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.waitSampling(100)
+    }
+  }
+}
+
+import spinal.core._
+import spinal.lib._
+import spinal.lib.pipeline._
+import spinal.lib.graphic.Rgb
+
+object PipelinePlay2 extends App{
+  SpinalVerilog(new Component {
+    val io = new Bundle {
+      val input = slave(Stream(Rgb(5,6,5)))
+      val output = master(Stream(UInt(14 bits)))
+    }
+    val pipeline = new Pipeline{
+      val stageA = new Stage{
+        valid := io.input.valid
+        io.input.ready := isReady
+        val rgb = insert(io.input.payload)
+      }
+      val stageB = new Stage(Connection.M2S()){
+        val pow2 = new Area{
+          val r = insert(stageA.rgb.r * stageA.rgb.r)
+          val g = insert(stageA.rgb.g * stageA.rgb.g)
+          val b = insert(stageA.rgb.b * stageA.rgb.b)
+        }
+      }
+
+      val stageC = new Stage(Connection.M2S()){
+        val sum = insert(stageB.pow2.r +^ stageB.pow2.g +^ stageB.pow2.b)
+      }
+
+      val stageD = new Stage(Connection.M2S()){
+        io.output.valid := isValid
+        haltIt(!io.output.ready)
+        io.output.payload := stageC.sum
+      }
+    }
+    pipeline.build()
+  })
 }

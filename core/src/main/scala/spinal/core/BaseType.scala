@@ -224,7 +224,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     }
     that match {
       case that : Expression if that.getTypeObject == target.asInstanceOf[Expression].getTypeObject =>
-        DslScopeStack.get.append(statement(that))
+        DslScopeStack.get match {
+          case null =>  SpinalError(s"Hardware assignement done outside any Component")
+          case s => s.append(statement(that))
+        }
       case _ => kind match {
         case `DataAssign` => LocatedPendingError(s"Assignment data type mismatch\n$this := $that")
         case `InitAssign` => LocatedPendingError(s"Register initialisation type mismatch\nReg($this) init($that)")
