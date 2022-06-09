@@ -46,10 +46,10 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         when(input.w.data(highRange) === d2) { assume(input.w.data(lowRange) === d1) }
 
         val maxStall = 16
-        val inputChecker = input.formalContext(4, 4)
+        val inputChecker = input.formalContext(3, 4)
         inputChecker.withSlaveAsserts(maxStall)
         inputChecker.withSlaveAssumes(maxStall)
-        val outputChecker = output.formalContext(4, 4)
+        val outputChecker = output.formalContext(6, 4)
         outputChecker.withMasterAsserts(maxStall)
         outputChecker.withMasterAssumes(maxStall)
 
@@ -77,6 +77,9 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
             assert(output.w.data === d1 | output.w.data === d2)
           }
         }
+
+        assume(!inputChecker.hist.io.willOverflow)
+        assert(!outputChecker.hist.io.willOverflow)
 
         outputChecker.withCovers()
         inputChecker.withCovers()
