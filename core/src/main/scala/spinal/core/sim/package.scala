@@ -497,10 +497,19 @@ package object sim {
     private def minDecimal = BigDecimal(minRawIntValue) * BigDecimal(2).pow(exp)
 
     def #= (that: BigDecimal): Unit = {
-      val rhs = (that * BigDecimal(2).pow(-exp)).toBigInt
+      var rhs = (that * BigDecimal(2).pow(-exp)).toBigInt
       require(rhs <= maxRawIntValue, s"$that is overflow. Max value allowed is $maxDecimal")
       require(rhs >= minRawIntValue, s"$that is underflow.Min value allowed is $minDecimal")
-      bt.raw #= rhs
+
+      if (rhs.signum >= 0) {
+        bt.raw #= rhs
+      } else {
+        rhs = (rhs.abs - 1)
+        (0 until bt.bitWidth).foreach { idx =>
+          rhs = rhs.flipBit(idx)
+        }
+        bt.raw #= rhs
+      }
     }
     def #= (that : Double): Unit = this #= BigDecimal(that)
 
@@ -519,7 +528,7 @@ package object sim {
           bt.raw #= randBigInt
         } else {
           randBigInt = (randBigInt.abs - 1)
-          (0 to randBigInt.bitLength).foreach { idx =>
+          (0 until bt.bitWidth).foreach { idx =>
             randBigInt = randBigInt.flipBit(idx)
           }
           bt.raw #= randBigInt
@@ -530,7 +539,22 @@ package object sim {
       bt.toBigDecimal
     }
 
-    def toBigDecimal: BigDecimal = BigDecimal(bt.raw.toBigInt) / scala.math.pow(2, fractionLength)
+    def toBigDecimal: BigDecimal = {
+      if (bt.signed) {
+        var rawInt = bt.raw.toBigInt
+        if (!rawInt.testBit(bt.numWidth)) {
+          BigDecimal(rawInt) / scala.math.pow(2, fractionLength)
+        } else {
+          (0 until bt.bitWidth).foreach { idx =>
+            rawInt = rawInt.flipBit(idx)
+          }
+          rawInt = -(rawInt + 1)
+          BigDecimal(rawInt) / scala.math.pow(2, fractionLength)
+        }
+      } else {
+        BigDecimal(bt.raw.toBigInt) / scala.math.pow(2, fractionLength)
+      }
+    }
     def toDouble: Double = this.toBigDecimal.doubleValue
 
   }
