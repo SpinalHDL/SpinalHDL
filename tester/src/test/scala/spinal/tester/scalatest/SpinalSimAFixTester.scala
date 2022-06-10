@@ -256,8 +256,8 @@ class AFixTester extends Component {
     chosenOp.roundHalfDown(0),
     chosenOp.roundHalfToZero(0),
     chosenOp.roundHalfToInf(0),
-    chosenOp.roundHalfToEven(),
-    chosenOp.roundHalfToOdd()
+    chosenOp.roundHalfToEven(0),
+    chosenOp.roundHalfToOdd(0)
   ))
 
   io.outFix := roundResults(io.roundMode.asUInt).sat(io.outFix)

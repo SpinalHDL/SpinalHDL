@@ -878,151 +878,45 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * Rounds a value towards the nearest even value including half values, otherwise rounds towards odd values
    * @return Rounded result
    */
-  def roundHalfToEven(): AFix = {
+  def roundHalfToEven(exp: Int): AFix = {
     assert(this.exp < -1, f"Cannot roundHalfToEven() because number does not have enough fractional bits, needs at least -2 exp")
-    val shift = BigInt(2).pow(-this.exp)
-    val res = new AFix(this.maxRaw / shift, this.minRaw / shift, 0)
+    val drop = exp-this.exp
+    if(drop < 0) return CombInit(this)
+    val step = BigInt(1) << drop
+    val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
 
     if (this.signed) {
-      val fracOr = this.raw.takeLow(-this.exp-1).orR
-      val fracMSB = this.raw(-this.exp-1)
-      val intLSB = this.raw(-this.exp)
-      val addValue = SInt(2 bit)
-      when(!this.raw.msb) {
-        // positive
-        when(!intLSB) {
-          // even
-          when(fracMSB && fracOr) {
-            addValue := 1
-          } otherwise {
-            addValue := 0
-          }
-        } otherwise {
-          // odd
-          when(fracMSB) {
-            addValue := 1
-          } otherwise {
-            addValue := 0
-          }
-        }
-      } otherwise {
-        // negative
-        when(!intLSB) {
-          // even
-          when(fracMSB && fracOr) {
-            addValue := 1
-          } otherwise {
-            addValue := 0
-          }
-        } otherwise {
-          // odd
-          when(fracMSB) {
-            addValue := 1
-          } otherwise {
-            addValue := 0
-          }
-        }
-      }
-      res.raw := (this.raw.dropLow(-this.exp).asSInt + addValue).asBits
+      res.raw := this.raw.asSInt.roundToEven(drop, false).resize(widthOf(res.raw)).asBits
     } else {
-      val fracOr = this.raw.takeLow(-this.exp-1).orR
-      val fracMSB = this.raw(-this.exp-1)
-      val intLSB = this.raw(-this.exp)
-      val addValue = UInt(1 bit)
-      when(!intLSB) {
-        // even
-        when(fracMSB && fracOr) {
-          addValue := 1
-        } otherwise {
-          addValue := 0
-        }
-      } otherwise {
-        // odd
-        when(fracMSB) {
-          addValue := 1
-        } otherwise {
-          addValue := 0
-        }
-      }
-      res.raw := (this.raw.dropLow(-this.exp).asUInt + addValue).asBits
+      res.raw := this.raw.asUInt.roundToEven(drop, false).resize(widthOf(res.raw)).asBits
     }
+
     res
   }
+
+  def roundToEven(exp: Int, align: Boolean): AFix = roundHalfToEven(exp)
 
   /**
    * Rounds a value towards the nearest odd value including half values, otherwise rounds towards even values
    * @return Rounded result
    */
-  def roundHalfToOdd(): AFix = {
+  def roundHalfToOdd(exp: Int): AFix = {
     assert(this.exp < -1, f"Cannot roundHalfToOdd() because number does not have enough fractional bits, needs at least -2 exp")
-    val shift = BigInt(2).pow(-this.exp)
-    val res = new AFix(this.maxRaw / shift, this.minRaw / shift, 0)
+    val drop = exp-this.exp
+    if(drop < 0) return CombInit(this)
+    val step = BigInt(1) << drop
+    val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
 
     if (this.signed) {
-      val fracOr = this.raw.takeLow(-this.exp-1).orR
-      val fracMSB = this.raw(-this.exp-1)
-      val intLSB = this.raw(-this.exp)
-      val addValue = SInt(2 bit)
-      when(!this.raw.msb) {
-        // positive
-        when(intLSB) {
-          // odd
-          when(fracMSB && fracOr) {
-            addValue := 1
-          } otherwise {
-            addValue := 0
-          }
-        } otherwise {
-          // even
-          when(fracMSB) {
-            addValue := 1
-          } otherwise {
-            addValue := 0
-          }
-        }
-      } otherwise {
-        // negative
-        when(intLSB) {
-          // odd
-          when(fracMSB && fracOr) {
-            addValue := 1
-          } otherwise {
-            addValue := 0
-          }
-        } otherwise {
-          // even
-          when(fracMSB) {
-            addValue := 1
-          } otherwise {
-            addValue := 0
-          }
-        }
-      }
-      res.raw := (this.raw.dropLow(-this.exp).asSInt + addValue).asBits
+      res.raw := this.raw.asSInt.roundToOdd(drop, false).resize(widthOf(res.raw)).asBits
     } else {
-      val fracOr = this.raw.takeLow(-this.exp-1).orR
-      val fracMSB = this.raw(-this.exp-1)
-      val intLSB = this.raw(-this.exp)
-      val addValue = UInt(1 bit)
-      when(intLSB) {
-        // odd
-        when(fracMSB && fracOr) {
-          addValue := 1
-        } otherwise {
-          addValue := 0
-        }
-      } otherwise {
-        // even
-        when(fracMSB) {
-          addValue := 1
-        } otherwise {
-          addValue := 0
-        }
-      }
-      res.raw := (this.raw.dropLow(-this.exp).asUInt + addValue).asBits
+      res.raw := this.raw.asUInt.roundToOdd(drop, false).resize(widthOf(res.raw)).asBits
     }
+
     res
   }
+
+  def roundToOdd(exp: Int, align: Boolean): AFix = roundHalfToOdd(exp)
 
   def round(exp: Int, aligned: Boolean): AFix = {
     val trunc = this.getTag(classOf[TagAFixTruncated])
@@ -1046,8 +940,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       case RoundType.ROUNDDOWN   => this.roundHalfDown(0)
       case RoundType.ROUNDTOZERO => this.roundHalfToZero(0)
       case RoundType.ROUNDTOINF  => this.roundHalfToInf(0)
-      case RoundType.ROUNDTOEVEN => this.roundHalfToEven()
-      case RoundType.ROUNDTOODD  => this.roundHalfToOdd()
+      case RoundType.ROUNDTOEVEN => this.roundHalfToEven(0)
+      case RoundType.ROUNDTOODD  => this.roundHalfToOdd(0)
       case RoundType.SCRAP        => this.scrap(0)
     }
   }
