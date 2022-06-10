@@ -4,7 +4,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object AFix {
 
-  def apply(maxValue: BigInt, minValue: BigInt, exp: ExpNumber) : AFix = new AFix(maxValue = maxValue, minValue = minValue, exp = exp.value)
+  def apply(maxValue: BigInt, minValue: BigInt, exp: ExpNumber) : AFix = new AFix(maxRaw = maxValue, minRaw = minValue, exp = exp.value)
   def apply(u: UInt): AFix = AFix(u, 0 exp)
   def apply(u: UInt, exp: ExpNumber): AFix = {
     val maxValue = BigInt(2).pow(u.getWidth)-1
@@ -66,12 +66,12 @@ object AFix {
   def U(amplitude: ExpNumber, resolution: ExpNumber): AFix = AFix(amplitude, resolution, false)
 //  def U(wholeBits: BitCount, exp: ExpNumber): AFix = AFix(wholeBits, -exp bit, false)
 //  def U(maximum: BigInt, resolution: ExpNumber): AFix = {
-//    assert(maximum >= 0, s"AFix.U maxValue must be non-negative! (${maximum} is not >= 0)")
+//    assert(maximum >= 0, s"AFix.U maxRaw must be non-negative! (${maximum} is not >= 0)")
 //    new AFix(maximum*BigInt(2).pow(-resolution.value)+(BigInt(2).pow(-resolution.value)-1), 0, resolution)
 //  }
 //  def U(maximum: BigInt, minimum: BigInt, resolution: ExpNumber): AFix = {
-//    assert(maximum >= 0, s"AFix.U maxValue must be non-negative! (${maximum} is not >= 0)")
-//    assert(maximum >= 0, s"AFix.U minValue must be non-negative! (${minimum} is not >= 0)")
+//    assert(maximum >= 0, s"AFix.U maxRaw must be non-negative! (${maximum} is not >= 0)")
+//    assert(maximum >= 0, s"AFix.U minRaw must be non-negative! (${minimum} is not >= 0)")
 //    new AFix(maximum*BigInt(2).pow(-resolution.value)+(BigInt(2).pow(-resolution.value)-1),
 //      minimum*BigInt(2).pow(-resolution.value), resolution)
 //  }
@@ -84,15 +84,15 @@ object AFix {
 //  def S(maximum: BigInt, resolution: ExpNumber): AFix =
 //    new AFix(maximum.max(0)*BigInt(2).pow(-resolution.value)+(BigInt(2).pow(-resolution.value)*maximum.signum-maximum.signum),
 //      maximum.min(0)*BigInt(2).pow(-resolution.value)+(BigInt(2).pow(-resolution.value)*maximum.signum-maximum.signum), resolution)
-//  def S(maxValue: BigInt, minValue: BigInt, exp: ExpNumber): AFix =
-//    new AFix(maxValue*BigInt(2).pow(-exp)+(BigInt(2).pow(-exp)*maxValue.signum-maxValue.signum),
-//      minValue*BigInt(2).pow(-exp), exp)
+//  def S(maxRaw: BigInt, minRaw: BigInt, exp: ExpNumber): AFix =
+//    new AFix(maxRaw*BigInt(2).pow(-exp)+(BigInt(2).pow(-exp)*maxRaw.signum-maxRaw.signum),
+//      minRaw*BigInt(2).pow(-exp), exp)
 
   def holding(values: TraversableOnce[AFix]) : AFix = {
     val param = holdingParams(values)
     new AFix(
-      maxValue = param._1,
-      minValue = param._2,
+      maxRaw = param._1,
+      minRaw = param._2,
       exp      = param._3
     )
   }
@@ -101,22 +101,25 @@ object AFix {
   def holdingParams(values: TraversableOnce[AFix]) : (BigInt, BigInt, Int) = {
     val ex = values.map(_.exp).min
     (
-      values.map(e => e.maxValue << (e.exp - ex).max(0)).max,
-      values.map(e => e.minValue << (e.exp - ex).max(0)).min,
+      values.map(e => e.maxRaw << (e.exp - ex).max(0)).max,
+      values.map(e => e.minRaw << (e.exp - ex).max(0)).min,
       ex
     )
   }
 }
 
-class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends MultiData with Num[AFix] with MinMaxProvider {
-  assert(maxValue >= minValue)
+class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiData with Num[AFix] {
+  assert(maxRaw >= minRaw)
 
-  val signed = (maxValue < 0) || (minValue < 0)
+  val signed = (maxRaw < 0) || (minRaw < 0)
   val signWidth = if (signed) 1 else 0
 
-  private val maxShifted = maxValue.abs - (if (maxValue < 0) signWidth else 0)
+  val maxValue = BigDecimal(maxRaw) * BigDecimal(2).pow(exp)
+  val minValue = BigDecimal(minRaw) * BigDecimal(2).pow(exp)
+
+  private val maxShifted = maxRaw.abs - (if (maxRaw < 0) signWidth else 0)
   private val maxBits = maxShifted.bitLength
-  private val minShifted = minValue.abs - (if (minValue < 0) signWidth else 0)
+  private val minShifted = minRaw.abs - (if (minRaw < 0) signWidth else 0)
   private val minBits = minShifted.bitLength
 
   // Number of bits to represent the entire value
@@ -153,15 +156,15 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     val expDiff = l.exp - r.exp
     // Scale left or right ranges if there's a difference in precision
     if (expDiff > 0) {
-      (l.maxValue*BigInt(2).pow(expDiff),
-       l.minValue*BigInt(2).pow(expDiff),
-       r.maxValue, r.minValue)
+      (l.maxRaw*BigInt(2).pow(expDiff),
+       l.minRaw*BigInt(2).pow(expDiff),
+       r.maxRaw, r.minRaw)
     } else if (expDiff < 0) {
-      (l.maxValue, l.minValue,
-       r.maxValue*BigInt(2).pow(-expDiff),
-       r.minValue*BigInt(2).pow(-expDiff))
+      (l.maxRaw, l.minRaw,
+       r.maxRaw*BigInt(2).pow(-expDiff),
+       r.minRaw*BigInt(2).pow(-expDiff))
     } else {
-      (l.maxValue, l.minValue, r.maxValue, r.minValue)
+      (l.maxRaw, l.minRaw, r.maxRaw, r.minRaw)
     }
   }
 
@@ -275,7 +278,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
    * @return Product
    */
   def *(right: AFix): AFix = {
-    val (lMax, lMin, rMax, rMin) = (this.maxValue, this.minValue, right.maxValue, right.minValue)
+    val (lMax, lMin, rMax, rMin) = (this.maxRaw, this.minRaw, right.maxRaw, right.minRaw)
     val possibleLimits = List(lMax*rMax, lMax*rMin, lMin*rMax, lMin*rMin)
     val ret = new AFix(possibleLimits.max, possibleLimits.min, this.exp + right.exp)
 
@@ -441,7 +444,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
   // Shift decimal point left
   def <<(shift: Int): AFix = {
-    val ret = new AFix(this.maxValue, this.minValue, (this.exp + shift))
+    val ret = new AFix(this.maxRaw, this.minRaw, (this.exp + shift))
 
     ret.raw := this.raw
 
@@ -450,7 +453,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
   // Shift decimal point right
   def >>(shift: Int): AFix = {
-    val ret = new AFix(this.maxValue, this.minValue, (this.exp - shift))
+    val ret = new AFix(this.maxRaw, this.minRaw, (this.exp - shift))
 
     ret.raw := this.raw
 
@@ -461,7 +464,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   // Shift bits and decimal point left, adding padding bits right
   def <<|(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
-    val ret = new AFix(this.maxValue * shiftBig, this.minValue * shiftBig, (this.exp + shift))
+    val ret = new AFix(this.maxRaw * shiftBig, this.minRaw * shiftBig, (this.exp + shift))
 
     ret.raw := this.raw << shift
 
@@ -471,7 +474,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   // Shift bits and decimal point right, adding padding bits left
   def >>|(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
-    val ret = new AFix(this.maxValue / shiftBig, this.minValue / shiftBig, this.exp)
+    val ret = new AFix(this.maxRaw / shiftBig, this.minRaw / shiftBig, this.exp)
 
     if (this.signed)
       ret.raw := this.raw.asSInt.resize(ret.bitWidth).asBits
@@ -483,14 +486,14 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
   def >>(shift: AFix): AFix = {
     assert(shift.exp == 0)
-    assert(shift.minValue == 0)
+    assert(shift.minRaw == 0)
     val ret = new AFix(
-      this.maxValue * (BigInt(1) << shift.maxValue.toInt),
-      this.minValue * (BigInt(1) << shift.maxValue.toInt),
-      (this.exp - shift.maxValue.toInt)
+      this.maxRaw * (BigInt(1) << shift.maxRaw.toInt),
+      this.minRaw * (BigInt(1) << shift.maxRaw.toInt),
+      (this.exp - shift.maxRaw.toInt)
     )
 
-    ret.raw := (this.raw << shift.maxValue.toInt) >> U(shift)
+    ret.raw := (this.raw << shift.maxRaw.toInt) >> U(shift)
 
     ret
   }
@@ -498,7 +501,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   //Shift right, lose lsb bits
   def >>|(shift: AFix): AFix = {
     assert(shift.exp == 0)
-    assert(shift.minValue == 0)
+    assert(shift.minRaw == 0)
     val ret = cloneOf(this)
 
     ret.raw := this.raw >> U(shift)
@@ -509,7 +512,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   //Shift left, lose MSB bits
   def |<<(shift: AFix): AFix = {
     assert(shift.exp == 0)
-    assert(shift.minValue == 0)
+    assert(shift.minRaw == 0)
     val ret = cloneOf(this)
 
     ret.raw := this.raw |<< U(shift)
@@ -521,7 +524,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   // Shift bits and decimal point left, loosing bits
   def |<<(shift: Int): AFix = {
     val width = widthOf(raw)-shift
-    val ret = new AFix(this.maxValue.min(BigInt(2).pow(width)-1), this.minValue.max(-BigInt(2).pow(width)), (this.exp + shift))
+    val ret = new AFix(this.maxRaw.min(BigInt(2).pow(width)-1), this.minRaw.max(-BigInt(2).pow(width)), (this.exp + shift))
 
     ret.raw := this.raw.resized
 
@@ -531,7 +534,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   def unary_-(): AFix = negate()
 
   def negate(): AFix = {
-    val ret = new AFix(-this.minValue, -this.maxValue, this.exp)
+    val ret = new AFix(-this.minRaw, -this.maxRaw, this.exp)
 
     if (this.signed) {
       when (!this.raw.msb) {
@@ -548,7 +551,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
 
   def negate(enable : Bool, plusOneEnable : Bool = null): AFix = {
-    val ret = new AFix(-this.minValue max this.maxValue, -this.maxValue min this.minValue, this.exp)
+    val ret = new AFix(-this.minRaw max this.maxRaw, -this.maxRaw min this.minRaw, this.exp)
 
     if (this.signed) {
       ???
@@ -563,8 +566,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     assert(newExp.value < exp) //for now
     val dif = exp - newExp.value
     val ret = new AFix(
-      this.maxValue * (BigInt(1) << dif),
-      this.minValue * (BigInt(1) << dif),
+      this.maxRaw * (BigInt(1) << dif),
+      this.minRaw * (BigInt(1) << dif),
       newExp.value
     )
 
@@ -585,7 +588,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
   def asAlwaysPositive() : AFix = {
     assert(signed)
-    val ret = AFix(maxValue = maxValue, minValue = 0, exp = exp exp)
+    val ret = AFix(maxValue = maxRaw, minValue = 0, exp = exp exp)
     ret := this.truncated()
     ret
   }
@@ -596,7 +599,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
    * @param af - AFix value to saturate range to
    * @return - Saturated AFix value
    */
-  def sat(af: AFix): AFix = this.sat(af.maxValue, af.minValue, af.exp exp)
+  def sat(af: AFix): AFix = this.sat(af.maxRaw, af.minRaw, af.exp exp)
 
   /**
    *
@@ -625,7 +628,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
    * @return - Saturated AFix value
    */
   def sat(satMax: BigInt, satMin: BigInt): AFix = {
-    if (this.maxValue < satMax || this.minValue > satMin) {
+    if (this.maxRaw < satMax || this.minRaw > satMin) {
       if (this.hasTag(tagAutoResize)) {
         val this_resized = new AFix(satMax, satMin, exp)
         this_resized := this.resized
@@ -634,17 +637,17 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 //        SpinalWarning(s"Saturation of ${this} to range [${satMax} - ${satMin}] has been limited to the representable range of the input.\nConsider adjusting the saturation range or resizing the input.\n" + ScalaLocated.long)
       }
     }
-    val ret = new AFix(satMax.min(this.maxValue), satMin.max(this.minValue), exp)
+    val ret = new AFix(satMax.min(this.maxRaw), satMin.max(this.minRaw), exp)
     when (this > AFix(satMax, exp exp)) {
       if (ret.signed)
-        ret.raw := BigIntToSInt(ret.maxValue).resize(ret.bitWidth).asBits
+        ret.raw := BigIntToSInt(ret.maxRaw).resize(ret.bitWidth).asBits
       else
-        ret.raw := BigIntToUInt(ret.maxValue).resize(ret.bitWidth).asBits
+        ret.raw := BigIntToUInt(ret.maxRaw).resize(ret.bitWidth).asBits
     } elsewhen (this < AFix(satMin, exp exp)) {
       if (ret.signed)
-        ret.raw := BigIntToSInt(ret.minValue).resize(ret.bitWidth).asBits
+        ret.raw := BigIntToSInt(ret.minRaw).resize(ret.bitWidth).asBits
       else
-        ret.raw := BigIntToUInt(ret.minValue).resize(ret.bitWidth).asBits
+        ret.raw := BigIntToUInt(ret.minRaw).resize(ret.bitWidth).asBits
     } otherwise {
       if (ret.signed)
         ret.raw := this.raw.asSInt.resize(ret.bitWidth).asBits
@@ -661,8 +664,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
    * @return
    */
   def sat(m: Int): AFix = {
-    val newMax = BigInt(2).pow(bitWidth-m).min(this.maxValue)
-    val newMin = if (signed) (-BigInt(2).pow(bitWidth-m)).max(this.minValue) else BigInt(0).max(this.minValue)
+    val newMax = BigInt(2).pow(bitWidth-m).min(this.maxRaw)
+    val newMin = if (signed) (-BigInt(2).pow(bitWidth-m)).max(this.minRaw) else BigInt(0).max(this.minRaw)
     val ret = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
@@ -681,8 +684,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
    * @return
    */
   def trim(m: Int): AFix = {
-    val newMax = BigInt(2).pow(m).min(this.maxValue)
-    val newMin = if (signed) (-BigInt(2).pow(m)).max(this.minValue) else BigInt(0).max(this.minValue)
+    val newMax = BigInt(2).pow(m).min(this.maxRaw)
+    val newMin = if (signed) (-BigInt(2).pow(m)).max(this.minRaw) else BigInt(0).max(this.minRaw)
     val newExp = if (m >= 0) exp+m else exp-m
     val ret = new AFix(newMax, newMin, newExp)
 
@@ -702,7 +705,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   def floor(exp : Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val res = new AFix(this.maxValue >> drop, this.minValue >> drop, 0)
+    val res = new AFix(this.maxRaw >> drop, this.minRaw >> drop, 0)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.floor(drop).resize(widthOf(res.raw)).asBits
@@ -716,7 +719,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   def scrap(exp : Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val res = new AFix(this.maxValue >> drop, this.minValue >> drop, 0)
+    val res = new AFix(this.maxRaw >> drop, this.minRaw >> drop, 0)
 
     res.raw := this.raw.dropLow(drop)
     res.raw.lsb setWhen(this.raw.takeLow(drop).orR)
@@ -734,7 +737,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
-    val res = new AFix((this.maxValue+step-1) >> drop, (this.minValue+step-1) >> drop, exp)
+    val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.ceil(drop, false).resize(widthOf(res.raw)).asBits
@@ -757,7 +760,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val step = BigInt(1) << drop
-      val res = new AFix((this.maxValue+step-1) >> drop, (this.minValue+step-1) >> drop, exp)
+      val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
 
       res.raw := this.raw.asSInt.floorToZero(drop).resize(widthOf(res.raw)).asBits
       res
@@ -776,7 +779,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val step = BigInt(1) << drop
-      val res = new AFix((this.maxValue+step-1) >> drop, (this.minValue+step-1) >> drop, exp)
+      val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
 
       res.raw := this.raw.asSInt.ceilToInf(drop, false).resize(widthOf(res.raw)).asBits
       res
@@ -796,7 +799,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
-    val res = new AFix((this.maxValue+step-1) >> drop, (this.minValue+step-1) >> drop, exp)
+    val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.roundUp(drop, false).resize(widthOf(res.raw)).asBits
@@ -817,7 +820,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
-    val res = new AFix((this.maxValue+step-1) >> drop, (this.minValue+step-1) >> drop, exp)
+    val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.roundDown(drop, false).resize(widthOf(res.raw)).asBits
@@ -839,7 +842,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val step = BigInt(1) << drop
-      val res = new AFix((this.maxValue+step-1) >> drop, (this.minValue+step-1) >> drop, exp)
+      val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
 
       res.raw := this.raw.asSInt.roundToZero(drop, false).resize(widthOf(res.raw)).asBits
       res
@@ -860,7 +863,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val step = BigInt(1) << drop
-      val res = new AFix((this.maxValue+step-1) >> drop, (this.minValue+step-1) >> drop, exp)
+      val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
 
       res.raw := this.raw.asSInt.roundToInf(drop, false).resize(widthOf(res.raw)).asBits
       res
@@ -878,7 +881,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   def roundHalfToEven(): AFix = {
     assert(this.exp < -1, f"Cannot roundHalfToEven() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp)
-    val res = new AFix(this.maxValue / shift, this.minValue / shift, 0)
+    val res = new AFix(this.maxRaw / shift, this.minRaw / shift, 0)
 
     if (this.signed) {
       val fracOr = this.raw.takeLow(-this.exp-1).orR
@@ -953,7 +956,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   def roundHalfToOdd(): AFix = {
     assert(this.exp < -1, f"Cannot roundHalfToOdd() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp)
-    val res = new AFix(this.maxValue / shift, this.minValue / shift, 0)
+    val res = new AFix(this.maxRaw / shift, this.minRaw / shift, 0)
 
     if (this.signed) {
       val fracOr = this.raw.takeLow(-this.exp-1).orR
@@ -1031,7 +1034,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     }
   }
 
-  override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxValue}, min=${minValue}, exp=${exp}, bits=${raw.getWidth}]"
+  override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxRaw}, min=${minRaw}, exp=${exp}, bits=${raw.getWidth}]"
 
   private def _round(roundType: RoundType): AFix = {
     roundType match {
@@ -1156,9 +1159,9 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   def :=(s: SFix) = this assignFrom(s)
   def :=(a: AFix) = this assignFrom(a)
 
-  override def clone: this.type = new AFix(maxValue, minValue, exp).asInstanceOf[this.type]
+  override def clone: this.type = new AFix(maxRaw, minRaw, exp).asInstanceOf[this.type]
 
-  def hasParametersOf(that : AFix) : Boolean = this.maxValue == that.maxValue && this.minValue == that.minValue && this.exp == that.exp
+  def hasParametersOf(that : AFix) : Boolean = this.maxRaw == that.maxRaw && this.minRaw == that.minRaw && this.exp == that.exp
   override def getMuxType[T <: Data](list: TraversableOnce[T]) = {
     val p = AFix.holdingParams(list.asInstanceOf[TraversableOnce[AFix]])
     HardType(new AFix(p._1, p._2, p._3).asInstanceOf[T])

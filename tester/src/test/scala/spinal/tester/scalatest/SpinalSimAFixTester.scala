@@ -11,7 +11,7 @@ import scala.util.Random
 
 class SpinalSimAFixTester extends AnyFunSuite {
   def check(max : Int, min : Int, exp : Int)(f : AFix): Unit ={
-    assert(f.maxValue == max && f.minValue == min && f.exp == exp)
+    assert(f.maxRaw == max && f.minRaw == min && f.exp == exp)
   }
   test("instantiate") {
     SpinalVerilog(new Component{
@@ -235,8 +235,8 @@ class AFixTester extends Component {
     println(res)
   }
   val rangeExpMin = opResultsSeq.minBy(_.exp).exp
-  val rangeMax = opResultsSeq.map(af => af.maxValue*BigInt(2).pow(af.exp - rangeExpMin)).max
-  val rangeMin = opResultsSeq.map(af => af.minValue*BigInt(2).pow(af.exp - rangeExpMin)).min
+  val rangeMax = opResultsSeq.map(af => af.maxRaw*BigInt(2).pow(af.exp - rangeExpMin)).max
+  val rangeMin = opResultsSeq.map(af => af.minRaw*BigInt(2).pow(af.exp - rangeExpMin)).min
   val opResults = Vec(opResultsSeq.map(af => {
     val resized_af = new AFix(rangeMax, rangeMin, rangeExpMin)
     resized_af := af

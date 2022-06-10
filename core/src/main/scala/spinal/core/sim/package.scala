@@ -490,8 +490,8 @@ package object sim {
   // todo
   implicit class SimAFixPimper(bt: AFix) {
     val fractionLength = bt.fracWidth
-    val maxRawIntValue = bt.maxValue
-    val minRawIntValue = bt.minValue
+    val maxRawIntValue = bt.maxRaw
+    val minRawIntValue = bt.minRaw
     private def exp = bt.exp
     private def maxDecimal = BigDecimal(maxRawIntValue) * BigDecimal(2).pow(exp)
     private def minDecimal = BigDecimal(minRawIntValue) * BigDecimal(2).pow(exp)
