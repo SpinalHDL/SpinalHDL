@@ -231,10 +231,10 @@ class AFixTester extends Component {
     chosenOp.floor(0),
     chosenOp.floorToZero(0),
     chosenOp.ceilToInf(0),
-    chosenOp.roundHalfUp(),
-    chosenOp.roundHalfDown(),
-    chosenOp.roundHalfToZero(),
-    chosenOp.roundHalfToInf(),
+    chosenOp.roundHalfUp(0),
+    chosenOp.roundHalfDown(0),
+    chosenOp.roundHalfToZero(0),
+    chosenOp.roundHalfToInf(0),
     chosenOp.roundHalfToEven(),
     chosenOp.roundHalfToOdd()
   ))
