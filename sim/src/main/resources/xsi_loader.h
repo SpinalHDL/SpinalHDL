@@ -7,6 +7,11 @@
 #include <string>
 #include <exception>
 
+extern "C" {
+    typedef XSI_INT32 (*t_fp_xsi_get_int)(xsiHandle, XSI_INT32);
+    typedef XSI_INT64 (*t_fp_xsi_get_time)(xsiHandle);
+}
+
 namespace Xsi {
 
 class LoaderException : public std::exception {
@@ -37,6 +42,7 @@ public:
     int get_status();
     const char* get_error_info();
     void trace_all();
+    XSI_INT32 get_sim_time_precision();
     XSI_INT64 get_time();
 
 private:
@@ -61,6 +67,7 @@ private:
     t_fp_xsi_get_port_name _xsi_get_port_name;
     t_fp_xsi_trace_all _xsi_trace_all;
     t_fp_xsi_get_time _xsi_get_time;
+    t_fp_xsi_get_int _xsi_get_int;
 
 }; // class Loader
 
