@@ -108,7 +108,7 @@ object AFix {
   }
 }
 
-class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiData with Num[AFix] {
+class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiData with Num[AFix] with BitwiseOp[AFix] {
   assert(maxRaw >= minRaw)
 
   val signed = (maxRaw < 0) || (minRaw < 0)
@@ -134,6 +134,10 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   val numWidth = bitWidth - signWidth
 
   val raw: Bits = Bits(bitWidth bit)
+
+  // Representable range, range which could be represented by the backing bit vector
+  private val maxRepr = BigInt(2).pow(numWidth)
+  private val minRepr = BigInt(2).pow(numWidth)+1
 
   raw.setRefOwner(this)
   raw.setPartialName("", weak = true)
@@ -165,6 +169,23 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
        r.minRaw*BigInt(2).pow(-expDiff))
     } else {
       (l.maxRaw, l.minRaw, r.maxRaw, r.minRaw)
+    }
+  }
+
+  /** Aligns representable ranges of two AFix numbers */
+  private def alignRangesRepr(l: AFix, r: AFix): (BigInt, BigInt, BigInt, BigInt) = {
+    val expDiff = l.exp - r.exp
+    // Scale left or right ranges if there's a difference in precision
+    if (expDiff > 0) {
+      (l.maxRepr*BigInt(2).pow(expDiff),
+        l.minRepr*BigInt(2).pow(expDiff),
+        r.maxRepr, r.minRepr)
+    } else if (expDiff < 0) {
+      (l.maxRepr, l.minRaw,
+        r.maxRepr*BigInt(2).pow(-expDiff),
+        r.minRepr*BigInt(2).pow(-expDiff))
+    } else {
+      (l.maxRepr, l.minRepr, r.maxRepr, r.minRepr)
     }
   }
 
@@ -524,6 +545,38 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     assert(signed)
     val ret = AFix(maxValue = maxRaw, minValue = 0, exp = exp exp)
     ret := this.truncated()
+    ret
+  }
+
+
+  /** Logical AND operator */
+  override def &(right: AFix): AFix = {
+    val (lMax, lMin, rMax, rMin) = alignRangesRepr(this, right)
+    val ret = new AFix(lMax.max(rMin), lMin.min(rMax), Math.min(this.exp, right.exp))
+    ret.raw := this.raw & right.raw
+    ret
+  }
+
+  /** Logical OR operator */
+  override def |(right: AFix): AFix = {
+    val (lMax, lMin, rMax, rMin) = alignRangesRepr(this, right)
+    val ret = new AFix(lMax.max(rMin), lMin.min(rMax), Math.min(this.exp, right.exp))
+    ret.raw := this.raw | right.raw
+    ret
+  }
+
+  /** Logical XOR operator */
+  override def ^(right: AFix): AFix = {
+    val (lMax, lMin, rMax, rMin) = alignRangesRepr(this, right)
+    val ret = new AFix(lMax.max(rMin), lMin.min(rMax), Math.min(this.exp, right.exp))
+    ret.raw := this.raw ^ right.raw
+    ret
+  }
+
+  /** Inverse bitwise operator */
+  override def unary_~ : AFix = {
+    val ret = new AFix(maxRepr, minRepr, exp)
+    ret.raw := ~this.raw
     ret
   }
 
