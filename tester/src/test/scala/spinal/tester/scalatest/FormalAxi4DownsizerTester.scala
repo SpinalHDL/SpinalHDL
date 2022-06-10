@@ -114,6 +114,27 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         assert(!inputChecker.hist.io.willOverflow)
         assert(!outputChecker.hist.io.willOverflow)
+        
+        val size = CombInit(U(0, input.ar.size.getBitsWidth bits))
+        when(inputChecker.rExist) {
+          size := inputChecker.hist.io.outStreams(inputChecker.rId).size
+        }
+
+        val dataHist = new HistoryModifyable(cloneOf(output.r.data), 4)
+        dataHist.init()
+        dataHist.io.input.valid := output.r.fire
+        dataHist.io.input.payload := output.r.data
+        val (d1Exist, d1Id) = dataHist.io.outStreams.sFindFirst(x => x.valid)
+        
+        val d1 = anyconst(Bits(outConfig.dataWidth bits))
+        val d2 = anyconst(Bits(outConfig.dataWidth bits))
+        when(size === 2 & output.r.fire & output.r.data === d1) {
+          val highRange = outConfig.dataWidth until 2 * outConfig.dataWidth
+          val lowRange = 0 until outConfig.dataWidth
+          assert(input.r.data(highRange) === d1 | input.r.data(lowRange) === d1)
+        }.elsewhen(size === 3 & input.r.fire & input.r.data === (d2 ## d1)) {
+          assert(d1Exist & dataHist.io.outStreams(d1Id).payload === d1)
+        }
 
         outputChecker.withCovers()
         inputChecker.withCovers()

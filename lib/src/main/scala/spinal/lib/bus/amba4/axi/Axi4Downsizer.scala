@@ -212,11 +212,6 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
         dataReg(offset << 3, outputConfig.dataWidth bits) := dataIn.data
     }
     val dataOut = cloneOf(io.input.readRsp)
-    val data    = Bits(inputConfig.dataWidth bits)
-    data := dataReg
-    when(dataCounter.io.last && dataOut.valid) {
-        data(offset << 3, outputConfig.dataWidth bits) := dataIn.data
-    }
 
     val lastLast = RegInit(False)
     when(dataOutCounter.io.working && dataOutCounter.io.last && countOutStream.fire) {
@@ -225,7 +220,7 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
         lastLast := False
     }
     dataOut.translateFrom(dataIn.throwWhen(!dataCounter.io.last)) { (to, from) =>
-        to.data := data
+        to.data := dataReg.getAheadValue().addAttribute("nowrshmsk")
         if (inputConfig.useLast) to.last := from.last && lastLast
         to.assignUnassignedByName(from)
     }
