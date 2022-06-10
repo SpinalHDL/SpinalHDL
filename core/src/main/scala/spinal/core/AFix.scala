@@ -481,6 +481,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     ret
   }
 
+  //Shift right, lose lsb bits
   def >>|(shift: AFix): AFix = {
     assert(shift.exp == 0)
     assert(shift.minValue == 0)
@@ -490,6 +491,18 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
 
     ret
   }
+
+  //Shift left, lose MSB bits
+  def |<<(shift: AFix): AFix = {
+    assert(shift.exp == 0)
+    assert(shift.minValue == 0)
+    val ret = cloneOf(this)
+
+    ret.raw := this.raw |<< U(shift)
+
+    ret
+  }
+
 
   // Shift bits and decimal point left, loosing bits
   def |<<(shift: Int): AFix = {
@@ -520,13 +533,13 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   }
 
 
-  def negate(enable : Bool): AFix = {
+  def negate(enable : Bool, plusOneEnable : Bool = null): AFix = {
     val ret = new AFix(-this.minValue max this.maxValue, -this.maxValue min this.minValue, this.exp)
 
     if (this.signed) {
       ???
     } else {
-      ret := U(this.raw).twoComplement(enable)
+      ret := U(this.raw).twoComplement(enable, plusOneEnable)
     }
 
     ret
@@ -546,6 +559,22 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
     ret
   }
 
+  def isNegative() : Bool = signed match {
+    case false => False
+    case true  => raw.msb
+  }
+  def isPositive() : Bool = signed match {
+    case false => True
+    case true  => !raw.msb
+  }
+  def isZero() : Bool = raw === 0
+
+  def asAlwaysPositive() : AFix = {
+    assert(signed)
+    val ret = AFix(maxValue = maxValue, minValue = 0, exp = exp exp)
+    ret := this.truncated()
+    ret
+  }
 
   /**
    * Saturates a number to the range of another number.

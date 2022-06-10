@@ -96,6 +96,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   def flushIt() : Unit = flushIt(ConditionalContext.isTrue)
   def flushNext() : Unit = flushNext(ConditionalContext.isTrue)
   def haltIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.halts += nameFromLocation(CombInit(cond), "haltRequest")
+  def haltWhen(cond : Bool)(implicit loc: Location) : Unit = haltIt(cond)
   def throwIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.throws += nameFromLocation(CombInit(cond), "throwRequest")
   def forkIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.forks += nameFromLocation(CombInit(cond), "forkRequest")
 

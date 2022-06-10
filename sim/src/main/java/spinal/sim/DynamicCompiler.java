@@ -102,7 +102,10 @@ public class DynamicCompiler {
                 null);
         //specify classes output folder
 //        System.out.println("**********   " + System.getProperty("java.class.path"));
-        Iterable options = Arrays.asList("-d", classOutputFolder/*, "-classpath", System.getProperty("java.class.path")*/);
+        String separator = System.getProperty("path.separator");
+        String myPath = DynamicCompiler.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+        String classpath = System.getProperty("java.class.path") + separator + myPath;
+        Iterable options = Arrays.asList("-d", classOutputFolder, "-classpath", classpath);
         JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager,
                 c, options, null,
                 files);
@@ -154,7 +157,7 @@ public class DynamicCompiler {
             URL[] urls = new URL[]{url};
 
             // Create a new class loader with the directory
-            ClassLoader loader = new URLClassLoader(urls);
+            ClassLoader loader = new URLClassLoader(urls, Thread.currentThread().getContextClassLoader());
 
             // Load in the class; Class.childclass should be located in
             // the directory file:/class/demo/

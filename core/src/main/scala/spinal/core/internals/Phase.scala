@@ -1607,7 +1607,13 @@ class PhaseNextifyReg() extends PhaseNetlist{
               case s : DataAssignmentStatement => {
                 //Move the assignment to the seed
                 s.dlcRemove()
-                s.target = seed
+                s.target match {
+                  case t : BaseType => s.target = seed
+                  case t : RangedAssignmentFixed => t.out = seed.asInstanceOf[BitVector]
+                  case t : RangedAssignmentFloating => t.out = seed.asInstanceOf[BitVector]
+                  case t : BitAssignmentFixed => t.out = seed.asInstanceOf[BitVector]
+                  case t : BitAssignmentFloating => t.out = seed.asInstanceOf[BitVector]
+                }
                 seed.dlcAppend(s)
               }
             }

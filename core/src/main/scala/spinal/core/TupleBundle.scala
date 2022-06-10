@@ -1,12 +1,26 @@
-package spinal.lib
-
-import spinal.core.Data
-import spinal.core.HardType
-import spinal.core.Bundle
+package spinal.core
 
 class TupleBundleBase extends Bundle{
   override def valCallbackRec(ref: Any, name: String) = {
     super.valCallbackRec(ref, name.tail)
+  }
+  override def asBits: Bits = {
+    var ret: Bits = null
+    for ((_, e) <- elements.reverse) {
+      if (ret == null.asInstanceOf[Object]) ret = e.asBits
+      else ret = e.asBits ## ret
+    }
+    if (ret.asInstanceOf[Object] == null) ret = Bits(0 bits)
+    ret
+  }
+  def asRevertedBits: Bits = {
+    var ret: Bits = null
+    for ((_, e) <- elements) {
+      if (ret == null.asInstanceOf[Object]) ret = e.asBits
+      else ret = e.asBits ## ret
+    }
+    if (ret.asInstanceOf[Object] == null) ret = Bits(0 bits)
+    ret
   }
 }
 

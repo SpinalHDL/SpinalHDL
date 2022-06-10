@@ -109,7 +109,7 @@ trait DataPrimitives[T <: Data]{
     _data
   }
 
-  def swichAssign[T2 <: BaseType](sel : T2)(mappings: (Any, T)*): Unit = {
+  def switchAssign[T2 <: BaseType](sel : T2)(mappings: (Any, T)*): Unit = {
     switch(sel){
       for((s, v) <- mappings) s match {
         case spinal.core.default => spinal.core.default{
