@@ -65,6 +65,27 @@ class SpinalSimAFixTester extends AnyFunSuite {
     }
   }
 
+  test("sweep") {
+    SimConfig.compile(new AFixTester()).doSim(seed = 0) { dut =>
+      val OPS = 0 to 2
+      val ROUNDS = 0 to 9
+      for(op <- OPS) {
+        for(round <- ROUNDS) {
+          for(x <- -BigInt(2).pow(dut.io.inFix(0).fracWidth)*3 until BigInt(2).pow(dut.io.inFix(0).fracWidth)*3) {
+            for (y <- -BigInt(2).pow(dut.io.inFix(1).fracWidth)*3 until BigInt(2).pow(dut.io.inFix(1).fracWidth)*3) {
+              dut.io.inFix(0) #= BigDecimal(x) / BigDecimal(2).pow(dut.io.inFix(0).fracWidth)
+              dut.io.inFix(1) #= BigDecimal(y) / BigDecimal(2).pow(dut.io.inFix(1).fracWidth)
+              dut.io.opMode #= op
+              dut.io.roundMode #= round
+              sleep(1)
+              assert(checkCalc(dut), dutStateString(dut))
+            }
+          }
+        }
+      }
+    }
+  }
+
   def dutStateString(dut: AFixTester): String = {
     val model = AFixTesterModel(dut)
 
