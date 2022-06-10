@@ -223,6 +223,44 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     ret
   }
 
+  override def roundToEven(n: Int, align: Boolean): UInt = {
+    require(getWidth > n, s"RoundToEven bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => if(align) _roundToEven(n).sat(1) else _roundToEven(n)
+      case _          => this << -n
+    }
+  }
+
+  private def _roundToEven(n: Int): UInt = {
+    val ret = UInt(getWidth-n bits)
+    when (!this(n)) {
+      ret := _roundDown(n)
+    } otherwise {
+      ret := _roundUp(n)
+    }
+    ret
+  }
+
+  override def roundToOdd(n: Int, align: Boolean): UInt = {
+    require(getWidth > n, s"RoundToOdd bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => if(align) _roundToOdd(n).sat(1) else _roundToOdd(n)
+      case _          => this << -n
+    }
+  }
+
+  private def _roundToOdd(n: Int): UInt = {
+    val ret = UInt(getWidth-n bits)
+    when (!this(n)) {
+      ret := _roundUp(n)
+    } otherwise {
+      ret := _roundDown(n)
+    }
+    ret
+  }
+
   //SpinalHDL chose roundToInf as default round
   override def round(n: Int, align: Boolean = true): UInt = roundToInf(n, align)
 
@@ -236,8 +274,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case RoundType.ROUNDDOWN     => this.roundDown(roundN,false).sat(satN + 1)
       case RoundType.ROUNDTOZERO   => this.roundToZero(roundN, false).sat(satN + 1)
       case RoundType.ROUNDTOINF    => this.roundToInf(roundN, false).sat(satN + 1)
-      case RoundType.ROUNDTOEVEN   => SpinalError("RoundToEven has not been implemented yet")
-      case RoundType.ROUNDTOODD    => SpinalError("RoundToOdd has not been implemented yet")
+      case RoundType.ROUNDTOEVEN   => this.roundToEven(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDTOODD    => this.roundToOdd(roundN, false).sat(satN + 1)
     }
   }
 
