@@ -122,7 +122,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: Int) extends Mul
   // Number of bits to represent the entire value
   val bitWidth = Math.max(maxBits, minBits) + signWidth
   // Number of bits to represent the fractional value
-  val fracWidth = Math.min(-exp, 0)
+  val fracWidth = Math.max(-exp, 0)
   // Number of bits to represent the whole value, no sign
   val wholeWidth = bitWidth - fracWidth - signWidth
   // Number of bits to represent the whole ("integer") value, with sign
