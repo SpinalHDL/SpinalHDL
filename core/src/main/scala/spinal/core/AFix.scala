@@ -487,34 +487,12 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
-  def unary_-(): AFix = negate()
+  def unary_-(): AFix = negate(True)
 
-  def negate(): AFix = {
-    val ret = new AFix(-this.minRaw, -this.maxRaw, this.exp)
-
-    if (this.signed) {
-      when (!this.raw.msb) {
-        ret.raw := ((~this.raw).asUInt+1).resize(ret.bitWidth).asBits
-      } otherwise {
-        ret.raw := (~(this.raw.asUInt-1)).resize(ret.bitWidth).asBits
-      }
-    } else {
-      ret.raw := ((~this.raw).asUInt+1).resize(ret.bitWidth).asBits
-    }
-
-    ret
-  }
-
-
+  def negate(): AFix = negate(True)
   def negate(enable : Bool, plusOneEnable : Bool = null): AFix = {
     val ret = new AFix(-this.minRaw max this.maxRaw, -this.maxRaw min this.minRaw, this.exp)
-
-    if (this.signed) {
-      ???
-    } else {
-      ret := U(this.raw).twoComplement(enable, plusOneEnable)
-    }
-
+    ret.raw := U(this.raw).twoComplement(enable, plusOneEnable).asBits
     ret
   }
 
