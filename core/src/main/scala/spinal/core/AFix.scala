@@ -108,7 +108,7 @@ object AFix {
   }
 }
 
-class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiData with Num[AFix] with BitwiseOp[AFix] {
+class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiData with Num[AFix] with BitwiseOp[AFix] with MinMaxDecimalProvider {
   assert(maxRaw >= minRaw)
 
   val signed = (maxRaw < 0) || (minRaw < 0)

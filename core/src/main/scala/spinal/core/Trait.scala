@@ -91,6 +91,11 @@ trait MinMaxProvider {
   def maxValue: BigInt
 }
 
+trait MinMaxDecimalProvider {
+  def minValue: BigDecimal
+  def maxValue: BigDecimal
+}
+
 object GlobalData {
 
   /** Provide a thread local variable (Create a GlobalData for each thread) */
