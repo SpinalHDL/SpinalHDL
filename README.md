@@ -22,6 +22,7 @@ SpinalHDL is:
  - Jupyter bootcamp               <br> https://github.com/SpinalHDL/Spinal-bootcamp
  - Workshop                       <br> https://github.com/SpinalHDL/SpinalWorkshop
  - Google group                   <br> https://groups.google.com/forum/#!forum/spinalhdl-hardware-description-language
+ - Donation channel               <br> https://opencollective.com/spinalhdl
 
 [![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
