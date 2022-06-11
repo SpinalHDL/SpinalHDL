@@ -133,8 +133,6 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
             arRecord.assignFromR(r, selected)
           }.otherwise { rRecord.assignFromR(r, selected); rValid := True }
 
-          // hist.io.outStreams(rId).ready := r.ready & rRecord.axDone & rRecord.seenLast
-
           errors.NoAddrRequest := !selected.axDone
           if (config.useResp && config.useLock)
             errors.WrongResponseForExAccesss := selected.axDone & r.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
