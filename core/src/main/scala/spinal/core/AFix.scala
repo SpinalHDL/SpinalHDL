@@ -692,7 +692,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def floor(exp : Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val res = new AFix(this.maxRaw >> drop, this.minRaw >> drop, 0)
+    val res = new AFix(this.maxRaw >> drop, this.minRaw >> drop, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.floor(drop).resize(widthOf(res.raw)).asBits
@@ -706,7 +706,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def scrap(exp : Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val res = new AFix(this.maxRaw >> drop, this.minRaw >> drop, 0)
+    val res = new AFix(this.maxRaw >> drop, this.minRaw >> drop, exp)
 
     res.raw := this.raw.dropLow(drop)
     res.raw.lsb setWhen(this.raw.takeLow(drop).orR)
@@ -742,7 +742,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def floorToZero(exp: Int): AFix = {
-    assert(this.exp < 0, f"Cannot floorToZero() because number does not have enough fractional bits, needs at least -1 exp")
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
@@ -761,7 +760,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def ceilToInf(exp: Int): AFix = {
-    assert(this.exp < 0, f"Cannot ceilToInf() because number does not have enough fractional bits, needs at least -1 exp")
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
@@ -782,7 +780,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfUp(exp: Int): AFix = {
-    assert(this.exp < -1, f"Cannot roundHalfUp() because number does not have enough fractional bits, needs at least -2 exp")
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
@@ -803,7 +800,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfDown(exp: Int): AFix = {
-    assert(this.exp < -1, f"Cannot roundHalfDown() because number does not have enough fractional bits, needs at least -2 exp")
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
@@ -824,7 +820,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfToZero(exp: Int): AFix = {
-    assert(this.exp < -1, f"Cannot roundHalfToZero() because number does not have enough fractional bits, needs at least -2 exp")
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
@@ -845,7 +840,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfToInf(exp: Int): AFix = {
-    assert(this.exp < -1, f"Cannot roundHalfToInf() because number does not have enough fractional bits, needs at least -2 exp")
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
@@ -866,7 +860,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfToEven(exp: Int): AFix = {
-    assert(this.exp < -1, f"Cannot roundHalfToEven() because number does not have enough fractional bits, needs at least -2 exp")
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
@@ -888,7 +881,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfToOdd(exp: Int): AFix = {
-    assert(this.exp < -1, f"Cannot roundHalfToOdd() because number does not have enough fractional bits, needs at least -2 exp")
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
