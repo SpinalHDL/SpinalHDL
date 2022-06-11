@@ -188,10 +188,6 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
 
     // Fix elaborate
     val additionalElaborateCommand = List(
-      "-override_timeprecision",
-      "-override_timeunit",
-      "-timeprecision_vhdl 1ns",
-      "-timescale 1ns\\/1ns",
       "-dll"
     ).mkString(" ")
     val fixElaborateCommand = if (isWindows) {

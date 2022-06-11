@@ -168,7 +168,7 @@ trait UFixCast {
 /**
   * Base class for SFix and UFix
   */
-abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int, val bitCount: Int) extends MultiData {
+abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int, val bitCount: Int) extends MultiData with MinMaxDecimalProvider {
 
   require(bitCount >= 0)
 

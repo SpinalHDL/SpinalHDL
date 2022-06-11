@@ -34,6 +34,8 @@ public:
     void check_status();
 private:
     Xsi::Loader loader;
+
+    int64_t sim_time_precision;
 };
 
 #endif

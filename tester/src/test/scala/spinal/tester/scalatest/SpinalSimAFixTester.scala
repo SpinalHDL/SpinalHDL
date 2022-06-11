@@ -11,7 +11,7 @@ import scala.util.Random
 
 class SpinalSimAFixTester extends AnyFunSuite {
   def check(max : Int, min : Int, exp : Int)(f : AFix): Unit ={
-    assert(f.maxValue == max && f.minValue == min && f.exp == exp)
+    assert(f.maxRaw == max && f.minRaw == min && f.exp == exp)
   }
   test("instantiate") {
     SpinalVerilog(new Component{
@@ -54,11 +54,32 @@ class SpinalSimAFixTester extends AnyFunSuite {
       for(op <- OPS) {
         for(round <- ROUNDS) {
           for(i <- 0 until 1000) {
-            dut.io.inFix.foreach(_.raw.randomize())
+            dut.io.inFix.foreach(_.randomize())
             dut.io.opMode #= op
             dut.io.roundMode #= round
             sleep(1)
             assert(checkCalc(dut), dutStateString(dut))
+          }
+        }
+      }
+    }
+  }
+
+  test("sweep") {
+    SimConfig.compile(new AFixTester()).doSim(seed = 0) { dut =>
+      val OPS = 0 to 2
+      val ROUNDS = 0 to 9
+      for(op <- OPS) {
+        for(round <- ROUNDS) {
+          for(x <- -BigInt(2).pow(dut.io.inFix(0).fracWidth)*3 until BigInt(2).pow(dut.io.inFix(0).fracWidth)*3) {
+            for (y <- -BigInt(2).pow(dut.io.inFix(1).fracWidth)*3 until BigInt(2).pow(dut.io.inFix(1).fracWidth)*3) {
+              dut.io.inFix(0) #= BigDecimal(x) / BigDecimal(2).pow(dut.io.inFix(0).fracWidth)
+              dut.io.inFix(1) #= BigDecimal(y) / BigDecimal(2).pow(dut.io.inFix(1).fracWidth)
+              dut.io.opMode #= op
+              dut.io.roundMode #= round
+              sleep(1)
+              assert(checkCalc(dut), dutStateString(dut))
+            }
           }
         }
       }
@@ -214,8 +235,8 @@ class AFixTester extends Component {
     println(res)
   }
   val rangeExpMin = opResultsSeq.minBy(_.exp).exp
-  val rangeMax = opResultsSeq.map(af => af.maxValue*BigInt(2).pow(af.exp - rangeExpMin)).max
-  val rangeMin = opResultsSeq.map(af => af.minValue*BigInt(2).pow(af.exp - rangeExpMin)).min
+  val rangeMax = opResultsSeq.map(af => af.maxRaw*BigInt(2).pow(af.exp - rangeExpMin)).max
+  val rangeMin = opResultsSeq.map(af => af.minRaw*BigInt(2).pow(af.exp - rangeExpMin)).min
   val opResults = Vec(opResultsSeq.map(af => {
     val resized_af = new AFix(rangeMax, rangeMin, rangeExpMin)
     resized_af := af
@@ -231,12 +252,12 @@ class AFixTester extends Component {
     chosenOp.floor(0),
     chosenOp.floorToZero(0),
     chosenOp.ceilToInf(0),
-    chosenOp.roundHalfUp(),
-    chosenOp.roundHalfDown(),
-    chosenOp.roundHalfToZero(),
-    chosenOp.roundHalfToInf(),
-    chosenOp.roundHalfToEven(),
-    chosenOp.roundHalfToOdd()
+    chosenOp.roundHalfUp(0),
+    chosenOp.roundHalfDown(0),
+    chosenOp.roundHalfToZero(0),
+    chosenOp.roundHalfToInf(0),
+    chosenOp.roundHalfToEven(0),
+    chosenOp.roundHalfToOdd(0)
   ))
 
   io.outFix := roundResults(io.roundMode.asUInt).sat(io.outFix)

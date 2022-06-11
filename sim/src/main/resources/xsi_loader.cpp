@@ -112,6 +112,12 @@ XSI_INT64 Loader::get_time()
     return _xsi_get_time(_design_handle);
 }
 
+// Precision is 10^t so 0 = 1s, -1 = 100ms, -2 = 10ms, etc..
+XSI_INT32 Loader::get_sim_time_precision()
+{
+    return _xsi_get_int(_design_handle, xsiTimePrecisionKernel);
+}
+
 bool
 Loader::initialize()
 {
@@ -197,6 +203,11 @@ Loader::initialize()
 
     _xsi_get_time = (t_fp_xsi_get_time) _simkernel_lib.getfunction("xsi_get_time");
     if (!_xsi_get_time) {
+        return false;
+    }
+
+    _xsi_get_int = (t_fp_xsi_get_int) _simkernel_lib.getfunction("xsi_get_int");
+    if (!_xsi_get_int) {
         return false;
     }
 
