@@ -91,6 +91,11 @@ trait MinMaxProvider {
   def maxValue: BigInt
 }
 
+trait MinMaxDecimalProvider {
+  def minValue: BigDecimal
+  def maxValue: BigDecimal
+}
+
 object GlobalData {
 
   /** Provide a thread local variable (Create a GlobalData for each thread) */
@@ -878,6 +883,8 @@ trait Num[T <: Data] {
   def roundDown(n: Int, align: Boolean): T
   def roundToZero(n: Int, align: Boolean): T
   def roundToInf(n: Int, align: Boolean): T
+  def roundToEven(n: Int, align: Boolean): T
+  def roundToOdd(n: Int, align: Boolean): T
   def round(n: Int, align: Boolean): T
   /**lowest n bits Round Operation by BitCount */
   def ceil(width: BitCount, align: Boolean): T         = ceil(width.value, align)
@@ -888,6 +895,8 @@ trait Num[T <: Data] {
   def roundDown(width: BitCount, align: Boolean): T    = roundDown(width.value, align)
   def roundToZero(width: BitCount, align: Boolean): T  = roundToZero(width.value, align)
   def roundToInf(width: BitCount, align: Boolean): T   = roundToInf(width.value, align)
+  def roundToEven(width: BitCount, align: Boolean): T  = roundToEven(width.value, align)
+  def roundToOdd(width: BitCount, align: Boolean): T   = roundToOdd(width.value, align)
   def round(width: BitCount, align: Boolean): T        = round(width.value, align)
 }
 
