@@ -502,7 +502,6 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
   def assignFromR(r: Stream[Axi4R], selected: FormalAxi4Record) = new Area {
     seenLast := r.last & r.ready
     when(r.ready) { count := selected.count + 1 }.otherwise { count := selected.count }
-    responsed := r.ready
   }
 
   def assignFromB(b: Stream[Axi4B]) {

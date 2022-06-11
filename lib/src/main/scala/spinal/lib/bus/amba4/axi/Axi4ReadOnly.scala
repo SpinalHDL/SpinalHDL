@@ -90,7 +90,11 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
 
     val (arExist, arId) = hist.findFirst(x => x.valid && !x.axDone)
     val (rExist, rId) =
-      hist.findFirst(x => x.valid && !x.responsed && { if (config.useId) r.id === x.id else True })
+      hist.findFirst(x => x.valid && !x.seenLast && { if (config.useId) r.id === x.id else True })
+    val (rmExist, rmId) =
+      hist.findFirst(x => x.valid && x.seenLast && x.axDone)
+
+    when(rmExist) { hist.io.outStreams(rmId).ready := True }
 
     val errors = new Area {
       val DataNumberDonotFitLen = hist.io.outStreams.map(x => x.valid & x.checkLen()).reduce(_ | _)
@@ -129,7 +133,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
             arRecord.assignFromR(r, selected)
           }.otherwise { rRecord.assignFromR(r, selected); rValid := True }
 
-          hist.io.outStreams(rId).ready := r.ready & rRecord.axDone & r.last
+          // hist.io.outStreams(rId).ready := r.ready & rRecord.axDone & rRecord.seenLast
 
           errors.NoAddrRequest := !selected.axDone
           if (config.useResp && config.useLock)
