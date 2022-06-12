@@ -901,27 +901,37 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val trunc = this.getTag(classOf[TagAFixTruncated])
 
     if (trunc.isDefined) {
-      this._round(trunc.get.rounding)
+      this._round(trunc.get.rounding, exp)
     } else {
       roundHalfToInf(exp)
     }
   }
 
+  def fixTo(m: Int, exp: Int, roundType: RoundType): AFix = this.sat(m)._round(roundType, exp)
+  def fixTo(m: Int, exp: Int): AFix = this.fixTo(m, exp, this.getTag(classOf[TagAFixTruncated]).get.rounding)
+  def fixTo(af: AFix, roundType: RoundType): AFix = this.sat(af)._round(roundType, af.exp)
+  def fixTo(af: AFix): AFix = this.fixTo(af, this.getTag(classOf[TagAFixTruncated]).get.rounding)
+  def fixTo(Q: QFormat): AFix = {
+    val res = AFix(Q.width-Q.fraction exp, -Q.fraction exp, Q.signed)
+    res := this.fixTo(res)
+    res
+  }
+
   override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxRaw}, min=${minRaw}, exp=${exp}, bits=${raw.getWidth}]"
 
-  private def _round(roundType: RoundType): AFix = {
+  private def _round(roundType: RoundType, exp: Int = 0): AFix = {
     roundType match {
-      case RoundType.FLOOR       => this.floor(0)
-      case RoundType.CEIL        => this.ceil(0)
-      case RoundType.FLOORTOZERO => this.floorToZero(0)
-      case RoundType.CEILTOINF   => this.ceilToInf(0)
-      case RoundType.ROUNDUP     => this.roundHalfUp(0)
-      case RoundType.ROUNDDOWN   => this.roundHalfDown(0)
-      case RoundType.ROUNDTOZERO => this.roundHalfToZero(0)
-      case RoundType.ROUNDTOINF  => this.roundHalfToInf(0)
-      case RoundType.ROUNDTOEVEN => this.roundHalfToEven(0)
-      case RoundType.ROUNDTOODD  => this.roundHalfToOdd(0)
-      case RoundType.SCRAP        => this.scrap(0)
+      case RoundType.FLOOR       => this.floor(exp)
+      case RoundType.CEIL        => this.ceil(exp)
+      case RoundType.FLOORTOZERO => this.floorToZero(exp)
+      case RoundType.CEILTOINF   => this.ceilToInf(exp)
+      case RoundType.ROUNDUP     => this.roundHalfUp(exp)
+      case RoundType.ROUNDDOWN   => this.roundHalfDown(exp)
+      case RoundType.ROUNDTOZERO => this.roundHalfToZero(exp)
+      case RoundType.ROUNDTOINF  => this.roundHalfToInf(exp)
+      case RoundType.ROUNDTOEVEN => this.roundHalfToEven(exp)
+      case RoundType.ROUNDTOODD  => this.roundHalfToOdd(exp)
+      case RoundType.SCRAP        => this.scrap(exp)
     }
   }
 
@@ -1031,6 +1041,13 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def :=(u: UFix) = this assignFrom(u)
   def :=(s: SFix) = this assignFrom(s)
   def :=(a: AFix) = this assignFrom(a)
+
+  def init(that: BigDecimal): AFix = {
+    val initValue = cloneOf(this)
+    initValue := that
+    this init (initValue)
+    this
+  }
 
   override def clone: this.type = new AFix(maxRaw, minRaw, exp).asInstanceOf[this.type]
 
