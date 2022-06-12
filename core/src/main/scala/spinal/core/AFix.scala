@@ -719,7 +719,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * Rounds a value up towards positive infinity at the given exp point position
    * @return Rounded result
    */
-  def ceil(exp : Int): AFix = ceil(exp, false)
+  def ceil(exp : Int): AFix = ceil(exp, getTrunc.align)
 
   def ceil(exp: Int, aligned: Boolean): AFix = {
     val drop = exp-this.exp
@@ -759,7 +759,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def ceilToInf(exp: Int): AFix = {
-    ceilToInf(exp, false)
+    ceilToInf(exp, getTrunc.align)
   }
 
   def ceilToInf(exp: Int, aligned: Boolean): AFix = {
@@ -781,7 +781,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfUp(exp: Int): AFix = {
-    roundUp(exp, false)
+    roundUp(exp, getTrunc.align)
   }
 
   def roundUp(exp: Int, aligned: Boolean): AFix = {
@@ -803,7 +803,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfDown(exp: Int): AFix = {
-    roundDown(exp, false)
+    roundDown(exp, getTrunc.align)
   }
 
   def roundDown(exp: Int, aligned: Boolean): AFix = {
@@ -825,7 +825,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfToZero(exp: Int): AFix = {
-    roundToZero(exp, false)
+    roundToZero(exp, getTrunc.align)
   }
 
   def roundToZero(exp: Int, aligned: Boolean): AFix = {
@@ -847,7 +847,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfToInf(exp: Int): AFix = {
-    roundToInf(exp, false)
+    roundToInf(exp, getTrunc.align)
   }
 
   def roundToInf(exp: Int, aligned: Boolean): AFix = {
@@ -869,7 +869,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfToEven(exp: Int): AFix = {
-    roundToEven(exp, false)
+    roundToEven(exp, getTrunc.align)
   }
 
   def roundToEven(exp: Int, aligned: Boolean): AFix = {
@@ -892,7 +892,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def roundHalfToOdd(exp: Int): AFix = {
-    roundToOdd(exp, false)
+    roundToOdd(exp, getTrunc.align)
   }
 
   def roundToOdd(exp: Int, align: Boolean): AFix = {
@@ -914,7 +914,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     this.getTag(classOf[TagAFixTruncated]).getOrElse(AFixTruncatedScope.get)
   }
 
-  def round(exp: Int, aligned: Boolean = true): AFix = {
+  def round(exp: Int, aligned: Boolean = getTrunc.align): AFix = {
     val trunc = this.getTag(classOf[TagAFixTruncated])
 
     if (trunc.isDefined) {
@@ -936,7 +936,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 
   override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxRaw}, min=${minRaw}, exp=${exp}, bits=${raw.getWidth}]"
 
-  private def _round(roundType: RoundType, exp: Int = 0, align: Boolean = true): AFix = {
+  private def _round(roundType: RoundType, exp: Int = 0, align: Boolean = getTrunc.align): AFix = {
     roundType match {
       case RoundType.FLOOR       => this.floor(exp)
       case RoundType.CEIL        => this.ceil(exp, align)
@@ -956,14 +956,16 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 
   def truncated(saturation: Boolean = false,
                 overflow  : Boolean = true,
-                rounding  : RoundType = RoundType.FLOOR) : AFix = {
+                rounding  : RoundType = RoundType.FLOOR,
+                align     : Boolean = true) : AFix = {
     assert(!(saturation && overflow), s"Cannot both overflow and saturate.\n")
     val copy = cloneOf(this)
     copy.raw := this.raw
     copy.addTag(new TagAFixTruncated(
       saturation,
       overflow,
-      rounding
+      rounding,
+      true
     ))
     copy
   }
@@ -1098,11 +1100,12 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 
 class TagAFixTruncated(val saturation: Boolean,
                        val overflow  : Boolean,
-                       val rounding  : RoundType) extends SpinalTag{
+                       val rounding  : RoundType,
+                       val align     : Boolean) extends SpinalTag{
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
 }
 
 object AFixTruncatedScope extends ScopeProperty[TagAFixTruncated] {
-  override def default: TagAFixTruncated = new TagAFixTruncated(true, false, RoundType.ROUNDTOINF)
+  override def default: TagAFixTruncated = new TagAFixTruncated(true, false, RoundType.ROUNDTOINF, true)
 }
