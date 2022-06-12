@@ -279,7 +279,7 @@ class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends Mu
       case that: Vec[T] =>
         if (that.vec.size != this.vec.size) throw new Exception("Can't assign Vec with a different size")
         for ((to, from) <- (this.vec, that.vec).zipped) {
-          to.assignFromImpl(from, to, kind)
+          to.compositAssignFrom(from, to, kind)
         }
       case _            => throw new Exception("Undefined assignment")
     }
