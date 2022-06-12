@@ -1103,4 +1103,6 @@ class TagAFixTruncated(val saturation: Boolean,
   override def canSymplifyHost: Boolean = true
 }
 
-object AFixTruncatedScope extends ScopeProperty[TagAFixTruncated]
+object AFixTruncatedScope extends ScopeProperty[TagAFixTruncated] {
+  override def default: TagAFixTruncated = new TagAFixTruncated(true, false, RoundType.ROUNDTOINF)
+}
