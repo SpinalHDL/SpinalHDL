@@ -210,9 +210,9 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
     //TODO: yosys would cause two problems:
     //      1. when using variable slice attribute nowrshmsk should be assigned.
     //      2. length of ~U((1 << sizeMaxOut) - 1, sizeMaxIn+1 bits) might be 2 when it is 3.
-    val offset = (beatOffset.resized & ~U((1 << sizeMaxOut) - 1, sizeMaxIn+1 bits)) << 3
+    val offset = beatOffset.resized & ~U((1 << sizeMaxOut) - 1, sizeMaxIn+1 bits)
     when(dataIn.valid) {
-        dataReg(offset, outputConfig.dataWidth bits) := dataIn.data
+        dataReg(offset << 3, outputConfig.dataWidth bits) := dataIn.data
     }
     val dataOut = cloneOf(io.input.readRsp)
 
