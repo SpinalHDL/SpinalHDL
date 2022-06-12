@@ -128,7 +128,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         
         val d1 = anyconst(Bits(outConfig.dataWidth bits))
         val d2 = anyconst(Bits(outConfig.dataWidth bits))
-        when(size === 2 & output.r.fire & output.r.data === d1) {
+        when(size < 3 & output.r.fire & output.r.data === d1) {
           val highRange = outConfig.dataWidth until 2 * outConfig.dataWidth
           val lowRange = 0 until outConfig.dataWidth
           assert(input.r.data(highRange) === d1 | input.r.data(lowRange) === d1)
