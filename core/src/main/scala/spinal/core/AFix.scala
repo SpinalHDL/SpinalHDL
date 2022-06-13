@@ -1074,9 +1074,11 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   }
 
   def init(that: BigDecimal): AFix = {
-    val initValue = cloneOf(this)
-    initValue := that
-    raw.init(initValue.raw)
+    this.raw init AF(that, wholeWidth bit, fracWidth bit, signed).raw
+    this
+  }
+  def init(that: AFix): AFix = {
+    this.raw init that.raw
     this
   }
 
