@@ -1013,10 +1013,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
         }
 
         if (this.signed) {
-//          this.raw := af_sat.raw.asSInt.resize(this.bitWidth).asBits
           this.raw.compositAssignFrom(af_sat.raw.asSInt.resize(this.bitWidth).asBits, this.raw, kind)
         } else {
-//          this.raw := af_sat.raw.asUInt.resize(this.bitWidth).asBits
           this.raw.compositAssignFrom(af_sat.raw.asUInt.resize(this.bitWidth).asBits, this.raw, kind)
         }
 
