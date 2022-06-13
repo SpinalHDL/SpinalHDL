@@ -192,6 +192,12 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def MHz = HertzNumber(d * BigDecimal(1e6))
     def kHz = HertzNumber(d * BigDecimal(1e3))
     def  Hz = HertzNumber(d * BigDecimal(1e0))
+
+    /**
+     * AFix literal builder
+     */
+    def SQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AF(d, integerWidth, fractionWidth, signed = true)
+    def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AF(d, integerWidth, fractionWidth, signed = false)
   }
 
 
@@ -216,6 +222,12 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def MHz = HertzNumber(d * BigDecimal(1e6))
     def kHz = HertzNumber(d * BigDecimal(1e3))
     def  Hz = HertzNumber(d * BigDecimal(1e0))
+
+    /**
+     * AFix literal builder
+     */
+    def SQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AF(d, integerWidth, fractionWidth, signed = true)
+    def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AF(d, integerWidth, fractionWidth, signed = false)
   }
 
 

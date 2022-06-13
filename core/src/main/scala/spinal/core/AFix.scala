@@ -1076,7 +1076,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def init(that: BigDecimal): AFix = {
     val initValue = cloneOf(this)
     initValue := that
-    this init (initValue)
+    raw.init(initValue.raw)
     this
   }
 
@@ -1096,7 +1096,13 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   }
 }
 
-
+object AF {
+  def apply(value: BigDecimal, integerWidth: BitCount, fractionWidth: BitCount, signed: Boolean): AFix = {
+    val ret = if (signed) AFix.SQ(integerWidth, fractionWidth) else AFix.UQ(integerWidth, fractionWidth)
+    ret := value
+    ret
+  }
+}
 
 class TagAFixTruncated(val saturation: Boolean,
                        val overflow  : Boolean,
@@ -1108,4 +1114,8 @@ class TagAFixTruncated(val saturation: Boolean,
 
 object AFixTruncatedScope extends ScopeProperty[TagAFixTruncated] {
   override def default: TagAFixTruncated = new TagAFixTruncated(true, false, RoundType.ROUNDTOINF, true)
+
+ def set(saturation: Boolean = true, overflow: Boolean = false, rounding: RoundType = RoundType.ROUNDTOINF, align: Boolean = true): AFixTruncatedScope.SetReturn = {
+   new AFixTruncatedScope.SetReturn(new TagAFixTruncated(saturation, overflow, rounding, align))
+ }
 }
