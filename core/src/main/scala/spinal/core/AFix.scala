@@ -1012,10 +1012,13 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
           return
         }
 
-        if (this.signed)
-          this.raw := af_sat.raw.asSInt.resize(this.bitWidth).asBits
-        else
-          this.raw := af_sat.raw.asUInt.resize(this.bitWidth).asBits
+        if (this.signed) {
+//          this.raw := af_sat.raw.asSInt.resize(this.bitWidth).asBits
+          this.raw.compositAssignFrom(af_sat.raw.asSInt.resize(this.bitWidth).asBits, this.raw, kind)
+        } else {
+//          this.raw := af_sat.raw.asUInt.resize(this.bitWidth).asBits
+          this.raw.compositAssignFrom(af_sat.raw.asUInt.resize(this.bitWidth).asBits, this.raw, kind)
+        }
 
       case u: UInt => this.raw := u.asBits
       case s: SInt => this.raw := s.asBits
@@ -1073,11 +1076,11 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     this.raw := value
   }
 
-  def init(that: BigDecimal): AFix = {
+  def init(that: BigDecimal): this.type = {
     this.raw init AF(that, wholeWidth bit, fracWidth bit, signed).raw
     this
   }
-  def init(that: AFix): AFix = {
+  def init(that: AFix): this.type = {
     this.raw init that.raw
     this
   }
