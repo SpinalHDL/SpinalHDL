@@ -118,7 +118,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
           .otherwise { histInput.assignFromAx(ax) }
       }
       when(awValid) {
-        if (config.useStrb) hist.io.inStreams(awId).strbs.zip(awRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(awId).payload := awRecord
         hist.io.inStreams(awId).valid := awValid
       }
@@ -138,7 +137,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         }.otherwise { histInput.assignFromW(w, oRecord) }
       }
       when(wValid) {
-        if (config.useStrb) hist.io.inStreams(wId).strbs.zip(wRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(wId).payload := wRecord
         hist.io.inStreams(wId).valid := wValid
       }
@@ -172,7 +170,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         }
       }
       when(bValid) {
-        if (config.useStrb) hist.io.inStreams(bId).strbs.zip(bRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(bId).payload := bRecord
         hist.io.inStreams(bId).valid := bValid
       }
