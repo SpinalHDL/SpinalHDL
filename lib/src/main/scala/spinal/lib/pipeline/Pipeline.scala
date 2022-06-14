@@ -121,10 +121,12 @@ class Pipeline extends Area{
     val clFlush = mutable.LinkedHashMap[ConnectionLogic, Bool]()
     val clFlushNext = mutable.LinkedHashMap[ConnectionLogic, Bool]()
     val clFlushNextHit = mutable.LinkedHashMap[ConnectionLogic, Bool]()
+    val clThrowOne = mutable.LinkedHashMap[ConnectionLogic, Bool]()
+    val clThrowOneHit = mutable.LinkedHashMap[ConnectionLogic, Bool]()
 
     def propagateRequirements(stage : Stage): Unit ={
       if(stage.arbitration.isRemoved != null){
-        stage.arbitration.isRemoved := stage.isFlushed
+        stage.arbitration.isRemoved := stage.isFlushed || stage.isThrown
       }
       if(stage.request.halts.nonEmpty){
         stage.arbitration.propagateReady = true
@@ -137,6 +139,7 @@ class Pipeline extends Area{
       }
       var flush = stage.internals.request.flush.nonEmpty generate orR(stage.internals.request.flush)
       var flushNext = stage.internals.request.flushNext.nonEmpty generate orR(stage.internals.request.flushNext)
+      var throwOne = stage.internals.request.throws.nonEmpty generate orR(stage.internals.request.throws)
       (stage.internals.arbitration.isFlushed, flush) match {
         case (null, null) =>
         case (x, null) => stage.isFlushed := False
@@ -146,6 +149,11 @@ class Pipeline extends Area{
         case (null, null) =>
         case (x, null) => stage.isFlushingNext := False
         case (_, x) =>    stage.isFlushingNext := flushNext
+      }
+      (stage.internals.arbitration.isThrown, throwOne) match {
+        case (null, null) =>
+        case (x, null) => stage.isThrown := False
+        case (_, x) =>    stage.isThrown := throwOne
       }
       stageDriver.get(stage) match {
         case Some(c : ConnectionModel) => {
@@ -170,9 +178,22 @@ class Pipeline extends Area{
                 case false => clFlushNext(l) && !clFlushNextHit(l)
               }
             }
+            if(flush != null) c.m.flushIt(flush, false)
+            if(flushNext != null) c.m.flushNext(flushNext)
+
+
+            clThrowOne(l) = throwOne
+            clThrowOneHit(l) = null
+            if(throwOne != null){
+              clThrowOneHit(l) = Bool()
+              throwOne = l.alwasContainsSlaveToken match {
+                case true => null
+                case false => clThrowOne(l) && !clThrowOneHit(l)
+              }
+            }
           }
-          if(flush != null) c.m.flushIt(flush, false)
-          if(flushNext != null) c.m.flushNext(flushNext)
+
+          if(throwOne != null) c.m.throwIt(throwOne, root = false)
         }
         case None =>
       }
@@ -209,6 +230,7 @@ class Pipeline extends Area{
       s.internals.input.valid.setCompositeName(s, "valid", true)
       if(s.internals.input.ready != null) s.internals.input.ready.setCompositeName(s, "ready", true)
       if(arbitration.isFlushed != null) arbitration.isFlushed.setCompositeName(s, "isFlushed", true)
+      if(arbitration.isThrown != null) arbitration.isThrown.setCompositeName(s, "isThrown", true)
       if(arbitration.isFlushingNext != null) arbitration.isFlushingNext.setCompositeName(s, "isFlushingNext", true)
       if(arbitration.isFlushingRoot != null) arbitration.isFlushingRoot.setCompositeName(s, "isFlushingRoot", true)
       if(arbitration.isHalted != null) arbitration.isHalted.setCompositeName(s, "isHalted", true)
@@ -230,10 +252,9 @@ class Pipeline extends Area{
         case (i, null) => s.input.ready := True
         case (i, o) => s.input.ready := s.output.ready
       }
-      if(s.request.throws.nonEmpty){
-        val doThrow = s.request.throws.orR
+      if(s.request.throwsRoot.nonEmpty){
+        val doThrow = s.request.throwsRoot.orR
         when(doThrow){
-//          s.input.ready := False //Maybe to reconsiderate
           s.output.valid := False
         }
       }
@@ -267,7 +288,7 @@ class Pipeline extends Area{
         else {
           ConnectionPoint(Bool(), (m.ready != null) generate Bool(), stageables.map(_.stageable.craft()).toList)
         }
-        val area = l.on(m, s, clFlush(l), clFlushNext(l), clFlushNextHit(l))
+        val area = l.on(m, s, clFlush(l), clFlushNext(l), clFlushNextHit(l), clThrowOne(l), clThrowOneHit(l))
         if(c.logics.size != 1)
           area.setCompositeName(c, s"level_$id", true)
         else
