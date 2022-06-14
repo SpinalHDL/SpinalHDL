@@ -652,7 +652,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     if (m == 0) return this
     val newMax = BigInt(2).pow(bitWidth-m).min(this.maxRaw)
     val newMin = if (signed) (-BigInt(2).pow(bitWidth-m)).max(this.minRaw) else BigInt(0).max(this.minRaw)
-    val ret = new AFix(newMax-1, newMin, exp)
+    val ret = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
       ret.raw := this.raw.asSInt.sat(m).resize(widthOf(ret.raw)).asBits
@@ -691,7 +691,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def floor(exp : Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val res = new AFix((this.maxRaw >> drop)-1, this.minRaw >> drop, exp)
+    val res = new AFix((this.maxRaw >> drop), this.minRaw >> drop, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.floor(drop).resize(widthOf(res.raw)).asBits
@@ -705,7 +705,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def scrap(exp : Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val res = new AFix((this.maxRaw >> drop)-1, this.minRaw >> drop, exp)
+    val res = new AFix((this.maxRaw >> drop), this.minRaw >> drop, exp)
 
     res.raw := this.raw.dropLow(drop)
     res.raw.lsb setWhen(this.raw.takeLow(drop).orR)
@@ -725,7 +725,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
-    val res = new AFix(((this.maxRaw+step-1) >> drop)-1, (this.minRaw+step-1) >> drop, exp)
+    val res = new AFix(((this.maxRaw+step-1) >> drop), (this.minRaw+step-1) >> drop, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.ceil(drop, aligned).resize(widthOf(res.raw)).asBits
@@ -745,7 +745,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val step = BigInt(1) << drop
-      val res = new AFix(((this.maxRaw+step-1) >> drop)-1, (this.minRaw+step-1) >> drop, exp)
+      val res = new AFix(((this.maxRaw+step-1) >> drop), (this.minRaw+step-1) >> drop, exp)
 
       res.raw := this.raw.asSInt.floorToZero(drop).resize(widthOf(res.raw)).asBits
       res
@@ -767,7 +767,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val step = BigInt(1) << drop
-      val res = new AFix(((this.maxRaw+step-1) >> drop)-1, (this.minRaw+step-1) >> drop, exp)
+      val res = new AFix(((this.maxRaw+step-1) >> drop), (this.minRaw+step-1) >> drop, exp)
 
       res.raw := this.raw.asSInt.ceilToInf(drop, aligned).resize(widthOf(res.raw)).asBits
       res
@@ -788,7 +788,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
-    val res = new AFix(((this.maxRaw+step-1) >> drop)-1, (this.minRaw+step-1) >> drop, exp)
+    val res = new AFix(((this.maxRaw+step-1) >> drop), (this.minRaw+step-1) >> drop, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.roundUp(drop, aligned).resize(widthOf(res.raw)).asBits
@@ -810,7 +810,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
-    val res = new AFix(((this.maxRaw+step-1) >> drop)-1, (this.minRaw+step-1) >> drop, exp)
+    val res = new AFix(((this.maxRaw+step-1) >> drop), (this.minRaw+step-1) >> drop, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.roundDown(drop, aligned).resize(widthOf(res.raw)).asBits
@@ -833,7 +833,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val step = BigInt(1) << drop
-      val res = new AFix(((this.maxRaw+step-1) >> drop)-1, (this.minRaw+step-1) >> drop, exp)
+      val res = new AFix(((this.maxRaw+step-1) >> drop), (this.minRaw+step-1) >> drop, exp)
 
       res.raw := this.raw.asSInt.roundToZero(drop, aligned).resize(widthOf(res.raw)).asBits
       res
@@ -855,7 +855,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val step = BigInt(1) << drop
-      val res = new AFix(((this.maxRaw+step-1) >> drop)-1, (this.minRaw+step-1) >> drop, exp)
+      val res = new AFix(((this.maxRaw+step-1) >> drop), (this.minRaw+step-1) >> drop, exp)
 
       res.raw := this.raw.asSInt.roundToInf(drop, aligned).resize(widthOf(res.raw)).asBits
       res
@@ -876,7 +876,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
-    val res = new AFix(((this.maxRaw+step-1) >> drop)-1, (this.minRaw+step-1) >> drop, exp)
+    val res = new AFix(((this.maxRaw+step-1) >> drop), (this.minRaw+step-1) >> drop, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.roundToEven(drop, aligned).resize(widthOf(res.raw)).asBits
@@ -899,7 +899,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val step = BigInt(1) << drop
-    val res = new AFix(((this.maxRaw+step-1) >> drop)-1, (this.minRaw+step-1) >> drop, exp)
+    val res = new AFix(((this.maxRaw+step-1) >> drop), (this.minRaw+step-1) >> drop, exp)
 
     if (this.signed) new AreaRoot{
       res.raw := raw.asSInt.roundToOdd(drop, align).resize(widthOf(res.raw)).asBits
@@ -924,9 +924,9 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     }
   }
 
-  def fixTo(m: Int, exp: Int, roundType: RoundType): AFix = this.sat(m)._round(roundType, exp)
+  def fixTo(m: Int, exp: Int, roundType: RoundType): AFix = this._round(roundType, exp).sat(m)
   def fixTo(m: Int, exp: Int): AFix = this.fixTo(m, exp, getTrunc.rounding)
-  def fixTo(af: AFix, roundType: RoundType): AFix = this.sat(af)._round(roundType, af.exp)
+  def fixTo(af: AFix, roundType: RoundType): AFix = this._round(roundType, af.exp).sat(af)
   def fixTo(af: AFix): AFix = this.fixTo(af, getTrunc.rounding)
   def fixTo(Q: QFormat): AFix = {
     val res = AFix(Q.width-Q.fraction exp, -Q.fraction exp, Q.signed)
@@ -965,7 +965,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       saturation,
       overflow,
       rounding,
-      true
+      align
     ))
     copy
   }
