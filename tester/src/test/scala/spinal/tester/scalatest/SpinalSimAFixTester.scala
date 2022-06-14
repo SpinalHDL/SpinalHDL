@@ -197,8 +197,8 @@ class SpinalSimAFixTester extends AnyFunSuite {
       for (mode <- ROUNDING_MODES) {
         for (example <- ROUNDING_EXAMPLES) {
           val deciBounds = List(example, example - 5)
-          val fixedBounds = deciBounds.map(_ * BigDecimal(2).pow(ROUNDING_EXP))
-          val fixNum = new AFix(fixedBounds.max.toBigInt(), fixedBounds.min.toBigInt(), -ROUNDING_EXP)
+          val fixedBounds = deciBounds.map(_ * BigDecimal(2).pow(ROUNDING_EXP)).map(_.toBigInt)
+          val fixNum = new AFix(fixedBounds.max, fixedBounds.min, -ROUNDING_EXP)
 
           val roundedNum = mode match {
             case 0 => fixNum.ceil(0)
