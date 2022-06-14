@@ -4,7 +4,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object AFix {
 
-  def apply(maxValue: BigInt, minValue: BigInt, exp: ExpNumber) : AFix = new AFix(maxRaw = maxValue, minRaw = minValue, exp = exp.value)
+  def apply(maxRaw: BigInt, minRaw: BigInt, exp: ExpNumber) : AFix = new AFix(maxRaw = maxRaw, minRaw = minRaw, exp = exp.value)
   def apply(u: UInt): AFix = AFix(u, 0 exp)
   def apply(u: UInt, exp: ExpNumber): AFix = {
     val maxValue = BigInt(2).pow(u.getWidth)-1
@@ -12,8 +12,8 @@ object AFix {
     ret.raw := u.asBits
     ret
   }
-  def apply(u: UInt, maxValue: BigInt, exp : ExpNumber): AFix = {
-    val ret = new AFix(maxValue, 0, exp.value)
+  def apply(u: UInt, maxRaw: BigInt, exp : ExpNumber): AFix = {
+    val ret = new AFix(maxRaw, 0, exp.value)
     ret.raw := u.asBits.resized
     ret
   }
@@ -35,9 +35,9 @@ object AFix {
   }
 
   def apply(sf: SFix): AFix = {
-    val maxValue = BigInt(2).pow(sf.bitCount-1)-1
-    val minValue = -BigInt(2).pow(sf.bitCount-1)
-    val ret = new AFix(maxValue, minValue, -sf.minExp)
+    val maxRaw = BigInt(2).pow(sf.bitCount-1)-1
+    val minRaw = -BigInt(2).pow(sf.bitCount-1)
+    val ret = new AFix(maxRaw, minRaw, -sf.minExp)
     ret.raw := sf.raw.asBits
     ret
   }
@@ -55,9 +55,9 @@ object AFix {
 
 
   def apply(amplitude : ExpNumber, resolution : ExpNumber, signed : Boolean) : AFix = {
-    val maxValue = BigInt(2).pow(amplitude.value-resolution.value)-1
-    val minValue = if (signed) -BigInt(2).pow(amplitude.value-resolution.value) else BigInt(0)
-    new AFix(maxValue, minValue, resolution.value)
+    val maxRaw = BigInt(2).pow(amplitude.value-resolution.value)-1
+    val minRaw = if (signed) -BigInt(2).pow(amplitude.value-resolution.value) else BigInt(0)
+    new AFix(maxRaw, minRaw, resolution.value)
   }
 
   def U(width: BitCount): AFix = AFix(width.value exp, 0 exp, signed = false)
@@ -114,8 +114,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   val signed = (maxRaw < 0) || (minRaw < 0)
   val signWidth = if (signed) 1 else 0
 
-  val maxValue = BigDecimal(maxRaw) * BigDecimal(2).pow(exp)
-  val minValue = BigDecimal(minRaw) * BigDecimal(2).pow(exp)
+  lazy val maxValue = BigDecimal(maxRaw) * BigDecimal(2).pow(exp)
+  lazy val minValue = BigDecimal(minRaw) * BigDecimal(2).pow(exp)
 
   private val maxShifted = maxRaw.abs - (if (maxRaw < 0) signWidth else 0)
   private val maxBits = maxShifted.bitLength
@@ -543,7 +543,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 
   def asAlwaysPositive() : AFix = {
     assert(signed)
-    val ret = AFix(maxValue = maxRaw, minValue = 0, exp = exp exp)
+    val ret = AFix(maxRaw = maxRaw, minRaw = 0, exp = exp exp)
     ret := this.truncated()
     ret
   }

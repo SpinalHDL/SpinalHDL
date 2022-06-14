@@ -1171,21 +1171,23 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
 
 class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
   override def impl(pc: PhaseContext): Unit = {
-    pc.walkDeclarations {
-      case mem: Mem[_] => {
-        var hit = false
-        mem.foreachStatements {
-          case port: MemReadAsync => hit = true
-          case _ =>
+    if(pc.config.device.isVendorDefault || pc.config.device.vendor == Device.XILINX.vendor) {
+      pc.walkDeclarations {
+        case mem: Mem[_] => {
+          var hit = false
+          mem.foreachStatements {
+            case port: MemReadAsync => hit = true
+            case _ =>
+          }
+          if (hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
         }
-        if (hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
-      }
-      case bt : BaseType =>{
-        if(bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))){
-          bt.addAttribute("async_reg", "true")
+        case bt: BaseType => {
+          if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
+            bt.addAttribute("async_reg", "true")
+          }
         }
+        case _ =>
       }
-      case _ =>
     }
     if(pc.config.device.vendor == Device.ALTERA.vendor){
       pc.walkDeclarations {
