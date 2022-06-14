@@ -916,13 +916,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   }
 
   def round(exp: Int, aligned: Boolean = getTrunc.saturation): AFix = {
-    val trunc = this.getTag(classOf[TagAFixTruncated])
-
-    if (trunc.isDefined) {
-      this._round(trunc.get.rounding, exp, aligned)
-    } else {
-      roundToInf(exp, aligned)
-    }
+    this._round(getTrunc.rounding, exp, aligned)
   }
 
   def fixTo(af: AFix, roundType: RoundType): AFix = this._round(roundType, af.exp).sat(af)
@@ -1017,10 +1011,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
           this.raw.compositAssignFrom(af_sat.raw.asUInt.resize(this.bitWidth).asBits, this.raw, kind)
         }
 
-//      case u: UInt => this.raw := u.asBits
-//      case s: SInt => this.raw := s.asBits
-//      case uf: UFix => this := AFix(uf)
-//      case sf: SFix => this := AFix(sf)
       case u: UInt => this.raw.compositAssignFrom(u.asBits, this.raw, kind)
       case s: SInt => this.raw.compositAssignFrom(s.asBits, this.raw, kind)
       case uf: UFix => this.compositAssignFrom(AFix(uf), this, kind)

@@ -454,12 +454,11 @@ package object sim {
       rawAssign(rhs)
     }
     def #= (that : Double): Unit = this #= BigDecimal(that)
-    def randomize(): BigDecimal = {
+    def randomize(): Unit = {
       var rhs = Random.nextDouble()
       rhs = Math.max(minValue, rhs)
       rhs = Math.min(maxValue, rhs)
       this #= rhs
-      rhs
     }
 
     def toBigDecimal: BigDecimal
@@ -513,7 +512,7 @@ package object sim {
     }
     def #= (that : Double): Unit = this #= BigDecimal(that)
 
-    def randomize(inRange: Boolean = true): BigDecimal = {
+    def randomize(inRange: Boolean = true): Unit = {
       if (inRange) {
         var randBigInt: BigInt = null
         do {
@@ -536,7 +535,6 @@ package object sim {
       } else {
         bt.raw.randomize()
       }
-      bt.toBigDecimal
     }
 
     def toBigDecimal: BigDecimal = {
