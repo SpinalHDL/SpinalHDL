@@ -214,7 +214,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val boundsDeci = List(maxRaw, minRaw).map(bd => BigDecimal(bd) * BigDecimal(2).pow(-drop))
     val boundsDeciRound = boundsDeci.map(bd => _roundDeciSpinal(bd, roundType))
     val newBoundsDeci = boundsDeciRound.map(bd => bd * BigDecimal(2).pow(-exp))
-    val newBounds = newBoundsDeci.map(_.toBigIntExact().get)
+    val newBounds = newBoundsDeci.map(_.toBigIntExact.get)
     (newBounds(0), newBounds(1))
   }
 
