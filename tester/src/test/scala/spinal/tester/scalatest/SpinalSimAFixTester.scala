@@ -190,7 +190,7 @@ class SpinalSimAFixTester extends AnyFunSuite {
   }
 
   test("round") {
-    val ROUNDING_EXAMPLES = List(-0.5625, -0.5, -0.4375, -0.0625, 0, 0.0625, 0.4375, 0.5, 0.5625)
+    val ROUNDING_EXAMPLES = List(-16.5625, -16.5, -16.4375, -0.0625, 0, 0.0625, 16.4375, 16.5, 16.5625)
     val ROUNDING_EXP = 4
     val ROUNDING_MODES = 0 until 9
     SimConfig.compile(new Component {

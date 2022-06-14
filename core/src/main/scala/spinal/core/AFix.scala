@@ -1,6 +1,7 @@
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
+import scala.math.BigDecimal.RoundingMode
 
 object AFix {
 
@@ -761,10 +762,21 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    */
   def ceilToInf(exp: Int): AFix = {
     if (this.signed) {
+
+      def ceilToInfDeci(a: BigDecimal) = {
+        if (a.signum == 1) a.setScale(0, RoundingMode.CEILING) else a.setScale(0, RoundingMode.FLOOR)
+      }
+
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
-      val step = BigInt(1) << drop
-      val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
+      val newMaxDeci = BigDecimal(maxRaw) * BigDecimal(2).pow(-drop)
+      val newMinDeci = BigDecimal(minRaw) * BigDecimal(2).pow(-drop)
+      val newMaxDeciRound = ceilToInfDeci(newMaxDeci) * BigDecimal(2).pow(-exp)
+      val newMinDeciRound = ceilToInfDeci(newMinDeci) * BigDecimal(2).pow(-exp)
+      val newMaxInt = newMaxDeciRound.toBigIntExact().get
+      val newMinInt = newMinDeciRound.toBigIntExact().get
+
+      val res = new AFix(newMaxInt, newMinInt, exp)
 
       res.raw := this.raw.asSInt.ceilToInf(drop, false).resize(widthOf(res.raw)).asBits
       res
