@@ -240,8 +240,8 @@ class SpinalSimAFixTester extends AnyFunSuite {
         if (c % 2 < 1) c.setScale(0, RoundingMode.HALF_UP) else c.setScale(0, RoundingMode.HALF_DOWN)
       else
         if (-c % 2 < 1) c.setScale(0, RoundingMode.HALF_UP) else c.setScale(0, RoundingMode.HALF_DOWN)
-    }  }
-
+    }
+  }
 }
 
 class AFixTester extends Component {
