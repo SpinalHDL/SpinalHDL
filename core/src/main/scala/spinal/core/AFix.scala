@@ -18,6 +18,13 @@ object AFix {
     ret
   }
 
+  def apply(b: Bool): AFix = this(b, 0 exp)
+  def apply(b: Bool, exp : ExpNumber): AFix = {
+    val ret = new AFix(1, 0, exp.value)
+    ret.raw(0) := b
+    ret
+  }
+
   def apply(s: SInt): AFix = AFix(s, 0 exp)
   def apply(s: SInt, exp: ExpNumber): AFix = {
     val maxValue = BigInt(2).pow(s.getWidth-1)-1
@@ -454,9 +461,9 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val ret = new AFix(this.maxRaw / shiftBig, this.minRaw / shiftBig, this.exp)
 
     if (this.signed)
-      ret.raw := this.raw.asSInt.resize(ret.bitWidth).asBits
+      ret.raw := this.raw.dropLow(shift)
     else
-      ret.raw := this.raw.asUInt.resize(ret.bitWidth).asBits
+      ret.raw := this.raw.dropLow(shift)
 
     ret
   }
