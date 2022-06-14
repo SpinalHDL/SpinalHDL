@@ -924,8 +924,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     }
   }
 
-  def fixTo(m: Int, exp: Int, roundType: RoundType): AFix = this._round(roundType, exp).sat(m)
-  def fixTo(m: Int, exp: Int): AFix = this.fixTo(m, exp, getTrunc.rounding)
   def fixTo(af: AFix, roundType: RoundType): AFix = this._round(roundType, af.exp).sat(af)
   def fixTo(af: AFix): AFix = this.fixTo(af, getTrunc.rounding)
   def fixTo(Q: QFormat): AFix = {
