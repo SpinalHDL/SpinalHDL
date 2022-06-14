@@ -931,12 +931,16 @@ class ComponentEmitterVhdl(
     if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
       //if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
 
+      val mappings = ArrayBuffer[MemSymbolesMapping]()
       declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${symbolWidth - 1} downto 0);\n"
       for(i <- 0 until symbolCount) {
         val postfix = "_symbol" + i
-        declarations ++= s"  signal ${emitReference(mem,false)}$postfix : ${emitDataType(mem)}${initAssignmentBuilder(i).toString()};\n"
+        val symbolName = s"${emitReference(mem,false)}$postfix"
+        declarations ++= s"  signal $symbolName : ${emitDataType(mem)}${initAssignmentBuilder(i).toString()};\n"
+        mappings += MemSymbolesMapping(symbolName, i*symbolWidth until (i+1)*symbolWidth)
         emitAttributes(mem,mem.instanceAttributes(Language.VHDL), "signal", declarations,postfix = postfix)
       }
+      mem.addTag(MemSymbolesTag(mappings))
     }else{
       declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
       declarations ++= s"  signal ${emitReference(mem,false)} : ${emitDataType(mem)}${initAssignmentBuilder.head.toString()};\n"
