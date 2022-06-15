@@ -533,7 +533,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       newExp.value
     )
 
-    ret.raw := this.raw << dif
+    ret.raw := (this.raw << dif).resized
 
     ret
   }
