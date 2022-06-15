@@ -67,7 +67,7 @@ trait DataPrimitives[T <: Data]{
           case None => new VarAssignementTag(from)
         }
         t.id += 1
-        to.setCompositeName(t.from,t.id.toString)
+        to.setCompositeName(t.from,t.id.toString, true)
 
         from.removeTag(t)
         ret.addTag(t)
