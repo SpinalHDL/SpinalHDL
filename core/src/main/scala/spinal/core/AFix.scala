@@ -313,6 +313,20 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
             _roundFixedBigInt(i, exp, ROUNDDOWN)
           }
         }
+      case ROUNDTOODD =>
+        if (positive) {
+          if (even) {
+            _roundFixedBigInt(i, exp, ROUNDUP)
+          } else {
+            _roundFixedBigInt(i, exp, ROUNDDOWN)
+          }
+        } else {
+          if (even) {
+            _roundFixedBigInt(i, exp, ROUNDDOWN)
+          } else {
+            _roundFixedBigInt(i, exp, ROUNDUP)
+          }
+        }
     }
   }
 
