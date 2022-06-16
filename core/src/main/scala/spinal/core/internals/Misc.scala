@@ -292,4 +292,6 @@ class IntPimped(pimped : Int){
     case 0 => false
     case 1 => true
   }
+
+  def * (value : Bits) =  Cat(List.fill(pimped)(value))
 }

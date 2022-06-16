@@ -8,7 +8,8 @@ case class ConnectionPoint(valid : Bool, ready : Bool, payload : Seq[Data]) exte
 trait ConnectionLogic extends Nameable with OverridedEqualsHashCode {
   def on(m : ConnectionPoint,
          s : ConnectionPoint,
-         flush : Bool, flushNext : Bool, flushNextHit : Bool) : Area // Remove => one element, flush =>
+         flush : Bool, flushNext : Bool, flushNextHit : Bool,
+         throwHead : Bool, throwHeadHit : Bool) : Area // Remove => one element, flush =>
 
   def latency : Int = ???
   def tokenCapacity : Int = ???
@@ -20,7 +21,10 @@ object Connection{
   case class DIRECT() extends ConnectionLogic {
     def on(m : ConnectionPoint,
            s : ConnectionPoint,
-           flush : Bool, flushNext : Bool, flushNextHit : Bool) = new Area {
+           flush : Bool, flushNext : Bool, flushNextHit : Bool,
+           throwHead : Bool, throwHeadHit : Bool) = new Area {
+      if(flushNextHit != null) flushNextHit := False
+      if(throwHeadHit != null) throwHeadHit := False
       if(m.ready != null) m.ready   := s.ready
       s.valid   := m.valid
       (s.payload, m.payload).zipped.foreach(_ := _)
@@ -35,10 +39,12 @@ object Connection{
                  flushPreserveInput : Boolean = false) extends ConnectionLogic {
     def on(m : ConnectionPoint,
            s : ConnectionPoint,
-           flush : Bool, flushNext : Bool, flushNextHit : Bool) = new Area{
+           flush : Bool, flushNext : Bool, flushNextHit : Bool,
+           throwHead : Bool, throwHeadHit : Bool) = new Area{
 
       s.valid.setAsReg() init(False)
       s.payload.foreach(_.setAsReg())
+
 
       m.ready match {
         case null =>
@@ -46,6 +52,7 @@ object Connection{
           (s.payload, m.payload).zipped.foreach(_ := _)
         case r => {
           if (flush != null && flushPreserveInput) s.valid clearWhen(flush)
+          if(throwHead != null) s.valid clearWhen(throwHead)
           when(r) {
             s.valid := m.valid
           }
@@ -76,8 +83,10 @@ object Connection{
   case class S2M() extends ConnectionLogic {
     def on(m : ConnectionPoint,
            s : ConnectionPoint,
-           flush : Bool, flushNext : Bool, flushNextHit : Bool) = new Area{
+           flush : Bool, flushNext : Bool, flushNextHit : Bool,
+           throwHead : Bool, throwHeadHit : Bool) = new Area{
       assert(s.ready != null)
+      assert(throwHead == null, "not implemented but could be")
 
       val rValid = RegInit(False) setWhen(m.valid) clearWhen(s.ready)
       val rData = m.payload.map(e => RegNextWhen(e, m.ready).setCompositeName(e, "s2mBuffer"))
@@ -104,7 +113,8 @@ object Connection{
   case class QueueLowLatency(depth : Int) extends ConnectionLogic {
     def on(m : ConnectionPoint,
            s : ConnectionPoint,
-           flush : Bool, flushNext : Bool, flushNextHit : Bool) = new Area{
+           flush : Bool, flushNext : Bool, flushNextHit : Bool,
+           throwHead : Bool, throwHeadHit : Bool) = new Area{
       assert(s.ready != null)
 
       val queue = StreamFifoLowLatency(Bits(s.payload.map(widthOf(_)).sum bits), depth)
@@ -116,6 +126,7 @@ object Connection{
       s.valid := queue.io.pop.valid
       (s.payload, offsets).zipped.foreach{case (b, o) => b.assignFromBits(queue.io.pop.payload(o, widthOf(b) bits))}
       queue.io.pop.ready := s.ready
+      if(throwHead != null) queue.io.pop.ready setWhen(throwHead)
 
       if(flush != null) queue.io.flush := flush
     }

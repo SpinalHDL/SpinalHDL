@@ -186,7 +186,44 @@ class SpinalSimAFixTester extends AnyFunSuite {
       case 2 => (a * b) % BigDecimal(2).pow(dut.io.outMul.bitWidth)
     }
 
-    val rounded: BigDecimal = mode match {
+    val rounded = doAFixSimRound(c, mode)
+  }
+
+  test("round") {
+    val ROUNDING_EXAMPLES = List(-16.5625, -16.5, -16.4375, -0.0625, 0, 0.0625, 16.4375, 16.5, 16.5625)
+    val ROUNDING_EXP = 4
+    val ROUNDING_MODES = 0 until 9
+    SimConfig.compile(new Component {
+      for (mode <- ROUNDING_MODES) {
+        for (example <- ROUNDING_EXAMPLES) {
+          val deciBounds = List(example, example - 5)
+          val fixedBounds = deciBounds.map(_ * BigDecimal(2).pow(ROUNDING_EXP)).map(_.toBigInt)
+          val fixNum = new AFix(fixedBounds.max, fixedBounds.min, -ROUNDING_EXP)
+
+          val roundedNum = mode match {
+            case 0 => fixNum.ceil(0)
+            case 1 => fixNum.floor(0)
+            case 2 => fixNum.floorToZero(0)
+            case 3 => fixNum.ceilToInf(0)
+            case 4 => fixNum.roundHalfUp(0)
+            case 5 => fixNum.roundHalfDown(0)
+            case 6 => fixNum.roundHalfToZero(0)
+            case 7 => fixNum.roundHalfToInf(0)
+            case 8 => fixNum.roundHalfToEven(0)
+            case 9 => fixNum.roundHalfToOdd(0)
+          }
+
+          val roundedBounds = deciBounds.map(b => doAFixSimRound(b, mode))
+
+          assert(roundedNum.maxValue == roundedBounds.max || roundedNum.minValue == roundedBounds.min,
+          s"\nRounded bounds check failed. AFix [${roundedNum.minValue} - ${roundedNum.maxValue}] vs Model [${roundedBounds.min} - ${roundedBounds.max}]. Rounding mode = ${mode}")
+        }
+      }
+    })
+  }
+
+  def doAFixSimRound(c: BigDecimal, roundMode: Int): BigDecimal = {
+    roundMode match {
       case 0 => c.setScale(0, RoundingMode.CEILING)
       case 1 => c.setScale(0, RoundingMode.FLOOR)
       case 2 => if (c.signum == 1) c.setScale(0, RoundingMode.FLOOR) else c.setScale(0, RoundingMode.CEILING)
@@ -205,7 +242,6 @@ class SpinalSimAFixTester extends AnyFunSuite {
         if (-c % 2 < 1) c.setScale(0, RoundingMode.HALF_UP) else c.setScale(0, RoundingMode.HALF_DOWN)
     }
   }
-
 }
 
 class AFixTester extends Component {

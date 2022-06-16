@@ -82,7 +82,7 @@ object XilinxStdTargets {
             workspacePath=workspace + "_area",
             rtl=rtl,
             family=getFamilyName(),
-            device="xc7a200tfbg676-3"
+            device="xc7a200tffv1156-3"
             //            device="xc7k70t-fbg676-3"
           )
         }
@@ -96,7 +96,7 @@ object XilinxStdTargets {
             workspacePath=workspace + "_fmax",
             rtl=rtl,
             family=getFamilyName(),
-            device="xc7a200tfbg676-3"
+            device="xc7a200tffv1156-3"
             //            device="xc7k70t-fbg676-3"
           )
         }

@@ -40,6 +40,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     val arbitration = new {
       var isRemoved : Bool = null
       var isFlushed : Bool = null
+      var isThrown : Bool = null
       var isForked : Bool = null
       var isFlushingNext : Bool = null
       var isFlushingRoot : Bool = null
@@ -51,6 +52,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     val request = new {
       val halts = ArrayBuffer[Bool]()
       val throws = ArrayBuffer[Bool]()
+      val throwsRoot = ArrayBuffer[Bool]()
       val forks = ArrayBuffer[Bool]()
       val flush = ArrayBuffer[Bool]()
       val flushRoot = ArrayBuffer[Bool]()
@@ -97,7 +99,10 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   def flushNext() : Unit = flushNext(ConditionalContext.isTrue)
   def haltIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.halts += nameFromLocation(CombInit(cond), "haltRequest")
   def haltWhen(cond : Bool)(implicit loc: Location) : Unit = haltIt(cond)
-  def throwIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.throws += nameFromLocation(CombInit(cond), "throwRequest")
+  def throwIt(cond : Bool, root : Boolean = true)(implicit loc: Location) : Unit = {
+    internals.request.throws += nameFromLocation(CombInit(cond), "throwRequest")
+    if(root) internals.request.throwsRoot += cond
+  }
   def forkIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.forks += nameFromLocation(CombInit(cond), "forkRequest")
 
   //Not being root will not clear the output valid of the stage, which can be quite usefull
@@ -143,6 +148,10 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     internals.input.ready
   }
   def isSelfRemoved : Bool = isFlushingRoot
+  def isThrown : Bool = {
+    if(internals.arbitration.isThrown == null) internals.arbitration.isThrown = ContextSwapper.outsideCondScope(Bool())
+    internals.arbitration.isThrown
+  }
 
   def valid = internals.input.valid
 
