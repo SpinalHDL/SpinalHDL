@@ -211,33 +211,108 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 
   private def roundedBounds(exp: Int, roundType: RoundType): (BigInt, BigInt) = {
     val drop = exp-this.exp
-    val boundsDeci = List(maxRaw, minRaw).map(bd => BigDecimal(bd) * BigDecimal(2).pow(-drop))
-    val boundsDeciRound = boundsDeci.map(bd => _roundDeciSpinal(bd, roundType))
-    val newBoundsDeci = boundsDeciRound.map(bd => bd * BigDecimal(2).pow(-exp))
-    val newBounds = newBoundsDeci.map(_.toBigIntExact.get)
-    (newBounds(0), newBounds(1))
+    (_roundFixedBigInt(maxRaw, drop, roundType), _roundFixedBigInt(minRaw, drop, roundType))
   }
 
-  private def _roundDeciSpinal(deci: BigDecimal, roundType: RoundType): BigDecimal = {
+
+  private def _roundFixedBigInt(i: BigInt, exp: Int, roundType: RoundType): BigInt = {
     import RoundType._
 
+    val scaled = i / BigInt(2).pow(exp)
+    val even = if (exp >= 0) !i.abs.testBit(exp) else false
+    val positive = i.signum >= 0
+
+    val halfBit = if (exp > 0) i.abs.testBit(exp-1) else false // 0.5
+    val halfDropped = if (exp > 1) ((i.abs & BigInt(2).pow(exp-1)-1) != 0) else false // Bits smaller than 0.5
+    val droppedBits = halfBit || halfDropped // 0.5 + smaller
+
     roundType match {
-      case CEIL => deci.setScale(0, RoundingMode.CEILING)
-      case FLOOR => deci.setScale(0, RoundingMode.FLOOR)
-      case FLOORTOZERO => if (deci.signum == 1) deci.setScale(0, RoundingMode.FLOOR) else deci.setScale(0, RoundingMode.CEILING)
-      case CEILTOINF => if (deci.signum == 1) deci.setScale(0, RoundingMode.CEILING) else deci.setScale(0, RoundingMode.FLOOR)
-      case ROUNDUP => if (deci.signum == 1) deci.setScale(0, RoundingMode.HALF_UP) else deci.setScale(0, RoundingMode.HALF_DOWN)
-      case ROUNDDOWN => if (deci.signum == 1) deci.setScale(0, RoundingMode.HALF_DOWN) else deci.setScale(0, RoundingMode.HALF_UP)
-      case ROUNDTOZERO => deci.setScale(0, RoundingMode.HALF_DOWN)
-      case ROUNDTOINF => deci.setScale(0, RoundingMode.HALF_UP)
-      case ROUNDTOEVEN => if (deci.signum == 1)
-        if (deci % 2 < 1) deci.setScale(0, RoundingMode.HALF_DOWN) else deci.setScale(0, RoundingMode.HALF_UP)
-      else
-        if (-deci % 2 < 1) deci.setScale(0, RoundingMode.HALF_DOWN) else deci.setScale(0, RoundingMode.HALF_UP)
-      case ROUNDTOODD => if (deci.signum == 1)
-        if (deci % 2 < 1) deci.setScale(0, RoundingMode.HALF_UP) else deci.setScale(0, RoundingMode.HALF_DOWN)
-      else
-        if (-deci % 2 < 1) deci.setScale(0, RoundingMode.HALF_UP) else deci.setScale(0, RoundingMode.HALF_DOWN)
+      case CEIL =>
+        if (positive) {
+          if (droppedBits) {
+            scaled + 1
+          } else {
+            scaled
+          }
+        } else {
+          scaled
+        }
+      case FLOOR =>
+        if (positive) {
+          scaled
+        } else {
+          if (droppedBits) {
+            scaled - 1
+          } else {
+            scaled
+          }
+        }
+      case FLOORTOZERO =>
+        if (positive) {
+          _roundFixedBigInt(i, exp, FLOOR)
+        } else {
+          _roundFixedBigInt(i, exp, CEIL)
+        }
+      case CEILTOINF =>
+        if (positive) {
+          _roundFixedBigInt(i ,exp, CEIL)
+        } else {
+          _roundFixedBigInt(i, exp, FLOOR)
+        }
+      case ROUNDUP =>
+        if (positive) {
+          if (halfBit) {
+            _roundFixedBigInt(i, exp, CEIL)
+          } else {
+            _roundFixedBigInt(i, exp, FLOOR)
+          }
+        } else {
+          if (halfBit ^ halfDropped) {
+            _roundFixedBigInt(i, exp, CEIL)
+          } else {
+            _roundFixedBigInt(i, exp, FLOOR)
+          }
+        }
+      case ROUNDDOWN =>
+        if (positive) {
+          if (halfBit ^ halfDropped) {
+            _roundFixedBigInt(i, exp, FLOOR)
+          } else {
+            _roundFixedBigInt(i, exp, CEIL)
+          }
+        } else {
+          if (halfBit) {
+            _roundFixedBigInt(i, exp, FLOOR)
+          } else {
+            _roundFixedBigInt(i, exp, CEIL)
+          }
+        }
+      case ROUNDTOZERO =>
+        if (positive) {
+          _roundFixedBigInt(i, exp, ROUNDDOWN)
+        } else {
+          _roundFixedBigInt(i, exp, ROUNDUP)
+        }
+      case ROUNDTOINF =>
+        if (positive) {
+          _roundFixedBigInt(i, exp, ROUNDUP)
+        } else {
+          _roundFixedBigInt(i, exp, ROUNDDOWN)
+        }
+      case ROUNDTOEVEN =>
+        if (positive) {
+          if (even) {
+            _roundFixedBigInt(i, exp, ROUNDDOWN)
+          } else {
+            _roundFixedBigInt(i, exp, ROUNDUP)
+          }
+        } else {
+          if (even) {
+            _roundFixedBigInt(i, exp, ROUNDUP)
+          } else {
+            _roundFixedBigInt(i, exp, ROUNDDOWN)
+          }
+        }
     }
   }
 
