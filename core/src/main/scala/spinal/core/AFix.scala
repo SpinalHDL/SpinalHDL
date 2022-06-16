@@ -1,6 +1,7 @@
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
+import scala.math.BigDecimal.RoundingMode
 
 object AFix {
 
@@ -205,6 +206,127 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       (l.raw, r.raw << -expDiff)
     } else {
       (l.raw, r.raw)
+    }
+  }
+
+  private def roundedBounds(exp: Int, roundType: RoundType): (BigInt, BigInt) = {
+    val drop = exp-this.exp
+    (_roundFixedBigInt(maxRaw, drop, roundType), _roundFixedBigInt(minRaw, drop, roundType))
+  }
+
+
+  private def _roundFixedBigInt(i: BigInt, exp: Int, roundType: RoundType): BigInt = {
+    import RoundType._
+
+    val scaled = i / BigInt(2).pow(exp)
+    val even = if (exp >= 0) !i.abs.testBit(exp) else false
+    val positive = i.signum >= 0
+
+    val halfBit = if (exp > 0) i.abs.testBit(exp-1) else false // 0.5
+    val halfDropped = if (exp > 1) ((i.abs & BigInt(2).pow(exp-1)-1) != 0) else false // Bits smaller than 0.5
+    val droppedBits = halfBit || halfDropped // 0.5 + smaller
+
+    roundType match {
+      case CEIL =>
+        if (positive) {
+          if (droppedBits) {
+            scaled + 1
+          } else {
+            scaled
+          }
+        } else {
+          scaled
+        }
+      case FLOOR =>
+        if (positive) {
+          scaled
+        } else {
+          if (droppedBits) {
+            scaled - 1
+          } else {
+            scaled
+          }
+        }
+      case FLOORTOZERO =>
+        if (positive) {
+          _roundFixedBigInt(i, exp, FLOOR)
+        } else {
+          _roundFixedBigInt(i, exp, CEIL)
+        }
+      case CEILTOINF =>
+        if (positive) {
+          _roundFixedBigInt(i ,exp, CEIL)
+        } else {
+          _roundFixedBigInt(i, exp, FLOOR)
+        }
+      case ROUNDUP =>
+        if (positive) {
+          if (halfBit) {
+            _roundFixedBigInt(i, exp, CEIL)
+          } else {
+            _roundFixedBigInt(i, exp, FLOOR)
+          }
+        } else {
+          if (halfBit ^ halfDropped) {
+            _roundFixedBigInt(i, exp, CEIL)
+          } else {
+            _roundFixedBigInt(i, exp, FLOOR)
+          }
+        }
+      case ROUNDDOWN =>
+        if (positive) {
+          if (halfBit ^ halfDropped) {
+            _roundFixedBigInt(i, exp, FLOOR)
+          } else {
+            _roundFixedBigInt(i, exp, CEIL)
+          }
+        } else {
+          if (halfBit) {
+            _roundFixedBigInt(i, exp, FLOOR)
+          } else {
+            _roundFixedBigInt(i, exp, CEIL)
+          }
+        }
+      case ROUNDTOZERO =>
+        if (positive) {
+          _roundFixedBigInt(i, exp, ROUNDDOWN)
+        } else {
+          _roundFixedBigInt(i, exp, ROUNDUP)
+        }
+      case ROUNDTOINF =>
+        if (positive) {
+          _roundFixedBigInt(i, exp, ROUNDUP)
+        } else {
+          _roundFixedBigInt(i, exp, ROUNDDOWN)
+        }
+      case ROUNDTOEVEN =>
+        if (positive) {
+          if (even) {
+            _roundFixedBigInt(i, exp, ROUNDDOWN)
+          } else {
+            _roundFixedBigInt(i, exp, ROUNDUP)
+          }
+        } else {
+          if (even) {
+            _roundFixedBigInt(i, exp, ROUNDUP)
+          } else {
+            _roundFixedBigInt(i, exp, ROUNDDOWN)
+          }
+        }
+      case ROUNDTOODD =>
+        if (positive) {
+          if (even) {
+            _roundFixedBigInt(i, exp, ROUNDUP)
+          } else {
+            _roundFixedBigInt(i, exp, ROUNDDOWN)
+          }
+        } else {
+          if (even) {
+            _roundFixedBigInt(i, exp, ROUNDDOWN)
+          } else {
+            _roundFixedBigInt(i, exp, ROUNDUP)
+          }
+        }
     }
   }
 
@@ -699,7 +821,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def floor(exp : Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val res = new AFix(this.maxRaw >> drop, this.minRaw >> drop, exp)
+    val (newMax, newMin) = roundedBounds(exp, RoundType.FLOOR)
+    val res = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.floor(drop).resize(widthOf(res.raw)).asBits
@@ -730,8 +853,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def ceil(exp : Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val step = BigInt(1) << drop
-    val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
+    val (newMax, newMin) = roundedBounds(exp, RoundType.CEIL)
+    val res = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.ceil(drop, false).resize(widthOf(res.raw)).asBits
@@ -752,8 +875,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
-      val step = BigInt(1) << drop
-      val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
+      val (newMax, newMin) = roundedBounds(exp, RoundType.FLOORTOZERO)
+      val res = new AFix(newMax, newMin, exp)
 
       res.raw := this.raw.asSInt.floorToZero(drop).resize(widthOf(res.raw)).asBits
       res
@@ -770,8 +893,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
-      val step = BigInt(1) << drop
-      val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
+      val (newMax, newMin) = roundedBounds(exp, RoundType.CEILTOINF)
+      val res = new AFix(newMax, newMin, exp)
 
       res.raw := this.raw.asSInt.ceilToInf(drop, false).resize(widthOf(res.raw)).asBits
       res
@@ -789,8 +912,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def roundHalfUp(exp: Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val step = BigInt(1) << drop
-    val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
+    val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDUP)
+    val res = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.roundUp(drop, false).resize(widthOf(res.raw)).asBits
@@ -809,8 +932,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def roundHalfDown(exp: Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val step = BigInt(1) << drop
-    val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
+    val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDDOWN)
+    val res = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.roundDown(drop, false).resize(widthOf(res.raw)).asBits
@@ -830,8 +953,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
-      val step = BigInt(1) << drop
-      val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
+      val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOZERO)
+      val res = new AFix(newMax, newMin, exp)
 
       res.raw := this.raw.asSInt.roundToZero(drop, false).resize(widthOf(res.raw)).asBits
       res
@@ -850,13 +973,13 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
-      val step = BigInt(1) << drop
-      val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
+      val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOINF)
+      val res = new AFix(newMax, newMin, exp)
 
       res.raw := this.raw.asSInt.roundToInf(drop, false).resize(widthOf(res.raw)).asBits
       res
     } else {
-      roundHalfDown(exp)
+      roundHalfUp(exp)
     }
   }
 
@@ -869,8 +992,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def roundHalfToEven(exp: Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val step = BigInt(1) << drop
-    val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
+    val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOEVEN)
+    val res = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.roundToEven(drop, false).resize(widthOf(res.raw)).asBits
@@ -890,8 +1013,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def roundHalfToOdd(exp: Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val step = BigInt(1) << drop
-    val res = new AFix((this.maxRaw+step-1) >> drop, (this.minRaw+step-1) >> drop, exp)
+    val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOODD)
+    val res = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
       res.raw := this.raw.asSInt.roundToOdd(drop, false).resize(widthOf(res.raw)).asBits
