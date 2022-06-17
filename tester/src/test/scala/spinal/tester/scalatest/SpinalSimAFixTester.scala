@@ -42,8 +42,8 @@ class SpinalSimAFixTester extends AnyFunSuite {
       u_8_4_b := u_8_4_a
       u_10_4_b := u_8_4_a
       u_8_6_b := u_8_4_a
-      u_6_4_b := u_8_4_a.truncated(saturation = true, overflow = false)
-      u_8_2_b := u_8_4_a.truncated(rounding = RoundType.FLOOR)
+      u_6_4_b := u_8_4_a.truncated(saturation = true, overflow = false, rounding = RoundType.FLOOR)
+      u_8_2_b := u_8_4_a.truncated(saturation = true, overflow = false, rounding = RoundType.FLOOR)
     })
   }
 
@@ -281,7 +281,7 @@ class AFixTester extends Component {
 
   val chosenOp = opResults(io.opMode.asUInt)
   println(chosenOp)
-  io.outRaw := chosenOp.saturated()
+  io.outRaw := chosenOp.saturated
 
   val roundResults = Vec(Seq(
     chosenOp.ceil(0),
