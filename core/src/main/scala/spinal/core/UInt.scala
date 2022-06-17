@@ -233,7 +233,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   private def _roundToEven(n: Int): UInt = {
-    val ret = UInt(getWidth-n bits)
+    val ret = UInt(getWidth-n+1 bits)
     when (!this(n)) {
       ret := _roundDown(n)
     } otherwise {
@@ -252,7 +252,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   private def _roundToOdd(n: Int): UInt = {
-    val ret = UInt(getWidth-n bits)
+    val ret = UInt(getWidth-n+1 bits)
     when (!this(n)) {
       ret := _roundUp(n)
     } otherwise {

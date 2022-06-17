@@ -124,6 +124,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 
   lazy val maxValue = BigDecimal(maxRaw) * BigDecimal(2).pow(exp)
   lazy val minValue = BigDecimal(minRaw) * BigDecimal(2).pow(exp)
+  lazy val step = BigDecimal(2).pow(exp)
 
   private val maxShifted = maxRaw.abs - (if (maxRaw < 0) signWidth else 0)
   private val maxBits = maxShifted.bitLength
@@ -673,7 +674,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def asAlwaysPositive() : AFix = {
     assert(signed)
     val ret = AFix(maxRaw = maxRaw, minRaw = 0, exp = exp exp)
-    ret := this.truncated()
+    ret := this.truncated
     ret
   }
 
@@ -749,8 +750,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
         val this_resized = new AFix(satMax, satMin, exp)
         this_resized := this.resized
         return this_resized.sat(satMax, satMin)
-      } else {
-//        SpinalWarning(s"Saturation of ${this} to range [${satMax} - ${satMin}] has been limited to the representable range of the input.\nConsider adjusting the saturation range or resizing the input.\n" + ScalaLocated.long)
       }
     }
     val ret = new AFix(satMax.min(this.maxRaw), satMin.max(this.minRaw), exp)
@@ -780,6 +779,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return
    */
   def sat(m: Int): AFix = {
+    if (m == 0) return this
     val newMax = BigInt(2).pow(bitWidth-m).min(this.maxRaw)
     val newMin = if (signed) (-BigInt(2).pow(bitWidth-m)).max(this.minRaw) else BigInt(0).max(this.minRaw)
     val ret = new AFix(newMax, newMin, exp)
@@ -836,7 +836,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def scrap(exp : Int): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
-    val res = new AFix(this.maxRaw >> drop, this.minRaw >> drop, exp)
+    val res = new AFix((this.maxRaw >> drop), this.minRaw >> drop, exp)
 
     res.raw := this.raw.dropLow(drop)
     res.raw.lsb setWhen(this.raw.takeLow(drop).orR)
@@ -850,22 +850,22 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * Rounds a value up towards positive infinity at the given exp point position
    * @return Rounded result
    */
-  def ceil(exp : Int): AFix = {
+  def ceil(exp : Int): AFix = ceil(exp, getTrunc.saturation)
+
+  def ceil(exp: Int, aligned: Boolean): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.CEIL)
     val res = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
-      res.raw := this.raw.asSInt.ceil(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asSInt.ceil(drop, aligned).resize(widthOf(res.raw)).asBits
     } else {
-      res.raw := this.raw.asUInt.ceil(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asUInt.ceil(drop, aligned).resize(widthOf(res.raw)).asBits
     }
 
     res
   }
-
-  def ceil(exp: Int, aligned: Boolean) = ceil(exp)
 
   /**
    * Rounds a value towards zero
@@ -890,127 +890,143 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
    * @return Rounded result
    */
   def ceilToInf(exp: Int): AFix = {
+    ceilToInf(exp, getTrunc.saturation)
+  }
+
+  def ceilToInf(exp: Int, aligned: Boolean): AFix = {
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val (newMax, newMin) = roundedBounds(exp, RoundType.CEILTOINF)
       val res = new AFix(newMax, newMin, exp)
 
-      res.raw := this.raw.asSInt.ceilToInf(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asSInt.ceilToInf(drop, aligned).resize(widthOf(res.raw)).asBits
       res
     } else {
-      ceil(exp)
+      ceil(exp, aligned)
     }
   }
-
-  def ceilToInf(exp: Int, aligned: Boolean): AFix = ceilToInf(exp)
 
   /**
    * Rounds a value up (ceiling) if x >= 0.5 otherwise rounds down (floor/truncate)
    * @return Rounded result
    */
   def roundHalfUp(exp: Int): AFix = {
+    roundUp(exp, getTrunc.saturation)
+  }
+
+  def roundUp(exp: Int, aligned: Boolean): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDUP)
     val res = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
-      res.raw := this.raw.asSInt.roundUp(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asSInt.roundUp(drop, aligned).resize(widthOf(res.raw)).asBits
     } else {
-      res.raw := this.raw.asUInt.roundUp(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asUInt.roundUp(drop, aligned).resize(widthOf(res.raw)).asBits
     }
     res
   }
-
-  def roundUp(exp: Int, aligned: Boolean): AFix = roundHalfUp(exp)
 
   /**
    * Rounds a value down (floor/truncate) if x <= 0.5 otherwise rounds up (ceil)
    * @return Rounded result
    */
   def roundHalfDown(exp: Int): AFix = {
+    roundDown(exp, getTrunc.saturation)
+  }
+
+  def roundDown(exp: Int, aligned: Boolean): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDDOWN)
     val res = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
-      res.raw := this.raw.asSInt.roundDown(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asSInt.roundDown(drop, aligned).resize(widthOf(res.raw)).asBits
     } else {
-      res.raw := this.raw.asUInt.roundDown(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asUInt.roundDown(drop, aligned).resize(widthOf(res.raw)).asBits
     }
     res
   }
-
-  def roundDown(exp: Int, aligned: Boolean): AFix = roundHalfDown(exp)
 
   /**
    * Rounds a value towards zero (floor/truncate) if x <= 0.5 otherwise rounds towards infinity
    * @return Rounded result
    */
   def roundHalfToZero(exp: Int): AFix = {
+    roundToZero(exp, getTrunc.saturation)
+  }
+
+  def roundToZero(exp: Int, aligned: Boolean): AFix = {
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOZERO)
       val res = new AFix(newMax, newMin, exp)
 
-      res.raw := this.raw.asSInt.roundToZero(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asSInt.roundToZero(drop, aligned).resize(widthOf(res.raw)).asBits
       res
     } else {
-      roundHalfDown(exp)
+      roundDown(exp, aligned)
     }
   }
-
-  def roundToZero(exp: Int, aligned: Boolean): AFix = roundHalfToZero(exp)
 
   /**
    * Rounds a value towards infinity if x >= 0.5 otherwise rounds towards zero
    * @return Rounded result
    */
   def roundHalfToInf(exp: Int): AFix = {
+    roundToInf(exp, getTrunc.saturation)
+  }
+
+  def roundToInf(exp: Int, aligned: Boolean): AFix = {
     if (this.signed) {
       val drop = exp-this.exp
       if(drop < 0) return CombInit(this)
       val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOINF)
       val res = new AFix(newMax, newMin, exp)
 
-      res.raw := this.raw.asSInt.roundToInf(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asSInt.roundToInf(drop, aligned).resize(widthOf(res.raw)).asBits
       res
     } else {
       roundHalfUp(exp)
     }
   }
 
-  def roundToInf(exp: Int, aligned: Boolean): AFix = roundHalfToInf(exp)
-
   /**
    * Rounds a value towards the nearest even value including half values, otherwise rounds towards odd values
    * @return Rounded result
    */
   def roundHalfToEven(exp: Int): AFix = {
+    roundToEven(exp, getTrunc.saturation)
+  }
+
+  def roundToEven(exp: Int, aligned: Boolean): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOEVEN)
     val res = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
-      res.raw := this.raw.asSInt.roundToEven(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asSInt.roundToEven(drop, aligned).resize(widthOf(res.raw)).asBits
     } else {
-      res.raw := this.raw.asUInt.roundToEven(drop, false).resize(widthOf(res.raw)).asBits
+      res.raw := this.raw.asUInt.roundToEven(drop, aligned).resize(widthOf(res.raw)).asBits
     }
 
     res
   }
-
-  def roundToEven(exp: Int, align: Boolean): AFix = roundHalfToEven(exp)
 
   /**
    * Rounds a value towards the nearest odd value including half values, otherwise rounds towards even values
    * @return Rounded result
    */
   def roundHalfToOdd(exp: Int): AFix = {
+    roundToOdd(exp, getTrunc.saturation)
+  }
+
+  def roundToOdd(exp: Int, align: Boolean): AFix = {
     val drop = exp-this.exp
     if(drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOODD)
@@ -1025,41 +1041,46 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     res
   }
 
-  def roundToOdd(exp: Int, align: Boolean): AFix = roundHalfToOdd(exp)
-
-  def round(exp: Int, aligned: Boolean): AFix = {
-    val trunc = this.getTag(classOf[TagAFixTruncated])
-
-    if (trunc.isDefined) {
-      this._round(trunc.get.rounding)
-    } else {
-      roundHalfToInf(exp)
-    }
+  private def getTrunc: TagAFixTruncated = {
+    this.getTag(classOf[TagAFixTruncated]).getOrElse(AFixTruncatedScope.get)
   }
 
-  override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxRaw}, min=${minRaw}, exp=${exp}, bits=${raw.getWidth}]"
+  def round(exp: Int, aligned: Boolean = getTrunc.saturation): AFix = {
+    this._round(getTrunc.rounding, exp, aligned)
+  }
 
-  private def _round(roundType: RoundType): AFix = {
+  def fixTo(af: AFix, roundType: RoundType): AFix = this._round(roundType, af.exp).sat(af)
+  def fixTo(af: AFix): AFix = this.fixTo(af, getTrunc.rounding)
+  def fixTo(Q: QFormat): AFix = {
+    val res = AFix(Q.width-Q.fraction exp, -Q.fraction exp, Q.signed)
+    res := this.fixTo(res)
+    res
+  }
+
+  override def toString: String = {
+    s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxRaw}($maxValue), min=${minRaw}($minValue), exp=${exp}($step), bits=${raw.getWidth}]"
+  }
+
+  private def _round(roundType: RoundType, exp: Int = 0, align: Boolean = getTrunc.saturation): AFix = {
     roundType match {
-      case RoundType.FLOOR       => this.floor(0)
-      case RoundType.CEIL        => this.ceil(0)
-      case RoundType.FLOORTOZERO => this.floorToZero(0)
-      case RoundType.CEILTOINF   => this.ceilToInf(0)
-      case RoundType.ROUNDUP     => this.roundHalfUp(0)
-      case RoundType.ROUNDDOWN   => this.roundHalfDown(0)
-      case RoundType.ROUNDTOZERO => this.roundHalfToZero(0)
-      case RoundType.ROUNDTOINF  => this.roundHalfToInf(0)
-      case RoundType.ROUNDTOEVEN => this.roundHalfToEven(0)
-      case RoundType.ROUNDTOODD  => this.roundHalfToOdd(0)
-      case RoundType.SCRAP        => this.scrap(0)
+      case RoundType.FLOOR       => this.floor(exp)
+      case RoundType.CEIL        => this.ceil(exp, align)
+      case RoundType.FLOORTOZERO => this.floorToZero(exp)
+      case RoundType.CEILTOINF   => this.ceilToInf(exp, align)
+      case RoundType.ROUNDUP     => this.roundUp(exp, align)
+      case RoundType.ROUNDDOWN   => this.roundDown(exp, align)
+      case RoundType.ROUNDTOZERO => this.roundToZero(exp, align)
+      case RoundType.ROUNDTOINF  => this.roundToInf(exp, align)
+      case RoundType.ROUNDTOEVEN => this.roundToEven(exp, align)
+      case RoundType.ROUNDTOODD  => this.roundToOdd(exp, align)
+      case RoundType.SCRAP        => this.scrap(exp)
     }
   }
 
-  def saturated(): AFix = this.truncated(saturation = true, overflow = false)
+  def saturated(rounding  : RoundType): AFix = this.truncated(saturation = true, overflow = false, rounding = rounding)
+  def saturated: AFix = this.saturated(getTrunc.rounding)
 
-  def truncated(saturation: Boolean = false,
-                overflow  : Boolean = true,
-                rounding  : RoundType = RoundType.FLOOR) : AFix = {
+  def truncated(saturation: Boolean, overflow: Boolean, rounding: RoundType) : AFix = {
     assert(!(saturation && overflow), s"Cannot both overflow and saturate.\n")
     val copy = cloneOf(this)
     copy.raw := this.raw
@@ -1070,12 +1091,10 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ))
     copy
   }
+  def truncated: AFix = this.truncated(saturation = false, overflow = true, getTrunc.rounding)
 
-  def rounded(rounding  : RoundType = RoundType.FLOOR) = truncated(
-    saturation = false,
-    overflow = false,
-    rounding = rounding
-  )
+  def rounded(rounding  : RoundType): AFix = truncated(saturation = false, overflow = false, rounding = rounding)
+  def rounded: AFix = this.rounded(getTrunc.rounding)
 
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     that match {
@@ -1113,15 +1132,16 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
           return
         }
 
-        if (this.signed)
-          this.raw := af_sat.raw.asSInt.resize(this.bitWidth).asBits
-        else
-          this.raw := af_sat.raw.asUInt.resize(this.bitWidth).asBits
+        if (this.signed) {
+          this.raw.compositAssignFrom(af_sat.raw.asSInt.resize(this.bitWidth).asBits, this.raw, kind)
+        } else {
+          this.raw.compositAssignFrom(af_sat.raw.asUInt.resize(this.bitWidth).asBits, this.raw, kind)
+        }
 
-      case u: UInt => this.raw := u.asBits
-      case s: SInt => this.raw := s.asBits
-      case uf: UFix => this := AFix(uf)
-      case sf: SFix => this := AFix(sf)
+      case u: UInt => this.raw.compositAssignFrom(u.asBits, this.raw, kind)
+      case s: SInt => this.raw.compositAssignFrom(s.asBits, this.raw, kind)
+      case uf: UFix => this.compositAssignFrom(AFix(uf), this, kind)
+      case sf: SFix => this.compositAssignFrom(AFix(sf), this, kind)
     }
   }
 
@@ -1162,6 +1182,27 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def :=(s: SFix) = this assignFrom(s)
   def :=(a: AFix) = this assignFrom(a)
 
+  def :=(that: BigDecimal) = {
+    assert(that <= this.maxValue, s"Literal $that is too big to be assigned in $this")
+    assert(that >= this.minValue, s"Literal $that is too negative to be assigned in this $this")
+
+    val shift = -exp
+    val value = if(shift >= 0)
+      (that * BigDecimal(BigInt(1) << shift)).toBigInt
+    else
+      (that / BigDecimal(BigInt(1) << -shift)).toBigInt
+    this.raw := value
+  }
+
+  def init(that: BigDecimal): this.type = {
+    this.raw init AF(that, wholeWidth bit, fracWidth bit, signed).raw
+    this
+  }
+  def init(that: AFix): this.type = {
+    this.raw init that.raw
+    this
+  }
+
   override def clone: this.type = new AFix(maxRaw, minRaw, exp).asInstanceOf[this.type]
 
   def hasParametersOf(that : AFix) : Boolean = this.maxRaw == that.maxRaw && this.minRaw == that.minRaw && this.exp == that.exp
@@ -1178,11 +1219,32 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   }
 }
 
-
+object AF {
+  def apply(value: BigDecimal, integerWidth: BitCount, fractionWidth: BitCount, signed: Boolean): AFix = {
+    val ret = if (signed) AFix.SQ(integerWidth, fractionWidth) else AFix.UQ(integerWidth, fractionWidth)
+    val tmp = cloneOf(ret)
+    tmp := value
+    ret.raw.assignFromBits(tmp.raw)
+    ret
+  }
+}
 
 class TagAFixTruncated(val saturation: Boolean,
                        val overflow  : Boolean,
-                       val rounding  : RoundType) extends SpinalTag{
+                       val rounding  : RoundType
+                       ) extends SpinalTag{
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
+}
+
+object AFixTruncatedScope extends ScopeProperty[TagAFixTruncated] {
+  override def default: TagAFixTruncated = new TagAFixTruncated(true, false, RoundType.FLOOR)
+
+  def set(saturation: Boolean = true, overflow: Boolean = false, rounding: RoundType = RoundType.FLOOR): AFixTruncatedScope.SetReturn = {
+   new AFixTruncatedScope.SetReturn(new TagAFixTruncated(saturation, overflow, rounding))
+  }
+
+  def apply(saturation: Boolean = true, overflow: Boolean = false, rounding: RoundType = RoundType.FLOOR): AFixTruncatedScope.ApplyClass = {
+    new AFixTruncatedScope.ApplyClass(new TagAFixTruncated(saturation, overflow, rounding))
+  }
 }
