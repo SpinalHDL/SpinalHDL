@@ -709,6 +709,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def assignFormalRandom(kind : Operator.Formal.RandomExpKind) : Unit = ???
   def getMuxType[T <: Data](list : TraversableOnce[T]) : HardType[T] = HardType(cloneOf(this).asInstanceOf[T])
   def toMuxInput[T <: Data](muxOutput : T) : T = this.asInstanceOf[T]
+
+  // Cat this count times
+  def #* (count : Int) =  Cat(List.fill(count)(this))
 }
 
 trait DataWrapper extends Data{
