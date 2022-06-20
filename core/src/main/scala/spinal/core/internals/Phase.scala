@@ -294,6 +294,32 @@ class PhaseAnalog extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
+
+
+    val wraps = mutable.LinkedHashMap[BaseType, BaseType]()
+
+    //Identify every InOut(Analog) and create a wrapper in the parent component
+    walkComponents(c => if(c.parent != null) c.ioSet.withFilter(_.isInOut).foreach(io => {
+      val wrap = c.parent.rework{
+        Analog(io)
+      }
+      wraps += io -> wrap
+    }))
+
+    //Remap all driving expression to the created wrapper
+    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapDrivingExpressions{e => e match {
+      case source : BaseType => wraps.get(source) match {
+        case Some(target) if c == target.component => target
+        case None => e
+      }
+      case _ => e
+    }}))
+
+    //Connect the wrappers
+    for((source, target) <- wraps){
+      target.component.rework(target := source)
+    }
+
     //Be sure that sub io assign parent component stuff
     walkComponents(c => c.ioSet.withFilter(_.isInOut).foreach(io => {
       io.foreachStatements {
