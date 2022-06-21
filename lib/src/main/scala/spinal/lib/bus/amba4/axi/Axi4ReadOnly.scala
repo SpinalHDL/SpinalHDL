@@ -97,6 +97,9 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     when(rmExist) { hist.io.outStreams(rmId).ready := True }
 
     val errors = new Area {
+      val reset = ClockDomain.current.isResetActive
+      val ValidWhileReset = (reset | past(reset)) & (ar.valid === True)
+      val RespWhileReset = (reset | past(reset)) & (r.valid === True)
       val DataNumberDonotFitLen = hist.io.outStreams.map(x => x.valid & x.checkLen()).reduce(_ | _)
       val NoAddrRequest = CombInit(False)
       val WrongResponseForExAccesss = CombInit(False)
@@ -156,6 +159,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       when(ar.valid) {
         addrChecker.withAsserts()
       }
+      assert(!errors.ValidWhileReset)
     }
 
     def withMasterAssumes(maxStallCycles: Int = 0) = {
@@ -164,7 +168,8 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
 
       assume(!errors.DataNumberDonotFitLen)
       assume(!errors.NoAddrRequest)
-      assume(!errors.WrongResponseForExAccesss)
+      assume(!errors.WrongResponseForExAccesss)      
+      assume(!errors.RespWhileReset)
     }
 
     def withSlaveAsserts(maxStallCycles: Int = 0) = {
@@ -174,6 +179,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       assert(!errors.DataNumberDonotFitLen)
       assert(!errors.NoAddrRequest)
       assert(!errors.WrongResponseForExAccesss)
+      assert(!errors.RespWhileReset)
     }
 
     def withSlaveAssumes(maxStallCycles: Int = 0) = {
@@ -183,6 +189,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       when(ar.valid) {
         addrChecker.withAssumes()
       }
+      assume(!errors.ValidWhileReset)
     }
 
     def withCovers() = {
