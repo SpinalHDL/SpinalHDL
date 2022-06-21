@@ -477,7 +477,7 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
 
   def assignFromAx(ax: Stream[Axi4Ax]) {
     addr := ax.addr.resized
-    isLockExclusive := ax.lock === Axi4.lock.EXCLUSIVE
+    if (config.useLock) isLockExclusive := ax.lock === Axi4.lock.EXCLUSIVE
     if (config.useBurst) burst := ax.burst
     if (config.useLen) len := ax.len
     if (config.useSize) size := ax.size
