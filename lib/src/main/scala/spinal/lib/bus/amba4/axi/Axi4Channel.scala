@@ -100,6 +100,10 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
     }
 
     def withCovers() = {
+      if (config.useLen) {
+        Seq(0, 1, 2, 4, 8).map(x => cover(len === U(x)))
+      }
+
       // Unaligned burst access.
       if (config.useSize && config.useBurst) {
         cover(size === U(Axi4.size.BYTE_2) && addr(0) === True && burst === FIXED)

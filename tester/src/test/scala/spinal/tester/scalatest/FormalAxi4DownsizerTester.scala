@@ -136,6 +136,10 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(d1Exist & dataHist.io.outStreams(d1Id).payload === d1)
         }
 
+        val selected = inputChecker.hist.io.outStreams(inputChecker.rmId)
+        cover(inputChecker.rmExist)
+        cover(inputChecker.rmExist && selected.size === 3)
+        cover(inputChecker.rmExist && selected.size === 3 && selected.len === 1)
         outputChecker.withCovers()
         inputChecker.withCovers()
       })
