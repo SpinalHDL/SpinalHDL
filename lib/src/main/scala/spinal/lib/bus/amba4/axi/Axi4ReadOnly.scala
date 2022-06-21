@@ -100,7 +100,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       val reset = ClockDomain.current.isResetActive
       val ValidWhileReset = (reset | past(reset)) & (ar.valid === True)
       val RespWhileReset = (reset | past(reset)) & (r.valid === True)
-      val DataNumberDonotFitLen = hist.io.outStreams.map(x => x.valid & x.checkLen()).reduce(_ | _)
+      val DataNumberDonotFitLen = CombInit(False)
       val NoAddrRequest = CombInit(False)
       val WrongResponseForExAccesss = CombInit(False)
     }
@@ -125,26 +125,24 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     }
 
     val rRecord = CombInit(oRecord)
-    val rValid = False
     val dataLogic = new Area {
       val selected = CombInit(oRecord)
       when(r.valid) {
         when(rExist) {
           rRecord := hist.io.outStreams(rId)
           selected := hist.io.outStreams(rId)
-          when(arValid && rId === arId) {
-            arRecord.assignFromR(r, selected)
-          }.otherwise { rRecord.assignFromR(r, selected); rValid := True }
+
+          rRecord.allowOverride
+          rRecord.assignFromR(r, selected)
+          hist.io.inStreams(rId).payload := rRecord
+          hist.io.inStreams(rId).valid := True
 
           errors.NoAddrRequest := !selected.axDone
           if (config.useResp && config.useLock)
             errors.WrongResponseForExAccesss := selected.axDone & r.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
+          errors.DataNumberDonotFitLen := rRecord.checkLen()
 
         }.otherwise { errors.NoAddrRequest := True }
-      }
-      when(rValid) {
-        hist.io.inStreams(rId).payload := rRecord
-        hist.io.inStreams(rId).valid := rValid
       }
     }
     
