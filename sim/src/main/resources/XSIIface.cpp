@@ -16,10 +16,11 @@ union byte_union {
 int64_t pow10(int64_t a) {
     if (a < 0)
         return pow10(-a);
-    else if (a == 1)
-        return 1;
-    else
-        return 10 * pow10(a-1);
+    int64_t ret_val = 1;
+    for(int64_t i = a; i > 0; i--) {
+        ret_val *= 10;
+    }
+    return ret_val;
 }
 
 void check_vlog_logicval(s_xsi_vlog_logicval *value) {
