@@ -7,9 +7,7 @@ import scala.collection.mutable
 
 
 object Symplify{
-  val cacheKey = ScopeProperty.apply(mutable.LinkedHashMap[Bits,mutable.LinkedHashMap[Masked,Bool]]())
-  val cache = cacheKey.get
-  def getCache(addr : Bits) = cache.getOrElseUpdate(addr,mutable.LinkedHashMap[Masked,Bool]())
+  def getCache(addr : Bits) = signalCache(addr)(mutable.LinkedHashMap[Masked,Bool]())
 
   //Generate terms logic for the given input
   def logicOf(input : Bits,terms : Seq[Masked]) : Bool = terms.map(t => getCache(input).getOrElseUpdate(t,t === input)).asBits.orR
