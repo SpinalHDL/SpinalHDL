@@ -1,3 +1,30 @@
+/* This 8b10b encoding was originally written by D.W.Pegler in Verilog and ported to SpinalHDL.
+ *
+ * Source: https://opencores.org/projects/1000base-x
+ *
+ * Author(s):
+ *   - D.W.Pegler Cambridge Broadband Networks Ltd
+ *     { peglerd@gmail.com, dwp@cambridgebroadand.com }
+ *
+ * Notes from the original file header:
+ *
+ *   This module is based on the coding method described in
+ *   IEEE Std 802.3-2008 Section 36.2.4 which is available from:
+ *
+ *   http//:standards.ieee.org/about/get/802/802.3.html
+ *
+ *   and the 8B/10B coding scheme from the 1993 IBM publication
+ *   "DC-Balanced, Partitioned-Block, 8B/10B Transmission Code"
+ *   by A.X. Widmer and P.A. Franasze" see doc/01-581v1.pdf
+ *
+ *   and US patent #4,486,739 "BYTE ORIENTED DC BALANCED
+ *   (0,4) 8B/10B PARTITIONED BLOCK TRANSMISSION CODE "; see:
+ *
+ *   doc/US4486739.pdf
+ *
+ *   http://en.wikipedia.org/wiki/8b/10b_encoding
+ */
+
 package spinal.lib.com.linecode
 
 import spinal.core._
