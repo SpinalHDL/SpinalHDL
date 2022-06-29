@@ -371,7 +371,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     m2sPipe.payload := rData
   }.m2sPipe
 
-  def s2mPipe(): Stream[T] = new Composite(this) {
+  def s2mPipe(flush : Bool = null): Stream[T] = new Composite(this) {
     val s2mPipe = Stream(payloadType)
 
     val rValid = RegInit(False) setWhen(self.valid) clearWhen(s2mPipe.ready)
@@ -381,6 +381,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
     s2mPipe.valid := self.valid || rValid
     s2mPipe.payload := Mux(rValid, rData, self.payload)
+
+    if(flush != null) rValid.clearWhen(flush)
   }.s2mPipe
 
   def s2mPipe(stagesCount : Int): Stream[T] = {
@@ -403,7 +405,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
-  def halfPipe(): Stream[T] = new Composite(this) {
+  def halfPipe(flush : Bool = null): Stream[T] = new Composite(this) {
     val halfPipe = Stream(payloadType)
 
     val rValid = RegInit(False) setWhen(self.valid) clearWhen(halfPipe.fire)
@@ -413,6 +415,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
     halfPipe.valid := rValid
     halfPipe.payload := rData
+
+    if(flush != null) rValid clearWhen(flush)
   }.halfPipe
 
 /** Block this when cond is False. Return the resulting stream
