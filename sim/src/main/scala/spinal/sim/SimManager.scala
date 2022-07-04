@@ -78,7 +78,9 @@ object SimManager{
       //
       // DO NOT REMOVE `_ : IllegalStateException` until net.java.dev.jna >= 5.8
       // see java-native-access/jna#1324, also SpinalHDL/SpinalHDL#711
-      case e @ (_ : NoClassDefFoundError | _ : UnsatisfiedLinkError | _ : IllegalStateException) => Runtime.getRuntime().availableProcessors()
+      case e : Throwable => {
+        Runtime.getRuntime().availableProcessors()
+      }
     }
   }
   def newCpuAffinity() : Int = synchronized {
