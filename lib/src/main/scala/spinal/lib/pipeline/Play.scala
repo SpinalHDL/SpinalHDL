@@ -2,6 +2,8 @@ package spinal.lib.pipeline
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.graphic.Rgb
+import spinal.lib.pipeline.Connection.M2S
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -69,5 +71,53 @@ case class PipelineTop() extends Component {
 object PipelinePlay extends App{
   SpinalVerilog{
     PipelineTop()
+  }
+}
+
+object PipelinePlay2 extends App{
+  SpinalVerilog{
+    new Module{
+      val a, b   = in  UInt(8 bits)
+      val result = out Bool()
+
+      val pip = new Pipeline {
+        val SUM   = Stageable(UInt(8 bits))
+        val CHECK = Stageable(Bool())
+
+        val stageA = new Stage {
+          SUM := a + b
+        }
+        val stageB = new Stage(connection = M2S()) {
+          CHECK := SUM < 5
+        }
+        val stageC = new Stage(connection = M2S()) {
+          result := CHECK
+        }
+      }
+
+      pip.build()
+    }
+  }
+}
+
+
+
+
+object PipelinePlay3 extends App{
+  SpinalVerilog{
+    new Module{
+      val a, b   = in  UInt(8 bits)
+      val result = out UInt(8 bits)
+
+      implicit val pip = new Pipeline
+      val stageA = new Stage()
+      val stageB = new Stage(connection = M2S())
+      val stageC = new Stage(connection = M2S())
+
+      val SUM = stageA.insert(a + b)
+      result := stageC(SUM)
+
+      pip.build()
+    }
   }
 }

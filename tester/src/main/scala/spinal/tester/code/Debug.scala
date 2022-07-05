@@ -18,6 +18,7 @@ import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.math.ScalaNumber
 import scala.util.Random
 
 
@@ -189,8 +190,22 @@ object Debug2 extends App{
   SpinalConfig().includeFormal.generateSystemVerilog(new Component{
 
 
-    val vec = Vec.fill(4)(Reg(UInt(8 bits)) init(0))
-    vec(in UInt(2 bits))(3) := in(Bool())
+
+//    val input = in(AFix.SQ(8 bit, 8 bit))
+//    val i = AFix.SQ(8 bit, 8 bit)
+//    i := AFix(0)
+//    val regg =  Reg(input) init (i)
+//
+//    val x = 4 * B"1111"
+//    regg := input
+
+//
+//    val x = B(U(3), 4)
+
+//    BigInt(1).asInstanceOf[ScalaNumber].
+
+//    val vec = Vec.fill(4)(Reg(UInt(8 bits)) init(0))
+//    vec(in UInt(2 bits))(3) := in(Bool())
 //    val a = new AFix(maxValue=BigInt("2923003274661805836407369665432566039311865085951"), minValue = 0, exp = -158)
 //    val b = new AFix(maxValue=BigInt("162259276829213363391578010288128"), minValue = 0, exp = -104)
 //    b := a.rounded(rounding=RoundType.CEIL)
@@ -480,6 +495,27 @@ object Debug4 extends App{
   })
 }
 
+
+object PlaySdcTag extends App{
+  class GeneratedClockTag(val source : Bool, val ratio : Int) extends SpinalTag
+  val report = SpinalVerilog(new Component{
+    val clkDiv2 = RegInit(False)
+    clkDiv2 := !clkDiv2
+    val clkDivided = ClockDomain.current.copy(clock = clkDiv2)
+    clkDiv2.addTag(new GeneratedClockTag(ClockDomain.current.readClockWire, 2))
+  })
+  report.toplevel.walkComponents{ c =>
+    c.dslBody.walkDeclarations{
+      case signal : Bool => {
+        signal.getTag(classOf[GeneratedClockTag]) match {
+          case Some(tag) =>  println(s"$signal is ${tag.source} divided by  ${tag.ratio}")
+          case None =>
+        }
+      }
+      case _ =>
+    }
+  }
+}
 
 class TopLevel extends Component {
   val io = new Bundle {
@@ -999,14 +1035,14 @@ object SynthesisPlay {
       SpinalVerilog(new Component {
         val input = buf(in(UInt(width bits)))
         val sel = buf(in(UInt(log2Up(width) bits)))
-        val result = out(buf(Shift.rightWithScrap((input << width) ## False, sel)))
+        val result = out(buf(Shift.rightWithScrap(input.asBits, sel)))
 //        val result = out(buf((input |<< sel).resize(width)))
         setDefinitionName(s"shift$width")
       })
     }
 //    val rtls = List(16, 32, 64, 128).flatMap(w => List(firstOh(w),firstOhV2(w), robinOh(w)))
 //    val rtls = List(16, 32, 64, 128).flatMap(w => List(firstOhV2(w), firstUIntV2(w)))
-    val rtls = List(54, 106).flatMap(w => List(shift(w)))
+    val rtls = List(64, 128).flatMap(w => List(shift(w)))
     val targets = XilinxStdTargets().take(2)
 
     Bench(rtls, targets)
@@ -1154,6 +1190,7 @@ object PipelinePlay2 extends App{
         valid := io.input.valid
         io.input.ready := isReady
         val rgb = insert(io.input.payload)
+        val miaou = isRemoved
       }
       val stageB = new Stage(Connection.M2S()){
         val pow2 = new Area{
@@ -1163,8 +1200,9 @@ object PipelinePlay2 extends App{
         }
       }
 
-      val stageC = new Stage(Connection.M2S()){
+      val stageC = new Stage(Connection.DIRECT()){
         val sum = insert(stageB.pow2.r +^ stageB.pow2.g +^ stageB.pow2.b)
+        throwIt(U(32) === 0)
       }
 
       val stageD = new Stage(Connection.M2S()){
@@ -1175,4 +1213,111 @@ object PipelinePlay2 extends App{
     }
     pipeline.build()
   })
+}
+
+
+
+object DebugAheadValue extends App{
+  SimConfig.compile(new Component{
+    val conds = in(Vec.fill(8)(Bool()))
+    val a, b, c, d, e = out(Reg(UInt(8 bits)) init(0))
+    val f = out(Reg(UInt(16 bits)) init(0))  //here is what I added.
+
+    when(conds(0)){
+      a := 1
+      when(conds(1)){
+        a := 2
+        b := 11
+      } otherwise {
+        a := 3
+        c := 21
+      }
+      f(0, 8 bits) := a  //here is the parial assignment.
+    }
+    when(conds(2)){
+      a := 4
+      b := 12
+      c := 22
+      d := 31
+      f(8, 8 bits) := a
+    }
+
+    val x = out(a.getAheadValue)
+    val y = out(a.getAheadValue)
+    val z = out(b.getAheadValue)
+    val w = out(f.getAheadValue)
+
+    when(d.getAheadValue() === 0){
+      e := 1
+    }
+  }).doSim(seed = 42){dut =>
+    var an,bn,cn,a,b,c = 0
+    dut.conds.foreach(_ #= false)
+    dut.clockDomain.forkStimulus(10)
+    dut.clockDomain.waitSampling()
+
+    for(i <- 0 until 1000){
+      if(dut.conds(0).toBoolean){
+        an = 1
+        if(dut.conds(1).toBoolean){
+          an = 2
+          bn = 11
+        } else {
+          an = 3
+          cn = 21
+        }
+      }
+      if(dut.conds(2).toBoolean){
+        an = 4
+        bn = 12
+        cn = 22
+      }
+      assert(dut.x.toInt == an)
+      assert(dut.y.toInt == an)
+      assert(dut.z.toInt == bn)
+      assert(dut.a.toInt == a)
+      assert(dut.b.toInt == b)
+      assert(dut.c.toInt == c)
+      a = an
+      b = bn
+      c = cn
+      dut.clockDomain.waitSampling()
+      dut.conds.foreach(_.randomize())
+    }
+  }
+}
+
+import spinal.core._
+class DemoBlackbox extends BlackBox {
+  val io = new Bundle{
+    val a = in Bool()
+    val b = out Bool()
+  }
+  setInlineVerilog(
+    """
+      |module DemoBlackBox(
+      | input a,
+      | output b
+      |);
+      |assign b = a;
+      |endmodule
+      |""".stripMargin)
+}
+
+class Test12345 extends Component{
+  val io = new Bundle{
+    val a = in Bool()
+    val b = out Bool()
+    val a2 = in Bool()
+    val b2 = out Bool()
+  }
+  val black = new DemoBlackbox
+  black.io.a <> io.a
+  black.io.b <> io.b
+  val blue = new DemoBlackbox
+  blue.io.a <> io.a2
+  blue.io.b <> io.b2
+}
+object Test12345 extends App{
+  SpinalConfig(oneFilePerComponent = true, targetDirectory="miaou").generateVerilog(new Test12345)
 }
