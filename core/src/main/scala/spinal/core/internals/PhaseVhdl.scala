@@ -132,7 +132,8 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       asyncResetCombSensitivity = config.asyncResetCombSensitivity,
       anonymSignalPrefix        = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,
       emitedComponentRef        = emitedComponentRef,
-      pc                        = pc
+      pc                        = pc,
+      spinalConfig              = pc.config
     )
 
     val trace = componentBuilderVhdl.getTrace()

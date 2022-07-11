@@ -57,7 +57,7 @@ class EngineContext {
     var hadException = true
     val initialAffinity = Affinity.getAffinity
     try {
-      Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
+      spinal.affinity.Affinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
       while (pending.nonEmpty) {
         val t = pending.dequeue()
         t.context.restore()
@@ -93,7 +93,7 @@ class EngineContext {
         println("\n")
       }
 
-      Affinity.setAffinity(initialAffinity)
+      spinal.affinity.Affinity(initialAffinity)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
       for (t <- (jvmIdleThreads ++ jvmBusyThreads)) {

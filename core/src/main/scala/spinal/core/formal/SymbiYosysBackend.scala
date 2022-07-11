@@ -5,7 +5,7 @@ import java.nio.file.{Files, Paths}
 import java.security.MessageDigest
 import org.apache.commons.io.FileUtils
 
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap}
 import scala.io.Source
 import sys.process._
 
@@ -85,7 +85,7 @@ class SymbiYosysBackendConfig(
     val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
     val rtlIncludeDirs: ArrayBuffer[String] = ArrayBuffer[String](),
     var engines: ArrayBuffer[SbyEngine] = ArrayBuffer(SmtBmc()),
-    var modesWithDepths: HashMap[String, Int] = HashMap[String, Int](),
+    var modesWithDepths: LinkedHashMap[String, Int] = LinkedHashMap[String, Int](),
     var timeout: Option[Int] = None,
     var multiClock: Boolean = false,
     var toplevelName: String = null,
@@ -185,13 +185,14 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
           }
         }
       }
-      val logFileName = config.modesWithDepths.head._1 match {
-        case "bmc" => Seq("logfile.txt")
-        case "prove" => Seq("logfile_basecase.txt", "logfile_induction.txt")
-        case "cover" => Seq("logfile.txt")
+      for((name, depth) <- config.modesWithDepths) {
+        val logFileName = name match {
+          case "bmc" => Seq("logfile.txt")
+          case "prove" => Seq("logfile_basecase.txt", "logfile_induction.txt")
+          case "cover" => Seq("logfile.txt")
+        }
+        for (e <- logFileName) analyseLog(workDir.resolve(Paths.get(s"${config.toplevelName}_${name}", "engine_0", e)).toFile())
       }
-      for(e <- logFileName) analyseLog(workDir.resolve(Paths.get(s"${config.toplevelName}_${config.modesWithDepths.head._1}","engine_0",e)).toFile())
-
 
       val assertedLinesFormated = assertedLines.map{l =>
         val splits = l.split("// ")

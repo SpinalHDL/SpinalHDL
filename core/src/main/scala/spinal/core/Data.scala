@@ -67,7 +67,7 @@ trait DataPrimitives[T <: Data]{
           case None => new VarAssignementTag(from)
         }
         t.id += 1
-        to.setCompositeName(t.from,t.id.toString)
+        to.setCompositeName(t.from,t.id.toString, true)
 
         from.removeTag(t)
         ret.addTag(t)
@@ -109,7 +109,7 @@ trait DataPrimitives[T <: Data]{
     _data
   }
 
-  def swichAssign[T2 <: BaseType](sel : T2)(mappings: (Any, T)*): Unit = {
+  def switchAssign[T2 <: BaseType](sel : T2)(mappings: (Any, T)*): Unit = {
     switch(sel){
       for((s, v) <- mappings) s match {
         case spinal.core.default => spinal.core.default{
@@ -707,6 +707,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 //  def propagatePullName() : this.type = this.addTag(PropagatePullNameTag)
 
   def assignFormalRandom(kind : Operator.Formal.RandomExpKind) : Unit = ???
+  def getMuxType[T <: Data](list : TraversableOnce[T]) : HardType[T] = HardType(cloneOf(this).asInstanceOf[T])
+  def toMuxInput[T <: Data](muxOutput : T) : T = this.asInstanceOf[T]
+
+  // Cat this count times
+  def #* (count : Int) =  Cat(List.fill(count)(this))
 }
 
 trait DataWrapper extends Data{

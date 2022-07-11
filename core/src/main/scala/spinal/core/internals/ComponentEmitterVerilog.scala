@@ -42,7 +42,7 @@ class ComponentEmitterVerilog(
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
   emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
   pc                                 : PhaseContext,
-  spinalConfig                       : SpinalConfig,
+  override val spinalConfig          : SpinalConfig,
   romCache                           : mutable.HashMap[String, String]
 ) extends ComponentEmitter {
 
@@ -73,14 +73,13 @@ class ComponentEmitterVerilog(
 
 
   def emitEntity(): Unit = {
-    component.getOrdredNodeIo
-      .filterNot(_.isSuffix)
-      .foreach{baseType =>
+    val ios = component.getOrdredNodeIo.filterNot(_.isSuffix)
+    ios.foreach{baseType =>
       val syntax     = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
       val dir        = s"${emitDirection(baseType)}"
       val section    = s"${emitType(baseType)}"
       val name       = s"${baseType.getName()}"
-      val comma      = if(baseType == component.getOrdredNodeIo.filterNot(_.isSuffix).last) "" else ","
+      val comma      = if(baseType == ios.last) "" else ","
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -367,12 +366,11 @@ class ComponentEmitterVerilog(
 
       logics ++= s"${child.getName()} (\n"
 
-      val instports: String = child.getOrdredNodeIo
-        .filterNot(_.isSuffix)
-        .map{ data =>
+      val ios = child.getOrdredNodeIo.filterNot(_.isSuffix)
+      val instports: String = ios.map{ data =>
         val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
         val wireAlign  = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
-        val comma      = if (data == child.getOrdredNodeIo.filterNot(_.isSuffix).last) " " else ","
+        val comma      = if (data == ios.last) " " else ","
         val dirtag: String = data.dir match{
           case spinal.core.in  | spinal.core.inWithNull  => "i"
           case spinal.core.out | spinal.core.outWithNull => "o"
@@ -648,7 +646,7 @@ class ComponentEmitterVerilog(
               case m: String => m
               case m: SpinalEnumCraft[_] => "%s"
               case m: Expression => "%x"
-              case `REPORT_TIME` => "%d"
+              case `REPORT_TIME` => "%t"
               case x => SpinalError(s"""L\"\" can't manage the parameter '${x}' type. Located at :\n${statement.getScalaLocationLong}""")
             }).mkString.replace("\n", "\\n")
 

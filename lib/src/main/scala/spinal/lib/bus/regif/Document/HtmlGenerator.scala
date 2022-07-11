@@ -12,10 +12,6 @@ final case class HtmlGenerator(fileName : String, title : String) extends BusIfV
         dataWidth = busDataWidth
     }
 
-    def visit(descr : FifoDescr)  : Unit = {
-        
-    }
-
     def formatResetValue(value: BigInt, bitCount: Int):String = {
         val hexCount = scala.math.ceil(bitCount/4.0).toInt
         val unsignedValue = if(value >= 0) value else ((BigInt(1) << bitCount) + value)
@@ -37,16 +33,23 @@ final case class HtmlGenerator(fileName : String, title : String) extends BusIfV
                       </tr>""".stripMargin
     }
 
-    def visit(descr : RegDescr) : Unit = {
+    def visit(descr : BaseDescriptor) : Unit = {
+        descr match {
+            case descr: RegDescr => regDescrVisit(descr)
+            case _ => ???
+        }
+    }
+
+    private def regDescrVisit(descr: RegDescr) = {
         val fieldsNumbers = descr.getFieldDescrs.size
         sb ++=
-        s"""          <tr class="reg" align="left">
-           |            <td align="center" rowspan="${fieldsNumbers}">0x${descr.getAddr.toHexString}</td>
-           |            <td align="left" rowspan="${fieldsNumbers}">${(descr.getName).toUpperCase()}</td>
-           |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${descr.getDoc} </td>
-           |            <td align="center" rowspan="${fieldsNumbers}">${dataWidth}</td>
-           |${genTds(descr.getFieldDescrs.last)}
-           |          </tr>""".stripMargin
+          s"""          <tr class="reg" align="left">
+             |            <td align="center" rowspan="${fieldsNumbers}">0x${descr.getAddr.toString(16).toUpperCase}</td>
+             |            <td align="left" rowspan="${fieldsNumbers}">${(descr.getName).toUpperCase()}</td>
+             |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${descr.getDoc} </td>
+             |            <td align="center" rowspan="${fieldsNumbers}">${dataWidth}</td>
+             |${genTds(descr.getFieldDescrs.last)}
+             |          </tr>""".stripMargin
 
         descr.getFieldDescrs().reverse.tail.foreach(sb ++= genTr(_))
     }

@@ -16,39 +16,42 @@ final case class JsonGenerator(fileName : String) extends BusIfVisitor {
         sb ++= "["
     }
 
-    def visit(descr : FifoDescr)  : Unit = {
-
+    def visit(descr : BaseDescriptor) : Unit = {
+        descr match {
+            case descr: RegDescr => regDescrVisit(descr)
+            case _ => ???
+        }
     }
 
-    def visit(descr : RegDescr) : Unit = {
+    private def regDescrVisit(descr: RegDescr) = {
         sb ++= prefix
 
         sb ++=
-            s"""|{
-                |   "addr"   : ${descr.getAddr()},
-                |   "name"   : "${descr.getName()}",
-                |   "doc"    : "${clean(descr.getDoc())}",
-                |   "fields" :[\n""".stripMargin
+          s"""|{
+              |   "addr"   : ${descr.getAddr()},
+              |   "name"   : "${descr.getName()}",
+              |   "doc"    : "${clean(descr.getDoc())}",
+              |   "fields" :[\n""".stripMargin
 
         var fieldPrefix = ""
         descr.getFieldDescrs().foreach(f =>{
             sb ++= fieldPrefix
             sb ++=
-                s"""|       {
-                    |           "accType" : "${f.getAccessType()}",
-                    |           "name"    : "${f.getName()}",
-                    |           "width"   : ${f.getWidth()},
-                    |           "reset"   : ${f.getResetValue()},
-                    |           "doc"     : "${clean(f.getDoc())}"
-                    |       }""".stripMargin
+              s"""|       {
+                  |           "accType" : "${f.getAccessType()}",
+                  |           "name"    : "${f.getName()}",
+                  |           "width"   : ${f.getWidth()},
+                  |           "reset"   : ${f.getResetValue()},
+                  |           "doc"     : "${clean(f.getDoc())}"
+                  |       }""".stripMargin
             fieldPrefix = ",\n"
         })
         sb ++= "\n"
 
         sb ++=
-            s"""|   ]
-                |}""".stripMargin
-        
+          s"""|   ]
+              |}""".stripMargin
+
         prefix = ",\n"
     }
     

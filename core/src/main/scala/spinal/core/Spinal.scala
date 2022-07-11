@@ -50,12 +50,15 @@ case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
 /**
  * target device
  */
-case class Device(vendor: String = "?", family: String = "?", name: String = "?")
+case class Device(vendor: String = "?", family: String = "?", name: String = "?"){
+  def isVendorDefault = vendor == "?"
+}
 object Device{
   val ALTERA = Device(vendor = "altera")
   val XILINX = Device(vendor = "xilinx")
   val LATTICE = Device(vendor = "lattice")
   val ACTEL = Device(vendor = "actel")
+  val NONE = Device(vendor = "none")
 }
 
 
@@ -144,6 +147,8 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         mergeAsyncProcess              : Boolean = false,
                         asyncResetCombSensitivity      : Boolean = false,
                         anonymSignalUniqueness         : Boolean = false,
+                        inlineConditionalExpression    : Boolean = false,
+                        nameWhenByFile                 : Boolean = true,
                         noRandBoot                     : Boolean = false,
                         randBootFixValue               : Boolean = true,
                         noAssert                       : Boolean = false,

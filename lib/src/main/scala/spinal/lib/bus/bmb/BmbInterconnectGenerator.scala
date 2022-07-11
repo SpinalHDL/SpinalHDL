@@ -292,7 +292,7 @@ class BmbInterconnectGenerator() extends Area{
         case `DefaultMapping` => BigInt(0)
         case m => m.lowerBound
       }
-      sexport(new MemoryConnection(m.bus, s.bus, address))
+      sexport(new MemoryConnection(m.bus, s.bus, address, mapping))
     }
 
 

@@ -30,11 +30,14 @@ final case class CHeaderGenerator(
 
     }
 
-    def visit(descr : FifoDescr)  : Unit = {
-
+    def visit(descr : BaseDescriptor) : Unit = {
+        descr match {
+            case descr: RegDescr => regDescrVisit(descr)
+            case _ => ???
+        }
     }
 
-    def visit(descr : RegDescr) : Unit = {
+    private def regDescrVisit(descr: RegDescr): Unit = {
         def nameLen = descr.getName.length()
 
         if(nameLen > regLength)
@@ -43,7 +46,7 @@ final case class CHeaderGenerator(
         regs += descr
         types += Type(descr.getName, descr.getFieldDescrs)
     }
-    
+
     def end() : Unit = {
         val pc = GlobalData.get.phaseContext
         val targetPath = s"${pc.config.targetDirectory}/${fileName}.h"

@@ -149,7 +149,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val selOH = OHMasking.roundRobin(inputsValids, state)
 //    val selOH = OHMasking.roundRobin(inputsValids & B((inputs, writeTockens).zipped.map(!_.write || _.ready)), state)
 
-    val tocken = Reg(UInt(log2Up(cp.portTockenMax) bits)) init(0)
+    val tocken = Reg(UInt(log2Up(cp.portTockenMax+1) bits)) init(0)
     val tockenIncrement = CombInit(output.ready)
     when(tockenIncrement){
       tocken := tocken + 1

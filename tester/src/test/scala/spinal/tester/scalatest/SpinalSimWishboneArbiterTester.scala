@@ -20,6 +20,31 @@ class WishboneArbiterComponent(config : WishboneConfig,size: Int) extends Compon
   val arbiter = WishboneArbiter(io.busIN,io.busOUT)
 }
 
+case class WishboneMemoryHarness(config: WishboneConfig, size: Int) extends Component {
+  val io = new Bundle{
+    val busIN = Vec(slave(Wishbone(config)), size)
+  }
+
+  val ramBus = Wishbone(config)
+  val arbiter = WishboneArbiter(io.busIN, ramBus)
+
+  val ram = Mem(Bits(config.dataWidth bits), 4) init(List(0xa, 0xb, 0xc, 0xd))
+  val wEn = ramBus.WE && ramBus.CYC && ramBus.STB
+  val rEn = ramBus.CYC && ramBus.STB
+
+  ramBus.DAT_MISO := ram.readWriteSync(
+    ramBus.ADR,
+    ramBus.DAT_MOSI,
+    rEn,
+    wEn,
+    ramBus.SEL
+  )
+
+  val ack = RegInit(False)
+  ramBus.ACK := ack
+  ack := rEn & !ack
+}
+
 class SpinalSimWishboneArbiterTester extends AnyFunSuite{
   def testArbiter(config : WishboneConfig,size: Int,description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneArbiterComponent(config,size))
@@ -78,6 +103,46 @@ class SpinalSimWishboneArbiterTester extends AnyFunSuite{
     }
   }
 
+  def testArbiterMemoryArbitration(config: WishboneConfig, description: String = ""): Unit = {
+    val fixture = SimConfig.withWave.allOptimisation.compile(rtl = WishboneMemoryHarness(config, 2))
+    fixture.doSim(description){ dut =>
+      dut.clockDomain.forkStimulus(period=10)
+      dut.io.busIN.foreach{ bus =>
+        bus.CYC #= false
+        bus.STB #= false
+        bus.WE #= false
+        bus.ADR #= 0
+        bus.DAT_MOSI #= 0
+        if(bus.config.useLOCK) bus.LOCK #= false
+      }
+
+      dut.clockDomain.waitSampling(10)
+      SimTimeout(1000*10000)
+
+      val m0 = new WishboneDriver(dut.io.busIN(0), dut.clockDomain)
+      val m1 = new WishboneDriver(dut.io.busIN(1), dut.clockDomain)
+
+
+      val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
+
+      masterPool += fork{
+        dut.clockDomain.waitSampling(1)
+        val request = WishboneTransaction(0, 0)
+        m0.drive(request, false)
+        assert(dut.io.busIN(0).DAT_MISO.toBigInt == 0xa)
+      }
+
+      masterPool += fork{
+        val request = WishboneTransaction(1, 0)
+        m1.drive(request, false)
+        assert(dut.io.busIN(1).DAT_MISO.toBigInt == 0xb)
+      }
+
+      masterPool.foreach{process => process.join()}
+      dut.clockDomain.waitSampling(10)
+    }
+  }
+
   test("classicWishboneArbiter"){
     val size = 20
     val config = WishboneConfig(32,8)
@@ -106,6 +171,12 @@ class SpinalSimWishboneArbiterTester extends AnyFunSuite{
                                 // useERR=true)
     testArbiter(config,size,"WishboneArbiterBug")
   }
+
+  test("MemoryArbitration"){
+    val config = WishboneConfig(2,32,selWidth=4)
+    testArbiterMemoryArbitration(config, "MemoryArbitration")
+  }
+
   // test("pipelinedWishboneDecoder"){
   //   val size = 100
   //   val config = WishboneConfig(32,8).pipelined

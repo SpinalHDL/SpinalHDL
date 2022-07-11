@@ -28,6 +28,10 @@ package object lib  {
     h
   }
 
+  def sexport[T](name : String, value : Any) = {
+    Engine.get.onCompletion += {() => Component.current.addTag(new Export(name, value)) }
+  }
+
   def sexport[T <: SpinalTag](h : T) = {
     Engine.get.onCompletion += {() => Component.current.addTag(h) }
     h

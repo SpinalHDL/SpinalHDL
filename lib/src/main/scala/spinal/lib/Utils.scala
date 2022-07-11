@@ -194,6 +194,8 @@ object OHMasking{
       value.assignFromBits(masked.asBits)
   }.value
 
+  def lastV2[T <: Data](that : T, firstOrder : Int = LutInputs.get) : T = firstV2(that.asBits.reversed, firstOrder).reversed.as(that)
+
   def firstV2[T <: Data](that : T, firstOrder : Int = LutInputs.get) : T = {
     val lutSize = LutInputs.get
     val input = that.asBits.asBools.setCompositeName(that, "bools")
@@ -1007,7 +1009,7 @@ class TraversableOnceAnyTuplePimped[T <: Any, T2 <: Any](pimped: Seq[(T, T2)]) {
 }
 
 class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
-  def orR: Bool = pimped.asBits =/= 0
+  def orR: Bool  = pimped.asBits =/= 0
   def andR: Bool = pimped.reduce(_ && _)
   def xorR: Bool = pimped.reduce(_ ^ _)
 }
@@ -1050,7 +1052,7 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
 
 
 object Delay {
-  def apply[T <: Data](that: T, cycleCount: Int,when : Bool = null,init : T = null.asInstanceOf[T],onEachReg : T => Unit = null.asInstanceOf[T => Unit]): T = {
+  def apply[T <: Data](that: T, cycleCount: Int,when : Bool = null,init : T = null.asInstanceOf[T],onEachReg : T => Unit = null): T = {
     require(cycleCount >= 0,"Negative cycleCount is not allowed in Delay")
     var ptr = that
     for(i <- 0 until cycleCount) {
@@ -1107,6 +1109,88 @@ object History {
   def apply[T <: Data](that: T, range: Range): Vec[T] =
     apply(that, range, null, null.asInstanceOf[T])
 
+}
+
+object HistoryModifyable {
+  def apply[T <: Data](that: Flow[T], length: Int) = {
+    val hist = new HistoryModifyable(that.payloadType, length)
+    hist.io.input << that
+    hist
+  }
+}
+
+class HistoryModifyable[T <: Data](val payloadType: HardType[T], val depth: Int) extends Component {
+  val io = new Bundle {
+    val input = slave(Flow(payloadType))
+    val outStreams = Vec(master(Stream(payloadType)), depth)
+    val inStreams = Vec(slave(Stream(payloadType)), depth)
+    val willOverflow = out(Bool())
+  }
+
+  def init() = {
+    io.outStreams.map(_.ready := False)
+    io.inStreams.map(_.valid := False)
+  }
+
+  def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
+    left match {
+      case 0 => Nil
+      case 1 => prev :: Nil
+      case _ =>
+        prev :: builder(
+          {
+            val streamId = depth + 1 - left
+
+            val stream = Stream(payloadType)
+            val rValid = RegNextWhen(prev.valid, stream.ready) init (False)
+            val rData = RegNextWhen(prev.payload, stream.ready)
+            stream.valid := rValid
+            stream.payload := rData
+            prev.ready := stream.ready
+
+            val outPort = cloneOf(prev)
+            outPort.valid := stream.valid
+            outPort.payload := stream.payload
+            io.outStreams(streamId) << outPort
+
+            val next = stream.throwWhen(outPort.fire)
+            val inPort = io.inStreams(streamId)
+            inPort.ready := stream.valid
+            when(inPort.fire) {
+              val lastAndOverflow = if( left == 2 ) io.willOverflow else False
+              when(stream.fire || lastAndOverflow) { next.payload := inPort.payload }
+                .otherwise { rData := inPort.payload }
+            }
+
+            next
+          },
+          left - 1
+        )
+    }
+  }
+  val inputBuffer = Stream(payloadType);
+  inputBuffer.valid := io.input.valid
+  inputBuffer.payload := io.input.payload
+
+  val connections = Vec(builder(inputBuffer, depth + 1))
+  connections(depth).ready := False
+  val cachedConnections = (1 to depth).map( x => connections(x))
+  val readyAvailable = cachedConnections.map(!_.valid)
+
+  val full = CountOne(readyAvailable) === 0
+  io.willOverflow := this.full && io.input.valid && !io.outStreams.sExist(_.fire)
+  when(this.full) {
+    cachedConnections.last.ready := io.input.valid
+  }.otherwise {
+    val readyId = OHToUInt(OHMasking.first(readyAvailable))
+    cachedConnections(readyId).ready := io.input.valid
+  }
+
+  def findFirst(condition: Stream[T] => Bool): (Bool, UInt) = {
+    val (exist, reversedId) = io.outStreams.reverse.sFindFirst(condition)
+    val realId = depth - 1 - reversedId
+    (exist, realId)
+  }
 }
 
 object SetCount
@@ -1231,5 +1315,18 @@ class ClockDomainPimped(cd : ClockDomain){
 
   def withOptionalBufferedResetFrom(cond : Boolean)(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
     if(cond) this.withBufferedResetFrom(resetCd, bufferDepth) else cd
+  }
+}
+
+object Shift{
+  //Accumulate shifted out bits into the lsb of the result
+  def rightWithScrap(that : Bits, by : UInt) : Bits = {
+    var logic = that
+    val scrap = False
+    for(i <- by.range){
+      scrap setWhen(by(i) && logic(0, 1 << i bits) =/= 0)
+      logic \= by(i) ? (logic |>> (BigInt(1) << i)) | logic
+    }
+    logic | scrap.asBits.resized
   }
 }

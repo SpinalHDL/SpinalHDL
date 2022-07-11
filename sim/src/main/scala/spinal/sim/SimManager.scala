@@ -43,7 +43,7 @@ abstract class JvmThread(cpuAffinity : Int) extends Thread{
 
 
   override def run(): Unit = {
-    Affinity.setAffinity(cpuAffinity)
+    spinal.affinity.Affinity(cpuAffinity)
     barrier.await()
     try {
       while (true) {
@@ -78,7 +78,9 @@ object SimManager{
       //
       // DO NOT REMOVE `_ : IllegalStateException` until net.java.dev.jna >= 5.8
       // see java-native-access/jna#1324, also SpinalHDL/SpinalHDL#711
-      case e @ (_ : NoClassDefFoundError | _ : UnsatisfiedLinkError | _ : IllegalStateException) => Runtime.getRuntime().availableProcessors()
+      case e : Throwable => {
+        Runtime.getRuntime().availableProcessors()
+      }
     }
   }
   def newCpuAffinity() : Int = synchronized {
@@ -246,7 +248,7 @@ class SimManager(val raw : SimRaw) {
 
   def runWhile(continueWhile : => Boolean = true): Unit ={
     val initialAffinity = Affinity.getAffinity
-    Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
+    spinal.affinity.Affinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
     try {
 //      simContinue = true
       var forceDeltaCycle = false
@@ -328,7 +330,7 @@ class SimManager(val raw : SimRaw) {
         throw e
       }
     } finally {
-      Affinity.setAffinity(initialAffinity)
+      spinal.affinity.Affinity(initialAffinity)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
       for(t <- (jvmIdleThreads ++ jvmBusyThreads)){

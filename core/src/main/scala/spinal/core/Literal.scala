@@ -112,6 +112,7 @@ object B extends BitVectorLiteralFactory[Bits] {
   def apply(that: Data): Bits = that.asBits
   def apply(that: Data, width : BitCount): Bits = that.asBits.resize(width)
   def apply(head: Data, tail: Data*) : Bits = Cat((head +: tail).reverse)
+  def apply(value: Data, times: Int) : Bits = Cat(List.fill(times)(value))
   def apply(value : Seq[Data]) : Bits = Cat(value)
   def apply[T <: Data](value : Vec[T]) : Bits = B(value.asInstanceOf[Data])
   def apply(value : MaskedLiteral, filling : Boolean = false): Bits = value.asBits(filling)
@@ -134,6 +135,7 @@ object U extends BitVectorLiteralFactory[UInt] {
   def apply(that: Bits): UInt = that.asUInt
   def apply(that: SInt): UInt = that.asUInt
   def apply(that: UFix): UInt = that.toUInt
+  def apply(that: AFix): UInt = that.asUInt()
 
   def apply(that: Bool, width : BitCount): UInt = that.asUInt.resize(width)
   def apply(that: Bits, width : BitCount): UInt = that.asUInt.resize(width)

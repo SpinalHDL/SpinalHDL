@@ -61,9 +61,19 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
 
   val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
 
-  CFLAGS += s" -I$jdk/include -I$jdk/include/${(if(isWindows) "win32" 
-  else (if (isMac) "darwin" 
-  else "linux"))}"
+  val includes = Seq(
+    s"$jdk/include",
+    s"$jdk/include/${(if(isWindows) "win32"
+                      else (if (isMac) "darwin"
+                      else "linux"))}"
+  )
+
+  CFLAGS += " " + includes.map(path =>
+    if (isWindows)
+      '"' + path + '"'
+    else
+      path
+  ).map(path => s"-I$path").mkString(" ") + " "
 
   def doCmd(command: String, cwd: File, message : String) = {
     val logger = new Logger()
@@ -308,8 +318,13 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
     val vpiModulePath = if(!isWindows) pluginsPath + "/" + vpiModuleName
     else (pluginsPath + "/" + vpiModuleName).replaceAll("/C",raw"C:").replaceAll(raw"/",raw"\\")
 
-    val pathStr = if(!isWindows) sys.env("PATH")
-    else sys.env("PATH") + ";" + (ghdlPath + " --vpi-library-dir").!!.trim
+
+    val pathStr = if(!isWindows) {
+      sys.env("PATH")
+    } else {
+      val pathKey = sys.env.keysIterator.find(s => s.equalsIgnoreCase("PATH")).get
+      sys.env(pathKey) + ";" + (ghdlPath + " --vpi-library-dir").!!.trim
+    }
 
     val thread = new Thread(new Runnable {
       val iface = sharedMemIface
@@ -533,6 +548,8 @@ class VCSBackendConfig extends VpiBackendConfig {
   var vcsLd: Option[String] = None
   var elaborationFlags: String = ""
   var waveDepth = 0
+  var simSetupFile: String = _
+  var envSetup: ()=> Unit = _
 }
 
 class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
@@ -667,7 +684,16 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     cmd
   }
 
-  // todo 1. use three-step flow; 2. try fsdb system task.
+  def setupEnvironment(): Unit = {
+    if (config.simSetupFile != null) {
+      val simSetupFile = new File(config.simSetupFile)
+      FileUtils.copyFileToDirectory(simSetupFile, new File(workspacePath))
+    }
+    if (config.envSetup != null) {
+      config.envSetup()
+    }
+  }
+
   def analyzeRTL(): Unit = {
     val verilogSourcePaths = rtlSourcesPaths.filter {
       s => s.endsWith(".v") || s.endsWith(".sv") || s.endsWith(".vl") || s.endsWith(".vh") || s.endsWith(".svh") || s.endsWith(".vr")
@@ -757,6 +783,8 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     }
 
     println(f"[Progress] VCS compilation started.")
+    setupEnvironment()
+    println(f"[Progress] VCS user environment setup.")
     val startAt = System.nanoTime()
     analyzeSource()
     elaborate()

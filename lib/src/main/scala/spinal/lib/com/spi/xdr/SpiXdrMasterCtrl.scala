@@ -342,7 +342,7 @@ object SpiXdrMasterCtrl {
 
     def isData = !kind
     def isSs = kind
-    def getSsEnable = data.msb
+    def getSsEnable = data(7 min (p.dataWidth-1))
     def getSsId = U(data(0, log2Up(p.spi.ssWidth) bits))
   }
 

@@ -2,8 +2,10 @@ package spinal.tester.code
 
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.amba4.axi.Axi4CrossbarFactory
+import spinal.lib.bus.wishbone.{Wishbone, WishboneSlaveFactory}
 import spinal.lib.memory.sdram.sdr.MT48LC16M16A2
 
+import java.io.{File, PrintWriter}
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -620,4 +622,107 @@ object Wosh{
 //
 //    axiCrossbar.build()
 //  }
+}
+
+object Fsic{
+  object Main extends App{
+    println("hello world")
+  }
+
+  object Main2 extends App{
+    val writer = new PrintWriter(new File("toplevel.v" ))
+    writer.write("module miaou{\n")
+    writer.write("  input  clk,\n")
+    //...
+    writer.close()
+  }
+
+  import spinal.core._
+  object Main3 extends App{
+    SpinalVerilog(
+      new Module{
+        val a,b = in UInt(8 bits)
+        val result = out(a + b)
+      }
+    )
+  }
+
+
+  import spinal.lib._
+
+  object Main4 extends App{
+    SpinalVerilog(
+      new Module{
+        val bus = slave(Wishbone(
+          addressWidth = 8,
+          dataWidth = 32
+        ))
+
+        val mapper = WishboneSlaveFactory(bus)
+        val regA = mapper.createWriteOnly(
+          dataType = UInt(8 bits),
+          address = 0x0
+        )
+        mapper.read(
+          that    = regA,
+          address = 0x4
+        )
+      }
+    )
+  }
+}
+
+
+object Main3 extends App{
+
+  import spinal.core._
+  SpinalVerilog(
+    new Module{
+      val a,b = in UInt(8 bits)
+      val result = out(a + b)
+    }
+  )
+}
+
+object Main5 extends App{
+  import spinal.core._
+  import spinal.lib._
+  SpinalVerilog(
+    new Module {
+      val ram = Mem.fill(256)(UInt(16 bits))
+      val writeA = slave(ram.writePort())
+      val writeB = slave(ram.writePort())
+      val readA  = slave(ram.readAsyncPort())
+      val readB  = slave(ram.readAsyncPort())
+
+      this.dslBody.walkDeclarations{
+        case mem : Mem[_] => {
+          println(s"found $mem")
+          mem.dlcForeach[Any]{
+            case write : MemWrite     => println(s"  found one write port")
+            case read  : MemReadAsync => println(s"  found one read port")
+          }
+          mem.removeStatement()
+        }
+        case _ =>
+      }
+    }
+  )
+}
+
+object Main6 extends App{
+  import spinal.core._
+  import spinal.lib._
+  SpinalVerilog(
+    new Module {
+      val a,b,c = out UInt(8 bits)
+      val array = ArrayBuffer[UInt]()
+      array += a
+      array += b
+      array += c
+      for(element <- array){
+        element := 0
+      }
+    }
+  )
 }

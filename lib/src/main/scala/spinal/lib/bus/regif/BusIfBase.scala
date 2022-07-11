@@ -30,7 +30,7 @@ trait BusIfBase extends Area{
 trait BusIf extends BusIfBase {
   type B <: this.type
   private val RegInsts = ListBuffer[RegInst]()
-  private var regPtr: Int = 0
+  private var regPtr: BigInt = 0
 
   def getModuleName: String
   val regPre: String
@@ -59,7 +59,7 @@ trait BusIf extends BusIfBase {
     readGenerator()
   })
 
-  def newRegAt(address:Int, doc: String)(implicit symbol: SymbolName) = {
+  def newRegAt(address: BigInt, doc: String)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
     assert(address >= regPtr, s"located Position conflict to Pre allocated Address: ${regPtr}")
     regPtr = address + wordAddressInc
@@ -72,13 +72,13 @@ trait BusIf extends BusIfBase {
     res
   }
 
-  def creatReg(name: String, addr: Long, doc: String) = {
+  def creatReg(name: String, addr: BigInt, doc: String) = {
     val ret = new RegInst(name, addr, doc, this)
     RegInsts += ret
     ret
   }
 
-  def newRAM(name: String, addr: Long, size: Long, doc: String) = {
+  def newRAM(name: String, addr: BigInt, size: BigInt, doc: String) = {
     class bmi extends Bundle{
       val wr     = Bool()
       val waddr  = UInt()
@@ -119,7 +119,7 @@ trait BusIf extends BusIfBase {
     interrupt with Raw/Force/Mask/Status 4 Register Interface
     **/
   def interruptFactory(regNamePre: String, triggers: Bool*): Bool = interruptFactoryAt(regPtr, regNamePre, triggers:_*)
-  def interruptFactoryAt(addrOffset: Int, regNamePre: String, triggers: Bool*): Bool = {
+  def interruptFactoryAt(addrOffset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     require(triggers.size > 0)
     val groups = triggers.grouped(this.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
@@ -135,7 +135,7 @@ trait BusIf extends BusIfBase {
     interrupt with Raw/Mask/Status 3 Register Interface
     **/
   def interruptFactoryNoForce(regNamePre: String, triggers: Bool*): Bool = interruptFactoryNoForceAt(regPtr, regNamePre, triggers:_*)
-  def interruptFactoryNoForceAt(addrOffset: Int, regNamePre: String, triggers: Bool*): Bool = {
+  def interruptFactoryNoForceAt(addrOffset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     require(triggers.size > 0)
     val groups = triggers.grouped(this.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
@@ -152,7 +152,7 @@ trait BusIf extends BusIfBase {
     always used for sys_level_int merge
     **/
   def interruptLevelFactory(regNamePre: String, levels: Bool*): Bool = interruptLevelFactoryAt(regPtr, regNamePre, levels:_*)
-  def interruptLevelFactoryAt(addrOffset: Int, regNamePre: String, levels: Bool*): Bool = {
+  def interruptLevelFactoryAt(addrOffset: BigInt, regNamePre: String, levels: Bool*): Bool = {
     require(levels.size > 0)
     val groups = levels.grouped(this.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
@@ -167,7 +167,7 @@ trait BusIf extends BusIfBase {
   /*
   interrupt with Raw/Force/Mask/Status Register Interface
   **/
-  protected def int_RFMS(offset: Int, regNamePre: String, triggers: Bool*): Bool = {
+  protected def int_RFMS(offset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
     require(triggers.size <= this.busDataWidth )
     val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
@@ -191,7 +191,7 @@ trait BusIf extends BusIfBase {
   /*
     interrupt with Force/Mask/Status Register Interface
     * */
-  protected def int_RMS(offset: Int,regNamePre: String, triggers: Bool*): Bool = {
+  protected def int_RMS(offset: BigInt,regNamePre: String, triggers: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
     require(triggers.size <= this.busDataWidth )
     val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
@@ -213,7 +213,7 @@ trait BusIf extends BusIfBase {
   /*
     interrupt with Mask/Status Register Interface
     * */
-  protected def int_MS(offset: Int, regNamePre: String, int_levels: Bool*): Bool = {
+  protected def int_MS(offset: BigInt, regNamePre: String, int_levels: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
     require(int_levels.size <= this.busDataWidth )
     val MASK   = this.newRegAt(offset, "Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))

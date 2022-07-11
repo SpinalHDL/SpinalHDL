@@ -17,11 +17,14 @@ final case class RalfGenerator(fileName : String) extends BusIfVisitor {
     width = busDataWidth
   }
 
-  def visit(descr : FifoDescr)  : Unit = {
-
+  def visit(descr : BaseDescriptor) : Unit = {
+    descr match {
+      case descr: RegDescr => regDescrVisit(descr)
+      case _ => ???
+    }
   }
 
-  def visit(descr : RegDescr) : Unit = {
+  private def regDescrVisit(descr: RegDescr) = {
     def formatResetValue(value: BigInt, bitCount: Int):String = {
       val hexCount = scala.math.ceil(bitCount/4.0).toInt
       val unsignedValue = if(value >= 0) value else ((BigInt(1) << bitCount) + value)
@@ -48,7 +51,7 @@ final case class RalfGenerator(fileName : String) extends BusIfVisitor {
     }
 
     val ret =
-      s"""  register ${descr.getName()} @'h${descr.getAddr().toHexString} {
+      s"""  register ${descr.getName()} @'h${descr.getAddr().toString(16).toUpperCase} {
          |${descr.getFieldDescrs().map(fieldDescr).mkString("\n")}
          |  }
          |""".stripMargin

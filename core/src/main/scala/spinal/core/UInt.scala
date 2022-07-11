@@ -91,7 +91,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def +^(right: UInt): UInt = this.expand + right.expand
   override def -^(right: UInt): UInt = this.expand - right.expand
   override def +|(right: UInt): UInt = (this +^ right).sat(1)
-  override def -|(right: UInt): UInt = (this -^ right).sat(1)
+  override def -|(right: UInt): UInt = (this -^ right)._satAsSInt2UInt()
 
   /* Implement BitwiseOp operators */
   override def |(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Or)
@@ -120,6 +120,15 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       ret.setAll()
     }.otherwise{
       ret := this(getWidth-m-1 downto 0)
+    }
+    ret
+  }
+  private def _satAsSInt2UInt(): UInt = {
+    val ret = UInt(getWidth-1 bit)
+    when(this.msb){
+      ret.clearAll()
+    }.otherwise{
+      ret := this(getWidth-2 downto 0)
     }
     ret
   }
@@ -214,6 +223,44 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     ret
   }
 
+  override def roundToEven(n: Int, align: Boolean): UInt = {
+    require(getWidth > n, s"RoundToEven bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => if(align) _roundToEven(n).sat(1) else _roundToEven(n)
+      case _          => this << -n
+    }
+  }
+
+  private def _roundToEven(n: Int): UInt = {
+    val ret = UInt(getWidth-n+1 bits)
+    when (!this(n)) {
+      ret := _roundDown(n)
+    } otherwise {
+      ret := _roundUp(n)
+    }
+    ret
+  }
+
+  override def roundToOdd(n: Int, align: Boolean): UInt = {
+    require(getWidth > n, s"RoundToOdd bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => if(align) _roundToOdd(n).sat(1) else _roundToOdd(n)
+      case _          => this << -n
+    }
+  }
+
+  private def _roundToOdd(n: Int): UInt = {
+    val ret = UInt(getWidth-n+1 bits)
+    when (!this(n)) {
+      ret := _roundUp(n)
+    } otherwise {
+      ret := _roundDown(n)
+    }
+    ret
+  }
+
   //SpinalHDL chose roundToInf as default round
   override def round(n: Int, align: Boolean = true): UInt = roundToInf(n, align)
 
@@ -227,8 +274,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case RoundType.ROUNDDOWN     => this.roundDown(roundN,false).sat(satN + 1)
       case RoundType.ROUNDTOZERO   => this.roundToZero(roundN, false).sat(satN + 1)
       case RoundType.ROUNDTOINF    => this.roundToInf(roundN, false).sat(satN + 1)
-      case RoundType.ROUNDTOEVEN   => SpinalError("RoundToEven has not been implemented yet")
-      case RoundType.ROUNDTOODD    => SpinalError("RoundToOdd has not been implemented yet")
+      case RoundType.ROUNDTOEVEN   => this.roundToEven(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDTOODD    => this.roundToOdd(roundN, false).sat(satN + 1)
     }
   }
 
@@ -314,7 +361,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     * @param enable enable the 2'complement
     * @return Return the 2'Complement of the number
     */
-  def twoComplement(enable: Bool): SInt = ((enable ## Mux(enable, ~this, this)).asUInt + enable.asUInt).asSInt
+  def twoComplement(enable: Bool, plusOneEnable : Bool = null): SInt = ((enable ## Mux(enable, ~this, this)).asUInt + U(if(plusOneEnable == null) enable else enable && plusOneEnable)).asSInt
 //  def twoComplementUInt(enable: Bool): UInt = ((Mux(enable, ~this, this)) + enable.asUInt)
 
   /**

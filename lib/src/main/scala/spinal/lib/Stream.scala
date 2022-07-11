@@ -371,7 +371,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     m2sPipe.payload := rData
   }.m2sPipe
 
-  def s2mPipe(): Stream[T] = new Composite(this) {
+  def s2mPipe(flush : Bool = null): Stream[T] = new Composite(this) {
     val s2mPipe = Stream(payloadType)
 
     val rValid = RegInit(False) setWhen(self.valid) clearWhen(s2mPipe.ready)
@@ -381,6 +381,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
     s2mPipe.valid := self.valid || rValid
     s2mPipe.payload := Mux(rValid, rData, self.payload)
+
+    if(flush != null) rValid.clearWhen(flush)
   }.s2mPipe
 
   def s2mPipe(stagesCount : Int): Stream[T] = {
@@ -403,7 +405,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
-  def halfPipe(): Stream[T] = new Composite(this) {
+  def halfPipe(flush : Bool = null): Stream[T] = new Composite(this) {
     val halfPipe = Stream(payloadType)
 
     val rValid = RegInit(False) setWhen(self.valid) clearWhen(halfPipe.fire)
@@ -413,6 +415,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
     halfPipe.valid := rValid
     halfPipe.payload := rData
+
+    if(flush != null) rValid clearWhen(flush)
   }.halfPipe
 
 /** Block this when cond is False. Return the resulting stream
@@ -534,16 +538,69 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this
   }
 
-
-
-  // this could be more generic.
-  def formalCreateEvent(getCond: Stream[T] => Bool): Bool = {
+  def withCovers(back2BackCycles: Int = 1): this.type  = {
     import spinal.core.formal._
-    val event = RegInit(False)
-    when(getCond(this)) {
-      assume(event === True)
+    val hist = History(this.fire, back2BackCycles).reduce(_ && _)
+    cover(hist)
+    cover(this.isStall)
+    // doubt that if this is required in generic scenario.
+    // cover(this.ready && !this.valid)
+    this
+  }
+
+  def withOrderAsserts(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
+    import spinal.core.formal._
+    val aheadOut = RegInit(False) setWhen (this.fire && dataAhead === this.payload)
+    val behindOut = RegInit(False) setWhen (this.fire && dataBehind === this.payload)
+
+    when(!aheadOut){ assert(!behindOut) }
+    when(behindOut){ assert(aheadOut) }
+
+    cover(aheadOut)
+    cover(behindOut)
+    
+    (aheadOut, behindOut)
+  }
+
+  def withOrderAssumes(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
+    import spinal.core.formal._
+    val aheadIn = RegInit(False) setWhen (this.fire && dataAhead === this.payload)
+    val behindIn = RegInit(False) setWhen (this.fire && dataBehind === this.payload)
+    when(aheadIn) { assume(this.payload =/= dataAhead) }
+    when(behindIn) { assume(this.payload =/= dataBehind) }
+    
+    assume(dataAhead =/= dataBehind)
+    when(!aheadIn) { assume(!behindIn) }
+    when(behindIn) { assume(aheadIn) }
+
+    (aheadIn, behindIn)
+  }
+
+  /**
+   * Assert that this stream conforms to the stream semantics:
+   * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
+   * - After being asserted, valid should be acknowledged in limited cycles.
+   *
+   * @param maxStallCycles Check that the max cycles the interface would hold in stall.
+   */
+  def withTimeoutAsserts(maxStallCycles : Int = 0) : this.type = {
+    import spinal.core.formal._
+    if (maxStallCycles > 0) {
+      val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
+      when(this.fire) { counter.clear()} 
+      .otherwise { assert(!counter.willOverflow) }
     }
-    event
+    this
+  }
+
+  def withTimeoutAssumes(maxStallCycles : Int = 0) : this.type = {
+    import spinal.core.formal._
+    if (maxStallCycles > 0) {
+      val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
+      when(this.fire) { counter.clear() } 
+      .elsewhen(counter.willOverflow) { assume(this.ready === True) }
+    }
+    this
   }
 }
 
@@ -1048,6 +1105,41 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
       popPtr.clear()
       risingOccupancy := False
     }
+  }
+  
+  def withAssumes() = this.rework {
+    import spinal.core.formal._
+    assume(io.pop.payload === past(logic.ram(logic.popPtr)))
+  }
+
+  def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
+    val pushBound = logic.pushPtr.value + depth
+    val check = Vec(False, depth)
+    for (i <- 0 until depth) {
+      val popIndex = logic.popPtr.resize(log2Up(depth) + 1 bits) + i
+      when(logic.popPtr < logic.pushPtr) {
+        when(popIndex < logic.pushPtr) { check(i) := cond(logic.ram(popIndex.resized)) }
+      }.elsewhen(logic.popPtr > logic.pushPtr) {
+        when(popIndex < pushBound) { check(i) := cond(logic.ram(popIndex.resized)) }
+      }.elsewhen(logic.popPtr === logic.pushPtr && io.pop.valid) {
+        check(i) := cond(logic.ram(i))
+      }
+    }
+    check
+  }
+
+  def formalContains(word: T): Bool = this.rework {
+    formalCheck(_ === word.pull()).reduce(_ || _)
+  }
+  def formalContains(cond: T => Bool): Bool = this.rework {
+    formalCheck(cond).reduce(_ || _)
+  }
+
+  def formalCount(word: T): UInt = this.rework {
+    CountOne(formalCheck(_ === word.pull()))
+  }
+  def formalCount(cond: T => Bool): UInt = this.rework {
+    CountOne(formalCheck(cond))
   }
 }
 

@@ -38,6 +38,7 @@ object RoundType{
   case object ROUNDTOINF     extends RoundType ;// Wikipedia name: RoundHalfToInf
   case object ROUNDTOEVEN    extends RoundType ;// Wikipedia name: RoundHalfToEven; Have not been implemented yet
   case object ROUNDTOODD     extends RoundType ;// Wikipedia name: RoundHalfToOdd ; Have not been implemented yet
+  case object SCRAP           extends RoundType ;// If any bitsthrown is set, then LSB will be set
 }
 
 case class FixPointConfig(roundType: RoundType,
@@ -167,7 +168,7 @@ trait UFixCast {
 /**
   * Base class for SFix and UFix
   */
-abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int, val bitCount: Int) extends MultiData {
+abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int, val bitCount: Int) extends MultiData with MinMaxDecimalProvider {
 
   require(bitCount >= 0)
 

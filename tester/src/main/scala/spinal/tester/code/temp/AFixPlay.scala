@@ -7,7 +7,7 @@ import spinal.lib._
 object AFixPlay extends App{
   SpinalVerilog(new Component{
     val l0 = new Area {
-      val a, b = new AFix(15, -16, -2 exp)
+      val a, b = new AFix(15, -16, -2)
       val c = a + b
 
       val d = in Bool()

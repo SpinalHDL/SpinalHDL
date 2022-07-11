@@ -3,7 +3,7 @@ package spinal.lib.bus.regif
 import spinal.core._
 
 case class Field(name: String,
-                 hardbit: Bits,
+                 hardbit: BaseType,
                  section: Range,
                  accType: AccessType,
                  resetValue: Long,
@@ -16,7 +16,7 @@ case class Field(name: String,
   // FieldDescr implementation
   def getName()       : String     = _name
   def setName(name: String): Field = {_name = name ; this}
-  def getWidth()      : Int        = hardbit.getWidth
+  def getWidth()      : Int        = hardbit.getBitsWidth
   def getSection()    : Range      = section
   def getAccessType() : AccessType = accType
   def getResetValue() : Long       = resetValue

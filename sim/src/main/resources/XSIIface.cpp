@@ -13,6 +13,16 @@ union byte_union {
     int8_t byte[4]; 
 };
 
+int64_t pow10(int64_t a) {
+    if (a < 0)
+        return pow10(-a);
+    int64_t ret_val = 1;
+    for(int64_t i = a; i > 0; i--) {
+        ret_val *= 10;
+    }
+    return ret_val;
+}
+
 void check_vlog_logicval(s_xsi_vlog_logicval *value) {
     if (value->bVal != 0) {
         std::cout << "Unexpected \'X\' of \'Z\', reset to 0" << std::endl;
@@ -46,6 +56,8 @@ XSIIface::XSIIface(): loader{SIM_DESIGN, SIM_KERNEL} {
     if (SIM_HAS_WAVE) {
         loader.trace_all();
     }
+
+    sim_time_precision = loader.get_sim_time_precision();
 }
 
 XSIIface::~XSIIface() {}
@@ -130,7 +142,9 @@ void XSIIface::write(int32_t handle, int32_t width, const std::vector<int8_t>& d
 }
 
 void XSIIface::sleep(int64_t sleep_cycles) {
-    loader.run(sleep_cycles);
+    const int64_t cycle_precision = -9; // 1ns
+    int64_t time_ticks = sleep_cycles * (pow10(cycle_precision - sim_time_precision));
+    loader.run(time_ticks);
 }
 
 void XSIIface::check_status() { }
