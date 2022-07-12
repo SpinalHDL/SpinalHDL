@@ -118,10 +118,10 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
   def stage(): AvalonST = this.m2sPipe()
 
   /**
-   * Cuts the valid/payload data path with a register and increments required ready allowance
+   * Cuts the valid/payload data path with a register
    */
   def m2sPipe(flush: Bool = null, holdPayload : Boolean = false): AvalonST = new Composite(this) {
-      val m2sPipe = AvalonST(config.copy(readyAllowance = config.readyAllowance+1))
+      val m2sPipe = AvalonST(config)
 
       val rPayload = RegNextWhen(self.payload, if (holdPayload && config.useValid) self.valid else True)
 
