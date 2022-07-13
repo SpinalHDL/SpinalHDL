@@ -154,3 +154,39 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
     }
   }
 }
+
+case class AvalonSTDelayAdapter(config: AvalonSTConfig,
+                                newReadyLatency: Int,
+                                newReadyAllowance: Int,
+                                depth: Int = 31) extends Component {
+  val io = new Bundle {
+    val m = master(AvalonST(config))
+    val s = slave(AvalonST(config.copy(readyLatency = newReadyLatency, readyAllowance = newReadyAllowance)))
+  }
+
+  val allowanceDiff = newReadyAllowance - config.readyAllowance
+
+  val allowanceStage = if (allowanceDiff > 0) {
+    var allowanceStage = io.s.m2sPipe()
+    for(_ <- 0 until allowanceDiff)
+      allowanceStage = allowanceStage.m2sPipe()
+    allowanceStage
+  } else {
+    io.s
+  }
+
+  val latencyDiff = newReadyLatency - config.readyLatency
+
+  val latencyStage = if (latencyDiff > 0) {
+    var latencyStage = allowanceStage
+
+    for(_ <- 0 until latencyDiff)
+      latencyStage = latencyStage.s2mPipe()
+
+    latencyStage
+  } else {
+    allowanceStage
+  }
+
+  io.m << allowanceStage
+}
