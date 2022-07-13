@@ -42,15 +42,13 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
   val valid: Bool = if (config.useValid) Bool() else null
   val payload: AvalonSTPayload = AvalonSTPayload(config)
 
-  val latencyDelay: Bool = Delay(this.ready, config.readyLatency)
-  val latencyReady: Bool = ready && latencyDelay
-  val allowanceDelay: Bool = Delay(this.ready, config.readyAllowance)
-  val allowanceReady: Bool = !ready && allowanceDelay
+  lazy val latencyDelay: Bool = Delay(this.ready, config.readyLatency)
+  lazy val allowanceDelay: Bool = Delay(latencyDelay, config.readyAllowance)
 
   // Logical ready accounting for ready latency and allowance
-  val logicalReady: Bool = latencyReady || allowanceReady
+  lazy val logicalReady: Bool = latencyDelay || allowanceDelay
 
-  val fire: Bool = valid && logicalReady
+  lazy val fire: Bool = valid && logicalReady
 
   override def clone: AvalonST = AvalonST(config)
 
@@ -126,7 +124,7 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
       val rPayload = RegNextWhen(self.payload, if (holdPayload && config.useValid) self.valid else True)
 
       config.useValid generate {
-        val rValid = RegNext(self.valid) init(False)
+        val rValid = RegNextWhen(self.valid, self.logicalReady) init(False)
         if (flush != null) rValid clearWhen(flush)
         m2sPipe.valid := rValid
       }
