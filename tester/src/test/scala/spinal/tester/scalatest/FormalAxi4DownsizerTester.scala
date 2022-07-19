@@ -115,7 +115,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         assert(!inputChecker.hist.io.willOverflow)
         assert(!outputChecker.hist.io.willOverflow)
         
-        val size = CombInit(U(0, input.ar.size.getBitsWidth bits))
+        val size = CombInit(input.ar.size.getZero)
         when(inputChecker.rExist) {
           size := inputChecker.hist.io.outStreams(inputChecker.rId).size
         }

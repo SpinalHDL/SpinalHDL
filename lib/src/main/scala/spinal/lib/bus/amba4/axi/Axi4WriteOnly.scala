@@ -92,8 +92,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     val oRecord = FormalAxi4Record(config, maxStrbs).init()
 
     val histInput = Flow(cloneOf(oRecord))
-    histInput.payload := oRecord
-    histInput.valid := False
+    histInput := histInput.getZero
     val hist = HistoryModifyable(histInput, maxBursts)
     hist.io.inStreams.map(_.valid := False)
     hist.io.inStreams.map(_.payload := oRecord)

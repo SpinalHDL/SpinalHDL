@@ -471,11 +471,9 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
   val responsed = Bool()
 
   def init():FormalAxi4Record = {
-    val oRecord = FormalAxi4Record(config, maxStrbs)
-    oRecord.assignFromBits(B(0, oRecord.getBitsWidth bits))
     size := U(log2Up(config.bytePerWord), 3 bits)
     if(config.useBurst) burst := B(Axi4.burst.INCR)
-    this.assignUnassignedByName(oRecord)
+    this.assignUnassignedByName(CombInit(this.getZero))
     this
   }
 
