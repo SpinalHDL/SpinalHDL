@@ -14,5 +14,5 @@ class WishboneGpio(config : WishboneConfig, gpioWidth : Int) extends Component{
   ctrl.read(io.gpio.read, 0)
   ctrl.driveAndRead(io.gpio.write, 4)
   ctrl.driveAndRead(io.gpio.writeEnable, 8)
-  io.gpio.writeEnable.getDrivingReg init(0)
+  io.gpio.writeEnable.getDrivingReg() init(0)
 }

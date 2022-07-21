@@ -993,7 +993,7 @@ object DmaSg{
           memory.ports.b2m.cmd.context := B(context)
 
           when(sel.valid && memory.ports.b2m.cmd.ready) {
-            sel.ptr.getDrivingReg := (sel.ptr & ~sel.ptrMask) | ((sel.ptr + U(io.write.p.access.dataWidth / p.memory.bankWidth) & sel.ptrMask))
+            sel.ptr.getDrivingReg() := (sel.ptr & ~sel.ptrMask) | ((sel.ptr + U(io.write.p.access.dataWidth / p.memory.bankWidth) & sel.ptrMask))
           }
         }
 
