@@ -89,11 +89,17 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     hist.io.outStreams.map(_.ready := False)
 
     val (arExist, arId) = hist.findFirst(x => x.valid && !x.axDone)
+    val (doneExist, doneId) = hist.findFirst(x => x.valid && x.axDone)
+    when(doneExist & arExist) { assert(arId < doneId) }
+
     val (rExist, rId) =
       hist.findFirst(x => x.valid && !x.seenLast && { if (config.useId) r.id === x.id else True })
+    for (i <- hist.io.outStreams.indices) {
+      when (rExist & i < rId) { assert(hist.io.outStreams(i).count === 0) }
+    }
+
     val (rmExist, rmId) =
       hist.findFirst(x => x.valid && x.seenLast && x.axDone)
-
     when(rmExist) { hist.io.outStreams(rmId).ready := True }
 
     val errors = new Area {
