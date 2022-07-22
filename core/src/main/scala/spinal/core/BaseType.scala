@@ -159,13 +159,13 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     this
   }
 
-  def getDrivingReg: this.type = {
+  def getDrivingReg(reportError : Boolean = true) : this.type = {
     if (isReg) {
       this
     } else {
       this.getSingleDriver match {
-        case Some(t) => t.getDrivingReg
-        case _       => SpinalError("Driver is not a register")
+        case Some(t) => t.getDrivingReg(reportError)
+        case _       => if(reportError) SpinalError("Driver is not a register") else null
       }
     }
   }

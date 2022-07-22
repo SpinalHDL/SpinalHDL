@@ -357,7 +357,7 @@ class SpinalReport[T <: Component]() {
 
 
 object Spinal{
-  def version = spinal.core.Info.version
+  val version = (if(Character.isDigit(spinal.core.Info.version(0))) "v" else "") + spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
 
@@ -367,7 +367,7 @@ object Spinal{
 
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
-    } + s" SpinalHDL v$version    git head : ${spinal.core.Info.gitHash}")
+    } + s" SpinalHDL $version    git head : ${spinal.core.Info.gitHash}")
 
 
     val runtime = Runtime.getRuntime

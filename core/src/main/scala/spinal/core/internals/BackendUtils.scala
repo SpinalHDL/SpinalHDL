@@ -39,7 +39,7 @@ object VhdlVerilogBase{
   /** Header of the RTL generated */
   def getHeader(commentSymbol: String, header: String, toplevel: Component, withDate : Boolean, withRepoHash : Boolean): String = {
     var buffer = new StringBuilder()
-    buffer ++= s"$commentSymbol Generator : SpinalHDL v${Spinal.version}    git head : ${spinal.core.Info.gitHash}\n"
+    buffer ++= s"$commentSymbol Generator : SpinalHDL ${Spinal.version}    git head : ${spinal.core.Info.gitHash}\n"
     buffer ++= s"$commentSymbol Component : ${toplevel.definitionName}\n"
     if(withRepoHash) {
       import sys.process._

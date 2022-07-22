@@ -15,7 +15,7 @@ class AxiLite4Plic(sourceCount : Int, targetCount : Int) extends Component{
     val targets = out Bits (targetCount bits)
   }
 
-  val gateways = (for ((source, id) <- (io.sources.asBools, 1 until sourceCount).zipped) yield PlicGatewayActiveHigh(
+  val gateways = (for ((source, id) <- (io.sources.asBools, 1 to sourceCount).zipped) yield PlicGatewayActiveHigh(
     source = source,
     id = id,
     priorityWidth = priorityWidth

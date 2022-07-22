@@ -103,7 +103,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
             fileList.write(targetFilePath.replace("//", "/") + "\n")
           }
           c match {
-            case bb: BlackBox if bb != null => {
+            case bb: BlackBox if bb.impl != null => {
               val str = bb.impl.getVerilog()
               if(!bbImplStrings.contains(str)) {
                 outFile = new java.io.FileWriter(targetFilePath)

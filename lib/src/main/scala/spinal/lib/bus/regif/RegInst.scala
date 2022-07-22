@@ -125,12 +125,22 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   def field[T <: BaseType](hardType: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue = 0, doc = doc)
   def field[T <: BaseType](hardType: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue, doc = "")
   def field[T <: BaseType](hardType: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
-    val reg = Reg(hardType)
-    reg match {
-      case t: Bool => t init(resetValue%2 == 1)
-      case t: Bits => t.init(resetValue)
-      case t: UInt => t.init(resetValue)
-      case t: SInt => t.init(resetValue)
+    val reg = acc match{
+      case AccessType.NA => {
+        val reg = hardType()
+        reg.assignFromBits(B(0, reg.getBitsWidth bit))
+        reg
+      }
+      case _ => {
+        val reg = Reg(hardType)
+        reg match {
+          case t: Bool => t init(resetValue%2 == 1)
+          case t: Bits => t.init(resetValue)
+          case t: UInt => t.init(resetValue)
+          case t: SInt => t.init(resetValue)
+        }
+        reg
+      }
     }
     val signame = if(symbol.name.startsWith("<local ")){
       SpinalWarning("an unload signal created; `val signame = field(....)` is recomended instead `field(....)`")

@@ -56,5 +56,5 @@ case class Apb3Gpio(gpioWidth: Int, withReadSync : Boolean) extends Component {
   ctrl.read(io.value, 0)
   ctrl.driveAndRead(io.gpio.write, 4)
   ctrl.driveAndRead(io.gpio.writeEnable, 8)
-  io.gpio.writeEnable.getDrivingReg init(0)
+  io.gpio.writeEnable.getDrivingReg() init(0)
 }
