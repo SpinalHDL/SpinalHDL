@@ -17,6 +17,7 @@ case class XSimBackendConfig(
                              val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var xciSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var bdSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
+                             var xilinxDevice:String = "xc7vx485tffg1157-1",
                              var CC: String             = "g++",
                              var toplevelName: String   = null,
                              var workspacePath: String  = null,
@@ -38,6 +39,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
   val workspaceName = config.workspaceName
   val wavePath = config.wavePath
   val waveFormat = config.waveFormat
+  val xilinxDevice = config.xilinxDevice
 
   val format: WaveFormat = {
     val availableFormats = Array(WaveFormat.WDB, WaveFormat.DEFAULT, WaveFormat.NONE)
@@ -144,7 +146,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
          |
          |""".stripMargin
 
-    val createProject = s"create_project -force $projectName"
+    val createProject = s"create_project -force $projectName -part $xilinxDevice"
     val importRtl = rtlAbsoluteSourcesPaths map { p =>
       s"import_files -force $p"
     }
