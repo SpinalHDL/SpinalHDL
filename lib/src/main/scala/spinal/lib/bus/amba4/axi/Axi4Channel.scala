@@ -534,8 +534,11 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
   def checkLen(): Bool = {
     val realLen = len +^ 1
     val transDoneWithWrongLen = seenLast & realLen =/= count
-    val getLimitLenWhileTransfer = !seenLast & realLen === count
+    transDoneWithWrongLen.setCompositeName(this, "ErrorWrongLen")
+    val getLimitLenWhileTransfer = !seenLast & realLen === count    
+    getLimitLenWhileTransfer.setCompositeName(this, "ErrorLastTransCountExceed")
     val wrongLen = realLen < count
+    wrongLen.setCompositeName(this, "ErrorTransCountExceedLen")
     axDone & (transDoneWithWrongLen | getLimitLenWhileTransfer | wrongLen)
   }
 }
