@@ -1393,7 +1393,7 @@ object DebBugFormal extends App{
     /////////////////////////////
     GenerationFlags.formal{
       when(True){
-        assert(io.input =/= formal.past(io.output.data))
+        assert(io.input =/= past(io.output.data))
       }
     }
   }
