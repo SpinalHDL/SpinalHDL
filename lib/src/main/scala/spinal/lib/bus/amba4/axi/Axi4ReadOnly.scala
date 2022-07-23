@@ -89,7 +89,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     hist.io.outStreams.map(_.ready := False)
 
     val (arExist, arId) = hist.findFirst(x => x.valid && !x.axDone)
-    val (doneExist, doneId) = hist.findFirst(x => x.valid && x.axDone)
+    val (doneExist, doneId) = hist.io.outStreams.sFindFirst(x => x.valid && x.axDone)
     when(doneExist & arExist) { assert(arId < doneId) }
 
     val (rExist, rId) =
