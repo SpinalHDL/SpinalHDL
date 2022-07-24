@@ -171,38 +171,35 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
   }
 }
 
-case class AvalonSTDelayAdapter(config: AvalonSTConfig,
-                                newReadyLatency: Int,
-                                newReadyAllowance: Int,
-                                depth: Int = 31) extends Component {
+object AvalonSTDelayAdapter {
+  def apply(inStream: AvalonST, outStream: AvalonST, depth: Int = 31): AvalonSTDelayAdapter = {
+    val adapter = new AvalonSTDelayAdapter(inStream.config,
+      outStream.config.readyLatency,
+      outStream.config.readyAllowance,
+      depth = depth)
+    adapter.io.s << inStream
+    adapter.io.m >> outStream
+    adapter
+  }
+}
+
+class AvalonSTDelayAdapter(config: AvalonSTConfig,
+                           newReadyLatency: Int,
+                           newReadyAllowance: Int,
+                           depth: Int = 31) extends Component {
   val io = new Bundle {
     val m = master(AvalonST(config))
     val s = slave(AvalonST(config.copy(readyLatency = newReadyLatency, readyAllowance = newReadyAllowance)))
   }
 
-  val allowanceDiff = newReadyAllowance - config.readyAllowance
+  val fifo = new StreamFifo(AvalonSTPayload(config), depth)
 
-  val allowanceStage = if (allowanceDiff > 0) {
-    var allowanceStage = io.s.m2sPipe()
-    for(_ <- 0 until allowanceDiff)
-      allowanceStage = allowanceStage.m2sPipe()
-    allowanceStage
-  } else {
-    io.s
-  }
+  fifo.io.push.payload := io.s.payload
+  fifo.io.push.valid := io.s.valid && Delay(io.s.ready, config.readyLatency)
+  val nearFull = fifo.io.occupancy < depth-config.readyAllowance
+  io.s.ready := fifo.io.push.ready && nearFull
 
-  val latencyDiff = newReadyLatency - config.readyLatency
-
-  val latencyStage = if (latencyDiff > 0) {
-    var latencyStage = allowanceStage
-
-    for(_ <- 0 until latencyDiff)
-      latencyStage = latencyStage.s2mPipe()
-
-    latencyStage
-  } else {
-    allowanceStage
-  }
-
-  io.m << allowanceStage
+  io.m.payload := fifo.io.pop.payload
+  io.m.valid := fifo.io.pop.valid
+  fifo.io.pop.ready := io.m.logicalReady
 }
