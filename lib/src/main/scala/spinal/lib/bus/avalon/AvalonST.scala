@@ -24,7 +24,7 @@ case class AvalonSTConfig(dataWidth: Int,
                           symbolEndianness: Endianness = LITTLE,
                           readyLatency: Int = 0,
                           readyAllowance: Int = 0) {
-  assert(!(useReady || useValid), "AvalonST must have at least ready OR valid enabled!")
+  assert(useReady || useValid, "AvalonST must have at least ready OR valid enabled!")
 }
 
 case class AvalonSTPayload(config: AvalonSTConfig) extends Bundle {
@@ -67,8 +67,8 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
   }
 
   private def arbitrateFrom(that: AvalonST) = {
-    driveWeak(this.ready, that.ready)
-    driveWeak(that.valid, this.valid)
+    driveWeak(that.ready, this.ready)
+    driveWeak(this.valid, that.valid)
   }
 
   def <<(that: AvalonST): AvalonST = {
@@ -124,7 +124,7 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
       val rPayload = RegNextWhen(self.payload, if (holdPayload && config.useValid) self.valid else True)
 
       config.useValid generate {
-        val rValid = RegNextWhen(self.valid, self.logicalReady) init(False)
+        val rValid = RegNext(self.valid) init(False)
         if (flush != null) rValid clearWhen(flush)
         m2sPipe.valid := rValid
       }
@@ -148,7 +148,7 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
 
         self.ready := rReady
 
-        driveWeak(self.valid, s2mPipe.valid)
+        driveWeak(s2mPipe.valid, self.valid)
         s2mPipe.payload := self.payload
       }.s2mPipe
     }
