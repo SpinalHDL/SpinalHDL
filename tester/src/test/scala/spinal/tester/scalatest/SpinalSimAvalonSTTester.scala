@@ -19,6 +19,9 @@ case class AvalonSTPipelineFixture(config: AvalonSTConfig, m2s: Boolean, s2m: Bo
     val s = slave(inStream)
     val m = master(outStream)
   }
+
+  clockDomain.readClockWire.dontSimplifyIt()
+  clockDomain.readResetWire.dontSimplifyIt()
 }
 
 case class AvalonSTDelayAdapterFixture(config: AvalonSTConfig,
@@ -39,7 +42,7 @@ class AvalonSTTester extends AnyFunSuite {
       m2s <- List(false, true);
       lat <- List(0, 2, 8);
       allow <- List(0, 2, 8)) {
-    if (s2m || m2s) {
+//    if (s2m || m2s) {
       val text1 = if (s2m) "_s2m" else ""
       val text2 = if (m2s) "_m2s" else ""
       test(s"pipeline${text1}${text2}_lat${lat}_allow${allow}") {
@@ -67,7 +70,7 @@ class AvalonSTTester extends AnyFunSuite {
           })
         })
       }
-    }
+//    }
   }
 
   for(lat_m <- List(0, 2, 8);
