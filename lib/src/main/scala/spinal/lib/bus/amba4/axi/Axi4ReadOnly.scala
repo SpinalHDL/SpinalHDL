@@ -93,7 +93,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       hist.findFirst(x => x.valid && !x.seenLast && { if (config.useId) r.id === x.id else True })
     hist.io.outStreams.zipWithIndex.foreach { case (stream, i) =>
       when (arExist & stream.valid & i < arId) { assert(!stream.axDone) }
-      when (rExist & stream.valid & i < rId) { assert(stream.count === 0) }
+      when (rExist & stream.valid & i < rId) { assert(stream.count === 0 & !stream.seenLast) }
     }
 
     val (rmExist, rmId) =
