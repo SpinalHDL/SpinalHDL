@@ -117,8 +117,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         
         val size = CombInit(input.ar.size.getZero)
         when(inputChecker.rExist) {
-          size := inputChecker.hist.io.outStreams(inputChecker.rId).size
+          val selected = inputChecker.hist.io.outStreams(inputChecker.rId)
+          size := selected.size
         }
+
+        val proceeding = inputChecker.hist.io.outStreams.sCount(x => x.valid && !x.seenLast && x.axDone)
+        assert(proceeding <= 2)
 
         val dataHist = new HistoryModifyable(cloneOf(output.r.data), 4)
         dataHist.init()
