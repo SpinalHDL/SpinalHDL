@@ -1781,9 +1781,9 @@ class StreamTransactionCounter(
         running := False
     }
 
-    when(done) {
+    when(done | io.ctrlFire) {
         counter.clear()
-    } elsewhen (io.targetFire) {
+    } elsewhen (io.targetFire & running) {
         counter.increment()
     }
 
@@ -1795,7 +1795,7 @@ class StreamTransactionCounter(
 
     io.working := running
     io.last := lastOne
-    io.done := lastOne && io.targetFire
+    io.done := done & running
     io.value := counter
 }
 
