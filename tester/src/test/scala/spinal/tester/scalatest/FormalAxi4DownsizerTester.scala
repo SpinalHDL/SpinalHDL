@@ -4,7 +4,6 @@ import spinal.core.formal._
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi._
-import spinal.lib.HistoryModifyable
 
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
   def writeTester(inConfig: Axi4Config, outConfig: Axi4Config) {
@@ -124,21 +123,23 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val proceeding = inputChecker.hist.io.outStreams.sCount(x => x.valid && !x.seenLast && x.axDone)
         assert(proceeding <= 2)
 
-        val dataHist = new HistoryModifyable(cloneOf(output.r.data), 4)
-        dataHist.init()
-        dataHist.io.input.valid := output.r.fire
-        dataHist.io.input.payload := output.r.data
-        val (d1Exist, d1Id) = dataHist.io.outStreams.sFindFirst(x => x.valid)
-        
+        val dataHist = History(output.r.data, 2, output.r.fire, init = output.r.data.getZero)        
         val d1 = anyconst(Bits(outConfig.dataWidth bits))
         val d2 = anyconst(Bits(outConfig.dataWidth bits))
-        when(size < 3 & output.r.fire & output.r.data === d1) {
+        assume(d1 =/= 0 & d1 =/= d2)
+        assume(d2 =/= 0)
+
+        val dataCheckSizeLess3 = (size < 3 & output.r.fire & output.r.data === d1)
+        val dataCheckSize3 = (size === 3 & input.r.fire & input.r.data === (d2 ## d1))
+        when(dataCheckSizeLess3) {
           val highRange = outConfig.dataWidth until 2 * outConfig.dataWidth
           val lowRange = 0 until outConfig.dataWidth
           assert(input.r.data(highRange) === d1 | input.r.data(lowRange) === d1)
-        }.elsewhen(size === 3 & input.r.fire & input.r.data === (d2 ## d1)) {
-          assert(d1Exist & dataHist.io.outStreams(d1Id).payload === d1)
+        }.elsewhen(dataCheckSize3) {
+          assert(dataHist(0) === d2 & dataHist(1) === d1)
         }
+        cover(dataCheckSizeLess3)
+        cover(dataCheckSize3)
 
         val selected = inputChecker.hist.io.outStreams(inputChecker.rmId)
         cover(inputChecker.rmExist)
