@@ -113,7 +113,23 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
     that
   }
 
+  def pipelined(m2s: Boolean,
+                s2m: Boolean): AvalonST = {
+    (m2s, s2m) match {
+      case (false, false) => this.combStage()
+      case (true, false) => this.m2sPipe()
+      case (false, true) => this.s2mPipe()
+      case (true, true) => this.s2mPipe().m2sPipe()
+    }
+  }
+
   def stage(): AvalonST = this.m2sPipe()
+
+  def combStage(): AvalonST = {
+    val ret = AvalonST(config).setCompositeName(this, "combStage", true)
+    ret << this
+    ret
+  }
 
   /**
    * Cuts the valid/payload data path with a register
