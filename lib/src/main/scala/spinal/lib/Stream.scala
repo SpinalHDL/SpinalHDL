@@ -1765,37 +1765,35 @@ class StreamTransactionCounter(
 
     val countReg = RegNextWhen(io.count, io.ctrlFire)
     val counter  = Counter(io.count.getBitsWidth bits)
-    val expected = cloneOf(io.count)
-    expected := countReg
+    val expected = if(noDelay) { countReg.getAheadValue() } else { CombInit(countReg) }
 
-    val lastOne = counter === expected
+    val lastOne = counter >= expected
     val running = Reg(Bool()) init False
+    val working = CombInit(running)
 
     val done         = lastOne && io.targetFire
-    val doneWithFire = if (noDelay) False else True
-    when(done && io.ctrlFire) {
-        running := doneWithFire
-    } elsewhen (io.ctrlFire) {
+    if(noDelay){
+      val oneCycleCount = done & io.ctrlFire & !running
+      when (oneCycleCount) { working := True }
+      .elsewhen(done & running) { running := False } 
+      .elsewhen(io.ctrlFire) { 
+        working := True 
         running := True
-    } elsewhen done {
-        running := False
+      }
+    } else {
+      when (io.ctrlFire) { running := True } 
+      .elsewhen(done) { running := False }
     }
 
     when(done) {
         counter.clear()
-    } elsewhen (io.targetFire & running) {
+    } elsewhen (io.targetFire & working) {
         counter.increment()
     }
 
-    if (noDelay) {
-        when(io.ctrlFire) {
-            expected := io.count
-        }
-    }
-
-    io.working := running
+    io.working := working
     io.last := lastOne
-    io.done := done & running
+    io.done := done & working
     io.value := counter
 
     def withAsserts() = new Area {
