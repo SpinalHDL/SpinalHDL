@@ -29,7 +29,7 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         assumeInitial(reset)
 
         val countHist = History(count, 2, inStream.fire, init = count.getZero)
-        // when(dut.io.working) {
+        // when(dut.io.working && !dut.io.done) {
         //     assume(inReady === False)
         // }
 
