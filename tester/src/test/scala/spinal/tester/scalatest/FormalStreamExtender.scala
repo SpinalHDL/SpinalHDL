@@ -29,22 +29,18 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         assumeInitial(reset)
 
         val countHist = History(count, 2, inStream.fire, init = count.getZero)
-        when(dut.io.working) {
-            assume(inReady === False)
-        }
+        // when(dut.io.working) {
+        //     assume(inReady === False)
+        // }
 
-        val verifyCounter = Counter(4 bits, inc = outStream.fire & dut.io.working)
         when(dut.io.done) {
-            assert(verifyCounter.value === countHist(1))
-            verifyCounter.clear()
+            assert(dut.counter.value === countHist(1))
         }
         when(dut.io.working) {
             assert(countHist(1) === dut.expected)
-            assert(verifyCounter.value === dut.counter.value)
         }
-        when(!dut.io.working) { assume(verifyCounter.value === 0) }
-        assert(dut.counter.value <= dut.expected)
 
+        cover(inStream.fire & outStream.fire & dut.io.done)
         cover(past(dut.io.working) & !dut.io.working)
 
         inStream.withAssumes()

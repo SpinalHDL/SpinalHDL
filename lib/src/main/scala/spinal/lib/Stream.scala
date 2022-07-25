@@ -1781,7 +1781,7 @@ class StreamTransactionCounter(
         running := False
     }
 
-    when(done | io.ctrlFire) {
+    when(done) {
         counter.clear()
     } elsewhen (io.targetFire & running) {
         counter.increment()
@@ -1797,6 +1797,11 @@ class StreamTransactionCounter(
     io.last := lastOne
     io.done := done & running
     io.value := counter
+
+    def withAsserts() = new Area {
+      when(!io.working) { assert(counter.value === 0) }
+      assert(counter.value <= expected)
+    }
 }
 
 object StreamTransactionExtender {
