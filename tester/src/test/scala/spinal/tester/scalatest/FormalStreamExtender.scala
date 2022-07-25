@@ -29,17 +29,20 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         assumeInitial(reset)
 
         val countHist = History(count, 2, inStream.fire, init = count.getZero)
-        // when(dut.io.working && !dut.io.done) {
-        //     assume(inReady === False)
-        // }
+        when(dut.io.working && !dut.io.done) { assume(inReady === False) }
 
-        when(dut.io.done) {
-            assert(dut.counter.value === countHist(1))
-        }
+        when(pastValid & past(inStream.fire)){ assert(dut.io.working) }
+        when(past(dut.io.done & !inStream.fire)) { assert(!dut.io.working) }
+
+        val d1 = anyconst(cloneOf(count))
+        when(dut.io.done) { assert(dut.counter.value === countHist(1)) }
         when(dut.io.working) {
-            assert(countHist(1) === dut.expected)
+          assert(countHist(1) === dut.expected) // key to sync verification logic and internal logic.
+          when(dut.counter.value === countHist(1) & outStream.fire) { assert(dut.io.done) }
+          val updateCond = inStream.fire && (dut.io.count === d1) && (d1 < dut.counter.value)
+          when(updateCond) { assert(dut.io.done) }
+          cover(updateCond)
         }
-
         cover(inStream.fire & outStream.fire & dut.io.done)
         cover(past(dut.io.working) & !dut.io.working)
 
