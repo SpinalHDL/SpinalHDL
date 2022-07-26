@@ -6,6 +6,22 @@ import spinal.lib._
 import spinal.lib.formal._
 import spinal.lib.bus.amba4.axi._
 
+object Util {
+  def size2Ratio(size: UInt): UInt = {
+    val out = cloneOf(size)
+    when( size === 3) { out := U(1) }
+    .otherwise { out := U(0) }
+    out
+  }
+
+  def size2Outsize(size: UInt): UInt = {
+    val out = cloneOf(size)
+    when( size > 2 ) { out := U(2) }
+    .otherwise { out := size }
+    out
+  }
+}
+
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
   def writeTester(inConfig: Axi4Config, outConfig: Axi4Config) {
     FormalConfig
@@ -89,7 +105,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
   def readTester(inConfig: Axi4Config, outConfig: Axi4Config) {
     FormalConfig
       .withBMC(10)
-      // .withProve(10)
+      .withProve(10)
       .withCover(10)
       .withDebug
       .doVerify(new Component {
@@ -121,8 +137,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           size := selected.size
         }
 
-        val proceeding = inputChecker.hist.io.outStreams.sCount(x => x.valid && !x.seenLast && x.axDone)
-        assert(proceeding <= 2)
+        val countWaitingInputs = inputChecker.hist.io.outStreams.sCount(x => x.valid && !x.seenLast && x.axDone)
+        assert(countWaitingInputs <= 2)
 
         val dataHist = History(output.r.data, 2, output.r.fire, init = output.r.data.getZero)        
         val d1 = anyconst(Bits(outConfig.dataWidth bits))
@@ -142,6 +158,17 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         cover(dataCheckSizeLess3)
         cover(dataCheckSize3)
 
+        val (ongoExist, ongoId) = inputChecker.hist.findFirst(x => x.valid && !x.seenLast && x.axDone)
+        val ongoInput = inputChecker.hist.io.outStreams(ongoId)
+        val ratio = Util.size2Ratio(ongoInput.size)
+        when(dut.generator.cmdExtender.io.done) {
+          assert(ongoExist & (dut.generator.cmdExtender.counter.expected === ratio))
+          // val outSize = Util.size2Outsize(ongoInput.size)
+        }
+        when(dut.dataOutCounter.io.working) {
+          // assert(ongoExist & (dut.dataOutCounter.counter.expected === ratio))
+        }
+
         val selected = inputChecker.hist.io.outStreams(inputChecker.rmId)
         cover(inputChecker.rmExist)
         cover(inputChecker.rmExist && selected.size === 3)
@@ -150,12 +177,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         inputChecker.withCovers()
       })
   }
-
-  test("64_32_write") {
-    writeTester(inConfig, outConfig)
-  }
   val inConfig = Axi4Config(20, 64, 4, useBurst = false, useId = false, useLock = false)
   val outConfig = Axi4Config(20, 32, 4, useBurst = false, useId = false, useLock = false)
+
+  // test("64_32_write") {
+  //   writeTester(inConfig, outConfig)
+  // }
   test("64_32_read") {
     readTester(inConfig, outConfig)
   }
