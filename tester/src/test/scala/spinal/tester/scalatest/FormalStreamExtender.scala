@@ -37,7 +37,10 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         when(dut.io.working) {
           assert(countHist(1) === dut.expected) // key to sync verification logic and internal logic.
           when(dut.counter.value === countHist(1) & outStream.fire) { assert(dut.io.done) }
+          when(!dut.io.done) { assert(!dut.io.available) }
+          .otherwise { assert(dut.io.available) }
         }
+        .otherwise { assert(dut.io.available) }
         cover(inStream.fire & outStream.fire & dut.io.done)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
@@ -83,7 +86,10 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         when(dut.io.working) {
           assert(expected === dut.expected) // key to sync verification logic and internal logic.
           when(dut.counter.value === expected & outStream.fire) { assert(dut.io.done) }
+          when(!inStream.fire) { assert(!dut.io.available) }
+          .otherwise { assert(dut.io.available) }
         }
+        .otherwise { assert(dut.io.available) }
         cover(pastValid & past(dut.io.done) & inStream.fire)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
