@@ -158,15 +158,31 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         cover(dataCheckSizeLess3)
         cover(dataCheckSize3)
 
-        val (ongoExist, ongoId) = inputChecker.hist.findFirst(x => x.valid && !x.seenLast && x.axDone)
+        // val firstInput = inputChecker.hist.io.outStreams(2)
+        // when(firstInput.valid){
+        //   assert(firstInput.axDone & firstInput.seenLast)
+        // }
+
+        val (ongoExist, ongoId) = inputChecker.hist.io.outStreams.sFindFirst(x => x.valid)
         val ongoInput = inputChecker.hist.io.outStreams(ongoId)
         val ratio = Util.size2Ratio(ongoInput.size)
-        when(dut.generator.cmdExtender.io.done) {
-          assert(ongoExist & (dut.generator.cmdExtender.counter.expected === ratio))
+        when(pastValid & past(input.ar.fire)) {          
+          assert( ongoExist & (dut.generator.cmdExtender.counter.expected === ratio))
+          // assert( ongoExist & (dut.dataOutCounter.counter.expected === ongoInput.len))
+          // assert(dut.generator.cmdExtender.counter.expected === ratio)
           // val outSize = Util.size2Outsize(ongoInput.size)
         }
-        when(dut.dataOutCounter.io.working) {
-          // assert(ongoExist & (dut.dataOutCounter.counter.expected === ratio))
+        
+        when(dut.dataCounter.io.working) {
+          val ratio = Util.size2Ratio(inputChecker.hist.io.outStreams(inputChecker.rId).size)
+          assert( inputChecker.rExist & (dut.dataCounter.counter.expected === ratio))
+        }
+        when((dut.dataOutCounter.io.working && !dut.dataOutCounter.io.first) || dut.dataOutCounter.io.done) {
+          val len = inputChecker.hist.io.outStreams(inputChecker.rId).len
+          val count = inputChecker.hist.io.outStreams(inputChecker.rId).count
+          assert( inputChecker.rExist & (dut.dataOutCounter.counter.expected === len))
+          assert( inputChecker.rExist & (dut.dataOutCounter.counter.counter.value === count))
+          // assert( ongoExist & (dut.dataOutCounter.counter.expected === ongoInput.len))
         }
 
         val selected = inputChecker.hist.io.outStreams(inputChecker.rmId)
