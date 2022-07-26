@@ -1774,13 +1774,9 @@ class StreamTransactionCounter(
 
     val done         = lastOne && io.targetFire
     if(noDelay){
-      val oneCycleCount = done & io.ctrlFire & !running
-      when (oneCycleCount) { working := True }
-      .elsewhen(done & running) { running := False } 
-      .elsewhen(io.ctrlFire) { 
-        working := True 
-        running := True
-      }
+      when(io.ctrlFire) { working := True }
+      when(done) { running := False }
+      .otherwise { running := working }
     } else {
       when (io.ctrlFire) { running := True } 
       .elsewhen(done) { running := False }

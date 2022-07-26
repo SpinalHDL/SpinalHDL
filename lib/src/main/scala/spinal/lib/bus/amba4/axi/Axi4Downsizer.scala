@@ -110,7 +110,7 @@ case class Axi4WriteOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Con
     val staleInputData   = Bool()
     val writeData        = io.input.writeData.haltWhen(staleInputData)
     val inputDataCounter = StreamTransactionCounter(writeCmd, writeData, writeCmd.len, true)
-    staleInputData := inputDataCounter.io.available && !writeCmd.fire
+    staleInputData := !inputDataCounter.io.working
 
     val (rspCountStream, countCmdStream, outCmdStream) = StreamFork3(cmdStream)
     writeStream.writeCmd << outCmdStream
@@ -137,7 +137,7 @@ case class Axi4WriteOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Con
     }
     dataWorking := !inputDataCounter.io.available || !writeData.ready
 
-    val staleData = streamCounter.io.available && !countCmdStream.fire
+    val staleData = !streamCounter.io.working
     writeStream.writeData.translateFrom(dataStream.haltWhen(staleData)) { (to, from) =>
         to.data := from.data(offset << 3, outputConfig.dataWidth bits)
         if (outputConfig.useLast) to.last := streamCounter.io.last
