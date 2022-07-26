@@ -1756,6 +1756,7 @@ class StreamTransactionCounter(
     val io = new Bundle {
         val ctrlFire   = in Bool ()
         val targetFire = in Bool ()
+        val available  = out Bool ()
         val count      = in UInt (countWidth bits)
         val working    = out Bool ()
         val last       = out Bool ()
@@ -1792,9 +1793,10 @@ class StreamTransactionCounter(
     }
 
     io.working := working
-    io.last := lastOne
+    io.last := lastOne & working
     io.done := done & working
     io.value := counter
+    if(noDelay) { io.available := !running } else { io.available := !working | io.done }
 
     def withAsserts() = new Area {
       when(!io.working) { assert(counter.value === 0) }
@@ -1843,20 +1845,14 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     val counter  = StreamTransactionCounter(io.input, io.output, io.count)
     val payload  = Reg(io.input.payloadType)
     val lastOne  = counter.io.last
-    val outValid = RegInit(False)
-
-    when(counter.io.done) {
-        outValid := False
-    }
 
     when(io.input.fire) {
         payload := io.input.payload
-        outValid := True
     }
 
     io.output.payload := driver(counter.io.value, payload, lastOne)
-    io.output.valid := outValid
-    io.input.ready := (!outValid || counter.io.done)
+    io.output.valid := counter.io.working
+    io.input.ready := counter.io.available
     io.last := lastOne
     io.done := counter.io.done
     io.first := (counter.io.value === 0) && counter.io.working
