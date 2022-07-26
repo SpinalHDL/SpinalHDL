@@ -630,7 +630,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       }
 
       genWrapperCpp()
-      val threadCount = if(isWindows || isMac) Runtime.getRuntime().availableProcessors() else VanillaCpuLayout.fromCpuInfo().cpus()
+      val threadCount = SimManager.cpuCount
       if (!useCache) {
         assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
       } else {

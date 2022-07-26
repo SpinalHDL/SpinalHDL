@@ -371,7 +371,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     m2sPipe.payload := rData
   }.m2sPipe
 
-  def s2mPipe(): Stream[T] = new Composite(this) {
+  def s2mPipe(flush : Bool = null): Stream[T] = new Composite(this) {
     val s2mPipe = Stream(payloadType)
 
     val rValid = RegInit(False) setWhen(self.valid) clearWhen(s2mPipe.ready)
@@ -381,6 +381,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
     s2mPipe.valid := self.valid || rValid
     s2mPipe.payload := Mux(rValid, rData, self.payload)
+
+    if(flush != null) rValid.clearWhen(flush)
   }.s2mPipe
 
   def s2mPipe(stagesCount : Int): Stream[T] = {
@@ -403,7 +405,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
-  def halfPipe(): Stream[T] = new Composite(this) {
+  def halfPipe(flush : Bool = null): Stream[T] = new Composite(this) {
     val halfPipe = Stream(payloadType)
 
     val rValid = RegInit(False) setWhen(self.valid) clearWhen(halfPipe.fire)
@@ -413,6 +415,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
     halfPipe.valid := rValid
     halfPipe.payload := rData
+
+    if(flush != null) rValid clearWhen(flush)
   }.halfPipe
 
 /** Block this when cond is False. Return the resulting stream
@@ -1752,6 +1756,7 @@ class StreamTransactionCounter(
     val io = new Bundle {
         val ctrlFire   = in Bool ()
         val targetFire = in Bool ()
+        val available  = out Bool ()
         val count      = in UInt (countWidth bits)
         val working    = out Bool ()
         val last       = out Bool ()
@@ -1761,38 +1766,38 @@ class StreamTransactionCounter(
 
     val countReg = RegNextWhen(io.count, io.ctrlFire)
     val counter  = Counter(io.count.getBitsWidth bits)
-    val expected = cloneOf(io.count)
-    expected := countReg
+    val expected = if(noDelay) { countReg.getAheadValue() } else { CombInit(countReg) }
 
-    val lastOne = counter === expected
+    val lastOne = counter >= expected
     val running = Reg(Bool()) init False
+    val working = CombInit(running)
 
     val done         = lastOne && io.targetFire
-    val doneWithFire = if (noDelay) False else True
-    when(done && io.ctrlFire) {
-        running := doneWithFire
-    } elsewhen (io.ctrlFire) {
-        running := True
-    } elsewhen done {
-        running := False
+    if(noDelay){
+      when(io.ctrlFire) { working := True }
+      when(done) { running := False }
+      .otherwise { running := working }
+    } else {
+      when (io.ctrlFire) { running := True } 
+      .elsewhen(done) { running := False }
     }
 
     when(done) {
         counter.clear()
-    } elsewhen (io.targetFire) {
+    } elsewhen (io.targetFire & working) {
         counter.increment()
     }
 
-    if (noDelay) {
-        when(io.ctrlFire) {
-            expected := io.count
-        }
-    }
-
-    io.working := running
-    io.last := lastOne
-    io.done := lastOne && io.targetFire
+    io.working := working
+    io.last := lastOne & working
+    io.done := done & working
     io.value := counter
+    if(noDelay) { io.available := !running } else { io.available := !working | io.done }
+
+    def withAsserts() = new Area {
+      when(!io.working) { assert(counter.value === 0) }
+      assert(counter.value <= expected)
+    }
 }
 
 object StreamTransactionExtender {
@@ -1836,20 +1841,14 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     val counter  = StreamTransactionCounter(io.input, io.output, io.count)
     val payload  = Reg(io.input.payloadType)
     val lastOne  = counter.io.last
-    val outValid = RegInit(False)
-
-    when(counter.io.done) {
-        outValid := False
-    }
 
     when(io.input.fire) {
         payload := io.input.payload
-        outValid := True
     }
 
     io.output.payload := driver(counter.io.value, payload, lastOne)
-    io.output.valid := outValid
-    io.input.ready := (!outValid || counter.io.done)
+    io.output.valid := counter.io.working
+    io.input.ready := counter.io.available
     io.last := lastOne
     io.done := counter.io.done
     io.first := (counter.io.value === 0) && counter.io.working

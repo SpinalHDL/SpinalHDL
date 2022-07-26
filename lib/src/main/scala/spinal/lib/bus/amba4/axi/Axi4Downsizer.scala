@@ -110,14 +110,14 @@ case class Axi4WriteOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Con
     val staleInputData   = Bool()
     val writeData        = io.input.writeData.haltWhen(staleInputData)
     val inputDataCounter = StreamTransactionCounter(writeCmd, writeData, writeCmd.len, true)
-    staleInputData := !inputDataCounter.io.working && !writeCmd.fire
+    staleInputData := !inputDataCounter.io.working
 
     val (rspCountStream, countCmdStream, outCmdStream) = StreamFork3(cmdStream)
     writeStream.writeCmd << outCmdStream
 
     val dataStream    = cloneOf(writeData)
     val streamCounter = StreamTransactionCounter(countCmdStream, dataStream, countCmdStream.len, true)
-    countCmdStream.ready := !streamCounter.io.working
+    countCmdStream.ready := streamCounter.io.available
 
     val beatOffsetReg = RegNextWhen(countCmdStream.addr(inputConfig.symbolRange), countCmdStream.fire)
     val beatOffset    = CombInit(beatOffsetReg)
@@ -135,9 +135,9 @@ case class Axi4WriteOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Con
         out.assignUnassignedByName(p)
         out
     }
-    dataWorking := inputDataCounter.io.working || (dataExtender.io.working && !dataExtender.io.done)
+    dataWorking := !inputDataCounter.io.available || !writeData.ready
 
-    val staleData = !streamCounter.io.working && !countCmdStream.fire
+    val staleData = !streamCounter.io.working
     writeStream.writeData.translateFrom(dataStream.haltWhen(staleData)) { (to, from) =>
         to.data := from.data(offset << 3, outputConfig.dataWidth bits)
         if (outputConfig.useLast) to.last := streamCounter.io.last

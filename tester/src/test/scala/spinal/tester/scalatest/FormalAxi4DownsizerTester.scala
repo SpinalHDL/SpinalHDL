@@ -1,8 +1,9 @@
 package spinal.tester.scalatest
 
-import spinal.core.formal._
 import spinal.core._
+import spinal.core.formal._
 import spinal.lib._
+import spinal.lib.formal._
 import spinal.lib.bus.amba4.axi._
 
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {

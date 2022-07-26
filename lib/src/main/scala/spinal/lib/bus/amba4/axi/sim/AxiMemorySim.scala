@@ -136,11 +136,13 @@ case class SparseMemory() {
     val endPageIndex = getPageIndex(address + data.length - 1)
     var offset = getOffset(address)
     
-    for(i <- startPageIndex to endPageIndex) {
-      val page = getElseAllocPage(i)
-      val bytesWritten = page.writeArray(offset, data)
-      data.drop(bytesWritten)
-      offset = 0
+    List.tabulate(endPageIndex - startPageIndex + 1)(_ + startPageIndex).foldLeft(data){
+      (writeData,pageIndex) => {
+          val page = getElseAllocPage(pageIndex)
+          val bytesWritten = page.writeArray(offset, writeData)
+          offset = 0
+          writeData.drop(bytesWritten)
+      }
     }
   }
 

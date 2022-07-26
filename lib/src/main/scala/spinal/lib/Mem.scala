@@ -99,7 +99,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
   /**
     * Create a write port of memory.
     */
-  def writePort : Flow[MemWriteCmd[T]] = {
+  def writePort() : Flow[MemWriteCmd[T]] = {
     val ret = Flow(MemWriteCmd(mem))
     when(ret.valid){
       mem.write(ret.address,ret.data)
@@ -116,13 +116,13 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret
   }
 
-  def readSyncPort : MemReadPort[T] = {
+  def readSyncPort() : MemReadPort[T] = {
     val ret : MemReadPort[T] = MemReadPort(mem.wordType(),mem.addressWidth)
     ret.rsp := mem.readSync(ret.cmd.payload,ret.cmd.valid)
     ret
   }
 
-  def readAsyncPort : MemReadPortAsync[T] = {
+  def readAsyncPort() : MemReadPortAsync[T] = {
     val ret : MemReadPortAsync[T] = MemReadPortAsync(mem.wordType(),mem.addressWidth)
     ret.data := mem.readAsync(ret.address)
     ret

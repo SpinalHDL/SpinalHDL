@@ -239,6 +239,8 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
 }
 
 object Wishbone{
+  def apply(addressWidth : Int, dataWidth : Int) : Wishbone = Wishbone(WishboneConfig(addressWidth, dataWidth))
+
   /** Connect to signal with some check
     * This will ceck if the two signal are null, and if one of them are, connect with some condition
     * @param from must be an input
