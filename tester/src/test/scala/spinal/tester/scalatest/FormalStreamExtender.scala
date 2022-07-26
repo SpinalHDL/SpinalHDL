@@ -8,10 +8,9 @@ import spinal.lib.formal._
 class FormalStreamExtender extends SpinalFormalFunSuite {
   def counterTester() {
     FormalConfig
-      .withBMC(10)
+      // .withBMC(10)
       .withProve(10)
       .withCover(10)
-      .withDebug
       .doVerify(new Component {
         val inStream = slave Stream (UInt(2 bits))
         val outStream = master Stream (UInt(2 bits))
@@ -45,17 +44,18 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         inStream.withAssumes()
         outStream.withAssumes()
 
-        inStream.withCovers()
-        outStream.withCovers()
+        for(i <- 1 until 2) {
+          inStream.withCovers(i)
+          outStream.withCovers(i)
+        }
       })
   }
 
   def counterNoDelayTester() {
     FormalConfig
-      .withBMC(10)
+      // .withBMC(10)
       .withProve(10)
       .withCover(10)
-      .withDebug
       .doVerify(new Component {
         val inStream = slave Stream (UInt(2 bits))
         val outStream = master Stream (UInt(2 bits))
@@ -90,17 +90,18 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         inStream.withAssumes()
         outStream.withAssumes()
 
-        inStream.withCovers()
-        outStream.withCovers()
+        for(i <- 1 until 2) {
+          inStream.withCovers(i)
+          outStream.withCovers(i)
+        }
       })
   }
 
   def extenderTester() {
     FormalConfig
-      .withBMC(10)
+      // .withBMC(10)
       .withProve(10)
       .withCover(10)
-      .withDebug
       .doVerify(new Component {
         val inStream = slave Stream (UInt(2 bits))
         val outStream = master Stream (UInt(2 bits))
