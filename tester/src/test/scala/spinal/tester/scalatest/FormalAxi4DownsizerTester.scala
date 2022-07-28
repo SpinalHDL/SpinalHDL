@@ -179,10 +179,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }
         when((dut.dataOutCounter.io.working && !dut.dataOutCounter.io.first) || dut.dataOutCounter.io.done) {
           val len = inputChecker.hist.io.outStreams(inputChecker.rId).len
-          val count = inputChecker.hist.io.outStreams(inputChecker.rId).count
           assert( inputChecker.rExist & (dut.dataOutCounter.counter.expected === len))
-          assert( inputChecker.rExist & (dut.dataOutCounter.counter.counter.value === count))
           // assert( ongoExist & (dut.dataOutCounter.counter.expected === ongoInput.len))
+        }
+        when(past(dut.dataOutCounter.io.done)) {
+          val count = inputChecker.hist.io.outStreams(inputChecker.rId).count
+          assert( inputChecker.rExist & (past(dut.dataOutCounter.counter.counter.value) === count))
         }
 
         val selected = inputChecker.hist.io.outStreams(inputChecker.rmId)
