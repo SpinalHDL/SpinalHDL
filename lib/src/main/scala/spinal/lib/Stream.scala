@@ -1795,8 +1795,18 @@ class StreamTransactionCounter(
     if(noDelay) { io.available := !running } else { io.available := !working | io.done }
 
     def withAsserts() = new Area {
-      when(!io.working) { assert(counter.value === 0) }
-      assert(counter.value <= expected)
+      val startedReg = Reg(Bool()) init False
+      val started = CombInit(startedReg)
+      val waiting = io.working & !started
+      when(io.targetFire & io.working) {
+        started := True
+        startedReg := True
+      }
+      when(done) { startedReg := False }
+
+      when(startedReg) { assert(io.working && counter.value > 0 && counter.value <= expected) }
+//      when(!io.working) { assert(counter.value === 0) }
+//      assert(counter.value <= expected)
     }
 }
 

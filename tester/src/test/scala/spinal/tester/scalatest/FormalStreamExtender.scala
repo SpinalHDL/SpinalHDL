@@ -41,6 +41,8 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
           .otherwise { assert(dut.io.available) }
         }
         .otherwise { assert(dut.io.available) }
+        val counterHelper = dut.withAsserts()
+
         cover(inStream.fire & outStream.fire & dut.io.done)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
