@@ -158,33 +158,22 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         cover(dataCheckSizeLess3)
         cover(dataCheckSize3)
 
-        // val firstInput = inputChecker.hist.io.outStreams(2)
-        // when(firstInput.valid){
-        //   assert(firstInput.axDone & firstInput.seenLast)
-        // }
-
-        val (ongoExist, ongoId) = inputChecker.hist.io.outStreams.sFindFirst(x => x.valid)
-        val ongoInput = inputChecker.hist.io.outStreams(ongoId)
-        val ratio = Util.size2Ratio(ongoInput.size)
-        when(pastValid & past(input.ar.fire)) {          
-          assert( ongoExist & (dut.generator.cmdExtender.counter.expected === ratio))
-          // assert( ongoExist & (dut.dataOutCounter.counter.expected === ongoInput.len))
-          // assert(dut.generator.cmdExtender.counter.expected === ratio)
-          // val outSize = Util.size2Outsize(ongoInput.size)
+        val (cmdExist, cmdId) = inputChecker.hist.io.outStreams.sFindFirst(x => x.valid & x.axDone)
+        val cmdInput = inputChecker.hist.io.outStreams(cmdId)
+        val ratio = Util.size2Ratio(cmdInput.size)
+        val cmdChecker = dut.generator.cmdExtender.counter.withAsserts()
+        when(cmdChecker.started) {
+          assert( cmdExist & (dut.generator.cmdExtender.counter.expected === ratio))
         }
         
         when(dut.dataCounter.io.working) {
           val ratio = Util.size2Ratio(inputChecker.hist.io.outStreams(inputChecker.rId).size)
           assert( inputChecker.rExist & (dut.dataCounter.counter.expected === ratio))
         }
-        when((dut.dataOutCounter.io.working && !dut.dataOutCounter.io.first) || dut.dataOutCounter.io.done) {
-          val len = inputChecker.hist.io.outStreams(inputChecker.rId).len
-          assert( inputChecker.rExist & (dut.dataOutCounter.counter.expected === len))
-          // assert( ongoExist & (dut.dataOutCounter.counter.expected === ongoInput.len))
-        }
-        when(past(dut.dataOutCounter.io.done)) {
-          val count = inputChecker.hist.io.outStreams(inputChecker.rId).count
-          assert( inputChecker.rExist & (past(dut.dataOutCounter.counter.counter.value) === count))
+
+        val lenChecker = dut.dataOutCounter.counter.withAsserts()
+        when(lenChecker.started) {
+           assert( cmdExist & (dut.dataOutCounter.counter.expected === cmdInput.len))
         }
 
         val selected = inputChecker.hist.io.outStreams(inputChecker.rmId)
