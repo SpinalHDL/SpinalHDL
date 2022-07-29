@@ -1805,6 +1805,7 @@ class StreamTransactionCounter(
       when(done) { startedReg := False }
 
       when(startedReg) { assert(io.working && counter.value > 0 && counter.value <= expected) }
+      when(counter.value > 0) { assert(started) }
 //      when(!io.working) { assert(counter.value === 0) }
 //      assert(counter.value <= expected)
     }
