@@ -558,7 +558,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
     cover(aheadOut)
     cover(behindOut)
-    
+
     (aheadOut, behindOut)
   }
 
@@ -568,7 +568,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val behindIn = RegInit(False) setWhen (this.fire && dataBehind === this.payload)
     when(aheadIn) { assume(this.payload =/= dataAhead) }
     when(behindIn) { assume(this.payload =/= dataBehind) }
-    
+
     assume(dataAhead =/= dataBehind)
     when(!aheadIn) { assume(!behindIn) }
     when(behindIn) { assume(aheadIn) }
@@ -587,7 +587,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     import spinal.core.formal._
     if (maxStallCycles > 0) {
       val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
-      when(this.fire) { counter.clear()} 
+      when(this.fire) { counter.clear()}
       .otherwise { assert(!counter.willOverflow) }
     }
     this
@@ -597,7 +597,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     import spinal.core.formal._
     if (maxStallCycles > 0) {
       val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
-      when(this.fire) { counter.clear() } 
+      when(this.fire) { counter.clear() }
       .elsewhen(counter.willOverflow) { assume(this.ready === True) }
     }
     this
@@ -1106,7 +1106,7 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
       risingOccupancy := False
     }
   }
-  
+
   def withAssumes() = this.rework {
     import spinal.core.formal._
     assume(io.pop.payload === past(logic.ram(logic.popPtr)))
@@ -1858,4 +1858,71 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     io.done := counter.io.done
     io.first := (counter.io.value === 0) && counter.io.working
     io.working := counter.io.working
+}
+/*
+  Unpacks a Stream into a layout by bit position.
+ */
+object StreamUnpacker {
+  def apply[T <: Data](input: Stream[T], layout: List[(Data, Int)]): StreamUnpacker[T] = {
+    val STREAM_WIDTH = input.payloadType.getBitsWidth
+
+    // ToDo: Make a new layout, wrap Data, etc.
+    val newLayout = layout.map { case(data: Data, bit: Int) =>
+      Math.floor(bit / STREAM_WIDTH.toDouble).toInt -> data
+    }
+
+    // Make the Done indices. These will signal when the Data has been unpacked.
+    val donesMap = layout.map { case(_: Data, bit: Int) =>
+      Math.floor(bit / STREAM_WIDTH.toDouble).toInt
+    }
+
+    // Find the last bit needed to unpack
+    // This is the last data (assuming no overlaps) added to the last bit position
+    val lastBit = layout.last._1.getBitsWidth + layout.last._2
+    // ToDo: Consider overlaps with the above
+
+    val wordCount = Math.ceil(lastBit / STREAM_WIDTH.toDouble).toInt
+
+    val unpacker = new StreamUnpacker[T](input, newLayout, donesMap, wordCount)
+    unpacker
+  }
+}
+
+class StreamUnpacker[T <: Data](
+  input: Stream[T],
+  layout: List[(Int, Data)],  // Maps Word Index -> (Data Container Index -> Data Range)
+  layoutDones: List[Int],
+  wordCount: Int
+) {
+  val dones = Reg(Bits(layoutDones.length bits)) init B(0)
+
+  val counter = Counter(wordCount)
+
+  // Convert the Stream to a Flow. This component does not apply backpressure
+  val inFlow = input.toFlow
+
+  // Clear the Dones
+  layoutDones foreach { case(ind: Int) =>
+    dones(ind).clear()
+  }
+
+  when(inFlow.valid) {
+    counter.increment()
+
+    // Latch the Data for the current counter
+    layout foreach { case(ind: Int, data: Data) =>
+      when(counter.value === ind) {
+        data.assignFromBits(input.payload.asBits(0, data.getBitsWidth bits))
+      }
+    }
+
+    layoutDones foreach { case(ind: Int) =>
+      when(counter.value === ind) {
+        dones(ind).set()
+      }
+    }
+  }
+
+  // Last Done
+  val allDone = dones(layoutDones.last)
 }
