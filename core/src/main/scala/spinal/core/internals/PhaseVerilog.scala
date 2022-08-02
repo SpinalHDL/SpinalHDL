@@ -103,19 +103,21 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
             fileList.write(targetFilePath.replace("//", "/") + "\n")
           }
           c match {
-            case bb: BlackBox if bb.impl != null => {
-              val str = bb.impl.getVerilog()
-              if(!bbImplStrings.contains(str)) {
-                outFile = new java.io.FileWriter(targetFilePath)
-                outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, c, config.headerWithDate, config.headerWithRepoHash))
-                outFile.write("`timescale 1ns/1ps ")
-                outFile.write(str)
-                outFile.flush()
-                outFile.close()
-                fileList.write(targetFilePath.replace("//", "/") + "\n")
-                bbImplStrings += str
+            case bb: BlackBox =>
+              bb.listRTLPath.foreach(rtlPath => fileList.write(rtlPath.replace("//", "/") + "\n"))
+              if (bb.impl != null) {
+                val str = bb.impl.getVerilog()
+                if(!bbImplStrings.contains(str)) {
+                  outFile = new java.io.FileWriter(targetFilePath)
+                  outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, c, config.headerWithDate, config.headerWithRepoHash))
+                  outFile.write("`timescale 1ns/1ps ")
+                  outFile.write(str)
+                  outFile.flush()
+                  outFile.close()
+                  fileList.write(targetFilePath.replace("//", "/") + "\n")
+                  bbImplStrings += str
+                }
               }
-            }
             case _ =>
           }
         }

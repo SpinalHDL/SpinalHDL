@@ -78,6 +78,12 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
             report.generatedSourcesPaths += targetFilePath
             fileList.write(targetFilePath + "\n")
           }
+          c match {
+            case bb: BlackBox => {
+              bb.listRTLPath.foreach(rtlPath => fileList.write(rtlPath.replace("//", "/") + "\n"))
+            }
+            case _ =>
+          }
         }
       }
       fileList.flush()
