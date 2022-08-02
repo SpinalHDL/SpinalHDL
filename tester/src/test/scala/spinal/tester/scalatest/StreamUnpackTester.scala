@@ -7,45 +7,42 @@ import spinal.lib._
 import spinal.core.sim._
 import spinal.lib.sim.{ScoreboardInOrder, StreamDriver}
 
-import spinal.lib.graphic.Rgb
 
+case class UnpackTestBundle() extends Bundle {
+  val r = UInt(5 bits)
+  val g = UInt(6 bits)
+  val b = UInt(5 bits)
+  val a = UInt(16 bits)
+}
 
 case class StreamUnpackFixture(bitWidth : Int) extends Component {
   val io = new Bundle {
     val inStream = slave(new Stream(Bits(bitWidth bits)))
-    val outRGB   = out(Rgb(5, 6, 5))
-    val outAlpha = out UInt(16 bits)
+    val outData  = out(UnpackTestBundle())
     // Dones
     val dones    = out Bits(5 bits)
     val allDone  = out Bool()
   }
 
-  // RGB should be as most 8 bits per channel
-  assert(io.outRGB.r.getBitsWidth <= io.inStream.getBitsWidth)
-  assert(io.outRGB.g.getBitsWidth <= io.inStream.getBitsWidth)
-  assert(io.outRGB.b.getBitsWidth <= io.inStream.getBitsWidth)
-
-  val rgb = Reg(Rgb(io.outRGB.c))
-  val alpha = Reg(io.outAlpha.clone())
+  val output = Reg(UnpackTestBundle())
   val stream = io.inStream.stage()
 
   val unpacker = StreamUnpacker[Bits](
     stream,
     List(
-      rgb.r -> 0,
-      rgb.g -> 8,
-      rgb.b -> 16,
-      alpha(7 downto 0)  -> 24,
-      alpha(15 downto 8) -> 32
+      output.r -> 0,
+      output.g -> 8,
+      output.b -> 16,
+      output.a(7 downto 0)  -> 24,
+      output.a(15 downto 8) -> 32
     )
   )
 
-  io.outRGB   := rgb
-  io.outAlpha := alpha
+  io.outData := output
 
   // Done signals
-  io.dones   := unpacker.dones
-  io.allDone := unpacker.allDone
+  io.dones   := unpacker.io.dones
+  io.allDone := unpacker.io.allDone
 }
 
 
@@ -89,10 +86,10 @@ class StreamUnpackTester extends AnyFunSuite {
       dut.clockDomain.waitSampling()
       if (dut.io.allDone.toBoolean) {
         val dutUnit = UnpackTestUnit()
-        dutUnit.r = dut.io.outRGB.r.toBigInt
-        dutUnit.g = dut.io.outRGB.g.toBigInt
-        dutUnit.b = dut.io.outRGB.b.toBigInt
-        dutUnit.a = dut.io.outAlpha.toBigInt
+        dutUnit.r = dut.io.outData.r.toBigInt
+        dutUnit.g = dut.io.outData.g.toBigInt
+        dutUnit.b = dut.io.outData.b.toBigInt
+        dutUnit.a = dut.io.outData.a.toBigInt
 
         scoreboard.pushDut(dutUnit)
         scoreboard.check()
@@ -102,8 +99,14 @@ class StreamUnpackTester extends AnyFunSuite {
     simSuccess()
   }
 
-  test("bits") {
+  test("word aligned, bits") {
     SimConfig.compile(StreamUnpackFixture(8))
       .doSim("test")(bitsTest)
   }
+
+  // ToDo: Unaligned, bits
+  //test("unaligned, bits") {
+  //  SimConfig.compile(StreamUnpackFixture(8, ???))
+  //    .doSim("test")(bitsTest)
+  //}
 }

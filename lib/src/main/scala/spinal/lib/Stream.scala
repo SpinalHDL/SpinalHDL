@@ -1867,7 +1867,7 @@ object StreamUnpacker {
     val STREAM_WIDTH = input.payloadType.getBitsWidth
 
     // ToDo: Make a new layout, wrap Data, etc.
-    val newLayout = layout.map { case(data: Data, bit: Int) =>
+    val wordDataMap = layout.map { case(data: Data, bit: Int) =>
       Math.floor(bit / STREAM_WIDTH.toDouble).toInt -> data
     }
 
@@ -1883,46 +1883,57 @@ object StreamUnpacker {
 
     val wordCount = Math.ceil(lastBit / STREAM_WIDTH.toDouble).toInt
 
-    val unpacker = new StreamUnpacker[T](input, newLayout, donesMap, wordCount)
+    val unpacker = new StreamUnpacker[T](input.payloadType, wordDataMap, donesMap, wordCount)
+    layout.map(_._1).zip(unpacker.io.outputs) foreach { case(data, cOut) =>
+      data.assignFromBits(cOut.asBits)
+    }
+    unpacker.io.input << input
     unpacker
   }
 }
 
 class StreamUnpacker[T <: Data](
-  input: Stream[T],
-  layout: List[(Int, Data)],  // Maps Word Index -> (Data Container Index -> Data Range)
-  layoutDones: List[Int],
+  dataType: HardType[T],
+  layout: List[(Int, Data)],  // Maps Word Index -> Data Container
+  doneInds: List[Int],        // Done word indices
   wordCount: Int
-) {
-  val dones = Reg(Bits(layoutDones.length bits)) init B(0)
+) extends Component {
+
+  require(layout.nonEmpty)
+  require(wordCount > 0)
+
+  private val dataOut = layout map(_._2)
+
+  val io = new Bundle {
+    val input   = slave Stream dataType
+    val outputs = out Vec(dataOut map(_.clone()))
+    val dones   = out Bits(dataOut.length bits)
+    val allDone = out Bool()
+  }
+  val outputs = Reg(Vec(dataOut map(_.clone())))
+  val dones   = Reg(Bits(layout.length bits)) init B(0)
 
   val counter = Counter(wordCount)
 
   // Convert the Stream to a Flow. This component does not apply backpressure
-  val inFlow = input.toFlow
-
-  // Clear the Dones
-  layoutDones foreach { case(ind: Int) =>
-    dones(ind).clear()
-  }
+  val inFlow = io.input.toFlow
 
   when(inFlow.valid) {
     counter.increment()
 
     // Latch the Data for the current counter
-    layout foreach { case(ind: Int, data: Data) =>
-      when(counter.value === ind) {
-        data.assignFromBits(input.payload.asBits(0, data.getBitsWidth bits))
+    layout.map(_._1).zipWithIndex.foreach { case(i, word) =>
+      when(counter.value === word) {
+        outputs(i).assignFromBits(io.input.payload.asBits(0, outputs(i).getBitsWidth bits))
       }
     }
 
-    layoutDones foreach { case(ind: Int) =>
-      when(counter.value === ind) {
-        dones(ind).set()
-      }
+    doneInds.zipWithIndex.foreach { case(i, word) =>
+      dones(i).setWhen(counter.value === word)
     }
   }
 
-  // Last Done
-  val allDone = dones(layoutDones.last)
+  io.outputs := outputs
+  io.dones   := dones
+  io.allDone := dones(dones.getBitsWidth - 1)
 }
