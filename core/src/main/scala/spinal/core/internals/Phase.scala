@@ -310,7 +310,7 @@ class PhaseAnalog extends PhaseNetlist{
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapDrivingExpressions{e => e match {
       case source : BaseType => wraps.get(source) match {
         case Some(target) if c == target.component => target
-        case None => e
+        case _ => e
       }
       case _ => e
     }}))
