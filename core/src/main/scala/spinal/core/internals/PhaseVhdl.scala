@@ -62,6 +62,8 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
         fileList += targetFilePath
       }
 
+      val bbImplStrings = mutable.HashSet[String]()
+
       // Emit each component
       for (c <- sortedComponents) {
         val componentContent = compile(c)
@@ -81,6 +83,18 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
           c match {
             case bb: BlackBox => {
               fileList ++= bb.listRTLPath
+              if (bb.impl != null) {
+                val str = bb.impl.getVhdl()
+                if (!bbImplStrings.contains(str)) {
+                  outFile = new java.io.FileWriter(targetFilePath)
+                  outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
+                  outFile.write(str)
+                  outFile.flush()
+                  outFile.close()
+                  fileList += targetFilePath
+                  bbImplStrings += str
+                }
+              }
             }
             case _ =>
           }
