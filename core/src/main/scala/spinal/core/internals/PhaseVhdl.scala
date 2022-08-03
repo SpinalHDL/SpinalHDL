@@ -38,7 +38,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     var targetFilePath = ""
 
     if (pc.config.oneFilePerComponent) {
-      val fileList = new java.io.FileWriter(pc.config.targetDirectory + "/" + topLevel.definitionName + ".lst")
+      val fileList: mutable.LinkedHashSet[String] = new mutable.LinkedHashSet()
 
       // Emit enums
       targetFilePath = pc.config.targetDirectory + "/" + "pkg_enum.vhd"
@@ -48,7 +48,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       outFile.flush()
       outFile.close()
       report.generatedSourcesPaths += targetFilePath
-      fileList.write(targetFilePath + "\n")
+      fileList += targetFilePath
 
       // Emit utility functions
       if (pc.config.genVhdlPkg) {
@@ -59,7 +59,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
         outFile.flush()
         outFile.close()
         report.generatedSourcesPaths += targetFilePath
-        fileList.write(targetFilePath + "\n")
+        fileList += targetFilePath
       }
 
       // Emit each component
@@ -76,18 +76,21 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
             outFile.flush()
             outFile.close()
             report.generatedSourcesPaths += targetFilePath
-            fileList.write(targetFilePath + "\n")
+            fileList += targetFilePath
           }
           c match {
             case bb: BlackBox => {
-              bb.listRTLPath.foreach(rtlPath => fileList.write(rtlPath.replace("//", "/") + "\n"))
+              fileList ++= bb.listRTLPath
             }
             case _ =>
           }
         }
       }
-      fileList.flush()
-      fileList.close()
+
+      val fileListFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + topLevel.definitionName + ".lst")
+      fileList.foreach(file => fileListFile.write(file.replace("//", "/") + "\n"))
+      fileListFile.flush()
+      fileListFile.close()
     } else {
       // All in one
       targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName)

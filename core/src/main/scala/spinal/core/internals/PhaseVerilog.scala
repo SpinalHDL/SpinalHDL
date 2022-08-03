@@ -23,7 +23,7 @@ package spinal.core.internals
 import spinal.core._
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc with VerilogBase {
@@ -75,7 +75,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       outFile.close()
     }
     else {
-      val fileList = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
+      val fileList: mutable.LinkedHashSet[String] = new mutable.LinkedHashSet()
       // dump Enum define to define.v instead attach that on every .v file
       if(!enums.isEmpty){
         val defineFileName = pc.config.targetDirectory + "/enumdefine" + (if(pc.config.isSystemVerilog) ".sv" else ".v")
@@ -83,7 +83,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         emitEnumPackage(defineFile)
         defineFile.flush()
         defineFile.close()
-        fileList.write(defineFileName.replace("//", "/") + "\n")
+        fileList += defineFileName
       }
 
       val bbImplStrings = mutable.HashSet[String]()
@@ -100,11 +100,11 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
             outFile.write(moduleContent)
             outFile.flush()
             outFile.close()
-            fileList.write(targetFilePath.replace("//", "/") + "\n")
+            fileList += targetFilePath
           }
           c match {
             case bb: BlackBox =>
-              bb.listRTLPath.foreach(rtlPath => fileList.write(rtlPath.replace("//", "/") + "\n"))
+              fileList ++= bb.listRTLPath
               if (bb.impl != null) {
                 val str = bb.impl.getVerilog()
                 if(!bbImplStrings.contains(str)) {
@@ -114,7 +114,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
                   outFile.write(str)
                   outFile.flush()
                   outFile.close()
-                  fileList.write(targetFilePath.replace("//", "/") + "\n")
+                  fileList += targetFilePath
                   bbImplStrings += str
                 }
               }
@@ -123,8 +123,10 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         }
       }
 
-      fileList.flush()
-      fileList.close()
+      val fileListFile = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
+      fileList.foreach(file => fileListFile.write(file.replace("//", "/") + "\n"))
+      fileListFile.flush()
+      fileListFile.close()
     }
   }
 
