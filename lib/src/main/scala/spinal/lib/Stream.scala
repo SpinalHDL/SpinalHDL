@@ -5,6 +5,7 @@ import spinal.idslplugin.Location
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
 
 import scala.collection.Seq
+import scala.collection.mutable
 
 trait StreamPipe {
   def apply[T <: Data](m: Stream[T]): Stream[T]
@@ -1864,56 +1865,38 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
  */
 object StreamUnpacker {
   def apply[T <: Data](input: Stream[T], layout: List[(Data, Int)]): StreamUnpacker[T] = {
-    val STREAM_WIDTH = input.payloadType.getBitsWidth
-
-    // ToDo: Make a new layout, wrap Data, etc.
-    val wordDataMap = layout.map { case(data: Data, bit: Int) =>
-      Math.floor(bit / STREAM_WIDTH.toDouble).toInt -> data
-    }
-
-    // Make the Done indices. These will signal when the Data has been unpacked.
-    val donesMap = layout.map { case(_: Data, bit: Int) =>
-      Math.floor(bit / STREAM_WIDTH.toDouble).toInt
-    }
-
-    // Find the last bit needed to unpack
-    // This is the last data (assuming no overlaps) added to the last bit position
-    val lastBit = layout.last._1.getBitsWidth + layout.last._2
-    // ToDo: Consider overlaps with the above
-
-    val wordCount = Math.ceil(lastBit / STREAM_WIDTH.toDouble).toInt
-
-    val unpacker = new StreamUnpacker[T](input.payloadType, wordDataMap, donesMap, wordCount)
-    layout.map(_._1).zip(unpacker.io.outputs) foreach { case(data, cOut) =>
-      data.assignFromBits(cOut.asBits)
-    }
+    require(layout.nonEmpty)
+    val map_layout = layout.toMapLinked()
+    val unpacker = new StreamUnpacker[T](input.payloadType, map_layout)
     unpacker.io.input << input
+    map_layout.keys.zip(unpacker.io.outputs) foreach { case(data, comp_out) =>
+      data.assignFromBits(comp_out.asBits)
+    }
     unpacker
   }
 }
 
 class StreamUnpacker[T <: Data](
   dataType: HardType[T],
-  layout: List[(Int, Data)],  // Maps Word Index -> Data Container
-  doneInds: List[Int],        // Done word indices
-  wordCount: Int
+  layout: mutable.LinkedHashMap[Data, Int]
 ) extends Component {
 
   require(layout.nonEmpty)
-  require(wordCount > 0)
 
-  private val dataOut = layout map(_._2)
+  private val dataOut = layout.keys.toList
+  // Convert start bits to word indexes
+  private val dataWords = layout.values.map {bit => Math.floor(bit / dataType.getBitsWidth).toInt }
 
   val io = new Bundle {
     val input   = slave Stream dataType
     val outputs = out Vec(dataOut map(_.clone()))
-    val dones   = out Bits(dataOut.length bits)
+    val dones   = out Bits(layout.keys.size bits)
     val allDone = out Bool()
   }
   val outputs = Reg(Vec(dataOut map(_.clone())))
-  val dones   = Reg(Bits(layout.length bits)) init B(0)
+  val dones   = Reg(Bits(dataOut.size bits)) init B(0)
 
-  val counter = Counter(wordCount)
+  val counter = Counter(dataWords.max+1)
 
   // Convert the Stream to a Flow. This component does not apply backpressure
   val inFlow = io.input.toFlow
@@ -1922,14 +1905,15 @@ class StreamUnpacker[T <: Data](
     counter.increment()
 
     // Latch the Data for the current counter
-    layout.map(_._1).zipWithIndex.foreach { case(i, word) =>
+    dataWords.zipWithIndex.foreach { case(i, word) =>
       when(counter.value === word) {
         outputs(i).assignFromBits(io.input.payload.asBits(0, outputs(i).getBitsWidth bits))
       }
     }
 
-    doneInds.zipWithIndex.foreach { case(i, word) =>
-      dones(i).setWhen(counter.value === word)
+    // Generate Dones when the Data's word appears
+    dataWords.zipWithIndex.foreach { case(ind, word) =>
+      dones(ind).setWhen(counter.value === word)
     }
   }
 

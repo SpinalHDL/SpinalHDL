@@ -15,7 +15,7 @@ case class UnpackTestBundle() extends Bundle {
   val a = UInt(16 bits)
 }
 
-case class StreamUnpackFixture(bitWidth : Int) extends Component {
+case class StreamUnpackFixture(bitWidth : Int, offset : Int = 0) extends Component {
   val io = new Bundle {
     val inStream = slave(new Stream(Bits(bitWidth bits)))
     val outData  = out(UnpackTestBundle())
@@ -30,10 +30,10 @@ case class StreamUnpackFixture(bitWidth : Int) extends Component {
   val unpacker = StreamUnpacker[Bits](
     stream,
     List(
-      output.r -> 0,
-      output.g -> 8,
-      output.b -> 16,
-      output.a(7 downto 0)  -> 24,
+      output.r -> (0  + offset),
+      output.g -> (8  + offset),
+      output.b -> (16 + offset),
+      output.a( 7 downto 0) -> 24,
       output.a(15 downto 8) -> 32
     )
   )
@@ -41,8 +41,8 @@ case class StreamUnpackFixture(bitWidth : Int) extends Component {
   io.outData := output
 
   // Done signals
-  io.dones   := unpacker.io.dones
-  io.allDone := unpacker.io.allDone
+  io.dones   := RegNext(unpacker.io.dones)
+  io.allDone := RegNext(unpacker.io.allDone)
 }
 
 
@@ -66,11 +66,11 @@ class StreamUnpackTester extends AnyFunSuite {
       currentByte match {
         case 0 =>
           currentUnit = UnpackTestUnit()
-          currentUnit.r = p.toBigInt
+          currentUnit.r = p.toBigInt >> dut.offset
         case 1 =>
-          currentUnit.g = p.toBigInt
+          currentUnit.g = p.toBigInt >> dut.offset
         case 2 =>
-          currentUnit.b = p.toBigInt
+          currentUnit.b = p.toBigInt >> dut.offset
         case 3 =>
           currentUnit.a = p.toBigInt & 0xFF
         case 4 =>
@@ -104,9 +104,8 @@ class StreamUnpackTester extends AnyFunSuite {
       .doSim("test")(bitsTest)
   }
 
-  // ToDo: Unaligned, bits
-  //test("unaligned, bits") {
-  //  SimConfig.compile(StreamUnpackFixture(8, ???))
-  //    .doSim("test")(bitsTest)
-  //}
+  test("unaligned, bits") {
+    SimConfig.compile(StreamUnpackFixture(8, 2))
+      .doSim("test")(bitsTest)
+  }
 }
