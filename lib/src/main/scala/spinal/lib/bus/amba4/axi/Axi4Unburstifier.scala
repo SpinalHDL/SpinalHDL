@@ -33,21 +33,21 @@ object Axi4Unburstifier {
 class Axi4ReadOnlyUnburstifier(config: Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(Axi4ReadOnly(config))
-    val output = master(Axi4ReadOnly(config.copy(useLen = false)))
+    val output = master(Axi4ReadOnly(config.copy(useLen = false, useBurst = false, useSize = false)))
   }
 
   val unburstified = io.input.ar.unburstify
 
   io.output.ar.arbitrationFrom(unburstified)
-  io.output.ar.payload.assignAllByName(unburstified.payload)
+  io.output.ar.payload.assignSomeByName(unburstified.fragment)
 
-  io.output.r << io.input.r
+  io.output.r >> io.input.r
 }
 
 class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(Axi4WriteOnly(config))
-    val output = master(Axi4WriteOnly(config.copy(useLen = false)))
+    val output = master(Axi4WriteOnly(config.copy(useLen = false, useBurst = false, useSize = false)))
   }
 
   val unburstified = io.input.aw.unburstify
@@ -57,10 +57,10 @@ class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
   val resp = if (config.useResp) Reg(Bits(2 bit)) else null
 
   io.output.aw.arbitrationFrom(unburstified)
-  io.output.aw.payload.assignAllByName(unburstified.payload)
+  io.output.aw.payload.assignSomeByName(unburstified.fragment)
 
   when(io.input.aw.fire) {
-    addrBeats := io.input.aw.len+1
+    addrBeats := io.input.aw.len+^1
     active := True
     config.useResp generate resp.clearAll()
   }
