@@ -1901,6 +1901,11 @@ class StreamUnpacker[T <: Data](
   // Convert the Stream to a Flow. This component does not apply backpressure
   val inFlow = io.input.toFlow
 
+  // Clear Dones
+  dataWords.foreach {
+    dones(_).clear()
+  }
+
   when(inFlow.valid) {
     counter.increment()
 
