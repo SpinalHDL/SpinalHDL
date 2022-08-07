@@ -128,22 +128,29 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         outputChecker.withMasterAsserts(maxStall)
         outputChecker.withMasterAssumes(maxStall)
 
-        outputChecker.hist.io.outStreams(outputChecker.rmId).ready := False
+        val rInput = inputChecker.hist.io.outStreams(inputChecker.rId)
+        val rOutput = outputChecker.hist.io.outStreams(outputChecker.rId)
+
+        val rmInput = inputChecker.hist.io.outStreams(inputChecker.rmId)
+        val rmOutput = outputChecker.hist.io.outStreams(outputChecker.rmId)
+        rmOutput.ready := False
         when(inputChecker.rmExist) {
           assert(outputChecker.rmExist)
-          val rmOut = outputChecker.hist.io.outStreams(outputChecker.rmId)
-          rmOut.ready := True
-          val rmIn = inputChecker.hist.io.outStreams(inputChecker.rmId)
-          assert(rmOut.len === rmIn.len)
-          assert(rmOut.size === Util.size2Outsize(rmIn.size))
+          rmOutput.ready := True
+          assert(rmOutput.len === rmInput.len)
+          assert(rmOutput.size === Util.size2Outsize(rmInput.size))
 
-          when(rmIn.size > 2) {
+          when(rmInput.size > 2) {
             val preRm = outputChecker.hist.io.outStreams(outputChecker.rmId - 1)
             assert(preRm.valid & preRm.axDone & preRm.seenLast)
             preRm.ready := True
-            assert(preRm.len === rmIn.len)
-            assert(preRm.size === Util.size2Outsize(rmIn.size))
+            assert(preRm.len === rmInput.len)
+            assert(preRm.size === Util.size2Outsize(rmInput.size))
           }
+        }.elsewhen(outputChecker.rmExist) {
+          assert(outputChecker.rExist && outputChecker.rId === outputChecker.rmId - 1 )
+          assert(rOutput.len === rmOutput.len)
+          assert(rOutput.size === rmOutput.size)
         }
 
         when(outputChecker.rExist) {
@@ -156,7 +163,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         assert(!inputChecker.hist.io.willOverflow)
         assert(!outputChecker.hist.io.willOverflow)
 
-        val rInput = inputChecker.hist.io.outStreams(inputChecker.rId)
         val size = CombInit(input.ar.size.getZero)
         when(inputChecker.rExist) {
           size := rInput.size
@@ -193,6 +199,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val cmdCounter = dut.generator.cmdExtender.counter
         val cmdChecker = cmdCounter.withAsserts()
         val ratio = Util.size2Ratio(cmdInput.size)
+        when(cmdCounter.io.working) { assert(cmdExist) }
         when(cmdChecker.started) {
           assert(cmdExist & (cmdCounter.expected === ratio))
         }
@@ -224,6 +231,11 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }
         when(dut.dataOutCounter.io.working & dut.countOutStream.ratio > 0) { assert(dut.countOutStream.size === 2) }
         when(dut.dataCounter.io.working & dut.countStream.ratio > 0) { assert(dut.countStream.size === 2) }
+        when(lenCounter.io.working) {
+          assert(dut.countOutStream.size === dut.cmdStream.size)
+          assert(dut.countOutStream.len === dut.cmdStream.len)
+          assert(dut.countOutStream.ratio === cmdCounter.expected)
+        }
 
 //        val (cmdOutExist, cmdOutId) = outputChecker.hist.io.outStreams.sFindFirst(x => x.valid & x.axDone)
 //        val cmdOutput = outputChecker.hist.io.outStreams(cmdOutId)
