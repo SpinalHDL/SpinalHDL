@@ -28,18 +28,18 @@ case class AvalonSTConfig(dataWidth: Int,
 }
 
 case class AvalonSTPayload(config: AvalonSTConfig) extends Bundle {
-  val data: Bits    = if (config.useData) Bits(config.dataWidth bit) else null
-  val channel: UInt = if (config.useChannels) UInt(config.channelWidth bit) else null
-  val error: Bits   = if (config.useError) Bits(config.errorWidth bit) else null
-  val empty: UInt   = if (config.useEmpty) UInt(config.emptyWidth bit) else null
-  val eop: Bool     = if (config.useEOP) Bool() else null
-  val sop: Bool     = if (config.useSOP) Bool() else null
+  val data: Bits    = config.useData generate Bits(config.dataWidth bit)
+  val channel: UInt = config.useChannels generate UInt(config.channelWidth bit)
+  val error: Bits   = config.useError generate Bits(config.errorWidth bit)
+  val empty: UInt   = config.useEmpty generate UInt(config.emptyWidth bit)
+  val eop: Bool     = config.useEOP generate Bool()
+  val sop: Bool     = config.useSOP generate Bool()
 }
 
 case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
 
-  val ready: Bool = if (config.useReady) Bool() else null
-  val valid: Bool = if (config.useValid) Bool() else null
+  val ready: Bool = config.useReady generate Bool()
+  val valid: Bool = config.useValid generate Bool()
   val payload: AvalonSTPayload = AvalonSTPayload(config)
 
   lazy val latencyDelay: Bool = Delay(this.ready, config.readyLatency)
