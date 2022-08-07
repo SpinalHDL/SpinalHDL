@@ -28,7 +28,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
       .withBMC(10)
       // .withProve(10)
       .withCover(10)
-      .withDebug
+      .withOutWireReduce
       .doVerify(new Component {
         val dut = FormalDut(new Axi4WriteOnlyDownsizer(inConfig, outConfig))
         val reset = ClockDomain.current.isResetActive
@@ -107,7 +107,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
       .withBMC(10)
       .withProve(10)
       .withCover(10)
-      .withDebug
+      .withOutWireReduce
       .doVerify(new Component {
         val dut = FormalDut(new Axi4ReadOnlyDownsizer(inConfig, outConfig))
         val reset = ClockDomain.current.isResetActive
