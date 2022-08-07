@@ -310,7 +310,7 @@ class PhaseAnalog extends PhaseNetlist{
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapDrivingExpressions{e => e match {
       case source : BaseType => wraps.get(source) match {
         case Some(target) if c == target.component => target
-        case None => e
+        case _ => e
       }
       case _ => e
     }}))
@@ -1830,12 +1830,42 @@ class PhaseCompletSwitchCases extends PhaseNetlist{
     import pc._
 
     walkStatements{
-      case s: SwitchStatement if s.isFullyCoveredWithoutDefault && !s.coverUnreachable =>
-        if(s.defaultScope != null && !s.defaultScope.isEmpty){
-          PendingError(s"UNREACHABLE DEFAULT STATEMENT on \n" + s.getScalaLocationLong)
+      case s: SwitchStatement =>
+        var failed = false
+        s.elements.foreach{element =>
+          if(element.keys.size > 1){
+            val fliter = mutable.HashSet[BigInt]()
+            val toRemove = ArrayBuffer[Expression]()
+            element.keys.foreach { e =>
+              var special = false
+              val v = e match {
+                case lit: EnumLiteral[_] => BigInt(lit.senum.position)
+                case lit: Literal => lit.getValue()
+                case kb : SwitchStatementKeyBool if kb.key != null && !kb.key.withDontCare => kb.key.value
+                case _ => special = true; BigInt(0)
+              }
+              if(!special) {
+                if (fliter.contains(v)) {
+                  if(s.removeDuplication){
+                    toRemove += e
+                  } else {
+                    PendingError(s"DUPLICATED ELEMENTS IN SWITCH IS(...) STATEMENT. value=$v\n" + element.getScalaLocationLong)
+                    failed = true
+                  }
+                }
+                fliter += v
+              }
+            }
+            element.keys --= toRemove
+          }
         }
-        s.defaultScope = s.elements.last.scopeStatement
-        s.elements.remove(s.elements.length-1)
+        if(!failed && s.isFullyCoveredWithoutDefault && !s.coverUnreachable) {
+          if (s.defaultScope != null && !s.defaultScope.isEmpty) {
+            PendingError(s"UNREACHABLE DEFAULT STATEMENT on \n" + s.getScalaLocationLong)
+          }
+          s.defaultScope = s.elements.last.scopeStatement
+          s.elements.remove(s.elements.length - 1)
+        }
       case _ =>
     }
   }

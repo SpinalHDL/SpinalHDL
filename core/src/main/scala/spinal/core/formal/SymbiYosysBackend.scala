@@ -137,7 +137,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
       "\n\n" +
       "[script]\n" +
       s"read -formal $read\n" +
-      s"prep -top ${config.toplevelName}\n" +
+      s"prep -ifx -top ${config.toplevelName}\n" +
       "\n" +
       "[files]\n" +
       localSources

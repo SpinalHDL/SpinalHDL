@@ -438,6 +438,7 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
   val elements = ArrayBuffer[SwitchStatementElement]()
   var defaultScope: ScopeStatement = null
   var coverUnreachable = false
+  var removeDuplication = false
 
   override def foreachStatements(func: (Statement) => Unit): Unit = {
     elements.foreach(x => x.scopeStatement.foreachStatements(func))
@@ -569,7 +570,7 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
     })
 
     var hadNonLiteralKey = false
-    elements.foreach(element => element.keys.foreach{
+    elements.foreach{element => element.keys.foreach{
       case lit: EnumLiteral[_] =>
         if(!coverage.allocate(lit.senum.position)){
           PendingError(s"UNREACHABLE IS STATEMENT in the switch statement at \n" + element.getScalaLocationLong)
@@ -580,7 +581,7 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
         }
       case _ =>
         hadNonLiteralKey = true
-    })
+    }}
 
     return coverage.remaining == BigInt(0) && !hadNonLiteralKey
   }

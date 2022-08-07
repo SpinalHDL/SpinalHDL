@@ -56,6 +56,8 @@ class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
     case _ => false
   }
 
+  def withDontCare = careAbout != (BigInt(1) << width)-1
+
   def getWidth() = width
   def apply(index : Int): MaskedBoolean ={
     if(index >= width){
