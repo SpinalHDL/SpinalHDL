@@ -424,16 +424,24 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
       + "determine the burst length of transcation by last signal should not work.")
   }
 
-  def onWriteByte(address : BigInt, data : Byte) : Unit
-  case class WTransaction(data : BigInt, strb : BigInt, last : Boolean){
+  def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {}
+  def onWriteByteAlways(address: BigInt, data: Byte, strobe: Boolean, id: Int): Unit = {}
+  def onWriteByte(address : BigInt, data : Byte, id: Int) : Unit = {}
+  def onResponse(id: Int, resp: Byte): Unit = {}
+  case class WTransaction(data : BigInt, strb : BigInt, last : Boolean)
+  case class BTransaction(resp: Byte, id: Int)
 
-  }
   val wQueue = mutable.Queue[WTransaction]()
   val wProcess = mutable.Queue[(WTransaction) => Unit]()
+  val bQueue = mutable.Queue[BTransaction]()
 
   def update(): Unit ={
     while(wQueue.nonEmpty && wProcess.nonEmpty){
       wProcess.dequeue().apply(wQueue.dequeue())
+    }
+    while(bQueue.nonEmpty) {
+      val bTxn = bQueue.dequeue()
+      onResponse(bTxn.id, bTxn.resp)
     }
   }
 
@@ -441,9 +449,13 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
     val size = if(busConfig.useSize) aw.size.toInt else log2Up(busConfig.bytePerWord)
     val len = if(busConfig.useLen) aw.len.toInt else 0
     val burst = if(busConfig.useBurst) aw.burst.toInt else 1
+    val id = if (busConfig.useId) aw.id.toInt.toByte else 0
     val addr = aw.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
+
+    onWriteStart(addr, id, size, len, burst)
+
     for(beat <- 0 to len) {
       val beatAddress = burst match {
         case 0 => addr
@@ -463,7 +475,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
         val end = start + bytePerBeat
         for(i <- start until end){
           if(((strb >> i) & 1) != 0){
-            onWriteByte(accessAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte)
+            onWriteByte(accessAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte, id)
           }
         }
       }
@@ -478,9 +490,17 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
     update()
   }
 
+  val bMonitor = StreamMonitor(b, clockDomain){b =>
+    val id = if (busConfig.useId) b.id.toInt.toByte else 0
+    val resp: Byte = if (busConfig.useResp) b.resp.toInt.toByte else 0
+    bQueue += BTransaction(resp, id)
+    update()
+  }
+
   def reset(){
     wProcess.clear()
     wQueue.clear()
+    bQueue.clear()
   }
 }
 
@@ -500,9 +520,11 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
     SpinalWarning("The Axi4Config with useLen == false is only tested by assigning len = 0, " 
       + "determine the burst length of transcation by last signal should not work.")
   }
-  
-  def onReadByte(address : BigInt, data : Byte, id : Int) : Unit
-  def onLast(id : Int) : Unit
+
+  def onReadStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {}
+  def onReadByteAlways(address: BigInt, data: Byte, id: Int): Unit = {}
+  def onReadByte(address : BigInt, data : Byte, id : Int) : Unit = {}
+  def onResponse(address: BigInt, id: Int, last: Boolean, resp: Byte): Unit = {}
 
   val rQueue = mutable.Queue[() => Unit]()
 
@@ -514,6 +536,9 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
     val addr = ar.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
+
+    onReadStart(addr, id, size, len, burst)
+
     for(beat <- 0 to len) {
       val beatAddress = burst match {
         case 0 => addr
@@ -527,14 +552,18 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
 
       rQueue += { () =>
         if(busConfig.useLast) assert(r.last.toBoolean == (beat == len))
-        if(busConfig.useResp) assert(r.resp.toInt == 0)
         val data = r.data.toBigInt
         val start = ((beatAddress & ~BigInt(bytePerBeat-1)) - accessAddress).toInt
         val end = start + bytePerBeat
-        for(i <- start until end){
-          onReadByte(accessAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte, id)
+        for(i <- 0 until bytePerBeat){
+          val _byte = ((data >> (8*i)).toInt & 0xFF).toByte
+          onReadByteAlways(accessAddress + i, _byte, id)
+          if (i >= start && i < end)
+            onReadByte(accessAddress + i, _byte, id)
         }
-        if((busConfig.useLast && r.last.toBoolean) || (beat == len)) onLast(id)
+        val last = (busConfig.useLast && r.last.toBoolean) || (beat == len)
+        val resp: Byte = if (busConfig.useResp) r.resp.toInt.toByte else 0
+        onResponse(accessAddress, id, last, resp)
       }
     }
   }
