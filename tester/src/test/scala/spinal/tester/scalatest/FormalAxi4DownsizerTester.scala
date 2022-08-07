@@ -154,12 +154,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(rOutput.size === rmOutput.size)
         }
 
-        when(outputChecker.rExist) {
-          assert(inputChecker.rExist)
-
-        }
-
-//        inputChecker.hist.io.outStreams.splitAt()
+        assert{ inputChecker.rExist === outputChecker.rExist | output.ar.valid }
 
         assert(!inputChecker.hist.io.willOverflow)
         assert(!outputChecker.hist.io.willOverflow)
