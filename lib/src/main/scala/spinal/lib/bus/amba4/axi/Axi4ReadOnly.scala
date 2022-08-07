@@ -91,9 +91,9 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     val (arExist, arId) = hist.findFirst(x => x.valid && !x.axDone)
     val (rExist, rId) =
       hist.findFirst(x => x.valid && !x.seenLast && { if (config.useId) r.id === x.id else True })
-    hist.io.outStreams.zipWithIndex.foreach { case (stream, i) =>
-      when (arExist & stream.valid & i < arId) { assert(!stream.axDone) }
-      when (rExist & stream.valid & i < rId) { assert(stream.count === 0 & !stream.seenLast) }
+    hist.io.outStreams.zipWithIndex.foreach { case (x, i) =>
+      when (arExist & x.valid & i < arId) { assert(!x.axDone) }
+      when (rExist & x.valid & { if (config.useId) r.id === x.id else True } & i < rId) { assert(x.count === 0 & !x.seenLast ) }
     }
 
     val (rmExist, rmId) =
@@ -107,6 +107,10 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       val DataNumberDonotFitLen = CombInit(False)
       val NoAddrRequest = CombInit(False)
       val WrongResponseForExAccesss = CombInit(False)
+    }
+    when(rExist) {
+      errors.DataNumberDonotFitLen := hist.io.outStreams(rId).checkLen()
+      errors.NoAddrRequest := !hist.io.outStreams(rId).axDone
     }
 
     val arRecord = CombInit(oRecord)
@@ -141,7 +145,6 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
           hist.io.inStreams(rId).payload := rRecord
           hist.io.inStreams(rId).valid := True
 
-          errors.NoAddrRequest := !selected.axDone
           if (config.useResp && config.useLock)
             errors.WrongResponseForExAccesss := selected.axDone & r.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
           errors.DataNumberDonotFitLen := rRecord.checkLen()
