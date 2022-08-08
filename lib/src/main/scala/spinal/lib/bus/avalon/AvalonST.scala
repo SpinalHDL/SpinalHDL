@@ -76,6 +76,8 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
   }
 
   def <<(that: AvalonST): AvalonST = {
+    assert(that.config.readyAllowance <= config.readyAllowance, "Sink stream ready allowance must be <= than that of the source stream")
+    assert(that.config.readyLatency >= config.readyLatency, "Sink stream ready latency must be >= than that of the source stream")
     arbitrateFrom(that)
     this.payload := that.payload
 
@@ -192,8 +194,8 @@ class AvalonSTDelayAdapter(config: AvalonSTConfig,
                            newReadyAllowance: Int,
                            depth: Int = 31) extends Component {
   val io = new Bundle {
-    val m = master(AvalonST(config))
-    val s = slave(AvalonST(config.copy(readyLatency = newReadyLatency, readyAllowance = newReadyAllowance)))
+    val m = master(AvalonST(config.copy(readyLatency = newReadyLatency, readyAllowance = newReadyAllowance)))
+    val s = slave(AvalonST(config))
   }
 
   val fifo = new StreamFifo(AvalonSTPayload(config), depth)
