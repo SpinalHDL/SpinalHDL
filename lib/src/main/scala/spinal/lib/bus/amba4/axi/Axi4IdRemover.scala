@@ -70,13 +70,13 @@ class Axi4SharedIdRemover(config: Axi4Config) extends Component {
 
     txnActive clearWhen(readDone || writeDone)
 
-    io.input.r.arbitrationFrom(io.output.r.continueWhen(txnActive && !txnWrite))
+    io.input.r.arbitrationFrom(io.output.r)
     io.input.r.payload.assignSomeByName(io.output.r.payload)
     io.input.r.id := txnId
 
-    io.output.w << io.input.w.continueWhen(txnActive && txnWrite)
+    io.output.w << io.input.w
 
-    io.input.b.arbitrationFrom(io.output.b.continueWhen(txnActive && txnWrite))
+    io.input.b.arbitrationFrom(io.output.b)
     io.input.b.payload.assignSomeByName(io.output.b.payload)
     io.input.b.id := txnId
   }
@@ -101,7 +101,7 @@ class Axi4ReadOnlyIdRemover(config: Axi4Config) extends Component {
 
     txnActive clearWhen(io.output.r.last && io.output.r.fire)
 
-    io.input.r.arbitrationFrom(io.output.r.continueWhen(txnActive))
+    io.input.r.arbitrationFrom(io.output.r)
     io.input.r.payload.assignSomeByName(io.output.r.payload)
     io.input.r.id := txnId
   }
@@ -127,9 +127,9 @@ class Axi4WriteOnlyIdRemover(config: Axi4Config) extends Component {
 
     txnActive clearWhen(io.output.b.fire)
 
-    io.output.w << io.input.w.continueWhen(txnActive)
+    io.output.w << io.input.w
 
-    io.input.b.arbitrationFrom(io.output.b.continueWhen(txnActive))
+    io.input.b.arbitrationFrom(io.output.b)
     io.input.b.payload.assignSomeByName(io.output.b.payload)
     io.input.b.id := txnId
   }

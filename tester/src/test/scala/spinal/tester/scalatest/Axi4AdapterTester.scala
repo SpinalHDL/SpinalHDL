@@ -375,7 +375,7 @@ class Axi4IdRemoverTester extends AnyFunSuite {
   }
 
   test("writeOnly") {
-    SimConfig.withWave.compile(new Axi4WriteOnlyIdRemover(Axi4Config(20, 32, 4))).doSim("test", 42)(writeTester)
+    SimConfig.compile(new Axi4WriteOnlyIdRemover(Axi4Config(20, 32, 4))).doSim("test", 42)(writeTester)
   }
 
   def readTester(dut : Axi4ReadOnlyIdRemover): Unit ={
@@ -428,7 +428,7 @@ class Axi4IdRemoverTester extends AnyFunSuite {
   }
 
   test("readOnly") {
-    SimConfig.withWave.compile(new Axi4ReadOnlyIdRemover(Axi4Config(20, 32, 4))).doSim("test", 42)(readTester)
+    SimConfig.compile(new Axi4ReadOnlyIdRemover(Axi4Config(20, 32, 4))).doSim("test", 42)(readTester)
   }
 
   def sharedTester(dut: Axi4SharedIdRemoverDut): Unit = {
@@ -553,6 +553,6 @@ class Axi4IdRemoverTester extends AnyFunSuite {
   }
 
   test("shared") {
-    SimConfig.withWave.compile(new Axi4SharedIdRemoverDut(Axi4Config(20, 32, 4))).doSim("test", 42)(sharedTester)
+    SimConfig.compile(new Axi4SharedIdRemoverDut(Axi4Config(20, 32, 4))).doSim("test", 42)(sharedTester)
   }
 }
