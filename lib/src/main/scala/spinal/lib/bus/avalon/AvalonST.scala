@@ -42,13 +42,17 @@ case class AvalonST(config: AvalonSTConfig) extends Bundle with IMasterSlave {
   val valid: Bool = config.useValid generate Bool()
   val payload: AvalonSTPayload = AvalonSTPayload(config)
 
-  lazy val latencyDelay: Bool = Delay(this.ready, config.readyLatency)
-  lazy val allowanceDelay: Bool = Delay(latencyDelay, config.readyAllowance)
+  def latencyDelay: Bool = signalCache.apply(this, "latencyDelay") {
+    Delay(this.ready, config.readyLatency)
+  }
+  def allowanceDelay: Bool = signalCache.apply(this, "allowanceDelay") {
+    Delay(latencyDelay, config.readyAllowance)
+  }
 
   // Logical ready accounting for ready latency and allowance
-  lazy val logicalReady: Bool = latencyDelay || allowanceDelay
+  def logicalReady: Bool = latencyDelay || allowanceDelay
 
-  lazy val fire: Bool = valid && logicalReady
+  def fire: Bool = valid && logicalReady
 
   override def clone: AvalonST = AvalonST(config)
 
