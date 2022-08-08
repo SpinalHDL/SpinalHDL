@@ -95,7 +95,10 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       when (arExist & x.valid & i < arId) { assert(!x.axDone) }
       when (rExist & x.valid & { if (config.useId) r.id === x.id else True } & i < rId) { assert(x.count === 0 & !x.seenLast ) }
       when (x.valid & x.seenLast) { assert(x.axDone) }
-      when (x.valid) { assert(x.size <= log2Up(config.bytePerWord)) }
+      when (x.valid) {
+        assert(x.size <= log2Up(config.bytePerWord))
+        assert(!x.payload.checkLen())
+      }
     }
 
     val (rmExist, rmId) =
@@ -111,7 +114,6 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       val WrongResponseForExAccesss = CombInit(False)
     }
     when(rExist) {
-      errors.DataNumberDonotFitLen := hist.io.outStreams(rId).checkLen()
       errors.NoAddrRequest := !hist.io.outStreams(rId).axDone
     }
 
