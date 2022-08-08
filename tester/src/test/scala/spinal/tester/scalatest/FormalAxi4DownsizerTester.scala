@@ -140,18 +140,36 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           rmOutput.ready := True
           assert(rmOutput.len === rmInput.len)
           assert(rmOutput.size === Util.size2Outsize(rmInput.size))
+          val rmOutCount = outputChecker.hist.io.outStreams.sCount(x => x.valid && x.seenLast && x.axDone)
+          assert(rmOutCount === Util.size2Ratio(rmInput.size) + 1)
 
-          when(rmInput.size > 2) {
+          when(rmOutCount > 1) {
             val preRm = outputChecker.hist.io.outStreams(outputChecker.rmId - 1)
             assert(preRm.valid & preRm.axDone & preRm.seenLast)
             preRm.ready := True
             assert(preRm.len === rmInput.len)
             assert(preRm.size === Util.size2Outsize(rmInput.size))
+            assert(rmInput.size === 3)
           }
         }.elsewhen(outputChecker.rmExist) {
           assert(outputChecker.rExist && outputChecker.rId === outputChecker.rmId - 1 )
           assert(rOutput.len === rmOutput.len)
           assert(rOutput.size === rmOutput.size)
+          assert(rmOutput.size === 2)
+          assert(rInput.size === 3)
+          val inTrans = (rInput.count) << Util.size2Ratio(rInput.size)
+          val outTrans = rOutput.count + rmOutput.count
+//          assert(outTrans === inTrans || outTrans === inTrans + 1)
+          assert(outTrans === inTrans + dut.dataCounter.counter.counter.value)
+        }
+
+        when(outputChecker.rExist) {
+          assert(rOutput.len === rInput.len)
+          assert(rOutput.size === Util.size2Outsize(rInput.size))
+        }
+
+        when(inputChecker.rExist) {
+          when(!outputChecker.rExist) { assert(rInput.count === 0) }
         }
 
         assert{ inputChecker.rExist === outputChecker.rExist | output.ar.valid }
@@ -206,6 +224,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val lenCounter = dut.dataOutCounter.counter
         val lenChecker = lenCounter.withAsserts()
         when(lenChecker.started) {
+//        when(lenCounter.io.working){
           assert(cmdExist & (lenCounter.expected === cmdInput.len))
 //          when(lenCounter.counter.value > 0) {
 //            assert(rInput.count + 1 === lenCounter.counter.value)
