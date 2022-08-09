@@ -199,7 +199,7 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
     }
     countStream.ready := dataIn.fire
 
-    val dataReg    = Reg(Bits(inputConfig.dataWidth bits))
+    val dataReg    = Reg(Bits(inputConfig.dataWidth bits)) init(0)
     val beatOffset = RegInit(U(0, sizeMaxIn bits))
     when(countOutStream.fire && dataOutCounter.io.first) {
         beatOffset := countOutStream.start(inputConfig.symbolRange)
