@@ -146,26 +146,42 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val waitId = CombInit(cmdId)
         val waitInput = inputChecker.hist.io.outStreams(cmdId)
 
+        val cmdCounter = dut.generator.cmdExtender.counter
+        val cmdChecker = cmdCounter.withAsserts()
+        val lenCounter = dut.dataOutCounter.counter
+        val lenChecker = lenCounter.withAsserts()
+        val ratioCounter = dut.dataCounter.counter
+        val ratioChecker = ratioCounter.withAsserts()
+
+        val ratio = Util.size2Ratio(cmdInput.size)
+
         when(waitExist) {
           assert(waitInput.len === dut.countOutStream.len)
           assert(dut.countOutStream.size === Util.size2Outsize(waitInput.size))
           assert(dut.countOutStream.ratio === Util.size2Ratio(waitInput.size))
-          assert(rInput.len === dut.countStream.len)
-          assert(dut.countStream.size === Util.size2Outsize(rInput.size))
-          assert(dut.countStream.ratio === Util.size2Ratio(rInput.size))
+          assert(ratioCounter.expected === Util.size2Ratio(rInput.size))
+          assert(lenCounter.working & lenCounter.io.value === 0)
+
+          when(!waitInput.axDone) { assert(input.ar.valid === True & input.ar.len === waitInput.len & input.ar.size === waitInput.size) }
         }.elsewhen(inputChecker.rExist) {
           assert(rInput.len === dut.countOutStream.len)
           assert(dut.countOutStream.size === Util.size2Outsize(rInput.size))
           assert(dut.countOutStream.ratio === Util.size2Ratio(rInput.size))
+          when(lenCounter.working){
+            when(lenCounter.io.value > 0) { assert(rInput.count + 1 === lenCounter.io.value) }
+              .otherwise { assert(rInput.count === 0) }
+          }
+        }.otherwise {
+          assert(!lenCounter.working & !ratioCounter.working)
         }
 
         when(waitExist) {
           assert(countWaitingInputs === 2)
-          assert(dut.dataOutCounter.io.working & dut.dataCounter.io.working)
+          assert(lenCounter.working & ratioCounter.working)
         }
           .otherwise { assert(countWaitingInputs < 2) }
 
-        assert(inputChecker.rExist === dut.dataOutCounter.io.working | dut.dataCounter.io.working)
+        assert(inputChecker.rExist === lenCounter.working | ratioCounter.working)
 
         rmOutput.ready := False
         when(inputChecker.rmExist) {
@@ -192,15 +208,16 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(rInput.size === 3)
           val inTrans = (rInput.count) << Util.size2Ratio(rInput.size)
           val outTrans = rOutput.count + rmOutput.count
-          assert(outTrans === inTrans + dut.dataCounter.counter.counter.value)
+          assert(outTrans === inTrans + ratioCounter.counter.value)
           when(!waitExist) { assert(countWaitingOutputs === 1) }
         }
 
-        assert(inputChecker.rExist === outputChecker.rExist | output.ar.valid)
+        assert(inputChecker.rExist === (outputChecker.rExist | output.ar.valid))
 
         when(outputChecker.rExist) {
           assert(rOutput.len === rInput.len)
           assert(rOutput.size === Util.size2Outsize(rInput.size))
+          when(rInput.size < 3) { assert(rOutput.count === rInput.count) }
         }
 
         when(inputChecker.rExist) {
@@ -234,16 +251,11 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         cover(dataCheckSizeLess3)
         cover(dataCheckSize3)
 
-        val cmdCounter = dut.generator.cmdExtender.counter
-        val cmdChecker = cmdCounter.withAsserts()
-        val ratio = Util.size2Ratio(cmdInput.size)
         when(cmdCounter.io.working) { assert(cmdExist) }
         when(cmdChecker.started) {
           assert(cmdExist & (cmdCounter.expected === ratio))
         }
 
-        val lenCounter = dut.dataOutCounter.counter
-        val lenChecker = lenCounter.withAsserts()
         when(lenChecker.started) {
 //        when(lenCounter.io.working){
           assert(cmdExist & (lenCounter.expected === cmdInput.len))
@@ -258,8 +270,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(lenCounter.expected === rInput.len)
         }
 
-        val ratioCounter = dut.dataCounter.counter
-        val ratioChecker = ratioCounter.withAsserts()
         when(ratioCounter.io.working) {
           val ratio = Util.size2Ratio(rInput.size)
           assert(inputChecker.rExist & (ratioCounter.expected === ratio))
@@ -268,8 +278,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         when(lenChecker.startedReg) {
           assert(dut.countStream.payload === dut.countOutStream.payload)
         }
-        when(dut.dataOutCounter.io.working & dut.countOutStream.ratio > 0) { assert(dut.countOutStream.size === 2) }
-        when(dut.dataCounter.io.working & dut.countStream.ratio > 0) { assert(dut.countStream.size === 2) }
+        when(lenCounter.working & dut.countOutStream.ratio > 0) { assert(dut.countOutStream.size === 2) }
+        when(ratioCounter.working & dut.countStream.ratio > 0) { assert(dut.countStream.size === 2) }
         when(lenCounter.io.working) {
           assert(dut.countOutStream.size === dut.cmdStream.size)
           assert(dut.countOutStream.len === dut.cmdStream.len)
