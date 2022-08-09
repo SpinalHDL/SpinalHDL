@@ -154,6 +154,14 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val ratioChecker = ratioCounter.withAsserts()
 
         val ratio = Util.size2Ratio(cmdInput.size)
+        val waitItemCount = CombInit(ratio.getZero)
+        val rItemCount = CombInit(ratio.getZero)
+//        val rDoneItemCount = CombInit(ratio.getZero)
+
+        when(waitExist) { waitItemCount := Util.size2Ratio(waitInput.size) + 1 }
+//        when(cmdChecker.startedReg) { rDoneItemCount := 1 }
+        when(inputChecker.rExist) { rItemCount := Util.size2Ratio(rInput.size) + 1}
+        assert(countWaitingOutputs <= waitItemCount + rItemCount)
 
         when(waitExist) {
           assert(waitInput.len === dut.countOutStream.len)
