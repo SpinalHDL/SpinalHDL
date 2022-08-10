@@ -136,6 +136,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val rInput = inputChecker.hist.io.outStreams(inputChecker.rId)
         val rOutput = outputChecker.hist.io.outStreams(outputChecker.rId)
+        val rOutCount = outputChecker.hist.io.outStreams.sCount(x => x.valid & x.axDone & !x.seenLast)
 
         val rmInput = inputChecker.hist.io.outStreams(inputChecker.rmId)
         val rmOutput = outputChecker.hist.io.outStreams(outputChecker.rmId)
@@ -146,8 +147,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val waitId = CombInit(cmdId)
         val waitInput = inputChecker.hist.io.outStreams(cmdId)
 
-        val (undoneExist, undoneInId) = inputChecker.hist.findFirst(x => x.valid & !x.axDone)
-        val undoneInput = inputChecker.hist.io.outStreams(undoneInId)
+        val (undoneExist, undoneId) = inputChecker.hist.findFirst(x => x.valid & !x.axDone)
+        val undoneInput = inputChecker.hist.io.outStreams(undoneId)
         val undoneInCount = inputChecker.hist.io.outStreams.sCount(x => x.valid & !x.axDone)
         val undoneOutCount = outputChecker.hist.io.outStreams.sCount(x => x.valid & !x.axDone)
 
@@ -183,7 +184,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(lenCounter.expected === waitInput.len)
           assert(lenCounter.working & lenCounter.io.value === 0)
 
-          assert(undoneOutCount <= 1)
         }.elsewhen(inputChecker.rExist) {
           assert(rInput.len === dut.countOutStream.len)
           assert(dut.countOutStream.size === Util.size2Outsize(rInput.size))
@@ -195,12 +195,15 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }.otherwise {
           assert(!lenCounter.working & !ratioCounter.working)
         }
+        assert(undoneOutCount <= 1)
 
         when(waitExist) {
           assert(countWaitingInputs === 2)
           assert(lenCounter.working & ratioCounter.working)
+          when(undoneExist) { assert(waitId === undoneId + 1) }
         }.otherwise {
           assert(countWaitingInputs < 2)
+//          assert(undoneOutCount === 0)
         }
 
         assert(inputChecker.rExist === lenCounter.working | ratioCounter.working)
@@ -247,9 +250,15 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
                 postRExist := True
               }
             }
-          }.elsewhen(lenChecker.started) {
-
+          }.elsewhen(waitExist) {
+            assert(waitInput.len === lenCounter.expected)
+            assert(cmdCounter.expected === Util.size2Ratio(waitInput.size))
+            assert(rOutCount === cmdCounter.io.value + 1)
+//            assert(cmdCounter.io.value === 0)
           }.otherwise {
+            assert(rInput.len === lenCounter.expected)
+            assert(cmdCounter.expected === Util.size2Ratio(rInput.size))
+            assert(rOutCount === cmdCounter.io.value)
 //            when(rInput.size === 3 & !outputChecker.rmExist) {
 //              preRExist := True
 //            }
@@ -348,6 +357,9 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           when(ratioCounter.io.working & waitExist) { assert(dut.lastLast) }
         }.elsewhen(ratioCounter.io.working) {
           assert(dut.lastLast)
+        }
+        when(inputChecker.rExist & rInput.size === 3 & ratioCounter.working) {
+          assert(dut.offset === ratioCounter.io.value << 2)
         }
 
         when(dut.io.output.r.fire) { assert(ratioCounter.io.working) }
