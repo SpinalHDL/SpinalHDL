@@ -33,7 +33,7 @@ class ScopePropertyContext{
 }
 
 object ScopeProperty {
-  def apply[T] = new ScopeProperty[T]()
+  def apply[T]() = new ScopeProperty[T]()
   def apply[T](defaultValue : T) : ScopeProperty[T] = {
     val sp = new ScopeProperty[T](){
       override def default = defaultValue
