@@ -560,10 +560,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     * Useful for register that doesn't need a reset value in RTL,
     * but need a random value for simulation (avoid x-propagation)
     */
-  def randBoot(u : Unit): this.type = {
+  def randBoot(u: Unit): this.type = {
     if(!globalData.phaseContext.config.noRandBoot) flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }
+  def randBoot(): this.type = randBoot()
 
   def allowPruning() : this.type = {
     flatten.foreach(_.addTag(unusedTag))
