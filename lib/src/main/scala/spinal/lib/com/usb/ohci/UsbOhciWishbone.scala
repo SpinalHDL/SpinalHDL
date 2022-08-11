@@ -14,14 +14,17 @@ object UsbOhciWishbone extends App{
   var phyFrequency = 48000000
   var dmaWidth = 32
 
-  assert(new scopt.OptionParser[Unit]("VexRiscvLitexSmpClusterCmdGen") {
+  new scopt.OptionParser[Unit]("VexRiscvLitexSmpClusterCmdGen") {
     help("help").text("prints this usage text")
     opt[String]("netlist-directory") action { (v, c) => netlistDirectory = v }
     opt[String]("netlist-name") action { (v, c) => netlistName = v }
     opt[Int]("port-count") action { (v, c) => portCount = v }
     opt[Int]("phy-frequency") action { (v, c) => phyFrequency = v }
     opt[Int]("dma-width") action { (v, c) => dmaWidth = v }
-  }.parse(args))
+  }.parse(args, null) match {
+    case Some(value) =>
+    case None => println("Bad arguements"); ???
+  }
 
 
 

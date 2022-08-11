@@ -15,7 +15,7 @@ package object lib  {
   type Event = Stream[NoData]
 
 
-  def Event = new Stream(NoData)
+  def Event = new Stream(NoData())
 
   def sexport[T](named : Handle[T], value :  => Any) = {
     Engine.get.onCompletion += {() => Component.current.addTag(new Export(named.getName(), value)) }
@@ -62,7 +62,6 @@ package object lib  {
 
   implicit def easyFragment[T <: Data](that: Fragment[T]) : T = that.fragment
 
-  def StreamArbiterFactory() = new StreamArbiterFactory()
   type ScalaStream[T] = collection.immutable.Stream[T]
   def ScalaStream = collection.immutable.Stream
 

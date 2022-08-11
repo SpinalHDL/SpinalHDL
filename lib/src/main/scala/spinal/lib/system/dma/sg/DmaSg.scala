@@ -1,11 +1,11 @@
 package spinal.lib.system.dma.sg
 
-import spinal.core.{Bool, _}
+import spinal.core.{Bool, *}
 import spinal.core.sim.{SimDataPimper, SimMutex, fork, waitUntil}
-import spinal.lib._
-import spinal.lib.bus.bmb._
+import spinal.lib.*
+import spinal.lib.bus.bmb.*
 import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
-import spinal.lib.bus.bsb.{BsbParameter, _}
+import spinal.lib.bus.bsb.{BsbParameter, *}
 import spinal.lib.bus.bsb.sim.BsbMonitor
 import spinal.lib.bus.misc.{BusSlaveFactory, SizeMapping}
 import spinal.lib.sim.{MemoryRegionAllocator, SparseMemory, StreamDriver, StreamReadyRandomizer}
@@ -15,6 +15,8 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import scala.collection.Seq
+import scala.reflect.Selectable
+
 
 object DmaSg{
   val ctrlAddressWidth = 16
@@ -1325,20 +1327,29 @@ object DmaSg{
       val burstLength = in UInt(p.burstLength bits)
     }
 
+
+    case class S0Output() extends Bundle{
+      val cmd = AggregatorCmd(p)
+      val countOnes = Vec.fill(8)(UInt(2 bits)); ???
+    }
+
     val s0 = new Area{
       val input = io.input.m2sPipe(flush = io.flush)
 
       val countOnesLogic = Vec(CountOneOnEach(input.mask))
 
-      case class S0Output() extends Bundle{
-        val cmd = AggregatorCmd(p)
-        val countOnes = cloneOf(countOnesLogic)
-      }
-
       val outputPayload = S0Output()
       outputPayload.cmd := input.payload
       outputPayload.countOnes := countOnesLogic
       val output = input.translateWith(outputPayload)
+    }
+
+    case class S1Output() extends Bundle{
+      val cmd = AggregatorCmd(p)
+      val index = Vec.fill(8)(UInt(2 bits)) ; ??? //cloneOf(inputIndexes)
+      val last = Bool()
+      val sel = Vec(UInt(log2Up(p.byteCount) bits), p.byteCount)
+      val selValid = Bits(p.byteCount bits)
     }
 
     val s1 = new Area{
@@ -1362,13 +1373,6 @@ object DmaSg{
       }
 
       val inputIndexes = Vec((U(0) +: input.countOnes.dropRight(1)).map(_ + offset))
-      case class S1Output() extends Bundle{
-        val cmd = AggregatorCmd(p)
-        val index = cloneOf(inputIndexes)
-        val last = Bool()
-        val sel = Vec(UInt(log2Up(p.byteCount) bits), p.byteCount)
-        val selValid = Bits(p.byteCount bits)
-      }
       val outputPayload = S1Output()
       outputPayload.cmd := input.cmd
       outputPayload.index := inputIndexes
@@ -1555,7 +1559,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
   val memoryReserved = MemoryRegionAllocator(base = 0, size = 1l << p.writeAddressWidth)
 
-  val outputs = for(outputId <- 0 until p.outputs.size) yield new {
+  val outputs = for(outputId <- 0 until p.outputs.size) yield new Selectable{
     val readyDriver = StreamReadyRandomizer(outputsIo(outputId), clockDomain)
     val ref = Array.fill(1 << p.outputs(outputId).sinkWidth)(mutable.Queue[(Int, Int, Boolean)]())
     val monitor = new BsbMonitor(outputsIo(outputId), clockDomain) {
@@ -1580,7 +1584,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     var done = false
     var allowSplitLast = true
   }
-  val inputs = for(inputId <- 0 until p.inputs.size) yield new {
+  val inputs = for(inputId <- 0 until p.inputs.size) yield new Selectable{
     val ip = p.inputs(inputId)
 
 
@@ -1825,7 +1829,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
 //              println("MIAOU")
               val tail = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
-              val descriptors = List.fill(descriptorCount)( new {
+              val descriptors = List.fill(descriptorCount)( new Selectable{
                 val address = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
                 val bytes = (Random.nextInt(0x100) + 1)
                 val to = memoryReserved.allocate(size = bytes)
@@ -1921,15 +1925,15 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   }
                 }
               }
-
-              def decodeDescriptor(address : Long) = new {
+              class DecodeDescriptor(address : Long){
                 val status = memory.readInt(address + 0)
                 log(f"Status : $status%08x")
                 val bytes = (status & 0x7FFFFFF)
                 val isLast = (status & 0x40000000) != 0
                 val completed = (status & 0x80000000) != 0
-//                println(f"$bytes")
+                //                println(f"$bytes")
               }
+              def decodeDescriptor(address : Long) = DecodeDescriptor(address)
               var stopVerification = false
               val verificationThread = fork{
                 packetBased match {
@@ -2209,7 +2213,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               val innerStop = Random.nextFloat() < 0.3
 
               val tail = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
-              val descriptors = List.fill(descriptorCount)( new {
+              val descriptors = List.fill(descriptorCount)( new Selectable{
                 val address = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
                 val bytes = (Random.nextInt(0x100) + 1)
                 val from = memoryReserved.allocate(size = bytes)
@@ -2292,7 +2296,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               outputs(outputId).reservedSink.add(sink)
 
               val tail = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
-              val descriptors = List.fill(descriptorCount)( new {
+              val descriptors = List.fill(descriptorCount)( new Selectable{
                 val address = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
                 val bytes = (Random.nextInt(0x100) + 1)
                 val from = memoryReserved.allocate(size = bytes)

@@ -1,20 +1,21 @@
 package spinal.lib.soc.pinsec
 
 
-import spinal.core._
-import spinal.lib._
-import spinal.lib.bus.amba3.apb._
-import spinal.lib.bus.amba4.axi._
+import spinal.core.*
+import spinal.lib.*
+import spinal.lib.bus.amba3.apb.*
+import spinal.lib.bus.amba4.axi.*
+import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.com.jtag.Jtag
 import spinal.lib.com.uart.{Apb3UartCtrl, Uart, UartCtrlGenerics, UartCtrlMemoryMappedConfig}
 import spinal.lib.cpu.riscv.impl.Utils.BR
 import spinal.lib.cpu.riscv.impl.build.RiscvAxi4
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DivExtension, MulExtension}
-import spinal.lib.cpu.riscv.impl._
+import spinal.lib.cpu.riscv.impl.*
 import spinal.lib.graphic.RgbConfig
 import spinal.lib.graphic.vga.{Axi4VgaCtrl, Axi4VgaCtrlGenerics, Vga}
 import spinal.lib.io.TriStateArray
-import spinal.lib.memory.sdram._
+import spinal.lib.memory.sdram.*
 import spinal.lib.memory.sdram.sdr.{Axi4SharedSdramCtrl, IS42x320D, SdramInterface, SdramTimings}
 import spinal.lib.system.debugger.{JtagAxi4SharedDebugger, SystemDebuggerConfig}
 
@@ -260,7 +261,7 @@ class Pinsec(config: PinsecConfig) extends Component{
 
     val apbDecoder = Apb3Decoder(
       master = apbBridge.io.apb,
-      slaves = List(
+      slaves = List[(Apb3, SizeMapping)](
         gpioACtrl.io.apb -> (0x00000, 4 KiB),
         gpioBCtrl.io.apb -> (0x01000, 4 KiB),
         uartCtrl.io.apb  -> (0x10000, 4 KiB),
