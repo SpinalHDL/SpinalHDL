@@ -12,7 +12,7 @@ import dotty.tools.dotc.core.Symbols.*
 import dotty.tools.dotc.core.Types.*
 import dotty.tools.dotc.core.unpickleScala2.Scala2Flags
 import dotty.tools.dotc.plugins.{PluginPhase, StandardPlugin}
-import dotty.tools.dotc.transform.{PickleQuotes, Staging}
+import dotty.tools.dotc.transform.*
 
 class IdslPlugin extends StandardPlugin {
   override val name: String = "IdslPlugin"
@@ -84,8 +84,10 @@ class PostInitPhase extends PluginPhase {
 
   val phaseName = "postInitPhase"
 
-  override val runsAfter = Set(Staging.name)
-  override val runsBefore = Set(PickleQuotes.name)
+  override val runsAfter = Set(Erasure.name)
+  override val runsBefore = Set(ElimErasedValueType.name)
+//  override val runsAfter = Set(Staging.name)
+//  override val runsBefore = Set(PickleQuotes.name)
 
   def symbolHasTrait(s: ClassSymbol, name: String)(implicit ctx: Context): Boolean = {
     s.parentSyms.exists {
@@ -93,24 +95,55 @@ class PostInitPhase extends PluginPhase {
     }
   }
 
+//  override def transformDefDef(tree: tpd.DefDef)(implicit ctx: Context): Tree = {
+//    println("transformDefDef => \n" + tree)
+//    tree
+//  }
+
+
+//  override def prepareForApply(tree: tpd.Apply)(using Context): Context = {
+//    println("Hi")
+//    super.prepareForApply(tree)
+//  }
+
+//
+//  override def transformTypeDef(tree: tpd.TypeDef)(implicit ctx: Context): Tree = {
+//    println("type => \n" + tree)
+//    tree.toString
+//    tree
+//  }
+
+  //  var counter = 0
   override def transformApply(a: Apply)(implicit ctx: Context): Tree = {
     var ret: Tree = a
+//    println(a.toString + " " + a.sourcePos.lines)
+//    println("- " + a.fun)
     if(a.fun.symbol.isConstructor){
+//      println(s"is constructor ${a.fun.symbol.isClassConstructor} ${a.fun.symbol.isTerm} ${a.fun.symbol.isPrimaryConstructor} ${a.fun.symbol.isStaticConstructor}")
       val sym = a.fun.symbol.enclosingClass.asInstanceOf[ClassSymbol]
       val tpe = sym.thisType
-      sym.parentSyms
+//      println(tpe.typeConstructor.paramInfoss)
+//      println("typeParam => " + tpe.classSymbol.primaryConstructor.typeParams)
+//      println(s"prim => ${sym.primaryConstructor.debugString}")
       if (symbolHasTrait(sym, "spinal.idslplugin.PostInitCallback")) {
-        val avoidIt = a match {
+//        println("has PostInitCallback")
+        var avoidIt = a match {
           case Apply(Select(Super(_, _), _), _) => true
           case Apply(Select(This(_), _), _) => true
           case _ => false
         }
-        if (!avoidIt) {
+//        println(s"tpe=$tpe sym=$sym asInstance=${sym.requiredMethod("asInstanceOf")}")
+//        counter += 1
+//        if(counter != 2) avoidIt = true
 
-          val func = sym.requiredMethod("postInitCallback")
+        if (!avoidIt) {
+//          println(sym)
+          val func = sym.requiredMethod("postInitCallbackCaller")
           val sel = Select(a, func.name)
           val appl = Apply(sel, Nil)
-          ret = appl
+          val asInstance : TermSymbol = sym.requiredMethod("asInstanceOf")
+          val typeapply = TypeApply(Select(appl, asInstance.namedType),List(TypeTree(tpe)))
+          ret = typeapply
         }
       }
     }
