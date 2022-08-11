@@ -389,7 +389,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
 
   protected def _RC[T <: BaseType](reg: T): T = {
     when(hitDoRead){
-      reg.assignFromBits(0)
+      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())
     }
     reg
   }
