@@ -268,6 +268,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
                 postRExist := True
               }
             }
+
+            when(lenCounter.working) {
+              when(lenChecker.startedReg) { assert(lenCounter.io.value === rInput.count + 1) }
+            }.otherwise {
+              assert(rInput.count === rInput.len)
+            }
           }.elsewhen(waitExist) {
             assert(waitInput.len === lenCounter.expected)
             assert(cmdCounter.expected === Util.size2Ratio(waitInput.size))
@@ -280,6 +286,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 //            assert(cmdCounter.io.value === 0)
           }.otherwise {
             assert(rInput.len === lenCounter.expected)
+            assert(lenCounter.expected === rInput.len)
             assert(cmdCounter.expected === Util.size2Ratio(rInput.size))
             assert(rOutCount === cmdCounter.io.value)
             when(outputChecker.rExist) { assert(transferred === rOutput.count) }
