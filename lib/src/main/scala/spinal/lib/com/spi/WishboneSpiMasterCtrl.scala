@@ -24,6 +24,6 @@ case class WishboneSpiMasterCtrl(generics : SpiMasterCtrlMemoryMappedConfig) ext
   io.spi <> spiCtrl.io.spi
 
   val busCtrl = WishboneSlaveFactory(io.wishbone)
-  val bridge = spiCtrl.io.driveFrom(busCtrl)(generics)
+  val bridge = spiCtrl.io.driveFrom(busCtrl, 0)(generics)
   io.interrupt := bridge.interruptCtrl.interrupt
 }

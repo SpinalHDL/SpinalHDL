@@ -255,7 +255,7 @@ class InstructionCache(implicit p : InstructionCacheConfig) extends Component{
 
 object InstructionCacheMain{
   class TopLevel extends Component{
-    implicit val p = InstructionCacheConfig(
+    implicit val p : InstructionCacheConfig = InstructionCacheConfig(
       cacheSize =4096,
       bytePerLine =32,
       wayCount = 1,

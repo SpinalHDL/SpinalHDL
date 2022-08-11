@@ -144,7 +144,7 @@ object toFixData{
   def apply(value: Long, q: QFormat): FixData = {
     (value, q.signed) match {
       case (x, true) if x >= 0 => {
-        val signedValue = if (value >= q.halfCapcity) value%q.capcity - q.capcity else value
+        val signedValue = if (value >= q.halfCapcity) value%q.capcity - q.capcity else value.toDouble
         FixData(signedValue * q.resolution, q, symmetric = false)
       }
       case (_, true)=> {

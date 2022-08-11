@@ -19,7 +19,7 @@ object Dependable{
     Generator.stack.head.add {
       val p = new Generator()
       p.dependencies ++= d
-      p.add task {h.load(body)}
+      p.add.task {h.load(body)}
       p.products += h
       p
     }.setCompositeName(h, "generator", true)
@@ -40,7 +40,7 @@ trait Dependable{
     Generator.stack.head.add {
       val p = new Generator()
       p.dependencies += this
-      p.add task {h.load{
+      p.add.task {h.load{
         val subIo = body
         val topIo = cloneOf(subIo).setPartialName(h, "", true)
         topIo.copyDirectionOf(subIo)
@@ -143,7 +143,7 @@ class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
   def derivatedFrom[T2](that : Handle[T2])(body : T2 => T) = new Generator{
     dependencies += that
     products += this
-    add task {
+    add.task {
       Handle.this.load(body(that))
     }
   }
@@ -257,7 +257,7 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
 
   //User API
   //  implicit def lambdaToGenerator[T](lambda : => T) = new Task(() => lambda)
-  def add = new {
+  class AddPimper(){
     def task[T](gen : => T) : Handle[T] = {
       val handle = Handle[T]
       products += handle
@@ -265,6 +265,7 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
       handle
     }
   }
+  def add = new AddPimper()
   def add[T <: Generator](generator : => T) : T = {
     //    generators += generator
     apply(generator)
@@ -310,7 +311,7 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
     h.produce(this.tags += new Export(h.getName, h.get))
     h
   }
-  def dts[T <: Nameable](node : Handle[T])(value : => String) = add task {
+  def dts[T <: Nameable](node : Handle[T])(value : => String) = add.task {
     node.produce(this.tags += new Dts(node, value))
     node
   }

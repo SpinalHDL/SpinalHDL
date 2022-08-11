@@ -26,6 +26,6 @@ case class Apb3SpiMasterCtrl(generics : SpiMasterCtrlMemoryMappedConfig) extends
   io.spi <> spiCtrl.io.spi
 
   val busCtrl = Apb3SlaveFactory(io.apb)
-  val bridge = spiCtrl.io.driveFrom(busCtrl)(generics)
+  val bridge = spiCtrl.io.driveFrom(busCtrl, 0)(generics)
   io.interrupt := bridge.interruptCtrl.interrupt
 }

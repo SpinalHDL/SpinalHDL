@@ -8,7 +8,7 @@ object CoreUut{
   import spinal.lib.cpu.riscv.impl.extension._
 
   class TopLevel(p : RiscvCoreConfig,iCacheConfig : InstructionCacheConfig, dCacheConfig : DataCacheConfig,debug : Boolean,interruptCount : Int) extends Component{
-    implicit val toto = p
+    implicit val toto : RiscvCoreConfig = p
     val oneCycleInstrPip = true
     val iCached = iCacheConfig != null
     val dCached = dCacheConfig != null
@@ -221,7 +221,7 @@ object CoreUut{
           memDataWidth = 32
         )
 
-        implicit val p = RiscvCoreConfig(
+        implicit val p : RiscvCoreConfig = RiscvCoreConfig(
           pcWidth = 32,
           addrWidth = 32,
           startAddress = 0x200,

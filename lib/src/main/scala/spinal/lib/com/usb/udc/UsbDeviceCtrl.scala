@@ -55,7 +55,7 @@ object UsbDeviceCtrl {
 
     val pullup = Bool()
     val reset, suspend, disconnect = Bool()
-    val resume = Flow(NoData)
+    val resume = Flow(NoData())
     val tick = Bool()
     val power = Bool()
     val resumeIt = Bool()
@@ -165,7 +165,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       val effective = RegInit(False)
       val hit = Bool()
     }
-    val pullup = Reg(Bool) init(False)
+    val pullup = Reg(Bool()) init(False)
     io.phy.pullup := pullup
   }
 

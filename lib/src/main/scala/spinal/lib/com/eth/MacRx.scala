@@ -53,7 +53,7 @@ object CrcKind{
     outputReflected = true,
     finalXor = BigInt("FFFFFFFF", 16)
   )
-  val usb = new {
+  object usb  {
     val crc5 = new CrcKind(
       polynomial = BigInt("5", 16),
       polynomialWidth = 5,

@@ -541,7 +541,7 @@ object StateMachineCondLargeExample {
         val text = "\nHelloStatemachine"
         for ((s, t) <- states.zip(text)) {
           s.whenIsActive {
-            uart.io.write.payload := t
+            uart.io.write.payload := t.toInt
           }
         }
         for ((s1, s2) <- states.zip(states.slice(1, states.length-1) ++ states.slice(0, 1))) {

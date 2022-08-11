@@ -78,7 +78,7 @@ case class UnsignedDividerRsp[T <: Data](nWidth : Int, dWidth : Int,contextType 
 }
 
 
-class UnsignedDivider[T <: Data](nWidth : Int, dWidth : Int,storeDenominator : Boolean,contextType : T = NoData) extends Component{
+class UnsignedDivider[T <: Data](nWidth : Int, dWidth : Int,storeDenominator : Boolean,contextType : T = NoData()) extends Component{
   val io = new Bundle{
     val flush = in Bool()
     val cmd = slave Stream(UnsignedDividerCmd(nWidth,dWidth,contextType))

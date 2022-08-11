@@ -226,6 +226,6 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T],
     inputArea.target init(False)
     outputArea.hit init(False)
   }else{
-    inputArea.target.randBoot()
+    inputArea.target randBoot()
   }
 }

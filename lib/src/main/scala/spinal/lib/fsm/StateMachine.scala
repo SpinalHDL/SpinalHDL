@@ -282,7 +282,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   }
 
   override def isActive(state: State): Bool = {
-    val ret = Component.current.onBody(Bool)
+    val ret = Component.current.onBody(Bool())
     postBuildTasks += {() => {
       ret := stateReg === enumOf(state)
     }}
@@ -290,7 +290,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   }
 
   override def isEntering(state: State): Bool = {
-    val ret = Component.current.onBody(Bool)
+    val ret = Component.current.onBody(Bool())
     postBuildTasks += {() => {
       ret := stateNext === enumOf(state) && stateReg =/= enumOf(state)
     }}

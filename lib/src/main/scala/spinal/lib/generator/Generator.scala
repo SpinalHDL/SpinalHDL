@@ -29,7 +29,7 @@ class Generator extends Area { //TODO TagContainer
   val generatorLock = new Lock
   val generatorDone = new Lock
 
-  val add = new {
+  class AddClass{
     def task[T](body : => T) = {
       generatorDone.retain()
       hardFork{
@@ -41,6 +41,8 @@ class Generator extends Area { //TODO TagContainer
       }
     }
   }
+
+  val add = AddClass()
   def produce[T](body : => T) = hardFork{generatorLock.get; body}
 //  def createDependency[T](that : Handle[T]) = {}
   def createDependency[T]() = {
@@ -50,7 +52,7 @@ class Generator extends Area { //TODO TagContainer
   }
 
 
-  def dts[T <: Nameable](node : Handle[T])(value : => String) = add task {
+  def dts[T <: Nameable](node : Handle[T])(value : => String) = add.task {
     node.produce(Component.current.addTag(new Dts(node, value)))
     node
   }
@@ -74,10 +76,11 @@ class Generator extends Area { //TODO TagContainer
   }
 
 //  val products = ArrayBuffer[Handle[_]]()
-  val products = new {
+  class ProductsClass{
     def += (that : Handle[_]) = {}
     def ++= (that : Seq[Handle[_]]) = {}
   }
+  val products = new ProductsClass()
 
   val tags = new {
     def += (that : SpinalTag) : Unit = hardFork(Component.current.addTag(that))
@@ -89,7 +92,7 @@ class Generator extends Area { //TODO TagContainer
 //    Generator.stack.head.add {
       val p = new Generator()
       p.dependencies += this
-      p.add task {h.load{
+      p.add.task {h.load{
           val subIo = body
           val topIo = cloneOf(subIo).setPartialName(h, "", true)
           topIo.copyDirectionOf(subIo)
