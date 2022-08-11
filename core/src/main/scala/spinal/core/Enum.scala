@@ -22,6 +22,7 @@ package spinal.core
 
 import spinal.core.internals._
 import scala.collection.mutable.ArrayBuffer
+import scala.reflect.Selectable
 
 
 /**
@@ -73,7 +74,7 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
  *
  * @param defaultEncoding encoding of the senum
  */
-class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable with ScalaLocated {
+class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable with ScalaLocated with Selectable {
 
   assert(defaultEncoding != inferred, "Enum definition should not have 'inferred' as default encoding")
 
