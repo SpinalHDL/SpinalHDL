@@ -158,13 +158,13 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
   }
 
   def eventR() : Bool = {
-    val event = Reg(Bool) init(False)
+    val event = Reg(Bool()) init(False)
     event := hitDoRead
     event
   }
 
   def eventW() : Bool = {
-    val event = Reg(Bool) init(False)
+    val event = Reg(Bool()) init(False)
     event := hitDoWrite
     event
   }
