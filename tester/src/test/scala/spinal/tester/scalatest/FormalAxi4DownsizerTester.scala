@@ -147,9 +147,15 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val waitId = CombInit(cmdId)
         val waitInput = inputChecker.hist.io.outStreams(cmdId)
 
+        val (waitFirstOutExist, waitOutId) = outputChecker.hist.io.outStreams.sFindFirst(x => x.valid & x.axDone & !x.seenLast)
+        val waitOutExist = waitFirstOutExist & (waitOutId =/= outputChecker.rId)
+
         val (undoneExist, undoneId) = inputChecker.hist.findFirst(x => x.valid & !x.axDone)
         val undoneInput = inputChecker.hist.io.outStreams(undoneId)
         val undoneInCount = inputChecker.hist.io.outStreams.sCount(x => x.valid & !x.axDone)
+
+        val (undoneOutExist, undoneOutId) = outputChecker.hist.findFirst(x => x.valid & !x.axDone)
+        val undoneOutput = outputChecker.hist.io.outStreams(undoneOutId)
         val undoneOutCount = outputChecker.hist.io.outStreams.sCount(x => x.valid & !x.axDone)
 
         val cmdCounter = dut.generator.cmdExtender.counter
@@ -167,13 +173,23 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val transferred = (rInput.count << Util.size2Ratio(rInput.size)) + ratioCounter.io.value
 
         assert(undoneInCount <= 1)
-        when(undoneInCount === 1) { assert(input.ar.valid & input.ar.len === undoneInput.len & input.ar.size === undoneInput.size) }
+        when(undoneExist) { assert(input.ar.valid & input.ar.len === undoneInput.len & input.ar.size === undoneInput.size) }
+        assert(undoneOutCount <= 1)
+        when(undoneOutExist) { assert(output.ar.valid & output.ar.len === undoneOutput.len & output.ar.size === undoneOutput.size) }
 
 //        when(!waitExist & !inputChecker.rExist) { assert(!undoneExist) }
         when(waitExist) { waitItemCount := Util.size2Ratio(waitInput.size) + 1 }
 //        when(cmdChecker.startedReg) { rDoneItemCount := 1 }
         when(inputChecker.rExist) { rItemCount := Util.size2Ratio(rInput.size) + 1}
         assert(countWaitingOutputs <= waitItemCount + rItemCount)
+
+        when(outputChecker.rExist && rInput.size === 3 && undoneOutExist) {
+          when(waitOutExist) {
+            assert(undoneOutId + 1 === waitOutId)
+          }.otherwise{
+            assert(undoneOutId + 1 === outputChecker.rId)
+          }
+        }
 
         when(waitExist) {
           assert(waitInput.len === dut.countOutStream.len)
@@ -212,6 +228,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val rmOutCount = outputChecker.hist.io.outStreams.sCount(x => x.valid && x.seenLast && x.axDone)
         when(inputChecker.rmExist) {
           assert(outputChecker.rmExist)
+          when(inputChecker.rExist) { assert(rInput.count === 0) }
+          when(outputChecker.rExist) { assert(rOutput.count === 0) }
           rmOutput.ready := True
           assert(rmOutput.len === rmInput.len)
           assert(rmOutput.size === Util.size2Outsize(rmInput.size))
@@ -264,11 +282,17 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
             assert(rInput.len === lenCounter.expected)
             assert(cmdCounter.expected === Util.size2Ratio(rInput.size))
             assert(rOutCount === cmdCounter.io.value)
+            when(outputChecker.rExist) { assert(transferred === rOutput.count) }
           }
 
-//          when(rInput.size === 3 & transferred > rInput.len) {
+          when(outputChecker.rExist) {
+            when(outputChecker.rmExist & !inputChecker.rmExist) {
+              assert(transferred === rOutput.count + rInput.len + 1)
+            }.otherwise {
+              assert(transferred === rOutput.count)
+            }
 //            assert(rOutCount + rmOutCount === cmdCounter.io.value + Util.size2Ratio(rInput.size) + 1)
-//          }
+          }
         }.otherwise {
           assert(countWaitingInputs === 0) // duplicated
         }
@@ -366,6 +390,9 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }
         when(inputChecker.rExist & rInput.size === 3 & ratioCounter.working) {
           assert(dut.offset === ratioCounter.io.value << 2)
+          when(transferred > 0 || rOutput.count > 0) {
+            assert(dut.dataReg(U(outConfig.dataWidth) - (dut.offset << 3), outConfig.dataWidth bits) === dataHist(1))
+          }
         }
 
         when(dut.io.output.r.fire) { assert(ratioCounter.io.working) }
