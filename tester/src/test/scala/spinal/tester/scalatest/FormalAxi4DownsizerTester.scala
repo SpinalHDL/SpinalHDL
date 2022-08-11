@@ -209,12 +209,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         assert(inputChecker.rExist === lenCounter.working | ratioCounter.working)
 
         rmOutput.ready := False
+        val rmOutCount = outputChecker.hist.io.outStreams.sCount(x => x.valid && x.seenLast && x.axDone)
         when(inputChecker.rmExist) {
           assert(outputChecker.rmExist)
           rmOutput.ready := True
           assert(rmOutput.len === rmInput.len)
           assert(rmOutput.size === Util.size2Outsize(rmInput.size))
-          val rmOutCount = outputChecker.hist.io.outStreams.sCount(x => x.valid && x.seenLast && x.axDone)
           assert(rmOutCount === Util.size2Ratio(rmInput.size) + 1)
 
           when(rmOutCount > 1) {
@@ -253,16 +253,22 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           }.elsewhen(waitExist) {
             assert(waitInput.len === lenCounter.expected)
             assert(cmdCounter.expected === Util.size2Ratio(waitInput.size))
-            assert(rOutCount === cmdCounter.io.value + 1)
+
+            val preRmCount = CombInit(ratio.getZero)
+            when(inputChecker.rmExist) {
+              preRmCount := Util.size2Ratio(rmInput.size) + 1
+            }
+            assert(rOutCount + rmOutCount === cmdCounter.io.value + Util.size2Ratio(rInput.size) + preRmCount + 1)
 //            assert(cmdCounter.io.value === 0)
           }.otherwise {
             assert(rInput.len === lenCounter.expected)
             assert(cmdCounter.expected === Util.size2Ratio(rInput.size))
             assert(rOutCount === cmdCounter.io.value)
-//            when(rInput.size === 3 & !outputChecker.rmExist) {
-//              preRExist := True
-//            }
           }
+
+//          when(rInput.size === 3 & transferred > rInput.len) {
+//            assert(rOutCount + rmOutCount === cmdCounter.io.value + Util.size2Ratio(rInput.size) + 1)
+//          }
         }.otherwise {
           assert(countWaitingInputs === 0) // duplicated
         }
