@@ -34,6 +34,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
   val bQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   var allowGen = true
   var rspCounter = 0
+  val assertOkResp = true
   def pending = bQueue.exists(_.nonEmpty)
   val bDriver = StreamReadyRandomizer(b, clockDomain)
 
@@ -122,7 +123,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
 
     //WRITE RSP
     bQueue(id).enqueue { () =>
-      if(busConfig.useResp) assert(b.resp.toInt == 0)
+      if(busConfig.useResp && assertOkResp) assert(b.resp.toInt == 0)
       mappingFree(mapping)
     }
   }
@@ -173,6 +174,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   val rQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   var allowGen = true
   var rspCounter = 0
+  val assertOkResp = true
 
   def genAddress() : BigInt
   def mappingAllocate(mapping : SizeMapping) : Boolean
@@ -245,7 +247,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
 
     //READ RSP
     for(beat <- 0 to len) rQueue(id).enqueue { () =>
-      if(busConfig.useResp) assert(r.resp.toInt == 0)
+      if(busConfig.useResp && assertOkResp) assert(r.resp.toInt == 0)
       if(busConfig.useLast) assert(r.last.toBoolean == (beat == len))
       if((busConfig.useLast && r.last.toBoolean) || (beat == len)) {
         mappingFree(mapping)
