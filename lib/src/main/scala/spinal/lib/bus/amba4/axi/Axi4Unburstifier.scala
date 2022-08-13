@@ -33,7 +33,7 @@ object Axi4Unburstifier {
 class Axi4ReadOnlyUnburstifier(config: Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(Axi4ReadOnly(config))
-    val output = master(Axi4ReadOnly(config.copy(useLen = false, useBurst = false, useSize = false)))
+    val output = master(Axi4ReadOnly(config.copy(useLen = false, useBurst = false, useSize = false, useLast = false)))
   }
 
   val unburstified = io.input.ar.unburstify
@@ -41,7 +41,23 @@ class Axi4ReadOnlyUnburstifier(config: Axi4Config) extends Component {
   io.output.ar.arbitrationFrom(unburstified)
   io.output.ar.payload.assignSomeByName(unburstified.fragment)
 
-  io.output.r >> io.input.r
+  io.input.r.arbitrationFrom(io.output.r)
+  io.input.r.payload.assignSomeByName(io.output.r.payload)
+
+  if (config.useLast) {
+    val addrBeats = Reg(UInt(8 bit))
+    val active = RegInit(False)
+
+    when(io.input.ar.fire) {
+      addrBeats := io.input.ar.len
+      active set()
+    }
+
+    when(io.input.r.fire) {
+      addrBeats := addrBeats - 1
+    }
+    io.input.r.last := addrBeats === 0
+  }
 }
 
 class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
@@ -52,16 +68,18 @@ class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
 
   val unburstified = io.input.aw.unburstify
 
-  val addrBeats = Reg(UInt(9 bit))
+  val addrBeats = Reg(UInt(8 bit))
   val active = RegInit(False)
+  val done = RegInit(False)
   val resp = if (config.useResp) Reg(Bits(2 bit)) else null
 
   io.output.aw.arbitrationFrom(unburstified)
   io.output.aw.payload.assignSomeByName(unburstified.fragment)
 
   when(io.input.aw.fire) {
-    addrBeats := io.input.aw.len+^1
+    addrBeats := io.input.aw.len
     active := True
+    done clear()
     config.useResp generate resp.clearAll()
   }
 
@@ -71,6 +89,7 @@ class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
 
   when(io.output.b.fire) {
     addrBeats := addrBeats - 1
+    done setWhen(addrBeats === 0)
     config.useResp generate {
       when(resp.orR) {
         resp := io.output.b.resp
@@ -78,8 +97,9 @@ class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
     }
   }
 
-  io.input.b.valid := (addrBeats === 0 && active)
+  io.input.b.valid := done
   config.useResp generate { io.input.b.resp := resp }
 
   active clearWhen (io.input.b.fire)
+  done clearWhen (io.input.b.fire)
 }
