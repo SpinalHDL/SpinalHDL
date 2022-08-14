@@ -20,6 +20,24 @@ object Util {
       .otherwise { out := size }
     out
   }
+
+  def getMostNOnesMsb(that: Bits, N: UInt): Bits = {
+    val width = that.getWidth
+    val index = (1 until width)
+    val datas = index.map(x => that(x until width).resizeLeft(width))
+
+    val slices = index.map(x => that(x until width).resize(width bits))
+    val conds = slices.map(CountOne(_) >= N)
+    val out = cloneOf(that)
+    when(N === 0){
+      out := B(0)
+    }.elsewhen(conds.asBits =/= 0) {
+      out := PriorityMux(conds.zip(datas).reverse)
+    }.otherwise {
+      out := that
+    }
+    out
+  }
 }
 
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
@@ -171,6 +189,59 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 //        val rDoneItemCount = CombInit(ratio.getZero)
 
         val transferred = (rInput.count << Util.size2Ratio(rInput.size)) + ratioCounter.io.value
+
+        val validOutMask = outputChecker.hist.io.outStreams.map(x => x.valid).asBits()
+
+        val rmOutExpect = U(0, 3 bits)
+        when(inputChecker.rmExist) { rmOutExpect := Util.size2Ratio(rmInput.size) + 1}
+        val rmOutMask = Util.getMostNOnesMsb(validOutMask, rmOutExpect)
+
+        when(inputChecker.rmExist){
+          assert(rmOutMask =/= 0)
+          val firstOutOh = OHMasking.last(rmOutMask)
+          val firstOut = OHMux(firstOutOh, outputChecker.hist.io.outStreams)
+          assert(firstOut.size === Util.size2Outsize(rmInput.size))
+          assert(firstOut.len === rmInput.len)
+          when(rmOutExpect === 2){
+            val secondOut = OHMux(OHMasking.first(rmOutMask), outputChecker.hist.io.outStreams)
+            assert(secondOut.size === Util.size2Outsize(rmInput.size))
+            assert(secondOut.len === rmInput.len)
+          }
+        }
+        
+        val rOutExpect = U(0, 3 bits)
+        when(inputChecker.rExist) { rOutExpect := Util.size2Ratio(rInput.size) + 1}
+        val rOutMask = Util.getMostNOnesMsb(validOutMask & ~rmOutMask, rOutExpect)
+
+        when(inputChecker.rExist & (rOutMask =/= 0)){
+          val firstOutOh = OHMasking.last(rOutMask)
+          val firstOut = OHMux(firstOutOh, outputChecker.hist.io.outStreams)
+          assert(firstOut.size === Util.size2Outsize(rInput.size))
+          assert(firstOut.len === rInput.len)
+          val secondOutOh = OHMasking.first(rOutMask)
+          when(rOutExpect === 2 & (firstOutOh =/= secondOutOh)){
+            val secondOut = OHMux(secondOutOh, outputChecker.hist.io.outStreams)
+            assert(secondOut.size === Util.size2Outsize(rInput.size))
+            assert(secondOut.len === rInput.len)
+          }
+        }
+        
+        val waitOutExpect = U(0, 3 bits)
+        when(waitExist) { waitOutExpect := Util.size2Ratio(waitInput.size) + 1}
+        val waitOutMask = Util.getMostNOnesMsb(validOutMask & ~rmOutMask & ~rOutMask, waitOutExpect)
+
+        when(waitExist & (waitOutMask =/= 0)){
+          val firstOutOh = OHMasking.last(waitOutMask)
+          val firstOut = OHMux(firstOutOh, outputChecker.hist.io.outStreams)
+          assert(firstOut.size === Util.size2Outsize(waitInput.size))
+          assert(firstOut.len === waitInput.len)
+          val secondOutOh = OHMasking.first(waitOutMask)
+          when(waitOutExpect === 2 & (firstOutOh =/= secondOutOh)){
+            val secondOut = OHMux(secondOutOh, outputChecker.hist.io.outStreams)
+            assert(secondOut.size === Util.size2Outsize(waitInput.size))
+            assert(secondOut.len === waitInput.len)
+          }
+        }
 
         assert(undoneInCount <= 1)
         when(undoneExist) { assert(input.ar.valid & input.ar.len === undoneInput.len & input.ar.size === undoneInput.size) }
@@ -407,6 +478,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }
         when(lenCounter.working & dut.countOutStream.ratio > 0) { assert(dut.countOutStream.size === 2) }
         when(ratioCounter.working & dut.countStream.ratio > 0) { assert(dut.countStream.size === 2) }
+        when(ratioCounter.working) { assert(dut.countStream.size === Util.size2Outsize(rInput.size)) }
         when(lenCounter.io.working) {
           assert(dut.countOutStream.size === dut.cmdStream.size)
           assert(dut.countOutStream.len === dut.cmdStream.len)
