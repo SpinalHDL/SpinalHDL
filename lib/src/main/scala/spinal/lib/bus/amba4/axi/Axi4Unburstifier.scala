@@ -50,7 +50,7 @@ class Axi4ReadOnlyUnburstifier(config: Axi4Config) extends Component {
 
     when(io.input.ar.fire) {
       addrBeats := io.input.ar.len
-      active set()
+      active.set()
     }
 
     when(io.input.r.fire) {
@@ -79,7 +79,7 @@ class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
   when(io.input.aw.fire) {
     addrBeats := io.input.aw.len
     active := True
-    done clear()
+    done.clear()
     config.useResp generate resp.clearAll()
   }
 
@@ -89,7 +89,7 @@ class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
 
   when(io.output.b.fire) {
     addrBeats := addrBeats - 1
-    done setWhen(addrBeats === 0)
+    done.setWhen(addrBeats === 0)
     config.useResp generate {
       when(!resp.orR) {
         resp := io.output.b.resp
@@ -100,6 +100,6 @@ class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
   io.input.b.valid := done
   config.useResp generate { io.input.b.resp := resp }
 
-  active clearWhen (io.input.b.fire)
-  done clearWhen (io.input.b.fire)
+  active.clearWhen(io.input.b.fire)
+  done.clearWhen(io.input.b.fire)
 }
