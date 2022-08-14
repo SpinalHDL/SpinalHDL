@@ -249,18 +249,18 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         when(undoneOutExist) { assert(output.ar.valid & output.ar.len === undoneOutput.len & output.ar.size === undoneOutput.size) }
 
 //        when(!waitExist & !inputChecker.rExist) { assert(!undoneExist) }
-        when(waitExist) { waitItemCount := Util.size2Ratio(waitInput.size) + 1 }
+        // when(waitExist) { waitItemCount := Util.size2Ratio(waitInput.size) + 1 }
 //        when(cmdChecker.startedReg) { rDoneItemCount := 1 }
-        when(inputChecker.rExist) { rItemCount := Util.size2Ratio(rInput.size) + 1}
-        assert(countWaitingOutputs <= waitItemCount + rItemCount)
+        // when(inputChecker.rExist) { rItemCount := Util.size2Ratio(rInput.size) + 1}
+        // assert(countWaitingOutputs <= waitItemCount + rItemCount)
 
-        when(outputChecker.rExist && rInput.size === 3 && undoneOutExist) {
-          when(waitOutExist) {
-            assert(undoneOutId + 1 === waitOutId)
-          }.otherwise{
-            assert(undoneOutId + 1 === outputChecker.rId)
-          }
-        }
+        // when(outputChecker.rExist && rInput.size === 3 && undoneOutExist) {
+        //   when(waitOutExist) {
+        //     assert(undoneOutId + 1 === waitOutId)
+        //   }.otherwise{
+        //     assert(undoneOutId + 1 === outputChecker.rId)
+        //   }
+        // }
 
         when(waitExist) {
           assert(waitInput.len === dut.countOutStream.len)
