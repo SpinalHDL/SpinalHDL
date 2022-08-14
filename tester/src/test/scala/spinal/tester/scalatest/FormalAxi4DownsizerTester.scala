@@ -497,6 +497,13 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
             assert(dut.dataReg(U(outConfig.dataWidth) - (dut.offset << 3), outConfig.dataWidth bits) === dataHist(1))
           }
         }
+        val addrWidth = dut.countOutStream.size + dut.countOutStream.ratio
+        val addrMask = (U(1) << addrWidth - 1)
+        when(lenCounter.working & addrWidth === 3) { assert((dut.countOutStream.start & addrMask.resized) === 0) }
+
+        val cmdAddress = dut.generator.address
+        val cmdBoundAddress = cmdAddress + (((dut.generator.cmdExtendedStream.len +^ 1) << (dut.generator.size + cmdCounter.expected)) - 1).resized
+        when(cmdCounter.working & cmdCounter.io.value === 0) { assert(cmdAddress(12, inConfig.addressWidth-12 bits) === cmdBoundAddress(12, inConfig.addressWidth-12 bits) ) }
 
         when(dut.io.output.r.fire) { assert(ratioCounter.io.working) }
 
