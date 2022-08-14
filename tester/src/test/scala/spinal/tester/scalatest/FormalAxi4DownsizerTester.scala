@@ -349,6 +349,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
             }
           }.elsewhen(waitExist) {
             assert(cmdCounter.expected === Util.size2Ratio(waitInput.size))
+            assert(dut.generator.size === Util.size2Outsize(waitInput.size))
 
             val preRmCount = CombInit(ratio.getZero)
             when(inputChecker.rmExist) {
@@ -358,6 +359,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 //            assert(cmdCounter.io.value === 0)
           }.otherwise {
             assert(cmdCounter.expected === Util.size2Ratio(rInput.size))
+            assert(dut.generator.size === Util.size2Outsize(rInput.size))
             assert(rOutCount === cmdCounter.io.value)
             when(outputChecker.rExist) { assert(transferred === rOutput.count) }
           }
