@@ -484,9 +484,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(dut.countOutStream.size === dut.cmdStream.size)
           assert(dut.countOutStream.len === dut.cmdStream.len)
           assert(dut.countOutStream.ratio === cmdCounter.expected)
-          when(ratioCounter.io.working & waitExist) { assert(dut.lastLast) }
+          when(waitExist) { assert(dut.lastLast) }
+          .otherwise { assert(!dut.lastLast) }
         }.elsewhen(ratioCounter.io.working) {
           assert(dut.lastLast)
+        }.otherwise{
+          assert(!dut.lastLast)
         }
         when(inputChecker.rExist & rInput.size === 3 & ratioCounter.working) {
           assert(dut.offset === ratioCounter.io.value << 2)
