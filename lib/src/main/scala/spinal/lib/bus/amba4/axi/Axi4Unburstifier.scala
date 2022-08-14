@@ -91,7 +91,7 @@ class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
     addrBeats := addrBeats - 1
     done setWhen(addrBeats === 0)
     config.useResp generate {
-      when(resp.orR) {
+      when(!resp.orR) {
         resp := io.output.b.resp
       }
     }
