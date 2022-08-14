@@ -3,10 +3,10 @@ package spinal.lib.bus.amba4.axi
 import spinal.core._
 import spinal.lib._
 
-object Axi4Unburstifier {
+object Axi4Unburster {
   def apply(axi: Axi4): Axi4 = {
-    val roUnburstifier = new Axi4ReadOnlyUnburstifier(axi.config)
-    val woUnburstifier = new Axi4WriteOnlyUnbustifier(axi.config)
+    val roUnburstifier = new Axi4ReadOnlyUnburster(axi.config)
+    val woUnburstifier = new Axi4WriteOnlyUnburster(axi.config)
 
     roUnburstifier.io.input << axi.toReadOnly()
     woUnburstifier.io.input << axi.toWriteOnly()
@@ -18,19 +18,19 @@ object Axi4Unburstifier {
   }
 
   def apply(axi: Axi4ReadOnly): Axi4ReadOnly = {
-    val unburstifier = new Axi4ReadOnlyUnburstifier(axi.config)
+    val unburstifier = new Axi4ReadOnlyUnburster(axi.config)
     unburstifier.io.input << axi
     unburstifier.io.output
   }
 
   def apply(axi: Axi4WriteOnly): Axi4WriteOnly = {
-    val unburstifier = new Axi4WriteOnlyUnbustifier(axi.config)
+    val unburstifier = new Axi4WriteOnlyUnburster(axi.config)
     unburstifier.io.input << axi
     unburstifier.io.output
   }
 }
 
-class Axi4ReadOnlyUnburstifier(config: Axi4Config) extends Component {
+class Axi4ReadOnlyUnburster(config: Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(Axi4ReadOnly(config))
     val output = master(Axi4ReadOnly(config.copy(useLen = false, useBurst = false, useSize = false, useLast = false)))
@@ -60,7 +60,7 @@ class Axi4ReadOnlyUnburstifier(config: Axi4Config) extends Component {
   }
 }
 
-class Axi4WriteOnlyUnbustifier(config: Axi4Config) extends Component {
+class Axi4WriteOnlyUnburster(config: Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(Axi4WriteOnly(config))
     val output = master(Axi4WriteOnly(config.copy(useLen = false, useBurst = false, useSize = false)))
