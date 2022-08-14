@@ -307,7 +307,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(rmOutCount === Util.size2Ratio(rmInput.size) + 1)
 
           when(rmOutCount > 1) {
-            val preRm = outputChecker.hist.io.outStreams(outputChecker.rmId - 1)
+            val preRm = OHMux(OHMasking.last(rmOutMask), outputChecker.hist.io.outStreams)
             assert(preRm.valid & preRm.axDone & preRm.seenLast)
             preRm.ready := True
             assert(preRm.len === rmInput.len)
@@ -315,7 +315,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
             assert(rmInput.size === 3)
           }
         }.elsewhen(outputChecker.rmExist) {
-          assert(outputChecker.rExist && outputChecker.rId === outputChecker.rmId - 1 )
           assert(rOutput.len === rmOutput.len)
           assert(rOutput.size === rmOutput.size)
           assert(rmOutput.size === 2)
@@ -396,7 +395,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }
 
         when(preRExist) {
-          val preRm = outputChecker.hist.io.outStreams(outputChecker.rId - 1)
+          val preRm = OHMux(OHMasking.first(rOutMask), outputChecker.hist.io.outStreams)
           assert(preRm.valid & preRm.axDone & !preRm.seenLast)
           assert(preRm.len === rInput.len)
           assert(preRm.size === Util.size2Outsize(rInput.size))
@@ -404,7 +403,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }
 
         when(postRExist & !inputChecker.rmExist) {
-          val postRm = outputChecker.hist.io.outStreams(outputChecker.rId + 1)
+          val postRm = OHMux(OHMasking.last(rOutMask), outputChecker.hist.io.outStreams)
           assert(postRm.valid & postRm.axDone & postRm.seenLast)
           assert(postRm.len === rInput.len)
           assert(postRm.size === Util.size2Outsize(rInput.size))
