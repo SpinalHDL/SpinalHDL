@@ -106,7 +106,7 @@ class Axi4UpsizerTester extends AnyFunSuite {
         }
       }
 
-      override def onResponse(address: BigInt, id: Int, last: Boolean, resp: Byte): Unit = assert(last && reads.isEmpty)
+      override def onResponse(address: BigInt, id: Int, last: Boolean, resp: Byte): Unit = if (last) assert(reads.isEmpty)
     }
 
 

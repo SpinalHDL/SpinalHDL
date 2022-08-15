@@ -453,6 +453,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
     val addr = aw.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
+    val bytePerBus = 1 << log2Up(busConfig.dataWidth / 8)
 
     onWriteStart(addr, id, size, len, burst)
 
@@ -473,9 +474,12 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
         val data = w.data
         val start = ((beatAddress & ~BigInt(bytePerBeat-1)) - accessAddress).toInt
         val end = start + bytePerBeat
-        for(i <- start until end){
-          if(((strb >> i) & 1) != 0){
-            onWriteByte(accessAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte, id)
+        for(i <- 0 until bytePerBus){
+          val _byte = ((data >> (8*i)).toInt & 0xFF).toByte
+          val strobe = ((strb >> i) & 1) != 0
+          onWriteByteAlways(accessAddress + i, _byte, strobe, id)
+          if (start <= i && i < end && strobe) {
+            onWriteByte(accessAddress + i, _byte, id)
           }
         }
       }
@@ -521,6 +525,8 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
       + "determine the burst length of transcation by last signal should not work.")
   }
 
+  val assertOkResp = true
+
   def onReadStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {}
   def onReadByteAlways(address: BigInt, data: Byte, id: Int): Unit = {}
   def onReadByte(address : BigInt, data : Byte, id : Int) : Unit = {}
@@ -536,6 +542,7 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
     val addr = ar.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
+    val bytePerBus = 1 << log2Up(busConfig.dataWidth / 8)
 
     onReadStart(addr, id, size, len, burst)
 
@@ -552,14 +559,16 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
 
       rQueue += { () =>
         if(busConfig.useLast) assert(r.last.toBoolean == (beat == len))
+        if(busConfig.useResp && assertOkResp) assert(r.resp.toInt == 0)
         val data = r.data.toBigInt
         val start = ((beatAddress & ~BigInt(bytePerBeat-1)) - accessAddress).toInt
         val end = start + bytePerBeat
-        for(i <- 0 until bytePerBeat){
+        for(i <- 0 until bytePerBus){
           val _byte = ((data >> (8*i)).toInt & 0xFF).toByte
           onReadByteAlways(accessAddress + i, _byte, id)
-          if (i >= start && i < end)
+          if (start <= i && i < end) {
             onReadByte(accessAddress + i, _byte, id)
+          }
         }
         val last = (busConfig.useLast && r.last.toBoolean) || (beat == len)
         val resp: Byte = if (busConfig.useResp) r.resp.toInt.toByte else 0
