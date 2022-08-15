@@ -104,6 +104,14 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     val (rmExist, rmId) =
       hist.findFirst(x => x.valid && x.seenLast && x.axDone)
     when(rmExist) { hist.io.outStreams(rmId).ready := True }
+    
+    val (undoneExist, undoneId) = hist.findFirst(x => x.valid & !x.axDone)
+    val undoneInput = hist.io.outStreams(undoneId)
+    val undoneCount = hist.io.outStreams.sCount(x => x.valid & !x.axDone)    
+    assert(undoneCount <= 1)
+    when(undoneExist) {
+      assert(ar.valid & undoneInput.equalToAx(ar.asInstanceOf[Stream[Axi4Ax]]))
+    }
 
     val errors = new Area {
       val reset = ClockDomain.current.isResetActive

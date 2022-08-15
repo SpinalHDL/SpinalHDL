@@ -189,18 +189,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val waitId = CombInit(cmdId)
         val waitInput = inputChecker.hist.io.outStreams(cmdId)
 
-        val (waitFirstOutExist, waitOutId) =
-          outputChecker.hist.io.outStreams.sFindFirst(x => x.valid & x.axDone & !x.seenLast)
-        val waitOutExist = waitFirstOutExist & (waitOutId =/= outputChecker.rId)
-
-        val (undoneExist, undoneId) = inputChecker.hist.findFirst(x => x.valid & !x.axDone)
-        val undoneInput = inputChecker.hist.io.outStreams(undoneId)
-        val undoneInCount = inputChecker.hist.io.outStreams.sCount(x => x.valid & !x.axDone)
-
-        val (undoneOutExist, undoneOutId) = outputChecker.hist.findFirst(x => x.valid & !x.axDone)
-        val undoneOutput = outputChecker.hist.io.outStreams(undoneOutId)
-        val undoneOutCount = outputChecker.hist.io.outStreams.sCount(x => x.valid & !x.axDone)
-
         val cmdCounter = dut.generator.cmdExtender.counter
         val cmdChecker = cmdCounter.withAsserts()
         val lenCounter = dut.dataOutCounter.counter
@@ -244,15 +232,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val waitOutExpect = waitOutLogic.expected
         val waitOutMask = waitOutLogic.outMask
 
-        assert(undoneInCount <= 1)
-        when(undoneExist) {
-          assert(input.ar.valid & input.ar.len === undoneInput.len & input.ar.size === undoneInput.size)
-        }
-        assert(undoneOutCount <= 1)
-        when(undoneOutExist) {
-          assert(output.ar.valid & output.ar.len === undoneOutput.len & output.ar.size === undoneOutput.size)
-        }
-
         when(waitExist) {
           assert(waitInput.len === dut.countOutStream.len)
           assert(dut.countOutStream.size === Util.size2Outsize(waitInput.size))
@@ -275,15 +254,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }.otherwise {
           assert(!lenCounter.working & !ratioCounter.working)
         }
-        assert(undoneOutCount <= 1)
 
         when(waitExist) {
           assert(countWaitingInputs === 2)
           assert(lenCounter.working & ratioCounter.working)
-          when(undoneExist) { assert(waitId === undoneId + 1) }
         }.otherwise {
           assert(countWaitingInputs < 2)
-//          assert(undoneOutCount === 0)
         }
 
         assert(inputChecker.rExist === lenCounter.working | ratioCounter.working)

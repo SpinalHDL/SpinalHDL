@@ -487,6 +487,16 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
     axDone := ax.ready
   }
 
+  def equalToAx(ax: Stream[Axi4Ax]): Bool = {
+    val addrCond = addr === ax.addr.resize(addr.getWidth)
+    val lockCond = if (config.useLock) isLockExclusive === (ax.lock === Axi4.lock.EXCLUSIVE) else True
+    val burstCond = if (config.useBurst) burst === ax.burst else True
+    val lenCond = if (config.useLen) len === ax.len else True
+    val sizeCond = if (config.useSize) size === ax.size else True
+    val idCond = if (config.useId) id === ax.id else True
+    addrCond & lockCond & burstCond & lenCond & sizeCond & idCond  
+  }
+
   def assignFromW(w: Stream[Axi4W], selected: FormalAxi4Record) = new Area {
     seenLast := w.last & w.ready
     when(w.ready) { count := selected.count + 1 }.otherwise { count := selected.count }
