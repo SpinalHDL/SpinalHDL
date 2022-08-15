@@ -364,17 +364,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         when(preRExist) {
           val preRm = OHMux(OHMasking.first(rOutMask), outputChecker.hist.io.outStreams)
           assert(preRm.valid & preRm.axDone & !preRm.seenLast)
-          assert(preRm.len === rInput.len)
-          assert(preRm.size === rOutsize)
           assert(transferred === rOutput.count)
         }
 
         when(postRExist & !inputChecker.rmExist) {
           val postRm = OHMux(OHMasking.last(rOutMask), outputChecker.hist.io.outStreams)
           assert(postRm.valid & postRm.axDone & postRm.seenLast)
-          assert(postRm.len === rInput.len)
-          assert(postRm.size === rOutsize)
-
           assert(transferred === rOutput.count + rInput.len + 1)
         }
 
@@ -411,7 +406,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }.elsewhen(dataCheckSize3) {
           assert(dataHist(0) === d2 & dataHist(1) === d1)
         }
-//        when(size === 3 & past(dut.dataReg(highRange) === d1)) { assert( dataHist(1) === d1) }
         cover(dataCheckSizeLess3)
         cover(dataCheckSize3)
 
@@ -451,7 +445,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           )
         }
 
-        when(dut.io.output.r.fire) { assert(ratioCounter.io.working) }
+        when(dut.io.output.r.fire) { assert(ratioCounter.working) }
 
         val selected = inputChecker.hist.io.outStreams(inputChecker.rmId)
         cover(inputChecker.rmExist)
