@@ -182,7 +182,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val rmInput = inputChecker.hist.io.outStreams(inputChecker.rmId)
         val rmOutput = outputChecker.hist.io.outStreams(outputChecker.rmId)
-        val rmOutsize = Util.size2Outsize(rmInput.size)
         val rmRatio = Util.size2Ratio(rmInput.size)
 
         val (doneExist, doneId) = inputChecker.hist.io.outStreams.sFindFirst(x => x.valid & x.axDone)
@@ -196,10 +195,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val lenCounter = dut.dataOutCounter.counter
         val ratioCounter = dut.dataCounter.counter
         val dutChecker = dut.withAsserts()
-
-        val cmdChecker = dutChecker.cmdChecker
-        val lenChecker = dutChecker.lenChecker
-        val ratioChecker = dutChecker.ratioChecker
 
         val transferred = (rInput.count << rRatio) + ratioCounter.io.value
 
