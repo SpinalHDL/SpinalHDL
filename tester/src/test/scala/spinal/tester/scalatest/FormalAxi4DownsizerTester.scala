@@ -256,7 +256,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(dut.countOutStream.size === waitOutsize)
           assert(dut.countOutStream.ratio === waitRatio)
 
-          assert(ratioCounter.expected === rRatio)
           assert(lenCounter.expected === waitInput.len)
           assert(lenCounter.working & lenCounter.io.value === 0)
           assert(lenCounter.working & ratioCounter.working)
@@ -353,6 +352,11 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
               assert(rInput.count === rInput.len)
             }
           }
+
+          when(ratioCounter.working) { 
+            assert(ratioCounter.expected === rRatio)
+            assert(dut.countStream.size === rOutsize)
+          }
         }.otherwise {
           assert(countWaitingInputs === 0) // duplicated
         }
@@ -411,22 +415,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         cover(dataCheckSizeLess3)
         cover(dataCheckSize3)
 
-        when(inputChecker.rExist & !waitExist) {
-          assert(lenCounter.expected === rInput.len)
-        }
-
-        when(ratioCounter.io.working) {
-          val ratio = rRatio
-          assert(inputChecker.rExist & (ratioCounter.expected === ratio))
-        }
-
         when(lenChecker.startedReg) {
           assert(dut.countStream.payload === dut.countOutStream.payload)
         }
         when(lenCounter.working & dut.countOutStream.ratio > 0) { assert(dut.countOutStream.size === 2) }
         when(ratioCounter.working & dut.countStream.ratio > 0) { assert(dut.countStream.size === 2) }
-        when(ratioCounter.working) { assert(dut.countStream.size === rOutsize) }
-        when(lenCounter.io.working) {
+        when(lenCounter.working) {
           assert(dut.countOutStream.size === dut.cmdStream.size)
           assert(dut.countOutStream.len === dut.cmdStream.len)
           assert(dut.countOutStream.ratio === cmdCounter.expected)
@@ -437,6 +431,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }.otherwise {
           assert(!dut.lastLast)
         }
+
         when(inputChecker.rExist & rInput.size === 3 & ratioCounter.working) {
           assert(dut.offset === ratioCounter.io.value << 2)
           when(transferred > 0 || rOutput.count > 0) {
