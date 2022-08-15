@@ -203,6 +203,15 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val transferred = (rInput.count << rRatio) + ratioCounter.io.value
 
+        assert(inputChecker.rExist === (lenCounter.working | ratioCounter.working))
+        // constraints on input history.
+        when(waitExist) {
+          assert(countWaitingInputs === 2)
+        }.otherwise {
+          assert(countWaitingInputs < 2)
+        }
+
+        // sync on input and output history.
         val validOutMask = outputChecker.hist.io.outStreams.map(x => x.valid).asBits()
         val rmOutLogic = Util.constraintByMask(
           inputChecker.rmExist,
@@ -232,16 +241,16 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val waitOutMask = waitOutLogic.outMask
 
         when(waitExist) {
-          assert(waitInput.len === dut.countOutStream.len)
+          assert(dut.countOutStream.len === waitInput.len)
           assert(dut.countOutStream.size === waitOutsize)
           assert(dut.countOutStream.ratio === waitRatio)
 
           assert(ratioCounter.expected === rRatio)
           assert(lenCounter.expected === waitInput.len)
           assert(lenCounter.working & lenCounter.io.value === 0)
-
+          assert(lenCounter.working & ratioCounter.working)
         }.elsewhen(inputChecker.rExist) {
-          assert(rInput.len === dut.countOutStream.len)
+          assert(dut.countOutStream.len === rInput.len)
           assert(dut.countOutStream.size === rOutsize)
           assert(dut.countOutStream.ratio === rRatio)
           when(lenCounter.working) {
@@ -253,15 +262,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }.otherwise {
           assert(!lenCounter.working & !ratioCounter.working)
         }
-
-        when(waitExist) {
-          assert(countWaitingInputs === 2)
-          assert(lenCounter.working & ratioCounter.working)
-        }.otherwise {
-          assert(countWaitingInputs < 2)
-        }
-
-        assert(inputChecker.rExist === lenCounter.working | ratioCounter.working)
 
         rmOutput.ready := False
         val rmOutCount = outputChecker.hist.io.outStreams.sCount(x => x.valid && x.seenLast && x.axDone)
