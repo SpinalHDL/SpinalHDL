@@ -173,8 +173,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val countWaitingInputs = inputChecker.hist.io.outStreams.sCount(x => x.valid && !x.seenLast && x.axDone)
         assert(countWaitingInputs <= 2)
-        val countWaitingOutputs = outputChecker.hist.io.outStreams.sCount(x => x.valid && !x.seenLast && x.axDone)
-        assert(countWaitingOutputs <= 4)
 
         val rInput = inputChecker.hist.io.outStreams(inputChecker.rId)
         val rOutput = outputChecker.hist.io.outStreams(outputChecker.rId)
@@ -241,6 +239,17 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         )
         val waitOutExpect = waitOutLogic.expected
         val waitOutMask = waitOutLogic.outMask
+
+        when(outputChecker.rExist) {
+          assert((rOutMask.asUInt & (U(1) << outputChecker.rId).resized) =/= 0)
+        }
+        when(outputChecker.rmExist) {
+          when(inputChecker.rmExist) {
+            assert(OHMasking.last(rmOutMask).asUInt === (U(1) << outputChecker.rmId))
+          }.otherwise {
+            assert(OHMasking.last(rOutMask).asUInt === (U(1) << outputChecker.rmId))
+          }
+        }
 
         when(waitExist) {
           assert(dut.countOutStream.len === waitInput.len)
@@ -343,8 +352,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
             }.otherwise {
               assert(rInput.count === rInput.len)
             }
-
-            assert((rOutMask.asUInt & (U(1) << outputChecker.rId).resized) =/= 0)
           }
         }.otherwise {
           assert(countWaitingInputs === 0) // duplicated
