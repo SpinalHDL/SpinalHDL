@@ -33,10 +33,11 @@ object Axi4Unburster {
 class Axi4ReadOnlyUnburster(config: Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(Axi4ReadOnly(config))
-    val output = master(Axi4ReadOnly(config.copy(useLen = false, useBurst = false, useSize = false, useLast = false)))
+    val output = master(Axi4ReadOnly(config.copy(useLen = false, useBurst = false)))
   }
 
-  val unburstified = io.input.ar.unburstify
+  val active = if (config.useLast) RegInit(False) else False
+  val unburstified = io.input.ar.continueWhen(!active).unburstify
 
   io.output.ar.arbitrationFrom(unburstified)
   io.output.ar.payload.assignSomeByName(unburstified.fragment)
@@ -46,7 +47,6 @@ class Axi4ReadOnlyUnburster(config: Axi4Config) extends Component {
 
   if (config.useLast) {
     val addrBeats = Reg(UInt(8 bit))
-    val active = RegInit(False)
 
     when(io.input.ar.fire) {
       addrBeats := io.input.ar.len
@@ -56,6 +56,8 @@ class Axi4ReadOnlyUnburster(config: Axi4Config) extends Component {
     when(io.input.r.fire) {
       addrBeats := addrBeats - 1
     }
+    active.clearWhen(io.input.r.fire && io.input.r.last)
+    io.input.r.last.allowOverride
     io.input.r.last := addrBeats === 0
   }
 }
@@ -63,15 +65,17 @@ class Axi4ReadOnlyUnburster(config: Axi4Config) extends Component {
 class Axi4WriteOnlyUnburster(config: Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(Axi4WriteOnly(config))
-    val output = master(Axi4WriteOnly(config.copy(useLen = false, useBurst = false, useSize = false)))
+    val output = master(Axi4WriteOnly(config.copy(useLen = false, useBurst = false)))
   }
 
-  val unburstified = io.input.aw.unburstify
 
   val addrBeats = Reg(UInt(8 bit))
   val active = RegInit(False)
   val done = RegInit(False)
   val resp = if (config.useResp) Reg(Bits(2 bit)) else null
+  val lastB = RegNextWhen(io.output.b.payload, !done && active)
+
+  val unburstified = io.input.aw.continueWhen(!active).unburstify
 
   io.output.aw.arbitrationFrom(unburstified)
   io.output.aw.payload.assignSomeByName(unburstified.fragment)
@@ -84,6 +88,10 @@ class Axi4WriteOnlyUnburster(config: Axi4Config) extends Component {
   }
 
   io.output.w << io.input.w
+  if (config.useLast) {
+    io.output.w.last.allowOverride
+    io.output.w.last := True
+  }
 
   io.output.b.ready := active
 
@@ -98,7 +106,11 @@ class Axi4WriteOnlyUnburster(config: Axi4Config) extends Component {
   }
 
   io.input.b.valid := done
-  config.useResp generate { io.input.b.resp := resp }
+  io.input.b.payload.assignSomeByName(lastB)
+  config.useResp generate {
+    io.input.b.resp.allowOverride
+    io.input.b.resp := resp
+  }
 
   active.clearWhen(io.input.b.fire)
   done.clearWhen(io.input.b.fire)
