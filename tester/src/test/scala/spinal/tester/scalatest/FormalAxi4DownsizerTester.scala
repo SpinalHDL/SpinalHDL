@@ -204,6 +204,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val transferred = (rInput.count << rRatio) + ratioCounter.io.value
 
         assert(inputChecker.rExist === (lenCounter.working | ratioCounter.working))
+        assert(inputChecker.rExist === (outputChecker.rExist | output.ar.valid))
+
         // constraints on input history.
         when(waitExist) {
           assert(countWaitingInputs === 2)
@@ -270,27 +272,14 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           when(inputChecker.rExist) { assert(rInput.count === 0) }
           when(outputChecker.rExist) { assert(rOutput.count === 0) }
           rmOutput.ready := True
-          assert(rmOutput.len === rmInput.len)
-          assert(rmOutput.size === rmOutsize)
           assert(rmOutCount === rmRatio + 1)
 
           when(rmOutCount > 1) {
             val preRm = OHMux(OHMasking.first(rmOutMask), outputChecker.hist.io.outStreams)
             assert(preRm.valid & preRm.axDone & preRm.seenLast)
             preRm.ready := True
-            assert(preRm.len === rmInput.len)
-            assert(preRm.size === rmOutsize)
-            assert(rmInput.size === 3)
           }
-        }.elsewhen(outputChecker.rmExist) {
-          assert(rOutput.len === rmOutput.len)
-          assert(rOutput.size === rmOutput.size)
-          assert(rmOutput.size === 2)
-          assert(rInput.size === 3)
-          when(!waitExist) { assert(countWaitingOutputs === 1) }
         }
-
-        assert(inputChecker.rExist === (outputChecker.rExist | output.ar.valid))
 
         val preRExist = CombInit(False)
         val postRExist = CombInit(False)
