@@ -142,7 +142,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val maxStall = 16
         val inputChecker = input.formalContext(3)
         inputChecker.withSlaveAsserts()
-        inputChecker.withSlaveAssumes(1)
+        inputChecker.withSlaveAssumes(2)
         val outputChecker = output.formalContext(5)
         outputChecker.withMasterAsserts(maxStall)
         outputChecker.withMasterAssumes(maxStall)
