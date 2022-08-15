@@ -278,6 +278,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           when(lenCounter.working){
             when(lenCounter.io.value > 0) { assert(rInput.count + 1 === lenCounter.io.value) }
               .otherwise { assert(rInput.count === 0) }
+            when(ratioCounter.working) { assert(lenCounter.io.value > 0)}
+              .otherwise { assert(lenCounter.io.value === 0) }
           }
         }.otherwise {
           assert(!lenCounter.working & !ratioCounter.working)
