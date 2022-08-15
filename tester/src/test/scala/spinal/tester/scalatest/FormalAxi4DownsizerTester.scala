@@ -29,7 +29,7 @@ object Util {
     val slices = index.map(x => that(x until width).resize(width bits))
     val conds = slices.map(CountOne(_) >= N)
     val out = cloneOf(that)
-    when(N === 0){
+    when(N === 0) {
       out := B(0)
     }.elsewhen(conds.asBits =/= 0) {
       out := PriorityMux(conds.zip(datas).reverse)
@@ -39,18 +39,24 @@ object Util {
     out
   }
 
-  def constraintByMask(enable: Bool, mask: Bits, count: UInt, streams: Vec[Stream[FormalAxi4Record]], target: FormalAxi4Record) = new Area {
+  def constraintByMask(
+      enable: Bool,
+      mask: Bits,
+      count: UInt,
+      streams: Vec[Stream[FormalAxi4Record]],
+      target: FormalAxi4Record
+  ) = new Area {
     val expected = U(0, 3 bits)
-    when(enable) { expected := count}
+    when(enable) { expected := count }
     val outMask = getMostNOnesMsb(mask, expected)
 
-    when(enable & (outMask =/= 0)){
+    when(enable & (outMask =/= 0)) {
       val firstOutOh = OHMasking.last(outMask)
       val firstOut = OHMux(firstOutOh, streams)
       assert(firstOut.size === size2Outsize(target.size))
       assert(firstOut.len === target.len)
       val secondOutOh = OHMasking.first(outMask)
-      when(expected === 2 & (firstOutOh =/= secondOutOh)){
+      when(expected === 2 & (firstOutOh =/= secondOutOh)) {
         val secondOut = OHMux(secondOutOh, streams)
         assert(secondOut.size === size2Outsize(target.size))
         assert(secondOut.len === target.len)
@@ -184,7 +190,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val waitId = CombInit(cmdId)
         val waitInput = inputChecker.hist.io.outStreams(cmdId)
 
-        val (waitFirstOutExist, waitOutId) = outputChecker.hist.io.outStreams.sFindFirst(x => x.valid & x.axDone & !x.seenLast)
+        val (waitFirstOutExist, waitOutId) =
+          outputChecker.hist.io.outStreams.sFindFirst(x => x.valid & x.axDone & !x.seenLast)
         val waitOutExist = waitFirstOutExist & (waitOutId =/= outputChecker.rId)
 
         val (undoneExist, undoneId) = inputChecker.hist.findFirst(x => x.valid & !x.axDone)
@@ -212,37 +219,43 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val validOutMask = outputChecker.hist.io.outStreams.map(x => x.valid).asBits()
 
         val rmOutExpect = U(0, 3 bits)
-        when(inputChecker.rmExist) { rmOutExpect := Util.size2Ratio(rmInput.size) + 1}
+        when(inputChecker.rmExist) { rmOutExpect := Util.size2Ratio(rmInput.size) + 1 }
         val rmOutMask = Util.getMostNOnesMsb(validOutMask, rmOutExpect)
 
-        when(inputChecker.rmExist){
+        when(inputChecker.rmExist) {
           assert(rmOutMask =/= 0)
           val firstOutOh = OHMasking.last(rmOutMask)
           val firstOut = OHMux(firstOutOh, outputChecker.hist.io.outStreams)
           assert(firstOut.size === Util.size2Outsize(rmInput.size))
           assert(firstOut.len === rmInput.len)
-          when(rmOutExpect === 2){
+          when(rmOutExpect === 2) {
             val secondOut = OHMux(OHMasking.first(rmOutMask), outputChecker.hist.io.outStreams)
             assert(secondOut.size === Util.size2Outsize(rmInput.size))
             assert(secondOut.len === rmInput.len)
           }
         }
-        
-        val rOutLogic = Util.constraintByMask(inputChecker.rExist, validOutMask & ~rmOutMask, Util.size2Ratio(rInput.size) + 1, outputChecker.hist.io.outStreams, rInput)
+
+        val rOutLogic = Util.constraintByMask(
+          inputChecker.rExist,
+          validOutMask & ~rmOutMask,
+          Util.size2Ratio(rInput.size) + 1,
+          outputChecker.hist.io.outStreams,
+          rInput
+        )
         val rOutExpect = rOutLogic.expected
         val rOutMask = rOutLogic.outMask
-        
+
         val waitOutExpect = U(0, 3 bits)
-        when(waitExist) { waitOutExpect := Util.size2Ratio(waitInput.size) + 1}
+        when(waitExist) { waitOutExpect := Util.size2Ratio(waitInput.size) + 1 }
         val waitOutMask = Util.getMostNOnesMsb(validOutMask & ~rmOutMask & ~rOutMask, waitOutExpect)
 
-        when(waitExist & (waitOutMask =/= 0)){
+        when(waitExist & (waitOutMask =/= 0)) {
           val firstOutOh = OHMasking.last(waitOutMask)
           val firstOut = OHMux(firstOutOh, outputChecker.hist.io.outStreams)
           assert(firstOut.size === Util.size2Outsize(waitInput.size))
           assert(firstOut.len === waitInput.len)
           val secondOutOh = OHMasking.first(waitOutMask)
-          when(waitOutExpect === 2 & (firstOutOh =/= secondOutOh)){
+          when(waitOutExpect === 2 & (firstOutOh =/= secondOutOh)) {
             val secondOut = OHMux(secondOutOh, outputChecker.hist.io.outStreams)
             assert(secondOut.size === Util.size2Outsize(waitInput.size))
             assert(secondOut.len === waitInput.len)
@@ -250,9 +263,13 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         }
 
         assert(undoneInCount <= 1)
-        when(undoneExist) { assert(input.ar.valid & input.ar.len === undoneInput.len & input.ar.size === undoneInput.size) }
+        when(undoneExist) {
+          assert(input.ar.valid & input.ar.len === undoneInput.len & input.ar.size === undoneInput.size)
+        }
         assert(undoneOutCount <= 1)
-        when(undoneOutExist) { assert(output.ar.valid & output.ar.len === undoneOutput.len & output.ar.size === undoneOutput.size) }
+        when(undoneOutExist) {
+          assert(output.ar.valid & output.ar.len === undoneOutput.len & output.ar.size === undoneOutput.size)
+        }
 
         when(waitExist) {
           assert(waitInput.len === dut.countOutStream.len)
@@ -267,10 +284,10 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(rInput.len === dut.countOutStream.len)
           assert(dut.countOutStream.size === Util.size2Outsize(rInput.size))
           assert(dut.countOutStream.ratio === Util.size2Ratio(rInput.size))
-          when(lenCounter.working){
+          when(lenCounter.working) {
             when(lenCounter.io.value > 0) { assert(rInput.count + 1 === lenCounter.io.value) }
               .otherwise { assert(rInput.count === 0) }
-            when(ratioCounter.working) { assert(lenCounter.io.value > 0)}
+            when(ratioCounter.working) { assert(lenCounter.io.value > 0) }
               .otherwise { assert(lenCounter.io.value === 0) }
           }
         }.otherwise {
@@ -328,7 +345,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val rmOutMax = CombInit(rOutCount.getZero)
         when(inputChecker.rExist) {
           when(!output.ar.valid) {
-            when(rInput.size === 3){
+            when(rInput.size === 3) {
               when(!outputChecker.rmExist) {
                 preRExist := True
               }.otherwise {
@@ -376,7 +393,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
             }.otherwise {
               assert(transferred === rOutput.count)
             }
-            
+
             when(lenCounter.working) {
               // when(lenChecker.startedReg) { assert(lenCounter.io.value === rInput.count + 1) }
               when(rInput.count < rInput.len) {
@@ -481,10 +498,10 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(dut.countOutStream.len === dut.cmdStream.len)
           assert(dut.countOutStream.ratio === cmdCounter.expected)
           when(waitExist) { assert(dut.lastLast) }
-          .otherwise { assert(!dut.lastLast) }
+            .otherwise { assert(!dut.lastLast) }
         }.elsewhen(ratioCounter.io.working) {
           assert(dut.lastLast)
-        }.otherwise{
+        }.otherwise {
           assert(!dut.lastLast)
         }
         when(inputChecker.rExist & rInput.size === 3 & ratioCounter.working) {
@@ -498,8 +515,13 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         when(lenCounter.working & addrWidth === 3) { assert((dut.countOutStream.start & addrMask.resized) === 0) }
 
         val cmdAddress = dut.generator.address
-        val cmdBoundAddress = cmdAddress + (((dut.generator.cmdExtendedStream.len +^ 1) << (dut.generator.size + cmdCounter.expected)) - 1).resized
-        when(cmdCounter.working & cmdCounter.io.value === 0) { assert(cmdAddress(12, inConfig.addressWidth-12 bits) === cmdBoundAddress(12, inConfig.addressWidth-12 bits) ) }
+        val cmdBoundAddress =
+          cmdAddress + (((dut.generator.cmdExtendedStream.len +^ 1) << (dut.generator.size + cmdCounter.expected)) - 1).resized
+        when(cmdCounter.working & cmdCounter.io.value === 0) {
+          assert(
+            cmdAddress(12, inConfig.addressWidth - 12 bits) === cmdBoundAddress(12, inConfig.addressWidth - 12 bits)
+          )
+        }
 
         when(dut.io.output.r.fire) { assert(ratioCounter.io.working) }
 
