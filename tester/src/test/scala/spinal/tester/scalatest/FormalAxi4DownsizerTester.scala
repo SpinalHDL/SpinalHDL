@@ -38,6 +38,25 @@ object Util {
     }
     out
   }
+
+  def constraintByMask(enable: Bool, mask: Bits, count: UInt, streams: Vec[Stream[FormalAxi4Record]], target: FormalAxi4Record) = new Area {
+    val expected = U(0, 3 bits)
+    when(enable) { expected := count}
+    val outMask = getMostNOnesMsb(mask, expected)
+
+    when(enable & (outMask =/= 0)){
+      val firstOutOh = OHMasking.last(outMask)
+      val firstOut = OHMux(firstOutOh, streams)
+      assert(firstOut.size === size2Outsize(target.size))
+      assert(firstOut.len === target.len)
+      val secondOutOh = OHMasking.first(outMask)
+      when(expected === 2 & (firstOutOh =/= secondOutOh)){
+        val secondOut = OHMux(secondOutOh, streams)
+        assert(secondOut.size === size2Outsize(target.size))
+        assert(secondOut.len === target.len)
+      }
+    }
+  }
 }
 
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
@@ -209,22 +228,9 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           }
         }
         
-        val rOutExpect = U(0, 3 bits)
-        when(inputChecker.rExist) { rOutExpect := Util.size2Ratio(rInput.size) + 1}
-        val rOutMask = Util.getMostNOnesMsb(validOutMask & ~rmOutMask, rOutExpect)
-
-        when(inputChecker.rExist & (rOutMask =/= 0)){
-          val firstOutOh = OHMasking.last(rOutMask)
-          val firstOut = OHMux(firstOutOh, outputChecker.hist.io.outStreams)
-          assert(firstOut.size === Util.size2Outsize(rInput.size))
-          assert(firstOut.len === rInput.len)
-          val secondOutOh = OHMasking.first(rOutMask)
-          when(rOutExpect === 2 & (firstOutOh =/= secondOutOh)){
-            val secondOut = OHMux(secondOutOh, outputChecker.hist.io.outStreams)
-            assert(secondOut.size === Util.size2Outsize(rInput.size))
-            assert(secondOut.len === rInput.len)
-          }
-        }
+        val rOutLogic = Util.constraintByMask(inputChecker.rExist, validOutMask & ~rmOutMask, Util.size2Ratio(rInput.size) + 1, outputChecker.hist.io.outStreams, rInput)
+        val rOutExpect = rOutLogic.expected
+        val rOutMask = rOutLogic.outMask
         
         val waitOutExpect = U(0, 3 bits)
         when(waitExist) { waitOutExpect := Util.size2Ratio(waitInput.size) + 1}
