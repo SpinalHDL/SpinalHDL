@@ -393,6 +393,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
             }.otherwise {
               assert(rInput.count === rInput.len)
             }
+
+            assert((rOutMask.asUInt & (U(1) << outputChecker.rId).resized) =/= 0)
           }
         }.otherwise {
           assert(countWaitingInputs === 0) // duplicated
