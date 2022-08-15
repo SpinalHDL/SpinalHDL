@@ -42,12 +42,11 @@ object Util {
   def constraintByMask(
       enable: Bool,
       mask: Bits,
-      count: UInt,
       streams: Vec[Stream[FormalAxi4Record]],
       target: FormalAxi4Record
   ) = new Area {
     val expected = U(0, 3 bits)
-    when(enable) { expected := count }
+    when(enable) { expected := Util.size2Ratio(target.size) + 1 }
     val outMask = getMostNOnesMsb(mask, expected)
 
     when(enable & (outMask =/= 0)) {
@@ -218,49 +217,32 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val validOutMask = outputChecker.hist.io.outStreams.map(x => x.valid).asBits()
 
-        val rmOutExpect = U(0, 3 bits)
-        when(inputChecker.rmExist) { rmOutExpect := Util.size2Ratio(rmInput.size) + 1 }
-        val rmOutMask = Util.getMostNOnesMsb(validOutMask, rmOutExpect)
-
-        when(inputChecker.rmExist) {
-          assert(rmOutMask =/= 0)
-          val firstOutOh = OHMasking.last(rmOutMask)
-          val firstOut = OHMux(firstOutOh, outputChecker.hist.io.outStreams)
-          assert(firstOut.size === Util.size2Outsize(rmInput.size))
-          assert(firstOut.len === rmInput.len)
-          when(rmOutExpect === 2) {
-            val secondOut = OHMux(OHMasking.first(rmOutMask), outputChecker.hist.io.outStreams)
-            assert(secondOut.size === Util.size2Outsize(rmInput.size))
-            assert(secondOut.len === rmInput.len)
-          }
-        }
+        val rmOutLogic = Util.constraintByMask(
+          inputChecker.rmExist,
+          validOutMask,
+          outputChecker.hist.io.outStreams,
+          rmInput
+        )
+        val rmOutExpect = rmOutLogic.expected
+        val rmOutMask = rmOutLogic.outMask
 
         val rOutLogic = Util.constraintByMask(
           inputChecker.rExist,
           validOutMask & ~rmOutMask,
-          Util.size2Ratio(rInput.size) + 1,
           outputChecker.hist.io.outStreams,
           rInput
         )
         val rOutExpect = rOutLogic.expected
         val rOutMask = rOutLogic.outMask
 
-        val waitOutExpect = U(0, 3 bits)
-        when(waitExist) { waitOutExpect := Util.size2Ratio(waitInput.size) + 1 }
-        val waitOutMask = Util.getMostNOnesMsb(validOutMask & ~rmOutMask & ~rOutMask, waitOutExpect)
-
-        when(waitExist & (waitOutMask =/= 0)) {
-          val firstOutOh = OHMasking.last(waitOutMask)
-          val firstOut = OHMux(firstOutOh, outputChecker.hist.io.outStreams)
-          assert(firstOut.size === Util.size2Outsize(waitInput.size))
-          assert(firstOut.len === waitInput.len)
-          val secondOutOh = OHMasking.first(waitOutMask)
-          when(waitOutExpect === 2 & (firstOutOh =/= secondOutOh)) {
-            val secondOut = OHMux(secondOutOh, outputChecker.hist.io.outStreams)
-            assert(secondOut.size === Util.size2Outsize(waitInput.size))
-            assert(secondOut.len === waitInput.len)
-          }
-        }
+        val waitOutLogic = Util.constraintByMask(
+          waitExist,
+          validOutMask & ~rmOutMask & ~rOutMask,
+          outputChecker.hist.io.outStreams,
+          waitInput
+        )
+        val waitOutExpect = waitOutLogic.expected
+        val waitOutMask = waitOutLogic.outMask
 
         assert(undoneInCount <= 1)
         when(undoneExist) {
