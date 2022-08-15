@@ -89,6 +89,21 @@ class Axi4DownsizerSubTransactionGenerator[T <: Axi4Ax](
     io.done := cmdExtender.io.done
     io.start := startAddress
     io.output << cmdStream
+
+    def withAsserts() = new Area {
+        def ratio2size(x: UInt): UInt = {
+            OHToUInt(OHMasking.first(x + 1))
+        }
+
+        val alignRange = 12 until inputConfig.addressWidth
+        val cmdAddress = address
+        val cmdWidth = size + ratio2size(cmdExtender.counter.expected)
+        val cmdBoundAddress =
+            cmdAddress + (((cmdExtendedStream.len +^ 1) << cmdWidth) - 1).resized
+        when(cmdExtender.counter.working & cmdExtender.counter.io.value === 0) {
+            assert(cmdAddress(alignRange) === cmdBoundAddress(alignRange))
+        }
+    }
 }
 
 //Curently only INCR burst compatible
@@ -236,6 +251,8 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
         val ratioCounter = dataCounter.counter
         val ratioChecker = ratioCounter.withAsserts()
 
+        val generatorChecker = generator.withAsserts()
+
         when(lenChecker.startedReg) {
           assert(countStream.payload === countOutStream.payload)
         }
@@ -252,15 +269,6 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
         val addrMask = (U(1) << addrLowWidth - 1)
         when(lenCounter.working & addrLowWidth === sizeMaxIn) {
             assert((countOutStream.start & addrMask.resized) === 0) 
-        }
-
-        val alignRange = 12 until inputConfig.addressWidth
-        val cmdAddress = generator.address
-        val cmdWidth = generator.size + ratio2size(cmdCounter.expected)
-        val cmdBoundAddress =
-          cmdAddress + (((generator.cmdExtendedStream.len +^ 1) << cmdWidth) - 1).resized
-        when(cmdCounter.working & cmdCounter.io.value === 0) {
-          assert( cmdAddress(alignRange) === cmdBoundAddress(alignRange) )
         }
     }
 }
