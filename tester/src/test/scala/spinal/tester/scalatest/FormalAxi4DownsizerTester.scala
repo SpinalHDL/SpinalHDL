@@ -307,7 +307,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(rmOutCount === Util.size2Ratio(rmInput.size) + 1)
 
           when(rmOutCount > 1) {
-            val preRm = OHMux(OHMasking.last(rmOutMask), outputChecker.hist.io.outStreams)
+            val preRm = OHMux(OHMasking.first(rmOutMask), outputChecker.hist.io.outStreams)
             assert(preRm.valid & preRm.axDone & preRm.seenLast)
             preRm.ready := True
             assert(preRm.len === rmInput.len)
