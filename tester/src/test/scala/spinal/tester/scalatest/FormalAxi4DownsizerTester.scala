@@ -307,23 +307,25 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           }
         }
 
-        // check processing count vs len counter value.
+        // check len counter value.
         when(inputChecker.rExist) {
           when(waitExist) {
             assert(lenCounter.io.value === 0)
           }.otherwise {
             when(lenCounter.working) {
-              when(lenCounter.io.value > 0) { assert(rInput.count + 1 === lenCounter.io.value) }
-                .otherwise { assert(rInput.count === 0) }
+              when(lenCounter.io.value > 0) { assert(lenCounter.io.value === rInput.count + 1) }
               when(ratioCounter.working) { assert(lenCounter.io.value > 0) }
                 .otherwise { assert(lenCounter.io.value === 0) }
             }
           }
+        }
 
+        // check processing input counter value.
+        when(inputChecker.rExist) {
           when(outputChecker.rExist) {
             when(lenCounter.working) {
               when(rInput.count < rInput.len) {
-                assert(lenCounter.io.value === rInput.count + 1)
+                assert(rInput.count + 1 === lenCounter.io.value)
               }
             }.otherwise {
               assert(rInput.count === rInput.len)
