@@ -227,6 +227,42 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
         to.assignUnassignedByName(from)
     }
     io.input.readRsp << dataOut
+
+    def withAsserts() = new Area {        
+        val cmdCounter = generator.cmdExtender.counter
+        val cmdChecker = cmdCounter.withAsserts()
+        val lenCounter = dataOutCounter.counter
+        val lenChecker = lenCounter.withAsserts()
+        val ratioCounter = dataCounter.counter
+        val ratioChecker = ratioCounter.withAsserts()
+
+        when(lenChecker.startedReg) {
+          assert(countStream.payload === countOutStream.payload)
+        }
+        when(lenCounter.working & countOutStream.ratio > 0) { assert(countOutStream.size === sizeMaxOut) }
+        when(ratioCounter.working & countStream.ratio > 0) { assert(countStream.size === sizeMaxOut) }
+        when(lenCounter.working) {
+          assert(countOutStream.size === cmdStream.size)
+          assert(countOutStream.len === cmdStream.len)
+          assert(countOutStream.ratio === cmdCounter.expected)
+        }
+
+        def ratio2size(x: UInt): UInt = { OHToUInt(OHMasking.first(x + 1)) }
+        val addrLowWidth = countOutStream.size + ratio2size(countOutStream.ratio)
+        val addrMask = (U(1) << addrLowWidth - 1)
+        when(lenCounter.working & addrLowWidth === sizeMaxIn) {
+            assert((countOutStream.start & addrMask.resized) === 0) 
+        }
+
+        val alignRange = 12 until inputConfig.addressWidth
+        val cmdAddress = generator.address
+        val cmdWidth = generator.size + ratio2size(cmdCounter.expected)
+        val cmdBoundAddress =
+          cmdAddress + (((generator.cmdExtendedStream.len +^ 1) << cmdWidth) - 1).resized
+        when(cmdCounter.working & cmdCounter.io.value === 0) {
+          assert( cmdAddress(alignRange) === cmdBoundAddress(alignRange) )
+        }
+    }
 }
 
 case class Axi4Downsizer(inputConfig: Axi4Config, outputConfig: Axi4Config) extends Component {

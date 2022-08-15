@@ -193,11 +193,13 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val waitRatio = Util.size2Ratio(waitInput.size)
 
         val cmdCounter = dut.generator.cmdExtender.counter
-        val cmdChecker = cmdCounter.withAsserts()
         val lenCounter = dut.dataOutCounter.counter
-        val lenChecker = lenCounter.withAsserts()
         val ratioCounter = dut.dataCounter.counter
-        val ratioChecker = ratioCounter.withAsserts()
+        val dutChecker = dut.withAsserts()
+
+        val cmdChecker = dutChecker.cmdChecker
+        val lenChecker = dutChecker.lenChecker
+        val ratioChecker = dutChecker.ratioChecker
 
         val transferred = (rInput.count << rRatio) + ratioCounter.io.value
 
@@ -373,6 +375,15 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assert(transferred === rOutput.count + rInput.len + 1)
         }
 
+        when(lenCounter.working){  
+          when(waitExist) { assert(dut.lastLast) }
+            .otherwise { assert(!dut.lastLast) }
+        }.elsewhen(ratioCounter.io.working) {
+          assert(dut.lastLast)
+        }.otherwise {
+          assert(!dut.lastLast)
+        }
+
         when(outputChecker.rExist) {
           assert(rOutput.len === rInput.len)
           assert(rOutput.size === rOutsize)
@@ -409,43 +420,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         cover(dataCheckSizeLess3)
         cover(dataCheckSize3)
 
-        when(lenChecker.startedReg) {
-          assert(dut.countStream.payload === dut.countOutStream.payload)
-        }
-        when(lenCounter.working & dut.countOutStream.ratio > 0) { assert(dut.countOutStream.size === 2) }
-        when(ratioCounter.working & dut.countStream.ratio > 0) { assert(dut.countStream.size === 2) }
-        when(lenCounter.working) {
-          assert(dut.countOutStream.size === dut.cmdStream.size)
-          assert(dut.countOutStream.len === dut.cmdStream.len)
-          assert(dut.countOutStream.ratio === cmdCounter.expected)
-          when(waitExist) { assert(dut.lastLast) }
-            .otherwise { assert(!dut.lastLast) }
-        }.elsewhen(ratioCounter.io.working) {
-          assert(dut.lastLast)
-        }.otherwise {
-          assert(!dut.lastLast)
-        }
-
         when(inputChecker.rExist & rInput.size === 3 & ratioCounter.working) {
           assert(dut.offset === ratioCounter.io.value << 2)
           when(transferred > 0 || rOutput.count > 0) {
             assert(dut.dataReg(U(outConfig.dataWidth) - (dut.offset << 3), outConfig.dataWidth bits) === dataHist(1))
           }
         }
-        val addrWidth = dut.countOutStream.size + dut.countOutStream.ratio
-        val addrMask = (U(1) << addrWidth - 1)
-        when(lenCounter.working & addrWidth === 3) { assert((dut.countOutStream.start & addrMask.resized) === 0) }
-
-        val cmdAddress = dut.generator.address
-        val cmdBoundAddress =
-          cmdAddress + (((dut.generator.cmdExtendedStream.len +^ 1) << (dut.generator.size + cmdCounter.expected)) - 1).resized
-        when(cmdCounter.working & cmdCounter.io.value === 0) {
-          assert(
-            cmdAddress(12, inConfig.addressWidth - 12 bits) === cmdBoundAddress(12, inConfig.addressWidth - 12 bits)
-          )
-        }
-
-        when(dut.io.output.r.fire) { assert(ratioCounter.working) }
 
         val selected = inputChecker.hist.io.outStreams(inputChecker.rmId)
         cover(inputChecker.rmExist)
