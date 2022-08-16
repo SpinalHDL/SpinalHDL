@@ -30,6 +30,13 @@ object Axi4Unburster {
   }
 }
 
+/**
+  * Converts a burst transaction into single beat transactions.
+  *
+  * Notice: This component only supports a single transaction at a time.
+  *
+  * TODO: Support concurrent transactions
+  */
 class Axi4ReadOnlyUnburster(config: Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(Axi4ReadOnly(config))
@@ -62,6 +69,13 @@ class Axi4ReadOnlyUnburster(config: Axi4Config) extends Component {
   }
 }
 
+/**
+  * Converts a single burst transaction into single beat transactions and merges write responses.
+  *
+  * Notice: This component only supports a single transaction at a time.
+  *
+  * TODO: Support concurrent transactions
+  */
 class Axi4WriteOnlyUnburster(config: Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(Axi4WriteOnly(config))
