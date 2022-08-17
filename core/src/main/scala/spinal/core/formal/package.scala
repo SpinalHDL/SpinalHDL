@@ -16,7 +16,7 @@ package object formal {
     ptr
   }
   def past[T <: Data](that : T) : T = past(that, 1)
-  def pastValid() : Bool = signalCache("formal.pastValid")(past(!ClockDomain.current.isResetActive) init(False) setWeakName("formal_with_past"))
+  def pastValid() : Bool = signalCache("formal.pastValid")(RegNext(True) initial(False)  setWeakName("f_past_valid"))
 
   def rose(that : Bool) : Bool = that.rise(True)
   def fell(that : Bool) : Bool = that.fall(False)
