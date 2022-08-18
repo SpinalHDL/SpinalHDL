@@ -1809,22 +1809,19 @@ class StreamTransactionCounter(
 }
 
 object StreamTransactionExtender {
-    def apply[T <: Data](input: Stream[T], count: UInt)(driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p): Stream[T] = {
-      StreamTransactionExtender(input, count, false, driver)
-    }
-    def apply[T <: Data](input: Stream[T], count: UInt, noDelay: Boolean): Stream[T] = {
-      StreamTransactionExtender(input, count, noDelay, (_: UInt, p: T, _: Bool) => p)
-    }
-    def apply[T <: Data](input: Stream[T], count: UInt, noDelay: Boolean, driver: (UInt, T, Bool) => T): Stream[T] = {
+    def apply[T <: Data](input: Stream[T], count: UInt, noDelay: Boolean = false)(
+        implicit driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
+    ): Stream[T] = {
         val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, noDelay, driver)
         c.io.input << input
         c.io.count := count
         c.io.output
     }
 
-    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(driver: (UInt, T, Bool) => T2): StreamTransactionExtender[T, T2] = {
-      StreamTransactionExtender[T, T2](input, output, count, false)(driver)
-    }
+    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
+        driver: (UInt, T, Bool) => T2
+    ): StreamTransactionExtender[T, T2] = StreamTransactionExtender(input, output, count, false)(driver)
+
     def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt, noDelay: Boolean)(
         driver: (UInt, T, Bool) => T2
     ): StreamTransactionExtender[T, T2] = {
