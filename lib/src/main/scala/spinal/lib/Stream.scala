@@ -1809,19 +1809,26 @@ class StreamTransactionCounter(
 }
 
 object StreamTransactionExtender {
-    def apply[T <: Data](input: Stream[T], count: UInt)(
-        driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
-    ): Stream[T] = {
-        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
+    def apply[T <: Data](input: Stream[T], count: UInt)(driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p): Stream[T] = {
+      StreamTransactionExtender(input, count, false, driver)
+    }
+    def apply[T <: Data](input: Stream[T], count: UInt, noDelay: Boolean): Stream[T] = {
+      StreamTransactionExtender(input, count, noDelay, (_: UInt, p: T, _: Bool) => p)
+    }
+    def apply[T <: Data](input: Stream[T], count: UInt, noDelay: Boolean, driver: (UInt, T, Bool) => T): Stream[T] = {
+        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, noDelay, driver)
         c.io.input << input
         c.io.count := count
         c.io.output
     }
 
-    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
+    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(driver: (UInt, T, Bool) => T2): StreamTransactionExtender[T, T2] = {
+      StreamTransactionExtender[T, T2](input, output, count, false)(driver)
+    }
+    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt, noDelay: Boolean)(
         driver: (UInt, T, Bool) => T2
     ): StreamTransactionExtender[T, T2] = {
-        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
+        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, noDelay, driver)
         c.io.input << input
         c.io.count := count
         output << c.io.output
@@ -1834,6 +1841,7 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     dataType: HardType[T],
     outDataType: HardType[T2],
     countWidth: Int,
+    noDelay: Boolean,
     driver: (UInt, T, Bool) => T2
 ) extends Component {
     val io = new Bundle {
@@ -1846,15 +1854,17 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
         val done    = out Bool ()
     }
 
-    val counter  = StreamTransactionCounter(io.input, io.output, io.count)
-    val payload  = Reg(io.input.payloadType)
+    val counter  = StreamTransactionCounter(io.input, io.output, io.count, noDelay)
+    val payloadReg  = Reg(io.input.payloadType)
     val lastOne  = counter.io.last
+    val count = counter.io.value
+    val payload = if(noDelay) CombInit(payloadReg.getAheadValue) else CombInit(payloadReg)
 
     when(io.input.fire) {
-        payload := io.input.payload
+        payloadReg := io.input.payload
     }
 
-    io.output.payload := driver(counter.io.value, payload, lastOne)
+    io.output.payload := driver(count, payload, lastOne)
     io.output.valid := counter.io.working
     io.input.ready := counter.io.available
     io.last := lastOne

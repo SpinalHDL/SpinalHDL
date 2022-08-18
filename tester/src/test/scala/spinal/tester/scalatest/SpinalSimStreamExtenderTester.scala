@@ -78,6 +78,7 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
                 UInt(32 bits),
                 UInt(33 bits),
                 12,
+                false,
                 (id, payload: UInt, last) => payload @@ last
             )
             dut
@@ -99,6 +100,7 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
                 UInt(32 bits),
                 UInt(33 bits),
                 12,
+                false,
                 (id, payload: UInt, last) => payload @@ last
             )
             dut
@@ -120,6 +122,7 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
                 UInt(32 bits),
                 UInt(33 bits),
                 12,
+                false,
                 (id, payload: UInt, last) => payload @@ last
             )
             dut
@@ -141,6 +144,7 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
                 UInt(32 bits),
                 UInt(33 bits),
                 12,
+                false,
                 (id, payload: UInt, last) => payload @@ last
             )
             dut

@@ -142,6 +142,50 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         }
       })
   }
+  
+
+  def extenderNoDelayTester() {
+    FormalConfig
+      // .withBMC(10)
+      .withProve(10)
+      .withCover(10)
+      .doVerify(new Component {
+        val inStream = slave Stream (UInt(2 bits))
+        val outStream = master Stream (UInt(2 bits))
+        val count = in UInt (3 bits)
+        val dut = FormalDut(StreamTransactionExtender(inStream, outStream, count, true) { (_, p, _) => p })
+
+        val reset = ClockDomain.current.isResetActive
+        assumeInitial(reset)
+
+        val countHist = History(count, 2, inStream.fire, init = count.getZero)
+        val expected = countHist(1).getAheadValue()
+
+        when(inStream.fire) { assert(dut.io.working) }
+        when(pastValid & past(dut.io.done) & !inStream.fire) { assert(!dut.io.working) }
+
+        when(dut.io.done) { assert(dut.counter.counter.value >= expected) }
+        when(dut.io.working) {
+          assert(expected === dut.counter.expected) // key to sync verification logic and internal logic.
+          when(dut.counter.counter.value === expected & outStream.fire) { assert(dut.io.done) }
+          when(!inStream.fire) { assert(!dut.counter.io.available) }
+          .otherwise { assert(dut.counter.io.available) }
+          when(!dut.io.input.fire) { assert(!inStream.ready) }
+          when(dut.io.input.fire) { assert(dut.io.input.payload === dut.io.output.payload) }
+          .otherwise { assert(dut.io.output.payload === dut.payloadReg) }
+        }
+        cover(pastValid & past(dut.io.done) & inStream.fire)
+        cover(pastValid & past(dut.io.working) & !dut.io.working)
+
+        inStream.withAssumes()
+        outStream.withAssumes()
+
+        for(i <- 1 until 2) {
+          inStream.withCovers(i)
+          outStream.withCovers(i)
+        }
+      })
+  }
 
   test("transaction counter") {
     counterTester()
@@ -153,5 +197,9 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
 
   test("transaction extender") {
     extenderTester()
+  }
+
+  test("transaction extender without delay") {
+    extenderNoDelayTester()
   }
 }
