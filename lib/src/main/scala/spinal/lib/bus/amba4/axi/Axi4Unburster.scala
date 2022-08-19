@@ -4,9 +4,11 @@ import spinal.core._
 import spinal.lib._
 
 object Axi4Unburster {
-  def apply(axi: Axi4): Axi4 = {
-    val roUnburstifier = new Axi4ReadOnlyUnburster(axi.config)
-    val woUnburstifier = new Axi4WriteOnlyUnburster(axi.config)
+
+  def apply(axi: Axi4): Axi4 = apply(axi, 3, 3)
+  def apply(axi: Axi4, pendingDepth: Int, pendingWidth: Int): Axi4 = {
+    val roUnburstifier = new Axi4ReadOnlyUnburster(axi.config, pendingDepth, pendingWidth)
+    val woUnburstifier = new Axi4WriteOnlyUnburster(axi.config, pendingDepth, pendingWidth)
 
     roUnburstifier.io.input << axi.toReadOnly()
     woUnburstifier.io.input << axi.toWriteOnly()
@@ -17,20 +19,22 @@ object Axi4Unburster {
     axiUnburst
   }
 
-  def apply(axi: Axi4ReadOnly): Axi4ReadOnly = {
-    val unburstifier = new Axi4ReadOnlyUnburster(axi.config)
+  def apply(axi: Axi4ReadOnly): Axi4ReadOnly = apply(axi, 3, 3)
+  def apply(axi: Axi4ReadOnly, pendingDepth: Int, pendingWidth: Int): Axi4ReadOnly = {
+    val unburstifier = new Axi4ReadOnlyUnburster(axi.config, pendingDepth, pendingWidth)
     unburstifier.io.input << axi
     unburstifier.io.output
   }
 
-  def apply(axi: Axi4WriteOnly): Axi4WriteOnly = {
-    val unburstifier = new Axi4WriteOnlyUnburster(axi.config)
+  def apply(axi: Axi4WriteOnly): Axi4WriteOnly = apply(axi, 3, 3)
+  def apply(axi: Axi4WriteOnly, pendingDepth: Int, pendingWidth: Int): Axi4WriteOnly = {
+    val unburstifier = new Axi4WriteOnlyUnburster(axi.config, pendingDepth, pendingWidth)
     unburstifier.io.input << axi
     unburstifier.io.output
   }
 }
 
-class UnbursterIDManager(config: Axi4Config, pendingDepth: Int = 3, pendingWidth: Int = 3) extends Component {
+class UnbursterIDManager(config: Axi4Config, pendingDepth: Int, pendingWidth: Int) extends Component {
   class IdLen extends Bundle {
     val id = (config.useId) generate config.idType
     val len = config.lenType
@@ -196,14 +200,6 @@ class UnbursterIDManager(config: Axi4Config, pendingDepth: Int = 3, pendingWidth
 }
 
 /**
-  * Converts a burst transaction into single beat transactions.
-  *
-  * Notice: This component only supports a single transaction at a time.
-  *
-  * TODO: Support concurrent transactions
-  */
-
-/**
   * Converts Axi4 burst streams into single beat transactions and adds last as required.
   * AR channel will block if the pending transactions FIFO is full for that ID.
   *
@@ -253,11 +249,13 @@ class Axi4ReadOnlyUnburster(config: Axi4Config, pendingDepth: Int = 3, pendingWi
 }
 
 /**
-  * Converts a single burst transaction into single beat transactions and merges write responses.
+  * Converts Axi4 burst streams into single beat transactions and generates a single write response.
+  * AW channel will block if the pending transactions FIFO is full for that ID.
   *
-  * Notice: This component only supports a single transaction at a time.
-  *
-  * TODO: Support concurrent transactions
+  * @param config Axi4Config of the inbound master stream
+  * @param pendingDepth Number of pending transactions per ID
+  * @param pendingWidth Number of concurrent pending ID transactions.
+  *                     Not used if the master stream does not support IDs.
   */
 class Axi4WriteOnlyUnburster(config: Axi4Config, pendingDepth: Int = 3, pendingWidth: Int = 3) extends Component {
   val io = new Bundle {
