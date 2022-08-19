@@ -30,6 +30,171 @@ object Axi4Unburster {
   }
 }
 
+class UnbursterIDManager(config: Axi4Config, pendingDepth: Int = 3, pendingWidth: Int = 3) extends Component {
+  class IdLen extends Bundle {
+    val id = (config.useId) generate config.idType
+    val len = config.lenType
+  }
+
+  class IdResp extends Bundle {
+    val id = (config.useId) generate config.idType
+    val resp = Bits(2 bit)
+  }
+
+  val io = new Bundle {
+    val axIdLen = slave(Stream(new IdLen))
+    val retIdResp = slave(Stream(new IdResp))
+//    val drop = out Bool()
+    val resp = out Bits(2 bit)
+    val last = out Bool()
+  }
+
+  if (config.useId) {
+
+    val idMap = Vec(Reg(config.idType) init(0), pendingWidth)
+    val idMapValid = Bits(pendingWidth bit)
+    val lenFifos = (for (_ <- 0 until pendingWidth) yield new StreamFifo(config.lenType, pendingDepth).io).toList
+
+    val push = new Area {
+      val idMapMatches = Bits(pendingWidth bit)
+      val idMapOccupied = Bits(pendingWidth bit)
+      for(i <- 0 until pendingWidth) {
+        val idMatch = (idMap(i) === io.axIdLen.id)
+        idMapOccupied(i) := lenFifos(i).occupancy.orR || idMapValid(i)
+        idMapMatches(i) := idMatch && idMapOccupied(i)
+      }
+
+      val matchedIdIndex = OHMasking.first(idMapMatches)
+      val anyMatched = idMapMatches.orR
+      val nextOpenIndex = OHMasking.first(~idMapOccupied)
+      val anyOpen = (~idMapOccupied).orR
+
+      io.axIdLen.ready := False
+      for (i <- 0 until pendingWidth) {
+        lenFifos(i).push.payload := io.axIdLen.len
+        lenFifos(i).push.valid := False
+        when(anyMatched) {
+          when(matchedIdIndex(i)) {
+            // Connect AR fork to existing FIFO
+            io.axIdLen.ready := lenFifos(i).push.ready
+            lenFifos(i).push.valid := io.axIdLen.valid
+          }
+        } elsewhen (anyOpen && nextOpenIndex(i)) {
+          // Connect AR fork to open FIFO
+          io.axIdLen.ready := lenFifos(i).push.ready
+          lenFifos(i).push.valid := io.axIdLen.valid
+        }
+
+        when(io.axIdLen.fire) {
+          when(!anyMatched && anyOpen && nextOpenIndex(i)) {
+            idMap(i) := io.axIdLen.id
+          }
+        }
+      }
+    }
+
+    val pop = new Area {
+
+      val respOut = Bits(2 bit)
+      val respOutReg = RegNextWhen(respOut, io.retIdResp.fire)
+
+      //      io.retIdResp.ready := False
+      io.last := False
+      io.resp := respOut
+
+      respOut := respOutReg
+
+      val idMapMatches = Bits(pendingWidth bit)
+      for(i <- 0 until pendingWidth) {
+        val idMatch = (idMap(i) === io.retIdResp.id)
+        idMapMatches(i) := idMatch
+      }
+      idMapMatches.dontSimplifyIt()
+
+//      io.drop := !idMapMatches.orR
+
+      io.retIdResp.ready := False //idMapValid.orR
+
+      val select = OHMasking.first(idMapMatches)
+
+      for(i <- 0 until pendingWidth) {
+        val lenFifo = lenFifos(i).pop
+        val valid = RegInit(False)
+        valid.dontSimplifyIt()
+        val addrBeats = Reg(config.lenType.clone) init(0)
+        addrBeats.dontSimplifyIt()
+        val resp = Reg(Bits(2 bit)) init(0)
+
+        idMapValid(i) := valid
+
+        lenFifo.ready := !valid
+
+        // Load valid
+        when(lenFifo.fire) {
+          addrBeats := lenFifo.payload
+          resp.clearAll()
+          valid.set()
+        }
+
+        when(select(i) && valid) {
+          respOut := resp
+
+          io.retIdResp.ready := valid
+
+          when(io.retIdResp.fire) {
+            addrBeats := addrBeats - 1
+            when(!resp.orR) {
+              resp := io.retIdResp.resp
+              respOut := io.retIdResp.resp
+            }
+          }
+
+          valid.clearWhen(io.retIdResp.fire && addrBeats === 0)
+          io.last := addrBeats === 0
+        }
+      }
+    }
+
+  } else {
+    // Length FIFO
+    val fifo = new StreamFifo(config.lenType.clone, pendingDepth)
+    val lenInStream = fifo.io.push
+    val lenFifo = fifo.io.pop
+
+    // Working length
+    val valid = RegInit(False)
+    val addrBeats = Reg(UInt(8 bit)) init(0)
+    val resp = Reg(Bits(2 bit)) init(0)
+
+    // Fork into the length FIFO
+    io.axIdLen.ready := lenInStream.ready
+    lenInStream.valid := io.axIdLen.valid
+    lenInStream.payload := io.axIdLen.len
+
+    lenFifo.ready := !valid
+
+    when(lenFifo.fire) {
+      addrBeats := lenFifo.payload
+      resp.clearAll()
+      valid.set()
+    }
+
+    when(io.retIdResp.fire) {
+      addrBeats := addrBeats - 1
+      when(!resp.orR) {
+        resp := io.retIdResp.resp
+      }
+    }
+
+    valid.clearWhen(io.retIdResp.fire && addrBeats === 0)
+    io.retIdResp.ready := valid
+    io.last := addrBeats === 0
+    io.resp := resp
+
+//    io.drop := !(valid || fifo.io.occupancy.orR)
+  }
+}
+
 /**
   * Converts a burst transaction into single beat transactions.
   *
@@ -37,35 +202,53 @@ object Axi4Unburster {
   *
   * TODO: Support concurrent transactions
   */
-class Axi4ReadOnlyUnburster(config: Axi4Config) extends Component {
+
+/**
+  * Converts Axi4 burst streams into single beat transactions and adds last as required.
+  * AR channel will block if the pending transactions FIFO is full for that ID.
+  *
+  * @param config Axi4Config of the inbound master stream
+  * @param pendingDepth Number of pending transactions per ID
+  * @param pendingWidth Number of concurrent pending ID transactions.
+  *                     Not used if the master stream does not support IDs.
+  */
+class Axi4ReadOnlyUnburster(config: Axi4Config, pendingDepth: Int = 3, pendingWidth: Int = 3) extends Component {
   val io = new Bundle {
     val input = slave(Axi4ReadOnly(config))
     val output = master(Axi4ReadOnly(config.copy(useLen = false, useBurst = false)))
   }
 
-  val active = if (config.useLast) RegInit(False) else False
-  val unburstified = io.input.ar.continueWhen(!active).unburstify
+  if (!config.useLast) {
+    val unburstified = io.input.ar.unburstify
 
-  io.output.ar.arbitrationFrom(unburstified)
-  io.output.ar.payload.assignSomeByName(unburstified.fragment)
+    io.output.ar.arbitrationFrom(unburstified)
+    io.output.ar.payload.assignSomeByName(unburstified.fragment)
 
-  io.input.r.arbitrationFrom(io.output.r)
-  io.input.r.payload.assignSomeByName(io.output.r.payload)
+    io.input.r.arbitrationFrom(io.output.r)
+    io.input.r.payload.assignSomeByName(io.output.r.payload)
+  } else {
 
-  if (config.useLast) {
-    val addrBeats = Reg(UInt(8 bit))
+    val manager = new UnbursterIDManager(config, pendingDepth, pendingWidth)
 
-    when(io.input.ar.fire) {
-      addrBeats := io.input.ar.len
-      active.set()
-    }
+    val unburstified = io.input.ar.continueWhen(manager.io.axIdLen.ready).unburstify
+    manager.io.axIdLen.valid := io.input.ar.fire
+    (config.useId) generate { manager.io.axIdLen.id := io.input.ar.id }
+    manager.io.axIdLen.len := io.input.ar.len
 
-    when(io.input.r.fire) {
-      addrBeats := addrBeats - 1
-    }
-    active.clearWhen(io.input.r.fire && io.input.r.last)
-    io.input.r.last.allowOverride
-    io.input.r.last := addrBeats === 0
+    io.output.ar.arbitrationFrom(unburstified)
+    io.output.ar.payload.assignSomeByName(unburstified.fragment)
+
+    val rFifo = io.output.r.queueLowLatency(8).continueWhen(manager.io.retIdResp.ready)
+    (config.useId) generate { manager.io.retIdResp.id := rFifo.id }
+    manager.io.retIdResp.valid := rFifo.fire
+    manager.io.retIdResp.resp.clearAll()
+    rFifo.last.allowOverride
+    rFifo.last := manager.io.last
+
+    val rStage = rFifo.stage()
+
+    io.input.r.arbitrationFrom(rStage)
+    io.input.r.payload.assignSomeByName(rStage.payload)
   }
 }
 
@@ -76,30 +259,21 @@ class Axi4ReadOnlyUnburster(config: Axi4Config) extends Component {
   *
   * TODO: Support concurrent transactions
   */
-class Axi4WriteOnlyUnburster(config: Axi4Config) extends Component {
+class Axi4WriteOnlyUnburster(config: Axi4Config, pendingDepth: Int = 3, pendingWidth: Int = 3) extends Component {
   val io = new Bundle {
     val input = slave(Axi4WriteOnly(config))
     val output = master(Axi4WriteOnly(config.copy(useLen = false, useBurst = false)))
   }
 
+  val manager = new UnbursterIDManager(config, pendingDepth, pendingWidth)
 
-  val addrBeats = Reg(UInt(8 bit))
-  val active = RegInit(False)
-  val done = RegInit(False)
-  val resp = if (config.useResp) Reg(Bits(2 bit)) else null
-  val lastB = RegNextWhen(io.output.b.payload, !done && active)
-
-  val unburstified = io.input.aw.continueWhen(!active).unburstify
+  val unburstified = io.input.aw.continueWhen(manager.io.axIdLen.ready).unburstify
+  manager.io.axIdLen.valid := io.input.aw.fire
+  (config.useId) generate { manager.io.axIdLen.id := io.input.aw.id }
+  manager.io.axIdLen.len := io.input.aw.len
 
   io.output.aw.arbitrationFrom(unburstified)
   io.output.aw.payload.assignSomeByName(unburstified.fragment)
-
-  when(io.input.aw.fire) {
-    addrBeats := io.input.aw.len
-    active := True
-    done.clear()
-    config.useResp generate resp.clearAll()
-  }
 
   io.output.w << io.input.w
   if (config.useLast) {
@@ -107,25 +281,17 @@ class Axi4WriteOnlyUnburster(config: Axi4Config) extends Component {
     io.output.w.last := True
   }
 
-  io.output.b.ready := active
-
-  when(io.output.b.fire) {
-    addrBeats := addrBeats - 1
-    done.setWhen(addrBeats === 0)
-    config.useResp generate {
-      when(!resp.orR) {
-        resp := io.output.b.resp
-      }
-    }
+  val bFifo = io.output.b.queueLowLatency(8).continueWhen(manager.io.retIdResp.ready)
+  (config.useId) generate { manager.io.retIdResp.id := bFifo.id }
+  manager.io.retIdResp.valid := bFifo.fire
+  if(config.useResp) {
+    manager.io.retIdResp.resp := bFifo.resp
+  } else {
+    manager.io.retIdResp.resp.clearAll()
   }
 
-  io.input.b.valid := done
-  io.input.b.payload.assignSomeByName(lastB)
-  config.useResp generate {
-    io.input.b.resp.allowOverride
-    io.input.b.resp := resp
-  }
+  val bStage = bFifo.takeWhen(manager.io.last).stage()
 
-  active.clearWhen(io.input.b.fire)
-  done.clearWhen(io.input.b.fire)
+  io.input.b.arbitrationFrom(bStage)
+  io.input.b.payload.assignSomeByName(bStage.payload)
 }

@@ -62,6 +62,21 @@ class Axi4UnburstTester extends AnyFunSuite {
     }
   }
 
+  test("unburst_readonly_no_last_no_id") {
+    SimConfig.compile(new Axi4ReadOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, useId = false, useLast = false)))
+      .doSim { dut => tester_readonly(dut) }
+  }
+
+  test("unburst_readonly_no_id") {
+    SimConfig.compile(new Axi4ReadOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, useId = false)))
+      .doSim { dut => tester_readonly(dut) }
+  }
+
+  test("unburst_readonly_no_last") {
+    SimConfig.compile(new Axi4ReadOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, idWidth = 4, useLast = false)))
+      .doSim { dut => tester_readonly(dut) }
+  }
+
   test("unburst_readonly") {
     SimConfig.compile(new Axi4ReadOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, idWidth = 4)))
       .doSim {dut => tester_readonly(dut) }
@@ -121,6 +136,21 @@ class Axi4UnburstTester extends AnyFunSuite {
         simSuccess()
       }
     }
+  }
+
+  test("unburst_writeonly_no_last_no_id") {
+    SimConfig.compile(new Axi4WriteOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, useId = false, useLast = false)))
+      .doSim { dut => tester_writeonly(dut) }
+  }
+
+  test("unburst_writeonly_no_id") {
+    SimConfig.compile(new Axi4WriteOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, useId = false)))
+      .doSim { dut => tester_writeonly(dut) }
+  }
+
+  test("unburst_writeonly_no_last") {
+    SimConfig.compile(new Axi4WriteOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, idWidth = 4, useLast = false)))
+      .doSim { dut => tester_writeonly(dut) }
   }
 
   test("unburst_writeonly") {
