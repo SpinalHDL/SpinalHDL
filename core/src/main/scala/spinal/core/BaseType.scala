@@ -149,6 +149,14 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     this
   }
 
+  def removeInitAssignments(): this.type = {
+    foreachStatements {
+      case s : InitAssignmentStatement => s.removeStatement()
+      case _ =>
+    }
+    this
+  }
+
   override def dontSimplifyIt(): this.type = {
     dontSimplify = true
     this
