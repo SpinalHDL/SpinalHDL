@@ -19,7 +19,7 @@ jobs:
       run: sbt "+test:compile"
 
     - name: Run tests
-      run: sbt "++2.11.12; test"
+      run: sbt "++2.11.12; testWithoutFormal"
   
   formal:
     runs-on: ubuntu-latest
