@@ -1,6 +1,6 @@
 package spinal.sim
 
-import java.nio.file.{Paths, Files, Path}
+import java.nio.file.Paths
 import java.io.{File, PrintWriter}
 import java.lang.Thread
 import scala.io.Source
@@ -11,6 +11,8 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.sys.process._
 import spinal.sim.xsi._
+
+import scala.util.Properties
 
 case class XSimBackendConfig(
                              val rtlIncludeDirs : ArrayBuffer[String] = ArrayBuffer[String](),
@@ -108,8 +110,8 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
 
   class Logger extends ProcessLogger {
     val logs = new StringBuilder()
-    override def err(s: => String): Unit = { logs ++= (s) }
-    override def out(s: => String): Unit = { logs ++= (s) }
+    override def err(s: => String): Unit = { logs ++= (s + Properties.lineSeparator) }
+    override def out(s: => String): Unit = { logs ++= (s + Properties.lineSeparator) }
     override def buffer[T](f: => T) = f
   }
 
