@@ -492,6 +492,10 @@ class BitAggregator {
 //  def set = value := True
 //}
 
+/** Creates an always running counter
+  *
+  * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
+  */
 object CounterFreeRun {
   def apply(stateCount: BigInt): Counter = {
     val c = Counter(stateCount)
@@ -501,6 +505,10 @@ object CounterFreeRun {
   }
 }
 
+/** Creates a counter
+  *
+  * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
+  */
 object Counter {
   def apply(start: BigInt,end: BigInt) : Counter  = new Counter(start = start, end = end)
   def apply(range : Range) : Counter = {
