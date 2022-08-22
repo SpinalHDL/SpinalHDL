@@ -30,7 +30,7 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         val countHist = History(count, 2, inStream.fire, init = count.getZero)
         when(!dut.io.available) { assume(inReady === False) }
 
-        when(pastValid & past(inStream.fire)) { assert(dut.io.working) }
+        when(pastValid & past(!reset & inStream.fire)) { assert(dut.io.working) }
         when(pastValid & past(dut.io.done & !inStream.fire)) { assert(!dut.io.working) }
 
         when(dut.io.done) { assert(dut.counter.value >= countHist(1)) }
@@ -121,7 +121,7 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
 
         val countHist = History(count, 2, inStream.fire, init = count.getZero)
 
-        when(pastValid & past(inStream.fire)) { assert(dut.io.working) }
+        when(pastValid & past(!reset & inStream.fire)) { assert(dut.io.working) }
         when(pastValid & past(dut.io.done & !inStream.fire)) { assert(!dut.io.working) }
 
         when(dut.io.done) { assert(dut.counter.counter.value >= countHist(1)) }
