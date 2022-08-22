@@ -142,20 +142,15 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   private[core] def canSymplifyIt = !dontSimplify && isUnnamed && !existsTag(!_.canSymplifyHost)
 
   /** Remove all assignments of the base type */
-  override def removeAssignments(): this.type = {
-    foreachStatements(s => {
-      s.removeStatement()
-    })
-    this
-  }
-
-  def removeInitAssignments(): this.type = {
+  override def removeAssignments(data : Boolean = true, init : Boolean = true, initial : Boolean = true): this.type = {
     foreachStatements {
-      case s : InitAssignmentStatement => s.removeStatement()
-      case _ =>
+      case s : DataAssignmentStatement => if(data) s.removeStatement()
+      case s : InitAssignmentStatement => if(init) s.removeStatement()
+      case s : InitialAssignmentStatement => if(initial) s.removeStatement()
     }
     this
   }
+
 
   override def dontSimplifyIt(): this.type = {
     dontSimplify = true
