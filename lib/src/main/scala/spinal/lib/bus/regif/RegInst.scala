@@ -84,9 +84,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue, doc = "")
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
     val sectionNext: Section = pos + hardType.getBitsWidth-1 downto pos
-    val sectionExists: Section = fieldPtr downto 0
+    val sectionExists: Section = fieldPtr-1 downto 0
     val ret = pos match {
-      case x if x < fieldPtr => SpinalError(s"field Start Point ${x} conflict to allocated Section ${sectionExists}")
+      case x if x < fieldPtr => SpinalError(s"next field setction ${sectionNext} overlap to allocated Section ${sectionExists}")
       case _ if sectionNext.max >= busif.busDataWidth => SpinalError(s"Range ${sectionNext} exceed Bus width ${busif.busDataWidth}")
       case x if (x == fieldPtr) => field(hardType, acc, resetValue, doc)
       case _ => {
