@@ -568,6 +568,12 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
     flow.valid := willIncrement
     flow
   }
+
+  def init(initValue : BigInt): this.type ={
+    value.removeInitAssignments()
+    value.init(initValue)
+    this
+  }
 }
 
 object Timeout {
@@ -664,7 +670,12 @@ class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
     assert(false,"TODO")
   }
 
-
+  def init(initValue : BigInt): this.type ={
+    value.removeInitAssignments()
+    value.init(initValue)
+    this
+  }
+  
   override def implicitValue: UInt = this.value
 }
 

@@ -18,7 +18,9 @@ Loader::Loader(const std::string& design_libname, const std::string& simkernel_l
     _xsi_get_port_number(NULL),
     _xsi_get_port_name(NULL),
     _xsi_trace_all(NULL), 
-    _xsi_get_time(NULL)
+    _xsi_get_time(NULL),
+    _xsi_get_int(NULL),
+    _xsi_get_int_port(NULL)
 {
 
     if (!initialize()) {
@@ -118,6 +120,11 @@ XSI_INT32 Loader::get_sim_time_precision()
     return _xsi_get_int(_design_handle, xsiTimePrecisionKernel);
 }
 
+XSI_INT32 Loader::get_int_port(int port_number, int property)
+{
+    return _xsi_get_int_port(_design_handle, port_number, property);
+}
+
 bool
 Loader::initialize()
 {
@@ -208,6 +215,11 @@ Loader::initialize()
 
     _xsi_get_int = (t_fp_xsi_get_int) _simkernel_lib.getfunction("xsi_get_int");
     if (!_xsi_get_int) {
+        return false;
+    }
+
+    _xsi_get_int_port = (t_fp_xsi_get_int_port) _simkernel_lib.getfunction("xsi_get_int_port");
+    if (!_xsi_get_int_port) {
         return false;
     }
 
