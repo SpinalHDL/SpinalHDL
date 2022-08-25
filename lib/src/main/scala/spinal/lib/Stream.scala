@@ -576,31 +576,28 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     (aheadIn, behindIn)
   }
 
-  /**
-   * Assert that this stream conforms to the stream semantics:
-   * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
-   * - After being asserted, valid should be acknowledged in limited cycles.
-   *
-   * @param maxStallCycles Check that the max cycles the interface would hold in stall.
-   */
-  def withTimeoutAsserts(maxStallCycles : Int = 0) : this.type = {
+  /** Assert that this stream conforms to the stream semantics:
+    * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
+    * - After being asserted, valid should be acknowledged in limited cycles.
+    *
+    * @param maxStallCycles Check that the max cycles the interface would hold in stall.
+    */
+  def withTimeoutAsserts(maxStallCycles: Int = 0) = new Area {
     import spinal.core.formal._
-    if (maxStallCycles > 0) {
-      val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
-      when(!this.isStall) { counter.clear()} 
-      .otherwise { assert(!counter.willOverflow) }
+    val logic = (maxStallCycles > 0) generate new Area {
+      val counter = Counter(maxStallCycles, isStall).setCompositeName(this, "timeoutCounter", true)
+      when(!isStall) { counter.clear() }
+        .otherwise { assert(!counter.willOverflow) }
     }
-    this
   }
 
-  def withTimeoutAssumes(maxStallCycles : Int = 0) : this.type = {
+  def withTimeoutAssumes(maxStallCycles: Int = 0) = new Area {
     import spinal.core.formal._
-    if (maxStallCycles > 0) {
-      val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
-      when(!this.isStall) { counter.clear() } 
-      .elsewhen(counter.willOverflow) { assume(this.ready === True) }
+    val logic = (maxStallCycles > 0) generate new Area {
+      val counter = Counter(maxStallCycles, isStall).setCompositeName(this, "timeoutCounter", true)
+      when(!isStall) { counter.clear() }
+        .elsewhen(counter.willOverflow) { assume(ready === True) }
     }
-    this
   }
 }
 
@@ -1812,10 +1809,10 @@ class StreamTransactionCounter(
 }
 
 object StreamTransactionExtender {
-    def apply[T <: Data](input: Stream[T], count: UInt)(
-        driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
+    def apply[T <: Data](input: Stream[T], count: UInt, noDelay: Boolean = false)(
+        implicit driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
     ): Stream[T] = {
-        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
+        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, noDelay, driver)
         c.io.input << input
         c.io.count := count
         c.io.output
@@ -1823,8 +1820,12 @@ object StreamTransactionExtender {
 
     def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
         driver: (UInt, T, Bool) => T2
+    ): StreamTransactionExtender[T, T2] = StreamTransactionExtender(input, output, count, false)(driver)
+
+    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt, noDelay: Boolean)(
+        driver: (UInt, T, Bool) => T2
     ): StreamTransactionExtender[T, T2] = {
-        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
+        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, noDelay, driver)
         c.io.input << input
         c.io.count := count
         output << c.io.output
@@ -1837,6 +1838,7 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     dataType: HardType[T],
     outDataType: HardType[T2],
     countWidth: Int,
+    noDelay: Boolean,
     driver: (UInt, T, Bool) => T2
 ) extends Component {
     val io = new Bundle {
@@ -1849,15 +1851,17 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
         val done    = out Bool ()
     }
 
-    val counter  = StreamTransactionCounter(io.input, io.output, io.count)
-    val payload  = Reg(io.input.payloadType)
+    val counter  = StreamTransactionCounter(io.input, io.output, io.count, noDelay)
+    val payloadReg  = Reg(io.input.payloadType)
     val lastOne  = counter.io.last
+    val count = counter.io.value
+    val payload = if(noDelay) CombInit(payloadReg.getAheadValue) else CombInit(payloadReg)
 
     when(io.input.fire) {
-        payload := io.input.payload
+        payloadReg := io.input.payload
     }
 
-    io.output.payload := driver(counter.io.value, payload, lastOne)
+    io.output.payload := driver(count, payload, lastOne)
     io.output.valid := counter.io.working
     io.input.ready := counter.io.available
     io.last := lastOne

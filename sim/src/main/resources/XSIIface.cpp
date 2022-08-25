@@ -8,11 +8,6 @@
 #include "XSIIface.hpp"
 #include "xsi_loader.h"
 
-union byte_union {
-    uint32_t word;
-    int8_t byte[4]; 
-};
-
 int64_t pow10(int64_t a) {
     if (a < 0)
         return pow10(-a);
@@ -21,6 +16,13 @@ int64_t pow10(int64_t a) {
         ret_val *= 10;
     }
     return ret_val;
+}
+
+int32_t reverse32(int32_t a) {
+    return (a & 0xFF000000) >> 24 |
+           (a & 0x00FF0000) >>  8 |
+           (a & 0x0000FF00) <<  8 |
+           (a & 0x000000FF) << 24;
 }
 
 void check_vlog_logicval(s_xsi_vlog_logicval *value) {
@@ -32,9 +34,9 @@ void check_vlog_logicval(s_xsi_vlog_logicval *value) {
     value->bVal = 0;
 }
 
-int64_t as_logic_val_width(int32_t width) {
-    int64_t result = (int64_t)width / 32;
-    if (width % 8 != 0) {
+int32_t as_logic_val_width(int32_t width) {
+    int64_t result = width >> 5;
+    if (width % 32) {
         result += 1;
     }
     return result;
@@ -70,75 +72,85 @@ int32_t XSIIface::get_signal_handle(const std::string& handle_name) {
     return port;
 }
 
-int32_t XSIIface::read32(int32_t handle) {
-    s_xsi_vlog_logicval result = {0x00000000, 0x00000000};
-    loader.get_value(handle, &result);
-    check_vlog_logicval(&result);
-    return result.aVal;
+/*
+ * Returns the size of a signal in bits
+ */
+int32_t XSIIface::get_port_width(int32_t handle) {
+    return loader.get_int_port(handle, xsiHDLValueSize);
 }
 
-int64_t XSIIface::read64(int32_t handle) {
-    s_xsi_vlog_logicval result[] = {{0x00000000, 0x00000000}, {0x00000000, 0x00000000}};
-    loader.get_value(handle, &(result[0]));
-    check_vlog_logicval(&(result[0]));
-    check_vlog_logicval(&(result[1]));
-    int64_t low = (int64_t)result[0].aVal;
-    int64_t hi = (int64_t)result[1].aVal;
-    int64_t value = (hi << 32) | low;
-    return value;
-}
+/*
+ * Verilog signal functions
+ */
+std::vector<int8_t> XSIIface::read_vlog(int32_t handle) {
+    int32_t port_width = get_port_width(handle);
+    int32_t buffer_size = as_logic_val_width(port_width);
+    s_xsi_vlog_logicval *buffer = (s_xsi_vlog_logicval*) calloc(buffer_size, sizeof(s_xsi_vlog_logicval));
 
-std::vector<int8_t> XSIIface::read(int32_t handle, int32_t width) {
-    int64_t buffer_width = as_logic_val_width(width);
-    size_t buffer_size = sizeof(s_xsi_vlog_logicval) * buffer_width;
-    s_xsi_vlog_logicval *buffer = (s_xsi_vlog_logicval *)malloc(buffer_size);
-    memset(buffer, 0, buffer_size);
     loader.get_value(handle, buffer);
     std::vector<int8_t> result;
-    for (size_t i = 0; i < buffer_width; i ++) {
+    result.resize(buffer_size*4, 0);
+
+    for (int32_t i = 0; i < buffer_size; i++) {
         check_vlog_logicval(&(buffer[i]));
-        byte_union u;
-        u.word = buffer[i].aVal;
-        result.push_back(u.byte[0]);
-        result.push_back(u.byte[1]);
-        result.push_back(u.byte[2]);
-        result.push_back(u.byte[3]);
+        reinterpret_cast<int32_t*>(result.data())[i] = buffer[i].aVal;
     }
-    std::reverse(result.begin(), result.end());
     free(buffer);
     return result;
 }
 
+void XSIIface::write_vlog(int32_t handle, std::vector<int8_t> data) {
+    int32_t port_width = get_port_width(handle);
+    int32_t buffer_size = as_logic_val_width(port_width);
+    s_xsi_vlog_logicval *buffer = (s_xsi_vlog_logicval*) calloc(buffer_size, sizeof(s_xsi_vlog_logicval));
+
+    data.resize(buffer_size*sizeof(int32_t), 0);
+
+    for (int32_t i = 0; i < buffer_size; i++) {
+        buffer[i].aVal = reinterpret_cast<int32_t*>(data.data())[i];
+    }
+
+    loader.put_value(handle, buffer);
+}
+
+/*
+ * Interface read functions
+ */
+int32_t XSIIface::read32(int32_t handle) {
+    std::vector<int8_t> vec_bytes = read_vlog(handle);
+    vec_bytes.resize(4, 0);
+    return *reinterpret_cast<int32_t*>(vec_bytes.data());
+}
+
+int64_t XSIIface::read64(int32_t handle) {
+    std::vector<int8_t> vec_bytes = read_vlog(handle);
+    vec_bytes.resize(8, 0);
+    return *reinterpret_cast<int64_t*>(vec_bytes.data());
+}
+
+std::vector<int8_t> XSIIface::read(int32_t handle, int32_t width) {
+    std::vector<int8_t> vec_bytes = read_vlog(handle);
+    vec_bytes.resize(width, 0);
+    std::reverse(vec_bytes.begin(), vec_bytes.end());
+    return vec_bytes;
+}
+
+/*
+ * Interface write functions
+ */
 void XSIIface::write32(int32_t handle, int32_t data) {
-    s_xsi_vlog_logicval value = {0x00000000, 0x00000000};
-    value.aVal = (uint32_t)data;
-    loader.put_value(handle, &value);
+    std::vector<int8_t> vec_bytes((int8_t*) &data, (int8_t*) &((&data)[1]));
+    write_vlog(handle, vec_bytes);
 }
 
 void XSIIface::write64(int32_t handle, int64_t data) {
-    s_xsi_vlog_logicval value[] = {{0x00000000, 0x00000000}, {0x00000000, 0x00000000}};
-    value[0].aVal = (uint32_t)data;
-    value[1].aVal = (uint32_t)(data >> 32);
-    loader.put_value(handle, &(value[0]));
+    std::vector<int8_t> vec_bytes((int8_t*) &data, (int8_t*) &((&data)[1]));
+    write_vlog(handle, vec_bytes);
 }
 
-void XSIIface::write(int32_t handle, int32_t width, const std::vector<int8_t>& data) {
-    std::vector<int8_t> raw(data);
-    std::reverse(raw.begin(), raw.end());
-    int64_t buffer_width = as_logic_val_width(width);
-    size_t buffer_size = sizeof(s_xsi_vlog_logicval) * buffer_width;
-    s_xsi_vlog_logicval *buffer = (s_xsi_vlog_logicval *)malloc(buffer_size);
-    memset(buffer, 0, buffer_size);
-    byte_union u;
-    for (size_t i = 0; i < raw.size(); i++) {
-        size_t index = i % 4;
-        u.byte[index] = raw[i];
-        if (index == 3) {
-            buffer[index / 4].aVal = u.word;
-        }
-    }
-    loader.put_value(handle, buffer);
-    free(buffer);
+void XSIIface::write(int32_t handle, int32_t width, std::vector<int8_t> data) {
+    std::reverse(data.begin(), data.end());
+    write_vlog(handle, data);
 }
 
 void XSIIface::sleep(int64_t sleep_cycles) {
