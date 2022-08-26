@@ -26,7 +26,8 @@ case class XSimBackendConfig(
                              var workspaceName: String  = null,
                              var wavePath: String       = null,
                              var waveFormat: WaveFormat = WaveFormat.NONE,
-                             var userSimulationScript: String = null
+                             var userSimulationScript: String = null,
+                             var xelabFlags: Array[String] = null
                            )
 
 class XSimBackend(config: XSimBackendConfig) extends Backend {
@@ -202,9 +203,9 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       "Generation of vivado script failed")
 
     // Fix elaborate
-    val additionalElaborateCommand = List(
+    val additionalElaborateCommand = (List(
       "-dll"
-    ).mkString(" ")
+    ) ++ config.xelabFlags).mkString(" ")
     val fixElaborateCommand = if (isWindows) {
       s"sed \'/^call xelab/ s/$$/ ${additionalElaborateCommand}/\' -i elaborate.bat"
     } else {

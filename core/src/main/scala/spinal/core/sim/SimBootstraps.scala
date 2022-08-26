@@ -408,7 +408,8 @@ case class SpinalXSimBackendConfig[T <: Component](val rtl               : Spina
                                                val workspaceName    : String,
                                                val wavePath         : String,
                                                val xilinxDevice     : String,
-                                               val simScript        : String)
+                                               val simScript        : String,
+                                               val simulatorFlags   : ArrayBuffer[String] = ArrayBuffer[String]())
 
 object SpinalXSimBackend {
   class Backend(val signals : ArrayBuffer[Signal], vconfig : XSimBackendConfig) extends XSimBackend(vconfig)
@@ -430,6 +431,7 @@ object SpinalXSimBackend {
     vconfig.workspacePath     = workspacePath
     vconfig.xilinxDevice      = xilinxDevice
     vconfig.userSimulationScript = simScript
+    vconfig.xelabFlags        = simulatorFlags.toArray
 
     var signalId = 0
 
@@ -1015,7 +1017,8 @@ case class SpinalSimConfig(
           xciSourcesPaths = _xciSourcesPaths,
           bdSourcesPaths = _bdSourcesPaths,
           xilinxDevice = _xilinxDevice,
-          simScript = _simScript
+          simScript = _simScript,
+          simulatorFlags = _simulatorFlags
         )
         val backend = SpinalXSimBackend(vConfig)
         new SimCompiled(report) {
