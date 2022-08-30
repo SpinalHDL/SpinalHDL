@@ -91,7 +91,7 @@ https://github.com/SpinalHDL/SpinalHDL/tags
 
 ## License
 
-The SpinalHDL core is using the LGPL3 license while SpinalHDL lib is using the MIT license. That's for the formalities. But there are some practical statements implied by those licenses:
+The SpinalHDL core is using the LGPL3 license while SpinalHDL lib and others are using the MIT license. That's for the formalities. But there are some practical statements implied by those licenses:
 
 Your freedoms are:
 
