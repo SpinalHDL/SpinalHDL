@@ -401,8 +401,6 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
     setLast(r.payload,false)
 
     while(true) {
-      clockDomain.waitSampling(1)
-
       // todo: implement read issuing delay
 
       if(pending_reads.nonEmpty) {
@@ -436,6 +434,8 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
         pending_reads.dequeue()
 
         //println("AXI4 read rsp: addr=0x" + job.address.toLong.toHexString + " count=" + (job.burstLength+1))
+      } else {
+        clockDomain.waitSampling(1)
       }
     }
   }
