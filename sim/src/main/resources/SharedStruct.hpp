@@ -97,6 +97,7 @@ class SharedStruct {
 
         const ShmemAllocator alloc_inst;
         std::atomic<ProcStatus> proc_status;
+        std::atomic<uint32_t> time_precision;
         std::atomic<uint64_t> sleep_cycles;
         std::atomic<uint64_t> seed;
         std::atomic<size_t> index;

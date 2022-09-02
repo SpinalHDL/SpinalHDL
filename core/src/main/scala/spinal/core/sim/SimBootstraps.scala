@@ -23,7 +23,7 @@ package spinal.core.sim
 import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, ScopeProperty, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
+import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, ScopeProperty, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, TimeNumber, UInt, Verilator}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -165,7 +165,8 @@ class SpinalVpiBackendConfig[T <: Component](val rtl               : SpinalRepor
                                              val simulatorFlags   : ArrayBuffer[String],
                                              val usePluginsCache  : Boolean,
                                              val pluginsCachePath : String,
-                                             val enableLogging    : Boolean)
+                                             val enableLogging    : Boolean,
+                                             val timeScale        : TimeNumber)
 
 
 case class SpinalIVerilogBackendConfig[T <: Component](override val rtl : SpinalReport[T],
@@ -179,7 +180,8 @@ case class SpinalIVerilogBackendConfig[T <: Component](override val rtl : Spinal
                                                    override val simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
                                                    override val usePluginsCache   : Boolean = true,
                                                    override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
-                                                   override val enableLogging     : Boolean = false) extends
+                                                   override val enableLogging     : Boolean = false,
+                                                   override val timeScale         : TimeNumber = TimeNumber(BigDecimal("1e-9"))) extends
                                               SpinalVpiBackendConfig[T](rtl,
                                                                         waveFormat,
                                                                         workspacePath,
@@ -191,7 +193,8 @@ case class SpinalIVerilogBackendConfig[T <: Component](override val rtl : Spinal
                                                                         simulatorFlags,
                                                                         usePluginsCache,
                                                                         pluginsCachePath,
-                                                                        enableLogging)
+                                                                        enableLogging,
+                                                                        timeScale)
 
 
 case class SpinalVCSBackendConfig[T <: Component](override val rtl : SpinalReport[T],
@@ -206,6 +209,7 @@ case class SpinalVCSBackendConfig[T <: Component](override val rtl : SpinalRepor
                                                   override val usePluginsCache   : Boolean = true,
                                                   override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
                                                   override val enableLogging     : Boolean = false,
+                                                  override val timeScale         : TimeNumber = TimeNumber(BigDecimal("1e-9")),
                                                   val simSetupFile               : String = null,
                                                   val envSetup                   : () => Unit = null,
                                                   val compileFlags               : List[String] = null,
@@ -224,7 +228,8 @@ case class SpinalVCSBackendConfig[T <: Component](override val rtl : SpinalRepor
     simulatorFlags,
     usePluginsCache,
     pluginsCachePath,
-    enableLogging)
+    enableLogging,
+    timeScale)
 
 case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalReport[T],
                                                    override val waveFormat        : WaveFormat = WaveFormat.NONE,
@@ -237,7 +242,8 @@ case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalRepo
                                                    override val simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
                                                    override val usePluginsCache   : Boolean = true,
                                                    override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
-                                                   override val enableLogging     : Boolean = false) extends
+                                                   override val enableLogging     : Boolean = false,
+                                                   override val timeScale         : TimeNumber = TimeNumber(BigDecimal("1e-9"))) extends
                                               SpinalVpiBackendConfig[T](rtl,
                                                                         waveFormat,
                                                                         workspacePath,
@@ -249,7 +255,8 @@ case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalRepo
                                                                         simulatorFlags,
                                                                         usePluginsCache,
                                                                         pluginsCachePath,
-                                                                        enableLogging)
+                                                                        enableLogging,
+                                                                        timeScale)
 
 
 object SpinalGhdlBackend {
@@ -623,7 +630,8 @@ case class SpinalSimConfig(
                             var _xciSourcesPaths   : ArrayBuffer[String] = ArrayBuffer[String](),
                             var _bdSourcesPaths    : ArrayBuffer[String] = ArrayBuffer[String](),
                             var _xilinxDevice:String = "xc7vx485tffg1157-1",
-                            var _simScript         : String = null
+                            var _simScript         : String = null,
+                            var _timeScale         : TimeNumber = null
   ){
 
 
@@ -802,6 +810,11 @@ case class SpinalSimConfig(
 
   def disableCache: this.type = {
     _disableCache = true
+    this
+  }
+
+  def withTimeScale(timeScale: TimeNumber): this.type = {
+    _timeScale = timeScale
     this
   }
 

@@ -13,6 +13,7 @@ abstract class SimRaw {
   def setLongMem(signal : Signal, value : Long, index : Long): Unit
   def getBigIntMem(signal : Signal, index : Long) : BigInt
   def setBigIntMem(signal : Signal, value : BigInt, index : Long): Unit
+  def getTimePrecision(): Int
   def sleep(cycles : Long): Unit
   def enableWave(): Unit
   def disableWave(): Unit
