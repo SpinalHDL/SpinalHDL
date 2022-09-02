@@ -9,9 +9,9 @@ import spinal.lib.formal._
 class FormalForkTester extends SpinalFormalFunSuite {
   test("fork-verify sync") {    
     FormalConfig
-      //.withBMC(20)
-      //.withProve(20)
-      //.withCover(20)
+      .withBMC(20)
+      .withProve(20)
+      .withCover(20)
       // .withDebug
       .doVerify(new Component {
         val dut = FormalDut(new StreamFork(UInt(8 bits), 2, true))
@@ -42,9 +42,9 @@ class FormalForkTester extends SpinalFormalFunSuite {
   }
   test("fork-verify async") {    
     FormalConfig
-      //.withBMC(100)
+      .withBMC(20)
       .withProve(20)
-      .withCover(100)
+      .withCover(20)
       // .withDebug
       .doVerify(new Component {
         val dut = FormalDut(new StreamFork(UInt(8 bits), 2, false))
@@ -63,9 +63,8 @@ class FormalForkTester extends SpinalFormalFunSuite {
         when(reset || past(reset)) {
           assume(input.valid === False)
         }
-        val fetched = Vec(RegInit(True),2)  
-      
 
+        val fetched = Vec(RegInit(False),2)    //store fire status, 1: result fetched, 0: didn't fetch
         when (input.ready) {
           fetched(0) := False
           fetched(1) := False
@@ -73,24 +72,33 @@ class FormalForkTester extends SpinalFormalFunSuite {
         when ((!input.ready) && output_0.fire) {
           fetched(0) := True
           assert (output_0.payload === input.payload)
-        }
+        } 
         when ((!input.ready) && output_1.fire) {
           fetched(1) := True
           assert (output_1.payload === input.payload)
         }
-        
-        cover(past(fetched(0)) && fetched(0) && past(!fetched(1)) && (!fetched(1)))
-        cover(past(fetched(1)) && fetched(1) && past(!fetched(0)) && (!fetched(0)))
+        assert (fetched(0) === !dut.logic.linkEnable(0))
+        assert (fetched(1) === !dut.logic.linkEnable(1)) 
 
-        when(past(fetched(0)) && fetched(0) && past(!fetched(1)) && (!fetched(1))) {
-          assert(output_0.fire === False)
-          assert((input_fire && output_1.fire) || (!(input_fire || output_1.fire)))
+        val async = fetched(0) =/= fetched(1)
+        val async_0_fired = async && fetched(0) && past(fetched(0))//for a signle transform. o0 fetched but o1 didn't
+        val async_1_fired = async && fetched(1) && past(fetched(1))
+        val in_f_xnor_o0_f = (input_fire && output_0.fire) || (!(input_fire || output_0.fire))
+        val in_f_xnor_o1_f = (input_fire && output_1.fire) || (!(input_fire || output_1.fire))
+
+        cover(async_0_fired && !output_1.fire)
+        cover(async_1_fired && !output_0.fire)
+        when(async){
+          assert(!past(input.fire))
         }
-        when(past(fetched(1)) && fetched(1) && past(!fetched(0)) && (!fetched(0))) {
-          assert(output_1.fire === False)
-          assert((input_fire && output_0.fire) || (!(input_fire || output_0.fire)))
-        }        
-
+        when(async_0_fired){          
+          assert(in_f_xnor_o1_f)
+          assert(!output_0.fire)
+        }
+        when(async_1_fired){
+          assert(in_f_xnor_o0_f)
+          assert(!output_1.fire)
+        }       
       })
   }
 }
