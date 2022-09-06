@@ -1340,6 +1340,31 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
 
   pushToPopGray := pushCC.pushPtrGray
   popToPushGray := popCC.popPtrGray
+  
+  def withAsserts(gclk: ClockDomain) = new Area {
+    import spinal.core.formal._
+    val pushArea = new ClockingArea(pushClock) {
+      when(pastValid & changed(pushCC.popPtrGray)) {
+        assert(fromGray(pushCC.popPtrGray) - past(fromGray(pushCC.popPtrGray)) <= depth)
+      }
+      assert(pushCC.pushPtrGray === toGray(pushCC.pushPtr))
+      assert(pushCC.pushPtr - fromGray(pushCC.popPtrGray) <= depth)
+    }
+
+    val popCheckClock = if (withPopBufferedReset) popClock.copy(reset = pushClock.isResetActive) else popClock
+    val popArea = new ClockingArea(popCheckClock) {
+      when(pastValid & changed(popCC.pushPtrGray)) {
+        assert(fromGray(popCC.pushPtrGray) - past(fromGray(popCC.pushPtrGray)) <= depth)
+      }
+      assert(popCC.popPtrGray === toGray(popCC.popPtr))
+      assert(fromGray(popCC.pushPtrGray) - popCC.popPtr <= depth)
+    }
+
+    val globalArea = new ClockingArea(gclk) {
+      when(io.push.ready) { assert(pushCC.pushPtr - popCC.popPtr <= depth - 1) }
+        .otherwise { assert(pushCC.pushPtr - popCC.popPtr <= depth) }
+    }
+  }
 }
 
 object StreamCCByToggle {
