@@ -8,6 +8,11 @@ case class GlobalClock() {
   val domain = ClockDomain.internal("_global").withBootReset()
   domain.clock.addAttribute("gclk")
 
+  private def getActiveEdge(target: ClockDomain): Bool = {
+    val activeEdge = if (target.config.clockEdge == RISING) rose(target.readClockWire) else fell(target.readClockWire)
+    activeEdge
+  }
+
   def assumeClockTiming(target: ClockDomain, period: Int, aligned: Boolean = false) = new ClockingArea(domain) {
     val timer = CounterFreeRun(period)
     val phase = if (!aligned) timer.value + anyconst(cloneOf(timer.value)) else timer.value
@@ -16,7 +21,7 @@ case class GlobalClock() {
 
   def assumeResetReleaseSync(target: ClockDomain) = new ClockingArea(domain) {
     if (target.hasResetSignal) {
-      val activeEdge = if (target.config.clockEdge == RISING) rose(target.readClockWire) else fell(target.readClockWire)
+      val activeEdge = getActiveEdge(target)
       if (target.config.resetKind == SYNC) {
         when(pastValid & !activeEdge) { assume(!changed(target.isResetActive)) }
       } else {
@@ -26,7 +31,7 @@ case class GlobalClock() {
   }
 
   def assumeIOSync2Clock(target: ClockDomain, signal: Data) = new ClockingArea(domain) {
-    val activeEdge = if (target.config.clockEdge == RISING) rose(target.readClockWire) else fell(target.readClockWire)
+    val activeEdge = getActiveEdge(target)
     when(pastValid & !activeEdge) { assume(!changed(signal)) }
   }
 
@@ -38,9 +43,11 @@ case class GlobalClock() {
 
   def alignAsyncResetStart(src: ClockDomain, dst: ClockDomain) = new ClockingArea(domain) {
     if (src.hasResetSignal && dst.hasResetSignal && src.config.resetKind == ASYNC && dst.config.resetKind == ASYNC) {
+      val srcActiveEdge = getActiveEdge(src)
+      val dstActiveEdge = getActiveEdge(dst)
       assume(rose(src.isResetActive) === rose(dst.isResetActive))
-      when(!src.isResetActive & rose(dst.readClockWire)) { assume(dst.isResetActive === False) }
-      when(!dst.isResetActive & rose(src.readClockWire)) { assume(src.isResetActive === False) }
+      when(!src.isResetActive & dstActiveEdge) { assume(dst.isResetActive === False) }
+      when(!dst.isResetActive & srcActiveEdge) { assume(src.isResetActive === False) }
     }
   }
 }
