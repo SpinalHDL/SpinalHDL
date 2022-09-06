@@ -82,7 +82,7 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
 
   def testMain(pushPeriod: Int, popPeriod: Int, seperateReset: Boolean = false) = {
     val proveCycles = 8
-    val coverCycles = 10
+    val coverCycles = 8
     val maxPeriod = Math.max(pushPeriod, popPeriod)
 
     FormalConfig
@@ -125,4 +125,84 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
 //   test("fifo-verify ultra fast push reset seperately") {
 //     testMain(2, 11, true)
 //   }
+
+  def testNoLoss(pushPeriod: Int, popPeriod: Int, seperateReset: Boolean = false) = {
+    val proveCycles = 8
+    val coverCycles = 8
+    val maxPeriod = Math.max(pushPeriod, popPeriod)
+
+    FormalConfig
+      .withCover(maxPeriod * coverCycles)
+      .withAsync
+      .withDebug
+      .doVerify(new Component {
+        val context = formalContext(pushPeriod, popPeriod, seperateReset)
+
+        val d1 = anyconst(cloneOf(context.inValue))
+        val d1_in = RegInit(False)
+        when(context.inValue === d1 & context.dut.io.push.fire) {
+          d1_in := True
+        }
+        when(d1_in) { assume(context.inValue =/= d1) }
+
+        val popCheckArea = new ClockingArea(context.popCheckDomain) {
+          val d1_inCC = BufferCC(d1_in)
+          val cond = d1_inCC & context.dut.io.pop.fire
+          val hist = History(context.dut.io.pop.payload, context.fifoDepth, cond)
+          val counter = Counter(context.fifoDepth, inc = cond)
+          when(!d1_inCC) { counter.clear() }
+          cover(counter.willOverflow & !hist.sContains(d1))
+        }
+
+        val globalCheckArea = new ClockingArea(context.popCheckDomain) {
+          def checkValidData(cond: UInt => Bool): Seq[Bool] = context.dut.rework {
+            val maps = for (i <- 0 until context.fifoDepth) yield {
+              val index = context.dut.popCC.popPtr + i
+              val out = False
+              when(i < context.dut.pushCC.pushPtr - context.dut.popCC.popPtr) {
+                out := cond(context.dut.ram(index.resized))
+              }
+              out
+            }
+            maps
+          }
+          val fits = checkValidData(_ === d1.pull())
+          val containD1 = fits.reduce(_ || _)
+          when(!d1_in) { assume(!containD1) }
+        }
+      })
+  }
+
+  test("noloss fast pop") {
+    shouldFail(testNoLoss(5, 3))
+  }
+
+  test("noloss fast push") {
+    shouldFail(testNoLoss(3, 5))
+  }
+
+  // test("noloss ultra fast pop") {
+  //   shouldFail(testNoLoss(11, 2))
+  // }
+
+  // test("noloss ultra fast push") {
+  //   shouldFail(testNoLoss(2, 11))
+  // }
+
+  test("noloss fast pop reset seperately") {
+    shouldFail(testNoLoss(5, 3, true))
+  }
+
+  test("noloss fast push reset seperately") {
+    shouldFail(testNoLoss(3, 5, true))
+  }
+
+  // test("noloss ultra fast pop reset seperately") {
+  //   shouldFail(testNoLoss(11, 2, true))
+  // }
+
+  // test("noloss ultra fast push reset seperately") {
+  //   shouldFail(testNoLoss(2, 11, true))
+  // }
+
 }
