@@ -45,9 +45,9 @@ case class GlobalClock() {
     if (src.hasResetSignal && dst.hasResetSignal && src.config.resetKind == ASYNC && dst.config.resetKind == ASYNC) {
       val srcActiveEdge = getActiveEdge(src)
       val dstActiveEdge = getActiveEdge(dst)
-      assume(rose(src.isResetActive) === rose(dst.isResetActive))
-      when(!src.isResetActive & dstActiveEdge) { assume(dst.isResetActive === False) }
-      when(!dst.isResetActive & srcActiveEdge) { assume(src.isResetActive === False) }
+      when(pastValid) { assume(rose(src.isResetActive) === rose(dst.isResetActive)) }
+      when(pastValid & !src.isResetActive & dstActiveEdge) { assume(dst.isResetActive === False) }
+      when(pastValid & !dst.isResetActive & srcActiveEdge) { assume(src.isResetActive === False) }
     }
   }
 }
