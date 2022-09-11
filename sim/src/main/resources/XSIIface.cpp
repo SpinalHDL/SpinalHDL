@@ -154,9 +154,7 @@ void XSIIface::write(int32_t handle, int32_t width, std::vector<int8_t> data) {
 }
 
 void XSIIface::sleep(int64_t sleep_cycles) {
-    const int64_t cycle_precision = -9; // 1ns
-    int64_t time_ticks = sleep_cycles * (pow10(cycle_precision - sim_time_precision));
-    loader.run(time_ticks);
+    loader.run(sleep_cycles);
 }
 
 void XSIIface::check_status() { }
