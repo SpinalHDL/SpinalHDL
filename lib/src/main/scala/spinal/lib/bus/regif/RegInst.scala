@@ -156,7 +156,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   private def creatWriteLogic[T <: BaseType](reg: T, acc: AccessType, section: Range): Unit = {
     acc match {
       case AccessType.RO|AccessType.NA =>
-      case _ => if(!reg.isReg){
+      case _ => if(!reg.isRegOnAssign){
         SpinalError(s"$reg need be a register, not wire, check please")
       }
     }
