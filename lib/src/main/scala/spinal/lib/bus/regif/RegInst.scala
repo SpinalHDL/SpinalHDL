@@ -86,7 +86,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     val sectionNext: Section = pos + hardType.getBitsWidth-1 downto pos
     val sectionExists: Section = fieldPtr downto 0
     val ret = pos match {
-      case x if x < fieldPtr => SpinalError(s"next field setction ${sectionNext} overlap to allocated Section ${sectionExists}")
+      case x if x < fieldPtr => SpinalError(s"next field section ${sectionNext} overlap to allocated Section ${sectionExists}")
       case _ if sectionNext.max >= busif.busDataWidth => SpinalError(s"Range ${sectionNext} exceed Bus width ${busif.busDataWidth}")
       case x if (x == fieldPtr) => field(hardType, acc, resetValue, doc)
       case _ => {
@@ -216,7 +216,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     val sectionNext: Section = pos + reg.getBitsWidth-1 downto pos
     def sectionExists: Section = fieldPtr - 1 downto 0
     pos match {
-      case x if x < fieldPtr => SpinalError(s"next field setction ${sectionNext} overlap to allocated Section ${sectionExists}")
+      case x if x < fieldPtr => SpinalError(s"next field section ${sectionNext} overlap to allocated Section ${sectionExists}")
       case _ if sectionNext.max >= busif.busDataWidth => SpinalError(s"Range ${sectionNext} exceed Bus width ${busif.busDataWidth}")
       case x if (x == fieldPtr) => registerInWithWriteLogic(reg, acc, resetValue, doc, dontCreatWriteLogic)
       case _ => {
