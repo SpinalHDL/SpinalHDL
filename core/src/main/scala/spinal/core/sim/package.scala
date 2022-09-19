@@ -632,6 +632,21 @@ package object sim {
       }
     }
 
+    //timeout in cycles
+    //Warning use threaded API (slow)
+    //return true on timeout
+    def waitSamplingWhere(timeout : Int)(condAnd: => Boolean): Boolean = {
+      var counter = 0
+      while(true){
+        waitSampling()
+        if(condAnd) return false
+        counter += 1
+        if(counter == timeout) return true
+      }
+      return ???
+    }
+
+
     def waitEdge(): Unit = waitEdge(1)
     def waitEdge(count : Int): Unit = {
       val manager = SimManagerContext.current.manager
