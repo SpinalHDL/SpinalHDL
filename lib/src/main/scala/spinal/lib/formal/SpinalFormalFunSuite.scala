@@ -22,4 +22,11 @@ class SpinalFormalFunSuite extends AnyFunSuite{
       testFun
     }
   }
+
+  def shouldFail(body: => Unit) = assert(try {
+    body
+    false
+  } catch {
+    case e : Throwable => println(e); true
+  })
 }

@@ -180,7 +180,7 @@ def test1(dut):
         check(dut.uintBsMul, 12, uint8 * uint4)
         if uint4NotZero != 0:
             check(dut.uintBsDiv, 8, uint8 // uint4NotZero)
-            check(dut.uintBsRem, 8, uint8 % uint4NotZero)
+            check(dut.uintBsRem, 4, uint8 % uint4NotZero)
         check(dut.uintBsAnd, 8, uint8 & uint4)
         check(dut.uintBsOr , 8, uint8 | uint4)
         check(dut.uintBsXor, 8, uint8 ^ uint4)
@@ -201,7 +201,7 @@ def test1(dut):
         checkSigned(dut.sintBsMul, 12, sint8 * sint4)
         if sint4NotZero != 0 and sint8 > 0 and sint4NotZero > 0:
             checkSigned(dut.sintBsDiv, 8,  int(sint8// sint4NotZero))
-            checkSigned(dut.sintBsRem, 8,  int(sint8%  sint4NotZero))
+            checkSigned(dut.sintBsRem, 4,  int(sint8%  sint4NotZero))
 
         checkSigned(dut.sintBsAnd, 8, sint8 & sint4)
         checkSigned(dut.sintBsOr, 8, sint8 | sint4)

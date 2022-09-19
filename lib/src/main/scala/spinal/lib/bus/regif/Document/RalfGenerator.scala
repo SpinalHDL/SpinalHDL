@@ -4,7 +4,7 @@ import spinal.lib.bus.regif._
 
 import java.io.PrintWriter
 
-final case class RalfGenerator(fileName : String) extends BusIfVisitor {
+final case class RalfGenerator(fileName : String, backdoor: Boolean = true) extends BusIfVisitor {
   val sb : StringBuilder = new StringBuilder
   var prefix = ""
   var width = 0
@@ -39,14 +39,26 @@ final case class RalfGenerator(fileName : String) extends BusIfVisitor {
           if(name == "--") s"RSV_${fd.getSection().start}_${fd.getSection().end}" else name
         }
       }
+
       def access = {
-        val ret = fd.getAccessType().toString.toLowerCase()
-        if(ret == "na") "ro" else ret
+        fd.getAccessType() match{
+          case x if fd.uvmBaseAcc.contains(x) => x.toString.toLowerCase()
+          case AccessType.NA => "ro"
+          case _ => "rw"
+        }
       }
-      s"""    field ${rename(fd.getName())} @${fd.getSection().end} {
+
+      def attribute = {
+        if(fd.getAccessType() == AccessType.NA){
+          "\n      attributes {NO_REG_TEST 1};"
+        } else ""
+      }
+
+      val forhdlpath = if(backdoor) s"(${rename(fd.getName())})" else ""
+      s"""    field ${rename(fd.getName())} $forhdlpath @${fd.getSection().end} {
          |      bits ${fd.getWidth()};
          |      access ${access};
-         |      reset ${formatResetValue(fd.getResetValue(), fd.getWidth())};
+         |      reset ${formatResetValue(fd.getResetValue(), fd.getWidth())};${attribute}
          |    }""".stripMargin
     }
 

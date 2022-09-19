@@ -540,6 +540,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def isReg:    Boolean = flatten.forall(_.isReg)
   def isComb:   Boolean = flatten.forall(_.isComb)
   def isAnalog: Boolean = flatten.forall(_.isAnalog)
+  def isRegOnAssign : Boolean = isReg
 
   def setAsAnalog(): this.type = {flatten.foreach(_.setAsAnalog()); this}
 
