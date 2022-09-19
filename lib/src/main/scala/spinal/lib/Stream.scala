@@ -1483,14 +1483,16 @@ object StreamWidthAdapter {
   }
 }
 
+//padding=true allow having the input output width modulo not being 0
+//earlyLast=true add the hardware required to handle sizer where the last input transaction come before the fullness of the output buffer
 object StreamFragmentWidthAdapter {
-  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], endianness: Endianness = LITTLE, padding : Boolean = false, earlyLast : Boolean = false): Unit = {
     val inputWidth = widthOf(input.fragment)
     val outputWidth = widthOf(output.fragment)
     if(inputWidth == outputWidth){
       output.arbitrationFrom(input)
       output.payload.assignFromBits(input.payload.asBits)
-    } else if(inputWidth > outputWidth){
+    } else if(inputWidth > outputWidth) new Composite(input, "widthAdapter") {
       require(inputWidth % outputWidth == 0 || padding)
       val factor = (inputWidth + outputWidth - 1) / outputWidth
       val paddedInputWidth = factor * outputWidth
@@ -1502,22 +1504,47 @@ object StreamFragmentWidthAdapter {
       }
       output.last := input.last && counter.willOverflowIfInc
       input.ready := output.ready && counter.willOverflowIfInc
-    } else{
+    } else new Composite(input, "widthAdapter"){
       require(outputWidth % inputWidth == 0 || padding)
       val factor  = (outputWidth + inputWidth - 1) / inputWidth
       val paddedOutputWidth = factor * inputWidth
       val counter = Counter(factor,inc = input.fire)
       val buffer  = Reg(Bits(paddedOutputWidth - inputWidth bits))
-      when(input.fire){
-        buffer := input.fragment ## (buffer >> inputWidth)
-      }
-      output.valid := input.valid && counter.willOverflowIfInc
-      endianness match {
-        case `LITTLE` => output.fragment.assignFromBits((input.fragment ## buffer).resize(outputWidth))
-        case `BIG`    => output.fragment.assignFromBits((input.fragment ## buffer).subdivideIn(factor slices).reverse.asBits().resize(outputWidth))
-      }
+      val sendIt = CombInit(counter.willOverflowIfInc)
+      output.valid := input.valid && sendIt
       output.last := input.last
-      input.ready := !(!output.ready && counter.willOverflowIfInc)
+      input.ready := output.ready || !sendIt
+
+      if(earlyLast){
+        sendIt setWhen(input.last)
+        when(input.valid && input.last && output.ready) {
+          counter.clear()
+        }
+      }
+
+      val data = CombInit(input.fragment ## buffer)
+      endianness match {
+        case `LITTLE` => output.fragment.assignFromBits(data.resize(outputWidth))
+        case `BIG`    => output.fragment.assignFromBits(data.subdivideIn(factor slices).reverse.asBits().resize(outputWidth))
+      }
+
+      earlyLast match {
+        case false => {
+          when(input.fire) {
+            buffer := input.fragment ## (buffer >> inputWidth)
+          }
+        }
+        case true  => {
+          when(input.fire) {
+            whenIndexed(buffer.subdivideIn(inputWidth bits), counter) {
+              _ := input.fragment.asBits
+            }
+          }
+          whenIndexed(data.subdivideIn(inputWidth bits).dropRight(1), counter) {
+            _ := input.fragment.asBits
+          }
+        }
+      }
     }
   }
 
