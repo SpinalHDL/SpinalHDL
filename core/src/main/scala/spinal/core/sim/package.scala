@@ -871,6 +871,24 @@ package object sim {
       }
     }
 
+    def onSamplingWhile(body : => Boolean) : Unit = {
+      val context = SimManagerContext.current
+      val edgeValue = if (cd.config.clockEdge == spinal.core.RISING) 1 else 0
+      val manager = context.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getInt(signal)
+      val listeners = ArrayBuffer[() => Unit]()
+      forkSensitiveWhile {
+        var continue = true
+        val current = manager.getInt(signal)
+        if (last != edgeValue && current == edgeValue && isSamplingEnable) {
+          continue = body
+        }
+        last = current
+        continue
+      }
+    }
+
 
     def assertReset(): Unit         = resetSim #= cd.config.resetActiveLevel == spinal.core.HIGH
     def deassertReset(): Unit       = resetSim #= cd.config.resetActiveLevel != spinal.core.HIGH
