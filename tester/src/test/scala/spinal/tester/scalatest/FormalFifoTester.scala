@@ -1,8 +1,9 @@
 package spinal.tester.scalatest
 
-import spinal.core.formal._
 import spinal.core._
+import spinal.core.formal._
 import spinal.lib.{StreamFifo, History}
+import spinal.lib.formal._
 
 class FormalFifoTester extends SpinalFormalFunSuite {
   test("fifo-verify all") {

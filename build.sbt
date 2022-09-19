@@ -155,6 +155,7 @@ lazy val lib = (project in file("lib"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
     version := SpinalVersion.lib
   )
   .dependsOn (sim, core)
@@ -205,6 +206,7 @@ test in assembly := {}
 
 Test / testOptions += Tests.Argument("-l", "spinal.tester.formal")
 addCommandAlias("testFormal", "testOnly * -- -n spinal.tester.formal")
+addCommandAlias("testWithoutFormal", "testOnly * -- -l spinal.tester.formal")
 
 assemblyOutputPath in assembly := file("./release/spinalhdl.jar")
 

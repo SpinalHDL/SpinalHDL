@@ -83,6 +83,7 @@ case class SpinalFormalConfig(
     var _modesWithDepths: LinkedHashMap[String, Int] = LinkedHashMap[String, Int](),
     var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS,
     var _keepDebugInfo: Boolean = false,
+    var _skipWireReduce: Boolean = false,
     var _hasAsync: Boolean = false
 ) {
   var _multiClock = false
@@ -147,6 +148,11 @@ case class SpinalFormalConfig(
 
   def withDebug: this.type = {
     _keepDebugInfo = true
+    this
+  }
+
+  def withOutWireReduce: this.type = {
+    _skipWireReduce = true
     this
   }
 
@@ -256,6 +262,7 @@ case class SpinalFormalConfig(
           modesWithDepths = _modesWithDepths,
           timeout = _timeout,
           keepDebugInfo = _keepDebugInfo,
+          skipWireReduce = _skipWireReduce,
           multiClock = _hasAsync
         )
         vConfig.rtlSourcesPaths ++= rtlFiles

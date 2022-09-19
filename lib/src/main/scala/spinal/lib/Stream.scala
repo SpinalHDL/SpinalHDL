@@ -576,31 +576,28 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     (aheadIn, behindIn)
   }
 
-  /**
-   * Assert that this stream conforms to the stream semantics:
-   * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
-   * - After being asserted, valid should be acknowledged in limited cycles.
-   *
-   * @param maxStallCycles Check that the max cycles the interface would hold in stall.
-   */
-  def withTimeoutAsserts(maxStallCycles : Int = 0) : this.type = {
+  /** Assert that this stream conforms to the stream semantics:
+    * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
+    * - After being asserted, valid should be acknowledged in limited cycles.
+    *
+    * @param maxStallCycles Check that the max cycles the interface would hold in stall.
+    */
+  def withTimeoutAsserts(maxStallCycles: Int = 0) = new Area {
     import spinal.core.formal._
-    if (maxStallCycles > 0) {
-      val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
-      when(this.fire) { counter.clear()} 
-      .otherwise { assert(!counter.willOverflow) }
+    val logic = (maxStallCycles > 0) generate new Area {
+      val counter = Counter(maxStallCycles, isStall).setCompositeName(this, "timeoutCounter", true)
+      when(!isStall) { counter.clear() }
+        .otherwise { assert(!counter.willOverflow) }
     }
-    this
   }
 
-  def withTimeoutAssumes(maxStallCycles : Int = 0) : this.type = {
+  def withTimeoutAssumes(maxStallCycles: Int = 0) = new Area {
     import spinal.core.formal._
-    if (maxStallCycles > 0) {
-      val counter = Counter(maxStallCycles, this.isStall).setCompositeName(this, "timeoutCounter", true)
-      when(this.fire) { counter.clear() } 
-      .elsewhen(counter.willOverflow) { assume(this.ready === True) }
+    val logic = (maxStallCycles > 0) generate new Area {
+      val counter = Counter(maxStallCycles, isStall).setCompositeName(this, "timeoutCounter", true)
+      when(!isStall) { counter.clear() }
+        .elsewhen(counter.willOverflow) { assume(ready === True) }
     }
-    this
   }
 }
 
@@ -1487,14 +1484,16 @@ object StreamWidthAdapter {
   }
 }
 
+//padding=true allow having the input output width modulo not being 0
+//earlyLast=true add the hardware required to handle sizer where the last input transaction come before the fullness of the output buffer
 object StreamFragmentWidthAdapter {
-  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], endianness: Endianness = LITTLE, padding : Boolean = false, earlyLast : Boolean = false): Unit = {
     val inputWidth = widthOf(input.fragment)
     val outputWidth = widthOf(output.fragment)
     if(inputWidth == outputWidth){
       output.arbitrationFrom(input)
       output.payload.assignFromBits(input.payload.asBits)
-    } else if(inputWidth > outputWidth){
+    } else if(inputWidth > outputWidth) new Composite(input, "widthAdapter") {
       require(inputWidth % outputWidth == 0 || padding)
       val factor = (inputWidth + outputWidth - 1) / outputWidth
       val paddedInputWidth = factor * outputWidth
@@ -1506,22 +1505,47 @@ object StreamFragmentWidthAdapter {
       }
       output.last := input.last && counter.willOverflowIfInc
       input.ready := output.ready && counter.willOverflowIfInc
-    } else{
+    } else new Composite(input, "widthAdapter"){
       require(outputWidth % inputWidth == 0 || padding)
       val factor  = (outputWidth + inputWidth - 1) / inputWidth
       val paddedOutputWidth = factor * inputWidth
       val counter = Counter(factor,inc = input.fire)
       val buffer  = Reg(Bits(paddedOutputWidth - inputWidth bits))
-      when(input.fire){
-        buffer := input.fragment ## (buffer >> inputWidth)
-      }
-      output.valid := input.valid && counter.willOverflowIfInc
-      endianness match {
-        case `LITTLE` => output.fragment.assignFromBits((input.fragment ## buffer).resize(outputWidth))
-        case `BIG`    => output.fragment.assignFromBits((input.fragment ## buffer).subdivideIn(factor slices).reverse.asBits().resize(outputWidth))
-      }
+      val sendIt = CombInit(counter.willOverflowIfInc)
+      output.valid := input.valid && sendIt
       output.last := input.last
-      input.ready := !(!output.ready && counter.willOverflowIfInc)
+      input.ready := output.ready || !sendIt
+
+      if(earlyLast){
+        sendIt setWhen(input.last)
+        when(input.valid && input.last && output.ready) {
+          counter.clear()
+        }
+      }
+
+      val data = CombInit(input.fragment ## buffer)
+      endianness match {
+        case `LITTLE` => output.fragment.assignFromBits(data.resize(outputWidth))
+        case `BIG`    => output.fragment.assignFromBits(data.subdivideIn(factor slices).reverse.asBits().resize(outputWidth))
+      }
+
+      earlyLast match {
+        case false => {
+          when(input.fire) {
+            buffer := input.fragment ## (buffer >> inputWidth)
+          }
+        }
+        case true  => {
+          when(input.fire) {
+            whenIndexed(buffer.subdivideIn(inputWidth bits), counter) {
+              _ := input.fragment.asBits
+            }
+          }
+          whenIndexed(data.subdivideIn(inputWidth bits).dropRight(1), counter) {
+            _ := input.fragment.asBits
+          }
+        }
+      }
     }
   }
 
@@ -1756,6 +1780,7 @@ class StreamTransactionCounter(
     val io = new Bundle {
         val ctrlFire   = in Bool ()
         val targetFire = in Bool ()
+        val available  = out Bool ()
         val count      = in UInt (countWidth bits)
         val working    = out Bool ()
         val last       = out Bool ()
@@ -1765,45 +1790,56 @@ class StreamTransactionCounter(
 
     val countReg = RegNextWhen(io.count, io.ctrlFire)
     val counter  = Counter(io.count.getBitsWidth bits)
-    val expected = cloneOf(io.count)
-    expected := countReg
+    val expected = if(noDelay) { countReg.getAheadValue() } else { CombInit(countReg) }
 
-    val lastOne = counter === expected
+    val lastOne = counter >= expected
     val running = Reg(Bool()) init False
+    val working = CombInit(running)
 
     val done         = lastOne && io.targetFire
-    val doneWithFire = if (noDelay) False else True
-    when(done && io.ctrlFire) {
-        running := doneWithFire
-    } elsewhen (io.ctrlFire) {
-        running := True
-    } elsewhen done {
-        running := False
+    if(noDelay){
+      when(io.ctrlFire) { working := True }
+      when(done) { running := False }
+      .otherwise { running := working }
+    } else {
+      when (io.ctrlFire) { running := True } 
+      .elsewhen(done) { running := False }
     }
 
     when(done) {
         counter.clear()
-    } elsewhen (io.targetFire) {
+    } elsewhen (io.targetFire & working) {
         counter.increment()
     }
 
-    if (noDelay) {
-        when(io.ctrlFire) {
-            expected := io.count
-        }
-    }
-
-    io.working := running
-    io.last := lastOne
-    io.done := lastOne && io.targetFire
+    io.working := working
+    io.last := lastOne & working
+    io.done := done & working
     io.value := counter
+    if(noDelay) { io.available := !running } else { io.available := !working | io.done }
+
+    def withAsserts() = new Area {
+      val startedReg = Reg(Bool()) init False
+      val started = CombInit(startedReg)
+      val waiting = io.working & !started
+      when(io.targetFire & io.working) {
+        started := True
+        startedReg := True
+      }
+      when(done) { startedReg := False }
+
+      when(startedReg) { assert(io.working && counter.value > 0 && counter.value <= expected) }
+      when(counter.value > 0) { assert(started) }
+//      when(!io.working) { assert(counter.value === 0) }
+//      assert(counter.value <= expected)
+    }
 }
 
 object StreamTransactionExtender {
-    def apply[T <: Data](input: Stream[T], count: UInt)(
-        driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
+    def apply[T <: Data](input: Stream[T], count: UInt, noDelay: Boolean = false)(
+        implicit driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
     ): Stream[T] = {
-        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
+        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, noDelay, driver)
         c.io.input << input
         c.io.count := count
         c.io.output
@@ -1811,8 +1847,12 @@ object StreamTransactionExtender {
 
     def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
         driver: (UInt, T, Bool) => T2
+    ): StreamTransactionExtender[T, T2] = StreamTransactionExtender(input, output, count, false)(driver)
+
+    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt, noDelay: Boolean)(
+        driver: (UInt, T, Bool) => T2
     ): StreamTransactionExtender[T, T2] = {
-        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
+        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, noDelay, driver)
         c.io.input << input
         c.io.count := count
         output << c.io.output
@@ -1825,6 +1865,7 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     dataType: HardType[T],
     outDataType: HardType[T2],
     countWidth: Int,
+    noDelay: Boolean,
     driver: (UInt, T, Bool) => T2
 ) extends Component {
     val io = new Bundle {
@@ -1837,23 +1878,19 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
         val done    = out Bool ()
     }
 
-    val counter  = StreamTransactionCounter(io.input, io.output, io.count)
-    val payload  = Reg(io.input.payloadType)
+    val counter  = StreamTransactionCounter(io.input, io.output, io.count, noDelay)
+    val payloadReg  = Reg(io.input.payloadType)
     val lastOne  = counter.io.last
-    val outValid = RegInit(False)
-
-    when(counter.io.done) {
-        outValid := False
-    }
+    val count = counter.io.value
+    val payload = if(noDelay) CombInit(payloadReg.getAheadValue) else CombInit(payloadReg)
 
     when(io.input.fire) {
-        payload := io.input.payload
-        outValid := True
+        payloadReg := io.input.payload
     }
 
-    io.output.payload := driver(counter.io.value, payload, lastOne)
-    io.output.valid := outValid
-    io.input.ready := (!outValid || counter.io.done)
+    io.output.payload := driver(count, payload, lastOne)
+    io.output.valid := counter.io.working
+    io.input.ready := counter.io.available
     io.last := lastOne
     io.done := counter.io.done
     io.first := (counter.io.value === 0) && counter.io.working

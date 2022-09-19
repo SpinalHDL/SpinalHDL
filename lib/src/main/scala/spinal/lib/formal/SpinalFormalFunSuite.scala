@@ -1,4 +1,4 @@
-package spinal.tester.scalatest
+package spinal.lib.formal
 
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.Tag
@@ -22,4 +22,11 @@ class SpinalFormalFunSuite extends AnyFunSuite{
       testFun
     }
   }
+
+  def shouldFail(body: => Unit) = assert(try {
+    body
+    false
+  } catch {
+    case e : Throwable => println(e); true
+  })
 }

@@ -527,8 +527,9 @@ object AnnotationUtils{
 
 
 /**
-  * Declare a register with an initialize value
-  */
+ * Create a new signal, assigned by the given parameter.
+ * Useful to provide a "copy" of something that you can then modify with more conditional assignments.
+ */
 object CombInit {
   def apply[T <: Data](init: T): T = {
     val ret = cloneOf(init)

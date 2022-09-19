@@ -345,7 +345,11 @@ class SpinalReport[T <: Component]() {
     // Merge vhdl/verilog file
     val nameFile = if(fileName == null) s"${toplevel.definitionName}_bb" else fileName
     if(bb_vhdl.size > 0)   { mergeFile(bb_vhdl,    s"${nameFile}.vhd") }
-    if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}.v") }
+    if (globalData.config.mode == Verilog) {
+      if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}.v") }
+    } else if (globalData.config.mode == SystemVerilog) {
+      if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}.sv") }
+    }
 
   }
 

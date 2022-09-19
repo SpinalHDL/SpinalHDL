@@ -1,6 +1,6 @@
 package spinal.sim
 
-import java.nio.file.{Paths, Files, Path}
+import java.nio.file.Paths
 import java.io.{File, PrintWriter}
 import java.lang.Thread
 import scala.io.Source
@@ -12,17 +12,22 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.sys.process._
 import spinal.sim.xsi._
 
+import scala.util.Properties
+
 case class XSimBackendConfig(
                              val rtlIncludeDirs : ArrayBuffer[String] = ArrayBuffer[String](),
                              val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var xciSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var bdSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
+                             var xilinxDevice:String = "xc7vx485tffg1157-1",
                              var CC: String             = "g++",
                              var toplevelName: String   = null,
                              var workspacePath: String  = null,
                              var workspaceName: String  = null,
                              var wavePath: String       = null,
-                             var waveFormat: WaveFormat = WaveFormat.NONE
+                             var waveFormat: WaveFormat = WaveFormat.NONE,
+                             var userSimulationScript: String = null,
+                             var xelabFlags: Array[String] = null
                            )
 
 class XSimBackend(config: XSimBackendConfig) extends Backend {
@@ -38,6 +43,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
   val workspaceName = config.workspaceName
   val wavePath = config.wavePath
   val waveFormat = config.waveFormat
+  val xilinxDevice = config.xilinxDevice
 
   val format: WaveFormat = {
     val availableFormats = Array(WaveFormat.WDB, WaveFormat.DEFAULT, WaveFormat.NONE)
@@ -106,8 +112,8 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
 
   class Logger extends ProcessLogger {
     val logs = new StringBuilder()
-    override def err(s: => String): Unit = { logs ++= (s) }
-    override def out(s: => String): Unit = { logs ++= (s) }
+    override def err(s: => String): Unit = { logs ++= (s + Properties.lineSeparator) }
+    override def out(s: => String): Unit = { logs ++= (s + Properties.lineSeparator) }
     override def buffer[T](f: => T) = f
   }
 
@@ -144,7 +150,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
          |
          |""".stripMargin
 
-    val createProject = s"create_project -force $projectName"
+    val createProject = s"create_project -force $projectName -part $xilinxDevice"
     val importRtl = rtlAbsoluteSourcesPaths map { p =>
       s"import_files -force $p"
     }
@@ -154,19 +160,29 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     val importBd = bdAbsoluteSourcesPaths map { p =>
       s"import_files -force -quiet [findFiles $p *.bd]"
     }
-    val generateSimulateScript =
+    val generateSimulateScriptPre =
       s"""
         |update_compile_order -fileset sources_1
         |set_property top $toplevelName [get_fileset sim_1]
+        |""".stripMargin
+    val generateSimulateScriptPost =
+      s"""
         |launch_simulation -scripts_only
         |close_project
         |""".stripMargin
+
+    if (config.userSimulationScript == null) {
+      config.userSimulationScript = ""
+    }
+
     val script = Seq(findFiles,
       createProject,
       importRtl.mkString("\n"),
       importXsi.mkString("\n"),
       importBd.mkString("\n"),
-      generateSimulateScript).mkString("\n")
+      generateSimulateScriptPre,
+      config.userSimulationScript,
+      generateSimulateScriptPost).mkString("\n")
 
     val outFile = new java.io.FileWriter(scriptPath)
     outFile.write(script)
@@ -187,9 +203,9 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       "Generation of vivado script failed")
 
     // Fix elaborate
-    val additionalElaborateCommand = List(
+    val additionalElaborateCommand = (List(
       "-dll"
-    ).mkString(" ")
+    ) ++ config.xelabFlags).mkString(" ")
     val fixElaborateCommand = if (isWindows) {
       s"sed \'/^call xelab/ s/$$/ ${additionalElaborateCommand}/\' -i elaborate.bat"
     } else {

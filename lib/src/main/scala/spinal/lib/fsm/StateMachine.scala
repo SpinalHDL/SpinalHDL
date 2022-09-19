@@ -39,6 +39,7 @@ trait StateMachineAccessor {
 
   def isActive(state: State): Bool
   def isEntering(state: State): Bool
+  def isExiting(state: State): Bool
 
   def goto(state: State): Unit
   def forceGoto(state: State): Unit
@@ -310,19 +311,33 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     stateNext := enumOf(state)
   }
 
-  override def isActive(state: State): Bool = {
-    val ret = Component.current.onBody(Bool)
-    postBuildTasks += {() => {
+  def postBuild(body : => Unit){
+    builded match {
+      case false => postBuildTasks += (() => body)
+      case true => body
+    }
+  }
+  override def isActive(state: State): Bool = Component.current.onBody{
+    val ret = Bool()
+    postBuild{
       ret := stateReg === enumOf(state)
-    }}
+    }
     ret
   }
 
-  override def isEntering(state: State): Bool = {
-    val ret = Component.current.onBody(Bool)
-    postBuildTasks += {() => {
+  override def isEntering(state: State): Bool = Component.current.onBody{
+    val ret = Bool()
+    postBuild{
       ret := stateNext === enumOf(state) && stateReg =/= enumOf(state)
-    }}
+    }
+    ret
+  }
+
+  override def isExiting(state: State): Bool = Component.current.onBody{
+    val ret = Bool()
+    postBuild{
+      ret := stateNext =/= enumOf(state) && stateReg === enumOf(state)
+    }
     ret
   }
 

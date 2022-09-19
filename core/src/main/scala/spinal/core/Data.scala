@@ -431,10 +431,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  def removeAssignments(): this.type = {
-    flattenForeach(_.removeAssignments())
+  def removeAssignments(data : Boolean = true, init : Boolean = true, initial : Boolean = true): this.type = {
+    flattenForeach(_.removeAssignments(data, init, initial))
     this
   }
+
+  def removeDataAssignments(): this.type = removeAssignments(true, false, false)
+  def removeInitAssignments(): this.type = removeAssignments(false, true, false)
 
   private[core] def isEquals(that: Any): Bool
   private[core] def isNotEquals(that: Any): Bool
@@ -537,6 +540,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def isReg:    Boolean = flatten.forall(_.isReg)
   def isComb:   Boolean = flatten.forall(_.isComb)
   def isAnalog: Boolean = flatten.forall(_.isAnalog)
+  def isRegOnAssign : Boolean = isReg
 
   def setAsAnalog(): this.type = {flatten.foreach(_.setAsAnalog()); this}
 

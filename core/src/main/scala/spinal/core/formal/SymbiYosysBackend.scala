@@ -91,7 +91,8 @@ class SymbiYosysBackendConfig(
     var toplevelName: String = null,
     var workspacePath: String = null,
     var workspaceName: String = null,
-    var keepDebugInfo: Boolean = false
+    var keepDebugInfo: Boolean = false,
+    var skipWireReduce: Boolean = false
 )
 
 class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBackend {
@@ -119,6 +120,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
     val taskCmd = modes.mkString("\n")
     val modeCmd = modes.map(x => s"$x: mode $x").mkString("\n")
     val depthCmd = modes.map(x => s"$x: depth ${config.modesWithDepths(x)}").mkString("\n")
+    val skipWireReduce: String = if (config.skipWireReduce) "-ifx" else ""
 
     val script = "[tasks]\n" +
       taskCmd +
@@ -137,7 +139,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
       "\n\n" +
       "[script]\n" +
       s"read -formal $read\n" +
-      s"prep -top ${config.toplevelName}\n" +
+      s"prep ${skipWireReduce} -top ${config.toplevelName}\n" +
       "\n" +
       "[files]\n" +
       localSources

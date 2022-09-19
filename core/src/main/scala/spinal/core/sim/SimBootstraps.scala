@@ -155,7 +155,7 @@ object SpinalVerilatorSim {
 }
 
 class SpinalVpiBackendConfig[T <: Component](val rtl               : SpinalReport[T],
-                                             val waveFormat       : WaveFormat, 
+                                             val waveFormat       : WaveFormat,
                                              val workspacePath    : String,
                                              val workspaceName    : String,
                                              val wavePath         : String,
@@ -180,16 +180,16 @@ case class SpinalIVerilogBackendConfig[T <: Component](override val rtl : Spinal
                                                    override val usePluginsCache   : Boolean = true,
                                                    override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
                                                    override val enableLogging     : Boolean = false) extends
-                                              SpinalVpiBackendConfig[T](rtl, 
-                                                                        waveFormat, 
+                                              SpinalVpiBackendConfig[T](rtl,
+                                                                        waveFormat,
                                                                         workspacePath,
                                                                         workspaceName,
                                                                         wavePath,
-                                                                        wavePrefix, 
-                                                                        waveDepth, 
-                                                                        optimisationLevel, 
+                                                                        wavePrefix,
+                                                                        waveDepth,
+                                                                        optimisationLevel,
                                                                         simulatorFlags,
-                                                                        usePluginsCache, 
+                                                                        usePluginsCache,
                                                                         pluginsCachePath,
                                                                         enableLogging)
 
@@ -406,7 +406,10 @@ case class SpinalXSimBackendConfig[T <: Component](val rtl               : Spina
                                                val waveFormat       : WaveFormat,
                                                val workspacePath    : String,
                                                val workspaceName    : String,
-                                               val wavePath         : String)
+                                               val wavePath         : String,
+                                               val xilinxDevice     : String,
+                                               val simScript        : String,
+                                               val simulatorFlags   : ArrayBuffer[String] = ArrayBuffer[String]())
 
 object SpinalXSimBackend {
   class Backend(val signals : ArrayBuffer[Signal], vconfig : XSimBackendConfig) extends XSimBackend(vconfig)
@@ -426,6 +429,9 @@ object SpinalXSimBackend {
     }
     vconfig.workspaceName     = workspaceName
     vconfig.workspacePath     = workspacePath
+    vconfig.xilinxDevice      = xilinxDevice
+    vconfig.userSimulationScript = simScript
+    vconfig.xelabFlags        = simulatorFlags.toArray
 
     var signalId = 0
 
@@ -615,7 +621,9 @@ case class SpinalSimConfig(
                             var _vcsSimSetupFile   : String = null,
                             var _vcsEnvSetup       : () => Unit = null,
                             var _xciSourcesPaths   : ArrayBuffer[String] = ArrayBuffer[String](),
-                            var _bdSourcesPaths    : ArrayBuffer[String] = ArrayBuffer[String]()
+                            var _bdSourcesPaths    : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _xilinxDevice:String = "xc7vx485tffg1157-1",
+                            var _simScript         : String = null
   ){
 
 
@@ -658,6 +666,11 @@ case class SpinalSimConfig(
   def withXSimSourcesPaths(xciSourcesPaths: ArrayBuffer[String], bdSourcesPaths: ArrayBuffer[String]): this.type = {
     _xciSourcesPaths = xciSourcesPaths
     _bdSourcesPaths = bdSourcesPaths
+    this
+  }
+
+  def withSimScript(script: String): this.type = {
+    _simScript = script
     this
   }
 
@@ -722,6 +735,11 @@ case class SpinalSimConfig(
 
   def withLogging: this.type = {
     _withLogging = true
+    this
+  }
+
+  def withXilinxDevice(xilinxDevice:String):this.type ={
+    _xilinxDevice = xilinxDevice
     this
   }
 
@@ -997,7 +1015,10 @@ case class SpinalSimConfig(
           wavePath = s"${_workspacePath}/${_workspaceName}",
           workspaceName = "xsim",
           xciSourcesPaths = _xciSourcesPaths,
-          bdSourcesPaths = _bdSourcesPaths
+          bdSourcesPaths = _bdSourcesPaths,
+          xilinxDevice = _xilinxDevice,
+          simScript = _simScript,
+          simulatorFlags = _simulatorFlags
         )
         val backend = SpinalXSimBackend(vConfig)
         new SimCompiled(report) {
@@ -1013,7 +1034,7 @@ case class SpinalSimConfig(
 
 
 /**
-  * Legacy simulation configuration 
+  * Legacy simulation configuration
   */
 case class SimConfigLegacy[T <: Component](
   var _rtlGen       : Option[() => T] = None,

@@ -1,8 +1,9 @@
 package spinal.tester.scalatest
 
-import spinal.core.formal._
 import spinal.core._
+import spinal.core.formal._
 import spinal.lib._
+import spinal.lib.formal._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.HistoryModifyable
 
@@ -12,7 +13,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
       .withBMC(10)
       // .withProve(10)
       .withCover(10)
-      .withDebug
+      .withOutWireReduce
       .doVerify(new Component {
         val dut = FormalDut(new Axi4WriteOnlyDownsizer(inConfig, outConfig))
         val reset = ClockDomain.current.isResetActive
@@ -88,7 +89,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
       .withBMC(10)
       // .withProve(10)
       .withCover(10)
-      .withDebug
+      .withOutWireReduce
       .doVerify(new Component {
         val dut = FormalDut(new Axi4ReadOnlyDownsizer(inConfig, outConfig))
         val reset = ClockDomain.current.isResetActive
