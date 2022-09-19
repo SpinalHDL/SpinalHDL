@@ -8,12 +8,6 @@ class FormalSimpleTester extends SpinalFormalFunSuite {
   import spinal.core.formal._
   import spinal.core.GenerationFlags._
 
-  def shouldFail(body : => Unit) = assert(try{
-    body
-    false
-  } catch{
-    case e : Throwable => println(e); true
-  })
   def startDoneTest(maxDelay : Int): Unit ={
     class StartDoneDut() extends Component {
       val start = in(Bool())
