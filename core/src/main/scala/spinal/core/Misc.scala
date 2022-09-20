@@ -567,3 +567,38 @@ object ContextSwapper{
     ret                                   // return the value returned by that
   }
 }
+
+
+
+object Pull{
+  def driveFromTopInput[T <: Data](that : T) : T = {
+    val input = Component.toplevel.rework(in(cloneOf(that))).setCompositeName(that)
+    that := input.pull()
+    that
+  }
+
+  def driveFromTopInput[T <: Data](that : T, name : String) : T = {
+    val input = Component.toplevel.rework(in(cloneOf(that))).setName(name, weak = false)
+    that := input.pull()
+    that
+  }
+
+  def toTopOutput[T <: Data](that : T) : T = {
+    val top = Component.toplevel
+    val io = top.rework {
+      val topPulled = that.pull()
+      out(CombInit(topPulled)).setCompositeName(that)
+    }
+    that
+  }
+}
+
+//      .setPartialName(new Nameable {
+//      val chain = Component.current.parents().tail :+ Component.current
+//      override type RefOwnerType = this.type
+//      override def isNamed = chain.forall(_.isNamed) && that.isNamed
+//      override def getName(default : String = "") : String = {
+//        if(!isNamed) return default
+//        chain.map(_.getName()).mkString("_") + "_" + that.getName()
+//      }
+//    })

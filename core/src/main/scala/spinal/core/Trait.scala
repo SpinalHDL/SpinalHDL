@@ -253,16 +253,34 @@ trait ContextUser extends GlobalDataUser with ScalaLocated{
 
 trait NameableByComponent extends Nameable with GlobalDataUser {
   override def getName() : String = super.getName()
+  def getPath(from : Component, to : Component): Seq[Component] ={
+    var down = from.parents(from, List(from))
+    var up = to.parents(to, List(to))
+    var common : Component = null
+    while(down.nonEmpty && up.nonEmpty && down.head == up.head){
+      common = down.head
+      down = down.tail
+      up = up.tail
+    }
+    if(common != null)
+      (down.reverse :+ common) ++ up
+    else
+      down.reverse ++ up
+  }
+
   override def getName(default: String): String = {
+
     (getMode, nameableRef) match{
       case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        if(nameableRef.isNamed && other.component.isNamed)
-          other.component.getName() + "_" + nameableRef.getName() + "_" + name
+        val path = getPath(this.component, other.component) :+ nameableRef
+        if(path.forall(_.isNamed))
+          path.map(_.getName()).mkString("_") + "_" + name
         else
           default
       case (NAMEABLE_REF, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        if(nameableRef.isNamed && other.component.isNamed)
-          other.component.getName() + "_" + nameableRef.getName()
+        val path = getPath(this.component, other.component) :+ nameableRef
+        if(path.forall(_.isNamed))
+          path.map(_.getName()).mkString("_")
         else
           default
       case _ => super.getName(default)
@@ -273,9 +291,9 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
   override def isNamed: Boolean = {
     (getMode, nameableRef) match{
       case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        nameableRef.isNamed && other.component.isNamed
+        nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
       case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != other.component =>
-        nameableRef.isNamed && other.component.isNamed
+        nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
       case _ => super.isNamed
     }
   }
@@ -473,6 +491,7 @@ trait Nameable extends OwnableRef with ContextUser{
     this
   }
 
+  def setPartialName(owner: Nameable): this.type = setPartialName(owner, "", weak = false)
   def setPartialName(owner: Nameable, name: String): this.type = setPartialName(owner, name, weak = false)
   def setPartialName(name: String): this.type = setPartialName(name, weak = false)
   def setPartialName(owner: Nameable, name: String, weak: Boolean): this.type = setPartialName(owner,name, if(weak) USER_WEAK else USER_SET)
