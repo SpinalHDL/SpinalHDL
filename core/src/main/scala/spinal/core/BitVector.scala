@@ -439,7 +439,16 @@ abstract class BitVector extends BaseType with Widthable {
   def apply(range: Range): this.type = this.apply(range.low, range.high - range.low + 1 bits)
 
 
-
+  override def isRegOnAssign : Boolean = {
+    if(isReg) return true
+    if(dlcHasOnlyOne){
+      dlcHead.source match {
+        case e : SubAccess => return e.getBitVector.asInstanceOf[BitVector].isRegOnAssign
+        case _ => return false
+      }
+    }
+    return false
+  }
 
   /** Set all bits to value */
   def setAllTo(value: Boolean): this.type = {
