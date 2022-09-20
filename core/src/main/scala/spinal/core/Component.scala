@@ -44,6 +44,12 @@ object Component {
     case null  => null
     case scope => scope.component
   }
+
+  def toplevel : Component = {
+    var ptr = Component.current
+    while(ptr.parent != null) ptr = ptr.parent
+    ptr
+  }
 }
 
 
