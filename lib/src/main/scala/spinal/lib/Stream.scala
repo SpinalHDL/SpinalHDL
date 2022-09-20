@@ -1486,13 +1486,20 @@ object StreamWidthAdapter {
 
 //padding=true allow having the input output width modulo not being 0
 //earlyLast=true add the hardware required to handle sizer where the last input transaction come before the fullness of the output buffer
+//Return an area with an dataMask signal specifying which chunk of the output stream is loaded with data, when the output stream is valid. (outputWidth > inputWidth && earlyLast)
 object StreamFragmentWidthAdapter {
-  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], endianness: Endianness = LITTLE, padding : Boolean = false, earlyLast : Boolean = false): Unit = {
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],
+                                  output : Stream[Fragment[T2]],
+                                  endianness: Endianness = LITTLE,
+                                  padding : Boolean = false,
+                                  earlyLast : Boolean = false) = new Area{
     val inputWidth = widthOf(input.fragment)
     val outputWidth = widthOf(output.fragment)
+    val dataMask = Bits((outputWidth+inputWidth-1)/inputWidth bits)
     if(inputWidth == outputWidth){
       output.arbitrationFrom(input)
       output.payload.assignFromBits(input.payload.asBits)
+      dataMask.setAll()
     } else if(inputWidth > outputWidth) new Composite(input, "widthAdapter") {
       require(inputWidth % outputWidth == 0 || padding)
       val factor = (inputWidth + outputWidth - 1) / outputWidth
@@ -1505,6 +1512,7 @@ object StreamFragmentWidthAdapter {
       }
       output.last := input.last && counter.willOverflowIfInc
       input.ready := output.ready && counter.willOverflowIfInc
+      dataMask.setAll()
     } else new Composite(input, "widthAdapter"){
       require(outputWidth % inputWidth == 0 || padding)
       val factor  = (outputWidth + inputWidth - 1) / inputWidth
@@ -1531,11 +1539,18 @@ object StreamFragmentWidthAdapter {
 
       earlyLast match {
         case false => {
+          dataMask.setAll()
           when(input.fire) {
             buffer := input.fragment ## (buffer >> inputWidth)
           }
         }
         case true  => {
+          endianness match {
+            case `LITTLE` => for((bit, id) <- dataMask.asBools.zipWithIndex) bit := counter >= id
+            case `BIG`    => for((bit, id) <- dataMask.asBools.reverse.zipWithIndex) bit := counter >= id
+          }
+          for((bit, id) <- dataMask.asBools.zipWithIndex) bit := counter >= id
+
           when(input.fire) {
             whenIndexed(buffer.subdivideIn(inputWidth bits), counter) {
               _ := input.fragment.asBits
