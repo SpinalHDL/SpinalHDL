@@ -86,7 +86,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     val sectionNext: Section = pos + hardType.getBitsWidth-1 downto pos
     val sectionExists: Section = fieldPtr downto 0
     val ret = pos match {
-      case x if x < fieldPtr => SpinalError(s"field Start Point ${x} conflict to allocated Section ${sectionExists}")
+      case x if x < fieldPtr => SpinalError(s"next field section ${sectionNext} overlap to allocated Section ${sectionExists}")
       case _ if sectionNext.max >= busif.busDataWidth => SpinalError(s"Range ${sectionNext} exceed Bus width ${busif.busDataWidth}")
       case x if (x == fieldPtr) => field(hardType, acc, resetValue, doc)
       case _ => {
@@ -107,7 +107,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
   def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
     val sectionNext: Section = pos+bc.value-1 downto pos
-    val sectionExists: Section = fieldPtr downto 0
+    def sectionExists: Section = fieldPtr - 1 downto 0
     val ret = pos match {
       case x if x < fieldPtr => SpinalError(s"field Start Point ${x} conflict to allocated Section ${sectionExists}")
       case _ if sectionNext.max >= busif.busDataWidth => SpinalError(s"Range ${sectionNext} exceed Bus width ${busif.busDataWidth}")
@@ -156,7 +156,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   private def creatWriteLogic[T <: BaseType](reg: T, acc: AccessType, section: Range): Unit = {
     acc match {
       case AccessType.RO|AccessType.NA =>
-      case _ => if(!reg.isReg){
+      case _ => if(!reg.isRegOnAssign){
         SpinalError(s"$reg need be a register, not wire, check please")
       }
     }
@@ -214,9 +214,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
 
   def registerAtWithWriteLogic[T<: BaseType](pos: Int, reg: T, acc: AccessType, resetValue:Long, doc: String, dontCreatWriteLogic: Boolean = false): Unit ={
     val sectionNext: Section = pos + reg.getBitsWidth-1 downto pos
-    val sectionExists: Section = fieldPtr downto 0
+    def sectionExists: Section = fieldPtr - 1 downto 0
     pos match {
-      case x if x < fieldPtr => SpinalError(s"field Start Point ${x} conflict to allocated Section ${sectionExists}")
+      case x if x < fieldPtr => SpinalError(s"next field section ${sectionNext} overlap to allocated Section ${sectionExists}")
       case _ if sectionNext.max >= busif.busDataWidth => SpinalError(s"Range ${sectionNext} exceed Bus width ${busif.busDataWidth}")
       case x if (x == fieldPtr) => registerInWithWriteLogic(reg, acc, resetValue, doc, dontCreatWriteLogic)
       case _ => {

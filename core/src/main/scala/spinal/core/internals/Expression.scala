@@ -548,7 +548,7 @@ object Operator {
     }
 
     abstract class Mod extends BinaryOperatorWidthableInputs with Widthable {
-      override def calcWidth(): Int = left.getWidth
+      override def calcWidth(): Int = left.getWidth min right.getWidth
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 

@@ -407,7 +407,9 @@ case class SpinalXSimBackendConfig[T <: Component](val rtl               : Spina
                                                val workspacePath    : String,
                                                val workspaceName    : String,
                                                val wavePath         : String,
-                                               val xilinxDevice:String )
+                                               val xilinxDevice     : String,
+                                               val simScript        : String,
+                                               val simulatorFlags   : ArrayBuffer[String] = ArrayBuffer[String]())
 
 object SpinalXSimBackend {
   class Backend(val signals : ArrayBuffer[Signal], vconfig : XSimBackendConfig) extends XSimBackend(vconfig)
@@ -428,6 +430,8 @@ object SpinalXSimBackend {
     vconfig.workspaceName     = workspaceName
     vconfig.workspacePath     = workspacePath
     vconfig.xilinxDevice      = xilinxDevice
+    vconfig.userSimulationScript = simScript
+    vconfig.xelabFlags        = simulatorFlags.toArray
 
     var signalId = 0
 
@@ -618,7 +622,8 @@ case class SpinalSimConfig(
                             var _vcsEnvSetup       : () => Unit = null,
                             var _xciSourcesPaths   : ArrayBuffer[String] = ArrayBuffer[String](),
                             var _bdSourcesPaths    : ArrayBuffer[String] = ArrayBuffer[String](),
-                            var _xilinxDevice:String = "xc7vx485tffg1157-1"
+                            var _xilinxDevice:String = "xc7vx485tffg1157-1",
+                            var _simScript         : String = null
   ){
 
 
@@ -661,6 +666,11 @@ case class SpinalSimConfig(
   def withXSimSourcesPaths(xciSourcesPaths: ArrayBuffer[String], bdSourcesPaths: ArrayBuffer[String]): this.type = {
     _xciSourcesPaths = xciSourcesPaths
     _bdSourcesPaths = bdSourcesPaths
+    this
+  }
+
+  def withSimScript(script: String): this.type = {
+    _simScript = script
     this
   }
 
@@ -1006,8 +1016,9 @@ case class SpinalSimConfig(
           workspaceName = "xsim",
           xciSourcesPaths = _xciSourcesPaths,
           bdSourcesPaths = _bdSourcesPaths,
-          xilinxDevice = _xilinxDevice
-
+          xilinxDevice = _xilinxDevice,
+          simScript = _simScript,
+          simulatorFlags = _simulatorFlags
         )
         val backend = SpinalXSimBackend(vConfig)
         new SimCompiled(report) {
