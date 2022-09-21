@@ -33,8 +33,8 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
           assume(muxInput.valid === False)
         }
 
-        if (selWithCtrl) {
-          val selStableCond = muxOutputs(muxSelect).isStall || past(muxOutputs(muxSelect).isStall)
+        val selStableCond = if (selWithCtrl) past(muxOutputs(muxSelect).isStall) else null
+        if (selWithCtrl) {          
           cover(selStableCond)
           when(selStableCond) {
             assume(stable(muxSelect))
