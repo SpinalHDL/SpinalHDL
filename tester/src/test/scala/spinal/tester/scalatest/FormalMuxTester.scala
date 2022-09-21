@@ -30,7 +30,7 @@ class FormalMuxTester extends SpinalFormalFunSuite {
         muxOutput << dut.io.output
 
         assumeInitial(muxSelect < portCount)
-        val selStableCond = if (selWithCtrl) muxOutput.isStall || past(muxOutput.isStall) else null
+        val selStableCond = if (selWithCtrl) past(muxOutput.isStall) else null
 
         when(reset || past(reset)) {
           for (i <- 0 until portCount) {
