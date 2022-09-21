@@ -797,6 +797,20 @@ class DefaultTag(val that: BaseType) extends SpinalTag
 object allowDirectionLessIoTag       extends SpinalTag
 object unsetRegIfNoAssignementTag    extends SpinalTag
 object allowAssignmentOverride       extends SpinalTag
+object allowOutOfRangeLiterals               extends SpinalTag{
+  def apply(that : Bool) = doIt(that)
+  def doIt(that : Bool) = {
+    assert(that.dlcHasOnlyOne)
+    that.dlcHead match {
+      case s: DataAssignmentStatement => s.source match {
+        case t : SpinalTagReady => t.addTag(spinal.core.allowOutOfRangeLiterals)
+        case _ => ???
+      }
+      case _ => ???
+    }
+    this
+  }
+}
 object unusedTag                     extends SpinalTag
 object noCombinatorialLoopCheck      extends SpinalTag
 object noBackendCombMerge            extends SpinalTag

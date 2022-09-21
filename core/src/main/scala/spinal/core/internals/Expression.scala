@@ -245,7 +245,12 @@ abstract class BinaryOperatorWidthableInputs extends BinaryOperator {
     }
   }
 
-  def checkLiteralRanges(signed  : Boolean) ={
+  def checkLiteralRanges(signed  : Boolean) : Unit = {
+    if(globalData.config.allowOutOfRangeLiterals) return
+    this match {
+      case tr : SpinalTagReady => if(tr.hasTag(allowOutOfRangeLiterals)) return
+      case _ =>
+    }
     checkLiteralRange { (lit, value) =>
       if(lit.poisonMask == null && lit.getWidth > value.getWidth) {
         PendingError(s"OUT OF RANGE CONSTANT. Operator ${this.toStringMultiLine} is checking a value against a out of range constant\n${this.getScalaLocationLong}")
@@ -552,13 +557,13 @@ object Operator {
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
-    abstract class Equal extends BinaryOperatorWidthableInputs with ScalaLocated {
+    abstract class Equal extends BinaryOperatorWidthableInputs with ScalaLocated with SpinalTagReady {
       override def getTypeObject = TypeBool
       override def normalizeInputs: Unit
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
     }
 
-    abstract class NotEqual extends BinaryOperatorWidthableInputs with ScalaLocated {
+    abstract class NotEqual extends BinaryOperatorWidthableInputs with ScalaLocated with SpinalTagReady {
       override def getTypeObject = TypeBool
       override def normalizeInputs: Unit
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
@@ -789,7 +794,7 @@ object Operator {
       override def opName: String = "UInt % UInt"
     }
 
-    class Smaller extends BinaryOperatorWidthableInputs {
+    class Smaller extends BinaryOperatorWidthableInputs with SpinalTagReady {
       override def getTypeObject  = TypeBool
       override def opName: String = "UInt < UInt"
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
@@ -801,7 +806,7 @@ object Operator {
       }
     }
 
-    class SmallerOrEqual extends BinaryOperatorWidthableInputs {
+    class SmallerOrEqual extends BinaryOperatorWidthableInputs with SpinalTagReady {
       override def getTypeObject  = TypeBool
       override def opName: String = "UInt <= UInt"
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
@@ -935,7 +940,7 @@ object Operator {
       override def opName: String = "SInt % SInt"
     }
 
-    class Smaller extends BinaryOperatorWidthableInputs {
+    class Smaller extends BinaryOperatorWidthableInputs with SpinalTagReady {
       override def getTypeObject = TypeBool
       override def opName: String = "SInt < SInt"
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
@@ -947,7 +952,7 @@ object Operator {
       }
     }
 
-    class SmallerOrEqual extends BinaryOperatorWidthableInputs {
+    class SmallerOrEqual extends BinaryOperatorWidthableInputs with SpinalTagReady {
       override def getTypeObject = TypeBool
       override def opName: String = "SInt <= SInt"
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
