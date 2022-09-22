@@ -6,105 +6,100 @@ import spinal.lib._
 import spinal.lib.formal._
 
 class FormalForkTester extends SpinalFormalFunSuite {
-  test("fork-verify sync") {
+  def formalfork (synchronous: Boolean = false, back2BackCheck: Boolean = false ) = {
     FormalConfig
       .withBMC(20)
-      // .withProve(20)
+      .withProve(20)
       .withCover(20)
       // .withDebug
       .doVerify(new Component {
-        val dut = FormalDut(new StreamFork(UInt(8 bits), 2, true))
+        val portCount = 2
+        val dataType = Bits(8 bits)
+        val dut = FormalDut(new StreamFork(dataType, portCount, synchronous))
+
         val reset = ClockDomain.current.isResetActive
 
         assumeInitial(reset)
-        val input = slave(Stream(UInt(8 bits)))
-        val output_0 = master(Stream(UInt(8 bits)))
-        val output_1 = master(Stream(UInt(8 bits)))
+
+        val input = slave(Stream(dataType))
+        val outputs = Vec(master(Stream(dataType)), portCount)
 
         input >> dut.io.input
-        output_0 << dut.io.outputs(0)
-        output_1 << dut.io.outputs(1)
+        for (i <- 0 until portCount) {
+          outputs(i) << dut.io.outputs(i)
+        }
 
         when(reset || past(reset)) {
           assume(input.valid === False)
         }
 
-        assert(output_0.payload === input.payload)
-        assert(output_0.fire === input.fire)
-        assert(output_1.payload === input.payload)
-        assert(output_1.fire === input.fire)
-        cover(output_0.fire && output_1.fire)
+        cover(input.fire)
 
-        dut.io.outputs(0).withAsserts()
-        dut.io.outputs(1).withAsserts()
+        input.withAssumes()
+        if(back2BackCheck) input.withCovers(3)
 
+        for (i <- 0 until portCount) {
+          assert(outputs(i).payload === input.payload)
+          outputs(i).withAsserts()
+          if(back2BackCheck) outputs(i).withCovers(3)          
+        }
+        
+        val fired = if(!synchronous)Vec(RegInit(True), portCount) else null // store fire status, 
+        val outputsFireAsync = if(!synchronous){fired(0) =/= fired(1)} else null
+        val out0FireFirst = if(!synchronous){fired(1) && !fired(0)} else null
+        val out1FireFirst = if(!synchronous){fired(0) && !fired(1)} else null
+        val out0FireLast = if(!synchronous){~(input.fire ^ outputs(0).fire)} else null
+        val out1FireLast = if(!synchronous){~(input.fire ^ outputs(1).fire)} else null        
+
+        if(synchronous){
+          for (i <- 0 until portCount) {
+            assert(outputs(i).fire === input.fire)
+            
+          }
+        }
+        else{ 
+          for(i <- 0 until portCount){
+            cover(input.ready)
+            when(input.ready){
+              fired(i) := True                            
+            }
+            cover(!input.ready && outputs(i).fire)
+            when(!input.ready && outputs(i).fire){
+              fired(i) := False              
+            }
+
+            assert(fired(i) === dut.logic.linkEnable(i))
+          }          
+          
+          cover(out0FireFirst && !outputs(1).fire)
+          cover(out1FireFirst && !outputs(0).fire)
+
+          when(outputsFireAsync) {
+            assert(!past(input.fire))
+          }
+
+          when(out0FireFirst) {
+            assert(out1FireLast) 
+            assert(!outputs(0).valid)
+          }
+
+          when(out1FireFirst) {
+            assert(out0FireLast) 
+            assert(!outputs(1).valid)
+          }
+        }       
       })
   }
+
+  test("fork-verify sync") {
+    formalfork(true,false)
+  }
+
+  test("fork-verify sync back2Back fail") {
+    shouldFail(formalfork(true,true))
+  }
+  
   test("fork-verify async") {
-    FormalConfig
-      .withBMC(20)
-      // .withProve(20)
-      .withCover(20)
-      // .withDebug
-      .doVerify(new Component {
-        val dut = FormalDut(new StreamFork(UInt(8 bits), 2, false))
-        val reset = ClockDomain.current.isResetActive
-
-        assumeInitial(reset)
-        val input = slave(Stream(UInt(8 bits)))
-        val output_0 = master(Stream(UInt(8 bits)))
-        val output_1 = master(Stream(UInt(8 bits)))
-        val input_fire = input.fire
-
-        input >> dut.io.input
-        output_0 << dut.io.outputs(0)
-        output_1 << dut.io.outputs(1)
-
-        when(reset || past(reset)) {
-          assume(input.valid === False)
-        }
-
-        val fired = Vec(RegInit(False), 2) // store fire status, 1: result fired, 0: didn't fired
-        when(input.ready) {
-          fired(0) := False
-          fired(1) := False
-        }
-
-        when((!input.ready) && output_0.fire) {
-          fired(0) := True
-          assert(output_0.payload === input.payload)
-        }
-
-        when((!input.ready) && output_1.fire) {
-          fired(1) := True
-          assert(output_1.payload === input.payload)
-        }
-
-        assert(fired(0) === !dut.logic.linkEnable(0)) // used for prove
-        assert(fired(1) === !dut.logic.linkEnable(1)) // used for prove
-
-        val async = (fired(0) =/= fired(1))
-        val async_output0_fired = async && fired(0) && past(fired(0)) // for a signle transform. o0 fired but o1 didn't
-        val async_output1_fired = async && fired(1) && past(fired(1)) // for a signle transform. o1 fired but o0 didn't
-        val input_fire_sync_output0_fire = ~(input_fire ^ output_0.fire)
-        val input_fire_sync_output1_fire = ~(input_fire ^ output_1.fire)
-
-        cover(async_output0_fired && !output_1.fire)
-        cover(async_output1_fired && !output_0.fire)
-
-        when(async) {
-          assert(!past(input.fire))
-        }
-
-        when(async_output0_fired) {
-          assert(input_fire_sync_output1_fire) // if output0 fired, input fire should be sync with output1 fire
-          assert(!output_0.fire)
-        }
-
-        when(async_output1_fired) {
-          assert(input_fire_sync_output0_fire) // if output1 fired, input fire should be sync with output0 fire
-          assert(!output_1.fire)
-        }
-      })
+    formalfork(false,true)
   }
 }
