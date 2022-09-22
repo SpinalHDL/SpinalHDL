@@ -48,6 +48,17 @@ class FormalDispatcherSequencialTester extends SpinalFormalFunSuite {
             assert(muxOutputs(i) === muxInput)
           }
         }
+        
+        val d1 = anyconst(UInt(log2Up(portCount) bit))
+        assume (d1 < portCount)
+        val d2 = UInt(log2Up(portCount) bit)        
+        d2 := (d1 + 1) % portCount
+
+        val cntSeqCheck = changed(dut.counter.value) && (dut.counter.value === d2)
+        cover(cntSeqCheck)
+        when(cntSeqCheck){
+          assert(past(dut.counter.value)===d1)
+        }
       })
   }
 }
