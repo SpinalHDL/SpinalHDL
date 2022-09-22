@@ -4,7 +4,6 @@ import spinal.core._
 import spinal.core.formal._
 import spinal.lib._
 import spinal.lib.formal._
-import scala.util.Random
 
 class FormalMuxTester extends SpinalFormalFunSuite {
   def formalmux(selWithCtrl: Boolean = false) = {
@@ -45,6 +44,7 @@ class FormalMuxTester extends SpinalFormalFunSuite {
           }
         }
         muxOutput.withAsserts()
+        muxOutput.withCovers(5)
 
         for (i <- 0 until portCount) {
           muxInputs(i) >> dut.io.inputs(i)
