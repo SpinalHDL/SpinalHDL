@@ -4,14 +4,13 @@ import spinal.core._
 import spinal.core.formal._
 import spinal.lib._
 import spinal.lib.formal._
-import scala.util.Random
 
 class FormalDeMuxTester extends SpinalFormalFunSuite {
   def formaldemux(selWithCtrl: Boolean = false) = {
     FormalConfig
-      .withBMC(30)
+      .withBMC(20)
       .withProve(20)
-      .withCover(30)
+      .withCover(20)
       // .withDebug
       .doVerify(new Component {
         val portCount = 5
@@ -22,42 +21,47 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
 
         assumeInitial(reset)
 
-        val muxSelect = anyseq(UInt(log2Up(portCount) bit))
-        val muxInput = slave(Stream(dataType))
-        val muxOutputs = Vec(master(Stream(dataType)), portCount)
+        val demuxSelect = anyseq(UInt(log2Up(portCount) bit))
+        val demuxInput = slave(Stream(dataType))
+        val demuxOutputs = Vec(master(Stream(dataType)), portCount)
 
-        dut.io.select := muxSelect
-        muxInput >> dut.io.input
+        dut.io.select := demuxSelect
+        demuxInput >> dut.io.input
 
         when(reset || past(reset)) {
-          assume(muxInput.valid === False)
+          assume(demuxInput.valid === False)
         }
 
-        val selStableCond = if (selWithCtrl) past(muxOutputs(muxSelect).isStall) else null
-        if (selWithCtrl) {          
+        val selStableCond = if (selWithCtrl) past(demuxOutputs(demuxSelect).isStall) else null
+        if (selWithCtrl) {
           cover(selStableCond)
           when(selStableCond) {
-            assume(stable(muxSelect))
+            assume(stable(demuxSelect))
           }
         }
 
-        assumeInitial(muxSelect < portCount)
-        cover(muxInput.fire)
-        muxInput.withAssumes()
+        assumeInitial(demuxSelect < portCount)
+        cover(demuxInput.fire)
+        demuxInput.withAssumes()
+        demuxInput.withCovers(5)
+
+        val inputFireStableSelChanged = past(demuxInput.fire) && demuxInput.fire && changed(demuxSelect)
+        cover(inputFireStableSelChanged)
 
         for (i <- 0 until portCount) {
-          muxOutputs(i) << dut.io.outputs(i)
-          muxOutputs(i).withAsserts()
+          demuxOutputs(i) << dut.io.outputs(i)
+          demuxOutputs(i).withAsserts()
+          demuxOutputs(i).withCovers(5)
         }
 
         for (i <- 0 until portCount) {
-          assert(muxOutputs(i).payload === muxInput.payload)
-          when(i =/= muxSelect) {
-            assert(muxOutputs(i).valid === False)
+          assert(demuxOutputs(i).payload === demuxInput.payload)
+          when(i =/= demuxSelect) {
+            assert(demuxOutputs(i).valid === False)
           }
         }
-        when(muxSelect < portCount) {
-          assert(muxOutputs(muxSelect) === muxInput)
+        when(demuxSelect < portCount) {
+          assert(demuxOutputs(demuxSelect) === demuxInput)
         }
       })
   }
