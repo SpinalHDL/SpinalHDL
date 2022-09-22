@@ -1313,6 +1313,41 @@ object whenIndexed{
   }
 }
 
+case class WhenBuilder(){
+    var ctx:WhenContext = null
+
+    def when(cond : Bool)(body : => Unit): this.type = {
+        if(ctx == null){
+            ctx = spinal.core.when(cond){body}
+        }
+        else{
+            ctx = ctx.elsewhen(cond){body}
+        }
+        this
+    }
+
+    def elsewhen(cond : Bool)(body : => Unit): this.type = {
+        this.when(cond)(body)
+        this
+    }
+
+    def apply(cond : Bool)(body : => Unit): this.type = {
+        this.when(cond)(body)
+        this
+    }
+
+    def otherwise(body : => Unit): Unit = {
+        if(ctx == null){
+            body
+        }
+        else{
+            ctx.otherwise{
+                body
+            }
+        }
+    }
+}
+
 
 class ClockDomainPimped(cd : ClockDomain){
   def withBufferedResetFrom(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
