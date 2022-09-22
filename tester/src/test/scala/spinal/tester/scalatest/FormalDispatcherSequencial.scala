@@ -4,14 +4,13 @@ import spinal.core._
 import spinal.core.formal._
 import spinal.lib._
 import spinal.lib.formal._
-import scala.util.Random
 
 class FormalDispatcherSequencialTester extends SpinalFormalFunSuite {
   test("DispatcherSequencial-verify") {
     FormalConfig
       .withBMC(20)
       .withProve(20)
-      .withCover(20)
+      .withCover(40)
       // .withDebug
       .doVerify(new Component {
         val portCount = 5
@@ -36,9 +35,11 @@ class FormalDispatcherSequencialTester extends SpinalFormalFunSuite {
         cover(muxInput.fire)
 
         muxInput.withAssumes()
+
         for (i <- 0 until portCount) {
           cover(dut.counter.value === i)
           muxOutputs(i).withAsserts()
+          muxOutputs(i).withCovers()
         }
 
         for (i <- 0 until portCount) {
@@ -48,16 +49,16 @@ class FormalDispatcherSequencialTester extends SpinalFormalFunSuite {
             assert(muxOutputs(i) === muxInput)
           }
         }
-        
+
         val d1 = anyconst(UInt(log2Up(portCount) bit))
-        assume (d1 < portCount)
-        val d2 = UInt(log2Up(portCount) bit)        
+        assume(d1 < portCount)
+        val d2 = UInt(log2Up(portCount) bit)
         d2 := (d1 + 1) % portCount
 
         val cntSeqCheck = changed(dut.counter.value) && (dut.counter.value === d2)
         cover(cntSeqCheck)
-        when(cntSeqCheck){
-          assert(past(dut.counter.value)===d1)
+        when(cntSeqCheck) {
+          assert(past(dut.counter.value) === d1)
         }
       })
   }
