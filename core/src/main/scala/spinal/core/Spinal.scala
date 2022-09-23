@@ -164,7 +164,8 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         scopeProperties                : mutable.LinkedHashMap[ScopeProperty[_], Any] = mutable.LinkedHashMap[ScopeProperty[_], Any](),
                         private [core] var _withEnumString : Boolean = true,
                         var enumPrefixEnable                 : Boolean = true,
-                        var enumGlobalEnable                 : Boolean = false
+                        var enumGlobalEnable                 : Boolean = false,
+                        bitVectorWidthMax              : Int = 4096
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)

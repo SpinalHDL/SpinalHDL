@@ -1282,7 +1282,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             errors += s"Negative width on $e at ${e.getScalaLocationLong}"
           }
 
-          if (e.inferredWidth > 4096) {
+          if (e.inferredWidth > pc.config.bitVectorWidthMax) {
             errors += s"Way too big signal $e at ${e.getScalaLocationLong}"
           }
         }
