@@ -1,10 +1,10 @@
 package spinal.sim
 
 import java.util.concurrent.CyclicBarrier
-
 import net.openhft.affinity.Affinity
 
 import scala.collection.mutable
+import scala.util.Random
 
 
 trait SimThreadBlocker{
@@ -66,7 +66,7 @@ class SimFailureBackend() extends Exception ()
 class SimFailure(message : String) extends Exception (message)
 
 object SimManager{
-  var cpuAffinity = 0
+  var cpuAffinity = Random.nextInt(cpuCount)
   lazy val cpuCount = {
     try {
       val systemInfo = new oshi.SystemInfo
