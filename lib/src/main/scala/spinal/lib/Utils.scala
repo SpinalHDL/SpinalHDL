@@ -31,11 +31,8 @@ import scala.collection.generic.Growable
 
 object UIntToOh {
   def apply(value: UInt, width : Int): Bits = {
-    val ret = Bits(width bits)
-    for(i <- 0 until width){
-      ret(i) := value === i
-    }
-    ret
+    if(width <= 0) B(0,width bits)
+    else B(1, width bits) |<< value
   }
 
   def apply(value : UInt) : Bits = apply(value,  1 << widthOf(value))
