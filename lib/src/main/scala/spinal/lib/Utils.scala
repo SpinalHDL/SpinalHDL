@@ -31,7 +31,7 @@ import scala.collection.generic.Growable
 
 object UIntToOh {
   def apply(value: UInt, width : Int): Bits = {
-    if(width <= 0) Bits(width bits)
+    if(width <= 0) B(0,width bits)
     else B(1, width bits) |<< value
   }
 
