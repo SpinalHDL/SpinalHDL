@@ -2411,7 +2411,10 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
       native //Avoid unconstructable during phase
       binarySequential
       binaryOneHot
-      gen
+      val top = gen
+      if(top.isInBlackBoxTree){
+        SpinalError(s"The toplevel can't be a BlackBox (${top.getClass.getSimpleName})")
+      }
       ctx.restore()
 //      assert(DslScopeStack.get != null, "The SpinalHDL context seems wrong, did you included the idslplugin in your scala build scripts ? This is a Scala compiler plugin, see https://github.com/SpinalHDL/SpinalTemplateSbt/blob/666dcbba79181659d0c736eb931d19ec1dc17a25/build.sbt#L13.")
     }
