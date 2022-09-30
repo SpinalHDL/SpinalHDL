@@ -225,6 +225,11 @@ package object sim {
     SimManagerContext.current.manager.schedule(delay)(body)
   }
 
+  def delayed(delay: TimeNumber)(body: => Unit) = {
+    val cycles = delay / SimManagerContext.current.manager.timePrecision
+    SimManagerContext.current.manager.schedule(cycles.toLong)(body)
+  }
+
   def periodicaly(delay : Long)(body : => Unit) : Unit = {
     SimManagerContext.current.manager.schedule(delay){
       body
@@ -788,6 +793,12 @@ package object sim {
       if(cd.hasSoftResetSignal) cd.deassertSoftReset()
       if(cd.hasClockEnableSignal) cd.deassertClockEnable()
       fork(doStimulus(period))
+    }
+
+    def forkStimulus(period: TimeNumber): Unit = {
+      val cyclesScaled = period.toBigDecimal / SimManagerContext.current.manager.timePrecision
+      println("Cycles: " + cyclesScaled)
+      forkStimulus(cyclesScaled.toLong)
     }
 
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) : Unit = SimSpeedPrinter(cd, printPeriod)
