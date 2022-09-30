@@ -797,7 +797,6 @@ package object sim {
 
     def forkStimulus(period: TimeNumber): Unit = {
       val cyclesScaled = period.toBigDecimal / SimManagerContext.current.manager.timePrecision
-      println("Cycles: " + cyclesScaled)
       forkStimulus(cyclesScaled.toLong)
     }
 
