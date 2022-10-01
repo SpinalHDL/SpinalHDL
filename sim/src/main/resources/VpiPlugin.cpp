@@ -402,7 +402,7 @@ bool write_mem_cmd(){
 
 bool sleep_cmd(){
     #ifdef GHDL_PLUGIN
-    register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles*1000000);
+    register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles);
     #else
     register_cb(delay_rw_cb, cbAfterDelay, shared_struct->sleep_cycles);
     #endif
