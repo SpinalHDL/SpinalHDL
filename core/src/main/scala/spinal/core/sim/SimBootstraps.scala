@@ -74,6 +74,7 @@ object SpinalVerilatorBackend {
     vconfig.optimisationLevel = optimisationLevel
     vconfig.simulatorFlags        = simulatorFlags
     vconfig.withCoverage  = withCoverage
+    vconfig.timePrecision = config.timePrecision.decomposeString
 
     var signalId = 0
 

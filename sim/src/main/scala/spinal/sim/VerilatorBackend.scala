@@ -34,6 +34,7 @@ class VerilatorBackendConfig{
   var waveDepth:Int          = 1 // 0 => all
   var simulatorFlags         = ArrayBuffer[String]()
   var withCoverage           = false
+  var timePrecision: String  = null
 }
 
 
@@ -477,6 +478,11 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       case false => ""
     }
 
+    val timeScaleArgs = config.timePrecision match {
+      case null => ""
+      case _ => s"--timescale-override /${config.timePrecision}"
+    }
+
     val rtlIncludeDirsArgs = config.rtlIncludeDirs.map(e => s"-I${new File(e).getAbsolutePath}").mkString(" ")
 
 
@@ -504,6 +510,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -CFLAGS -O${config.optimisationLevel}
        | $waveArgs
        | $covArgs
+       | $timeScaleArgs
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
        | $rtlIncludeDirsArgs
