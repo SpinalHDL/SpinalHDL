@@ -267,6 +267,9 @@ object SpinalGhdlBackend {
   def apply[T <: Component](config: SpinalGhdlBackendConfig[T]) : Backend = {
     val vconfig = new GhdlBackendConfig()
     vconfig.analyzeFlags = config.simulatorFlags.mkString(" ")
+    if (config.timePrecision != null) {
+      vconfig.elaborationFlags = s"--time-resolution=${config.timePrecision.decompose._2}"
+    }
     vconfig.runFlags = config.simulatorFlags.mkString(" ")
     vconfig.logSimProcess = config.enableLogging
 
