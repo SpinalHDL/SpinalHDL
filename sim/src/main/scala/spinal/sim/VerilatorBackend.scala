@@ -343,8 +343,8 @@ JNIEXPORT jboolean API JNICALL ${jniPrefix}eval_1${uniqueId}
    return Verilated::gotFinish();
 }
 
-JNIEXPORT jboolean API JNICALL ${jniPrefix}get_time_precision_1${uniqueId}
-      (JNIEnv *, jobject, Wrapper_${uniqueId} *handle){
+JNIEXPORT jint API JNICALL ${jniPrefix}getTimePrecision_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle){
   return handle->time_precision;
 }
 
@@ -671,7 +671,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |public class VerilatorNative implements IVerilatorNative {
          |    public long newHandle(String name, int seed) { return newHandle_${uniqueId}(name, seed);}
          |    public boolean eval(long handle) { return eval_${uniqueId}(handle);}
-         |    public int get_time_precision(long handle) { return get_time_precision_${uniqueId}(handle);}
+         |    public int get_time_precision(long handle) { return getTimePrecision_${uniqueId}(handle);}
          |    public void sleep(long handle, long cycles) { sleep_${uniqueId}(handle, cycles);}
          |    public long getU64(long handle, int id) { return getU64_${uniqueId}(handle, id);}
          |    public long getU64_mem(long handle, int id, long index) { return getU64mem_${uniqueId}(handle, id, index);}
@@ -688,7 +688,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |
          |    public native long newHandle_${uniqueId}(String name, int seed);
          |    public native boolean eval_${uniqueId}(long handle);
-         |    public native int get_time_precision_${uniqueId}(long handle);
+         |    public native int getTimePrecision_${uniqueId}(long handle);
          |    public native void sleep_${uniqueId}(long handle, long cycles);
          |    public native long getU64_${uniqueId}(long handle, int id);
          |    public native long getU64mem_${uniqueId}(long handle, int id, long index);
