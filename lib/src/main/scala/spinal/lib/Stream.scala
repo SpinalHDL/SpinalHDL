@@ -599,6 +599,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
         .elsewhen(counter.willOverflow) { assume(ready === True) }
     }
   }
+
+  def toReg() : T = toReg(null.asInstanceOf[T])
+  def toReg(init: T): T = {
+    this.ready := True
+    RegNextWhen(this.payload,this.fire,init)
+  }
 }
 
 object StreamArbiter {
