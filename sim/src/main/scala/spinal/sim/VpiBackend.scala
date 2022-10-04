@@ -568,7 +568,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
 
   val vpiModuleName = "vpi_vcs.so"
   val vpiModulePath = pluginsPath + "/" + vpiModuleName
-  val vpiModuleAbsPath = new File(vpiModulePath).getAbsolutePath().mkString
+  val vpiModuleAbsPath = new File(vpiModulePath).getAbsolutePath.mkString
   val vpiInclude = sys.env.get("VCS_HOME") match {
     case Some(x) => x + "/include"
     case None => {
@@ -583,7 +583,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     case None => {
       if(config.waveFormat == WaveFormat.FSDB){
         var info = "$VERDI_HOME not found"
-        if(sys.env.get("LD_LIBRARY_PATH") == None) {
+        if(!sys.env.contains("LD_LIBRARY_PATH")) {
           info += "\n $LD_LIBRARY_PATH not found"
         }
         println(s"[Error]: ${info}")
@@ -601,7 +601,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       val cppSourceFile = new PrintWriter(new File(pluginsPath + "/" + filename))
       val stream = getClass.getResourceAsStream(filename)
       cppSourceFile.write(scala.io.Source.fromInputStream(stream).mkString)
-      cppSourceFile.close
+      cppSourceFile.close()
     }
     val vpiCFlags = s"-DVCS_PLUGIN -I$vpiInclude -fPIC -shared"
     val vpiCommand = Seq(
