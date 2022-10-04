@@ -36,9 +36,9 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
   override def impl(pc: PhaseContext): Unit = {
 
-    report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     if (!pc.config.oneFilePerComponent) {
+      report.generatedSourcesPaths += targetPath
       outFile = new java.io.FileWriter(targetPath)
       outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
 
@@ -77,7 +77,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     else {
       val fileList: mutable.LinkedHashSet[String] = new mutable.LinkedHashSet()
       // dump Enum define to define.v instead attach that on every .v file
-      if(!enums.isEmpty){
+      if(enums.nonEmpty){
         val defineFileName = pc.config.targetDirectory + "/enumdefine" + (if(pc.config.isSystemVerilog) ".sv" else ".v")
         val defineFile = new java.io.FileWriter(defineFileName)
         emitEnumPackage(defineFile)
@@ -90,6 +90,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       for (c <- sortedComponents) {
         val moduleContent = compile(c)()
         val targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(c.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
+        report.generatedSourcesPaths += targetFilePath
 
         if (!moduleContent.contains("replaced by")) {
           if (!c.isInBlackBoxTree) {
