@@ -480,7 +480,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
     val timeScaleArgs = config.timePrecision match {
       case null => ""
-      case _ => s"--timescale-override /${config.timePrecision}"
+      case _ => s"--timescale-override /${config.timePrecision.replace(" ", "")}"
     }
 
     val rtlIncludeDirsArgs = config.rtlIncludeDirs.map(e => s"-I${new File(e).getAbsolutePath}").mkString(" ")
