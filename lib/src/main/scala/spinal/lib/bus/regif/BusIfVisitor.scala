@@ -1,4 +1,5 @@
 package spinal.lib.bus.regif
+import AccessType._
 
 trait BaseDescriptor {
   def getName()        : String
@@ -25,6 +26,8 @@ trait FieldDescr extends BaseDescriptor {
   def getSection()    : Range
   def getAccessType() : AccessType
   def getResetValue() : Long
+  def uvmBaseAcc = List(RO, RW, RC, RS, WRC, WRS, WC, WS, WSRC, WCRS, W1C, W1S, W1T, W0C, W0S, W0T, W1SRC, W1CRS, W0SRC, W0CRS, WO, WOC, WOS, W1, WO1)
+  def isUvmAcc: Boolean = uvmBaseAcc.contains(getAccessType())
 }
 
 trait  BusIfVisitor {

@@ -283,6 +283,11 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBool(delay))
 
   override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpBool(kind))
+
+  def allowOutOfRangeLiterals : this.type = {
+    spinal.core.allowOutOfRangeLiterals.doIt(this)
+    this
+  }
 }
 
 /**

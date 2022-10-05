@@ -640,6 +640,21 @@ package object sim {
       }
     }
 
+    //timeout in cycles
+    //Warning use threaded API (slow)
+    //return true on timeout
+    def waitSamplingWhere(timeout : Int)(condAnd: => Boolean): Boolean = {
+      var counter = 0
+      while(true){
+        waitSampling()
+        if(condAnd) return false
+        counter += 1
+        if(counter == timeout) return true
+      }
+      return ???
+    }
+
+
     def waitEdge(): Unit = waitEdge(1)
     def waitEdge(count : Int): Unit = {
       val manager = SimManagerContext.current.manager
@@ -787,7 +802,7 @@ package object sim {
 
     }
 
-    def forkStimulus(period: Long) : Unit = {
+    def forkStimulus(period: Long, sleepDuration : Int = 0) : Unit = {
       cd.config.clockEdge match {
         case RISING  => fallingEdge()
         case FALLING => risingEdge()
@@ -796,6 +811,7 @@ package object sim {
       if(cd.hasSoftResetSignal) cd.deassertSoftReset()
       if(cd.hasClockEnableSignal) cd.deassertClockEnable()
       fork(doStimulus(period))
+      if(sleepDuration >= 0) sleep(sleepDuration) //This allows the doStimulus to give initial value to clock/reset before going futher
     }
 
     def forkStimulus(period: TimeNumber): Unit = {
@@ -880,6 +896,24 @@ package object sim {
           last = current
           true
         }
+      }
+    }
+
+    def onSamplingWhile(body : => Boolean) : Unit = {
+      val context = SimManagerContext.current
+      val edgeValue = if (cd.config.clockEdge == spinal.core.RISING) 1 else 0
+      val manager = context.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getInt(signal)
+      val listeners = ArrayBuffer[() => Unit]()
+      forkSensitiveWhile {
+        var continue = true
+        val current = manager.getInt(signal)
+        if (last != edgeValue && current == edgeValue && isSamplingEnable) {
+          continue = body
+        }
+        last = current
+        continue
       }
     }
 

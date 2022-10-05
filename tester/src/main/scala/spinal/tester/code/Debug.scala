@@ -187,9 +187,9 @@ object Tesasdadt {
 object Debug2 extends App{
 
 
-  SpinalConfig().includeFormal.generateSystemVerilog(new Component{
+  SpinalConfig(allowOutOfRangeLiterals = false).includeFormal.generateSystemVerilog(new Component{
 
-
+    val x = (in(UInt(4 bits)) === 42)
 
 //    val input = in(AFix.SQ(8 bit, 8 bit))
 //    val i = AFix.SQ(8 bit, 8 bit)

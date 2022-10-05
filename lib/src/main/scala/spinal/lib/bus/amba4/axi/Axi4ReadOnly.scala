@@ -74,7 +74,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     slave(r)
   }
 
-  def formalContext(maxBursts: Int = 16) = new Area {
+  def formalContext(maxBursts: Int = 16) = new Composite(this) {
     import spinal.core.formal._
     val addrChecker = ar.payload.formalContext()
 
@@ -154,43 +154,43 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       histInput.valid := True
     }
 
-    def withMasterAsserts(maxStallCycles: Int = 0) = {
-      ar.withAsserts()
+    def withMasterAsserts(maxStallCycles: Int = 0) = new Area {
+      ar.withMasterAsserts()
       r.withTimeoutAsserts(maxStallCycles)
 
       when(ar.valid) {
-        addrChecker.withAsserts()
+        addrChecker.withMasterAsserts()
       }
     }
 
-    def withMasterAssumes(maxStallCycles: Int = 0) = {
+    def withMasterAssumes(maxStallCycles: Int = 0) = new Area {
       ar.withTimeoutAssumes(maxStallCycles)
-      r.withAssumes()
+      r.withMasterAssumes()
 
       assume(!errors.DataNumberDonotFitLen)
       assume(!errors.NoAddrRequest)
       assume(!errors.WrongResponseForExAccesss)
     }
 
-    def withSlaveAsserts(maxStallCycles: Int = 0) = {
+    def withSlaveAsserts(maxStallCycles: Int = 0) = new Area {
       ar.withTimeoutAsserts(maxStallCycles)
-      r.withAsserts()
+      r.withMasterAsserts()
 
       assert(!errors.DataNumberDonotFitLen)
       assert(!errors.NoAddrRequest)
       assert(!errors.WrongResponseForExAccesss)
     }
 
-    def withSlaveAssumes(maxStallCycles: Int = 0) = {
-      ar.withAssumes()
+    def withSlaveAssumes(maxStallCycles: Int = 0) = new Area {
+      ar.withMasterAssumes()
       r.withTimeoutAssumes(maxStallCycles)
 
       when(ar.valid) {
-        addrChecker.withAssumes()
+        addrChecker.withMasterAssumes()
       }
     }
 
-    def withCovers() = {
+    def withCovers() = new Area {
       ar.withCovers(2)
       when(ar.fire) {
         addrChecker.withCovers()
