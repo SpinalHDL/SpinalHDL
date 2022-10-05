@@ -1354,7 +1354,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
   pushToPopGray := pushCC.pushPtrGray
   popToPushGray := popCC.popPtrGray
   
-  def withAsserts(gclk: ClockDomain) = new Area {
+  def withFormalAsserts(gclk: ClockDomain) = new Composite(this) {
     import spinal.core.formal._
     val pushArea = new ClockingArea(pushClock) {
       when(pastValid & changed(pushCC.popPtrGray)) {
@@ -1871,7 +1871,7 @@ class StreamTransactionCounter(
     io.value := counter
     if(noDelay) { io.available := !running } else { io.available := !working | io.done }
 
-    def withAsserts() = new Area {
+    def withFormalAsserts() = new Composite(this) {
       val startedReg = Reg(Bool()) init False
       val started = CombInit(startedReg)
       val waiting = io.working & !started

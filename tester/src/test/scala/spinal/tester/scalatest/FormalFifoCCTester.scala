@@ -49,7 +49,7 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
       assume(inValid === False)
     }
 
-    dut.withAsserts(gclk.domain)
+    dut.withFormalAsserts(gclk.domain)
 
     val pushArea = new ClockingArea(pushClock) {
       dut.io.push.withAssumes()
