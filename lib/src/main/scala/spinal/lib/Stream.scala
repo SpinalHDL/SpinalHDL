@@ -519,21 +519,21 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
    *
    * @param payloadInvariance Check that the payload does not change when valid is high and ready is low.
    */
-  def withAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) : this.type = {
+  def withAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
     import spinal.core.formal._
     val stack = ScalaLocated.long
-    when(past(this.isStall) init(False)) {
-      assert(this.valid,  "Stream transaction disappeared:\n" + stack)
-      if(payloadInvariance) assert(stable(this.payload), "Stream transaction payload changed:\n" + stack)
+    when(past(isStall) init(False)) {
+      assert(valid,  "Stream transaction disappeared:\n" + stack)
+      if(payloadInvariance) assert(stable(payload), "Stream transaction payload changed:\n" + stack)
     }
     this
   }
 
-  def withAssumes(payloadInvariance : Boolean = true)(implicit loc : Location): this.type  = {
+  def withAssumes(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
     import spinal.core.formal._
-    when(past(this.isStall) init (False)) {
-      assume(this.valid)
-      if(payloadInvariance) assume(stable(this.payload))
+    when(past(isStall) init (False)) {
+      assume(valid)
+      if(payloadInvariance) assume(stable(payload))
     }
     this
   }
@@ -546,11 +546,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     withAssumes(payloadInvariance)
   }
 
-  def withCovers(back2BackCycles: Int = 1): this.type  = {
+  def withCovers(back2BackCycles: Int = 1) = new Composite(this) {
     import spinal.core.formal._
-    val hist = History(this.fire, back2BackCycles).reduce(_ && _)
+    val hist = History(fire, back2BackCycles).reduce(_ && _)
     cover(hist)
-    cover(this.isStall)
+    cover(isStall)
     // doubt that if this is required in generic scenario.
     // cover(this.ready && !this.valid)
     this
