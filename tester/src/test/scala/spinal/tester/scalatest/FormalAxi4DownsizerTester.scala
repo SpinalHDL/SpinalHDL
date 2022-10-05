@@ -193,7 +193,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val cmdCounter = dut.generator.cmdExtender.counter
         val lenCounter = dut.dataOutCounter.counter
         val ratioCounter = dut.dataCounter.counter
-        val dutChecker = dut.withAsserts()
+        val dutChecker = dut.withFormalAsserts()
 
         val transferred = (rInput.count << rRatio) + ratioCounter.io.value
 
