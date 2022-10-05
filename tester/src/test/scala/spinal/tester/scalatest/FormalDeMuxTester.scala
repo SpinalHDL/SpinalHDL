@@ -42,7 +42,7 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
 
         assumeInitial(demuxSelect < portCount)
         cover(demuxInput.fire)
-        demuxInput.withAssumes()
+        demuxInput.withMasterAssumes()
         demuxInput.withCovers(5)
 
         val inputFireStableSelChanged = past(demuxInput.fire) && demuxInput.fire && changed(demuxSelect)
@@ -50,7 +50,7 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
 
         for (i <- 0 until portCount) {
           demuxOutputs(i) << dut.io.outputs(i)
-          demuxOutputs(i).withAsserts()
+          demuxOutputs(i).withMasterAsserts()
           demuxOutputs(i).withCovers(5)
         }
 

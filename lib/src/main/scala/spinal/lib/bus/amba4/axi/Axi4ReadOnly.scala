@@ -165,7 +165,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
 
     def withMasterAssumes(maxStallCycles: Int = 0) = new Area {
       ar.withTimeoutAssumes(maxStallCycles)
-      r.withAssumes()
+      r.withMasterAssumes()
 
       assume(!errors.DataNumberDonotFitLen)
       assume(!errors.NoAddrRequest)

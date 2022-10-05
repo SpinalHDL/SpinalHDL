@@ -52,7 +52,7 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
     dut.withFormalAsserts(gclk.domain)
 
     val pushArea = new ClockingArea(pushClock) {
-      dut.io.push.withAssumes()
+      dut.io.push.withMasterAssumes()
       dut.io.push.withCovers()
     }
 
@@ -60,7 +60,7 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
     val popCheckDomain = if (seperateReset) popClock else popClock.copy(reset = reset)
     val popArea = new ClockingArea(popCheckDomain) {
       dut.io.pop.withCovers(back2backCycles)
-      dut.io.pop.withAsserts()
+      dut.io.pop.withMasterAsserts()
     }
   }
 

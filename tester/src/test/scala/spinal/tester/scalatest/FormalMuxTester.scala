@@ -43,19 +43,19 @@ class FormalMuxTester extends SpinalFormalFunSuite {
             assume(stable(muxSelect))
           }
         }
-        muxOutput.withAsserts()
+        muxOutput.withMasterAsserts()
         muxOutput.withCovers(5)
 
         for (i <- 0 until portCount) {
           muxInputs(i) >> dut.io.inputs(i)
-          muxInputs(i).withAssumes()
+          muxInputs(i).withMasterAssumes()
         }
 
         cover(muxOutput.fire)
 
         for (i <- 0 until portCount) {
           cover(dut.io.select === i)
-          muxInputs(i).withAssumes()
+          muxInputs(i).withMasterAssumes()
         }
 
         when(muxSelect < portCount) {

@@ -35,12 +35,12 @@ class FormalForkTester extends SpinalFormalFunSuite {
 
         cover(input.fire)
 
-        input.withAssumes()
+        input.withMasterAssumes()
         if(back2BackCheck) input.withCovers(3)
 
         for (i <- 0 until portCount) {
           assert(outputs(i).payload === input.payload)
-          outputs(i).withAsserts()
+          outputs(i).withMasterAsserts()
           if(back2BackCheck) outputs(i).withCovers(3)          
         }
         

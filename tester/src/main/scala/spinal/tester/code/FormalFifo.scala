@@ -141,8 +141,8 @@ object FormalFifo extends App {
           assume(inValid === False)
         }
 
-        dut.io.push.withAssumes()
-        dut.io.pop.withAsserts()
+        dut.io.push.withMasterAssumes()
+        dut.io.pop.withMasterAsserts()
         dut.dut.withAssumes()
 
         val d1 = anyconst(UInt(7 bits))
