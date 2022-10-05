@@ -99,7 +99,11 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assume(!y); case _ => })
     }
 
-    def withCovers() = new Area {
+    def withCovers() = {
+      if (config.useLen) {
+        Seq(0, 1, 2, 4, 8).map(x => cover(len === U(x)))
+      }
+
       // Unaligned burst access.
       if (config.useSize && config.useBurst) {
         cover(size === U(Axi4.size.BYTE_2) && addr(0) === True && burst === FIXED)
@@ -467,22 +471,30 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
   val responsed = Bool()
 
   def init():FormalAxi4Record = {
-    val oRecord = FormalAxi4Record(config, maxStrbs)
-    oRecord.assignFromBits(B(0, oRecord.getBitsWidth bits))
     size := U(log2Up(config.bytePerWord), 3 bits)
     if(config.useBurst) burst := B(Axi4.burst.INCR)
-    this.assignUnassignedByName(oRecord)
+    this.assignUnassignedByName(CombInit(this.getZero))
     this
   }
 
   def assignFromAx(ax: Stream[Axi4Ax]) {
     addr := ax.addr.resized
-    isLockExclusive := ax.lock === Axi4.lock.EXCLUSIVE
+    if (config.useLock) isLockExclusive := ax.lock === Axi4.lock.EXCLUSIVE
     if (config.useBurst) burst := ax.burst
     if (config.useLen) len := ax.len
     if (config.useSize) size := ax.size
     if (config.useId) id := ax.id
     axDone := ax.ready
+  }
+
+  def equalToAx(ax: Stream[Axi4Ax]): Bool = {
+    val addrCond = addr === ax.addr.resize(addr.getWidth)
+    val lockCond = if (config.useLock) isLockExclusive === (ax.lock === Axi4.lock.EXCLUSIVE) else True
+    val burstCond = if (config.useBurst) burst === ax.burst else True
+    val lenCond = if (config.useLen) len === ax.len else True
+    val sizeCond = if (config.useSize) size === ax.size else True
+    val idCond = if (config.useId) id === ax.id else True
+    addrCond & lockCond & burstCond & lenCond & sizeCond & idCond  
   }
 
   def assignFromW(w: Stream[Axi4W], selected: FormalAxi4Record) = new Area {
@@ -502,7 +514,6 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
   def assignFromR(r: Stream[Axi4R], selected: FormalAxi4Record) = new Area {
     seenLast := r.last & r.ready
     when(r.ready) { count := selected.count + 1 }.otherwise { count := selected.count }
-    responsed := r.ready
   }
 
   def assignFromB(b: Stream[Axi4B]) {
@@ -530,11 +541,11 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
     }
   }
 
-  def checkLen(): Bool = {
+  def checkLen(): Bool = new Composite(this, "checkLen") {
     val realLen = len +^ 1
     val transDoneWithWrongLen = seenLast & realLen =/= count
     val getLimitLenWhileTransfer = !seenLast & realLen === count
     val wrongLen = realLen < count
-    axDone & (transDoneWithWrongLen | getLimitLenWhileTransfer | wrongLen)
-  }
+    val rule = axDone & (transDoneWithWrongLen | getLimitLenWhileTransfer | wrongLen)
+  }.rule
 }

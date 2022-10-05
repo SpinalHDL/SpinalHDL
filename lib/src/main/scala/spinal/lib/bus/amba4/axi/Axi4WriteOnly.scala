@@ -92,8 +92,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     val oRecord = FormalAxi4Record(config, maxStrbs).init()
 
     val histInput = Flow(cloneOf(oRecord))
-    histInput.payload := oRecord
-    histInput.valid := False
+    histInput := histInput.getZero
     val hist = HistoryModifyable(histInput, maxBursts)
     hist.io.inStreams.map(_.valid := False)
     hist.io.inStreams.map(_.payload := oRecord)
@@ -103,11 +102,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     val (wExist, wId) = hist.findFirst(x => x.valid && !x.seenLast)
     val (bExist, bId) =
       hist.findFirst(x => x.valid && !x.responsed && { if (config.useId) b.id === x.id else True })
-
-    val dataErrors = Vec(Bool(), 3)
-    dataErrors.map(_ := False)
-
-    when(histInput.valid) { dataErrors(0) := histInput.checkLen() }
 
     val awRecord = CombInit(oRecord)
     val awValid = False
@@ -123,10 +117,8 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
           .otherwise { histInput.assignFromAx(ax) }
       }
       when(awValid) {
-        if (config.useStrb) hist.io.inStreams(awId).strbs.zip(awRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(awId).payload := awRecord
         hist.io.inStreams(awId).valid := awValid
-        dataErrors(1) := awRecord.checkLen()
       }
     }
 
@@ -144,10 +136,8 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         }.otherwise { histInput.assignFromW(w, oRecord) }
       }
       when(wValid) {
-        if (config.useStrb) hist.io.inStreams(wId).strbs.zip(wRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(wId).payload := wRecord
         hist.io.inStreams(wId).valid := wValid
-        dataErrors(2) := wRecord.checkLen()
       }
     }
 
@@ -179,7 +169,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
         }
       }
       when(bValid) {
-        if (config.useStrb) hist.io.inStreams(bId).strbs.zip(bRecord.strbs).map { case (x, y) => x := y }
         hist.io.inStreams(bId).payload := bRecord
         hist.io.inStreams(bId).valid := bValid
       }
@@ -198,7 +187,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       val RespWhileReset = (reset | past(reset)) & (b.valid === True)
       val WrongStrb = if (config.useStrb) responseLogic.strbsChecker.strbError else False
       val WrongResponse = respErrors.reduce(_ | _)
-      val DataNumberDonotFitLen = dataErrors.reduce(_ | _)
+      val DataNumberDonotFitLen = hist.io.outStreams.map(x => x.valid & x.checkLen()).reduce(_ | _)
     }
 
     def withMasterAsserts(maxStallCycles: Int = 0) = new Area {

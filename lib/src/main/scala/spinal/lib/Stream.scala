@@ -526,7 +526,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       assert(valid,  "Stream transaction disappeared:\n" + stack)
       if(payloadInvariance) assert(stable(payload), "Stream transaction payload changed:\n" + stack)
     }
-    this
   }
 
   def withAssumes(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
@@ -535,7 +534,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       assume(valid)
       if(payloadInvariance) assume(stable(payload))
     }
-    this
   }
 
   def withMasterAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
@@ -553,7 +551,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     cover(isStall)
     // doubt that if this is required in generic scenario.
     // cover(this.ready && !this.valid)
-    this
   }
 
   def withOrderAsserts(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
@@ -1878,8 +1875,8 @@ class StreamTransactionCounter(
 
       when(startedReg) { assert(io.working && counter.value > 0 && counter.value <= expected) }
       when(counter.value > 0) { assert(started) }
-//      when(!io.working) { assert(counter.value === 0) }
-//      assert(counter.value <= expected)
+      when(!io.working) { assert(counter.value === 0) }
+      assert(counter.value <= expected)
     }
 }
 
