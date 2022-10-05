@@ -35,13 +35,13 @@ class FormalForkTester extends SpinalFormalFunSuite {
 
         cover(input.fire)
 
-        input.withMasterAssumes()
-        if(back2BackCheck) input.withCovers(3)
+        input.formalAssumesMaster()
+        if(back2BackCheck) input.formalCovers(3)
 
         for (i <- 0 until portCount) {
           assert(outputs(i).payload === input.payload)
-          outputs(i).withMasterAsserts()
-          if(back2BackCheck) outputs(i).withCovers(3)          
+          outputs(i).formalAssertsMaster()
+          if(back2BackCheck) outputs(i).formalCovers(3)          
         }
         
         val fired = if(!synchronous)Vec(RegInit(True), portCount) else null // store fire status, 

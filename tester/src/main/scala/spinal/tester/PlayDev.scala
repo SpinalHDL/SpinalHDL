@@ -1706,8 +1706,8 @@ object PlayFormalFifo extends App {
       // when(dut.io.push.fire && dut.io.push.payload === d1) {
       //   assume(d1_in === True)
       // }
-      dut.io.push.withMasterAssumes()
-      dut.io.pop.withMasterAsserts()
+      dut.io.push.formalAssumesMaster()
+      dut.io.pop.formalAssertsMaster()
 
       val d1 = anyconst(UInt(7 bits))
       // val d1_in = RegInit(False)
@@ -1760,8 +1760,8 @@ object PlayFormalDev extends App {
 
 //    val stream = Stream(UInt(8 bits))
 //    anyseq(stream)
-//    stream.withAssumes(payloadInvariance = false)
-//    stream.withMasterAsserts()
+//    stream.formalAssumesMaster(payloadInvariance = false)
+//    stream.formalAssertsMaster()
 //    cover(False)
   })
 }

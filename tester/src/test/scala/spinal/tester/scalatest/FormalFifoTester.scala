@@ -34,18 +34,18 @@ class FormalFifoTester extends SpinalFormalFunSuite {
           assume(inValid === False)
         }
 
-        dut.io.push.withMasterAssumes()
-        dut.io.pop.withMasterAsserts()
+        dut.io.push.formalAssumesMaster()
+        dut.io.pop.formalAssertsMaster()
 
-        dut.io.push.withCovers()
+        dut.io.push.formalCovers()
         // back to back transaction cover test.
-        dut.io.pop.withCovers(coverCycles - initialCycles - inOutDelay - 1)
+        dut.io.pop.formalCovers(coverCycles - initialCycles - inOutDelay - 1)
 
         val d1 = anyconst(UInt(7 bits))
         val d2 = anyconst(UInt(7 bits))
 
-        val (d1_in, d2_in) = dut.io.push.withOrderAssumes(d1, d2)
-        val (d1_out, d2_out) = dut.io.pop.withOrderAsserts(d1, d2)
+        val (d1_in, d2_in) = dut.io.push.formalAssumesOrder(d1, d2)
+        val (d1_out, d2_out) = dut.io.pop.formalAssertsOrder(d1, d2)
 
         when(!d1_in) { assume(!dut.formalContains(d1)) }
         when(d1_in && !d1_out) { assert(dut.formalCount(d1) === 1) }

@@ -91,15 +91,15 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
       }
     }
 
-    def withMasterAsserts() = new Area {
+    def formalAssertsMaster() = new Area {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assert(!y); case _ => })
     }
 
-    def withMasterAssumes() = new Area {
+    def formalAssumesMaster() = new Area {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assume(!y); case _ => })
     }
 
-    def withCovers() = {
+    def formalCovers() = {
       if (config.useLen) {
         Seq(0, 1, 2, 4, 8).map(x => cover(len === U(x)))
       }
@@ -164,7 +164,7 @@ case class Axi4W(config: Axi4Config) extends Bundle {
   def setStrb() : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
   def setStrb(bytesLane : Bits) : Unit = if(config.useStrb) strb := bytesLane
 
-  def withCovers() = new Area {
+  def formalCovers() = new Area {
     if(config.useLast) cover(last === True)
     if(config.useStrb) {
       val fullStrb = (1 << config.bytePerWord) - 1
@@ -195,7 +195,7 @@ case class Axi4B(config: Axi4Config) extends Bundle {
   def isSLVERR() : Bool = resp === SLVERR
   def isDECERR() : Bool = resp === DECERR
 
-  def withCovers() = new Area {
+  def formalCovers() = new Area {
     if(config.useResp) {
       Seq(OKAY, SLVERR, DECERR, EXOKAY).map(x => cover(resp === x))
     }
@@ -225,7 +225,7 @@ case class Axi4R(config: Axi4Config) extends Bundle {
   def isSLVERR() : Bool = resp === SLVERR
   def isDECERR() : Bool = resp === DECERR
 
-  def withCovers() = new Area {
+  def formalCovers() = new Area {
     if(config.useResp) {
       Seq(OKAY, SLVERR, DECERR, EXOKAY).map(x => cover(resp === x))
     }
