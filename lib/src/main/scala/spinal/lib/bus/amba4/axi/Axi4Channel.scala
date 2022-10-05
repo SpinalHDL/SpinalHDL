@@ -38,7 +38,7 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   override def clone: this.type = new Axi4Ax(config,userWidth).asInstanceOf[this.type]
 
 
-  def formalContext() = new Area {
+  def formalContext() = new Composite(this) {
     import spinal.core.formal._
 
     val maxSize = log2Up(config.bytePerWord)
@@ -91,11 +91,11 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
       }
     }
 
-    def withAsserts() = {
+    def withMasterAsserts() = new Area {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assert(!y); case _ => })
     }
 
-    def withAssumes() = {
+    def withMasterAssumes() = new Area {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assume(!y); case _ => })
     }
 
@@ -164,7 +164,7 @@ case class Axi4W(config: Axi4Config) extends Bundle {
   def setStrb() : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
   def setStrb(bytesLane : Bits) : Unit = if(config.useStrb) strb := bytesLane
 
-  def withCovers() = {
+  def withCovers() = new Area {
     if(config.useLast) cover(last === True)
     if(config.useStrb) {
       val fullStrb = (1 << config.bytePerWord) - 1
@@ -195,7 +195,7 @@ case class Axi4B(config: Axi4Config) extends Bundle {
   def isSLVERR() : Bool = resp === SLVERR
   def isDECERR() : Bool = resp === DECERR
 
-  def withCovers() = {
+  def withCovers() = new Area {
     if(config.useResp) {
       Seq(OKAY, SLVERR, DECERR, EXOKAY).map(x => cover(resp === x))
     }
@@ -225,7 +225,7 @@ case class Axi4R(config: Axi4Config) extends Bundle {
   def isSLVERR() : Bool = resp === SLVERR
   def isDECERR() : Bool = resp === DECERR
 
-  def withCovers() = {
+  def withCovers() = new Area {
     if(config.useResp) {
       Seq(OKAY, SLVERR, DECERR, EXOKAY).map(x => cover(resp === x))
     }

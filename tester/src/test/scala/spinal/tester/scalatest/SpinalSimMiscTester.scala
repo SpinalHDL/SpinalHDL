@@ -1,5 +1,6 @@
 package spinal.tester.scalatest
 
+import org.scalatest.{FixtureContext, Succeeded}
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
@@ -247,41 +248,47 @@ class SpinalSimMiscTester extends AnyFunSuite {
     test(prefix + "testdoSimUntilVoid") {
       var counterCheck = 0
       var counterClock = 0
-      compiled.doSimUntilVoid("testdoSimUntilVoid")(dut => {
-        fork {
-          dut.clockDomain.deassertReset()
-          dut.clockDomain.fallingEdge()
-          sleep(0)
-          dut.clockDomain.assertReset()
-          sleep(10)
-          dut.clockDomain.deassertReset()
-          sleep(10)
-
-          for (repeat <- 0 until 2000) {
-            dut.clockDomain.risingEdge()
-            sleep(10)
+      try {
+        compiled.doSimUntilVoid("testdoSimUntilVoid")(dut => {
+          fork {
+            dut.clockDomain.deassertReset()
             dut.clockDomain.fallingEdge()
+            sleep(0)
+            dut.clockDomain.assertReset()
             sleep(10)
-            counterClock += 1
-          }
-        }
+            dut.clockDomain.deassertReset()
+            sleep(10)
 
-        fork {
-          var counterModel = 0
-          for (repeat <- 0 until 1000) {
-            dut.io.enable.randomize()
-            dut.clockDomain.waitSampling(); sleep(0)
-            if (dut.io.enable.toBoolean) {
-              counterModel = (counterModel + 1) & 0xFF
+            for (repeat <- 0 until 2000) {
+              dut.clockDomain.risingEdge()
+              sleep(10)
+              dut.clockDomain.fallingEdge()
+              sleep(10)
+              counterClock += 1
             }
-            assert(dut.io.value.toInt == counterModel)
-            counterCheck += 1
           }
+
+          fork {
+            var counterModel = 0
+            for (repeat <- 0 until 1000) {
+              dut.io.enable.randomize()
+              dut.clockDomain.waitSampling(); sleep(0)
+              if (dut.io.enable.toBoolean) {
+                counterModel = (counterModel + 1) & 0xFF
+              }
+              assert(dut.io.value.toInt == counterModel)
+              counterCheck += 1
+            }
+          }
+          ()
+        })
+        ???
+      } catch {
+        case _ => {
+          assert(counterCheck == 1000)
+          assert(counterClock == 2000)
         }
-        ()
-      })
-      assert(counterCheck == 1000)
-      assert(counterClock == 2000)
+      }
     }
 
     test(prefix + "testRecompile1") {

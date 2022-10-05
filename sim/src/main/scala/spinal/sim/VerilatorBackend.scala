@@ -471,7 +471,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       case false => ""
     }
 
-    val rtlIncludeDirsArgs = config.rtlIncludeDirs.map(e => s"-I${new File(e).getAbsolutePath}").mkString(" ")
+    val rtlIncludeDirsArgs = config.rtlIncludeDirs.map(e => s"-I${new File(e).getAbsolutePath}")
+      .map('"' + _.replace("\\","/") + '"').mkString(" ")
 
 
     val verilatorBinFilename = if(isWindows) "verilator_bin.exe" else "verilator"

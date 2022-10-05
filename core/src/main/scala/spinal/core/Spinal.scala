@@ -156,6 +156,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         headerWithDate                 : Boolean = false,
                         headerWithRepoHash             : Boolean = true,
                         removePruned                   : Boolean = false,
+                        allowOutOfRangeLiterals        : Boolean = false,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
@@ -163,7 +164,8 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         scopeProperties                : mutable.LinkedHashMap[ScopeProperty[_], Any] = mutable.LinkedHashMap[ScopeProperty[_], Any](),
                         private [core] var _withEnumString : Boolean = true,
                         var enumPrefixEnable                 : Boolean = true,
-                        var enumGlobalEnable                 : Boolean = false
+                        var enumGlobalEnable                 : Boolean = false,
+                        bitVectorWidthMax              : Int = 4096
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
@@ -325,19 +327,20 @@ class SpinalReport[T <: Component]() {
 
     /** Merge a list of path into one file */
     def mergeFile(listPath: mutable.LinkedHashSet[String], fileName: String) {
-      val fw = new FileWriter(new File(s"${globalData.config.targetDirectory}/$fileName"))
-      val bw = new BufferedWriter(fw)
+      val str = new StringBuilder() //We use a temporary string to build the result, allowing overriding on input file as output
 
       listPath.foreach{ path =>
         if( new File(path).exists ) {
           val buffer = Source.fromFile(path)
-          buffer.getLines.foreach{ line => bw.write(line + "\n") }
+          buffer.getLines.foreach{ line => str. ++= (line + "\n") }
           buffer.close()
         }else{
           SpinalWarning(s"Merging blackbox sources : Path (${new File(path).getAbsolutePath}) not found ")
         }
       }
-
+      val fw = new FileWriter(new File(s"${globalData.config.targetDirectory}/$fileName"))
+      val bw = new BufferedWriter(fw)
+      bw.write(str.toString())
       bw.close()
       fw.close()
     }

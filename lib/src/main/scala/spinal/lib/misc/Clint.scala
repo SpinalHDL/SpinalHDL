@@ -32,12 +32,22 @@ case class Clint(hartCount : Int) extends Area{
     val softwareInterrupt = RegInit(False)
   }
 
-  def driveFrom(bus : BusSlaveFactory) = new Area{
+  def driveFrom(bus : BusSlaveFactory, bufferTime : Boolean = false) = new Area{
     val IPI_ADDR = 0x0000
     val CMP_ADDR = 0x4000
     val TIME_ADDR = 0xBFF8
 
-    bus.readMultiWord(time, TIME_ADDR)
+    bufferTime match {
+      case false => bus.readMultiWord(time, TIME_ADDR)
+      case true => new Composite(this){
+        assert(bus.busDataWidth == 32)
+
+        val timeMsb = RegNextWhen(time(63 downto 32), bus.isReading(TIME_ADDR))
+        bus.read(time(31 downto 0), TIME_ADDR)
+        bus.read(timeMsb, TIME_ADDR + 4)
+      }
+    }
+
     val hartsMapping = for(hartId <- 0 until hartCount) yield new Area{
       bus.writeMultiWord(harts(hartId).cmp, CMP_ADDR + 8*hartId)
       bus.readAndWrite(harts(hartId).softwareInterrupt, IPI_ADDR + 4*hartId, bitOffset = 0)
@@ -87,7 +97,7 @@ case class WishboneClint(hartCount : Int) extends Component{
   io.time := logic.time
 }
 
-case class AxiLite4Clint(hartCount : Int) extends Component{
+case class AxiLite4Clint(hartCount : Int, bufferTime : Boolean = false) extends Component{
   val io = new Bundle {
     val bus = slave(AxiLite4(AxiLite4Config(16, 32)))
     val timerInterrupt = out Bits(hartCount bits)
@@ -97,7 +107,7 @@ case class AxiLite4Clint(hartCount : Int) extends Component{
 
   val factory = new AxiLite4SlaveFactory(io.bus)
   val logic = Clint(hartCount)
-  logic.driveFrom(factory)
+  logic.driveFrom(factory, bufferTime)
 
   for(hartId <- 0 until hartCount){
     io.timerInterrupt(hartId) := logic.harts(hartId).timerInterrupt
