@@ -174,7 +174,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       r.formalAssertsTimeout(maxStallCycles)
 
       when(ar.valid) {
-        addrChecker.formalAssertsMaster()
+        addrChecker.formalAsserts()
       }
       assert(!errors.ValidWhileReset)
     }
@@ -204,7 +204,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       r.formalAssumesTimeout(maxStallCycles)
 
       when(ar.valid) {
-        addrChecker.formalAssumesSlave()
+        addrChecker.formalAssumes()
       }
       assume(!errors.ValidWhileReset)
     }

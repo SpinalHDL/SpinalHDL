@@ -196,7 +196,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       b.formalAssertsTimeout(maxStallCycles)
 
       when(aw.valid) {
-        addrChecker.formalAssertsMaster()
+        addrChecker.formalAsserts()
       }
 
       assert(!errors.DataNumberDonotFitLen)
@@ -228,7 +228,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       b.formalAssumesTimeout(maxStallCycles)
 
       when(aw.valid) {
-        addrChecker.formalAssumesSlave()
+        addrChecker.formalAssumes()
       }
 
       assume(!errors.DataNumberDonotFitLen)

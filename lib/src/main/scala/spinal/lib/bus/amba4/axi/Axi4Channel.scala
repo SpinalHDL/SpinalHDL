@@ -91,11 +91,11 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
       }
     }
 
-    def formalAssertsMaster() = new Area {
+    def formalAsserts() = new Area {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assert(!y); case _ => })
     }
 
-    def formalAssumesSlave() = new Area {
+    def formalAssumes() = new Area {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assume(!y); case _ => })
     }
 
