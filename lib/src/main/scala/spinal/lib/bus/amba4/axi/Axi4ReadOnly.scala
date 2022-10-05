@@ -181,7 +181,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
 
     def formalAssumesMaster(maxStallCycles: Int = 0) = new Area {
       ar.formalAssumesTimeout(maxStallCycles)
-      r.formalAssumesMaster()
+      r.formalAssumesSlave()
 
       assume(!errors.DataNumberDonotFitLen)
       assume(!errors.NoAddrRequest)
@@ -200,11 +200,11 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     }
 
     def formalAssumesSlave(maxStallCycles: Int = 0) = new Area {
-      ar.formalAssumesMaster()
+      ar.formalAssumesSlave()
       r.formalAssumesTimeout(maxStallCycles)
 
       when(ar.valid) {
-        addrChecker.formalAssumesMaster()
+        addrChecker.formalAssumesSlave()
       }
       assume(!errors.ValidWhileReset)
     }

@@ -528,7 +528,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
-  def formalAssumesMaster(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this, "assumes") {
+  def formalAssumesSlave(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this, "assumes") {
     import spinal.core.formal._
     when(past(isStall) init (False)) {
       assume(valid)

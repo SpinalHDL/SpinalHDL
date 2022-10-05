@@ -207,7 +207,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     def formalAssumesMaster(maxStallCycles: Int = 0) = new Area {
       aw.formalAssumesTimeout(maxStallCycles)
       w.formalAssumesTimeout(maxStallCycles)
-      b.formalAssumesMaster()
+      b.formalAssumesSlave()
 
       assume(!errors.WrongResponse)
       assume(!errors.RespWhileReset)
@@ -223,12 +223,12 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     }
 
     def formalAssumesSlave(maxStallCycles: Int = 0) = new Area {
-      aw.formalAssumesMaster()
-      w.formalAssumesMaster()
+      aw.formalAssumesSlave()
+      w.formalAssumesSlave()
       b.formalAssumesTimeout(maxStallCycles)
 
       when(aw.valid) {
-        addrChecker.formalAssumesMaster()
+        addrChecker.formalAssumesSlave()
       }
 
       assume(!errors.DataNumberDonotFitLen)

@@ -95,7 +95,7 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assert(!y); case _ => })
     }
 
-    def formalAssumesMaster() = new Area {
+    def formalAssumesSlave() = new Area {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assume(!y); case _ => })
     }
 

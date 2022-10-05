@@ -141,7 +141,7 @@ object FormalFifo extends App {
           assume(inValid === False)
         }
 
-        dut.io.push.formalAssumesMaster()
+        dut.io.push.formalAssumesSlave()
         dut.io.pop.formalAssertsMaster()
 
         val d1 = anyconst(UInt(7 bits))

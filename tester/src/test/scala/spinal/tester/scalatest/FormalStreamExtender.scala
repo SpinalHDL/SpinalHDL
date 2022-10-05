@@ -46,8 +46,8 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         cover(inStream.fire & outStream.fire & dut.io.done)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
-        inStream.formalAssumesMaster()
-        outStream.formalAssumesMaster()
+        inStream.formalAssumesSlave()
+        outStream.formalAssertsMaster()
 
         for(i <- 1 until 2) {
           inStream.formalCovers(i)
@@ -95,8 +95,8 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         cover(pastValid & past(dut.io.done) & inStream.fire)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
-        inStream.formalAssumesMaster()
-        outStream.formalAssumesMaster()
+        inStream.formalAssumesSlave()
+        outStream.formalAssertsMaster()
 
         for(i <- 1 until 2) {
           inStream.formalCovers(i)
@@ -133,8 +133,8 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         cover(inStream.fire & outStream.fire & dut.io.done)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
-        inStream.formalAssumesMaster()
-        outStream.formalAssumesMaster()
+        inStream.formalAssumesSlave()
+        outStream.formalAssertsMaster()
 
         for(i <- 1 until 2) {
           inStream.formalCovers(i)
@@ -177,8 +177,8 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         cover(pastValid & past(dut.io.done) & inStream.fire)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
-        inStream.formalAssumesMaster()
-        outStream.formalAssumesMaster()
+        inStream.formalAssumesSlave()
+        outStream.formalAssertsMaster()
 
         for(i <- 1 until 2) {
           inStream.formalCovers(i)

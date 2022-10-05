@@ -34,7 +34,7 @@ class FormalFifoTester extends SpinalFormalFunSuite {
           assume(inValid === False)
         }
 
-        dut.io.push.formalAssumesMaster()
+        dut.io.push.formalAssumesSlave()
         dut.io.pop.formalAssertsMaster()
 
         dut.io.push.formalCovers()

@@ -42,7 +42,7 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
 
         assumeInitial(demuxSelect < portCount)
         cover(demuxInput.fire)
-        demuxInput.formalAssumesMaster()
+        demuxInput.formalAssumesSlave()
         demuxInput.formalCovers(5)
 
         val inputFireStableSelChanged = past(demuxInput.fire) && demuxInput.fire && changed(demuxSelect)

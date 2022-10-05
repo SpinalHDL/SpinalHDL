@@ -1706,7 +1706,7 @@ object PlayFormalFifo extends App {
       // when(dut.io.push.fire && dut.io.push.payload === d1) {
       //   assume(d1_in === True)
       // }
-      dut.io.push.formalAssumesMaster()
+      dut.io.push.formalAssumesSlave()
       dut.io.pop.formalAssertsMaster()
 
       val d1 = anyconst(UInt(7 bits))
