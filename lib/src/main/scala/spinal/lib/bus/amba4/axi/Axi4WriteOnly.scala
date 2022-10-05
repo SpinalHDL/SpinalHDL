@@ -84,7 +84,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     slave(b)
   }
 
-  def formalContext(maxBursts: Int = 16, maxStrbs: Int = 256) = new Composite(this) {
+  def formalContext(maxBursts: Int = 16, maxStrbs: Int = 256) = new Composite(this, "formal") {
     import spinal.core.formal._
 
     val addrChecker = aw.payload.formalContext()

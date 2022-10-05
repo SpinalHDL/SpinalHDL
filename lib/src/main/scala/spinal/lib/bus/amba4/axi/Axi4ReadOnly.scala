@@ -74,7 +74,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     slave(r)
   }
 
-  def formalContext(maxBursts: Int = 16) = new Composite(this) {
+  def formalContext(maxBursts: Int = 16) = new Composite(this, "formal") {
     import spinal.core.formal._
     val addrChecker = ar.payload.formalContext()
 

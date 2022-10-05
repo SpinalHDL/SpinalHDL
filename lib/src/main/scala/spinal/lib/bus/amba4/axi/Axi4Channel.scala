@@ -38,7 +38,7 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   override def clone: this.type = new Axi4Ax(config,userWidth).asInstanceOf[this.type]
 
 
-  def formalContext() = new Composite(this) {
+  def formalContext() = new Composite(this, "formal") {
     import spinal.core.formal._
 
     val maxSize = log2Up(config.bytePerWord)
@@ -99,7 +99,7 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assume(!y); case _ => })
     }
 
-    def formalCovers() = {
+    def formalCovers() = new Area {
       if (config.useLen) {
         Seq(0, 1, 2, 4, 8).map(x => cover(len === U(x)))
       }

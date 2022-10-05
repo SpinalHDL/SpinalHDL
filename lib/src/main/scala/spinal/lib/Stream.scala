@@ -519,7 +519,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
    *
    * @param payloadInvariance Check that the payload does not change when valid is high and ready is low.
    */
-  def formalAssertsMaster(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
+  def formalAssertsMaster(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this, "asserts") {
     import spinal.core.formal._
     val stack = ScalaLocated.long
     when(past(isStall) init(False)) {
@@ -528,7 +528,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
-  def formalAssumesMaster(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
+  def formalAssumesMaster(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this, "assumes") {
     import spinal.core.formal._
     when(past(isStall) init (False)) {
       assume(valid)
@@ -536,7 +536,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
-  def formalCovers(back2BackCycles: Int = 1) = new Composite(this) {
+  def formalCovers(back2BackCycles: Int = 1) = new Composite(this, "covers") {
     import spinal.core.formal._
     val hist = History(fire, back2BackCycles).reduce(_ && _)
     cover(hist)
@@ -545,10 +545,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     // cover(this.ready && !this.valid)
   }
 
-  def formalAssertsOrder(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
+  def formalAssertsOrder(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = new Composite(this, "orders")  {
     import spinal.core.formal._
-    val aheadOut = RegInit(False) setWhen (this.fire && dataAhead === this.payload)
-    val behindOut = RegInit(False) setWhen (this.fire && dataBehind === this.payload)
+    val aheadOut = RegInit(False) setWhen (fire && dataAhead === payload)
+    val behindOut = RegInit(False) setWhen (fire && dataBehind === payload)
 
     when(!aheadOut){ assert(!behindOut) }
     when(behindOut){ assert(aheadOut) }
@@ -556,22 +556,22 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     cover(aheadOut)
     cover(behindOut)
     
-    (aheadOut, behindOut)
-  }
+    val out = (aheadOut, behindOut)
+  }.out
 
-  def formalAssumesOrder(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
+  def formalAssumesOrder(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = new Composite(this, "orders") {
     import spinal.core.formal._
-    val aheadIn = RegInit(False) setWhen (this.fire && dataAhead === this.payload)
-    val behindIn = RegInit(False) setWhen (this.fire && dataBehind === this.payload)
-    when(aheadIn) { assume(this.payload =/= dataAhead) }
-    when(behindIn) { assume(this.payload =/= dataBehind) }
+    val aheadIn = RegInit(False) setWhen (fire && dataAhead === payload)
+    val behindIn = RegInit(False) setWhen (fire && dataBehind === payload)
+    when(aheadIn) { assume(payload =/= dataAhead) }
+    when(behindIn) { assume(payload =/= dataBehind) }
     
     assume(dataAhead =/= dataBehind)
     when(!aheadIn) { assume(!behindIn) }
     when(behindIn) { assume(aheadIn) }
 
-    (aheadIn, behindIn)
-  }
+    val out = (aheadIn, behindIn)
+  }.out
 
   /** Assert that this stream conforms to the stream semantics:
     * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
@@ -579,19 +579,19 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     *
     * @param maxStallCycles Check that the max cycles the interface would hold in stall.
     */
-  def formalAssertsTimeout(maxStallCycles: Int = 0) = new Area {
+  def formalAssertsTimeout(maxStallCycles: Int = 0) = new Composite(this, "timeout") {
     import spinal.core.formal._
     val logic = (maxStallCycles > 0) generate new Area {
-      val counter = Counter(maxStallCycles, isStall).setCompositeName(this, "timeoutCounter", true)
+      val counter = Counter(maxStallCycles, isStall)
       when(!isStall) { counter.clear() }
         .otherwise { assert(!counter.willOverflow) }
     }
   }
 
-  def formalAssumesTimeout(maxStallCycles: Int = 0) = new Area {
+  def formalAssumesTimeout(maxStallCycles: Int = 0) = new Composite(this, "timeout") {
     import spinal.core.formal._
     val logic = (maxStallCycles > 0) generate new Area {
-      val counter = Counter(maxStallCycles, isStall).setCompositeName(this, "timeoutCounter", true)
+      val counter = Counter(maxStallCycles, isStall)
       when(!isStall) { counter.clear() }
         .elsewhen(counter.willOverflow) { assume(ready === True) }
     }
@@ -1338,7 +1338,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
   pushToPopGray := pushCC.pushPtrGray
   popToPushGray := popCC.popPtrGray
   
-  def formalAsserts(gclk: ClockDomain) = new Composite(this) {
+  def formalAsserts(gclk: ClockDomain) = new Composite(this, "asserts") {
     import spinal.core.formal._
     val pushArea = new ClockingArea(pushClock) {
       when(pastValid & changed(pushCC.popPtrGray)) {
@@ -1855,7 +1855,7 @@ class StreamTransactionCounter(
     io.value := counter
     if(noDelay) { io.available := !running } else { io.available := !working | io.done }
 
-    def formalAsserts() = new Composite(this) {
+    def formalAsserts() = new Composite(this, "asserts") {
       val startedReg = Reg(Bool()) init False
       val started = CombInit(startedReg)
       val waiting = io.working & !started
