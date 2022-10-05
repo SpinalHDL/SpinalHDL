@@ -49,18 +49,18 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
       assume(inValid === False)
     }
 
-    dut.withFormalAsserts(gclk.domain)
+    dut.formalAsserts(gclk.domain)
 
     val pushArea = new ClockingArea(pushClock) {
-      dut.io.push.withMasterAssumes()
-      dut.io.push.withCovers()
+      dut.io.push.formalAssumesSlave()
+      dut.io.push.formalCovers()
     }
 
     // back to back transaction cover test.
     val popCheckDomain = if (seperateReset) popClock else popClock.copy(reset = reset)
     val popArea = new ClockingArea(popCheckDomain) {
-      dut.io.pop.withCovers(back2backCycles)
-      dut.io.pop.withMasterAsserts()
+      dut.io.pop.formalCovers(back2backCycles)
+      dut.io.pop.formalAssertsMaster()
     }
   }
 

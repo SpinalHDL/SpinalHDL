@@ -141,16 +141,16 @@ object FormalFifo extends App {
           assume(inValid === False)
         }
 
-        dut.io.push.withMasterAssumes()
-        dut.io.pop.withMasterAsserts()
+        dut.io.push.formalAssumesSlave()
+        dut.io.pop.formalAssertsMaster()
 
         val d1 = anyconst(UInt(7 bits))
         val d2 = anyconst(UInt(7 bits))
         dut.io.d1 := d1
         dut.io.d2 := d2
 
-        val (d1_in, d2_in) = dut.io.push.withOrderAssumes(d1, d2)
-        val (d1_out, d2_out) = dut.io.pop.withOrderAsserts(d1, d2)
+        val (d1_in, d2_in) = dut.io.push.formalAssumesOrder(d1, d2)
+        val (d1_out, d2_out) = dut.io.pop.formalAssertsOrder(d1, d2)
 
         when(!d1_in) { assume(!dut.dut.formalContains(d1)) }
         when(d1_in && !d1_out) { assert(dut.dut.formalCount(d1) === 1) }

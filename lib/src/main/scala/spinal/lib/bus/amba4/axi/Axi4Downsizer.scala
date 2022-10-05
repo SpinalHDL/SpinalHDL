@@ -90,7 +90,7 @@ class Axi4DownsizerSubTransactionGenerator[T <: Axi4Ax](
     io.start := startAddress
     io.output << cmdStream
 
-    def withFormalAsserts() = new Area {
+    def formalAsserts() = new Composite(this, "asserts") {
         def ratio2size(x: UInt): UInt = {
             OHToUInt(OHMasking.first(x + 1))
         }
@@ -243,15 +243,15 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
     }
     io.input.readRsp << dataOut
 
-    def withFormalAsserts() = new Composite(this) {        
+    def formalAsserts() = new Composite(this, "asserts") {        
         val cmdCounter = generator.cmdExtender.counter
-        val cmdChecker = cmdCounter.withFormalAsserts()
+        val cmdChecker = cmdCounter.formalAsserts()
         val lenCounter = dataOutCounter.counter
-        val lenChecker = lenCounter.withFormalAsserts()
+        val lenChecker = lenCounter.formalAsserts()
         val ratioCounter = dataCounter.counter
-        val ratioChecker = ratioCounter.withFormalAsserts()
+        val ratioChecker = ratioCounter.formalAsserts()
 
-        val generatorChecker = generator.withFormalAsserts()
+        val generatorChecker = generator.formalAsserts()
 
         when(lenChecker.startedReg) {
           assert(countStream.payload === countOutStream.payload)

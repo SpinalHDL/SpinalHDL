@@ -84,7 +84,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     slave(b)
   }
 
-  def formalContext(maxBursts: Int = 16, maxStrbs: Int = 256) = new Composite(this) {
+  def formalContext(maxBursts: Int = 16, maxStrbs: Int = 256) = new Composite(this, "formal") {
     import spinal.core.formal._
 
     val addrChecker = aw.payload.formalContext()
@@ -190,13 +190,13 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       val DataNumberDonotFitLen = hist.io.outStreams.map(x => x.valid & x.checkLen()).reduce(_ | _)
     }
 
-    def withMasterAsserts(maxStallCycles: Int = 0) = new Area {
-      aw.withMasterAsserts()
-      w.withMasterAsserts()
-      b.withTimeoutAsserts(maxStallCycles)
+    def formalAssertsMaster(maxStallCycles: Int = 0) = new Area {
+      aw.formalAssertsMaster()
+      w.formalAssertsMaster()
+      b.formalAssertsTimeout(maxStallCycles)
 
       when(aw.valid) {
-        addrChecker.withMasterAsserts()
+        addrChecker.formalAsserts()
       }
 
       assert(!errors.DataNumberDonotFitLen)
@@ -204,31 +204,31 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       assert(!errors.ValidWhileReset)
     }
 
-    def withMasterAssumes(maxStallCycles: Int = 0) = new Area {
-      aw.withTimeoutAssumes(maxStallCycles)
-      w.withTimeoutAssumes(maxStallCycles)
-      b.withMasterAssumes()
+    def formalAssumesMaster(maxStallCycles: Int = 0) = new Area {
+      aw.formalAssumesTimeout(maxStallCycles)
+      w.formalAssumesTimeout(maxStallCycles)
+      b.formalAssumesSlave()
 
       assume(!errors.WrongResponse)
       assume(!errors.RespWhileReset)
     }
     
-    def withSlaveAsserts(maxStallCycles: Int = 0) = new Area {
-      aw.withTimeoutAsserts(maxStallCycles)
-      w.withTimeoutAsserts(maxStallCycles)
-      b.withMasterAsserts()
+    def formalAssertsSlave(maxStallCycles: Int = 0) = new Area {
+      aw.formalAssertsTimeout(maxStallCycles)
+      w.formalAssertsTimeout(maxStallCycles)
+      b.formalAssertsMaster()
 
       assert(!errors.WrongResponse)
       assert(!errors.RespWhileReset)
     }
 
-    def withSlaveAssumes(maxStallCycles: Int = 0) = new Area {
-      aw.withMasterAssumes()
-      w.withMasterAssumes()
-      b.withTimeoutAssumes(maxStallCycles)
+    def formalAssumesSlave(maxStallCycles: Int = 0) = new Area {
+      aw.formalAssumesSlave()
+      w.formalAssumesSlave()
+      b.formalAssumesTimeout(maxStallCycles)
 
       when(aw.valid) {
-        addrChecker.withMasterAssumes()
+        addrChecker.formalAssumes()
       }
 
       assume(!errors.DataNumberDonotFitLen)
@@ -236,18 +236,18 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       assume(!errors.ValidWhileReset)
     }
 
-    def withCovers() = new Area {
-      aw.withCovers(2)
+    def formalCovers() = new Area {
+      aw.formalCovers(2)
       when(aw.fire) {
-        addrChecker.withCovers()
+        addrChecker.formalCovers()
       }
-      w.withCovers(2)
+      w.formalCovers(2)
       when(w.fire) {
-        w.payload.withCovers()
+        w.payload.formalCovers()
       }
-      b.withCovers(2)
+      b.formalCovers(2)
       when(b.fire) {
-        b.payload.withCovers()
+        b.payload.formalCovers()
       }
     }
   }

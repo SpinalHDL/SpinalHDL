@@ -74,7 +74,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     slave(r)
   }
 
-  def formalContext(maxBursts: Int = 16) = new Composite(this) {
+  def formalContext(maxBursts: Int = 16) = new Composite(this, "formal") {
     import spinal.core.formal._
     val addrChecker = ar.payload.formalContext()
 
@@ -169,19 +169,19 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       histInput.valid := True
     }
 
-    def withMasterAsserts(maxStallCycles: Int = 0) = new Area {
-      ar.withMasterAsserts()
-      r.withTimeoutAsserts(maxStallCycles)
+    def formalAssertsMaster(maxStallCycles: Int = 0) = new Area {
+      ar.formalAssertsMaster()
+      r.formalAssertsTimeout(maxStallCycles)
 
       when(ar.valid) {
-        addrChecker.withMasterAsserts()
+        addrChecker.formalAsserts()
       }
       assert(!errors.ValidWhileReset)
     }
 
-    def withMasterAssumes(maxStallCycles: Int = 0) = new Area {
-      ar.withTimeoutAssumes(maxStallCycles)
-      r.withMasterAssumes()
+    def formalAssumesMaster(maxStallCycles: Int = 0) = new Area {
+      ar.formalAssumesTimeout(maxStallCycles)
+      r.formalAssumesSlave()
 
       assume(!errors.DataNumberDonotFitLen)
       assume(!errors.NoAddrRequest)
@@ -189,9 +189,9 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       assume(!errors.RespWhileReset)
     }
 
-    def withSlaveAsserts(maxStallCycles: Int = 0) = new Area {
-      ar.withTimeoutAsserts(maxStallCycles)
-      r.withMasterAsserts()
+    def formalAssertsSlave(maxStallCycles: Int = 0) = new Area {
+      ar.formalAssertsTimeout(maxStallCycles)
+      r.formalAssertsMaster()
 
       assert(!errors.DataNumberDonotFitLen)
       assert(!errors.NoAddrRequest)
@@ -199,24 +199,24 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       assert(!errors.RespWhileReset)
     }
 
-    def withSlaveAssumes(maxStallCycles: Int = 0) = new Area {
-      ar.withMasterAssumes()
-      r.withTimeoutAssumes(maxStallCycles)
+    def formalAssumesSlave(maxStallCycles: Int = 0) = new Area {
+      ar.formalAssumesSlave()
+      r.formalAssumesTimeout(maxStallCycles)
 
       when(ar.valid) {
-        addrChecker.withMasterAssumes()
+        addrChecker.formalAssumes()
       }
       assume(!errors.ValidWhileReset)
     }
 
-    def withCovers() = new Area {
-      ar.withCovers(2)
+    def formalCovers() = new Area {
+      ar.formalCovers(2)
       when(ar.fire) {
-        addrChecker.withCovers()
+        addrChecker.formalCovers()
       }
-      r.withCovers(2)
+      r.formalCovers(2)
       when(r.fire) {
-        r.payload.withCovers()
+        r.payload.formalCovers()
       }
     }
   }

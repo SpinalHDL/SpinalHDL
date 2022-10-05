@@ -105,11 +105,11 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val maxStall = 16
         val inputChecker = input.formalContext(3, 4)
-        inputChecker.withSlaveAsserts(maxStall)
-        inputChecker.withSlaveAssumes(maxStall)
+        inputChecker.formalAssertsSlave(maxStall)
+        inputChecker.formalAssumesSlave(maxStall)
         val outputChecker = output.formalContext(6, 4)
-        outputChecker.withMasterAsserts(maxStall)
-        outputChecker.withMasterAssumes(maxStall)
+        outputChecker.formalAssertsMaster(maxStall)
+        outputChecker.formalAssumesMaster(maxStall)
 
         when(inHist.io.input.valid) {
           val inputSelected = inputChecker.hist.io.outStreams(inputChecker.wId)
@@ -139,8 +139,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         assume(!inputChecker.hist.io.willOverflow)
         assert(!outputChecker.hist.io.willOverflow)
 
-        outputChecker.withCovers()
-        inputChecker.withCovers()
+        outputChecker.formalCovers()
+        inputChecker.formalCovers()
       })
   }
 
@@ -164,11 +164,11 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         val maxStall = 16
         val inputChecker = input.formalContext(3)
-        inputChecker.withSlaveAsserts()
-        inputChecker.withSlaveAssumes(2)
+        inputChecker.formalAssertsSlave()
+        inputChecker.formalAssumesSlave(2)
         val outputChecker = output.formalContext(5)
-        outputChecker.withMasterAsserts(maxStall)
-        outputChecker.withMasterAssumes(maxStall)
+        outputChecker.formalAssertsMaster(maxStall)
+        outputChecker.formalAssumesMaster(maxStall)
 
         val countWaitingInputs = inputChecker.hist.io.outStreams.sCount(x => x.valid && !x.seenLast && x.axDone)
         assert(countWaitingInputs <= 2)
@@ -193,7 +193,7 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val cmdCounter = dut.generator.cmdExtender.counter
         val lenCounter = dut.dataOutCounter.counter
         val ratioCounter = dut.dataCounter.counter
-        val dutChecker = dut.withFormalAsserts()
+        val dutChecker = dut.formalAsserts()
 
         val transferred = (rInput.count << rRatio) + ratioCounter.io.value
 
@@ -410,8 +410,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         cover(inputChecker.rmExist)
         cover(inputChecker.rmExist && selected.size === 3)
         cover(inputChecker.rmExist && selected.size === 3 && selected.len === 1)
-        outputChecker.withCovers()
-        inputChecker.withCovers()
+        outputChecker.formalCovers()
+        inputChecker.formalCovers()
       })
   }
   val inConfig = Axi4Config(20, 64, 4, useBurst = false, useId = false, useLock = false)

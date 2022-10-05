@@ -34,13 +34,13 @@ class FormalDispatcherSequencialTester extends SpinalFormalFunSuite {
 
         cover(muxInput.fire)
 
-        muxInput.withMasterAssumes()
-        muxInput.withCovers(3)
+        muxInput.formalAssumesSlave()
+        muxInput.formalCovers(3)
 
         for (i <- 0 until portCount) {
           cover(dut.counter.value === i)
-          muxOutputs(i).withMasterAsserts()
-          muxOutputs(i).withCovers()
+          muxOutputs(i).formalAssertsMaster()
+          muxOutputs(i).formalCovers()
         }
 
         for (i <- 0 until portCount) {
