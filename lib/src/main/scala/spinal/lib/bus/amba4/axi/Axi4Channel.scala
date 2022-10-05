@@ -38,7 +38,7 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   override def clone: this.type = new Axi4Ax(config,userWidth).asInstanceOf[this.type]
 
 
-  def formalContext() = new Area {
+  def formalContext() = new Composite(this) {
     import spinal.core.formal._
 
     val maxSize = log2Up(config.bytePerWord)
@@ -91,15 +91,15 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
       }
     }
 
-    def withAsserts() = {
+    def withMasterAsserts() = new Area {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assert(!y); case _ => })
     }
 
-    def withAssumes() = {
+    def withMasterAssumes() = new Area {
       errors.foreachReflectableNameables(x => x match { case y: Bool => assume(!y); case _ => })
     }
 
-    def withCovers() = {
+    def withCovers() = new Area {
       // Unaligned burst access.
       if (config.useSize && config.useBurst) {
         cover(size === U(Axi4.size.BYTE_2) && addr(0) === True && burst === FIXED)
