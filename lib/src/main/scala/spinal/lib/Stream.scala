@@ -519,30 +519,38 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
    *
    * @param payloadInvariance Check that the payload does not change when valid is high and ready is low.
    */
-  def withAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) : this.type = {
+  def withAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
     import spinal.core.formal._
     val stack = ScalaLocated.long
-    when(past(this.isStall) init(False)) {
-      assert(this.valid,  "Stream transaction disappeared:\n" + stack)
-      if(payloadInvariance) assert(stable(this.payload), "Stream transaction payload changed:\n" + stack)
+    when(past(isStall) init(False)) {
+      assert(valid,  "Stream transaction disappeared:\n" + stack)
+      if(payloadInvariance) assert(stable(payload), "Stream transaction payload changed:\n" + stack)
     }
     this
   }
 
-  def withAssumes(payloadInvariance : Boolean = true)(implicit loc : Location): this.type  = {
+  def withAssumes(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
     import spinal.core.formal._
-    when(past(this.isStall) init (False)) {
-      assume(this.valid)
-      if(payloadInvariance) assume(stable(this.payload))
+    when(past(isStall) init (False)) {
+      assume(valid)
+      if(payloadInvariance) assume(stable(payload))
     }
     this
   }
 
-  def withCovers(back2BackCycles: Int = 1): this.type  = {
+  def withMasterAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
+    withAsserts(payloadInvariance)
+  }
+
+  def withMasterAssumes(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
+    withAssumes(payloadInvariance)
+  }
+
+  def withCovers(back2BackCycles: Int = 1) = new Composite(this) {
     import spinal.core.formal._
-    val hist = History(this.fire, back2BackCycles).reduce(_ && _)
+    val hist = History(fire, back2BackCycles).reduce(_ && _)
     cover(hist)
-    cover(this.isStall)
+    cover(isStall)
     // doubt that if this is required in generic scenario.
     // cover(this.ready && !this.valid)
     this
@@ -1108,26 +1116,21 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
       risingOccupancy := False
     }
   }
-  
-  def withAssumes() = this.rework {
-    import spinal.core.formal._
-    assume(io.pop.payload === past(logic.ram(logic.popPtr)))
-  }
 
   def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
-    val pushBound = logic.pushPtr.value + depth
-    val check = Vec(False, depth)
-    for (i <- 0 until depth) {
-      val popIndex = logic.popPtr.resize(log2Up(depth) + 1 bits) + i
-      when(logic.popPtr < logic.pushPtr) {
-        when(popIndex < logic.pushPtr) { check(i) := cond(logic.ram(popIndex.resized)) }
-      }.elsewhen(logic.popPtr > logic.pushPtr) {
-        when(popIndex < pushBound) { check(i) := cond(logic.ram(popIndex.resized)) }
-      }.elsewhen(logic.popPtr === logic.pushPtr && io.pop.valid) {
-        check(i) := cond(logic.ram(i))
-      }
+    val condition = (0 until depth).map(x => cond(logic.ram(x)))
+    val mask = Vec(True, depth)
+    val popMask = (~((U(1) << logic.popPtr) - 1)).asBits
+    val pushMask = ((U(1) << logic.pushPtr) - 1).asBits
+    when(logic.popPtr < logic.pushPtr) {
+      mask.assignFromBits(pushMask & popMask)
+    }.elsewhen(logic.popPtr > logic.pushPtr) {
+      mask.assignFromBits(pushMask | popMask)
+    }.elsewhen(logic.empty) {
+      mask := mask.getZero
     }
-    check
+    val check = mask.zipWithIndex.map{case (x, id) => x & condition(id)}
+    Vec(check)
   }
 
   def formalContains(word: T): Bool = this.rework {
@@ -1346,7 +1349,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
   pushToPopGray := pushCC.pushPtrGray
   popToPushGray := popCC.popPtrGray
   
-  def withAsserts(gclk: ClockDomain) = new Area {
+  def withFormalAsserts(gclk: ClockDomain) = new Composite(this) {
     import spinal.core.formal._
     val pushArea = new ClockingArea(pushClock) {
       when(pastValid & changed(pushCC.popPtrGray)) {
@@ -1863,7 +1866,7 @@ class StreamTransactionCounter(
     io.value := counter
     if(noDelay) { io.available := !running } else { io.available := !working | io.done }
 
-    def withAsserts() = new Area {
+    def withFormalAsserts() = new Composite(this) {
       val startedReg = Reg(Bool()) init False
       val started = CombInit(startedReg)
       val waiting = io.working & !started
