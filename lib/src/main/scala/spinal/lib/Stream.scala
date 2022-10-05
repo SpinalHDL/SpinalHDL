@@ -538,6 +538,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this
   }
 
+  def withMasterAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
+    withAsserts(payloadInvariance)
+  }
+
+  def withMasterAssumes(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this) {
+    withAssumes(payloadInvariance)
+  }
+
   def withCovers(back2BackCycles: Int = 1): this.type  = {
     import spinal.core.formal._
     val hist = History(this.fire, back2BackCycles).reduce(_ && _)
