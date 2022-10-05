@@ -143,7 +143,6 @@ object FormalFifo extends App {
 
         dut.io.push.withMasterAssumes()
         dut.io.pop.withMasterAsserts()
-        dut.dut.withAssumes()
 
         val d1 = anyconst(UInt(7 bits))
         val d2 = anyconst(UInt(7 bits))
