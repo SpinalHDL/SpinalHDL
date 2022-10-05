@@ -29,7 +29,8 @@ case class VpiBackendConfig(
   var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing -Wno-write-strings", 
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
-  var logSimProcess: Boolean = false
+  var logSimProcess: Boolean = false,
+  var timePrecision: String  = null
 )
 
 abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
@@ -475,8 +476,13 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                                                            s.endsWith(".vl")) }
                                             .mkString(" ")
 
+    val timeScale = config.timePrecision match {
+      case null => "1ns/1ns"
+      case t => "1ns/" + t.replace(" ", "")
+    }
+
     val simulationDefSource = s"""
-                               |`timescale 1ns/1ns
+                               |`timescale ${timeScale}
                                |
                                |module __simulation_def;
                                |initial
@@ -648,10 +654,15 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
   }
 
   private def vcsFlags(): String = {
+    val timeScale = config.timePrecision match {
+      case null => "1ns/1ns"
+      case t => "1ns/" + t.replace(" ", "")
+    }
+
     val commonFlags = List(
       "-full64",
       "-quiet",
-      "-timescale=1ns/1ps",
+      s"-timescale=${timeScale}",
       "-debug_access+all",
       "-debug_acc+pp+dmptf",
       "-debug_region=+cell+encrypt",
@@ -715,9 +726,14 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     fileListFile.write(fileList)
     fileListFile.close()
 
+    val timeScale = config.timePrecision match {
+      case null => "1ns/1ns"
+      case t => "1ns/" + t.replace(" ", "")
+    }
+
     val simWaveSource =
       s"""
-         |`timescale 1ns/1ps
+         |`timescale ${timeScale}
          |module __simulation_def;
          |initial begin
          |  $$fsdbDumpfile("$toplevelName.fsdb");

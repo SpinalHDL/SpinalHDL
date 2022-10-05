@@ -290,6 +290,10 @@ object SpinalIVerilogBackend {
     vconfig.analyzeFlags = config.simulatorFlags.mkString(" ")
     vconfig.runFlags = config.simulatorFlags.mkString(" ")
     vconfig.logSimProcess = config.enableLogging
+    vconfig.timePrecision = config.timePrecision match {
+      case null => null
+      case t => t.decomposeString
+    }
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
 
@@ -314,6 +318,10 @@ object SpinalVCSBackend {
     vconfig.wavePath = config.wavePath
     vconfig.simSetupFile = config.simSetupFile
     vconfig.envSetup = config.envSetup
+    vconfig.timePrecision = config.timePrecision match {
+      case null => null
+      case t => t.decomposeString
+    }
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
 
@@ -338,6 +346,10 @@ object SpinalVpiBackend {
     vconfig.workspaceName     = workspaceName
     vconfig.workspacePath     = workspacePath
     vconfig.useCache = usePluginsCache
+    vconfig.timePrecision = config.timePrecision match {
+      case null => null
+      case t => t.decomposeString
+    }
     vconfig.pluginsPath = if(usePluginsCache) {
 
     val pluginsCachePathFile = new File(pluginsCachePath)
