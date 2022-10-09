@@ -424,7 +424,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
     val addrs = buildBurstAddr(addrStart, burst, hsize)
     val reads = addrs.zipWithIndex.map { case (addr, i) =>
       val attrs =
-        AhbAttributes(burst)(Hmastlock(hmastlock))(Hsize(hsize))(Hprot(hprot))
+        AhbAttributes(burst).withHmastlock(hmastlock).withHsize(hsize).withHprot(hprot)
       if (i == 0)
         Read(addr, attrs(Htrans.nonseq))
       else

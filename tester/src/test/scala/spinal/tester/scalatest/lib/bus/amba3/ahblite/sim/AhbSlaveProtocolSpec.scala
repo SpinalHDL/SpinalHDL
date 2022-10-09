@@ -311,7 +311,7 @@ class AhbSlaveProtocolSpec extends AnyFunSuite {
   }
 
   simulateTest("Figure 3-7 Locked transfer") { dut =>
-    val readA = dut.master.Read(A, AhbAttributes(Hmastlock.high))
+    val readA = dut.master.Read(A, AhbAttributes.withHmastlock())
     val writeA = dut.master.Write(A, Data(A), hmastlock = true)
     val idle = dut.master.Idle()
 
