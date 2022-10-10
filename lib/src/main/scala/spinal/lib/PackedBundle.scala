@@ -29,13 +29,13 @@ class PackedBundle extends Bundle {
     elements.map(_._2).map(d => {
       val r = d.getTag(classOf[TagBitPackExact]) match {
         case t: Some[TagBitPackExact] =>
-          t.x.range
+          t.get.range
         case None =>
           (lastPos+d.getBitsWidth) downto (lastPos+1)
       }
       lastPos = r.high
       (r, d)
-    })
+    }).toSeq
   }
 
   override def asBits: Bits = {
@@ -44,7 +44,7 @@ class PackedBundle extends Bundle {
     val packed = B(0, maxWidth bit)
     for ((range, data) <- mappings) {
       val endianness: Endianness = data.getTag(classOf[TagBitPackExact]) match {
-        case t: Some[TagBitPackExact] => t.x.endianness
+        case t: Some[TagBitPackExact] => t.get.endianness
         case _ => LITTLE
       }
       endianness match {
@@ -63,7 +63,7 @@ class PackedBundle extends Bundle {
     val mappings = computePackMapping()
     for((elRange, el) <- mappings) {
       val endianness: Endianness = el.getTag(classOf[TagBitPackExact]) match {
-        case t: Some[TagBitPackExact] => t.x.endianness
+        case t: Some[TagBitPackExact] => t.get.endianness
         case _ => LITTLE
       }
       if (!(lo >= elRange.high || hi < elRange.low)) {
