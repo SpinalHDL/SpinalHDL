@@ -5,7 +5,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.lib._
 import spinal.core.sim._
-import spinal.lib.sim.{ScoreboardInOrder, StreamDriver}
+import spinal.lib.sim.{ScoreboardInOrder, StreamDriver, StreamMonitor}
 
 
 case class UnpackTestBundle() extends Bundle {
@@ -48,59 +48,61 @@ case class StreamUnpackFixture(bitWidth : Int, offset : Int = 0) extends Compone
 
 class StreamUnpackTester extends AnyFunSuite {
 
-  case class UnpackTestUnit() {
-    var r: BigInt = 0
-    var g: BigInt = 0
-    var b: BigInt = 0
-    var a: BigInt = 0
-  }
+  case class UnpackTestUnit(var r: Int, var g: Int, var b: Int, var a: Int)
 
   def bitsTest(dut: StreamUnpackFixture): Unit = {
     dut.clockDomain.forkStimulus(10 )
 
     val scoreboard = ScoreboardInOrder[UnpackTestUnit]()
-    var currentUnit = UnpackTestUnit()
-    var currentByte = 0
 
-    StreamDriver(dut.io.inStream, dut.clockDomain)(p => {
+    // Wait until out of reset
+    dut.clockDomain.waitSampling()
+
+    // Stream Driver
+    StreamDriver(dut.io.inStream, dut.clockDomain)(p => {p.randomize(); true})
+
+    // Stream Monitor
+    var currentByte = 0
+    var currentR = 0
+    var currentG = 0
+    var currentB = 0
+    var currentA = 0
+    StreamMonitor(dut.io.inStream, dut.clockDomain)(p => {
       currentByte match {
         case 0 =>
-          currentUnit = UnpackTestUnit()
-          currentUnit.r = p.toBigInt >> dut.offset
+          currentR = (p.toInt >> dut.offset) & 0x1F
         case 1 =>
-          currentUnit.g = p.toBigInt >> dut.offset
+          currentG = (p.toInt >> dut.offset) & 0x3F
         case 2 =>
-          currentUnit.b = p.toBigInt >> dut.offset
+          currentB = (p.toInt >> dut.offset) & 0x1F
         case 3 =>
-          currentUnit.a = p.toBigInt & 0xFF
+          currentA = p.toInt & 0xFF
         case 4 =>
-          currentUnit.a += (p.toBigInt & 0xFF) << 8
-          scoreboard.pushRef(currentUnit)
+          currentA += (p.toInt & 0xFF) << 8
+          scoreboard.pushRef(UnpackTestUnit(currentR, currentG, currentB, currentA))
       }
 
       currentByte = (currentByte + 1) % 5
       true
     })
 
+    // Unpacked output
     for(i <- 0 to 100) {
-      dut.clockDomain.waitSampling()
-      if (dut.io.allDone.toBoolean) {
-        val dutUnit = UnpackTestUnit()
-        dutUnit.r = dut.io.outData.r.toBigInt
-        dutUnit.g = dut.io.outData.g.toBigInt
-        dutUnit.b = dut.io.outData.b.toBigInt
-        dutUnit.a = dut.io.outData.a.toBigInt
-
-        scoreboard.pushDut(dutUnit)
-        scoreboard.check()
-      }
+      dut.clockDomain.waitSamplingWhere(dut.io.allDone.toBoolean)
+      scoreboard.pushDut(UnpackTestUnit(
+        dut.io.outData.r.toInt,
+        dut.io.outData.g.toInt,
+        dut.io.outData.b.toInt,
+        dut.io.outData.a.toInt
+      ))
+      scoreboard.check()
     }
 
     simSuccess()
   }
 
   test("word aligned, bits") {
-    SimConfig.compile(StreamUnpackFixture(8))
+    SimConfig.withWave.compile(StreamUnpackFixture(8))
       .doSim("test")(bitsTest)
   }
 

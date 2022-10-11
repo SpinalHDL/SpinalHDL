@@ -1869,8 +1869,8 @@ object StreamUnpacker {
     val map_layout = layout.toMapLinked()
     val unpacker = new StreamUnpacker[T](input.payloadType, map_layout)
     unpacker.io.input << input
-    map_layout.keys.zip(unpacker.io.outputs) foreach { case(data, comp_out) =>
-      data.assignFromBits(comp_out.asBits)
+    layout.map(_._1).zip(unpacker.io.outputs) foreach { case(data, comp_out) =>
+      data.assignFrom(comp_out)
     }
     unpacker
   }
@@ -1879,27 +1879,29 @@ object StreamUnpacker {
 class StreamUnpacker[T <: Data](
   dataType: HardType[T],
   layout: mutable.LinkedHashMap[Data, Int]
-) extends Component {
+) extends Area {
 
   require(layout.nonEmpty)
 
   private val dataOut = layout.keys.toList
   // Convert start bits to word indexes
   private val dataWords = layout.values.map {bit => Math.floor(bit / dataType.getBitsWidth).toInt }
+  private val bitOffset = layout.values.map(_ % dataType.getBitsWidth).toList
 
   val io = new Bundle {
-    val input   = slave Stream dataType
-    val outputs = out Vec(dataOut map(_.clone()))
-    val dones   = out Bits(layout.keys.size bits)
-    val allDone = out Bool()
+    val input   = Stream(dataType)
+    val outputs = Vec(dataOut.map(_.clone()))
+    val dones   = Bits(layout.keys.size bits)
+    val allDone = Bool()
   }
-  val outputs = Reg(Vec(dataOut map(_.clone())))
-  val dones   = Reg(Bits(dataOut.size bits)) init B(0)
 
-  val counter = Counter(dataWords.max+1)
+  private val outputs = Reg(Vec(dataOut.map(_.clone())))
+  private val dones   = Reg(Bits(dataOut.size bits)) init B(0)
+
+  private val counter = Counter(dataWords.max+1)
 
   // Convert the Stream to a Flow. This component does not apply backpressure
-  val inFlow = io.input.toFlow
+  private val inFlow = io.input.toFlow
 
   // Clear Dones
   dataWords.foreach {
@@ -1912,7 +1914,7 @@ class StreamUnpacker[T <: Data](
     // Latch the Data for the current counter
     dataWords.zipWithIndex.foreach { case(i, word) =>
       when(counter.value === word) {
-        outputs(i).assignFromBits(io.input.payload.asBits(0, outputs(i).getBitsWidth bits))
+        outputs(i).assignFromBits(inFlow.payload.asBits(bitOffset(i), outputs(i).getBitsWidth bits))
       }
     }
 
