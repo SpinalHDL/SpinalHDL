@@ -4,6 +4,12 @@ import scala.language.implicitConversions
 
 /** Helper to build and check HPROT values
   *
+  * {{{
+  * val p = Hprot.dataAccess.withUserAccess.withBufferable
+  * assert(p is Hprot.Bufferable)
+  * assert(!(p is Hprot.NonBufferable))
+  * }}}
+  *
   * Written to be compliant with:
   * http://eecs.umich.edu/courses/eecs373/readings/ARM_IHI0033A_AMBA_AHB-Lite_SPEC.pdf
   */
@@ -65,6 +71,11 @@ object Hprot {
 
 }
 
+/** Helper to build and check HPROT values
+  *
+  * Written to be compliant with:
+  * http://eecs.umich.edu/courses/eecs373/readings/ARM_IHI0033A_AMBA_AHB-Lite_SPEC.pdf
+  */
 case class Hprot(value: Int) {
   import Hprot._
 

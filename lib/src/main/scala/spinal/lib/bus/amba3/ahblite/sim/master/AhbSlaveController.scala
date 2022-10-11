@@ -248,9 +248,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
   }
 
   /** IDLE transfer */
-  case class Idle(addr: BigInt = 0, cond: () => Boolean = () => HREADY)
-      extends AhbTransfer
-      with WriteTransfer {
+  case class Idle(addr: BigInt = 0, cond: () => Boolean = () => HREADY) extends AhbTransfer with WriteTransfer {
     protected def addrPhaseComb = {
       HSEL #= true
       HADDR #= addr
@@ -277,9 +275,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
     *   number of clock cycles during the which HREADY is kept down, starting
     *   with data phase
     */
-  case class Unready(cycleCount: Long = 1)
-      extends AhbTransfer
-      with WriteTransfer {
+  case class Unready(cycleCount: Long = 1) extends AhbTransfer with WriteTransfer {
     // Number of clock cycles with HREADY low, including current one
     var n = 0
     def checkN() = {
@@ -312,21 +308,25 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
     *   HSIZE
     * @param htrans
     *   HTRANS
-    * @param busy
+    * @param busyCycles
     *   number of busy cycles
     */
   case class Read(
       addr: BigInt,
-      attributes: AhbAttributes = new AhbAttributes(),
+      hburst: Int = Hburst.SINGLE,
+      hmastlock: Boolean = false,
+      hprot: Int = Hprot.defaultValue,
+      hsize: Int = Hsize.Word,
+      htrans: Int = Htrans.NONSEQ,
       busyCycles: Long = 0
   ) extends AhbRwTransfer(
         addr,
-        attributes.hburst.getOrElse(Hburst.SINGLE),
-        attributes.hmastlock.getOrElse(false),
-        attributes.hprot.getOrElse(Hprot.defaultValue),
+        hburst,
+        hmastlock,
+        hprot,
         false,
-        attributes.hsize.getOrElse(Hsize.Word),
-        attributes.htrans.getOrElse(Htrans.NONSEQ),
+        hsize,
+        htrans,
         busyCycles
       )
       with ReadTransfer {
@@ -404,7 +404,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
     * @param addrStart
     *   first address
     * @param burst
-    *   Hburst
+    *   Hburst (contains burst type and length)
     * @param hmastlock
     *   HMASTLOCK
     * @param hprot
@@ -423,12 +423,10 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
   ): Seq[Read] = {
     val addrs = buildBurstAddr(addrStart, burst, hsize)
     val reads = addrs.zipWithIndex.map { case (addr, i) =>
-      val attrs =
-        AhbAttributes(burst).withHmastlock(hmastlock).withHsize(hsize).withHprot(hprot)
       if (i == 0)
-        Read(addr, attrs(Htrans.nonseq))
+        Read(addr, burst, hmastlock, hprot, hsize, Htrans.NONSEQ)
       else
-        Read(addr, attrs(Htrans.seq))
+        Read(addr, burst, hmastlock, hprot, hsize, Htrans.SEQ)
     }
     Transfer.chainSeq(reads)
     reads
@@ -441,7 +439,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
     * @param data
     *   sequence of data to write, must be at least the number of bursts
     * @param burst
-    *   Hburst
+    *   Hburst (contains burst type and length)
     * @param hmastlock
     *   HMASTLOCK
     * @param hprot
@@ -472,7 +470,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
           Htrans.NONSEQ
         )
       else
-        Write(addr, data(i), burst.hburst, hmastlock, hprot, hsize, Htrans.SEQ)
+        Write(addr, data(i), burst, hmastlock, hprot, hsize, Htrans.SEQ)
     }
     Transfer.chainSeq(writes)
     writes

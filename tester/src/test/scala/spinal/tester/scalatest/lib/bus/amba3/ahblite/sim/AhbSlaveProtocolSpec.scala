@@ -311,7 +311,7 @@ class AhbSlaveProtocolSpec extends AnyFunSuite {
   }
 
   simulateTest("Figure 3-7 Locked transfer") { dut =>
-    val readA = dut.master.Read(A, AhbAttributes.withHmastlock())
+    val readA = dut.master.Read(A, hmastlock = true)
     val writeA = dut.master.Write(A, Data(A), hmastlock = true)
     val idle = dut.master.Idle()
 
@@ -1228,16 +1228,16 @@ class AhbSlaveProtocolSpec extends AnyFunSuite {
     def idInt(a: Int): Int = a
 
     val read =
-      dut.master.Read(0x10, AhbAttributes(Hprot.dataAccess.withUserAccess))
+      dut.master.Read(0x10, hprot = Hprot.dataAccess.withUserAccess)
 
     var hasRead = false
     dut.slave._setOnReads { req =>
       import dut.slave._
       assert(req.HPROT == 1)
 
-      val hprot = Hprot(req.HPROT)
-      assert(hprot.is(Hprot.DataAccess))
-      assert(hprot.is(Hprot.UserAccess))
+      val p = Hprot(req.HPROT)
+      assert(p is Hprot.DataAccess)
+      assert(p is Hprot.UserAccess)
 
       () => {
         hasRead = true
@@ -1248,18 +1248,18 @@ class AhbSlaveProtocolSpec extends AnyFunSuite {
     read.run()
     assert(hasRead)
 
-    val hprot =
+    val p =
       Hprot.dataAccess.withPriviledgedAccess.withNonBufferable.withNonCacheable
 
     // Properties can be checked
-    assert(hprot.is(Hprot.NonCacheable))
-    assert(hprot.is(Hprot.NonBufferable))
-    assert(hprot.is(Hprot.PriviledgedAccess))
-    assert(hprot.is(Hprot.DataAccess))
+    assert(p is Hprot.NonCacheable)
+    assert(p is Hprot.NonBufferable)
+    assert(p is Hprot.PriviledgedAccess)
+    assert(p is Hprot.DataAccess)
 
     // Get value explicitly or implicitly
-    assert(hprot.value == 3)
-    assert(idInt(hprot) == 3)
+    assert(p.value == 3)
+    assert(idInt(p) == 3)
 
     // Property checks work on integers
     assert(Hprot.is(Hprot.NonCacheable)(3))

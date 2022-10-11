@@ -1,7 +1,5 @@
 package spinal.lib.bus.amba3.ahblite.sim
 
-import scala.language.implicitConversions
-
 /** Possible values of HSIZE
   *
   * Written to be compliant with:
@@ -17,33 +15,21 @@ object Hsize {
   val FourWord = 4
   val EightWord = 5
 
-  val byte = Hsize(Byte)
-  val halfword = Hsize(Halfword)
-  val word = Hsize(Word)
-  val doubleword = Hsize(Doubleword)
-  val fourWord = Hsize(FourWord)
-  val eightWord = Hsize(EightWord)
-
   /** Create Hsize from number of bits */
-  def fromSize(sizeInBits: Int): Hsize = {
+  def fromSize(sizeInBits: Int): Int = {
     sizeInBits match {
-      case 8   => byte
-      case 16  => halfword
-      case 32  => word
-      case 64  => doubleword
-      case 128 => fourWord
-      case 256 => eightWord
+      case 8   => Byte
+      case 16  => Halfword
+      case 32  => Word
+      case 64  => Doubleword
+      case 128 => FourWord
+      case 256 => EightWord
       // Unnamed cases
-      case 512  => Hsize(6)
-      case 1024 => Hsize(7)
+      case 512  => 6
+      case 1024 => 7
     }
   }
 
   /** Number of bytes in a transfer */
   def toBytes(hsize: Int): Int = 1 << hsize
-
-  /** Hsize can be implicitly converted to Int */
-  implicit def hsize2int(hsize: Hsize): Int = hsize.value
 }
-
-case class Hsize(value: Int)

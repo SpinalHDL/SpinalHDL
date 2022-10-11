@@ -2,7 +2,7 @@ package spinal.lib.bus.amba3.ahblite.sim
 
 import scala.language.implicitConversions
 
-/** Possible values of HBURST
+/** Possible values of HBURST, values to work on them and tools to build Hburst
   *
   * Written to be compliant with:
   * http://eecs.umich.edu/courses/eecs373/readings/ARM_IHI0033A_AMBA_AHB-Lite_SPEC.pdf
@@ -48,7 +48,7 @@ object Hburst {
     case _     => None
   }
 
-  /** Is the burst whapping?
+  /** Is the burst wrapping?
     *
     * @param hburst
     *   HBURST
@@ -61,12 +61,9 @@ object Hburst {
   }
 
   /** Single Hburst */
-  def single(): Hburst = burst(SINGLE)
+  def single(): Hburst = new Hburst(SINGLE, None)
 
-  /** Builds an INCR Hburst
-    *
-    * @see
-    *   burst
+  /** Builds an INCR Hburst with specified number of beats
     *
     * @param beats
     *   number of beats
@@ -75,42 +72,31 @@ object Hburst {
     */
   def incr(beats: Int): Hburst = new Hburst(INCR, Some(beats))
 
-  /** 4-beat wrapping Hburst */
-  def wrap4(): Hburst = burst(WRAP4)
+  /** Builds a 4-beat wrapping Hburst */
+  def wrap4(): Hburst = new Hburst(WRAP4, None)
 
-  /** 4-beat incrementing Hburst */
-  def incr4(): Hburst = burst(INCR4)
+  /** Builds a 4-beat incrementing Hburst */
+  def incr4(): Hburst = new Hburst(INCR4, None)
 
-  /** 8-beat wrapping Hburst */
-  def wrap8(): Hburst = burst(WRAP8)
+  /** Builds an 8-beat wrapping Hburst */
+  def wrap8(): Hburst = new Hburst(WRAP8, None)
 
-  /** 8-beat incrementing Hburst */
-  def incr8(): Hburst = burst(INCR8)
+  /** Builds an 8-beat incrementing Hburst */
+  def incr8(): Hburst = new Hburst(INCR8, None)
 
-  /** 16-beat incrementing Hburst */
-  def wrap16(): Hburst = burst(WRAP16)
+  /** Builds a 16-beat incrementing Hburst */
+  def wrap16(): Hburst = new Hburst(WRAP16, None)
 
-  /** 16-beat incrementing Hburst */
-  def incr16(): Hburst = burst(INCR16)
-
-  /** Builds a Hburst
-    *
-    * @see
-    *   incr
-    *
-    * @param hburst
-    *   HBURST, must not be INCR
-    * @return
-    */
-  def burst(hburst: Int): Hburst = new Hburst(hburst, None)
+  /** Builds a 16-beat incrementing Hburst */
+  def incr16(): Hburst = new Hburst(INCR16, None)
 
   /** Hburst can be implicitly converted to an integer: HBURST */
   implicit def hburst2int(hburst: Hburst): Int = hburst.hburst
 }
 
-/** Represents a burst
+/** Represents a burst of type `hburst` and length `beats`
   *
-  * @param hburst
+  * @param _hburst
   *   HBURST
   * @param n
   *   number of beats, given that HBURST is INCR
