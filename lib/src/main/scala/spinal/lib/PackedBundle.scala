@@ -6,14 +6,14 @@ import spinal.core._
   * Similar to Bundle but with bit packing capabilities.
   * Use pack implicit functions to assign fields to bit locations
   * - pack(Range, [Endianness]) - Packs the data into Range aligning to bit Endianness if too wide
-  * - packAt(Position) - Packs the data starting at Position. Uses full data length
-  * - packTo(Position) - Packs the data ending at Position. Uses full data length
+  * - packFrom(Position) - Packs the data starting (LSB) at Position. Uses full data length
+  * - packTo(Position) - Packs the data ending (MSB) at Position. Uses full data length
   *
   * Providing no location tag will place the next data value immediately after the last.
   *
   * @example {{{
   *     val regWord = new PackedBundle {
-  *       val init = Bool().packAt(0) // Bit 0
+  *       val init = Bool().packFrom(0) // Bit 0
   *       val stop = Bool() // Bit 1
   *       val result = Bits(16 bit).packTo(31) // Bits 16 to 31
   *     }
@@ -99,16 +99,16 @@ class PackedBundle extends Bundle {
     }
 
     /**
-      * Packs data starting at the bit position
+      * Packs data starting (LSB) at the bit position
       * @param pos Starting bit position of the data
       * @return Self
       */
-    def packAt(pos: Int): T = {
+    def packFrom(pos: Int): T = {
       t.pack(pos + t.getBitsWidth - 1 downto pos)
     }
 
     /**
-      * Packs data ending at the bit position
+      * Packs data ending (MSB) at the bit position
       * @param pos Ending bit position of the data
       * @return Self
       */
