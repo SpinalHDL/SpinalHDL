@@ -2,7 +2,9 @@ package spinal.core
 
 import spinal.idslplugin.PostInitCallback
 
-class TupleBundleBase extends Bundle with PostInitCallback {
+import scala.collection.mutable.ArrayBuffer
+
+class TupleBundleBase extends Bundle {
 
   override def valCallbackRec(ref: Any, name: String) = {
     super.valCallbackRec(ref, name.tail)
@@ -18,11 +20,7 @@ class TupleBundleBase extends Bundle with PostInitCallback {
     ret
   }
 
-  override def postInitCallback() = {
-    elementsCache = elementsCache.reverse
-    this
-  }
-
+  override def elements: ArrayBuffer[(String, Data)] = elementsCache.reverse
 }
 
 case class TupleBundle1[T1 <: Data](val payloadType1: HardType[T1])
