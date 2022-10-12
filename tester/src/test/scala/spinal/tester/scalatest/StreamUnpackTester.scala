@@ -62,28 +62,27 @@ class StreamUnpackTester extends AnyFunSuite {
     StreamDriver(dut.io.inStream, dut.clockDomain)(p => {p.randomize(); true})
 
     // Stream Monitor
-    var currentByte = 0
-    var currentR = 0
-    var currentG = 0
-    var currentB = 0
-    var currentA = 0
+    var curWord = 0
+    var curR = 0
+    var curG = 0
+    var curB = 0
+    var curA = 0
     StreamMonitor(dut.io.inStream, dut.clockDomain)(p => {
-      currentByte match {
+      curWord match {
         case 0 =>
-          currentR = (p.toInt >> dut.offset) & 0x1F
+          curR = (p.toInt >> dut.offset) & 0x1F
         case 1 =>
-          currentG = (p.toInt >> dut.offset) & 0x3F
+          curG = (p.toInt >> dut.offset) & 0x3F
         case 2 =>
-          currentB = (p.toInt >> dut.offset) & 0x1F
+          curB = (p.toInt >> dut.offset) & 0x1F
         case 3 =>
-          currentA = p.toInt & 0xFF
+          curA = p.toInt & 0xFF
         case 4 =>
-          currentA += (p.toInt & 0xFF) << 8
-          scoreboard.pushRef(UnpackTestUnit(currentR, currentG, currentB, currentA))
+          curA += (p.toInt & 0xFF) << 8
+          scoreboard.pushRef(UnpackTestUnit(curR, curG, curB, curA))
       }
 
-      currentByte = (currentByte + 1) % 5
-      true
+      curWord = (curWord + 1) % 5
     })
 
     // Unpacked output
@@ -102,7 +101,7 @@ class StreamUnpackTester extends AnyFunSuite {
   }
 
   test("word aligned, bits") {
-    SimConfig.withWave.compile(StreamUnpackFixture(8))
+    SimConfig.compile(StreamUnpackFixture(8))
       .doSim("test")(bitsTest)
   }
 

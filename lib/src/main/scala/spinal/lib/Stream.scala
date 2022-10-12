@@ -1928,3 +1928,76 @@ class StreamUnpacker[T <: Data](
   io.dones   := dones
   io.allDone := dones(dones.getBitsWidth - 1)
 }
+
+object StreamPacker {
+  def apply[T <: Data](output: Stream[T], layout: List[(Data, Int)]): StreamPacker[T] = {
+    val map_layout = layout.toMapLinked()
+    val packer = new StreamPacker[T](output.payloadType, map_layout)
+    packer.io.output >> output
+    layout.map(_._1).zip(packer.io.inputs) foreach { case (data, comp_in) =>
+      comp_in.assignFrom(data)
+    }
+    packer
+  }
+}
+
+class StreamPacker[T <: Data](
+  dataType: HardType[T],
+  layout: mutable.LinkedHashMap[Data, Int]
+) extends Area {
+
+  require(layout.nonEmpty)
+
+  private val dataIn = layout.keys.toList
+  // Convert start bits to word indexes
+  private val dataWords = layout.values.map {bit => Math.floor(bit / dataType.getBitsWidth).toInt }
+  private val bitOffset = layout.values.map(_ % dataType.getBitsWidth).toList
+
+  val io = new Bundle {
+    val output = Stream(dataType)
+    val inputs = Vec(dataIn.map(_.clone()))
+    val start  = Bool()
+    val done   = Bool()
+  }
+
+  private val counter = Counter(dataWords.max+1)
+  private val running = RegInit(False)
+
+  private val outStream = new Stream(dataType)
+
+  private val buffer = RegNextWhen(io.inputs, io.start)
+
+  outStream.valid := running
+  outStream.payload.assignDontCare()
+
+  when(running) {
+    outStream.payload.asBits.clearAll()
+
+    dataWords.zipWithIndex.foreach { case (i, word) =>
+      when(counter.value === word) {
+        outStream.payload.assignFromBits(
+          buffer(i).asBits,
+          bitOffset(i),
+          buffer(i).getBitsWidth bits
+        )
+      }
+    }
+  }
+
+  // Connect the output
+  io.output << outStream
+
+  // Counter control
+  running.setWhen(io.start)
+  running.clearWhen(counter.willOverflow)
+
+  when(running && outStream.fire) {
+    counter.increment()
+  }
+
+  when(counter.willOverflow) {
+    io.done := True
+  } otherwise {
+    io.done := False
+  }
+}
