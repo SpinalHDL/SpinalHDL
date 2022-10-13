@@ -556,6 +556,21 @@ package object sim {
     def toDouble: Double = this.toBigDecimal.doubleValue
 
   }
+  
+  /**
+    * Add implicit function to BigInt
+    */
+  implicit class SimBigIntPimper(x: BigInt) {
+    def toBytes(bits: Int = -1, byteOrderReverse: Boolean = false): Array[Byte] = {
+      val raw = x.toByteArray
+      val byteCount = if (bits < 0) raw.length else (bits + 7) / 8
+      val out = Array.fill[Byte](byteCount) { 0 }
+      for (i <- 0 until byteCount) {
+        out(i) = ((x >> i * 8) & 0xff).toByte
+      }
+      if (byteOrderReverse) out.reverse else out
+    }
+  }
 
   /**
     * Add implicit function to ClockDomain
