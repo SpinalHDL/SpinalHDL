@@ -128,7 +128,7 @@ final case class SystemRdlGenerator(
     val targetPath = s"${pc.config.targetDirectory}/${fileName}.rdl"
     val pw = new PrintWriter(targetPath)
 
-    sb ++= "};\n"
+    sb ++= "\n};\n"
     pw.write(sb.toString())
     pw.close()
   }
