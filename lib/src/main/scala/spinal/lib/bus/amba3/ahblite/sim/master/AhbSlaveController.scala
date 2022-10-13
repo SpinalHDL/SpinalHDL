@@ -87,8 +87,6 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
   def init(): Unit = { HREADYin #= true; initAddrPhase(); initDataPhase() }
 
   trait AhbTransfer extends Transfer {
-    def await(): Unit = if (!isDone) cd.waitActiveEdgeWhere(isDone)
-
     private var _duration = 0L
     private var _waitStates = 0L
     private var fallback: Option[AhbTransfer] = None
@@ -245,7 +243,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
     *
     * The duration of data phase is one clock cycle.
     */
-  case class Blank() extends AhbTransfer with WriteTransfer {
+  case class Blank() extends AhbTransfer {
     protected def dataPhaseComb = {}
     protected def addrPhaseComb = {}
     override protected def bootNext = bootNextOrDie()
@@ -253,7 +251,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
   }
 
   /** IDLE transfer */
-  case class Idle(addr: BigInt = 0, cond: () => Boolean = () => HREADY) extends AhbTransfer with WriteTransfer {
+  case class Idle(addr: BigInt = 0, cond: () => Boolean = () => HREADY) extends AhbTransfer {
     protected def addrPhaseComb = {
       HSEL #= true
       HADDR #= addr
@@ -280,7 +278,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
     *   number of clock cycles during the which HREADY is kept down, starting
     *   with data phase
     */
-  case class Unready(cycleCount: Long = 1) extends AhbTransfer with WriteTransfer {
+  case class Unready(cycleCount: Long = 1) extends AhbTransfer {
     // Number of clock cycles with HREADY low, including current one
     var n = 0
     def checkN() = {
@@ -379,8 +377,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
         htrans,
         busyCycles,
         data
-      )
-      with WriteTransfer {
+      ) {
     protected def complete = done()
   }
 

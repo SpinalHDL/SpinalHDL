@@ -1,6 +1,7 @@
 package spinal.lib.sim.protocolSim.master
 
 import scala.language.implicitConversions
+import spinal.core.sim.SimMutex
 
 object Transfer {
 
@@ -72,12 +73,23 @@ trait Transfer {
     */
   final def runAll(): Unit = { boot(); awaitAll() }
 
+  // This mutex defines when the transfer is done
+  private val mutex = SimMutex()
+  // The transfer is not done by default
+  mutex.lock()
+
   /** Blocking function to wait until transfer completion
     *
     * Waits for the first transfer to end (may have started subsequent transfers
     * of the sequence in the mid-time)
     */
-  def await(): Unit
+  final def await(): Unit = {
+    mutex.lock()
+    mutex.unlock()
+  }
+
+  /** Declare the transfer as done */
+  protected final def done(): Unit = mutex.unlock()
 
   /** Blocking function to wait until transfer chain completion
     *
@@ -90,7 +102,7 @@ trait Transfer {
     * @return
     *   true if the transfer is done
     */
-  def isDone: Boolean
+  def isDone: Boolean = !mutex.locked
 
   /** Is the sequence done?
     *

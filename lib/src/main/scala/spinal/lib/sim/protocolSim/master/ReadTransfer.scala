@@ -8,10 +8,11 @@ trait ReadTransfer extends Transfer {
 
   private var state: Option[Result] = None
 
-  /** Run this function to declare the transfer as completed with the result */
-  protected final def done(result: Result): Unit = state = Some(result)
-
-  final def isDone: Boolean = state.isDefined
+  /** Declare the transfer as done with the read value */
+  protected final def done(result: Result): Unit = {
+    state = Some(result)
+    super.done()
+  }
 
   /** Get the result of the transfer.
     *

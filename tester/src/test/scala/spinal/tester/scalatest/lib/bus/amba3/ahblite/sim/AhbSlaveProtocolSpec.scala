@@ -345,7 +345,12 @@ class AhbSlaveProtocolSpec extends AnyFunSuite {
     assert(!HMASTLOCK)
     assert(HWDATA == Data(A))
 
+    // Check that there are no additional simulation steps with await
+    writeA.await()
+    assert(HWDATA == Data(A))
+
     idle.await()
+    assert(HWDATA == 0)
 
     assert(readA.result == Data(A))
     assert(readA.duration == 2)
