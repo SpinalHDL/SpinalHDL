@@ -35,7 +35,7 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
   val HWRITE = bus.HWRITE
   // Section 2.5 Multiplexor signals
   // HRDATA from slave selected by the decoder
-  val _HREADY = bus.HREADY
+  val HREADYin = bus.HREADY
   // HRESP from slave selected by the decoder
   // Section 2.3 Slave signals
   def HRDATA = bus.HRDATA.toBigInt
@@ -64,11 +64,16 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
   private def hreadyoutOther: Boolean = _hreadyoutOther
   private def hreadyoutOther_=(ready: Boolean): Unit = {
     _hreadyoutOther = ready
-    _HREADY #= HREADY
+    HREADYin #= HREADY
   }
 
   // Section 4.2 Bus interconnection
-  private var dataPhaseHsel = false
+  private var _dataPhaseHsel = false
+  private def dataPhaseHsel: Boolean = _dataPhaseHsel
+  private def dataPhaseHsel_=(hsel: Boolean): Unit = {
+    _dataPhaseHsel = hsel
+    HREADYin #= HREADY
+  }
   // decoder to mux
   cd.onSamplings {
     if (HREADY)
@@ -76,10 +81,10 @@ case class AhbSlaveController(bus: AhbLite3, cd: ClockDomain) {
   }
   // mux
   private def HREADY = if (dataPhaseHsel) HREADYOUT else hreadyoutOther
-  forkSensitive(bus.HREADYOUT) { _HREADY #= HREADY }
+  forkSensitive(bus.HREADYOUT) { HREADYin #= HREADY }
 
   /** Assigns default output values for simulation startup */
-  def init(): Unit = { _HREADY #= true; initAddrPhase(); initDataPhase() }
+  def init(): Unit = { HREADYin #= true; initAddrPhase(); initDataPhase() }
 
   trait AhbTransfer extends Transfer {
     def await(): Unit = if (!isDone) cd.waitActiveEdgeWhere(isDone)
