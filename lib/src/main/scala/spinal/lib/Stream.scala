@@ -851,6 +851,11 @@ class StreamMux[T <: Data](dataType: T, portCount: Int) extends Component {
     val select = in UInt (log2Up(portCount) bit)
     val inputs = Vec(slave Stream (dataType), portCount)
     val output = master Stream (dataType)
+    def createSelector(): Stream[UInt] = new Composite(this, "selector") {
+      val stream = Stream(cloneOf(select))
+      val reg = stream.haltWhen(output.isStall).toReg(U(0))
+      select := reg
+    }.stream
   }
   for ((input, index) <- io.inputs.zipWithIndex) {
     input.ready := io.select === index && io.output.ready
