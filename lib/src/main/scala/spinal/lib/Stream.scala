@@ -882,6 +882,11 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
     val select = in UInt (log2Up(portCount) bit)
     val input = slave Stream (dataType)
     val outputs = Vec(master Stream (dataType),portCount)
+    def createSelector(): Stream[UInt] = new Composite(this, "selector") {
+      val stream = Stream(cloneOf(select))
+      val reg = stream.haltWhen(input.isStall).toReg(U(0))
+      select := reg
+    }.stream
   }
   io.input.ready := False
   for (i <- 0 to portCount - 1) {
