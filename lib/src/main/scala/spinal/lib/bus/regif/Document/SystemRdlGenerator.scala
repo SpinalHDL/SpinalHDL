@@ -28,10 +28,10 @@ final case class SystemRdlGenerator(
           |addrmap ${addrmapName} {
           |""".stripMargin
     if (name.isDefined) {
-      sb ++= s"""    name = "${name}";\n"""
+      sb ++= s"""    name = "${name.get}";\n"""
     }
     if (desc.isDefined) {
-      sb ++= s"""    desc = "${desc}";\n"""
+      sb ++= s"""    desc = "${desc.get}";\n"""
     }
     if (name.isDefined || desc.isDefined) {
       sb ++= "\n"
