@@ -12,7 +12,7 @@ case class DebugModuleParameter(version : Int,
 
 
 object DebugDmToHartOp extends SpinalEnum{
-  val DATA, INSTRUCTION, EXECUTE = newElement()
+  val DATA, EXECUTE = newElement()
 }
 
 case class DebugDmToHart() extends Bundle{
@@ -26,23 +26,20 @@ case class DebugHartToDm() extends Bundle{
   val data = Bits(32 bits)
 }
 
-case class DebugHartHalt() extends Bundle{
-  val exception = Bool()
-}
 case class DebugHartBus() extends Bundle with IMasterSlave {
   val halted, running, unavailable = Bool()
+  val exception, commit, ebreak = Bool()  //Can only be set when the CPU is in debug mode
   val resume = FlowCmdRsp()
   val haltReq = Bool()
-  val haltRsp = Flow(DebugHartHalt())
 
   val dmToHart = Flow(DebugDmToHart())
   val hartToDm = Flow(DebugHartToDm())
 
   override def asMaster() = {
-    in(halted, running, unavailable)
+    in(halted, running, unavailable, exception, commit, ebreak)
     master(resume)
     master(dmToHart)
-    slave(hartToDm, haltRsp)
+    slave(hartToDm)
     out(haltReq)
   }
 }
@@ -126,7 +123,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val allResumeAck = factory.read(harts.map(_.resumeReady).andR, 0x11, 17)
 
       val hasresethaltreq = null // TODO ?
-      val impebreak = null //TODO
+      val impebreak = factory.read(True, 0x11, 22)
     }
 
     val hartInfo = new Area{
@@ -143,12 +140,10 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
 
     val progbufX = new Area{
       val trigged = io.ctrl.cmd.valid && io.ctrl.cmd.write && (io.ctrl.cmd.address & 0x70) === 0x20
+      val mem = Mem.fill(p.progBufSize)(Bits(32 bits))
       when(trigged){
         factory.cmdToRsp.error := False
-        toHarts.valid   := True
-        toHarts.op      := DebugDmToHartOp.INSTRUCTION
-        toHarts.address := io.ctrl.cmd.address.resized
-        toHarts.data    := io.ctrl.cmd.data
+        mem.write(io.ctrl.cmd.address.resized, io.ctrl.cmd.data)
       }
     }
 
@@ -193,7 +188,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
     }
 
     val command = new StateMachine{
-      val IDLE, DECODE, READ_REG, WRITE_REG, READ_REG_EBREAK, READ_REG_START, WAIT_DONE, POST_EXEC, POST_EXEC_WAIT = new State()
+      val IDLE, DECODE, READ_REG, WRITE_REG, WAIT_DONE, POST_EXEC, POST_EXEC_WAIT = new State()
 
       setEntry(IDLE)
 
@@ -216,14 +211,16 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         val hart = Reg(UInt(log2Up(p.harts) bits))
         val running = io.harts.map(_.running).read(hart)
         val halted = io.harts.map(_.halted).read(hart)
-        val completion = halted.rise(False)
+        val commit = io.harts.map(_.commit).read(hart)
+        val exception = io.harts.map(_.exception).read(hart)
+        val ebreak = io.harts.map(_.ebreak).read(hart)
       }
 
       val request = commandRequest || abstractAuto.trigger
       when(request && abstractcs.busy && abstractcs.noError){
         abstractcs.cmdErr := DebugModuleCmdErr.BUSY
       }
-      when(io.harts.map(e => e.haltRsp.valid && e.haltRsp.exception).orR){
+      when(io.harts.map(e => e.exception).orR){
         abstractcs.cmdErr := DebugModuleCmdErr.EXCEPTION
       }
       when(abstractcs.busy && (progbufX.trigged || dataX.trigged) && abstractcs.noError){
@@ -269,31 +266,20 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         }
       }
 
-      def writeInstruction(states : (State, State))(address : Int, instruction : Bits): Unit ={
+      def writeInstruction(states : (State, State))(instruction : Bits): Unit ={
         states._1 whenIsActive {
           toHarts.valid := True
-          toHarts.op := DebugDmToHartOp.INSTRUCTION
-          toHarts.address := address
+          toHarts.op := DebugDmToHartOp.EXECUTE
           toHarts.data := instruction
           goto(states._2)
         }
       }
-      def startInstruction(states : (State, State)) (at : Int) : Unit ={
-        states._1.whenIsActive{
-          toHarts.valid := True
-          toHarts.op := DebugDmToHartOp.EXECUTE
-          toHarts.address := at
-          goto(states._2)
-        }
-      }
-      writeInstruction(WRITE_REG     -> READ_REG_EBREAK) (12, csrr(0, access.args.regno(4 downto 0)))
-      writeInstruction(READ_REG      -> READ_REG_EBREAK) (12, csrw(0, access.args.regno(4 downto 0)))
-      writeInstruction(READ_REG_EBREAK -> READ_REG_START ) (13, ebreak())
-      startInstruction(READ_REG_START  -> WAIT_DONE      ) (12)
 
+      writeInstruction(WRITE_REG     -> WAIT_DONE) (csrr(0, access.args.regno(4 downto 0)))
+      writeInstruction(READ_REG      -> WAIT_DONE) (csrw(0, access.args.regno(4 downto 0)))
 
       WAIT_DONE.whenIsActive{
-        when(selected.completion){
+        when(selected.commit){
           goto(IDLE)
           when(access.args.postExec){
             goto (POST_EXEC)
@@ -301,13 +287,23 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         }
       }
 
-      startInstruction(POST_EXEC  -> POST_EXEC_WAIT      ) (0)
+      val executionCounter = Reg(UInt(log2Up(p.progBufSize) bits))
+      POST_EXEC.whenIsActive{
+        toHarts.valid := True
+        toHarts.op := DebugDmToHartOp.EXECUTE
+        toHarts.data := progbufX.mem.readAsync(executionCounter)
+        goto(POST_EXEC_WAIT)
+      }
+
       POST_EXEC_WAIT.whenIsActive{
-        when(selected.completion) {
+        when(selected.ebreak || selected.exception || selected.commit) {
+          executionCounter := executionCounter + 1
           goto(IDLE)
+        }
+        when(selected.commit && executionCounter =/= p.progBufSize - 1){
+          goto(POST_EXEC)
         }
       }
     }
   }
-
 }
