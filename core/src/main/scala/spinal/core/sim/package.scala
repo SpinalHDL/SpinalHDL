@@ -263,6 +263,8 @@ package object sim {
       case bt: SInt               => bt.toBigInt
       case bt: SpinalEnumCraft[_] => BigInt(bt.toEnum.position)
     }
+
+    def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
   }
 
 
@@ -331,6 +333,7 @@ package object sim {
     def toInt    = getInt(bt)
     def toLong   = getLong(bt)
     def toBigInt = getBigInt(bt)
+    def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
 
     def #=(value: Int)    = setLong(bt, value)
     def #=(value: Long)   = setLong(bt, value)
