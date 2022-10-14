@@ -28,7 +28,7 @@ case class DebugHartToDm() extends Bundle{
 
 case class DebugHartBus() extends Bundle with IMasterSlave {
   val halted, running, unavailable = Bool()
-  val exception, commit, ebreak = Bool()  //Can only be set when the CPU is in debug mode
+  val exception, commit, ebreak, redo = Bool()  //Can only be set when the CPU is in debug mode
   val resume = FlowCmdRsp()
   val haltReq = Bool()
 
@@ -36,7 +36,7 @@ case class DebugHartBus() extends Bundle with IMasterSlave {
   val hartToDm = Flow(DebugHartToDm())
 
   override def asMaster() = {
-    in(halted, running, unavailable, exception, commit, ebreak)
+    in(halted, running, unavailable, exception, commit, ebreak, redo)
     master(resume)
     master(dmToHart)
     slave(hartToDm)
@@ -214,6 +214,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         val commit = io.harts.map(_.commit).read(hart)
         val exception = io.harts.map(_.exception).read(hart)
         val ebreak = io.harts.map(_.ebreak).read(hart)
+        val redo = io.harts.map(_.redo).read(hart)
       }
 
       val request = commandRequest || abstractAuto.trigger
@@ -300,7 +301,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
           executionCounter := executionCounter + 1
           goto(IDLE)
         }
-        when(selected.commit && executionCounter =/= p.progBufSize - 1){
+        when(selected.redo || selected.commit && executionCounter =/= p.progBufSize - 1){
           goto(POST_EXEC)
         }
       }
