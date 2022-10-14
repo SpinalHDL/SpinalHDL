@@ -968,6 +968,14 @@ package object sim {
         locked = false
       }
     }
+
+    def await() : Unit = {
+      if(locked) {
+        val t = simThread
+        queue.enqueue(t)
+        t.suspend()
+      }
+    }
   }
 
 
