@@ -208,6 +208,7 @@ case class SpinalVCSBackendConfig[T <: Component](override val rtl : SpinalRepor
                                                   override val enableLogging     : Boolean = false,
                                                   val simSetupFile               : String = null,
                                                   val envSetup                   : () => Unit = null,
+                                                  val vcsFlags                   : VCSFlags = null,
                                                   val compileFlags               : List[String] = null,
                                                   val elaborateFlags             : List[String] = null,
                                                   val runFlags                   : List[String] = null,
@@ -589,12 +590,6 @@ object SpinalSimBackendSel{
   val VCS = new SpinalSimBackendSel
   val XSIM = new SpinalSimBackendSel
 }
-
-case class VCSFlags(
-                     compileFlags    : List[String] = List[String](),
-                     elaborateFlags    : List[String] = List[String](),
-                     runFlags    : List[String] = List[String]()
-                   )
 
 /**
   * SpinalSim configuration
