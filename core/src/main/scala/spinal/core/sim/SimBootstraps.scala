@@ -983,9 +983,6 @@ case class SpinalSimConfig(
           vcsCC = _vcsCC,
           vcsLd = _vcsLd,
           vcsFlags = _vcsUserFlags,
-//          compileFlags = _vcsUserFlags.compileFlags.toList,
-//          elaborateFlags = _vcsUserFlags.elaborateFlags.toList,
-//          runFlags = _vcsUserFlags.runFlags.toList,
           simSetupFile = _vcsSimSetupFile,
           envSetup = _vcsEnvSetup
         )
