@@ -288,11 +288,7 @@ object SpinalVCSBackend {
 
   def apply[T <: Component](config: SpinalVCSBackendConfig[T]) = {
     val vconfig = new VCSBackendConfig()
-//    vconfig.analyzeFlags = config.simulatorFlags.mkString(" ")
-//    vconfig.runFlags = config.simulatorFlags.mkString(" ")
-    vconfig.analyzeFlags = config.compileFlags.mkString(" ")
-    vconfig.elaborationFlags = config.elaborateFlags.mkString(" ")
-    vconfig.runFlags = config.runFlags.mkString(" ")
+    vconfig.flags = config.vcsFlags
     vconfig.logSimProcess = config.enableLogging
     vconfig.vcsLd = config.vcsLd
     vconfig.vcsCC = config.vcsCC
@@ -986,9 +982,10 @@ case class SpinalSimConfig(
           usePluginsCache = !_disableCache,
           vcsCC = _vcsCC,
           vcsLd = _vcsLd,
-          compileFlags = _vcsUserFlags.compileFlags,
-          elaborateFlags = _vcsUserFlags.elaborateFlags,
-          runFlags = _vcsUserFlags.runFlags,
+          vcsFlags = _vcsUserFlags,
+//          compileFlags = _vcsUserFlags.compileFlags.toList,
+//          elaborateFlags = _vcsUserFlags.elaborateFlags.toList,
+//          runFlags = _vcsUserFlags.runFlags.toList,
           simSetupFile = _vcsSimSetupFile,
           envSetup = _vcsEnvSetup
         )

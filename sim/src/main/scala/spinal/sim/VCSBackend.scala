@@ -9,11 +9,10 @@ import scala.sys.process.{Process, ProcessLogger}
 
 import scala.collection.mutable
 case class VCSFlags(
-                     vloganFlags    : mutable.ArrayBuffer[String] = mutable.ArrayBuffer[String](),
-                     vhdlFlags    : mutable.ArrayBuffer[String] = mutable.ArrayBuffer[String](),
-                     compileFlags    : mutable.ArrayBuffer[String] = mutable.ArrayBuffer[String](),
-                     elaborateFlags    : mutable.ArrayBuffer[String] = mutable.ArrayBuffer[String](),
-                     runFlags    : mutable.ArrayBuffer[String] = mutable.ArrayBuffer[String]()
+                     vloganFlags    : mutable.ArrayBuffer[String],
+                     vhdlFlags    : mutable.ArrayBuffer[String],
+                     elaborateFlags    : mutable.ArrayBuffer[String],
+                     runFlags    : mutable.ArrayBuffer[String]
                    ) {
   // todo: 1. has default flags
   //  2. easily add flags
@@ -40,7 +39,7 @@ case class VCSFlags(
   }
   def withVloganFlags(flags: String*): this.type = addFlags(vloganFlags, flags:_*)
 
-  def getVloganFlags(): String = vloganFlags.mkString(" ")
+  def getVloganFlags: String = vloganFlags.mkString(" ")
 
   def withDefaultVhdlanFlags(): this.type = {
     vhdlFlags ++= List(
@@ -53,6 +52,7 @@ case class VCSFlags(
     this
   }
   def withVhdlFlags(flags: String*): this.type = addFlags(vhdlFlags, flags:_*)
+  def getVhdlFlags : String = vhdlFlags.mkString(" ")
 
   def withAnalysisFlags(flags: String*): this.type = {
     withVloganFlags(flags:_*)
@@ -74,10 +74,14 @@ case class VCSFlags(
     this
   }
   def withElabFlags(flags: String*): this.type = addFlags(elaborateFlags, flags:_*)
+  def getElabFlags: String = elaborateFlags.mkString(" ")
 
   def withDefaultRunFlags(): this.type = {
     this
   }
+
+  def withRunFlags(flags: String*): this.type = addFlags(runFlags, flags:_*)
+  def getRunFlags: String = runFlags.mkString(" ")
 
   def withDefaultFlags(): this.type = {
     withDefaultVloganFlags()
@@ -89,13 +93,33 @@ case class VCSFlags(
 }
 
 object VCSFlags {
-  def default = VCSFlags().withDefaultFlags()
+  def default: VCSFlags = VCSFlags(
+    mutable.ArrayBuffer[String](),
+    mutable.ArrayBuffer[String](),
+    mutable.ArrayBuffer[String](),
+    mutable.ArrayBuffer[String]()
+  ).withDefaultFlags()
+
+  /**
+    * Back compatibility for old API
+    * @param compileFlags - analysis flags used for both vlogan and vhdlan
+    * @param elaborateFlags - vcs elaboration flags
+    * @param runFlags - simv run flags
+    * @return
+    */
+  def apply(
+             compileFlags: List[String] = List[String](),
+             elaborateFlags: List[String] = List[String](),
+             runFlags: List[String] = List[String]()
+           ) : VCSFlags = {
+    VCSFlags.default.withAnalysisFlags(compileFlags:_*).withElabFlags(elaborateFlags:_*).withRunFlags(runFlags:_*)
+  }
 }
 
 class VCSBackendConfig extends VpiBackendConfig {
+  var flags: VCSFlags = null
   var vcsCC: Option[String] = None
   var vcsLd: Option[String] = None
-  var elaborationFlags: String = ""
   var waveDepth = 0
   var simSetupFile: String = _
   var envSetup: ()=> Unit = _
@@ -167,49 +191,18 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     )
   }
 
-  private def vloganFlags(): String = {
-    val commonFlags = List(
-      "-nc",
-      "-full64",
-      "-sverilog",
-      "+v2k",
-      "-ntb",
-      "-debug_access+all",
-      "-timescale=1ns/1ps",
-      "-l vlogan.log"
-    )
-    val analysisFlags = List(config.analyzeFlags)
-    (commonFlags ++ analysisFlags).mkString(" ")
-  }
+  private def vloganFlags(): String = config.flags.getVloganFlags
 
-  private def vhdlanFlags(): String = {
-    val commonFlags = List(
-      "-nc",
-      "-full64",
-      "-debug_access+all",
-      "-timescale=1ns/1ps",
-      "-l vhdlan.log"
-    )
-    val analysisFlags = List(config.analyzeFlags)
-    (commonFlags ++ analysisFlags).mkString(" ")
-  }
+  private def vhdlanFlags(): String = config.flags.getVhdlFlags
 
   private def vcsFlags(): String = {
-    val commonFlags = List(
-      "-full64",
-      "-quiet",
-      "-timescale=1ns/1ps",
-      "-debug_access+all",
-      "-debug_acc+pp+dmptf",
-      "-debug_region=+cell+encrypt",
-      "-l vcs.log",
-      "+vpi",
-      "+vcs+initreg+random",
-      "-load",
-      s"$vpiModuleAbsPath:entry_point_cb",
-      "-o",
-      toplevelName
+    val vpiFlags = List(
+      "-load", s"$vpiModuleAbsPath:entry_point_cb"
     )
+    val topFlags = List(
+      "-o", toplevelName
+    )
+    val commonFlags = config.flags.elaborateFlags.toList ++ vpiFlags ++ topFlags
     val cc = config.vcsCC match {
       case Some(x) => List("-cc", x)
       case None    => List.empty
@@ -226,8 +219,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
         List(s"-P ${verdi_home}/share/PLI/VCS/LINUX64/novas.tab", s"$verdi_home/share/PLI/VCS/LINUX64/pli.a")
       case _ => List.empty
     }
-    val elaborateFlags = List(config.elaborationFlags)
-    val cmd = (commonFlags ++ cc ++ ld ++ dump ++ elaborateFlags).mkString(" ")
+    val cmd = (commonFlags ++ cc ++ ld ++ dump).mkString(" ")
     cmd
   }
 
