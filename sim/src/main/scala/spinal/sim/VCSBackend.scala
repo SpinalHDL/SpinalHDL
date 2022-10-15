@@ -237,10 +237,10 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     val verilogSourcePaths = rtlSourcesPaths.filter { s =>
       s.endsWith(".v") || s.endsWith(".sv") || s.endsWith(".vl") || s.endsWith(".vh") || s.endsWith(".svh") || s
         .endsWith(".vr")
-    } // .mkString(" ")
+    }
     val vhdlSourcePaths = rtlSourcesPaths.filter { s =>
       s.endsWith(".vhd") || s.endsWith(".vhdl")
-    } // .mkString(" ")
+    }
 
     config.rtlSourcesPaths
       .filter { s =>
