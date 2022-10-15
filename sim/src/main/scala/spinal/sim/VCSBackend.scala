@@ -14,9 +14,6 @@ case class VCSFlags(
                      elaborateFlags    : mutable.ArrayBuffer[String],
                      runFlags    : mutable.ArrayBuffer[String]
                    ) {
-  // todo: 1. has default flags
-  //  2. easily add flags
-  //  3. modified default flags.
   private def addFlags(container: mutable.ArrayBuffer[String], flags: String*): this.type = {
     flags.foreach {f=>
       container ++= f.split(" ")
