@@ -794,7 +794,7 @@ package object sim {
 
     }
 
-    def forkStimulus(period: Long) : Unit = {
+    def forkStimulus(period: Long, sleepDuration : Int = 0) : Unit = {
       cd.config.clockEdge match {
         case RISING  => fallingEdge()
         case FALLING => risingEdge()
@@ -803,6 +803,7 @@ package object sim {
       if(cd.hasSoftResetSignal) cd.deassertSoftReset()
       if(cd.hasClockEnableSignal) cd.deassertClockEnable()
       fork(doStimulus(period))
+      if(sleepDuration >= 0) sleep(sleepDuration) //This allows the doStimulus to give initial value to clock/reset before going futher
     }
 
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) : Unit = SimSpeedPrinter(cd, printPeriod)
@@ -947,6 +948,14 @@ package object sim {
         queue.dequeue().resume()
       } else {
         locked = false
+      }
+    }
+
+    def await() : Unit = {
+      if(locked) {
+        val t = simThread
+        queue.enqueue(t)
+        t.suspend()
       }
     }
   }

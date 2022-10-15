@@ -2256,30 +2256,18 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
 class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
   override def impl(pc: PhaseContext) : Unit = {
     import pc._
-
-//    walkComponents{ c =>
-//      for((key, pulledData) <- c.pulledDataCache; if pulledData.hasTag(PropagatePullNameTag)){
-//        def rec(c : Component): Unit = {
-//          c.pulledDataCache.get(pulledData) match {
-//            case Some(x) => {
-//              c.setName(key.getName())
-//              c.children.foreach(rec)
-//            }
-//            case None =>
-//          }
-//        }
-//        pulledData.component.children.foreach(rec)
-//      }
-//    }
+    val algoId = globalData.allocateAlgoIncrementale() //Allows to avoid chaining allocated names
 
     walkStatements{
-      case dst : BaseType => if (dst.isNamed) {
+      case dst : BaseType => if (dst.isNamed && dst.algoIncrementale != algoId) {
         def explore(bt: BaseType, depth : Int): Unit = {
           bt.foreachStatements{s =>
             s.walkDrivingExpressions{
-              case src : BaseType => if(src.isUnnamed){
+              case src : BaseType => if(src.isUnnamed || (src.algoIncrementale == algoId && src.algoInt > depth)){
                 src.unsetName()
                 src.setWeakName(globalData.anonymSignalPrefix + "_" + dst.getName())
+                src.algoIncrementale = algoId
+                src.algoInt = depth
                 explore(src, depth + 1)
               }
               case _ =>
@@ -2322,7 +2310,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
         encodingsScope.iWantIt(encoding.getName(),s"Reserved name ${encoding.getName()} is not free for ${encoding.toString()}")
     }
 
-    for (c <- sortedComponents) {
+    for (c <- sortedComponents.reverse) {
       if (c.isInstanceOf[BlackBox] && c.asInstanceOf[BlackBox].isBlackBox)
         globalScope.lockName(c.definitionName)
       else if(!c.definitionNameNoMerge)
@@ -2331,7 +2319,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 
     globalScope.lockScope()
 
-    for (c <- sortedComponents) {
+    for (c <- sortedComponents.reverse) {
       c.allocateNames(pc.globalScope)
     }
   }

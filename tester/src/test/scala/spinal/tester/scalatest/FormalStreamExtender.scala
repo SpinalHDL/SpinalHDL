@@ -41,17 +41,17 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
           .otherwise { assert(dut.io.available) }
         }
         .otherwise { assert(dut.io.available) }
-        val counterHelper = dut.withAsserts()
+        val counterHelper = dut.formalAsserts()
 
         cover(inStream.fire & outStream.fire & dut.io.done)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
-        inStream.withAssumes()
-        outStream.withAssumes()
+        inStream.formalAssumesSlave()
+        outStream.formalAssumesSlave()
 
         for(i <- 1 until 2) {
-          inStream.withCovers(i)
-          outStream.withCovers(i)
+          inStream.formalCovers(i)
+          outStream.formalCovers(i)
         }
       })
   }
@@ -95,12 +95,12 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         cover(pastValid & past(dut.io.done) & inStream.fire)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
-        inStream.withAssumes()
-        outStream.withAssumes()
+        inStream.formalAssumesSlave()
+        outStream.formalAssumesSlave()
 
         for(i <- 1 until 2) {
-          inStream.withCovers(i)
-          outStream.withCovers(i)
+          inStream.formalCovers(i)
+          outStream.formalCovers(i)
         }
       })
   }
@@ -133,12 +133,12 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         cover(inStream.fire & outStream.fire & dut.io.done)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
-        inStream.withAssumes()
-        outStream.withAssumes()
+        inStream.formalAssumesSlave()
+        outStream.formalAssertsMaster()
 
         for(i <- 1 until 2) {
-          inStream.withCovers(i)
-          outStream.withCovers(i)
+          inStream.formalCovers(i)
+          outStream.formalCovers(i)
         }
       })
   }
@@ -177,12 +177,12 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         cover(pastValid & past(dut.io.done) & inStream.fire)
         cover(pastValid & past(dut.io.working) & !dut.io.working)
 
-        inStream.withAssumes()
-        outStream.withAssumes()
+        inStream.formalAssumesSlave()
+        outStream.formalAssertsMaster()
 
         for(i <- 1 until 2) {
-          inStream.withCovers(i)
-          outStream.withCovers(i)
+          inStream.formalCovers(i)
+          outStream.formalCovers(i)
         }
       })
   }
