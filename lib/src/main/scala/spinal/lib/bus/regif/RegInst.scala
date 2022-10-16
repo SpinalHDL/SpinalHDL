@@ -1,7 +1,7 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc.{AddressMapping, SingleMapping, SizeMapping}
 
 import scala.collection.mutable.ListBuffer
 import AccessType._
@@ -22,7 +22,7 @@ object Section{
 }
 
 
-case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf) extends RamDescr {
+case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf) extends MappedBase(name,sizeMap, doc, busif) with RamDescr {
   private var Rerror: Boolean = false
   def readErrorTag = Rerror
 
@@ -36,34 +36,24 @@ case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf
 
   val hitRead  = hitRange(busif.readAddress)
   val hitWrite = hitRange(busif.writeAddress)
-  val hitDoRead  = hitRead && busif.doRead
-  val hitDoWrite = hitWrite && busif.doWrite
 
   // RamDescr implementation
-  def getName()        : String = name
   def getDoc()         : String = doc
   def getAddr()        : BigInt = sizeMap.base
   def getSize()        : BigInt = sizeMap.size
 
 }
 
-class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) with FifoDescr {
+class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends MappedBase(name,SingleMapping(addr),doc,busif) with FifoDescr {
 
   // FifoDescr implementation
   def getAddr()        : BigInt = addr
   def getSize()        : BigInt = busif.wordAddressInc
   def getDoc()         : String = doc
-  def setName(name: String): FIFOInst = {
-    _name = name
-    this
-  }
+
 }
 
 case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
-  def setName(name: String): RegInst = {
-    _name = name
-    this
-  }
 
   def checkLast={
     val spareNumbers = if(fields.isEmpty) busif.busDataWidth else busif.busDataWidth-1 - fields.last.tailBitPos
@@ -316,37 +306,44 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   }
 }
 
-abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
+abstract class MappedBase(name: String, mapping: AddressMapping, doc: String, busif: BusIf) extends MemoryMappedDescriptor {
   protected var _name = name
-  protected val fields = ListBuffer[Field]()
-  protected var fieldPtr: Int = 0
-  protected var Rerror: Boolean = false
 
   def getName(): String = _name
-  def setName(name: String): RegBase
 
-  def readErrorTag = Rerror
-  def getFields = fields.toList
-
-  val hitDoRead  = busif.readAddress === U(addr) && busif.doRead
-  hitDoRead.setName(f"read_hit_0x${addr}%04x", weak = true)
-  val hitDoWrite = busif.writeAddress === U(addr) && busif.doWrite
-  hitDoWrite.setName(f"write_hit_0x${addr}%04x", weak = true)
-
-  def readBits: Bits = {
-    fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
+  def setName(name: String): MappedBase = {
+    _name = name
+    this
   }
 
-  def eventR() : Bool = {
-    val event = Reg(Bool) init(False)
+  protected val hitDoRead: Bool = mapping.hit(busif.readAddress()) && busif.doRead
+  hitDoRead.setName(f"read_hit_0x${mapping.lowerBound}%04x", weak = true)
+  protected val hitDoWrite: Bool = mapping.hit(busif.writeAddress()) && busif.doWrite
+  hitDoWrite.setName(f"write_hit_0x${mapping.lowerBound}%04x", weak = true)
+
+  def eventR(): Bool = {
+    val event = Reg(Bool) init (False)
     event := hitDoRead
     event
   }
 
-  def eventW() : Bool = {
-    val event = Reg(Bool) init(False)
+  def eventW(): Bool = {
+    val event = Reg(Bool) init (False)
     event := hitDoWrite
     event
+  }
+}
+
+abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) extends MappedBase(name, SingleMapping(addr), doc, busif) {
+  protected val fields = ListBuffer[Field]()
+  protected var fieldPtr: Int = 0
+  protected var Rerror: Boolean = false
+
+  def readErrorTag = Rerror
+  def getFields = fields.toList
+
+  def readBits: Bits = {
+    fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
   }
 
   protected def _RO[T <: BaseType](reg: T): T = reg

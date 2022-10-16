@@ -29,13 +29,13 @@ trait BusIfBase extends Area{
 
 trait BusIf extends BusIfBase {
   type B <: this.type
-  private val RegInsts = ListBuffer[RegInst]()
+  private val RegInsts = ListBuffer[MappedBase]()
   private var regPtr: BigInt = 0
 
   def getModuleName: String
   val regPre: String
 
-  private def checkLastNA(): Unit = RegInsts.foreach(_.checkLast)
+  private def checkLastNA(): Unit = RegInsts.filter(_.isInstanceOf[RegInst]).map(_.asInstanceOf[RegInst]).foreach(_.checkLast)
   private def regNameUpdate(): Unit = {
     val words = "\\w*".r
     val pre = regPre match{
@@ -244,7 +244,7 @@ trait BusIf extends BusIfBase {
   private def readGenerator() = {
     when(askRead){
       switch (readAddress()) {
-        RegInsts.foreach{(reg: RegInst) =>
+        RegInsts.foreach{case reg: RegInst =>
           is(reg.addr){
             if(!reg.allIsNA){
               readData  := reg.readBits
