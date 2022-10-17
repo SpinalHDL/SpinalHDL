@@ -1,0 +1,63 @@
+# Contributor guide
+
+## How-to
+
+To keep work organized, contributions are done the following way:
+
+1. Before implementing:
+    * If you have an idea of thing you want to implement, please open an issue
+      to discuss. It will help to define the goal of the changes, and to figure
+      out the potential drawbacks before implementing.
+    * Else you can find good first issues
+      [here](https://github.com/SpinalHDL/SpinalHDL/contribute)
+1. When you work is ready for review, feel free to open a pull request (PR). It
+   can be seen as suggested modifications that will be reviewed. You can open a
+   PR if you want some feedback even if you know your implementation is not
+   complete yet. In this case, it is preferred to mark it as a draft PR.
+1. Test your code with unit tests. It will make sure that your modifications are
+   future-proof and do not break after other changes in the repository.
+1. Document your code, using Scaladoc `/** */` and, if relevant, by contributing
+   to [the documentation repository](https://github.com/SpinalHDL/SpinalDoc-RTD).
+
+When you open a PR, it contains a checklist so that you do not forget things.
+
+
+## File structure
+
+| File              | Description                                 |
+| :---              | :---                                        |
+| `build.sbt`       | Build file for `sbt`                        |
+| `CONTRIBUTING.md` | Contributor guide                           |
+| `core/`           | Things imported with `import spinal.core._` |
+| `debugger/`       | ???                                         |
+| `demo/`           | ???                                         |
+| `Dockerfile`      | ???                                         |
+| `idslpayload/`    | ???                                         |
+| `idslplugin/`     | ???                                         |
+| `lib/`            | Things imported with `import spinal.lib._`  |
+| `LICENSE`         | Redirection to other `LICENSE` files        |
+| `LICENSE_core`    | License for Spinal core                     |
+| `LICENSE_lib`     | License for Spinal standard library         |
+| `project`         | Build files                                 |
+| `README.md`       | Project description                         |
+| `scala.yml`       | GitHub-specific file                        |
+| `scalaplugin`     | Compiler plugins                            |
+| `sim`             | Things imported with `import spinal.sim._`  |
+| `tester`          | All tests                                   |
+| `tools.sh`        | `sh` functions to install EDA tools         |
+
+There are several Scala projects in this repository:
+
+- `spinal.core`: the DSL to describe hardware
+- `spinal.lib`: the standard library to help designers
+- `spinal.sim`: API to interact with compatible simulators
+- `spinal.tester`: all unit tests
+
+Each project has the following structure:
+
+TODO
+
+
+## Notes for triage & reviews
+
+TODO: URLs to list of issues and PRs with useful filters and sorting
