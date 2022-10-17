@@ -21,6 +21,39 @@ object Section{
   implicit def tans(x: Range) : Section = Section(x)
 }
 
+abstract class MappedBase(name: String, mapping: SizeMapping, doc: String, busif: BusIf) extends MemoryMappedDescriptor {
+  protected var _name = name
+
+  def getName(): String = _name
+
+  def getAddr(): BigInt = mapping.base
+
+  def getSize(): BigInt = mapping.size
+
+  def getDoc(): String = doc
+
+  def setName(name: String): MappedBase = {
+    _name = name
+    this
+  }
+
+  protected val hitDoRead: Bool = mapping.hit(busif.readAddress()) && busif.doRead
+  hitDoRead.setName(f"read_hit_0x${mapping.lowerBound}%04x", weak = true)
+  protected val hitDoWrite: Bool = mapping.hit(busif.writeAddress()) && busif.doWrite
+  hitDoWrite.setName(f"write_hit_0x${mapping.lowerBound}%04x", weak = true)
+
+  def eventR(): Bool = {
+    val event = Reg(Bool) init (False)
+    event := hitDoRead
+    event
+  }
+
+  def eventW(): Bool = {
+    val event = Reg(Bool) init (False)
+    event := hitDoWrite
+    event
+  }
+}
 
 case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf) extends MappedBase(name,sizeMap, doc, busif) with RamDescr {
   private var Rerror: Boolean = false
@@ -291,39 +324,6 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   }
 }
 
-abstract class MappedBase(name: String, mapping: SizeMapping, doc: String, busif: BusIf) extends MemoryMappedDescriptor {
-  protected var _name = name
-
-  def getName(): String = _name
-
-  def getAddr(): BigInt = mapping.base
-
-  def getSize(): BigInt = mapping.size
-
-  def getDoc(): String = doc
-
-  def setName(name: String): MappedBase = {
-    _name = name
-    this
-  }
-
-  protected val hitDoRead: Bool = mapping.hit(busif.readAddress()) && busif.doRead
-  hitDoRead.setName(f"read_hit_0x${mapping.lowerBound}%04x", weak = true)
-  protected val hitDoWrite: Bool = mapping.hit(busif.writeAddress()) && busif.doWrite
-  hitDoWrite.setName(f"write_hit_0x${mapping.lowerBound}%04x", weak = true)
-
-  def eventR(): Bool = {
-    val event = Reg(Bool) init (False)
-    event := hitDoRead
-    event
-  }
-
-  def eventW(): Bool = {
-    val event = Reg(Bool) init (False)
-    event := hitDoWrite
-    event
-  }
-}
 
 abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) extends MappedBase(name, SizeMapping(addr, busif.wordAddressInc), doc, busif) {
   protected val fields = ListBuffer[Field]()
