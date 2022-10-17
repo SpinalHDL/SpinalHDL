@@ -2,6 +2,7 @@ package spinal.lib.bus.regif
 
 import spinal.core._
 import spinal.lib.bus.misc.{AddressMapping, SingleMapping, SizeMapping}
+import spinal.lib.{Flow, Stream}
 
 import scala.collection.mutable.ListBuffer
 import AccessType._
@@ -72,6 +73,38 @@ case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf
 }
 
 class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends MappedBase(name,SizeMapping(addr, busif.wordAddressInc),doc,busif) with FifoDescr {
+}
+
+class StreamInst(name: String, addr: BigInt, size: BigInt, doc: String, busif: BusIf) extends MappedBase(name, SizeMapping(addr, size), doc, busif) {
+
+  def writeStream(): Stream[TupleBundle2[UInt, Bits]] = {
+    val stream = new Stream(TupleBundle2(busif.writeAddress().clone, busif.writeData))
+
+    stream.valid := hitDoWrite
+    when(!stream.ready && hitDoWrite) {
+      busif.writeHalt()
+    }
+
+    stream._1 := busif.writeAddress()
+    stream._2 := busif.writeData
+
+    stream
+  }
+
+  def readStream(readDataFlow: Flow[Data]): Stream[UInt] = {
+    val addrStream = new Stream(busif.readAddress())
+
+    addrStream.valid := hitDoRead
+    when(!addrStream.ready && !readDataFlow.valid && hitDoRead) {
+      busif.writeHalt()
+    }
+
+    when(readDataFlow.valid && hitDoRead) {
+      busif.readData := readDataFlow.payload
+    }
+
+    addrStream
+  }
 }
 
 case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
