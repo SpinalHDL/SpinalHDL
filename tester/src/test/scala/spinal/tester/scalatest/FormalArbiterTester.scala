@@ -40,10 +40,10 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
 
         for (i <- 0 until portCount) {
           inputs(i) >> dut.io.inputs(i)
-          inputs(i).withAssumes()
+          inputs(i).formalAssumesSlave()
         }
-        output.withCovers(2)
-        output.withAsserts()
+        output.formalCovers(2)
+        output.formalAssertsMaster()
 
         assert(select < portCount)
         assert(select === OHToUInt(selectOH))
@@ -96,9 +96,9 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
 
         for (i <- 0 until portCount) {
           inputs(i) >> dut.io.inputs(i)
-          inputs(i).withAssumes()
+          inputs(i).formalAssumesSlave()
         }
-        output.withCovers(2)
+        output.formalCovers(2)
 
         assert(select < portCount)
         assert(select === OHToUInt(selectOH))
@@ -109,7 +109,7 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         val stallStableSel = output.isStall && stable(allInputsValidOH)
         cover(stallStableSel)
         when(stallStableSel) {
-          output.withAsserts()
+          output.formalAssertsMaster()
         }
       })
   }
@@ -158,10 +158,10 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
 
         for (i <- 0 until portCount) {
           inputs(i) >> dut.io.inputs(i)
-          inputs(i).withAssumes()
+          inputs(i).formalAssumesSlave()
         }
-        output.withCovers(2)
-        output.withAsserts()
+        output.formalCovers(2)
+        output.formalAssertsMaster()
 
         assert(select < portCount)
         assert(select === OHToUInt(selectOH))
@@ -218,10 +218,10 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
 
         for (i <- 0 until portCount) {
           inputs(i) >> dut.io.inputs(i)
-          inputs(i).withAssumes()
+          inputs(i).formalAssumesSlave()
         }
-        output.withCovers(2)
-        output.withAsserts()
+        output.formalCovers(2)
+        output.formalAssertsMaster()
 
         assert(select < portCount)
         assert(select === OHToUInt(selectOH))
@@ -279,9 +279,9 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
 
         for (i <- 0 until portCount) {
           inputs(i) >> dut.io.inputs(i)
-          inputs(i).withAssumes()
+          inputs(i).formalAssumesSlave()
         }
-        output.withCovers(2)
+        output.formalCovers(2)
 
         assert(select < portCount)
         assert(select === OHToUInt(selectOH))
@@ -302,7 +302,7 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         val stallStableSel = output.isStall && stable(allInputsValidOH)
         cover(stallStableSel)
         when(stallStableSel) {
-          output.withAsserts()
+          output.formalAssertsMaster()
         }
       })
   }
@@ -351,10 +351,10 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
 
         for (i <- 0 until portCount) {
           inputs(i) >> dut.io.inputs(i)
-          inputs(i).withAssumes()
+          inputs(i).formalAssumesSlave()
         }
-        output.withCovers(2)
-        output.withAsserts()
+        output.formalCovers(2)
+        output.formalAssertsMaster()
 
         assert(select < portCount)
         assert(select === OHToUInt(selectOH))
@@ -419,10 +419,10 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
 
         for (i <- 0 until portCount) {
           inputs(i) >> dut.io.inputs(i)
-          inputs(i).withAssumes()
+          inputs(i).formalAssumesSlave()
         }
-        output.withCovers(2)
-        output.withAsserts()
+        output.formalCovers(2)
+        output.formalAssertsMaster()
 
         assert(select === OHToUInt(selectOH))
         assert(dut.io.chosen < portCount)
