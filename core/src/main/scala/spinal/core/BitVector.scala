@@ -87,9 +87,9 @@ abstract class BitVector extends BaseType with Widthable {
     * @param that the maskedLiteral
     * @return a Bool data containing the result of the comparison
     */
-  def ===(that: MaskedLiteral): Bool = this.isEquals(that)
+  def ===(that: MaskedLiteral): Bool = this.isEqualTo(that)
   /** BitVector is not equal to MaskedLiteral */
-  def =/=(that: MaskedLiteral): Bool = this.isNotEquals(that)
+  def =/=(that: MaskedLiteral): Bool = this.isNotEqualTo(that)
 
   def andMask(that : Bool) : this.type = (that ? this otherwise this.getZero).asInstanceOf[this.type]
   def orMask(that : Bool) : this.type = (that ? cloneOf(this).setAll() otherwise this).asInstanceOf[this.type]

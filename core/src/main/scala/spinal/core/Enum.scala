@@ -151,14 +151,14 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
     //    case that : DontCareNodeEnum => super.assignFromImpl(that, conservative)
   }
 
-  override def isEquals(that: Any): Bool = {
+  override def isEqualTo(that: Any): Bool = {
     that match{
       case that: SpinalEnumCraft[_] if that.spinalEnum == spinalEnum    => wrapLogicalOperator(that, new Operator.Enum.Equal(spinalEnum));
       case that: SpinalEnumElement[_] if that.spinalEnum == spinalEnum  => wrapLogicalOperator(that(), new Operator.Enum.Equal(spinalEnum));
       case _                                                            => SpinalError("Incompatible test")
     }
   }
-  override def isNotEquals(that: Any): Bool = {
+  override def isNotEqualTo(that: Any): Bool = {
     that match{
       case that: SpinalEnumCraft[_] if that.spinalEnum == spinalEnum    => wrapLogicalOperator(that, new Operator.Enum.NotEqual(spinalEnum));
       case that: SpinalEnumElement[_] if that.spinalEnum == spinalEnum  => wrapLogicalOperator(that(), new Operator.Enum.NotEqual(spinalEnum));
