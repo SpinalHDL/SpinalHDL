@@ -31,11 +31,8 @@ import scala.collection.generic.Growable
 
 object UIntToOh {
   def apply(value: UInt, width : Int): Bits = {
-    val ret = Bits(width bits)
-    for(i <- 0 until width){
-      ret(i) := value === i
-    }
-    ret
+    if(width <= 0) B(0,width bits)
+    else B(1, width bits) |<< value
   }
 
   def apply(value : UInt) : Bits = apply(value,  1 << widthOf(value))
@@ -492,6 +489,10 @@ class BitAggregator {
 //  def set = value := True
 //}
 
+/** Creates an always running counter
+  *
+  * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
+  */
 object CounterFreeRun {
   def apply(stateCount: BigInt): Counter = {
     val c = Counter(stateCount)
@@ -501,6 +502,10 @@ object CounterFreeRun {
   }
 }
 
+/** Creates a counter
+  *
+  * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
+  */
 object Counter {
   def apply(start: BigInt,end: BigInt) : Counter  = new Counter(start = start, end = end)
   def apply(range : Range) : Counter = {

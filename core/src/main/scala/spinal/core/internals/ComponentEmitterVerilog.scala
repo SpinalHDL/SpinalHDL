@@ -52,10 +52,12 @@ class ComponentEmitterVerilog(
 
   val portMaps     = ArrayBuffer[String]()
   val definitionAttributes  = new StringBuilder()
+  val beginModule = new StringBuilder()
   val declarations = new StringBuilder()
   val localparams = new StringBuilder()
   val logics       = new StringBuilder()
-  def getTrace() = new ComponentEmitterTrace(definitionAttributes :: declarations :: logics :: Nil, portMaps)
+  val endModule = new StringBuilder()
+  def getTrace() = new ComponentEmitterTrace(definitionAttributes :: beginModule :: endModule :: localparams :: declarations :: logics :: Nil, portMaps)
 
   def result: String = {
     val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
@@ -63,9 +65,9 @@ class ComponentEmitterVerilog(
     s"""
       |${definitionComments}${definitionAttributes}module ${component.definitionName} (
       |${ports}
-      |${localparams}
+      |${beginModule}${localparams}
       |${declarations}
-      |${logics}
+      |${logics}${endModule}
       |endmodule
       |""".stripMargin
   }
@@ -231,6 +233,7 @@ class ComponentEmitterVerilog(
     emitMuxes()
     emitEnumDebugLogic()
     emitEnumParams()
+    emitBeginEndModule()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
@@ -308,6 +311,11 @@ class ComponentEmitterVerilog(
   }
 
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
+    if(component.children.isEmpty) return
+    if(!component.traceEnabled){
+      logics ++= "  /*verilator tracing_on*/\n"
+    }
+
     //Fixing the spacing
     def netsWithSection(data: BaseType): String = {
       if(openSubIo.contains(data)) ""
@@ -388,6 +396,9 @@ class ComponentEmitterVerilog(
       if(istracingOff){
         logics ++= s" ${emitCommentAttributes(List(Verilator.tracing_on))} \n"
       }
+    }
+    if(!component.traceEnabled){
+      logics ++= "  /*verilator tracing_off*/\n"
     }
   }
 
@@ -554,6 +565,12 @@ class ComponentEmitterVerilog(
       for(element <- e.elements) {
         localparams ++= s"  localparam ${emitEnumLiteral(element, encoding,"")} = ${idToBits(element, encoding)};\n"
       }
+    }
+  }
+  def emitBeginEndModule() : Unit = {
+    if(!component.traceEnabled){
+      beginModule ++= "  /*verilator tracing_off*/\n"
+      endModule   ++= "\n  /*verilator tracing_on*/"
     }
   }
 
