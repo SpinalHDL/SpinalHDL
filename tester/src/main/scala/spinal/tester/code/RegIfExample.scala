@@ -221,5 +221,6 @@ object getRegIfExample {
     example.toplevel.busif.accept(CHeaderGenerator("header", "AP"))
     example.toplevel.busif.accept(HtmlGenerator("regif", "AP"))
     example.toplevel.busif.accept(JsonGenerator("regif"))
+    example.toplevel.busif.accept(SystemRdlGenerator("regif", "AP", Some("addrmap name"), Some("addrmap desc")))
   }
 }
