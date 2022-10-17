@@ -105,6 +105,8 @@ class SimManager(val raw : SimRaw) {
   context.manager = this
   SimManagerContext.threadLocal.set(context)
 
+  val timePrecision: BigDecimal = BigDecimal(10).pow(raw.getTimePrecision())
+
   //Manage the JvmThread poll
   val jvmBusyThreads = mutable.ArrayBuffer[JvmThread]()
   val jvmIdleThreads = mutable.Stack[JvmThread]()

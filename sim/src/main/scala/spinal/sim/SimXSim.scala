@@ -79,6 +79,10 @@ class SimXSim(backend: XSimBackend) extends SimRaw {
 
   override def setBigIntMem(signal: Signal, value: BigInt, index: Long) = { }
 
+  override def getTimePrecision(): Int = {
+    instance.get_time_precision()
+  }
+
   override def sleep(cycles: Long) = {
     instance.sleep(cycles)
   }
