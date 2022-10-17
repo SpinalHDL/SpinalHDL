@@ -36,21 +36,9 @@ case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf
 
   val hitRead  = hitRange(busif.readAddress)
   val hitWrite = hitRange(busif.writeAddress)
-
-  // RamDescr implementation
-  def getDoc()         : String = doc
-  def getAddr()        : BigInt = sizeMap.base
-  def getSize()        : BigInt = sizeMap.size
-
 }
 
-class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends MappedBase(name,SingleMapping(addr),doc,busif) with FifoDescr {
-
-  // FifoDescr implementation
-  def getAddr()        : BigInt = addr
-  def getSize()        : BigInt = busif.wordAddressInc
-  def getDoc()         : String = doc
-
+class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends MappedBase(name,SizeMapping(addr, busif.wordAddressInc),doc,busif) with FifoDescr {
 }
 
 case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
@@ -275,9 +263,6 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   }
 
   // RegDescr implementation
-  def getAddr()        : BigInt           = addr
-  def getSize()        : BigInt           = busif.wordAddressInc
-  def getDoc()         : String           = doc
   def getFieldDescrs() : List[FieldDescr] = getFields
 
   override def accept(vs : BusIfVisitor) = {
@@ -306,10 +291,16 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   }
 }
 
-abstract class MappedBase(name: String, mapping: AddressMapping, doc: String, busif: BusIf) extends MemoryMappedDescriptor {
+abstract class MappedBase(name: String, mapping: SizeMapping, doc: String, busif: BusIf) extends MemoryMappedDescriptor {
   protected var _name = name
 
   def getName(): String = _name
+
+  def getAddr(): BigInt = mapping.base
+
+  def getSize(): BigInt = mapping.size
+
+  def getDoc(): String = doc
 
   def setName(name: String): MappedBase = {
     _name = name
@@ -334,7 +325,7 @@ abstract class MappedBase(name: String, mapping: AddressMapping, doc: String, bu
   }
 }
 
-abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) extends MappedBase(name, SingleMapping(addr), doc, busif) {
+abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) extends MappedBase(name, SizeMapping(addr, busif.wordAddressInc), doc, busif) {
   protected val fields = ListBuffer[Field]()
   protected var fieldPtr: Int = 0
   protected var Rerror: Boolean = false
