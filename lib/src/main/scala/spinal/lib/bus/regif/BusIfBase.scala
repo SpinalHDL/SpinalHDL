@@ -29,13 +29,17 @@ trait BusIfBase extends Area{
 
 trait BusIf extends BusIfBase {
   type B <: this.type
-  private val RegInsts = ListBuffer[MappedBase]()
-  private var regPtr: BigInt = 0
+  private val mappedInsts = ListBuffer[MappedBase]()
+  private def nextInstAddr: BigInt = {
+    if (mappedInsts.nonEmpty) {
+      mappedInsts.last.getAddr() + mappedInsts.last.getSize()
+    } else 0
+  }
 
   def getModuleName: String
   val regPre: String
 
-  private def checkLastNA(): Unit = RegInsts.filter(_.isInstanceOf[RegInst]).map(_.asInstanceOf[RegInst]).foreach(_.checkLast)
+  private def checkLastNA(): Unit = mappedInsts.filter(_.isInstanceOf[RegInst]).map(_.asInstanceOf[RegInst]).foreach(_.checkLast)
   private def regNameUpdate(): Unit = {
     val words = "\\w*".r
     val pre = regPre match{
@@ -43,7 +47,7 @@ trait BusIf extends BusIfBase {
       case words(_*) => regPre + "_"
       case _ => SpinalError(s"${regPre} should be Valid naming : '[A-Za-z0-9_]+'")
     }
-    RegInsts.foreach(t => t.setName(s"${pre}${t.getName()}"))
+    mappedInsts.foreach(t => t.setName(s"${pre}${t.getName()}"))
   }
 
   private var isChecked: Boolean = false
@@ -61,20 +65,18 @@ trait BusIf extends BusIfBase {
 
   def newRegAt(address: BigInt, doc: String)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    assert(address >= regPtr, s"located Position conflict to Pre allocated Address: ${regPtr}")
-    regPtr = address + wordAddressInc
+    assert(address >= nextInstAddr, s"located Position conflict to Pre allocated Address: ${nextInstAddr}")
     creatReg(symbol.name, address, doc)
   }
 
   def newReg(doc: String)(implicit symbol: SymbolName) = {
-    val res = creatReg(symbol.name, regPtr, doc)
-    regPtr += wordAddressInc
+    val res = creatReg(symbol.name, nextInstAddr, doc)
     res
   }
 
   def creatReg(name: String, addr: BigInt, doc: String) = {
     val ret = new RegInst(name, addr, doc, this)
-    RegInsts += ret
+    mappedInsts += ret
     ret
   }
 
@@ -90,8 +92,7 @@ trait BusIf extends BusIfBase {
   }
 
   def FIFO(doc: String)(implicit symbol: SymbolName) = {
-    val  res = creatReg(symbol.name, regPtr, doc)
-    regPtr += wordAddressInc
+    val  res = creatReg(symbol.name, nextInstAddr, doc)
     res
   }
 
@@ -118,7 +119,7 @@ trait BusIf extends BusIfBase {
   /*
     interrupt with Raw/Force/Mask/Status 4 Register Interface
     **/
-  def interruptFactory(regNamePre: String, triggers: Bool*): Bool = interruptFactoryAt(regPtr, regNamePre, triggers:_*)
+  def interruptFactory(regNamePre: String, triggers: Bool*): Bool = interruptFactoryAt(nextInstAddr, regNamePre, triggers:_*)
   def interruptFactoryAt(addrOffset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     require(triggers.size > 0)
     val groups = triggers.grouped(this.busDataWidth).toList
@@ -134,7 +135,7 @@ trait BusIf extends BusIfBase {
   /*
     interrupt with Raw/Mask/Status 3 Register Interface
     **/
-  def interruptFactoryNoForce(regNamePre: String, triggers: Bool*): Bool = interruptFactoryNoForceAt(regPtr, regNamePre, triggers:_*)
+  def interruptFactoryNoForce(regNamePre: String, triggers: Bool*): Bool = interruptFactoryNoForceAt(nextInstAddr, regNamePre, triggers:_*)
   def interruptFactoryNoForceAt(addrOffset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     require(triggers.size > 0)
     val groups = triggers.grouped(this.busDataWidth).toList
@@ -151,7 +152,7 @@ trait BusIf extends BusIfBase {
     interrupt with Mask/Status 2 Register Interface
     always used for sys_level_int merge
     **/
-  def interruptLevelFactory(regNamePre: String, levels: Bool*): Bool = interruptLevelFactoryAt(regPtr, regNamePre, levels:_*)
+  def interruptLevelFactory(regNamePre: String, levels: Bool*): Bool = interruptLevelFactoryAt(nextInstAddr, regNamePre, levels:_*)
   def interruptLevelFactoryAt(addrOffset: BigInt, regNamePre: String, levels: Bool*): Bool = {
     require(levels.size > 0)
     val groups = levels.grouped(this.busDataWidth).toList
@@ -234,7 +235,7 @@ trait BusIf extends BusIfBase {
 
     vs.begin(busDataWidth)
 
-    for(reg <- RegInsts) {
+    for(reg <- mappedInsts) {
       reg.accept(vs)
     }
 
@@ -244,7 +245,7 @@ trait BusIf extends BusIfBase {
   private def readGenerator() = {
     when(askRead){
       switch (readAddress()) {
-        RegInsts.foreach{case reg: RegInst =>
+        mappedInsts.foreach{case reg: RegInst =>
           is(reg.addr){
             if(!reg.allIsNA){
               readData  := reg.readBits
