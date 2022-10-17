@@ -844,6 +844,13 @@ object StreamMux {
     c.io.select := select
     c.io.output
   }
+
+  def apply[T <: Data](select: Stream[UInt], inputs: Vec[Stream[T]]): Stream[T] = {
+    val c = new StreamMux(inputs(0).payload, inputs.length)
+    (c.io.inputs, inputs).zipped.foreach(_ << _)
+    select >> c.io.createSelector()
+    c.io.output
+  }
 }
 
 class StreamMux[T <: Data](dataType: T, portCount: Int) extends Component {
@@ -873,6 +880,13 @@ object StreamDemux{
     val c = new StreamDemux(input.payload,portCount)
     c.io.input << input
     c.io.select := select
+    c.io.outputs
+  }
+
+  def apply[T <: Data](input: Stream[T], select : Stream[UInt], portCount: Int) : Vec[Stream[T]] = {
+    val c = new StreamDemux(input.payload,portCount)
+    c.io.input << input
+    select >> c.io.createSelector()
     c.io.outputs
   }
 }
