@@ -85,7 +85,7 @@ class RegIfExample2 extends Component {
   val fd3 = M_REG0.fieldAt(pos=16, 4 bits, RW, doc= "fields 3")
 //  val fd3 = M_REG0.field(4 bits, RW, doc= "fields 3")
   //auto reserved 12 bits
-  busif.accept(HtmlGenerator("regif.html", "Example"))
+  busif.accept(HtmlGenerator("regif", "Example"))
 }
 
 class InterruptRegIf extends Component {
@@ -218,8 +218,8 @@ object getRegIfExample {
     targetDirectory="tmp/")
       .generate(new RegIfExample)
 
-    example.toplevel.busif.accept(CHeaderGenerator("header.h", "AP"))
-    example.toplevel.busif.accept(HtmlGenerator("regif.html", "AP"))
-    example.toplevel.busif.accept(JsonGenerator("regif.json"))
+    example.toplevel.busif.accept(CHeaderGenerator("header", "AP"))
+    example.toplevel.busif.accept(HtmlGenerator("regif", "AP"))
+    example.toplevel.busif.accept(JsonGenerator("regif"))
   }
 }
