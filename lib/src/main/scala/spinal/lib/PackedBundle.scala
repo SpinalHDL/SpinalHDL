@@ -49,9 +49,9 @@ class PackedBundle extends Bundle {
       }
       endianness match {
         case LITTLE =>
-          packed(range) := data.asBits.takeLow(range.size.min(data.getBitsWidth))
+          packed(range) := data.asBits.takeLow(range.size.min(data.getBitsWidth)).resizeLeft(range.size)
         case BIG =>
-          packed(range) := data.asBits.takeHigh(range.size.min(data.getBitsWidth))
+          packed(range) := data.asBits.takeHigh(range.size.min(data.getBitsWidth)).resize(range.size)
       }
     }
     packed
