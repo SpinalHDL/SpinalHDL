@@ -29,7 +29,8 @@ case class VpiBackendConfig(
   var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing -Wno-write-strings", 
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
-  var logSimProcess: Boolean = false
+  var logSimProcess: Boolean = false,
+  var timePrecision: String  = null
 )
 
 abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {

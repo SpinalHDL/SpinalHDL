@@ -172,6 +172,10 @@ package object sim {
     SimManagerContext.current.thread.waitUntil(cond)
   }
 
+  def timeToLong(time : TimeNumber) : Long = {
+    (time.toBigDecimal / SimManagerContext.current.manager.timePrecision).toLong
+  }
+
   /** Fork */
   def fork(body: => Unit): SimThread = SimManagerContext.current.manager.newThread(body)
   def forkJoin(bodys: (()=> Unit)*): Unit = {
@@ -223,6 +227,10 @@ package object sim {
 
   def delayed(delay : Long)(body : => Unit) = {
     SimManagerContext.current.manager.schedule(delay)(body)
+  }
+
+  def delayed(delay: TimeNumber)(body: => Unit) = {
+    SimManagerContext.current.manager.schedule(timeToLong(delay))(body)
   }
 
   def periodicaly(delay : Long)(body : => Unit) : Unit = {
@@ -804,6 +812,10 @@ package object sim {
       if(cd.hasClockEnableSignal) cd.deassertClockEnable()
       fork(doStimulus(period))
       if(sleepDuration >= 0) sleep(sleepDuration) //This allows the doStimulus to give initial value to clock/reset before going futher
+    }
+
+    def forkStimulus(period: TimeNumber): Unit = {
+      forkStimulus(timeToLong(period))
     }
 
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) : Unit = SimSpeedPrinter(cd, printPeriod)

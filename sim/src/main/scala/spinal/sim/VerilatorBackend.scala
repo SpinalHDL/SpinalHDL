@@ -34,6 +34,7 @@ class VerilatorBackendConfig{
   var waveDepth:Int          = 1 // 0 => all
   var simulatorFlags         = ArrayBuffer[String]()
   var withCoverage           = false
+  var timePrecision: String  = null
 }
 
 
@@ -260,6 +261,7 @@ public:
 	  Verilated${format.ext.capitalize}C tfp;
 	  #endif
     string name;
+    int32_t time_precision;
 
     Wrapper_${uniqueId}(const char * name){
       simHandle${uniqueId} = this;
@@ -289,6 +291,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${format.ext}").c_str());
       #endif
       this->name = name;
+      this->time_precision = Verilated::timeprecision();
     }
 
     virtual ~Wrapper_${uniqueId}(){
@@ -341,6 +344,10 @@ JNIEXPORT jboolean API JNICALL ${jniPrefix}eval_1${uniqueId}
    return Verilated::gotFinish();
 }
 
+JNIEXPORT jint API JNICALL ${jniPrefix}getTimePrecision_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle){
+  return handle->time_precision;
+}
 
 JNIEXPORT void API JNICALL ${jniPrefix}sleep_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, uint64_t cycles){
@@ -471,9 +478,13 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       case false => ""
     }
 
+    val timeScaleArgs = config.timePrecision match {
+      case null => ""
+      case _ => s"--timescale-override /${config.timePrecision.replace(" ", "")}"
+    }
+
     val rtlIncludeDirsArgs = config.rtlIncludeDirs.map(e => s"-I${new File(e).getAbsolutePath}")
       .map('"' + _.replace("\\","/") + '"').mkString(" ")
-
 
     val verilatorBinFilename = if(isWindows) "verilator_bin.exe" else "verilator"
 
@@ -499,6 +510,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -CFLAGS -O${config.optimisationLevel}
        | $waveArgs
        | $covArgs
+       | $timeScaleArgs
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
        | $rtlIncludeDirsArgs
@@ -666,6 +678,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |public class VerilatorNative implements IVerilatorNative {
          |    public long newHandle(String name, int seed) { return newHandle_${uniqueId}(name, seed);}
          |    public boolean eval(long handle) { return eval_${uniqueId}(handle);}
+         |    public int get_time_precision(long handle) { return getTimePrecision_${uniqueId}(handle);}
          |    public void sleep(long handle, long cycles) { sleep_${uniqueId}(handle, cycles);}
          |    public long getU64(long handle, int id) { return getU64_${uniqueId}(handle, id);}
          |    public long getU64_mem(long handle, int id, long index) { return getU64mem_${uniqueId}(handle, id, index);}
@@ -682,6 +695,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |
          |    public native long newHandle_${uniqueId}(String name, int seed);
          |    public native boolean eval_${uniqueId}(long handle);
+         |    public native int getTimePrecision_${uniqueId}(long handle);
          |    public native void sleep_${uniqueId}(long handle, long cycles);
          |    public native long getU64_${uniqueId}(long handle, int id);
          |    public native long getU64mem_${uniqueId}(long handle, int id, long index);

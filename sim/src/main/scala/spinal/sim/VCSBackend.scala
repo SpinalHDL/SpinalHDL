@@ -160,6 +160,12 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     }
   }
 
+  val timeScale = config.timePrecision match {
+    case null => "1ns/1ns"
+    case t => "1ns/" + t.replace(" ", "")
+  }
+
+
   def compileVPI(): Unit = {
     if (Files.exists(Paths.get(vpiModulePath))) {
       return
@@ -199,7 +205,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     val topFlags = List(
       "-o", toplevelName
     )
-    val commonFlags = config.flags.elaborateFlags.toList ++ vpiFlags ++ topFlags
+    val commonFlags = config.flags.elaborateFlags.toList ++ vpiFlags ++ topFlags :+ s"-timescale=$timeScale"
     val cc = config.vcsCC match {
       case Some(x) => List("-cc", x)
       case None    => List.empty
@@ -256,7 +262,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
 
     val simWaveSource =
       s"""
-         |`timescale 1ns/1ps
+         |`timescale $timeScale
          |module __simulation_def;
          |initial begin
          |  $$fsdbDumpfile("$toplevelName.fsdb");

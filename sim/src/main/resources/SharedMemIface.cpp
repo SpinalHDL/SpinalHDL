@@ -165,6 +165,11 @@ void SharedMemIface::write32_mem(int64_t handle, int32_t data_, int64_t index_){
     write32_raw(handle, data_, true);
 }
 
+int32_t SharedMemIface::get_time_precision() {
+    this->check_ready();
+    return shared_struct->time_precision;
+}
+
 void SharedMemIface::sleep(int64_t sleep_cycles){
     this->check_ready();
     shared_struct->sleep_cycles.store(sleep_cycles);

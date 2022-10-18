@@ -402,7 +402,7 @@ bool write_mem_cmd(){
 
 bool sleep_cmd(){
     #ifdef GHDL_PLUGIN
-    register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles*1000000);
+    register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles);
     #else
     register_cb(delay_rw_cb, cbAfterDelay, shared_struct->sleep_cycles);
     #endif
@@ -424,7 +424,8 @@ PLI_INT32 start_cb(p_cb_data){
     vpi_printf("Shared memory key : %s\n", shmem_name.c_str());
     segment = managed_shared_memory(open_only, shmem_name.c_str());
     auto ret_struct = segment.find<SharedStruct>("SharedStruct");
-    shared_struct = ret_struct.first; 
+    shared_struct = ret_struct.first;
+    shared_struct->time_precision = vpi_get(vpiTimePrecision, 0);
     vpi_printf("Start of simulation\n");
     return 0;
 }
