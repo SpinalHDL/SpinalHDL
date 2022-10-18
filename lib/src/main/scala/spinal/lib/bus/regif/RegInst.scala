@@ -38,9 +38,14 @@ abstract class MappedBase(name: String, mapping: SizeMapping, doc: String, busif
     this
   }
 
-  protected val hitDoRead: Bool = mapping.hit(busif.readAddress()) && busif.doRead
-  hitDoRead.setName(f"read_hit_0x${mapping.lowerBound}%04x", weak = true)
-  protected val hitDoWrite: Bool = mapping.hit(busif.writeAddress()) && busif.doWrite
+  protected val hitRead: Bool = mapping.hit(busif.readAddress())
+  hitRead.setName(f"read_addr_decode_0x${mapping.lowerBound}%04x", weak = true)
+  protected val hitDoRead: Bool = hitRead && busif.doRead
+  hitDoRead.setName(f"read_fire_0x${mapping.lowerBound}%04x", weak = true)
+
+  protected val hitWrite: Bool = mapping.hit(busif.writeAddress())
+  hitWrite.setName(f"write_addr_decode_0x${mapping.lowerBound}%04x", weak = true)
+  protected val hitDoWrite: Bool = hitWrite && busif.doWrite
   hitDoWrite.setName(f"write_hit_0x${mapping.lowerBound}%04x", weak = true)
 
   def eventR(): Bool = {
@@ -67,9 +72,6 @@ case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf
     }
     hit
   }
-
-  val hitRead  = hitRange(busif.readAddress)
-  val hitWrite = hitRange(busif.writeAddress)
 }
 
 class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends MappedBase(name,SizeMapping(addr, busif.wordAddressInc),doc,busif) with FifoDescr {
@@ -80,8 +82,8 @@ class StreamInst(name: String, addr: BigInt, size: BigInt, doc: String, busif: B
   def writeStream(): Stream[TupleBundle2[UInt, Bits]] = {
     val stream = new Stream(TupleBundle2(busif.writeAddress().clone, busif.writeData))
 
-    stream.valid := hitDoWrite
-    when(!stream.ready && hitDoWrite) {
+    stream.valid := hitWrite
+    when(hitWrite && !stream.ready) {
       busif.writeHalt()
     }
 
@@ -91,19 +93,19 @@ class StreamInst(name: String, addr: BigInt, size: BigInt, doc: String, busif: B
     stream
   }
 
-  def readStream(readDataFlow: Flow[Data]): Stream[UInt] = {
-    val addrStream = new Stream(busif.readAddress())
+  def readStream(readData: Bits): Stream[UInt] = {
+    val stream = new Stream(busif.readAddress())
 
-    addrStream.valid := hitDoRead
-    when(!addrStream.ready && !readDataFlow.valid && hitDoRead) {
+    stream.valid := hitRead
+    when(hitRead && !stream.ready) {
       busif.writeHalt()
     }
 
-    when(readDataFlow.valid && hitDoRead) {
-      busif.readData := readDataFlow.payload
+    when(hitRead) {
+      busif.readData := readData
     }
 
-    addrStream
+    stream
   }
 }
 
