@@ -7,7 +7,7 @@ import spinal.core.sim._
 
 class SpinalSimPackedBundleTester extends AnyFunSuite {
   test("pack") {
-    SimConfig.compile(new Component {
+    SimConfig.withWave.compile(new Component {
       val packedBundle = new PackedBundle {
         val a = Bits(3 bit) // 0 to 2
         val b = Bits(3 bit).packFrom(4) // 4 to 6
@@ -47,7 +47,7 @@ class SpinalSimPackedBundleTester extends AnyFunSuite {
         res += d << 12
         res += e << 15
         res += (f & 0x1f) << 20
-        res += (g & 0x2e) << 25
+        res += (g >> 1) << 25
         res
       }
 
@@ -59,7 +59,7 @@ class SpinalSimPackedBundleTester extends AnyFunSuite {
         dut.io.e.randomize()
         dut.io.f.randomize()
         dut.io.g.randomize()
-        dut.clockDomain.waitSampling()
+        dut.clockDomain.waitFallingEdge()
         val packedCalc = pack(dut.io.a.toBigInt,
           dut.io.b.toBigInt,
           dut.io.c.toBigInt,
@@ -67,7 +67,7 @@ class SpinalSimPackedBundleTester extends AnyFunSuite {
           dut.io.e.toBigInt,
           dut.io.f.toBigInt,
           dut.io.g.toBigInt)
-        assert(dut.io.packed.toBigInt == packedCalc)
+        assert(dut.io.packed.toBigInt == packedCalc, s"0x${dut.io.packed.toBigInt.toString(16)} =!= 0x${packedCalc.toString(16)}\n")
       }
     })
   }
