@@ -16,14 +16,15 @@ case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, reg
 
   bus.PREADY := True
   bus.PRDATA := readData
-  if(bus.config.useSlaveError) bus.PSLVERROR := readError
 
-  val askWrite  = (bus.PSEL(selId) && bus.PWRITE).allowPruning()
-  val askRead   = (bus.PSEL(selId) && !bus.PWRITE).allowPruning()
-  val doWrite   = (askWrite && bus.PENABLE && bus.PREADY).allowPruning()
-  val doRead    = (askRead  && bus.PENABLE && bus.PREADY).allowPruning()
+  val askWrite  = (bus.PSEL(selId) && bus.PENABLE && bus.PWRITE).allowPruning()
+  val askRead   = (bus.PSEL(selId) && bus.PENABLE && !bus.PWRITE).allowPruning()
+  val doWrite   = (askWrite && bus.PREADY).allowPruning()
+  val doRead    = (askRead  && bus.PREADY).allowPruning()
   val writeData = bus.PWDATA
 
+  readError.clearWhen(askWrite)
+  if(bus.config.useSlaveError) bus.PSLVERROR := Mux(askWrite, False, readError)
   override def readAddress()  = bus.PADDR
   override def writeAddress() = bus.PADDR
 
