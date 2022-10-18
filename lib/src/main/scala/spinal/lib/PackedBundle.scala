@@ -31,7 +31,7 @@ class PackedBundle extends Bundle {
         case t: Some[TagBitPackExact] =>
           t.get.range
         case None =>
-          (lastPos+d.getBitsWidth) downto (lastPos+1)
+          (lastPos+d.getBitsWidth-1) downto (lastPos)
       }
       lastPos = r.high
       (r, d)
