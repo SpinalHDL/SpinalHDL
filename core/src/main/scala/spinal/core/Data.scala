@@ -466,7 +466,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     addTag(allowDirectionLessIoTag)
   }
 
-  // TODO doc
+  /** Allow a register to be partially assigned */
   def allowPartialyAssigned(): this.type = {
     addTag(AllowPartialyAssignedTag)
   }
@@ -487,7 +487,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     addTag(spinal.core.noCombinatorialLoopCheck)
   }
 
-  // TODO doc
+  /** Put the combinatorial logic driving this signal in a separate process */
   def noBackendCombMerge(): this.type = {
     addTag(spinal.core.noBackendCombMerge)
   }
