@@ -567,6 +567,7 @@ package object sim {
     def toBytes(bits: Int = -1, endian: Endianness = LITTLE): Array[Byte] = {
       val raw = x.toByteArray
       val byteCount = if (bits < 0) raw.length else (bits + 7) / 8
+      assert(raw.length <= byteCount, "Original BigInt has more bytes then bits specified.")
       val out = Array.fill[Byte](byteCount) { 0 }
       for (i <- 0 until byteCount) {
         out(i) = ((x >> i * 8) & 0xff).toByte
