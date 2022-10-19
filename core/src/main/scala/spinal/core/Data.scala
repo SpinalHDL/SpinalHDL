@@ -450,28 +450,45 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     return ret.asInstanceOf[this.type]
   }
 
-  /** Allow a data to be overrided */
-  def allowOverride: this.type = {
+  /** Allow a Data to be overriden
+    *
+    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/assignment_overlap.html
+    */
+  def allowOverride(): this.type = {
     addTag(allowAssignmentOverride)
   }
 
-  def allowDirectionLessIo: this.type = {
+  /** Allow a Data of an io Bundle to be directionless
+    *
+    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/iobundle.html
+    */
+  def allowDirectionLessIo(): this.type = {
     addTag(allowDirectionLessIoTag)
   }
 
-  def allowPartialyAssigned : this.type = {
+  /** Allow a register to be partially assigned */
+  def allowPartialyAssigned(): this.type = {
     addTag(AllowPartialyAssignedTag)
   }
 
-  def allowUnsetRegToAvoidLatch: this.type = {
+  /** Allow a register to have only an init (no assignments)
+    *
+    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/unassigned_register.html#register-with-only-init
+    */
+  def allowUnsetRegToAvoidLatch(): this.type = {
     addTag(unsetRegIfNoAssignementTag)
   }
 
-  def noCombLoopCheck : this.type = {
+  /** Disable combinatorial loop checking for this Data
+    *
+    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/combinatorial_loop.html
+    */
+  def noCombLoopCheck(): this.type = {
     addTag(spinal.core.noCombinatorialLoopCheck)
   }
 
-  def noBackendCombMerge : this.type = {
+  /** Put the combinatorial logic driving this signal in a separate process */
+  def noBackendCombMerge(): this.type = {
     addTag(spinal.core.noBackendCombMerge)
   }
 
