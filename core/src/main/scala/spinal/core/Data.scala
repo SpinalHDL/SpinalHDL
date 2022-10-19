@@ -36,8 +36,8 @@ trait DataPrimitives[T <: Data]{
   private[spinal] def _data : T
 
   /** Comparison between two data */
-  def ===(that: T): Bool = _data isEquals that
-  def =/=(that: T): Bool = _data isNotEquals that
+  def ===(that: T): Bool = _data isEqualTo that
+  def =/=(that: T): Bool = _data isNotEqualTo that
 
   /** Assign a data to this */
   def := (that: T): Unit = _data assignFrom that
@@ -439,8 +439,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def removeDataAssignments(): this.type = removeAssignments(true, false, false)
   def removeInitAssignments(): this.type = removeAssignments(false, true, false)
 
-  private[core] def isEquals(that: Any): Bool
-  private[core] def isNotEquals(that: Any): Bool
+  private[core] def isEqualTo(that: Any): Bool
+  private[core] def isNotEqualTo(that: Any): Bool
 
   /** Resized data regarding target */
   def resized: this.type = {
@@ -722,12 +722,12 @@ trait DataWrapper extends Data{
   override def asBits: Bits = ???
   override def flatten: Seq[BaseType] = ???
   override def getBitsWidth: Int = ???
-  override private[core] def isEquals(that: Any): Bool = ???
+  override private[core] def isEqualTo(that: Any): Bool = ???
   override private[core] def autoConnect(that: Data): Unit = ???
   override def assignFromBits(bits: Bits): Unit = ???
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = ???
   override def getZero: DataWrapper.this.type = ???
-  override private[core] def isNotEquals(that: Any): Bool = ???
+  override private[core] def isNotEqualTo(that: Any): Bool = ???
   override def flattenLocalName: Seq[String] = ???
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
   override def setAsReg(): DataWrapper.this.type = ???
