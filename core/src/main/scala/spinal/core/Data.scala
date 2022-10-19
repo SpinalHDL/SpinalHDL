@@ -450,7 +450,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     return ret.asInstanceOf[this.type]
   }
 
-  /** Allow a Data to be overrided
+  /** Allow a Data to be overriden
     *
     * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/assignment_overlap.html
     */
