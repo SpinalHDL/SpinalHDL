@@ -127,7 +127,6 @@ class InterruptRegIf extends Component {
   when(io.ssc_done && ssc_int_en){ssc_int_status.set()}
   when(io.grp_done && grp_int_en){grp_int_status.set()}
   when(io.scd_done && scd_int_en){scd_int_status.set()}
-  when(io.srch_finish && srch_finish_en){srch_finish_status(0)}
 
   io.interrupt := (psc_int_status & pth_int_status & ssc_int_status &
                    grp_int_status & scd_int_status & srch_finish_status)
