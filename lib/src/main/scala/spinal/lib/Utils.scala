@@ -605,6 +605,12 @@ class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
     stateRise := False
   }
 
+  def clearWhen(cond : Bool) : this.type = {
+    when(cond){counter.clear()}
+    this
+  }
+
+
   override def implicitValue: Bool = state
 }
 
