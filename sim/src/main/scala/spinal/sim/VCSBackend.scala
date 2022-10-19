@@ -29,7 +29,6 @@ case class VCSFlags(
       "+v2k",
       "-ntb",
       "-debug_access+all",
-      "-timescale=1ns/1ps",
       "-l vlogan.log"
     )
     this
@@ -43,7 +42,6 @@ case class VCSFlags(
       "-nc",
       "-full64",
       "-debug_access+all",
-      "-timescale=1ns/1ps",
       "-l vhdlan.log"
     )
     this
@@ -60,7 +58,6 @@ case class VCSFlags(
     elaborateFlags ++= List(
       "-full64",
       "-quiet",
-      "-timescale=1ns/1ps",
       "-debug_access+all",
       "-debug_acc+pp+dmptf",
       "-debug_region=+cell+encrypt",
