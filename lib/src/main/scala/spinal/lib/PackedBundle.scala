@@ -49,9 +49,9 @@ class PackedBundle extends Bundle {
       }
       endianness match {
         case LITTLE =>
-          packed(range) := data.asBits.takeLow(range.size.min(data.getBitsWidth)).resizeLeft(range.size)
+          packed(range) := data.asBits.takeLow(range.size.min(data.getBitsWidth)).resize(range.size)
         case BIG =>
-          packed(range) := data.asBits.takeHigh(range.size.min(data.getBitsWidth)).resize(range.size)
+          packed(range) := data.asBits.takeHigh(range.size.min(data.getBitsWidth)).resizeLeft(range.size)
       }
     }
     packed
@@ -71,14 +71,10 @@ class PackedBundle extends Bundle {
         endianness match {
           case LITTLE =>
             val boundedBitsRange = hi.min(elRange.high-diff) downto lo.max(elRange.low)
-            el.assignFromBits(bits(boundedBitsRange),
-              boundedBitsRange.high - elRange.low,
-              boundedBitsRange.low - elRange.low)
+            el.assignFromBits(bits(boundedBitsRange).resize(el.getBitsWidth))
           case BIG =>
             val boundedBitsRange = hi.min(elRange.high) downto lo.max(elRange.low+diff)
-            el.assignFromBits(bits(boundedBitsRange),
-              boundedBitsRange.high - elRange.low-diff,
-              boundedBitsRange.low - elRange.low-diff)
+            el.assignFromBits(bits(boundedBitsRange).resizeLeft(el.getBitsWidth))
         }
       }
     }
