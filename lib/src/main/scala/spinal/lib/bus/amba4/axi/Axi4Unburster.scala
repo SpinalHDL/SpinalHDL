@@ -234,7 +234,7 @@ class Axi4ReadOnlyUnburster(config: Axi4Config, pendingDepth: Int = 3, pendingWi
     io.output.ar.arbitrationFrom(unburstified)
     io.output.ar.payload.assignSomeByName(unburstified.fragment)
 
-    val rFifo = io.output.r.queueLowLatency(8).continueWhen(manager.io.retIdResp.ready)
+    val rFifo = io.output.r.continueWhen(manager.io.retIdResp.ready)
     (config.useId) generate { manager.io.retIdResp.id := rFifo.id }
     manager.io.retIdResp.valid := rFifo.fire
     manager.io.retIdResp.resp.clearAll()
@@ -279,7 +279,7 @@ class Axi4WriteOnlyUnburster(config: Axi4Config, pendingDepth: Int = 3, pendingW
     io.output.w.last := True
   }
 
-  val bFifo = io.output.b.queueLowLatency(8).continueWhen(manager.io.retIdResp.ready)
+  val bFifo = io.output.b.continueWhen(manager.io.retIdResp.ready)
   (config.useId) generate { manager.io.retIdResp.id := bFifo.id }
   manager.io.retIdResp.valid := bFifo.fire
   if(config.useResp) {
