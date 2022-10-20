@@ -20,7 +20,7 @@ jobs:
 
     - name: Run tests
       run: sbt "++2.11.12; testWithoutFormal"
-  
+
   formal:
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -30,8 +30,20 @@ jobs:
       with:
         submodules: 'recursive'
     - uses: ./.github/actions
-    
+
     ##############################################
-    
+
     - name: Run tests
       run: sbt "++2.11.12; testFormal"
+
+  scaladoc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: 'recursive'
+
+    - name: Build scaladoc
+      run: sbt unidoc
