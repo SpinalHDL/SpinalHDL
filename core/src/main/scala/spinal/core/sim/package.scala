@@ -271,6 +271,8 @@ package object sim {
       case bt: SInt               => bt.toBigInt
       case bt: SpinalEnumCraft[_] => BigInt(bt.toEnum.position)
     }
+
+    def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
   }
 
 
@@ -339,6 +341,7 @@ package object sim {
     def toInt    = getInt(bt)
     def toLong   = getLong(bt)
     def toBigInt = getBigInt(bt)
+    def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
 
     def #=(value: Int)    = setLong(bt, value)
     def #=(value: Long)   = setLong(bt, value)
@@ -563,6 +566,22 @@ package object sim {
     }
     def toDouble: Double = this.toBigDecimal.doubleValue
 
+  }
+  
+  /**
+    * Add implicit function to BigInt
+    */
+  implicit class SimBigIntPimper(x: BigInt) {
+    def toBytes(bits: Int = -1, endian: Endianness = LITTLE): Array[Byte] = {
+      val raw = x.toByteArray
+      val byteCount = if (bits < 0) raw.length else (bits + 7) / 8
+      assert(raw.length <= byteCount, "Original BigInt has more bytes then bits specified.")
+      val out = Array.fill[Byte](byteCount) { 0 }
+      for (i <- 0 until byteCount) {
+        out(i) = ((x >> i * 8) & 0xff).toByte
+      }
+      if (endian == BIG) out.reverse else out
+    }
   }
 
   /**
