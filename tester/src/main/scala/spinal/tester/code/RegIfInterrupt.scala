@@ -18,7 +18,7 @@ class RegFileIntrExample extends Component{
 
   }
 
-  val busif = BusInterface(io.apb,  (0x000,1 KiB), 0, regPre = "AP")
+  val busif = BusInterface(Apb3SlaveFactory(io.apb),  (0x000,1 KiB), regPre = "AP")
   io.sys_int  := busif.interruptFactory("SYS",io.int_pulse0, io.int_pulse1, io.int_pulse2)
   io.s2  := busif.interruptFactory("SYS",io.int_pulse0, io.int_pulse1, io.int_pulse2)
   io.gpio_int := busif.interruptLevelFactory("GPIO",io.s2, io.sys_int, io.int_level0, io.int_level1,io.sys_int)

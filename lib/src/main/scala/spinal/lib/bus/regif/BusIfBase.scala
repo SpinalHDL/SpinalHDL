@@ -1,33 +1,26 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
+import spinal.lib.bus.amba3.ahblite.{AhbLite3, AhbLite3SlaveFactory}
 import spinal.lib.bus.amba3.apb._
-import spinal.lib.bus.misc.SizeMapping
-import language.experimental.macros
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4SlaveFactory}
+import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SlaveFactory}
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
+import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper, SizeMapping}
 
+import language.experimental.macros
 import scala.collection.mutable.ListBuffer
 
-trait BusIfBase extends Area{
-  val askWrite: Bool
-  val askRead: Bool
-  val doWrite: Bool
-  val doRead: Bool
-
-  val readData: Bits
-  val writeData: Bits
-  val readError: Bool
-
-  def readAddress(): UInt
-  def writeAddress(): UInt
-
-  def readHalt(): Unit
-  def writeHalt(): Unit
-
-  def busDataWidth: Int
-  def wordAddressInc: Int = busDataWidth / 8
+object BusInterface {
+  def apply(factory: BusSlaveFactory, mapping: SizeMapping, regPre: String): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, mapping.base), regPre = regPre)
+  def apply(factory: BusSlaveFactory, mapping: SizeMapping): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, mapping.base), regPre = null)
+  def apply(factory: BusSlaveFactory, addr: BigInt, regPre: String): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, addr), regPre = regPre)
+  def apply(factory: BusSlaveFactory, addr: BigInt): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, addr), regPre = null)
+  def apply(factory: BusSlaveFactory, regPre: String): BusIf = new BusIf(factory, regPre = regPre)
+  def apply(factory: BusSlaveFactory): BusIf = new BusIf(factory, regPre = null)
 }
 
-trait BusIf extends BusIfBase {
+class BusIf(protected[regif] val factory: BusSlaveFactory, val regPre: String = null) extends Area {
   type B <: this.type
   private val mappedInsts = ListBuffer[MappedBase]()
   private def nextInstAddr: BigInt = {
@@ -36,8 +29,10 @@ trait BusIf extends BusIfBase {
     } else 0
   }
 
-  def getModuleName: String
-  val regPre: String
+  def getModuleName: String = getName() // TODO: Figure out
+
+  def busDataWidth = factory.busDataWidth
+  def wordAddressInc = factory.wordAddressInc
 
   private def checkLastNA(): Unit = mappedInsts.filter(_.isInstanceOf[RegInst]).map(_.asInstanceOf[RegInst]).foreach(_.checkLast)
   private def regNameUpdate(): Unit = {
@@ -53,18 +48,14 @@ trait BusIf extends BusIfBase {
   private var isChecked: Boolean = false
   def preCheck(): Unit = {
     if(!isChecked){
-      checkLastNA()
+//      checkLastNA()
       regNameUpdate()
       isChecked = true
     }
   }
 
-  component.addPrePopTask(() => {
-    readGenerator()
-  })
-
   def newRegAt(address: BigInt, doc: String)(implicit symbol: SymbolName) = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
+    assert(address % factory.wordAddressInc == 0, s"located Position not align by wordAddressInc: ${factory.wordAddressInc}")
     assert(address >= nextInstAddr, s"located Position conflict to Pre allocated Address: ${nextInstAddr}")
     creatReg(symbol.name, address, doc)
   }
@@ -100,7 +91,7 @@ trait BusIf extends BusIfBase {
   def FactoryInterruptWithMask(regNamePre: String, triggers: Bool*): Bool = {
     triggers.size match {
       case 0 => SpinalError("There have no inputs Trigger signals")
-      case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
+      case x if x > factory.busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${factory.busDataWidth}")
       case _ =>
     }
     val ENS    = newReg("Interrupt Enable Register")(SymbolName(s"${regNamePre}_ENABLES"))
@@ -122,7 +113,7 @@ trait BusIf extends BusIfBase {
   def interruptFactory(regNamePre: String, triggers: Bool*): Bool = interruptFactoryAt(nextInstAddr, regNamePre, triggers:_*)
   def interruptFactoryAt(addrOffset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     require(triggers.size > 0)
-    val groups = triggers.grouped(this.busDataWidth).toList
+    val groups = triggers.grouped(factory.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
       int_RFMS(addrOffset, namePre, trigs:_*)
@@ -138,7 +129,7 @@ trait BusIf extends BusIfBase {
   def interruptFactoryNoForce(regNamePre: String, triggers: Bool*): Bool = interruptFactoryNoForceAt(nextInstAddr, regNamePre, triggers:_*)
   def interruptFactoryNoForceAt(addrOffset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     require(triggers.size > 0)
-    val groups = triggers.grouped(this.busDataWidth).toList
+    val groups = triggers.grouped(factory.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
       int_RMS(addrOffset, namePre, trigs:_*)
@@ -155,7 +146,7 @@ trait BusIf extends BusIfBase {
   def interruptLevelFactory(regNamePre: String, levels: Bool*): Bool = interruptLevelFactoryAt(nextInstAddr, regNamePre, levels:_*)
   def interruptLevelFactoryAt(addrOffset: BigInt, regNamePre: String, levels: Bool*): Bool = {
     require(levels.size > 0)
-    val groups = levels.grouped(this.busDataWidth).toList
+    val groups = levels.grouped(factory.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
       int_MS(addrOffset, namePre, trigs:_*)
@@ -170,7 +161,7 @@ trait BusIf extends BusIfBase {
   **/
   protected def int_RFMS(offset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
-    require(triggers.size <= this.busDataWidth )
+    require(triggers.size <= factory.busDataWidth )
     val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
     val FORCE  = this.newReg("Interrupt Force  Register\n for SW debug use")(SymbolName(s"${regNamePre_}INT_FORCE"))
     val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))
@@ -194,7 +185,7 @@ trait BusIf extends BusIfBase {
     * */
   protected def int_RMS(offset: BigInt,regNamePre: String, triggers: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
-    require(triggers.size <= this.busDataWidth )
+    require(triggers.size <= factory.busDataWidth )
     val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
     val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))
     val STATUS = this.newReg("Interrupt status Register\n  status = raw && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
@@ -216,7 +207,7 @@ trait BusIf extends BusIfBase {
     * */
   protected def int_MS(offset: BigInt, regNamePre: String, int_levels: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
-    require(int_levels.size <= this.busDataWidth )
+    require(int_levels.size <= factory.busDataWidth )
     val MASK   = this.newRegAt(offset, "Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))
     val STATUS = this.newReg("Interrupt status Register\n status = int_level && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = int_levels.map{ level =>
@@ -233,31 +224,12 @@ trait BusIf extends BusIfBase {
   def accept(vs : BusIfVisitor) = {
     preCheck()
 
-    vs.begin(busDataWidth)
+    vs.begin(factory.busDataWidth)
 
     for(reg <- mappedInsts) {
       reg.accept(vs)
     }
 
     vs.end()
-  }
-
-  private def readGenerator() = {
-    when(askRead){
-      switch (readAddress()) {
-        mappedInsts.foreach{case reg: RegInst =>
-          is(reg.addr){
-            if(!reg.allIsNA){
-              readData  := reg.readBits
-              readError := Bool(reg.readErrorTag)
-            }
-          }
-        }
-        default{
-          readData  := 0
-          readError := True
-        }
-      }
-    }
   }
 }

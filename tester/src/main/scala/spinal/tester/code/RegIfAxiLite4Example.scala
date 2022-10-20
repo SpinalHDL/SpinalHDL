@@ -16,7 +16,7 @@ class Axi4liteRegIfExample extends Component {
     val axi = slave(AxiLite4(AxiLite4Config(16, 32)))
   }
 
-  val busif = BusInterface(io.axi, (0x000, 100 Byte))
+  val busif = BusInterface(AxiLite4SlaveFactory(io.axi), (0x000, 100 Byte))
   
   val reg_version = busif.newReg("Version info")
   val f_device    = reg_version.field(8 bits, AccessType.RO, 0xD4l, "Device type")
