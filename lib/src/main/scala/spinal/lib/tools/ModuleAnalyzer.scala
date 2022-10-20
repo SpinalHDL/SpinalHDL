@@ -1,6 +1,7 @@
 package spinal.lib.tools
 
 import spinal.core._
+
 import scala.language._
 
 /**
@@ -10,12 +11,36 @@ import scala.language._
  * @param module the module being analyzed
  */
 class ModuleAnalyzer(module: Module) {
+  /**
+    * Return all input port of the module
+    * @return set of base type
+    */
   def allInputs: Set[BaseType] = module.getAllIo.filter(_.isInputOrInOut).toSet
+
+  /**
+    * Filter the input ports
+    * @param filter - the predicate to filter the input ports
+    * @return set of filtered input ports
+    */
   def getInputs(filter: BaseType => Boolean): Set[BaseType] = allInputs.filter(filter)
 
+  /**
+    * Get all output ports
+    * @return set of output base type
+    */
   def allOutputs: Set[BaseType] = module.getAllIo.filter(_.isOutputOrInOut).toSet
+
+  /**
+    * Filter the output ports
+    * @param filter - the predicate to filter the output ports
+    * @return set of filtered output ports
+    */
   def getOutputs(filter: BaseType=> Boolean): Set[BaseType] = allOutputs.filter(filter)
 
+  /**
+    * Get all the clock domains inside the module
+    * @return set of the clock domains
+    */
   def allClocks: Set[ClockDomain] = {
     val ret = Set.newBuilder[ClockDomain]
     module.walkComponents {comp=>
@@ -27,8 +52,18 @@ class ModuleAnalyzer(module: Module) {
     }
     ret.result()
   }
+
+  /**
+    * Filter the clock domains
+    * @param filter - the predicate to filter the clock domains
+    * @return set of clock domain
+    */
   def getClocks(filter: ClockDomain=> Boolean): Set[ClockDomain] = allClocks.filter(filter)
 
+  /**
+    * Get all the registers inside the module
+    * @return set of register of base type
+    */
   def allRegisters: Set[BaseType] = {
     val ret = Set.newBuilder[BaseType]
     module.dslBody.walkDeclarations {
@@ -38,8 +73,19 @@ class ModuleAnalyzer(module: Module) {
     }
     ret.result()
   }
+
+  /**
+    * Filter the registers
+    * @param filter  - the predicate to filter the clock domains
+    * @return set of filtered registers
+    */
   def getRegisters(filter: BaseType=> Boolean): Set[BaseType] = allRegisters.filter(filter)
 
+  /**
+    * Get the submodule instances that meet the condition
+    * @param cond - the condition that instance should meet.
+    * @return - set of sub module instances
+    */
   def getCells(cond: Module=> Boolean): Set[Module] = {
     val ret = Set.newBuilder[Module]
     module.walkComponents{m=>
@@ -47,6 +93,11 @@ class ModuleAnalyzer(module: Module) {
     }
     ret.result()
   }
+  /**
+    * Get the sub-blackbox instances that meet the condition
+    * @param cond - the condition that instance should meet.
+    * @return - set of sub blackbox instances
+    */
   def getLibCells(cond: BlackBox=> Boolean): Set[BlackBox] = {
     val ret = Set.newBuilder[BlackBox]
     module.walkComponents{
@@ -56,6 +107,12 @@ class ModuleAnalyzer(module: Module) {
     }
     ret.result()
   }
+
+  /**
+    * Get the wire/net inside the module
+    * @param cond the filtering condition
+    * @return set of the base type nets
+    */
   def getNets(cond: BaseType=> Boolean): Set[BaseType] = {
     val ret = Set.newBuilder[BaseType]
     module.walkComponents{m=>
@@ -67,6 +124,12 @@ class ModuleAnalyzer(module: Module) {
     }
     ret.result()
   }
+
+  /**
+    * Get pins of the sub-module instance inside the module.
+    * @param cond the filtering condition
+    * @return set of the pin type
+    */
   def getPins(cond: BaseType=> Boolean): Set[BaseType] = {
     val ret = Set.newBuilder[BaseType]
     module.walkComponents{m=>
@@ -78,6 +141,11 @@ class ModuleAnalyzer(module: Module) {
     }
     ret.result()
   }
+  /**
+    * Get pins of the sub-blackbox instance inside the module.
+    * @param cond the filtering condition
+    * @return set of the pin type
+    */
   def getLibPins(cond: BaseType=> Boolean): Set[BaseType] = {
     val ret = Set.newBuilder[BaseType]
     val cellTrue = (_: BlackBox) => true
@@ -87,6 +155,12 @@ class ModuleAnalyzer(module: Module) {
     }
     ret.result()
   }
+
+  /**
+    * Get the toplevel module's ports
+    * @param cond the filtering condition
+    * @return set of the ports
+    */
   def getPort(cond: BaseType=> Boolean): Set[BaseType] = {
     val e = new ModuleAnalyzer(module.globalData.toplevel)
     (e.allInputs ++ e.allOutputs).filter(cond)
