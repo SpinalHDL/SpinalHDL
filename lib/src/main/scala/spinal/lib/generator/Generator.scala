@@ -86,7 +86,6 @@ class Generator extends Area { //TODO TagContainer
   def produceIo[T <: Data](body : => T) : Handle[T] = {
     val h = Handle[T]
     products += h
-//    Generator.stack.head.add {
       val p = new Generator()
       p.dependencies += this
       p.add task {h.load{
@@ -97,8 +96,6 @@ class Generator extends Area { //TODO TagContainer
           topIo <> subIo
           topIo
         }}
-      p
-//    }
     h
   }
 
