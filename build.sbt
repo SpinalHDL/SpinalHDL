@@ -72,7 +72,7 @@ lazy val all = (project in file("."))
     version := SpinalVersion.all,
     publishArtifact := false,
     publishLocal := {},
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(lib, core)
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(lib, core, sim)
   )
   .aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
 
