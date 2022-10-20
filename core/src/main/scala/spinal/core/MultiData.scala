@@ -90,7 +90,7 @@ abstract class MultiData extends Data {
   }
 
 
-  override def setAsDirectionLess: this.type = {
+  override def setAsDirectionLess(): this.type = {
     super.setAsDirectionLess()
     elements.foreach(_._2.setAsDirectionLess());
     this

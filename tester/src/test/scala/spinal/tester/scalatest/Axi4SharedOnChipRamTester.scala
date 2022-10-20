@@ -76,10 +76,13 @@ class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
         }
 
         val readMonitor = new Axi4ReadOnlyMonitor(port, clockDomain) {
+            override def onReadStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {}
+
             override def onReadByte(address: BigInt, data: Byte, id: Int): Unit = {
                 if (memory.contains(address)) assert(memory(address) == data, id.toString + ":" + address.toString(16))
             }
-            override def onLast(id: Int): Unit = {}
+
+            override def onResponse(address: BigInt, id: Int, last: Boolean, resp: Byte): Unit = {}
         }
 
         val write = new Axi4WriteOnlyMasterAgent(port, clockDomain) {
@@ -94,9 +97,13 @@ class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
             override def mappingFree(mapping: SizeMapping): Unit = regions.remove(mapping)
         }
         val writeMonitor = new Axi4WriteOnlyMonitor(port, clockDomain) {
-            override def onWriteByte(address: BigInt, data: Byte): Unit = {
+            override def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {}
+
+            override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
                 memory(address) = data
             }
+
+            override def onResponse(id: Int, resp: Byte): Unit = {}
         }
         (read, write, readMonitor, writeMonitor)
     }

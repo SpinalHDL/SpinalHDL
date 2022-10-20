@@ -2,7 +2,6 @@ package spinal.lib.bus.regif
 
 import spinal.core._
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.bus.regif.{BusIf, ClassName}
 import spinal.lib.bus.wishbone.Wishbone
 
 case class WishboneBusInterface(

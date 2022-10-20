@@ -284,7 +284,7 @@ class SpinalSimMiscTester extends AnyFunSuite {
         })
         ???
       } catch {
-        case _ => {
+        case _ : Throwable => {
           assert(counterCheck == 1000)
           assert(counterClock == 2000)
         }

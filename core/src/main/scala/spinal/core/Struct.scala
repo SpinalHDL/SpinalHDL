@@ -41,7 +41,7 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
     this
   }
 
-  override def setAsDirectionLess: this.type = {
+  override def setAsDirectionLess(): this.type = {
     super.setAsDirectionLess()
     elements.foreach(_._2.setAsDirectionLess());
     this

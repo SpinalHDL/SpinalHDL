@@ -471,6 +471,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       case WaveFormat.FST =>  "-CFLAGS -DTRACE --trace-fst"
       case WaveFormat.VCD =>  "-CFLAGS -DTRACE --trace"
       case WaveFormat.NONE => ""
+      // Other formats are not supported by Verilator
+      case _ => ???
     }
 
     val covArgs = config.withCoverage match {
