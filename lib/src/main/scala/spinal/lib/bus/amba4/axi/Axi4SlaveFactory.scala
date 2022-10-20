@@ -53,6 +53,9 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
 
   override def writeByteEnable(): Bits = bus.writeData.strb
 
+  override def readFire(): Bool = readOccur
+  override def writeFire(): Bool = writeOccur
+
   override def readHalt(): Unit = readHaltRequest := True
   override def writeHalt(): Unit = writeHaltRequest := True
 

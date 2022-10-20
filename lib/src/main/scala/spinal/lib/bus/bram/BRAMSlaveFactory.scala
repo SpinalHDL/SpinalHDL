@@ -51,16 +51,20 @@ class BRAMSlaveFactory(bus: BRAM, incAddress: Int = 0) extends BusSlaveFactoryDe
   override def readAddress()  = bus.addr
   override def writeAddress() = bus.addr
 
+
+
   override def busDataWidth: Int   = bus.wrdata.getWidth
   override def wordAddressInc: Int = if(incAddress == 0) super.wordAddressInc else incAddress
 
+  val isReading = bus.we === 0
+  val doWrite = (bus.en & !isReading).allowPruning()
+  val doRead = (bus.en & isReading).allowPruning()
+
+  override def readFire(): Bool = doRead
+  override def writeFire(): Bool = doWrite
 
   override def build(): Unit = {
 
-    val isReading = bus.we === 0
-
-    val doWrite    = (bus.en & !isReading).allowPruning()
-    val doRead     = (bus.en & isReading).allowPruning()
     val doReadNext = RegNext(doRead, False)
 
     val address = RegNextWhen(bus.addr, doRead)

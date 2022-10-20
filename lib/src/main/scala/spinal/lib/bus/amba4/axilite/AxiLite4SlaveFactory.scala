@@ -35,6 +35,8 @@ class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) ex
   override def readAddress(): UInt  = readAddressMasked
   override def writeAddress(): UInt = writeAddressMasked
 
+  override def readFire(): Bool = readOccur
+  override def writeFire(): Bool = writeOccur
 
   override def readHalt(): Unit = readHaltRequest := True
   override def writeHalt(): Unit = writeHaltRequest := True
