@@ -16,6 +16,7 @@ trait BusIfBase extends Area{
   val readData: Bits
   val writeData: Bits
   val readError: Bool
+  val readSync: Boolean = true
 
   def readAddress(): UInt
   def writeAddress(): UInt
@@ -242,23 +243,45 @@ trait BusIf extends BusIfBase {
   }
 
   private def readGenerator() = {
-    when(askRead){
-      switch (readAddress()) {
-        RegInsts.foreach{(reg: RegInst) =>
-          is(reg.addr){
-            if(!reg.allIsNA){
-              readData  := reg.readBits
-              readError := Bool(reg.readErrorTag)
+    if(readSync){
+      when(askRead){
+        switch (readAddress()) {
+          RegInsts.foreach{(reg: RegInst) =>
+            is(reg.addr){
+              if(!reg.allIsNA){
+                readData  := reg.readBits
+                readError := Bool(reg.readErrorTag)
+              }
             }
           }
-        }
-        default{
-          readData  := 0
-          readError := True
+          default{
+            readData  := 0
+            readError := True
+          }
         }
       }
+      readError.clearWhen(askWrite)
+    } else {
+      when(askRead){
+        switch (readAddress()) {
+          RegInsts.foreach{(reg: RegInst) =>
+            is(reg.addr){
+              if(!reg.allIsNA){
+                readData  := reg.readBits
+                readError := Bool(reg.readErrorTag)
+              }
+            }
+          }
+          default{
+            readData  := 0
+            readError := True
+          }
+        }
+      }.otherwise{
+        readData  := 0
+        readError := False
+      }
     }
-    readError.clearWhen(askWrite)
     //wo not add error-response for write-operation for the reason of save area of mux
   }
 }
