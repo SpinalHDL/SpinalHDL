@@ -23,6 +23,7 @@ package spinal.core
 
 sealed trait AttributeKind
 object COMMENT_ATTRIBUTE extends AttributeKind
+object COMMENT_EARLY_ATTRIBUTE extends AttributeKind
 object DEFAULT_ATTRIBUTE extends AttributeKind
 
 
