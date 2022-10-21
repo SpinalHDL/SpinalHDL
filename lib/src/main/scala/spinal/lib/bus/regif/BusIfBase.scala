@@ -258,5 +258,7 @@ trait BusIf extends BusIfBase {
         }
       }
     }
+    readError.clearWhen(askWrite)
+    //wo not add error-response for write-operation for the reason of save area of mux
   }
 }
