@@ -75,8 +75,12 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val setresethaltreq = null //TODO ?
       val hartreset = null
 
-      val hartSelNew = factory.nonStopWrite(UInt(20 bits), 6)
-      val hartSel = factory.createReadAndWrite(UInt(20 bits), 0x10, 6) init(0)
+      val hartSelLoNew = factory.nonStopWrite(UInt(10 bits), 16)
+      val hartSelHiNew = factory.nonStopWrite(UInt(10 bits), 6)
+      val hartSelNew = hartSelHiNew @@ hartSelLoNew
+      val hartSelLo = factory.createReadAndWrite(UInt(10 bits), 0x10, 16) init(0)
+      val hartSelHi = factory.createReadAndWrite(UInt(10 bits), 0x10, 6) init(0)
+      val hartSel = hartSelHi @@ hartSelLo
       val haltSet = factory.setOnSet(False, 0x10, 31)
       val haltClear = factory.setOnClear(False, 0x10, 31)
       val resumeReq = factory.setOnSet(False, 0x10, 30) clearWhen(haltSet)
@@ -102,29 +106,44 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
     fromHarts.valid := io.harts.map(_.hartToDm.valid).orR
     fromHarts.payload := MuxOH.or(io.harts.map(_.hartToDm.valid), io.harts.map(_.hartToDm.payload), bypassIfSingle = true)
     val harts = for(hartId <- 0 until p.harts) yield new Area{
+      val sel = dmcontrol.hartSel === hartId
       val bus = io.harts(hartId)
-      bus.dmToHart << toHarts
       val resumeReady = !bus.resume.isPending(1)
+      def halted = bus.halted
+      def running = bus.running
+      def unavailable = bus.unavailable
+      bus.dmToHart << toHarts.throwWhen(toHarts.op === DebugDmToHartOp.EXECUTE && !sel)
+    }
+
+    val selected = new Area{
+      val hart = Reg(UInt(log2Up(p.harts) bits))
+      val running = io.harts.map(_.running).read(hart)
+      val halted = io.harts.map(_.halted).read(hart)
+      val commit = io.harts.map(_.commit).read(hart)
+      val exception = io.harts.map(_.exception).read(hart)
+      val ebreak = io.harts.map(_.ebreak).read(hart)
+      val redo = io.harts.map(_.redo).read(hart)
     }
 
     val dmstatus = new Area{
       val version = factory.read(U(p.version, 4 bits), 0x11, 0)
       val authenticated = factory.read(True, 0x11, 7)
 
-      val anyHalted = factory.read(io.harts.map(_.halted).orR, 0x11, 8)
-      val allHalted = factory.read(io.harts.map(_.halted).andR, 0x11, 9)
-      val anyRunning = factory.read(io.harts.map(_.running).orR, 0x11, 10)
-      val allRunning = factory.read(io.harts.map(_.running).andR, 0x11, 11)
-      val anyUnavail = factory.read(io.harts.map(_.unavailable).orR, 0x11, 12)
-      val allUnavail = factory.read(io.harts.map(_.unavailable).andR, 0x11, 13)
+      val anyHalted  = factory.read(harts.map(h =>  h.sel && h.halted     ).orR , 0x11, 8)
+      val allHalted  = factory.read(harts.map(h => !h.sel || h.halted     ).andR, 0x11, 9)
+      val anyRunning = factory.read(harts.map(h =>  h.sel && h.running    ).orR , 0x11, 10)
+      val allRunning = factory.read(harts.map(h => !h.sel || h.running    ).andR, 0x11, 11)
+      val anyUnavail = factory.read(harts.map(h =>  h.sel && h.unavailable).orR , 0x11, 12)
+      val allUnavail = factory.read(harts.map(h => !h.sel || h.unavailable).andR, 0x11, 13)
       val anyNonExistent = factory.read(dmcontrol.hartSel >= p.harts, 0x11, 14)
       val allNonExistent = factory.read(anyNonExistent, 0x11, 15)
-      val anyResumeAck = factory.read(harts.map(_.resumeReady).orR, 0x11, 16)
-      val allResumeAck = factory.read(harts.map(_.resumeReady).andR, 0x11, 17)
+      val anyResumeAck = factory.read(harts.map(h =>  h.sel && h.resumeReady).orR, 0x11, 16)
+      val allResumeAck = factory.read(harts.map(h => !h.sel || h.resumeReady).andR, 0x11, 17)
 
-      val hasresethaltreq = null // TODO ?
+//      val hasresethaltreq = factory.read(True, 0x11, 5)
       val impebreak = factory.read(True, 0x11, 22)
     }
+
 
     val hartInfo = new Area{
       val dataaddr   = factory.read(U(0, 4 bits), 0x12, 0)
@@ -191,7 +210,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val IDLE, DECODE, READ_REG, WRITE_REG, WAIT_DONE, POST_EXEC, POST_EXEC_WAIT = new State()
 
       setEntry(IDLE)
-
+      val executionCounter = Reg(UInt(log2Up(p.progBufSize) bits))
       val commandRequest = factory.isWriting(0x17)
       val data = factory.createWriteOnly(Bits(32 bits), 0x17)
       val access = new Area{
@@ -207,15 +226,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         val notSupported = args.aarsize > dmcontrol.hartSelAarsizeLimit || args.aarpostincrement || args.regno(5, 11 bits) =/= 0x1000 >> 5
       }
 
-      val selected = new Area{
-        val hart = Reg(UInt(log2Up(p.harts) bits))
-        val running = io.harts.map(_.running).read(hart)
-        val halted = io.harts.map(_.halted).read(hart)
-        val commit = io.harts.map(_.commit).read(hart)
-        val exception = io.harts.map(_.exception).read(hart)
-        val ebreak = io.harts.map(_.ebreak).read(hart)
-        val redo = io.harts.map(_.redo).read(hart)
-      }
+
 
       val request = commandRequest || abstractAuto.trigger
       when(request && abstractcs.busy && abstractcs.noError){
@@ -232,8 +243,9 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         abstractcs.busy := False
       )
       IDLE.whenIsActive{
+        executionCounter := 0
         when(request && abstractcs.noError) {
-          when(!selected.halted){
+          when(!io.harts.map(_.halted).read(dmcontrol.hartSel.resized)){
             abstractcs.cmdErr := DebugModuleCmdErr.HALT_RESUME
           } otherwise {
             selected.hart := dmcontrol.hartSel.resized
@@ -288,7 +300,6 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         }
       }
 
-      val executionCounter = Reg(UInt(log2Up(p.progBufSize) bits))
       POST_EXEC.whenIsActive{
         toHarts.valid := True
         toHarts.op := DebugDmToHartOp.EXECUTE
