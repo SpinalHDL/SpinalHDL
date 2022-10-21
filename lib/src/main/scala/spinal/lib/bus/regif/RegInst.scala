@@ -1,11 +1,12 @@
 package spinal.lib.bus.regif
 
-import spinal.core._
+import spinal.core.{Bits, _}
 import spinal.lib.bus.misc.{AddressMapping, SingleMapping, SizeMapping}
 import spinal.lib.{Flow, Stream}
 
 import scala.collection.mutable.ListBuffer
 import AccessType._
+import spinal.lib.bus.bram.BRAM
 
 class Section(val max: Int, val min: Int){
   override def toString(): String = {
@@ -76,34 +77,6 @@ case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf
 
 class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends MappedBase(name,SizeMapping(addr, busif.wordAddressInc),doc,busif) with FifoDescr {
 }
-
-// TODO: Re-evaluate
-//class StreamInst(name: String, addr: BigInt, size: BigInt, doc: String, busif: BusIf) extends MappedBase(name, SizeMapping(addr, size), doc, busif) {
-//
-//  def writeStream(): Stream[TupleBundle2[UInt, Bits]] = {
-//    val stream = new Stream(TupleBundle2(busif.writeAddress().clone, busif.writeData))
-//
-//    stream.valid := hitWrite
-//    when(hitWrite && !stream.ready) {
-//      busif.writeHalt()
-//    }
-//  }
-//
-//  def readStream(readData: Bits): Stream[UInt] = {
-//    val stream = new Stream(busif.readAddress())
-//
-//    stream.valid := hitRead
-//    when(hitRead && !stream.ready) {
-//      busif.writeHalt()
-//    }
-//
-//    when(hitRead) {
-//      busif.readData := readData
-//    }
-//
-//    stream
-//  }
-//}
 
 case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
 
