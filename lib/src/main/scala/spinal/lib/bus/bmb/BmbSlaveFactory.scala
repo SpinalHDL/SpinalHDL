@@ -28,9 +28,18 @@ case class BmbSlaveFactory(bus: Bmb) extends BusSlaveFactoryDelayed{
   val doWrite  = (bus.cmd.fire && bus.cmd.isWrite).allowPruning()
   val doRead   = (bus.cmd.fire && bus.cmd.isRead).allowPruning()
 
+  val readErrorFlag = False
+  val writeErrorFlag = False
+
   rsp.arbitrationFrom(bus.cmd)
   rsp.last := True
-  rsp.setSuccess()
+  when(doWrite && writeErrorFlag) {
+    rsp.setError()
+  } elsewhen (doRead && readErrorFlag) {
+    rsp.setError()
+  } otherwise {
+    rsp.setSuccess()
+  }
   rsp.data := 0
   rsp.context := bus.cmd.context
   rsp.source := bus.cmd.source
@@ -45,6 +54,9 @@ case class BmbSlaveFactory(bus: Bmb) extends BusSlaveFactoryDelayed{
 
   override def readFire(): Bool  = bus.cmd.fire
   override def writeFire(): Bool = bus.cmd.fire
+
+  override def readError(): Unit = readErrorFlag := True
+  override def writeError(): Unit = writeErrorFlag := True
 
   override def build(): Unit = {
     super.doNonStopWrite(bus.cmd.data)

@@ -51,6 +51,9 @@ class BRAMSlaveFactory(bus: BRAM, incAddress: Int = 0) extends BusSlaveFactoryDe
   override def readAddress()  = bus.addr
   override def writeAddress() = bus.addr
 
+  override def readError(): Unit = {}
+  override def writeError(): Unit = {}
+
   override def busDataWidth: Int   = bus.wrdata.getWidth
   override def wordAddressInc: Int = if(incAddress == 0) super.wordAddressInc else incAddress
 

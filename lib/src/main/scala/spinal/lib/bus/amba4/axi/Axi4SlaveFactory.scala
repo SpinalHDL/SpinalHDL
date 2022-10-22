@@ -13,6 +13,8 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
   val readHaltRequest = False
   val writeHaltRequest = False
 
+  val readErrorFlag = False
+  val writeErrorFlag = False
 
   var writeCmd = bus.writeCmd.unburstify
   val writeJoinEvent = StreamJoin.arg(writeCmd, bus.writeData)
@@ -34,9 +36,21 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
   bus.readRsp << readDataStage.haltWhen(readHaltRequest).translateWith(readRsp)
 
   // only one outstanding request is supported
-  writeRsp.setOKAY()
   if(bus.config.useId) writeRsp.id := writeCmd.id
-  readRsp.setOKAY()
+  if (writeRsp.config.useResp) {
+    when(writeErrorFlag) {
+      writeRsp.setSLVERR()
+    } otherwise {
+      writeRsp.setOKAY()
+    }
+  }
+  if (readRsp.config.useResp) {
+    when(readErrorFlag) {
+      readRsp.setSLVERR()
+    } otherwise {
+      readRsp.setOKAY()
+    }
+  }
   readRsp.data := 0
   readRsp.last := readDataStage.last
   if(bus.config.useId) readRsp.id := readDataStage.id
@@ -55,6 +69,9 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
 
   override def readHalt(): Unit = readHaltRequest := True
   override def writeHalt(): Unit = writeHaltRequest := True
+
+  override def readError(): Unit = readErrorFlag := True
+  override def writeError(): Unit = writeErrorFlag := True
 
   override def build(): Unit = {
     super.doNonStopWrite(bus.writeData.data)

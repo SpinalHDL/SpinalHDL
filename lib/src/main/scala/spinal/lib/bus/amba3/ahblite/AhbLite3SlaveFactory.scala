@@ -42,6 +42,13 @@ class AhbLite3SlaveFactory(bus: AhbLite3, incAddress: Int = 0) extends BusSlaveF
   override def readAddress()  = bus.HADDR
   override def writeAddress() = bus.HADDR
 
+  // TODO: Implement
+  val readErrorFlag = False
+  val writeErrorFlag = False
+
+  override def readError(): Unit = readErrorFlag := True
+  override def writeError(): Unit = writeErrorFlag := True
+
   override def busDataWidth: Int   = bus.HWDATA.getWidth
   override def wordAddressInc: Int = if(incAddress == 0) super.wordAddressInc else incAddress
 
