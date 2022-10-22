@@ -949,7 +949,7 @@ class ComponentEmitterVerilog(
 
   def emitBaseTypeSignal(baseType: BaseType, name: String): String = {
     val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
-    val net     = if(signalNeedProcess(baseType)) "reg" else "wire"
+    val net     = (if(signalNeedProcess(baseType)) "reg" else "wire") + emitCommentEarlyAttributes(baseType.instanceAttributes)
     val comment = s"${emitCommentAttributes(baseType.instanceAttributes)}"
     val section = emitType(baseType)
     s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
@@ -1116,12 +1116,12 @@ class ComponentEmitterVerilog(
       for(i <- 0 until symbolCount) {
           val postfix = "_symbol" + i
         val symboleName = s"${emitReference(mem,false)}$postfix"
-        declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg [${symbolWidth- 1}:0] $symboleName [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
+        declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg ${emitCommentEarlyAttributes(mem.instanceAttributes(Language.VERILOG))}[${symbolWidth- 1}:0] $symboleName [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
         mappings += MemSymbolesMapping(symboleName, i*symbolWidth until (i+1)*symbolWidth)
       }
       mem.addTag(MemSymbolesTag(mappings))
     }else{
-      declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg ${emitRange(mem)} ${emitReference(mem,false)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
+      declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg ${emitCommentEarlyAttributes(mem.instanceAttributes(Language.VERILOG))}${emitRange(mem)} ${emitReference(mem,false)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
     }
 
     if (mem.initialContent != null) {

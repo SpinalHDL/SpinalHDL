@@ -105,6 +105,18 @@ trait VerilogBase extends VhdlVerilogBase{
     " /* " + values.reduce(_ + " , " + _) + " */ "
   }
 
+  def emitCommentEarlyAttributes(attributes: Iterable[Attribute]): String = {
+    val values = for (attribute <- attributes if attribute.attributeKind() == COMMENT_EARLY_ATTRIBUTE) yield attribute match {
+      case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
+      case attribute: AttributeInteger => attribute.getName + " = " + attribute.value.toString
+      case attribute: AttributeFlag => attribute.getName
+    }
+
+    if(values.isEmpty) return ""
+
+    " /* " + values.reduce(_ + " , " + _) + " */ "
+  }
+
   def emitEnumLiteral[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
 //    prefix + senum.spinalEnum.getName() + "_" + encoding.getName() + "_" + senum.getName()
     var prefix_fix = prefix;

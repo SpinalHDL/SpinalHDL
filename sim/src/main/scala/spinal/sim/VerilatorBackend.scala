@@ -93,7 +93,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
                 WaveFormat.NONE
               }
 
-  def genWrapperCpp(): Unit = {
+  def genWrapperCpp(useTimePrecision: Boolean = true): Unit = {
     val jniPrefix = "Java_" + s"wrapper_${workspaceName}".replace("_", "_1") + "_VerilatorNative_"
     val wrapperString = s"""
 #include <stdint.h>
@@ -291,7 +291,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${format.ext}").c_str());
       #endif
       this->name = name;
-      this->time_precision = Verilated::timeprecision();
+      this->time_precision = ${if (useTimePrecision) "Verilated::timeprecision()" else "VL_TIME_PRECISION" };
     }
 
     virtual ~Wrapper_${uniqueId}(){
@@ -530,6 +530,10 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     var workspaceCacheDir: File = null
     var hashCacheDir: File = null
 
+    val verilatorVersionProcess = Process(Seq(verilatorBinFilename, "--version"), new File(workspacePath))
+    val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n") // blocks and throws an exception if exit status != 0
+    val verilatorVersionDeci = BigDecimal(verilatorVersion.split(" ")(1))
+
     if (cacheEnabled) {
       // calculate hash of verilator version+options and source file contents
 
@@ -551,9 +555,6 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       md.update(0.toByte)
       md.update(config.simulatorFlags.mkString(" ").getBytes())
       md.update(0.toByte)
-
-      val verilatorVersionProcess = Process(Seq(verilatorBinFilename, "--version"), new File(workspacePath))
-      val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n")    // blocks and throws an exception if exit status != 0
       md.update(verilatorVersion.getBytes())
 
       def hashFile(md: MessageDigest, file: File) = {
@@ -644,7 +645,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
         FileUtils.copyDirectory(workspaceCacheDir, workspaceDir)
       }
 
-      genWrapperCpp()
+      genWrapperCpp(verilatorVersionDeci >= BigDecimal("4.034"))
       val threadCount = SimManager.cpuCount
       if (!useCache) {
         assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
