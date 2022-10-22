@@ -427,6 +427,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {}
   def onWriteByteAlways(address: BigInt, data: Byte, strobe: Boolean, id: Int): Unit = {}
   def onWriteByte(address : BigInt, data : Byte, id: Int) : Unit = {}
+  def onWriteByte(address : BigInt, data : Byte) : Unit = {} // Legacy, use onWriteByte for more ID information
   def onResponse(id: Int, resp: Byte): Unit = {}
   case class WTransaction(data : BigInt, strb : BigInt, last : Boolean)
   case class BTransaction(resp: Byte, id: Int)
@@ -479,6 +480,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
           val strobe = ((strb >> i) & 1) != 0
           onWriteByteAlways(accessAddress + i, _byte, strobe, id)
           if (start <= i && i < end && strobe) {
+            onWriteByte(accessAddress + i, _byte)
             onWriteByte(accessAddress + i, _byte, id)
           }
         }
@@ -531,6 +533,7 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
   def onReadByteAlways(address: BigInt, data: Byte, id: Int): Unit = {}
   def onReadByte(address : BigInt, data : Byte, id : Int) : Unit = {}
   def onResponse(address: BigInt, id: Int, last: Boolean, resp: Byte): Unit = {}
+  def onLast(id: Int): Unit = {} // Legacy, use onResponse for more transaction information
 
   val rQueue = mutable.Queue[() => Unit]()
 
@@ -571,6 +574,7 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
           }
         }
         val last = (busConfig.useLast && r.last.toBoolean) || (beat == len)
+        if (last) onLast(id)
         val resp: Byte = if (busConfig.useResp) r.resp.toInt.toByte else 0
         onResponse(accessAddress, id, last, resp)
       }
