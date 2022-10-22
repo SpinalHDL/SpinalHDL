@@ -427,6 +427,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {}
   def onWriteByteAlways(address: BigInt, data: Byte, strobe: Boolean, id: Int): Unit = {}
   def onWriteByte(address : BigInt, data : Byte, id: Int) : Unit = {}
+  @deprecated("Use onWriteByte with ID argument")
   def onWriteByte(address : BigInt, data : Byte) : Unit = {} // Legacy, use onWriteByte for more ID information
   def onResponse(id: Int, resp: Byte): Unit = {}
   case class WTransaction(data : BigInt, strb : BigInt, last : Boolean)
@@ -533,6 +534,7 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
   def onReadByteAlways(address: BigInt, data: Byte, id: Int): Unit = {}
   def onReadByte(address : BigInt, data : Byte, id : Int) : Unit = {}
   def onResponse(address: BigInt, id: Int, last: Boolean, resp: Byte): Unit = {}
+  @deprecated("Use onResponse which provides more transaction information")
   def onLast(id: Int): Unit = {} // Legacy, use onResponse for more transaction information
 
   val rQueue = mutable.Queue[() => Unit]()
