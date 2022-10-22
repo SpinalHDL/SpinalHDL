@@ -11,16 +11,7 @@ import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper, Size
 import language.experimental.macros
 import scala.collection.mutable.ListBuffer
 
-object BusInterface {
-  def apply(factory: BusSlaveFactory, mapping: SizeMapping, regPre: String): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, mapping.base), regPre = regPre)
-  def apply(factory: BusSlaveFactory, mapping: SizeMapping): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, mapping.base), regPre = null)
-  def apply(factory: BusSlaveFactory, addr: BigInt, regPre: String): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, addr), regPre = regPre)
-  def apply(factory: BusSlaveFactory, addr: BigInt): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, addr), regPre = null)
-  def apply(factory: BusSlaveFactory, regPre: String): BusIf = new BusIf(factory, regPre = regPre)
-  def apply(factory: BusSlaveFactory): BusIf = new BusIf(factory, regPre = null)
-}
-
-class BusIf(protected[regif] val factory: BusSlaveFactory, val regPre: String = null) extends Area {
+class BusIf(protected[regif] val factory: BusSlaveFactory, val regPre: String = null)(implicit moduleName: ClassName) extends Area {
   type B <: this.type
   private val mappedInsts = ListBuffer[MappedBase]()
   private def nextInstAddr: BigInt = {
@@ -29,7 +20,7 @@ class BusIf(protected[regif] val factory: BusSlaveFactory, val regPre: String = 
     } else 0
   }
 
-  def getModuleName: String = getName() // TODO: Figure out
+  def getModuleName: String = moduleName.name
 
   def busDataWidth = factory.busDataWidth
   def wordAddressInc = factory.wordAddressInc

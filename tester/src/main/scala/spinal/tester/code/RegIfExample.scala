@@ -2,7 +2,6 @@ package spinal.tester.code
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba3.ahblite.AhbLite3SlaveFactory
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif.AccessType._
@@ -13,7 +12,7 @@ class RegIfExample extends Component {
     val apb = slave(Apb3(Apb3Config(16,32)))
   }
 
-  val busif = BusInterface(Apb3SlaveFactory(io.apb),(0x000,1 KiB), regPre = "AP")
+  val busif = BusInterface(io.apb,(0x000,1 KiB), 0, regPre = "AP")
 
   val M_TURBO_EARLY_QUIT    = busif.newReg(doc = "Turbo Hardware-mode register1")
   val early_quit  = M_TURBO_EARLY_QUIT.field(Bool(), RW, 0, doc = "CRC validate early quit enable").asOutput()
@@ -66,7 +65,7 @@ class RegIfExample2 extends Component {
   val io = new Bundle {
     val apb = slave(Apb3(Apb3Config(16, 32)))
   }
-  val busif = BusInterface(Apb3SlaveFactory(io.apb), (0x000, 100 Byte))
+  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
   val M_REG0  = busif.newReg(doc="Word 0")
   val M_REG1  = busif.newReg(doc="Word 1")
   val M_REG2  = busif.newReg(doc="Word 2")
@@ -96,7 +95,7 @@ class InterruptRegIf extends Component {
     val apb = slave(Apb3(Apb3Config(16, 32)))
   }
 
-  val busif = BusInterface(Apb3SlaveFactory(io.apb), (0x000, 100 Byte))
+  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
 
   val M_SRCH_INT_EN   = busif.newReg(doc="srch int enable register")
   val psc_int_en      = M_SRCH_INT_EN.field(Bool(), RW, doc="psc interrupt enable register")
@@ -139,7 +138,7 @@ class InterruptRegIf3 extends Component {
     val interrupt = out Bool()
     val apb = slave(Apb3(Apb3Config(16, 32)))
   }
-  val busif = BusInterface(Apb3SlaveFactory(io.apb), (0x000, 100 Byte))
+  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
 
   val int = InterruptFactory(busif,"M_INT",io.psc_done,
     io.pth_done,io.ssc_done,io.grp_done,io.scd_done,io.srch_finish)
@@ -153,7 +152,7 @@ class cpInterruptExample extends Component {
     val interrupt = out Bool()
     val apb = slave(Apb3(Apb3Config(16, 32)))
   }
-  val busif = BusInterface(Apb3SlaveFactory(io.apb), (0x000, 100 Byte))
+  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
 
   val M_CP_INT_EN    = busif.newReg(doc="cp int enable register")
   val tx_int_en      = M_CP_INT_EN.field(Bool(), RW, doc="tx interrupt enable register")
@@ -183,7 +182,7 @@ class cpInterruptFactoryExample extends Component {
     val interrupt = out Bool()
     val apb = slave(Apb3(Apb3Config(16, 32)))
   }
-  val busif2 = BusInterface(Apb3SlaveFactory(io.apb), (0x000, 100 Byte))
+  val busif2 = Apb3BusInterface(io.apb, (0x000, 100 Byte))
 
   val tx = io.tx_done
   val rx = io.rx_done
@@ -200,7 +199,7 @@ class ahbregifExample extends Component {
     val ahb = slave(AhbLite3(AhbLite3Config(16, 32)))
   }
 //  val busif2 = AhbLite3BusInterface(io.ahb, (0x000, 100 Byte))
-  val busif2 = BusInterface(AhbLite3SlaveFactory(io.ahb), (0x000, 100 Byte))
+  val busif2 = BusInterface(io.ahb, (0x000, 100 Byte))
 
   val tx = io.tx_done
   val rx = io.rx_done
