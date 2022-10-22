@@ -3,6 +3,7 @@ package spinal.lib.tools
 import spinal.core._
 
 import scala.language._
+import scala.collection.mutable
 
 /**
  * Module topology analyzer. It provides some methods that return the input or output pins,
@@ -15,34 +16,34 @@ class ModuleAnalyzer(module: Module) {
     * Return all input port of the module
     * @return set of base type
     */
-  def allInputs: Set[BaseType] = module.getAllIo.filter(_.isInputOrInOut).toSet
+  def allInputs: mutable.LinkedHashSet[BaseType] = module.getAllIo.asInstanceOf[mutable.LinkedHashSet[BaseType]].filter(_.isInputOrInOut)
 
   /**
     * Filter the input ports
     * @param filter - the predicate to filter the input ports
     * @return set of filtered input ports
     */
-  def getInputs(filter: BaseType => Boolean): Set[BaseType] = allInputs.filter(filter)
+  def getInputs(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allInputs.filter(filter)
 
   /**
     * Get all output ports
     * @return set of output base type
     */
-  def allOutputs: Set[BaseType] = module.getAllIo.filter(_.isOutputOrInOut).toSet
+  def allOutputs: mutable.LinkedHashSet[BaseType] = module.getAllIo.asInstanceOf[mutable.LinkedHashSet[BaseType]].filter(_.isOutputOrInOut)
 
   /**
     * Filter the output ports
     * @param filter - the predicate to filter the output ports
     * @return set of filtered output ports
     */
-  def getOutputs(filter: BaseType=> Boolean): Set[BaseType] = allOutputs.filter(filter)
+  def getOutputs(filter: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = allOutputs.filter(filter)
 
   /**
     * Get all the clock domains inside the module
     * @return set of the clock domains
     */
-  def allClocks: Set[ClockDomain] = {
-    val ret = Set.newBuilder[ClockDomain]
+  def allClocks: mutable.LinkedHashSet[ClockDomain] = {
+    val ret = mutable.LinkedHashSet.newBuilder[ClockDomain]
     module.walkComponents {comp=>
       comp.dslBody.walkDeclarations {ds=>
         ds.foreachClockDomain{cd=>
@@ -58,14 +59,14 @@ class ModuleAnalyzer(module: Module) {
     * @param filter - the predicate to filter the clock domains
     * @return set of clock domain
     */
-  def getClocks(filter: ClockDomain=> Boolean): Set[ClockDomain] = allClocks.filter(filter)
+  def getClocks(filter: ClockDomain=> Boolean): mutable.LinkedHashSet[ClockDomain] = allClocks.filter(filter)
 
   /**
     * Get all the registers inside the module
     * @return set of register of base type
     */
-  def allRegisters: Set[BaseType] = {
-    val ret = Set.newBuilder[BaseType]
+  def allRegisters: mutable.LinkedHashSet[BaseType] = {
+    val ret = mutable.LinkedHashSet.newBuilder[BaseType]
     module.dslBody.walkDeclarations {
       case ds: BaseType if ds.isReg=>
         ret += ds
@@ -79,15 +80,15 @@ class ModuleAnalyzer(module: Module) {
     * @param filter  - the predicate to filter the clock domains
     * @return set of filtered registers
     */
-  def getRegisters(filter: BaseType=> Boolean): Set[BaseType] = allRegisters.filter(filter)
+  def getRegisters(filter: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = allRegisters.filter(filter)
 
   /**
     * Get the submodule instances that meet the condition
     * @param cond - the condition that instance should meet.
     * @return - set of sub module instances
     */
-  def getCells(cond: Module=> Boolean): Set[Module] = {
-    val ret = Set.newBuilder[Module]
+  def getCells(cond: Module=> Boolean): mutable.LinkedHashSet[Module] = {
+    val ret = mutable.LinkedHashSet.newBuilder[Module]
     module.walkComponents{m=>
       if (cond(m)) ret += m
     }
@@ -98,8 +99,8 @@ class ModuleAnalyzer(module: Module) {
     * @param cond - the condition that instance should meet.
     * @return - set of sub blackbox instances
     */
-  def getLibCells(cond: BlackBox=> Boolean): Set[BlackBox] = {
-    val ret = Set.newBuilder[BlackBox]
+  def getLibCells(cond: BlackBox=> Boolean): mutable.LinkedHashSet[BlackBox] = {
+    val ret = mutable.LinkedHashSet.newBuilder[BlackBox]
     module.walkComponents{
       case bb: BlackBox if cond(bb) =>
         ret += bb
@@ -113,8 +114,8 @@ class ModuleAnalyzer(module: Module) {
     * @param cond the filtering condition
     * @return set of the base type nets
     */
-  def getNets(cond: BaseType=> Boolean): Set[BaseType] = {
-    val ret = Set.newBuilder[BaseType]
+  def getNets(cond: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = {
+    val ret = mutable.LinkedHashSet.newBuilder[BaseType]
     module.walkComponents{m=>
       m.dslBody.walkDeclarations {
         case ds: BaseType if cond(ds)=>
@@ -130,8 +131,8 @@ class ModuleAnalyzer(module: Module) {
     * @param cond the filtering condition
     * @return set of the pin type
     */
-  def getPins(cond: BaseType=> Boolean): Set[BaseType] = {
-    val ret = Set.newBuilder[BaseType]
+  def getPins(cond: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = {
+    val ret = mutable.LinkedHashSet.newBuilder[BaseType]
     module.walkComponents{m=>
       m.dslBody.walkDeclarations {
         case ds: BaseType if (ds.isInputOrInOut || ds.isOutput) && cond(ds) =>
@@ -146,8 +147,8 @@ class ModuleAnalyzer(module: Module) {
     * @param cond the filtering condition
     * @return set of the pin type
     */
-  def getLibPins(cond: BaseType=> Boolean): Set[BaseType] = {
-    val ret = Set.newBuilder[BaseType]
+  def getLibPins(cond: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = {
+    val ret = mutable.LinkedHashSet.newBuilder[BaseType]
     val cellTrue = (_: BlackBox) => true
     getLibCells(cellTrue).foreach{bb=>
       val e = new ModuleAnalyzer(bb)
@@ -161,7 +162,7 @@ class ModuleAnalyzer(module: Module) {
     * @param cond the filtering condition
     * @return set of the ports
     */
-  def getPort(cond: BaseType=> Boolean): Set[BaseType] = {
+  def getPort(cond: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = {
     val e = new ModuleAnalyzer(module.globalData.toplevel)
     (e.allInputs ++ e.allOutputs).filter(cond)
   }

@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.internals._
 
 import scala.language.implicitConversions
+import scala.collection.mutable
 
 /**
  * Base type data analyzer. It provides some utilities that help designer analyze the
@@ -16,8 +17,8 @@ class DataAnalyzer(data: BaseType) {
    * Return all the fan-ins signals of this data
    * @return - a set of fan-ins signals.
    */
-  def allFanIn: Set[BaseType] = {
-    val ret = Set.newBuilder[BaseType]
+  def allFanIn: mutable.LinkedHashSet[BaseType] = {
+    val ret = mutable.LinkedHashSet.newBuilder[BaseType]
     data.foreachStatements {st=>
       if (!(st.isInstanceOf[InitAssignmentStatement] || st.isInstanceOf[InitialAssignmentStatement])) {
         st.foreachDrivingExpression{
@@ -38,7 +39,7 @@ class DataAnalyzer(data: BaseType) {
    * @param cond - a predicate to filter the fan-in
    * @return a set of fan-ins signals
    */
-  def getFanIn(cond: BaseType=> Boolean): Set[BaseType] = allFanIn.filter(cond)
+  def getFanIn(cond: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = allFanIn.filter(cond)
 
   /**
    * Iterate on the filtered fan-ins.
@@ -51,7 +52,7 @@ class DataAnalyzer(data: BaseType) {
    * Return all the fan-outs signals of this data
    * @return - a set of fan-outs signals.
    */
-  def allFanOut: Set[BaseType] = {
+  def allFanOut: mutable.LinkedHashSet[BaseType] = {
     import ModuleAnalyzer._
     data.globalData.toplevel.getNets{bt=>
       val e = new DataAnalyzer(bt)
@@ -64,7 +65,7 @@ class DataAnalyzer(data: BaseType) {
    * @param cond - a predicate to filter the fan-out
    * @return a set of fan-outs signals
    */
-  def getFanOut(cond: BaseType=> Boolean): Set[BaseType] = allFanOut.filter(cond)
+  def getFanOut(cond: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = allFanOut.filter(cond)
 
   /**
    * Iterate on the filtered fan-outs.
