@@ -80,20 +80,6 @@ class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends Map
 
 case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
 
-  def checkLast={
-    val spareNumbers = if(fields.isEmpty) busif.busDataWidth else busif.busDataWidth-1 - fields.last.tailBitPos
-    spareNumbers match {
-      case x if x > 0 => field(x bits, AccessType.NA)(SymbolName("reserved"))
-      case x if x < 0 => SpinalError(s"Range ${Section(fields.last.section)} exceed Bus width ${busif.busDataWidth}")
-      case _ =>
-    }
-  }
-
-  def allIsNA: Boolean = {
-    checkLast
-    fields.map(_.accType == AccessType.NA).foldLeft(true)(_&&_)
-  }
-
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue = 0, doc = "")
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue = 0, doc = doc)
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue, doc = "")
@@ -303,6 +289,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   def getFieldDescrs() : List[FieldDescr] = getFields
 
   override def accept(vs : BusIfVisitor) = {
+    insertLastNA()
     duplicateRenaming()
     vs.visit(this)
   }
@@ -325,6 +312,13 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     }
     fields.clear()
     fields ++= ret
+  }
+
+  protected def insertLastNA(): Unit = {
+    if (fields.isEmpty)
+      fields += Field("--", null, 0 until busif.busDataWidth, AccessType.NA, 0, false, "Reversed")
+    else if (fields.last.section.high != busif.busDataWidth-1)
+      fields += Field("--", null, fields.last.section.high+1 until busif.busDataWidth, AccessType.NA, 0, false, "Reversed")
   }
 }
 

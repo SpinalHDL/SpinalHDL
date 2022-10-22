@@ -34,7 +34,6 @@ class BusIf(protected[regif] val factory: BusSlaveFactory, val regPre: String = 
   def busDataWidth = factory.busDataWidth
   def wordAddressInc = factory.wordAddressInc
 
-  private def checkLastNA(): Unit = mappedInsts.filter(_.isInstanceOf[RegInst]).map(_.asInstanceOf[RegInst]).foreach(_.checkLast)
   private def regNameUpdate(): Unit = {
     val words = "\\w*".r
     val pre = regPre match{
