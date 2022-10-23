@@ -27,8 +27,6 @@ SpinalHDL is:
 
 English: [![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) 中文: [![Join the chat at https://gitter.im/SpinalHDL-CN/community](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL-CN/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-[![Build Status](https://travis-ci.org/SpinalHDL/SpinalHDL.svg?branch=master)](https://travis-ci.org/SpinalHDL/SpinalHDL)
-
 ## Get it
 
 SpinalHDL is simply a set of Scala libraries. Include them into your project and you're good to go! If you're unsure about what to do, simply clone one of our example projects (see links above).
