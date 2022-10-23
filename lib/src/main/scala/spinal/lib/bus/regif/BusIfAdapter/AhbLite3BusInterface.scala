@@ -23,7 +23,6 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: Str
 
   val addressDelay = RegNextWhen(bus.HADDR, askRead | askWrite)
 
-  bus.HRESP     := readError
   bus.HRDATA    := readData
 
   readError.clearWhen(readError)
