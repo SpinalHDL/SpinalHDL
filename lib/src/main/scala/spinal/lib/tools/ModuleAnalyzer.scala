@@ -5,48 +5,45 @@ import spinal.core._
 import scala.language._
 import scala.collection.mutable
 
-/**
- * Module topology analyzer. It provides some methods that return the input or output pins,
- * all sub-modules or sub-blackboxes, all clocks inside, and apply condition to the returning
- * results.
- * @param module the module being analyzed
- */
+/** Module topology analyzer. It provides some methods that return the input or output pins,
+  * all sub-modules or sub-blackboxes, all clocks inside, and apply condition to the returning
+  * results.
+  * @param module the module being analyzed
+  */
 class ModuleAnalyzer(module: Module) {
-  /**
-    * Return all input port of the module
+
+  /** Return all input port of the module
     * @return set of base type
     */
-  def allInputs: mutable.LinkedHashSet[BaseType] = module.getAllIo.asInstanceOf[mutable.LinkedHashSet[BaseType]].filter(_.isInputOrInOut)
+  def allInputs: mutable.LinkedHashSet[BaseType] =
+    module.getAllIo.asInstanceOf[mutable.LinkedHashSet[BaseType]].filter(_.isInputOrInOut)
 
-  /**
-    * Filter the input ports
+  /** Filter the input ports
     * @param filter - the predicate to filter the input ports
     * @return set of filtered input ports
     */
   def getInputs(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allInputs.filter(filter)
 
-  /**
-    * Get all output ports
+  /** Get all output ports
     * @return set of output base type
     */
-  def allOutputs: mutable.LinkedHashSet[BaseType] = module.getAllIo.asInstanceOf[mutable.LinkedHashSet[BaseType]].filter(_.isOutputOrInOut)
+  def allOutputs: mutable.LinkedHashSet[BaseType] =
+    module.getAllIo.asInstanceOf[mutable.LinkedHashSet[BaseType]].filter(_.isOutputOrInOut)
 
-  /**
-    * Filter the output ports
+  /** Filter the output ports
     * @param filter - the predicate to filter the output ports
     * @return set of filtered output ports
     */
-  def getOutputs(filter: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = allOutputs.filter(filter)
+  def getOutputs(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allOutputs.filter(filter)
 
-  /**
-    * Get all the clock domains inside the module
+  /** Get all the clock domains inside the module
     * @return set of the clock domains
     */
   def allClocks: mutable.LinkedHashSet[ClockDomain] = {
     val ret = mutable.LinkedHashSet.newBuilder[ClockDomain]
-    module.walkComponents {comp=>
-      comp.dslBody.walkDeclarations {ds=>
-        ds.foreachClockDomain{cd=>
+    module.walkComponents { comp =>
+      comp.dslBody.walkDeclarations { ds =>
+        ds.foreachClockDomain { cd =>
           ret += cd
         }
       }
@@ -54,115 +51,108 @@ class ModuleAnalyzer(module: Module) {
     ret.result()
   }
 
-  /**
-    * Filter the clock domains
+  /** Filter the clock domains
     * @param filter - the predicate to filter the clock domains
     * @return set of clock domain
     */
-  def getClocks(filter: ClockDomain=> Boolean): mutable.LinkedHashSet[ClockDomain] = allClocks.filter(filter)
+  def getClocks(filter: ClockDomain => Boolean): mutable.LinkedHashSet[ClockDomain] = allClocks.filter(filter)
 
-  /**
-    * Get all the registers inside the module
+  /** Get all the registers inside the module
     * @return set of register of base type
     */
   def allRegisters: mutable.LinkedHashSet[BaseType] = {
     val ret = mutable.LinkedHashSet.newBuilder[BaseType]
     module.dslBody.walkDeclarations {
-      case ds: BaseType if ds.isReg=>
+      case ds: BaseType if ds.isReg =>
         ret += ds
-      case _=>
+      case _ =>
     }
     ret.result()
   }
 
-  /**
-    * Filter the registers
+  /** Filter the registers
     * @param filter  - the predicate to filter the clock domains
     * @return set of filtered registers
     */
-  def getRegisters(filter: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = allRegisters.filter(filter)
+  def getRegisters(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allRegisters.filter(filter)
 
-  /**
-    * Get the submodule instances that meet the condition
+  /** Get the submodule instances that meet the condition
     * @param cond - the condition that instance should meet.
     * @return - set of sub module instances
     */
-  def getCells(cond: Module=> Boolean): mutable.LinkedHashSet[Module] = {
+  def getCells(cond: Module => Boolean): mutable.LinkedHashSet[Module] = {
     val ret = mutable.LinkedHashSet.newBuilder[Module]
-    module.walkComponents{m=>
+    module.walkComponents { m =>
       if (cond(m)) ret += m
     }
     ret.result()
   }
-  /**
-    * Get the sub-blackbox instances that meet the condition
+
+  /** Get the sub-blackbox instances that meet the condition
     * @param cond - the condition that instance should meet.
     * @return - set of sub blackbox instances
     */
-  def getLibCells(cond: BlackBox=> Boolean): mutable.LinkedHashSet[BlackBox] = {
+  def getLibCells(cond: BlackBox => Boolean): mutable.LinkedHashSet[BlackBox] = {
     val ret = mutable.LinkedHashSet.newBuilder[BlackBox]
-    module.walkComponents{
+    module.walkComponents {
       case bb: BlackBox if cond(bb) =>
         ret += bb
-      case _=>
+      case _ =>
     }
     ret.result()
   }
 
-  /**
-    * Get the wire/net inside the module
+  /** Get the wire/net inside the module
     * @param cond the filtering condition
     * @return set of the base type nets
     */
-  def getNets(cond: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = {
+  def getNets(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = {
     val ret = mutable.LinkedHashSet.newBuilder[BaseType]
-    module.walkComponents{m=>
+    module.walkComponents { m =>
       m.dslBody.walkDeclarations {
-        case ds: BaseType if cond(ds)=>
+        case ds: BaseType if cond(ds) =>
           ret += ds
-        case _=>
+        case _ =>
       }
     }
     ret.result()
   }
 
-  /**
-    * Get pins of the sub-module instance inside the module.
+  /** Get pins of the sub-module instance inside the module.
     * @param cond the filtering condition
     * @return set of the pin type
     */
-  def getPins(cond: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = {
+  def getPins(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = {
     val ret = mutable.LinkedHashSet.newBuilder[BaseType]
-    module.walkComponents{m=>
+    module.walkComponents { m =>
       m.dslBody.walkDeclarations {
         case ds: BaseType if (ds.isInputOrInOut || ds.isOutput) && cond(ds) =>
           ret += ds
-        case _=>
+        case _ =>
       }
     }
     ret.result()
   }
-  /**
-    * Get pins of the sub-blackbox instance inside the module.
+
+  /** Get pins of the sub-blackbox instance inside the module.
     * @param cond the filtering condition
     * @return set of the pin type
     */
-  def getLibPins(cond: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = {
+  def getLibPins(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = {
     val ret = mutable.LinkedHashSet.newBuilder[BaseType]
     val cellTrue = (_: BlackBox) => true
-    getLibCells(cellTrue).foreach{bb=>
+    getLibCells(cellTrue).foreach { bb =>
       val e = new ModuleAnalyzer(bb)
       ret ++= e.getPins(cond)
     }
     ret.result()
   }
 
-  /**
-    * Get the toplevel module's ports
+  /** Get the toplevel module's ports
     * @param cond the filtering condition
     * @return set of the ports
     */
-  def getPort(cond: BaseType=> Boolean): mutable.LinkedHashSet[BaseType] = {
+  def getPort(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = {
     val e = new ModuleAnalyzer(module.globalData.toplevel)
     (e.allInputs ++ e.allOutputs).filter(cond)
   }
@@ -172,5 +162,5 @@ class ModuleAnalyzer(module: Module) {
 object ModuleAnalyzer {
   implicit def toElaborator(module: Module): ModuleAnalyzer = new ModuleAnalyzer(module)
   val cellTrue = (_: Component) => true
-  val dataTrue = (_: Data) => true
+  val dataTrue = (_: BaseType) => true
 }
