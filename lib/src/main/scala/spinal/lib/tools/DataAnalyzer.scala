@@ -8,13 +8,13 @@ import scala.language.implicitConversions
 import scala.collection.mutable
 
 /** Base type data analyzer. It provides some utilities that help designer analyze the
-  * circuit at the runtime.
-  * @param data - the data to be analyzed. The analyze unit is BaseType signal like Bits/UInt/SInt/Bool
+  * circuit at runtime.
+  * @param data the data to be analyzed. The analyzed unit is BaseType signal like Bits/UInt/SInt/Bool
   */
 class DataAnalyzer(data: BaseType) {
 
-  /** Return all the fan-ins signals of this data
-    * @return - a set of fan-ins signals.
+  /** Get all the fan-in signals of this data
+    * @return a set of fan-in signals.
     */
   def allFanIn: mutable.LinkedHashSet[BaseType] = {
     val ret = mutable.LinkedHashSet.newBuilder[BaseType]
@@ -35,20 +35,20 @@ class DataAnalyzer(data: BaseType) {
     ret.result()
   }
 
-  /** Filter the fan-ins according to the condition.
-    * @param cond - a predicate to filter the fan-in
-    * @return a set of fan-ins signals
+  /** Get the fan-ins matching the condition
+    * @param cond a predicate to filter the fan-ins
+    * @return a set of fan-in signals
     */
   def getFanIn(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allFanIn.filter(cond)
 
   /** Iterate on the filtered fan-ins.
-    * @param cond -  a predicate to filter the fan-in
-    * @param func - the function applied on the data
+    * @param cond a predicate to filter the fan-ins
+    * @param func the function applied on the data
     */
   def walkFanIn(cond: BaseType => Boolean)(func: BaseType => Unit): Unit = getFanIn(cond).foreach(func)
 
-  /** Return all the fan-outs signals of this data
-    * @return - a set of fan-outs signals.
+  /** Get all the fan-out signals of this data
+    * @return a set of fan-out signals.
     */
   def allFanOut: mutable.LinkedHashSet[BaseType] = {
     import ModuleAnalyzer._
@@ -58,19 +58,20 @@ class DataAnalyzer(data: BaseType) {
     }
   }
 
-  /** Filter the fan-outs according to the condition.
-    * @param cond - a predicate to filter the fan-out
-    * @return a set of fan-outs signals
+  /** Get the fan-outs matching the condition
+    * @param cond a predicate to filter the fan-outs
+    * @return a set of fan-out signals
     */
   def getFanOut(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allFanOut.filter(cond)
 
   /** Iterate on the filtered fan-outs.
-    * @param cond -  a predicate to filter the fan-outs
-    * @param func - the function applied on the data
+    * @param cond a predicate to filter the fan-outs
+    * @param func the function applied on the data
     */
   def walkFanOut(cond: BaseType => Boolean)(func: BaseType => Unit): Unit = getFanOut(cond).foreach(func)
 }
 
 object DataAnalyzer {
+  /** Build DataAnalyzer to analyze this */
   implicit def toAnalyzer(data: BaseType): DataAnalyzer = new DataAnalyzer(data)
 }

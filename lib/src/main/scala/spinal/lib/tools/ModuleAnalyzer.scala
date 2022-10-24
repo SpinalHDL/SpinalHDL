@@ -6,20 +6,20 @@ import scala.language._
 import scala.collection.mutable
 
 /** Module topology analyzer. It provides some methods that return the input or output pins,
-  * all sub-modules or sub-blackboxes, all clocks inside, and apply condition to the returning
+  * all sub-modules or sub-blackboxes, all clocks inside, and filter the returned
   * results.
   * @param module the module being analyzed
   */
 class ModuleAnalyzer(module: Module) {
 
-  /** Return all input port of the module
+  /** Get all input ports of the module
     * @return set of base type
     */
   def allInputs: mutable.LinkedHashSet[BaseType] =
     module.getAllIo.asInstanceOf[mutable.LinkedHashSet[BaseType]].filter(_.isInputOrInOut)
 
-  /** Filter the input ports
-    * @param filter - the predicate to filter the input ports
+  /** Get the input ports matching the condition
+    * @param filter the predicate to filter the input ports
     * @return set of filtered input ports
     */
   def getInputs(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allInputs.filter(filter)
@@ -30,8 +30,8 @@ class ModuleAnalyzer(module: Module) {
   def allOutputs: mutable.LinkedHashSet[BaseType] =
     module.getAllIo.asInstanceOf[mutable.LinkedHashSet[BaseType]].filter(_.isOutputOrInOut)
 
-  /** Filter the output ports
-    * @param filter - the predicate to filter the output ports
+  /** Get the output ports matching the condition
+    * @param filter the predicate to filter the output ports
     * @return set of filtered output ports
     */
   def getOutputs(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allOutputs.filter(filter)
@@ -51,8 +51,8 @@ class ModuleAnalyzer(module: Module) {
     ret.result()
   }
 
-  /** Filter the clock domains
-    * @param filter - the predicate to filter the clock domains
+  /** Get the clock domains matching the condition
+    * @param filter the predicate to filter the clock domains
     * @return set of clock domain
     */
   def getClocks(filter: ClockDomain => Boolean): mutable.LinkedHashSet[ClockDomain] = allClocks.filter(filter)
@@ -70,15 +70,15 @@ class ModuleAnalyzer(module: Module) {
     ret.result()
   }
 
-  /** Filter the registers
-    * @param filter  - the predicate to filter the clock domains
+  /** Get the registers matching the condition
+    * @param filter the predicate to filter the registers
     * @return set of filtered registers
     */
   def getRegisters(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allRegisters.filter(filter)
 
   /** Get the submodule instances that meet the condition
-    * @param cond - the condition that instance should meet.
-    * @return - set of sub module instances
+    * @param cond the condition that instance should meet.
+    * @return set of sub module instances
     */
   def getCells(cond: Module => Boolean): mutable.LinkedHashSet[Module] = {
     val ret = mutable.LinkedHashSet.newBuilder[Module]
@@ -89,8 +89,8 @@ class ModuleAnalyzer(module: Module) {
   }
 
   /** Get the sub-blackbox instances that meet the condition
-    * @param cond - the condition that instance should meet.
-    * @return - set of sub blackbox instances
+    * @param cond the condition that instance should meet.
+    * @return set of sub blackbox instances
     */
   def getLibCells(cond: BlackBox => Boolean): mutable.LinkedHashSet[BlackBox] = {
     val ret = mutable.LinkedHashSet.newBuilder[BlackBox]
@@ -152,7 +152,7 @@ class ModuleAnalyzer(module: Module) {
     * @param cond the filtering condition
     * @return set of the ports
     */
-  def getPort(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = {
+  def getPorts(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = {
     val e = new ModuleAnalyzer(module.globalData.toplevel)
     (e.allInputs ++ e.allOutputs).filter(cond)
   }
