@@ -22,19 +22,19 @@ class UutModel:
         while True:
             yield RisingEdge(dut.clk)
             assertEquals(dut.io_nonStopWrited,truncUInt(int(dut.io_bus_w_payload_data) >> 4,dut.io_nonStopWrited),"io_nonStopWrited")
-            # when read to addr=2 and write to addr=7 happen at the same cycle
+            # when read to addr=2*4 and write to addr=7*4 happen at the same cycle
             # the former takes precedence
             regBassigned = False
             if int(dut.io_bus_r_valid) & int(dut.io_bus_r_ready) == 1:
                 if self.readAddresses.empty():
                     raise TestFailure("FAIL readAddresses is empty")
                 addr = self.readAddresses.get()
-                if addr == 9:
+                if addr == 9*4:
                     assertEquals(dut.io_bus_r_payload_data,self.regA << 10,"io_bus_r_payload_data")
-                if addr == 7:
+                if addr == 7*4:
                     assertEquals(dut.io_bus_r_payload_data,self.regB << 10,"io_bus_r_payload_data")
 
-                if addr == 2:
+                if addr == 2*4:
                     self.regB = 33
                     regBassigned = True
 
@@ -45,11 +45,11 @@ class UutModel:
 
             if (int(dut.io_bus_aw_valid) & int(dut.io_bus_aw_ready) & int(dut.io_bus_w_valid) & int(dut.io_bus_w_ready)) == 1:
                 addr = int(dut.io_bus_aw_payload_addr)
-                if addr == 9:
+                if addr == 9*4:
                     self.regA = truncUInt(int(dut.io_bus_w_payload_data) >> 10,20)
-                if addr == 7 and not regBassigned:
+                if addr == 7*4 and not regBassigned:
                     self.regB = truncUInt(int(dut.io_bus_w_payload_data) >> 10,20)
-                if addr == 15:
+                if addr == 15*4:
                     self.regA = 11
 
 
@@ -67,11 +67,11 @@ def test1(dut):
     dut.io_bus_w_payload_strb = 0b1111
     for i in range(0,5000):
         randSignal(dut.io_bus_aw_valid)
-        randSignal(dut.io_bus_aw_payload_addr)
+        dut.io_bus_aw_payload_addr = random.randint(0, 15)*4
         randSignal(dut.io_bus_w_valid)
         randSignal(dut.io_bus_w_payload_data)
         randSignal(dut.io_bus_ar_valid)
-        randSignal(dut.io_bus_ar_payload_addr)
+        dut.io_bus_ar_payload_addr = random.randint(0, 15)*4
         randSignal(dut.io_bus_b_ready)
         randSignal(dut.io_bus_r_ready)
         yield RisingEdge(dut.clk)

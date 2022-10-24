@@ -35,7 +35,8 @@ class ComponentEmitterVhdl(
   asyncResetCombSensitivity          : Boolean,
   anonymSignalPrefix                 : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component,Component],
-  pc                                 : PhaseContext
+  pc                                 : PhaseContext,
+  override val spinalConfig          : SpinalConfig
 ) extends ComponentEmitter{
 
   import vhdlBase._
@@ -70,21 +71,25 @@ class ComponentEmitterVhdl(
 
     emitLibrary(ret)
 
+    ret ++= commentTagsToString(component.definition, "--")
 
     ret ++= s"\nentity ${c.definitionName} is\n"
-    ret ++= s"  port("
-    var first = true
 
-    for(portMap <- portMaps){
-      if(first){
-        ret ++= s"\n    $portMap"
-        first = false
-      } else {
-        ret ++= s";\n    $portMap"
+    if (portMaps.length > 0) {
+      ret ++= s"  port("
+      var first = true
+
+      for (portMap <- portMaps) {
+        if (first) {
+          ret ++= s"\n    $portMap"
+          first = false
+        } else {
+          ret ++= s";\n    $portMap"
+        }
       }
-    }
 
-    ret ++= "\n  );\n"
+      ret ++= "\n  );\n"
+    }
 
     ret ++= s"end ${c.definitionName};\n"
     ret ++= s"\n"
@@ -276,6 +281,7 @@ class ComponentEmitterVhdl(
       val isBBUsingULogic        = isBB && children.asInstanceOf[BlackBox].isUsingULogic
       val isBBUsingNoNumericType = isBB && children.asInstanceOf[BlackBox].isUsingNoNumericType
       val definitionString = if (isBB) children.definitionName else s"entity work.${getOrDefault(emitedComponentRef, children, children).definitionName}"
+      logics ++= commentTagsToString(children, "  --")
       logics ++= s"  ${
         children.getName()
       } : $definitionString\n"
@@ -645,7 +651,7 @@ class ComponentEmitterVhdl(
               def emitIsCond(that: Expression): String = that match {
                 case lit: BitVectorLiteral => '"' + lit.getBitsStringOnNoPoison(lit.getWidth) + '"'
                 case lit: BoolLiteral      => if(lit.value) "'1'" else "'0'"
-                case lit: EnumLiteral[_]   => emitEnumLiteral(lit.enum, lit.encoding)
+                case lit: EnumLiteral[_]   => emitEnumLiteral(lit.senum, lit.encoding)
               }
 
               b ++= s"${tab}case ${emitExpression(switchStatement.value)} is\n"
@@ -925,12 +931,16 @@ class ComponentEmitterVhdl(
     if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
       //if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
 
+      val mappings = ArrayBuffer[MemSymbolesMapping]()
       declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${symbolWidth - 1} downto 0);\n"
       for(i <- 0 until symbolCount) {
         val postfix = "_symbol" + i
-        declarations ++= s"  signal ${emitReference(mem,false)}$postfix : ${emitDataType(mem)}${initAssignmentBuilder(i).toString()};\n"
+        val symbolName = s"${emitReference(mem,false)}$postfix"
+        declarations ++= s"  signal $symbolName : ${emitDataType(mem)}${initAssignmentBuilder(i).toString()};\n"
+        mappings += MemSymbolesMapping(symbolName, i*symbolWidth until (i+1)*symbolWidth)
         emitAttributes(mem,mem.instanceAttributes(Language.VHDL), "signal", declarations,postfix = postfix)
       }
+      mem.addTag(MemSymbolesTag(mappings))
     }else{
       declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
       declarations ++= s"  signal ${emitReference(mem,false)} : ${emitDataType(mem)}${initAssignmentBuilder.head.toString()};\n"
@@ -1261,7 +1271,7 @@ class ComponentEmitterVhdl(
   }
 
   def emitEnumLiteralWrap(e: EnumLiteral[_  <: SpinalEnum]): String = {
-    emitEnumLiteral(e.enum, e.encoding)
+    emitEnumLiteral(e.senum, e.encoding)
   }
 
   def enumEgualsImpl(eguals: Boolean)(e: BinaryOperator with EnumEncoded): String = {
@@ -1311,9 +1321,9 @@ class ComponentEmitterVhdl(
   def emitEnumPoison(e: Expression): String = {
     val dc = e.asInstanceOf[EnumPoison]
     if(dc.encoding.isNative)
-      dc.enum.elements.head.getName()
+      dc.senum.elements.head.getName()
     else
-      s"(${'"'}${"X" * dc.encoding.getWidth(dc.enum)}${'"'})"
+      s"(${'"'}${"X" * dc.encoding.getWidth(dc.senum)}${'"'})"
   }
 
   def accessBoolFixed(e: BitVectorBitAccessFixed): String = {
@@ -1424,7 +1434,7 @@ class ComponentEmitterVhdl(
     case  e: Operator.Bool.Or                        => operatorImplAsBinaryOperator("or")(e)
     case  e: Operator.Bool.Xor                       => operatorImplAsBinaryOperator("xor")(e)
 
-    //enum
+    //senum
     case  e: Operator.Enum.Equal                     => enumEgualsImpl(true)(e)
     case  e: Operator.Enum.NotEqual                  => enumEgualsImpl(false)(e)
 

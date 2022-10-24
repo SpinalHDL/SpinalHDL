@@ -2,8 +2,8 @@
   *  This file describes the Axi4 interface
   *
   *   _________________________________________________________________________
-  *  | Global | Write Data | Write Addr | Write Resp | Read Data  | Read Addr  |
-  *  |   -    |    w       |    aw      |      b     |     r      |     ar     |
+  *  | Global | Write Data | Write Addr | Write Resp | Read Addr  | Read Data  |
+  *  |   -    |    w       |    aw      |      b     |     ar     |     r      |
   *  |-------------------------------------------------------------------------|
   *  |  aclk  |  wid       |  *awid     |  *bid      |  *arid     |  rid       |
   *  |  arstn |  wdata     |  awaddr    |  *bresp    |  araddr    |  rdata     |
@@ -54,7 +54,7 @@ case class Axi4Config(addressWidth : Int,
                       rUserWidth   : Int = -1,
                       wUserWidth   : Int = -1,
                       bUserWidth   : Int = -1,
-                      
+
                       readIssuingCapability     : Int = -1,
                       writeIssuingCapability    : Int = -1,
                       combinedIssuingCapability : Int = -1,
@@ -76,6 +76,9 @@ case class Axi4Config(addressWidth : Int,
     "Inconsistent combined issuing capability")
   require(readDataReorderingDepth <= readIssuingCapability,
     "Inconsistent read data reordering depth")
+
+  require(List(8, 16, 32, 64, 128, 256, 512, 1024) contains dataWidth,
+    "Valid data width: 8, 16, 32, 64, 128, 256, 512 or 1024 bit")
 
   def addressType = UInt(addressWidth bits)
   def dataType = Bits(dataWidth bits)
@@ -162,16 +165,43 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
     slave(r,b)
   }
 
-  def toReadOnly(): Axi4ReadOnly ={
+  def toReadOnly(idleOthers: Boolean = false): Axi4ReadOnly ={
     val ret = Axi4ReadOnly(config)
     ret << this
+    if(idleOthers){
+      this.writeCmd.setBlocked()
+      this.writeData.setBlocked()
+      this.writeRsp.setIdle()
+    }
     ret
   }
 
-  def toWriteOnly(): Axi4WriteOnly ={
+  def toWriteOnly(idleOthers: Boolean = false): Axi4WriteOnly ={
     val ret = Axi4WriteOnly(config)
     ret << this
+    if(idleOthers){
+      this.readCmd.setBlocked()
+      this.readRsp.setIdle()
+    }
     ret
+  }
+
+  def setIdle(): this.type = {
+    this.writeCmd.setIdle()
+    this.writeData.setIdle()
+    this.writeRsp.setBlocked()
+    this.readCmd.setIdle()
+    this.readRsp.setBlocked()
+    this
+  }
+
+  def setBlocked(): this.type = {
+    this.writeCmd.setBlocked()
+    this.writeData.setBlocked()
+    this.writeRsp.setIdle()
+    this.readCmd.setBlocked()
+    this.readRsp.setIdle()
+    this
   }
 
   def toShared() : Axi4Shared = {
@@ -181,6 +211,22 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
   def toFullConfig(): Axi4= {
     val ret = Axi4(config.toFullConfig())
     ret << this
+    ret
+  }
+
+  def pipelined(
+    aw: StreamPipe = StreamPipe.NONE,
+    w: StreamPipe = StreamPipe.NONE,
+    b: StreamPipe = StreamPipe.NONE,
+    ar: StreamPipe = StreamPipe.NONE,
+    r: StreamPipe = StreamPipe.NONE
+  ): Axi4 = {
+    val ret = cloneOf(this)
+    ret.aw << this.aw.pipelined(aw)
+    ret.w << this.w.pipelined(w)
+    ret.b.pipelined(b) >> this.b
+    ret.ar << this.ar.pipelined(ar)
+    ret.r.pipelined(r) >> this.r
     ret
   }
 }

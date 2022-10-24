@@ -39,10 +39,11 @@ class SpinalSimSpiXdrMaster extends AnyFunSuite {
   SpinalSimTester { env =>
     import env._
     var compiled: SimCompiled[SpiXdrMasterCtrl.TopLevel] = null
-    test(prefix + "compile") {
+
+    def doCompile(): Unit ={
       compiled = SimConfig.withConfig(SpinalConfig(verbose = true)).compile(
         SpiXdrMasterCtrl(
-          SpiXdrMasterCtrl.Parameters(8, 12, SpiXdrParameter(dataWidth = 4, ioRate = 2, ssWidth = 3))
+          SpiXdrMasterCtrl.Parameters(12, 12, SpiXdrParameter(dataWidth = 4, ioRate = 2, ssWidth = 3))
             .addFullDuplex(0, rate = 1, ddr = false)
             .addFullDuplex(1, rate = 1, ddr = true)
             .addFullDuplex(2, rate = 2, ddr = false)
@@ -57,14 +58,24 @@ class SpinalSimSpiXdrMaster extends AnyFunSuite {
             .addHalfDuplex(9, rate = 1, ddr = true, spiWidth = 4)
             .addHalfDuplex(10, rate = 2, ddr = false, spiWidth = 4)
             .addHalfDuplex(11, rate = 2, ddr = true, spiWidth = 4)
+            .addFullDuplex(12, rate = 1, ddr = false, dataWidth = 9)
+            .addFullDuplex(13, rate = 2, ddr = true, dataWidth = 10)
+            .addHalfDuplex(14, rate = 1, ddr = false, spiWidth = 2, dataWidth = 12)
+            .addHalfDuplex(15, rate = 1, ddr = true,  spiWidth = 2, dataWidth = 12)
         )
       )
+    }
+    test(prefix + "compile") {
+      doCompile()
     }
 
 
     for (cpol <- List(false, true); cpha <- List(false, true); repeat <- 0 to 0) {
       val name = s"$prefix test cpol=$cpol cpha=$cpha $repeat"
       test(name) {
+        if(compiled == null){
+          doCompile()
+        }
         compiled.doSim(name, 32) { dut =>
           SimTimeout(10 * 1000000)
           dut.clockDomain.forkStimulus(10)
@@ -84,10 +95,10 @@ class SpinalSimSpiXdrMaster extends AnyFunSuite {
           while (rspScoreboard.matches < (300 * durationFactor).toInt) {
             dut.io.cmd.valid #= true
             //          if(Random.nextFloat() < 0.8){
-            val writeData, readData = Random.nextInt(256)
+            val mod = dut.p.mods.apply(Random.nextInt(dut.p.mods.length))
+            val writeData, readData = Random.nextInt(1 << mod.dataWidth)
             val write, read = Random.nextBoolean()
             val sclkToogle = Random.nextInt(1 << 2)
-            val mod = dut.p.mods.apply(Random.nextInt(dut.p.mods.length))
 
             dut.io.cmd.kind #= false
             dut.io.cmd.data #= writeData

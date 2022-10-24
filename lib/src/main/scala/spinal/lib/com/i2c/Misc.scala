@@ -36,8 +36,8 @@ import spinal.lib.io.ReadableOpenDrain
   */
 case class I2c() extends Bundle with IMasterSlave {
 
-  val sda   = ReadableOpenDrain(Bool)
-  val scl   = ReadableOpenDrain(Bool)
+  val sda   = ReadableOpenDrain(Bool())
+  val scl   = ReadableOpenDrain(Bool())
 
   override def asMaster(): Unit = {
     master(scl)

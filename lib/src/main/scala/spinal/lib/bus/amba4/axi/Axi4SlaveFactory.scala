@@ -4,23 +4,28 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc._
 
+object Axi4SlaveFactory {
+  def apply(bus: Axi4) = new Axi4SlaveFactory(bus)
+}
+
 class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
 
   val readHaltRequest = False
   val writeHaltRequest = False
 
+
   var writeCmd = bus.writeCmd.unburstify
   val writeJoinEvent = StreamJoin.arg(writeCmd, bus.writeData)
-  val writeRsp = Axi4B(bus.config)
-  bus.writeRsp.payload := writeRsp
+  val writeRsp = Stream(Axi4B(bus.config))
+  bus.writeRsp << writeRsp.stage()
   when(bus.writeData.last) {
     // backpressure in last beat
-    writeJoinEvent.ready := bus.writeRsp.ready
-    bus.writeRsp.valid := writeJoinEvent.fire
+    writeJoinEvent.ready := writeRsp.ready && !writeHaltRequest
+    writeRsp.valid := writeJoinEvent.fire
   } otherwise {
     // otherwise, stall W channel when writeHaltRequest
     writeJoinEvent.ready := !writeHaltRequest
-    bus.writeRsp.valid := False
+    writeRsp.valid := False
   }
 
   val readCmd = bus.ar.unburstify
@@ -30,17 +35,21 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
 
   // only one outstanding request is supported
   writeRsp.setOKAY()
-  writeRsp.id := writeCmd.id
+  if(bus.config.useId) writeRsp.id := writeCmd.id
   readRsp.setOKAY()
   readRsp.data := 0
   readRsp.last := readDataStage.last
-  readRsp.id := readDataStage.id
+  if(bus.config.useId) readRsp.id := readDataStage.id
 
   val writeOccur = writeJoinEvent.fire
   val readOccur = bus.readRsp.fire
 
-  override def readAddress(): UInt = readDataStage.addr
-  override def writeAddress(): UInt = writeCmd.addr
+  def maskAddress(addr : UInt) = addr & ~U(bus.config.dataWidth/8 -1, bus.config.addressWidth bits)
+  val readAddressMasked = maskAddress(readDataStage.addr)
+  val writeAddressMasked = maskAddress(writeCmd.addr)
+
+  override def readAddress(): UInt  = readAddressMasked
+  override def writeAddress(): UInt = writeAddressMasked
 
   override def writeByteEnable(): Bits = bus.writeData.strb
 
@@ -50,31 +59,37 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
   override def build(): Unit = {
     super.doNonStopWrite(bus.writeData.data)
 
-    switch(writeCmd.addr) {
-      for ((address, jobs) <- elementsPerAddress if address.isInstanceOf[SingleMapping]) {
-        is(address.asInstanceOf[SingleMapping].address) {
-          doMappedWriteElements(jobs, writeJoinEvent.valid, writeOccur, bus.writeData.data)
-        }
+    switch(writeAddress()) {
+      for ((address, jobs) <- elementsPerAddress ) address match {
+        case address : SingleMapping =>
+          assert(address.address % (bus.config.dataWidth/8) == 0)
+          is(address.address) {
+            doMappedWriteElements(jobs, writeJoinEvent.valid, writeOccur, bus.writeData.data)
+          }
+        case _ =>
       }
     }
 
     for ((address, jobs) <- elementsPerAddress if !address.isInstanceOf[SingleMapping]) {
-      when(address.hit(writeCmd.addr)) {
+      when(address.hit(writeAddress())) {
         doMappedWriteElements(jobs, writeJoinEvent.valid, writeOccur, bus.writeData.data)
       }
     }
 
 
-    switch(readDataStage.addr) {
-      for ((address, jobs) <- elementsPerAddress if address.isInstanceOf[SingleMapping]) {
-        is(address.asInstanceOf[SingleMapping].address) {
-          doMappedReadElements(jobs, readDataStage.valid, readOccur, readRsp.data)
-        }
+    switch(readAddress()) {
+      for ((address, jobs) <- elementsPerAddress) address match {
+        case address : SingleMapping =>
+          assert(address.address % (bus.config.dataWidth/8) == 0)
+          is(address.address) {
+            doMappedReadElements(jobs, readDataStage.valid, readOccur, readRsp.data)
+          }
+        case _ =>
       }
     }
 
     for ((address, jobs) <- elementsPerAddress if !address.isInstanceOf[SingleMapping]) {
-      when(address.hit(readDataStage.addr)) {
+      when(address.hit(readAddress())) {
         doMappedReadElements(jobs, readDataStage.valid, readOccur, readRsp.data)
       }
     }

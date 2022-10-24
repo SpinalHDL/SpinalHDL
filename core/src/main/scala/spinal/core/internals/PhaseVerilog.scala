@@ -23,25 +23,26 @@ package spinal.core.internals
 import spinal.core._
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc with VerilogBase {
   import pc._
+  globalPrefix = pc.config.globalPrefix
 
   var outFile: java.io.FileWriter = null
-  def targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
+  def rtlName = (if(pc.config.netlistFileName == null)(topLevel.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
+  def targetPath = pc.config.targetDirectory + "/" + rtlName
 
   override def impl(pc: PhaseContext): Unit = {
+
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     if (!pc.config.oneFilePerComponent) {
       outFile = new java.io.FileWriter(targetPath)
       outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
 
-      if(pc.config.dumpWave != null) {
-        outFile.write("`timescale 1ns/1ps ")
-      }
+      outFile.write("`timescale 1ns/1ps")
 
       emitEnumPackage(outFile)
 
@@ -56,47 +57,84 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         outFile.write(e())
       }
 
+      val bbImplStrings = mutable.HashSet[String]()
+      sortedComponents.foreach{
+        case bb : BlackBox if bb.impl != null => {
+          val str = bb.impl.getVerilog()
+          if(!bbImplStrings.contains(str)) {
+            bbImplStrings += str
+            outFile.write("\n")
+            outFile.write(str)
+            outFile.write("\n")
+          }
+        }
+        case _ =>
+      }
+
       outFile.flush()
       outFile.close()
     }
     else {
-      val fileList = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
+      val fileList: mutable.LinkedHashSet[String] = new mutable.LinkedHashSet()
       // dump Enum define to define.v instead attach that on every .v file
-      val defineFileName = pc.config.targetDirectory + "/enumdefine" + (if(pc.config.isSystemVerilog) ".sv" else ".v")
-      val defineFile = new java.io.FileWriter(defineFileName)
-      emitEnumPackage(defineFile)
-      defineFile.flush()
-      defineFile.close()
-      fileList.write(defineFileName.replace("//", "/") + "\n")
+      if(!enums.isEmpty){
+        val defineFileName = pc.config.targetDirectory + "/enumdefine" + (if(pc.config.isSystemVerilog) ".sv" else ".v")
+        val defineFile = new java.io.FileWriter(defineFileName)
+        emitEnumPackage(defineFile)
+        defineFile.flush()
+        defineFile.close()
+        fileList += defineFileName
+      }
 
+      val bbImplStrings = mutable.HashSet[String]()
       for (c <- sortedComponents) {
         val moduleContent = compile(c)()
+        val targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(c.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
 
         if (!moduleContent.contains("replaced by")) {
-          val targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(c.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
-
           if (!c.isInBlackBoxTree) {
             outFile = new java.io.FileWriter(targetFilePath)
             outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, c, config.headerWithDate, config.headerWithRepoHash))
-            if(pc.config.dumpWave != null) {
-              outFile.write("`timescale 1ns/1ps ")
-            }
+            outFile.write("`timescale 1ns/1ps ")
 //            emitEnumPackage(outFile)
             outFile.write(moduleContent)
             outFile.flush()
             outFile.close()
-            fileList.write(targetFilePath.replace("//", "/") + "\n")
+            fileList += targetFilePath
+          }
+          c match {
+            case bb: BlackBox =>
+              fileList ++= bb.listRTLPath
+              if (bb.impl != null) {
+                val str = bb.impl.getVerilog()
+                if(!bbImplStrings.contains(str)) {
+                  outFile = new java.io.FileWriter(targetFilePath)
+                  outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, c, config.headerWithDate, config.headerWithRepoHash))
+                  outFile.write("`timescale 1ns/1ps ")
+                  outFile.write(str)
+                  outFile.flush()
+                  outFile.close()
+                  fileList += targetFilePath
+                  bbImplStrings += str
+                }
+              }
+            case _ =>
           }
         }
       }
 
-      fileList.flush()
-      fileList.close()
+      val fileListFile = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
+      fileList.foreach(file => fileListFile.write(file.replace("//", "/") + "\n"))
+      fileListFile.flush()
+      fileListFile.close()
     }
   }
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
+  val usedDefinitionNames = mutable.HashSet[String]()
 
+
+  val romCache = mutable.HashMap[String, String]()
   def compile(component: Component): () => String = {
     val componentBuilderVerilog = new ComponentEmitterVerilog(
       c                           = component,
@@ -107,11 +145,12 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       asyncResetCombSensitivity   = config.asyncResetCombSensitivity,
       anonymSignalPrefix          = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,
       nativeRom                   = config.inlineRom,
-      nativeRomFilePrefix         = targetPath,
+      nativeRomFilePrefix         = rtlName,
       emitedComponentRef          = emitedComponentRef,
       emitedRtlSourcesPath        = report.generatedSourcesPaths,
       spinalConfig                = pc.config,
-      pc                          = pc
+      pc                          = pc,
+      romCache                    = romCache
     )
 
     if(component.parentScope == null && pc.config.dumpWave != null) {
@@ -127,12 +166,17 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     val trace = componentBuilderVerilog.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)
 
-    if (oldComponent == null) {
+    if (oldComponent == null || component.definitionNameNoMerge && component.definitionName != oldComponent.definitionName) {
+      assert(!usedDefinitionNames.contains(component.definitionName) || component.isInBlackBoxTree, s"Component '${component}' with definition name '${component.definitionName}' was already used once for a different layout\n${component.getScalaLocationLong}")
+      usedDefinitionNames += component.definitionName
       emitedComponent += (trace -> component)
       () => componentBuilderVerilog.result
     } else {
       emitedComponentRef.put(component, oldComponent)
-      component.definitionName = oldComponent.definitionName
+      component match{
+        case x: BlackBox =>
+        case _ => component.definitionName = oldComponent.definitionName
+      }
       () => s"\n//${component.definitionName} replaced by ${oldComponent.definitionName}\n"
     }
   }
@@ -151,19 +195,20 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         val bitCount     = encoding.getWidth(enumDef)
         val vhdlEnumType = emitEnumType(enumDef, encoding, "")
 
-        ret ++= s"`define $vhdlEnumType [${bitCount - 1}:0]\n"
+//        ret ++= s"`define $vhdlEnumType [${bitCount - 1}:0]\n"
+        if(enumDef.isGlobalEnable) {
+          for (element <- enumDef.elements) {
+            ret ++= s"`define ${emitEnumLiteral(element, encoding, "")} ${idToBits(element, encoding)}\n"
+          }
 
-        for (element <- enumDef.elements) {
-          ret ++= s"`define ${emitEnumLiteral(element, encoding,"")} ${idToBits(element, encoding)}\n"
+          ret ++= "\n"
         }
-
-        ret ++= "\n"
       }
     }
 
-    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
-      val str    = encoding.getValue(enum).toString(2)
-      val length = encoding.getWidth(enum.spinalEnum)
+    def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
+      val str    = encoding.getValue(senum).toString(2)
+      val length = encoding.getWidth(senum.spinalEnum)
       length.toString + "'b" + ("0" * (length - str.length)) + str
     }
 

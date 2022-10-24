@@ -24,6 +24,7 @@ import spinal.core._
 
 import scala.collection.immutable.Iterable
 import scala.collection.mutable.ArrayBuffer
+import spinal.idslplugin.Location
 
 
 trait StatementDoubleLinkedContainer[SC <: Statement with DoubleLinkedContainer[SC, SE], SE <: Statement with DoubleLinkedContainerElement[SC, SE]] extends Statement with DoubleLinkedContainer[SC,SE]{
@@ -56,14 +57,31 @@ class ScopeStatement(var parentStatement: TreeStatement) {
   def isEmpty = head == null
   def nonEmpty = head != null
 
-  def push() = DslScopeStack.push(this)
-  def pop()  = DslScopeStack.pop()
+
+
+  def push() = DslScopeStack.set(this)
+
+  def on(body : => Unit): Unit = {
+    val ctx = push()
+    body
+    ctx.restore()
+  }
+
+  //Execute body on the head of the ScopeStatement list
+  def onHead[T](body : => T) : T = {
+    val ctx = push()
+    val swapContext = swap()
+    val ret = body
+    ctx.restore()
+    swapContext.appendBack()
+    ret
+  }
 
   class SwapContext(cHead: Statement, cLast: Statement){
     def appendBack(): Unit ={
       if(nonEmpty){
         last.nextScopeStatement = cHead
-        cHead.lastScopeStatement = last
+        if(cHead != null) cHead.lastScopeStatement = last
       } else {
         head = cHead
       }
@@ -419,6 +437,8 @@ class WhenStatement(var cond: Expression) extends TreeStatement{
 class SwitchStatement(var value: Expression) extends TreeStatement{
   val elements = ArrayBuffer[SwitchStatementElement]()
   var defaultScope: ScopeStatement = null
+  var coverUnreachable = false
+  var removeDuplication = false
 
   override def foreachStatements(func: (Statement) => Unit): Unit = {
     elements.foreach(x => x.scopeStatement.foreachStatements(func))
@@ -447,9 +467,9 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
   override def normalizeInputs: Unit = {
     def bitVectorNormalize(factory : => Resize) : Unit =  {
       val targetWidth = value.asInstanceOf[WidthProvider].getWidth
-      for(e <- elements; k <- e.keys){
-        for(i <- e.keys.indices) {
-          val k = e.keys(i)
+      for(e <- elements; eKeys = e.keys.toArray; k <- eKeys){
+        for(i <- eKeys.indices) {
+          val k = eKeys(i)
 
           e.keys(i) = k match {
             case k: SwitchStatementKeyBool        => k
@@ -495,7 +515,7 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
     }
 
 
-    //TODO IR enum encoding stuff
+    //TODO IR senum encoding stuff
     value.getTypeObject match {
       case `TypeBits` => bitVectorNormalize(new ResizeBits)
       case `TypeUInt` => bitVectorNormalize(new ResizeUInt)
@@ -550,9 +570,9 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
     })
 
     var hadNonLiteralKey = false
-    elements.foreach(element => element.keys.foreach{
+    elements.foreach{element => element.keys.foreach{
       case lit: EnumLiteral[_] =>
-        if(!coverage.allocate(lit.enum.position)){
+        if(!coverage.allocate(lit.senum.position)){
           PendingError(s"UNREACHABLE IS STATEMENT in the switch statement at \n" + element.getScalaLocationLong)
         }
       case lit: Literal =>
@@ -561,7 +581,7 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
         }
       case _ =>
         hadNonLiteralKey = true
-    })
+    }}
 
     return coverage.remaining == BigInt(0) && !hadNonLiteralKey
   }
@@ -570,8 +590,8 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
 
 object AssertStatementHelper{
 
-  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind: AssertStatementKind, trigger : AssertStatementTrigger): AssertStatement = {
-    val node = AssertStatement(cond, message, severity, kind, trigger)
+  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind: AssertStatementKind, trigger : AssertStatementTrigger, loc: Location): AssertStatement = {
+    val node = AssertStatement(cond, message, severity, kind, trigger, loc)
 
     if(!GlobalData.get.phaseContext.config.noAssert){
       DslScopeStack.get.append(node)
@@ -580,8 +600,8 @@ object AssertStatementHelper{
     node
   }
 
-  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger): AssertStatement ={
-    AssertStatementHelper(cond, List(message), severity, kind, trigger)
+  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger, loc: Location): AssertStatement ={
+    AssertStatementHelper(cond, List(message), severity, kind, trigger, loc)
   }
 }
 
@@ -599,7 +619,7 @@ object AssertStatementTrigger{
   val INITIAL = new AssertStatementTrigger
 }
 
-case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger) extends LeafStatement with SpinalTagReady {
+case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger, loc: Location) extends LeafStatement with SpinalTagReady {
   var clockDomain = ClockDomain.current
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {

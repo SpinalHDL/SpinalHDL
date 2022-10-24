@@ -117,7 +117,7 @@ object ClockDomain {
                withClockEnable : Boolean = false,
                frequency       : ClockFrequency = UnknownFrequency()): ClockDomain = {
 
-    Component.push(null)
+    val ctx = Component.push(null)
 
     val clockDomain = internal(
       name            = name,
@@ -129,25 +129,28 @@ object ClockDomain {
       frequency       = frequency
     )
 
-    Component.pop(null)
+    ctx.restore()
 
     clockDomain
   }
 
   /** Push a clockdomain on the stack */
-  def push(c: Handle[ClockDomain]): Unit = {
-    ClockDomainStack.push(c)
-  }
+  def push(c: Handle[ClockDomain]) = ClockDomainStack.set(c)
+  def push(c: ClockDomain) = ClockDomainStack.set(Handle.sync(c))
 
-  def push(c: ClockDomain): Unit = {
-    ClockDomainStack.push(Handle.sync(c))
-  }
+//  def push(c: Handle[ClockDomain]): Unit = {
+//    ClockDomainStack.push(c)
+//  }
+//
+//  def push(c: ClockDomain): Unit = {
+//    ClockDomainStack.push(Handle.sync(c))
+//  }
 
 
   /** Pop a clockdomain on the stack */
-  def pop(): Unit = {
-    ClockDomainStack.pop()
-  }
+//  def pop(): Unit = {
+//    ClockDomainStack.pop()
+//  }
 
   /** Return the current clock Domain */
   def current: ClockDomain = {
@@ -245,7 +248,7 @@ object Clock{
     source.addTag(ClockDriverTag(sink))
     sink.addTag(ClockDrivedTag(source))
   }
-  def sync(a : Bool, b : Bool): Unit ={
+  def sync(a : Bool, b : Bool): this.type ={
     val tag = new ClockSyncTag(a, b)
     a.addTag(tag)
     b.addTag(tag)
@@ -268,7 +271,7 @@ case class ClockDomain(clock       : Bool,
                        clockEnable : Bool = null,
                        config      : ClockDomainConfig = GlobalData.get.commonClockConfig,
                        frequency   : ClockDomain.ClockFrequency = UnknownFrequency(),
-                       clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) {
+                       clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) extends SpinalTagReady {
 
   assert(!(reset != null && config.resetKind == BOOT), "A reset pin was given to a clock domain where the config.resetKind is 'BOOT'")
 
@@ -282,9 +285,10 @@ case class ClockDomain(clock       : Bool,
   def hasClockEnableSignal = clockEnable != null
   def hasResetSignal       = reset != null
   def hasSoftResetSignal   = softReset != null
+  def canInit = hasResetSignal || hasSoftResetSignal || config.resetKind == BOOT
 
-  def push(): Unit = ClockDomain.push(this)
-  def pop(): Unit  = ClockDomain.pop()
+  def push() = ClockDomain.push(this)
+//  def pop(): Unit  = ClockDomain.pop()
 
   def isResetActive = {
     if(config.useResetPin && reset != null)
@@ -313,6 +317,21 @@ case class ClockDomain(clock       : Bool,
   def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveLevel == HIGH) else Data.doPull(clockEnable, Component.current, useCache = true, propagateName = true)
 
 
+//  def renameInCurrentComponent(clock : String = "clk",
+//                               reset : String = if(config.resetActiveLevel == HIGH) "reset" else "resetn",
+//                               softReset : String = if(config.softResetActiveLevel == HIGH) "soft_reset" else "soft_resetn",
+//                               enable : String  = if(config.clockEnableActiveLevel == HIGH) "clk_en" else "clk_en"): this.type ={
+def renamePulledWires(clock     : String = null,
+                      reset     : String = null,
+                      softReset : String = null,
+                      enable    : String = null): this.type ={
+    if(clock != null) readClockWire.setName(clock)
+    if(reset != null && this.reset != null) readResetWire.setName(reset)
+    if(softReset != null && this.softReset != null) readSoftResetWire.setName(softReset)
+    if(enable != null && this.clockEnable != null) readClockEnableWire.setName(enable)
+    this
+  }
+
   def setSyncWith(that: ClockDomain) : this.type = {
     val tag = new ClockSyncTag(this.clock, that.clock)
     this.clock.addTag(tag)
@@ -324,9 +343,9 @@ case class ClockDomain(clock       : Bool,
   def setSyncronousWith(that: ClockDomain) = setSyncWith(that)
 
   def apply[T](block: => T): T = {
-    push()
+    val pop = this.push()
     val ret: T = block
-    pop()
+    pop.restore()
     ret
   }
 

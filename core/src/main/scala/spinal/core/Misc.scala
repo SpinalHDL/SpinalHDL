@@ -20,11 +20,10 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.fiber.AsyncThread
 import spinal.core.internals._
 
-
 import java.lang.reflect.Field
-
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 import scala.reflect.ClassTag
@@ -47,6 +46,7 @@ object log2Up {
     if (value < 0) SpinalError(s"No negative value ($value) on ${this.getClass.getSimpleName}")
     (value - 1).bitLength
   }
+  def apply(value : Int) : Int = apply(BigInt(value))
 }
 
 
@@ -114,7 +114,7 @@ object HardType{
   def apply[T <: Data](t : => T) = new HardType(t)
 }
 
-class HardType[T <: Data](t : => T){
+class HardType[T <: Data](t : => T) extends OverridedEqualsHashCode{
   def apply()   = {
     val id = GlobalData.get.instanceCounter
     val called = t
@@ -129,16 +129,26 @@ class HardType[T <: Data](t : => T){
     }
     ret
   }
+  def craft() = apply()
   def getBitsWidth = t.getBitsWidth
 }
 
 
-object signalCache {
-  def apply[T <: Data](key: Object, subKey: Object)(factory: => T): T = {
-    val cache = Component.current.userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())
-    cache.getOrElseUpdate(subKey, factory).asInstanceOf[T]
+object signalCache{
+  def apply[T](key: Any)(factory: => T): T = {
+    Component.current.userCache.getOrElseUpdate(key, factory).asInstanceOf[T]
+  }
+  def apply[T](key: Any, subKey: Any)(factory: => T): T = {
+    apply((key, subKey))(factory)
   }
 }
+
+object globalCache{
+  def apply[T](key: Any)(factory: => T): T = {
+    GlobalData.get.userDatabase.getOrElseUpdate(key, factory).asInstanceOf[T]
+  }
+}
+
 
 
 /**
@@ -517,8 +527,9 @@ object AnnotationUtils{
 
 
 /**
-  * Declare a register with an initialize value
-  */
+ * Create a new signal, assigned by the given parameter.
+ * Useful to provide a "copy" of something that you can then modify with more conditional assignments.
+ */
 object CombInit {
   def apply[T <: Data](init: T): T = {
     val ret = cloneOf(init)
@@ -532,4 +543,27 @@ object CombInit {
 
 trait AllowIoBundle{
 
+}
+
+object LutInputs extends ScopeProperty[Int]{
+  override def default: Int = 4
+}
+
+object ClassName{
+  def apply(that : Any) =  that.getClass.getSimpleName.replace("$","")
+}
+
+object ContextSwapper{
+  def outsideCondScope[T](that : => T) : T = {
+    val t = AsyncThread.current
+    t.allowSuspend = false
+    val body = Component.current.dslBody  // Get the head of the current component symboles tree (AST in other words)
+    val ctx = body.push()                 // Now all access to the SpinalHDL API will be append to it (instead of the current context)
+    val swapContext = body.swap()         // Empty the symbole tree (but keep a reference to the old content)
+    val ret = that                        // Execute the block of code (will be added to the recently empty body)
+    ctx.restore()                         // Restore the original context in which this function was called
+    swapContext.appendBack()              // append the original symboles tree to the modified body
+    t.allowSuspend = true
+    ret                                   // return the value returned by that
+  }
 }

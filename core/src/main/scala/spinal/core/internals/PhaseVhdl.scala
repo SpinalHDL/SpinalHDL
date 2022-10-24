@@ -38,7 +38,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     var targetFilePath = ""
 
     if (pc.config.oneFilePerComponent) {
-      val fileList = new java.io.FileWriter(pc.config.targetDirectory + "/" + topLevel.definitionName + ".lst")
+      val fileList: mutable.LinkedHashSet[String] = new mutable.LinkedHashSet()
 
       // Emit enums
       targetFilePath = pc.config.targetDirectory + "/" + "pkg_enum.vhd"
@@ -48,7 +48,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       outFile.flush()
       outFile.close()
       report.generatedSourcesPaths += targetFilePath
-      fileList.write(targetFilePath + "\n")
+      fileList += targetFilePath
 
       // Emit utility functions
       if (pc.config.genVhdlPkg) {
@@ -59,8 +59,10 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
         outFile.flush()
         outFile.close()
         report.generatedSourcesPaths += targetFilePath
-        fileList.write(targetFilePath + "\n")
+        fileList += targetFilePath
       }
+
+      val bbImplStrings = mutable.HashSet[String]()
 
       // Emit each component
       for (c <- sortedComponents) {
@@ -76,12 +78,33 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
             outFile.flush()
             outFile.close()
             report.generatedSourcesPaths += targetFilePath
-            fileList.write(targetFilePath + "\n")
+            fileList += targetFilePath
+          }
+          c match {
+            case bb: BlackBox => {
+              fileList ++= bb.listRTLPath
+              if (bb.impl != null) {
+                val str = bb.impl.getVhdl()
+                if (!bbImplStrings.contains(str)) {
+                  outFile = new java.io.FileWriter(targetFilePath)
+                  outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
+                  outFile.write(str)
+                  outFile.flush()
+                  outFile.close()
+                  fileList += targetFilePath
+                  bbImplStrings += str
+                }
+              }
+            }
+            case _ =>
           }
         }
       }
-      fileList.flush()
-      fileList.close()
+
+      val fileListFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + topLevel.definitionName + ".lst")
+      fileList.foreach(file => fileListFile.write(file.replace("//", "/") + "\n"))
+      fileListFile.flush()
+      fileListFile.close()
     } else {
       // All in one
       targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName)
@@ -101,12 +124,27 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
         }
       }
 
+      val bbImplStrings = mutable.HashSet[String]()
+      sortedComponents.foreach{
+        case bb : BlackBox if bb.impl != null => {
+          val str = bb.impl.getVhdl()
+          if(!bbImplStrings.contains(str)) {
+            bbImplStrings += str
+            outFile.write("\n")
+            outFile.write(str)
+            outFile.write("\n")
+          }
+        }
+        case _ =>
+      }
+
       outFile.flush()
       outFile.close()
     }
   }
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
+  val usedDefinitionNames = mutable.HashSet[String]()
 
   def compile(component: Component): String = {
     val componentBuilderVhdl = new ComponentEmitterVhdl(
@@ -117,13 +155,15 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       asyncResetCombSensitivity = config.asyncResetCombSensitivity,
       anonymSignalPrefix        = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,
       emitedComponentRef        = emitedComponentRef,
-      pc                        = pc
+      pc                        = pc,
+      spinalConfig              = pc.config
     )
 
     val trace = componentBuilderVhdl.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)
 
-    val text = if (oldComponent == null) {
+    val text = if (oldComponent == null || component.definitionNameNoMerge && component.definitionName != oldComponent.definitionName) {
+      assert(!usedDefinitionNames.contains(component.definitionName) || component.isInBlackBoxTree, s"Component '${component}' with definition name '${component.definitionName}' was already used once for a different layout\n${component.getScalaLocationLong}")
       emitedComponent += (trace -> component)
       componentBuilderVhdl.result
     } else {
@@ -191,9 +231,9 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       }
     }
 
-    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
-      val str = encoding.getValue(enum).toString(2)
-      "\"" + ("0" * (encoding.getWidth(enum.spinalEnum) - str.length)) + str + "\""
+    def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
+      val str = encoding.getValue(senum).toString(2)
+      "\"" + ("0" * (encoding.getWidth(senum.spinalEnum) - str.length)) + str + "\""
     }
 
     ret ++= s"end $enumPackageName;\n\n"
@@ -267,8 +307,12 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     def pkgExtractBool(kind: String): (String, String) = {
       val ret = new StringBuilder()
       (s"function pkg_extract (that : $kind; bitId : integer) return std_logic", {
+        ret ++= s"    alias temp : $kind(that'length-1 downto 0) is that;\n"
         ret ++= "  begin\n"
-        ret ++= "    return that(bitId);\n"
+        ret ++= "    if bitId >= temp'length then\n"
+        ret ++= "      return 'U';\n"
+        ret ++= "    end if;\n"
+        ret ++= "    return temp(bitId);\n"
         ret ++= "  end pkg_extract;\n\n"
         ret.result()
       })
@@ -278,13 +322,17 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       val ret = new StringBuilder()
 
       (s"function pkg_extract (that : $kind; base : unsigned; size : integer) return $kind", {
-        ret ++= "   constant elementCount : integer := (that'length-size)+1;\n"
-        ret ++= s"   type tableType is array (0 to elementCount-1) of $kind(size-1 downto 0);\n"
-        ret ++= "   variable table : tableType;\n"
+        ret ++= s"    alias temp : $kind(that'length-1 downto 0) is that;"
+        ret ++= "    constant elementCount : integer := temp'length - size + 1;\n"
+        ret ++= s"    type tableType is array (0 to elementCount-1) of $kind(size-1 downto 0);\n"
+        ret ++= "    variable table : tableType;\n"
         ret ++= "  begin\n"
         ret ++= "    for i in 0 to elementCount-1 loop\n"
-        ret ++= "      table(i) := that(i + size - 1 downto i);\n"
+        ret ++= "      table(i) := temp(i + size - 1 downto i);\n"
         ret ++= "    end loop;\n"
+        ret ++= "    if base + size >= elementCount then\n"
+        ret ++= s"      return (size-1 downto 0 => 'U');\n"
+        ret ++= "    end if;\n"
         ret ++= "    return table(to_integer(base));\n"
         ret ++= "  end pkg_extract;\n\n"
         ret.result()
@@ -382,17 +430,21 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "\n"
     ret ++= "  -- unsigned shifts\n"
     ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is\n"
+    ret ++= "    variable ret : unsigned(that'length-1 downto 0);\n"
     ret ++= "  begin\n"
     ret ++= "    if size >= that'length then\n"
     ret ++= "      return \"\";\n"
     ret ++= "    else\n"
-    ret ++= "      return shift_right(that,size)(that'length-1-size downto 0);\n"
+    ret ++= "      ret := shift_right(that,size);\n"
+    ret ++= "      return ret(that'length-1-size downto 0);\n"
     ret ++= "    end if;\n"
     ret ++= "  end pkg_shiftRight;\n"
     ret ++= "\n"
     ret ++= "  function pkg_shiftRight (that : unsigned; size : unsigned) return unsigned is\n"
+    ret ++= "    variable ret : unsigned(that'length-1 downto 0);\n"
     ret ++= "  begin\n"
-    ret ++= "    return shift_right(that,to_integer(size));\n"
+    ret ++= "    ret := shift_right(that,to_integer(size));\n"
+    ret ++= "    return ret;\n"
     ret ++= "  end pkg_shiftRight;\n"
     ret ++= "\n"
     ret ++= "  function pkg_shiftLeft (that : unsigned; size : natural) return unsigned is\n"
@@ -453,24 +505,21 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "  end pkg_rotateLeft;\n"
     ret ++= "\n"
     ret ++= "  function pkg_extract (that : std_logic_vector; high : integer; low : integer) return std_logic_vector is\n"
-    ret ++= "    variable temp : std_logic_vector(high-low downto 0);\n"
+    ret ++= "    alias temp : std_logic_vector(that'length-1 downto 0) is that;\n"
     ret ++= "  begin\n"
-    ret ++= "    temp := that(high downto low);\n"
-    ret ++= "    return temp;\n"
+    ret ++= "    return temp(high downto low);\n"
     ret ++= "  end pkg_extract;\n"
     ret ++= "\n"
     ret ++= "  function pkg_extract (that : unsigned; high : integer; low : integer) return unsigned is\n"
-    ret ++= "    variable temp : unsigned(high-low downto 0);\n"
+    ret ++= "    alias temp : unsigned(that'length-1 downto 0) is that;\n"
     ret ++= "  begin\n"
-    ret ++= "    temp := that(high downto low);\n"
-    ret ++= "    return temp;\n"
+    ret ++= "    return temp(high downto low);\n"
     ret ++= "  end pkg_extract;\n"
     ret ++= "\n"
     ret ++= "  function pkg_extract (that : signed; high : integer; low : integer) return signed is\n"
-    ret ++= "    variable temp : signed(high-low downto 0);\n"
+    ret ++= "    alias temp : signed(that'length-1 downto 0) is that;\n"
     ret ++= "  begin\n"
-    ret ++= "    temp := that(high downto low);\n"
-    ret ++= "    return temp;\n"
+    ret ++= "    return temp(high downto low);\n"
     ret ++= "  end pkg_extract;\n"
     ret ++= "\n"
     ret ++= "  function pkg_mux (sel : std_logic; one : std_logic; zero : std_logic) return std_logic is\n"
@@ -546,23 +595,20 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "  end pkg_toSigned;\n"
     ret ++= "\n"
     ret ++= "  function pkg_stdLogicVector (lit : std_logic_vector) return std_logic_vector is\n"
-    ret ++= "    variable ret : std_logic_vector(lit'length-1 downto 0);\n"
+    ret ++= "    alias ret : std_logic_vector(lit'length-1 downto 0) is lit;\n"
     ret ++= "  begin\n"
-    ret ++= "    ret := lit;\n"
     ret ++= "    return ret;\n"
     ret ++= "  end pkg_stdLogicVector;\n"
     ret ++= "\n"
     ret ++= "  function pkg_unsigned (lit : unsigned) return unsigned is\n"
-    ret ++= "    variable ret : unsigned(lit'length-1 downto 0);\n"
+    ret ++= "    alias ret : unsigned(lit'length-1 downto 0) is lit;\n"
     ret ++= "  begin\n"
-    ret ++= "    ret := lit;\n"
     ret ++= "    return ret;\n"
     ret ++= "  end pkg_unsigned;\n"
     ret ++= "\n"
     ret ++= "  function pkg_signed (lit : signed) return signed is\n"
-    ret ++= "    variable ret : signed(lit'length-1 downto 0);\n"
+    ret ++= "    alias ret : signed(lit'length-1 downto 0) is lit;\n"
     ret ++= "  begin\n"
-    ret ++= "    ret := lit;\n"
     ret ++= "    return ret;\n"
     ret ++= "  end pkg_signed;\n"
     ret ++= "\n"
@@ -587,14 +633,15 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
 
     ret ++=
      """|  function pkg_resize (that : signed; width : integer) return signed is
+        |    alias temp : signed(that'length-1 downto 0) is that;
         |    variable ret : signed(width-1 downto 0);
         |  begin
-        |    if that'length = 0 then
+        |    if temp'length = 0 then
         |       ret := (others => '0');
-        |    elsif that'length >= width then
-        |       ret := that(width-1 downto 0);
+        |    elsif temp'length >= width then
+        |       ret := temp(width-1 downto 0);
         |    else
-        |       ret := resize(that,width);
+        |       ret := resize(temp,width);
         |    end if;
         |    return ret;
         |  end pkg_resize;

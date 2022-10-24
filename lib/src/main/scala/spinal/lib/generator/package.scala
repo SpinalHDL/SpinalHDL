@@ -13,9 +13,9 @@ package object generator {
 
   implicit class HandleClockDomainPimper(pimped : Handle[ClockDomain]) {
     def apply[T](block: => T): T = {
-      ClockDomain.push(pimped)
+      val ctx = ClockDomain.push(pimped)
       val ret: T = block
-      ClockDomain.pop()
+      ctx.restore()
       ret
     }
 

@@ -29,14 +29,14 @@ class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
   val phy = phyCd(UsbLsFsPhy(p.portCount, sim=true))
 
   val irq = ohci.io.interrupt.toIo
-  val ctrl = propagateIo(ohci.io.ctrl)
-  val dma = propagateIo(ohci.io.dma)
-//  ohci.io.phy <> phy.io.ctrl
+  val ctrl = ohci.io.ctrl.toIo
+  val dma = ohci.io.dma.toIo
+
   val phyCc = CtrlCc(p.portCount, ClockDomain.current, phyCd)
   phyCc.input <> ohci.io.phy
   phyCc.output <> phy.io.ctrl
-  val usb = propagateIo(phy.io.usb)
-  val management = propagateIo(phy.io.management)
+  val usb = phy.io.usb.toIo
+  val management = phy.io.management.toIo
 }
 
 class TesterUtils(dut : UsbOhciTbTop) {
@@ -265,3 +265,15 @@ class UsbDeviceScoreboard(io : UsbDeviceAgent) extends UsbDeviceAgentListener{
   }
 }
 
+object UsbHostGen extends App{
+  val p = UsbOhciParameter(
+    noPowerSwitching = true,
+    powerSwitchingMode = true,
+    noOverCurrentProtection = true,
+    powerOnToPowerGoodTime = 10,
+    dataWidth = 64,
+    portsConfig = List.fill(4)(OhciPortParameter())
+  )
+
+  SpinalVerilog(new UsbOhciTbTop(p))
+}

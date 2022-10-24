@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals.Operator.Formal
 import spinal.core.internals._
 import spinal.idslplugin.Location
 
@@ -186,8 +187,8 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   }
 
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = {
-    assert(hi == 0, "assignFromBits hi != 0")
-    assert(low == 0, "assignFromBits low != 0")
+    assert(hi == 0, "Expect hi == 0 in assignFromBits")
+    assert(low == 0, "Expect low == 0 in assignFromBits")
     assignFromBits(bits)
   }
 
@@ -204,6 +205,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     * @return a SInt data
     */
   def asSInt: SInt = asBits.asSInt
+  def asSInt(bitCount: BitCount): SInt = asBits.asSInt.resize(bitCount.value)
 
   /**
     * Cast a Bool to an UInt of a given width
@@ -247,12 +249,13 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     * Class used to write conditional operation on Data value
     * @example {{{ val res = myBool ? myBits1 | myBits2 }}}
     */
-  case class MuxBuilder[T <: Data](whenTrue: T){
+  class MuxBuilder[T <: Data](whenTrue: T){
     def |(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
+    def otherwise(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
   }
 
   /** Conditional operation for Data value */
-  def ?[T <: Data](whenTrue: T) = MuxBuilder(whenTrue)
+  def ?[T <: Data](whenTrue: T) = new MuxBuilder(whenTrue)
 
   /**
     * Class used to write conditional operation on Enumeration value
@@ -278,6 +281,13 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   def init(value : Boolean) : Bool = this.init(Bool(value))
 
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBool(delay))
+
+  override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpBool(kind))
+
+  def allowOutOfRangeLiterals : this.type = {
+    spinal.core.allowOutOfRangeLiterals.doIt(this)
+    this
+  }
 }
 
 /**

@@ -47,7 +47,7 @@ case class BmbExclusiveMonitorGenerator()
     pendingWriteMax = 64
   ))
 
-  export(new MemoryConnection(input, output, 0))
+  sexport(new MemoryConnection(input, output, 0, null))
 }
 
 case class BmbInvalidateMonitorGenerator()
@@ -58,8 +58,6 @@ case class BmbInvalidateMonitorGenerator()
   val inputAccessSource = Handle[BmbAccessCapabilities]
   val inputAccessRequirements = Handle[BmbAccessParameter]
   val inputInvalidationRequirements = Handle(BmbInvalidationParameter(
-    canInvalidate = true,
-    canSync = true,
     invalidateLength = inputAccessRequirements.lengthWidth,
     invalidateAlignment = inputAccessRequirements.alignment
   ))
@@ -83,7 +81,7 @@ case class BmbInvalidateMonitorGenerator()
     pendingInvMax = 16
   ))
 
-  export(new MemoryConnection(input, output, 0))
+  sexport(new MemoryConnection(input, output, 0, null))
 }
 
 case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
@@ -105,7 +103,7 @@ case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
     mapping = apbOffset.derivate(SizeMapping(_, 1 << Clint.addressWidth))
   )
 
-  val hz = export(Handle(ClockDomain.current.frequency))
+  val hz = sexport(Handle(ClockDomain.current.frequency))
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
 }
 
@@ -123,26 +121,28 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
 
   val lock = Lock()
 
-  val targetsModel = ArrayBuffer[Handle[Bool]]()
+  case class TargetModel(target : Handle[Bool], clockDomain : Handle[ClockDomain])
+  val targetsModel = ArrayBuffer[TargetModel]()
   def addTarget(target : Handle[Bool]) = {
     val id = targetsModel.size
-    targetsModel += target
+    targetsModel += TargetModel(target, ClockDomain.currentHandle)
 
     //TODO remove the need of delaying stuff for name capture
     Handle(Component.current.addTag(new Export(BmbPlicGenerator.this.getName() + "_" + target.getName, id)))
   }
 
-  override def addInterrupt(source : Handle[Bool], id : Int) = {
+  override def addInterrupt(source : => Handle[Bool], id : Int) = {
     lock.retain()
     Handle{
+      val src = source
       soon(lock)
       gateways += PlicGatewayActiveHigh(
-        source = source,
+        source = src,
         id = id,
         priorityWidth = priorityWidth
-      ).setCompositeName(source, "plic_gateway")
+      ).setCompositeName(src, "plic_gateway")
 
-      Component.current.addTag (new Export(BmbPlicGenerator.this.getName() + "_" + source.getName, id))
+      Component.current.addTag (new Export(BmbPlicGenerator.this.getName() + "_" + src.getName, id))
       lock.release()
     }
   }
@@ -150,14 +150,14 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
   override def getBus(): Handle[Nameable] = ctrl
 
   val logic = Handle(new Area{
-    lock.get
+    lock.await()
     val bmb = Bmb(accessRequirements.toBmbParameter())
     val bus = BmbSlaveFactory(bmb)
     val targets = targetsModel.map(flag =>
       PlicTarget(
         gateways = gateways.map(_.get),
         priorityWidth = priorityWidth
-      ).setCompositeName(flag, "plic_target")
+      ).setCompositeName(flag.target, "plic_target")
     )
 
     //    gateways.foreach(_.priority := 1)
@@ -170,7 +170,8 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
     )
 
     for(targetId <- 0 until targetsModel.length){
-      targetsModel(targetId) := targets(targetId).iep
+      def bufferize[T <: Data](that : T) : T = if(targetsModel(targetId).clockDomain != ClockDomain.currentHandle) targetsModel(targetId).clockDomain on BufferCC[T](that, init = null.asInstanceOf[T]) else RegNext[T](that)
+      targetsModel(targetId).target := bufferize(targets(targetId).iep)
     }
   })
 
@@ -235,11 +236,13 @@ class BmbBridgeGenerator(val mapping : Handle[AddressMapping] = DefaultMapping, 
     this.dataWidth(dataWidth)
     this.unburstify()
   }
-  def asPeripheralDecoder(dataWidth : Int) = {
+  def asPeripheralDecoder(dataWidth : Int) : BmbImplicitPeripheralDecoder = {
     peripheral(dataWidth)
-    BmbImplicitPeripheralDecoder(bmb)
+    asPeripheralDecoder()
   }
-  def asPeripheralDecoder() = {
+
+  def asPeripheralDecoder() : BmbImplicitPeripheralDecoder = {
+    interconnect.masters(bmb).withPeripheralDecoder()
     BmbImplicitPeripheralDecoder(bmb)
   }
 
@@ -285,7 +288,15 @@ case class BmbToApb3Generator(mapping : Handle[AddressMapping] = Unset)
 
   interconnect.addSlave(
     accessSource = accessSource,
-    accessCapabilities = accessSource.derivate(Clint.getBmbCapabilities),
+    accessCapabilities = accessSource.derivate(
+      _.copy(
+        addressWidth = apb3Config.addressWidth,
+        dataWidth = apb3Config.dataWidth,
+        lengthWidthMax = log2Up(apb3Config.dataWidth/8),
+        alignment = BmbParameter.BurstAlignement.LENGTH,
+        canMask = false
+      )
+    ),
     accessRequirements = accessRequirements,
     bus = input,
     mapping = mapping

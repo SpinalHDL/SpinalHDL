@@ -1,5 +1,7 @@
 package spinal.lib.bus.regif
 
+import java.{util => ju}
+
 object DocTemplate {
   object cssThemes {
     val Default =
@@ -33,7 +35,7 @@ object DocTemplate {
       """
         |      .theme-spring{
         |          border-collapse: collapse;
-        |          font-size: 1.em;
+        |          font-size: 1.0em;
         |          min-width: 800px;
         |          border-radius: 5px 5px 0 0 ;
         |          overflow: hidden;
@@ -59,7 +61,7 @@ object DocTemplate {
         |          border-bottom: 3px solid #009879;
         |      }
         |      .theme-spring tbody tr.active-row {
-        |          font-weight: blod;
+        |          font-weight: bold;
         |          color: #009879;
         |      }
         |      .theme-spring tbody td.reserved{
@@ -125,6 +127,7 @@ object DocTemplate {
        |<!DOCTYPE html>
        |<html>
        |  <head>
+       |  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
        |    <title>
        |      ${moduleName}
        |    </title>
@@ -139,7 +142,7 @@ object DocTemplate {
        |  </head>
        |  <body>
        |  <header align="center">
-       |  <p class="regif-title"> ${moduleName} Interface Document </p>
+       |  <p class="regif-title"> ${moduleName} register interface </p>
        |  </header>
        |  <div class="table">
        |  <table  align="center" class="theme-default">
@@ -151,7 +154,8 @@ object DocTemplate {
        |  </table>
        |  </div>
        |  <footer align="center">
-       |  <div> <p class="info">Powered By <a href="https://spinalhdl.github.io/SpinalDoc-RTD/"> SpinalHDL </a> </p> </div>
+       |  <div> <p class="info">Powered by <a href="https://spinalhdl.github.io/SpinalDoc-RTD/"> SpinalHDL </a> </p> </div>
+       |  <div> <p class="info"> ${ju.Calendar.getInstance().getTime()} </p> </div>
        |  </footer>
        |  </body>
        |</html>

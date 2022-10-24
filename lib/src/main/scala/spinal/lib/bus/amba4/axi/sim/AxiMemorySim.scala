@@ -136,11 +136,13 @@ case class SparseMemory() {
     val endPageIndex = getPageIndex(address + data.length - 1)
     var offset = getOffset(address)
     
-    for(i <- startPageIndex to endPageIndex) {
-      val page = getElseAllocPage(i)
-      val bytesWritten = page.writeArray(offset, data)
-      data.drop(bytesWritten)
-      offset = 0
+    List.tabulate(endPageIndex - startPageIndex + 1)(_ + startPageIndex).foldLeft(data){
+      (writeData,pageIndex) => {
+          val page = getElseAllocPage(pageIndex)
+          val bytesWritten = page.writeArray(offset, writeData)
+          offset = 0
+          writeData.drop(bytesWritten)
+      }
     }
   }
 
@@ -169,13 +171,29 @@ case class SparseMemory() {
    * @param data Data to be written.
    * @param width Width of the byte Array the data is resized to (if necessary).
    */
-  def writeBigInt(address : Long, data : BigInt, width : Int) {
+  def writeBigInt(address : Long, data : BigInt, width : Int, strb : BigInt=null) {
     var dataArray = data.toByteArray.reverse
     var length = scala.math.min(width, dataArray.length)
     var result = Array.fill[Byte](width)(0.toByte)
 
     for(i <- 0 until length)
       result(i) = dataArray(i)
+
+    if(strb != null){
+      val strbArray = strb.toByteArray.reverse
+      val origin = readArray(address,width)
+      // replace with origin data according to strobes
+      for(i <- Range(0,width,8)){
+        val strb = strbArray.applyOrElse(i>>3,(x:Int)=>0.toByte).toInt
+        if(strb != 0xff){
+          for(j <- 0 until 8;k = i + j){
+            if(k < width && (strb & (1<<j)) == 0){
+              result(k) = origin(k)
+            }
+          }
+        }
+      }
+    }
     
     writeArray(address, result)
   }
@@ -210,9 +228,40 @@ case class SparseMemory() {
 
 case class AxiJob (
   address     : Long,
-  burstLength : Int
+  burstLength : Int,
+  burstSize   : Int,
+  burstType   : Int,
+  id          : Long
 ) {
+  val dataTransactionSize : Int  = (1 + burstLength) << burstSize
+  val lowerWrapBoundary   : Long = (address / dataTransactionSize) * dataTransactionSize 
+  val upperWrapBoundary   : Long = lowerWrapBoundary + dataTransactionSize
+  def incrAddress(i : Int): Long = ((address >> burstSize) + i) << burstSize
+  def wrapAddress(i : Int): Long = {
+    val ret = incrAddress(i)
+    if(ret >= upperWrapBoundary){
+      ret - dataTransactionSize
+    }
+    else ret
+  }
   // check for read/write over 4k boundary
+  if(burstType == 1){
+    assert(
+      assertion = ((burstLength << burstSize) + (address & 4095)) <= 4095,
+      message   = s"Read/write request crossing 4k boundary (addr=${address.toHexString}, len=${burstLength.toLong.toHexString}"
+    )
+  }
+  def burstAddress(i : Int):Long = {
+    val ret = burstType match {
+      case 0 => address        // FIXED
+      case 1 => incrAddress(i) // INCR
+      case 2 => wrapAddress(i) // WRAP
+    }
+    ret
+  }
+  def alignedBurstAddress(i : Int, maxBurstSize : Int):Long = {
+    (burstAddress(i) >> maxBurstSize) << maxBurstSize
+  }
 }
 
 /**
@@ -229,6 +278,7 @@ case class AxiMemorySimConfig (
   writeResponseDelay   : Int = 0,
   interruptProbability : Int = 0,
   interruptMaxDelay    : Int = 0,
+  defaultBurstType     : Int = 1,
   useAlteraBehavior    : Boolean = false
 ) {
 
@@ -238,36 +288,88 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
   val memory = SparseMemory()
   val pending_reads = new mutable.Queue[AxiJob]
   val pending_writes = new mutable.Queue[AxiJob]
+  val threads = new mutable.Queue[SimThread]
 
   /** Bus word width in bytes */
   val busWordWidth = axi.config.dataWidth / 8
+  val maxBurstSize = log2Up(busWordWidth)
 
-  def newAxiJob(address : Long, burstLength : Int) : AxiJob = {
-    AxiJob(address, burstLength)
+  def newAxiJob(address : Long, burstLength : Int, burstSize : Int, burstType : Int, id : Long) : AxiJob = {
+    AxiJob(address, burstLength, burstSize, burstType, id)
+  }
+
+  def newAxiJob(ax : Axi4Ax) : AxiJob = {
+    newAxiJob(
+      address = ax.addr.toLong,
+      burstLength = getLen(ax),
+      burstSize = getSizeAndCheck(ax),
+      burstType = getBurst(ax),
+      id = getId(ax)
+    )
   }
 
   def start() : Unit = {
-    fork {
+    threads.enqueue(fork {
       handleAr(axi.ar)
-    }
+    })
 
-    fork {
+    threads.enqueue(fork {
       handleR(axi.r)
-    }
+    })
 
     if(config.useAlteraBehavior) {
-      fork {
+      threads.enqueue(fork {
         handleAwAndW(axi.w, axi.aw, axi.b)
-      }
+      })
     }
     else {
-      fork {
+      threads.enqueue(fork {
         handleAw(axi.aw)
-      }
+      })
 
-      fork {
+      threads.enqueue(fork {
         handleW(axi.w, axi.b)
-      }
+      })
+    }
+  }
+
+  def stop(): Unit = {
+    threads.map(f => f.terminate())
+  }
+
+  def reset(): Unit = {
+    stop()
+    pending_reads.clear()
+    pending_writes.clear()
+    start()
+  }
+
+  def getLen(ax : Axi4Ax):Int = {
+    if(ax.config.useLen) ax.len.toInt else 0
+  }
+  def getSize(ax : Axi4Ax):Int = {
+    if(ax.config.useSize) ax.size.toInt else maxBurstSize
+  }
+  def getSizeAndCheck(ax : Axi4Ax):Int = {
+    val burstSize = getSize(ax)
+    assert(burstSize <= maxBurstSize)
+    burstSize
+  }
+  def getId(ax : Axi4Ax) : Long = {
+    if(ax.config.useId) ax.id.toLong else 0L
+  }
+
+  def getBurst(ax : Axi4Ax) : Int = {
+    if(ax.config.useBurst) ax.burst.toInt else config.defaultBurstType
+  }
+
+  def getStrb(w : Axi4W) : BigInt = {
+    if(w.config.useStrb) w.strb.toBigInt else null
+  }
+
+  def setLast(r : Axi4R, last : Boolean) : Unit = {
+    if(r.config.useLast){
+      r.last #= last
     }
   }
 
@@ -280,13 +382,8 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
       ar.ready #= true
       clockDomain.waitSamplingWhere(ar.valid.toBoolean)
       ar.ready #= false
-
-      assert(
-        assertion = (ar.payload.len.toBigInt + (ar.payload.addr.toBigInt & 4095)) <= 4095,
-        message   = s"Read request crossing 4k boundary (addr=${ar.payload.addr.toBigInt.toString(16)}, len=${ar.payload.len.toLong.toHexString}"
-      )
       
-      pending_reads += newAxiJob(ar.payload.addr.toLong, ar.payload.len.toInt)
+      pending_reads += newAxiJob(ar.payload)
 
       //println("AXI4 read cmd: addr=0x" + ar.payload.addr.toLong.toHexString + " count=" + (ar.payload.len.toBigInt+1))
 
@@ -301,11 +398,9 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
     val random = Random
 
     r.valid #= false
-    r.payload.last #= false
+    setLast(r.payload,false)
 
     while(true) {
-      clockDomain.waitSampling(1)
-
       // todo: implement read issuing delay
 
       if(pending_reads.nonEmpty) {
@@ -320,21 +415,27 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
             clockDomain.waitSampling(random.nextInt(config.interruptMaxDelay + 1))
             r.valid #= true
           }
-          else {
-            if(i == job.burstLength)
-              r.payload.last #= true
-            r.payload.data #= memory.readBigInt(job.address + i * busWordWidth, busWordWidth)
-            clockDomain.waitSamplingWhere(r.ready.toBoolean)
-            i = i + 1
-          }
+
+          if(i == job.burstLength)
+            setLast(r.payload,true)
+          if(r.config.useId)
+            r.payload.id   #= job.id
+          if(r.config.useResp)
+            r.payload.resp #= 0
+
+          r.payload.data #= memory.readBigInt(job.alignedBurstAddress(i, maxBurstSize), busWordWidth)
+          clockDomain.waitSamplingWhere(r.ready.toBoolean)
+          i = i + 1
         }
 
         r.valid #= false
-        r.payload.last #= false
+        setLast(r.payload,false)
 
         pending_reads.dequeue()
 
         //println("AXI4 read rsp: addr=0x" + job.address.toLong.toHexString + " count=" + (job.burstLength+1))
+      } else {
+        clockDomain.waitSampling(1)
       }
     }
   }
@@ -349,12 +450,7 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
       clockDomain.waitSamplingWhere(aw.valid.toBoolean)
       aw.ready #= false
 
-      assert(
-        assertion = (aw.payload.len.toBigInt + (aw.payload.addr.toBigInt & 4095)) <= 4095,
-        message   = s"Write request crossing 4k boundary (addr=${aw.payload.addr.toBigInt.toString(16)}, len=${aw.payload.len.toLong.toHexString}"
-      )
-
-      pending_writes += newAxiJob(aw.payload.addr.toLong, aw.payload.len.toInt)
+      pending_writes += newAxiJob(aw.payload)
 
       //println("AXI4 write cmd: addr=0x" + aw.payload.addr.toLong.toHexString + " count=" + (aw.payload.len.toBigInt+1))
 
@@ -380,7 +476,7 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
 
         for(i <- 0 to job.burstLength) {
           clockDomain.waitSamplingWhere(w.valid.toBoolean)
-          memory.writeBigInt(job.address + i * busWordWidth, w.payload.data.toBigInt, busWordWidth)
+          memory.writeBigInt(job.alignedBurstAddress(i, maxBurstSize), w.payload.data.toBigInt, busWordWidth, getStrb(w.payload))
         }
 
         w.ready #= false
@@ -388,7 +484,10 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
         clockDomain.waitSampling(config.writeResponseDelay)
 
         b.valid #= true
-        b.payload.resp #= 0
+        if(b.config.useId)
+          b.payload.id #= job.id
+        if(b.config.useResp)
+          b.payload.resp #= 0
         clockDomain.waitSamplingWhere(b.ready.toBoolean)
         b.valid #= false
 
@@ -429,6 +528,8 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
         message   = s"Write request crossing 4k boundary (addr=${aw.payload.addr.toBigInt.toString(16)}, len=${aw.payload.len.toLong.toHexString}"
       )
 
+      val job = newAxiJob(aw.payload)
+
       var i = 0;
       while(i <= aw.payload.len.toInt) {
         if(config.interruptProbability > random.nextInt(100)) {
@@ -438,7 +539,7 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
         }
         else {
           clockDomain.waitSamplingWhere(w.valid.toBoolean)
-          memory.writeBigInt(aw.payload.addr.toLong + i * busWordWidth, w.payload.data.toBigInt, busWordWidth)
+          memory.writeBigInt(job.alignedBurstAddress(i, maxBurstSize), w.payload.data.toBigInt, busWordWidth, getStrb(w.payload))
           i = i + 1
         }
       }
@@ -454,7 +555,10 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
       clockDomain.waitSampling(config.writeResponseDelay)
 
       b.valid #= true
-      b.payload.resp #= 0
+      if(b.config.useId)
+        b.payload.id #= job.id
+      if(b.config.useResp)
+        b.payload.resp #= 0
       clockDomain.waitSamplingWhere(b.ready.toBoolean)
       b.valid #= false
 

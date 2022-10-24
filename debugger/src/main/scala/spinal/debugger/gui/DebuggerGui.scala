@@ -47,7 +47,7 @@
 //        val root = net.liftweb.json.parse(str)
 //        val reportsJson = root.\\("reports")
 //        reports += reportsJson
-//        val i = 0
+//        val i = senum
 //      }
 //    } catch {
 //      case e : Exception =>

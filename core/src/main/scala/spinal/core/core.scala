@@ -28,13 +28,15 @@ import scala.annotation.meta.field
 import scala.collection.immutable.Range
 import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
+import scala.languageFeature._
+import spinal.idslplugin.Location
 
 
 package object core extends BaseTypeFactory with BaseTypeCast {
 
   import languageFeature.implicitConversions
 
-
+  type Module = spinal.core.Component
   type dontName = spinal.core.DontName @field
 
   def Bool : Bool = new Bool
@@ -44,9 +46,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   /**
     * Scala implicit
     */
-  implicit lazy val implicitConversions = scala.language.implicitConversions
-  implicit lazy val reflectiveCalls     = scala.language.reflectiveCalls
-  implicit lazy val postfixOps          = scala.language.postfixOps
+  implicit lazy val implicitConversions : implicitConversions = scala.language.implicitConversions
+  implicit lazy val reflectiveCalls     : reflectiveCalls = scala.language.reflectiveCalls
+  implicit lazy val postfixOps          : postfixOps = scala.language.postfixOps
 
   /** Implicit clause builder for `elseWhen` */
   implicit class ElseWhenClauseBuilder(cond: Bool){
@@ -63,13 +65,13 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
 
   /**
-    * Implicit enum conversion
+    * Implicit senum conversion
     */
-  implicit def EnumEtoEnumE2[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T2]) = element.asInstanceOf[SpinalEnumElement[T]]
-  implicit def EnumCtoEnumC2[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T2])     = craft.asInstanceOf[SpinalEnumCraft[T]]
+  implicit def EnumEtoEnumE2[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T2]) : SpinalEnumElement[T] = element.asInstanceOf[SpinalEnumElement[T]]
+  implicit def EnumCtoEnumC2[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T2])     : SpinalEnumCraft[T] = craft.asInstanceOf[SpinalEnumCraft[T]]
 
-  implicit def EnumEtoEnumE3[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T]) = element.asInstanceOf[SpinalEnumElement[T2]]
-  implicit def EnumCtoEnumC3[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T])     = craft.asInstanceOf[SpinalEnumCraft[T2]]
+  implicit def EnumEtoEnumE3[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T]) : SpinalEnumElement[T2] = element.asInstanceOf[SpinalEnumElement[T2]]
+  implicit def EnumCtoEnumC3[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T])     : SpinalEnumCraft[T2] = craft.asInstanceOf[SpinalEnumCraft[T2]]
 
   implicit def EnumElementToCraft[T <: SpinalEnum](element: SpinalEnumElement[T]): SpinalEnumCraft[T] = element()
 
@@ -190,6 +192,12 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def MHz = HertzNumber(d * BigDecimal(1e6))
     def kHz = HertzNumber(d * BigDecimal(1e3))
     def  Hz = HertzNumber(d * BigDecimal(1e0))
+
+    /**
+     * AFix literal builder
+     */
+    def SQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AF(d, integerWidth, fractionWidth, signed = true)
+    def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AF(d, integerWidth, fractionWidth, signed = false)
   }
 
 
@@ -214,6 +222,12 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def MHz = HertzNumber(d * BigDecimal(1e6))
     def kHz = HertzNumber(d * BigDecimal(1e3))
     def  Hz = HertzNumber(d * BigDecimal(1e0))
+
+    /**
+     * AFix literal builder
+     */
+    def SQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AF(d, integerWidth, fractionWidth, signed = true)
+    def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AF(d, integerWidth, fractionWidth, signed = false)
   }
 
 
@@ -249,13 +263,22 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
     def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
     def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
-    def L(args: Any*): List[Any] ={
-      val ret = ArrayBuffer[Any]()
+    class LList extends ArrayBuffer[Any]{
+      def stripMargin = {
+        for((e, i) <- this.zipWithIndex) e match{
+          case s : String => this(i) = s.stripMargin
+          case _ =>
+        }
+        this
+      }
+    }
+    def L(args: Any*): LList ={
+      val ret = new LList()
       for((s,i) <- sc.parts.zipWithIndex){
         ret += s
         if(args.size > i) ret += args(i)
       }
-      ret.toList
+      ret
     }
 
     def Bits(args: Any*): Bits = B(args)
@@ -352,6 +375,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     * Implicit Data helper
     */
   implicit def DataPimped[T <: Data](that: T): DataPimper[T] = new DataPimper(that)
+  implicit def BaseTypePimped[T <: BaseType](that: T): BaseTypePimper[T] = new BaseTypePimper(that)
+  implicit def VecBitwisePimped[T <: Data with BitwiseOp[T]](that: Vec[T]): VecBitwisePimper[T] = new VecBitwisePimper(that)
 
   /**
     * Implicit SInt helper
@@ -363,6 +388,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       fix.raw := self
       fix
     }
+
+    def toAFix: AFix = AFix(self)
+
     /**
       * Absolute value of a SInt
       * @example {{{ myUInt := mySInt.abs }}}
@@ -388,6 +416,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       fix.raw := pimped
       fix
     }
+
+    def toAFix: AFix = AFix(pimped)
   }
 
   /**
@@ -414,8 +444,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
 
 
-  implicit def BooleanPimped(that : Boolean) = new BooleanPimped(that)
-  implicit def IntPimped(that : Int) = new IntPimped(that)
+  implicit def BooleanPimped(that : Boolean) : BooleanPimped = new BooleanPimped(that)
+  implicit def IntPimped(that : Int)         : IntPimped = new IntPimped(that)
 
 
   //For backward compatibility
@@ -434,21 +464,25 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   def assert(assertion: Boolean) = scala.Predef.assert(assertion)
 
   @elidable(ASSERTION) @inline
-  final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
+  final def assert(assertion: Boolean, message: => Any)(implicit loc: Location) = scala.Predef.assert(assertion,message)
 
-  def assumeInitial(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.INITIAL)
+  def assumeInitial(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.INITIAL, loc)
 
-  def assume(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.CLOCKED)
-  def cover(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER, AssertStatementTrigger.CLOCKED)
+  def assume(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.CLOCKED, loc)
+  def cover(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER, AssertStatementTrigger.CLOCKED, loc)
 
-  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
-  def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+  def assert(assertion: Bool, severity: AssertNodeSeverity)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
 
-  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
-  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, message: String)(implicit loc: Location)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+  def assert(assertion: Bool, message: Seq[Any])(implicit loc: Location) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
 
-  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
-  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity)(implicit loc: Location) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity)(implicit loc: Location) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+
+//  def apply(cond: Bool)(block: => Unit)(implicit loc: Location): WhenContext = {
+//    if(cond.dlcIsEmpty || !cond.head.source.isInstanceOf[Operator.Formal.InitState])
+//      cond.setName("when_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
 
   def report(message: String)   = assert(False, message, NOTE)
   def report(message: Seq[Any]) = assert(False, message, NOTE)
@@ -459,7 +493,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   class TuplePimperBase(product: Product){
     def elements = product.productIterator.asInstanceOf[Iterator[Data]]
-    def := (right : Bits): Unit ={
+    def := [T<:Data](_right : T): Unit ={
+      val right = _right.asBits
       val leftWidth = elements.map(_.getBitsWidth).sum
       var rightOp = right
       if(right.hasTag(tagAutoResize)){
@@ -472,10 +507,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
         offset += e.getBitsWidth
       }
     }
-
-    def asBits = {
-      Cat(elements.toList.reverse)
-    }
+    def := [T<:Data](_rights : T*): Unit = this := Cat(_rights.reverse)
   }
 
   implicit class Tuple2Pimper(pimped : Tuple2[Data, Data]) extends TuplePimperBase(pimped)
@@ -488,4 +520,38 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   implicit class Tuple9Pimper(pimped : Tuple9[Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
   implicit class Tuple10Pimper(pimped : Tuple10[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
   implicit class Tuple11Pimper(pimped : Tuple11[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple12Pimper(pimped: Tuple12[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple13Pimper(pimped: Tuple13[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple14Pimper(pimped: Tuple14[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple15Pimper(pimped: Tuple15[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple16Pimper(pimped: Tuple16[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple17Pimper(pimped: Tuple17[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple18Pimper(pimped: Tuple18[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple19Pimper(pimped: Tuple19[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple20Pimper(pimped: Tuple20[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple21Pimper(pimped: Tuple21[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple22Pimper(pimped: Tuple22[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+
+  implicit def tupleBunder2Pimp[T1 <: Data,T2 <: Data](pimped: Tuple2[T1, T2]): TupleBundle2[T1, T2] = TupleBundle(pimped._1, pimped._2)
+  implicit def tupleBunder3Pimp[T1 <: Data,T2 <: Data,T3 <: Data](pimped: Tuple3[T1, T2, T3]): TupleBundle3[T1, T2, T3] = TupleBundle(pimped._1, pimped._2, pimped._3)
+  implicit def tupleBunder4Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data](pimped: Tuple4[T1, T2, T3, T4]): TupleBundle4[T1, T2, T3, T4] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4)
+  implicit def tupleBunder5Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data](pimped: Tuple5[T1, T2, T3, T4, T5]): TupleBundle5[T1, T2, T3, T4, T5] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5)
+  implicit def tupleBunder6Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data](pimped: Tuple6[T1, T2, T3, T4, T5, T6]): TupleBundle6[T1, T2, T3, T4, T5, T6] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6)
+  implicit def tupleBunder7Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data](pimped: Tuple7[T1, T2, T3, T4, T5, T6, T7]): TupleBundle7[T1, T2, T3, T4, T5, T6, T7] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7)
+  implicit def tupleBunder8Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data](pimped: Tuple8[T1, T2, T3, T4, T5, T6, T7, T8]): TupleBundle8[T1, T2, T3, T4, T5, T6, T7, T8] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8)
+  implicit def tupleBunder9Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data](pimped: Tuple9[T1, T2, T3, T4, T5, T6, T7, T8, T9]): TupleBundle9[T1, T2, T3, T4, T5, T6, T7, T8, T9] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9)
+  implicit def tupleBunder10Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data](pimped: Tuple10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]): TupleBundle10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10)
+  implicit def tupleBunder11Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data](pimped: Tuple11[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]): TupleBundle11[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11)
+  implicit def tupleBunder12Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data](pimped: Tuple12[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]): TupleBundle12[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12)
+  implicit def tupleBunder13Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data](pimped: Tuple13[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]): TupleBundle13[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13)
+  implicit def tupleBunder14Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data](pimped: Tuple14[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]): TupleBundle14[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14)
+  implicit def tupleBunder15Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data](pimped: Tuple15[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]): TupleBundle15[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15)
+  implicit def tupleBunder16Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data](pimped: Tuple16[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]): TupleBundle16[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16)
+  implicit def tupleBunder17Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data](pimped: Tuple17[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]): TupleBundle17[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17)
+  implicit def tupleBunder18Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data,T18 <: Data](pimped: Tuple18[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]): TupleBundle18[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17, pimped._18)
+  implicit def tupleBunder19Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data,T18 <: Data,T19 <: Data](pimped: Tuple19[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]): TupleBundle19[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17, pimped._18, pimped._19)
+  implicit def tupleBunder20Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data,T18 <: Data,T19 <: Data,T20 <: Data](pimped: Tuple20[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]): TupleBundle20[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17, pimped._18, pimped._19, pimped._20)
+  implicit def tupleBunder21Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data,T18 <: Data,T19 <: Data,T20 <: Data,T21 <: Data](pimped: Tuple21[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]): TupleBundle21[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17, pimped._18, pimped._19, pimped._20, pimped._21)
+  implicit def tupleBunder22Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data,T18 <: Data,T19 <: Data,T20 <: Data,T21 <: Data,T22 <: Data](pimped: Tuple22[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22]): TupleBundle22[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17, pimped._18, pimped._19, pimped._20, pimped._21, pimped._22)
+
 }

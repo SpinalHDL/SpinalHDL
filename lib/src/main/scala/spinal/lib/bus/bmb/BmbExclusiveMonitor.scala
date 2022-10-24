@@ -142,10 +142,10 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     }
 
     //output cmd arbitrations
-    val exclusiveReadArbiter = StreamArbiterFactory.roundRobin.transactionLock.build(Fragment(BmbCmd(exclusiveReadParameter)), sources.size)
+    val exclusiveReadArbiter = StreamArbiterFactory().roundRobin.transactionLock.build(Fragment(BmbCmd(exclusiveReadParameter)), sources.size)
     exclusiveReadArbiter.io.inputs <> Vec(sources.map(_.exclusiveReadCmd))
 
-    val cmdArbiter = StreamArbiterFactory.lowerFirst.fragmentLock.build(Fragment(BmbCmd(exclusiveReadParameter)), 2)
+    val cmdArbiter = StreamArbiterFactory().lowerFirst.fragmentLock.build(Fragment(BmbCmd(exclusiveReadParameter)), 2)
     cmdArbiter.io.inputs(0) << exclusiveReadArbiter.io.output
 
     val inputCmdHalted = io.input.cmd.haltWhen(sources.map(s => s.inputSourceHit && s.haltSource).toSeq.orR).throwWhen(io.input.cmd.valid && io.input.cmd.isRead && io.input.cmd.exclusive)
@@ -172,11 +172,11 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     io.input.rsp.exclusive := io.output.rsp.context.msb
 
     //misc
-    if (inputParameter.invalidation.canInvalidate) {
+    if (inputParameter.access.canInvalidate) {
       io.input.inv <> io.output.inv
       io.input.ack <> io.output.ack
     }
-    if (inputParameter.invalidation.canSync) {
+    if (inputParameter.access.canSync) {
       io.input.sync <> io.output.sync
     }
   }

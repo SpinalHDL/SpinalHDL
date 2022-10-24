@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.DslScopeStack.storeAsMutable
 import spinal.core.Nameable._
 import spinal.core.fiber.Handle
 
@@ -36,8 +37,9 @@ trait IODirection extends BaseTypeFactory {
 
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
+  def apply[T <: Data](data: HardType[T]): T = applyIt(data())
   def apply[T <: Data](datas: T*): Unit = datas.foreach(applyIt(_))
-  def apply(enum: SpinalEnum) = applyIt(enum.craft())
+  def apply(senum: SpinalEnum) = applyIt(senum.craft())
   def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
 
   def Bool(u: Unit = null) = applyIt(spinal.core.Bool())
@@ -89,6 +91,11 @@ trait MinMaxProvider {
   def maxValue: BigInt
 }
 
+trait MinMaxDecimalProvider {
+  def minValue: BigDecimal
+  def maxValue: BigDecimal
+}
+
 object GlobalData {
 
   /** Provide a thread local variable (Create a GlobalData for each thread) */
@@ -111,15 +118,18 @@ object GlobalData {
 
 
 object DslScopeStack extends ScopeProperty[ScopeStatement]{
-  override protected var _default: ScopeStatement = null
+  storeAsMutable = true
+  override def default = null
 }
 
 object ClockDomainStack extends ScopeProperty[Handle[ClockDomain]]{
-  override protected var _default: Handle[ClockDomain] = null
+  storeAsMutable = true
+  override def default = null
 }
 
 object SwitchStack extends ScopeProperty[SwitchContext]{
-  override protected var _default: SwitchContext = null
+  storeAsMutable = true
+  override def default = null
 }
 
 
@@ -147,6 +157,7 @@ class GlobalData(val config : SpinalConfig) {
 
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSynchronous      = mutable.HashMap[Bool, ArrayBuffer[Bool]]()
+  val zeroWidths          = mutable.LinkedHashSet[(Component, Widthable)]()
 
   var scalaLocatedEnable = false
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
@@ -228,7 +239,7 @@ trait GlobalDataUser {
 
 
 trait ContextUser extends GlobalDataUser with ScalaLocated{
-  var parentScope = if(globalData != null) DslScopeStack.get else null
+  var parentScope : ScopeStatement = if(globalData != null) DslScopeStack.get else null
 
   def component: Component = if(parentScope != null) parentScope.component else null
 
@@ -355,7 +366,7 @@ object Nameable{
 trait Nameable extends OwnableRef with ContextUser{
   import Nameable._
 
-  protected var name: String = null
+  var name: String = null
   @dontName protected var nameableRef: Nameable = null
 
   private var mode: Byte = UNNAMED
@@ -484,10 +495,20 @@ trait Nameable extends OwnableRef with ContextUser{
     }
     this
   }
+  def setPartialName(name: String, namePriority: Byte, owner : Any): this.type = {
+    if (isPriorityApplicable(namePriority)) {
+      this.name = name
+      mode = OWNER_PREFIXED
+      this.namePriority = namePriority
+      OwnableRef.set(this, owner)
+    }
+    this
+  }
 
   def unsetName(): this.type = {
     mode = Nameable.UNNAMED
     namePriority = -100
+    name = null
     this
   }
 
@@ -544,7 +565,7 @@ trait Nameable extends OwnableRef with ContextUser{
 
 trait ScalaLocated extends GlobalDataUser {
 
-  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (DslScopeStack.get != null && !globalData.scalaLocatedComponents.contains(DslScopeStack.get.component.getClass))) {
+  var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (DslScopeStack.get != null && !globalData.scalaLocatedComponents.contains(DslScopeStack.get.component.getClass))) {
     null
   } else {
     new Throwable()
@@ -746,12 +767,31 @@ trait SpinalTag {
   def driverShouldNotChange = false
   def canSymplifyHost       = false
   def allowMultipleInstance = true // Allow multiple instances of the tag on the same object
+
+  def apply[T <: SpinalTagReady](that : T) : T = {
+    that.addTag(this)
+    that
+  }
 }
 
 class DefaultTag(val that: BaseType) extends SpinalTag
 object allowDirectionLessIoTag       extends SpinalTag
 object unsetRegIfNoAssignementTag    extends SpinalTag
 object allowAssignmentOverride       extends SpinalTag
+object allowOutOfRangeLiterals               extends SpinalTag{
+  def apply(that : Bool) = doIt(that)
+  def doIt(that : Bool) = {
+    assert(that.dlcHasOnlyOne)
+    that.dlcHead match {
+      case s: DataAssignmentStatement => s.source match {
+        case t : SpinalTagReady => t.addTag(spinal.core.allowOutOfRangeLiterals)
+        case _ => ???
+      }
+      case _ => ???
+    }
+    this
+  }
+}
 object unusedTag                     extends SpinalTag
 object noCombinatorialLoopCheck      extends SpinalTag
 object noBackendCombMerge            extends SpinalTag
@@ -763,7 +803,10 @@ object tagTruncated                  extends SpinalTag{
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
 }
+object tagAFixResized                   extends SpinalTag
 class IfDefTag(val cond : String)       extends SpinalTag
+
+class CommentTag(val comment : String) extends SpinalTag
 
 class ExternalDriverTag(val driver : Data)             extends SpinalTag{
   override def allowMultipleInstance = false
@@ -854,6 +897,8 @@ trait Num[T <: Data] {
   def roundDown(n: Int, align: Boolean): T
   def roundToZero(n: Int, align: Boolean): T
   def roundToInf(n: Int, align: Boolean): T
+  def roundToEven(n: Int, align: Boolean): T
+  def roundToOdd(n: Int, align: Boolean): T
   def round(n: Int, align: Boolean): T
   /**lowest n bits Round Operation by BitCount */
   def ceil(width: BitCount, align: Boolean): T         = ceil(width.value, align)
@@ -864,6 +909,8 @@ trait Num[T <: Data] {
   def roundDown(width: BitCount, align: Boolean): T    = roundDown(width.value, align)
   def roundToZero(width: BitCount, align: Boolean): T  = roundToZero(width.value, align)
   def roundToInf(width: BitCount, align: Boolean): T   = roundToInf(width.value, align)
+  def roundToEven(width: BitCount, align: Boolean): T  = roundToEven(width.value, align)
+  def roundToOdd(width: BitCount, align: Boolean): T   = roundToOdd(width.value, align)
   def round(width: BitCount, align: Boolean): T        = round(width.value, align)
 }
 

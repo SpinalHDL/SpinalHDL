@@ -42,8 +42,9 @@ class Tab4 extends VerilogTheme {
 
 
 trait VerilogBase extends VhdlVerilogBase{
-  val theme = new Tab2 //TODO add into SpinalConfig
+  var globalPrefix = ""
 
+  val theme = new Tab2 //TODO add into SpinalConfig
   def expressionAlign(net: String, section: String, name: String) = {
     f"$net%-10s $section%-8s $name"
   }
@@ -104,18 +105,29 @@ trait VerilogBase extends VhdlVerilogBase{
     " /* " + values.reduce(_ + " , " + _) + " */ "
   }
 
-  def emitEnumLiteral[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-    prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+  def emitEnumLiteral[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
+//    prefix + senum.spinalEnum.getName() + "_" + encoding.getName() + "_" + senum.getName()
+    var prefix_fix = prefix;
+    if(prefix=="`" && !senum.spinalEnum.isGlobalEnable) prefix_fix = ""
+
+    if(senum.spinalEnum.isPrefixEnable) {
+      val withEncoding = senum.spinalEnum.defaultEncoding != encoding && (senum.spinalEnum.defaultEncoding == native && encoding != binarySequential)
+      prefix_fix + globalPrefix + senum.spinalEnum.getName() + (if(withEncoding) "_" + encoding.getName() else "") + "_" + senum.getName()
+    } else {
+      prefix_fix + globalPrefix + senum.getName()
+    }
   }
 
-  def emitEnumType[T <: SpinalEnum](enum: SpinalEnumCraft[T], prefix: String): String = emitEnumType(enum.spinalEnum, enum.getEncoding, prefix)
+  def emitEnumType[T <: SpinalEnum](senum: SpinalEnumCraft[T], prefix: String): String = emitEnumType(senum.spinalEnum, senum.getEncoding, prefix)
 
-  def emitEnumType(enum: SpinalEnum, encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-    prefix + enum.getName() + "_" + encoding.getName() + "_type"
+  def emitEnumType(senum: SpinalEnum, encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
+//    prefix + senum.getName() + "_" + encoding.getName() + "_type"
+    val bitCount     = encoding.getWidth(senum)
+    s"[${bitCount - 1}:0]"
   }
 
   def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
-    s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
+    s"${globalPrefix}${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
 
   def emitStructType(struct: SpinalStruct): String = {
@@ -136,7 +148,7 @@ trait VerilogBase extends VhdlVerilogBase{
   def emitDirection(baseType: BaseType) = baseType.dir match {
     case `in`    => "input "
     case `out`   => "output"
-    case `inout` => "inout"
+    case `inout` => "inout "
     case _       => throw new Exception("Unknown direction"); ""
   }
 

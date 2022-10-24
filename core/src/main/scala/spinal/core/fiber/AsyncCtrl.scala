@@ -57,7 +57,7 @@ class EngineContext {
     var hadException = true
     val initialAffinity = Affinity.getAffinity
     try {
-      Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
+      spinal.affinity.Affinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
       while (pending.nonEmpty) {
         val t = pending.dequeue()
         t.context.restore()
@@ -73,9 +73,12 @@ class EngineContext {
         GlobalData.get.toplevel.walkComponents { c =>
 //          assert(c.prePopTasks.isEmpty)
           if (c.prePopTasks.nonEmpty) {
-            c.rework(
+            val tasks = c.prePopTasks
+            c.rework {
+              c.prePopTasks = tasks
               c.prePop()
-            )
+            }
+            c.prePopTasks.clear()
             hadPrePop = true
           }
         }
@@ -90,7 +93,7 @@ class EngineContext {
         println("\n")
       }
 
-      Affinity.setAffinity(initialAffinity)
+      spinal.affinity.Affinity(initialAffinity)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
       for (t <- (jvmIdleThreads ++ jvmBusyThreads)) {
@@ -134,11 +137,11 @@ class EngineContext {
 }
 
 object Engine extends ScopeProperty[EngineContext]{
-  override protected var _default: EngineContext = null
+  override def default = null
 
   def create[T](body : => T, name : String = "root") = {
     val e = new EngineContext
-    Engine.push(e)
+    Engine.set(e)
     var ret : T = null.asInstanceOf[T]
     e.mainThread = e.schedule{
       ret = body

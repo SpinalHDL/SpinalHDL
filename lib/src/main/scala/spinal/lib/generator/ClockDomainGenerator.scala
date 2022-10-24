@@ -18,7 +18,7 @@ object ResetSensitivity{
 case class ClockDomainResetGenerator() extends Area {
   val inputClockDomain = Handle[ClockDomain]
   val holdDuration = Handle[Int]
-  val powerOnReset = Handle(false)
+  val powerOnReset = Handle.sync(false)
 
 
   def setInput(input : Handle[ClockDomain]) = inputClockDomain.load(input)

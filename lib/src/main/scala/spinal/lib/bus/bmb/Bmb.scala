@@ -160,6 +160,9 @@ case class BmbAccessParameter(addressWidth : Int,
   def sourceWidth = log2Up(sources.keys.max + 1)
   def canMask = aggregated.canMask
 
+  def canInvalidate = aggregated.canInvalidate
+  def canSync       = aggregated.canSync
+
   def sourcesId = sources.map(_._1)
   def byteCount = dataWidth/8
   def wordMask = byteCount-1
@@ -211,6 +214,8 @@ case class BmbAccessParameter(addressWidth : Int,
     canWrite                   = canWrite,
     canMask                    = canMask,
     canExclusive               = canExclusive,
+    canInvalidate              = canInvalidate,
+    canSync                    = canSync,
     maximumPendingTransaction  = maximumPendingTransaction
   )
 
@@ -235,7 +240,9 @@ case class BmbAccessCapabilities(addressWidth : Int,
                                  canWrite : Boolean = true,
                                  canMask : Boolean = true,
                                  canExclusive : Boolean = false,
-                                 maximumPendingTransaction : Int = Int.MaxValue){
+                                 maximumPendingTransaction : Int = Int.MaxValue,
+                                 canInvalidate : Boolean = false,
+                                 canSync : Boolean = false){
 
   def toBmbParameter = BmbParameter(BmbAccessParameter(
     addressWidth              = addressWidth,
@@ -250,7 +257,9 @@ case class BmbAccessCapabilities(addressWidth : Int,
     canWrite                  = canWrite,
     canMask                   = canMask,
     canExclusive              = canExclusive,
-    maximumPendingTransaction = maximumPendingTransaction
+    maximumPendingTransaction = maximumPendingTransaction,
+    canInvalidate             = canInvalidate,
+    canSync                   = canSync
   )))
 }
 
@@ -267,6 +276,8 @@ object BmbSourceParameter{
     var canExclusive = false
     var maximumPendingTransaction : Int = 0
     var withCachedRead = false
+    var canInvalidate = false
+    var canSync = false
 
     for(s <- l){
       contextWidth = contextWidth.max(s.contextWidth)
@@ -280,6 +291,8 @@ object BmbSourceParameter{
       canMask |= s.canWrite && s.canMask
       canExclusive |= s.canExclusive
       withCachedRead |= s.withCachedRead
+      canInvalidate |= s.canInvalidate
+      canSync |= s.canSync
       maximumPendingTransaction = maximumPendingTransaction.max(s.maximumPendingTransaction)
     }
 
@@ -294,7 +307,9 @@ object BmbSourceParameter{
       canMask = canMask,
       canExclusive = canExclusive,
       withCachedRead = withCachedRead,
-      maximumPendingTransaction = maximumPendingTransaction
+      maximumPendingTransaction = maximumPendingTransaction,
+      canInvalidate = canInvalidate,
+      canSync = canSync
     )
   }
 }
@@ -308,13 +323,13 @@ case class BmbSourceParameter(contextWidth : Int,
                               canMask : Boolean = true,
                               canExclusive : Boolean = false,
                               withCachedRead : Boolean = false,
-                              maximumPendingTransaction : Int = Int.MaxValue)
+                              maximumPendingTransaction : Int = Int.MaxValue,
+                              canInvalidate : Boolean = false,
+                              canSync : Boolean = false)
 
 
 
-case class BmbInvalidationParameter(canInvalidate : Boolean = false,
-                                    canSync : Boolean = false,
-                                    invalidateLength : Int = 0,
+case class BmbInvalidationParameter(invalidateLength : Int = 0,
                                     invalidateAlignment : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.WORD)
 
 
@@ -475,18 +490,18 @@ case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
   val cmd = (p.access.canRead || p.access.canWrite) generate Stream(Fragment(BmbCmd(p)))
   val rsp = (p.access.canRead || p.access.canWrite) generate Stream(Fragment(BmbRsp(p))) //Out of order across source
 
-  val inv = p.invalidation.canInvalidate generate Stream(BmbInv(p))
-  val ack = p.invalidation.canInvalidate generate Stream(BmbAck(p)) //In order
-  val sync = p.invalidation.canSync generate Stream(BmbSync(p)) //In order
+  val inv = p.access.canInvalidate generate Stream(BmbInv(p))
+  val ack = p.access.canInvalidate generate Stream(BmbAck(p)) //In order
+  val sync = p.access.canSync generate Stream(BmbSync(p)) //In order
 
   override def asMaster(): Unit = {
     master(cmd)
     slave(rsp)
-    if(p.invalidation.canInvalidate) {
+    if(p.access.canInvalidate) {
       slave(inv)
       master(ack)
     }
-    if(p.invalidation.canSync) {
+    if(p.access.canSync) {
       slave(sync)
     }
   }
@@ -503,13 +518,13 @@ case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
     s.cmd.weakAssignFrom(m.cmd)
     m.rsp.weakAssignFrom(s.rsp)
 
-    if(p.invalidation.canInvalidate){
+    if(p.access.canInvalidate){
       m.inv.arbitrationFrom(s.inv)
       s.ack.arbitrationFrom(m.ack)
       m.inv.weakAssignFrom(s.inv)
       s.ack.weakAssignFrom(m.ack)
     }
-    if(p.invalidation.canSync){
+    if(p.access.canSync){
       m.sync.arbitrationFrom(s.sync)
       m.sync.weakAssignFrom(s.sync)
     }
@@ -605,7 +620,7 @@ case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
       halfRate = rspHalfRate
     )
 
-    if(p.invalidation.canInvalidate){
+    if(p.access.canInvalidate){
       inv << ret.inv.pipelined(
         m2s = invValid,
         s2m = invReady,
@@ -618,7 +633,7 @@ case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
       )
     }
     
-    if(p.invalidation.canSync){
+    if(p.access.canSync){
       sync << ret.sync.pipelined(
         m2s = syncValid,
         s2m = syncReady,

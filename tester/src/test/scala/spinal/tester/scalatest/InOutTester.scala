@@ -20,6 +20,7 @@
 
 package spinal.tester.scalatest
 
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.lib._
 import spinal.lib.io.{TriState, TriStateArray}
@@ -207,4 +208,38 @@ class InOutTester3CocotbBoot extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/InOutTester3"
   override def createToplevel: Component = new InOutTester3.InOutTester3
   withWaveform = false
+}
+
+
+class InOutTester4 extends AnyFunSuite {
+  case class A() extends Component {
+    val data=inout(Analog(Bool()))
+  }
+  case class B() extends Component {
+    val data=inout(Analog(Bool()))
+  }
+  case class D() extends Component {
+    val data=inout(Analog(Bool()))
+  }
+  case  class C() extends Component{
+    val aInst=A()
+    val bInst=B()
+    val cInst, dInst=D()
+
+
+//    val x,y = Analog(Bool())
+//    x := y
+//    x := aInst.data
+//    y := bInst.data
+    cInst.data := dInst.data
+    bInst.data := cInst.data
+    aInst.data := bInst.data
+
+//    val data = Analog(Bool())
+//    data <> aInst.data
+//    data <> bInst.data
+  }
+  test("test inout connect"){
+    SpinalSystemVerilog(C())
+  }
 }

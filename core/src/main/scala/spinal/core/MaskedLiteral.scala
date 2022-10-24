@@ -56,6 +56,8 @@ class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
     case _ => false
   }
 
+  def withDontCare = careAbout != (BigInt(1) << width)-1
+
   def getWidth() = width
   def apply(index : Int): MaskedBoolean ={
     if(index >= width){
@@ -99,6 +101,18 @@ class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
   }
 
   override def toString: String = "M\"" + getBitsString(this.width, '-') + "\""
+
+  def toBigInt(filling : Boolean = false) : BigInt = {
+    var tmp = if(filling) ~careAbout else careAbout
+    tmp &= ~careAbout
+    tmp |= value
+    tmp &= ((BigInt(1) << width)-1)
+    tmp
+  }
+
+  def asBits(filling : Boolean = false): Bits = B(toBigInt(filling), width bits)
+  def asUInt(filling : Boolean = false): UInt = U(toBigInt(filling), width bits)
+  def asSInt(filling : Boolean = false): SInt = S(toBigInt(filling), width bits)
 }
 
 

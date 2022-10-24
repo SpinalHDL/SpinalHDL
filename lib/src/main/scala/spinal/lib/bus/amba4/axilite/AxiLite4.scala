@@ -139,10 +139,10 @@ case class AxiLite4B(config: AxiLite4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
-  def isOKAY()   : Unit = resp === OKAY
-  def isEXOKAY() : Unit = resp === EXOKAY
-  def isSLVERR() : Unit = resp === SLVERR
-  def isDECERR() : Unit = resp === DECERR
+  def isOKAY()   : Bool = resp === OKAY
+  def isEXOKAY() : Bool = resp === EXOKAY
+  def isSLVERR() : Bool = resp === SLVERR
+  def isDECERR() : Bool = resp === DECERR
 }
 
 /** Companion object to create hard-wired AXI responses. */
@@ -168,10 +168,10 @@ case class AxiLite4R(config: AxiLite4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
-  def isOKAY()   : Unit = resp === OKAY
-  def isEXOKAY() : Unit = resp === EXOKAY
-  def isSLVERR() : Unit = resp === SLVERR
-  def isDECERR() : Unit = resp === DECERR
+  def isOKAY()   : Bool = resp === OKAY
+  def isEXOKAY() : Bool = resp === EXOKAY
+  def isSLVERR() : Bool = resp === SLVERR
+  def isDECERR() : Bool = resp === DECERR
 }
 
 
@@ -219,6 +219,20 @@ case class AxiLite4(config: AxiLite4Config) extends Bundle with IMasterSlave {
 
 object  AxiLite4SpecRenamer{
   def apply(that : AxiLite4): Unit ={
+    def doIt = {
+      that.flatten.foreach((bt) => {
+        bt.setName(bt.getName().replace("_payload_",""))
+        bt.setName(bt.getName().replace("_valid","valid"))
+        bt.setName(bt.getName().replace("_ready","ready"))
+        if(bt.getName().startsWith("io_")) bt.setName(bt.getName().replaceFirst("io_",""))
+      })
+    }
+    if(Component.current == that.component)
+      that.component.addPrePopTask(() => {doIt})
+    else
+      doIt
+  }
+  def apply(that : AxiLite4ReadOnly): Unit ={
     def doIt = {
       that.flatten.foreach((bt) => {
         bt.setName(bt.getName().replace("_payload_",""))

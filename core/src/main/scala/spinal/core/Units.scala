@@ -104,15 +104,17 @@ case class TimeNumber(private val v: BigDecimal) extends PhysicalNumber[TimeNumb
 
   def toHertz = HertzNumber(1 / this.value)
 
-  def decompose: (BigDecimal, String) = {
-    if(value > 3600.0)  return (value / 3600.0, "hr")
-    if(value > 60.0)    return (value / 60.0,  "min")
-    if(value > 1.0)     return (value / 1.0,   "sec")
-    if(value > 1.0e-3)  return (value / 1.0e-3, "ms")
-    if(value > 1.0e-6)  return (value / 1.0e-6, "us")
-    if(value > 1.0e-9)  return (value / 1.0e-9, "ns")
-    if(value > 1.0e-12) return (value / 1.0e-12,"ps")
-    (value / 1.0e-15, "fs")
+  def decompose: (BigDecimal, String) = this.value match {
+    case d if value > 3600.0  => (d / 3600.0,  "hr")
+    case d if value > 60.0    => (d / 60.0,    "min")
+    case d if value > 1.0     => (d / 1.0,     "sec")
+    case d if value > 1.0e-3  => (d / 1.0e-3,  "ms")
+    case d if value > 1.0e-6  => (d / 1.0e-6,  "us")
+    case d if value > 1.0e-9  => (d / 1.0e-9,  "ns")
+    case d if value > 1.0e-12 => (d / 1.0e-12, "ps")
+    case d if value > 1.0e-15 => (d / 1.0e-15, "fs")
+    case d: BigDecimal        => (d,           "unknown")
+    case _                    => (0.0,         "error")
   }
 }
 
@@ -131,4 +133,16 @@ case class HertzNumber(private val v: BigDecimal) extends PhysicalNumber[HertzNu
   def %(that: TimeNumber) = this.value % that.toBigDecimal
 
   def toTime = TimeNumber(1 / this.value)
+
+  def decompose: (BigDecimal, String) = this.value match {
+    case d if d > 1.0e18 => (d / 1.0e18, "EHz")
+    case d if d > 1.0e15 => (d / 1.0e15, "PHz")
+    case d if d > 1.0e12 => (d / 1.0e12, "THz")
+    case d if d > 1.0e9  => (d / 1.0e9,  "GHz")
+    case d if d > 1.0e6  => (d / 1.0e6,  "MHz")
+    case d if d > 1.0e3  => (d / 1.0e3,  "kHz")
+    case d if d > 1.0    => (d / 1.0,    "Hz")
+    case d: BigDecimal   => (d,          "unknown")
+    case _               => (0.0,        "error")
+  }
 }

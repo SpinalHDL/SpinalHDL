@@ -50,6 +50,7 @@ class ComponentEmitterTrace(val builders: Seq[mutable.StringBuilder], val string
 
 abstract class ComponentEmitter {
 
+  def spinalConfig : SpinalConfig
   def component: Component
   def algoIdIncrementalBase: Int
   def mergeAsyncProcess: Boolean
@@ -100,6 +101,11 @@ abstract class ComponentEmitter {
       data.head.source
     else
       null
+  }
+
+  def commentTagsToString(host : SpinalTagReady, comment : String) : String = {
+    val strings = host.getTags().collect{case t : CommentTag => comment + t.comment.replace("\n","\n" + comment)}
+    if(strings.isEmpty) "" else strings.mkString("\n") + "\n"
   }
 
   def elaborate() = {
@@ -282,8 +288,10 @@ abstract class ComponentEmitter {
         walker(group.dataStatements, 0, group.scope, allocateAlgoIncrementale())
       })
 
-      for ((c, n) <- whenCondOccurences if n > 1) {
-        expressionToWrap += c
+      if(!spinalConfig.inlineConditionalExpression) {
+        for ((c, n) <- whenCondOccurences if n > 1) {
+          expressionToWrap += c
+        }
       }
     }
 
@@ -320,7 +328,7 @@ abstract class ComponentEmitter {
     component.dslBody.walkStatements(s => {
       s.foreachClockDomain(clockDomains += _)
       s match {
-        case s: SwitchStatement => expressionToWrap += s.value
+        case s: SwitchStatement if !spinalConfig.inlineConditionalExpression => expressionToWrap += s.value
         case _                  =>
       }
       if(readedOutputWrapEnable) {

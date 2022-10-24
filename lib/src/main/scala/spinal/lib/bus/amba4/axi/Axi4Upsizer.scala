@@ -101,7 +101,7 @@ case class Axi4ReadOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Conf
 
     io.output.readCmd.size.removeAssignments() := sizeMax
     io.output.readCmd.len.removeAssignments() := incrLen.resized
-    io.output.readCmd.id.removeAssignments() := 0 //Do not allow out of order
+    if(io.output.readCmd.config.useId) io.output.readCmd.id.removeAssignments() := 0 //Do not allow out of order
   }
 
   val dataLogic = new Area{
@@ -142,7 +142,7 @@ case class Axi4ReadOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Conf
     io.input.readRsp.last := io.output.readRsp.last && byteCounter === byteCounterLast
     io.input.readRsp.resp := io.output.readRsp.resp
     io.input.readRsp.data := io.output.readRsp.data.subdivideIn(ratio.slices).read(byteCounter >> log2Up(inputConfig.bytePerWord))
-    io.input.readRsp.id := id
+    if(inputConfig.useId) io.input.readRsp.id := id
     io.output.readRsp.ready := busy && io.input.readRsp.ready && (io.input.readRsp.last || byteCounterNext(widthOf(byteCounter)))
   }
 }

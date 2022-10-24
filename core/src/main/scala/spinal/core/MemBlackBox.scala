@@ -231,6 +231,7 @@ class Ram_1wrs(
   wordCount      : Int,
   technology     : MemTechnologyKind,
   readUnderWrite : ReadUnderWritePolicy = dontCare,
+  duringWrite    : DuringWritePolicy = dontCare,
   maskWidth      : Int,
   maskEnable     : Boolean
 ) extends BlackBox {
@@ -239,6 +240,7 @@ class Ram_1wrs(
     val wordCount      = Ram_1wrs.this.wordCount
     val wordWidth      = Ram_1wrs.this.wordWidth
     val readUnderWrite = Ram_1wrs.this.readUnderWrite.readUnderWriteString
+    val duringWrite    = Ram_1wrs.this.duringWrite.duringWriteString
     val technology     = Ram_1wrs.this.technology.technologyKind
     val maskWidth      = Ram_1wrs.this.maskWidth
     val maskEnable     = Ram_1wrs.this.maskEnable
@@ -268,6 +270,7 @@ class Ram_2wrs(
   technology           : MemTechnologyKind,
 
   portA_readUnderWrite : ReadUnderWritePolicy = dontCare,
+  portA_duringWrite    : DuringWritePolicy = dontCare,
   portA_clock          : ClockDomain,
   portA_addressWidth   : Int,
   portA_dataWidth      : Int,
@@ -275,6 +278,7 @@ class Ram_2wrs(
   portA_maskEnable     : Boolean,
 
   portB_readUnderWrite : ReadUnderWritePolicy = dontCare,
+  portB_duringWrite    : DuringWritePolicy = dontCare,
   portB_clock          : ClockDomain,
   portB_addressWidth   : Int,
   portB_dataWidth      : Int,
@@ -289,12 +293,14 @@ class Ram_2wrs(
     val technology    = Ram_2wrs.this.technology.technologyKind
 
     val portA_readUnderWrite = Ram_2wrs.this.portA_readUnderWrite.readUnderWriteString
+    val portA_duringWrite    = Ram_2wrs.this.portA_duringWrite.duringWriteString
     val portA_addressWidth   = Ram_2wrs.this.portA_addressWidth
     val portA_dataWidth      = Ram_2wrs.this.portA_dataWidth
     val portA_maskWidth      = Ram_2wrs.this.portA_maskWidth
     val portA_maskEnable     = Ram_2wrs.this.portA_maskEnable
 
     val portB_readUnderWrite = Ram_2wrs.this.portB_readUnderWrite.readUnderWriteString
+    val portB_duringWrite    = Ram_2wrs.this.portB_duringWrite.duringWriteString
     val portB_addressWidth   = Ram_2wrs.this.portB_addressWidth
     val portB_dataWidth      = Ram_2wrs.this.portB_dataWidth
     val portB_maskWidth      = Ram_2wrs.this.portB_maskWidth

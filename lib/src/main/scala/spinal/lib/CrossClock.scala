@@ -4,8 +4,8 @@ import spinal.core._
 
 
 object BufferCC {
-  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Int = 2): T = {
-    val c = new BufferCC(input, init, bufferDepth)
+  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Int = defaultDepth.get, randBoot : Boolean = false): T = {
+    val c = new BufferCC(input, init, bufferDepth, randBoot)
     c.setCompositeName(input, "buffercc", true)
     c.io.dataIn := input
 
@@ -13,9 +13,11 @@ object BufferCC {
     ret := c.io.dataOut
     return ret
   }
+
+  val defaultDepth = ScopeProperty(2)
 }
 
-class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int) extends Component {
+class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int = BufferCC.defaultDepth.get, randBoot : Boolean = false) extends Component {
   assert(bufferDepth >= 1)
 
   val io = new Bundle {
@@ -24,6 +26,7 @@ class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int) extends C
   }
 
   val buffers = Vec(Reg(dataType, init),bufferDepth)
+  if(randBoot) buffers.foreach(_.randBoot())
 
   buffers(0) := io.dataIn
   buffers(0).addTag(crossClockDomain)
@@ -47,7 +50,7 @@ object PulseCCByToggle {
 }
 
 
-class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Component{
+class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain, withOutputBufferedReset : Boolean = true) extends Component{
   val io = new Bundle{
     val pulseIn = in Bool()
     val pulseOut = out Bool()
@@ -57,7 +60,9 @@ class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Compo
     val target = RegInit(False) toggleWhen(io.pulseIn)
   }
 
-  val outArea = clockOut on new Area {
+
+  val finalOutputClock = clockOut.withOptionalBufferedResetFrom(withOutputBufferedReset)(clockIn)
+  val outArea = finalOutputClock on new Area {
     val target = BufferCC(inArea.target, False)
 
     io.pulseOut := target.edge(False)
@@ -79,11 +84,9 @@ object ResetCtrl{
                               clockDomain : ClockDomain,
                               inputPolarity : Polarity = HIGH,
                               outputPolarity : Polarity = null, //null => inferred from the clockDomain
-                              bufferDepth : Int = 2) : Bool = {
-    val samplerCD = ClockDomain(
-      clock = clockDomain.clock,
+                              bufferDepth : Int = BufferCC.defaultDepth.get) : Bool = {
+    val samplerCD = clockDomain.copy(
       reset = input,
-      clockEnable = clockDomain.clockEnable,
       config = clockDomain.config.copy(
         resetKind = ASYNC,
         resetActiveLevel = inputPolarity
@@ -105,11 +108,27 @@ object ResetCtrl{
                                    clockDomain : ClockDomain,
                                    inputPolarity : Polarity = HIGH,
                                    outputPolarity : Polarity = null, //null => inferred from the clockDomain
-                                   bufferDepth : Int = 2) : Unit = clockDomain.reset := asyncAssertSyncDeassert(
+                                   bufferDepth : Int = BufferCC.defaultDepth.get) : Unit = clockDomain.reset := asyncAssertSyncDeassert(
     input = input ,
     clockDomain = clockDomain ,
     inputPolarity = inputPolarity ,
     outputPolarity = outputPolarity ,
     bufferDepth = bufferDepth
   )
+
+  //Return a new clockdomain which use all the properties of clockCd but use as reset source a syncronized value from resetCd
+  def asyncAssertSyncDeassertCreateCd(resetCd : ClockDomain,
+                                      clockCd : ClockDomain = ClockDomain.current,
+                                      bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+    clockCd.copy(
+      clock = clockCd.clock,
+      reset = ResetCtrl.asyncAssertSyncDeassert(
+        input = resetCd.reset,
+        clockDomain = clockCd,
+        inputPolarity = resetCd.config.resetActiveLevel,
+        outputPolarity = clockCd.config.resetActiveLevel,
+        bufferDepth = bufferDepth
+      ).setCompositeName(resetCd.reset, "syncronized", true)
+    )
+  }
 }

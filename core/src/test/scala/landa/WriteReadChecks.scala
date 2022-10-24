@@ -99,7 +99,7 @@ object ReadWriteChecks {
 
         List(0, -1).foreach(value => checkBigInt(value, dut.io.s1))
         List(0, 1, -1, 127, -128).foreach(value => checkBigInt(value, dut.io.s8))
-        List(0, 1, -1, Short.MaxValue, Short.MinValue).foreach(value => checkBigInt(value, dut.io.s16))
+        List(0, 1, -1, Short.MaxValue, Short.MinValue).foreach(value => checkBigInt(BigInt(value), dut.io.s16))
         List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreach(value => checkBigInt(value, dut.io.s32))
         List(0l, 1l, 0xFFFFFFFFFFFFFFFFl, -1l, Long.MaxValue, Long.MinValue).foreach(value => checkBigInt(value, dut.io.s64))
 

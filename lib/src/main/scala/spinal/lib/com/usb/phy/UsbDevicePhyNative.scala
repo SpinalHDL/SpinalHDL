@@ -6,12 +6,18 @@ import spinal.lib.com.usb.UsbTimer
 import spinal.lib.com.usb.udc.UsbDeviceCtrl.PhyIo
 import spinal.lib.fsm.{State, StateMachine}
 
-case class UsbDevicePhyNative(fsRatio : Int, sim : Boolean = false) extends Component{
+case class UsbDevicePhyNative(sim : Boolean = false) extends Component{
   val io = new Bundle {
     val ctrl = slave(PhyIo())
     val usb = master(UsbLsFsPhyAbstractIo())
     val power = in Bool()
+    val pullup = out Bool()
   }
+
+  val fsRatioExact = (ClockDomain.current.frequency.getValue.toDouble/12e6)
+  val fsRatio = fsRatioExact.round.toInt
+
+  io.pullup := io.ctrl.pullup
 
   val timer = new UsbTimer(counterTimeMax = 0.084e-6 * 8, fsRatio) {
     val oneCycle = cycles(1)
@@ -21,8 +27,8 @@ case class UsbDevicePhyNative(fsRatio : Int, sim : Boolean = false) extends Comp
     lowSpeed := False
   }
 
-  val rxToTxDelay = new UsbTimer(0.084e-6*4, fsRatio){
-    val twoCycle = cycles(4)
+  val rxToTxDelay = new UsbTimer(0.084e-6*2, fsRatio){
+    val twoCycle = cycles(2)
     val active = RegInit(False) clearWhen(twoCycle)
     lowSpeed := False
   }
@@ -45,27 +51,27 @@ case class UsbDevicePhyNative(fsRatio : Int, sim : Boolean = false) extends Comp
 
       when(input.valid) {
         output.valid := input.valid
-        when(counter === 6) {
+
+        when(input.data) {
+          output.data := state
+          when(timer.oneCycle) {
+            counter := counter + 1;
+            input.ready := True
+            when(counter === 5){
+              timer.clear := True
+              input.ready := False
+              state := !state
+            }
+            when(counter === 6){
+              counter := 0;
+            }
+          }
+        } otherwise {
           output.data := !state
           when(timer.oneCycle) {
             counter := 0;
+            input.ready := True
             state := !state
-            timer.clear := True
-          }
-        } otherwise {
-          when(input.data) {
-            output.data := state
-            when(timer.oneCycle) {
-              counter := counter + 1;
-              input.ready := True
-            }
-          } otherwise {
-            output.data := !state
-            when(timer.oneCycle) {
-              counter := 0;
-              input.ready := True
-              state := !state
-            }
           }
         }
       }
@@ -334,23 +340,39 @@ case class UsbDevicePhyNative(fsRatio : Int, sim : Boolean = false) extends Comp
     }
 
 
-    val timerLong = new UsbTimer(counterTimeMax = 21e-3, fsRatio) {
+    val timerLong = new UsbTimer(counterTimeMax = 21e-3*2, fsRatio) {
       val factor = if(sim) 0.005 else 1.0
-      val resume = trigger(20e-3*factor)
-      val reset = trigger(10e-3*factor)
+      val resume = trigger(19.9e-3*factor)
+      val reset = trigger(9.9e-3*factor)
+      val suspend = trigger(2.9e-3*factor)
+      val oneBit = trigger(83e-9)
+      val threeBit = trigger(83e-9*3)
+      val hadOne = RegInit(False) setWhen(oneBit) clearWhen(clear)
+      val hadTree = RegInit(False) setWhen(threeBit) clearWhen(clear)
       lowSpeed := False
     }
 
     val detect = new Area{
-      val current = filter.io.filtred.dp ## filter.io.filtred.dm
+      val current = filter.io.filtred.dm ## filter.io.filtred.dp
       val previous = RegNext(current) init(3)
+      when(timerLong.counter.msb){
+        timerLong.inc := False
+      }
       when(current =/= previous){
         timerLong.clear := True
       }
 
-      val currentIsReset = current === 0
-      val reset = RegInit(False) setWhen(timerLong.reset && currentIsReset) clearWhen(!currentIsReset)
-      io.ctrl.reset := reset
+      val isReset     = current === 0
+      val isSuspend   = current === 1
+      val resumeState = RegInit(False) clearWhen(current =/= 0 && current =/= previous) setWhen(timerLong.resume && current === 2)
+      val isResume = resumeState && timerLong.hadOne && !timerLong.hadTree && current === 1
+
+      val resetState = RegInit(False) setWhen(timerLong.reset && isReset) clearWhen(!isReset)
+      val suspendState = RegInit(False) setWhen(timerLong.suspend && isSuspend) clearWhen(!isSuspend)
+      io.ctrl.reset := resetState
+      io.ctrl.suspend := suspendState
+      io.ctrl.disconnect := False
+      io.ctrl.resume.valid := RegNext(isResume) init(False)
     }
   }
 

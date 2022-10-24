@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals.Operator
+
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
 
@@ -106,6 +108,17 @@ abstract class MultiData extends Data {
     this
   }
 
+
+  override def freeze(): MultiData.this.type = {
+    elements.foreach(_._2.freeze())
+    this
+  }
+
+  override def unfreeze(): MultiData.this.type = {
+    elements.foreach(_._2.unfreeze())
+    this
+  }
+
   override def flatten: Seq[BaseType] = {
     elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)
   }
@@ -153,14 +166,20 @@ abstract class MultiData extends Data {
 
   private[core] def isEquals(that: Any): Bool = {
     that match {
-      case that: MultiData => zippedMap(that, _ === _).reduce(_ && _)
+      case that: MultiData => {
+        val checks = zippedMap(that, _ === _)
+        if(checks.nonEmpty) checks.reduce(_ && _) else True
+      }
       case _               => SpinalError(s"Function isEquals is not implemented between $this and $that")
     }
   }
 
   private[core] def isNotEquals(that: Any): Bool = {
     that match {
-      case that: MultiData => zippedMap(that, _ =/= _).reduce(_ || _)
+      case that: MultiData =>{
+        val checks = zippedMap(that, _ =/= _)
+        if(checks.nonEmpty) checks.reduce(_ || _) else False
+      }
       case _               => SpinalError(s"Function isNotEquals is not implemented between $this and $that")
     }
   }
@@ -204,4 +223,29 @@ abstract class MultiData extends Data {
     }
     this
   }
+
+
+
+  def assignUnassignedByName(that: MultiData): Unit = {
+    this.zipByName(that).filter(!_._1.hasDataAssignment).foreach{
+      case (dst, src) if dst.isDirectionLess || dst.isOutput && dst.component == Component.current || dst.isInput && dst.component.parent == Component.current =>
+        dst := src
+      case _ =>
+    }
+  }
+
+  def zipByName(that: MultiData, rec : ArrayBuffer[(BaseType, BaseType)] = ArrayBuffer()): ArrayBuffer[(BaseType, BaseType)] = {
+    for ((name, element) <- elements) {
+      val other = that.find(name)
+      if (other != null) {
+        element match {
+          case b  : MultiData => b.zipByName(other.asInstanceOf[MultiData], rec)
+          case bt : BaseType => rec += (bt -> other.asInstanceOf[BaseType])
+        }
+      }
+    }
+    rec
+  }
+
+  override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = elements.foreach(_._2.assignFormalRandom(kind))
 }

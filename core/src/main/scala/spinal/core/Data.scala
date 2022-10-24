@@ -47,7 +47,7 @@ trait DataPrimitives[T <: Data]{
 
     val globalData = GlobalData.get
 
-    DslScopeStack.push(_data.parentScope)
+    val ctx = DslScopeStack.set(_data.parentScope)
 
     val swapContext = _data.parentScope.swap()
     val ret = cloneOf(that)
@@ -55,7 +55,7 @@ trait DataPrimitives[T <: Data]{
     ret := _data
 
     swapContext.appendBack()
-    DslScopeStack.pop()
+    ctx.restore()
 
     ret.allowOverride
     ret := that
@@ -67,7 +67,7 @@ trait DataPrimitives[T <: Data]{
           case None => new VarAssignementTag(from)
         }
         t.id += 1
-        to.setCompositeName(t.from,t.id.toString)
+        to.setCompositeName(t.from,t.id.toString, true)
 
         from.removeTag(t)
         ret.addTag(t)
@@ -96,17 +96,30 @@ trait DataPrimitives[T <: Data]{
     assert(_data.dir != inout)
 
     val c = if (_data.dir == in) {
-      Component.current.parent
+      _data.component.parent
     } else {
-      Component.current
+      _data.component
     }
 
     if(c != null) {
-      Component.push(c)
+      val ctx = Component.push(c)
       _data.defaultImpl(that)
-      Component.pop(c)
+      ctx.restore()
     }
     _data
+  }
+
+  def switchAssign[T2 <: BaseType](sel : T2)(mappings: (Any, T)*): Unit = {
+    switch(sel){
+      for((s, v) <- mappings) s match {
+        case spinal.core.default => spinal.core.default{
+          _data := v
+        }
+        case _ => is(s){
+          _data := v
+        }
+      }
+    }
   }
 }
 
@@ -125,8 +138,14 @@ trait BaseTypePrimitives[T <: BaseType] {
   * Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
   */
 class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
+
 }
 
+class BaseTypePimper[T <: BaseType](val _data: T) {
+
+}
+
+//object PropagatePullNameTag extends SpinalTag
 
 object Data {
 
@@ -143,7 +162,7 @@ object Data {
 
     val startComponent = srcData.component
 
-    if (useCache) {
+    if (useCache && finalComponent != null) {
       val finalComponentCacheState = finalComponent.pulledDataCache.getOrElse(srcData, null)
       if (finalComponentCacheState != null)
         return finalComponentCacheState.asInstanceOf[srcData.type]
@@ -184,70 +203,70 @@ object Data {
       }
     }
 
-    def push(c: Component, scope: ScopeStatement): Unit = {
-      DslScopeStack.push(scope)
-      ClockDomain.push(c.clockDomain)
-    }
-
-    def pop(c: Component): Unit = {
-      assert(Component.current == c)
-      DslScopeStack.pop()
-      ClockDomainStack.pop()
-    }
+//    def push(c: Component, scope: ScopeStatement): Unit = {
+//      DslScopeStack.push(scope)
+//      ClockDomain.push(c.clockDomain)
+//    }
+//
+//    def pop(c: Component): Unit = {
+//      assert(Component.current == c)
+//      DslScopeStack.pop()
+//      ClockDomainStack.pop()
+//    }
 
     var currentData: T = srcData
     var currentComponent: Component = srcData.component
 
     //Build the path from srcData to the commonComponent (falling path)
     while(currentComponent != commonComponent){
-      if(useCache && currentComponent.parent.pulledDataCache.contains(srcData)){
+      if(useCache &&  currentComponent != null &&  currentComponent.parent != null && currentComponent.parent.pulledDataCache.contains(srcData)){
         currentData = currentComponent.parent.pulledDataCache(srcData).asInstanceOf[T]
         currentComponent = currentComponent.parent
       } else {
         if (currentData.component == currentComponent && currentData.isIo) {
           //nothing to do
         } else {
-          push(currentComponent, currentComponent.dslBody)
+          val ctx = DslScopeStack.set(currentComponent.dslBody)
           val copy = cloneOf(srcData).asOutput()
           if (propagateName)
-            copy.setPartialName(srcData, "", weak=true)
+            copy.setPartialName(currentData, "", weak=true)
           copy := currentData
-          pop(currentComponent)
+          ctx.restore()
           currentData = copy
         }
         currentComponent = currentComponent.parent
-        if (useCache)
+        if (useCache && currentComponent != null)
           currentComponent.pulledDataCache.put(srcData, currentData)
       }
     }
 
     //Build the path from commonComponent to the targetComponent (rising path)
     for(riseTo <- risePath.reverseIterator){
-      if(useCache && riseTo.pulledDataCache.contains(srcData)){
+      if(useCache && riseTo != null && riseTo.pulledDataCache.contains(srcData)){
         currentComponent = riseTo
         currentData = riseTo.pulledDataCache(srcData).asInstanceOf[T]
       }else {
-        push(riseTo, riseTo.dslBody)
+        val ctx = DslScopeStack.set(riseTo.dslBody)
         val copy = cloneOf(srcData).asInput()
         if (propagateName)
-          copy.setPartialName(srcData, "", weak=true)
-        pop(riseTo)
+          copy.setPartialName(currentData, "", weak=true)
+        ctx.restore()
         if (currentComponent != null) {
-          push(currentComponent, riseTo.parentScope)
+          val ctx = DslScopeStack.set(riseTo.parentScope)
           copy := currentData
-          pop(currentComponent)
+          ctx.restore()
         } else {
           copy.addTag(new ExternalDriverTag(currentData))
         }
         currentData = copy
 
         currentComponent = riseTo
-        if (useCache)
+        if (useCache && currentComponent != null)
           currentComponent.pulledDataCache.put(srcData, currentData)
       }
     }
 
-    if (useCache)
+    if (useCache && currentComponent != null)
       currentComponent.pulledDataCache.put(srcData, currentData)
     currentData
   }
@@ -325,6 +344,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Set baseType to Combinatorial */
   def setAsComb(): this.type
 
+  def freeze() : this. type
+  def unfreeze() : this. type
+
   def purify() : this.type = {
     setAsDirectionLess()
     setAsComb()
@@ -385,7 +407,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def flattenLocalName: Seq[String]
   def flattenForeach(body : BaseType => Unit) : Unit = flatten.foreach(body(_))
   /** Pull a signal to the top level (use for debugging) */
-  def pull(): this.type = Data.doPull(this, Component.current, useCache = false, propagateName = false)
+  def pull(): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = false)
+  def pull(propagateName : Boolean): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = propagateName)
 
   /** Concatenation between two data */
   def ##(right: Data): Bits = this.asBits ## right.asBits
@@ -408,10 +431,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  def removeAssignments(): this.type = {
-    flattenForeach(_.removeAssignments())
+  def removeAssignments(data : Boolean = true, init : Boolean = true, initial : Boolean = true): this.type = {
+    flattenForeach(_.removeAssignments(data, init, initial))
     this
   }
+
+  def removeDataAssignments(): this.type = removeAssignments(true, false, false)
+  def removeInitAssignments(): this.type = removeAssignments(false, true, false)
 
   private[core] def isEquals(that: Any): Bool
   private[core] def isNotEquals(that: Any): Bool
@@ -496,12 +522,6 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Return the width of the data */
   def getBitsWidth: Int
 
-  def keep(): this.type = {
-//    flatten.foreach(t => t.component.additionalNodesRoot += t);
-    dontSimplifyIt()
-    this
-  }
-
   def dontSimplifyIt(): this.type = {
     flatten.foreach(_.dontSimplifyIt())
     this
@@ -520,6 +540,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def isReg:    Boolean = flatten.forall(_.isReg)
   def isComb:   Boolean = flatten.forall(_.isComb)
   def isAnalog: Boolean = flatten.forall(_.isAnalog)
+  def isRegOnAssign : Boolean = isReg
 
   def setAsAnalog(): this.type = {flatten.foreach(_.setAsAnalog()); this}
 
@@ -633,10 +654,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       SpinalError(
         s"""
            |*** Spinal can't clone ${this.getClass} datatype
-                                                     |*** You have two way to solve that :
-                                                     |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
-                                                     |*** Or override by your self the bundle clone function
-                                                     |*** The error is """.stripMargin + this.getScalaLocationLong)
+           |*** You have two way to solve that :
+           |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
+           |*** Or override by your self the bundle clone function
+           |*** The error is """.stripMargin + this.getScalaLocationLong)
       null
     }
     null
@@ -663,6 +684,38 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret.asInstanceOf[this.type]
   }
 
+
+  def wrapNext() : this.type = {
+    val comb = CombInit(this)
+    this := comb
+    this.freeze()
+    comb.asInstanceOf[this.type]
+  }
+
+  def getAheadValue() : this.type = {
+    assert(this.isReg, "Next value is only for regs")
+
+    val ret = cloneOf(this)
+
+    for((dst, src) <- (ret.flatten, this.flatten).zipped){
+      dst := src.getAheadValue()
+    }
+
+    ret.asInstanceOf[this.type]
+  }
+
+  def getRtlPath(separator : String = "/") : String = {
+    (getComponents().tail.map(_.getName()) :+ this.getName()).mkString(separator)
+  }
+
+//  def propagatePullName() : this.type = this.addTag(PropagatePullNameTag)
+
+  def assignFormalRandom(kind : Operator.Formal.RandomExpKind) : Unit = ???
+  def getMuxType[T <: Data](list : TraversableOnce[T]) : HardType[T] = HardType(cloneOf(this).asInstanceOf[T])
+  def toMuxInput[T <: Data](muxOutput : T) : T = this.asInstanceOf[T]
+
+  // Cat this count times
+  def #* (count : Int) =  Cat(List.fill(count)(this))
 }
 
 trait DataWrapper extends Data{
@@ -679,5 +732,7 @@ trait DataWrapper extends Data{
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
   override def setAsReg(): DataWrapper.this.type = ???
   override def setAsComb(): DataWrapper.this.type = ???
+  override def freeze(): DataWrapper.this.type = ???
+  override def unfreeze(): DataWrapper.this.type = ???
 }
 

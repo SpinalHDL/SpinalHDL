@@ -10,6 +10,13 @@ case class ReadRetLinked[T <: Data, T2 <: Data](readType: HardType[T], linkedTyp
 
 class MemPimped[T <: Data](mem: Mem[T]) {
 
+  def formalCount(word : T): UInt ={
+    CountOne((0 until mem.wordCount).map(mem(_) === word))
+  }
+  def formalCount(cond : T => Bool) : UInt ={
+    CountOne((0 until mem.wordCount).map(i => cond(mem(i))))
+  }
+
   //def streamReadSync[T2 <: Data](event : Event,address: UInt, linkedData: T2) : (Event,T,T2) = {
 
   def streamReadSync[T2 <: Data](cmd: Stream[UInt], linkedData: T2, crossClock:Boolean = false) : Stream[ReadRetLinked[T,T2]] = {
@@ -92,7 +99,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
   /**
     * Create a write port of memory.
     */
-  def writePort : Flow[MemWriteCmd[T]] = {
+  def writePort() : Flow[MemWriteCmd[T]] = {
     val ret = Flow(MemWriteCmd(mem))
     when(ret.valid){
       mem.write(ret.address,ret.data)
@@ -103,29 +110,66 @@ class MemPimped[T <: Data](mem: Mem[T]) {
   /**
     * Create a write port of memory with masking.
     */
-  def writePortWithMask : Flow[MemWriteCmdWithMask[T]] = {
-    val ret = Flow(MemWriteCmdWithMask(mem))
+  def writePortWithMask(maskWidth : Int) : Flow[MemWriteCmdWithMask[T]] = {
+    val ret = Flow(MemWriteCmdWithMask(mem, maskWidth))
     mem.write(ret.address,ret.data, ret.valid, ret.mask)
     ret
   }
 
-  def readSyncPort : MemReadPort[T] = {
+  def readSyncPort() : MemReadPort[T] = {
     val ret : MemReadPort[T] = MemReadPort(mem.wordType(),mem.addressWidth)
     ret.rsp := mem.readSync(ret.cmd.payload,ret.cmd.valid)
+    ret
+  }
+
+  def readAsyncPort() : MemReadPortAsync[T] = {
+    val ret : MemReadPortAsync[T] = MemReadPortAsync(mem.wordType(),mem.addressWidth)
+    ret.data := mem.readAsync(ret.address)
+    ret
+  }
+
+  def readAsyncPortBySyncReadRevertedClk : MemReadPortAsync[T] = {
+    val ret : MemReadPortAsync[T] = MemReadPortAsync(mem.wordType(),mem.addressWidth)
+    ret.data := ClockDomain.current.withRevertedClockEdge()(mem.readSync(ret.address))
+    ret
+  }
+
+  def readWriteSyncPort(
+    maskWidth     : Int = -1,
+    readUnderWrite: ReadUnderWritePolicy = dontCare,
+    clockCrossing : Boolean = false,
+    duringWrite   : DuringWritePolicy = dontCare) : MemReadWritePort[T] = {
+    val ret : MemReadWritePort[T] = MemReadWritePort(
+      mem.wordType(),
+      mem.addressWidth,
+      maskWidth = maskWidth
+    )
+    ret.rdata := mem.readWriteSync(
+      ret.address,
+      ret.wdata,
+      ret.enable,
+      ret.write,
+      ret.mask,
+      readUnderWrite= readUnderWrite,
+      clockCrossing = clockCrossing ,
+      duringWrite   = duringWrite
+    )
     ret
   }
 }
 
 
-case class MemWriteCmd[T <: Data](mem : Mem[T]) extends Bundle{
+case class MemWriteCmd[T <: Data](mem : Mem[T], maskWidth : Int = -1) extends Bundle{
+  def useMask = maskWidth >= 0
   val address = mem.addressType()
   val data    = mem.wordType()
+  val mask    = ifGen(useMask)(Bits(maskWidth bits))
 }
 
-case class MemWriteCmdWithMask[T <: Data](mem : Mem[T]) extends Bundle {
+case class MemWriteCmdWithMask[T <: Data](mem : Mem[T], maskWidth : Int) extends Bundle {
   val address = mem.addressType()
   val data    = mem.wordType()
-  val mask    = Bits()
+  val mask    = Bits(maskWidth bits)
 }
 
 case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundle with IMasterSlave{
@@ -135,5 +179,42 @@ case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundl
   override def asMaster(): Unit = {
     master(cmd)
     in(rsp)
+  }
+
+  def bypass(writeLast : Flow[MemWriteCmd[T]]): Unit = new Composite(this, "bypass", true){
+    val cmdLast = RegNext(cmd.payload)
+    val hit     = cmdLast === writeLast.address && writeLast.valid
+    when(hit){
+      rsp := writeLast.data
+    }
+  }
+}
+
+
+case class MemReadPortAsync[T <: Data](dataType : T,addressWidth : Int) extends Bundle with IMasterSlave{
+  val address = UInt(addressWidth bit)
+  val data = cloneOf(dataType)
+
+  override def asMaster(): Unit = {
+    out(address)
+    in(data)
+  }
+}
+
+case class MemReadWritePort[T <: Data](
+  dataType : T,
+  addressWidth : Int,
+  maskWidth     : Int = -1) extends Bundle with IMasterSlave{
+  def useMask = maskWidth >= 0
+  val address = UInt(addressWidth bit)
+  val rdata   = cloneOf(dataType)
+  val wdata   = cloneOf(dataType)
+  val enable  = Bool()
+  val write   = Bool()
+  val mask    = ifGen(useMask)(Bits(maskWidth bits))
+  override def asMaster(): Unit = {
+    out(address,wdata,enable,write)
+    if(useMask) out(mask)
+    in(rdata)
   }
 }

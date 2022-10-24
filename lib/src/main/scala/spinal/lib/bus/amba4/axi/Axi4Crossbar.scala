@@ -28,6 +28,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
   val writeOnlyBridger = mutable.HashMap[Axi4WriteOnly,(Axi4WriteOnly,Axi4WriteOnly) => Unit]()
   val masters = ArrayBuffer[Axi4Bus]()
   var lowLatency = false
+  var pendingMax = 7
 
   def decoderToArbiterLink(bus : Axi4ReadOnly) = if(!lowLatency) bus.arValidPipe() else bus
   def decoderToArbiterLink(bus : Axi4WriteOnly) = if(!lowLatency) bus.awValidPipe() else bus
@@ -130,11 +131,13 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
 
         val decoder = Axi4ReadOnlyDecoder(
           axiConfig = master.config,
-          decodings = slaves.map(_._2.mapping)
+          decodings = slaves.map(_._2.mapping),
+          pendingMax = pendingMax
         )
         applyName(master,"decoder",decoder)
         masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(decoderToArbiterLink)).zipped.toMap
         readOnlyBridger.getOrElse[(Axi4ReadOnly,Axi4ReadOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
+        readOnlyBridger.remove(master)
       }
       case master : Axi4WriteOnly => new Area{
         val slaves = slavesConfigs.filter{
@@ -143,12 +146,13 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         val decoder = Axi4WriteOnlyDecoder(
           axiConfig = master.config,
           decodings = slaves.map(_._2.mapping),
-          lowLatency = lowLatency
+          pendingMax = pendingMax
         )
         applyName(master,"decoder",decoder)
 
         masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(decoderToArbiterLink)).zipped.toMap
         writeOnlyBridger.getOrElse[(Axi4WriteOnly,Axi4WriteOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
+        writeOnlyBridger.remove(master)
       }
       case master : Axi4Shared => new Area{
         val slaves = slavesConfigs.filter{
@@ -162,7 +166,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
           readDecodings = readOnlySlaves.map(_._2.mapping),
           writeDecodings = writeOnlySlaves.map(_._2.mapping),
           sharedDecodings = sharedSlaves.map(_._2.mapping),
-          lowLatency = lowLatency
+          pendingMax = pendingMax
         )
         applyName(master,"decoder",decoder)
 
@@ -172,6 +176,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         ).zipped.toMap
 
         sharedBridger.getOrElse[(Axi4Shared,Axi4Shared) => Unit](master,_ >> _).apply(master,decoder.io.input)
+        sharedBridger.remove(master)
       }
     }
 
@@ -207,6 +212,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
               input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4ReadOnly]
             }
             readOnlyBridger.getOrElse[(Axi4ReadOnly,Axi4ReadOnly) => Unit](slave,_ >> _).apply(arbiter.io.output,slave)
+            readOnlyBridger.remove(slave)
           }
         }
       }
@@ -229,6 +235,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
               input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4WriteOnly]
             }
             writeOnlyBridger.getOrElse[(Axi4WriteOnly,Axi4WriteOnly) => Unit](slave,_ >> _).apply(arbiter.io.output,slave)
+            writeOnlyBridger.remove(slave)
           }
         }
       }
@@ -270,6 +277,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
               input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4Shared]
             }
             sharedBridger.getOrElse[(Axi4Shared,Axi4Shared) => Unit](slave,_ >> _).apply(arbiter.io.output,slave)
+            sharedBridger.remove(slave)
           }
         }
       }

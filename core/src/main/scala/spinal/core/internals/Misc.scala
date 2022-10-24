@@ -137,6 +137,12 @@ trait DoubleLinkedContainer[SC <: DoubleLinkedContainer[SC, SE], SE <: DoubleLin
       func(current)
     }
   }
+
+  def cldCount: Int ={
+    var count = 0
+    dlcForeach{_ => count += 1}
+    count
+  }
 }
 
 
@@ -286,4 +292,6 @@ class IntPimped(pimped : Int){
     case 0 => false
     case 1 => true
   }
+
+  def #* (value : Bits) =  Cat(List.fill(pimped)(value))
 }

@@ -25,13 +25,13 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
 
   libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
 
-  dependencyOverrides += "net.java.dev.jna" % "jna" % "4.2.2",
-  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "4.2.2",
+  dependencyOverrides += "net.java.dev.jna" % "jna" % "5.5.0",
+  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.5.0",
   dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
   dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
 
   //set SBT_OPTS="-Xmx2G"
-  //sbt clean reload publishSigned
+  //sbt +clean +reload +publishSigned
   //https://oss.sonatype.org
   publishMavenStyle := true,
   publishArtifact in Test := false,
@@ -111,9 +111,9 @@ lazy val sim = (project in file("sim"))
     defaultSettings,
     name := "SpinalHDL-sim",
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    libraryDependencies += "net.openhft" % "affinity" % "3.1.11",
+    libraryDependencies += "net.openhft" % "affinity" % "3.21ea1.1",
     libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25",
-    libraryDependencies += "com.github.dblock" % "oshi-core" % "3.4.0",
+    libraryDependencies += "com.github.oshi" % "oshi-core" % "5.2.0",
     version := SpinalVersion.sim
   )
 
@@ -155,6 +155,7 @@ lazy val lib = (project in file("lib"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
     version := SpinalVersion.lib
   )
   .dependsOn (sim, core)
@@ -202,6 +203,10 @@ lazy val tester = (project in file("tester"))
 assemblyJarName in assembly := "spinalhdl.jar"
 
 test in assembly := {}
+
+Test / testOptions += Tests.Argument("-l", "spinal.tester.formal")
+addCommandAlias("testFormal", "testOnly * -- -n spinal.tester.formal")
+addCommandAlias("testWithoutFormal", "testOnly * -- -l spinal.tester.formal")
 
 assemblyOutputPath in assembly := file("./release/spinalhdl.jar")
 

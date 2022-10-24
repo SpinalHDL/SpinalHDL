@@ -39,6 +39,7 @@ trait StateMachineAccessor {
 
   def isActive(state: State): Bool
   def isEntering(state: State): Bool
+  def isExiting(state: State): Bool
 
   def goto(state: State): Unit
   def forceGoto(state: State): Unit
@@ -112,7 +113,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     *
     * goto() will only have an effect, if condition is True
     */
-  def setTransitionCondition(condition : Bool) {
+  def setTransitionCondition(condition : Bool): Unit = {
     this.transitionCond = Bool()
     this.transitionCond := condition
   }
@@ -125,16 +126,26 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     this
   }
 
-  def setEncoding(encoding: SpinalEnumEncoding): Unit = enumDefinition.defaultEncoding = encoding
+  var corruptedState : Bool = null
+  def inCorruptedState(): Bool ={
+    if(corruptedState == null) corruptedState = Bool().setCompositeName(this, "corruptedState", weak = true)
+    corruptedState
+  }
+
+  def setEncoding(encoding: SpinalEnumEncoding): Unit = enumDef.defaultEncoding = encoding
+  def setEncoding(spec: (State, BigInt)*): Unit = {
+    val mapping = spec.map(e => states.indexOf(e._1) -> e._2).toMapLinked()
+    enumDef.defaultEncoding = SpinalEnumEncoding(mapping.apply)
+  }
 
   @dontName val postBuildTasks = ArrayBuffer[() => Unit]()
 
   val cache = mutable.HashMap[Any,Any]()
-  val enumDefinition = new StateMachineEnum
-  var stateReg  : enumDefinition.C = null
-  var stateNext : enumDefinition.C = null
+  val enumDef = new StateMachineEnum
+  var stateReg  : enumDef.C = null
+  var stateNext : enumDef.C = null
   /* Candidate for next state */
-  var stateNextCand : enumDefinition.C = null
+  var stateNextCand : enumDef.C = null
   /* Condition for transition */
   var transitionCond : Bool = null
   override val wantExit  = False.allowPruning()
@@ -142,10 +153,11 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   val wantKill = False
   var autoStart = true
 
+
   @dontName var parentStateMachine: StateMachineAccessor = null
-  @dontName val childStateMachines = mutable.Set[StateMachineAccessor]()
+  @dontName val childStateMachines = mutable.LinkedHashSet[StateMachineAccessor]()
   @dontName val states   = ArrayBuffer[State]()
-  val stateToEnumElement = mutable.HashMap[State, enumDefinition.E]()
+  val stateToEnumElement = mutable.HashMap[State, enumDef.E]()
   @dontName var entryState: State = null
 
   def enumOf(state: State) = {
@@ -155,8 +167,16 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
   def checkState(state: State) = assert(state.getStateMachineAccessor == this, s"A state machine ($this)is using a state ($state) that come from another state machine.\n\nState machine defined at ${this.getScalaLocationLong}\n State defined at ${state.getScalaLocationLong}")
 
-  var stateBoot : State = new State()(this).setCompositeName(this, "BOOT")
+  var stateBoot : State = new State()(this).setCompositeName(this, "BOOT", Nameable.DATAMODEL_WEAK)
+
+  def makeInstantEntry(): State ={
+    setEntry(stateBoot.unsetName())
+    stateBoot
+  }
+
+  var builded = false
   override def build(): Unit = {
+    builded = true
     inGeneration = true
     childStateMachines.foreach(_.build())
     if(autoStart) {
@@ -164,11 +184,11 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
         startFsm()
       }
     }
-    stateReg  = Reg(enumDefinition())
-    stateNext = enumDefinition().allowOverride
+    stateReg  = Reg(enumDef())
+    stateNext = enumDef().allowOverride
     /* Only synthesize, if conditional state machine */
     if (transitionCond != null)
-      stateNextCand = enumDefinition().allowOverride
+      stateNextCand = enumDef().allowOverride
 
     OwnableRef.proposal(stateBoot, this)
     OwnableRef.proposal(stateReg, this)
@@ -181,7 +201,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
     for(state <- states){
       checkState(state)
-      val enumElement = enumDefinition.newElement(if(state.isNamed) state.getName() else null)
+      val enumElement = enumDef.newElement(if(state.isNamed) state.getPartialName else null)
       stateToEnumElement += (state -> enumElement)
     }
 
@@ -200,9 +220,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     switch(stateReg){
       for(state <- states){
         if(state == stateBoot) default {
-          state.whenActiveTasks.foreach(_())
+          state.whenActiveTasks.sortBy(_.priority).foreach(_.body())
         } else is(enumOf(state)) {
-          state.whenActiveTasks.foreach(_())
+          state.whenActiveTasks.sortBy(_.priority).foreach(_.body())
         }
       }
     }
@@ -232,24 +252,43 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
       }
     }
 
+    // `always` and `postBuild` must be processed after states to get priority
+    // in the behavior of the elaborated design.
     alwaysTasks.foreach(_())
     postBuildTasks.foreach(_())
 
     when(wantStart){
       if(entryState == null)
         globalData.pendingErrors += (() => (s"$this as no entry point set. val yourState : State = new State with EntryPoint{...}   should solve the situation at \n${getScalaLocationLong}"))
-      else
+      else if(entryState != stateBoot)
         forceGoto(entryState)
     }
     when(wantKill){
       forceGoto(stateBoot)
     }
+
+    if(corruptedState != null){
+      switch(stateReg, coverUnreachable = true){
+        for(e <- states) is(enumOf(e)){
+          corruptedState := False
+        }
+        default{
+          corruptedState := True
+        }
+      }
+      for(state <- states){
+        when(!stateRegOneHotMap(state) && stateNextOneHotMap(state)){
+          state.onEntryTasks.foreach(_())
+        }
+      }
+    }
   }
 
-  Component.current.addPrePopTask(() => {
-    if(parentStateMachine == null)
+  Component.current.afterElaboration{
+    if(parentStateMachine == null && !builded) {
       build()
-  })
+    }
+  }
 
 
   override def setEntry(state: State): Unit = {
@@ -272,19 +311,33 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     stateNext := enumOf(state)
   }
 
-  override def isActive(state: State): Bool = {
-    val ret = Component.current.onBody(Bool)
-    postBuildTasks += {() => {
+  def postBuild(body : => Unit){
+    builded match {
+      case false => postBuildTasks += (() => body)
+      case true => body
+    }
+  }
+  override def isActive(state: State): Bool = Component.current.onBody{
+    val ret = Bool()
+    postBuild{
       ret := stateReg === enumOf(state)
-    }}
+    }
     ret
   }
 
-  override def isEntering(state: State): Bool = {
-    val ret = Component.current.onBody(Bool)
-    postBuildTasks += {() => {
+  override def isEntering(state: State): Bool = Component.current.onBody{
+    val ret = Bool()
+    postBuild{
       ret := stateNext === enumOf(state) && stateReg =/= enumOf(state)
-    }}
+    }
+    ret
+  }
+
+  override def isExiting(state: State): Bool = Component.current.onBody{
+    val ret = Bool()
+    postBuild{
+      ret := stateNext =/= enumOf(state) && stateReg === enumOf(state)
+    }
     ret
   }
 
@@ -315,7 +368,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     wantKill := True
   }
 
-  @dontName implicit val implicitFsm = this
+  @dontName implicit val implicitFsm : StateMachine = this
 
   override def disableAutoStart(): Unit = autoStart = false
 

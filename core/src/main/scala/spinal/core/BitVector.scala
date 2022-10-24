@@ -48,14 +48,38 @@ abstract class BitVector extends BaseType with Widthable {
   /** Return the least significant bit */
   def lsb: Bool = this(0)
   /** Return the range */
-  def range: Range = 0 until getWidth
+  @deprecated("Use bitsRange instead")
+  def range: Range = bitsRange
+
+  def bitsRange: Range = 0 until getWidth
 
   /** Logical OR of all bits */
-  def orR: Bool = this.asBits =/= 0
+//  def orR: Bool = this.asBits =/= 0
+  def orR: Bool = {
+    if(GlobalData.get.config.mode == VHDL) {
+      this.asBits =/= 0
+    } else {
+      wrapUnaryWithBool(new Operator.BitVector.orR)
+    }
+  }
   /** Logical AND of all bits */
-  def andR: Bool = this.asBits === ((BigInt(1) << getWidth) - 1)
+//  def andR: Bool = this.asBits === ((BigInt(1) << getWidth) - 1)
+  def andR: Bool = {
+    if(GlobalData.get.config.mode == VHDL) {
+      this.asBits === ((BigInt(1) << getWidth) - 1)
+    } else {
+      wrapUnaryWithBool(new Operator.BitVector.andR)
+    }
+  }
   /** Logical XOR of all bits */
-  def xorR: Bool = this.asBools.reduce(_ ^ _)
+//  def xorR: Bool = this.asBools.reduce(_ ^ _)
+  def xorR: Bool = {
+    if(GlobalData.get.config.mode == VHDL) {
+      this.asBools.reduce(_ ^ _)
+    } else {
+      wrapUnaryWithBool(new Operator.BitVector.xorR)
+    }
+  }
 
   /**
     * Compare a BitVector with a MaskedLiteral (M"110--0")
@@ -67,6 +91,9 @@ abstract class BitVector extends BaseType with Widthable {
   /** BitVector is not equal to MaskedLiteral */
   def =/=(that: MaskedLiteral): Bool = this.isNotEquals(that)
 
+  def andMask(that : Bool) : this.type = (that ? this otherwise this.getZero).asInstanceOf[this.type]
+  def orMask(that : Bool) : this.type = (that ? cloneOf(this).setAll() otherwise this).asInstanceOf[this.type]
+  def xorMask(that : Bool) : this.type = (that ? (~this.asInstanceOf[BitVector with BitwiseOp[BitVector]]) otherwise this).asInstanceOf[this.type]
 
   /** Left rotation of that Bits */
   def rotateLeft(that: UInt): T = {
@@ -142,7 +169,7 @@ abstract class BitVector extends BaseType with Widthable {
     } else {
       res.fixedWidth = this.fixedWidth
     }
-    res
+    res.asInstanceOf[this.type]
   }
 
   /**
@@ -275,10 +302,11 @@ abstract class BitVector extends BaseType with Widthable {
     * @param sliceCount the width of the slice
     * @return a Vector of slices
     */
-  def subdivideIn(sliceCount: SlicesCount): Vec[T] = {
-    require(this.getWidth % sliceCount.value == 0)
-    val sliceWidth = widthOf(this) / sliceCount.value
-    Vec((0 until sliceCount.value).map(i => this(i * sliceWidth, sliceWidth bits).asInstanceOf[T]))
+  def subdivideIn(sliceCount: SlicesCount, strict : Boolean): Vec[T] = {
+    require(!strict || this.getWidth % sliceCount.value == 0)
+    val sliceWidth = widthOf(this) / sliceCount.value + (if(widthOf(this) % sliceCount.value != 0) 1 else 0)
+    val w = getWidth
+    Vec((0 until sliceCount.value).map(i => this(i * sliceWidth, (w-i * sliceWidth) min sliceWidth bits).asInstanceOf[T]))
   }
 
   /**
@@ -287,10 +315,14 @@ abstract class BitVector extends BaseType with Widthable {
     * @param sliceWidth the width of the slice
     * @return a Vector of slices
     */
-  def subdivideIn(sliceWidth: BitCount): Vec[T] = {
-    require(this.getWidth % sliceWidth.value == 0)
-    subdivideIn(this.getWidth / sliceWidth.value slices)
+  def subdivideIn(sliceWidth: BitCount, strict : Boolean): Vec[T] = {
+    require(!strict || this.getWidth % sliceWidth.value == 0)
+    subdivideIn((this.getWidth + sliceWidth.value - 1) / sliceWidth.value slices, strict)
   }
+
+
+  def subdivideIn(sliceCount: SlicesCount): Vec[T] = subdivideIn(sliceCount, true)
+  def subdivideIn(sliceWidth: BitCount): Vec[T] = subdivideIn(sliceWidth, true)
 
   /** Extract a bit of the BitVector */
   def newExtract(bitId: Int, extract: BitVectorBitAccessFixed): Bool = {
@@ -344,7 +376,7 @@ abstract class BitVector extends BaseType with Widthable {
         }
         override def getRealSourceNoRec: BaseType = BitVector.this
       }
-      ret
+      ret.asInstanceOf[this.type]
     }
     else
       getZeroUnconstrained
@@ -368,7 +400,7 @@ abstract class BitVector extends BaseType with Widthable {
         }
         override def getRealSourceNoRec: BaseType = BitVector.this
       }
-      ret
+      ret.asInstanceOf[this.type]
     }
     else
       getZeroUnconstrained
@@ -407,7 +439,16 @@ abstract class BitVector extends BaseType with Widthable {
   def apply(range: Range): this.type = this.apply(range.low, range.high - range.low + 1 bits)
 
 
-
+  override def isRegOnAssign : Boolean = {
+    if(isReg) return true
+    if(dlcHasOnlyOne){
+      dlcHead.source match {
+        case e : SubAccess => return e.getBitVector.asInstanceOf[BitVector].isRegOnAssign
+        case _ => return false
+      }
+    }
+    return false
+  }
 
   /** Set all bits to value */
   def setAllTo(value: Boolean): this.type = {
@@ -437,10 +478,15 @@ abstract class BitVector extends BaseType with Widthable {
 
   override def toString(): String = {
     if(component == null)
-      getName()
+      s"${getDisplayName()} : ${dirString()} $getClassIdentifier[$getWidthStringNoInferation bits])"
     else if((isNamed || !hasOnlyOneStatement || !head.source.isInstanceOf[Literal]))
       s"(${component.getPath() + "/" + this.getDisplayName()} : ${dirString()} $getClassIdentifier[$getWidthStringNoInferation bits])"
     else
       head.source.toString
+  }
+
+  override def getMuxType[T <: Data](list: TraversableOnce[T]) = {
+    val w = list.filter(!_.hasTag(tagAutoResize)).map(e => widthOf(e)).max
+    cloneOf(this).setWidth(w).asInstanceOf[T]
   }
 }

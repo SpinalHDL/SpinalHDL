@@ -40,7 +40,7 @@ object InOutWrapper {
                 newIo := bundle.write
               }
             }
-            case bundle: ReadableOpenDrain[_] if bundle.isMasterInterface => {
+            case bundle: ReadableOpenDrain[_] if bundle.write.isOutput && bundle.read.isInput => {
               val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
               bundle.setAsDirectionLess.unsetName().allowDirectionLessIo
               bundle.read.assignFrom(newIo)

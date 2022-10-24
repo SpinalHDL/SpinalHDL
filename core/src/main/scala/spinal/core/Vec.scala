@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, BitVectorAssignmentExpression, RangedAssignmentFixed, RangedAssignmentFloating}
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
@@ -33,16 +35,7 @@ trait VecFactory {
     val vector = elements.toVector
 
     if(vector.nonEmpty) {
-      val vecType = if(dataType != null) dataType else {
-        val data = vector.reduce((a, b) => {
-          if (a.getClass.isAssignableFrom(b.getClass)) a
-          else if (b.getClass.isAssignableFrom(a.getClass)) b
-          else throw new Exception("can't mux that")
-        })
-        HardType(data)
-      }
-
-      new Vec(vecType, vector)
+      new Vec(dataType, vector)
     }else{
       new Vec[T](null.asInstanceOf[T], vector)
     }
@@ -83,7 +76,10 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Ve
           case that: AssignmentNode => that.clone(to)
           case _ => that
         }*/
-        to.compositAssignFrom(thatSafe, to, kind)
+        target match {
+          case a : BitVectorAssignmentExpression => to.compositAssignFrom(thatSafe, a.copyWithTarget(to.asInstanceOf[BitVector]), kind)
+          case bt : BaseType => to.compositAssignFrom(thatSafe, to, kind)
+        }
       }
     }
   }
@@ -101,7 +97,22 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Ve
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Vector Vec Documentation]]
   */
-class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
+class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
+
+  def dataType = {
+    if(_dataType == null){
+      val data = vec.reduce((a, b) => {
+        if (a.getClass.isAssignableFrom(b.getClass)) a
+        else if (b.getClass.isAssignableFrom(a.getClass)) b
+        else throw new Exception("can't mux that")
+      })
+      _dataType = data.getMuxType(vec)
+    }
+    _dataType
+  }
+
+
+
   for(i <- elements.indices){
     val e = elements(i)._2
     if(OwnableRef.proposal(e, this)) e.setPartialName(i.toString, Nameable.DATAMODEL_WEAK)
@@ -171,15 +182,27 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
 
 
     val ret = dataType()
-    val retFlatten = ret.flatten
-    for(i <- 0 until vecTransposed.length){
-      val target = retFlatten(i)
-      target match {
-        case bv: BitVector => bv.unfixWidth()
-        case _             =>
+    def rec(ret : Data, elements : Traversable[Data]): Unit ={
+      ret match {
+        case ret : MultiData =>{
+          val iRet = ret.elements.iterator
+          val iIn = elements.map(_.toMuxInput[Data](ret).asInstanceOf[MultiData].elements.iterator)
+          val continue = true
+          while(iRet.nonEmpty && continue){
+            val dst = iRet.next()
+            val srcs = iIn.map(_.next())
+            assert(srcs.forall(_._1 == dst._1), "Doesn't match ???")
+            rec(dst._2, srcs.map(_._2))
+          }
+        }
+        case ret : BaseType => {
+          val ab = ArrayBuffer[BaseType]()
+          ab ++= elements.map(_.toMuxInput(ret))
+          ret.assignFrom(ret.newMultiplexer(finalAddress, ab))
+        }
       }
-      target.assignFrom(target.newMultiplexer(finalAddress, vecTransposed(i)))
     }
+    rec(ret, vec)
     ret
   }
 
@@ -256,7 +279,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
       case that: Vec[T] =>
         if (that.vec.size != this.vec.size) throw new Exception("Can't assign Vec with a different size")
         for ((to, from) <- (this.vec, that.vec).zipped) {
-          to.assignFromImpl(from, to, kind)
+          to.compositAssignFrom(from, to, kind)
         }
       case _            => throw new Exception("Undefined assignment")
     }
@@ -277,4 +300,17 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
   override def clone: this.type = new Vec[T](dataType, vec.map(cloneOf(_))).asInstanceOf[this.type]
 
   override def toString() = s"${getDisplayName()} : Vec of $length elements"
+}
+
+class VecBitwisePimper[T <: Data with BitwiseOp[T]](pimped : Vec[T]) extends BitwiseOp[Vec[T]] {
+  override def |(other: Vec[T]): Vec[T] = map2with(_ | _)(other)
+  override def &(other: Vec[T]): Vec[T] = map2with(_ & _)(other)
+  override def ^(other: Vec[T]): Vec[T] = map2with(_ ^ _)(other)
+  override def unary_~ : Vec[T] = Vec(pimped.map(~ _))
+
+  private def map2with(f: (T, T) => T)(other: Vec[T]): Vec[T] = {
+    if (pimped.length != other.length)
+      SpinalError(s"Cannot apply a bitwize opration on vectors with different size (${pimped.length} vs ${other.length})")
+    Vec((pimped, other).zipped.map(f))
+  }
 }

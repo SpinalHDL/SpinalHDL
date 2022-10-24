@@ -8,7 +8,10 @@ class UsbTimer(counterTimeMax : Double, fsRatio : Double) extends  Area {
   val lowSpeed = Bool()
   val counter = Reg(UInt((log2Up(12e6 * fsRatio * counterTimeMax toInt) + 2) bits))
   val clear = False
-  counter := counter + 1
+  val inc = True
+  when(inc) {
+    counter := counter + 1
+  }
   when(clear) {
     counter := 0
   }

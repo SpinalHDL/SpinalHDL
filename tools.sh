@@ -6,7 +6,7 @@ install_verilator(){
   unset VERILATOR_ROOT  # For bash
   cd verilator
   git pull        # Make sure we're up-to-date
-  git checkout v4.040
+  git checkout v4.218
   autoconf        # Create ./configure script
   ./configure --prefix ~/tools
   make -j$(nproc)
@@ -51,7 +51,14 @@ purge_cocotb(){
 }
 
 install_packages(){
+  sudo apt update -y -qq
   sudo apt install -y gnat-9  libgnat-9 zlib1g-dev libboost-dev
+}
+
+install_fpga_toolchain(){
+  wget https://github.com/YosysHQ/fpga-toolchain/releases/download/nightly-20211006/fpga-toolchain-linux_x86_64-nightly-20211006.tar.xz
+  tar -xf fpga-toolchain-linux_x86_64-nightly-20211006.tar.xz
+  ls ~/fpga-toolchain
 }
 
 install_tools(){

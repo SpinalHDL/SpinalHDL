@@ -109,7 +109,7 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
   val logic = if(portCount == 1) new Area{
     io.output << io.inputs(0)
   } else new Area {
-    val arbiterFactory = StreamArbiterFactory.lowerFirst
+    val arbiterFactory = StreamArbiterFactory().lowerFirst
     if(transactionLock) arbiterFactory.transactionLock else arbiterFactory.noLock
     val arbiter = arbiterFactory.build(PipelinedMemoryBusCmd(pipelinedMemoryBusConfig), portCount)
     (arbiter.io.inputs, io.inputs).zipped.foreach(_ <> _.cmd)

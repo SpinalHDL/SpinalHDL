@@ -68,21 +68,21 @@ def test1(dut):
 
     # Instanciate master sides
     for idx,axiMaster in enumerate(axiMasters):
-        WriteOnlyMasterDriver("Axi4WriteMasterDriver" + str(idx),phaseManager,0 + idx * 4, axiMaster, dut).createInfrastructure()
-        ReadOnlyMasterDriver("Axi4ReadMasterDriver" + str(idx),phaseManager,0 + idx * 4, axiMaster, dut).createInfrastructure()
+        WriteOnlyMasterDriver("Axi4WriteMasterDriver" + str(idx),phaseManager,0 + idx * 0, axiMaster, dut).createInfrastructure()
+        ReadOnlyMasterDriver("Axi4ReadMasterDriver" + str(idx),phaseManager,0 + idx * 0, axiMaster, dut).createInfrastructure()
         ReadOnlyMasterMonitor("Axi4ReadMasterMonitor" + str(idx), phaseManager, axiMaster, dut).createInfrastructure()
         WriteOnlyMasterMonitor("Axi4WriteMasterMonitor" + str(idx), phaseManager, axiMaster, dut).createInfrastructure()
 
     for idx,axiMaster in enumerate(axiReadOnlyMasters):
-        ReadOnlyMasterDriver("ReadOnlyMasterDriver" + str(idx),phaseManager,4 + idx * 4, axiMaster, dut).createInfrastructure()
+        ReadOnlyMasterDriver("ReadOnlyMasterDriver" + str(idx),phaseManager,0 + idx * 0, axiMaster, dut).createInfrastructure()
         ReadOnlyMasterMonitor("ReadOnlyMasterMonitor" + str(idx),phaseManager,axiMaster,dut).createInfrastructure()
 
     for idx,axiMaster in enumerate(axiWriteOnlyMasters):
-        WriteOnlyMasterDriver("WriteOnlyMasterDriver" + str(idx),phaseManager,8 + idx * 4, axiMaster, dut).createInfrastructure()
+        WriteOnlyMasterDriver("WriteOnlyMasterDriver" + str(idx),phaseManager,0 + idx * 0, axiMaster, dut).createInfrastructure()
         WriteOnlyMasterMonitor("WriteOnlyMasterMonitor" + str(idx), phaseManager, axiMaster, dut).createInfrastructure()
 
     for idx,axiMaster in enumerate(axiSharedMasters):
-        SharedMasterDriver("SharedMasterDriver" + str(idx),phaseManager,12 + idx * 4, axiMaster, dut).createInfrastructure()
+        SharedMasterDriver("SharedMasterDriver" + str(idx),phaseManager,0 + idx * 0, axiMaster, dut).createInfrastructure()
         SharedMasterMonitor("SharedMasterMonitor" + str(idx), phaseManager, axiMaster, dut).createInfrastructure()
 
 

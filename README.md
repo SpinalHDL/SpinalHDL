@@ -16,12 +16,13 @@ SpinalHDL is:
 ## Links
 
  - Documentation                  <br> https://spinalhdl.github.io/SpinalDoc-RTD/
- - Presentation of the language   <br> https://spinalhdl.github.io/SpinalDoc-RTD/SpinalHDL/Getting%20Started/presentation.html
+ - Presentation of the language   <br> https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Getting%20Started/presentation.html
  - SBT base project               <br> https://github.com/SpinalHDL/SpinalTemplateSbt
  - Gradle base project            <br> https://github.com/SpinalHDL/SpinalTemplateGradle
  - Jupyter bootcamp               <br> https://github.com/SpinalHDL/Spinal-bootcamp
  - Workshop                       <br> https://github.com/SpinalHDL/SpinalWorkshop
  - Google group                   <br> https://groups.google.com/forum/#!forum/spinalhdl-hardware-description-language
+ - Donation channel               <br> https://opencollective.com/spinalhdl
 
 [![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
@@ -54,23 +55,26 @@ repositories {
 }
 
 dependencies {
-	compile group: 'com.github.spinalhdl', name: 'spinalhdl-core_2.11', version: '1.3.6'
-	compile group: 'com.github.spinalhdl', name: 'spinalhdl-lib_2.11', version: '1.3.6'
+	compile group: 'com.github.spinalhdl', name: 'spinalhdl-core_2.11', version: '1.6.4'
+	compile group: 'com.github.spinalhdl', name: 'spinalhdl-lib_2.11', version: '1.6.4'
 }
 ```
 
 ### Mill(Build Tool)
 
 ```scala 
+import mill._
+import mill.scalalib._
+
 object MySpinalModule extends ScalaModule {
   def scalaVersion = "2.11.12"
 
   def ivyDeps = Agg(
-    ivy"com.github.spinalhdl::spinalhdl-core:1.4.1",
-    ivy"com.github.spinalhdl::spinalhdl-lib:1.4.1",
+    ivy"com.github.spinalhdl::spinalhdl-core:1.6.4",
+    ivy"com.github.spinalhdl::spinalhdl-lib:1.6.4",
   )
 
-  def scalacPluginIvyDeps = Agg(ivy"com.github.spinalhdl::spinalhdl-idsl-plugin:1.4.1")
+  def scalacPluginIvyDeps = Agg(ivy"com.github.spinalhdl::spinalhdl-idsl-plugin:1.6.4")
 }
 ```
 
@@ -87,7 +91,7 @@ https://github.com/SpinalHDL/SpinalHDL/tags
 
 ## License
 
-The SpinalHDL core is using the LGPL3 license while SpinalHDL lib is using the MIT license. That's for the formalities. But there are some practical statements implied by those licenses:
+The SpinalHDL core is using the LGPL3 license while SpinalHDL lib and others are using the MIT license. That's for the formalities. But there are some practical statements implied by those licenses:
 
 Your freedoms are:
 

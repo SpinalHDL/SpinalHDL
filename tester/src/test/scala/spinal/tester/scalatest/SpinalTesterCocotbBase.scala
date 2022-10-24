@@ -73,7 +73,7 @@ abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfter
       s"make TOPLEVEL_LANG=${langString} ${additionalArgs.mkString(" ")}"
     ))
 //    val pass = getCocotbPass(xmlPath)
-    val pass = stdout.contains("**                                 ERRORS : 0                                      **")
+    val pass = stdout.contains("FAIL=0 SKIP=0")
 
     assert(!cocotbMustPass || pass,"Simulation fail")
     assert(cocotbMustPass || !pass,"Simulation has not fail :(")

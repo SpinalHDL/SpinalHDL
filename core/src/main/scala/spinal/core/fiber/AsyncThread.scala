@@ -31,7 +31,9 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
     }
   }
 
+  var allowSuspend = true
   def suspend(): Unit = {
+    assert(allowSuspend)
     engine.currentAsyncThread = null
     jvmThread.barrier.await()
     jvmThread.park()
@@ -46,14 +48,13 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
 
   val seed = Random.nextLong()
 
-  val parrentScope = ScopeProperty.it.get
   val jvmThread = Engine.get.newJvmThread {
 //    manager.setupJvmThread(Thread.currentThread())
 //    SimManagerContext.threadLocal.set(mainContext)
 //    manager.context.thread = SimThread.this
     try {
       Random.setSeed(seed)
-      ScopeProperty.it.set(parrentScope)
+      context.restore()
       engine.currentAsyncThread = this
       body
     } catch {

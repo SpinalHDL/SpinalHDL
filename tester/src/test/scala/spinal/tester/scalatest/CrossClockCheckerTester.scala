@@ -52,7 +52,7 @@ class CrossClockCheckerTester extends AnyFunSuite{
   }
 
   test("b") {
-    generationShouldFaild({
+    generationShouldFail({
       val c = new CrossClockCheckerTesterA
       c.bb.i.addTag(ClockDomainTag(c.clkB))
       c
@@ -60,7 +60,7 @@ class CrossClockCheckerTester extends AnyFunSuite{
   }
 
   test("c") {
-    generationShouldFaild({
+    generationShouldFail({
       val c = new CrossClockCheckerTesterB
       c.reg.addTag(ClockDomainTag(c.clkA))
       c.bb.i.addTag(ClockDomainTag(c.clkB))
@@ -69,7 +69,7 @@ class CrossClockCheckerTester extends AnyFunSuite{
   }
 
   test("d") {
-    generationShouldFaild({
+    generationShouldFail({
       val c = new CrossClockCheckerTesterC
       c.reg.addTag(ClockDomainTag(c.clkA))
       c.bb.o.addTag(ClockDomainTag(c.clkB))
@@ -179,14 +179,14 @@ class SyncronousCheckerTester extends AnyFunSuite{
 
   test("a") { generationShouldPass(new SyncronousCheckerTesterA) }
   test("b") { generationShouldPass(new SyncronousCheckerTesterB) }
-  test("c0") { generationShouldFaild(new SyncronousCheckerTesterC(0)) }
+  test("c0") { generationShouldFail(new SyncronousCheckerTesterC(0)) }
   test("c1") { generationShouldPass(new SyncronousCheckerTesterC(1)) }
   test("c2") { generationShouldPass(new SyncronousCheckerTesterC(2)) }
   test("c3") { generationShouldPass(new SyncronousCheckerTesterC(3)) }
   test("c4") { generationShouldPass(new SyncronousCheckerTesterC(4)) }
   test("c5") { generationShouldPass(new SyncronousCheckerTesterC(5)) }
-  test("d0") { generationShouldFaild(new SyncronousCheckerTesterD(0)) }
+  test("d0") { generationShouldFail(new SyncronousCheckerTesterD(0)) }
   test("d1") { generationShouldPass(new SyncronousCheckerTesterD(1)) }
   test("d2") { generationShouldPass(new SyncronousCheckerTesterD(2)) }
-//  test("d3") { generationShouldFaild(new SyncronousCheckerTesterD(3)) }
+//  test("d3") { generationShouldFail(new SyncronousCheckerTesterD(3)) }
 }

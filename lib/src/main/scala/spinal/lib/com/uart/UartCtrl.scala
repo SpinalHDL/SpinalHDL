@@ -40,7 +40,7 @@ class UartCtrlIo(g : UartCtrlGenerics) extends Bundle {
   val config = in(UartCtrlConfig(g))
   val write  = slave(Stream(Bits(g.dataWidthMax bit)))
   val read   = master(Stream(Bits(g.dataWidthMax bit)))
-  val uart   = master(Uart())
+  val uart   = master(Uart(ctsGen = g.ctsGen, rtsGen = g.rtsGen))
   val readError = out Bool()
   val writeBreak = in Bool()
   val readBreak = out Bool()
@@ -56,6 +56,7 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   val clockDivider = new Area {
     val counter = Reg(UInt(g.clockDividerWidth bits)) init(0)
     val tick = counter === 0
+    val tickReg = RegNext(tick) init(False)
 
     counter := counter - 1
     when(tick) {
@@ -63,8 +64,8 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     }
   }
 
-  tx.io.samplingTick := clockDivider.tick
-  rx.io.samplingTick := clockDivider.tick
+  tx.io.samplingTick := clockDivider.tickReg
+  rx.io.samplingTick := clockDivider.tickReg
 
   tx.io.configFrame := io.config.frame
   rx.io.configFrame := io.config.frame

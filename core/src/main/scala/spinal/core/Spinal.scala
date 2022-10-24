@@ -21,12 +21,13 @@
 package spinal.core
 
 
-import java.io.{BufferedWriter, File, FileWriter}
+import org.apache.commons.io.FileUtils
 
+import java.io.{BufferedWriter, File, FileWriter}
 import spinal.core.internals._
+
 import java.text.SimpleDateFormat
 import java.util.Date
-
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
@@ -49,12 +50,15 @@ case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
 /**
  * target device
  */
-case class Device(vendor: String = "?", family: String = "?", name: String = "?")
+case class Device(vendor: String = "?", family: String = "?", name: String = "?"){
+  def isVendorDefault = vendor == "?"
+}
 object Device{
   val ALTERA = Device(vendor = "altera")
   val XILINX = Device(vendor = "xilinx")
   val LATTICE = Device(vendor = "lattice")
   val ACTEL = Device(vendor = "actel")
+  val NONE = Device(vendor = "none")
 }
 
 
@@ -137,11 +141,14 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         anonymSignalPrefix             : String = null,
                         device                         : Device = Device(),
                         inlineRom                      : Boolean = false,
+                        romReuse                       : Boolean = false,
                         genVhdlPkg                     : Boolean = true,
                         verbose                        : Boolean = false,
                         mergeAsyncProcess              : Boolean = false,
                         asyncResetCombSensitivity      : Boolean = false,
                         anonymSignalUniqueness         : Boolean = false,
+                        inlineConditionalExpression    : Boolean = false,
+                        nameWhenByFile                 : Boolean = true,
                         noRandBoot                     : Boolean = false,
                         randBootFixValue               : Boolean = true,
                         noAssert                       : Boolean = false,
@@ -149,12 +156,15 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         headerWithDate                 : Boolean = false,
                         headerWithRepoHash             : Boolean = true,
                         removePruned                   : Boolean = false,
+                        allowOutOfRangeLiterals        : Boolean = false,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
                         rtlHeader                      : String = null,
                         scopeProperties                : mutable.LinkedHashMap[ScopeProperty[_], Any] = mutable.LinkedHashMap[ScopeProperty[_], Any](),
-                        private [core] var _withEnumString : Boolean = true
+                        private [core] var _withEnumString : Boolean = true,
+                        var enumPrefixEnable                 : Boolean = true,
+                        var enumGlobalEnable                 : Boolean = false
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
@@ -170,7 +180,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     globalData.scalaLocatedComponents ++= debugComponents
     globalData.commonClockConfig  = defaultConfigForClockDomains
     for((p, v) <- scopeProperties){
-      p.asInstanceOf[ScopeProperty[Any]].push(v)
+      p.asInstanceOf[ScopeProperty[Any]].set(v)
     }
   }
 
@@ -209,6 +219,11 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     scopeProperties(value.dady) = value
     this
   }
+
+  def withGlobalEnum: this.type ={
+    enumGlobalEnable = true
+    this
+  }
 }
 class GenerationFlags {
   def isEnabled = GlobalData.get.config.flags.contains(this)
@@ -219,6 +234,8 @@ object GenerationFlags{
   object synthesis extends GenerationFlags
   object formal extends GenerationFlags
   object simulation extends GenerationFlags
+
+  implicit def generationFlagsToBoolean(flag : GenerationFlags) : Boolean = flag.isEnabled
 }
 
 object SpinalConfig{
@@ -271,6 +288,21 @@ class SpinalReport[T <: Component]() {
     this
   }
 
+  def printRtl() : this.type = {
+    for(f <- generatedSourcesPaths){
+      println(scala.io.Source.fromFile(f).mkString)
+    }
+    this
+  }
+
+  def printZeroWidth() : this.type = {
+    if(globalData.zeroWidths.isEmpty) return this
+    globalData.zeroWidths.foreach{case (c, n) =>
+      SpinalWarning(s"${c}/${n.toString}")
+    }
+    this
+  }
+
 
   def mergeRTLSource(fileName: String = null): Unit = {
 
@@ -294,19 +326,20 @@ class SpinalReport[T <: Component]() {
 
     /** Merge a list of path into one file */
     def mergeFile(listPath: mutable.LinkedHashSet[String], fileName: String) {
-      val fw = new FileWriter(new File(fileName))
-      val bw = new BufferedWriter(fw)
+      val str = new StringBuilder() //We use a temporary string to build the result, allowing overriding on input file as output
 
       listPath.foreach{ path =>
         if( new File(path).exists ) {
           val buffer = Source.fromFile(path)
-          buffer.getLines.foreach{ line => bw.write(line + "\n") }
+          buffer.getLines.foreach{ line => str. ++= (line + "\n") }
           buffer.close()
         }else{
           SpinalWarning(s"Merging blackbox sources : Path (${new File(path).getAbsolutePath}) not found ")
         }
       }
-
+      val fw = new FileWriter(new File(s"${globalData.config.targetDirectory}/$fileName"))
+      val bw = new BufferedWriter(fw)
+      bw.write(str.toString())
       bw.close()
       fw.close()
     }
@@ -314,7 +347,11 @@ class SpinalReport[T <: Component]() {
     // Merge vhdl/verilog file
     val nameFile = if(fileName == null) s"${toplevel.definitionName}_bb" else fileName
     if(bb_vhdl.size > 0)   { mergeFile(bb_vhdl,    s"${nameFile}.vhd") }
-    if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}.v") }
+    if (globalData.config.mode == Verilog) {
+      if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}.v") }
+    } else if (globalData.config.mode == SystemVerilog) {
+      if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}.sv") }
+    }
 
   }
 
@@ -326,7 +363,7 @@ class SpinalReport[T <: Component]() {
 
 
 object Spinal{
-  def version = spinal.core.Info.version
+  val version = (if(Character.isDigit(spinal.core.Info.version(0))) "v" else "") + spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
 
@@ -336,7 +373,7 @@ object Spinal{
 
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
-    } + s" SpinalHDL v$version    git head : ${spinal.core.Info.gitHash}")
+    } + s" SpinalHDL $version    git head : ${spinal.core.Info.gitHash}")
 
 
     val runtime = Runtime.getRuntime
@@ -349,6 +386,8 @@ object Spinal{
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
     } + s" Current date : ${dateFmt.format(curDate)}")
+
+    FileUtils.forceMkdir(new File(config.targetDirectory))
 
     val report = configPatched.mode match {
       case `VHDL`    => SpinalVhdlBoot(configPatched)(gen)

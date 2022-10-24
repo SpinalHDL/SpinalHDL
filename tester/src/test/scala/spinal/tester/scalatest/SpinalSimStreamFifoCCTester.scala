@@ -12,6 +12,8 @@ import scala.util.Random
 
 class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
 
+//  onlyVerilator()
+
   def testbench(dut : StreamFifoCC[Bits]): Unit ={
     val queueModel = mutable.Queue[Long]()
 
@@ -29,6 +31,9 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
 
     //Pop data randomly and check that it match with the queueModel
     val popThread = fork{
+      dut.io.pop.ready #= false
+      dut.pushClock.waitSampling()
+      dut.popClock.waitSampling()
       for(repeat <- 0 until 10000){
         dut.io.pop.ready.randomize()
         dut.popClock.waitSampling()
@@ -39,98 +44,105 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
       simSuccess()
     }
   }
-  
-  test("testAsyncReset") {
-    //Compile the simulator
-    val compiled = SimConfig.allOptimisation.compile(
-      rtl = new StreamFifoCC(
-        dataType = Bits(32 bits),
-        depth = 32,
-        pushClock = ClockDomain.external("clkA"),
-        popClock = ClockDomain.external("clkB")
-      )
-    )
 
-    //Run the simulation
-    compiled.doSimUntilVoid { dut =>
-      fork {
-        //Clear clock domains signals, to be sure the simulation capture their first edge.
+  for(pushResetLevel <- List(LOW, HIGH);
+      popResetLevel <- List(LOW, HIGH);
+      popResetEnable <- List(false, true)) {
+    val postfix = s"${pushResetLevel}_${popResetLevel}_${popResetEnable}"
+    test("testAsyncReset_" + postfix) {
+      //Compile the simulator
+      val compiled = SimConfig.allOptimisation.compile(
+        rtl = new StreamFifoCC(
+          dataType = Bits(32 bits),
+          depth = 32,
+          pushClock = ClockDomain.external("clkA", config = ClockDomainConfig(resetActiveLevel = pushResetLevel)),
+          popClock = ClockDomain.external("clkB", withReset = popResetEnable, config = ClockDomainConfig(resetActiveLevel = popResetLevel)),
+          withPopBufferedReset = !popResetEnable
+        )
+      )
+
+      //Run the simulation
+      compiled.doSimUntilVoid { dut =>
+        fork {
+          //Clear clock domains signals, to be sure the simulation capture their first edge.
+          dut.pushClock.fallingEdge()
+          dut.popClock.fallingEdge()
+          dut.pushClock.deassertReset()
+          if(popResetEnable) dut.popClock.deassertReset()
+          sleep(0)
+
+          //Do the resets
+          dut.pushClock.assertReset()
+          if(popResetEnable)dut.popClock.assertReset()
+          sleep(10)
+          dut.pushClock.deassertReset()
+          if(popResetEnable)dut.popClock.deassertReset()
+          sleep(1)
+
+          //Forever, randomly toggle one of the clocks (will create asynchronous clocks without fixed frequencies)
+          while (true) {
+            if (Random.nextBoolean()) {
+              dut.pushClock.clockToggle()
+            } else {
+              dut.popClock.clockToggle()
+            }
+            sleep(1)
+          }
+        }
+        testbench(dut)
+      }
+    }
+
+    test("testSyncReset_" + postfix) {
+      //Compile the simulator
+      val compiled = SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC))).allOptimisation.compile(
+        rtl = new StreamFifoCC(
+          dataType = Bits(32 bits),
+          depth = 32,
+          pushClock = ClockDomain.external("clkA", config = ClockDomainConfig(resetActiveLevel = pushResetLevel)),
+          popClock = ClockDomain.external("clkB", withReset = popResetEnable, config = ClockDomainConfig(resetActiveLevel = popResetLevel)),
+          withPopBufferedReset = !popResetEnable
+        )
+      )
+
+      //Run the simulation
+      compiled.doSimUntilVoid { dut =>
         dut.pushClock.fallingEdge()
         dut.popClock.fallingEdge()
         dut.pushClock.deassertReset()
-        dut.popClock.deassertReset()
-        sleep(0)
+        if(popResetEnable) dut.popClock.deassertReset()
+        fork {
+          //Clear clock domains signals, to be sure the simulation capture their first edge.
+          sleep(0)
 
-        //Do the resets
-        dut.pushClock.assertReset()
-        dut.popClock.assertReset()
-        sleep(10)
-        dut.pushClock.deassertReset()
-        dut.popClock.deassertReset()
-        sleep(1)
+          //Do the resets
+          dut.pushClock.assertReset()
+          if(popResetEnable) dut.popClock.assertReset()
+          sleep(10)
+          dut.pushClock.deassertReset()
+          if(popResetEnable) dut.popClock.deassertReset()
+          sleep(1)
+        }
 
-        //Forever, randomly toggle one of the clocks (will create asynchronous clocks without fixed frequencies)
-        while (true) {
-          if (Random.nextBoolean()) {
+        fork {
+          sleep(1)
+          for (i <- 0 until 5) {
             dut.pushClock.clockToggle()
-          } else {
             dut.popClock.clockToggle()
+            sleep(1)
           }
-          sleep(1)
-        }
-      }
-      testbench(dut)
-    }
-  }
-
-  test("testSyncReset") {
-    //Compile the simulator
-    val compiled = SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC))).allOptimisation.compile(
-      rtl = new StreamFifoCC(
-        dataType = Bits(32 bits),
-        depth = 32,
-        pushClock = ClockDomain.external("clkA"),
-        popClock = ClockDomain.external("clkB")
-      )
-    )
-
-    //Run the simulation
-    compiled.doSimUntilVoid { dut =>
-      dut.pushClock.fallingEdge()
-      dut.popClock.fallingEdge()
-      dut.pushClock.deassertReset()
-      dut.popClock.deassertReset()
-      fork {
-        //Clear clock domains signals, to be sure the simulation capture their first edge.
-        sleep(0)
-
-        //Do the resets
-        dut.pushClock.assertReset()
-        dut.popClock.assertReset()
-        sleep(10)
-        dut.pushClock.deassertReset()
-        dut.popClock.deassertReset()
-        sleep(1)
-      }
-
-      fork {
-        sleep(1)
-        for(i <- 0 until 5) {
-          dut.pushClock.clockToggle()
-          dut.popClock.clockToggle()
-          sleep(1)
-        }
-        //Forever, randomly toggle one of the clocks (will create asynchronous clocks without fixed frequencies)
-        while (true) {
-          if (Random.nextBoolean()) {
-            dut.pushClock.clockToggle()
-          } else {
-            dut.popClock.clockToggle()
+          //Forever, randomly toggle one of the clocks (will create asynchronous clocks without fixed frequencies)
+          while (true) {
+            if (Random.nextBoolean()) {
+              dut.pushClock.clockToggle()
+            } else {
+              dut.popClock.clockToggle()
+            }
+            sleep(1)
           }
-          sleep(1)
         }
+        testbench(dut)
       }
-      testbench(dut)
     }
   }
 
@@ -141,7 +153,7 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
         dataType = Bits(32 bits),
         depth = 32,
         pushClock = ClockDomain.external("clkA"),
-        popClock = ClockDomain.external("clkB")
+        popClock = ClockDomain.external("clkB", withReset = false)
       )
     )
 
@@ -201,7 +213,7 @@ object TesterBugPlay extends App{
       dataType = Bits(32 bits),
       depth = 32,
       pushClock = ClockDomain.external("clkA"),
-      popClock = ClockDomain.external("clkB")
+      popClock = ClockDomain.external("clkB", withReset = false)
     )
   )
 
@@ -212,17 +224,17 @@ object TesterBugPlay extends App{
       dut.pushClock.fallingEdge()
       dut.popClock.fallingEdge()
       dut.pushClock.deassertReset()
-      dut.popClock.deassertReset()
+//      dut.popClock.deassertReset()
       fork {
         //Clear clock domains signals, to be sure the simulation capture their first edge.
         sleep(0)
 
         //Do the resets
         dut.pushClock.assertReset()
-        dut.popClock.assertReset()
+//        dut.popClock.assertReset()
         sleep(10)
         dut.pushClock.deassertReset()
-        dut.popClock.deassertReset()
+//        dut.popClock.deassertReset()
         sleep(1)
       }
 

@@ -26,7 +26,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     } else ret
   }
 
-  def setInt(signal : Signal, value: Int) {
+  def setInt(signal : Signal, value: Int) : Unit = {
     val id = getSignalId(signal)
     if (signal.dataType.width > 32) this.setBigInt(signal, BigInt(value))
     else nativeIface.write32(id, value)
@@ -41,7 +41,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     } else ret
   }
 
-  override def setLong(signal : Signal, value: Long) {
+  override def setLong(signal : Signal, value: Long) : Unit = {
     val id = getSignalId(signal)
     if (signal.dataType.width > 64) this.setBigInt(signal, BigInt(value))
     else nativeIface.write64(id, value)
@@ -54,7 +54,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     BigInt(vectorInt8.asScala.toArray.map{x => x.toByte})
   }
 
-  override def setBigInt(signal : Signal, value : BigInt) {
+  override def setBigInt(signal : Signal, value : BigInt) : Unit = {
     val id = getSignalId(signal)
     var value_arr = value.toByteArray
     if (value_arr.length*8 < signal.dataType.width) {
@@ -82,7 +82,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     } else ret
   }
 
-  def setIntMem(signal : Signal, value: Int, index : Long) {
+  def setIntMem(signal : Signal, value: Int, index : Long) : Unit = {
     val id = getSignalId(signal)
     if (signal.dataType.width > 32) this.setBigIntMem(signal, BigInt(value), index)
     else nativeIface.write32_mem(id, value, index)
@@ -97,7 +97,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     } else ret
   }
 
-  override def setLongMem(signal : Signal, value: Long, index : Long) {
+  override def setLongMem(signal : Signal, value: Long, index : Long) : Unit = {
     val id = getSignalId(signal)
     if (signal.dataType.width > 64) this.setBigIntMem(signal, BigInt(value), index)
     else nativeIface.write64_mem(id, value, index)
@@ -110,7 +110,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     BigInt(vectorInt8.asScala.toArray.map{x => x.toByte})
   }
 
-  override def setBigIntMem(signal : Signal, value : BigInt, index : Long) {
+  override def setBigIntMem(signal : Signal, value : BigInt, index : Long) : Unit = {
     val id = getSignalId(signal)
     var value_arr = value.toByteArray
     if (value_arr.length*8 < signal.dataType.width) {
@@ -128,7 +128,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     nativeIface.write_mem(id, new VectorInt8(value_arr), index)
   }
 
-  override def sleep(cycles : Long) {
+  override def sleep(cycles : Long) : Unit = {
     nativeIface.sleep(cycles)
   }
   
@@ -137,11 +137,11 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     false
   } 
 
-  def randomize(seed: Long) {
+  def randomize(seed: Long) : Unit = {
     nativeIface.randomize(seed)
   }
 
-  override def end() {
+  override def end() : Unit = {
     nativeIface.close
     thread.join
   }
@@ -158,7 +158,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     }
   }
   
-  override def enableWave() {}
-  override def disableWave() {}
+  override def enableWave() : Unit = {}
+  override def disableWave() : Unit = {}
   override def isBufferedWrite = backend.isBufferedWrite
 }

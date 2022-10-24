@@ -782,7 +782,7 @@ object PlayPruned2{
     io.result := io.a + io.a
 
     val unusedSignal = UInt(8 bits)
-    val unusedSignal2 = UInt(8 bits).keep()
+    val unusedSignal2 = UInt(8 bits).dontSimplifyIt()
 
     unusedSignal := 0
     unusedSignal2 := unusedSignal

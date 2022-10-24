@@ -12,7 +12,7 @@ class AhbLite3TraficGeneratorWithMemory(AhbLite3TraficGenerator):
     def genRandomAddress(self):
         while True:
             value = AhbLite3TraficGenerator.genRandomAddress(self)
-            if (value >> 10) != self.id  and ((value >> 8) & 0x3) == self.id:
+            if (value >> 12) != self.id  and ((value >> 10) & 0x3) == self.id:
                 return value
 
     def getTransactions(self):
@@ -59,15 +59,15 @@ def test1(dut):
     for i in range(3):
         readQueue = Queue()
         ahb = Bundle(dut, "ahbMasters_" + str(i))
-        drivers.append(AhbLite3MasterDriver(ahb, AhbLite3TraficGeneratorWithMemory(12, 32,readQueue,i), dut.clk, dut.reset))
+        drivers.append(AhbLite3MasterDriver(ahb, AhbLite3TraficGeneratorWithMemory(14, 32,readQueue,i), dut.clk, dut.reset))
         checkers.append(AhbLite3MasterReadChecker(ahb, readQueue, dut.clk, dut.reset))
 
     # AhbLite3MasterIdle(Bundle(dut, "ahbMasters_1"))
     # AhbLite3MasterIdle(Bundle(dut, "ahbMasters_2"))
-    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_0"), 0x000, 0x400, dut.clk, dut.reset)
-    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_1"), 0x400, 0x400, dut.clk, dut.reset)
-    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_2"), 0x800, 0x400, dut.clk, dut.reset)
-    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_3"), 0xC00, 0x400, dut.clk, dut.reset)
+    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_0"), 0x0000, 0x1000, dut.clk, dut.reset)
+    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_1"), 0x1000, 0x1000, dut.clk, dut.reset)
+    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_2"), 0x2000, 0x1000, dut.clk, dut.reset)
+    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_3"), 0x3000, 0x1000, dut.clk, dut.reset)
 
     while True:
         yield RisingEdge(dut.clk)

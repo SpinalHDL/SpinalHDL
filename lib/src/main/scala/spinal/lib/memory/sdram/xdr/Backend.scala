@@ -165,7 +165,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
   rspPipeline.input.source := muxedCmd.portId
   rspPipeline.input.write.assignDontCare()
 
-  val phase = new {
+  val phase = new Area{
     def precharge = io.phy.phases(io.config.phase.precharge)
     def active = io.phy.phases(io.config.phase.active)
     def read = io.phy.phases(io.config.phase.read)

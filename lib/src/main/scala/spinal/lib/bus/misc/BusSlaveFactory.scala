@@ -333,9 +333,14 @@ trait BusSlaveFactory extends Area{
                             bitOffset : Int = 0): T = {
     val bitClears = nonStopWrite(Bits(widthOf(that) bits), bitOffset)
     when(isWriting(address)){
-      for(i <- 0 until widthOf(that)){
-        when(bitClears(i)){
-          that.assignFromBits(B"0", i, 1 bits)
+      if(that.isInstanceOf[SpinalEnumCraft[_]]){
+        val w = widthOf(that)
+        that.assignFromBits(that.asBits & ~bitClears)
+      } else {
+        for (i <- 0 until widthOf(that)) {
+          when(bitClears(i)) {
+            that.assignFromBits(B"0", i, 1 bits)
+          }
         }
       }
     }
@@ -372,6 +377,21 @@ trait BusSlaveFactory extends Area{
     }
     that
   }
+
+  def setOnClear[T <: Data](that      : T,
+                          address   : BigInt,
+                          bitOffset : Int = 0): T = {
+    val bitSets = nonStopWrite(Bits(widthOf(that) bits), bitOffset)
+    when(isWriting(address)){
+      for(i <- 0 until widthOf(that)){
+        when(!bitSets(i)){
+          that.assignFromBits(B"1", i, 1 bits)
+        }
+      }
+    }
+    that
+  }
+
 
   @deprecated("Use createReadAndWrite instead", "???")
   def createReadWrite[T <: Data](dataType  : T,
@@ -620,14 +640,27 @@ trait BusSlaveFactory extends Area{
                                      bitOffset     : Int = 0) : Mem[T] = {
     val mapping    = SizeMapping(addressOffset,mem.wordCount << log2Up(busDataWidth / 8))
     val memAddress = writeAddress(mapping) >> log2Up(busDataWidth / 8)
-    val port       = mem.writePort
 
-    port.address := memAddress
-    port.valid := False
-    onWritePrimitive(mapping,true, null){
-      port.valid := True
+    // handle masking
+    if (writeByteEnable != null) {
+      val port = mem.writePortWithMask(widthOf(writeByteEnable()))
+      port.address := memAddress
+      port.valid := False
+      onWritePrimitive(mapping,true, null){
+        port.valid := True
+      }
+      nonStopWrite(port.data, bitOffset)
+
+      port.mask := writeByteEnable
+    } else {
+      val port = mem.writePort
+      port.address := memAddress
+      port.valid := False
+      onWritePrimitive(mapping,true, null){
+        port.valid := True
+      }
+      nonStopWrite(port.data, bitOffset)
     }
-    nonStopWrite(port.data, bitOffset)
     mem
   }
 
@@ -641,9 +674,10 @@ trait BusSlaveFactory extends Area{
       PendingError(s"Memory width ${mem.width} must be multiple of bus data width ${busDataWidth} \n${getScalaLocationLong}")
     }
 
+    val maskWidth = mem.width / busDataWidth
     val mapping = SizeMapping(addressOffset, mem.wordCount << log2Up(mem.width / 8))
     val memAddress = writeAddress(mapping) >> log2Up(mem.width / 8)
-    val port = mem.writePortWithMask
+    val port = mem.writePortWithMask(maskWidth)
     val data = Bits(busDataWidth bits)
 
     port.address := memAddress
@@ -655,9 +689,9 @@ trait BusSlaveFactory extends Area{
     port.data.assignFromBits(Cat(Seq.fill(mem.width / busDataWidth)(data)))
 
     // generate mask
-    val maskWidth = mem.width / busDataWidth
     val mask = UInt(maskWidth bits)
     mask := 0
+    mask.allowOverride
     mask(writeAddress(mapping)(log2Up(mem.width / 8) - 1 downto log2Up(busDataWidth / 8))) := True
     port.mask := mask.asBits
 

@@ -216,7 +216,7 @@
 //  }  */
 //
 //    /* Make an instance of a structural type with the named member. */
-//  //def enum(param: Symbol*): Any = macro enum_impl
+//  //def senum(param: Symbol*): Any = macro enum_impl
 //
 //
 //
@@ -306,7 +306,7 @@
 //////    override def toString: String = name
 //////  }
 //////
-//////  type Enum(values: _*) = macro Macros.enum
+//////  type Enum(values: _*) = macro Macros.senum
 //////  type EnumOf[T <: Value](values: _*) = macro Macros.enumOf[T]
 //////
 //////  type TypeEnum[TC[_]](instances: _*) = macro Macros.typeEnum[TC]
@@ -315,7 +315,7 @@
 //////
 //////  object Macros {
 //////
-//////    def enum(c: Context)(values: c.Tree*): c.Tree = {
+//////    def senum(c: Context)(values: c.Tree*): c.Tree = {
 //////      import c.universe._
 //////      import Flag._
 //////
