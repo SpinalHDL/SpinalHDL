@@ -71,4 +71,55 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
   test("demux_sel_without_control") {
     shouldFail(formaldemux(false))
   }
+
+  test("demux_with_selector") {
+    FormalConfig
+      .withProve(20)
+      .withCover(20)
+      .doVerify(new Component {
+        val portCount = 5
+        val dataType = Bits(8 bits)
+        val dut = FormalDut(new StreamDemux(dataType, portCount))
+        val selector = dut.io.createSelector()
+
+        val reset = ClockDomain.current.isResetActive
+        assumeInitial(reset)
+
+        val demuxSelector = slave(Stream(UInt(log2Up(portCount) bit)))
+        demuxSelector >> selector
+        val demuxInput = slave(Stream(dataType))
+        demuxInput >> dut.io.input
+        val demuxOutputs = Vec(master(Stream(dataType)), portCount)
+        for (i <- 0 until portCount) {
+          demuxOutputs(i) << dut.io.outputs(i)
+        }
+
+        when(reset || past(reset)) {
+          assume(demuxInput.valid === False)
+          assume(demuxSelector.valid === False)
+        }
+
+        assumeInitial(demuxSelector.payload < portCount)
+        demuxSelector.formalAssumesSlave()
+        demuxInput.formalAssumesSlave()
+        demuxInput.formalCovers(5)
+
+        val inputFireStableSelChanged = past(demuxInput.fire) && demuxInput.fire && changed(dut.io.select)
+        cover(inputFireStableSelChanged)
+
+        for (i <- 0 until portCount) {
+          demuxOutputs(i).formalAssertsMaster()
+          demuxOutputs(i).formalCovers(5)
+        }
+
+        for (i <- 0 until portCount) {
+          when(i =/= dut.io.select) {
+            assert(demuxOutputs(i).valid === False)
+          }
+        }
+        when(dut.io.select < portCount) {
+          assert(demuxOutputs(dut.io.select) === demuxInput)
+        }
+      })
+  }
 }

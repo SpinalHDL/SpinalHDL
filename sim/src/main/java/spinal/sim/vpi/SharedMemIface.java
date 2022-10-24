@@ -104,6 +104,10 @@ public class SharedMemIface {
     JNISharedMemIfaceJNI.SharedMemIface_write32_mem(swigCPtr, this, handle, data, index);
   }
 
+  public int get_time_precision() {
+    return JNISharedMemIfaceJNI.SharedMemIface_get_time_precision(swigCPtr, this);
+  }
+
   public void sleep(long sleep_cycles) {
     JNISharedMemIfaceJNI.SharedMemIface_sleep(swigCPtr, this, sleep_cycles);
   }

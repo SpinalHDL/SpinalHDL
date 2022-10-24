@@ -85,7 +85,7 @@ class RegIfExample2 extends Component {
   val fd3 = M_REG0.fieldAt(pos=16, 4 bits, RW, doc= "fields 3")
 //  val fd3 = M_REG0.field(4 bits, RW, doc= "fields 3")
   //auto reserved 12 bits
-  busif.accept(HtmlGenerator("regif.html", "Example"))
+  busif.accept(HtmlGenerator("regif", "Example"))
 }
 
 class InterruptRegIf extends Component {
@@ -127,7 +127,6 @@ class InterruptRegIf extends Component {
   when(io.ssc_done && ssc_int_en){ssc_int_status.set()}
   when(io.grp_done && grp_int_en){grp_int_status.set()}
   when(io.scd_done && scd_int_en){scd_int_status.set()}
-  when(io.srch_finish && srch_finish_en){srch_finish_status(0)}
 
   io.interrupt := (psc_int_status & pth_int_status & ssc_int_status &
                    grp_int_status & scd_int_status & srch_finish_status)
@@ -218,8 +217,10 @@ object getRegIfExample {
     targetDirectory="tmp/")
       .generate(new RegIfExample)
 
-    example.toplevel.busif.accept(CHeaderGenerator("header.h", "AP"))
-    example.toplevel.busif.accept(HtmlGenerator("regif.html", "AP"))
-    example.toplevel.busif.accept(JsonGenerator("regif.json"))
+    example.toplevel.busif.accept(CHeaderGenerator("header", "AP"))
+    example.toplevel.busif.accept(HtmlGenerator("regif", "AP"))
+    example.toplevel.busif.accept(JsonGenerator("regif"))
+    example.toplevel.busif.accept(RalfGenerator("regif"))
+    example.toplevel.busif.accept(SystemRdlGenerator("regif", "AP", Some("addrmap name"), Some("addrmap desc")))
   }
 }

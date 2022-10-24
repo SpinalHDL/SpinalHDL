@@ -60,6 +60,11 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
   val IVERILOGLDFLAGS = Process(Seq(iverilogVpiPath, "--ldflags")).!!
   val IVERILOGLDLIBS = Process(Seq(iverilogVpiPath, "--ldlibs")).!!
 
+  val timeScale = config.timePrecision match {
+    case null => "1ns/1ns"
+    case t => "1ns/" + t.replace(" ", "")
+  }
+
   def compileVPI() = {
     val vpiModulePath = pluginsPath + "/" + vpiModuleName
     if (!Files.exists(Paths.get(vpiModulePath))) {
@@ -97,7 +102,7 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
       .mkString(" ")
 
     val simulationDefSource = s"""
-                               |`timescale 1ns/1ns
+                               |`timescale $timeScale
                                |
                                |module __simulation_def;
                                |initial

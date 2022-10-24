@@ -10,12 +10,11 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   scalaVersion := SpinalVersion.compilers(0),
   scalacOptions ++= Seq("-unchecked","-target:jvm-1.8"/*, "-feature" ,"-deprecation"*/),
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
-  baseDirectory in test := file("/out/"),
   fork := true,
 
   //Enable parallel tests
   Test / testForkedParallel := true,
-  testGrouping in Test := (testGrouping in Test).value.flatMap { group =>
+  Test / testGrouping := (Test / testGrouping).value.flatMap { group =>
 //    for(i <- 0 until 4) yield {
 //      Group("g" + i,  group.tests.zipWithIndex.filter(_._2 % 4 == i).map(_._1), SubProcess(ForkOptions()))
 //    }
@@ -34,7 +33,7 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   //sbt +clean +reload +publishSigned
   //https://oss.sonatype.org
   publishMavenStyle := true,
-  publishArtifact in Test := false,
+  Test / publishArtifact := false,
   pomIncludeRepository := (_ => false),
   pomExtra := {
     <url>github.com/SpinalHDL/SpinalHDL</url>
@@ -73,7 +72,7 @@ lazy val all = (project in file("."))
     version := SpinalVersion.all,
     publishArtifact := false,
     publishLocal := {},
-    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(lib, core)
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(lib, core)
   )
   .aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
 
@@ -118,7 +117,7 @@ lazy val sim = (project in file("sim"))
   )
 
 val defaultSettingsWithPlugin = defaultSettings ++ Seq(
-  scalacOptions += (artifactPath in(idslplugin, Compile, packageBin)).map { file =>
+  scalacOptions += (idslplugin / Compile / packageBin / artifactPath).map { file =>
     s"-Xplugin:${file.getAbsolutePath}"
   }.value
 )
@@ -134,8 +133,8 @@ lazy val core = (project in file("core"))
 
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
-    sourceGenerators in Compile += Def.task {
-      val dir = (sourceManaged in Compile).value
+    Compile / sourceGenerators += Def.task {
+      val dir = (Compile / sourceManaged).value
       dir.mkdirs()
       val file = dir / "Info.scala"
       IO.write(file, """package spinal.core
@@ -190,7 +189,7 @@ lazy val tester = (project in file("tester"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-tester",
     version := SpinalVersion.tester,
-    baseDirectory in (Test) := file("./"),
+    Test / baseDirectory := file("./"),
 
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
     publishArtifact := false,
@@ -200,15 +199,15 @@ lazy val tester = (project in file("tester"))
 
 // Assembly
 
-assemblyJarName in assembly := "spinalhdl.jar"
+assembly / assemblyJarName := "spinalhdl.jar"
 
-test in assembly := {}
+assembly / test := {}
 
 Test / testOptions += Tests.Argument("-l", "spinal.tester.formal")
 addCommandAlias("testFormal", "testOnly * -- -n spinal.tester.formal")
 addCommandAlias("testWithoutFormal", "testOnly * -- -l spinal.tester.formal")
 
-assemblyOutputPath in assembly := file("./release/spinalhdl.jar")
+assembly / assemblyOutputPath := file("./release/spinalhdl.jar")
 
 //To publish the scala doc :
 //rm -rf ghpages
