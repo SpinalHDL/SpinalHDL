@@ -106,7 +106,7 @@ trait VerilogBase extends VhdlVerilogBase{
   }
 
   def emitCommentEarlyAttributes(attributes: Iterable[Attribute]): String = {
-    val values = for (attribute <- attributes if attribute.attributeKind() == COMMENT_EARLY_ATTRIBUTE) yield attribute match {
+    val values = for (attribute <- attributes if attribute.attributeKind() == COMMENT_TYPE_ATTRIBUTE) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
       case attribute: AttributeInteger => attribute.getName + " = " + attribute.value.toString
       case attribute: AttributeFlag => attribute.getName
