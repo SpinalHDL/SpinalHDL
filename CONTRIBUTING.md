@@ -60,4 +60,12 @@ TODO
 
 ## Notes for triage & reviews
 
-TODO: URLs to list of issues and PRs with useful filters and sorting
+* Activity
+  * [All Activity](https://github.com/SpinalHDL/SpinalHDL/pulls?q=sort%3Aupdated-desc)
+  * [Current Activity](https://github.com/SpinalHDL/SpinalHDL/issues?q=sort%3Aupdated-desc+is%3Aopen)
+* PRs
+  * [PRs to merge](https://github.com/SpinalHDL/SpinalHDL/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen+draft%3Afalse) (do not forget to review all PRs)
+  * [PRs which need help](https://github.com/SpinalHDL/SpinalHDL/pulls?q=sort%3Aupdated-desc+is%3Apr+is%3Aopen+draft%3Atrue+label%3A%22need+more+info+%3Aarrows_counterclockwise%3A%22)
+* Issues
+  * [In-progress issues](https://github.com/SpinalHDL/SpinalHDL/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc)
+  * [Issues needing approval](https://github.com/SpinalHDL/SpinalHDL/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22need+agreement+%3Aspeech_balloon%3A%22)
