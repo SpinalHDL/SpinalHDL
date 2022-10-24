@@ -6,450 +6,304 @@ import spinal.lib._
 import spinal.lib.formal._
 
 class FormalArbiterTester extends SpinalFormalFunSuite {
-  test("Arbiter-sequentialOrder-verify") {
+  def noneFragmentContext() = new Area {
+    val portCount = 5
+    val dataType =Bits(8 bits) 
+    val reset = ClockDomain.current.isResetActive
+    val notReset = !(reset || past(reset))
+    cover(notReset)
+    assumeInitial(reset)
+
+    val select = UInt(log2Up(portCount) bit)
+    val selectOH = Bits (portCount bit)
+    val inputs = Vec(slave(Stream(dataType)), portCount)
+    val output = master(Stream(dataType))
+    val inputsValid = Vec(inputs.map(_.valid))
+    val selStableCond = past(output.isStall) && notReset
+
+    when(reset || past(reset)) {
+        for (i <- 0 until portCount) {
+          assume(inputs(i).valid === False)
+        }
+        assert(select === 0)
+      }
+
+    for (i <- 0 until portCount) {
+      inputs(i).formalAssumesSlave()
+    }
+    assert(select < portCount)
+    assert(select === OHToUInt(selectOH))
+    assert(output.fire === inputs(select).fire)
+    assert(output.payload === inputs(select).payload)
+
+    output.formalCovers(2)
+    assert(selectOH === OHMasking.first(selectOH))
+  }
+  def fragmentContext() = new Area {
+    val portCount = 5
+    val dataType = Fragment(Bits(8 bits))  
+    val reset = ClockDomain.current.isResetActive
+    val notReset = !(reset || past(reset))
+    cover(notReset)
+    assumeInitial(reset)
+
+    val select = UInt(log2Up(portCount) bit)
+    val selectOH = Bits (portCount bit)
+    val inputs = Vec(slave(Stream(dataType)), portCount)
+    val output = master(Stream(dataType))
+    val inputsValid = Vec(inputs.map(_.valid))
+    val selStableCond = !past((inputsValid.asBits === 0) || output.last || reset)
+
+    when(reset || past(reset)) {
+        for (i <- 0 until portCount) {
+          assume(inputs(i).valid === False)
+        }
+        assert(select === 0)
+      }
+
+    for (i <- 0 until portCount) {
+      inputs(i).formalAssumesSlave()
+    }
+    assert(select < portCount)
+    assert(select === OHToUInt(selectOH))
+    assert(output.fire === inputs(select).fire)
+    assert(output.payload === inputs(select).payload)
+
+    output.formalCovers(2)
+    assert(selectOH === OHMasking.first(selectOH))
+  }
+  def withLockAssertVerify[T <: Data](output: Stream[T]) = new Area{      
+    output.formalAssertsMaster()
+  }
+  def withoutLockAssertVerify[T <: Data](outisStall: Bool,inputsValid: Vec[Bool],output: Stream[T]) = new Area{      
+    val stallStableSel = outisStall && stable(inputsValid)
+    cover(stallStableSel)
+    when(stallStableSel){
+      output.formalAssertsMaster()
+    } 
+  }
+  def selStableVerify(selectOH: Bits ,selStableCond: Bool) = new Area{
+    cover(selStableCond)
+    when(selStableCond){
+      assert(stable(selectOH))
+    }    
+  }
+  def sequentialOrderVerify(select: UInt ,portCount: Int) = new Area {      
+    val d1 = anyconst(UInt(log2Up(portCount) bit))
+    assume(d1 < portCount)
+    val d2 = UInt(log2Up(portCount) bit)
+    d2 := (d1 + 1) % portCount
+
+    val cntSeqCheck = changed(select) && (select === d2)
+    cover(cntSeqCheck)
+    when(cntSeqCheck) {
+      assert(past(select) === d1)
+    }
+  }
+  def lowFirstVerify(selectOH: Bits ,inputsvalid: Vec[Bool],unLockCond: Bool) = new Area {    
+    val inputsLowerFirst = OHMasking.first(inputsvalid).asBits
+    cover(unLockCond)
+    when(unLockCond){
+      assert(selectOH === inputsLowerFirst)
+    }
+  }
+ 
+  def roundRobinVerify(selectOH: Bits ,inputsValid: Vec[Bool],portCount: Int, maskLocked: Vec[Bool],unLockCond: Bool) = new Area {
+    val requests = inputsValid.asBits.asUInt
+    val uGranted = selectOH.asUInt
+    val doubleRequests = requests @@ requests
+    val doubleGrant = doubleRequests & ~(doubleRequests-uGranted)
+    val masked = doubleGrant(portCount,portCount bits) | doubleGrant(0,portCount bits)
+    val inputsRoundRobinOH = masked.asBits
+    cover(unLockCond)
+    when(unLockCond){
+      assert(selectOH === inputsRoundRobinOH)
+    }
+    //used for Prove
+    assert(maskLocked === OHMasking.first(maskLocked))
+  }
+
+  test("Arbiter-sequentialOrder-verify"){
     FormalConfig
       .withBMC(20)
       .withProve(20)
       .withCover(20)
       // .withDebug
       .doVerify(new Component {
-        val portCount = 5
-        val dataType = Bits(8 bits)
-
-        val dut = FormalDut(
-          new StreamArbiter(dataType, portCount)(StreamArbiter.Arbitration.sequentialOrder, StreamArbiter.Lock.none)
-        )
-        val reset = ClockDomain.current.isResetActive
-
-        assumeInitial(reset)
-
-        val select = UInt(log2Up(portCount) bit)
-        val selectOH = Bits(portCount bit)
-        val inputs = Vec(slave(Stream(dataType)), portCount)
-        val output = master(Stream(dataType))
-
-        when(reset || past(reset)) {
-          for (i <- 0 until portCount) {
-            assume(inputs(i).valid === False)
-          }
+        val context = noneFragmentContext()
+        val dut = FormalDut(new StreamArbiter(context.dataType,context.portCount)(StreamArbiter.Arbitration.sequentialOrder,StreamArbiter.Lock.none))
+        
+        context.select := dut.io.chosen
+        context.selectOH := dut.io.chosenOH
+        context.output << dut.io.output
+        for (i <- 0 until context.portCount) {
+          context.inputs(i) >> dut.io.inputs(i)
         }
-
-        select := dut.io.chosen
-        selectOH := dut.io.chosenOH
-        output << dut.io.output
-
-        for (i <- 0 until portCount) {
-          inputs(i) >> dut.io.inputs(i)
-          inputs(i).formalAssumesSlave()
-        }
-        output.formalCovers(2)
-        output.formalAssertsMaster()
-
-        assert(select < portCount)
-        assert(select === OHToUInt(selectOH))
-        assert(output.payload === inputs(select).payload)
-
-        val d1 = anyconst(UInt(log2Up(portCount) bit))
-        assume(d1 < portCount)
-        val d2 = UInt(log2Up(portCount) bit)
-        d2 := (d1 + 1) % portCount
-
-        val cntSeqCheck = changed(select) && (select === d2)
-        cover(cntSeqCheck)
-        when(cntSeqCheck) {
-          assert(past(select) === d1)
-        }
+    
+        val withAssert = withLockAssertVerify(context.output)
+        val sequentialVerify = sequentialOrderVerify(context.select ,context.portCount)
       })
   }
 
-  test("Arbiter-lowerfirst-none-verify") {
+  test("Arbiter-lowerfirst-none-verify"){
     FormalConfig
       .withBMC(20)
       .withProve(20)
       .withCover(20)
       // .withDebug
       .doVerify(new Component {
-        val portCount = 5
-        val dataType = Bits(8 bits)
-
-        val dut = FormalDut(
-          new StreamArbiter(dataType, portCount)(StreamArbiter.Arbitration.lowerFirst, StreamArbiter.Lock.none)
-        )
-        val reset = ClockDomain.current.isResetActive
-
-        assumeInitial(reset)
-
-        val select = UInt(log2Up(portCount) bit)
-        val selectOH = Bits(portCount bit)
-        val inputs = Vec(slave(Stream(dataType)), portCount)
-        val output = master(Stream(dataType))
-
-        select := dut.io.chosen
-        selectOH := dut.io.chosenOH
-        output << dut.io.output
-
-        when(reset || past(reset)) {
-          for (i <- 0 until portCount) {
-            assume(inputs(i).valid === False)
-          }
+        val context = noneFragmentContext()
+        val dut = FormalDut(new StreamArbiter(context.dataType,context.portCount)(StreamArbiter.Arbitration.lowerFirst,StreamArbiter.Lock.none))
+        
+        context.select := dut.io.chosen
+        context.selectOH := dut.io.chosenOH
+        context.output << dut.io.output
+        for (i <- 0 until context.portCount) {
+          context.inputs(i) >> dut.io.inputs(i)
         }
 
-        for (i <- 0 until portCount) {
-          inputs(i) >> dut.io.inputs(i)
-          inputs(i).formalAssumesSlave()
-        }
-        output.formalCovers(2)
-
-        assert(select < portCount)
-        assert(select === OHToUInt(selectOH))
-        assert(output.payload === inputs(select).payload)
-
-        val allInputsValidOH = OHMasking.first(Vec(inputs.map(_.valid))).asBits
-        assert(selectOH === allInputsValidOH)
-        val stallStableSel = output.isStall && stable(allInputsValidOH)
-        cover(stallStableSel)
-        when(stallStableSel) {
-          output.formalAssertsMaster()
-        }
+        val selectUnLockCond = True
+        val lowFirst = lowFirstVerify(context.selectOH,context.inputsValid,selectUnLockCond)        
+        val withAssert = withoutLockAssertVerify(context.output.isStall,context.inputsValid,context.output)        
       })
   }
 
-  test("Arbiter-lowerfirst-transactionLock-verify") {
+  test("Arbiter-lowerfirst-transactionLock-verify"){
     FormalConfig
       .withBMC(20)
       .withProve(20)
       .withCover(20)
       // .withDebug
       .doVerify(new Component {
-        val portCount = 5
-        val dataType = Bits(8 bits)
 
-        val dut = FormalDut(
-          new StreamArbiter(dataType, portCount)(
-            StreamArbiter.Arbitration.lowerFirst,
-            StreamArbiter.Lock.transactionLock
-          )
-        )
-        val reset = ClockDomain.current.isResetActive
+        val context = noneFragmentContext()
+        val dut = FormalDut(new StreamArbiter(context.dataType,context.portCount)(StreamArbiter.Arbitration.lowerFirst,StreamArbiter.Lock.transactionLock))
 
-        assumeInitial(reset)
+        context.select := dut.io.chosen
+        context.selectOH := dut.io.chosenOH
+        context.output << dut.io.output
+        for (i <- 0 until context.portCount) {
+          context.inputs(i) >> dut.io.inputs(i)
+        }
+        val withAssert = withLockAssertVerify(context.output)
+        val selectUnLockCond = !dut.locked || past(context.output.fire)
+        val lowFirst = lowFirstVerify(context.selectOH,context.inputsValid,selectUnLockCond)
+        val selStable= selStableVerify(context.selectOH,context.selStableCond)
 
-        val select = UInt(log2Up(portCount) bit)
-        val selectOH = Bits(portCount bit)
-        val inputs = Vec(slave(Stream(dataType)), portCount)
-        val output = master(Stream(dataType))
-
-        select := dut.io.chosen
-        selectOH := dut.io.chosenOH
-        output << dut.io.output
-
-        when(reset || past(reset)) {
-          for (i <- 0 until portCount) {
-            assume(inputs(i).valid === False)
+        //used for Prove
+        when(context.reset || past(context.reset)) {
+          for (i <- 0 until context.portCount) {
             assert(!dut.locked)
           }
         }
-
-        val notReset = !(reset || past(reset))
-        cover(notReset)
-        when(notReset) {
-          assert(past(output.isStall) === dut.locked)
-        }
-
-        for (i <- 0 until portCount) {
-          inputs(i) >> dut.io.inputs(i)
-          inputs(i).formalAssumesSlave()
-        }
-        output.formalCovers(2)
-        output.formalAssertsMaster()
-
-        assert(select < portCount)
-        assert(select === OHToUInt(selectOH))
-        assert(output.payload === inputs(select).payload)
-        assert(output.valid === inputs(select).valid)
-
-        val shouldStableSelCond = past(output.isStall) && notReset
-        cover(shouldStableSelCond)
-        when(shouldStableSelCond) {
-          assert(stable(select))
-        }
-
-        val allInputsValidOH = OHMasking.first(Vec(inputs.map(_.valid))).asBits
-        cover(changed(select))
-        when(changed(select)) {
-          assert(selectOH === allInputsValidOH)
-        }
+        when(context.notReset){
+          assert(past(context.output.isStall) === dut.locked)
+        }  
       })
   }
 
-  test("Arbiter-lowerfirst-fragment-verify") {
+  test("Arbiter-lowerfirst-fragment-verify"){
     FormalConfig
       .withBMC(20)
       .withProve(20)
       .withCover(20)
       // .withDebug
       .doVerify(new Component {
-        val portCount = 5
-        val dataType = Fragment(Bits(8 bits))
+        val context = fragmentContext()
+        val dut = FormalDut(new StreamArbiter(context.dataType,context.portCount)(StreamArbiter.Arbitration.lowerFirst,StreamArbiter.Lock.fragmentLock))
 
-        val dut = FormalDut(
-          new StreamArbiter(dataType, portCount)(StreamArbiter.Arbitration.lowerFirst, StreamArbiter.Lock.fragmentLock)
-        )
-        val reset = ClockDomain.current.isResetActive
+        context.select := dut.io.chosen
+        context.selectOH := dut.io.chosenOH
+        context.output << dut.io.output
+        for (i <- 0 until context.portCount) {
+          context.inputs(i) >> dut.io.inputs(i)
+        }
 
-        assumeInitial(reset)
-
-        val select = UInt(log2Up(portCount) bit)
-        val selectOH = Bits(portCount bit)
-        val inputs = Vec(slave(Stream(dataType)), portCount)
-        val output = master(Stream(dataType))
-
-        select := dut.io.chosen
-        selectOH := dut.io.chosenOH
-        output << dut.io.output
-
-        when(reset || past(reset)) {
-          for (i <- 0 until portCount) {
-            assume(inputs(i).valid === False)
+        when(context.reset || past(context.reset)) {
+          for (i <- 0 until context.portCount) {
+            assert(!dut.locked)
           }
-          assert(!dut.locked)
-          assert(select === 0)
         }
-
-        for (i <- 0 until portCount) {
-          inputs(i) >> dut.io.inputs(i)
-          inputs(i).formalAssumesSlave()
-        }
-        output.formalCovers(2)
-        output.formalAssertsMaster()
-
-        assert(select < portCount)
-        assert(select === OHToUInt(selectOH))
-        assert(output.payload === inputs(select).payload)
-
-        // if not locked or fragment last fired, select will be lowest inputs.valid
-        val allInputsValidOH = OHMasking.first(Vec(inputs.map(_.valid))).asBits
-        val selectRefresh = !dut.locked || past(output.last && output.fire)
-        cover(selectRefresh)
-        when(selectRefresh) {
-          assert(selectOH === allInputsValidOH)
-        }
-
-        // chosenOH should be a OneHot value
-        assert(selectOH === OHMasking.first(selectOH))
-
-        val shouldStableSelCond = !past((allInputsValidOH === 0) || output.last || reset)
-        cover(shouldStableSelCond)
-        when(shouldStableSelCond) {
-          assert(stable(select))
-        }
+        val withAssert = withLockAssertVerify(context.output)
+        val selectUnLockCond = !dut.locked || past(context.output.last&& context.output.fire)
+        val lowFirst = lowFirstVerify(context.selectOH,context.inputsValid,selectUnLockCond)        
+        val selStable= selStableVerify(context.selectOH,context.selStableCond)
       })
   }
 
-  test("Arbiter-roundrobin-none-verify") {
+  test("Arbiter-roundrobin-none-verify"){
     FormalConfig
       .withBMC(20)
       .withProve(20)
       .withCover(20)
       // .withDebug
-      .doVerify(new Component {
-        val portCount = 5
-        val dataType = Bits(8 bits)
-        val dut = FormalDut(
-          new StreamArbiter(dataType, portCount)(StreamArbiter.Arbitration.roundRobin, StreamArbiter.Lock.none)
-        )
-        val reset = ClockDomain.current.isResetActive
-
-        assumeInitial(reset)
-
-        val select = UInt(log2Up(portCount) bit)
-        val selectOH = Bits(portCount bit)
-        val inputs = Vec(slave(Stream(dataType)), portCount)
-        val output = master(Stream(dataType))
-
-        select := dut.io.chosen
-        selectOH := dut.io.chosenOH
-        output << dut.io.output
-
-        when(reset || past(reset)) {
-          for (i <- 0 until portCount) {
-            assume(inputs(i).valid === False)
-          }
+      .doVerify(new Component {        
+        val context = noneFragmentContext()
+        val dut = FormalDut(new StreamArbiter(context.dataType,context.portCount)(StreamArbiter.Arbitration.roundRobin,StreamArbiter.Lock.none))
+        
+        context.select := dut.io.chosen
+        context.selectOH := dut.io.chosenOH
+        context.output << dut.io.output
+        for (i <- 0 until context.portCount) {
+          context.inputs(i) >> dut.io.inputs(i)
         }
 
-        for (i <- 0 until portCount) {
-          inputs(i) >> dut.io.inputs(i)
-          inputs(i).formalAssumesSlave()
-        }
-        output.formalCovers(2)
-
-        assert(select < portCount)
-        assert(select === OHToUInt(selectOH))
-        assert(output.payload === inputs(select).payload)
-        assert(output.fire === inputs(select).fire)
-
-        val requests = Vec(inputs.map(_.valid)).asBits.asUInt
-        val uGranted = dut.io.chosenOH.asUInt
-        val doubleRequests = requests @@ requests
-        val doubleGrant = doubleRequests & ~(doubleRequests - uGranted)
-        val masked = doubleGrant(portCount, portCount bits) | doubleGrant(0, portCount bits)
-        val allInputsValidOH = masked.asBits
-
-        assert(selectOH === allInputsValidOH)
-        assert(dut.maskLocked === OHMasking.first(dut.maskLocked))
-        assert(selectOH === OHMasking.first(selectOH))
-
-        val stallStableSel = output.isStall && stable(allInputsValidOH)
-        cover(stallStableSel)
-        when(stallStableSel) {
-          output.formalAssertsMaster()
-        }
+        val selectUnLockCond = True
+        val roundRobin = roundRobinVerify(context.selectOH,context.inputsValid,context.portCount,dut.maskLocked,selectUnLockCond)
+        val withAssert = withoutLockAssertVerify(context.output.isStall,roundRobin.masked.asBools,context.output)
       })
   }
 
-  test("Arbiter-roundrobin-transactionLock-verify") {
+  test("Arbiter-roundrobin-transactionLock-verify"){
     FormalConfig
       .withBMC(20)
       .withProve(20)
       .withCover(20)
       .withDebug
       .doVerify(new Component {
-        val portCount = 5
-        val dataType = Bits(8 bits)
-
-        val dut = FormalDut(
-          new StreamArbiter(dataType, portCount)(
-            StreamArbiter.Arbitration.roundRobin,
-            StreamArbiter.Lock.transactionLock
-          )
-        )
-        val reset = ClockDomain.current.isResetActive
-
-        assumeInitial(reset)
-
-        val select = UInt(log2Up(portCount) bit)
-        val selectOH = Bits(portCount bit)
-        val inputs = Vec(slave(Stream(dataType)), portCount)
-        val output = master(Stream(dataType))
-
-        select := dut.io.chosen
-        selectOH := dut.io.chosenOH
-        output << dut.io.output
-
-        when(reset || past(reset)) {
-          for (i <- 0 until portCount) {
-            assume(inputs(i).valid === False)
-            assert(!dut.locked)
-          }
+        val context = noneFragmentContext()
+        val dut = FormalDut(new StreamArbiter(context.dataType,context.portCount)(StreamArbiter.Arbitration.roundRobin,StreamArbiter.Lock.transactionLock))
+        
+        context.select := dut.io.chosen
+        context.selectOH := dut.io.chosenOH
+        context.output << dut.io.output
+        for (i <- 0 until context.portCount) {
+          context.inputs(i) >> dut.io.inputs(i)
         }
 
-        val notReset = !(reset || past(reset))
-        cover(notReset)
-        when(notReset) {
-          assert(past(output.isStall) === dut.locked)
-        }
-
-        for (i <- 0 until portCount) {
-          inputs(i) >> dut.io.inputs(i)
-          inputs(i).formalAssumesSlave()
-        }
-        output.formalCovers(2)
-        output.formalAssertsMaster()
-
-        assert(select < portCount)
-        assert(select === OHToUInt(selectOH))
-        assert(output.payload === inputs(select).payload)
-        assert(output.fire === inputs(select).fire)
-
-        val shouldStableSelCond = past(output.isStall) && notReset
-        cover(shouldStableSelCond)
-        when(shouldStableSelCond) {
-          assert(stable(select))
-        }
-
-        val requests = Vec(inputs.map(_.valid)).asBits.asUInt
-        val uGranted = dut.io.chosenOH.asUInt
-        val doubleRequests = requests @@ requests
-        val doubleGrant = doubleRequests & ~(doubleRequests - uGranted)
-        val masked = doubleGrant(portCount, portCount bits) | doubleGrant(0, portCount bits)
-        val allInputsValidOH = masked.asBits
-
-        val selectRefresh = !dut.locked || past(output.fire)
-        cover(selectRefresh)
-        when(selectRefresh) {
-          assert(selectOH === allInputsValidOH)
-        }
-        assert(dut.maskLocked === OHMasking.first(dut.maskLocked))
-        assert(selectOH === OHMasking.first(selectOH))
+        val selectUnLockCond = True
+        val roundRobin = roundRobinVerify(context.selectOH,context.inputsValid,context.portCount,dut.maskLocked,selectUnLockCond)
+        val withAssert = withoutLockAssertVerify(context.output.isStall,roundRobin.masked.asBools,context.output)
+        val selStable= selStableVerify(context.selectOH,context.selStableCond)
       })
   }
-
-  test("Arbiter-roundrobin-fragment-verify") {
+ 
+  test("Arbiter-roundrobin-fragment-verify"){
     FormalConfig
       .withBMC(20)
       .withProve(20)
       .withCover(20)
       // .withDebug
       .doVerify(new Component {
-        val portCount = 5
-        val dataType = Fragment(Bits(8 bits))
-        val dut = FormalDut(
-          new StreamArbiter(dataType, portCount)(StreamArbiter.Arbitration.roundRobin, StreamArbiter.Lock.fragmentLock)
-        )
-        val reset = ClockDomain.current.isResetActive
+        val context = fragmentContext()
+        val dut = FormalDut(new StreamArbiter(context.dataType,context.portCount)(StreamArbiter.Arbitration.roundRobin,StreamArbiter.Lock.fragmentLock))
 
-        assumeInitial(reset)
+        context.select := dut.io.chosen
+        context.selectOH := dut.io.chosenOH
+        context.output << dut.io.output
+        for (i <- 0 until context.portCount) {
+          context.inputs(i) >> dut.io.inputs(i)
+        }
 
-        val select = UInt(log2Up(portCount) bit)
-        val selectOH = Bits(portCount bit)
-        val inputs = Vec(slave(Stream(dataType)), portCount)
-        val output = master(Stream(dataType))
-
-        select := dut.io.chosen
-        selectOH := dut.io.chosenOH
-        output << dut.io.output
-
-        when(reset || past(reset)) {
-          for (i <- 0 until portCount) {
-            assume(inputs(i).valid === False)
+        when(context.reset || past(context.reset)) {
+          for (i <- 0 until context.portCount) {
+            assert(!dut.locked)
           }
-          assert(!dut.locked)
-          assert(select === 0)
         }
-
-        for (i <- 0 until portCount) {
-          inputs(i) >> dut.io.inputs(i)
-          inputs(i).formalAssumesSlave()
-        }
-        output.formalCovers(2)
-        output.formalAssertsMaster()
-
-        assert(select === OHToUInt(selectOH))
-        assert(dut.io.chosen < portCount)
-        assert(output.payload === inputs(select).payload)
-        assert(output.fire === inputs(select).fire)
-
-        // if not locked or fragment last fired, select will be most priority inputs.valid
-        val requests = Vec(inputs.map(_.valid)).asBits.asUInt
-        val uGranted = dut.io.chosenOH.asUInt
-        val doubleRequests = requests @@ requests
-        val doubleGrant = doubleRequests & ~(doubleRequests - uGranted)
-        val masked = doubleGrant(portCount, portCount bits) | doubleGrant(0, portCount bits)
-        val allInputsValidOH = masked.asBits
-
-        val selectRefresh = !dut.locked || past(output.last && output.fire)
-        cover(selectRefresh)
-        when(selectRefresh) {
-          assert(selectOH === allInputsValidOH)
-        }
-        assert(dut.maskLocked === OHMasking.first(dut.maskLocked))
-        assert(selectOH === OHMasking.first(selectOH))
-
-        val shouldStableSelCond = !past((allInputsValidOH === 0) || output.last || reset)
-        cover(shouldStableSelCond)
-        when(shouldStableSelCond) {
-          assert(stable(select))
-        }
+        val withAssert = withLockAssertVerify(context.output)
+        val selectUnLockCond = !dut.locked || past(context.output.last&& context.output.fire)
+        val roundRobin = roundRobinVerify(context.selectOH,context.inputsValid,context.portCount,dut.maskLocked,selectUnLockCond)
+        val selStable= selStableVerify(context.selectOH,context.selStableCond)
       })
   }
 }
