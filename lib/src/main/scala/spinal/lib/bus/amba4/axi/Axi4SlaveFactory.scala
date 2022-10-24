@@ -13,9 +13,6 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
   val readHaltRequest = False
   val writeHaltRequest = False
 
-  val readErrorFlag = False
-  val writeErrorFlag = False
-
   var writeCmd = bus.writeCmd.unburstify
   val writeJoinEvent = StreamJoin.arg(writeCmd, bus.writeData)
   val writeRsp = Stream(Axi4B(bus.config))
@@ -69,9 +66,6 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
 
   override def readHalt(): Unit = readHaltRequest := True
   override def writeHalt(): Unit = writeHaltRequest := True
-
-  override def readError(): Unit = readErrorFlag := True
-  override def writeError(): Unit = writeErrorFlag := True
 
   override def build(): Unit = {
     super.doNonStopWrite(bus.writeData.data)

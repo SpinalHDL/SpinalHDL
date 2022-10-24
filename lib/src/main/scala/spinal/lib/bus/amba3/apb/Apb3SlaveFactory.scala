@@ -38,9 +38,6 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int, dontCareReadData : Boolean = false
   bus.PREADY := True
   if(dontCareReadData) bus.PRDATA.assignDontCare() else bus.PRDATA := 0
 
-  val writeErrorFlag = False
-  val readErrorFlag = False
-
   val askWrite = (bus.PSEL(selId) && bus.PENABLE && bus.PWRITE).allowPruning()
   val askRead  = (bus.PSEL(selId) && bus.PENABLE && !bus.PWRITE).allowPruning()
   val doWrite  = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY &&  bus.PWRITE).allowPruning()
@@ -53,9 +50,6 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int, dontCareReadData : Boolean = false
 
   override def readHalt()  = bus.PREADY := False
   override def writeHalt() = bus.PREADY := False
-
-  override def readError(): Unit = readErrorFlag := True
-  override def writeError(): Unit = writeErrorFlag := True
 
   override def busDataWidth   = bus.config.dataWidth
   override def wordAddressInc = busDataWidth / 8

@@ -35,9 +35,6 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
   val doWrite  = (bus.waitRequestn &&  bus.write).allowPruning()
   val doRead   = (bus.waitRequestn &&  bus.read).allowPruning()
 
-  val writeErrorFlag = False
-  val readErrorFlag = False
-
   bus.readDataValid := readAtRsp.valid
   bus.readData := readAtRsp.payload
   if (bus.config.useResponse) {
@@ -60,9 +57,6 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
 
   override def readHalt(): Unit = bus.waitRequestn := False
   override def writeHalt(): Unit = bus.waitRequestn := False
-
-  override def readError(): Unit = readErrorFlag := True
-  override def writeError(): Unit = writeErrorFlag := True
 
   override def build(): Unit = {
     super.doNonStopWrite(bus.writeData)

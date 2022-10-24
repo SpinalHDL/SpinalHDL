@@ -32,9 +32,6 @@ class AsyncMemoryBusFactory(bus: AsyncMemoryBus, incAddress: Int = 0) extends Bu
   override def readAddress()  = bus.address
   override def writeAddress() = bus.address
 
-  override def readError(): Unit = {}
-  override def writeError(): Unit = {}
-
   override def busDataWidth: Int   = bus.writeData.getWidth
   override def wordAddressInc: Int = if(incAddress == 0) super.wordAddressInc else incAddress
 

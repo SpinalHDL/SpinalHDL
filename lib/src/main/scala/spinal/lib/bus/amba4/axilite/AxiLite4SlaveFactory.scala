@@ -16,12 +16,10 @@ class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) ex
   val writeJoinEvent = StreamJoin.arg(bus.writeCmd,bus.writeData)
   val writeRsp = AxiLite4B(bus.config)
   bus.writeRsp <-< writeJoinEvent.translateWith(writeRsp).haltWhen(writeHaltRequest)
-  val writeErrorFlag = False
 
   val readDataStage = bus.readCmd.stage()
   val readRsp = AxiLite4R(bus.config)
   bus.readRsp << readDataStage.haltWhen(readHaltRequest).translateWith(readRsp)
-  var readErrorFlag = False
 
   when(writeErrorFlag) {
     writeRsp.setSLVERR()
@@ -45,9 +43,6 @@ class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) ex
 
   override def readAddress(): UInt  = readAddressMasked
   override def writeAddress(): UInt = writeAddressMasked
-
-  override def readError(): Unit = readErrorFlag := True
-  override def writeError(): Unit = writeErrorFlag := True
 
   override def readHalt(): Unit = readHaltRequest := True
   override def writeHalt(): Unit = writeHaltRequest := True

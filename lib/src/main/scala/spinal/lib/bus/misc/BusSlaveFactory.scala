@@ -102,8 +102,11 @@ trait BusSlaveFactory extends Area{
   def readAddress(): UInt
   def writeAddress(): UInt
 
-  def readError(): Unit = ???
-  def writeError(): Unit = ???
+  val readErrorFlag: Bool = False
+  val writeErrorFlag: Bool = False
+
+  def readError(): Unit = readErrorFlag := True
+  def writeError(): Unit = writeErrorFlag := True
 
   /**
    * Byte enable bits, defaulting to all ones
@@ -1004,8 +1007,6 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: BigInt) e
   override def onReadPrimitive(address: AddressMapping, haltSensitive: Boolean, documentation: String)(doThat: => Unit): Unit = f.onReadPrimitive(address.applyOffset(addressOffset), haltSensitive, documentation)(doThat)
   override def readHalt(): Unit = f.readHalt()
   override def writeHalt(): Unit = f.writeHalt()
-  override def readError(): Unit = f.readError()
-  override def writeError(): Unit = f.writeError()
   override def readAddress(): UInt = f.readAddress()  - addressOffset
   override def writeAddress(): UInt = f.writeAddress() - addressOffset
 }
