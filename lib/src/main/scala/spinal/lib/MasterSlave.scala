@@ -1,88 +1,182 @@
 package spinal.lib
 
-import spinal.core.Data
+import spinal.core.{Data, HardType}
 
-trait IMasterSlave {
+/** Master/slave interface */
+trait IMasterSlave extends Data {
 
-  var isMasterInterface: Boolean = false
+  /** Are port directions set for a Master interface? */
+  final def isMasterInterface: Boolean = _isMasterInterface == Some(true)
 
-  def asMaster(): Unit
-  def asSlave(): Unit = master(this).asInstanceOf[Data].flip()
-}
+  /** Are port directions set for a Master interface? */
+  final def isSlaveInterface: Boolean = _isMasterInterface == Some(false)
 
-//trait MasterSlave extends IMasterSlave{
-//  def asMaster() : this.type = {
-//    this
-//  }
-//}
+  private var _isMasterInterface: Option[Boolean] = None
 
-//trait MasterSlave extends IMasterSlave{
-//  def applyMaster() : Unit
-//  def asMaseter() : this.type = {
-//    applyMaster()
-//    this
-//  }
-//}
-
-trait MSFactory {
-  def postApply(interface : IMasterSlave) : Unit = {}
-}
-
-trait MS{
-  def apply[T <: IMasterSlave](i: T) : T
-  def apply(a: IMasterSlave,b: IMasterSlave,c: IMasterSlave*) : Unit = {
-    apply(a)
-    apply(b)
-    for(e <- c) apply(e)
+  /** Convert into master */
+  final def intoMaster(): this.type = {
+    setAsMaster()
+    this
   }
 
+  /** Convert into slave */
+  final def intoSlave(): this.type = {
+    setAsSlave()
+    this
+  }
+
+  /** Set as master interface */
+  final def setAsMaster(): Unit = {
+    _isMasterInterface = Some(true)
+    asMaster()
+  }
+
+  /** Set a slave interface */
+  final def setAsSlave(): Unit = {
+    _isMasterInterface = Some(false)
+    asSlave()
+  }
+
+  /** Override it to define port directions for a master interface.
+    *
+    * @deprecated This method must be overriden but not called. Calling this
+    * method is not correct. Call `setAsMaster()` or `intoMaster()` instead.
+    *
+    * This method is named `asXxx` but it does not return `Xxx`.
+    *
+    * This method does not update `isMasterInterface` and `isSlaveInterface`.
+    */
+  def asMaster(): Unit
+
+  /** Override it to define port directions for a master interface.
+    *
+    * If not overriden, defaults to the opposite port directions of `asMaster()`.
+    *
+    * @deprecated This method can be overriden but not called. Calling this
+    * method is not correct. Call `setAsSlave()` or `intoSlave()` instead.
+    *
+    * This method is named `asXxx` but it does not return `Xxx`.
+    *
+    * This method does not update `isMasterInterface` and `isSlaveInterface`.
+    */
+  def asSlave(): Unit = intoMaster().asInstanceOf[Data].flip()
+}
+
+/** Something which can create master/slave interfaces */
+trait MSFactory {
+
+  /** Called on IMasterSlave creation (eg: to apply master/slave-ness) */
+  def postApply(interface: IMasterSlave): Unit = {}
+}
+
+/** Declare a port as `master` or `slave`
+  *
+  * There are 4 available syntaxes, which are all equivalent:
+  *
+  * {{{
+  * val braces = master(Flow(Bool))
+  *
+  * val short = master Flow (Bool)
+  *
+  * val spaceful = master port Flow(Bool)
+  *
+  * val variadic = Flow(Bool)
+  * master(variadic)
+  * }}}
+  *
+  * The "braces" syntax is short and generic, but it uses braces.
+  *
+  * The "short" syntax is short, but it is formatted with a space between the
+  * type and its parameters, and it can be used only with:
+  *
+  *   - `Flow`
+  *   - `Stream`
+  *   - `Event`
+  *
+  * The "spaceful" syntax is generic and beatiful, but more verbose.
+  *
+  * The "variadic" syntax can be used with any number of interfaces, but can
+  * be used only if the interfaces are already declared.
+  *
+  * @see [[master]] [[slave]]
+  */
+sealed trait MS {
+
+  /** Override it to define how to apply port specification on a non-null IMasterSlave */
+  protected def applyIt[T <: IMasterSlave](i: T): T
+
+  /** Declare a port without braces, spaceful syntax
+    *
+    * See [[MS]] for other syntax.
+    */
+  def port[T <: IMasterSlave](i: T): T =
+    if (i != null) applyIt(i)
+    else i
+
+  /** Declare a port without braces, spaceful syntax
+    *
+    * See [[MS]] for other syntax.
+    */
+  def port[T <: IMasterSlave](i: HardType[T]): T = port(i())
+
+  /** Declare a port with braces
+    *
+    * See [[MS]] for other syntaxes.
+    */
+  def apply[T <: IMasterSlave](i: T): T = port(i)
+
+  def apply[T <: IMasterSlave](data: HardType[T]): T = apply(data())
+
+  /** Declare existing interfaces as ports, variadic syntax */
+  def apply(is: IMasterSlave*): Unit = is.foreach(port(_))
+
   object Flow extends FlowFactory {
-    override def postApply(interface : IMasterSlave) : Unit = {
+    override def postApply(interface: IMasterSlave): Unit = {
       super.postApply(interface)
-      MS.this.apply(interface)
+      port(interface)
     }
   }
 
   object Stream extends StreamFactory {
-    override def postApply(interface : IMasterSlave) : Unit = {
+    override def postApply(interface: IMasterSlave): Unit = {
       super.postApply(interface)
-      MS.this.apply(interface)
+      port(interface)
     }
   }
 
   object event extends EventFactory {
-    override def postApply(interface : IMasterSlave) : Unit = {
+    override def postApply(interface: IMasterSlave): Unit = {
       super.postApply(interface)
-      MS.this.apply(interface)
+      port(interface)
     }
   }
 
-  def Event : Event = {
-    val ret = spinal.lib.Event
-    this.apply(ret)
-    ret
-  }
+  // TODO: why not just renaming event above as Event?
+  def Event: Event = port(spinal.lib.Event)
 }
 
+/** Declare a master port
+  *
+  * See [[MS]] for syntax help.
+  */
 object master extends MS {
-  override def apply[T <: IMasterSlave](i: T) = {
-    i.asMaster()
-    i.isMasterInterface = true
-    i
-  }
+  override def applyIt[T <: IMasterSlave](i: T) = i.intoMaster()
 }
 
+/** Declare a slave port
+  *
+  * See [[MS]] for syntax help.
+  */
 object slave extends MS {
-  def apply[T <: IMasterSlave](i: T) = {
-    i.asSlave()
-    i.isMasterInterface = false
-    i
-  }
+  def applyIt[T <: IMasterSlave](i: T) = i.intoSlave()
 }
 
+@deprecated("Use apply or port instead: 'val b = slave(maybeNull)' or 'val rgb = slave port maybeNull'")
 object slaveWithNull extends MS {
-  override def apply[T <: IMasterSlave](that: T): T = if(that != null) slave(that) else that
+  override def applyIt[T <: IMasterSlave](that: T): T = if (that != null) slave(that) else that
 }
+
+@deprecated("Use apply or port instead: 'val b = master(maybeNull)' or 'val rgb = master port maybeNull'")
 object masterWithNull extends MS {
-  override def apply[T <: IMasterSlave](that: T): T = if(that != null) master(that) else that
+  override def applyIt[T <: IMasterSlave](that: T): T = if (that != null) master(that) else that
 }
