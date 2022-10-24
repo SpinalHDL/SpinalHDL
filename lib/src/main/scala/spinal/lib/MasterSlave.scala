@@ -27,14 +27,14 @@ trait IMasterSlave extends Data {
 
   /** Set as master interface */
   final def setAsMaster(): Unit = {
-    _isMasterInterface = Some(true)
     asMaster()
+    _isMasterInterface = Some(true)
   }
 
   /** Set a slave interface */
   final def setAsSlave(): Unit = {
-    _isMasterInterface = Some(false)
     asSlave()
+    _isMasterInterface = Some(false)
   }
 
   /** Override it to define port directions for a master interface.
