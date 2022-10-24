@@ -8,7 +8,7 @@ case class WishboneBusInterface(
     bus: Wishbone,
     sizeMap: SizeMapping,
     selId: Int = 0,
-    readSync: Boolean = true,
+    override val readSync: Boolean = true,
     regPre: String = ""
 )(implicit moduleName: ClassName)
     extends BusIf {
@@ -27,7 +27,6 @@ case class WishboneBusInterface(
 
   bus.ACK := True
   bus.DAT_MISO := readData
-  if (bus.config.useERR) bus.ERR := readError
 
   val selMatch = if (bus.config.useSEL) bus.SEL(selId) else True
   val askWrite = (selMatch && bus.CYC && bus.STB && bus.WE).allowPruning()
@@ -38,6 +37,7 @@ case class WishboneBusInterface(
     (selMatch && bus.CYC && bus.STB && bus.ACK && !bus.WE).allowPruning()
   val writeData = bus.DAT_MISO
 
+  if (bus.config.useERR) bus.ERR := readError
   override def readAddress() = bus.ADR
   override def writeAddress() = bus.ADR
 
