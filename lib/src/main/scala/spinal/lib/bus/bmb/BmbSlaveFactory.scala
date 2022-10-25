@@ -30,7 +30,13 @@ case class BmbSlaveFactory(bus: Bmb) extends BusSlaveFactoryDelayed{
 
   rsp.arbitrationFrom(bus.cmd)
   rsp.last := True
-  rsp.setSuccess()
+  when(doWrite && writeErrorFlag) {
+    rsp.setError()
+  } elsewhen (doRead && readErrorFlag) {
+    rsp.setError()
+  } otherwise {
+    rsp.setSuccess()
+  }
   rsp.data := 0
   rsp.context := bus.cmd.context
   rsp.source := bus.cmd.source
