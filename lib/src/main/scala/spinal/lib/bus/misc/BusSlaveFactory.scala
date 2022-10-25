@@ -102,8 +102,8 @@ trait BusSlaveFactory extends Area{
   def readAddress(): UInt
   def writeAddress(): UInt
 
-  val readErrorFlag: Bool = False
-  val writeErrorFlag: Bool = False
+  val readErrorFlag: Bool = False.allowPruning()
+  val writeErrorFlag: Bool = False.allowPruning()
 
   def readError(): Unit = readErrorFlag := True
   def writeError(): Unit = writeErrorFlag := True
