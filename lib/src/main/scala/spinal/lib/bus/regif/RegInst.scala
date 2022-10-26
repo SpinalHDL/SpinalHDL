@@ -40,14 +40,14 @@ abstract class MappedBase(name: String, mapping: SizeMapping, doc: String, busif
   }
 
   protected val hitRead: Bool = mapping.hit(busif.factory.readAddress())
-  hitRead.setName(f"read_addr_decode_0x${mapping.lowerBound}%04x", weak = true)
+  hitRead.setName(f"read_addr_decode_0x${mapping.lowerBound}%04x", weak = true).allowPruning()
   protected val hitDoRead: Bool = hitRead && busif.factory.readFire()
-  hitDoRead.setName(f"read_fire_0x${mapping.lowerBound}%04x", weak = true)
+  hitDoRead.setName(f"read_fire_0x${mapping.lowerBound}%04x", weak = true).allowPruning()
 
   protected val hitWrite: Bool = mapping.hit(busif.factory.writeAddress())
-  hitWrite.setName(f"write_addr_decode_0x${mapping.lowerBound}%04x", weak = true)
+  hitWrite.setName(f"write_addr_decode_0x${mapping.lowerBound}%04x", weak = true).allowPruning()
   protected val hitDoWrite: Bool = hitWrite && busif.factory.writeFire()
-  hitDoWrite.setName(f"write_hit_0x${mapping.lowerBound}%04x", weak = true)
+  hitDoWrite.setName(f"write_hit_0x${mapping.lowerBound}%04x", weak = true).allowPruning()
 
   def eventR(): Bool = {
     val event = Reg(Bool) init (False)
