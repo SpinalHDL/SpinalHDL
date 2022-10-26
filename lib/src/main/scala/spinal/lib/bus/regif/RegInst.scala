@@ -340,9 +340,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
 
   protected def insertLastNA(): Unit = {
     if (fields.isEmpty)
-      fields += Field("--", null, 0 until busif.busDataWidth, AccessType.NA, 0, false, "Reversed")
+      fields += Field("--", null, 0 until busif.busDataWidth, AccessType.NA, 0, false, "Reserved")
     else if (fields.last.section.high != busif.busDataWidth-1)
-      fields += Field("--", null, fields.last.section.high+1 until busif.busDataWidth, AccessType.NA, 0, false, "Reversed")
+      fields += Field("--", null, fields.last.section.high+1 until busif.busDataWidth, AccessType.NA, 0, false, "Reserved")
   }
 }
 
