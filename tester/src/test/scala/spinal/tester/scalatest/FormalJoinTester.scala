@@ -24,6 +24,7 @@ class FormalJoinTester extends SpinalFormalFunSuite {
       .withBMC(20)
       .withProve(20)
       .withCover(20)
+      
       // .withDebug
       .doVerify(new Component {
         val portCount = 5
@@ -54,10 +55,10 @@ class FormalJoinTester extends SpinalFormalFunSuite {
           assume(inputs_1.valid === False)
         }
 
-        inputs_0.withAssumes()
-        inputs_1.withAssumes()
-        output.withAsserts()
-        output.withCovers(3)
+        inputs_0.formalAssumesSlave()
+        inputs_1.formalAssumesSlave()
+        output.formalAssertsMaster()
+        output.formalCovers(3)
 
         assert(inputs_0.fire === inputs_1.fire)
         assert(output.fire === inputs_0.fire)
