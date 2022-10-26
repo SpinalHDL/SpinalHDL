@@ -27,3 +27,4 @@ jobs:
       with:
         folder: target/scala-2.12/unidoc
         target-folder: ${{ github.ref_name }}
+        single-commit: true
