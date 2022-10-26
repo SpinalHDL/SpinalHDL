@@ -7,9 +7,12 @@ To keep work organized, contributions are done the following way:
 1. Before implementing:
     * If you have an idea of thing you want to implement, please open an issue
       to discuss. It will help to define the goal of the changes, and to figure
-      out the potential drawbacks before implementing.
+      out the potential drawbacks before implementing. Also, it may prevent
+      merge conflicts.
     * Else you can find good first issues
-      [here](https://github.com/SpinalHDL/SpinalHDL/contribute)
+      [here for the code](https://github.com/SpinalHDL/SpinalHDL/contribute)
+      and
+      [here for the docs](https://github.com/SpinalHDL/SpinalDoc-RTD/contribute)
 1. When you work is ready for review, feel free to open a pull request (PR). It
    can be seen as suggested modifications that will be reviewed. You can open a
    PR if you want some feedback even if you know your implementation is not
