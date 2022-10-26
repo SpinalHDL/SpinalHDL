@@ -66,7 +66,7 @@ class DebugBusSlaveFactory(bus: DebugBus) extends BusSlaveFactoryDelayed{
   bus.rsp.payload  := rspBuffer.payload
 
   cmdToRsp.valid := bus.cmd.fire
-  cmdToRsp.error := True
+  cmdToRsp.error := False //Can be turned to true in order to see if a given access isn't implemented
   cmdToRsp.data := 0
 
   override def readAddress() : UInt = bus.cmd.address
