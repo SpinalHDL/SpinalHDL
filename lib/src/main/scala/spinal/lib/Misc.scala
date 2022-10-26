@@ -19,19 +19,6 @@ class BoolPimped(pimped: Bool){
   }
 }
 
-/**
- * Endianness enumeration
- */
-sealed trait Endianness
-/** Little-Endian */
-object LITTLE extends Endianness
-/** Big-Endian */
-object BIG    extends Endianness
-
-
-
-
-
 object KeepAttribute{
   object syn_keep_verilog extends AttributeFlag("synthesis syn_keep = 1", COMMENT_ATTRIBUTE){
     override def isLanguageReady(language: Language) : Boolean = language == Language.VERILOG || language == Language.SYSTEM_VERILOG

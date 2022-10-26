@@ -41,7 +41,7 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
     this
   }
 
-  override def setAsDirectionLess: this.type = {
+  override def setAsDirectionLess(): this.type = {
     super.setAsDirectionLess()
     elements.foreach(_._2.setAsDirectionLess());
     this
@@ -167,14 +167,14 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
     }
   }
 
-  private[core] def isEquals(that: Any): Bool = {
+  private[core] def isEqualTo(that: Any): Bool = {
     that match {
       case that: SpinalStruct => zippedMap(that, _ === _).reduce(_ && _)
       case _               => SpinalError(s"Function isEquals is not implemented between $this and $that")
     }
   }
 
-  private[core] def isNotEquals(that: Any): Bool = {
+  private[core] def isNotEqualTo(that: Any): Bool = {
     that match {
       case that: SpinalStruct => zippedMap(that, _ =/= _).reduce(_ || _)
       case _               => SpinalError(s"Function isNotEquals is not implemented between $this and $that")

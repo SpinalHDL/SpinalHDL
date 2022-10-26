@@ -128,6 +128,11 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     nativeIface.write_mem(id, new VectorInt8(value_arr), index)
   }
 
+
+  override def getTimePrecision(): Int = {
+    nativeIface.get_time_precision()
+  }
+
   override def sleep(cycles : Long) : Unit = {
     nativeIface.sleep(cycles)
   }

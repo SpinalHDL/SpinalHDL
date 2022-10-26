@@ -3,6 +3,7 @@ package spinal.sim;
 public interface IVerilatorNative {
     public long newHandle(String name, int seed);
     public boolean eval(long handle);
+    public int get_time_precision(long handle);
     public void sleep(long handle, long cycles);
     public long getU64(long handle, int id);
     public void setU64(long handle, int id, long value);

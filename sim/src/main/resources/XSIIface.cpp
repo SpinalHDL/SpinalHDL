@@ -153,6 +153,10 @@ void XSIIface::write(int32_t handle, int32_t width, std::vector<int8_t> data) {
     write_vlog(handle, data);
 }
 
+int32_t XSIIface::get_time_precision() {
+    return sim_time_precision;
+}
+
 void XSIIface::sleep(int64_t sleep_cycles) {
     loader.run(sleep_cycles);
 }

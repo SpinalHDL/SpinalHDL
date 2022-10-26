@@ -37,6 +37,15 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
 
   bus.readDataValid := readAtRsp.valid
   bus.readData := readAtRsp.payload
+  if (bus.config.useResponse) {
+    when(writeErrorFlag && doWrite) {
+      bus.setSLVERR
+    }elsewhen (readErrorFlag && doRead) {
+      bus.setSLVERR
+    }otherwise {
+      bus.setOKEY
+    }
+  }
 
   readAtCmd.valid := doRead
   readAtCmd.payload := 0

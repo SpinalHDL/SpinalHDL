@@ -563,52 +563,51 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.bus.amba4.axi._
 
+object TestAxiCrossbar {
+  class Dut extends Component {
+    val axiConf = Axi4Config(
+      addressWidth = 32,
+      dataWidth = 32,
+      useId = false,
+      useRegion = false,
+      useBurst = false,
+      useLock = false,
+      useCache = false,
+      useSize = false,
+      useQos = false,
+      useLen = false,
+      useLast = true,
+      useResp = false,
+      useProt = false,
+      useStrb = true
+    )
+  
+    val axi = Axi4ReadOnly(axiConf)
+    axi.readCmd.valid := True
+    axi.readCmd.addr := 0x00000012
+    axi.readRsp.ready := True
+  
+    val ram = Axi4SharedOnChipRam(
+      byteCount = 4 KiB,
+      dataWidth = 32,
+      idWidth = 4
+    )
+  
+    val axiCrossbar = Axi4CrossbarFactory()
+  //  axiCrossbar.lowLatency = true
+    axiCrossbar.addSlaves(
+      ram.io.axi       -> (0x00000000L, 4 KiB)
+    )
+    axiCrossbar.addConnections(
+      axi -> List(ram.io.axi)
+    )
+  
+    axiCrossbar.build()
+  }
 
-class Test22 extends Component {
-  val axiConf = Axi4Config(
-    addressWidth = 32,
-    dataWidth = 32,
-    useId = false,
-    useRegion = false,
-    useBurst = false,
-    useLock = false,
-    useCache = false,
-    useSize = false,
-    useQos = false,
-    useLen = false,
-    useLast = true,
-    useResp = false,
-    useProt = false,
-    useStrb = true
-  )
-
-  val axi = Axi4ReadOnly(axiConf)
-  axi.readCmd.valid := True
-  axi.readCmd.addr := 0x00000012
-  axi.readRsp.ready := True
-
-  val ram = Axi4SharedOnChipRam(
-    byteCount = 4 KiB,
-    dataWidth = 32,
-    idWidth = 4
-  )
-
-  val axiCrossbar = Axi4CrossbarFactory()
-//  axiCrossbar.lowLatency = true
-  axiCrossbar.addSlaves(
-    ram.io.axi       -> (0x00000000L, 4 KiB)
-  )
-  axiCrossbar.addConnections(
-    axi -> List(ram.io.axi)
-  )
-
-  axiCrossbar.build()
-}
-
-object Test {
   def main(args: Array[String]) {
     import spinal.core.sim._
-    SimConfig.withWave.addSimulatorFlag("-Wno-CASEOVERLAP").compile(new Test22).doSim { dut =>
+    SimConfig.withWave.addSimulatorFlag("-Wno-CASEOVERLAP").compile(new Dut).doSim { dut =>
       dut.clockDomain.forkStimulus(10)
 
       for (_ <- 0 to 100) {
