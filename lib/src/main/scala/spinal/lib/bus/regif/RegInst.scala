@@ -154,6 +154,19 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     reg
   }
 
+  private def createReadErrorLogic(): Unit = {
+    new Area {
+      val hold = RegInit(False)
+      val flag = hitDoRead || hold
+      when(flag) {
+        busif.factory.readError()
+        hold.set()
+      } elsewhen(hitDoWrite) {
+        hold.clear()
+      }
+    }.setName("readError")
+  }
+
   private def creatWriteLogic[T <: BaseType](reg: T, acc: AccessType, section: Range): Unit = {
     acc match {
       case AccessType.RO|AccessType.NA =>
@@ -161,6 +174,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
         SpinalError(s"$reg need be a register, not wire, check please")
       }
     }
+    val preRError = Rerror
     acc match {
       case AccessType.RO    => _RO(reg)           //- W: no effect, R: no effect
       case AccessType.RW    => _W( reg, section)  //- W: as-is, R: no effect
@@ -190,6 +204,10 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.NA    => NA(reg.getBitsWidth bit)            // -W: reserved, R: reserved
       case AccessType.W1P   => _WBP(reg, section, AccessType.W1P)  //- W: 1/0 pulse/no effect on matching bit, R: no effect
       case AccessType.W0P   => _WBP(reg, section, AccessType.W0P)  //- W: 0/1 pulse/no effect on matching bit, R: no effect
+    }
+    // Generate error read error
+    if (Rerror && !preRError) {
+      createReadErrorLogic()
     }
   }
 
@@ -238,6 +256,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
   def field(bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
     val section: Range = fieldPtr+bc.value-1 downto fieldPtr
+    val preRError = Rerror
     val ret: Bits = acc match {
       case AccessType.RO    => RO(bc)                       //- W: no effect, R: no effect
       case AccessType.RW    => W( bc, section, resetValue)  //- W: as-is, R: no effect
@@ -268,6 +287,11 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.W1P   => WBP(section, resetValue, AccessType.W1P )  //- W: 1/0 pulse/no effect on matching bit, R: no effect
       case AccessType.W0P   => WBP(section, resetValue, AccessType.W0P )  //- W: 0/1 pulse/no effect on matching bit, R: no effect
     }
+    // Generate error read error
+    if (Rerror && !preRError) {
+      createReadErrorLogic()
+    }
+
     val newdoc = if(doc.isEmpty && acc == AccessType.NA) "Reserved" else doc
     val signame = if(symbol.name.startsWith("<local ")){
       SpinalWarning("an unload signal created; `val signame = field(....)` is recomended instead `field(....)`")
