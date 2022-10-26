@@ -16,6 +16,7 @@ SpinalHDL is:
 ## Links
 
  - Documentation                  <br> https://spinalhdl.github.io/SpinalDoc-RTD/
+ - Chinese documentation          <br> https://thucgra.github.io/SpinalHDL_Chinese_Doc/
  - Presentation of the language   <br> https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Getting%20Started/presentation.html
  - SBT base project               <br> https://github.com/SpinalHDL/SpinalTemplateSbt
  - Gradle base project            <br> https://github.com/SpinalHDL/SpinalTemplateGradle
@@ -24,9 +25,7 @@ SpinalHDL is:
  - Google group                   <br> https://groups.google.com/forum/#!forum/spinalhdl-hardware-description-language
  - Donation channel               <br> https://opencollective.com/spinalhdl
 
-[![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-[![Build Status](https://travis-ci.org/SpinalHDL/SpinalHDL.svg?branch=master)](https://travis-ci.org/SpinalHDL/SpinalHDL)
+English: [![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) 中文: [![Join the chat at https://gitter.im/SpinalHDL-CN/community](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL-CN/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ## Get it
 

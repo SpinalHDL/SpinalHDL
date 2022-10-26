@@ -19,19 +19,6 @@ class BoolPimped(pimped: Bool){
   }
 }
 
-/**
- * Endianness enumeration
- */
-sealed trait Endianness
-/** Little-Endian */
-object LITTLE extends Endianness
-/** Big-Endian */
-object BIG    extends Endianness
-
-
-
-
-
 object KeepAttribute{
   object syn_keep_verilog extends AttributeFlag("synthesis syn_keep = 1", COMMENT_ATTRIBUTE){
     override def isLanguageReady(language: Language) : Boolean = language == Language.VERILOG || language == Language.SYSTEM_VERILOG
@@ -97,4 +84,38 @@ object DoCmd {
 
 object Repeat{
   def apply[T <: Data](value : T, times : Int) = Cat(List.fill(times)(value))
+}
+
+
+
+object FlowCmdRsp{
+  def apply() : FlowCmdRsp[NoData, NoData] = FlowCmdRsp(NoData(), NoData())
+  def apply[T <: Data, T2 <: Data](cmdType : HardType[T], rspType : HardType[T2]) : FlowCmdRsp[T, T2] = new FlowCmdRsp(cmdType, rspType)
+}
+
+class FlowCmdRsp[T <: Data, T2 <: Data](cmdType : HardType[T], rspType : HardType[T2]) extends Bundle with IMasterSlave {
+
+  val cmd = Flow(cmdType())
+  val rsp = Flow(rspType())
+
+
+  override def asMaster() = {
+    master(cmd)
+    slave(rsp)
+  }
+
+  def setIdleAll(): this.type ={
+    cmd.setIdle()
+    rsp.setIdle()
+    this
+  }
+
+  def setIdle(): this.type ={
+    cmd.setIdle()
+    this
+  }
+
+  def isPending(pendingMax : Int) : Bool = pendingMax match{
+    case 1 => RegInit(False) setWhen(cmd.valid) clearWhen(rsp.valid)
+  }
 }

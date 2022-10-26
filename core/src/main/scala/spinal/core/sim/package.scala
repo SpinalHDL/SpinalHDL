@@ -172,6 +172,10 @@ package object sim {
     SimManagerContext.current.thread.waitUntil(cond)
   }
 
+  def timeToLong(time : TimeNumber) : Long = {
+    (time.toBigDecimal / SimManagerContext.current.manager.timePrecision).toLong
+  }
+
   /** Fork */
   def fork(body: => Unit): SimThread = SimManagerContext.current.manager.newThread(body)
   def forkJoin(bodys: (()=> Unit)*): Unit = {
@@ -225,6 +229,10 @@ package object sim {
     SimManagerContext.current.manager.schedule(delay)(body)
   }
 
+  def delayed(delay: TimeNumber)(body: => Unit) = {
+    SimManagerContext.current.manager.schedule(timeToLong(delay))(body)
+  }
+
   def periodicaly(delay : Long)(body : => Unit) : Unit = {
     SimManagerContext.current.manager.schedule(delay){
       body
@@ -263,6 +271,8 @@ package object sim {
       case bt: SInt               => bt.toBigInt
       case bt: SpinalEnumCraft[_] => BigInt(bt.toEnum.position)
     }
+
+    def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
   }
 
 
@@ -331,6 +341,7 @@ package object sim {
     def toInt    = getInt(bt)
     def toLong   = getLong(bt)
     def toBigInt = getBigInt(bt)
+    def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
 
     def #=(value: Int)    = setLong(bt, value)
     def #=(value: Long)   = setLong(bt, value)
@@ -556,6 +567,22 @@ package object sim {
     def toDouble: Double = this.toBigDecimal.doubleValue
 
   }
+  
+  /**
+    * Add implicit function to BigInt
+    */
+  implicit class SimBigIntPimper(x: BigInt) {
+    def toBytes(bits: Int = -1, endian: Endianness = LITTLE): Array[Byte] = {
+      val raw = x.toByteArray
+      val byteCount = if (bits < 0) raw.length else (bits + 7) / 8
+      assert(raw.length <= byteCount, "Original BigInt has more bytes then bits specified.")
+      val out = Array.fill[Byte](byteCount) { 0 }
+      for (i <- 0 until byteCount) {
+        out(i) = ((x >> i * 8) & 0xff).toByte
+      }
+      if (endian == BIG) out.reverse else out
+    }
+  }
 
   /**
     * Add implicit function to ClockDomain
@@ -567,7 +594,7 @@ package object sim {
       if((who.isInput || who.isOutput) && component != null && component.parent == null){
         who
       }else {
-        manager.userData.asInstanceOf[Component].pulledDataCache(who).asInstanceOf[Bool]
+        manager.userData.asInstanceOf[Component].pulledDataCache.getOrElse(who, null).asInstanceOf[Bool]
       }
     }
 
@@ -580,6 +607,11 @@ package object sim {
     def resetSim       = getBool(SimManagerContext.current.manager, cd.reset)
     def clockEnableSim = getBool(SimManagerContext.current.manager, cd.clockEnable)
     def softResetSim   = getBool(SimManagerContext.current.manager, cd.softReset)
+
+    def simAssignSafe(that : Bool, value : Boolean) = if(that != null) that #= value
+    def resetSimAssign(value : Boolean)       = simAssignSafe(getBool(SimManagerContext.current.manager, cd.reset), value)
+    def clockEnableSimAssign(value : Boolean) = simAssignSafe(getBool(SimManagerContext.current.manager, cd.clockEnable), value)
+    def softResetSimAssign(value : Boolean)   = simAssignSafe(getBool(SimManagerContext.current.manager, cd.softReset), value)
 
     def clockToggle(): Unit ={
       val manager = SimManagerContext.current.manager
@@ -753,8 +785,8 @@ package object sim {
     def doStimulus(period: Long): Unit = {
       assert(period >= 2)
 
-      if(cd.hasClockEnableSignal) assertClockEnable()
-      if(cd.hasSoftResetSignal)   deassertSoftReset()
+      if(cd.hasClockEnableSignalSim) assertClockEnable()
+      if(cd.hasSoftResetSignalSim)   deassertSoftReset()
 
       cd.config.clockEdge match {
         case RISING  => fallingEdge()
@@ -762,7 +794,7 @@ package object sim {
       }
 
       if(cd.config.resetKind == ASYNC){
-          val dummy = if(cd.hasResetSignal){
+          val dummy = if(cd.hasResetSignalSim){
             cd.resetSim #= (cd.config.resetActiveLevel match{
               case HIGH => false
               case LOW => true
@@ -773,7 +805,7 @@ package object sim {
           sleep(period)
           DoClock(clockSim, period)
       } else if(cd.config.resetKind == SYNC){
-        if(cd.hasResetSignal){
+        if(cd.hasResetSignalSim){
           cd.assertReset()
           val clk = clockSim
           var value = clk.toBoolean
@@ -794,15 +826,20 @@ package object sim {
 
     }
 
-    def forkStimulus(period: Long) : Unit = {
+    def forkStimulus(period: Long, sleepDuration : Int = 0) : Unit = {
       cd.config.clockEdge match {
         case RISING  => fallingEdge()
         case FALLING => risingEdge()
       }
-      if(cd.hasResetSignal) cd.deassertReset()
-      if(cd.hasSoftResetSignal) cd.deassertSoftReset()
-      if(cd.hasClockEnableSignal) cd.deassertClockEnable()
+      if(cd.hasResetSignalSim) cd.deassertReset()
+      if(cd.hasSoftResetSignalSim) cd.deassertSoftReset()
+      if(cd.hasClockEnableSignalSim) cd.deassertClockEnable()
       fork(doStimulus(period))
+      if(sleepDuration >= 0) sleep(sleepDuration) //This allows the doStimulus to give initial value to clock/reset before going futher
+    }
+
+    def forkStimulus(period: TimeNumber): Unit = {
+      forkStimulus(timeToLong(period))
     }
 
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) : Unit = SimSpeedPrinter(cd, printPeriod)
@@ -905,6 +942,10 @@ package object sim {
     }
 
 
+    def hasClockEnableSignalSim = cd.hasClockEnableSignal && clockEnableSim != null
+    def hasResetSignalSim       = cd.hasResetSignal && resetSim != null
+    def hasSoftResetSignalSim   = cd.hasSoftResetSignal && softResetSim != null
+
     def assertReset(): Unit         = resetSim #= cd.config.resetActiveLevel == spinal.core.HIGH
     def deassertReset(): Unit       = resetSim #= cd.config.resetActiveLevel != spinal.core.HIGH
 
@@ -915,10 +956,10 @@ package object sim {
     def deassertSoftReset(): Unit   = softResetSim #= cd.config.softResetActiveLevel != spinal.core.HIGH
 
 
-    def isResetAsserted: Boolean         = (cd.hasResetSignal && (cd.resetSim.toBoolean ^ cd.config.resetActiveLevel != spinal.core.HIGH)) || (cd.hasSoftResetSignal && (cd.softResetSim.toBoolean ^ cd.config.softResetActiveLevel != spinal.core.HIGH))
+    def isResetAsserted: Boolean         = (cd.hasResetSignalSim && (cd.resetSim.toBoolean ^ cd.config.resetActiveLevel != spinal.core.HIGH)) || (cd.hasSoftResetSignalSim && (cd.softResetSim.toBoolean ^ cd.config.softResetActiveLevel != spinal.core.HIGH))
     def isResetDeasserted: Boolean       =  ! isResetAsserted
 
-    def isClockEnableAsserted: Boolean   = !cd.hasClockEnableSignal || (cd.clockEnableSim.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
+    def isClockEnableAsserted: Boolean   = !cd.hasClockEnableSignalSim || (cd.clockEnableSim.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
     def isClockEnableDeasserted: Boolean = ! isClockEnableAsserted
 
     def isSamplingEnable: Boolean        = isResetDeasserted && isClockEnableAsserted
@@ -947,6 +988,14 @@ package object sim {
         queue.dequeue().resume()
       } else {
         locked = false
+      }
+    }
+
+    def await() : Unit = {
+      if(locked) {
+        val t = simThread
+        queue.enqueue(t)
+        t.suspend()
       }
     }
   }

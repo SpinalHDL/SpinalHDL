@@ -7,6 +7,7 @@ import spinal.core.sim.SimCompiled
 import spinal.lib.bus.amba4.axi.sim.{Axi4ReadOnlyMasterAgent, Axi4ReadOnlyMonitor, Axi4ReadOnlySlaveAgent, Axi4WriteOnlyMasterAgent, Axi4WriteOnlyMonitor, Axi4WriteOnlySlaveAgent}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4ReadOnlyUpsizer, Axi4WriteOnlyUpsizer, Axi4ReadOnlyDownsizer, Axi4WriteOnlyDownsizer}
 import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.{master, slave}
 
 import scala.collection.mutable
 import scala.util.Random
@@ -35,14 +36,14 @@ class Axi4UpsizerTester extends AnyFunSuite {
 
     val writes = mutable.HashMap[BigInt, Byte]()
     val inputMonitor = new Axi4WriteOnlyMonitor(dut.io.input, dut.clockDomain) {
-      override def onWriteByte(address: BigInt, data: Byte): Unit = {
+      override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
         //          println(s"I $address -> $data")
         writes(address) = data
       }
     }
 
     val outputMonitor = new Axi4WriteOnlyMonitor(dut.io.output, dut.clockDomain) {
-      override def onWriteByte(address: BigInt, data: Byte): Unit = {
+      override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
         //          println(s"O $address -> $data")
         assert(writes(address) == data)
         writes.remove(address)
@@ -95,7 +96,6 @@ class Axi4UpsizerTester extends AnyFunSuite {
       override def onReadByte(address: BigInt, data: Byte, id : Int): Unit = {
         reads(address) = data
       }
-      override def onLast(id: Int): Unit = {}
     }
 
     val outputMonitor = new Axi4ReadOnlyMonitor(dut.io.output, dut.clockDomain) {
@@ -106,7 +106,7 @@ class Axi4UpsizerTester extends AnyFunSuite {
         }
       }
 
-      override def onLast(id: Int): Unit = assert(reads.isEmpty)
+      override def onResponse(address: BigInt, id: Int, last: Boolean, resp: Byte): Unit = if (last) assert(reads.isEmpty)
     }
 
 
@@ -167,7 +167,7 @@ class Axi4DownsizerTester extends AnyFunSuite {
         val writes = mutable.HashMap[BigInt, Byte]()
         val datas  = mutable.Queue[Byte]()
         val inputMonitor = new Axi4WriteOnlyMonitor(dut.io.input, dut.clockDomain) {
-            override def onWriteByte(address: BigInt, data: Byte): Unit = {
+            override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
                 //          println(s"I $address -> $data")
                 writes(address) = data
                 datas.enqueue(data)
@@ -175,7 +175,7 @@ class Axi4DownsizerTester extends AnyFunSuite {
         }
 
         val outputMonitor = new Axi4WriteOnlyMonitor(dut.io.output, dut.clockDomain) {
-            override def onWriteByte(address: BigInt, data: Byte): Unit = {
+            override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
                 //          println(s"O $address -> $data")
                 assert(writes(address) == data)
                 writes.remove(address)
@@ -289,15 +289,12 @@ class Axi4DownsizerTester extends AnyFunSuite {
             override def onReadByte(address: BigInt, data: Byte, id: Int): Unit = {
                 checkReads(address, data)
             }
-            override def onLast(id: Int): Unit = {}
         }
 
         val outputMonitor = new Axi4ReadOnlyMonitor(dut.io.output, dut.clockDomain) {
             override def onReadByte(address: BigInt, data: Byte, id: Int): Unit = {
                 checkReads(address, data)
             }
-
-            override def onLast(id: Int): Unit = {}
         }
 
         dut.clockDomain.waitSamplingWhere(inputAgent.rspCounter > 10000)

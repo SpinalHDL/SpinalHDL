@@ -42,10 +42,10 @@ trait IODirection extends BaseTypeFactory {
   def apply(senum: SpinalEnum) = applyIt(senum.craft())
   def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
 
-  def Bool(u: Unit = null) = applyIt(spinal.core.Bool())
-  override def Bits(u: Unit = null) = applyIt(super.Bits())
-  override def UInt(u: Unit = null) = applyIt(super.UInt())
-  override def SInt(u: Unit = null) = applyIt(super.SInt())
+  def Bool(u: Unit = ()): Bool = applyIt(spinal.core.Bool())
+  override def Bits(u: Unit = ()) = applyIt(super.Bits())
+  override def UInt(u: Unit = ()) = applyIt(super.UInt())
+  override def SInt(u: Unit = ()) = applyIt(super.SInt())
   override def Vec[T <: Data](elements: TraversableOnce[T], dataType : HardType[T] = null): Vec[T] = applyIt(super.Vec(elements, dataType))
 
   override def postTypeFactory[T <: Data](that: T): T = applyIt(that)

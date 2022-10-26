@@ -554,4 +554,12 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   implicit def tupleBunder21Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data,T18 <: Data,T19 <: Data,T20 <: Data,T21 <: Data](pimped: Tuple21[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]): TupleBundle21[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17, pimped._18, pimped._19, pimped._20, pimped._21)
   implicit def tupleBunder22Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data,T18 <: Data,T19 <: Data,T20 <: Data,T21 <: Data,T22 <: Data](pimped: Tuple22[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22]): TupleBundle22[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17, pimped._18, pimped._19, pimped._20, pimped._21, pimped._22)
 
+  /**
+   * Endianness enumeration
+   */
+  sealed trait Endianness
+  /** Little-Endian */
+  object LITTLE extends Endianness
+  /** Big-Endian */
+  object BIG    extends Endianness
 }

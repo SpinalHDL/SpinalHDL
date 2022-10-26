@@ -129,8 +129,20 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     body(this)
     children.foreach(body)
   }
-  /** Reference owner type */
-//  override type RefOwnerType = Component
+
+  var traceEnabled = true
+
+  def traceDisable(recursive : Boolean = true) : this.type = {
+    traceEnabled = false
+    if(recursive) this.children.foreach(_.traceDisable(true))
+    this
+  }
+
+  def traceEnable(recursive : Boolean = true) : this.type = {
+    traceEnabled = true
+    if(recursive) this.children.foreach(_.traceEnable(true))
+    this
+  }
 
   var pulledDataCache = mutable.Map[Data, Data]()
 

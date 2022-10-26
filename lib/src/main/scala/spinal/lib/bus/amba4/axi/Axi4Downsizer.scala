@@ -89,6 +89,21 @@ class Axi4DownsizerSubTransactionGenerator[T <: Axi4Ax](
     io.done := cmdExtender.io.done
     io.start := startAddress
     io.output << cmdStream
+
+    def formalAsserts() = new Composite(this, "asserts") {
+        def ratio2size(x: UInt): UInt = {
+            OHToUInt(OHMasking.first(x + 1))
+        }
+
+        val alignRange = 12 until inputConfig.addressWidth
+        val cmdAddress = address
+        val cmdWidth = size + ratio2size(cmdExtender.counter.expected)
+        val cmdBoundAddress =
+            cmdAddress + (((cmdExtendedStream.len +^ 1) << cmdWidth) - 1).resized
+        when(cmdExtender.counter.working & cmdExtender.counter.io.value === 0) {
+            assert(cmdAddress(alignRange) === cmdBoundAddress(alignRange))
+        }
+    }
 }
 
 //Curently only INCR burst compatible
@@ -199,7 +214,7 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
     }
     countStream.ready := dataIn.fire
 
-    val dataReg    = Reg(Bits(inputConfig.dataWidth bits))
+    val dataReg    = Reg(Bits(inputConfig.dataWidth bits)) init(0)
     val beatOffset = RegInit(U(0, sizeMaxIn bits))
     when(countOutStream.fire && dataOutCounter.io.first) {
         beatOffset := countOutStream.start(inputConfig.symbolRange)
@@ -207,16 +222,13 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
         beatOffset := (beatOffset + (1 << countStream.size)).resized
     }
 
+    //TODO: yosys would cause two problems:
+    //      when using variable slice attribute nowrshmsk should be assigned.
     val offset = beatOffset & ~U((1 << sizeMaxOut) - 1, sizeMaxIn bits)
-    when(dataIn.fire) {
+    when(dataIn.valid) {
         dataReg(offset << 3, outputConfig.dataWidth bits) := dataIn.data
     }
     val dataOut = cloneOf(io.input.readRsp)
-    val data    = Bits(inputConfig.dataWidth bits)
-    data := dataReg
-    when(dataCounter.io.last && dataOut.valid) {
-        data(offset << 3, outputConfig.dataWidth bits) := dataIn.data
-    }
 
     val lastLast = RegInit(False)
     when(dataOutCounter.io.working && dataOutCounter.io.last && countOutStream.fire) {
@@ -225,11 +237,40 @@ case class Axi4ReadOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Conf
         lastLast := False
     }
     dataOut.translateFrom(dataIn.throwWhen(!dataCounter.io.last)) { (to, from) =>
-        to.data := data
+        to.data := dataReg.getAheadValue().addAttribute("nowrshmsk")
         if (inputConfig.useLast) to.last := from.last && lastLast
         to.assignUnassignedByName(from)
     }
     io.input.readRsp << dataOut
+
+    def formalAsserts() = new Composite(this, "asserts") {        
+        val cmdCounter = generator.cmdExtender.counter
+        val cmdChecker = cmdCounter.formalAsserts()
+        val lenCounter = dataOutCounter.counter
+        val lenChecker = lenCounter.formalAsserts()
+        val ratioCounter = dataCounter.counter
+        val ratioChecker = ratioCounter.formalAsserts()
+
+        val generatorChecker = generator.formalAsserts()
+
+        when(lenChecker.startedReg) {
+          assert(countStream.payload === countOutStream.payload)
+        }
+        when(lenCounter.working & countOutStream.ratio > 0) { assert(countOutStream.size === sizeMaxOut) }
+        when(ratioCounter.working & countStream.ratio > 0) { assert(countStream.size === sizeMaxOut) }
+        when(lenCounter.working) {
+          assert(countOutStream.size === cmdStream.size)
+          assert(countOutStream.len === cmdStream.len)
+          assert(countOutStream.ratio === cmdCounter.expected)
+        }
+
+        def ratio2size(x: UInt): UInt = { OHToUInt(OHMasking.first(x + 1)) }
+        val addrLowWidth = countOutStream.size + ratio2size(countOutStream.ratio)
+        val addrMask = (U(1) << addrLowWidth - 1)
+        when(lenCounter.working & addrLowWidth === sizeMaxIn) {
+            assert((countOutStream.start & addrMask.resized) === 0) 
+        }
+    }
 }
 
 case class Axi4Downsizer(inputConfig: Axi4Config, outputConfig: Axi4Config) extends Component {

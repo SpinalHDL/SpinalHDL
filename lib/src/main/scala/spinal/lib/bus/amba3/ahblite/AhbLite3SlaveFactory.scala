@@ -53,10 +53,22 @@ class AhbLite3SlaveFactory(bus: AhbLite3, incAddress: Int = 0) extends BusSlaveF
     val doWrite     = RegNext(askWrite, False )
     val doRead      = RegNext(askRead, False )
 
+    val errorFlag   = (doWrite && writeErrorFlag) || (doRead && readErrorFlag)
+    val errorDelay = RegNext(errorFlag) init(False)
+
+    when(errorDelay) {
+      bus.HREADYOUT := True
+      bus.HRESP := True
+    } elsewhen (errorFlag) {
+      bus.HREADYOUT := False
+      bus.HRESP := True
+    } otherwise {
+      bus.HREADYOUT := True
+      bus.HRESP := False
+    }
+
     val addressDelay = RegNextWhen(bus.HADDR, askRead | askWrite)
 
-    bus.HREADYOUT := True
-    bus.HRESP     := False
     bus.HRDATA    := 0
 
     def doMappedElements(jobs: Seq[BusSlaveFactoryElement]) = super.doMappedElements(
