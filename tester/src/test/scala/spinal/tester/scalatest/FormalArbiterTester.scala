@@ -24,15 +24,18 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
       assert(select === 0)
       if (withLock) assert(!locked)
     }
+
     for (i <- 0 until portCount) {
       inputs(i).formalAssumesSlave()
     }
+
     assert(select < portCount)
     assert(select === OHToUInt(selectOH))
     assert(selectOH === OHMasking.first(selectOH))
     assert(output.fire === inputs(select).fire)
     assert(output.payload === inputs(select).payload)
   }
+
   def prepareContext(withLock: Boolean) = new Area {
     val portCount = 5
     val select = UInt(log2Up(portCount) bit)
@@ -44,6 +47,7 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
     val notReset = !(reset || past(reset))
     cover(notReset)
     assumeInitial(reset)
+
     val inputs = Vec(slave(Stream(dataType)), portCount)
     val output = master(Stream(dataType))
     val usual = usualVerify(inputs, output, portCount, select, selectOH, reset, withLock, locked)
@@ -52,6 +56,7 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
     val selStableCond = past(output.isStall) && notReset
     val selectUnLockCond = !locked || past(output.fire)
   }
+
   def prepareContextFragment(withLock: Boolean) = new Area {
     val portCount = 5
     val select = UInt(log2Up(portCount) bit)
@@ -72,6 +77,7 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
     val selStableCond = !past((inputsValid.asBits === 0) || output.last || reset)
     val selectUnLockCond = !locked || past(output.last && output.fire)
   }
+
   def sequentialOrderVerify(select: UInt, portCount: Int) = new Area {
     val d1 = anyconst(UInt(log2Up(portCount) bit))
     assume(d1 < portCount)
@@ -84,6 +90,7 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
       assert(past(select) === d1)
     }
   }
+
   def lowFirstVerify(
       selectOH: Bits,
       inputsvalid: Vec[Bool],
@@ -95,6 +102,7 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
       assert(selectOH === inputsLowerFirst)
     }
   }
+
   def roundRobinVerify(
       selectOH: Bits,
       inputsValid: Vec[Bool],
@@ -108,6 +116,7 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
     val doubleGrant = doubleRequests & ~(doubleRequests - uGranted)
     val masked = doubleGrant(portCount, portCount bits) | doubleGrant(0, portCount bits)
     val inputsRoundRobinOH = masked.asBits
+
     cover(unLockCond)
     when(unLockCond) {
       assert(selectOH === inputsRoundRobinOH)
@@ -159,11 +168,13 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         for (i <- 0 until context.portCount) {
           context.inputs(i) >> dut.io.inputs(i)
         }
+
         val withAssert = withAssertsVerify(context.output.isStall, context.inputsValid, context.output, withLock)
         val selStable = selStableVerify(context.selectOH, context.selStableCond, withLock)
         val sequentialOrder = sequentialOrderVerify(context.select, context.portCount)
       })
   }
+
   test("Arbiter-lowerfirst-none-verify") {
     FormalConfig
       .withBMC(20)
@@ -187,6 +198,7 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         for (i <- 0 until context.portCount) {
           context.inputs(i) >> dut.io.inputs(i)
         }
+
         val withAssert = withAssertsVerify(context.output.isStall, context.inputsValid, context.output, withLock)
         val selStable = selStableVerify(context.selectOH, context.selStableCond, withLock)
         val lowFirst = lowFirstVerify(context.selectOH, context.inputsValid, context.selectUnLockCond)
@@ -217,11 +229,11 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         for (i <- 0 until context.portCount) {
           context.inputs(i) >> dut.io.inputs(i)
         }
-
         // used for Prove
         when(context.notReset) {
           assert(past(context.output.isStall) === dut.locked)
         }
+
         val withAssert = withAssertsVerify(context.output.isStall, context.inputsValid, context.output, withLock)
         val selStable = selStableVerify(context.selectOH, context.selStableCond, withLock)
         val lowFirst = lowFirstVerify(context.selectOH, context.inputsValid, context.selectUnLockCond)
@@ -366,7 +378,6 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         )
         val withAssert = withAssertsVerify(context.output.isStall, roundRobin.masked.asBools, context.output, withLock)
         val selStable = selStableVerify(context.selectOH, context.selStableCond, withLock)
-
       })
   }
 }
