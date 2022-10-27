@@ -15,31 +15,31 @@ class ModuleAnalyzer(module: Module) {
   /** Return all input port of the module
     * @return set of base type
     */
-  def allInputs: mutable.LinkedHashSet[BaseType] =
+  def getInputs: mutable.LinkedHashSet[BaseType] =
     module.getAllIo.asInstanceOf[mutable.LinkedHashSet[BaseType]].filter(_.isInputOrInOut)
 
   /** Filter the input ports
     * @param filter - the predicate to filter the input ports
     * @return set of filtered input ports
     */
-  def getInputs(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allInputs.filter(filter)
+  def getInputs(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = getInputs.filter(filter)
 
   /** Get all output ports
     * @return set of output base type
     */
-  def allOutputs: mutable.LinkedHashSet[BaseType] =
+  def getOutputs: mutable.LinkedHashSet[BaseType] =
     module.getAllIo.asInstanceOf[mutable.LinkedHashSet[BaseType]].filter(_.isOutputOrInOut)
 
   /** Filter the output ports
     * @param filter - the predicate to filter the output ports
     * @return set of filtered output ports
     */
-  def getOutputs(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allOutputs.filter(filter)
+  def getOutputs(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = getOutputs.filter(filter)
 
   /** Get all the clock domains inside the module
     * @return set of the clock domains
     */
-  def allClocks: mutable.LinkedHashSet[ClockDomain] = {
+  def getClocks: mutable.LinkedHashSet[ClockDomain] = {
     val ret = mutable.LinkedHashSet.newBuilder[ClockDomain]
     module.walkComponents { comp =>
       comp.dslBody.walkDeclarations { ds =>
@@ -55,12 +55,12 @@ class ModuleAnalyzer(module: Module) {
     * @param filter - the predicate to filter the clock domains
     * @return set of clock domain
     */
-  def getClocks(filter: ClockDomain => Boolean): mutable.LinkedHashSet[ClockDomain] = allClocks.filter(filter)
+  def getClocks(filter: ClockDomain => Boolean): mutable.LinkedHashSet[ClockDomain] = getClocks.filter(filter)
 
   /** Get all the registers inside the module
     * @return set of register of base type
     */
-  def allRegisters: mutable.LinkedHashSet[BaseType] = {
+  def getRegisters: mutable.LinkedHashSet[BaseType] = {
     val ret = mutable.LinkedHashSet.newBuilder[BaseType]
     module.dslBody.walkDeclarations {
       case ds: BaseType if ds.isReg =>
@@ -74,7 +74,7 @@ class ModuleAnalyzer(module: Module) {
     * @param filter  - the predicate to filter the clock domains
     * @return set of filtered registers
     */
-  def getRegisters(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allRegisters.filter(filter)
+  def getRegisters(filter: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = getRegisters.filter(filter)
 
   /** Get the submodule instances that meet the condition
     * @param cond - the condition that instance should meet.
@@ -154,13 +154,13 @@ class ModuleAnalyzer(module: Module) {
     */
   def getPort(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = {
     val e = new ModuleAnalyzer(module.globalData.toplevel)
-    (e.allInputs ++ e.allOutputs).filter(cond)
+    (e.getInputs ++ e.getOutputs).filter(cond)
   }
 
 }
 
 object ModuleAnalyzer {
-  implicit def toElaborator(module: Module): ModuleAnalyzer = new ModuleAnalyzer(module)
+  implicit def toAnalyzer(module: Module): ModuleAnalyzer = new ModuleAnalyzer(module)
   val cellTrue = (_: Component) => true
   val dataTrue = (_: BaseType) => true
 }

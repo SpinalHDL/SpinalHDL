@@ -16,7 +16,7 @@ class DataAnalyzer(data: BaseType) {
   /** Return all the fan-ins signals of this data
     * @return - a set of fan-ins signals.
     */
-  def allFanIn: mutable.LinkedHashSet[BaseType] = {
+  def getFanIn: mutable.LinkedHashSet[BaseType] = {
     val ret = mutable.LinkedHashSet.newBuilder[BaseType]
     data.foreachStatements { st =>
       if (!(st.isInstanceOf[InitAssignmentStatement] || st.isInstanceOf[InitialAssignmentStatement])) {
@@ -39,7 +39,7 @@ class DataAnalyzer(data: BaseType) {
     * @param cond - a predicate to filter the fan-in
     * @return a set of fan-ins signals
     */
-  def getFanIn(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allFanIn.filter(cond)
+  def getFanIn(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = getFanIn.filter(cond)
 
   /** Iterate on the filtered fan-ins.
     * @param cond -  a predicate to filter the fan-in
@@ -50,11 +50,11 @@ class DataAnalyzer(data: BaseType) {
   /** Return all the fan-outs signals of this data
     * @return - a set of fan-outs signals.
     */
-  def allFanOut: mutable.LinkedHashSet[BaseType] = {
+  def getFanOut: mutable.LinkedHashSet[BaseType] = {
     import ModuleAnalyzer._
     data.globalData.toplevel.getNets { bt =>
       val e = new DataAnalyzer(bt)
-      e.allFanIn.contains(data)
+      e.getFanIn.contains(data)
     }
   }
 
@@ -62,7 +62,7 @@ class DataAnalyzer(data: BaseType) {
     * @param cond - a predicate to filter the fan-out
     * @return a set of fan-outs signals
     */
-  def getFanOut(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = allFanOut.filter(cond)
+  def getFanOut(cond: BaseType => Boolean): mutable.LinkedHashSet[BaseType] = getFanOut.filter(cond)
 
   /** Iterate on the filtered fan-outs.
     * @param cond -  a predicate to filter the fan-outs
