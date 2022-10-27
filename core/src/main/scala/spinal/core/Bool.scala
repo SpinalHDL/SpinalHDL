@@ -224,14 +224,14 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
 
   override def asBits: Bits = wrapCast(Bits(), new CastBoolToBits)
 
-  private[core] override def isEquals(that: Any): Bool = {
+  private[core] override def isEqualTo(that: Any): Bool = {
     that match {
       case that: Bool => wrapLogicalOperator(that,new Operator.Bool.Equal);
       case _          => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
 
-  private[core] override def isNotEquals(that: Any): Bool = {
+  private[core] override def isNotEqualTo(that: Any): Bool = {
     that match {
       case that: Bool => wrapLogicalOperator(that,new Operator.Bool.NotEqual);
       case _          => SpinalError(s"Don't know how compare $this with $that"); null

@@ -12,6 +12,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.sys.process._
 import spinal.sim.xsi._
 
+import scala.collection.mutable
 import scala.util.Properties
 
 case class XSimBackendConfig(
@@ -27,7 +28,8 @@ case class XSimBackendConfig(
                              var wavePath: String       = null,
                              var waveFormat: WaveFormat = WaveFormat.NONE,
                              var userSimulationScript: String = null,
-                             var xelabFlags: Array[String] = null
+                             var xelabFlags: Array[String] = null,
+                             var timePrecision: String = null
                            )
 
 class XSimBackend(config: XSimBackendConfig) extends Backend {
@@ -160,11 +162,26 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     val importBd = bdAbsoluteSourcesPaths map { p =>
       s"import_files -force -quiet [findFiles $p *.bd]"
     }
+
+    val moreOptions = mutable.ArrayBuffer[String]()
+    if (config.xelabFlags != null) {
+      moreOptions ++= config.xelabFlags
+    }
+    if (config.timePrecision != null) {
+      val timePrecision = config.timePrecision.replace(" ","")
+      moreOptions += "-override_timeprecision"
+      moreOptions += "-timescale " + timePrecision + "/" + timePrecision
+      moreOptions += "-timeprecision_vhdl " + timePrecision
+    }
+
     val generateSimulateScriptPre =
       s"""
         |update_compile_order -fileset sources_1
         |set_property top $toplevelName [get_fileset sim_1]
+        |set_property -name {xelab.dll} -value {1} -objects [get_filesets sim_1]
+        |set_property -name {xelab.more_options} -value {${moreOptions.mkString(" ")}} -objects [get_filesets sim_1]
         |""".stripMargin
+
     val generateSimulateScriptPost =
       s"""
         |launch_simulation -scripts_only
@@ -201,24 +218,6 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     doCmd(command,
       new File(workPath),
       "Generation of vivado script failed")
-
-    // Fix elaborate
-    val additionalElaborateCommand = (List(
-      "-dll"
-    ) ++ config.xelabFlags).mkString(" ")
-    val fixElaborateCommand = if (isWindows) {
-      s"sed \'/^call xelab/ s/$$/ ${additionalElaborateCommand}/\' -i elaborate.bat"
-    } else {
-      s"sed \'/^xelab/ s/$$/ ${additionalElaborateCommand}/\' -i elaborate.sh"
-    }
-    val outFile2 = new java.io.FileWriter(fixScriptPath)
-    outFile2.write(fixElaborateCommand)
-    outFile2.flush()
-    outFile2.close()
-
-    doCmd(s"sh $fixScriptPath",
-      new File(simulatePath),
-      "Fix vivado elaborate command failed")
   }
 
   def getScriptCommand(cmd: String) = {

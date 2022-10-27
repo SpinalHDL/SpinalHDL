@@ -28,7 +28,8 @@ class SharedMemIface {
     void write_mem(int64_t handle, const std::vector<int8_t>& data, int64_t index);
     void write64_mem(int64_t handle, int64_t data, int64_t index);
     void write32_mem(int64_t handle, int32_t data, int64_t index);
-    
+
+    int32_t get_time_precision();
     void sleep(int64_t sleep_cycles);
     void eval();
     void set_seed(int64_t seed);

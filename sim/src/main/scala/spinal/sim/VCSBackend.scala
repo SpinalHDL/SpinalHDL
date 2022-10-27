@@ -14,9 +14,6 @@ case class VCSFlags(
                      elaborateFlags    : mutable.ArrayBuffer[String],
                      runFlags    : mutable.ArrayBuffer[String]
                    ) {
-  // todo: 1. has default flags
-  //  2. easily add flags
-  //  3. modified default flags.
   private def addFlags(container: mutable.ArrayBuffer[String], flags: String*): this.type = {
     flags.foreach {f=>
       container ++= f.split(" ")
@@ -32,7 +29,6 @@ case class VCSFlags(
       "+v2k",
       "-ntb",
       "-debug_access+all",
-      "-timescale=1ns/1ps",
       "-l vlogan.log"
     )
     this
@@ -46,7 +42,6 @@ case class VCSFlags(
       "-nc",
       "-full64",
       "-debug_access+all",
-      "-timescale=1ns/1ps",
       "-l vhdlan.log"
     )
     this
@@ -63,7 +58,6 @@ case class VCSFlags(
     elaborateFlags ++= List(
       "-full64",
       "-quiet",
-      "-timescale=1ns/1ps",
       "-debug_access+all",
       "-debug_acc+pp+dmptf",
       "-debug_region=+cell+encrypt",
@@ -163,6 +157,12 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     }
   }
 
+  val timeScale = config.timePrecision match {
+    case null => "1ns/1ns"
+    case t => "1ns/" + t.replace(" ", "")
+  }
+
+
   def compileVPI(): Unit = {
     if (Files.exists(Paths.get(vpiModulePath))) {
       return
@@ -202,7 +202,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     val topFlags = List(
       "-o", toplevelName
     )
-    val commonFlags = config.flags.elaborateFlags.toList ++ vpiFlags ++ topFlags
+    val commonFlags = config.flags.elaborateFlags.toList ++ vpiFlags ++ topFlags :+ s"-timescale=$timeScale"
     val cc = config.vcsCC match {
       case Some(x) => List("-cc", x)
       case None    => List.empty
@@ -259,7 +259,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
 
     val simWaveSource =
       s"""
-         |`timescale 1ns/1ps
+         |`timescale $timeScale
          |module __simulation_def;
          |initial begin
          |  $$fsdbDumpfile("$toplevelName.fsdb");
