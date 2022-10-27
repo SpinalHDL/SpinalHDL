@@ -160,7 +160,10 @@ class ModuleAnalyzer(module: Module) {
 }
 
 object ModuleAnalyzer {
+  /** Implicitly convert Module/Component into ModuleAnalyzer */
   implicit def toAnalyzer(module: Module): ModuleAnalyzer = new ModuleAnalyzer(module)
+
+  /** handy always-true filter */
   val cellTrue = (_: Component) => true
   val dataTrue = (_: BaseType) => true
 }

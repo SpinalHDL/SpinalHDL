@@ -72,6 +72,6 @@ class DataAnalyzer(data: BaseType) {
 }
 
 object DataAnalyzer {
-  /** Build DataAnalyzer to analyze this */
+  /** Implicitly convert the BaseType into DataAnalyzer */
   implicit def toAnalyzer(data: BaseType): DataAnalyzer = new DataAnalyzer(data)
 }
