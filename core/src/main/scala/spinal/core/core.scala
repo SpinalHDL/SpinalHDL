@@ -252,10 +252,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   implicit def BigIntToBits(that: BigInt): Bits = B(that)
 
 
-  /**
-    * Literal builder S/U/B"[[size']base]value”
+  /** Literal builder {{{ S/U/B"[[size']base]value" }}}
     *
-    * e.g. : B"8'xFF"
+    * e.g.: {{{ B"8'xFF"` }}}
     */
   implicit class LiteralBuilder(private val sc: StringContext) {
 
