@@ -25,6 +25,6 @@ jobs:
     - name: Deploy 🚀
       uses: JamesIves/github-pages-deploy-action@v4
       with:
-        folder: target/scala-2.12/unidoc
+        folder: target/scala-2.11/unidoc
         target-folder: ${{ github.ref_name }}
         single-commit: true
