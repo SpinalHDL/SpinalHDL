@@ -91,7 +91,6 @@ trait MSFactory {
   *
   *   - `Flow`
   *   - `Stream`
-  *   - `Event`
   *
   * The "spaceful" syntax is generic and beatiful, but more verbose.
   *
@@ -143,16 +142,6 @@ sealed trait MS {
       port(interface)
     }
   }
-
-  object event extends EventFactory {
-    override def postApply(interface: IMasterSlave): Unit = {
-      super.postApply(interface)
-      port(interface)
-    }
-  }
-
-  // TODO: why not just renaming event above as Event?
-  def Event: Event = port(spinal.lib.Event)
 }
 
 /** Declare a master port
