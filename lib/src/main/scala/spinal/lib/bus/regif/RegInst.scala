@@ -176,7 +176,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     }
     val preRError = Rerror
     acc match {
-      case AccessType.RO    => _RO(reg)           //- W: no effect, R: no effect
+      case AccessType.RO    => _RO(reg, section)  //- W: no effect, R: no effect
       case AccessType.RW    => _W( reg, section)  //- W: as-is, R: no effect
       case AccessType.RC    => _RC(reg)           //- W: no effect, R: clears all bits
       case AccessType.RS    => _RS(reg)           //- W: no effect, R: sets all bits
@@ -258,7 +258,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     val section: Range = fieldPtr+bc.value-1 downto fieldPtr
     val preRError = Rerror
     val ret: Bits = acc match {
-      case AccessType.RO    => RO(bc)                       //- W: no effect, R: no effect
+      case AccessType.RO    => RO(bc, section)              //- W: no effect, R: no effect
       case AccessType.RW    => W( bc, section, resetValue)  //- W: as-is, R: no effect
       case AccessType.RC    => RC(bc, resetValue)           //- W: no effect, R: clears all bits
       case AccessType.RS    => RS(bc, resetValue)           //- W: no effect, R: sets all bits
@@ -355,9 +355,9 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) ex
   def readErrorTag = Rerror
   def getFields = fields.toList
 
-  protected def _RO[T <: BaseType](reg: T): T = busif.factory.read(reg, addr)
+  protected def _RO[T <: BaseType](reg: T, section: Range): T = busif.factory.read(reg, addr, section.low)
 
-  protected def RO(bc: BitCount): Bits = _RO(Bits(bc))
+  protected def RO(bc: BitCount, section: Range): Bits = _RO(Bits(bc), section)
 
   protected def _W1[T <: BaseType](reg: T, section: Range): T ={
     val hardResetFirstFlag = Reg(Bool()) init True
