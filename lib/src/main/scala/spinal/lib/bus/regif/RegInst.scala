@@ -503,14 +503,13 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) ex
           case t: Bool => require(section.size == 1); t
           case t: BitVector => t(i)
         }
-        val x = i + section.min
         accType match {
-          case AccessType.W1C => when( writeData(x)){regbit.clear()   }
-          case AccessType.W1S => when( writeData(x)){regbit.set()     }
-          case AccessType.W1T => when( writeData(x)){regbit := ~regbit}
-          case AccessType.W0C => when(~writeData(x)){regbit.clear()   }
-          case AccessType.W0S => when(~writeData(x)){regbit.set()     }
-          case AccessType.W0T => when(~writeData(x)){regbit := ~regbit}
+          case AccessType.W1C => when( writeData(i)){regbit.clear()   }
+          case AccessType.W1S => when( writeData(i)){regbit.set()     }
+          case AccessType.W1T => when( writeData(i)){regbit := ~regbit}
+          case AccessType.W0C => when(~writeData(i)){regbit.clear()   }
+          case AccessType.W0S => when(~writeData(i)){regbit.set()     }
+          case AccessType.W0T => when(~writeData(i)){regbit := ~regbit}
           case _ =>
         }
       }
