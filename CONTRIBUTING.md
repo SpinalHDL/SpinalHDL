@@ -43,15 +43,12 @@ first.
 ### Root listing
 
 | File              | Description                                 |
-| :---              | :---                                        |
+| :---              |:--------------------------------------------|
 | `build.sbt`       | Build file for `sbt`                        |
 | `CONTRIBUTING.md` | Contributor guide                           |
 | `core/`           | Things imported with `import spinal.core._` |
-| `debugger/`       | ???                                         |
-| `demo/`           | ???                                         |
-| `Dockerfile`      | ???                                         |
-| `idslpayload/`    | ???                                         |
-| `idslplugin/`     | ???                                         |
+| `idslpayload/`    | Software interface to idslplugin features   |
+| `idslplugin/`     | Scala compiler iDSL extension               |
 | `lib/`            | Things imported with `import spinal.lib._`  |
 | `LICENSE`         | Redirection to other `LICENSE` files        |
 | `LICENSE_core`    | License for Spinal core                     |
@@ -103,20 +100,24 @@ Scala path:
                `spinal.core.UInt`
 ```
 
-TODO what are `sim/simulation_plugins` and `sim/yolo`?
-
-TODO what is `tester/src/__init__.py`?
+TODO what are  `sim/yolo`?
+-> Some simple hardware to test spinal.sim with its lowlevel API
 
 TODO what is `core/src/test/scala/landa`?
+-> Some dummy test code / scratchpad 
 
 TODO what is in `tester/src/main`?
-
+-> Some dummy test code / scratchpad
 
 ### Testing
 
 Tests are mostly integration tests, put into `tester` project.
 
 TODO define the 4 folders in `tester/src/test/scala/spinal/tester`
+-> Only thing which realy matter is : 
+- test/scala/spinal.tester.scalatest => package with all the scala-test
+- test/python => All the tests written in cocotb (they all have a corresponding scala-test to bootstrap them from scala)
+- Everything else is scratchpad 
 
 
 ## Notes for triage & reviews
