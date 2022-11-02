@@ -2184,11 +2184,13 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
               if (!unassignedBits.isEmpty) {
                 if (bt.dlcIsEmpty)
                   PendingError(s"NO DRIVER ON $bt, defined at\n${bt.getScalaLocationLong}")
-                else if (unassignedBits.isFull)
-                  PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
-                else
-                  PendingError(s"LATCH DETECTED from the combinatorial signal $bt, unassigned bit mask " +
-                    s"is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+                else if (!bt.hasTag(noLatchCheck)) {
+                  if (unassignedBits.isFull)
+                    PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
+                  else
+                    PendingError(s"LATCH DETECTED from the combinatorial signal $bt, unassigned bit mask " +
+                      s"is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+                }
               }
             }
           }
