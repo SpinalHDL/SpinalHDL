@@ -24,6 +24,13 @@ To keep work organized, contributions are done the following way:
 
 When you open a PR, it contains a checklist so that you do not forget things.
 
+Note for experienced contributors: "contributing" links above are good first
+issues if you are discovering the project. If you are used to contributing to
+SpinalHDL, the list of priority issues for the code is the
+[Current milestone](https://github.com/SpinalHDL/SpinalHDL/milestone/1).
+If there are issues labelled as "bug" in this list, please consider fixing them
+first.
+
 
 ## File structure
 
