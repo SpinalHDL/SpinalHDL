@@ -3,17 +3,14 @@ package spinal.core
 object Latch {
 
   def apply[T <: Data](dataType: HardType[T]): T = {
-    dataType.apply().addTag(noLatchCheck)
+    dataType().addTag(noLatchCheck)
   }
 }
 
 object LatchWhen {
 
   def apply[T <: Data](next: T, cond: Bool): T = {
-    val latch = next.clone()
-      .setCompositeName(next, "latchWhen", true)
-      .addTag(noLatchCheck)
-      .asInstanceOf[T]
+    val latch = Latch(next).setCompositeName(next, "latchWhen", true)
 
     when(cond) {
       latch := next
