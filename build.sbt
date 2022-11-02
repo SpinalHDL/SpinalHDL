@@ -12,6 +12,9 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
   fork := true,
 
+  scalafmtFilter.withRank(KeyRanks.Invisible) := "diff-ref=dev",
+  scalafmtPrintDiff := true,
+
   //Enable parallel tests
   Test / testForkedParallel := true,
   Test / testGrouping := (Test / testGrouping).value.flatMap { group =>
