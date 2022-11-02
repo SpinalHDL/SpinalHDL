@@ -1,10 +1,7 @@
 package spinal.tester.code
 
-import net.liftweb.json.DefaultFormats
-import net.liftweb.json.Extraction._
-import net.liftweb.json.JsonAST._
+
 import spinal.core._
-import spinal.debugger.LogicAnalyserBuilder
 import spinal.demo.mandelbrot._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
@@ -433,56 +430,7 @@ object C10_removed {
 
 }
 
-object C11 {
 
-  //  val cond = Bool()
-  //  val inPort = Stream(Bits(32 bit))
-  //  val outPort = Stream(Bits(32 bit))
-  //
-  //  outPort << inPort
-  //  outPort <-< inPort
-  //  outPort </< inPort
-  //  outPort <-/< inPort
-  //  val haltedPort = inPort.haltWhen(cond)
-  //  val filteredPort = inPort.throwWhen(inPort.data === 0)
-  //  val outPortWithMsb = inPort.translateWith(inPort.data.msb)
-  //
-  //  val mem = Mem(Bool, 1024)
-  //  val memReadCmd = Stream(UInt(10 bit))
-  //  val memReadPort = mem.streamReadSync(memReadCmd, memReadCmd.data)
-  //  memReadPort.valid //arbitration
-  //  memReadPort.ready //arbitration
-  //  memReadPort.data.value //Readed value
-  //  memReadPort.data.linked //Linked value (memReadCmd.data)
-
-
-  object somewhere {
-
-    object inThe {
-
-      object hierarchy {
-        val trigger = True
-        val signalA = True
-        val signalB = True
-      }
-
-    }
-
-    val signalC = True
-  }
-
-  val logicAnalyser = LogicAnalyserBuilder()
-    .setSampleCount(256)
-    .exTrigger(somewhere.inThe.hierarchy.trigger)
-    .probe(somewhere.inThe.hierarchy.signalA)
-    .probe(somewhere.inThe.hierarchy.signalB)
-    .probe(somewhere.signalC)
-    .build
-
-  //    val uartCtrl = new UartCtrl()
-  //    uartCtrl.io.read >> logicAnalyser.io.slavePort
-  //    uartCtrl.io.write << logicAnalyser.io.masterPort
-}
 
 object C12 {
 
@@ -1009,27 +957,7 @@ object t13 {
 
 
 
-object t14{
 
-  case class MandelbrotCoreParameters(iterationLimit: Int,
-                                      pixelTaskSolverCount: Int,
-                                      screenResX: Int,
-                                      screenResY: Int,
-                                      fixExp: Int,
-                                      fixWidth: Int) {
-    val uid : Int = Random.nextInt()
-  }
-  case class MandelbrotJsonReport(p : MandelbrotCoreParameters,
-                                  uid : String,
-                                  clazz : String = "uidPeripheral",
-                                  kind : String = "mandelbrotCore")
-  class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
-    // some logic
-    val json = decompose(MandelbrotJsonReport(p, p.uid.toString))(DefaultFormats)
-    GlobalData.get.addJsonReport(prettyRender(json))
-  }
-
-}
 
 
 
