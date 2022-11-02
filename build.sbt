@@ -77,7 +77,7 @@ lazy val all = (project in file("."))
     publishLocal := {},
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(lib, core)
   )
-  .aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
+  .aggregate(sim, idslpayload, idslplugin, core, lib, tester)
 
 
 import sys.process._
@@ -163,29 +163,6 @@ lazy val lib = (project in file("lib"))
   .dependsOn (sim, core)
 
 
-lazy val debugger = (project in file("debugger"))
-  .settings(
-    defaultSettingsWithPlugin,
-    name := "SpinalHDL Debugger",
-    version := SpinalVersion.debugger,
-    resolvers += "sparetimelabs" at "https://www.sparetimelabs.com/maven2/",
-    libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
-    libraryDependencies += "net.liftweb" %% "lift-json" % "3.4.3",
-    publishArtifact := false,
-    publishLocal := {}
-  )
-.dependsOn(sim, core, lib/*, ip*/)
-
-lazy val demo = (project in file("demo"))
-  .settings(
-    defaultSettingsWithPlugin,
-    name := "SpinalHDL-demo",
-    version := SpinalVersion.demo,
-    publishArtifact := false,
-    publishLocal := {}
-  )
-  .dependsOn(sim, core, lib, debugger)
-
 
 lazy val tester = (project in file("tester"))
   .settings(
@@ -198,7 +175,7 @@ lazy val tester = (project in file("tester"))
     publishArtifact := false,
     publishLocal := {}
   )
-  .dependsOn(sim, core, lib, debugger,demo)
+  .dependsOn(sim, core, lib)
 
 // Assembly
 
