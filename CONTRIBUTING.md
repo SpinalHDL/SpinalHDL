@@ -1,5 +1,11 @@
 # Contributor guide
 
+First of all, thanks for considering contributing to SpinalHDL project!
+
+The goal of this document is to guide you in your contribution, to help you to
+help us!
+
+
 ## How-to
 
 To keep work organized, contributions are done the following way:
