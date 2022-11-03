@@ -3,7 +3,7 @@ package spinal.lib
 import spinal.core.{Data, HardType}
 
 /** Master/slave interface */
-trait IMasterSlave extends Data {
+trait IMasterSlave {
 
   /** Are port directions set for a Master interface? */
   final def isMasterInterface: Boolean = _isMasterInterface == Some(true)
@@ -116,7 +116,7 @@ sealed trait MS {
     *
     * See [[MS]] for other syntax.
     */
-  def port[T <: IMasterSlave](i: HardType[T]): T = port(i())
+  def port[T <: Data with IMasterSlave](i: HardType[T]): T = port(i())
 
   /** Declare a port with braces
     *
@@ -124,7 +124,7 @@ sealed trait MS {
     */
   def apply[T <: IMasterSlave](i: T): T = port(i)
 
-  def apply[T <: IMasterSlave](data: HardType[T]): T = apply(data())
+  def apply[T <: Data with IMasterSlave](data: HardType[T]): T = apply(data())
 
   /** Declare existing interfaces as ports, variadic syntax */
   def apply(is: IMasterSlave*): Unit = is.foreach(port(_))
