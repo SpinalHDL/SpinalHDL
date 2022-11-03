@@ -3,6 +3,9 @@ package spinal.lib.bus.amba4.axilite.sim
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib.bus.amba4.axilite._
+import spinal.lib.sim.StreamDriver
+
+import scala.collection.mutable
 
 case class AxiLite4Driver(axi : AxiLite4, clockDomain : ClockDomain) {
 
@@ -33,19 +36,53 @@ case class AxiLite4Driver(axi : AxiLite4, clockDomain : ClockDomain) {
     axi.r.payload.data.toBigInt
   }
 
+  val awQueue = mutable.Queue[() => Unit]()
+  val awDriver = StreamDriver(axi.aw, clockDomain) { _ =>
+    if (awQueue.nonEmpty) {
+      awQueue.dequeue().apply()
+      true
+    } else {
+      false
+    }
+  }
+
+  val wQueue = mutable.Queue[() => Unit]()
+  val wDriver = StreamDriver(axi.w, clockDomain) { _ =>
+    if (wQueue.nonEmpty) {
+      wQueue.dequeue().apply()
+      true
+    } else {
+      false
+    }
+  }
+
   def write(address : BigInt, data : BigInt) : Unit = {
-    axi.aw.payload.prot.assignBigInt(6)
-    axi.w.payload.strb.assignBigInt(15)
-    
-    axi.aw.valid #= true
-    axi.aw.payload.addr #= address
+    awQueue.enqueue { () =>
+      axi.aw.addr #= address
+      axi.aw.prot #= 6
+    }
 
-    axi.w.valid #= true
-    axi.w.payload.data #= data
+    wQueue.enqueue { () =>
+      axi.w.data #= data
+      axi.w.strb #= 15
+    }
 
-    clockDomain.waitSamplingWhere(axi.aw.ready.toBoolean && axi.w.ready.toBoolean)
+    clockDomain.waitSamplingWhere(wQueue.isEmpty && awQueue.isEmpty)
+    clockDomain.waitSamplingWhere(axi.b.ready.toBoolean && axi.b.valid.toBoolean)
+  }
 
-    axi.aw.valid #= false
-    axi.w.valid #= false
+  def writeRandom(address: BigInt): Unit = {
+    awQueue.enqueue { () =>
+      axi.aw.addr #= address
+      axi.aw.prot #= 6
+    }
+
+    wQueue.enqueue { () =>
+      axi.w.data.randomize()
+      axi.w.strb #= 15
+    }
+
+    clockDomain.waitSamplingWhere(wQueue.isEmpty && awQueue.isEmpty)
+    clockDomain.waitSamplingWhere(axi.b.ready.toBoolean && axi.b.valid.toBoolean)
   }
 }
