@@ -166,11 +166,13 @@ class SpinalSimRegIfTester extends AnyFunSuite {
           val lastRegData = (dut.io.o_z.toBigInt >> (addr*8).toInt) & ((BigInt(1) << busConfig.dataWidth) - 1)
           val readExpected = onRead(dut.ACCESS_LIST((addr >> 2).toInt), lastRegData)
 
-//          assert((resp == 0) == (readExpected != null), s"Read error flag did not match expected read error flag, addr = ${addr}")
+          if (dut.ACCESS_LIST((addr >> 2).toInt) != AccessType.NA) {
+            assert((resp == 0) == (readExpected != null), s"Read error flag did not match expected read error flag, addr = ${addr}")
 
-          if (readExpected != null && dut.ACCESS_LIST((addr >> 2).toInt) != AccessType.NA) {
-            assert(beatData == lastRegData, s"Bus read data did not match registered read data, addr = ${addr}")
-            assert(regData == readExpected, s"Registered read data did not match expected post read result, addr = ${addr}")
+            if (readExpected != null) {
+              assert(beatData == lastRegData, s"Bus read data did not match registered read data, addr = ${addr}")
+              assert(regData == readExpected, s"Registered read data did not match expected post read result, addr = ${addr}")
+            }
           }
         }
       }
@@ -202,10 +204,12 @@ class SpinalSimRegIfTester extends AnyFunSuite {
           val beatData = beatsMap(addrAlign)
           val writeExpected = onWrite(dut.ACCESS_LIST((addr >> 2).toInt), lastRegData, beatData, !writeHistory.contains(addrAlign))
 
-//          assert((resp == 0) == (writeExpected != null), s"Write error flag did not match expected write error flag, addr = ${addr}")
+          if (dut.ACCESS_LIST((addr >> 2).toInt) != AccessType.NA) {
+//            assert((resp == 0) == (writeExpected != null), s"Write error flag did not match expected write error flag, addr = ${addr}")
 
-          if (writeExpected != null && dut.ACCESS_LIST((addr >> 2).toInt) != AccessType.NA) {
-            assert(regData == writeExpected, s"Registered write data did not match expected post write result, addr = ${addr}")
+            if (writeExpected != null) {
+              assert(regData == writeExpected, s"Registered write data did not match expected post write result, addr = ${addr}")
+            }
           }
 
           writeHistory.add(addrAlign)
