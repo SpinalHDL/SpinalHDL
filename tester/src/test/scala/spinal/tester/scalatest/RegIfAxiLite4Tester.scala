@@ -46,7 +46,7 @@ class RegIfTester extends Component {
   io.o_z := RegNext(io.o)
 }
 
-class SpinalSimRegIfTester extends AnyFunSuite {
+class RegIfAxiLite4Tester extends AnyFunSuite {
 
   def bitWidth = 32
 
