@@ -4,8 +4,6 @@ import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 
-import scala.util.Random
-
 class LatchTester extends AnyFunSuite {
   test("bad latch") {
     var didRaise = false
@@ -28,75 +26,62 @@ class LatchTester extends AnyFunSuite {
     assert(didRaise)
   }
 
-  test("allowed latch") {
-    SimConfig.compile(new Component {
-      definition.addComment("verilator lint_off LATCH")
+  abstract class Dut extends Component {
+    // ToDo: Fix for Verilator warnings
+    definition.addComment("verilator lint_off LATCH")
 
-      val io = new Bundle {
-        val myCond   = in Bool()
-        val inVal    = in Bits(8 bits)
-        val outVal   = out Bits(8 bits)
-      }
-
-      val latchVal = Latch(Bits(8 bits))
-
-      when(io.myCond) {
-        latchVal := io.inVal
-      }
-
-      io.outVal := latchVal
-    }).doSim(dut => {
-      dut.io.inVal  #= Random.nextInt(255)
-      dut.io.myCond #= false
-      sleep(10)
-
-      // Trigger the latch
-      dut.io.myCond #= true
-      sleep(1)
-      dut.io.myCond #= false
-
-      // Check that the latch took the value
-      assert(dut.io.inVal.toInt == dut.io.outVal.toInt)
-      dut.io.inVal  #= Random.nextInt(255)
-
-      // Wait a bit
-      sleep(10)
-
-      // Check that the latch did not take the value
-      assert(dut.io.inVal.toInt != dut.io.outVal.toInt)
-    })
+    val io = new Bundle {
+      val cond   = in  Bool()
+      val input  = in  Bits (8 bits)
+      val output = out Bits (8 bits)
+    }
   }
 
-  test("latchWhen") {
-    SimConfig.compile(new Component {
-      definition.addComment("verilator lint_off LATCH")
+  class LatchDut extends Dut {
+    val latch = Latch(Bits(8 bits))
+    when(io.cond) {
+      latch := io.input
+    }
 
-      val io = new Bundle {
-        val myCond = in Bool()
-        val inVal = in Bits (8 bits)
-        val outVal = out Bits (8 bits)
-      }
-      io.outVal := LatchWhen(io.inVal, io.myCond)
-    }).doSim(dut => {
-      dut.io.myCond #= false
-      dut.io.inVal #= Random.nextInt(255)
-      dut.io.myCond #= false
-      sleep(10)
+    io.output := latch
+  }
 
-      // Trigger the latch
-      dut.io.myCond #= true
-      sleep(1)
-      dut.io.myCond #= false
+  class LatchWhenDut extends Dut {
+    io.output := LatchWhen(io.input, io.cond)
+  }
 
-      // Check that the latch took the value
-      assert(dut.io.inVal.toInt == dut.io.outVal.toInt)
-      dut.io.inVal #= Random.nextInt(255)
+  // Implements the DUT agnostic sim testbench logic
+  def simDriver(dut: Dut): Unit = {
+    dut.io.input.randomize()
+    dut.io.cond #= false
+    sleep(1)
 
-      // Wait a bit
-      sleep(10)
+    // Trigger the latch
+    dut.io.cond #= true
+    sleep(1)
+    dut.io.cond #= false
 
-      // Check that the latch did not take the value
-      assert(dut.io.inVal.toInt != dut.io.outVal.toInt)
-    })
+    // Check that the latch took the value
+    assert(dut.io.input.toInt == dut.io.output.toInt)
+
+    // Make a new input, ensuring it isn't the same as before
+    val oldInput = dut.io.input.toInt
+    var newInput = dut.io.input.randomizedInt()
+    while(newInput == oldInput) newInput = dut.io.input.randomizedInt()
+    dut.io.input #= newInput
+
+    // Wait a bit
+    sleep(1)
+
+    // Check that the latch did not take the value
+    assert(dut.io.input.toInt != dut.io.output.toInt)
+  }
+
+  test("Latch") {
+    SimConfig.withWave.compile(new LatchDut).doSim(simDriver _)
+  }
+
+  test("LatchWhen") {
+    SimConfig.compile(new LatchWhenDut).doSim(simDriver _)
   }
 }
