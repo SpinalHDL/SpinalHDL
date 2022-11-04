@@ -22,6 +22,7 @@ case class AxiLite4Driver(axi : AxiLite4, clockDomain : ClockDomain) {
     
     axi.ar.valid #= true
     axi.ar.payload.addr #= address
+    axi.ar.prot #= 0
 
     axi.r.ready #= true
 
@@ -59,12 +60,12 @@ case class AxiLite4Driver(axi : AxiLite4, clockDomain : ClockDomain) {
   def write(address : BigInt, data : BigInt) : Unit = {
     awQueue.enqueue { () =>
       axi.aw.addr #= address
-      axi.aw.prot #= 6
+      axi.aw.prot #= 0
     }
 
     wQueue.enqueue { () =>
       axi.w.data #= data
-      axi.w.strb #= 15
+      axi.w.strb #= (BigInt(1) << axi.config.bytePerWord) - 1
     }
 
     clockDomain.waitSamplingWhere(wQueue.isEmpty && awQueue.isEmpty)
@@ -74,12 +75,12 @@ case class AxiLite4Driver(axi : AxiLite4, clockDomain : ClockDomain) {
   def writeRandom(address: BigInt): Unit = {
     awQueue.enqueue { () =>
       axi.aw.addr #= address
-      axi.aw.prot #= 6
+      axi.aw.prot #= 0
     }
 
     wQueue.enqueue { () =>
       axi.w.data.randomize()
-      axi.w.strb #= 15
+      axi.w.strb #= (BigInt(1) << axi.config.bytePerWord) - 1
     }
 
     clockDomain.waitSamplingWhere(wQueue.isEmpty && awQueue.isEmpty)
