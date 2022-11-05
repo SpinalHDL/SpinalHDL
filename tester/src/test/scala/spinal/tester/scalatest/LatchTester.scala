@@ -74,11 +74,11 @@ class LatchTester extends AnyFunSuite {
     sleep(1)
 
     // Check that the latch did not take the value
-    assert(dut.io.input.toInt != dut.io.output.toInt)
+    assert(dut.io.output.toInt == oldInput)
   }
 
   test("Latch") {
-    SimConfig.withWave.compile(new LatchDut).doSim(simDriver _)
+    SimConfig.compile(new LatchDut).doSim(simDriver _)
   }
 
   test("LatchWhen") {
