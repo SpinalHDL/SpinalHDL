@@ -10,6 +10,8 @@ import spinal.lib.bus.bmb.{BmbAccessParameter, BmbParameter, BmbSourceParameter}
 import spinal.lib.eda.altera.QSysify
 
 import scala.collection.mutable
+import spinal.lib.blackbox.altera.sld_virtual_jtag
+import spinal.lib.com.jtag.altera.VjtagTap
 
 /**
  * Created by PIC32F_USER on 09/04/2016.
@@ -110,6 +112,38 @@ class JtagBridgeNoTap(c: SystemDebuggerConfig, jtagClockDomain : ClockDomain, ig
     val writeArea = wrapper.flowFragmentPush(system.cmd, JtagBridgeNoTap.this.clockDomain)(0)
     val readArea = wrapper.read(system.rsp.addTag(crossClockDomain))(1)
   }
+}
+
+class VJtagBridge(c: SystemDebuggerConfig) extends Component {
+  val io = new Bundle {
+    val remote = master(SystemDebuggerRemoteBus(c))
+  }
+
+  val instructionWidth = 2
+
+  val vjtag = sld_virtual_jtag(instructionWidth)
+  val jtagClockDomain = ClockDomain(vjtag.io.tck, ClockDomain.current.readResetWire)
+
+  val system = new Area {
+    val cmd = Flow Fragment (Bits(1 bit))
+    io.remote.cmd << cmd.toStream
+
+    val rsp = Reg(Flow(SystemDebuggerRsp(c)))
+    when(io.remote.cmd.valid) {
+      rsp.valid := False
+    }
+    when(io.remote.rsp.fire) {
+      rsp.valid := True
+      rsp.payload := io.remote.rsp.payload
+    }
+    io.remote.rsp.ready := True
+  }
+
+  val jtag = jtagClockDomain(new Area {
+    val tap = new VjtagTap(vjtag.io, instructionWidth)
+    val writeArea = tap.flowFragmentPush(system.cmd, VJtagBridge.this.clockDomain)(0)
+    val readArea = tap.read(system.rsp.addTag(crossClockDomain))(1)
+   })
 }
 
 class JtagAvalonDebugger(val c: SystemDebuggerConfig) extends Component {
