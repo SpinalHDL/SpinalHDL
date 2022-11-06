@@ -10,7 +10,8 @@ case class VJTAG(instructionWidth : Int) extends Bundle with IMasterSlave {
 	  val ir_in = Bits(instructionWidth bits)				// output	Virtual IR
 
     val tdo = Bool()				      // input Virtual JTAG test data out
-    val ir_out = in Bool()				// input	Virtual IR capture port	
+    //optional input port that is used to parallel load the VIR, not used here
+    //val ir_out = in Bool()				// input	Virtual IR capture port	
 
     val virtual_state_cdr = Bool()		//in the virtual Capture_DR state
 	  val virtual_state_sdr	= Bool()	  //in the virtual Shift_DR state
