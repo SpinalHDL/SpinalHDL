@@ -1,7 +1,7 @@
 package spinal.lib.com.jtag.altera
 
 import spinal.core._
-import spinal.lib.blackbox.altera.VJTAG
+import spinal.lib.blackbox.altera.sld_virtual_jtag
 import spinal.lib.bus.bmb.{Bmb, BmbInterconnectGenerator}
 import spinal.lib.generator._
 import spinal.lib.master
@@ -14,8 +14,9 @@ case class VJtag2BmbMaster(ignoreWidth : Int) extends Component{
     val bmb = master(Bmb(jtagConfig.getBmbParameter))
   }
 
-  val vjtag = VJTAG()
-  val jtagClockDomain = ClockDomain(vjtag.tck)
+  //ir_width of 2 to match default JtagBridgeNoTap instruction width
+  val vjtag = sld_virtual_jtag(2)
+  val jtagClockDomain = ClockDomain(vjtag.io.tck)
 
   val jtagBridge = new JtagBridgeNoTap(jtagConfig, jtagClockDomain, ignoreWidth)
   jtagBridge.io.ctrl << vjtag.toJtagTapInstructionCtrl()
