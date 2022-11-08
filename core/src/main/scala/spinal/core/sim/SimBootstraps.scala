@@ -23,7 +23,7 @@ package spinal.core.sim
 import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, ScopeProperty, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, TimeNumber, UInt, Verilator}
+import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, ScopeProperty, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, TimeNumber, UInt, Verilator, noLatchCheck}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -505,6 +505,27 @@ class SwapTagPhase(oldOne: SpinalTag, newOne: SpinalTag) extends PhaseNetlist {
 }
 
 
+class SimVerilatorPhase extends PhaseNetlist {
+
+  override def impl(pc: PhaseContext): Unit = {
+    val latchesIn = mutable.LinkedHashSet[Component]()
+    pc.walkDeclarations { d =>
+      d match {
+        case x: SpinalTagReady if (x.hasTag(SimPublic)) => {
+          x.removeTag(SimPublic)
+          x.addTag(Verilator.public)
+        }
+        case _ =>
+      }
+      d match {
+        case bt: BaseType if bt.hasTag(noLatchCheck) => latchesIn += bt.component
+        case _ =>
+      }
+    }
+    latchesIn.foreach(_.definition.addComment("verilator lint_off LATCH"))
+  }
+}
+
 /**
   * Run simulation
   */
@@ -869,7 +890,7 @@ case class SpinalSimConfig(
     })
     val report = _backend match {
       case SpinalSimBackendSel.VERILATOR => {
-        config.addTransformationPhase(new SwapTagPhase(SimPublic, Verilator.public))
+        config.addTransformationPhase(new SimVerilatorPhase)
         config.generateVerilog(rtl)
       }
       case SpinalSimBackendSel.GHDL => config.generateVhdl(rtl)
