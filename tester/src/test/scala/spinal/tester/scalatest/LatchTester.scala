@@ -27,9 +27,6 @@ class LatchTester extends AnyFunSuite {
   }
 
   abstract class Dut extends Component {
-    // ToDo: Fix for Verilator warnings
-    definition.addComment("verilator lint_off LATCH")
-
     val io = new Bundle {
       val cond   = in  Bool()
       val input  = in  Bits (8 bits)
@@ -77,11 +74,14 @@ class LatchTester extends AnyFunSuite {
     assert(dut.io.output.toInt == oldInput)
   }
 
-  test("Latch") {
-    SimConfig.compile(new LatchDut).doSim(simDriver _)
-  }
+  SpinalSimTester { env =>
+    import env._
+    test(prefix + "Latch") {
+      SimConfig.compile(new LatchDut).doSim(simDriver _)
+    }
 
-  test("LatchWhen") {
-    SimConfig.compile(new LatchWhenDut).doSim(simDriver _)
+    test(prefix + "LatchWhen") {
+      SimConfig.compile(new LatchWhenDut).doSim(simDriver _)
+    }
   }
 }
