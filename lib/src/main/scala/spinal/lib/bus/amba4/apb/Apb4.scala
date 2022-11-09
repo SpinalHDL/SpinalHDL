@@ -30,12 +30,12 @@ case class Apb4(c: Apb4Config) extends Bundle with IMasterSlave {
   val PPROT      = Bits(3 bits)
   val PWDATA     = Bits(c.dataWidth bits)
   val PRDATA     = Bits(c.dataWidth bits)
-  val PSLVERROR  = if(c.useSlaveError) Bool() else null
+  val PSLVERR  = if(c.useSlaveError) Bool() else null
 
   override def asMaster(): Unit = {
     out(PADDR, PSEL, PENABLE, PWRITE, PWDATA, PSTRB, PPROT)
     in(PREADY, PRDATA)
-    if(c.useSlaveError) in(PSLVERROR)
+    if(c.useSlaveError) in(PSLVERR)
   }
 
   def << (that: Apb4): Unit = that >> this
@@ -54,8 +54,8 @@ case class Apb4(c: Apb4Config) extends Bundle with IMasterSlave {
     that.PPROT   := this.PPROT
     this.PRDATA  := that.PRDATA
 
-    if(PSLVERROR != null) {
-      this.PSLVERROR := (if (that.PSLVERROR != null) that.PSLVERROR else False)
+    if(PSLVERR != null) {
+      this.PSLVERR := (if (that.PSLVERR != null) that.PSLVERR else False)
     }
   }
 
@@ -70,7 +70,7 @@ case class Apb4(c: Apb4Config) extends Bundle with IMasterSlave {
     that.PENABLE  := RegNext(this.PENABLE && !this.PREADY)
     this.PRDATA   := that.PRDATA
     this.PREADY   := that.PREADY && that.PENABLE
-    if(PSLVERROR != null) { this.PSLVERROR := that.PSLVERROR }
+    if(PSLVERR != null) { this.PSLVERR := that.PSLVERR }
     that
   }
 

@@ -27,7 +27,7 @@ case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, selId: Int = 0, reg
     writeData((i+1)*8-1 downto i*8) := Mux(bus.PSTRB(i), bus.PWDATA((i+1)*8-1 downto i*8), B(0, 8 bit))
   }
 
-  if(bus.c.useSlaveError) bus.PSLVERROR := readError
+  if(bus.c.useSlaveError) bus.PSLVERR := readError
   override def readAddress()  = bus.PADDR
   override def writeAddress() = bus.PADDR
 

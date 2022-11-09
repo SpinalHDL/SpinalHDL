@@ -41,7 +41,7 @@ class Apb4SlaveFactory(bus: Apb4, selId: Int, dontCareReadData : Boolean = false
   val doWrite  = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY &&  bus.PWRITE).allowPruning()
   val doRead   = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY && !bus.PWRITE).allowPruning()
 
-  if (bus.c.useSlaveError) bus.PSLVERROR := (doWrite && writeErrorFlag) || (doRead && readErrorFlag)
+  if (bus.c.useSlaveError) bus.PSLVERR := (doWrite && writeErrorFlag) || (doRead && readErrorFlag)
 
   override def readAddress()  = bus.PADDR
   override def writeAddress() = bus.PADDR

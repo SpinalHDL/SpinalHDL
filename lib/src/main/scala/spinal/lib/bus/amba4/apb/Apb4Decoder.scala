@@ -30,14 +30,14 @@ object Apb4Decoder{
     mst.PRDATA := slvs(pselid).PRDATA
 
     if(c.useSlaveError) {
-      mst.PSLVERROR  := apbdec.PSLVERROR
-      apbdec.PSLVERROR  := slvs(pselid).PSLVERROR
+      mst.PSLVERR  := apbdec.PSLVERR
+      apbdec.PSLVERR  := slvs(pselid).PSLVERR
     }
 
     when(mst.PSEL.lsb && apbdec.PSEL === 0){
       mst.PREADY := True
       if(c.useSlaveError){
-        mst.PSLVERROR := True
+        mst.PSLVERR := True
       }
     }
     slvs

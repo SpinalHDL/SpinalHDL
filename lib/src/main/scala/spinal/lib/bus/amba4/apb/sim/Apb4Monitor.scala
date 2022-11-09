@@ -12,14 +12,14 @@ abstract case class Apb4Monitor(apb : Apb4, clockDomain : ClockDomain) {
   var pselAsserted, penableAsserted = false
   clockDomain.onSamplings{
     apb.PRDATA.randomize()
-    apb.PSLVERROR.randomize()
+    apb.PSLVERR.randomize()
     if(pselAsserted) assert(apb.PSEL.toInt == 1)
     if(penableAsserted) assert(apb.PENABLE.toBoolean)
 
     def updateRsp(): Unit ={
       if(Random.nextBoolean()){
         apb.PREADY #= true
-        apb.PSLVERROR #= false
+        apb.PSLVERR #= false
         val address = apb.PADDR.toBigInt
         if(apb.PWRITE.toBoolean){
           val bytes = apb.PWDATA.toBigInt.toByteArray.reverse
