@@ -153,6 +153,24 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     reg
   }
 
+  /*
+  * Always used on more than one address shared one regsiter instance
+  * Example:
+  * val REG0 = busif.newReg(doc="Share Clock EnableRegiste  RW   address")
+  * val REG1 = busif.newReg(doc="Share Clock EnableRegiste  W1S  address")
+  * val REG2 = busif.newReg(doc="Share Clock EnableRegister W1C  address")
+  * val REG3 = busif.newReg(doc="Share Clock EnableRegister read address")
+  * val reg32bit = REG0.filed(Bits(32 bit), RW , 0xffff, "clock enable reg RW")
+  *                REG1.parasiteField(reg32bit,     W1S, 0xffff, "clock enable reg write 1 set ")
+  *                REG2.parasiteField(reg32bit,     W1C, 0xffff, "clock enable reg write 1 clear")
+  * val regwire  = REG3.filed(Bits(32 bit), RO , 0xffff, "clock enable read only")
+  * regwire := reg32bit
+  * */
+  def parasiteField[T <: BaseType](reg: HardType[T], acc: AccessType, resetValue: Long, doc: String): Unit = {
+    assert(reg.asInstanceOf[T].isReg, "prasiteField should be register only, check please")
+    registerInWithWriteLogic(reg, acc, resetValue, doc)
+  }
+
   def fieldHSRW[T <: BaseType](seten: Bool, setval: HardType[T])(implicit symbol: SymbolName): T = fieldHSRW(seten, setval, resetValue = 0, doc = "")(symbol)
   def fieldHSRW[T <: BaseType](seten: Bool, setval: HardType[T], resetValue:Long)(implicit symbol: SymbolName): T = fieldHSRW(seten, setval, resetValue, doc = "")(symbol)
   def fieldHSRW[T <: BaseType](seten: Bool, setval: HardType[T], resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
