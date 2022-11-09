@@ -79,9 +79,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     fields.map(_.accType == AccessType.NA).foldLeft(true)(_&&_)
   }
 
-  def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue = 0, doc = "")
-  def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue = 0, doc = doc)
-  def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue, doc = "")
+  def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue = 0, doc = "")(symbol)
+  def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue = 0, doc = doc)(symbol)
+  def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue, doc = "")(symbol)
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
     val sectionNext: Section = pos + hardType.getBitsWidth-1 downto pos
     val sectionExists: Section = fieldPtr downto 0
@@ -121,10 +121,10 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     ret
   }
 
-  def field[T <: BaseType](hardType: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue = 0, doc = "")
-  def field[T <: BaseType](hardType: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue = 0, doc = doc)
-  def field[T <: BaseType](hardType: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue, doc = "")
-  def field[T <: BaseType](hardType: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
+  def field[T <: BaseType](hardType: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue = 0, doc = "")(symbol)
+  def field[T <: BaseType](hardType: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue = 0, doc = doc)(symbol)
+  def field[T <: BaseType](hardType: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue, doc = "")(symbol)
+  def field[T <: BaseType](hardType: HardType[T], acc: AccessType, resetValue:Long, doc: String)(implicit symbol: SymbolName): T = {
     val reg = acc match{
       case AccessType.NA => {
         val reg = hardType()
@@ -150,6 +150,26 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     }
     reg.setName(signame, weak = true)
     registerInWithWriteLogic(reg, acc, resetValue, doc)
+    reg
+  }
+
+  def fieldHSRW[T <: BaseType](seten: Bool, setval: HardType[T])(implicit symbol: SymbolName): T = fieldHSRW(seten, setval, resetValue = 0, doc = "")(symbol)
+  def fieldHSRW[T <: BaseType](seten: Bool, setval: HardType[T], resetValue:Long)(implicit symbol: SymbolName): T = fieldHSRW(seten, setval, resetValue, doc = "")(symbol)
+  def fieldHSRW[T <: BaseType](seten: Bool, setval: HardType[T], resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
+    val reg = field(hardType = cloneOf(setval), acc = AccessType.HSRW, resetValue = resetValue, doc = doc)(symbol = symbol)
+    when(seten){
+      reg := setval.asInstanceOf[T]
+    }
+    reg
+  }
+
+  def fieldHSRWAt[T <: BaseType](pos: Int, seten: Bool, setval: HardType[T])(implicit symbol: SymbolName): T = fieldHSRWAt(pos, seten, setval, resetValue = 0, doc = "")(symbol)
+  def fieldHSRWAt[T <: BaseType](pos: Int, seten: Bool, setval: HardType[T], resetValue:Long)(implicit symbol: SymbolName): T = fieldHSRWAt(pos, seten, setval, resetValue, doc = "")(symbol)
+  def fieldHSRWAt[T <: BaseType](pos: Int, seten: Bool, setval: HardType[T], resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
+    val reg = fieldAt(pos, hardType = cloneOf(setval), acc = AccessType.HSRW, resetValue = resetValue, doc = doc)(symbol = symbol)
+    when(seten){
+      reg := setval.asInstanceOf[T]
+    }
     reg
   }
 
@@ -189,6 +209,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.NA    => NA(reg.getBitsWidth bit)            // -W: reserved, R: reserved
       case AccessType.W1P   => _WBP(reg, section, AccessType.W1P)  //- W: 1/0 pulse/no effect on matching bit, R: no effect
       case AccessType.W0P   => _WBP(reg, section, AccessType.W0P)  //- W: 0/1 pulse/no effect on matching bit, R: no effect
+      case AccessType.HSRW  => _W( reg, section)                   // HarddWare Set,  SoftWare RW
     }
   }
 
@@ -266,6 +287,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.NA    => NA(bc)                                     // -W: reserved, R: reserved
       case AccessType.W1P   => WBP(section, resetValue, AccessType.W1P )  //- W: 1/0 pulse/no effect on matching bit, R: no effect
       case AccessType.W0P   => WBP(section, resetValue, AccessType.W0P )  //- W: 0/1 pulse/no effect on matching bit, R: no effect
+      case AccessType.HSRW  => W( bc, section, resetValue)                //- depracated, please use feild(hardType[T]) instead
     }
     val newdoc = if(doc.isEmpty && acc == AccessType.NA) "Reserved" else doc
     val signame = if(symbol.name.startsWith("<local ")){

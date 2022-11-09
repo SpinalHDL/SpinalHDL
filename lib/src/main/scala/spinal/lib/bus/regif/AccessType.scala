@@ -31,5 +31,6 @@ object AccessType {
   case object NA    extends AccessType  // -W: reserved, R: reserved
   case object W1P   extends AccessType  // -W: 1/0 pulse/no effect on matching bit, R: no effect
   case object W0P   extends AccessType  // -W: 0/1 pulse/no effect on matching bit, R: no effect
+  case object HSRW  extends AccessType  // HarddWare Set,  SoftWare RW
 }
 
