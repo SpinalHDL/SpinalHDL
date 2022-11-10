@@ -296,7 +296,7 @@ trait SpinalEnumEncoding extends Nameable with ScalaLocated{
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt
   def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T]
 
-  def isNative: Boolean
+  def isNative: Boolean = false
 }
 
 
