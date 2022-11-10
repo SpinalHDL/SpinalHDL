@@ -143,8 +143,8 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val allNonExistent = factory.read(anyNonExistent, 0x11, 15)
       val anyResumeAck = factory.read(harts.map(h =>  h.sel && h.resumeReady).orR, 0x11, 16)
       val allResumeAck = factory.read(harts.map(h => !h.sel || h.resumeReady).andR, 0x11, 17)
-      val anyHaveAck = factory.read(harts.map(h =>  h.sel && h.haveReset).orR, 0x11, 18)
-      val allHaveAck = factory.read(harts.map(h => !h.sel || h.haveReset).andR, 0x11, 19)
+      val anyHaveReset = factory.read(harts.map(h =>  h.sel && h.haveReset).orR, 0x11, 18)
+      val allHaveReset = factory.read(harts.map(h => !h.sel || h.haveReset).andR, 0x11, 19)
 
 //      val hasresethaltreq = factory.read(True, 0x11, 5)
       val impebreak = factory.read(True, 0x11, 22)
