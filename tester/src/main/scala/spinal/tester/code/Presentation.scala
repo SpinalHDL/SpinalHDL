@@ -336,45 +336,6 @@ object C10_2 {
     val userTrigger = io.cfgPort pulseOn (0x02)
     val configs = io.cfgPort filterHeader (0x0F) toRegOf (LogicAnalyserConfig())
   }
-
-
-  case class Color(channelWidth: Int) extends Bundle {
-    val r = UInt(channelWidth bit)
-    val g = UInt(channelWidth bit)
-    val b = UInt(channelWidth bit)
-  }
-
-  class ColorDMA extends Component {
-    val io = new Bundle {
-      val run = slave Event
-
-      val memoryReadAddress = master Stream (Bits(32 bit))
-      val memoryReadData = slave Stream (Bits(32 bit))
-
-      val colorStream = master Stream (Color(8))
-    }
-
-    io.run.ready := False
-    val addressCounter = RegInit(U"x0000")
-    when(io.memoryReadAddress.fire) {
-      addressCounter := addressCounter + 1
-      when(addressCounter === U"xFFFF") {
-        addressCounter := 0
-        io.run.ready := True
-      }
-    }
-
-    io.memoryReadAddress.valid := io.run.valid
-    io.memoryReadAddress.payload := B(addressCounter)
-
-    io.colorStream.translateFrom(io.memoryReadData)(_.assignFromBits(_))
-  }
-
-  def main(args: Array[String]) {
-    println("START")
-    SpinalVhdl(new ColorDMA)
-    println("DONE")
-  }
 }
 
 object C10_removed {
