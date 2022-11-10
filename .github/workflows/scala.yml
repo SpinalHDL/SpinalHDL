@@ -57,6 +57,7 @@ jobs:
   fmt-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: github.ref != 'refs/heads/dev'
 
     steps:
     - uses: actions/checkout@v3
