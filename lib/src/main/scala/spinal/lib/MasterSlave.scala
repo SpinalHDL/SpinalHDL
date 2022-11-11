@@ -25,6 +25,11 @@ trait IMasterSlave {
     this
   }
 
+  final def intoMonitor(): this.type = {
+    setAsMonitor()
+    this
+  }
+
   /** Set as master interface */
   final def setAsMaster(): Unit = {
     asMaster()
@@ -34,6 +39,11 @@ trait IMasterSlave {
   /** Set a slave interface */
   final def setAsSlave(): Unit = {
     asSlave()
+    _isMasterInterface = Some(false)
+  }
+
+  final def setAsMonitor(): Unit = {
+    asMonitor()
     _isMasterInterface = Some(false)
   }
 
@@ -60,6 +70,8 @@ trait IMasterSlave {
     * This method does not update `isMasterInterface` and `isSlaveInterface`.
     */
   def asSlave(): Unit = intoMaster().asInstanceOf[Data].flip()
+
+  def asMonitor(): Unit = this.asInstanceOf[Data].asInput()
 }
 
 /** Something which can create master/slave interfaces */
@@ -158,6 +170,14 @@ object master extends MS {
   */
 object slave extends MS {
   def applyIt[T <: IMasterSlave](i: T) = i.intoSlave()
+}
+
+/** Declare a monitor port
+  *
+  * See [[MS]] for syntax help.
+  */
+object monitor extends MS {
+  def applyIt[T <: IMasterSlave](i: T) = i.intoMonitor()
 }
 
 @deprecated("Use apply or port instead: 'val b = slave(maybeNull)' or 'val rgb = slave port maybeNull'")
