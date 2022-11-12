@@ -201,14 +201,14 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     acc match {
       case AccessType.RO    => _RO(reg)           //- W: no effect, R: no effect
       case AccessType.RW    => _W( reg, section)  //- W: as-is, R: no effect
-      case AccessType.RC    => _RC(reg)           //- W: no effect, R: clears all bits
-      case AccessType.RS    => _RS(reg)           //- W: no effect, R: sets all bits
+      case AccessType.RC    => _RC(reg, section)  //- W: no effect, R: clears all bits
+      case AccessType.RS    => _RS(reg, section)  //- W: no effect, R: sets all bits
       case AccessType.WRC   => _WRC(reg, section) //- W: as-is, R: clears all bits
       case AccessType.WRS   => _WRS(reg, section) //- W: as-is, R: sets all bits
-      case AccessType.WC    => _WC(reg)           //- W: clears all bits, R: no effect
-      case AccessType.WS    => _WS(reg)           //- W: sets all bits, R: no effect
-      case AccessType.WSRC  => _WSRC(reg)         //- W: sets all bits, R: clears all bits
-      case AccessType.WCRS  => _WCRS(reg)         //- W: clears all bits, R: sets all bits
+      case AccessType.WC    => _WC(reg, section)  //- W: clears all bits, R: no effect
+      case AccessType.WS    => _WS(reg, section)  //- W: sets all bits, R: no effect
+      case AccessType.WSRC  => _WSRC(reg, section)//- W: sets all bits, R: clears all bits
+      case AccessType.WCRS  => _WCRS(reg, section)//- W: clears all bits, R: sets all bits
       case AccessType.W1C   => _WB(reg, section, AccessType.W1C )   //- W: 1/0 clears/no effect on matching bit, R: no effect
       case AccessType.W1S   => _WB(reg, section, AccessType.W1S )   //- W: 1/0 sets/no effect on matching bit, R: no effect
       case AccessType.W1T   => _WB(reg, section, AccessType.W1T )   //- W: 1/0 toggles/no effect on matching bit, R: no effect
@@ -220,8 +220,8 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.W0SRC => _WBR(reg, section, AccessType.W0SRC) //- W: 1/0 no effect on/sets matching bit, R: clears all bits
       case AccessType.W0CRS => _WBR(reg, section, AccessType.W0CRS) //- W: 1/0 no effect on/clears matching bit, R: sets all bits
       case AccessType.WO    => Rerror = true; _W( reg, section)    //- W: as-is, R: error
-      case AccessType.WOC   => Rerror = true; _WC(reg)             //- W: clears all bits, R: error
-      case AccessType.WOS   => Rerror = true; _WS(reg)             //- W: sets all bits, R: error
+      case AccessType.WOC   => Rerror = true; _WC(reg, section)    //- W: clears all bits, R: error
+      case AccessType.WOS   => Rerror = true; _WS(reg, section)    //- W: sets all bits, R: error
       case AccessType.W1    =>                _W1(reg, section)    //- W: first one after ~HARD~ reset is as-is, other W have no effects, R: no effect
       case AccessType.WO1   => Rerror = true; _W1(reg, section)    //- W: first one after ~HARD~ reset is as-is, other W have no effects, R: error
       case AccessType.NA    => NA(reg.getBitsWidth bit)            // -W: reserved, R: reserved
@@ -277,16 +277,16 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   def field(bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
     val section: Range = fieldPtr+bc.value-1 downto fieldPtr
     val ret: Bits = acc match {
-      case AccessType.RO    => RO(bc)                       //- W: no effect, R: no effect
-      case AccessType.RW    => W( bc, section, resetValue)  //- W: as-is, R: no effect
-      case AccessType.RC    => RC(bc, resetValue)           //- W: no effect, R: clears all bits
-      case AccessType.RS    => RS(bc, resetValue)           //- W: no effect, R: sets all bits
-      case AccessType.WRC   => WRC(bc, section, resetValue) //- W: as-is, R: clears all bits
-      case AccessType.WRS   => WRS(bc, section, resetValue) //- W: as-is, R: sets all bits
-      case AccessType.WC    => WC(bc, resetValue)           //- W: clears all bits, R: no effect
-      case AccessType.WS    => WS(bc, resetValue)           //- W: sets all bits, R: no effect
-      case AccessType.WSRC  => WSRC(bc, resetValue)         //- W: sets all bits, R: clears all bits
-      case AccessType.WCRS  => WCRS(bc, resetValue)         //- W: clears all bits, R: sets all bits
+      case AccessType.RO    => RO(bc)                         //- W: no effect, R: no effect
+      case AccessType.RW    => W( bc, section, resetValue)    //- W: as-is, R: no effect
+      case AccessType.RC    => RC(bc, section, resetValue)  //- W: no effect, R: clears all bits
+      case AccessType.RS    => RS(bc, section, resetValue)          //- W: no effect, R: sets all bits
+      case AccessType.WRC   => WRC(bc, section, resetValue)   //- W: as-is, R: clears all bits
+      case AccessType.WRS   => WRS(bc, section, resetValue)   //- W: as-is, R: sets all bits
+      case AccessType.WC    => WC(bc, section, resetValue)    //- W: clears all bits, R: no effect
+      case AccessType.WS    => WS(bc, section, resetValue)    //- W: sets all bits, R: no effect
+      case AccessType.WSRC  => WSRC(bc, section, resetValue)  //- W: sets all bits, R: clears all bits
+      case AccessType.WCRS  => WCRS(bc, section, resetValue)  //- W: clears all bits, R: sets all bits
       case AccessType.W1C   => WB(section, resetValue, AccessType.W1C )   //- W: 1/0 clears/no effect on matching bit, R: no effect
       case AccessType.W1S   => WB(section, resetValue, AccessType.W1S )   //- W: 1/0 sets/no effect on matching bit, R: no effect
       case AccessType.W1T   => WB(section, resetValue, AccessType.W1T )   //- W: 1/0 toggles/no effect on matching bit, R: no effect
@@ -298,8 +298,8 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.W0SRC => WBR(section, resetValue, AccessType.W0SRC) //- W: 1/0 no effect on/sets matching bit, R: clears all bits
       case AccessType.W0CRS => WBR(section, resetValue, AccessType.W0CRS) //- W: 1/0 no effect on/clears matching bit, R: sets all bits
       case AccessType.WO    => Rerror = true; W( bc, section, resetValue) //- W: as-is, R: error
-      case AccessType.WOC   => Rerror = true; WC(bc, resetValue)          //- W: clears all bits, R: error
-      case AccessType.WOS   => Rerror = true; WS(bc, resetValue)          //- W: sets all bits, R: error
+      case AccessType.WOC   => Rerror = true; WC(bc, section, resetValue) //- W: clears all bits, R: error
+      case AccessType.WOS   => Rerror = true; WS(bc, section, resetValue) //- W: sets all bits, R: error
       case AccessType.W1    =>                W1(bc, section, resetValue) //- W: first one after ~HARD~ reset is as-is, other W have no effects, R: no effect
       case AccessType.WO1   => Rerror = true; W1(bc, section, resetValue) //- W: first one after ~HARD~ reset is as-is, other W have no effects, R: error
       case AccessType.NA    => NA(bc)                                     // -W: reserved, R: reserved
@@ -396,7 +396,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def _W1[T <: BaseType](reg: T, section: Range): T ={
     val hardRestFirstFlag = Reg(Bool()) init True
     when(hitDoWrite && hardRestFirstFlag){
-      reg.assignFromBits(busif.writeData(section))
+      reg.assignFromBits(busif.newwdata(reg, section))
       hardRestFirstFlag.clear()
     }
     reg
@@ -406,7 +406,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     val ret = Reg(Bits(bc)) init B(resetValue)
     val hardRestFirstFlag = Reg(Bool()) init True
     when(hitDoWrite && hardRestFirstFlag){
-      ret := busif.writeData(section)
+      ret := busif.newwdata(ret, section)
       hardRestFirstFlag.clear()
     }
     ret
@@ -414,7 +414,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
 
   protected def _W[T <: BaseType](reg: T, section: Range): T ={
     when(hitDoWrite){
-      reg.assignFromBits(busif.writeData(section))
+      reg.assignFromBits(busif.newwdata(reg, section))
     }
     reg
   }
@@ -422,46 +422,46 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def W(bc: BitCount, section: Range, resetValue: Long ): Bits ={
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      ret := busif.writeData(section)
+      ret := busif.newwdata(ret, section)
     }
     ret
   }
 
-  protected def _RC[T <: BaseType](reg: T): T = {
+  protected def _RC[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())
+      reg.assignFromBits(busif.newwdata(reg, section, "clear")  )//Bits(reg.getBitsWidth bit).clearAll())
     }
     reg
   }
 
-  protected def RC(bc: BitCount, resetValue: Long): Bits = {
+  protected def RC(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoRead){
-      ret.clearAll()
+      busif.newwdata(ret, section, "clear")//ret.clearAll()
     }
     ret
   }
 
-  protected def _RS[T <: BaseType](reg: T): T = {
+  protected def _RS[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll)
+      reg.assignFromBits(busif.newwdata(reg, section, "set")  )//Bits(reg.getBitsWidth bit).setAll())
     }
     reg
   }
 
-  protected def RS(bc: BitCount, resetValue: Long): Bits = {
+  protected def RS(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoRead){
-      ret.setAll()
+      busif.newwdata(ret, section, "set")//ret.setAll()
     }
     ret
   }
 
   protected def _WRC[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoWrite){
-      reg.assignFromBits(busif.writeData(section))
+      reg.assignFromBits(busif.newwdata(reg, section)  )//busif.writeData(section))
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())
+      reg.assignFromBits(busif.newwdata(reg, section, "clear")  )//Bits(reg.getBitsWidth bit).clearAll())
     }
     reg
   }
@@ -469,18 +469,18 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def WRC(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      ret := busif.writeData(section)
+      ret := busif.newwdata(ret, section)//busif.writeData(section)
     }.elsewhen(hitDoRead){
-      ret.clearAll()
+      busif.newwdata(ret, section, "clear")//ret.clearAll()
     }
     ret
   }
 
   protected def _WRS[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoWrite){
-      reg.assignFromBits(busif.writeData(section))
+      reg.assignFromBits(busif.newwdata(reg, section)  )//busif.writeData(section))
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll())
+      reg.assignFromBits(busif.newwdata(reg, section, "set")  )//Bits(reg.getBitsWidth bit).setAll())
     }
     reg
   }
@@ -488,77 +488,77 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def WRS(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      ret := busif.writeData(section)
+      ret := busif.newwdata(ret, section)//busif.writeData(section)
     }.elsewhen(hitDoRead){
-      ret.setAll()
+      busif.newwdata(ret, section, "set")//ret.setAll()
     }
     ret
   }
 
-  protected def _WC[T <: BaseType](reg: T): T = {
+  protected def _WC[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoWrite){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())
+      reg.assignFromBits(busif.newwdata(reg, section, "clear"))//Bits(reg.getBitsWidth bit).clearAll())
     }
     reg
   }
 
-  protected def WC(bc: BitCount, resetValue: Long): Bits = {
+  protected def WC(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      ret.clearAll()
+      busif.newwdata(ret, section, "clear")//ret.clearAll()
     }
     ret
   }
 
-  protected def _WS[T <: BaseType](reg: T): T = {
+  protected def _WS[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoWrite){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll())
+      reg.assignFromBits(busif.newwdata(reg, section, "set")  )//Bits(reg.getBitsWidth bit).setAll())
     }
     reg
   }
 
-  protected def WS(bc: BitCount, resetValue: Long): Bits = {
+  protected def WS(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      ret.setAll()
+      busif.newwdata(ret, section, "set")  //ret.setAll()
     }
     ret
   }
 
-  protected def _WSRC[T <: BaseType](reg: T): T = {
+  protected def _WSRC[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoWrite){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll())
+      reg.assignFromBits(busif.newwdata(reg, section, "set")  )//Bits(reg.getBitsWidth bit).setAll())
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())
+      reg.assignFromBits(busif.newwdata(reg, section, "clear"))//Bits(reg.getBitsWidth bit).clearAll())
     }
     reg
   }
 
-  protected def WSRC(bc: BitCount, resetValue: Long): Bits = {
+  protected def WSRC(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      ret.setAll()
+      busif.newwdata(ret, section, "set")  //ret.setAll()
     }.elsewhen(hitDoRead){
-      ret.clearAll()
+      busif.newwdata(ret, section, "clear")//ret.clearAll()
     }
     ret
   }
 
-  protected def _WCRS[T <: BaseType](reg: T): T = {
+  protected def _WCRS[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoWrite){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())
+      reg.assignFromBits(busif.newwdata(reg, section, "clear"))//Bits(reg.getBitsWidth bit).clearAll())
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll())
+      reg.assignFromBits(busif.newwdata(reg, section, "set")  )//Bits(reg.getBitsWidth bit).setAll())
     }
     reg
   }
 
-  protected def WCRS(bc: BitCount, resetValue: Long): Bits = {
+  protected def WCRS(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      ret.clearAll()
+      busif.newwdata(ret, section, "clear")//ret.clearAll()
     }.elsewhen(hitDoRead){
-      ret.setAll()
+      busif.newwdata(ret, section, "set")  //ret.setAll()
     }
     ret
   }
@@ -566,18 +566,18 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def _WB[T <: BaseType](reg: T, section: Range, accType: AccessType): T = {
     when(hitDoWrite){
       section.reverse.map(_ - section.min).foreach{ i =>
-        val regbit = reg match {
+        val regbit: Bool = reg match {
           case t: Bool => require(section.size == 1); t
           case t: BitVector => t(i)
         }
         val x = i + section.min
         accType match {
-          case AccessType.W1C => when( busif.writeData(x)){regbit.clear()   }
-          case AccessType.W1S => when( busif.writeData(x)){regbit.set()     }
-          case AccessType.W1T => when( busif.writeData(x)){regbit := ~regbit}
-          case AccessType.W0C => when(~busif.writeData(x)){regbit.clear()   }
-          case AccessType.W0S => when(~busif.writeData(x)){regbit.set()     }
-          case AccessType.W0T => when(~busif.writeData(x)){regbit := ~regbit}
+          case AccessType.W1C => when( busif.writeData(x)){busif.newwdata(regbit, x, "clear" )}//regbit.clear()   }
+          case AccessType.W1S => when( busif.writeData(x)){busif.newwdata(regbit, x, "set"   )}//regbit.set()     }
+          case AccessType.W1T => when( busif.writeData(x)){busif.newwdata(regbit, x, "toggle")}//regbit := ~regbit}
+          case AccessType.W0C => when(~busif.writeData(x)){busif.newwdata(regbit, x, "clear" )}//regbit.clear()   }
+          case AccessType.W0S => when(~busif.writeData(x)){busif.newwdata(regbit, x, "set"   )}//regbit.set()     }
+          case AccessType.W0T => when(~busif.writeData(x)){busif.newwdata(regbit, x, "toggle")}//regbit := ~regbit}
           case _ =>
         }
       }
@@ -591,12 +591,12 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       for(x <- section) {
         val idx = x - section.min
         accType match {
-          case AccessType.W1C => when( busif.writeData(x)){ret(idx).clear()}
-          case AccessType.W1S => when( busif.writeData(x)){ret(idx).set()  }
-          case AccessType.W1T => when( busif.writeData(x)){ret(idx) := ~ret(idx)}
-          case AccessType.W0C => when(~busif.writeData(x)){ret(idx).clear()}
-          case AccessType.W0S => when(~busif.writeData(x)){ret(idx).set()  }
-          case AccessType.W0T => when(~busif.writeData(x)){ret(idx) := ~ret(idx)}
+          case AccessType.W1C => when( busif.mwdata(x)){busif.newwdata(ret(idx), idx, "clear" )} //ret(idx).clear()
+          case AccessType.W1S => when( busif.mwdata(x)){busif.newwdata(ret(idx), idx, "set"   )}//ret(idx).set()  }
+          case AccessType.W1T => when( busif.mwdata(x)){busif.newwdata(ret(idx), idx, "toggle")}//ret(idx) := ~ret(idx)}
+          case AccessType.W0C => when(~busif.mwdata(x)){busif.newwdata(ret(idx), idx, "clear" )}//ret(idx).clear()}
+          case AccessType.W0S => when(~busif.mwdata(x)){busif.newwdata(ret(idx), idx, "set"   )}//ret(idx).set()  }
+          case AccessType.W0T => when(~busif.mwdata(x)){busif.newwdata(ret(idx), idx, "toggle")}//ret(idx) := ~ret(idx)}
           case _ =>
         }
       }
@@ -613,20 +613,20 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       val x = i + section.min
       accType match {
         case AccessType.W1SRC => {
-          when(hitDoWrite && busif.writeData(x)) {regbit.set()}
-            .elsewhen(hitDoRead)                 {regbit.clear()}
+          when(hitDoWrite && busif.mwdata(x)) {busif.newwdata(regbit, x, "set" )  }//regbit.set()}
+            .elsewhen(hitDoRead)              {busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
         }
         case AccessType.W1CRS => {
-          when(hitDoWrite && busif.writeData(x)) {regbit.clear()}
-            .elsewhen(hitDoRead)                 {regbit.set()}
+          when(hitDoWrite && busif.mwdata(x)) {busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
+            .elsewhen(hitDoRead)              {busif.newwdata(regbit, x, "set" )  }//regbit.set()}
         }
         case AccessType.W0SRC => {
-          when(hitDoWrite && ~busif.writeData(x)){regbit.set()}
-            .elsewhen(hitDoRead)                 {regbit.clear()}
+          when(hitDoWrite && ~busif.mwdata(x)){busif.newwdata(regbit, x, "set" )  }//regbit.set()}
+            .elsewhen(hitDoRead)              {busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
         }
         case AccessType.W0CRS => {
-          when(hitDoWrite && ~busif.writeData(x)){regbit.clear()}
-            .elsewhen(hitDoRead)                 {regbit.set()}
+          when(hitDoWrite && ~busif.mwdata(x)){busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
+            .elsewhen(hitDoRead)              {busif.newwdata(regbit, x, "set" )  }//regbit.set()}
         }
         case _ =>
       }
@@ -641,20 +641,20 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       val idx = x - section.min
       accType match {
         case AccessType.W1SRC => {
-          when(hitDoWrite && busif.writeData(x)) {ret(idx).set()}
-            .elsewhen(hitDoRead)                 {ret(idx).clear()}
+          when(hitDoWrite && busif.mwdata(x)) {busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
+            .elsewhen(hitDoRead)              {busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
         }
         case AccessType.W1CRS => {
-          when(hitDoWrite && busif.writeData(x)) {ret(idx).clear()}
-            .elsewhen(hitDoRead)                 {ret(idx).set()}
+          when(hitDoWrite && busif.mwdata(x)) {busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
+            .elsewhen(hitDoRead)              {busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
         }
         case AccessType.W0SRC => {
-          when(hitDoWrite && ~busif.writeData(x)){ret(idx).set()}
-            .elsewhen(hitDoRead)                 {ret(idx).clear()}
+          when(hitDoWrite && ~busif.mwdata(x)){busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
+            .elsewhen(hitDoRead)              {busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
         }
         case AccessType.W0CRS => {
-          when(hitDoWrite && ~busif.writeData(x)){ret(idx).clear()}
-            .elsewhen(hitDoRead)                 {ret(idx).set()}
+          when(hitDoWrite && ~busif.mwdata(x)){busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
+            .elsewhen(hitDoRead)              {busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
         }
         case _ =>
       }
@@ -671,11 +671,11 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       val x = i + section.min
       accType match {
         case AccessType.W1P => {
-          when(hitDoWrite &&  busif.writeData(x)){regbit := ~regbit}
+          when(hitDoWrite &&  busif.mwdata(x)){regbit := busif.newwdata(regbit, x, "toggle" )}//~regbit}
             .otherwise{regbit := False}
         }
         case AccessType.W0P => {
-          when(hitDoWrite && ~busif.writeData(x)){regbit := ~regbit}
+          when(hitDoWrite && ~busif.mwdata(x)){regbit := busif.newwdata(regbit, x, "toggle" )}//~regbit}
             .otherwise{regbit := False}
         }
       }
@@ -690,11 +690,11 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       val idx = x - section.min
       accType match {
         case AccessType.W1P => {
-          when(hitDoWrite &&  busif.writeData(x)){ret(idx) := ~ret(idx)}
+          when(hitDoWrite &&  busif.mwdata(x)){ret(idx) := busif.newwdata(ret(idx), x, "toggle" )}//~ret(idx)}
             .otherwise{ret(idx) := False}
         }
         case AccessType.W0P => {
-          when(hitDoWrite && ~busif.writeData(x)){ret(idx) := ~ret(idx)}
+          when(hitDoWrite && ~busif.mwdata(x)){ret(idx) := busif.newwdata(ret(idx), x, "toggle" )}//~ret(idx)}
             .otherwise{ret(idx) := resetValues(idx)}
         }
       }

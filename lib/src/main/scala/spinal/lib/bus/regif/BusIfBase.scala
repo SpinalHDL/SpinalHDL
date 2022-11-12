@@ -32,11 +32,14 @@ trait BusIfBase extends Area{
   def busDataWidth: Int
   def wordAddressInc: Int = busDataWidth / 8
   def strbWidth: Int = busDataWidth / 8
-  def mwdata(reg: BaseType, sec: Range, oper: String = "normal"):Bits = {
+
+  def mwdata(sec: Range): Bits = writeData(sec) & wmask(sec)
+  def newwdata(reg: BaseType, sec: Range, oper: String = "normal"):Bits = {
     val wdata = oper match{
       case "clear" => B(0, sec.size bit)
       case "set"   => Bits(sec.size bit).clearAll()
       case "normal"=> writeData
+      case "toggle"=> ~reg.asBits(sec)
       case _       => SpinalError(s"unrecognize '${oper}''")
     }
     if (withstrb) {
@@ -48,11 +51,13 @@ trait BusIfBase extends Area{
       }
     } else wdata(sec)
   }
-  def mwdata(reg: Bool, pos: Int, oper: String = "normal"): Bool = {
+  def mwdata(pos: Int): Bool = writeData(pos) & wmask(pos)
+  def newwdata(reg: Bool, pos: Int, oper: String = "normal"): Bool = {
     val wdata = oper match {
       case "clear"  => False
       case "set"    => True
       case "normal" => writeData(pos)
+      case "toggle" => ~reg
       case _ => SpinalError(s"unrecognize '${oper}''")
     }
     if(withstrb){
