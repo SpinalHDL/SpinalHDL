@@ -23,8 +23,14 @@ case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, selId: Int = 0, reg
   val doRead    = (askRead  && bus.PENABLE && bus.PREADY).allowPruning()
   val writeData = Bits(busDataWidth bit)
 
-  (0 until bus.c.strbWidth).foreach{ i =>
-    writeData((i+1)*8-1 downto i*8) := Mux(bus.PSTRB(i), bus.PWDATA((i+1)*8-1 downto i*8), B(0, 8 bit))
+//  (0 until bus.c.strbWidth).foreach{ i =>
+//    writeData((i+1)*8-1 downto i*8) := Mux(bus.PSTRB(i), bus.PWDATA((i+1)*8-1 downto i*8), B(0, 8 bit))
+//  }
+  if(withstrb) {
+    (0 until bus.c.strbWidth).foreach{i =>
+      wmask((i+1)*8-1 downto i*8) := Mux(bus.PSTRB(i), B(0xFF, 8 bit), B(0, 8 bit))
+      wmask((i+1)*8-1 downto i*8) := Mux(bus.PSTRB(i), B(0, 8 bit), B(0xFF, 8 bit))
+    }
   }
 
   if(bus.c.useSlaveError) bus.PSLVERR := readError

@@ -17,6 +17,11 @@ trait BusIfBase extends Area{
   val writeData: Bits
   val readError: Bool
   val readSync: Boolean = true
+  val withstrb: Boolean = false
+  val wstrb: Bits = withstrb generate(Bits(strbWidth bit))
+
+  val wmask: Bits  = withstrb generate(Bits(busDataWidth bit))
+  val wmaskn: Bits = withstrb generate(Bits(busDataWidth bit))
 
   def readAddress(): UInt
   def writeAddress(): UInt
@@ -26,6 +31,34 @@ trait BusIfBase extends Area{
 
   def busDataWidth: Int
   def wordAddressInc: Int = busDataWidth / 8
+  def strbWidth: Int = busDataWidth / 8
+  def mwdata(reg: BaseType, sec: Range, oper: String = "normal"):Bits = {
+    val wdata = oper match{
+      case "clear" => B(0, sec.size bit)
+      case "set"   => Bits(sec.size bit).clearAll()
+      case "normal"=> writeData
+      case _       => SpinalError(s"unrecognize '${oper}''")
+    }
+    if (withstrb) {
+      reg match {
+        case t: Bits => (t & wmaskn(sec))        | (wdata(sec)       & wmask(sec))
+        case t: UInt => (t.asBits & wmaskn(sec)) | (wdata(sec)       & wmask(sec))
+        case t: SInt => (t.asBits & wmaskn(sec)) | (wdata(sec)       & wmask(sec))
+        case t: Bool => ((t & wmaskn(sec.start)) | (wdata(sec.start) & wmask(sec.start))).asBits
+      }
+    } else wdata(sec)
+  }
+  def mwdata(reg: Bool, pos: Int, oper: String = "normal"): Bool = {
+    val wdata = oper match {
+      case "clear"  => False
+      case "set"    => True
+      case "normal" => writeData(pos)
+      case _ => SpinalError(s"unrecognize '${oper}''")
+    }
+    if(withstrb){
+      (reg & wmaskn(pos)) | (wdata & wmask(pos))
+    } else wdata
+  }
 }
 
 trait BusIf extends BusIfBase {
