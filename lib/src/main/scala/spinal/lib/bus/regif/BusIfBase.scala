@@ -44,21 +44,60 @@ trait BusIfBase extends Area{
   }
   def wdata(reg: BaseType, sec: Range): Bits = wdata(reg, sec, oper = "normal")
   def wdata(reg: BaseType, sec: Range, oper: String):Bits = {
-    val data = oper match{
-      case "clear" => B(0, sec.size bit)
-      case "set"   => Bits(sec.size bit).clearAll()
-      case "normal"=> writeData
-      case "toggle"=> ~reg.asBits(sec)
-      case _       => SpinalError(s"unrecognize '${oper}''")
+//    val data = oper match{
+//      case "clear" => B(0, sec.size bit)
+//      case "set"   => Bits(sec.size bit).setAll()
+//      case "normal"=> writeData
+//      case "toggle"=> ~reg.asBits(sec)
+//      case _       => SpinalError(s"unrecognize '${oper}''")
+//    }
+//    if (withstrb) {
+//      reg match {
+//        case t: Bits => (t & wmaskn(sec))        | (data(sec)       & wmask(sec))
+//        case t: UInt => (t.asBits & wmaskn(sec)) | (data(sec)       & wmask(sec))
+//        case t: SInt => (t.asBits & wmaskn(sec)) | (data(sec)       & wmask(sec))
+//        case _       => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
+//      }
+//    } else data(sec)
+    oper match {
+      case "clear" =>
+        if(withstrb){
+          reg match {
+            case t: Bits => (t        & wmaskn(sec))
+            case t: UInt => (t.asBits & wmaskn(sec))
+            case t: SInt => (t.asBits & wmaskn(sec))
+            case _       => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
+          }
+        } else B(0, sec.size bit)
+      case "set" =>
+        if(withstrb) {
+          reg match {
+            case t: Bits => (t        & wmaskn(sec)) | wmask(sec)
+            case t: UInt => (t.asBits & wmaskn(sec)) | wmask(sec)
+            case t: SInt => (t.asBits & wmaskn(sec)) | wmask(sec)
+            case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
+          }
+        }else Bits(sec.size bit).setAll()
+      case "normal" =>
+        if(withstrb){
+          reg match {
+            case t: Bits => (t        & wmaskn(sec)) | (writeData(sec) & wmask(sec))
+            case t: UInt => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
+            case t: SInt => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
+            case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
+          }
+        } else writeData(sec)
+      case "toggle" =>
+        if(withstrb){
+          reg match {
+            case t: Bits => (t & wmaskn(sec))        | (~t(sec)        & wmask(sec))
+            case t: UInt => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
+            case t: SInt => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
+            case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
+          }
+        } else ~reg.asBits(sec)
+      case _ => SpinalError(s"unrecognize '${oper}''")
     }
-    if (withstrb) {
-      reg match {
-        case t: Bits => (t & wmaskn(sec))        | (data(sec)       & wmask(sec))
-        case t: UInt => (t.asBits & wmaskn(sec)) | (data(sec)       & wmask(sec))
-        case t: SInt => (t.asBits & wmaskn(sec)) | (data(sec)       & wmask(sec))
-        case t: Bool => ((t & wmaskn(sec.start)) | (data(sec.start) & wmask(sec.start))).asBits
-      }
-    } else data(sec)
   }
   def mwdata(pos: Int): Bool = if(withstrb) writeData(pos) & wmask(pos) else writeData(pos)
   def wdata(reg: Bool, pos: Int): Bool = wdata(reg, pos, oper = "normal")
