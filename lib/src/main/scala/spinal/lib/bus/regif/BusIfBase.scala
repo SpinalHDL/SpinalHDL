@@ -63,16 +63,13 @@ trait BusIfBase extends Area{
   def mwdata(pos: Int): Bool = if(withstrb) writeData(pos) & wmask(pos) else writeData(pos)
   def newwdata(reg: Bool, pos: Int): Bool = newwdata(reg, pos, oper = "normal")
   def newwdata(reg: Bool, pos: Int, oper: String): Bool = {
-    val wdata = oper match {
-      case "clear"  => False
-      case "set"    => True
-      case "normal" => writeData(pos)
-      case "toggle" => ~reg
+    oper match {
+      case "clear"  => if (withstrb) (reg & wmaskn(pos))                                 else False
+      case "set"    => if (withstrb) (reg & wmaskn(pos)) |                   wmask(pos)  else True
+      case "normal" => if (withstrb) (reg & wmaskn(pos)) | (writeData(pos) & wmask(pos)) else writeData(pos)
+      case "toggle" => if (withstrb) (reg & wmaskn(pos)) | (~reg           & wmask(pos)) else ~reg
       case _ => SpinalError(s"unrecognize '${oper}''")
     }
-    if(withstrb){
-      (reg & wmaskn(pos)) | (wdata & wmask(pos))
-    } else wdata
   }
 }
 
