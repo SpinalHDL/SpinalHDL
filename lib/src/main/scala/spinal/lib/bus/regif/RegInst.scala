@@ -131,6 +131,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
         reg.assignFromBits(B(0, reg.getBitsWidth bit))
         reg
       }
+      case AccessType.ROV => {
+        B(resetValue, hardType().getBitsWidth bit).asInstanceOf[T]
+      }
       case _ => {
         val reg = Reg(hardType)
         reg match {
@@ -148,7 +151,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     } else {
       symbol.name
     }
-    reg.setName(signame, weak = true)
+    if(acc != AccessType.ROV){
+      reg.setName(signame, weak = true)
+    }
     registerInWithWriteLogic(reg, acc, resetValue, doc)
     reg
   }
@@ -200,6 +205,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     }
     acc match {
       case AccessType.RO    => _RO(reg)           //- W: no effect, R: no effect
+      case AccessType.ROV   => _RO(reg)           //- ReadOnlyValue, used for constant like device-ID/hw-Version
       case AccessType.RW    => _W( reg, section)  //- W: as-is, R: no effect
       case AccessType.RC    => _RC(reg, section)  //- W: no effect, R: clears all bits
       case AccessType.RS    => _RS(reg, section)  //- W: no effect, R: sets all bits
@@ -278,9 +284,10 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     val section: Range = fieldPtr+bc.value-1 downto fieldPtr
     val ret: Bits = acc match {
       case AccessType.RO    => RO(bc)                         //- W: no effect, R: no effect
+      case AccessType.ROV   => B(resetValue, bc.value bit)    //- ReadOnlyValue, used for constant like device-ID/hw-Version
       case AccessType.RW    => W( bc, section, resetValue)    //- W: as-is, R: no effect
-      case AccessType.RC    => RC(bc, section, resetValue)  //- W: no effect, R: clears all bits
-      case AccessType.RS    => RS(bc, section, resetValue)          //- W: no effect, R: sets all bits
+      case AccessType.RC    => RC(bc, section, resetValue)    //- W: no effect, R: clears all bits
+      case AccessType.RS    => RS(bc, section, resetValue)    //- W: no effect, R: sets all bits
       case AccessType.WRC   => WRC(bc, section, resetValue)   //- W: as-is, R: clears all bits
       case AccessType.WRS   => WRS(bc, section, resetValue)   //- W: as-is, R: sets all bits
       case AccessType.WC    => WC(bc, section, resetValue)    //- W: clears all bits, R: no effect

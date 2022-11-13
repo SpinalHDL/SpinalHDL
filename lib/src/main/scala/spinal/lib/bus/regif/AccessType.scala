@@ -32,5 +32,6 @@ object AccessType {
   case object W1P   extends AccessType  // -W: 1/0 pulse/no effect on matching bit, R: no effect
   case object W0P   extends AccessType  // -W: 0/1 pulse/no effect on matching bit, R: no effect
   case object HSRW  extends AccessType  // HarddWare Set,  SoftWare RW
+  case object ROV   extends AccessType  // ReadOnly Value, used for constant
 }
 
