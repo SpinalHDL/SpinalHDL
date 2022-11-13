@@ -42,9 +42,9 @@ trait BusIfBase extends Area{
       }
     }
   }
-  def newwdata(reg: BaseType, sec: Range): Bits = newwdata(reg, sec, oper = "normal")
-  def newwdata(reg: BaseType, sec: Range, oper: String):Bits = {
-    val wdata = oper match{
+  def wdata(reg: BaseType, sec: Range): Bits = wdata(reg, sec, oper = "normal")
+  def wdata(reg: BaseType, sec: Range, oper: String):Bits = {
+    val data = oper match{
       case "clear" => B(0, sec.size bit)
       case "set"   => Bits(sec.size bit).clearAll()
       case "normal"=> writeData
@@ -53,16 +53,16 @@ trait BusIfBase extends Area{
     }
     if (withstrb) {
       reg match {
-        case t: Bits => (t & wmaskn(sec))        | (wdata(sec)       & wmask(sec))
-        case t: UInt => (t.asBits & wmaskn(sec)) | (wdata(sec)       & wmask(sec))
-        case t: SInt => (t.asBits & wmaskn(sec)) | (wdata(sec)       & wmask(sec))
-        case t: Bool => ((t & wmaskn(sec.start)) | (wdata(sec.start) & wmask(sec.start))).asBits
+        case t: Bits => (t & wmaskn(sec))        | (data(sec)       & wmask(sec))
+        case t: UInt => (t.asBits & wmaskn(sec)) | (data(sec)       & wmask(sec))
+        case t: SInt => (t.asBits & wmaskn(sec)) | (data(sec)       & wmask(sec))
+        case t: Bool => ((t & wmaskn(sec.start)) | (data(sec.start) & wmask(sec.start))).asBits
       }
-    } else wdata(sec)
+    } else data(sec)
   }
   def mwdata(pos: Int): Bool = if(withstrb) writeData(pos) & wmask(pos) else writeData(pos)
-  def newwdata(reg: Bool, pos: Int): Bool = newwdata(reg, pos, oper = "normal")
-  def newwdata(reg: Bool, pos: Int, oper: String): Bool = {
+  def wdata(reg: Bool, pos: Int): Bool = wdata(reg, pos, oper = "normal")
+  def wdata(reg: Bool, pos: Int, oper: String): Bool = {
     oper match {
       case "clear"  => if (withstrb) (reg & wmaskn(pos))                                 else False
       case "set"    => if (withstrb) (reg & wmaskn(pos)) |                   wmask(pos)  else True
