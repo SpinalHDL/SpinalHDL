@@ -5,6 +5,11 @@ import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.misc.SizeMapping
 
 case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, regPre: String = "")(implicit moduleName: ClassName) extends BusIf{
+  override val withstrb: Boolean = false
+  val wstrb: Bits = withstrb generate(Bits(strbWidth bit))
+  val wmask: Bits = withstrb generate(Bits(busDataWidth bit))
+  val wmaskn: Bits = withstrb generate(Bits(busDataWidth bit))
+  InitLogic()
 
   override def getModuleName = moduleName.name
 

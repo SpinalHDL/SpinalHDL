@@ -7,6 +7,7 @@ import spinal.lib.bus.amba3.apb.Apb3Config
 case class Apb4Config(addressWidth  : Int,
                       dataWidth     : Int,
                       selWidth      : Int = 1,
+                      useStrb       : Boolean = true,
                       useSlaveError : Boolean = true
                      ){
   def strbWidth: Int = dataWidth>>3
@@ -14,7 +15,8 @@ case class Apb4Config(addressWidth  : Int,
 
 object Apb4{
   def apply(addressWidth: Int, dataWidth: Int) = new Apb4(Apb4Config(addressWidth = addressWidth, dataWidth = dataWidth))
-  def apply(c: Apb3Config): Apb4 = new Apb4(Apb4Config(c.addressWidth, c.dataWidth, c.selWidth, c.useSlaveError))
+  def apply(c: Apb3Config): Apb4 = new Apb4(Apb4Config(c.addressWidth, c.dataWidth, c.selWidth, false, c.useSlaveError))
+  def apply(c: Apb4Config): Apb4 = new Apb4(c)
 }
 
 /**

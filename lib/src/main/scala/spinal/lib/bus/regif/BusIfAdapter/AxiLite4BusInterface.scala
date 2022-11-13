@@ -6,6 +6,12 @@ import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4B, AxiLite4R}
 import spinal.lib.bus.misc.SizeMapping
 
 case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf {
+  override val withstrb: Boolean = true
+  val wstrb: Bits = withstrb generate (Bits(strbWidth bit))
+  val wmask: Bits = withstrb generate (Bits(busDataWidth bit))
+  val wmaskn: Bits = withstrb generate (Bits(busDataWidth bit))
+  withstrb generate (wstrb := axiW.strb)
+  InitLogic()
   override def getModuleName = moduleName.name
 
   val readError = Bool()

@@ -17,11 +17,10 @@ trait BusIfBase extends Area{
   val writeData: Bits
   val readError: Bool
   val readSync: Boolean = true
-  val withstrb: Boolean = false
-  val wstrb: Bits = withstrb generate(Bits(strbWidth bit))
-
-  val wmask: Bits  = withstrb generate(Bits(busDataWidth bit))
-  val wmaskn: Bits = withstrb generate(Bits(busDataWidth bit))
+  val withstrb: Boolean
+  val wstrb: Bits  //= withstrb generate(Bits(strbWidth bit))
+  val wmask: Bits  //= withstrb generate(Bits(busDataWidth bit))
+  val wmaskn: Bits //= withstrb generate(Bits(busDataWidth bit))
 
   def readAddress(): UInt
   def writeAddress(): UInt
@@ -33,8 +32,18 @@ trait BusIfBase extends Area{
   def wordAddressInc: Int = busDataWidth / 8
   def strbWidth: Int = busDataWidth / 8
 
-  def mwdata(sec: Range): Bits = writeData(sec) & wmask(sec)
-  def newwdata(reg: BaseType, sec: Range, oper: String = "normal"):Bits = {
+  def mwdata(sec: Range): Bits = if(withstrb) writeData(sec) & wmask(sec) else writeData(sec)
+
+  def InitLogic() = {
+    if (withstrb) {
+      (0 until strbWidth).foreach { i =>
+        wmask ((i + 1) * 8 - 1 downto i * 8) := Mux(wstrb(i), B(0xFF, 8 bit), B(0, 8 bit))
+        wmaskn((i + 1) * 8 - 1 downto i * 8) := Mux(wstrb(i), B(0, 8 bit), B(0xFF, 8 bit))
+      }
+    }
+  }
+  def newwdata(reg: BaseType, sec: Range): Bits = newwdata(reg, sec, oper = "normal")
+  def newwdata(reg: BaseType, sec: Range, oper: String):Bits = {
     val wdata = oper match{
       case "clear" => B(0, sec.size bit)
       case "set"   => Bits(sec.size bit).clearAll()
@@ -51,8 +60,9 @@ trait BusIfBase extends Area{
       }
     } else wdata(sec)
   }
-  def mwdata(pos: Int): Bool = writeData(pos) & wmask(pos)
-  def newwdata(reg: Bool, pos: Int, oper: String = "normal"): Bool = {
+  def mwdata(pos: Int): Bool = if(withstrb) writeData(pos) & wmask(pos) else writeData(pos)
+  def newwdata(reg: Bool, pos: Int): Bool = newwdata(reg, pos, oper = "normal")
+  def newwdata(reg: Bool, pos: Int, oper: String): Bool = {
     val wdata = oper match {
       case "clear"  => False
       case "set"    => True

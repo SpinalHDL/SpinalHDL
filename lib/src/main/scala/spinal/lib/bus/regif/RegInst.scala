@@ -395,6 +395,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
 
   protected def _W1[T <: BaseType](reg: T, section: Range): T ={
     val hardRestFirstFlag = Reg(Bool()) init True
+    hardRestFirstFlag.setName(s"${reg.getName}_wlock_flag", weak = true)
     when(hitDoWrite && hardRestFirstFlag){
       reg.assignFromBits(busif.newwdata(reg, section))
       hardRestFirstFlag.clear()
@@ -405,6 +406,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def W1(bc: BitCount, section: Range, resetValue: Long): Bits ={
     val ret = Reg(Bits(bc)) init B(resetValue)
     val hardRestFirstFlag = Reg(Bool()) init True
+    hardRestFirstFlag.setName(s"wlock_flag", weak = true)
     when(hitDoWrite && hardRestFirstFlag){
       ret := busif.newwdata(ret, section)
       hardRestFirstFlag.clear()
@@ -437,7 +439,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def RC(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoRead){
-      busif.newwdata(ret, section, "clear")//ret.clearAll()
+      ret := busif.newwdata(ret, section, "clear")//ret.clearAll()
     }
     ret
   }
@@ -452,7 +454,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def RS(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoRead){
-      busif.newwdata(ret, section, "set")//ret.setAll()
+      ret := busif.newwdata(ret, section, "set")//ret.setAll()
     }
     ret
   }
@@ -471,7 +473,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       ret := busif.newwdata(ret, section)//busif.writeData(section)
     }.elsewhen(hitDoRead){
-      busif.newwdata(ret, section, "clear")//ret.clearAll()
+      ret := busif.newwdata(ret, section, "clear")//ret.clearAll()
     }
     ret
   }
@@ -490,7 +492,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       ret := busif.newwdata(ret, section)//busif.writeData(section)
     }.elsewhen(hitDoRead){
-      busif.newwdata(ret, section, "set")//ret.setAll()
+      ret := busif.newwdata(ret, section, "set")//ret.setAll()
     }
     ret
   }
@@ -505,7 +507,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def WC(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      busif.newwdata(ret, section, "clear")//ret.clearAll()
+      ret := busif.newwdata(ret, section, "clear")//ret.clearAll()
     }
     ret
   }
@@ -520,7 +522,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def WS(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      busif.newwdata(ret, section, "set")  //ret.setAll()
+      ret := busif.newwdata(ret, section, "set")  //ret.setAll()
     }
     ret
   }
@@ -537,9 +539,9 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def WSRC(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      busif.newwdata(ret, section, "set")  //ret.setAll()
+      ret := busif.newwdata(ret, section, "set")  //ret.setAll()
     }.elsewhen(hitDoRead){
-      busif.newwdata(ret, section, "clear")//ret.clearAll()
+      ret := busif.newwdata(ret, section, "clear")//ret.clearAll()
     }
     ret
   }
@@ -556,9 +558,9 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def WCRS(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      busif.newwdata(ret, section, "clear")//ret.clearAll()
+      ret := busif.newwdata(ret, section, "clear")//ret.clearAll()
     }.elsewhen(hitDoRead){
-      busif.newwdata(ret, section, "set")  //ret.setAll()
+      ret := busif.newwdata(ret, section, "set")  //ret.setAll()
     }
     ret
   }
@@ -572,12 +574,12 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
         }
         val x = i + section.min
         accType match {
-          case AccessType.W1C => when( busif.writeData(x)){busif.newwdata(regbit, x, "clear" )}//regbit.clear()   }
-          case AccessType.W1S => when( busif.writeData(x)){busif.newwdata(regbit, x, "set"   )}//regbit.set()     }
-          case AccessType.W1T => when( busif.writeData(x)){busif.newwdata(regbit, x, "toggle")}//regbit := ~regbit}
-          case AccessType.W0C => when(~busif.writeData(x)){busif.newwdata(regbit, x, "clear" )}//regbit.clear()   }
-          case AccessType.W0S => when(~busif.writeData(x)){busif.newwdata(regbit, x, "set"   )}//regbit.set()     }
-          case AccessType.W0T => when(~busif.writeData(x)){busif.newwdata(regbit, x, "toggle")}//regbit := ~regbit}
+          case AccessType.W1C => when( busif.mwdata(x)){regbit := busif.newwdata(regbit, x, "clear" )}//regbit.clear()   }
+          case AccessType.W1S => when( busif.mwdata(x)){regbit := busif.newwdata(regbit, x, "set"   )}//regbit.set()     }
+          case AccessType.W1T => when( busif.mwdata(x)){regbit := busif.newwdata(regbit, x, "toggle")}//regbit := ~regbit}
+          case AccessType.W0C => when(~busif.mwdata(x)){regbit := busif.newwdata(regbit, x, "clear" )}//regbit.clear()   }
+          case AccessType.W0S => when(~busif.mwdata(x)){regbit := busif.newwdata(regbit, x, "set"   )}//regbit.set()     }
+          case AccessType.W0T => when(~busif.mwdata(x)){regbit := busif.newwdata(regbit, x, "toggle")}//regbit := ~regbit}
           case _ =>
         }
       }
@@ -591,12 +593,12 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       for(x <- section) {
         val idx = x - section.min
         accType match {
-          case AccessType.W1C => when( busif.mwdata(x)){busif.newwdata(ret(idx), idx, "clear" )} //ret(idx).clear()
-          case AccessType.W1S => when( busif.mwdata(x)){busif.newwdata(ret(idx), idx, "set"   )}//ret(idx).set()  }
-          case AccessType.W1T => when( busif.mwdata(x)){busif.newwdata(ret(idx), idx, "toggle")}//ret(idx) := ~ret(idx)}
-          case AccessType.W0C => when(~busif.mwdata(x)){busif.newwdata(ret(idx), idx, "clear" )}//ret(idx).clear()}
-          case AccessType.W0S => when(~busif.mwdata(x)){busif.newwdata(ret(idx), idx, "set"   )}//ret(idx).set()  }
-          case AccessType.W0T => when(~busif.mwdata(x)){busif.newwdata(ret(idx), idx, "toggle")}//ret(idx) := ~ret(idx)}
+          case AccessType.W1C => when( busif.mwdata(x)){ret(idx) := busif.newwdata(ret(idx), idx, "clear" )} //ret(idx).clear()
+          case AccessType.W1S => when( busif.mwdata(x)){ret(idx) := busif.newwdata(ret(idx), idx, "set"   )}//ret(idx).set()  }
+          case AccessType.W1T => when( busif.mwdata(x)){ret(idx) := busif.newwdata(ret(idx), idx, "toggle")}//ret(idx) := ~ret(idx)}
+          case AccessType.W0C => when(~busif.mwdata(x)){ret(idx) := busif.newwdata(ret(idx), idx, "clear" )}//ret(idx).clear()}
+          case AccessType.W0S => when(~busif.mwdata(x)){ret(idx) := busif.newwdata(ret(idx), idx, "set"   )}//ret(idx).set()  }
+          case AccessType.W0T => when(~busif.mwdata(x)){ret(idx) := busif.newwdata(ret(idx), idx, "toggle")}//ret(idx) := ~ret(idx)}
           case _ =>
         }
       }
@@ -613,20 +615,20 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       val x = i + section.min
       accType match {
         case AccessType.W1SRC => {
-          when(hitDoWrite && busif.mwdata(x)) {busif.newwdata(regbit, x, "set" )  }//regbit.set()}
-            .elsewhen(hitDoRead)              {busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
+          when(hitDoWrite && busif.mwdata(x)) {regbit := busif.newwdata(regbit, x, "set" )  }//regbit.set()}
+            .elsewhen(hitDoRead)              {regbit := busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
         }
         case AccessType.W1CRS => {
-          when(hitDoWrite && busif.mwdata(x)) {busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
-            .elsewhen(hitDoRead)              {busif.newwdata(regbit, x, "set" )  }//regbit.set()}
+          when(hitDoWrite && busif.mwdata(x)) {regbit := busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
+            .elsewhen(hitDoRead)              {regbit := busif.newwdata(regbit, x, "set" )  }//regbit.set()}
         }
         case AccessType.W0SRC => {
-          when(hitDoWrite && ~busif.mwdata(x)){busif.newwdata(regbit, x, "set" )  }//regbit.set()}
-            .elsewhen(hitDoRead)              {busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
+          when(hitDoWrite && ~busif.mwdata(x)){regbit := busif.newwdata(regbit, x, "set" )  }//regbit.set()}
+            .elsewhen(hitDoRead)              {regbit := busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
         }
         case AccessType.W0CRS => {
-          when(hitDoWrite && ~busif.mwdata(x)){busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
-            .elsewhen(hitDoRead)              {busif.newwdata(regbit, x, "set" )  }//regbit.set()}
+          when(hitDoWrite && ~busif.mwdata(x)){regbit := busif.newwdata(regbit, x, "clear" )}//regbit.clear()}
+            .elsewhen(hitDoRead)              {regbit := busif.newwdata(regbit, x, "set" )  }//regbit.set()}
         }
         case _ =>
       }
@@ -641,20 +643,20 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       val idx = x - section.min
       accType match {
         case AccessType.W1SRC => {
-          when(hitDoWrite && busif.mwdata(x)) {busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
-            .elsewhen(hitDoRead)              {busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
+          when(hitDoWrite && busif.mwdata(x)) {ret(idx) := busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
+            .elsewhen(hitDoRead)              {ret(idx) := busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
         }
         case AccessType.W1CRS => {
-          when(hitDoWrite && busif.mwdata(x)) {busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
-            .elsewhen(hitDoRead)              {busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
+          when(hitDoWrite && busif.mwdata(x)) {ret(idx) := busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
+            .elsewhen(hitDoRead)              {ret(idx) := busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
         }
         case AccessType.W0SRC => {
-          when(hitDoWrite && ~busif.mwdata(x)){busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
-            .elsewhen(hitDoRead)              {busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
+          when(hitDoWrite && ~busif.mwdata(x)){ret(idx) := busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
+            .elsewhen(hitDoRead)              {ret(idx) := busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
         }
         case AccessType.W0CRS => {
-          when(hitDoWrite && ~busif.mwdata(x)){busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
-            .elsewhen(hitDoRead)              {busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
+          when(hitDoWrite && ~busif.mwdata(x)){ret(idx) := busif.newwdata(ret(idx), x, "clear" )}//ret(idx).clear()}
+            .elsewhen(hitDoRead)              {ret(idx) := busif.newwdata(ret(idx), x, "set" )  }//ret(idx).set()}
         }
         case _ =>
       }
