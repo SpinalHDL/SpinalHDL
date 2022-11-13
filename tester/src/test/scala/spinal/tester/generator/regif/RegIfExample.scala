@@ -1,12 +1,13 @@
-package spinal.tester.generator
+package spinal.tester.generator.regif
 
 import spinal.core._
-import spinal.lib.bus.amba3.apb._
-import spinal.lib.bus.regif.AccessType.{RW, W1P}
-import spinal.lib.bus.regif._
 import spinal.lib._
+import spinal.lib.bus.amba3.apb._
+import spinal.lib.bus.amba4.apb._
+import spinal.lib.bus.regif.AccessType._
+import spinal.lib.bus.regif._
 
-class RegIfExample0 extends Component {
+class RegIfExample extends Component {
   val io = new Bundle{
     val apb = slave(Apb3(Apb3Config(16,32)))
     val a, b, c, d, e = in Bool()
@@ -61,7 +62,8 @@ class RegIfExample0 extends Component {
 }
 
 object playregif extends App{
-  SpinalConfig()
+  val sp = SpinalConfig()
     .copy(targetDirectory = "./out/playregif")
-    .generateVerilog(new RegIfExample0)
+  sp.generateVerilog(new RegIfExample)
+  sp.generateVerilog(new RegIfACC30)
 }

@@ -145,14 +145,13 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
         reg
       }
     }
-    val signame = if(symbol.name.startsWith("<local ")){
-      SpinalWarning("an unload signal created; `val signame = field(....)` is recomended instead `field(....)`")
-      "unload"
-    } else {
-      symbol.name
-    }
-    if(acc != AccessType.ROV){
-      reg.setName(signame, weak = true)
+    (acc, symbol.name.startsWith("<local")) match {
+      case (`ROV`, _) =>
+      case (_, true)  =>{
+        SpinalWarning("an unload signal created; `val signame = field(....)` is recomended instead `field(....)`")
+        reg.setName("unload", weak = true)
+      }
+      case (_, false) =>reg.setName(symbol.name, weak = true)
     }
     registerInWithWriteLogic(reg, acc, resetValue, doc)
     reg
@@ -198,7 +197,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
 
   private def creatWriteLogic[T <: BaseType](reg: T, acc: AccessType, section: Range): Unit = {
     acc match {
-      case AccessType.RO|AccessType.NA =>
+      case AccessType.RO|AccessType.ROV|AccessType.NA =>
       case _ => if(!reg.isRegOnAssign){
         SpinalError(s"$reg need be a register, not wire, check please")
       }
