@@ -606,7 +606,7 @@ class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
   }
 
   def clearWhen(cond : Bool) : this.type = {
-    when(cond){counter.clear()}
+    when(cond){clear()}
     this
   }
 
