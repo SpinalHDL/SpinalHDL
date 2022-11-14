@@ -10,8 +10,6 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   val wstrb: Bits = withstrb generate (Bits(strbWidth bit))
   val wmask: Bits = withstrb generate (Bits(busDataWidth bit))
   val wmaskn: Bits = withstrb generate (Bits(busDataWidth bit))
-  withstrb generate (wstrb := axiW.strb)
-  InitLogic()
   override def getModuleName = moduleName.name
 
   val readError = Bool()
@@ -28,7 +26,10 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   val axiW  = bus.writeData.stage()
   val axiB  = Stream(AxiLite4B(bus.config))
   val axiBValid = Reg(Bool) init(False)
-  
+
+  withstrb generate (wstrb := axiW.strb)
+  InitLogic()
+
   axiAr.ready := !axiRValid || axiR.ready
   axiR.payload.setOKAY()
   axiR.valid := axiRValid
