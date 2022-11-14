@@ -1,8 +1,5 @@
 package spinal.demo.mandelbrot
 
-import net.liftweb.json.DefaultFormats
-import net.liftweb.json.Extraction._
-import net.liftweb.json.JsonAST._
 import spinal.core._
 import spinal.lib._
 
@@ -102,13 +99,4 @@ class   MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
 
   io.pixelResult << frameTaskSolver.io.pixelResult
 
-
-  implicit val formats = DefaultFormats
-  //++ LogicAnalyser.jsonSerDes
-  val json = decompose(MandelbrotJsonReport(p, p.uid.toString))
-  GlobalData.get.addJsonReport(prettyRender(json))
 }
-case class MandelbrotJsonReport(p : MandelbrotCoreParameters,
-                                uid : String,
-                                clazz : String = "uidPeripheral",
-                                kind : String = "mandelbrotCore")
