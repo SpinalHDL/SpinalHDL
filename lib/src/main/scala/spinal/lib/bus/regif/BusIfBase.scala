@@ -1,42 +1,30 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
+import spinal.lib.bus.amba3.ahblite.{AhbLite3, AhbLite3SlaveFactory}
 import spinal.lib.bus.amba3.apb._
-import spinal.lib.bus.misc.SizeMapping
-import language.experimental.macros
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4SlaveFactory}
+import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SlaveFactory}
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
+import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper, SizeMapping}
 
+import language.experimental.macros
 import scala.collection.mutable.ListBuffer
 
-trait BusIfBase extends Area{
-  val askWrite: Bool
-  val askRead: Bool
-  val doWrite: Bool
-  val doRead: Bool
-
-  val readData: Bits
-  val writeData: Bits
-  val readError: Bool
-  val readSync: Boolean = true
-
-  def readAddress(): UInt
-  def writeAddress(): UInt
-
-  def readHalt(): Unit
-  def writeHalt(): Unit
-
-  def busDataWidth: Int
-  def wordAddressInc: Int = busDataWidth / 8
-}
-
-trait BusIf extends BusIfBase {
+class BusIf(protected[regif] val factory: BusSlaveFactory, val regPre: String = null)(implicit moduleName: ClassName) extends Area {
   type B <: this.type
-  private val RegInsts = ListBuffer[RegInst]()
-  private var regPtr: BigInt = 0
+  private val mappedInsts = ListBuffer[MappedBase]()
+  private def nextInstAddr: BigInt = {
+    if (mappedInsts.nonEmpty) {
+      mappedInsts.last.getAddr() + mappedInsts.last.getSize()
+    } else 0
+  }
 
-  def getModuleName: String
-  val regPre: String
+  def getModuleName: String = moduleName.name
 
-  private def checkLastNA(): Unit = RegInsts.foreach(_.checkLast)
+  def busDataWidth = factory.busDataWidth
+  def wordAddressInc = factory.wordAddressInc
+
   private def regNameUpdate(): Unit = {
     val words = "\\w*".r
     val pre = regPre match{
@@ -44,38 +32,32 @@ trait BusIf extends BusIfBase {
       case words(_*) => regPre + "_"
       case _ => SpinalError(s"${regPre} should be Valid naming : '[A-Za-z0-9_]+'")
     }
-    RegInsts.foreach(t => t.setName(s"${pre}${t.getName()}"))
+    mappedInsts.foreach(t => t.setName(s"${pre}${t.getName()}"))
   }
 
   private var isChecked: Boolean = false
   def preCheck(): Unit = {
     if(!isChecked){
-      checkLastNA()
+//      checkLastNA()
       regNameUpdate()
       isChecked = true
     }
   }
 
-  component.addPrePopTask(() => {
-    readGenerator()
-  })
-
   def newRegAt(address: BigInt, doc: String)(implicit symbol: SymbolName) = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    assert(address >= regPtr, s"located Position conflict to Pre allocated Address: ${regPtr}")
-    regPtr = address + wordAddressInc
+    assert(address % factory.wordAddressInc == 0, s"located Position not align by wordAddressInc: ${factory.wordAddressInc}")
+    assert(address >= nextInstAddr, s"located Position conflict to Pre allocated Address: ${nextInstAddr}")
     creatReg(symbol.name, address, doc)
   }
 
   def newReg(doc: String)(implicit symbol: SymbolName) = {
-    val res = creatReg(symbol.name, regPtr, doc)
-    regPtr += wordAddressInc
+    val res = creatReg(symbol.name, nextInstAddr, doc)
     res
   }
 
   def creatReg(name: String, addr: BigInt, doc: String) = {
     val ret = new RegInst(name, addr, doc, this)
-    RegInsts += ret
+    mappedInsts += ret
     ret
   }
 
@@ -91,8 +73,7 @@ trait BusIf extends BusIfBase {
   }
 
   def FIFO(doc: String)(implicit symbol: SymbolName) = {
-    val  res = creatReg(symbol.name, regPtr, doc)
-    regPtr += wordAddressInc
+    val  res = creatReg(symbol.name, nextInstAddr, doc)
     res
   }
 
@@ -100,7 +81,7 @@ trait BusIf extends BusIfBase {
   def FactoryInterruptWithMask(regNamePre: String, triggers: Bool*): Bool = {
     triggers.size match {
       case 0 => SpinalError("There have no inputs Trigger signals")
-      case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
+      case x if x > factory.busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${factory.busDataWidth}")
       case _ =>
     }
     val ENS    = newReg("Interrupt Enable Register")(SymbolName(s"${regNamePre}_ENABLES"))
@@ -119,10 +100,10 @@ trait BusIf extends BusIfBase {
   /*
     interrupt with Raw/Force/Mask/Status 4 Register Interface
     **/
-  def interruptFactory(regNamePre: String, triggers: Bool*): Bool = interruptFactoryAt(regPtr, regNamePre, triggers:_*)
+  def interruptFactory(regNamePre: String, triggers: Bool*): Bool = interruptFactoryAt(nextInstAddr, regNamePre, triggers:_*)
   def interruptFactoryAt(addrOffset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     require(triggers.size > 0)
-    val groups = triggers.grouped(this.busDataWidth).toList
+    val groups = triggers.grouped(factory.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
       int_RFMS(addrOffset, namePre, trigs:_*)
@@ -135,10 +116,10 @@ trait BusIf extends BusIfBase {
   /*
     interrupt with Raw/Mask/Status 3 Register Interface
     **/
-  def interruptFactoryNoForce(regNamePre: String, triggers: Bool*): Bool = interruptFactoryNoForceAt(regPtr, regNamePre, triggers:_*)
+  def interruptFactoryNoForce(regNamePre: String, triggers: Bool*): Bool = interruptFactoryNoForceAt(nextInstAddr, regNamePre, triggers:_*)
   def interruptFactoryNoForceAt(addrOffset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     require(triggers.size > 0)
-    val groups = triggers.grouped(this.busDataWidth).toList
+    val groups = triggers.grouped(factory.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
       int_RMS(addrOffset, namePre, trigs:_*)
@@ -152,10 +133,10 @@ trait BusIf extends BusIfBase {
     interrupt with Mask/Status 2 Register Interface
     always used for sys_level_int merge
     **/
-  def interruptLevelFactory(regNamePre: String, levels: Bool*): Bool = interruptLevelFactoryAt(regPtr, regNamePre, levels:_*)
+  def interruptLevelFactory(regNamePre: String, levels: Bool*): Bool = interruptLevelFactoryAt(nextInstAddr, regNamePre, levels:_*)
   def interruptLevelFactoryAt(addrOffset: BigInt, regNamePre: String, levels: Bool*): Bool = {
     require(levels.size > 0)
-    val groups = levels.grouped(this.busDataWidth).toList
+    val groups = levels.grouped(factory.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
       int_MS(addrOffset, namePre, trigs:_*)
@@ -170,7 +151,7 @@ trait BusIf extends BusIfBase {
   **/
   protected def int_RFMS(offset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
-    require(triggers.size <= this.busDataWidth )
+    require(triggers.size <= factory.busDataWidth )
     val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
     val FORCE  = this.newReg("Interrupt Force  Register\n for SW debug use")(SymbolName(s"${regNamePre_}INT_FORCE"))
     val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))
@@ -194,7 +175,7 @@ trait BusIf extends BusIfBase {
     * */
   protected def int_RMS(offset: BigInt,regNamePre: String, triggers: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
-    require(triggers.size <= this.busDataWidth )
+    require(triggers.size <= factory.busDataWidth )
     val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
     val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))
     val STATUS = this.newReg("Interrupt status Register\n  status = raw && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
@@ -216,7 +197,7 @@ trait BusIf extends BusIfBase {
     * */
   protected def int_MS(offset: BigInt, regNamePre: String, int_levels: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
-    require(int_levels.size <= this.busDataWidth )
+    require(int_levels.size <= factory.busDataWidth )
     val MASK   = this.newRegAt(offset, "Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))
     val STATUS = this.newReg("Interrupt status Register\n status = int_level && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = int_levels.map{ level =>
@@ -233,55 +214,12 @@ trait BusIf extends BusIfBase {
   def accept(vs : BusIfVisitor) = {
     preCheck()
 
-    vs.begin(busDataWidth)
+    vs.begin(factory.busDataWidth)
 
-    for(reg <- RegInsts) {
+    for(reg <- mappedInsts) {
       reg.accept(vs)
     }
 
     vs.end()
-  }
-
-  private def readGenerator() = {
-    if(readSync){
-      when(askRead){
-        switch (readAddress()) {
-          RegInsts.foreach{(reg: RegInst) =>
-            is(reg.addr){
-              if(!reg.allIsNA){
-                readData  := reg.readBits
-                readError := Bool(reg.readErrorTag)
-              }
-            }
-          }
-          default{
-            readData  := 0
-            readError := True
-          }
-        }
-      }
-      readError.clearWhen(askWrite)
-    } else {
-      when(askRead){
-        switch (readAddress()) {
-          RegInsts.foreach{(reg: RegInst) =>
-            is(reg.addr){
-              if(!reg.allIsNA){
-                readData  := reg.readBits
-                readError := Bool(reg.readErrorTag)
-              }
-            }
-          }
-          default{
-            readData  := 0
-            readError := True
-          }
-        }
-      }.otherwise{
-        readData  := 0
-        readError := False
-      }
-    }
-    //wo not add error-response for write-operation for the reason of save area of mux
   }
 }

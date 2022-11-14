@@ -4,7 +4,7 @@ import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba3.ahblite.AhbLite3
 import spinal.lib.bus.amba4.axi.Axi4
 import spinal.lib.bus.amba4.axilite.AxiLite4
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper, SizeMapping}
 import spinal.lib.bus.wishbone.Wishbone
 
 object BusInterface {
@@ -22,4 +22,11 @@ object BusInterface {
 
   def apply(bus: AxiLite4, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap)(moduleName)
   def apply(bus: AxiLite4, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap, regPre)(moduleName)
+
+  def apply(factory: BusSlaveFactory, mapping: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, mapping.base), regPre = regPre)(moduleName)
+  def apply(factory: BusSlaveFactory, mapping: SizeMapping)(implicit moduleName: ClassName): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, mapping.base), regPre = null)(moduleName)
+  def apply(factory: BusSlaveFactory, addr: BigInt, regPre: String)(implicit moduleName: ClassName): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, addr), regPre = regPre)(moduleName)
+  def apply(factory: BusSlaveFactory, addr: BigInt)(implicit moduleName: ClassName): BusIf = BusInterface(new BusSlaveFactoryAddressWrapper(factory, addr), regPre = null)(moduleName)
+  def apply(factory: BusSlaveFactory, regPre: String)(implicit moduleName: ClassName): BusIf = new BusIf(factory, regPre = regPre)(moduleName)
+  def apply(factory: BusSlaveFactory)(implicit moduleName: ClassName): BusIf = new BusIf(factory, regPre = null)(moduleName)
 }

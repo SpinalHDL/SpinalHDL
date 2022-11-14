@@ -47,6 +47,9 @@ class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends Bu
   override def readHalt() = bus.ACK := False
   override def writeHalt() = bus.ACK := False
 
+  override def readFire(): Bool = doRead
+  override def writeFire(): Bool = doWrite
+
   override def busDataWidth = bus.config.dataWidth
   override def wordAddressInc = busDataWidth / 8
   override def writeByteEnable() = bus.SEL

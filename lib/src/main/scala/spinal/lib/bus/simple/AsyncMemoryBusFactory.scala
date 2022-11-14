@@ -35,14 +35,18 @@ class AsyncMemoryBusFactory(bus: AsyncMemoryBus, incAddress: Int = 0) extends Bu
   override def busDataWidth: Int   = bus.writeData.getWidth
   override def wordAddressInc: Int = if(incAddress == 0) super.wordAddressInc else incAddress
 
+  val askWrite = (bus.valid & !bus.rwn).allowPruning()
+  val doWrite = (bus.valid & !bus.rwn & bus.ready).allowPruning()
+  val askRead = (bus.valid & bus.rwn).allowPruning()
+  val doRead = (bus.valid & bus.rwn & bus.ready).allowPruning()
+
+  override def readFire(): Bool = doRead
+  override def writeFire(): Bool = doWrite
+
   def build(): Unit = {
 
     super.doNonStopWrite(bus.writeData)
     
-    val askWrite = (bus.valid & !bus.rwn).allowPruning()
-    val doWrite  = (bus.valid & !bus.rwn & bus.ready).allowPruning()
-    val askRead  = (bus.valid & bus.rwn).allowPruning()
-    val doRead   = (bus.valid & bus.rwn & bus.ready).allowPruning()
 
     bus.readData := 0
     bus.ready := True

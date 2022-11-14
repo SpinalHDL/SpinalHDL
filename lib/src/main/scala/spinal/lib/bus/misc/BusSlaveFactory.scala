@@ -1007,6 +1007,8 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: BigInt) e
   override def onReadPrimitive(address: AddressMapping, haltSensitive: Boolean, documentation: String)(doThat: => Unit): Unit = f.onReadPrimitive(address.applyOffset(addressOffset), haltSensitive, documentation)(doThat)
   override def readHalt(): Unit = f.readHalt()
   override def writeHalt(): Unit = f.writeHalt()
+  override def readFire(): Bool = f.readFire()
+  override def writeFire(): Bool = f.writeFire()
   override def readAddress(): UInt = f.readAddress()  - addressOffset
   override def writeAddress(): UInt = f.writeAddress() - addressOffset
 }

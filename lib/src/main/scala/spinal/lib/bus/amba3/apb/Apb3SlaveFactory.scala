@@ -51,6 +51,9 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int, dontCareReadData : Boolean = false
   override def readHalt()  = bus.PREADY := False
   override def writeHalt() = bus.PREADY := False
 
+  override def readFire(): Bool = doRead
+  override def writeFire(): Bool = doWrite
+
   override def busDataWidth   = bus.config.dataWidth
   override def wordAddressInc = busDataWidth / 8
 

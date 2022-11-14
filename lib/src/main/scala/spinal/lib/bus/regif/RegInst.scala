@@ -1,10 +1,12 @@
 package spinal.lib.bus.regif
 
-import spinal.core._
-import spinal.lib.bus.misc.SizeMapping
+import spinal.core.{Bits, _}
+import spinal.lib.bus.misc.{AddressMapping, SingleMapping, SizeMapping}
+import spinal.lib.{Flow, Stream}
 
 import scala.collection.mutable.ListBuffer
 import AccessType._
+import spinal.lib.bus.bram.BRAM
 
 class Section(val max: Int, val min: Int){
   override def toString(): String = {
@@ -21,8 +23,46 @@ object Section{
   implicit def tans(x: Range) : Section = Section(x)
 }
 
+abstract class MappedBase(name: String, mapping: SizeMapping, doc: String, busif: BusIf) extends MemoryMappedDescriptor {
+  protected var _name = name
 
-case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf) extends RamDescr {
+  def getName(): String = _name
+
+  def getAddr(): BigInt = mapping.base
+
+  def getSize(): BigInt = mapping.size
+
+  def getDoc(): String = doc
+
+  def setName(name: String): MappedBase = {
+    _name = name
+    this
+  }
+
+  protected val hitRead: Bool = mapping.hit(busif.factory.readAddress())
+  hitRead.setName(f"read_addr_decode_0x${mapping.lowerBound}%04x", weak = true).allowPruning()
+  protected val hitDoRead: Bool = hitRead && busif.factory.readFire()
+  hitDoRead.setName(f"read_fire_0x${mapping.lowerBound}%04x", weak = true).allowPruning()
+
+  protected val hitWrite: Bool = mapping.hit(busif.factory.writeAddress())
+  hitWrite.setName(f"write_addr_decode_0x${mapping.lowerBound}%04x", weak = true).allowPruning()
+  protected val hitDoWrite: Bool = hitWrite && busif.factory.writeFire()
+  hitDoWrite.setName(f"write_hit_0x${mapping.lowerBound}%04x", weak = true).allowPruning()
+
+  def eventR(): Bool = {
+    val event = Reg(Bool) init (False)
+    event := hitDoRead
+    event
+  }
+
+  def eventW(): Bool = {
+    val event = Reg(Bool) init (False)
+    event := hitDoWrite
+    event
+  }
+}
+
+case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf) extends MappedBase(name,sizeMap, doc, busif) with RamDescr {
   private var Rerror: Boolean = false
   def readErrorTag = Rerror
 
@@ -33,51 +73,12 @@ case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf
     }
     hit
   }
-
-  val hitRead  = hitRange(busif.readAddress)
-  val hitWrite = hitRange(busif.writeAddress)
-  val hitDoRead  = hitRead && busif.doRead
-  val hitDoWrite = hitWrite && busif.doWrite
-
-  // RamDescr implementation
-  def getName()        : String = name
-  def getDoc()         : String = doc
-  def getAddr()        : BigInt = sizeMap.base
-  def getSize()        : BigInt = sizeMap.size
-
 }
 
-class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) with FifoDescr {
-
-  // FifoDescr implementation
-  def getAddr()        : BigInt = addr
-  def getSize()        : BigInt = busif.wordAddressInc
-  def getDoc()         : String = doc
-  def setName(name: String): FIFOInst = {
-    _name = name
-    this
-  }
+class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends MappedBase(name,SizeMapping(addr, busif.wordAddressInc),doc,busif) with FifoDescr {
 }
 
 case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
-  def setName(name: String): RegInst = {
-    _name = name
-    this
-  }
-
-  def checkLast={
-    val spareNumbers = if(fields.isEmpty) busif.busDataWidth else busif.busDataWidth-1 - fields.last.tailBitPos
-    spareNumbers match {
-      case x if x > 0 => field(x bits, AccessType.NA)(SymbolName("reserved"))
-      case x if x < 0 => SpinalError(s"Range ${Section(fields.last.section)} exceed Bus width ${busif.busDataWidth}")
-      case _ =>
-    }
-  }
-
-  def allIsNA: Boolean = {
-    checkLast
-    fields.map(_.accType == AccessType.NA).foldLeft(true)(_&&_)
-  }
 
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue = 0, doc = "")
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue = 0, doc = doc)
@@ -153,6 +154,19 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     reg
   }
 
+  private def createReadErrorLogic(): Unit = {
+    new Area {
+      val hold = RegInit(False)
+      val flag = hitDoRead || hold
+      when(flag) {
+        busif.factory.readError()
+        hold.set()
+      } elsewhen(hitDoWrite) {
+        hold.clear()
+      }
+    }.setName("readError")
+  }
+
   private def creatWriteLogic[T <: BaseType](reg: T, acc: AccessType, section: Range): Unit = {
     acc match {
       case AccessType.RO|AccessType.NA =>
@@ -160,8 +174,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
         SpinalError(s"$reg need be a register, not wire, check please")
       }
     }
+    val preRError = Rerror
     acc match {
-      case AccessType.RO    => _RO(reg)           //- W: no effect, R: no effect
+      case AccessType.RO    => _RO(reg, section)  //- W: no effect, R: no effect
       case AccessType.RW    => _W( reg, section)  //- W: as-is, R: no effect
       case AccessType.RC    => _RC(reg)           //- W: no effect, R: clears all bits
       case AccessType.RS    => _RS(reg)           //- W: no effect, R: sets all bits
@@ -189,6 +204,10 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.NA    => NA(reg.getBitsWidth bit)            // -W: reserved, R: reserved
       case AccessType.W1P   => _WBP(reg, section, AccessType.W1P)  //- W: 1/0 pulse/no effect on matching bit, R: no effect
       case AccessType.W0P   => _WBP(reg, section, AccessType.W0P)  //- W: 0/1 pulse/no effect on matching bit, R: no effect
+    }
+    // Generate error read error
+    if (Rerror && !preRError) {
+      createReadErrorLogic()
     }
   }
 
@@ -237,8 +256,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
   def field(bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
     val section: Range = fieldPtr+bc.value-1 downto fieldPtr
+    val preRError = Rerror
     val ret: Bits = acc match {
-      case AccessType.RO    => RO(bc)                       //- W: no effect, R: no effect
+      case AccessType.RO    => RO(bc, section)              //- W: no effect, R: no effect
       case AccessType.RW    => W( bc, section, resetValue)  //- W: as-is, R: no effect
       case AccessType.RC    => RC(bc, resetValue)           //- W: no effect, R: clears all bits
       case AccessType.RS    => RS(bc, resetValue)           //- W: no effect, R: sets all bits
@@ -267,6 +287,11 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.W1P   => WBP(section, resetValue, AccessType.W1P )  //- W: 1/0 pulse/no effect on matching bit, R: no effect
       case AccessType.W0P   => WBP(section, resetValue, AccessType.W0P )  //- W: 0/1 pulse/no effect on matching bit, R: no effect
     }
+    // Generate error read error
+    if (Rerror && !preRError) {
+      createReadErrorLogic()
+    }
+
     val newdoc = if(doc.isEmpty && acc == AccessType.NA) "Reserved" else doc
     val signame = if(symbol.name.startsWith("<local ")){
       SpinalWarning("an unload signal created; `val signame = field(....)` is recomended instead `field(....)`")
@@ -285,12 +310,10 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   }
 
   // RegDescr implementation
-  def getAddr()        : BigInt           = addr
-  def getSize()        : BigInt           = busif.wordAddressInc
-  def getDoc()         : String           = doc
   def getFieldDescrs() : List[FieldDescr] = getFields
 
   override def accept(vs : BusIfVisitor) = {
+    insertLastNA()
     duplicateRenaming()
     vs.visit(this)
   }
@@ -314,175 +337,134 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     fields.clear()
     fields ++= ret
   }
+
+  protected def insertLastNA(): Unit = {
+    if (fields.isEmpty)
+      fields += Field("--", null, 0 until busif.busDataWidth, AccessType.NA, 0, false, "Reserved")
+    else if (fields.last.section.high != busif.busDataWidth-1)
+      fields += Field("--", null, fields.last.section.high+1 until busif.busDataWidth, AccessType.NA, 0, false, "Reserved")
+  }
 }
 
-abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
-  protected var _name = name
+
+abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) extends MappedBase(name, SizeMapping(addr, busif.wordAddressInc), doc, busif) {
   protected val fields = ListBuffer[Field]()
   protected var fieldPtr: Int = 0
   protected var Rerror: Boolean = false
 
-  def getName(): String = _name
-  def setName(name: String): RegBase
-
   def readErrorTag = Rerror
   def getFields = fields.toList
 
-  val hitDoRead  = busif.readAddress === U(addr) && busif.doRead
-  hitDoRead.setName(f"read_hit_0x${addr}%04x", weak = true)
-  val hitDoWrite = busif.writeAddress === U(addr) && busif.doWrite
-  hitDoWrite.setName(f"write_hit_0x${addr}%04x", weak = true)
+  protected def _RO[T <: BaseType](reg: T, section: Range): T = busif.factory.read(reg, addr, section.low)
 
-  def readBits: Bits = {
-    fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
-  }
-
-  def eventR() : Bool = {
-    val event = Reg(Bool) init(False)
-    event := hitDoRead
-    event
-  }
-
-  def eventW() : Bool = {
-    val event = Reg(Bool) init(False)
-    event := hitDoWrite
-    event
-  }
-
-  protected def _RO[T <: BaseType](reg: T): T = reg
-
-  protected def RO(bc: BitCount): Bits = Bits(bc)
+  protected def RO(bc: BitCount, section: Range): Bits = _RO(Bits(bc), section)
 
   protected def _W1[T <: BaseType](reg: T, section: Range): T ={
-    val hardRestFirstFlag = Reg(Bool()) init True
-    when(hitDoWrite && hardRestFirstFlag){
-      reg.assignFromBits(busif.writeData(section))
-      hardRestFirstFlag.clear()
+    val hardResetFirstFlag = Reg(Bool()) init True
+    val writeData = busif.factory.nonStopWrite(Bits(reg.getBitsWidth bit), section.low)
+    when(hitDoWrite && hardResetFirstFlag){
+      reg.assignFromBits(writeData)
+      hardResetFirstFlag.clear()
     }
-    reg
+    busif.factory.read(reg, addr, section.low)
   }
 
   protected def W1(bc: BitCount, section: Range, resetValue: Long): Bits ={
     val ret = Reg(Bits(bc)) init B(resetValue)
-    val hardRestFirstFlag = Reg(Bool()) init True
-    when(hitDoWrite && hardRestFirstFlag){
-      ret := busif.writeData(section)
-      hardRestFirstFlag.clear()
-    }
-    ret
+    _W1(ret, section)
   }
 
   protected def _W[T <: BaseType](reg: T, section: Range): T ={
-    when(hitDoWrite){
-      reg.assignFromBits(busif.writeData(section))
-    }
-    reg
+    busif.factory.write(reg, addr, section.low)
+    busif.factory.read(reg, addr, section.low)
   }
 
   protected def W(bc: BitCount, section: Range, resetValue: Long ): Bits ={
     val ret = Reg(Bits(bc)) init B(resetValue)
-    when(hitDoWrite){
-      ret := busif.writeData(section)
-    }
-    ret
+    _W(ret, section)
+  }
+
+  protected def _WO[T <: BaseType](reg: T, section: Range): T = {
+    busif.factory.write(reg, addr, section.low)
+
   }
 
   protected def _RC[T <: BaseType](reg: T): T = {
     when(hitDoRead){
       reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())
     }
-    reg
+    busif.factory.read(reg, addr)
   }
 
   protected def RC(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
-    when(hitDoRead){
-      ret.clearAll()
-    }
-    ret
+    _RC(ret)
   }
 
   protected def _RS[T <: BaseType](reg: T): T = {
     when(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll)
+      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll())
     }
-    reg
+    busif.factory.read(reg, addr)
   }
 
   protected def RS(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
-    when(hitDoRead){
-      ret.setAll()
-    }
-    ret
+    _RS(ret)
   }
 
   protected def _WRC[T <: BaseType](reg: T, section: Range): T = {
+    val writeData = busif.factory.nonStopWrite(Bits(reg.getBitsWidth bit), section.low)
     when(hitDoWrite){
-      reg.assignFromBits(busif.writeData(section))
+      reg.assignFromBits(writeData)
     }.elsewhen(hitDoRead){
       reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())
     }
-    reg
+    busif.factory.read(reg, addr, section.low)
   }
 
   protected def WRC(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
-    when(hitDoWrite){
-      ret := busif.writeData(section)
-    }.elsewhen(hitDoRead){
-      ret.clearAll()
-    }
-    ret
+    _WRC(ret, section)
   }
 
   protected def _WRS[T <: BaseType](reg: T, section: Range): T = {
+    val writeData = busif.factory.nonStopWrite(Bits(reg.getBitsWidth bit), section.low)
     when(hitDoWrite){
-      reg.assignFromBits(busif.writeData(section))
+      reg.assignFromBits(writeData)
     }.elsewhen(hitDoRead){
       reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll())
     }
-    reg
+    busif.factory.read(reg, addr, section.low)
   }
 
   protected def WRS(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
-    when(hitDoWrite){
-      ret := busif.writeData(section)
-    }.elsewhen(hitDoRead){
-      ret.setAll()
-    }
-    ret
+    _WRS(ret, section)
   }
 
   protected def _WC[T <: BaseType](reg: T): T = {
     when(hitDoWrite){
       reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())
     }
-    reg
+    busif.factory.read(reg, addr)
   }
 
   protected def WC(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
-    when(hitDoWrite){
-      ret.clearAll()
-    }
-    ret
+    _WC(ret)
   }
 
   protected def _WS[T <: BaseType](reg: T): T = {
     when(hitDoWrite){
       reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll())
     }
-    reg
+    busif.factory.read(reg, addr)
   }
 
   protected def WS(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
-    when(hitDoWrite){
-      ret.setAll()
-    }
-    ret
+    _WS(ret)
   }
 
   protected def _WSRC[T <: BaseType](reg: T): T = {
@@ -491,17 +473,12 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     }.elsewhen(hitDoRead){
       reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())
     }
-    reg
+    busif.factory.read(reg, addr)
   }
 
   protected def WSRC(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
-    when(hitDoWrite){
-      ret.setAll()
-    }.elsewhen(hitDoRead){
-      ret.clearAll()
-    }
-    ret
+    _WSRC(ret)
   }
 
   protected def _WCRS[T <: BaseType](reg: T): T = {
@@ -510,61 +487,43 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     }.elsewhen(hitDoRead){
       reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll())
     }
-    reg
+    busif.factory.read(reg, addr)
   }
 
   protected def WCRS(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
-    when(hitDoWrite){
-      ret.clearAll()
-    }.elsewhen(hitDoRead){
-      ret.setAll()
-    }
-    ret
+    _WCRS(ret)
   }
 
   protected def _WB[T <: BaseType](reg: T, section: Range, accType: AccessType): T = {
+    val writeData = busif.factory.nonStopWrite(Bits(reg.getBitsWidth bit), section.low)
     when(hitDoWrite){
       section.reverse.map(_ - section.min).foreach{ i =>
         val regbit = reg match {
           case t: Bool => require(section.size == 1); t
           case t: BitVector => t(i)
         }
-        val x = i + section.min
         accType match {
-          case AccessType.W1C => when( busif.writeData(x)){regbit.clear()   }
-          case AccessType.W1S => when( busif.writeData(x)){regbit.set()     }
-          case AccessType.W1T => when( busif.writeData(x)){regbit := ~regbit}
-          case AccessType.W0C => when(~busif.writeData(x)){regbit.clear()   }
-          case AccessType.W0S => when(~busif.writeData(x)){regbit.set()     }
-          case AccessType.W0T => when(~busif.writeData(x)){regbit := ~regbit}
+          case AccessType.W1C => when( writeData(i)){regbit.clear()   }
+          case AccessType.W1S => when( writeData(i)){regbit.set()     }
+          case AccessType.W1T => when( writeData(i)){regbit := ~regbit}
+          case AccessType.W0C => when(~writeData(i)){regbit.clear()   }
+          case AccessType.W0S => when(~writeData(i)){regbit.set()     }
+          case AccessType.W0T => when(~writeData(i)){regbit := ~regbit}
           case _ =>
         }
       }
     }
-    reg
+    busif.factory.read(reg, addr, section.low)
   }
 
   protected def WB(section: Range, resetValue: Long, accType: AccessType): Bits = {
     val ret = Reg(Bits(section.size bits)) init B(resetValue)
-    when(hitDoWrite){
-      for(x <- section) {
-        val idx = x - section.min
-        accType match {
-          case AccessType.W1C => when( busif.writeData(x)){ret(idx).clear()}
-          case AccessType.W1S => when( busif.writeData(x)){ret(idx).set()  }
-          case AccessType.W1T => when( busif.writeData(x)){ret(idx) := ~ret(idx)}
-          case AccessType.W0C => when(~busif.writeData(x)){ret(idx).clear()}
-          case AccessType.W0S => when(~busif.writeData(x)){ret(idx).set()  }
-          case AccessType.W0T => when(~busif.writeData(x)){ret(idx) := ~ret(idx)}
-          case _ =>
-        }
-      }
-    }
-    ret
+    _WB(ret, section, accType)
   }
 
   protected def _WBR[T <: BaseType](reg: T, section: Range, accType: AccessType): T ={
+    val writeData = busif.factory.nonStopWrite(Bits(reg.getBitsWidth bit), section.low)
     section.reverse.map(_ - section.min).foreach { i =>
       val regbit = reg match {
         case t: Bool => require(section.size == 1); t
@@ -573,56 +532,35 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       val x = i + section.min
       accType match {
         case AccessType.W1SRC => {
-          when(hitDoWrite && busif.writeData(x)) {regbit.set()}
-            .elsewhen(hitDoRead)                 {regbit.clear()}
+          when(hitDoWrite && writeData(x)) {regbit.set()}
+            .elsewhen(hitDoRead)           {regbit.clear()}
         }
         case AccessType.W1CRS => {
-          when(hitDoWrite && busif.writeData(x)) {regbit.clear()}
-            .elsewhen(hitDoRead)                 {regbit.set()}
+          when(hitDoWrite && writeData(x)) {regbit.clear()}
+            .elsewhen(hitDoRead)           {regbit.set()}
         }
         case AccessType.W0SRC => {
-          when(hitDoWrite && ~busif.writeData(x)){regbit.set()}
-            .elsewhen(hitDoRead)                 {regbit.clear()}
+          when(hitDoWrite && ~writeData(x)){regbit.set()}
+            .elsewhen(hitDoRead)           {regbit.clear()}
         }
         case AccessType.W0CRS => {
-          when(hitDoWrite && ~busif.writeData(x)){regbit.clear()}
-            .elsewhen(hitDoRead)                 {regbit.set()}
+          when(hitDoWrite && ~writeData(x)){regbit.clear()}
+            .elsewhen(hitDoRead)           {regbit.set()}
         }
         case _ =>
       }
       reg
     }
-    reg
+    busif.factory.read(reg, addr, section.low)
   }
 
   protected def WBR(section: Range, resetValue: Long, accType: AccessType): Bits ={
     val ret = Reg(Bits(section.size bits)) init B(resetValue)
-    for(x <- section) {
-      val idx = x - section.min
-      accType match {
-        case AccessType.W1SRC => {
-          when(hitDoWrite && busif.writeData(x)) {ret(idx).set()}
-            .elsewhen(hitDoRead)                 {ret(idx).clear()}
-        }
-        case AccessType.W1CRS => {
-          when(hitDoWrite && busif.writeData(x)) {ret(idx).clear()}
-            .elsewhen(hitDoRead)                 {ret(idx).set()}
-        }
-        case AccessType.W0SRC => {
-          when(hitDoWrite && ~busif.writeData(x)){ret(idx).set()}
-            .elsewhen(hitDoRead)                 {ret(idx).clear()}
-        }
-        case AccessType.W0CRS => {
-          when(hitDoWrite && ~busif.writeData(x)){ret(idx).clear()}
-            .elsewhen(hitDoRead)                 {ret(idx).set()}
-        }
-        case _ =>
-      }
-    }
-    ret
+    _WBR(ret, section, accType)
   }
 
   protected def _WBP[T <: BaseType](reg: T, section: Range, accType: AccessType): T ={
+    val writeData = busif.factory.nonStopWrite(Bits(reg.getBitsWidth bit), section.low)
     section.reverse.map(_ - section.min).foreach { i =>
       val regbit = reg match {
         case t: Bool => require(section.size == 1); t
@@ -631,35 +569,22 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       val x = i + section.min
       accType match {
         case AccessType.W1P => {
-          when(hitDoWrite &&  busif.writeData(x)){regbit := ~regbit}
+          when(hitDoWrite &&  writeData(x)){regbit := ~regbit}
             .otherwise{regbit := False}
         }
         case AccessType.W0P => {
-          when(hitDoWrite && ~busif.writeData(x)){regbit := ~regbit}
+          when(hitDoWrite && ~writeData(x)){regbit := ~regbit}
             .otherwise{regbit := False}
         }
       }
     }
-    reg
+    busif.factory.read(reg, addr, section.low)
   }
 
   protected def WBP(section: Range, resetValue: Long, accType: AccessType): Bits ={
     val resetValues = B(resetValue)
     val ret = Reg(Bits(section.size bits)) init resetValues
-    for(x <- section) {
-      val idx = x - section.min
-      accType match {
-        case AccessType.W1P => {
-          when(hitDoWrite &&  busif.writeData(x)){ret(idx) := ~ret(idx)}
-            .otherwise{ret(idx) := False}
-        }
-        case AccessType.W0P => {
-          when(hitDoWrite && ~busif.writeData(x)){ret(idx) := ~ret(idx)}
-            .otherwise{ret(idx) := resetValues(idx)}
-        }
-      }
-    }
-    ret
+    _WBP(ret, section, accType)
   }
 
   protected def NA(bc: BitCount): Bits = {
