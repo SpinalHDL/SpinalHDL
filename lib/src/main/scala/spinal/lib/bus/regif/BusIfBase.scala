@@ -66,6 +66,7 @@ trait BusIfBase extends Area{
             case t: Bits => (t        & wmaskn(sec))
             case t: UInt => (t.asBits & wmaskn(sec))
             case t: SInt => (t.asBits & wmaskn(sec))
+            case t: Bool => (t.asBits & wmaskn(sec))
             case _       => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
           }
         } else B(0, sec.size bit)
@@ -75,6 +76,7 @@ trait BusIfBase extends Area{
             case t: Bits => (t        & wmaskn(sec)) | wmask(sec)
             case t: UInt => (t.asBits & wmaskn(sec)) | wmask(sec)
             case t: SInt => (t.asBits & wmaskn(sec)) | wmask(sec)
+            case t: Bool => (t.asBits & wmaskn(sec)) | wmask(sec)
             case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
           }
         }else Bits(sec.size bit).setAll()
@@ -84,15 +86,17 @@ trait BusIfBase extends Area{
             case t: Bits => (t        & wmaskn(sec)) | (writeData(sec) & wmask(sec))
             case t: UInt => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
             case t: SInt => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
+            case t: Bool => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
             case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
           }
         } else writeData(sec)
       case "toggle" =>
         if(withstrb){
           reg match {
-            case t: Bits => (t & wmaskn(sec))        | (~t(sec)        & wmask(sec))
+            case t: Bits => (t        & wmaskn(sec)) | (~t(sec)        & wmask(sec))
             case t: UInt => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
             case t: SInt => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
+            case t: Bool => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
             case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
           }
         } else ~reg.asBits(sec)

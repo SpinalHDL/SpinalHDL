@@ -16,7 +16,6 @@ case class Apb4Config(addressWidth  : Int,
 object Apb4{
   def apply(addressWidth: Int, dataWidth: Int) = new Apb4(Apb4Config(addressWidth = addressWidth, dataWidth = dataWidth))
   def apply(c: Apb3Config): Apb4 = new Apb4(Apb4Config(c.addressWidth, c.dataWidth, c.selWidth, false, c.useSlaveError))
-  def apply(c: Apb4Config): Apb4 = new Apb4(c)
 }
 
 /**
