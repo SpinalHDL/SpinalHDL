@@ -3,6 +3,7 @@ package spinal.lib.bus.regif
 import spinal.core.GlobalData
 import spinal.lib.bus.regif._
 import java.io.PrintWriter
+import spinal.lib._
 
 final case class HtmlGenerator(fileName : String, title : String) extends BusIfVisitor {
     val sb : StringBuilder = new StringBuilder("")
@@ -44,7 +45,7 @@ final case class HtmlGenerator(fileName : String, title : String) extends BusIfV
         val fieldsNumbers = descr.getFieldDescrs.size
         sb ++=
           s"""          <tr class="reg" align="left">
-             |            <td align="center" rowspan="${fieldsNumbers}">0x${descr.getAddr.toString(16).toUpperCase}</td>
+             |            <td align="center" rowspan="${fieldsNumbers}">0x${descr.getAddr.hexString(16).toUpperCase}</td>
              |            <td align="left" rowspan="${fieldsNumbers}">${(descr.getName).toUpperCase()}</td>
              |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${descr.getDoc} </td>
              |            <td align="center" rowspan="${fieldsNumbers}">${dataWidth}</td>
