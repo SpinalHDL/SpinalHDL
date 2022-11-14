@@ -47,11 +47,8 @@ first.
 | `build.sbt`       | Build file for `sbt`                        |
 | `CONTRIBUTING.md` | Contributor guide                           |
 | `core/`           | Things imported with `import spinal.core._` |
-| `debugger/`       | ???                                         |
-| `demo/`           | ???                                         |
-| `Dockerfile`      | ???                                         |
-| `idslpayload/`    | ???                                         |
-| `idslplugin/`     | ???                                         |
+| `idslpayload/`    | Interface for `idslplgin`                   |
+| `idslplugin/`     | Scala compiler iDSL extension               |
 | `lib/`            | Things imported with `import spinal.lib._`  |
 | `LICENSE`         | Redirection to other `LICENSE` files        |
 | `LICENSE_core`    | License for Spinal core                     |
@@ -103,20 +100,25 @@ Scala path:
                `spinal.core.UInt`
 ```
 
-TODO what are `sim/simulation_plugins` and `sim/yolo`?
-
-TODO what is `tester/src/__init__.py`?
-
-TODO what is `core/src/test/scala/landa`?
-
-TODO what is in `tester/src/main`?
-
 
 ### Testing
 
 Tests are mostly integration tests, put into `tester` project.
 
-TODO define the 4 folders in `tester/src/test/scala/spinal/tester`
+Its `src/` folder contains a `main/` folder, containing scratchpads, and a
+`test/` folder containing actual tests.
+
+In `src/test/`, are:
+
+* `python/` for `cocotb` tests
+* `resources/` with RTL files useful for tests
+* `scala/spinal/tester/scalatest/` with Scala tests
+* `scala/spinal/tester/generator/` with scratchpads
+* `scala/spinal/tester/misc/` with scratchpads
+* `scala/spinal/tester/pending/` with scratchpads
+
+Added to these folders are two scratchpads (from root): `sim/yolo` and
+`core/src/test/scala/landa`.
 
 
 ## Notes for triage & reviews
