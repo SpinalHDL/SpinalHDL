@@ -283,7 +283,7 @@ object OHMasking{
     val width = widthOf(requests)
     assert(widthOf(priority) == width-1)
     val doubleMask = input ## (input.dropLow(1) & priorityBits)
-    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  LutInputs.get)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  (LutInputs.get/2) max 2)
     val (pLow, pHigh) = doubleOh.splitAt(width-1)
     val selOh = (pHigh << 1) | pLow
   }.selOh
@@ -1315,8 +1315,10 @@ object whenMasked{
 object whenIndexed{
   def apply[T](things : TraversableOnce[T], index : UInt, relaxedWidth : Boolean = false)(body : T => Unit): Unit ={
     val thingsList = things.toList
-    assert(relaxedWidth || log2Up(thingsList.size) == widthOf(index))
-    switch(index) {
+    var indexPatched = index
+    if(indexPatched.hasTag(tagAutoResize)) indexPatched = index.resize(log2Up(things.size))
+    assert(relaxedWidth || log2Up(thingsList.size) == widthOf(indexPatched))
+    switch(indexPatched) {
       for ((thing, idx) <- thingsList.zipWithIndex) is(idx) {
         body(thing)
       }
