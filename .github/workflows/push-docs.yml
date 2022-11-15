@@ -20,11 +20,11 @@ jobs:
     - uses: ./.github/actions
 
     - name: Build scaladoc
-      run: sbt clean compile unidoc
+      run: sbt clean '++ 2.12.13' unidoc
 
     - name: Deploy 🚀
       uses: JamesIves/github-pages-deploy-action@v4
       with:
-        folder: target/scala-2.11/unidoc
+        folder: target/scala-2.12/unidoc
         target-folder: ${{ github.ref_name }}
         single-commit: true
