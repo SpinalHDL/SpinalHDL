@@ -1598,11 +1598,11 @@ object StreamFragmentWidthAdapter {
           for((bit, id) <- dataMask.asBools.zipWithIndex) bit := counter >= id
 
           when(input.fire) {
-            whenIndexed(buffer.subdivideIn(inputWidth bits), counter) {
+            whenIndexed(buffer.subdivideIn(inputWidth bits), counter, relaxedWidth = (factor <= 2)) {
               _ := input.fragment.asBits
             }
           }
-          whenIndexed(data.subdivideIn(inputWidth bits).dropRight(1), counter) {
+          whenIndexed(data.subdivideIn(inputWidth bits).dropRight(1), counter, relaxedWidth = (factor <= 2)) {
             _ := input.fragment.asBits
           }
         }
