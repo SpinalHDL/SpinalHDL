@@ -244,6 +244,13 @@ class Pipeline extends Area{
     //Internal connections
     for(s <- stagesSet){
       s.output.valid := s.input.valid
+
+      if(s.request.spawns.nonEmpty){
+        when(s.request.spawns.orR){
+          s.output.valid := True
+        }
+      }
+
       if(s.internals.request.flushRoot.nonEmpty) s.output.valid clearWhen(s.internals.arbitration.isFlushingRoot)
 
       (s.input.ready,  s.output.ready) match {
@@ -271,6 +278,7 @@ class Pipeline extends Area{
           s.input.ready := False //Maybe to reconsiderate
         }
       }
+
 
       for((key, value) <- s.internals.stageableResultingToData){
         value := s.internals.outputOf(key)
@@ -300,14 +308,21 @@ class Pipeline extends Area{
 
     //Name stuff
     for(stage <- stagesSet){
+      def nameThat(target : Nameable, postfix : String): Unit ={
+        if(stage.isNamed && postfix.startsWith(stage.getName)){
+          target.setName(postfix)
+        } else {
+          target.setCompositeName(stage, postfix)
+        }
+      }
       for((key, value) <- stage.internals.stageableToData){
-        value.setCompositeName(stage, s"${key}")
+        nameThat(value, s"${key}")
       }
       for((key, value) <- stage.internals.stageableOverloadedToData){
-        value.setCompositeName(stage, s"${key}_overloaded")
+        nameThat(value, s"${key}_overloaded")
       }
       for((key, value) <- stage.internals.stageableResultingToData){
-        value.setCompositeName(stage, s"${key}_resulting")
+        nameThat(value, s"${key}_resulting")
       }
     }
 
