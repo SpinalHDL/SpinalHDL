@@ -3,6 +3,73 @@ package spinal.core.sim
 import org.scalatest.funsuite.AnyFunSuite
 
 import spinal.core._
+import org.scalatest.flatspec.AnyFlatSpec
+
+abstract class SpinalFlatSpec[Dut <: Component] extends AnyFlatSpec with spinal.idslplugin.ValCallback {
+
+  override def valCallback[T](ref: T, name: String): T = {
+    ref match {
+      case nameable: Nameable => nameable.setName(name)
+      case _                  =>
+    }
+    ref
+  }
+
+  val config: SpinalSimConfig = SimConfig
+  val caching: Boolean = true
+
+  def bench(
+      dut: => Dut,
+      preSimHook: Dut => Unit = { _ => },
+      config: SpinalSimConfig = config,
+      caching: Boolean = caching
+  ): Bench[Dut] = {
+    benchTransform(dut, { dut => preSimHook(dut); dut }, config, caching)
+  }
+
+  def benchTransform[SoftDut](
+      dut: => Dut,
+      preSimTransform: Dut => SoftDut,
+      config: SpinalSimConfig = config,
+      caching: Boolean = caching
+  ): Bench[SoftDut] = new Bench[SoftDut](dut, config, caching, preSimTransform)
+
+  class Bench[SoftDut](
+      dut: => Dut,
+      config: SpinalSimConfig = SimConfig,
+      caching: Boolean,
+      preSimTransform: Dut => SoftDut
+  ) extends Nameable {
+    def buildBench: SimCompiled[Dut] = config.compile(dut)
+
+    private var triedCompile: Boolean = false
+    private var cachedBench: Option[SimCompiled[Dut]] = None
+
+    def prepareCachedBench(): Unit = {
+      if (caching && !triedCompile) {
+        triedCompile = true
+        getName should "compile" in {
+          cachedBench = Some(buildBench)
+        }
+      }
+    }
+
+    case class should(doWhat: String) {
+      def in(body: SoftDut => Unit): Unit = {
+        prepareCachedBench()
+        getName should doWhat in {
+          val bench =
+            if (caching) cachedBench getOrElse cancel
+            else buildBench
+          bench.doSim(s"$getName should $doWhat") { dut =>
+            val softDut = preSimTransform(dut)
+            body(softDut)
+          }
+        }
+      }
+    }
+  }
+}
 
 abstract class SpinalFunSuiteTransform[Dut <: Component](dut: => Dut) extends AnyFunSuite {
 
