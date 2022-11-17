@@ -265,10 +265,10 @@ trait BusIf extends BusIfBase {
     val STATUS = this.newReg("Interrupt status Register\n status = (raw || force) && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = triggers.map{ event =>
       val nm = event.getPartialName()
-      val force = FORCE.field(Bool(), AccessType.RW,   resetValue = 0, doc = s"force, default 0" ).setName(s"${nm}_force", weak = true)
-      val raw   = RAW.field(Bool(), AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" ).setName(s"${nm}_raw", weak = true)
-      val mask  = MASK.field(Bool(), AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" ).setName(s"${nm}_mask", weak =true)
-      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts default 0" ).setName(s"${nm}_status", weak = true)
+      val force = FORCE.field(Bool(), AccessType.RW,   resetValue = 0, doc = s"force, default 0" )(SymbolName(s"${nm}_force"))
+      val raw   = RAW.field(Bool(), AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" )(SymbolName(s"${nm}_raw"))
+      val mask  = MASK.field(Bool(), AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" )(SymbolName(s"${nm}_mask"))
+      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts default 0" )(SymbolName(s"${nm}_status"))
       raw.setWhen(event)
       status := (raw || force) && (!mask)
       status
@@ -288,9 +288,9 @@ trait BusIf extends BusIfBase {
     val STATUS = this.newReg("Interrupt status Register\n  status = raw && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = triggers.map{ event =>
       val nm = event.getPartialName()
-      val raw   = RAW.field(Bool(), AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" ).setName(s"${nm}_raw", weak = true)
-      val mask  = MASK.field(Bool(), AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" ).setName(s"${nm}_mask", weak = true)
-      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts default 0" ).setName(s"${nm}_status", weak = true)
+      val raw   = RAW.field(Bool(), AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" )(SymbolName(s"${nm}_raw"))
+      val mask  = MASK.field(Bool(), AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" )(SymbolName(s"${nm}_mask"))
+      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts default 0" )(SymbolName(s"${nm}_status"))
       raw.setWhen(event)
       status := raw && (!mask)
       status
@@ -309,8 +309,8 @@ trait BusIf extends BusIfBase {
     val STATUS = this.newReg("Interrupt status Register\n status = int_level && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = int_levels.map{ level =>
       val nm = level.getPartialName()
-      val mask  = MASK.field(Bool(), AccessType.RW,    resetValue = 1, doc = s"mask" ).setName(s"${nm}_mask", weak = true)
-      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts" ).setName(s"${nm}_status", weak = true)
+      val mask  = MASK.field(Bool(), AccessType.RW,    resetValue = 1, doc = s"mask" )(SymbolName(s"${nm}_mask"))
+      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts" )(SymbolName(s"${nm}_status"))
       status := level && (!mask)
       status
     }.reduceLeft(_ || _)
