@@ -31,8 +31,8 @@ class Issue963Tester extends AnyFunSuite {
   test("Minimal example for Issue963 which fails Spinal elaboration") {
     class Dut extends Component {
       val io = new Bundle {
-          val sink = slave Stream(Fragment(Bits(8 bits)))
-          val source = master Stream(Fragment(Bits(16 bits)))
+        val sink = slave Stream (Fragment(Bits(8 bits)))
+        val source = master Stream (Fragment(Bits(16 bits)))
       }
       val x = Stream(Fragment(Bits(16 bits)))
 
@@ -40,12 +40,14 @@ class Issue963Tester extends AnyFunSuite {
       io.source <-< x
     }
 
-    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(4000 Hz))).compile(new Component{
-      val issue = new Dut()
-    })
-   .doSim{dut =>
-      dut.clockDomain.forkStimulus(10)
-      dut.clockDomain.waitSampling()
-    }
+    SimConfig
+      .withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(4000 Hz)))
+      .compile(new Component {
+        val issue = new Dut()
+      })
+      .doSim { dut =>
+        dut.clockDomain.forkStimulus(10)
+        dut.clockDomain.waitSampling()
+      }
   }
 }
