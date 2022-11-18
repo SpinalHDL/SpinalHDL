@@ -212,8 +212,9 @@ trait BusIf extends BusIfBase {
     require(triggers.size > 0)
     val groups = triggers.grouped(this.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
+      val offset = addrOffset + 4 * i * this.busDataWidth/8
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
-      int_RFMS(addrOffset, namePre, trigs:_*)
+      int_RFMS(offset, namePre, trigs:_*)
     }
     val intr = Vec(ret).asBits.orR
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
@@ -228,8 +229,9 @@ trait BusIf extends BusIfBase {
     require(triggers.size > 0)
     val groups = triggers.grouped(this.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
+      val offset = addrOffset + 3 * i * this.busDataWidth/8
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
-      int_RMS(addrOffset, namePre, trigs:_*)
+      int_RMS(offset, namePre, trigs:_*)
     }
     val intr = Vec(ret).asBits.orR
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
@@ -245,8 +247,9 @@ trait BusIf extends BusIfBase {
     require(levels.size > 0)
     val groups = levels.grouped(this.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
+      val offset = addrOffset + 2 * i * this.busDataWidth/8
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
-      int_MS(addrOffset, namePre, trigs:_*)
+      int_MS(offset, namePre, trigs:_*)
     }
     val intr = Vec(ret).asBits.orR
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
