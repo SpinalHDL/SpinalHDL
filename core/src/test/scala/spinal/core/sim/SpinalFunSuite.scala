@@ -2,47 +2,246 @@ package spinal.core.sim
 
 import spinal.core._
 
-class Identity extends Component {
+case class IdentityConfig(size: Int)
+
+class Identity(cfg: IdentityConfig = IdentityConfig(8)) extends Component {
   val io = new Bundle {
-    val input = in port Bits(8 bits)
-    val output = out port Bits(8 bits)
+    val input = in port Bits(cfg.size bits)
+    val output = out port Bits(cfg.size bits)
   }
   io.output := io.input
 }
 
-class BadIdentity extends Identity {
+class BadIdentity(cfg: IdentityConfig = IdentityConfig(8)) extends Identity(cfg) {
   io.output := io.output
 }
 
+class IdentityFreeSpec extends SpinalFreeSpec[Identity] {
 
-// Drawback: I have to provide a base type as I do not take arguments anymore
-class IdentityFlatSpec extends SpinalFlatSpec[Identity] {
-
-  // Global parameters
   override val config = SimConfig.withWave
-  // override val caching = false
 
-  // Parameters can be erased by local parameter when building benches
+  // New feature: protocols (Nameable) with conditional tests depending on the config
+  val asIsProtCfg = ProtocolCfg { (cfg: IdentityConfig) =>
+    bench(new Identity(cfg))
+  } { (cfg, it) =>
+    it should "do nothing" in { dut => }
+
+    it should "pass random tests" in { dut =>
+      for (i <- 0 to 99) {
+        val v = dut.io.input.randomize()
+        sleep(1)
+        assert(dut.io.output.toInt == v)
+      }
+    }
+
+    if (cfg.size >= 8) {
+      it should "pass all tests" in { dut =>
+        for (v <- 0 to 255) {
+          dut.io.input #= v
+          sleep(1)
+          assert(dut.io.output.toInt == v)
+        }
+      }
+    }
+  }
+
+  // Works with software abstractinos as well
+  val tranProtCfg =
+    ProtocolCfg { (cfg: IdentityConfig) =>
+      benchTransform(new Identity(cfg), dut => SoftIdentity(dut))
+    } { (cfg, it) =>
+      it should "do nothing" in { dut => }
+
+      it should "pass random tests" in { dut =>
+        for (i <- 0 to 99) {
+          val v = dut.dut.io.input.randomizedInt()
+          assert(dut(v) == v)
+        }
+      }
+
+      if (cfg.size >= 8) {
+        it should "pass all tests" in { dut =>
+          for (v <- 0 to 255)
+            assert(dut(v) == v)
+        }
+      }
+    }
+
+  // The main benefit is that they can be run on generated configs:
+  //val cfgs = for (n <- 5 to 10) yield IdentityConfig(n)
+  //asIsProtCfg.runWithAll(cfgs)
+  //asIsProtCfg.runWith(IdentityConfig(16))
+  //tranProtCfg.runWithAll(cfgs)
+  //tranProtCfg.runWith(IdentityConfig(16))
+  /* Filtered with `grep -ve '^\['`
+IdentityFreeSpec:
+asIsProtCfg
+  IdentityConfig(5)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  IdentityConfig(6)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  IdentityConfig(7)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  IdentityConfig(8)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+  IdentityConfig(9)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+  IdentityConfig(10)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+asIsProtCfg
+  IdentityConfig(16)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+tranProtCfg
+  IdentityConfig(5)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  IdentityConfig(6)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  IdentityConfig(7)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  IdentityConfig(8)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+  IdentityConfig(9)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+  IdentityConfig(10)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+tranProtCfg
+  IdentityConfig(16)
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+*/
+
   val asIs = bench(new Identity, caching = false)
-  // I can transform, and the "software abstraction" type is inferred
   val transformed = benchTransform(new Identity, dut => SoftIdentity(dut))
-  // These ones will not compile
   val failing = bench(new BadIdentity)
   val failingNoCache = bench(new BadIdentity, caching = false)
 
-  // Before my first test, it tests if it compiles, and cancels test if it doesn't
-  // Here I provide an empty test and I get:
-  //   failing should compile *** FAILED ***
-  //   failing should do nothing !!! CANCELED !!!
+  // It is also possible to have a protocol to be used directly on benches:
+  val asIsProt = Protocol[Identity] { it =>
+    it should "do nothing" in { dut => }
+
+    it should "pass random tests" in { dut =>
+      for (i <- 0 to 99) {
+        val v = dut.io.input.randomize()
+        sleep(1)
+        assert(dut.io.output.toInt == v)
+      }
+    }
+
+    it should "pass all tests" in { dut =>
+      for (v <- 0 to 255) {
+        dut.io.input #= v
+        sleep(1)
+        assert(dut.io.output.toInt == v)
+      }
+    }
+  }
+
+  val tranProt = Protocol[SoftIdentity] { it =>
+    it should "do nothing" in { dut => }
+
+    it should "pass random tests" in { dut =>
+      for (i <- 0 to 99) {
+        val v = dut.dut.io.input.randomizedInt()
+        assert(dut(v) == v)
+      }
+    }
+
+    it should "pass all tests" in { dut =>
+      for (v <- 0 to 255)
+        assert(dut(v) == v)
+    }
+  }
+
+  asIsProt.runOn(asIs, failing, failingNoCache)
+  asIsProt.runOnAll(Seq(
+      bench(new Identity, caching = false) -> "asIs renamed",
+      bench(new Identity, dut => SoftIdentity(dut)) -> "failing renamed",
+      bench(new Identity, dut => SoftIdentity(dut)) -> "failingNoCache renamed"
+  ))
+  tranProt.runOnAll(Seq(
+    transformed -> "transformed renamed"
+  ))
+  /* Filtered with `grep -e '^\s*-' -e '^\w' -e '^  \w' | grep -ve '^\[' -e "^Design's errors arelisted above.$" -e "^SpinalHDL compiler exit stack :$"`
+asIsProt
+  asIs
+  - asIs should do nothing
+  - asIs should pass random tests
+  - asIs should pass all tests
+  failing
+  - failing compiles *** FAILED ***
+ASSIGNMENT OVERLAP completely the previous one of (toplevel/io_output : out Bits[8 bits])
+  - failing should do nothing !!! CANCELED !!!
+  - failing should pass random tests !!! CANCELED !!!
+  - failing should pass all tests !!! CANCELED !!!
+  failingNoCache
+  - failingNoCache should do nothing *** FAILED ***
+ASSIGNMENT OVERLAP completely the previous one of (toplevel/io_output : out Bits[8 bits])
+  - failingNoCache should pass random tests *** FAILED ***
+ASSIGNMENT OVERLAP completely the previous one of (toplevel/io_output : out Bits[8 bits])
+  - failingNoCache should pass all tests *** FAILED ***
+ASSIGNMENT OVERLAP completely the previous one of (toplevel/io_output : out Bits[8 bits])
+asIsProt
+  asIs renamed
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+  failing renamed
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+  failingNoCache renamed
+  -  compiles
+  -  should do nothing
+  -  should pass random tests
+  -  should pass all tests
+tranProt
+  transformed renamed
+  - transformed compiles
+  - transformed should do nothing
+  - transformed should pass random tests
+  - transformed should pass all tests
+  */
+
   failing should "do nothing" in { dut => }
 
-  //    failingNoCache should do nothing *** FAILED ***
   failingNoCache should "do nothing" in { dut => }
 
-  // Notice that benches are `Nameable` (but I did not implement recursive names)
-
-  // Here I have no caching so no "compiles" test, I get:
-  //   asIs should pass random test
   asIs should "pass random tests" in { dut =>
     for (i <- 0 to 99) {
       val v = dut.io.input.randomize()
@@ -51,7 +250,6 @@ class IdentityFlatSpec extends SpinalFlatSpec[Identity] {
     }
   }
 
-  //   asIs should pass all tests
   asIs should "pass all tests" in { dut =>
     for (v <- 0 to 255) {
       dut.io.input #= v
@@ -60,8 +258,6 @@ class IdentityFlatSpec extends SpinalFlatSpec[Identity] {
     }
   }
 
-  //   transformed should compile
-  //   transformed should pass random tests
   transformed should "pass random tests" in { dut =>
     for (i <- 0 to 99) {
       val v = dut.dut.io.input.randomizedInt()
@@ -69,37 +265,9 @@ class IdentityFlatSpec extends SpinalFlatSpec[Identity] {
     }
   }
 
-  //   transformed should pass all tests
   transformed should "pass all tests" in { dut =>
     for (v <- 0 to 255)
       assert(dut(v) == v)
-  }
-}
-
-
-class IdentityFlatSpecForLoop extends SpinalFlatSpec[Identity] {
-  override val config = SimConfig.withWave
-
-  val asIs = bench(new Identity, caching = false)
-  val failing = bench(new BadIdentity)
-  val failingNoCache = bench(new BadIdentity, caching = false)
-
-  for (b <- Seq(asIs, failing, failingNoCache)) {
-    b should "pass random tests" in { dut =>
-      for (i <- 0 to 99) {
-        val v = dut.io.input.randomize()
-        sleep(1)
-        assert(dut.io.output.toInt == v)
-      }
-    }
-
-    b should "pass all tests" in { dut =>
-      for (v <- 0 to 255) {
-        dut.io.input #= v
-        sleep(1)
-        assert(dut.io.output.toInt == v)
-      }
-    }
   }
 }
 

@@ -1,11 +1,11 @@
 package spinal.core.sim
 
 import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.freespec.AnyFreeSpec
 
 import spinal.core._
-import org.scalatest.flatspec.AnyFlatSpec
 
-abstract class SpinalFlatSpec[Dut <: Component] extends AnyFlatSpec with spinal.idslplugin.ValCallback {
+abstract class SpinalFreeSpec[Dut <: Component] extends AnyFreeSpec with spinal.idslplugin.ValCallback {
 
   override def valCallback[T](ref: T, name: String): T = {
     ref match {
@@ -17,6 +17,47 @@ abstract class SpinalFlatSpec[Dut <: Component] extends AnyFlatSpec with spinal.
 
   val config: SpinalSimConfig = SimConfig
   val caching: Boolean = true
+
+  case class Protocol[SoftDut](tests: Bench[SoftDut] => Unit) extends Nameable {
+    def runOn(benches: Bench[SoftDut]*): Unit = {
+      getName - {
+        for (bench <- benches) {
+          bench.getName - {
+            tests(bench)
+          }
+        }
+      }
+    }
+
+    def runOnAll(namedBenches: Seq[(Bench[SoftDut], String)]): Unit = {
+      getName - {
+        for ((bench, name) <- namedBenches) {
+          name - {
+            tests(bench)
+          }
+        }
+      }
+    }
+  }
+
+  case class ProtocolCfg[Cfg, SoftDut](benchBuilder: Cfg => Bench[SoftDut])(tests: (Cfg, Bench[SoftDut]) => Unit)
+      extends Nameable {
+
+    /** The goal of this function is to be overriden */
+    def cfgToString(cfg: Cfg): String = cfg.toString()
+
+    def runWith(cfgs: Cfg*): Unit = runWithAll(cfgs)
+
+    def runWithAll(cfgs: Seq[Cfg]): Unit = {
+      getName - {
+        for (cfg <- cfgs) {
+          cfgToString(cfg) - {
+            tests(cfg, benchBuilder(cfg))
+          }
+        }
+      }
+    }
+  }
 
   def bench(
       dut: => Dut,
@@ -48,7 +89,7 @@ abstract class SpinalFlatSpec[Dut <: Component] extends AnyFlatSpec with spinal.
     def prepareCachedBench(): Unit = {
       if (caching && !triedCompile) {
         triedCompile = true
-        getName should "compile" in {
+        s"$getName compiles" in {
           cachedBench = Some(buildBench)
         }
       }
@@ -57,7 +98,7 @@ abstract class SpinalFlatSpec[Dut <: Component] extends AnyFlatSpec with spinal.
     case class should(doWhat: String) {
       def in(body: SoftDut => Unit): Unit = {
         prepareCachedBench()
-        getName should doWhat in {
+        s"$getName should $doWhat" in {
           val bench =
             if (caching) cachedBench getOrElse cancel
             else buildBench
