@@ -20,6 +20,19 @@ class IdentityFreeSpec extends SpinalFreeSpec[Identity] {
 
   override val config = SimConfig.withWave
 
+  val asIs = bench(new Identity, caching = false)
+  val transformed = benchTransform(new Identity, dut => SoftIdentity(dut))
+  val failing = bench(new BadIdentity)
+  val failingNoCache = bench(new BadIdentity, caching = false)
+
+  failing shouldNot compile
+  failing should compile
+
+  failingNoCache shouldNot compile
+  failingNoCache should compile
+
+  failing.test("Figure 1: empty test") { dut => }
+
   // New feature: protocols (Nameable) with conditional tests depending on the config
   val asIsProtCfg = ProtocolCfg { (cfg: IdentityConfig) =>
     bench(new Identity(cfg))
@@ -143,12 +156,7 @@ tranProtCfg
   -  should do nothing
   -  should pass random tests
   -  should pass all tests
-*/
-
-  val asIs = bench(new Identity, caching = false)
-  val transformed = benchTransform(new Identity, dut => SoftIdentity(dut))
-  val failing = bench(new BadIdentity)
-  val failingNoCache = bench(new BadIdentity, caching = false)
+   */
 
   // It is also possible to have a protocol to be used directly on benches:
   val asIsProt = Protocol[Identity] { it =>
@@ -188,14 +196,18 @@ tranProtCfg
   }
 
   asIsProt.runOn(asIs, failing, failingNoCache)
-  asIsProt.runOnAll(Seq(
+  asIsProt.runOnAll(
+    Seq(
       bench(new Identity, caching = false) -> "asIs renamed",
       bench(new Identity, dut => SoftIdentity(dut)) -> "failing renamed",
       bench(new Identity, dut => SoftIdentity(dut)) -> "failingNoCache renamed"
-  ))
-  tranProt.runOnAll(Seq(
-    transformed -> "transformed renamed"
-  ))
+    )
+  )
+  tranProt.runOnAll(
+    Seq(
+      transformed -> "transformed renamed"
+    )
+  )
   /* Filtered with `grep -e '^\s*-' -e '^\w' -e '^  \w' | grep -ve '^\[' -e "^Design's errors arelisted above.$" -e "^SpinalHDL compiler exit stack :$"`
 asIsProt
   asIs
@@ -236,7 +248,7 @@ tranProt
   - transformed should do nothing
   - transformed should pass random tests
   - transformed should pass all tests
-  */
+   */
 
   failing should "do nothing" in { dut => }
 

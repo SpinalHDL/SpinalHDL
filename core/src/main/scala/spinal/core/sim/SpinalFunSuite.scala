@@ -75,40 +75,84 @@ abstract class SpinalFreeSpec[Dut <: Component] extends AnyFreeSpec with spinal.
       caching: Boolean = caching
   ): Bench[SoftDut] = new Bench[SoftDut](dut, config, caching, preSimTransform)
 
+  class Compile
+  object compile extends Compile
+
   class Bench[SoftDut](
       dut: => Dut,
       config: SpinalSimConfig = SimConfig,
       caching: Boolean,
       preSimTransform: Dut => SoftDut
   ) extends Nameable {
+
+    type Body = SoftDut => Unit
+
     def buildBench: SimCompiled[Dut] = config.compile(dut)
 
     private var triedCompile: Boolean = false
     private var cachedBench: Option[SimCompiled[Dut]] = None
 
+    private object txt {
+      def itCompiles: String = s"$getName compiles"
+      def notCompiles: String = s"$getName does not compile"
+      def itShould(doWhat: String): String = s"$getName should $doWhat"
+      def test(doWhat: String): String = s"$getName test: $doWhat"
+    }
+
     def prepareCachedBench(): Unit = {
       if (caching && !triedCompile) {
         triedCompile = true
-        s"$getName compiles" in {
+        txt.itCompiles in {
           cachedBench = Some(buildBench)
         }
       }
     }
 
-    case class should(doWhat: String) {
-      def in(body: SoftDut => Unit): Unit = {
-        prepareCachedBench()
-        s"$getName should $doWhat" in {
-          val bench =
-            if (caching) cachedBench getOrElse cancel
-            else buildBench
-          bench.doSim(s"$getName should $doWhat") { dut =>
-            val softDut = preSimTransform(dut)
-            body(softDut)
-          }
+    protected def sim(name: String, f: SimCompiled[Dut] => String => (Dut => Unit) => Unit = _.doSim)(
+        body: Body
+    ): Unit = {
+      prepareCachedBench()
+      name in {
+        val bench =
+          if (caching) cachedBench getOrElse cancel
+          else buildBench
+        f(bench)(name) { dut =>
+          val softDut = preSimTransform(dut)
+          body(softDut)
         }
       }
     }
+
+    class Should(doWhat: String) {
+      def in(body: SoftDut => Unit): Unit = sim(txt.itShould(doWhat))(body)
+      def untilVoid(body: SoftDut => Unit): Unit = sim(txt.itShould(doWhat), _.doSimUntilVoid)(body)
+    }
+
+    def should(doWhat: String): Should = new Should(doWhat)
+
+    def should(c: Compile): Unit = {
+      if (caching) prepareCachedBench()
+      else txt.itCompiles in { buildBench }
+    }
+
+    def shouldNot(c: Compile): Unit = {
+      txt.notCompiles in {
+        if (caching && triedCompile) {
+          assert(cachedBench.isEmpty)
+        } else {
+          var failed = false
+          try { buildBench }
+          catch { case _: Throwable => failed = true }
+          assert(failed)
+        }
+      }
+    }
+
+    def test(doWhat: String)(body: SoftDut => Unit): Unit =
+      sim(txt.test(doWhat))(body)
+    def testUntilVoid(doWhat: String)(body: SoftDut => Unit): Unit =
+      sim(txt.test(doWhat), _.doSimUntilVoid)(body)
+
   }
 }
 
