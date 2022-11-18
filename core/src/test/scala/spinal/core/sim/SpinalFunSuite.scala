@@ -16,6 +16,18 @@ class BadIdentity(cfg: IdentityConfig = IdentityConfig(8)) extends Identity(cfg)
   io.output := io.output
 }
 
+case class SoftIdentity(dut: Identity) {
+  import dut._
+
+  def write(v: Int): Unit = io.input #= v
+  def read(): Int = io.output.toInt
+  def apply(v: Int): Int = {
+    write(v)
+    sleep(1)
+    read()
+  }
+}
+
 class IdentityFreeSpec extends SpinalFreeSpec[Identity] {
 
   override val config = SimConfig.withWave
@@ -31,7 +43,10 @@ class IdentityFreeSpec extends SpinalFreeSpec[Identity] {
   failingNoCache shouldNot compile
   failingNoCache should compile
 
-  failing.test("Figure 1: empty test") { dut => }
+  // If there is only one bench you can do this, so we don't need SpinalFunSuite anymore
+  import failing.test
+  
+  test("Figure 1: empty test") { dut => }
 
   // New feature: protocols (Nameable) with conditional tests depending on the config
   val asIsProtCfg = ProtocolCfg { (cfg: IdentityConfig) =>
@@ -280,57 +295,5 @@ tranProt
   transformed should "pass all tests" in { dut =>
     for (v <- 0 to 255)
       assert(dut(v) == v)
-  }
-}
-
-class SimpleIdentityTester extends SpinalFunSuite(new Identity) {
-  override val config = SimConfig.withWave
-
-  test("random tests") { dut =>
-    for (i <- 0 to 99) {
-      val v = dut.io.input.randomize()
-      sleep(1)
-      assert(dut.io.output.toInt == v)
-    }
-  }
-
-  test("all tests") { dut =>
-    for (v <- 0 to 255) {
-      dut.io.input #= v
-      sleep(1)
-      assert(dut.io.output.toInt == v)
-    }
-  }
-}
-
-class AbstractIdentityTester extends SpinalFunSuiteTransform(new Identity) {
-  type SoftDut = SoftIdentity
-
-  override val config = SimConfig.withWave
-
-  def preSimTransform(dut: Identity): SoftIdentity = SoftIdentity(dut)
-
-  test("random tests") { dut =>
-    for (i <- 0 to 99) {
-      val v = dut.dut.io.input.randomizedInt()
-      assert(dut(v) == v)
-    }
-  }
-
-  test("all tests") { dut =>
-    for (v <- 0 to 255)
-      assert(dut(v) == v)
-  }
-}
-
-case class SoftIdentity(dut: Identity) {
-  import dut._
-
-  def write(v: Int): Unit = io.input #= v
-  def read(): Int = io.output.toInt
-  def apply(v: Int): Int = {
-    write(v)
-    sleep(1)
-    read()
   }
 }
