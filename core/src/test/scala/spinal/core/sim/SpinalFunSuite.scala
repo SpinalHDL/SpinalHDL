@@ -45,7 +45,7 @@ class IdentityFreeSpec extends SpinalFreeSpec[Identity] {
     }
   }
 
-  // Works with software abstractinos as well
+  // Works with software abstractions as well
   val tranProtCfg =
     ProtocolCfg { (cfg: IdentityConfig) =>
       benchTransform(new Identity(cfg), dut => SoftIdentity(dut))
@@ -68,11 +68,11 @@ class IdentityFreeSpec extends SpinalFreeSpec[Identity] {
     }
 
   // The main benefit is that they can be run on generated configs:
-  //val cfgs = for (n <- 5 to 10) yield IdentityConfig(n)
-  //asIsProtCfg.runWithAll(cfgs)
-  //asIsProtCfg.runWith(IdentityConfig(16))
-  //tranProtCfg.runWithAll(cfgs)
-  //tranProtCfg.runWith(IdentityConfig(16))
+  val cfgs = for (n <- 5 to 10) yield IdentityConfig(n)
+  asIsProtCfg.runWithAll(cfgs)
+  asIsProtCfg.runWith(IdentityConfig(16))
+  tranProtCfg.runWithAll(cfgs)
+  tranProtCfg.runWith(IdentityConfig(16))
   /* Filtered with `grep -ve '^\['`
 IdentityFreeSpec:
 asIsProtCfg
