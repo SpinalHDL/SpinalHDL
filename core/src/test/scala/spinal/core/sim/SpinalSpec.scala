@@ -28,7 +28,7 @@ case class SoftIdentity(dut: Identity) {
   }
 }
 
-class IdentityFreeSpec extends SpinalFreeSpec[Identity] {
+class IdentitySpec extends SpinalSpec[Identity] {
 
   override val config = SimConfig.withWave
 

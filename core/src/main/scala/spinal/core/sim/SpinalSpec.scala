@@ -1,11 +1,9 @@
 package spinal.core.sim
 
-import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.freespec.AnyFreeSpec
+import spinal.core.{Component, Nameable}
 
-import spinal.core._
-
-abstract class SpinalFreeSpec[Dut <: Component] extends AnyFreeSpec with spinal.idslplugin.ValCallback {
+abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idslplugin.ValCallback {
 
   override def valCallback[T](ref: T, name: String): T = {
     ref match {
