@@ -20,6 +20,9 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
   /** `override val caching = false` to disable caching by default */
   val caching: Boolean = true
 
+  /** `override val seed = Some(value)` to choose a fixed seed */
+  var seed: Option[Int] = None
+
   /** Define a protocol that can be run on several benches */
   case class Protocol[SoftDut](tests: Bench[SoftDut] => Unit) extends Nameable {
 
@@ -86,6 +89,7 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
     * @param dut The device to test
     * @param preSimHook An action to do on `dut` before each test (defaults to nothing)
     * @param config To override `SpinalSpec.config`
+    * @param seed To override `SpinalSpec.seed`
     * @param caching To override `SpinalSpec.caching`
     * @return
     */
@@ -93,9 +97,10 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
       dut: => Dut,
       preSimHook: Dut => Unit = { _ => },
       config: SpinalSimConfig = config,
+      seed: Option[Int] = seed,
       caching: Boolean = caching
   ): Bench[Dut] = {
-    benchTransform(dut, { dut => preSimHook(dut); dut }, config, caching)
+    benchTransform(dut, { dut => preSimHook(dut); dut }, config, seed, caching)
   }
 
   /** Create a test-bench with an abstraction of the `dut`
@@ -103,6 +108,7 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
     * @param dut The device to test
     * @param preSimTransform Function taking the `dut` and returning your abstracted dut
     * @param config To override `SpinalSpec.config`
+    * @param seed To override `SpinalSpec.seed`
     * @param caching To override `SpinalSpec.caching`
     * @return
     */
@@ -110,13 +116,14 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
       dut: => Dut,
       preSimTransform: Dut => SoftDut,
       config: SpinalSimConfig = config,
+      seed: Option[Int] = seed,
       caching: Boolean = caching
-  ): Bench[SoftDut] = new Bench[SoftDut](dut, config, caching, preSimTransform)
+  ): Bench[SoftDut] = new Bench[SoftDut](dut, preSimTransform, config, seed, caching)
 
   /** The type of `compile` */
   class Compile
 
-  /** Used in `it should compile` or `it shouldNot compile` */
+  /** For `it should compile` or `it shouldNot compile` */
   object compile extends Compile
 
   /** A test bench
@@ -126,9 +133,10 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
     */
   class Bench[SoftDut](
       dut: => Dut,
+      preSimTransform: Dut => SoftDut,
       config: SpinalSimConfig = SimConfig,
-      caching: Boolean,
-      preSimTransform: Dut => SoftDut
+      seed: Option[Int],
+      caching: Boolean
   ) extends Nameable {
 
     /** A function doing actions on the (possibly transformed) `dut` */
@@ -167,10 +175,10 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
     /** Function used to run a test/simulation
       *
       * @param name The name of the test/simulation
-      * @param f defaults to `_.doSim`, useful to use `_.doSimUntilVoid` or add options
+      * @param f doSim function, eg: `_.doSimUntilVoid(name)` or `dut => dut.doSim(name, seed)`
       * @param body the code to run on the (possibly abstracted) `dut` during the simulation
       */
-    protected def sim(name: String, f: SimCompiled[Dut] => String => (Dut => Unit) => Unit = _.doSim)(
+    protected def sim(name: String, f: SimCompiled[Dut] => (Dut => Unit) => Unit)(
         body: Body
     ): Unit = {
       prepareCachedBench()
@@ -178,15 +186,33 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
         val bench =
           if (caching) cachedBench getOrElse cancel
           else buildBench
-        f(bench)(name) { dut =>
+        f(bench) { dut =>
           val softDut = preSimTransform(dut)
           body(softDut)
         }
       }
     }
 
+    /** Helper to call sim with optional seed */
+    final protected def sim(name: String, seed: Option[Int]): Body => Unit = seed match {
+      case Some(s) => sim(name, _.doSim(name, s))
+      case None    => sim(name, _.doSim(name))
+    }
+
+    /** Helper to call sim with doSimUntilVoid and optional seed */
+    final protected def simUntilVoid(name: String, seed: Option[Int]): Body => Unit = seed match {
+      case Some(s) => sim(name, _.doSimUntilVoid(name, s))
+      case None    => sim(name, _.doSimUntilVoid(name))
+    }
+
     /** Context for `it should "do something"` */
-    case class Should(doWhat: String) {
+    class Should(doWhat: String, seed: Option[Int] = None) {
+
+      /** Specify a seed for this test */
+      def withSeed(seed: Int): Should = new Should(doWhat, Some(seed))
+
+      /** Specify a seed for this test, or to not fix one */
+      def withSeed(seed: Option[Int]): Should = new Should(doWhat, seed)
 
       /** Run a simulation to check that it does the thing it should
         *
@@ -196,7 +222,7 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
         * }
         * }}}
         */
-      def in(body: SoftDut => Unit): Unit = sim(txt.itShould(doWhat))(body)
+      def in: Body => Unit = sim(txt.itShould(doWhat), seed)
 
       /** Run a simulation to check that it does the thing it should
         *
@@ -206,7 +232,7 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
         * }
         * }}}
         */
-      def untilVoid(body: SoftDut => Unit): Unit = sim(txt.itShould(doWhat), _.doSimUntilVoid)(body)
+      def untilVoid: Body => Unit = simUntilVoid(txt.itShould(doWhat), seed)
     }
 
     /** To build a [[Should]] context */
@@ -239,12 +265,12 @@ abstract class SpinalSpec[Dut <: Component] extends AnyFreeSpec with spinal.idsl
     }
 
     /** Run a test using this testbench, see spinal.core.sim.SimCompiled.doSim */
-    def test(doWhat: String)(body: SoftDut => Unit): Unit =
-      sim(txt.test(doWhat), _.doSim)(body)
+    def test(doWhat: String, seed: Option[Int] = seed): Body => Unit =
+      sim(txt.test(doWhat), seed)
 
     /** Run a test using this testbench, see spinal.core.sim.SimCompiled.doSim */
-    def testUntilVoid(doWhat: String)(body: SoftDut => Unit): Unit =
-      sim(txt.test(doWhat), _.doSimUntilVoid)(body)
+    def testUntilVoid(doWhat: String, seed: Option[Int] = seed): Body => Unit =
+      simUntilVoid(txt.test(doWhat), seed)
   }
 }
 

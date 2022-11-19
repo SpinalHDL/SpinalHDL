@@ -45,7 +45,7 @@ class IdentitySpec extends SpinalSpec[Identity] {
 
   // If there is only one bench you can do this, so we don't need SpinalFunSuite anymore
   import failing.test
-  
+
   test("Figure 1: empty test") { dut => }
 
   // New feature: protocols (Nameable) with conditional tests depending on the config
@@ -54,7 +54,7 @@ class IdentitySpec extends SpinalSpec[Identity] {
   } { (cfg, it) =>
     it should "do nothing" in { dut => }
 
-    it should "pass random tests" in { dut =>
+    it should "pass random tests" withSeed None in { dut =>
       for (i <- 0 to 99) {
         val v = dut.io.input.randomize()
         sleep(1)
@@ -63,7 +63,7 @@ class IdentitySpec extends SpinalSpec[Identity] {
     }
 
     if (cfg.size >= 8) {
-      it should "pass all tests" in { dut =>
+      it should "pass all tests" withSeed 1 in { dut =>
         for (v <- 0 to 255) {
           dut.io.input #= v
           sleep(1)
