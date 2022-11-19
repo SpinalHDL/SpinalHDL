@@ -332,7 +332,6 @@ object binarySequential extends SpinalEnumEncoding{
   override def getWidth(senum: SpinalEnum): Int = log2Up(senum.elements.length)
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
   override def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T] = senum.elements(element.toInt)
-  override def isNative = false
   setName("seq")
 }
 
@@ -345,7 +344,6 @@ object binaryOneHot extends SpinalEnumEncoding{
   override def getWidth(senum: SpinalEnum): Int = senum.elements.length
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = BigInt(1) << element.position
   override def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T] = senum.elements(element.bitLength-1)
-  override def isNative = false
   setName("oh")
 }
 
