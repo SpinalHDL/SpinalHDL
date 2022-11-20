@@ -16,19 +16,37 @@ trait CommonModule extends ScalaModule { outer =>
   )
 }
 
-object idslpayload extends SbtModule with CommonModule {
+trait SpinalPublishModule extends PublishModule {
+  def publishVersion = Version.SpinalVersion.all
+  def artifactName = "spinalhdl-" + super.artifactName()
+
+  def pomSettings = PomSettings(
+    description = "SpinalHDL",
+    organization = "com.github.spinalhdl",
+    url = "https://github.com/SpinalHDL/SpinalHDL",
+    licenses = Seq(License.`LGPL-3.0-or-later`),
+    versionControl = VersionControl.github("SpinalHDL", "SpinalHDL"),
+    developers = Seq(
+      Developer("Dolu1990", "SpinalHDL", "https://github.com/SpinalHDL")
+    )
+  )
+}
+
+object idslpayload extends SbtModule with CommonModule with SpinalPublishModule {
   def mainClass = Some("spinal.idslpayload")
+  override def artifactName = "spinalhdl-idsl-payload"
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scala-lang:scala-reflect:${scalaVersion}")
 }
 
-object idslplugin extends SbtModule with CommonModule {
+object idslplugin extends SbtModule with CommonModule with SpinalPublishModule {
   def mainClass = Some("spinal.idslplugin")
+  override def artifactName = "spinalhdl-idsl-plugin"
   def moduleDeps = Seq(idslpayload)
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scala-lang:scala-compiler:${scalaVersion}")
-  def pluginOptions = T{ Seq(s"-Xplugin:${assembly().path}") }
+  def pluginOptions = T { Seq(s"-Xplugin:${assembly().path}") }
 }
 
-object sim extends SbtModule with CommonModule {
+object sim extends SbtModule with CommonModule with SpinalPublishModule {
   def mainClass = Some("spinal.sim")
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"commons-io:commons-io:2.4",
@@ -39,7 +57,7 @@ object sim extends SbtModule with CommonModule {
   def publishVersion = Version.SpinalVersion.sim
 }
 
-object lib extends SbtModule with CommonModule {
+object lib extends SbtModule with CommonModule with SpinalPublishModule {
   def mainClass = Some("spinal.lib")
   def moduleDeps = Seq(core, sim)
   def scalacOptions = super.scalacOptions() ++ idslplugin.pluginOptions()
@@ -54,7 +72,7 @@ def gitHash(dir: os.Path) = (try {
   case e: java.io.IOException => "???"
 }).linesIterator.next()
 
-object core extends SbtModule with CommonModule {
+object core extends SbtModule with CommonModule with SpinalPublishModule {
   def mainClass = Some("spinal.core")
   def moduleDeps = Seq(idslplugin, sim)
 
@@ -78,19 +96,6 @@ object core extends SbtModule with CommonModule {
     os.write(dest, code, createFolders = true)
     Seq(PathRef(T.dest))
   }
-
-  def publishVersion = Version.SpinalVersion.all
-
-  def pomSettings = PomSettings(
-    description = "SpinalHDL",
-    organization = "com.github.spinalhdl",
-    url = "https://github.com/SpinalHDL/SpinalHDL",
-    licenses = Seq(License.`LGPL-3.0-or-later`),
-    versionControl = VersionControl.github("SpinalHDL", "SpinalHDL"),
-    developers = Seq(
-      Developer("Dolu1990", "SpinalHDL", "https://github.com/SpinalHDL")
-    )
-  )
 }
 
 object tester extends SbtModule with CommonModule {
