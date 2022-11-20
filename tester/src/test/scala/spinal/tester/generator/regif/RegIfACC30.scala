@@ -53,8 +53,9 @@ class RegIfACC30 extends Component {
 }
 
 trait RegIfTest{
+  val refdata = List(0x12345678, 0x5a5a5a5a, 0xffffffff, 0x00000000, 0x37abcdef, 0x11111111, 0x35af0782)
   def write(addr: Long, data: BigInt): Unit
-  def read(addr: Long, data: BigInt): BigInt
+  def read(addr: Long): BigInt
   def regression() = {
     tc00_ro   (0x0000)
     tc01_rw   (0x0004)
@@ -89,27 +90,145 @@ trait RegIfTest{
     tc30_bmsc_2a (0x0078)
     tc31_bmsc_4a (0x007c)
   }
-  def tc00_ro   (addr: Long) = { }
-  def tc01_rw   (addr: Long) = { }
-  def tc02_rc   (addr: Long) = { }
-  def tc03_rs   (addr: Long) = { }
-  def tc04_wrc  (addr: Long) = { }
-  def tc05_wrs  (addr: Long) = { }
-  def tc06_wc   (addr: Long) = { }
-  def tc07_ws   (addr: Long) = { }
-  def tc08_wsrc (addr: Long) = { }
-  def tc09_wcrs (addr: Long) = { }
-  def tc10_w1c  (addr: Long) = { }
-  def tc11_w1s  (addr: Long) = { }
-  def tc12_w1t  (addr: Long) = { }
-  def tc13_w0c  (addr: Long) = { }
-  def tc14_w0s  (addr: Long) = { }
-  def tc15_w0t  (addr: Long) = { }
-  def tc16_w1src(addr: Long) = { }
-  def tc17_w1crs(addr: Long) = { }
-  def tc18_w0src(addr: Long) = { }
-  def tc19_w0crs(addr: Long) = { }
-  def tc20_wo   (addr: Long) = { }
+  def tc00_ro   (addr: Long) = {
+    SpinalInfo("RS - [TBD-Warning] ")
+  }
+  def tc01_rw   (addr: Long) = {
+    def test(data: BigInt) = {
+      write(addr, data)
+      val rdata = read(addr)
+      assert(data == rdata, s"0x${data.hexString(32)} != 0x${rdata.hexString(32)}, RW test failed")
+    }
+    refdata.foreach(test(_))
+  }
+  def tc02_rc   (addr: Long) = {
+    def test(data: BigInt) = {
+      write(addr, data)
+      val rdata = read(addr)
+      assert(rdata == 0, s"0x${rdata.hexString(32)} != 0x00000000, RC test failed")
+    }
+    refdata.foreach(test(_))
+    SpinalInfo("RC - test TBA-pass")
+  }
+  def tc03_rs   (addr: Long) = {
+    def test(data: BigInt) = {
+      write(addr, data)
+      val rdata = read(addr)
+      assert(rdata == BigInt("FFFFFFFF", 16), s"0x${rdata.hexString(32)} != 0xFFFFFFFF, RS test failed")
+    }
+    refdata.foreach(test(_))
+    SpinalInfo("RS - test TBA-pass")
+  }
+  def tc04_wrc  (addr: Long) = {
+    def test(data: BigInt) = {
+      write(addr, data)
+      val rdata = read(addr)
+      assert(rdata == 0, s"0x${rdata.hexString(32)} != 0x00000000, WRC test failed")
+    }
+    refdata.foreach(test(_))
+    SpinalInfo("WRC - test pass")
+  }
+  def tc05_wrs  (addr: Long) = {
+    def test(data: BigInt) = {
+      write(addr, data)
+      val rdata = read(addr)
+      assert(rdata == BigInt("FFFFFFFF", 16), s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WRS test failed")
+    }
+    refdata.foreach(test(_))
+    SpinalInfo("WRC - test pass")
+  }
+  def tc06_wc   (addr: Long) = {
+    val rdata = read(addr)
+    assert(rdata != 0, s"reset value not empty before write")
+    write(addr, 0xabcdef53)
+    assert(rdata == 0, s"0x${rdata.hexString(32)} != 0x00000000, WC test failed")
+    SpinalInfo("WC - test TBA-pass")
+  }
+  def tc07_ws   (addr: Long) = {
+    val rdata = read(addr)
+    assert(rdata != BigInt("FFFFFFFF", 16), s"reset value not high before write")
+    write(addr, 0xabcdef53)
+    assert(rdata == BigInt("FFFFFFFF", 16), s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
+    SpinalInfo("WC - test TBA-pass")
+  }
+  def tc08_wsrc (addr: Long) = {
+    val rdata = read(addr)
+    assert(rdata != 0, s"reset value not empty before write")
+    write(addr, 0xabcdef53)
+    assert(rdata == 0, s"0x${rdata.hexString(32)} != 0x00000000, WC test failed")
+    SpinalInfo("WSRC - test TBA-pass")
+  }
+  def tc09_wcrs (addr: Long) = {
+    val rdata = read(addr)
+    assert(rdata != BigInt("FFFFFFFF", 16), s"reset value not high before write")
+    write(addr, 0xabcdef53)
+    assert(rdata == BigInt("FFFFFFFF", 16), s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
+    SpinalInfo("WCRS - test TBA-pass")
+  }
+  def tc10_w1c  (addr: Long) = {
+//    val TV = List(
+//      BigInt("aaaaaaaa", 16) -> BigInt("55555555", 16),
+//      BigInt("55555555", 16) -> BigInt("aaaaaaaa", 16),
+//      BigInt("aaaa5555", 16) -> BigInt("5555aaaa", 16),
+//      BigInt("00000000", 16) -> BigInt("00000000", 16),
+//      BigInt("3333cccc", 16) -> BigInt("cccc3333", 16),
+//    )
+//    def test(t: (BigInt, BigInt)) = {
+//      write(addr, t._1)
+//      val rdata = read(addr)
+//      assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, W1C test failed")
+//    }
+//    TV.foreach(test)
+    SpinalInfo("W1C - [TBD-Warning] ")
+  }
+  def tc11_w1s  (addr: Long) = {
+//    val TV = List(
+//      BigInt("aaaaaaaa", 16) -> BigInt("55555555", 16),
+//      BigInt("55555555", 16) -> BigInt("aaaaaaaa", 16),
+//      BigInt("aaaa5555", 16) -> BigInt("5555aaaa", 16),
+//      BigInt("00000000", 16) -> BigInt("00000000", 16),
+//      BigInt("3333cccc", 16) -> BigInt("cccc3333", 16),
+//    )
+//    def test(t: (BigInt, BigInt)) = {
+//      write(addr, t._1)
+//      val rdata = read(addr)
+//      assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, W1C test failed")
+//    }
+//    TV.foreach(test)
+    SpinalInfo("W1S - [TBD-Warning] ")
+  }
+  def tc12_w1t  (addr: Long) = {
+    //det on reset value
+//    val rdata = read(addr)
+//    assert(rdata != BigInt("FFFFFFFF", 16), s"reset value not high before write")
+//    write(addr, 0xabcdef53)
+//    assert(rdata == BigInt("FFFFFFFF", 16), s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
+    SpinalInfo("W1S - [TBD-Warning] ")
+  }
+  def tc13_w0c  (addr: Long) = {
+    SpinalInfo("WOC - [TBD-Warning] ")
+  }
+  def tc14_w0s  (addr: Long) = {
+    SpinalInfo("WOS - [TBD-Warning] ")
+  }
+  def tc15_w0t  (addr: Long) = {
+    SpinalInfo("W0T - [TBD-Warning] ")
+  }
+  def tc16_w1src(addr: Long) = {
+    SpinalInfo("W1SRC - [TBD-Warning] ")
+  }
+  def tc17_w1crs(addr: Long) = {
+    SpinalInfo("W1CRS - [TBD-Warning] ")
+  }
+  def tc18_w0src(addr: Long) = {
+    SpinalInfo("W0SRC - [TBD-Warning] ")
+  }
+  def tc19_w0crs(addr: Long) = {
+    SpinalInfo("W1CRS - [TBD-Warning] ")
+  }
+  def tc20_wo   (addr: Long) = {
+    SpinalInfo("WO - [TBD-Warning] ")
+  }
   def tc21_woc  (addr: Long) = { }
   def tc22_wos  (addr: Long) = { }
   def tc23_w1   (addr: Long) = { }
