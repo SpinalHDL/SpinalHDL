@@ -2,7 +2,7 @@
 import mill._, scalalib._, publish._
 import $file.project.Version
 
-trait CommonModule extends ScalaModule { outer =>
+trait SpinalModule extends SbtModule { outer =>
   def scalaVersion = Version.SpinalVersion.compilers(0)
   def scalacOptions = super.scalacOptions() ++ Seq("-unchecked", "-target:jvm-1.8")
   def javacOptions = super.javacOptions() ++ Seq("-source", "1.8", "-target", "1.8")
@@ -32,13 +32,13 @@ trait SpinalPublishModule extends PublishModule {
   )
 }
 
-object idslpayload extends SbtModule with CommonModule with SpinalPublishModule {
+object idslpayload extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.idslpayload")
   override def artifactName = "spinalhdl-idsl-payload"
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scala-lang:scala-reflect:${scalaVersion}")
 }
 
-object idslplugin extends SbtModule with CommonModule with SpinalPublishModule {
+object idslplugin extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.idslplugin")
   override def artifactName = "spinalhdl-idsl-plugin"
   def moduleDeps = Seq(idslpayload)
@@ -46,7 +46,7 @@ object idslplugin extends SbtModule with CommonModule with SpinalPublishModule {
   def pluginOptions = T { Seq(s"-Xplugin:${assembly().path}") }
 }
 
-object sim extends SbtModule with CommonModule with SpinalPublishModule {
+object sim extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.sim")
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"commons-io:commons-io:2.4",
@@ -57,7 +57,7 @@ object sim extends SbtModule with CommonModule with SpinalPublishModule {
   def publishVersion = Version.SpinalVersion.sim
 }
 
-object lib extends SbtModule with CommonModule with SpinalPublishModule {
+object lib extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.lib")
   def moduleDeps = Seq(core, sim)
   def scalacOptions = super.scalacOptions() ++ idslplugin.pluginOptions()
@@ -72,7 +72,7 @@ def gitHash(dir: os.Path) = (try {
   case e: java.io.IOException => "???"
 }).linesIterator.next()
 
-object core extends SbtModule with CommonModule with SpinalPublishModule {
+object core extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.core")
   def moduleDeps = Seq(idslplugin, sim)
 
@@ -98,7 +98,7 @@ object core extends SbtModule with CommonModule with SpinalPublishModule {
   }
 }
 
-object tester extends SbtModule with CommonModule {
+object tester extends SpinalModule {
   def mainClass = Some("spinal.tester")
   def moduleDeps = Seq(core, sim, lib)
   def scalacOptions = super.scalacOptions() ++ idslplugin.pluginOptions()
