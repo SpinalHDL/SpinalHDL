@@ -69,4 +69,30 @@ class XFixTest extends AnyFunSuite {
       }
     }
   }
+  test("UFix.truncated") {
+    case class TruncatedDut() extends Component {
+      val io = new Bundle {
+        val uf2e_10b = in UFix(2 exp, 10 bit)
+        val uf2e_4b_o = out UFix(2 exp, 4 bit)
+        val uf2e_8b_o = out UFix(2 exp, 8 bit)
+        val uf2e_6e_o = out UFix(2 exp, -6 exp)
+      }
+      io.uf2e_4b_o := io.uf2e_10b.truncated
+      io.uf2e_8b_o := io.uf2e_10b.truncated(2 exp, -6 exp)
+      io.uf2e_6e_o := io.uf2e_10b.truncated(2 exp, 8 bit)
+    }
+
+    SimConfig.compile(TruncatedDut()).doSim("UFix.truncated") {
+      dut =>
+        for (_ <- 0 to 10) {
+          dut.io.uf2e_10b.randomize()
+
+          sleep(1)
+
+          assert(dut.io.uf2e_4b_o.raw.toBigInt == dut.io.uf2e_10b.raw.toBigInt >> 6)
+          assert(dut.io.uf2e_6e_o.raw.toBigInt == dut.io.uf2e_10b.raw.toBigInt >> 2)
+          assert(dut.io.uf2e_8b_o.raw.toBigInt == dut.io.uf2e_10b.raw.toBigInt >> 2)
+        }
+    }
+  }
 }

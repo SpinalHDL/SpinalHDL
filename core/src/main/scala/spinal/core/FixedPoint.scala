@@ -169,8 +169,7 @@ trait UFixCast {
   * Base class for SFix and UFix
   */
 abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int, val bitCount: Int) extends MultiData with MinMaxDecimalProvider {
-
-  require(bitCount >= 0)
+  require(bitCount >= 0, s"Length of fixed point number must be > 0 (not $bitCount)")
 
   val raw = rawFactory(maxExp, bitCount)
 
@@ -247,6 +246,17 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
     copy.raw := this.raw
     copy.addTag(tagTruncated)
     copy.asInstanceOf[this.type]
+  }
+
+  def truncated(maxExp: ExpNumber, bitCount: BitCount): T = {
+    val t = fixFactory(maxExp, bitCount)
+    t := this.truncated.asInstanceOf[T]
+    t
+  }
+  def truncated(maxExp: ExpNumber, resolution: ExpNumber): T = {
+    val t = fixFactory(maxExp, resolution)
+    t := this.truncated.asInstanceOf[T]
+    t
   }
 
   override private[spinal] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
@@ -453,6 +463,7 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
   override def fixFactory(maxExp: Int, bitCount: Int): UFix = UFix(maxExp exp, bitCount bit)
   override def fixFactory(maxExp: ExpNumber, bitCount: BitCount): UFix = UFix(maxExp, bitCount)
   override def fixFactory(maxExp: ExpNumber, resolution: ExpNumber): UFix = UFix(maxExp, resolution)
+
   override def minExp: Int = maxExp - bitCount
 
   def +(that: UFix): UFix = doAddSub(that, sub = false)
