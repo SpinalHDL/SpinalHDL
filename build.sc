@@ -29,12 +29,6 @@ trait CommonModule extends ScalaModule { outer =>
     ivy"org.slf4j:slf4j-api:1.7.25",
     ivy"org.scala-lang.modules::scala-xml:1.2.0"
   )
-
-  def testArgs = T { Seq.empty[String] }
-
-  object test extends Tests with TestModule.ScalaTest {
-    def ivyDeps = Agg(ivy"org.scalatest::scalatest::3.2.5")
-  }
 }
 
 object idslpayload extends SbtModule with CommonModule {
@@ -115,4 +109,8 @@ object tester extends SbtModule with CommonModule {
   def mainClass = Some("spinal.tester")
   def moduleDeps = Seq(core, sim, lib)
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:3.2.5")
+
+  object test extends Tests with TestModule.ScalaTest {
+    def ivyDeps = Agg(ivy"org.scalatest::scalatest::3.2.5")
+  }
 }
