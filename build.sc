@@ -1,26 +1,11 @@
 // build.sc
 import mill._, scalalib._, publish._
-
-object SpinalVersion {
-  val compilers = List("2.11.12", "2.12.13", "2.13.6")
-  val compilerIsRC = false
-
-  val isDev = true
-  val isSnapshot = false
-  private def snapshot = if (isSnapshot) "-SNAPSHOT" else ""
-  private val major = "1.7.2"
-  val all = if (isDev) "dev" else s"$major$snapshot"
-  val sim = all
-  val core = all
-  val lib = all
-  val ip = all
-  val debugger = all
-  val demo = all
-  val tester = all
-}
+import $file.project.Version
 
 trait CommonModule extends ScalaModule { outer =>
-  def scalaVersion = SpinalVersion.compilers(0)
+  def scalaVersion = Version.SpinalVersion.compilers(0)
+  def scalacOptions = super.scalacOptions() ++ Seq("-unchecked", "-target:jvm-1.8")
+  def javacOptions = super.javacOptions() ++ Seq("-source", "1.8", "-target", "1.8")
 
   val IvyDeps = Agg(
     ivy"org.scala-lang:scala-library:${scalaVersion}",
@@ -40,6 +25,7 @@ object idslplugin extends SbtModule with CommonModule {
   def mainClass = Some("spinal.idslplugin")
   def moduleDeps = Seq(idslpayload)
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scala-lang:scala-compiler:${scalaVersion}")
+  def pluginOptions = T{ Seq(s"-Xplugin:${assembly().path}") }
 }
 
 object sim extends SbtModule with CommonModule {
@@ -50,14 +36,15 @@ object sim extends SbtModule with CommonModule {
     ivy"org.slf4j:slf4j-simple:1.7.25",
     ivy"com.github.oshi:oshi-core:5.2.0"
   )
-  def publishVersion = SpinalVersion.sim
+  def publishVersion = Version.SpinalVersion.sim
 }
 
 object lib extends SbtModule with CommonModule {
   def mainClass = Some("spinal.lib")
   def moduleDeps = Seq(core, sim)
+  def scalacOptions = super.scalacOptions() ++ idslplugin.pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"commons-io:commons-io:2.4", ivy"org.scalatest::scalatest:3.2.5")
-  def publishVersion = SpinalVersion.lib
+  def publishVersion = Version.SpinalVersion.lib
 }
 
 import sys.process._
@@ -71,6 +58,7 @@ object core extends SbtModule with CommonModule {
   def mainClass = Some("spinal.core")
   def moduleDeps = Seq(idslplugin, sim)
 
+  def scalacOptions = super.scalacOptions() ++ idslplugin.pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"org.scala-lang:scala-reflect:${scalaVersion}",
     ivy"com.github.scopt::scopt:3.7.1",
@@ -86,12 +74,12 @@ object core extends SbtModule with CommonModule {
          |  val name = "%s"
          |  val gitHash = "%s"
          |}
-         |""".stripMargin.format(SpinalVersion.core, mainClass, gitHash(T.dest))
+            |""".stripMargin.format(Version.SpinalVersion.core, mainClass, gitHash(T.dest))
     os.write(dest, code, createFolders = true)
     Seq(PathRef(T.dest))
   }
 
-  def publishVersion = SpinalVersion.all
+  def publishVersion = Version.SpinalVersion.all
 
   def pomSettings = PomSettings(
     description = "SpinalHDL",
@@ -108,6 +96,7 @@ object core extends SbtModule with CommonModule {
 object tester extends SbtModule with CommonModule {
   def mainClass = Some("spinal.tester")
   def moduleDeps = Seq(core, sim, lib)
+  def scalacOptions = super.scalacOptions() ++ idslplugin.pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:3.2.5")
 
   object test extends Tests with TestModule.ScalaTest {
