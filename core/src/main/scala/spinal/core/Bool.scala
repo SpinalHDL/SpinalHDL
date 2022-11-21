@@ -24,14 +24,17 @@ import spinal.core.internals.Operator.Formal
 import spinal.core.internals._
 import spinal.idslplugin.Location
 
-/**
-  * Bool factory used for instance by the IODirection to create a in/out Bool()
-  */
+/** Bool factory used for instance by the IODirection to create a in/out Bool() */
 trait BoolFactory {
-  /** Create a new Bool */
-//  def Bool(): Bool = new Bool
-}
+  @deprecated("Use `Bool()` (with braces) instead")
+  def Bool: Bool = Bool()
 
+  /** Create a new Bool */
+  def Bool(u: Unit = ()): Bool = new Bool
+
+  /** Create a new Bool with a value */
+  def Bool(value: Boolean): Bool = BoolLiteral(value, Bool().setAsTypeNode())
+}
 
 /**
   * The Bool type corresponds to a boolean value (True or False)
