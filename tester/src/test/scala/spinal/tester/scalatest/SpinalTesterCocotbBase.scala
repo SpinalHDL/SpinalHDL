@@ -117,11 +117,11 @@ abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfter
         stdin.close()
       },
       stdout => {
-        out = scala.io.Source.fromInputStream(stdout).getLines.foldLeft("")(_ + "\n" + _)
+        out = scala.io.Source.fromInputStream(stdout)(scala.io.Codec.UTF8).getLines.foldLeft("")(_ + "\n" + _)
         stdout.close()
       },
       stderr => {
-        err = scala.io.Source.fromInputStream(stderr).getLines.foldLeft("")(_ + "\n" + _)
+        err = scala.io.Source.fromInputStream(stderr)(scala.io.Codec.UTF8).getLines.foldLeft("")(_ + "\n" + _)
         stderr.close()
       })
     val proc = Process("sh").run(io)
