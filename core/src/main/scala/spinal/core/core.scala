@@ -39,8 +39,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   type Module = spinal.core.Component
   type dontName = spinal.core.DontName @field
 
-  def Bool : Bool = new Bool
-  def Bool(u: DummyTrait = DummyObject) : Bool = new Bool
+  @deprecated("Use `Bool()` (with braces) instead")
+  def Bool: Bool = new Bool
+  def Bool(u: DummyTrait = DummyObject): Bool = new Bool
   def Bool(value: Boolean): Bool = BoolLiteral(value, this.Bool().setAsTypeNode())
 
   /**
