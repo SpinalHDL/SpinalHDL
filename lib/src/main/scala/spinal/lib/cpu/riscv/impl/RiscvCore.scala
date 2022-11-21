@@ -576,7 +576,7 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
   val decode = new Area{
     val inInst = fetch.outInst.m2sPipe()
     val ctrl = getInstructionCtrl(inInst.instruction)
-    val hazard = Bool //Used to stall decode phase because of register file hazard
+    val hazard = Bool() //Used to stall decode phase because of register file hazard
     val throwIt = False
     val halt = False
     when(hazard){
