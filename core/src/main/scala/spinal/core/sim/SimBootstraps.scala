@@ -571,7 +571,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
     }
   }
 
-  def doSimApi(name: String="test", seed: Int=newSeed(), joinAll: Boolean)(body: T => Unit): Unit = {
+  def doSimApi(name: String = "test", seed: Int = newSeed(), joinAll: Boolean)(body: T => Unit): Unit = {
     Random.setSeed(seed)
     GlobalData.set(report.globalData)
 
