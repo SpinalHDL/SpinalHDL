@@ -564,7 +564,14 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
 
   def newSimRaw(name: String, seed: Int) : SimRaw
 
-  def doSimApi(name: String = "test", seed: Int = sys.env.getOrElse("SPINAL_SIM_SEED_RANDOM", "0").toInt*Random.nextInt(2000000000), joinAll: Boolean)(body: T => Unit): Unit = {
+  def newSeed(): Int = {
+    sys.env.get("SPINAL_SIM_SEED") match {
+      case Some(v) => v.toInt
+      case None => Random.nextInt(2000000000)
+    }
+  }
+
+  def doSimApi(name: String = "test", seed: Int = newSeed(), joinAll: Boolean)(body: T => Unit): Unit = {
     Random.setSeed(seed)
     GlobalData.set(report.globalData)
 
