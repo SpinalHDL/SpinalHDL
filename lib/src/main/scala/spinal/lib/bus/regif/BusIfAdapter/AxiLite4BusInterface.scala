@@ -24,7 +24,11 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   val axiBValid = Reg(Bool) init(False)
   
   axiAr.ready := !axiRValid || axiR.ready
-  axiR.payload.setOKAY()
+  when(readError) {
+    axiR.payload.setSLVERR()
+  } otherwise {
+    axiR.payload.setOKAY()
+  }
   axiR.valid := axiRValid
   axiR.payload.data := readData
 
