@@ -26,40 +26,40 @@ class RegIfBasicAccessTest(busname: String) extends Component{
     case _ => SpinalError("not support yet")
   }
 
-  val reg_ro      = busif.newReg(doc = "RO    ").field(Bits(32 bit), RO   , 0x7788abcd, doc = "ro   ")
-  val reg_rw      = busif.newReg(doc = "RW    ").field(Bits(32 bit), RW   , 0x77880002, doc = "rw   ").asOutput()
-  val reg_rc      = busif.newReg(doc = "RC    ").field(Bits(32 bit), RC   , 0x77880003, doc = "rc   ").asOutput()
-  val reg_rs      = busif.newReg(doc = "RS    ").field(Bits(32 bit), RS   , 0x77880004, doc = "rs   ").asOutput()
-  val reg_wrc     = busif.newReg(doc = "WRC   ").field(Bits(32 bit), WRC  , 0x77880005, doc = "wrc  ").asOutput()
-  val reg_wrs     = busif.newReg(doc = "WRS   ").field(Bits(32 bit), WRS  , 0x77880006, doc = "wrs  ").asOutput()
-  val reg_wc      = busif.newReg(doc = "WC    ").field(Bits(32 bit), WC   , 0x77880007, doc = "wc   ").asOutput()
-  val reg_ws      = busif.newReg(doc = "WS    ").field(Bits(32 bit), WS   , 0x77880008, doc = "ws   ").asOutput()
-  val reg_wsrc    = busif.newReg(doc = "WSRC  ").field(Bits(32 bit), WSRC , 0x77880009, doc = "wsrc ").asOutput()
-  val reg_wcrs    = busif.newReg(doc = "WCRS  ").field(Bits(32 bit), WCRS , 0x7788000a, doc = "wcrs ").asOutput()
-  val reg_w1c     = busif.newReg(doc = "W1C   ").field(Bits(32 bit), W1C  , 0x7788000b, doc = "w1c  ").asOutput()
-  val reg_w1s     = busif.newReg(doc = "W1S   ").field(Bits(32 bit), W1S  , 0x7788000c, doc = "w1s  ").asOutput()
-  val reg_w1t     = busif.newReg(doc = "W1T   ").field(Bits(32 bit), W1T  , 0x7788000d, doc = "w1t  ").asOutput()
-  val reg_w0c     = busif.newReg(doc = "W0C   ").field(Bits(32 bit), W0C  , 0x7788000e, doc = "w0c  ").asOutput()
-  val reg_w0s     = busif.newReg(doc = "W0S   ").field(Bits(32 bit), W0S  , 0x7788000f, doc = "w0s  ").asOutput()
-  val reg_w0t     = busif.newReg(doc = "W0T   ").field(Bits(32 bit), W0T  , 0x77880011, doc = "w0t  ").asOutput()
-  val reg_w1src   = busif.newReg(doc = "W1SRC ").field(Bits(32 bit), W1SRC, 0x77880012, doc = "w1src").asOutput()
-  val reg_w1crs   = busif.newReg(doc = "W1CRS ").field(Bits(32 bit), W1CRS, 0x77880013, doc = "w1crs").asOutput()
-  val reg_w0src   = busif.newReg(doc = "W0SRC ").field(Bits(32 bit), W0SRC, 0x77880014, doc = "w0src").asOutput()
-  val reg_w0crs   = busif.newReg(doc = "W0CRS ").field(Bits(32 bit), W0CRS, 0x77880015, doc = "w0crs").asOutput()
-  val reg_wo      = busif.newReg(doc = "WO    ").field(Bits(32 bit), WO   , 0x77880016, doc = "wo   ").asOutput()
-  val reg_woc     = busif.newReg(doc = "WOC   ").field(Bits(32 bit), WOC  , 0x77880017, doc = "woc  ").asOutput()
-  val reg_wos     = busif.newReg(doc = "WOS   ").field(Bits(32 bit), WOS  , 0x77880018, doc = "wos  ").asOutput()
-  val reg_w1      = busif.newReg(doc = "W1    ").field(Bits(32 bit), W1   , 0x77880019, doc = "w1   ").asOutput()
-  val reg_wo1     = busif.newReg(doc = "WO1   ").field(Bits(32 bit), WO1  , 0x7788001a, doc = "wo1  ").asOutput()
-  val reg_na      = busif.newReg(doc = "NA    ").field(Bits(32 bit), NA   , 0x7788001b, doc = "na   ").asOutput()
-  val reg_w1p     = busif.newReg(doc = "W1P   ").field(Bits(32 bit), W1P  , 0x7788001c, doc = "w1p  ").asOutput()
-  val reg_w0p     = busif.newReg(doc = "W0P   ").field(Bits(32 bit), W0P  , 0x7788001d, doc = "w0p  ").asOutput()
-  val reg_hsrw    = busif.newReg(doc = "HSRW  ").field(Bits(32 bit), HSRW , 0x7788001e, doc = "hsrw ").asOutput()
-                    busif.newReg(doc = "ROV   ").field(Bits(32 bit), ROV  , 0x77885566, doc = "rov")
-  val reg_bmsc_2a = busif.newReg(doc = "BMSC-A").field(Bits(32 bit), W1S  , 0x3fedca98, doc = "32 bit write 1 set").asOutput()
+  val reg_ro      = busif.newReg(doc = "RO    ").field(Bits(32 bit), RO   , "7788abcd".asHex, doc = "ro   ")
+  val reg_rw      = busif.newReg(doc = "RW    ").field(Bits(32 bit), RW   , "77880002".asHex, doc = "rw   ").asOutput()
+  val reg_rc      = busif.newReg(doc = "RC    ").field(Bits(32 bit), RC   , "77880003".asHex, doc = "rc   ").asOutput()
+  val reg_rs      = busif.newReg(doc = "RS    ").field(Bits(32 bit), RS   , "77880004".asHex, doc = "rs   ").asOutput()
+  val reg_wrc     = busif.newReg(doc = "WRC   ").field(Bits(32 bit), WRC  , "77880005".asHex, doc = "wrc  ").asOutput()
+  val reg_wrs     = busif.newReg(doc = "WRS   ").field(Bits(32 bit), WRS  , "77880006".asHex, doc = "wrs  ").asOutput()
+  val reg_wc      = busif.newReg(doc = "WC    ").field(Bits(32 bit), WC   , "77880007".asHex, doc = "wc   ").asOutput()
+  val reg_ws      = busif.newReg(doc = "WS    ").field(Bits(32 bit), WS   , "77880008".asHex, doc = "ws   ").asOutput()
+  val reg_wsrc    = busif.newReg(doc = "WSRC  ").field(Bits(32 bit), WSRC , "77880009".asHex, doc = "wsrc ").asOutput()
+  val reg_wcrs    = busif.newReg(doc = "WCRS  ").field(Bits(32 bit), WCRS , "7788000a".asHex, doc = "wcrs ").asOutput()
+  val reg_w1c     = busif.newReg(doc = "W1C   ").field(Bits(32 bit), W1C  , "ffffffff".asHex, doc = "w1c  ").asOutput()
+  val reg_w1s     = busif.newReg(doc = "W1S   ").field(Bits(32 bit), W1S  , "00000000".asHex, doc = "w1s  ").asOutput()
+  val reg_w1t     = busif.newReg(doc = "W1T   ").field(Bits(32 bit), W1T  , "0000ffff".asHex, doc = "w1t  ").asOutput()
+  val reg_w0c     = busif.newReg(doc = "W0C   ").field(Bits(32 bit), W0C  , "ffffffff".asHex, doc = "w0c  ").asOutput()
+  val reg_w0s     = busif.newReg(doc = "W0S   ").field(Bits(32 bit), W0S  , "00000000".asHex, doc = "w0s  ").asOutput()
+  val reg_w0t     = busif.newReg(doc = "W0T   ").field(Bits(32 bit), W0T  , "0000ffff".asHex, doc = "w0t  ").asOutput()
+  val reg_w1src   = busif.newReg(doc = "W1SRC ").field(Bits(32 bit), W1SRC, "77880012".asHex, doc = "w1src").asOutput()
+  val reg_w1crs   = busif.newReg(doc = "W1CRS ").field(Bits(32 bit), W1CRS, "77880013".asHex, doc = "w1crs").asOutput()
+  val reg_w0src   = busif.newReg(doc = "W0SRC ").field(Bits(32 bit), W0SRC, "77880014".asHex, doc = "w0src").asOutput()
+  val reg_w0crs   = busif.newReg(doc = "W0CRS ").field(Bits(32 bit), W0CRS, "77880015".asHex, doc = "w0crs").asOutput()
+  val reg_wo      = busif.newReg(doc = "WO    ").field(Bits(32 bit), WO   , "77880016".asHex, doc = "wo   ").asOutput()
+  val reg_woc     = busif.newReg(doc = "WOC   ").field(Bits(32 bit), WOC  , "77880017".asHex, doc = "woc  ").asOutput()
+  val reg_wos     = busif.newReg(doc = "WOS   ").field(Bits(32 bit), WOS  , "77880018".asHex, doc = "wos  ").asOutput()
+  val reg_w1      = busif.newReg(doc = "W1    ").field(Bits(32 bit), W1   , "77880019".asHex, doc = "w1   ").asOutput()
+  val reg_wo1     = busif.newReg(doc = "WO1   ").field(Bits(32 bit), WO1  , "7788001a".asHex, doc = "wo1  ").asOutput()
+  val reg_na      = busif.newReg(doc = "NA    ").field(Bits(32 bit), NA   , "7788001b".asHex, doc = "na   ").asOutput()
+  val reg_w1p     = busif.newReg(doc = "W1P   ").field(Bits(32 bit), W1P  , "00000000".asHex, doc = "w1p  ").asOutput()
+  val reg_w0p     = busif.newReg(doc = "W0P   ").field(Bits(32 bit), W0P  , "00000000".asHex, doc = "w0p  ").asOutput()
+  val reg_hsrw    = busif.newReg(doc = "HSRW  ").field(Bits(32 bit), HSRW , "7788001e".asHex, doc = "hsrw ").asOutput()
+                    busif.newReg(doc = "ROV   ").field(Bits(32 bit), ROV  , "77885566".asHex, doc = "rov")
+  val reg_bmsc_2a = busif.newReg(doc = "BMSC-A").field(Bits(32 bit), W1S  , "00000000".asHex, doc = "32 bit write 1 set").asOutput()
                     busif.newReg(doc = "BMSC-B").parasiteField(reg_bmsc_2a, W1C  , 0         , doc = "32 bit write 1 clear") //two address share one reg
   val reg_bmsc_4a = busif.newReg(doc = "BMSC-A").field(Bits(32 bit),  RW  , 0x2bcd1234, doc = "32 bit RW").asOutput()
-                    busif.newReg(doc = "BMSC-B").parasiteField(reg_bmsc_2a, W1C  , 0, doc = "32 bit write 1 set")   //4 address share one reg
+                    busif.newReg(doc = "BMSC-B").parasiteField(reg_bmsc_2a, W1S  , 0, doc = "32 bit write 1 set")   //4 address share one reg
                     busif.newReg(doc = "BMSC-C").parasiteField(reg_bmsc_2a, W1C  , 0, doc = "32 bit write 1 clear") //4 address share one reg
   val reg_bmsc_4ar= busif.newReg(doc = "BMSC-D").field(Bits(32 bit), RO   , 0, doc = "32 bit read only")     //4 address share one reg
   reg_bmsc_4ar := reg_bmsc_4a
@@ -73,14 +73,17 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       case bs: AhbLite3 => SpinalError("AhbLIte3 regif test not support yet")
       case bs: Wishbone => SpinalError("Wishbon  regif test not support yet")
     }
+    sleep(0)
   }
   def read(addr: Long): BigInt = {
-    bus match {
+    val t = bus match {
       case bs: Apb3 => Apb3Driver(bs, this.clockDomain).read(addr)
       case bs: Apb4 => Apb4Driver(bs, this.clockDomain).read(addr)
       case bs: AhbLite3 => SpinalError("AhbLIte3 regif test not support yet")
       case bs: Wishbone => SpinalError("Wishbon  regif test not support yet")
     }
+    sleep(0)
+    t
   }
 
   def siminit() = {
@@ -136,6 +139,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
   def tc02_rc   (addr: Long) = {
     def test(data: BigInt) = {
       write(addr, data)
+      read(addr)
       val rdata = read(addr)
       assert(rdata == 0, s"0x${rdata.hexString(32)} != 0x00000000, RC test failed")
     }
@@ -145,8 +149,9 @@ class RegIfBasicAccessTest(busname: String) extends Component{
   def tc03_rs   (addr: Long) = {
     def test(data: BigInt) = {
       write(addr, data)
+      read(addr)
       val rdata = read(addr)
-      assert(rdata == BigInt("FFFFFFFF", 16), s"0x${rdata.hexString(32)} != 0xFFFFFFFF, RS test failed")
+      assert(rdata == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, RS test failed")
     }
     refdata.foreach(test(_))
     SpinalInfo("RS - test TBA-pass")
@@ -154,6 +159,8 @@ class RegIfBasicAccessTest(busname: String) extends Component{
   def tc04_wrc  (addr: Long) = {
     def test(data: BigInt) = {
       write(addr, data)
+      assert(reg_wrc.toBigInt == data, s"0x${data.hexString(32)} != 0x${reg_wrc.toBigInt.hexString(32)}, WRC, write assert fail")
+      read(addr)
       val rdata = read(addr)
       assert(rdata == 0, s"0x${rdata.hexString(32)} != 0x00000000, WRC test failed")
     }
@@ -163,8 +170,10 @@ class RegIfBasicAccessTest(busname: String) extends Component{
   def tc05_wrs  (addr: Long) = {
     def test(data: BigInt) = {
       write(addr, data)
+      assert(reg_wrs.toBigInt == data, s"0x${data.hexString(32)} != 0x${reg_wrs.toBigInt.hexString(32)}, WRC, write assert fail")
+      read(addr)
       val rdata = read(addr)
-      assert(rdata == BigInt("FFFFFFFF", 16), s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WRS test failed")
+      assert(rdata == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WRS test failed")
     }
     refdata.foreach(test(_))
     SpinalInfo("WRC - test pass")
@@ -172,69 +181,79 @@ class RegIfBasicAccessTest(busname: String) extends Component{
   def tc06_wc   (addr: Long) = {
     val rdata = read(addr)
     assert(rdata != 0, s"reset value not empty before write")
-    write(addr, 0xabcdef53)
-    assert(rdata == 0, s"0x${rdata.hexString(32)} != 0x00000000, WC test failed")
+    write(addr, "abcdef53".asHex)
+    val rdata1 = read(addr)
+    assert(rdata1 == 0, s"0x${rdata.hexString(32)} != 0x00000000, WC test failed")
     SpinalInfo("WC - test TBA-pass")
   }
   def tc07_ws   (addr: Long) = {
     val rdata = read(addr)
-    assert(rdata != BigInt("FFFFFFFF", 16), s"reset value not high before write")
-    write(addr, 0xabcdef53)
-    assert(rdata == BigInt("FFFFFFFF", 16), s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
+    assert(rdata != "FFFFFFFF".asHex, s"reset value not high before write")
+    write(addr, "abcdef53".asHex)
+    val rdata1 = read(addr)
+    assert(rdata1 == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
     SpinalInfo("WC - test TBA-pass")
   }
   def tc08_wsrc (addr: Long) = {
     val rdata = read(addr)
     assert(rdata != 0, s"reset value not empty before write")
-    write(addr, 0xabcdef53)
-    assert(rdata == 0, s"0x${rdata.hexString(32)} != 0x00000000, WC test failed")
+    write(addr, "abcdef53".asHex)
+    read(addr)
+    val rdata1 = read(addr)
+    assert(rdata1 == 0, s"0x${rdata.hexString(32)} != 0x00000000, WC test failed")
     SpinalInfo("WSRC - test TBA-pass")
   }
   def tc09_wcrs (addr: Long) = {
     val rdata = read(addr)
-    assert(rdata != BigInt("FFFFFFFF", 16), s"reset value not high before write")
-    write(addr, 0xabcdef53)
-    assert(rdata == BigInt("FFFFFFFF", 16), s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
+    assert(rdata != "FFFFFFFF".asHex, s"reset value not high before write")
+    write(addr, "abcdef53".asHex)
+    read(addr)
+    val rdata1 = read(addr)
+    assert(rdata1 == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
     SpinalInfo("WCRS - test TBA-pass")
   }
   def tc10_w1c  (addr: Long) = {
-//    val TV = List(
-//      BigInt("aaaaaaaa", 16) -> BigInt("55555555", 16),
-//      BigInt("55555555", 16) -> BigInt("aaaaaaaa", 16),
-//      BigInt("aaaa5555", 16) -> BigInt("5555aaaa", 16),
-//      BigInt("00000000", 16) -> BigInt("00000000", 16),
-//      BigInt("3333cccc", 16) -> BigInt("cccc3333", 16),
-//    )
-//    def test(t: (BigInt, BigInt)) = {
-//      write(addr, t._1)
-//      val rdata = read(addr)
-//      assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, W1C test failed")
-//    }
-//    TV.foreach(test)
-    SpinalInfo("W1C - [TBD-Warning] ")
+    val TV = List(
+      "000000ff".asHex -> "ffffff00".asHex,
+      "0000aa00".asHex -> "ffff5500".asHex,
+      "00330000".asHex -> "ffcc5500".asHex,
+      "cc000000".asHex -> "33cc5500".asHex,
+      "ff000000".asHex -> "00cc5500".asHex,
+      "00f00f00".asHex -> "000c5000".asHex,
+      "0000ffff".asHex -> "000c0000".asHex
+    )
+    def test(t: (BigInt, BigInt)) = {
+      write(addr, t._1)
+      val rdata = read(addr)
+      assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, W1C test failed")
+    }
+    TV.foreach(test)
+    SpinalInfo("W1C - test pass ")
   }
   def tc11_w1s  (addr: Long) = {
-//    val TV = List(
-//      BigInt("aaaaaaaa", 16) -> BigInt("55555555", 16),
-//      BigInt("55555555", 16) -> BigInt("aaaaaaaa", 16),
-//      BigInt("aaaa5555", 16) -> BigInt("5555aaaa", 16),
-//      BigInt("00000000", 16) -> BigInt("00000000", 16),
-//      BigInt("3333cccc", 16) -> BigInt("cccc3333", 16),
-//    )
-//    def test(t: (BigInt, BigInt)) = {
-//      write(addr, t._1)
-//      val rdata = read(addr)
-//      assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, W1C test failed")
-//    }
-//    TV.foreach(test)
-    SpinalInfo("W1S - [TBD-Warning] ")
+    val TV = List(
+      "00000023".asHex -> "00000023".asHex,
+      "00004500".asHex -> "00004523".asHex,
+      "00670000".asHex -> "00674523".asHex,
+      "89000000".asHex -> "89674523".asHex,
+      "00000000".asHex -> "89674523".asHex,
+      "ffff0000".asHex -> "ffff4523".asHex,
+      "0000ffff".asHex -> "ffffffff".asHex
+    )
+    def test(t: (BigInt, BigInt)) = {
+      write(addr, t._1)
+      val rdata = read(addr)
+      assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, W1S test failed")
+    }
+    TV.foreach(test)
+    SpinalInfo("W1S - test pass ")
   }
   def tc12_w1t  (addr: Long) = {
     //det on reset value
 //    val rdata = read(addr)
-//    assert(rdata != BigInt("FFFFFFFF", 16), s"reset value not high before write")
+//    assert(rdata != "FFFFFFFF".asHex, s"reset value not high before write")
 //    write(addr, 0xabcdef53)
-//    assert(rdata == BigInt("FFFFFFFF", 16), s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
+//    assert(rdata == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
     SpinalInfo("W1S - [TBD-Warning] ")
   }
   def tc13_w0c  (addr: Long) = {
@@ -319,7 +338,9 @@ object Apb4test extends App{
     }
 }
 object Apb3test extends App{
-  SpinalSimConfig().compile(new RegIfBasicAccessTest("apb3"))
+  SpinalSimConfig()
+    .withFstWave
+    .compile(new RegIfBasicAccessTest("apb3"))
     .doSimUntilVoid("regif_apb3_test"){ dut =>
       dut.regression()
       simSuccess()
