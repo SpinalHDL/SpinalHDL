@@ -81,8 +81,8 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
 
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue = 0, doc = "")(symbol)
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue = 0, doc = doc)(symbol)
-  def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue, doc = "")(symbol)
-  def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
+  def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, resetValue:BigInt)(implicit symbol: SymbolName): T = fieldAt(pos, hardType, acc, resetValue, doc = "")(symbol)
+  def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], acc: AccessType, resetValue:BigInt , doc: String)(implicit symbol: SymbolName): T = {
     val sectionNext: Section = pos + hardType.getBitsWidth-1 downto pos
     val sectionExists: Section = fieldPtr downto 0
     val ret = pos match {
@@ -103,9 +103,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
   def fieldAt(pos: Int, bc: BitCount, acc: AccessType, doc: String)(implicit symbol: SymbolName): Bits = fieldAt(pos, bc, acc, resetValue = 0, doc = doc)(symbol)
   @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
-  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: Long)(implicit symbol: SymbolName): Bits = fieldAt(pos, bc, acc, resetValue, doc = "")(symbol)
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: BigInt)(implicit symbol: SymbolName): Bits = fieldAt(pos, bc, acc, resetValue, doc = "")(symbol)
   @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
-  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: BigInt, doc: String)(implicit symbol: SymbolName): Bits = {
     val sectionNext: Section = pos+bc.value-1 downto pos
     def sectionExists: Section = fieldPtr - 1 downto 0
     val ret = pos match {
@@ -123,8 +123,8 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
 
   def field[T <: BaseType](hardType: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue = 0, doc = "")(symbol)
   def field[T <: BaseType](hardType: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue = 0, doc = doc)(symbol)
-  def field[T <: BaseType](hardType: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue, doc = "")(symbol)
-  def field[T <: BaseType](hardType: HardType[T], acc: AccessType, resetValue:Long, doc: String)(implicit symbol: SymbolName): T = {
+  def field[T <: BaseType](hardType: HardType[T], acc: AccessType, resetValue:BigInt)(implicit symbol: SymbolName): T = field(hardType, acc, resetValue, doc = "")(symbol)
+  def field[T <: BaseType](hardType: HardType[T], acc: AccessType, resetValue:BigInt, doc: String)(implicit symbol: SymbolName): T = {
     val reg = acc match{
       case AccessType.NA => {
         val reg = hardType()
@@ -170,14 +170,14 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   * val regwire  = REG3.field(Bits(32 bit), RO , 0xffff, "clock enable read only")
   * regwire := reg32bit
   * */
-  def parasiteField[T <: BaseType](reg: T, acc: AccessType, resetValue: Long, doc: String): Unit = {
+  def parasiteField[T <: BaseType](reg: T, acc: AccessType, resetValue: BigInt, doc: String): Unit = {
     assert(reg.isReg, "prasiteField should be register only, check please")
     registerInWithWriteLogic(reg, acc, resetValue, doc)
   }
 
   def fieldHSRW[T <: BaseType](seten: Bool, setval: T)(implicit symbol: SymbolName): T = fieldHSRW(seten, setval, resetValue = 0, doc = "")(symbol)
-  def fieldHSRW[T <: BaseType](seten: Bool, setval: T, resetValue:Long)(implicit symbol: SymbolName): T = fieldHSRW(seten, setval, resetValue, doc = "")(symbol)
-  def fieldHSRW[T <: BaseType](seten: Bool, setval: T, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
+  def fieldHSRW[T <: BaseType](seten: Bool, setval: T, resetValue:BigInt)(implicit symbol: SymbolName): T = fieldHSRW(seten, setval, resetValue, doc = "")(symbol)
+  def fieldHSRW[T <: BaseType](seten: Bool, setval: T, resetValue:BigInt , doc: String)(implicit symbol: SymbolName): T = {
     val reg = field(hardType = cloneOf(setval), acc = AccessType.HSRW, resetValue = resetValue, doc = doc)(symbol = symbol)
     when(seten){
       reg := setval
@@ -186,8 +186,8 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   }
 
   def fieldHSRWAt[T <: BaseType](pos: Int, seten: Bool, setval: T)(implicit symbol: SymbolName): T = fieldHSRWAt(pos, seten, setval, resetValue = 0, doc = "")(symbol)
-  def fieldHSRWAt[T <: BaseType](pos: Int, seten: Bool, setval: T, resetValue:Long)(implicit symbol: SymbolName): T = fieldHSRWAt(pos, seten, setval, resetValue, doc = "")(symbol)
-  def fieldHSRWAt[T <: BaseType](pos: Int, seten: Bool, setval: T, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
+  def fieldHSRWAt[T <: BaseType](pos: Int, seten: Bool, setval: T, resetValue:BigInt)(implicit symbol: SymbolName): T = fieldHSRWAt(pos, seten, setval, resetValue, doc = "")(symbol)
+  def fieldHSRWAt[T <: BaseType](pos: Int, seten: Bool, setval: T, resetValue:BigInt , doc: String)(implicit symbol: SymbolName): T = {
     val reg = fieldAt(pos, hardType = cloneOf(setval), acc = AccessType.HSRW, resetValue = resetValue, doc = doc)(symbol = symbol)
     when(seten){
       reg := setval
@@ -236,15 +236,15 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     }
   }
 
-  def registerInOnlyReadLogic[T <: BaseType](reg: T, acc: AccessType, resetValue:Long, doc: String): Unit = {
+  def registerInOnlyReadLogic[T <: BaseType](reg: T, acc: AccessType, resetValue:BigInt, doc: String): Unit = {
     registerInWithWriteLogic(reg, acc, resetValue, doc, dontCreatWriteLogic = true)
   }
 
-  def registerAtOnlyReadLogic[T <: BaseType](pos: Int, reg: T, acc: AccessType, resetValue:Long, doc: String): Unit = {
+  def registerAtOnlyReadLogic[T <: BaseType](pos: Int, reg: T, acc: AccessType, resetValue:BigInt, doc: String): Unit = {
     registerAtWithWriteLogic(pos, reg, acc, resetValue, doc, dontCreatWriteLogic = true)
   }
 
-  def registerInWithWriteLogic[T <: BaseType](reg: T, acc: AccessType, resetValue:Long, doc: String, dontCreatWriteLogic: Boolean = false): Unit = {
+  def registerInWithWriteLogic[T <: BaseType](reg: T, acc: AccessType, resetValue:BigInt, doc: String, dontCreatWriteLogic: Boolean = false): Unit = {
     val section: Range = fieldPtr+reg.getBitsWidth-1 downto fieldPtr
     if(!dontCreatWriteLogic){
       creatWriteLogic(reg, acc, section)
@@ -256,7 +256,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     fieldPtr += reg.getBitsWidth
   }
 
-  def registerAtWithWriteLogic[T<: BaseType](pos: Int, reg: T, acc: AccessType, resetValue:Long, doc: String, dontCreatWriteLogic: Boolean = false): Unit ={
+  def registerAtWithWriteLogic[T<: BaseType](pos: Int, reg: T, acc: AccessType, resetValue:BigInt, doc: String, dontCreatWriteLogic: Boolean = false): Unit ={
     val sectionNext: Section = pos + reg.getBitsWidth-1 downto pos
     def sectionExists: Section = fieldPtr - 1 downto 0
     pos match {
@@ -277,9 +277,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
   def field(bc: BitCount, acc: AccessType, doc: String)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue = 0, doc = doc)(symbol)
   @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
-  def field(bc: BitCount, acc: AccessType, resetValue: Long)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue, doc = "")(symbol)
+  def field(bc: BitCount, acc: AccessType, resetValue: BigInt)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue, doc = "")(symbol)
   @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
-  def field(bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
+  def field(bc: BitCount, acc: AccessType, resetValue: BigInt, doc: String)(implicit symbol: SymbolName): Bits = {
     val section: Range = fieldPtr+bc.value-1 downto fieldPtr
     val ret: Bits = acc match {
       case AccessType.RO    => RO(bc)                         //- W: no effect, R: no effect
@@ -409,7 +409,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def W1(bc: BitCount, section: Range, resetValue: Long): Bits ={
+  protected def W1(bc: BitCount, section: Range, resetValue: BigInt): Bits ={
     val ret = Reg(Bits(bc)) init B(resetValue)
     val hardRestFirstFlag = Reg(Bool()) init True
     hardRestFirstFlag.setName(s"wlock_flag", weak = true)
@@ -427,7 +427,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def W(bc: BitCount, section: Range, resetValue: Long ): Bits ={
+  protected def W(bc: BitCount, section: Range, resetValue: BigInt ): Bits ={
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.wdata(ret, section)
@@ -442,7 +442,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def RC(bc: BitCount, section: Range, resetValue: Long): Bits = {
+  protected def RC(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoRead){
       ret := busif.wdata(ret, section, "clear")//ret.clearAll()
@@ -457,7 +457,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def RS(bc: BitCount, section: Range, resetValue: Long): Bits = {
+  protected def RS(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoRead){
       ret := busif.wdata(ret, section, "set")//ret.setAll()
@@ -474,7 +474,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def WRC(bc: BitCount, section: Range, resetValue: Long): Bits = {
+  protected def WRC(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.wdata(ret, section)//busif.writeData(section)
@@ -493,7 +493,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def WRS(bc: BitCount, section: Range, resetValue: Long): Bits = {
+  protected def WRS(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.wdata(ret, section)//busif.writeData(section)
@@ -510,7 +510,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def WC(bc: BitCount, section: Range, resetValue: Long): Bits = {
+  protected def WC(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.wdata(ret, section, "clear")//ret.clearAll()
@@ -525,7 +525,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def WS(bc: BitCount, section: Range, resetValue: Long): Bits = {
+  protected def WS(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.wdata(ret, section, "set")  //ret.setAll()
@@ -542,7 +542,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def WSRC(bc: BitCount, section: Range, resetValue: Long): Bits = {
+  protected def WSRC(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.wdata(ret, section, "set")  //ret.setAll()
@@ -561,7 +561,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def WCRS(bc: BitCount, section: Range, resetValue: Long): Bits = {
+  protected def WCRS(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.wdata(ret, section, "clear")//ret.clearAll()
@@ -593,7 +593,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def WB(section: Range, resetValue: Long, accType: AccessType): Bits = {
+  protected def WB(section: Range, resetValue: BigInt, accType: AccessType): Bits = {
     val ret = Reg(Bits(section.size bits)) init B(resetValue)
     when(hitDoWrite){
       for(x <- section) {
@@ -643,7 +643,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def WBR(section: Range, resetValue: Long, accType: AccessType): Bits ={
+  protected def WBR(section: Range, resetValue: BigInt, accType: AccessType): Bits ={
     val ret = Reg(Bits(section.size bits)) init B(resetValue)
     for(x <- section) {
       val idx = x - section.min
@@ -691,7 +691,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     reg
   }
 
-  protected def WBP(section: Range, resetValue: Long, accType: AccessType): Bits ={
+  protected def WBP(section: Range, resetValue: BigInt, accType: AccessType): Bits ={
     val resetValues = B(resetValue)
     val ret = Reg(Bits(section.size bits)) init resetValues
     for(x <- section) {

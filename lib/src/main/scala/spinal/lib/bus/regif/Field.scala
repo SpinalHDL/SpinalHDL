@@ -6,7 +6,7 @@ case class Field(name: String,
                  hardbit: BaseType,
                  section: Range,
                  accType: AccessType,
-                 resetValue: Long,
+                 resetValue: BigInt,
                  readError: Boolean,
                  doc: String) extends FieldDescr {
   private var _name = name
@@ -19,6 +19,6 @@ case class Field(name: String,
   def getWidth()      : Int        = hardbit.getBitsWidth
   def getSection()    : Range      = section
   def getAccessType() : AccessType = accType
-  def getResetValue() : Long       = resetValue
+  def getResetValue() : BigInt     = resetValue
   def getDoc()        : String     = doc
 }
