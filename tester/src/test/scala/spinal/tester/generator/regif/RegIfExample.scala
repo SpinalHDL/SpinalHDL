@@ -65,5 +65,6 @@ object playregif extends App{
   val sp = SpinalConfig()
     .copy(targetDirectory = "./out/playregif")
   sp.generateVerilog(new RegIfExample)
-  sp.generateVerilog(new RegIfACC30)
+  sp.generateVerilog(new RegIfBasicAccessTest("apb3"))
+  sp.generateVerilog(new RegIfBasicAccessTest("apb4"))
 }

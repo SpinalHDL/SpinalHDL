@@ -1,16 +1,30 @@
 package spinal.tester.generator.regif
 
 import spinal.core._
+import spinal.core.sim._
 import spinal.lib._
+import spinal.lib.bus.amba3.ahblite.AhbLite3
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
+import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 import spinal.lib.bus.amba4.apb._
+import spinal.lib.bus.amba4.apb.sim.Apb4Driver
 import spinal.lib.bus.regif.AccessType._
 import spinal.lib.bus.regif._
+import spinal.lib.bus.wishbone.Wishbone
 
-class RegIfACC30 extends Component {
-  val io = new Bundle {
-    val apb = slave(Apb4(Apb4Config(16, 32)))
+
+class RegIfBasicAccessTest(busname: String) extends Component{
+  val (bus, busif) = busname match{
+    case "apb3" => {
+      val bus = slave(Apb3(Apb3Config(32, 32)))
+      bus -> BusInterface(bus, (0x000, 4 MiB), 0, regPre = "AP")
+    }
+    case "apb4" => {
+      val bus = slave(Apb4(Apb4Config(32, 32)))
+      bus -> BusInterface(bus, (0x000, 4 MiB), 0, regPre = "AP")
+    }
+    case _ => SpinalError("not support yet")
   }
-  val busif = BusInterface(io.apb,(0x000,4 KiB), 0, regPre = "AP")
 
   val reg_ro      = busif.newReg(doc = "RO    ").field(Bits(32 bit), RO   , 0x7788abcd, doc = "ro   ")
   val reg_rw      = busif.newReg(doc = "RW    ").field(Bits(32 bit), RW   , 0x77880002, doc = "rw   ").asOutput()
@@ -50,13 +64,31 @@ class RegIfACC30 extends Component {
   val reg_bmsc_4ar= busif.newReg(doc = "BMSC-D").field(Bits(32 bit), RO   , 0, doc = "32 bit read only")     //4 address share one reg
   reg_bmsc_4ar := reg_bmsc_4a
   reg_ro := 0
-}
 
-trait RegIfTest{
-  val refdata = List(0x12345678, 0x5a5a5a5a, 0xffffffff, 0x00000000, 0x37abcdef, 0x11111111, 0x35af0782)
-  def write(addr: Long, data: BigInt): Unit
-  def read(addr: Long): BigInt
+  val refdata = List("12345678".asHex, "5a5a5a5a".asHex, "ffffffff".asHex, "00000000".asHex, "37abcdef".asHex, "11111111".asHex, "35af0782".asHex)
+  def write(addr: Long, data: BigInt, strb: BigInt = 0xff): Unit = {
+    bus match {
+      case bs: Apb3     => Apb3Driver(bs, this.clockDomain).write(addr, data)
+      case bs: Apb4     => Apb4Driver(bs, this.clockDomain).write(addr, data, strb)
+      case bs: AhbLite3 => SpinalError("AhbLIte3 regif test not support yet")
+      case bs: Wishbone => SpinalError("Wishbon  regif test not support yet")
+    }
+  }
+  def read(addr: Long): BigInt = {
+    bus match {
+      case bs: Apb3 => Apb3Driver(bs, this.clockDomain).read(addr)
+      case bs: Apb4 => Apb4Driver(bs, this.clockDomain).read(addr)
+      case bs: AhbLite3 => SpinalError("AhbLIte3 regif test not support yet")
+      case bs: Wishbone => SpinalError("Wishbon  regif test not support yet")
+    }
+  }
+
+  def siminit() = {
+    this.clockDomain.forkStimulus(2)
+    this.clockDomain.waitSampling(100)
+  }
   def regression() = {
+    siminit()
     tc00_ro   (0x0000)
     tc01_rw   (0x0004)
     tc02_rc   (0x0008)
@@ -243,3 +275,53 @@ trait RegIfTest{
 }
 
 
+//object utils extends App{
+//  val spinalConfig = SpinalConfig(
+//    defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING,
+//      resetKind = ASYNC,
+//      resetActiveLevel = LOW
+//    ),
+//    defaultClockDomainFrequency = FixedFrequency(200 MHz),
+//    targetDirectory = "./out/rtl/",
+//    headerWithDate = true,
+//    inlineConditionalExpression = true,
+//    oneFilePerComponent = false,
+//    nameWhenByFile = false,
+//    removePruned = true,
+//    anonymSignalPrefix = "t",
+//    mergeAsyncProcess = true)
+//
+//  val simcfg = SpinalSimConfig().withConfig(spinalConfig)
+//}
+
+object Apb4test extends App{
+  val spinalConfig = SpinalConfig(
+    defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING,
+      resetKind = ASYNC,
+      resetActiveLevel = LOW
+    ),
+    defaultClockDomainFrequency = FixedFrequency(200 MHz),
+    targetDirectory = "./out/rtl/",
+    headerWithDate = true,
+    inlineConditionalExpression = true,
+    oneFilePerComponent = false,
+    nameWhenByFile = false,
+    removePruned = true,
+    anonymSignalPrefix = "t",
+    mergeAsyncProcess = true)
+
+  val simcfg = SpinalSimConfig().withConfig(spinalConfig)
+  simcfg
+    .compile(new RegIfBasicAccessTest("apb4"))
+    .doSimUntilVoid("regif_apb4_test"){ dut =>
+      dut.regression()
+      simSuccess()
+    }
+}
+object Apb3test extends App{
+  SpinalSimConfig().compile(new RegIfBasicAccessTest("apb3"))
+    .doSimUntilVoid("regif_apb3_test"){ dut =>
+      dut.regression()
+      simSuccess()
+    }
+}
