@@ -170,7 +170,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
   def tc05_wrs  (addr: Long) = {
     def test(data: BigInt) = {
       write(addr, data)
-      assert(reg_wrs.toBigInt == data, s"0x${data.hexString(32)} != 0x${reg_wrs.toBigInt.hexString(32)}, WRC, write assert fail")
+      assert(reg_wrs.toBigInt == data, s"0x${data.hexString(32)} != 0x${reg_wrs.toBigInt.hexString(32)}, WRS, write assert fail")
       read(addr)
       val rdata = read(addr)
       assert(rdata == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WRS test failed")
@@ -331,6 +331,7 @@ object Apb4test extends App{
 
   val simcfg = SpinalSimConfig().withConfig(spinalConfig)
   simcfg
+    .withFstWave
     .compile(new RegIfBasicAccessTest("apb4"))
     .doSimUntilVoid("regif_apb4_test"){ dut =>
       dut.regression()
