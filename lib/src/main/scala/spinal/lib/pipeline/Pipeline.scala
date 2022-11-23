@@ -309,8 +309,15 @@ class Pipeline extends Area{
     //Name stuff
     for(stage <- stagesSet){
       def nameThat(target : Nameable, postfix : String): Unit ={
-        if(stage.isNamed && postfix.startsWith(stage.getName)){
-          target.setName(postfix)
+        if(stage.isNamed){
+          // && postfix.startsWith(stage.getName)
+          val stageName = stage.getName
+          val stageSlices = stageName.split('_')
+          val postfixSlices = postfix.split('_')
+          var i = 0
+          val iEnd = stageSlices.length min postfixSlices.length
+          while(i != iEnd && stageSlices(i) == postfixSlices(i)) i += 1
+          target.setName(stageName + "_" + postfixSlices.drop(i).mkString("_"))
         } else {
           target.setCompositeName(stage, postfix)
         }
