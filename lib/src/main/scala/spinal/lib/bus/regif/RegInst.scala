@@ -134,6 +134,9 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.ROV => {
         B(resetValue, hardType().getBitsWidth bit).asInstanceOf[T]
       }
+      case AccessType.RO => {
+        hardType()
+      }
       case _ => {
         val reg = Reg(hardType)
         reg match {
