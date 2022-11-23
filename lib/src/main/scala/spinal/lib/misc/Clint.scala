@@ -23,8 +23,11 @@ object Clint{
 }
 
 case class Clint(hartCount : Int) extends Area{
+  val stop = False
   val time = Reg(UInt(64 bits)) init(0)
-  time := time + 1
+  when(!stop){
+    time := time + 1
+  }
 
   val harts = for(hartId <- 0 until hartCount) yield new Area{
     val cmp = Reg(UInt(64 bits))
@@ -123,11 +126,13 @@ case class BmbClint(bmbParameter : BmbParameter, hartCount : Int) extends Compon
     val timerInterrupt = out Bits(hartCount bits)
     val softwareInterrupt = out Bits(hartCount bits)
     val time = out UInt(64 bits)
+    val stop = in Bool() default(False)
   }
 
   val factory = BmbSlaveFactory(io.bus)
   val logic = Clint(hartCount)
   logic.driveFrom(factory)
+  logic.stop setWhen(io.stop)
 
   for(hartId <- 0 until hartCount){
     io.timerInterrupt(hartId) := logic.harts(hartId).timerInterrupt

@@ -328,8 +328,10 @@ package object sim {
 
     def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
 
-    def randomize(): Unit = {
-      bt #= Random.nextBoolean()
+    def randomize(): Boolean = {
+      val b = Random.nextBoolean()
+      bt #= b
+      b
     }
   }
 
@@ -356,81 +358,62 @@ package object sim {
     }
   }
 
-  /**
-    * Add implicit function to Bits
-    */
-  implicit class SimBitsPimper(bt: Bits) {
+  protected abstract class RandomizableBitVector(bt: BitVector, longLimit: Int) {
+    protected val width = bt.getWidth
 
-    def randomize(): Unit = {
-      val width = bt.getWidth
-      if(width < 64){
-        bt #= Random.nextLong() & ((1l << width) - 1)
-      }else {
-        bt #= BigInt(width, Random)
+    def randomize(): BigInt = {
+      if (width < longLimit) {
+        val l = randomizedLong()
+        bt #= l
+        l
+      } else {
+        val bi = randomizedBigInt()
+        bt #= bi
+        bi
       }
     }
 
-    def randomizedBigInt() = {
-      val width = bt.getWidth
-      BigInt(width, Random)
-    }
+    def randomizedBigInt() = BigInt(width, Random)
+
     def randomizedLong() = {
-      val width = bt.getWidth
       assert(width < 64)
       Random.nextLong() & ((1l << width) - 1)
     }
+
     def randomizedInt() = {
-      val width = bt.getWidth
       assert(width < 32)
       Random.nextInt() & ((1 << width) - 1)
     }
   }
 
   /**
-    * Add implicit function to UInt
-    */
-  implicit class SimUIntPimper(bt: UInt) {
+   * Add implicit function to Bits
+   */
+  implicit class SimBitsPimper(bt: Bits) extends RandomizableBitVector(bt, 64)
 
-    def randomize(): Unit = {
-      val width = bt.getWidth
-      if(width < 64){
-        bt #= Random.nextLong() & ((1l << width) - 1)
-      }else {
-        bt #= BigInt(width, Random)
-      }
-    }
-
-    def randomizedBigInt() = {
-      val width = bt.getWidth
-      BigInt(width, Random)
-    }
-    def randomizedLong() = {
-      val width = bt.getWidth
-      assert(width < 64)
-      Random.nextLong() & ((1l << width) - 1)
-    }
-    def randomizedInt() = {
-      val width = bt.getWidth
-      assert(width < 32)
-      Random.nextInt() & ((1 << width) - 1)
-    }
-  }
+  /**
+   * Add implicit function to UInt
+   */
+  implicit class SimUIntPimper(bt: UInt) extends RandomizableBitVector(bt, 64)
 
 
   /**
-    * Add implicit function to SInt
-    */
-  implicit class SimSIntPimper(bt: SInt) {
-
-    def randomize(): Unit = {
-      val width = bt.getWidth
-      if(width <= 64){
-        val shift = 64 - width
-        bt #= (Random.nextLong() << shift) >> shift
-      }else {
-        bt #= BigInt(width, Random) - (BigInt(1) << width-1)
-      }
+   * Add implicit function to SInt
+   */
+  implicit class SimSIntPimper(bt: SInt) extends RandomizableBitVector(bt, 65) {
+    override def randomizedLong(): Long = {
+      assert(width <= 64)
+      val shift = 64 - width
+      (Random.nextLong << shift) >> shift
     }
+
+    override def randomizedInt(): Int = {
+      assert(width <= 32)
+      val shift = 32 - width
+      (Random.nextInt() << shift) >> shift
+    }
+
+    override def randomizedBigInt(): BigInt = BigInt(width, Random) - (BigInt(1) << width - 1)
   }
 
   /**
@@ -442,8 +425,10 @@ package object sim {
 
     def #=(value: SpinalEnumElement[T]) = setBigInt(bt, bt.encoding.getValue(value))
 
-    def randomize(): Unit ={
-      bt #= bt.spinalEnum.elements(Random.nextInt(bt.spinalEnum.elements.length))
+    def randomize(): SpinalEnumElement[T] = {
+      val e = bt.spinalEnum.elements(Random.nextInt(bt.spinalEnum.elements.length))
+      bt #= e
+      e
     }
   }
 
@@ -465,36 +450,41 @@ package object sim {
       rawAssign(rhs)
     }
     def #= (that : Double): Unit = this #= BigDecimal(that)
-    def randomize(): Unit = {
+    def randomize(): BigDecimal = {
       var rhs = Random.nextDouble()
       rhs = Math.max(minValue, rhs)
       rhs = Math.min(maxValue, rhs)
       this #= rhs
+      discretize(rhs)
     }
 
     def toBigDecimal: BigDecimal
+    protected def discretize(d: Double): BigDecimal
     def toDouble: Double = this.toBigDecimal.doubleValue
   }
 
-  implicit class SimUFixPimper(bt: UFix) extends SimFix(bt){
+  implicit class SimUFixPimper(bt: UFix) extends SimFix(bt) {
+    private val factor = scala.math.pow(2, fractionLength)
     override val maxRawIntValue = bt.raw.maxValue
     override val minRawIntValue: BigInt = 0
 
     override protected def rawAssign(that: BigInt): Unit = bt.raw #= that
-    override def toBigDecimal: BigDecimal = {
-      BigDecimal(bt.raw.toBigInt) / scala.math.pow(2, fractionLength)
-    }
+
+    override def toBigDecimal: BigDecimal = BigDecimal(bt.raw.toBigInt) / factor
+
+    override def discretize(d: Double): BigDecimal = BigDecimal((BigDecimal(d) * factor).toBigInt) / factor
   }
 
-  implicit class SimSFixPimper(bt: SFix) extends SimFix(bt){
+  implicit class SimSFixPimper(bt: SFix) extends SimFix(bt) {
+    private val factor = scala.math.pow(2, fractionLength)
     override val maxRawIntValue = bt.raw.maxValue
     override val minRawIntValue = bt.raw.minValue
 
     override protected def rawAssign(that: BigInt): Unit = bt.raw #= that
 
-    override def toBigDecimal: BigDecimal = {
-      BigDecimal(bt.raw.toBigInt) / scala.math.pow(2, fractionLength)
-    }
+    override def toBigDecimal: BigDecimal = BigDecimal(bt.raw.toBigInt) / factor
+
+    override def discretize(d: Double): BigDecimal = BigDecimal((BigDecimal(d) * factor).toBigInt) / factor
   }
 
   // todo
@@ -502,6 +492,7 @@ package object sim {
     val fractionLength = bt.fracWidth
     val maxRawIntValue = bt.maxRaw
     val minRawIntValue = bt.minRaw
+    private val factor = scala.math.pow(2, fractionLength)
     private def exp = bt.exp
     private def maxDecimal = BigDecimal(maxRawIntValue) * BigDecimal(2).pow(exp)
     private def minDecimal = BigDecimal(minRawIntValue) * BigDecimal(2).pow(exp)
@@ -523,7 +514,7 @@ package object sim {
     }
     def #= (that : Double): Unit = this #= BigDecimal(that)
 
-    def randomize(inRange: Boolean = true): Unit = {
+    def randomize(inRange: Boolean = true): BigDecimal = {
       if (inRange) {
         var randBigInt: BigInt = null
         do {
@@ -543,29 +534,34 @@ package object sim {
           }
           bt.raw #= randBigInt
         }
+        discretize(randBigInt)
       } else {
-        bt.raw.randomize()
+        val bi = bt.raw.randomizedBigInt()
+        bt.raw #= bi
+        discretize(bi)
       }
     }
 
-    def toBigDecimal: BigDecimal = {
-      if (bt.signed) {
-        var rawInt = bt.raw.toBigInt
-        if (!rawInt.testBit(bt.numWidth)) {
-          BigDecimal(rawInt) / scala.math.pow(2, fractionLength)
-        } else {
-          (0 until bt.bitWidth).foreach { idx =>
-            rawInt = rawInt.flipBit(idx)
-          }
-          rawInt = -(rawInt + 1)
-          BigDecimal(rawInt) / scala.math.pow(2, fractionLength)
-        }
-      } else {
-        BigDecimal(bt.raw.toBigInt) / scala.math.pow(2, fractionLength)
-      }
-    }
+    def toBigDecimal: BigDecimal = discretize(bt.raw.toBigInt)
+
     def toDouble: Double = this.toBigDecimal.doubleValue
 
+    protected def discretize(raw: BigInt): BigDecimal = {
+      if (bt.signed) {
+        if (!raw.testBit(bt.numWidth)) {
+          BigDecimal(raw) / factor
+        } else {
+          var tmp = raw
+          (0 until bt.bitWidth).foreach { idx =>
+            tmp = tmp.flipBit(idx)
+          }
+          tmp = -(tmp + 1)
+          BigDecimal(tmp) / factor
+        }
+      } else {
+        BigDecimal(raw) / factor
+      }
+    }
   }
   
   /**

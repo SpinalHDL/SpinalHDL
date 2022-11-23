@@ -87,6 +87,7 @@ case class BmbInvalidateMonitorGenerator()
 case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
                             (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area {
   val ctrl = Handle(logic.io.bus)
+  val stop = Handle(logic.io.stop)
   val cpuCount = Handle[Int]
 
   val accessSource = Handle[BmbAccessCapabilities]

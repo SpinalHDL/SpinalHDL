@@ -1,6 +1,5 @@
 package spinal.demo.mandelbrot
 
-import net.liftweb.json.JsonAST.JValue
 import spinal.core._
 
 import scala.util.Random

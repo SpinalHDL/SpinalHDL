@@ -296,7 +296,7 @@ trait SpinalEnumEncoding extends Nameable with ScalaLocated{
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt
   def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T]
 
-  def isNative: Boolean
+  def isNative: Boolean = false
 }
 
 
@@ -332,7 +332,6 @@ object binarySequential extends SpinalEnumEncoding{
   override def getWidth(senum: SpinalEnum): Int = log2Up(senum.elements.length)
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
   override def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T] = senum.elements(element.toInt)
-  override def isNative = false
   setName("seq")
 }
 
@@ -345,10 +344,22 @@ object binaryOneHot extends SpinalEnumEncoding{
   override def getWidth(senum: SpinalEnum): Int = senum.elements.length
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = BigInt(1) << element.position
   override def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T] = senum.elements(element.bitLength-1)
-  override def isNative = false
   setName("oh")
 }
 
+/**
+ * Gray encoding (sequentially assigned)
+ * @example{{{ 000, 001, 011, 010, ... }}}
+ * @note If used in FSM it is not ensured that only gray encoding preserving
+ *       transitions are done. If that is needed e.g. for CDC reasons, the
+ *       transitions must be checked manually.
+ */
+object graySequential extends SpinalEnumEncoding {
+  override def getWidth(e: SpinalEnum) = log2Up(e.elements.length)
+  override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = Gray.encode(element.position)
+  override def getElement[T <: SpinalEnum](value: BigInt, enums: T): SpinalEnumElement[T] = enums.elements(Gray.decode(value).toInt)
+  setName("graySeq")
+}
 
 /**
   * Used to create a custom encoding
