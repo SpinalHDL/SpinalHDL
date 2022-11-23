@@ -26,6 +26,16 @@ class RegIfBasicAccessTest(busname: String) extends Component{
     case _ => SpinalError("not support yet")
   }
 
+  def assertError(aset: Boolean, msg: String = "SLVERROR assert fail") = bus match {
+    case bs: Apb3 => {
+      assert(bs.PSLVERROR.toBoolean == aset, msg)
+    }
+    case bs: Apb4 => {
+      assert(bs.PSLVERR.toBoolean == aset, msg)
+    }
+    case _ => SpinalError("not support yet")
+  }
+
   val reg_ro      = busif.newReg(doc = "RO    ").field(Bits(32 bit), RO   , "7788abcd".asHex, doc = "ro   ")
   val reg_rw      = busif.newReg(doc = "RW    ").field(Bits(32 bit), RW   , "77880002".asHex, doc = "rw   ").asOutput()
   val reg_rc      = busif.newReg(doc = "RC    ").field(Bits(32 bit), RC   , "77880003".asHex, doc = "rc   ").asOutput()
@@ -55,15 +65,15 @@ class RegIfBasicAccessTest(busname: String) extends Component{
   val reg_w1p     = busif.newReg(doc = "W1P   ").field(Bits(32 bit), W1P  , "00000000".asHex, doc = "w1p  ").asOutput()
   val reg_w0p     = busif.newReg(doc = "W0P   ").field(Bits(32 bit), W0P  , "00000000".asHex, doc = "w0p  ").asOutput()
   val reg_hsrw    = busif.newReg(doc = "HSRW  ").field(Bits(32 bit), HSRW , "7788001e".asHex, doc = "hsrw ").asOutput()
-                    busif.newReg(doc = "ROV   ").field(Bits(32 bit), ROV  , "77885566".asHex, doc = "rov")
+                    busif.newReg(doc = "ROV   ").field(Bits(32 bit), ROV  , "abcdef66".asHex, doc = "rov")
   val reg_bmsc_2a = busif.newReg(doc = "BMSC-A").field(Bits(32 bit), W1S  , "00000000".asHex, doc = "32 bit write 1 set").asOutput()
                     busif.newReg(doc = "BMSC-B").parasiteField(reg_bmsc_2a, W1C  , 0         , doc = "32 bit write 1 clear") //two address share one reg
-  val reg_bmsc_4a = busif.newReg(doc = "BMSC-A").field(Bits(32 bit),  RW  , 0x2bcd1234, doc = "32 bit RW").asOutput()
-                    busif.newReg(doc = "BMSC-B").parasiteField(reg_bmsc_2a, W1S  , 0, doc = "32 bit write 1 set")   //4 address share one reg
-                    busif.newReg(doc = "BMSC-C").parasiteField(reg_bmsc_2a, W1C  , 0, doc = "32 bit write 1 clear") //4 address share one reg
-  val reg_bmsc_4ar= busif.newReg(doc = "BMSC-D").field(Bits(32 bit), RO   , 0, doc = "32 bit read only")     //4 address share one reg
+  val reg_bmsc_4a = busif.newReg(doc = "BMSC-A").field(Bits(32 bit),  RW  , 0, doc = "32 bit RW").asOutput()
+                    busif.newReg(doc = "BMSC-B").parasiteField(reg_bmsc_4a, W1S  , 0, doc = "32 bit write 1 set")   //4 address share one reg
+                    busif.newReg(doc = "BMSC-C").parasiteField(reg_bmsc_4a, W1C  , 0, doc = "32 bit write 1 clear") //4 address share one reg
+  val reg_bmsc_4ar= busif.newReg(doc = "BMSC-D").field(Bits(32 bit), RO , 0, doc = "32 bit read only")     //4 address share one reg
   reg_bmsc_4ar := reg_bmsc_4a
-  reg_ro := 0
+  reg_ro := "fedcba98".asHex
 
   val refdata = List("12345678".asHex, "5a5a5a5a".asHex, "ffffffff".asHex, "00000000".asHex, "37abcdef".asHex, "11111111".asHex, "35af0782".asHex)
   def write(addr: Long, data: BigInt, strb: BigInt = 0xff): Unit = {
@@ -123,10 +133,12 @@ class RegIfBasicAccessTest(busname: String) extends Component{
     tc28_hsrw (0x0070)
     tc29_rov  (0x0074)
     tc30_bmsc_2a (0x0078)
-    tc31_bmsc_4a (0x007c)
+    tc31_bmsc_4a (0x0080)
   }
   def tc00_ro   (addr: Long) = {
-    SpinalInfo("RS - [TBD-Warning] ")
+    val rdata = read(addr)
+    assert("fedcba98".asHex == rdata, s"0xfedcba98 != 0x${rdata.hexString(32)}, RW test failed")
+    SpinalInfo("tc00 RO - testpass")
   }
   def tc01_rw   (addr: Long) = {
     def test(data: BigInt) = {
@@ -135,6 +147,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       assert(data == rdata, s"0x${data.hexString(32)} != 0x${rdata.hexString(32)}, RW test failed")
     }
     refdata.foreach(test(_))
+    SpinalInfo("tc01 RW - test pass")
   }
   def tc02_rc   (addr: Long) = {
     def test(data: BigInt) = {
@@ -144,7 +157,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       assert(rdata == 0, s"0x${rdata.hexString(32)} != 0x00000000, RC test failed")
     }
     refdata.foreach(test(_))
-    SpinalInfo("RC - test TBA-pass")
+    SpinalInfo("tc02 RC - test TBA-pass")
   }
   def tc03_rs   (addr: Long) = {
     def test(data: BigInt) = {
@@ -154,7 +167,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       assert(rdata == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, RS test failed")
     }
     refdata.foreach(test(_))
-    SpinalInfo("RS - test TBA-pass")
+    SpinalInfo("tc03 RS - test TBA-pass")
   }
   def tc04_wrc  (addr: Long) = {
     def test(data: BigInt) = {
@@ -165,7 +178,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       assert(rdata == 0, s"0x${rdata.hexString(32)} != 0x00000000, WRC test failed")
     }
     refdata.foreach(test(_))
-    SpinalInfo("WRC - test pass")
+    SpinalInfo("tc04 WRC - test pass")
   }
   def tc05_wrs  (addr: Long) = {
     def test(data: BigInt) = {
@@ -176,7 +189,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       assert(rdata == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WRS test failed")
     }
     refdata.foreach(test(_))
-    SpinalInfo("WRC - test pass")
+    SpinalInfo("tc05 WRC - test pass")
   }
   def tc06_wc   (addr: Long) = {
     val rdata = read(addr)
@@ -184,7 +197,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
     write(addr, "abcdef53".asHex)
     val rdata1 = read(addr)
     assert(rdata1 == 0, s"0x${rdata.hexString(32)} != 0x00000000, WC test failed")
-    SpinalInfo("WC - test TBA-pass")
+    SpinalInfo("tc06 WC - test TBA-pass")
   }
   def tc07_ws   (addr: Long) = {
     val rdata = read(addr)
@@ -192,7 +205,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
     write(addr, "abcdef53".asHex)
     val rdata1 = read(addr)
     assert(rdata1 == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
-    SpinalInfo("WC - test TBA-pass")
+    SpinalInfo("tc07 WC - test TBA-pass")
   }
   def tc08_wsrc (addr: Long) = {
     val rdata = read(addr)
@@ -201,7 +214,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
     read(addr)
     val rdata1 = read(addr)
     assert(rdata1 == 0, s"0x${rdata.hexString(32)} != 0x00000000, WC test failed")
-    SpinalInfo("WSRC - test TBA-pass")
+    SpinalInfo("tc08 WSRC - test TBA-pass")
   }
   def tc09_wcrs (addr: Long) = {
     val rdata = read(addr)
@@ -210,7 +223,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
     read(addr)
     val rdata1 = read(addr)
     assert(rdata1 == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
-    SpinalInfo("WCRS - test TBA-pass")
+    SpinalInfo("tc09 WCRS - test TBA-pass")
   }
   def tc10_w1c  (addr: Long) = {
     val TV = List(
@@ -228,7 +241,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, W1C test failed")
     }
     TV.foreach(test)
-    SpinalInfo("W1C - test pass ")
+    SpinalInfo("tc10 W1C - test pass ")
   }
   def tc11_w1s  (addr: Long) = {
     val TV = List(
@@ -246,24 +259,68 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, W1S test failed")
     }
     TV.foreach(test)
-    SpinalInfo("W1S - test pass ")
+    SpinalInfo("tc11 W1S - test pass ")
   }
-  def tc12_w1t  (addr: Long) = {
-    //det on reset value
-//    val rdata = read(addr)
-//    assert(rdata != "FFFFFFFF".asHex, s"reset value not high before write")
-//    write(addr, 0xabcdef53)
-//    assert(rdata == "FFFFFFFF".asHex, s"0x${rdata.hexString(32)} != 0xFFFFFFFF, WS test failed")
-    SpinalInfo("W1S - [TBD-Warning] ")
+  def tc12_w1t(addr: Long) = {
+    // reg_w1t init  0x0000FFFF
+    val data = "abcdef53".asHex
+    write(addr, data)
+    val rdata = read(addr)
+    assert(rdata == "abcd10ac".asHex, s"0x${rdata.hexString(32)} != 0xabcd10ac, W1T test failed")
+    write(addr, data)
+    val rdata1 = read(addr)
+    assert(rdata1 == "0000ffff".asHex, s"0x${rdata1.hexString(32)} != 0x0000ffff, W1T test failed")
+    SpinalInfo("tc12 W1S - [TBD-Warning] ")
   }
   def tc13_w0c  (addr: Long) = {
-    SpinalInfo("WOC - [TBD-Warning] ")
+    // reg_w0c init  0xFFFFFFFF
+    val TV = List(
+      "ffffff00".asHex -> "ffffff00".asHex,
+      "ffff55ff".asHex -> "ffff5500".asHex,
+      "ff33ffff".asHex -> "ff335500".asHex,
+      "ccffffff".asHex -> "cc335500".asHex,
+      "00ffffff".asHex -> "00335500".asHex,
+      "ff0ff0ff".asHex -> "00035000".asHex,
+      "ffff0000".asHex -> "00030000".asHex
+    )
+
+    def test(t: (BigInt, BigInt)) = {
+      write(addr, t._1)
+      val rdata = read(addr)
+      assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, W0C test failed")
+    }
+
+    TV.foreach(test)
+    SpinalInfo("tc13 WOC - test pass")
   }
   def tc14_w0s  (addr: Long) = {
-    SpinalInfo("WOS - [TBD-Warning] ")
+    val TV = List(
+      "ffffff00".asHex -> "000000ff".asHex,
+      "ffff00ff".asHex -> "0000ffff".asHex,
+      "0fffffff".asHex -> "f000ffff".asHex,
+      "ffc3ffff".asHex -> "f03cffff".asHex,
+      "f5ffffff".asHex -> "fa3cffff".asHex
+    )
+
+    def test(t: (BigInt, BigInt)) = {
+      write(addr, t._1)
+      val rdata = read(addr)
+      assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, W0S test failed")
+    }
+
+    TV.foreach(test)
+    SpinalInfo("tc14 WOS - test pass")
   }
   def tc15_w0t  (addr: Long) = {
-    SpinalInfo("W0T - [TBD-Warning] ")
+    //reg_w0t = 0x0000FFFF
+    val data = "00ffff00".asHex
+    write(addr, "00ffff00".asHex)
+    val rdata = read(addr)
+    assert(rdata == "ff00ff00".asHex, s"0x${rdata.hexString(32)} != 0xFF00FF00, W0T test failed")
+    write(addr, "00ffff00".asHex)
+    val rdata1 = read(addr)
+    assert(rdata1 == "0000FFFF".asHex, s"0x${rdata1.hexString(32)} != 0x0000FFFF, W0T test failed")
+    SpinalInfo("tc15 W0T - test pass")
   }
   def tc16_w1src(addr: Long) = {
     SpinalInfo("W1SRC - [TBD-Warning] ")
@@ -278,19 +335,84 @@ class RegIfBasicAccessTest(busname: String) extends Component{
     SpinalInfo("W1CRS - [TBD-Warning] ")
   }
   def tc20_wo   (addr: Long) = {
-    SpinalInfo("WO - [TBD-Warning] ")
+    write(addr, "12345678".asHex)
+    assert(reg_wo.toBigInt == "12345678".asHex, s"0x12345678 != 0x${reg_wo.toBigInt.hexString(32)}, WO, write assert fail")
+    write(addr, "abcdef12".asHex)
+    assertError(false, s"WO test  readError Fail")
+    assert(reg_wo.toBigInt == "abcdef12".asHex, s"0xabcdef12 != 0x${reg_wo.toBigInt.hexString(32)}, WO, write assert fail")
+    read(addr)
+    assertError(true, s"WO test  readError Fail")
+    SpinalInfo("WO - test pass ")
   }
-  def tc21_woc  (addr: Long) = { }
-  def tc22_wos  (addr: Long) = { }
-  def tc23_w1   (addr: Long) = { }
-  def tc24_wo1  (addr: Long) = { }
-  def tc25_na   (addr: Long) = { }
-  def tc26_w1p  (addr: Long) = { }
-  def tc27_w0p  (addr: Long) = { }
-  def tc28_hsrw (addr: Long) = { }
-  def tc29_rov  (addr: Long) = { }
-  def tc30_bmsc_2a (addr: Long) = { }
-  def tc31_bmsc_4a (addr: Long) = { }
+  def tc21_woc  (addr: Long) = {SpinalInfo("tc21 WOC  [TBD-Warning]")}
+  def tc22_wos  (addr: Long) = {SpinalInfo("tc22 WOS  [TBD-Warning]")}
+  def tc23_w1   (addr: Long) = {
+    write(addr, "12345678".asHex)
+    assert(reg_w1.toBigInt == "12345678".asHex, s"0x12345678 != 0x${reg_w1.toBigInt.hexString(32)}, W1, write assert fail")
+    write(addr, "00ff1344".asHex)
+    assert(reg_w1.toBigInt == "12345678".asHex, s"0x12345678 != 0x${reg_w1.toBigInt.hexString(32)}, W1, write assert fail")
+    val rdata = read(addr)
+    assert(rdata == "12345678".asHex, s"0x${rdata.hexString(32)} != 0x12345678, W1 read test failed")
+    SpinalInfo("tc23 W1  test pass")
+  }
+  def tc24_wo1  (addr: Long) = {
+    write(addr, "fabcdef3".asHex)
+    assert(reg_wo1.toBigInt == "fabcdef3".asHex, s"0xfabcdef3 != 0x${reg_wo1.toBigInt.hexString(32)}, WO1, write assert fail")
+    write(addr, "fabcdef3".asHex)
+    assert(reg_wo1.toBigInt == "fabcdef3".asHex, s"0xfabcdef3 != 0x${reg_wo1.toBigInt.hexString(32)}, WO1, write assert fail")
+    read(addr)
+    assertError(true, s"WO1 test  readError Fail")
+    SpinalInfo("tc24 WO1  test pass")}
+  def tc25_na   (addr: Long) = {SpinalInfo("tc25 NA   [TBD-Warning]")}
+  def tc26_w1p  (addr: Long) = {SpinalInfo("tc26 W1P  [TBD-Warning]")}
+  def tc27_w0p  (addr: Long) = {SpinalInfo("tc27 W0P  [TBD-Warning]")}
+  def tc28_hsrw (addr: Long) = {SpinalInfo("tc28 HSRW [TBD-Warning]")}
+  def tc29_rov  (addr: Long) = {
+    val rdata = read(addr)
+    assert(rdata == "abcdef66".asHex, s"0x${rdata.hexString(32)} != 0xabcdef66, ROV read test failed")
+    SpinalInfo("tc29 ROV  test pass")
+  }
+  def tc30_bmsc_2a (addr: Long) = {
+    val addr0 = addr       //w1s
+    val addr1 = addr + 4   //w1c
+    val TV = List(
+      "000000ff".asHex -> "000000ff".asHex,
+      "0000aa00".asHex -> "0000aa00".asHex,
+      "00330000".asHex -> "00330000".asHex,
+      "cc000000".asHex -> "cc000000".asHex,
+      "ff000000".asHex -> "ff000000".asHex,
+      "00f00f00".asHex -> "00f00f00".asHex,
+      "0000ffff".asHex -> "0000ffff".asHex
+    )
+    def test(t: (BigInt, BigInt)) = {
+      write(addr0, t._1)
+      val rdata = read(addr0)
+      assert(rdata == t._2, s"0x${rdata.hexString(32)} != 0x${t._2.hexString(32)}, BMSC W1S addr0 read test failed")
+      val rdata2 = read(addr1)
+      assert(rdata2 == t._2, s"0x${rdata2.hexString(32)} != 0x${t._2.hexString(32)}, BMSC W1S addr1 read test failed")
+      write(addr1, t._1)
+      val rdata3 = read(addr0)
+      assert(rdata3 == 0, s"0x${rdata3.hexString(32)} != 0x00000000, BMSC W1C addr read test failed")
+    }
+    TV.foreach(test)
+    SpinalInfo("tc30 BMSC-2A - test pass ")
+  }
+  def tc31_bmsc_4a (addr: Long) = {
+    val addr0 = addr      //rw
+    val addr1 = addr + 4  //w1s
+    val addr2 = addr + 8  //w1c
+    val addr3 = addr + 12 //ro
+    write(addr0, "0000FFFF".asHex)
+    var rdata = read(addr3)
+    assert(rdata == "0000FFFF".asHex, s"0x${rdata.hexString(32)} != 0x0000FFFF, BMSC4R -RW test failed")
+    write(addr1, "00ff0000".asHex)
+    rdata = read(addr3)
+    assert(rdata == "00FFFFFF".asHex, s"0x${rdata.hexString(32)} != 0x00FFFFFF, BMSC4R -w1S test failed")
+    write(addr2, "001c3a5f".asHex)
+    rdata = read(addr3)
+    assert(rdata == "00e3c5a0".asHex, s"0x${rdata.hexString(32)} != 0x00e3c5a0, BMSC4R -w1C test failed")
+    SpinalInfo("tc31 BMSC-4A - test pass ")
+  }
 }
 
 
