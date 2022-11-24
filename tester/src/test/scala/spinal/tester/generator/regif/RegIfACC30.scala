@@ -14,6 +14,7 @@ import spinal.lib.bus.wishbone.Wishbone
 
 
 class RegIfBasicAccessTest(busname: String) extends Component{
+  this.setDefinitionName(s"RegIfBasicAccessTest_${busname}")
   val (bus, busif) = busname match{
     case "apb3" => {
       val bus = slave(Apb3(Apb3Config(32, 32)))
@@ -435,7 +436,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
 //  val simcfg = SpinalSimConfig().withConfig(spinalConfig)
 //}
 
-object Apb4test extends App{
+object BasicTest{
   val spinalConfig = SpinalConfig(
     defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING,
       resetKind = ASYNC,
@@ -452,20 +453,14 @@ object Apb4test extends App{
     mergeAsyncProcess = true)
 
   val simcfg = SpinalSimConfig().withConfig(spinalConfig)
-  simcfg
-    .withFstWave
-    .compile(new RegIfBasicAccessTest("apb4"))
-    .doSimUntilVoid("regif_apb4_test"){ dut =>
-      dut.regression()
-      simSuccess()
-    }
-}
-object Apb3test extends App{
-  SpinalSimConfig()
-    .withFstWave
-    .compile(new RegIfBasicAccessTest("apb3"))
-    .doSimUntilVoid("regif_apb3_test"){ dut =>
-      dut.regression()
-      simSuccess()
-    }
+  def main(args: Array[String] = Array("apb4")) = {
+    val bus = args.head
+    simcfg
+      .withFstWave
+      .compile(new RegIfBasicAccessTest(bus))
+      .doSimUntilVoid(s"regif_${bus}_test") { dut =>
+        dut.regression()
+        simSuccess()
+      }
+  }
 }
