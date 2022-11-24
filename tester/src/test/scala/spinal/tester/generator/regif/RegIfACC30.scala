@@ -416,26 +416,6 @@ class RegIfBasicAccessTest(busname: String) extends Component{
   }
 }
 
-
-//object utils extends App{
-//  val spinalConfig = SpinalConfig(
-//    defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING,
-//      resetKind = ASYNC,
-//      resetActiveLevel = LOW
-//    ),
-//    defaultClockDomainFrequency = FixedFrequency(200 MHz),
-//    targetDirectory = "./out/rtl/",
-//    headerWithDate = true,
-//    inlineConditionalExpression = true,
-//    oneFilePerComponent = false,
-//    nameWhenByFile = false,
-//    removePruned = true,
-//    anonymSignalPrefix = "t",
-//    mergeAsyncProcess = true)
-//
-//  val simcfg = SpinalSimConfig().withConfig(spinalConfig)
-//}
-
 object BasicTest{
   val spinalConfig = SpinalConfig(
     defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING,
@@ -453,6 +433,16 @@ object BasicTest{
     mergeAsyncProcess = true)
 
   val simcfg = SpinalSimConfig().withConfig(spinalConfig)
+
+  def genrtl(name: String = "apb4") = {
+    name match {
+      case "apb3" => spinalConfig.generateVerilog(new RegIfBasicAccessTest("apb3"))
+      case "apb4" => spinalConfig.generateVerilog(new RegIfBasicAccessTest("apb4"))
+      case "demo" => spinalConfig.generateVerilog(new RegIfExample)
+      case _      => spinalConfig.generateVerilog(new RegIfExample)
+    }
+  }
+
   def main(args: Array[String] = Array("apb4")) = {
     val bus = args.head
     simcfg
