@@ -13,8 +13,9 @@ import scala.math.{BigInt}
 import scala.util.Random
 
 class RegIfTester extends Component {
+  //RO generate wire not register fixed in commit "adfda73" , so here should not test RO as Register else Latch detect
   val ACCESS_LIST = List(
-    AccessType.RO, AccessType.RW, AccessType.RC, AccessType.RS, // 0 - 3
+    AccessType.RW, AccessType.RW, AccessType.RC, AccessType.RS, // 0 - 3
     AccessType.WRC, AccessType.WRS, AccessType.WC, AccessType.WS, // 4 - 7
     AccessType.WSRC, AccessType.WCRS, AccessType.W1C, AccessType.W1S, // 8 - 11
     AccessType.W1T, AccessType.W0C, AccessType.W0S, AccessType.W0T, // 12 - 15
