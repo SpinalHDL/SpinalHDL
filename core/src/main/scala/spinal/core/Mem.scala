@@ -42,6 +42,10 @@ object dontCare extends ReadUnderWritePolicy with DuringWritePolicy{
   override def duringWriteString: String = "dontCare"
 }
 
+object eitherFirst extends ReadUnderWritePolicy with DuringWritePolicy{
+  override def readUnderWriteString: String = "eitherFirst"
+  override def duringWriteString: String = "eitherFirst"
+}
 
 object writeFirst extends ReadUnderWritePolicy {
   override def readUnderWriteString: String = "writeFirst"
