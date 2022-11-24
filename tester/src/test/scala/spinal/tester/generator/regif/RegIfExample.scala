@@ -13,7 +13,7 @@ class RegIfExample extends Component {
     val a, b, c, d, e = in Bool()
   }
 
-  val busif = BusInterface(io.apb,(0x000,1 KiB), 0, regPre = "AP")
+  val busif = BusInterface(io.apb, (0x000,4 KiB), 0, regPre = "AP")
 
   val M_TURBO_EARLY_QUIT    = busif.newReg(doc = "Turbo Hardware-mode register1")
   val early_quit  = M_TURBO_EARLY_QUIT.field(Bool(), RW, 0, doc = "CRC validate early quit enable").asOutput()
@@ -55,7 +55,7 @@ class RegIfExample extends Component {
 
   busif.interruptFactory("T", io.a, io.b, io.c, io.d, io.e)
 
-  busif.accept(CHeaderGenerator("header", "AP"))
+  busif.accept(CHeaderGenerator("header", "AP", headers = List("Size: 4 KiB", "Author: Jack", "Version: 0.1(2022.11.24 22:29)")))
   busif.accept(HtmlGenerator("regif", "AP"))
   busif.accept(JsonGenerator("regif"))
   busif.accept(RalfGenerator("regif"))
