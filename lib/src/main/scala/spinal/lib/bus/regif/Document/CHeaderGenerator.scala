@@ -69,7 +69,7 @@ final case class CHeaderGenerator(
                    |  */
                    |typedef union {
                    |    u32 val;
-                   |    struct
+                   |    struct {
                    |        ${fdunion(" " * 8)}
                    |    } reg;
                    |} ${reg.getName().toLowerCase()}_t;""".stripMargin
@@ -78,7 +78,6 @@ final case class CHeaderGenerator(
             def fdnamelens = math.max("reserved_0".size, reg.getFieldDescrs().map(_.getName.size).max)
 
             def fdunion(tab: String): String = {
-                val naName = "reserved_"
                 var i = -1
                 val fields = reg.getFieldDescrs()
                 val maxlen = fdnamelens
@@ -88,7 +87,11 @@ final case class CHeaderGenerator(
                         case _ => fd.getName()
                     }
                     val _tab = " " * (maxlen - name.size)
-                    f"""$regType ${name.toLowerCase()}${_tab} : ${fd.getWidth()}%2d; //${fd.getAccessType()}, ${fd.getDoc().replace("\n","\\n")}""".stripMargin
+                    val reset = fd.getAccessType match {
+                        case AccessType.NA => ""
+                        case _ =>  ", reset: 0x" + fd.getResetValue().hexString(fd.getWidth())
+                    }
+                    f"""$regType ${name.toLowerCase()}${_tab} : ${fd.getWidth()}%2d; //${fd.getAccessType()}${reset}, ${fd.getDoc().replace("\n","\\n")}""".stripMargin
                 }).mkString("\n" + tab)
             }
 
@@ -106,7 +109,7 @@ final case class CHeaderGenerator(
                 //add Define  XXX_SHIFT   XXX_MASK  for SW bit operation
                 def lsb: Int = fd.getSection().min
                 def msb: Int = fd.getSection().max
-                def mask = BigInt((1 << fd.getSection().size) - 1) << msb
+                def mask = BigInt((1 << fd.getSection().size) - 1) << lsb
                 val _tab = " " * (tabn - fd.getName().size)
                 fd.getAccessType() match {
                     case `NA` |`RO` |`ROV`                       => ""
@@ -114,7 +117,7 @@ final case class CHeaderGenerator(
                     case `W0S`|`W0C`|`W0T`|`W0P`|`W0CRS`|`W0SRC` => ""
                     case _ => {
                         s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}
-                           |#define ${pre}_${fd.getName().toUpperCase()}_MASK  ${_tab}0x${mask.hexString(32)} //${fd.getAccessType()}""".stripMargin
+                           |#define ${pre}_${fd.getName().toUpperCase()}_MASK  ${_tab}0x${mask.hexString(32)} //${fd.getAccessType()}, ${fd.getWidth()} bit""".stripMargin
                     }
                 }
             }
