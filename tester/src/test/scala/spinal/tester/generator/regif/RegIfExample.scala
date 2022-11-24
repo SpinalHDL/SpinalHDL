@@ -54,6 +54,11 @@ class RegIfExample extends Component {
   val fillRow   =  M_TURBO_3G_INTER_FILL.field(Bits(2 bits), RW, doc="interlave fill Row number, 0~2 avaliable\n n+1 row").asOutput()
   val M_LONGLONGLONGLONGLONGLONG_REGNAME = busif.newReg(doc = "Long Long regname")
   val version = M_LONGLONGLONGLONGLONGLONG_REGNAME.field(Bits(16 bit), RW, doc = "Device version")
+  val M_DEVICE = busif.newReg(doc = "Device Infomation")
+  M_DEVICE.field(Bits(16 bit), ROV, resetValue = 0xf234, doc = "i2c version")
+  M_DEVICE.field(Bits(4 bit), RW, resetValue = 0xa, doc = "test number")
+  M_DEVICE.field(Bits(8 bit), ROV, resetValue = 0xf2, doc = "i3c version")
+  M_DEVICE.field(Bits(2 bit), W1CRS, resetValue = 0x2, doc = "test2")
 
   busif.interruptFactory("T", io.a, io.b, io.c, io.d, io.e)
 

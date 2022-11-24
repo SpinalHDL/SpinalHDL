@@ -77,12 +77,13 @@ final case class CHeaderGenerator(
             def fdnamelens = math.max("reserved_0".size, reg.getFieldDescrs().map(_.getName.size).max)
 
             def fdunion(tab: String): String = {
-                var i = -1
+                var i, j = -1
                 val fields = reg.getFieldDescrs()
                 val maxlen = fdnamelens
                 fields.map(fd => {
                     val name = fd.getAccessType match {
-                        case AccessType.NA => i += 1; s"reserved_${i}"
+                        case AccessType.NA  => i += 1; s"reserved_${i}"
+                        case AccessType.ROV => j += 1; s"rov_${j}"
                         case _ => fd.getName()
                     }
                     val _tab = " " * (maxlen - name.size)
