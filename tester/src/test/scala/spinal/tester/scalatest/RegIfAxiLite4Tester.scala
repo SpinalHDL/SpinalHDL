@@ -135,7 +135,9 @@ class RegIfAxiLite4Tester extends AnyFunSuite {
   }
 
   test("random") {
-    SimConfig.compile(new RegIfTester()).doSim { dut =>
+    SimConfig
+      .withFstWave
+      .compile(new RegIfTester()).doSim { dut =>
       dut.clockDomain.forkStimulus(10 ns)
 
       dut.io.t #= false
@@ -168,11 +170,11 @@ class RegIfAxiLite4Tester extends AnyFunSuite {
           val readExpected = onRead(dut.ACCESS_LIST((addr >> 2).toInt), lastRegData)
 
           if (dut.ACCESS_LIST((addr >> 2).toInt) != AccessType.NA) {
-            assert((resp == 0) == (readExpected != null), s"Read error flag did not match expected read error flag, addr = ${addr}")
+            assert((resp == 0) == (readExpected != null), s"Read error flag did not match expected read error flag, addr = ${addr.hexString(32)}")
 
             if (readExpected != null) {
-              assert(beatData == lastRegData, s"Bus read data did not match registered read data, addr = ${addr}")
-              assert(regData == readExpected, s"Registered read data did not match expected post read result, addr = ${addr}")
+              assert(beatData == lastRegData, s"Bus read data did not match registered read data, addr = 0x${addr.hexString(32)}")
+              assert(regData == readExpected, s"Registered read data did not match expected post read result, addr = 0x${addr.hexString(32)}")
             }
           }
         }
