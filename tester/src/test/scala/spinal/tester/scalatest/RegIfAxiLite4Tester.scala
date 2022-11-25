@@ -136,7 +136,6 @@ class RegIfAxiLite4Tester extends AnyFunSuite {
 
   test("random") {
     SimConfig
-      .withFstWave
       .compile(new RegIfTester()).doSim { dut =>
       dut.clockDomain.forkStimulus(10 ns)
 

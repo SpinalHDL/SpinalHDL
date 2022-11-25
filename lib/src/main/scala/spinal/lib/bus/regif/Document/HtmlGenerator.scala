@@ -19,13 +19,15 @@ final case class HtmlGenerator(fileName : String, title : String) extends BusIfV
         if(value == 0) s"${bitCount}'b0" else s"${bitCount}'h%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
     }
 
+    def br(s: String) = s.replaceAll("\n" , "<br>")
+
     def genTds(field : FieldDescr) : String = {
         val reserved = if (field.getAccessType == AccessType.NA) "reserved" else ""
         s"""            <td class="${reserved}">${Section(field.getSection)}</td>
            |            <td class="${reserved}">${field.getName}</td>
            |            <td class="${reserved}" align="center">${field.getAccessType}</td>
            |            <td class="${reserved}" align="right">${formatResetValue(field.getResetValue, field.getWidth)}</td>
-           |            <td class="${reserved} fixWidth2">${field.getDoc}</td>""".stripMargin
+           |            <td class="${reserved} fixWidth2">${br(field.getDoc)}</td>""".stripMargin
     }
 
     def genTr(field : FieldDescr): String = {
@@ -47,7 +49,7 @@ final case class HtmlGenerator(fileName : String, title : String) extends BusIfV
           s"""          <tr class="reg" align="left">
              |            <td align="center" rowspan="${fieldsNumbers}">0x${descr.getAddr.hexString(16).toUpperCase}</td>
              |            <td align="left" rowspan="${fieldsNumbers}">${(descr.getName).toUpperCase()}</td>
-             |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${descr.getDoc} </td>
+             |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${br(descr.getDoc)} </td>
              |            <td align="center" rowspan="${fieldsNumbers}">${dataWidth}</td>
              |${genTds(descr.getFieldDescrs.last)}
              |          </tr>""".stripMargin
