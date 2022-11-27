@@ -568,15 +568,25 @@ package object sim {
     * Add implicit function to BigInt
     */
   implicit class SimBigIntPimper(x: BigInt) {
+    /**
+      * Convert value to array of bytes
+      *
+      * Checks if a value fit into the given number of bits, but does not reserve a bit for
+      * a possible sign bit if the BigInt is positive.
+      * Raises an error if a specific BigInt value doesn't fit into the given number of bits.
+      * If the value is negative, the sign bit is extended to the given number of bits (if passed)
+      * otherwise to the least number of bytes necessary.
+      */
     def toBytes(bits: Int = -1, endian: Endianness = LITTLE): Array[Byte] = {
-      val raw = x.toByteArray
-      val byteCount = if (bits < 0) raw.length else (bits + 7) / 8
-      assert(raw.length <= byteCount, "Original BigInt has more bytes then bits specified.")
-      val out = Array.fill[Byte](byteCount) { 0 }
-      for (i <- 0 until byteCount) {
-        out(i) = ((x >> i * 8) & 0xff).toByte
+      val requiredLen = x.bitLength + (if(x < 0) 1 else 0)
+      assert(bits < 0 || bits >= requiredLen, "Original BigInt has more bytes then bits specified.")
+      // use full bytes if not instructed otherwise
+      val outLen = if(bits < 0) (requiredLen + 7) & (-8) else bits
+      val out = for (shift <- 0 until outLen by 8) yield {
+        val mask = if(outLen - 8 < shift) 0xff >> (8 - (outLen - shift)) else 0xff
+        ((x >> shift) & mask).toByte
       }
-      if (endian == BIG) out.reverse else out
+      if (endian == BIG) out.reverse.toArray else out.toArray
     }
   }
 
