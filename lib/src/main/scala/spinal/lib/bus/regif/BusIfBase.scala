@@ -1,10 +1,11 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
+import spinal.lib.BigIntRicher
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.misc.SizeMapping
-import language.experimental.macros
 
+import language.experimental.macros
 import scala.collection.mutable.ListBuffer
 
 trait BusIfBase extends Area{
@@ -124,6 +125,25 @@ trait BusIf extends BusIfBase {
   def getModuleName: String
   val regPre: String
 
+  private val regAddressHistory = ListBuffer[BigInt]()
+  def addressUsed(addr: BigInt) = regAddressHistory.contains(addr)
+
+  private def attachAddr(addr: BigInt) = {
+    if(regAddressHistory.contains(addr)){
+      SpinalError(s"Address: ${regPtr.hexString(16)} already used before, check please!")
+    } else {
+      regAddressHistory.append(addr)
+    }
+  }
+
+  def getRegPtr(): BigInt = regPtr
+
+  /*Attention: Should user make address no conflict them selves*/
+  def regPtrReAnchorAt(pos: BigInt) = {
+    require(pos % (busDataWidth/8) ==0, s"Address Postion need allign datawidth ${busDataWidth/8} byte")
+    regPtr = pos
+  }
+
   private def checkLastNA(): Unit = RegInsts.foreach(_.checkLast)
   private def regNameUpdate(): Unit = {
     val words = "\\w*".r
@@ -150,13 +170,15 @@ trait BusIf extends BusIfBase {
 
   def newRegAt(address: BigInt, doc: String)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    assert(address >= regPtr, s"located Position conflict to Pre allocated Address: ${regPtr}")
-    regPtr = address + wordAddressInc
+//    assert(address >= regPtr, s"located Position conflict to Pre allocated Address: ${regPtr}")
     creatReg(symbol.name, address, doc)
+    attachAddr(address)
+    regPtr = address + wordAddressInc
   }
 
   def newReg(doc: String)(implicit symbol: SymbolName) = {
     val res = creatReg(symbol.name, regPtr, doc)
+    attachAddr(regPtr)
     regPtr += wordAddressInc
     res
   }
