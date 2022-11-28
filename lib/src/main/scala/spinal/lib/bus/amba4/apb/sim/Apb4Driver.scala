@@ -5,8 +5,8 @@ import spinal.core.sim._
 import spinal.lib.bus.amba4.apb.Apb4
 
 case class Apb4Driver(apb : Apb4, clockDomain : ClockDomain) {
-  apb.PSEL #= 0
-  apb.PENABLE #= false
+//  apb.PSEL #= 0
+//  apb.PENABLE #= false
 
   var verbose = false
 

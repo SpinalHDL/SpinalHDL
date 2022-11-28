@@ -1,7 +1,7 @@
 package spinal.tester.scalatest
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.tester.generator.regif.BasicTest
+import spinal.tester.generator.regif.{BasicTest, RegIfStrbTesterSim}
 
 
 class RegIfBasicRtlGenerater extends AnyFunSuite{
@@ -13,4 +13,8 @@ class RegIfBasicRtlGenerater extends AnyFunSuite{
 class RegIfBasicAccessTester extends AnyFunSuite{
   test("regif_basic_access_tester_apb4"){BasicTest.main(Array("apb4"))}
   test("regif_basic_access_tester_apb3"){BasicTest.main(Array("apb3"))}
+}
+
+class RegIfStrbTester extends AnyFunSuite{
+  test("apb4_strb_tester"){RegIfStrbTesterSim.sim(1000, false)}
 }
