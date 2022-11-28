@@ -46,6 +46,12 @@ object AxiLite4Utils {
       axiLite << axi.toWriteOnly().toLite()
       axiLite
     }
+
+    def fromLite(): AxiLite4 = {
+      val axiLite = AxiLite4(toLiteConfig(axi.config))
+      axiLite.toAxi() >> axi
+      axiLite
+    }
   }
 
   implicit class Axi4ReadyOnlyRich(axi: Axi4ReadOnly) {
@@ -110,7 +116,30 @@ object AxiLite4Utils {
 
   // AxiLite ---> Axi
   implicit class AxiLite4Rich(axiLite: AxiLite4) {
-    def toAxi(): Axi4 = ???
+    def toAxi(): Axi4 = {
+      val axi = Axi4(toAxiConfig(axiLite.config))
+
+      axi.aw.arbitrationFrom(axiLite.aw)
+      axi.aw.payload.assignAllByName(axiLite.aw.payload)
+      axi.w.arbitrationFrom(axiLite.w)
+      axi.w.payload.assignSomeByName(axiLite.w.payload)
+      axi.w.last := True
+      axiLite.b.arbitrationFrom(axi.b)
+      axiLite.b.payload.assignAllByName(axi.b.payload)
+
+      axi.ar.arbitrationFrom(axiLite.ar)
+      axi.ar.payload.assignAllByName(axiLite.ar.payload)
+      axiLite.r.arbitrationFrom(axi.r)
+      axiLite.r.payload.assignSomeByName(axi.r.payload)
+
+      axi
+    }
+
+    def fromAxi(): Axi4 = {
+      val axi = Axi4(toAxiConfig(axiLite.config))
+      axi.toLite() >> axiLite
+      axi
+    }
   }
 
   implicit class AxiLite4ReadOnlyRich(axiLite: AxiLite4ReadOnly) {
@@ -118,10 +147,10 @@ object AxiLite4Utils {
       val axi = Axi4ReadOnly(toAxiConfig(axiLite.config))
 
       axi.ar.arbitrationFrom(axiLite.ar)
-      axi.ar.assignAllByName(axiLite.ar)
+      axi.ar.payload.assignSomeByName(axiLite.ar.payload)
 
       axiLite.r.arbitrationFrom(axi.r)
-      axiLite.r.assignAllByName(axi.r)
+      axiLite.r.payload.assignSomeByName(axi.r.payload)
 
       axi
     }
@@ -132,13 +161,13 @@ object AxiLite4Utils {
       val axi = Axi4WriteOnly(toAxiConfig(axiLite.config))
 
       axi.aw.arbitrationFrom(axiLite.aw)
-      axi.aw.assignAllByName(axiLite.aw)
+      axi.aw.payload.assignSomeByName(axiLite.aw.payload)
 
       axi.w.arbitrationFrom(axiLite.w)
-      axi.w.assignAllByName(axiLite.w)
+      axi.w.payload.assignSomeByName(axiLite.w.payload)
 
       axiLite.b.arbitrationFrom(axi.b)
-      axiLite.b.assignAllByName(axi.b)
+      axiLite.b.payload.assignSomeByName(axi.b.payload)
 
       axi
     }
