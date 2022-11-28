@@ -122,6 +122,7 @@ trait BusIf extends BusIfBase {
   private val RegInsts = ListBuffer[RegInst]()
   private var regPtr: BigInt = 0
 
+  def orderdRegInsts = RegInsts.sortBy(_.addr)
   def getModuleName: String
   val regPre: String
 
@@ -171,9 +172,10 @@ trait BusIf extends BusIfBase {
   def newRegAt(address: BigInt, doc: String)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
 //    assert(address >= regPtr, s"located Position conflict to Pre allocated Address: ${regPtr}")
-    creatReg(symbol.name, address, doc)
+    val reg = creatReg(symbol.name, address, doc)
     attachAddr(address)
     regPtr = address + wordAddressInc
+    reg
   }
 
   def newReg(doc: String)(implicit symbol: SymbolName) = {
@@ -348,7 +350,7 @@ trait BusIf extends BusIfBase {
 
     vs.begin(busDataWidth)
 
-    for(reg <- RegInsts) {
+    for(reg <- orderdRegInsts) {
       reg.accept(vs)
     }
 
