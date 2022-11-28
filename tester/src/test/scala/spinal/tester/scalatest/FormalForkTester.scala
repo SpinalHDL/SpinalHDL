@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.core.formal._
 import spinal.lib._
-import spinal.lib.formal._
+import spinal.tester.formal._
 
 class FormalForkTester extends SpinalFormalFunSuite {
   def formalfork (synchronous: Boolean = false, back2BackCheck: Boolean = false ) = {

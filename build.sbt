@@ -158,7 +158,6 @@ lazy val lib = (project in file("lib"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion,
     version := SpinalVersion.lib
   )
   .dependsOn (sim, core)
@@ -172,7 +171,7 @@ lazy val tester = (project in file("tester"))
     version := SpinalVersion.tester,
     Test / baseDirectory := file("./"),
     libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion,
-    publishArtifact := false,
+    publishArtifact := true,
     publishLocal := {}
   )
   .dependsOn(sim, core, lib)

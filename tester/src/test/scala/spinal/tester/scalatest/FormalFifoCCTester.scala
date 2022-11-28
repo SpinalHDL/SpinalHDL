@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.formal._
 import spinal.lib._
 import spinal.lib.formal._
+import spinal.tester.formal._
 
 class FormalFifoCCTester extends SpinalFormalFunSuite {
   def formalContext(pushPeriod: Int, popPeriod: Int, seperateReset: Boolean = false) = new Area {

@@ -2,7 +2,7 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.formal._
+import spinal.tester.formal._
 
 class FormalSimpleTester extends SpinalFormalFunSuite {
   import spinal.core.formal._

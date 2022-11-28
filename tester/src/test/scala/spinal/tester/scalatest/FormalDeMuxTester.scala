@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.core.formal._
 import spinal.lib._
-import spinal.lib.formal._
+import spinal.tester.formal._
 
 class FormalDeMuxTester extends SpinalFormalFunSuite {
   def formaldemux(selWithCtrl: Boolean = false) = {

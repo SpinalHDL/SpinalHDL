@@ -189,7 +189,26 @@ object Debug2 extends App{
 
   SpinalConfig(allowOutOfRangeLiterals = false).includeFormal.generateSystemVerilog(new Component{
 
-    val x = (in(UInt(4 bits)) === 42)
+    val io = new Bundle {
+      val i = in Bits (5 bits)
+      val o = out Bits (3 bits)
+    }
+
+    switch(io.i) {
+      is(M"----1") { io.o := 0 }
+      is(M"---1-") { io.o := 1 }
+      is(M"--1--") { io.o := 2 }
+      is(M"-1---") { io.o := 3 }
+      is(M"1----") { io.o := 4 }
+      default{ io.o.assignDontCare()}
+    }
+
+//    val axis_s =  Stream(Fragment(Bits(32 bits)))
+//    val x = axis_s.payload
+//    println(x.getBitsWidth)
+//    println(widthOf(axis_s.payload))
+//    println(widthOf(axis_s.payload.asBits))
+//    val x = (in(UInt(4 bits)) === 42)
 
 //    val input = in(AFix.SQ(8 bit, 8 bit))
 //    val i = AFix.SQ(8 bit, 8 bit)
@@ -1319,4 +1338,28 @@ class Test12345 extends Component{
 }
 object Test12345 extends App{
   SpinalConfig(oneFilePerComponent = true, targetDirectory="miaou").generateVerilog(new Test12345)
+}
+
+
+object PlayFsmBugA extends App {
+  class test001 extends Component {
+    val fsm = new StateMachine {
+      val idle = new State with EntryPoint
+      val s1 = new State()
+
+      idle
+        .whenIsActive {
+          goto(s1)
+        }
+      s1
+        .whenIsActive {
+          goto(idle)
+        }
+    }
+
+  }
+
+  SpinalVerilog(new Component {
+    val sub0, sub1 = new test001
+  })
 }
