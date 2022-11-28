@@ -62,7 +62,7 @@ class Axi4StreamSimpleWidthAdapter(inConfig: Axi4StreamConfig, outWidth: Int) ex
       inConfig.useId generate { buffer.id init(0) }
       inConfig.useLast generate { buffer.last init(False) }
 
-      val start = Reg(Bool) init(True)
+      val start = Reg(Bool()) init(True)
       start clearWhen start && io.axis_s.fire && counter === 0
       if (inConfig.useLast) {
         start setWhen io.axis_m.lastFire

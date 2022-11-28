@@ -405,8 +405,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     val hcRhStatus = new Area { //TODO events to RHSC
       val OCI = ctrl.read(io.phy.overcurrent, 0x50, 1)
-      val DRWE = ctrl.createReadOnly(Bool, 0x50, 15) softInit (False)
-      val CCIC = ctrl.createReadAndClearOnSet(Bool, 0x50, 17) softInit (False) setWhen (OCI.edge(False))
+      val DRWE = ctrl.createReadOnly(Bool(), 0x50, 15) softInit (False)
+      val CCIC = ctrl.createReadAndClearOnSet(Bool(), 0x50, 17) softInit (False) setWhen (OCI.edge(False))
 
       val clearGlobalPower = ctrl.setOnSet(False, 0x50, 0)
       val setRemoteWakeupEnable = ctrl.setOnSet(False, 0x50, 15)

@@ -80,7 +80,7 @@ case class MiiRx(p : MiiRxParameter) extends Bundle with IMasterSlave {
 }
 
 case class Mdio() extends Bundle with IMasterSlave{
-  val IO = TriState(Bool)
+  val IO = TriState(Bool())
   val C = Bool()
 
   override def asMaster(): Unit = {

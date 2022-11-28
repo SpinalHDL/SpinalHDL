@@ -77,7 +77,7 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
 
     //RX
     val rxLogic = new Area {
-      val listen = busWithOffset.createReadAndWrite(Bool, address = 4, bitOffset = 15) init(False)
+      val listen = busWithOffset.createReadAndWrite(Bool(), address = 4, bitOffset = 15) init(False)
       val (stream, fifoOccupancy) = rx.takeWhen(listen).queueWithOccupancy(txFifoDepth)
       busWithOffset.readStreamNonBlocking(stream, address = 0, validBitOffset = 31, payloadBitOffset = 0)
       busWithOffset.read(fifoOccupancy, address = 0, 16)
@@ -85,10 +85,10 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
 
     //Status
     val interruptCtrl = new Area {
-      val txIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 0) init(False)
-      val rxIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 1) init(False)
-      val ssEnabledIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 2) init(False)
-      val ssDisabledIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 3) init(False)
+      val txIntEnable = busWithOffset.createReadAndWrite(Bool(), address = 4, 0) init(False)
+      val rxIntEnable = busWithOffset.createReadAndWrite(Bool(), address = 4, 1) init(False)
+      val ssEnabledIntEnable = busWithOffset.createReadAndWrite(Bool(), address = 4, 2) init(False)
+      val ssDisabledIntEnable = busWithOffset.createReadAndWrite(Bool(), address = 4, 3) init(False)
 
 
       val ssFiltedEdges = ssFilted.edges(True)

@@ -139,8 +139,8 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
 
     //manage interrupts
     val interruptCtrl = new Area {
-      val writeIntEnable = busCtrlWrapped.createReadAndWrite(Bool, address = 4, 0) init(False)
-      val readIntEnable  = busCtrlWrapped.createReadAndWrite(Bool, address = 4, 1) init(False)
+      val writeIntEnable = busCtrlWrapped.createReadAndWrite(Bool(), address = 4, 0) init(False)
+      val readIntEnable  = busCtrlWrapped.createReadAndWrite(Bool(), address = 4, 1) init(False)
       val readInt   = readIntEnable  &  read.streamBreaked.valid
       val writeInt  = writeIntEnable & !write.stream.valid
       val interrupt = readInt || writeInt
@@ -149,8 +149,8 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     }
 
     val misc = new Area{
-      val readError = busCtrlWrapped.createReadAndClearOnSet(Bool, 0x10, 0) init(False) setWhen(io.readError)
-      val readOverflowError = busCtrlWrapped.createReadAndClearOnSet(Bool, 0x10, 1) init(False) setWhen(io.read.isStall)
+      val readError = busCtrlWrapped.createReadAndClearOnSet(Bool(), 0x10, 0) init(False) setWhen(io.readError)
+      val readOverflowError = busCtrlWrapped.createReadAndClearOnSet(Bool(), 0x10, 1) init(False) setWhen(io.read.isStall)
       busCtrlWrapped.read(io.readBreak, 0x10, 8)
       val breakDetected = RegInit(False) setWhen(io.readBreak.rise())
       busCtrlWrapped.read(breakDetected, 0x10, 9)

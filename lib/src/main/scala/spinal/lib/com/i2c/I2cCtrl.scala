@@ -326,7 +326,7 @@ object I2cCtrl {
       }
 
 
-      val txReady = Bool //Say if the tx buffer is ready to continue
+      val txReady = Bool() //Say if the tx buffer is ready to continue
 
       val fsm = new StateMachine {
         always {
