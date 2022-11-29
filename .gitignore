@@ -16,6 +16,12 @@ project/plugins/project/
 project/project
 project/metals.sbt
 
+#VScode sepcific
+.bloop
+.metals
+.vscode
+.scalafmt.conf
+
 # Scala-IDE specific
 .scala_dependencies
 .worksheet

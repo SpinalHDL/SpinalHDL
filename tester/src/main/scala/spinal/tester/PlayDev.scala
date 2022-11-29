@@ -1401,6 +1401,65 @@ object DebBugFormal extends App{
   SpinalConfig().includeFormal.generateSystemVerilog(new rle(Rgb(5,6,7),8))
 }
 
+object PlayMakeable extends App{
+  import spinal.core.GenerationFlags._
+  import spinal.core.Formal._
+  import org.apache.commons.io._
+  import java.io._
+  import spinal.lib.eda.symbiflow._
+  // import spinal.lib.eda.yosys.string2path._
+  import java.nio.file.{Path, Paths}
+  import spinal.lib.eda.common._
+
+
+
+  class testCounter(start: Int,end: Int) extends Component{
+    val io = new Bundle{
+        val output = out UInt(log2Up(end) bits)
+        val inc = in Bool
+    }
+    val dutCounter = Counter(start,end)
+    io.output := dutCounter.value
+    when(io.inc){
+        dutCounter.increment()
+    }
+    GenerationFlags.formal{
+        when(initstate()){
+            assume(ClockDomain.current.isResetActive)
+        }
+        cover(dutCounter.willOverflow)
+        assert(dutCounter.value <= end)
+        // assert(dutCounter.valueNext <= end -1)
+        assert(dutCounter.valueNext <= end)
+        assert(start <= dutCounter.value)
+        assert(start <= dutCounter.valueNext)
+        assert((dutCounter.value === dutCounter.valueNext -1) || dutCounter.willOverflow || !dutCounter.willIncrement)
+        assert(!dutCounter.willOverflowIfInc || dutCounter.value === end )
+        assert(!dutCounter.willOverflow || (dutCounter.value === end) || !dutCounter.willIncrement)
+    }
+  }
+  val test = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
+  val test2 = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
+  // val pw = new PrintWriter(new File("Makefile" ))
+  //val form1 = YosysFlow.formalFlow(test).log().solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test1")).append(100)
+  import spinal.lib.eda.common.string2path._
+  val form1 = SymbiFlow.svFormal(test,workDir="pesto")
+    .log()
+    .solver(Solver.z3)
+    .dumpVCD("pesto/test.vcd")
+    .outputFolder("pesto/test1")
+    .phony("test5")
+    .append(100)
+  val form2 = SymbiFlow.svFormal(test,workDir="pesto").phony("test1").solver(Solver.z3).outputFolder("pesto/test2").phony("test").append(100).log()
+  val form3 = SymbiFlow.svFormal(test,workDir="pesto").phony("test2").solver(Solver.z3).outputFolder("pesto/test3/1/2/3/").append(100).log()
+  val form4 = SymbiFlow.svFormal(test,workDir="pesto").phony("test3").solver(Solver.z3).outputFolder("pesto/test4").append(100).log()
+  val syntetize = SymbiFlow.syntesize(test,"test.pcf")
+  //val make = InputFile(test) |> List(form1,form2,form3,form4)
+  // println(make.makefile + "\n" + make.bundleTest() + "\n\n" + make.bundle("test2")({case x: Yosys => x}))
+  // pw.close()
+  Makefile(form3,form4,syntetize).workDir("test2electricbogaloo/fff").run("all")
+
+}
 
 object PlayOneHotSynthesisBench extends App{
   class BenchFpga(width : Int) extends Rtl{
