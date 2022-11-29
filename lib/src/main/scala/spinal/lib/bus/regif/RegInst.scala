@@ -198,6 +198,50 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     reg
   }
 
+  private def reginit[T <: BaseType](reg: T, resetValue: BigInt): T = {
+    reg match {
+      case t: Bool => t init (resetValue % 2 == 1)
+      case t: Bits => t.init(resetValue)
+      case t: UInt => t.init(resetValue)
+      case t: SInt => t.init(resetValue)
+    }
+    reg
+  }
+
+  private def setname[T <: BaseType](reg: T, symbol: SymbolName) = {
+    symbol.name.startsWith("<local") match {
+      case true => {
+        SpinalWarning("an unload signal created; `val signame = field(....)` is recomended instead `field(....)`")
+        reg.setName("unload", weak = true)
+      }
+      case false => reg.setName(symbol.name, weak = true)
+    }
+  }
+
+  def fieldRWHS[T <: BaseType](seten: Bool, setval: T)(implicit symbol: SymbolName): T = fieldRWHS(seten, setval, resetValue = 0, doc = "")(symbol)
+  def fieldRWHS[T <: BaseType](seten: Bool, setval: T, resetValue: BigInt)(implicit symbol: SymbolName): T = fieldRWHS(seten, setval, resetValue, doc = "")(symbol)
+  def fieldRWHS[T <: BaseType](seten: Bool, setval: T, resetValue: BigInt, doc: String)(implicit symbol: SymbolName): T = {
+    val reg = reginit(cloneOf(setval).setAsReg(), resetValue)
+    setname(reg, symbol)
+    when(seten) {
+      reg := setval
+    }
+    registerInWithWriteLogic(reg, AccessType.RWHS, resetValue, doc)
+    reg
+  }
+
+  def fieldRWHSAt[T <: BaseType](pos: Int, seten: Bool, setval: T)(implicit symbol: SymbolName): T = fieldRWHSAt(pos, seten, setval, resetValue = 0, doc = "")(symbol)
+  def fieldRWHSAt[T <: BaseType](pos: Int, seten: Bool, setval: T, resetValue: BigInt)(implicit symbol: SymbolName): T = fieldRWHSAt(pos, seten, setval, resetValue, doc = "")(symbol)
+  def fieldRWHSAt[T <: BaseType](pos: Int, seten: Bool, setval: T, resetValue:BigInt , doc: String)(implicit symbol: SymbolName): T = {
+    val reg = reginit(cloneOf(setval).setAsReg(), resetValue)
+    setname(reg, symbol)
+    when(seten){
+      reg := setval
+    }
+    registerAtWithWriteLogic(pos, reg, AccessType.RWHS, resetValue, doc)
+    reg
+  }
+
   private def creatWriteLogic[T <: BaseType](reg: T, acc: AccessType, section: Range): Unit = {
     acc match {
       case AccessType.RO|AccessType.ROV|AccessType.NA =>
@@ -235,7 +279,8 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.NA    => NA(reg.getBitsWidth bit)            // -W: reserved, R: reserved
       case AccessType.W1P   => _WBP(reg, section, AccessType.W1P)  //- W: 1/0 pulse/no effect on matching bit, R: no effect
       case AccessType.W0P   => _WBP(reg, section, AccessType.W0P)  //- W: 0/1 pulse/no effect on matching bit, R: no effect
-      case AccessType.HSRW  => _W( reg, section)                   // HarddWare Set,  SoftWare RW
+      case AccessType.HSRW  => _W( reg, section)                   // HardWare Set then SoftWare RW
+      case AccessType.RWHS  => _W( reg, section)                   // SoftWare RW then HardWare Set
     }
   }
 
@@ -315,6 +360,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.W1P   => WBP(section, resetValue, AccessType.W1P )  //- W: 1/0 pulse/no effect on matching bit, R: no effect
       case AccessType.W0P   => WBP(section, resetValue, AccessType.W0P )  //- W: 0/1 pulse/no effect on matching bit, R: no effect
       case AccessType.HSRW  => W( bc, section, resetValue)                //- depracated, please use feild(hardType[T]) instead
+      case AccessType.RWHS  => W( bc, section, resetValue)                //- depracated, please use feild(hardType[T]) instead
     }
     val newdoc = if(doc.isEmpty && acc == AccessType.NA) "Reserved" else doc
     val signame = if(symbol.name.startsWith("<local ")){

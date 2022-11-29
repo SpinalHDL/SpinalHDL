@@ -60,6 +60,16 @@ class RegIfExample extends Component {
   M_DEVICE.field(Bits(8 bit), ROV, resetValue = 0xf2, doc = "i3c version")
   M_DEVICE.field(Bits(2 bit), W1CRS, resetValue = 0x2, doc = "test2")
 
+  val hw_set = in Bool()
+  val hw_set_val = in Bits(10 bit)
+  val M_HWSET0 = busif.newReg(doc = "HSRW Infomation")
+  val reg_hsrw = M_HWSET0.fieldHSRW(hw_set, hw_set_val, resetValue = 0x0a, doc = "hsrw")
+  val reg_rwhs = M_HWSET0.fieldRWHSAt(10, hw_set, hw_set_val, resetValue = 0x0b, doc = "rwhs")
+
+  val M_HWSET1 = busif.newReg(doc = "HSRW Infomation")
+  val reg_hsrw1 = M_HWSET1.fieldHSRWAt(10,hw_set, hw_set_val, resetValue = 0x0a, doc = "hsrw")
+  val reg_rwhs1 = M_HWSET1.fieldRWHS( hw_set, hw_set_val, resetValue = 0x0b, doc = "rwhs")
+
   busif.interruptFactory("T", io.a, io.b, io.c, io.d, io.e)
 
   busif.accept(CHeaderGenerator("header", "AP", headers = List("Size: 4 KiB", "Author: Jack", "Version: 0.1(2022.11.24 22:29)")))

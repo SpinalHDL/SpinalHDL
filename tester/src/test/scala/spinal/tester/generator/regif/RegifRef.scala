@@ -16,7 +16,7 @@ trait RegIfRef{
     AccessType.W1SRC, AccessType.W1CRS, AccessType.W0SRC, AccessType.W0CRS,
     AccessType.WO, AccessType.W0C, AccessType.W0S, AccessType.W1,
     AccessType.WO1, AccessType.NA, AccessType.NA, AccessType.NA, //AccessType.W1P, AccessType.W0P,
-    AccessType.ROV, AccessType.HSRW
+    AccessType.ROV, AccessType.HSRW, AccessType.RWHS
   )
   /* todo  W1P, WOP test
   * */

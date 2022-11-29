@@ -72,8 +72,8 @@ class RegIfBasicAccessTest(busname: String) extends Component{
   val reg_bmsc_4a = busif.newReg(doc = "BMSC-A").field(Bits(32 bit),  RW  , 0, doc = "32 bit RW").asOutput()
                     busif.newReg(doc = "BMSC-B").parasiteField(reg_bmsc_4a, W1S  , 0, doc = "32 bit write 1 set")   //4 address share one reg
                     busif.newReg(doc = "BMSC-C").parasiteField(reg_bmsc_4a, W1C  , 0, doc = "32 bit write 1 clear") //4 address share one reg
-  val reg_bmsc_4ar= busif.newReg(doc = "BMSC-D").field(Bits(32 bit), RO , 0, doc = "32 bit read only")     //4 address share one reg
-  reg_bmsc_4ar := reg_bmsc_4a
+                    busif.newReg(doc = "BMSC-D").parasiteField(reg_bmsc_4a, RO , 0, doc = "32 bit read only")     //4 address share one reg
+  val reg_rwhs    = busif.newReg(doc = "RWHS  ").field(Bits(32 bit), RWHS , "bb88001e".asHex, doc = "rwhs ").asOutput()
   reg_ro := "fedcba98".asHex
 
   val refdata = List("12345678".asHex, "5a5a5a5a".asHex, "ffffffff".asHex, "00000000".asHex, "37abcdef".asHex, "11111111".asHex, "35af0782".asHex)
