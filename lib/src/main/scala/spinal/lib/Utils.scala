@@ -295,7 +295,7 @@ object OHMasking{
     val width = widthOf(requests)
     assert(widthOf(priority) == width-1)
     val doubleMask = input.rotateLeft(1) ## (input.dropHigh(1) & priorityBits)
-    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder = LutInputs.get)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =(LutInputs.get/2) max 2)
     val (pLow, pHigh) = doubleOh.splitAt(width)
     val selOh = pHigh | pLow.resized
     val result = selOh.reversed
@@ -309,7 +309,7 @@ object OHMasking{
     val width = widthOf(requests)
     assert(widthOf(priority) == width)
     val doubleMask = input ## (input & priorityBits)
-    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  LutInputs.get)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  (LutInputs.get/2) max 2)
     val (pLow, pHigh) = doubleOh.splitAt(width)
     val selOh = pHigh | pLow
   }.selOh

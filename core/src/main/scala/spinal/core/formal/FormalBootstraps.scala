@@ -21,10 +21,10 @@
 package spinal.core.formal
 
 import java.io.{File, PrintWriter}
-
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{PhaseContext, PhaseNetlist}
-import spinal.core.{Component, GlobalData, SpinalConfig, SpinalReport, BlackBox}
+import spinal.core.sim.SimWorkspace
+import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -41,30 +41,8 @@ trait FormalBackend {
 /** Formal verify Workspace
   */
 object FormalWorkspace {
-  private var uniqueId = 0
-
-  def allocateUniqueId(): Int = {
-    this.synchronized {
-      uniqueId = uniqueId + 1
-      uniqueId
-    }
-  }
-
-  val workspaceMap = mutable.HashMap[(String, String), Int]()
-
-  def allocateWorkspace(path: String, name: String): String = {
-    workspaceMap.synchronized {
-      val value = workspaceMap.getOrElseUpdate((path, name), 0)
-      workspaceMap((path, name)) = value + 1
-      if (value == 0) {
-        return name
-      } else {
-        val ret = name + "_" + value
-        println(s"[Info] Workspace '$name' was reallocated as '$ret' to avoid collision")
-        return ret
-      }
-    }
-  }
+  def allocateUniqueId(): Int = SimWorkspace.allocateUniqueId()
+  def allocateWorkspace(path: String, name: String): String = SimWorkspace.allocateWorkspace(path, name)
 }
 
 class SpinalFormalBackendSel

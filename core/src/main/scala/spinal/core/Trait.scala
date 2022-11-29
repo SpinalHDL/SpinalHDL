@@ -333,6 +333,15 @@ object Nameable{
   val DATAMODEL_WEAK : Byte = 5
   val USER_WEAK : Byte = 0
   val REMOVABLE : Byte = -5
+
+  def getNameWithoutPrefix(prefix : Nameable, from : Nameable): String ={
+    val stageSlices = prefix.getName.split('_')
+    val postfixSlices = from.getName.split('_')
+    var i = 0
+    val iEnd = stageSlices.length min postfixSlices.length
+    while(i != iEnd && stageSlices(i) == postfixSlices(i)) i += 1
+    postfixSlices.drop(i).mkString("_")
+  }
 }
 
 
