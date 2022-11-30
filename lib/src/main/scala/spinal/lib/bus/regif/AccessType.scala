@@ -34,5 +34,8 @@ object AccessType {
   case object HSRW  extends AccessType  // HarddWare Set then SoftWare RW, HW high priority than SW
   case object RWHS  extends AccessType  // SoftWare RW then HarddWare Set, SW high priority than HW
   case object ROV   extends AccessType  // ReadOnly Value, used for constant
+  case class  CSTM(name: String) extends AccessType {
+    override def toString: String = if(name.isEmpty) "CSTM" else name.toUpperCase
+  }
 }
 

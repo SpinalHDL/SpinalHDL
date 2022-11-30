@@ -281,6 +281,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.W0P   => _WBP(reg, section, AccessType.W0P)  //- W: 0/1 pulse/no effect on matching bit, R: no effect
       case AccessType.HSRW  => _W( reg, section)                   // HardWare Set then SoftWare RW
       case AccessType.RWHS  => _W( reg, section)                   // SoftWare RW then HardWare Set
+      case x: AccessType.CSTM  =>                                  // CSTM-AccessType don't generate logic which implement use themselfs, only register for doc
     }
   }
 
@@ -361,6 +362,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
       case AccessType.W0P   => WBP(section, resetValue, AccessType.W0P )  //- W: 0/1 pulse/no effect on matching bit, R: no effect
       case AccessType.HSRW  => W( bc, section, resetValue)                //- depracated, please use feild(hardType[T]) instead
       case AccessType.RWHS  => W( bc, section, resetValue)                //- depracated, please use feild(hardType[T]) instead
+      case x:AccessType.CSTM=> Bits(0 bit)                        //- depracated, please use feild(hardType[T]) instead
     }
     val newdoc = if(doc.isEmpty && acc == AccessType.NA) "Reserved" else doc
     val signame = if(symbol.name.startsWith("<local ")){

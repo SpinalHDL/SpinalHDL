@@ -70,6 +70,11 @@ class RegIfExample extends Component {
   val reg_hsrw1 = M_HWSET1.fieldHSRWAt(10,hw_set, hw_set_val, resetValue = 0x0a, doc = "hsrw")
   val reg_rwhs1 = M_HWSET1.fieldRWHS( hw_set, hw_set_val, resetValue = 0x0b, doc = "rwhs")
 
+  val M_CSTM = busif.newReg(doc = "cstm Infomation")
+  val a = M_CSTM.field(Bits(16 bit), acc = CSTM("BMRW"), resetValue = 0x134, doc = "cstm")
+  val b = M_CSTM.field(Bits( 4 bit), acc = RW, resetValue = 0x4, doc = "cstm")
+  val c = M_CSTM.field(Bits(8 bit), acc = CSTM("DBRW"), resetValue = 0x34, doc = "cstm")
+
   busif.interruptFactory("T", io.a, io.b, io.c, io.d, io.e)
 
   busif.accept(CHeaderGenerator("header", "AP", headers = List("Size: 4 KiB", "Author: Jack", "Version: 0.1(2022.11.24 22:29)")))
