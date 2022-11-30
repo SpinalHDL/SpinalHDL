@@ -286,18 +286,20 @@ trait BusIf extends BusIfBase {
   protected def int_RFMS(offset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
     require(triggers.size <= this.busDataWidth )
-    val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
-    val FORCE  = this.newReg("Interrupt Force  Register\n for SW debug use")(SymbolName(s"${regNamePre_}INT_FORCE"))
+    val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear raw when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
+    val FORCE  = this.newReg("Interrupt Force  Register\n for SW debug use \n write 1 set raw")(SymbolName(s"${regNamePre_}INT_FORCE"))
     val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))
-    val STATUS = this.newReg("Interrupt status Register\n status = (raw || force) && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
+    val STATUS = this.newReg("Interrupt status Register\n status = raw && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = triggers.map{ event =>
       val nm = event.getPartialName()
-      val force = FORCE.field(Bool(), AccessType.RW,   resetValue = 0, doc = s"force, default 0" )(SymbolName(s"${nm}_force"))
       val raw   = RAW.field(Bool(), AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" )(SymbolName(s"${nm}_raw"))
+//      val force = FORCE.field(Bool(), AccessType.RW,   resetValue = 0, doc = s"force, default 0" )(SymbolName(s"${nm}_force"))
+                  FORCE.parasiteField(raw, AccessType.W1S,   resetValue = 0, doc = s"force, write 1 set, debug use" )
       val mask  = MASK.field(Bool(), AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" )(SymbolName(s"${nm}_mask"))
       val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts default 0" )(SymbolName(s"${nm}_status"))
       raw.setWhen(event)
-      status := (raw || force) && (!mask)
+//      status := (raw || force) && (!mask)
+      status := raw && (!mask)
       status
     }.reduceLeft(_ || _)
     ret.setName(s"${regNamePre_.toLowerCase()}intr", weak = true)
