@@ -1,4 +1,4 @@
-package spinal.tester.formal
+package spinal.lib.formal
 
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.Tag

@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.core.formal._
 import spinal.lib._
-import spinal.tester.formal._
+import spinal.lib.formal._
 
 class StreamJoin[T1 <: Data, T2 <: Data](dataType_0: T1, dataType_1: T2) extends Component {
   val io = new Bundle {
