@@ -203,13 +203,6 @@ object Debug2 extends App{
       default{ io.o.assignDontCare()}
     }
 
-//    val axis_s =  Stream(Fragment(Bits(32 bits)))
-//    val x = axis_s.payload
-//    println(x.getBitsWidth)
-//    println(widthOf(axis_s.payload))
-//    println(widthOf(axis_s.payload.asBits))
-//    val x = (in(UInt(4 bits)) === 42)
-
 //    val input = in(AFix.SQ(8 bit, 8 bit))
 //    val i = AFix.SQ(8 bit, 8 bit)
 //    i := AFix(0)
