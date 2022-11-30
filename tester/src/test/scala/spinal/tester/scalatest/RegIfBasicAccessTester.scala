@@ -16,5 +16,6 @@ class RegIfBasicAccessTester extends AnyFunSuite{
 }
 
 class RegIfStrbTester extends AnyFunSuite{
-  test("apb4_strb_tester"){RegIfStrbTesterSim.sim(1000, false)}
+  test("apb4_strb_tester"){RegIfStrbTesterSim.sim("all", false)}
+  test("apb4_strb_debug"){RegIfStrbTesterSim.sim("debug", true)}
 }

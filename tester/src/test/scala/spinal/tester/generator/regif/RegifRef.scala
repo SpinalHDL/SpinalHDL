@@ -62,6 +62,7 @@ trait RegIfRef{
     case AccessType.W1P   => oldVal
     case AccessType.W0P   => oldVal
     case AccessType.HSRW  => oldVal
+    case AccessType.RWHS  => oldVal
     case _                => oldVal
   }
 
@@ -109,6 +110,7 @@ trait RegIfRef{
       case AccessType.W1P   => oldVal          |  (newVal &  mask)
       case AccessType.W0P   => oldVal          ^ ~(newVal | nmask)
       case AccessType.HSRW  => (oldVal & nmask) |  (newVal & mask)
+      case AccessType.RWHS  => (oldVal & nmask) |  (newVal & mask)
       case _                =>  oldVal
     }
     t

@@ -20,6 +20,8 @@ class RegIfTester(seed: Int = 0) extends Component with RegIfRef {
     val o_z = out(Vec(Bits(32 bit), ACCESS_LIST.size))
     val i   = in(Vec(Bits(32 bit), ACCESS_LIST.size))
     val t   = in(Bool())
+    val hw_set = in Bool()
+    val hw_set_val = in Bits (32 bit)
   }
 
   val regIf = BusInterface(bus, (0, maps.size*32), 0)
@@ -27,10 +29,21 @@ class RegIfTester(seed: Int = 0) extends Component with RegIfRef {
   val rand = new Random(seed = 0)
 
   ACCESS_LIST.zipWithIndex.foreach{ case(acc, i) =>
-    val reg = regIf.newRegAt(i*4, s"Register_0x${(i*4).hexString(16)}_${acc}").field(Bits(32 bit), acc, resetValue = BigInt.probablePrime(32, rand), s"${acc}")
-    reg.setName(s"fd_0x${(i*4).hexString(16)}_${acc}".toLowerCase())
+    val REG = regIf.newRegAt(i*4, s"Register_0x${(i*4).hexString(16)}_${acc}")
+    val reg = acc match{
+      case `HSRW` => {
+        REG.fieldHSRW(io.hw_set, io.hw_set_val, resetValue = BigInt.probablePrime(32, rand), s"${acc}")
+      }
+      case `RWHS` => {
+        REG.fieldRWHS(io.hw_set, io.hw_set_val, resetValue = BigInt.probablePrime(32, rand), s"${acc}")
+      }
+      case _ => {
+        REG.field(Bits(32 bit), acc, resetValue = BigInt.probablePrime(32, rand), s"${acc}")
+      }
+    }
+    reg.setName(s"fd_0x${(i * 4).hexString(16)}_${acc}".toLowerCase())
     acc match{
-      case `RO`  => reg := "abcdedf".asHex; io.o(i).clearAll(); io.o_z(i).clearAll()
+      case `RO`  => io.o(i).clearAll();io.o_z(i).clearAll();reg := "abcdedf".asHex
       case `ROV` => io.o(i).clearAll();io.o_z(i).clearAll()
       case _ => {
         when(io.t) {
@@ -89,25 +102,34 @@ class RegIfTester(seed: Int = 0) extends Component with RegIfRef {
         doread(addr, verbose)
       }
     }
+    this.clockDomain.waitSampling(10)
   }
 
-  def sim(n: Int, verbose: Boolean = false) = {
+  def sim(casename: String = "all", verbose: Boolean = false) = {
     this.clockDomain.forkStimulus(2)
     this.io.i.foreach { t => t #= BigInt.probablePrime(32, rand)}
     this.io.t #= false
     this.io.t #= true
     this.clockDomain.waitSampling()
     this.io.t #= false
-    this.debug()
-    this.clockDomain.waitSampling(10)
-    this.typical()
-    this.clockDomain.waitSampling(10)
-    this.randomtest(n, verbose)
-    this.clockDomain.waitSampling(10)
+    this.simbranch(casename, verbose)
     if(isFail){
       simFailure("RegIf test Failed: \n" + FailMsg.mkString("\n"))
     } else {
       simSuccess()
+    }
+  }
+
+  def simbranch(casename: String = "all", verbose: Boolean = true) = {
+    casename  match {
+      case "debug"   =>  this.debug()
+      case "typical" =>  this.typical()
+      case "random"  =>  this.randomtest(2000, verbose)
+      case _    =>  {
+        this.debug()
+        this.typical()
+        this.randomtest(2000, verbose)
+      }
     }
   }
 
@@ -118,24 +140,26 @@ class RegIfTester(seed: Int = 0) extends Component with RegIfRef {
     (0 until NUM_REGISTERS).foreach { i =>
       doread(i * 4, true)
     }
+    this.clockDomain.waitSampling(10)
   }
   def debug() = {
     dowrite(0x068, true)
     dowrite(0x068, true)
     dowrite(0x06c, true)
     dowrite(0x06c, true)
+    dowrite(0x078, true)
+    dowrite(0x078, true)
+    this.clockDomain.waitSampling(10)
   }
 }
 
 object RegIfStrbTesterSim {
-  def sim(n: Int = 1000, withwave: Boolean = false) ={
-    if(withwave){
-      SpinalSimConfig()
-        .withFstWave
-    } else SpinalSimConfig()
+  def sim(name: String, withwave: Boolean = false) ={
+    val sc = if(withwave){ SpinalSimConfig() .withFstWave } else SpinalSimConfig()
+      sc
       .compile(new RegIfTester(seed = 0))
       .doSimUntilVoid("test") { dut =>
-        dut.sim(10000, true)
+        dut.sim(name, true)
       }
   }
 }
