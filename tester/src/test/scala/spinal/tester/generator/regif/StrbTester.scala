@@ -107,6 +107,7 @@ class RegIfTester(seed: Int = 0) extends Component with RegIfRef {
 
   def sim(casename: String = "all", verbose: Boolean = false) = {
     this.clockDomain.forkStimulus(2)
+    this.io.hw_set #= false
     this.io.i.foreach { t => t #= BigInt.probablePrime(32, rand)}
     this.io.t #= false
     this.io.t #= true
