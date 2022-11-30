@@ -20,18 +20,19 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
 
   val axiAr = bus.readCmd.stage()
   val axiR  = Stream(AxiLite4R(bus.config))
-  val axiRValid = Reg(Bool) init(False)
+  val axiRValid = Reg(Bool()) init(False)
 
   val axiAw = bus.writeCmd.stage()
   val axiW  = bus.writeData.stage()
   val axiB  = Stream(AxiLite4B(bus.config))
-  val axiBValid = Reg(Bool) init(False)
+  val axiBValid = Reg(Bool()) init(False)
 
   //The RC/RS/W1RC/W0RC of the regif allows the use strb to be used when reading, which is possible for apb4.
   //However, for AXI, Strb is only used in the Write channel, so set high is mandatory here
   withstrb generate (wstrb := Mux(axiAr.valid ,B((1 << strbWidth) -1, strbWidth bit), axiW.strb))
   InitLogic()
 
+  
   axiAr.ready := !axiRValid || axiR.ready
   when(readError) {
     axiR.payload.setSLVERR()

@@ -567,7 +567,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
   def newSeed(): Int = {
     sys.env.get("SPINAL_SIM_SEED") match {
       case Some(v) => v.toInt
-      case None => Random.nextInt(2000000000)
+      case None => Random.nextInt(Integer.MAX_VALUE)
     }
   }
 

@@ -39,10 +39,6 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   type Module = spinal.core.Component
   type dontName = spinal.core.DontName @field
 
-  def Bool : Bool = new Bool
-  def Bool(u: DummyTrait = DummyObject) : Bool = new Bool
-  def Bool(value: Boolean): Bool = BoolLiteral(value, this.Bool().setAsTypeNode())
-
   /**
     * Scala implicit
     */
@@ -268,7 +264,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   /**
     * True / False definition
     */
-  def True  = Bool(true) //Should be def, not val, else it will create cross hierarchy usage of the same instance
+  def True  = Bool(true)
   def False = Bool(false)
 
 

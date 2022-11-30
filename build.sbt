@@ -2,7 +2,7 @@ import sbt.Keys._
 import sbt._
 import sbt.Tests._
 
-
+val scalatestVersion = "3.2.5"
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
   organization := "com.github.spinalhdl",
   version      := SpinalVersion.all,
@@ -26,6 +26,7 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
 //  concurrentRestrictions := Seq(Tags.limit(Tags.ForkedTestGroup, 4)),
 
   libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
+  libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
 
   dependencyOverrides += "net.java.dev.jna" % "jna" % "5.5.0",
   dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.5.0",
@@ -157,7 +158,7 @@ lazy val lib = (project in file("lib"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
+    libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion,
     version := SpinalVersion.lib
   )
   .dependsOn (sim, core)
@@ -170,8 +171,7 @@ lazy val tester = (project in file("tester"))
     name := "SpinalHDL-tester",
     version := SpinalVersion.tester,
     Test / baseDirectory := file("./"),
-
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
+    libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion,
     publishArtifact := false,
     publishLocal := {}
   )

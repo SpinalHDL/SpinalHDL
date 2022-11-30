@@ -169,8 +169,7 @@ trait UFixCast {
   * Base class for SFix and UFix
   */
 abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int, val bitCount: Int) extends MultiData with MinMaxDecimalProvider {
-
-  require(bitCount >= 0)
+  require(bitCount >= 0, s"Length of fixed point number must be > 0 (not $bitCount)")
 
   val raw = rawFactory(maxExp, bitCount)
 
@@ -185,6 +184,8 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
 
   def rawFactory(exp: Int, bitCount: Int): R
   def fixFactory(exp: Int, bitCount: Int): T
+  def fixFactory(maxExp: ExpNumber, bitCount: BitCount): T
+  def fixFactory(maxExp: ExpNumber, resolution: ExpNumber): T
 
   def difLsb(that: T) = (this.maxExp - this.bitCount) - (that.maxExp - that.bitCount)
 
@@ -247,6 +248,17 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
     copy.asInstanceOf[this.type]
   }
 
+  def truncated(maxExp: ExpNumber, bitCount: BitCount): T = {
+    val t = fixFactory(maxExp, bitCount)
+    t := this.truncated.asInstanceOf[T]
+    t
+  }
+  def truncated(maxExp: ExpNumber, resolution: ExpNumber): T = {
+    val t = fixFactory(maxExp, resolution)
+    t := this.truncated.asInstanceOf[T]
+    t
+  }
+
   override private[spinal] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     that match {
       case that if this.getClass.isAssignableFrom(that.getClass) =>
@@ -267,6 +279,28 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
       case _ => SpinalError("Undefined assignment")
     }
   }
+
+  override def getMuxType[M <: Data](list: TraversableOnce[M]): HardType[M] = {
+    val fixed = list.filter(u => !u.hasTag(tagTruncated)).toSeq
+    assert(fixed.nonEmpty, "Can't generate mux for all-truncated fixed point numbers")
+    val muxMaxExp = fixed.map {
+      case x: XFix[T,R] => x.maxExp
+    }.max
+    val muxMinExp = fixed.map {
+      case x: XFix[T,R] => x.minExp
+    }.min
+    HardType(fixFactory(muxMaxExp exp, muxMinExp exp).asInstanceOf[M])
+  }
+
+  override def toMuxInput[M <: Data](muxOutput: M): M = {
+    muxOutput match {
+      case m: XFix[T,R] if(m.maxExp ==maxExp && m.bitCount == bitCount) => this.asInstanceOf[M]
+      case _ =>
+        val ret = cloneOf(muxOutput)
+        ret.assignFrom(this)
+        ret
+    }
+  }
 }
 
 //TODO Fix autoconnect
@@ -279,6 +313,8 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
   override def rawFactory(maxExp: Int, bitCount: Int): SInt = SInt(bitCount bit)
 
   override def fixFactory(maxExp: Int, bitCount: Int): SFix = SFix(maxExp exp, bitCount bit)
+  override def fixFactory(maxExp: ExpNumber, bitCount: BitCount): SFix = SFix(maxExp, bitCount)
+  override def fixFactory(maxExp: ExpNumber, resolution: ExpNumber): SFix = SFix(maxExp, resolution)
 
   override def minExp: Int = maxExp - bitCount + 1
 
@@ -425,6 +461,9 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
 
   override def rawFactory(maxExp: Int, bitCount: Int): UInt = UInt(bitCount bit)
   override def fixFactory(maxExp: Int, bitCount: Int): UFix = UFix(maxExp exp, bitCount bit)
+  override def fixFactory(maxExp: ExpNumber, bitCount: BitCount): UFix = UFix(maxExp, bitCount)
+  override def fixFactory(maxExp: ExpNumber, resolution: ExpNumber): UFix = UFix(maxExp, resolution)
+
   override def minExp: Int = maxExp - bitCount
 
   def +(that: UFix): UFix = doAddSub(that, sub = false)

@@ -27,7 +27,7 @@ case class SpiMaster(ssWidth : Int = 1,
 case class SpiSlave(useSclk : Boolean = true) extends Bundle with IMasterSlave{
   val sclk = if(useSclk)Bool() else null
   val mosi = Bool()
-  val miso = TriStateOutput(Bool)
+  val miso = TriStateOutput(Bool())
   val ss   = Bool()
 
   override def asMaster(): Unit = {
