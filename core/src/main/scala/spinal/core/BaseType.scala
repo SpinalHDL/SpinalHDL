@@ -21,6 +21,8 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
+
 import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
@@ -212,15 +214,15 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     } else None
   }
 
-  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     def statement(that : Expression) = kind match {
       case `DataAssign` =>
-        DataAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
+        DataAssignmentStatement(target = target.asInstanceOf[Expression], source = that).setLocation(loc)
       case `InitAssign` =>
         if(!isReg)
           LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
-        InitAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
-      case `InitialAssign` => InitialAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
+        InitAssignmentStatement(target = target.asInstanceOf[Expression], source = that).setLocation(loc)
+      case `InitialAssign` => InitialAssignmentStatement(target = target.asInstanceOf[Expression], source = that).setLocation(loc)
     }
     if(isFrozen()){
       LocatedPendingError(s"FROZEN ASSIGNED :\n$this := $that")
@@ -244,7 +246,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     super.removeStatement()
   }
 
-  private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
+  private[core] override def autoConnect(that: Data)(implicit loc: Location): Unit = autoConnectBaseImpl(that)
 
   override def flatten: Seq[BaseType] = Seq(this)
 

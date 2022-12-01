@@ -21,6 +21,7 @@
 package spinal.core.internals
 
 import spinal.core._
+import spinal.idslplugin.Location
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -2483,7 +2484,7 @@ class SIntLiteral extends BitVectorLiteral{
   * Bool literal
   */
 object BoolLiteral {
-  def apply(value: Boolean, on: Bool): Bool = {
+  def apply(value: Boolean, on: Bool)(implicit loc: Location): Bool = {
     on.assignFrom(new BoolLiteral(value))
     on
   }

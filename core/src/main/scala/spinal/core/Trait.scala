@@ -27,6 +27,7 @@ import spinal.core.fiber.Handle
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
+import spinal.idslplugin.Location
 
 trait DummyTrait
 object DummyObject extends DummyTrait
@@ -261,7 +262,7 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
 trait Assignable {
   /* private[core] */var compositeAssign: Assignable = null
 
-  /*private[core] */final def compositAssignFrom(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+  /*private[core] */final def compositAssignFrom(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     if (compositeAssign != null) {
       compositeAssign.compositAssignFrom(that, target, kind)
     } else {
@@ -269,7 +270,7 @@ trait Assignable {
     }
   }
 
-  private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit
+  private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit
 
   def getRealSourceNoRec: Any
 

@@ -33,7 +33,7 @@ trait BoolFactory {
   def Bool(u: Unit = ()): Bool = new Bool
 
   /** Create a new Bool with a value */
-  def Bool(value: Boolean): Bool = BoolLiteral(value, Bool().setAsTypeNode())
+  def Bool(value: Boolean)(implicit loc: Location): Bool = BoolLiteral(value, Bool().setAsTypeNode())
 }
 
 /**

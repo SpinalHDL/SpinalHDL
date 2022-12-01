@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.internals.ScopeStatement
+import spinal.idslplugin.Location
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -239,7 +240,7 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
     ret
   }
 
-  override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
+  override def autoConnect(that: Data)(implicit loc: Location): Unit = autoConnectBaseImpl(that)
 
   def truncated: this.type = {
     val copy = cloneOf(this)
@@ -259,7 +260,7 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
     t
   }
 
-  override private[spinal] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+  override private[spinal] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     that match {
       case that if this.getClass.isAssignableFrom(that.getClass) =>
         val t = that.asInstanceOf[T]
