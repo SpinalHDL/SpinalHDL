@@ -11,7 +11,7 @@ import spinal.lib.Delay
 import java.io.PrintStream
 
 
-object VerilatorCacheTester {
+object VVerilatorCacheTester {
   case class ComponentA(n: Int, x: BigInt) extends Component {
     val io = new Bundle {
       val x = out Bits(n bits)
@@ -74,8 +74,8 @@ object VerilatorCacheTester {
   }
 }
 
-class VerilatorCacheTester extends AnyFunSuite {
-  import VerilatorCacheTester._
+class VVerilatorCacheTester extends AnyFunSuite {
+  import VVerilatorCacheTester._
 
   val cacheDir = new File(SimConfig._workspacePath + "/.cache_cachetest")
 
