@@ -1036,7 +1036,6 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
     for(e <- enumSet){
       signatureToEnums.getOrElseUpdate(e.getSignature(), ArrayBuffer[SpinalEnum]()) += e
     }
-    println(signatureToEnums.map("- " + _).mkString("\n"))
 
     val enumsToMerge =  mutable.LinkedHashMap[SpinalEnum, SpinalEnum]()
     for((_, list) <- signatureToEnums) {
