@@ -321,7 +321,7 @@ abstract class AssignmentStatement extends LeafStatement with StatementDoubleLin
   var locationString : String = null
 
   def setLocation(loc : Location): this.type ={
-    if(globalData.config.genLineComments) locationString = s"${loc.file}.scala l${loc.line}"
+    if(globalData.config.genLineComments) locationString = s"@[${loc.file}.scala ${loc.line}:${loc.col}]"
     this
   }
 
