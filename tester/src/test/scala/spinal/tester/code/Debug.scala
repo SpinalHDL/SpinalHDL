@@ -188,15 +188,19 @@ object Tesasdadt {
 object Debug2 extends App{
 
   def gen = new Component{
-    val x = False
+    val x = True
+    val y = False
     when(True){
-      x := True
+      y := True
     }
-    val y = True
 
     val a,b,c = UInt(8 bits)
     c := a + b + 1
 
+    val src = in Bool()
+    val dst = Bool()
+
+    src <> dst
 
 //    val io = new Bundle {
 //      val i = in Bits (5 bits)
