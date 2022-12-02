@@ -74,8 +74,9 @@ class RegIfExample extends Component {
   val a = M_CSTM.field(Bits(16 bit), acc = CSTM("BMRW"), resetValue = 0x134, doc = "cstm")
   val b = M_CSTM.field(Bits( 4 bit), acc = RW, resetValue = 0x4, doc = "cstm")
   val c = M_CSTM.field(Bits(8 bit), acc = CSTM("DBRW"), resetValue = 0x34, doc = "cstm")
-
-  busif.interruptFactory("T", io.a, io.b, io.c, io.d, io.e)
+  busif.newReg(doc = "Device Infomation").field(Bits(32 bit), NA, 0, doc ="na")
+  val irq = busif.interruptFactory("T", io.a, io.b, io.c, io.d, io.e)
+  out(irq)
 
   busif.accept(CHeaderGenerator("header", "AP", headers = List("Size: 4 KiB", "Author: Jack", "Version: 0.1(2022.11.24 22:29)")))
   busif.accept(HtmlGenerator("regif", "AP"))

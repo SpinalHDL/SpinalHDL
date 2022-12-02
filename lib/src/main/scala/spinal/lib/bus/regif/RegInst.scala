@@ -456,7 +456,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
 
   protected def _W1[T <: BaseType](reg: T, section: Range): T ={
     val hardRestFirstFlag = Reg(Bool()) init True
-    hardRestFirstFlag.setName(s"${reg.getName}_w1latch_flag", weak = true)
+    hardRestFirstFlag.setName(s"${reg.getName}_w1lock_flag", weak = true)
     when(hitDoWrite && hardRestFirstFlag){
       reg.assignFromBits(busif.wdata(reg, section))
       hardRestFirstFlag.clear()

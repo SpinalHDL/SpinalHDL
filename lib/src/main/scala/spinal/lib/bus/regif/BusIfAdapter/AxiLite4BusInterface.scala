@@ -59,7 +59,7 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   axiRValid := doRead
   axiBValid := doWrite
 
-  def readAddress() : UInt = axiAr.addr
+  def readAddress()  = if(withstrb) (axiAr.addr.drop(underbitWidth) ## B(0, underbitWidth bit)).asUInt else axiAr.addr
   def writeAddress() : UInt = axiAw.addr
 
   override def readHalt(): Unit = axiAr.ready := False

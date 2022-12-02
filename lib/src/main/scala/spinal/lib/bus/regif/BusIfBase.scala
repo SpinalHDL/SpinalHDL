@@ -32,6 +32,7 @@ trait BusIfBase extends Area{
   def busDataWidth: Int
   def wordAddressInc: Int = busDataWidth / 8
   def strbWidth: Int = busDataWidth / 8
+  def underbitWidth: Int = log2Up(wordAddressInc)
 
   def mwdata(sec: Range): Bits = if(withstrb) writeData(sec) & wmask(sec) else writeData(sec)
 
@@ -363,20 +364,28 @@ trait BusIf extends BusIfBase {
     when(askRead){
       switch (readAddress()) {
         RegInsts.foreach{(reg: RegInst) =>
-          is(reg.addr){
-            if(!reg.allIsNA){
+          if(!reg.allIsNA){
+            is(reg.addr){
               readData  := reg.readBits
               readError := Bool(reg.haveWO)
             }
           }
         }
         default{
+          //Reserved Address Set False, True is too much strict for software
           readData  := 0
-          readError := False //Reserved Address Set False, True is too much strict for software
+          if(withstrb) {
+            readError := False
+          } else {
+            val alignreadhit = readAddress.take(log2Up(wordAddressInc)).orR
+            readError := Mux(alignreadhit, True,  False)
+          }
         }
       }
     }.otherwise{
-      if(readSync){ readData  := 0 }
+      //async should give a value avoid latch
+      //remove else statement when readSync case for lowerPower consideration
+      if(!readSync){readData := 0 }
       readError := False
     }
   }

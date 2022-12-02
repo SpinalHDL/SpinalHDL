@@ -30,7 +30,7 @@ case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, selId: Int = 0, reg
   InitLogic()
 
   if(bus.c.useSlaveError) bus.PSLVERR := readError
-  override def readAddress()  = bus.PADDR
+  override def readAddress()  = if(withstrb) (bus.PADDR.drop(underbitWidth) ## B(0, underbitWidth bit)).asUInt else bus.PADDR
   override def writeAddress() = bus.PADDR
 
   override def readHalt()  = bus.PREADY := False
