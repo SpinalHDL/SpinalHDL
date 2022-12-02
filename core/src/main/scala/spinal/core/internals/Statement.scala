@@ -318,6 +318,12 @@ object AssignmentStatement{
 
 abstract class AssignmentStatement extends LeafStatement with StatementDoubleLinkedContainerElement[BaseType, AssignmentStatement]{
   var target, source: Expression = null
+  var locationString : String = null
+
+  def setLocation(loc : Location): this.type ={
+    if(globalData.config.genLineComments) locationString = s"@[${loc.file}.scala ${loc.line}:${loc.col}]"
+    this
+  }
 
   override def rootScopeStatement = finalTarget.rootScopeStatement
 

@@ -230,8 +230,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   /**
     * True / False definition
     */
-  def True  = Bool(true)
-  def False = Bool(false)
+  def True(implicit loc: Location)  = Bool(true)
+  def False(implicit loc: Location) = Bool(false)
 
 
   /**

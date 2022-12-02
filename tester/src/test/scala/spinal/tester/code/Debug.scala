@@ -9,6 +9,7 @@ import spinal.core.fiber.Handle
 import spinal.core.internals.Operator
 import spinal.lib._
 import spinal.core.sim._
+import spinal.idslplugin.Location
 import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
@@ -186,22 +187,34 @@ object Tesasdadt {
 
 object Debug2 extends App{
 
-
-  SpinalConfig(allowOutOfRangeLiterals = false).includeFormal.generateSystemVerilog(new Component{
-
-    val io = new Bundle {
-      val i = in Bits (5 bits)
-      val o = out Bits (3 bits)
+  def gen = new Component{
+    val x = True
+    val y = False
+    when(True){
+      y := True
     }
 
-    switch(io.i) {
-      is(M"----1") { io.o := 0 }
-      is(M"---1-") { io.o := 1 }
-      is(M"--1--") { io.o := 2 }
-      is(M"-1---") { io.o := 3 }
-      is(M"1----") { io.o := 4 }
-      default{ io.o.assignDontCare()}
-    }
+    val a,b,c = UInt(8 bits)
+    c := a + b + 1
+
+    val src = in Bool()
+    val dst = Bool()
+
+    src <> dst
+
+//    val io = new Bundle {
+//      val i = in Bits (5 bits)
+//      val o = out Bits (3 bits)
+//    }
+//
+//    switch(io.i) {
+//      is(M"----1") { io.o := 0 }
+//      is(M"---1-") { io.o := 1 }
+//      is(M"--1--") { io.o := 2 }
+//      is(M"-1---") { io.o := 3 }
+//      is(M"1----") { io.o := 4 }
+//      default{ io.o.assignDontCare()}
+//    }
 
 //    val input = in(AFix.SQ(8 bit, 8 bit))
 //    val i = AFix.SQ(8 bit, 8 bit)
@@ -384,8 +397,10 @@ object Debug2 extends App{
 //    }
 
     setDefinitionName("miaou")
-  })
+  }
 
+  SpinalConfig(allowOutOfRangeLiterals = false).includeFormal.generateSystemVerilog(gen)
+  SpinalConfig(allowOutOfRangeLiterals = false).includeFormal.generateVhdl(gen)
 }
 
 //object MyEnum extends  spinal.core.MacroTest.mkObject("asd")
@@ -1147,7 +1162,7 @@ object PlayPackedData extends App{
       ret
     }
 
-    override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+    override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
       that match {
         case that: PackedData[_] =>
           ???

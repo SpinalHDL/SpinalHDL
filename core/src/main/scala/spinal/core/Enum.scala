@@ -21,6 +21,8 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
+
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -145,7 +147,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
   @deprecated("Use =/= instead","???")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
-  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = that match{
+  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = that match{
     case that : SpinalEnumCraft[T]          => super.assignFromImpl(that, target, kind)
     case that : Expression with EnumEncoded => super.assignFromImpl(that, target, kind)
     //    case that : DontCareNodeEnum => super.assignFromImpl(that, conservative)

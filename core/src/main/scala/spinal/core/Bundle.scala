@@ -22,7 +22,7 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
-import spinal.idslplugin.ValCallback
+import spinal.idslplugin.{Location, ValCallback}
 
 import scala.collection.mutable
 
@@ -156,7 +156,7 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
     }
   }
 
-  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     that match {
       case that: Bundle =>
         if (!this.getClass.isAssignableFrom(that.getClass)) SpinalError("Bundles must have the same final class to" +
