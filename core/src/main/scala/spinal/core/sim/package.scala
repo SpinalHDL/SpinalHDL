@@ -260,7 +260,7 @@ package object sim {
       case bt: BitVector          => bt #= value
       case bt: SpinalEnumCraft[_] => {
         assert(value < bt.spinalEnum.elements.length)
-        bt #= bt.spinalEnum.elements(value.toInt)
+        setBigInt(bt, value)
       }
     }
 
@@ -427,8 +427,8 @@ package object sim {
 
     def randomize(): SpinalEnumElement[T] = {
       val e = bt.spinalEnum.elements(Random.nextInt(bt.spinalEnum.elements.length))
-      bt #= e
-      e
+      setBigInt(bt, bt.encoding.getValue(e))
+      e.asInstanceOf[SpinalEnumElement[T]]
     }
   }
 

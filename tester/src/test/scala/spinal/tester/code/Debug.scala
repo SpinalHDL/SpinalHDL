@@ -1369,5 +1369,15 @@ object PlayFsmBugA extends App {
 
   SpinalVerilog(new Component {
     val sub0, sub1 = new test001
+
+    def create() = {
+      val myEnum = new SpinalEnum {
+        val A, B, C = newElement
+      }.setName("miaou")
+      myEnum.B()
+    }
+
+    val x = create()
+    val y = create()
   })
 }

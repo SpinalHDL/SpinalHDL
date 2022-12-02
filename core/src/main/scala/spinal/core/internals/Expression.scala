@@ -345,10 +345,11 @@ object Operator {
     class RandomExpSInt(kind : RandomExpKind, width : Int) extends RandomExpBitVector(kind, width) {
       override def getTypeObject = TypeSInt
     }
-    class RandomExpEnum(enumDef: SpinalEnum, kind : RandomExpKind) extends RandomExp(kind) with InferableEnumEncodingImpl{
+    class RandomExpEnum(var enumDef: SpinalEnum, kind : RandomExpKind) extends RandomExp(kind) with InferableEnumEncodingImpl{
       override def getTypeObject = TypeEnum
       override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
       override def getDefinition: SpinalEnum = enumDef
+      override def swapEnum(e: SpinalEnum) = enumDef = e
     }
 
     abstract class Past(val delay : Int) extends UnaryOperator
@@ -378,7 +379,7 @@ object Operator {
       override def opName: String = "$past(SInt)"
     }
 
-    class PastEnum(enumDef: SpinalEnum, delay : Int) extends Past(delay)  with InferableEnumEncodingImpl{
+    class PastEnum(var enumDef: SpinalEnum, delay : Int) extends Past(delay)  with InferableEnumEncodingImpl{
       override def getTypeObject = TypeEnum
       override def opName: String = "$past(Enum)"
 
@@ -387,6 +388,7 @@ object Operator {
       override type T = Expression with EnumEncoded
       override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
       override def getDefinition: SpinalEnum = enumDef
+      override def swapEnum(e: SpinalEnum) = enumDef = e
     }
 
 
@@ -1029,7 +1031,7 @@ object Operator {
     */
   object Enum{
 
-    class Equal(enumDef: SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl {
+    class Equal(var enumDef: SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl {
       override def getTypeObject: Any = TypeBool
 
       override def opName: String = "Enum === Enum"
@@ -1038,6 +1040,7 @@ object Operator {
       override type T = Expression with EnumEncoded
       override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
       override def getDefinition: SpinalEnum = enumDef
+      override def swapEnum(e: SpinalEnum) = enumDef = e
 
       override def simplifyNode: Expression = {
         if (left.getDefinition.elements.size < 2)
@@ -1047,7 +1050,7 @@ object Operator {
       }
     }
 
-    class NotEqual(enumDef: SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl {
+    class NotEqual(var enumDef: SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl {
       override def getTypeObject: Any = TypeBool
       override def opName: String = "Enum =/= Enum"
       override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
@@ -1055,6 +1058,7 @@ object Operator {
       override type T = Expression with EnumEncoded
       override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
       override def getDefinition: SpinalEnum = enumDef
+      override def swapEnum(e: SpinalEnum) = enumDef = e
 
       override def simplifyNode: Expression = {
         if (left.getDefinition.elements.size < 2)
@@ -1144,7 +1148,7 @@ class CastEnumToBits extends Cast with Widthable {
 }
 
 /** Bits -> Enum */
-class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl {
+class CastBitsToEnum(var enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl {
   override type T <: Expression with WidthProvider
   override def opName: String = "Bits -> Enum"
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
@@ -1155,16 +1159,18 @@ class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEnc
   }
 
   override def getTypeObject: Any = TypeEnum
+  override def swapEnum(e: SpinalEnum) = enumDef = e
 }
 
 /** Enum -> Enum */
-class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodingImpl {
+class CastEnumToEnum(var enumDef: SpinalEnum) extends Cast with  InferableEnumEncodingImpl {
   override type T <: Expression with EnumEncoded
   override def opName: String = "Enum -> Enum"
 
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def getDefinition: SpinalEnum = enumDef
   override def getTypeObject: Any = TypeEnum
+  override def swapEnum(e: SpinalEnum) = enumDef = e
 }
 
 
@@ -1268,7 +1274,7 @@ class MultiplexerSInt extends MultiplexerWidthable {
 }
 
 /** Enum multiplexer */
-class MultiplexerEnum(enumDef: SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl {
+class MultiplexerEnum(var enumDef: SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl {
   override type T = Expression with EnumEncoded
   override def opName: String = s"mux of Enum"
   override def getDefinition: SpinalEnum = enumDef
@@ -1280,6 +1286,7 @@ class MultiplexerEnum(enumDef: SpinalEnum) extends Multiplexer with InferableEnu
     }
   }
   override def getTypeObject: Any = TypeEnum
+  override def swapEnum(e: SpinalEnum) = enumDef = e
 }
 
 
@@ -1360,7 +1367,7 @@ class BinaryMultiplexerSInt extends BinaryMultiplexerWidthable {
 }
 
 /** Enum binary multiplexer */
-class BinaryMultiplexerEnum(enumDef : SpinalEnum) extends BinaryMultiplexer with InferableEnumEncodingImpl {
+class BinaryMultiplexerEnum(var enumDef : SpinalEnum) extends BinaryMultiplexer with InferableEnumEncodingImpl {
   override type T = Expression with EnumEncoded
   override def opName: String = "Bool ? Bits | Bits"
   override def getDefinition: SpinalEnum = enumDef
@@ -1370,6 +1377,7 @@ class BinaryMultiplexerEnum(enumDef : SpinalEnum) extends BinaryMultiplexer with
     whenFalse = InputNormalize.enumImpl(this, whenFalse)
   }
   override def getTypeObject: Any = TypeEnum
+  override def swapEnum(e: SpinalEnum) = enumDef = e
 }
 
 
