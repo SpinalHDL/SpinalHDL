@@ -433,8 +433,9 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   def haveWO = fields.filter(_.isWriteOnly).size != 0
   def readBits: Bits = {
     //when field is WriteOnly, need mask data as 0 for security consider
-    val lst = fields.map(t => if(t.isWriteOnly) B(0, t.getWidth bit) else t.hardbit)
-    Vec(lst).asBits
+    fields.map(t => if(t.isWriteOnly) B(0, t.getWidth bit) else t.hardbit)
+      .reverse
+      .foldRight(B(0, 0 bit))(_ ## _)
   }
 
   def eventR() : Bool = {
@@ -455,7 +456,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
 
   protected def _W1[T <: BaseType](reg: T, section: Range): T ={
     val hardRestFirstFlag = Reg(Bool()) init True
-    hardRestFirstFlag.setName(s"${reg.getName}_wlock_flag", weak = true)
+    hardRestFirstFlag.setName(s"${reg.getName}_w1latch_flag", weak = true)
     when(hitDoWrite && hardRestFirstFlag){
       reg.assignFromBits(busif.wdata(reg, section))
       hardRestFirstFlag.clear()
@@ -491,7 +492,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
 
   protected def _RC[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoRead){
-      reg.assignFromBits(busif.wdata(reg, section, "clear")  )//Bits(reg.getBitsWidth bit).clearAll())
+      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll()) //busif.wdata(reg, section, "clear")
     }
     reg
   }
@@ -499,14 +500,14 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def RC(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoRead){
-      ret := busif.wdata(ret, section, "clear")//ret.clearAll()
+      ret.clearAll()//ret := busif.wdata(ret, section, "clear")
     }
     ret
   }
 
   protected def _RS[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoRead){
-      reg.assignFromBits(busif.wdata(reg, section, "set")  )//Bits(reg.getBitsWidth bit).setAll())
+      reg.assignFromBits( Bits(reg.getBitsWidth bit).setAll())//busif.wdata(reg, section, "set")
     }
     reg
   }
@@ -514,7 +515,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def RS(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoRead){
-      ret := busif.wdata(ret, section, "set")//ret.setAll()
+      ret.setAll()//ret := busif.wdata(ret, section, "set")
     }
     ret
   }
@@ -523,7 +524,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       reg.assignFromBits(busif.wdata(reg, section)  )//busif.writeData(section))
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(busif.wdata(reg, section, "clear")  )//Bits(reg.getBitsWidth bit).clearAll())
+      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())//busif.wdata(reg, section, "clear")
     }
     reg
   }
@@ -533,7 +534,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       ret := busif.wdata(ret, section)//busif.writeData(section)
     }.elsewhen(hitDoRead){
-      ret := busif.wdata(ret, section, "clear")//ret.clearAll()
+      ret.clearAll() //ret := busif.wdata(ret, section, "clear")
     }
     ret
   }
@@ -542,7 +543,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       reg.assignFromBits(busif.wdata(reg, section)  )//busif.writeData(section))
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(busif.wdata(reg, section, "set")  )//Bits(reg.getBitsWidth bit).setAll())
+      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll()) //busif.wdata(reg, section, "set")
     }
     reg
   }
@@ -552,7 +553,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       ret := busif.wdata(ret, section)//busif.writeData(section)
     }.elsewhen(hitDoRead){
-      ret := busif.wdata(ret, section, "set")//ret.setAll()
+      ret.setAll() //ret := busif.wdata(ret, section, "set")
     }
     ret
   }
@@ -591,7 +592,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       reg.assignFromBits(busif.wdata(reg, section, "set")  )//Bits(reg.getBitsWidth bit).setAll())
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(busif.wdata(reg, section, "clear"))//Bits(reg.getBitsWidth bit).clearAll())
+      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll()) //busif.wdata(reg, section, "clear")
     }
     reg
   }
@@ -601,7 +602,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       ret := busif.wdata(ret, section, "set")  //ret.setAll()
     }.elsewhen(hitDoRead){
-      ret := busif.wdata(ret, section, "clear")//ret.clearAll()
+      ret.clearAll()//ret := busif.wdata(ret, section, "clear")
     }
     ret
   }
@@ -610,7 +611,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       reg.assignFromBits(busif.wdata(reg, section, "clear"))//Bits(reg.getBitsWidth bit).clearAll())
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(busif.wdata(reg, section, "set")  )//Bits(reg.getBitsWidth bit).setAll())
+      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll()) //busif.wdata(reg, section, "set")
     }
     reg
   }
@@ -620,7 +621,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       ret := busif.wdata(ret, section, "clear")//ret.clearAll()
     }.elsewhen(hitDoRead){
-      ret := busif.wdata(ret, section, "set")  //ret.setAll()
+      ret.setAll()//ret := busif.wdata(ret, section, "set")
     }
     ret
   }
