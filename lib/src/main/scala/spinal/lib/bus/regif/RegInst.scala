@@ -430,8 +430,11 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   val hitDoWrite = busif.writeAddress === U(addr) && busif.doWrite
   hitDoWrite.setName(f"write_hit_0x${addr}%04x", weak = true)
 
+  def haveWO = fields.filter(_.isWriteOnly).size != 0
   def readBits: Bits = {
-    fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
+    //when field is WriteOnly, need mask data as 0 for security consider
+    val lst = fields.map(t => if(t.isWriteOnly) B(0, t.getWidth bit) else t.hardbit)
+    Vec(lst).asBits
   }
 
   def eventR() : Bool = {

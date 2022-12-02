@@ -360,45 +360,24 @@ trait BusIf extends BusIfBase {
   }
 
   private def readGenerator() = {
-    if(readSync){
-      when(askRead){
-        switch (readAddress()) {
-          RegInsts.foreach{(reg: RegInst) =>
-            is(reg.addr){
-              if(!reg.allIsNA){
-                readData  := reg.readBits
-                readError := Bool(reg.readErrorTag)
-              }
+    when(askRead){
+      switch (readAddress()) {
+        RegInsts.foreach{(reg: RegInst) =>
+          is(reg.addr){
+            if(!reg.allIsNA){
+              readData  := reg.readBits
+              readError := Bool(reg.haveWO)
             }
           }
-          default{
-            readData  := 0
-            readError := True
-          }
+        }
+        default{
+          readData  := 0
+          readError := False //Reserved Address Set False, True is too much strict for software
         }
       }
-      readError.clearWhen(askWrite)
-    } else {
-      when(askRead){
-        switch (readAddress()) {
-          RegInsts.foreach{(reg: RegInst) =>
-            is(reg.addr){
-              if(!reg.allIsNA){
-                readData  := reg.readBits
-                readError := Bool(reg.readErrorTag)
-              }
-            }
-          }
-          default{
-            readData  := 0
-            readError := True
-          }
-        }
-      }.otherwise{
-        readData  := 0
-        readError := False
-      }
+    }.otherwise{
+      if(readSync){ readData  := 0 }
+      readError := False
     }
-    //wo not add error-response for write-operation for the reason of save area of mux
   }
 }
