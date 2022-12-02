@@ -56,7 +56,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
         waveFormat
       }
     } else {
-      println("Wave format " + waveFormat + " not supported by GHDL")
+      println("Wave format " + waveFormat + " not supported by XSim")
       WaveFormat.NONE
     }
   }

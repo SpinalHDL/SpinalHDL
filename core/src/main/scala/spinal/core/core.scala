@@ -254,6 +254,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     */
   implicit class LiteralBuilder(private val sc: StringContext) {
 
+    def BU(args: Any*): BigInt = intStringParser(getString(args), false)._1
+    def BS(args: Any*): BigInt = intStringParser(getString(args), true)._1
+
     def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args), signed = false)
     def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
     def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
@@ -295,74 +298,74 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     }
   }
 
-  /**
-    * Parsing the bitVector literal and building a Spinal BitVector
-    */
-  private[core] def bitVectorStringParser[T <: BitVector](builder: BitVectorLiteralFactory[T], arg: String, signed: Boolean): T = {
-
-    def error() = SpinalError(s"$arg literal is not well formed [bitCount'][radix]value")
-
-    def strBinToInt(valueStr: String, radix: Int, bitCount: Int) = if (!signed) {
-      BigInt(valueStr, radix)
-    } else {
-      val v = BigInt(valueStr, radix)
-      val bitCountPow2 = BigInt(1) << bitCount
-      if (v >= bitCountPow2) SpinalError("Value is bigger than bit count")
-      if (!v.testBit(bitCount - 1)) v else -bitCountPow2 + v
-    }
-
+  /** Parse the literal string to build the value and the bitCount */
+  private[core] def intStringParser(arg: String, signed: Boolean): (BigInt, Option[Int]) = {
     var str = arg.replace("_", "").toLowerCase
-    if (str == "") return builder(0, 0 bit)
 
-    var bitCount: Int = -1
+    if (str == "")
+      return (BigInt(0), Some(0))
 
-    if (str.contains('\'')) {
+    val parsedBitCount = if (str.contains('\'')) {
       val split = str.split('\'')
-      bitCount = split(0).toInt
       str = split(1)
-    }
+      Some(split(0).toInt)
+    } else None
 
-    var radix = -1
+    val radix =
+      if ("01" contains str.charAt(0)) 2
+      else {
+        val r = str.charAt(0)
+        str = str.tail
 
-    if ("01".contains(str.charAt(0))) {
-      radix = 2
-    } else {
-      radix = str.charAt(0) match {
-        case 'x' => 16
-        case 'h' => 16
-        case 'd' => 10
-        case 'o' => 8
-        case 'b' => 2
-        case c   => SpinalError(s"$c is not a valid radix specification. x-d-o-b are allowed")
+        r match {
+          case 'x' => 16
+          case 'h' => 16
+          case 'd' => 10
+          case 'o' => 8
+          case 'b' => 2
+          case c   => SpinalError(s"$c is not a valid radix specification. x-h-d-o-b are allowed")
+        }
       }
+
+    val minus = str.charAt(0) == '-'
+    if (minus) {
+      if (radix != 10)
+        SpinalError("Can't have minus on non-decimal values")
       str = str.tail
     }
 
-    val minus = if (str.charAt(0) == '-') {
-      str = str.tail
-      if (radix != 10) SpinalError("Can't have minus on non decimal values")
-      true
-    } else {
-      false
+    val bitCount = parsedBitCount.orElse {
+      if (isPow2(radix)) Some(str.length * log2Up(radix))
+      else None
     }
 
-    val digitCount = str.length
-    if (bitCount == -1) bitCount = radix match {
-      case 16 => digitCount * 4
-      case 8  => digitCount * 3
-      case 2  => digitCount
-      case _  => -1
+    val parsedDigits = BigInt(str, radix)
+    val value = bitCount match {
+      case Some(bc) if signed => {
+        val twoPowBc = BigInt(1) << bc
+        if (parsedDigits >= twoPowBc)
+          SpinalError("Signed number overflow: value is bigger than 1 << bitCount")
+
+        if (parsedDigits.testBit(bc - 1)) -twoPowBc + parsedDigits
+        else parsedDigits
+      }
+      case None if minus => -parsedDigits
+      case _             => parsedDigits
     }
 
-    val value = radix match {
-      case 10 => if (minus) -BigInt(str, radix) else BigInt(str, radix)
-      case _  => strBinToInt(str, radix, bitCount)
-    }
+    (value, bitCount)
+  }
 
-    if (bitCount == -1) {
-      builder(value)
-    } else {
-      builder(value, bitCount bit)
+  /** Parse the literal string to build a BitVector */
+  private[core] def bitVectorStringParser[T <: BitVector](
+      builder: BitVectorLiteralFactory[T],
+      arg: String,
+      signed: Boolean
+  ): T = {
+    val (value, bitCount) = intStringParser(arg, signed)
+    bitCount match {
+      case Some(n) => builder(value, n bits)
+      case None    => builder(value)
     }
   }
 
@@ -505,6 +508,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def := [T<:Data](_rights : T*): Unit = this := Cat(_rights.reverse)
   }
 
+  // format: off
   implicit class Tuple2Pimper(pimped : Tuple2[Data, Data]) extends TuplePimperBase(pimped)
   implicit class Tuple3Pimper(pimped : Tuple3[Data, Data, Data]) extends TuplePimperBase(pimped)
   implicit class Tuple4Pimper(pimped : Tuple4[Data, Data, Data, Data]) extends TuplePimperBase(pimped)
@@ -548,6 +552,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   implicit def tupleBunder20Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data,T18 <: Data,T19 <: Data,T20 <: Data](pimped: Tuple20[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]): TupleBundle20[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17, pimped._18, pimped._19, pimped._20)
   implicit def tupleBunder21Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data,T18 <: Data,T19 <: Data,T20 <: Data,T21 <: Data](pimped: Tuple21[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]): TupleBundle21[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17, pimped._18, pimped._19, pimped._20, pimped._21)
   implicit def tupleBunder22Pimp[T1 <: Data,T2 <: Data,T3 <: Data,T4 <: Data,T5 <: Data,T6 <: Data,T7 <: Data,T8 <: Data,T9 <: Data,T10 <: Data,T11 <: Data,T12 <: Data,T13 <: Data,T14 <: Data,T15 <: Data,T16 <: Data,T17 <: Data,T18 <: Data,T19 <: Data,T20 <: Data,T21 <: Data,T22 <: Data](pimped: Tuple22[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22]): TupleBundle22[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22] = TupleBundle(pimped._1, pimped._2, pimped._3, pimped._4, pimped._5, pimped._6, pimped._7, pimped._8, pimped._9, pimped._10, pimped._11, pimped._12, pimped._13, pimped._14, pimped._15, pimped._16, pimped._17, pimped._18, pimped._19, pimped._20, pimped._21, pimped._22)
+  // format: on
 
   /**
    * Endianness enumeration

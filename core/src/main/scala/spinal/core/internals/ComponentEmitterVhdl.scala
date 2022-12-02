@@ -427,7 +427,10 @@ class ComponentEmitterVhdl(
 
       b ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
       inc
-      b ++= initialStatlementsGeneration
+      for(str <- initialStatlementsGeneration.toString.linesWithSeparators){
+        b ++= "  "
+        b ++= str
+      }
       dec
       b ++= s"${tabStr}else\n"
       inc
