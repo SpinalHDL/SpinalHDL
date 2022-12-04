@@ -1,10 +1,10 @@
-package spinal.tester.scalatest
+package spinal.core
 
+import spinal.core.sim._
 
-import spinal.core._
-import spinal.lib._
+import spinal.tester.{SpinalSimFunSuite, SpinalTesterCocotbBase}
 
-object BlackboxTester {
+object BlackBoxTester {
 
   case class BBGenerics(aWidth: Int, bWidth: Int) extends Generic
 
@@ -41,14 +41,13 @@ object BlackboxTester {
 
 class BlackboxTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "BlackBoxTester"
-  override def createToplevel: Component =  new BlackboxTester.BlackBoxTester
+  override def createToplevel: Component =  new BlackBoxTester.BlackBoxTester
   override def pythonTestLocation: String = "tester/src/test/python/spinal/BlackBoxTester"
 }
 
-import spinal.core.sim._
 class SpinalSimBlackboxTester extends SpinalSimFunSuite {
   test("test"){
-    SimConfig.addRtl(s"tester/src/test/python/spinal/BlackBoxTester/BlackBoxToTest.${if(tester.language == VHDL) "vhd" else "v"}").doSim(new BlackboxTester.BlackBoxTester) {dut =>
+    SimConfig.addRtl(s"tester/src/test/python/spinal/BlackBoxTester/BlackBoxToTest.${if(tester.language == VHDL) "vhd" else "v"}").doSim(new BlackBoxTester.BlackBoxTester) {dut =>
       dut.clockDomain.forkStimulus(10)
       var outA_ref = 0
       var outB_ref = 0
