@@ -1,14 +1,13 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.amba4.axis
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core._
-import spinal.lib._
 import spinal.core.sim._
-import spinal.lib.bus.amba4.axis.Axi4Stream.{Axi4Stream, Axi4StreamBundle}
-import spinal.lib.bus.amba4.axis._
+import spinal.lib._
+
 import spinal.lib.sim.{ScoreboardInOrder, StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
-import scala.BigInt
 import scala.collection.mutable.ListBuffer
 
 case class Axi4StreamSimpleWidthAdapterFixture(inSize: Int, outSize: Int, useLast: Boolean = true) extends Component {
@@ -80,7 +79,7 @@ class Axi4StreamSimpleWidthAdapterTester extends AnyFunSuite {
         }
       })
 
-    def copyCheckByte(axisBundle: Axi4StreamBundle, idx: Int): Axi4CheckByte = {
+    def copyCheckByte(axisBundle: Axi4Stream.Axi4StreamBundle, idx: Int): Axi4CheckByte = {
       val data = (axisBundle.data.toBigInt >> 8*idx) & BigInt(0xFF)
       val strb = if (axisBundle.config.useStrb) axisBundle.strb.toBigInt.testBit(idx) else true
       val keep = if (axisBundle.config.useKeep) axisBundle.keep.toBigInt.testBit(idx) else true
@@ -94,7 +93,7 @@ class Axi4StreamSimpleWidthAdapterTester extends AnyFunSuite {
       Axi4CheckByte(data = data, strb = strb, keep = keep, last = last, id = id, dest = dest, user = user)
     }
 
-    def streamByteTransactionMonitor(stream: Axi4Stream, clockDomain: ClockDomain)(callback: (Seq[Axi4CheckByte]) => Unit) = {
+    def streamByteTransactionMonitor(stream: Axi4Stream.Axi4Stream, clockDomain: ClockDomain)(callback: (Seq[Axi4CheckByte]) => Unit) = {
       var currentTransaction = ListBuffer[Axi4CheckByte]()
 
       StreamMonitor(stream, clockDomain)(p => {
