@@ -1,8 +1,9 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.amba4.axilite
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axilite.{AxiLite4SlaveFactory, AxiLite4, AxiLite4Config}
+
+import spinal.tester.SpinalTesterCocotbBase
 
 object AxiLite4SlaveFactoryTester{
   def axiLite4Config = AxiLite4Config(
