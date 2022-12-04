@@ -16,11 +16,11 @@
  * License along with this library.
  */
 
-package spinal.tester.scalatest
+package spinal.lib.com.i2c
 
 import spinal.core._
-import spinal.lib.com.i2c._
 
+import spinal.tester.SpinalTesterCocotbBase
 
 class Apb3I2cSlaveTester extends SpinalTesterCocotbBase {
   override def getName: String = "Apb3I2cSlaveTester"
