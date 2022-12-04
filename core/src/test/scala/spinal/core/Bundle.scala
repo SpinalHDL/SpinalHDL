@@ -16,9 +16,9 @@
  * License along with this library.
  */
 
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
+import spinal.tester.SpinalTesterCocotbBase
 
 object BundleTester {
   class BundleAA extends BundleA(True,3) {
@@ -32,7 +32,7 @@ object BundleTester {
   }
 }
 
-import spinal.tester.scalatest.BundleTester._
+import BundleTester._
 
 class BundleTester extends Component {
   val io = new Bundle {
