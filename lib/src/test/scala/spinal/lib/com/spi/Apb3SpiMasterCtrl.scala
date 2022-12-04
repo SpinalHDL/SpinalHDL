@@ -16,12 +16,11 @@
  * License along with this library.
  */
 
-package spinal.tester.scalatest
+package spinal.lib.com.spi
 
 import spinal.core._
-import spinal.lib.com.i2c._
-import spinal.lib.com.spi.{SpiMasterCtrlGenerics, Apb3SpiMasterCtrl, SpiMasterCtrlMemoryMappedConfig}
 
+import spinal.tester.SpinalTesterCocotbBase
 
 class Apb3SpiMasterCtrlTester extends SpinalTesterCocotbBase {
   override def getName: String = "Apb3SpiMasterCtrlTester"
