@@ -1,10 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib.memory.sdram.sdr
 
 import spinal.core._
-import spinal.lib._
-import spinal.lib.memory.sdram._
-import spinal.lib.memory.sdram.sdr.{Axi4SharedSdramCtrl, MT48LC16M16A2}
 
+import spinal.tester.SpinalTesterCocotbBase
 
 class Axi4SharedSdramCtrlTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "Axi4SharedSdramCtrlTester"
