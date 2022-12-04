@@ -1,7 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib.com.uart
 
 import spinal.core._
-import spinal.lib.com.uart._
+
+import spinal.tester.SpinalTesterCocotbBase
 
 class UartTester extends Component {
   val io = new Bundle {
