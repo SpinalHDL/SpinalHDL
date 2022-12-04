@@ -1,10 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.amba3.ahblite
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba3.ahblite._
-
-
+import spinal.tester.SpinalTesterCocotbBase
 
 object AhbLite3OnChipRamTester{
   class AhbLite3OnChipRamTester extends Component {
