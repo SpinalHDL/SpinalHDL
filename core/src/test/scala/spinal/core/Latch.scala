@@ -1,8 +1,10 @@
-package spinal.tester.scalatest
+package spinal.core
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
+
 import spinal.core.sim._
+
+import spinal.tester.SpinalSimTester
 
 class LatchTester extends AnyFunSuite {
   test("bad latch") {
