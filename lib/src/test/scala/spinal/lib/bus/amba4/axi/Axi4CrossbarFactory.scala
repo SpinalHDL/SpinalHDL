@@ -1,10 +1,9 @@
-package spinal.tester.scalatest
-
+package spinal.lib.bus.amba4.axi
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axi._
 
+import spinal.tester.SpinalTesterCocotbBase
 
 object Axi4CrossbarTester{
   class Axi4CrossbarTester extends Component {
