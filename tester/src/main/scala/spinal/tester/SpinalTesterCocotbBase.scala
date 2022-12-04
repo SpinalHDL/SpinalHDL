@@ -1,4 +1,4 @@
-package spinal.tester.scalatest
+package spinal.tester
 
 import java.io.File
 import java.nio.charset.Charset
