@@ -1,8 +1,9 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.amba4.axi
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config, Axi4SlaveFactory}
+
+import spinal.tester.SpinalTesterCocotbBase
 
 object Axi4SlaveFactoryTester {
   def axi4Config = Axi4Config(
