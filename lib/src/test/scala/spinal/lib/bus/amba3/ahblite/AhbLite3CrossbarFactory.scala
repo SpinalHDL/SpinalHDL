@@ -1,9 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.amba3.ahblite
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba3.ahblite.{AhbLite3CrossbarFactory, AhbLite3, AhbLite3Master, AhbLite3Config}
-
+import spinal.tester.SpinalTesterCocotbBase
 
 object AhbLite3CrossbarTester{
   class AhbLite3CrossbarTester extends Component {
