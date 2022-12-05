@@ -1,13 +1,12 @@
 package spinal.lib.com.usb.udc
 
 import spinal.core._
-import spinal.lib
 import spinal.lib._
+
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.misc.MaskMapping
-import spinal.lib.com.eth.{Crc, CrcKind}
 import spinal.lib.com.usb._
-import spinal.lib.com.usb.ohci.{OhciPortParameter, UsbOhci, UsbOhciParameter, UsbPid}
+import spinal.lib.com.usb.ohci.UsbPid
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
 

@@ -1,8 +1,13 @@
-package spinal.tester.scalatest
+package spinal.lib.com.usb.udc
 
 import org.scalatest.funsuite.AnyFunSuite
+
+import scala.collection.mutable
+import scala.util.Random
+
 import spinal.core._
 import spinal.core.sim._
+
 import spinal.lib.bus.bmb.BmbParameter
 import spinal.lib.bus.bmb.sim.BmbDriver
 import spinal.lib.bus.misc.SizeMapping
@@ -10,11 +15,7 @@ import spinal.lib.com.usb.ohci.UsbPid
 import spinal.lib.com.usb.phy.UsbDevicePhyNative
 import spinal.lib.com.usb.sim.UsbLsFsPhyAbstractIoAgent
 import spinal.lib.com.usb.udc.UsbDeviceCtrl.{Regs, Status}
-import spinal.lib.com.usb.udc.{UsbDeviceCtrl, UsbDeviceCtrlParameter}
 import spinal.lib.sim.MemoryRegionAllocator
-
-import scala.collection.mutable
-import scala.util.Random
 
 case class UsbDeviceCtrlTesterTop() extends Component {
   val ctrlCd = ClockDomain.external("ctrlCd", frequency = FixedFrequency(100 MHz))
