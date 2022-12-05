@@ -1,6 +1,7 @@
 package spinal.lib.io
 
 import spinal.core._
+import spinal.idslplugin.Location
 import spinal.lib.IMasterSlave
 
 case class TriState[T <: Data](dataType : HardType[T]) extends Bundle with IMasterSlave{
@@ -51,7 +52,7 @@ case class TriStateArray(width : Int) extends Bundle with IMasterSlave{
     //Define a fonction which redirect write access of a userSignal to another signal
     def writePatch(userSignal : BaseType, realSignal : BaseType) : Unit = {
       userSignal.compositeAssign = new Assignable {
-        override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = that match {
+        override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = that match {
           case that: BaseType => realSignal.compositAssignFrom(that, realSignal, kind)
         }
         override def getRealSourceNoRec: BaseType = userSignal

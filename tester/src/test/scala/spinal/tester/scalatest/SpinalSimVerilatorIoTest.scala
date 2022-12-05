@@ -65,6 +65,7 @@ object SpinalSimVerilatorIoTest{
     val nativeEncoding = new newEnumTest(native)
     val binarySequentialEncoding =new newEnumTest(binarySequential)
     val binaryOneHotEncoding = new newEnumTest(binaryOneHot)
+    val graySequentialEncoding = new newEnumTest(graySequential)
   }
 }
 
@@ -201,6 +202,7 @@ class SpinalSimVerilatorIoTest extends AnyFunSuite {
           newEnumTest(dut.nativeEncoding)
           newEnumTest(dut.binaryOneHotEncoding)
           newEnumTest(dut.binarySequentialEncoding)
+          newEnumTest(dut.graySequentialEncoding)
         }
       }
     }
@@ -230,7 +232,7 @@ class SpinalSimVerilatorIoTest extends AnyFunSuite {
       }
       import scala.concurrent.duration._
 
-      futures.foreach(f => Await.result(f, 30 seconds))
+      futures.foreach(f => Await.result(f, 60 seconds))
     }
 
   }

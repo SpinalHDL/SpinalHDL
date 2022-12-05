@@ -54,14 +54,14 @@ class Axi4SimAgentTester extends AnyFunSuite {
 
         val writes = mutable.HashMap[BigInt, Byte]()
         val inputMonitor = new Axi4WriteOnlyMonitor(dut.io.input, dut.clockDomain) {
-            override def onWriteByte(address: BigInt, data: Byte): Unit = {
+            override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
                 // println(s"I $address -> $data")
                 writes(address) = data
             }
         }
 
         val outputMonitor = new Axi4WriteOnlyMonitor(dut.io.output, dut.clockDomain) {
-            override def onWriteByte(address: BigInt, data: Byte): Unit = {
+            override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
                 // println(s"O $address -> $data")
                 assert(writes(address) == data)
                 writes.remove(address)
@@ -145,7 +145,6 @@ class Axi4SimAgentTester extends AnyFunSuite {
             override def onReadByte(address: BigInt, data: Byte, id: Int): Unit = {
                 reads(address) = data
             }
-            override def onLast(id: Int): Unit = {}
         }
 
         val outputMonitor = new Axi4ReadOnlyMonitor(dut.io.output, dut.clockDomain) {
@@ -156,7 +155,7 @@ class Axi4SimAgentTester extends AnyFunSuite {
                 }
             }
 
-            override def onLast(id: Int): Unit = assert(reads.isEmpty)
+            override def onResponse(address: BigInt, id: Int, last: Boolean, resp: Byte): Unit = if (last) assert(reads.isEmpty)
         }
 
         dut.clockDomain.waitSamplingWhere(inputAgent.rspCounter > 10000)

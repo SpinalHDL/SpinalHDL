@@ -21,13 +21,14 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
 
 /**
   * Bits factory used for instance by the IODirection to create a in/out Bits
   */
 trait BitsFactory {
   /** Create a new Bits */
-  def Bits(u: Unit = null) = new Bits()
+  def Bits(u: Unit = ()): Bits = new Bits()
   /** Create a new Bits of a given width */
   def Bits(width: BitCount): Bits = Bits().setWidth(width.value)
 }
@@ -164,13 +165,13 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     ret
   }
 
-  private[core] override def isEquals(that: Any): Bool = that match {
+  private[core] override def isEqualTo(that: Any): Bool = that match {
     case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.Equal)
     case that: MaskedLiteral => that === this
     case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
-  private[core] override def isNotEquals(that: Any): Bool = that match {
+  private[core] override def isNotEqualTo(that: Any): Bool = that match {
     case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.NotEqual)
     case that: MaskedLiteral => that =/= this
     case _                   => SpinalError(s"Don't know how to compare $this with $that"); null

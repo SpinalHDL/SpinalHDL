@@ -45,7 +45,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
   val bufferLast = RegInit(False)
   val bufferId   = inConfig.useId   generate Reg(io.axis_s.id)
   val bufferDest = inConfig.useDest generate Reg(io.axis_s.dest)
-  val start = Reg(Bool) init(True)
+  val start = Reg(Bool()) init(True)
 
   // Maps inputs into buffer slices given the current fill level
   def doWriteStage(inBundle: Axi4StreamBundle, bufBundle: Axi4StreamBundle, bufValid: Bits, doWrite: Bool, fillLevel: UInt): (Axi4StreamBundle, Bits) = {
@@ -181,7 +181,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
   outStream.config.useUser generate { outStream.user := buffer.user(outConfig.dataWidth*outConfig.userWidth-1 downto 0) }
   inConfig.useId   generate { outStream.id := bufferId }
   inConfig.useDest generate { outStream.dest := bufferDest }
-  outStream.last := bufferLast && !bufferValid(outConfig.dataWidth-1)
+  outStream.last := bufferLast && !bufferValid(outConfig.dataWidth)
 
   // Buffer update
   val fillLevel = Reg(UInt(log2Up(MAX_SIZE) bit)) init(0)

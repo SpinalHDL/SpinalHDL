@@ -21,6 +21,7 @@
 package spinal.core.internals
 
 import spinal.core._
+import spinal.idslplugin.Location
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -130,7 +131,7 @@ abstract class Resize extends Expression with WidthProvider {
   var size: Int = -1
   var input: Expression with WidthProvider = null
 
-  override def getWidth(): Int = size
+  override def getWidth: Int = size
 
   override def simplifyNode: Expression = {
     if(input.getWidth == 0){
@@ -344,10 +345,11 @@ object Operator {
     class RandomExpSInt(kind : RandomExpKind, width : Int) extends RandomExpBitVector(kind, width) {
       override def getTypeObject = TypeSInt
     }
-    class RandomExpEnum(enumDef: SpinalEnum, kind : RandomExpKind) extends RandomExp(kind) with InferableEnumEncodingImpl{
+    class RandomExpEnum(var enumDef: SpinalEnum, kind : RandomExpKind) extends RandomExp(kind) with InferableEnumEncodingImpl{
       override def getTypeObject = TypeEnum
       override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
       override def getDefinition: SpinalEnum = enumDef
+      override def swapEnum(e: SpinalEnum) = enumDef = e
     }
 
     abstract class Past(val delay : Int) extends UnaryOperator
@@ -377,7 +379,7 @@ object Operator {
       override def opName: String = "$past(SInt)"
     }
 
-    class PastEnum(enumDef: SpinalEnum, delay : Int) extends Past(delay)  with InferableEnumEncodingImpl{
+    class PastEnum(var enumDef: SpinalEnum, delay : Int) extends Past(delay)  with InferableEnumEncodingImpl{
       override def getTypeObject = TypeEnum
       override def opName: String = "$past(Enum)"
 
@@ -386,6 +388,7 @@ object Operator {
       override type T = Expression with EnumEncoded
       override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
       override def getDefinition: SpinalEnum = enumDef
+      override def swapEnum(e: SpinalEnum) = enumDef = e
     }
 
 
@@ -485,7 +488,7 @@ object Operator {
 
     abstract class And extends BinaryOperatorWidthableInputs with Widthable {
       def resizeFactory: Resize
-      override def calcWidth(): Int = InferWidth.notResizableElseMax(this)
+      override def calcWidth: Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
         val targetWidth = getWidth
         left  = InputNormalize.resizedOrUnfixedLit(left, targetWidth, resizeFactory, this, this)
@@ -496,7 +499,7 @@ object Operator {
 
     abstract class Or extends BinaryOperatorWidthableInputs with Widthable {
       def resizeFactory: Resize
-      override def calcWidth(): Int = InferWidth.notResizableElseMax(this)
+      override def calcWidth: Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
         val targetWidth = getWidth
         left  = InputNormalize.resizedOrUnfixedLit(left, targetWidth, resizeFactory, this, this)
@@ -507,7 +510,7 @@ object Operator {
 
     abstract class Xor extends BinaryOperatorWidthableInputs with Widthable {
       def resizeFactory: Resize
-      override def calcWidth(): Int = InferWidth.notResizableElseMax(this)
+      override def calcWidth: Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
         val targetWidth = getWidth
         left  = InputNormalize.resizedOrUnfixedLit(left, targetWidth, resizeFactory, this, this)
@@ -519,7 +522,7 @@ object Operator {
 
     abstract class Add extends BinaryOperatorWidthableInputs with Widthable {
       def resizeFactory: Resize
-      override def calcWidth(): Int = InferWidth.notResizableElseMax(this)
+      override def calcWidth: Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
         val targetWidth = getWidth
         left  = InputNormalize.resize(left, targetWidth, resizeFactory)
@@ -531,7 +534,7 @@ object Operator {
 
     abstract class Sub extends BinaryOperatorWidthableInputs with Widthable {
       def resizeFactory: Resize
-      override def calcWidth(): Int = InferWidth.notResizableElseMax(this)
+      override def calcWidth: Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
         val targetWidth = getWidth
         left  = InputNormalize.resize(left, targetWidth, resizeFactory)
@@ -542,18 +545,18 @@ object Operator {
 
     abstract class Mul extends BinaryOperatorWidthableInputs with Widthable {
       def getLiteralFactory: (BigInt, Int) => Expression
-      override def calcWidth(): Int = left.getWidth + right.getWidth
+      override def calcWidth: Int = left.getWidth + right.getWidth
       override def simplifyNode: Expression = {SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory)(this)}
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class Div extends BinaryOperatorWidthableInputs with Widthable {
-      override def calcWidth(): Int = left.getWidth
+      override def calcWidth: Int = left.getWidth
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class Mod extends BinaryOperatorWidthableInputs with Widthable {
-      override def calcWidth(): Int = left.getWidth min right.getWidth
+      override def calcWidth: Int = left.getWidth min right.getWidth
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
@@ -575,12 +578,12 @@ object Operator {
       if(shift < 0) {
         LocatedPendingError(s"NEGATIVE SHIFT RIGHT of $shift on $source at")
       }
-      override def calcWidth(): Int = Math.max(0, source.getWidth - shift)
+      override def calcWidth: Int = Math.max(0, source.getWidth - shift)
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator {
-      override def calcWidth(): Int = left.getWidth
+      override def calcWidth: Int = left.getWidth
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
@@ -590,7 +593,7 @@ object Operator {
         LocatedPendingError(s"NEGATIVE SHIFT LEFT of $shift on $source at")
       }
 
-      override def calcWidth(): Int = source.getWidth + shift
+      override def calcWidth: Int = source.getWidth + shift
       def getLiteralFactory: (BigInt, Int) => BitVectorLiteral
       override def simplifyNode: Expression = {
         if(source.getWidth == 0){
@@ -606,7 +609,7 @@ object Operator {
     }
 
     abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator {
-      override def calcWidth(): Int = left.getWidth + (1 << right.getWidth.min(30)) - 1
+      override def calcWidth: Int = left.getWidth + (1 << right.getWidth.min(30)) - 1
       def getLiteralFactory: (BigInt, Int) => BitVectorLiteral
       override def simplifyNode: Expression = {
         if(left.getWidth == 0){
@@ -623,19 +626,19 @@ object Operator {
 
     abstract class ShiftRightByIntFixedWidth(val shift: Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator {
       assert(shift >= 0)
-      override def calcWidth(): Int = source.getWidth
+      override def calcWidth: Int = source.getWidth
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class ShiftLeftByIntFixedWidth(val shift: Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator {
       assert(shift >= 0)
-      override def calcWidth(): Int = source.getWidth
+      override def calcWidth: Int = source.getWidth
       override def toString() = s"(${super.toString()})[$getWidth bits]"
 
     }
 
     abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator {
-      override def calcWidth(): Int = left.getWidth
+      override def calcWidth: Int = left.getWidth
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
@@ -650,14 +653,14 @@ object Operator {
     class Cat extends BinaryOperatorWidthableInputs with Widthable {
       override def getTypeObject = TypeBits
       override def opName: String = s"Bits ## Bits"
-      override def calcWidth(): Int = left.getWidth + right.getWidth
+      override def calcWidth: Int = left.getWidth + right.getWidth
       override def simplifyNode: Expression = {SymplifyNode.binaryTakeOther(this)}
     }
 
     class Not extends UnaryOperatorWidthableInputs {
       override def getTypeObject = TypeBits
       override def opName: String = "~ Bits"
-      override def calcWidth(): Int = source.getWidth
+      override def calcWidth: Int = source.getWidth
     }
 
     class And extends BitVector.And {
@@ -745,7 +748,7 @@ object Operator {
     class Not extends UnaryOperatorWidthableInputs {
       override def getTypeObject    = TypeUInt
       override def opName: String   = "~ UInt"
-      override def calcWidth(): Int = source.getWidth
+      override def calcWidth: Int = source.getWidth
     }
 
     class And extends BitVector.And {
@@ -885,13 +888,13 @@ object Operator {
     class Not extends UnaryOperatorWidthableInputs with Widthable {
       override def getTypeObject    = TypeSInt
       override def opName: String   = "~ SInt"
-      override def calcWidth(): Int = source.getWidth
+      override def calcWidth: Int = source.getWidth
     }
 
     class Minus extends UnaryOperatorWidthableInputs with Widthable {
       override def getTypeObject    = TypeSInt
       override def opName: String   = "- SInt"
-      override def calcWidth(): Int = source.getWidth
+      override def calcWidth: Int = source.getWidth
     }
 
     class And extends BitVector.And {
@@ -1028,7 +1031,7 @@ object Operator {
     */
   object Enum{
 
-    class Equal(enumDef: SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl {
+    class Equal(var enumDef: SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl {
       override def getTypeObject: Any = TypeBool
 
       override def opName: String = "Enum === Enum"
@@ -1037,6 +1040,7 @@ object Operator {
       override type T = Expression with EnumEncoded
       override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
       override def getDefinition: SpinalEnum = enumDef
+      override def swapEnum(e: SpinalEnum) = enumDef = e
 
       override def simplifyNode: Expression = {
         if (left.getDefinition.elements.size < 2)
@@ -1046,7 +1050,7 @@ object Operator {
       }
     }
 
-    class NotEqual(enumDef: SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl {
+    class NotEqual(var enumDef: SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl {
       override def getTypeObject: Any = TypeBool
       override def opName: String = "Enum =/= Enum"
       override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
@@ -1054,6 +1058,7 @@ object Operator {
       override type T = Expression with EnumEncoded
       override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
       override def getDefinition: SpinalEnum = enumDef
+      override def swapEnum(e: SpinalEnum) = enumDef = e
 
       override def simplifyNode: Expression = {
         if (left.getDefinition.elements.size < 2)
@@ -1143,7 +1148,7 @@ class CastEnumToBits extends Cast with Widthable {
 }
 
 /** Bits -> Enum */
-class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl {
+class CastBitsToEnum(var enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl {
   override type T <: Expression with WidthProvider
   override def opName: String = "Bits -> Enum"
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
@@ -1154,16 +1159,18 @@ class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEnc
   }
 
   override def getTypeObject: Any = TypeEnum
+  override def swapEnum(e: SpinalEnum) = enumDef = e
 }
 
 /** Enum -> Enum */
-class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodingImpl {
+class CastEnumToEnum(var enumDef: SpinalEnum) extends Cast with  InferableEnumEncodingImpl {
   override type T <: Expression with EnumEncoded
   override def opName: String = "Enum -> Enum"
 
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def getDefinition: SpinalEnum = enumDef
   override def getTypeObject: Any = TypeEnum
+  override def swapEnum(e: SpinalEnum) = enumDef = e
 }
 
 
@@ -1267,7 +1274,7 @@ class MultiplexerSInt extends MultiplexerWidthable {
 }
 
 /** Enum multiplexer */
-class MultiplexerEnum(enumDef: SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl {
+class MultiplexerEnum(var enumDef: SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl {
   override type T = Expression with EnumEncoded
   override def opName: String = s"mux of Enum"
   override def getDefinition: SpinalEnum = enumDef
@@ -1279,6 +1286,7 @@ class MultiplexerEnum(enumDef: SpinalEnum) extends Multiplexer with InferableEnu
     }
   }
   override def getTypeObject: Any = TypeEnum
+  override def swapEnum(e: SpinalEnum) = enumDef = e
 }
 
 
@@ -1359,7 +1367,7 @@ class BinaryMultiplexerSInt extends BinaryMultiplexerWidthable {
 }
 
 /** Enum binary multiplexer */
-class BinaryMultiplexerEnum(enumDef : SpinalEnum) extends BinaryMultiplexer with InferableEnumEncodingImpl {
+class BinaryMultiplexerEnum(var enumDef : SpinalEnum) extends BinaryMultiplexer with InferableEnumEncodingImpl {
   override type T = Expression with EnumEncoded
   override def opName: String = "Bool ? Bits | Bits"
   override def getDefinition: SpinalEnum = enumDef
@@ -1369,6 +1377,7 @@ class BinaryMultiplexerEnum(enumDef : SpinalEnum) extends BinaryMultiplexer with
     whenFalse = InputNormalize.enumImpl(this, whenFalse)
   }
   override def getTypeObject: Any = TypeEnum
+  override def swapEnum(e: SpinalEnum) = enumDef = e
 }
 
 
@@ -2483,7 +2492,7 @@ class SIntLiteral extends BitVectorLiteral{
   * Bool literal
   */
 object BoolLiteral {
-  def apply(value: Boolean, on: Bool): Bool = {
+  def apply(value: Boolean, on: Bool)(implicit loc: Location): Bool = {
     on.assignFrom(new BoolLiteral(value))
     on
   }

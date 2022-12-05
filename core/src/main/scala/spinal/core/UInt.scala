@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -29,7 +30,7 @@ import scala.collection.mutable.ArrayBuffer
   */
 trait UIntFactory{
   /** Create a new UInt */
-  def UInt(u: Unit = null) = new UInt()
+  def UInt(u: Unit = ()): UInt = new UInt()
   /** Create a new UInt of a given width */
   def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
 }
@@ -392,7 +393,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   override def asBits: Bits = wrapCast(Bits(), new CastUIntToBits)
 
-  private[core] override def isEquals(that: Any): Bool = that match {
+  private[core] override def isEqualTo(that: Any): Bool = that match {
     case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.Equal)
     case that: MaskedLiteral  => that === this
     case that: Int            => this === that
@@ -400,7 +401,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     case _                    => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
-  private[core] override def isNotEquals(that: Any): Bool = that match {
+  private[core] override def isNotEqualTo(that: Any): Bool = that match {
     case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.NotEqual)
     case that: MaskedLiteral  => that === this
     case _                    => SpinalError(s"Don't know how to compare $this with $that"); null

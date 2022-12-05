@@ -21,6 +21,8 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
+
 import scala.collection.Seq
 
 trait ReadUnderWritePolicy {
@@ -42,6 +44,10 @@ object dontCare extends ReadUnderWritePolicy with DuringWritePolicy{
   override def duringWriteString: String = "dontCare"
 }
 
+object eitherFirst extends ReadUnderWritePolicy with DuringWritePolicy{
+  override def readUnderWriteString: String = "eitherFirst"
+  override def duringWriteString: String = "eitherFirst"
+}
 
 object writeFirst extends ReadUnderWritePolicy {
   override def readUnderWriteString: String = "writeFirst"
@@ -218,12 +224,12 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     this
   }
 
-  def apply(address: UInt): T = {
+  def apply(address: UInt)(implicit loc: Location): T = {
     val ret = readAsync(address)
     val asyncPort = dlcLast.asInstanceOf[MemReadAsync]
 
     ret.compositeAssign = new Assignable {
-      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
         write(address, that.asInstanceOf[T])
         asyncPort.removeStatement()
         ret.flatten.foreach(_.removeAssignments())

@@ -23,6 +23,7 @@ package spinal.core
 
 sealed trait AttributeKind
 object COMMENT_ATTRIBUTE extends AttributeKind
+object COMMENT_TYPE_ATTRIBUTE extends AttributeKind
 object DEFAULT_ATTRIBUTE extends AttributeKind
 
 
@@ -73,10 +74,10 @@ object Verilator{
 
   object tracing_off extends AttributeFlag("verilator tracing_off", COMMENT_ATTRIBUTE){
     override def isLanguageReady(language: Language) : Boolean = language == Language.VERILOG || language == Language.SYSTEM_VERILOG
-  }    
+  }
 
   object tracing_on extends AttributeFlag("verilator tracing_on", COMMENT_ATTRIBUTE){
     override def isLanguageReady(language: Language) : Boolean = language == Language.VERILOG || language == Language.SYSTEM_VERILOG
-  } 
+  }
 }
 

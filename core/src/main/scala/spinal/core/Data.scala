@@ -22,6 +22,8 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+import spinal.idslplugin.Location
+
 import scala.collection.Seq
 
 object DataAssign
@@ -36,11 +38,11 @@ trait DataPrimitives[T <: Data]{
   private[spinal] def _data : T
 
   /** Comparison between two data */
-  def ===(that: T): Bool = _data isEquals that
-  def =/=(that: T): Bool = _data isNotEquals that
+  def ===(that: T): Bool = _data isEqualTo that
+  def =/=(that: T): Bool = _data isNotEqualTo that
 
   /** Assign a data to this */
-  def := (that: T): Unit = _data assignFrom that
+  def := (that: T)(implicit loc: Location): Unit = _data assignFrom that
 
   /** Use as \= to have the same behavioral as VHDL variable */
   def \(that: T): T = {
@@ -83,7 +85,7 @@ trait DataPrimitives[T <: Data]{
   }
 
   /** Auto connection between two data */
-  def <>(that: T): Unit = _data autoConnect that
+  def <>(that: T)(implicit loc: Location): Unit = _data autoConnect that
 
   /** Set initial value to a data */
   def init(that: T): T = {
@@ -380,7 +382,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  final def assignFrom(that: AnyRef, target: AnyRef = this) = compositAssignFrom(that, target, DataAssign)
+  final def assignFrom(that: AnyRef, target: AnyRef = this) (implicit loc: Location)= compositAssignFrom(that, target, DataAssign)
 
   final def initFrom(that: AnyRef, target: AnyRef = this) = (that, target) match {
     case (init: Data, target: Data) if ! target.isReg =>
@@ -439,8 +441,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def removeDataAssignments(): this.type = removeAssignments(true, false, false)
   def removeInitAssignments(): this.type = removeAssignments(false, true, false)
 
-  private[core] def isEquals(that: Any): Bool
-  private[core] def isNotEquals(that: Any): Bool
+  private[core] def isEqualTo(that: Any): Bool
+  private[core] def isNotEqualTo(that: Any): Bool
 
   /** Resized data regarding target */
   def resized: this.type = {
@@ -450,34 +452,51 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     return ret.asInstanceOf[this.type]
   }
 
-  /** Allow a data to be overrided */
-  def allowOverride: this.type = {
+  /** Allow a Data to be overriden
+    *
+    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/assignment_overlap.html
+    */
+  def allowOverride(): this.type = {
     addTag(allowAssignmentOverride)
   }
 
-  def allowDirectionLessIo: this.type = {
+  /** Allow a Data of an io Bundle to be directionless
+    *
+    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/iobundle.html
+    */
+  def allowDirectionLessIo(): this.type = {
     addTag(allowDirectionLessIoTag)
   }
 
-  def allowPartialyAssigned : this.type = {
+  /** Allow a register to be partially assigned */
+  def allowPartialyAssigned(): this.type = {
     addTag(AllowPartialyAssignedTag)
   }
 
-  def allowUnsetRegToAvoidLatch: this.type = {
+  /** Allow a register to have only an init (no assignments)
+    *
+    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/unassigned_register.html#register-with-only-init
+    */
+  def allowUnsetRegToAvoidLatch(): this.type = {
     addTag(unsetRegIfNoAssignementTag)
   }
 
-  def noCombLoopCheck : this.type = {
+  /** Disable combinatorial loop checking for this Data
+    *
+    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/combinatorial_loop.html
+    */
+  def noCombLoopCheck(): this.type = {
     addTag(spinal.core.noCombinatorialLoopCheck)
   }
 
-  def noBackendCombMerge : this.type = {
+  /** Put the combinatorial logic driving this signal in a separate process */
+  def noBackendCombMerge(): this.type = {
     addTag(spinal.core.noBackendCombMerge)
   }
 
-  private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
+  private[core] def autoConnect(that: Data)(implicit loc: Location): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 
-  private[core] def autoConnectBaseImpl(that: Data): Unit = {
+  private[core] def autoConnectBaseImpl(that: Data)(implicit loc: Location): Unit = {
 
     def getTrueIoBaseType(that: Data): Data = that.getRealSource.asInstanceOf[Data]
 
@@ -722,14 +741,14 @@ trait DataWrapper extends Data{
   override def asBits: Bits = ???
   override def flatten: Seq[BaseType] = ???
   override def getBitsWidth: Int = ???
-  override private[core] def isEquals(that: Any): Bool = ???
-  override private[core] def autoConnect(that: Data): Unit = ???
+  override private[core] def isEqualTo(that: Any): Bool = ???
+  override private[core] def autoConnect(that: Data)(implicit loc: Location): Unit = ???
   override def assignFromBits(bits: Bits): Unit = ???
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = ???
   override def getZero: DataWrapper.this.type = ???
-  override private[core] def isNotEquals(that: Any): Bool = ???
+  override private[core] def isNotEqualTo(that: Any): Bool = ???
   override def flattenLocalName: Seq[String] = ???
-  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
+  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = ???
   override def setAsReg(): DataWrapper.this.type = ???
   override def setAsComb(): DataWrapper.this.type = ???
   override def freeze(): DataWrapper.this.type = ???

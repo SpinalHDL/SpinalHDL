@@ -1,18 +1,15 @@
 package spinal.core
 
-class TupleBundleBase extends Bundle{
+import spinal.idslplugin.PostInitCallback
+
+import scala.collection.mutable.ArrayBuffer
+
+class TupleBundleBase extends Bundle {
+
   override def valCallbackRec(ref: Any, name: String) = {
     super.valCallbackRec(ref, name.tail)
   }
-  override def asBits: Bits = {
-    var ret: Bits = null
-    for ((_, e) <- elements.reverse) {
-      if (ret == null.asInstanceOf[Object]) ret = e.asBits
-      else ret = e.asBits ## ret
-    }
-    if (ret.asInstanceOf[Object] == null) ret = Bits(0 bits)
-    ret
-  }
+
   def asRevertedBits: Bits = {
     var ret: Bits = null
     for ((_, e) <- elements) {
@@ -22,6 +19,8 @@ class TupleBundleBase extends Bundle{
     if (ret.asInstanceOf[Object] == null) ret = Bits(0 bits)
     ret
   }
+
+  override def elements: ArrayBuffer[(String, Data)] = elementsCache.reverse
 }
 
 case class TupleBundle1[T1 <: Data](val payloadType1: HardType[T1])

@@ -1,6 +1,12 @@
 name: Scala CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
 
 jobs:
   test:
@@ -8,7 +14,7 @@ jobs:
     timeout-minutes: 90
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: 'recursive'
     - uses: ./.github/actions
@@ -20,18 +26,49 @@ jobs:
 
     - name: Run tests
       run: sbt "++2.11.12; testWithoutFormal"
-  
+
   formal:
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: 'recursive'
     - uses: ./.github/actions
-    
+
     ##############################################
-    
+
     - name: Run tests
       run: sbt "++2.11.12; testFormal"
+
+  scaladoc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: 'recursive'
+
+    - name: Build scaladoc
+      run: sbt unidoc
+
+  fmt-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.ref != 'refs/heads/dev'
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: 'recursive'
+    - uses: ./.github/actions
+    - name: Fetch dev to be able to check only modified files
+      run: |
+        git fetch --depth=1 origin dev
+        git branch dev origin/dev
+    - name: Setup annotations
+      run: echo "::add-matcher::.github/matcher.json"
+    - name: Check formatting and pass
+      run: bash .github/checkfmt.bash

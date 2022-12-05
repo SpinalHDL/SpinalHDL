@@ -149,6 +149,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         anonymSignalUniqueness         : Boolean = false,
                         inlineConditionalExpression    : Boolean = false,
                         nameWhenByFile                 : Boolean = true,
+                        var genLineComments            : Boolean = true,
                         noRandBoot                     : Boolean = false,
                         randBootFixValue               : Boolean = true,
                         noAssert                       : Boolean = false,
@@ -163,8 +164,9 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         rtlHeader                      : String = null,
                         scopeProperties                : mutable.LinkedHashMap[ScopeProperty[_], Any] = mutable.LinkedHashMap[ScopeProperty[_], Any](),
                         private [core] var _withEnumString : Boolean = true,
-                        var enumPrefixEnable                 : Boolean = true,
-                        var enumGlobalEnable                 : Boolean = false
+                        var enumPrefixEnable           : Boolean = true,
+                        var enumGlobalEnable           : Boolean = false,
+                        bitVectorWidthMax              : Int = 4096
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
@@ -222,6 +224,15 @@ case class SpinalConfig(mode                           : SpinalMode = null,
 
   def withGlobalEnum: this.type ={
     enumGlobalEnable = true
+    this
+  }
+
+  def withoutLineComment: this.type = {
+    genLineComments = false
+    this
+  }
+  def withLineComment: this.type = {
+    genLineComments = true
     this
   }
 }

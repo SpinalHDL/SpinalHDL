@@ -244,6 +244,13 @@ class Pipeline extends Area{
     //Internal connections
     for(s <- stagesSet){
       s.output.valid := s.input.valid
+
+      if(s.request.spawns.nonEmpty){
+        when(s.request.spawns.orR){
+          s.output.valid := True
+        }
+      }
+
       if(s.internals.request.flushRoot.nonEmpty) s.output.valid clearWhen(s.internals.arbitration.isFlushingRoot)
 
       (s.input.ready,  s.output.ready) match {
@@ -271,6 +278,7 @@ class Pipeline extends Area{
           s.input.ready := False //Maybe to reconsiderate
         }
       }
+
 
       for((key, value) <- s.internals.stageableResultingToData){
         value := s.internals.outputOf(key)
@@ -300,19 +308,34 @@ class Pipeline extends Area{
 
     //Name stuff
     for(stage <- stagesSet){
+      def nameThat(target: Nameable, key : StageableKey, postfix: String): Unit = {
+        target.setLambdaName(stage.isNamed && key.stageable.isNamed){
+          val stageName = stage.getName
+          val stageSlices = stageName.split('_')
+          val postfixName = key.toString + postfix
+          val postfixSlices = postfixName.split('_')
+          var i = 0
+          val iEnd = stageSlices.length min postfixSlices.length
+          while (i != iEnd && stageSlices(i) == postfixSlices(i)) i += 1
+          stageName + "_" + postfixSlices.drop(i).mkString("_")
+        }
+      }
+
       for((key, value) <- stage.internals.stageableToData){
-        value.setCompositeName(stage, s"${key}")
+        nameThat(value, key, "")
       }
       for((key, value) <- stage.internals.stageableOverloadedToData){
-        value.setCompositeName(stage, s"${key}_overloaded")
+        nameThat(value, key, "_overloaded")
       }
       for((key, value) <- stage.internals.stageableResultingToData){
-        value.setCompositeName(stage, s"${key}_resulting")
+        nameThat(value, key, "_resulting")
       }
     }
 
     for(c <- connections){
-      if(c.isUnnamed) c.setName(s"${c.m.getName()}_to_${c.s.getName()}")
+      if(c.isUnnamed) c.setLambdaName(c.m.isNamed && c.s.isNamed){
+        s"${c.m.getName()}_to_${c.s.getName()}"
+      }
     }
   }
 

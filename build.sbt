@@ -2,7 +2,7 @@ import sbt.Keys._
 import sbt._
 import sbt.Tests._
 
-
+val scalatestVersion = "3.2.5"
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
   organization := "com.github.spinalhdl",
   version      := SpinalVersion.all,
@@ -10,12 +10,14 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   scalaVersion := SpinalVersion.compilers(0),
   scalacOptions ++= Seq("-unchecked","-target:jvm-1.8"/*, "-feature" ,"-deprecation"*/),
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
-  baseDirectory in test := file("/out/"),
   fork := true,
+
+  scalafmtFilter.withRank(KeyRanks.Invisible) := "diff-ref=dev",
+  scalafmtPrintDiff := true,
 
   //Enable parallel tests
   Test / testForkedParallel := true,
-  testGrouping in Test := (testGrouping in Test).value.flatMap { group =>
+  Test / testGrouping := (Test / testGrouping).value.flatMap { group =>
 //    for(i <- 0 until 4) yield {
 //      Group("g" + i,  group.tests.zipWithIndex.filter(_._2 % 4 == i).map(_._1), SubProcess(ForkOptions()))
 //    }
@@ -24,6 +26,7 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
 //  concurrentRestrictions := Seq(Tags.limit(Tags.ForkedTestGroup, 4)),
 
   libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
+  libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
 
   dependencyOverrides += "net.java.dev.jna" % "jna" % "5.5.0",
   dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.5.0",
@@ -34,7 +37,7 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   //sbt +clean +reload +publishSigned
   //https://oss.sonatype.org
   publishMavenStyle := true,
-  publishArtifact in Test := false,
+  Test / publishArtifact := false,
   pomIncludeRepository := (_ => false),
   pomExtra := {
     <url>github.com/SpinalHDL/SpinalHDL</url>
@@ -73,9 +76,9 @@ lazy val all = (project in file("."))
     version := SpinalVersion.all,
     publishArtifact := false,
     publishLocal := {},
-    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(lib, core)
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(lib, core)
   )
-  .aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
+  .aggregate(sim, idslpayload, idslplugin, core, lib, tester)
 
 
 import sys.process._
@@ -118,7 +121,7 @@ lazy val sim = (project in file("sim"))
   )
 
 val defaultSettingsWithPlugin = defaultSettings ++ Seq(
-  scalacOptions += (artifactPath in(idslplugin, Compile, packageBin)).map { file =>
+  scalacOptions += (idslplugin / Compile / packageBin / artifactPath).map { file =>
     s"-Xplugin:${file.getAbsolutePath}"
   }.value
 )
@@ -134,8 +137,8 @@ lazy val core = (project in file("core"))
 
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
-    sourceGenerators in Compile += Def.task {
-      val dir = (sourceManaged in Compile).value
+    Compile / sourceGenerators += Def.task {
+      val dir = (Compile / sourceManaged).value
       dir.mkdirs()
       val file = dir / "Info.scala"
       IO.write(file, """package spinal.core
@@ -155,34 +158,10 @@ lazy val lib = (project in file("lib"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
     version := SpinalVersion.lib
   )
   .dependsOn (sim, core)
 
-
-lazy val debugger = (project in file("debugger"))
-  .settings(
-    defaultSettingsWithPlugin,
-    name := "SpinalHDL Debugger",
-    version := SpinalVersion.debugger,
-    resolvers += "sparetimelabs" at "https://www.sparetimelabs.com/maven2/",
-    libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
-    libraryDependencies += "net.liftweb" %% "lift-json" % "3.4.3",
-    publishArtifact := false,
-    publishLocal := {}
-  )
-.dependsOn(sim, core, lib/*, ip*/)
-
-lazy val demo = (project in file("demo"))
-  .settings(
-    defaultSettingsWithPlugin,
-    name := "SpinalHDL-demo",
-    version := SpinalVersion.demo,
-    publishArtifact := false,
-    publishLocal := {}
-  )
-  .dependsOn(sim, core, lib, debugger)
 
 
 lazy val tester = (project in file("tester"))
@@ -190,35 +169,21 @@ lazy val tester = (project in file("tester"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-tester",
     version := SpinalVersion.tester,
-    baseDirectory in (Test) := file("./"),
-
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
-    publishArtifact := false,
+    Test / baseDirectory := file("./"),
+    libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion,
+    publishArtifact := true,
     publishLocal := {}
   )
-  .dependsOn(sim, core, lib, debugger,demo)
+  .dependsOn(sim, core, lib)
 
 // Assembly
 
-assemblyJarName in assembly := "spinalhdl.jar"
+assembly / assemblyJarName := "spinalhdl.jar"
 
-test in assembly := {}
+assembly / test := {}
 
 Test / testOptions += Tests.Argument("-l", "spinal.tester.formal")
 addCommandAlias("testFormal", "testOnly * -- -n spinal.tester.formal")
 addCommandAlias("testWithoutFormal", "testOnly * -- -l spinal.tester.formal")
 
-assemblyOutputPath in assembly := file("./release/spinalhdl.jar")
-
-//To publish the scala doc :
-//rm -rf ghpages
-//sbt clean compile unidoc
-//git clone https://github.com/SpinalHDL/SpinalHDL.git -b gh-pages --depth=1 ghpages
-//rm -rf ghpages/*
-//cp -r target/scala-2.11/unidoc/* ghpages
-//cd ghpages
-//git add *
-//git commit -m "publish doc"
-//git push
-//cd ..
-//rm -rf ghpages
+assembly / assemblyOutputPath := file("./release/spinalhdl.jar")

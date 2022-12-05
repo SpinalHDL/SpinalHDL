@@ -41,7 +41,8 @@ public:
     void write(int32_t handle, int32_t width, const std::vector<int8_t>& data);
     void write64(int32_t handle, int64_t data);
     void write32(int32_t handle, int32_t data);
-    
+
+    int32_t get_time_precision();
     void sleep(int64_t sleep_cycles);
     void check_status();
 };

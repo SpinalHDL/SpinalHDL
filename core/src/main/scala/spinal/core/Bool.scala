@@ -24,14 +24,17 @@ import spinal.core.internals.Operator.Formal
 import spinal.core.internals._
 import spinal.idslplugin.Location
 
-/**
-  * Bool factory used for instance by the IODirection to create a in/out Bool()
-  */
+/** Bool factory used for instance by the IODirection to create a in/out Bool() */
 trait BoolFactory {
-  /** Create a new Bool */
-//  def Bool(): Bool = new Bool
-}
+  @deprecated("Use `Bool()` (with braces) instead")
+  def Bool: Bool = Bool()
 
+  /** Create a new Bool */
+  def Bool(u: Unit = ()): Bool = new Bool
+
+  /** Create a new Bool with a value */
+  def Bool(value: Boolean)(implicit loc: Location): Bool = BoolLiteral(value, Bool().setAsTypeNode())
+}
 
 /**
   * The Bool type corresponds to a boolean value (True or False)
@@ -224,14 +227,14 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
 
   override def asBits: Bits = wrapCast(Bits(), new CastBoolToBits)
 
-  private[core] override def isEquals(that: Any): Bool = {
+  private[core] override def isEqualTo(that: Any): Bool = {
     that match {
       case that: Bool => wrapLogicalOperator(that,new Operator.Bool.Equal);
       case _          => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
 
-  private[core] override def isNotEquals(that: Any): Bool = {
+  private[core] override def isNotEqualTo(that: Any): Bool = {
     that match {
       case that: Bool => wrapLogicalOperator(that,new Operator.Bool.NotEqual);
       case _          => SpinalError(s"Don't know how compare $this with $that"); null

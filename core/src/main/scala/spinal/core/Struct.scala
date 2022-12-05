@@ -1,7 +1,7 @@
 package spinal.core
 
 import spinal.core.internals.{Suffixable, TypeStruct}
-import spinal.idslplugin.ValCallback
+import spinal.idslplugin.{Location, ValCallback}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -41,7 +41,7 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
     this
   }
 
-  override def setAsDirectionLess: this.type = {
+  override def setAsDirectionLess(): this.type = {
     super.setAsDirectionLess()
     elements.foreach(_._2.setAsDirectionLess());
     this
@@ -157,7 +157,7 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
     }
   }
 
-  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     that match {
       case that: SpinalStruct =>
         if (!this.getClass.isAssignableFrom(that.getClass)) SpinalError("Structs must have the same final class to" +
@@ -167,21 +167,21 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
     }
   }
 
-  private[core] def isEquals(that: Any): Bool = {
+  private[core] def isEqualTo(that: Any): Bool = {
     that match {
       case that: SpinalStruct => zippedMap(that, _ === _).reduce(_ && _)
       case _               => SpinalError(s"Function isEquals is not implemented between $this and $that")
     }
   }
 
-  private[core] def isNotEquals(that: Any): Bool = {
+  private[core] def isNotEqualTo(that: Any): Bool = {
     that match {
       case that: SpinalStruct => zippedMap(that, _ =/= _).reduce(_ || _)
       case _               => SpinalError(s"Function isNotEquals is not implemented between $this and $that")
     }
   }
 
-  private[core] override def autoConnect(that: Data): Unit = {
+  private[core] override def autoConnect(that: Data)(implicit loc: Location): Unit = {
     that match {
       case that: SpinalStruct => {
         this autoConnectBaseImpl that

@@ -1,3 +1,5 @@
+package spinal.lib.bus.wishbone
+
 import spinal.core._
 import spinal.lib._
 import spinal.lib.io.TriStateArray

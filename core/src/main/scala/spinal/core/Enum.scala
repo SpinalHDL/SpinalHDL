@@ -21,6 +21,8 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
+
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -31,6 +33,8 @@ import scala.collection.mutable.ArrayBuffer
   * @param position position of the element
   */
 class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) extends Nameable {
+
+  def getSignature() : Any = List(position, getName(""))
 
   def ===(that: SpinalEnumCraft[T]): Bool = that === this
   def =/=(that: SpinalEnumCraft[T]): Bool = that =/= this
@@ -86,6 +90,8 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   /** Contains all elements of the enumeration */
   @dontName val elements = ArrayBuffer[SpinalEnumElement[this.type]]()
 
+  def getSignature() : Any = List(getName(""), defaultEncoding.getSignature(), isPrefixEnable, isGlobalEnable, elements.map(_.getSignature()).toList)
+
   def apply() = craft()
   def apply(encoding: SpinalEnumEncoding) = craft(encoding)
 
@@ -122,7 +128,7 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
 /**
   * Hardware representation of an enumeration
   */
-class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with InferableEnumEncodingImpl  with BaseTypePrimitives[SpinalEnumCraft[T]]  with DataPrimitives[SpinalEnumCraft[T]] {
+class SpinalEnumCraft[T <: SpinalEnum](var spinalEnum: SpinalEnum) extends BaseType with InferableEnumEncodingImpl  with BaseTypePrimitives[SpinalEnumCraft[T]]  with DataPrimitives[SpinalEnumCraft[T]] {
 
   override def getTypeObject: Any = TypeEnum
 
@@ -133,6 +139,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
   override private[core] def canSymplifyIt = super.canSymplifyIt && (this.encodingChoice == InferableEnumEncodingImplChoiceUndone)
 
   override def getDefinition: SpinalEnum = spinalEnum
+  override def swapEnum(e: SpinalEnum) = spinalEnum = e
 
   private[spinal] override def _data: SpinalEnumCraft[T] = this
 
@@ -145,20 +152,20 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
   @deprecated("Use =/= instead","???")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
-  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = that match{
+  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = that match{
     case that : SpinalEnumCraft[T]          => super.assignFromImpl(that, target, kind)
     case that : Expression with EnumEncoded => super.assignFromImpl(that, target, kind)
     //    case that : DontCareNodeEnum => super.assignFromImpl(that, conservative)
   }
 
-  override def isEquals(that: Any): Bool = {
+  override def isEqualTo(that: Any): Bool = {
     that match{
       case that: SpinalEnumCraft[_] if that.spinalEnum == spinalEnum    => wrapLogicalOperator(that, new Operator.Enum.Equal(spinalEnum));
       case that: SpinalEnumElement[_] if that.spinalEnum == spinalEnum  => wrapLogicalOperator(that(), new Operator.Enum.Equal(spinalEnum));
       case _                                                            => SpinalError("Incompatible test")
     }
   }
-  override def isNotEquals(that: Any): Bool = {
+  override def isNotEqualTo(that: Any): Bool = {
     that match{
       case that: SpinalEnumCraft[_] if that.spinalEnum == spinalEnum    => wrapLogicalOperator(that, new Operator.Enum.NotEqual(spinalEnum));
       case that: SpinalEnumElement[_] if that.spinalEnum == spinalEnum  => wrapLogicalOperator(that(), new Operator.Enum.NotEqual(spinalEnum));
@@ -234,7 +241,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
 /**
   * Node representation which contains the value of an SpinalEnumElement
   */
-class EnumLiteral[T <: SpinalEnum](val senum: SpinalEnumElement[T]) extends Literal with InferableEnumEncodingImpl {
+class EnumLiteral[T <: SpinalEnum](var senum: SpinalEnumElement[_ <: SpinalEnum]) extends Literal with InferableEnumEncodingImpl {
 
   override def getTypeObject: Any = TypeEnum
 
@@ -255,12 +262,13 @@ class EnumLiteral[T <: SpinalEnum](val senum: SpinalEnumElement[T]) extends Lite
   override def hasPoison() = false
 
   override def getDefinition: SpinalEnum = senum.spinalEnum
+  override def swapEnum(e: SpinalEnum) = senum = e.elements(senum.position)
 
   private[core] override def getDefaultEncoding(): SpinalEnumEncoding = senum.spinalEnum.defaultEncoding
 }
 
 
-class EnumPoison(val senum: SpinalEnum) extends Literal with InferableEnumEncodingImpl {
+class EnumPoison(var senum: SpinalEnum) extends Literal with InferableEnumEncodingImpl {
 
   override def getTypeObject: Any = TypeEnum
 
@@ -280,6 +288,7 @@ class EnumPoison(val senum: SpinalEnum) extends Literal with InferableEnumEncodi
   }
 
   override def getDefinition: SpinalEnum = senum
+  override def swapEnum(e: SpinalEnum) = senum = e
   override def hasPoison() = true
   private[core] override def getDefaultEncoding(): SpinalEnumEncoding = senum.defaultEncoding
 }
@@ -296,7 +305,9 @@ trait SpinalEnumEncoding extends Nameable with ScalaLocated{
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt
   def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T]
 
-  def isNative: Boolean
+  def isNative: Boolean = false
+
+  def getSignature() : Any = this
 }
 
 
@@ -332,7 +343,6 @@ object binarySequential extends SpinalEnumEncoding{
   override def getWidth(senum: SpinalEnum): Int = log2Up(senum.elements.length)
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
   override def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T] = senum.elements(element.toInt)
-  override def isNative = false
   setName("seq")
 }
 
@@ -345,10 +355,22 @@ object binaryOneHot extends SpinalEnumEncoding{
   override def getWidth(senum: SpinalEnum): Int = senum.elements.length
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = BigInt(1) << element.position
   override def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T] = senum.elements(element.bitLength-1)
-  override def isNative = false
   setName("oh")
 }
 
+/**
+ * Gray encoding (sequentially assigned)
+ * @example{{{ 000, 001, 011, 010, ... }}}
+ * @note If used in FSM it is not ensured that only gray encoding preserving
+ *       transitions are done. If that is needed e.g. for CDC reasons, the
+ *       transitions must be checked manually.
+ */
+object graySequential extends SpinalEnumEncoding {
+  override def getWidth(e: SpinalEnum) = log2Up(e.elements.length)
+  override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = Gray.encode(element.position)
+  override def getElement[T <: SpinalEnum](value: BigInt, enums: T): SpinalEnumElement[T] = enums.elements(Gray.decode(value).toInt)
+  setName("graySeq")
+}
 
 /**
   * Used to create a custom encoding

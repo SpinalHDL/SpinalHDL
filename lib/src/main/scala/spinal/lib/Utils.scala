@@ -31,11 +31,8 @@ import scala.collection.generic.Growable
 
 object UIntToOh {
   def apply(value: UInt, width : Int): Bits = {
-    val ret = Bits(width bits)
-    for(i <- 0 until width){
-      ret(i) := value === i
-    }
-    ret
+    if(width <= 0) B(0,width bits)
+    else B(1, width bits) |<< value
   }
 
   def apply(value : UInt) : Bits = apply(value,  1 << widthOf(value))
@@ -286,7 +283,7 @@ object OHMasking{
     val width = widthOf(requests)
     assert(widthOf(priority) == width-1)
     val doubleMask = input ## (input.dropLow(1) & priorityBits)
-    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  LutInputs.get)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  (LutInputs.get/2) max 2)
     val (pLow, pHigh) = doubleOh.splitAt(width-1)
     val selOh = (pHigh << 1) | pLow
   }.selOh
@@ -298,7 +295,7 @@ object OHMasking{
     val width = widthOf(requests)
     assert(widthOf(priority) == width-1)
     val doubleMask = input.rotateLeft(1) ## (input.dropHigh(1) & priorityBits)
-    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder = LutInputs.get)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =(LutInputs.get/2) max 2)
     val (pLow, pHigh) = doubleOh.splitAt(width)
     val selOh = pHigh | pLow.resized
     val result = selOh.reversed
@@ -312,7 +309,7 @@ object OHMasking{
     val width = widthOf(requests)
     assert(widthOf(priority) == width)
     val doubleMask = input ## (input & priorityBits)
-    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  LutInputs.get)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  (LutInputs.get/2) max 2)
     val (pLow, pHigh) = doubleOh.splitAt(width)
     val selOh = pHigh | pLow
   }.selOh
@@ -492,6 +489,10 @@ class BitAggregator {
 //  def set = value := True
 //}
 
+/** Creates an always running counter
+  *
+  * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
+  */
 object CounterFreeRun {
   def apply(stateCount: BigInt): Counter = {
     val c = Counter(stateCount)
@@ -501,6 +502,10 @@ object CounterFreeRun {
   }
 }
 
+/** Creates a counter
+  *
+  * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
+  */
 object Counter {
   def apply(start: BigInt,end: BigInt) : Counter  = new Counter(start = start, end = end)
   def apply(range : Range) : Counter = {
@@ -599,6 +604,12 @@ class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
     state := False
     stateRise := False
   }
+
+  def clearWhen(cond : Bool) : this.type = {
+    when(cond){clear()}
+    this
+  }
+
 
   override def implicitValue: Bool = state
 }
@@ -1304,13 +1315,50 @@ object whenMasked{
 object whenIndexed{
   def apply[T](things : TraversableOnce[T], index : UInt, relaxedWidth : Boolean = false)(body : T => Unit): Unit ={
     val thingsList = things.toList
-    assert(relaxedWidth || log2Up(thingsList.size) == widthOf(index))
-    switch(index) {
+    var indexPatched = index
+    if(indexPatched.hasTag(tagAutoResize)) indexPatched = index.resize(log2Up(things.size))
+    assert(relaxedWidth || log2Up(thingsList.size) == widthOf(indexPatched))
+    switch(indexPatched) {
       for ((thing, idx) <- thingsList.zipWithIndex) is(idx) {
         body(thing)
       }
     }
   }
+}
+
+case class WhenBuilder(){
+    var ctx:WhenContext = null
+
+    def when(cond : Bool)(body : => Unit): this.type = {
+        if(ctx == null){
+            ctx = spinal.core.when(cond){body}
+        }
+        else{
+            ctx = ctx.elsewhen(cond){body}
+        }
+        this
+    }
+
+    def elsewhen(cond : Bool)(body : => Unit): this.type = {
+        this.when(cond)(body)
+        this
+    }
+
+    def apply(cond : Bool)(body : => Unit): this.type = {
+        this.when(cond)(body)
+        this
+    }
+
+    def otherwise(body : => Unit): Unit = {
+        if(ctx == null){
+            body
+        }
+        else{
+            ctx.otherwise{
+                body
+            }
+        }
+    }
 }
 
 

@@ -27,54 +27,10 @@ import spinal.core.fiber.Handle
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
+import spinal.idslplugin.Location
 
 trait DummyTrait
 object DummyObject extends DummyTrait
-/**
-  * Trait used to set the direction of a data
-  */
-trait IODirection extends BaseTypeFactory {
-
-  def applyIt[T <: Data](data: T): T
-  def apply[T <: Data](data: T): T = applyIt(data)
-  def apply[T <: Data](data: HardType[T]): T = applyIt(data())
-  def apply[T <: Data](datas: T*): Unit = datas.foreach(applyIt(_))
-  def apply(senum: SpinalEnum) = applyIt(senum.craft())
-  def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
-
-  def Bool(u: Unit = null) = applyIt(spinal.core.Bool())
-  override def Bits(u: Unit = null) = applyIt(super.Bits())
-  override def UInt(u: Unit = null) = applyIt(super.UInt())
-  override def SInt(u: Unit = null) = applyIt(super.SInt())
-  override def Vec[T <: Data](elements: TraversableOnce[T], dataType : HardType[T] = null): Vec[T] = applyIt(super.Vec(elements, dataType))
-
-  override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
-}
-
-/** Set a data to input */
-object in extends IODirection {
-  override def applyIt[T <: Data](data: T): T = data.asInput()
-}
-
-/** Set a data to output */
-object out extends IODirection {
-  override def applyIt[T <: Data](data: T): T = data.asOutput()
-}
-
-/** Set a data to inout */
-object inout extends IODirection {
-  override def applyIt[T <: Data](data: T): T = data.asInOut()
-}
-
-/** Set a data to in if the data is not null */
-object inWithNull extends IODirection {
-  override def applyIt[T <: Data](data: T): T = if(data != null) data.asInput() else data
-}
-
-/** Set a data to out if the data is not null */
-object outWithNull extends IODirection {
-  override def applyIt[T <: Data](data: T): T = if(data != null) data.asOutput() else data
-}
 
 
 trait AssertNodeSeverity
@@ -253,16 +209,34 @@ trait ContextUser extends GlobalDataUser with ScalaLocated{
 
 trait NameableByComponent extends Nameable with GlobalDataUser {
   override def getName() : String = super.getName()
+  def getPath(from : Component, to : Component): Seq[Component] ={
+    var down = from.parents(from, List(from))
+    var up = to.parents(to, List(to))
+    var common : Component = null
+    while(down.nonEmpty && up.nonEmpty && down.head == up.head){
+      common = down.head
+      down = down.tail
+      up = up.tail
+    }
+    if(common != null)
+      (down.reverse :+ common) ++ up
+    else
+      down.reverse ++ up
+  }
+
   override def getName(default: String): String = {
+
     (getMode, nameableRef) match{
       case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        if(nameableRef.isNamed && other.component.isNamed)
-          other.component.getName() + "_" + nameableRef.getName() + "_" + name
+        val path = getPath(this.component, other.component) :+ nameableRef
+        if(path.forall(_.isNamed))
+          path.map(_.getName()).mkString("_") + "_" + name
         else
           default
       case (NAMEABLE_REF, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        if(nameableRef.isNamed && other.component.isNamed)
-          other.component.getName() + "_" + nameableRef.getName()
+        val path = getPath(this.component, other.component) :+ nameableRef
+        if(path.forall(_.isNamed))
+          path.map(_.getName()).mkString("_")
         else
           default
       case _ => super.getName(default)
@@ -273,9 +247,9 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
   override def isNamed: Boolean = {
     (getMode, nameableRef) match{
       case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        nameableRef.isNamed && other.component.isNamed
+        nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
       case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != other.component =>
-        nameableRef.isNamed && other.component.isNamed
+        nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
       case _ => super.isNamed
     }
   }
@@ -288,7 +262,7 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
 trait Assignable {
   /* private[core] */var compositeAssign: Assignable = null
 
-  /*private[core] */final def compositAssignFrom(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+  /*private[core] */final def compositAssignFrom(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     if (compositeAssign != null) {
       compositeAssign.compositAssignFrom(that, target, kind)
     } else {
@@ -296,7 +270,7 @@ trait Assignable {
     }
   }
 
-  private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit
+  private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit
 
   def getRealSourceNoRec: Any
 
@@ -360,6 +334,15 @@ object Nameable{
   val DATAMODEL_WEAK : Byte = 5
   val USER_WEAK : Byte = 0
   val REMOVABLE : Byte = -5
+
+  def getNameWithoutPrefix(prefix : Nameable, from : Nameable): String ={
+    val stageSlices = prefix.getName.split('_')
+    val postfixSlices = from.getName.split('_')
+    var i = 0
+    val iEnd = stageSlices.length min postfixSlices.length
+    while(i != iEnd && stageSlices(i) == postfixSlices(i)) i += 1
+    postfixSlices.drop(i).mkString("_")
+  }
 }
 
 
@@ -422,6 +405,18 @@ trait Nameable extends OwnableRef with ContextUser{
       name
   }
 
+  def setLambdaName(isNameBody : => Boolean)(nameGen : => String): this.type ={
+    val p = this
+    setCompositeName(new Nameable {
+      override def isUnnamed = !isNameBody
+      override def getName(default: String) = isNamed match {
+        case true  => nameGen
+        case false => default
+      }
+    })
+    this
+  }
+
   override def toString: String = name
 
   private[core] def getNameElseThrow: String = {
@@ -473,6 +468,7 @@ trait Nameable extends OwnableRef with ContextUser{
     this
   }
 
+  def setPartialName(owner: Nameable): this.type = setPartialName(owner, "", weak = false)
   def setPartialName(owner: Nameable, name: String): this.type = setPartialName(owner, name, weak = false)
   def setPartialName(name: String): this.type = setPartialName(name, weak = false)
   def setPartialName(owner: Nameable, name: String, weak: Boolean): this.type = setPartialName(owner,name, if(weak) USER_WEAK else USER_SET)
@@ -794,6 +790,7 @@ object allowOutOfRangeLiterals               extends SpinalTag{
 }
 object unusedTag                     extends SpinalTag
 object noCombinatorialLoopCheck      extends SpinalTag
+object noLatchCheck                  extends SpinalTag
 object noBackendCombMerge            extends SpinalTag
 object crossClockDomain              extends SpinalTag{ override def moveToSyncNode = true }
 object crossClockBuffer              extends SpinalTag{ override def moveToSyncNode = true }

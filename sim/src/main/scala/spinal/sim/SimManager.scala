@@ -1,10 +1,10 @@
 package spinal.sim
 
 import java.util.concurrent.CyclicBarrier
-
 import net.openhft.affinity.Affinity
 
 import scala.collection.mutable
+import scala.util.Random
 
 
 trait SimThreadBlocker{
@@ -66,7 +66,7 @@ class SimFailureBackend() extends Exception ()
 class SimFailure(message : String) extends Exception (message)
 
 object SimManager{
-  var cpuAffinity = 0
+  var cpuAffinity = Random.nextInt(cpuCount)
   lazy val cpuCount = {
     try {
       val systemInfo = new oshi.SystemInfo
@@ -104,6 +104,8 @@ class SimManager(val raw : SimRaw) {
   val context = new SimManagerContext()
   context.manager = this
   SimManagerContext.threadLocal.set(context)
+
+  val timePrecision: BigDecimal = BigDecimal(10).pow(raw.getTimePrecision())
 
   //Manage the JvmThread poll
   val jvmBusyThreads = mutable.ArrayBuffer[JvmThread]()
@@ -317,6 +319,8 @@ class SimManager(val raw : SimRaw) {
       }
       if(retains != 0){
         throw new SimFailure("Simulation ended while there was still some retains")
+      } else {
+        throw new SimFailure("Simulation ended in a freeze state, there is nothing to squedule which can make time advance.")
       }
     } catch {
       case e : SimSuccess =>

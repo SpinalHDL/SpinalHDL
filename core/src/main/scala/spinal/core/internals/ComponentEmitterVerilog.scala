@@ -52,10 +52,12 @@ class ComponentEmitterVerilog(
 
   val portMaps     = ArrayBuffer[String]()
   val definitionAttributes  = new StringBuilder()
+  val beginModule = new StringBuilder()
   val declarations = new StringBuilder()
   val localparams = new StringBuilder()
   val logics       = new StringBuilder()
-  def getTrace() = new ComponentEmitterTrace(definitionAttributes :: declarations :: logics :: Nil, portMaps)
+  val endModule = new StringBuilder()
+  def getTrace() = new ComponentEmitterTrace(definitionAttributes :: beginModule :: endModule :: localparams :: declarations :: logics :: Nil, portMaps)
 
   def result: String = {
     val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
@@ -63,9 +65,9 @@ class ComponentEmitterVerilog(
     s"""
       |${definitionComments}${definitionAttributes}module ${component.definitionName} (
       |${ports}
-      |${localparams}
+      |${beginModule}${localparams}
       |${declarations}
-      |${logics}
+      |${logics}${endModule}
       |endmodule
       |""".stripMargin
   }
@@ -231,6 +233,7 @@ class ComponentEmitterVerilog(
     emitMuxes()
     emitEnumDebugLogic()
     emitEnumParams()
+    emitBeginEndModule()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
@@ -308,6 +311,11 @@ class ComponentEmitterVerilog(
   }
 
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
+    if(component.children.isEmpty) return
+    if(!component.traceEnabled){
+      logics ++= "  /*verilator tracing_on*/\n"
+    }
+
     //Fixing the spacing
     def netsWithSection(data: BaseType): String = {
       if(openSubIo.contains(data)) ""
@@ -388,6 +396,9 @@ class ComponentEmitterVerilog(
       if(istracingOff){
         logics ++= s" ${emitCommentAttributes(List(Verilator.tracing_on))} \n"
       }
+    }
+    if(!component.traceEnabled){
+      logics ++= "  /*verilator tracing_off*/\n"
     }
   }
 
@@ -556,6 +567,12 @@ class ComponentEmitterVerilog(
       }
     }
   }
+  def emitBeginEndModule() : Unit = {
+    if(!component.traceEnabled){
+      beginModule ++= "  /*verilator tracing_off*/\n"
+      endModule   ++= "\n  /*verilator tracing_on*/"
+    }
+  }
 
   def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
     //      val str    = encoding.getValue(senum).toString(2)
@@ -565,6 +582,8 @@ class ComponentEmitterVerilog(
     length.toString + "'d" + str
   }
 
+  def emitLocation(that : AssignmentStatement) : String = if(that.locationString != null) " // " + that.locationString else ""
+
   def emitAsynchronousAsAsign(process: AsyncProcess) = process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement
 
   def emitAsynchronous(process: AsyncProcess): Unit = {
@@ -573,7 +592,7 @@ class ComponentEmitterVerilog(
         process.leafStatements.head match {
           case s: AssignmentStatement =>
             if (!s.target.isInstanceOf[Suffixable]) {
-              logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
+              logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};${emitLocation(s)}\n"
             }
         }
       case _ =>
@@ -638,7 +657,7 @@ class ComponentEmitterVerilog(
         closeSubs()
 
         statement match {
-          case assignment: AssignmentStatement  => b ++= s"${tab}${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
+          case assignment: AssignmentStatement  => b ++= s"${tab}${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};${emitLocation(assignment)}\n"
           case assertStatement: AssertStatement => {
             val cond = emitExpression(assertStatement.cond)
 
@@ -932,7 +951,7 @@ class ComponentEmitterVerilog(
 
   def emitBaseTypeSignal(baseType: BaseType, name: String): String = {
     val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
-    val net     = if(signalNeedProcess(baseType)) "reg" else "wire"
+    val net     = (if(signalNeedProcess(baseType)) "reg" else "wire") + emitCommentEarlyAttributes(baseType.instanceAttributes)
     val comment = s"${emitCommentAttributes(baseType.instanceAttributes)}"
     val section = emitType(baseType)
     s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
@@ -1099,12 +1118,12 @@ class ComponentEmitterVerilog(
       for(i <- 0 until symbolCount) {
           val postfix = "_symbol" + i
         val symboleName = s"${emitReference(mem,false)}$postfix"
-        declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg [${symbolWidth- 1}:0] $symboleName [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
+        declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg ${emitCommentEarlyAttributes(mem.instanceAttributes(Language.VERILOG))}[${symbolWidth- 1}:0] $symboleName [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
         mappings += MemSymbolesMapping(symboleName, i*symbolWidth until (i+1)*symbolWidth)
       }
       mem.addTag(MemSymbolesTag(mappings))
     }else{
-      declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg ${emitRange(mem)} ${emitReference(mem,false)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
+      declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg ${emitCommentEarlyAttributes(mem.instanceAttributes(Language.VERILOG))}${emitRange(mem)} ${emitReference(mem,false)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
     }
 
     if (mem.initialContent != null) {

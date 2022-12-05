@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.internals.Operator
+import spinal.idslplugin.Location
 
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
@@ -90,7 +91,7 @@ abstract class MultiData extends Data {
   }
 
 
-  override def setAsDirectionLess: this.type = {
+  override def setAsDirectionLess(): this.type = {
     super.setAsDirectionLess()
     elements.foreach(_._2.setAsDirectionLess());
     this
@@ -164,7 +165,7 @@ abstract class MultiData extends Data {
 
   }
 
-  private[core] def isEquals(that: Any): Bool = {
+  private[core] def isEqualTo(that: Any): Bool = {
     that match {
       case that: MultiData => {
         val checks = zippedMap(that, _ === _)
@@ -174,7 +175,7 @@ abstract class MultiData extends Data {
     }
   }
 
-  private[core] def isNotEquals(that: Any): Bool = {
+  private[core] def isNotEqualTo(that: Any): Bool = {
     that match {
       case that: MultiData =>{
         val checks = zippedMap(that, _ =/= _)
@@ -184,7 +185,7 @@ abstract class MultiData extends Data {
     }
   }
 
-  private[core] override def autoConnect(that: Data): Unit = {
+  private[core] override def autoConnect(that: Data)(implicit loc: Location): Unit = {
     that match {
       case that: MultiData => zippedMap(that, _ autoConnect _)
       case _               => SpinalError(s"Function autoConnect is not implemented between $this and $that")
