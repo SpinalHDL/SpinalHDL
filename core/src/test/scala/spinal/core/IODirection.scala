@@ -18,12 +18,14 @@
  * License along with this library.
  */
 
-package spinal.tester.scalatest
+package spinal.core
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
+
 import spinal.lib._
 import spinal.lib.io.{TriState, TriStateArray}
+
+import spinal.tester.SpinalTesterCocotbBase
 
 object InOutTester {
   def analogType = Bool()
