@@ -1,19 +1,16 @@
-package spinal.tester.scalatest
+package spinal.lib.experimental.com.serial
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.experimental.com.serial._
+
+import spinal.tester.SpinalTesterGhdlBase
 
 object SerdesSerialTester {
-
   class BundleA extends Bundle {
     val a = UInt(8 bit)
     val b = Bool()
   }
-
 }
-
-import spinal.tester.scalatest.StreamTester._
 
 class SerdesSerialTester extends Component {
   val io = new Bundle {
