@@ -1,6 +1,7 @@
-package spinal.tester.scalatest
+package spinal.tester
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core._
 
 import scala.sys.process._
