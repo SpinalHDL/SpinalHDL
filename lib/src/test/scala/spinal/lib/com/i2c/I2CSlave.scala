@@ -16,25 +16,24 @@
  * License along with this library.
  */
 
-package spinal.tester.scalatest
+package spinal.lib.com.i2c
 
 import spinal.core._
-import spinal.lib._
-import spinal.lib.com.i2c._
 
+import spinal.tester.SpinalTesterCocotbBase
 
 class I2cSlaveTester extends SpinalTesterCocotbBase {
   override def getName: String = "I2cSlaveTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/I2CTester2/I2cSlaveTester"
   override def createToplevel: Component = {
-    val ret = new I2cSlave(I2cSlaveGenerics(
-      samplingWindowSize        = 3,
-      samplingClockDividerWidth = 10 bits,
-      timeoutWidth              = 20 bits
-    ))
+    val ret = new I2cSlave(
+      I2cSlaveGenerics(
+        samplingWindowSize = 3,
+        samplingClockDividerWidth = 10 bits,
+        timeoutWidth = 20 bits
+      )
+    )
     ret.io.bus.cmd.kind.fixEncoding(binarySequential)
     ret
   }
-
 }
-
