@@ -405,7 +405,7 @@ trait Nameable extends OwnableRef with ContextUser{
       name
   }
 
-  def setLandaName(isNameBody : => Boolean)(nameGen : => String): this.type ={
+  def setLambdaName(isNameBody : => Boolean)(nameGen : => String): this.type ={
     val p = this
     setCompositeName(new Nameable {
       override def isUnnamed = !isNameBody

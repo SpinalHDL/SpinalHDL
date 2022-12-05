@@ -309,7 +309,7 @@ class Pipeline extends Area{
     //Name stuff
     for(stage <- stagesSet){
       def nameThat(target: Nameable, key : StageableKey, postfix: String): Unit = {
-        target.setLandaName(stage.isNamed && key.stageable.isNamed){
+        target.setLambdaName(stage.isNamed && key.stageable.isNamed){
           val stageName = stage.getName
           val stageSlices = stageName.split('_')
           val postfixName = key.toString + postfix
@@ -333,7 +333,7 @@ class Pipeline extends Area{
     }
 
     for(c <- connections){
-      if(c.isUnnamed) c.setLandaName(c.m.isNamed && c.s.isNamed){
+      if(c.isUnnamed) c.setLambdaName(c.m.isNamed && c.s.isNamed){
         s"${c.m.getName()}_to_${c.s.getName()}"
       }
     }
