@@ -1,10 +1,7 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
-
-
 
 object MemTester extends App{
   class MemTester extends Component {
