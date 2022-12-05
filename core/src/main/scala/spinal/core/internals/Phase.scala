@@ -1658,6 +1658,7 @@ class PhaseNextifyReg() extends PhaseNetlist{
               other.component.rework{other := seed.pull()} //pull to ensure it work with in/out
             }
 
+            seed.allowOverride()
             bt.parentScope.onHead(seed := bt) //Default value
 
             bt.foreachStatements{
