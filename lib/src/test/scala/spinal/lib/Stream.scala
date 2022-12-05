@@ -1,8 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib
 
 import spinal.core._
-import spinal.lib._
 
+import spinal.tester.{SpinalTesterCocotbBase, SpinalTesterGhdlBase}
 
 object StreamTester{
   case class BundleA(aaa : Int) extends Bundle{
@@ -11,7 +11,7 @@ object StreamTester{
   }
 }
 
-import spinal.tester.scalatest.StreamTester._
+import StreamTester._
 
 class StreamTester extends Component {
   val io = new Bundle {
