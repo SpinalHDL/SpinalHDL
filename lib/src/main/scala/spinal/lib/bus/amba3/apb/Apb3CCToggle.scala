@@ -36,8 +36,9 @@ import spinal.lib.fsm._
   * @param busConfig  Apb3 configuration
   * @param inClk      Input Clock Domain
   * @param outClk     Output Clock Domain
+  * @param selIds     Sequence indicating to which PSEL(x) signals the component replies to.
   */
-class Apb3CCToggle(busConfig: Apb3Config, inClk: ClockDomain, outClk: ClockDomain) extends Component {
+class Apb3CCToggle(busConfig: Apb3Config, inClk: ClockDomain, outClk: ClockDomain, selIds: Seq[Int] = Seq(0)) extends Component {
 
   val io = new Bundle{
     val input  = slave(Apb3(busConfig))
@@ -67,7 +68,8 @@ class Apb3CCToggle(busConfig: Apb3Config, inClk: ClockDomain, outClk: ClockDomai
 
       val sIdle: State = new State with EntryPoint{
         whenIsActive{
-          when(io.input.PENABLE && hit === target){
+          val selHit = selIds.map(io.input.PSEL(_)).reduce(_||_)
+          when(io.input.PENABLE && selHit && hit === target){
             target := !target
             goto(sAccess)
           }
