@@ -1,18 +1,11 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.amba4.axi.sim
 
 import spinal.core._
 import spinal.core.sim._
+
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.core.sim.SimCompiled
+
 import spinal.lib._
-import spinal.lib.bus.amba4.axi.sim.{
-    Axi4ReadOnlyMasterAgent,
-    Axi4ReadOnlyMonitor,
-    Axi4ReadOnlySlaveAgent,
-    Axi4WriteOnlyMasterAgent,
-    Axi4WriteOnlyMonitor,
-    Axi4WriteOnlySlaveAgent
-}
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
 import spinal.lib.bus.misc.SizeMapping
 
