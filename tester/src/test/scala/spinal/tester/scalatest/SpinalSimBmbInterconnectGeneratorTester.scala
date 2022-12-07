@@ -11,11 +11,13 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.generator._
 import spinal.lib.sim.Phase
 
+import spinal.tester.SpinalSimFunSuite
+
 import scala.collection.mutable
 import scala.util.Random
 
 object SpinalSimBmbInterconnectGeneratorTester {
-  def f() = {
+  def component() = {
     new Component{
       val interconnect = BmbInterconnectGenerator()
 
@@ -180,10 +182,10 @@ object SpinalSimBmbInterconnectGeneratorTester {
 }
 
 //TODO handle generation when a master has no slave
-class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
+class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite {
 
   test("test1") {
-    SimConfig.allOptimisation.compile(SpinalSimBmbInterconnectGeneratorTester.f).doSimUntilVoid("test1", 42) { dut => //TODO remove seed
+    SimConfig.allOptimisation.compile(SpinalSimBmbInterconnectGeneratorTester.component).doSimUntilVoid("test1", 42) { dut => //TODO remove seed
       Phase.boot()
       Phase.setup {
         dut.clockDomain.forkStimulus(10)
