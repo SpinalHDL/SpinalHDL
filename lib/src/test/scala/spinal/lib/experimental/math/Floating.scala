@@ -1,8 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib.experimental.math
 
 import spinal.core._
-import spinal.lib._
-import spinal.lib.experimental.math._
+
+import spinal.tester.SpinalTesterCocotbBase
 
 class FloatingTester extends Component {
   val io = new Bundle {
