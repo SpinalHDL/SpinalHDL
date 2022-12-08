@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
 
 import scala.collection.mutable.ArrayBuffer
 

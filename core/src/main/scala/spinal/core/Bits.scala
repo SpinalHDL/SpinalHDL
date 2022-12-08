@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
 
 /**
   * Bits factory used for instance by the IODirection to create a in/out Bits

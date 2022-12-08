@@ -109,6 +109,7 @@ class ComponentEmitterVhdl(
         portMaps += s"${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
     )
   }
+  def emitLocation(that : AssignmentStatement) : String = if(that.locationString != null) " --" + that.locationString else ""
 
   override def wrapSubInput(io: BaseType): Unit = {
     if (referencesOverrides.contains(io))
@@ -426,7 +427,10 @@ class ComponentEmitterVhdl(
 
       b ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
       inc
-      b ++= initialStatlementsGeneration
+      for(str <- initialStatlementsGeneration.toString.linesWithSeparators){
+        b ++= "  "
+        b ++= str
+      }
       dec
       b ++= s"${tabStr}else\n"
       inc
@@ -715,7 +719,7 @@ class ComponentEmitterVhdl(
     assignment match {
       case _ =>
         if (!assignment.target.isInstanceOf[SpinalStruct])
-          s"$tab${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
+          s"$tab${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};${emitLocation(assignment)}\n"
         else
           ""
     }
