@@ -1,4 +1,4 @@
-package spinal.tester.scalatest
+package spinal.lib
 
 import spinal.core._
 import spinal.core.formal._
