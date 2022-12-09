@@ -191,3 +191,15 @@ class IdentityTestBench extends SpinalTestBench {
   testSuite4.runWith(cfg)
   testSuite4.runWithAll(cfgs)
 }
+
+// The user can add new words in the vocabulary
+object MustTestBench {
+  implicit class MustTestable[Device](val t: SpinalTestBench.Testable[Device]) {
+    def must(doWhat: String) = new t.Should(doWhat, "must")
+  }
+}
+
+class MustTestBench extends SpinalTestBench {
+  val t = Dut(Identity(IdentityConfig(8)))
+  t must "do nothing" inSim { dut => }
+}

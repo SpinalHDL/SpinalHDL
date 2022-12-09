@@ -15,6 +15,8 @@ trait InheritedNameable {
 /** Define unit / regression tests for a component */
 abstract class SpinalTestBench extends AnyFreeSpec with ValCallback with BeforeAndAfterAllConfigMap {
 
+  import SpinalTestBench.Testable
+
   override def valCallback[T](ref: T, name: String): T = {
     ref match {
       case n: Nameable if n.isUnnamed => n.setName(name)
@@ -64,7 +66,7 @@ abstract class SpinalTestBench extends AnyFreeSpec with ValCallback with BeforeA
   }
 
   /** Device under test with context to make it testable */
-  abstract class Dut[Device <: Component] extends Nameable with SpinalTestBench.Testable[Device] {
+  abstract class Dut[Device <: Component] extends Nameable with Testable[Device] {
     def dut: Device
     val config: SpinalSimConfig
     val caching: Boolean
@@ -83,7 +85,7 @@ abstract class SpinalTestBench extends AnyFreeSpec with ValCallback with BeforeA
     private object txt {
       def itCompiles: String = s"$getName compiles"
       def notCompiles: String = s"$getName does not compile"
-      def itShould(doWhat: String): String = s"$getName should $doWhat"
+      def itShould(should: Should): String = s"$getName ${should.shouldText} ${should.doWhat}"
       def test(doWhat: String): String = s"$getName test: $doWhat"
     }
 
@@ -147,11 +149,11 @@ abstract class SpinalTestBench extends AnyFreeSpec with ValCallback with BeforeA
       }
     }
 
-    override protected def shouldInSim(doWhat: String)(body: Body): Unit =
-      sim(txt.itShould(doWhat))(body)
+    override protected def shouldInSim(should: Should)(body: Body): Unit =
+      sim(txt.itShould(should))(body)
 
-    override protected def shouldInSimUntilVoid(doWhat: String)(body: Body): Unit =
-      simUntilVoid(txt.itShould(doWhat))(body)
+    override protected def shouldInSimUntilVoid(should: Should)(body: Body): Unit =
+      simUntilVoid(txt.itShould(should))(body)
 
     override def test(testName: String)(body: Body): Unit =
       sim(txt.test(testName))(body)
@@ -162,7 +164,7 @@ abstract class SpinalTestBench extends AnyFreeSpec with ValCallback with BeforeA
 
   class TestSuite[Cfg, Device](
       builder: DutBuilder[Cfg, Device],
-      val tests: (Cfg, SpinalTestBench.Testable[Device]) => Unit
+      val tests: (Cfg, Testable[Device]) => Unit
   ) extends Nameable {
 
     /** Run with configs/duts from a sequence */
@@ -188,8 +190,6 @@ abstract class SpinalTestBench extends AnyFreeSpec with ValCallback with BeforeA
   }
 
   object TestSuite {
-    import SpinalTestBench.Testable
-
     def apply[Device](tests: Testable[Device] => Unit) =
       new TestSuite[Testable[Device], Device](DutBuilder.fromTestable(dut => dut), (cfg, it) => tests(it))
 
@@ -200,7 +200,7 @@ abstract class SpinalTestBench extends AnyFreeSpec with ValCallback with BeforeA
   object DutBuilder {
 
     /** Create a DutBuilder from a function creating a Testable (~ calling `Dut`) */
-    def fromTestable[Cfg, Device](builder: Cfg => SpinalTestBench.Testable[Device]) =
+    def fromTestable[Cfg, Device](builder: Cfg => Testable[Device]) =
       new DutBuilder[Cfg, Device](cfg => builder(cfg), _.toString())
 
     /** Create a DutBuilder from a function creating a Device (~ not calling `Dut`) */
@@ -209,8 +209,8 @@ abstract class SpinalTestBench extends AnyFreeSpec with ValCallback with BeforeA
   }
 
   /** Functor to create a testable device */
-  class DutBuilder[Cfg, Device](builder: Cfg => SpinalTestBench.Testable[Device], nameBuilder: Cfg => String) {
-    def apply(cfg: Cfg): SpinalTestBench.Testable[Device] = builder(cfg).setWeakName(nameBuilder(cfg))
+  class DutBuilder[Cfg, Device](builder: Cfg => Testable[Device], nameBuilder: Cfg => String) {
+    def apply(cfg: Cfg): Testable[Device] = builder(cfg).setWeakName(nameBuilder(cfg))
 
     /** Get a new functor putting devices in an environment */
     final def withEnv[InEnv](env: Device => InEnv) =
@@ -228,13 +228,13 @@ abstract class SpinalTestBench extends AnyFreeSpec with ValCallback with BeforeA
   }
 
   /** Functor to create a testable device with caching over configurations */
-  class DutCache[Cfg, Device](builder: Cfg => SpinalTestBench.Testable[Device], nameBuilder: Cfg => String)
+  class DutCache[Cfg, Device](builder: Cfg => Testable[Device], nameBuilder: Cfg => String)
       extends DutBuilder[Cfg, Device](builder, nameBuilder) {
     import scala.collection.mutable.Map
 
-    private var cache: Map[Cfg, SpinalTestBench.Testable[Device]] = Map()
+    private var cache: Map[Cfg, Testable[Device]] = Map()
 
-    override def apply(cfg: Cfg): SpinalTestBench.Testable[Device] =
+    override def apply(cfg: Cfg): Testable[Device] =
       cache.getOrElseUpdate(cfg, super.apply(cfg))
   }
 }
@@ -251,7 +251,7 @@ object SpinalTestBench {
     final type Body = Device => Unit
 
     /** Context for `it should "do something"` */
-    final class Should(doWhat: String) {
+    final class Should(val doWhat: String, val shouldText: String) {
 
       /** Run a simulation to check that it does the thing it should
         *
@@ -261,7 +261,7 @@ object SpinalTestBench {
         * }
         * }}}
         */
-      final def inSim: Body => Unit = shouldInSim(doWhat)
+      final def inSim: Body => Unit = shouldInSim(this)
 
       /** Run a simulation to check that it does the thing it should
         *
@@ -271,11 +271,11 @@ object SpinalTestBench {
         * }
         * }}}
         */
-      final def inSimUntilVoid: Body => Unit = shouldInSimUntilVoid(doWhat)
+      final def inSimUntilVoid: Body => Unit = shouldInSimUntilVoid(this)
     }
 
     /** To build a [[Should]] context */
-    final def should(doWhat: String): Should = new Should(doWhat)
+    final def should(doWhat: String): Should = new Should(doWhat, "should")
 
     /** Create a new testable putting dut in provided environment */
     final def withEnv[InEnv](e: Device => InEnv): Testable[InEnv] = transformTestable(this, e)
@@ -284,10 +284,10 @@ object SpinalTestBench {
     final def perform(tests: this.type => Unit): Unit = tests(this)
 
     /** Called by [[Should.inSim]] */
-    protected def shouldInSim(doWhat: String)(body: Body): Unit
+    protected def shouldInSim(should: Should)(body: Body): Unit
 
     /** Called by [[Should.inSimUntilVoid]] */
-    protected def shouldInSimUntilVoid(doWhat: String)(body: Body): Unit
+    protected def shouldInSimUntilVoid(should: Should)(body: Body): Unit
 
     /** Run a test using this dut */
     def test(testName: String)(body: Body): Unit
@@ -308,11 +308,11 @@ object SpinalTestBench {
 
       override def setWeakName(name: String): this.type = { it.setWeakName(name); this }
 
-      override protected def shouldInSim(doWhat: String)(body: Body): Unit =
-        it should doWhat inSim (dut => body(transform(dut)))
+      override protected def shouldInSim(should: Should)(body: Body): Unit =
+        new it.Should(should.doWhat, should.shouldText) inSim (dut => body(transform(dut)))
 
-      override protected def shouldInSimUntilVoid(doWhat: String)(body: Body): Unit =
-        it should doWhat inSimUntilVoid (dut => body(transform(dut)))
+      override protected def shouldInSimUntilVoid(should: Should)(body: Body): Unit =
+        new it.Should(should.doWhat, should.shouldText) inSimUntilVoid (dut => body(transform(dut)))
 
       override def test(testName: String)(body: Body): Unit =
         it.test(testName)(dut => body(transform(dut)))
