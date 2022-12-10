@@ -1,8 +1,7 @@
-package spinal.tester.scalatest 
+package spinal.lib.misc.pdm
 
 import spinal.core._
-import spinal.lib._
-import spinal.lib.misc.pdm._
+import spinal.tester.SpinalTesterCocotbBase
 
 class PDMTester extends Component {
   val io = new Bundle {
