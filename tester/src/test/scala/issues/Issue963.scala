@@ -1,10 +1,10 @@
-package spinal.tester.scalatest
+package issues
 
 import org.scalatest.funsuite.AnyFunSuite
 
 import spinal.core._
-import spinal.lib._
 import spinal.core.sim._
+import spinal.lib._
 
 // unit test for issue #963
 
@@ -27,7 +27,7 @@ import spinal.core.sim._
 // [info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
 // [info] *** 1 TEST FAILED ***
 
-class Issue963Tester extends AnyFunSuite {
+class Issue963 extends AnyFunSuite {
   test("Minimal example for Issue963 which fails Spinal elaboration") {
     class Dut extends Component {
       val io = new Bundle {
