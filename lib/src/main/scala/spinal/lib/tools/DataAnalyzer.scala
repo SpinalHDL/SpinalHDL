@@ -18,18 +18,31 @@ class DataAnalyzer(data: BaseType) {
     */
   def getFanIn: mutable.LinkedHashSet[BaseType] = {
     val ret = mutable.LinkedHashSet.newBuilder[BaseType]
-    data.foreachStatements { st =>
+
+    def traceBaseTypeFromExpression(e: Expression): mutable.LinkedHashSet[BaseType] = {
+      val ret = mutable.LinkedHashSet.newBuilder[BaseType]
+      e.foreachDrivingExpression{
+        case bt: BaseType=> ret += bt
+        case e=> ret ++= traceBaseTypeFromExpression(e)
+      }
+      ret.result()
+    }
+
+
+    data.foreachStatements {st=>
       if (!(st.isInstanceOf[InitAssignmentStatement] || st.isInstanceOf[InitialAssignmentStatement])) {
-        st.foreachDrivingExpression {
-          case bt: BaseType => ret += bt
-          case _            =>
-        }
-        st.walkParentTreeStatementsUntilRootScope { tree =>
-          tree.walkDrivingExpressions {
-            case bt: BaseType => ret += bt
-            case _            =>
+        st.foreachDrivingExpression{ e =>
+          e match {
+            case bt: BaseType=> ret += bt
+            case e=> ret ++= traceBaseTypeFromExpression(e)
           }
         }
+        st.walkParentTreeStatementsUntilRootScope{tree=> tree.walkDrivingExpressions{ e =>
+          e match {
+            case bt: BaseType=> ret += bt
+            case e=> ret ++= traceBaseTypeFromExpression(e)
+          }
+        }}
       }
     }
     ret.result()
