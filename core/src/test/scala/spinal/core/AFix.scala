@@ -1,9 +1,8 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
-import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim._
 
+import org.scalatest.funsuite.AnyFunSuite
 import java.math.MathContext
 import scala.collection.mutable
 import scala.math.BigDecimal.RoundingMode
