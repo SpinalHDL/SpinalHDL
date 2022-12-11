@@ -1,7 +1,6 @@
-package spinal.tester.scalatest
+package spinal.core.sim
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.core.sim._
 import spinal.core.{BIG, Endianness, LITTLE}
 
 class SimBigIntPimperTest extends AnyFunSuite {
