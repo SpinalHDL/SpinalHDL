@@ -1,8 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core._
-import spinal.lib._
 import spinal.core.sim._
 
 class SpinalSimPackedBundleTester extends AnyFunSuite {
