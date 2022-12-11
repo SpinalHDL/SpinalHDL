@@ -1,19 +1,13 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.bmb
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core.sim._
 import spinal.lib.Fragment
-import spinal.lib.bus.amba3.apb.Apb3Config
-import spinal.lib.bus.amba3.apb.sim.Apb3Monitor
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbCmd, BmbDownSizerBridge, BmbExclusiveMonitor, BmbInvalidationParameter, BmbParameter, BmbRsp, BmbSourceParameter, BmbToApb3Bridge}
-import spinal.lib.bus.bmb.sim.{BmbBridgeTester, BmbMasterAgent, BmbMemoryAgent, BmbRegionAllocator}
-import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.sim._
 
 import scala.collection.mutable
 import scala.util.Random
-
-
 
 private object IDLE
 private object READ_CMD
