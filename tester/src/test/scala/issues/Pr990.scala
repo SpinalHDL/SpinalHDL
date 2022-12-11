@@ -1,4 +1,6 @@
-package spinal.tester.scalatest
+package issues
+
+import spinal.tester.SpinalSimFunSuite
 
 import spinal.core._
 import spinal.core.sim._
@@ -34,7 +36,7 @@ class PR990TesterDut extends Component {
     )
 }
 
-class PR990Tester extends SpinalSimFunSuite {
+class Pr990 extends SpinalSimFunSuite {
     test("ccexercise") {
         val sim =SpinalSimConfig().allOptimisation.compile(new PR990TesterDut)
         sim.doSimUntilVoid("ccexercise") { dut =>
