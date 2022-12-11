@@ -1,12 +1,12 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.avalon
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.bus.avalon._
 import spinal.lib._
 import spinal.lib.bus.avalon.sim.{AvalonSTDriver, AvalonSTMonitor}
-import spinal.lib.sim.{ScoreboardInOrder, SimData}
+import spinal.lib.sim.SimData
 
 import scala.collection.mutable
 
