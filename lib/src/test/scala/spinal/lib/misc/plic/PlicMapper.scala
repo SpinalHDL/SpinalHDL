@@ -1,18 +1,15 @@
-package spinal.tester.scalatest
+package spinal.lib.misc.plic
 
-import org.scalatest.funsuite.AnyFunSuite
+import spinal.tester.SpinalSimFunSuite
+
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
-import spinal.lib.misc.plic.{PlicGatewayActiveHigh, PlicMapper, PlicMapping, PlicTarget}
-import spinal.lib.sim._
-import spinal.sim._
+import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
-
 
 class SpinalSimPlicTester extends SpinalSimFunSuite {
   test("test1") {
