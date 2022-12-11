@@ -1,14 +1,15 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.bmb
 
 import org.scalatest.funsuite.AnyFunSuite
+import spinal.tester.RepeatabilitySuite
+
 import spinal.core._
 import spinal.core.fiber._
 import spinal.core.sim._
 import spinal.lib._
-import spinal.lib.bus.bmb.sim._
-import spinal.lib.bus.bmb._
-import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.generator._
+import spinal.lib.bus.bmb.sim._
+import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.sim.Phase
 
 import spinal.tester.SpinalSimFunSuite
@@ -266,5 +267,11 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite {
         }
       }
     }
+  }
+}
+
+class RepeatabilityTester extends RepeatabilitySuite {
+  test("BmbInterconnectVerilog") {
+    checkOutputHash(SpinalSimBmbInterconnectGeneratorTester.component)
   }
 }
