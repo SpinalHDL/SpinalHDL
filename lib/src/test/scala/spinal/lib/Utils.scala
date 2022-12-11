@@ -134,3 +134,58 @@ class SpinalSimLibTester extends AnyFunSuite {
     }
   }
 }
+
+
+class TraversableOncePimpedTester extends AnyFunSuite {
+  test("reverse_by_shuffle") {
+    SimConfig
+      .compile(new Component {
+        val data    = in  port Bits(64 bits)
+        val outData = out port UInt(64 bits)
+
+        val outSet = data.subdivideIn(8 bits)
+
+        outData := outSet.shuffle(outSet.length - 1 - _).asBits.asUInt
+      })
+      .doSim(seed = 42) { dut =>
+        for (j <- 0 until 1000) {
+          val data = dut.data.randomize()
+
+          sleep(1)
+          val outData = dut.outData.toBigInt
+
+          for (i <- 0 until 8) {
+            val in  = (data >> i * 8) & 0xff
+            val out = (outData >> (7 - i) * 8) & 0xff
+            assert(in == out)
+          }
+        }
+      }
+  }
+
+  test("reverse_by_shuffle_with_size") {
+    SimConfig
+      .compile(new Component {
+        val data    = in  port Bits(64 bits)
+        val outData = out port UInt(64 bits)
+
+        outData := U(
+          B(data.subdivideIn(8 bits).shuffleWithSize((n, i) => n - 1 - i))
+        )
+      })
+      .doSim(seed = 42) { dut =>
+        for (j <- 0 until 1000) {
+          val data = dut.data.randomize()
+
+          sleep(1)
+          val outData = dut.outData.toBigInt
+
+          for (i <- 0 until 8) {
+            val in  = (data >> i * 8) & 0xff
+            val out = (outData >> (7 - i) * 8) & 0xff
+            assert(in == out)
+          }
+        }
+      }
+  }
+}
