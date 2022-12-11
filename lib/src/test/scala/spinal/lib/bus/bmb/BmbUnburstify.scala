@@ -1,9 +1,9 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.bmb
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core.sim.SimConfig
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
-import spinal.lib.bus.bmb.{BmbAccessParameter, BmbLengthFixer, BmbParameter, BmbSourceParameter, BmbUnburstify}
 
 class SpinalSimBmbUnburstifyTester extends AnyFunSuite {
   test("miaou") {
