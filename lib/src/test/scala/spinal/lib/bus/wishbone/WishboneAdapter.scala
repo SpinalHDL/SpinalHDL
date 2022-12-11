@@ -1,13 +1,13 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.wishbone
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core._
 import spinal.core.sim._
-import spinal.sim._
 import spinal.lib._
-import spinal.lib.bus.wishbone._
 import spinal.lib.wishbone.sim._
 import spinal.lib.sim._
+
 import scala.util.Random
 
 class WishboneSimpleBusAdapted( configIn : WishboneConfig,
