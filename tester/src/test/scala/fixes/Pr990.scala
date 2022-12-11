@@ -1,4 +1,4 @@
-package issues
+package fixes
 
 import spinal.tester.SpinalSimFunSuite
 
