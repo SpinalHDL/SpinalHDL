@@ -1,20 +1,13 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.bmb
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.{StreamFifoMultiChannelSharedSpace, master, slave}
-import spinal.lib.bus.bmb.sim.{BmbInterconnectTester, BmbMasterAgent, BmbMemoryAgent, BmbMemoryTester}
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbDecoder, BmbDecoderOutOfOrder, BmbDecoderPerSource, BmbParameter, BmbSourceParameter}
+import spinal.lib.{master, slave}
+import spinal.lib.bus.bmb.sim.BmbInterconnectTester
 import spinal.lib.bus.misc.{DefaultMapping, SizeMapping}
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
-
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
-
-
-
 
 class SpinalSimBmbDecoderOutOfOrderTester extends AnyFunSuite {
   def doIt(outputCount : Int, sourceCount : Int, withDefault : Boolean): Unit ={
