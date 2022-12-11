@@ -16,16 +16,15 @@
  * License along with this library.
  */
 
-package spinal.tester.scalatest
+package integration
+
+import spinal.tester.SpinalTesterCocotbBase
 
 import spinal.core._
-import spinal.lib._
 
 import scala.io.Source
 
 object ZeroWidthTester {
-
-
   class ZeroWidthTester extends Component {
     val uint8 = in UInt(8 bits)
     val sint8 = in SInt(8 bits)
@@ -51,8 +50,6 @@ object ZeroWidthTester {
     val sint08ShiftLeftUint  = out(sint0 << uint8)
     val bits08ShiftLeftUint  = out(bits0 << uint8)
 
-
-
     val uint08Equals    = out(uint0 === uint8)
     val uint08NotEquals = out(uint0 =/= uint8)
 
@@ -68,7 +65,6 @@ object ZeroWidthTester {
     val uint08SmallerEquals = out(uint0 <= uint8)
     val uint08Bigger        = out(uint0 > uint8)
     val uint08BiggerEquals  = out(uint0 >= uint8)
-
 
     val sint08Equals= out(sint0 === sint8)
     val sint08NotEquals = out(sint0 =/= sint8)
@@ -86,15 +82,12 @@ object ZeroWidthTester {
     val sint08Bigger = out(sint0 > sint8)
     val sint08BiggerEquals = out(sint0 >= sint8)
 
-
-
     val bits08Equals= out(0 === bits8)
     val bits08NotEquals = out(0 =/= bits8)
 
     val bits08And = out(bits0.resized & bits8)
     val bits08Or = out(bits0.resized | bits8)
     val bits08Xor = out(bits0.resized ^ bits8)
-
 
     val uint80ShiftLeftUint  = out(uint8 >> uint0)
     val sint80ShiftLeftUint  = out(sint8 >> uint0)
@@ -139,14 +132,12 @@ object ZeroWidthTester {
     val bits80Or = out(bits8 | bits0.resized)
     val bits80Xor = out(bits8 ^ bits0.resized)
 
-
     val bitsResizeBigger  = out(bits0.resize(16))
     val uintResizeBigger  = out(uint0.resize(16))
     val sintResizeBigger  = out(sint0.resize(16))
 
     val bits08Cat = out(bits0 ## bits8)
     val bits80Cat = out(bits8 ## bits0)
-
   }
 }
 
