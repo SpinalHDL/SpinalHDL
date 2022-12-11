@@ -1,15 +1,11 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.bsb
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.core.HardType
+
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
-import spinal.lib.bus.bmb.{Bmb, BmbParameter, BmbSlaveFactory}
-import spinal.lib.bus.bsb.{Bsb, BsbDownSizerAlignedMultiWidth, BsbDownSizerSparse, BsbParameter, BsbUpSizerDense, BsbUpSizerSparse}
-import spinal.lib.bus.bsb.sim.BsbBridgeTester
 import spinal.lib._
-import spinal.lib.system.dma.sg.{DmaSg, DmaSgTester, SgDmaTestsParameter}
+import spinal.lib.bus.bsb.sim.BsbBridgeTester
 
 class SpinalSimBsbTester extends AnyFunSuite{
   test("upsizerSparse"){
