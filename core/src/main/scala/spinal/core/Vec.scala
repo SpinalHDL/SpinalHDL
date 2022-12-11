@@ -311,7 +311,7 @@ class VecBitwisePimper[T <: Data with BitwiseOp[T]](pimped : Vec[T]) extends Bit
 
   private def map2with(f: (T, T) => T)(other: Vec[T]): Vec[T] = {
     if (pimped.length != other.length)
-      SpinalError(s"Cannot apply a bitwize opration on vectors with different size (${pimped.length} vs ${other.length})")
+      SpinalError(s"Cannot apply a bitwize operation on vectors with different sizes (${pimped.length} vs ${other.length})")
     Vec((pimped, other).zipped.map(f))
   }
 }
