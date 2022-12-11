@@ -1,11 +1,10 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.bmb
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
+import spinal.tester.SpinalSimFunSuite
+
 import spinal.core.sim._
 import spinal.lib.bus.amba3.apb.Apb3Config
 import spinal.lib.bus.amba3.apb.sim.Apb3Monitor
-import spinal.lib.bus.bmb.{BmbOnChipRam, BmbToApb3Bridge}
 import spinal.lib.bus.bmb.sim.{BmbMasterAgent, BmbMemoryAgent, BmbRegionAllocator}
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.sim._
