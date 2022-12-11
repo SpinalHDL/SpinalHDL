@@ -1,11 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib.com.linecode
 
 import org.scalatest.funsuite.AnyFunSuite
 
-import spinal.sim._
-import spinal.core._
 import spinal.core.sim._
-import spinal.lib.com.linecode.Encoding8b10b
 
 class Encoding8b10bTest extends AnyFunSuite {
 
@@ -480,7 +477,5 @@ class Encoding8b10bTest extends AnyFunSuite {
 
       decodeTestCaseError(dut, "00000011", "1001110000", true)
     }
-
-
   }
 }
