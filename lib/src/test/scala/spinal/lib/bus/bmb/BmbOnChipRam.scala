@@ -1,18 +1,11 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.bmb
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core.sim._
-import spinal.lib.sim._
+import spinal.tester.SpinalSimFunSuite
+
 import spinal.core._
-import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbOnChipRam, BmbParameter}
-import spinal.lib.bus.bmb.sim.{BmbMasterAgent, BmbMemoryAgent, BmbMemoryTester, BmbRegionAllocator}
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.bmb.sim.BmbMemoryTester
 
 import scala.util.Random
-
-
-
 
 class SpinalSimBmbOnChipRamTester extends SpinalSimFunSuite {
   test("test1") {
