@@ -1,11 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.bmb
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core.sim._
+import spinal.tester.SpinalSimFunSuite
+
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
-import spinal.lib.bus.bmb.{BmbAccessParameter, BmbParameter, BmbSourceParameter, BmbUpSizerBridge}
-
-import scala.collection.mutable
 
 class SpinalSimBmbUpSizerBridgeTester extends SpinalSimFunSuite{
   for((canRead, canWrite) <- List((true,true),(true, false), (false, true))) {
