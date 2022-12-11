@@ -1,10 +1,9 @@
-package spinal.tester.scalatest
-
+package spinal.lib.bus.bmb
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core._
 import spinal.core.sim.SimConfig
-import spinal.lib.bus.bmb.{BmbAligner, BmbDownSizerBridge, BmbParameter}
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
 
 class SpinalSimBmbAlignerTester extends AnyFunSuite {
