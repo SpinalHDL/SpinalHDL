@@ -1,20 +1,17 @@
-package spinal.tester.scalatest
+package spinal.lib.misc.analog
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
+
 import spinal.core.sim._
-import spinal.lib._
 import spinal.lib.bus.bmb.sim.BmbDriver
-import spinal.lib.bus.bmb.{BmbAccessCapabilities, BmbParameter}
-import spinal.lib.bus.bsb.sim.{BsbBridgeTester, BsbDriver, BsbPacket}
-import spinal.lib.bus.bsb.{Bsb, BsbDownSizerSparse, BsbParameter, BsbUpSizerDense, BsbUpSizerSparse}
-import spinal.lib.misc.analog.{BmbBsbToDeltaSigma, BsbToDeltaSigmaParameter}
+import spinal.lib.bus.bmb.BmbParameter
+import spinal.lib.bus.bsb.sim.{BsbDriver, BsbPacket}
+import spinal.lib.bus.bsb.{Bsb, BsbParameter}
 import spinal.lib.sim.StreamDriver
-import spinal.lib.system.dma.sg.DmaSg
 
 import scala.collection.mutable
 
-class SpinalSimSigmaDeltaTester extends AnyFunSuite{
+class SpinalSimDeltaSigmaTester extends AnyFunSuite{
   test("a"){
     SimConfig.compile(
       BmbBsbToDeltaSigma(
