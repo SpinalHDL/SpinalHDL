@@ -1,15 +1,15 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.wishbone
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.tester
+
 import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
 import spinal.lib._
 import spinal.lib.bus.misc._
-import spinal.lib.bus.wishbone._
 import spinal.lib.wishbone.sim._
 import spinal.lib.sim._
+
 import scala.util.Random
 import scala.collection.Seq
 
@@ -55,7 +55,7 @@ class SpinalSimWishboneSimInterconTester extends AnyFunSuite{
           }
         }
 
-        scala.util.Random.shuffle(slaves).foreach{slave =>
+        Random.shuffle(slaves).foreach{slave =>
           driver_slave(slave).slaveSink()
           monitor_slave(slave, scoreboard_master)
           (0 to req).foreach{x => sequencer_master.addTransaction(WishboneTransaction(data=id).randomAdressInRange(slave._2))}
@@ -91,7 +91,7 @@ class SpinalSimWishboneSimInterconTester extends AnyFunSuite{
       val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
       val sss = scala.collection.mutable.ListBuffer[((Wishbone,Int),(Wishbone,SizeMapping))]()
 
-      scala.util.Random.shuffle(masters.zipWithIndex).foreach{master =>
+      Random.shuffle(masters.zipWithIndex).foreach{master =>
         masterPool += fork{
           send_transaction(master._2,master._1,slaves,1)
         }
