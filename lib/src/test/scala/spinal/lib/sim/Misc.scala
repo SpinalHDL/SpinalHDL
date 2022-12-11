@@ -1,8 +1,9 @@
-package spinal.tester.scalatest
+package spinal.lib.sim
 
 import org.scalatest.funsuite.AnyFunSuite
+import spinal.tester.SpinalSimFunSuite
+
 import spinal.core.sim._
-import spinal.lib.sim._
 import spinal.core._
 import spinal.lib._
 import spinal.lib.graphic.Rgb
