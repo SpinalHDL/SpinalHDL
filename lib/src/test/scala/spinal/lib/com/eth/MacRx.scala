@@ -1,11 +1,10 @@
-package spinal.tester.scalatest
+package spinal.lib.com.eth
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib._
-import spinal.lib.com.eth._
-import spinal.lib.sim.{FlowMonitor, StreamDriver, StreamMonitor, StreamReadyRandomizer}
+import spinal.lib.sim.{StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
 import scala.collection.mutable
 import scala.util.Random
