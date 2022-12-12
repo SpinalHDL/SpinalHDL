@@ -1,10 +1,9 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.amba4.axi
 
 import spinal.core._
 import spinal.core.formal._
 import spinal.lib._
 import spinal.lib.formal._
-import spinal.lib.bus.amba4.axi._
 
 object Util {
   def size2Ratio(size: UInt): UInt = {
