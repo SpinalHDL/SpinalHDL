@@ -80,7 +80,14 @@ abstract class PhysicalNumber[T <: PhysicalNumber[_]](protected val value: BigDe
   def /(that: BigDecimal) = newInstance(this.value / that)
   def %(that: BigDecimal) = newInstance(this.value % that)
 
-  def max(that: T) = newInstance(value.max(that.value))
+  def <(that: T): Boolean = this.value < that.value
+  def <=(that: T): Boolean = this.value <= that.value
+  def >(that: T): Boolean = this.value > that.value
+  def >=(that: T): Boolean = this.value >= that.value
+
+  def abs: T = newInstance(this.value.abs)
+  def max(that: T): T = newInstance(this.value.max(that.value))
+  def min(that: T): T = newInstance(this.value.min(that.value))
 
   def toInt        = value.toInt
   def toLong       = value.toLong
