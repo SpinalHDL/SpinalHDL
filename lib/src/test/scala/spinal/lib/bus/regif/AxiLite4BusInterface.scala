@@ -1,15 +1,14 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.regif
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.amba4.axilite.sim.{AxiLite4Driver, AxiLite4ReadOnlyMonitor, AxiLite4WriteOnlyMonitor}
-import spinal.lib.bus.regif.{AccessType, BusInterface}
 
 import scala.collection.mutable
-import scala.math.{BigInt}
 import scala.util.Random
 
 class RegIfTester extends Component {
