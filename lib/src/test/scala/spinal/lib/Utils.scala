@@ -3,9 +3,9 @@ package spinal.lib
 import spinal.core._
 import spinal.core.sim._
 import spinal.core.formal._
-import spinal.lib._
 import spinal.lib.formal._
 
+import spinal.tester.SpinalTesterCocotbBase
 import org.scalatest.funsuite.AnyFunSuite
 import scala.util.Random
 
@@ -188,4 +188,26 @@ class TraversableOncePimpedTester extends AnyFunSuite {
         }
       }
   }
+}
+
+object LatencyAnalysisTester{
+  import spinal.lib.math.SIntMath
+
+  class LibTester extends Component {
+    val io = new Bundle {
+      val inSIntA = in SInt (16 bit)
+      val inSIntB = in SInt (16 bit)
+      val outSInt = out SInt (32 bit)
+      val outSIntRef = out SInt (32 bit)
+    }
+    io.outSInt := SIntMath.mul(io.inSIntA, io.inSIntB, 4, 0,1,(s,l) => RegNext(s))
+    io.outSIntRef := Delay(io.inSIntA * io.inSIntB, LatencyAnalysis(io.inSIntA, io.outSInt))
+  }
+}
+
+class LibTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "LibTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/LibTester"
+  override def createToplevel: Component = new LatencyAnalysisTester.LibTester
+  withWaveform = true
 }
