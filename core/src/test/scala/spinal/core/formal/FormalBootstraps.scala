@@ -1,13 +1,10 @@
-package spinal.tester.scalatest
+package spinal.core.formal
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.formal._
 
 class FormalSimpleTester extends SpinalFormalFunSuite {
-  import spinal.core.formal._
-  import spinal.core.GenerationFlags._
-
   def startDoneTest(maxDelay : Int): Unit ={
     class StartDoneDut() extends Component {
       val start = in(Bool())
