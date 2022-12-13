@@ -84,8 +84,11 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   type C = SpinalEnumCraft[this.type]
   type E = SpinalEnumElement[this.type]
 
-  private[core] var isPrefixEnable = GlobalData.get.config.enumPrefixEnable
-  private[core] var isGlobalEnable = GlobalData.get.config.enumGlobalEnable
+  var forcedPrefixEnable : Option[Boolean] = None
+  var forcedGlobalEnable : Option[Boolean] = None
+
+  private[core] def isPrefixEnable = forcedPrefixEnable.getOrElse(GlobalData.get.config.enumPrefixEnable)
+  private[core] def isGlobalEnable = forcedGlobalEnable.getOrElse(GlobalData.get.config.enumGlobalEnable)
 
   /** Contains all elements of the enumeration */
   @dontName val elements = ArrayBuffer[SpinalEnumElement[this.type]]()
@@ -113,14 +116,14 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   }
 
   def rawElementName() = {
-    isPrefixEnable = false
+    forcedPrefixEnable = Some(false)
   }
 
   def setLocal() = {
-    isGlobalEnable = false
+    forcedGlobalEnable = Some(false)
   }
   def setGlobal() = {
-    isGlobalEnable = true
+    forcedGlobalEnable = Some(true)
   }
 }
 
