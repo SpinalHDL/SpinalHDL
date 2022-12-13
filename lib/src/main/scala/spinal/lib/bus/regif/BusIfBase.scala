@@ -46,21 +46,6 @@ trait BusIfBase extends Area{
   }
   def wdata(reg: BaseType, sec: Range): Bits = wdata(reg, sec, oper = "normal")
   def wdata(reg: BaseType, sec: Range, oper: String):Bits = {
-//    val data = oper match{
-//      case "clear" => B(0, sec.size bit)
-//      case "set"   => Bits(sec.size bit).setAll()
-//      case "normal"=> writeData
-//      case "toggle"=> ~reg.asBits(sec)
-//      case _       => SpinalError(s"unrecognize '${oper}''")
-//    }
-//    if (withstrb) {
-//      reg match {
-//        case t: Bits => (t & wmaskn(sec))        | (data(sec)       & wmask(sec))
-//        case t: UInt => (t.asBits & wmaskn(sec)) | (data(sec)       & wmask(sec))
-//        case t: SInt => (t.asBits & wmaskn(sec)) | (data(sec)       & wmask(sec))
-//        case _       => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
-//      }
-//    } else data(sec)
     oper match {
       case "clear" =>
         if(withstrb){
@@ -172,7 +157,6 @@ trait BusIf extends BusIfBase {
 
   def newRegAt(address: BigInt, doc: String)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-//    assert(address >= regPtr, s"located Position conflict to Pre allocated Address: ${regPtr}")
     val reg = creatReg(symbol.name, address, doc)
     attachAddr(address)
     regPtr = address + wordAddressInc

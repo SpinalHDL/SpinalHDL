@@ -23,10 +23,10 @@ object SizeMappingCheck{
       }
     }
     maps.foreach{  map =>
-      if(!(map.base % map.size == 0)){
+      if (map.base % map.size != 0) {
         msg.append(f"[Error] mapping at 0x${map.base.hexString(32)} is not aligned to its size (0x${map.size.hexString(16)}) bytes)")
       }
     }
-    assert(msg.isEmpty, s"\nAddress Overlap and Align check fail:\n" +msg.mkString("\n") + "\nCheck please!")
+    assert(msg.isEmpty, s"\nAddress Overlap and Align check failed:\n" +msg.mkString("\n") + "\nCheck please!")
   }
 }

@@ -1,6 +1,6 @@
 package spinal.tester.generator.regif
 
-import spinal.core.{out, _}
+import spinal.core._
 import spinal.core.sim._
 import spinal.lib.bus.regif._
 import spinal.lib.bus.regif.AccessType._
