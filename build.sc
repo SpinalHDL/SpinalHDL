@@ -98,10 +98,10 @@ object core extends SpinalModule with SpinalPublishModule {
   }
 }
 
-object tester extends SpinalModule {
+object tester extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.tester")
   def moduleDeps = Seq(core, sim, lib)
-  def scalacOptions = super.scalacOptions() ++ idslplugin.pluginOptions()
+  def scalacOptions = super.scalacOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:3.2.5")
 
   object test extends Tests with TestModule.ScalaTest {

@@ -238,7 +238,18 @@ abstract class BinaryOperatorWidthableInputs extends BinaryOperator {
   override type T = Expression with WidthProvider
 
   def checkLiteralRange(check : (BitVectorLiteral, Expression with WidthProvider) => Unit): Unit ={
-    (left, right) match {
+    def rec(that : Expression): Expression =  that match {
+      case bt : BaseType if bt.isTypeNode && bt.hasOnlyOneStatement => bt.head match {
+        case DataAssignmentStatement(target, source) if target == bt => source match {
+          case lit: Literal => lit
+          case _ => that
+        }
+        case _ => that
+      }
+      case _ => that
+    }
+
+    (rec(left), rec(right)) match {
       case (_ : BitVectorLiteral, _ : BitVectorLiteral) =>
       case (lit : BitVectorLiteral, value : T) => check(lit, value)
       case (value : T, lit : BitVectorLiteral) => check(lit, value)
