@@ -2,7 +2,6 @@ package spinal.tester.code
 
 
 import spinal.core._
-import spinal.demo.mandelbrot._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
@@ -814,32 +813,6 @@ object t8_B2 {
   //  }
 
 }
-
-
-object t9 {
-
-  class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
-    val io = new Bundle {
-      val frameTask = slave Stream FrameTask(p)
-      val pixelResult = master Stream Fragment(PixelResult(p))
-    }
-
-    val pixelTaskGenerator = new PixelTaskGenerator(p)
-    val pixelTaskDispatcher = new StreamDispatcherSequencial(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
-    val pixelTaskSolver = for (i <- 0 until p.pixelTaskSolverCount) yield new PixelTaskSolver(p)
-    val pixelResultArbiter = StreamArbiterFactory.sequentialOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
-
-    pixelTaskGenerator.io.frameTask << io.frameTask
-    pixelTaskDispatcher.io.input <-/< pixelTaskGenerator.io.pixelTask
-    for (solverId <- 0 until p.pixelTaskSolverCount) {
-      pixelTaskSolver(solverId).io.pixelTask <-/< pixelTaskDispatcher.io.outputs(solverId)
-      pixelResultArbiter.io.inputs(solverId) </< pixelTaskSolver(solverId).io.pixelResult
-    }
-    io.pixelResult <-< pixelResultArbiter.io.output
-  }
-
-}
-
 
 object t10 {
 
