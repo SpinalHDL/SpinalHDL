@@ -1,39 +1,14 @@
-package spinal.tester.scalatest
+package spinal.lib.com.spi.ddr
 
 import org.scalatest.funsuite.AnyFunSuite
+import spinal.tester.SpinalSimTester
+
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.bus.amba3.apb.Apb3
-import spinal.lib.com.i2c._
-import spinal.sim._
 import spinal.lib._
-import spinal.lib.com.spi.ddr._
-import spinal.lib.sim.{FlowMonitor, ScoreboardInOrder, SimData}
+import spinal.lib.sim.{FlowMonitor, ScoreboardInOrder}
 
-import scala.collection.mutable.ListBuffer
 import scala.util.Random
-
-
-//case class SpiDdrSlave(spi: SpiDdrMaster) {
-//  fork{
-//    while(true){
-//      waitUntil(spi.sclk.)
-//    }
-//  }
-//  def expectWrite(data: Int, mod: ParameterMod): Unit = {
-//
-//  }
-//
-//  def read(data: Int, mod: ParameterMod): Unit = {
-//
-//  }
-//}
-//
-//
-//case class SpinalSimSpiDdrCmdData(read: Boolean, write: Boolean, data: Int)
-//case class SpinalSimSpiDdrCmdSs(id : Int, enable : Boolean)
-
-
 
 class SpinalSimSpiXdrMaster extends AnyFunSuite {
   SpinalSimTester { env =>
