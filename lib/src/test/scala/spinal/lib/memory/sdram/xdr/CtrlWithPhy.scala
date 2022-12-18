@@ -1,17 +1,14 @@
-package spinal.tester.scalatest
+package spinal.lib.memory.sdram.xdr
 
 import spinal.core._
-import spinal.core.sim.SpinalSimConfig
-import spinal.lib.bus.bmb._
-import spinal.lib.memory.sdram.sdr.{MT41K128M16JT, MT47H64M16HR, MT48LC16M16A2, SdramInterface}
-import spinal.lib.memory.sdram.xdr.{BmbPortParameter, CoreParameter, CtrlParameter, CtrlWithPhy, CtrlWithoutPhy, PhyLayout, SdramTiming, SoftConfig, mt48lc16m16a2_model}
 import spinal.lib._
+
+import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.memory.sdram.sdr.{MT41K128M16JT, MT47H64M16HR, MT48LC16M16A2}
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 import spinal.lib.bus.bmb.sim.{BmbMemoryMultiPort, BmbMemoryMultiPortTester}
 import spinal.lib.eda.bench.Rtl
-import spinal.lib.memory.sdram.SdramLayout
-import spinal.lib.memory.sdram.sdr.sim.SdramModel
 import spinal.lib.memory.sdram.xdr.phy.{Ecp5Sdrx2Phy, RtlPhy, RtlPhyInterface, SdrInferedPhy, XilinxS7Phy}
 import spinal.lib.sim.Phase
 
@@ -550,7 +547,6 @@ object SdramXdrTesterHelpers{
   }
 }
 
-
 object SdramXdrDdr3SpinalSim extends App{
   import spinal.core.sim._
 
@@ -595,9 +591,6 @@ object SdramXdrDdr3SpinalSim extends App{
   }
 }
 
-
-
-
 object SdramXdrDdr2SpinalSim extends App{
   import spinal.core.sim._
 
@@ -639,8 +632,6 @@ object SdramXdrDdr2SpinalSim extends App{
     )
   }
 }
-
-
 
 object SdramXdrSdrSpinalSim extends App{
   import spinal.core.sim._
@@ -687,15 +678,8 @@ object SdramXdrSdrSpinalSim extends App{
   }
 }
 
-
-
-
-
-
-import spinal.core._
-import spinal.lib.eda.bench._
-
-object SdramSdrSyntBench extends App{
+object SdramSdrSyntBench extends App {
+  import spinal.lib.eda.bench._
 
   val ports4 = new Rtl {
     override def getName(): String = "Port4"
@@ -773,7 +757,6 @@ object SdramSdrSyntBench extends App{
     })
   }
 
-
   val rtls = List(ports4)
 
   val targets = XilinxStdTargets(
@@ -781,12 +764,7 @@ object SdramSdrSyntBench extends App{
   )
 
   Bench(rtls, targets)
-
-
-
-
 }
-
 
 object SdramSdrGen extends App{
   SpinalVerilog({
