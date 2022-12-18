@@ -1,17 +1,15 @@
 
-package spinal.tester.scalatest
+package spinal.lib.com.usb.ohci
 
 import org.scalatest.funsuite.AnyFunSuite
+
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib._
+
+import spinal.lib.com.usb._
 import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
 import spinal.lib.bus.bmb.{BmbAccessParameter, BmbParameter, BmbSourceParameter}
-import spinal.lib.com.usb._
-import spinal.lib.com.usb.ohci._
-import spinal.lib.com.usb.phy.{UsbHubLsFs, UsbLsFsPhy}
-import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
-import spinal.lib.sim._
+import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer

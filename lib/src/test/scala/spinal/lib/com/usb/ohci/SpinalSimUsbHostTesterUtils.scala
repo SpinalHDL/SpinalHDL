@@ -1,20 +1,17 @@
-package spinal.tester.scalatest
+package spinal.lib.com.usb.ohci
 
 import spinal.core._
 import spinal.core.sim._
+
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.bmb.sim._
-import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.com.usb.ohci._
-import spinal.lib.com.usb.phy.UsbHubLsFs.CtrlCc
 import spinal.lib.com.usb.phy._
-import spinal.lib.com.usb.sim.{UsbDeviceAgent, UsbDeviceAgentListener, UsbLsFsPhyAbstractIoAgent, UsbLsFsPhyAbstractIoListener}
+import spinal.lib.com.usb.sim.{UsbDeviceAgent, UsbDeviceAgentListener, UsbLsFsPhyAbstractIoAgent}
 import spinal.lib.sim._
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 import scala.collection.Seq
+import scala.util.Random
 
 class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
   val ohci = UsbOhci(p, BmbParameter(
@@ -32,7 +29,7 @@ class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
   val ctrl = ohci.io.ctrl.toIo
   val dma = ohci.io.dma.toIo
 
-  val phyCc = CtrlCc(p.portCount, ClockDomain.current, phyCd)
+  val phyCc = UsbHubLsFs.CtrlCc(p.portCount, ClockDomain.current, phyCd)
   phyCc.input <> ohci.io.phy
   phyCc.output <> phy.io.ctrl
   val usb = phy.io.usb.toIo
