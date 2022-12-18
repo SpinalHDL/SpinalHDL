@@ -1,14 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib.system.dma.sg
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.core.HardType
-import spinal.lib.bus.bmb.{Bmb, BmbParameter, BmbSlaveFactory}
-import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
-import spinal.lib.system.dma.sg.{DmaSg, DmaSgTester, SgDmaTestsParameter}
-import spinal.core.sim._
 
 import scala.util.Random
-import org.scalatest.{ParallelTestExecution, BeforeAndAfterAll}
 
 class SpinalSimDmaSgTester extends AnyFunSuite {
   Random.setSeed(42)
