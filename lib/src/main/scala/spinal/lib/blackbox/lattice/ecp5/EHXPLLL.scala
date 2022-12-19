@@ -40,6 +40,13 @@ object EHXPLLLConfig {
   private def VCO_MAX: HertzNumber = 800 MHz
   private def VCO_MIN: HertzNumber = 400 MHz
 
+  private def CLK_IN_MIN: HertzNumber = 8 MHz
+  private def CLK_IN_MAX: HertzNumber = 400 MHz
+
+  private def CLK_OUT_MIN: HertzNumber = 3.125 MHz
+  private def CLK_OUT_MAX: HertzNumber = 400 MHz
+
+
   /**
     * Calculates the dividers required for the CLKOP path
     * @param inFreq CLKI frequency
@@ -105,24 +112,24 @@ case class EHXPLLLConfig(clkiFreq: HertzNumber,
   val clkos3Freq = vcoFreq/os3Div
 
   // Check frequencies
-  assert(clkiFreq.toBigDecimal >= 8000000L &&
-    clkiFreq.toBigDecimal <= 400000000L, s"EHXPLLL CLKI frequency must be >= 8MHz and <= 400MHz. Was ${clkiFreq}")
-  assert(clkopFreq.toBigDecimal >= 3125000L &&
-    clkopFreq.toBigDecimal <= 400000000L, s"EHXPLLL CLKOP frequency must be >= 3.125MHz and <= 400MHz. Was ${clkopFreq}")
+  assert(clkiFreq >= EHXPLLLConfig.CLK_IN_MIN &&
+    clkiFreq <= EHXPLLLConfig.CLK_IN_MAX, s"EHXPLLL CLKI frequency must be >= 8MHz and <= 400MHz. Was ${clkiFreq}")
+  assert(clkopFreq >= EHXPLLLConfig.CLK_OUT_MIN &&
+    clkopFreq <= EHXPLLLConfig.CLK_OUT_MAX, s"EHXPLLL CLKOP frequency must be >= 3.125MHz and <= 400MHz. Was ${clkopFreq}")
   if (osDiv != -1)
-    assert(clkosFreq.toBigDecimal >= 3125000L &&
-      clkosFreq.toBigDecimal <= 400000000L, "EHXPLLL CLKOS frequency must be >= 3.125MHz and <= 400MHz")
+    assert(clkosFreq >= EHXPLLLConfig.CLK_OUT_MIN &&
+      clkosFreq <= EHXPLLLConfig.CLK_OUT_MAX, "EHXPLLL CLKOS frequency must be >= 3.125MHz and <= 400MHz")
   if (os2Div != -1)
-    assert(clkos2Freq.toBigDecimal >= 3125000L &&
-      clkos2Freq.toBigDecimal <= 400000000L, "EHXPLLL CLKOS2 frequency must be >= 3.125MHz and <= 400MHz")
+    assert(clkos2Freq >= EHXPLLLConfig.CLK_OUT_MIN &&
+      clkos2Freq <= EHXPLLLConfig.CLK_OUT_MAX, "EHXPLLL CLKOS2 frequency must be >= 3.125MHz and <= 400MHz")
   if (os3Div != -1)
-    assert(clkos3Freq.toBigDecimal >= 3125000L &&
-      clkos3Freq.toBigDecimal <= 400000000L, "EHXPLLL CLKOS3 frequency must be >= 3.125MHz and <= 400MHz")
+    assert(clkos3Freq >= EHXPLLLConfig.CLK_OUT_MIN &&
+      clkos3Freq <= EHXPLLLConfig.CLK_OUT_MAX, "EHXPLLL CLKOS3 frequency must be >= 3.125MHz and <= 400MHz")
   if (clkfbFreq != null)
-    assert(clkfbFreq.toBigDecimal >= 8000000L &&
-      clkfbFreq.toBigDecimal <= 400000000L, "EHXPLLL CLKFB frequency must be >= 8MHz and <= 400MHz")
-  assert(vcoFreq.toBigDecimal >= 400000000L &&
-    vcoFreq.toBigDecimal <= 800000000L, "EHXPLLL resulting VCO frequency must be >= 400MHz and <= 800MHz")
+    assert(clkfbFreq >= EHXPLLLConfig.CLK_IN_MIN &&
+      clkfbFreq <= EHXPLLLConfig.CLK_IN_MAX, "EHXPLLL CLKFB frequency must be >= 8MHz and <= 400MHz")
+  assert(vcoFreq >= EHXPLLLConfig.VCO_MIN &&
+         vcoFreq <= EHXPLLLConfig.VCO_MAX, "EHXPLLL resulting VCO frequency must be >= 400MHz and <= 800MHz")
 
 }
 
