@@ -44,7 +44,9 @@ object EHXPLLLConfig {
     var mDiv: BigDecimal = 1
     var fbDiv: BigDecimal = 1
     var err: BigDecimal = calculateError(inFreq.toBigDecimal, outFreq.toBigDecimal, fbDiv/mDiv)
-    while(mDiv < 128 && fbDiv < 128 && err.abs > tolerance) {
+    while(mDiv < 128 && fbDiv < 128 &&
+          (err.abs > tolerance || (inFreq.toBigDecimal*fbDiv)/mDiv <= VCO_MIN.toBigDecimal) &&
+          (inFreq.toBigDecimal*fbDiv)/mDiv <= VCO_MAX.toBigDecimal) {
       err = calculateError(inFreq.toBigDecimal, outFreq.toBigDecimal, fbDiv/mDiv)
       if (err < 0) {
         mDiv += 1
