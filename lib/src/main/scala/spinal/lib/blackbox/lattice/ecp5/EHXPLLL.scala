@@ -5,37 +5,19 @@ import spinal.core._
 object EHXPLLLConfig {
 
   trait FeedbackType {
-    override def toString: String = ???
+    override def toString: String = this.getClass.getSimpleName.dropRight(1)
   }
   // Uses clock but expects this to be fed back in through CLKFB at the selected frequency
-  object CLKOP extends FeedbackType {
-    override def toString: String = "CLKOP"
-  }
-  object CLKOS extends FeedbackType {
-    override def toString: String = "CLKOS"
-  }
-  object CLKOS2 extends FeedbackType {
-    override def toString: String = "CLKOS2"
-  }
-  object CLKOS3 extends FeedbackType {
-    override def toString: String = "CLKOS3"
-  }
+  object CLKOP extends FeedbackType {}
+  object CLKOS extends FeedbackType {}
+  object CLKOS2 extends FeedbackType {}
+  object CLKOS3 extends FeedbackType {}
   // Uses internal connections from the selected clock
-  object INT_CLKOP extends FeedbackType {
-    override def toString: String = "CLKOP"
-  }
-  object INT_CLKOS extends FeedbackType {
-    override def toString: String = "CLKOS"
-  }
-  object INT_CLKOS2 extends FeedbackType {
-    override def toString: String = "CLKOS2"
-  }
-  object INT_CLKOS3 extends FeedbackType {
-    override def toString: String = "CLKOS3"
-  }
-  object USER extends FeedbackType {
-    override def toString: String = "USERCLOCK"
-  }
+  object INT_CLKOP extends FeedbackType {}
+  object INT_CLKOS extends FeedbackType {}
+  object INT_CLKOS2 extends FeedbackType {}
+  object INT_CLKOS3 extends FeedbackType {}
+  object USERCLOCK extends FeedbackType {}
 
   private def VCO_MAX: HertzNumber = 800 MHz
   private def VCO_MIN: HertzNumber = 400 MHz
@@ -103,7 +85,7 @@ case class EHXPLLLConfig(clkiFreq: HertzNumber,
     case EHXPLLLConfig.CLKOS | EHXPLLLConfig.INT_CLKOS => (clkiFreq * osDiv * fbDiv) / mDiv
     case EHXPLLLConfig.CLKOS2 | EHXPLLLConfig.INT_CLKOS2 => (clkiFreq * os2Div * fbDiv) / mDiv
     case EHXPLLLConfig.CLKOS3 | EHXPLLLConfig.INT_CLKOS3 => (clkiFreq * os3Div * fbDiv) / mDiv
-    case EHXPLLLConfig.USER => clkiFreq / mDiv
+    case EHXPLLLConfig.USERCLOCK => clkiFreq / mDiv
   }
 
   val clkopFreq = vcoFreq/opDiv
