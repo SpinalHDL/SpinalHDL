@@ -711,7 +711,7 @@ class StreamArbiterFactory {
     val arbiter = build(inputs(0).payloadType, inputs.size)
     (arbiter.io.inputs, inputs).zipped.foreach(_ << _)
     val ret = arbiter.io.output.combStage()
-    arbiter.setCompositeName(ret, "arbiter")
+//    arbiter.setCompositeName(ret, "arbiter")
     ret
   }
 
