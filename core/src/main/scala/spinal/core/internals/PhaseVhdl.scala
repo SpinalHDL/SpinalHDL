@@ -38,7 +38,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     var targetFilePath = ""
 
     if (pc.config.oneFilePerComponent) {
-      val fileList = new java.io.FileWriter(pc.config.targetDirectory + "/" + topLevel.definitionName + ".lst")
+      val fileList: mutable.LinkedHashSet[String] = new mutable.LinkedHashSet()
 
       // Emit enums
       targetFilePath = pc.config.targetDirectory + "/" + "pkg_enum.vhd"
@@ -48,7 +48,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       outFile.flush()
       outFile.close()
       report.generatedSourcesPaths += targetFilePath
-      fileList.write(targetFilePath + "\n")
+      fileList += targetFilePath
 
       // Emit utility functions
       if (pc.config.genVhdlPkg) {
@@ -59,8 +59,10 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
         outFile.flush()
         outFile.close()
         report.generatedSourcesPaths += targetFilePath
-        fileList.write(targetFilePath + "\n")
+        fileList += targetFilePath
       }
+
+      val bbImplStrings = mutable.HashSet[String]()
 
       // Emit each component
       for (c <- sortedComponents) {
@@ -76,12 +78,33 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
             outFile.flush()
             outFile.close()
             report.generatedSourcesPaths += targetFilePath
-            fileList.write(targetFilePath + "\n")
+            fileList += targetFilePath
+          }
+          c match {
+            case bb: BlackBox => {
+              fileList ++= bb.listRTLPath
+              if (bb.impl != null) {
+                val str = bb.impl.getVhdl()
+                if (!bbImplStrings.contains(str)) {
+                  outFile = new java.io.FileWriter(targetFilePath)
+                  outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
+                  outFile.write(str)
+                  outFile.flush()
+                  outFile.close()
+                  fileList += targetFilePath
+                  bbImplStrings += str
+                }
+              }
+            }
+            case _ =>
           }
         }
       }
-      fileList.flush()
-      fileList.close()
+
+      val fileListFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + topLevel.definitionName + ".lst")
+      fileList.foreach(file => fileListFile.write(file.replace("//", "/") + "\n"))
+      fileListFile.flush()
+      fileListFile.close()
     } else {
       // All in one
       targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName)
@@ -574,19 +597,19 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "  function pkg_stdLogicVector (lit : std_logic_vector) return std_logic_vector is\n"
     ret ++= "    alias ret : std_logic_vector(lit'length-1 downto 0) is lit;\n"
     ret ++= "  begin\n"
-    ret ++= "    return ret;\n"
+    ret ++= "    return std_logic_vector(ret);\n"
     ret ++= "  end pkg_stdLogicVector;\n"
     ret ++= "\n"
     ret ++= "  function pkg_unsigned (lit : unsigned) return unsigned is\n"
     ret ++= "    alias ret : unsigned(lit'length-1 downto 0) is lit;\n"
     ret ++= "  begin\n"
-    ret ++= "    return ret;\n"
+    ret ++= "    return unsigned(ret);\n"
     ret ++= "  end pkg_unsigned;\n"
     ret ++= "\n"
     ret ++= "  function pkg_signed (lit : signed) return signed is\n"
     ret ++= "    alias ret : signed(lit'length-1 downto 0) is lit;\n"
     ret ++= "  begin\n"
-    ret ++= "    return ret;\n"
+    ret ++= "    return signed(ret);\n"
     ret ++= "  end pkg_signed;\n"
     ret ++= "\n"
     ret ++= "  function pkg_resize (that : std_logic_vector; width : integer) return std_logic_vector is\n"

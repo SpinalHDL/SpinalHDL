@@ -310,7 +310,7 @@ class PhaseAnalog extends PhaseNetlist{
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapDrivingExpressions{e => e match {
       case source : BaseType => wraps.get(source) match {
         case Some(target) if c == target.component => target
-        case None => e
+        case _ => e
       }
       case _ => e
     }}))
@@ -1282,7 +1282,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             errors += s"Negative width on $e at ${e.getScalaLocationLong}"
           }
 
-          if (e.inferredWidth > 4096) {
+          if (e.inferredWidth > pc.config.bitVectorWidthMax) {
             errors += s"Way too big signal $e at ${e.getScalaLocationLong}"
           }
         }
@@ -1830,12 +1830,42 @@ class PhaseCompletSwitchCases extends PhaseNetlist{
     import pc._
 
     walkStatements{
-      case s: SwitchStatement if s.isFullyCoveredWithoutDefault && !s.coverUnreachable =>
-        if(s.defaultScope != null && !s.defaultScope.isEmpty){
-          PendingError(s"UNREACHABLE DEFAULT STATEMENT on \n" + s.getScalaLocationLong)
+      case s: SwitchStatement =>
+        var failed = false
+        s.elements.foreach{element =>
+          if(element.keys.size > 1){
+            val fliter = mutable.HashSet[BigInt]()
+            val toRemove = ArrayBuffer[Expression]()
+            element.keys.foreach { e =>
+              var special = false
+              val v = e match {
+                case lit: EnumLiteral[_] => BigInt(lit.senum.position)
+                case lit: Literal => lit.getValue()
+                case kb : SwitchStatementKeyBool if kb.key != null && !kb.key.withDontCare => kb.key.value
+                case _ => special = true; BigInt(0)
+              }
+              if(!special) {
+                if (fliter.contains(v)) {
+                  if(s.removeDuplication){
+                    toRemove += e
+                  } else {
+                    PendingError(s"DUPLICATED ELEMENTS IN SWITCH IS(...) STATEMENT. value=$v\n" + element.getScalaLocationLong)
+                    failed = true
+                  }
+                }
+                fliter += v
+              }
+            }
+            element.keys --= toRemove
+          }
         }
-        s.defaultScope = s.elements.last.scopeStatement
-        s.elements.remove(s.elements.length-1)
+        if(!failed && s.isFullyCoveredWithoutDefault && !s.coverUnreachable) {
+          if (s.defaultScope != null && !s.defaultScope.isEmpty) {
+            PendingError(s"UNREACHABLE DEFAULT STATEMENT on \n" + s.getScalaLocationLong)
+          }
+          s.defaultScope = s.elements.last.scopeStatement
+          s.elements.remove(s.elements.length - 1)
+        }
       case _ =>
     }
   }
@@ -2226,30 +2256,18 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
 class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
   override def impl(pc: PhaseContext) : Unit = {
     import pc._
-
-//    walkComponents{ c =>
-//      for((key, pulledData) <- c.pulledDataCache; if pulledData.hasTag(PropagatePullNameTag)){
-//        def rec(c : Component): Unit = {
-//          c.pulledDataCache.get(pulledData) match {
-//            case Some(x) => {
-//              c.setName(key.getName())
-//              c.children.foreach(rec)
-//            }
-//            case None =>
-//          }
-//        }
-//        pulledData.component.children.foreach(rec)
-//      }
-//    }
+    val algoId = globalData.allocateAlgoIncrementale() //Allows to avoid chaining allocated names
 
     walkStatements{
-      case dst : BaseType => if (dst.isNamed) {
+      case dst : BaseType => if (dst.isNamed && dst.algoIncrementale != algoId) {
         def explore(bt: BaseType, depth : Int): Unit = {
           bt.foreachStatements{s =>
             s.walkDrivingExpressions{
-              case src : BaseType => if(src.isUnnamed){
+              case src : BaseType => if(src.isUnnamed || (src.algoIncrementale == algoId && src.algoInt > depth)){
                 src.unsetName()
                 src.setWeakName(globalData.anonymSignalPrefix + "_" + dst.getName())
+                src.algoIncrementale = algoId
+                src.algoInt = depth
                 explore(src, depth + 1)
               }
               case _ =>
@@ -2292,7 +2310,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
         encodingsScope.iWantIt(encoding.getName(),s"Reserved name ${encoding.getName()} is not free for ${encoding.toString()}")
     }
 
-    for (c <- sortedComponents) {
+    for (c <- sortedComponents.reverse) {
       if (c.isInstanceOf[BlackBox] && c.asInstanceOf[BlackBox].isBlackBox)
         globalScope.lockName(c.definitionName)
       else if(!c.definitionNameNoMerge)
@@ -2301,7 +2319,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 
     globalScope.lockScope()
 
-    for (c <- sortedComponents) {
+    for (c <- sortedComponents.reverse) {
       c.allocateNames(pc.globalScope)
     }
   }
@@ -2381,7 +2399,10 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
       native //Avoid unconstructable during phase
       binarySequential
       binaryOneHot
-      gen
+      val top = gen
+      if(top.isInBlackBoxTree){
+        SpinalError(s"The toplevel can't be a BlackBox (${top.getClass.getSimpleName})")
+      }
       ctx.restore()
 //      assert(DslScopeStack.get != null, "The SpinalHDL context seems wrong, did you included the idslplugin in your scala build scripts ? This is a Scala compiler plugin, see https://github.com/SpinalHDL/SpinalTemplateSbt/blob/666dcbba79181659d0c736eb931d19ec1dc17a25/build.sbt#L13.")
     }

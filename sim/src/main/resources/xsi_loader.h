@@ -44,6 +44,7 @@ public:
     void trace_all();
     XSI_INT32 get_sim_time_precision();
     XSI_INT64 get_time();
+    XSI_INT32 get_int_port(int port_number, int property);
 
 private:
     bool initialize();
@@ -68,6 +69,7 @@ private:
     t_fp_xsi_trace_all _xsi_trace_all;
     t_fp_xsi_get_time _xsi_get_time;
     t_fp_xsi_get_int _xsi_get_int;
+    t_fp_xsi_get_int_port _xsi_get_int_port;
 
 }; // class Loader
 

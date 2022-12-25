@@ -1,6 +1,6 @@
 package spinal.sim
 
-import java.nio.file.{Paths, Files, Path}
+import java.nio.file.Paths
 import java.io.{File, PrintWriter}
 import java.lang.Thread
 import scala.io.Source
@@ -11,6 +11,9 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.sys.process._
 import spinal.sim.xsi._
+
+import scala.collection.mutable
+import scala.util.Properties
 
 case class XSimBackendConfig(
                              val rtlIncludeDirs : ArrayBuffer[String] = ArrayBuffer[String](),
@@ -23,7 +26,10 @@ case class XSimBackendConfig(
                              var workspacePath: String  = null,
                              var workspaceName: String  = null,
                              var wavePath: String       = null,
-                             var waveFormat: WaveFormat = WaveFormat.NONE
+                             var waveFormat: WaveFormat = WaveFormat.NONE,
+                             var userSimulationScript: String = null,
+                             var xelabFlags: Array[String] = null,
+                             var timePrecision: String = null
                            )
 
 class XSimBackend(config: XSimBackendConfig) extends Backend {
@@ -108,8 +114,8 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
 
   class Logger extends ProcessLogger {
     val logs = new StringBuilder()
-    override def err(s: => String): Unit = { logs ++= (s) }
-    override def out(s: => String): Unit = { logs ++= (s) }
+    override def err(s: => String): Unit = { logs ++= (s + Properties.lineSeparator) }
+    override def out(s: => String): Unit = { logs ++= (s + Properties.lineSeparator) }
     override def buffer[T](f: => T) = f
   }
 
@@ -156,19 +162,44 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     val importBd = bdAbsoluteSourcesPaths map { p =>
       s"import_files -force -quiet [findFiles $p *.bd]"
     }
-    val generateSimulateScript =
+
+    val moreOptions = mutable.ArrayBuffer[String]()
+    if (config.xelabFlags != null) {
+      moreOptions ++= config.xelabFlags
+    }
+    if (config.timePrecision != null) {
+      val timePrecision = config.timePrecision.replace(" ","")
+      moreOptions += "-override_timeprecision"
+      moreOptions += "-timescale " + timePrecision + "/" + timePrecision
+      moreOptions += "-timeprecision_vhdl " + timePrecision
+    }
+
+    val generateSimulateScriptPre =
       s"""
         |update_compile_order -fileset sources_1
         |set_property top $toplevelName [get_fileset sim_1]
+        |set_property -name {xelab.dll} -value {1} -objects [get_filesets sim_1]
+        |set_property -name {xelab.more_options} -value {${moreOptions.mkString(" ")}} -objects [get_filesets sim_1]
+        |""".stripMargin
+
+    val generateSimulateScriptPost =
+      s"""
         |launch_simulation -scripts_only
         |close_project
         |""".stripMargin
+
+    if (config.userSimulationScript == null) {
+      config.userSimulationScript = ""
+    }
+
     val script = Seq(findFiles,
       createProject,
       importRtl.mkString("\n"),
       importXsi.mkString("\n"),
       importBd.mkString("\n"),
-      generateSimulateScript).mkString("\n")
+      generateSimulateScriptPre,
+      config.userSimulationScript,
+      generateSimulateScriptPost).mkString("\n")
 
     val outFile = new java.io.FileWriter(scriptPath)
     outFile.write(script)
@@ -187,24 +218,6 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     doCmd(command,
       new File(workPath),
       "Generation of vivado script failed")
-
-    // Fix elaborate
-    val additionalElaborateCommand = List(
-      "-dll"
-    ).mkString(" ")
-    val fixElaborateCommand = if (isWindows) {
-      s"sed \'/^call xelab/ s/$$/ ${additionalElaborateCommand}/\' -i elaborate.bat"
-    } else {
-      s"sed \'/^xelab/ s/$$/ ${additionalElaborateCommand}/\' -i elaborate.sh"
-    }
-    val outFile2 = new java.io.FileWriter(fixScriptPath)
-    outFile2.write(fixElaborateCommand)
-    outFile2.flush()
-    outFile2.close()
-
-    doCmd(s"sh $fixScriptPath",
-      new File(simulatePath),
-      "Fix vivado elaborate command failed")
   }
 
   def getScriptCommand(cmd: String) = {

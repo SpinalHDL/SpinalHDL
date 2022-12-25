@@ -23,7 +23,7 @@ package spinal.core.internals
 import spinal.core._
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc with VerilogBase {
@@ -36,9 +36,9 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
   override def impl(pc: PhaseContext): Unit = {
 
-    report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     if (!pc.config.oneFilePerComponent) {
+      report.generatedSourcesPaths += targetPath
       outFile = new java.io.FileWriter(targetPath)
       outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
 
@@ -75,21 +75,22 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       outFile.close()
     }
     else {
-      val fileList = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
+      val fileList: mutable.LinkedHashSet[String] = new mutable.LinkedHashSet()
       // dump Enum define to define.v instead attach that on every .v file
-      if(!enums.isEmpty){
+      if(enums.nonEmpty){
         val defineFileName = pc.config.targetDirectory + "/enumdefine" + (if(pc.config.isSystemVerilog) ".sv" else ".v")
         val defineFile = new java.io.FileWriter(defineFileName)
         emitEnumPackage(defineFile)
         defineFile.flush()
         defineFile.close()
-        fileList.write(defineFileName.replace("//", "/") + "\n")
+        fileList += defineFileName
       }
 
       val bbImplStrings = mutable.HashSet[String]()
       for (c <- sortedComponents) {
         val moduleContent = compile(c)()
         val targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(c.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
+        report.generatedSourcesPaths += targetFilePath
 
         if (!moduleContent.contains("replaced by")) {
           if (!c.isInBlackBoxTree) {
@@ -100,29 +101,33 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
             outFile.write(moduleContent)
             outFile.flush()
             outFile.close()
-            fileList.write(targetFilePath.replace("//", "/") + "\n")
+            fileList += targetFilePath
           }
           c match {
-            case bb: BlackBox if bb.impl != null => {
-              val str = bb.impl.getVerilog()
-              if(!bbImplStrings.contains(str)) {
-                outFile = new java.io.FileWriter(targetFilePath)
-                outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, c, config.headerWithDate, config.headerWithRepoHash))
-                outFile.write("`timescale 1ns/1ps ")
-                outFile.write(str)
-                outFile.flush()
-                outFile.close()
-                fileList.write(targetFilePath.replace("//", "/") + "\n")
-                bbImplStrings += str
+            case bb: BlackBox =>
+              fileList ++= bb.listRTLPath
+              if (bb.impl != null) {
+                val str = bb.impl.getVerilog()
+                if(!bbImplStrings.contains(str)) {
+                  outFile = new java.io.FileWriter(targetFilePath)
+                  outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, c, config.headerWithDate, config.headerWithRepoHash))
+                  outFile.write("`timescale 1ns/1ps ")
+                  outFile.write(str)
+                  outFile.flush()
+                  outFile.close()
+                  fileList += targetFilePath
+                  bbImplStrings += str
+                }
               }
-            }
             case _ =>
           }
         }
       }
 
-      fileList.flush()
-      fileList.close()
+      val fileListFile = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
+      fileList.foreach(file => fileListFile.write(file.replace("//", "/") + "\n"))
+      fileListFile.flush()
+      fileListFile.close()
     }
   }
 

@@ -21,9 +21,18 @@ class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) ex
   val readRsp = AxiLite4R(bus.config)
   bus.readRsp << readDataStage.haltWhen(readHaltRequest).translateWith(readRsp)
 
+  when(writeErrorFlag) {
+    writeRsp.setSLVERR()
+  }otherwise {
+    writeRsp.setOKAY()
+  }
 
-  writeRsp.setOKAY()
-  readRsp.setOKAY()
+  when(readErrorFlag){
+    readRsp.setSLVERR()
+  }otherwise {
+    readRsp.setOKAY()
+  }
+
   readRsp.data := 0
 
   override def writeByteEnable() : Bits = useWriteStrobes generate(bus.writeData.strb)
@@ -34,7 +43,6 @@ class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) ex
 
   override def readAddress(): UInt  = readAddressMasked
   override def writeAddress(): UInt = writeAddressMasked
-
 
   override def readHalt(): Unit = readHaltRequest := True
   override def writeHalt(): Unit = writeHaltRequest := True

@@ -74,7 +74,7 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     slave(r)
   }
 
-  def formalContext(maxBursts: Int = 16) = new Area {
+  def formalContext(maxBursts: Int = 16) = new Composite(this, "formal") {
     import spinal.core.formal._
     val addrChecker = ar.payload.formalContext()
 
@@ -90,18 +90,40 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
 
     val (arExist, arId) = hist.findFirst(x => x.valid && !x.axDone)
     val (rExist, rId) =
-      hist.findFirst(x => x.valid && !x.responsed && { if (config.useId) r.id === x.id else True })
+      hist.findFirst(x => x.valid && !x.seenLast && { if (config.useId) r.id === x.id else True })
+    hist.io.outStreams.zipWithIndex.foreach { case (x, i) =>
+      when (arExist & x.valid & i < arId) { assert(!x.axDone) }
+      when (rExist & x.valid & { if (config.useId) r.id === x.id else True } & i < rId) { assert(x.count === 0 & !x.seenLast ) }
+      when (x.valid & x.seenLast) { assert(x.axDone) }
+      when (x.valid) {
+        assert(x.size <= log2Up(config.bytePerWord))
+        assert(!x.payload.checkLen())
+      }
+    }
 
-    val dataErrors = Vec(Bool(), 3)
-    dataErrors.map(_ := False)
+    val (rmExist, rmId) =
+      hist.findFirst(x => x.valid && x.seenLast && x.axDone)
+    when(rmExist) { hist.io.outStreams(rmId).ready := True }
+    
+    val (undoneExist, undoneId) = hist.findFirst(x => x.valid & !x.axDone)
+    val undoneInput = hist.io.outStreams(undoneId)
+    val undoneCount = hist.io.outStreams.sCount(x => x.valid & !x.axDone)    
+    assert(undoneCount <= 1)
+    when(undoneExist) {
+      assert(ar.valid & undoneInput.equalToAx(ar.asInstanceOf[Stream[Axi4Ax]]))
+    }
 
     val errors = new Area {
-      val DataNumberDonotFitLen = dataErrors.reduce(_ | _)
+      val reset = ClockDomain.current.isResetActive
+      val ValidWhileReset = (reset | past(reset)) & (ar.valid === True)
+      val RespWhileReset = (reset | past(reset)) & (r.valid === True)
+      val DataNumberDonotFitLen = CombInit(False)
       val NoAddrRequest = CombInit(False)
       val WrongResponseForExAccesss = CombInit(False)
     }
-
-    when(histInput.valid) { dataErrors(0) := histInput.checkLen() }
+    when(rExist) {
+      errors.NoAddrRequest := !hist.io.outStreams(rId).axDone
+    }
 
     val arRecord = CombInit(oRecord)
     val arValid = False
@@ -119,34 +141,27 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       when(arValid) {
         hist.io.inStreams(arId).payload := arRecord
         hist.io.inStreams(arId).valid := arValid
-        dataErrors(1) := arRecord.checkLen()
       }
     }
 
     val rRecord = CombInit(oRecord)
-    val rValid = False
     val dataLogic = new Area {
       val selected = CombInit(oRecord)
       when(r.valid) {
         when(rExist) {
           rRecord := hist.io.outStreams(rId)
           selected := hist.io.outStreams(rId)
-          when(arValid && rId === arId) {
-            arRecord.assignFromR(r, selected)
-          }.otherwise { rRecord.assignFromR(r, selected); rValid := True }
 
-          hist.io.outStreams(rId).ready := r.ready & rRecord.axDone & r.last
+          rRecord.allowOverride
+          rRecord.assignFromR(r, selected)
+          hist.io.inStreams(rId).payload := rRecord
+          hist.io.inStreams(rId).valid := True
 
-          errors.NoAddrRequest := !selected.axDone
           if (config.useResp && config.useLock)
             errors.WrongResponseForExAccesss := selected.axDone & r.resp === Axi4.resp.EXOKAY & !selected.isLockExclusive
+          errors.DataNumberDonotFitLen := rRecord.checkLen()
 
         }.otherwise { errors.NoAddrRequest := True }
-      }
-      when(rValid) {
-        hist.io.inStreams(rId).payload := rRecord
-        hist.io.inStreams(rId).valid := rValid
-        dataErrors(2) := rRecord.checkLen()
       }
     }
     
@@ -154,50 +169,54 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
       histInput.valid := True
     }
 
-    def withMasterAsserts(maxStallCycles: Int = 0) = {
-      ar.withAsserts()
-      r.withTimeoutAsserts(maxStallCycles)
+    def formalAssertsMaster(maxStallCycles: Int = 0) = new Area {
+      ar.formalAssertsMaster()
+      r.formalAssertsTimeout(maxStallCycles)
 
       when(ar.valid) {
-        addrChecker.withAsserts()
+        addrChecker.formalAsserts()
       }
+      assert(!errors.ValidWhileReset)
     }
 
-    def withMasterAssumes(maxStallCycles: Int = 0) = {
-      ar.withTimeoutAssumes(maxStallCycles)
-      r.withAssumes()
+    def formalAssumesMaster(maxStallCycles: Int = 0) = new Area {
+      ar.formalAssumesTimeout(maxStallCycles)
+      r.formalAssumesSlave()
 
       assume(!errors.DataNumberDonotFitLen)
       assume(!errors.NoAddrRequest)
-      assume(!errors.WrongResponseForExAccesss)
+      assume(!errors.WrongResponseForExAccesss)      
+      assume(!errors.RespWhileReset)
     }
 
-    def withSlaveAsserts(maxStallCycles: Int = 0) = {
-      ar.withTimeoutAsserts(maxStallCycles)
-      r.withAsserts()
+    def formalAssertsSlave(maxStallCycles: Int = 0) = new Area {
+      ar.formalAssertsTimeout(maxStallCycles)
+      r.formalAssertsMaster()
 
       assert(!errors.DataNumberDonotFitLen)
       assert(!errors.NoAddrRequest)
       assert(!errors.WrongResponseForExAccesss)
+      assert(!errors.RespWhileReset)
     }
 
-    def withSlaveAssumes(maxStallCycles: Int = 0) = {
-      ar.withAssumes()
-      r.withTimeoutAssumes(maxStallCycles)
+    def formalAssumesSlave(maxStallCycles: Int = 0) = new Area {
+      ar.formalAssumesSlave()
+      r.formalAssumesTimeout(maxStallCycles)
 
       when(ar.valid) {
-        addrChecker.withAssumes()
+        addrChecker.formalAssumes()
       }
+      assume(!errors.ValidWhileReset)
     }
 
-    def withCovers() = {
-      ar.withCovers(2)
+    def formalCovers() = new Area {
+      ar.formalCovers(2)
       when(ar.fire) {
-        addrChecker.withCovers()
+        addrChecker.formalCovers()
       }
-      r.withCovers(2)
+      r.formalCovers(2)
       when(r.fire) {
-        r.payload.withCovers()
+        r.payload.formalCovers()
       }
     }
   }

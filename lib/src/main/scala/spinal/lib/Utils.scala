@@ -31,11 +31,8 @@ import scala.collection.generic.Growable
 
 object UIntToOh {
   def apply(value: UInt, width : Int): Bits = {
-    val ret = Bits(width bits)
-    for(i <- 0 until width){
-      ret(i) := value === i
-    }
-    ret
+    if(width <= 0) B(0,width bits)
+    else B(1, width bits) |<< value
   }
 
   def apply(value : UInt) : Bits = apply(value,  1 << widthOf(value))
@@ -492,6 +489,10 @@ class BitAggregator {
 //  def set = value := True
 //}
 
+/** Creates an always running counter
+  *
+  * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
+  */
 object CounterFreeRun {
   def apply(stateCount: BigInt): Counter = {
     val c = Counter(stateCount)
@@ -501,6 +502,10 @@ object CounterFreeRun {
   }
 }
 
+/** Creates a counter
+  *
+  * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
+  */
 object Counter {
   def apply(start: BigInt,end: BigInt) : Counter  = new Counter(start = start, end = end)
   def apply(range : Range) : Counter = {
@@ -568,6 +573,12 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
     flow.valid := willIncrement
     flow
   }
+
+  def init(initValue : BigInt): this.type ={
+    value.removeInitAssignments()
+    value.init(initValue)
+    this
+  }
 }
 
 object Timeout {
@@ -593,6 +604,12 @@ class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
     state := False
     stateRise := False
   }
+
+  def clearWhen(cond : Bool) : this.type = {
+    when(cond){counter.clear()}
+    this
+  }
+
 
   override def implicitValue: Bool = state
 }
@@ -664,7 +681,12 @@ class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
     assert(false,"TODO")
   }
 
-
+  def init(initValue : BigInt): this.type ={
+    value.removeInitAssignments()
+    value.init(initValue)
+    this
+  }
+  
   override def implicitValue: UInt = this.value
 }
 
@@ -1300,6 +1322,41 @@ object whenIndexed{
       }
     }
   }
+}
+
+case class WhenBuilder(){
+    var ctx:WhenContext = null
+
+    def when(cond : Bool)(body : => Unit): this.type = {
+        if(ctx == null){
+            ctx = spinal.core.when(cond){body}
+        }
+        else{
+            ctx = ctx.elsewhen(cond){body}
+        }
+        this
+    }
+
+    def elsewhen(cond : Bool)(body : => Unit): this.type = {
+        this.when(cond)(body)
+        this
+    }
+
+    def apply(cond : Bool)(body : => Unit): this.type = {
+        this.when(cond)(body)
+        this
+    }
+
+    def otherwise(body : => Unit): Unit = {
+        if(ctx == null){
+            body
+        }
+        else{
+            ctx.otherwise{
+                body
+            }
+        }
+    }
 }
 
 

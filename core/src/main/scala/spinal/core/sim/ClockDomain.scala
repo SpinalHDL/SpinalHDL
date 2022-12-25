@@ -20,7 +20,7 @@
 \*                                                                           */
 package spinal.core.sim
 
-import spinal.core.{Bool, ClockDomain, EdgeKind, HIGH, LOW, Polarity}
+import spinal.core.{Bool, ClockDomain, EdgeKind, HIGH, LOW, Polarity, TimeNumber}
 import spinal.core.sim._
 import spinal.sim.{SimCallSchedule}
 
@@ -112,6 +112,10 @@ object SimSpeedPrinter {
 object SimTimeout {
 
   def apply(duration: Long): Unit = delayed(duration) {
+    simFailure(s"Timeout trigger after $duration units of time")
+  }
+
+  def apply(duration: TimeNumber): Unit = delayed(duration) {
     simFailure(s"Timeout trigger after $duration units of time")
   }
 }

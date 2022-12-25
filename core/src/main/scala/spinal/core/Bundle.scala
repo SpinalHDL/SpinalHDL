@@ -166,7 +166,7 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
     }
   }
 
-  private var elementsCache = ArrayBuffer[(String, Data)]()
+  var elementsCache = ArrayBuffer[(String, Data)]()
 
   override def valCallbackRec(ref: Any, name: String): Unit = ref match {
     case ref : Data => {
