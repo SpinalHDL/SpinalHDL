@@ -284,6 +284,7 @@ object GraphUtils{
 class BooleanPimped(pimped : Boolean){
   def generate[T](block : => T) : T = if(pimped) block else null.asInstanceOf[T]
   def toInt = if(pimped) 1 else 0
+  def mux[T <: Data](whenTrue : => T, whenFalse : => T) : T = if(pimped) whenTrue else whenFalse
 }
 
 
