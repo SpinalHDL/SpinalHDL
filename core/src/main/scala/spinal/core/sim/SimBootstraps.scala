@@ -890,9 +890,23 @@ case class SpinalSimConfig(
     new File(s"tmp").mkdirs()
     new File(s"tmp/job_$uniqueId").mkdirs()
     val config = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new PhaseNetlist {
-      override def impl(pc: PhaseContext): Unit = pc.walkComponents{
-        case b : BlackBox if b.isBlackBox && b.isSpinalSimWb => b.clearBlackBox()
-        case _ =>
+      override def impl(pc: PhaseContext): Unit = {
+        //Ensure the toplevel pull its clock domain
+        pc.topLevel.rework{
+          val cd = pc.topLevel.clockDomain
+          if(cd != null){
+            if (cd.clock != null) cd.readClockWire
+            if (cd.reset != null) cd.readResetWire
+            if (cd.softReset != null) cd.readSoftResetWire
+            if (cd.clockEnable != null) cd.readClockEnableWire
+          }
+        }
+
+        //Implement isSpinalSimWb
+        pc.walkComponents{
+          case b : BlackBox if b.isBlackBox && b.isSpinalSimWb => b.clearBlackBox()
+          case _ =>
+        }
       }
     })
     val report = _backend match {
