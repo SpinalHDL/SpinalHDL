@@ -21,28 +21,29 @@ class DataAnalyzer(data: BaseType) {
 
     def traceBaseTypeFromExpression(e: Expression): mutable.LinkedHashSet[BaseType] = {
       val ret = mutable.LinkedHashSet.newBuilder[BaseType]
-      e.foreachDrivingExpression{
-        case bt: BaseType=> ret += bt
-        case e=> ret ++= traceBaseTypeFromExpression(e)
+      e.foreachDrivingExpression {
+        case bt: BaseType => ret += bt
+        case e            => ret ++= traceBaseTypeFromExpression(e)
       }
       ret.result()
     }
 
-
-    data.foreachStatements {st=>
+    data.foreachStatements { st =>
       if (!(st.isInstanceOf[InitAssignmentStatement] || st.isInstanceOf[InitialAssignmentStatement])) {
-        st.foreachDrivingExpression{ e =>
+        st.foreachDrivingExpression { e =>
           e match {
-            case bt: BaseType=> ret += bt
-            case e=> ret ++= traceBaseTypeFromExpression(e)
+            case bt: BaseType => ret += bt
+            case e            => ret ++= traceBaseTypeFromExpression(e)
           }
         }
-        st.walkParentTreeStatementsUntilRootScope{tree=> tree.walkDrivingExpressions{ e =>
-          e match {
-            case bt: BaseType=> ret += bt
-            case e=> ret ++= traceBaseTypeFromExpression(e)
+        st.walkParentTreeStatementsUntilRootScope { tree =>
+          tree.walkDrivingExpressions { e =>
+            e match {
+              case bt: BaseType => ret += bt
+              case e            => ret ++= traceBaseTypeFromExpression(e)
+            }
           }
-        }}
+        }
       }
     }
     ret.result()
@@ -85,6 +86,7 @@ class DataAnalyzer(data: BaseType) {
 }
 
 object DataAnalyzer {
+
   /** Implicitly convert the BaseType into DataAnalyzer */
   implicit def toAnalyzer(data: BaseType): DataAnalyzer = new DataAnalyzer(data)
 }

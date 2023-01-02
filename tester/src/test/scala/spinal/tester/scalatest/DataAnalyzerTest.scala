@@ -7,8 +7,8 @@ class DataAnalyzerTest extends AnyFunSuite {
 
   case class TestModule() extends Module {
     val io = new Bundle {
-      val a = in Bits(3 bit)
-      val b = out Bits(3 bit)
+      val a = in Bits (3 bit)
+      val b = out Bits (3 bit)
     }
 
     val a0 = io.a(0)
@@ -18,10 +18,6 @@ class DataAnalyzerTest extends AnyFunSuite {
 
     io.b := (a2, a1, a0).asBits
 
-  }
-
-  test("Gen Test Module") {
-    SpinalVerilog(TestModule()).printRtl()
   }
 
   test("test fanin") {
@@ -41,7 +37,9 @@ class DataAnalyzerTest extends AnyFunSuite {
     val rtl = SpinalVerilog(TestModule())
     val actualFanout = rtl.toplevel.io.a.getFanOut.toSet
     val expectedFanout = Set(
-      rtl.toplevel.a0, rtl.toplevel.a1, rtl.toplevel.a2_1
+      rtl.toplevel.a0,
+      rtl.toplevel.a1,
+      rtl.toplevel.a2_1
     )
     assert(actualFanout == expectedFanout)
   }
