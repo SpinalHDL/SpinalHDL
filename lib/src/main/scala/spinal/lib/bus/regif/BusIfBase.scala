@@ -357,7 +357,7 @@ trait BusIf extends BusIfBase {
         }
         default{
           //Reserved Address Set False, True is too much strict for software
-          readData  := 0
+          //readData  := 0  //readData hold for LowPower consideration
           if(withstrb) {
             readError := False
           } else {
