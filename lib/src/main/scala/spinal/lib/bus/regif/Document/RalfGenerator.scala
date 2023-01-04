@@ -50,7 +50,8 @@ final case class RalfGenerator(fileName : String, backdoor: Boolean = true) exte
       def access = {
         fd.getAccessType() match{
           case x if fd.uvmBaseAcc.contains(x) => x.toString.toLowerCase()
-          case AccessType.NA => "ro"
+          case AccessType.NA  => "ro"
+          case AccessType.ROV => "ro"
           case _ => "rw"
         }
       }
