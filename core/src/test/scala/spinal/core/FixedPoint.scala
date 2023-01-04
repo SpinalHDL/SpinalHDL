@@ -1,9 +1,45 @@
 package spinal.core
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.core.sim._
 
-class XFixTest extends AnyFunSuite {
+import spinal.core.sim._
+import spinal.tester.SpinalTesterCocotbBase
+
+object FixedPointTester {
+  case class BundleA(width : Int) extends Bundle{
+    val a = BundleAA(width)
+  }
+  case class BundleAA(width : Int) extends Bundle{
+    val sfix = SFix(4 exp,width bit)
+  }
+
+  class FixedPointTester extends Component {
+    val io = new Bundle {
+      val inSFix = in(Vec(Seq(SFix(4 exp,16 bit),SFix(2 exp,12 bit))))
+      val outSFix = out(Vec(Seq(SFix(4 exp,16 bit),SFix(8 exp,24 bit))))
+
+      val inSFix2 = in SFix(0 exp, -8 exp)
+      val outSFix2 = out(SFix(2 exp, -8 exp))
+
+      val inBundleA = in(BundleA(8))
+      val outBundleA = out(BundleA(6))
+    }
+    io.outSFix(0) := (io.inSFix(0) + io.inSFix(1))
+    io.outSFix(1) := (io.inSFix(0) * io.inSFix(1)).truncated
+
+    io.outSFix2 := ((io.inSFix2 <<|1) + io.inSFix2 ) <<|1
+    io.inBundleA.a.sfix.addTag(tagTruncated)
+    io.outBundleA <> io.inBundleA
+  }
+}
+
+class FixedPointTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "FixedPointTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/FixedPointTester"
+  override def createToplevel: Component = new FixedPointTester.FixedPointTester
+}
+
+class UFixTest extends AnyFunSuite {
   test("UFix Mux") {
     case class MuxDut() extends Component {
       val io = new Bundle {

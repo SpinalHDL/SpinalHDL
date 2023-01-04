@@ -5,7 +5,6 @@ import java.io.InputStream
 import java.util.concurrent.CyclicBarrier
 import spinal.core._
 import spinal.core.fiber._
-import spinal.demo.mandelbrot.{MandelbrotCoreParameters, MandelbrotSblDemo}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3Gpio}
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4SpecRenamer}
@@ -1498,30 +1497,6 @@ object PlayLoop {
   }
 }
 
-
-//
-//import org.scalameter.api._
-//
-//object RangeBenchmark extends Bench.LocalTime {
-////  val time = measure {
-////    for (i <- 0 until 100000) yield i
-////  }
-////  println(s"Total time: $time")
-////  MandelbrotSblDemo.main(null)
-////  val sizes = Gen.range("size")(300000, 1500000, 300000)
-////
-////  val ranges = for {
-////    size <- sizes
-////  } yield 0 until size
-////
-////  performance of "Range" in {
-////    measure method "map" in {
-////      using(ranges) in {
-////        r => r.map(_ + 1)
-////      }
-////    }
-////  }
-//}
 //object PlayBench {
 //
 //

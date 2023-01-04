@@ -1,0 +1,41 @@
+package spinal.lib.bus.amba4.axi
+
+import spinal.core._
+import spinal.lib._
+
+import spinal.tester.SpinalTesterCocotbBase
+
+object Axi4SlaveFactoryTester {
+  def axi4Config = Axi4Config(
+    addressWidth = 4+2,
+    dataWidth = 32,
+    idWidth = 0
+  )
+
+  class Axi4SlaveFactoryTester extends Component {
+    val io = new Bundle {
+      val bus = slave(Axi4(axi4Config))
+      val nonStopWrited = out Bits (16 bits)
+    }
+
+    val ctrl = new Axi4SlaveFactory(io.bus)
+    val regA, regB = Reg(UInt(20 bits)) init (44)
+    ctrl.readAndWrite(regA, address = 9*4, bitOffset = 10)
+    ctrl.readAndWrite(regB, address = 7*4, bitOffset = 10)
+    ctrl.onWrite(15*4) {
+      regA := 11
+    }
+    ctrl.onRead(2*4) {
+      regB := 33
+    }
+    ctrl.nonStopWrite(io.nonStopWrited, bitOffset = 4)
+  }
+}
+
+class Axi4SlaveFactoryTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "Axi4SlaveFactoryTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/Axi4SlaveFactoryTester"
+  override def createToplevel: Component = new Axi4SlaveFactoryTester.Axi4SlaveFactoryTester
+
+  withWaveform = true
+}

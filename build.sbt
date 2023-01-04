@@ -126,7 +126,7 @@ val defaultSettingsWithPlugin = defaultSettings ++ Seq(
   }.value
 )
 
-lazy val core = (project in file("core"))
+lazy val core: Project = (project in file("core"))
   .dependsOn(idslplugin)
   .settings(
     defaultSettingsWithPlugin,
@@ -134,6 +134,8 @@ lazy val core = (project in file("core"))
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
     libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.1",
     libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
+    Test / unmanagedClasspath ++= (LocalProject("tester") / Compile / fullClasspath).value,
+    Test / unmanagedClasspath ++= (LocalProject("lib") / Compile / fullClasspath).value,
 
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
@@ -153,18 +155,17 @@ lazy val core = (project in file("core"))
   )
   .dependsOn(sim)
 
-lazy val lib = (project in file("lib"))
+lazy val lib: Project = (project in file("lib"))
   .settings(
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    version := SpinalVersion.lib
+    version := SpinalVersion.lib,
+    Test / unmanagedClasspath ++= (LocalProject("tester") / Compile / fullClasspath).value
   )
-  .dependsOn (sim, core)
+  .dependsOn(sim, core)
 
-
-
-lazy val tester = (project in file("tester"))
+lazy val tester: Project = (project in file("tester"))
   .settings(
     defaultSettingsWithPlugin,
     name := "SpinalHDL-tester",
