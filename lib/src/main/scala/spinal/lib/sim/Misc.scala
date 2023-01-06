@@ -105,12 +105,15 @@ object Phase{
   def isUsed = SimManagerContext.current.contains(Phase)
 }
 
-case class SparseMemory(){
+case class SparseMemory(seed : Long = Random.nextLong()){
   val content = Array.fill[Array[Byte]](4096)(null)
+
   def getElseAlocate(idx : Int) = {
     if(content(idx) == null) {
+      val rand = new Random()
+      rand.setSeed(seed ^ idx)
       content(idx) = new Array[Byte](1024*1024)
-      Random.nextBytes(content(idx))
+      rand.nextBytes(content(idx))
     }
     content(idx)
   }
@@ -135,6 +138,20 @@ case class SparseMemory(){
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF)
   }
 
+  def readBytes(address : Long, size : Int) : Array[Byte] = {
+    val data = new Array[Byte](size)
+    var ptr = address
+    var offset = 0
+    while(offset != size){
+      val mem = getElseAlocate((ptr >> 20).toInt)
+      while(offset != size && (ptr & 0xFFFFF) != 0){
+        data(offset) = mem(ptr.toInt & 0xFFFFF)
+        ptr += 1
+        offset += 1
+      }
+    }
+    data
+  }
 
   def readByteAsInt(address : Long) : Int = read(address).toInt & 0xFF
 
