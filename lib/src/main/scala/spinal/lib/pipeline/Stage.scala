@@ -26,12 +26,12 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     valid := stream.valid
     stream.ready := isReady
   }
-  def driveFrom(stage : Stage, cond : Bool, values : List[Stageable[_ <: Data]]): Unit ={
+  def driveFrom(stage : Stage, cond : Bool, values : List[Stageable[_ <: Data]]) = new Composite(this, "driveFrom"){
     val fired = RegInit(False) setWhen(isFireing) clearWhen(isChanging)
-    isValid := stage.isValid && !fired
-    haltIt(!fired && stage.isReady)
+    isValid := stage.isValid && cond && !fired
+    stage.haltIt(isValid && !fired && !isReady)
     for(value <- values){
-      this(value).assignFrom(stage(value))
+      self(value).assignFrom(stage(value))
     }
   }
   def forkStream() : Stream[NoData] = {
