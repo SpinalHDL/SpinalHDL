@@ -735,11 +735,11 @@ class StreamArbiterFactory {
   def noLock: this.type = setLock(StreamArbiter.Lock.none)
   def fragmentLock: this.type = setLock(StreamArbiter.Lock.fragmentLock)
   def transactionLock: this.type = setLock(StreamArbiter.Lock.transactionLock)
-  def lambdaLock[T <: Data](check: Stream[T] => Bool) : this.type = setLock{
+  def lambdaLock[T <: Data](unlock: Stream[T] => Bool) : this.type = setLock{
     case c : StreamArbiter[T] => new Area {
       import c._
       locked setWhen(io.output.valid)
-      locked.clearWhen(io.output.fire && check(io.output))
+      locked.clearWhen(io.output.fire && unlock(io.output))
     }
   }
 }
@@ -915,6 +915,22 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
     } otherwise {
       io.outputs(i).valid := io.input.valid
       io.input.ready := io.outputs(i).ready
+    }
+  }
+}
+
+object StreamDemuxOh{
+  def apply[T <: Data](input : Stream[T], oh : Seq[Bool]) : Vec[Stream[T]] = oh.size match {
+    case 1 => Vec(input.combStage())
+    case _ => {
+      val ret = Vec(oh.map{sel =>
+        val output = cloneOf(input)
+        output.valid   := input.valid && sel
+        output.payload := input.payload
+        output
+      })
+      input.ready    := (ret, oh).zipped.map(_.ready && _).orR
+      ret
     }
   }
 }
