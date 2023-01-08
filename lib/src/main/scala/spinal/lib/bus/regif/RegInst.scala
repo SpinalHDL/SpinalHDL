@@ -677,19 +677,19 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       accType match {
         case AccessType.W1SRC => {
           when(hitDoWrite && busif.mwdata(x)) {regbit := busif.wdata(regbit, x, "set" )  }//regbit.set()}
-            .elsewhen(hitDoRead)              {regbit := busif.wdata(regbit, x, "clear" )}//regbit.clear()}
+            .elsewhen(hitDoRead)              {regbit.clear()} //regbit := busif.wdata(regbit, x, "clear" )
         }
         case AccessType.W1CRS => {
           when(hitDoWrite && busif.mwdata(x)) {regbit := busif.wdata(regbit, x, "clear" )}//regbit.clear()}
-            .elsewhen(hitDoRead)              {regbit := busif.wdata(regbit, x, "set" )  }//regbit.set()}
+            .elsewhen(hitDoRead)              {regbit.set()} //regbit := busif.wdata(regbit, x, "set" )
         }
         case AccessType.W0SRC => {
           when(hitDoWrite && ~busif.mwdata(x)){regbit := busif.wdata(regbit, x, "set" )  }//regbit.set()}
-            .elsewhen(hitDoRead)              {regbit := busif.wdata(regbit, x, "clear" )}//regbit.clear()}
+            .elsewhen(hitDoRead)              {regbit.clear()} //regbit := busif.wdata(regbit, x, "clear" )
         }
         case AccessType.W0CRS => {
           when(hitDoWrite && ~busif.mwdata(x)){regbit := busif.wdata(regbit, x, "clear" )}//regbit.clear()}
-            .elsewhen(hitDoRead)              {regbit := busif.wdata(regbit, x, "set" )  }//regbit.set()}
+            .elsewhen(hitDoRead)              {regbit.set()} //regbit := busif.wdata(regbit, x, "set" )
         }
         case _ =>
       }
@@ -705,19 +705,19 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
       accType match {
         case AccessType.W1SRC => {
           when(hitDoWrite && busif.mwdata(x)) {ret(idx) := busif.wdata(ret(idx), x, "set" )  }//ret(idx).set()}
-            .elsewhen(hitDoRead)              {ret(idx) := busif.wdata(ret(idx), x, "clear" )}//ret(idx).clear()}
+            .elsewhen(hitDoRead)              {ret(idx).clear()} //ret(idx) := busif.wdata(ret(idx), x, "clear" )
         }
         case AccessType.W1CRS => {
           when(hitDoWrite && busif.mwdata(x)) {ret(idx) := busif.wdata(ret(idx), x, "clear" )}//ret(idx).clear()}
-            .elsewhen(hitDoRead)              {ret(idx) := busif.wdata(ret(idx), x, "set" )  }//ret(idx).set()}
+            .elsewhen(hitDoRead)              {ret(idx).set()} //ret(idx) := busif.wdata(ret(idx), x, "set" )
         }
         case AccessType.W0SRC => {
           when(hitDoWrite && ~busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), x, "set" )  }//ret(idx).set()}
-            .elsewhen(hitDoRead)              {ret(idx) := busif.wdata(ret(idx), x, "clear" )}//ret(idx).clear()}
+            .elsewhen(hitDoRead)              {ret(idx).clear()} //ret(idx) := busif.wdata(ret(idx), x, "clear" )
         }
         case AccessType.W0CRS => {
           when(hitDoWrite && ~busif.mwdata(x)){ret(idx) := busif.wdata(ret(idx), x, "clear" )}//ret(idx).clear()}
-            .elsewhen(hitDoRead)              {ret(idx) := busif.wdata(ret(idx), x, "set" )  }//ret(idx).set()}
+            .elsewhen(hitDoRead)              {ret(idx).set()} //ret(idx) := busif.wdata(ret(idx), x, "set" )
         }
         case _ =>
       }
