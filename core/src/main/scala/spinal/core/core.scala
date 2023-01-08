@@ -171,6 +171,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     ((32 MiB) + (123 KiB) + (23 Byte)).byteUnit(ceil = true) = 33MiB
     (333 KiB).byteUnit() = 33KiB
     */
+    def toStringByByteUnit(ceil: Boolean = false): String = byteUnit(ceil)
     def byteUnit(ceil: Boolean = false): String = {
       def recentry(x: BigInt): String = {
         def bsf(n: Int) = BigInt(1) << n

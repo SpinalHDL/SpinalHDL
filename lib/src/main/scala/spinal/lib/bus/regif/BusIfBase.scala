@@ -18,7 +18,7 @@ trait BusIfBase extends Area{
   val writeData: Bits
   val readError: Bool
   val readSync: Boolean = true
-  val withstrb: Boolean
+  val withStrb: Boolean
   val wstrb: Bits  //= withstrb generate(Bits(strbWidth bit))
   val wmask: Bits  //= withstrb generate(Bits(busDataWidth bit))
   val wmaskn: Bits //= withstrb generate(Bits(busDataWidth bit))
@@ -34,10 +34,10 @@ trait BusIfBase extends Area{
   def strbWidth: Int = busDataWidth / 8
   def underbitWidth: Int = log2Up(wordAddressInc)
 
-  def mwdata(sec: Range): Bits = if(withstrb) writeData(sec) & wmask(sec) else writeData(sec)
+  def mwdata(sec: Range): Bits = if(withStrb) writeData(sec) & wmask(sec) else writeData(sec)
 
-  def InitLogic() = {
-    if (withstrb) {
+  def initStrbMasks() = {
+    if (withStrb) {
       (0 until strbWidth).foreach { i =>
         wmask ((i + 1) * 8 - 1 downto i * 8) := Mux(wstrb(i), B(0xFF, 8 bit), B(0, 8 bit))
         wmaskn((i + 1) * 8 - 1 downto i * 8) := Mux(wstrb(i), B(0, 8 bit), B(0xFF, 8 bit))
@@ -48,7 +48,7 @@ trait BusIfBase extends Area{
   def wdata(reg: BaseType, sec: Range, oper: String):Bits = {
     oper match {
       case "clear" =>
-        if(withstrb){
+        if(withStrb){
           reg match {
             case t: Bits => (t        & wmaskn(sec))
             case t: UInt => (t.asBits & wmaskn(sec))
@@ -58,7 +58,7 @@ trait BusIfBase extends Area{
           }
         } else B(0, sec.size bit)
       case "set" =>
-        if(withstrb) {
+        if(withStrb) {
           reg match {
             case t: Bits => (t        & wmaskn(sec)) | wmask(sec)
             case t: UInt => (t.asBits & wmaskn(sec)) | wmask(sec)
@@ -68,7 +68,7 @@ trait BusIfBase extends Area{
           }
         }else Bits(sec.size bit).setAll()
       case "normal" =>
-        if(withstrb){
+        if(withStrb){
           reg match {
             case t: Bits => (t        & wmaskn(sec)) | (writeData(sec) & wmask(sec))
             case t: UInt => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
@@ -78,7 +78,7 @@ trait BusIfBase extends Area{
           }
         } else writeData(sec)
       case "toggle" =>
-        if(withstrb){
+        if(withStrb){
           reg match {
             case t: Bits => (t        & wmaskn(sec)) | (~t(sec)        & wmask(sec))
             case t: UInt => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
@@ -90,14 +90,14 @@ trait BusIfBase extends Area{
       case _ => SpinalError(s"unrecognize '${oper}''")
     }
   }
-  def mwdata(pos: Int): Bool = if(withstrb) writeData(pos) & wmask(pos) else writeData(pos)
+  def mwdata(pos: Int): Bool = if(withStrb) writeData(pos) & wmask(pos) else writeData(pos)
   def wdata(reg: Bool, pos: Int): Bool = wdata(reg, pos, oper = "normal")
   def wdata(reg: Bool, pos: Int, oper: String): Bool = {
     oper match {
-      case "clear"  => if (withstrb) (reg & wmaskn(pos))                                 else False
-      case "set"    => if (withstrb) (reg & wmaskn(pos)) |                   wmask(pos)  else True
-      case "normal" => if (withstrb) (reg & wmaskn(pos)) | (writeData(pos) & wmask(pos)) else writeData(pos)
-      case "toggle" => if (withstrb) (reg & wmaskn(pos)) | (~reg           & wmask(pos)) else ~reg
+      case "clear"  => if (withStrb) (reg & wmaskn(pos))                                 else False
+      case "set"    => if (withStrb) (reg & wmaskn(pos)) |                   wmask(pos)  else True
+      case "normal" => if (withStrb) (reg & wmaskn(pos)) | (writeData(pos) & wmask(pos)) else writeData(pos)
+      case "toggle" => if (withStrb) (reg & wmaskn(pos)) | (~reg           & wmask(pos)) else ~reg
       case _ => SpinalError(s"unrecognize '${oper}''")
     }
   }
@@ -358,7 +358,7 @@ trait BusIf extends BusIfBase {
         default{
           //Reserved Address Set False, True is too much strict for software
           //readData  := 0  //readData hold for LowPower consideration
-          if(withstrb) {
+          if(withStrb) {
             readError := False
           } else {
             val alignreadhit = readAddress.take(log2Up(wordAddressInc)).orR

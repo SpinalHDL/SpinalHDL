@@ -69,17 +69,17 @@ final case class CHeaderGenerator(
                    |typedef union {
                    |    u32 val;
                    |    struct {
-                   |        ${fdunion(" " * 8)}
+                   |        ${fdUnion(" " * 8)}
                    |    } reg;
                    |} ${reg.getName().toLowerCase()}_t;""".stripMargin
             }
 
-            def fdnamelens = math.max("reserved_0".size, reg.getFieldDescrs().map(_.getName.size).max)
+            def fdNameLens = math.max("reserved_0".size, reg.getFieldDescrs().map(_.getName.size).max)
 
-            def fdunion(tab: String): String = {
+            def fdUnion(tab: String): String = {
                 var i, j = -1
                 val fields = reg.getFieldDescrs()
-                val maxlen = fdnamelens
+                val maxlen = fdNameLens
                 fields.map(fd => {
                     val name = fd.getAccessType match {
                         case AccessType.NA  => i += 1; s"reserved_${i}"
@@ -104,7 +104,7 @@ final case class CHeaderGenerator(
             }
         }
 
-        implicit class FieldDescrCheadExtend(fd: FieldDescr) {
+        implicit class FieldDescrCHeadExtend(fd: FieldDescr) {
             def define(pre: String, tabn: Int = 0): String = {
                 //add Define  XXX_SHIFT   XXX_MASK  for SW bit operation
                 def lsb: Int = fd.getSection().min
@@ -125,7 +125,7 @@ final case class CHeaderGenerator(
 
         def body() = {
             val maxnamelen = regs.map(_.getName().size).max
-            val maxshiftlen = regs.map(t => t.getName().size + t.fdnamelens).max
+            val maxshiftlen = regs.map(t => t.getName().size + t.fdNameLens).max
             def header: String = headers.mkString("\n * ")
             s"""|/*
                 | * Reg Interface C-Header [AUTOGENERATE by SpinalHDL]

@@ -12,11 +12,11 @@ case class WishboneBusInterface(
     regPre: String = ""
 )(implicit moduleName: ClassName)
     extends BusIf {
-  override val withstrb: Boolean = false
-  val wstrb: Bits  = withstrb generate (Bits(strbWidth bit))
-  val wmask: Bits  = withstrb generate (Bits(busDataWidth bit))
-  val wmaskn: Bits = withstrb generate (Bits(busDataWidth bit))
-  InitLogic()
+  override val withStrb: Boolean = false
+  val wstrb: Bits  = withStrb generate (Bits(strbWidth bit))
+  val wmask: Bits  = withStrb generate (Bits(busDataWidth bit))
+  val wmaskn: Bits = withStrb generate (Bits(busDataWidth bit))
+  initStrbMasks()
 
   override def getModuleName = moduleName.name
 
