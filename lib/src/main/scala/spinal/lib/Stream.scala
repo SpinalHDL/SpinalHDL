@@ -1461,7 +1461,7 @@ object LOWER_FIRST extends SlicesOrder
 object HIGHER_FIRST extends SlicesOrder
 
 object StreamWidthAdapter {
-  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2],reset : Bool = null, endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
     val inputWidth = widthOf(input.payload)
     val outputWidth = widthOf(output.payload)
     if(inputWidth == outputWidth){
@@ -1472,12 +1472,18 @@ object StreamWidthAdapter {
       val factor = (inputWidth + outputWidth - 1) / outputWidth
       val paddedInputWidth = factor * outputWidth
       val counter = Counter(factor,inc = output.fire)
-      output.valid := input.valid
+      output.valid := (if (reset == null) input.valid else input.valid && !reset)
       endianness match {
         case `LITTLE` => output.payload.assignFromBits(input.payload.asBits.resize(paddedInputWidth).subdivideIn(factor slices).read(counter))
         case `BIG`    => output.payload.assignFromBits(input.payload.asBits.resize(paddedInputWidth).subdivideIn(factor slices).reverse.read(counter))
       }
-      input.ready := output.ready && counter.willOverflowIfInc
+      input.ready := (if (reset == null) output.ready && counter.willOverflowIfInc else output.ready && counter.willOverflowIfInc && !reset)
+
+      if(reset != null){
+        when(reset) {
+          counter.clear()
+        }
+      }
     } else{
       require(outputWidth % inputWidth == 0 || padding)
       val factor  = (outputWidth + inputWidth - 1) / inputWidth
@@ -1487,42 +1493,64 @@ object StreamWidthAdapter {
       when(input.fire){
         buffer := input.payload ## (buffer >> inputWidth)
       }
-      output.valid := input.valid && counter.willOverflowIfInc
+      output.valid := (if (reset == null) input.valid && counter.willOverflowIfInc else input.valid && counter.willOverflowIfInc && !reset)
       endianness match {
         case `LITTLE` => output.payload.assignFromBits((input.payload ## buffer).resize(outputWidth))
         case `BIG`    => output.payload.assignFromBits((input.payload ## buffer).subdivideIn(factor slices).reverse.asBits().resize(outputWidth))
       }
-      input.ready := !(!output.ready && counter.willOverflowIfInc)
+      input.ready := (if (reset == null) !(!output.ready && counter.willOverflowIfInc) else !(!output.ready && counter.willOverflowIfInc) && !reset)
+
+      if(reset != null){
+        when(reset) {
+          counter.clear()
+        }
+      }
     }
   }
 
   def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], order : SlicesOrder): Unit = {
-    StreamWidthAdapter(input, output, order, false)
+    StreamWidthAdapter(input, output, null, order, false)
   }
 
-  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], order : SlicesOrder, padding : Boolean): Unit = {
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2],reset : Bool, order : SlicesOrder): Unit = {
+    StreamWidthAdapter(input, output, reset, order, false)
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2],reset : Bool, order : SlicesOrder, padding : Boolean): Unit = {
     val endianness = order match {
       case HIGHER_FIRST => BIG
       case LOWER_FIRST => LITTLE
     }
-    StreamWidthAdapter(input, output, endianness, padding)
+    StreamWidthAdapter(input, output, reset, endianness, padding)
   }
 
   def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], order : SlicesOrder) : Stream[T2] = {
     val ret = Stream(outputPayloadType())
-    StreamWidthAdapter(input,ret,order,false)
+    StreamWidthAdapter(input,ret,null,order,false)
+    ret
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], reset : Bool, order : SlicesOrder) : Stream[T2] = {
+    val ret = Stream(outputPayloadType())
+    StreamWidthAdapter(input,ret,reset,order,false)
     ret
   }
 
   def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], order : SlicesOrder, padding : Boolean) : Stream[T2] = {
     val ret = Stream(outputPayloadType())
-    StreamWidthAdapter(input,ret,order,padding)
+    StreamWidthAdapter(input,ret,null,order,padding)
     ret
   }
 
-  def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[T2] = {
+  def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], reset : Bool, order : SlicesOrder, padding : Boolean) : Stream[T2] = {
     val ret = Stream(outputPayloadType())
-    StreamWidthAdapter(input,ret,endianness,padding)
+    StreamWidthAdapter(input,ret,reset,order,padding)
+    ret
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], reset : Bool = null, endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[T2] = {
+    val ret = Stream(outputPayloadType())
+    StreamWidthAdapter(input,ret,reset,endianness,padding)
     ret
   }
 
@@ -1541,6 +1569,7 @@ object StreamWidthAdapter {
 object StreamFragmentWidthAdapter {
   def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],
                                   output : Stream[Fragment[T2]],
+                                  reset : Bool = null,
                                   endianness: Endianness = LITTLE,
                                   padding : Boolean = false,
                                   earlyLast : Boolean = false) = new Area{
@@ -1556,14 +1585,20 @@ object StreamFragmentWidthAdapter {
       val factor = (inputWidth + outputWidth - 1) / outputWidth
       val paddedInputWidth = factor * outputWidth
       val counter = Counter(factor,inc = output.fire)
-      output.valid := input.valid
+      output.valid := (if (reset == null) input.valid else input.valid && !reset)
       endianness match {
         case `LITTLE` => output.fragment.assignFromBits(input.fragment.asBits.resize(paddedInputWidth).subdivideIn(factor slices).read(counter))
         case `BIG`    => output.fragment.assignFromBits(input.fragment.asBits.resize(paddedInputWidth).subdivideIn(factor slices).reverse.read(counter))
       }
       output.last := input.last && counter.willOverflowIfInc
-      input.ready := output.ready && counter.willOverflowIfInc
+      input.ready := (if (reset == null) output.ready && counter.willOverflowIfInc else output.ready && counter.willOverflowIfInc && !reset)
       dataMask.setAll()
+
+      if(reset != null){
+        when(reset) {
+          counter.clear()
+        }
+      }
     } else new Composite(input, "widthAdapter"){
       require(outputWidth % inputWidth == 0 || padding)
       val factor  = (outputWidth + inputWidth - 1) / inputWidth
@@ -1571,9 +1606,9 @@ object StreamFragmentWidthAdapter {
       val counter = Counter(factor,inc = input.fire)
       val buffer  = Reg(Bits(paddedOutputWidth - inputWidth bits))
       val sendIt = CombInit(counter.willOverflowIfInc)
-      output.valid := input.valid && sendIt
+      output.valid := (if (reset == null) input.valid && sendIt else input.valid && sendIt && !reset)
       output.last := input.last
-      input.ready := output.ready || !sendIt
+      input.ready := (if (reset == null) output.ready || !sendIt else (output.ready || !sendIt) && !reset)
 
       if(earlyLast){
         sendIt setWhen(input.last)
@@ -1612,36 +1647,62 @@ object StreamFragmentWidthAdapter {
           }
         }
       }
+
+      if(reset != null){
+        when(reset) {
+          counter.clear()
+        }
+      }
     }
   }
 
   def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], order : SlicesOrder): Unit = {
-    StreamFragmentWidthAdapter(input, output, order, false)
+    StreamFragmentWidthAdapter(input, output, null, order, false)
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]],reset : Bool, order : SlicesOrder): Unit = {
+    StreamFragmentWidthAdapter(input, output, reset, order, false)
   }
 
   def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], order : SlicesOrder, padding : Boolean): Unit = {
+    StreamFragmentWidthAdapter(input, output, null, order, padding)
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]],reset : Bool, order : SlicesOrder, padding : Boolean): Unit = {
     val endianness = order match {
       case HIGHER_FIRST => BIG
       case LOWER_FIRST => LITTLE
     }
-    StreamFragmentWidthAdapter(input, output, endianness, padding)
+    StreamFragmentWidthAdapter(input, output, reset, endianness, padding)
   }
 
   def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], order : SlicesOrder) : Stream[Fragment[T2]] = {
     val ret = Stream(Fragment(outputPayloadType()))
-    StreamFragmentWidthAdapter(input,ret,order,false)
+    StreamFragmentWidthAdapter(input,ret,null,order,false)
+    ret
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], reset : Bool, order : SlicesOrder) : Stream[Fragment[T2]] = {
+    val ret = Stream(Fragment(outputPayloadType()))
+    StreamFragmentWidthAdapter(input,ret,reset,order,false)
     ret
   }
 
   def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], order : SlicesOrder, padding : Boolean) : Stream[Fragment[T2]] = {
     val ret = Stream(Fragment(outputPayloadType()))
-    StreamFragmentWidthAdapter(input,ret,order,padding)
+    StreamFragmentWidthAdapter(input,ret,null,order,padding)
     ret
   }
 
-  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[Fragment[T2]] = {
+  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], reset : Bool, order : SlicesOrder, padding : Boolean) : Stream[Fragment[T2]] = {
     val ret = Stream(Fragment(outputPayloadType()))
-    StreamFragmentWidthAdapter(input,ret,endianness,padding)
+    StreamFragmentWidthAdapter(input,ret,reset,order,padding)
+    ret
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], reset : Bool = null, endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[Fragment[T2]] = {
+    val ret = Stream(Fragment(outputPayloadType()))
+    StreamFragmentWidthAdapter(input,ret,reset,endianness,padding)
     ret
   }
 }
