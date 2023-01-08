@@ -1516,6 +1516,10 @@ object StreamWidthAdapter {
     StreamWidthAdapter(input, output, reset, order, false)
   }
 
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], order : SlicesOrder, padding : Boolean): Unit = {
+    StreamWidthAdapter(input, output, null, order, padding)
+  }
+
   def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2],reset : Bool, order : SlicesOrder, padding : Boolean): Unit = {
     val endianness = order match {
       case HIGHER_FIRST => BIG
