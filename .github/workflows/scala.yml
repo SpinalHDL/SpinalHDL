@@ -12,7 +12,6 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/sbt
@@ -28,38 +27,102 @@ jobs:
     # Avoids building tools several times
     runs-on: ubuntu-latest
     timeout-minutes: 90
-
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/tools
 
-  test:
+  idslplugin-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt idslplugin/test
+
+  idslpayload-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt idslpayload/test
+
+  core-test:
     needs: [compile, build-tools]
     runs-on: ubuntu-latest
     timeout-minutes: 90
-
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
     - uses: ./.github/actions/tools
-    - run: sbt testWithoutFormal
+    - run: sbt 'core/testOnly * -- -l spinal.tester.formal'
 
-  formal:
+  core-formal:
     needs: [compile, build-tools]
     runs-on: ubuntu-latest
     timeout-minutes: 90
-
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
     - uses: ./.github/actions/tools
-    - run: sbt testFormal
+    - run: sbt 'core/testOnly * -- -n spinal.tester.formal'
+
+  sim-test:
+    needs: [compile, build-tools]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - uses: ./.github/actions/tools
+    - run: sbt sim/test
+
+  tester-test:
+    needs: [compile, build-tools]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - uses: ./.github/actions/tools
+    - run: sbt 'tester/testOnly * -- -l spinal.tester.formal'
+
+  tester-formal:
+    needs: [compile, build-tools]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - uses: ./.github/actions/tools
+    - run: sbt 'tester/testOnly * -- -n spinal.tester.formal'
+
+  lib-test:
+    needs: [compile, build-tools]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - uses: ./.github/actions/tools
+    - run: sbt 'lib/testOnly * -- -l spinal.tester.formal'
+
+  lib-formal:
+    needs: [compile, build-tools]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - uses: ./.github/actions/tools
+    - run: sbt 'lib/testOnly * -- -n spinal.tester.formal'
 
   scaladoc:
     needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -70,7 +133,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: github.ref != 'refs/heads/dev'
-
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/sbt
