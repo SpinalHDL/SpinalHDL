@@ -9,61 +9,71 @@ on:
       - dev
 
 jobs:
-  test:
-    runs-on: ubuntu-20.04
-    timeout-minutes: 90
-
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: 'recursive'
-    - uses: ./.github/actions
-
-    ##############################################
-
-    - name: Compile tests
-      run: sbt "+test:compile"
-
-    - name: Run tests
-      run: sbt "++2.11.12; testWithoutFormal"
-
-  formal:
+  compile:
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
     steps:
     - uses: actions/checkout@v3
+    - uses: ./.github/actions/sbt
+    - run: sbt Test/compile
+    - uses: actions/cache/save@v3
       with:
-        submodules: 'recursive'
-    - uses: ./.github/actions
+        path: |
+          **/target
+        key: ${{ runner.os }}-compiled-${{ github.sha }}
 
-    ##############################################
+  build-tools:
+    # This action is actually optional
+    # Avoids building tools several times
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
 
-    - name: Run tests
-      run: sbt "++2.11.12; testFormal"
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/tools
+
+  test:
+    needs: [compile, build-tools]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - uses: ./.github/actions/tools
+    - run: sbt testWithoutFormal
+
+  formal:
+    needs: [compile, build-tools]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - uses: ./.github/actions/tools
+    - run: sbt testFormal
 
   scaladoc:
+    needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
     - uses: actions/checkout@v3
-      with:
-        submodules: 'recursive'
-
-    - name: Build scaladoc
-      run: sbt unidoc
+    - uses: ./.github/actions/get-compiled
+    - run: sbt unidoc
 
   fmt-lint:
+    # Don't use compiled result here, must start from a clean repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: github.ref != 'refs/heads/dev'
 
     steps:
     - uses: actions/checkout@v3
-      with:
-        submodules: 'recursive'
-    - uses: ./.github/actions
+    - uses: ./.github/actions/sbt
     - name: Fetch dev to be able to check only modified files
       run: |
         git fetch --depth=1 origin dev
