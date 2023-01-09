@@ -308,33 +308,34 @@ class Pipeline extends Area{
 
     //Name stuff
     for(stage <- stagesSet){
-      def nameThat(target : Nameable, postfix : String): Unit ={
-        if(stage.isNamed){
-          // && postfix.startsWith(stage.getName)
+      def nameThat(target: Nameable, key : StageableKey, postfix: String): Unit = {
+        target.setLambdaName(stage.isNamed && key.stageable.isNamed){
           val stageName = stage.getName
           val stageSlices = stageName.split('_')
-          val postfixSlices = postfix.split('_')
+          val postfixName = key.toString + postfix
+          val postfixSlices = postfixName.split('_')
           var i = 0
           val iEnd = stageSlices.length min postfixSlices.length
-          while(i != iEnd && stageSlices(i) == postfixSlices(i)) i += 1
-          target.setName(stageName + "_" + postfixSlices.drop(i).mkString("_"))
-        } else {
-          target.setCompositeName(stage, postfix)
+          while (i != iEnd && stageSlices(i) == postfixSlices(i)) i += 1
+          stageName + "_" + postfixSlices.drop(i).mkString("_")
         }
       }
+
       for((key, value) <- stage.internals.stageableToData){
-        nameThat(value, s"${key}")
+        nameThat(value, key, "")
       }
       for((key, value) <- stage.internals.stageableOverloadedToData){
-        nameThat(value, s"${key}_overloaded")
+        nameThat(value, key, "_overloaded")
       }
       for((key, value) <- stage.internals.stageableResultingToData){
-        nameThat(value, s"${key}_resulting")
+        nameThat(value, key, "_resulting")
       }
     }
 
     for(c <- connections){
-      if(c.isUnnamed) c.setName(s"${c.m.getName()}_to_${c.s.getName()}")
+      if(c.isUnnamed) c.setLambdaName(c.m.isNamed && c.s.isNamed){
+        s"${c.m.getName()}_to_${c.s.getName()}"
+      }
     }
   }
 

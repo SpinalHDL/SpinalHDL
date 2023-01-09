@@ -16,12 +16,12 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
 
   val axiAr = bus.readCmd.stage()
   val axiR  = Stream(AxiLite4R(bus.config))
-  val axiRValid = Reg(Bool) init(False)
+  val axiRValid = Reg(Bool()) init(False)
 
   val axiAw = bus.writeCmd.stage()
   val axiW  = bus.writeData.stage()
   val axiB  = Stream(AxiLite4B(bus.config))
-  val axiBValid = Reg(Bool) init(False)
+  val axiBValid = Reg(Bool()) init(False)
   
   axiAr.ready := !axiRValid || axiR.ready
   when(readError) {

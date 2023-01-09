@@ -176,6 +176,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
   var builded = false
   override def build(): Unit = {
+    if(builded) return
     builded = true
     inGeneration = true
     childStateMachines.foreach(_.build())

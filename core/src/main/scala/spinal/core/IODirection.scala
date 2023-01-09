@@ -90,7 +90,7 @@ sealed trait IODirection extends BaseTypeFactory {
     *
     * See [[IODirection]] for other syntaxes.
     */
-  def Bool(u: Unit = ()): Bool = port(spinal.core.Bool())
+  override def Bool(u: Unit = ()): Bool = port(super.Bool())
 
   override def Bits(u: Unit = ()): Bits = port(super.Bits())
 

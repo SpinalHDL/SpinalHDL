@@ -201,7 +201,7 @@ case class UsbDevicePhyNative(sim : Boolean = false) extends Component{
     val decoder = new Area{
       val state = Reg(Bool())
 
-      val output = Flow(Bool)
+      val output = Flow(Bool())
       output.valid := False
       output.payload.assignDontCare()
 

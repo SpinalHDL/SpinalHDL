@@ -239,6 +239,7 @@ trait EnumEncoded{
   def getDefinition: SpinalEnum
   //Only used in the inferation phase
   def swapEncoding(encoding : SpinalEnumEncoding)
+  def swapEnum(e : SpinalEnum)
 }
 
 

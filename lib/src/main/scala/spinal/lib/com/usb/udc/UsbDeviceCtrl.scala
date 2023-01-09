@@ -165,7 +165,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       val effective = RegInit(False)
       val hit = Bool()
     }
-    val pullup = Reg(Bool) init(False)
+    val pullup = Reg(Bool()) init(False)
     io.phy.pullup := pullup
   }
 

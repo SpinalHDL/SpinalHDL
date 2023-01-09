@@ -9,6 +9,7 @@ import spinal.core.fiber.Handle
 import spinal.core.internals.Operator
 import spinal.lib._
 import spinal.core.sim._
+import spinal.idslplugin.Location
 import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
@@ -186,10 +187,34 @@ object Tesasdadt {
 
 object Debug2 extends App{
 
+  def gen = new Component{
+    val x = True
+    val y = False
+    when(True){
+      y := True
+    }
 
-  SpinalConfig(allowOutOfRangeLiterals = false).includeFormal.generateSystemVerilog(new Component{
+    val a,b,c = UInt(8 bits)
+    c := a + b + 1
 
-    val x = (in(UInt(4 bits)) === 42)
+    val src = in Bool()
+    val dst = Bool()
+
+    src <> dst
+
+//    val io = new Bundle {
+//      val i = in Bits (5 bits)
+//      val o = out Bits (3 bits)
+//    }
+//
+//    switch(io.i) {
+//      is(M"----1") { io.o := 0 }
+//      is(M"---1-") { io.o := 1 }
+//      is(M"--1--") { io.o := 2 }
+//      is(M"-1---") { io.o := 3 }
+//      is(M"1----") { io.o := 4 }
+//      default{ io.o.assignDontCare()}
+//    }
 
 //    val input = in(AFix.SQ(8 bit, 8 bit))
 //    val i = AFix.SQ(8 bit, 8 bit)
@@ -372,8 +397,10 @@ object Debug2 extends App{
 //    }
 
     setDefinitionName("miaou")
-  })
+  }
 
+  SpinalConfig(allowOutOfRangeLiterals = false).includeFormal.generateSystemVerilog(gen)
+  SpinalConfig(allowOutOfRangeLiterals = false).includeFormal.generateVhdl(gen)
 }
 
 //object MyEnum extends  spinal.core.MacroTest.mkObject("asd")
@@ -1135,7 +1162,7 @@ object PlayPackedData extends App{
       ret
     }
 
-    override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+    override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
       that match {
         case that: PackedData[_] =>
           ???
@@ -1319,4 +1346,38 @@ class Test12345 extends Component{
 }
 object Test12345 extends App{
   SpinalConfig(oneFilePerComponent = true, targetDirectory="miaou").generateVerilog(new Test12345)
+}
+
+
+object PlayFsmBugA extends App {
+  class test001 extends Component {
+    val fsm = new StateMachine {
+      val idle = new State with EntryPoint
+      val s1 = new State()
+
+      idle
+        .whenIsActive {
+          goto(s1)
+        }
+      s1
+        .whenIsActive {
+          goto(idle)
+        }
+    }
+
+  }
+
+  SpinalVerilog(new Component {
+    val sub0, sub1 = new test001
+
+    def create() = {
+      val myEnum = new SpinalEnum {
+        val A, B, C = newElement
+      }.setName("miaou")
+      myEnum.B()
+    }
+
+    val x = create()
+    val y = create()
+  })
 }
