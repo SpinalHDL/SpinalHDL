@@ -16,15 +16,8 @@ runs:
           ~/fpga_toolchain
           ~/verilator
           ~/ghdl-build
+          ~/.cache/pip
         key: ${{ runner.os }}-tools-${{ hashFiles('tools.sh') }}
-
-    - name: Cache pip cache
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-v2
-        restore-keys: |
-          ${{ runner.os }}-pip-
 
     - name: Setup env
       shell: bash
