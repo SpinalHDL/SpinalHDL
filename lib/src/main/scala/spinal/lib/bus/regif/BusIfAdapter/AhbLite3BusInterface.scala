@@ -5,7 +5,11 @@ import spinal.lib.bus.amba3.ahblite.AhbLite3
 import spinal.lib.bus.misc.SizeMapping
 
 case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName)  extends BusIf{
-
+  override val withStrb: Boolean = false
+  val wstrb: Bits = withStrb generate (Bits(strbWidth bit))
+  val wmask: Bits = withStrb generate (Bits(busDataWidth bit))
+  val wmaskn: Bits = withStrb generate (Bits(busDataWidth bit))
+  initStrbMasks()
   override def getModuleName = moduleName.name
 
   val readError = Bool()
