@@ -66,11 +66,22 @@ object AxiLite4Utils {
       } else {
         axiNoId
       }
+      val axiNoSize = if (axi.config.useSize) {
+        val axiNoSize = Axi4ReadOnly(axiUnburst.config.copy(useSize = false))
+        axiNoSize.ar.arbitrationFrom(axiUnburst.ar)
+        axiNoSize.ar.payload.assignSomeByName(axiUnburst.ar.payload)
+
+        axiUnburst.r.arbitrationFrom(axiNoSize.r)
+        axiUnburst.r.payload.assignSomeByName(axiNoSize.r.payload)
+        axiNoSize
+      } else {
+        axiUnburst
+      }
 
       val axiLite = AxiLite4ReadOnly(toLiteConfig(axi.config))
       val axiMinimal = Axi4ReadOnly(toAxiConfig(axiLite.config))
 
-      axiUnburst >> axiMinimal
+      axiNoSize >> axiMinimal
 
       axiLite.ar.arbitrationFrom(axiMinimal.ar)
       axiLite.ar.payload.assignSomeByName(axiMinimal.ar.payload)
@@ -95,11 +106,25 @@ object AxiLite4Utils {
       } else {
         axiNoId
       }
+      val axiNoSize = if (axi.config.useSize) {
+        val axiNoSize = Axi4WriteOnly(axiUnburst.config.copy(useSize = false))
+        axiNoSize.aw.arbitrationFrom(axiUnburst.aw)
+        axiNoSize.aw.payload.assignSomeByName(axiUnburst.aw.payload)
+
+        axiNoSize.w.arbitrationFrom(axiUnburst.w)
+        axiNoSize.w.payload.assignSomeByName(axiUnburst.w.payload)
+
+        axiUnburst.b.arbitrationFrom(axiNoSize.b)
+        axiUnburst.b.payload.assignSomeByName(axiNoSize.b.payload)
+        axiNoSize
+      } else {
+        axiUnburst
+      }
 
       val axiLite = AxiLite4WriteOnly(toLiteConfig(axi.config))
       val axiMinimal = Axi4WriteOnly(toAxiConfig(axiLite.config))
 
-      axiUnburst >> axiMinimal
+      axiNoSize >> axiMinimal
 
       axiLite.aw.arbitrationFrom(axiMinimal.aw)
       axiLite.aw.payload.assignSomeByName(axiMinimal.aw.payload)
