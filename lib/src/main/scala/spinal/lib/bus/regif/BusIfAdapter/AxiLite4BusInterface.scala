@@ -6,6 +6,10 @@ import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4B, AxiLite4R}
 import spinal.lib.bus.misc.SizeMapping
 
 case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf {
+  override val withStrb: Boolean = true
+  val wstrb: Bits = withStrb generate (Bits(strbWidth bit))
+  val wmask: Bits = withStrb generate (Bits(busDataWidth bit))
+  val wmaskn: Bits = withStrb generate (Bits(busDataWidth bit))
   override def getModuleName = moduleName.name
 
   val readError = Bool()
@@ -22,6 +26,12 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   val axiW  = bus.writeData.stage()
   val axiB  = Stream(AxiLite4B(bus.config))
   val axiBValid = Reg(Bool()) init(False)
+
+  //The RC/RS/W1RC/W0RC of the regif allows the use strb to be used when reading, which is possible for apb4.
+  //However, for AXI, Strb is only used in the Write channel, so set high is mandatory here
+  withStrb generate (wstrb := Mux(axiAr.valid ,B((1 << strbWidth) -1, strbWidth bit), axiW.strb))
+  initStrbMasks()
+
   
   axiAr.ready := !axiRValid || axiR.ready
   when(readError) {
@@ -49,7 +59,7 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   axiRValid := doRead
   axiBValid := doWrite
 
-  def readAddress() : UInt = axiAr.addr
+  def readAddress()  = if(withStrb) U(axiAr.addr.drop(underbitWidth) ## B(0, underbitWidth bit)) else axiAr.addr
   def writeAddress() : UInt = axiAw.addr
 
   override def readHalt(): Unit = axiAr.ready := False

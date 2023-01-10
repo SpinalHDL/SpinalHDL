@@ -164,9 +164,44 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
     /** Number of cycles */
     def cycles = new CyclesCount(i)
+
+    /*
+    BigInt("53f4ad110", 16).byteUnit() = 20GiB+1012MiB+692KiB+272Byte
+    ((32 MiB) + (123 KiB) + (23 Byte)).byteUnit()            = 32MiB+123KiB+23Byte
+    ((32 MiB) + (123 KiB) + (23 Byte)).byteUnit(ceil = true) = 33MiB
+    (333 KiB).byteUnit() = 33KiB
+    */
+    def toStringByByteUnit(ceil: Boolean = false): String = byteUnit(ceil)
+    def byteUnit(ceil: Boolean = false): String = {
+      def recentry(x: BigInt): String = {
+        def bsf(n: Int) = BigInt(1) << n
+        def mod(a: BigInt, b: BigInt): (BigInt, BigInt) = (a / b, a % b)
+        def toString(y: BigInt, sft: Int, unit: String): String = {
+          val (n, r) = mod(y, bsf(sft))
+          if (ceil) {
+            if (r == 0) n + unit else (n + 1) + "~" + unit
+          } else {
+            val pre = if (n == 0) "" else n + unit
+            val lst = recentry(r)
+            pre + lst
+          }
+        }
+        x match {
+          case y if y > bsf(80) => toString(y, 80, "YiB ")
+          case y if y > bsf(70) => toString(y, 70, "ZiB ")
+          case y if y > bsf(60) => toString(y, 60, "EiB ")
+          case y if y > bsf(50) => toString(y, 50, "PiB ")
+          case y if y > bsf(40) => toString(y, 40, "TiB ")
+          case y if y > bsf(30) => toString(y, 30, "GiB ")
+          case y if y > bsf(20) => toString(y, 20, "MiB ")
+          case y if y > bsf(10) => toString(y, 10, "KiB ")
+          case y if y == 0 => ""
+          case _ => x + "Byte"
+        }
+      }
+      recentry(i).trim.replace(' ', '+')
+    }
   }
-
-
   /**
     * Double Builder
     */
