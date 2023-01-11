@@ -134,6 +134,46 @@ case class SparseMemory(seed : Long = Random.nextLong()){
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF) = data
   }
 
+  def write(address : Long, data : Array[Byte]) : Unit = {
+    val size = data.length
+    var ptr = address
+    var offset = 0
+    while(offset != size){
+      val mem = getElseAlocate((ptr >> 20).toInt)
+      while(offset != size && (ptr & 0xFFFFF) != 0){
+        mem(ptr.toInt & 0xFFFFF) = data(offset)
+        ptr += 1
+        offset += 1
+      }
+    }
+  }
+  def write(address : Long, data : Array[Byte], mask : Array[Byte]) : Unit = {
+    val size = data.length
+    var ptr = address
+    var offset = 0
+    while(offset != size){
+      val mem = getElseAlocate((ptr >> 20).toInt)
+      while(offset != size && (ptr & 0xFFFFF) != 0){
+        if((mask(offset >> 3) & (1 << (offset & 7))) != 0) mem(ptr.toInt & 0xFFFFF) = data(offset)
+        ptr += 1
+        offset += 1
+      }
+    }
+  }
+  def write(address : Long, data : Array[Byte], mask : Array[Boolean]) : Unit = {
+    val size = data.length
+    var ptr = address
+    var offset = 0
+    while(offset != size){
+      val mem = getElseAlocate((ptr >> 20).toInt)
+      while(offset != size && (ptr & 0xFFFFF) != 0){
+        if(mask(offset)) mem(ptr.toInt & 0xFFFFF) = data(offset)
+        ptr += 1
+        offset += 1
+      }
+    }
+  }
+
   def read(address : Long) : Byte = {
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF)
   }

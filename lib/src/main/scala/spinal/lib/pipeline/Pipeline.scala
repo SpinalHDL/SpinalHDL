@@ -237,7 +237,6 @@ class Pipeline extends Area{
       if(arbitration.isHaltedByOthers != null) arbitration.isHaltedByOthers.setCompositeName(s, "isHaltedByOthers", true)
       if(arbitration.isRemoved != null) arbitration.isRemoved.setCompositeName(s, "isRemoved", true)
       if(arbitration.isForked != null) arbitration.isForked.setCompositeName(s, "isForked", true)
-
       if(arbitration.isForked != null) arbitration.isForked := output.valid && output.ready
     }
 
