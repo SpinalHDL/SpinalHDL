@@ -205,6 +205,13 @@ case class SparseMemory() {
     println(s"Loading 0x${byteArray.length.toHexString} bytes from ${file} to 0x${address.toHexString}")
   }
 
+  def loadHex(offset: Int, file: String) : Unit = {
+    import spinal.lib.misc.HexTools.readHexFile
+    readHexFile(file, offset, (address, data) => {
+      writeBigInt(address, data,2)
+    })
+  }
+
   def loadDebugSequence(address : Long, length : Int, width : Int) : Unit = {
     for(i <- 0 until length) {
       writeBigInt(address + i * width, BigInt(address + i * width), width)
