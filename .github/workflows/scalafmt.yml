@@ -5,6 +5,7 @@ on:
     branches:
       - dev
 
+jobs:
   fmt-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 30
