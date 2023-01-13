@@ -3,9 +3,9 @@ package spinal.lib.misc
 import spinal.core.{Data, Mem}
 
 object HexTools{
-  def readHexFile(path : String, hexOffset : Int, callback : (Int, Int) => Unit) : Unit ={
+  def readHexFile(path : String, hexOffset : Long, callback : (Long, Int) => Unit) : Unit ={
     import scala.io.Source
-    def hToI(that : String, start : Int, size : Int) = Integer.parseInt(that.substring(start,start + size), 16)
+    def hToI(that : String, start : Int, size : Int) = Integer.parseUnsignedInt(that.substring(start,start + size), 16)
 
     var offset = 0
     for (line <- Source.fromFile(path).getLines) {
@@ -30,7 +30,7 @@ object HexTools{
     }
   }
 
-  def readHexFile(path : String, hexOffset : Int): Array[BigInt] ={
+  def readHexFile(path : String, hexOffset : Long): Array[BigInt] ={
     var onChipRomSize = 0
     readHexFile(path, hexOffset ,(address, _) => {
       onChipRomSize = Math.max((address).toInt, onChipRomSize) + 1
