@@ -208,7 +208,7 @@ case class SparseMemory() {
   def loadHex(offset: Int, file: String) : Unit = {
     import spinal.lib.misc.HexTools.readHexFile
     readHexFile(file, offset, (address, data) => {
-      writeBigInt(address, data,2)
+      writeBigInt(address, data, 2)
     })
   }
 
