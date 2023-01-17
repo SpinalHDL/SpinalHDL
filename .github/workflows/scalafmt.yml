@@ -1,0 +1,22 @@
+name: Check if modified files are beautiful
+
+on:
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  fmt-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/sbt
+    - name: Fetch dev to be able to check only modified files
+      run: |
+        git fetch --depth=1 origin dev
+        git branch dev origin/dev
+    - name: Setup annotations
+      run: echo "::add-matcher::.github/matcher.json"
+    - name: Check formatting and pass
+      run: bash .github/checkfmt.bash
