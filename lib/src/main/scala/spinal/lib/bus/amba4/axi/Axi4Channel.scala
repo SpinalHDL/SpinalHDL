@@ -32,8 +32,11 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   def isFIXED() = if(config.useBurst) burst === FIXED else False
 
   def setSize(sizeBurst :UInt) : Unit = if(config.useBurst) size := sizeBurst
+  def setFullSize() : Unit = this.setSize(log2Up(config.dataWidth/8))
   def setLock(lockType :Bits) : Unit = if(config.useLock) lock := lockType
   def setCache(cacheType : Bits) : Unit = if (config.useCache ) cache := cacheType
+  def setQos(qosType : Bits) : Unit = if (config.useQos) qos := qosType
+  def setProt(protType : Bits) : Unit = if (config.useProt) prot := protType
 
   override def clone: this.type = new Axi4Ax(config,userWidth).asInstanceOf[this.type]
 
