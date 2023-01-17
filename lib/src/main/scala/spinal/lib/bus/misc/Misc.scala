@@ -32,6 +32,7 @@ object AddressMapping{
 
 trait AddressMapping{
   def hit(address: UInt): Bool
+  def hit(address: BigInt): Boolean
   def removeOffset(address: UInt): UInt
   def lowerBound : BigInt
   def highestBound : BigInt
@@ -44,6 +45,7 @@ trait AddressMapping{
 
 case class SingleMapping(address : BigInt) extends AddressMapping{
   override def hit(address: UInt) = this.address === address
+  override def hit(address: BigInt): Boolean = this.address == address
   override def removeOffset(address: UInt) = U(0)
   override def lowerBound = address
   override def highestBound = address
@@ -63,6 +65,7 @@ case class SingleMapping(address : BigInt) extends AddressMapping{
  */
 case class MaskMapping(base : BigInt,mask : BigInt) extends AddressMapping{
   override def hit(address: UInt): Bool = (address & U(mask, widthOf(address) bits)) === base
+  override def hit(address: BigInt): Boolean = (address & mask) == base
   override def removeOffset(address: UInt) = address & ~U(mask, widthOf(address) bits)
   override def lowerBound = base
   override def highestBound = ???
@@ -92,6 +95,7 @@ object SizeMapping{
 
 object AllMapping extends AddressMapping{
   override def hit(address: UInt): Bool = True
+  override def hit(address: BigInt): Boolean = true
   override def removeOffset(address: UInt): UInt = address
   override def lowerBound: BigInt = 0
   override def highestBound = ???
@@ -100,6 +104,7 @@ object AllMapping extends AddressMapping{
 
 object DefaultMapping extends AddressMapping{
   override def hit(address: UInt): Bool = ???
+  override def hit(address: BigInt): Boolean = ???
   override def removeOffset(address: UInt): UInt = ???
   override def lowerBound: BigInt = ???
   override def highestBound = ???
@@ -120,6 +125,7 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
         address >= base && address < base + size
     }
   }
+  override def hit(address: BigInt): Boolean = address >= base && address < base + size
 
   override def removeOffset(address: UInt): UInt = {
     if (isPow2(size) && base % size == 0)
