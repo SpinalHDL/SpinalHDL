@@ -2,7 +2,7 @@ import sbt.Keys._
 import sbt._
 import sbt.Tests._
 
-val scalatestVersion = "3.2.5"
+val scalatestVersion = "3.2.14"
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
   organization := "com.github.spinalhdl",
   version      := SpinalVersion.all,
@@ -28,10 +28,10 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
   libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
 
-  dependencyOverrides += "net.java.dev.jna" % "jna" % "5.5.0",
-  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.5.0",
-  dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
-  dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
+  dependencyOverrides += "net.java.dev.jna" % "jna" % "5.12.1",
+  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.12.1",
+  dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.5",
+  dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
 
   //set SBT_OPTS="-Xmx2G"
   //sbt +clean +reload +publishSigned
@@ -113,10 +113,10 @@ lazy val sim = (project in file("sim"))
   .settings(
     defaultSettings,
     name := "SpinalHDL-sim",
-    libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    libraryDependencies += "net.openhft" % "affinity" % "3.21ea1.1",
-    libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25",
-    libraryDependencies += "com.github.oshi" % "oshi-core" % "5.2.0",
+    libraryDependencies += "commons-io" % "commons-io" % "2.11.0",
+    libraryDependencies += "net.openhft" % "affinity" % "3.23.2",
+    libraryDependencies += "org.slf4j" % "slf4j-simple" % "2.0.5",
+    libraryDependencies += "com.github.oshi" % "oshi-core" % "6.4.0",
     version := SpinalVersion.sim
   )
 
@@ -132,8 +132,8 @@ lazy val core = (project in file("core"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-core",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-    libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.1",
-    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
+    libraryDependencies += "com.github.scopt" %% "scopt" % "4.1.0",
+    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.3.0",
 
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
@@ -157,7 +157,7 @@ lazy val lib = (project in file("lib"))
   .settings(
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
-    libraryDependencies += "commons-io" % "commons-io" % "2.4",
+    libraryDependencies += "commons-io" % "commons-io" % "2.11.0",
     version := SpinalVersion.lib
   )
   .dependsOn (sim, core)

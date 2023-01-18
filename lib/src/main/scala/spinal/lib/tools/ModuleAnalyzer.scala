@@ -160,6 +160,7 @@ class ModuleAnalyzer(module: Module) {
 }
 
 object ModuleAnalyzer {
+
   /** Implicitly convert Module/Component into ModuleAnalyzer */
   implicit def toAnalyzer(module: Module): ModuleAnalyzer = new ModuleAnalyzer(module)
 
