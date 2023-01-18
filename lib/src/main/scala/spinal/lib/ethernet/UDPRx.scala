@@ -3,26 +3,19 @@ package spinal.lib.ethernet
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axis._
-import spinal.core.Mem
-import ethernet.PacketMTUEnum
-import spinal.core.internals.Operator
-import spinal.lib.fsm._
-
-import java.util.Calendar
-import scala.math._
+import UserConfiguration._
 
 case class RxGenerics(
-    IP_ADDR_WIDTH: Int = 32,
-    PORT_WIDTH: Int = 16,
-    DATA_WIDTH: Int = 256,
-    DATA_BYTE_CNT: Int = 32,
-    OCTETS: Int = 8,
+    DATA_WIDTH: Int = DATA_WIDTH,
+    DATA_BYTE_CNT: Int = DATA_BYTE_CNT,
+    OCTETS: Int = BYTE_WIDTH,
     DATA_USE_TLAST: Boolean = true,
     DATA_USE_TUSER: Boolean = true,
     DATA_USE_TKEEP: Boolean = true,
     DATA_USE_TSTRB: Boolean = false,
     DATA_TUSER_WIDTH: Int = 1,
-    INPUT_BUFFER_DEPTH: Int = 256
+    DATA_BUFFER_DEPTH: Int = 256,
+    HEADER_BUFFER_DEPTH: Int = 16
 )
 
 class RxTop(
@@ -41,15 +34,15 @@ class RxTop(
   val io = new Bundle {
 
     val dataAxisIn = slave(Axi4Stream(dataAxisCfg))
-    val metaOut = master Stream MetaInterface()
+    val metaOut = master Stream MetaData()
     val dataAxisOut = master(Axi4Stream(dataAxisCfg))
   }
 
-  val dataBuffered = io.dataAxisIn.queue(rxConfig.INPUT_BUFFER_DEPTH)
+  val dataBuffered = io.dataAxisIn.queue(rxConfig.DATA_BUFFER_DEPTH)
 
   val headerRecognizer = new HeaderRecognizer(headerConfig)
   headerRecognizer.io.dataAxisIn << dataBuffered
 
-  io.dataAxisOut <-< headerRecognizer.io.dataAxisOut
-  io.metaOut <-< headerRecognizer.io.metaOut
+  io.dataAxisOut <-/< headerRecognizer.io.dataAxisOut
+  io.metaOut <-/< headerRecognizer.io.metaOut
 }

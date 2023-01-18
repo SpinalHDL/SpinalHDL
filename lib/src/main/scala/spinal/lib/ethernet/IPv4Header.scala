@@ -1,43 +1,22 @@
 package spinal.lib.ethernet
 
-import spinal.core._
 import EthernetProtocolConstant._
+import spinal.core._
 
 import scala.collection.mutable
 
-object IPv4Header {
-  def apply(array: Array[Bits]): Array[Bits] = {
-    val gen = new IPv4Header
-    require(
-      array.length == gen.header.length,
-      s"Initializing parameters not enough! Require ${gen.header.length} but gave ${array.length}"
-    )
-    gen.header.zipWithIndex.foreach { case (data, idx) =>
-      data := array(idx)
-    }
-    gen.header
+object IPv4Header extends HeaderOperate {
+  def apply(array: Seq[Bits]): Seq[Bits] = {
+    val gen = IPv4Header()
+    this.generate(array, gen)
   }
-
-  def unapply(header: Bits): (Array[String], Array[Bits]) = {
-    val gen = new IPv4Header
-    val bitWidth = gen.frameFieldInit.values.sum
-    require(
-      bitWidth == header.getWidth,
-      s"Initializing parameters not enough! Require ${bitWidth} but gave ${header.getWidth}"
-    )
-    val asLittleEnd = header.subdivideIn(bitWidth / 8 slices).reduce(_ ## _)
-    val tmp = asLittleEnd
-      .sliceBy(gen.frameFieldInit.values.toList.reverse)
-      .reverse
-      .toArray
-    gen.header.zipWithIndex.foreach { case (data, idx) =>
-      data := tmp(idx)
-    }
-    (gen.frameFieldInit.keys.toArray, gen.header)
+  def unapply(header: Bits): (Seq[String], Seq[Bits]) = {
+    val extract = IPv4Header()
+    this.extract(header, extract)
   }
 }
 
-case class IPv4Header() extends Bundle with FrameHeader {
+case class IPv4Header() extends FrameHeader {
   val frameFieldInit = mutable.LinkedHashMap(
     "protocolVersion" -> IP_VERSION_WIDTH,
     "internetHeaderLength" -> IHL_WIDTH,
@@ -53,6 +32,5 @@ case class IPv4Header() extends Bundle with FrameHeader {
     "srcAddr" -> IP_ADDR_WIDTH,
     "dstAddr" -> IP_ADDR_WIDTH
   )
-  val header: Array[Bits] =
-    EthernetProtocolHeaderConstructor(frameFieldInit).constructHeader()
+  val header: Array[Bits] = this.constructHeader(frameFieldInit)
 }

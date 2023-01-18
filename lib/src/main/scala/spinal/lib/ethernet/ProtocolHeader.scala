@@ -1,23 +1,11 @@
 package spinal.lib.ethernet
 
+import UserConfiguration._
 import spinal.core._
-import spinal.core.internals.Operator
-import spinal.core.sim._
-import spinal.lib
-import spinal.lib._
-import spinal.lib.bus.amba4.axis.{Axi4Stream, Axi4StreamConfig}
-import spinal.lib.fsm._
 
 import scala.collection.mutable
-import scala.math.pow
 
 object EthernetProtocolConstant {
-  val DATA_WIDTH = 256
-  val BYTE_WIDTH = 8
-  val DATA_BYTE_CNT = DATA_WIDTH / BYTE_WIDTH
-
-  val SRC_MAC_ADDR = 0x0123456789abcL
-  val SRC_IP_ADDR = 0xc0a80101L
 
   val ETH_TYPE = 0x0800
   val IP_VERSION = 0x4
@@ -29,11 +17,13 @@ object EthernetProtocolConstant {
   val TTL = 0x40
   val PROTOCOL = 0x11
 
-  val UDP_CHECKSUM = 0x0000
 
   val ETH_HEADER_LENGTH = 14
   val IP_HEADER_LENGTH = 20
   val UDP_HEADER_LENGTH = 8
+  val ETH_HEADER_WIDTH = ETH_HEADER_LENGTH * BYTE_WIDTH
+  val IP_HEADER_WIDTH = IP_HEADER_LENGTH * BYTE_WIDTH
+  val UDP_HEADER_WIDTH = UDP_HEADER_LENGTH * BYTE_WIDTH
   val HEADER_TOTAL_LENGTH =
     ETH_HEADER_LENGTH + IP_HEADER_LENGTH + UDP_HEADER_LENGTH
 
@@ -42,8 +32,7 @@ object EthernetProtocolConstant {
   val UDP_LENGTH_MAX = IP_LENGTH_MAX - IP_HEADER_LENGTH
 
   val MAX_DATA_NUM = MTU - IP_HEADER_LENGTH - UDP_HEADER_LENGTH
-  val MIN_DATA_NUM =
-    22 // MIN_TRANSACTION_NUM(64) - MAC_LEN(14) - IP_LEN(20) - UDP_LEN(8)
+  val MIN_DATA_NUM = 22 // MIN_TRANSACTION_NUM(64) - MAC_LEN(14) - IP_LEN(20) - UDP_LEN(8)
 
   val MAC_ADDR_WIDTH = 48
   val ETH_TYPE_WIDTH = 16
@@ -65,12 +54,8 @@ object EthernetProtocolConstant {
   val UDP_LENGTH_WIDTH = 16
   val UDP_CHECKSUM_WIDTH = 16
 }
-
-import EthernetProtocolConstant._
-case class EthernetProtocolHeaderConstructor(
-    initField: mutable.LinkedHashMap[String, Int]
-) extends Bundle {
-  def constructHeader(): Array[Bits] = {
+class EthernetProtocolHeaderConstructor {
+  def constructHeader(initField: mutable.LinkedHashMap[String, Int]): Array[Bits] = {
     val fieldName: Array[String] = initField.keys.toArray
     val fieldWidth: Array[Int] = initField.values.toArray
     val protocolField = List.tabulate[Bits](initField.size) { index =>
@@ -82,56 +67,36 @@ case class EthernetProtocolHeaderConstructor(
   }
 
 }
-// interface workshop
-trait FrameHeader {
+trait FrameHeader extends EthernetProtocolHeaderConstructor {
   val frameFieldInit: mutable.LinkedHashMap[String, Int]
   val header: Array[Bits]
 }
 
-//object ARPHeader {
-//  def apply(array: Array[Bits]): Array[Bits] = {
-//    val gen = new ARPHeader
-//    require(
-//      array.length == gen.header.length,
-//      s"Initializing parameters not enough! Require ${gen.header.length} but gave ${array.length}"
-//    )
-//    gen.header.zipWithIndex.foreach { case (data, idx) =>
-//      data := array(idx)
-//    }
-//    gen.header
-//  }
-//
-//  def unapply(header: Bits): (Array[String], Array[Bits]) = {
-//    val gen = new ARPHeader
-//    val bitWidth = gen.frameFieldInit.values.sum
-//    require(
-//      bitWidth == header.getWidth,
-//      s"Initializing parameters not enough! Require ${bitWidth} but gave ${header.getWidth}"
-//    )
-//    val asLittleEnd = header.subdivideIn(bitWidth / 8 slices).reduce(_ ## _)
-//    val tmp = asLittleEnd
-//      .sliceBy(gen.frameFieldInit.values.toList.reverse)
-//      .reverse
-//      .toArray
-//    gen.header.zipWithIndex.foreach { case (data, idx) =>
-//      data := tmp(idx)
-//    }
-//    (gen.frameFieldInit.keys.toArray, gen.header)
-//  }
-//}
-//
-//case class ARPHeader() extends FrameHeader {
-//  val frameFieldInit = mutable.LinkedHashMap(
-//    "hardwareType" -> 2 * 8,
-//    "protocolType" -> 2 * 8,
-//    "hardwareLen" -> 8,
-//    "protocolLen" -> 8,
-//    "operation" -> 2 * 8,
-//    "senderHardwareAddr" -> 6 * 8,
-//    "senderProtocolAddr" -> 4 * 8,
-//    "targetHardwareAddr" -> 6 * 8,
-//    "targetProtocolAddr" -> 4 * 8
-//  )
-//  val header: Array[Bits] =
-//    EthernetProtocolHeaderConstructor(frameFieldInit).constructHeader()
-//}
+class HeaderOperate {
+  def generate(arr: Seq[Bits], gen: FrameHeader): Seq[Bits] = {
+    require(
+      arr.length == gen.header.length,
+      s"Initializing parameters not enough! Require ${gen.header.length} but gave ${arr.length}"
+    )
+    gen.header.zipWithIndex.foreach { case (data, idx) =>
+      data := arr(idx)
+    }
+    gen.header
+  }
+  def extract(header: Bits, extract: FrameHeader): (Seq[String], Seq[Bits]) = {
+    val bitWidth = extract.frameFieldInit.values.sum
+    require(
+      bitWidth == header.getWidth,
+      s"Initializing parameters not enough! Require ${bitWidth} but gave ${header.getWidth}"
+    )
+    val asLittleEnd = header.subdivideIn(bitWidth / 8 slices).reduce(_ ## _)
+    val tmp = asLittleEnd
+      .sliceBy(extract.frameFieldInit.values.toList.reverse)
+      .reverse
+      .toArray
+    extract.header.zipWithIndex.foreach { case (data, idx) =>
+      data := tmp(idx)
+    }
+    (extract.frameFieldInit.keys.toSeq, extract.header)
+  }
+}

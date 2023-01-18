@@ -10,7 +10,7 @@ object MetaInterfaceConstrant {
   val PACKET_TOTAL_LEN_WIDTH = log2Up(PACKET_TOTAL_MAX)   // 0 ~ 4096
 }
 
-import ethernet.MetaInterfaceConstrant._
+import MetaInterfaceConstrant._
 
 case class MetaInterface()
     extends Bundle

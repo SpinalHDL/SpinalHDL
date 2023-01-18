@@ -10,20 +10,15 @@ object Axi4StreamConditionalJoin {
     * source stream1 has higher priority
     */
   def apply[T1 <: Axi4StreamBundle, T2 <: Axi4StreamBundle](
-      source1: Stream[T1],
-      source2: Stream[T2],
-      source1Select: Bool,
-      source2Select: Bool
+      source1: Stream[T1], source2: Stream[T2],
+      source1Select: Bool, source2Select: Bool
   ): Stream[TupleBundle2[T1, T2]] = {
     val sources = Seq(source1, source2)
     val combined = Stream(
-      TupleBundle2(
-        source1.payloadType,
-        source2.payloadType
-      )
+      TupleBundle2(source1.payloadType, source2.payloadType)
     )
     combined.valid := (sources(0).valid && sources(1).valid) |
-      ((source1Select) && sources(0).valid)
+      (source1Select && sources(0).valid)
     sources(0).ready := combined.fire
     sources(1).ready := source2Select & combined.fire
     //    if (useKeep/useLast/useUser)
