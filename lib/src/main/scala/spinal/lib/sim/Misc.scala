@@ -140,11 +140,11 @@ case class SparseMemory(seed : Long = Random.nextLong()){
     var offset = 0
     while(offset != size){
       val mem = getElseAlocate((ptr >> 20).toInt)
-      while(offset != size && (ptr & 0xFFFFF) != 0){
+      do{
         mem(ptr.toInt & 0xFFFFF) = data(offset)
         ptr += 1
         offset += 1
-      }
+      }while(offset != size && (ptr & 0xFFFFF) != 0)
     }
   }
   def write(address : Long, data : Array[Byte], mask : Array[Byte]) : Unit = {
@@ -153,11 +153,11 @@ case class SparseMemory(seed : Long = Random.nextLong()){
     var offset = 0
     while(offset != size){
       val mem = getElseAlocate((ptr >> 20).toInt)
-      while(offset != size && (ptr & 0xFFFFF) != 0){
+      do{
         if((mask(offset >> 3) & (1 << (offset & 7))) != 0) mem(ptr.toInt & 0xFFFFF) = data(offset)
         ptr += 1
         offset += 1
-      }
+      }while(offset != size && (ptr & 0xFFFFF) != 0)
     }
   }
   def write(address : Long, data : Array[Byte], mask : Array[Boolean]) : Unit = {
@@ -166,11 +166,11 @@ case class SparseMemory(seed : Long = Random.nextLong()){
     var offset = 0
     while(offset != size){
       val mem = getElseAlocate((ptr >> 20).toInt)
-      while(offset != size && (ptr & 0xFFFFF) != 0){
+      do{
         if(mask(offset)) mem(ptr.toInt & 0xFFFFF) = data(offset)
         ptr += 1
         offset += 1
-      }
+      }while(offset != size && (ptr & 0xFFFFF) != 0)
     }
   }
 
@@ -184,11 +184,11 @@ case class SparseMemory(seed : Long = Random.nextLong()){
     var offset = 0
     while(offset != size){
       val mem = getElseAlocate((ptr >> 20).toInt)
-      while(offset != size && (ptr & 0xFFFFF) != 0){
+      do{
         data(offset) = mem(ptr.toInt & 0xFFFFF)
         ptr += 1
         offset += 1
-      }
+      }while(offset != size && (ptr & 0xFFFFF) != 0)
     }
     data
   }
