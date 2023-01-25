@@ -2,16 +2,12 @@ package spinal.lib.ethernet
 
 import spinal.core._
 import spinal.lib._
-import spinal.sim._
 import spinal.core.sim._
 import spinal.lib.bus.amba4.axis._
-import java.util.Calendar
 
 import scala.collection.mutable
 import scala.math._
 import scala.util.Random
-
-import java.util.Calendar
 
 class Loopback(
     txConfig: TxGenerics,
@@ -64,15 +60,7 @@ object LoopbackMain extends App {
   val txConfig = TxGenerics()
   val recognizeConfig = HeaderRecognizerGenerics()
 
-  SpinalConfig(
-    targetDirectory = "./verilog",
-    oneFilePerComponent = false,
-    removePruned = false,
-    rtlHeader = s"""
-         |@Author : Jinyuan Huang (Jerry) jjyy.huang@gmail.com
-         |@Create : ${Calendar.getInstance().getTime}""".stripMargin
-  )
-    .generateVerilog(new Loopback(txConfig, generateConfig, rxConfig, recognizeConfig))
+  SpinalVerilog(new Loopback(txConfig, generateConfig, rxConfig, recognizeConfig))
 }
 
 case class simConfig(
@@ -124,7 +112,7 @@ object LoopbackCheckSim extends App {
       }
 
       initPort()
-      dut.clockDomain.waitRisingEdge(50)
+      dut.clockDomain.waitSampling(50)
 
       println("init monitor")
       def monitor(): Unit = {
@@ -141,7 +129,7 @@ object LoopbackCheckSim extends App {
             println(f"ref: $refAppend, res: $resAppend")
             assert(refAppend == resAppend, s"require ${refAppend}, but return ${resAppend}")
           }
-          dut.clockDomain.waitRisingEdge()
+          dut.clockDomain.waitSampling()
         }
       }
 
@@ -167,7 +155,7 @@ object LoopbackCheckSim extends App {
         }
         a.join()
         b.join()
-        dut.clockDomain.waitRisingEdge(Random.nextInt(20).abs)
+        dut.clockDomain.waitSampling(Random.nextInt(20).abs)
       }
 
       def loadMeta(sendDataBytes: Int): Unit = {
@@ -179,7 +167,7 @@ object LoopbackCheckSim extends App {
         dut.io.metaIn.payload.srcPort #= simCfg.srcPort.asHex
         dut.io.metaIn.payload.dataLen #= sendDataBytes
         dut.io.metaIn.valid #= true
-        dut.clockDomain.waitRisingEdge()
+        dut.clockDomain.waitSampling()
         dut.io.metaIn.valid #= false
       }
       def loadData(sendDataBytes: Int): Unit = {
@@ -200,7 +188,7 @@ object LoopbackCheckSim extends App {
             dut.io.dataAxisIn.keep #= (pow(2, 32) - 1).toLong.abs
             dataQueue.enqueue(randData)
           }
-          dut.clockDomain.waitRisingEdge()
+          dut.clockDomain.waitSampling()
           dut.io.dataAxisIn.data #= 0
           dut.io.dataAxisIn.valid #= false
           dut.io.dataAxisIn.last #= false
@@ -208,7 +196,7 @@ object LoopbackCheckSim extends App {
         }
       }
 
-      dut.clockDomain.waitRisingEdge(50)
+      dut.clockDomain.waitSampling(50)
       simSuccess()
     }
 }
