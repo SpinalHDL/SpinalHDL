@@ -199,3 +199,48 @@ class SimStreamAssert[T <: Data](s : Stream[T], cd : ClockDomain){
     }
   }
 }
+
+/**
+ * Allows to specify bursts of stream transactions, but those bursts will be scheduled out of order
+ * The order inside each burst is preserved, once a burst began, nothing else goes until it is done.
+ *
+ * Usage :
+ * myStreamDriverOoo.burst{ push =>
+ *   push{ payload
+ *      payload.mySignal #= beat0
+ *   }
+ *   push{ payload
+ *      payload.mySignal #= beat1
+ *   }
+ * }
+ */
+class StreamDriverOoo[T <: Data](stream : Stream[T], cd: ClockDomain){
+  val storage = ArrayBuffer[mutable.Queue[(T) => Unit] => Unit]()
+  val queue = mutable.Queue[(T) => Unit]()
+  val ctrl = StreamDriver(stream, cd) { p =>
+    while(queue.isEmpty && !storage.isEmpty){
+      val index = Random.nextInt(storage.length)
+      storage(index).apply(queue)
+      storage.remove(index)
+    }
+    if(queue.isEmpty) false else {
+      queue.dequeue().apply(p)
+      true
+    }
+  }
+
+  def single(body : T => Unit) : Unit = {
+    storage += (q => q.enqueue(body))
+  }
+  def burst(body : ((T => Unit) => Unit) => Unit) = {
+    storage += (q => {
+      body.apply{e =>
+        q.enqueue(e)
+      }
+    })
+  }
+}
+
+object StreamDriverOoo{
+  def apply[T <: Data](stream : Stream[T], cd: ClockDomain) = new StreamDriverOoo(stream, cd)
+}
