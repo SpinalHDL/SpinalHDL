@@ -27,6 +27,7 @@ install_ghdl(){
 }
 
 install_iverilog(){
+  cd ..
   sudo apt install -y iverilog
 }
 
