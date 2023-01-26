@@ -132,13 +132,14 @@ class HeaderRecognizer(
   val dataStreamReg = packetStreamReg takeWhen (dataStreamRegValid) m2sPipe() s2mPipe()
   val dataStream = packetStream takeWhen (dataStreamValid) m2sPipe() s2mPipe()
   val invalidReg = Reg(Bool()) init False
+  val withSub = dataStream.valid & dataStreamReg.valid
   val dataJoinStream =
-    Axi4StreamConditionalJoin(dataStreamReg, dataStream, True, True) stage() throwWhen(invalidReg)
+    SubStreamJoin(dataStreamReg, dataStream, withSub) stage() throwWhen (invalidReg)
 
   val transactionCounter = new StreamTransactionCounter(packetLenWidth)
   transactionCounter.io.ctrlFire := RegNext(headerMatch.rise()) init False
   transactionCounter.io.targetFire := dataJoinStream.fire
-  transactionCounter.io.count := packetLenReg  // 0 until packetLen
+  transactionCounter.io.count := packetLenReg // 0 until packetLen
   invalidReg := transactionCounter.io.done
 
 
@@ -147,14 +148,10 @@ class HeaderRecognizer(
     RegNextWhen(generateByteMask(shiftLen), headerMatch & dataStreamReg.fire) init 0
 
   maskStage.arbitrationFrom(dataJoinStream)
-  maskStage.data := byteMaskData(
-    ~mask,
-    dataJoinStream.payload._1.data
-  ) | byteMaskData(mask, dataJoinStream.payload._2.data)
-  maskStage.keep := byteMaskData(
-    ~mask,
-    dataJoinStream.payload._1.keep
-  ) | byteMaskData(mask, dataJoinStream.payload._2.keep)
+  maskStage.data := byteMaskData(~mask, dataJoinStream.payload._1.data) |
+    byteMaskData(mask, dataJoinStream.payload._2.data)
+  maskStage.keep := byteMaskData(~mask, dataJoinStream.payload._1.keep) |
+    byteMaskData(mask, dataJoinStream.payload._2.keep)
   maskStage.last := transactionCounter.io.done
 
   val maskedStage = maskStage m2sPipe() s2mPipe()
