@@ -1,6 +1,7 @@
 package spinal.lib.ethernet
 
 import spinal.core._
+import spinal.core.internals.TypeBool
 import spinal.lib._
 
 object SubStreamJoin {
@@ -15,5 +16,23 @@ object SubStreamJoin {
     combined.payload._1 := main.payload
     combined.payload._2 := sub.payload
     combined
+  }
+}
+object StreamPayloadResetIfInvalid {
+  def apply[T <: Data](s: Stream[T]): Stream[T] = {
+    val resetStream = s.clone()
+    resetStream.arbitrationFrom(s)
+    resetStream.payload.flatten.zipWithIndex.map { case (payload, idx) =>
+      when(!s.valid) {
+        if (payload.getTypeObject == TypeBool) {
+          payload := False
+        } else {
+          payload := B(0)
+        }
+      }.otherwise {
+        payload := s.payload.flatten(idx)
+      }
+    }
+    resetStream
   }
 }
