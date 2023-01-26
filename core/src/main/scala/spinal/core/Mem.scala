@@ -124,7 +124,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
 
   var forceMemToBlackboxTranslation = false
   val _widths = wordType().flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
-  val width   = _widths.reduce(_ + _)
+  val width   = _widths.sum
 
 
   def byteCount = ((width+7)/8)*wordCount
