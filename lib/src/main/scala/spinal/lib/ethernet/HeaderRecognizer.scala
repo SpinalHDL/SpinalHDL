@@ -85,13 +85,13 @@ class HeaderRecognizer(
   val packetLenWidth = log2Up(packetLenMax)
   val packetLenReg = Reg(UInt(log2Up(packetLenMax) bits)) init 0
 
-  val needOneMoreCycle = ((ipv4HeaderReg("ipLen").asUInt - (IP_HEADER_LENGTH + UDP_HEADER_LENGTH)) & (DATA_BYTE_CNT - 1)) =/= 0
+  val needOneMoreCycle = ((ipv4HeaderReg(IPv4Fields.ipLen).asUInt - (IP_HEADER_LENGTH + UDP_HEADER_LENGTH)) & (DATA_BYTE_CNT - 1)) =/= 0
 
   when(recognizerStart) {
-    macAddrCorrectReg.setWhen(ethHeader("dstMAC") === B"48'xfccffccffccf")  // just use verification
-    ipAddrCorrectReg.setWhen(ipv4Header("dstAddr") === B"32'xc0a80103")     // just use verification
-    isIpReg.setWhen(ethHeader("ethType") === ETH_TYPE)
-    isUdpReg.setWhen(ipv4Header("protocol") === PROTOCOL)
+    macAddrCorrectReg.setWhen(ethHeader(EthernetFields.dstMAC) === B"48'xfccffccffccf") // just use verification
+    ipAddrCorrectReg.setWhen(ipv4Header(IPv4Fields.dstAddr) === B"32'xc0a80103") // just use verification
+    isIpReg.setWhen(ethHeader(EthernetFields.ethType) === ETH_TYPE)
+    isUdpReg.setWhen(ipv4Header(IPv4Fields.protocol) === PROTOCOL)
   }
 
   macAddrCorrectReg.clearWhen(packetStreamReg.lastFire)
@@ -100,9 +100,9 @@ class HeaderRecognizer(
   isUdpReg.clearWhen(packetStreamReg.lastFire)
 
   when(headerMatch) {
-    dataLen := (ipv4HeaderReg("ipLen").asUInt - (IP_HEADER_LENGTH + UDP_HEADER_LENGTH)).resized
+    dataLen := (ipv4HeaderReg(IPv4Fields.ipLen).asUInt - (IP_HEADER_LENGTH + UDP_HEADER_LENGTH)).resized
     shiftLen := DATA_BYTE_CNT - (HEADER_TOTAL_LENGTH % DATA_BYTE_CNT)
-    packetLenReg := ((ipv4HeaderReg("ipLen").asUInt - (IP_HEADER_LENGTH + UDP_HEADER_LENGTH)) >> log2Up(DATA_BYTE_CNT)
+    packetLenReg := ((ipv4HeaderReg(IPv4Fields.ipLen).asUInt - (IP_HEADER_LENGTH + UDP_HEADER_LENGTH)) >> log2Up(DATA_BYTE_CNT)
       ).takeLow(packetLenWidth).asUInt -
       (needOneMoreCycle ? U(0, packetLenWidth bits) | U(1, packetLenWidth bits))
   }
@@ -110,12 +110,12 @@ class HeaderRecognizer(
   val metaCfg = Stream(MetaData())
   metaCfg.valid := RegNext(headerMatch.rise()) init False
   metaCfg.dataLen := dataLen.resize(metaCfg.dataLen.getWidth)
-  metaCfg.srcMacAddr := ethHeaderReg("srcMAC")
-  metaCfg.srcIpAddr := ipv4HeaderReg("srcAddr")
-  metaCfg.srcPort := udpHeaderReg("srcPort")
-  metaCfg.dstPort := udpHeaderReg("dstPort")
-  metaCfg.dstMacAddr := ethHeaderReg("dstMAC")
-  metaCfg.dstIpAddr := ipv4HeaderReg("dstAddr")
+  metaCfg.srcMacAddr := ethHeaderReg(EthernetFields.srcMAC)
+  metaCfg.srcIpAddr := ipv4HeaderReg(IPv4Fields.srcAddr)
+  metaCfg.srcPort := udpHeaderReg(UDPFields.srcPort)
+  metaCfg.dstPort := udpHeaderReg(UDPFields.dstPort)
+  metaCfg.dstMacAddr := ethHeaderReg(EthernetFields.dstMAC)
+  metaCfg.dstIpAddr := ipv4HeaderReg(IPv4Fields.dstAddr)
 
   io.metaOut << metaCfg
 

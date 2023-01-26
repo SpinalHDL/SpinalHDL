@@ -55,20 +55,19 @@ object EthernetProtocolConstant {
   val UDP_CHECKSUM_WIDTH = 16
 }
 class EthernetProtocolHeaderConstructor {
-  def constructHeader(initField: mutable.LinkedHashMap[String, Int]): Array[Bits] = {
-    val fieldName: Array[String] = initField.keys.toArray
+  def constructHeader(initField: mutable.LinkedHashMap[EthernetProtocolField, Int]): Array[Bits] = {
     val fieldWidth: Array[Int] = initField.values.toArray
     val protocolField = List.tabulate[Bits](initField.size) { index =>
-      val tmp: Bits =
-        Bits(fieldWidth(index) bits) setName fieldName(index)
+      val tmp: Bits = Bits(fieldWidth(index) bits)
       tmp
     }
     protocolField.toArray
   }
 
 }
+class EthernetProtocolField
 trait FrameHeader extends EthernetProtocolHeaderConstructor {
-  val frameFieldInit: mutable.LinkedHashMap[String, Int]
+  val frameFieldInit: mutable.LinkedHashMap[EthernetProtocolField, Int]
   val header: Array[Bits]
 }
 
@@ -83,7 +82,7 @@ class HeaderOperate {
     }
     gen.header
   }
-  def extract(header: Bits, extract: FrameHeader): (Seq[String], Seq[Bits]) = {
+  def extract(header: Bits, extract: FrameHeader): (Seq[EthernetProtocolField], Seq[Bits]) = {
     val bitWidth = extract.frameFieldInit.values.sum
     require(
       bitWidth == header.getWidth,

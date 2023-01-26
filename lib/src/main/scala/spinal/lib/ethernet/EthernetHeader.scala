@@ -10,17 +10,23 @@ object EthernetHeader extends HeaderOperate{
     val gen = EthernetHeader()
     this.generate(array, gen)
   }
-  def unapply(header: Bits): (Seq[String], Seq[Bits]) = {
+  def unapply(header: Bits): (Seq[EthernetProtocolField], Seq[Bits]) = {
     val extract = EthernetHeader()
     this.extract(header, extract)
   }
-
 }
+
+object EthernetFields {
+  val dstMAC = new EthernetProtocolField
+  val srcMAC = new EthernetProtocolField
+  val ethType = new EthernetProtocolField
+}
+
 case class EthernetHeader() extends FrameHeader {
   override val frameFieldInit = mutable.LinkedHashMap(
-    "dstMAC" -> MAC_ADDR_WIDTH,
-    "srcMAC" -> MAC_ADDR_WIDTH,
-    "ethType" -> ETH_TYPE_WIDTH
+    EthernetFields.dstMAC -> MAC_ADDR_WIDTH,
+    EthernetFields.srcMAC -> MAC_ADDR_WIDTH,
+    EthernetFields.ethType -> ETH_TYPE_WIDTH
   )
   override val header: Array[Bits] =
     this.constructHeader(frameFieldInit)

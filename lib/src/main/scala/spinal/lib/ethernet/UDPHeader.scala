@@ -10,20 +10,28 @@ object UDPHeader extends HeaderOperate{
     val gen = UDPHeader()
     this.generate(array, gen)
   }
-  def unapply(header: Bits): (Seq[String], Seq[Bits]) = {
+  def unapply(header: Bits): (Seq[EthernetProtocolField], Seq[Bits]) = {
     val extract = UDPHeader()
     this.extract(header, extract)
   }
 }
 
+object UDPFields {
+  val srcPort = new EthernetProtocolField
+  val dstPort = new EthernetProtocolField
+  val len = new EthernetProtocolField
+  val udpChecksum = new EthernetProtocolField
+}
+
 case class UDPHeader() extends FrameHeader {
   val frameFieldInit = mutable.LinkedHashMap(
-    "srcPort" -> UDP_PORT_WIDTH,
-    "dstPort" -> UDP_PORT_WIDTH,
-    "len" -> UDP_LENGTH_WIDTH,
-    "udpChecksum" -> UDP_CHECKSUM_WIDTH
+    UDPFields.srcPort -> UDP_PORT_WIDTH,
+    UDPFields.dstPort -> UDP_PORT_WIDTH,
+    UDPFields.len -> UDP_LENGTH_WIDTH,
+    UDPFields.udpChecksum -> UDP_CHECKSUM_WIDTH
   )
   val header: Array[Bits] =
     this.constructHeader(frameFieldInit)
 }
+
 
