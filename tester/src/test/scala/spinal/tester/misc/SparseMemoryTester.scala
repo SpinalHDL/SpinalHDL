@@ -1,9 +1,9 @@
-package spinal.tester.scalatest
+package spinal.tester.misc
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.lib.bus.amba4.axi.sim.SparseMemory
+import spinal.lib.sim.SparseMemory
 
-class Axi4SparseMemoryTester extends AnyFunSuite{
+class SparseMemoryTester extends AnyFunSuite{
   val groundTrue: Array[BigInt] = Array(
     BigInt("36014621", 16), BigInt("01472101", 16), BigInt("fe7e0036", 16), BigInt("0119d209", 16),
     BigInt("7e014621", 16), BigInt("0100c217", 16), BigInt("00165fff", 16), BigInt("19014821", 16),
