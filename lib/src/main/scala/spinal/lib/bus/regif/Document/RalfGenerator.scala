@@ -33,17 +33,25 @@ final case class RalfGenerator(fileName : String, backdoor: Boolean = true) exte
 
     def fieldDescr(fd: FieldDescr) = {
       def rename(name: String) = {
-        if(fd.getWidth() == 1){
-          if(name == "--") s"RSV_${fd.getSection().start}" else name
-        } else {
-          if(name == "--") s"RSV_${fd.getSection().start}_${fd.getSection().end}" else name
-        }
+//        if(fd.getWidth() == 1){
+//          if(name == "--") s"RSV_${fd.getSection().start}" else name
+//        } else {
+//          if(name == "--") s"RSV_${fd.getSection().start}_${fd.getSection().end}" else name
+//        }
+        val pre = if(fd.getWidth() == 1) s"${fd.getSection().start}" else s"${fd.getSection().start}_${fd.getSection().end}"
+        val name = fd.getAccessType match {
+                        case AccessType.NA  => s"rsv_${pre}"
+                        case AccessType.ROV => s"rov_${pre}"
+                        case _ => fd.getName()
+                    }
+        name
       }
 
       def access = {
         fd.getAccessType() match{
           case x if fd.uvmBaseAcc.contains(x) => x.toString.toLowerCase()
-          case AccessType.NA => "ro"
+          case AccessType.NA  => "ro"
+          case AccessType.ROV => "ro"
           case _ => "rw"
         }
       }

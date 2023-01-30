@@ -1,10 +1,11 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
+import spinal.lib.BigIntRicher
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.misc.SizeMapping
-import language.experimental.macros
 
+import language.experimental.macros
 import scala.collection.mutable.ListBuffer
 
 trait BusIfBase extends Area{
@@ -17,6 +18,10 @@ trait BusIfBase extends Area{
   val writeData: Bits
   val readError: Bool
   val readSync: Boolean = true
+  val withStrb: Boolean
+  val wstrb: Bits  //= withstrb generate(Bits(strbWidth bit))
+  val wmask: Bits  //= withstrb generate(Bits(busDataWidth bit))
+  val wmaskn: Bits //= withstrb generate(Bits(busDataWidth bit))
 
   def readAddress(): UInt
   def writeAddress(): UInt
@@ -26,6 +31,76 @@ trait BusIfBase extends Area{
 
   def busDataWidth: Int
   def wordAddressInc: Int = busDataWidth / 8
+  def strbWidth: Int = busDataWidth / 8
+  def underbitWidth: Int = log2Up(wordAddressInc)
+
+  def mwdata(sec: Range): Bits = if(withStrb) writeData(sec) & wmask(sec) else writeData(sec)
+
+  def initStrbMasks() = {
+    if (withStrb) {
+      (0 until strbWidth).foreach { i =>
+        wmask ((i + 1) * 8 - 1 downto i * 8) := Mux(wstrb(i), B(0xFF, 8 bit), B(0, 8 bit))
+        wmaskn((i + 1) * 8 - 1 downto i * 8) := Mux(wstrb(i), B(0, 8 bit), B(0xFF, 8 bit))
+      }
+    }
+  }
+  def wdata(reg: BaseType, sec: Range): Bits = wdata(reg, sec, oper = "normal")
+  def wdata(reg: BaseType, sec: Range, oper: String):Bits = {
+    oper match {
+      case "clear" =>
+        if(withStrb){
+          reg match {
+            case t: Bits => (t        & wmaskn(sec))
+            case t: UInt => (t.asBits & wmaskn(sec))
+            case t: SInt => (t.asBits & wmaskn(sec))
+            case t: Bool => (t.asBits & wmaskn(sec))
+            case _       => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
+          }
+        } else B(0, sec.size bit)
+      case "set" =>
+        if(withStrb) {
+          reg match {
+            case t: Bits => (t        & wmaskn(sec)) | wmask(sec)
+            case t: UInt => (t.asBits & wmaskn(sec)) | wmask(sec)
+            case t: SInt => (t.asBits & wmaskn(sec)) | wmask(sec)
+            case t: Bool => (t.asBits & wmaskn(sec)) | wmask(sec)
+            case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
+          }
+        }else Bits(sec.size bit).setAll()
+      case "normal" =>
+        if(withStrb){
+          reg match {
+            case t: Bits => (t        & wmaskn(sec)) | (writeData(sec) & wmask(sec))
+            case t: UInt => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
+            case t: SInt => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
+            case t: Bool => (t.asBits & wmaskn(sec)) | (writeData(sec) & wmask(sec))
+            case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
+          }
+        } else writeData(sec)
+      case "toggle" =>
+        if(withStrb){
+          reg match {
+            case t: Bits => (t        & wmaskn(sec)) | (~t(sec)        & wmask(sec))
+            case t: UInt => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
+            case t: SInt => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
+            case t: Bool => (t.asBits & wmaskn(sec)) | (~t.asBits(sec) & wmask(sec))
+            case _ => SpinalError(s"only accept BiterVector ${reg} for section ${sec} Range")
+          }
+        } else ~reg.asBits(sec)
+      case _ => SpinalError(s"unrecognize '${oper}''")
+    }
+  }
+  def mwdata(pos: Int): Bool = if(withStrb) writeData(pos) & wmask(pos) else writeData(pos)
+  def wdata(reg: Bool, pos: Int): Bool = wdata(reg, pos, oper = "normal")
+  def wdata(reg: Bool, pos: Int, oper: String): Bool = {
+    oper match {
+      case "clear"  => if (withStrb) (reg & wmaskn(pos))                                 else False
+      case "set"    => if (withStrb) (reg & wmaskn(pos)) |                   wmask(pos)  else True
+      case "normal" => if (withStrb) (reg & wmaskn(pos)) | (writeData(pos) & wmask(pos)) else writeData(pos)
+      case "toggle" => if (withStrb) (reg & wmaskn(pos)) | (~reg           & wmask(pos)) else ~reg
+      case _ => SpinalError(s"unrecognize '${oper}''")
+    }
+  }
 }
 
 trait BusIf extends BusIfBase {
@@ -33,8 +108,28 @@ trait BusIf extends BusIfBase {
   private val RegInsts = ListBuffer[RegInst]()
   private var regPtr: BigInt = 0
 
+  def orderdRegInsts = RegInsts.sortBy(_.addr)
   def getModuleName: String
   val regPre: String
+
+  private val regAddressHistory = ListBuffer[BigInt]()
+  def addressUsed(addr: BigInt) = regAddressHistory.contains(addr)
+
+  private def attachAddr(addr: BigInt) = {
+    if(regAddressHistory.contains(addr)){
+      SpinalError(s"Address: ${regPtr.hexString(16)} already used before, check please!")
+    } else {
+      regAddressHistory.append(addr)
+    }
+  }
+
+  def getRegPtr(): BigInt = regPtr
+
+  /*Attention: Should user make address no conflict them selves*/
+  def regPtrReAnchorAt(pos: BigInt) = {
+    require(pos % (busDataWidth/8) ==0, s"Address Postion need allign datawidth ${busDataWidth/8} byte")
+    regPtr = pos
+  }
 
   private def checkLastNA(): Unit = RegInsts.foreach(_.checkLast)
   private def regNameUpdate(): Unit = {
@@ -62,13 +157,15 @@ trait BusIf extends BusIfBase {
 
   def newRegAt(address: BigInt, doc: String)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    assert(address >= regPtr, s"located Position conflict to Pre allocated Address: ${regPtr}")
+    val reg = creatReg(symbol.name, address, doc)
+    attachAddr(address)
     regPtr = address + wordAddressInc
-    creatReg(symbol.name, address, doc)
+    reg
   }
 
   def newReg(doc: String)(implicit symbol: SymbolName) = {
     val res = creatReg(symbol.name, regPtr, doc)
+    attachAddr(regPtr)
     regPtr += wordAddressInc
     res
   }
@@ -124,8 +221,9 @@ trait BusIf extends BusIfBase {
     require(triggers.size > 0)
     val groups = triggers.grouped(this.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
+      val offset = addrOffset + 4 * i * this.busDataWidth/8
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
-      int_RFMS(addrOffset, namePre, trigs:_*)
+      int_RFMS(offset, namePre, trigs:_*)
     }
     val intr = Vec(ret).asBits.orR
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
@@ -140,8 +238,9 @@ trait BusIf extends BusIfBase {
     require(triggers.size > 0)
     val groups = triggers.grouped(this.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
+      val offset = addrOffset + 3 * i * this.busDataWidth/8
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
-      int_RMS(addrOffset, namePre, trigs:_*)
+      int_RMS(offset, namePre, trigs:_*)
     }
     val intr = Vec(ret).asBits.orR
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
@@ -157,8 +256,9 @@ trait BusIf extends BusIfBase {
     require(levels.size > 0)
     val groups = levels.grouped(this.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
+      val offset = addrOffset + 2 * i * this.busDataWidth/8
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
-      int_MS(addrOffset, namePre, trigs:_*)
+      int_MS(offset, namePre, trigs:_*)
     }
     val intr = Vec(ret).asBits.orR
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
@@ -171,18 +271,20 @@ trait BusIf extends BusIfBase {
   protected def int_RFMS(offset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
     require(triggers.size <= this.busDataWidth )
-    val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
-    val FORCE  = this.newReg("Interrupt Force  Register\n for SW debug use")(SymbolName(s"${regNamePre_}INT_FORCE"))
+    val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear raw when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
+    val FORCE  = this.newReg("Interrupt Force  Register\n for SW debug use \n write 1 set raw")(SymbolName(s"${regNamePre_}INT_FORCE"))
     val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))
-    val STATUS = this.newReg("Interrupt status Register\n status = (raw || force) && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
+    val STATUS = this.newReg("Interrupt status Register\n status = raw && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = triggers.map{ event =>
       val nm = event.getPartialName()
-      val force = FORCE.field(1 bit, AccessType.RW,   resetValue = 0, doc = s"force, default 0" )(SymbolName(s"${nm}_force")).lsb
-      val raw   = RAW.field(1 bit, AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" )(SymbolName(s"${nm}_raw")).lsb
-      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" )(SymbolName(s"${nm}_mask")).lsb
-      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"stauts default 0" )(SymbolName(s"${nm}_status")).lsb
+      val raw   = RAW.field(Bool(), AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" )(SymbolName(s"${nm}_raw"))
+//      val force = FORCE.field(Bool(), AccessType.RW,   resetValue = 0, doc = s"force, default 0" )(SymbolName(s"${nm}_force"))
+                  FORCE.parasiteField(raw, AccessType.W1S,   resetValue = 0, doc = s"force, write 1 set, debug use" )
+      val mask  = MASK.field(Bool(), AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" )(SymbolName(s"${nm}_mask"))
+      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts default 0" )(SymbolName(s"${nm}_status"))
       raw.setWhen(event)
-      status := (raw || force) && (!mask)
+//      status := (raw || force) && (!mask)
+      status := raw && (!mask)
       status
     }.reduceLeft(_ || _)
     ret.setName(s"${regNamePre_.toLowerCase()}intr", weak = true)
@@ -200,9 +302,9 @@ trait BusIf extends BusIfBase {
     val STATUS = this.newReg("Interrupt status Register\n  status = raw && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = triggers.map{ event =>
       val nm = event.getPartialName()
-      val raw   = RAW.field(1 bit, AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" )(SymbolName(s"${nm}_raw")).lsb
-      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" )(SymbolName(s"${nm}_mask")).lsb
-      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"stauts default 0" )(SymbolName(s"${nm}_status")).lsb
+      val raw   = RAW.field(Bool(), AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" )(SymbolName(s"${nm}_raw"))
+      val mask  = MASK.field(Bool(), AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" )(SymbolName(s"${nm}_mask"))
+      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts default 0" )(SymbolName(s"${nm}_status"))
       raw.setWhen(event)
       status := raw && (!mask)
       status
@@ -221,8 +323,8 @@ trait BusIf extends BusIfBase {
     val STATUS = this.newReg("Interrupt status Register\n status = int_level && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = int_levels.map{ level =>
       val nm = level.getPartialName()
-      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"mask" )(SymbolName(s"${nm}_mask")).lsb
-      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"stauts" )(SymbolName(s"${nm}_status")).lsb
+      val mask  = MASK.field(Bool(), AccessType.RW,    resetValue = 1, doc = s"mask" )(SymbolName(s"${nm}_mask"))
+      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts" )(SymbolName(s"${nm}_status"))
       status := level && (!mask)
       status
     }.reduceLeft(_ || _)
@@ -235,7 +337,7 @@ trait BusIf extends BusIfBase {
 
     vs.begin(busDataWidth)
 
-    for(reg <- RegInsts) {
+    for(reg <- orderdRegInsts) {
       reg.accept(vs)
     }
 
@@ -243,45 +345,32 @@ trait BusIf extends BusIfBase {
   }
 
   private def readGenerator() = {
-    if(readSync){
-      when(askRead){
-        switch (readAddress()) {
-          RegInsts.foreach{(reg: RegInst) =>
+    when(askRead){
+      switch (readAddress()) {
+        RegInsts.foreach{(reg: RegInst) =>
+          if(!reg.allIsNA){
             is(reg.addr){
-              if(!reg.allIsNA){
-                readData  := reg.readBits
-                readError := Bool(reg.readErrorTag)
-              }
+              readData  := reg.readBits
+              readError := Bool(reg.haveWO)
             }
           }
-          default{
-            readData  := 0
-            readError := True
+        }
+        default{
+          //Reserved Address Set False, True is too much strict for software
+          //readData  := 0  //readData hold for LowPower consideration
+          if(withStrb) {
+            readError := False
+          } else {
+            val alignreadhit = readAddress.take(log2Up(wordAddressInc)).orR
+            readError := Mux(alignreadhit, True,  False)
           }
         }
       }
-      readError.clearWhen(askWrite)
-    } else {
-      when(askRead){
-        switch (readAddress()) {
-          RegInsts.foreach{(reg: RegInst) =>
-            is(reg.addr){
-              if(!reg.allIsNA){
-                readData  := reg.readBits
-                readError := Bool(reg.readErrorTag)
-              }
-            }
-          }
-          default{
-            readData  := 0
-            readError := True
-          }
-        }
-      }.otherwise{
-        readData  := 0
-        readError := False
-      }
+    }.otherwise{
+      //async should give a value avoid latch
+      //remove else statement when readSync case for lowerPower consideration
+      if(!readSync){readData := 0 }
+      readError := False
     }
-    //wo not add error-response for write-operation for the reason of save area of mux
   }
 }
