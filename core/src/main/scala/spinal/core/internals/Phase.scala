@@ -2343,12 +2343,18 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
         encodingsScope.iWantIt(encoding.getName(),s"Reserved name ${encoding.getName()} is not free for ${encoding.toString()}")
     }
 
-    for (c <- sortedComponents.reverse) {
+    def allocate(c : Component): Unit ={
       if (c.isInstanceOf[BlackBox] && c.asInstanceOf[BlackBox].isBlackBox)
         globalScope.lockName(c.definitionName)
-      else if(!c.definitionNameNoMerge)
+      else if (!c.definitionNameNoMerge)
         c.definitionName = globalScope.allocateName(c.definitionName)
     }
+    for (parent <- sortedComponents.reverse) {
+      for(c <- parent.children) {
+        allocate(c)
+      }
+    }
+    allocate(topLevel)
 
     globalScope.lockScope()
 
