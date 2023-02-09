@@ -421,7 +421,7 @@ package object sim {
     */
   implicit class SimEnumPimper[T <: SpinalEnum](bt: SpinalEnumCraft[T]) {
 
-    def toEnum = bt.encoding.getElement(getBigInt(bt), bt.spinalEnum)
+    def toEnum = bt.encoding.getElement(getBigInt(bt), bt.spinalEnum).asInstanceOf[SpinalEnumElement[T]]
 
     def #=(value: SpinalEnumElement[T]) = setBigInt(bt, bt.encoding.getValue(value))
 
@@ -976,25 +976,38 @@ package object sim {
   def enableSimWave() =  SimManagerContext.current.manager.raw.enableWave()
   def disableSimWave() =  SimManagerContext.current.manager.raw.disableWave()
 
-  case class SimMutex(){
+  case class SimMutex(randomized : Boolean = false){
     val queue = mutable.Queue[SimThread]()
+    val array = mutable.ArrayBuffer[SimThread]()
     var locked = false
-    def lock() : Unit = {
+    def lock() : this.type = {
       if(locked) {
         val t = simThread
-        queue.enqueue(t)
+        randomized match {
+          case false => queue.enqueue(t)
+          case true => array += t
+        }
         t.suspend()
       } else {
         locked = true
       }
+      this
     }
-    def unlock() : Unit = {
+    def unlock() : this.type = {
       assert(locked)
       if(queue.nonEmpty) {
-        queue.dequeue().resume()
+        randomized match {
+          case false => queue.dequeue().resume()
+          case true =>  {
+            val (t, i) = array.randomPickWithIndex()
+            array.remove(i)
+            t.resume()
+          }
+        }
       } else {
         locked = false
       }
+      this
     }
 
     def await() : Unit = {

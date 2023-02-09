@@ -577,7 +577,10 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
     }
   }
 
-  def aspectRatio = mem.getWidth/getWidth
+  def aspectRatio = mem.getWidth match{
+    case 0 => 1
+    case _ => mem.getWidth / getWidth
+  }
 }
 
 object MemReadSync{
@@ -747,7 +750,10 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
     }
   }
 
-  def aspectRatio = mem.getWidth / getWidth
+  def aspectRatio = mem.getWidth match{
+    case 0 => 1
+    case _ => mem.getWidth / getWidth
+  }
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
 }
