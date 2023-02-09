@@ -23,7 +23,7 @@ import spinal.core._
 /**
  * Created by PIC18F on 22.08.2014.
  */
-object MemTest {
+object MemTestaa {
 
   class BundleAA extends BundleA {
     val a = Bool()
