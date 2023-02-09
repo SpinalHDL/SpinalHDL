@@ -21,7 +21,9 @@
 package spinal.lib.bus.misc
 
 import spinal.core._
+
 import scala.collection.Seq
+import scala.util.Random
 
 object AddressMapping{
   def verifyOverlapping(mapping: Seq[AddressMapping]): Boolean = {
@@ -31,22 +33,26 @@ object AddressMapping{
 }
 
 trait AddressMapping{
-  def hit(address: UInt): Bool
-  def removeOffset(address: UInt): UInt
-  def lowerBound : BigInt
-  def highestBound : BigInt
+  def hit(address: UInt): Bool = ???
+  def hit(address: BigInt): Boolean = ???
+  def removeOffset(address: UInt): UInt = ???
+  def lowerBound : BigInt = ???
+  def highestBound : BigInt = ???
+  def randomPick() : BigInt = ???
   @deprecated("Use withOffset instead")
   def applyOffset(addressOffset: BigInt): AddressMapping = withOffset(addressOffset)
-  def withOffset(addressOffset: BigInt): AddressMapping
+  def withOffset(addressOffset: BigInt): AddressMapping = ???
   def width = log2Up(highestBound+1)
 }
 
 
 case class SingleMapping(address : BigInt) extends AddressMapping{
   override def hit(address: UInt) = this.address === address
+  override def hit(address: BigInt): Boolean = this.address == address
   override def removeOffset(address: UInt) = U(0)
   override def lowerBound = address
   override def highestBound = address
+  override def randomPick() : BigInt = address
   override def withOffset(addressOffset: BigInt): AddressMapping = SingleMapping(address + addressOffset)
   override def toString: String = s"Address 0x${address.toString(16)}"
 }
@@ -63,9 +69,11 @@ case class SingleMapping(address : BigInt) extends AddressMapping{
  */
 case class MaskMapping(base : BigInt,mask : BigInt) extends AddressMapping{
   override def hit(address: UInt): Bool = (address & U(mask, widthOf(address) bits)) === base
+  override def hit(address: BigInt): Boolean = (address & mask) == base
   override def removeOffset(address: UInt) = address & ~U(mask, widthOf(address) bits)
   override def lowerBound = base
   override def highestBound = ???
+  override def randomPick() : BigInt = ???
   override def withOffset(addressOffset: BigInt): AddressMapping = ???
 }
 
@@ -92,17 +100,21 @@ object SizeMapping{
 
 object AllMapping extends AddressMapping{
   override def hit(address: UInt): Bool = True
+  override def hit(address: BigInt): Boolean = true
   override def removeOffset(address: UInt): UInt = address
   override def lowerBound: BigInt = 0
   override def highestBound = ???
+  override def randomPick() : BigInt = ???
   override def withOffset(addressOffset: BigInt): AddressMapping = ???
 }
 
 object DefaultMapping extends AddressMapping{
   override def hit(address: UInt): Bool = ???
+  override def hit(address: BigInt): Boolean = ???
   override def removeOffset(address: UInt): UInt = ???
   override def lowerBound: BigInt = ???
   override def highestBound = ???
+  override def randomPick() : BigInt = ???
   override def withOffset(addressOffset: BigInt): AddressMapping = ???
 }
 
@@ -114,12 +126,15 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
     if (isPow2(size) && base % size == 0){
       (address & ~U(size - 1, address.getWidth bits)) === (base)
     }else {
-      if(base == 0)
-        address < base + size
-      else
-        address >= base && address < base + size
+      (base == 0, log2Up(base + size + 1) > widthOf(address)) match {
+        case (false, false) => address >= base && address < base + size
+        case (false, true) => address >= base
+        case (true, false) => address < base + size
+        case (true, true) => True
+      }
     }
   }
+  override def hit(address: BigInt): Boolean = address >= base && address < base + size
 
   override def removeOffset(address: UInt): UInt = {
     if (isPow2(size) && base % size == 0)
@@ -130,6 +145,7 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   override def lowerBound = base
   override def highestBound = base + size - 1
+  override def randomPick() : BigInt = base + BigInt(log2Up(size), Random)
   override def withOffset(addressOffset: BigInt): AddressMapping = SizeMapping(base + addressOffset, size)
   def overlap(that : SizeMapping) = this.base < that.base + that.size && this.base + this.size > that.base
 

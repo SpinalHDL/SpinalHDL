@@ -6,7 +6,7 @@ package spinal.tester.code
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
 import spinal.core.fiber.Handle
-import spinal.core.internals.Operator
+import spinal.core.internals.{Operator, Phase, PhaseContext}
 import spinal.lib._
 import spinal.core.sim._
 import spinal.idslplugin.Location
@@ -70,34 +70,17 @@ object DebugSim {
 
 
   def main(args: Array[String]) {
-    println(LutInputs.get) //4
-    LutInputs(6).on {
-      println(LutInputs.get) //6
-      LutInputs.set(3)
-      println(LutInputs.get) //3
+
+    SimConfig.withFstWave.compile(new Component {
+
+    }).doSim{dut =>
+      val cd = dut.clockDomain
+      cd.forkStimulus(10)
+      cd.waitSampling()
+      cd.waitSampling()
     }
-
-    println(LutInputs.get) //4
-//    LutInputs.set(8)
-//    SimConfig.withFstWave.compile(new Component {
-//      val sel = in Bits(40 bits)
-//      val result1 = out(OHMasking.firstV2(sel))
-//      val result2 = out(OHMasking.first(sel))
-//    }).doSim{dut =>
-//      for(i <- 0 until 10000){
-//        var in = 0l
-//        for(i <- 0 until Random.nextInt(4)){
-//          in |= 1l << Random.nextInt(40)
-//        }
-//        dut.sel #= in
-//        sleep(1)
-//        assert(dut.result1.toBigInt == dut.result2.toBigInt)
-//      }
-//    }
-
   }
 
-  //  createEnum("asd")
 }
 
 
@@ -179,30 +162,62 @@ class TestCore(initial: Bool = False) extends Component {
   }
 }
 
-object Tesasdadt {
-  def main(args: Array[String]) {
-    SpinalVerilog(new TestCore(False))
+object Tesasdadt extends App{
+
+  SpinalConfig().addTransformationPhase(new Phase {
+    override def impl(pc: PhaseContext) = {
+      pc.walkDeclarations{
+        case bt : BaseType if bt.isReg =>
+          bt.refOwner match {
+            case fsm : StateMachine if bt == fsm.stateReg => bt.addAttribute("Picatchu")
+            case _ =>
+          }
+        case _ =>
+      }
+    }
+    override def hasNetlistImpact = true
+  })generateVerilog  {
+    val c = new Component {
+      val sub = new Component {
+        val fsm = new StateMachine {
+          val A, B = new State
+          setEntry(A)
+          A.whenIsActive(goto(B))
+        }
+      }
+    }
+    //Patch
+    c.sub.fsm.stateReg.addAttribute("Miaouuuu")
+    c.sub.reflectBaseType("fsm_stateReg").addAttribute("Wuff")
+    c
   }
 }
 
 object Debug2 extends App{
-
+  SpinalConfig(allowOutOfRangeLiterals = true)
   def gen = new Component{
-    val x = True
-    val y = False
-    when(True){
-      y := True
-    }
 
-    val a,b,c = UInt(8 bits)
-    c := a + b + 1
+//    val value = in UInt(2 bits)
+////    val result = out((value < U"101011"))
+//
+//    val result = out((value < U"101011"))
+    val xxx = B(32 bits, (12 downto 11) -> B"11", default -> false)
 
-    val src = in Bool()
-    val dst = Bool()
+//    val x = True
+//    val y = False
+//    when(True){
+//      y := True
+//    }
+//
+//    val a,b,c = UInt(8 bits)
+//    c := a + b + 1
+//
+//    val src = in Bool()
+//    val dst = Bool()
+//
+//    src <> dst
 
-    src <> dst
-
-//    val io = new Bundle {
+//    val io = new Bundle {but without using
 //      val i = in Bits (5 bits)
 //      val o = out Bits (3 bits)
 //    }
@@ -448,46 +463,108 @@ object TestTopMain {
 object Debug3 extends App{
   import spinal.core.sim._
 
-  SimConfig.withFstWave.compile(new Component {
-    val fsm = new StateMachine{
-      val IDLE = new State
-      val STATE_A, STATE_B, STATE_C = new State
+  case class BypassTag(enable : Bool, value : UInt, bypass : UInt) extends SpinalTag
+  def simBypass(that : UInt) = new Area{
+    val bypassEnable = in(Bool())
+    val bypassValue = in(cloneOf(that))
+    val bypass = cloneOf(that)
 
-      setEntry(IDLE)
+    that.addTag(new BypassTag(bypassEnable, bypassValue, bypass))
 
-      IDLE.whenIsActive(goto(STATE_A))
-      STATE_A.whenIsActive(goto(STATE_B))
-      STATE_B.whenIsActive(goto(STATE_C))
-      STATE_C.whenIsActive(goto(STATE_B))
-
-//      setEncoding(SpinalEnumEncoding(id => id*2))
-
-//      val mapping = mutable.LinkedHashMap[Int , BigInt](
-//        states.indexOf(IDLE) -> 0,
-//        states.indexOf(STATE_A) -> 1,
-//        states.indexOf(STATE_B) -> 3,
-//        states.indexOf(STATE_C) -> 7,
-//        states.indexOf(stateBoot) -> 15
-//      )
-//      setEncoding(SpinalEnumEncoding(mapping.apply))
-      setEncoding(
-        IDLE -> 0,
-        STATE_A -> 1,
-        STATE_B -> 3,
-        STATE_C -> 7,
-        stateBoot -> 15
-      )
+    def force(value : Int) = {
+      bypassEnable #= true
+      bypassValue #= value
     }
+    def release(): Unit ={
+      bypassEnable #= false
+    }
+  }
+
+  SimConfig.withConfig(
+    SpinalConfig().addTransformationPhase(new Phase{
+      override def impl(pc: PhaseContext) = {
+        pc.walkStatements{ s =>
+          // Swap usages of the signal
+          s.walkRemapDrivingExpressions{
+            case bt : UInt => bt.getTag(classOf[BypassTag]) match {
+              case Some(tag) => tag.bypass.pull()
+              case None => bt
+            }
+            case e => e
+          }
+
+          //Assign the swaped signal with the swap value (usefull for registers)
+          s match {
+            case bt : UInt  =>
+              bt.getTag(classOf[BypassTag]) match {
+                case Some(tag) => bt.component.rework{
+                  when(tag.enable.pull()){
+                    bt := tag.value.pull()
+                  }
+                }
+                case None =>
+              }
+            case _ =>
+          }
+        }
+
+        // Implement the bypass muxes
+        pc.walkStatements {
+          case bt : UInt  =>
+            bt.getTag(classOf[BypassTag]) match {
+              case Some(tag) => bt.component.rework{
+                tag.bypass := tag.enable.pull() ? tag.value.pull() | bt
+              }
+              case None =>
+            }
+          case _ =>
+        }
+      }
+      override def hasNetlistImpact = true
+    })
+  ).withFstWave.compile(new Component {
+    val counter = Reg(UInt(8 bits)) init(0) simPublic()
+    counter := counter + 1
+    val result = out(CombInit(counter))
+    val bypass = simBypass(counter)
   }).doSim{ dut =>
+    dut.bypass.release()
     dut.clockDomain.forkStimulus(10)
-    dut.clockDomain.waitSampling(100)
+    dut.clockDomain.waitSampling(5)
+
+
+    println(dut.result.toInt)
+    sleep(1)
+    println(dut.result.toInt)
+    dut.bypass.force(100) //THIS THIS THIS
+    println("XXX")
+    sleep(1)
+    println(dut.result.toInt)
+    dut.clockDomain.waitSampling(1)
+    println(dut.result.toInt)
+    dut.clockDomain.waitSampling(1)
+    println(dut.result.toInt)
+    dut.clockDomain.waitSampling(1)
+    println(dut.result.toInt)
+
+//    println(dut.counter.toInt)
+//    sleep(1)
+//    println(dut.counter.toInt)
+//    dut.counter #= 100
+//    println("XXX")
+//    sleep(1)
+//    println(dut.counter.toInt)
+//    dut.clockDomain.waitSampling(1)
+//    println(dut.counter.toInt)
+//    dut.clockDomain.waitSampling(1)
+//    println(dut.counter.toInt)
   }
 }
 
 object Debug344 extends App{
   import spinal.core.sim._
 
-  SimConfig.withFstWave.compile(new Component {
+  SimConfig.withIVerilog.withFstWave.compile(new Component {
     val fsm = new StateMachine{
       val STATE_A = new StateDelay(10) with EntryPoint
       val STATE_B = new State()
@@ -1213,11 +1290,12 @@ object PipelinePlay2 extends App{
     }
     val pipeline = new Pipeline{
       val stageA = new Stage{
+        //Inject io.input into the pipeline
         valid := io.input.valid
         io.input.ready := isReady
         val rgb = insert(io.input.payload)
-        val miaou = isRemoved
       }
+
       val stageB = new Stage(Connection.M2S()){
         val pow2 = new Area{
           val r = insert(stageA.rgb.r * stageA.rgb.r)
@@ -1232,12 +1310,13 @@ object PipelinePlay2 extends App{
       }
 
       val stageD = new Stage(Connection.M2S()){
+        //Drive io.output from the pipeline
         io.output.valid := isValid
-        haltIt(!io.output.ready)
         io.output.payload := stageC.sum
+        haltIt(!io.output.ready)
       }
+      build()
     }
-    pipeline.build()
   })
 }
 
@@ -1380,4 +1459,72 @@ object PlayFsmBugA extends App {
     val x = create()
     val y = create()
   })
+}
+class SpinalEnum2(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable with ScalaLocated{
+  assert(defaultEncoding != inferred, "Enum definition should not have 'inferred' as default encoding")
+
+
+
+  private var isPrefixEnable = GlobalData.get.config.enumPrefixEnable
+  private var isGlobalEnable = GlobalData.get.config.enumGlobalEnable
+
+}
+object Miaou extends SpinalEnum2{
+
+}
+object UartParityTypeA extends SpinalEnum() {
+  val NONE, EVEN, ODD = newElement()
+}
+
+
+
+
+object J1BoardSim extends App{
+
+  println("rawrawrwr");
+  UartParityTypeA
+//  spinal.lib.com.uart.UartParityType
+//  spinal.lib.com.uart.UartStopType
+}
+
+
+case class MemTestCfg(
+                       waddrWidth : Int = 3,
+                       raddrWidth : Int = 4,
+                       wdataWidth : Int = 32,
+                       rdataWidth : Int = 16
+                     ) {
+}
+
+case class MemTest(generics: MemTestCfg) extends Component{
+  val io = new Bundle{
+    val waddr = in UInt(generics.waddrWidth bits)
+    val raddr = in UInt(generics.raddrWidth bits)
+    val wdata = in UInt(generics.wdataWidth bits)
+    val rdata = out UInt(generics.rdataWidth bits)
+    val ren = in Bool()
+    val wen = in Bool()
+  }
+
+  val memCtrl = new Area{
+    val mem = Mem(UInt(generics.wdataWidth bits),1<<generics.waddrWidth)
+    mem.addAttribute(name="ram_style",value="block")
+    mem.writeMixedWidth(io.waddr,io.wdata,io.wen)
+    //io.rdata := mem.readSync(io.raddr,io.ren)
+    mem.readSyncMixedWidth(io.raddr,io.rdata,io.ren)
+  }
+}
+
+object MemTestCfg{
+  val gen = MemTestCfg(
+    waddrWidth = 4,
+    wdataWidth = 32,
+    raddrWidth = 5,
+    rdataWidth = 16
+  )
+}
+
+// Hardware definition
+object MemTestVerilog extends App {
+//  config.spinal.addStandardMemBlackboxing(blackboxRequestedAndUninferable).generateVerilog(MemTest(MemTestCfg.gen))
 }
