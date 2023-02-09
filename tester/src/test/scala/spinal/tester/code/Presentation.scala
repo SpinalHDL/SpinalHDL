@@ -2048,3 +2048,103 @@ object PlayAdder2{
 //    }
 //  }
 }
+
+
+
+object Summit extends App{
+  import spinal.core._
+  import spinal.core.sim._
+  import spinal.lib._
+  import spinal.lib.pipeline._
+
+  SpinalVerilog(new Component{
+
+    val pcIn = in(UInt(32 bits))
+    val pcOut = out(UInt(32 bits))
+
+    val pip = new Pipeline{
+      val A, B, C = new Stage
+
+      connect(A, B)(Connection.M2S())
+      connect(B, C)(Connection.M2S())
+
+      val PC = A.insert(pcIn)
+      val PC_NEXT = B.insert(B(PC) + 4)
+      pcOut := C(PC_NEXT)
+
+      build()
+    }
+  })
+
+  SpinalVerilog(new Component{
+
+    val pcIn = in(UInt(32 bits))
+    val pcOut = out(UInt(32 bits))
+
+    val pip = new Pipeline{
+      val A = new Stage{
+        val PC = insert(pcIn)
+      }
+
+      val B = new Stage(Connection.M2S()){
+        when(A.PC > 4){
+          throwIt()
+        }
+      }
+
+      val C = new Stage(Connection.M2S()){
+        pcOut := A.PC
+      }
+
+      build()
+    }
+  })
+
+
+
+  SimConfig.withFstWave.compile(new Component {
+    val pcIn = slave Stream(UInt(32 bits))
+    val pcOut = out(UInt(32 bits))
+
+    val pip = new Pipeline {
+      val A = new Stage {
+        valid := pcIn.valid
+        val PC = insert(pcIn.payload)
+        pcIn.ready := isReady
+      }
+
+      val B = new Stage(Connection.M2S()) {
+        when(A.PC > 4) {
+//          haltIt()
+        }
+      }
+
+      val C = new Stage(Connection.M2S()) {
+        pcOut := A.PC
+      }
+
+      def compose() = new Area{
+        val X = Stageable(Bool())
+        A(X) := False
+        C(X)
+      }
+
+      val C1 = compose()
+      val C2 = compose()
+
+      val miaou = Bool().setLambdaName(C1.X.isNamed)(s"wuff_${C1.X.getName()}_rawrrr")
+      println(C1.X.getName())
+
+      build()
+    }
+  }).doSim{dut =>
+    dut.clockDomain.forkStimulus(10)
+    for(i <- 0 until 10){
+      dut.pcIn.valid #= true
+      dut.pcIn.payload #= i
+      dut.clockDomain.waitSamplingWhere(dut.pcIn.ready.toBoolean)
+    }
+  }
+
+
+}
