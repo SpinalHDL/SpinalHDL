@@ -35,7 +35,7 @@ case class WishboneBusInterface(
     (selMatch && bus.CYC && bus.STB && bus.ACK && bus.WE).allowPruning()
   val doRead =
     (selMatch && bus.CYC && bus.STB && bus.ACK && !bus.WE).allowPruning()
-  val writeData = bus.DAT_MISO
+  val writeData = bus.DAT_MOSI
 
   if (bus.config.useERR) bus.ERR := readError
   override def readAddress() = bus.ADR
