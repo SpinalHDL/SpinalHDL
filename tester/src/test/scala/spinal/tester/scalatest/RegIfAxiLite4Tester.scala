@@ -44,7 +44,7 @@ class RegIfTester extends Component {
     io.o.subdivideIn(32 bit)(i) := b
   }
 
-  io.o_z := RegNext(io.o)
+  io.o_z := RegNextWhen(io.o, io.bus.b.fire || io.bus.r.fire) init(0)
 }
 
 class RegIfAxiLite4Tester extends AnyFunSuite {
@@ -219,7 +219,7 @@ class RegIfAxiLite4Tester extends AnyFunSuite {
         }
       }
 
-      val rand = new Random()
+      val rand = Random
 
       for(_ <- 0 until 1000) {
         // TODO: Support unaligned addresses
