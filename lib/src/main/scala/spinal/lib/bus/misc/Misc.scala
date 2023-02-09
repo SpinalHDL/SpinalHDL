@@ -126,10 +126,12 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
     if (isPow2(size) && base % size == 0){
       (address & ~U(size - 1, address.getWidth bits)) === (base)
     }else {
-      if(base == 0)
-        address < base + size
-      else
-        address >= base && address < base + size
+      (base == 0, log2Up(base + size + 1) > widthOf(address)) match {
+        case (false, false) => address >= base && address < base + size
+        case (false, true) => address >= base
+        case (true, false) => address < base + size
+        case (true, true) => True
+      }
     }
   }
   override def hit(address: BigInt): Boolean = address >= base && address < base + size
