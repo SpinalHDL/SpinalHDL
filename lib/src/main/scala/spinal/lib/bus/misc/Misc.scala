@@ -33,15 +33,15 @@ object AddressMapping{
 }
 
 trait AddressMapping{
-  def hit(address: UInt): Bool
-  def hit(address: BigInt): Boolean
-  def removeOffset(address: UInt): UInt
-  def lowerBound : BigInt
-  def highestBound : BigInt
-  def randomPick() : BigInt
+  def hit(address: UInt): Bool = ???
+  def hit(address: BigInt): Boolean = ???
+  def removeOffset(address: UInt): UInt = ???
+  def lowerBound : BigInt = ???
+  def highestBound : BigInt = ???
+  def randomPick() : BigInt = ???
   @deprecated("Use withOffset instead")
   def applyOffset(addressOffset: BigInt): AddressMapping = withOffset(addressOffset)
-  def withOffset(addressOffset: BigInt): AddressMapping
+  def withOffset(addressOffset: BigInt): AddressMapping = ???
   def width = log2Up(highestBound+1)
 }
 
