@@ -40,7 +40,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   val pluginsPath     = config.pluginsPath     
   val workspacePath   = config.workspacePath   
   val workspaceName   = config.workspaceName   
-  val wavePath        = config.wavePath        
+  var wavePath        = config.wavePath        
   val waveFormat      = config.waveFormat      
   val analyzeFlags    = config.analyzeFlags
   var runFlags        = config.runFlags        
