@@ -207,6 +207,23 @@ case class AxiLite4(config: AxiLite4Config) extends Bundle with IMasterSlave {
 
   def <<(that : AxiLite4) : Unit = that >> this
 
+  def >>(that: AxiLite4WriteOnly): Unit = {
+    assert(that.config == this.config)
+    this.writeCmd  >> that.writeCmd
+    this.writeData >> that.writeData
+    this.writeRsp  << that.writeRsp
+  }
+
+  def <<(that: AxiLite4WriteOnly): Unit = that >> this
+
+  def >>(that: AxiLite4ReadOnly): Unit = {
+    assert(that.config == this.config)
+    this.readCmd >> that.readCmd
+    this.readRsp << that.readRsp
+  }
+
+  def <<(that: AxiLite4ReadOnly): Unit = that >> this
+
   override def asMaster(): Unit = {
     master(aw,w)
     slave(b)
