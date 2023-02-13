@@ -23,7 +23,7 @@ abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfter
   def genVhdl: Unit ={
     try {
       val waveFolder = sys.env.getOrElse("WAVES_DIR",".")
-      backendConfig(SpinalConfig(mode = VHDL)).generate(createToplevel)
+      backendConfig(SpinalConfig(mode = VHDL, targetDirectory="./cocotbWorkspace")).generate(createToplevel)
       genHdlSuccess = true
     } catch {
       case e: Throwable => {
@@ -39,7 +39,7 @@ abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfter
   def genVerilog: Unit ={
     try {
 
-      backendConfig(SpinalConfig(mode = Verilog,dumpWave = if(withWaveform) DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + "_verilog.vcd") else null)).generate(createToplevel)
+      backendConfig(SpinalConfig(mode = Verilog, targetDirectory="./cocotbWorkspace",dumpWave = if(withWaveform) DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + "_verilog.vcd") else null)).generate(createToplevel)
       genHdlSuccess = true
     } catch {
       case e: Throwable => {
