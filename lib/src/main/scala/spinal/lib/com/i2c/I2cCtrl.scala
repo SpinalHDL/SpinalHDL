@@ -447,7 +447,7 @@ object I2cCtrl {
           }
           whenIsActive {
             i2cBuffer.sda.write := False
-            when(timer.done) {
+            when(timer.done && internals.sclRead) {
               stop := False
               goto(TBUF)
             }
@@ -459,7 +459,7 @@ object I2cCtrl {
             timer.value := timer.tBuf
           }
           whenIsActive {
-            when(timer.done) {
+            when(timer.done && internals.sdaRead) {
               goto(IDLE)
             }
           }
