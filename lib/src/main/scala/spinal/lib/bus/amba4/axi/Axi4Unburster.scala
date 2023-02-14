@@ -168,6 +168,7 @@ class UnbursterIDManager(config: Axi4Config, pendingDepth: Int, pendingWidth: In
     // Working length
     val valid = RegInit(False)
     val addrBeats = Reg(UInt(8 bit)) init(0)
+    val respOut = Bits(2 bit)
     val resp = Reg(Bits(2 bit)) init(0)
 
     // Fork into the length FIFO
@@ -183,17 +184,20 @@ class UnbursterIDManager(config: Axi4Config, pendingDepth: Int, pendingWidth: In
       valid.set()
     }
 
+    respOut := resp
+
     when(io.retIdResp.fire) {
       addrBeats := addrBeats - 1
       when(!resp.orR) {
         resp := io.retIdResp.resp
+        respOut := io.retIdResp.resp
       }
     }
 
     valid.clearWhen(io.retIdResp.fire && addrBeats === 0)
     io.retIdResp.ready := valid
     io.last := addrBeats === 0
-    io.resp := resp
+    io.resp := respOut
 
 //    io.drop := !(valid || fifo.io.occupancy.orR)
   }
@@ -279,16 +283,24 @@ class Axi4WriteOnlyUnburster(config: Axi4Config, pendingDepth: Int = 3, pendingW
     io.output.w.last := True
   }
 
-  val bFifo = io.output.b.continueWhen(manager.io.retIdResp.ready)
-  (config.useId) generate { manager.io.retIdResp.id := bFifo.id }
-  manager.io.retIdResp.valid := bFifo.fire
+  val bGated = io.output.b.continueWhen(manager.io.retIdResp.ready)
+  (config.useId) generate { manager.io.retIdResp.id := bGated.id }
+  manager.io.retIdResp.valid := bGated.fire
   if(config.useResp) {
-    manager.io.retIdResp.resp := bFifo.resp
+    manager.io.retIdResp.resp := bGated.resp
   } else {
     manager.io.retIdResp.resp.clearAll()
   }
 
-  val bStage = bFifo.takeWhen(manager.io.last).stage()
+  val bStage = bGated.map((p: Axi4B) => {
+    val p2: Axi4B = Axi4B(p.config)
+    p2.assignAllByName(p)
+    if (p.config.useResp) {
+      p2.resp.allowOverride()
+      p2.resp := manager.io.resp
+    }
+    p2
+  }).takeWhen(manager.io.last).stage()
 
   io.input.b.arbitrationFrom(bStage)
   io.input.b.payload.assignSomeByName(bStage.payload)

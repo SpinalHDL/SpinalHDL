@@ -340,11 +340,12 @@ object I2cCtrl {
 
 
         val inFrameLate = Reg(Bool()) setWhen(!internals.sclRead) clearWhen(!internals.inFrame) //Allow to catch up a start sequance until SCL is low
+        val outOfSync = !internals.inFrame && (!internals.sdaRead || !internals.sclRead)
         val IDLE: State = new State with EntryPoint {
           whenIsActive {
             when(internals.inFrame.fall(False)){
               goto(TBUF)
-            } elsewhen(start && !inFrameLate){
+            } elsewhen(start && !inFrameLate && !outOfSync){
               txData.valid := False
               goto(START1)
             }
@@ -446,7 +447,7 @@ object I2cCtrl {
           }
           whenIsActive {
             i2cBuffer.sda.write := False
-            when(timer.done) {
+            when(timer.done && internals.sclRead) {
               stop := False
               goto(TBUF)
             }
@@ -458,7 +459,7 @@ object I2cCtrl {
             timer.value := timer.tBuf
           }
           whenIsActive {
-            when(timer.done) {
+            when(timer.done && internals.sdaRead) {
               goto(IDLE)
             }
           }
@@ -610,5 +611,9 @@ object I2cCtrl {
     busCtrlWithOffset.drive(config.samplingClockDivider, 0x28) init(0)
     busCtrlWithOffset.drive(config.timeout,  0x2C) randBoot()
     busCtrlWithOffset.drive(config.tsuData , 0x30) randBoot()
+
+    val timeoutClear = RegNext(False)
+    config.timeoutClear := timeoutClear
+    busCtrlWithOffset.onWrite(0x2C)(timeoutClear := True)
   }
 }

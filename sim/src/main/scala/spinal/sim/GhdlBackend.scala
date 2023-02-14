@@ -28,7 +28,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
   }
 
   if (!(Array(WaveFormat.DEFAULT, WaveFormat.NONE) contains format)) {
-
+    wavePath = wavePath.split('.').init ++ Seq(format.ext) mkString "."
     if (format == WaveFormat.GHW) {
       runFlags += " --wave=" + wavePath
     } else {

@@ -1230,12 +1230,14 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
     if(pc.config.device.isVendorDefault || pc.config.device.vendor == Device.XILINX.vendor) {
       pc.walkDeclarations {
         case mem: Mem[_] => {
-          var hit = false
+          var hit, withWrite = false
           mem.foreachStatements {
             case port: MemReadAsync => hit = true
-            case _ =>
+            case port: MemWrite => withWrite = true
+            case port: MemReadWrite => withWrite = true
+            case port: MemReadSync =>
           }
-          if (hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+          if (hit && withWrite) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
         }
         case bt: BaseType => {
           if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
