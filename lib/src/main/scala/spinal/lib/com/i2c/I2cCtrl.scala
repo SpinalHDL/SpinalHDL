@@ -137,23 +137,18 @@ object I2cCtrl {
    * - endEnable -> RW[6]
    * - dropEnable -> RW[7]
    *
-   * - startFlag -> R[8] interrupt flag
-   * - restartFlag -> R[9] interrupt flag
-   * - endFlag -> R[10] interrupt flag
-   * - dropFlag -> R[11] interrupt flag
-   *
    * - clockGenBusyEnable -> RW[16]
    * - filterEnable -> RW[17]
    *
-   * - clockGenBusyFlag -> RW[20]
-   * - filterFlag -> RW[21]
    *
    * interrupt clears -> 0x24
-   * - startFlagClear -> W[8] clear the corresponding interrupt flag when set
-   * - restartFlagClear -> W[9] clear the corresponding interrupt flag when set
-   * - endFlagClear -> W[10] clear the corresponding interrupt flag when set
-   * - dropFlagClear -> W[11] clear the corresponding interrupt flag when set   *
+   * - startFlag -> RW[8] interrupt flag, clear on set
+   * - restartFlag -> RW[9] interrupt flag, clear on set
+   * - endFlag -> RW[10] interrupt flag, clear on set
+   * - dropFlag -> RW[11] interrupt flag, clear on set
    *
+   * - clockGenBusyFlag -> RW[16] interrupt flag, clear on set
+   * - filterFlag -> RW[17] interrupt flag, clear on set
    *
    * samplingClockDivider -> W 0x28
    * timeout -> W 0x2C
@@ -161,13 +156,20 @@ object I2cCtrl {
    *
    * masterStatus -> 0x40
    * - isBusy -> R[0]
-   * - start -> RW[4]
-   * - stop -> RW[5]
-   * - drop -> RW[6]
+   * - start -> RW[4], set on set, order a start
+   * - stop -> RW[5] , set on set, order a stop
+   * - drop -> RW[6] , set on set, order a drop
+   * - startDropped -> RW[9]  clear on set, indicate if timeout came durring start
+   * - stopDropped  -> RW[10] clear on set, indicate if timeout came durring stop
    *
    * tLow -> W 0x50
    * tHigh -> W 0x54
    * tBuf -> W 0x58
+   *
+   * slaveStatus -> 0x44
+   * - inFrame -> R[0]
+   * - sda -> R[1]
+   * - scl -> R[2]
    *
    * filteringStatus -> 0x80
    * - hit_0 -> R[0]
@@ -311,7 +313,6 @@ object I2cCtrl {
       val stop  = busCtrlWithOffset.createReadAndSetOnSet(Bool(), 0x40, 5) init(False)
       val drop  = busCtrlWithOffset.createReadAndSetOnSet(Bool(), 0x40, 6) init(False)
 
-
       val timer = new Area {
 
         val value = Reg(UInt(masterGenerics.timerWidth bits))
@@ -329,11 +330,17 @@ object I2cCtrl {
       val txReady = Bool() //Say if the tx buffer is ready to continue
 
       val fsm = new StateMachine {
+        val dropped = new Area{
+          val start = RegInit(False)
+          val stop  = RegInit(False)
+        }
         always {
           when(drop || (!isActive(IDLE) && bus.cmd.kind === I2cSlaveCmdMode.DROP)) {
             start := False
             stop := False
             drop := False
+            dropped.start setWhen(start)
+            dropped.stop  setWhen(stop)
             goto(TBUF)
           }
         }
@@ -345,7 +352,7 @@ object I2cCtrl {
           whenIsActive {
             when(internals.inFrame.fall(False)){
               goto(TBUF)
-            } elsewhen(start && !inFrameLate && !outOfSync){
+            } elsewhen(start && !inFrameLate){
               txData.valid := False
               goto(START1)
             }
@@ -353,18 +360,26 @@ object I2cCtrl {
         }
 
         val START1: State = new State {
-          onEntry {
-            timer.value := timer.tHigh
-          }
           whenIsActive {
-            i2cBuffer.sda.write := False
-            when(timer.done || !internals.sclRead) {
+            when(!outOfSync) {
               goto(START2)
             }
           }
         }
 
         val START2: State = new State {
+          onEntry {
+            timer.value := timer.tHigh
+          }
+          whenIsActive {
+            i2cBuffer.sda.write := False
+            when(timer.done || !internals.sclRead) {
+              goto(START3)
+            }
+          }
+        }
+
+        val START3: State = new State {
           onEntry {
             timer.value := timer.tLow
           }
@@ -447,7 +462,15 @@ object I2cCtrl {
           }
           whenIsActive {
             i2cBuffer.sda.write := False
-            when(timer.done && internals.sclRead) {
+            when(timer.done) {
+              goto(STOP3)
+            }
+          }
+        }
+
+        val STOP3: State = new State {
+          whenIsActive {
+            when(i2cBuffer.sda.read) {
               stop := False
               goto(TBUF)
             }
@@ -459,7 +482,7 @@ object I2cCtrl {
             timer.value := timer.tBuf
           }
           whenIsActive {
-            when(timer.done && internals.sdaRead) {
+            when(timer.done) {
               goto(IDLE)
             }
           }
@@ -468,6 +491,10 @@ object I2cCtrl {
         val isBusy = !this.isActive(IDLE) && !this.isActive(TBUF)
 
         busCtrlWithOffset.read(isBusy, 0x40, 0)
+        busCtrlWithOffset.read(dropped.start, 0x40, 9)
+        busCtrlWithOffset.read(dropped.stop, 0x40, 10)
+        busCtrlWithOffset.clearOnSet(dropped.start, 0x40, 9)
+        busCtrlWithOffset.clearOnSet(dropped.stop, 0x40, 10)
       }
     }
 
@@ -615,5 +642,12 @@ object I2cCtrl {
     val timeoutClear = RegNext(False)
     config.timeoutClear := timeoutClear
     busCtrlWithOffset.onWrite(0x2C)(timeoutClear := True)
+
+    busCtrlWithOffset.read(
+      0x44,
+      0 -> internals.inFrame,
+      1 -> internals.sdaRead,
+      2 -> internals.sclRead
+    )
   }
 }
