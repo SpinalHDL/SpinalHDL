@@ -333,14 +333,16 @@ object I2cCtrl {
         val dropped = new Area{
           val start = RegInit(False)
           val stop  = RegInit(False)
+          val trigger = False
         }
         always {
-          when(drop || (!isActive(IDLE) && bus.cmd.kind === I2cSlaveCmdMode.DROP)) {
+          when(drop || (!isActive(IDLE) && (bus.cmd.kind === I2cSlaveCmdMode.DROP || io.timeout))) {
             start := False
             stop := False
             drop := False
             dropped.start setWhen(start)
             dropped.stop  setWhen(stop)
+            dropped.trigger := True
             goto(TBUF)
           }
         }
@@ -430,14 +432,10 @@ object I2cCtrl {
         }
 
         val RESTART: State = new State {
-          onEntry {
-            timer.value := timer.tHigh
-          }
           whenIsActive {
             when(!internals.sclRead) { //Check for slave clock stretching
               timer.value := timer.tHigh
-            }
-            when(timer.done) {
+            }elsewhen(timer.done) {
               goto(START1)
             }
           }
@@ -457,12 +455,11 @@ object I2cCtrl {
         }
 
         val STOP2: State = new State {
-          onEntry {
-            timer.value := timer.tHigh
-          }
           whenIsActive {
             i2cBuffer.sda.write := False
-            when(timer.done) {
+            when(!internals.sclRead){
+              timer.value := timer.tHigh
+            } elsewhen(timer.done) {
               goto(STOP3)
             }
           }
@@ -596,7 +593,6 @@ object I2cCtrl {
       txAck.repeat  := True
       txAck.disableOnDataConflict := False
 
-
       rxData.listen := False
       rxAck.listen  := False
     }
@@ -627,7 +623,7 @@ object I2cCtrl {
       val start   = i2CSlaveEvent(4, bus.cmd.kind === I2cSlaveCmdMode.START)
       val restart = i2CSlaveEvent(5, bus.cmd.kind === I2cSlaveCmdMode.RESTART)
       val end     = i2CSlaveEvent(6, bus.cmd.kind === I2cSlaveCmdMode.STOP)
-      val drop    = i2CSlaveEvent(7, bus.cmd.kind === I2cSlaveCmdMode.DROP)
+      val drop    = i2CSlaveEvent(7, bus.cmd.kind === I2cSlaveCmdMode.DROP || genMaster.mux(masterLogic.fsm.dropped.trigger, False))
 
       val filterGen = genAddressFilter generate i2CSlaveEvent(17, addressFilter.hits.orR.rise())
 

@@ -274,11 +274,8 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
   }
 
   when(detector.stop || timeout.tick){
-    when(ctrl.inFrame && detector.stop) {
-      io.bus.cmd.kind := CmdMode.STOP
-    }
-    when(timeout.tick) {
-      io.bus.cmd.kind := CmdMode.DROP
+    when(ctrl.inFrame) {
+      io.bus.cmd.kind := timeout.tick ? CmdMode.DROP | CmdMode.STOP
     }
     ctrl.inFrame     := False
     ctrl.inFrameData := False
