@@ -177,6 +177,10 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     assert(reg.isReg, "prasiteField should be register only, check please")
     registerInWithWriteLogic(reg, acc, resetValue, doc)
   }
+  def parasiteFieldAt[T <: BaseType](pos: Int, reg: T, acc: AccessType, resetValue: BigInt, doc: String): Unit = {
+    assert(reg.isReg, "prasiteField should be register only, check please")
+    registerAtWithWriteLogic(pos, reg, acc, resetValue, doc)
+  }
 
   def fieldHSRW[T <: BaseType](seten: Bool, setval: T)(implicit symbol: SymbolName): T = fieldHSRW(seten, setval, resetValue = 0, doc = "")(symbol)
   def fieldHSRW[T <: BaseType](seten: Bool, setval: T, resetValue:BigInt)(implicit symbol: SymbolName): T = fieldHSRW(seten, setval, resetValue, doc = "")(symbol)
