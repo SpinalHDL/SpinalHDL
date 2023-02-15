@@ -28,7 +28,7 @@ abstract class SpinalTesterGhdlBase extends AnyFunSuite  {
 
   def getLibraryName = "lib_" + getName
   def elaborate: Unit = {
-    SpinalVhdl(backendConfig(SpinalConfig()))(createToplevel)
+    backendConfig(SpinalConfig()).generateVhdl(createToplevel)
   }
 
   def backendConfig(config: SpinalConfig) : SpinalConfig = {
@@ -46,12 +46,12 @@ abstract class SpinalTesterGhdlBase extends AnyFunSuite  {
 
 
   def checkHDL(mustSuccess: Boolean): Unit = {
-    val comp = s"ghdl -a --ieee=synopsys --work=$getLibraryName $getName.vhd tester/src/test/resources/${getName}_tb.vhd"
+    val comp = s"ghdl -a --ieee=synopsys --work=$getLibraryName --workdir=$simWorkspacePath $simWorkspacePath/$getName.vhd tester/src/test/resources/${getName}_tb.vhd"
     println("GHDL compilation " + comp)
     assert(((comp !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
 
 
-    val elab = s"ghdl -e --ieee=synopsys --work=$getLibraryName ${getName}_tb"
+    val elab = s"ghdl -e --ieee=synopsys --work=$getLibraryName --workdir=$simWorkspacePath ${getName}_tb"
     println("GHDL elaborate " + elab)
     assert(((elab !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
   }
@@ -64,7 +64,7 @@ abstract class SpinalTesterGhdlBase extends AnyFunSuite  {
   def simulateHDLWithFail : Unit= simulateHDL(false)
 
   def simulateHDL(mustSuccess : Boolean): Unit = {
-    val run = s"ghdl -r --ieee=synopsys --work=$getLibraryName ${getName}_tb --ieee-asserts=disable ${if (!withWaveform) "" else s" --vcd=$getName.vcd"}"
+    val run = s"ghdl -r --ieee=synopsys --work=$getLibraryName --workdir=$simWorkspacePath ${getName}_tb --ieee-asserts=disable ${if (!withWaveform) "" else s" --vcd=$getName.vcd"}"
     println("GHDL run " + run)
     val ret = (run !)
     assert(!mustSuccess || ret == 0,"Simulation fail")
