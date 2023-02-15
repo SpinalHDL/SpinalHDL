@@ -109,8 +109,8 @@ object AllMapping extends AddressMapping{
 }
 
 object DefaultMapping extends AddressMapping{
-  override def hit(address: UInt): Bool = ???
-  override def hit(address: BigInt): Boolean = ???
+  override def hit(address: UInt): Bool = True
+  override def hit(address: BigInt): Boolean = true
   override def removeOffset(address: UInt): UInt = ???
   override def lowerBound: BigInt = ???
   override def highestBound = ???
