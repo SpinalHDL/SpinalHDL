@@ -78,13 +78,13 @@ class OpenDrainInterconnect {
 }
 
 
-abstract class I2cSoftMaster(scl : OpenDrainSoftConnection,sda : OpenDrainSoftConnection, baudPeriod : Int){
+abstract class I2cSoftMaster(scl : OpenDrainSoftConnection,sda : OpenDrainSoftConnection, baudPeriod : Int) extends AreaRoot {
 
     
 //  def waitScl() = waitUntil(scl.read())
 //  def wait(bauds) = sleep(period*bauds)
 
-  class Event
+  class Event extends Nameable
   val START, STOP, ACK, NACK = new Event
   case class DATA(value : Int) extends Event
 

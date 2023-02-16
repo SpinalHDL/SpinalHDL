@@ -136,18 +136,21 @@ object I2cCtrl {
    * - restartEnable -> RW[5]
    * - endEnable -> RW[6]
    * - dropEnable -> RW[7]
+   * - recoverEnable -> RW[8]
    *
-   * - clockGenBusyEnable -> RW[16]
+   * - clockGenExitEnable -> RW[15]
+   * - clockGenEnterEnable -> RW[16]
    * - filterEnable -> RW[17]
    *
    *
    * interrupt clears -> 0x24
-   * - startFlag -> RW[8] interrupt flag, clear on set
-   * - restartFlag -> RW[9] interrupt flag, clear on set
-   * - endFlag -> RW[10] interrupt flag, clear on set
-   * - dropFlag -> RW[11] interrupt flag, clear on set
+   * - startFlag -> RW[4] interrupt flag, clear on set
+   * - restartFlag -> RW[5] interrupt flag, clear on set
+   * - stopFlag -> RW[6] interrupt flag, clear on set
+   * - dropFlag -> RW[7] interrupt flag, clear on set
    *
-   * - clockGenBusyFlag -> RW[16] interrupt flag, clear on set
+   * - clockGenExitFlag -> RW[15] interrupt flag, clear on set
+   * - clockGenEnterFlag -> RW[16] interrupt flag, , clear on set
    * - filterFlag -> RW[17] interrupt flag, clear on set
    *
    * samplingClockDivider -> W 0x28
@@ -159,8 +162,10 @@ object I2cCtrl {
    * - start -> RW[4], set on set, order a start
    * - stop -> RW[5] , set on set, order a stop
    * - drop -> RW[6] , set on set, order a drop
+   * - recover -> RW[7] , set on set, order a drop
    * - startDropped -> RW[9]  clear on set, indicate if timeout came durring start
    * - stopDropped  -> RW[10] clear on set, indicate if timeout came durring stop
+   * - recoverDropped  -> RW[10] clear on set, indicate if timeout came durring recover
    *
    * tLow -> W 0x50
    * tHigh -> W 0x54
@@ -170,6 +175,10 @@ object I2cCtrl {
    * - inFrame -> R[0]
    * - sda -> R[1]
    * - scl -> R[2]
+   *
+   * slaveOverride -> 0x48
+   * - sda -> RW[1] : Force the SDA pin low when cleared
+   * - scl -> RW[2] : Force the SCL pin low when cleared
    *
    * filteringStatus -> 0x80
    * - hit_0 -> R[0]
@@ -312,6 +321,7 @@ object I2cCtrl {
       val start = busCtrlWithOffset.createReadAndSetOnSet(Bool(), 0x40, 4) init(False)
       val stop  = busCtrlWithOffset.createReadAndSetOnSet(Bool(), 0x40, 5) init(False)
       val drop  = busCtrlWithOffset.createReadAndSetOnSet(Bool(), 0x40, 6) init(False)
+      val recover  = busCtrlWithOffset.createReadAndSetOnSet(Bool(), 0x40, 7) init(False)
 
       val timer = new Area {
 
@@ -333,6 +343,7 @@ object I2cCtrl {
         val dropped = new Area{
           val start = RegInit(False)
           val stop  = RegInit(False)
+          val recover  = RegInit(False)
           val trigger = False
         }
         always {
@@ -340,6 +351,7 @@ object I2cCtrl {
             start := False
             stop := False
             drop := False
+            recover := False
             dropped.start setWhen(start)
             dropped.stop  setWhen(stop)
             dropped.trigger := True
@@ -357,6 +369,8 @@ object I2cCtrl {
             } elsewhen(start && !inFrameLate){
               txData.valid := False
               goto(START1)
+            } elsewhen(recover){
+              goto(LOW)
             }
           }
         }
@@ -401,7 +415,7 @@ object I2cCtrl {
           }
           whenIsActive {
             when(timer.done) {
-              when(stop && !inAckState) {
+              when(stop && !inAckState || recover && internals.sdaRead) {
                 i2cBuffer.scl.write := False
                 txData.forceDisable := True
                 goto(STOP1)
@@ -469,6 +483,7 @@ object I2cCtrl {
           whenIsActive {
             when(i2cBuffer.sda.read) {
               stop := False
+              recover := False
               goto(TBUF)
             }
           }
@@ -490,8 +505,10 @@ object I2cCtrl {
         busCtrlWithOffset.read(isBusy, 0x40, 0)
         busCtrlWithOffset.read(dropped.start, 0x40, 9)
         busCtrlWithOffset.read(dropped.stop, 0x40, 10)
+        busCtrlWithOffset.read(dropped.recover, 0x40, 11)
         busCtrlWithOffset.clearOnSet(dropped.start, 0x40, 9)
         busCtrlWithOffset.clearOnSet(dropped.stop, 0x40, 10)
+        busCtrlWithOffset.clearOnSet(dropped.recover, 0x40, 11)
       }
     }
 
@@ -627,7 +644,8 @@ object I2cCtrl {
 
       val filterGen = genAddressFilter generate i2CSlaveEvent(17, addressFilter.hits.orR.rise())
 
-      val clockGen = genMaster generate i2CSlaveEvent(16, masterLogic.fsm.isBusy.rise())
+      val clockGenExit = genMaster generate i2CSlaveEvent(15, masterLogic.fsm.isBusy.fall())
+      val clockGenEnter = genMaster generate i2CSlaveEvent(16, masterLogic.fsm.isBusy.rise())
     }
 
 
@@ -645,5 +663,14 @@ object I2cCtrl {
       1 -> internals.sdaRead,
       2 -> internals.sclRead
     )
+
+
+    if(genMaster) masterLogic.fsm.build()
+    val slaveOverride = new Area{
+      val sda = busCtrlWithOffset.createReadAndWrite(Bool(), 0x48, 1) init(True)
+      val scl = busCtrlWithOffset.createReadAndWrite(Bool(), 0x48, 2) init(True)
+      i2cBuffer.sda.write clearWhen(!sda)
+      i2cBuffer.scl.write clearWhen(!scl)
+    }
   }
 }
