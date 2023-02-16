@@ -656,6 +656,7 @@ object I2cCtrl {
     val timeoutClear = RegNext(False)
     config.timeoutClear := timeoutClear
     busCtrlWithOffset.onWrite(0x2C)(timeoutClear := True)
+    if(genMaster) config.timeoutClear setWhen(!internals.inFrame && !masterLogic.fsm.isBusy)
 
     busCtrlWithOffset.read(
       0x44,
