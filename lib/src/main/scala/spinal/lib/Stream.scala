@@ -711,7 +711,9 @@ class StreamArbiterFactory {
   def on[T <: Data](inputs: Seq[Stream[T]]): Stream[T] = {
     val arbiter = build(inputs(0).payloadType, inputs.size)
     (arbiter.io.inputs, inputs).zipped.foreach(_ << _)
-    return arbiter.io.output
+    val ret = arbiter.io.output.combStage()
+//    arbiter.setCompositeName(ret, "arbiter")
+    ret
   }
 
   def lowerFirst: this.type = {
@@ -726,17 +728,20 @@ class StreamArbiterFactory {
     arbitrationLogic = StreamArbiter.Arbitration.sequentialOrder
     this
   }
-  def noLock: this.type = {
-    lockLogic = StreamArbiter.Lock.none
+
+  def setLock(body : (StreamArbiter[_ <: Data]) => Area) : this.type = {
+    lockLogic = body
     this
   }
-  def fragmentLock: this.type = {
-    lockLogic = StreamArbiter.Lock.fragmentLock
-    this
-  }
-  def transactionLock: this.type = {
-    lockLogic = StreamArbiter.Lock.transactionLock
-    this
+  def noLock: this.type = setLock(StreamArbiter.Lock.none)
+  def fragmentLock: this.type = setLock(StreamArbiter.Lock.fragmentLock)
+  def transactionLock: this.type = setLock(StreamArbiter.Lock.transactionLock)
+  def lambdaLock[T <: Data](unlock: Stream[T] => Bool) : this.type = setLock{
+    case c : StreamArbiter[T] => new Area {
+      import c._
+      locked setWhen(io.output.valid)
+      locked.clearWhen(io.output.fire && unlock(io.output))
+    }
   }
 }
 
@@ -911,6 +916,22 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
     } otherwise {
       io.outputs(i).valid := io.input.valid
       io.input.ready := io.outputs(i).ready
+    }
+  }
+}
+
+object StreamDemuxOh{
+  def apply[T <: Data](input : Stream[T], oh : Seq[Bool]) : Vec[Stream[T]] = oh.size match {
+    case 1 => Vec(input.combStage())
+    case _ => {
+      val ret = Vec(oh.map{sel =>
+        val output = cloneOf(input)
+        output.valid   := input.valid && sel
+        output.payload := input.payload
+        output
+      })
+      input.ready    := (ret, oh).zipped.map(_.ready && _).orR
+      ret
     }
   }
 }
@@ -1599,11 +1620,11 @@ object StreamFragmentWidthAdapter {
           for((bit, id) <- dataMask.asBools.zipWithIndex) bit := counter >= id
 
           when(input.fire) {
-            whenIndexed(buffer.subdivideIn(inputWidth bits), counter) {
+            whenIndexed(buffer.subdivideIn(inputWidth bits), counter, relaxedWidth = true) {
               _ := input.fragment.asBits
             }
           }
-          whenIndexed(data.subdivideIn(inputWidth bits).dropRight(1), counter) {
+          whenIndexed(data.subdivideIn(inputWidth bits).dropRight(1), counter, relaxedWidth = true) {
             _ := input.fragment.asBits
           }
         }

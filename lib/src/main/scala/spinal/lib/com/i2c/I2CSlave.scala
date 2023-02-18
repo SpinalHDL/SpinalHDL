@@ -55,6 +55,7 @@ case class I2cSlaveConfig(g: I2cSlaveGenerics) extends Bundle {
   val samplingClockDivider = UInt(g.samplingClockDividerWidth)
   val timeout              = UInt(g.timeoutWidth)
   val tsuData              = UInt(g.tsuDataWidth)
+  val timeoutClear         = Bool()
 
 
   def setFrequencySampling(frequencySampling: HertzNumber, clkFrequency: HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
@@ -117,6 +118,7 @@ case class I2cSlaveIo(g: I2cSlaveGenerics) extends Bundle {
   val i2c    = master(I2c())
   val config = in(I2cSlaveConfig(g))
   val bus    = master(I2cSlaveBus())
+  val timeout = out Bool()
 
   val internals = out(new Bundle {
     val inFrame = Bool()
@@ -259,16 +261,16 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
   }
 
   val timeout = new Area{
-
+    val enabled = RegNext(io.config.timeout =/= 0)
     val counter = Reg(UInt(g.timeoutWidth)) init(0)
-    val tick    = counter === 0
+    val tick    = enabled && counter === 0
 
     counter := counter - 1
 
-    when(sclEdge.toggle || !ctrl.inFrame){
+    when(tick || sclEdge.toggle || (!ctrl.inFrame && filter.scl && filter.sda) || io.config.timeoutClear){
       counter := io.config.timeout
-      tick    := False
     }
+    io.timeout := tick
   }
 
   when(detector.stop || timeout.tick){

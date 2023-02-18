@@ -25,7 +25,7 @@ case class XdrOutput(rate : Int) extends Bundle with IMasterSlave{
 
   def toTriState(): TriState[Bool] ={
     assert(rate == 2)
-    val io = TriState(Bool)
+    val io = TriState(Bool())
     val clk = ClockDomain.readClockWire
     val writeBuffer = RegNext(write)
     io.write := (clk ? writeBuffer(0))| writeBuffer(1)
@@ -44,7 +44,7 @@ case class XdrPin(rate : Int) extends Bundle with IMasterSlave{
 
   def toTriState(): TriState[Bool] ={
     assert(rate == 2)
-    val io = TriState(Bool)
+    val io = TriState(Bool())
     val clk = ClockDomain.readClockWire
     io.writeEnable := writeEnable
     val writeBuffer = RegNext(write)
@@ -224,9 +224,9 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
   }
 
   case class SpiIce40(p : SpiXdrParameter) extends Bundle {
-    val sclk = Analog(Bool)
-    val ss = Vec.fill(p.ssWidth)(Analog(Bool))
-    val data = Vec.fill(p.dataWidth)(Analog(Bool))
+    val sclk = Analog(Bool())
+    val ss = Vec.fill(p.ssWidth)(Analog(Bool()))
+    val data = Vec.fill(p.dataWidth)(Analog(Bool()))
   }
 
   def toSpiIce40() = {
@@ -482,8 +482,8 @@ object SpiXdrMasterCtrl {
 
     //Interrupts
     val interruptCtrl = new Area {
-      val cmdIntEnable = bus.createReadAndWrite(Bool, address = baseAddress + 12, 0) init(False)
-      val rspIntEnable  = bus.createReadAndWrite(Bool, address = baseAddress + 12, 1) init(False)
+      val cmdIntEnable = bus.createReadAndWrite(Bool(), address = baseAddress + 12, 0) init(False)
+      val rspIntEnable  = bus.createReadAndWrite(Bool(), address = baseAddress + 12, 1) init(False)
       val cmdInt = bus.read(cmdIntEnable & !cmdLogic.stream.valid, address = baseAddress + 12, 8)
       val rspInt = bus.read(rspIntEnable &  rspLogic.stream.valid, address = baseAddress + 12, 9)
       val interrupt = rspInt || cmdInt

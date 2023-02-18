@@ -428,31 +428,31 @@ class ChecksTester extends AnyFunSuite  {
       generationShouldPass(new Component {body})
     }
 
-    failBody(out(B(1, 8 bits) === B(256)))
-    failBody(out(B(1, 8 bits) =/= B(256)))
+    failBody(out(in(Bits(8 bits)) === B(256)))
+    failBody(out(in(Bits(8 bits)) =/= B(256)))
 
-    failBody(out(S(1, 8 bits) === S(256)))
-    failBody(out(S(1, 8 bits) =/= S(256)))
-    failBody(out(S(1, 8 bits) < S(256)))
-    failBody(out(S(1, 8 bits) <= S(256)))
+    failBody(out(in(SInt(8 bits)) === S(256)))
+    failBody(out(in(SInt(8 bits)) =/= S(256)))
+    failBody(out(in(SInt(8 bits)) < S(256)))
+    failBody(out(in(SInt(8 bits)) <= S(256)))
 
-    failBody(out(S(1, 9 bits) === S(256)))
-    failBody(out(S(1, 9 bits) =/= S(256)))
-    failBody(out(S(1, 9 bits) < S(256)))
-    failBody(out(S(1, 9 bits) <= S(256)))
-    failBody(out(S(1, 9 bits) === S(-257)))
-    failBody(out(S(1, 9 bits) =/= S(-257)))
-    failBody(out(S(1, 9 bits) < S(-257)))
-    failBody(out(S(1, 9 bits) <= S(-257)))
+    failBody(out(in(SInt(9 bits)) === S(256)))
+    failBody(out(in(SInt(9 bits)) =/= S(256)))
+    failBody(out(in(SInt(9 bits)) < S(256)))
+    failBody(out(in(SInt(9 bits)) <= S(256)))
+    failBody(out(in(SInt(9 bits)) === S(-257)))
+    failBody(out(in(SInt(9 bits)) =/= S(-257)))
+    failBody(out(in(SInt(9 bits)) < S(-257)))
+    failBody(out(in(SInt(9 bits)) <= S(-257)))
 
-    passBody(out(S(1, 9 bits) === S(255)))
-    passBody(out(S(1, 9 bits) =/= S(255)))
-    passBody(out(S(1, 9 bits) < S(255)))
-    passBody(out(S(1, 9 bits) <= S(255)))
-    passBody(out(S(1, 9 bits) === S(-256)))
-    passBody(out(S(1, 9 bits) =/= S(-256)))
-    passBody(out(S(1, 9 bits) < S(-256)))
-    passBody(out(S(1, 9 bits) <= S(-256)))
+    passBody(out(in(SInt(9 bits)) === S(255)))
+    passBody(out(in(SInt(9 bits)) =/= S(255)))
+    passBody(out(in(SInt(9 bits)) < S(255)))
+    passBody(out(in(SInt(9 bits)) <= S(255)))
+    passBody(out(in(SInt(9 bits)) === S(-256)))
+    passBody(out(in(SInt(9 bits)) =/= S(-256)))
+    passBody(out(in(SInt(9 bits)) < S(-256)))
+    passBody(out(in(SInt(9 bits)) <= S(-256)))
   }
 
 
@@ -528,7 +528,7 @@ class RepeatabilityTester extends AnyFunSuite{
 
   test("Apb3I2cCtrlGraph"){
     val dut = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz)).generateVerilog(new Apb3I2cCtrl(configI2C)).toplevel
-    assert(GraphUtils.countNames(dut) == 221)
+    assert(GraphUtils.countNames(dut) == 251)
   }
 
   test("UartGraph"){

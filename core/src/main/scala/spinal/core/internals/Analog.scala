@@ -63,7 +63,7 @@ class AnalogDriverSInt extends AnalogDriverBitVector {
 }
 
 
-class AnalogDriverEnum(enumDef: SpinalEnum) extends AnalogDriver with InferableEnumEncodingImpl {
+class AnalogDriverEnum(var enumDef: SpinalEnum) extends AnalogDriver with InferableEnumEncodingImpl {
 
   override def opName = "AnalogDriver(Enum, Bool)"
 
@@ -76,5 +76,7 @@ class AnalogDriverEnum(enumDef: SpinalEnum) extends AnalogDriver with InferableE
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
 
   override def getDefinition: SpinalEnum = enumDef
+
+  override def swapEnum(e: SpinalEnum) = enumDef = e
 }
 

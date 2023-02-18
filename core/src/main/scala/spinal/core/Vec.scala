@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, BitVectorAssignmentExpression, RangedAssignmentFixed, RangedAssignmentFloating}
+import spinal.idslplugin.Location
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -69,7 +70,7 @@ trait VecFactory {
 
 class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Vec[T]) extends Assignable {
 
-  override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+  override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     for ((enable, to) <- (enables, tos).zipped) {
       when(enable) {
         val thatSafe = that /*match {
@@ -261,7 +262,7 @@ class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends Mu
     }
 
     ret.compositeAssign = new Assignable {
-      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
         for ((e, idx) <- vec.zipWithIndex) {
           when(oneHot(idx)) {
             e.compositAssignFrom(that, target,kind)
@@ -274,7 +275,7 @@ class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends Mu
     ret
   }
 
-  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     that match {
       case that: Vec[T] =>
         if (that.vec.size != this.vec.size) throw new Exception("Can't assign Vec with a different size")

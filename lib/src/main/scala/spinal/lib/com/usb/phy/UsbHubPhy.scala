@@ -9,7 +9,7 @@ import spinal.lib.io.TriState
 
 
 case class UsbPhyFsNativeIo() extends Bundle with IMasterSlave {
-  val dp,dm = TriState(Bool)
+  val dp,dm = TriState(Bool())
 
   override def asMaster(): Unit = {
     master(dp,dm)
@@ -436,7 +436,7 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
       val decoder = new Area{
         val state = Reg(Bool())
 
-        val output = Flow(Bool)
+        val output = Flow(Bool())
         output.valid := False
         output.payload.assignDontCare()
 

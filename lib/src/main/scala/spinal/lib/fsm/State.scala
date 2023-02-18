@@ -121,8 +121,8 @@ class State(implicit stateMachineAccessor: StateMachineAccessor) extends Area wi
 /**
   * Use to execute a State machine into a stateMachine
   */
-class StateFsm[T <: StateMachineAccessor](val _fsm:  T)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
-  val fsm = _fsm
+class StateFsm[T <: StateMachineAccessor](val fsm:  T)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+  valCallback(fsm, "fsm") //Provide naming to the fsm instance
 
   onEntry{
     fsm.startFsm()

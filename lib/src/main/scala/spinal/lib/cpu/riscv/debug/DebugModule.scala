@@ -29,6 +29,7 @@ case class DebugHartToDm() extends Bundle{
 case class DebugHartBus() extends Bundle with IMasterSlave {
   val halted, running, unavailable = Bool()
   val exception, commit, ebreak, redo = Bool()  //Can only be set when the CPU is in debug mode
+  val ackReset, haveReset = Bool()
   val resume = FlowCmdRsp()
   val haltReq = Bool()
 
@@ -36,11 +37,11 @@ case class DebugHartBus() extends Bundle with IMasterSlave {
   val hartToDm = Flow(DebugHartToDm())
 
   override def asMaster() = {
-    in(halted, running, unavailable, exception, commit, ebreak, redo)
+    in(halted, running, unavailable, haveReset, exception, commit, ebreak, redo)
     master(resume)
     master(dmToHart)
     slave(hartToDm)
-    out(haltReq)
+    out(haltReq, ackReset)
   }
 }
 
@@ -84,6 +85,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val haltSet = factory.setOnSet(False, 0x10, 31)
       val haltClear = factory.setOnClear(False, 0x10, 31)
       val resumeReq = factory.setOnSet(False, 0x10, 30) clearWhen(haltSet)
+      val ackhavereset = factory.setOnSet(False, 0x10, 28)
 
       val hartSelAarsizeLimit = p.xlens.map(v => U(log2Up(v/8))).read(hartSel.resized)
 
@@ -108,11 +110,13 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
     val harts = for(hartId <- 0 until p.harts) yield new Area{
       val sel = dmcontrol.hartSel === hartId
       val bus = io.harts(hartId)
-      val resumeReady = !bus.resume.isPending(1)
+      val resumeReady = !bus.resume.isPending(1) && RegInit(False).setWhen(bus.resume.cmd.valid)
       def halted = bus.halted
       def running = bus.running
       def unavailable = bus.unavailable
+      def haveReset = bus.haveReset
       bus.dmToHart << toHarts.throwWhen(toHarts.op === DebugDmToHartOp.EXECUTE && !sel)
+      bus.ackReset := RegNext(sel && dmcontrol.ackhavereset)
     }
 
     val selected = new Area{
@@ -139,6 +143,8 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val allNonExistent = factory.read(anyNonExistent, 0x11, 15)
       val anyResumeAck = factory.read(harts.map(h =>  h.sel && h.resumeReady).orR, 0x11, 16)
       val allResumeAck = factory.read(harts.map(h => !h.sel || h.resumeReady).andR, 0x11, 17)
+      val anyHaveReset = factory.read(harts.map(h =>  h.sel && h.haveReset).orR, 0x11, 18)
+      val allHaveReset = factory.read(harts.map(h => !h.sel || h.haveReset).andR, 0x11, 19)
 
 //      val hasresethaltreq = factory.read(True, 0x11, 5)
       val impebreak = factory.read(True, 0x11, 22)
@@ -223,7 +229,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
           val aarsize = UInt(3 bits)
         }
         val args = data.as(Args())
-        val notSupported = args.aarsize > dmcontrol.hartSelAarsizeLimit || args.aarpostincrement || args.regno(5, 11 bits) =/= 0x1000 >> 5
+        val notSupported = args.aarsize > dmcontrol.hartSelAarsizeLimit || args.aarpostincrement || args.transfer && args.regno(5, 11 bits) =/= 0x1000 >> 5
       }
 
 

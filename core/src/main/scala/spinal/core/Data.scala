@@ -22,6 +22,8 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+import spinal.idslplugin.Location
+
 import scala.collection.Seq
 
 object DataAssign
@@ -40,7 +42,7 @@ trait DataPrimitives[T <: Data]{
   def =/=(that: T): Bool = _data isNotEqualTo that
 
   /** Assign a data to this */
-  def := (that: T): Unit = _data assignFrom that
+  def := (that: T)(implicit loc: Location): Unit = _data assignFrom that
 
   /** Use as \= to have the same behavioral as VHDL variable */
   def \(that: T): T = {
@@ -83,7 +85,7 @@ trait DataPrimitives[T <: Data]{
   }
 
   /** Auto connection between two data */
-  def <>(that: T): Unit = _data autoConnect that
+  def <>(that: T)(implicit loc: Location): Unit = _data autoConnect that
 
   /** Set initial value to a data */
   def init(that: T): T = {
@@ -380,7 +382,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  final def assignFrom(that: AnyRef, target: AnyRef = this) = compositAssignFrom(that, target, DataAssign)
+  final def assignFrom(that: AnyRef, target: AnyRef = this) (implicit loc: Location)= compositAssignFrom(that, target, DataAssign)
 
   final def initFrom(that: AnyRef, target: AnyRef = this) = (that, target) match {
     case (init: Data, target: Data) if ! target.isReg =>
@@ -492,9 +494,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     addTag(spinal.core.noBackendCombMerge)
   }
 
-  private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
+  private[core] def autoConnect(that: Data)(implicit loc: Location): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 
-  private[core] def autoConnectBaseImpl(that: Data): Unit = {
+  private[core] def autoConnectBaseImpl(that: Data)(implicit loc: Location): Unit = {
 
     def getTrueIoBaseType(that: Data): Data = that.getRealSource.asInstanceOf[Data]
 
@@ -740,13 +742,13 @@ trait DataWrapper extends Data{
   override def flatten: Seq[BaseType] = ???
   override def getBitsWidth: Int = ???
   override private[core] def isEqualTo(that: Any): Bool = ???
-  override private[core] def autoConnect(that: Data): Unit = ???
+  override private[core] def autoConnect(that: Data)(implicit loc: Location): Unit = ???
   override def assignFromBits(bits: Bits): Unit = ???
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = ???
   override def getZero: DataWrapper.this.type = ???
   override private[core] def isNotEqualTo(that: Any): Bool = ???
   override def flattenLocalName: Seq[String] = ???
-  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
+  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = ???
   override def setAsReg(): DataWrapper.this.type = ???
   override def setAsComb(): DataWrapper.this.type = ???
   override def freeze(): DataWrapper.this.type = ???

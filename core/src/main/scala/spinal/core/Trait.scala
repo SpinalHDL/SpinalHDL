@@ -27,54 +27,10 @@ import spinal.core.fiber.Handle
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
+import spinal.idslplugin.Location
 
 trait DummyTrait
 object DummyObject extends DummyTrait
-/**
-  * Trait used to set the direction of a data
-  */
-trait IODirection extends BaseTypeFactory {
-
-  def applyIt[T <: Data](data: T): T
-  def apply[T <: Data](data: T): T = applyIt(data)
-  def apply[T <: Data](data: HardType[T]): T = applyIt(data())
-  def apply[T <: Data](datas: T*): Unit = datas.foreach(applyIt(_))
-  def apply(senum: SpinalEnum) = applyIt(senum.craft())
-  def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
-
-  def Bool(u: Unit = ()): Bool = applyIt(spinal.core.Bool())
-  override def Bits(u: Unit = ()) = applyIt(super.Bits())
-  override def UInt(u: Unit = ()) = applyIt(super.UInt())
-  override def SInt(u: Unit = ()) = applyIt(super.SInt())
-  override def Vec[T <: Data](elements: TraversableOnce[T], dataType : HardType[T] = null): Vec[T] = applyIt(super.Vec(elements, dataType))
-
-  override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
-}
-
-/** Set a data to input */
-object in extends IODirection {
-  override def applyIt[T <: Data](data: T): T = data.asInput()
-}
-
-/** Set a data to output */
-object out extends IODirection {
-  override def applyIt[T <: Data](data: T): T = data.asOutput()
-}
-
-/** Set a data to inout */
-object inout extends IODirection {
-  override def applyIt[T <: Data](data: T): T = data.asInOut()
-}
-
-/** Set a data to in if the data is not null */
-object inWithNull extends IODirection {
-  override def applyIt[T <: Data](data: T): T = if(data != null) data.asInput() else data
-}
-
-/** Set a data to out if the data is not null */
-object outWithNull extends IODirection {
-  override def applyIt[T <: Data](data: T): T = if(data != null) data.asOutput() else data
-}
 
 
 trait AssertNodeSeverity
@@ -306,7 +262,7 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
 trait Assignable {
   /* private[core] */var compositeAssign: Assignable = null
 
-  /*private[core] */final def compositAssignFrom(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+  /*private[core] */final def compositAssignFrom(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     if (compositeAssign != null) {
       compositeAssign.compositAssignFrom(that, target, kind)
     } else {
@@ -314,7 +270,7 @@ trait Assignable {
     }
   }
 
-  private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit
+  private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit
 
   def getRealSourceNoRec: Any
 
@@ -378,6 +334,15 @@ object Nameable{
   val DATAMODEL_WEAK : Byte = 5
   val USER_WEAK : Byte = 0
   val REMOVABLE : Byte = -5
+
+  def getNameWithoutPrefix(prefix : Nameable, from : Nameable): String ={
+    val stageSlices = prefix.getName.split('_')
+    val postfixSlices = from.getName.split('_')
+    var i = 0
+    val iEnd = stageSlices.length min postfixSlices.length
+    while(i != iEnd && stageSlices(i) == postfixSlices(i)) i += 1
+    postfixSlices.drop(i).mkString("_")
+  }
 }
 
 
@@ -438,6 +403,18 @@ trait Nameable extends OwnableRef with ContextUser{
       "???"
     else
       name
+  }
+
+  def setLambdaName(isNameBody : => Boolean)(nameGen : => String): this.type ={
+    val p = this
+    setCompositeName(new Nameable {
+      override def isUnnamed = !isNameBody
+      override def getName(default: String) = isNamed match {
+        case true  => nameGen
+        case false => default
+      }
+    })
+    this
   }
 
   override def toString: String = name
@@ -813,6 +790,7 @@ object allowOutOfRangeLiterals               extends SpinalTag{
 }
 object unusedTag                     extends SpinalTag
 object noCombinatorialLoopCheck      extends SpinalTag
+object noLatchCheck                  extends SpinalTag
 object noBackendCombMerge            extends SpinalTag
 object crossClockDomain              extends SpinalTag{ override def moveToSyncNode = true }
 object crossClockBuffer              extends SpinalTag{ override def moveToSyncNode = true }

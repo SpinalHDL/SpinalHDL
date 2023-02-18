@@ -23,7 +23,7 @@ package spinal.core.sim
 import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, ScopeProperty, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, TimeNumber, UInt, Verilator}
+import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, ScopeProperty, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, TimeNumber, UInt, Verilator, noLatchCheck}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -168,6 +168,7 @@ class SpinalVpiBackendConfig[T <: Component](val rtl               : SpinalRepor
                                              val waveDepth        : Int,
                                              val optimisationLevel: Int,
                                              val simulatorFlags   : ArrayBuffer[String],
+                                             val runFlags         : ArrayBuffer[String],
                                              val usePluginsCache  : Boolean,
                                              val pluginsCachePath : String,
                                              val enableLogging    : Boolean,
@@ -183,6 +184,7 @@ case class SpinalIVerilogBackendConfig[T <: Component](override val rtl : Spinal
                                                    override val waveDepth         : Int = 0,
                                                    override val optimisationLevel : Int = 2,
                                                    override val simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
+                                                   override val runFlags          : ArrayBuffer[String] = ArrayBuffer[String](),
                                                    override val usePluginsCache   : Boolean = true,
                                                    override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
                                                    override val enableLogging     : Boolean = false,
@@ -196,6 +198,7 @@ case class SpinalIVerilogBackendConfig[T <: Component](override val rtl : Spinal
                                                                         waveDepth,
                                                                         optimisationLevel,
                                                                         simulatorFlags,
+                                                                        runFlags,
                                                                         usePluginsCache,
                                                                         pluginsCachePath,
                                                                         enableLogging,
@@ -206,11 +209,12 @@ case class SpinalVCSBackendConfig[T <: Component](override val rtl : SpinalRepor
                                                   override val waveFormat        : WaveFormat = WaveFormat.NONE,
                                                   override val workspacePath     : String = "./",
                                                   override val workspaceName     : String = null,
-                                                  override val wavePath           : String = null,
-                                                  override val wavePrefix         : String = null,
+                                                  override val wavePath          : String = null,
+                                                  override val wavePrefix        : String = null,
                                                   override val waveDepth         : Int = 0,
                                                   override val optimisationLevel : Int = 2,
                                                   override val simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
+                                                  override val runFlags          : ArrayBuffer[String] = ArrayBuffer[String](),
                                                   override val usePluginsCache   : Boolean = true,
                                                   override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
                                                   override val enableLogging     : Boolean = false,
@@ -218,9 +222,8 @@ case class SpinalVCSBackendConfig[T <: Component](override val rtl : SpinalRepor
                                                   val simSetupFile               : String = null,
                                                   val envSetup                   : () => Unit = null,
                                                   val vcsFlags                   : VCSFlags = null,
-                                                  val compileFlags               : List[String] = null,
-                                                  val elaborateFlags             : List[String] = null,
-                                                  val runFlags                   : List[String] = null,
+                                                  val compileFlags               : ArrayBuffer[String] = ArrayBuffer[String](),
+                                                  val elaborateFlags             : ArrayBuffer[String] = ArrayBuffer[String](),
                                                   val vcsCC                      : Option[String] = None,
                                                   val vcsLd                      : Option[String] = None) extends
   SpinalVpiBackendConfig[T](rtl,
@@ -232,6 +235,7 @@ case class SpinalVCSBackendConfig[T <: Component](override val rtl : SpinalRepor
     waveDepth,
     optimisationLevel,
     simulatorFlags,
+    runFlags,
     usePluginsCache,
     pluginsCachePath,
     enableLogging,
@@ -246,6 +250,7 @@ case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalRepo
                                                    override val waveDepth         : Int = 0,
                                                    override val optimisationLevel : Int = 2,
                                                    override val simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
+                                                   override val runFlags          : ArrayBuffer[String] = ArrayBuffer[String](),
                                                    override val usePluginsCache   : Boolean = true,
                                                    override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
                                                    override val enableLogging     : Boolean = false,
@@ -259,6 +264,7 @@ case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalRepo
                                                                         waveDepth,
                                                                         optimisationLevel,
                                                                         simulatorFlags,
+                                                                        runFlags,
                                                                         usePluginsCache,
                                                                         pluginsCachePath,
                                                                         enableLogging,
@@ -274,7 +280,7 @@ object SpinalGhdlBackend {
     if (config.timePrecision != null) {
       vconfig.elaborationFlags = s"--time-resolution=${config.timePrecision.decompose._2}"
     }
-    vconfig.runFlags = config.simulatorFlags.mkString(" ")
+    vconfig.runFlags = config.runFlags.mkString(" ")
     vconfig.logSimProcess = config.enableLogging
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
@@ -505,6 +511,27 @@ class SwapTagPhase(oldOne: SpinalTag, newOne: SpinalTag) extends PhaseNetlist {
 }
 
 
+class SimVerilatorPhase extends PhaseNetlist {
+
+  override def impl(pc: PhaseContext): Unit = {
+    val latchesIn = mutable.LinkedHashSet[Component]()
+    pc.walkDeclarations { d =>
+      d match {
+        case x: SpinalTagReady if (x.hasTag(SimPublic)) => {
+          x.removeTag(SimPublic)
+          x.addTag(Verilator.public)
+        }
+        case _ =>
+      }
+      d match {
+        case bt: BaseType if bt.hasTag(noLatchCheck) => latchesIn += bt.component
+        case _ =>
+      }
+    }
+    latchesIn.foreach(_.definition.addComment("verilator lint_off LATCH"))
+  }
+}
+
 /**
   * Run simulation
   */
@@ -543,7 +570,14 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
 
   def newSimRaw(name: String, seed: Int) : SimRaw
 
-  def doSimApi(name: String = "test", seed: Int = sys.env.getOrElse("SPINAL_SIM_SEED_RANDOM", "0").toInt*Random.nextInt(2000000000), joinAll: Boolean)(body: T => Unit): Unit = {
+  def newSeed(): Int = {
+    sys.env.get("SPINAL_SIM_SEED") match {
+      case Some(v) => v.toInt
+      case None => Random.nextInt(Integer.MAX_VALUE)
+    }
+  }
+
+  def doSimApi(name: String = "test", seed: Int = newSeed(), joinAll: Boolean)(body: T => Unit): Unit = {
     Random.setSeed(seed)
     GlobalData.set(report.globalData)
 
@@ -626,6 +660,7 @@ case class SpinalSimConfig(
                             var _spinalConfig      : SpinalConfig = SpinalConfig(),
                             var _optimisationLevel : Int = 0,
                             var _simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _runFlags          : ArrayBuffer[String] = ArrayBuffer[String](),
                             var _additionalRtlPath : ArrayBuffer[String] = ArrayBuffer[String](),
                             var _additionalIncludeDir : ArrayBuffer[String] = ArrayBuffer[String](),
                             var _waveFormat        : WaveFormat = WaveFormat.NONE,
@@ -802,6 +837,11 @@ case class SpinalSimConfig(
     this
   }
 
+  def addRunFlag(flag: String): this.type = {
+    _runFlags += flag
+    this
+  }
+
   def addRtl(that : String) : this.type = {
     _additionalRtlPath += that
     this
@@ -862,14 +902,28 @@ case class SpinalSimConfig(
     new File(s"tmp").mkdirs()
     new File(s"tmp/job_$uniqueId").mkdirs()
     val config = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new PhaseNetlist {
-      override def impl(pc: PhaseContext): Unit = pc.walkComponents{
-        case b : BlackBox if b.isBlackBox && b.isSpinalSimWb => b.clearBlackBox()
-        case _ =>
+      override def impl(pc: PhaseContext): Unit = {
+        //Ensure the toplevel pull its clock domain
+        pc.topLevel.rework{
+          val cd = pc.topLevel.clockDomain
+          if(cd != null){
+            if (cd.clock != null) cd.readClockWire
+            if (cd.reset != null) cd.readResetWire
+            if (cd.softReset != null) cd.readSoftResetWire
+            if (cd.clockEnable != null) cd.readClockEnableWire
+          }
+        }
+
+        //Implement isSpinalSimWb
+        pc.walkComponents{
+          case b : BlackBox if b.isBlackBox && b.isSpinalSimWb => b.clearBlackBox()
+          case _ =>
+        }
       }
     })
     val report = _backend match {
       case SpinalSimBackendSel.VERILATOR => {
-        config.addTransformationPhase(new SwapTagPhase(SimPublic, Verilator.public))
+        config.addTransformationPhase(new SimVerilatorPhase)
         config.generateVerilog(rtl)
       }
       case SpinalSimBackendSel.GHDL => config.generateVhdl(rtl)
@@ -968,6 +1022,7 @@ case class SpinalSimConfig(
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
           simulatorFlags = _simulatorFlags,
+          runFlags = _runFlags,
           enableLogging = _withLogging,
           usePluginsCache = !_disableCache,
           timePrecision = _timePrecision

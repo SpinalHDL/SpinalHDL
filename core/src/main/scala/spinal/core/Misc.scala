@@ -49,6 +49,22 @@ object log2Up {
   def apply(value : Int) : Int = apply(BigInt(value))
 }
 
+object Gray {
+  /** Encoding binary number in binary gray code */
+  def encode(binary: BigInt): BigInt = binary ^ (binary >> 1)
+
+  /** Decode binary gray encoded number to binary */
+  def decode(gray: BigInt): BigInt = {
+    var binary = BigInt(0)
+    var bits = gray
+    while (bits > 0) {
+      binary ^= bits
+      bits >>= 1
+    }
+    binary
+  }
+}
+
 
 /**
  * Check if a number is a power of 2 

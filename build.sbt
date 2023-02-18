@@ -2,7 +2,7 @@ import sbt.Keys._
 import sbt._
 import sbt.Tests._
 
-
+val scalatestVersion = "3.2.14"
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
   organization := "com.github.spinalhdl",
   version      := SpinalVersion.all,
@@ -11,6 +11,9 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   scalacOptions ++= Seq("-unchecked","-target:jvm-1.8"/*, "-feature" ,"-deprecation"*/),
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
   fork := true,
+
+  scalafmtFilter.withRank(KeyRanks.Invisible) := "diff-ref=dev",
+  scalafmtPrintDiff := true,
 
   //Enable parallel tests
   Test / testForkedParallel := true,
@@ -23,11 +26,12 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
 //  concurrentRestrictions := Seq(Tags.limit(Tags.ForkedTestGroup, 4)),
 
   libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
+  libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
 
-  dependencyOverrides += "net.java.dev.jna" % "jna" % "5.5.0",
-  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.5.0",
-  dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
-  dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
+  dependencyOverrides += "net.java.dev.jna" % "jna" % "5.12.1",
+  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.12.1",
+  dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.5",
+  dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
 
   //set SBT_OPTS="-Xmx2G"
   //sbt +clean +reload +publishSigned
@@ -74,7 +78,7 @@ lazy val all = (project in file("."))
     publishLocal := {},
     ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(lib, core)
   )
-  .aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
+  .aggregate(sim, idslpayload, idslplugin, core, lib, tester)
 
 
 import sys.process._
@@ -109,10 +113,10 @@ lazy val sim = (project in file("sim"))
   .settings(
     defaultSettings,
     name := "SpinalHDL-sim",
-    libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    libraryDependencies += "net.openhft" % "affinity" % "3.21ea1.1",
-    libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25",
-    libraryDependencies += "com.github.oshi" % "oshi-core" % "5.2.0",
+    libraryDependencies += "commons-io" % "commons-io" % "2.11.0",
+    libraryDependencies += "net.openhft" % "affinity" % "3.23.2",
+    libraryDependencies += "org.slf4j" % "slf4j-simple" % "2.0.5",
+    libraryDependencies += "com.github.oshi" % "oshi-core" % "6.4.0",
     version := SpinalVersion.sim
   )
 
@@ -128,8 +132,8 @@ lazy val core = (project in file("core"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-core",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-    libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.1",
-    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
+    libraryDependencies += "com.github.scopt" %% "scopt" % "4.1.0",
+    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.3.0",
 
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
@@ -153,35 +157,11 @@ lazy val lib = (project in file("lib"))
   .settings(
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
-    libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
+    libraryDependencies += "commons-io" % "commons-io" % "2.11.0",
     version := SpinalVersion.lib
   )
   .dependsOn (sim, core)
 
-
-lazy val debugger = (project in file("debugger"))
-  .settings(
-    defaultSettingsWithPlugin,
-    name := "SpinalHDL Debugger",
-    version := SpinalVersion.debugger,
-    resolvers += "sparetimelabs" at "https://www.sparetimelabs.com/maven2/",
-    libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
-    libraryDependencies += "net.liftweb" %% "lift-json" % "3.4.3",
-    publishArtifact := false,
-    publishLocal := {}
-  )
-.dependsOn(sim, core, lib/*, ip*/)
-
-lazy val demo = (project in file("demo"))
-  .settings(
-    defaultSettingsWithPlugin,
-    name := "SpinalHDL-demo",
-    version := SpinalVersion.demo,
-    publishArtifact := false,
-    publishLocal := {}
-  )
-  .dependsOn(sim, core, lib, debugger)
 
 
 lazy val tester = (project in file("tester"))
@@ -190,12 +170,9 @@ lazy val tester = (project in file("tester"))
     name := "SpinalHDL-tester",
     version := SpinalVersion.tester,
     Test / baseDirectory := file("./"),
-
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
-    publishArtifact := false,
-    publishLocal := {}
+    libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion,
   )
-  .dependsOn(sim, core, lib, debugger,demo)
+  .dependsOn(sim, core, lib)
 
 // Assembly
 

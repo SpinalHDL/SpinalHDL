@@ -582,6 +582,8 @@ class ComponentEmitterVerilog(
     length.toString + "'d" + str
   }
 
+  def emitLocation(that : AssignmentStatement) : String = if(that.locationString != null) " // " + that.locationString else ""
+
   def emitAsynchronousAsAsign(process: AsyncProcess) = process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement
 
   def emitAsynchronous(process: AsyncProcess): Unit = {
@@ -590,7 +592,7 @@ class ComponentEmitterVerilog(
         process.leafStatements.head match {
           case s: AssignmentStatement =>
             if (!s.target.isInstanceOf[Suffixable]) {
-              logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
+              logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};${emitLocation(s)}\n"
             }
         }
       case _ =>
@@ -655,7 +657,7 @@ class ComponentEmitterVerilog(
         closeSubs()
 
         statement match {
-          case assignment: AssignmentStatement  => b ++= s"${tab}${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
+          case assignment: AssignmentStatement  => b ++= s"${tab}${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};${emitLocation(assignment)}\n"
           case assertStatement: AssertStatement => {
             val cond = emitExpression(assertStatement.cond)
 

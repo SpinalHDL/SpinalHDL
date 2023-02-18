@@ -1,0 +1,19 @@
+{
+  "problemMatcher": [
+    {
+      "owner": "sbt-scalacheck-with-diff",
+      "severity": "warning",
+      "pattern": [
+        {
+          "regexp": "^([^:]+):(\\d+):\\s+(.*([+ ].*)*)$",
+          "file": 1,
+          "line": 2
+        },
+        {
+          "regexp": "^(.*)$",
+          "message": 1
+        }
+      ]
+    }
+  ]
+}

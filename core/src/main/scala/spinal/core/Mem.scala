@@ -21,6 +21,8 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
+
 import scala.collection.Seq
 
 trait ReadUnderWritePolicy {
@@ -42,6 +44,10 @@ object dontCare extends ReadUnderWritePolicy with DuringWritePolicy{
   override def duringWriteString: String = "dontCare"
 }
 
+object eitherFirst extends ReadUnderWritePolicy with DuringWritePolicy{
+  override def readUnderWriteString: String = "eitherFirst"
+  override def duringWriteString: String = "eitherFirst"
+}
 
 object writeFirst extends ReadUnderWritePolicy {
   override def readUnderWriteString: String = "writeFirst"
@@ -118,7 +124,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
 
   var forceMemToBlackboxTranslation = false
   val _widths = wordType().flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
-  val width   = _widths.reduce(_ + _)
+  val width   = _widths.sum
 
 
   def byteCount = ((width+7)/8)*wordCount
@@ -218,12 +224,12 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     this
   }
 
-  def apply(address: UInt): T = {
+  def apply(address: UInt)(implicit loc: Location): T = {
     val ret = readAsync(address)
     val asyncPort = dlcLast.asInstanceOf[MemReadAsync]
 
     ret.compositeAssign = new Assignable {
-      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
         write(address, that.asInstanceOf[T])
         asyncPort.removeStatement()
         ret.flatten.foreach(_.removeAssignments())
@@ -571,7 +577,10 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
     }
   }
 
-  def aspectRatio = mem.getWidth/getWidth
+  def aspectRatio = mem.getWidth match{
+    case 0 => 1
+    case _ => mem.getWidth / getWidth
+  }
 }
 
 object MemReadSync{
@@ -741,7 +750,10 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
     }
   }
 
-  def aspectRatio = mem.getWidth / getWidth
+  def aspectRatio = mem.getWidth match{
+    case 0 => 1
+    case _ => mem.getWidth / getWidth
+  }
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
 }

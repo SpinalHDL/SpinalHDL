@@ -21,7 +21,7 @@ object UsbOhciWishbone extends App{
     opt[Int]("port-count") action { (v, c) => portCount = v }
     opt[Int]("phy-frequency") action { (v, c) => phyFrequency = v }
     opt[Int]("dma-width") action { (v, c) => dmaWidth = v }
-  }.parse(args))
+  }.parse(args, ()).isDefined)
 
 
 

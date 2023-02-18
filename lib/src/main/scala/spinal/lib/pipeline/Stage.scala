@@ -1,5 +1,6 @@
 package spinal.lib.pipeline
 
+import spinal.lib._
 import spinal.core._
 import spinal.idslplugin.Location
 
@@ -18,6 +19,27 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   def this(connection: ConnectionLogic)(implicit _pip: Pipeline)  {
     this()
     chainConnect(connection)
+  }
+
+
+  def driveFrom[T <: Data](stream : Stream[T]): Unit ={
+    valid := stream.valid
+    stream.ready := isReady
+  }
+  def driveFrom(stage : Stage, cond : Bool, values : List[Stageable[_ <: Data]]) = new Composite(this, "driveFrom"){
+    val fired = RegInit(False) setWhen(isFireing) clearWhen(isChanging)
+    isValid := stage.isValid && cond && !fired
+    stage.haltIt(isValid && !fired && !isReady)
+    for(value <- values){
+      self(value).assignFrom(stage(value))
+    }
+  }
+  def forkStream() : Stream[NoData] = {
+    val ret = Stream(NoData())
+    val fired = RegInit(False) setWhen(ret.fire) clearWhen(isChanging)
+    ret.valid := isValid && fired
+    haltIt(!fired && ret.ready)
+    ret
   }
 
 
@@ -54,6 +76,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
       val throws = ArrayBuffer[Bool]()
       val throwsRoot = ArrayBuffer[Bool]()
       val forks = ArrayBuffer[Bool]()
+      val spawns = ArrayBuffer[Bool]()
       val flush = ArrayBuffer[Bool]()
       val flushRoot = ArrayBuffer[Bool]()
       val flushNext = ArrayBuffer[Bool]()
@@ -95,6 +118,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   def haltIt()(implicit loc: Location) : Unit = haltIt(ConditionalContext.isTrue)
   def throwIt()(implicit loc: Location) : Unit = throwIt(ConditionalContext.isTrue)
   def forkIt()(implicit loc: Location) : Unit = forkIt(ConditionalContext.isTrue)
+  def spawnIt()(implicit loc: Location) : Unit = spawnIt(ConditionalContext.isTrue)
   def flushIt() : Unit = flushIt(ConditionalContext.isTrue)
   def flushNext() : Unit = flushNext(ConditionalContext.isTrue)
   def haltIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.halts += nameFromLocation(CombInit(cond), "haltRequest")
@@ -104,6 +128,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     if(root) internals.request.throwsRoot += cond
   }
   def forkIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.forks += nameFromLocation(CombInit(cond), "forkRequest")
+  def spawnIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.spawns += nameFromLocation(CombInit(cond), "spawnRequest")
 
   //Not being root will not clear the output valid of the stage, which can be quite usefull
   def flushIt(cond : Bool, root : Boolean = true) : Unit = {
@@ -123,6 +148,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
 
 
   def isStuck: Bool = isValid && !isReady
+  def isChanging:Bool = isReady || isRemoved
   def isRemoved : Bool = {
     if(internals.arbitration.isRemoved == null) internals.arbitration.isRemoved = ContextSwapper.outsideCondScope(Bool())
     internals.arbitration.isRemoved

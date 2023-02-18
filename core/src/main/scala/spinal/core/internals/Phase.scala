@@ -21,7 +21,6 @@
 package spinal.core.internals
 
 import java.io.{BufferedWriter, File, FileWriter}
-
 import scala.collection.mutable.ListBuffer
 import spinal.core._
 import spinal.core.fiber.Engine
@@ -995,26 +994,26 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
 
   override def impl(pc : PhaseContext): Unit = {
     import pc._
+
+    //Collect all SpinalEnum
     walkDeclarations {
       case senum: SpinalEnumCraft[_] => enums.getOrElseUpdate(senum.spinalEnum, null) //Encodings will be added later
       case _ =>
     }
 
-    val scope = pc.globalScope.newChild("")
-
+    //Provide a basic name for each of them (not unique)
     enums.keys.foreach(e => {
       val name = if(e.isNamed)
         e.getName()
       else
         e.getClass.getSimpleName.replace("$","")
 
-      e.setName(scope.allocateName(name))
+      e.setName(name)
     })
 
     for (enumDef <- enums.keys) {
       Misc.reflect(enumDef, (name, obj) => {
         obj match {
-//          case obj: Nameable => obj.setName(scope.getUnusedName(name), Nameable.DATAMODEL_WEAK)
           case obj: Nameable => obj.setName(name, Nameable.DATAMODEL_WEAK)
           case _ =>
         }
@@ -1022,11 +1021,42 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
 
       for (e <- enumDef.elements) {
         if (e.isUnnamed) {
-//          e.setName(scope.getUnusedName("e" + e.position), Nameable.DATAMODEL_WEAK)
           e.setName("e" + e.position, Nameable.DATAMODEL_WEAK)
         }
       }
     }
+
+    //Identify similar enums in order to merge them
+    val enumSet = mutable.LinkedHashSet[SpinalEnum]()
+    walkDeclarations {
+      case senum: SpinalEnumCraft[_] => enumSet += senum.spinalEnum
+      case _ =>
+    }
+    val signatureToEnums = mutable.LinkedHashMap[Any, ArrayBuffer[SpinalEnum]]()
+    for(e <- enumSet){
+      signatureToEnums.getOrElseUpdate(e.getSignature(), ArrayBuffer[SpinalEnum]()) += e
+    }
+
+    val enumsToMerge =  mutable.LinkedHashMap[SpinalEnum, SpinalEnum]()
+    for((_, list) <- signatureToEnums) {
+      val target = list.head
+      for(tail <- list.tail){
+        enumsToMerge(tail) = target
+        enums -= tail
+      }
+    }
+
+    //Merge similar enums
+    walkExpression {
+      case e : EnumEncoded => enumsToMerge.get(e.getDefinition).foreach(e.swapEnum)
+      case _ =>
+    }
+
+    //Provide unique name for all remaining enums
+    val scope = pc.globalScope.newChild("")
+    enums.keys.foreach(e => {
+      e.setName(scope.allocateName(e.getName()))
+    })
   }
 }
 
@@ -1200,12 +1230,14 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
     if(pc.config.device.isVendorDefault || pc.config.device.vendor == Device.XILINX.vendor) {
       pc.walkDeclarations {
         case mem: Mem[_] => {
-          var hit = false
+          var hit, withWrite = false
           mem.foreachStatements {
             case port: MemReadAsync => hit = true
-            case _ =>
+            case port: MemWrite => withWrite = true
+            case port: MemReadWrite => withWrite = true
+            case port: MemReadSync =>
           }
-          if (hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+          if (hit && withWrite) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
         }
         case bt: BaseType => {
           if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
@@ -1628,6 +1660,7 @@ class PhaseNextifyReg() extends PhaseNetlist{
               other.component.rework{other := seed.pull()} //pull to ensure it work with in/out
             }
 
+            seed.allowOverride()
             bt.parentScope.onHead(seed := bt) //Default value
 
             bt.foreachStatements{
@@ -2184,11 +2217,13 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
               if (!unassignedBits.isEmpty) {
                 if (bt.dlcIsEmpty)
                   PendingError(s"NO DRIVER ON $bt, defined at\n${bt.getScalaLocationLong}")
-                else if (unassignedBits.isFull)
-                  PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
-                else
-                  PendingError(s"LATCH DETECTED from the combinatorial signal $bt, unassigned bit mask " +
-                    s"is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+                else if (!bt.hasTag(noLatchCheck)) {
+                  if (unassignedBits.isFull)
+                    PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
+                  else
+                    PendingError(s"LATCH DETECTED from the combinatorial signal $bt, unassigned bit mask " +
+                      s"is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+                }
               }
             }
           }
@@ -2310,12 +2345,18 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
         encodingsScope.iWantIt(encoding.getName(),s"Reserved name ${encoding.getName()} is not free for ${encoding.toString()}")
     }
 
-    for (c <- sortedComponents.reverse) {
+    def allocate(c : Component): Unit ={
       if (c.isInstanceOf[BlackBox] && c.asInstanceOf[BlackBox].isBlackBox)
         globalScope.lockName(c.definitionName)
-      else if(!c.definitionNameNoMerge)
+      else if (!c.definitionNameNoMerge)
         c.definitionName = globalScope.allocateName(c.definitionName)
     }
+    for (parent <- sortedComponents.reverse) {
+      for(c <- parent.children) {
+        allocate(c)
+      }
+    }
+    allocate(topLevel)
 
     globalScope.lockScope()
 
