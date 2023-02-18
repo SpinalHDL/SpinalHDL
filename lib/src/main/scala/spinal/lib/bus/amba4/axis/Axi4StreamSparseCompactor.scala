@@ -29,51 +29,48 @@ class Axi4StreamSparseCompactor(config: Axi4StreamConfig) extends Component {
 
   io.axis_m << outStage
 
-  def indexOfBoolN(bools: Seq[Boolean], n: Int): Int = {
-    var boolCount = 0
-    for ((b, i) <- bools.zipWithIndex) {
-      if (b) {
-        boolCount += 1
-      }
-      if (boolCount == n) {
-        return i
+  def indexOfBoolN(bits: Bits, n: Int): UInt = {
+    val index = UInt(log2Up(widthOf(bits)+1) bit)
+    index := U(widthOf(bits))
+
+    def walkLowBits(width: Int, n: Int): Seq[BigInt] = {
+      if (width <= 0 || n <= 0) {
+        Seq(0)
+      } else {
+        (n-1 until width).flatMap { i =>
+          walkLowBits(i, n - 1).map { o =>
+            (BigInt(1) << i) + o
+          }
+        }
       }
     }
-    -1
+
+    for(matchInt <- walkLowBits(widthOf(bits), n+1)) {
+      val matchBits = B(matchInt)
+      when(bits.takeLow(widthOf(matchBits)) === matchBits) {
+        index := U(widthOf(matchBits)-1)
+      }
+    }
+
+    index
   }
 
   def compactAxisBundle(bundle: Axi4StreamBundle): Axi4StreamBundle = {
     val outBundle = bundle.clone
     val dataWidth = bundle.config.dataWidth
 
-    val keepUInt = bundle.keep.asUInt
-
     for (idx <- 0 until dataWidth) {
-      val rawMapping = (0 until Math.pow(2, dataWidth).intValue()).map(BigInt(_)).map(keepEntry => {
-        (0 until config.dataWidth).map(keepEntry.testBit).toList
-      }).map(bools => {
-        if (bools.count(b => b) < (idx+1)) {
-          dataWidth
-        } else {
-          val boolIdx = indexOfBoolN(bools, idx+1)
-          if (boolIdx >= 0)
-            boolIdx
-          else
-            dataWidth
-        }
-      })
-
-      val mapping = rawMapping.map(IntToUInt)
+      val index = indexOfBoolN(bundle.keep, idx)
 
       val mux_data = invalidByte_data ## bundle.data
       val mux_keep = invalidByte_keep ## bundle.keep
       val mux_strb = bundle.config.useStrb generate { invalidByte_strb ## bundle.strb }
       val mux_user = bundle.config.useUser generate { invalidByte_user ## bundle.user }
 
-      outBundle.data.subdivideIn(dataWidth slices)(idx) := mux_data.subdivideIn(dataWidth+1 slices)(mapping(keepUInt))
-      outBundle.keep.subdivideIn(dataWidth slices)(idx) := mux_keep.subdivideIn(dataWidth+1 slices)(mapping(keepUInt))
-      bundle.config.useStrb generate { outBundle.strb.subdivideIn(dataWidth slices)(idx) := mux_strb.subdivideIn(dataWidth+1 slices)(mapping(keepUInt)) }
-      bundle.config.useUser generate { outBundle.user.subdivideIn(dataWidth slices)(idx) := mux_user.subdivideIn(dataWidth+1 slices)(mapping(keepUInt)) }
+      outBundle.data.subdivideIn(dataWidth slices)(idx) := mux_data.subdivideIn(dataWidth+1 slices)(index)
+      outBundle.keep.subdivideIn(dataWidth slices)(idx) := mux_keep.subdivideIn(dataWidth+1 slices)(index)
+      bundle.config.useStrb generate { outBundle.strb.subdivideIn(dataWidth slices)(idx) := mux_strb.subdivideIn(dataWidth+1 slices)(index) }
+      bundle.config.useUser generate { outBundle.user.subdivideIn(dataWidth slices)(idx) := mux_user.subdivideIn(dataWidth+1 slices)(index) }
     }
 
     bundle.config.useId generate { outBundle.id := bundle.id }
