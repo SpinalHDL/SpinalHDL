@@ -12,10 +12,10 @@ class SpinalSimPackedBundleTester extends AnyFunSuite {
         val a = Bits(3 bit) // 0 to 2
         val b = Bits(3 bit).packFrom(4) // 4 to 6
         val c = Bits(3 bit).packTo(9) // 7 to 9
-        val d = Bits(3 bit).pack(10 to 14, LITTLE) // 10 11 12 00 00
-        val e = Bits(3 bit).pack(15 to 19, BIG) // 00 00 17 18 19
-        val f = Bits(6 bit).pack(20 to 24, LITTLE) // 19 20 21 22 23 (24 drop)
-        val g = Bits(6 bit).pack(25 to 29, BIG) // (25 drop) 26 27 28 29 30
+        val d = Bits(3 bit).pack(10 to 14) // 10 11 12 00 00
+        val e = Bits(3 bit).pack(19 downto 15) // 00 00 17 18 19
+        val f = Bits(6 bit).pack(20 to 24) // 20 21 22 23 24 (25 drop)
+        val g = Bits(6 bit).pack(29 downto 25) // (25 drop) 26 27 28 29 30
       }
       val io = new Bundle {
         val a = in(Bits(3 bit))
@@ -51,14 +51,15 @@ class SpinalSimPackedBundleTester extends AnyFunSuite {
         res
       }
 
-      for(_ <- 0 to 100) {
-        dut.io.a.randomize()
-        dut.io.b.randomize()
-        dut.io.c.randomize()
-        dut.io.d.randomize()
-        dut.io.e.randomize()
-        dut.io.f.randomize()
-        dut.io.g.randomize()
+      for(i <- 0 to 29) {
+        val n = 1 << i
+        dut.io.a #= n & 0x7
+        dut.io.b #= (n >> 4) & 0x7
+        dut.io.c #= (n >> 7) & 0x7
+        dut.io.d #= (n >> 10) & 0x7
+        dut.io.e #= (n >> 17) & 0x7
+        dut.io.f #= (n >> 20) & 0x3F
+        dut.io.g #= (n >> 25) & 0x3F
         dut.clockDomain.waitFallingEdge()
         val packedCalc = pack(dut.io.a.toBigInt,
           dut.io.b.toBigInt,
@@ -67,6 +68,7 @@ class SpinalSimPackedBundleTester extends AnyFunSuite {
           dut.io.e.toBigInt,
           dut.io.f.toBigInt,
           dut.io.g.toBigInt)
+        // SpinalInfo(s"d = ${dut.io.d.toBigInt}, rev = ${bitReversed(dut.io.d.toBigInt, 6)}")
         assert(dut.io.packed.toBigInt == packedCalc, s"0x${dut.io.packed.toBigInt.toString(16)} =!= 0x${packedCalc.toString(16)}\n")
       }
     })
@@ -78,10 +80,10 @@ class SpinalSimPackedBundleTester extends AnyFunSuite {
         val a = Bits(3 bit) // 0 to 2
         val b = Bits(3 bit).packFrom(4) // 4 to 6
         val c = Bits(3 bit).packTo(9) // 7 to 9
-        val d = Bits(3 bit).pack(10 to 14, LITTLE) // 10 11 12 00 00
-        val e = Bits(3 bit).pack(15 to 19, BIG) // 00 00 17 18 19
-        val f = Bits(6 bit).pack(20 to 24, LITTLE) // 19 20 21 22 23 (24 drop)
-        val g = Bits(6 bit).pack(25 to 29, BIG) // (25 drop) 26 27 28 29 30
+        val d = Bits(3 bit).pack(10 to 14) // 10 11 12 00 00
+        val e = Bits(3 bit).pack(19 downto 15) // 00 00 17 18 19
+        val f = Bits(6 bit).pack(20 to 24) // 19 20 21 22 23 (24 drop)
+        val g = Bits(6 bit).pack(29 downto 25) // (25 drop) 26 27 28 29 30
       }
       val io = new Bundle {
         val a = out(Bits(3 bit))
@@ -117,8 +119,8 @@ class SpinalSimPackedBundleTester extends AnyFunSuite {
         res
       }
 
-      for (_ <- 0 to 100) {
-        dut.io.packed.randomize()
+      for (i <- 0 to 29) {
+        dut.io.packed #= 1 << i
         dut.clockDomain.waitFallingEdge()
         var packedCalc = pack(dut.io.a.toBigInt,
           dut.io.b.toBigInt,
