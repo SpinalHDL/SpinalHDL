@@ -4,8 +4,7 @@ import spinal.core._
 
 import scala.collection.mutable.ArrayBuffer
 
-/**
-  * Similar to Bundle but with bit packing capabilities.
+/** Similar to Bundle but with bit packing capabilities.
   * Use pack implicit functions to assign fields to bit locations
   * - pack(Range, [Endianness]) - Packs the data into Range aligning to bit Endianness if too wide
   * - packFrom(Position) - Packs the data starting (LSB) at Position. Uses full data length
@@ -20,14 +19,12 @@ import scala.collection.mutable.ArrayBuffer
   *       val result = Bits(16 bit).packTo(31) // Bits 16 to 31
   *     }
   * }}}
-  *
   */
 class PackedBundle extends Bundle {
 
   class TagBitPackExact(val range: Range) extends SpinalTag
 
-  /**
-    * Builds and caches the range mappings for PackedBitBundle's elements.
+  /** Builds and caches the range mappings for PackedBitBundle's elements.
     * Tracks the width required for all mappings.
     * Does not check for overlap of elements.
     */
@@ -37,13 +34,13 @@ class PackedBundle extends Bundle {
 
     val mapping = ArrayBuffer[(Range, Data)]()
 
-    def addData(d : Data): Unit = {
+    def addData(d: Data): Unit = {
       val r = d.getTag(classOf[TagBitPackExact]) match {
         case t: Some[TagBitPackExact] =>
           val origRange = t.get.range
 
           // Check if the tagged range is too large for the data
-          if(origRange.size <= d.getBitsWidth) {
+          if (origRange.size <= d.getBitsWidth) {
             origRange
           } else {
             // Need to truncate the tagged range to the size of the actual data
@@ -74,8 +71,7 @@ class PackedBundle extends Bundle {
 
   private val mapBuilder = new MappingBuilder()
 
-  /**
-    * Gets the mappings of Range to Data for this PackedBundle
+  /** Gets the mappings of Range to Data for this PackedBundle
     * @return Seq of (Range,Data) for all elements
     */
   def mappings = mapBuilder.mapping
@@ -84,7 +80,7 @@ class PackedBundle extends Bundle {
     val maxWidth = mappings.map(_._1.high).max + 1
     val packed = B(0, maxWidth bit)
     for ((range, data) <- mappings) {
-      if(range.step > 0) {
+      if (range.step > 0) {
         // "Little endian" -- ascending range
         packed(range) := data.asBits.takeLow(range.size.min(data.getBitsWidth)).resize(range.size)
       } else {
@@ -98,7 +94,7 @@ class PackedBundle extends Bundle {
   override def assignFromBits(bits: Bits): Unit = assignFromBits(bits, bits.getBitsWidth, 0)
 
   override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = {
-    for((elRange, el) <- mappings) {
+    for ((elRange, el) <- mappings) {
       // Check if the assignment range falls within the current data's range
       // This happens when the data range's high or low falls within the assignment's hi and lo
       // ...or whenever lo isn't past the data range's high and hi isn't below the data range's low
@@ -117,8 +113,8 @@ class PackedBundle extends Bundle {
   override def getBitsWidth: Int = mapBuilder.width
 
   implicit class DataPositionEnrich[T <: Data](t: T) {
-    /**
-      * Place the data at the given range. Extra bits will be lost (unassigned or read) if the data does not fit with
+
+    /** Place the data at the given range. Extra bits will be lost (unassigned or read) if the data does not fit with
       * the range.
       *
       * Note: The directionality of the range (either ascending or descending) determines which bits will be dropped
@@ -131,8 +127,7 @@ class PackedBundle extends Bundle {
       t
     }
 
-    /**
-      * Packs data starting (LSB) at the bit position
+    /** Packs data starting (LSB) at the bit position
       * @param pos Starting bit position of the data
       * @return Self
       */
@@ -140,8 +135,7 @@ class PackedBundle extends Bundle {
       t.pack(pos + t.getBitsWidth - 1 downto pos)
     }
 
-    /**
-      * Packs data ending (MSB) at the bit position
+    /** Packs data ending (MSB) at the bit position
       * @param pos Ending bit position of the data
       * @return Self
       */
@@ -162,8 +156,7 @@ class PackedBundle extends Bundle {
   }
 }
 
-/**
-  * An enhanced form of PackedBundle with Word-centric packing.
+/** An enhanced form of PackedBundle with Word-centric packing.
   * Offers all the same implicit packing assignment functions, but applies packing to an assigned word.
   * - inWord(WordIndex) - Indicates which word to pack into. Must be used after a pack assigment. If no pack range was given then the entire data length will be assumed. Ranges that exceed the word will wrap into subsequent words.
   *
@@ -178,11 +171,11 @@ class PackedBundle extends Bundle {
   * }}}
   * @param wordWidth Width of a word, as BitCount
   */
-class PackedWordBundle(wordWidth : BitCount) extends PackedBundle {
+class PackedWordBundle(wordWidth: BitCount) extends PackedBundle {
 
   implicit class WordEnrich[T <: Data](t: T) {
 
-    def inWord(index : Int) = {
+    def inWord(index: Int) = {
       val bitPackExact = t.getTag(classOf[TagBitPackExact])
 
       if (bitPackExact.isDefined) {
