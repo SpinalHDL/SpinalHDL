@@ -432,6 +432,12 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     flatten.foreach(_.assignDontCare())
     this
   }
+  def assignDontCareToUnasigned() : this.type = {
+    flattenForeach{ e =>
+      if(e.dlcIsEmpty) e.assignDontCare()
+    }
+    this
+  }
 
   def removeAssignments(data : Boolean = true, init : Boolean = true, initial : Boolean = true): this.type = {
     flattenForeach(_.removeAssignments(data, init, initial))
