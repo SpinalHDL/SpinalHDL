@@ -64,6 +64,7 @@ package object lib  {
   implicit def stringPimped(that: String) : StringPimped = new StringPimped(that)
   implicit def memPimped[T <: Data](mem: Mem[T]) : MemPimped[T] = new MemPimped(mem)
   implicit def boolPimped(that: Bool) : BoolPimped = new BoolPimped(that)
+  implicit def streamBundlePimped[T <: Bundle](that: Stream[T]) : StreamBundlePimped[T] = new StreamBundlePimped[T](that)
 
   implicit class UIntPimper(that : UInt){
     def toOneHot : Bits = B"1" << that
