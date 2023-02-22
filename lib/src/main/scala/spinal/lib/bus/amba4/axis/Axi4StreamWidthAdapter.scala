@@ -181,7 +181,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
   outStream.config.useUser generate { outStream.user := buffer.user(outConfig.dataWidth*outConfig.userWidth-1 downto 0) }
   inConfig.useId   generate { outStream.id := bufferId }
   inConfig.useDest generate { outStream.dest := bufferDest }
-  outStream.last := bufferLast && !bufferValid(outConfig.dataWidth)
+  outStream.config.useLast generate { outStream.last := bufferLast && !bufferValid(outConfig.dataWidth) }
 
   // Buffer update
   val fillLevel = Reg(UInt(log2Up(MAX_SIZE) bit)) init(0)
