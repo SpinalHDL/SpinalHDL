@@ -481,7 +481,7 @@ object I2cCtrl {
 
         val STOP3: State = new State {
           whenIsActive {
-            when(i2cBuffer.sda.read) {
+            when(internals.sdaRead) {
               stop := False
               recover := False
               goto(TBUF)
