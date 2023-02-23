@@ -1237,7 +1237,11 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
             case port: MemReadWrite => withWrite = true
             case port: MemReadSync =>
           }
-          if (hit && withWrite) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+          val alreadyTagged = mem.getTags().exists{
+            case a : AttributeString if a.getName == "ram_style" => true
+            case _ => false
+          }
+          if (hit && withWrite && !alreadyTagged) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
         }
         case bt: BaseType => {
           if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
