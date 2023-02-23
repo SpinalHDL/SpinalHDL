@@ -331,13 +331,19 @@ class PhaseAnalog extends PhaseNetlist{
       }
     }))
 
+    case class Element(bt : BaseType, access : Seq[Any])
     val analogs        = ArrayBuffer[BaseType]()
-    val islands        = mutable.LinkedHashSet[mutable.LinkedHashSet[BaseType]]()
-    val analogToIsland = mutable.HashMap[BaseType,mutable.LinkedHashSet[BaseType]]()
+    val islands        = mutable.LinkedHashSet[mutable.LinkedHashSet[Element]]()
+    val analogToIsland = mutable.HashMap[BaseType,mutable.LinkedHashSet[Element]]()
 
-    def addToIsland(that: BaseType, island: mutable.LinkedHashSet[BaseType]): Unit = {
-      island += that
+    def addToIsland(that: BaseType, access : Seq[Any], island: mutable.LinkedHashSet[Element]): Unit = {
+      val e = Element(that, access)
+      island += e
       analogToIsland(that) = island
+    }
+    def addToIsland(e: Element, island: mutable.LinkedHashSet[Element]): Unit = {
+      island += e
+      analogToIsland(e.bt) = island
     }
 
     //val wrapped = mutable.HashMap[BaseType, BaseType]()
@@ -350,16 +356,21 @@ class PhaseAnalog extends PhaseNetlist{
         bt.foreachStatements {
           case s@AssignmentStatement(x, y: BaseType) if y.isAnalog =>
             if (s.finalTarget.component == y.component) {
+              val targetAccess = x match {
+                case baseType: BaseType => Nil
+                case e : BitAssignmentFixed => List(e.bitId)
+              }
+              val sourceAccess = Nil
               (analogToIsland.get(bt), analogToIsland.get(y)) match {
                 case (None, None) =>
-                  val island = mutable.LinkedHashSet[BaseType]()
-                  addToIsland(bt, island)
-                  addToIsland(y, island)
+                  val island = mutable.LinkedHashSet[Element]()
+                  addToIsland(bt, targetAccess, island)
+                  addToIsland(y, sourceAccess, island)
                   islands += island
                 case (None, Some(island)) =>
-                  addToIsland(bt, island)
+                  addToIsland(bt, targetAccess, island)
                 case (Some(island), None) =>
-                  addToIsland(y, island)
+                  addToIsland(y, sourceAccess, island)
                 case (Some(islandBt), Some(islandY)) =>
                   islandY.foreach(addToIsland(_, islandBt))
                   islands.remove(islandY)
@@ -368,25 +379,26 @@ class PhaseAnalog extends PhaseNetlist{
           case AssignmentStatement(x, y: BaseType) if !y.isAnalog =>
         }
 
-        if(!analogToIsland.contains(bt)){
-          val island = mutable.LinkedHashSet[BaseType]()
-          addToIsland(bt,island)
-          islands += island
-        }
+        //TODO
+//        if(!analogToIsland.contains(bt)){
+//          val island = mutable.LinkedHashSet[BaseType]()
+//          addToIsland(bt,island)
+//          islands += island
+//        }
       case _ =>
     }
 
     islands.foreach(island => {
       //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
-      val target = island.count(_.isInOut) match {
+      val target = island.count(_.bt.isInOut) match {
         case 0 => island.head
-        case 1 => island.find(_.isInOut).get
+        case 1 => island.find(_.bt.isInOut).get
         case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
       }
 
       //Remove target analog assignments
-      target.foreachStatements {
-        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
+      target.bt.foreachStatements {
+        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.bt.component => s.removeStatement()
         case _ =>
       }
 
