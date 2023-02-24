@@ -404,7 +404,9 @@ class PhaseAnalog extends PhaseNetlist{
 //        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
 //        case _ =>
 //      }
-      for(e <- island if e.bt == target && e.statement != null) e.statement.removeStatement()
+      for(e <- island if e.bt == target && e.statement != null) {
+        e.statement.removeStatement()
+      }
 
       //redirect island assignments to target
       //drive isllands analogs from target as comb signal
