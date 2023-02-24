@@ -64,6 +64,25 @@ object Debug extends App{
   }
 }
 
+object DebugInOut extends App{
+  val report = SpinalVerilog(new Component {
+//    val read = out(Bits(8 bits))
+//    val writeEnable = in Bool()
+//    val write = in Bits(8 bits)
+//    read := io
+    val io = inout(Analog(Bits(8 bits)))
+//    when(writeEnable) {
+//      io(4) := write(6)
+//    }
+    val sub = new BlackBox{
+      val subIo = inout(Analog(Bits(8 bits)))
+    }
+    io := sub.subIo
+    setDefinitionName("unamed")
+  })
+}
+
+
 
 object DebugSim {
 

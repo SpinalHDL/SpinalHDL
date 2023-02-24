@@ -325,25 +325,25 @@ class PhaseAnalog extends PhaseNetlist{
         case s@AssignmentStatement(_: BaseType, x: BaseType) if x.isAnalog && x.component == c.parent =>
           s.dlcRemove()
           x.dlcAppend(s)
-          s.target = x
+          s.target = x //TODO will not work if sub access
           s.source = io
         case _ =>
       }
     }))
 
-    case class Element(bt : BaseType, access : Seq[Any])
+    case class Element(bt : BaseType, access : List[Any], statement: Statement)
     val analogs        = ArrayBuffer[BaseType]()
     val islands        = mutable.LinkedHashSet[mutable.LinkedHashSet[Element]]()
-    val analogToIsland = mutable.HashMap[BaseType,mutable.LinkedHashSet[Element]]()
+    val analogToIsland = mutable.HashMap[(BaseType, List[Any]),mutable.LinkedHashSet[Element]]()
 
-    def addToIsland(that: BaseType, access : Seq[Any], island: mutable.LinkedHashSet[Element]): Unit = {
-      val e = Element(that, access)
+    def addToIsland(that: BaseType, access : List[Any], statement: Statement, island: mutable.LinkedHashSet[Element]): Unit = {
+      val e = Element(that, access, statement)
       island += e
-      analogToIsland(that) = island
+      analogToIsland(that -> access) = island
     }
-    def addToIsland(e: Element, island: mutable.LinkedHashSet[Element]): Unit = {
+    def addToIslandE(e: Element, island: mutable.LinkedHashSet[Element]): Unit = {
       island += e
-      analogToIsland(e.bt) = island
+      analogToIsland(e.bt -> e.access) = island
     }
 
     //val wrapped = mutable.HashMap[BaseType, BaseType]()
@@ -353,6 +353,7 @@ class PhaseAnalog extends PhaseNetlist{
         analogs += bt
 
         //Manage islands
+        var added = false
         bt.foreachStatements {
           case s@AssignmentStatement(x, y: BaseType) if y.isAnalog =>
             if (s.finalTarget.component == y.component) {
@@ -361,18 +362,19 @@ class PhaseAnalog extends PhaseNetlist{
                 case e : BitAssignmentFixed => List(e.bitId)
               }
               val sourceAccess = Nil
-              (analogToIsland.get(bt), analogToIsland.get(y)) match {
+              added = true
+              (analogToIsland.get(bt -> targetAccess), analogToIsland.get(y -> sourceAccess)) match {
                 case (None, None) =>
                   val island = mutable.LinkedHashSet[Element]()
-                  addToIsland(bt, targetAccess, island)
-                  addToIsland(y, sourceAccess, island)
+                  addToIsland(bt, targetAccess, s, island)
+                  addToIsland(y, sourceAccess, s, island)
                   islands += island
                 case (None, Some(island)) =>
-                  addToIsland(bt, targetAccess, island)
+                  addToIsland(bt, targetAccess, s, island)
                 case (Some(island), None) =>
-                  addToIsland(y, sourceAccess, island)
+                  addToIsland(y, sourceAccess, s, island)
                 case (Some(islandBt), Some(islandY)) =>
-                  islandY.foreach(addToIsland(_, islandBt))
+                  islandY.foreach(addToIslandE(_, islandBt))
                   islands.remove(islandY)
               }
             }
@@ -380,49 +382,49 @@ class PhaseAnalog extends PhaseNetlist{
         }
 
         //TODO
-//        if(!analogToIsland.contains(bt)){
-//          val island = mutable.LinkedHashSet[BaseType]()
-//          addToIsland(bt,island)
-//          islands += island
-//        }
+        if(!added){
+          val island = mutable.LinkedHashSet[Element]()
+          addToIsland(bt, Nil, null, island)
+          islands += island
+        }
       case _ =>
     }
 
     islands.foreach(island => {
       //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
       val target = island.count(_.bt.isInOut) match {
-        case 0 => island.head
-        case 1 => island.find(_.bt.isInOut).get
+        case 0 => island.head.bt
+        case 1 => island.find(_.bt.isInOut).get.bt
         case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
       }
 
       //Remove target analog assignments
-      target.bt.foreachStatements {
-        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.bt.component => s.removeStatement()
-        case _ =>
-      }
+      //TODO improve
+//      target.foreachStatements {
+//        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
+//        case _ =>
+//      }
+      for(e <- island if e.bt == target && e.statement != null) e.statement.removeStatement()
 
       //redirect island assignments to target
       //drive isllands analogs from target as comb signal
-      for(bt <- island if bt != target){
-        val btStatements = ArrayBuffer[AssignmentStatement]()
-        bt.foreachStatements(btStatements += _)
-        btStatements.foreach {
+      for(e <- island if e.bt != target){
+        e.statement match {
           case s@AssignmentStatement(_, x: BaseType) if !x.isAnalog => //analog driver
             s.dlcRemove()
             target.dlcAppend(s)
-            s.walkRemapExpressions(e => if (e == bt) target else e)
-          case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == bt.component => //analog connection
+            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
+          case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == e.bt.component => //analog connection
             s.dlcRemove()
             target.dlcAppend(s)
-            s.walkRemapExpressions(e => if (e == bt) target else e)
+            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
           case _ =>
         }
 
-        bt.removeAssignments()
-        bt.setAsComb()
-        val ctx = bt.rootScopeStatement.push()
-        bt := target
+//        e.statement.removeStatement()
+        e.bt.setAsComb()
+        val ctx = e.bt.rootScopeStatement.push()
+        e.bt := target //TODO handle sub accesses
         ctx.restore()
       }
 
@@ -448,7 +450,6 @@ class PhaseAnalog extends PhaseNetlist{
             s.source      = driver
         }
       })
-      //      }
     })
   }
 }
