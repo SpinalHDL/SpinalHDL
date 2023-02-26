@@ -92,18 +92,19 @@ object DebugInOut2 extends App{
     val io = inout(Analog(Bits(8 bits)))
 
 
-//    val read = out(Bits(8 bits))
-//    val writeEnable = in Bool()
-//    val write = in Bits(8 bits)
-//    read := io
+    val read = out(Bits(8 bits))
+    val writeEnable = in Bool()
+    val write = in Bits(8 bits)
+    read := io
 
     val tmp1 = Analog(Bits(8 bits))
     val tmp2 = Analog(Bits(8 bits))
-//    when(writeEnable) {
-//      io(4) := write(5)
-//      io(5) := write(6)
-//      io(6, 2 bits) := write(2, 2 bits)
-//    }
+    when(writeEnable) {
+      io(4) := write(5)
+      tmp2(5) := write(6)
+      tmp1(6, 2 bits) := write(2, 2 bits)
+      tmp1 := write
+    }
     val sub = new BlackBox{
 //      val subIo = inout(Analog(Bool()))
       val subIo = inout(Analog(Bits(8 bits)))
@@ -117,6 +118,8 @@ object DebugInOut2 extends App{
 //    sub.b <> b
     io := tmp1
     tmp2 := tmp1
+//    val tmp3 = Analog(Bits(4 bits))
+//    tmp3 := tmp1(3, 4 bits).setAsAnalog() //TODO keep
 //    io(2) := sub.subIo
 //    io(3) := sub.subIo
 //    io(4) := sub.subIo

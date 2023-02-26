@@ -21,15 +21,16 @@
 package spinal.core.internals
 
 import java.io.{BufferedWriter, File, FileWriter}
-
 import scala.collection.mutable.ListBuffer
 import spinal.core._
 import spinal.core.fiber.Engine
+import spinal.core.internals.Operator.BitVector
 
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
 
+import java.util
 import scala.io.Source
 
 
@@ -330,8 +331,7 @@ class PhaseAnalog extends PhaseNetlist{
     //      }
     //    }))
 
-    val islands = mutable.LinkedHashSet[Island]()
-    val bitToIsland = mutable.HashMap[Bit, Island]()
+
     case class Bit(bt : BaseType, bitId : Int, scope : ScopeStatement)
 //    case class Connection(a : Bit, b : Bit, scope : ScopeStatement)
     class Island {
@@ -349,10 +349,10 @@ class PhaseAnalog extends PhaseNetlist{
         this.elements ++= other.elements
       }
       val elements = mutable.LinkedHashSet[Bit]()
-      val btSet = mutable.LinkedHashSet[BaseType]()
+//      val btSet = mutable.LinkedHashSet[BaseType]()
       def add(that : Bit): Unit ={
         elements += that
-        btSet += that.bt
+//        btSet += that.bt
       }
     }
 
@@ -371,6 +371,8 @@ class PhaseAnalog extends PhaseNetlist{
     //val wrapped = mutable.HashMap[BaseType, BaseType]()
 
     pc.walkComponents { c =>
+      val islands = mutable.LinkedHashSet[Island]()
+      val bitToIsland = mutable.HashMap[Bit, Island]()
       c.dslBody.walkStatements {
         case s: AssignmentStatement => {
           val targetBt = s.finalTarget
@@ -395,11 +397,11 @@ class PhaseAnalog extends PhaseNetlist{
             val sourceRange = s.source match {
               case bt: BaseType => (0 until bt.getBitsWidth)
               case e: BitVectorBitAccessFixed => (e.bitId to e.bitId)
-              case e: BitVectorRangedAccessFixed => (e.lo until e.hi)
+              case e: BitVectorRangedAccessFixed => (e.lo to e.hi)
             }
             assert(targetRange.size == sourceRange.size)
             for(i <- 0 until targetRange.size){
-              val a = Bit(targetBt, targetRange.low + i, s.parentScope)
+              val a = Bit(targetBt, targetRange.low + i, c.dslBody)
               val b = Bit(sourceBt, sourceRange.low + i, s.parentScope)
               val island: Island = (bitToIsland.get(a), bitToIsland.get(b)) match {
                 case (None, None) =>
@@ -409,6 +411,7 @@ class PhaseAnalog extends PhaseNetlist{
                 case (None, Some(island)) => island
                 case (Some(island), None) => island
                 case (Some(islandBt), Some(islandY)) =>
+                  for(e <- islandY.elements) bitToIsland(e) = islandBt
                   islandBt.absorbe(islandY)
                   islands.remove(islandY)
                   islandBt
@@ -425,18 +428,115 @@ class PhaseAnalog extends PhaseNetlist{
         }
         case _ =>
       }
-      val inoutBts = mutable.LinkedHashSet[BaseType]()
+      val seeds = mutable.LinkedHashSet[BaseType]()
       islands.foreach(island => {
-        island.elements.count(_.bt.isInOut) match {
+        island.elements.count(e => e.bt.isInOut && e.bt.component == c) match {
           case 0 => ??? //  not island.head.bt  but instead create island
-          case 1 => inoutBts += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt
+          case 1 => seeds += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt
           case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
         }
       })
 
       println("miaou")
-      for(io <- inoutBts){
 
+      for(seed <- seeds){
+        case class AggregateKey(bt : BaseType, scope : ScopeStatement)
+        case class AggregateCtx(seedOffset : Int, otherOffset : Int)
+        var aggregates = mutable.LinkedHashMap[AggregateKey, AggregateCtx]()
+        def flush(key : AggregateKey, ctx : AggregateCtx, seedUntil : Int): Unit ={
+          val ctx = aggregates(key)
+          aggregates -= key
+          val width = seedUntil - ctx.seedOffset
+          key.bt match {
+            case bt if bt.isAnalog && bt.isDirectionLess => bt.parentScope.on{
+              bt.setAsComb()
+              bt.compositeAssign = null
+              bt match{
+                case bt : Bool => ???
+                case bt : BitVector => bt(ctx.otherOffset, width bits) := seed.asInstanceOf[BitVector](ctx.seedOffset, width bits)
+              }
+            }
+            case bt if bt.isAnalog && bt.isInOut => c.dslBody.on{
+              val driver = bt match {
+                case bt : BitVector if width != widthOf(bt) => bt(ctx.otherOffset, width bits)
+                case _ => bt
+              }
+              seed match{
+                case seed : BitVector if width != widthOf(seed) => bt.getTypeObject match {
+                  case `TypeBool` => {
+                    seed(ctx.seedOffset) := seed(ctx.seedOffset).getZero
+                    seed.dlcLast.source = driver
+                  }
+                  case _ => {
+                    seed(ctx.seedOffset, width bits) := seed(ctx.otherOffset, width bits).getZero
+                    seed.dlcLast.source = driver
+                  }
+                }
+                case bt => {
+                  bt.assignFrom(driver)
+                }
+              }
+            }
+            case bt if !bt.isAnalog => {//driver
+              val tmp = key.scope.push()
+              val enable = ConditionalContext.isTrue(seed.rootScopeStatement)
+              tmp.restore()
+              c.dslBody.on{
+                val driver = bt.getTypeObject match {
+                  case `TypeBool` => new AnalogDriverBool
+                  case `TypeBits` => new AnalogDriverBits
+                  case `TypeUInt` => new AnalogDriverUInt
+                  case `TypeSInt` => new AnalogDriverSInt
+                  case `TypeEnum` => new AnalogDriverEnum(bt.asInstanceOf[EnumEncoded].getDefinition)
+                }
+                driver.data = bt.asInstanceOf[driver.T]
+                driver.enable = enable
+                seed match{
+                  case seed : BitVector if width != widthOf(seed) => bt.getTypeObject match {
+                    case `TypeBool` => {
+                      seed(ctx.seedOffset) := seed(ctx.seedOffset).getZero
+                      seed.dlcLast.source = driver
+                    }
+                    case _ => {
+                      seed(ctx.seedOffset, width bits) := seed(ctx.otherOffset, width bits).getZero
+                      seed.dlcLast.source = driver
+                    }
+                  }
+                  case bt => bt.assignFrom(driver)
+                }
+              }
+//              val driver = btSource.getTypeObject match {
+//                case `TypeBool` => new AnalogDriverBool
+//                case `TypeBits` => new AnalogDriverBits
+//                case `TypeUInt` => new AnalogDriverUInt
+//                case `TypeSInt` => new AnalogDriverSInt
+//                case `TypeEnum` => new AnalogDriverEnum(btSource.asInstanceOf[EnumEncoded].getDefinition)
+//              }
+//              driver.data = s.source.asInstanceOf[driver.T]
+//              driver.enable = enable
+//              s.source = driver
+            }
+          }
+        }
+        for(bitId <- 0 until widthOf(seed)){
+          val flushes = ArrayBuffer[(AggregateKey, AggregateCtx)]()
+          val island = bitToIsland(Bit(seed, bitId, c.dslBody))
+          for((key, ctx) <- aggregates){
+            island.elements.contains(Bit(key.bt, (bitId - ctx.seedOffset) + ctx.otherOffset, key.scope)) match {
+              case true => //Continue
+              case false => flushes += key -> ctx
+            }
+          }
+          for(e <- flushes) flush(e._1, e._2, bitId)
+          for(e <- island.elements if e.bt != seed){
+            val key = AggregateKey(e.bt, e.scope)
+            aggregates.get(key) match {
+              case Some(x) =>
+              case None => aggregates(key) = AggregateCtx(bitId, e.bitId)
+            }
+          }
+        }
+        for(e <- aggregates.toArray) flush(e._1, e._2, widthOf(seed))
       }
     }
 
