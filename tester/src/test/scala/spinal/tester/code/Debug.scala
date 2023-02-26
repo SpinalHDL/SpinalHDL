@@ -23,6 +23,29 @@ import scala.math.ScalaNumber
 import scala.util.Random
 
 
+
+
+object DebugInOut extends App{
+  val report = SpinalVerilog(new Component {
+    //    val read = out(Bits(8 bits))
+    //    val writeEnable = in Bool()
+    //    val write = in Bits(8 bits)
+    //    read := io
+    val io = inout(Analog(Bits(8 bits)))
+    //    when(writeEnable) {
+    //      io(4) := write(6)
+    //    }
+    val sub = new BlackBox{
+      val subIo = inout(Analog(Bits(8 bits)))
+    }
+    io := sub.subIo
+    setDefinitionName("unamed")
+  })
+}
+
+
+
+
 object CamTest{
   class Top extends Component{
     val linesCount = 8
@@ -64,20 +87,40 @@ object Debug extends App{
   }
 }
 
-object DebugInOut extends App{
+object DebugInOut2 extends App{
   val report = SpinalVerilog(new Component {
+    val io = inout(Analog(Bits(8 bits)))
+
+
 //    val read = out(Bits(8 bits))
 //    val writeEnable = in Bool()
 //    val write = in Bits(8 bits)
 //    read := io
-    val io = inout(Analog(Bits(8 bits)))
+
+    val tmp1 = Analog(Bits(8 bits))
+    val tmp2 = Analog(Bits(8 bits))
 //    when(writeEnable) {
-//      io(4) := write(6)
+//      io(4) := write(5)
+//      io(5) := write(6)
+//      io(6, 2 bits) := write(2, 2 bits)
 //    }
     val sub = new BlackBox{
+//      val subIo = inout(Analog(Bool()))
       val subIo = inout(Analog(Bits(8 bits)))
+//      val a = in Bits(8 bits)
+//      val b = out Bits(8 bits)
     }
-    io := sub.subIo
+    sub.subIo := tmp1
+//    val a = in Bits(8 bits)
+//    val b = out Bits(8 bits)
+//    sub.a <> a
+//    sub.b <> b
+    io := tmp1
+    tmp2 := tmp1
+//    io(2) := sub.subIo
+//    io(3) := sub.subIo
+//    io(4) := sub.subIo
+//     io(4) := sub.subIo
     setDefinitionName("unamed")
   })
 }

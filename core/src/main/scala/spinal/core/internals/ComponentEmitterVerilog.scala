@@ -196,13 +196,13 @@ class ComponentEmitterVerilog(
     }
 
     //Wrap inout
-    analogs.foreach(io => {
-      io.foreachStatements{
-        case AssignmentStatement(target, source: BaseType) =>
-          referencesOverrides(source) = emitAssignedExpression(target)
-        case _ =>
-      }
-    })
+//    analogs.foreach(io => {
+//      io.foreachStatements{
+//        case AssignmentStatement(target, source: BaseType) =>
+//          referencesOverrides(source) = emitAssignedExpression(target)
+//        case _ =>
+//      }
+//    })
 
     //Collect all localEnums
     component.dslBody.walkStatements { s =>
@@ -376,16 +376,33 @@ class ComponentEmitterVerilog(
 
       val ios = child.getOrdredNodeIo.filterNot(_.isSuffix)
       val instports: String = ios.map{ data =>
-        val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
-        val wireAlign  = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
-        val comma      = if (data == ios.last) " " else ","
-        val dirtag: String = data.dir match{
-          case spinal.core.in  | spinal.core.inWithNull  => "i"
-          case spinal.core.out | spinal.core.outWithNull => "o"
-          case spinal.core.inout                         => "~"
-          case _  => SpinalError("Not founded IO type")
+        if(data.isInOut){
+          val buf = new mutable.StringBuilder()
+          for(analog <- analogs){
+            analog.foreachStatements{
+              case s@AssignmentStatement(dst, src: BaseType) if src == data =>
+                val portAlign = s"%-${maxNameLength}s".format(emitExpression(src)) //TODO
+                val wireAlign = s"%-${maxNameLengthCon}s".format(emitAssignedExpression(dst))
+                val comma = if (data == ios.last) " " else ","
+                val exp = s"    .${portAlign} (${wireAlign})${comma}\n"
+                println(exp)
+                buf ++= exp
+              case _ =>
+            }
+          }
+          buf.toString()
+        } else {
+          val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
+          val wireAlign = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
+          val comma = if (data == ios.last) " " else ","
+          val dirtag: String = data.dir match {
+            case spinal.core.in | spinal.core.inWithNull => "i"
+            case spinal.core.out | spinal.core.outWithNull => "o"
+            case spinal.core.inout => "~"
+            case _ => SpinalError("Not founded IO type")
+          }
+          s"    .${portAlign} (${wireAlign})${comma} //${dirtag}\n"
         }
-        s"    .${portAlign} (${wireAlign})${comma} //${dirtag}\n"
       }.mkString
 
 

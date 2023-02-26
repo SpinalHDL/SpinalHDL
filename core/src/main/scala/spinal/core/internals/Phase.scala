@@ -21,12 +21,12 @@
 package spinal.core.internals
 
 import java.io.{BufferedWriter, File, FileWriter}
+
 import scala.collection.mutable.ListBuffer
 import spinal.core._
 import spinal.core.fiber.Engine
 
-import scala.collection.immutable
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
 
@@ -286,175 +286,311 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
   }
 }
 
-
-
 class PhaseAnalog extends PhaseNetlist{
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
 
-
-    val wraps = mutable.LinkedHashMap[BaseType, BaseType]()
-
-    //Identify every InOut(Analog) and create a wrapper in the parent component
-    walkComponents(c => if(c.parent != null) c.ioSet.withFilter(_.isInOut).foreach(io => {
-      val wrap = c.parent.rework{
-        Analog(io)
-      }
-      wraps += io -> wrap
-    }))
+    //
+    //
+    //    //Identify every InOut(Analog) and create a wrapper in the parent component
+    //    walkComponents(c => if(c.parent != null) c.ioSet.withFilter(_.isInOut).foreach(io => {
+    //      val wrap = c.parent.rework{
+    //        Analog(io)
+    //      }
+    //      wraps += io -> wrap
+    //      wrapsToIo += wrap -> io
+    //    }))
 
     //Remap all driving expression to the created wrapper
-    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapDrivingExpressions{e => e match {
-      case source : BaseType => wraps.get(source) match {
-        case Some(target) if c == target.component => target
-        case _ => e
-      }
-      case _ => e
-    }}))
+    //    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapDrivingExpressions{e => e match {
+    //      case source : BaseType => wraps.get(source) match {
+    //        case Some(target) if c == target.component => target
+    //        case _ => e
+    //      }
+    //      case _ => e
+    //    }}))
 
     //Connect the wrappers
-    for((source, target) <- wraps){
-      target.component.rework(target := source)
-    }
+    //    for((source, target) <- wraps){
+    ////      target.component.rework(target := source)
+    //    }
+
 
     //Be sure that sub io assign parent component stuff
-    walkComponents(c => c.ioSet.withFilter(_.isInOut).foreach(io => {
-      io.foreachStatements {
-        case s@AssignmentStatement(_: BaseType, x: BaseType) if x.isAnalog && x.component == c.parent =>
-          s.dlcRemove()
-          x.dlcAppend(s)
-          s.target = x //TODO will not work if sub access
-          s.source = io
-        case _ =>
+    //    walkComponents(c => c.ioSet.withFilter(_.isInOut).foreach(io => {
+    //      io.foreachStatements {
+    //        case s@AssignmentStatement(_: BaseType, x: BaseType) if x.isAnalog && x.component == c.parent =>
+    //          s.dlcRemove()
+    //          x.dlcAppend(s)
+    //          s.target = x //TODO will not work if sub access
+    //          s.source = io
+    //        case _ =>
+    //      }
+    //    }))
+
+    val islands = mutable.LinkedHashSet[Island]()
+    val bitToIsland = mutable.HashMap[Bit, Island]()
+    case class Bit(bt : BaseType, bitId : Int, scope : ScopeStatement)
+//    case class Connection(a : Bit, b : Bit, scope : ScopeStatement)
+    class Island {
+//      val connections = ArrayBuffer[Connection]()
+//      val bitToConnections = mutable.LinkedHashMap[Bit, ArrayBuffer[Connection]]()
+
+//      def addConnection(a : Bit, b : Bit, scope : ScopeStatement): Unit = {
+//        val c = new Connection(a, b, scope)
+//        connections += c
+////        btToConnections.getOrElseUpdate(aBt, new ArrayBuffer[Connection]()) += c
+////        btToConnections.getOrElseUpdate(bBt, new ArrayBuffer[Connection]()) += c
+//      }
+
+      def absorbe(other: Island): Unit = {
+        this.elements ++= other.elements
       }
-    }))
-
-    case class Element(bt : BaseType, access : List[Any], statement: Statement)
-    val analogs        = ArrayBuffer[BaseType]()
-    val islands        = mutable.LinkedHashSet[mutable.LinkedHashSet[Element]]()
-    val analogToIsland = mutable.HashMap[(BaseType, List[Any]),mutable.LinkedHashSet[Element]]()
-
-    def addToIsland(that: BaseType, access : List[Any], statement: Statement, island: mutable.LinkedHashSet[Element]): Unit = {
-      val e = Element(that, access, statement)
-      island += e
-      analogToIsland(that -> access) = island
+      val elements = mutable.LinkedHashSet[Bit]()
+      val btSet = mutable.LinkedHashSet[BaseType]()
+      def add(that : Bit): Unit ={
+        elements += that
+        btSet += that.bt
+      }
     }
-    def addToIslandE(e: Element, island: mutable.LinkedHashSet[Element]): Unit = {
-      island += e
-      analogToIsland(e.bt -> e.access) = island
-    }
+
+//    val analogs = ArrayBuffer[BaseType]()
+
+    //    def addToIsland(that: BaseType, base, statement: Statement, island: mutable.LinkedHashSet[Element]): Unit = {
+    //      val e = Element(that, access, null)
+    //      island += e
+    //      analogToIsland(that -> access) = island
+    //    }
+    //    def addToIslandE(e: Element, island: mutable.LinkedHashSet[Element]): Unit = {
+    //      island += e
+    //      analogToIsland(e.bt -> e.access) = island
+    //    }
 
     //val wrapped = mutable.HashMap[BaseType, BaseType]()
 
-    walkStatements{
-      case bt: BaseType if bt.isAnalog =>
-        analogs += bt
-
-        //Manage islands
-        var added = false
-        bt.foreachStatements {
-          case s@AssignmentStatement(x, y: BaseType) if y.isAnalog =>
-            if (s.finalTarget.component == y.component) {
-              val targetAccess = x match {
-                case baseType: BaseType => Nil
-                case e : BitAssignmentFixed => List(e.bitId)
-              }
-              val sourceAccess = Nil
-              added = true
-              (analogToIsland.get(bt -> targetAccess), analogToIsland.get(y -> sourceAccess)) match {
+    pc.walkComponents { c =>
+      c.dslBody.walkStatements {
+        case s: AssignmentStatement => {
+          val targetBt = s.finalTarget
+          val sourceBt = s.source match {
+            case bt: BaseType => bt
+            case e: BitVectorBitAccessFixed => e.source match {
+              case bt: BaseType => bt
+              case _ => null
+            }
+            case e: BitVectorRangedAccessFixed => e.source match {
+              case bt: BaseType => bt
+              case _ => null
+            }
+          }
+          if (targetBt.isAnalog) {
+            if(sourceBt == null) SpinalError(":(")
+            val targetRange = s.target match {
+              case bt: BaseType => (0 until bt.getBitsWidth)
+              case e: BitAssignmentFixed => (e.bitId to e.bitId)
+              case e: RangedAssignmentFixed => (e.lo to e.hi)
+            }
+            val sourceRange = s.source match {
+              case bt: BaseType => (0 until bt.getBitsWidth)
+              case e: BitVectorBitAccessFixed => (e.bitId to e.bitId)
+              case e: BitVectorRangedAccessFixed => (e.lo until e.hi)
+            }
+            assert(targetRange.size == sourceRange.size)
+            for(i <- 0 until targetRange.size){
+              val a = Bit(targetBt, targetRange.low + i, s.parentScope)
+              val b = Bit(sourceBt, sourceRange.low + i, s.parentScope)
+              val island: Island = (bitToIsland.get(a), bitToIsland.get(b)) match {
                 case (None, None) =>
-                  val island = mutable.LinkedHashSet[Element]()
-                  addToIsland(bt, targetAccess, s, island)
-                  addToIsland(y, sourceAccess, s, island)
+                  val island = new Island()
                   islands += island
-                case (None, Some(island)) =>
-                  addToIsland(bt, targetAccess, s, island)
-                case (Some(island), None) =>
-                  addToIsland(y, sourceAccess, s, island)
+                  island
+                case (None, Some(island)) => island
+                case (Some(island), None) => island
                 case (Some(islandBt), Some(islandY)) =>
-                  islandY.foreach(addToIslandE(_, islandBt))
+                  islandBt.absorbe(islandY)
                   islands.remove(islandY)
+                  islandBt
               }
+
+              island.add(a)
+              island.add(b)
+              bitToIsland(a) = island
+              bitToIsland(b) = island
+
             }
-          case AssignmentStatement(x, y: BaseType) if !y.isAnalog =>
+            s.removeStatement()
+          }
         }
-
-        //TODO
-        if(!added){
-          val island = mutable.LinkedHashSet[Element]()
-          addToIsland(bt, Nil, null, island)
-          islands += island
-        }
-      case _ =>
-    }
-
-    islands.foreach(island => {
-      //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
-      val target = island.count(_.bt.isInOut) match {
-        case 0 => island.head.bt
-        case 1 => island.find(_.bt.isInOut).get.bt
-        case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
+        case _ =>
       }
-
-      //Remove target analog assignments
-      //TODO improve
-//      target.foreachStatements {
-//        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
-//        case _ =>
-//      }
-      for(e <- island if e.bt == target && e.statement != null) {
-        e.statement.removeStatement()
-      }
-
-      //redirect island assignments to target
-      //drive isllands analogs from target as comb signal
-      for(e <- island if e.bt != target){
-        e.statement match {
-          case s@AssignmentStatement(_, x: BaseType) if !x.isAnalog => //analog driver
-            s.dlcRemove()
-            target.dlcAppend(s)
-            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
-          case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == e.bt.component => //analog connection
-            s.dlcRemove()
-            target.dlcAppend(s)
-            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
-          case _ =>
-        }
-
-//        e.statement.removeStatement()
-        e.bt.setAsComb()
-        val ctx = e.bt.rootScopeStatement.push()
-        e.bt := target //TODO handle sub accesses
-        ctx.restore()
-      }
-
-      //Convert target comb assignment into AnalogDriver nods
-      target.foreachStatements(s => {
-        s.source match {
-          case btSource: BaseType if btSource.isAnalog =>
-          case btSource =>
-            val ctx = s.parentScope.push()
-            val enable = ConditionalContext.isTrue(target.rootScopeStatement)
-            ctx.restore()
-            s.removeStatementFromScope()
-            target.rootScopeStatement.append(s)
-            val driver = btSource.getTypeObject match {
-              case `TypeBool` => new AnalogDriverBool
-              case `TypeBits` => new AnalogDriverBits
-              case `TypeUInt` => new AnalogDriverUInt
-              case `TypeSInt` => new AnalogDriverSInt
-              case `TypeEnum` => new AnalogDriverEnum(btSource.asInstanceOf[EnumEncoded].getDefinition)
-            }
-            driver.data   = s.source.asInstanceOf[driver.T]
-            driver.enable = enable
-            s.source      = driver
+      val inoutBts = mutable.LinkedHashSet[BaseType]()
+      islands.foreach(island => {
+        island.elements.count(_.bt.isInOut) match {
+          case 0 => ??? //  not island.head.bt  but instead create island
+          case 1 => inoutBts += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt
+          case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
         }
       })
-    })
+
+      println("miaou")
+      for(io <- inoutBts){
+
+      }
+    }
+
+        //TODO
+        //      if(!added){
+        //        val island = mutable.LinkedHashSet[Element]()
+        //        addToIsland(bt, Nil, null, island)
+        //        islands += island
+        //      }
+
+
+      //From each analog seed (output), generate connections
+//    })
+//    islands.foreach(island => {
+//      //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
+//      val target = island.count(_.bt.isInOut) match {
+//        case 0 => ??? //  not island.head.bt  but instead create island
+//        case 1 => island.find(_.bt.isInOut).get.bt
+//        case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
+//      }
+//
+//      val explored = LinkedHashSet[BaseType]()
+//      def rec(from : bt, offset : Int): Unit = {
+//        for(connex <- island.btToConnections(from)){
+//          def on(bt : BaseType, base : Int): Unit = if({
+//
+//          }
+//          on(connex.aBt, connex.aBase, connex)
+//          on(connex.bBt, connex.bBase, connex)
+//        }
+//      }
+//
+//      rec(target, 0)
+//
+//      //Remove target analog assignments
+//      //TODO improve
+//      //      target.foreachStatements {
+//      //        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
+//      //        case _ =>
+//      //      }
+//      //      for(e <- island if e.bt == target && e.statement != null) {
+//      //        e.statement.removeStatement()
+//      //      }
+//
+//      //redirect island assignments to target
+//      //drive isllands analogs from target as comb signal
+//      for (e <- island if e.bt != target) {
+//        e.statement match {
+//          case s@AssignmentStatement(_, x: BaseType) if !x.isAnalog => //analog driver
+//            s.dlcRemove()
+//            target.dlcAppend(s)
+//            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
+//          case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == e.bt.component => //analog connection
+//            s.dlcRemove()
+//            target.dlcAppend(s)
+//            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
+//          case _ =>
+//        }
+//
+//        //        e.statement.removeStatement()
+//        e.bt.setAsComb()
+//        val ctx = e.bt.rootScopeStatement.push()
+//        e.bt := target //TODO handle sub accesses
+//        ctx.restore()
+//      }
+//
+//      //      for(e <- island){
+//      //        wrapsToIo.get(e.bt).foreach{io =>
+//      //          target.component.rework{
+//      //            target := io //TODO
+//      //          }
+//      //        }
+//      //      }
+//
+//      //Convert target comb assignment into AnalogDriver nods
+//    })
+//
+////    islands.foreach(island => {
+////      //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
+////      val target = island.count(_.bt.isInOut) match {
+////        case 0 => ??? //  not island.head.bt  but instead create island
+////        case 1 => island.find(_.bt.isInOut).get.bt
+////        case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
+////      }
+////
+////      //Remove target analog assignments
+////      //TODO improve
+////      //      target.foreachStatements {
+////      //        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
+////      //        case _ =>
+////      //      }
+////      //      for(e <- island if e.bt == target && e.statement != null) {
+////      //        e.statement.removeStatement()
+////      //      }
+////
+////      //redirect island assignments to target
+////      //drive isllands analogs from target as comb signal
+////      for (e <- island if e.bt != target) {
+////        e.statement match {
+////          case s@AssignmentStatement(_, x: BaseType) if !x.isAnalog => //analog driver
+////            s.dlcRemove()
+////            target.dlcAppend(s)
+////            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
+////          case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == e.bt.component => //analog connection
+////            s.dlcRemove()
+////            target.dlcAppend(s)
+////            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
+////          case _ =>
+////        }
+////
+////        //        e.statement.removeStatement()
+////        e.bt.setAsComb()
+////        val ctx = e.bt.rootScopeStatement.push()
+////        e.bt := target //TODO handle sub accesses
+////        ctx.restore()
+////      }
+////
+////      //      for(e <- island){
+////      //        wrapsToIo.get(e.bt).foreach{io =>
+////      //          target.component.rework{
+////      //            target := io //TODO
+////      //          }
+////      //        }
+////      //      }
+////
+////      //Convert target comb assignment into AnalogDriver nods
+////    })
+////    for (analog <- analogs) {
+////      analog.foreachStatements(s => {
+////        s.source match {
+////          case btSource: BaseType if btSource.isAnalog =>
+////          case btSource => {
+////            val ctx = s.parentScope.push()
+////            val enable = ConditionalContext.isTrue(analog.rootScopeStatement)
+////            ctx.restore()
+////            s.removeStatementFromScope()
+////            analog.rootScopeStatement.append(s)
+////            val driver = btSource.getTypeObject match {
+////              case `TypeBool` => new AnalogDriverBool
+////              case `TypeBits` => new AnalogDriverBits
+////              case `TypeUInt` => new AnalogDriverUInt
+////              case `TypeSInt` => new AnalogDriverSInt
+////              case `TypeEnum` => new AnalogDriverEnum(btSource.asInstanceOf[EnumEncoded].getDefinition)
+////            }
+////            driver.data = s.source.asInstanceOf[driver.T]
+////            driver.enable = enable
+////            s.source = driver
+////          }
+////        }
+////      })
+////    }
   }
 }
+
 
 
 
@@ -2781,3 +2917,4 @@ object SpinalVerilogBoot{
     report
   }
 }
+
