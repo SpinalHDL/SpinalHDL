@@ -11,7 +11,8 @@ import scala.concurrent.Await
 import scala.sys.process._
 
 abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfterAll with ParallelTestExecution*/ {
-
+  def workspaceRoot = "./cocotbWorkspace"
+  def waveFolder = sys.env.getOrElse("WAVES_DIR", new File(workspaceRoot).getAbsolutePath)
   var withWaveform = false
   var spinalMustPass = true
   var cocotbMustPass = true
@@ -22,8 +23,8 @@ abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfter
 
   def genVhdl: Unit ={
     try {
-      val waveFolder = sys.env.getOrElse("WAVES_DIR",".")
-      backendConfig(SpinalConfig(mode = VHDL)).generate(createToplevel)
+      new File(workspaceRoot).mkdirs()
+      backendConfig(SpinalConfig(mode = VHDL, targetDirectory=workspaceRoot)).generate(createToplevel)
       genHdlSuccess = true
     } catch {
       case e: Throwable => {
@@ -32,14 +33,13 @@ abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfter
         return
       }
     }
-    assert(spinalMustPass,"Spinal has not fail :(")
+    assert(spinalMustPass,"VHDL generation was expected to fail, but did not :(")
   }
-  def waveFolder = sys.env.getOrElse("WAVES_DIR",".")
 
   def genVerilog: Unit ={
     try {
-
-      backendConfig(SpinalConfig(mode = Verilog,dumpWave = if(withWaveform) DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + "_verilog.vcd") else null)).generate(createToplevel)
+      new File(workspaceRoot).mkdirs()
+      backendConfig(SpinalConfig(mode = Verilog, targetDirectory=workspaceRoot,dumpWave = if(withWaveform) DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + "_verilog.vcd") else null)).generate(createToplevel)
       genHdlSuccess = true
     } catch {
       case e: Throwable => {
@@ -48,7 +48,7 @@ abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfter
         return
       }
     }
-    assert(spinalMustPass,"Spinal has not fail :(")
+    assert(spinalMustPass,"Verilog generation was expected to fail, but did not :(")
   }
 
 
@@ -76,7 +76,7 @@ abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfter
     val pass = stdout.contains("FAIL=0 SKIP=0")
 
     assert(!cocotbMustPass || pass,"Simulation fail")
-    assert(cocotbMustPass || !pass,"Simulation has not fail :(")
+    assert(cocotbMustPass || !pass,"Simulation did not fail :(")
   }
 
   if(!noVhdl)

@@ -120,8 +120,8 @@ class RomTesterCocotbBoot2 extends SpinalTesterCocotbBase {
   override def genVerilog: Unit = {
     super.genVerilog
     import scala.sys.process._
-    s"rm $pythonTestLocation/RomTester2.v_toplevel_rom.bin".!
-    s"cp RomTester2.v_toplevel_rom.bin $pythonTestLocation".!
+    s"rm -f $pythonTestLocation/RomTester2.v_toplevel_rom.bin".!
+    s"cp $workspaceRoot/RomTester2.v_toplevel_rom.bin $pythonTestLocation".!
   }
 }
 
@@ -136,8 +136,8 @@ class RomTesterCocotbBoot3 extends SpinalTesterCocotbBase {
     super.genVerilog
     import scala.sys.process._
     for(i <- 0 to 3) {
-      s"rm $pythonTestLocation/RomTester3.v_toplevel_rom_symbol$i.bin".!
-      s"cp RomTester3.v_toplevel_rom_symbol$i.bin $pythonTestLocation".!
+      s"rm -f $pythonTestLocation/RomTester3.v_toplevel_rom_symbol$i.bin".!
+      s"cp $workspaceRoot/RomTester3.v_toplevel_rom_symbol$i.bin $pythonTestLocation".!
     }
   }
 }
