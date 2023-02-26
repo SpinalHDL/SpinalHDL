@@ -29,21 +29,42 @@ class Axi4StreamSparseCompactor(config: Axi4StreamConfig) extends Component {
 
   io.axis_m << outStage
 
-  def indexOfBoolN(bits: Bits, n: Int): UInt = {
-    val index = UInt(log2Up(widthOf(bits)+1) bit)
-    index := U(widthOf(bits))
-
-    def walkLowBits(width: Int, n: Int): Seq[BigInt] = {
-      if (width <= 0 || n <= 0) {
-        Seq(0)
-      } else {
-        (n-1 until width).flatMap { i =>
-          walkLowBits(i, n - 1).map { o =>
-            (BigInt(1) << i) + o
-          }
+  /**
+    * Generates all possible permutations of N bits which fit within the width
+    *
+    * For example: walkLowBits(4, 2) would generate:
+    *     11
+    *    101
+    *    110
+    *   1001
+    *   1010
+    *   1100
+    * @param width Maximum bit width
+    * @param n Number of set bits
+    * @return A sequence of BigInts representing each permutation
+    */
+  def walkLowBits(width: Int, n: Int): Seq[BigInt] = {
+    // Early exit case, preserves map recursion
+    if (width <= 0 || n <= 0) {
+      Seq(0)
+    } else {
+      // Work up the width as to make lower permutations first
+      (n - 1 until width).flatMap { i =>
+        walkLowBits(i, n - 1).map { o =>
+          (BigInt(1) << i) + o
         }
       }
     }
+  }
+
+  /**
+    * Calculates the position of the Nth set bit in the bit set
+    * @param bits Bits
+    * @param n Lowest set bit to search for, 0 indexed
+    * @return Position of the Nth set bit or widthOf(bits) if not found
+    */
+  def indexOfBoolN(bits: Bits, n: Int): UInt = {
+    val index = U(widthOf(bits), log2Up(widthOf(bits)+1) bit)
 
     for(matchInt <- walkLowBits(widthOf(bits), n+1)) {
       val matchBits = B(matchInt)
