@@ -88,19 +88,19 @@ object Debug extends App{
 }
 
 object DebugInOut2 extends App{
-  val report = SpinalVerilog(new Component {
-    val io = inout(Analog(Bits(8 bits)))
+  val report = SimConfig.compile(new Component {
+    val xxx = (Analog(Bits(8 bits)))
 
 
     val read = out(Bits(8 bits))
     val writeEnable = in Bool()
     val write = in Bits(8 bits)
-    read := io
+    read := xxx
 
     val tmp1 = Analog(Bits(8 bits))
     val tmp2 = Analog(Bits(8 bits))
     when(writeEnable) {
-      io(4) := write(5)
+      xxx(4) := write(5)
       tmp2(5) := write(6)
       tmp1(6, 2 bits) := write(2, 2 bits)
       tmp1 := write
@@ -111,12 +111,13 @@ object DebugInOut2 extends App{
 //      val a = in Bits(8 bits)
 //      val b = out Bits(8 bits)
     }
-    sub.subIo := tmp1
+    sub.subIo(7 downto 2) := tmp1(5 downto 0).setAsAnalog()
+    sub.subIo(1 downto 0) := tmp1(7 downto 6).setAsAnalog()
 //    val a = in Bits(8 bits)
 //    val b = out Bits(8 bits)
 //    sub.a <> a
 //    sub.b <> b
-    io := tmp1
+    xxx := tmp1
     tmp2 := tmp1
 //    val tmp3 = Analog(Bits(4 bits))
 //    tmp3 := tmp1(3, 4 bits).setAsAnalog() //TODO keep
@@ -125,7 +126,7 @@ object DebugInOut2 extends App{
 //    io(4) := sub.subIo
 //     io(4) := sub.subIo
     setDefinitionName("unamed")
-  })
+  }).doSim{dut => }
 }
 
 

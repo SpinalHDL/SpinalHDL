@@ -292,83 +292,16 @@ class PhaseAnalog extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
-
-    //
-    //
-    //    //Identify every InOut(Analog) and create a wrapper in the parent component
-    //    walkComponents(c => if(c.parent != null) c.ioSet.withFilter(_.isInOut).foreach(io => {
-    //      val wrap = c.parent.rework{
-    //        Analog(io)
-    //      }
-    //      wraps += io -> wrap
-    //      wrapsToIo += wrap -> io
-    //    }))
-
-    //Remap all driving expression to the created wrapper
-    //    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapDrivingExpressions{e => e match {
-    //      case source : BaseType => wraps.get(source) match {
-    //        case Some(target) if c == target.component => target
-    //        case _ => e
-    //      }
-    //      case _ => e
-    //    }}))
-
-    //Connect the wrappers
-    //    for((source, target) <- wraps){
-    ////      target.component.rework(target := source)
-    //    }
-
-
-    //Be sure that sub io assign parent component stuff
-    //    walkComponents(c => c.ioSet.withFilter(_.isInOut).foreach(io => {
-    //      io.foreachStatements {
-    //        case s@AssignmentStatement(_: BaseType, x: BaseType) if x.isAnalog && x.component == c.parent =>
-    //          s.dlcRemove()
-    //          x.dlcAppend(s)
-    //          s.target = x //TODO will not work if sub access
-    //          s.source = io
-    //        case _ =>
-    //      }
-    //    }))
-
-
     case class Bit(bt : BaseType, bitId : Int, scope : ScopeStatement)
-//    case class Connection(a : Bit, b : Bit, scope : ScopeStatement)
     class Island {
-//      val connections = ArrayBuffer[Connection]()
-//      val bitToConnections = mutable.LinkedHashMap[Bit, ArrayBuffer[Connection]]()
-
-//      def addConnection(a : Bit, b : Bit, scope : ScopeStatement): Unit = {
-//        val c = new Connection(a, b, scope)
-//        connections += c
-////        btToConnections.getOrElseUpdate(aBt, new ArrayBuffer[Connection]()) += c
-////        btToConnections.getOrElseUpdate(bBt, new ArrayBuffer[Connection]()) += c
-//      }
-
       def absorbe(other: Island): Unit = {
         this.elements ++= other.elements
       }
       val elements = mutable.LinkedHashSet[Bit]()
-//      val btSet = mutable.LinkedHashSet[BaseType]()
       def add(that : Bit): Unit ={
         elements += that
-//        btSet += that.bt
       }
     }
-
-//    val analogs = ArrayBuffer[BaseType]()
-
-    //    def addToIsland(that: BaseType, base, statement: Statement, island: mutable.LinkedHashSet[Element]): Unit = {
-    //      val e = Element(that, access, null)
-    //      island += e
-    //      analogToIsland(that -> access) = island
-    //    }
-    //    def addToIslandE(e: Element, island: mutable.LinkedHashSet[Element]): Unit = {
-    //      island += e
-    //      analogToIsland(e.bt -> e.access) = island
-    //    }
-
-    //val wrapped = mutable.HashMap[BaseType, BaseType]()
 
     pc.walkComponents { c =>
       val islands = mutable.LinkedHashSet[Island]()
@@ -428,17 +361,26 @@ class PhaseAnalog extends PhaseNetlist{
         }
         case _ =>
       }
+      var seedId = 0
       val seeds = mutable.LinkedHashSet[BaseType]()
       islands.foreach(island => {
         island.elements.count(e => e.bt.isInOut && e.bt.component == c) match {
-          case 0 => ??? //  not island.head.bt  but instead create island
+          case 0 => c.rework{
+            val seed = Analog(/*if(island.elements.forall(_.bt.isInstanceOf[Bool])) Bool() else*/ Bits(1 bits))
+            seed.setName(s"analog_wrap_$seedId")
+            seedId += 1
+            val b = Bit(seed, 0, c.dslBody)
+            island.elements += b
+            bitToIsland(b) = island
+            seeds += seed
+          }
           case 1 => seeds += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt
           case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
         }
       })
 
       println("miaou")
-
+      val toComb = mutable.LinkedHashSet[BaseType]()
       for(seed <- seeds){
         case class AggregateKey(bt : BaseType, scope : ScopeStatement)
         case class AggregateCtx(seedOffset : Int, otherOffset : Int)
@@ -449,7 +391,7 @@ class PhaseAnalog extends PhaseNetlist{
           val width = seedUntil - ctx.seedOffset
           key.bt match {
             case bt if bt.isAnalog && bt.isDirectionLess => bt.parentScope.on{
-              bt.setAsComb()
+              toComb += bt
               bt.compositeAssign = null
               bt match{
                 case bt : Bool => ???
@@ -489,10 +431,13 @@ class PhaseAnalog extends PhaseNetlist{
                   case `TypeSInt` => new AnalogDriverSInt
                   case `TypeEnum` => new AnalogDriverEnum(bt.asInstanceOf[EnumEncoded].getDefinition)
                 }
-                driver.data = bt.asInstanceOf[driver.T]
+                driver.data = (bt match {
+                  case bv : BitVector => bv.apply(ctx.otherOffset, width bits)
+                  case _ => bt
+                }).asInstanceOf[driver.T]
                 driver.enable = enable
                 seed match{
-                  case seed : BitVector if width != widthOf(seed) => bt.getTypeObject match {
+                  case seed : BitVector if width != widthOf(seed) || bt.getTypeObject == TypeBool => bt.getTypeObject match {
                     case `TypeBool` => {
                       seed(ctx.seedOffset) := seed(ctx.seedOffset).getZero
                       seed.dlcLast.source = driver
@@ -505,16 +450,6 @@ class PhaseAnalog extends PhaseNetlist{
                   case bt => bt.assignFrom(driver)
                 }
               }
-//              val driver = btSource.getTypeObject match {
-//                case `TypeBool` => new AnalogDriverBool
-//                case `TypeBits` => new AnalogDriverBits
-//                case `TypeUInt` => new AnalogDriverUInt
-//                case `TypeSInt` => new AnalogDriverSInt
-//                case `TypeEnum` => new AnalogDriverEnum(btSource.asInstanceOf[EnumEncoded].getDefinition)
-//              }
-//              driver.data = s.source.asInstanceOf[driver.T]
-//              driver.enable = enable
-//              s.source = driver
             }
           }
         }
@@ -538,156 +473,8 @@ class PhaseAnalog extends PhaseNetlist{
         }
         for(e <- aggregates.toArray) flush(e._1, e._2, widthOf(seed))
       }
+      toComb.foreach(_.setAsComb())
     }
-
-        //TODO
-        //      if(!added){
-        //        val island = mutable.LinkedHashSet[Element]()
-        //        addToIsland(bt, Nil, null, island)
-        //        islands += island
-        //      }
-
-
-      //From each analog seed (output), generate connections
-//    })
-//    islands.foreach(island => {
-//      //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
-//      val target = island.count(_.bt.isInOut) match {
-//        case 0 => ??? //  not island.head.bt  but instead create island
-//        case 1 => island.find(_.bt.isInOut).get.bt
-//        case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
-//      }
-//
-//      val explored = LinkedHashSet[BaseType]()
-//      def rec(from : bt, offset : Int): Unit = {
-//        for(connex <- island.btToConnections(from)){
-//          def on(bt : BaseType, base : Int): Unit = if({
-//
-//          }
-//          on(connex.aBt, connex.aBase, connex)
-//          on(connex.bBt, connex.bBase, connex)
-//        }
-//      }
-//
-//      rec(target, 0)
-//
-//      //Remove target analog assignments
-//      //TODO improve
-//      //      target.foreachStatements {
-//      //        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
-//      //        case _ =>
-//      //      }
-//      //      for(e <- island if e.bt == target && e.statement != null) {
-//      //        e.statement.removeStatement()
-//      //      }
-//
-//      //redirect island assignments to target
-//      //drive isllands analogs from target as comb signal
-//      for (e <- island if e.bt != target) {
-//        e.statement match {
-//          case s@AssignmentStatement(_, x: BaseType) if !x.isAnalog => //analog driver
-//            s.dlcRemove()
-//            target.dlcAppend(s)
-//            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
-//          case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == e.bt.component => //analog connection
-//            s.dlcRemove()
-//            target.dlcAppend(s)
-//            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
-//          case _ =>
-//        }
-//
-//        //        e.statement.removeStatement()
-//        e.bt.setAsComb()
-//        val ctx = e.bt.rootScopeStatement.push()
-//        e.bt := target //TODO handle sub accesses
-//        ctx.restore()
-//      }
-//
-//      //      for(e <- island){
-//      //        wrapsToIo.get(e.bt).foreach{io =>
-//      //          target.component.rework{
-//      //            target := io //TODO
-//      //          }
-//      //        }
-//      //      }
-//
-//      //Convert target comb assignment into AnalogDriver nods
-//    })
-//
-////    islands.foreach(island => {
-////      //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
-////      val target = island.count(_.bt.isInOut) match {
-////        case 0 => ??? //  not island.head.bt  but instead create island
-////        case 1 => island.find(_.bt.isInOut).get.bt
-////        case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
-////      }
-////
-////      //Remove target analog assignments
-////      //TODO improve
-////      //      target.foreachStatements {
-////      //        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
-////      //        case _ =>
-////      //      }
-////      //      for(e <- island if e.bt == target && e.statement != null) {
-////      //        e.statement.removeStatement()
-////      //      }
-////
-////      //redirect island assignments to target
-////      //drive isllands analogs from target as comb signal
-////      for (e <- island if e.bt != target) {
-////        e.statement match {
-////          case s@AssignmentStatement(_, x: BaseType) if !x.isAnalog => //analog driver
-////            s.dlcRemove()
-////            target.dlcAppend(s)
-////            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
-////          case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == e.bt.component => //analog connection
-////            s.dlcRemove()
-////            target.dlcAppend(s)
-////            s.walkRemapExpressions(exp => if (exp == e.bt) target else exp)
-////          case _ =>
-////        }
-////
-////        //        e.statement.removeStatement()
-////        e.bt.setAsComb()
-////        val ctx = e.bt.rootScopeStatement.push()
-////        e.bt := target //TODO handle sub accesses
-////        ctx.restore()
-////      }
-////
-////      //      for(e <- island){
-////      //        wrapsToIo.get(e.bt).foreach{io =>
-////      //          target.component.rework{
-////      //            target := io //TODO
-////      //          }
-////      //        }
-////      //      }
-////
-////      //Convert target comb assignment into AnalogDriver nods
-////    })
-////    for (analog <- analogs) {
-////      analog.foreachStatements(s => {
-////        s.source match {
-////          case btSource: BaseType if btSource.isAnalog =>
-////          case btSource => {
-////            val ctx = s.parentScope.push()
-////            val enable = ConditionalContext.isTrue(analog.rootScopeStatement)
-////            ctx.restore()
-////            s.removeStatementFromScope()
-////            analog.rootScopeStatement.append(s)
-////            val driver = btSource.getTypeObject match {
-////              case `TypeBool` => new AnalogDriverBool
-////              case `TypeBits` => new AnalogDriverBits
-////              case `TypeUInt` => new AnalogDriverUInt
-////              case `TypeSInt` => new AnalogDriverSInt
-////              case `TypeEnum` => new AnalogDriverEnum(btSource.asInstanceOf[EnumEncoded].getDefinition)
-////            }
-////            driver.data = s.source.asInstanceOf[driver.T]
-////            driver.enable = enable
-////            s.source = driver
-////          }
-////        }
-////      })
-////    }
   }
 }
 

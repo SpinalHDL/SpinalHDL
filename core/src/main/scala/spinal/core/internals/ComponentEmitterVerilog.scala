@@ -329,6 +329,14 @@ class ComponentEmitterVerilog(
       }
     }
 
+    val analogDrivers = mutable.LinkedHashMap[BaseType, ArrayBuffer[AssignmentStatement]]()
+    for(analog <- analogs) analog.foreachStatements{s =>
+      s.walkDrivingExpressions{
+        case e : BaseType => analogDrivers.getOrElseUpdate(e, ArrayBuffer[AssignmentStatement]()) += s
+        case _ =>
+      }
+    }
+
     for (child <- component.children) {
       val isBB             = child.isInstanceOf[BlackBox] && child.asInstanceOf[BlackBox].isBlackBox
       val isBBUsingULogic  = isBB && child.asInstanceOf[BlackBox].isUsingULogic
@@ -378,18 +386,23 @@ class ComponentEmitterVerilog(
       val instports: String = ios.map{ data =>
         if(data.isInOut){
           val buf = new mutable.StringBuilder()
-          for(analog <- analogs){
-            analog.foreachStatements{
-              case s@AssignmentStatement(dst, src: BaseType) if src == data =>
-                val portAlign = s"%-${maxNameLength}s".format(emitExpression(src)) //TODO
-                val wireAlign = s"%-${maxNameLengthCon}s".format(emitAssignedExpression(dst))
-                val comma = if (data == ios.last) " " else ","
-                val exp = s"    .${portAlign} (${wireAlign})${comma}\n"
-                println(exp)
-                buf ++= exp
-              case _ =>
+          val statements = analogDrivers(data)
+          case class Mapping(offset : Int, width : Int, dst : Expression)
+          val mapping = statements.map{ s =>
+            s.source match {
+              case bt : BaseType => Mapping(0, widthOf(bt), s.target)
+              case e : BitVectorBitAccessFixed => Mapping(e.bitId, 1, s.target)
+              case e : BitVectorRangedAccessFixed => Mapping(e.lo, e.getWidth, s.target)
             }
           }
+          assert(mapping.map(_.width).sum == widthOf(data))
+          val ordered = mapping.sortBy(_.offset)
+          println(ordered)
+          val portAlign = s"%-${maxNameLength}s".format(emitExpression(data))
+          val wireAlign = ordered.reverse.map(e => emitAssignedExpression(e.dst)).mkString(", ")
+          val comma = if (data == ios.last) " " else ","
+          val exp = s"    .${portAlign} ({${wireAlign}})${comma}\n"
+          buf ++= exp
           buf.toString()
         } else {
           val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
