@@ -88,7 +88,7 @@ object Debug extends App{
 }
 
 object DebugInOut2 extends App{
-  val report = SimConfig.compile(new Component {
+  val report = SimConfig.withGhdl.compile(new Component {
     val xxx = (Analog(Bits(8 bits)))
 
 
@@ -96,6 +96,7 @@ object DebugInOut2 extends App{
     val writeEnable = in Bool()
     val write = in Bits(8 bits)
     read := xxx
+
 
     val tmp1 = Analog(Bits(8 bits))
     val tmp2 = Analog(Bits(8 bits))
@@ -105,14 +106,14 @@ object DebugInOut2 extends App{
       tmp1(6, 2 bits) := write(2, 2 bits)
       tmp1 := write
     }
-    val sub = new BlackBox{
+    val sub = new Component{
 //      val subIo = inout(Analog(Bool()))
       val subIo = inout(Analog(Bits(8 bits)))
 //      val a = in Bits(8 bits)
 //      val b = out Bits(8 bits)
     }
-    sub.subIo(7 downto 2) := tmp1(5 downto 0).setAsAnalog()
-    sub.subIo(1 downto 0) := tmp1(7 downto 6).setAsAnalog()
+    sub.subIo(7 downto 2) := tmp1.apply(5 downto 0).setAsAnalog()
+    sub.subIo(1 downto 0) := tmp1.apply(7 downto 6).setAsAnalog()
 //    val a = in Bits(8 bits)
 //    val b = out Bits(8 bits)
 //    sub.a <> a
@@ -125,7 +126,9 @@ object DebugInOut2 extends App{
 //    io(3) := sub.subIo
 //    io(4) := sub.subIo
 //     io(4) := sub.subIo
-    setDefinitionName("unamed")
+
+
+    setDefinitionName("toplevel")
   }).doSim{dut => }
 }
 

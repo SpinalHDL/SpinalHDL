@@ -293,6 +293,7 @@ class PhaseAnalog extends PhaseNetlist{
     import pc._
 
     case class Bit(bt : BaseType, bitId : Int, scope : ScopeStatement)
+    // A island represent the connection of multiple analog single bits
     class Island {
       def absorbe(other: Island): Unit = {
         this.elements ++= other.elements
@@ -303,13 +304,16 @@ class PhaseAnalog extends PhaseNetlist{
       }
     }
 
+
     pc.walkComponents { c =>
       val islands = mutable.LinkedHashSet[Island]()
       val bitToIsland = mutable.HashMap[Bit, Island]()
+
+      // Generate the list of islands
       c.dslBody.walkStatements {
         case s: AssignmentStatement => {
           val targetBt = s.finalTarget
-          val sourceBt = s.source match {
+          val sourceBt : BaseType = s.source match {
             case bt: BaseType => bt
             case e: BitVectorBitAccessFixed => e.source match {
               case bt: BaseType => bt
@@ -319,6 +323,7 @@ class PhaseAnalog extends PhaseNetlist{
               case bt: BaseType => bt
               case _ => null
             }
+            case _ => null
           }
           if (targetBt.isAnalog) {
             if(sourceBt == null) SpinalError(":(")
@@ -362,25 +367,66 @@ class PhaseAnalog extends PhaseNetlist{
         case _ =>
       }
       var seedId = 0
-      val seeds = mutable.LinkedHashSet[BaseType]()
+      val seeds = mutable.LinkedHashSet[BaseType]() //List of all analog signal being the "root" of a network
+      class Group{
+        val islands = ArrayBuffer[Island]()
+      }
+      val analogGroups = mutable.LinkedHashSet[Group]()
+      val anlogToGroup = mutable.LinkedHashMap[BaseType, Group]()
+
+      //Process the islands to generate seeds from component analog inouts, and build the group list for connections without inout analog
       islands.foreach(island => {
         island.elements.count(e => e.bt.isInOut && e.bt.component == c) match {
-          case 0 => c.rework{
-            val seed = Analog(/*if(island.elements.forall(_.bt.isInstanceOf[Bool])) Bool() else*/ Bits(1 bits))
-            seed.setName(s"analog_wrap_$seedId")
-            seedId += 1
-            val b = Bit(seed, 0, c.dslBody)
-            island.elements += b
-            bitToIsland(b) = island
-            seeds += seed
+          case 0 => { //No analog inout, will need to create a connection seed later on
+            val groups = island.elements.map(b => anlogToGroup.get(b.bt)).filter(_.nonEmpty).map(_.get).toArray.distinct
+            val finalGroup = groups.length match {
+              case 0 => {
+                val group = new Group()
+                analogGroups += group
+                group
+              }
+              case 1 => groups.head
+              case _ =>{
+                val ghead = groups.head
+                for(group <- groups.tail){
+                  groups.head.islands ++= group.islands
+                  analogGroups -= group
+                  for(i <- group.islands){
+                    for(b <- i.elements){
+                      anlogToGroup(b.bt) = ghead
+                    }
+                  }
+                }
+                ghead
+              }
+            }
+            finalGroup.islands += island
+            for(b <- island.elements){
+              anlogToGroup(b.bt) = finalGroup
+            }
           }
-          case 1 => seeds += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt
+          case 1 => seeds += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt //Got a analog inout to host the connection
           case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
         }
       })
 
-      println("miaou")
+      //For each group, this will generate a analog host signal
+      for(group <- analogGroups)      c.rework{
+        val width = group.islands.size
+        val seed = Analog(Bits(width bits))
+        seed.setName(s"analog_wrap_$seedId")
+        seedId += 1
+        for((island, i) <- group.islands.zipWithIndex) {
+          val b = Bit(seed, i, c.dslBody)
+          island.elements += b
+          bitToIsland(b) = island
+        }
+        seeds += seed
+      }
+
       val toComb = mutable.LinkedHashSet[BaseType]()
+
+      //Generate all the statements associated to the seeds by aggreating consecutive bits connection and then flushing it into RTL
       for(seed <- seeds){
         case class AggregateKey(bt : BaseType, scope : ScopeStatement)
         case class AggregateCtx(seedOffset : Int, otherOffset : Int)
@@ -390,21 +436,29 @@ class PhaseAnalog extends PhaseNetlist{
           aggregates -= key
           val width = seedUntil - ctx.seedOffset
           key.bt match {
+            //Mutate directionless analog into combinatorial reader of the seed
             case bt if bt.isAnalog && bt.isDirectionLess => bt.parentScope.on{
               toComb += bt
               bt.compositeAssign = null
               bt match{
-                case bt : Bool => ???
-                case bt : BitVector => bt(ctx.otherOffset, width bits) := seed.asInstanceOf[BitVector](ctx.seedOffset, width bits)
+                case bt : Bool => bt := (seed match {
+                  case seed : Bool => seed
+                  case seed : BitVector => seed(ctx.seedOffset)
+                })
+                case bt : BitVector => bt(ctx.otherOffset, width bits) := (seed match {
+                  case seed : Bool => seed.asBits
+                  case seed : BitVector => seed(ctx.seedOffset, width bits)
+                })
               }
             }
+            //Handle analog inout of sub components
             case bt if bt.isAnalog && bt.isInOut => c.dslBody.on{
               val driver = bt match {
                 case bt : BitVector if width != widthOf(bt) => bt(ctx.otherOffset, width bits)
                 case _ => bt
               }
               seed match{
-                case seed : BitVector if width != widthOf(seed) => bt.getTypeObject match {
+                case seed : BitVector if width != widthOf(seed)  || driver.getTypeObject != seed.getTypeObject => driver.getTypeObject match {
                   case `TypeBool` => {
                     seed(ctx.seedOffset) := seed(ctx.seedOffset).getZero
                     seed.dlcLast.source = driver
@@ -419,7 +473,8 @@ class PhaseAnalog extends PhaseNetlist{
                 }
               }
             }
-            case bt if !bt.isAnalog => {//driver
+            //Handle tristate drivers to the seed
+            case bt if !bt.isAnalog => {
               val tmp = key.scope.push()
               val enable = ConditionalContext.isTrue(seed.rootScopeStatement)
               tmp.restore()
