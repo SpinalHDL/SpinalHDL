@@ -133,7 +133,7 @@ object StreamReadyRandomizer {
   def apply[T <: Data](stream: Stream[T], clockDomain: ClockDomain) = new StreamReadyRandomizer(stream, clockDomain, () => true)
 }
 
-case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain, condition: () => Boolean){
+case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain,var condition: () => Boolean){
   var factor = 0.5f
   clockDomain.onSamplings{
     if (condition()) {

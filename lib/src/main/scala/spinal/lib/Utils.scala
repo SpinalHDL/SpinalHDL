@@ -706,7 +706,82 @@ object CounterMultiRequest {
   }
 }
 
+object AnalysisUtils{
+  def seekNonCombDrivers(that : BaseType)(body : Any => Unit): Unit ={
+    that.foreachStatements{ s =>
+      s.walkDrivingExpressions{
+        case s : Statement => s match {
+          case s : BaseType if s.isComb => seekNonCombDrivers(s)(body)
+          case s : BaseType if !s.isComb => body(s)
+        }
+        case e : Expression =>
+      }
+    }
+  }
 
+  def reportToplevelIoCd(top : Component): Unit ={
+    val cdMap = mutable.LinkedHashMap[ClockDomain, mutable.LinkedHashSet[BaseType]]()
+    top.walkComponents(c => c.dslBody.walkStatements{ s =>
+      s.foreachClockDomain{ cd =>
+        val map = cdMap.getOrElseUpdate(cd, mutable.LinkedHashSet[BaseType]())
+        def walk(bn: BaseNode): Unit = bn match {
+          case that : BaseType => {
+            if(!map.contains(that)) {
+              map += that
+              def walkInputs(func: (BaseNode) => Unit) = {
+                that.foreachStatements(s => {
+                  s.foreachDrivingExpression(input => {
+                    func(input)
+                  })
+                  s.walkParentTreeStatementsUntilRootScope(tree => tree.walkDrivingExpressions(input => {
+                    func(input)
+                  }))
+                })
+              }
+
+              if (!that.isReg) {
+                walkInputs(input => {
+                  walk(input)
+                })
+              }
+            }
+          }
+          case that : Mem[_] =>
+          case that : MemReadSync =>
+          case that : MemReadWrite =>
+          case that : MemReadAsync =>
+          case that : MemWrite =>
+          case that : AssertStatement =>
+          case that : Expression => {
+            that.foreachDrivingExpression(input => {
+              walk(input)
+            })
+          }
+        }
+        s match {
+          case bt : BaseType => bt.foreachStatements(_.walkDrivingExpressions(walk))
+          case _ =>
+        }
+      }
+    })
+    top.getAllIo.foreach{
+      case i if i.isInput => {
+        val cds = cdMap.filter(_._2.contains(i)).map(_._1)
+        val clocks = cds.map(_.clock).distinctLinked
+        println(s"${i.getName()} clocked by ${clocks.map(_.getName()).mkString(",")}")
+      }
+      case o if o.isOutput => {
+        val cds = mutable.LinkedHashSet[ClockDomain]()
+        seekNonCombDrivers(o){
+          case bt : BaseType if bt.isReg => cds += bt.clockDomain
+          case _ => println("???")
+        }
+        val clocks = cds.map(_.clock).distinctLinked
+        println(s"${o.getName()} clocked by ${clocks.map(_.getName()).mkString(",")}")
+      }
+    }
+  }
+}
 
 object LatencyAnalysis {
   //Don't care about clock domain
