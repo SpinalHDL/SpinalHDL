@@ -510,20 +510,24 @@ class PhaseAnalog extends PhaseNetlist{
         }
         for(bitId <- 0 until widthOf(seed)){
           val flushes = ArrayBuffer[(AggregateKey, AggregateCtx)]()
-          val island = bitToIsland(Bit(seed, bitId, c.dslBody))
-          for((key, ctx) <- aggregates){
-            island.elements.contains(Bit(key.bt, (bitId - ctx.seedOffset) + ctx.otherOffset, key.scope)) match {
-              case true => //Continue
-              case false => flushes += key -> ctx
+          bitToIsland.get(Bit(seed, bitId, c.dslBody)) match {
+            case Some(island) => {
+              for((key, ctx) <- aggregates){
+                island.elements.contains(Bit(key.bt, (bitId - ctx.seedOffset) + ctx.otherOffset, key.scope)) match {
+                  case true => //Continue
+                  case false => flushes += key -> ctx
+                }
+              }
+              for(e <- flushes) flush(e._1, e._2, bitId)
+              for(e <- island.elements if e.bt != seed){
+                val key = AggregateKey(e.bt, e.scope)
+                aggregates.get(key) match {
+                  case Some(x) =>
+                  case None => aggregates(key) = AggregateCtx(bitId, e.bitId)
+                }
+              }
             }
-          }
-          for(e <- flushes) flush(e._1, e._2, bitId)
-          for(e <- island.elements if e.bt != seed){
-            val key = AggregateKey(e.bt, e.scope)
-            aggregates.get(key) match {
-              case Some(x) =>
-              case None => aggregates(key) = AggregateCtx(bitId, e.bitId)
-            }
+            case None =>
           }
         }
         for(e <- aggregates.toArray) flush(e._1, e._2, widthOf(seed))
