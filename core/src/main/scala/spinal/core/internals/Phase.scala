@@ -295,7 +295,7 @@ class PhaseAnalog extends PhaseNetlist{
     case class Bit(bt : BaseType, bitId : Int, scope : ScopeStatement)
     // A island represent the connection of multiple analog single bits
     class Island {
-      def absorbe(other: Island): Unit = {
+      def absorb(other: Island): Unit = {
         this.elements ++= other.elements
       }
       val elements = mutable.LinkedHashSet[Bit]()
@@ -350,7 +350,7 @@ class PhaseAnalog extends PhaseNetlist{
                 case (Some(island), None) => island
                 case (Some(islandBt), Some(islandY)) =>
                   for(e <- islandY.elements) bitToIsland(e) = islandBt
-                  islandBt.absorbe(islandY)
+                  islandBt.absorb(islandY)
                   islands.remove(islandY)
                   islandBt
               }
