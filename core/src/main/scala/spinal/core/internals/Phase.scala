@@ -307,7 +307,8 @@ class PhaseAnalog extends PhaseNetlist{
 
     pc.walkComponents { c =>
       val islands = mutable.LinkedHashSet[Island]()
-      val bitToIsland = mutable.HashMap[Bit, Island]()
+      val bitToIsland = mutable.HashMap[(BaseType, Int), Island]()
+      def islandOf(b : Bit) = bitToIsland.get(b.bt -> b.bitId)
 
       // Generate the list of islands
       c.dslBody.walkStatements {
@@ -339,7 +340,7 @@ class PhaseAnalog extends PhaseNetlist{
             for(i <- 0 until targetRange.size){
               val a = Bit(targetBt, targetRange.low + i, c.dslBody)
               val b = Bit(sourceBt, sourceRange.low + i, s.parentScope)
-              val island: Island = (bitToIsland.get(a), bitToIsland.get(b)) match {
+              val island: Island = (islandOf(a), islandOf(b)) match {
                 case (None, None) =>
                   val island = new Island()
                   islands += island
@@ -347,7 +348,7 @@ class PhaseAnalog extends PhaseNetlist{
                 case (None, Some(island)) => island
                 case (Some(island), None) => island
                 case (Some(islandBt), Some(islandY)) =>
-                  for(e <- islandY.elements) bitToIsland(e) = islandBt
+                  for(e <- islandY.elements) bitToIsland(e.bt -> e.bitId) = islandBt
                   islandBt.absorb(islandY)
                   islands.remove(islandY)
                   islandBt
@@ -355,8 +356,8 @@ class PhaseAnalog extends PhaseNetlist{
 
               island.add(a)
               island.add(b)
-              bitToIsland(a) = island
-              bitToIsland(b) = island
+              bitToIsland(a.bt -> a.bitId) = island
+              bitToIsland(b.bt -> b.bitId) = island
 
             }
             s.removeStatement()
@@ -417,7 +418,7 @@ class PhaseAnalog extends PhaseNetlist{
         for((island, i) <- group.islands.zipWithIndex) {
           val b = Bit(seed, i, c.dslBody)
           island.elements += b
-          bitToIsland(b) = island
+          bitToIsland(b.bt -> b.bitId) = island
         }
         seeds += seed
       }
@@ -435,34 +436,34 @@ class PhaseAnalog extends PhaseNetlist{
           val width = seedUntil - ctx.seedOffset
           key.bt match {
             //Mutate directionless analog into combinatorial reader of the seed
-            case bt if bt.isAnalog && bt.isDirectionLess => bt.parentScope.on{
+            case bt if bt.isAnalog && bt.isDirectionLess => if(key.scope == c.dslBody) bt.parentScope.on{
               toComb += bt
               bt.compositeAssign = null
               bt match{
                 case bt : Bool => bt := (seed match {
                   case seed : Bool => seed
-                  case seed : BitVector => seed(ctx.seedOffset)
+                  case seed : BitVector => seed(ctx.seedOffset).setAsComb()
                 })
                 case bt : BitVector => bt(ctx.otherOffset, width bits) := (seed match {
                   case seed : Bool => seed.asBits
-                  case seed : BitVector => seed(ctx.seedOffset, width bits)
+                  case seed : BitVector => seed(ctx.seedOffset, width bits).setAsComb()
                 })
               }
             }
             //Handle analog inout of sub components
             case bt if bt.isAnalog && bt.isInOut => c.dslBody.on{
               val driver = bt match {
-                case bt : BitVector if width != widthOf(bt) => bt(ctx.otherOffset, width bits)
+                case bt : BitVector if width != widthOf(bt) => bt(ctx.otherOffset, width bits).setAsComb()
                 case _ => bt
               }
               seed match{
                 case seed : BitVector if width != widthOf(seed)  || driver.getTypeObject != seed.getTypeObject => driver.getTypeObject match {
                   case `TypeBool` => {
-                    seed(ctx.seedOffset) := seed(ctx.seedOffset).getZero
+                    seed(ctx.seedOffset).setAsComb() := False
                     seed.dlcLast.source = driver
                   }
                   case _ => {
-                    seed(ctx.seedOffset, width bits) := seed(ctx.otherOffset, width bits).getZero
+                    seed(ctx.seedOffset, width bits).setAsComb() := seed(ctx.otherOffset, width bits).setAsComb().getZero
                     seed.dlcLast.source = driver
                   }
                 }
@@ -492,11 +493,11 @@ class PhaseAnalog extends PhaseNetlist{
                 seed match{
                   case seed : BitVector if width != widthOf(seed) || bt.getTypeObject == TypeBool => bt.getTypeObject match {
                     case `TypeBool` => {
-                      seed(ctx.seedOffset) := seed(ctx.seedOffset).getZero
+                      seed(ctx.seedOffset).setAsComb() := seed(ctx.seedOffset).getZero
                       seed.dlcLast.source = driver
                     }
                     case _ => {
-                      seed(ctx.seedOffset, width bits) := seed(ctx.otherOffset, width bits).getZero
+                      seed(ctx.seedOffset, width bits).setAsComb() := seed(ctx.otherOffset, width bits).getZero
                       seed.dlcLast.source = driver
                     }
                   }
@@ -508,7 +509,7 @@ class PhaseAnalog extends PhaseNetlist{
         }
         for(bitId <- 0 until widthOf(seed)){
           val flushes = ArrayBuffer[(AggregateKey, AggregateCtx)]()
-          bitToIsland.get(Bit(seed, bitId, c.dslBody)) match {
+          bitToIsland.get(seed -> bitId) match {
             case Some(island) => {
               for((key, ctx) <- aggregates){
                 island.elements.contains(Bit(key.bt, (bitId - ctx.seedOffset) + ctx.otherOffset, key.scope)) match {

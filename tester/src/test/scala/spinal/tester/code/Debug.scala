@@ -88,7 +88,7 @@ object Debug extends App{
 }
 
 object DebugInOut2 extends App{
-  val report = SimConfig.withGhdl.compile(new Component {
+  val report = SimConfig.compile(new Component {
     val xxx = (Analog(Bits(8 bits)))
 
 
@@ -100,26 +100,37 @@ object DebugInOut2 extends App{
 
     val tmp1 = Analog(Bits(8 bits))
     val tmp2 = Analog(Bits(8 bits))
-    when(writeEnable) {
-      xxx(4) := write(5)
-      tmp2(5) := write(6)
-      tmp1(6, 2 bits) := write(2, 2 bits)
-      tmp1 := write
-    }
     val sub = new Component{
 //      val subIo = inout(Analog(Bool()))
       val subIo = inout(Analog(Bits(8 bits)))
 //      val a = in Bits(8 bits)
 //      val b = out Bits(8 bits)
     }
-    sub.subIo(7 downto 2) := tmp1.apply(5 downto 0).setAsAnalog()
-    sub.subIo(1 downto 0) := tmp1.apply(7 downto 6).setAsAnalog()
+    when(writeEnable) {
+      xxx(4) := write(5)
+      tmp2(5) := write(6)
+      tmp1(6, 2 bits) := write(2, 2 bits)
+      tmp1 := write
+    }
+
+    sub.subIo(7 downto 2) := tmp1.apply(5 downto 0)
+    sub.subIo(1 downto 0) := tmp1.apply(7 downto 6)
+    println("asd")
 //    val a = in Bits(8 bits)
 //    val b = out Bits(8 bits)
 //    sub.a <> a
 //    sub.b <> b
     xxx := tmp1
     tmp2 := tmp1
+//    sub.subIo := tmp1
+
+//    when(writeEnable) {
+//      xxx(4) := write(5)
+//      tmp2(5) := write(6)
+//      tmp1(6, 2 bits) := write(2, 2 bits)
+//      tmp1 := write
+//    }
+
 //    val tmp3 = Analog(Bits(4 bits))
 //    tmp3 := tmp1(3, 4 bits).setAsAnalog() //TODO keep
 //    io(2) := sub.subIo
@@ -127,12 +138,31 @@ object DebugInOut2 extends App{
 //    io(4) := sub.subIo
 //     io(4) := sub.subIo
 
-
+    val a,b,c,d = new Component{
+      //      val subIo = inout(Analog(Bool()))
+      val yyy = inout(Analog(Bool()))
+      //      val a = in Bits(8 bits)
+      //      val b = out Bits(8 bits)
+    }
+    val zzz = inout(Analog(Bits(4 bits)))
+    zzz(0) := a.yyy
+    zzz(1) := b.yyy
+    zzz(2) := c.yyy
+    zzz(3) := d.yyy
     setDefinitionName("toplevel")
   }).doSim{dut => }
 }
 
-
+object DebugInOut3 extends App{
+  case class Top() extends Component {
+    val test = inout(Analog(Bits(8 bits)))
+    val sub = new BlackBox {
+      val subIo = inout(Analog(Bits(8 bit)))
+    }
+    test(7 downto 0) := sub.subIo(7 downto 0)
+  }
+  SpinalVerilog(Top())
+}
 
 object DebugSim {
 
