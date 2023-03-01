@@ -336,7 +336,8 @@ class PhaseAnalog extends PhaseNetlist{
               case e: BitVectorRangedAccessFixed => (e.lo to e.hi)
               case _ => SpinalError(s"Unsupported statement $s")
             }
-            assert(targetRange.size == sourceRange.size)
+            if(targetRange.size != sourceRange.size)
+              SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT $s\n${s.getScalaLocationLong}")
             for(i <- 0 until targetRange.size){
               val a = Bit(targetBt, targetRange.low + i, c.dslBody)
               val b = Bit(sourceBt, sourceRange.low + i, s.parentScope)
