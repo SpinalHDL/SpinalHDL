@@ -315,11 +315,7 @@ class PhaseAnalog extends PhaseNetlist{
           val targetBt = s.finalTarget
           val sourceBt : BaseType = s.source match {
             case bt: BaseType => bt
-            case e: BitVectorBitAccessFixed => e.source match {
-              case bt: BaseType => bt
-              case _ => null
-            }
-            case e: BitVectorRangedAccessFixed => e.source match {
+            case e: SubAccess => e.getBitVector match {
               case bt: BaseType => bt
               case _ => null
             }
@@ -331,11 +327,13 @@ class PhaseAnalog extends PhaseNetlist{
               case bt: BaseType => (0 until bt.getBitsWidth)
               case e: BitAssignmentFixed => (e.bitId to e.bitId)
               case e: RangedAssignmentFixed => (e.lo to e.hi)
+              case _ => SpinalError(s"Unsupported statement $s")
             }
             val sourceRange = s.source match {
               case bt: BaseType => (0 until bt.getBitsWidth)
               case e: BitVectorBitAccessFixed => (e.bitId to e.bitId)
               case e: BitVectorRangedAccessFixed => (e.lo to e.hi)
+              case _ => SpinalError(s"Unsupported statement $s")
             }
             assert(targetRange.size == sourceRange.size)
             for(i <- 0 until targetRange.size){
