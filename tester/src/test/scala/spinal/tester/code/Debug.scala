@@ -44,6 +44,8 @@ object CamTest{
   }
 }
 
+
+
 object Debug extends App{
   val report = SpinalVerilog(new Component {
     val a, b, c, d = in UInt(8 bits)
@@ -196,12 +198,18 @@ object Tesasdadt extends App{
 object Debug2 extends App{
   SpinalConfig(allowOutOfRangeLiterals = true)
   def gen = new Component{
-
+    val cdA = ClockDomain.external("cdA")
+    val cdB = ClockDomain.external("cdB")
+    val input = in Bool()
+    val regA = cdA(RegNext(input))
+    val tmp = CombInit(regA)
+    val outputA = cdA(out(RegNext(tmp)))
+    val outputB = cdB(out(RegNext(tmp)))
 //    val value = in UInt(2 bits)
 ////    val result = out((value < U"101011"))
 //
 //    val result = out((value < U"101011"))
-    val xxx = B(32 bits, (12 downto 11) -> B"11", default -> false)
+//    val xxx = B(32 bits, (12 downto 11) -> B"11", default -> false)
 
 //    val x = True
 //    val y = False
@@ -597,6 +605,14 @@ object Debug4 extends App{
     println(LatencyAnalysis(a.data, b.rsp))
     println(LatencyAnalysis(b.cmd.payload, b.rsp))
   })
+}
+object Debug4444 extends App{
+  val top = SpinalVerilog(new Component{
+    val xxx = in Bool()
+    val yyy = CombInit(xxx)
+    val zzz = RegNext(yyy)
+  }).toplevel
+//  AnalysisUtils.reportToplevelIoCd(top)
 }
 
 

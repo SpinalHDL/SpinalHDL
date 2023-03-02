@@ -724,12 +724,13 @@ object AnalysisUtils{
     }
   }
 
-  def reportToplevelIoCd(top : Component): Unit ={
+  def foreachToplevelIoCd(top : Component)(body : (BaseType, Seq[ClockDomain]) => Unit): Unit ={
     top.getAllIo.foreach{
       case i if i.isInput => {
         val cds = i.getTags().collect{ case t : ClockDomainReportTag => t.clockDomain}
-        val clocks = cds.map(_.clock).distinctLinked
-        println(s"${i.getName()} sampled by ${clocks.map(_.getName()).mkString(",")}")
+        body(i, cds.toList)
+//        val clocks = cds.map(_.clock).distinctLinked
+//        println(s"${i.getName()} sampled by ${clocks.map(_.getName()).mkString(",")}")
       }
       case o if o.isOutput => {
         val cds = mutable.LinkedHashSet[ClockDomain]()
@@ -737,8 +738,9 @@ object AnalysisUtils{
           case bt : BaseType if bt.isReg => cds += bt.clockDomain
           case _ => println("???")
         }
-        val clocks = cds.map(_.clock).distinctLinked
-        println(s"${o.getName()} clocked by ${clocks.map(_.getName()).mkString(",")}")
+        body(o, cds.toList)
+//        val clocks = cds.map(_.clock).distinctLinked
+//        println(s"${o.getName()} clocked by ${clocks.map(_.getName()).mkString(",")}")
       }
     }
   }
