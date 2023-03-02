@@ -43,6 +43,11 @@ case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag{
   override def allowMultipleInstance = false
 }
 
+case class ClockDomainReportTag(clockDomain: ClockDomain) extends SpinalTag{
+  override def toString = s"ClockDomainReportTag($clockDomain)"
+  override def allowMultipleInstance = true
+}
+
 sealed trait ClockDomainBoolTag extends SpinalTag{
   override def allowMultipleInstance = true
 }

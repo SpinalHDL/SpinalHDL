@@ -1557,6 +1557,12 @@ class PhaseCheckCrossClock() extends PhaseCheck{
 
         val newPath = node :: path
 
+        //Add tag to the toplevel inputs and blackbox inputs as a report
+        node match {
+          case bt : BaseType if bt.component == topLevel || bt.component.isInBlackBoxTree && !bt.isDirectionLess=> bt.addTag(ClockDomainReportTag(clockDomain))
+          case _ =>
+        }
+
         def issue(syncDriver: BaseNode with ScalaLocated, otherClockDomain: ClockDomain): Unit = {
           val wellNameLoop = new StringBuilder()
 
