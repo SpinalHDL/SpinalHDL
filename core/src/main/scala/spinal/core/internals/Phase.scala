@@ -358,7 +358,8 @@ class PhaseAnalog extends PhaseNetlist{
               island.add(a)
               island.add(b)
               bitToIsland(a.bt -> a.bitId) = island
-              bitToIsland(b.bt -> b.bitId) = island
+              //Do not add digital drivers into the island merge logic
+              if(b.bt.isAnalog) bitToIsland(b.bt -> b.bitId) = island
 
             }
             s.removeStatement()
@@ -376,7 +377,9 @@ class PhaseAnalog extends PhaseNetlist{
 
       //Process the islands to generate seeds from component analog inouts, and build the group list for connections without inout analog
       islands.foreach(island => {
-        island.elements.count(e => e.bt.isInOut && e.bt.component == c) match {
+        val filtred = island.elements.map(_.bt).toSet
+        val count = filtred.count(e => e.isInOut && e.component == c)
+        count match {
           case 0 => { //No analog inout, will need to create a connection seed later on
             val groups = island.elements.map(b => anlogToGroup.get(b.bt)).filter(_.nonEmpty).map(_.get).toArray.distinct
             val finalGroup = groups.length match {
