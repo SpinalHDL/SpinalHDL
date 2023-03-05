@@ -299,27 +299,41 @@ abstract class BitVector extends BaseType with Widthable {
   }
 
   /**
-    * Split the BitVector into x slice
-    * @example {{{ val res = myBits.subdiviedIn(3 slices) }}}
-    * @param sliceCount the width of the slice
-    * @return a Vector of slices
-    */
-  def subdivideIn(sliceCount: SlicesCount, strict : Boolean): Vec[T] = {
-    require(!strict || this.getWidth % sliceCount.value == 0)
-    val sliceWidth = widthOf(this) / sliceCount.value + (if(widthOf(this) % sliceCount.value != 0) 1 else 0)
-    val w = getWidth
-    Vec((0 until sliceCount.value).map(i => this(i * sliceWidth, (w-i * sliceWidth) min sliceWidth bits).asInstanceOf[T]))
+   * Split the BitVector into x slice
+   *
+   * @example {{{ val res = myBits.subdivideIn(3 slices) }}}
+   * @param sliceCount the width of the slice
+   * @param strict     allow `subdivideIn` to generate vectors with varying size
+   * @return a Vector of slices
+   */
+  def subdivideIn(sliceCount: SlicesCount, strict: Boolean): Vec[T] = {
+    val width = getWidth
+    val dividesEvenly = width % sliceCount.value == 0
+    require(!strict || dividesEvenly,
+      s"subdivideIn can't evenly divide $width bit into ${sliceCount.value} slices as required by strict=true")
+    val sliceWidth = width / sliceCount.value + (if (!dividesEvenly) 1 else 0)
+    Vec(
+      (0 until sliceCount.value)
+        .map(i => this (i * sliceWidth, (width - i * sliceWidth) min sliceWidth bits).asInstanceOf[T])
+    )
   }
 
   /**
-    * Split the BitVector into slice of x bits
-    * * @example {{{ val res = myBits.subdiviedIn(3 bits) }}}
-    * @param sliceWidth the width of the slice
-    * @return a Vector of slices
-    */
-  def subdivideIn(sliceWidth: BitCount, strict : Boolean): Vec[T] = {
-    require(!strict || this.getWidth % sliceWidth.value == 0)
-    subdivideIn((this.getWidth + sliceWidth.value - 1) / sliceWidth.value slices, strict)
+   * Split the BitVector into slice of x bits
+   *
+   * @example {{{ val res = myBits.subdivideIn(3 bits) }}}
+   * @param sliceWidth the width of the slice
+   * @param strict     allow `subdivideIn` to generate vectors with varying size
+   * @return a Vector of slices
+   */
+  def subdivideIn(sliceWidth: BitCount, strict: Boolean): Vec[T] = {
+    val width = widthOf(this)
+    require(!strict || width % sliceWidth.value == 0,
+      s"subdivideIn can't evenly divide $width bit into ${sliceWidth.value} bit slices, as required by strict=true")
+    Vec(
+      (0 until width by sliceWidth.value)
+        .map(i => this.apply(i until ((i + sliceWidth.value) min width)).asInstanceOf[T])
+    )
   }
 
 
