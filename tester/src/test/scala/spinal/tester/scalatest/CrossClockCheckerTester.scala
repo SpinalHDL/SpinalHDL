@@ -44,7 +44,7 @@ class CrossClockCheckerTesterC extends Component{
 }
 
 
-class CrossClockCheckerTester extends AnyFunSuite{
+class CrossClockCheckerTester extends SpinalAnyFunSuite{
   import CheckTester._
 
   test("a") {
@@ -174,7 +174,7 @@ class SyncronousCheckerTesterD(v : Int) extends Component{
   }
 }
 
-class SyncronousCheckerTester extends AnyFunSuite{
+class SyncronousCheckerTester extends SpinalAnyFunSuite{
   import CheckTester._
 
   test("a") { generationShouldPass(new SyncronousCheckerTesterA) }

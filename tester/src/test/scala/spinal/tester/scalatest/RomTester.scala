@@ -142,7 +142,7 @@ class RomTesterCocotbBoot3 extends SpinalTesterCocotbBase {
   }
 }
 
-class SpinalSimRomTester extends AnyFunSuite {
+class SpinalSimRomTester extends SpinalAnyFunSuite {
   test("test1"){
     import spinal.core.sim._
     import spinal.sim._

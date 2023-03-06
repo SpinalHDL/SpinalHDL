@@ -35,7 +35,7 @@ import scala.util.Random
 
 
 
-class SpinalSimSpiXdrMaster extends AnyFunSuite {
+class SpinalSimSpiXdrMaster extends SpinalAnyFunSuite {
   SpinalSimTester { env =>
     import env._
     var compiled: SimCompiled[SpiXdrMasterCtrl.TopLevel] = null

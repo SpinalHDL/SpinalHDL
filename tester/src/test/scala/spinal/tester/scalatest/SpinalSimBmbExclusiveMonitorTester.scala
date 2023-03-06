@@ -22,7 +22,7 @@ private object MODIFY
 private object WRITE_CMD
 private object WRITE_RSP
 
-class SpinalSimBmbExclusiveMonitorTester extends AnyFunSuite{
+class SpinalSimBmbExclusiveMonitorTester extends SpinalAnyFunSuite{
   test("miaou") {
     SimConfig.compile(
       new BmbExclusiveMonitor(

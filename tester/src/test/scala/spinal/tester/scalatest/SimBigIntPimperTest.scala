@@ -4,7 +4,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim._
 import spinal.core.{BIG, Endianness, LITTLE}
 
-class SimBigIntPimperTest extends AnyFunSuite {
+class SimBigIntPimperTest extends SpinalAnyFunSuite {
   def toBytes(bi: BigInt, bits: Int = -1, endian: Endianness = LITTLE) =
     bi.toBytes(bits, endian).map(i => f"$i%02x").mkString(" ")
   test("positive") {

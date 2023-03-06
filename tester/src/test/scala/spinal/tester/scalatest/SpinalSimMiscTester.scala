@@ -69,7 +69,7 @@ object SpinalSimTester{
   }
 }
 
-class SpinalSimTesterTest extends AnyFunSuite {
+class SpinalSimTesterTest extends SpinalAnyFunSuite {
   SpinalSimTester{ env =>
     import env._
 
@@ -79,7 +79,7 @@ class SpinalSimTesterTest extends AnyFunSuite {
   }
 }
 
-class SpinalSimFunSuite extends AnyFunSuite{
+class SpinalSimFunSuite extends SpinalAnyFunSuite{
   var tester : SpinalSimTester = null
   def SimConfig = tester.SimConfig
   var durationFactor = 0.0
@@ -109,7 +109,7 @@ class SpinalSimFunSuite extends AnyFunSuite{
   }
 }
 
-class SpinalSimMiscTester extends AnyFunSuite {
+class SpinalSimMiscTester extends SpinalAnyFunSuite {
   SpinalSimTester { env =>
     import env._
     var compiled: SimCompiled[tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter] = null

@@ -41,7 +41,7 @@ object CheckTester{
   }
 }
 
-class ChecksTester extends AnyFunSuite  {
+class ChecksTester extends SpinalAnyFunSuite  {
   import CheckTester._
 
 
@@ -505,7 +505,7 @@ class ChecksTester extends AnyFunSuite  {
 
 }
 
-class RepeatabilityTester extends AnyFunSuite{
+class RepeatabilityTester extends SpinalAnyFunSuite{
   var checkOutputHashCounter = 0
   def checkOutputHash(gen : => Component): Unit ={
     checkOutputHashCounter = checkOutputHashCounter + 1
@@ -556,7 +556,7 @@ class RepeatabilityTester extends AnyFunSuite{
   }
 }
 
-class NameingTester extends AnyFunSuite {
+class NameingTester extends SpinalAnyFunSuite {
   import CheckTester._
 
 

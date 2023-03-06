@@ -14,7 +14,7 @@ import spinal.lib.system.dma.sg.DmaSg
 
 import scala.collection.mutable
 
-class SpinalSimSigmaDeltaTester extends AnyFunSuite{
+class SpinalSimSigmaDeltaTester extends SpinalAnyFunSuite{
   test("a"){
     SimConfig.compile(
       BmbBsbToDeltaSigma(

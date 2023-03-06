@@ -10,7 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.sys.process._
 
-abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfterAll with ParallelTestExecution*/ {
+abstract class SpinalTesterCocotbBase extends SpinalAnyFunSuite /* with BeforeAndAfterAll with ParallelTestExecution*/ {
   def workspaceRoot = "./cocotbWorkspace"
   def waveFolder = sys.env.getOrElse("WAVES_DIR", new File(workspaceRoot).getAbsolutePath)
   var withWaveform = false
