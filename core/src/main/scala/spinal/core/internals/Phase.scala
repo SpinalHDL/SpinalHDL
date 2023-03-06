@@ -2521,6 +2521,28 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc {
   }
 }
 
+class PhaseFillRegsInit() extends Phase{
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkDeclarations {
+      case bt: BaseType if bt.isReg && bt.clockDomain.canInit => {
+        if (!bt.hasInit) {
+          bt.parentScope.on {
+            bt.init(bt.getZero)
+          }
+        } else {
+          bt.foreachStatements{
+            case s : InitAssignmentStatement => s.target == bt
+            case _ =>
+          }
+        }
+      }
+      case _ =>
+    }
+  }
+
+  override def hasNetlistImpact: Boolean = true
+}
+
 
 object SpinalVhdlBoot{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
