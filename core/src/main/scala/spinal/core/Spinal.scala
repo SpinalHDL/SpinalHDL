@@ -131,7 +131,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         defaultConfigForClockDomains   : ClockDomainConfig = ClockDomainConfig(),
                         onlyStdLogicVectorAtTopLevelIo : Boolean = false,
                         defaultClockDomainFrequency    : IClockDomainFrequency = UnknownFrequency(),
-                        targetDirectory                : String = ".",
+                        targetDirectory                : String = SpinalConfig.defaultTargetDirectory,
                         oneFilePerComponent            : Boolean = false,
                         netlistFileName                : String = null,
                         dumpWave                       : DumpWaveConfig = null,
@@ -262,6 +262,8 @@ object SpinalConfig{
       case None         => ???
     }
   }
+
+  var defaultTargetDirectory: String = "."
 }
 
 

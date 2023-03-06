@@ -5,7 +5,7 @@ import spinal.core._
 
 import scala.sys.process._
 
-abstract class SpinalTesterGhdlBase extends AnyFunSuite  {
+abstract class SpinalTesterGhdlBase extends SpinalAnyFunSuite  {
 
   var withWaveform = false
   var elaborateMustFail = false
