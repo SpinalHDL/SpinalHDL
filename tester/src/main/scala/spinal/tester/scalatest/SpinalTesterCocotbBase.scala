@@ -10,7 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.sys.process._
 
-abstract class SpinalTesterCocotbBase extends SpinalAnyFunSuite /* with BeforeAndAfterAll with ParallelTestExecution*/ {
+abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfterAll with ParallelTestExecution*/ {
   def workspaceRoot = "./cocotbWorkspace"
   def waveFolder = sys.env.getOrElse("WAVES_DIR", new File(workspaceRoot).getAbsolutePath)
   var withWaveform = false
@@ -18,14 +18,13 @@ abstract class SpinalTesterCocotbBase extends SpinalAnyFunSuite /* with BeforeAn
   var cocotbMustPass = true
   var genHdlSuccess = false
   var waveDepth = 99
-  var cocotbWorkspace = "./cocotbWorkspace"
   def noVhdl = false
   def noVerilog = false
 
   def genVhdl: Unit ={
     try {
-      new File(cocotbWorkspace).mkdirs()
-      backendConfig(SpinalConfig(mode = VHDL, targetDirectory=cocotbWorkspace)).generate(createToplevel)
+      new File(workspaceRoot).mkdirs()
+      backendConfig(SpinalConfig(mode = VHDL, targetDirectory=workspaceRoot)).generate(createToplevel)
       genHdlSuccess = true
     } catch {
       case e: Throwable => {
@@ -39,8 +38,8 @@ abstract class SpinalTesterCocotbBase extends SpinalAnyFunSuite /* with BeforeAn
 
   def genVerilog: Unit ={
     try {
-      new File(cocotbWorkspace).mkdirs()
-      backendConfig(SpinalConfig(mode = Verilog, targetDirectory=cocotbWorkspace, dumpWave = if(withWaveform) DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + "_verilog.vcd") else null)).generate(createToplevel)
+      new File(workspaceRoot).mkdirs()
+      backendConfig(SpinalConfig(mode = Verilog, targetDirectory=workspaceRoot, dumpWave = if(withWaveform) DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + "_verilog.vcd") else null)).generate(createToplevel)
       genHdlSuccess = true
     } catch {
       case e: Throwable => {
