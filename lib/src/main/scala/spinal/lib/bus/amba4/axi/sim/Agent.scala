@@ -350,6 +350,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
     this(bus.ar, bus.r, clockDomain);
   }
 
+  var baseLatency = 0l
   val busConfig = ar.config
   if(!busConfig.useLen){
     SpinalWarning("The Axi4Config with useLen == false is only tested by assigning len = 0, " 
@@ -361,6 +362,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val rQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   def readByte(address : BigInt) : Byte = Random.nextInt().toByte
+  def onReadStart(address : BigInt, size : Int, length : Int) : Unit = {}
 
   val arMonitor = StreamMonitor(ar, clockDomain){ar =>
     val size = if(busConfig.useSize) ar.size.toInt else log2Up(busConfig.dataWidth / 8)
@@ -370,26 +372,29 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
     val addr = ar.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
-    for(beat <- 0 to len) {
-      val beatAddress = burst match {
-        case 0 => addr
-        case 1 => (addr + bytePerBeat*beat) & ~BigInt(busConfig.bytePerWord-1)
-        case 2 => {
-          val base = addr & ~BigInt(bytes-1)
-          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(busConfig.bytePerWord-1)
+    onReadStart(addr, size, len)
+    delayed(baseLatency) {
+      for(beat <- 0 to len) {
+        val beatAddress = burst match {
+          case 0 => addr
+          case 1 => (addr + bytePerBeat*beat) & ~BigInt(busConfig.bytePerWord-1)
+          case 2 => {
+            val base = addr & ~BigInt(bytes-1)
+            (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(busConfig.bytePerWord-1)
+          }
         }
-      }
-      rQueue(id) += { () =>
-        if(busConfig.useId) r.id #= id
-        if(busConfig.useResp) r.resp #= 0
-        if(busConfig.useLast) r.last #= (beat == len)
-        var data = BigInt(0)
-        for(i <- 0 until busConfig.bytePerWord){
-          data = data | (BigInt(readByte(beatAddress + i).toInt & 0xFF)) << i*8
-        }
-        r.data #= data
-        if(beat == len){
-          arQueue.dequeue()
+        rQueue(id) += { () =>
+          if (busConfig.useId) r.id #= id
+          if (busConfig.useResp) r.resp #= 0
+          if (busConfig.useLast) r.last #= (beat == len)
+          var data = BigInt(0)
+          for (i <- 0 until busConfig.bytePerWord) {
+            data = data | (BigInt(readByte(beatAddress + i).toInt & 0xFF)) << i * 8
+          }
+          r.data #= data
+          if (beat == len) {
+            arQueue.dequeue()
+          }
         }
       }
     }
@@ -472,7 +477,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
 
       wProcess += { (w : WTransaction) =>
         if(busConfig.useLast) assert(w.last == (beat == len))
-        val strb = if(busConfig.useStrb) w.strb.toInt else ((1 << busConfig.bytePerWord) - 1)
+        val strb = if(busConfig.useStrb) w.strb.toLong else ((1l << busConfig.bytePerWord) - 1)
         val data = w.data
         val start = ((beatAddress & ~BigInt(bytePerBeat-1)) - accessAddress).toInt
         val end = start + bytePerBeat
@@ -491,7 +496,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   }
 
   val wMonitor = StreamMonitor(w, clockDomain){w =>
-    val strb = if(busConfig.useStrb) w.strb.toInt else ((1 << busConfig.bytePerWord) - 1)
+    val strb = if(busConfig.useStrb) w.strb.toLong else ((1l << busConfig.bytePerWord) - 1)
     val last = if(busConfig.useLast) w.last.toBoolean else false
     wQueue += WTransaction(w.data.toBigInt, strb, last)
     update()

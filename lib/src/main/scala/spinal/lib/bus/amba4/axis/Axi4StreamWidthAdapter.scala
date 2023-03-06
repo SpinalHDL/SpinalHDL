@@ -39,7 +39,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
   val MAX_SIZE = Math.max(inConfig.dataWidth*2, outConfig.dataWidth*2)
 
   val buffer     = Reg(Axi4StreamBundle(inConfig.copy(dataWidth = MAX_SIZE, useLast = false, useId = false, useDest = false)))
-  buffer.keep.init(B(buffer.keep.bitsRange -> False))
+  if (inConfig.useKeep) { buffer.keep.init(B(buffer.keep.bitsRange -> False)) }
   // Store valid byte bits OR wire in keep as it's functionally the same
   val bufferValid = if (needsValid) { Reg(Bits(MAX_SIZE bit)) init(0) } else buffer.keep
   val bufferLast = RegInit(False)
@@ -56,7 +56,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
     val bufExtDataWidth = bufDataWidth+Math.min(inDataWidth, outDataWidth)
     val bufferExt_data = Bits(8*bufExtDataWidth bit)
     val bufferExt_valid = needsValid generate { Bits(bufExtDataWidth bit) }
-    val bufferExt_keep = Bits(bufExtDataWidth bit)
+    val bufferExt_keep = inConfig.useKeep generate Bits(bufExtDataWidth bit)
     val bufferExt_strb = inConfig.useStrb generate Bits(bufExtDataWidth bit)
     val bufferExt_user = inConfig.useUser generate Bits(bufExtDataWidth*bufUserWidth bit)
 
@@ -124,7 +124,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
 
     val buffer_data = Bits(outBufDataWidth*8 bit)
     val buffer_valid = needsValid generate { Bits(outBufDataWidth bit) }
-    val buffer_keep = Bits(outBufDataWidth bit)
+    val buffer_keep = inConfig.useKeep generate Bits(outBufDataWidth bit)
     val buffer_strb = inConfig.useStrb generate Bits(outBufDataWidth bit)
     val buffer_user = inConfig.useUser generate Bits(outBufDataWidth*bufUserWidth bit)
 
@@ -181,7 +181,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
   outStream.config.useUser generate { outStream.user := buffer.user(outConfig.dataWidth*outConfig.userWidth-1 downto 0) }
   inConfig.useId   generate { outStream.id := bufferId }
   inConfig.useDest generate { outStream.dest := bufferDest }
-  outStream.last := bufferLast && !bufferValid(outConfig.dataWidth)
+  outStream.config.useLast generate { outStream.last := bufferLast && !bufferValid(outConfig.dataWidth) }
 
   // Buffer update
   val fillLevel = Reg(UInt(log2Up(MAX_SIZE) bit)) init(0)

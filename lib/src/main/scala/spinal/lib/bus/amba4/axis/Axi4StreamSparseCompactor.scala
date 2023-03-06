@@ -29,51 +29,69 @@ class Axi4StreamSparseCompactor(config: Axi4StreamConfig) extends Component {
 
   io.axis_m << outStage
 
-  def indexOfBoolN(bools: Seq[Boolean], n: Int): Int = {
-    var boolCount = 0
-    for ((b, i) <- bools.zipWithIndex) {
-      if (b) {
-        boolCount += 1
-      }
-      if (boolCount == n) {
-        return i
+  /**
+    * Generates all possible permutations of N bits which fit within the width
+    *
+    * For example: walkLowBits(4, 2) would generate:
+    *     11
+    *    101
+    *    110
+    *   1001
+    *   1010
+    *   1100
+    * @param width Maximum bit width
+    * @param n Number of set bits
+    * @return A sequence of BigInts representing each permutation
+    */
+  def walkLowBits(width: Int, n: Int): Seq[BigInt] = {
+    // Early exit case, preserves map recursion
+    if (width <= 0 || n <= 0) {
+      Seq(0)
+    } else {
+      // Work up the width as to make lower permutations first
+      (n - 1 until width).flatMap { i =>
+        walkLowBits(i, n - 1).map { o =>
+          (BigInt(1) << i) + o
+        }
       }
     }
-    -1
+  }
+
+  /**
+    * Calculates the position of the Nth set bit in the bit set
+    * @param bits Bits
+    * @param n Lowest set bit to search for, 0 indexed
+    * @return Position of the Nth set bit or widthOf(bits) if not found
+    */
+  def indexOfBoolN(bits: Bits, n: Int): UInt = {
+    val index = U(widthOf(bits), log2Up(widthOf(bits)+1) bit)
+
+    for(matchInt <- walkLowBits(widthOf(bits), n+1)) {
+      val matchBits = B(matchInt)
+      when(bits.takeLow(widthOf(matchBits)) === matchBits) {
+        index := U(widthOf(matchBits)-1)
+      }
+    }
+
+    index
   }
 
   def compactAxisBundle(bundle: Axi4StreamBundle): Axi4StreamBundle = {
     val outBundle = bundle.clone
     val dataWidth = bundle.config.dataWidth
 
-    val keepUInt = bundle.keep.asUInt
-
     for (idx <- 0 until dataWidth) {
-      val rawMapping = (0 until Math.pow(2, dataWidth).intValue()).map(BigInt(_)).map(keepEntry => {
-        (0 until config.dataWidth).map(keepEntry.testBit).toList
-      }).map(bools => {
-        if (bools.count(b => b) < (idx+1)) {
-          dataWidth
-        } else {
-          val boolIdx = indexOfBoolN(bools, idx+1)
-          if (boolIdx >= 0)
-            boolIdx
-          else
-            dataWidth
-        }
-      })
-
-      val mapping = rawMapping.map(IntToUInt)
+      val index = indexOfBoolN(bundle.keep, idx)
 
       val mux_data = invalidByte_data ## bundle.data
       val mux_keep = invalidByte_keep ## bundle.keep
       val mux_strb = bundle.config.useStrb generate { invalidByte_strb ## bundle.strb }
       val mux_user = bundle.config.useUser generate { invalidByte_user ## bundle.user }
 
-      outBundle.data.subdivideIn(dataWidth slices)(idx) := mux_data.subdivideIn(dataWidth+1 slices)(mapping(keepUInt))
-      outBundle.keep.subdivideIn(dataWidth slices)(idx) := mux_keep.subdivideIn(dataWidth+1 slices)(mapping(keepUInt))
-      bundle.config.useStrb generate { outBundle.strb.subdivideIn(dataWidth slices)(idx) := mux_strb.subdivideIn(dataWidth+1 slices)(mapping(keepUInt)) }
-      bundle.config.useUser generate { outBundle.user.subdivideIn(dataWidth slices)(idx) := mux_user.subdivideIn(dataWidth+1 slices)(mapping(keepUInt)) }
+      outBundle.data.subdivideIn(dataWidth slices)(idx) := mux_data.subdivideIn(dataWidth+1 slices)(index)
+      outBundle.keep.subdivideIn(dataWidth slices)(idx) := mux_keep.subdivideIn(dataWidth+1 slices)(index)
+      bundle.config.useStrb generate { outBundle.strb.subdivideIn(dataWidth slices)(idx) := mux_strb.subdivideIn(dataWidth+1 slices)(index) }
+      bundle.config.useUser generate { outBundle.user.subdivideIn(dataWidth slices)(idx) := mux_user.subdivideIn(dataWidth+1 slices)(index) }
     }
 
     bundle.config.useId generate { outBundle.id := bundle.id }

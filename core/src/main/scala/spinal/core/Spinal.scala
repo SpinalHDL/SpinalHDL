@@ -58,6 +58,7 @@ object Device{
   val XILINX = Device(vendor = "xilinx")
   val LATTICE = Device(vendor = "lattice")
   val ACTEL = Device(vendor = "actel")
+  val ASIC = Device(vendor = "asic")
   val NONE = Device(vendor = "none")
 }
 

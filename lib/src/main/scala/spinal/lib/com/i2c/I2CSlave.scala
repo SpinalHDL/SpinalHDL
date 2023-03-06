@@ -118,6 +118,7 @@ case class I2cSlaveIo(g: I2cSlaveGenerics) extends Bundle {
   val i2c    = master(I2c())
   val config = in(I2cSlaveConfig(g))
   val bus    = master(I2cSlaveBus())
+  val timeout = out Bool()
 
   val internals = out(new Bundle {
     val inFrame = Bool()
@@ -266,10 +267,10 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
 
     counter := counter - 1
 
-    when(sclEdge.toggle || !ctrl.inFrame || io.config.timeoutClear){
+    when(tick || sclEdge.toggle || (!ctrl.inFrame && filter.scl && filter.sda) || io.config.timeoutClear){
       counter := io.config.timeout
-      tick    := False
     }
+    io.timeout := tick
   }
 
   when(detector.stop || timeout.tick){

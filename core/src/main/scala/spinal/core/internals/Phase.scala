@@ -1237,7 +1237,11 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
             case port: MemReadWrite => withWrite = true
             case port: MemReadSync =>
           }
-          if (hit && withWrite) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+          val alreadyTagged = mem.getTags().exists{
+            case a : AttributeString if a.getName == "ram_style" => true
+            case _ => false
+          }
+          if (hit && withWrite && !alreadyTagged) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
         }
         case bt: BaseType => {
           if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
@@ -1552,6 +1556,12 @@ class PhaseCheckCrossClock() extends PhaseCheck{
         node.algoIncrementale = walked
 
         val newPath = node :: path
+
+        //Add tag to the toplevel inputs and blackbox inputs as a report
+        node match {
+          case bt : BaseType if bt.component == topLevel || bt.component.isInBlackBoxTree && !bt.isDirectionLess=> bt.addTag(ClockDomainReportTag(clockDomain))
+          case _ =>
+        }
 
         def issue(syncDriver: BaseNode with ScalaLocated, otherClockDomain: ClockDomain): Unit = {
           val wellNameLoop = new StringBuilder()
@@ -2509,6 +2519,28 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc {
   override def impl(pc : PhaseContext): Unit = {
     doThat
   }
+}
+
+class PhaseFillRegsInit() extends Phase{
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkDeclarations {
+      case bt: BaseType if bt.isReg && bt.clockDomain.canInit => {
+        if (!bt.hasInit) {
+          bt.parentScope.on {
+            bt.init(bt.getZero)
+          }
+        } else {
+          bt.foreachStatements{
+            case s : InitAssignmentStatement => s.target == bt
+            case _ =>
+          }
+        }
+      }
+      case _ =>
+    }
+  }
+
+  override def hasNetlistImpact: Boolean = true
 }
 
 

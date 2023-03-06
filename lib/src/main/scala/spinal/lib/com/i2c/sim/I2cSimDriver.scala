@@ -78,54 +78,57 @@ class OpenDrainInterconnect {
 }
 
 
-abstract class I2cSoftMaster(scl : OpenDrainSoftConnection,sda : OpenDrainSoftConnection, baudPeriod : Int){
+abstract class I2cSoftMaster(scl : OpenDrainSoftConnection,sda : OpenDrainSoftConnection, baudPeriod : Int) extends AreaRoot {
 
     
 //  def waitScl() = waitUntil(scl.read())
 //  def wait(bauds) = sleep(period*bauds)
 
-  class Event
+  class Event extends Nameable
   val START, STOP, ACK, NACK = new Event
   case class DATA(value : Int) extends Event
 
+  var manual = false
   var sdaOld = sda.read()
   var sclOld = scl.read()
   var counter = 0
   var buffer = 0
   val driveFeed = mutable.Queue[Boolean]()
   forkSensitive {
-    val sdaNew = sda.read()
-    val sclNew = scl.read()
+    if(!manual) {
+      val sdaNew = sda.read()
+      val sclNew = scl.read()
 
-    if(sclNew && sdaOld != sdaNew) {
-      if(!sdaNew) {
-        event(START)
-        counter = 0
-        buffer = 0
-      } else {
-        sda.write(true)
-        event(STOP)
-      }
-    }
-    if(sclOld != sclNew) {
-      if(!sclNew) {
-        //drive
-        delayed(baudPeriod/4)( sda.write(if(driveFeed.nonEmpty) driveFeed.dequeue() else true))
-      } else {
-        //read
-        counter = counter + 1
-//        println(simTime() + " " + sda.read())
-        buffer <<= 1
-        buffer |= (if(sda.read()) 1 else 0)
-        counter match {
-          case 8 => event(new DATA(buffer))
-          case 9 => event(if(sda.read()) NACK else ACK); buffer = 0; counter = 0
-          case _ =>
+      if (sclNew && sdaOld != sdaNew) {
+        if (!sdaNew) {
+          event(START)
+          counter = 0
+          buffer = 0
+        } else {
+          sda.write(true)
+          event(STOP)
         }
       }
+      if (sclOld != sclNew) {
+        if (!sclNew) {
+          //drive
+          delayed(baudPeriod / 4)(sda.write(if (driveFeed.nonEmpty) driveFeed.dequeue() else true))
+        } else {
+          //read
+          counter = counter + 1
+          //        println(simTime() + " " + sda.read())
+          buffer <<= 1
+          buffer |= (if (sda.read()) 1 else 0)
+          counter match {
+            case 8 => event(new DATA(buffer))
+            case 9 => event(if (sda.read()) NACK else ACK); buffer = 0; counter = 0
+            case _ =>
+          }
+        }
+      }
+      sdaOld = sdaNew
+      sclOld = sclNew
     }
-    sdaOld = sdaNew
-    sclOld = sclNew
   }
 
   def event(e : Event): Unit

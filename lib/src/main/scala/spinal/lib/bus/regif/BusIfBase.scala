@@ -371,9 +371,8 @@ trait BusIf extends BusIfBase {
         }
       }
     }.otherwise{
-      //async should give a value avoid latch
-      //remove else statement when readSync case for lowerPower consideration
-      if(!readSync){readData := 0 }
+      //do not keep readData after read for the reason of security risk
+      readData  := readDefaultValue
       readError := False
     }
   }

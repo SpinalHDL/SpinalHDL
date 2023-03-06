@@ -527,13 +527,14 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   class TuplePimperBase(product: Product){
     def elements = product.productIterator.asInstanceOf[Iterator[Data]]
     def := [T<:Data](_right : T): Unit ={
-      val right = _right.asBits
       val leftWidth = elements.map(_.getBitsWidth).sum
-      var rightOp = right
-      if(right.hasTag(tagAutoResize)){
-        rightOp = right.resize(leftWidth bits)
-      }
-      assert(rightOp.getWidth == leftWidth, s"Width missmatch (${right.getWidth} != $leftWidth")
+      val rightOp =
+        if(_right.hasTag(tagAutoResize))
+          _right.asBits.resize(leftWidth bits)
+        else
+          _right.asBits
+      assert(rightOp.getWidth == leftWidth, s"Width missmatch (${rightOp.getWidth} != $leftWidth)")
+
       var offset = 0
       for(e <- elements.toList.reverse){
         e.assignFromBits(rightOp(offset, e.getBitsWidth bits))
