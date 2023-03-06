@@ -64,6 +64,11 @@ case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind 
     case `ASYNC` | `SYNC` => true
     case _                => false
   }
+
+  def resetAssertValue = resetActiveLevel match {
+    case HIGH => True
+    case LOW => False
+  }
 }
 
 
