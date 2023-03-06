@@ -50,7 +50,10 @@ case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
 /**
  * target device
  */
-case class Device(vendor: String = "?", family: String = "?", name: String = "?"){
+case class Device(vendor: String = "?",
+                  family: String = "?",
+                  name: String = "?",
+                  supportBootResetKind : Boolean = true){
   def isVendorDefault = vendor == "?"
 }
 object Device{
@@ -58,7 +61,7 @@ object Device{
   val XILINX = Device(vendor = "xilinx")
   val LATTICE = Device(vendor = "lattice")
   val ACTEL = Device(vendor = "actel")
-  val ASIC = Device(vendor = "asic")
+  val ASIC = Device(vendor = "asic", supportBootResetKind = false)
   val NONE = Device(vendor = "none")
 }
 
