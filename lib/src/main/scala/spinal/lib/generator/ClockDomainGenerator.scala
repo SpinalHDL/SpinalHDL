@@ -40,20 +40,32 @@ case class ClockDomainResetGenerator() extends Area {
       )
     )
   )
+  val outputClockDomainConfig = Handle(GlobalData.get.commonClockConfig)
 
   val outputClockDomain = Handle(
     ClockDomain(
       clock = inputClockDomain.clock,
       reset = logic.outputReset,
       frequency = inputClockDomain.frequency,
-      config = ClockDomainConfig(
-        resetKind = spinal.core.SYNC
-      )
+      config = outputClockDomainConfig
+//      config = ClockDomainConfig(
+//        resetKind = spinal.core.SYNC
+//      )
     )
   )
 
   val logic = Handle{
-    new ClockingArea(inputClockDomain.copy(reset = null, config = inputClockDomain.config.copy(resetKind = BOOT))) {
+    new ClockingArea(
+      inputClockDomain.copy(
+        reset = null,
+        config = inputClockDomain.config.copy(
+          resetKind = if(GlobalData.get.config.device.supportBootResetKind)
+            BOOT
+          else
+            inputClockDomain.config.resetKind
+        )
+      )
+    ) {
       val inputResetTrigger = False
       val outputResetUnbuffered = False
 
@@ -70,13 +82,15 @@ case class ClockDomainResetGenerator() extends Area {
 
       //Keep reset active for a while
       val duration = holdDuration.get
-      val noHold = (duration == 0) generate outputResetUnbuffered.setWhen(inputResetTrigger)
+      val noHold = (duration == 0) generate when(inputResetTrigger){
+        outputResetUnbuffered := outputClockDomainConfig.resetAssertValue
+      }
       val holdingLogic = (duration != 0) generate new Area{
         val resetCounter = Reg(UInt(log2Up(duration + 1) bits))
 
         when(resetCounter =/= duration) {
           resetCounter := resetCounter + 1
-          outputResetUnbuffered := True
+          outputResetUnbuffered := outputClockDomainConfig.resetAssertValue
         }
         when(inputResetTrigger) {
           resetCounter := 0
@@ -87,7 +101,7 @@ case class ClockDomainResetGenerator() extends Area {
       val outputReset = RegNext(outputResetUnbuffered)
 
       if(inputClockDomain.config.resetKind == BOOT || powerOnReset.get){
-        outputReset init(True)
+        outputReset init(outputClockDomainConfig.resetAssertValue)
         holdingLogic.resetCounter init(0)
       }
     }
