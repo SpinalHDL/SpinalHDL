@@ -1506,7 +1506,7 @@ end
     if(e.getWidth > 4 && !e.hasPoison()){
       s"${e.getWidth}'h${e.hexString(e.getWidth,false)}"
     } else {
-      s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')}"
+      s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,if(spinalConfig.dontCareGenAsZero) '0' else 'x')}"
     }
   }
 
@@ -1546,7 +1546,7 @@ end
 
   def emitEnumPoison(e: EnumPoison): String = {
     val width = e.encoding.getWidth(e.senum)
-    s"(${width}'b${"x" * width})"
+    s"(${width}'b${(if(spinalConfig.dontCareGenAsZero) "0" else "x") * width})"
   }
 
   def accessBoolFixed(e: BitVectorBitAccessFixed): String = {
@@ -1572,7 +1572,7 @@ end
     case  e: BitVectorLiteral                         => emitBitVectorLiteral(e)
     case  e: EnumLiteral[_]                           => emitEnumLiteralWrap(e)
 
-    case  e: BoolPoison                               => "1'bx"
+    case  e: BoolPoison                               => if(spinalConfig.dontCareGenAsZero) "1'b0" else "1'bx"
     case  e: EnumPoison                               => emitEnumPoison(e)
 
     //unsigned
