@@ -268,7 +268,7 @@ object SpinalConfig{
     }
   }
 
-  var defaultTargetDirectory: String = "."
+  var defaultTargetDirectory: String = System.getenv().getOrDefault("SPINAL_TARGET_DIR", ".")
 }
 
 
