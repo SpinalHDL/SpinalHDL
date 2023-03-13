@@ -1544,3 +1544,27 @@ object MemTestCfg{
 object MemTestVerilog extends App {
 //  config.spinal.addStandardMemBlackboxing(blackboxRequestedAndUninferable).generateVerilog(MemTest(MemTestCfg.gen))
 }
+
+
+object BlackboxTuning extends App{
+  val config = SpinalConfig()
+  config.addStandardMemBlackboxing(blackboxAll)
+  import spinal.core.internals._
+  config.memBlackBoxers += new PhaseNetlist {
+    override def impl(pc: PhaseContext): Unit = {
+      pc.walkComponents{
+        case c : Ram_1w_1rs => {
+          c.genericElements.clear()
+          c.addGeneric("miaou", "wuff")
+          c.addGeneric("answer", 42)
+          c.addGeneric("WORDS", c.wordCount)
+          c.setDefinitionName(s"RAM_DP_${c.wordCount}_${c.wordWidth}")
+          c.io.wr.en.setName("WRITE_ENABLE")
+        }
+        case _ =>
+      }
+    }
+  }
+
+  config.generateVerilog(new StreamFifo(Bits(8 bits), 1024))
+}
