@@ -537,6 +537,9 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
   var address: Expression with WidthProvider = null
   var elaborationReadBits : Bits = null //Used only to cleanup mem(x) := y leftovers
 
+  def getWordsCount = mem.wordCount*mem.width/getWidth
+  def getAddressWidth = log2Up(getWordsCount)
+
   override def opName = "Mem.readAsync(x)"
 
   override def getTypeObject = TypeBits
@@ -605,6 +608,9 @@ class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagRe
   var readEnable     : Expression = null
   var clockDomain    : ClockDomain = null
   var readUnderWrite : ReadUnderWritePolicy = null
+
+  def getWordsCount = mem.wordCount*mem.width/getWidth
+  def getAddressWidth = log2Up(getWordsCount)
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
@@ -688,6 +694,8 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
   var writeEnable : Expression  = null
   var clockDomain : ClockDomain = null
 
+  def getWordsCount = mem.wordCount*mem.width/getWidth
+  def getAddressWidth = log2Up(getWordsCount)
 
   override def dlcParent = mem
 
@@ -787,6 +795,9 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
   var clockDomain  : ClockDomain = null
   var readUnderWrite : ReadUnderWritePolicy = null
   var duringWrite : DuringWritePolicy = null
+
+  def getWordsCount = mem.wordCount*mem.width/getWidth
+  def getAddressWidth = log2Up(getWordsCount)
 
   override def opName = "Mem.readSync(x)"
 
