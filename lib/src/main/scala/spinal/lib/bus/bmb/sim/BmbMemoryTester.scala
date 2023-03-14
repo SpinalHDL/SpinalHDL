@@ -11,7 +11,8 @@ import scala.util.Random
 
 class BmbMemoryTester(bmb : Bmb,
                       cd : ClockDomain,
-                      rspCounterTarget : Int = 30000) {
+                      rspCounterTarget : Int = 30000,
+                      checkAvailability : Boolean = true) {
 
   val memory = new BmbMemoryAgent(BigInt(1) << bmb.p.access.addressWidth)
   Phase.boot()
@@ -32,10 +33,10 @@ class BmbMemoryTester(bmb : Bmb,
 
     val masterAgent = new BmbMasterAgent(bmb, cd){
       val busP = bmb.p
-      override def onRspRead(address: BigInt, data: Byte): Unit = assert(data == memory.getByte(address.toLong))
+      override def onRspRead(address: BigInt, data: Byte): Unit = assert(data == memory.getByte(address.toLong), f"$address%x -> dut=$data%x expect ${memory.getByte(address.toLong)}%x")
       override def getCmd(): () => Unit = if(Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
-      override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(1 << bmb.p.access.addressWidth), sizeMax, busP)
-      override def regionFree(region: SizeMapping): Unit = regions.free(region)
+      override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(1 << bmb.p.access.addressWidth), sizeMax, busP, checkAvailability = checkAvailability)
+      override def regionFree(region: SizeMapping): Unit = if(checkAvailability) regions.free(region) else true
       override def regionIsMapped(region: SizeMapping, opcode : Int): Boolean = true
     }
 

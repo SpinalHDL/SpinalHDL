@@ -288,7 +288,7 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
       + "determine the burst length of transcation by last signal should not work.")
   }
 
-  val awQueueDepth = 1
+  var awQueueDepth = 1
   val awQueue = mutable.Queue[Int]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val bQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
@@ -357,7 +357,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
       + "determine the burst length of transcation by last signal should not work.")
   }
 
-  val arQueueDepth = 1
+  var arQueueDepth = 1
   val arQueue = mutable.Queue[Int]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val rQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
