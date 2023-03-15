@@ -2527,7 +2527,10 @@ class PhaseFillRegsInit() extends Phase{
       case bt: BaseType if bt.isReg && bt.clockDomain.canInit && !bt.hasTag(crossClockBuffer) && !bt.hasTag(crossClockDomain) => {
         if (!bt.hasInit) {
           bt.parentScope.on {
-            bt.init(bt.getZero)
+            bt.init(bt match {
+              case bt : SpinalEnumCraft[_] => bt.spinalEnum.elements.head
+              case bt => bt.getZero
+            })
           }
         } else {
           bt.foreachStatements{
