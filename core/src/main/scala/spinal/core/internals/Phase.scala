@@ -2524,14 +2524,14 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc {
 class PhaseFillRegsInit() extends Phase{
   override def impl(pc: PhaseContext): Unit = {
     pc.walkDeclarations {
-      case bt: BaseType if bt.isReg && bt.clockDomain.canInit => {
+      case bt: BaseType if bt.isReg && bt.clockDomain.canInit && !bt.hasTag(crossClockBuffer) && !bt.hasTag(crossClockDomain) => {
         if (!bt.hasInit) {
           bt.parentScope.on {
             bt.init(bt.getZero)
           }
         } else {
           bt.foreachStatements{
-            case s : InitAssignmentStatement => s.target == bt
+            case s : InitAssignmentStatement => assert(s.target == bt)
             case _ =>
           }
         }
