@@ -50,7 +50,10 @@ class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
         }
       }
       when(dmiReset) { dmiStat.clear := True }
-      when(dmiHardReset) { pending := False }
+      when(dmiHardReset) {
+        pending := False
+        dmiStat.clear := True
+      }
     }
     dtmcs.captureData := B(0, 17 bits) ## B(idle, 3 bits) ## dmiStat.value ## B(addressWidth, 6 bits) ## B(version, 4 bits)
 
