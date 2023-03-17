@@ -112,7 +112,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
       wQueue.enqueue { () =>
         w.data.randomize()
         val bytesInBeat = sizeByte - (beatOffsetCache % sizeByte)
-        if(busConfig.useStrb)  w.strb #= ((Random.nextInt(1 << bytesInBeat)) << beatOffsetCache) & ((1 << busConfig.bytePerWord)-1)
+        if(busConfig.useStrb)  w.strb #= ((BigInt(bytesInBeat, Random)) << beatOffsetCache) & ((BigInt(1) << busConfig.bytePerWord)-1)
         if(busConfig.useWUser) w.user.randomize()
         if(busConfig.useLast)  w.last #= beat == len
       }
@@ -477,7 +477,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
 
       wProcess += { (w : WTransaction) =>
         if(busConfig.useLast) assert(w.last == (beat == len))
-        val strb = if(busConfig.useStrb) w.strb.toLong else ((1l << busConfig.bytePerWord) - 1)
+        val strb = if(busConfig.useStrb) w.strb else ((BigInt(1) << busConfig.bytePerWord) - 1)
         val data = w.data
         val start = ((beatAddress & ~BigInt(bytePerBeat-1)) - accessAddress).toInt
         val end = start + bytePerBeat
@@ -496,7 +496,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   }
 
   val wMonitor = StreamMonitor(w, clockDomain){w =>
-    val strb = if(busConfig.useStrb) w.strb.toLong else ((1l << busConfig.bytePerWord) - 1)
+    val strb = if(busConfig.useStrb) w.strb.toBigInt else ((BigInt(1) << busConfig.bytePerWord) - 1)
     val last = if(busConfig.useLast) w.last.toBoolean else false
     wQueue += WTransaction(w.data.toBigInt, strb, last)
     update()
