@@ -87,7 +87,7 @@ class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
       pushClock = jtagCd,
       popClock = debugCd,
       withOutputM2sPipe = false
-    ).toStream.m2sPipe()
+    ).toStream.m2sPipe(crossClockData = true)
 
     bus.cmd << cmd
 

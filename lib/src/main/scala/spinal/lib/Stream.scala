@@ -1459,11 +1459,9 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
     outHitSignal := hit
 
     stream.valid := (target =/= hit)
-
     stream.payload := pushArea.data
-    stream.payload.addTag(crossClockDomain)
 
-    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true) else stream)
+    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true, crossClockData = true) else stream)
   }
 }
 
