@@ -790,9 +790,9 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           val ram = new Ram_1w_1ra(
             wordWidth = mem.getWidth,
             wordCount = mem.wordCount,
-            wrAddressWidth = wr.address.getWidth,
+            wrAddressWidth = wr.getAddressWidth,
             wrDataWidth = wr.data.getWidth,
-            rdAddressWidth = rd.address.getWidth,
+            rdAddressWidth = rd.getAddressWidth,
             rdDataWidth = rd.getWidth,
             wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
             wrMaskEnable = wr.mask != null,
@@ -822,9 +822,9 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
             wordCount = mem.wordCount,
             wrClock = wr.clockDomain,
             rdClock = rd.clockDomain,
-            wrAddressWidth = wr.address.getWidth,
+            wrAddressWidth = wr.getAddressWidth,
             wrDataWidth = wr.data.getWidth,
-            rdAddressWidth = rd.address.getWidth,
+            rdAddressWidth = rd.getAddressWidth,
             rdDataWidth = rd.getWidth,
             wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
             wrMaskEnable = wr.mask != null,
@@ -893,14 +893,14 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           portA_readUnderWrite = portA.readUnderWrite,
           portA_duringWrite = portA.duringWrite,
           portA_clock = portA.clockDomain,
-          portA_addressWidth = portA.address.getWidth,
+          portA_addressWidth = portA.getAddressWidth,
           portA_dataWidth = portA.getWidth,
           portA_maskWidth = if (portA.mask != null) portA.mask.getWidth else 1,
           portA_maskEnable = portA.mask != null,
           portB_readUnderWrite = portB.readUnderWrite,
           portB_duringWrite = portB.duringWrite,
           portB_clock = portB.clockDomain,
-          portB_addressWidth = portB.address.getWidth,
+          portB_addressWidth = portB.getAddressWidth,
           portB_dataWidth = portB.getWidth,
           portB_maskWidth = if (portB.mask != null) portB.mask.getWidth else 1,
           portB_maskEnable = portB.mask != null
@@ -2519,6 +2519,31 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc {
   override def impl(pc : PhaseContext): Unit = {
     doThat
   }
+}
+
+class PhaseFillRegsInit() extends Phase{
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkDeclarations {
+      case bt: BaseType if bt.isReg && bt.clockDomain.canInit && !bt.hasTag(crossClockBuffer) && !bt.hasTag(crossClockDomain) => {
+        if (!bt.hasInit) {
+          bt.parentScope.on {
+            bt.init(bt match {
+              case bt : SpinalEnumCraft[_] => bt.spinalEnum.elements.head
+              case bt => bt.getZero
+            })
+          }
+        } else {
+          bt.foreachStatements{
+            case s : InitAssignmentStatement => assert(s.target == bt)
+            case _ =>
+          }
+        }
+      }
+      case _ =>
+    }
+  }
+
+  override def hasNetlistImpact: Boolean = true
 }
 
 

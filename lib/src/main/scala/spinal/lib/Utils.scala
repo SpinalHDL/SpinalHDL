@@ -1401,7 +1401,7 @@ case class WhenBuilder(){
 
 
 class ClockDomainPimped(cd : ClockDomain){
-  def withBufferedResetFrom(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+  def withBufferedResetFrom(resetCd : ClockDomain, bufferDepth : Option[Int] = None) : ClockDomain = {
     val key = Tuple3(cd, resetCd,  bufferDepth)
     if(resetCd.config.resetKind == BOOT){
       if(cd.config.resetKind == BOOT) { return cd }
@@ -1410,7 +1410,7 @@ class ClockDomainPimped(cd : ClockDomain){
     return globalCache(key)(ResetCtrl.asyncAssertSyncDeassertCreateCd(resetCd, cd, bufferDepth))
   }
 
-  def withOptionalBufferedResetFrom(cond : Boolean)(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+  def withOptionalBufferedResetFrom(cond : Boolean)(resetCd : ClockDomain, bufferDepth : Option[Int] = None) : ClockDomain = {
     if(cond) this.withBufferedResetFrom(resetCd, bufferDepth) else cd
   }
 }

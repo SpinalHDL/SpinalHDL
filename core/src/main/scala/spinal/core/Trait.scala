@@ -810,6 +810,10 @@ class ExternalDriverTag(val driver : Data)             extends SpinalTag{
 }
 
 
+class CrossClockBufferDepth(val value : Int) extends SpinalTag{
+  override val allowMultipleInstance = false
+}
+
 object Driver {
   val startTime = System.currentTimeMillis()
   def executionTime: Double = (System.currentTimeMillis - startTime) / 1000.0

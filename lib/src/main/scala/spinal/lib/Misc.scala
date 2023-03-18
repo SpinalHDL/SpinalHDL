@@ -30,6 +30,7 @@ object KeepAttribute{
   object keep extends AttributeFlag("keep")
 
   def apply[T <: Data](that : T) = that.addAttribute(keep).addAttribute(syn_keep_verilog).addAttribute(syn_keep_vhdl)
+  val all = List(keep, syn_keep_verilog ,syn_keep_vhdl)
 }
 
 /**

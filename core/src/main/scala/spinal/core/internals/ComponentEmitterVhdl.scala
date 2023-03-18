@@ -1263,15 +1263,15 @@ class ComponentEmitterVhdl(
   }
 
   def emitBitsLiteral(e: BitsLiteral): String = {
-    s"pkg_stdLogicVector(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
+    s"pkg_stdLogicVector(${'\"'}${e.getBitsStringOn(e.getWidth, if(spinalConfig.dontCareGenAsZero) '0' else 'X')}${'\"'})"
   }
 
   def emitUIntLiteral(e: UIntLiteral): String = {
-    s"pkg_unsigned(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
+    s"pkg_unsigned(${'\"'}${e.getBitsStringOn(e.getWidth, if(spinalConfig.dontCareGenAsZero) '0' else 'X')}${'\"'})"
   }
 
   def emitSIntLiteral(e : SIntLiteral): String = {
-    s"pkg_signed(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
+    s"pkg_signed(${'\"'}${e.getBitsStringOn(e.getWidth, if(spinalConfig.dontCareGenAsZero) '0' else 'X')}${'\"'})"
   }
 
   def emitEnumLiteralWrap(e: EnumLiteral[_  <: SpinalEnum]): String = {
@@ -1327,7 +1327,7 @@ class ComponentEmitterVhdl(
     if(dc.encoding.isNative)
       dc.senum.elements.head.getName()
     else
-      s"(${'"'}${"X" * dc.encoding.getWidth(dc.senum)}${'"'})"
+      s"(${'"'}${(if(spinalConfig.dontCareGenAsZero) "0" else "X") * dc.encoding.getWidth(dc.senum)}${'"'})"
   }
 
   def accessBoolFixed(e: BitVectorBitAccessFixed): String = {
@@ -1355,7 +1355,7 @@ class ComponentEmitterVhdl(
     case  e: SIntLiteral                             => emitSIntLiteral(e)
     case  e: EnumLiteral[_]                          => emitEnumLiteralWrap(e)
 
-    case  e: BoolPoison                              => "'X'"
+    case  e: BoolPoison                              => (if(spinalConfig.dontCareGenAsZero) "'0'" else "'X'")
     case  e: EnumPoison                              => emitEnumPoison(e)
 
     //unsigned

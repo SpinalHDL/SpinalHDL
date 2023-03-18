@@ -68,6 +68,9 @@ class Axi4UpsizerTester extends AnyFunSuite {
   test("writeOnly_32_128") {
     SimConfig.compile(Axi4WriteOnlyUpsizer(Axi4Config(20, 32, 4), Axi4Config(20, 128, 4))).doSim("test", 42)(writeTester)
   }
+  test("writeOnly_256_512") {
+    SimConfig.compile(Axi4WriteOnlyUpsizer(Axi4Config(20, 256, 4), Axi4Config(20, 512, 4))).doSim("test", 42)(writeTester)
+  }
 
 
 
@@ -127,6 +130,9 @@ class Axi4UpsizerTester extends AnyFunSuite {
   }
   test("readOnly_32_128") {
     SimConfig.compile(Axi4ReadOnlyUpsizer(Axi4Config(20, 32, 4), Axi4Config(20, 128, 4),4)).doSim("test", 42)(readTester)
+  }
+  test("readOnly_256_512") {
+    SimConfig.compile(Axi4ReadOnlyUpsizer(Axi4Config(20, 256, 4), Axi4Config(20, 512, 4),4)).doSim("test", 42)(readTester)
   }
 }
 
