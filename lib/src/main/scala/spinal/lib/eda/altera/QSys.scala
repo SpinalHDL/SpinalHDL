@@ -125,6 +125,7 @@ class ClockDomainEmitter extends QSysifyInterfaceEmiter {
           true
         }
         case tag : ResetTag => {
+          val resetType = if (tag.clockDomain.config.resetActiveLevel == HIGH) "reset" else "reset_n"
           builder ++=
             s"""
               |#
@@ -138,7 +139,7 @@ class ClockDomainEmitter extends QSysifyInterfaceEmiter {
               |set_interface_property $interfaceName PORT_NAME_MAP ""
               |set_interface_property $interfaceName SVD_ADDRESS_GROUP ""
               |
-              |add_interface_port $interfaceName $name reset Input 1
+              |add_interface_port $interfaceName $name $resetType Input 1
              """.stripMargin
           true
         }
