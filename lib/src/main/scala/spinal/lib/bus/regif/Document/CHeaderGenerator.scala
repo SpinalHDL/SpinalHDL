@@ -113,8 +113,8 @@ final case class CHeaderGenerator(
                 val _tab = " " * (tabn - fd.getName().size)
                 fd.getAccessType() match {
                     case `NA` |`RO` |`ROV`                       => ""
-                    case `W1S`|`W1C`|`W1T`|`W1P`|`W1CRS`|`W1SRC` => ""
-                    case `W0S`|`W0C`|`W0T`|`W0P`|`W0CRS`|`W0SRC` => ""
+                    case `W1S`|`W1C`|`W1T`|`W1P`|`W1CRS`|`W1SRC` => s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}""".stripMargin
+                    case `W0S`|`W0C`|`W0T`|`W0P`|`W0CRS`|`W0SRC` => s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}""".stripMargin
                     case _ => {
                         s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}
                            |#define ${pre}_${fd.getName().toUpperCase()}_MASK  ${_tab}0x${mask.hexString(32)} //${fd.getAccessType()}, ${fd.getWidth()} bit""".stripMargin
