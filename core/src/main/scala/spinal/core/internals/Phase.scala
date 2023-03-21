@@ -511,6 +511,8 @@ class PhaseAnalog extends PhaseNetlist{
             }
           }
         }
+
+        //Detect bitvector bits sequencial connections xxx(5 downto 2) => 3 bits
         for(bitId <- 0 until widthOf(seed)){
           val flushes = ArrayBuffer[(AggregateKey, AggregateCtx)]()
           bitToIsland.get(seed -> bitId) match {
@@ -530,7 +532,12 @@ class PhaseAnalog extends PhaseNetlist{
                 }
               }
             }
-            case None =>
+            case None => {
+              for((key, ctx) <- aggregates){
+                  flushes += key -> ctx
+              }
+              for(e <- flushes) flush(e._1, e._2, bitId)
+            }
           }
         }
         for(e <- aggregates.toArray) flush(e._1, e._2, widthOf(seed))
