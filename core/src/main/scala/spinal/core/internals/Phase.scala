@@ -323,7 +323,6 @@ class PhaseAnalog extends PhaseNetlist{
             case _ => null
           }
           if (targetBt.isAnalog) {
-            if(sourceBt == null) SpinalError(":(")
             val targetRange = s.target match {
               case bt: BaseType => (0 until bt.getBitsWidth)
               case e: BitAssignmentFixed => (e.bitId to e.bitId)
@@ -334,33 +333,38 @@ class PhaseAnalog extends PhaseNetlist{
               case bt: BaseType => (0 until bt.getBitsWidth)
               case e: BitVectorBitAccessFixed => (e.bitId to e.bitId)
               case e: BitVectorRangedAccessFixed => (e.lo to e.hi)
+              case w: WidthProvider => (0 until w.getWidth)
               case _ => SpinalError(s"Unsupported statement $s")
             }
             if(targetRange.size != sourceRange.size)
               SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT $s\n${s.getScalaLocationLong}")
-            for(i <- 0 until targetRange.size){
-              val a = Bit(targetBt, targetRange.low + i, c.dslBody)
-              val b = Bit(sourceBt, sourceRange.low + i, s.parentScope)
-              val island: Island = (islandOf(a), islandOf(b)) match {
-                case (None, None) =>
-                  val island = new Island()
-                  islands += island
-                  island
-                case (None, Some(island)) => island
-                case (Some(island), None) => island
-                case (Some(islandBt), Some(islandY)) =>
-                  for(e <- islandY.elements) bitToIsland(e.bt -> e.bitId) = islandBt
-                  islandBt.absorb(islandY)
-                  islands.remove(islandY)
-                  islandBt
+
+            if(targetRange.size > 0) {
+              if (sourceBt == null) SpinalError(":(")
+              for (i <- 0 until targetRange.size) {
+                val a = Bit(targetBt, targetRange.low + i, c.dslBody)
+                val b = Bit(sourceBt, sourceRange.low + i, s.parentScope)
+                val island: Island = (islandOf(a), islandOf(b)) match {
+                  case (None, None) =>
+                    val island = new Island()
+                    islands += island
+                    island
+                  case (None, Some(island)) => island
+                  case (Some(island), None) => island
+                  case (Some(islandBt), Some(islandY)) =>
+                    for (e <- islandY.elements) bitToIsland(e.bt -> e.bitId) = islandBt
+                    islandBt.absorb(islandY)
+                    islands.remove(islandY)
+                    islandBt
+                }
+
+                island.add(a)
+                island.add(b)
+                bitToIsland(a.bt -> a.bitId) = island
+                //Do not add digital drivers into the island merge logic
+                if (b.bt.isAnalog) bitToIsland(b.bt -> b.bitId) = island
+
               }
-
-              island.add(a)
-              island.add(b)
-              bitToIsland(a.bt -> a.bitId) = island
-              //Do not add digital drivers into the island merge logic
-              if(b.bt.isAnalog) bitToIsland(b.bt -> b.bitId) = island
-
             }
             s.removeStatement()
           }
