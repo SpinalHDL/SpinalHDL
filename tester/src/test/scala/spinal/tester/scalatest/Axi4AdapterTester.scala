@@ -12,7 +12,7 @@ import spinal.lib.{master, slave}
 import scala.collection.mutable
 import scala.util.Random
 
-class Axi4UpsizerTester extends AnyFunSuite {
+class Axi4UpsizerTester extends SpinalAnyFunSuite {
 
   def writeTester(dut : Axi4WriteOnlyUpsizer): Unit ={
     dut.clockDomain.forkStimulus(10)
@@ -136,7 +136,7 @@ class Axi4UpsizerTester extends AnyFunSuite {
   }
 }
 
-class Axi4DownsizerTester extends AnyFunSuite {
+class Axi4DownsizerTester extends SpinalAnyFunSuite {
 
     def writeTester(dut: Axi4WriteOnlyDownsizer, pipelined: Boolean = false): Unit = {
         dut.clockDomain.forkStimulus(10)
@@ -333,7 +333,7 @@ class Axi4DownsizerTester extends AnyFunSuite {
     }
 }
 
-class Axi4IdRemoverTester extends AnyFunSuite {
+class Axi4IdRemoverTester extends SpinalAnyFunSuite {
 
   def writeTester(dut : Axi4WriteOnlyIdRemover): Unit ={
     dut.clockDomain.forkStimulus(10)

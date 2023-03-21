@@ -157,13 +157,13 @@ class ZeroWidthTesterCocotbBoot extends SpinalTesterCocotbBase {
 
   override def postTest: () => Unit = () => {
     if(!noVerilog){
-      val iterator = Source.fromFile("ZeroWidthTester.v").getLines()
+      val iterator = Source.fromFile(s"$workspaceRoot/ZeroWidthTester.v").getLines()
       for (line <- iterator) {
         assert(!line.contains("-1"))
       }
     }
     if(!noVhdl) {
-      val iterator = Source.fromFile("ZeroWidthTester.vhd").getLines()
+      val iterator = Source.fromFile(s"$workspaceRoot/ZeroWidthTester.vhd").getLines()
       var wait = true
       for (line <- iterator) {
         if(wait){

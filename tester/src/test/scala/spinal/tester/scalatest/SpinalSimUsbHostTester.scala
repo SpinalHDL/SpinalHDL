@@ -17,7 +17,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
-class SpinalSimUsbHostTester extends AnyFunSuite{
+class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
   val seed = 59
   /*for(seed <- 55 until 88) */ test("host" + seed){
     val p = UsbOhciParameter(

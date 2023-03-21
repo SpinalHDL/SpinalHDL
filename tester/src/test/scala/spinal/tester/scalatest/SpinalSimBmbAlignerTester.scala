@@ -7,7 +7,7 @@ import spinal.core.sim.SimConfig
 import spinal.lib.bus.bmb.{BmbAligner, BmbDownSizerBridge, BmbParameter}
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
 
-class SpinalSimBmbAlignerTester extends AnyFunSuite {
+class SpinalSimBmbAlignerTester extends SpinalAnyFunSuite {
   for(w <- List(false, true); r <- List(false, true);   if w || r) {
     val header = "_" + (if(w) "w" else "") + (if(r) "r" else "")
     test("BmbAligner_bypass" + header) {

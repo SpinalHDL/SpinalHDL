@@ -9,7 +9,7 @@ import scala.collection.mutable
 import scala.math.BigDecimal.RoundingMode
 import scala.util.Random
 
-class SpinalSimAFixTester extends AnyFunSuite {
+class SpinalSimAFixTester extends SpinalAnyFunSuite {
   def check(max : Int, min : Int, exp : Int)(f : AFix): Unit ={
     assert(f.maxRaw == max && f.minRaw == min && f.exp == exp)
   }

@@ -35,7 +35,7 @@ case class Axi4StreamFragmentFixture[T <: Data](config: Axi4StreamConfig, outTyp
   io.m_axis << Axi4Stream(io.s_data.stage())
 }
 
-class Axi4StreamTester extends AnyFunSuite {
+class Axi4StreamTester extends SpinalAnyFunSuite {
 
   def duplexTest(dut: Axi4StreamEndianFixture[Bits]): Unit = {
     dut.clockDomain.forkStimulus(10)

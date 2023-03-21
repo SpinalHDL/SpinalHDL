@@ -23,7 +23,7 @@ object SpinalSimPerfTester {
 
 }
 
-class SpinalSimPerfTester extends AnyFunSuite {
+class SpinalSimPerfTester extends SpinalAnyFunSuite {
   SpinalSimTester { env =>
     import env._
 

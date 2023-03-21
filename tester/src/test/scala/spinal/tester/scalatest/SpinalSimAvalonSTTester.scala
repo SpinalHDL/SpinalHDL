@@ -36,7 +36,7 @@ case class AvalonSTDelayAdapterFixture(config: AvalonSTConfig,
   AvalonSTDelayAdapter(io.s, io.m)
 }
 
-class AvalonSTTester extends AnyFunSuite {
+class AvalonSTTester extends SpinalAnyFunSuite {
 
   for(s2m <- List(false, true);
       m2s <- List(false, true);
