@@ -2540,7 +2540,7 @@ class PhaseFillRegsInit() extends Phase{
         }
       }
       case bt: BaseType if bt.isReg && !bt.clockDomain.canInit =>
-        println(s"Can't init ${bt.getRtlPath()}")
+//        println(s"Can't init ${bt.getRtlPath()}")
       case _ =>
     }
   }
