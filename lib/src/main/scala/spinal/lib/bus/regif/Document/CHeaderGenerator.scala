@@ -57,7 +57,7 @@ final case class CHeaderGenerator(
         implicit class RegDescrCheadExtend(reg: RegDescr) {
             def define(maxreglen: Int, maxshiftlen: Int): String  = {
                 val _tab = " " * (maxreglen - reg.getName().size)
-                s"""#define ${reg.getName().toUpperCase()} ${_tab}0x${reg.getAddr().hexString(16)}${fddefine(maxshiftlen)}""".stripMargin
+                s"""#define ${prefix.toUpperCase()}_${reg.getName().toUpperCase()} ${_tab}0x${reg.getAddr().hexString(16)}${fddefine(maxshiftlen)}""".stripMargin
             }
 
             def union: String = {
