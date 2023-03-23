@@ -98,13 +98,15 @@ object ResetCtrl{
    * @param inputPolarity (HIGH/LOW)
    * @param outputPolarity (HIGH/LOW)
    * @param bufferDepth Number of register stages used to avoid metastability (default=2)
+   * @param inputSync Active high, will set reset high in a sync way
    * @return Filtred Bool which is asynchronously asserted synchronously deaserted
    */
   def asyncAssertSyncDeassert(input : Bool,
                               clockDomain : ClockDomain,
                               inputPolarity : Polarity = HIGH,
                               outputPolarity : Polarity = null, //null => inferred from the clockDomain
-                              bufferDepth : Option[Int] = None) : Bool = {
+                              bufferDepth : Option[Int] = None,
+                              inputSync : Bool = False) : Bool = {
     val samplerCD = clockDomain.copy(
       reset = input,
       config = clockDomain.config.copy(
@@ -115,8 +117,8 @@ object ResetCtrl{
 
     val solvedOutputPolarity = if(outputPolarity == null) clockDomain.config.resetActiveLevel else outputPolarity
     samplerCD(BufferCC(
-      input       = if(solvedOutputPolarity == HIGH) False else True,
-      init        = if(solvedOutputPolarity == HIGH) True  else False,
+      input       = (if(solvedOutputPolarity == HIGH) False else True) ^ inputSync,
+      init        = (if(solvedOutputPolarity == HIGH) True  else False),
       bufferDepth = bufferDepth)
     )
   }
