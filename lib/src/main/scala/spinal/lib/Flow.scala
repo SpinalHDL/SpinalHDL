@@ -221,7 +221,7 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T],
 
   val outputArea = new ClockingArea(finalOutputClock) {
     val target = BufferCC(inputArea.target, doInit generate False, randBoot = !doInit)
-    val hit = RegNext(target)
+    val hit = RegNext(target).addTag(noInit)
 
     val flow = cloneOf(io.input)
     flow.valid := (target =/= hit)
