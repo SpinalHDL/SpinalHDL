@@ -1,9 +1,12 @@
 package spinal.lib.generator
 
 import spinal.core._
+import spinal.lib._
 import spinal.core.fiber._
 import spinal.lib.BufferCC
 import spinal.lib.blackbox.xilinx.s7.BUFG
+
+import scala.collection.mutable.ArrayBuffer
 
 
 trait ResetSensitivity
@@ -15,8 +18,127 @@ object ResetSensitivity{
   object FALL extends ResetSensitivity
 }
 
-case class ClockDomainResetGenerator() extends Area {
-  val inputClockDomain = Handle[ClockDomain]
+abstract class ClockDomainResetGeneratorIf extends Area{
+  def inputClockDomain = Handle[ClockDomain]
+  def outputClockDomain = Handle[ClockDomain]
+  def asyncReset(reset : Handle[Bool], sensitivity : ResetSensitivity)
+}
+
+case class ClockDomainResetGeneratorV2() extends ClockDomainResetGeneratorIf {
+  override val inputClockDomain = Handle[ClockDomain]
+  val holdDuration = Handle.sync(0)
+  val powerOnReset = Handle.sync(false)
+
+  val outputClockDomainConfig = Handle(GlobalData.get.commonClockConfig)
+
+  override val outputClockDomain = Handle(
+    ClockDomain(
+      clock = inputClockDomain.clock,
+      reset = logic.outputReset,
+      frequency = inputClockDomain.frequency,
+      config = outputClockDomainConfig
+    )
+  )
+
+  def enablePowerOnReset() = powerOnReset.load(true)
+  override def asyncReset(reset: Handle[Bool], sensitivity: ResetSensitivity): Unit = {
+    hardFork {
+      logic.doAsyncReset setWhen (sensitivity match {
+        case ResetSensitivity.HIGH => reset
+        case ResetSensitivity.LOW => !reset
+      })
+    }
+  }
+
+  def asyncReset(reset : Handle[ClockDomain], hold : Handle[ClockDomain]) : Unit = {
+    reset.derivate(logic.doAsyncReset setWhen _.isResetActive)
+    hold.derivate(logic.doHoldReset setWhen _.isResetActive)
+  }
+  def asyncReset(reset : ClockDomainResetGeneratorIf, hold : ClockDomainResetGeneratorIf) : Unit = {
+    asyncReset(reset.inputClockDomain, hold.outputClockDomain)
+  }
+
+  def clockedFrom(input : Handle[ClockDomain]) : Unit = hardFork(
+    inputClockDomain.load(input.withoutReset())
+  )
+
+  def makeExternal(frequency : IClockDomainFrequency = UnknownFrequency,
+                   withResetPin : Boolean = true,
+                   resetActiveLevel : Polarity = HIGH,
+                   crossClockBufferDepth : Option[Int] = None): this.type = {
+    hardFork{
+      val clock = in Bool() setCompositeName(ClockDomainResetGeneratorV2.this, "external_clk")
+      val reset = withResetPin generate (in Bool()  setCompositeName(ClockDomainResetGeneratorV2.this, "external_reset"))
+      crossClockBufferDepth.foreach(v => clock.addTag(new CrossClockBufferDepth(v)))
+      if(withResetPin) asyncReset(reset, resetActiveLevel match {
+        case HIGH => ResetSensitivity.HIGH
+        case LOW => ResetSensitivity.LOW
+      })
+      inputClockDomain.load(
+        ClockDomain(
+          clock = clock,
+          reset = reset,
+          frequency = frequency,
+          config = ClockDomainConfig(
+            resetKind = ASYNC,
+            resetActiveLevel = resetActiveLevel
+          )
+        )
+      )
+    }
+
+    this
+  }
+
+  val logic = Handle(new Area{
+    val doAsyncReset = False
+    val doHoldReset = False
+
+    val powerOnLogic = powerOnReset.get generate new ClockingArea(inputClockDomain.withBootReset()){
+      val resetCounter = Reg(UInt(4 bits)) init(0)
+      val doIt = !resetCounter.msb
+      when(doIt) {
+        resetCounter := resetCounter + 1
+      }
+      doAsyncReset setWhen doIt
+    }
+
+
+    val duration = holdDuration.get
+    val holdingLogic = (duration != 0) generate new ClockingArea(inputClockDomain.withoutReset().copy(
+      reset = doAsyncReset,
+      config = inputClockDomain.config.copy(resetKind = ASYNC, resetActiveLevel = HIGH)
+    )){
+      val resetCounter = Reg(UInt(log2Up(duration) + 1 bits))
+      val doIt = !resetCounter.msb
+
+      when(doIt) {
+        resetCounter := resetCounter + 1
+      }
+
+      val clear = spinal.lib.ResetCtrl.asyncAssertSyncDeassert(
+        doHoldReset,
+        inputClockDomain,
+        inputPolarity = spinal.core.HIGH,
+        outputPolarity = spinal.core.HIGH
+      )
+      when(clear){
+        resetCounter := 0
+      }
+    }
+
+    val outputReset = spinal.lib.ResetCtrl.asyncAssertSyncDeassert(
+      doAsyncReset,
+      inputClockDomain,
+      inputPolarity = spinal.core.HIGH,
+      outputPolarity = outputClockDomainConfig.resetActiveLevel,
+      inputSync = if(holdingLogic != null) holdingLogic.doIt else doHoldReset
+    )
+  })
+}
+
+case class ClockDomainResetGenerator() extends ClockDomainResetGeneratorIf {
+  override val inputClockDomain = Handle[ClockDomain]
   val holdDuration = Handle[Int]
   val powerOnReset = Handle.sync(false)
 
@@ -42,7 +164,7 @@ case class ClockDomainResetGenerator() extends Area {
   )
   val outputClockDomainConfig = Handle(GlobalData.get.commonClockConfig)
 
-  val outputClockDomain = Handle(
+  override val outputClockDomain = Handle(
     ClockDomain(
       clock = inputClockDomain.clock,
       reset = logic.outputReset,
@@ -133,7 +255,7 @@ case class ClockDomainResetGenerator() extends Area {
   }
 
 
-  def asyncReset(reset : Handle[Bool], sensitivity : ResetSensitivity) = {
+  override def asyncReset(reset : Handle[Bool], sensitivity : ResetSensitivity) = {
     val generator = ResetGenerator(this)
     generator.reset.load(reset)
     generator.sensitivity.load(sensitivity)
