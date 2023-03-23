@@ -98,7 +98,8 @@ final case class CHeaderGenerator(
             def fddefine(maxlen: Int): String = {
                 val nmaxlen = maxlen - reg.getName().size
                 if(withshiftmask){
-                    val t = reg.getFieldDescrs().map(t => t.define(reg.getName().toUpperCase(), nmaxlen)).filterNot(_.isEmpty).mkString("\n")
+                    val pre = s"${prefix.toUpperCase()}_${reg.getName().toUpperCase()}"
+                    val t = reg.getFieldDescrs().map(t => t.define(pre, nmaxlen)).filterNot(_.isEmpty).mkString("\n")
                     if(t.isEmpty) "" else "\n" + t
                 } else ""
             }
