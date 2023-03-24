@@ -22,11 +22,12 @@ abstract class ClockDomainResetGeneratorIf extends Area{
   def inputClockDomain = Handle[ClockDomain]
   def outputClockDomain = Handle[ClockDomain]
   def asyncReset(reset : Handle[Bool], sensitivity : ResetSensitivity)
+  def relaxedReset(reset : Handle[Bool], sensitivity : ResetSensitivity)
 }
 
 case class ClockDomainResetGeneratorV2() extends ClockDomainResetGeneratorIf {
   override val inputClockDomain = Handle[ClockDomain]
-  val holdDuration = Handle.sync(0)
+  val holdDuration = Handle[Int]()
   val powerOnReset = Handle.sync(false)
 
   val outputClockDomainConfig = Handle(GlobalData.get.commonClockConfig)
@@ -44,6 +45,14 @@ case class ClockDomainResetGeneratorV2() extends ClockDomainResetGeneratorIf {
   override def asyncReset(reset: Handle[Bool], sensitivity: ResetSensitivity): Unit = {
     hardFork {
       logic.doAsyncReset setWhen (sensitivity match {
+        case ResetSensitivity.HIGH => reset
+        case ResetSensitivity.LOW => !reset
+      })
+    }
+  }
+  override def relaxedReset(reset: Handle[Bool], sensitivity: ResetSensitivity): Unit = {
+    hardFork {
+      logic.doHoldReset setWhen (sensitivity match {
         case ResetSensitivity.HIGH => reset
         case ResetSensitivity.LOW => !reset
       })
@@ -262,6 +271,9 @@ case class ClockDomainResetGenerator() extends ClockDomainResetGeneratorIf {
     generator.kind.load(ASYNC)
     generator
   }
+
+
+  override def relaxedReset(reset: Handle[Bool], sensitivity: ResetSensitivity): Unit = asyncReset(reset, sensitivity)
 
   def asyncReset(reset : Handle[ClockDomain]) : Handle[ResetGenerator] = reset.produce{
     val generator = ResetGenerator(this)
