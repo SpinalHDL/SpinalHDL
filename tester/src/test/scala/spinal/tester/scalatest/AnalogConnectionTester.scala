@@ -65,8 +65,6 @@ class AnalogConnectionCocotbBoot extends SpinalTesterCocotbBase {
   override def getName = "AnalogConnection"
   override def pythonTestLocation = "tester/src/test/python/spinal/AnalogConnectionTester"
   override def createToplevel = new AnalogConnectionTester
-  withWaveform=true
-  override def noVhdl = true
 }
 
 class AnalogConnectionTest extends AnyFunSuite {
