@@ -483,7 +483,7 @@ class BmbInterconnectGenerator() extends Area{
     case _ => ???
   }
 
-  def setConnector(m : Handle[Bmb], s : Handle[Bmb])(connector : (Bmb,Bmb) => Unit): Unit = getMaster(m).connections.find(_.s == s) match {
+  def setConnector(m : Handle[Bmb], s : Handle[Bmb])(connector : (Bmb,Bmb) => Unit): Unit = getMaster(m).connections.find(_.s.bus == s) match {
     case Some(c) => c.connector = connector
     case _ => ???
   }

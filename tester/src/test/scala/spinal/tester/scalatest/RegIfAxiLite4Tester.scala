@@ -13,8 +13,9 @@ import scala.math.{BigInt}
 import scala.util.Random
 
 class RegIfTester extends Component {
+  //RO generate wire not register fixed in commit "adfda73" , so here should not test RO as Register else Latch detect
   val ACCESS_LIST = List(
-    AccessType.RO, AccessType.RW, AccessType.RC, AccessType.RS, // 0 - 3
+    AccessType.RW, AccessType.RW, AccessType.RC, AccessType.RS, // 0 - 3
     AccessType.WRC, AccessType.WRS, AccessType.WC, AccessType.WS, // 4 - 7
     AccessType.WSRC, AccessType.WCRS, AccessType.W1C, AccessType.W1S, // 8 - 11
     AccessType.W1T, AccessType.W0C, AccessType.W0S, AccessType.W0T, // 12 - 15
@@ -43,10 +44,10 @@ class RegIfTester extends Component {
     io.o.subdivideIn(32 bit)(i) := b
   }
 
-  io.o_z := RegNext(io.o)
+  io.o_z := RegNextWhen(io.o, io.bus.b.fire || io.bus.r.fire) init(0)
 }
 
-class RegIfAxiLite4Tester extends AnyFunSuite {
+class RegIfAxiLite4Tester extends SpinalAnyFunSuite {
 
   def bitWidth = 32
 
@@ -134,7 +135,8 @@ class RegIfAxiLite4Tester extends AnyFunSuite {
   }
 
   test("random") {
-    SimConfig.compile(new RegIfTester()).doSim { dut =>
+    SimConfig
+      .compile(new RegIfTester()).doSim { dut =>
       dut.clockDomain.forkStimulus(10 ns)
 
       dut.io.t #= false
@@ -167,11 +169,11 @@ class RegIfAxiLite4Tester extends AnyFunSuite {
           val readExpected = onRead(dut.ACCESS_LIST((addr >> 2).toInt), lastRegData)
 
           if (dut.ACCESS_LIST((addr >> 2).toInt) != AccessType.NA) {
-            assert((resp == 0) == (readExpected != null), s"Read error flag did not match expected read error flag, addr = ${addr}")
+            assert((resp == 0) == (readExpected != null), s"Read error flag did not match expected read error flag, addr = ${addr.hexString(32)}")
 
             if (readExpected != null) {
-              assert(beatData == lastRegData, s"Bus read data did not match registered read data, addr = ${addr}")
-              assert(regData == readExpected, s"Registered read data did not match expected post read result, addr = ${addr}")
+              assert(beatData == lastRegData, s"Bus read data did not match registered read data, addr = 0x${addr.hexString(32)}")
+              assert(regData == readExpected, s"Registered read data did not match expected post read result, addr = 0x${addr.hexString(32)}")
             }
           }
         }
@@ -217,7 +219,7 @@ class RegIfAxiLite4Tester extends AnyFunSuite {
         }
       }
 
-      val rand = new Random()
+      val rand = Random
 
       for(_ <- 0 until 1000) {
         // TODO: Support unaligned addresses

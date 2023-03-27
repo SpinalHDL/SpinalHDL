@@ -211,7 +211,7 @@ class InOutTester3CocotbBoot extends SpinalTesterCocotbBase {
 }
 
 
-class InOutTester4 extends AnyFunSuite {
+class InOutTester4 extends SpinalAnyFunSuite {
   case class A() extends Component {
     val data=inout(Analog(Bool()))
   }

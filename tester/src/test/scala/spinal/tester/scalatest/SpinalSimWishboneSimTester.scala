@@ -19,7 +19,7 @@ class wishbonesimplebus(config : WishboneConfig) extends Component{
   val ff = Reg(Bool())
   io.busmaster <> io.busslave
 }
-class SpinalSimWishboneSimTester extends AnyFunSuite{
+class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
 
   var compiled : SimCompiled[wishbonesimplebus] = null
   var compPipe : SimCompiled[wishbonesimplebus] = null

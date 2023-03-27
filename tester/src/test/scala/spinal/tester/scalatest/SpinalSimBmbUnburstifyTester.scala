@@ -5,7 +5,7 @@ import spinal.core.sim.SimConfig
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
 import spinal.lib.bus.bmb.{BmbAccessParameter, BmbLengthFixer, BmbParameter, BmbSourceParameter, BmbUnburstify}
 
-class SpinalSimBmbUnburstifyTester extends AnyFunSuite {
+class SpinalSimBmbUnburstifyTester extends SpinalAnyFunSuite {
   test("miaou") {
     SimConfig.compile {
       val c = BmbUnburstify(

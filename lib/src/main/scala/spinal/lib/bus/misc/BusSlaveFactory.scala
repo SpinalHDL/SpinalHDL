@@ -64,7 +64,7 @@ trait BusSlaveFactory extends Area{
   /** Set the endianness during write/read multiword */
   def setWordEndianness(value : Endianness) = setConfig(getConfig.copy(wordEndianness = value))
 
-  def withOffset(offset : Int) = new BusSlaveFactoryAddressWrapper(this, offset)
+  def withOffset(offset : BigInt) = new BusSlaveFactoryAddressWrapper(this, offset)
 
 
   /**
@@ -1001,10 +1001,10 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: BigInt) e
     this
   }
 
-  override def readPrimitive[T <: Data](that: T, address: AddressMapping, bitOffset: Int, documentation: String): Unit = f.readPrimitive(that, address.applyOffset(addressOffset), bitOffset, documentation)
-  override def writePrimitive[T <: Data](that: T, address: AddressMapping, bitOffset: Int, documentation: String): Unit = f.writePrimitive(that, address.applyOffset(addressOffset), bitOffset, documentation)
-  override def onWritePrimitive(address: AddressMapping, haltSensitive: Boolean, documentation: String)(doThat: => Unit): Unit = f.onWritePrimitive(address.applyOffset(addressOffset), haltSensitive, documentation)(doThat)
-  override def onReadPrimitive(address: AddressMapping, haltSensitive: Boolean, documentation: String)(doThat: => Unit): Unit = f.onReadPrimitive(address.applyOffset(addressOffset), haltSensitive, documentation)(doThat)
+  override def readPrimitive[T <: Data](that: T, address: AddressMapping, bitOffset: Int, documentation: String): Unit = f.readPrimitive(that, address.withOffset(addressOffset), bitOffset, documentation)
+  override def writePrimitive[T <: Data](that: T, address: AddressMapping, bitOffset: Int, documentation: String): Unit = f.writePrimitive(that, address.withOffset(addressOffset), bitOffset, documentation)
+  override def onWritePrimitive(address: AddressMapping, haltSensitive: Boolean, documentation: String)(doThat: => Unit): Unit = f.onWritePrimitive(address.withOffset(addressOffset), haltSensitive, documentation)(doThat)
+  override def onReadPrimitive(address: AddressMapping, haltSensitive: Boolean, documentation: String)(doThat: => Unit): Unit = f.onReadPrimitive(address.withOffset(addressOffset), haltSensitive, documentation)(doThat)
   override def readHalt(): Unit = f.readHalt()
   override def writeHalt(): Unit = f.writeHalt()
   override def readAddress(): UInt = f.readAddress()  - addressOffset

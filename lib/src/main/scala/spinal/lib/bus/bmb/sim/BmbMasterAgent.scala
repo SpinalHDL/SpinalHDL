@@ -18,7 +18,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
 
   var pendingMax = 50
   var pendingCounter = 0
-  StreamReadyRandomizer(bus.rsp, clockDomain).factor = rspFactor
+  val rspDriver = StreamReadyRandomizer(bus.rsp, clockDomain).factor = rspFactor
 
   def regionAllocate(sizeMax : Int) : SizeMapping
   def regionFree(region : SizeMapping) : Unit

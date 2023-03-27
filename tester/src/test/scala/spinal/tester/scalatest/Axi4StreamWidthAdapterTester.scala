@@ -32,7 +32,7 @@ case class Axi4StreamWidthAdapterFixture(inSize: Int, outSize: Int, compact: Boo
   Axi4StreamWidthAdapter(io.axis_s, io.axis_m, compact = compact)
 }
 
-class Axi4StreamWidthAdapterTester extends AnyFunSuite {
+class Axi4StreamWidthAdapterTester extends SpinalAnyFunSuite {
 
   case class Axi4CheckByte(val data: BigInt = 0,
                            val strb: Boolean = false,

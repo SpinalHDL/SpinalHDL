@@ -73,6 +73,7 @@ sim/xsim.dir/
 *.lst
 
 simWorkspace/
+cocotbWorkspace/
 tmp/
 null/
 command

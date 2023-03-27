@@ -788,6 +788,8 @@ object allowOutOfRangeLiterals               extends SpinalTag{
     this
   }
 }
+
+object noInit                        extends SpinalTag
 object unusedTag                     extends SpinalTag
 object noCombinatorialLoopCheck      extends SpinalTag
 object noLatchCheck                  extends SpinalTag
@@ -809,6 +811,10 @@ class ExternalDriverTag(val driver : Data)             extends SpinalTag{
   override def allowMultipleInstance = false
 }
 
+
+class CrossClockBufferDepth(val value : Int) extends SpinalTag{
+  override val allowMultipleInstance = false
+}
 
 object Driver {
   val startTime = System.currentTimeMillis()

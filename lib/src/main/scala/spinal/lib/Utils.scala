@@ -706,7 +706,45 @@ object CounterMultiRequest {
   }
 }
 
+object AnalysisUtils{
+  def seekNonCombDrivers(that : BaseType)(body : Any => Unit): Unit ={
+    that.foreachStatements{ s =>
+      def walkExp(e : Expression) = e match {
+        case s : Statement => s match {
+          case s : BaseType if s.isComb => {seekNonCombDrivers(s)(body) }
+          case s : BaseType if !s.isComb => body(s)
+          case s =>
+        }
+        case e : Expression =>
+      }
+      s.walkParentTreeStatementsUntilRootScope{sParent =>
+        sParent.walkDrivingExpressions(walkExp)
+      }
+      s.walkDrivingExpressions(walkExp)
+    }
+  }
 
+  def foreachToplevelIoCd(top : Component)(body : (BaseType, Seq[ClockDomain]) => Unit): Unit ={
+    top.getAllIo.foreach{
+      case i if i.isInput => {
+        val cds = i.getTags().collect{ case t : ClockDomainReportTag => t.clockDomain}
+        body(i, cds.toList)
+//        val clocks = cds.map(_.clock).distinctLinked
+//        println(s"${i.getName()} sampled by ${clocks.map(_.getName()).mkString(",")}")
+      }
+      case o if o.isOutput => {
+        val cds = mutable.LinkedHashSet[ClockDomain]()
+        seekNonCombDrivers(o){
+          case bt : BaseType if bt.isReg => cds += bt.clockDomain
+          case _ => println("???")
+        }
+        body(o, cds.toList)
+//        val clocks = cds.map(_.clock).distinctLinked
+//        println(s"${o.getName()} clocked by ${clocks.map(_.getName()).mkString(",")}")
+      }
+    }
+  }
+}
 
 object LatencyAnalysis {
   //Don't care about clock domain
@@ -1363,7 +1401,7 @@ case class WhenBuilder(){
 
 
 class ClockDomainPimped(cd : ClockDomain){
-  def withBufferedResetFrom(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+  def withBufferedResetFrom(resetCd : ClockDomain, bufferDepth : Option[Int] = None) : ClockDomain = {
     val key = Tuple3(cd, resetCd,  bufferDepth)
     if(resetCd.config.resetKind == BOOT){
       if(cd.config.resetKind == BOOT) { return cd }
@@ -1372,7 +1410,7 @@ class ClockDomainPimped(cd : ClockDomain){
     return globalCache(key)(ResetCtrl.asyncAssertSyncDeassertCreateCd(resetCd, cd, bufferDepth))
   }
 
-  def withOptionalBufferedResetFrom(cond : Boolean)(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+  def withOptionalBufferedResetFrom(cond : Boolean)(resetCd : ClockDomain, bufferDepth : Option[Int] = None) : ClockDomain = {
     if(cond) this.withBufferedResetFrom(resetCd, bufferDepth) else cd
   }
 }

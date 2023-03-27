@@ -25,7 +25,7 @@ trait FieldDescr extends BaseDescriptor {
   def getWidth()      : Int
   def getSection()    : Range
   def getAccessType() : AccessType
-  def getResetValue() : Long
+  def getResetValue() : BigInt
   def uvmBaseAcc = List(RO, RW, RC, RS, WRC, WRS, WC, WS, WSRC, WCRS, W1C, W1S, W1T, W0C, W0S, W0T, W1SRC, W1CRS, W0SRC, W0CRS, WO, WOC, WOS, W1, WO1)
   def isUvmAcc: Boolean = uvmBaseAcc.contains(getAccessType())
 }

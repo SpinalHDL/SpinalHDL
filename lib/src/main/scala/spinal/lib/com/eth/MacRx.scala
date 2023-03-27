@@ -214,7 +214,7 @@ case class MacRxBuffer(pushCd : ClockDomain,
   val push = pushCd on new Area{
     val currentPtr, oldPtr = Reg(UInt(ptrWidth bits)) init(0)
     val currentPtrPlusOne = currentPtr + 1
-    val popPtr  = popToPush.io.output.toFlow.toReg(0)
+    val popPtr  = popToPush.io.output.toFlow.toReg(0).addTag(crossClockDomain)
     pushToPop.io.input.payload := oldPtr
 
     val ratio = popWidth/pushWidth
@@ -289,7 +289,7 @@ case class MacRxBuffer(pushCd : ClockDomain,
 
   val pop = popCd on new Area{
     val currentPtr = Reg(UInt(ptrWidth bits)) init(0)
-    val pushPtr = pushToPop.io.output.toFlow.toReg(0)
+    val pushPtr = pushToPop.io.output.toFlow.toReg(0).addTag(crossClockDomain)
     popToPush.io.input.payload := currentPtr
 
     val cmd = Stream(ram.addressType())

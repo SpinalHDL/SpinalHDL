@@ -2,9 +2,8 @@ package spinal.lib
 
 import spinal.core._
 
-
 object BufferCC {
-  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Int = defaultDepth.get, randBoot : Boolean = false): T = {
+  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Option[Int] = None, randBoot : Boolean = false): T = {
     val c = new BufferCC(input, init, bufferDepth, randBoot)
     c.setCompositeName(input, "buffercc", true)
     c.io.dataIn := input
@@ -15,22 +14,43 @@ object BufferCC {
   }
 
   val defaultDepth = ScopeProperty(2)
+  def defaultDepthOptioned(cd : ClockDomain, option : Option[Int]) : Int = {
+    option match {
+      case Some(x) => return x
+      case None =>
+    }
+    ClockDomain.current.getTags().foreach{
+      case t : CrossClockBufferDepth => {
+        return t.value
+      }
+      case _ =>
+    }
+    ClockDomain.current.clock.getTags().foreach{
+      case t : CrossClockBufferDepth => {
+        return t.value
+      }
+      case _ =>
+    }
+    return defaultDepth.get
+  }
 }
 
-class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int = BufferCC.defaultDepth.get, randBoot : Boolean = false) extends Component {
-  assert(bufferDepth >= 1)
+class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option[Int], val  randBoot : Boolean = false) extends Component {
+  def getInit() : T = init
+  val finalBufferDepth = BufferCC.defaultDepthOptioned(ClockDomain.current, bufferDepth)
+  assert(finalBufferDepth >= 1)
 
   val io = new Bundle {
     val dataIn = in(cloneOf(dataType))
     val dataOut = out(cloneOf(dataType))
   }
 
-  val buffers = Vec(Reg(dataType, init),bufferDepth)
+  val buffers = Vec(Reg(dataType, init),finalBufferDepth)
   if(randBoot) buffers.foreach(_.randBoot())
 
   buffers(0) := io.dataIn
   buffers(0).addTag(crossClockDomain)
-  for (i <- 1 until bufferDepth) {
+  for (i <- 1 until finalBufferDepth) {
     buffers(i) := buffers(i - 1)
     buffers(i).addTag(crossClockBuffer)
   }
@@ -78,13 +98,15 @@ object ResetCtrl{
    * @param inputPolarity (HIGH/LOW)
    * @param outputPolarity (HIGH/LOW)
    * @param bufferDepth Number of register stages used to avoid metastability (default=2)
+   * @param inputSync Active high, will set reset high in a sync way
    * @return Filtred Bool which is asynchronously asserted synchronously deaserted
    */
   def asyncAssertSyncDeassert(input : Bool,
                               clockDomain : ClockDomain,
                               inputPolarity : Polarity = HIGH,
                               outputPolarity : Polarity = null, //null => inferred from the clockDomain
-                              bufferDepth : Int = BufferCC.defaultDepth.get) : Bool = {
+                              bufferDepth : Option[Int] = None,
+                              inputSync : Bool = False) : Bool = {
     val samplerCD = clockDomain.copy(
       reset = input,
       config = clockDomain.config.copy(
@@ -95,8 +117,8 @@ object ResetCtrl{
 
     val solvedOutputPolarity = if(outputPolarity == null) clockDomain.config.resetActiveLevel else outputPolarity
     samplerCD(BufferCC(
-      input       = if(solvedOutputPolarity == HIGH) False else True,
-      init        = if(solvedOutputPolarity == HIGH) True  else False,
+      input       = (if(solvedOutputPolarity == HIGH) False else True) ^ inputSync,
+      init        = (if(solvedOutputPolarity == HIGH) True  else False),
       bufferDepth = bufferDepth)
     )
   }
@@ -108,7 +130,7 @@ object ResetCtrl{
                                    clockDomain : ClockDomain,
                                    inputPolarity : Polarity = HIGH,
                                    outputPolarity : Polarity = null, //null => inferred from the clockDomain
-                                   bufferDepth : Int = BufferCC.defaultDepth.get) : Unit = clockDomain.reset := asyncAssertSyncDeassert(
+                                   bufferDepth : Option[Int] = None) : Unit = clockDomain.reset := asyncAssertSyncDeassert(
     input = input ,
     clockDomain = clockDomain ,
     inputPolarity = inputPolarity ,
@@ -119,7 +141,7 @@ object ResetCtrl{
   //Return a new clockdomain which use all the properties of clockCd but use as reset source a syncronized value from resetCd
   def asyncAssertSyncDeassertCreateCd(resetCd : ClockDomain,
                                       clockCd : ClockDomain = ClockDomain.current,
-                                      bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+                                      bufferDepth : Option[Int] = None) : ClockDomain = {
     clockCd.copy(
       clock = clockCd.clock,
       reset = ResetCtrl.asyncAssertSyncDeassert(

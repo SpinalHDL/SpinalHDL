@@ -25,36 +25,34 @@ package spinal.core
   * Ram 1w 1ra
   */
 class Ram_1w_1ra(
-  wordWidth      : Int,
-  wordCount      : Int,
-  technology     : MemTechnologyKind = auto,
-  readUnderWrite : ReadUnderWritePolicy = dontCare,
+  val wordWidth      : Int,
+  val wordCount      : Int,
+  val technology     : MemTechnologyKind = auto,
+  val readUnderWrite : ReadUnderWritePolicy = dontCare,
 
-  wrAddressWidth : Int,
-  wrDataWidth    : Int,
-  wrMaskWidth    : Int = 1,
-  wrMaskEnable   : Boolean = false,
+  val wrAddressWidth : Int,
+  val wrDataWidth    : Int,
+  val wrMaskWidth    : Int = 1,
+  val wrMaskEnable   : Boolean = false,
 
-  rdAddressWidth : Int,
-  rdDataWidth    : Int
+  val rdAddressWidth : Int,
+  val rdDataWidth    : Int
 ) extends BlackBox {
 
   if (readUnderWrite == readFirst) SpinalError("readFirst mode for asynchronous read is not allowed")
 
-  val generic = new Generic {
-    val wordCount      = Ram_1w_1ra.this.wordCount
-    val wordWidth      = Ram_1w_1ra.this.wordWidth
-    val technology     = Ram_1w_1ra.this.technology.technologyKind
-    val readUnderWrite = Ram_1w_1ra.this.readUnderWrite.readUnderWriteString
-
-    val wrAddressWidth = Ram_1w_1ra.this.wrAddressWidth
-    val wrDataWidth    = Ram_1w_1ra.this.wrDataWidth
-    val wrMaskWidth    = Ram_1w_1ra.this.wrMaskWidth
-    val wrMaskEnable   = Ram_1w_1ra.this.wrMaskEnable
-
-    val rdAddressWidth = Ram_1w_1ra.this.rdAddressWidth
-    val rdDataWidth    = Ram_1w_1ra.this.rdDataWidth
-  }
+  addGenerics(
+    "wordCount"      -> Ram_1w_1ra.this.wordCount,
+    "wordWidth"      -> Ram_1w_1ra.this.wordWidth,
+    "technology"     -> Ram_1w_1ra.this.technology.technologyKind,
+    "readUnderWrite" -> Ram_1w_1ra.this.readUnderWrite.readUnderWriteString,
+    "wrAddressWidth" -> Ram_1w_1ra.this.wrAddressWidth,
+    "wrDataWidth"    -> Ram_1w_1ra.this.wrDataWidth,
+    "wrMaskWidth"    -> Ram_1w_1ra.this.wrMaskWidth,
+    "wrMaskEnable"   -> Ram_1w_1ra.this.wrMaskEnable,
+    "rdAddressWidth" -> Ram_1w_1ra.this.rdAddressWidth,
+    "rdDataWidth"    -> Ram_1w_1ra.this.rdDataWidth
+  )
 
   val io = new Bundle {
     val clk = in.Bool()
@@ -81,37 +79,36 @@ class Ram_1w_1ra(
   * Ram 1w 1rs
   */
 class Ram_1w_1rs(
-  wordWidth      : Int,
-  wordCount      : Int,
-  readUnderWrite : ReadUnderWritePolicy = dontCare,
-  technology     : MemTechnologyKind = auto,
+  val wordWidth      : Int,
+  val wordCount      : Int,
+  val readUnderWrite : ReadUnderWritePolicy = dontCare,
+  val technology     : MemTechnologyKind = auto,
 
-  wrClock        : ClockDomain,
-  wrAddressWidth : Int,
-  wrDataWidth    : Int,
-  wrMaskWidth    : Int = 1,
-  wrMaskEnable   : Boolean = false,
+  val wrClock        : ClockDomain,
+  val wrAddressWidth : Int,
+  val wrDataWidth    : Int,
+  val wrMaskWidth    : Int = 1,
+  val wrMaskEnable   : Boolean = false,
 
-  rdClock        : ClockDomain,
-  rdAddressWidth : Int,
-  rdDataWidth    : Int
+  val rdClock        : ClockDomain,
+  val rdAddressWidth : Int,
+  val rdDataWidth    : Int
 ) extends BlackBox {
 
-  val generic = new Generic {
-    val wordCount      = Ram_1w_1rs.this.wordCount
-    val wordWidth      = Ram_1w_1rs.this.wordWidth
-    var clockCrossing  = wrClock != rdClock
-    val technology     = Ram_1w_1rs.this.technology.technologyKind
-    val readUnderWrite = Ram_1w_1rs.this.readUnderWrite.readUnderWriteString
+  addGenerics(
+    "wordCount"      -> Ram_1w_1rs.this.wordCount,
+    "wordWidth"      -> Ram_1w_1rs.this.wordWidth,
+    "clockCrossing"  -> (wrClock != rdClock),
+    "technology"     -> Ram_1w_1rs.this.technology.technologyKind,
+    "readUnderWrite" -> Ram_1w_1rs.this.readUnderWrite.readUnderWriteString,
+    "wrAddressWidth" -> Ram_1w_1rs.this.wrAddressWidth,
+    "wrDataWidth"    -> Ram_1w_1rs.this.wrDataWidth,
+    "wrMaskWidth"    -> Ram_1w_1rs.this.wrMaskWidth,
+    "wrMaskEnable"   -> Ram_1w_1rs.this.wrMaskEnable,
+    "rdAddressWidth" -> Ram_1w_1rs.this.rdAddressWidth,
+    "rdDataWidth"    -> Ram_1w_1rs.this.rdDataWidth
+  )
 
-    val wrAddressWidth = Ram_1w_1rs.this.wrAddressWidth
-    val wrDataWidth    = Ram_1w_1rs.this.wrDataWidth
-    val wrMaskWidth    = Ram_1w_1rs.this.wrMaskWidth
-    val wrMaskEnable   = Ram_1w_1rs.this.wrMaskEnable
-
-    val rdAddressWidth = Ram_1w_1rs.this.rdAddressWidth
-    val rdDataWidth    = Ram_1w_1rs.this.rdDataWidth
-  }
 
   val io = new Bundle {
     val wr = new Bundle {
@@ -140,25 +137,25 @@ class Ram_1w_1rs(
   * Ram 2c 1w 1rs
   */
 class Ram_2c_1w_1rs(
-  wordWidth      : Int,
-  wordCount      : Int,
-  wrClock        : ClockDomain,
-  rdClock        : ClockDomain,
-  maskWidth      : Int = 1,
-  useMask        : Boolean = false,
-  readUnderWrite : ReadUnderWritePolicy = dontCare,
-  tech           : MemTechnologyKind = auto
+  val wordWidth      : Int,
+  val wordCount      : Int,
+  val wrClock        : ClockDomain,
+  val rdClock        : ClockDomain,
+  val maskWidth      : Int = 1,
+  val useMask        : Boolean = false,
+  val readUnderWrite : ReadUnderWritePolicy = dontCare,
+  val tech           : MemTechnologyKind = auto
 ) extends BlackBox {
 
-  val generic = new Generic {
-    val wordCount      = Ram_2c_1w_1rs.this.wordCount
-    val wordWidth      = Ram_2c_1w_1rs.this.wordWidth
-    val maskWidth      = Ram_2c_1w_1rs.this.maskWidth
-    val readUnderWrite = Ram_2c_1w_1rs.this.readUnderWrite.readUnderWriteString
-    val tech           = Ram_2c_1w_1rs.this.tech.technologyKind
-    var useReadEnable  = true
-    val useMask        = Ram_2c_1w_1rs.this.useMask
-  }
+  addGenerics(
+    "wordCount"      -> Ram_2c_1w_1rs.this.wordCount,
+    "wordWidth"      -> Ram_2c_1w_1rs.this.wordWidth,
+    "maskWidth"      -> Ram_2c_1w_1rs.this.maskWidth,
+    "readUnderWrite" -> Ram_2c_1w_1rs.this.readUnderWrite.readUnderWriteString,
+    "tech"           -> Ram_2c_1w_1rs.this.tech.technologyKind,
+    "useReadEnable"  -> true,
+    "useMask"        -> Ram_2c_1w_1rs.this.useMask
+  )
 
   val io = new Bundle {
     val wr = new Bundle {
@@ -186,14 +183,16 @@ class Ram_2c_1w_1rs(
 /**
   * Ram 1wors
   */
-class Ram_1wors(wordWidth: Int, wordCount: Int, readUnderWrite: ReadUnderWritePolicy = dontCare) extends BlackBox {
+class Ram_1wors(val wordWidth: Int,
+                val wordCount: Int,
+                val readUnderWrite: ReadUnderWritePolicy = dontCare) extends BlackBox {
 
-  val generic = new Generic {
-    val wordCount      = Ram_1wors.this.wordCount
-    val wordWidth      = Ram_1wors.this.wordWidth
-    val readUnderWrite = Ram_1wors.this.readUnderWrite.readUnderWriteString
-    var useReadEnable  = true
-  }
+  addGenerics(
+    "wordCount"      -> Ram_1wors.this.wordCount,
+    "wordWidth"      -> Ram_1wors.this.wordWidth,
+    "readUnderWrite" -> Ram_1wors.this.readUnderWrite.readUnderWriteString,
+    "useReadEnable"  -> true
+  )
 
   val io = new Bundle {
     val clk = in Bool()
@@ -227,24 +226,24 @@ class Ram_1wors(wordWidth: Int, wordCount: Int, readUnderWrite: ReadUnderWritePo
   * Ram 1wrs
   */
 class Ram_1wrs(
-  wordWidth      : Int,
-  wordCount      : Int,
-  technology     : MemTechnologyKind,
-  readUnderWrite : ReadUnderWritePolicy = dontCare,
-  duringWrite    : DuringWritePolicy = dontCare,
-  maskWidth      : Int,
-  maskEnable     : Boolean
+  val wordWidth      : Int,
+  val wordCount      : Int,
+  val technology     : MemTechnologyKind,
+  val readUnderWrite : ReadUnderWritePolicy = dontCare,
+  val duringWrite    : DuringWritePolicy = dontCare,
+  val maskWidth      : Int,
+  val maskEnable     : Boolean
 ) extends BlackBox {
 
-  val generic = new Generic {
-    val wordCount      = Ram_1wrs.this.wordCount
-    val wordWidth      = Ram_1wrs.this.wordWidth
-    val readUnderWrite = Ram_1wrs.this.readUnderWrite.readUnderWriteString
-    val duringWrite    = Ram_1wrs.this.duringWrite.duringWriteString
-    val technology     = Ram_1wrs.this.technology.technologyKind
-    val maskWidth      = Ram_1wrs.this.maskWidth
-    val maskEnable     = Ram_1wrs.this.maskEnable
-  }
+  addGenerics(
+    "wordCount"      -> Ram_1wrs.this.wordCount,
+    "wordWidth"      -> Ram_1wrs.this.wordWidth,
+    "readUnderWrite" -> Ram_1wrs.this.readUnderWrite.readUnderWriteString,
+    "duringWrite"    -> Ram_1wrs.this.duringWrite.duringWriteString,
+    "technology"     -> Ram_1wrs.this.technology.technologyKind,
+    "maskWidth"      -> Ram_1wrs.this.maskWidth,
+    "maskEnable"     -> Ram_1wrs.this.maskEnable
+  )
 
   val io = new Bundle {
     val clk    =  in Bool()
@@ -265,47 +264,45 @@ class Ram_1wrs(
   * Ram 2wrs
   */
 class Ram_2wrs(
-  wordWidth            : Int,
-  wordCount            : Int,
-  technology           : MemTechnologyKind,
+  val wordWidth            : Int,
+  val wordCount            : Int,
+  val technology           : MemTechnologyKind,
 
-  portA_readUnderWrite : ReadUnderWritePolicy = dontCare,
-  portA_duringWrite    : DuringWritePolicy = dontCare,
-  portA_clock          : ClockDomain,
-  portA_addressWidth   : Int,
-  portA_dataWidth      : Int,
-  portA_maskWidth      : Int,
-  portA_maskEnable     : Boolean,
+  val portA_readUnderWrite : ReadUnderWritePolicy = dontCare,
+  val portA_duringWrite    : DuringWritePolicy = dontCare,
+  val portA_clock          : ClockDomain,
+  val portA_addressWidth   : Int,
+  val portA_dataWidth      : Int,
+  val portA_maskWidth      : Int,
+  val portA_maskEnable     : Boolean,
 
-  portB_readUnderWrite : ReadUnderWritePolicy = dontCare,
-  portB_duringWrite    : DuringWritePolicy = dontCare,
-  portB_clock          : ClockDomain,
-  portB_addressWidth   : Int,
-  portB_dataWidth      : Int,
-  portB_maskWidth      : Int,
-  portB_maskEnable     : Boolean
+  val portB_readUnderWrite : ReadUnderWritePolicy = dontCare,
+  val portB_duringWrite    : DuringWritePolicy = dontCare,
+  val portB_clock          : ClockDomain,
+  val portB_addressWidth   : Int,
+  val portB_dataWidth      : Int,
+  val portB_maskWidth      : Int,
+  val portB_maskEnable     : Boolean
 ) extends BlackBox {
 
-  val generic = new Generic {
-    val wordCount     = Ram_2wrs.this.wordCount
-    val wordWidth     = Ram_2wrs.this.wordWidth
-    var clockCrossing = portA_clock != portB_clock
-    val technology    = Ram_2wrs.this.technology.technologyKind
-
-    val portA_readUnderWrite = Ram_2wrs.this.portA_readUnderWrite.readUnderWriteString
-    val portA_duringWrite    = Ram_2wrs.this.portA_duringWrite.duringWriteString
-    val portA_addressWidth   = Ram_2wrs.this.portA_addressWidth
-    val portA_dataWidth      = Ram_2wrs.this.portA_dataWidth
-    val portA_maskWidth      = Ram_2wrs.this.portA_maskWidth
-    val portA_maskEnable     = Ram_2wrs.this.portA_maskEnable
-
-    val portB_readUnderWrite = Ram_2wrs.this.portB_readUnderWrite.readUnderWriteString
-    val portB_duringWrite    = Ram_2wrs.this.portB_duringWrite.duringWriteString
-    val portB_addressWidth   = Ram_2wrs.this.portB_addressWidth
-    val portB_dataWidth      = Ram_2wrs.this.portB_dataWidth
-    val portB_maskWidth      = Ram_2wrs.this.portB_maskWidth
-    val portB_maskEnable     = Ram_2wrs.this.portB_maskEnable
-  }
+  addGenerics(
+    "wordCount"            -> Ram_2wrs.this.wordCount,
+    "wordWidth"            -> Ram_2wrs.this.wordWidth,
+    "clockCrossing"        -> (portA_clock != portB_clock),
+    "technology"           -> Ram_2wrs.this.technology.technologyKind,
+    "portA_readUnderWrite" -> Ram_2wrs.this.portA_readUnderWrite.readUnderWriteString,
+    "portA_duringWrite"    -> Ram_2wrs.this.portA_duringWrite.duringWriteString,
+    "portA_addressWidth"   -> Ram_2wrs.this.portA_addressWidth,
+    "portA_dataWidth"      -> Ram_2wrs.this.portA_dataWidth,
+    "portA_maskWidth"      -> Ram_2wrs.this.portA_maskWidth,
+    "portA_maskEnable"     -> Ram_2wrs.this.portA_maskEnable,
+    "portB_readUnderWrite" -> Ram_2wrs.this.portB_readUnderWrite.readUnderWriteString,
+    "portB_duringWrite"    -> Ram_2wrs.this.portB_duringWrite.duringWriteString,
+    "portB_addressWidth"   -> Ram_2wrs.this.portB_addressWidth,
+    "portB_dataWidth"      -> Ram_2wrs.this.portB_dataWidth,
+    "portB_maskWidth"      -> Ram_2wrs.this.portB_maskWidth,
+    "portB_maskEnable"     -> Ram_2wrs.this.portB_maskEnable
+  )
 
   val io = new Bundle {
     val portA = new Bundle {

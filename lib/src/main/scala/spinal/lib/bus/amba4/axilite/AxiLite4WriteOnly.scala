@@ -14,7 +14,23 @@ case class AxiLite4WriteOnly(config: AxiLite4Config) extends Bundle with IMaster
   def writeData = w
   def writeRsp  = b
 
+  def >>(that: AxiLite4): Unit = {
+    assert(that.config == this.config)
+    this.writeCmd >> that.writeCmd
+    this.writeData >> that.writeData
+    this.writeRsp << that.writeRsp
+  }
 
+  def <<(that: AxiLite4): Unit = that >> this
+
+  def >>(that: AxiLite4WriteOnly): Unit = {
+    assert(that.config == this.config)
+    this.writeCmd >> that.writeCmd
+    this.writeData >> that.writeData
+    this.writeRsp << that.writeRsp
+  }
+
+  def <<(that: AxiLite4WriteOnly): Unit = that >> this
 
   override def asMaster(): Unit = {
     master(aw,w)

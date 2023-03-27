@@ -280,6 +280,13 @@ object Axi4{
     def EXCLUSIVE = B"1"
   }
 
+  object prot{
+    def apply() = Bits(3 bits)
+    def PRIVILEGED   = B"001"
+    def NON_SECURE   = B"010"
+    def INSTRUCTION  = B"100"
+  }
+
   object resp{
     def apply() = Bits(2 bits)
     def OKAY   = B"00" // Normal access success

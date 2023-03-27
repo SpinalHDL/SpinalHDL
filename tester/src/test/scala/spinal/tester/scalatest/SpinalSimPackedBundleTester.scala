@@ -5,7 +5,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.core.sim._
 
-class SpinalSimPackedBundleTester extends AnyFunSuite {
+class SpinalSimPackedBundleTester extends SpinalAnyFunSuite {
   test("pack") {
     SimConfig.withWave.compile(new Component {
       val packedBundle = new PackedBundle {

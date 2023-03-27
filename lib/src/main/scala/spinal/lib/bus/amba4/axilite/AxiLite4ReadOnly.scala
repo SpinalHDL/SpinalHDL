@@ -10,6 +10,22 @@ case class AxiLite4ReadOnly(config: AxiLite4Config) extends Bundle with IMasterS
   def readCmd   = ar
   def readRsp   = r
 
+  def >>(that: AxiLite4): Unit = {
+    assert(that.config == this.config)
+    this.readCmd >> that.readCmd
+    this.readRsp << that.readRsp
+  }
+
+  def <<(that: AxiLite4): Unit = that >> this
+
+  def >>(that: AxiLite4ReadOnly): Unit = {
+    assert(that.config == this.config)
+    this.readCmd >> that.readCmd
+    this.readRsp << that.readRsp
+  }
+
+  def <<(that: AxiLite4ReadOnly): Unit = that >> this
+
   override def asMaster(): Unit = {
     master(ar)
     slave(r)

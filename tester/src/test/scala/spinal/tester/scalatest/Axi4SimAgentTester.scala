@@ -31,7 +31,7 @@ case class Axi4PassthroughFixture(config: Axi4Config) extends Component {
     io.output.b >> io.input.b
 }
 
-class Axi4SimAgentTester extends AnyFunSuite {
+class Axi4SimAgentTester extends SpinalAnyFunSuite {
 
     def writeTester(dut: Axi4PassthroughFixture): Unit = {
         dut.clockDomain.forkStimulus(10)
