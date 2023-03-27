@@ -24,12 +24,13 @@ import java.io.{BufferedWriter, File, FileWriter}
 import scala.collection.mutable.ListBuffer
 import spinal.core._
 import spinal.core.fiber.Engine
+import spinal.core.internals.Operator.BitVector
 
-import scala.collection.immutable
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
 
+import java.util
 import scala.io.Source
 
 
@@ -286,160 +287,270 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
   }
 }
 
-
-
 class PhaseAnalog extends PhaseNetlist{
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
-
-
-    val wraps = mutable.LinkedHashMap[BaseType, BaseType]()
-
-    //Identify every InOut(Analog) and create a wrapper in the parent component
-    walkComponents(c => if(c.parent != null) c.ioSet.withFilter(_.isInOut).foreach(io => {
-      val wrap = c.parent.rework{
-        Analog(io)
+    case class Bit(bt : BaseType, bitId : Int, scope : ScopeStatement)
+    // A island represent the connection of multiple analog single bits
+    class Island {
+      def absorb(other: Island): Unit = {
+        this.elements ++= other.elements
       }
-      wraps += io -> wrap
-    }))
-
-    //Remap all driving expression to the created wrapper
-    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapDrivingExpressions{e => e match {
-      case source : BaseType => wraps.get(source) match {
-        case Some(target) if c == target.component => target
-        case _ => e
+      val elements = mutable.LinkedHashSet[Bit]()
+      def add(that : Bit): Unit ={
+        elements += that
       }
-      case _ => e
-    }}))
-
-    //Connect the wrappers
-    for((source, target) <- wraps){
-      target.component.rework(target := source)
     }
 
-    //Be sure that sub io assign parent component stuff
-    walkComponents(c => c.ioSet.withFilter(_.isInOut).foreach(io => {
-      io.foreachStatements {
-        case s@AssignmentStatement(_: BaseType, x: BaseType) if x.isAnalog && x.component == c.parent =>
-          s.dlcRemove()
-          x.dlcAppend(s)
-          s.target = x
-          s.source = io
-        case _ =>
-      }
-    }))
 
-    val analogs        = ArrayBuffer[BaseType]()
-    val islands        = mutable.LinkedHashSet[mutable.LinkedHashSet[BaseType]]()
-    val analogToIsland = mutable.HashMap[BaseType,mutable.LinkedHashSet[BaseType]]()
+    pc.walkComponents { c =>
+      val islands = mutable.LinkedHashSet[Island]()
+      val bitToIsland = mutable.HashMap[(BaseType, Int), Island]()
+      def islandOf(b : Bit) = bitToIsland.get(b.bt -> b.bitId)
 
-    def addToIsland(that: BaseType, island: mutable.LinkedHashSet[BaseType]): Unit = {
-      island += that
-      analogToIsland(that) = island
-    }
+      // Generate the list of islands
+      c.dslBody.walkStatements {
+        case s: AssignmentStatement => {
+          val targetBt = s.finalTarget
+          val sourceBt : BaseType = s.source match {
+            case bt: BaseType => bt
+            case e: SubAccess => e.getBitVector match {
+              case bt: BaseType => bt
+              case _ => null
+            }
+            case _ => null
+          }
+          if (targetBt.isAnalog) {
+            val targetRange = s.target match {
+              case bt: BaseType => (0 until bt.getBitsWidth)
+              case e: BitAssignmentFixed => (e.bitId to e.bitId)
+              case e: RangedAssignmentFixed => (e.lo to e.hi)
+              case _ => SpinalError(s"Unsupported statement $s")
+            }
+            val sourceRange = s.source match {
+              case bt: BaseType => (0 until bt.getBitsWidth)
+              case e: BitVectorBitAccessFixed => (e.bitId to e.bitId)
+              case e: BitVectorRangedAccessFixed => (e.lo to e.hi)
+              case w: WidthProvider => (0 until w.getWidth)
+              case _ => SpinalError(s"Unsupported statement $s")
+            }
+            if(targetRange.size != sourceRange.size)
+              SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT $s\n${s.getScalaLocationLong}")
 
-    //val wrapped = mutable.HashMap[BaseType, BaseType]()
+            if(targetRange.size > 0) {
+              if (sourceBt == null) SpinalError(":(")
+              for (i <- 0 until targetRange.size) {
+                val a = Bit(targetBt, targetRange.low + i, c.dslBody)
+                val b = Bit(sourceBt, sourceRange.low + i, s.parentScope)
+                val island: Island = (islandOf(a), islandOf(b)) match {
+                  case (None, None) =>
+                    val island = new Island()
+                    islands += island
+                    island
+                  case (None, Some(island)) => island
+                  case (Some(island), None) => island
+                  case (Some(islandBt), Some(islandY)) =>
+                    for (e <- islandY.elements) bitToIsland(e.bt -> e.bitId) = islandBt
+                    islandBt.absorb(islandY)
+                    islands.remove(islandY)
+                    islandBt
+                }
 
-    walkStatements{
-      case bt: BaseType if bt.isAnalog =>
-        analogs += bt
+                island.add(a)
+                island.add(b)
+                bitToIsland(a.bt -> a.bitId) = island
+                //Do not add digital drivers into the island merge logic
+                if (b.bt.isAnalog) bitToIsland(b.bt -> b.bitId) = island
 
-        //Manage islands
-        bt.foreachStatements {
-          case s@AssignmentStatement(x, y: BaseType) if y.isAnalog =>
-            if (s.finalTarget.component == y.component) {
-              (analogToIsland.get(bt), analogToIsland.get(y)) match {
-                case (None, None) =>
-                  val island = mutable.LinkedHashSet[BaseType]()
-                  addToIsland(bt, island)
-                  addToIsland(y, island)
-                  islands += island
-                case (None, Some(island)) =>
-                  addToIsland(bt, island)
-                case (Some(island), None) =>
-                  addToIsland(y, island)
-                case (Some(islandBt), Some(islandY)) =>
-                  islandY.foreach(addToIsland(_, islandBt))
-                  islands.remove(islandY)
               }
             }
-          case AssignmentStatement(x, y: BaseType) if !y.isAnalog =>
+            s.removeStatement()
+          }
         }
-
-        if(!analogToIsland.contains(bt)){
-          val island = mutable.LinkedHashSet[BaseType]()
-          addToIsland(bt,island)
-          islands += island
-        }
-      case _ =>
-    }
-
-    islands.foreach(island => {
-      //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
-      val target = island.count(_.isInOut) match {
-        case 0 => island.head
-        case 1 => island.find(_.isInOut).get
-        case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
-      }
-
-      //Remove target analog assignments
-      target.foreachStatements {
-        case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
         case _ =>
       }
-
-      //redirect island assignments to target
-      //drive isllands analogs from target as comb signal
-      for(bt <- island if bt != target){
-        val btStatements = ArrayBuffer[AssignmentStatement]()
-        bt.foreachStatements(btStatements += _)
-        btStatements.foreach {
-          case s@AssignmentStatement(_, x: BaseType) if !x.isAnalog => //analog driver
-            s.dlcRemove()
-            target.dlcAppend(s)
-            s.walkRemapExpressions(e => if (e == bt) target else e)
-          case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == bt.component => //analog connection
-            s.dlcRemove()
-            target.dlcAppend(s)
-            s.walkRemapExpressions(e => if (e == bt) target else e)
-          case _ =>
-        }
-
-        bt.removeAssignments()
-        bt.setAsComb()
-        val ctx = bt.rootScopeStatement.push()
-        bt := target
-        ctx.restore()
+      var seedId = 0
+      val seeds = mutable.LinkedHashSet[BaseType]() //List of all analog signal being the "root" of a network
+      class Group{
+        val islands = ArrayBuffer[Island]()
       }
+      val analogGroups = mutable.LinkedHashSet[Group]()
+      val anlogToGroup = mutable.LinkedHashMap[BaseType, Group]()
 
-      //Convert target comb assignment into AnalogDriver nods
-      target.foreachStatements(s => {
-        s.source match {
-          case btSource: BaseType if btSource.isAnalog =>
-          case btSource =>
-            val ctx = s.parentScope.push()
-            val enable = ConditionalContext.isTrue(target.rootScopeStatement)
-            ctx.restore()
-            s.removeStatementFromScope()
-            target.rootScopeStatement.append(s)
-            val driver = btSource.getTypeObject match {
-              case `TypeBool` => new AnalogDriverBool
-              case `TypeBits` => new AnalogDriverBits
-              case `TypeUInt` => new AnalogDriverUInt
-              case `TypeSInt` => new AnalogDriverSInt
-              case `TypeEnum` => new AnalogDriverEnum(btSource.asInstanceOf[EnumEncoded].getDefinition)
+      //Process the islands to generate seeds from component analog inouts, and build the group list for connections without inout analog
+      islands.foreach(island => {
+        val filtred = island.elements.map(_.bt).toSet
+        val count = filtred.count(e => e.isInOut && e.component == c)
+        count match {
+          case 0 => { //No analog inout, will need to create a connection seed later on
+            val groups = island.elements.map(b => anlogToGroup.get(b.bt)).filter(_.nonEmpty).map(_.get).toArray.distinct
+            val finalGroup = groups.length match {
+              case 0 => {
+                val group = new Group()
+                analogGroups += group
+                group
+              }
+              case 1 => groups.head
+              case _ =>{
+                val ghead = groups.head
+                for(group <- groups.tail){
+                  groups.head.islands ++= group.islands
+                  analogGroups -= group
+                  for(i <- group.islands){
+                    for(b <- i.elements){
+                      anlogToGroup(b.bt) = ghead
+                    }
+                  }
+                }
+                ghead
+              }
             }
-            driver.data   = s.source.asInstanceOf[driver.T]
-            driver.enable = enable
-            s.source      = driver
+            finalGroup.islands += island
+            for(b <- island.elements){
+              anlogToGroup(b.bt) = finalGroup
+            }
+          }
+          case 1 => seeds += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt //Got a analog inout to host the connection
+          case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
         }
       })
-      //      }
-    })
+
+      //For each group, this will generate a analog host signal
+      for(group <- analogGroups)      c.rework{
+        val width = group.islands.size
+        val seed = Analog(Bits(width bits))
+        seed.setName(s"analog_wrap_$seedId")
+        seedId += 1
+        for((island, i) <- group.islands.zipWithIndex) {
+          val b = Bit(seed, i, c.dslBody)
+          island.elements += b
+          bitToIsland(b.bt -> b.bitId) = island
+        }
+        seeds += seed
+      }
+
+      val toComb = mutable.LinkedHashSet[BaseType]()
+
+      //Generate all the statements associated to the seeds by aggreating consecutive bits connection and then flushing it into RTL
+      for(seed <- seeds){
+        case class AggregateKey(bt : BaseType, scope : ScopeStatement)
+        case class AggregateCtx(seedOffset : Int, otherOffset : Int)
+        var aggregates = mutable.LinkedHashMap[AggregateKey, AggregateCtx]()
+        def flush(key : AggregateKey, ctx : AggregateCtx, seedUntil : Int): Unit ={
+          val ctx = aggregates(key)
+          aggregates -= key
+          val width = seedUntil - ctx.seedOffset
+          key.bt match {
+            //Mutate directionless analog into combinatorial reader of the seed
+            case bt if bt.isAnalog && bt.isDirectionLess => if(key.scope == c.dslBody) bt.parentScope.on{
+              toComb += bt
+              bt.compositeAssign = null
+              bt match{
+                case bt : Bool => bt := (seed match {
+                  case seed : Bool => seed
+                  case seed : BitVector => seed(ctx.seedOffset).setAsComb()
+                })
+                case bt : BitVector => bt(ctx.otherOffset, width bits) := (seed match {
+                  case seed : Bool => seed.asBits
+                  case seed : BitVector => seed(ctx.seedOffset, width bits).setAsComb()
+                })
+              }
+            }
+            //Handle analog inout of sub components
+            case bt if bt.isAnalog && bt.isInOut => c.dslBody.on{
+              val driver = bt match {
+                case bt : BitVector if width != widthOf(bt) => bt(ctx.otherOffset, width bits).setAsComb()
+                case _ => bt
+              }
+              seed match{
+                case seed : BitVector if width != widthOf(seed)  || driver.getTypeObject != seed.getTypeObject => driver.getTypeObject match {
+                  case `TypeBool` => {
+                    seed(ctx.seedOffset).setAsComb() := False
+                    seed.dlcLast.source = driver
+                  }
+                  case _ => {
+                    seed(ctx.seedOffset, width bits).setAsComb() := seed(ctx.otherOffset, width bits).setAsComb().getZero
+                    seed.dlcLast.source = driver
+                  }
+                }
+                case bt => {
+                  bt.assignFrom(driver)
+                }
+              }
+            }
+            //Handle tristate drivers to the seed
+            case bt if !bt.isAnalog => {
+              val tmp = key.scope.push()
+              val enable = ConditionalContext.isTrue(seed.rootScopeStatement)
+              tmp.restore()
+              c.dslBody.on{
+                val driver = bt.getTypeObject match {
+                  case `TypeBool` => new AnalogDriverBool
+                  case `TypeBits` => new AnalogDriverBits
+                  case `TypeUInt` => new AnalogDriverUInt
+                  case `TypeSInt` => new AnalogDriverSInt
+                  case `TypeEnum` => new AnalogDriverEnum(bt.asInstanceOf[EnumEncoded].getDefinition)
+                }
+                driver.data = (bt match {
+                  case bv : BitVector => bv.apply(ctx.otherOffset, width bits)
+                  case _ => bt
+                }).asInstanceOf[driver.T]
+                driver.enable = enable
+                seed match{
+                  case seed : BitVector if width != widthOf(seed) || bt.getTypeObject == TypeBool => bt.getTypeObject match {
+                    case `TypeBool` => {
+                      seed(ctx.seedOffset).setAsComb() := seed(ctx.seedOffset).getZero
+                      seed.dlcLast.source = driver
+                    }
+                    case _ => {
+                      seed(ctx.seedOffset, width bits).setAsComb() := seed(ctx.otherOffset, width bits).getZero
+                      seed.dlcLast.source = driver
+                    }
+                  }
+                  case bt => bt.assignFrom(driver)
+                }
+              }
+            }
+          }
+        }
+
+        //Detect bitvector bits sequencial connections xxx(5 downto 2) => 3 bits
+        for(bitId <- 0 until widthOf(seed)){
+          val flushes = ArrayBuffer[(AggregateKey, AggregateCtx)]()
+          bitToIsland.get(seed -> bitId) match {
+            case Some(island) => {
+              for((key, ctx) <- aggregates){
+                island.elements.contains(Bit(key.bt, (bitId - ctx.seedOffset) + ctx.otherOffset, key.scope)) match {
+                  case true => //Continue
+                  case false => flushes += key -> ctx
+                }
+              }
+              for(e <- flushes) flush(e._1, e._2, bitId)
+              for(e <- island.elements if e.bt != seed){
+                val key = AggregateKey(e.bt, e.scope)
+                aggregates.get(key) match {
+                  case Some(x) =>
+                  case None => aggregates(key) = AggregateCtx(bitId, e.bitId)
+                }
+              }
+            }
+            case None => {
+              for((key, ctx) <- aggregates){
+                  flushes += key -> ctx
+              }
+              for(e <- flushes) flush(e._1, e._2, bitId)
+            }
+          }
+        }
+        for(e <- aggregates.toArray) flush(e._1, e._2, widthOf(seed))
+      }
+      toComb.foreach(_.setAsComb())
+    }
   }
 }
+
 
 
 
@@ -2799,3 +2910,4 @@ object SpinalVerilogBoot{
     report
   }
 }
+
