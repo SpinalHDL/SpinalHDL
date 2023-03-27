@@ -22,6 +22,10 @@ class Axi4UpsizerTester extends SpinalAnyFunSuite {
     val inputAgent = new Axi4WriteOnlyMasterAgent(dut.io.input, dut.clockDomain) {
       override def genAddress(): BigInt = ((Random.nextInt(1 << 19)))// & 0xFFF00) | 6
 
+      override val pageAlignBits = 16
+//      override def lens   =  List(255)
+//      override def sizes  = List(5)
+
       override def bursts: List[Int] = List(1)
 
       override def mappingAllocate(mapping: SizeMapping): Boolean = {
@@ -81,6 +85,7 @@ class Axi4UpsizerTester extends SpinalAnyFunSuite {
     val inputAgent = new Axi4ReadOnlyMasterAgent(dut.io.input, dut.clockDomain) {
       override def genAddress(): BigInt = Random.nextInt(1 << 19)
       override def bursts: List[Int] = List(1)
+      override val pageAlignBits = 16
       override def mappingAllocate(mapping: SizeMapping): Boolean = {
         if(regions.exists(_.overlap(mapping))) return false
         regions += mapping
