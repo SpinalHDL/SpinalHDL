@@ -99,7 +99,8 @@ class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
 }
 
 case class DebugTransportModuleJtagTap(p : DebugTransportModuleParameter,
-                                       debugCd : ClockDomain) extends Component{
+                                       debugCd : ClockDomain,
+                                       jtagId : Int = 0x10002FFF) extends Component{
   val io = new Bundle {
     val jtag = slave(Jtag())
     val bus = master(DebugBus(p.addressWidth))
@@ -108,7 +109,7 @@ case class DebugTransportModuleJtagTap(p : DebugTransportModuleParameter,
   val jtagCd = ClockDomain(io.jtag.tck)
 
   val tap = jtagCd on JtagTapFactory(io.jtag, instructionWidth = 5)
-  val idcodeArea = jtagCd on tap.idcode(B"x10002FFF")(1)
+  val idcodeArea = jtagCd on tap.idcode(B(jtagId, 32 bits))(1)
   val logic = new DebugTransportModuleJtag(
     p       = p,
     tap     = tap,
