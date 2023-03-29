@@ -72,7 +72,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
   val factory = new DebugBusSlaveFactory(io.ctrl)
 
   val dmactive = factory.createReadAndWrite(Bool(), 0x10, 0) init(False)
-  val dmCd = ClockDomain(ClockDomain.current.clock, reset = dmactive, config = ClockDomain.current.config.copy(resetKind = SYNC, resetActiveLevel = LOW))
+  val dmCd = ClockDomain(ClockDomain.current.clock, reset = dmactive, config = ClockDomain.current.config.copy(resetKind = ASYNC, resetActiveLevel = LOW))
 
   val logic = dmCd on new Area{
     val dmcontrol = new Area {
