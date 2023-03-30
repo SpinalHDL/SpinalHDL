@@ -19,7 +19,7 @@ final case class HtmlGenerator(fileName : String, title : String) extends BusIfV
         if(value == 0) s"${bitCount}'b0" else s"${bitCount}'h%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
     }
 
-    def br(s: String) = s.replaceAll("\n" , "<br>")
+    def br(s: String) = s.replaceAll("\\\\n|\n" , "<br>")
 
     def genTds(field : FieldDescr) : String = {
         val reserved = if (field.getAccessType == AccessType.NA) "reserved" else ""
