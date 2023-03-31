@@ -191,7 +191,7 @@ class BundleCase extends Bundle {
   private[core] override def rejectOlder = false
 }
 
-trait BundleWithAssign[T <: BundleWithAssign[T]] {
+trait IConnectable[T <: IConnectable[T]] {
   def connectFrom(that: T): T
   def <<(that: T): T = connectFrom(that)
   def >>(into: T): T = {
