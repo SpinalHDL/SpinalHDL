@@ -966,7 +966,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
       mem.component.rework {
         val port = topo.readWriteSync.head
 
-        val ram = new Ram_1wrs(
+        val ram = port.clockDomain on new Ram_1wrs(
           wordWidth = port.width,
           wordCount = mem.wordCount*mem.width/port.width,
           technology = mem.technology,
