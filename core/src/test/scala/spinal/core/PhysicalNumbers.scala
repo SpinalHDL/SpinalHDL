@@ -34,4 +34,14 @@ class PhysicalNumbers extends AnyFunSuite {
 
     assert(hz100.hashCode() == hz100_2.hashCode())
   }
+
+  test("formatting") {
+    assert(f"${HertzNumber(5123000)}" == "5.123 MHz")
+    assert(f"${HertzNumber(5123000)}%s" == "5.123 MHz")
+    assert(f"${HertzNumber(5123000)}%S" == "5.123MHz")
+    assert(f"${HertzNumber(5123000)}%#s" == "5.123")
+    assert(f"${HertzNumber(5123000)}%.5s" == "5.12300 MHz")
+    assert(f"${HertzNumber(5123000)}%15.5s" == "    5.12300 MHz")
+    assert(f"${HertzNumber(5123000)}%-15.5s" == "5.12300 MHz    ")
+  }
 }
