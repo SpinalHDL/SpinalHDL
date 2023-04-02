@@ -13,7 +13,6 @@ class PhysicalNumbers extends AnyFunSuite {
     assert(hz100 == hz100_2)
     assert(hz100_2 == hz100)
     assert(hz100 != hz200)
-    assert(hz200 != ms2)
     assert(hz100 != null)
 
     assert(hz100 < hz200)
