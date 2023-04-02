@@ -47,6 +47,8 @@ class PackedBundle extends Bundle {
 
       // Update the bit width
       highBit = highBit.max(r.high)
+
+      mapping.append(r -> d)
     }
 
     def width = highBit + 1
@@ -58,7 +60,7 @@ class PackedBundle extends Bundle {
     * Gets the mappings of Range to Data for this PackedBundle
     * @return Seq of (Range,Data) for all elements
     */
-  def mappings = mapBuilder.mapping.toSeq
+  def mappings = mapBuilder.mapping
 
   override def asBits: Bits = {
     val maxWidth = mappings.map(_._1.high).max + 1

@@ -8,7 +8,7 @@ import spinal.core.sim._
 import spinal.lib.sim.{ScoreboardInOrder, StreamReadyRandomizer, StreamMonitor}
 
 
-class StreamPackTester extends AnyFunSuite {
+class SpinalSimStreamPackTester extends SpinalAnyFunSuite {
 
   case class PackTestBundle() extends Bundle {
     val r = UInt(5 bits)

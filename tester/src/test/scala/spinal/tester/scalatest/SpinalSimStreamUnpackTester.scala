@@ -8,7 +8,7 @@ import spinal.lib.sim.{ScoreboardInOrder, StreamDriver, StreamMonitor}
 
 import scala.util.Random
 
-class StreamUnpackTester extends AnyFunSuite {
+class SpinalSimStreamUnpackTester extends SpinalAnyFunSuite {
 
   case class UnpackTestBundle() extends Bundle {
     val r = UInt(5 bits)
