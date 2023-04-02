@@ -44,7 +44,7 @@ object SpinalSimAccessSubComponents {
 
 }
 
-class SpinalSimAccessSubComponents extends AnyFunSuite {
+class SpinalSimAccessSubComponents extends SpinalAnyFunSuite {
   SpinalSimTester { env =>
     import env._
 

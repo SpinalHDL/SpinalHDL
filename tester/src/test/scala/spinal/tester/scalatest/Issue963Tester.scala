@@ -27,7 +27,7 @@ import spinal.core.sim._
 // [info] Tests: succeeded 0, failed 1, canceled 0, ignored 0, pending 0
 // [info] *** 1 TEST FAILED ***
 
-class Issue963Tester extends AnyFunSuite {
+class Issue963Tester extends SpinalAnyFunSuite {
   test("Minimal example for Issue963 which fails Spinal elaboration") {
     class Dut extends Component {
       val io = new Bundle {

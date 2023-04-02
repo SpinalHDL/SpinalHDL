@@ -222,13 +222,13 @@ class ComponentEmitterVhdl(
     }
 
     //Wrap inout
-    analogs.foreach(io => {
-      io.foreachStatements{
-        case AssignmentStatement(target, source: BaseType) =>
-          referencesOverrides(source) = emitAssignedExpression(target)
-        case _ =>
-      }
-    })
+//    analogs.foreach(io => {
+//      io.foreachStatements{
+//        case AssignmentStatement(target, source: BaseType) =>
+//          referencesOverrides(source) = emitAssignedExpression(target)
+//        case _ =>
+//      }
+//    })
 
     //Flush all that mess out ^^
     emitBlackBoxComponents()
@@ -275,6 +275,14 @@ class ComponentEmitterVhdl(
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
     for(child <- component.children){
       emitAttributes(child.getName(), child.instanceAttributes, "label", declarations, "")
+    }
+
+    val analogDrivers = mutable.LinkedHashMap[BaseType, ArrayBuffer[AssignmentStatement]]()
+    for(analog <- analogs) analog.foreachStatements{s =>
+      s.walkDrivingExpressions{
+        case e : BaseType => analogDrivers.getOrElseUpdate(e, ArrayBuffer[AssignmentStatement]()) += s
+        case _ =>
+      }
     }
 
     for (children <- component.children) {
@@ -348,7 +356,26 @@ class ComponentEmitterVhdl(
       for (data <- children.getOrdredNodeIo) {
         if (!data.isInstanceOf[SpinalStruct]) {
           val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
-          logics ++= addCasting(data, emitReferenceNoOverrides(data), logic , data.dir)
+          if(data.isInOut){
+            val buf = new mutable.StringBuilder()
+            analogDrivers.get(data) match {
+              case Some(statements) => {
+                case class Mapping(offset : Int, width : Int, dst : Expression)
+                val mapping = statements.map{ s =>
+                  val subio = s.source match {
+                    case bt : BaseType => emitExpression(bt)
+                    case e : BitVectorBitAccessFixed => s"${emitExpression(e.source)}(${e.bitId})"
+                    case e : BitVectorRangedAccessFixed => s"${emitExpression(e.source)}(${e.hi} downto ${e.lo})"
+                  }
+                  logics ++= addCasting(data, subio, emitAssignedExpression(s.target), data.dir)
+                }
+              }
+              case None =>
+            }
+
+          } else {
+            logics ++= addCasting(data, emitReferenceNoOverrides(data), logic, data.dir)
+          }
         }
       }
 
@@ -1263,15 +1290,15 @@ class ComponentEmitterVhdl(
   }
 
   def emitBitsLiteral(e: BitsLiteral): String = {
-    s"pkg_stdLogicVector(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
+    s"pkg_stdLogicVector(${'\"'}${e.getBitsStringOn(e.getWidth, if(spinalConfig.dontCareGenAsZero) '0' else 'X')}${'\"'})"
   }
 
   def emitUIntLiteral(e: UIntLiteral): String = {
-    s"pkg_unsigned(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
+    s"pkg_unsigned(${'\"'}${e.getBitsStringOn(e.getWidth, if(spinalConfig.dontCareGenAsZero) '0' else 'X')}${'\"'})"
   }
 
   def emitSIntLiteral(e : SIntLiteral): String = {
-    s"pkg_signed(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
+    s"pkg_signed(${'\"'}${e.getBitsStringOn(e.getWidth, if(spinalConfig.dontCareGenAsZero) '0' else 'X')}${'\"'})"
   }
 
   def emitEnumLiteralWrap(e: EnumLiteral[_  <: SpinalEnum]): String = {
@@ -1327,7 +1354,7 @@ class ComponentEmitterVhdl(
     if(dc.encoding.isNative)
       dc.senum.elements.head.getName()
     else
-      s"(${'"'}${"X" * dc.encoding.getWidth(dc.senum)}${'"'})"
+      s"(${'"'}${(if(spinalConfig.dontCareGenAsZero) "0" else "X") * dc.encoding.getWidth(dc.senum)}${'"'})"
   }
 
   def accessBoolFixed(e: BitVectorBitAccessFixed): String = {
@@ -1355,7 +1382,7 @@ class ComponentEmitterVhdl(
     case  e: SIntLiteral                             => emitSIntLiteral(e)
     case  e: EnumLiteral[_]                          => emitEnumLiteralWrap(e)
 
-    case  e: BoolPoison                              => "'X'"
+    case  e: BoolPoison                              => (if(spinalConfig.dontCareGenAsZero) "'0'" else "'X'")
     case  e: EnumPoison                              => emitEnumPoison(e)
 
     //unsigned

@@ -47,7 +47,7 @@ case class UsbDeviceCtrlTesterTop() extends Component {
   ctrl.regs.address.enable.simPublic()
 }
 
-class UsbDeviceCtrlTester extends AnyFunSuite{
+class UsbDeviceCtrlTester extends SpinalAnyFunSuite{
   for(i <- 43 to 44) test("miaou" + i){
     SimConfig.compile(UsbDeviceCtrlTesterTop()).doSim(seed = i){ dut =>
       dut.ctrlCd.forkStimulus(1e12/dut.ctrlCd.frequency.getValue.toDouble toLong)

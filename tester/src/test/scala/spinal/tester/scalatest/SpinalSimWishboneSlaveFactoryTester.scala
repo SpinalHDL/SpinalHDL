@@ -18,7 +18,7 @@ class WishboneSimpleSlave(config : WishboneConfig) extends Component{
   val reg = busCtrl.createReadWrite(Bits(busCtrl.busDataWidth bits),10)
 }
 
-class SpinalSimWishboneSlaveFactoryTester extends AnyFunSuite{
+class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
   def testBus(conf:WishboneConfig, description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleSlave(conf))
     fixture.doSim(description){ dut =>
