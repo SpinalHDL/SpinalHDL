@@ -591,6 +591,13 @@ object Operator {
       }
       override def calcWidth: Int = Math.max(0, source.getWidth - shift)
       override def toString() = s"(${super.toString()})[$getWidth bits]"
+      override def simplifyNode: Expression = {
+        if(shift == 0){
+          source
+        } else {
+          this
+        }
+      }
     }
 
     abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator {
