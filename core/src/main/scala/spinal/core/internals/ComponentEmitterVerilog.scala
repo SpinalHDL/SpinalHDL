@@ -1512,11 +1512,11 @@ end
   }
 
   def shiftRightByIntImpl(e: Operator.BitVector.ShiftRightByInt): String = {
-    s"(${emitExpression(e.source)} >>> ${e.shift})"
+    s"(${emitExpression(e.source)} >>> ${log2Up(e.shift+1)}'d${e.shift})"
   }
 
   def shiftLeftByIntImpl(e: Operator.BitVector.ShiftLeftByInt): String = {
-    s"({${e.shift}'d0,${emitExpression(e.source)}} <<< ${e.shift})"
+    s"({${e.shift}'d0,${emitExpression(e.source)}} <<< ${log2Up(e.shift+1)}'d${e.shift})"
   }
 
 
