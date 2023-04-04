@@ -136,6 +136,19 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val redo = io.harts.map(_.redo).read(hart)
     }
 
+    val haltsum = new Area{
+      assert(p.harts <= 32)
+      val value = U(0, 32 bits)
+      for(g <- 0 until (p.harts+31)/32){
+        when(dmcontrol.hartSel >> 5 === g){
+          for(hid <- g*32 to (g*32+31 min p.harts-1)){
+            value(hid%32) := harts(hid).halted
+          }
+        }
+      }
+      factory.read(value, 0x40)
+    }
+
     val dmstatus = new Area{
       val version = factory.read(U(p.version, 4 bits), 0x11, 0)
       val authenticated = factory.read(True, 0x11, 7)
