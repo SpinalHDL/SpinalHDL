@@ -113,7 +113,7 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
 
 object AllowPartialyAssignedTag extends SpinalTag
 object AllowMixedWidth extends SpinalTag
-trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement]{
+trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement] with Nameable {
   var isVital = false
   var mem: Mem[_] = null
 }

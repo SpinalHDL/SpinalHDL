@@ -126,6 +126,9 @@ class ComponentEmitterVerilog(
 
         val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
         s match {
+          case s : Nameable => s.unsetName().setName(portName)
+        }
+        s match {
           case s: MemReadSync  =>
             val name = component.localNamingScope.allocateName(portName)
             declarations ++= emitExpressionWrap(s, name, "reg")
