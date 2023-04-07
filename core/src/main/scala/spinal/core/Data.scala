@@ -422,6 +422,15 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def assignFromBits(bits: Bits, hi: Int, low: Int): Unit
   def assignFromBits(bits: Bits, offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits, offset + bitCount.value - 1, offset)
 
+  def clearAll(): this.type = {
+    assignFromBits(Bits(asBits.getBitsWidth bits).clearAll())
+    this
+  }
+  def setAll(): this.type = {
+    assignFromBits(Bits(asBits.getBitsWidth bits).setAll())
+    this
+  }
+
   def as[T <: Data](dataType: HardType[T]) : T = {
     val ret = dataType()
     ret.assignFromBits(this.asBits)
@@ -755,4 +764,3 @@ trait DataWrapper extends Data{
   override def freeze(): DataWrapper.this.type = ???
   override def unfreeze(): DataWrapper.this.type = ???
 }
-
