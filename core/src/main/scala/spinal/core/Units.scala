@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import scala.collection.mutable
+
 
 /**
   * Represent the number of bit of a data
@@ -63,8 +65,14 @@ object CyclesCount{
 
 /**
   * Base class for the Physical representation (Hertz, Time, ...)
+  *
+  * When formatting (e.g. via f-interpolation) one can use:
+  * - precision to specify precsion (e.g. "%.3f" for three digits past comma)
+  * - width to pad with space to a specified length (e.g. "%5f" to get at least 5 characters)
+  * - left justified padding (e.g. "%-5f" to pad right to 5 characters)
+  * - alternate to print w/o unit (e.g. "%#f")
   */
-abstract class PhysicalNumber[T <: PhysicalNumber[_]](protected val value: BigDecimal) {
+abstract class PhysicalNumber[T <: PhysicalNumber[_]](protected val value: BigDecimal) extends java.util.Formattable {
   def newInstance(value: BigDecimal): T
 
   def +(that: T) = newInstance(this.value + that.value)
@@ -93,6 +101,39 @@ abstract class PhysicalNumber[T <: PhysicalNumber[_]](protected val value: BigDe
   def toLong       = value.toLong
   def toDouble     = value.toDouble
   def toBigDecimal = value
+
+  def decompose: (BigDecimal, String)
+  def decomposeString: String = {
+    val (number, unit) = this.decompose
+    f"${number.toLong} $unit"
+  }
+
+  override def formatTo(formatter: java.util.Formatter, flags: Int, width: Int, precision: Int): Unit = {
+    import java.util.FormattableFlags._
+
+    val (number, unit) = this.decompose
+
+    val sb = new mutable.StringBuilder()
+    if(precision == -1)
+      sb.append(number)
+    else
+      sb.append(f"%%.${precision}f".format(number))
+
+    if (!((flags & ALTERNATE) == ALTERNATE)) {
+      if (!((flags & UPPERCASE) == UPPERCASE))
+        sb.append(" ")
+      sb.append(unit)
+    }
+
+    if(sb.length < width) {
+      if((flags & LEFT_JUSTIFY) == LEFT_JUSTIFY)
+        sb.append(" " * (width - sb.length))
+      else
+        sb.insert(0, " " * (width - sb.length))
+    }
+
+    formatter.format(sb.toString())
+  }
 }
 
 
@@ -111,7 +152,7 @@ case class TimeNumber(private val v: BigDecimal) extends PhysicalNumber[TimeNumb
 
   def toHertz = HertzNumber(1 / this.value)
 
-  def decompose: (BigDecimal, String) = this.value match {
+  override def decompose: (BigDecimal, String) = this.value match {
     case d if value >= 3600.0  => (d / 3600.0,  "hr")
     case d if value >= 60.0    => (d / 60.0,    "min")
     case d if value >= 1.0     => (d / 1.0,     "sec")
@@ -122,11 +163,6 @@ case class TimeNumber(private val v: BigDecimal) extends PhysicalNumber[TimeNumb
     case d if value >= 1.0e-15 => (d / 1.0e-15, "fs")
     case d: BigDecimal        => (d,           "unknown")
     case _                    => (0.0,         "error")
-  }
-
-  def decomposeString: String = {
-    val (deci, unit) = this.decompose
-    f"${deci.toLong} ${unit}"
   }
 }
 
@@ -146,7 +182,7 @@ case class HertzNumber(private val v: BigDecimal) extends PhysicalNumber[HertzNu
 
   def toTime = TimeNumber(1 / this.value)
 
-  def decompose: (BigDecimal, String) = this.value match {
+  override def decompose: (BigDecimal, String) = this.value match {
     case d if d > 1.0e18 => (d / 1.0e18, "EHz")
     case d if d > 1.0e15 => (d / 1.0e15, "PHz")
     case d if d > 1.0e12 => (d / 1.0e12, "THz")
