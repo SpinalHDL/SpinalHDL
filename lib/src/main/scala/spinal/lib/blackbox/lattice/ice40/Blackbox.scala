@@ -33,6 +33,23 @@ case object ShiftregDivMode {
   case object DIV_7 extends ShiftregDivMode
 }
 
+sealed trait AdjustmentMode {
+  override def toString: String = this.getClass.getSimpleName.dropRight(1)
+}
+
+object AdjustmentMode {
+  case object FIXED extends AdjustmentMode
+  case object DYNAMIC extends AdjustmentMode
+}
+
+abstract class AbstractPllConfig {
+  def applyTo(bb: BlackBox): Unit
+  def withExtFeedback: Boolean
+  def withDynamicDelay: Boolean
+  def withLatchInputValue: Boolean
+  def withLock: Boolean
+}
+
 case class SB_PLL40_PAD_CONFIG(
     var DIVR: Bits,
     var DIVF: Bits,
@@ -47,7 +64,7 @@ case class SB_PLL40_PAD_CONFIG(
     var PLLOUT_SELECT: String,
     var ENABLE_ICEGATE: Bool,
     withLock: Boolean = false
-) {
+) extends AbstractPllConfig {
   def applyTo(bb: BlackBox): Unit = {
     bb.addGeneric("DIVR", DIVR)
     bb.addGeneric("DIVF", DIVF)
@@ -62,9 +79,63 @@ case class SB_PLL40_PAD_CONFIG(
     bb.addGeneric("PLLOUT_SELECT", PLLOUT_SELECT)
     bb.addGeneric("ENABLE_ICEGATE", ENABLE_ICEGATE)
   }
+
+  override def withExtFeedback = FEEDBACK_PATH == "EXTERNAL"
+  override def withDynamicDelay =
+    DELAY_ADJUSTMENT_MODE_FEEDBACK == "DYNAMIC" || DELAY_ADJUSTMENT_MODE_RELATIVE == "DYNAMIC"
+  override def withLatchInputValue = ENABLE_ICEGATE == True
 }
 
-object SB_PLL40_PAD_CONFIG {
+case class SB_PLL40_CONFIG(
+    DIVR: Int,
+    DIVF: Int,
+    DIVQ: Int,
+    FILTER_RANGE: Int,
+    FEEDBACK_PATH: FeedbackPath = FeedbackPath.SIMPLE,
+    DELAY_ADJUSTMENT_MODE_FEEDBACK: AdjustmentMode = AdjustmentMode.FIXED,
+    FDA_FEEDBACK: Int,
+    DELAY_ADJUSTMENT_MODE_RELATIVE: AdjustmentMode = AdjustmentMode.FIXED,
+    FDA_RELATIVE: Int,
+    SHIFTREG_DIV_MODE: ShiftregDivMode = ShiftregDivMode.DIV_4,
+    PLLOUT_SELECT: PllOutSelect = PllOutSelect.GENCLK,
+    ENABLE_ICEGATE: Boolean = false,
+    withLock: Boolean = false
+) extends AbstractPllConfig {
+  require(DIVR >= 0 && DIVR <= 15)
+  require(DIVF >= 0 && DIVF <= 127)
+  require(DIVQ >= 0 && DIVQ <= 7)
+  require(FILTER_RANGE >= 0 && FILTER_RANGE <= 7)
+  require(FDA_FEEDBACK >= 0 && FDA_FEEDBACK <= 15)
+  require(FDA_RELATIVE >= 0 && FDA_RELATIVE <= 15)
+
+  def applyTo(bb: BlackBox): Unit = {
+    bb.addGeneric("DIVR", DIVR)
+    bb.addGeneric("DIVF", DIVF)
+    bb.addGeneric("DIVQ", DIVQ)
+    bb.addGeneric("FILTER_RANGE", FILTER_RANGE)
+    bb.addGeneric("FEEDBACK_PATH", FEEDBACK_PATH.toString)
+    bb.addGeneric("DELAY_ADJUSTMENT_MODE_FEEDBACK", DELAY_ADJUSTMENT_MODE_FEEDBACK.toString)
+    bb.addGeneric("FDA_FEEDBACK", FDA_FEEDBACK)
+    bb.addGeneric("DELAY_ADJUSTMENT_MODE_RELATIVE", DELAY_ADJUSTMENT_MODE_RELATIVE.toString)
+    bb.addGeneric("FDA_RELATIVE", FDA_RELATIVE)
+    bb.addGeneric("SHIFTREG_DIV_MODE", if (SHIFTREG_DIV_MODE == ShiftregDivMode.DIV_4) 0 else 1)
+    bb.addGeneric("PLLOUT_SELECT", PLLOUT_SELECT.toString)
+    bb.addGeneric("ENABLE_ICEGATE", ENABLE_ICEGATE.toInt)
+  }
+
+  def fout(fin: HertzNumber) = {
+    SB_PLL40_CONFIG.SingleClockSettings(fin, DIVR, DIVF, DIVQ, FEEDBACK_PATH).fout
+  }
+
+  override def withExtFeedback = FEEDBACK_PATH == FeedbackPath.EXTERNAL
+  override def withDynamicDelay =
+    Seq(DELAY_ADJUSTMENT_MODE_FEEDBACK, DELAY_ADJUSTMENT_MODE_RELATIVE).contains(
+      AdjustmentMode.DYNAMIC
+    )
+  override def withLatchInputValue = ENABLE_ICEGATE
+}
+
+object SB_PLL40_CONFIG {
   // see iCE40 LP/HP Family Data Sheet, FPGA-DS-02029-4.0, p. 35
   val fin_min: HertzNumber = 10 MHz
   val fin_max: HertzNumber = 133 MHz
@@ -132,7 +203,10 @@ object SB_PLL40_PAD_CONFIG {
       s"PLL output must be in range [16.0, 275.0], not $fout_req"
     )
 
-    def better_match(a: Option[SingleClockSettings], b: Option[SingleClockSettings]): Option[SingleClockSettings] = {
+    def better_match(
+        a: Option[SingleClockSettings],
+        b: Option[SingleClockSettings]
+    ): Option[SingleClockSettings] = {
       (a, b) match {
         case (None, Some(_))                                                             => b
         case (Some(_), None)                                                             => a
@@ -187,15 +261,15 @@ object SB_PLL40_PAD_CONFIG {
   def singleOutput(
       fin: HertzNumber,
       fout: HertzNumber,
-      allowed_mismatch: Double = 0.01,
+      tolerance: Double = 0.01,
       FEEDBACK_PATH: Option[FeedbackPath] = Some(FeedbackPath.SIMPLE),
-      FDA_FEEDBACK: Option[Bits] = None,
-      FDA_RELATIVE: Option[Bits] = None,
+      FDA_FEEDBACK: Option[Int] = None,
+      FDA_RELATIVE: Option[Int] = None,
       SHIFTREG_DIV_MODE: Option[ShiftregDivMode] = None,
       PLLOUT_SELECT: PllOutSelect = PllOutSelect.GENCLK,
-      ENABLE_ICEGATE: Bool = False,
+      ENABLE_ICEGATE: Boolean = false,
       withLock: Boolean = false
-  ): SB_PLL40_PAD_CONFIG = {
+  ) = {
     require(
       FEEDBACK_PATH.isEmpty || FEEDBACK_PATH.get != FeedbackPath.PHASE_AND_DELAY || PLLOUT_SELECT == PllOutSelect.SHIFTREG_0deg || PLLOUT_SELECT == PllOutSelect.SHIFTREG_90deg,
       "if feedback path is PHASE_AND_DELAY, output select must be SHIFTREG_Xdeg"
@@ -225,9 +299,9 @@ object SB_PLL40_PAD_CONFIG {
       throw new Exception(s"Could not find any PLL configuration for fin=$fin fout=$fout")
 
     val solution = best.get
-    if (((solution.fout - fout).abs / fout) > allowed_mismatch)
+    if (((solution.fout - fout).abs / fout) > tolerance)
       throw new Exception(
-        s"Could not find PLL configuration for fin=$fin fout=$fout within ${allowed_mismatch * 100}%\n" +
+        s"Could not find PLL configuration for fin=$fin fout=$fout within ${tolerance * 100}%\n" +
           s"  best match is ${((solution.fout - fout).abs / fout) * 100}% off:${best.get.report()}"
       )
 
@@ -242,36 +316,30 @@ object SB_PLL40_PAD_CONFIG {
       case _                  => 6
     }
 
-    SB_PLL40_PAD_CONFIG(
-      B(solution.divr, 4 bit),
-      B(solution.divf, 7 bit),
-      B(solution.divq, 3 bit),
-      B(filter_range, 3 bit),
-      FEEDBACK_PATH.map(x => x.toString).getOrElse(solution.feedback.toString),
-      if (FDA_FEEDBACK.isDefined) "DYNAMIC" else "FIXED",
-      FDA_FEEDBACK.getOrElse(B(0, 4 bit)),
-      if (FDA_RELATIVE.isDefined) "DYNAMIC" else "FIXED",
-      FDA_RELATIVE.getOrElse(B(0, 4 bit)),
-      SHIFTREG_DIV_MODE match {
-        case Some(ShiftregDivMode.DIV_4) => B(0, 1 bit)
-        case Some(ShiftregDivMode.DIV_7) => B(1, 1 bit)
-        case None                        => B(0, 1 bit)
-      },
-      PLLOUT_SELECT.toString,
+    SB_PLL40_CONFIG(
+      solution.divr,
+      solution.divf,
+      solution.divq,
+      filter_range,
+      solution.feedback,
+      if (FDA_FEEDBACK.isDefined) AdjustmentMode.DYNAMIC else AdjustmentMode.FIXED,
+      FDA_FEEDBACK.getOrElse(0),
+      if (FDA_RELATIVE.isDefined) AdjustmentMode.DYNAMIC else AdjustmentMode.FIXED,
+      FDA_RELATIVE.getOrElse(0),
+      SHIFTREG_DIV_MODE.getOrElse(ShiftregDivMode.DIV_4),
+      PLLOUT_SELECT,
       ENABLE_ICEGATE,
       withLock
     )
   }
 }
 
-abstract class ICE40_PLL(p: SB_PLL40_PAD_CONFIG) extends BlackBox {
+abstract class ICE40_PLL(p: AbstractPllConfig) extends BlackBox {
   val RESETB = in port Bool() default True
   val BYPASS = in port Bool() default False
-  val EXTFEEDBACK = in port Bool().genIf(p.FEEDBACK_PATH == "EXTERNAL")
-  val DYNAMICDELAY = in port Bits(8 bit).genIf(
-    p.DELAY_ADJUSTMENT_MODE_FEEDBACK == "DYNAMIC" || p.DELAY_ADJUSTMENT_MODE_RELATIVE == "DYNAMIC"
-  )
-  val LATCHINPUTVALUE = in port Bool().genIf(p.ENABLE_ICEGATE == True)
+  val EXTFEEDBACK = in port Bool().genIf(p.withExtFeedback)
+  val DYNAMICDELAY = in port Bits(8 bit).genIf(p.withDynamicDelay)
+  val LATCHINPUTVALUE = in port Bool().genIf(p.withLatchInputValue)
   val LOCK = out port Bool().genIf(p.withLock)
   val PLLOUTGLOBAL = out port Bool()
   val PLLOUTCORE = out port Bool()
@@ -279,7 +347,71 @@ abstract class ICE40_PLL(p: SB_PLL40_PAD_CONFIG) extends BlackBox {
   def clockInput: Bool
 }
 
-case class SB_PLL40_PAD(p: SB_PLL40_PAD_CONFIG) extends ICE40_PLL(p) {
+object ICE40_PLL {
+  /** Calculate & instantiate PLL and return ClockDomain
+    *
+    * If the source clock domain uses a synchronous reset, a reset bridge
+    * will be instantiated to forward the reset to the resulting CD.
+    *
+    * @param reqFreq The frequency the new ClockDomain should run at
+    * @param tolerance Allowed mismatch of ClockDomain freq to reqFreq (as a factor)
+    * @param sourceCd ClockDomain to use as clock/reset source, defaults to current CD
+    * @param usePad if true a SB_PLL40_PAD will be used, otherwise a SB_PLL40_CORE
+    *
+    * {{{
+    * new ClockingArea(ICE40_PLL.makePLL(96 MHz)) {
+    *   // your code running at 96MHz
+    * }
+    * }}}
+    **/
+  def makePLL(
+      reqFreq: HertzNumber,
+      tolerance: Double = 0.02,
+      sourceCd: ClockDomain = ClockDomain.current,
+      usePad: Boolean = false
+  ) = {
+    require(
+      sourceCd.frequency.isInstanceOf[FixedFrequency],
+      "Source clock domain for PLL must have a fixed & known frequency"
+    )
+    require(
+      !sourceCd.hasClockEnableSignal,
+      "Source clock domain for PLL must not use a clock enable"
+    )
+    require(
+      sourceCd.config.clockEdge == RISING || sourceCd.config.resetKind == BOOT,
+      "Currently only rising edge clocks are supported when reset is used"
+    )
+
+    val config = SB_PLL40_CONFIG.singleOutput(
+      sourceCd.frequency.getValue,
+      reqFreq,
+      tolerance,
+      withLock = sourceCd.config.resetKind == SYNC
+    )
+    val pll = if (usePad) SB_PLL40_PAD(config) else SB_PLL40_CORE(config)
+    pll.clockInput := sourceCd.readClockWire
+    pll.BYPASS := False
+    val bufferedClk = SB_GB(pll.PLLOUTGLOBAL)
+
+    def resetBridge(clk: Bool, rst: Bool): Bool = sourceCd.config.resetActiveLevel match {
+      case HIGH => SB_DFFS(SB_DFFS(False, clk, rst), bufferedClk, rst)
+      case LOW  => SB_DFFR(SB_DFFR(True, clk, rst), bufferedClk, rst)
+    }
+
+    val resultFreq = FixedFrequency(config.fout(sourceCd.frequency.getValue))
+    sourceCd.config.resetKind match {
+      case BOOT =>
+        sourceCd.copy(clock = bufferedClk, frequency = resultFreq)
+      case SYNC | ASYNC =>
+        pll.RESETB := !sourceCd.isResetActive
+        val syncRst = resetBridge(bufferedClk, !pll.LOCK)
+        sourceCd.copy(clock = bufferedClk, reset = syncRst, frequency = resultFreq)
+    }
+  }
+}
+
+case class SB_PLL40_PAD(p: AbstractPllConfig) extends ICE40_PLL(p) {
   val PACKAGEPIN = in port Bool()
 
   p.applyTo(this)
@@ -287,7 +419,7 @@ case class SB_PLL40_PAD(p: SB_PLL40_PAD_CONFIG) extends ICE40_PLL(p) {
   override def clockInput: Bool = PACKAGEPIN
 }
 
-case class SB_PLL40_CORE(p: SB_PLL40_PAD_CONFIG) extends ICE40_PLL(p) {
+case class SB_PLL40_CORE(p: AbstractPllConfig) extends ICE40_PLL(p) {
   val REFERENCECLK = in Bool ()
 
   p.applyTo(this)
