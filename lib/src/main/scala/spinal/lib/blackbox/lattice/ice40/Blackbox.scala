@@ -349,3 +349,37 @@ case class SB_SPRAM256KA() extends BlackBox {
 //    mask = MASKWREN
 //  )
 }
+
+case class SB_DFFR() extends BlackBox {
+  val D = in port Bool()
+  val C = in port Bool()
+  val R = in port Bool()
+  val Q = out port Bool()
+}
+
+object SB_DFFR {
+  def apply(D: Bool, C: Bool, R: Bool): Bool = {
+    val ff = SB_DFFR()
+    ff.D := D
+    ff.C := C
+    ff.R := R
+    ff.Q
+  }
+}
+
+case class SB_DFFS() extends BlackBox {
+  val D = in port Bool()
+  val C = in port Bool()
+  val S = in port Bool()
+  val Q = out port Bool()
+}
+
+object SB_DFFS {
+  def apply(D: Bool, C: Bool, S: Bool): Bool = {
+    val ff = SB_DFFS()
+    ff.D := D
+    ff.C := C
+    ff.S := S
+    ff.Q
+  }
+}
