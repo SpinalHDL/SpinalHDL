@@ -13,7 +13,8 @@ case class SB_PLL40_PAD_CONFIG( var DIVR : Bits,
                                 var FDA_RELATIVE : Bits,
                                 var SHIFTREG_DIV_MODE : Bits,
                                 var PLLOUT_SELECT : String,
-                                var ENABLE_ICEGATE : Bool
+                                var ENABLE_ICEGATE : Bool,
+                                withLock: Boolean = false
                               ){
   def applyTo(bb: BlackBox): Unit = {
     bb.addGeneric("DIVR", DIVR)
@@ -31,24 +32,33 @@ case class SB_PLL40_PAD_CONFIG( var DIVR : Bits,
   }
 }
 
-case class SB_PLL40_PAD(p : SB_PLL40_PAD_CONFIG) extends BlackBox{
-  val PACKAGEPIN = in Bool()
-  val PLLOUTCORE = out Bool()
-  val PLLOUTGLOBAL = out Bool()
-  val RESETB = in Bool()
-  val BYPASS = in Bool()
+abstract class ICE40_PLL(p: SB_PLL40_PAD_CONFIG) extends BlackBox {
+  val RESETB = in port Bool()
+  val BYPASS = in port Bool()
+  val EXTFEEDBACK = in port Bool().genIf(p.FEEDBACK_PATH == "EXTERNAL")
+  val DYNAMICDELAY = in port Bits(8 bit).genIf(p.DELAY_ADJUSTMENT_MODE_FEEDBACK == "DYNAMIC" || p.DELAY_ADJUSTMENT_MODE_RELATIVE == "DYNAMIC")
+  val LATCHINPUTVALUE = in port Bool().genIf(p.ENABLE_ICEGATE == True)
+  val LOCK = out port Bool().genIf(p.withLock)
+  val PLLOUTGLOBAL = out port Bool()
+  val PLLOUTCORE = out port Bool()
 
-  p.applyTo(this)
+  def clockInput: Bool
 }
 
-case class SB_PLL40_CORE(p : SB_PLL40_PAD_CONFIG) extends BlackBox{
-  val REFERENCECLK = in Bool()
-  val PLLOUTCORE = out Bool()
-  val PLLOUTGLOBAL = out Bool()
-  val RESETB = in Bool()
-  val BYPASS = in Bool()
+case class SB_PLL40_PAD(p : SB_PLL40_PAD_CONFIG) extends ICE40_PLL(p) {
+  val PACKAGEPIN = in port Bool()
 
   p.applyTo(this)
+
+  override def clockInput: Bool = PACKAGEPIN
+}
+
+case class SB_PLL40_CORE(p : SB_PLL40_PAD_CONFIG) extends ICE40_PLL(p) {
+  val REFERENCECLK = in Bool()
+
+  p.applyTo(this)
+
+  override def clockInput: Bool = REFERENCECLK
 }
 
 
