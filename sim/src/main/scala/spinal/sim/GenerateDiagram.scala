@@ -1,4 +1,4 @@
-package GenerateDiagrams
+package spinal.sim
 import spinal.core._
 import spinal.lib.tools._
 import java.io.{File, FileWriter}
