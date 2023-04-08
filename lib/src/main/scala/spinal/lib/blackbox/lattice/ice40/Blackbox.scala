@@ -50,6 +50,7 @@ abstract class AbstractPllConfig {
   def withLock: Boolean
 }
 
+@deprecated("Use SB_PLL40_CONFIG instead as it provides checking/calculation features")
 case class SB_PLL40_PAD_CONFIG(
     var DIVR: Bits,
     var DIVF: Bits,
