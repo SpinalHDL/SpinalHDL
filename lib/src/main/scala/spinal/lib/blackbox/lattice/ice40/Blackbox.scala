@@ -348,6 +348,7 @@ abstract class ICE40_PLL(p: AbstractPllConfig) extends BlackBox {
 }
 
 object ICE40_PLL {
+
   /** Calculate & instantiate PLL and return ClockDomain
     *
     * If the source clock domain uses a synchronous reset, a reset bridge
@@ -363,7 +364,7 @@ object ICE40_PLL {
     *   // your code running at 96MHz
     * }
     * }}}
-    **/
+    */
   def makePLL(
       reqFreq: HertzNumber,
       tolerance: Double = 0.02,
@@ -429,7 +430,7 @@ case class SB_PLL40_CORE(p: AbstractPllConfig) extends ICE40_PLL(p) {
 
 object SB_GB {
   def apply(input: Bool): Bool = {
-    val c = SB_GB().setCompositeName(input, "SB_GB", true)
+    val c = SB_GB().setCompositeName(input, "SB_GB", weak = true)
     c.USER_SIGNAL_TO_GLOBAL_BUFFER := input
     c.GLOBAL_BUFFER_OUTPUT
   }
@@ -448,12 +449,12 @@ object SB_IO {
 case class SB_IO(pinType: String) extends BlackBox {
   addGeneric("PIN_TYPE", B(pinType))
   val PACKAGE_PIN = inout(Analog(Bool()))
-  val CLOCK_ENABLE = in Bool () default (False)
-  val INPUT_CLK = in Bool () default (False)
-  val OUTPUT_CLK = in Bool () default (False)
-  val OUTPUT_ENABLE = in Bool () default (False)
-  val D_OUT_0 = in Bool () default (False)
-  val D_OUT_1 = in Bool () default (False)
+  val CLOCK_ENABLE = in Bool () default False
+  val INPUT_CLK = in Bool () default False
+  val OUTPUT_CLK = in Bool () default False
+  val OUTPUT_ENABLE = in Bool () default False
+  val D_OUT_0 = in Bool () default False
+  val D_OUT_1 = in Bool () default False
   val D_IN_0 = out Bool ()
   val D_IN_1 = out Bool ()
   setDefinitionName("SB_IO")
