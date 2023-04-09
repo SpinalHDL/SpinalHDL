@@ -281,7 +281,7 @@ class GenerateOneDiagram(module: Component, topLevelName: String, moduleName: St
             fanOutSonName = rootParent.getName()
           }
           else {
-            if (topInOuts.contains(fanOut)) if (fanOut.isInput) fanOutIsWrong = true
+            if (topInOuts.contains(fanOut)) {if(fanOut.isInput) fanOutIsWrong = true}
             else if (fanOut.isOutput) fanOutIsWrong = true
             fanOutSonName = fanOut.getName()
           }
