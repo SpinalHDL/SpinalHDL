@@ -478,9 +478,9 @@ object HDElkDiagramGen {
          |		})
          |	}
          |</script>
-         |<script src="js/elk.bundled.js"></script>
-         |<script src="js/svg.min.js"></script>
-         |<script src="js/hdelk.js"></script>
+         |<script src="https://cdn.jsdelivr.net/gh/davidthings/hdelk@master/js/elk.bundled.js"></script>
+         |<script src="https://cdn.jsdelivr.net/gh/davidthings/hdelk@master/js/svg.min.js"></script>
+         |<script src="https://cdn.jsdelivr.net/gh/davidthings/hdelk@master/js/hdelk.js"></script>
          |
          |<h1 class="center-title">choose diagrams</h1>
          |<div class="buttons-container">
