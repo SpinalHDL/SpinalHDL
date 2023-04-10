@@ -1,7 +1,7 @@
 package spinal.lib.tools
 
-import spinal.core._
 
+import spinal.core._
 import java.io.{File, FileWriter}
 import scala.collection.mutable
 import scala.util.control._
@@ -19,9 +19,11 @@ class ElkNode {
   var highlight = 0
 }
 
-class GenerateOneDiagram(module: Component, moduleName: String) {
+class GenerateOneDiagram(module: Component, topLevelName: String, moduleName: String) {
   /** Initializing data */
-  private val builder = new StringBuilder()
+  private val fileName = topLevelName + ".html"
+  private val file = new File(fileName)
+  private val pw = new FileWriter(file, true)
   private val edges: mutable.Set[ElkEdge] = mutable.Set()
   private val topNode = new ElkNode
   topNode.labelName = moduleName
@@ -237,28 +239,33 @@ class GenerateOneDiagram(module: Component, moduleName: String) {
       val loop = new Breaks
       loop.breakable {
         for (fanOut <- fanOuts) {
-          if (net.getComponent().getName() == module.getName() && fanOut.getComponent().getName() == module.getName() && net.isInput && fanOut.isOutput) {
-            val newNode = new ElkNode
-            val newEdge = new ElkEdge
-            newNode.labelName = sonName
-            newNode.highlight = topNode.highlight
-            if (inIsBus == 1) newEdge.label = findParent(net).getClass.getSimpleName
-            if (!containedNode.contains(sonName) && !netIsWrong) {
-              topNode.children.add(newNode)
-              containedNode.add(sonName)
-            }
-            newEdge.isBus = inIsBus
-            newEdge.source = sourceName
-            newEdge.target = sonName
-            var isContained = false
-            for (thisEdge <- edges) {
-              if (thisEdge.source == newEdge.source && thisEdge.target == newEdge.target && thisEdge.label == newEdge.label)
-                isContained = true
-            }
-            if (!netIsWrong && !isContained)
-              edges.add(newEdge)
-            sourceName = sonName
-            loop.break()
+          if (net.getComponent().getName() == module.getName() && fanOut.getComponent().getName() == module.getName()) {
+            if ((haveParent(net) && findParent(net).flatten.head.isInput) || (!haveParent(net) && net.isInput))
+              if ((haveParent(fanOut) && findParent(fanOut).flatten.head.isOutput) || (!haveParent(fanOut) && fanOut.isOutput)) {
+                val newNode = new ElkNode
+                val newEdge = new ElkEdge
+                if (clkMap.contains(net.clockDomain.toString())) newEdge.highlight = clkMap(net.clockDomain.toString())
+                newNode.labelName = sonName
+                newNode.highlight = topNode.highlight
+                if (inIsBus == 1) newEdge.label = findParent(net).getClass.getSimpleName
+                if (!containedNode.contains(sonName) && !netIsWrong) {
+                  topNode.children.add(newNode)
+                  containedNode.add(sonName)
+                }
+                newEdge.isBus = inIsBus
+                newEdge.source = sourceName
+                newEdge.target = sonName
+                var isContained = false
+                for (thisEdge <- edges) {
+                  if (thisEdge.source == newEdge.source && thisEdge.target == newEdge.target && thisEdge.label == newEdge.label)
+                    isContained = true
+                }
+                if (!netIsWrong && !isContained)
+                  edges.add(newEdge)
+                sourceName = sonName
+
+                loop.break()
+              }
           }
         }
       }
@@ -330,6 +337,14 @@ class GenerateOneDiagram(module: Component, moduleName: String) {
           if (findParent(net).getClass.getSimpleName == findParent(fanOut).getClass.getSimpleName) newEdge.label = findParent(fanOut).getClass.getSimpleName
           else newEdge.label = findParent(net).getClass.getSimpleName + " to " + findParent(fanOut).getClass.getSimpleName
         }
+        else if (inIsBus == 1) {
+          if (!clkMap.contains(net.getName()))
+            newEdge.label = net.getName()
+        }
+        else if (outIsBus == 1) {
+          if (!clkMap.contains(fanOut.getName()))
+            newEdge.label = fanOut.getName()
+        }
         var isContained = false
         for (thisEdge <- edges) {
           if (thisEdge.source == newEdge.source && thisEdge.target == newEdge.target && thisEdge.label == newEdge.label)
@@ -343,54 +358,54 @@ class GenerateOneDiagram(module: Component, moduleName: String) {
 
   /** Generating HDElk language for Node */
   private def drawNodes(thisNode: ElkNode): Unit = {
-    builder ++= s"""{id:"${thisNode.labelName}",\n"""
-    if (thisNode.typeName != "") builder ++= s"""type:"${thisNode.typeName}",\n"""
-    if (thisNode.highlight != 0) builder ++= s"""highlight:${thisNode.highlight},\n"""
+    pw.write(s"""{id:"${thisNode.labelName}",\n""")
+    if (thisNode.typeName != "") pw.write(s"""type:"${thisNode.typeName}",\n""")
+    if (thisNode.highlight != 0) pw.write(s"""highlight:${thisNode.highlight},\n""")
     if (thisNode.inPorts.nonEmpty) {
-      builder ++= s"""inPorts: ["""
-      for (inPort <- thisNode.inPorts) builder ++= s""""$inPort","""
-      builder ++= s"""],\n"""
+      pw.write(s"""inPorts: [""")
+      for (inPort <- thisNode.inPorts) pw.write(s""""$inPort",""")
+      pw.write(s"""],\n""")
     }
     if (thisNode.outPorts.nonEmpty) {
-      builder ++= s"""outPorts: ["""
-      for (outPort <- thisNode.outPorts) builder ++= s""""$outPort","""
-      builder ++= s"""],\n"""
+      pw.write(s"""outPorts: [""")
+      for (outPort <- thisNode.outPorts) pw.write(s""""$outPort",""")
+      pw.write(s"""],\n""")
     }
     if (thisNode.children.nonEmpty) {
-      builder ++= s"""children: [\n"""
+      pw.write(s"""children: [\n""")
       for (thisChildren <- thisNode.children) drawNodes(thisChildren)
-      builder ++= s"""],\n"""
+      pw.write(s"""],\n""")
     }
     if (thisNode == topNode) drawEdges()
-    builder ++= s"""},\n"""
+    pw.write(s"""},\n""")
   }
 
   /** Generating HDElk language for Edge */
   private def drawEdges(): Unit = {
-    builder ++= s"""edges:[\n"""
+    pw.write(s"""edges:[\n""")
     for (edge <- edges) {
-      builder ++= s"""{ source:"${edge.source}",target:"${edge.target}",bus:${edge.isBus},"""
+      pw.write(s"""{ source:"${edge.source}",target:"${edge.target}",bus:${edge.isBus},""")
       if (edge.label != "")
-        builder ++= s"""label:"${edge.label}","""
+        pw.write(s"""label:"${edge.label}",""")
       if (edge.highlight != 0)
-        builder ++= s"""highlight:${edge.highlight}"""
-      builder ++= s"""},\n"""
+        pw.write(s"""highlight:${edge.highlight}""")
+      pw.write(s"""},\n""")
     }
-    builder ++= s"""]\n"""
+    pw.write(s"""]\n""")
   }
 
   /** Generating HDElk language for Clock legend */
   private def drawClockDomains(): Unit = {
-    builder ++= s"""{id:"ClockDomains",\nchildren:[\n"""
+    pw.write(s"""{id:"ClockDomains",\nchildren:[\n""")
     for (element <- clkNamesMap) {
-      builder ++= s"""{id:"${element._1}",highlight:${element._2}},\n"""
+      pw.write(s"""{id:"${element._1}",highlight:${element._2}},\n""")
     }
-    builder ++= s"""]\n}\n"""
+    pw.write(s"""]\n}\n""")
   }
 
   /** Integrating all methods to draw an image */
-  def beginDraw(): StringBuilder = {
-    builder ++=
+  def beginDraw(): Unit = {
+    pw.write(
       s"""
          |<div id="${topNode.labelName}"></div>
          |<h3>${topNode.labelName}</h3><br><br><br><br>
@@ -399,27 +414,30 @@ class GenerateOneDiagram(module: Component, moduleName: String) {
          |var mygraph = {
          |children:[
          |""".stripMargin
+    )
     GenColorMap()
     GenAllNodes()
     GenAllEdges()
     drawNodes(topNode)
     if (clkMap.nonEmpty)
       drawClockDomains()
-    builder ++= s"""],\n}\nhdelk.layout( mygraph,"${topNode.labelName}");\n</script>\n"""
-    builder
+    pw.write(s"""],\n}\nhdelk.layout( mygraph,"${topNode.labelName}");\n</script>\n""")
+    pw.close()
   }
 }
 
 object HDElkDiagramGen {
   /** Generating all diagrams */
-  def apply[T <: Component](rtl:SpinalReport[T]){
-    val builder = new StringBuilder()
-    builder ++=
+  def apply[T <: Component](rtl: SpinalReport[T]): Unit = {
+    val fileName = rtl.toplevelName + ".html"
+    val file = new File(fileName)
+    var pw = new FileWriter(file)
+    pw.write(
       s"""<!DOCTYPE html>
          |<html>
          |<head>
          |    <meta charset="UTF-8">
-         |    <title>RTL diagrams based on SpinalHDL code</title>
+         |    <title> RTL diagrams of ${rtl.toplevelName}</title>
          |    <style>
          |.buttons-container {
          | display: flex;
@@ -486,20 +504,19 @@ object HDElkDiagramGen {
          |<div class="buttons-container">
          |<a href="#${rtl.toplevelName}"><button>${rtl.toplevelName}</button></a>&nbsp;
          |""".stripMargin
+    )
     val module = rtl.toplevel
     val allInnerCells = module.children
     for (cell <- allInnerCells) {
-      builder ++= s"""<a href="#${cell.getName()}"><button>${cell.getName()}</button></a>&nbsp;\n"""
+      pw.write(s"""<a href="#${cell.getName()}"><button>${cell.getName()}</button></a>&nbsp;\n""")
     }
-    builder ++= s"""</div><br><br><br><br>\n"""
-    builder ++= new GenerateOneDiagram(module, rtl.toplevelName).beginDraw()
+    pw.write(s"""</div><br><br><br><br>\n""")
+    pw.close()
+    new GenerateOneDiagram(module, rtl.toplevelName, rtl.toplevelName).beginDraw()
     for (inner <- module.children)
-      builder ++= new GenerateOneDiagram(inner, inner.getName()).beginDraw()
-    builder ++= s"""</body>\n</html>"""
-    val fileName = rtl.toplevelName + ".html"
-    val file = new File(fileName)
-    val pw = new FileWriter(file)
-    pw.write(builder.toString())
+      new GenerateOneDiagram(inner, rtl.toplevelName, inner.getName()).beginDraw()
+    pw = new FileWriter(file, true)
+    pw.write(s"""</body>\n</html>""")
     pw.close()
   }
 }
