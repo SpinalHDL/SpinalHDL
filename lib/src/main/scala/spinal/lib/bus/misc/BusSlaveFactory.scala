@@ -167,6 +167,20 @@ trait BusSlaveFactory extends Area{
 
 
   /**
+    * Call doThat(with write data) when a write transaction occurs on address
+    */
+  def onWriteBits(address: BigInt, documentation: String = null)(doThat: Bits => Unit): Unit = {
+    val writeBits = Bits(this.busDataWidth bits)
+    nonStopWrite(writeBits, 0)
+    onWritePrimitive(
+      address       = SingleMapping(address),
+      haltSensitive = true,
+      documentation = documentation
+    )(doThat(writeBits))
+  }
+
+  
+  /**
     * Call doThat when a read transaction occurs on address
     */
   def onRead(address: BigInt, documentation: String = null)(doThat: => Unit): Unit = {
