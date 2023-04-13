@@ -14,6 +14,7 @@ class BmbMemoryTester(bmb : Bmb,
                       rspCounterTarget : Int = 30000,
                       checkAvailability : Boolean = true) {
 
+  def onMasterAgentCreate(ma : BmbMasterAgent) = {}
   val memory = new BmbMemoryAgent(BigInt(1) << bmb.p.access.addressWidth)
   Phase.boot()
   Phase.setup {
@@ -39,6 +40,7 @@ class BmbMemoryTester(bmb : Bmb,
       override def regionFree(region: SizeMapping): Unit = if(checkAvailability) regions.free(region) else true
       override def regionIsMapped(region: SizeMapping, opcode : Int): Boolean = true
     }
+    onMasterAgentCreate(masterAgent)
 
     //Retain the flush phase until all Bmb rsp are received
     Phase.flush.retain()
