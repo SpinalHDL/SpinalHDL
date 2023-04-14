@@ -74,7 +74,7 @@ object VerilatorCacheTester {
   }
 }
 
-class VerilatorCacheTester extends AnyFunSuite {
+class VerilatorCacheTester extends SpinalAnyFunSuite {
   import VerilatorCacheTester._
 
   val cacheDir = new File(SimConfig._workspacePath + "/.cache_cachetest")

@@ -4,7 +4,8 @@ import spinal.core._
 
 import scala.collection.mutable.ArrayBuffer
 
-/** Similar to Bundle but with bit packing capabilities.
+/**
+  * Similar to Bundle but with bit packing capabilities.
   * Use pack implicit functions to assign fields to bit locations
   * - pack(Range, [Endianness]) - Packs the data into Range aligning to bit Endianness if too wide
   * - packFrom(Position) - Packs the data starting (LSB) at Position. Uses full data length
@@ -19,22 +20,23 @@ import scala.collection.mutable.ArrayBuffer
   *       val result = Bits(16 bit).packTo(31) // Bits 16 to 31
   *     }
   * }}}
+  *
   */
 class PackedBundle extends Bundle {
 
-  class TagBitPackExact(val range: Range) extends SpinalTag
+  class TagBitPackExact(val range: Range, val endianness: Endianness) extends SpinalTag
 
-  /** Builds and caches the range mappings for PackedBitBundle's elements.
+  /**
+    * Builds and caches the range mappings for PackedBundle's elements.
     * Tracks the width required for all mappings.
     * Does not check for overlap of elements.
     */
   private class MappingBuilder {
-    private var lastPos = 0
-    private var highBit = 0
-
+    var lastPos = 0
+    var highBit = 0
     val mapping = ArrayBuffer[(Range, Data)]()
 
-    def addData(d: Data): Unit = {
+    def addData(d : Data): Unit = {
       val r = d.getTag(classOf[TagBitPackExact]) match {
         case t: Some[TagBitPackExact] =>
           val origRange = t.get.range
@@ -71,7 +73,8 @@ class PackedBundle extends Bundle {
 
   private val mapBuilder = new MappingBuilder()
 
-  /** Gets the mappings of Range to Data for this PackedBundle
+  /**
+    * Gets the mappings of Range to Data for this PackedBundle
     * @return Seq of (Range,Data) for all elements
     */
   def mappings = mapBuilder.mapping
@@ -113,12 +116,8 @@ class PackedBundle extends Bundle {
   override def getBitsWidth: Int = mapBuilder.width
 
   implicit class DataPositionEnrich[T <: Data](t: T) {
-
-    /** Place the data at the given range. Extra bits will be lost (unassigned or read) if the data does not fit with
-      * the range.
-      *
-      * Note: The directionality of the range (either ascending or descending) determines which bits will be dropped
-      * if `range` is larger than the data width, or which bits will be zero if `range` is smaller than the data width.
+    /**
+      * Place the data at the given range. Extra bits will be lost (unassigned or read) if the data does not fit with the range.
       * @param range Range to place the data
       * @return Self
       */
@@ -127,7 +126,8 @@ class PackedBundle extends Bundle {
       t
     }
 
-    /** Packs data starting (LSB) at the bit position
+    /**
+      * Packs data starting (LSB) at the bit position
       * @param pos Starting bit position of the data
       * @return Self
       */
@@ -135,7 +135,8 @@ class PackedBundle extends Bundle {
       t.pack(pos + t.getBitsWidth - 1 downto pos)
     }
 
-    /** Packs data ending (MSB) at the bit position
+    /**
+      * Packs data ending (MSB) at the bit position
       * @param pos Ending bit position of the data
       * @return Self
       */

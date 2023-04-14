@@ -24,7 +24,7 @@ class Axi4ToAxiLite4TesterComp(config: Axi4Config) extends Component {
   io.axi.toLite() >> io.axilite
 }
 
-class Axi4ToAxiLite4Tester extends AnyFunSuite {
+class Axi4ToAxiLite4Tester extends SpinalAnyFunSuite {
 
   def tester(dut: Axi4ToAxiLite4TesterComp): Unit = {
     dut.clockDomain.forkStimulus(10)

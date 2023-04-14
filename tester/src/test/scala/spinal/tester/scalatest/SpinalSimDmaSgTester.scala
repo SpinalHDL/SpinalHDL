@@ -10,7 +10,7 @@ import spinal.core.sim._
 import scala.util.Random
 import org.scalatest.{ParallelTestExecution, BeforeAndAfterAll}
 
-class SpinalSimDmaSgTester extends AnyFunSuite {
+class SpinalSimDmaSgTester extends SpinalAnyFunSuite {
   Random.setSeed(42)
   for((name, p) <- SgDmaTestsParameter(allowSmallerStreams = false)) test(name){
       SgDmaTestsParameter.test(p)

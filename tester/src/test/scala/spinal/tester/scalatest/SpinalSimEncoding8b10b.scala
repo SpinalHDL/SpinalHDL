@@ -7,7 +7,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.com.linecode.Encoding8b10b
 
-class Encoding8b10bTest extends AnyFunSuite {
+class Encoding8b10bTest extends SpinalAnyFunSuite {
 
   def encodeTestCase(dut: Encoding8b10b.Encoder, data: String, kWord: Boolean, encoded: String,
                      kError: Boolean) {

@@ -691,7 +691,7 @@ object PlayB8 {
 
   def main(args: Array[String]): Unit = {
 //    SpinalConfig(mode = VHDL,targetDirectory="temp/myDesign").generate(new UartCtrl)
-    SpinalConfig.shell(Seq("-aa"))(new UartCtrl)
+    spinal.core.SpinalConfig.shell(Seq("-aa"))(new UartCtrl)
   }
 }
 

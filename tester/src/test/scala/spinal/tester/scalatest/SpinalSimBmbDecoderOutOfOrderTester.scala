@@ -16,7 +16,7 @@ import scala.util.Random
 
 
 
-class SpinalSimBmbDecoderOutOfOrderTester extends AnyFunSuite {
+class SpinalSimBmbDecoderOutOfOrderTester extends SpinalAnyFunSuite {
   def doIt(outputCount : Int, sourceCount : Int, withDefault : Boolean): Unit ={
     val p = BmbParameter(
       addressWidth = 20,
@@ -92,7 +92,7 @@ class SpinalSimBmbDecoderOutOfOrderTester extends AnyFunSuite {
 }
 
 
-class SpinalSimBmbDecoderInOrderTester extends AnyFunSuite {
+class SpinalSimBmbDecoderInOrderTester extends SpinalAnyFunSuite {
   for(pipelinedDecoder <- List(false, true);
       pipelinedHalfPipe <- List(false, true))
   test(s"t1_${pipelinedDecoder}_${pipelinedHalfPipe}") {
@@ -126,7 +126,7 @@ class SpinalSimBmbDecoderInOrderTester extends AnyFunSuite {
   }
 }
 
-class SpinalSimBmbDecoderInOrderPerSourceTester extends AnyFunSuite {
+class SpinalSimBmbDecoderInOrderPerSourceTester extends SpinalAnyFunSuite {
   test("t1") {
     val p = BmbParameter(
       addressWidth = 20,

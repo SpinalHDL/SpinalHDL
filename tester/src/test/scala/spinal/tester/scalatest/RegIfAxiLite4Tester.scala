@@ -47,7 +47,7 @@ class RegIfTester extends Component {
   io.o_z := RegNextWhen(io.o, io.bus.b.fire || io.bus.r.fire) init(0)
 }
 
-class RegIfAxiLite4Tester extends AnyFunSuite {
+class RegIfAxiLite4Tester extends SpinalAnyFunSuite {
 
   def bitWidth = 32
 

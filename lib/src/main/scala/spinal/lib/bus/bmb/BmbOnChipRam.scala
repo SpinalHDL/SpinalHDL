@@ -23,17 +23,25 @@ case class BmbOnChipRam(p: BmbParameter,
     val bus = slave(Bmb(p))
   }
 
+  val enabled = True
   val ram = Mem(Bits(p.access.dataWidth bits), size / p.access.byteCount)
   io.bus.cmd.ready   := !io.bus.rsp.isStall
   io.bus.rsp.valid   := RegNextWhen(io.bus.cmd.valid,   io.bus.cmd.ready) init(False)
   io.bus.rsp.source  := RegNextWhen(io.bus.cmd.source,  io.bus.cmd.ready)
   io.bus.rsp.context := RegNextWhen(io.bus.cmd.context, io.bus.cmd.ready)
+
+  val address = CombInit((io.bus.cmd.address >> p.access.wordRangeLength).resize(ram.addressWidth))
+  val data    = CombInit(io.bus.cmd.data)
+  val enable  = CombInit(io.bus.cmd.fire && enabled)
+  val write   = CombInit(io.bus.cmd.isWrite)
+  val mask    = CombInit(io.bus.cmd.mask)
+
   io.bus.rsp.data := ram.readWriteSync(
-    address = (io.bus.cmd.address >> p.access.wordRangeLength).resized,
-    data  = io.bus.cmd.data,
-    enable  = io.bus.cmd.fire,
-    write  = io.bus.cmd.isWrite,
-    mask  = io.bus.cmd.mask
+    address = address,
+    data    = data,
+    enable  = enable,
+    write   = write,
+    mask    = mask
   )
   io.bus.rsp.setSuccess()
   io.bus.rsp.last := True

@@ -249,7 +249,7 @@ case class BmbToAxi4WriteOnlyBridge(p : BmbParameter) extends Component{
   val axiConfig = Axi4Config(
     addressWidth = p.access.addressWidth,
     dataWidth    = p.access.dataWidth,
-    idWidth      = p.access.sourceWidth,
+    idWidth      = 0,
     useId        = true,
     useSize      = true,
     useLen       = true,

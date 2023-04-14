@@ -11,7 +11,7 @@ case class BmbRegionAllocator(alignmentMinWidth : Int = 0){
 
   def align(v : Int) = v & ~((1 << alignmentMinWidth) -1)
   def free(region : SizeMapping) = allocations.remove(region)
-  def allocate(addressGen : => Int, sizeMax : Int, p : BmbParameter, sizeMin : Int = 1) : SizeMapping = {
+  def allocate(addressGen : => Int, sizeMax : Int, p : BmbParameter, sizeMin : Int = 1, checkAvailability : Boolean = true) : SizeMapping = {
     val sizeMinAligned = Math.max(sizeMin, 1 << alignmentMinWidth)
     var tryies = 0
     while(tryies < 10){
@@ -24,8 +24,11 @@ case class BmbRegionAllocator(alignmentMinWidth : Int = 0){
           size = (size + p.access.byteCount - 1) & ~p.access.wordMask
         }
       }
+      if(!p.access.aggregated.alignment.allowWord){
+        address &= ~((1 << spinal.core.log2Up(size))-1)
+      }
       val region = SizeMapping(address, size)
-      if(allocations.forall(r => r.base > region.end || r.end < region.base) && size <= boundaryMax) {
+      if(!checkAvailability || allocations.forall(r => r.base > region.end || r.end < region.base) && size <= boundaryMax) {
         allocations += region
         return region
       }
