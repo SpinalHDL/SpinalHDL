@@ -122,6 +122,19 @@ class PackedBundle extends Bundle {
       t
     }
 
+    /** Place the data at the given range. Extra bits will be lost (unassigned or read) if the data does not fit with the range.
+      *
+      * @param range      Range to place the data
+      * @param endianness Bit direction to align data within the range
+      * @return Self
+      */
+    def pack(range: Range, endianness: Endianness = LITTLE): T = {
+      endianness match {
+        case LITTLE => pack(range.low to range.high)
+        case BIG    => pack(range.high downto range.low)
+      }
+    }
+
     /** Packs data starting (LSB) at the bit position
       * @param pos Starting bit position of the data
       * @return Self
