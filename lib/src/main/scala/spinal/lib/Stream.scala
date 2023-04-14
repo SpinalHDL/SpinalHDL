@@ -1085,7 +1085,7 @@ object StreamFifo{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifo(dataType,depth)
 }
 
-class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component {
+class StreamFifo[T <: Data](val dataType: HardType[T], val depth: Int) extends Component {
   require(depth >= 0)
   val io = new Bundle {
     val push = slave Stream (dataType)
