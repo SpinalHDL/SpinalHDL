@@ -1326,7 +1326,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
                               val depth: Int,
                               val pushClock: ClockDomain,
                               val popClock: ClockDomain,
-                              val withPopBufferedReset : Boolean = true) extends Component {
+                              val withPopBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get) extends Component {
 
   assert(isPow2(depth) & depth >= 2, "The depth of the StreamFifoCC must be a power of 2 and equal or bigger than 2")
 
@@ -1427,7 +1427,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
                                   outputClock: ClockDomain, 
                                   withOutputBuffer : Boolean = true,
                                   withInputWait : Boolean = false,
-                                  withOutputBufferedReset : Boolean = true) extends Component {
+                                  withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType())
     val output = master Stream (dataType())

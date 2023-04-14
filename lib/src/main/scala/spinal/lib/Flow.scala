@@ -200,7 +200,7 @@ object FlowCCByToggle {
 class FlowCCByToggle[T <: Data](dataType: HardType[T],
                                 inputClock: ClockDomain,
                                 outputClock: ClockDomain,
-                                withOutputBufferedReset : Boolean = true,
+                                withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
                                 withOutputM2sPipe : Boolean = true) extends Component {
   val io = new Bundle {
     val input = slave  Flow (dataType)
