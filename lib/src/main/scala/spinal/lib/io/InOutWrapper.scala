@@ -32,6 +32,7 @@ object InOutWrapper {
               when(bundle.writeEnable) {
                 newIo := bundle.write
               }
+              newIo.addTags(bundle.getTags())
             }
             case bundle: TriStateOutput[_] if bundle.isOutput || bundle.isMasterInterface => {
               val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
@@ -39,6 +40,7 @@ object InOutWrapper {
               when(bundle.writeEnable) {
                 newIo := bundle.write
               }
+              newIo.addTags(bundle.getTags())
             }
             case bundle: ReadableOpenDrain[_] if bundle.write.isOutput && bundle.read.isInput => {
               val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
@@ -49,6 +51,7 @@ object InOutWrapper {
                   newIo.assignFromBits(B"0", id, 1 bits)
                 }
               }
+              newIo.addTags(bundle.getTags())
               //            for(bt <- bundle.write.flatten){
               //              for((value, id) <- bt.asBits.asBools.zipWithIndex) {
               //                when(!value){
@@ -66,6 +69,7 @@ object InOutWrapper {
                   newIo(i) := bundle.write(i)
                 }
               }
+              newIo.addTags(bundle.getTags())
             }
             case _ =>
           }
