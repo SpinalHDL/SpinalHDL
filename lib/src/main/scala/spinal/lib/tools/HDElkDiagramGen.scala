@@ -116,7 +116,7 @@ case class DealSignal(signal: BaseType, isPort: Boolean) {
 class GenerateOneDiagram(module: Component,
                          moduleName: String,
                          writer: FileWriter,
-                         clkMap: mutable.HashMap[String, Int]) {
+                         clkMap: mutable.HashMap[ClockDomain, Int]) {
 
   private val edges: mutable.Set[ElkEdge] = mutable.Set()
   private val topNode = new ElkNode
@@ -127,8 +127,16 @@ class GenerateOneDiagram(module: Component,
   private val allClk = moduleAnalyze.getClocks
   if (allClk.size > 1) topNode.highlight = 10
   else if (allClk.size == 1)
-    topNode.highlight = clkMap(allClk.head.clock.getName())
+    topNode.highlight = clkMap(allClk.head)
   private val topInOuts = moduleAnalyze.getInputs ++ moduleAnalyze.getOutputs
+  private val clkResetNameMap: mutable.Set[String] = mutable.Set()
+  for (clk <- clkMap) {
+    clkResetNameMap.add(clk._1.clock.getName())
+    if (clk._1.reset != null)
+      clkResetNameMap.add(clk._1.reset.getName())
+    if (clk._1.softReset != null)
+      clkResetNameMap.add(clk._1.softReset.getName())
+  }
 
   /** Distinguishing system registers */
   private val allRegisters = moduleAnalyze.getRegisters
@@ -138,11 +146,11 @@ class GenerateOneDiagram(module: Component,
         net) && !allRegisters.contains(net))
   private val allInOuts = moduleAnalyze.getPins(_ => true)
   private val everyRegisters = allRegisters ++ systemRegisters
+  private val allNets = everyRegisters ++ allInOuts
 
   private def GenAllNodes(): Unit = {
     def findPortHighlight(thisPort: BaseType): Int = {
-      (clkMap.get(thisPort.getName()) orElse clkMap.get(
-        thisPort.clockDomain.toString())).getOrElse(1)
+      clkMap.getOrElse(thisPort.clockDomain, 1)
     }
 
     /** Adding the toplevel module and its input/output ports */
@@ -164,7 +172,7 @@ class GenerateOneDiagram(module: Component,
       if (innerModule.isInstanceOf[BlackBox]) newNode.typeName = "BlackBox"
       val clocks = new ModuleAnalyzer(innerModule).getClocks
       if (clocks.nonEmpty)
-        newNode.highlight = clkMap(clocks.head.clock.getName())
+        newNode.highlight = clkMap(clocks.head)
       val innerModuleAna = new ModuleAnalyzer(innerModule)
       val innerInOuts = innerModuleAna.getInputs ++ innerModuleAna.getOutputs
       for (innerInOut <- innerInOuts) {
@@ -185,8 +193,8 @@ class GenerateOneDiagram(module: Component,
       val dealtSignal = DealSignal(topLevelRegister, isPort = false)
       newNode.labelName = dealtSignal.name
       if (systemRegisters.contains(topLevelRegister)) newNode.highlight = 0
-      else if (clkMap.contains(topLevelRegister.clockDomain.clock.getName()))
-        newNode.highlight = clkMap(topLevelRegister.clockDomain.clock.getName())
+      else if (clkMap.contains(topLevelRegister.clockDomain))
+        newNode.highlight = clkMap(topLevelRegister.clockDomain)
       if (!containedNode.contains(newNode.labelName)) {
         topNode.children.add(newNode)
         containedNode.add(newNode.labelName)
@@ -210,7 +218,6 @@ class GenerateOneDiagram(module: Component,
     }
 
     /** Getting the sonName of net */
-    val allNets = everyRegisters ++ allInOuts
     for (net <- allNets) {
       var sourceName = ""
       var sonName = ""
@@ -221,7 +228,7 @@ class GenerateOneDiagram(module: Component,
         sonName = dealtSignal.name
         if ((topInOuts.contains(net) && !dealtSignal.isInPort) || (!topInOuts
           .contains(net) && dealtSignal.isInPort)) netIsWrong = true
-        if (!clkMap.contains(net.getName()))
+        if (!clkResetNameMap.contains(dealtSignal.name))
           inIsBus = dealtSignal.isBus
       } else {
         val dealtSignal = DealSignal(net, isPort = false)
@@ -250,8 +257,8 @@ class GenerateOneDiagram(module: Component,
             isPort = true).isInPort && !DealSignal(fanOut, isPort = true).isInPort) {
             val newNode = new ElkNode
             val newEdge = new ElkEdge
-            if (clkMap.contains(net.clockDomain.clock.getName()))
-              newEdge.highlight = clkMap(net.clockDomain.clock.getName())
+            if (clkMap.contains(net.clockDomain))
+              newEdge.highlight = clkMap(net.clockDomain)
             newNode.labelName = sonName
             newNode.highlight = topNode.highlight
             if (inIsBus == 1)
@@ -283,7 +290,7 @@ class GenerateOneDiagram(module: Component,
           if ((topInOuts.contains(fanOut) && dealtSignal.isInPort) || (!topInOuts
             .contains(fanOut) && !dealtSignal.isInPort))
             fanOutIsWrong = true
-          if (!clkMap.contains(fanOut.getName()))
+          if (!clkResetNameMap.contains(dealtSignal.name))
             outIsBus = dealtSignal.isBus
         } else {
           val dealtSignal = DealSignal(fanOut, isPort = false)
@@ -319,29 +326,28 @@ class GenerateOneDiagram(module: Component,
         } else fanOutIsWrong = true
 
         /** Setting and adding Edge */
-        if (clkMap.contains(net.getName()))
-          newEdge.highlight = clkMap(net.getName())
-        else if (systemRegisters.contains(net)) newEdge.highlight = 0
-        else if (clkMap.contains(net.clockDomain.clock.getName()))
-          newEdge.highlight = clkMap(net.clockDomain.clock.getName())
+        if (systemRegisters.contains(net)) newEdge.highlight = 0
+        else if (clkMap.contains(net.clockDomain))
+          newEdge.highlight = clkMap(net.clockDomain)
         newEdge.source = sourceName
         newEdge.isBus = inIsBus & outIsBus
-        if (newEdge.isBus == 1) {
-          if (DealSignal(net, isPort = true).className == DealSignal(
-            fanOut,
-            isPort = true).className)
-            newEdge.label =
-              DealSignal(net, isPort = true).className.getClass.getSimpleName
-          else
-            newEdge.label = DealSignal(net, isPort = true).className + " to " + DealSignal(
+        if (!clkResetNameMap.contains(net.getName()) && !clkResetNameMap
+          .contains(fanOut.getName())) {
+          if (newEdge.isBus == 1) {
+            if (DealSignal(net, isPort = true).className == DealSignal(
               fanOut,
-              isPort = true).className
-        } else if (inIsBus == 1) {
-          if (!clkMap.contains(net.getName()))
+              isPort = true).className)
+              newEdge.label =
+                DealSignal(net, isPort = true).className.getClass.getSimpleName
+            else
+              newEdge.label = DealSignal(net, isPort = true).className + " to " + DealSignal(
+                fanOut,
+                isPort = true).className
+          } else if (inIsBus == 1) {
             newEdge.label = net.getName()
-        } else if (outIsBus == 1) {
-          if (!clkMap.contains(fanOut.getName()))
+          } else if (outIsBus == 1) {
             newEdge.label = fanOut.getName()
+          }
         }
         if (!netIsWrong && !fanOutIsWrong && !edgeIsContained(newEdge) && newEdge.source != "" && newEdge.target != "")
           edges.add(newEdge)
@@ -365,7 +371,8 @@ class GenerateOneDiagram(module: Component,
   }
 
   /** Generating HDElk language for ClockDomains */
-  private def drawClockDomains(clkMap: mutable.HashMap[String, Int]): Unit = {
+  private def drawClockDomains(
+                                clkMap: mutable.HashMap[ClockDomain, Int]): Unit = {
     writer.write(s"""{id:"ClockDomains",\nchildren:[\n""")
     for (element <- clkMap) {
       writer.write(s"""{id:"${element._1}",highlight:${element._2}},\n""")
@@ -389,11 +396,11 @@ class GenerateOneDiagram(module: Component,
     GenAllEdges()
     topNode.drawNodes(writer)
     drawEdges()
+    val thisClkMap = new mutable.HashMap[ClockDomain, Int]
     if (allClk.nonEmpty) {
-      val thisClkMap = new mutable.HashMap[String, Int]
-      for (clk <- allClk)
-        if (clkMap.contains(clk.clock.getName()))
-          thisClkMap.put(clk.clock.getName(), clkMap(clk.clock.getName()))
+      for (thisClk <- allClk)
+        if (clkMap.contains(thisClk))
+          thisClkMap.put(thisClk, clkMap(thisClk))
       drawClockDomains(thisClkMap)
     }
     writer.write(
@@ -481,20 +488,13 @@ object HDElkDiagramGen {
          |<a href="#${rtl.toplevelName}"><button>${rtl.toplevelName}</button></a>&nbsp;
          |""".stripMargin
     )
-    val clkMap = new mutable.HashMap[String, Int]
+    val clkMap = new mutable.HashMap[ClockDomain, Int]
     val module = rtl.toplevel
     val moduleAnalyze = new ModuleAnalyzer(module)
     val allClk = moduleAnalyze.getClocks
-    var clkCounter = 1
     for (thisClk <- allClk) {
-      clkCounter = clkCounter + 1
-      if (!clkMap.contains(thisClk.clock.getName())) {
-        clkMap.put(thisClk.clock.getName(), clkCounter)
-        if (thisClk.reset != null)
-          clkMap.put(thisClk.reset.getName(), clkCounter)
-        if (thisClk.softReset != null)
-          clkMap.put(thisClk.softReset.getName(), clkCounter)
-      }
+      if (!clkMap.contains(thisClk))
+        clkMap.put(thisClk, clkMap.size + 2)
     }
     val allInnerCells = module.children
     for (cell <- allInnerCells) {
