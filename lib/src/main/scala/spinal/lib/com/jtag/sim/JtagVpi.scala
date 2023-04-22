@@ -4,7 +4,7 @@ import spinal.core.sim._
 import spinal.lib.com.jtag.Jtag
 
 import java.nio.{ByteBuffer, ByteOrder}
-import spinal.core.sim._
+import spinal.lib.com.jtag.sim.JtagDriver
 
 import java.io.{DataInputStream, DataOutputStream}
 import java.net.ServerSocket
