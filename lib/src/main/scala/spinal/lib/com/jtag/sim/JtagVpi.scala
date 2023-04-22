@@ -27,79 +27,108 @@ init
  */
 
 object JtagVpi {
+  var connection: java.net.Socket = null
+
   def apply(jtag: Jtag, port: Int = 5555, jtagClkPeriod: TimeNumber): SimThread = fork {
     val driver = JtagDriver(jtag, jtagClkPeriod)
     var inputStream: DataInputStream = null
     var outputStream: DataOutputStream = null
+    // create a thread that waits for a connection,
+    // and then notifies the main thread that a connection has been established and gives it the connection
+    // in a thread safe manner
     class SocketThread extends Thread {
-      val socket = new ServerSocket(port)
 
       override def run(): Unit = {
         println("VPI Server started, waiting for connection...")
         while (true) {
+          val socket = new ServerSocket(port)
           val connection =
             try {
               socket.accept()
             } catch {
               case _: Exception => return
             }
-          outputStream = new DataOutputStream(connection.getOutputStream)
-          inputStream = new DataInputStream(connection.getInputStream)
-          println("VPI Client connected")
+          this.synchronized {
+            this.synchronized(JtagVpi.connection = connection)
+            println("VPI Client connected")
+          }
+          socket.close
+          // wait for the client to disconnect (in a thread safe manner
+          while (this.synchronized(JtagVpi.connection) != null) {
+            Thread.sleep(100)
+          }
         }
       }
     }
+
     val server = new SocketThread
-    onSimEnd(server.socket.close())
+    onSimEnd()
     server.start()
 
-    // read the first message from the client and print it
-    val buffer = new Array[Byte](MaxSizeOfVpiCmd)
+    // reconnect loop
     while (true) {
-      if (inputStream == null) {
+      val buffer = new Array[Byte](MaxSizeOfVpiCmd)
+      // wait for a connection from the server thread
+      while (this.synchronized(connection) == null) {
         sleep(timeToLong(jtagClkPeriod))
-      } else {
-        inputStream.readFully(buffer)
+      }
+      // create the input and output streams
+      inputStream = new DataInputStream(this.synchronized(connection.getInputStream))
+      outputStream = new DataOutputStream(this.synchronized(connection.getOutputStream))
 
-        val vpiCmd = deserializeVpiCmd(buffer)
+      // main receive and processing loop
+      while (this.synchronized(connection) != null) {
+        try {
+          inputStream.readFully(buffer)
 
-        vpiCmd match {
-          case VpiCmd(Cmds.RESET, _, _, _, _) => driver.doResetTap()
-          case VpiCmd(Cmds.TMS_SEQ, bufferOut, _, _, nbBits) =>
-            val tmsSeq = bufferOut.flatMap(x => (0 until 8).map(i => (x & (1 << i)) != 0)).take(nbBits)
-            driver.doTmsSeq(tmsSeq)
-          case VpiCmd(Cmds.SCAN_CHAIN, bufferOut, bufferIn, length, nbBits) =>
-            // bufferOut is a byte array, we need to convert it to a boolean array
-            // bufferIn is a byte array, we need to convert it to a boolean array
-            // each byte of bufferOut is a sequence of 8 bits (which is why nbBits exists)
-            // convert bufferOut to a boolean array
-            val tdiSeq = bufferOut.flatMap(x => (0 until 8).map(i => (x & (1 << i)) != 0)).take(nbBits)
-            val tdoSeq = driver.doScanChain(tdiSeq, flipTms = false)
-            // convert tdoSeq to a byte array grouped by 8 bits
-            val tdoSeqBytes = tdoSeq.grouped(8).map(_.foldLeft(0)((acc, b) => (acc << 1) | (if (b) 1 else 0))).toArray
-            // copy the result to bufferIn
-            for (i <- 0 until length) {
-              bufferIn(i) = tdoSeqBytes(i).toByte
+          val vpiCmd = deserializeVpiCmd(buffer)
+
+          vpiCmd match {
+            case VpiCmd(Cmds.RESET, _, _, _, _) => driver.doResetTap()
+            case VpiCmd(Cmds.TMS_SEQ, bufferOut, _, _, nbBits) =>
+              val tmsSeq = bufferOut.flatMap(x => (0 until 8).map(i => (x & (1 << i)) != 0)).take(nbBits)
+              driver.doTmsSeq(tmsSeq)
+            case VpiCmd(Cmds.SCAN_CHAIN, bufferOut, bufferIn, length, nbBits) =>
+              // bufferOut is a byte array, we need to convert it to a boolean array
+              // bufferIn is a byte array, we need to convert it to a boolean array
+              // each byte of bufferOut is a sequence of 8 bits (which is why nbBits exists)
+              // convert bufferOut to a boolean array
+              val tdiSeq = bufferOut.flatMap(x => (0 until 8).map(i => (x & (1 << i)) != 0)).take(nbBits)
+              val tdoSeq = driver.doScanChain(tdiSeq, flipTms = false)
+              // convert tdoSeq to a byte array grouped by 8 bits
+              val tdoSeqBytes = tdoSeq.grouped(8).map(_.foldLeft(0)((acc, b) => (acc << 1) | (if (b) 1 else 0))).toArray
+              // copy the result to bufferIn
+              for (i <- 0 until length) {
+                bufferIn(i) = tdoSeqBytes(i).toByte
+              }
+              // create packet to send to the client, exactly the same as the received packet but with the tdoSeq
+              val vpiCmd = VpiCmd(Cmds.SCAN_CHAIN, bufferOut, bufferIn, length, nbBits)
+              serialize(buffer, vpiCmd)
+              outputStream.write(buffer)
+            case VpiCmd(Cmds.SCAN_CHAIN_FLIP_TMS, bufferOut, bufferIn, length, nbBits) =>
+              // same as SCAN_CHAIN but with the last TMS set to 1
+              val tdiSeq = bufferOut.flatMap(x => (0 until 8).map(i => (x & (1 << i)) != 0)).take(nbBits)
+              val tdoSeq = driver.doScanChain(tdiSeq, flipTms = true)
+              val tdoSeqBytes =
+                tdoSeq.grouped(8).map(_.reverse.foldLeft(0)((acc, b) => (acc << 1) | (if (b) 1 else 0))).toArray
+              for (i <- 0 until length) {
+                bufferIn(i) = tdoSeqBytes(i).toByte
+              }
+              val vpiCmd = VpiCmd(Cmds.SCAN_CHAIN_FLIP_TMS, bufferOut, bufferIn, length, nbBits)
+              serialize(buffer, vpiCmd)
+              outputStream.write(buffer)
+            case VpiCmd(Cmds.STOP_SIMU, _, _, _, _) =>
+              println("Stop simulation")
+              simSuccess()
+          }
+        } catch {
+          case _: Exception =>
+            inputStream = null
+            outputStream = null
+            this.synchronized {
+              this.synchronized(JtagVpi.connection = null)
+              println("VPI Client connected")
             }
-            // create packet to send to the client, exactly the same as the received packet but with the tdoSeq
-            val vpiCmd = VpiCmd(Cmds.SCAN_CHAIN, bufferOut, bufferIn, length, nbBits)
-            serialize(buffer, vpiCmd)
-            outputStream.write(buffer)
-          case VpiCmd(Cmds.SCAN_CHAIN_FLIP_TMS, bufferOut, bufferIn, length, nbBits) =>
-            // same as SCAN_CHAIN but with the last TMS set to 1
-            val tdiSeq = bufferOut.flatMap(x => (0 until 8).map(i => (x & (1 << i)) != 0)).take(nbBits)
-            val tdoSeq = driver.doScanChain(tdiSeq, flipTms = true)
-            val tdoSeqBytes =
-              tdoSeq.grouped(8).map(_.reverse.foldLeft(0)((acc, b) => (acc << 1) | (if (b) 1 else 0))).toArray
-            for (i <- 0 until length) {
-              bufferIn(i) = tdoSeqBytes(i).toByte
-            }
-            val vpiCmd = VpiCmd(Cmds.SCAN_CHAIN_FLIP_TMS, bufferOut, bufferIn, length, nbBits)
-            serialize(buffer, vpiCmd)
-            outputStream.write(buffer)
-          case VpiCmd(Cmds.STOP_SIMU, _, _, _, _) =>
-            println("Stop simulation")
-            simSuccess()
         }
       }
     }
