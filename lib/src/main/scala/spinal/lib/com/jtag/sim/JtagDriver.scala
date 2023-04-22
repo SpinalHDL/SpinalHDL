@@ -10,14 +10,12 @@ import spinal.lib.com.jtag.Jtag
  * Author: Alexis Marquet
  */
 case class JtagDriver(jtag: Jtag, clockPeriod: TimeNumber) {
-  var tapState: JtagStates.Value = JtagStates.UNKNOWN
 
   /*
    * Reset the JTAG tap into Test-Logic-Reset state
    */
   def doResetTap(): Unit = {
     doTmsSeq(Seq(true, true, true, true, true))
-    tapState = JtagStates.RESET
   }
 
   /*
@@ -36,32 +34,9 @@ case class JtagDriver(jtag: Jtag, clockPeriod: TimeNumber) {
   def doClockCycles(n: Long): Unit = {
     for (_ <- 0 until n.toInt) {
       jtag.tck #= true
-      tapStep(jtag.tms.toBoolean)
       sleep(timeToLong(clockPeriod / 2))
       jtag.tck #= false
       sleep(timeToLong(clockPeriod / 2))
-    }
-  }
-
-  def tapStep(tms: Boolean): Unit = {
-    tapState = tapState match {
-      case JtagStates.RESET      => if (tms) JtagStates.RESET else JtagStates.IDLE
-      case JtagStates.IDLE       => if (tms) JtagStates.DR_SELECT else JtagStates.IDLE
-      case JtagStates.DR_SELECT  => if (tms) JtagStates.IR_SELECT else JtagStates.DR_CAPTURE
-      case JtagStates.DR_CAPTURE => if (tms) JtagStates.IR_SELECT else JtagStates.DR_SHIFT
-      case JtagStates.DR_SHIFT   => if (tms) JtagStates.DR_EXIT1 else JtagStates.DR_SHIFT
-      case JtagStates.DR_EXIT1   => if (tms) JtagStates.DR_UPDATE else JtagStates.DR_PAUSE
-      case JtagStates.DR_PAUSE   => if (tms) JtagStates.DR_EXIT2 else JtagStates.DR_PAUSE
-      case JtagStates.DR_EXIT2   => if (tms) JtagStates.DR_UPDATE else JtagStates.DR_SHIFT
-      case JtagStates.DR_UPDATE  => if (tms) JtagStates.DR_SELECT else JtagStates.IDLE
-      case JtagStates.IR_SELECT  => if (tms) JtagStates.RESET else JtagStates.IR_CAPTURE
-      case JtagStates.IR_CAPTURE => if (tms) JtagStates.RESET else JtagStates.IR_SHIFT
-      case JtagStates.IR_SHIFT   => if (tms) JtagStates.IR_EXIT1 else JtagStates.IR_SHIFT
-      case JtagStates.IR_EXIT1   => if (tms) JtagStates.IR_UPDATE else JtagStates.IR_PAUSE
-      case JtagStates.IR_PAUSE   => if (tms) JtagStates.IR_EXIT2 else JtagStates.IR_PAUSE
-      case JtagStates.IR_EXIT2   => if (tms) JtagStates.IR_UPDATE else JtagStates.IR_SHIFT
-      case JtagStates.IR_UPDATE  => if (tms) JtagStates.DR_SELECT else JtagStates.IDLE
-      case JtagStates.UNKNOWN    => JtagStates.UNKNOWN
     }
   }
 
@@ -80,10 +55,5 @@ case class JtagDriver(jtag: Jtag, clockPeriod: TimeNumber) {
       doClockCycles(1)
     }
     tdoSeq
-  }
-
-  object JtagStates extends Enumeration {
-    val RESET, IDLE, IR_SELECT, IR_CAPTURE, IR_SHIFT, IR_EXIT1, IR_PAUSE, IR_EXIT2, IR_UPDATE, DR_SELECT, DR_CAPTURE,
-        DR_SHIFT, DR_EXIT1, DR_PAUSE, DR_EXIT2, DR_UPDATE, UNKNOWN = Value
   }
 }
