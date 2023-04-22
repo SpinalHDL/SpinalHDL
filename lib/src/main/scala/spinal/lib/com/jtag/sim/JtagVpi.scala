@@ -13,6 +13,15 @@ import java.net.ServerSocket
     * This is a JTAG VPI interface for openocd
     * It is used to connect openocd to a JTAG interface over TCP
     * the reference interface implementation is in https://github.com/openocd-org/openocd/blob/master/src/jtag/drivers/jtag_vpi.c
+    * Example openocd config:
+
+source [find interface/jtag_vpi.cfg]
+debug_level 1
+set _CHIPNAME SOC
+jtag newtap $_CHIPNAME cpu -irlen 5 -expected-id 0x10002fff
+# init the CPU
+target create $_CHIPNAME.cpu riscv -chain-position $_CHIPNAME.cpu
+init
  */
 
 object JtagVpi {
