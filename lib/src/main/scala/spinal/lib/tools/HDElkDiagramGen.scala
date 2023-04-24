@@ -22,41 +22,7 @@ class ElkNode {
   var highlight = 100
 
   /** Generating HDElk language for Node */
-  def drawNodes(writer: FileWriter): Unit = {
-    writer.write(s"""{id:"$labelName",\n""")
-    if (typeName != "")
-      writer.write(s"""type:"$typeName",\n""")
-    if (highlight != 100)
-      writer.write(s"""highlight:$highlight,\n""")
-    if (inPorts.nonEmpty) {
-      writer.write(s"""inPorts: [""")
-      for (inPort <- inPorts) {
-        if (inPort.highlight != 1)
-          writer.write(
-            s"""{id:"${inPort.name}",highlight:${inPort.highlight}},""")
-        else writer.write(s""""${inPort.name}",""")
-      }
-      writer.write(s"""],\n""")
-    }
-    if (outPorts.nonEmpty) {
-      writer.write(s"""outPorts: [""")
-      for (outPort <- outPorts) {
-        if (outPort.highlight != 1)
-          writer.write(
-            s"""{id:"${outPort.name}",highlight:${outPort.highlight}},""")
-        else writer.write(s""""${outPort.name}",""")
-      }
-      writer.write(s"""],\n""")
-    }
-    if (children.nonEmpty) {
-      writer.write(s"""children: [\n""")
-      for (thisChildren <- children) {
-        thisChildren.drawNodes(writer)
-        writer.write(s"""},\n""")
-      }
-      writer.write(s"""],\n""")
-    }
-  }
+
 }
 
 case class DealSignal(signal: BaseType, isPort: Boolean) {
@@ -112,24 +78,17 @@ case class DealSignal(signal: BaseType, isPort: Boolean) {
     }
   }
 }
-
-class GenerateOneDiagram(module: Component,
-                         moduleName: String,
-                         writer: FileWriter,
-                         clkMap: mutable.HashMap[ClockDomain, Int]) {
-
-  private val edges: mutable.Set[ElkEdge] = mutable.Set()
-  private val topNode = new ElkNode
-  topNode.labelName = moduleName
+class ModuleDataStructure(module: Component,
+                          clkMap: mutable.HashMap[ClockDomain, Int]) {
+  var edges: mutable.Set[ElkEdge] = mutable.Set()
+  var topNode = new ElkNode
   if (module.isInstanceOf[BlackBox]) topNode.typeName = "BlackBox"
-  private val containedNode: mutable.Set[String] = mutable.Set()
   private val moduleAnalyze = new ModuleAnalyzer(module)
   private val allClk = moduleAnalyze.getClocks
   if (allClk.size > 1) topNode.highlight = 10
   else if (allClk.size == 1)
     topNode.highlight = clkMap(allClk.head)
-  private val topInOuts = moduleAnalyze.getInputs ++ moduleAnalyze.getOutputs
-  private val clkResetNameMap: mutable.Set[String] = mutable.Set()
+  val clkResetNameMap: mutable.Set[String] = mutable.Set()
   for (clk <- clkMap) {
     clkResetNameMap.add(clk._1.clock.getName())
     if (clk._1.reset != null)
@@ -137,8 +96,25 @@ class GenerateOneDiagram(module: Component,
     if (clk._1.softReset != null)
       clkResetNameMap.add(clk._1.softReset.getName())
   }
+  val thisClkMap = new mutable.HashMap[ClockDomain, Int]
+  if (allClk.nonEmpty) {
+    for (thisClk <- allClk)
+      if (clkMap.contains(thisClk))
+        thisClkMap.put(thisClk, clkMap(thisClk))
+  }
+}
+class GenNodesAndEdges(module: Component,
+                       moduleName: String,
+                       clkMap: mutable.HashMap[ClockDomain, Int]) {
 
-  /** Distinguishing system registers */
+  private val dataStructure = new ModuleDataStructure(module, clkMap)
+  private val edges = dataStructure.edges
+  private val topNode = dataStructure.topNode
+  private val clkResetNameMap = dataStructure.clkResetNameMap
+  topNode.labelName = moduleName
+  private val containedNode: mutable.Set[String] = mutable.Set()
+  private val moduleAnalyze = new ModuleAnalyzer(module)
+  private val topInOuts = moduleAnalyze.getInputs ++ moduleAnalyze.getOutputs
   private val allRegisters = moduleAnalyze.getRegisters
   private val systemRegisters = moduleAnalyze.getNets(
     net =>
@@ -337,8 +313,7 @@ class GenerateOneDiagram(module: Component,
             if (DealSignal(net, isPort = true).className == DealSignal(
               fanOut,
               isPort = true).className)
-              newEdge.label =
-                DealSignal(net, isPort = true).className.getClass.getSimpleName
+              newEdge.label = DealSignal(net, isPort = true).className
             else
               newEdge.label = DealSignal(net, isPort = true).className + " to " + DealSignal(
                 fanOut,
@@ -354,73 +329,23 @@ class GenerateOneDiagram(module: Component,
       }
     }
   }
-
-  /** Generating HDElk language for Edge */
-  private def drawEdges(): Unit = {
-    writer.write(s"""edges:[\n""")
-    for (edge <- edges) {
-      writer.write(
-        s"""{ source:"${edge.source}",target:"${edge.target}",bus:${edge.isBus},""")
-      if (edge.label != "")
-        writer.write(s"""label:"${edge.label}",""")
-      if (edge.highlight != 100)
-        writer.write(s"""highlight:${edge.highlight}""")
-      writer.write(s"""},\n""")
-    }
-    writer.write(s"""]\n},\n""")
-  }
-
-  /** Generating HDElk language for ClockDomains */
-  private def drawClockDomains(
-                                clkMap: mutable.HashMap[ClockDomain, Int]): Unit = {
-    writer.write(s"""{id:"ClockDomains",\nchildren:[\n""")
-    for (element <- clkMap) {
-      writer.write(s"""{id:"${element._1}",highlight:${element._2}},\n""")
-    }
-    writer.write(s"""]\n}\n""")
-  }
-
-  /** Integrating all methods to draw an image */
-  def beginDraw(): Unit = {
-    writer.write(
-      s"""
-         |<div id="${topNode.labelName}"></div>
-         |<h3>${topNode.labelName}</h3><br><br><br><br>
-         |<script type="text/javascript">
-         |
-         |var mygraph = {
-         |children:[
-         |""".stripMargin
-    )
+  def getDataStructure: ModuleDataStructure = {
     GenAllNodes()
     GenAllEdges()
-    topNode.drawNodes(writer)
-    drawEdges()
-    val thisClkMap = new mutable.HashMap[ClockDomain, Int]
-    if (allClk.nonEmpty) {
-      for (thisClk <- allClk)
-        if (clkMap.contains(thisClk))
-          thisClkMap.put(thisClk, clkMap(thisClk))
-      drawClockDomains(thisClkMap)
-    }
-    writer.write(
-      s"""],\n}\nhdelk.layout( mygraph,"${topNode.labelName}");\n</script>\n""")
+    dataStructure.edges = edges
+    dataStructure.topNode = topNode
+    dataStructure
   }
 }
 
-object HDElkDiagramGen {
-
-  /** Generating all diagrams */
-  def apply[T <: Component](rtl: SpinalReport[T]): Unit = {
-    val fileName = rtl.toplevelName + ".html"
-    val file = new File(fileName)
-    val writer = new FileWriter(file)
+class HTMLGenerator(writer: FileWriter) {
+  def cssGenerator(toplevelName: String): Unit = {
     writer.write(
       s"""<!DOCTYPE html>
          |<html>
          |<head>
          |    <meta charset="UTF-8">
-         |    <title> RTL diagrams of ${rtl.toplevelName}</title>
+         |    <title> RTL diagrams of $toplevelName</title>
          |    <style>
          |.buttons-container {
          | display: flex;
@@ -485,9 +410,100 @@ object HDElkDiagramGen {
          |
          |<h1 class="center-title">choose diagrams</h1>
          |<div class="buttons-container">
-         |<a href="#${rtl.toplevelName}"><button>${rtl.toplevelName}</button></a>&nbsp;
+         |<a href="#$toplevelName"><button>$toplevelName</button></a>&nbsp;
          |""".stripMargin
     )
+  }
+
+  /** Generating HDElk language for Edge */
+  private def drawNodes(thisNode: ElkNode): Unit = {
+    writer.write(s"""{id:"${thisNode.labelName}",\n""")
+    if (thisNode.typeName != "")
+      writer.write(s"""type:"${thisNode.typeName}",\n""")
+    if (thisNode.highlight != 100)
+      writer.write(s"""highlight:${thisNode.highlight},\n""")
+    if (thisNode.inPorts.nonEmpty) {
+      writer.write(s"""inPorts: [""")
+      for (inPort <- thisNode.inPorts) {
+        if (inPort.highlight != 1)
+          writer.write(
+            s"""{id:"${inPort.name}",highlight:${inPort.highlight}},""")
+        else writer.write(s""""${inPort.name}",""")
+      }
+      writer.write(s"""],\n""")
+    }
+    if (thisNode.outPorts.nonEmpty) {
+      writer.write(s"""outPorts: [""")
+      for (outPort <- thisNode.outPorts) {
+        if (outPort.highlight != 1)
+          writer.write(
+            s"""{id:"${outPort.name}",highlight:${outPort.highlight}},""")
+        else writer.write(s""""${outPort.name}",""")
+      }
+      writer.write(s"""],\n""")
+    }
+    if (thisNode.children.nonEmpty) {
+      writer.write(s"""children: [\n""")
+      for (thisChildren <- thisNode.children) {
+        drawNodes(thisChildren)
+        writer.write(s"""},\n""")
+      }
+      writer.write(s"""],\n""")
+    }
+  }
+
+  private def drawEdges(edges: mutable.Set[ElkEdge]): Unit = {
+    writer.write(s"""edges:[\n""")
+    for (edge <- edges) {
+      writer.write(
+        s"""{ source:"${edge.source}",target:"${edge.target}",bus:${edge.isBus},""")
+      if (edge.label != "")
+        writer.write(s"""label:"${edge.label}",""")
+      if (edge.highlight != 100)
+        writer.write(s"""highlight:${edge.highlight}""")
+      writer.write(s"""},\n""")
+    }
+    writer.write(s"""]\n},\n""")
+  }
+
+  /** Generating HDElk language for ClockDomains */
+  private def drawClockDomains(
+                                clkMap: mutable.HashMap[ClockDomain, Int]): Unit = {
+    writer.write(s"""{id:"ClockDomains",\nchildren:[\n""")
+    for (element <- clkMap) {
+      writer.write(s"""{id:"${element._1}",highlight:${element._2}},\n""")
+    }
+    writer.write(s"""]\n}\n""")
+  }
+
+  /** Integrating all methods to draw an image */
+  def drawOneModule(dataStructure: ModuleDataStructure): Unit = {
+    writer.write(
+      s"""
+         |<div id="${dataStructure.topNode.labelName}"></div>
+         |<h3>${dataStructure.topNode.labelName}</h3><br><br><br><br>
+         |<script type="text/javascript">
+         |
+         |var mygraph = {
+         |children:[
+         |""".stripMargin
+    )
+    drawNodes(dataStructure.topNode)
+    drawEdges(dataStructure.edges)
+    drawClockDomains(dataStructure.thisClkMap)
+    writer.write(
+      s"""],\n}\nhdelk.layout( mygraph,"${dataStructure.topNode.labelName}");\n</script>\n""")
+  }
+}
+
+object HDElkDiagramGen {
+
+  /** Generating all diagrams */
+  def apply[T <: Component](rtl: SpinalReport[T]): Unit = {
+    val fileName = rtl.toplevelName + ".html"
+    val file = new File(fileName)
+    val writer = new FileWriter(file)
+    new HTMLGenerator(writer).cssGenerator(rtl.toplevelName)
     val clkMap = new mutable.HashMap[ClockDomain, Int]
     val module = rtl.toplevel
     val moduleAnalyze = new ModuleAnalyzer(module)
@@ -502,11 +518,11 @@ object HDElkDiagramGen {
         .getName()}</button></a>&nbsp;\n""")
     }
     writer.write(s"""</div><br><br><br><br>\n""")
-    new GenerateOneDiagram(module, rtl.toplevelName, writer, clkMap)
-      .beginDraw()
+    new HTMLGenerator(writer).drawOneModule(
+      new GenNodesAndEdges(module, rtl.toplevelName, clkMap).getDataStructure)
     for (inner <- module.children)
-      new GenerateOneDiagram(inner, inner.getName(), writer, clkMap)
-        .beginDraw()
+      new HTMLGenerator(writer).drawOneModule(
+        new GenNodesAndEdges(inner, inner.getName(), clkMap).getDataStructure)
     writer.write(s"""</body>\n</html>""")
     writer.close()
   }
