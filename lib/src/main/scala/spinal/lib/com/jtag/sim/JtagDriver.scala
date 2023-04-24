@@ -54,6 +54,6 @@ case class JtagDriver(jtag: Jtag, clockPeriod: TimeNumber) {
       tdoSeq(i) = jtag.tdo.toBoolean
       doClockCycles(1)
     }
-    tdoSeq
+    tdoSeq.to[collection.immutable.Seq]
   }
 }

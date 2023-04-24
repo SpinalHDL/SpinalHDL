@@ -1,11 +1,10 @@
-package solsoc
+package spinal.lib.com.jtag.sim
 
 import spinal.core.TimeNumber
 import spinal.core.sim._
 import spinal.lib.com.jtag.Jtag
 
 import java.nio.{ByteBuffer, ByteOrder}
-import spinal.lib.com.jtag.sim.JtagDriver
 import spinal.sim.SimThread
 
 import java.io.{DataInputStream, DataOutputStream}
@@ -52,7 +51,7 @@ object JtagVpi {
             this.synchronized(JtagVpi.connection = connection)
             println("VPI Client connected")
           }
-          socket.close
+          socket.close()
           // wait for the client to disconnect (in a thread safe manner
           while (this.synchronized(JtagVpi.connection) != null) {
             Thread.sleep(100)
@@ -120,6 +119,7 @@ object JtagVpi {
             case VpiCmd(Cmds.STOP_SIMU, _, _, _, _) =>
               println("Stop simulation")
               simSuccess()
+            case _ => println(s"ERROR: received unknown VPI command: $vpiCmd")
           }
         } catch {
           case _: Exception =>
@@ -127,7 +127,7 @@ object JtagVpi {
             outputStream = null
             this.synchronized {
               this.synchronized(JtagVpi.connection = null)
-              println("VPI Client connected")
+              println("VPI Client disconnected")
             }
         }
       }
@@ -153,6 +153,8 @@ object JtagVpi {
     VpiCmd(cmd, bufferOut, bufferIn, length, nbBits)
   }
 
+  private def XFERT_MAX_SIZE = 512
+
   private def serialize(buffer: Array[Byte], vpiCmd: VpiCmd) = {
     val byteBuffer = ByteBuffer.wrap(buffer)
     byteBuffer.order(ByteOrder.LITTLE_ENDIAN)
@@ -170,8 +172,6 @@ object JtagVpi {
   }
 
   private def MaxSizeOfVpiCmd = 4 + 2 * XFERT_MAX_SIZE + 4 + 4
-
-  private def XFERT_MAX_SIZE = 512
 
   private case class VpiCmd(cmd: Cmds.Cmd, bufferOut: Array[Byte], bufferIn: Array[Byte], length: Int, nbBits: Int)
 
