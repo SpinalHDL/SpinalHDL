@@ -14,6 +14,7 @@ class BmbMemoryTester(bmb : Bmb,
                       rspCounterTarget : Int = 30000,
                       checkAvailability : Boolean = true) {
 
+  def addressGen() : Int = Random.nextInt(1 << bmb.p.access.addressWidth)
   def onMasterAgentCreate(ma : BmbMasterAgent) = {}
   val memory = new BmbMemoryAgent(BigInt(1) << bmb.p.access.addressWidth)
   Phase.boot()
@@ -36,7 +37,7 @@ class BmbMemoryTester(bmb : Bmb,
       val busP = bmb.p
       override def onRspRead(address: BigInt, data: Byte): Unit = assert(data == memory.getByte(address.toLong), f"$address%x -> dut=$data%x expect ${memory.getByte(address.toLong)}%x")
       override def getCmd(): () => Unit = if(Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
-      override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(1 << bmb.p.access.addressWidth), sizeMax, busP, checkAvailability = checkAvailability)
+      override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(addressGen, sizeMax, busP, checkAvailability = checkAvailability)
       override def regionFree(region: SizeMapping): Unit = if(checkAvailability) regions.free(region) else true
       override def regionIsMapped(region: SizeMapping, opcode : Int): Boolean = true
     }
