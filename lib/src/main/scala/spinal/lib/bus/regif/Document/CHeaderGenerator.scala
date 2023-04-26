@@ -113,7 +113,7 @@ final case class CHeaderGenerator(
                 def mask = BigInt((1 << fd.getSection().size) - 1) << lsb
                 val _tab = " " * (tabn - fd.getName().size)
                 fd.getAccessType() match {
-                    case `NA` |`RO` |`ROV`                       => ""
+                    case `NA`                                    => ""
                     case `W1S`|`W1C`|`W1T`|`W1P`|`W1CRS`|`W1SRC` => s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}""".stripMargin
                     case `W0S`|`W0C`|`W0T`|`W0P`|`W0CRS`|`W0SRC` => s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}""".stripMargin
                     case _ => {
