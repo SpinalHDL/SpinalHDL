@@ -12,9 +12,11 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/readon/spinalhdl-docker:master
     steps:
     - uses: actions/checkout@v3
-    - uses: ./.github/actions/sbt
+    - run: git config --global --add safe.directory /__w/SpinalHDL/SpinalHDL
     - run: sbt Test/compile
     - uses: actions/cache/save@v3
       with:
