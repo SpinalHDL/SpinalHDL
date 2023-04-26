@@ -60,9 +60,9 @@ case class AhbLite3CrossbarSlaveConfig(mapping: SizeMapping, index: Int){
   *                 io.ahbSlaves(3) -> (0x5000,0x1000)
   *              )
   *              .addConnections(
-  *                 io.ahbMasters(0).toAhbLite3() -> List(ahbSlaves(0), ahbSlaves(1)),
-  *                 io.ahbMasters(1).toAhbLite3() -> List(ahbSlaves(1), ahbSlaves(2), ahbSlaves(3)),
-  *                 io.ahbMasters(2).toAhbLite3() -> List(ahbSlaves(0), ahbSlaves(3))
+  *                 io.ahbMasters(0).toAhbLite3() -> List(io.ahbSlaves(0), io.ahbSlaves(1)),
+  *                 io.ahbMasters(1).toAhbLite3() -> List(io.ahbSlaves(1), io.ahbSlaves(2), io.ahbSlaves(3)),
+  *                 io.ahbMasters(2).toAhbLite3() -> List(io.ahbSlaves(0), io.ahbSlaves(3))
   *              )
   *              // ** OPTIONAL **
   *              //.addGlobalDefaultSlave(io.defaultSalve)

@@ -171,7 +171,8 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
     )
 
     for(targetId <- 0 until targetsModel.length){
-      def bufferize[T <: Data](that : T) : T = if(targetsModel(targetId).clockDomain != ClockDomain.currentHandle) targetsModel(targetId).clockDomain on BufferCC[T](that, init = null.asInstanceOf[T]) else RegNext[T](that)
+      val plicCd = ClockDomain.currentHandle
+      def bufferize[T <: Data](that : T) : T = if(targetsModel(targetId).clockDomain != ClockDomain.currentHandle) targetsModel(targetId).clockDomain on BufferCC[T](plicCd on RegNext(that), init = null.asInstanceOf[T]) else RegNext[T](that)
       targetsModel(targetId).target := bufferize(targets(targetId).iep)
     }
   })

@@ -9,7 +9,7 @@ import spinal.lib.sim.ScoreboardInOrder
 
 import scala.util.Random
 
-class Axi4UnburstTester extends AnyFunSuite {
+class Axi4UnburstTester extends SpinalAnyFunSuite {
 
   def tester_readonly(dut: Axi4ReadOnlyUnburster): Unit = {
     dut.clockDomain.forkStimulus(10)

@@ -10,7 +10,7 @@ import spinal.lib.sim.{FlowMonitor, StreamDriver, StreamMonitor, StreamReadyRand
 import scala.collection.mutable
 import scala.util.Random
 
-class SpinalSimMacTester extends AnyFunSuite{
+class SpinalSimMacTester extends SpinalAnyFunSuite{
   def hexStringToFrame(str : String) = {
     val spaceLess = str.replace(" ","")
     Seq.tabulate[Int](spaceLess.size/2)(i => Integer.parseInt(spaceLess.substring(i*2, i*2+2), 16))

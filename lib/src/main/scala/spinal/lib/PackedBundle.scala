@@ -2,6 +2,8 @@ package spinal.lib
 
 import spinal.core._
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
   * Similar to Bundle but with bit packing capabilities.
   * Use pack implicit functions to assign fields to bit locations
@@ -24,9 +26,17 @@ class PackedBundle extends Bundle {
 
   class TagBitPackExact(val range: Range, val endianness: Endianness) extends SpinalTag
 
-  private def computePackMapping(): Seq[(Range, Data)] = {
+  /**
+    * Builds and caches the range mappings for PackedBundle's elements.
+    * Tracks the width required for all mappings.
+    * Does not check for overlap of elements.
+    */
+  private class MappingBuilder {
     var lastPos = 0
-    elements.map(_._2).map(d => {
+    var highBit = 0
+    val mapping = ArrayBuffer[(Range, Data)]()
+
+    def addData(d : Data): Unit = {
       val r = d.getTag(classOf[TagBitPackExact]) match {
         case t: Some[TagBitPackExact] =>
           t.get.range
@@ -34,12 +44,25 @@ class PackedBundle extends Bundle {
           (lastPos+d.getBitsWidth-1) downto (lastPos)
       }
       lastPos = r.high
-      (r, d)
-    }).toSeq
+
+      // Update the bit width
+      highBit = highBit.max(r.high)
+
+      mapping.append(r -> d)
+    }
+
+    def width = highBit + 1
   }
 
+  private val mapBuilder = new MappingBuilder()
+
+  /**
+    * Gets the mappings of Range to Data for this PackedBundle
+    * @return Seq of (Range,Data) for all elements
+    */
+  def mappings = mapBuilder.mapping
+
   override def asBits: Bits = {
-    val mappings = computePackMapping()
     val maxWidth = mappings.map(_._1.high).max + 1
     val packed = B(0, maxWidth bit)
     for ((range, data) <- mappings) {
@@ -60,7 +83,6 @@ class PackedBundle extends Bundle {
   override def assignFromBits(bits: Bits): Unit = assignFromBits(bits, bits.getBitsWidth, 0)
 
   override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = {
-    val mappings = computePackMapping()
     for((elRange, el) <- mappings) {
       val endianness: Endianness = el.getTag(classOf[TagBitPackExact]) match {
         case t: Some[TagBitPackExact] => t.get.endianness
@@ -80,7 +102,7 @@ class PackedBundle extends Bundle {
     }
   }
 
-  override def getBitsWidth: Int = computePackMapping().map(_._1.high).max+1
+  override def getBitsWidth: Int = mapBuilder.width
 
   implicit class DataPositionEnrich[T <: Data](t: T) {
     /**
@@ -110,6 +132,17 @@ class PackedBundle extends Bundle {
       */
     def packTo(pos: Int): T = {
       t.pack(pos downto pos - t.getBitsWidth + 1)
+    }
+  }
+
+  override def valCallbackRec(ref: Any, name: String): Unit = {
+    super.valCallbackRec(ref, name)
+
+    // Process the data
+    ref match {
+      case d: Data =>
+        mapBuilder.addData(d)
+      case _ =>
     }
   }
 }

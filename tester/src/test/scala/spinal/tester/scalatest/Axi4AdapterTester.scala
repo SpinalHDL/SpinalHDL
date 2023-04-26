@@ -12,7 +12,7 @@ import spinal.lib.{master, slave}
 import scala.collection.mutable
 import scala.util.Random
 
-class Axi4UpsizerTester extends AnyFunSuite {
+class Axi4UpsizerTester extends SpinalAnyFunSuite {
 
   def writeTester(dut : Axi4WriteOnlyUpsizer): Unit ={
     dut.clockDomain.forkStimulus(10)
@@ -21,6 +21,10 @@ class Axi4UpsizerTester extends AnyFunSuite {
     val regions = mutable.Set[SizeMapping]()
     val inputAgent = new Axi4WriteOnlyMasterAgent(dut.io.input, dut.clockDomain) {
       override def genAddress(): BigInt = ((Random.nextInt(1 << 19)))// & 0xFFF00) | 6
+
+      override val pageAlignBits = 16
+//      override def lens   =  List(255)
+//      override def sizes  = List(5)
 
       override def bursts: List[Int] = List(1)
 
@@ -38,6 +42,7 @@ class Axi4UpsizerTester extends AnyFunSuite {
     val inputMonitor = new Axi4WriteOnlyMonitor(dut.io.input, dut.clockDomain) {
       override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
         //          println(s"I $address -> $data")
+        assert(!writes.contains(address))
         writes(address) = data
       }
     }
@@ -81,6 +86,8 @@ class Axi4UpsizerTester extends AnyFunSuite {
     val inputAgent = new Axi4ReadOnlyMasterAgent(dut.io.input, dut.clockDomain) {
       override def genAddress(): BigInt = Random.nextInt(1 << 19)
       override def bursts: List[Int] = List(1)
+      override val pageAlignBits = 20
+//      override def lens   =  (0xf0 to 0xff).toList
       override def mappingAllocate(mapping: SizeMapping): Boolean = {
         if(regions.exists(_.overlap(mapping))) return false
         regions += mapping
@@ -136,7 +143,7 @@ class Axi4UpsizerTester extends AnyFunSuite {
   }
 }
 
-class Axi4DownsizerTester extends AnyFunSuite {
+class Axi4DownsizerTester extends SpinalAnyFunSuite {
 
     def writeTester(dut: Axi4WriteOnlyDownsizer, pipelined: Boolean = false): Unit = {
         dut.clockDomain.forkStimulus(10)
@@ -333,7 +340,7 @@ class Axi4DownsizerTester extends AnyFunSuite {
     }
 }
 
-class Axi4IdRemoverTester extends AnyFunSuite {
+class Axi4IdRemoverTester extends SpinalAnyFunSuite {
 
   def writeTester(dut : Axi4WriteOnlyIdRemover): Unit ={
     dut.clockDomain.forkStimulus(10)

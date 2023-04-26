@@ -1,7 +1,7 @@
 COMMON_PATH:=${abspath ${dir ${lastword ${MAKEFILE_LIST}}}}
 
 export PYTHONPATH:=$(COMMON_PATH)/../..
-SPINALROOT=${COMMON_PATH}/../../../../../..
+SPINALROOT=${COMMON_PATH}/../../../../../../cocotbWorkspace
 
 ifeq ($(TOPLEVEL_LANG),vhdl)
 	SIM ?= ghdl

@@ -340,6 +340,11 @@ abstract class BitVector extends BaseType with Widthable {
   def subdivideIn(sliceCount: SlicesCount): Vec[T] = subdivideIn(sliceCount, true)
   def subdivideIn(sliceWidth: BitCount): Vec[T] = subdivideIn(sliceWidth, true)
 
+
+  private def copyAnalogTagTo[T <: Data](that : T) : T = {
+    if(this.isAnalog) that.setAsAnalog()
+    that
+  }
   /** Extract a bit of the BitVector */
   def newExtract(bitId: Int, extract: BitVectorBitAccessFixed): Bool = {
     extract.source = this
@@ -354,7 +359,7 @@ abstract class BitVector extends BaseType with Widthable {
       }
       override def getRealSourceNoRec: BaseType = BitVector.this
     }
-    bool
+    copyAnalogTagTo(bool)
   }
 
   /** Extract a bit of the BitVector */
@@ -369,12 +374,12 @@ abstract class BitVector extends BaseType with Widthable {
       }
       override def getRealSourceNoRec: BaseType = BitVector.this
     }
-    bool
+    copyAnalogTagTo(bool)
   }
 
   /** Extract a range of bits of the BitVector */
   def newExtract(hi: Int, lo: Int, accessFactory: => BitVectorRangedAccessFixed): this.type = {
-    if (hi - lo + 1 != 0) {
+    copyAnalogTagTo(if (hi - lo + 1 != 0) {
       val access = accessFactory
       access.source = this
       access.hi     = hi
@@ -396,11 +401,12 @@ abstract class BitVector extends BaseType with Widthable {
     }
     else
       getZeroUnconstrained
+    )
   }
 
   /** Extract a range of bits of the BitVector */
   def newExtract(offset: UInt, size: Int, extract : BitVectorRangedAccessFloating)(implicit loc: Location): this.type = {
-    if (size != 0) {
+    copyAnalogTagTo(if (size != 0) {
       extract.source = this
       extract.size   = size
       extract.offset = offset
@@ -420,6 +426,7 @@ abstract class BitVector extends BaseType with Widthable {
     }
     else
       getZeroUnconstrained
+    )
   }
 
   def getZeroUnconstrained: this.type

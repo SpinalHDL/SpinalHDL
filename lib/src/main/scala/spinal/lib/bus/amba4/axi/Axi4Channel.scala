@@ -9,7 +9,7 @@ import spinal.lib._
  * Definition of the Write/Read address channel
  * @param config Axi4 configuration class
  */
-class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
+class Axi4Ax(val config: Axi4Config,val userWidth : Int, readOnly : Boolean) extends Bundle {
   val addr   = UInt(config.addressWidth bits)
   val id     = if(config.useId)     UInt(config.idWidth bits)   else null
   val region = if(config.useRegion) Bits(4 bits)                else null
@@ -21,6 +21,7 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   val qos    = if(config.useQos)    Bits(4 bits)                else null
   val user   = if(userWidth >= 0)   Bits(userWidth bits)        else null
   val prot   = if(config.useProt)   Bits(3 bits)                else null
+  val allStrb = if(config.useAllStrb && !readOnly) Bool()       else null
 
   import Axi4.burst._
 
@@ -38,7 +39,7 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   def setQos(qosType : Bits) : Unit = if (config.useQos) qos := qosType
   def setProt(protType : Bits) : Unit = if (config.useProt) prot := protType
 
-  override def clone: this.type = new Axi4Ax(config,userWidth).asInstanceOf[this.type]
+  override def clone: this.type = new Axi4Ax(config,userWidth, readOnly).asInstanceOf[this.type]
 
 
   def formalContext() = new Composite(this, "formal") {
@@ -142,13 +143,13 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
 }
 
 
-class Axi4Aw(config: Axi4Config) extends Axi4Ax(config, config.awUserWidth){
+class Axi4Aw(config: Axi4Config) extends Axi4Ax(config, config.awUserWidth, readOnly = false){
   override def clone: this.type = new Axi4Aw(config).asInstanceOf[this.type]
 }
-class Axi4Ar(config: Axi4Config) extends Axi4Ax(config, config.arUserWidth){
+class Axi4Ar(config: Axi4Config) extends Axi4Ax(config, config.arUserWidth, readOnly = true){
   override def clone: this.type = new Axi4Ar(config).asInstanceOf[this.type]
 }
-class Axi4Arw(config: Axi4Config) extends Axi4Ax(config, config.arwUserWidth){
+class Axi4Arw(config: Axi4Config) extends Axi4Ax(config, config.arwUserWidth, readOnly = false){
   val write = Bool()
   override def clone: this.type = new Axi4Arw(config).asInstanceOf[this.type]
 }
@@ -369,6 +370,7 @@ object Axi4Priv{
     driveWeak(stream,sink,stream.qos,sink.qos,() => B"0000",false,true)
     driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),true,true)
     driveWeak(stream,sink,stream.prot,sink.prot,() => B"010",false,true)
+    driveWeak(stream,sink,stream.allStrb,sink.allStrb,() => False,false,true)
   }
 
 }

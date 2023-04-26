@@ -72,7 +72,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
   val factory = new DebugBusSlaveFactory(io.ctrl)
 
   val dmactive = factory.createReadAndWrite(Bool(), 0x10, 0) init(False)
-  val dmCd = ClockDomain(ClockDomain.current.clock, reset = dmactive, config = ClockDomain.current.config.copy(resetKind = SYNC, resetActiveLevel = LOW))
+  val dmCd = ClockDomain(ClockDomain.current.clock, reset = dmactive, config = ClockDomain.current.config.copy(resetKind = ASYNC, resetActiveLevel = LOW))
 
   val logic = dmCd on new Area{
     val dmcontrol = new Area {
@@ -134,6 +134,19 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val exception = io.harts.map(_.exception).read(hart)
       val ebreak = io.harts.map(_.ebreak).read(hart)
       val redo = io.harts.map(_.redo).read(hart)
+    }
+
+    val haltsum = new Area{
+      assert(p.harts <= 32)
+      val value = U(0, 32 bits)
+      for(g <- 0 until (p.harts+31)/32){
+        when(dmcontrol.hartSel >> 5 === g){
+          for(hid <- g*32 to (g*32+31 min p.harts-1)){
+            value(hid%32) := harts(hid).halted
+          }
+        }
+      }
+      factory.read(value, 0x40)
     }
 
     val dmstatus = new Area{

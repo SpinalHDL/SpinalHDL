@@ -24,6 +24,9 @@ case class BmbRegionAllocator(alignmentMinWidth : Int = 0){
           size = (size + p.access.byteCount - 1) & ~p.access.wordMask
         }
       }
+      if(!p.access.aggregated.alignment.allowWord){
+        address &= ~((1 << spinal.core.log2Up(size))-1)
+      }
       val region = SizeMapping(address, size)
       if(!checkAvailability || allocations.forall(r => r.base > region.end || r.end < region.base) && size <= boundaryMax) {
         allocations += region

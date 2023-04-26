@@ -42,7 +42,7 @@ object TestTopLevel {
 
 }
 
-class BusSlaveFactoryDoubleReadTester extends AnyFunSuite {
+class BusSlaveFactoryDoubleReadTester extends SpinalAnyFunSuite {
 
   test("BusSlaveFactoryDoubleRead") {
 

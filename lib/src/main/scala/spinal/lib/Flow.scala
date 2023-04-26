@@ -200,7 +200,7 @@ object FlowCCByToggle {
 class FlowCCByToggle[T <: Data](dataType: HardType[T],
                                 inputClock: ClockDomain,
                                 outputClock: ClockDomain,
-                                withOutputBufferedReset : Boolean = true,
+                                withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
                                 withOutputM2sPipe : Boolean = true) extends Component {
   val io = new Bundle {
     val input = slave  Flow (dataType)
@@ -221,7 +221,7 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T],
 
   val outputArea = new ClockingArea(finalOutputClock) {
     val target = BufferCC(inputArea.target, doInit generate False, randBoot = !doInit)
-    val hit = RegNext(target)
+    val hit = RegNext(target).addTag(noInit)
 
     val flow = cloneOf(io.input)
     flow.valid := (target =/= hit)

@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import spinal.core._
 import org.scalatest.funsuite._
 
-class DataAnalyzerTest extends AnyFunSuite {
+class DataAnalyzerTest extends SpinalAnyFunSuite {
 
   case class TestModule() extends Module {
     val io = new Bundle {

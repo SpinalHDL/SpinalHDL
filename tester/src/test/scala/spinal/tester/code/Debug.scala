@@ -23,6 +23,29 @@ import scala.math.ScalaNumber
 import scala.util.Random
 
 
+
+
+object DebugInOut extends App{
+  val report = SpinalVerilog(new Component {
+    //    val read = out(Bits(8 bits))
+    //    val writeEnable = in Bool()
+    //    val write = in Bits(8 bits)
+    //    read := io
+    val io = inout(Analog(Bits(8 bits)))
+    //    when(writeEnable) {
+    //      io(4) := write(6)
+    //    }
+    val sub = new BlackBox{
+      val subIo = inout(Analog(Bits(8 bits)))
+    }
+    io := sub.subIo
+    setDefinitionName("unamed")
+  })
+}
+
+
+
+
 object CamTest{
   class Top extends Component{
     val linesCount = 8
@@ -66,6 +89,82 @@ object Debug extends App{
   }
 }
 
+object DebugInOut2 extends App{
+  val report = SimConfig.compile(new Component {
+    val xxx = (Analog(Bits(8 bits)))
+
+
+    val read = out(Bits(8 bits))
+    val writeEnable = in Bool()
+    val write = in Bits(8 bits)
+    read := xxx
+
+
+    val tmp1 = Analog(Bits(8 bits))
+    val tmp2 = Analog(Bits(8 bits))
+    val sub = new Component{
+//      val subIo = inout(Analog(Bool()))
+      val subIo = inout(Analog(Bits(8 bits)))
+//      val a = in Bits(8 bits)
+//      val b = out Bits(8 bits)
+    }
+    when(writeEnable) {
+      xxx(4) := write(5)
+      tmp2(5) := write(6)
+      tmp1(6, 2 bits) := write(2, 2 bits)
+      tmp1 := write
+    }
+
+    sub.subIo(7 downto 2) := tmp1.apply(5 downto 0)
+    sub.subIo(1 downto 0) := tmp1.apply(7 downto 6)
+    println("asd")
+//    val a = in Bits(8 bits)
+//    val b = out Bits(8 bits)
+//    sub.a <> a
+//    sub.b <> b
+    xxx := tmp1
+    tmp2 := tmp1
+//    sub.subIo := tmp1
+
+//    when(writeEnable) {
+//      xxx(4) := write(5)
+//      tmp2(5) := write(6)
+//      tmp1(6, 2 bits) := write(2, 2 bits)
+//      tmp1 := write
+//    }
+
+//    val tmp3 = Analog(Bits(4 bits))
+//    tmp3 := tmp1(3, 4 bits).setAsAnalog() //TODO keep
+//    io(2) := sub.subIo
+//    io(3) := sub.subIo
+//    io(4) := sub.subIo
+//     io(4) := sub.subIo
+
+    val a,b,c,d = new Component{
+      //      val subIo = inout(Analog(Bool()))
+      val yyy = inout(Analog(Bool()))
+      //      val a = in Bits(8 bits)
+      //      val b = out Bits(8 bits)
+    }
+    val zzz = inout(Analog(Bits(4 bits)))
+    zzz(0) := a.yyy
+    zzz(1) := b.yyy
+    zzz(2) := c.yyy
+    zzz(3) := d.yyy
+    setDefinitionName("toplevel")
+  }).doSim{dut => }
+}
+
+object DebugInOut3 extends App{
+  case class Top() extends Component {
+    val test = inout(Analog(Bits(8 bits)))
+    val sub = new BlackBox {
+      val subIo = inout(Analog(Bits(8 bit)))
+    }
+    test(7 downto 0) := sub.subIo(7 downto 0)
+  }
+  SpinalVerilog(Top())
+}
 
 object DebugSim {
 
