@@ -33,6 +33,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val bQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   var allowGen = true
+  var cmdCounter = 0
   var rspCounter = 0
   val assertOkResp = true
   def pending = bQueue.exists(_.nonEmpty)
@@ -92,6 +93,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
       if (addrValid) mapping = SizeMapping(startAddress, endAddress - startAddress)
     } while(!addrValid || !mappingAllocate(mapping));
 
+    cmdCounter += 1
     awQueue.enqueue { () =>
       aw.addr #= address
       if (busConfig.useId) aw.id #= id
@@ -173,6 +175,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val rQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   var allowGen = true
+  var cmdCounter = 0
   var rspCounter = 0
   val assertOkResp = true
 
@@ -231,6 +234,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
       if (addrValid) mapping = SizeMapping(startAddress, endAddress - startAddress)
     } while(!addrValid || !mappingAllocate(mapping));
 
+    cmdCounter += 1
     arQueue.enqueue { () =>
       ar.addr #= address
       if (busConfig.useId) ar.id #= id
@@ -438,6 +442,8 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   case class WTransaction(data : BigInt, strb : BigInt, last : Boolean)
   case class BTransaction(resp: Byte, id: Int)
 
+  var awCounter, wCounter, bCounter = 0
+
   val wQueue = mutable.Queue[WTransaction]()
   val wProcess = mutable.Queue[(WTransaction) => Unit]()
   val bQueue = mutable.Queue[BTransaction]()
@@ -492,6 +498,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
         }
       }
     }
+    awCounter += 1
     update()
   }
 
@@ -499,6 +506,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
     val strb = if(busConfig.useStrb) w.strb.toBigInt else ((BigInt(1) << busConfig.bytePerWord) - 1)
     val last = if(busConfig.useLast) w.last.toBoolean else false
     wQueue += WTransaction(w.data.toBigInt, strb, last)
+    wCounter += 1
     update()
   }
 
@@ -506,6 +514,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
     val id = if (busConfig.useId) b.id.toInt.toByte else 0
     val resp: Byte = if (busConfig.useResp) b.resp.toInt.toByte else 0
     bQueue += BTransaction(resp, id)
+    bCounter += 1
     update()
   }
 
@@ -534,6 +543,7 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
   }
 
   val assertOkResp = true
+  var arCounter, rCounter, rLastCounter = 0
 
   def onReadStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {}
   def onReadByteAlways(address: BigInt, data: Byte, id: Int): Unit = {}
@@ -586,10 +596,13 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
         onResponse(accessAddress, id, last, resp)
       }
     }
+    arCounter += 1
   }
 
   val rMonitor = StreamMonitor(r, clockDomain){r =>
     rQueue.dequeue().apply()
+    rCounter += 1
+    rLastCounter += r.last.toBoolean.toInt
   }
 
   def reset(){
