@@ -17,6 +17,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
+    - name: Get submodules
+      shell: bash
+      run: git submodule update --init --recursive
     - run: sbt Test/compile
     - uses: actions/cache/save@v3
       with:
@@ -93,9 +96,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
-    - name: Get submodules
-      shell: bash
-      run: git submodule update --init --recursive
     - uses: ./.github/actions/get-compiled
     - run: sbt 'tester/testOnly * -- -l spinal.tester.formal'
 
