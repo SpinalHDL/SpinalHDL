@@ -1,4 +1,4 @@
-FROM ghcr.io/readon/spinalhdl-docker:master AS base
+FROM ghcr.io/spinalhdl/docker:master AS base
 
 ARG JAVA_EXTRA_OPTS="-Xmx2g -Xms2g"
 ENV JAVA_OPTS="${JAVA_OPTS} ${JAVA_EXTRA_OPTS}"
