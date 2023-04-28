@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -104,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -116,7 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -128,7 +128,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
@@ -140,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
-      image: ghcr.io/readon/spinalhdl-docker:master
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - run: git config --global --add safe.directory $GITHUB_WORKSPACE
