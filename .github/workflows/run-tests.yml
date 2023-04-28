@@ -16,7 +16,7 @@ jobs:
       image: ghcr.io/readon/spinalhdl-docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory /__w/SpinalHDL/SpinalHDL
+    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
     - run: sbt Test/compile
     - uses: actions/cache/save@v3
       with:
