@@ -1200,7 +1200,8 @@ class ComponentEmitterVhdl(
     component.getOrdredNodeIo.foreach {
       case baseType: BaseType =>
         if (baseType.isIo && !baseType.isSuffix) {
-          declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxReplaceTypeRegardingTag(component, emitDataType(baseType, false))};\n"
+          val isGeneric = baseType.hasTag(classOf[GenericValue])
+          declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxReplaceTypeRegardingTag(component, emitDataType(baseType, !isGeneric))};\n"
         }
       case _ =>
     }
