@@ -763,6 +763,7 @@ trait SpinalTag {
   def driverShouldNotChange = false
   def canSymplifyHost       = false
   def allowMultipleInstance = true // Allow multiple instances of the tag on the same object
+  def ioTag                 = false // Propagate tag to IO
 
   def apply[T <: SpinalTagReady](that : T) : T = {
     that.addTag(this)
