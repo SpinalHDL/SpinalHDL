@@ -267,7 +267,7 @@ class Axi4DownsizerTester extends SpinalAnyFunSuite {
             inputAgent.arDriver.transactionDelay = () => 100 + Random.nextInt(100)
         }
 
-        val outputAgent = new Axi4ReadOnlySlaveAgent(dut.io.output, dut.clockDomain)
+        val outputAgent = new Axi4ReadOnlySlaveAgent(dut.io.output, dut.clockDomain,withReadInterleaveInBurst = false, withArReordering = false)
         if (pipelined) {
             outputAgent.rDriver.transactionDelay = () => 0
             outputAgent.arDriver.factor = 1.1f

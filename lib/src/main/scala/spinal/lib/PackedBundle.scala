@@ -109,7 +109,7 @@ class PackedBundle extends Bundle {
     }
   }
 
-  override def getBitsWidth: Int = mapBuilder.width
+  override def getBitsWidth: Int = flatten.map(_.getBitsWidth).sum
 
   implicit class DataPositionEnrich[T <: Data](t: T) {
 

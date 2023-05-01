@@ -50,10 +50,10 @@ case class BmbExclusiveMonitorGenerator()
   sexport(new MemoryConnection(input, output, 0, null))
 }
 
-case class BmbInvalidateMonitorGenerator()
+case class BmbInvalidateMonitorGenerator(withExternalInvalidation : Boolean = false)
                                         (implicit interconnect: BmbInterconnectGenerator) extends Area {
-  val input = Handle(logic.io.input)
-  val output = Handle(logic.io.output)
+  val input = Handle(logic.input)
+  val output = Handle(logic.monitor.io.output)
 
   val inputAccessSource = Handle[BmbAccessCapabilities]
   val inputAccessRequirements = Handle[BmbAccessParameter]
@@ -76,10 +76,40 @@ case class BmbInvalidateMonitorGenerator()
     bus = output
   )
 
-  val logic = Handle(BmbInvalidateMonitor(
-    inputParameter = BmbParameter(inputAccessRequirements, inputInvalidationRequirements),
-    pendingInvMax = 16
-  ))
+  val logic = Handle(new Area{
+    val monitor = BmbInvalidateMonitor(
+      inputParameter = BmbParameter(inputAccessRequirements, inputInvalidationRequirements),
+      pendingInvMax = 16
+    )
+
+    val input = cloneOf(monitor.io.input)
+    if(!withExternalInvalidation){
+      input >> monitor.io.input
+    }
+    val withExt = withExternalInvalidation generate new Area{
+      input.cmd >> monitor.io.input.cmd
+      input.rsp << monitor.io.input.rsp
+      input.sync << monitor.io.input.sync
+
+      val inv = Stream(BmbInv(input.p))
+      val ack = Stream(BmbAck(input.p))
+      val queue = StreamFifo(Bool(), 16)
+      val arbiter = StreamArbiterFactory().transactionLock.roundRobin.build(BmbInv(input.p), 2)
+      arbiter.io.inputs(0) << monitor.io.input.inv
+      arbiter.io.inputs(1) << inv
+      arbiter.io.output.haltWhen(!queue.io.push.ready) >> input.inv
+
+      queue.io.push.valid := input.inv.fire
+      queue.io.push.payload := arbiter.io.chosen.asBool
+
+      monitor.io.input.ack.valid := input.ack.valid && !queue.io.pop.payload
+      ack.valid                  := input.ack.valid && queue.io.pop.payload
+      monitor.io.input.ack.payload := input.ack.payload
+      ack.payload                  := input.ack.payload
+      queue.io.pop.ready := input.ack.fire
+      input.ack.ready := (queue.io.pop.payload ? ack.ready | monitor.io.input.ack.ready)
+    }
+  })
 
   sexport(new MemoryConnection(input, output, 0, null))
 }
