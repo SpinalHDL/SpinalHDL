@@ -207,6 +207,8 @@ class UnbursterIDManager(config: Axi4Config, pendingDepth: Int, pendingWidth: In
   * Converts Axi4 burst streams into single beat transactions and adds last as required.
   * AR channel will block if the pending transactions FIFO is full for that ID.
   *
+  * Warning, the implementation currently work only for in order ar -> r responses
+  *
   * @param config Axi4Config of the inbound master stream
   * @param pendingDepth Number of pending transactions per ID
   * @param pendingWidth Number of concurrent pending ID transactions.

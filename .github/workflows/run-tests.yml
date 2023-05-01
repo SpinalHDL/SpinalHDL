@@ -20,6 +20,7 @@ jobs:
     - name: Get submodules
       shell: bash
       run: git submodule update --init --recursive
+    - run: sbt ++compile
     - run: sbt Test/compile
     - uses: actions/cache/save@v3
       with:
