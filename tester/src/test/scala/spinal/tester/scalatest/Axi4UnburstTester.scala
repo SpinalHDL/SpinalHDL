@@ -27,7 +27,7 @@ class Axi4UnburstTester extends SpinalAnyFunSuite {
       override val assertOkResp: Boolean = false
     }
 
-    new Axi4ReadOnlyMonitor(dut.io.output.ar, dut.io.output.r, dut.clockDomain) {
+    new Axi4ReadOnlyMonitor(dut.io.output.ar, dut.io.output.r, dut.clockDomain, withReadInterleaveInBurst = false) {
       override def onReadByte(address: BigInt, data: Byte, id: Int): Unit = {
         readScoreboard.pushDut(address, data, id)
       }
@@ -37,7 +37,7 @@ class Axi4UnburstTester extends SpinalAnyFunSuite {
       }
     }
 
-    new Axi4ReadOnlyMonitor(dut.io.input.ar, dut.io.input.r, dut.clockDomain) {
+    new Axi4ReadOnlyMonitor(dut.io.input.ar, dut.io.input.r, dut.clockDomain, withReadInterleaveInBurst = false) {
       override def onReadByte(address: BigInt, data: Byte, id: Int): Unit = {
         readScoreboard.pushRef(address, data, id)
       }
@@ -47,7 +47,7 @@ class Axi4UnburstTester extends SpinalAnyFunSuite {
       }
     }
 
-    new Axi4ReadOnlySlaveAgent(dut.io.output.ar, dut.io.output.r, dut.clockDomain)
+    new Axi4ReadOnlySlaveAgent(dut.io.output.ar, dut.io.output.r, dut.clockDomain, withReadInterleaveInBurst = false, withArReordering = false)
 
     SimTimeout(100000000L)
 
@@ -72,16 +72,15 @@ class Axi4UnburstTester extends SpinalAnyFunSuite {
       .doSim { dut => tester_readonly(dut) }
   }
 
-//TODO fix Axi4ReadOnlyUnburster to support out of order read responses
-//  test("unburst_readonly_no_last") {
-//    SimConfig.compile(new Axi4ReadOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, idWidth = 4, useLast = false)))
-//      .doSim { dut => tester_readonly(dut) }
-//  }
-//
-//  test("unburst_readonly") {
-//    SimConfig.withFstWave.compile(new Axi4ReadOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, idWidth = 4)))
-//      .doSim(seed = 1) {dut => tester_readonly(dut) }
-//  }
+  test("unburst_readonly_no_last") {
+    SimConfig.compile(new Axi4ReadOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, idWidth = 4, useLast = false)))
+      .doSim { dut => tester_readonly(dut) }
+  }
+
+  test("unburst_readonly") {
+    SimConfig.withFstWave.compile(new Axi4ReadOnlyUnburster(Axi4Config(dataWidth = 32, addressWidth = 32, idWidth = 4)))
+      .doSim(seed = 1) {dut => tester_readonly(dut) }
+  }
 
   def tester_writeonly(dut: Axi4WriteOnlyUnburster): Unit = {
     dut.clockDomain.forkStimulus(10)

@@ -267,7 +267,7 @@ class Axi4DownsizerTester extends SpinalAnyFunSuite {
             inputAgent.arDriver.transactionDelay = () => 100 + Random.nextInt(100)
         }
 
-        val outputAgent = new Axi4ReadOnlySlaveAgent(dut.io.output, dut.clockDomain)
+        val outputAgent = new Axi4ReadOnlySlaveAgent(dut.io.output, dut.clockDomain,withReadInterleaveInBurst = false, withArReordering = false)
         if (pipelined) {
             outputAgent.rDriver.transactionDelay = () => 0
             outputAgent.arDriver.factor = 1.1f
@@ -333,10 +333,9 @@ class Axi4DownsizerTester extends SpinalAnyFunSuite {
             .compile(Axi4ReadOnlyDownsizer(Axi4Config(20, 128, 4), Axi4Config(20, 32, 4)))
             .doSim("test", 42)((dut: Axi4ReadOnlyDownsizer) => readTester(dut))
     }
-    //TODO fix Axi4ReadOnlyDownsizer to support out of order read responses
     test("readOnly_32_128_pipelined") {
         SimConfig
-            .compile(Axi4ReadOnlyDownsizer(Axi4Config(20, 128, 0), Axi4Config(20, 32, 0)))
+            .compile(Axi4ReadOnlyDownsizer(Axi4Config(20, 128, 4), Axi4Config(20, 32, 4)))
             .doSim("test", 42)((dut: Axi4ReadOnlyDownsizer) => readTester(dut, true))
     }
 }

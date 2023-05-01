@@ -350,13 +350,20 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
 }
 
 
-class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain: ClockDomain) {
+class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain: ClockDomain, withReadInterleaveInBurst : Boolean = true, withArReordering : Boolean = true) {
   def this(bus: Axi4ReadOnly, clockDomain: ClockDomain) {
     this(bus.ar, bus.r, clockDomain);
   }
   def this(bus: Axi4, clockDomain: ClockDomain) {
     this(bus.ar, bus.r, clockDomain);
   }
+  def this(bus: Axi4ReadOnly, clockDomain: ClockDomain, withReadInterleaveInBurst : Boolean, withArReordering : Boolean) {
+    this(bus.ar, bus.r, clockDomain, withReadInterleaveInBurst, withArReordering);
+  }
+  def this(bus: Axi4, clockDomain: ClockDomain, withReadInterleaveInBurst : Boolean, withArReordering : Boolean) {
+    this(bus.ar, bus.r, clockDomain, withReadInterleaveInBurst, withArReordering);
+  }
+
 
   var baseLatency = 0l
   val busConfig = ar.config
@@ -369,6 +376,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
   var rQueueDepth = 256
   var rPending = 0
   val arQueue = mutable.Queue[Int]()
+  val arIdQueue = !withArReordering generate mutable.Queue[Int]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val rQueue = Array.fill(idCount)(mutable.Queue[(Boolean, () => Unit)]())
   def readByte(address : BigInt) : Byte = Random.nextInt().toByte
@@ -408,6 +416,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
           }
         }
       }
+      if(!withArReordering) arIdQueue += id
     }
     arQueue.enqueue(id)
   }
@@ -415,16 +424,23 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
   var rQueueLock : mutable.Queue[(Boolean, () => Unit)] = null
   val rDriver = StreamDriver(r, clockDomain){ _ =>
     if(rQueueLock == null){
-      val queues = rQueue.filter(_.nonEmpty)
-      if(queues.nonEmpty) {
-        rQueueLock = queues(Random.nextInt(queues.size))
+      withArReordering match {
+        case false => if(!withArReordering && arIdQueue.nonEmpty) {
+          rQueueLock = rQueue(arIdQueue.dequeue())
+        }
+        case true => {
+          val queues = rQueue.filter(_.nonEmpty)
+          if(queues.nonEmpty) {
+            rQueueLock = queues(Random.nextInt(queues.size))
+          }
+        }
       }
     }
     if(rQueueLock != null) {
       val item = rQueueLock.dequeue()
       item._2()
       rPending -= 1
-      if(item._1) {
+      if(withReadInterleaveInBurst || item._1) {
         rQueueLock = null
       }
       true
@@ -545,7 +561,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
 
 
 
-abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain: ClockDomain){
+abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain: ClockDomain, withReadInterleaveInBurst : Boolean = true){
   def this(bus: Axi4ReadOnly, clockDomain: ClockDomain){
     this(bus.ar, bus.r, clockDomain);
   }
@@ -619,13 +635,13 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
   var rIdLock = -1
   val rMonitor = StreamMonitor(r, clockDomain){r =>
     val id = if(ar.payload.config.useId) r.id.toInt else 0
-    rIdLock match {
+    if(!withReadInterleaveInBurst) rIdLock match {
       case -1 => rIdLock = id
       case ref => assert(ref == id, "Bad read id")
     }
     val item = rQueue(id).dequeue()
     item._2.apply()
-    if(item._1) rIdLock = -1
+    if(!withReadInterleaveInBurst && item._1) rIdLock = -1
     if(r.config.useLast) assert(r.last.toBoolean == item._1, "Bad read last")
     rCounter += 1
     rLastCounter += (if(r.config.useLast)r.last.toBoolean.toInt else 1)
