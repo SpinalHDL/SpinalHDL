@@ -36,7 +36,11 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
   // reset() can be called to recenter the counter over a start bit.
   val bitTimer = new Area {
     val counter = Reg(UInt(log2Up(rxSamplePerBit) bit))
-    def reset() = counter := preSamplingSize + (samplingSize - 1) / 2 - 1
+    // This reset number is seeking to put the center of the bit in the center sample of the MajorityVoter
+    //   (preSamplingSize + (sampleSize / 2)) - 1 accounts for the center of the bit
+    //   (sampleSize / 2) accounts for the propagation time for the center of the bit to also be in the center sample of MajorityVoter
+    //   added together reduces to that used below:
+    def reset() = counter := preSamplingSize + samplingSize - 1
     val tick = False
     when(sampler.tick) {
       counter := counter - 1
