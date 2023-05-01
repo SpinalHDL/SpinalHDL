@@ -34,6 +34,9 @@ class Axi4DownsizerSubTransactionGenerator[T <: Axi4Ax](
         val last    = out Bool ()
         val done    = out Bool ()
     }
+    checkConfig(inputConfig)
+    checkConfig(outputConfig)
+
     val sizeMaxOut = log2Up(outputConfig.bytePerWord)
     val sizeMaxIn  = log2Up(inputConfig.bytePerWord)
 
@@ -89,6 +92,11 @@ class Axi4DownsizerSubTransactionGenerator[T <: Axi4Ax](
     io.done := cmdExtender.io.done
     io.start := startAddress
     io.output << cmdStream
+
+    def checkConfig(config: Axi4Config) = {
+        assert(!config.useBurst, "Current implementation does not support variable burst type.")
+        assert(!config.useId, "Current implementation does not support interleavable transfer.")
+    }
 
     def formalAsserts() = new Composite(this, "asserts") {
         def ratio2size(x: UInt): UInt = {
