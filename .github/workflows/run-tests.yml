@@ -16,7 +16,7 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
+    - run: git config --global --add safe.directory '*'
     - name: Get submodules
       shell: bash
       run: git submodule update --init --recursive
@@ -36,7 +36,7 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
+    - run: git config --global --add safe.directory '*'
     - uses: ./.github/actions/get-compiled
     - run: sbt idslplugin/test
 
@@ -48,7 +48,7 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
+    - run: git config --global --add safe.directory '*'
     - uses: ./.github/actions/get-compiled
     - run: sbt idslpayload/test
 
@@ -60,7 +60,7 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
+    - run: git config --global --add safe.directory '*'
     - uses: ./.github/actions/get-compiled
     - run: sbt 'core/testOnly * -- -l spinal.tester.formal'
 
@@ -72,7 +72,6 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
     - uses: ./.github/actions/get-compiled
     - run: sbt 'core/testOnly * -- -n spinal.tester.formal'
 
@@ -84,7 +83,7 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
+    - run: git config --global --add safe.directory '*'
     - uses: ./.github/actions/get-compiled
     - run: sbt sim/test
 
@@ -96,7 +95,7 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
+    - run: git config --global --add safe.directory '*'
     - uses: ./.github/actions/get-compiled
     - run: sbt 'tester/testOnly * -- -l spinal.tester.formal'
 
@@ -108,7 +107,6 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
     - uses: ./.github/actions/get-compiled
     - run: sbt 'tester/testOnly * -- -n spinal.tester.formal'
 
@@ -120,7 +118,7 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
+    - run: git config --global --add safe.directory '*'
     - uses: ./.github/actions/get-compiled
     - run: sbt 'lib/testOnly * -- -l spinal.tester.formal'
 
@@ -132,7 +130,6 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
     - uses: ./.github/actions/get-compiled
     - run: sbt 'lib/testOnly * -- -n spinal.tester.formal'
 
@@ -144,6 +141,5 @@ jobs:
       image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - run: git config --global --add safe.directory $GITHUB_WORKSPACE
     - uses: ./.github/actions/get-compiled
     - run: sbt unidoc
