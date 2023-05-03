@@ -3,8 +3,10 @@ package spinal.lib.tools
 import spinal.core._
 import spinal.lib.IMasterSlave
 import spinal.lib.tools._
+
 import java.io.{File, FileWriter}
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks.{break, breakable}
 
 class ElkEdge {
@@ -20,9 +22,6 @@ class ElkNode {
   var outPorts: mutable.Set[ElkPort] = mutable.Set()
   var children: mutable.Set[ElkNode] = mutable.Set()
   var highlight = 100
-
-  /** Generating HDElk language for Node */
-
 }
 
 case class DealSignal(signal: BaseType, isPort: Boolean) {
@@ -67,8 +66,10 @@ case class DealSignal(signal: BaseType, isPort: Boolean) {
       name = signal.getName()
       if (signal.isOutput) isInPort = false
     } else {
-      if (parentList.nonEmpty && parentList.size > 1 && parentList.last.getClass.getSimpleName == "" && !parentList.last
-        .isInstanceOf[Data]) {
+      if (
+        parentList.nonEmpty && parentList.size > 1 && parentList.last.getClass.getSimpleName == "" && !parentList.last
+          .isInstanceOf[Data]
+      ) {
         val anyParent = signal.getRefOwnersChain().last
         name = anyParent.toString.split("/").last
       } else {
@@ -78,8 +79,8 @@ case class DealSignal(signal: BaseType, isPort: Boolean) {
     }
   }
 }
-class ModuleDataStructure(module: Component,
-                          clkMap: mutable.HashMap[ClockDomain, Int]) {
+
+class ModuleDataStructure(module: Component, clkMap: mutable.HashMap[ClockDomain, Int]) {
   var edges: mutable.Set[ElkEdge] = mutable.Set()
   var topNode = new ElkNode
   if (module.isInstanceOf[BlackBox]) topNode.typeName = "BlackBox"
@@ -88,13 +89,13 @@ class ModuleDataStructure(module: Component,
   if (allClk.size > 1) topNode.highlight = 10
   else if (allClk.size == 1)
     topNode.highlight = clkMap(allClk.head)
-  val clkResetNameMap: mutable.Set[String] = mutable.Set()
+  val clkResetName: mutable.Set[String] = mutable.Set()
   for (clk <- clkMap) {
-    clkResetNameMap.add(clk._1.clock.getName())
+    clkResetName.add(clk._1.clock.getName())
     if (clk._1.reset != null)
-      clkResetNameMap.add(clk._1.reset.getName())
+      clkResetName.add(clk._1.reset.getName())
     if (clk._1.softReset != null)
-      clkResetNameMap.add(clk._1.softReset.getName())
+      clkResetName.add(clk._1.softReset.getName())
   }
   val thisClkMap = new mutable.HashMap[ClockDomain, Int]
   if (allClk.nonEmpty) {
@@ -103,28 +104,26 @@ class ModuleDataStructure(module: Component,
         thisClkMap.put(thisClk, clkMap(thisClk))
   }
 }
-class GenNodesAndEdges(module: Component,
-                       moduleName: String,
-                       clkMap: mutable.HashMap[ClockDomain, Int]) {
+
+class GenNodesAndEdges(module: Component, moduleName: String, clkMap: mutable.HashMap[ClockDomain, Int]) {
 
   private val dataStructure = new ModuleDataStructure(module, clkMap)
   private val edges = dataStructure.edges
   private val topNode = dataStructure.topNode
-  private val clkResetNameMap = dataStructure.clkResetNameMap
+  private val clkResetName = dataStructure.clkResetName
   topNode.labelName = moduleName
   private val containedNode: mutable.Set[String] = mutable.Set()
   private val moduleAnalyze = new ModuleAnalyzer(module)
   private val topInOuts = moduleAnalyze.getInputs ++ moduleAnalyze.getOutputs
   private val allRegisters = moduleAnalyze.getRegisters
-  private val systemRegisters = moduleAnalyze.getNets(
-    net =>
-      net.getComponent().getName() == module.getName() && !topInOuts.contains(
-        net) && !allRegisters.contains(net))
+  private val systemRegisters = moduleAnalyze.getNets(net =>
+    net.getComponent().getName() == module.getName() && !topInOuts.contains(net) && !allRegisters.contains(net)
+  )
   private val allInOuts = moduleAnalyze.getPins(_ => true)
   private val everyRegisters = allRegisters ++ systemRegisters
   private val allNets = everyRegisters ++ allInOuts
 
-  private def GenAllNodes(): Unit = {
+  private def genAllNodes(): Unit = {
     def findPortHighlight(thisPort: BaseType): Int = {
       clkMap.getOrElse(thisPort.clockDomain, 1)
     }
@@ -133,11 +132,9 @@ class GenNodesAndEdges(module: Component,
     for (topInOut <- topInOuts) {
       val dealtSignal = DealSignal(topInOut, isPort = true)
       if (dealtSignal.isInPort)
-        topNode.inPorts.add(
-          ElkPort(dealtSignal.name, findPortHighlight(topInOut)))
+        topNode.inPorts.add(ElkPort(dealtSignal.name, findPortHighlight(topInOut)))
       else
-        topNode.outPorts.add(
-          ElkPort(dealtSignal.name, findPortHighlight(topInOut)))
+        topNode.outPorts.add(ElkPort(dealtSignal.name, findPortHighlight(topInOut)))
     }
 
     /** Adding internal sub-modules and their input/output ports */
@@ -154,11 +151,9 @@ class GenNodesAndEdges(module: Component,
       for (innerInOut <- innerInOuts) {
         val dealtSignal = DealSignal(innerInOut, isPort = true)
         if (dealtSignal.isInPort)
-          newNode.inPorts.add(
-            ElkPort(dealtSignal.name, findPortHighlight(innerInOut)))
+          newNode.inPorts.add(ElkPort(dealtSignal.name, findPortHighlight(innerInOut)))
         else
-          newNode.outPorts.add(
-            ElkPort(dealtSignal.name, findPortHighlight(innerInOut)))
+          newNode.outPorts.add(ElkPort(dealtSignal.name, findPortHighlight(innerInOut)))
       }
       topNode.children.add(newNode)
     }
@@ -178,7 +173,7 @@ class GenNodesAndEdges(module: Component,
     }
   }
 
-  private def GenAllEdges(): Unit = {
+  private def genAllEdges(): Unit = {
     def edgeIsContained(newEdge: ElkEdge): Boolean = {
       for (thisEdge <- edges) {
         if (thisEdge.source == newEdge.source && thisEdge.target == newEdge.target && thisEdge.label == newEdge.label)
@@ -202,9 +197,11 @@ class GenNodesAndEdges(module: Component,
       if (allInOuts.contains(net)) {
         val dealtSignal = DealSignal(net, isPort = true)
         sonName = dealtSignal.name
-        if ((topInOuts.contains(net) && !dealtSignal.isInPort) || (!topInOuts
-          .contains(net) && dealtSignal.isInPort)) netIsWrong = true
-        if (!clkResetNameMap.contains(dealtSignal.name))
+        if (
+          (topInOuts.contains(net) && !dealtSignal.isInPort) || (!topInOuts
+            .contains(net) && dealtSignal.isInPort)
+        ) netIsWrong = true
+        if (!clkResetName.contains(dealtSignal.name))
           inIsBus = dealtSignal.isBus
       } else {
         val dealtSignal = DealSignal(net, isPort = false)
@@ -228,9 +225,12 @@ class GenNodesAndEdges(module: Component,
       val fanOuts = dataAnalyze.getFanOut
       breakable {
         for (fanOut <- fanOuts) {
-          if (topInOuts.contains(net) && topInOuts.contains(fanOut) && DealSignal(
-            net,
-            isPort = true).isInPort && !DealSignal(fanOut, isPort = true).isInPort) {
+          if (
+            topInOuts.contains(net) && topInOuts.contains(fanOut) && DealSignal(
+              net,
+              isPort = true
+            ).isInPort && !DealSignal(fanOut, isPort = true).isInPort
+          ) {
             val newNode = new ElkNode
             val newEdge = new ElkEdge
             if (clkMap.contains(net.clockDomain))
@@ -263,10 +263,12 @@ class GenNodesAndEdges(module: Component,
         if (allInOuts.contains(fanOut)) {
           val dealtSignal = DealSignal(fanOut, isPort = true)
           fanOutSonName = dealtSignal.name
-          if ((topInOuts.contains(fanOut) && dealtSignal.isInPort) || (!topInOuts
-            .contains(fanOut) && !dealtSignal.isInPort))
+          if (
+            (topInOuts.contains(fanOut) && dealtSignal.isInPort) || (!topInOuts
+              .contains(fanOut) && !dealtSignal.isInPort)
+          )
             fanOutIsWrong = true
-          if (!clkResetNameMap.contains(dealtSignal.name))
+          if (!clkResetName.contains(dealtSignal.name))
             outIsBus = dealtSignal.isBus
         } else {
           val dealtSignal = DealSignal(fanOut, isPort = false)
@@ -307,17 +309,16 @@ class GenNodesAndEdges(module: Component,
           newEdge.highlight = clkMap(net.clockDomain)
         newEdge.source = sourceName
         newEdge.isBus = inIsBus & outIsBus
-        if (!clkResetNameMap.contains(net.getName()) && !clkResetNameMap
-          .contains(fanOut.getName())) {
+        if (
+          !clkResetName.contains(net.getName()) && !clkResetName
+            .contains(fanOut.getName())
+        ) {
           if (newEdge.isBus == 1) {
-            if (DealSignal(net, isPort = true).className == DealSignal(
-              fanOut,
-              isPort = true).className)
+            if (DealSignal(net, isPort = true).className == DealSignal(fanOut, isPort = true).className)
               newEdge.label = DealSignal(net, isPort = true).className
             else
-              newEdge.label = DealSignal(net, isPort = true).className + " to " + DealSignal(
-                fanOut,
-                isPort = true).className
+              newEdge.label =
+                DealSignal(net, isPort = true).className + " to " + DealSignal(fanOut, isPort = true).className
           } else if (inIsBus == 1) {
             newEdge.label = net.getName()
           } else if (outIsBus == 1) {
@@ -330,8 +331,8 @@ class GenNodesAndEdges(module: Component,
     }
   }
   def getDataStructure: ModuleDataStructure = {
-    GenAllNodes()
-    GenAllEdges()
+    genAllNodes()
+    genAllEdges()
     dataStructure.edges = edges
     dataStructure.topNode = topNode
     dataStructure
@@ -339,7 +340,7 @@ class GenNodesAndEdges(module: Component,
 }
 
 class HTMLGenerator(writer: FileWriter) {
-  def cssGenerator(toplevelName: String): Unit = {
+  def cssGenerator(toplevelName: String, module: Module): Unit = {
     writer.write(
       s"""<!DOCTYPE html>
          |<html>
@@ -413,6 +414,12 @@ class HTMLGenerator(writer: FileWriter) {
          |<a href="#$toplevelName"><button>$toplevelName</button></a>&nbsp;
          |""".stripMargin
     )
+    val allInnerCells = module.children
+    for (cell <- allInnerCells) {
+      writer.write(s"""<a href="#${cell.getName()}"><button>${cell
+          .getName()}</button></a>&nbsp;\n""")
+    }
+    writer.write(s"""</div><br><br><br><br>\n""")
   }
 
   /** Generating HDElk language for Edge */
@@ -426,8 +433,7 @@ class HTMLGenerator(writer: FileWriter) {
       writer.write(s"""inPorts: [""")
       for (inPort <- thisNode.inPorts) {
         if (inPort.highlight != 1)
-          writer.write(
-            s"""{id:"${inPort.name}",highlight:${inPort.highlight}},""")
+          writer.write(s"""{id:"${inPort.name}",highlight:${inPort.highlight}},""")
         else writer.write(s""""${inPort.name}",""")
       }
       writer.write(s"""],\n""")
@@ -436,8 +442,7 @@ class HTMLGenerator(writer: FileWriter) {
       writer.write(s"""outPorts: [""")
       for (outPort <- thisNode.outPorts) {
         if (outPort.highlight != 1)
-          writer.write(
-            s"""{id:"${outPort.name}",highlight:${outPort.highlight}},""")
+          writer.write(s"""{id:"${outPort.name}",highlight:${outPort.highlight}},""")
         else writer.write(s""""${outPort.name}",""")
       }
       writer.write(s"""],\n""")
@@ -455,8 +460,7 @@ class HTMLGenerator(writer: FileWriter) {
   private def drawEdges(edges: mutable.Set[ElkEdge]): Unit = {
     writer.write(s"""edges:[\n""")
     for (edge <- edges) {
-      writer.write(
-        s"""{ source:"${edge.source}",target:"${edge.target}",bus:${edge.isBus},""")
+      writer.write(s"""{ source:"${edge.source}",target:"${edge.target}",bus:${edge.isBus},""")
       if (edge.label != "")
         writer.write(s"""label:"${edge.label}",""")
       if (edge.highlight != 100)
@@ -467,8 +471,7 @@ class HTMLGenerator(writer: FileWriter) {
   }
 
   /** Generating HDElk language for ClockDomains */
-  private def drawClockDomains(
-                                clkMap: mutable.HashMap[ClockDomain, Int]): Unit = {
+  private def drawClockDomains(clkMap: mutable.HashMap[ClockDomain, Int]): Unit = {
     writer.write(s"""{id:"ClockDomains",\nchildren:[\n""")
     for (element <- clkMap) {
       writer.write(s"""{id:"${element._1}",highlight:${element._2}},\n""")
@@ -490,9 +493,9 @@ class HTMLGenerator(writer: FileWriter) {
     )
     drawNodes(dataStructure.topNode)
     drawEdges(dataStructure.edges)
-    drawClockDomains(dataStructure.thisClkMap)
-    writer.write(
-      s"""],\n}\nhdelk.layout( mygraph,"${dataStructure.topNode.labelName}");\n</script>\n""")
+    if (dataStructure.thisClkMap.nonEmpty)
+      drawClockDomains(dataStructure.thisClkMap)
+    writer.write(s"""],\n}\nhdelk.layout( mygraph,"${dataStructure.topNode.labelName}");\n</script>\n""")
   }
 }
 
@@ -503,26 +506,18 @@ object HDElkDiagramGen {
     val fileName = rtl.toplevelName + ".html"
     val file = new File(fileName)
     val writer = new FileWriter(file)
-    new HTMLGenerator(writer).cssGenerator(rtl.toplevelName)
-    val clkMap = new mutable.HashMap[ClockDomain, Int]
     val module = rtl.toplevel
+    new HTMLGenerator(writer).cssGenerator(rtl.toplevelName, module)
+    val clkMap = new mutable.HashMap[ClockDomain, Int]
     val moduleAnalyze = new ModuleAnalyzer(module)
     val allClk = moduleAnalyze.getClocks
     for (thisClk <- allClk) {
       if (!clkMap.contains(thisClk))
         clkMap.put(thisClk, clkMap.size + 2)
     }
-    val allInnerCells = module.children
-    for (cell <- allInnerCells) {
-      writer.write(s"""<a href="#${cell.getName()}"><button>${cell
-        .getName()}</button></a>&nbsp;\n""")
-    }
-    writer.write(s"""</div><br><br><br><br>\n""")
-    new HTMLGenerator(writer).drawOneModule(
-      new GenNodesAndEdges(module, rtl.toplevelName, clkMap).getDataStructure)
+    new HTMLGenerator(writer).drawOneModule(new GenNodesAndEdges(module, rtl.toplevelName, clkMap).getDataStructure)
     for (inner <- module.children)
-      new HTMLGenerator(writer).drawOneModule(
-        new GenNodesAndEdges(inner, inner.getName(), clkMap).getDataStructure)
+      new HTMLGenerator(writer).drawOneModule(new GenNodesAndEdges(inner, inner.getName(), clkMap).getDataStructure)
     writer.write(s"""</body>\n</html>""")
     writer.close()
   }
