@@ -70,7 +70,7 @@ object PulseCCByToggle {
 }
 
 
-class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain, withOutputBufferedReset : Boolean = true) extends Component{
+class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain, withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get) extends Component{
   val io = new Bundle{
     val pulseIn = in Bool()
     val pulseOut = out Bool()
