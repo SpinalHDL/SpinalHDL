@@ -82,6 +82,7 @@ class Axi4SharedIdRemover(config: Axi4Config) extends Component {
   }
 }
 
+// Warning, the implementation currently work only for in order ar -> r responses
 class Axi4ReadOnlyIdRemover(config: Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(new Axi4ReadOnly(config))

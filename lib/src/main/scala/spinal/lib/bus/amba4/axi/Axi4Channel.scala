@@ -41,6 +41,20 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int, readOnly : Boolean) ext
 
   override def clone: this.type = new Axi4Ax(config,userWidth, readOnly).asInstanceOf[this.type]
 
+  def getLenOnDataWidth(dataWidth : Int ): UInt ={
+    assert(dataWidth > config.dataWidth)
+    val byteCount = (len << size).resize(8+log2Up(config.bytePerWord) bits)
+    val incrLen = ((U"0" @@ byteCount) + addr(log2Up(dataWidth/8)-1 downto 0))(byteCount.high + 1 downto log2Up(dataWidth/8))
+    incrLen
+  }
+  def getLenAlignedAddr() : UInt = {
+    addr & size.muxList(
+      (default -> U(config.addressWidth bits, default -> true)) ::
+      (1 to log2Up(config.bytePerWord)).map(l =>
+        l -> U(config.addressWidth bits, default -> true, (l-1 downto 0) -> false)
+      ).toList
+    )
+  }
 
   def formalContext() = new Composite(this, "formal") {
     import spinal.core.formal._

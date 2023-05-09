@@ -267,7 +267,7 @@ class Axi4DownsizerTester extends SpinalAnyFunSuite {
             inputAgent.arDriver.transactionDelay = () => 100 + Random.nextInt(100)
         }
 
-        val outputAgent = new Axi4ReadOnlySlaveAgent(dut.io.output, dut.clockDomain)
+        val outputAgent = new Axi4ReadOnlySlaveAgent(dut.io.output, dut.clockDomain,withReadInterleaveInBurst = false, withArReordering = false)
         if (pipelined) {
             outputAgent.rDriver.transactionDelay = () => 0
             outputAgent.arDriver.factor = 1.1f
@@ -318,26 +318,46 @@ class Axi4DownsizerTester extends SpinalAnyFunSuite {
         println("done")
     }
 
-    test("readOnly_32_64") {
-        SimConfig
-            .compile(Axi4ReadOnlyDownsizer(Axi4Config(20, 64, 4), Axi4Config(20, 32, 4)))
-            .doSim("test", 42)((dut: Axi4ReadOnlyDownsizer) => readTester(dut))
-    }
-    test("readOnly_16_64") {
-        SimConfig
-            .compile(Axi4ReadOnlyDownsizer(Axi4Config(20, 64, 4), Axi4Config(20, 16, 4)))
-            .doSim("test", 42)((dut: Axi4ReadOnlyDownsizer) => readTester(dut))
-    }
-    test("readOnly_32_128") {
-        SimConfig
-            .compile(Axi4ReadOnlyDownsizer(Axi4Config(20, 128, 4), Axi4Config(20, 32, 4)))
-            .doSim("test", 42)((dut: Axi4ReadOnlyDownsizer) => readTester(dut))
-    }
-    test("readOnly_32_128_pipelined") {
-        SimConfig
-            .compile(Axi4ReadOnlyDownsizer(Axi4Config(20, 128, 4), Axi4Config(20, 32, 4)))
-            .doSim("test", 42)((dut: Axi4ReadOnlyDownsizer) => readTester(dut, true))
-    }
+  test("readOnly_32_64") {
+    SimConfig
+      .compile(
+        Axi4ReadOnlyDownsizer(
+          Axi4Config(20, 64, 4, useBurst = false, useId = false),
+          Axi4Config(20, 32, 4, useBurst = false, useId = false)
+        )
+      )
+      .doSim("test", 42)((dut: Axi4ReadOnlyDownsizer) => readTester(dut))
+  }
+  test("readOnly_16_64") {
+    SimConfig
+      .compile(
+        Axi4ReadOnlyDownsizer(
+          Axi4Config(20, 64, 4, useBurst = false, useId = false),
+          Axi4Config(20, 16, 4, useBurst = false, useId = false)
+        )
+      )
+      .doSim("test", 42)((dut: Axi4ReadOnlyDownsizer) => readTester(dut))
+  }
+  test("readOnly_32_128") {
+    SimConfig
+      .compile(
+        Axi4ReadOnlyDownsizer(
+          Axi4Config(20, 128, 4, useBurst = false, useId = false),
+          Axi4Config(20, 32, 4, useBurst = false, useId = false)
+        )
+      )
+      .doSim("test", 42)((dut: Axi4ReadOnlyDownsizer) => readTester(dut))
+  }
+  test("readOnly_32_128_pipelined") {
+    SimConfig
+      .compile(
+        Axi4ReadOnlyDownsizer(
+          Axi4Config(20, 128, 4, useBurst = false, useId = false),
+          Axi4Config(20, 32, 4, useBurst = false, useId = false)
+        )
+      )
+      .doSim("test", 42)((dut: Axi4ReadOnlyDownsizer) => readTester(dut, true))
+  }
 }
 
 class Axi4IdRemoverTester extends SpinalAnyFunSuite {
