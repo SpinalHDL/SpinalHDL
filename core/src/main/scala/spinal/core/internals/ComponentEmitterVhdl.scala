@@ -290,6 +290,7 @@ class ComponentEmitterVhdl(
       val isBBUsingULogic        = isBB && children.asInstanceOf[BlackBox].isUsingULogic
       val isBBUsingNoNumericType = isBB && children.asInstanceOf[BlackBox].isUsingNoNumericType
       val definitionString = if (isBB) children.definitionName else s"entity work.${getOrDefault(emitedComponentRef, children, children).definitionName}"
+      val postBb = new StringBuilder()
       logics ++= commentTagsToString(children, "  --")
       logics ++= s"  ${
         children.getName()
@@ -298,23 +299,33 @@ class ComponentEmitterVhdl(
 
       def addCasting(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
 
+        def wrapIo(t : String, body : String => String): String ={
+          val wrap = s"${logic}_bb_wrap"
+          declarations ++= s"  signal $wrap : $t${if(!bt.isInstanceOf[Bool]) s"(${bt.getBitsWidth-1} downto 0)" else ""};\n"
+          postBb ++= s"  ${body(wrap)};\n"
+          s"      $io => $wrap,\n"
+        }
+        def wrapTo(t : String) = wrapIo(t, w => s"$w <= $t($logic)")
+        def wrapFrom(t : String, t2 : String) = wrapIo(t, w => s"$logic <= $t2($w)")
         if (isBBUsingULogic || isBBUsingNoNumericType) {
           if (dir == in) {
             bt match {
-              case _: Bool if isBBUsingULogic                            => return s"      $io => std_ulogic($logic),\n"
-              case _: Bits if isBBUsingULogic                            => return s"      $io => std_ulogic_vector($logic),\n"
-              case _: UInt if isBBUsingNoNumericType && !isBBUsingULogic => return s"      $io => std_logic_vector($logic),\n"
-              case _: UInt if isBBUsingNoNumericType &&  isBBUsingULogic => return s"      $io => std_ulogic_vector($logic),\n"
-              case _: SInt if isBBUsingNoNumericType && !isBBUsingULogic => return s"      $io => std_logic_vector($logic),\n"
-              case _: SInt if isBBUsingNoNumericType &&  isBBUsingULogic  => return s"      $io => std_ulogic_vector($logic),\n"
+              case _: Bool if isBBUsingULogic                            => return wrapTo("std_ulogic")
+              case _: Bits if isBBUsingULogic                            => return wrapTo("std_ulogic_vector")
+              case _: UInt if isBBUsingNoNumericType && !isBBUsingULogic => return wrapTo("std_logic_vector")
+              case _: UInt if isBBUsingNoNumericType &&  isBBUsingULogic => return wrapTo("std_ulogic_vector")
+              case _: SInt if isBBUsingNoNumericType && !isBBUsingULogic => return wrapTo("std_logic_vector")
+              case _: SInt if isBBUsingNoNumericType &&  isBBUsingULogic => return wrapTo("std_ulogic_vector")
               case _                                                     => return s"      $io => $logic,\n"
             }
           } else if (dir == out) {
             bt match {
-              case _: Bool if isBBUsingULogic => return s"      std_logic($io) => $logic,\n"
-              case _: Bits if isBBUsingULogic => return s"      std_logic_vector($io) => $logic,\n"
-              case _: UInt if isBBUsingNoNumericType => return s"      unsigned($io) => $logic,\n"
-              case _: SInt if isBBUsingNoNumericType  => return s"      signed($io) => $logic,\n"
+              case _: Bool if isBBUsingULogic => return wrapFrom("std_ulogic", "std_logic")
+              case _: Bits if isBBUsingULogic => return wrapFrom("std_ulogic_vector", "std_logic_vector")
+              case _: UInt if isBBUsingNoNumericType && !isBBUsingULogic => return wrapFrom("std_logic_vector", "unsigned")
+              case _: UInt if isBBUsingNoNumericType &&  isBBUsingULogic => return wrapFrom("std_ulogic_vector", "unsigned")
+              case _: SInt if isBBUsingNoNumericType && !isBBUsingULogic => return wrapFrom("std_logic_vector", "signed")
+              case _: SInt if isBBUsingNoNumericType &&  isBBUsingULogic => return wrapFrom("std_ulogic_vector", "signed")
               case _                          => return s"      $io => $logic,\n"
             }
           }else{
@@ -383,6 +394,10 @@ class ComponentEmitterVhdl(
 
       logics ++= s"    );"
       logics ++= s"\n"
+      if(postBb.nonEmpty) {
+        logics ++= postBb.toString()
+        logics ++= s"\n"
+      }
     }
   }
 
