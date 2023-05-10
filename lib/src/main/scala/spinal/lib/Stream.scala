@@ -1261,6 +1261,12 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
 
 object StreamFifoCC{
   def apply[T <: Data](dataType: HardType[T], depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
+  def apply[T <: Data](push : Stream[T], pop : Stream[T], depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = {
+    val fifo = new StreamFifoCC(push.payloadType, depth, pushClock, popClock)
+    fifo.io.push << push
+    fifo.io.pop >> pop
+    fifo
+  }
 }
 
 //class   StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
