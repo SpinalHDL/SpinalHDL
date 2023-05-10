@@ -18,6 +18,10 @@ object InOutWrapper {
         }
       }
 
+      def propagateTags(tristate: Bundle, pin: Data): Unit = {
+        tristate.getTags().filter(_.ioTag).foreach(t => pin.addTag(t))
+      }
+
       for (io <- c.getAllIo) {
         add(io)
       }
@@ -32,6 +36,7 @@ object InOutWrapper {
               when(bundle.writeEnable) {
                 newIo := bundle.write
               }
+              propagateTags(bundle, newIo)
             }
             case bundle: TriStateOutput[_] if bundle.isOutput || bundle.isMasterInterface => {
               val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
@@ -39,6 +44,7 @@ object InOutWrapper {
               when(bundle.writeEnable) {
                 newIo := bundle.write
               }
+              propagateTags(bundle, newIo)
             }
             case bundle: ReadableOpenDrain[_] if bundle.write.isOutput && bundle.read.isInput => {
               val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
@@ -49,6 +55,7 @@ object InOutWrapper {
                   newIo.assignFromBits(B"0", id, 1 bits)
                 }
               }
+              propagateTags(bundle, newIo)
               //            for(bt <- bundle.write.flatten){
               //              for((value, id) <- bt.asBits.asBools.zipWithIndex) {
               //                when(!value){
@@ -66,6 +73,7 @@ object InOutWrapper {
                   newIo(i) := bundle.write(i)
                 }
               }
+              propagateTags(bundle, newIo)
             }
             case _ =>
           }
@@ -76,18 +84,23 @@ object InOutWrapper {
   }
 
   def main(args: Array[String]): Unit = {
+    case class MyTriStateTag() extends SpinalTag {
+      override def ioTag = true
+    }
     case class D() extends Bundle{
       val x = UInt(2 bits)
       val y = Bool()
     }
-    SpinalVhdl(InOutWrapper(new Component{
+    val report = SpinalVhdl(InOutWrapper(new Component{
       def t = D()
       val driver = in(t)
       val sink = out(t)
       val openDrain = master(ReadableOpenDrain(t))
+      openDrain.addTag(MyTriStateTag())
       openDrain.write := driver
       sink := openDrain.read
     }))
+    report.toplevel.getAllIo.foreach(io => println(s"${io.getName()} => ${io.getTags()}"))
   }
 }
 
