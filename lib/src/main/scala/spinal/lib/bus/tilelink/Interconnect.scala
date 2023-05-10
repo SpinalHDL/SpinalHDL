@@ -62,6 +62,7 @@ class InterconnectNode(i : Interconnect) extends Area {
   }
   val s2m = new Area{
     val parameters = Handle[S2mParameters]()
+    def none() = parameters.load(S2mParameters.none(this))
   }
 
   var mode = InterconnectNodeMode.BOTH
@@ -410,7 +411,7 @@ class VideoOut()(implicit ic : Interconnect) extends Area{
 class UART()(implicit ic : Interconnect) extends Area{
   val node = ic.createSlave()
   node.s2m.parameters.load(
-    S2mParameters.simple(this)
+    S2mParameters.none(this)
   )
   node.m2s.supported.loadAsync(
     M2sSupport(
@@ -431,7 +432,7 @@ class UART()(implicit ic : Interconnect) extends Area{
 class ROM()(implicit ic : Interconnect) extends Area{
   val node = ic.createSlave()
   node.s2m.parameters.load(
-    S2mParameters.simple(this)
+    S2mParameters.none(this)
   )
   node.m2s.supported.loadAsync(
     M2sSupport(
@@ -451,7 +452,7 @@ class ROM()(implicit ic : Interconnect) extends Area{
 class StreamOut()(implicit ic : Interconnect) extends Area{
   val node = ic.createSlave()
   node.s2m.parameters.load(
-    S2mParameters.simple(this)
+    S2mParameters.none(this)
   )
   node.m2s.supported.loadAsync(
     M2sSupport(
@@ -527,7 +528,7 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
 
       node.s2m.parameters.load(
         node.m2s.proposed.transfers.withBCE match {
-          case false =>  S2mParameters.simple(this)
+          case false =>  S2mParameters.none(this)
           case true => S2mParameters(List(S2mAgent(
             name = this,
             emits = S2mTransfers(

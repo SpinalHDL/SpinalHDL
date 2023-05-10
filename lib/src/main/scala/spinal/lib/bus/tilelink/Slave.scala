@@ -102,7 +102,7 @@ case class S2mAgent(name    : Nameable,
 }
 
 object S2mParameters{
-  def simple(name : Nameable) : S2mParameters = S2mParameters(
+  def none(name : Nameable) : S2mParameters = S2mParameters(
     List(S2mAgent.simple(name))
   )
 }

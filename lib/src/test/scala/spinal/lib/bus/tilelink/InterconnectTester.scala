@@ -10,25 +10,24 @@ import spinal.lib.bus.tilelink.sim._
 import spinal.lib._
 import spinal.lib.sim.SparseMemory
 
+//While create a interconnect master as an io of the toplevel
 class MasterBus(p : M2sParameters)(implicit ic : Interconnect) extends Area{
   val node = ic.createMaster()
-
   val logic = Elab build new Area{
     node.m2s.parameters.load(p)
-    node.m2s.setProposedFromParameters()
+    node.m2s.setProposedFromParameters() //Here, we just ignore the negotiation phase
     slave(node.bus)
   }
 }
 
+//While create a interconnect slave as an io of the toplevel
 class SlaveBus(m2sSupport : M2sSupport)(implicit ic : Interconnect) extends Area{
   val node = ic.createSlave()
-  node.s2m.parameters.load(
-    S2mParameters.simple(this)
-  )
-  node.m2s.supported.loadAsync(
-    m2sSupport
-  )
-  hardFork(master(node.bus))
+  val logic = Elab build new Area {
+    node.s2m.none() //We do not want to implement memory coherency
+    node.m2s.supported.load(m2sSupport)
+    hardFork(master(node.bus))
+  }
 }
 
 
@@ -54,10 +53,12 @@ class InterconnectTester extends AnyFunSuite{
         ))
       ))
 
+      //Define intermediate buses
       val b0,b1 = interconnect.createNode()
-      b0 << m0.node
-      b1 at(0x30000, 0x1000) of b0
+      b0 << m0.node  //Simple connection
+      b1 at(0x30000, 0x1000) of b0 //Make b1 accessible from b0 bus from address [0x30000, 0x30FFF]
 
+      //Create to memory slaves
       val s0,s1 = new SlaveBus(
         M2sSupport(
           transfers = M2sTransfers(
@@ -69,18 +70,21 @@ class InterconnectTester extends AnyFunSuite{
           allowExecute = false
         )
       )
+      //Connect those memory slaves at different memory addresses
       s0.node at 0x200 of b1
       s1.node at 0x400 of b1
 
     }).doSim{dut =>
       dut.clockDomain.forkStimulus(10)
       val m0 = new MasterAgent(dut.m0.node.bus, dut.clockDomain)
+      
       for(node <- List(dut.s0.node, dut.s1.node)) new SlaveAgent(node.bus, dut.clockDomain){
         val mem = SparseMemory()
         override def onGet(source: Int, address: Long, bytes: Int) = {
           accessAckData(source, mem.readBytes(address, bytes))
         }
       }
+
       val data = m0.get(1, 0x30410, 4)()
     }
   }
