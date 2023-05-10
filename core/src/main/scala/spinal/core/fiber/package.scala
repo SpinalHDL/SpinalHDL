@@ -3,6 +3,10 @@ package spinal.core
 import spinal.sim.{JvmThread, JvmThreadUnschedule}
 
 package object fiber {
+  class HardForkApi {
+    def on[T](body : => T) : Handle[T] = hardFork(body)
+  }
+  def hardFork : HardForkApi = new HardForkApi
   def hardFork[T](body : => T) : Handle[T] = hardForkRaw(true)(body)._1
   def hardForkRaw[T](withDep : Boolean = true)(body : => T) : (Handle[T], AsyncThread) = {
     val ret = Handle[T]
