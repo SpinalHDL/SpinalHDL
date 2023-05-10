@@ -22,7 +22,7 @@ package spinal.core
 
 import spinal.core.DslScopeStack.storeAsMutable
 import spinal.core.Nameable._
-import spinal.core.fiber.Handle
+import spinal.core.fiber.{Elab, Handle}
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
@@ -118,6 +118,7 @@ class GlobalData(val config : SpinalConfig) {
   var scalaLocatedEnable = false
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
   val scalaLocateds = mutable.HashSet[ScalaLocated]()
+  val elab = new Elab()
 
   def applyScalaLocated(): Unit ={
     try {
