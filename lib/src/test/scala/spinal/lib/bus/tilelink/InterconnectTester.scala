@@ -85,7 +85,7 @@ class InterconnectTester extends AnyFunSuite{
         }
       }
 
-      val data = m0.get(1, 0x30410, 4)()
+      val data = m0.get(1, 0x30410, 4)(_)
     }
   }
 }

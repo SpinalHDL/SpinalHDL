@@ -8,12 +8,14 @@ import spinal.lib.sim.{StreamDriver, StreamDriverOoo, StreamMonitor, StreamReady
 import scala.collection.{breakOut, mutable}
 import scala.util.Random
 
+class OrderingArgs(val address : BigInt, val bytes : Int)
+
 class Block(val source : Int,
             val address : Long,
             var cap : Int,
             var dirty : Boolean = false,
             var data : Array[Byte] = null,
-            var orderingBody : () => Unit = () => Unit,
+            var orderingBody : OrderingArgs => Unit = _ => Unit,
             var retains : Int = 0){
   def retain() = retains += 1
   def release() = {
@@ -21,7 +23,7 @@ class Block(val source : Int,
     retains -= 1
   }
   var probe = Option.empty[Probe]
-  def ordering(body : => Unit) = orderingBody = () => body
+  def ordering(body : OrderingArgs => Unit) = orderingBody = body
 }
 case class Probe(source : Int, param : Int, address : Long, size : Int, perm : Boolean){
 
@@ -71,8 +73,8 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
   }
 
   val ordering = new Area{
-    val map = Array.fill[() => Unit](1 << bus.p.sourceWidth)(null)
-    def apply(source : Int)(body : => Unit) = map(source) = () => body
+    val map = Array.fill[OrderingArgs => Unit](1 << bus.p.sourceWidth)(null)
+    def apply(source : Int)(body : OrderingArgs => Unit) = map(source) = body
     def checkDone(source : Int) = assert(!map.contains(source))
   }
 
@@ -138,7 +140,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
                             toCap = probe.param,
                             source = probe.source,
                             block = b
-                          )(b.orderingBody())
+                          )(b.orderingBody)
                         }
                       }
                     }
@@ -242,7 +244,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
                    param : Int,
                    address : Long,
                    bytes : Int)
-                  (orderingBody : => Unit): Block ={
+                  (orderingBody : OrderingArgs => Unit): Block ={
     ordering(source)(orderingBody)
     driver.a.single{p =>
       p.opcode  #= Opcode.A.ACQUIRE_BLOCK
@@ -318,7 +320,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
 
 
   def get(source : Int, address : Long, bytes : Int)
-         (orderingBody : => Unit) : Seq[Byte] = {
+         (orderingBody : OrderingArgs => Unit) : Seq[Byte] = {
     ordering(source)(orderingBody)
     driver.a.single{p =>
       p.opcode  #= Opcode.A.GET
@@ -357,7 +359,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
   }
 
   def releaseData(source : Int, toCap : Int, block : Block)
-                 (orderingBody : => Unit) : Boolean = {
+                 (orderingBody : OrderingArgs => Unit) : Boolean = {
     assert(block.dirty)
     block.dirty = false
     block.retain()
@@ -424,7 +426,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
 
 
   def putFullData(source : Int, address : Long, data : Seq[Byte])
-                 (orderingBody : => Unit) : Boolean = {
+                 (orderingBody : OrderingArgs => Unit) : Boolean = {
     ordering(source)(orderingBody)
     val size = log2Up(data.length)
     driver.a.burst { push =>
@@ -465,7 +467,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
   }
 
   def putPartialData(source : Int, address : Long, data : Seq[Byte], mask : Seq[Boolean])
-                    (orderingBody : => Unit) : Boolean = {
+                    (orderingBody : OrderingArgs => Unit) : Boolean = {
     ordering(source)(orderingBody)
     val size = log2Up(data.length)
     driver.a.burst { push =>

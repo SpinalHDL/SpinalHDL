@@ -81,7 +81,7 @@ object CoherentHubTesterUtils{
           val busId = ordering.upId.toInt
           val source = ordering.upSource.toInt
           val map = ups(busId).agent.ordering.map
-          map(source).apply()
+          map(source).apply(new OrderingArgs(-1, -1))
           map(source) = null
         }
       }
@@ -93,10 +93,10 @@ object CoherentHubTesterUtils{
                      address : Long,
                      bytes : Int): Block ={
       var ref: Array[Byte] = null
-      val block = agent.acquireBlock(source, param, address, bytes){
+      val block = agent.acquireBlock(source, param, address, bytes){ args =>
         ref = globalMem.readBytes(address, bytes)
       }
-      block.ordering(globalMem.write(address, block.data))
+      block.ordering(args => globalMem.write(address, block.data))
 //      println(f"* $address%x $source")
 //      println(toHex(block.data))
 //      println(toHex(ref))
@@ -110,7 +110,7 @@ object CoherentHubTesterUtils{
             address : Long,
             bytes : Int): Unit ={
       var ref: Array[Byte] = null
-      val data = agent.get(source, address, bytes){
+      val data = agent.get(source, address, bytes){ args =>
         ref = globalMem.readBytes(address, bytes)
       }
 //      println(f"* $address%x")
@@ -122,7 +122,7 @@ object CoherentHubTesterUtils{
                     source : Int,
                     address : Long,
                     data : Array[Byte]): Unit ={
-      assert(!agent.putFullData(source, address, data){
+      assert(!agent.putFullData(source, address, data){ args =>
         globalMem.write(address, data)
       })
     }
@@ -131,7 +131,7 @@ object CoherentHubTesterUtils{
                        address : Long,
                        data : Array[Byte],
                        mask : Array[Boolean]): Unit ={
-      assert(!agent.putPartialData(source, address, data, mask){
+      assert(!agent.putPartialData(source, address, data, mask){ args =>
         globalMem.write(address, data, mask)
       })
     }
@@ -140,7 +140,7 @@ object CoherentHubTesterUtils{
                     source : Int,
                     toCap : Int,
                     block : Block): Unit ={
-      agent.releaseData(source, toCap, block){
+      agent.releaseData(source, toCap, block){ args =>
         globalMem.write(block.address, block.data)
       }
     }
