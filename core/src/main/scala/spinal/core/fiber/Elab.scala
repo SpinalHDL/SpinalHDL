@@ -58,24 +58,60 @@ class Elab {
 
 object ElabDemo extends App {
   import spinal.core._
+
   SpinalVerilog{new Component{
+    //Fork a thread which will start in build phase
     val b1 = Elab build new Area{
       println("Build 1")
-      b2.get
+      println("b2.miaou = " + b2.miaou) //Will wait until the b2 thread completed
       println("Build 1 Done")
     }
     val b2 = Elab build new Area{
       println("Build 2")
+      val miaou = 42
       println("Build 2 Done")
     }
     val s1 = Elab setup new Area{
       println("Setup 1")
-      b1.get
       println("Setup 1  Done")
     }
     val s2 = Elab setup new Area{
       println("Setup 2")
       println("Setup 2 Done")
+    }
+  }}
+
+  SpinalVerilog{new Component{
+    val miaou = Handle[Int]
+    val b1 = hardFork on new Area{
+      println("Build 1")
+      println("miaou = " + miaou.get) //Will wait until the miaou handle is loaded
+      println("Build 1 Done")
+    }
+    val b2 = hardFork on new Area{
+      println("Build 2")
+      miaou.load(42)
+      println("Build 2 Done")
+    }
+  }}
+
+
+  SpinalVerilog{new Component{
+    val lock = Lock()
+    val b1 = Elab build new Area{
+      println("Build 1")
+      lock.await() //Will be blocked until b2 release the lock (see val s1)
+      println("Build 1 Done")
+    }
+    val b2 = Elab build new Area{
+      println("Build 2")
+      lock.release()
+      println("Build 2 Done")
+    }
+    val s1 = Elab setup new Area{
+      println("Setup 1")
+      lock.retain() //Let's lock the lock to allow b2 running stuff before b1
+      println("Setup 1  Done")
     }
   }}
 }

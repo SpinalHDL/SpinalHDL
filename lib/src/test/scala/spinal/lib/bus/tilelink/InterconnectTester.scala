@@ -77,7 +77,7 @@ class InterconnectTester extends AnyFunSuite{
     }).doSim{dut =>
       dut.clockDomain.forkStimulus(10)
       val m0 = new MasterAgent(dut.m0.node.bus, dut.clockDomain)
-      
+
       for(node <- List(dut.s0.node, dut.s1.node)) new SlaveAgent(node.bus, dut.clockDomain){
         val mem = SparseMemory()
         override def onGet(source: Int, address: Long, bytes: Int) = {

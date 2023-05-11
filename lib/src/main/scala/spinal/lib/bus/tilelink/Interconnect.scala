@@ -590,16 +590,14 @@ object TopGen extends App{
 
     val system = fastCd on new Area {
       val cpu0 = new CPU()
-      //    val cpu1 = new CPU()
+      val cpu1 = new CPU()
 
       val busA = interconnect.createNode()
       busA << cpu0.node
-      //    busA << cpu1.node
-
+      busA << cpu1.node
     }
     val peripheral = slowCd on new Area {
       val peripheralBus = interconnect.createNode()
-//      peripheralBus.forceDataWidth(16)
       peripheralBus at(0x10000000, 16 MiB) of system.busA
 
       val adapter = new Adapter()
