@@ -130,12 +130,7 @@ case class ClockDomainResetGeneratorV2() extends ClockDomainResetGeneratorIf {
         resetCounter := resetCounter + 1
       }
 
-      val clear = spinal.lib.ResetCtrl.asyncAssertSyncDeassert(
-        doHoldReset,
-        inputClockDomain,
-        inputPolarity = spinal.core.HIGH,
-        outputPolarity = spinal.core.HIGH
-      )
+      val clear = inputClockDomain on BufferCC(doHoldReset)
       when(clear){
         resetCounter := 0
       }
