@@ -1,6 +1,6 @@
 package spinal.lib.com.jtag.sim
 
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable
 import spinal.core.TimeNumber
 import spinal.core.sim._
 import spinal.lib.com.jtag.Jtag
@@ -33,7 +33,7 @@ case class JtagDriver(jtag: Jtag, clockPeriod: TimeNumber) {
    * param: flipTms is used to flip the last TMS bit to 1 when the scan chain is finished
    * This allows to write longer sequences of bits from multiple calls to this function
    */
-  def doScanChain(tdiSeq: Seq[Boolean], flipTms: Boolean): immutable.Seq[Boolean] = {
+  def doScanChain(tdiSeq: Seq[Boolean], flipTms: Boolean): Seq[Boolean] = {
     // use mutable seq
     val tdoSeq = mutable.Seq.fill(tdiSeq.length)(false)
     for (i <- tdiSeq.indices) {
@@ -42,7 +42,7 @@ case class JtagDriver(jtag: Jtag, clockPeriod: TimeNumber) {
       tdoSeq(i) = jtag.tdo.toBoolean
       doClockCycles(1)
     }
-    tdoSeq.to _
+    tdoSeq.toSeq
   }
 
   /*
