@@ -1,6 +1,6 @@
 package spinal.lib.com.jtag.sim
 
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import spinal.core.TimeNumber
 import spinal.core.sim._
 import spinal.lib.com.jtag.Jtag
@@ -29,6 +29,23 @@ case class JtagDriver(jtag: Jtag, clockPeriod: TimeNumber) {
   }
 
   /*
+   * Send a sequence of TDI bits to the JTAG tap and return the TDO sequence
+   * param: flipTms is used to flip the last TMS bit to 1 when the scan chain is finished
+   * This allows to write longer sequences of bits from multiple calls to this function
+   */
+  def doScanChain(tdiSeq: Seq[Boolean], flipTms: Boolean): immutable.Seq[Boolean] = {
+    // use mutable seq
+    val tdoSeq = mutable.Seq.fill(tdiSeq.length)(false)
+    for (i <- tdiSeq.indices) {
+      jtag.tdi #= tdiSeq(i)
+      jtag.tms #= (i == tdiSeq.length - 1 && flipTms)
+      tdoSeq(i) = jtag.tdo.toBoolean
+      doClockCycles(1)
+    }
+    tdoSeq.to _
+  }
+
+  /*
    * Send n clock cycle to the JTAG tap
    */
   def doClockCycles(n: Long): Unit = {
@@ -38,22 +55,5 @@ case class JtagDriver(jtag: Jtag, clockPeriod: TimeNumber) {
       jtag.tck #= false
       sleep(timeToLong(clockPeriod / 2))
     }
-  }
-
-  /*
-   * Send a sequence of TDI bits to the JTAG tap and return the TDO sequence
-   * param: flipTms is used to flip the last TMS bit to 1 when the scan chain is finished
-   * This allows to write longer sequences of bits from multiple calls to this function
-   */
-  def doScanChain(tdiSeq: Seq[Boolean], flipTms: Boolean): Seq[Boolean] = {
-    // use mutable seq
-    val tdoSeq = mutable.Seq.fill(tdiSeq.length)(false)
-    for (i <- tdiSeq.indices) {
-      jtag.tdi #= tdiSeq(i)
-      jtag.tms #= (i == tdiSeq.length - 1 && flipTms)
-      tdoSeq(i) = jtag.tdo.toBoolean
-      doClockCycles(1)
-    }
-    tdoSeq.to[collection.immutable.Seq]
   }
 }
