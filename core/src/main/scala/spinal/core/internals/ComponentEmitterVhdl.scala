@@ -201,12 +201,12 @@ class ComponentEmitterVhdl(
     component.dslBody.walkStatements{ s =>
       s.walkExpression{ e =>
         if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
-          var sName = s match {
+          val sName = s match {
             case s : AssignmentStatement => "_" + s.dlcParent.getName()
             case s : WhenStatement => "_when"
             case s : SwitchContext => "_switch"
-            case s : Nameable => "_" + s.getName()
             case s : MemPortStatement =>  "_" + s.dlcParent.getName() + "_port"
+            case s : Nameable => "_" + s.getName()
             case _ => ""
           }
 
