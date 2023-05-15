@@ -29,8 +29,8 @@ sealed trait SbyEngine extends FormalEngin {
 object SmtBmcSolver extends Enumeration {
   type SmtBmcSolver = Value
 
-  val Yices = Value("yices")
-  val Boolector = Value("booleactor")
+  val Yices = Value("yices")      // Yices2 ?
+  val Boolector = Value("booleactor")   // TYPO: boolector
   val Z3 = Value("z3")
   val mathsat = Value("mathsat")
   val cvc4 = Value("cvc4")
