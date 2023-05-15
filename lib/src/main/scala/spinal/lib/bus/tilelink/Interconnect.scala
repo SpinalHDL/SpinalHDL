@@ -3,6 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
+import spinal.lib.system.tag.MemoryConnection
 import spinal.lib.{master, slave}
 
 import scala.collection.mutable.ArrayBuffer
@@ -42,7 +43,7 @@ class InterconnectNodeMode extends Nameable
 object InterconnectNodeMode extends AreaRoot {
   val BOTH, MASTER, SLAVE = new InterconnectNodeMode
 }
-class InterconnectNode(i : Interconnect) extends Area {
+class InterconnectNode(i : Interconnect) extends Area with SpinalTagReady {
   val bus = Handle[Bus]()
   val ups = ArrayBuffer[InterconnectConnection]()
   val downs = ArrayBuffer[InterconnectConnection]()
@@ -168,6 +169,10 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
   val thread = hardFork on new Area{
     soon(arbiter.m2s.parameters)
     soon(decoder.s2m.parameters)
+
+    val tag = new MemoryConnection(m, s, getMapping())
+    m.addTag(tag)
+    s.addTag(tag)
 
     arbiter.m2s.parameters.load(s.m2s.supported join decoder.m2s.parameters)
     decoder.s2m.parameters.load(arbiter.s2m.parameters) //TODO

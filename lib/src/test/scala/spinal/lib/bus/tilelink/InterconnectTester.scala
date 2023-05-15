@@ -9,6 +9,7 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.sim._
 import spinal.lib._
 import spinal.lib.sim.SparseMemory
+import spinal.lib.system.tag.MemoryConnection
 
 //While create a interconnect master as an io of the toplevel
 class MasterBus(p : M2sParameters)(implicit ic : Interconnect) extends Area{
@@ -76,6 +77,9 @@ class InterconnectTester extends AnyFunSuite{
 
     }).doSim{dut =>
       dut.clockDomain.forkStimulus(10)
+
+      MemoryConnection.walk(dut.m0.node)
+
       val m0 = new MasterAgent(dut.m0.node.bus, dut.clockDomain)
 
       for(node <- List(dut.s0.node, dut.s1.node)) new SlaveAgent(node.bus, dut.clockDomain){
@@ -85,7 +89,10 @@ class InterconnectTester extends AnyFunSuite{
         }
       }
 
-      val data = m0.get(1, 0x30410, 4)(_)
+      val data = m0.get(1, 0x30410, 4)(args => Unit)
+      m0.get(1, 0x30410, 4)(args => Unit)
+      m0.get(1, 0x30410, 4)(args => Unit)
+      m0.get(1, 0x30410, 4)(args => Unit)
     }
   }
 }

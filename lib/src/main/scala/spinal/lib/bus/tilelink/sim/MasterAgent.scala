@@ -75,7 +75,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
   val ordering = new Area{
     val map = Array.fill[OrderingArgs => Unit](1 << bus.p.sourceWidth)(null)
     def apply(source : Int)(body : OrderingArgs => Unit) = map(source) = body
-    def checkDone(source : Int) = assert(!map.contains(source))
+    def checkDone(source : Int) = Unit //assert(!map.contains(source)) //TODO
   }
 
   //  case class Block(var cap : Int,

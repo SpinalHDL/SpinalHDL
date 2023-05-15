@@ -117,12 +117,22 @@ object ChannelE{
 }
 
 
-abstract class BusFragment(val p : BusParameter, val withData : Boolean) extends Bundle {
+abstract class BusFragment(val p : BusParameter) extends Bundle {
   def size      : UInt
   def withBeats : Bool
+  def data : Bits
+  def corrupt : Bool
+  def maskNull : Bits = null
+  def deniedNull : Bool = null
+  def addressNull : UInt
+
+  def withAddress : Boolean
+  def withData : Boolean
+  def withMask : Boolean
+  def widthDenied : Boolean
 }
 
-case class ChannelA(override val p : BusParameter) extends BusFragment(p, p.withDataA) {
+case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
   val opcode  = Opcode.A()
   val param   = Bits(3 bits)
   val source  = p.source()
@@ -140,10 +150,16 @@ case class ChannelA(override val p : BusParameter) extends BusFragment(p, p.with
       a
     }
   }
-
   override def clone = ChannelA(p)
+  override def maskNull = mask
+  override def addressNull = address
+
+  def withAddress : Boolean = true
+  def withData : Boolean = p.withDataA
+  def withMask : Boolean = p.withDataA
+  def widthDenied : Boolean = false
 }
-case class ChannelB(override val p : BusParameter) extends BusFragment(p, p.withDataB) {
+case class ChannelB(override val p : BusParameter) extends BusFragment(p) {
   val opcode  = Opcode.B()
   val param   = Bits(3 bits)
   val source  = p.source()
@@ -155,8 +171,14 @@ case class ChannelB(override val p : BusParameter) extends BusFragment(p, p.with
   assert(!p.withDataB)
   override def withBeats = p.withDataB.mux(False, False) //TODO
   override def clone = ChannelB(p)
+  override def maskNull = mask
+  override def addressNull = address
+  def withAddress : Boolean = true
+  def withData : Boolean = p.withDataB
+  def withMask : Boolean = p.withDataB
+  def widthDenied : Boolean = false
 }
-case class ChannelC(override val p : BusParameter) extends BusFragment(p, true) {
+case class ChannelC(override val p : BusParameter) extends BusFragment(p) {
   val opcode  = Opcode.C()
   val param   = Bits(3 bits)
   val source  = p.source()
@@ -169,8 +191,14 @@ case class ChannelC(override val p : BusParameter) extends BusFragment(p, true) 
   def isDataKind() = opcode === Opcode.C.PROBE_ACK_DATA   || opcode === Opcode.C.RELEASE_DATA
   override def withBeats = List(Opcode.C.PROBE_ACK_DATA(), Opcode.C.RELEASE_DATA()).sContains(opcode)
   override def clone = ChannelC(p)
+  override def addressNull = address
+
+  def withAddress : Boolean = true
+  def withData : Boolean = true
+  def withMask : Boolean = false
+  def widthDenied : Boolean = false
 }
-case class ChannelD(override val p : BusParameter) extends BusFragment(p, p.withDataD) {
+case class ChannelD(override val p : BusParameter) extends BusFragment(p) {
   val opcode  = Opcode.D()
   val param   = Bits(3 bits)
   val source  = p.source()
@@ -188,7 +216,14 @@ case class ChannelD(override val p : BusParameter) extends BusFragment(p, p.with
     ret
   }
 
+
+  override def deniedNull = denied
   override def clone = ChannelD(p)
+  override def addressNull = null
+  def withAddress : Boolean = true
+  def withData : Boolean = p.withDataD
+  def withMask : Boolean = false
+  def widthDenied : Boolean = true
 }
 case class ChannelE(p : BusParameter) extends Bundle {
   val sink    = p.sink()

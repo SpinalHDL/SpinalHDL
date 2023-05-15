@@ -34,5 +34,7 @@ package object tilelink {
       case false => True
       case true => fillBeatCache().beat === 0
     }
+
+    def beatCounter() = fillBeatCache().beat
   }
 }
