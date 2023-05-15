@@ -140,7 +140,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
                             toCap = probe.param,
                             source = probe.source,
                             block = b
-                          )(b.orderingBody)
+                          )(b.orderingBody(new OrderingArgs(probe.address, 1 << probe.size)))
                         }
                       }
                     }
