@@ -21,6 +21,7 @@
 package spinal.core.internals
 
 import java.io.{BufferedWriter, File, FileWriter}
+
 import scala.collection.mutable.ListBuffer
 import spinal.core._
 import spinal.core.fiber.Engine
@@ -29,9 +30,10 @@ import spinal.core.internals.Operator.BitVector
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
-
 import java.util
+
 import scala.io.Source
+import scala.util.Random
 
 
 class PhaseContext(val config: SpinalConfig) {
@@ -2659,6 +2661,16 @@ class PhaseFillRegsInit() extends Phase{
   override def hasNetlistImpact: Boolean = true
 }
 
+class PhaseRandomizedMem() extends PhaseNetlist {
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkDeclarations{
+      case mem : Mem[_] if mem.initialContent == null => {
+        mem.initBigInt(Array.fill(mem.wordCount)(BigInt.apply(mem.width, Random)))
+      }
+      case _ =>
+    }
+  }
+}
 
 class PhaseCheckAsyncResetsSources() extends PhaseCheck {
   override def impl(pc: PhaseContext): Unit = {
