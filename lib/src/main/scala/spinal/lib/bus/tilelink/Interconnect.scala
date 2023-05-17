@@ -126,6 +126,24 @@ class InterconnectAdapterCc extends InterconnectAdapter{
   }
 }
 
+class InterconnectAdapterWidth extends InterconnectAdapter{
+  var aDepth = 8
+  var bDepth = 8
+  var cDepth = 8
+  var dDepth = 8
+  var eDepth = 8
+  override def isRequired(c : InterconnectConnection) = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
+  override def build(c : InterconnectConnection)(m: Bus) : Bus = {
+    val adapter = new WidthAdapter(
+      ip = m.p,
+      op = m.p.copy(dataWidth = c.s.m2s.parameters.dataWidth),
+      ctxBuffer = ContextAsyncBufferFull
+    )
+    adapter.io.input << m
+    adapter.io.output
+  }
+}
+
 class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode) extends Area {
   m.downs += this
   s.ups += this
@@ -135,6 +153,7 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
 
   val adapters = ArrayBuffer[InterconnectAdapter]()
   adapters += new InterconnectAdapterCc()
+  adapters += new InterconnectAdapterWidth()
 
   def getMapping() : AddressMapping = {
     explicitAddress match {
@@ -180,7 +199,7 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
     arbiter.m2s.parameters.load(s.m2s.supported join decoder.m2s.parameters)
     decoder.s2m.parameters.load(arbiter.s2m.parameters) //TODO
 
-    if(decoder.bus.p.dataBytes != arbiter.bus.p.dataBytes) PendingError("Tilelink interconnect does not support resized yet")
+//    if(decoder.bus.p.dataBytes != arbiter.bus.p.dataBytes) PendingError("Tilelink interconnect does not support resized yet")
     var ptr = decoder.bus.get
     for(adapter <- adapters){
       if(adapter.isRequired(InterconnectConnection.this)){

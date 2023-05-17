@@ -4,7 +4,9 @@ import spinal.core._
 import spinal.lib.DataCarrier.toImplicit
 import spinal.lib._
 
-class WidthAdapter(ip : BusParameter, op : BusParameter, ctxBuffer : ContextAsyncBufferFactory) extends Component{
+class WidthAdapter(ip : BusParameter,
+                   op : BusParameter,
+                   ctxBuffer : ContextAsyncBufferFactory) extends Component{
   val io = new Bundle {
     val input = slave(Bus(ip))
     val output = master(Bus(op))
@@ -24,7 +26,7 @@ class WidthAdapter(ip : BusParameter, op : BusParameter, ctxBuffer : ContextAsyn
 
     dst.valid   := src.valid
     dst.payload := src.payload
-    src.ready := dst.ready && (counter.andR && burstLast)
+    src.ready := dst.ready && (counter.andR || burstLast)
     if(src.withData) dst.data.removeAssignments() := src.data.subdivideIn(1 << widthOf(offset) slices).read(sel)
     if(src.withMask) dst.maskNull.removeAssignments() := src.maskNull.subdivideIn(1 << widthOf(offset) slices).read(sel)
   }
@@ -42,7 +44,7 @@ class WidthAdapter(ip : BusParameter, op : BusParameter, ctxBuffer : ContextAsyn
       val data    = Vec.fill(ratio)(Reg(src.data))
       val mask    = src.withMask generate Vec.fill(ratio)(Reg(src.maskNull))
       val corrupt = Reg(Bool())
-      val denied  = src.widthDenied generate Reg(Bool())
+      val denied  = src.withDenied generate Reg(Bool())
     }
 
     dst.valid := buffer.valid
@@ -50,18 +52,18 @@ class WidthAdapter(ip : BusParameter, op : BusParameter, ctxBuffer : ContextAsyn
     if(dst.withMask) dst.maskNull := Cat(buffer.mask)
     dst.data    := Cat(buffer.data)
     dst.corrupt := buffer.corrupt
-    if(src.widthDenied) dst.deniedNull := buffer.denied
+    if(src.withDenied) dst.deniedNull := buffer.denied
 
     buffer.valid clearWhen(dst.ready)
     src.ready := !buffer.valid || dst.ready
 
     when(src.fire){
       buffer.valid     := wordLast
+      buffer.first := wordLast
       when(buffer.first) {
         buffer.args.assignSomeByName(src.payload)
-        buffer.first := wordLast
         buffer.corrupt := False
-        if(src.widthDenied) buffer.denied := False
+        if(src.withDenied) buffer.denied := False
         if(src.withMask) buffer.mask.foreach(_ := 0)
       }
 
@@ -78,7 +80,7 @@ class WidthAdapter(ip : BusParameter, op : BusParameter, ctxBuffer : ContextAsyn
         }
       }
       buffer.corrupt setWhen(src.corrupt)
-      if(src.widthDenied) buffer.denied setWhen(src.deniedNull)
+      if(src.withDenied) buffer.denied setWhen(src.deniedNull)
     }
   }
 

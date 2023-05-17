@@ -55,6 +55,7 @@ object CoherentHubTesterUtils{
           }
           accessAckDataImpl(
             source = source,
+            log2Up(bytes),
             data = data
           )
         }

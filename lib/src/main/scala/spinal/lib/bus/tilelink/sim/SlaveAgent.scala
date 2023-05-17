@@ -36,8 +36,9 @@ class SlaveAgent(bus : Bus, cd : ClockDomain) {
                     data : Seq[Byte],
                     denied : Boolean = false,
                     corrupt : Boolean = false): Unit ={
+    val size =  log2Up(data.size)
     if(data.size >= bus.p.dataBytes){
-      accessAckDataImpl(source, data, denied, corrupt)
+      accessAckDataImpl(source, size, data, denied, corrupt)
       return
     }
 
@@ -55,13 +56,13 @@ class SlaveAgent(bus : Bus, cd : ClockDomain) {
         ptr += 1
       }
     }
-    accessAckDataImpl(source, dataPatched, denied, corrupt)
+    accessAckDataImpl(source, size, dataPatched, denied, corrupt)
   }
   def accessAckDataImpl(source : Int,
+                        size : Int,
                     data : Seq[Byte],
                     denied : Boolean = false,
                     corrupt : Boolean = false): Unit ={
-    val size = log2Up(data.size)
     driver.d.burst { push =>
       for (offset <- 0 until data.size by bus.p.dataBytes) {
         push { p =>

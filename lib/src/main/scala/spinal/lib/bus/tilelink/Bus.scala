@@ -143,7 +143,7 @@ abstract class BusFragment(val p : BusParameter) extends Bundle {
   def withAddress : Boolean
   def withData : Boolean
   def withMask : Boolean
-  def widthDenied : Boolean
+  def withDenied : Boolean
 }
 
 case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
@@ -173,7 +173,7 @@ case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
   def withAddress : Boolean = true
   def withData : Boolean = p.withDataA
   def withMask : Boolean = p.withDataA
-  def widthDenied : Boolean = false
+  def withDenied : Boolean = false
 }
 case class ChannelB(override val p : BusParameter) extends BusFragment(p) {
   val opcode  = Opcode.B()
@@ -193,7 +193,7 @@ case class ChannelB(override val p : BusParameter) extends BusFragment(p) {
   def withAddress : Boolean = true
   def withData : Boolean = p.withDataB
   def withMask : Boolean = p.withDataB
-  def widthDenied : Boolean = false
+  def withDenied : Boolean = false
 }
 case class ChannelC(override val p : BusParameter) extends BusFragment(p) {
   val opcode  = Opcode.C()
@@ -214,7 +214,7 @@ case class ChannelC(override val p : BusParameter) extends BusFragment(p) {
   def withAddress : Boolean = true
   def withData : Boolean = true
   def withMask : Boolean = false
-  def widthDenied : Boolean = false
+  def withDenied : Boolean = false
 }
 case class ChannelD(override val p : BusParameter) extends BusFragment(p) {
   val opcode  = Opcode.D()
@@ -241,7 +241,7 @@ case class ChannelD(override val p : BusParameter) extends BusFragment(p) {
   def withAddress : Boolean = true
   def withData : Boolean = p.withDataD
   def withMask : Boolean = false
-  def widthDenied : Boolean = true
+  def withDenied : Boolean = true
 }
 case class ChannelE(p : BusParameter) extends Bundle {
   val sink    = p.sink()

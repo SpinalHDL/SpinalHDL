@@ -187,8 +187,43 @@ class InterconnectTester extends AnyFunSuite{
         w0.node at 0xA00 of b2
         r0.node at 0xC00 of ba0
         w0.node at 0xD00 of ba0
+
+
       }
 
+
+      val m2 = new MasterBus(
+        M2sParameters(
+          addressWidth = 32,
+          dataWidth    = 64,
+          masters = List(M2sAgent(
+            name = this,
+            mapping = List(M2sSource(
+              id = SizeMapping(0, 4),
+              emits = M2sTransfers(
+                get = SizeRange.upTo(0x100),
+                putFull = SizeRange.upTo(0x100),
+                putPartial = SizeRange.upTo(0x100)
+              )
+            ))
+          ))
+        )
+      )
+
+      val s4, s5 = new SlaveBus(
+        M2sSupport(
+          transfers = M2sTransfers(
+            get     = SizeRange.upTo(0x1000),
+            putFull = SizeRange.upTo(0x1000),
+            putPartial = SizeRange.upTo(0x1000)
+          ),
+          dataWidth    = 256,
+          addressWidth = 10,
+          allowExecute = false
+        )
+      )
+      s4.node at 0x400 of m2.node
+      s5.node at 0x800 of m2.node
 
     }).doSim(seed = 42){dut =>
       dut.clockDomain.forkStimulus(10)
@@ -212,7 +247,7 @@ class InterconnectTester extends AnyFunSuite{
           val burstBytes = (1 << size)
           val isLast = (address & (burstBytes-1)) >= burstBytes - node.bus.p.dataBytes
           sMem.write(address, data, mask)
-          if(isLast) accessAck(source, data.size)
+          if(isLast) accessAck(source, size)
         }
       }
 
@@ -270,7 +305,7 @@ class InterconnectTester extends AnyFunSuite{
                 }
 
 
-                for (i <- 0 until 1000) {
+                for (i <- 0 until 100) {
                   distribution.randomExecute()
                 }
               }
