@@ -8,6 +8,7 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.sim._
 import spinal.lib._
+import spinal.lib.bus.tilelink
 import spinal.lib.sim.SparseMemory
 import spinal.lib.system.tag.MemoryConnection
 
@@ -35,6 +36,8 @@ class SlaveBus(m2sSupport : M2sSupport)(implicit ic : Interconnect) extends Area
 
 class InterconnectTester extends AnyFunSuite{
   test("Simple"){
+    tilelink.DebugId.setup(16)
+
     SimConfig.withFstWave.compile(new Component{
       implicit val interconnect = new Interconnect()
 
@@ -78,16 +81,17 @@ class InterconnectTester extends AnyFunSuite{
     }).doSim{dut =>
       dut.clockDomain.forkStimulus(10)
 
-      MemoryConnection.walk(dut.m0.node)
-
-      val m0 = new MasterAgent(dut.m0.node.bus, dut.clockDomain)
-
       for(node <- List(dut.s0.node, dut.s1.node)) new SlaveAgent(node.bus, dut.clockDomain){
         val mem = SparseMemory()
         override def onGet(source: Int, address: Long, bytes: Int) = {
           accessAckData(source, mem.readBytes(address, bytes))
         }
       }
+
+
+      MemoryConnection.walk(dut.m0.node)
+      val m0 = new MasterAgent(dut.m0.node.bus, dut.clockDomain)
+
 
       val data = m0.get(1, 0x30410, 4)(args => Unit)
       m0.get(1, 0x30410, 4)(args => Unit)

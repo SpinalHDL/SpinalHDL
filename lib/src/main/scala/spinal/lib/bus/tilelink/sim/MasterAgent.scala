@@ -321,6 +321,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
 
   def get(source : Int, address : Long, bytes : Int)
          (orderingBody : OrderingArgs => Unit) : Seq[Byte] = {
+    val debugId = DebugId.manager.allocate(orderingBody)
     ordering(source)(orderingBody)
     driver.a.single{p =>
       p.opcode  #= Opcode.A.GET
@@ -331,6 +332,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
       p.mask.randomize()
       p.data.randomize()
       p.corrupt.randomize()
+      if(p.debugId.getWidth != 0) p.debugId #= debugId
     }
 
     val mutex = SimMutex().lock()
@@ -355,6 +357,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
     }
     mutex.await()
     ordering.checkDone(source)
+    DebugId.manager.remove(debugId)
     data
   }
 

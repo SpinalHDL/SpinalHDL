@@ -2,6 +2,7 @@ package spinal.lib.bus.tilelink
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.tilelink.sim.OrderingManager
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -116,6 +117,19 @@ object ChannelE{
   def apply(node : NodeParameters) : ChannelE = ChannelE(node.toBusParameter())
 }
 
+object DebugId{
+  def apply() = UInt(width bits)
+  val width = new ScopeProperty[Int]{
+    override def default = 0
+  }
+  val manager = new ScopeProperty[OrderingManager]
+
+  def setup(width : Int) = {
+    assert(width > 8)
+    this.width.set(width)
+    manager.set(new OrderingManager(DebugId.width))
+  }
+}
 
 abstract class BusFragment(val p : BusParameter) extends Bundle {
   def size      : UInt
@@ -141,6 +155,8 @@ case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
   val mask    = p.withDataA generate p.mask()
   val data    = p.withDataA generate p.data()
   val corrupt = p.withDataA generate Bool()
+  val debugId = DebugId()
+
   override def withBeats = p.withDataA.mux(List(Opcode.A.PUT_FULL_DATA(), Opcode.A.PUT_PARTIAL_DATA()).sContains(opcode), False)
   def asNoData() : ChannelA = p.withDataA match {
     case false => CombInit(this)
@@ -168,6 +184,7 @@ case class ChannelB(override val p : BusParameter) extends BusFragment(p) {
   val mask    = p.withDataB generate p.mask()
   val data    = p.withDataB generate p.data()
   val corrupt = p.withDataB generate Bool()
+
   assert(!p.withDataB)
   override def withBeats = p.withDataB.mux(False, False) //TODO
   override def clone = ChannelB(p)
@@ -186,6 +203,7 @@ case class ChannelC(override val p : BusParameter) extends BusFragment(p) {
   val size    = p.size()
   val data    = p.data()
   val corrupt = Bool()
+
   def isProbeKind()   = opcode === Opcode.C.PROBE_ACK || opcode === Opcode.C.PROBE_ACK_DATA
   def isReleaseKind() = opcode === Opcode.C.RELEASE   || opcode === Opcode.C.RELEASE_DATA
   def isDataKind() = opcode === Opcode.C.PROBE_ACK_DATA   || opcode === Opcode.C.RELEASE_DATA
@@ -207,6 +225,7 @@ case class ChannelD(override val p : BusParameter) extends BusFragment(p) {
   val denied  = Bool()
   val data    = p.withDataD generate p.data()
   val corrupt = p.withDataD generate Bool()
+
   override def withBeats = p.withDataD.mux(List(Opcode.D.ACCESS_ACK_DATA(), Opcode.D.GRANT_DATA()).sContains(opcode), False)
   def withDontCareData(): ChannelD ={
     val ret = ChannelD(p.copy(withDataD = true))
@@ -215,7 +234,6 @@ case class ChannelD(override val p : BusParameter) extends BusFragment(p) {
     ret.corrupt.assignDontCare()
     ret
   }
-
 
   override def deniedNull = denied
   override def clone = ChannelD(p)
