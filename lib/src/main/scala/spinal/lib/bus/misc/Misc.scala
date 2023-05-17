@@ -43,6 +43,7 @@ trait AddressMapping{
   def applyOffset(addressOffset: BigInt): AddressMapping = withOffset(addressOffset)
   def withOffset(addressOffset: BigInt): AddressMapping = ???
   def width = log2Up(highestBound+1)
+  def foreach(body : BigInt => Unit) : Unit = ???
 }
 
 
@@ -55,6 +56,7 @@ case class SingleMapping(address : BigInt) extends AddressMapping{
   override def randomPick() : BigInt = address
   override def withOffset(addressOffset: BigInt): AddressMapping = SingleMapping(address + addressOffset)
   override def toString: String = s"Address 0x${address.toString(16)}"
+  override def foreach(body: BigInt => Unit) = body(address)
 }
 
 
@@ -148,6 +150,7 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
   override def randomPick() : BigInt = base + BigInt(log2Up(size), Random)
   override def withOffset(addressOffset: BigInt): AddressMapping = SizeMapping(base + addressOffset, size)
   def overlap(that : SizeMapping) = this.base < that.base + that.size && this.base + this.size > that.base
+  override def foreach(body: BigInt => Unit) = for(i <- 0 until size.toInt) body(base + i)
 
   override def toString: String = f"$base%x $size%x"
 }

@@ -317,8 +317,6 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
     b
   }
 
-
-
   def get(source : Int, address : Long, bytes : Int)
          (orderingBody : OrderingArgs => Unit) : Seq[Byte] = {
     val debugId = DebugId.manager.allocate(orderingBody)
@@ -340,7 +338,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
     var offset = 0
     val byteOffset = (address & (bus.p.dataBytes-1)).toInt
     monitor.d(source) = {d =>
-      assert(d.opcode.toEnum == Opcode.D.ACCESS_ACK_DATA)
+      assert(d.opcode.toEnum == Opcode.D.ACCESS_ACK_DATA, s"Unexpected transaction on $bus")
       val raw = d.data.toBytes
       for(i <- 0 until bus.p.dataBytes){
         val ptr = offset + i - byteOffset
@@ -471,6 +469,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
 
   def putPartialData(source : Int, address : Long, data : Seq[Byte], mask : Seq[Boolean])
                     (orderingBody : OrderingArgs => Unit) : Boolean = {
+    val debugId = DebugId.manager.allocate(orderingBody)
     ordering(source)(orderingBody)
     val size = log2Up(data.length)
     driver.a.burst { push =>
@@ -502,6 +501,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
           p.mask #= buf2
           p.data #= buf
           p.corrupt #= false
+          p.debugId #= debugId
         }
       }
     }
@@ -515,6 +515,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
     }
     mutex.await()
     ordering.checkDone(source)
+    DebugId.manager.remove(debugId)
     denied
   }
 }

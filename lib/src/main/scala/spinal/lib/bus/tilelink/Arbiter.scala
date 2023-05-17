@@ -20,12 +20,14 @@ case class Arbiter(inputsNodes : Seq[NodeParameters]) extends Component{
   }
 
   val sourceOffsetWidth = log2Up(inputsNodes.size)
-  val inputs = io.inputs.zipWithIndex.map{case (bus, id) => bus.withSourceOffset(id << sourceOffsetWidth, obp.m.sourceWidth)}
+  val perNodeSourceWidth = inputsNodes.map(_.m.sourceWidth).max
+  val inputs = io.inputs.zipWithIndex.map{case (bus, id) => bus.withSourceOffset(id << perNodeSourceWidth, obp.m.sourceWidth)}
 
   val a = new Area{
     val arbiter = StreamArbiterFactory().roundRobin.lambdaLock[ChannelA](_.isLast()).build(ChannelA(obp.toBusParameter()), inputsNodes.size)
     (arbiter.io.inputs, inputs).zipped.foreach(_ connectFromRelaxed _.a)
     arbiter.io.output >> io.output.a
+//    io.output.a.source(obp.m.sourceWidth-sourceOffsetWidth, sourceOffsetWidth bits) := arbiter.io.chosen
   }
 
   val b = obp.withBCE generate new Area{
@@ -42,6 +44,7 @@ case class Arbiter(inputsNodes : Seq[NodeParameters]) extends Component{
     val arbiter = StreamArbiterFactory().roundRobin.lambdaLock[ChannelC](_.isLast()).build(ChannelC(obp.toBusParameter()), inputsNodes.filter(_.withBCE).size)
     (arbiter.io.inputs, inputs.filter(_.p.withBCE)).zipped.foreach(_ << _.c)
     arbiter.io.output >> io.output.c
+//    io.output.c.source(obp.m.sourceWidth-sourceOffsetWidth, sourceOffsetWidth bits) := arbiter.io.chosen
   }
 
   val d = new Area{

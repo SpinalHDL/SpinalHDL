@@ -48,6 +48,7 @@ class InterconnectNode(i : Interconnect) extends Area with SpinalTagReady {
   val ups = ArrayBuffer[InterconnectConnection]()
   val downs = ArrayBuffer[InterconnectConnection]()
   val lock = Lock()
+  val clockDomain = ClockDomain.currentHandle
 
   val m2s = new Area{
     val proposed = Handle[M2sSupport]()
@@ -69,6 +70,8 @@ class InterconnectNode(i : Interconnect) extends Area with SpinalTagReady {
   var mode = InterconnectNodeMode.BOTH
   def setSlaveOnly() = {mode = InterconnectNodeMode.SLAVE; this}
   def setMasterOnly() = {mode = InterconnectNodeMode.MASTER; this}
+  def isSlaveOnly() = mode == InterconnectNodeMode.SLAVE
+  def isMasterOnly() = mode == InterconnectNodeMode.MASTER
 
   def <<(m : InterconnectNode): InterconnectConnection = {
     this at DefaultMapping of m
@@ -106,12 +109,12 @@ class InterconnectAdapterCc extends InterconnectAdapter{
   var cDepth = 8
   var dDepth = 8
   var eDepth = 8
-  override def isRequired(c : InterconnectConnection) = c.m.rework(ClockDomain.current).clock != c.s.rework(ClockDomain.current).clock
+  override def isRequired(c : InterconnectConnection) = c.m.clockDomain.clock != c.s.clockDomain.clock
   override def build(c : InterconnectConnection)(m: Bus) : Bus = {
     val cc = FifoCc(
       busParameter = m.p,
-      inputCd      = c.m.rework(ClockDomain.current),
-      outputCd     = c.s.rework(ClockDomain.current),
+      inputCd      = c.m.clockDomain,
+      outputCd     = c.s.clockDomain,
       aDepth       = aDepth,
       bDepth       = bDepth,
       cDepth       = cDepth,

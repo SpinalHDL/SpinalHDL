@@ -44,7 +44,7 @@ object CoherentHubTesterUtils{
 
     val downs = for(down <- downBuses) yield new Area{
       val agent = new SlaveAgent(down, cd){
-        override def onGet(source: Int, address: Long, bytes: Int) = {
+        override def onGet(debugId : Long, source: Int, address: Long, bytes: Int) = {
           val alignedAddr = address & ~(down.p.dataBytes-1)
           val alignedBytes = bytes max down.p.dataBytes
           val data = mainMem.readBytes(alignedAddr, alignedBytes)
@@ -53,7 +53,7 @@ object CoherentHubTesterUtils{
               data(i) = Random.nextInt().toByte
             }
           }
-          accessAckData(
+          accessAckDataImpl(
             source = source,
             data = data
           )

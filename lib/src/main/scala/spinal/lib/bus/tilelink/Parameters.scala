@@ -4,6 +4,8 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.AddressMapping
 
+import scala.util.Random
+
 
 
 case class BusParameter(addressWidth : Int,
@@ -67,6 +69,12 @@ case class SizeRange(min : Int, max : Int){
     } else {
       SizeRange(scala.math.min(min, x.min), scala.math.max(max, x.max))
     }
+  }
+
+  def random(randMax : Int) : Int = {
+    val min = log2Up(this.min)
+    val max = log2Up(this.max min randMax)
+    1 << (min + Random.nextInt(max+1-min))
   }
 
   override def toString() = "TransferSupport[%d, %d]".format(min, max)
