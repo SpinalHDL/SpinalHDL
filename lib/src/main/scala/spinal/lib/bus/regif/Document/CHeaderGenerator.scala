@@ -67,7 +67,7 @@ final case class CHeaderGenerator(
                    |  * @brief       ${reg.getDoc().replace("\n","\\n")}
                    |  */
                    |typedef union {
-                   |    u32 val;
+                   |    ${regType} val;
                    |    struct {
                    |        ${fdUnion(" " * 8)}
                    |    } reg;
