@@ -41,7 +41,7 @@ object SmtBmcSolver extends Enumeration {
    */
   val mathsat = Value("mathsat")
   val cvc4 = Value("cvc4")
-  /**cvc5: is untested
+  /** cvc5: is untested
    */
   val cvc5 = Value("cvc5")
 }
