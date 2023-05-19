@@ -630,7 +630,7 @@ object Debug3 extends App{
       override def hasNetlistImpact = true
     })
   ).withFstWave.compile(new Component {
-    val counter = Reg(UInt(8 bits)) init(0) simPublic()
+    val counter = Reg(UInt(8 bits)).init(0).simPublic()
     counter := counter + 1
     val result = out(CombInit(counter))
     val bypass = simBypass(counter)
