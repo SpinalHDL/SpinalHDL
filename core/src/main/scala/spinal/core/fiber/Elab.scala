@@ -8,6 +8,7 @@ import scala.collection.mutable.ArrayBuffer
 object ElabOrderId{
   val SETUP = 0
   val BUILD = 1000000
+  val CHECK = 2000000
 }
 
 object Elab {
@@ -16,6 +17,7 @@ object Elab {
   }
   def setup[T](body : => T) : Handle[T] = apply(ElabOrderId.SETUP)(body)
   def build[T](body : => T) : Handle[T] = apply(ElabOrderId.BUILD)(body)
+  def check[T](body : => T) : Handle[T] = apply(ElabOrderId.CHECK)(body)
 }
 
 class Elab {
