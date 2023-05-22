@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.misc.AddressMapping
+import spinal.lib.bus.misc.{AddressMapping, DefaultMapping}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -72,7 +72,15 @@ case class Decoder(inputNode : NodeParameters, outputsSupports : Seq[M2sSupport]
 
   val b = inputNode.withBCE generate new Area{
     val arbiter = StreamArbiterFactory().roundRobin.lambdaLock[ChannelB](_.isLast()).build(ChannelB(inputNode), outputsNodes.filter(_.withBCE).size)
-    (arbiter.io.inputs, outputs.filter(_.p.withBCE)).zipped.foreach(_ << _.b)
+    for(i <- 0 until outputsSupports.size if outputsNodes(i).withBCE){
+      arbiter.io.inputs(i) << outputs(i).b
+
+      val base = mapping(i) match{
+        case DefaultMapping => BigInt(0)
+        case v => v.lowerBound
+      }
+      arbiter.io.inputs(i).address.removeAssignments() := outputs(i).b.address.resize(inputNode.m.addressWidth) | base
+    }
     arbiter.io.output >> io.input.b
   }
 
@@ -82,6 +90,7 @@ case class Decoder(inputNode : NodeParameters, outputsSupports : Seq[M2sSupport]
       val hit = mapping(id).hit(io.input.c.address)
       s.c.valid := io.input.c.valid && hit
       s.c.payload := io.input.c.payload
+      s.c.address.removeAssignments() := io.input.c.address.resized
       readys += s.a.ready && hit
     }
     io.input.c.ready := readys.orR
@@ -96,7 +105,7 @@ case class Decoder(inputNode : NodeParameters, outputsSupports : Seq[M2sSupport]
 
   val e = inputNode.withBCE generate new Area{
     val sel = io.input.d.sink.takeHigh(sinkOffsetWidth).asUInt
-    io.input.d.ready := outputs.map(v => if(v.p.withBCE) v.e.ready else False).read(sel)
+    io.input.e.ready := outputs.map(v => if(v.p.withBCE) v.e.ready else False).read(sel)
     for((s, id) <- outputs.zipWithIndex if s.p.withBCE) {
       val hit = sel === id
       s.e.valid := io.input.e.valid && hit

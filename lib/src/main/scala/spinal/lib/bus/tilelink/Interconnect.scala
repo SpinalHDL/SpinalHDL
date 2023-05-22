@@ -326,6 +326,7 @@ class Interconnect extends Area{
         val p = NodeParameters(n.m2s.parameters, n.s2m.parameters).toBusParameter()
         n.bus.load(Bus(p))
 
+        //TODO skip arbiter component if not needed
         val arbiter = (n.mode != InterconnectNodeMode.MASTER) generate new Area {
           val core = Arbiter(n.ups.map(up => NodeParameters(
             m = up.arbiter.m2s.parameters,
@@ -335,6 +336,7 @@ class Interconnect extends Area{
           val connection = n.arbiterConnector(n.bus, core.io.output)
         }
 
+        //TODO skip decoder component if not needed
         val decoder = (n.mode != InterconnectNodeMode.SLAVE) generate new Area {
           val core = Decoder(n.bus.p.node, n.downs.map(_.s.m2s.supported), n.downs.map(_.getMapping()))
           (n.downs, core.io.outputs.map(_.combStage())).zipped.foreach(_.decoder.bus.load(_))

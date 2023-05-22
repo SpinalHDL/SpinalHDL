@@ -31,8 +31,8 @@ case class Arbiter(inputsNodes : Seq[NodeParameters]) extends Component{
   }
 
   val b = obp.withBCE generate new Area{
-    val sel = io.output.d.source.takeHigh(sourceOffsetWidth).asUInt
-    io.output.d.ready := inputs.map(e => if(e.p.withBCE) e.b.ready else False).read(sel)
+    val sel = io.output.b.source.takeHigh(sourceOffsetWidth).asUInt
+    io.output.b.ready := inputs.map(e => if(e.p.withBCE) e.b.ready else False).read(sel)
     for((s, id) <- inputs.zipWithIndex if s.p.withBCE) {
       val hit = sel === id
       s.b.valid := io.output.b.valid && hit

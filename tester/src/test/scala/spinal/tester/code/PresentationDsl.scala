@@ -726,3 +726,24 @@ object Main6 extends App{
     }
   )
 }
+
+
+
+////////////////////////////////////////////
+
+object Main100 extends App{
+  import spinal.core._
+  import spinal.lib._
+  SpinalVerilog(
+    new Module {
+      val a,b,c = out UInt(8 bits)
+      val array = ArrayBuffer[UInt]()
+      array += a
+      array += b
+      array += c
+      for(element <- array){
+        element := 0
+      }
+    }
+  )
+}

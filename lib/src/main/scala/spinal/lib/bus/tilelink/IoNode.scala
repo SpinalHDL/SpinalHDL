@@ -19,7 +19,7 @@ class SlaveBus(m2sSupport : M2sSupport)(implicit ic : Interconnect) extends Area
   val node = ic.createSlave()
   val logic = Elab build new Area {
     node.s2m.none() //We do not want to implement memory coherency
-    node.m2s.supported.load(m2sSupport)
+    node.m2s.supported.load(m2sSupport.copy(transfers = node.m2s.proposed.transfers.intersect(m2sSupport.transfers)))
     master(node.bus)
   }
 }
