@@ -22,9 +22,90 @@ import scala.util.Random
 
 
 class InterconnectTester extends AnyFunSuite{
+  def testInterconnect(interconnect: Interconnect): Unit ={
+    val nodeToModel = mutable.LinkedHashMap[InterconnectNode, SparseMemory]()
+    val slaveNodes = interconnect.nodes.filter(_.isSlaveOnly())
+    val masterNodes = interconnect.nodes.filter(_.isMasterOnly())
+
+    for(node <- slaveNodes) {
+      val model = new SlaveRam(node.bus, node.clockDomain)
+      nodeToModel(node) = SparseMemory(model.mem.seed)
+    }
+
+    val masterSpecs = masterNodes.map(n => {
+      val mappings = ArrayBuffer[Mapping]()
+      MemoryConnection.walk(n) { (s, addr, size) =>
+        s match {
+          case n: InterconnectNode => {
+            nodeToModel.get(n) match {
+              case Some(m) => mappings += Mapping(n.m2s.supported, SizeMapping(addr, size), m)
+              case None =>
+            }
+          }
+        }
+      }
+      MasterSpec(n.bus, n.clockDomain, mappings)
+    })
+
+    val mastersStuff = for(m <- masterSpecs) yield new Area{
+      val agent = new MasterAgent(m.bus, m.cd)
+      val tester = new MasterTester(m, agent)
+      tester.startPerSource(100)
+    }
+
+    mastersStuff.foreach(_.tester.join())
+  }
 
 
   test("Simple"){
+    tilelink.DebugId.setup(16)
+    SimConfig.withFstWave.compile(new Component{
+      implicit val interconnect = new Interconnect()
+
+      val m0, m1 = new MasterBus(
+        M2sParameters(
+          addressWidth = 32,
+          dataWidth = 32,
+          masters = List(M2sAgent(
+            name = this,
+            mapping = List(M2sSource(
+              id = SizeMapping(0, 4),
+              emits = M2sTransfers(
+                get = SizeRange.upTo(0x40),
+                putFull = SizeRange.upTo(0x40),
+                putPartial = SizeRange.upTo(0x40)
+              )
+            ))
+          ))
+        )
+      )
+
+      val s0 = new SlaveBus(
+        M2sSupport(
+          transfers = M2sTransfers(
+            get = SizeRange.upTo(0x1000),
+            putFull = SizeRange.upTo(0x1000),
+            putPartial = SizeRange.upTo(0x1000)
+          ),
+          dataWidth = 32,
+          addressWidth = 8,
+          allowExecute = false
+        )
+      )
+
+      val b0 = interconnect.createNode()
+
+      b0 << m0.node
+      b0 << m1.node
+
+      s0.node at 0x200 of b0
+    }).doSim(seed = 42){dut =>
+      dut.clockDomain.forkStimulus(10)
+      testInterconnect(dut.interconnect)
+    }
+  }
+
+  test("Advanced"){
     tilelink.DebugId.setup(16)
 
     SimConfig.withFstWave.compile(new Component{
@@ -208,38 +289,7 @@ class InterconnectTester extends AnyFunSuite{
     }).doSim(seed = 42){dut =>
       dut.clockDomain.forkStimulus(10)
       dut.cdA.forkStimulus(25)
-
-      val nodeToModel = mutable.LinkedHashMap[InterconnectNode, SparseMemory]()
-      val slaveNodes = dut.interconnect.nodes.filter(_.isSlaveOnly())
-      val masterNodes = dut.interconnect.nodes.filter(_.isMasterOnly())
-
-      for(node <- slaveNodes) {
-        val model = new SlaveRam(node.bus, node.clockDomain)
-        nodeToModel(node) = SparseMemory(model.mem.seed)
-      }
-
-      val masterSpecs = masterNodes.map(n => {
-        val mappings = ArrayBuffer[Mapping]()
-        MemoryConnection.walk(n) { (s, addr, size) =>
-          s match {
-            case n: InterconnectNode => {
-              nodeToModel.get(n) match {
-                case Some(m) => mappings += Mapping(n.m2s.supported, SizeMapping(addr, size), m)
-                case None =>
-              }
-            }
-          }
-        }
-        MasterSpec(n.bus, n.clockDomain, mappings)
-      })
-
-      val mastersStuff = for(m <- masterSpecs) yield new Area{
-        val agent = new MasterAgent(m.bus, m.cd)
-        val tester = new MasterTester(m, agent)
-        tester.startPerSource(100)
-      }
-
-      mastersStuff.foreach(_.tester.join())
+      testInterconnect(dut.interconnect)
     }
   }
 }

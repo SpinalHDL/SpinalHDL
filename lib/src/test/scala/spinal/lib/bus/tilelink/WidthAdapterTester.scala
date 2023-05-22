@@ -29,9 +29,9 @@ class WidthAdapterTester extends AnyFunSuite{
               M2sSource(
                 id = SizeMapping(0, 16),
                 emits = M2sTransfers(
-                  get = SizeRange(1, 256),
-                  putFull = SizeRange(1, 256),
-                  putPartial = SizeRange(1, 256)
+                  get = SizeRange.upTo(256),
+                  putFull = SizeRange.upTo(256),
+                  putPartial = SizeRange.upTo(256)
                 )
               )
             )
