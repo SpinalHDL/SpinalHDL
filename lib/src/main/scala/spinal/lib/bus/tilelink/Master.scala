@@ -160,5 +160,11 @@ case class M2sParameters(addressWidth : Int,
   def remapSources(f : M2sSource => M2sSource) = {
     copy(masters = masters.map(_.remapSources(f)))
   }
+  def toSupport() = new M2sSupport(
+    transfers    = emits,
+    addressWidth = addressWidth,
+    dataWidth    = dataWidth,
+    allowExecute = withExecute
+  )
 }
 

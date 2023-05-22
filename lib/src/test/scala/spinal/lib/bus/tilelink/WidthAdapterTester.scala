@@ -6,42 +6,67 @@ import spinal.core.fiber.{Elab, hardFork}
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink.sim._
 import spinal.lib.sim.SparseMemory
 import spinal.lib.system.tag.MemoryConnection
+
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 
 
 class WidthAdapterTester extends AnyFunSuite{
   def bp(dataWidth : Int)={
-    BusParameter(
-      addressWidth = 10,
-      dataWidth    = dataWidth,
-      sizeBytes    = 64,
-      sourceWidth  = 4,
-      sinkWidth    = 0,
-      withBCE      = false, //TODO
-      withDataA    = true,
-      withDataB    = true,
-      withDataD    = true,
-      node = null
-    )
+    NodeParameters(
+      m = M2sParameters(
+        addressWidth = 10,
+        dataWidth = dataWidth,
+        masters = List(
+          M2sAgent(
+            name = null,
+            mapping = List(
+              M2sSource(
+                id = SizeMapping(0, 16),
+                emits = M2sTransfers(
+                  get = SizeRange(1, 256),
+                  putFull = SizeRange(1, 256),
+                  putPartial = SizeRange(1, 256)
+                )
+              )
+            )
+          )
+        )
+      ),
+      s = S2mParameters(
+        slaves = Nil
+      )
+    ).toBusParameter()
   }
 
   def testOn(inputWidth : Int, outputWidth : Int): Unit ={
     test(s"$inputWidth-$outputWidth"){
+      tilelink.DebugId.setup(16)
       SimConfig.withFstWave.compile(new WidthAdapter(
         ip = bp(inputWidth),
         op = bp(outputWidth),
         ctxBuffer = ContextAsyncBufferFull
       )).doSim{dut =>
-        dut.clockDomain.forkStimulus(10)
+        new BridgeTestbench(
+          dut.io.input,
+          dut.io.output,
+          dut.clockDomain
+        ).testPerSource(100)
       }
     }
   }
 
-  testOn(16, 16)
-  testOn(16, 64)
-  testOn(64, 16)
 
+  for(
+    iw <- List(16, 32, 64);
+    ow <- List(16, 32, 64);
+    if !(iw == ow && iw != 32)
+  ){
+    testOn(iw, ow)
+  }
 }

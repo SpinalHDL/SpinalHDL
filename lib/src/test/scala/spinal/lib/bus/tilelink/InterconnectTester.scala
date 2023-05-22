@@ -17,25 +17,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
-//While create a interconnect master as an io of the toplevel
-class MasterBus(p : M2sParameters)(implicit ic : Interconnect) extends Area{
-  val node = ic.createMaster()
-  val logic = Elab build new Area{
-    node.m2s.parameters.load(p)
-    node.m2s.setProposedFromParameters() //Here, we just ignore the negotiation phase
-    slave(node.bus)
-  }
-}
 
-//While create a interconnect slave as an io of the toplevel
-class SlaveBus(m2sSupport : M2sSupport)(implicit ic : Interconnect) extends Area{
-  val node = ic.createSlave()
-  val logic = Elab build new Area {
-    node.s2m.none() //We do not want to implement memory coherency
-    node.m2s.supported.load(m2sSupport)
-    master(node.bus)
-  }
-}
 
 
 
@@ -187,8 +169,6 @@ class InterconnectTester extends AnyFunSuite{
         w0.node at 0xA00 of b2
         r0.node at 0xC00 of ba0
         w0.node at 0xD00 of ba0
-
-
       }
 
 
@@ -229,92 +209,37 @@ class InterconnectTester extends AnyFunSuite{
       dut.clockDomain.forkStimulus(10)
       dut.cdA.forkStimulus(25)
 
-
-      val nodeToGmem = mutable.LinkedHashMap[InterconnectNode, SparseMemory]()
+      val nodeToModel = mutable.LinkedHashMap[InterconnectNode, SparseMemory]()
       val slaveNodes = dut.interconnect.nodes.filter(_.isSlaveOnly())
       val masterNodes = dut.interconnect.nodes.filter(_.isMasterOnly())
 
-      for(node <-slaveNodes) new SlaveAgent(node.bus, node.clockDomain){
-        val gMem = SparseMemory()
-        val sMem = SparseMemory(gMem.seed)
-        nodeToGmem(node) = gMem
-
-        override def onGet(debugId : Long, source: Int, address: Long, bytes: Int) = {
-          accessAckData(source, address, sMem.readBytes(address, bytes))
-        }
-
-        override def onPutPartialData(source: Int, address: Long, size: Int, mask: Array[Boolean], data: Array[Byte]) = {
-          val burstBytes = (1 << size)
-          val isLast = (address & (burstBytes-1)) >= burstBytes - node.bus.p.dataBytes
-          sMem.write(address, data, mask)
-          if(isLast) accessAck(source, size)
-        }
+      for(node <- slaveNodes) {
+        val model = new SlaveRam(node.bus, node.clockDomain)
+        nodeToModel(node) = SparseMemory(model.mem.seed)
       }
 
-      val threads = ArrayBuffer[SimThread]()
-      for(m <- masterNodes){
-        case class Mapping(node : InterconnectNode, mapping : SizeMapping)
-        val slaves = ArrayBuffer[Mapping]()
-        MemoryConnection.walk(m){(s, addr, size) =>
-          if(slaveNodes.contains(s)) {
-            slaves += Mapping(s.asInstanceOf[InterconnectNode], SizeMapping(addr, size))
-          }
-        }
-        val agent = new MasterAgent(m.bus, m.clockDomain)
-
-        for(masterParam <- m.m2s.parameters.masters) {
-          for (source <- masterParam.mapping) {
-            source.id.foreach { sourceIdBI =>
-              val sourceId = sourceIdBI.toInt
-              threads += fork {
-                val distribution = new WeightedDistribution[Unit]()
-                val slavesWithGet = slaves.filter(_.node.m2s.parameters.emits.get.some)
-                distribution(10){
-                  val s = slavesWithGet.randomPick()
-                  val sizeMax = s.mapping.size.toInt
-                  val bytes = source.emits.get.random(randMax = sizeMax)
-                  val addressLocal = bytes*Random.nextInt(sizeMax/bytes)
-                  val address = s.mapping.base.toLong + addressLocal
-                  val gMem = nodeToGmem(s.node)
-                  var ref = new Array[Byte](bytes)
-
-                  val orderingCompletion = new OrderingCtrl(bytes)
-                  val data = agent.get(sourceId, address, bytes) { args =>
-                    gMem.readBytes(args.address toLong, args.bytes, ref, args.address-addressLocal toInt)
-                    orderingCompletion -=(args.address-addressLocal toInt, args.bytes)
-                  }
-                  assert(orderingCompletion.empty)
-                  assert((data, ref).zipped.forall(_ == _))
-                }
-                val slavesWithPutPartial = slaves.filter(_.node.m2s.parameters.emits.putPartial.some)
-                distribution(10){
-                  val s = slavesWithPutPartial.randomPick()
-                  val sizeMax = s.mapping.size.toInt
-                  val bytes = source.emits.putPartial.random(randMax = sizeMax)
-                  val addressLocal = bytes*Random.nextInt(sizeMax/bytes)
-                  val address = s.mapping.base.toLong + addressLocal
-                  val data = Array.fill[Byte](bytes)(Random.nextInt().toByte)
-                  val mask = Array.fill[Boolean](bytes)(Random.nextInt(2).toBoolean)
-                  val gMem = nodeToGmem(s.node)
-                  val orderingCompletion = new OrderingCtrl(bytes)
-                  assert(!agent.putPartialData(sourceId, address, data, mask){ args =>
-                    gMem.write(args.address toLong, data, mask, args.bytes, args.address-addressLocal toInt)
-                    orderingCompletion -=(args.address-addressLocal toInt, args.bytes)
-                  })
-                  assert(orderingCompletion.empty)
-                }
-
-
-                for (i <- 0 until 100) {
-                  distribution.randomExecute()
-                }
+      val masterSpecs = masterNodes.map(n => {
+        val mappings = ArrayBuffer[Mapping]()
+        MemoryConnection.walk(n) { (s, addr, size) =>
+          s match {
+            case n: InterconnectNode => {
+              nodeToModel.get(n) match {
+                case Some(m) => mappings += Mapping(n.m2s.supported, SizeMapping(addr, size), m)
+                case None =>
               }
             }
           }
         }
+        MasterSpec(n.bus, n.clockDomain, mappings)
+      })
+
+      val mastersStuff = for(m <- masterSpecs) yield new Area{
+        val agent = new MasterAgent(m.bus, m.cd)
+        val tester = new MasterTester(m, agent)
+        tester.startPerSource(100)
       }
 
-      threads.foreach(_.join())
+      mastersStuff.foreach(_.tester.join())
     }
   }
 }
