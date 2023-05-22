@@ -115,6 +115,7 @@ class InterconnectAdapterCc extends InterconnectAdapter{
   var dDepth = 8
   var eDepth = 8
 
+  var cc = Option.empty[FifoCc]
   override def isRequired(c : InterconnectConnection) = c.m.clockDomain.clock != c.s.clockDomain.clock
   override def build(c : InterconnectConnection)(m: Bus) : Bus = {
     val cc = FifoCc(
@@ -127,12 +128,16 @@ class InterconnectAdapterCc extends InterconnectAdapter{
       dDepth       = dDepth,
       eDepth       = eDepth
     )
+    cc.setLambdaName(c.m.isNamed && c.s.isNamed)(s"${c.m.getName()}_to_${c.s.getName()}_cc")
+    this.cc = Some(cc)
     cc.io.input << m
     cc.io.output
   }
 }
 
 class InterconnectAdapterWidth extends InterconnectAdapter{
+  var adapter = Option.empty[WidthAdapter]
+
   override def isRequired(c : InterconnectConnection) = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
   override def build(c : InterconnectConnection)(m: Bus) : Bus = {
     val adapter = new WidthAdapter(
@@ -140,6 +145,8 @@ class InterconnectAdapterWidth extends InterconnectAdapter{
       op = m.p.copy(dataWidth = c.s.m2s.parameters.dataWidth),
       ctxBuffer = ContextAsyncBufferFull
     )
+    adapter.setLambdaName(c.m.isNamed && c.s.isNamed)(s"${c.m.getName()}_to_${c.s.getName()}_widthAdapter")
+    this.adapter = Some(adapter)
     adapter.io.input << m
     adapter.io.output
   }
