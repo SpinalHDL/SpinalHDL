@@ -50,6 +50,11 @@ class InterconnectNode(i : Interconnect) extends Area with SpinalTagReady {
   val lock = Lock()
   val clockDomain = ClockDomain.currentHandle
 
+  var arbiterConnector : (Bus, Bus) => Any = (s, m) => s << m
+  var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
+  def setArbiterConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
+  def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
+
   val m2s = new Area{
     val proposed = Handle[M2sSupport]()
     val supported = Handle[M2sSupport]()
@@ -230,6 +235,10 @@ class Interconnect extends Area{
     c
   }
 
+  def getConnection(m : InterconnectNode, s : InterconnectNode) : InterconnectConnection = {
+    connections.find(c => c.m == m && c.s == s).get
+  }
+
   val gen = Elab build new Area{
     lock.await()
     var error = false
@@ -248,7 +257,7 @@ class Interconnect extends Area{
     }
     if(error) SpinalError("Failed")
 
-    val threads = for(n <- nodes) hardFork on new Composite(n, "thread"){
+    @DontName val threads = for(n <- nodes) yield hardFork on new Composite(n, "thread", false){
       // Specify which Handle will be loaded by the current thread, as this help provide automated error messages
       soon(n.ups.map(_.arbiter.bus) :_*)
       soon(n.downs.map(_.decoder.bus) :_*)
@@ -310,7 +319,7 @@ class Interconnect extends Area{
       }
 
       // Start hardware generation from that point
-      val gen = n rework new Area {
+      val gen = n rework new Composite(n, weak = false) {
         // Generate the node bus
         val p = NodeParameters(n.m2s.parameters, n.s2m.parameters).toBusParameter()
         n.bus.load(Bus(p))
@@ -320,16 +329,14 @@ class Interconnect extends Area{
             m = up.arbiter.m2s.parameters,
             s = up.arbiter.s2m.parameters
           )))
-          core.setCompositeName(n.bus, "arbiter")
           (n.ups, core.io.inputs.map(_.fromCombStage())).zipped.foreach(_.arbiter.bus.load(_))
-          n.bus << core.io.output
+          val connection = n.arbiterConnector(n.bus, core.io.output)
         }
 
         val decoder = (n.mode != InterconnectNodeMode.SLAVE) generate new Area {
           val core = Decoder(n.bus.p.node, n.downs.map(_.s.m2s.supported), n.downs.map(_.getMapping()))
-          core.setCompositeName(n.bus, "decoder")
           (n.downs, core.io.outputs.map(_.combStage())).zipped.foreach(_.decoder.bus.load(_))
-          core.io.input << n.bus
+          val connection = n.decoderConnector(core.io.input, n.bus)
         }
       }
     }
