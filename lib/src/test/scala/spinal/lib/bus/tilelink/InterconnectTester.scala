@@ -143,17 +143,19 @@ class InterconnectTester extends AnyFunSuite{
       val b0 = interconnect.createNode()
       b0 << m0.node
 
-      val c = interconnect.getConnection(m0.node, b0)
 
       b0.setDecoderConnection { (s, m) =>
         new Area {
           println("wuff")
           val miaou = False
-          m >> s
+          s.connectFrom(m)(a = StreamPipe.M2S, d = StreamPipe.FULL)
         }
       }
 
       s0.node at 0x1000 of b0
+
+      val c = interconnect.getConnection(s0.node, b0)
+
     }).doSim(seed = 42){dut =>
       dut.clockDomain.forkStimulus(10)
       testInterconnect(dut.interconnect)

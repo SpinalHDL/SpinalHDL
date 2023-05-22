@@ -114,6 +114,7 @@ class InterconnectAdapterCc extends InterconnectAdapter{
   var cDepth = 8
   var dDepth = 8
   var eDepth = 8
+
   override def isRequired(c : InterconnectConnection) = c.m.clockDomain.clock != c.s.clockDomain.clock
   override def build(c : InterconnectConnection)(m: Bus) : Bus = {
     val cc = FifoCc(
@@ -132,11 +133,6 @@ class InterconnectAdapterCc extends InterconnectAdapter{
 }
 
 class InterconnectAdapterWidth extends InterconnectAdapter{
-  var aDepth = 8
-  var bDepth = 8
-  var cDepth = 8
-  var dDepth = 8
-  var eDepth = 8
   override def isRequired(c : InterconnectConnection) = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
   override def build(c : InterconnectConnection)(m: Bus) : Bus = {
     val adapter = new WidthAdapter(
@@ -204,7 +200,6 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
     arbiter.m2s.parameters.load(s.m2s.supported join decoder.m2s.parameters)
     decoder.s2m.parameters.load(arbiter.s2m.parameters) //TODO
 
-//    if(decoder.bus.p.dataBytes != arbiter.bus.p.dataBytes) PendingError("Tilelink interconnect does not support resized yet")
     var ptr = decoder.bus.get
     for(adapter <- adapters){
       if(adapter.isRequired(InterconnectConnection.this)){
@@ -235,7 +230,7 @@ class Interconnect extends Area{
     c
   }
 
-  def getConnection(m : InterconnectNode, s : InterconnectNode) : InterconnectConnection = {
+  def getConnection(s : InterconnectNode, m : InterconnectNode) : InterconnectConnection = {
     connections.find(c => c.m == m && c.s == s).get
   }
 

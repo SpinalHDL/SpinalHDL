@@ -274,6 +274,23 @@ case class Bus(p : BusParameter) extends Bundle with IMasterSlave{
   }
   def >>(s : Bus): Unit = s << this
 
+  def connectFrom(m : Bus)(
+    a: StreamPipe = StreamPipe.NONE,
+    b: StreamPipe = StreamPipe.NONE,
+    c: StreamPipe = StreamPipe.NONE,
+    d: StreamPipe = StreamPipe.NONE,
+    e: StreamPipe = StreamPipe.NONE
+  ) : Unit = {
+    val s = this
+    s.a << a(m.a)
+    m.d << d(s.d)
+    if(p.withBCE){
+      m.b << b(s.b)
+      s.c << c(m.c)
+      s.e << e(m.e)
+    }
+  }
+
   def combStage() : Bus = {
     val ret = Bus(p)
     ret << this
