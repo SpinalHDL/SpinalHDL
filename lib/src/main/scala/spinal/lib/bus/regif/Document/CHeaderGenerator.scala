@@ -27,9 +27,9 @@ final case class CHeaderGenerator(
     val regs : mutable.ListBuffer[RegDescr] = mutable.ListBuffer[RegDescr]()
     val types : mutable.ListBuffer[Type] = mutable.ListBuffer[Type]()
     var regLength : Int = 0
-
+    private var dataWidth : Int = 32
     def begin(busDataWidth : Int) : Unit = {
-
+        dataWidth = busDataWidth
     }
 
     def visit(descr : BaseDescriptor) : Unit = {
@@ -117,6 +117,7 @@ final case class CHeaderGenerator(
                     case `W1S`|`W1C`|`W1T`|`W1P`|`W1CRS`|`W1SRC` => s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}""".stripMargin
                     case `W0S`|`W0C`|`W0T`|`W0P`|`W0CRS`|`W0SRC` => s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}""".stripMargin
                     case _ => {
+                        if(fd.getSection().size == dataWidth) "" else
                         s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}
                            |#define ${pre}_${fd.getName().toUpperCase()}_MASK  ${_tab}0x${mask.hexString(32)} //${fd.getAccessType()}, ${fd.getWidth()} bit""".stripMargin
                     }
