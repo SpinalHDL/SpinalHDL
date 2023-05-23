@@ -10,7 +10,7 @@ import spinal.lib.bus.tilelink.sim._
 import spinal.lib._
 import spinal.lib.bus.tilelink
 import spinal.lib.sim.SparseMemory
-import spinal.lib.system.tag.MemoryConnection
+import spinal.lib.system.tag.{MemoryConnection, PMA}
 import spinal.sim.SimThread
 
 import scala.collection.mutable
@@ -34,11 +34,11 @@ class InterconnectTester extends AnyFunSuite{
 
     val masterSpecs = masterNodes.map(n => {
       val mappings = ArrayBuffer[Mapping]()
-      MemoryConnection.walk(n) { (s, addr, size) =>
-        s match {
+      MemoryConnection.walk(n) { s =>
+        s.node match {
           case n: InterconnectNode => {
             nodeToModel.get(n) match {
-              case Some(m) => mappings += Mapping(n.m2s.supported, SizeMapping(addr, size), m)
+              case Some(m) => mappings += Mapping(n.m2s.supported, SizeMapping(s.address, s.size), m)
               case None =>
             }
           }
@@ -238,6 +238,43 @@ class InterconnectTester extends AnyFunSuite{
     }).doSim(seed = 42){dut =>
 //      dut.clockDomain.forkStimulus(10)
 //      testInterconnect(dut.interconnect)
+    }
+  }
+
+  test("scanRegions"){
+    tilelink.DebugId.setup(16)
+    SimConfig.withFstWave.compile(new Component{
+      implicit val interconnect = new Interconnect()
+      val m0 = simpleMaster(readWrite)
+      val s0, s1 = simpleSlave(addressWidth = 10)
+      val b0 = interconnect.createNode()
+      b0 at 0xE0000 of m0.node
+      s0.node at 0x1000 of b0
+      s1.node at 0x2000 of b0
+
+      s0.node.addTag(PMA.VOLATILE)
+      s1.node.addTag(PMA.CACHED)
+
+      Elab build {
+        var hits = 0
+        MemoryConnection.walk(m0.node) { w =>
+          w.node match {
+            case s0.node =>
+              hits += 1
+              assert(w.address == 0xE0000 + 0x1000)
+              assert(w.size == 0x400)
+            case s1.node =>
+              hits += 1
+              assert(w.address == 0xE0000 + 0x2000)
+              assert(w.size == 0x400)
+            case _ =>
+          }
+        }
+        assert(hits == 2)
+      }
+    }).doSim(seed = 42){dut =>
+      //      dut.clockDomain.forkStimulus(10)
+      //      testInterconnect(dut.interconnect)
     }
   }
 

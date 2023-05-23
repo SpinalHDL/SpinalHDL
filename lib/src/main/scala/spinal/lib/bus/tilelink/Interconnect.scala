@@ -156,6 +156,15 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
   m.downs += this
   s.ups += this
 
+  val tag = new MemoryConnection{
+    override def m = InterconnectConnection.this.m
+    override def s = InterconnectConnection.this.s
+    override def mapping = getMapping()
+  }
+
+  m.addTag(tag)
+  s.addTag(tag)
+
   var explicitAddress = Option.empty[BigInt]
   var explicitMapping = Option.empty[AddressMapping]
 
@@ -199,10 +208,6 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
   val thread = hardFork on new Area{
     soon(arbiter.m2s.parameters)
     soon(decoder.s2m.parameters)
-
-    val tag = new MemoryConnection(m, s, getMapping())
-    m.addTag(tag)
-    s.addTag(tag)
 
     arbiter.m2s.parameters.load(s.m2s.supported join decoder.m2s.parameters)
     decoder.s2m.parameters.load(arbiter.s2m.parameters) //TODO
