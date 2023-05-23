@@ -731,9 +731,9 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
       case _ =>
     }
     mems.foreach(mem => {
-      if(mem.addressWidth != 0) {
+      if(mem.addressWidth != 0 && mem.width != 0) {
         doBlackboxing(pc, new MemTopology(mem, consumers))
-      } else{
+      } else if(mem.width != 0){
         def wrapConsumers(oldSource: Expression, newSource: Expression): Unit ={
           consumers.get(oldSource) match {
             case None        =>
