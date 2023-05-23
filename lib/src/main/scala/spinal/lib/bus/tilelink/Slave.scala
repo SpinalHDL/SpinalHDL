@@ -80,8 +80,17 @@ object S2mTransfers {
     putPartial = SizeRange(1, 4096),
     hint       = SizeRange(1, 4096),
     probe      = SizeRange(1, 4096))
+  def none = S2mTransfers(
+    arithmetic = SizeRange.none,
+    logical    = SizeRange.none,
+    get        = SizeRange.none,
+    putFull    = SizeRange.none,
+    putPartial = SizeRange.none,
+    hint       = SizeRange.none,
+    probe      = SizeRange.none)
   def unknownSupports = S2mTransfers()
   def intersect(values : Seq[S2mTransfers]) : S2mTransfers = values.reduce(_ intersect _)
+  def mincover(values : Seq[S2mTransfers]) : S2mTransfers = if(values.isEmpty) none else values.reduce(_ mincover _)
 }
 
 
@@ -112,5 +121,7 @@ case class S2mParameters(slaves    : Seq[S2mAgent]) extends OverridedEqualsHashC
   val sinkWidth = defaulted(0)(slaves.map(_.sinkWidth).max)
   val withBCE   = defaulted(false)(slaves.map(_.emits.withBCE).reduce(_ || _))
   def withDataB = defaulted(false)(slaves.map(_.emits.withDataB).reduce(_ || _))
+
+  val emits = S2mTransfers.mincover(slaves.map(_.emits))
 }
 

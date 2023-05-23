@@ -10,6 +10,15 @@ object Arbiter{
   def outputNodeFrom(inputs : Seq[NodeParameters]) : NodeParameters = {
     NodeParameters.mergeMasters(inputs)
   }
+  def inputSlaveFrom(output : S2mParameters, input : S2mSupport) : S2mParameters = {
+    output.copy(
+      slaves = output.slaves.map(e =>
+        e.copy(
+          emits = e.emits.intersect(input.transfers)
+        )
+      )
+    )
+  }
 }
 
 case class Arbiter(inputsNodes : Seq[NodeParameters]) extends Component{

@@ -29,9 +29,10 @@ object Decoder{
   }
 }
 
-case class Decoder(inputNode : NodeParameters, outputsSupports : Seq[M2sSupport], mapping : Seq[AddressMapping]) extends Component{
-  val outputsNodes = outputsSupports.map(support => inputNode.copy(
-    m = Decoder.outputMastersFrom(inputNode.m, support)
+case class Decoder(inputNode : NodeParameters, outputsSupports : Seq[M2sSupport], outputsS2m : Seq[S2mParameters], mapping : Seq[AddressMapping]) extends Component{
+  val outputsNodes = (outputsSupports, outputsS2m). zipped.map((support, s2m) => inputNode.copy(
+    m = Decoder.outputMastersFrom(inputNode.m, support),
+    s = s2m
   ))
 
   val io = new Bundle{
@@ -51,11 +52,11 @@ case class Decoder(inputNode : NodeParameters, outputsSupports : Seq[M2sSupport]
     val readys = ArrayBuffer[Bool]()
     val logic = for((s, id) <- outputs.zipWithIndex) yield new Area {
       val hit = mapping(id).hit(io.input.a.address) && s.p.node.m.emits.contains(io.input.a.opcode)
-      val instrFetch = (!outputsSupports(id).allowExecute && inputNode.m.masters.exists(_.mapping.exists(_.isExecute))) generate new Area{
-        val sources = inputNode.m.masters.flatMap(_.mapping).filter(_.isExecute)
-        val error = sources.map(_.id.hit(io.input.a.source)).orR
-        hit.clearWhen(error)
-      }
+//      val instrFetch = (!outputsSupports(id).allowExecute && inputNode.m.masters.exists(_.mapping.exists(_.isExecute))) generate new Area{
+//        val sources = inputNode.m.masters.flatMap(_.mapping).filter(_.isExecute)
+//        val error = sources.map(_.id.hit(io.input.a.source)).orR
+//        hit.clearWhen(error)
+//      }
       s.a.valid := io.input.a.valid && hit
       s.a.payload := io.input.a.payload
       s.a.address.removeAssignments() := io.input.a.address.resized

@@ -730,7 +730,10 @@ object Main6 extends App{
 
 
 ////////////////////////////////////////////
-
+/*
+- BufferCC swap
+- Memory blackboxing
+ */
 object Main100 extends App{
   import spinal.core._
   import spinal.lib._

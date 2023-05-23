@@ -10,15 +10,17 @@ class MasterBus(p : M2sParameters)(implicit ic : Interconnect) extends Area{
   val logic = Elab build new Area{
     node.m2s.parameters.load(p)
     node.m2s.setProposedFromParameters() //Here, we just ignore the negotiation phase
+    node.s2m.supported.load(node.s2m.proposed)
     slave(node.bus)
   }
 }
 
 //While create a interconnect slave as an io of the toplevel
-class SlaveBus(m2sSupport : M2sSupport)(implicit ic : Interconnect) extends Area{
+class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParameters.none(null))(implicit ic : Interconnect) extends Area{
   val node = ic.createSlave()
   val logic = Elab build new Area {
-    node.s2m.none() //We do not want to implement memory coherency
+    node.s2m.parameters.load(s2mParameters)
+    node.s2m.setProposedFromParameters()
     node.m2s.supported.load(m2sSupport.copy(transfers = node.m2s.proposed.transfers.intersect(m2sSupport.transfers)))
     master(node.bus)
   }

@@ -76,6 +76,18 @@ class InterconnectTester extends AnyFunSuite{
     acquireB = SizeRange(0x40)
   )
 
+  def coherentOnlySlave = S2mParameters(
+    List.tabulate(4)(i =>
+      S2mAgent(
+        name = null,
+        sinkId = SizeMapping(i*8, 8),
+        emits = S2mTransfers(
+          probe = SizeRange(0x40)
+        )
+      )
+    )
+  )
+
   def simpleMaster(emit : M2sTransfers, dataWidth : Int = 32)(implicit ic : Interconnect) = new MasterBus(
     M2sParameters(
       addressWidth = 32,
@@ -90,13 +102,14 @@ class InterconnectTester extends AnyFunSuite{
     )
   )
 
-  def simpleSlave(addressWidth : Int, dataWidth : Int = 32) (implicit ic : Interconnect) = new SlaveBus(
+  def simpleSlave(addressWidth : Int, dataWidth : Int = 32, s2mParameters: S2mParameters = S2mParameters.none(null)) (implicit ic : Interconnect) = new SlaveBus(
     M2sSupport(
       transfers = M2sTransfers.unknownEmits,
       dataWidth = dataWidth,
       addressWidth = addressWidth,
       allowExecute = false
-    )
+    ),
+    s2mParameters
   )
 
   def simpleReadOnlySlave() (implicit ic : Interconnect) = new SlaveBus(
@@ -229,12 +242,12 @@ class InterconnectTester extends AnyFunSuite{
     SimConfig.withFstWave.compile(new Component{
       implicit val interconnect = new Interconnect()
       val m0, m1 = simpleMaster(coherentOnly)
-      val s0 = simpleSlave(addressWidth = 12)
+      val s0, s1 = simpleSlave(12, 32, coherentOnlySlave)
       val b0 = interconnect.createNode()
       b0 << m0.node
       b0 << m1.node
       s0.node at 0x1000 of b0
-//      s1.node at 0x2000 of b0
+      s1.node at 0x2000 of b0
     }).doSim(seed = 42){dut =>
 //      dut.clockDomain.forkStimulus(10)
 //      testInterconnect(dut.interconnect)
@@ -263,10 +276,12 @@ class InterconnectTester extends AnyFunSuite{
               hits += 1
               assert(w.address == 0xE0000 + 0x1000)
               assert(w.size == 0x400)
+              assert(w.node.hasTag(PMA.VOLATILE))
             case s1.node =>
               hits += 1
               assert(w.address == 0xE0000 + 0x2000)
               assert(w.size == 0x400)
+              assert(w.node.hasTag(PMA.CACHED))
             case _ =>
           }
         }

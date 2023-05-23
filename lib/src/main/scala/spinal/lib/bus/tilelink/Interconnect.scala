@@ -39,6 +39,31 @@ case class M2sSupport(transfers : M2sTransfers,
   }
 }
 
+
+object S2mSupport{
+  def apply(p : S2mParameters) : S2mSupport = S2mSupport(
+    transfers    = p.emits
+  )
+
+  def none = S2mSupport(
+    transfers = S2mTransfers.none
+  )
+}
+
+case class S2mSupport(transfers : S2mTransfers){
+  def mincover(that : S2mSupport): S2mSupport ={
+    S2mSupport(
+      transfers = transfers.mincover(that.transfers)
+    )
+  }
+
+  def join(p: S2mParameters): S2mParameters ={
+    S2mParameters(
+      slaves = p.slaves.map(e => e) //TODO
+    )
+  }
+}
+
 class InterconnectNodeMode extends Nameable
 object InterconnectNodeMode extends AreaRoot {
   val BOTH, MASTER, SLAVE = new InterconnectNodeMode
@@ -68,8 +93,16 @@ class InterconnectNode(i : Interconnect) extends Area with SpinalTagReady {
     }
   }
   val s2m = new Area{
+    val proposed = Handle[S2mSupport]()
+    val supported = Handle[S2mSupport]()
     val parameters = Handle[S2mParameters]()
-    def none() = parameters.load(S2mParameters.none(this))
+    def none() = {
+      proposed.load(S2mSupport.none)
+      parameters.load(S2mParameters.none(this))
+    }
+    def setProposedFromParameters(): Unit ={
+      proposed load S2mSupport(parameters)
+    }
   }
 
   var mode = InterconnectNodeMode.BOTH
@@ -210,7 +243,7 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
     soon(decoder.s2m.parameters)
 
     arbiter.m2s.parameters.load(s.m2s.supported join decoder.m2s.parameters)
-    decoder.s2m.parameters.load(arbiter.s2m.parameters) //TODO
+    decoder.s2m.parameters.load(m.s2m.supported join arbiter.s2m.parameters)
 
     var ptr = decoder.bus.get
     for(adapter <- adapters){
@@ -276,11 +309,13 @@ class Interconnect extends Area{
       )
       if(n.mode != InterconnectNodeMode.MASTER) soon(
         n.m2s.proposed,
-        n.m2s.parameters
+        n.m2s.parameters,
+        n.s2m.supported
       )
       if(n.mode != InterconnectNodeMode.SLAVE) soon(
         n.m2s.supported,
-        n.s2m.parameters
+        n.s2m.parameters,
+        n.s2m.proposed
       )
 
       // n.m2s.proposed <- ups.m2s.proposed
@@ -315,6 +350,20 @@ class Interconnect extends Area{
         down.decoder.m2s.parameters.load(Decoder.outputMastersFrom(n.m2s.parameters, down.s.m2s.supported))
       }
 
+      // n.s2m.proposed <- downs.s2m.proposed
+      if(n.mode != InterconnectNodeMode.SLAVE) {
+        val fromDowns = n.downs.map(_.s.s2m.proposed).reduce(_ mincover _)
+//        val modified = n.s2m.proposedModifiers.foldLeft(fromDowns)((e, f) => f(e))
+        n.s2m.proposed load fromDowns
+      }
+
+      // n.s2m.supported <- ups.s2m.supported
+      if(n.mode != InterconnectNodeMode.MASTER) {
+        val fromUps = n.ups.map(_.m.s2m.supported.get).reduce(_ mincover _)
+//        val modified = n.m2s.supportedModifiers.foldLeft(addressConstrained)((e, f) => f(e))
+        n.s2m.supported load fromUps
+      }
+
       // n.s2m.parameters <- downs.decoder.s2m.parameters
       if(n.mode != InterconnectNodeMode.SLAVE){
         n.s2m.parameters.load(Decoder.inputSlavesFrom(n.downs.map(_.decoder.s2m.parameters.get)))
@@ -322,8 +371,10 @@ class Interconnect extends Area{
 
       //ups.arbiter.s2m.parameters <- s2m.parameters
       for(up <- n.ups){
-        up.arbiter.s2m.parameters.load(n.s2m.parameters)
+//        up.arbiter.s2m.parameters.load(n.s2m.parameters)
+        up.arbiter.s2m.parameters.load(Arbiter.inputSlaveFrom(n.s2m.parameters, up.m.s2m.supported))
       }
+
 
       // Start hardware generation from that point
       val gen = n rework new Composite(n, weak = false) {
@@ -343,7 +394,7 @@ class Interconnect extends Area{
 
         //TODO skip decoder component if not needed
         val decoder = (n.mode != InterconnectNodeMode.SLAVE) generate new Area {
-          val core = Decoder(n.bus.p.node, n.downs.map(_.s.m2s.supported), n.downs.map(_.getMapping()))
+          val core = Decoder(n.bus.p.node, n.downs.map(_.s.m2s.supported), n.downs.map(_.decoder.s2m.parameters), n.downs.map(_.getMapping()))
           (n.downs, core.io.outputs.map(_.combStage())).zipped.foreach(_.decoder.bus.load(_))
           val connection = n.decoderConnector(core.io.input, n.bus)
         }
