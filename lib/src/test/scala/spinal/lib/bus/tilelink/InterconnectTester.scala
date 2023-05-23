@@ -254,6 +254,25 @@ class InterconnectTester extends AnyFunSuite{
     }
   }
 
+  test("Coherent_B"){
+    tilelink.DebugId.setup(16)
+    SimConfig.withFstWave.compile(new Component{
+      implicit val interconnect = new Interconnect()
+      val m0, m1 = simpleMaster(coherentOnly)
+      val s0, s1, s2 = simpleSlave(12, 32, coherentOnlySlave)
+      val b0, b1 = interconnect.createNode()
+      b0 << m0.node
+      b0 << m1.node
+      s0.node at 0x1000 of b0
+      s1.node at 0x2000 of b0
+      b1 at (0x10000) of b0
+      s2.node at 0x3000 of b1
+    }).doSim(seed = 42){dut =>
+      //      dut.clockDomain.forkStimulus(10)
+      //      testInterconnect(dut.interconnect)
+    }
+  }
+
   test("scanRegions"){
     tilelink.DebugId.setup(16)
     SimConfig.withFstWave.compile(new Component{
