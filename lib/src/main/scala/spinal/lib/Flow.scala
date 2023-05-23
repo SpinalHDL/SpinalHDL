@@ -190,8 +190,12 @@ object RegFlow{
 }
 
 object FlowCCByToggle {
-  def apply[T <: Data](input: Flow[T], inputClock: ClockDomain = ClockDomain.current, outputClock: ClockDomain = ClockDomain.current): Flow[T] = {
-    val c = new FlowCCByToggle[T](input.payload, inputClock, outputClock)
+  def apply[T <: Data](input: Flow[T],
+                       inputClock: ClockDomain = ClockDomain.current,
+                       outputClock: ClockDomain = ClockDomain.current,
+                       withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
+                       withOutputM2sPipe : Boolean = true): Flow[T] = {
+    val c = new FlowCCByToggle[T](input.payload, inputClock, outputClock, withOutputBufferedReset, withOutputM2sPipe)
     c.io.input connectFrom input
     return c.io.output
   }

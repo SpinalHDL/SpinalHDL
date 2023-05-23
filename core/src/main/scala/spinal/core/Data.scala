@@ -693,6 +693,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   }
 
   /** Generate this if condition is true */
+  @deprecated("does not work with <>, use 'someBool generate Type()' or 'if(condition) Type() else null' instead")
   def genIf(cond: Boolean): this.type = if(cond) this else null
 
   private [core] def formalPast(delay : Int) : this.type = {
