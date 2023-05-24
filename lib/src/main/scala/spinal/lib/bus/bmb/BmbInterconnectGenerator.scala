@@ -549,11 +549,11 @@ class BmbInterconnectGenerator() extends Area{
                bus : Handle[Bmb],
                mapping : Handle[AddressMapping]) ={
     val model = getSlave(bus)
-    accessSource.load(model.accessSource)
-    model.accessCapabilities.load(accessCapabilities)
-    accessRequirements.load(model.accessRequirements)
-    model.invalidationRequirements.load(invalidationRequirements)
-    model.mapping.load(mapping)
+    accessSource.loadAsync(model.accessSource)
+    model.accessCapabilities.loadAsync(accessCapabilities)
+    accessRequirements.loadAsync(model.accessRequirements)
+    model.invalidationRequirements.loadAsync(invalidationRequirements)
+    model.mapping.loadAsync(mapping)
     model
   }
 
@@ -564,10 +564,10 @@ class BmbInterconnectGenerator() extends Area{
                 invalidationRequirements : Handle[BmbInvalidationParameter] = Handle[BmbInvalidationParameter],
                 bus : Handle[Bmb]): Unit ={
     val model = getMaster(bus)
-    model.accessRequirements.load(accessRequirements)
-    invalidationSource.load(model.invalidationSource)
-    model.invalidationCapabilities.load(invalidationCapabilities)
-    invalidationRequirements.load(model.invalidationRequirements)
+    model.accessRequirements.loadAsync(accessRequirements)
+    invalidationSource.loadAsync(model.invalidationSource)
+    model.invalidationCapabilities.loadAsync(invalidationCapabilities)
+    invalidationRequirements.loadAsync(model.invalidationRequirements)
   }
 
   def addConnection(m : Handle[Bmb], s : Handle[Bmb]) : ConnectionModel = {
