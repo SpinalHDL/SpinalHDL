@@ -565,6 +565,7 @@ class CoherentHub(p : CoherentHubParameters) extends Component{
         aRead.source  := DOWN_SOURCE.resized
         aRead.size    := SIZE
         aRead.address := ADDRESS
+        aRead.debugId := DebugId.withPostfix(aRead.source)
       }
       build()
     }
@@ -619,6 +620,7 @@ class CoherentHub(p : CoherentHubParameters) extends Component{
         aWrite.data := cData.payload
         aWrite.source := (cDownIdOffset | this(DOWN_SOURCE).resized).resized
         aWrite.corrupt := False
+        aWrite.debugId := DebugId.withPostfix(aWrite.source)
 
         cData.ready := False
         when(FROM_C){

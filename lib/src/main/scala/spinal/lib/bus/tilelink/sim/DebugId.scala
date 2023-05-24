@@ -1,5 +1,7 @@
 package spinal.lib.bus.tilelink.sim
 
+import spinal.lib.bus.tilelink.DebugId
+
 import scala.collection.mutable
 
 class OrderingManager(width : Int) {
@@ -28,6 +30,6 @@ class OrderingManager(width : Int) {
 
   var allocationCounter = 0l
   def incr(): Unit ={
-    allocationCounter = (allocationCounter + 1) & ((1l << width)-1)
+    allocationCounter = ((allocationCounter + 1) & ((1l << width)-1)) max DebugId.space.reserved
   }
 }

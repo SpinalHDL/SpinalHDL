@@ -134,6 +134,8 @@ class InterconnectNode(i : Interconnect) extends Area with SpinalTagReady {
       s.copy(dataWidth = dataWidth)
     }
   }
+
+  override def toString =  (if(component != null)component.getPath() + "/"  else "") + getName()
 }
 
 trait InterconnectAdapter {
@@ -593,14 +595,28 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
   def createCoherent() ={
     val ret = ic.createSlave()
     coherents += ret
+    new MemoryConnection{
+      val m = ret
+      val s = memPut
+      val mapping = DefaultMapping
+      populate()
+    }
+
+    new MemoryConnection{
+      val m = ret
+      val s = memGet
+      val mapping = DefaultMapping
+      populate()
+    }
     ret
   }
 
-  val logic = hardFork(new Area{
+  val logic = Elab build new Area{
     val blockSize = 64
     val slotsCount = 4
     val cSourceCount = 4
     val dataWidth = coherents.map(_.m2s.proposed.dataWidth).max
+    val addressWidth = coherents.map(_.m2s.proposed.addressWidth).max
     for(node <- coherents){
       node.m2s.supported.loadAsync(
         M2sSupport(
@@ -615,7 +631,7 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
             )
           ),
           dataWidth = dataWidth,
-          addressWidth = node.m2s.proposed.addressWidth,
+          addressWidth = addressWidth,
           allowExecute = true
         )
       )
@@ -632,9 +648,9 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
           )))
         }
       )
+      node.s2m.setProposedFromParameters()
     }
 
-    val addressWidth = ???
     memPut.m2s.parameters.load(
       CoherentHub.downPutM2s(
         name           = this,
@@ -645,6 +661,9 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
         cSourceCount   = cSourceCount
       )
     )
+    memPut.m2s.setProposedFromParameters()
+    memPut.s2m.supported.load(S2mSupport.none)
+
     memGet.m2s.parameters.load(
       CoherentHub.downGetM2s(
         name           = this,
@@ -654,6 +673,9 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
         slotCount      = slotsCount
       )
     )
+    memGet.m2s.setProposedFromParameters()
+    memGet.s2m.supported.load(S2mSupport.none)
+
 
     val hub = new CoherentHub(
       CoherentHubParameters(
@@ -668,7 +690,7 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
     for((s, m) <- hub.io.ups zip coherents) s << m.bus
     hub.io.downGet >> memGet.bus
     hub.io.downPut >> memPut.bus
-  })
+  }
 }
 
 

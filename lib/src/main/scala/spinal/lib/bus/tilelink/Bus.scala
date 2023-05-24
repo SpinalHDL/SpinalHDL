@@ -118,15 +118,29 @@ object ChannelE{
 }
 
 object DebugId{
-  def apply() = UInt(width bits)
-  val width = new ScopeProperty[Int]{
-    override def default = 0
+  class Space(val width : Int){
+    var reserved = 0
   }
+  val space = new ScopeProperty[Space]{
+    override def default = new Space(0)
+  }
+  def apply() = UInt(space.width bits)
+  def width = space.width
+  def enabled = width != 0
+  def withPostfix(post : UInt) : UInt = {
+    if(!enabled) return U(0, 0 bits)
+    val size = 1 << widthOf(post)
+    val mask = (size)-1
+    val base = (space.reserved + mask) & ~mask
+    space.reserved = base + size
+    U(base, width bits) | post.resized
+  }
+
   val manager = new ScopeProperty[OrderingManager]
 
   def setup(width : Int) = {
     assert(width > 8)
-    this.width.set(width)
+    this.space.set(new Space(width))
     manager.set(new OrderingManager(DebugId.width))
   }
 }
