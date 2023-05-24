@@ -3,7 +3,8 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
-import spinal.lib.system.tag.{MemoryConnection, SupportedTransfers}
+import spinal.lib.system.tag.MemoryConnection.WalkArgs
+import spinal.lib.system.tag.{MemoryConnection, PMA, SupportedTransfers}
 import spinal.lib.{master, slave}
 
 import scala.collection.mutable.ArrayBuffer
@@ -195,7 +196,7 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
     override def m = InterconnectConnection.this.m
     override def s = InterconnectConnection.this.s
     override def mapping = getMapping()
-    override def sToM(down: SupportedTransfers) = down
+    override def sToM(down: SupportedTransfers, args: WalkArgs) = down
   }
 
   m.addTag(tag)
@@ -595,35 +596,43 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
   val coherents = ArrayBuffer[InterconnectNode]()
   val blockSize = 64
 
-  def createCoherent() ={
+  def createPort() ={
     val ret = ic.createSlave()
     coherents += ret
-    new MemoryConnection{
-      val m = ret
-      val s = memPut
-      val mapping = DefaultMapping
-      override def sToM(down: SupportedTransfers) = down match{
-        case t : M2sTransfers => t.copy(
-          acquireT = SizeRange(blockSize)
-        )
-      }
-
-      populate()
-    }
 
     new MemoryConnection{
       val m = ret
-      val s = memGet
+      val s = internalConnection
       val mapping = DefaultMapping
       populate()
-      override def sToM(down: SupportedTransfers) = down match{
-        case t : M2sTransfers => t.copy(
-          acquireB = SizeRange(blockSize)
-        )
+      override def sToM(down: SupportedTransfers, args: WalkArgs) = {
+        down match{
+          case t : M2sTransfers => {
+            val canGet = t.get.contains(blockSize)
+            val canPut = t.putFull.contains(blockSize)
+            val isMain = args.node.hasTag(PMA.MAIN)
+            t.copy(
+              acquireT = if(isMain && canGet && canPut) SizeRange(blockSize) else SizeRange.none,
+              acquireB = if(isMain && canGet) SizeRange(blockSize) else SizeRange.none
+            )
+          }
+        }
       }
     }
     ret
   }
+
+  val internalConnection = new Nameable with SpinalTagReady {
+    override type RefOwnerType = this.type
+  }
+
+  List(memGet, memPut).foreach(node => new MemoryConnection {
+    override def m = internalConnection
+    override def s = node
+    override def mapping = DefaultMapping
+    override def sToM(downs: SupportedTransfers, args : WalkArgs) = downs
+    populate()
+  })
 
   val logic = Elab build new Area{
     val slotsCount = 4

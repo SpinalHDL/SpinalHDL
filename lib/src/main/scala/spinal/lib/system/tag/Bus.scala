@@ -3,6 +3,7 @@ package spinal.lib.system.tag
 import spinal.core._
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib.bus.tilelink.InterconnectNode
+import spinal.lib.system.tag.MemoryConnection.WalkArgs
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -11,13 +12,15 @@ trait SupportedTransfers extends SpinalTag{
   type T <: SupportedTransfers
   def mincover(rhs: T) : T
   def intersect(rhs: T) : T
+  def isEmpty : Boolean
+  def nonEmpty : Boolean
 }
 
 trait MemoryConnection extends SpinalTag {
   def m : Nameable with SpinalTagReady
   def s : Nameable with SpinalTagReady
   def mapping :  AddressMapping
-  def sToM(downs : SupportedTransfers) : SupportedTransfers
+  def sToM(downs : SupportedTransfers, args : WalkArgs) : SupportedTransfers
 
   def populate(): Unit ={
     m.addTag(this)
@@ -87,11 +90,12 @@ object MemoryConnection{
       }
     }
 
+    //Collect slaves supports
     val ret = ArrayBuffer[(WalkArgs, SupportedTransfers)]()
     val unfiltred = mutable.LinkedHashMap[WalkArgs, SupportedTransfers]()
     args.foreachSlave{ (s, c) =>
       val spec = getSupportedTransfers(s)
-      val transformed = spec.map(e => e._1 -> c.sToM(e._2))
+      val transformed = spec.map(e => e._1 -> c.sToM(e._2, e._1))
       for((who, what) <- transformed){
         unfiltred.get(who) match {
           case None => unfiltred(who) = what
@@ -99,13 +103,14 @@ object MemoryConnection{
         }
       }
     }
-    
+
+    //Filter the agregated slave supports with the current node capabilities
     args.node.findTag(_.isInstanceOf[SupportedTransfers]) match {
       case None => unfiltred.foreach(e => ret += e._1 -> e._2)
       case Some(x) => unfiltred.foreach(e => ret += e._1 -> e._2.intersect(x.asInstanceOf[e._2.T]))
     }
 
-    ret
+    ret.filter(_._2.nonEmpty)
   }
   def getSupportedTransfers(m : InterconnectNode) : mutable.ArrayBuffer[(WalkArgs, SupportedTransfers)] = getSupportedTransfers(WalkArgs(m))
 }
@@ -113,12 +118,14 @@ object MemoryConnection{
 trait PMA extends SpinalTag
 
 object PMA {
-  case object CACHED        extends PMA // an intermediate agent may have cached a copy of the region for you
-  case object TRACKED       extends PMA // the region may have been cached by another master, but coherence is being provided
-  case object UNCACHED      extends PMA // the region has not been cached yet, but should be cached when possible
-  case object IDEMPOTENT    extends PMA // reads return most recently put content, but content should not be cached
-  case object VOLATILE      extends PMA // content may change without a write
-  case object WRITE_EFFECTS extends PMA // writes produce side effects and so must not be combined/delayed
-  case object READ_EFFECTS  extends PMA // reads produce side effects and so must not be issued speculatively
-  case object EXECUTABLE    extends PMA // Allows an agent to fetch code from this region
+  object MAIN          extends PMA
+  object IO            extends PMA
+  object CACHED        extends PMA // an intermediate agent may have cached a copy of the region for you
+  object TRACKED       extends PMA // the region may have been cached by another master, but coherence is being provided
+  object UNCACHED      extends PMA // the region has not been cached yet, but should be cached when possible
+  object IDEMPOTENT    extends PMA // reads return most recently put content, but content should not be cached
+  object VOLATILE      extends PMA // content may change without a write
+  object WRITE_EFFECTS extends PMA // writes produce side effects and so must not be combined/delayed
+  object READ_EFFECTS  extends PMA // reads produce side effects and so must not be issued speculatively
+  object EXECUTABLE    extends PMA // Allows an agent to fetch code from this region
 }

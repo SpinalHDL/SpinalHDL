@@ -19,8 +19,9 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
   override type T = M2sTransfers
 
   def withBCE = acquireT.some || acquireB.some
-  def withDataA = putFull.some
+  def withDataA = putFull.some || putFull.some
   def withDataD = get.some || acquireT.some || acquireB.some || logical.some || arithmetic.some
+  def withAny = withDataA || withDataD || withBCE || hint.some
 
   override def intersect(rhs: M2sTransfers) = M2sTransfers(
     acquireT     = acquireT    .intersect(rhs.acquireT),
@@ -42,6 +43,10 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     putPartial   = putPartial  .mincover(rhs.putPartial),
     hint         = hint        .mincover(rhs.hint),
     probeAckData = probeAckData.mincover(rhs.probeAckData))
+
+  def isEmpty : Boolean = !nonEmpty
+  def nonEmpty : Boolean = withAny
+
   // Reduce rendering to a simple yes/no per field
   override def toString = {
     def str(x: SizeRange, flag: String) = if (x.none) "" else flag

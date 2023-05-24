@@ -113,13 +113,13 @@ class InterconnectTester extends AnyFunSuite{
     s2mParameters
   )
 
-  def simpleReadOnlySlave() (implicit ic : Interconnect) = new SlaveBus(
+  def simpleReadOnlySlave(addressWidth : Int, dataWidth : Int = 32) (implicit ic : Interconnect) = new SlaveBus(
     M2sSupport(
       transfers = M2sTransfers(
         get = SizeRange.upTo(0x1000)
       ),
-      dataWidth = 32,
-      addressWidth = 8,
+      dataWidth = dataWidth,
+      addressWidth = addressWidth,
       allowExecute = false
     )
   )
@@ -298,7 +298,7 @@ class InterconnectTester extends AnyFunSuite{
       b0 << m0.node
 
       val hub = new CoherencyHubIntegrator()
-      val h0 = hub.createCoherent()
+      val h0 = hub.createPort()
       h0 << b0
 
       val s0 = simpleSlave(16, 32)
@@ -360,11 +360,12 @@ class InterconnectTester extends AnyFunSuite{
       }
 
       val hub = new CoherencyHubIntegrator()
-      val h0 = hub.createCoherent()
-      h0 << cpu.main.node
-      h0 << cpu.io.node
+      val p0 = hub.createPort()
+      p0 << cpu.main.node
+      p0 << cpu.io.node
 
       val memory = simpleSlave(20, 32)
+      memory.node.addTag(PMA.MAIN)
       memory.node at 0x80000000l of hub.memGet
       memory.node at 0x80000000l of hub.memPut
 
@@ -377,11 +378,15 @@ class InterconnectTester extends AnyFunSuite{
         val uart = simpleSlave(12, 32)
         val spi = simpleSlave(12, 32)
         val memory = simpleSlave(16, 32)
+        memory.node.addTag(PMA.MAIN)
+        val rom = simpleReadOnlySlave(12, 32)
+        rom.node.addTag(PMA.MAIN)
 
         gpio.node at 0x1000 of bus
         uart.node at 0x2000 of bus
         spi.node at 0x3000 of bus
         memory.node at 0x10000 of bus
+        rom.node at 0x20000 of bus
       }
 
       Elab check new Area{
@@ -419,7 +424,7 @@ class InterconnectTester extends AnyFunSuite{
       //Create to memory slaves
       val s0,s1,s2 = simpleSlave(8)
 
-      val r0 = simpleReadOnlySlave()
+      val r0 = simpleReadOnlySlave(8)
       val w0 = simpleWriteOnlySlave()
 
       //Connect those memory slaves at different memory addresses
@@ -436,7 +441,7 @@ class InterconnectTester extends AnyFunSuite{
         ba0 << m0.node
         ba0 << m1.node
 
-        val r0 = simpleReadOnlySlave()
+        val r0 = simpleReadOnlySlave(8)
         val w0 = simpleWriteOnlySlave()
 
         r0.node at 0x900 of b2
