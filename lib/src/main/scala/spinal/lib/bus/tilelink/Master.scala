@@ -3,7 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.AddressMapping
-import spinal.lib.system.tag.SupportedTransfers
+import spinal.lib.system.tag.{SupportedTransfers, SupportedTransfersLanda}
 
 
 case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
@@ -16,14 +16,12 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
                         hint         : SizeRange = SizeRange.none,
                         probeAckData : SizeRange = SizeRange.none) extends SupportedTransfers {
 
-  override type T = M2sTransfers
-
   def withBCE = acquireT.some || acquireB.some
   def withDataA = putFull.some || putFull.some
   def withDataD = get.some || acquireT.some || acquireB.some || logical.some || arithmetic.some
   def withAny = withDataA || withDataD || withBCE || hint.some
 
-  override def intersect(rhs: M2sTransfers) = M2sTransfers(
+  def intersect(rhs: M2sTransfers) = M2sTransfers(
     acquireT     = acquireT    .intersect(rhs.acquireT),
     acquireB     = acquireB    .intersect(rhs.acquireB),
     arithmetic   = arithmetic  .intersect(rhs.arithmetic),
@@ -33,7 +31,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     putPartial   = putPartial  .intersect(rhs.putPartial),
     hint         = hint        .intersect(rhs.hint),
     probeAckData = probeAckData.intersect(rhs.probeAckData))
-  override def mincover(rhs: M2sTransfers) = M2sTransfers(
+  def mincover(rhs: M2sTransfers) = M2sTransfers(
     acquireT     = acquireT    .mincover(rhs.acquireT),
     acquireB     = acquireB    .mincover(rhs.acquireB),
     arithmetic   = arithmetic  .mincover(rhs.arithmetic),
@@ -43,6 +41,15 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     putPartial   = putPartial  .mincover(rhs.putPartial),
     hint         = hint        .mincover(rhs.hint),
     probeAckData = probeAckData.mincover(rhs.probeAckData))
+
+
+  override def mincover(rhs: SupportedTransfers) = rhs match {
+    case rhs : M2sTransfers => mincover(rhs)
+  }
+
+  override def intersect(rhs: SupportedTransfers) = rhs match {
+    case rhs : M2sTransfers => intersect(rhs)
+  }
 
   def isEmpty : Boolean = !nonEmpty
   def nonEmpty : Boolean = withAny

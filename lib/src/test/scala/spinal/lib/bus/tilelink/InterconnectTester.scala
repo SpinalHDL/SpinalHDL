@@ -396,7 +396,7 @@ class InterconnectTester extends AnyFunSuite{
       }
 
       //Will analyse the access capabilities of the CPU buses
-      Elab check new Area{
+      Elab build new Area{
         val mainSupport = MemoryConnection.getSupportedTransfers(cpu.main.node)
         println("cpu.main.node can access : ")
         println(mainSupport.map("- " + _).mkString("\n"))

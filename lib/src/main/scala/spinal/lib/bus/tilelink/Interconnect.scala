@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib.system.tag.MemoryConnection.WalkArgs
-import spinal.lib.system.tag.{MemoryConnection, PMA, SupportedTransfers}
+import spinal.lib.system.tag.{MemoryConnection, PMA, SupportedTransfers, SupportedTransfersLanda}
 import spinal.lib.{master, slave}
 
 import scala.collection.mutable.ArrayBuffer
@@ -80,6 +80,9 @@ class InterconnectNode(i : Interconnect) extends Area with SpinalTagReady {
   var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
   def setArbiterConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
   def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
+
+
+  this.addTag(new SupportedTransfersLanda(() => m2s.parameters.emits))
 
   val m2s = new Area{
     val proposed = Handle[M2sSupport]()
@@ -348,7 +351,6 @@ class Interconnect extends Area{
           n.ups.map(_.arbiter.m2s.parameters.get)
         )
       }
-      n.addTag(n.m2s.parameters.emits)
 
       //down.decoder.m2s.parameters <- m2s.parameters + down.s.m2s.supported
       for (down <- n.downs) {

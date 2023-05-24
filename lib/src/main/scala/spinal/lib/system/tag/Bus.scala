@@ -2,18 +2,26 @@ package spinal.lib.system.tag
 
 import spinal.core._
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
-import spinal.lib.bus.tilelink.InterconnectNode
+import spinal.lib.bus.tilelink.{InterconnectNode, M2sTransfers}
 import spinal.lib.system.tag.MemoryConnection.WalkArgs
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 trait SupportedTransfers extends SpinalTag{
-  type T <: SupportedTransfers
-  def mincover(rhs: T) : T
-  def intersect(rhs: T) : T
+  def mincover(rhs: SupportedTransfers) : SupportedTransfers
+  def intersect(rhs: SupportedTransfers) : SupportedTransfers
   def isEmpty : Boolean
   def nonEmpty : Boolean
+  def getter() : SupportedTransfers = this
+}
+
+class SupportedTransfersLanda(val landa : () => SupportedTransfers) extends SupportedTransfers{
+  def mincover(rhs: SupportedTransfers) : SupportedTransfers = landa().mincover(rhs)
+  def intersect(rhs: SupportedTransfers) : SupportedTransfers = landa().intersect(rhs)
+  def isEmpty : Boolean = landa().isEmpty
+  def nonEmpty : Boolean = landa().nonEmpty
+  override def getter() = landa()
 }
 
 trait MemoryConnection extends SpinalTag {
@@ -86,7 +94,7 @@ object MemoryConnection{
       case _ => false
     }) {
       return args.node.findTag(_.isInstanceOf[SupportedTransfers]) match {
-        case Some(x) => ArrayBuffer(args -> x.asInstanceOf[SupportedTransfers])
+        case Some(x) => ArrayBuffer(args -> x.asInstanceOf[SupportedTransfers].getter())
       }
     }
 
@@ -99,7 +107,7 @@ object MemoryConnection{
       for((who, what) <- transformed){
         unfiltred.get(who) match {
           case None => unfiltred(who) = what
-          case Some(x) => unfiltred(who) = what.mincover(x.asInstanceOf[what.T])
+          case Some(x) => unfiltred(who) = what.mincover(x)
         }
       }
     }
@@ -107,12 +115,14 @@ object MemoryConnection{
     //Filter the agregated slave supports with the current node capabilities
     args.node.findTag(_.isInstanceOf[SupportedTransfers]) match {
       case None => unfiltred.foreach(e => ret += e._1 -> e._2)
-      case Some(x) => unfiltred.foreach(e => ret += e._1 -> e._2.intersect(x.asInstanceOf[e._2.T]))
+      case Some(x) => unfiltred.foreach(e => ret += e._1 -> e._2.intersect(x.asInstanceOf[SupportedTransfers].getter()))
     }
 
     ret.filter(_._2.nonEmpty)
   }
-  def getSupportedTransfers(m : InterconnectNode) : mutable.ArrayBuffer[(WalkArgs, SupportedTransfers)] = getSupportedTransfers(WalkArgs(m))
+  def getSupportedTransfers(m : InterconnectNode) : mutable.ArrayBuffer[(WalkArgs, M2sTransfers)] = getSupportedTransfers(WalkArgs(m)).map{
+    case e : (WalkArgs, M2sTransfers) => e
+  }
 }
 
 trait PMA extends SpinalTag
