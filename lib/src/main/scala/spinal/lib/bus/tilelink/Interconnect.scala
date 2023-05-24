@@ -3,7 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
-import spinal.lib.system.tag.MemoryConnection
+import spinal.lib.system.tag.{MemoryConnection, SupportedTransfers}
 import spinal.lib.{master, slave}
 
 import scala.collection.mutable.ArrayBuffer
@@ -195,6 +195,7 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
     override def m = InterconnectConnection.this.m
     override def s = InterconnectConnection.this.s
     override def mapping = getMapping()
+    override def sToM(down: SupportedTransfers) = down
   }
 
   m.addTag(tag)
@@ -346,6 +347,7 @@ class Interconnect extends Area{
           n.ups.map(_.arbiter.m2s.parameters.get)
         )
       }
+      n.addTag(n.m2s.parameters.emits)
 
       //down.decoder.m2s.parameters <- m2s.parameters + down.s.m2s.supported
       for (down <- n.downs) {
@@ -591,6 +593,7 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
   val memPut = ic.createMaster()
   val memGet = ic.createMaster()
   val coherents = ArrayBuffer[InterconnectNode]()
+  val blockSize = 64
 
   def createCoherent() ={
     val ret = ic.createSlave()
@@ -599,6 +602,12 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
       val m = ret
       val s = memPut
       val mapping = DefaultMapping
+      override def sToM(down: SupportedTransfers) = down match{
+        case t : M2sTransfers => t.copy(
+          acquireT = SizeRange(blockSize)
+        )
+      }
+
       populate()
     }
 
@@ -607,12 +616,16 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
       val s = memGet
       val mapping = DefaultMapping
       populate()
+      override def sToM(down: SupportedTransfers) = down match{
+        case t : M2sTransfers => t.copy(
+          acquireB = SizeRange(blockSize)
+        )
+      }
     }
     ret
   }
 
   val logic = Elab build new Area{
-    val blockSize = 64
     val slotsCount = 4
     val cSourceCount = 4
     val dataWidth = coherents.map(_.m2s.proposed.dataWidth).max

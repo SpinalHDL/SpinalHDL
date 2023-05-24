@@ -1,18 +1,23 @@
 package spinal.lib.system.tag
 
 import spinal.core._
-import spinal.lib.bus.misc.{AddressMapping, DefaultMapping}
+import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib.bus.tilelink.InterconnectNode
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
-//trait SupportedAccess
+trait SupportedTransfers extends SpinalTag{
+  type T <: SupportedTransfers
+  def mincover(rhs: T) : T
+  def intersect(rhs: T) : T
+}
 
 trait MemoryConnection extends SpinalTag {
   def m : Nameable with SpinalTagReady
   def s : Nameable with SpinalTagReady
   def mapping :  AddressMapping
-//  def sToM(downs : Seq[SupportedAccess]) : Seq[SupportedAccess]
+  def sToM(downs : SupportedTransfers) : SupportedTransfers
 
   def populate(): Unit ={
     m.addTag(this)
@@ -22,9 +27,28 @@ trait MemoryConnection extends SpinalTag {
 
 
 object MemoryConnection{
+  def WalkArgs(m : InterconnectNode) : WalkArgs = WalkArgs(m, 0, BigInt(1) << m.bus.p.addressWidth)
   case class WalkArgs(node : Nameable with SpinalTagReady, address : BigInt, size : BigInt){
     override def toString = f"$node $address%x $size%x"
+
+    def foreachSlave(body : (WalkArgs, MemoryConnection) => Unit): Unit ={
+      node.foreachTag{
+        case c : MemoryConnection if c.m == node => {
+          val (a,s) = c.mapping match {
+            case DefaultMapping => (address, size)
+            case m => (m.lowerBound, m.highestBound+1-m.lowerBound)
+          }
+          body(new WalkArgs(c.s, address+a, s), c)
+        }
+        case _ =>
+      }
+    }
   }
+
+
+
+  def foreachSlave(m : InterconnectNode)(body : (WalkArgs, MemoryConnection) => Unit): Unit = WalkArgs(m, 0, BigInt(1) << m.bus.p.addressWidth).foreachSlave(body)
+
   def nodes(m : InterconnectNode): Seq[WalkArgs] = nodes(m, 0, BigInt(1) << m.bus.p.addressWidth)
   def nodes(m : Nameable with SpinalTagReady, address : BigInt, size : BigInt): Seq[WalkArgs] ={
     val l = mutable.LinkedHashMap[Nameable with SpinalTagReady, WalkArgs]()
@@ -51,6 +75,39 @@ object MemoryConnection{
       case _ =>
     }
   }
+
+  def getSupportedTransfers(args : WalkArgs): ArrayBuffer[(WalkArgs, SupportedTransfers)] ={
+    // Stop on leafs
+    if(!args.node.existsTag{
+      case c : MemoryConnection if c.m == args.node => true
+      case _ => false
+    }) {
+      return args.node.findTag(_.isInstanceOf[SupportedTransfers]) match {
+        case Some(x) => ArrayBuffer(args -> x.asInstanceOf[SupportedTransfers])
+      }
+    }
+
+    val ret = ArrayBuffer[(WalkArgs, SupportedTransfers)]()
+    val unfiltred = mutable.LinkedHashMap[WalkArgs, SupportedTransfers]()
+    args.foreachSlave{ (s, c) =>
+      val spec = getSupportedTransfers(s)
+      val transformed = spec.map(e => e._1 -> c.sToM(e._2))
+      for((who, what) <- transformed){
+        unfiltred.get(who) match {
+          case None => unfiltred(who) = what
+          case Some(x) => unfiltred(who) = what.mincover(x.asInstanceOf[what.T])
+        }
+      }
+    }
+    
+    args.node.findTag(_.isInstanceOf[SupportedTransfers]) match {
+      case None => unfiltred.foreach(e => ret += e._1 -> e._2)
+      case Some(x) => unfiltred.foreach(e => ret += e._1 -> e._2.intersect(x.asInstanceOf[e._2.T]))
+    }
+
+    ret
+  }
+  def getSupportedTransfers(m : InterconnectNode) : mutable.ArrayBuffer[(WalkArgs, SupportedTransfers)] = getSupportedTransfers(WalkArgs(m))
 }
 
 trait PMA extends SpinalTag

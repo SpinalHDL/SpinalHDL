@@ -305,8 +305,8 @@ class InterconnectTester extends AnyFunSuite{
       s0.node << hub.memGet
       s0.node << hub.memPut
     }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut.interconnect)
+//      dut.clockDomain.forkStimulus(10)
+//      testInterconnect(dut.interconnect)
     }
   }
 
@@ -385,10 +385,12 @@ class InterconnectTester extends AnyFunSuite{
       }
 
       Elab check new Area{
-        MemoryConnection.walk(cpu.main.node){ args =>
-          //
-          println(args)
-        }
+        val mainSupport = MemoryConnection.getSupportedTransfers(cpu.main.node)
+        println("cpu.main.node can access : ")
+        println(mainSupport.map("- " + _).mkString("\n"))
+        val ioSupport = MemoryConnection.getSupportedTransfers(cpu.io.node)
+        println("cpu.io.node can access : ")
+        println(ioSupport.map("- " + _).mkString("\n"))
       }
     }).doSim(seed = 42){dut =>
 

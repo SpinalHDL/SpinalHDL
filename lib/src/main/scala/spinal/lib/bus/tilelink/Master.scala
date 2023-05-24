@@ -3,6 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.AddressMapping
+import spinal.lib.system.tag.SupportedTransfers
 
 
 case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
@@ -13,13 +14,15 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
                         putFull      : SizeRange = SizeRange.none,
                         putPartial   : SizeRange = SizeRange.none,
                         hint         : SizeRange = SizeRange.none,
-                        probeAckData : SizeRange = SizeRange.none){
+                        probeAckData : SizeRange = SizeRange.none) extends SupportedTransfers {
+
+  override type T = M2sTransfers
 
   def withBCE = acquireT.some || acquireB.some
   def withDataA = putFull.some
   def withDataD = get.some || acquireT.some || acquireB.some || logical.some || arithmetic.some
 
-  def intersect(rhs: M2sTransfers) = M2sTransfers(
+  override def intersect(rhs: M2sTransfers) = M2sTransfers(
     acquireT     = acquireT    .intersect(rhs.acquireT),
     acquireB     = acquireB    .intersect(rhs.acquireB),
     arithmetic   = arithmetic  .intersect(rhs.arithmetic),
@@ -29,7 +32,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     putPartial   = putPartial  .intersect(rhs.putPartial),
     hint         = hint        .intersect(rhs.hint),
     probeAckData = probeAckData.intersect(rhs.probeAckData))
-  def mincover(rhs: M2sTransfers) = M2sTransfers(
+  override def mincover(rhs: M2sTransfers) = M2sTransfers(
     acquireT     = acquireT    .mincover(rhs.acquireT),
     acquireB     = acquireB    .mincover(rhs.acquireB),
     arithmetic   = arithmetic  .mincover(rhs.arithmetic),
