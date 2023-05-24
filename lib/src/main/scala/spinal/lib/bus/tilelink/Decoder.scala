@@ -43,32 +43,19 @@ case class Decoder(inputNode : NodeParameters, outputsSupports : Seq[M2sSupport]
   val sinkOffsetWidth = if(outputsNodes.exists(_.withBCE)) log2Up(outputsNodes.size) else 0
   val outputs = io.outputs.zipWithIndex.map{case (bus, id) => bus.fromSinkOffset(id << sinkOffsetWidth, inputNode.s.sinkWidth)}
 
-  val withError = true
-  val error = withError generate new Area{
-    val ctrl = new ErrorSlave(inputNode.toBusParameter().copy(withBCE = false))
-  }
-
   val a = new Area{
     val readys = ArrayBuffer[Bool]()
     val logic = for((s, id) <- outputs.zipWithIndex) yield new Area {
       val hit = mapping(id).hit(io.input.a.address) && s.p.node.m.emits.contains(io.input.a.opcode)
-//      val instrFetch = (!outputsSupports(id).allowExecute && inputNode.m.masters.exists(_.mapping.exists(_.isExecute))) generate new Area{
-//        val sources = inputNode.m.masters.flatMap(_.mapping).filter(_.isExecute)
-//        val error = sources.map(_.id.hit(io.input.a.source)).orR
-//        hit.clearWhen(error)
-//      }
       s.a.valid := io.input.a.valid && hit
       s.a.payload := io.input.a.payload
       s.a.address.removeAssignments() := io.input.a.address.resized
       readys += s.a.ready && hit
     }
+    io.input.a.ready := readys.orR
 
     val miss = !logic.filter(_ != null).map(_.hit).orR
-    error.ctrl.io.bus.a.valid := io.input.a.valid && miss
-    error.ctrl.io.bus.a.payload := io.input.a.payload
-    readys += error.ctrl.io.bus.a.ready && miss
-
-    io.input.a.ready := readys.orR
+    assert(!(io.input.a.valid && miss))
   }
 
   val b = inputNode.withBCE generate new Area{
@@ -98,9 +85,8 @@ case class Decoder(inputNode : NodeParameters, outputsSupports : Seq[M2sSupport]
   }
 
   val d = new Area{
-    val arbiter = StreamArbiterFactory().roundRobin.lambdaLock[ChannelD](_.isLast()).build(ChannelD(inputNode), outputsNodes.size + withError.toInt)
+    val arbiter = StreamArbiterFactory().roundRobin.lambdaLock[ChannelD](_.isLast()).build(ChannelD(inputNode), outputsNodes.size)
     (arbiter.io.inputs, outputs).zipped.foreach(_ connectFromRelaxed _.d)
-    if(withError) arbiter.io.inputs.last << error.ctrl.io.bus.d
     arbiter.io.output >> io.input.d
   }
 
