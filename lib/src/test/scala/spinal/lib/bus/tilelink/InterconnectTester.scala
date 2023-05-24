@@ -354,21 +354,26 @@ class InterconnectTester extends AnyFunSuite{
     tilelink.DebugId.setup(16)
     SimConfig.withFstWave.compile(new Component{
       implicit val interconnect = new Interconnect()
+
+      //A fictive CPU which has 2 memory bus, one from the data cache and one for peripheral accesses
       val cpu = new Area{
         val main = simpleMaster(coherentOnly)
         val io = simpleMaster(readWrite)
       }
 
+      //Will manage memory coherency
       val hub = new CoherencyHubIntegrator()
       val p0 = hub.createPort()
       p0 << cpu.main.node
       p0 << cpu.io.node
 
+      //Define the main memory of the SoC (ex : DDR)
       val memory = simpleSlave(20, 32)
       memory.node.addTag(PMA.MAIN)
       memory.node at 0x80000000l of hub.memGet
       memory.node at 0x80000000l of hub.memPut
 
+      //Define all the peripherals / low performance stuff, ex uart, scratch ram, rom, ..
       val peripheral = new Area{
         val bus = interconnect.createNode()
         bus at 0x20000000 of hub.memGet
@@ -378,8 +383,9 @@ class InterconnectTester extends AnyFunSuite{
         val uart = simpleSlave(12, 32)
         val spi = simpleSlave(12, 32)
         val memory = simpleSlave(16, 32)
-        memory.node.addTag(PMA.MAIN)
         val rom = simpleReadOnlySlave(12, 32)
+
+        memory.node.addTag(PMA.MAIN)
         rom.node.addTag(PMA.MAIN)
 
         gpio.node at 0x1000 of bus
@@ -389,6 +395,7 @@ class InterconnectTester extends AnyFunSuite{
         rom.node at 0x20000 of bus
       }
 
+      //Will analyse the access capabilities of the CPU buses
       Elab check new Area{
         val mainSupport = MemoryConnection.getSupportedTransfers(cpu.main.node)
         println("cpu.main.node can access : ")
