@@ -21,10 +21,10 @@ class SpinalSimPackedWordBundleTester extends AnyFunSuite {
           val b = in(Bits(8 bit))
           val c = in(Bits(16 bit))
           val d = in(Bits(3 bit))
-          val packed = out(packedBundle.asBits.clone)
+          val packed = out(packedBundle.packed.clone)
         }
 
-        io.packed := RegNext(packedBundle.asBits)
+        io.packed := RegNext(packedBundle.packed)
         packedBundle.a := io.a
         packedBundle.b := io.b
         packedBundle.c := io.c
@@ -73,10 +73,10 @@ class SpinalSimPackedWordBundleTester extends AnyFunSuite {
           val b = out(Bits(8 bit))
           val c = out(Bits(16 bit))
           val d = out(Bits(3 bit))
-          val packed = in(packedBundle.asBits.clone)
+          val packed = in(packedBundle.packed.clone)
         }
 
-        packedBundle.assignFromBits(RegNext(io.packed))
+        packedBundle.unpack(RegNext(io.packed))
         io.a := packedBundle.a
         io.b := packedBundle.b
         io.c := packedBundle.c
