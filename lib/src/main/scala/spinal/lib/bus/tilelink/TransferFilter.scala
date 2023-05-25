@@ -107,6 +107,7 @@ class TransferFilterIntegrator()(implicit val i : Interconnect) extends Area{
       dataWidth = down.m2s.supported.dataWidth
     ))
     down.m2s.parameters.load(up.m2s.parameters)
+
     up.s2m.proposed.load(down.s2m.proposed)
     down.s2m.supported.load(up.s2m.supported)
     up.s2m.parameters.load(up.m2s.parameters.withBCE match {

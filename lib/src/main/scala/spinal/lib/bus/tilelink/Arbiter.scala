@@ -11,13 +11,16 @@ object Arbiter{
     NodeParameters.mergeMasters(inputs)
   }
   def inputSlaveFrom(output : S2mParameters, input : S2mSupport) : S2mParameters = {
-    output.copy(
-      slaves = output.slaves.map(e =>
-        e.copy(
-          emits = e.emits.intersect(input.transfers)
+    input.transfers.withAny match {
+      case true => output.copy(
+        slaves = output.slaves.map(e =>
+          e.copy(
+            emits = e.emits.intersect(input.transfers)
+          )
         )
       )
-    )
+      case false => S2mParameters.none()
+    }
   }
 }
 
@@ -63,6 +66,7 @@ case class Arbiter(inputsNodes : Seq[NodeParameters]) extends Component{
       val hit = sel === id
       s.d.valid := io.output.d.valid && hit
       s.d.payload := io.output.d.payload
+      if(!s.p.withBCE) s.d.sink.removeAssignments() := 0
     }
   }
 

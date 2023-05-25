@@ -412,8 +412,7 @@ class Interconnect extends Area{
         val p = NodeParameters(n.m2s.parameters, n.s2m.parameters).toBusParameter()
         n.bus.load(Bus(p))
 
-        //TODO skip arbiter component if not needed
-        val arbiter = (n.mode != InterconnectNodeMode.MASTER) generate new Area {
+        val arbiter = (n.mode != InterconnectNodeMode.MASTER && n.ups.size > 1) generate new Area {
           val core = Arbiter(n.ups.map(up => NodeParameters(
             m = up.arbiter.m2s.parameters,
             s = up.arbiter.s2m.parameters
@@ -422,11 +421,28 @@ class Interconnect extends Area{
           val connection = n.arbiterConnector(n.bus, core.io.output)
         }
 
-        //TODO skip decoder component if not needed
-        val decoder = (n.mode != InterconnectNodeMode.SLAVE) generate new Area {
+        val noArbiter = (n.mode != InterconnectNodeMode.MASTER && n.ups.size == 1) generate new Area {
+          n.ups.head.arbiter.bus.load(cloneOf(n.bus.get))
+          val connection = n.arbiterConnector(n.bus, n.ups.head.arbiter.bus)
+        }
+
+        val decoder = (n.mode != InterconnectNodeMode.SLAVE && n.downs.size > 1) generate new Area {
           val core = Decoder(n.bus.p.node, n.downs.map(_.s.m2s.supported), n.downs.map(_.decoder.s2m.parameters), n.downs.map(_.getMapping()))
           (n.downs, core.io.outputs.map(_.combStage())).zipped.foreach(_.decoder.bus.load(_))
           val connection = n.decoderConnector(core.io.input, n.bus)
+        }
+
+        val noDecoder = (n.mode != InterconnectNodeMode.SLAVE && n.downs.size == 1) generate new Area {
+          val toDown = cloneOf(n.bus.get)
+          val connection = n.decoderConnector(toDown, n.bus)
+          n.downs.head.decoder.bus.load(Bus(NodeParameters(n.downs.head.decoder.m2s.parameters, n.downs.head.decoder.s2m.parameters)))
+          val target = n.downs.head.decoder.bus
+          target << toDown
+          target.a.address.removeAssignments() := toDown.a.address.resized
+          if(toDown.p.withBCE) {
+            toDown.b.address.removeAssignments() := target.b.address.resized
+            target.c.address.removeAssignments() := toDown.c.address.resized
+          }
         }
       }
     }
