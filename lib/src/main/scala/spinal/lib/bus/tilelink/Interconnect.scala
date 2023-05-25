@@ -3,8 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
-import spinal.lib.system.tag.MemoryConnection.WalkArgs
-import spinal.lib.system.tag.{MemoryConnection, PMA, SupportedTransfers, SupportedTransfersLanda}
+import spinal.lib.system.tag._
 import spinal.lib.{master, slave}
 
 import scala.collection.mutable.ArrayBuffer
@@ -82,7 +81,7 @@ class InterconnectNode(i : Interconnect) extends Area with SpinalTagReady {
   def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
 
 
-  this.addTag(new SupportedTransfersLanda(() => m2s.parameters.emits))
+  this.addTag(new MemoryTransfersLanda(() => m2s.parameters.emits))
 
   val m2s = new Area{
     val proposed = Handle[M2sSupport]()
@@ -199,7 +198,7 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
     override def m = InterconnectConnection.this.m
     override def s = InterconnectConnection.this.s
     override def mapping = getMapping()
-    override def sToM(down: SupportedTransfers, args: WalkArgs) = down
+    override def sToM(down: MemoryTransfers, args: MappedNode) = down
   }
 
   m.addTag(tag)
@@ -607,7 +606,7 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
       val s = internalConnection
       val mapping = DefaultMapping
       populate()
-      override def sToM(down: SupportedTransfers, args: WalkArgs) = {
+      override def sToM(down: MemoryTransfers, args: MappedNode) = {
         down match{
           case t : M2sTransfers => {
             val canGet = t.get.contains(blockSize)
@@ -632,7 +631,7 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
     override def m = internalConnection
     override def s = node
     override def mapping = DefaultMapping
-    override def sToM(downs: SupportedTransfers, args : WalkArgs) = downs
+    override def sToM(downs: MemoryTransfers, args : MappedNode) = downs
     populate()
   })
 

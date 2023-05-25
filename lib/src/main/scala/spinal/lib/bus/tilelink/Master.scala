@@ -3,7 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.AddressMapping
-import spinal.lib.system.tag.{SupportedTransfers, SupportedTransfersLanda}
+import spinal.lib.system.tag.{MemoryTransfers, MemoryTransfersLanda}
 
 
 case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
@@ -14,7 +14,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
                         putFull      : SizeRange = SizeRange.none,
                         putPartial   : SizeRange = SizeRange.none,
                         hint         : SizeRange = SizeRange.none,
-                        probeAckData : SizeRange = SizeRange.none) extends SupportedTransfers {
+                        probeAckData : SizeRange = SizeRange.none) extends MemoryTransfers {
 
   def withBCE = acquireT.some || acquireB.some
   def withDataA = putFull.some || putFull.some
@@ -43,11 +43,11 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     probeAckData = probeAckData.mincover(rhs.probeAckData))
 
 
-  override def mincover(rhs: SupportedTransfers) = rhs match {
+  override def mincover(rhs: MemoryTransfers) = rhs match {
     case rhs : M2sTransfers => mincover(rhs)
   }
 
-  override def intersect(rhs: SupportedTransfers) = rhs match {
+  override def intersect(rhs: MemoryTransfers) = rhs match {
     case rhs : M2sTransfers => intersect(rhs)
   }
 

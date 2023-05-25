@@ -34,7 +34,7 @@ class InterconnectTester extends AnyFunSuite{
 
     val masterSpecs = masterNodes.map(n => {
       val mappings = ArrayBuffer[Mapping]()
-      val suportedTransfers = MemoryConnection.getSupportedTransfers(n)
+      val suportedTransfers = MemoryConnection.getMemoryTransfers(n)
       for((args, t) <- suportedTransfers){
         args.node match {
           case n: InterconnectNode => {
@@ -397,10 +397,10 @@ class InterconnectTester extends AnyFunSuite{
 
       //Will analyse the access capabilities of the CPU buses
       Elab build new Area{
-        val mainSupport = MemoryConnection.getSupportedTransfers(cpu.main.node)
+        val mainSupport = MemoryConnection.getMemoryTransfers(cpu.main.node)
         println("cpu.main.node can access : ")
         println(mainSupport.map("- " + _).mkString("\n"))
-        val ioSupport = MemoryConnection.getSupportedTransfers(cpu.io.node)
+        val ioSupport = MemoryConnection.getMemoryTransfers(cpu.io.node)
         println("cpu.io.node can access : ")
         println(ioSupport.map("- " + _).mkString("\n"))
       }
