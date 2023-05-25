@@ -34,12 +34,12 @@ class InterconnectTester extends AnyFunSuite{
 
     val masterSpecs = masterNodes.map(n => {
       val mappings = ArrayBuffer[Mapping]()
-      val nodes = MemoryConnection.nodes(n)
-      for(s <- nodes){
-        s.node match {
+      val suportedTransfers = MemoryConnection.getSupportedTransfers(n)
+      for((args, t) <- suportedTransfers){
+        args.node match {
           case n: InterconnectNode => {
             nodeToModel.get(n) match {
-              case Some(m) => mappings += Mapping(n.m2s.supported, SizeMapping(s.address, s.size), m)
+              case Some(m) => mappings += Mapping(n.m2s.supported, SizeMapping(args.address, args.size), m)
               case None =>
             }
           }
