@@ -68,7 +68,7 @@ class InterconnectNodeMode extends Nameable
 object InterconnectNodeMode extends AreaRoot {
   val BOTH, MASTER, SLAVE = new InterconnectNodeMode
 }
-class InterconnectNode(i : Interconnect) extends Area with SpinalTagReady {
+class InterconnectNode(val i : Interconnect) extends Area with SpinalTagReady {
   val bus = Handle[Bus]()
   val ups = ArrayBuffer[InterconnectConnection]()
   val downs = ArrayBuffer[InterconnectConnection]()
@@ -80,8 +80,14 @@ class InterconnectNode(i : Interconnect) extends Area with SpinalTagReady {
   def setArbiterConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
   def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
 
+  def await() = {
+    i.lock.await()
+    lock.await()
+  }
 
-  this.addTag(new MemoryTransfersLanda(() => m2s.parameters.emits))
+  this.addTag(new MemoryTransferTag {
+    override def get = m2s.parameters.emits
+  })
 
   val m2s = new Area{
     val proposed = Handle[M2sSupport]()
@@ -287,21 +293,6 @@ class Interconnect extends Area{
 
   val gen = Elab build new Area{
     lock.await()
-    var error = false
-    for(n <- nodes){
-      n.mode match {
-        case InterconnectNodeMode.MASTER =>
-          if(n.ups.nonEmpty) { println(s"${n.getName()} has masters"); error = true }
-          if(n.downs.isEmpty) { println(s"${n.getName()} has no slave"); error = true }
-        case InterconnectNodeMode.BOTH =>
-          if(n.ups.isEmpty) { println(s"${n.getName()} has no master"); error = true }
-          if(n.downs.isEmpty) { println(s"${n.getName()} has no slave"); error = true }
-        case InterconnectNodeMode.SLAVE =>
-          if(n.ups.isEmpty) { println(s"${n.getName()} has no master"); error = true }
-          if(n.downs.nonEmpty) { println(s"${n.getName()} has slaves"); error = true }
-      }
-    }
-    if(error) SpinalError("Failed")
 
     @DontName val threads = for(n <- nodes) yield hardFork on new Composite(n, "thread", false){
       // Specify which Handle will be loaded by the current thread, as this help provide automated error messages
@@ -323,6 +314,20 @@ class Interconnect extends Area{
         n.s2m.parameters,
         n.s2m.proposed
       )
+
+
+      n.await()
+      n.mode match {
+        case InterconnectNodeMode.MASTER =>
+          if(n.ups.nonEmpty)  { println(s"${n.getName()} has masters") }
+          if(n.downs.isEmpty) { println(s"${n.getName()} has no slave") }
+        case InterconnectNodeMode.BOTH =>
+          if(n.ups.isEmpty)   { println(s"${n.getName()} has no master") }
+          if(n.downs.isEmpty) { println(s"${n.getName()} has no slave") }
+        case InterconnectNodeMode.SLAVE =>
+          if(n.ups.isEmpty)    { println(s"${n.getName()} has no master") }
+          if(n.downs.nonEmpty) { println(s"${n.getName()} has slaves") }
+      }
 
       // n.m2s.proposed <- ups.m2s.proposed
       if(n.mode != InterconnectNodeMode.MASTER) {

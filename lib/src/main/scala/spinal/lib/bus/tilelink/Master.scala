@@ -3,7 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.AddressMapping
-import spinal.lib.system.tag.{MemoryTransfers, MemoryTransfersLanda}
+import spinal.lib.system.tag._
 
 
 case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,

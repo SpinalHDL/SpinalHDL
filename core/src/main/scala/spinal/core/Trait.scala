@@ -771,6 +771,11 @@ trait SpinalTag {
   }
 }
 
+
+trait SpinalTagGetter[T] extends SpinalTag{
+  def get() : T
+}
+
 class DefaultTag(val that: BaseType) extends SpinalTag
 object allowDirectionLessIoTag       extends SpinalTag
 object unsetRegIfNoAssignementTag    extends SpinalTag

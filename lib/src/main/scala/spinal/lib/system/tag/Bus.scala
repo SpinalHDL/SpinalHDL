@@ -7,20 +7,25 @@ import spinal.lib.bus.tilelink.{InterconnectNode, M2sTransfers}
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-trait MemoryTransfers extends SpinalTag{
+object MemoryTransfers{
+  def of(tags : SpinalTagReady) : Option[MemoryTransfers] = {
+    tags.getTags().foreach{
+      case e : MemoryTransferTag => return Some(e.get)
+      case _ =>
+    }
+    None
+  }
+}
+
+trait MemoryTransferTag extends SpinalTag{
+  def get : MemoryTransfers
+}
+
+trait MemoryTransfers {
   def mincover(rhs: MemoryTransfers) : MemoryTransfers
   def intersect(rhs: MemoryTransfers) : MemoryTransfers
   def isEmpty : Boolean
   def nonEmpty : Boolean
-  def getter() : MemoryTransfers = this
-}
-
-class MemoryTransfersLanda(val landa : () => MemoryTransfers) extends MemoryTransfers{
-  def mincover(rhs: MemoryTransfers) : MemoryTransfers = landa().mincover(rhs)
-  def intersect(rhs: MemoryTransfers) : MemoryTransfers = landa().intersect(rhs)
-  def isEmpty : Boolean = landa().isEmpty
-  def nonEmpty : Boolean = landa().nonEmpty
-  override def getter() = landa()
 }
 
 trait MemoryConnection extends SpinalTag {
@@ -34,6 +39,7 @@ trait MemoryConnection extends SpinalTag {
     s.addTag(this)
   }
 }
+
 object MappedNode{
   def apply(m : InterconnectNode) : MappedNode = MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth)
   def apply(node : Nameable with SpinalTagReady, address : BigInt, size : BigInt) : MappedNode = MappedNode(node, SizeMapping(address, size))
@@ -60,8 +66,11 @@ case class MappedNode(node : Nameable with SpinalTagReady, mapping : SizeMapping
 }
 
 object MemoryConnection{
-  def getMemoryTransfers(m : InterconnectNode) : mutable.ArrayBuffer[(MappedNode, M2sTransfers)] = getMemoryTransfers(MappedNode(m)).map{
-    case e : (MappedNode, M2sTransfers) => e
+  def getMemoryTransfers(m : InterconnectNode) : mutable.ArrayBuffer[(MappedNode, M2sTransfers)] = {
+    m.await()
+    getMemoryTransfers(MappedNode(m)).map{
+      case e : (MappedNode, M2sTransfers) => e
+    }
   }
 
   def getMemoryTransfers(args : MappedNode): ArrayBuffer[(MappedNode, MemoryTransfers)] ={
@@ -70,9 +79,7 @@ object MemoryConnection{
       case c : MemoryConnection if c.m == args.node => true
       case _ => false
     }) {
-      return args.node.findTag(_.isInstanceOf[MemoryTransfers]) match {
-        case Some(x) => ArrayBuffer(args -> x.asInstanceOf[MemoryTransfers].getter())
-      }
+      return ArrayBuffer(args -> MemoryTransfers.of(args.node).get)
     }
 
     //Collect slaves supports
@@ -90,17 +97,23 @@ object MemoryConnection{
     }
 
     //Filter the agregated slave supports with the current node capabilities
-    args.node.findTag(_.isInstanceOf[MemoryTransfers]) match {
+    MemoryTransfers.of(args.node) match {
       case None => unfiltred.foreach(e => ret += e._1 -> e._2)
-      case Some(x) => unfiltred.foreach(e => ret += e._1 -> e._2.intersect(x.asInstanceOf[MemoryTransfers].getter()))
+      case Some(x) => unfiltred.foreach(e => ret += e._1 -> e._2.intersect(x))
     }
 
     ret.filter(_._2.nonEmpty)
   }
 
-  def foreachSlave(m : InterconnectNode)(body : (MappedNode, MemoryConnection) => Unit): Unit = MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth).foreachSlave(body)
+  def foreachSlave(m : InterconnectNode)(body : (MappedNode, MemoryConnection) => Unit): Unit = {
+    m.await()
+    MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth).foreachSlave(body)
+  }
 
-  def walk(m : InterconnectNode)(body : MappedNode => Unit): Unit = walk(MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth))(body)
+  def walk(m : InterconnectNode)(body : MappedNode => Unit): Unit = {
+    m.await()
+    walk(MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth))(body)
+  }
   def walk(m : MappedNode)(body : MappedNode => Unit): Unit ={
     body(m)
     m.foreachSlave{(s,c) =>
