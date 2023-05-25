@@ -15,8 +15,17 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
                         putPartial   : SizeRange = SizeRange.none,
                         hint         : SizeRange = SizeRange.none,
                         probeAckData : SizeRange = SizeRange.none) extends MemoryTransfers {
-
-  def withBCE = acquireT.some || acquireB.some
+//  def foreachWithOpcodeA(body : (Int, SizeRange) => Unit): Unit ={
+//    body(0, putFull   )
+//    body(1, putPartial)
+//    body(2, arithmetic)
+//    body(3, logical   )
+//    body(4, get       )
+//    body(5, hint      )
+//    body(6, acquireT  )
+//    body(7, acquireB  )
+//  }
+  def withBCE = acquireT.some || acquireB.some || probeAckData.some
   def withDataA = putFull.some || putFull.some
   def withDataD = get.some || acquireT.some || acquireB.some || logical.some || arithmetic.some
   def withAny = withDataA || withDataD || withBCE || hint.some

@@ -107,7 +107,7 @@ class InterconnectNode(val i : Interconnect) extends Area with SpinalTagReady {
     val parameters = Handle[S2mParameters]()
     def none() = {
       proposed.load(S2mSupport.none)
-      parameters.load(S2mParameters.none(this))
+      parameters.load(S2mParameters.none)
     }
     def setProposedFromParameters(): Unit ={
       proposed load S2mSupport(parameters)
@@ -319,14 +319,14 @@ class Interconnect extends Area{
       n.await()
       n.mode match {
         case InterconnectNodeMode.MASTER =>
-          if(n.ups.nonEmpty)  { println(s"${n.getName()} has masters") }
-          if(n.downs.isEmpty) { println(s"${n.getName()} has no slave") }
+          if(n.ups.nonEmpty)  { SpinalError(s"${n.getName()} has masters") }
+          if(n.downs.isEmpty) { SpinalError(s"${n.getName()} has no slave") }
         case InterconnectNodeMode.BOTH =>
-          if(n.ups.isEmpty)   { println(s"${n.getName()} has no master") }
-          if(n.downs.isEmpty) { println(s"${n.getName()} has no slave") }
+          if(n.ups.isEmpty)   { SpinalError(s"${n.getName()} has no master") }
+          if(n.downs.isEmpty) { SpinalError(s"${n.getName()} has no slave") }
         case InterconnectNodeMode.SLAVE =>
-          if(n.ups.isEmpty)    { println(s"${n.getName()} has no master") }
-          if(n.downs.nonEmpty) { println(s"${n.getName()} has slaves") }
+          if(n.ups.isEmpty)    { SpinalError(s"${n.getName()} has no master") }
+          if(n.downs.nonEmpty) { SpinalError(s"${n.getName()} has slaves") }
       }
 
       // n.m2s.proposed <- ups.m2s.proposed
@@ -361,30 +361,49 @@ class Interconnect extends Area{
         down.decoder.m2s.parameters.load(Decoder.outputMastersFrom(n.m2s.parameters, down.s.m2s.supported))
       }
 
-      // n.s2m.proposed <- downs.s2m.proposed
-      if(n.mode != InterconnectNodeMode.SLAVE) {
-        val fromDowns = n.downs.map(_.s.s2m.proposed).reduce(_ mincover _)
-//        val modified = n.s2m.proposedModifiers.foldLeft(fromDowns)((e, f) => f(e))
-        n.s2m.proposed load fromDowns
+      n.m2s.parameters.withBCE match {
+        case true =>{
+          // n.s2m.proposed <- downs.s2m.proposed
+          if(n.mode != InterconnectNodeMode.SLAVE) {
+            val fromDowns = n.downs.map(_.s.s2m.proposed.get).reduce(_ mincover _)
+            //        val modified = n.s2m.proposedModifiers.foldLeft(fromDowns)((e, f) => f(e))
+            n.s2m.proposed load fromDowns
+          }
+
+          // n.s2m.supported <- ups.s2m.supported
+          if(n.mode != InterconnectNodeMode.MASTER) {
+            val fromUps = n.ups.map(_.m.s2m.supported.get).reduce(_ mincover _)
+            //        val modified = n.m2s.supportedModifiers.foldLeft(addressConstrained)((e, f) => f(e))
+            n.s2m.supported load fromUps
+          }
+
+          // n.s2m.parameters <- downs.decoder.s2m.parameters
+          if(n.mode != InterconnectNodeMode.SLAVE){
+            n.s2m.parameters.load(Decoder.inputSlavesFrom(n.downs.map(_.decoder.s2m.parameters.get)))
+          }
+
+          //ups.arbiter.s2m.parameters <- s2m.parameters
+          for(up <- n.ups){
+            //        up.arbiter.s2m.parameters.load(n.s2m.parameters)
+            up.arbiter.s2m.parameters.load(Arbiter.inputSlaveFrom(n.s2m.parameters, up.m.s2m.supported))
+          }
+        }
+        case false => {
+          if(n.mode != InterconnectNodeMode.SLAVE) {
+            n.s2m.proposed load S2mSupport.none
+          }
+          if(n.mode != InterconnectNodeMode.MASTER) {
+            n.s2m.supported load S2mSupport.none
+          }
+          if(n.mode != InterconnectNodeMode.SLAVE){
+            n.s2m.parameters.load(S2mParameters.none())
+          }
+          for(up <- n.ups){
+            up.arbiter.s2m.parameters.load(S2mParameters.none())
+          }
+        }
       }
 
-      // n.s2m.supported <- ups.s2m.supported
-      if(n.mode != InterconnectNodeMode.MASTER) {
-        val fromUps = n.ups.map(_.m.s2m.supported.get).reduce(_ mincover _)
-//        val modified = n.m2s.supportedModifiers.foldLeft(addressConstrained)((e, f) => f(e))
-        n.s2m.supported load fromUps
-      }
-
-      // n.s2m.parameters <- downs.decoder.s2m.parameters
-      if(n.mode != InterconnectNodeMode.SLAVE){
-        n.s2m.parameters.load(Decoder.inputSlavesFrom(n.downs.map(_.decoder.s2m.parameters.get)))
-      }
-
-      //ups.arbiter.s2m.parameters <- s2m.parameters
-      for(up <- n.ups){
-//        up.arbiter.s2m.parameters.load(n.s2m.parameters)
-        up.arbiter.s2m.parameters.load(Arbiter.inputSlaveFrom(n.s2m.parameters, up.m.s2m.supported))
-      }
 
 
       // Start hardware generation from that point
@@ -516,7 +535,7 @@ class VideoOut()(implicit ic : Interconnect) extends Area{
 class UART()(implicit ic : Interconnect) extends Area{
   val node = ic.createSlave()
   node.s2m.parameters.load(
-    S2mParameters.none(this)
+    S2mParameters.none
   )
   node.m2s.supported.loadAsync(
     M2sSupport(
@@ -537,7 +556,7 @@ class UART()(implicit ic : Interconnect) extends Area{
 class ROM()(implicit ic : Interconnect) extends Area{
   val node = ic.createSlave()
   node.s2m.parameters.load(
-    S2mParameters.none(this)
+    S2mParameters.none
   )
   node.m2s.supported.loadAsync(
     M2sSupport(
@@ -557,7 +576,7 @@ class ROM()(implicit ic : Interconnect) extends Area{
 class StreamOut()(implicit ic : Interconnect) extends Area{
   val node = ic.createSlave()
   node.s2m.parameters.load(
-    S2mParameters.none(this)
+    S2mParameters.none
   )
   node.m2s.supported.loadAsync(
     M2sSupport(
@@ -666,7 +685,7 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
 
       node.s2m.parameters.load(
         node.m2s.proposed.transfers.withBCE match {
-          case false =>  S2mParameters.none(this)
+          case false =>  S2mParameters.none
           case true => S2mParameters(List(S2mAgent(
             name = this,
             emits = S2mTransfers(

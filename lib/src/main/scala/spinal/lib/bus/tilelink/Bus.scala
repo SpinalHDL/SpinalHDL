@@ -333,6 +333,8 @@ case class Bus(p : BusParameter) extends Bundle with IMasterSlave{
     if(p.withBCE){
       ret.d.sink.removeAssignments() := (this.d.sink.resize(width) | offset)
       this.e.sink.removeAssignments() := ret.e.sink.resized
+    } else {
+      ret.d.sink.removeAssignments() := 0
     }
     ret
   }

@@ -50,6 +50,7 @@ case class SizeRange(min : Int, max : Int){
   require (min == 0 || isPow2(min), s"TransferSupport must be a power of 2, got: $min")
   require (max == 0 || min != 0, s"TransferSize 0 is forbidden unless (0,0), got: ($min, $max)")
 
+  def foreach(body : Int => Unit) = for(i <- log2Up(min) to log2Up(max)) body(1 << i)
   def none = min == 0
   def some = !none
   def contains(x: Int) = isPow2(x) && min <= x && x <= max

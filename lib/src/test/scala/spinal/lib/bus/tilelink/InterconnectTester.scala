@@ -35,11 +35,11 @@ class InterconnectTester extends AnyFunSuite{
     val masterSpecs = masterNodes.map(n => {
       val mappings = ArrayBuffer[Mapping]()
       val suportedTransfers = MemoryConnection.getMemoryTransfers(n)
-      for((args, t) <- suportedTransfers){
-        args.node match {
+      for(e <- suportedTransfers){
+        e.node match {
           case n: InterconnectNode => {
             nodeToModel.get(n) match {
-              case Some(m) => mappings += Mapping(n.m2s.supported, SizeMapping(args.address, args.size), m)
+              case Some(m) => mappings += Mapping(n.m2s.supported, SizeMapping(e.mapping.base, e.mapping.size), m)
               case None =>
             }
           }
@@ -103,7 +103,7 @@ class InterconnectTester extends AnyFunSuite{
     )
   )
 
-  def simpleSlave(addressWidth : Int, dataWidth : Int = 32, s2mParameters: S2mParameters = S2mParameters.none(null)) (implicit ic : Interconnect) = new SlaveBus(
+  def simpleSlave(addressWidth : Int, dataWidth : Int = 32, s2mParameters: S2mParameters = S2mParameters.none) (implicit ic : Interconnect) = new SlaveBus(
     M2sSupport(
       transfers = M2sTransfers.unknownEmits,
       dataWidth = dataWidth,
@@ -361,11 +361,18 @@ class InterconnectTester extends AnyFunSuite{
         val io = simpleMaster(readWrite)
       }
 
+      val dma = new Area{
+        val main = simpleMaster(readWrite)
+        val filter = new TransferFilterIntegrator()
+        filter.up << main.node
+      }
+
       //Will manage memory coherency
       val hub = new CoherencyHubIntegrator()
       val p0 = hub.createPort()
       p0 << cpu.main.node
       p0 << cpu.io.node
+      p0 << dma.filter.down
 
       //Define the main memory of the SoC (ex : DDR)
       val memory = simpleSlave(20, 32)

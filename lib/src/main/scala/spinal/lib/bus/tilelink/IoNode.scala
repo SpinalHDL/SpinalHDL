@@ -16,7 +16,7 @@ class MasterBus(p : M2sParameters)(implicit ic : Interconnect) extends Area{
 }
 
 //While create a interconnect slave as an io of the toplevel
-class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParameters.none(null))(implicit ic : Interconnect) extends Area{
+class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParameters.none)(implicit ic : Interconnect) extends Area{
   val node = ic.createSlave()
   val logic = Elab build new Area {
     node.s2m.parameters.load(s2mParameters)

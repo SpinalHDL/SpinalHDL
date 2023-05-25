@@ -65,29 +65,32 @@ case class MappedNode(node : Nameable with SpinalTagReady, mapping : SizeMapping
   }
 }
 
+case class MappedTransfers(where : MappedNode, transfers: MemoryTransfers){
+  def node = where.node
+  def mapping = where.mapping
+}
+
 object MemoryConnection{
-  def getMemoryTransfers(m : InterconnectNode) : mutable.ArrayBuffer[(MappedNode, M2sTransfers)] = {
+  def getMemoryTransfers(m : InterconnectNode) : mutable.ArrayBuffer[MappedTransfers] = {
     m.await()
-    getMemoryTransfers(MappedNode(m)).map{
-      case e : (MappedNode, M2sTransfers) => e
-    }
+    getMemoryTransfers(MappedNode(m))
   }
 
-  def getMemoryTransfers(args : MappedNode): ArrayBuffer[(MappedNode, MemoryTransfers)] ={
+  def getMemoryTransfers(args : MappedNode): ArrayBuffer[MappedTransfers] ={
     // Stop on leafs
     if(!args.node.existsTag{
       case c : MemoryConnection if c.m == args.node => true
       case _ => false
     }) {
-      return ArrayBuffer(args -> MemoryTransfers.of(args.node).get)
+      return ArrayBuffer(MappedTransfers(args, MemoryTransfers.of(args.node).get))
     }
 
     //Collect slaves supports
-    val ret = ArrayBuffer[(MappedNode, MemoryTransfers)]()
+    val ret = ArrayBuffer[MappedTransfers]()
     val unfiltred = mutable.LinkedHashMap[MappedNode, MemoryTransfers]()
     args.foreachSlave{ (s, c) =>
       val spec = getMemoryTransfers(s)
-      val transformed = spec.map(e => e._1 -> c.sToM(e._2, e._1))
+      val transformed = spec.map(e => e.where -> c.sToM(e.transfers, e.where))
       for((who, what) <- transformed){
         unfiltred.get(who) match {
           case None => unfiltred(who) = what
@@ -98,11 +101,11 @@ object MemoryConnection{
 
     //Filter the agregated slave supports with the current node capabilities
     MemoryTransfers.of(args.node) match {
-      case None => unfiltred.foreach(e => ret += e._1 -> e._2)
-      case Some(x) => unfiltred.foreach(e => ret += e._1 -> e._2.intersect(x))
+      case None => unfiltred.foreach(e => ret += MappedTransfers(e._1, e._2))
+      case Some(x) => unfiltred.foreach(e => ret += MappedTransfers(e._1, e._2.intersect(x)))
     }
 
-    ret.filter(_._2.nonEmpty)
+    ret.filter(_.transfers.nonEmpty)
   }
 
   def foreachSlave(m : InterconnectNode)(body : (MappedNode, MemoryConnection) => Unit): Unit = {
