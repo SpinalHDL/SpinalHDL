@@ -351,14 +351,14 @@ class Interconnect extends Area{
 
       // n.m2s.parameters <- ups.arbiter.m2s.parameters
       if(n.mode != InterconnectNodeMode.MASTER) {
-        n.m2s.parameters load Arbiter.outputMastersFrom(
+        n.m2s.parameters load Arbiter.downMastersFrom(
           n.ups.map(_.arbiter.m2s.parameters.get)
         )
       }
 
       //down.decoder.m2s.parameters <- m2s.parameters + down.s.m2s.supported
       for (down <- n.downs) {
-        down.decoder.m2s.parameters.load(Decoder.outputMastersFrom(n.m2s.parameters, down.s.m2s.supported))
+        down.decoder.m2s.parameters.load(Decoder.downMastersFrom(n.m2s.parameters, down.s.m2s.supported))
       }
 
       n.m2s.parameters.withBCE match {
@@ -379,13 +379,13 @@ class Interconnect extends Area{
 
           // n.s2m.parameters <- downs.decoder.s2m.parameters
           if(n.mode != InterconnectNodeMode.SLAVE){
-            n.s2m.parameters.load(Decoder.inputSlavesFrom(n.downs.map(_.decoder.s2m.parameters.get)))
+            n.s2m.parameters.load(Decoder.upSlavesFrom(n.downs.map(_.decoder.s2m.parameters.get)))
           }
 
           //ups.arbiter.s2m.parameters <- s2m.parameters
           for(up <- n.ups){
             //        up.arbiter.s2m.parameters.load(n.s2m.parameters)
-            up.arbiter.s2m.parameters.load(Arbiter.inputSlaveFrom(n.s2m.parameters, up.m.s2m.supported))
+            up.arbiter.s2m.parameters.load(Arbiter.upSlaveFrom(n.s2m.parameters, up.m.s2m.supported))
           }
         }
         case false => {
@@ -417,8 +417,8 @@ class Interconnect extends Area{
             m = up.arbiter.m2s.parameters,
             s = up.arbiter.s2m.parameters
           )))
-          (n.ups, core.io.inputs.map(_.fromCombStage())).zipped.foreach(_.arbiter.bus.load(_))
-          val connection = n.arbiterConnector(n.bus, core.io.output)
+          (n.ups, core.io.ups.map(_.fromCombStage())).zipped.foreach(_.arbiter.bus.load(_))
+          val connection = n.arbiterConnector(n.bus, core.io.down)
         }
 
         val noArbiter = (n.mode != InterconnectNodeMode.MASTER && n.ups.size == 1) generate new Area {
@@ -428,8 +428,8 @@ class Interconnect extends Area{
 
         val decoder = (n.mode != InterconnectNodeMode.SLAVE && n.downs.size > 1) generate new Area {
           val core = Decoder(n.bus.p.node, n.downs.map(_.s.m2s.supported), n.downs.map(_.decoder.s2m.parameters), n.downs.map(_.getMapping()))
-          (n.downs, core.io.outputs.map(_.combStage())).zipped.foreach(_.decoder.bus.load(_))
-          val connection = n.decoderConnector(core.io.input, n.bus)
+          (n.downs, core.io.downs.map(_.combStage())).zipped.foreach(_.decoder.bus.load(_))
+          val connection = n.decoderConnector(core.io.up, n.bus)
         }
 
         val noDecoder = (n.mode != InterconnectNodeMode.SLAVE && n.downs.size == 1) generate new Area {

@@ -9,22 +9,22 @@ import spinal.lib.system.tag.{MappedNode, MappedTransfers, MemoryConnection, Mem
 
 import scala.collection.mutable.ArrayBuffer
 
-class TransferFilter(ip : NodeParameters, op : NodeParameters, spec : Seq[MappedTransfers]) extends Component{
+class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[MappedTransfers]) extends Component{
   val io = new Bundle {
-    val input = slave(Bus(ip))
-    val output = master(Bus(op))
+    val up = slave(Bus(unp))
+    val down = master(Bus(dnp))
   }
-  if(io.input.p.withBCE) assert(io.input.p.sinkWidth == io.output.p.sinkWidth + 1)
-  val ipEmits = ip.m.emits
-  val addressHits = spec.map(_.mapping.hit(io.input.a.address)).asBits()
-  val instruction = io.input.a.param ## io.input.a.size ## io.input.a.opcode
+  if(io.up.p.withBCE) assert(io.up.p.sinkWidth == io.down.p.sinkWidth + 1)
+  val ipEmits = unp.m.emits
+  val addressHits = spec.map(_.mapping.hit(io.up.a.address)).asBits()
+  val instruction = io.up.a.param ## io.up.a.size ## io.up.a.opcode
   val argsHits = spec.map{spec =>
     val st = spec.transfers.asInstanceOf[M2sTransfers]
     val falseTerms, trueTerms = ArrayBuffer[Masked]()
     def simple(opcode : Int, getter : M2sTransfers => SizeRange): Unit = simpleImpl(opcode, getter(ipEmits), getter(st))
     def simpleImpl(opcode : Int, is: SizeRange, os: SizeRange): Unit ={
       is.foreach{ size =>
-        val term = Masked(opcode | (log2Up(size) << 3), (1 << io.input.p.sizeWidth+3)-1)
+        val term = Masked(opcode | (log2Up(size) << 3), (1 << io.up.p.sizeWidth+3)-1)
         val target = if(os.contains(size)) trueTerms else falseTerms
         target += term
       }
@@ -32,7 +32,7 @@ class TransferFilter(ip : NodeParameters, op : NodeParameters, spec : Seq[Mapped
     def aquire(param : Int, getter : M2sTransfers => SizeRange): Unit = aquireImpl(param, getter(ipEmits), getter(st))
     def aquireImpl(param : Int, is: SizeRange, os: SizeRange): Unit ={
       ipEmits.acquireB.foreach{ size =>
-        val term = Masked(6 | (log2Up(size) << 3) | (param << 3 + io.input.p.sizeWidth), (1 << io.input.p.sizeWidth+3+3)-2) //-2 to cover opcode 6 and 7
+        val term = Masked(6 | (log2Up(size) << 3) | (param << 3 + io.up.p.sizeWidth), (1 << io.up.p.sizeWidth+3+3)-2) //-2 to cover opcode 6 and 7
         val target = if(os.contains(size)) trueTerms else falseTerms
         target += term
       }
@@ -53,24 +53,24 @@ class TransferFilter(ip : NodeParameters, op : NodeParameters, spec : Seq[Mapped
   val hits = addressHits & argsHits
   val hit = hits.orR
 
-  val start = io.input.a.valid && io.input.a.isLast() && !hit
+  val start = io.up.a.valid && io.up.a.isLast() && !hit
   val errored = RegInit(False) setWhen(start)
-  val size = RegNextWhen(io.input.a.size, start)
-  val source = RegNextWhen(io.input.a.source, start)
-  val beats = RegNextWhen(sizeToBeatMinusOne(io.input.p, io.input.a.size), start)
+  val size = RegNextWhen(io.up.a.size, start)
+  val source = RegNextWhen(io.up.a.source, start)
+  val beats = RegNextWhen(sizeToBeatMinusOne(io.up.p, io.up.a.size), start)
   val counter = Reg(beats)
 
-  io.output.a << io.input.a.haltWhen(errored).throwWhen(!hit)
-  io.input.d << io.output.d.haltWhen(errored)
-  io.input.d.sink.removeAssignments() := io.output.d.sink.resized
+  io.down.a << io.up.a.haltWhen(errored).throwWhen(!hit)
+  io.up.d << io.down.d.haltWhen(errored)
+  io.up.d.sink.removeAssignments() := io.down.d.sink.resized
   when(errored){
-    io.input.d.valid := True
-    io.input.d.size := size
-    io.input.d.source := source
-    io.input.d.denied := True
-    io.input.d.corrupt := False
-    if(ip.withBCE) io.input.d.sink.msb := True
-    when(io.input.d.ready) {
+    io.up.d.valid := True
+    io.up.d.size := size
+    io.up.d.source := source
+    io.up.d.denied := True
+    io.up.d.corrupt := False
+    if(unp.withBCE) io.up.d.sink.msb := True
+    when(io.up.d.ready) {
       counter := counter + 1
       when(counter === beats){
         errored := False
@@ -79,11 +79,11 @@ class TransferFilter(ip : NodeParameters, op : NodeParameters, spec : Seq[Mapped
   } otherwise {
     counter := 0
   }
-  if(ip.withBCE) {
-    io.output.b >> io.input.b
-    io.output.c << io.input.c
-    io.output.e.arbitrationFrom(io.input.e.throwWhen(io.input.e.sink.msb))
-    io.output.e.sink := io.input.e.sink.resized
+  if(unp.withBCE) {
+    io.down.b >> io.up.b
+    io.down.c << io.up.c
+    io.down.e.arbitrationFrom(io.up.e.throwWhen(io.up.e.sink.msb))
+    io.down.e.sink := io.up.e.sink.resized
   }
 }
 
@@ -127,7 +127,7 @@ class TransferFilterIntegrator()(implicit val i : Interconnect) extends Area{
       down.bus.p.node,
       spec
     )
-    core.io.input << up.bus
-    core.io.output >> down.bus
+    core.io.up << up.bus
+    core.io.down >> down.bus
   }
 }
