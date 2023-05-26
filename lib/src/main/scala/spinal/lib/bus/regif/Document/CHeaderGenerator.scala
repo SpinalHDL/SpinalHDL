@@ -130,8 +130,8 @@ final case class CHeaderGenerator(
             val maxshiftlen = regs.map(t => t.getName().size + t.fdNameLens).max
             def header: String = headers.mkString("\n * ")
             s"""|/*
-                | * Reg Interface C-Header [AUTOGENERATE by SpinalHDL]
                 | * ${header}
+                | * Reg Interface C-Header [AUTOGENERATE by SpinalHDL]
                 | */
                 |
                 |#ifndef ${guardName}
