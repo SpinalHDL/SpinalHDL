@@ -103,9 +103,9 @@ class InterconnectTester extends AnyFunSuite{
     )
   )
 
-  def simpleSlave(addressWidth : Int, dataWidth : Int = 32, s2mParameters: S2mParameters = S2mParameters.none) (implicit ic : Interconnect) = new SlaveBus(
+  def simpleSlave(addressWidth : Int, dataWidth : Int = 32, s2mParameters: S2mParameters = S2mParameters.none, m2sTransfers: M2sTransfers = M2sTransfers.unknownEmits) (implicit ic : Interconnect) = new SlaveBus(
     M2sSupport(
-      transfers = M2sTransfers.unknownEmits,
+      transfers = m2sTransfers,
       dataWidth = dataWidth,
       addressWidth = addressWidth,
       allowExecute = false
@@ -367,24 +367,30 @@ class InterconnectTester extends AnyFunSuite{
         filter.up << main.node
       }
 
+      val n0 = interconnect.createNode()
+      n0 << cpu.main.node
+      n0 << cpu.io.node
+      n0 << dma.filter.down
+
+//      val something = simpleSlave(20, 32, m2sTransfers = readWrite)
+//      something.node at 0x10000000 of n0
+
       //Will manage memory coherency
       val hub = new CoherencyHubIntegrator()
       val p0 = hub.createPort()
-      p0 << cpu.main.node
-      p0 << cpu.io.node
-      p0 << dma.filter.down
+      p0 at 0x00000000l of n0
 
       //Define the main memory of the SoC (ex : DDR)
       val memory = simpleSlave(20, 32)
       memory.node.addTag(PMA.MAIN)
-      memory.node at 0x80000000l of hub.memGet
-      memory.node at 0x80000000l of hub.memPut
+      memory.node at 0x0000000l of hub.memGet
+      memory.node at 0x0000000l of hub.memPut
 
       //Define all the peripherals / low performance stuff, ex uart, scratch ram, rom, ..
       val peripheral = new Area{
         val bus = interconnect.createNode()
-        bus at 0x20000000 of hub.memGet
-        bus at 0x20000000 of hub.memPut
+        bus at 0x10000000 of hub.memGet
+        bus at 0x10000000 of hub.memPut
 
         val gpio = simpleSlave(12, 32)
         val uart = simpleSlave(12, 32)
@@ -410,6 +416,9 @@ class InterconnectTester extends AnyFunSuite{
         val ioSupport = MemoryConnection.getMemoryTransfers(cpu.io.node)
         println("cpu.io.node can access : ")
         println(ioSupport.map("- " + _).mkString("\n"))
+        val dmaSupport = MemoryConnection.getMemoryTransfers(dma.main.node)
+        println("dma.main.node can access : ")
+        println(dmaSupport.map("- " + _).mkString("\n"))
       }
     }).doSim(seed = 42){dut =>
 

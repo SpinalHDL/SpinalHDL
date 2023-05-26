@@ -35,6 +35,8 @@ case class Decoder(upNode : NodeParameters, downsSupports : Seq[M2sSupport], dow
     s = s2m
   ))
 
+  assert(!mapping.contains(DefaultMapping))
+
   val io = new Bundle{
     val up = slave(Bus(upNode))
     val downs = Vec(downsNodes.map(e => master(Bus(e))))
@@ -60,14 +62,16 @@ case class Decoder(upNode : NodeParameters, downsSupports : Seq[M2sSupport], dow
 
   val b = upNode.withBCE generate new Area{
     val arbiter = StreamArbiterFactory().roundRobin.lambdaLock[ChannelB](_.isLast()).build(ChannelB(upNode), downsNodes.filter(_.withBCE).size)
+    val iter = arbiter.io.inputs.iterator
     for(i <- 0 until downsSupports.size if downsNodes(i).withBCE){
-      arbiter.io.inputs(i) << downs(i).b
+      val arbiterInput = iter.next()
+      arbiterInput << downs(i).b
 
       val base = mapping(i) match{
         case DefaultMapping => BigInt(0)
         case v => v.lowerBound
       }
-      arbiter.io.inputs(i).address.removeAssignments() := downs(i).b.address.resize(upNode.m.addressWidth) | base
+      arbiterInput.address.removeAssignments() := downs(i).b.address.resize(upNode.m.addressWidth) | base
     }
     arbiter.io.output >> io.up.b
   }

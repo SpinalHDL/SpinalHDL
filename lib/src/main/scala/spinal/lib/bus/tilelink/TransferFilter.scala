@@ -103,7 +103,7 @@ class TransferFilterIntegrator()(implicit val i : Interconnect) extends Area{
     down.m2s.proposed.load(up.m2s.proposed)
     up.m2s.supported.load(M2sSupport(
       transfers = up.m2s.proposed.transfers,
-      addressWidth = down.m2s.supported.addressWidth,
+      addressWidth = up.m2s.proposed.addressWidth,
       dataWidth = down.m2s.supported.dataWidth
     ))
     down.m2s.parameters.load(up.m2s.parameters)
