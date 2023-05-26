@@ -39,7 +39,9 @@ class InterconnectTester extends AnyFunSuite{
         e.node match {
           case n: InterconnectNode => {
             nodeToModel.get(n) match {
-              case Some(m) => mappings += Mapping(n.m2s.supported, SizeMapping(e.mapping.base, e.mapping.size), m)
+              case Some(m) => {
+                mappings += Mapping(n.m2s.supported, e.mapping, m)
+              }
               case None =>
             }
           }
@@ -157,6 +159,50 @@ class InterconnectTester extends AnyFunSuite{
     }
   }
 
+  test("unaligned mapping"){
+    tilelink.DebugId.setup(16)
+    SimConfig.withFstWave.compile(new Component{
+      implicit val interconnect = new Interconnect()
+
+      val m0, m1 = simpleMaster(readWrite)
+      val s0, s1, s2 = simpleSlave(8)
+
+      val b0 = interconnect.createNode()
+
+      b0 << m0.node
+      b0 << m1.node
+
+      s0.node at 0x220 of b0
+      s1.node at 0x340 of b0
+      s2.node at 0x440 of b0
+    }).doSim(seed = 42){dut =>
+      dut.clockDomain.forkStimulus(10)
+      testInterconnect(dut.interconnect)
+    }
+  }
+
+//  test("check no overlap mapping"){
+//    tilelink.DebugId.setup(16)
+//    SimConfig.withFstWave.compile(new Component{
+//      implicit val interconnect = new Interconnect()
+//
+//      val m0 = simpleMaster(readWrite)
+//      val s0, s1, s2 = simpleSlave(8)
+//
+//      val b0 = interconnect.createNode()
+//
+//      b0 << m0.node
+//
+//      s0.node at 0x240 of b0
+//      s1.node at 0x340 of b0
+//      s2.node at 0x400 of b0
+//    }).doSim(seed = 42){dut =>
+//      dut.clockDomain.forkStimulus(10)
+//      testInterconnect(dut.interconnect)
+//    }
+//  }
+
+
   test("Buffering"){
     tilelink.DebugId.setup(16)
     SimConfig.withFstWave.compile(new Component{
@@ -181,6 +227,48 @@ class InterconnectTester extends AnyFunSuite{
 
       val c = interconnect.getConnection(s0.node, b0)
 
+    }).doSim(seed = 42){dut =>
+      dut.clockDomain.forkStimulus(10)
+      testInterconnect(dut.interconnect)
+    }
+  }
+
+  test("DefaultOverlap"){
+    tilelink.DebugId.setup(16)
+    SimConfig.withFstWave.compile(new Component{
+      implicit val interconnect = new Interconnect()
+
+      val m0, m1 = simpleMaster(readWrite)
+      val s0, s1, s2 = simpleSlave(8)
+
+      val b0,b1,b2,b3 = interconnect.createNode()
+
+      b0 << m0.node
+      b0 << m1.node
+
+      b1 << b0
+      s2.node at 0x1000 of b1
+
+      b2 << b1
+      b3 << b2
+      s0.node at 0x200 of b3
+      s1.node at 0x400 of b3
+
+      val rob = interconnect.createNode()
+      rob << b3
+      val ro = simpleReadOnlySlave(8)
+      ro.node << rob
+
+      val wob = interconnect.createNode()
+      wob << b3
+      val wo = simpleWriteOnlySlave()
+      wo.node << wob
+
+//      val ro = simpleReadOnlySlave(8)
+//      ro.node << b3
+//
+//      val wo = simpleWriteOnlySlave()
+//      wo.node << b3
     }).doSim(seed = 42){dut =>
       dut.clockDomain.forkStimulus(10)
       testInterconnect(dut.interconnect)
@@ -326,17 +414,18 @@ class InterconnectTester extends AnyFunSuite{
 
       Elab build {
         var hits = 0
-        MemoryConnection.walk(m0.node) { w =>
+        val probed = MemoryConnection.getMemoryTransfers(m0.node)
+        probed.foreach{ w =>
           w.node match {
             case s0.node =>
               hits += 1
-              assert(w.address == 0xE0000 + 0x1000)
-              assert(w.size == 0x400)
+              assert(w.mapping.head.base == 0xE0000 + 0x1000)
+              assert(w.mapping.head.size == 0x400)
               assert(w.node.hasTag(PMA.VOLATILE))
             case s1.node =>
               hits += 1
-              assert(w.address == 0xE0000 + 0x2000)
-              assert(w.size == 0x400)
+              assert(w.mapping.head.base == 0xE0000 + 0x2000)
+              assert(w.mapping.head.size == 0x400)
               assert(w.node.hasTag(PMA.CACHED))
             case _ =>
           }
@@ -372,19 +461,20 @@ class InterconnectTester extends AnyFunSuite{
       n0 << cpu.io.node
       n0 << dma.filter.down
 
-//      val something = simpleSlave(20, 32, m2sTransfers = readWrite)
-//      something.node at 0x10000000 of n0
+      val something = simpleSlave(20, 32, m2sTransfers = readWrite)
+      something.node at 0x82000000l of n0
 
       //Will manage memory coherency
       val hub = new CoherencyHubIntegrator()
       val p0 = hub.createPort()
-      p0 at 0x00000000l of n0
+      p0 << n0
+//      p0 at 0x00000000l of n0
 
       //Define the main memory of the SoC (ex : DDR)
-      val memory = simpleSlave(20, 32)
+      val memory = simpleSlave(28, 32)
       memory.node.addTag(PMA.MAIN)
-      memory.node at 0x0000000l of hub.memGet
-      memory.node at 0x0000000l of hub.memPut
+      memory.node at 0x80000000l of hub.memGet
+      memory.node at 0x80000000l of hub.memPut
 
       //Define all the peripherals / low performance stuff, ex uart, scratch ram, rom, ..
       val peripheral = new Area{

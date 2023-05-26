@@ -121,7 +121,9 @@ class InterconnectNode(val i : Interconnect) extends Area with SpinalTagReady {
   def isMasterOnly() = mode == InterconnectNodeMode.MASTER
 
   def <<(m : InterconnectNode): InterconnectConnection = {
-    this at DefaultMapping of m
+    val c = i.connect(m, this)
+    c.mapping.defaultSpec = Some(Unit)
+    c
   }
 
   class At(body : InterconnectConnection => Unit){
@@ -131,9 +133,9 @@ class InterconnectNode(val i : Interconnect) extends Area with SpinalTagReady {
       c
     }
   }
-  def at(address : BigInt) = new At(_.explicitAddress = Some(address))
-  def at(address : BigInt, size : BigInt) = new At(_.explicitMapping = Some(SizeMapping(address, size)))
-  def at(address : AddressMapping) = new At(_.explicitMapping = Some(address))
+  def at(address : BigInt) = new At(_.mapping.addressSpec = Some(address))
+  def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
+  def at(mapping : SizeMapping) = new At(_.mapping.mappingSpec = Some(mapping))
 
   def forceDataWidth(dataWidth : Int): Unit ={
     m2s.proposedModifiers += { s =>
@@ -204,38 +206,45 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
     override def m = InterconnectConnection.this.m
     override def s = InterconnectConnection.this.s
     override def mapping = getMapping()
+    override def offset = InterconnectConnection.this.mapping.defaultSpec match {
+      case None => mapping.map(_.base).min
+      case Some(_) => 0
+    }
     override def sToM(down: MemoryTransfers, args: MappedNode) = down
   }
 
   m.addTag(tag)
   s.addTag(tag)
 
-  var explicitAddress = Option.empty[BigInt]
-  var explicitMapping = Option.empty[AddressMapping]
+  val mapping = new Area{
+    var addressSpec = Option.empty[BigInt]
+    var mappingSpec = Option.empty[SizeMapping]
+    var defaultSpec = Option.empty[Unit]
+    val value = Handle[Seq[SizeMapping]]
+  }
+
 
   val adapters = ArrayBuffer[InterconnectAdapter]()
   adapters += new InterconnectAdapterCc()
   adapters += new InterconnectAdapterWidth()
 
-  def getMapping() : AddressMapping = {
-    explicitAddress match {
-      case Some(v) => return SizeMapping(v, BigInt(1) << decoder.m2s.parameters.get.addressWidth)
-      case None =>
-    }
-    explicitMapping match {
-      case Some(x) => x
-    }
+  def getMapping() : Seq[SizeMapping] = {
+    mapping.value
   }
 
   def proposedAddressWidth() : Int = {
     def full = m.m2s.proposed.addressWidth
-    explicitAddress match {
+    mapping.addressSpec match {
       case Some(v) => return full
       case None =>
     }
 
-    explicitMapping.get match {
-      case DefaultMapping => full
+    mapping.defaultSpec match {
+      case Some(x) => return full
+      case None =>
+    }
+
+    mapping.mappingSpec.get match {
       case m : SizeMapping => log2Up(m.size)
     }
   }
@@ -265,6 +274,8 @@ class InterconnectConnection(val m : InterconnectNode, val s : InterconnectNode)
     }
     ptr >> arbiter.bus
   }
+
+  override def toString = if(this.isNamed) getName() else s"${m}_to_${s}"
 }
 
 class Interconnect extends Area{
@@ -361,6 +372,43 @@ class Interconnect extends Area{
         down.decoder.m2s.parameters.load(Decoder.downMastersFrom(n.m2s.parameters, down.s.m2s.supported))
       }
 
+      //Generate final connections mapping
+      if(n.mode != InterconnectNodeMode.SLAVE) {
+        var dc = ArrayBuffer[InterconnectConnection]()
+        n.downs.foreach{ c =>
+          c.mapping.addressSpec match {
+            case Some(v) => c.mapping.value load List(SizeMapping(v, BigInt(1) << c.decoder.m2s.parameters.get.addressWidth))
+            case None =>
+          }
+          c.mapping.mappingSpec match {
+            case Some(x) => c.mapping.value load List(x)
+            case None =>
+          }
+          c.mapping.defaultSpec match {
+            case Some(_) => {
+//              assert(c.decoder.m2s.parameters.addressWidth == n.m2s.parameters.addressWidth, s"Default connection $c addressWidth doesn't match\n ${ n.m2s.parameters.addressWidth} bits >> ${c.decoder.m2s.parameters.addressWidth} bits")
+              dc += c
+            }
+            case None => assert(c.mapping.value.isLoaded)
+          }
+        }
+        for(c <- dc){
+          val spec = ArrayBuffer[SizeMapping]()
+          val others = n.downs.filter(_.mapping.defaultSpec.isEmpty).flatMap(_.mapping.value.get)
+          val sorted = others.sortWith(_.base < _.base)
+          var address = BigInt(0)
+          val endAt = BigInt(1) << c.decoder.m2s.parameters.addressWidth
+          for(other <- sorted){
+            val size = other.base - address
+            if(size != 0) spec += SizeMapping(address, size)
+            address += other.base + other.size
+          }
+          val lastSize = endAt - address
+          if(lastSize != 0) spec += SizeMapping(address, lastSize)
+          c.mapping.value.load(spec)
+        }
+      }
+
       n.m2s.parameters.withBCE match {
         case true =>{
           // n.s2m.proposed <- downs.s2m.proposed
@@ -427,21 +475,22 @@ class Interconnect extends Area{
         }
 
         val decoder = (n.mode != InterconnectNodeMode.SLAVE && n.downs.size > 1) generate new Area {
-          val core = Decoder(n.bus.p.node, n.downs.map(_.s.m2s.supported), n.downs.map(_.decoder.s2m.parameters), n.downs.map(_.getMapping()))
+          val core = Decoder(n.bus.p.node, n.downs.map(_.s.m2s.supported), n.downs.map(_.decoder.s2m.parameters), n.downs.map(_.getMapping()), n.downs.map(_.tag.offset), n.downs.map(_.mapping.defaultSpec.nonEmpty))
           (n.downs, core.io.downs.map(_.combStage())).zipped.foreach(_.decoder.bus.load(_))
           val connection = n.decoderConnector(core.io.up, n.bus)
         }
 
         val noDecoder = (n.mode != InterconnectNodeMode.SLAVE && n.downs.size == 1) generate new Area {
+          val c = n.downs.head
           val toDown = cloneOf(n.bus.get)
           val connection = n.decoderConnector(toDown, n.bus)
-          n.downs.head.decoder.bus.load(Bus(NodeParameters(n.downs.head.decoder.m2s.parameters, n.downs.head.decoder.s2m.parameters)))
-          val target = n.downs.head.decoder.bus
+          c.decoder.bus.load(Bus(NodeParameters(c.decoder.m2s.parameters, c.decoder.s2m.parameters)))
+          val target = c.decoder.bus
           target << toDown
-          target.a.address.removeAssignments() := toDown.a.address.resized
+          target.a.address.removeAssignments() := (toDown.a.address - c.tag.offset).resized
           if(toDown.p.withBCE) {
-            toDown.b.address.removeAssignments() := target.b.address.resized
-            target.c.address.removeAssignments() := toDown.c.address.resized
+            toDown.b.address.removeAssignments() := (target.b.address + c.tag.offset).resized
+            target.c.address.removeAssignments() := (toDown.c.address - c.tag.offset).resized
           }
         }
       }
@@ -637,14 +686,17 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
   val coherents = ArrayBuffer[InterconnectNode]()
   val blockSize = 64
 
+  def addressWidth = coherents.map(_.m2s.proposed.addressWidth).max
+
   def createPort() ={
     val ret = ic.createSlave()
     coherents += ret
 
     new MemoryConnection{
-      val m = ret
-      val s = internalConnection
-      val mapping = DefaultMapping
+      override def m = ret
+      override def s = internalConnection
+      override def offset = 0
+      override def mapping = List(SizeMapping(0, BigInt(1) << addressWidth))
       populate()
       override def sToM(down: MemoryTransfers, args: MappedNode) = {
         down match{
@@ -670,7 +722,8 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
   List(memGet, memPut).foreach(node => new MemoryConnection {
     override def m = internalConnection
     override def s = node
-    override def mapping = DefaultMapping
+    override def offset = 0
+    override def mapping = List(SizeMapping(0, BigInt(1) << addressWidth))
     override def sToM(downs: MemoryTransfers, args : MappedNode) = downs
     populate()
   })
@@ -679,7 +732,6 @@ class CoherencyHubIntegrator()(implicit ic : Interconnect) extends Area{
     val slotsCount = 4
     val cSourceCount = 4
     val dataWidth = coherents.map(_.m2s.proposed.dataWidth).max
-    val addressWidth = coherents.map(_.m2s.proposed.addressWidth).max
     for(node <- coherents){
       node.m2s.supported.loadAsync(
         M2sSupport(

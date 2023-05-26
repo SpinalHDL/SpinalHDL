@@ -13,7 +13,7 @@ import scala.util.Random
 
 
 case class Mapping(allowed : M2sSupport,
-                   mapping : SizeMapping,
+                   mapping : Seq[SizeMapping],
                    model : Any)
 case class MasterSpec(bus : Bus,
                       cd : ClockDomain,
@@ -84,10 +84,11 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
             val slavesWithGet = m.mapping.filter(_.allowed.transfers.get.some)
             if(slavesWithGet.nonEmpty) distribution(10) {
               val s = slavesWithGet.randomPick()
-              val sizeMax = s.mapping.size.toInt
+              val mapping = s.mapping.randomPick()
+              val sizeMax = mapping.size.toInt
               val bytes = source.emits.get.random(randMax = sizeMax)
               val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
-              val address = s.mapping.base.toLong + addressLocal
+              val address = mapping.base.toLong + addressLocal
               val gMem = s.model.asInstanceOf[SparseMemory]
               var ref = new Array[Byte](bytes)
 
@@ -103,10 +104,11 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
             val slavesWithPutPartial = m.mapping.filter(_.allowed.transfers.putPartial.some)
             if(slavesWithPutPartial.nonEmpty) distribution(10) {
               val s = slavesWithPutPartial.randomPick()
-              val sizeMax = s.mapping.size.toInt
+              val mapping = s.mapping.randomPick()
+              val sizeMax = mapping.size.toInt
               val bytes = source.emits.putPartial.random(randMax = sizeMax)
               val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
-              val address = s.mapping.base.toLong + addressLocal
+              val address = mapping.base.toLong + addressLocal
               val data = Array.fill[Byte](bytes)(Random.nextInt().toByte)
               val mask = Array.fill[Boolean](bytes)(Random.nextInt(2).toBoolean)
               val gMem = s.model.asInstanceOf[SparseMemory]
@@ -123,17 +125,18 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
             val slavesWithAcquireB = m.mapping.filter(_.allowed.transfers.acquireB.some)
             if(slavesWithAcquireB.nonEmpty) {
               val s = slavesWithAcquireB.randomPick()
-              val sizeMax = s.mapping.size.toInt
+              val mapping = s.mapping.randomPick()
+              val sizeMax = mapping.size.toInt
               val bytes = source.emits.acquireB.random(randMax = sizeMax)
               val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
-              val address = s.mapping.base.toLong + addressLocal
+              val address = mapping.base.toLong + addressLocal
               val gMem = s.model.asInstanceOf[SparseMemory]
               lock(address)
               var b : Block = null
               agent.block.get(sourceId, address) match {
                 case Some(x) => b = x
                 case None => {
-                  b = acquireBlock(Param.Grow.NtoB, address, bytes, gMem, s.mapping.base.toLong)
+                  b = acquireBlock(Param.Grow.NtoB, address, bytes, gMem, mapping.base.toLong)
                 }
               }
               assert(b.cap < Param.Cap.toN)

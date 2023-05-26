@@ -29,7 +29,12 @@ object Decoder{
   }
 }
 
-case class Decoder(upNode : NodeParameters, downsSupports : Seq[M2sSupport], downsS2m : Seq[S2mParameters], mapping : Seq[AddressMapping]) extends Component{
+case class Decoder(upNode : NodeParameters,
+                   downsSupports : Seq[M2sSupport],
+                   downsS2m : Seq[S2mParameters],
+                   mapping : Seq[Seq[AddressMapping]],
+                   offsets : Seq[BigInt],
+                   defaultDown : Seq[Boolean]) extends Component{
   val downsNodes = (downsSupports, downsS2m). zipped.map((support, s2m) => upNode.copy(
     m = Decoder.downMastersFrom(upNode.m, support),
     s = s2m
@@ -45,16 +50,27 @@ case class Decoder(upNode : NodeParameters, downsSupports : Seq[M2sSupport], dow
   val sinkOffsetWidth = if(downsNodes.exists(_.withBCE)) log2Up(downsNodes.size) else 0
   val downs = io.downs.zipWithIndex.map{case (bus, id) => bus.fromSinkOffset(id << sinkOffsetWidth, upNode.s.sinkWidth)}
 
+  def decode(id : Int, address : UInt) = defaultDown(id) match {
+    case true => Bool()
+    case false => mapping(id).map(_.hit(io.up.a.address)).orR
+  }
+
   val a = new Area{
     val readys = ArrayBuffer[Bool]()
     val logic = for((s, id) <- downs.zipWithIndex) yield new Area {
-      val hit = mapping(id).hit(io.up.a.address) && s.p.node.m.emits.contains(io.up.a.opcode)
+      val isDefault = defaultDown(id)
+      val decoded = decode(id, io.up.a.address)
+      val hit = decoded && s.p.node.m.emits.contains(io.up.a.opcode)
       s.a.valid := io.up.a.valid && hit
       s.a.payload := io.up.a.payload
-      s.a.address.removeAssignments() := io.up.a.address.resized
+      s.a.address.removeAssignments() := (io.up.a.address - offsets(id)).resized
       readys += s.a.ready && hit
     }
     io.up.a.ready := readys.orR
+
+    for((s, id) <- logic.zipWithIndex if s.isDefault){
+      logic(id).decoded := !logic.filter(!_.isDefault).map(_.hit).orR && downs(id).p.node.m.emits.contains(io.up.a.opcode)
+    }
 
     val miss = !logic.filter(_ != null).map(_.hit).orR
     assert(!(io.up.a.valid && miss))
@@ -66,12 +82,7 @@ case class Decoder(upNode : NodeParameters, downsSupports : Seq[M2sSupport], dow
     for(i <- 0 until downsSupports.size if downsNodes(i).withBCE){
       val arbiterInput = iter.next()
       arbiterInput << downs(i).b
-
-      val base = mapping(i) match{
-        case DefaultMapping => BigInt(0)
-        case v => v.lowerBound
-      }
-      arbiterInput.address.removeAssignments() := downs(i).b.address.resize(upNode.m.addressWidth) | base
+      arbiterInput.address.removeAssignments() := downs(i).b.address.resize(upNode.m.addressWidth) + offsets(i)
     }
     arbiter.io.output >> io.up.b
   }
@@ -79,12 +90,18 @@ case class Decoder(upNode : NodeParameters, downsSupports : Seq[M2sSupport], dow
   val c = upNode.withBCE generate new Area{
     val readys = ArrayBuffer[Bool]()
     val logic = for((s, id) <- downs.zipWithIndex if s.p.withBCE) yield new Area {
-      val hit = mapping(id).hit(io.up.c.address)
+      val isDefault = defaultDown(id)
+      val hit = decode(id, io.up.c.address)
       s.c.valid := io.up.c.valid && hit
       s.c.payload := io.up.c.payload
-      s.c.address.removeAssignments() := io.up.c.address.resized
+      s.c.address.removeAssignments() := (io.up.c.address - offsets(id)).resized
       readys += s.a.ready && hit
     }
+
+    for((s, id) <- logic.zipWithIndex if s.isDefault){
+      logic(id).hit := !logic.filter(!_.isDefault).map(_.hit).orR
+    }
+
     io.up.c.ready := readys.orR
   }
 

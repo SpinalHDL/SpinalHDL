@@ -16,7 +16,7 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
   }
   if(io.up.p.withBCE) assert(io.up.p.sinkWidth == io.down.p.sinkWidth + 1)
   val ipEmits = unp.m.emits
-  val addressHits = spec.map(_.mapping.hit(io.up.a.address)).asBits()
+  val addressHits = spec.map(_.mapping.map(_.hit(io.up.a.address)).orR).asBits()
   val instruction = io.up.a.param ## io.up.a.size ## io.up.a.opcode
   val argsHits = spec.map{spec =>
     val st = spec.transfers.asInstanceOf[M2sTransfers]
@@ -94,7 +94,8 @@ class TransferFilterIntegrator()(implicit val i : Interconnect) extends Area{
   new MemoryConnection {
     override def m = up
     override def s = down
-    override def mapping = DefaultMapping
+    override def offset = 0
+    override def mapping = List(SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth))
     override def sToM(downs: MemoryTransfers, args: MappedNode) = downs
     populate()
   }

@@ -13,7 +13,7 @@ class BridgeTestbench(m : Bus, s : Bus, cd : ClockDomain) {
 
   val inputMapping = Mapping(
     allowed = s.p.node.m.toSupport(),
-    mapping = SizeMapping(0, 1l << m.p.addressWidth),
+    mapping = List(SizeMapping(0, 1l << m.p.addressWidth)),
     model = globalMem
   )
   val inputSpec = MasterSpec(

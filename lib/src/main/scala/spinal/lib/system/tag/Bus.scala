@@ -28,10 +28,12 @@ trait MemoryTransfers {
   def nonEmpty : Boolean
 }
 
+//Address seen by the slave slave are mapping.foreach(_.base-offset)
 trait MemoryConnection extends SpinalTag {
   def m : Nameable with SpinalTagReady
   def s : Nameable with SpinalTagReady
-  def mapping :  AddressMapping
+  def offset : BigInt
+  def mapping : Seq[SizeMapping]
   def sToM(downs : MemoryTransfers, args : MappedNode) : MemoryTransfers
 
   def populate(): Unit ={
@@ -42,23 +44,34 @@ trait MemoryConnection extends SpinalTag {
 
 object MappedNode{
   def apply(m : InterconnectNode) : MappedNode = MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth)
-  def apply(node : Nameable with SpinalTagReady, address : BigInt, size : BigInt) : MappedNode = MappedNode(node, SizeMapping(address, size))
+  def apply(node : Nameable with SpinalTagReady, address : BigInt, size : BigInt) : MappedNode = MappedNode(node, List(SizeMapping(address, size)))
 }
 
-case class MappedNode(node : Nameable with SpinalTagReady, mapping : SizeMapping){
-  def address = mapping.base
-  def size = mapping.size
+case class MappedNode(node : Nameable with SpinalTagReady, mapping : Seq[SizeMapping]){
+//  def address = mapping.base
+//  def size = mapping.size
 
-  override def toString = f"$node $address%x $size%x"
+  def remap(offset : BigInt) = MappedNode(node, mapping.map(_.withOffset(offset).asInstanceOf[SizeMapping]))
+
+  override def toString = f"$node $mapping"
 
   def foreachSlave(body : (MappedNode, MemoryConnection) => Unit): Unit ={
     node.foreachTag{
       case c : MemoryConnection if c.m == node => {
-        val (a,s) = c.mapping match {
-          case DefaultMapping => (address, size)
-          case m => (m.lowerBound, m.highestBound+1-m.lowerBound)
+        val remap = ArrayBuffer[SizeMapping]()
+        for(src <- mapping){
+          val srcEnd = src.base + src.size
+          for(dst <- c.mapping){
+            val dstEnd = dst.base + dst.size
+            if(dst.base < srcEnd && dstEnd > src.base){
+              val startAt = dst.base max src.base
+              val endAt = dstEnd min srcEnd
+              remap += SizeMapping(startAt, endAt - startAt)
+            }
+          }
         }
-        body(MappedNode(c.s, address+a, s), c)
+        val remaped = remap.map(_.withOffset(-c.offset).asInstanceOf[SizeMapping])
+        body(MappedNode(c.s, remaped), c)
       }
       case _ =>
     }
@@ -90,7 +103,7 @@ object MemoryConnection{
     val unfiltred = mutable.LinkedHashMap[MappedNode, MemoryTransfers]()
     args.foreachSlave{ (s, c) =>
       val spec = getMemoryTransfers(s)
-      val transformed = spec.map(e => e.where -> c.sToM(e.transfers, e.where))
+      val transformed = spec.map(e => e.where.remap(c.offset) -> c.sToM(e.transfers, e.where))
       for((who, what) <- transformed){
         unfiltred.get(who) match {
           case None => unfiltred(who) = what
@@ -113,16 +126,16 @@ object MemoryConnection{
     MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth).foreachSlave(body)
   }
 
-  def walk(m : InterconnectNode)(body : MappedNode => Unit): Unit = {
-    m.await()
-    walk(MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth))(body)
-  }
-  def walk(m : MappedNode)(body : MappedNode => Unit): Unit ={
-    body(m)
-    m.foreachSlave{(s,c) =>
-      walk(s)(body)
-    }
-  }
+//  def walk(m : InterconnectNode)(body : MappedNode => Unit): Unit = {
+//    m.await()
+//    walk(MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth))(body)
+//  }
+//  def walk(m : MappedNode)(body : MappedNode => Unit): Unit ={
+//    body(m)
+//    m.foreachSlave{(s,c) =>
+//      walk(s)(body)
+//    }
+//  }
 }
 
 trait PMA extends SpinalTag
