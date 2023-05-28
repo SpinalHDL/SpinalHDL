@@ -904,6 +904,7 @@ object LatencyAnalysis {
 object DataCarrier{
   implicit def toImplicit[T <: Bundle](dataCarrier: DataCarrier[T]): T = dataCarrier.payload
   implicit def toImplicit2[T <: Bundle](dataCarrier: DataCarrier[Fragment[T]]): T = dataCarrier.fragment
+  implicit def toImplicit3[T <: Bundle](dataCarrier: DataCarrier[Fragment[Fragment[T]]]): Fragment[T] = dataCarrier.payload
 }
 
 trait DataCarrier[T <: Data] {

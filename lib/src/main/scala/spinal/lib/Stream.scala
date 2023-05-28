@@ -375,15 +375,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def s2mPipe(flush : Bool = null): Stream[T] = new Composite(this) {
     val s2mPipe = Stream(payloadType)
 
-    val rValid = RegInit(False) setWhen(self.valid) clearWhen(s2mPipe.ready)
+    val rValidN = RegInit(True) clearWhen(self.valid) setWhen(s2mPipe.ready)
     val rData = RegNextWhen(self.payload, self.ready)
 
-    self.ready := !rValid
+    self.ready := rValidN
 
-    s2mPipe.valid := self.valid || rValid
-    s2mPipe.payload := Mux(rValid, rData, self.payload)
+    s2mPipe.valid := self.valid || !rValidN
+    s2mPipe.payload := Mux(rValidN, self.payload, rData)
 
-    if(flush != null) rValid.clearWhen(flush)
+    if(flush != null) rValidN.setWhen(flush)
   }.s2mPipe
 
   def s2mPipe(stagesCount : Int): Stream[T] = {

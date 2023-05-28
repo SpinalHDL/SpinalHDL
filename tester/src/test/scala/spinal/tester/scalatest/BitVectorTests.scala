@@ -42,7 +42,7 @@ class SubdivideInTest extends SpinalFormalFunSuite {
     else
       split.dropRight(1).foreach(s => assert(s.getWidth == sliceWidth.value))
 
-    o := Cat(split)
+    o := Cat(split.asInstanceOf[Iterable[Data]])
     assert(i === o)
   }
 
@@ -52,7 +52,7 @@ class SubdivideInTest extends SpinalFormalFunSuite {
     val split = i.subdivideIn(slicesCount, strict = false)
     assert(split.size == slicesCount.value, s"split into ${split.size} slices, not ${slicesCount.value}")
 
-    o := Cat(split)
+    o := Cat(split.asInstanceOf[Iterable[Data]])
     assert(i === o)
   }
   

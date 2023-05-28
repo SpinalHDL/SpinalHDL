@@ -62,16 +62,16 @@ final case class CHeaderGenerator(
 
             def union: String = {
                 s"""/**
-                   |  * @union       ${reg.getName().toLowerCase()}_t
+                   |  * @union       ${prefix.toLowerCase()}_${reg.getName().toLowerCase()}_t
                    |  * @address     0x${reg.getAddr().hexString(16)}
                    |  * @brief       ${reg.getDoc().replace("\n","\\n")}
                    |  */
                    |typedef union {
-                   |    u32 val;
+                   |    ${regType} val;
                    |    struct {
                    |        ${fdUnion(" " * 8)}
                    |    } reg;
-                   |} ${reg.getName().toLowerCase()}_t;""".stripMargin
+                   |}${prefix.toLowerCase()}_${reg.getName().toLowerCase()}_t;""".stripMargin
             }
 
             def fdNameLens = math.max("reserved_0".size, reg.getFieldDescrs().map(_.getName.size).max)

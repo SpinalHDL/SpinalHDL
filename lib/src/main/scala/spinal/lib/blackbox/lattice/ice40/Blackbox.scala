@@ -338,10 +338,10 @@ object SB_PLL40_CONFIG {
 abstract class ICE40_PLL(p: AbstractPllConfig) extends BlackBox {
   val RESETB = in port Bool() default True
   val BYPASS = in port Bool() default False
-  val EXTFEEDBACK = in port Bool().genIf(p.withExtFeedback)
-  val DYNAMICDELAY = in port Bits(8 bit).genIf(p.withDynamicDelay)
-  val LATCHINPUTVALUE = in port Bool().genIf(p.withLatchInputValue)
-  val LOCK = out port Bool().genIf(p.withLock)
+  val EXTFEEDBACK = p.withExtFeedback generate(in port Bool())
+  val DYNAMICDELAY = p.withDynamicDelay generate(in port Bits(8 bit))
+  val LATCHINPUTVALUE = p.withLatchInputValue generate(in port Bool())
+  val LOCK = p.withLock generate(out port Bool())
   val PLLOUTGLOBAL = out port Bool()
   val PLLOUTCORE = out port Bool()
 
