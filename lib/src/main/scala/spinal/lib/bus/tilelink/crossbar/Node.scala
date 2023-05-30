@@ -20,28 +20,15 @@ object Node{
   def slave() : Node = apply().setSlaveOnly()
   def master() : Node = apply().setMasterOnly()
 }
+
 class Node() extends Area with SpinalTagReady with SpinalTag {
   val bus = Handle[Bus]()
-  val ups = ArrayBuffer[InterconnectConnection]()
-  val downs = ArrayBuffer[InterconnectConnection]()
-  val lock = Lock()
+  val ups = ArrayBuffer[Connection]()
+  val downs = ArrayBuffer[Connection]()
   val clockDomain = ClockDomain.currentHandle
+  val lock = Lock() //Allow to hold the generation of this node
 
-  Component.current.addTag(this)
-
-  var arbiterConnector : (Bus, Bus) => Any = (s, m) => s << m
-  var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
-  def setArbiterConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
-  def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
-
-  def await() = {
-    lock.await()
-  }
-
-  this.addTag(new MemoryTransferTag {
-    override def get = m2s.parameters.emits
-  })
-
+  //Negotiation handles for master to slave requests
   val m2s = new Area{
     val proposed = Handle[M2sSupport]()
     val supported = Handle[M2sSupport]()
@@ -54,6 +41,8 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
       proposed load M2sSupport(parameters)
     }
   }
+
+  //Negotiation handles for slave to master requests (memory coherency only)
   val s2m = new Area{
     val proposed = Handle[S2mSupport]()
     val supported = Handle[S2mSupport]()
@@ -67,43 +56,16 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     }
   }
 
-  var mode = NodeMode.BOTH
-  def setSlaveOnly() = {mode = NodeMode.SLAVE; this}
-  def setMasterOnly() = {mode = NodeMode.MASTER; this}
-  def isSlaveOnly() = mode == NodeMode.SLAVE
-  def isMasterOnly() = mode == NodeMode.MASTER
+  //Document the current component being host for this node
+  Component.current.addTag(this)
 
-  def <<(m : Node): InterconnectConnection = {
-    val c = new InterconnectConnection(m, this)
-    c.mapping.defaultSpec = Some(Unit)
-    c
-  }
-
-  class At(body : InterconnectConnection => Unit){
-    def of(m : Node): InterconnectConnection = {
-      val c = new InterconnectConnection(m, Node.this)
-      body(c)
-      c
-    }
-  }
-  def at(address : BigInt) = new At(_.mapping.addressSpec = Some(address))
-  def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
-  def at(mapping : SizeMapping) = new At(_.mapping.mappingSpec = Some(mapping))
-
-  def forceDataWidth(dataWidth : Int): Unit ={
-    m2s.proposedModifiers += { s =>
-      s.copy(dataWidth = dataWidth)
-    }
-    m2s.supportedModifiers += { s =>
-      s.copy(dataWidth = dataWidth)
-    }
-  }
-
-  override def toString =  (if(component != null)component.getPath() + "/"  else "") + getName()
+  //Document the memory transfer capabilities of the current node
+  this.addTag(new MemoryTransferTag {
+    override def get = m2s.parameters.emits
+  })
 
 
-
-
+  //Will negociate the m2s/s2m handles, then generate the arbiter / decoder required to connect the ups / downs connections
   val thread = Elab build new Composite(this, weak = false) {
     // Specify which Handle will be loaded by the current thread, as this help provide automated error messages
     soon(ups.map(_.arbiter.bus) :_*)
@@ -173,7 +135,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
 
     //Generate final connections mapping
     if(mode != NodeMode.SLAVE) {
-      var dc = ArrayBuffer[InterconnectConnection]()
+      var dc = ArrayBuffer[Connection]()
       downs.foreach{ c =>
         c.mapping.addressSpec match {
           case Some(v) => c.mapping.value load List(SizeMapping(v, BigInt(1) << c.decoder.m2s.parameters.get.addressWidth))
@@ -251,8 +213,6 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
       }
     }
 
-
-
     // Start hardware generation from that point
     // Generate the node bus
     val p = NodeParameters(m2s.parameters, s2m.parameters).toBusParameter()
@@ -292,11 +252,55 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
       }
     }
   }
+
+  //Allows to customize how the node is connected to its arbiter / decoder components (pipelining)
+  var arbiterConnector : (Bus, Bus) => Any = (s, m) => s << m
+  var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
+  def setArbiterConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
+  def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
+
+  def await() = {
+    lock.await()
+  }
+
+  var mode = NodeMode.BOTH
+  def setSlaveOnly() = {mode = NodeMode.SLAVE; this}
+  def setMasterOnly() = {mode = NodeMode.MASTER; this}
+  def isSlaveOnly() = mode == NodeMode.SLAVE
+  def isMasterOnly() = mode == NodeMode.MASTER
+
+  def <<(m : Node): Connection = {
+    val c = new Connection(m, this)
+    c.mapping.defaultSpec = Some(Unit)
+    c
+  }
+
+  class At(body : Connection => Unit){
+    def of(m : Node): Connection = {
+      val c = new Connection(m, Node.this)
+      body(c)
+      c
+    }
+  }
+  def at(address : BigInt) = new At(_.mapping.addressSpec = Some(address))
+  def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
+  def at(mapping : SizeMapping) = new At(_.mapping.mappingSpec = Some(mapping))
+
+  def forceDataWidth(dataWidth : Int): Unit ={
+    m2s.proposedModifiers += { s =>
+      s.copy(dataWidth = dataWidth)
+    }
+    m2s.supportedModifiers += { s =>
+      s.copy(dataWidth = dataWidth)
+    }
+  }
+
+  override def toString =  (if(component != null)component.getPath() + "/"  else "") + getName()
 }
 
 trait InterconnectAdapter {
-  def isRequired(c : InterconnectConnection) : Boolean
-  def build(c : InterconnectConnection)(m : Bus) : Bus
+  def isRequired(c : Connection) : Boolean
+  def build(c : Connection)(m : Bus) : Bus
 }
 
 class InterconnectAdapterCc extends InterconnectAdapter{
@@ -307,8 +311,8 @@ class InterconnectAdapterCc extends InterconnectAdapter{
   var eDepth = 8
 
   var cc = Option.empty[FifoCc]
-  override def isRequired(c : InterconnectConnection) = c.m.clockDomain.clock != c.s.clockDomain.clock
-  override def build(c : InterconnectConnection)(m: Bus) : Bus = {
+  override def isRequired(c : Connection) = c.m.clockDomain.clock != c.s.clockDomain.clock
+  override def build(c : Connection)(m: Bus) : Bus = {
     val cc = FifoCc(
       busParameter = m.p,
       inputCd      = c.m.clockDomain,
@@ -329,8 +333,8 @@ class InterconnectAdapterCc extends InterconnectAdapter{
 class InterconnectAdapterWidth extends InterconnectAdapter{
   var adapter = Option.empty[WidthAdapter]
 
-  override def isRequired(c : InterconnectConnection) = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
-  override def build(c : InterconnectConnection)(m: Bus) : Bus = {
+  override def isRequired(c : Connection) = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
+  override def build(c : Connection)(m: Bus) : Bus = {
     val adapter = new WidthAdapter(
       ip = m.p,
       op = m.p.copy(dataWidth = c.s.m2s.parameters.dataWidth),
