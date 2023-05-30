@@ -8,6 +8,7 @@ import spinal.lib.memory.sdram.sdr.MT48LC16M16A2
 import java.io.{File, PrintWriter}
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.{Future, Promise}
 
 
 /**
@@ -731,12 +732,18 @@ object Main6 extends App{
 
 ////////////////////////////////////////////
 /*
-- BufferCC swap
-- Memory blackboxing
+- with wires
+- with buses
+- with software API
+- with automation
+- with decentralization
+- with negotiation
+- with introspection
  */
 object Main100 extends App{
   import spinal.core._
   import spinal.lib._
+
   SpinalVerilog(
     new Module {
       val a,b,c = out UInt(8 bits)

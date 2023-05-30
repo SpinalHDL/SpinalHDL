@@ -192,3 +192,36 @@ case class M2sParameters(addressWidth : Int,
   )
 }
 
+
+object M2sSupport{
+  def apply(p : M2sParameters) : M2sSupport = M2sSupport(
+    transfers    = p.emits,
+    addressWidth = p.addressWidth,
+    dataWidth    = p.dataWidth,
+    allowExecute = p.withExecute
+  )
+}
+
+case class M2sSupport(transfers : M2sTransfers,
+                      addressWidth : Int,
+                      dataWidth : Int,
+                      allowExecute : Boolean = false){
+  def mincover(that : M2sSupport): M2sSupport ={
+    M2sSupport(
+      transfers = transfers.mincover(that.transfers),
+      dataWidth = dataWidth max that.dataWidth,
+      addressWidth = addressWidth max that.addressWidth,
+      allowExecute = this.allowExecute && that.allowExecute
+    )
+  }
+
+  def join(p: M2sParameters): M2sParameters ={
+    M2sParameters(
+      addressWidth = addressWidth,
+      dataWidth    = dataWidth,
+      masters = p.masters.map(e => e) //TODO
+    )
+  }
+}
+
+

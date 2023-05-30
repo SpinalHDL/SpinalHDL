@@ -126,3 +126,26 @@ case class S2mParameters(slaves    : Seq[S2mAgent]) extends OverridedEqualsHashC
   val emits = S2mTransfers.mincover(slaves.map(_.emits))
 }
 
+object S2mSupport{
+  def apply(p : S2mParameters) : S2mSupport = S2mSupport(
+    transfers    = p.emits
+  )
+
+  def none = S2mSupport(
+    transfers = S2mTransfers.none
+  )
+}
+
+case class S2mSupport(transfers : S2mTransfers){
+  def mincover(that : S2mSupport): S2mSupport ={
+    S2mSupport(
+      transfers = transfers.mincover(that.transfers)
+    )
+  }
+
+  def join(p: S2mParameters): S2mParameters ={
+    S2mParameters(
+      slaves = p.slaves.map(e => e) //TODO
+    )
+  }
+}

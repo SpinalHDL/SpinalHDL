@@ -2,7 +2,8 @@ package spinal.lib.system.tag
 
 import spinal.core._
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
-import spinal.lib.bus.tilelink.{InterconnectNode, M2sTransfers}
+import spinal.lib.bus.tilelink.M2sTransfers
+import spinal.lib.bus.tilelink.crossbar.Node
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -43,7 +44,7 @@ trait MemoryConnection extends SpinalTag {
 }
 
 object MappedNode{
-  def apply(m : InterconnectNode) : MappedNode = MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth)
+  def apply(m : Node) : MappedNode = MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth)
   def apply(node : Nameable with SpinalTagReady, address : BigInt, size : BigInt) : MappedNode = MappedNode(node, List(SizeMapping(address, size)))
 }
 
@@ -84,7 +85,7 @@ case class MappedTransfers(where : MappedNode, transfers: MemoryTransfers){
 }
 
 object MemoryConnection{
-  def getMemoryTransfers(m : InterconnectNode) : mutable.ArrayBuffer[MappedTransfers] = {
+  def getMemoryTransfers(m : Node) : mutable.ArrayBuffer[MappedTransfers] = {
     m.await()
     getMemoryTransfers(MappedNode(m))
   }
@@ -121,7 +122,7 @@ object MemoryConnection{
     ret.filter(_.transfers.nonEmpty)
   }
 
-  def foreachSlave(m : InterconnectNode)(body : (MappedNode, MemoryConnection) => Unit): Unit = {
+  def foreachSlave(m : Node)(body : (MappedNode, MemoryConnection) => Unit): Unit = {
     m.await()
     MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth).foreachSlave(body)
   }

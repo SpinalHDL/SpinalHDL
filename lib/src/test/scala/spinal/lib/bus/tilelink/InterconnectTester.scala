@@ -5,10 +5,12 @@ import spinal.core.sim._
 import spinal.core._
 import spinal.core.fiber.{Elab, hardFork}
 import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
+import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.sim._
 import spinal.lib._
 import spinal.lib.bus.tilelink
+import spinal.lib.bus.tilelink.crossbar._
 import spinal.lib.sim.SparseMemory
 import spinal.lib.system.tag.{MemoryConnection, PMA}
 import spinal.sim.SimThread
@@ -23,11 +25,11 @@ import scala.util.Random
 
 class InterconnectTester extends AnyFunSuite{
   def testInterconnect(c : Component) : Unit = {
-    val nodes = c.getTags().collect{case t : InterconnectNode => t}.toSeq
+    val nodes = c.getTags().collect{case t : Node => t}.toSeq
     testInterconnect(nodes)
   }
-  def testInterconnect(nodes : Seq[InterconnectNode]): Unit ={
-    val nodeToModel = mutable.LinkedHashMap[InterconnectNode, SparseMemory]()
+  def testInterconnect(nodes : Seq[Node]): Unit ={
+    val nodeToModel = mutable.LinkedHashMap[Node, SparseMemory]()
     val slaveNodes = nodes.filter(_.bus.isMasterInterface)
     val masterNodes = nodes.filter(_.bus.isSlaveInterface)
 
@@ -41,7 +43,7 @@ class InterconnectTester extends AnyFunSuite{
       val suportedTransfers = MemoryConnection.getMemoryTransfers(n)
       for(e <- suportedTransfers){
         e.node match {
-          case n: InterconnectNode => {
+          case n: Node => {
             nodeToModel.get(n) match {
               case Some(m) => {
                 mappings += Mapping(n.m2s.supported, e.mapping, m)
@@ -148,7 +150,7 @@ class InterconnectTester extends AnyFunSuite{
       val m0, m1 = simpleMaster(readWrite)
       val s0, s1 = simpleSlave(8)
 
-      val b0 = InterconnectNode()
+      val b0 = Node()
 
       b0 << m0.node
       b0 << m1.node
@@ -167,7 +169,7 @@ class InterconnectTester extends AnyFunSuite{
       val m0, m1 = simpleMaster(readWrite)
       val s0, s1, s2 = simpleSlave(8)
 
-      val b0 = InterconnectNode()
+      val b0 = Node()
 
       b0 << m0.node
       b0 << m1.node
@@ -209,7 +211,7 @@ class InterconnectTester extends AnyFunSuite{
       val m0 = simpleMaster(readWrite)
       val s0 = simpleSlave(8)
 
-      val b0 = InterconnectNode()
+      val b0 = Node()
       b0 << m0.node
 
 
@@ -235,7 +237,7 @@ class InterconnectTester extends AnyFunSuite{
       val m0, m1 = simpleMaster(readWrite)
       val s0, s1, s2 = simpleSlave(8)
 
-      val b0,b1,b2,b3 = InterconnectNode()
+      val b0,b1,b2,b3 = Node()
 
       b0 << m0.node
       b0 << m1.node
@@ -248,12 +250,12 @@ class InterconnectTester extends AnyFunSuite{
       s0.node at 0x200 of b3
       s1.node at 0x400 of b3
 
-      val rob = InterconnectNode()
+      val rob = Node()
       rob << b3
       val ro = simpleReadOnlySlave(8)
       ro.node << rob
 
-      val wob = InterconnectNode()
+      val wob = Node()
       wob << b3
       val wo = simpleWriteOnlySlave()
       wo.node << wob
@@ -274,7 +276,7 @@ class InterconnectTester extends AnyFunSuite{
     SimConfig.withFstWave.compile(new Component{
       val m0 = simpleMaster(readWrite, 128)
       val s0 = simpleSlave(8, 32)
-      val b0, b1, b2 = InterconnectNode()
+      val b0, b1, b2 = Node()
       b0 << m0.node
       b1 << b0
       b2 << b1
@@ -298,7 +300,7 @@ class InterconnectTester extends AnyFunSuite{
       
       val m0 = simpleMaster(readWrite, 128)
       val s0 = simpleSlave(8, 32)
-      val b0, b1, b2 = InterconnectNode()
+      val b0, b1, b2 = Node()
       b0 << m0.node
       b1 << b0
       b2 << b1
@@ -324,7 +326,7 @@ class InterconnectTester extends AnyFunSuite{
     SimConfig.withFstWave.compile(new Component{
       val m0 = simpleMaster(coherentOnly)
       val s0 = simpleSlave(12, 32, coherentOnlySlave)
-      val b0 = InterconnectNode()
+      val b0 = Node()
       b0 << m0.node
       s0.node at 0x1000 of b0
     }).doSim(seed = 42){dut =>
@@ -338,7 +340,7 @@ class InterconnectTester extends AnyFunSuite{
     SimConfig.withFstWave.compile(new Component{
       val m0, m1 = simpleMaster(coherentOnly)
       val s0, s1 = simpleSlave(12, 32, coherentOnlySlave)
-      val b0 = InterconnectNode()
+      val b0 = Node()
       b0 << m0.node
       b0 << m1.node
       s0.node at 0x1000 of b0
@@ -354,7 +356,7 @@ class InterconnectTester extends AnyFunSuite{
     SimConfig.withFstWave.compile(new Component{
       val m0, m1 = simpleMaster(coherentOnly)
       val s0, s1, s2 = simpleSlave(12, 32, coherentOnlySlave)
-      val b0, b1 = InterconnectNode()
+      val b0, b1 = Node()
       b0 << m0.node
       b0 << m1.node
       s0.node at 0x1000 of b0
@@ -371,10 +373,10 @@ class InterconnectTester extends AnyFunSuite{
     tilelink.DebugId.setup(16)
     SimConfig.withFstWave.compile(new Component{
       val m0 = simpleMaster(coherentOnly)
-      val b0 = InterconnectNode()
+      val b0 = Node()
       b0 << m0.node
 
-      val hub = new CoherencyHubIntegrator()
+      val hub = new crossbar.CoherencyHub()
       val h0 = hub.createPort()
       h0 << b0
 
@@ -392,7 +394,7 @@ class InterconnectTester extends AnyFunSuite{
     SimConfig.withFstWave.compile(new Component{
       val m0 = simpleMaster(readWrite)
       val s0, s1 = simpleSlave(addressWidth = 10)
-      val b0 = InterconnectNode()
+      val b0 = Node()
       b0 at 0xE0000 of m0.node
       s0.node at 0x1000 of b0
       s1.node at 0x2000 of b0
@@ -438,11 +440,11 @@ class InterconnectTester extends AnyFunSuite{
 
       val dma = new Area{
         val main = simpleMaster(readWrite)
-        val filter = new TransferFilterIntegrator()
+        val filter = new crossbar.TransferFilter()
         filter.up << main.node
       }
 
-      val n0 = InterconnectNode()
+      val n0 = Node()
       n0 << cpu.main.node
       n0 << cpu.io.node
       n0 << dma.filter.down
@@ -451,7 +453,7 @@ class InterconnectTester extends AnyFunSuite{
       something.node at 0x82000000l of n0
 
       //Will manage memory coherency
-      val hub = new CoherencyHubIntegrator()
+      val hub = new crossbar.CoherencyHub()
       val p0 = hub.createPort()
       p0 << n0
 //      p0 at 0x00000000l of n0
@@ -464,7 +466,7 @@ class InterconnectTester extends AnyFunSuite{
 
       //Define all the peripherals / low performance stuff, ex uart, scratch ram, rom, ..
       val peripheral = new Area{
-        val bus = InterconnectNode()
+        val bus = Node()
         bus at 0x10000000 of hub.memGet
         bus at 0x10000000 of hub.memPut
 
@@ -513,7 +515,7 @@ class InterconnectTester extends AnyFunSuite{
       val m0, m1 = simpleMaster(readWrite)
 
       //Define intermediate buses
-      val b0,b1,b2 = InterconnectNode()
+      val b0,b1,b2 = Node()
       b0 << m0.node  //Simple connection
       b0 << m1.node
       b1 at(0x30000, 0x10000) of b0 //Make b1 accessible from b0 bus from address [0x30000, 0x30FFF]
@@ -534,7 +536,7 @@ class InterconnectTester extends AnyFunSuite{
 
       val zoneA = cdA on new Area{
         val m0, m1 = simpleMaster(readWrite)
-        val ba0 = InterconnectNode()
+        val ba0 = Node()
         ba0 << m0.node
         ba0 << m1.node
 

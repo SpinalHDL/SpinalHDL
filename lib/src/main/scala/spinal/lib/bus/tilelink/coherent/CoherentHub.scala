@@ -1,9 +1,9 @@
-package spinal.lib.bus.tilelink
+package spinal.lib.bus.tilelink.coherent
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.fsm._
+import spinal.lib.bus.tilelink.{Bus, ChannelA, ChannelD, DebugId, M2sAgent, M2sParameters, M2sSource, M2sTransfers, NodeParameters, Opcode, Param, S2mAgent, S2mParameters, S2mTransfers, SizeRange, sizeToBeatMinusOne}
 import spinal.lib.pipeline._
 
 import scala.collection.mutable.ArrayBuffer

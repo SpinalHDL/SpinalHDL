@@ -5,6 +5,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.tilelink._
+import spinal.lib.bus.tilelink.coherent.{CoherentHub, CoherentHubGen, CoherentHubOrdering}
 import spinal.lib.bus.tilelink.sim._
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.sim.SparseMemory
