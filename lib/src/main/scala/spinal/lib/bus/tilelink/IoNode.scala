@@ -5,8 +5,8 @@ import spinal.core.fiber.Elab
 import spinal.lib.{master, slave}
 
 //While create a interconnect master as an io of the toplevel
-class MasterBus(p : M2sParameters)(implicit ic : Interconnect) extends Area{
-  val node = ic.createMaster()
+class MasterBus(p : M2sParameters) extends Area{
+  val node = InterconnectNode.master()
   val logic = Elab build new Area{
     node.m2s.parameters.load(p)
     node.m2s.setProposedFromParameters() //Here, we just ignore the negotiation phase
@@ -16,8 +16,8 @@ class MasterBus(p : M2sParameters)(implicit ic : Interconnect) extends Area{
 }
 
 //While create a interconnect slave as an io of the toplevel
-class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParameters.none)(implicit ic : Interconnect) extends Area{
-  val node = ic.createSlave()
+class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParameters.none) extends Area{
+  val node = InterconnectNode.slave()
   val logic = Elab build new Area {
     node.s2m.parameters.load(s2mParameters)
     node.s2m.setProposedFromParameters()

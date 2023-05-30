@@ -87,9 +87,9 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
   }
 }
 
-class TransferFilterIntegrator()(implicit val i : Interconnect) extends Area{
-  val up = i.createSlave()
-  val down = i.createMaster()
+class TransferFilterIntegrator() extends Area{
+  val up = InterconnectNode.slave()
+  val down = InterconnectNode.master()
 
   new MemoryConnection {
     override def m = up
