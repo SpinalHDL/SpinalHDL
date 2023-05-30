@@ -46,7 +46,9 @@ class InterconnectTester extends AnyFunSuite{
           case n: Node => {
             nodeToModel.get(n) match {
               case Some(m) => {
-                mappings += Mapping(n.m2s.supported, e.mapping, m)
+                e.transfers match {
+                  case t : M2sTransfers => mappings += Mapping(t, e.mapping, m)
+                }
               }
               case None =>
             }
@@ -381,8 +383,9 @@ class InterconnectTester extends AnyFunSuite{
       h0 << b0
 
       val s0 = simpleSlave(16, 32)
-      s0.node << hub.memGet
-      s0.node << hub.memPut
+      s0.node at 0x10000 of hub.memGet
+      s0.node at 0x10000 of hub.memPut
+      s0.node.addTag(PMA.MAIN)
     }).doSim(seed = 42){dut =>
 //      dut.clockDomain.forkStimulus(10)
 //      testInterconnect(dut)

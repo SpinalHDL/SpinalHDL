@@ -12,7 +12,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
-case class Mapping(allowed : M2sSupport,
+case class Mapping(allowed : M2sTransfers,
                    mapping : Seq[SizeMapping],
                    model : Any)
 case class MasterSpec(bus : Bus,
@@ -81,7 +81,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
             }
 
 
-            val slavesWithGet = m.mapping.filter(_.allowed.transfers.get.some)
+            val slavesWithGet = m.mapping.filter(_.allowed.get.some)
             if(slavesWithGet.nonEmpty) distribution(10) {
               val s = slavesWithGet.randomPick()
               val mapping = s.mapping.randomPick()
@@ -101,7 +101,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
               assert((data, ref).zipped.forall(_ == _))
             }
 
-            val slavesWithPutPartial = m.mapping.filter(_.allowed.transfers.putPartial.some)
+            val slavesWithPutPartial = m.mapping.filter(_.allowed.putPartial.some)
             if(slavesWithPutPartial.nonEmpty) distribution(10) {
               val s = slavesWithPutPartial.randomPick()
               val mapping = s.mapping.randomPick()
@@ -122,7 +122,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
 
 
             //Read block
-            val slavesWithAcquireB = m.mapping.filter(_.allowed.transfers.acquireB.some)
+            val slavesWithAcquireB = m.mapping.filter(_.allowed.acquireB.some)
             if(slavesWithAcquireB.nonEmpty) {
               val s = slavesWithAcquireB.randomPick()
               val mapping = s.mapping.randomPick()

@@ -12,7 +12,7 @@ class BridgeTestbench(m : Bus, s : Bus, cd : ClockDomain) {
   val globalMem = SparseMemory(outputAgent.mem.seed)
 
   val inputMapping = Mapping(
-    allowed = s.p.node.m.toSupport(),
+    allowed = s.p.node.m.toSupport().transfers,
     mapping = List(SizeMapping(0, 1l << m.p.addressWidth)),
     model = globalMem
   )
