@@ -3,7 +3,7 @@ package spinal.lib.bus.tilelink.coherent
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.bus.tilelink.{Bus, ChannelA, ChannelD, DebugId, M2sAgent, M2sParameters, M2sSource, M2sTransfers, NodeParameters, Opcode, Param, S2mAgent, S2mParameters, S2mTransfers, SizeRange, sizeToBeatMinusOne}
+import spinal.lib.bus.tilelink._
 import spinal.lib.pipeline._
 
 import scala.collection.mutable.ArrayBuffer
@@ -54,13 +54,50 @@ drive upstream D
 - cache read
 - upsteam C ?
 - downstream D
+
+Waits kinds :
+- block conflict => Pipelined retry buffer
+- fetch tags     => Pipelined state
+- probe          =>
+- cache refill   =>
+- main memory direct access
+- GrantAck
+
+Flow :
+A : Acquire
+- Wait no slot conflicts
+- [Fetch tags]
+- [Probe stuff]
+- [writeback/fill cache]
+- Read data
+
+A : AcquireT
+- Wait no slot conflicts
+- [Fetch tags]
+- [Probe stuff, including initiator to check if it lost branch]
+- [If initiator losed it, follow regular Acquire flow from the writeback/fill cache step]
+- ack
+
+A : get
+- Wait no slot conflicts
+- [Fetch tags]
+- [Probe stuff]
+- [writeback/fill cache]
+- Read data ($ or mem)
+
+A : put
+- Wait no slot conflicts
+- [Fetch tags]
+- [Probe stuff]
+- [writeback/fill cache]
+- write data ($ or mem)
+
  */
 
 case class CoherentHubOrdering(p : CoherentHubParameters) extends Bundle{
   val upId = UInt(log2Up(p.nodes.size) bits)
   val upSource = UInt(p.nodes.map(_.m.sourceWidth).max bits)
 }
-
 
 class CoherentHub(p : CoherentHubParameters) extends Component{
   import p._
@@ -130,8 +167,8 @@ class CoherentHub(p : CoherentHubParameters) extends Component{
     val bToTRspSent = Reg(Bool())
 
     val lineConflict = new Area{ //TODO implement and check works
-      val youngest = Reg(Bool()) //TODO set when conflict is resolved
-      val valid = Reg(Bool()) //TODO clear
+      val youngest = Reg(Bool())
+      val valid = Reg(Bool())
       val slotId = Reg(UInt(log2Up(slotCount) bits))
       def oldest = !valid
     }
@@ -888,14 +925,14 @@ object CoherentHub{
 
 }
 object CoherentHubGen extends App{
-  def basicConfig(slotsCount : Int = 2, fullCount : Int = 1, coherentOnlyCount : Int = 0, dmaOnlyCount : Int = 0) = {
+  def basicConfig(slotsCount : Int = 2, masterPerChannel : Int = 4, fullCount : Int = 1, coherentOnlyCount : Int = 0, dmaOnlyCount : Int = 0, dataWidth : Int = 64, addressWidth : Int = 13, cacheSize : Int = 1024) = {
     CoherentHubParameters(
       nodes     = List.fill(fullCount)(
         NodeParameters(
           m = M2sParameters(
-            addressWidth = 13,
-            dataWidth = 64,
-            masters = List.tabulate(4)(mId =>
+            addressWidth = addressWidth,
+            dataWidth = dataWidth,
+            masters = List.tabulate(masterPerChannel)(mId =>
             M2sAgent(
               name = null,
               mapping = List.fill(1)(M2sSource(
@@ -924,9 +961,9 @@ object CoherentHubGen extends App{
       ) ++  List.fill(coherentOnlyCount)(
         NodeParameters(
           m = M2sParameters(
-            addressWidth = 13,
-            dataWidth = 64,
-            masters = List.tabulate(4)(mId =>
+            addressWidth = addressWidth,
+            dataWidth = dataWidth,
+            masters = List.tabulate(masterPerChannel)(mId =>
             M2sAgent(
               name = null,
               mapping = List.fill(1)(M2sSource(
@@ -952,9 +989,9 @@ object CoherentHubGen extends App{
       ) ++  List.fill(dmaOnlyCount)(
         NodeParameters(
           m = M2sParameters(
-            addressWidth = 13,
-            dataWidth = 64,
-            masters = List.tabulate(4)(mId =>
+            addressWidth = addressWidth,
+            dataWidth = dataWidth,
+            masters = List.tabulate(masterPerChannel)(mId =>
             M2sAgent(
               name = null,
               mapping = List.fill(1)(M2sSource(
@@ -971,7 +1008,7 @@ object CoherentHubGen extends App{
         )
       ),
       slotCount = slotsCount,
-      cacheSize = 1024,
+      cacheSize = cacheSize,
       wayCount  = 2,
       lineSize  = 64
     )
@@ -980,6 +1017,46 @@ object CoherentHubGen extends App{
   SpinalVerilog(gen)
 
 }
+
+object CoherencyHubSynt extends App{
+  import spinal.lib.eda.bench._
+  val rtls = ArrayBuffer[Rtl]()
+  for(slots <- List(1, 4, 8, 16)) {
+    rtls += Rtl(SpinalVerilog(Rtl.ffIo(new CoherentHub(CoherentHubGen.basicConfig(slots, masterPerChannel = 4, fullCount = 1, coherentOnlyCount = 0, dataWidth = 16, addressWidth = 32, cacheSize = 32*1024)).setDefinitionName(s"CoherencyHub$slots"))))
+  }
+  val targets = XilinxStdTargets().take(2) ++ AlteraStdTargets(quartusCycloneIIPath = null)
+
+  Bench(rtls, targets)
+}
+/*
+CoherencyHub1 ->
+Artix 7 -> 149 Mhz 313 LUT 1517 FF
+Artix 7 -> 312 Mhz 362 LUT 1517 FF
+Cyclone V -> FAILED
+Cyclone IV -> 190 Mhz 470 LUT 1,484 FF
+CoherencyHub4 ->
+Artix 7 -> 125 Mhz 540 LUT 1637 FF
+Artix 7 -> 189 Mhz 618 LUT 1637 FF
+Cyclone V -> FAILED
+Cyclone IV -> 142 Mhz 895 LUT 1,771 FF
+CoherencyHub8 ->
+Artix 7 -> 113 Mhz 729 LUT 1812 FF
+Artix 7 -> 170 Mhz 847 LUT 1812 FF
+Cyclone V -> FAILED
+Cyclone IV -> 121 Mhz 1,418 LUT 2,114 FF
+CoherencyHub16 ->
+Artix 7 -> 93 Mhz 1234 LUT 2143 FF
+Artix 7 -> 146 Mhz 1362 LUT 2143 FF
+Cyclone V -> FAILED
+Cyclone IV -> 93 Mhz 2,596 LUT 2,781 FF
+
+Process finished with exit code 0
+
+
+Process finished with exit code 0
+
+ */
+
 /*
 TODO warning :
 - probe_data need to be properly handled
