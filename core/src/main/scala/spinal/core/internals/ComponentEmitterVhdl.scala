@@ -300,7 +300,7 @@ class ComponentEmitterVhdl(
       def addCasting(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
 
         def wrapIo(t : String, body : String => String): String ={
-          val wrap = s"${logic}_bb_wrap"
+          val wrap = s"${children.getName()}_${logic}_bb_wrap"
           declarations ++= s"  signal $wrap : $t${if(!bt.isInstanceOf[Bool]) s"(${bt.getBitsWidth-1} downto 0)" else ""};\n"
           postBb ++= s"  ${body(wrap)};\n"
           s"      $io => $wrap,\n"
