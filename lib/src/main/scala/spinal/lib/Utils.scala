@@ -313,6 +313,23 @@ object OHMasking{
     val (pLow, pHigh) = doubleOh.splitAt(width)
     val selOh = pHigh | pLow
   }.selOh
+
+  /** Easy to use round robin. Priorities are cleared as soon as there is no requests pending
+   *
+   * @param requests
+   * @param next Move on to the next priority
+   */
+  def roundRobinNext[T <: Data](requests : T, next : Bool): Bits = new Composite(requests, "roundRobinNext"){
+    val input = B(requests)
+    val width = widthOf(requests)
+    val priority = Reg(Bits(width bits)) init(0)
+    val selOh = roundRobinMaskedFull(requests, priority)
+
+    val overflow = (priority & input) === 0
+    when(next){
+      priority := priority.orMask(overflow) & ~selOh
+    }
+  }.selOh
 }
 
 object CountOne{
