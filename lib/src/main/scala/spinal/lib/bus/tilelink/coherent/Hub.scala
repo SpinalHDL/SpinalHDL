@@ -35,36 +35,20 @@ case class HubParameters(unp : NodeParameters,
 
 
 /*
-
-Flow :
-A : AcquireB
+A transaction will always :
 - Wait no slot conflicts
 - [Fetch tags]
 - [Probe stuff]
-- [writeback/fill cache]
-- Read data + update tags
-- wait grant ack [and writeback] completion
-
-A : AcquireT
-- Wait no slot conflicts
-- [Fetch tags]
-- [Probe stuff, including initiator to check if it lost branch]
-- [If initiator losed it, follow regular Acquire flow from the writeback/fill cache step]
-- ack
-
-A : get
-- Wait no slot conflicts
-- [Fetch tags]
-- [Probe stuff]
-- [writeback/fill cache]
-- Read data ($ or mem)
-
-A : put
-- Wait no slot conflicts
-- [Fetch tags]
-- [Probe stuff]
-- [writeback/fill cache]
-- write data ($ or mem)
+- [wait probe completion]
+- aquire:
+  - [writeback/fill cache cmd]
+  - [Wait fill completion]
+  - [Read data] + [update tags] + grantData/grant
+  - wait up.E grant ack [and writeback] completion
+- get / put
+  - [writeback/fill cache cmd]
+  - [Wait fill completion]
+  - Read / write data
 
 C : release data
 - [Fetch tags]
@@ -143,7 +127,7 @@ class Hub(p : HubParameters) extends Component{
     }
   }
 
-  val frontendUpA = new Pipeline{
+  val frontendA = new Pipeline{
     val PAYLOAD = Stageable(Payload())
     val s0 = new Stage{
       driveFrom(io.up.a)
@@ -230,40 +214,45 @@ class Hub(p : HubParameters) extends Component{
   }
   val probe = new Area{
     val slots = for(i <- 0 until probeCount) yield new Area{
-      val valid = RegInit(False)
+      val fire = False
+      val valid = RegInit(False) clearWhen(fire)
       val set = Reg(UInt(setsRange.size bits))
       val pendings = Reg(UInt(log2Up(coherentMasterCount+1) bits))
       val lostIt = Reg(Bool())
+      val decrement = Reg(Bool()) //This reg has double usage : Either set after a ProbeData writeback, either set for a probe-less wakeup
     }
 
     val push = Stream(ProbeCmd())
-    val pushCmd = frontendUpA.s2(frontendUpA.s0.CMD)
-    push.valid := frontendUpA.s2.isValid
-    frontendUpA.s2.haltIt(!push.ready)
+    val pushCmd = frontendA.s2(frontendA.s0.CMD)
+    push.valid := frontendA.s2.isValid
+    frontendA.s2.haltIt(!push.ready)
     push.address    := pushCmd.address
     push.toTrunk    := pushCmd.param =/= Param.Grow.NtoB
     push.fromBranch := pushCmd.param === Param.Grow.BtoT
     push.selfMask   := B(coherentMasters.map(_.sourceHit(pushCmd.source)))
-    push.mask.setAll()
+    push.mask := ~push.selfMask
 
     val cmd = new Area{
       val sloted = RegInit(False)
       val full = slots.map(_.valid).andR
       val freeMask = OHMasking.firstV2(B(slots.map(!_.valid)))
-      val pendings = CountOne(push.mask)
+      val requestsUnmasked = (push.mask & ~push.selfMask) | push.selfMask.andMask(push.fromBranch)
+      val pendings = CountOne(requestsUnmasked)
+
       when(push.valid && !sloted && !full){
         slots.onMask(freeMask){s =>
           s.valid := True
           s.set := push.address(setsRange)
           s.pendings := pendings
           s.lostIt := False
+          s.decrement := requestsUnmasked === 0
         }
         sloted := True
       }
 
       val bus = io.up.b
       val fired = Reg(Bits(coherentMasterCount bits)) init(0)
-      val requests = (push.mask | push.selfMask) & ~fired
+      val requests = requestsUnmasked & ~fired
       val masterOh = OHMasking.firstV2(requests)
       val selfProbe = (masterOh & push.selfMask).orR
       bus.valid   := push.valid && requests.orR
@@ -284,25 +273,57 @@ class Hub(p : HubParameters) extends Component{
       }
     }
 
-    val rsps = new Area{
-      val c = io.up.c
-      io.up.c.ready := True
-      val hits = slots.map(s => s.valid && s.set === c.address(setsRange))
-      when(c.valid){
-        slots.onMask(hits){s =>
-          s.pendings := s.pendings - 1
+    val rsp = new Area{
+      val ackData = new Area{
+        val bypass = Event
+        val hits = slots.map(_.decrement).asBits
+        val hit = hits.orR
+        val oh = OHMasking.roundRobinNext(hits, bypass.fire)
+        bypass.valid := hit && (!io.up.c.valid || io.up.c.isFirst())
+        when(bypass.fire){
+          slots.onMask(oh){ s =>
+            s.decrement := False
+          }
         }
       }
+
+      val oh = slots.map(s => s.valid && s.set === io.up.c.address(setsRange)).asBits
+      when(ackData.bypass.valid){
+        oh := ackData.oh
+      }
+
+      val hitId = OHToUInt(oh)
+      val isProbe = io.up.c.opcode === Opcode.C.PROBE_ACK
+      val pendings = slots.map(_.pendings).read(hitId)
+      val pendingsNext = pendings - 1
+      val slotDecr = (io.up.c.valid && isProbe) || ackData.bypass.valid
+      val slotCompletion = (pendings >> 1) === 0
+
+      val outputA = Event
+      outputA.valid := slotDecr && slotCompletion
+      ackData.bypass.ready := !outputA.isStall
+      val outputC = io.up.c.haltWhen(isProbe && (ackData.bypass.valid || !outputA.isStall))
+
+      when(slotDecr && (ackData.bypass.valid || isProbe)){
+        slots.onMask(oh){ s =>
+          s.pendings := pendingsNext
+          s.fire setWhen(!slotCompletion)
+        }
+      }
+
     }
   }
 
 
-  frontendUpA.build()
+  frontendA.build()
 
 
-  probe.slots.foreach(e => out(e.pendings))
-  out(frontendUpA.s2.isFireing)
-  out(frontendUpA.setsBusy.hit.write)
+//  probe.slots.foreach(e => out(e.pendings))
+  master(probe.rsp.outputC.halfPipe())
+  master(probe.rsp.outputA.halfPipe())
+  out(probe.rsp.slotCompletion)
+  out(frontendA.s2.isFireing)
+  out(frontendA.setsBusy.hit.write)
   io.up.d.setIdle()
   io.up.e.ready := False
 
@@ -364,3 +385,18 @@ object HubSynt extends App{
 
   Bench(rtls, targets)
 }
+
+/*
+Hub16 ->
+Artix 7 -> 163 Mhz 164 LUT 215 FF
+Artix 7 -> 268 Mhz 180 LUT 215 FF
+Cyclone V -> FAILED
+Cyclone IV -> 181 Mhz 217 LUT 214 FF
+
+Hub16 ->
+Artix 7 -> 165 Mhz 160 LUT 215 FF
+Artix 7 -> 269 Mhz 174 LUT 215 FF
+Cyclone V -> FAILED
+Cyclone IV -> 181 Mhz 217 LUT 214 FF
+
+ */
