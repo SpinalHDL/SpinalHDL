@@ -35,6 +35,28 @@ case class HubParameters(unp : NodeParameters,
 
 
 /*
+access main memory :
+- read without ownership
+- writes without ownership
+- refill
+- writeback
+- release miss
+
+Read cache :
+- read without ownership
+- read allocate
+- writeback
+
+write cache
+- writes without ownership on hit
+- downstream D (on refill)
+- release hit
+
+drive upstream D
+- cache hit read
+- downstream D (include cache miss refill)
+
+
 A transaction will always :
 - Wait no slot conflicts
 - [Fetch tags]
@@ -42,13 +64,11 @@ A transaction will always :
 - [wait probe completion]
 - aquire:
   - [writeback/fill cache cmd]
-  - [Wait fill completion]
-  - [Read data] + [update tags] + grantData/grant
+  - [Read data from $]/[GrandData down D to up D]/[grant] + [update tags]
   - wait up.E grant ack [and writeback] completion
 - get / put
-  - [writeback/fill cache cmd]
-  - [Wait fill completion]
-  - Read / write data
+  - [writeback/fill cache cmd]/[down A]
+  - [Read data from $]/[down D to up D]
 
 C : release data
 - [Fetch tags]
@@ -113,7 +133,7 @@ class Hub(p : HubParameters) extends Component{
 
 
 
-  case class Payload() extends Bundle {
+  case class DataPayload() extends Bundle {
     val mask = ubp.mask()
     val data = ubp.data()
   }
@@ -128,7 +148,20 @@ class Hub(p : HubParameters) extends Component{
   }
 
   val frontendA = new Pipeline{
-    val PAYLOAD = Stageable(Payload())
+    val PAYLOAD = Stageable(DataPayload())
+    val BUFFER_ID = Stageable(UInt(log2Up(aBufferCount) bits))
+
+    val buffer =  new Area{
+      val ram = Mem.fill(aBufferCount*p.blockSize/p.unp.m.dataBytes)(DataPayload())
+      val allocated = Reg(Bits(aBufferCount bits)) init(0)
+      val set, clear = B(0, aBufferCount bits)
+      val firstFree = OHToUInt(OHMasking.firstV2(~allocated))
+      val full = allocated.andR
+      val source = Vec.fill(aBufferCount)(Reg(ubp.source))
+      val write = ram.writePort()
+      allocated := (allocated | set) & ~clear
+    }
+
     val s0 = new Stage{
       driveFrom(io.up.a)
       val CMD = insert(io.up.a.payload.asNoData())
@@ -137,19 +170,7 @@ class Hub(p : HubParameters) extends Component{
         PAYLOAD.data := io.up.a.data
         PAYLOAD.mask := io.up.a.mask
       }
-
       val dataSplit = ubp.withDataA generate new Area{
-        val buffer =  new Area{
-          val ram = Mem.fill(aBufferCount*p.blockSize/p.unp.m.dataBytes)(Payload())
-          val allocated = Reg(Bits(aBufferCount bits)) init(0)
-          val set, clear = B(0, aBufferCount bits)
-          val firstFree = OHToUInt(OHMasking.firstV2(~allocated))
-          val full = allocated.andR
-          val source = Vec.fill(aBufferCount)(Reg(ubp.source))
-          val write = ram.writePort()
-          allocated := (allocated | set) & ~clear
-        }
-
         val withBeats = CMD.withBeats
         val hazard = withBeats && buffer.full
         haltIt(hazard)
@@ -157,13 +178,13 @@ class Hub(p : HubParameters) extends Component{
 
         val locked = RegInit(False) setWhen(buffer.write.valid)
         val lockedValue = RegNextWhen(buffer.firstFree, !locked)
-        val bufferAllocated = locked ? lockedValue | buffer.firstFree
+        BUFFER_ID := locked ? lockedValue | buffer.firstFree
         buffer.write.valid := valid && withBeats && !hazard
-        buffer.write.address := bufferAllocated @@ CMD.address(wordRange)
+        buffer.write.address := BUFFER_ID @@ CMD.address(wordRange)
         buffer.write.data := PAYLOAD
         when(isFireing && LAST && withBeats){
-          buffer.set(bufferAllocated) := True
-          buffer.source.onSel(bufferAllocated)(_ := CMD.source)
+          buffer.set(BUFFER_ID) := True
+          buffer.source.onSel(BUFFER_ID)(_ := CMD.source)
           locked := False
         }
       }
@@ -197,136 +218,189 @@ class Hub(p : HubParameters) extends Component{
         setsBusy.target.write.data := (s1.JUST_BUSY ? hit | !target)
       }
     }
-
-
   }
 
   val coherentMasters = unp.m.masters.filter(_.emits.withBCE)
   val coherentMasterCount = coherentMasters.size
   val coherentMasterToSource = coherentMasters.map(_.bSourceId)
   def MasterId() = UInt(log2Up(coherentMasterCount) bits)
-  case class ProbeCmd() extends Bundle {
+  case class ProbeCtx() extends Bundle{
+    val opcode  = Opcode.A()
     val address = ubp.address()
+    val size    = ubp.size()
     val toTrunk = Bool()
+    val source  = ubp.source()
+    val bufferId = UInt(log2Up(aBufferCount) bits)
+  }
+  case class ProbeCmd() extends Bundle {
+    val ctx = ProbeCtx()
     val fromBranch = Bool()
     val selfMask = Bits(coherentMasterCount bits)
     val mask = Bits(coherentMasterCount bits)
   }
-  val probe = new Area{
-    val slots = for(i <- 0 until probeCount) yield new Area{
-      val fire = False
-      val valid = RegInit(False) clearWhen(fire)
-      val set = Reg(UInt(setsRange.size bits))
-      val pendings = Reg(UInt(log2Up(coherentMasterCount+1) bits))
-      val lostIt = Reg(Bool())
-      val decrement = Reg(Bool()) //This reg has double usage : Either set after a ProbeData writeback, either set for a probe-less wakeup
-    }
+  case class BackendCmd() extends Bundle{
+    val address = ubp.address()
+    val size    = ubp.size()
+    val toTrunk = Bool()
+    val source  = ubp.source()
+  }
 
+  val probe = new Area{
     val push = Stream(ProbeCmd())
     val pushCmd = frontendA.s2(frontendA.s0.CMD)
     push.valid := frontendA.s2.isValid
     frontendA.s2.haltIt(!push.ready)
-    push.address    := pushCmd.address
-    push.toTrunk    := pushCmd.param =/= Param.Grow.NtoB
+    push.ctx.opcode     := pushCmd.opcode
+    push.ctx.address    := pushCmd.address
+    push.ctx.toTrunk    := pushCmd.param =/= Param.Grow.NtoB
+    push.ctx.bufferId   := frontendA.s2(frontendA.BUFFER_ID)
+    push.ctx.size       := pushCmd.size
+    push.ctx.source     := pushCmd.source
     push.fromBranch := pushCmd.param === Param.Grow.BtoT
     push.selfMask   := B(coherentMasters.map(_.sourceHit(pushCmd.source)))
     push.mask := ~push.selfMask
+
+
+    val slots = for(i <- 0 until probeCount) yield new Area{
+      val fire = False
+      val valid = RegInit(False) clearWhen(fire)
+      val set = Reg(UInt(setsRange.size bits))
+      val pending = Reg(UInt(log2Up(coherentMasterCount+1) bits))
+      val lostIt = Reg(Bool())
+      val probeAckDataCompleted = Reg(Bool())
+      val selfId = Reg(UInt(log2Up(coherentMasterCount) bits))
+      val done = valid && (pending & ~U(probeAckDataCompleted, widthOf(pending) bits)) === 0
+    }
+
+    val ctxMem = Mem.fill(probeCount)(ProbeCtx())
+    val ctxWrite = ctxMem.writePort()
 
     val cmd = new Area{
       val sloted = RegInit(False)
       val full = slots.map(_.valid).andR
       val freeMask = OHMasking.firstV2(B(slots.map(!_.valid)))
+      val freeId = OHToUInt(freeMask)
       val requestsUnmasked = (push.mask & ~push.selfMask) | push.selfMask.andMask(push.fromBranch)
-      val pendings = CountOne(requestsUnmasked)
+      val pending = CountOne(requestsUnmasked)
+      val selfId = OHToUInt(push.selfMask)
 
+      ctxWrite.valid := False
+      ctxWrite.address := freeId
+      ctxWrite.data := push.ctx
       when(push.valid && !sloted && !full){
         slots.onMask(freeMask){s =>
           s.valid := True
-          s.set := push.address(setsRange)
-          s.pendings := pendings
+          s.set := push.ctx.address(setsRange)
+          s.pending := pending
           s.lostIt := False
-          s.decrement := requestsUnmasked === 0
+          s.probeAckDataCompleted := False
+          s.selfId := selfId
         }
+        ctxWrite.valid := True
         sloted := True
       }
 
       val bus = io.up.b
+      val halted = push.haltWhen(!sloted && full)
       val fired = Reg(Bits(coherentMasterCount bits)) init(0)
       val requests = requestsUnmasked & ~fired
       val masterOh = OHMasking.firstV2(requests)
-      val selfProbe = (masterOh & push.selfMask).orR
-      bus.valid   := push.valid && requests.orR
+      val selfProbe = (masterOh & halted.selfMask).orR
+      bus.valid   := halted.valid && requests.orR
       bus.opcode  := Opcode.B.PROBE_BLOCK
-      bus.param   := (push.toTrunk && !selfProbe) ? B(Param.Cap.toN, 3 bits) | B(Param.Cap.toB, 3 bits)
+      bus.param   := (halted.ctx.toTrunk && !selfProbe) ? B(Param.Cap.toN, 3 bits) | B(Param.Cap.toB, 3 bits)
       bus.source  := OhMux(masterOh, coherentMasterToSource.map(id => U(id, ubp.sourceWidth bits)).toList)
-      bus.address := push.address(blockRange) @@ U(0, blockRange.low bits)
+      bus.address := halted.ctx.address(blockRange) @@ U(0, blockRange.low bits)
       bus.size    := log2Up(p.blockSize)
-      push.ready := requests === 0
+      halted.ready := requests === 0
 
       when(bus.fire){
         fired.asBools.onMask(masterOh)(_ := True)
       }
 
-      when(push.ready){
+      when(halted.ready){
         fired := 0
         sloted := False
       }
     }
 
     val rsp = new Area{
-      val ackData = new Area{
-        val bypass = Event
-        val hits = slots.map(_.decrement).asBits
-        val hit = hits.orR
-        val oh = OHMasking.roundRobinNext(hits, bypass.fire)
-        bypass.valid := hit && (!io.up.c.valid || io.up.c.isFirst())
-        when(bypass.fire){
-          slots.onMask(oh){ s =>
-            s.decrement := False
+      val ack = io.up.c.fire && io.up.c.opcode === Opcode.C.PROBE_ACK
+      val hitOh = slots.map(s => s.valid && s.set === io.up.c.address(setsRange))
+      val hitId = OHToUInt(hitOh)
+      val pending = slots.map(_.pending).read(hitId)
+      val selfId = slots.map(_.selfId).read(hitId)
+      val pendingNext = pending - 1
+      val masterOh = coherentMasterToSource.map(io.up.c.source === _).asBits
+      val masterId = OHToUInt(masterOh)
+      val isSelf = selfId === masterId
+      val lostIt = isSelf && io.up.c.param === Param.Report.NtoN
+
+      when(ack) {
+        slots.onMask(hitOh) { s =>
+          s.pending := pendingNext
+          s.lostIt setWhen (lostIt)
+        }
+      }
+    }
+
+    val wake = new Pipeline{
+      val s0 = new Stage{
+        val hits = slots.map(_.done).asBits
+        valid := hits.orR
+        val hitOh = OHMasking.roundRobinNext(hits, isFireing)
+        val hitId = OHToUInt(hitOh)
+        when(isFireing){
+          slots.onMask(hitOh){ s =>
+            s.fire := True
           }
         }
       }
+      val s1 = new Stage(Connection.M2S()){
+        val readed = ctxMem.readSync(s0.hitId, isReady)
+        val CTX = insert(readed)
 
-      val oh = slots.map(s => s.valid && s.set === io.up.c.address(setsRange)).asBits
-      when(ackData.bypass.valid){
-        oh := ackData.oh
-      }
+        val counter = Reg(UInt(wordRange.size bits)) init(0)
+        val LAST = insert(!Opcode.A.withData(CTX.opcode) ||  counter === sizeToBeatMinusOne(ubp, CTX.size))
+        CTX.address(wordRange) := readed.address(wordRange) + counter
+        val wordAddress = CTX.bufferId @@ CTX.address(wordRange)
 
-      val hitId = OHToUInt(oh)
-      val isProbe = io.up.c.opcode === Opcode.C.PROBE_ACK
-      val pendings = slots.map(_.pendings).read(hitId)
-      val pendingsNext = pendings - 1
-      val slotDecr = (io.up.c.valid && isProbe) || ackData.bypass.valid
-      val slotCompletion = (pendings >> 1) === 0
-
-      val outputA = Event
-      outputA.valid := slotDecr && slotCompletion
-      ackData.bypass.ready := !outputA.isStall
-      val outputC = io.up.c.haltWhen(isProbe && (ackData.bypass.valid || !outputA.isStall))
-
-      when(slotDecr && (ackData.bypass.valid || isProbe)){
-        slots.onMask(oh){ s =>
-          s.pendings := pendingsNext
-          s.fire setWhen(!slotCompletion)
+        when(isForked){
+          counter := counter + 1
+          when(LAST){
+            counter := 0
+          }
         }
+        forkIt(!LAST)
       }
-
+      val s2 = new Stage(Connection.M2S()){
+        val DATA = insert(frontendA.buffer.ram.readSync(s1.wordAddress, isReady))
+      }
     }
   }
 
 
-  frontendA.build()
+  val backend = new Pipeline{
+//    val
+  }
+
+
 
 
 //  probe.slots.foreach(e => out(e.pendings))
-  master(probe.rsp.outputC.halfPipe())
-  master(probe.rsp.outputA.halfPipe())
-  out(probe.rsp.slotCompletion)
+//  master(probe.rsp.outputC.halfPipe())
+  io.up.c.ready := True
+  out(probe.wake.s2.isFireing, probe.wake.s2(probe.wake.s2.DATA))
   out(frontendA.s2.isFireing)
   out(frontendA.setsBusy.hit.write)
+  out(probe.slots.map(_.lostIt).asBits)
   io.up.d.setIdle()
   io.up.e.ready := False
 
+  probe.wake.s2.haltIt(in(Bool()))
+
+  frontendA.build()
+  probe.wake.build()
 }
 
 
@@ -398,5 +472,16 @@ Artix 7 -> 165 Mhz 160 LUT 215 FF
 Artix 7 -> 269 Mhz 174 LUT 215 FF
 Cyclone V -> FAILED
 Cyclone IV -> 181 Mhz 217 LUT 214 FF
+
+Hub16 ->
+Artix 7 -> 198 Mhz 218 LUT 182 FF
+Artix 7 -> 280 Mhz 250 LUT 182 FF
+Cyclone V -> 192 Mhz 155 ALMs
+Cyclone IV -> 169 Mhz 300 LUT 215 FF
+
+Artix 7 -> 145 Mhz 251 LUT 206 FF
+Artix 7 -> 253 Mhz 281 LUT 206 FF
+Cyclone V -> 183 Mhz 180 ALMs
+Cyclone IV -> 162 Mhz 341 LUT 239 FF
 
  */

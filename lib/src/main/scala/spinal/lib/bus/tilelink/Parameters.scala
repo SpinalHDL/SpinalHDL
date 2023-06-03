@@ -20,7 +20,7 @@ case class BusParameter(addressWidth : Int,
                         node         : NodeParameters){
   val dataBytes   = dataWidth/8
   val sizeMax     = log2Up(sizeBytes)
-  val sizeMin     = 0
+  val sizeMin     = 0 //pessimistic
   def sizeValues  = sizeMin to sizeMax
   val sizeWidth   = log2Up(sizeMax+1)
   val beatMax     = (sizeBytes+dataBytes-1)/dataBytes

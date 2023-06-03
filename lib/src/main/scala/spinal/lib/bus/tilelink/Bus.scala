@@ -17,6 +17,7 @@ object Opcode extends AreaRoot{
       ACQUIRE_BLOCK -> 6,
       ACQUIRE_PERM -> 7
     )
+    def withData(c : C) = List(PUT_FULL_DATA, PUT_PARTIAL_DATA).map(c === _).orR
   }
 
   val B = new SpinalEnum{

@@ -1021,8 +1021,8 @@ object CoherentHubGen extends App{
 object CoherencyHubSynt extends App{
   import spinal.lib.eda.bench._
   val rtls = ArrayBuffer[Rtl]()
-  for(slots <- List(1, 4, 8, 16)) {
-    rtls += Rtl(SpinalVerilog(Rtl.ffIo(new CoherentHub(CoherentHubGen.basicConfig(slots, masterPerChannel = 4, fullCount = 1, coherentOnlyCount = 0, dataWidth = 16, addressWidth = 32, cacheSize = 32*1024)).setDefinitionName(s"CoherencyHub$slots"))))
+  for(slots <- List(1, 4, 8, 16)) {//Rtl.ffIo
+    rtls += Rtl(SpinalVerilog((new CoherentHub(CoherentHubGen.basicConfig(slots, masterPerChannel = 4, fullCount = 1, coherentOnlyCount = 0, dataWidth = 16, addressWidth = 32, cacheSize = 32*1024)).setDefinitionName(s"CoherencyHub$slots"))))
   }
   val targets = XilinxStdTargets().take(2) ++ AlteraStdTargets(quartusCycloneIIPath = null)
 
@@ -1030,25 +1030,28 @@ object CoherencyHubSynt extends App{
 }
 /*
 CoherencyHub1 ->
-Artix 7 -> 149 Mhz 313 LUT 1517 FF
-Artix 7 -> 312 Mhz 362 LUT 1517 FF
+Artix 7 -> 91 Mhz 320 LUT 429 FF
+Artix 7 -> 328 Mhz 361 LUT 429 FF
 Cyclone V -> FAILED
-Cyclone IV -> 190 Mhz 470 LUT 1,484 FF
+Cyclone IV -> 211 Mhz 448 LUT 417 FF
 CoherencyHub4 ->
-Artix 7 -> 125 Mhz 540 LUT 1637 FF
-Artix 7 -> 189 Mhz 618 LUT 1637 FF
+Artix 7 -> 123 Mhz 548 LUT 525 FF
+Artix 7 -> 191 Mhz 610 LUT 525 FF
 Cyclone V -> FAILED
-Cyclone IV -> 142 Mhz 895 LUT 1,771 FF
+Cyclone IV -> 145 Mhz 877 LUT 680 FF
 CoherencyHub8 ->
-Artix 7 -> 113 Mhz 729 LUT 1812 FF
-Artix 7 -> 170 Mhz 847 LUT 1812 FF
+Artix 7 -> 123 Mhz 750 LUT 682 FF
+Artix 7 -> 164 Mhz 847 LUT 682 FF
 Cyclone V -> FAILED
-Cyclone IV -> 121 Mhz 1,418 LUT 2,114 FF
+Cyclone IV -> 123 Mhz 1,437 LUT 1,005 FF
 CoherencyHub16 ->
-Artix 7 -> 93 Mhz 1234 LUT 2143 FF
-Artix 7 -> 146 Mhz 1362 LUT 2143 FF
+Artix 7 -> 108 Mhz 1185 LUT 995 FF
+Artix 7 -> 149 Mhz 1307 LUT 995 FF
 Cyclone V -> FAILED
-Cyclone IV -> 93 Mhz 2,596 LUT 2,781 FF
+Cyclone IV -> 95 Mhz 2,569 LUT 1,654 FF
+
+Process finished with exit code 0
+
 
 Process finished with exit code 0
 
