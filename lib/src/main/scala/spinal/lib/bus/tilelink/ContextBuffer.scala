@@ -17,7 +17,7 @@ abstract class ContextAsyncBufferBase[T <: Data](idWidth : Int, contextType : Ha
       add.valid := a.fire && a.isLast()
       add.id := a.source
       aHalt setWhen(!add.ready)
-      remove.valid := d.fire && d.isLast()
+      remove.valid := d.fire && d.isLast() && Opcode.D.fromA(d.opcode)
       remove.id := d.source
     }
   }

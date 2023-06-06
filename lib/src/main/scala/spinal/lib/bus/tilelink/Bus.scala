@@ -9,7 +9,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object Opcode extends AreaRoot{
   val A = new SpinalEnum{
-    val PUT_FULL_DATA, PUT_PARTIAL_DATA, GET ,ACQUIRE_BLOCK, ACQUIRE_PERM = newElement()
+    val PUT_FULL_DATA, PUT_PARTIAL_DATA, GET, ACQUIRE_BLOCK, ACQUIRE_PERM = newElement()
     defaultEncoding = SpinalEnumEncoding("enc")(
       GET -> 4,
       PUT_FULL_DATA -> 0,
@@ -17,7 +17,10 @@ object Opcode extends AreaRoot{
       ACQUIRE_BLOCK -> 6,
       ACQUIRE_PERM -> 7
     )
-    def withData(c : C) = List(PUT_FULL_DATA, PUT_PARTIAL_DATA).map(c === _).orR
+    def isGetPut(c : C) = List(GET, PUT_FULL_DATA, PUT_PARTIAL_DATA).map(c === _).orR
+    def isPut(c : C) = List(PUT_FULL_DATA, PUT_PARTIAL_DATA).map(c === _).orR
+    def isGet(c : C) = List(GET).map(c === _).orR
+    def isAcquire(c : C) = List(ACQUIRE_BLOCK, ACQUIRE_PERM).map(c === _).orR
   }
 
   val B = new SpinalEnum{
@@ -36,6 +39,7 @@ object Opcode extends AreaRoot{
       RELEASE       -> 6,
       RELEASE_DATA  -> 7
     )
+    def withoutData(c : C) = List(PROBE_ACK, RELEASE).map(c === _).orR
   }
 
   val D = new SpinalEnum{
@@ -47,6 +51,7 @@ object Opcode extends AreaRoot{
       GRANT_DATA  -> 5,
       RELEASE_ACK -> 6
     )
+    def fromA(opcode : C) : Bool = List(ACCESS_ACK, ACCESS_ACK_DATA).map(opcode === _).orR
   }
 }
 
