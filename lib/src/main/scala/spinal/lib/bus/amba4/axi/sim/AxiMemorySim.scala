@@ -288,7 +288,7 @@ case class AxiMemorySim(
   axi : Axi4,
   clockDomain : ClockDomain,
   config : AxiMemorySimConfig,
-  random : Random = Random,
+  random : Random = Random
 ) {
   val memory = SparseMemory()
   val pending_reads = new mutable.Queue[AxiJob]
