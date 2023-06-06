@@ -32,9 +32,9 @@ class MemoryPage(size : Int) {
     def write(offset : Int, data : Byte) : Unit = {
         this.data(offset) = data
     }
-    
+
     /** Reads an array from this page.
-     * 
+     *
      * @param offset Offset into page
      * @return Byte array containing the read bytes. Reads may be limited by the page end.
      */
@@ -50,7 +50,7 @@ class MemoryPage(size : Int) {
     }
 
     /** Writes an array to this page.
-     * 
+     *
      * @param offset Offset into page.
      * @param data The byte array.
      * @return Number of bytes written. Writes may be limited by the page end.
@@ -120,7 +120,7 @@ case class SparseMemory() {
     val endPageIndex = getPageIndex(address + len - 1)
     var offset = getOffset(address)
     val buffer = new mutable.ArrayBuffer[Byte](0)
-    
+
     for(i <- startPageIndex to endPageIndex) {
       val page = getElseInvalidPage(i)
       val readArray = page.readArray(offset, len.toInt - buffer.length)
@@ -135,7 +135,7 @@ case class SparseMemory() {
     val startPageIndex = getPageIndex(address)
     val endPageIndex = getPageIndex(address + data.length - 1)
     var offset = getOffset(address)
-    
+
     List.tabulate(endPageIndex - startPageIndex + 1)(_ + startPageIndex).foldLeft(data){
       (writeData,pageIndex) => {
           val page = getElseAllocPage(pageIndex)
@@ -147,7 +147,7 @@ case class SparseMemory() {
   }
 
   /** Reads a BigInt value from the given address.
-   * 
+   *
    * @param address Read address.
    * @param width Length of the byte array to be read in bytes.
    * @return BigInt read from the given address.
@@ -166,7 +166,7 @@ case class SparseMemory() {
    * The BigInt will be resized to a byte Array of given width.
    * The data will be trimmed if it is bigger than the given width.
    * If it is smaller, the unused bytes will be filled with '0x00'.
-   * 
+   *
    * @param address Write address.
    * @param data Data to be written.
    * @param width Width of the byte Array the data is resized to (if necessary).
@@ -194,7 +194,7 @@ case class SparseMemory() {
         }
       }
     }
-    
+
     writeArray(address, result)
   }
 
@@ -234,7 +234,7 @@ case class AxiJob (
   id          : Long
 ) {
   val dataTransactionSize : Int  = (1 + burstLength) << burstSize
-  val lowerWrapBoundary   : Long = (address / dataTransactionSize) * dataTransactionSize 
+  val lowerWrapBoundary   : Long = (address / dataTransactionSize) * dataTransactionSize
   val upperWrapBoundary   : Long = lowerWrapBoundary + dataTransactionSize
   def incrAddress(i : Int): Long = ((address >> burstSize) + i) << burstSize
   def wrapAddress(i : Int): Long = {
@@ -284,7 +284,12 @@ case class AxiMemorySimConfig (
 
 }
 
-case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemorySimConfig) {
+case class AxiMemorySim(
+  axi : Axi4,
+  clockDomain : ClockDomain,
+  config : AxiMemorySimConfig,
+  random : Random = Random,
+) {
   val memory = SparseMemory()
   val pending_reads = new mutable.Queue[AxiJob]
   val pending_writes = new mutable.Queue[AxiJob]
@@ -314,12 +319,12 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
     })
 
     threads.enqueue(fork {
-      handleR(axi.r)
+      handleR(axi.r, new Random(random.nextLong()))
     })
 
     if(config.useAlteraBehavior) {
       threads.enqueue(fork {
-        handleAwAndW(axi.w, axi.aw, axi.b)
+        handleAwAndW(axi.w, axi.aw, axi.b, new Random(random.nextLong()))
       })
     }
     else {
@@ -382,7 +387,7 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
       ar.ready #= true
       clockDomain.waitSamplingWhere(ar.valid.toBoolean)
       ar.ready #= false
-      
+
       pending_reads += newAxiJob(ar.payload)
 
       //println("AXI4 read cmd: addr=0x" + ar.payload.addr.toLong.toHexString + " count=" + (ar.payload.len.toBigInt+1))
@@ -392,10 +397,8 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
     }
   }
 
-  def handleR(r : Stream[Axi4R]) : Unit = {
+  def handleR(r : Stream[Axi4R], random : Random) : Unit = {
     println("Handling AXI4 Master read resp...")
-
-    val random = Random
 
     r.valid #= false
     setLast(r.payload,false)
@@ -471,7 +474,7 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
       if(pending_writes.nonEmpty) {
         var job = pending_writes.front
         var count = job.burstLength
-       
+
         w.ready #= true
 
         for(i <- 0 to job.burstLength) {
@@ -510,10 +513,8 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
     * @param aw AXI write command channel
     * @param b  AXI write response channel
     */
-  def handleAwAndW(w : Stream[Axi4W], aw : Stream[Axi4Aw], b : Stream[Axi4B]) : Unit = {
+  def handleAwAndW(w : Stream[Axi4W], aw : Stream[Axi4Aw], b : Stream[Axi4B], random : Random) : Unit = {
     println("Handling AXI4 Master write cmds and write (Altera/Intel behavior)...")
-
-    val random = Random
 
     aw.ready #= false
     w.ready  #= false
