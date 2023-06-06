@@ -161,13 +161,17 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
     output.valid := (selOH & inputsValids).orR
     Vec(inputs.map(_.ready)) := Vec(selOH.asBools.map(_ && output.ready))
-    val selPayload = MuxOH(selOH, inputs.map(_.payload.resized))
-    output.write := selPayload.write
-    output.address := selPayload.address
-    output.context := selPayload.context
-    output.burstLast := selPayload.burstLast
-    output.length := selPayload.length
-    output.portId := OHToUInt(selOH)
+    val converted = inputs.map{ i =>
+      val o = cloneOf(output.payload)
+      o.write := i.write
+      o.address := i.address
+      o.context := i.context.resized
+      o.burstLast := i.burstLast
+      o.length := i.length
+      o.portId := OHToUInt(selOH)
+      o
+    }
+    output.payload := MuxOH(selOH, converted)
 
     readyForRefresh clearWhen(inputsValids.orR)
   }
