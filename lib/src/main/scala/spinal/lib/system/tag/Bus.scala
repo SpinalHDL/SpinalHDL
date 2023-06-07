@@ -3,7 +3,7 @@ package spinal.lib.system.tag
 import spinal.core._
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib.bus.tilelink.M2sTransfers
-import spinal.lib.bus.tilelink.crossbar.Node
+import spinal.lib.bus.tilelink.fabric.Node
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer

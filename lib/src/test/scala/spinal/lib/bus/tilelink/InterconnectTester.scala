@@ -10,8 +10,8 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.sim._
 import spinal.lib._
 import spinal.lib.bus.tilelink
-import spinal.lib.bus.tilelink.coherent.HubCrossbar
-import spinal.lib.bus.tilelink.crossbar._
+import spinal.lib.bus.tilelink.coherent.HubFabric
+import spinal.lib.bus.tilelink.fabric._
 import spinal.lib.sim.SparseMemory
 import spinal.lib.system.tag.{MemoryConnection, PMA}
 import spinal.sim.SimThread
@@ -387,7 +387,7 @@ class InterconnectTester extends AnyFunSuite{
       val b0 = Node()
       b0 << m0.node
 
-      val hub = new HubCrossbar()
+      val hub = new HubFabric()
       hub.up << b0
 
       val s0 = simpleSlave(16, 32)
@@ -469,7 +469,7 @@ class InterconnectTester extends AnyFunSuite{
 
       val dma = new Area{
         val main = simpleMaster(readWrite)
-        val filter = new crossbar.TransferFilter()
+        val filter = new fabric.TransferFilter()
         filter.up << main.node
       }
 
@@ -482,7 +482,7 @@ class InterconnectTester extends AnyFunSuite{
       something.node at 0x82000000l of n0
 
       //Will manage memory coherency
-      val hub = new crossbar.CoherencyHub()
+      val hub = new fabric.CoherencyHub()
       val p0 = hub.createPort()
       p0 << n0
 //      p0 at 0x00000000l of n0

@@ -5,11 +5,11 @@ import spinal.core.fiber._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink._
 import spinal.lib.system.tag._
-import spinal.lib.bus.tilelink.crossbar._
+import spinal.lib.bus.tilelink.fabric._
 
 import scala.collection.mutable.ArrayBuffer
 
-class HubCrossbar() extends Area{
+class HubFabric() extends Area{
   val up = Node.slave()
   val down = Node.master()
 

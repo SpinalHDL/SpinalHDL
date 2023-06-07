@@ -1,4 +1,4 @@
-package spinal.lib.bus.tilelink.crossbar
+package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber._

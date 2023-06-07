@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.core.fiber.Elab
 import spinal.lib._
 import spinal.lib.bus.misc.{DefaultMapping, SizeMapping}
-import spinal.lib.bus.tilelink.crossbar._
+import spinal.lib.bus.tilelink.fabric._
 import spinal.lib.logic.{Masked, Symplify}
 import spinal.lib.system.tag.{MappedNode, MappedTransfers, MemoryConnection, MemoryTransfers}
 
