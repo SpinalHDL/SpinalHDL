@@ -74,6 +74,7 @@ class SlaveAgent(bus : Bus, cd : ClockDomain) {
           p.source #= source
           p.sink #= 0
           p.denied #= denied
+          p.corrupt #= false
           if (bus.p.withDataD) {
             p.data #= buf
             p.corrupt #= corrupt
@@ -94,6 +95,7 @@ class SlaveAgent(bus : Bus, cd : ClockDomain) {
         p.source #= source
         p.sink #= 0
         p.denied #= denied
+        p.corrupt #= false
         if (bus.p.withDataD) {
           p.data.randomize()
           p.corrupt #= false

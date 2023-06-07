@@ -252,6 +252,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
       p.size    #= log2Up(bytes)
       p.source  #= source
       p.address #= address
+      p.corrupt #= false
       if(p.withData) {
         p.mask.randomize()
         p.data.randomize()
@@ -327,10 +328,10 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
       p.size    #= log2Up(bytes)
       p.source  #= source
       p.address #= address
+      p.corrupt #= false
       if(p.withData) {
         p.mask.randomize()
         p.data.randomize()
-        p.corrupt.randomize()
       }
       if(p.debugId.getWidth != 0) p.debugId #= debugId
     }

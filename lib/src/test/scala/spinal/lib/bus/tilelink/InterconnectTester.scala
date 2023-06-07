@@ -29,7 +29,7 @@ class InterconnectTester extends AnyFunSuite{
     val nodes = c.getTags().collect{case t : Node => t}.toSeq
     testInterconnect(nodes)
   }
-  def testInterconnect(nodes : Seq[Node]): Unit ={
+  def testInterconnect(nodes : Seq[Node]): Unit = {
     val nodeToModel = mutable.LinkedHashMap[Node, SparseMemory]()
     val slaveNodes = nodes.filter(_.bus.isMasterInterface)
     val masterNodes = nodes.filter(_.bus.isSlaveInterface)
@@ -154,6 +154,32 @@ class InterconnectTester extends AnyFunSuite{
       allowExecute = false
     )
   )
+
+  test("OneToOne"){
+    tilelink.DebugId.setup(16)
+    SimConfig.withFstWave.compile(new Component{
+      val m0 = simpleMaster(readWrite)
+      val s0 = simpleSlave(8)
+      s0.node at 0x200 of m0.node
+    }).doSim(seed = 42){dut =>
+      dut.clockDomain.forkStimulus(10)
+//      testInterconnect(dut)
+
+      val s0 = new SlaveRam(dut.s0.node.bus, dut.s0.node.clockDomain)
+      val m0 = new MasterAgent(dut.m0.node.bus, dut.m0.node.clockDomain)
+      val monitor = new Monitor(dut.m0.node.bus, dut.m0.node.clockDomain) {
+        override def onA(f: TransactionA) = println(f)
+        override def onB(f: TransactionB) = println(f)
+        override def onC(f: TransactionC) = println(f)
+        override def onD(f: TransactionD) = println(f)
+        override def onE(f: TransactionE) = println(f)
+      }
+
+      m0.get(1, 0x282, 0x2)(f => Unit)
+      dut.clockDomain.waitSampling(20)
+      m0.get(1, 0x240, 0x10)(f => Unit)
+    }
+  }
 
   test("Simple"){
     tilelink.DebugId.setup(16)
