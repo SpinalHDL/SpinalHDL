@@ -30,30 +30,40 @@ object Hub{
       ))
     )
   )
+
+  def upS2m(name : Nameable,
+            blockSize : Int,
+            setCount : Int) = S2mParameters(List(
+    S2mAgent(
+      name = name,
+      emits = S2mTransfers(
+        probe = SizeRange(blockSize)
+      ),
+      sinkId = SizeMapping(0, setCount*2)
+    )
+  ))
 }
 
-case class HubParameters(unp : NodeParameters,
-                         slotCount : Int,
-                         cacheSize: Int,
-                         wayCount: Int,
-                         lineSize : Int,
-                         probeCount : Int = 8,
-                         aBufferCount: Int = 4,
-                         cBufferCount: Int = 2,
-                         cSourceCount: Int = 4) {
-  val addressWidth = unp.m.addressWidth
-  val dataWidth = unp.m.dataWidth
-  val dataBytes = dataWidth/8
-  val waySize = cacheSize/wayCount
-  val sets = cacheSize/64/wayCount
-  val linePerWay = waySize/lineSize
-  val tagRange = addressWidth-1 downto log2Up(linePerWay*lineSize)
-  val lineRange = tagRange.low-1 downto log2Up(lineSize)
-  val wordRange = log2Up(lineSize)-1 downto log2Up(dataBytes)
-  val refillRange = tagRange.high downto lineRange.low
-  val blockRange = addressWidth-1 downto log2Up(lineSize)
-  val blockSize = lineSize
-  val setsRange = lineRange
+case class HubParameters(var unp : NodeParameters,
+                         var downPendingMax : Int,
+                         var sets: Int,
+                         var wayCount: Int,
+                         var blockSize : Int,
+                         var probeCount : Int = 8,
+                         var aBufferCount: Int = 4) {
+  def cacheSize = sets*wayCount*blockSize
+  def addressWidth = unp.m.addressWidth
+  def dataWidth = unp.m.dataWidth
+  def dataBytes = dataWidth/8
+  def waySize = cacheSize/wayCount
+  def linePerWay = waySize/lineSize
+  def tagRange = addressWidth-1 downto log2Up(linePerWay*lineSize)
+  def lineRange = tagRange.low-1 downto log2Up(lineSize)
+  def wordRange = log2Up(lineSize)-1 downto log2Up(dataBytes)
+  def refillRange = tagRange.high downto lineRange.low
+  def blockRange = addressWidth-1 downto log2Up(lineSize)
+  def lineSize = blockSize
+  def setsRange = lineRange
 }
 
 
@@ -109,44 +119,7 @@ up.E will do a conflict release (aquireAck)
 
 class Hub(p : HubParameters) extends Component{
   import p._
-
-  //  val slotDownOffset = 0
-  //  val cDownIdOffset = slotDownOffset + (1 << log2Up(slotCount max p.cSourceCount))
-  //  val downIdCount = cDownIdOffset + p.cSourceCount
-  //
-  //  val bps = p.nodes.map(_.toBusParameter())
-  //  val upParam = NodeParameters.mergeMasters(p.nodes)
-  //  val upParamPerNodeSourceWidth = nodes.map(_.m.sourceWidth).max
-  //  val upBusParam = upParam.toBusParameter()
-  //
-  //  val downPutParam = NodeParameters(
-  //    m = CoherentHub.downPutM2s(
-  //      name           = this,
-  //      addressWidth   = addressWidth,
-  //      dataWidth      = dataWidth,
-  //      blockSize      = blockSize,
-  //      slotCount      = slotCount,
-  //      cSourceCount   = cSourceCount
-  //    ),
-  //    s = S2mParameters(slaves = Nil)
-  //  )
-  //  val downGetParam = NodeParameters(
-  //    m = CoherentHub.downGetM2s(
-  //      name           = this,
-  //      addressWidth   = addressWidth,
-  //      dataWidth      = dataWidth,
-  //      blockSize      = blockSize,
-  //      slotCount      = slotCount
-  //    ),
-  //    s = S2mParameters(slaves = Nil)
-  //  )
-  //  val downPutBusParam = downPutParam.toBusParameter()
-  //  val downGetBusParam = downGetParam.toBusParameter()
-  //  val wordsPerBlock = blockSize / upBusParam.dataBytes
-  //  def upSourceToNodeOh(source : UInt) = UIntToOh(source.takeHigh(log2Up(p.nodes.size)).asUInt, nodes.size)
-
-
-
+  
   val ubp = p.unp.toBusParameter()
   val dbp = NodeParameters(
     m = Hub.downM2s(
@@ -154,7 +127,7 @@ class Hub(p : HubParameters) extends Component{
       addressWidth   = addressWidth,
       dataWidth      = dataWidth,
       blockSize      = blockSize,
-      downPendingMax = slotCount
+      downPendingMax = downPendingMax
     ),
     s = S2mParameters(slaves = Nil)
   ).toBusParameter()
@@ -185,7 +158,7 @@ class Hub(p : HubParameters) extends Component{
   val READ_DATA = Stageable(Bool())
   val LAST = Stageable(Bool())
   val PAYLOAD_C, PAYLOAD = Stageable(DataPayload())
-  val SLOT_ID = Stageable(UInt(log2Up(slotCount) bits))
+  val SLOT_ID = Stageable(UInt(log2Up(downPendingMax) bits))
   val TO_DOWN = Stageable(Bool())
   val FROM_NONE = Stageable(Bool())
   val CONFLICT_CTX = Stageable(Bool())
@@ -200,14 +173,14 @@ class Hub(p : HubParameters) extends Component{
   }
 
   val slots = new Area{
-    val valids = Reg(Bits(slotCount bits)) init(0)
+    val valids = Reg(Bits(downPendingMax bits)) init(0)
     val freeOh = OHMasking.firstV2(~valids)
     val freeId = OHToUInt(freeOh)
     val full = valids.andR
     val allocate = Bool()
-    val release = Flow(UInt(log2Up(slotCount) bits))
+    val release = Flow(UInt(log2Up(downPendingMax) bits))
     valids := (valids | freeOh.andMask(allocate)) & UIntToOh(release.payload).orMask(release.valid)
-    val ctx = Mem.fill(slotCount)(Bits((widthOf(CtxA()) max widthOf(CtxC())) + 1 bits))
+    val ctx = Mem.fill(downPendingMax)(Bits((widthOf(CtxA()) max widthOf(CtxC())) + 1 bits))
     val ctxWrite = ctx.writePort()
   }
 
@@ -231,6 +204,8 @@ class Hub(p : HubParameters) extends Component{
   }
 
   val frontendA = new Pipeline{
+    val stages = newChained(2, Connection.M2S())
+
     val PAYLOAD = Stageable(DataPayload())
     val BUFFER_ID = Stageable(UInt(log2Up(aBufferCount) bits))
 
@@ -245,7 +220,10 @@ class Hub(p : HubParameters) extends Component{
       allocated := (allocated | set) & ~clear
     }
 
-    val s0 = new Stage{
+    val spawn = new Area{
+      val stage = stages(0)
+      import stage._
+
       driveFrom(io.up.a)
       val CMD = insert(io.up.a.payload.asNoData())
       val LAST = io.up.a.isLast()
@@ -273,24 +251,34 @@ class Hub(p : HubParameters) extends Component{
       }
     }
 
-    val s1 = new Stage(Connection.DIRECT()){
-      val readAddress = s0.CMD.address(setsRange)
+    val readConflicts = new Area{
+      val stage = stages(0)
+      import stage._
+
+      val readAddress = spawn.CMD.address(setsRange)
       val JUST_BUSY = insert(setsBusy.target.write.valid && setsBusy.target.write.address === readAddress)
       val JUST_FREE = insert(setsBusy.hit.write.valid && setsBusy.hit.write.address === readAddress)
     }
-    val s2 = new Stage(Connection.M2S()){
-      val hit    = setsBusy.hit.mem.readSync( s1.readAddress, isReady)
-      val target = setsBusy.target.mem.readSync( s1.readAddress, isReady)
-      val freed = RegNext(setsBusy.hit.write.valid && setsBusy.hit.write.address === s0.CMD.address(setsRange)) clearWhen(isReady)
-      val hazard = (hit =/= target || s1.JUST_BUSY) && !s1.JUST_FREE && !freed
+
+    val checkConflicts = new Area{
+      val stage = stages(1)
+      import stage._
+      import readConflicts._
+
+      val hit    = setsBusy.hit.mem.readSync(readAddress, isReady)
+      val target = setsBusy.target.mem.readSync(readAddress, isReady)
+      val freed = RegNext(setsBusy.hit.write.valid && setsBusy.hit.write.address === spawn.CMD.address(setsRange)) clearWhen(isReady)
+      val hazard = (hit =/= target || JUST_BUSY) && !JUST_FREE && !freed
       haltIt(hazard)
 
-      val newTarget = s1.JUST_BUSY ? hit | !target
+      val newTarget = JUST_BUSY ? hit | !target
       when(initializer.done) {
         setsBusy.target.write.valid := isFireing
-        setsBusy.target.write.address := s0.CMD.address(setsRange)
+        setsBusy.target.write.address := spawn.CMD.address(setsRange)
         setsBusy.target.write.data := newTarget
       }
+
+      CONFLICT_CTX := newTarget
     }
   }
 
@@ -334,16 +322,17 @@ class Hub(p : HubParameters) extends Component{
   }
 
   val probe = new Area{
+    val isl = frontendA.stages.last
     val push = Stream(ProbeCmd())
-    val pushCmd = frontendA.s2(frontendA.s0.CMD)
+    val pushCmd = isl(frontendA.spawn.CMD)
     val isAcquire = Opcode.A.isAcquire(pushCmd.opcode)
-    push.valid := frontendA.s2.isValid
-    frontendA.s2.haltIt(!push.ready)
+    push.valid := isl.isValid
+    isl.haltIt(!push.ready)
     push.ctx.opcode     := pushCmd.opcode
     push.ctx.address    := pushCmd.address
     push.ctx.toTrunk    := pushCmd.param =/= Param.Grow.NtoB
-    push.ctx.bufferId   := frontendA.s2(frontendA.BUFFER_ID)
-    push.ctx.conflictCtx := frontendA.s2.newTarget
+    push.ctx.bufferId   := isl(frontendA.BUFFER_ID)
+    push.ctx.conflictCtx := isl(CONFLICT_CTX)
     push.ctx.size       := pushCmd.size
     push.ctx.source     := pushCmd.source
     push.fromNone := pushCmd.param =/= Param.Grow.BtoT && isAcquire
@@ -603,6 +592,7 @@ class Hub(p : HubParameters) extends Component{
       io.down.a.data := PAYLOAD.data
       io.down.a.mask := PAYLOAD.mask
       io.down.a.corrupt := False
+      io.down.a.debugId := DebugId.withPostfix(io.down.a.source)
     }
   }
 
@@ -701,8 +691,8 @@ class Hub(p : HubParameters) extends Component{
 
 
 object HubGen extends App{
-  def basicConfig(probeCount : Int = 8, masterPerChannel : Int = 4, dataWidth : Int = 64, addressWidth : Int = 13, cacheSize : Int = 1024, wayCount : Int = 2, lineSize : Int = 64) = {
-    val setCount = cacheSize / wayCount / lineSize
+  def basicConfig(probeCount : Int = 8, masterPerChannel : Int = 4, dataWidth : Int = 64, addressWidth : Int = 13, setCount : Int = 256, wayCount : Int = 2, lineSize : Int = 64) = {
+    val blockSize = 64
     HubParameters(
       unp = NodeParameters(
         m = M2sParameters(
@@ -734,14 +724,14 @@ object HubGen extends App{
           )
         ))
       ),
-      slotCount = 16,
+      downPendingMax = 16,
       probeCount = probeCount,
-      cacheSize = cacheSize,
+      sets = setCount,
       wayCount  = wayCount,
-      lineSize  = lineSize
+      blockSize = blockSize
     )
   }
-  def gen = new Hub(HubGen.basicConfig(8, masterPerChannel = 4, dataWidth = 16, addressWidth = 32, cacheSize = 32*1024))
+  def gen = new Hub(HubGen.basicConfig(8, masterPerChannel = 4, dataWidth = 16, addressWidth = 32))
   SpinalVerilog(gen)
 
 }
@@ -750,7 +740,7 @@ object HubSynt extends App{
   import spinal.lib.eda.bench._
   val rtls = ArrayBuffer[Rtl]()
   for(probeCount <- List(2, 8, 16)) { //Rtl.ffIo
-    rtls += Rtl(SpinalVerilog((new Hub(HubGen.basicConfig(probeCount = probeCount, masterPerChannel = 4, dataWidth = 16, addressWidth = 32, cacheSize = 32*1024)).setDefinitionName(s"Hub$probeCount"))))
+    rtls += Rtl(SpinalVerilog((new Hub(HubGen.basicConfig(probeCount = probeCount, masterPerChannel = 4, dataWidth = 16, addressWidth = 32)).setDefinitionName(s"Hub$probeCount"))))
   }
   val targets = XilinxStdTargets().take(2) ++ AlteraStdTargets(quartusCycloneIIPath = null)
 

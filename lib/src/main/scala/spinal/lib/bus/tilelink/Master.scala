@@ -190,6 +190,8 @@ case class M2sParameters(addressWidth : Int,
     dataWidth    = dataWidth,
     allowExecute = withExecute
   )
+
+  def toNodeParameters() = NodeParameters(this)
 }
 
 
@@ -222,6 +224,8 @@ case class M2sSupport(transfers : M2sTransfers,
       masters = p.masters.map(e => e) //TODO
     )
   }
+
+  def intersect(that : M2sTransfers) : M2sSupport = copy(transfers = transfers.intersect(that))
 }
 
 

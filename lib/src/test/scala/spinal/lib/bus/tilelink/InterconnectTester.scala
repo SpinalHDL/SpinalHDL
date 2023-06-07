@@ -10,6 +10,7 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.sim._
 import spinal.lib._
 import spinal.lib.bus.tilelink
+import spinal.lib.bus.tilelink.coherent.HubCrossbar
 import spinal.lib.bus.tilelink.crossbar._
 import spinal.lib.sim.SparseMemory
 import spinal.lib.system.tag.{MemoryConnection, PMA}
@@ -83,6 +84,14 @@ class InterconnectTester extends AnyFunSuite{
   )
 
   def coherentOnly = M2sTransfers(
+    acquireT = SizeRange(0x40),
+    acquireB = SizeRange(0x40)
+  )
+
+  def all = M2sTransfers(
+    putFull = SizeRange.upTo(0x40),
+    putPartial = SizeRange.upTo(0x40),
+    get = SizeRange.upTo(0x40),
     acquireT = SizeRange(0x40),
     acquireB = SizeRange(0x40)
   )
@@ -374,23 +383,40 @@ class InterconnectTester extends AnyFunSuite{
   test("Coherent_D"){
     tilelink.DebugId.setup(16)
     SimConfig.withFstWave.compile(new Component{
-      val m0 = simpleMaster(coherentOnly)
+      val m0 = simpleMaster(all)
       val b0 = Node()
       b0 << m0.node
 
-      val hub = new crossbar.CoherencyHub()
-      val h0 = hub.createPort()
-      h0 << b0
+      val hub = new HubCrossbar()
+      hub.up << b0
 
       val s0 = simpleSlave(16, 32)
-      s0.node at 0x10000 of hub.memGet
-      s0.node at 0x10000 of hub.memPut
+      s0.node at 0x10000 of hub.down
       s0.node.addTag(PMA.MAIN)
     }).doSim(seed = 42){dut =>
 //      dut.clockDomain.forkStimulus(10)
 //      testInterconnect(dut)
     }
   }
+
+//  test("Coherent_E"){
+//    tilelink.DebugId.setup(16)
+//    SimConfig.withFstWave.compile(new Component{
+//      val m0 = simpleMaster(coherentOnly)
+//      val b0 = Node()
+//      b0 << m0.node
+//
+//      val hub = new HubCrossbar()
+//      hub.up << b0
+//
+//      val s0 = simpleSlave(16, 32)
+//      s0.node at 0x10000 of hub.down
+//      s0.node.addTag(PMA.MAIN)
+//    }).doSim(seed = 42){dut =>
+////      dut.clockDomain.forkStimulus(10)
+////      testInterconnect(dut)
+//    }
+//  }
 
   test("scanRegions"){
     tilelink.DebugId.setup(16)

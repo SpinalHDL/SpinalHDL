@@ -78,13 +78,17 @@ case class SizeRange(min : Int, max : Int){
     1 << (min + Random.nextInt(max+1-min))
   }
 
+  def getSingleSize(): Option[Int] = {
+    if(min == max) Some(min) else None
+  }
+
   override def toString() = "TransferSupport[%d, %d]".format(min, max)
 }
 
 
 
 case class NodeParameters(m : M2sParameters,
-                          s : S2mParameters){
+                          s : S2mParameters = S2mParameters.none()){
   val sizeBytes = s.sizeBytes max m.sizeBytes
   val withBCE = s.withBCE || m.withBCE
   def toBusParameter() = BusParameter(
