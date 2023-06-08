@@ -142,12 +142,9 @@ object DebugId{
     U(base, width bits) | post.resized
   }
 
-  val manager = new ScopeProperty[IdAllocator]
-
   def setup(width : Int) = {
     assert(width > 8)
     this.space.set(new Space(width))
-    manager.set(new IdAllocator(DebugId.width))
   }
 }
 

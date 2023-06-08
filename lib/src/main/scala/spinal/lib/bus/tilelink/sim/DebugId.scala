@@ -4,22 +4,25 @@ import spinal.lib.bus.tilelink.DebugId
 
 import scala.collection.mutable
 
-class IdCallbackHub {
-  val tasks = mutable.LinkedHashMap[Long, Any => Unit]()
+class IdCallback {
+  val tasks = mutable.LinkedHashMap[Long, mutable.LinkedHashMap[Any, Any => Unit]]()
 
-  def add(id : Long)(body : Any => Unit) = {
-    assert(!tasks.contains(id))
-    tasks(id) = body
+  def add(id : Long, key : Any)(body : Any => Unit) = {
+    val m = tasks.getOrElseUpdate(id, mutable.LinkedHashMap[Any, Any => Unit]())
+    assert(!m.contains(key))
+    m(key) = body
   }
 
-  def remove(id : Long): Unit ={
-    assert(tasks.contains(id))
-    tasks.remove(id)
+  def remove(id : Long, key : Any): Unit ={
+    val m = tasks.getOrElseUpdate(id, mutable.LinkedHashMap[Any, Any => Unit]())
+    assert(m.contains(key))
+    m.remove(key)
+    if(m.isEmpty) tasks.remove(id)
   }
 
-  def call(id : Long)(args : OrderingArgs) = {
-    tasks.get(id) match {
-      case Some(body) => body(args)
+  def call(id : Long)(args : Any) = {
+    val m = tasks.get(id).foreach{l =>
+      l.foreach(_._2(args))
     }
   }
 }
@@ -33,6 +36,7 @@ class IdAllocator(width : Int) {
       incr()
     }
     val id = allocationCounter
+    allocated += id
     incr()
     id
   }

@@ -72,7 +72,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
               val block = agent.acquireBlock(sourceId, param, address, bytes)/*{ args =>
                 ref = mem.readBytes(args.address.toLong, args.bytes)
               }*/
-              block.ordering(args => mem.write(address-memAddress, block.data))
+//              block.ordering(args => mem.write(address-memAddress, block.data))
               //      println(f"* $address%x $source")
               //      println(toHex(block.data))
               //      println(toHex(ref))

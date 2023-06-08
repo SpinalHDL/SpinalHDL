@@ -8,14 +8,15 @@ import spinal.lib.sim.{StreamDriver, StreamDriverOoo, StreamMonitor, StreamReady
 import scala.collection.{breakOut, mutable}
 import scala.util.Random
 
-class OrderingArgs(val address : BigInt, val bytes : Int)
+class OrderingArgs(val address : BigInt, val bytes : Int){
+  override def toString = f"addr=$address%x bytes=$bytes"
+}
 
 class Block(val source : Int,
             val address : Long,
             var cap : Int,
             var dirty : Boolean = false,
             var data : Array[Byte] = null,
-            var orderingBody : OrderingArgs => Unit = _ => Unit,
             var retains : Int = 0){
   def retain() = retains += 1
   def release() = {
@@ -23,13 +24,12 @@ class Block(val source : Int,
     retains -= 1
   }
   var probe = Option.empty[Probe]
-  def ordering(body : OrderingArgs => Unit) = orderingBody = body
 }
 case class Probe(source : Int, param : Int, address : Long, size : Int, perm : Boolean){
 
 }
 
-class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
+class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64)(implicit idAllocator: IdAllocator) {
   var debug = false
   val driver = new Area{
     val a = StreamDriverOoo(bus.a, cd)
@@ -140,7 +140,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
                             toCap = probe.param,
                             source = probe.source,
                             block = b
-                          )(b.orderingBody(new OrderingArgs(probe.address, 1 << probe.size)))
+                          )
                         }
                       }
                     }
@@ -207,20 +207,16 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
 
   def probeAckData(source : Int,
                    toCap : Int,
-                   block  : Block)
-                  (orderingBody : => Unit) : Unit = {
+                   block  : Block) : Unit = {
     this.block.changeCap(block, toCap)
-    probeAckData(source, Param.reportPruneToCap(block.cap, toCap), block.address, block.data)(orderingBody)
+    probeAckData(source, Param.reportPruneToCap(block.cap, toCap), block.address, block.data)
   }
 
 
   def probeAckData(source : Int,
                    param : Int,
                    address : Long,
-                   data : Seq[Byte])
-                 (orderingBody : => Unit) : Unit = {
-    //    ordering(source)(orderingBody)
-    orderingBody
+                   data : Seq[Byte]) : Unit = {
     val size = log2Up(data.length)
     driver.c.burst { push =>
       for (offset <- 0 until data.length by bus.p.dataBytes) {
@@ -317,7 +313,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
   }
 
   def get(source : Int, address : Long, bytes : Int) : Seq[Byte] = {
-    val debugId = DebugId.manager.allocate()
+    val debugId = idAllocator.allocate()
     driver.a.single{p =>
       p.opcode  #= Opcode.A.GET
       p.param   #= 0
@@ -354,7 +350,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
     }
     mutex.await()
 //    ordering.checkDone(source)
-//    DebugId.manager.remove(debugId)
+    idAllocator.remove(debugId)
     data
   }
 
@@ -463,7 +459,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
   }
 
   def putPartialData(source : Int, address : Long, data : Seq[Byte], mask : Seq[Boolean]) : Boolean = {
-    val debugId = DebugId.manager.allocate()
+    val debugId = idAllocator.allocate()
     val size = log2Up(data.length)
     driver.a.burst { push =>
       for (offset <- 0 until data.length by bus.p.dataBytes) {
@@ -508,7 +504,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
     }
     mutex.await()
 //    ordering.checkDone(source)
-//    DebugId.manager.remove(debugId)
+    idAllocator.remove(debugId)
     denied
   }
 }

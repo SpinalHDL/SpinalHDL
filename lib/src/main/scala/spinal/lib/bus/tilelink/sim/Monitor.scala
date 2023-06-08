@@ -11,17 +11,20 @@ import scala.util.Random
 
 
 trait MonitorSubscriber{
-  def onA(a : TransactionA) : Unit
-  def onB(b : TransactionB) : Unit
-  def onC(c : TransactionC) : Unit
-  def onD(d : TransactionD) : Unit
-  def onE(e : TransactionE) : Unit
+  def onA(a : TransactionA) : Unit = ???
+  def onB(b : TransactionB) : Unit = ???
+  def onC(c : TransactionC) : Unit = ???
+  def onD(d : TransactionD) : Unit = ???
+  def onE(e : TransactionE) : Unit = ???
 }
 
 class Monitor (val bus : Bus, cd : ClockDomain) {
   var debug = false
 
-  def add(s : MonitorSubscriber) = subscribers += s
+  def add(s : MonitorSubscriber) : this.type = {
+    subscribers += s
+    this
+  }
 
   val subscribers = ArrayBuffer[MonitorSubscriber]()
   def onA(f : TransactionA) : Unit = subscribers.foreach(_.onA(f))

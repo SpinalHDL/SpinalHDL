@@ -4,7 +4,11 @@ import spinal.core.sim._
 import spinal.lib.bus.tilelink._
 import spinal.sim.SimError
 
+import scala.reflect.ClassTag
+import scala.util.Random
+
 abstract class TransactionABCD {
+  type T <: TransactionABCD
   var address = BigInt(-1)
   var param = 0
   var source = -1
@@ -13,6 +17,7 @@ abstract class TransactionABCD {
   var data: Array[Byte] = null
   var corrupt = false
 
+  def bytes = 1 << size
   def withData : Boolean
   def withMask : Boolean
 
@@ -24,19 +29,55 @@ abstract class TransactionABCD {
     assert(this.size == that.size)
   }
 
-  def copyNoData(dst: TransactionABCD, src: TransactionABCD): Unit = {
-    dst.address = src.address
-    dst.param = src.param
-    dst.source = src.source
-    dst.size = src.size
+  def copyNoDataFrom(src: TransactionABCD): T = {
+    address = src.address
+    param = src.param
+    source = src.source
+    size = src.size
+    this.asInstanceOf[T]
   }
 
-  def copyNoData(): this.type
+  def copyNoData()(implicit evidence: ClassTag[T]): T
   def isRspOf(that : TransactionABCD) = {
     address == that.address && source == that.source && size == that.size
   }
   def assertRspOf(that : TransactionABCD) = {
     assert(isRspOf(that), s"Bad tilelink transaction\nCMD => $that\nRSP => $this")
+  }
+
+  def serialize(bytesPerBeat : Int)(implicit evidence: ClassTag[T]) : Array[T] = {
+    val bytes = 1 << size
+    val beats = if(withData) (bytes+bytesPerBeat-1)/bytesPerBeat else 1
+    val bytesInBeat = bytesPerBeat min bytes
+    val ret = Array.fill(beats)(copyNoData())
+    for((beat, beatId) <- ret.zipWithIndex){
+      beat.address += beatId*bytesInBeat
+      val withMask = this.withMask
+      if(withData){
+        val address = beat.address.toInt
+        var accessOffset = address & (bytes - 1)
+        val beatOffset = address & (bytesPerBeat - 1)
+        beat.data = new Array[Byte](bytesPerBeat)
+        if(bytes < bytesPerBeat) Random.nextBytes(beat.data)
+        if(withMask) {
+          beat.mask = new Array((bytesPerBeat+7)/8)
+        }
+        for (i <- 0 until bytesInBeat) {
+          val to = beatOffset + i
+          val from = accessOffset + i
+          if(withMask) {
+            val mv = ((mask(from / 8) >> (from % 8)) & 1)
+            if(mv == 1) {
+              beat.data(to) = data(from)
+              beat.mask(to / 8) = (mask(to / 8) | (1 << (to % 8))).toByte
+            }
+          } else {
+            beat.data(to) = data(from)
+          }
+        }
+      }
+    }
+    ret
   }
 
   override def toString = {
@@ -61,20 +102,21 @@ abstract class TransactionABCD {
 }
 
 object TransactionA{
-  def apply(p : ChannelA) = new TransactionA().setFrom(p)
+  def apply(p : ChannelA) = new TransactionA().read(p)
 }
 class TransactionA extends TransactionABCD{
+  override type T = TransactionA
   var opcode  : Opcode.A.E = null
   var debugId = -1l
 
-  def setFrom(p : ChannelA): this.type ={
+  def read(p : ChannelA): this.type ={
     opcode = p.opcode.toEnum
     param = p.param.toInt
     source = p.source.toInt
     address = p.address.toBigInt
     size = p.size.toInt
-    corrupt = p.corrupt.toBoolean
-    if(p.withData) {
+    if(p.withData) corrupt = p.corrupt.toBoolean
+    if(withData) {
       mask = p.mask.toBytes
       data = p.data.toBytes
     }
@@ -95,9 +137,9 @@ class TransactionA extends TransactionABCD{
     assert(this.debugId == that.asInstanceOf[TransactionA].debugId)
   }
 
-  override def copyNoData() : this.type = {
+  override def copyNoData()(implicit evidence: ClassTag[T]) : T = {
     val ret = new TransactionA()
-    ret.copyNoData(ret, this)
+    ret.copyNoDataFrom(this)
     ret.opcode = opcode
     ret.debugId = debugId
     ret.asInstanceOf[this.type]
@@ -109,21 +151,36 @@ class TransactionA extends TransactionABCD{
 }
 
 object TransactionB{
-  def apply(p : ChannelB) = new TransactionB().setFrom(p)
+  def apply(p : ChannelB) = new TransactionB().read(p)
 }
 class TransactionB extends TransactionABCD{
+  override type T = TransactionB
   var opcode  : Opcode.B.E = null
 
-  def setFrom(p : ChannelB): this.type ={
+  def read(p : ChannelB): this.type ={
     opcode = p.opcode.toEnum
     param = p.param.toInt
     source = p.source.toInt
     address = p.address.toBigInt
     size = p.size.toInt
     corrupt = p.corrupt.toBoolean
-    if(p.withData) {
+    if(withData) {
       mask = p.mask.toBytes
       data = p.data.toBytes
+    }
+    this
+  }
+
+  def write(p : ChannelB): this.type ={
+    p.opcode #= opcode
+    p.param #= param
+    p.source #= source
+    p.address #= address
+    p.size #= size
+    p.corrupt #= corrupt
+    if(withData) {
+      p.mask #= mask
+      p.data #= data
     }
     this
   }
@@ -138,9 +195,9 @@ class TransactionB extends TransactionABCD{
     assert(this.opcode == that.asInstanceOf[TransactionB].opcode)
   }
 
-  override def copyNoData() : this.type = {
+  override def copyNoData()(implicit evidence: ClassTag[T]) : T = {
     val ret = new TransactionB()
-    ret.copyNoData(ret, this)
+    ret.copyNoDataFrom( this)
     ret.opcode = opcode
     ret.asInstanceOf[this.type]
   }
@@ -150,19 +207,20 @@ class TransactionB extends TransactionABCD{
 }
 
 object TransactionC{
-  def apply(p : ChannelC) = new TransactionC().setFrom(p)
+  def apply(p : ChannelC) = new TransactionC().read(p)
 }
 class TransactionC extends TransactionABCD{
+  override type T = TransactionC
   var opcode  : Opcode.C.E = null
 
-  def setFrom(p : ChannelC): this.type ={
+  def read(p : ChannelC): this.type ={
     opcode = p.opcode.toEnum
     param = p.param.toInt
     source = p.source.toInt
     address = p.address.toBigInt
     size = p.size.toInt
     corrupt = p.corrupt.toBoolean
-    if(p.withData) {
+    if(withData) {
       data = p.data.toBytes
     }
     this
@@ -178,9 +236,9 @@ class TransactionC extends TransactionABCD{
     super.assertBeatOf(that, offset)
     assert(this.opcode == that.asInstanceOf[TransactionC].opcode)
   }
-  override def copyNoData() : this.type = {
+  override def copyNoData()(implicit evidence: ClassTag[T]) : T = {
     val ret = new TransactionC()
-    ret.copyNoData(ret, this)
+    ret.copyNoDataFrom(this)
     ret.opcode = opcode
     ret.asInstanceOf[this.type]
   }
@@ -190,22 +248,43 @@ class TransactionC extends TransactionABCD{
 }
 
 object TransactionD{
-  def apply(p : ChannelD, address : BigInt) = new TransactionD().setFrom(p, address)
+  def apply(p : ChannelD, address : BigInt) = new TransactionD().read(p, address)
+  def apply(abcd : TransactionABCD) = new TransactionD().copyNoDataFrom(abcd)
 }
 class TransactionD extends TransactionABCD{
+  override type T = TransactionD
   var opcode  : Opcode.D.E = null
   var denied = false
 
-  def setFrom(p : ChannelD, address : BigInt): this.type ={
+  def read(p : ChannelD, address : BigInt): this.type ={
     opcode = p.opcode.toEnum
     this.address = address
     param = p.param.toInt
     source = p.source.toInt
     size = p.size.toInt
     denied = p.denied.toBoolean
-    corrupt = p.corrupt.toBoolean
     if(p.withData) {
-      data = p.data.toBytes
+      corrupt = p.corrupt.toBoolean
+      if (withData) {
+        data = p.data.toBytes
+      }
+    }
+    this
+  }
+  
+  def write(p : ChannelD): this.type ={
+    p.opcode #= opcode
+    p.param #= param
+    p.source #= source
+    p.size #= size
+    p.denied #= denied
+    if(p.withData) {
+      p.corrupt #= corrupt
+      if(withData) {
+        p.data #= data
+      } else{
+        p.data.randomize()
+      }
     }
     this
   }
@@ -222,9 +301,9 @@ class TransactionD extends TransactionABCD{
     assert(this.denied == that.asInstanceOf[TransactionD].denied)
   }
 
-  override def copyNoData() : this.type = {
+  override def copyNoData()(implicit evidence: ClassTag[T]) : T = {
     val ret = new TransactionD()
-    ret.copyNoData(ret, this)
+    ret.copyNoDataFrom(this)
     ret.opcode = opcode
     ret.denied = denied
     ret.asInstanceOf[this.type]
@@ -250,12 +329,12 @@ class TransactionD extends TransactionABCD{
 
 
 object TransactionE{
-  def apply(p : ChannelE) = new TransactionE().setFrom(p)
+  def apply(p : ChannelE) = new TransactionE().read(p)
 }
 class TransactionE {
   var sink = -1
 
-  def setFrom(p : ChannelE): this.type ={
+  def read(p : ChannelE): this.type ={
     sink = p.sink.toInt
     this
   }
@@ -263,10 +342,10 @@ class TransactionE {
   override def toString = sink.toString
 }
 
-class TransactionAggregator[T <: TransactionABCD](bytesPerBeat : Int)(callback : T => Unit){
+class TransactionAggregator[T <: TransactionABCD](bytesPerBeat : Int)(callback : T => Unit)(implicit evidence: ClassTag[T]){
   var access : T = null.asInstanceOf[T]
   var beat = 0
-  def push(f : T): Unit ={
+  def push(f : T)(implicit evidence2: ClassTag[f.T]): Unit ={
     val bytes = 1 << f.size
     val beats = if(f.withData) (bytes+bytesPerBeat-1)/bytesPerBeat else 1
     val bytesInBeat = bytesPerBeat min bytes

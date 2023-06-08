@@ -25,18 +25,20 @@ import scala.util.Random
 
 
 class InterconnectTester extends AnyFunSuite{
-  def testInterconnect(c : Component) : Unit = {
+  def testInterconnect(c : Component)
+                      (implicit idAllocator : IdAllocator = new IdAllocator(DebugId.width),
+                                idCallback  : IdCallback = new IdCallback) : Unit = {
     val nodes = c.getTags().collect{case t : Node => t}.toSeq
-    testInterconnect(nodes)
+    testInterconnectImpl(nodes)
   }
-  def testInterconnect(nodes : Seq[Node]): Unit = {
+  def testInterconnectImpl(nodes : Seq[Node])
+                          (implicit idAllocator : IdAllocator, idCallback : IdCallback) : Unit = {
     val nodeToModel = mutable.LinkedHashMap[Node, SparseMemory]()
     val slaveNodes = nodes.filter(_.bus.isMasterInterface)
     val masterNodes = nodes.filter(_.bus.isSlaveInterface)
 
     for(node <- slaveNodes) {
-      val model = new SlaveRam(node.bus, node.clockDomain)
-      nodeToModel(node) = SparseMemory(model.mem.seed)
+      nodeToModel(node) = SparseMemory(Random.nextInt())
     }
 
     val masterSpecs = masterNodes.map(n => {
@@ -62,7 +64,13 @@ class InterconnectTester extends AnyFunSuite{
     val mastersStuff = for(m <- masterSpecs) yield new Area{
       val agent = new MasterAgent(m.bus, m.cd)
       val tester = new MasterTester(m, agent)
+      val monitor = new Monitor(m.bus, m.cd)
+      val checker = new Checker(monitor, m.mapping)
       tester.startPerSource(100)
+    }
+
+    for(node <- slaveNodes) {
+      val model = new SlaveRam(node.bus, node.clockDomain, nodeToModel(node).seed)
     }
 
     mastersStuff.foreach(_.tester.join())
@@ -159,22 +167,56 @@ class InterconnectTester extends AnyFunSuite{
     tilelink.DebugId.setup(16)
     SimConfig.withFstWave.compile(new Component{
       val m0 = simpleMaster(readWrite)
-      val s0 = simpleSlave(8)
-      s0.node at 0x200 of m0.node
+      val s0 = simpleSlave(10)
+      s0.node at 0x800 of m0.node
     }).doSim(seed = 42){dut =>
       dut.clockDomain.forkStimulus(10)
-//      testInterconnect(dut)
 
-      val s0 = new SlaveRam(dut.s0.node.bus, dut.s0.node.clockDomain)
-      val m0 = new MasterAgent(dut.m0.node.bus, dut.m0.node.clockDomain)
-      val monitor = new Monitor(dut.m0.node.bus, dut.m0.node.clockDomain)
-      val checker = new Checker(monitor)
+      implicit val idAllocator = new IdAllocator(DebugId.width)
+      implicit val idCallback = new IdCallback
 
-      m0.get(1, 0x240, 0x10)
+      val seed = Random.nextInt()
+      val m0 = new Area{
+        val driver = new MasterAgent(dut.m0.node.bus, dut.m0.node.clockDomain)
+        val monitor = new Monitor(dut.m0.node.bus, dut.m0.node.clockDomain)
+        val checker = Checker(monitor, List(Mapping(
+          allowed = dut.m0.node.bus.p.node.m.emits,
+          mapping = List(SizeMapping(0x800, 0x400)),
+          model   = SparseMemory(seed)
+        )))
+      }
+      val s0 = new Area{
+        val driver = new SlaveRam(dut.s0.node.bus, dut.s0.node.clockDomain, seed)
+      }
+
+      m0.monitor.add(new MonitorSubscriber {
+        override def onA(a: TransactionA) = println(a)
+        override def onD(d: TransactionD) = println(d)
+      })
+
+      m0.driver.get(1, 0x840, 0x10)
       dut.clockDomain.waitSampling(20)
-      m0.get(1, 0x282, 0x2)
+
+      m0.driver.get(1, 0x882, 0x2)
       dut.clockDomain.waitSampling(20)
-      m0.putPartialData(1, 0x200, (0 to 31).map(_.toByte), List(0x86, 0xAA, 0xFF, 0xF0).flatMap(e => (0 to 7).map(i => ((e >> i) & 1) != 0)))
+
+      m0.driver.putPartialData(1, 0x820, (0 until 0x20).map(_.toByte), List(0x86, 0xAA, 0xFF, 0xF0).flatMap(e => (0 to 7).map(i => ((e >> i) & 1) != 0)))
+      dut.clockDomain.waitSampling(20)
+
+      m0.driver.get(1, 0x820, 0x20)
+      dut.clockDomain.waitSampling(20)
+    }
+  }
+
+  test("OneToOneAutomated"){
+    tilelink.DebugId.setup(16)
+    SimConfig.withFstWave.compile(new Component{
+      val m0 = simpleMaster(readWrite)
+      val s0 = simpleSlave(10)
+      s0.node at 0x800 of m0.node
+    }).doSim(seed = 42){dut =>
+      dut.clockDomain.forkStimulus(10)
+      testInterconnect(dut)
     }
   }
 
@@ -208,9 +250,9 @@ class InterconnectTester extends AnyFunSuite{
       b0 << m0.node
       b0 << m1.node
 
-      s0.node at 0x220 of b0
-      s1.node at 0x340 of b0
-      s2.node at 0x440 of b0
+      s0.node at 0x240 of b0
+      s1.node at 0x380 of b0
+      s2.node at 0x480 of b0
     }).doSim(seed = 42){dut =>
       dut.clockDomain.forkStimulus(10)
       testInterconnect(dut)

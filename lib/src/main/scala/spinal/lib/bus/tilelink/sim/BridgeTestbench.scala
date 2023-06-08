@@ -8,6 +8,9 @@ import spinal.lib.sim._
 
 class BridgeTestbench(m : Bus, s : Bus, cd : ClockDomain) {
   cd.forkStimulus(10)
+  implicit val idAllocator = new IdAllocator(DebugId.width)
+  implicit val idCallback = new IdCallback
+
   val outputAgent = new SlaveRam(s, cd)
   val globalMem = SparseMemory(outputAgent.mem.seed)
 

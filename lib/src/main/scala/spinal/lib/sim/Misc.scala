@@ -105,7 +105,7 @@ object Phase{
   def isUsed = SimManagerContext.current.contains(Phase)
 }
 
-case class SparseMemory(seed : Long = Random.nextLong()){
+case class SparseMemory(val seed : Long = Random.nextLong()){
   val content = Array.fill[Array[Byte]](4096)(null)
 
   def getElseAlocate(idx : Int) = {
