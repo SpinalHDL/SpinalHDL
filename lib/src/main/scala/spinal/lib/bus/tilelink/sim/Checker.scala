@@ -23,7 +23,7 @@ class Checker(p : BusParameter, mappings : Seq[Mapping] = null) extends MonitorS
   val inflightA = Array.fill[InflightA](1 << p.sourceWidth)(null)
   override def onA(a: TransactionA) = {
     assert(inflightA(a.source) == null)
-//    inflightA(a.source) = new InflightA(a)
+    inflightA(a.source) = new InflightA(a)
 //    DebugId.manager.add(a.debugId) =
   }
   override def onB(b: TransactionB) = ???

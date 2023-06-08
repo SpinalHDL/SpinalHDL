@@ -194,14 +194,18 @@ object Tesasdadt extends App{
 }
 
 object Debug2 extends App{
+  val Something = new ScopeProperty[Int]
   SpinalConfig(allowOutOfRangeLiterals = true)
   def gen = new Component{
 
+//    Something.set(42)
+//    println(Something.get)
+//    rework(println(Something.get))
 //    val value = in UInt(2 bits)
 ////    val result = out((value < U"101011"))
 //
 //    val result = out((value < U"101011"))
-    val xxx = B(32 bits, (12 downto 11) -> B"11", default -> false)
+//    val xxx = B(32 bits, (12 downto 11) -> B"11", default -> false)
 
 //    val x = True
 //    val y = False

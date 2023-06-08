@@ -95,7 +95,6 @@ class SlaveAgent(bus : Bus, cd : ClockDomain) {
         p.source #= source
         p.sink #= 0
         p.denied #= denied
-        p.corrupt #= false
         if (bus.p.withDataD) {
           p.data.randomize()
           p.corrupt #= false
@@ -116,11 +115,11 @@ class SlaveAgent(bus : Bus, cd : ClockDomain) {
       val offset = (address & (bus.p.dataBytes-1)).toInt
       opcode match {
         case Opcode.A.GET => {
-          DebugId.manager.call(debugId)(new OrderingArgs(address, bytes))
+//          DebugId.manager.call(debugId)(new OrderingArgs(address, bytes))
           onGet(debugId, source, address, bytes)
         }
         case Opcode.A.PUT_PARTIAL_DATA => {
-          DebugId.manager.call(debugId)(new OrderingArgs(address, bytes min p.p.dataBytes))
+//          DebugId.manager.call(debugId)(new OrderingArgs(address, bytes min p.p.dataBytes))
           onPutPartialData(source, address, size, p.mask.toBytes.flatMap(v => (0 to 7).map(i => ((v>>i)&1).toBoolean)).drop(offset), p.data.toBytes.drop(offset))
         }
       }

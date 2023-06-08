@@ -68,15 +68,15 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
                              bytes : Int,
                              mem : SparseMemory,
                              memAddress : Long): Block ={
-              var ref: Array[Byte] = null
-              val block = agent.acquireBlock(sourceId, param, address, bytes){ args =>
+//              var ref: Array[Byte] = null
+              val block = agent.acquireBlock(sourceId, param, address, bytes)/*{ args =>
                 ref = mem.readBytes(args.address.toLong, args.bytes)
-              }
+              }*/
               block.ordering(args => mem.write(address-memAddress, block.data))
               //      println(f"* $address%x $source")
               //      println(toHex(block.data))
               //      println(toHex(ref))
-              assert((block.data, ref).zipped.forall(_ == _))
+              //assert((block.data, ref).zipped.forall(_ == _))
               block
             }
 
@@ -92,13 +92,13 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
               val gMem = s.model.asInstanceOf[SparseMemory]
               var ref = new Array[Byte](bytes)
 
-              val orderingCompletion = new OrderingCtrl(bytes)
-              val data = agent.get(sourceId, address, bytes) { args =>
+              //val orderingCompletion = new OrderingCtrl(bytes)
+              val data = agent.get(sourceId, address, bytes) /*{ args =>
                 gMem.readBytes(args.address toLong, args.bytes, ref, args.address - addressLocal toInt)
                 orderingCompletion -= (args.address - addressLocal toInt, args.bytes)
-              }
-              assert(orderingCompletion.empty)
-              assert((data, ref).zipped.forall(_ == _))
+              }*/
+              //assert(orderingCompletion.empty)
+              //assert((data, ref).zipped.forall(_ == _))
             }
 
             val slavesWithPutPartial = m.mapping.filter(_.allowed.putPartial.some)
@@ -112,12 +112,12 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
               val data = Array.fill[Byte](bytes)(Random.nextInt().toByte)
               val mask = Array.fill[Boolean](bytes)(Random.nextInt(2).toBoolean)
               val gMem = s.model.asInstanceOf[SparseMemory]
-              val orderingCompletion = new OrderingCtrl(bytes)
-              assert(!agent.putPartialData(sourceId, address, data, mask) { args =>
+              //val orderingCompletion = new OrderingCtrl(bytes)
+              assert(!agent.putPartialData(sourceId, address, data, mask) /*{ args =>
                 gMem.write(args.address toLong, data, mask, args.bytes, args.address - addressLocal toInt)
                 orderingCompletion -= (args.address - addressLocal toInt, args.bytes)
-              })
-              assert(orderingCompletion.empty)
+              }*/)
+             //assert(orderingCompletion.empty)
             }
 
 

@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.tilelink.sim.OrderingManager
+import spinal.lib.bus.tilelink.sim._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -142,12 +142,12 @@ object DebugId{
     U(base, width bits) | post.resized
   }
 
-  val manager = new ScopeProperty[OrderingManager]
+  val manager = new ScopeProperty[IdAllocator]
 
   def setup(width : Int) = {
     assert(width > 8)
     this.space.set(new Space(width))
-    manager.set(new OrderingManager(DebugId.width))
+    manager.set(new IdAllocator(DebugId.width))
   }
 }
 

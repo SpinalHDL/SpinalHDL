@@ -170,11 +170,11 @@ class InterconnectTester extends AnyFunSuite{
       val monitor = new Monitor(dut.m0.node.bus, dut.m0.node.clockDomain)
       val checker = new Checker(monitor)
 
-      m0.get(1, 0x240, 0x10)(f => Unit)
+      m0.get(1, 0x240, 0x10)
       dut.clockDomain.waitSampling(20)
-      m0.get(1, 0x282, 0x2)(f => Unit)
+      m0.get(1, 0x282, 0x2)
       dut.clockDomain.waitSampling(20)
-      m0.putPartialData(1, 0x200, (0 to 31).map(_.toByte), List(0x86, 0xAA, 0xFF, 0xF0).flatMap(e => (0 to 7).map(i => ((e >> i) & 1) != 0)))(f => Unit)
+      m0.putPartialData(1, 0x200, (0 to 31).map(_.toByte), List(0x86, 0xAA, 0xFF, 0xF0).flatMap(e => (0 to 7).map(i => ((e >> i) & 1) != 0)))
     }
   }
 

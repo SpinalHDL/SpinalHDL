@@ -1,8 +1,9 @@
 package spinal.tester.code
 
-import spinal.lib.bus.amba3.apb.Apb3
-import spinal.lib.bus.amba4.axi.Axi4CrossbarFactory
-import spinal.lib.bus.wishbone.{Wishbone, WishboneSlaveFactory}
+import spinal.lib.bus.amba3.apb._
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config, Axi4CrossbarFactory, Axi4SpecRenamer}
+import spinal.lib.bus.misc.DefaultMapping
+import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneSlaveFactory}
 import spinal.lib.memory.sdram.sdr.MT48LC16M16A2
 
 import java.io.{File, PrintWriter}
@@ -744,16 +745,71 @@ object Main100 extends App{
   import spinal.core._
   import spinal.lib._
 
-  SpinalVerilog(
-    new Module {
-      val a,b,c = out UInt(8 bits)
-      val array = ArrayBuffer[UInt]()
-      array += a
-      array += b
-      array += c
-      for(element <- array){
-        element := 0
-      }
-    }
-  )
+  SpinalVerilog(new Module{
+
+    val axiConfig = Axi4Config(20, 32, 4, useQos = false, useProt = false, useCache = false, useLock = false, useRegion = false, useBurst = false)
+    val axi = Axi4(axiConfig)
+    Axi4SpecRenamer(axi)
+
+    val apb = Apb3(
+      addressWidth = 20,
+      dataWidth = 32
+    )
+
+    val apbConfig = Apb3Config(
+      addressWidth = 20,
+      dataWidth    = 32
+    )
+    val apb2 = Apb3(apbConfig)
+
+    val commonBus = Apb3(
+      addressWidth = 20,
+      dataWidth = 32
+    )
+
+    val gpioBus, uartBus = Apb3(
+      addressWidth = 12,
+      dataWidth = 32
+    )
+
+    val apbDecoder = Apb3Decoder(
+      master = commonBus,
+      slaves = List(
+        gpioBus -> (0x2000, 4 kB),
+        uartBus -> (0x5000, 4 kB)
+      )
+    )
+  })
+}
+
+
+object Main101 extends App{
+  import spinal.core._
+  import spinal.lib._
+
+  SpinalVerilog(new Module{
+    val cpu0Bus, cpu1Bus = Axi4(Axi4Config(32, 32, idWidth = 2))
+    val mainBus          = Axi4(Axi4Config(32, 32, idWidth = 4))
+    val ramBus           = Axi4(Axi4Config(16, 32, idWidth = 6))
+    val peripheralBus    = Axi4(Axi4Config(20, 32, idWidth = 6))
+    val gpioBus, uartBus = Axi4(Axi4Config(12, 32, idWidth = 8))
+
+    val axiCrossbar = Axi4CrossbarFactory()
+    axiCrossbar.addSlaves(
+      mainBus       -> (0x00000000L,  4 GB),
+      ramBus        -> (0x80000000L, 64 kB),
+      peripheralBus -> (0x10000000L,  1 MB),
+      gpioBus       -> (     0x2000,  4 kB),
+      uartBus       -> (     0x5000,  4 kB)
+    )
+
+    axiCrossbar.addConnections(
+      cpu0Bus       -> List(mainBus),
+      cpu1Bus       -> List(mainBus),
+      mainBus       -> List(ramBus, peripheralBus),
+      peripheralBus -> List(gpioBus, uartBus)
+    )
+    axiCrossbar.build()
+
+  })
 }

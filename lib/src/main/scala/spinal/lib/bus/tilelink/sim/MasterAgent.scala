@@ -72,11 +72,11 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
     }
   }
 
-  val ordering = new Area{
-    val map = Array.fill[OrderingArgs => Unit](1 << bus.p.sourceWidth)(null)
-    def apply(source : Int)(body : OrderingArgs => Unit) = map(source) = body
-    def checkDone(source : Int) = Unit //assert(!map.contains(source)) //TODO
-  }
+//  val ordering = new Area{
+//    val map = Array.fill[OrderingArgs => Unit](1 << bus.p.sourceWidth)(null)
+//    def apply(source : Int)(body : OrderingArgs => Unit) = map(source) = body
+//    def checkDone(source : Int) = Unit //assert(!map.contains(source)) //TODO
+//  }
 
   //  case class Block(var cap : Int,
   //                   var dirty : Boolean = false,
@@ -243,9 +243,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
   def acquireBlock(source : Int,
                    param : Int,
                    address : Long,
-                   bytes : Int)
-                  (orderingBody : OrderingArgs => Unit): Block ={
-    ordering(source)(orderingBody)
+                   bytes : Int): Block ={
     driver.a.single{p =>
       p.opcode  #= Opcode.A.ACQUIRE_BLOCK
       p.param   #= param
@@ -310,7 +308,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
       }
     }
     mutex.await()
-    ordering.checkDone(source)
+//    ordering.checkDone(source)
     driver.e.single{p =>
       p.sink  #= sink
     }
@@ -318,10 +316,8 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
     b
   }
 
-  def get(source : Int, address : Long, bytes : Int)
-         (orderingBody : OrderingArgs => Unit) : Seq[Byte] = {
-    val debugId = DebugId.manager.allocate(orderingBody)
-    ordering(source)(orderingBody)
+  def get(source : Int, address : Long, bytes : Int) : Seq[Byte] = {
+    val debugId = DebugId.manager.allocate()
     driver.a.single{p =>
       p.opcode  #= Opcode.A.GET
       p.param   #= 0
@@ -357,17 +353,15 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
       }
     }
     mutex.await()
-    ordering.checkDone(source)
-    DebugId.manager.remove(debugId)
+//    ordering.checkDone(source)
+//    DebugId.manager.remove(debugId)
     data
   }
 
-  def releaseData(source : Int, toCap : Int, block : Block)
-                 (orderingBody : OrderingArgs => Unit) : Boolean = {
+  def releaseData(source : Int, toCap : Int, block : Block) : Boolean = {
     assert(block.dirty)
     block.dirty = false
     block.retain()
-    ordering(source)(orderingBody)
     val size = log2Up(blockSize)
     driver.c.burst { push =>
       for (offset <- 0 until blockSize by bus.p.dataBytes) {
@@ -392,7 +386,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
       mutex.unlock()
     }
     mutex.await()
-    ordering.checkDone(source)
+//    ordering.checkDone(source)
 
 //    val block = this.block(source, address)
     this.block.changeCap(block, toCap)
@@ -421,7 +415,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
       mutex.unlock()
     }
     mutex.await()
-    ordering.checkDone(source)
+//    ordering.checkDone(source)
 
     this.block.changeCap(block, toCap)
     block.release()
@@ -429,9 +423,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
   }
 
 
-  def putFullData(source : Int, address : Long, data : Seq[Byte])
-                 (orderingBody : OrderingArgs => Unit) : Boolean = {
-    ordering(source)(orderingBody)
+  def putFullData(source : Int, address : Long, data : Seq[Byte]) : Boolean = {
     val size = log2Up(data.length)
     driver.a.burst { push =>
       for (offset <- 0 until data.length by bus.p.dataBytes) {
@@ -466,14 +458,12 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
       mutex.unlock()
     }
     mutex.await()
-    ordering.checkDone(source)
+//    ordering.checkDone(source)
     denied
   }
 
-  def putPartialData(source : Int, address : Long, data : Seq[Byte], mask : Seq[Boolean])
-                    (orderingBody : OrderingArgs => Unit) : Boolean = {
-    val debugId = DebugId.manager.allocate(orderingBody)
-    ordering(source)(orderingBody)
+  def putPartialData(source : Int, address : Long, data : Seq[Byte], mask : Seq[Boolean]) : Boolean = {
+    val debugId = DebugId.manager.allocate()
     val size = log2Up(data.length)
     driver.a.burst { push =>
       for (offset <- 0 until data.length by bus.p.dataBytes) {
@@ -517,8 +507,8 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, blockSize : Int = 64) {
       mutex.unlock()
     }
     mutex.await()
-    ordering.checkDone(source)
-    DebugId.manager.remove(debugId)
+//    ordering.checkDone(source)
+//    DebugId.manager.remove(debugId)
     denied
   }
 }
