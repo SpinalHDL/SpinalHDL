@@ -2,6 +2,7 @@ package spinal.lib.bus.tilelink.sim
 
 import spinal.core.sim._
 import spinal.lib.bus.tilelink._
+import spinal.sim.SimError
 
 abstract class TransactionABCD {
   var address = BigInt(-1)
@@ -31,6 +32,12 @@ abstract class TransactionABCD {
   }
 
   def copyNoData(): this.type
+  def isRspOf(that : TransactionABCD) = {
+    address == that.address && source == that.source && size == that.size
+  }
+  def assertRspOf(that : TransactionABCD) = {
+    assert(isRspOf(that), s"Bad tilelink transaction\nCMD => $that\nRSP => $this")
+  }
 
   override def toString = {
     val dataString = withData match {
@@ -39,9 +46,9 @@ abstract class TransactionABCD {
         val buf = new StringBuilder()
         buf ++= "\n-"
         for(i <- 0 until data.size){
-          val enabled = if(withMask) (mask(i/8) >> (i % 8)) != 0 else true
+          val enabled = if(withMask) ((mask(i/8) >> (i % 8)) & 1) != 0 else true
           buf ++= (enabled match {
-            case false => " XX"
+            case false => " --"
             case true => f" ${data(i)}%02x"
           })
         }
@@ -97,6 +104,8 @@ class TransactionA extends TransactionABCD{
   }
 
   override def toString = opcode + " " + super.toString
+
+  override def isRspOf(that: TransactionABCD) = ???
 }
 
 object TransactionB{
@@ -137,6 +146,7 @@ class TransactionB extends TransactionABCD{
   }
 
   override def toString = opcode + " " + super.toString
+  override def isRspOf(that: TransactionABCD) = ???
 }
 
 object TransactionC{
@@ -176,6 +186,7 @@ class TransactionC extends TransactionABCD{
   }
 
   override def toString = opcode + " " + super.toString
+  override def isRspOf(that: TransactionABCD) = ??? ///TODO
 }
 
 object TransactionD{
@@ -220,6 +231,21 @@ class TransactionD extends TransactionABCD{
   }
 
   override def toString = opcode + " " + super.toString
+
+  override def isRspOf(that: TransactionABCD) = {
+    super.isRspOf(that) && (that match {
+      case a: TransactionA => {
+        a.opcode match {
+          case Opcode.A.GET => {
+            opcode == Opcode.D.ACCESS_ACK_DATA
+          }
+          case Opcode.A.PUT_FULL_DATA | Opcode.A.PUT_PARTIAL_DATA => {
+            opcode == Opcode.D.ACCESS_ACK
+          }
+        }
+      }
+    })
+  }
 }
 
 
@@ -264,8 +290,14 @@ class TransactionAggregator[T <: TransactionABCD](bytesPerBeat : Int)(callback :
       for (i <- 0 until bytesInBeat) {
         val from = beatOffset + i
         val to = accessOffset + i
-        access.data(to) = f.data(from)
-        if(withMask) access.mask(to / 8) = (access.mask(to / 8) | (((f.mask(from / 8) >> (from % 8)) & 1) << (to % 8))).toByte
+
+        if(withMask) {
+          val mv = ((f.mask(from / 8) >> (from % 8)) & 1)
+          access.mask(to / 8) = (access.mask(to / 8) | (mv << (to % 8))).toByte
+          access.data(to) = if(mv == 1) f.data(from) else -1
+        } else {
+          access.data(to) = f.data(from)
+        }
       }
     }
 

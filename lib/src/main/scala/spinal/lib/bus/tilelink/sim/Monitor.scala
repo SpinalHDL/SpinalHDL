@@ -5,18 +5,30 @@ import spinal.core.sim._
 import spinal.lib.bus.tilelink._
 import spinal.lib.sim.{StreamDriver, StreamDriverOoo, StreamMonitor, StreamReadyRandomizer}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.{breakOut, mutable}
 import scala.util.Random
 
 
-abstract class Monitor (val bus : Bus, cd : ClockDomain) {
+trait MonitorSubscriber{
+  def onA(a : TransactionA) : Unit
+  def onB(b : TransactionB) : Unit
+  def onC(c : TransactionC) : Unit
+  def onD(d : TransactionD) : Unit
+  def onE(e : TransactionE) : Unit
+}
+
+class Monitor (val bus : Bus, cd : ClockDomain) {
   var debug = false
 
-  def onA(f : TransactionA) : Unit
-  def onB(f : TransactionB) : Unit
-  def onC(f : TransactionC) : Unit
-  def onD(f : TransactionD) : Unit
-  def onE(f : TransactionE) : Unit
+  def add(s : MonitorSubscriber) = subscribers += s
+
+  val subscribers = ArrayBuffer[MonitorSubscriber]()
+  def onA(f : TransactionA) : Unit = subscribers.foreach(_.onA(f))
+  def onB(f : TransactionB) : Unit = subscribers.foreach(_.onB(f))
+  def onC(f : TransactionC) : Unit = subscribers.foreach(_.onC(f))
+  def onD(f : TransactionD) : Unit = subscribers.foreach(_.onD(f))
+  def onE(f : TransactionE) : Unit = subscribers.foreach(_.onE(f))
 
   val faa = new TransactionAggregator[TransactionA](bus.p.dataBytes)(onA)
   val fab = bus.p.withBCE generate new TransactionAggregator[TransactionB](bus.p.dataBytes)(onB)
@@ -27,13 +39,13 @@ abstract class Monitor (val bus : Bus, cd : ClockDomain) {
   val cToD = Array.fill(1 << bus.p.sourceWidth)(BigInt(0))
   val a = StreamMonitor(bus.a, cd){p =>
     val f = TransactionA(p)
-    if(f.opcode == Opcode.A.GET || f.opcode == Opcode.A.ACQUIRE_BLOCK) aToD(f.source) = f.address
+    if(faa.beat == 0) aToD(f.source) = f.address
     faa.push(f)
   }
   val b = bus.p.withBCE generate StreamMonitor(bus.b, cd)(p => fab.push(TransactionB(p)))
   val c = bus.p.withBCE generate StreamMonitor(bus.c, cd){p =>
     val f = TransactionC(p)
-    if(f.opcode == Opcode.C.RELEASE_DATA || f.opcode == Opcode.C.RELEASE) cToD(f.source) = f.address
+    if(fac.beat == 0) cToD(f.source) = f.address
     fac.push(f)
   }
   val e = bus.p.withBCE generate StreamMonitor(bus.e, cd)(p => onE(TransactionE(p)))

@@ -167,17 +167,14 @@ class InterconnectTester extends AnyFunSuite{
 
       val s0 = new SlaveRam(dut.s0.node.bus, dut.s0.node.clockDomain)
       val m0 = new MasterAgent(dut.m0.node.bus, dut.m0.node.clockDomain)
-      val monitor = new Monitor(dut.m0.node.bus, dut.m0.node.clockDomain) {
-        override def onA(f: TransactionA) = println(f)
-        override def onB(f: TransactionB) = println(f)
-        override def onC(f: TransactionC) = println(f)
-        override def onD(f: TransactionD) = println(f)
-        override def onE(f: TransactionE) = println(f)
-      }
+      val monitor = new Monitor(dut.m0.node.bus, dut.m0.node.clockDomain)
+      val checker = new Checker(monitor)
 
+      m0.get(1, 0x240, 0x10)(f => Unit)
+      dut.clockDomain.waitSampling(20)
       m0.get(1, 0x282, 0x2)(f => Unit)
       dut.clockDomain.waitSampling(20)
-      m0.get(1, 0x240, 0x10)(f => Unit)
+      m0.putPartialData(1, 0x200, (0 to 31).map(_.toByte), List(0x86, 0xAA, 0xFF, 0xF0).flatMap(e => (0 to 7).map(i => ((e >> i) & 1) != 0)))(f => Unit)
     }
   }
 
