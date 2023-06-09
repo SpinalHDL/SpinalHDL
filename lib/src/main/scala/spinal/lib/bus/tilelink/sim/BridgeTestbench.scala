@@ -11,7 +11,7 @@ class BridgeTestbench(m : Bus, s : Bus, cd : ClockDomain) {
   implicit val idAllocator = new IdAllocator(DebugId.width)
   implicit val idCallback = new IdCallback
 
-  val outputAgent = new SlaveRam(s, cd)
+  val outputAgent = new MemoryAgent(s, cd)
   val globalMem = SparseMemory(outputAgent.mem.seed)
 
   val inputMapping = Mapping(

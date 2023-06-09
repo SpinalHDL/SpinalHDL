@@ -7,11 +7,11 @@ import spinal.lib.sim.SparseMemory
 import scala.util.Random
 
 
-class SlaveRam(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt())(implicit idCallback : IdCallback) extends MonitorSubscriber{
+class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt())(implicit idCallback : IdCallback) extends MonitorSubscriber{
   val mem = SparseMemory(seed)
 
   val monitor = new Monitor(bus, cd).add(this)
-  val driver = new SlaveAgent(bus, cd)
+  val driver = new SlaveDriver(bus, cd)
 
   override def onA(a: TransactionA) = a.opcode match {
     case Opcode.A.GET => {

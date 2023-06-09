@@ -70,7 +70,7 @@ class InterconnectTester extends AnyFunSuite{
     }
 
     for(node <- slaveNodes) {
-      val model = new SlaveRam(node.bus, node.clockDomain, nodeToModel(node).seed)
+      val model = new MemoryAgent(node.bus, node.clockDomain, nodeToModel(node).seed)
     }
 
     mastersStuff.foreach(_.tester.join())
@@ -186,7 +186,7 @@ class InterconnectTester extends AnyFunSuite{
         )))
       }
       val s0 = new Area{
-        val driver = new SlaveRam(dut.s0.node.bus, dut.s0.node.clockDomain, seed)
+        val driver = new MemoryAgent(dut.s0.node.bus, dut.s0.node.clockDomain, seed)
       }
 
       m0.monitor.add(new MonitorSubscriber {
@@ -334,7 +334,7 @@ class InterconnectTester extends AnyFunSuite{
       val wob = Node()
       wob << b3
       val wo = simpleWriteOnlySlave()
-      wo.node at 0x3000 of wob
+      wo.node at 0x3000 of wob //TODO catch when << is used instead
 
 //      val ro = simpleReadOnlySlave(8)
 //      ro.node << b3
@@ -406,7 +406,7 @@ class InterconnectTester extends AnyFunSuite{
       b0 << m0.node
       s0.node at 0x1000 of b0
     }).doSim(seed = 42){dut =>
-//      dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.forkStimulus(10)
 //      testInterconnect(dut)
     }
   }

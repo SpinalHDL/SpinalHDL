@@ -115,12 +115,31 @@ class TransactionA extends TransactionABCD{
     source = p.source.toInt
     address = p.address.toBigInt
     size = p.size.toInt
-    if(p.withData) corrupt = p.corrupt.toBoolean
-    if(withData) {
-      mask = p.mask.toBytes
-      data = p.data.toBytes
+    if(p.withData) {
+      corrupt = p.corrupt.toBoolean
+      if(withData) {
+        mask = p.mask.toBytes
+        data = p.data.toBytes
+      }
     }
     debugId = p.debugId.toLong
+    this
+  }
+
+  def write(p : ChannelA): this.type ={
+    p.opcode #= opcode
+    p.param #= param
+    p.source #= source
+    p.address #= address
+    p.size #= size
+    if(p.withData) {
+      p.corrupt #= corrupt
+      if (withData) {
+        p.mask #= mask
+        p.data #= data
+      }
+    }
+    p.debugId #= debugId
     this
   }
 
@@ -177,10 +196,12 @@ class TransactionB extends TransactionABCD{
     p.source #= source
     p.address #= address
     p.size #= size
-    p.corrupt #= corrupt
-    if(withData) {
-      p.mask #= mask
-      p.data #= data
+    if(p.withData) {
+      p.corrupt #= corrupt
+      if (withData) {
+        p.mask #= mask
+        p.data #= data
+      }
     }
     this
   }
@@ -219,12 +240,32 @@ class TransactionC extends TransactionABCD{
     source = p.source.toInt
     address = p.address.toBigInt
     size = p.size.toInt
-    corrupt = p.corrupt.toBoolean
-    if(withData) {
-      data = p.data.toBytes
+    if(p.withData) {
+      corrupt = p.corrupt.toBoolean
+      if (withData) {
+        data = p.data.toBytes
+      }
     }
     this
   }
+
+  def write(p : ChannelC): this.type ={
+    p.opcode #= opcode
+    p.param #= param
+    p.source #= source
+    p.size #= size
+    p.address #= address
+    if(p.withData) {
+      p.corrupt #= corrupt
+      if(withData) {
+        p.data #= data
+      } else{
+        p.data.randomize()
+      }
+    }
+    this
+  }
+
 
   override def withData = opcode match {
     case Opcode.C.PROBE_ACK_DATA | Opcode.C.RELEASE_DATA => true
@@ -336,6 +377,11 @@ class TransactionE {
 
   def read(p : ChannelE): this.type ={
     sink = p.sink.toInt
+    this
+  }
+
+  def write(p : ChannelE): this.type ={
+    p.sink #= sink
     this
   }
 
