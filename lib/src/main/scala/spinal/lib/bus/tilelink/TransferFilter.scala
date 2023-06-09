@@ -1,7 +1,7 @@
 package spinal.lib.bus.tilelink
 
 import spinal.core._
-import spinal.core.fiber.Elab
+import spinal.core.fiber.Fiber
 import spinal.lib._
 import spinal.lib.bus.misc.{DefaultMapping, SizeMapping}
 import spinal.lib.bus.tilelink.fabric._

@@ -1,7 +1,7 @@
 package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
-import spinal.core.fiber.Elab
+import spinal.core.fiber.Fiber
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink._
@@ -24,7 +24,7 @@ class TransferFilter() extends Area{
     populate()
   }
 
-  val logic = Elab build new Area{
+  val logic = Fiber build new Area{
     down.m2s.proposed.load(up.m2s.proposed)
     up.m2s.supported.load(M2sSupport(
       transfers = up.m2s.proposed.transfers,

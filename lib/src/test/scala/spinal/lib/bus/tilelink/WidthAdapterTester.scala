@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink
 
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
-import spinal.core.fiber.{Elab, hardFork}
+import spinal.core.fiber.{Fiber, hardFork}
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping

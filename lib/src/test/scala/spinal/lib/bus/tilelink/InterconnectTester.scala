@@ -3,7 +3,7 @@ package spinal.lib.bus.tilelink
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim._
 import spinal.core._
-import spinal.core.fiber.{Elab, hardFork}
+import spinal.core.fiber.{Fiber, hardFork}
 import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink._
@@ -329,12 +329,12 @@ class InterconnectTester extends AnyFunSuite{
       val rob = Node()
       rob << b3
       val ro = simpleReadOnlySlave(8)
-      ro.node << rob
+      ro.node at 0x2000 of rob
 
       val wob = Node()
       wob << b3
       val wo = simpleWriteOnlySlave()
-      wo.node << wob
+      wo.node at 0x3000 of wob
 
 //      val ro = simpleReadOnlySlave(8)
 //      ro.node << b3
@@ -357,7 +357,7 @@ class InterconnectTester extends AnyFunSuite{
       b1 << b0
       b2 << b1
       s0.node at 0x1000 of b2
-      Elab check{
+      Fiber check{
         assert(m0.node.bus.p.dataWidth == 128)
         assert(b0.bus.p.dataWidth == 32)
         assert(b1.bus.p.dataWidth == 32)
@@ -384,7 +384,7 @@ class InterconnectTester extends AnyFunSuite{
 
       b1.forceDataWidth(64)
 
-      Elab check{
+      Fiber check{
         assert(m0.node.bus.p.dataWidth == 128)
         assert(b0.bus.p.dataWidth == 64)
         assert(b1.bus.p.dataWidth == 64)
@@ -496,7 +496,7 @@ class InterconnectTester extends AnyFunSuite{
       s0.node.addTag(PMA.VOLATILE)
       s1.node.addTag(PMA.CACHED)
 
-      Elab build {
+      Fiber build {
         var hits = 0
         val probed = MemoryConnection.getMemoryTransfers(m0.node)
         probed.foreach{ w =>
@@ -581,7 +581,7 @@ class InterconnectTester extends AnyFunSuite{
       }
 
       //Will analyse the access capabilities of the CPU buses
-      Elab build new Area{
+      Fiber build new Area{
         val mainSupport = MemoryConnection.getMemoryTransfers(cpu.main.node)
         println("cpu.main.node can access : ")
         println(mainSupport.map("- " + _).mkString("\n"))

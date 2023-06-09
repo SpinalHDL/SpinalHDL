@@ -1,5 +1,6 @@
 package spinal.tester.code
 
+import spinal.core.fiber.{Fiber, Handle}
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config, Axi4CrossbarFactory, Axi4SpecRenamer}
 import spinal.lib.bus.misc.DefaultMapping
@@ -796,11 +797,11 @@ object Main101 extends App{
 
     val axiCrossbar = Axi4CrossbarFactory()
     axiCrossbar.addSlaves(
-      mainBus       -> (0x00000000L,  4 GB),
-      ramBus        -> (0x80000000L, 64 kB),
-      peripheralBus -> (0x10000000L,  1 MB),
-      gpioBus       -> (     0x2000,  4 kB),
-      uartBus       -> (     0x5000,  4 kB)
+      mainBus       -> (0x00000000,  4 GB),
+      ramBus        -> (0x40000000, 64 kB),
+      peripheralBus -> (0x10000000,  1 MB),
+      gpioBus       -> (    0x2000,  4 kB),
+      uartBus       -> (    0x5000,  4 kB)
     )
 
     axiCrossbar.addConnections(
@@ -812,4 +813,59 @@ object Main101 extends App{
     axiCrossbar.build()
 
   })
+}
+
+object Main102 extends App{
+  import spinal.core._
+  import spinal.lib._
+
+  SpinalVerilog(new Module{
+    import spinal.lib.bus.tilelink
+//    val m0, m1 = tilelink.fabric.Node()
+//    val shared = tilelink.fabric.Node()
+//    val s0, s1 = tilelink.fabric.Node()
+//
+//    shared << m0
+//    shared << m0
+//    s0 at 0x1000 of shared
+//    s1 at 0x2000 of shared
+
+    import spinal.lib.bus.tilelink.fabric.Node
+
+    val cpu0Bus, cpu1Bus = Node()
+    val mainBus          = Node()
+    val ramBus           = Node()
+    val peripheralBus    = Node()
+    val gpioBus, uartBus = Node()
+
+    mainBus << List(cpu0Bus, cpu1Bus)
+    ramBus        at 0x40000000  of ramBus
+    peripheralBus at 0x10000000  of ramBus
+    gpioBus       at     0x2000  of peripheralBus
+    uartBus       at     0x5000  of peripheralBus
+
+  })
+
+  import spinal.lib.bus.tilelink
+  {
+
+    class Node extends Area{
+      // Node data model
+      val bus   = Handle[tilelink.Bus]()
+      val ups   = ArrayBuffer[Connection]()
+      val downs = ArrayBuffer[Connection]()
+
+      //Fork an elaboration thread
+      val thread = Fiber build new Area{
+        // Generate the required arbiter / decoder logic.
+      }
+    }
+
+    class Connection(val m : Node, val s : Node) extends Area{
+      val thread = Fiber build new Area{
+        // Connect the m.decoder to the s.arbiter
+      }
+    }
+
+  }
 }

@@ -48,7 +48,7 @@ class Connection(val m : Node, val s : Node) extends Area {
   }
 
   //Will negociate the parameters and then connect the ends through the required adapters
-  val thread = Elab build new Area{
+  val thread = Fiber build new Area{
     soon(arbiter.m2s.parameters)
     soon(decoder.s2m.parameters)
 

@@ -11,7 +11,7 @@ object ElabOrderId{
   val CHECK = 2000000
 }
 
-object Elab {
+object Fiber {
   def apply[T](orderId : Int)(body : => T) : Handle[T] = {
     GlobalData.get.elab.addTask(orderId)(body)
   }
@@ -20,7 +20,7 @@ object Elab {
   def check[T](body : => T) : Handle[T] = apply(ElabOrderId.CHECK)(body)
 }
 
-class Elab {
+class Fiber {
   def addTask[T](orderId : Int)(body : => T) : Handle[T] = {
     val lock = Lock().retain()
     val (h, t) = hardForkRaw(withDep = false){
@@ -63,21 +63,21 @@ object ElabDemo extends App {
 
   SpinalVerilog{new Component{
     //Fork a thread which will start in build phase
-    val b1 = Elab build new Area{
+    val b1 = Fiber build new Area{
       println("Build 1")
       println("b2.miaou = " + b2.miaou) //Will wait until the b2 thread completed
       println("Build 1 Done")
     }
-    val b2 = Elab build new Area{
+    val b2 = Fiber build new Area{
       println("Build 2")
       val miaou = 42
       println("Build 2 Done")
     }
-    val s1 = Elab setup new Area{
+    val s1 = Fiber setup new Area{
       println("Setup 1")
       println("Setup 1  Done")
     }
-    val s2 = Elab setup new Area{
+    val s2 = Fiber setup new Area{
       println("Setup 2")
       println("Setup 2 Done")
     }
@@ -100,17 +100,17 @@ object ElabDemo extends App {
 
   SpinalVerilog{new Component{
     val lock = Lock()
-    val b1 = Elab build new Area{
+    val b1 = Fiber build new Area{
       println("Build 1")
       lock.await() //Will be blocked until b2 release the lock (see val s1)
       println("Build 1 Done")
     }
-    val b2 = Elab build new Area{
+    val b2 = Fiber build new Area{
       println("Build 2")
       lock.release()
       println("Build 2 Done")
     }
-    val s1 = Elab setup new Area{
+    val s1 = Fiber setup new Area{
       println("Setup 1")
       lock.retain() //Let's lock the lock to allow b2 running stuff before b1
       println("Setup 1  Done")

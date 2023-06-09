@@ -55,7 +55,7 @@ class CoherencyHub() extends Area{
     populate()
   })
 
-  val logic = Elab build new Area{
+  val logic = Fiber build new Area{
     val slotsCount = 4
     val cSourceCount = 4
     val dataWidth = coherents.map(_.m2s.proposed.dataWidth).max

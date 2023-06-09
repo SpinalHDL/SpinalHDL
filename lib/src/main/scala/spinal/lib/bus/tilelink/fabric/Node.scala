@@ -66,7 +66,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
 
 
   //Will negociate the m2s/s2m handles, then generate the arbiter / decoder required to connect the ups / downs connections
-  val thread = Elab build new Composite(this, weak = false) {
+  val thread = Fiber build new Composite(this, weak = false) {
     // Specify which Handle will be loaded by the current thread, as this help provide automated error messages
     soon(ups.map(_.arbiter.bus) :_*)
     soon(downs.map(_.decoder.bus) :_*)
@@ -274,6 +274,8 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     c.mapping.defaultSpec = Some(Unit)
     c
   }
+
+  def <<(m : Seq[Node]): Seq[Connection] = m.map(this << _)
 
   class At(body : Connection => Unit){
     def of(m : Node): Connection = {

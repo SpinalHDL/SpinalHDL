@@ -1,14 +1,14 @@
 package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
-import spinal.core.fiber.Elab
+import spinal.core.fiber.Fiber
 import spinal.lib.bus.tilelink.{M2sParameters, M2sSupport, S2mParameters}
 import spinal.lib.{master, slave}
 
 //While create a interconnect master as an io of the toplevel
 class MasterBus(p : M2sParameters) extends Area{
   val node = Node.master()
-  val logic = Elab build new Area{
+  val logic = Fiber build new Area{
     node.m2s.parameters.load(p)
     node.m2s.setProposedFromParameters() //Here, we just ignore the negotiation phase
     node.s2m.supported.load(node.s2m.proposed)
@@ -19,7 +19,7 @@ class MasterBus(p : M2sParameters) extends Area{
 //While create a interconnect slave as an io of the toplevel
 class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParameters.none) extends Area{
   val node = Node.slave()
-  val logic = Elab build new Area {
+  val logic = Fiber build new Area {
     node.s2m.parameters.load(s2mParameters)
     node.s2m.setProposedFromParameters()
     node.m2s.supported.load(m2sSupport.copy(transfers = node.m2s.proposed.transfers.intersect(m2sSupport.transfers)))

@@ -46,7 +46,7 @@ class HubFabric() extends Area{
     populate()
   }
 
-  val logic = Elab build new Area{
+  val logic = Fiber build new Area{
     parameter.blockSize = up.m2s.proposed.transfers.acquireB.getSingleSize().get
     up.m2s.proposed.transfers.acquireT.getSingleSize().foreach(size => assert(size == parameter.blockSize))
 
