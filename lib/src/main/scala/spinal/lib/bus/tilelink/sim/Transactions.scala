@@ -13,7 +13,7 @@ abstract class TransactionABCD {
   var param = 0
   var source = -1
   var size = -1
-  var mask: Array[Byte] = null
+  var mask: Array[Boolean] = null
   var data: Array[Byte] = null
   var corrupt = false
 
@@ -21,6 +21,9 @@ abstract class TransactionABCD {
   def withData : Boolean
   def withMask : Boolean
 
+  def setMask(b : spinal.core.Bits) = {
+    val v = b.toBytes
+  }
   def assertBeatOf(that: TransactionABCD, offset: Int): Unit = {
     assert(this.corrupt == that.corrupt)
     assert(this.address - offset == that.address)
@@ -60,16 +63,15 @@ abstract class TransactionABCD {
         beat.data = new Array[Byte](bytesPerBeat)
         if(bytes < bytesPerBeat) Random.nextBytes(beat.data)
         if(withMask) {
-          beat.mask = new Array((bytesPerBeat+7)/8)
+          beat.mask = new Array(bytesPerBeat)
         }
         for (i <- 0 until bytesInBeat) {
           val to = beatOffset + i
           val from = accessOffset + i
           if(withMask) {
-            val mv = ((mask(from / 8) >> (from % 8)) & 1)
-            if(mv == 1) {
+            beat.mask(to) = mask(from)
+            if(mask(from)) {
               beat.data(to) = data(from)
-              beat.mask(to / 8) = (mask(to / 8) | (1 << (to % 8))).toByte
             }
           } else {
             beat.data(to) = data(from)
@@ -87,7 +89,7 @@ abstract class TransactionABCD {
         val buf = new StringBuilder()
         buf ++= "\n-"
         for(i <- 0 until data.size){
-          val enabled = if(withMask) ((mask(i/8) >> (i % 8)) & 1) != 0 else true
+          val enabled = if(withMask) mask(i) else true
           buf ++= (enabled match {
             case false => " --"
             case true => f" ${data(i)}%02x"
@@ -102,7 +104,8 @@ abstract class TransactionABCD {
 }
 
 object TransactionA{
-  def apply(p : ChannelA) = new TransactionA().read(p)
+  def apply(p : ChannelA) : TransactionA = apply().read(p)
+  def apply() : TransactionA = new TransactionA()
 }
 class TransactionA extends TransactionABCD{
   override type T = TransactionA
@@ -118,7 +121,7 @@ class TransactionA extends TransactionABCD{
     if(p.withData) {
       corrupt = p.corrupt.toBoolean
       if(withData) {
-        mask = p.mask.toBytes
+        mask = p.mask.toBooleans
         data = p.data.toBytes
       }
     }
@@ -184,7 +187,7 @@ class TransactionB extends TransactionABCD{
     size = p.size.toInt
     corrupt = p.corrupt.toBoolean
     if(withData) {
-      mask = p.mask.toBytes
+      mask = p.mask.toBooleans
       data = p.data.toBytes
     }
     this
@@ -400,7 +403,7 @@ class TransactionAggregator[T <: TransactionABCD](bytesPerBeat : Int)(callback :
         access = f.copyNoData().asInstanceOf[T]
         if (access.withData) {
           access.data = Array.fill[Byte](bytes)(0)
-          if(access.withMask)access.mask = Array.fill[Byte]((bytes + 7) / 8)(0)
+          if(access.withMask)access.mask = Array.fill[Boolean](bytes)(false)
         }
       }
       case _ => {
@@ -417,9 +420,8 @@ class TransactionAggregator[T <: TransactionABCD](bytesPerBeat : Int)(callback :
         val to = accessOffset + i
 
         if(withMask) {
-          val mv = ((f.mask(from / 8) >> (from % 8)) & 1)
-          access.mask(to / 8) = (access.mask(to / 8) | (mv << (to % 8))).toByte
-          access.data(to) = if(mv == 1) f.data(from) else -1
+          access.mask(to) = f.mask(from)
+          access.data(to) = if(f.mask(from)) f.data(from) else -1
         } else {
           access.data(to) = f.data(from)
         }

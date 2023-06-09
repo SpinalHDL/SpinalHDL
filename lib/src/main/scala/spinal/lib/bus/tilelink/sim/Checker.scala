@@ -50,6 +50,8 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
         assert(ctx != null)
         d.assertRspOf(ctx.a)
         if(d.withData) assert((ctx.ref, d.data).zipped.forall(_ == _), s"Missmatch for :\n$ctx.a\n$d\n!=${ctx.ref.map(v => f"${v}%02x").mkString(" ")}")
+        assert(!d.denied)
+        assert(!d.corrupt)
         inflightA(d.source) = null
         idCallback.remove(ctx.a.debugId, ctx)
       }

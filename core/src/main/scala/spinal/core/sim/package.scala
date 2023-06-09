@@ -344,6 +344,13 @@ package object sim {
     def toLong   = getLong(bt)
     def toBigInt = getBigInt(bt)
     def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
+    def toBooleans : Array[Boolean] = {
+      val width = bt.getBitsWidth
+      val ret = new Array[Boolean](width)
+      val bi = toBigInt
+      for(i <- 0 until width) ret(i) = bi.testBit(i)
+      ret
+    }
 
     def #=(value: Int)    = setLong(bt, value)
     def #=(value: Long)   = setLong(bt, value)
@@ -353,6 +360,13 @@ package object sim {
       for(i <- value.size-1 downto 0){
         acc = acc << 8
         acc |= value(i).toInt & 0xFF
+      }
+      setBigInt(bt, acc)
+    }
+    def #=(value: Array[Boolean]) = { //TODO improve perf
+      var acc = BigInt(0)
+      for(i <- value.size-1 downto 0){
+        if(value(i)) acc = acc.setBit(i)
       }
       setBigInt(bt, acc)
     }

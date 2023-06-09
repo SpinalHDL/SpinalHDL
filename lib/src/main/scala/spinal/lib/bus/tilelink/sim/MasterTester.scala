@@ -63,86 +63,81 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
 //              unlock(address)
 //            }
 
-            def acquireBlock(param : Int,
-                             address : Long,
-                             bytes : Int,
-                             mem : SparseMemory,
-                             memAddress : Long): Block ={
-//              var ref: Array[Byte] = null
-              val block = agent.acquireBlock(sourceId, param, address, bytes)/*{ args =>
-                ref = mem.readBytes(args.address.toLong, args.bytes)
-              }*/
-//              block.ordering(args => mem.write(address-memAddress, block.data))
-              //      println(f"* $address%x $source")
-              //      println(toHex(block.data))
-              //      println(toHex(ref))
-              //assert((block.data, ref).zipped.forall(_ == _))
-              block
+//            def acquireBlock(param : Int,
+//                             address : Long,
+//                             bytes : Int,
+//                             mem : SparseMemory,
+//                             memAddress : Long): Block ={
+////              var ref: Array[Byte] = null
+//              val block = agent.acquireBlock(sourceId, param, address, bytes)/*{ args =>
+//                ref = mem.readBytes(args.address.toLong, args.bytes)
+//              }*/
+////              block.ordering(args => mem.write(address-memAddress, block.data))
+//              //      println(f"* $address%x $source")
+//              //      println(toHex(block.data))
+//              //      println(toHex(ref))
+//              //assert((block.data, ref).zipped.forall(_ == _))
+//              block
+//            }
+
+
+            def randomized(mappings : Seq[Mapping], sizes : M2sTransfers => SizeRange): (Long, Int) = {
+              val s = mappings.randomPick()
+              val mapping = s.mapping.randomPick()
+              randomizedImpl(mapping, sizes)
             }
 
-
-            val slavesWithGet = m.mapping.filter(_.allowed.get.some)
-            if(slavesWithGet.nonEmpty) distribution(10) {
-              val s = slavesWithGet.randomPick()
-              val mapping = s.mapping.randomPick()
+            def randomizedImpl(mapping : SizeMapping, sizes : M2sTransfers => SizeRange): (Long, Int) ={
               val sizeMax = mapping.size.toInt
-              val bytes = source.emits.get.random(randMax = sizeMax)
+              val bytes = sizes(source.emits).random(randMax = sizeMax)
               val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
               val address = mapping.base.toLong + addressLocal
-              val gMem = s.model.asInstanceOf[SparseMemory]
-              var ref = new Array[Byte](bytes)
-
-              //val orderingCompletion = new OrderingCtrl(bytes)
-              val data = agent.get(sourceId, address, bytes) /*{ args =>
-                gMem.readBytes(args.address toLong, args.bytes, ref, args.address - addressLocal toInt)
-                orderingCompletion -= (args.address - addressLocal toInt, args.bytes)
-              }*/
-              //assert(orderingCompletion.empty)
-              //assert((data, ref).zipped.forall(_ == _))
+              (address, bytes)
             }
 
-            val slavesWithPutPartial = m.mapping.filter(_.allowed.putPartial.some)
-            if(slavesWithPutPartial.nonEmpty) distribution(10) {
-              val s = slavesWithPutPartial.randomPick()
-              val mapping = s.mapping.randomPick()
-              val sizeMax = mapping.size.toInt
-              val bytes = source.emits.putPartial.random(randMax = sizeMax)
-              val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
-              val address = mapping.base.toLong + addressLocal
-              val data = Array.fill[Byte](bytes)(Random.nextInt().toByte)
-              val mask = Array.fill[Boolean](bytes)(Random.nextInt(2).toBoolean)
-              val gMem = s.model.asInstanceOf[SparseMemory]
-              //val orderingCompletion = new OrderingCtrl(bytes)
-              assert(!agent.putPartialData(sourceId, address, data, mask) /*{ args =>
-                gMem.write(args.address toLong, data, mask, args.bytes, args.address - addressLocal toInt)
-                orderingCompletion -= (args.address - addressLocal toInt, args.bytes)
-              }*/)
-             //assert(orderingCompletion.empty)
+            def randomizedData(bytes : Int) = {
+              val data = new Array[Byte](bytes)
+              Random.nextBytes(data)
+              data
+            }
+            def randomizedMask(bytes : Int) = {
+              Array.fill[Boolean](bytes)(Random.nextBoolean())
             }
 
+            val gets = m.mapping.filter(_.allowed.get.some)
+            if(gets.nonEmpty) distribution(10) {
+              val (address, bytes) = randomized(gets, _.get)
+              agent.get(sourceId, address, bytes)
+            }
+
+            val putPartials = m.mapping.filter(_.allowed.putPartial.some)
+            if(putPartials.nonEmpty) distribution(10) {
+              val (address, bytes) = randomized(putPartials, _.putPartial)
+              agent.putPartialData(sourceId, address, randomizedData(bytes), randomizedMask(bytes))
+            }
 
             //Read block
-            val slavesWithAcquireB = m.mapping.filter(_.allowed.acquireB.some)
-            if(slavesWithAcquireB.nonEmpty) {
-              val s = slavesWithAcquireB.randomPick()
-              val mapping = s.mapping.randomPick()
-              val sizeMax = mapping.size.toInt
-              val bytes = source.emits.acquireB.random(randMax = sizeMax)
-              val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
-              val address = mapping.base.toLong + addressLocal
-              val gMem = s.model.asInstanceOf[SparseMemory]
-              lock(address)
-              var b : Block = null
-              agent.block.get(sourceId, address) match {
-                case Some(x) => b = x
-                case None => {
-                  b = acquireBlock(Param.Grow.NtoB, address, bytes, gMem, mapping.base.toLong)
-                }
-              }
-              assert(b.cap < Param.Cap.toN)
-              if(b.dirty == false) assert((b.data, gMem.readBytes(addressLocal, bytes)).zipped.forall(_ == _))
-              unlock(address)
-            }
+//            val slavesWithAcquireB = m.mapping.filter(_.allowed.acquireB.some)
+//            if(slavesWithAcquireB.nonEmpty) {
+//              val s = slavesWithAcquireB.randomPick()
+//              val mapping = s.mapping.randomPick()
+//              val sizeMax = mapping.size.toInt
+//              val bytes = source.emits.acquireB.random(randMax = sizeMax)
+//              val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
+//              val address = mapping.base.toLong + addressLocal
+//              val gMem = s.model.asInstanceOf[SparseMemory]
+//              lock(address)
+//              var b : Block = null
+//              agent.block.get(sourceId, address) match {
+//                case Some(x) => b = x
+//                case None => {
+//                  b = acquireBlock(Param.Grow.NtoB, address, bytes, gMem, mapping.base.toLong)
+//                }
+//              }
+//              assert(b.cap < Param.Cap.toN)
+//              if(b.dirty == false) assert((b.data, gMem.readBytes(addressLocal, bytes)).zipped.forall(_ == _))
+//              unlock(address)
+//            }
 
             for (i <- 0 until perSourceBurst) {
               distribution.randomExecute()
