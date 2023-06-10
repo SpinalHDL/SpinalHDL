@@ -7,6 +7,23 @@ import spinal.lib.bus.misc.AddressMapping
 import scala.util.Random
 
 
+object BusParameter{
+  def simple(addressWidth : Int,
+             dataWidth : Int,
+             sizeBytes : Int,
+             sourceWidth : Int): BusParameter = BusParameter(
+    addressWidth = addressWidth,
+    dataWidth    = dataWidth,
+    sizeBytes    = sizeBytes,
+    sourceWidth  = sourceWidth,
+    sinkWidth    = 0,
+    withBCE      = false,
+    withDataA    = false,
+    withDataB    = false,
+    withDataD    = true,
+    node         = null
+  )
+}
 
 case class BusParameter(addressWidth : Int,
                         dataWidth    : Int,

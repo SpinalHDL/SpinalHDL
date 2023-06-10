@@ -16,7 +16,7 @@ package object tilelink {
       val beat = Reg(UInt(ch.p.beatWidth bits)) init(0)
       val last = !ch.withBeats || beat === sizeToBeatMinusOne(ch.p, ch.size)
       when(ch.fire){
-        beat := beat + 1
+        beat := (beat + 1).resized
         when(last){
           beat := 0
         }

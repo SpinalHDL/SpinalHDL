@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.misc.AddressMapping
+import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.system.tag._
 
 
@@ -164,6 +164,20 @@ case class M2sAgent(name    : Nameable,
 }
 
 
+object M2sParameters{
+  def apply(support : M2sSupport, sourceCount : Int) : M2sParameters = M2sParameters(
+    addressWidth = support.addressWidth,
+    dataWidth = support.dataWidth,
+    masters = List(M2sAgent(
+      name = null,
+      mapping = List(M2sSource(
+        id = SizeMapping(0, sourceCount),
+        emits = support.transfers,
+        isExecute = false
+      ))
+    ))
+  )
+}
 
 case class M2sParameters(addressWidth : Int,
                          dataWidth : Int,

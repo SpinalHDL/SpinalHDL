@@ -6,10 +6,10 @@ import spinal.lib._
 
 class WidthAdapter(ip : BusParameter,
                    op : BusParameter,
-                   ctxBuffer : ContextAsyncBufferFactory) extends Component{
+                   ctxBuffer : ContextAsyncBufferFactory = ContextAsyncBufferFull) extends Component{
   val io = new Bundle {
-    val input = slave(Bus(ip))
-    val output = master(Bus(op))
+    val up = slave(Bus(ip))
+    val down = master(Bus(op))
   }
 
   class ChannelDownSizer[T <: BusFragment](src : Stream[T], dst : Stream[T], offset : UInt) extends Area{
@@ -18,7 +18,7 @@ class WidthAdapter(ip : BusParameter,
     val burstLast = dst.isLast()
 
     when(dst.fire){
-      counter := counter + 1
+      counter := (counter + 1).resized
       when(burstLast){
         counter := 0
       }
@@ -85,7 +85,7 @@ class WidthAdapter(ip : BusParameter,
   }
 
   val direct = (ip.dataWidth == op.dataWidth) generate new Area{
-    io.output << io.input
+    io.down << io.up
   }
 
   val upsize = (ip.dataWidth < op.dataWidth) generate new Area{
@@ -93,19 +93,19 @@ class WidthAdapter(ip : BusParameter,
     val addrRange = op.dataBytesLog2Up-1 downto ip.dataBytesLog2Up
 
     val iaHalt = False
-    val ia = io.input.a.haltWhen(iaHalt)
+    val ia = io.up.a.haltWhen(iaHalt)
 
     val a = new Area{
-      val ctrl = new ChannelUpSizer(ia, io.output.a, ia.address(addrRange))
+      val ctrl = new ChannelUpSizer(ia, io.down.a, ia.address(addrRange))
     }
 
     val d = new Area{
       val ctx = ctxBuffer(ip.sourceWidth, UInt(addrRange.size bits))
-      ctx.io.bind(iaHalt, io.input.a, io.input.d)
-      ctx.io.add.context := io.input.a.address(addrRange)
-      ctx.io.query.id := io.output.d.source
+      ctx.io.bind(iaHalt, io.up.a, io.up.d)
+      ctx.io.add.context := io.up.a.address(addrRange)
+      ctx.io.query.id := io.down.d.source
 
-      val ctrl = new ChannelDownSizer(io.output.d, io.input.d, ctx.io.query.context)
+      val ctrl = new ChannelDownSizer(io.down.d, io.up.d, ctx.io.query.context)
     }
   }
 
@@ -114,13 +114,13 @@ class WidthAdapter(ip : BusParameter,
     val addrRange = ip.dataBytesLog2Up-1 downto op.dataBytesLog2Up
 
     val a = new Area{
-      val ctrl = new ChannelDownSizer(io.input.a, io.output.a, io.input.a.address(addrRange))
-      io.output.a.address(addrRange) := ctrl.sel
+      val ctrl = new ChannelDownSizer(io.up.a, io.down.a, io.up.a.address(addrRange))
+      io.down.a.address(addrRange) := ctrl.sel
     }
 
     val d = new Area{
-      val sel = io.output.d.beatCounter().resize(addrRange.size)
-      val ctrl = new ChannelUpSizer(io.output.d, io.input.d, sel)
+      val sel = io.down.d.beatCounter().resize(addrRange.size)
+      val ctrl = new ChannelUpSizer(io.down.d, io.up.d, sel)
     }
   }
 }

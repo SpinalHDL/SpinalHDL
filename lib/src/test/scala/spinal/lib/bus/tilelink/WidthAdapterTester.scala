@@ -53,8 +53,8 @@ class WidthAdapterTester extends AnyFunSuite{
         ctxBuffer = ContextAsyncBufferFull
       )).doSim{dut =>
         new BridgeTestbench(
-          dut.io.input,
-          dut.io.output,
+          dut.io.up,
+          dut.io.down,
           dut.clockDomain
         ).testPerSource(100)
       }

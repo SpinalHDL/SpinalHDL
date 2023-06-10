@@ -397,6 +397,32 @@ class InterconnectTester extends AnyFunSuite{
     }
   }
 
+  test("WidthAdapter_C"){
+    tilelink.DebugId.setup(16)
+    SimConfig.withFstWave.compile(new Component{
+      val m0 = simpleMaster(readWrite, 128)
+      val s0 = simpleSlave(8, 32)
+      val widthAdapter = new fabric.WidthAdapter()
+      val b0, b1 = Node()
+      b0 << m0.node
+      widthAdapter.up << b0
+      b1 << widthAdapter.down
+      s0.node at 0x1000 of b1
+      Fiber check{
+        assert(m0.node.bus.p.dataWidth == 128)
+        assert(b0.bus.p.dataWidth == 128)
+        assert(b1.bus.p.dataWidth == 32)
+        assert(s0.node.bus.p.dataWidth == 32)
+        assert(widthAdapter.up.bus.p.dataWidth == 128)
+        assert(widthAdapter.down.bus.p.dataWidth == 32)
+      }
+    }).doSim(seed = 42){dut =>
+      dut.clockDomain.forkStimulus(10)
+      testInterconnect(dut)
+    }
+  }
+
+
   test("Coherent_A"){
     tilelink.DebugId.setup(16)
     SimConfig.withFstWave.compile(new Component{
@@ -452,6 +478,21 @@ class InterconnectTester extends AnyFunSuite{
       val b0 = Node()
       b0 << m0.node
 
+      val s0 = simpleSlave(12, 32, coherentOnlySlave)
+      s0.node at 0x1000 of b0
+    }).doSim(seed = 42){dut =>
+      dut.clockDomain.forkStimulus(10)
+      testInterconnect(dut)
+    }
+  }
+
+  test("Coherent_withHub"){
+    tilelink.DebugId.setup(16)
+    SimConfig.withFstWave.compile(new Component{
+      val m0 = simpleMaster(all)
+      val b0 = Node()
+      b0 << m0.node
+
       val hub = new HubFabric()
       hub.up << b0
 
@@ -459,7 +500,7 @@ class InterconnectTester extends AnyFunSuite{
       s0.node at 0x10000 of hub.down
       s0.node.addTag(PMA.MAIN)
     }).doSim(seed = 42){dut =>
-//      dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.forkStimulus(10)
 //      testInterconnect(dut)
     }
   }

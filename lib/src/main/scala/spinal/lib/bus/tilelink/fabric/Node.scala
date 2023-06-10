@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink._
+import spinal.lib.bus.tilelink
 import spinal.lib.system.tag._
 
 import scala.collection.mutable.ArrayBuffer
@@ -54,6 +55,14 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     def setProposedFromParameters(): Unit ={
       proposed load S2mSupport(parameters)
     }
+    def from(s : Node) = s2mFrom(s)
+  }
+
+  def s2mFrom(s : Node): Unit ={
+    val m = Node.this
+    m.s2m.proposed.load(s.s2m.proposed)
+    s.s2m.supported.load(m.s2m.supported)
+    m.s2m.parameters.load(s.s2m.parameters)
   }
 
   //Document the current component being host for this node
@@ -245,6 +254,8 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
       c.decoder.bus.load(Bus(NodeParameters(c.decoder.m2s.parameters, c.decoder.s2m.parameters)))
       val target = c.decoder.bus
       target << toDown
+      target.a.size.removeAssignments() := toDown.a.size.resized
+      toDown.d.size.removeAssignments() := target.d.size.resized
       target.a.address.removeAssignments() := (toDown.a.address - c.tag.offset).resized
       if(toDown.p.withBCE) {
         toDown.b.address.removeAssignments() := (target.b.address + c.tag.offset).resized
@@ -333,19 +344,19 @@ class InterconnectAdapterCc extends InterconnectAdapter{
 }
 
 class InterconnectAdapterWidth extends InterconnectAdapter{
-  var adapter = Option.empty[WidthAdapter]
+  var adapter = Option.empty[tilelink.WidthAdapter]
 
   override def isRequired(c : Connection) = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
   override def build(c : Connection)(m: Bus) : Bus = {
-    val adapter = new WidthAdapter(
+    val adapter = new tilelink.WidthAdapter(
       ip = m.p,
       op = m.p.copy(dataWidth = c.s.m2s.parameters.dataWidth),
       ctxBuffer = ContextAsyncBufferFull
     )
     adapter.setLambdaName(c.m.isNamed && c.s.isNamed)(s"${c.m.getName()}_to_${c.s.getName()}_widthAdapter")
     this.adapter = Some(adapter)
-    adapter.io.input << m
-    adapter.io.output
+    adapter.io.up << m
+    adapter.io.down
   }
 }
 
