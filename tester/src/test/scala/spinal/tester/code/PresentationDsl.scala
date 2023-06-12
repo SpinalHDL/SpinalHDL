@@ -2,6 +2,7 @@ package spinal.tester.code
 
 import spinal.core.{SpinalTagReady, SpinalVerilog}
 import spinal.core.fiber.{Fiber, Handle}
+import spinal.lib.IMasterSlave
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config, Axi4CrossbarFactory, Axi4SpecRenamer}
 import spinal.lib.bus.misc.DefaultMapping
@@ -1129,28 +1130,48 @@ object Main105 extends App {
 
       import spinal.lib.bus.tilelink
 
-      class TilelinkToAxiBridge() extends Area{
-        val up = tilelink.fabric.Node.slave()
-        val down = axi4.fabric.Node.master()
-
-        val tag = new MemoryConnection {
-          def m = peripheralBus
-          def s = apbBus
-          def mapping = SizeMapping(0, 0x1000)
-          up.add(this)
-          down.add(this)
-        }
-
-        val logic = Fiber build new Area{
-          // Handle the negotiation from Tilelink to AXI
-          // ...
-          // Generate the hardware
-          // ...
-        }
-      }
+//      class TilelinkToAxiBridge() extends Area{
+//        val up = tilelink.fabric.Node.slave()
+//        val down = axi4.fabric.Node.master()
+//
+//        val tag = new MemoryConnection {
+//          def m = peripheralBus
+//          def s = apbBus
+//          def mapping = SizeMapping(0, 0x1000)
+//          up.add(this)
+//          down.add(this)
+//        }
+//
+//        val logic = Fiber build new Area{
+//          // Handle the negotiation from Tilelink to AXI
+//          // ...
+//          // Generate the hardware
+//          // ...
+//        }
+//      }
 
     }
 
   })
 
+
+  case class Apb3(addressWidth: Int,
+                  dataWidth : Int) extends Bundle with IMasterSlave {
+
+    val PADDR      = UInt(addressWidth bits)
+    val PSEL       = Bool()
+    val PENABLE    = Bool()
+    val PREADY     = Bool()
+    val PWRITE     = Bool()
+    val PWDATA     = Bits(dataWidth bits)
+    val PRDATA     = Bits(dataWidth bits)
+    val PSLVERROR  = Bool()
+
+    override def asMaster(): Unit = {
+      out(PADDR, PSEL, PENABLE, PWRITE, PWDATA)
+      in(PREADY, PRDATA, PSLVERROR)
+    }
+  }
 }
+
+//ffmpeg -i video.mp4 -ac 1 video_mono.mp4
