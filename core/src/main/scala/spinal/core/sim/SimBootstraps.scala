@@ -46,6 +46,7 @@ case class SpinalVerilatorBackendConfig[T <: Component](
                                                          optimisationLevel : Int = 2,
                                                          simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
                                                          withCoverage      : Boolean,
+                                                         timeScale         : TimeNumber = null,
                                                          timePrecision     : TimeNumber = null
 )
 
@@ -172,6 +173,7 @@ class SpinalVpiBackendConfig[T <: Component](val rtl               : SpinalRepor
                                              val usePluginsCache  : Boolean,
                                              val pluginsCachePath : String,
                                              val enableLogging    : Boolean,
+                                             val timeScale        : TimeNumber,
                                              val timePrecision    : TimeNumber)
 
 
@@ -188,6 +190,7 @@ case class SpinalIVerilogBackendConfig[T <: Component](override val rtl : Spinal
                                                    override val usePluginsCache   : Boolean = true,
                                                    override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
                                                    override val enableLogging     : Boolean = false,
+                                                   override val timeScale         : TimeNumber = null,
                                                    override val timePrecision     : TimeNumber = null) extends
                                               SpinalVpiBackendConfig[T](rtl,
                                                                         waveFormat,
@@ -202,6 +205,7 @@ case class SpinalIVerilogBackendConfig[T <: Component](override val rtl : Spinal
                                                                         usePluginsCache,
                                                                         pluginsCachePath,
                                                                         enableLogging,
+                                                                        timeScale,
                                                                         timePrecision)
 
 
@@ -218,6 +222,7 @@ case class SpinalVCSBackendConfig[T <: Component](override val rtl : SpinalRepor
                                                   override val usePluginsCache   : Boolean = true,
                                                   override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
                                                   override val enableLogging     : Boolean = false,
+                                                  override val timeScale         : TimeNumber = null,
                                                   override val timePrecision     : TimeNumber = null,
                                                   val simSetupFile               : String = null,
                                                   val envSetup                   : () => Unit = null,
@@ -239,6 +244,7 @@ case class SpinalVCSBackendConfig[T <: Component](override val rtl : SpinalRepor
     usePluginsCache,
     pluginsCachePath,
     enableLogging,
+    timeScale,
     timePrecision)
 
 case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalReport[T],
@@ -254,6 +260,7 @@ case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalRepo
                                                    override val usePluginsCache   : Boolean = true,
                                                    override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
                                                    override val enableLogging     : Boolean = false,
+                                                   override val timeScale         : TimeNumber = null,
                                                    override val timePrecision     : TimeNumber = null) extends
                                               SpinalVpiBackendConfig[T](rtl,
                                                                         waveFormat,
@@ -268,6 +275,7 @@ case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalRepo
                                                                         usePluginsCache,
                                                                         pluginsCachePath,
                                                                         enableLogging,
+                                                                        timeScale,
                                                                         timePrecision)
 
 
@@ -440,6 +448,7 @@ case class SpinalXSimBackendConfig[T <: Component](val rtl               : Spina
                                                val xilinxDevice     : String,
                                                val simScript        : String,
                                                val simulatorFlags   : ArrayBuffer[String] = ArrayBuffer[String](),
+                                               val timeScale        : TimeNumber = null,
                                                val timePrecision    : TimeNumber = null)
 
 object SpinalXSimBackend {
@@ -463,6 +472,7 @@ object SpinalXSimBackend {
     vconfig.xilinxDevice      = xilinxDevice
     vconfig.userSimulationScript = simScript
     vconfig.xelabFlags        = simulatorFlags.toArray
+    vconfig.timeScale         = if (timeScale != null) timeScale.decomposeString else null
     vconfig.timePrecision     = if (timePrecision != null) timePrecision.decomposeString else null
 
     var signalId = 0
@@ -996,6 +1006,7 @@ case class SpinalSimConfig(
           optimisationLevel = _optimisationLevel,
           simulatorFlags = _simulatorFlags,
           withCoverage = _withCoverage,
+          timeScale = _timeScale,
           timePrecision = _timePrecision
         )
         val backend = SpinalVerilatorBackend(vConfig)
@@ -1025,6 +1036,7 @@ case class SpinalSimConfig(
           runFlags = _runFlags,
           enableLogging = _withLogging,
           usePluginsCache = !_disableCache,
+          timeScale = _timeScale,
           timePrecision = _timePrecision
         )
         val backend = SpinalGhdlBackend(vConfig)
@@ -1053,6 +1065,7 @@ case class SpinalSimConfig(
           simulatorFlags = _simulatorFlags,
           enableLogging = _withLogging,
           usePluginsCache = !_disableCache,
+          timeScale = _timeScale,
           timePrecision = _timePrecision
         )
         val backend = SpinalIVerilogBackend(vConfig)
@@ -1084,6 +1097,7 @@ case class SpinalSimConfig(
           vcsFlags = _vcsUserFlags,
           simSetupFile = _vcsSimSetupFile,
           envSetup = _vcsEnvSetup,
+          timeScale = _timeScale,
           timePrecision = _timePrecision
         )
         val backend = SpinalVCSBackend(vConfig)
@@ -1108,6 +1122,7 @@ case class SpinalSimConfig(
           xilinxDevice = _xilinxDevice,
           simScript = _simScript,
           simulatorFlags = _simulatorFlags,
+          timeScale = _timeScale,
           timePrecision = _timePrecision
         )
         val backend = SpinalXSimBackend(vConfig)

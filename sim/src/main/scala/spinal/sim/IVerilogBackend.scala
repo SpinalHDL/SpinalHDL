@@ -60,10 +60,17 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
   val IVERILOGLDFLAGS = Process(Seq(iverilogVpiPath, "--ldflags")).!!
   val IVERILOGLDLIBS = Process(Seq(iverilogVpiPath, "--ldlibs")).!!
 
-  val timeScale = config.timePrecision match {
-    case null => "1ns/1ns"
-    case t => "1ns/" + t.replace(" ", "")
+  val timeScaleStr = config.timeScale match {
+    case null => "1ns"
+    case t => t.replace(" ", "")
   }
+
+  val timePrecisionStr = config.timePrecision match {
+    case null => "1ns"
+    case t => t.replace(" ", "")
+  }
+
+  val timeScale = timeScaleStr + "/" + timePrecisionStr
 
   def compileVPI() = {
     val vpiModulePath = pluginsPath + "/" + vpiModuleName

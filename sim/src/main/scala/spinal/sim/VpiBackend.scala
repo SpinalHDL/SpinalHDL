@@ -30,6 +30,7 @@ case class VpiBackendConfig(
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
   var logSimProcess: Boolean = false,
+  var timeScale: String      = null,
   var timePrecision: String  = null
 )
 

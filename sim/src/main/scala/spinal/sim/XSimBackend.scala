@@ -29,6 +29,7 @@ case class XSimBackendConfig(
                              var waveFormat: WaveFormat = WaveFormat.NONE,
                              var userSimulationScript: String = null,
                              var xelabFlags: Array[String] = null,
+                             var timeScale: String = null,
                              var timePrecision: String = null
                            )
 
@@ -168,9 +169,10 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       moreOptions ++= config.xelabFlags
     }
     if (config.timePrecision != null) {
+      val timeScale = config.timeScale.replace(" ", "")
       val timePrecision = config.timePrecision.replace(" ","")
       moreOptions += "-override_timeprecision"
-      moreOptions += "-timescale " + timePrecision + "/" + timePrecision
+      moreOptions += "-timescale " + timeScale + "/" + timePrecision
       moreOptions += "-timeprecision_vhdl " + timePrecision
     }
 
