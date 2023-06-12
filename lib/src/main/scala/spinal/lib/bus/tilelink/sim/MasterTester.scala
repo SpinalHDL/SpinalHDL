@@ -39,14 +39,16 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
         l.lock()
       }
       def unlock(address : Long) = {
-        val l = locks.getOrElseUpdate(address, new SimMutex(randomized = true))
+        val l = locks(address)
         l.unlock()
+        if(!l.locked) locks.remove(address)
       }
 
       for (source <- masterParam.mapping) {
         source.id.foreach { sourceIdBI =>
           val sourceId = sourceIdBI.toInt
           threads += fork {
+            Thread.currentThread().setName(s"MasterTester_source_$sourceId" )
             val distribution = new WeightedDistribution[Unit]()
 
 //            def releaseBlockIfExists(address : Long): Unit ={
@@ -104,44 +106,52 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
               Array.fill[Boolean](bytes)(Random.nextBoolean())
             }
 
-            val gets = m.mapping.filter(_.allowed.get.some)
-            if(gets.nonEmpty) distribution(10) {
-              val (address, bytes) = randomized(gets, _.get)
+            def add(filter : M2sTransfers => SizeRange)(body : (Long, Int) => Unit): Unit ={
+              val filtred = m.mapping.filter(e => filter(e.allowed).some)
+              if(filtred.nonEmpty) distribution(10) {
+                val (address, bytes) = randomized(filtred, filter)
+                lock(address)
+                body(address, bytes)
+                unlock(address)
+              }
+            }
+
+            add(_.get){(address, bytes) =>
               agent.get(sourceId, address, bytes)
             }
-
-            val putPartials = m.mapping.filter(_.allowed.putPartial.some)
-            if(putPartials.nonEmpty) distribution(10) {
-              val (address, bytes) = randomized(putPartials, _.putPartial)
+            add(_.putPartial){(address, bytes) =>
               agent.putPartialData(sourceId, address, randomizedData(bytes), randomizedMask(bytes))
             }
-
-            //Read block
-//            val slavesWithAcquireB = m.mapping.filter(_.allowed.acquireB.some)
-//            if(slavesWithAcquireB.nonEmpty) {
-//              val s = slavesWithAcquireB.randomPick()
-//              val mapping = s.mapping.randomPick()
-//              val sizeMax = mapping.size.toInt
-//              val bytes = source.emits.acquireB.random(randMax = sizeMax)
-//              val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
-//              val address = mapping.base.toLong + addressLocal
-//              val gMem = s.model.asInstanceOf[SparseMemory]
-//              lock(address)
-//              var b : Block = null
-//              agent.block.get(sourceId, address) match {
-//                case Some(x) => b = x
-//                case None => {
-//                  b = acquireBlock(Param.Grow.NtoB, address, bytes, gMem, mapping.base.toLong)
-//                }
-//              }
-//              assert(b.cap < Param.Cap.toN)
-//              if(b.dirty == false) assert((b.data, gMem.readBytes(addressLocal, bytes)).zipped.forall(_ == _))
-//              unlock(address)
-//            }
+            add(_.putFull){(address, bytes) =>
+              agent.putFullData(sourceId, address, randomizedData(bytes))
+            }
+            add(_.acquireB){(address, bytes) =>
+              val b = agent.block.get(sourceId, address) match {
+                case Some(x : Block) => x
+                case None => agent.acquireBlock(sourceId, Param.Grow.NtoB, address, bytes)
+              }
+              assert(b.cap < Param.Cap.toN)
+            }
+            add(_.acquireT){(address, bytes) =>
+              var b = agent.block.get(sourceId, address) match {
+                case Some(x : Block) => x
+                case None => agent.acquireBlock(sourceId, Param.Grow.NtoT, address, bytes)
+              }
+              assert(b.cap < Param.Cap.toN)
+              if(b.cap > Param.Cap.toT){
+                b = agent.acquireBlock(sourceId, Param.Grow.BtoT, address, bytes)
+              }
+              assert(b.cap == Param.Cap.toT, f"$source $address%x")
+              if(Random.nextFloat() < 0.8) {
+                b.dirty = true
+                for (i <- 0 until bytes if Random.nextBoolean()) b.data(i) = Random.nextInt().toByte
+              }
+            }
 
             for (i <- 0 until perSourceBurst) {
               distribution.randomExecute()
             }
+            Thread.currentThread().setName(s"???" )
           }
         }
       }

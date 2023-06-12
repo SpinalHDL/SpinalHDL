@@ -1007,19 +1007,26 @@ package object sim {
       }
       this
     }
+
     def unlock() : this.type = {
       assert(locked)
-      if(queue.nonEmpty) {
-        randomized match {
-          case false => queue.dequeue().resume()
-          case true =>  {
+      randomized match {
+        case false => {
+          if(queue.nonEmpty) {
+            queue.dequeue().resume()
+          } else {
+            locked = false
+          }
+        }
+        case true =>  {
+          if(array.nonEmpty) {
             val (t, i) = array.randomPickWithIndex()
             array.remove(i)
             t.resume()
+          } else {
+            locked = false
           }
         }
-      } else {
-        locked = false
       }
       this
     }
@@ -1027,7 +1034,10 @@ package object sim {
     def await() : Unit = {
       if(locked) {
         val t = simThread
-        queue.enqueue(t)
+        randomized match {
+          case false => queue.enqueue(t)
+          case true => array += t
+        }
         t.suspend()
       }
     }

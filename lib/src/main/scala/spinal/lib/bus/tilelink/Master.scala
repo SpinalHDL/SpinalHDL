@@ -157,6 +157,7 @@ case class M2sAgent(name    : Nameable,
   val sourceWidth = mapping.map(_.id.width).max
   def bSourceId = mapping.head.bSourceId
   def sourceHit(source : UInt) = mapping.map(_.id.hit(source)).orR
+  def sourceHit(source : Int) = mapping.exists(_.id.hit(source))
   def withExecute = mapping.exists(_.isExecute)
   def remapSources(f : M2sSource => M2sSource) = {
     copy(mapping = mapping.map(f))

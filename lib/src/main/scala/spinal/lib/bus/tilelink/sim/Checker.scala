@@ -18,8 +18,10 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
     m.add(this)
   }
 
+  def getMapping(address : BigInt) = mappings.find(_.mapping.exists(_.hit(address))).get
+
   class InflightA(val a : TransactionA){
-    val mapping = mappings.find(_.mapping.exists(_.hit(a.address))).get
+    val mapping = getMapping(a.address)
     var ref : Array[Byte] = null
   }
 
@@ -35,8 +37,15 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
           case Opcode.A.GET => {
             ctx.ref = mem.readBytes(o.address.toInt, o.bytes)
           }
-          case Opcode.A.PUT_FULL_DATA | Opcode.A.PUT_PARTIAL_DATA => {
+          case Opcode.A.PUT_PARTIAL_DATA=> {
             mem.write(o.address.toInt, a.data, a.mask)
+          }
+          case Opcode.A.PUT_FULL_DATA=> {
+            assert(a.mask.forall(v => v))
+            mem.write(o.address.toInt, a.data, a.mask)
+          }
+          case Opcode.A.ACQUIRE_BLOCK => {
+            ctx.ref = mem.readBytes(o.address.toInt, o.bytes)
           }
         }
       }
@@ -58,7 +67,32 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
       case Opcode.D.RELEASE_ACK => ???
     }
   }
-  override def onB(b: TransactionB) = ???
-  override def onC(c: TransactionC) = ???
-  override def onE(e: TransactionE) = ???
+  override def onB(b: TransactionB) = {
+    //TODO
+  }
+  override def onC(c: TransactionC) = {
+    //TODO check that inflight trafic is ok
+    assert((c.address & (c.bytes-1)) == 0, "Unaligned address :(")
+    val mapping = getMapping(c.address)
+    val base = mapping.mapping.map(_.base).min.toLong
+    mapping.model match {
+      case mem : SparseMemory => c.opcode match {
+        case Opcode.C.RELEASE_DATA => {
+          mem.write(c.address.toLong-base, c.data)
+        }
+        case Opcode.C.PROBE_ACK_DATA=> {
+          mem.write(c.address.toLong-base, c.data)
+        }
+        case Opcode.C.PROBE_ACK=> {
+
+        }
+        case Opcode.C.RELEASE=> {
+
+        }
+      }
+    }
+  }
+  override def onE(e: TransactionE) = {
+    //TODO
+  }
 }

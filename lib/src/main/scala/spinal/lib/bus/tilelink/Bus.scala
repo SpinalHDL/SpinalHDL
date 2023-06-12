@@ -85,6 +85,12 @@ object Param{
     val NtoB = 0
     val NtoT = 1
     val BtoT = 2
+
+    def getCap(grow : Int) = grow match {
+      case NtoB => Cap.toB
+      case NtoT => Cap.toT
+      case BtoT => Cap.toT
+    }
   }
 
   def reportPruneToCap(param : Int) = param match {

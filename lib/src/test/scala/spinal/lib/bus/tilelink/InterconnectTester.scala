@@ -25,14 +25,23 @@ import scala.util.Random
 
 
 class InterconnectTester extends AnyFunSuite{
-  def testInterconnect(c : Component)
+  def testInterconnectTb(c : Component)
                       (implicit idAllocator : IdAllocator = new IdAllocator(DebugId.width),
-                                idCallback  : IdCallback = new IdCallback) : Unit = {
+                                idCallback  : IdCallback = new IdCallback)  = {
     val nodes = c.getTags().collect{case t : Node => t}.toSeq
     testInterconnectImpl(nodes)
   }
+
+  def testInterconnect(c : Component)
+                      (implicit idAllocator : IdAllocator = new IdAllocator(DebugId.width),
+                       idCallback  : IdCallback = new IdCallback) : Unit = {
+    val tb = testInterconnectTb(c)
+    tb.mastersStuff.foreach(_.tester.startPerSource(100))
+    tb.mastersStuff.foreach(_.tester.join())
+  }
+
   def testInterconnectImpl(nodes : Seq[Node])
-                          (implicit idAllocator : IdAllocator, idCallback : IdCallback) : Unit = {
+                          (implicit idAllocator : IdAllocator, idCallback : IdCallback) = new Area {
     val nodeToModel = mutable.LinkedHashMap[Node, SparseMemory]()
     val slaveNodes = nodes.filter(_.bus.isMasterInterface)
     val masterNodes = nodes.filter(_.bus.isSlaveInterface)
@@ -66,14 +75,11 @@ class InterconnectTester extends AnyFunSuite{
       val tester = new MasterTester(m, agent)
       val monitor = new Monitor(m.bus, m.cd)
       val checker = new Checker(monitor, m.mapping)
-      tester.startPerSource(100)
     }
 
     for(node <- slaveNodes) {
       val model = new MemoryAgent(node.bus, node.clockDomain, nodeToModel(node).seed)
     }
-
-    mastersStuff.foreach(_.tester.join())
   }
 
   def readWrite = M2sTransfers(
@@ -120,10 +126,10 @@ class InterconnectTester extends AnyFunSuite{
     M2sParameters(
       addressWidth = 32,
       dataWidth = dataWidth,
-      masters = List(M2sAgent(
+      masters = List.tabulate(4)(mid => M2sAgent(
         name = null,
         mapping = List(M2sSource(
-          id = SizeMapping(0, 4),
+          id = SizeMapping(mid*4, 4),
           emits = emit
         ))
       ))
@@ -433,7 +439,13 @@ class InterconnectTester extends AnyFunSuite{
       s0.node at 0x1000 of b0
     }).doSim(seed = 42){dut =>
       dut.clockDomain.forkStimulus(10)
-//      testInterconnect(dut)
+      testInterconnect(dut)
+
+//      val tb = testInterconnectTb(dut)
+//      tb.mastersStuff(0).agent.acquireBlock(0, Param.Grow.NtoB, 0x1080, 0x40)
+//      tb.mastersStuff(0).agent.acquireBlock(4, Param.Grow.NtoB, 0x1080, 0x40)
+//      tb.mastersStuff(0).agent.acquireBlock(1, Param.Grow.BtoT, 0x1080, 0x40)
+//      dut.clockDomain.waitSampling(10)
     }
   }
 

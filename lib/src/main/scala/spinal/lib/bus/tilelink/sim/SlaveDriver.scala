@@ -22,4 +22,11 @@ class SlaveDriver(bus : Bus, cd : ClockDomain) {
       for(beat <- beats) push(beat.write)
     }
   }
+
+  def scheduleB(b : TransactionB): Unit ={
+    val beats = b.serialize(bus.p.dataBytes)
+    driver.b.burst{push =>
+      for(beat <- beats) push(beat.write)
+    }
+  }
 }

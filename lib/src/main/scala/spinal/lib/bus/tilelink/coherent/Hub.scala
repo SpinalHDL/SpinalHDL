@@ -664,10 +664,13 @@ class Hub(p : HubParameters) extends Component{
       val fired = RegInit(False) setWhen(io.up.d.fire) clearWhen(isReady)
       io.up.d.valid := isValid && hit && fired
       io.up.d.payload := D_PAYLOAD
+      io.up.d.source.removeAssignments()
       io.up.d.sink.removeAssignments() := U(ctx.a.conflictCtx ## ctx.a.set)
       when(ctx.fromC){
         io.up.d.opcode := Opcode.D.RELEASE_ACK
+        io.up.d.source := ctx.c.source
       } otherwise {
+        io.up.d.source := ctx.a.source
         when(!ctx.a.getPut) {
           io.up.d.opcode := Opcode.D.GRANT_DATA
         }

@@ -173,7 +173,8 @@ class TransactionA extends TransactionABCD{
 }
 
 object TransactionB{
-  def apply(p : ChannelB) = new TransactionB().read(p)
+  def apply() : TransactionB = new TransactionB()
+  def apply(p : ChannelB) : TransactionB = apply().read(p)
 }
 class TransactionB extends TransactionABCD{
   override type T = TransactionB
@@ -185,10 +186,12 @@ class TransactionB extends TransactionABCD{
     source = p.source.toInt
     address = p.address.toBigInt
     size = p.size.toInt
-    corrupt = p.corrupt.toBoolean
-    if(withData) {
-      mask = p.mask.toBooleans
-      data = p.data.toBytes
+    if(p.withData) {
+      corrupt = p.corrupt.toBoolean
+      if (withData) {
+        mask = p.mask.toBooleans
+        data = p.data.toBytes
+      }
     }
     this
   }
@@ -231,7 +234,8 @@ class TransactionB extends TransactionABCD{
 }
 
 object TransactionC{
-  def apply(p : ChannelC) = new TransactionC().read(p)
+  def apply() : TransactionC = new TransactionC()
+  def apply(p : ChannelC) : TransactionC = apply().read(p)
 }
 class TransactionC extends TransactionABCD{
   override type T = TransactionC
@@ -298,6 +302,7 @@ object TransactionD{
 class TransactionD extends TransactionABCD{
   override type T = TransactionD
   var opcode  : Opcode.D.E = null
+  var sink = BigInt(0)
   var denied = false
 
   def read(p : ChannelD, address : BigInt): this.type ={
@@ -306,6 +311,7 @@ class TransactionD extends TransactionABCD{
     param = p.param.toInt
     source = p.source.toInt
     size = p.size.toInt
+    sink = p.sink.toBigInt
     denied = p.denied.toBoolean
     if(p.withData) {
       corrupt = p.corrupt.toBoolean
@@ -322,6 +328,7 @@ class TransactionD extends TransactionABCD{
     p.source #= source
     p.size #= size
     p.denied #= denied
+    p.sink #= sink
     if(p.withData) {
       p.corrupt #= corrupt
       if(withData) {
@@ -343,6 +350,7 @@ class TransactionD extends TransactionABCD{
     super.assertBeatOf(that, offset)
     assert(this.opcode == that.asInstanceOf[TransactionD].opcode)
     assert(this.denied == that.asInstanceOf[TransactionD].denied)
+    assert(this.sink == that.asInstanceOf[TransactionD].sink)
   }
 
   override def copyNoData()(implicit evidence: ClassTag[T]) : T = {
@@ -350,6 +358,7 @@ class TransactionD extends TransactionABCD{
     ret.copyNoDataFrom(this)
     ret.opcode = opcode
     ret.denied = denied
+    ret.sink = sink
     ret.asInstanceOf[this.type]
   }
 
@@ -365,6 +374,9 @@ class TransactionD extends TransactionABCD{
           case Opcode.A.PUT_FULL_DATA | Opcode.A.PUT_PARTIAL_DATA => {
             opcode == Opcode.D.ACCESS_ACK
           }
+          case Opcode.A.ACQUIRE_BLOCK => {
+            opcode == Opcode.D.GRANT || opcode == Opcode.D.GRANT_DATA
+          }
         }
       }
     })
@@ -373,10 +385,16 @@ class TransactionD extends TransactionABCD{
 
 
 object TransactionE{
-  def apply(p : ChannelE) = new TransactionE().read(p)
+  def apply() : TransactionE = new TransactionE()
+  def apply(p : ChannelE) : TransactionE = apply().read(p)
+  def apply(sink : BigInt) : TransactionE = {
+    val e = new TransactionE()
+    e.sink = sink
+    e
+  }
 }
 class TransactionE {
-  var sink = -1
+  var sink = BigInt(-1)
 
   def read(p : ChannelE): this.type ={
     sink = p.sink.toInt
