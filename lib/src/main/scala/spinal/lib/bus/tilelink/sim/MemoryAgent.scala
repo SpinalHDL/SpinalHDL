@@ -41,7 +41,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
         d.data = mem.readBytes(a.address.toLong, a.bytes)
         driver.scheduleD(d)
       }
-      case Opcode.A.PUT_PARTIAL_DATA | Opcode.A.PUT_FULL_DATA => {
+      case Opcode.A.PUT_PARTIAL_DATA | Opcode.A.PUT_FULL_DATA => { //TODO probePerm not tested
         handleCoherency(a, Param.Cap.toN)
         idCallback.call(a.debugId)(new OrderingArgs(a.address, a.bytes))
         mem.write(a.address.toLong, a.data, a.mask)
@@ -135,6 +135,10 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
     c.opcode match {
       case PROBE_ACK | PROBE_ACK_DATA => callbackOnC(c.source -> c.address.toLong).apply(c)
       case RELEASE | RELEASE_DATA => {
+        if(c.opcode == RELEASE_DATA){
+          mem.write(c.address.toLong, c.data)
+        }
+
         val d = TransactionD(c)
         d.opcode = Opcode.D.RELEASE_ACK
         driver.scheduleD(d)

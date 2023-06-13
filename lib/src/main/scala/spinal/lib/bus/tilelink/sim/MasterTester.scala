@@ -51,38 +51,6 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
             Thread.currentThread().setName(s"MasterTester_source_$sourceId" )
             val distribution = new WeightedDistribution[Unit]()
 
-//            def releaseBlockIfExists(address : Long): Unit ={
-//              lock(address)
-//              agent.block.get(source, address) match {
-//                case Some(block) => {
-//                  block.dirty match {
-//                    case false => release(agent,source,Param.Cap.toN, block)
-//                    case true  => releaseData(agent,source,Param.Cap.toN, block)
-//                  }
-//                }
-//                case None =>
-//              }
-//              unlock(address)
-//            }
-
-//            def acquireBlock(param : Int,
-//                             address : Long,
-//                             bytes : Int,
-//                             mem : SparseMemory,
-//                             memAddress : Long): Block ={
-////              var ref: Array[Byte] = null
-//              val block = agent.acquireBlock(sourceId, param, address, bytes)/*{ args =>
-//                ref = mem.readBytes(args.address.toLong, args.bytes)
-//              }*/
-////              block.ordering(args => mem.write(address-memAddress, block.data))
-//              //      println(f"* $address%x $source")
-//              //      println(toHex(block.data))
-//              //      println(toHex(ref))
-//              //assert((block.data, ref).zipped.forall(_ == _))
-//              block
-//            }
-
-
             def randomized(mappings : Seq[Mapping], sizes : M2sTransfers => SizeRange): (Long, Int) = {
               val s = mappings.randomPick()
               val mapping = s.mapping.randomPick()
@@ -169,7 +137,11 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
                   case Param.Cap.toB => agent.release(sourceId, Param.Cap.toN, block)
                   case Param.Cap.toT => {
                     val cap = if(Random.nextBoolean()) Param.Cap.toB else Param.Cap.toN
-                    agent.release(sourceId, cap, block)
+                    block.dirty match {
+                      case true  => agent.releaseData(sourceId, cap, block);
+                      case false => agent.release(sourceId, cap, block)
+                    }
+                    block.dirty = false
                   }
                 }
                 unlock(block.address)
