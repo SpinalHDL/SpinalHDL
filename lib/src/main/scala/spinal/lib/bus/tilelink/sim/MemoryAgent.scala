@@ -42,7 +42,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
         driver.scheduleD(d)
       }
       case Opcode.A.PUT_PARTIAL_DATA | Opcode.A.PUT_FULL_DATA => { //TODO probePerm not tested
-        handleCoherency(a, Param.Cap.toN)
+        handleCoherency(a, Param.Cap.toN, a.bytes == blockSize && a.opcode == Opcode.A.PUT_FULL_DATA)
         idCallback.call(a.debugId)(new OrderingArgs(a.address, a.bytes))
         mem.write(a.address.toLong, a.data, a.mask)
         val d = TransactionD(a)
@@ -91,7 +91,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
 
   case class CoherencyReport(val needData : Boolean,
                              val unique : Boolean)
-  def handleCoherency(a: TransactionA, cap : Int): CoherencyReport ={
+  def handleCoherency(a: TransactionA, cap : Int, allowProbePerm : Boolean = false): CoherencyReport ={
     val blockAddress = a.address.toLong & ~(blockSize-1)
     var needData = false
     var unique = true
@@ -100,6 +100,9 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
       val mapping = m.mapping.randomPick()
       val b = TransactionB()
       b.opcode = Opcode.B.PROBE_BLOCK
+      if(allowProbePerm && Random.nextBoolean()) {
+        b.opcode = Opcode.B.PROBE_PERM
+      }
       b.address = blockAddress
       b.param = cap match {
         case Param.Cap.toT => if(isSelf) Param.Cap.toT else Param.Cap.toN

@@ -305,7 +305,6 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
   def release(source : Int, toCap : Int, block : Block) : Unit = {
     block.retain()
 
-    val debugId = idAllocator.allocate()
     val c = new TransactionC()
     c.opcode  = Opcode.C.RELEASE
     c.param   = Param.Prune.fromTo(block.cap, toCap)
@@ -326,7 +325,6 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     block.dirty = false
     block.retain()
 
-    val debugId = idAllocator.allocate()
     val c = new TransactionC()
     c.opcode  = Opcode.C.RELEASE_DATA
     c.param   = Param.Prune.fromTo(block.cap, toCap)
@@ -384,51 +382,47 @@ class BlockManager(ma : MasterAgent){
   }
 
   def executeProbe(probe : Probe): Unit ={
-    probe.perm match{
-      case false => {
-        blocks.get(sourceToMaster(probe.source) -> probe.address) match {
-          case Some(b : Block) => {
-            b.probe = None
-            b.retains match {
-              case 0 => {
-                b.cap < probe.param match {
+    blocks.get(sourceToMaster(probe.source) -> probe.address) match {
+      case Some(b : Block) => {
+        b.probe = None
+        b.retains match {
+          case 0 => {
+            b.cap < probe.param match {
+              case false => probeAck(
+                source = probe.source,
+                toCap =  b.cap,
+                block = b
+              )
+              case true  => {
+                (b.dirty && !probe.perm) match {
                   case false => probeAck(
                     source = probe.source,
-                    toCap =  b.cap,
+                    toCap = probe.param,
                     block = b
                   )
-                  case true  => {
-                    b.dirty match {
-                      case false => probeAck(
-                        source = probe.source,
-                        toCap = probe.param,
-                        block = b
-                      )
-                      case true => {
-                        b.dirty = false
-                        probeAckData(
-                          toCap = probe.param,
-                          source = probe.source,
-                          block = b
-                        )
-                      }
-                    }
+                  case true => {
+                    b.dirty = false
+                    probeAckData(
+                      toCap = probe.param,
+                      source = probe.source,
+                      block = b
+                    )
                   }
                 }
               }
-              case _ => ???
             }
           }
-          case None => probeAck(
-            param   = Param.Report.NtoN,
-            source  = probe.source,
-            address = probe.address,
-            bytes   = blockSize
-          )
+          case _ => ???
         }
-        probeBlock(probe.source, probe.param, probe.address, blockSize)
       }
+      case None => probeAck(
+        param   = Param.Report.NtoN,
+        source  = probe.source,
+        address = probe.address,
+        bytes   = blockSize
+      )
     }
+    probeBlock(probe.source, probe.param, probe.address, blockSize)
   }
 
   def updateBlock(block : Block): Unit ={

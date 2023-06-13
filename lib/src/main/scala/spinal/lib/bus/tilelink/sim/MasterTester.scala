@@ -93,6 +93,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
             add(_.putFull){(address, bytes) =>
               agent.putFullData(sourceId, address, randomizedData(bytes))
             }
+            // acquireBlock NtoB
             add(_.acquireB){(address, bytes) =>
               val b = agent.block.get(sourceId, address) match {
                 case Some(x : Block) => x
@@ -100,6 +101,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
               }
               assert(b.cap < Param.Cap.toN)
             }
+            // acquireBlock NtoT
             add(_.acquireT){(address, bytes) =>
               var b = agent.block.get(sourceId, address) match {
                 case Some(x : Block) => x
@@ -115,6 +117,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
                 for (i <- 0 until bytes if Random.nextBoolean()) b.data(i) = Random.nextInt().toByte
               }
             }
+            // acquirePerm XtoT
             add(_.acquireT, 5){(address, bytes) =>
               var b = agent.block.get(sourceId, address) match {
                 case Some(x : Block) => x
@@ -128,6 +131,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
               b.data = new Array[Byte](bytes)
               Random.nextBytes(b.data)
             }
+            // release + releaseData
             if(masterParam.emits.withBCE) distribution(3) {
               val block = agent.block.getRandomBlock(masterParam)
               if(block != null){
