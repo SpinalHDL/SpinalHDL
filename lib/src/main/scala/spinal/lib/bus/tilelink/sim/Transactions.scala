@@ -377,6 +377,9 @@ class TransactionD extends TransactionABCD{
           case Opcode.A.ACQUIRE_BLOCK => {
             opcode == Opcode.D.GRANT || opcode == Opcode.D.GRANT_DATA
           }
+          case Opcode.A.ACQUIRE_PERM => {
+            opcode == Opcode.D.GRANT
+          }
         }
       }
     })

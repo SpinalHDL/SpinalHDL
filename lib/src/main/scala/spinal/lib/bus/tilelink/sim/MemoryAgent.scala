@@ -68,6 +68,20 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
         waitE(sink)
         sinkAllocator.remove(sink)
       }
+      case Opcode.A.ACQUIRE_PERM => {
+        val probe = handleCoherency(a, Param.Grow.getCap(a.param))
+        idCallback.call(a.debugId)(new OrderingArgs(a.address, a.bytes))
+        assert(probe.unique)
+
+        val sink = sinkAllocator.allocate()
+        val d = TransactionD(a)
+        d.sink = sink
+        d.param = Param.Cap.toT
+        d.opcode = Opcode.D.GRANT
+        driver.scheduleD(d)
+        waitE(sink)
+        sinkAllocator.remove(sink)
+      }
     }
     release(blockAddress)
   }
@@ -115,7 +129,15 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
 
   val callbackOnC = mutable.LinkedHashMap[(Int, Long), TransactionC => Unit]()
   override def onC(c: TransactionC) = {
-    callbackOnC(c.source -> c.address.toLong).apply(c)
+    import Opcode.C._
+    c.opcode match {
+      case PROBE_ACK | PROBE_ACK_DATA => callbackOnC(c.source -> c.address.toLong).apply(c)
+      case RELEASE | RELEASE_DATA => {
+        val d = TransactionD(c)
+        d.opcode = Opcode.D.RELEASE_ACK
+        driver.scheduleD(d)
+      }
+    }
   }
 
   override def onD(d: TransactionD) = {}

@@ -24,6 +24,8 @@ class Block(val source : Int,
     retains -= 1
   }
   var probe = Option.empty[Probe]
+
+  override def toString = f"src=$source%02x addr=$address%x cap=$cap"
 }
 case class Probe(source : Int, param : Int, address : Long, size : Int, perm : Boolean){
 
@@ -97,111 +99,6 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
 
 
 
-//
-//  def releaseData(source : Int, toCap : Int, block : Block) : Boolean = {
-//    assert(block.dirty)
-//    block.dirty = false
-//    block.retain()
-//    val size = log2Up(blockSize)
-//    driver.c.burst { push =>
-//      for (offset <- 0 until blockSize by bus.p.dataBytes) {
-//        push { p =>
-//          val buf = new Array[Byte](bus.p.dataBytes)
-//          (0 until bus.p.dataBytes).foreach(i => buf(i) = block.data(offset + i))
-//          p.opcode #= Opcode.C.RELEASE_DATA
-//          p.param #= Param.reportPruneToCap(block.cap, toCap)
-//          p.size #= size
-//          p.source #= source
-//          p.address #= block.address + offset
-//          p.data #= buf
-//          p.corrupt #= false
-//        }
-//      }
-//    }
-//    val mutex = SimMutex().lock()
-//    var denied = false
-//    monitor.d(source) = {d =>
-//      monitor.d(source) = null
-//      assert(d.opcode.toEnum == Opcode.D.RELEASE_ACK)
-//      mutex.unlock()
-//    }
-//    mutex.await()
-////    ordering.checkDone(source)
-//
-////    val block = this.block(source, address)
-//    this.block.changeCap(block, toCap)
-//
-//    block.release()
-//    denied
-//  }
-//
-//
-//  def release(source : Int, toCap : Int, block : Block) : Boolean = {
-//    block.retain()
-//    val mutex = SimMutex().lock()
-//    driver.c.single { p =>
-//      p.opcode #= Opcode.C.RELEASE
-//      p.param #= Param.reportPruneToCap(block.cap, toCap)
-//      p.size #= log2Up(blockSize)
-//      p.source #= source
-//      p.address #= block.address
-//      p.data.randomize()
-//      p.corrupt #= false
-//    }
-//    var denied = false
-//    monitor.d(source) = {d =>
-//      monitor.d(source) = null
-//      assert(d.opcode.toEnum == Opcode.D.RELEASE_ACK)
-//      mutex.unlock()
-//    }
-//    mutex.await()
-////    ordering.checkDone(source)
-//
-//    this.block.changeCap(block, toCap)
-//    block.release()
-//    denied
-//  }
-//
-//
-//  def putFullData(source : Int, address : Long, data : Seq[Byte]) : Boolean = {
-//    val size = log2Up(data.length)
-//    driver.a.burst { push =>
-//      for (offset <- 0 until data.length by bus.p.dataBytes) {
-//        push { p =>
-//          val buf = new Array[Byte](bus.p.dataBytes)
-//          val byteOffset = (address & (bus.p.dataBytes - 1)).toInt
-//          val bytes = data.size
-//          for (i <- 0 until bus.p.dataBytes) {
-//            val ptr = offset + i - byteOffset
-//            (ptr >= 0 && ptr < bytes) match {
-//              case false => buf(i) = Random.nextInt().toByte
-//              case true => buf(i) = data(ptr)
-//            }
-//          }
-//          p.opcode #= Opcode.A.PUT_FULL_DATA
-//          p.param #= 0
-//          p.size #= size
-//          p.source #= source
-//          p.address #= address + offset
-//          p.mask #= ((BigInt(1) << bus.p.dataBytes.min(data.size)) - 1) << (address.toInt & (bus.p.dataBytes - 1))
-//          p.data #= buf
-//          p.corrupt #= false
-//        }
-//      }
-//    }
-//    val mutex = SimMutex().lock()
-//    var denied = false
-//    monitor.d(source) = {d =>
-//      monitor.d(source) = null
-//      assert(d.opcode.toEnum == Opcode.D.ACCESS_ACK)
-//      denied = d.denied.toBoolean
-//      mutex.unlock()
-//    }
-//    mutex.await()
-////    ordering.checkDone(source)
-//    denied
-//  }
-//
 
   def get(source : Int, address : Long, bytes : Int) : TransactionD = {
     val debugId = idAllocator.allocate()
@@ -356,13 +253,108 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     idAllocator.remove(debugId)
     b
   }
+
+
+  def acquirePerm (source : Int,
+                   param : Int,
+                   address : Long,
+                   bytes : Int): Block ={
+    val debugId = idAllocator.allocate()
+    val a = new TransactionA()
+    a.opcode  = Opcode.A.ACQUIRE_PERM
+    a.param   = param
+    a.size    = log2Up(bytes)
+    a.source  = source
+    a.address = address
+    a.debugId = debugId
+    driver.scheduleA(a)
+
+    val d = waitD(source)
+    var blk : Block = null
+    assert(d.opcode == Opcode.D.GRANT)
+    assert(d.param == Param.Cap.toT)
+    block.get(source, address) match {
+      case Some(x) => {
+        blk = x
+        if(debug) println(f"acquirePerm  src=$source%02x addr=$address%x ${blk.cap} -> 0 time=${simTime()}")
+        blk.cap = Param.Cap.toT
+      }
+      case None => {
+        if(debug) println(f"acquirePerm  src=$source%02x addr=$address%x 2 -> 0 time=${simTime()}")
+        blk = new Block(source, address, d.param, false, null){
+          override def release() = {
+            super.release()
+            if(retains == 0) {
+              probe.foreach(block.executeProbe)
+            }
+            block.updateBlock(this)
+          }
+        }
+        block(source -> address) = blk
+      }
+    }
+    onGrant(source, address, d.param)
+
+    val e = TransactionE(d.sink)
+    driver.scheduleE(e)
+
+    idAllocator.remove(debugId)
+    blk
+  }
+
+  def release(source : Int, toCap : Int, block : Block) : Unit = {
+    block.retain()
+
+    val debugId = idAllocator.allocate()
+    val c = new TransactionC()
+    c.opcode  = Opcode.C.RELEASE
+    c.param   = Param.Prune.fromTo(block.cap, toCap)
+    c.size    = log2Up(blockSize)
+    c.source  = source
+    c.address = block.address
+    driver.scheduleC(c)
+
+    val d = waitD(source)
+    assert(d.opcode == Opcode.D.RELEASE_ACK)
+
+    this.block.releaseCap(block, toCap)
+    block.release()
+  }
+
+  def releaseData(source : Int, toCap : Int, block : Block) : Unit = {
+    assert(block.dirty)
+    block.dirty = false
+    block.retain()
+
+    val debugId = idAllocator.allocate()
+    val c = new TransactionC()
+    c.opcode  = Opcode.C.RELEASE_DATA
+    c.param   = Param.Prune.fromTo(block.cap, toCap)
+    c.size    = log2Up(blockSize)
+    c.source  = source
+    c.address = block.address
+    c.data    = block.data
+    driver.scheduleC(c)
+
+    val d = waitD(source)
+    assert(d.opcode == Opcode.D.RELEASE_ACK)
+
+    this.block.releaseCap(block, toCap)
+    block.release()
+  }
 }
 
+import spinal.core.sim._
+import spinal.lib.sim._
 
 class BlockManager(ma : MasterAgent){
   import ma._
   val sourceToMaster = (0 until  1 << bus.p.sourceWidth).map(source => bus.p.node.m.getMasterFromSource(source))
   val blocks = mutable.LinkedHashMap[(M2sAgent, Long), Block]()
+  val blockHistorySize = 16
+  val blockRandomHistory = mutable.LinkedHashMap[M2sAgent, Array[Block]]()
+  ma.bus.p.node.m.masters.foreach(blockRandomHistory(_) = Array.fill[Block](blockHistorySize)(null))
+  def getRandomBlock(m : M2sAgent) = blockRandomHistory(m)(Random.nextInt(blockHistorySize))
   def apply(source : Int, address : Long) = blocks(sourceToMaster(source) -> address)
   def get(source : Int, address : Long) : Option[Block] = blocks.get(sourceToMaster(source) -> address)
   def contains(source : Int, address : Long) = blocks.contains(sourceToMaster(source) -> address)
@@ -370,12 +362,23 @@ class BlockManager(ma : MasterAgent){
     val key2 = (sourceToMaster(key._1) -> key._2)
     assert(!blocks.contains(key2))
     blocks(key2) = block
+    blockRandomHistory(key2._1)(Random.nextInt(blockHistorySize)) = block
   }
   def removeBlock(source : Int, address : Long) = {
-    blocks.remove(sourceToMaster(source) -> address)
+    val m = sourceToMaster(source)
+    val key = m -> address
+//    val block = blocks(key)
+//    blocksPerAgent(m) -= block
+    blocks.remove(key)
   }
   def probeCap(block : Block, cap : Int) = {
     if(debug) if(cap != block.cap) println(f"probeCap     src=${block.source}%02x addr=${block.address}%x ${block.cap} -> $cap time=${simTime()}")
+    block.cap = cap
+    updateBlock(block)
+  }
+
+  def releaseCap(block : Block, cap : Int) = {
+    if(debug) if(cap != block.cap) println(f"releaseCap   src=${block.source}%02x addr=${block.address}%x ${block.cap} -> $cap time=${simTime()}")
     block.cap = cap
     updateBlock(block)
   }
@@ -415,7 +418,6 @@ class BlockManager(ma : MasterAgent){
               }
               case _ => ???
             }
-            updateBlock(b)
           }
           case None => probeAck(
             param   = Param.Report.NtoN,

@@ -3,6 +3,9 @@ package spinal.lib.bus.tilelink.sim
 import spinal.core.ClockDomain
 import spinal.lib.bus.tilelink._
 import spinal.lib.sim.SparseMemory
+import spinal.sim.SimError
+
+import scala.collection.mutable
 
 object Checker{
   def apply(m : Monitor, mappings : Seq[Mapping] = null)(implicit ordering : IdCallback)  : Checker = {
@@ -26,6 +29,10 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
   }
 
   val inflightA = Array.fill[InflightA](1 << p.sourceWidth)(null)
+  val inflightB = mutable.LinkedHashMap[(Int, BigInt), TransactionB]()
+  val inflightC = mutable.LinkedHashMap[BigInt, TransactionC]()
+  val inflightD = mutable.LinkedHashMap[BigInt, TransactionD]()
+
   override def onA(a: TransactionA) = {
     assert(inflightA(a.source) == null)
     assert((a.address & (a.bytes-1)) == 0, "Unaligned address :(")
@@ -47,10 +54,48 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
           case Opcode.A.ACQUIRE_BLOCK => {
             ctx.ref = mem.readBytes(o.address.toInt, o.bytes)
           }
+          case Opcode.A.ACQUIRE_PERM =>
         }
       }
     }
   }
+
+  override def onB(b: TransactionB) = {
+    val key = b.source -> b.address
+    assert(!inflightB.contains(key))
+    inflightB(key) = b
+  }
+
+  override def onC(c: TransactionC) = {
+    assert((c.address & (c.bytes-1)) == 0, "Unaligned address :(")
+    val mapping = getMapping(c.address)
+    val base = mapping.mapping.map(_.base).min.toLong
+    import Opcode.B._
+    import Opcode.C._
+    c.opcode match {
+      case RELEASE_DATA | RELEASE => {
+        assert(!inflightC.contains(c.address))
+        inflightC(c.address) = c
+      }
+      case PROBE_ACK | PROBE_ACK_DATA => {
+        val key = c.source -> c.address
+        inflightB.get(key) match {
+          case Some(b) =>
+            assert(b.opcode == PROBE_BLOCK || b.opcode == PROBE_PERM)
+            if(c.opcode == PROBE_ACK_DATA) assert(b.opcode != PROBE_PERM)
+          case None => SimError("spawned probe ack")
+        }
+        inflightB.remove(key)
+      }
+    }
+    mapping.model match {
+      case mem : SparseMemory => c.opcode match {
+        case PROBE_ACK_DATA | RELEASE_DATA => mem.write(c.address.toLong-base, c.data)
+        case PROBE_ACK | RELEASE =>
+      }
+    }
+  }
+
 
   override def onD(d: TransactionD) = {
     d.opcode match{
@@ -64,35 +109,32 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
         inflightA(d.source) = null
         idCallback.remove(ctx.a.debugId, ctx)
       }
-      case Opcode.D.RELEASE_ACK => ???
+      case Opcode.D.RELEASE_ACK => {
+        assert(inflightC.contains(d.address))
+        inflightC.remove(d.address)
+      }
     }
-  }
-  override def onB(b: TransactionB) = {
-    //TODO
-  }
-  override def onC(c: TransactionC) = {
-    //TODO check that inflight trafic is ok
-    assert((c.address & (c.bytes-1)) == 0, "Unaligned address :(")
-    val mapping = getMapping(c.address)
-    val base = mapping.mapping.map(_.base).min.toLong
-    mapping.model match {
-      case mem : SparseMemory => c.opcode match {
-        case Opcode.C.RELEASE_DATA => {
-          mem.write(c.address.toLong-base, c.data)
-        }
-        case Opcode.C.PROBE_ACK_DATA=> {
-          mem.write(c.address.toLong-base, c.data)
-        }
-        case Opcode.C.PROBE_ACK=> {
 
-        }
-        case Opcode.C.RELEASE=> {
-
-        }
+    d.opcode match{
+      case Opcode.D.ACCESS_ACK | Opcode.D.ACCESS_ACK_DATA | Opcode.D.RELEASE_ACK=>
+      case Opcode.D.GRANT | Opcode.D.GRANT_DATA  =>  {
+        assert(!inflightD.contains(d.sink))
+        inflightD(d.sink) = d
       }
     }
   }
+
   override def onE(e: TransactionE) = {
-    //TODO
+    assert(inflightD.contains(e.sink))
+    inflightD.remove(e.sink)
+  }
+
+  def isEmpty() = {
+    inflightA.forall(_ == null) && inflightB.isEmpty && inflightC.isEmpty && inflightD.isEmpty
+  }
+  def waitEmpty(delay : => Unit = spinal.core.sim.sleep(1000)): Unit ={
+    while(!isEmpty()){
+      delay
+    }
   }
 }

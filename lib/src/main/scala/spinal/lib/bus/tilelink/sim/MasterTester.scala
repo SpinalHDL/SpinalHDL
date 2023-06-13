@@ -106,9 +106,9 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
               Array.fill[Boolean](bytes)(Random.nextBoolean())
             }
 
-            def add(filter : M2sTransfers => SizeRange)(body : (Long, Int) => Unit): Unit ={
+            def add(filter : M2sTransfers => SizeRange, weight : Int = 10)(body : (Long, Int) => Unit): Unit ={
               val filtred = m.mapping.filter(e => filter(e.allowed).some)
-              if(filtred.nonEmpty) distribution(10) {
+              if(filtred.nonEmpty) distribution(weight) {
                 val (address, bytes) = randomized(filtred, filter)
                 lock(address)
                 body(address, bytes)
@@ -147,6 +147,35 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
                 for (i <- 0 until bytes if Random.nextBoolean()) b.data(i) = Random.nextInt().toByte
               }
             }
+            add(_.acquireT, 5){(address, bytes) =>
+              var b = agent.block.get(sourceId, address) match {
+                case Some(x : Block) => x
+                case None => agent.acquirePerm(sourceId, Param.Grow.NtoT, address, bytes)
+              }
+              assert(b.cap < Param.Cap.toN)
+              if(b.cap > Param.Cap.toT){
+                b = agent.acquirePerm(sourceId, Param.Grow.BtoT, address, bytes)
+              }
+              assert(b.cap == Param.Cap.toT, f"$source $address%x")
+              b.data = new Array[Byte](bytes)
+              Random.nextBytes(b.data)
+            }
+            if(masterParam.emits.withBCE) distribution(3) {
+              val block = agent.block.getRandomBlock(masterParam)
+              if(block != null){
+                lock(block.address)
+                block.cap  match {
+                  case Param.Cap.toN =>
+                  case Param.Cap.toB => agent.release(sourceId, Param.Cap.toN, block)
+                  case Param.Cap.toT => {
+                    val cap = if(Random.nextBoolean()) Param.Cap.toB else Param.Cap.toN
+                    agent.release(sourceId, cap, block)
+                  }
+                }
+                unlock(block.address)
+              }
+            }
+
 
             for (i <- 0 until perSourceBurst) {
               distribution.randomExecute()

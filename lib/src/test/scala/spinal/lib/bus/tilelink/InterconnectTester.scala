@@ -38,6 +38,7 @@ class InterconnectTester extends AnyFunSuite{
     val tb = testInterconnectTb(c)
     tb.mastersStuff.foreach(_.tester.startPerSource(100))
     tb.mastersStuff.foreach(_.tester.join())
+    tb.waitCheckers()
   }
 
   def testInterconnectImpl(nodes : Seq[Node])
@@ -75,10 +76,17 @@ class InterconnectTester extends AnyFunSuite{
       val tester = new MasterTester(m, agent)
       val monitor = new Monitor(m.bus, m.cd)
       val checker = new Checker(monitor, m.mapping)
+      onSimEnd{
+        assert(checker.isEmpty())
+      }
     }
 
     for(node <- slaveNodes) {
       val model = new MemoryAgent(node.bus, node.clockDomain, nodeToModel(node).seed)
+    }
+
+    def waitCheckers(): Unit ={
+      mastersStuff.foreach(_.checker.waitEmpty())
     }
   }
 
@@ -432,8 +440,8 @@ class InterconnectTester extends AnyFunSuite{
   test("Coherent_A"){
     tilelink.DebugId.setup(16)
     SimConfig.withFstWave.compile(new Component{
-      val m0 = simpleMaster(coherentOnly)
-      val s0 = simpleSlave(12, 32, coherentOnlySlave)
+      val m0 = simpleMaster(coherentOnly, dataWidth = 128)
+      val s0 = simpleSlave(12, 128, coherentOnlySlave)
       val b0 = Node()
       b0 << m0.node
       s0.node at 0x1000 of b0
