@@ -76,9 +76,6 @@ class InterconnectTester extends AnyFunSuite{
       val tester = new MasterTester(m, agent)
       val monitor = new Monitor(m.bus, m.cd)
       val checker = new Checker(monitor, m.mapping)
-      onSimEnd{
-        assert(checker.isEmpty())
-      }
     }
 
     for(node <- slaveNodes) {

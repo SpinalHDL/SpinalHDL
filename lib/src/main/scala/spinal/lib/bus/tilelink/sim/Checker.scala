@@ -30,7 +30,7 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
 
   val inflightA = Array.fill[InflightA](1 << p.sourceWidth)(null)
   val inflightB = mutable.LinkedHashMap[(Int, BigInt), TransactionB]()
-  val inflightC = mutable.LinkedHashMap[BigInt, TransactionC]()
+  val inflightC = mutable.LinkedHashMap[(Int, BigInt), TransactionC]()
   val inflightD = mutable.LinkedHashMap[BigInt, TransactionD]()
 
   override def onA(a: TransactionA) = {
@@ -74,8 +74,9 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
     import Opcode.C._
     c.opcode match {
       case RELEASE_DATA | RELEASE => {
-        assert(!inflightC.contains(c.address))
-        inflightC(c.address) = c
+        val key = c.source -> c.address
+        assert(!inflightC.contains(key))
+        inflightC(key) = c
       }
       case PROBE_ACK | PROBE_ACK_DATA => {
         val key = c.source -> c.address
@@ -110,8 +111,9 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
         idCallback.remove(ctx.a.debugId, ctx)
       }
       case Opcode.D.RELEASE_ACK => {
-        assert(inflightC.contains(d.address))
-        inflightC.remove(d.address)
+        inflightC.remove(d.source -> d.address) match {
+          case Some(c) =>
+        }
       }
     }
 
@@ -125,8 +127,9 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
   }
 
   override def onE(e: TransactionE) = {
-    assert(inflightD.contains(e.sink))
-    inflightD.remove(e.sink)
+    inflightD.remove(e.sink) match {
+      case Some(e) =>
+    }
   }
 
   def isEmpty() = {

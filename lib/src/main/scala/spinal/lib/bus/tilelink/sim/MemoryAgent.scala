@@ -17,7 +17,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
   val sinkAllocator = new IdAllocator(bus.p.sinkWidth)
   val locks = mutable.LinkedHashMap[Long, SimMutex]()
   def reserve(address : Long) = {
-    locks.getOrElseUpdate(address, SimMutex()).lock
+    locks.getOrElseUpdate(address, SimMutex(randomized=true)).lock
   }
   def release(address : Long) = {
     val l = locks(address)
@@ -28,6 +28,8 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
   }
 
   override def onA(a: TransactionA) = fork{
+    val r = Random.nextFloat()
+    cd.waitSampling(r*r*20 toInt) //Will enable out of order handeling
     val blockAddress = a.address.toLong & ~(blockSize-1)
     reserve(blockAddress)
     a.opcode match {
