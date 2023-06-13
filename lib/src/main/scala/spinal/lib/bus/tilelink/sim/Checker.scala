@@ -33,9 +33,54 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
   val inflightC = mutable.LinkedHashMap[(Int, BigInt), TransactionC]()
   val inflightD = mutable.LinkedHashMap[BigInt, TransactionD]()
 
+  case class Cap(var current : Int, var probed : Boolean)
+  val mToBlockCap = mutable.LinkedHashMap[M2sAgent, mutable.LinkedHashMap[BigInt, Cap]]()
+  val sourceToBlockCap = new Array[mutable.LinkedHashMap[BigInt, Cap]](1 << p.sourceWidth)
+  for(m <- p.node.m.masters){
+    val map = mutable.LinkedHashMap[BigInt, Cap]()
+    mToBlockCap(m) = map
+    for(source <- m.mapping){
+      source.id.foreach{sourceId =>
+        sourceToBlockCap(sourceId.toInt) = map
+      }
+    }
+  }
+
+  def getCap(source : Int, address : BigInt) = sourceToBlockCap(source).getOrElseUpdate(address, Cap(Param.Cap.toN, false))
+  def checkGrow(source : Int, address : BigInt, param : Int): Unit = {
+//    val (pFrom, pTo) = Param.Grow.fromTo(param)
+//    val from = getCap(source, address)
+//    assert(pFrom == from)
+  }
+  def doGrow(source : Int, address : BigInt, to : Int): Unit = {
+//    val cap = getCap(source, address)
+//    assert(cap.current >= to)
+//    cap.current = to
+//    cap.probed = false
+  }
+  def doShrink(source : Int, address : BigInt, param : Int): Unit = {
+//    val (pFrom, pTo) = Param.reportPruneFromTo(param)
+//    val cap = getCap(source, address)
+//    assert(pFrom == cap.current || cap.probed)
+//
+//    if(pTo == Param.Cap.toN){
+//      sourceToBlockCap(source).remove(address)
+//    } else {
+//      val cap = sourceToBlockCap(source)(address)
+//      cap.probed = false
+//      cap.current = pTo
+//    }
+  }
+
   override def onA(a: TransactionA) = {
     assert(inflightA(a.source) == null)
     assert((a.address & (a.bytes-1)) == 0, "Unaligned address :(")
+
+    a.opcode match {
+      case Opcode.A.PUT_FULL_DATA | Opcode.A.PUT_PARTIAL_DATA | Opcode.A.GET=>
+      case Opcode.A.ACQUIRE_BLOCK | Opcode.A.ACQUIRE_PERM => //checkGrow(a.source, a.address, a.param)
+    }
+
     val ctx = new InflightA(a)
     inflightA(a.source) = ctx
     idCallback.add(a.debugId, ctx){
@@ -64,6 +109,14 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
     val key = b.source -> b.address
     assert(!inflightB.contains(key))
     inflightB(key) = b
+
+    b.opcode match {
+      case Opcode.B.PROBE_PERM | Opcode.B.PROBE_BLOCK => {
+        val cap = getCap(b.source, b.address)
+        cap.probed = true
+
+      }
+    }
   }
 
   override def onC(c: TransactionC) = {
@@ -74,11 +127,13 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
     import Opcode.C._
     c.opcode match {
       case RELEASE_DATA | RELEASE => {
+        doShrink(c.source, c.address, c.param)
         val key = c.source -> c.address
         assert(!inflightC.contains(key))
         inflightC(key) = c
       }
       case PROBE_ACK | PROBE_ACK_DATA => {
+        doShrink(c.source, c.address, c.param)
         val key = c.source -> c.address
         inflightB.get(key) match {
           case Some(b) =>
@@ -107,6 +162,9 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
         if(d.withData) assert((ctx.ref, d.data).zipped.forall(_ == _), s"Missmatch for :\n$ctx.a\n$d\n!=${ctx.ref.map(v => f"${v}%02x").mkString(" ")}")
         assert(!d.denied)
         assert(!d.corrupt)
+        if(d.opcode == Opcode.D.GRANT || d.opcode == Opcode.D.GRANT_DATA){
+          doGrow(d.source, d.address, d.param)
+        }
         inflightA(d.source) = null
         idCallback.remove(ctx.a.debugId, ctx)
       }

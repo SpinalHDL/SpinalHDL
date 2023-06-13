@@ -28,6 +28,15 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
 
   val node = m.bus.p.node
 
+  def randomizedData(bytes : Int) = {
+    val data = new Array[Byte](bytes)
+    Random.nextBytes(data)
+    data
+  }
+  def randomizedMask(bytes : Int) = {
+    Array.fill[Boolean](bytes)(Random.nextBoolean())
+  }
+
   def startPerSource(perSourceBurst : Int) {
     for (masterParam <- node.m.masters) {
 
@@ -63,15 +72,6 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
               val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
               val address = mapping.base.toLong + addressLocal
               (address, bytes)
-            }
-
-            def randomizedData(bytes : Int) = {
-              val data = new Array[Byte](bytes)
-              Random.nextBytes(data)
-              data
-            }
-            def randomizedMask(bytes : Int) = {
-              Array.fill[Boolean](bytes)(Random.nextBoolean())
             }
 
             def add(filter : M2sTransfers => SizeRange, weight : Int = 10)(body : (Long, Int) => Unit): Unit ={

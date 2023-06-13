@@ -464,13 +464,13 @@ class InterconnectTester extends AnyFunSuite{
       s0.node at 0x1000 of b0
     }).doSim(seed = 42){dut =>
       dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
+//      testInterconnect(dut)
 
-      //      val tb = testInterconnectTb(dut)
-      //      tb.mastersStuff(0).agent.acquireBlock(0, Param.Grow.NtoB, 0x1080, 0x40)
-      //      tb.mastersStuff(0).agent.acquireBlock(4, Param.Grow.NtoB, 0x1080, 0x40)
-      //      tb.mastersStuff(0).agent.acquireBlock(1, Param.Grow.BtoT, 0x1080, 0x40)
-      //      dut.clockDomain.waitSampling(10)
+      val tb = testInterconnectTb(dut)
+      tb.mastersStuff(0).agent.acquireBlock(0, Param.Grow.NtoB, 0x1080, 0x40)
+      tb.mastersStuff(0).agent.acquireBlock(4, Param.Grow.NtoB, 0x1080, 0x40)
+      tb.mastersStuff(0).agent.acquireBlock(1, Param.Grow.BtoT, 0x1080, 0x40)
+      dut.clockDomain.waitSampling(10)
     }
   }
 

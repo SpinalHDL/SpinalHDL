@@ -91,6 +91,12 @@ object Param{
       case NtoT => Cap.toT
       case BtoT => Cap.toT
     }
+
+    def fromTo(grow : Int) = grow match {
+      case NtoB => (Cap.toN, Cap.toB)
+      case NtoT => (Cap.toN, Cap.toT)
+      case BtoT => (Cap.toB, Cap.toT)
+    }
   }
 
   def reportPruneToCap(param : Int) = param match {
@@ -108,6 +114,14 @@ object Param{
     case (Cap.toT, Cap.toT) => Report.TtoT
     case (Cap.toB, Cap.toB) => Report.BtoB
     case (Cap.toN, Cap.toN) => Report.NtoN
+  }
+  def reportPruneFromTo(param : Int) = param match {
+    case Prune.TtoB  => (Cap.toT, Cap.toB)
+    case Prune.TtoN  => (Cap.toT, Cap.toN)
+    case Prune.BtoN  => (Cap.toB, Cap.toN)
+    case Report.TtoT => (Cap.toT, Cap.toT)
+    case Report.BtoB => (Cap.toB, Cap.toB)
+    case Report.NtoN => (Cap.toN, Cap.toN)
   }
 }
 

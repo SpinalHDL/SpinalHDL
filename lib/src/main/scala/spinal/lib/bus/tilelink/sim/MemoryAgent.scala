@@ -96,7 +96,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
     var needData = false
     var unique = true
     val inflights = for(m <- bus.p.node.m.masters if m.emits.withBCE) yield fork{
-      val isSelf = m.sourceHit(a.source)
+      val isSelf = m.sourceHit(a.source) && (a.opcode == Opcode.A.ACQUIRE_BLOCK || a.opcode == Opcode.A.ACQUIRE_PERM)
       val mapping = m.mapping.randomPick()
       val b = TransactionB()
       b.opcode = Opcode.B.PROBE_BLOCK
