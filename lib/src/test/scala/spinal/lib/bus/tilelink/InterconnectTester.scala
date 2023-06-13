@@ -36,9 +36,31 @@ class InterconnectTester extends AnyFunSuite{
                       (implicit idAllocator : IdAllocator = new IdAllocator(DebugId.width),
                        idCallback  : IdCallback = new IdCallback) : Unit = {
     val tb = testInterconnectTb(c)
-    tb.mastersStuff.foreach(_.tester.startPerSource(100))
-    tb.mastersStuff.foreach(_.tester.join())
+    val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
+    testers.foreach(_.startPerSource(100))
+    testers.foreach(_.join())
     tb.waitCheckers()
+  }
+
+  def testInterconnectSimple(c : SimCompiled[Component]) : Unit = {
+    def doSim(name : String)(body : MasterDebugTester => Unit): Unit ={
+      c.doSim(name, 42){ dut =>
+        dut.clockDomain.forkStimulus(10)
+        implicit val idAllocator  = new IdAllocator(DebugId.width)
+        implicit val idCallback   = new IdCallback
+        val tb = testInterconnectTb(dut)
+        val tester = new MasterDebugTester((tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterDebugTesterElement(s, t.agent)))
+        body(tester)
+      }
+    }
+    doSim("get")(_.coverGet(2))
+    doSim("putf")(_.coverPutFullData(2))
+    doSim("putp")(_.coverPutPartialData(2))
+    doSim("getPut"){t => t.coverPutFullData(2); t.coverPutPartialData(2); t.coverGet(8)}
+    doSim("acquireB")(_.coverAcquireB(8))
+    doSim("acquireT")(_.coverAcquireT(8))
+    doSim("acquireBT")(_.coverAcquireBT(8))
+    doSim("acquireTB")(_.coverAcquireTB(8))
   }
 
   def testInterconnectImpl(nodes : Seq[Node])
@@ -73,7 +95,6 @@ class InterconnectTester extends AnyFunSuite{
 
     val mastersStuff = for(m <- masterSpecs) yield new Area{
       val agent = new MasterAgent(m.bus, m.cd)
-      val tester = new MasterTester(m, agent)
       val monitor = new Monitor(m.bus, m.cd)
       val checker = new Checker(monitor, m.mapping)
     }
@@ -464,14 +485,28 @@ class InterconnectTester extends AnyFunSuite{
       s0.node at 0x1000 of b0
     }).doSim(seed = 42){dut =>
       dut.clockDomain.forkStimulus(10)
-//      testInterconnect(dut)
+      testInterconnect(dut)
+//      testInterconnectSimple(dut)
 
-      val tb = testInterconnectTb(dut)
-      tb.mastersStuff(0).agent.acquireBlock(0, Param.Grow.NtoB, 0x1080, 0x40)
-      tb.mastersStuff(0).agent.acquireBlock(4, Param.Grow.NtoB, 0x1080, 0x40)
-      tb.mastersStuff(0).agent.acquireBlock(1, Param.Grow.BtoT, 0x1080, 0x40)
-      dut.clockDomain.waitSampling(10)
+//      val tb = testInterconnectTb(dut)
+//      tb.mastersStuff(0).agent.acquireBlock(0, Param.Grow.NtoB, 0x1080, 0x40)
+//      tb.mastersStuff(0).agent.acquireBlock(4, Param.Grow.NtoB, 0x1080, 0x40)
+//      tb.mastersStuff(0).agent.acquireBlock(1, Param.Grow.BtoT, 0x1080, 0x40)
+//      dut.clockDomain.waitSampling(10)
     }
+  }
+
+  test("Coherent_all2"){
+    tilelink.DebugId.setup(16)
+    testInterconnectSimple(
+      SimConfig.withFstWave.compile(new Component{
+        val m0 = simpleMaster(all, dataWidth = 128)
+        val s0 = simpleSlave(12, 128, coherentSlave)
+        val b0 = Node()
+        b0 << m0.node
+        s0.node at 0x1000 of b0
+      })
+    )
   }
 
   test("Coherent_B"){

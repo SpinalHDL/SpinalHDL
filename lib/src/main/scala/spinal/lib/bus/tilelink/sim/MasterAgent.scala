@@ -26,13 +26,18 @@ class Block(val source : Int,
   var probe = Option.empty[Probe]
 
   override def toString = f"src=$source%02x addr=$address%x cap=$cap"
+
+  def makeDataDirty(): Unit ={
+    dirty = true
+    for (i <- 0 until data.size if Random.nextBoolean()) data(i) = Random.nextInt().toByte
+  }
 }
 case class Probe(source : Int, param : Int, address : Long, size : Int, perm : Boolean){
 
 }
 
 class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(implicit idAllocator: IdAllocator) extends MonitorSubscriber{
-  var debug = true
+  var debug = false
 
   val driver = new MasterDriver(bus, cd)
   val monitor = new Monitor(bus, cd).add(this)
@@ -251,6 +256,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     driver.scheduleE(e)
 
     idAllocator.remove(debugId)
+    assert(b.cap <= Param.Grow.getCap(param))
     b
   }
 
@@ -299,6 +305,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     driver.scheduleE(e)
 
     idAllocator.remove(debugId)
+    assert(blk.cap <= Param.Grow.getCap(param))
     blk
   }
 
@@ -317,6 +324,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     assert(d.opcode == Opcode.D.RELEASE_ACK)
 
     this.block.releaseCap(block, toCap)
+    assert(block.cap == toCap)
     block.release()
   }
 
@@ -338,6 +346,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     assert(d.opcode == Opcode.D.RELEASE_ACK)
 
     this.block.releaseCap(block, toCap)
+    assert(block.cap == toCap)
     block.release()
   }
 }
