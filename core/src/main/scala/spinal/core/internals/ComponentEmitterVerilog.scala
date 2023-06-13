@@ -126,6 +126,9 @@ class ComponentEmitterVerilog(
 
         val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
         s match {
+          case s : Nameable => s.unsetName().setName(portName)
+        }
+        s match {
           case s: MemReadSync  =>
             val name = component.localNamingScope.allocateName(portName)
             declarations ++= emitExpressionWrap(s, name, "reg")
@@ -171,15 +174,15 @@ class ComponentEmitterVerilog(
     cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
 
-    component.dslBody.walkStatements{ s =>
-      s.walkDrivingExpressions{ e =>
-        if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
-          var sName = s match {
-            case s : AssignmentStatement => "_" + s.dlcParent.getName()
-            case s : WhenStatement => "_when"
-            case s : SwitchContext => "_switch"
-            case s : Nameable => "_" + s.getName()
-            case s : MemPortStatement => "_" + s.dlcParent.getName() + "_port"
+    component.dslBody.walkStatements { s =>
+      s.walkDrivingExpressions { e =>
+        if (!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)) {
+          val sName = s match {
+            case s: AssignmentStatement => "_" + s.dlcParent.getName()
+            case _: WhenStatement => "_when"
+            case _: SwitchContext => "_switch"
+            case s: MemPortStatement => "_" + s.dlcParent.getName() + "_port"
+            case s: Nameable => "_" + s.getName()
             case _ => ""
           }
           val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
@@ -1512,11 +1515,11 @@ end
   }
 
   def shiftRightByIntImpl(e: Operator.BitVector.ShiftRightByInt): String = {
-    s"(${emitExpression(e.source)} >>> ${e.shift})"
+    s"(${emitExpression(e.source)} >>> ${log2Up(e.shift+1)}'d${e.shift})"
   }
 
   def shiftLeftByIntImpl(e: Operator.BitVector.ShiftLeftByInt): String = {
-    s"({${e.shift}'d0,${emitExpression(e.source)}} <<< ${e.shift})"
+    s"({${e.shift}'d0,${emitExpression(e.source)}} <<< ${log2Up(e.shift+1)}'d${e.shift})"
   }
 
 

@@ -9,7 +9,6 @@ import spinal.lib.sim.{StreamDriver, StreamMonitor, StreamReadyRandomizer}
 import scala.collection.mutable
 
 case class AxiLite4Driver(axi : AxiLite4, clockDomain : ClockDomain) {
-
   def reset() : Unit = {
     axi.aw.valid #= false
     axi.w.valid #= false
@@ -17,6 +16,8 @@ case class AxiLite4Driver(axi : AxiLite4, clockDomain : ClockDomain) {
     axi.r.ready #= true
     axi.b.ready #= true
   }
+
+  reset()
 
   def read(address : BigInt) : BigInt = {
     axi.ar.payload.prot.assignBigInt(6)

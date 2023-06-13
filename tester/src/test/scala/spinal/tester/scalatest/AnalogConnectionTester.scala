@@ -92,7 +92,7 @@ class AnalogConnectionTest extends AnyFunSuite {
         val pad = inout(Analog(Bits(width bit)))
 
         for (i <- 0 until width) {
-          tri(i).read := pad(i) setAsComb()
+          tri(i).read := pad(i).setAsComb()
           when(tri(i).writeEnable) {
             pad(i) := tri(i).write
           }
