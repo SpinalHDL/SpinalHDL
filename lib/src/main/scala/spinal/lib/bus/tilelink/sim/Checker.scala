@@ -8,23 +8,30 @@ import spinal.sim.SimError
 import scala.collection.mutable
 
 object Checker{
-  def apply(m : Monitor, mappings : Seq[Mapping] = null)(implicit ordering : IdCallback)  : Checker = {
+  def apply(m : Monitor, mappings : Seq[Endpoint] = null)(implicit ordering : IdCallback)  : Checker = {
     val c = new Checker(m.bus.p, mappings)
     m.add(c)
     c
   }
 }
 
-class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : IdCallback) extends MonitorSubscriber {
-  def this(m : Monitor, mappings : Seq[Mapping])(implicit ordering : IdCallback) {
+class Checker(p : BusParameter, mappings : Seq[Endpoint])(implicit idCallback : IdCallback) extends MonitorSubscriber {
+  def this(m : Monitor, mappings : Seq[Endpoint])(implicit ordering : IdCallback) {
     this(m.bus.p, mappings)
     m.add(this)
   }
 
-  def getMapping(address : BigInt) = mappings.find(_.mapping.exists(_.hit(address))).get
+  def getMapping(address : BigInt, opcode : Any) : (Endpoint, Chunk) = {
+    for(endpoint <- mappings; chunk <- endpoint.chunks){
+      if(chunk.allowed.allow(opcode) && chunk.mapping.exists(_.hit(address))){
+        return (endpoint, chunk)
+      }
+    }
+    ???
+  }
 
   class InflightA(val a : TransactionA){
-    val mapping = getMapping(a.address)
+    val (endpoint, chunk) = getMapping(a.address, a.opcode)
     var ref : Array[Byte] = null
   }
 
@@ -84,22 +91,25 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
     val ctx = new InflightA(a)
     inflightA(a.source) = ctx
     idCallback.add(a.debugId, ctx){
-      case o : OrderingArgs => ctx.mapping.model match {
-        case mem : SparseMemory => a.opcode match {
-          case Opcode.A.GET => {
-            ctx.ref = mem.readBytes(o.address.toInt, o.bytes)
+      case o : OrderingArgs => {
+        val address = (a.address - ctx.chunk.offset + o.offset).toLong
+        ctx.endpoint.model match {
+          case mem : SparseMemory => a.opcode match {
+            case Opcode.A.GET => {
+              ctx.ref = mem.readBytes(address, o.bytes)
+            }
+            case Opcode.A.PUT_PARTIAL_DATA=> {
+              mem.write(address, a.data, a.mask)
+            }
+            case Opcode.A.PUT_FULL_DATA=> {
+              assert(a.mask.forall(v => v))
+              mem.write(address, a.data, a.mask)
+            }
+            case Opcode.A.ACQUIRE_BLOCK => {
+              ctx.ref = mem.readBytes(address, o.bytes)
+            }
+            case Opcode.A.ACQUIRE_PERM =>
           }
-          case Opcode.A.PUT_PARTIAL_DATA=> {
-            mem.write(o.address.toInt, a.data, a.mask)
-          }
-          case Opcode.A.PUT_FULL_DATA=> {
-            assert(a.mask.forall(v => v))
-            mem.write(o.address.toInt, a.data, a.mask)
-          }
-          case Opcode.A.ACQUIRE_BLOCK => {
-            ctx.ref = mem.readBytes(o.address.toInt, o.bytes)
-          }
-          case Opcode.A.ACQUIRE_PERM =>
         }
       }
     }
@@ -121,8 +131,8 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
 
   override def onC(c: TransactionC) = {
     assert((c.address & (c.bytes-1)) == 0, "Unaligned address :(")
-    val mapping = getMapping(c.address)
-    val base = mapping.mapping.map(_.base).min.toLong
+    val (endpoint, chunk) = getMapping(c.address, c.opcode)
+    val base = chunk.mapping.map(_.base).min.toLong
     import Opcode.B._
     import Opcode.C._
     c.opcode match {
@@ -144,7 +154,7 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
         inflightB.remove(key)
       }
     }
-    mapping.model match {
+    endpoint.model match {
       case mem : SparseMemory => c.opcode match {
         case PROBE_ACK_DATA | RELEASE_DATA => mem.write(c.address.toLong-base, c.data)
         case PROBE_ACK | RELEASE =>

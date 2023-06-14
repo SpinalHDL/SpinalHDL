@@ -125,7 +125,7 @@ class InterconnectTester extends AnyFunSuite{
     }
 
     val masterSpecs = masterNodes.map(n => {
-      val mappings = ArrayBuffer[Mapping]()
+      val mappings = ArrayBuffer[Endpoint]()
       val suportedTransfers = MemoryConnection.getMemoryTransfers(n)
       for(e <- suportedTransfers){
         e.node match {
@@ -133,7 +133,7 @@ class InterconnectTester extends AnyFunSuite{
             nodeToModel.get(n) match {
               case Some(m) => {
                 e.transfers match {
-                  case t : M2sTransfers => mappings += Mapping(t, e.mapping, m)
+                  case t : M2sTransfers => mappings += Endpoint(m, List(Chunk(t, e.where.offset, e.where.mapping)))
                 }
               }
               case None =>
@@ -147,7 +147,7 @@ class InterconnectTester extends AnyFunSuite{
     val mastersStuff = for(m <- masterSpecs) yield new Area{
       val agent = new MasterAgent(m.bus, m.cd)
       val monitor = new Monitor(m.bus, m.cd)
-      val checker = new Checker(monitor, m.mapping)
+      val checker = new Checker(monitor, m.endpoints)
     }
 
     for(node <- slaveNodes) {
@@ -262,9 +262,12 @@ class InterconnectTester extends AnyFunSuite{
       val m0 = new Area{
         val driver = new MasterAgent(dut.m0.node.bus, dut.m0.node.clockDomain)
         val monitor = new Monitor(dut.m0.node.bus, dut.m0.node.clockDomain)
-        val checker = Checker(monitor, List(Mapping(
-          allowed = dut.m0.node.bus.p.node.m.emits,
-          mapping = List(SizeMapping(0x800, 0x400)),
+        val checker = Checker(monitor, List(Endpoint(
+          chunks = List(Chunk(
+            allowed = dut.m0.node.bus.p.node.m.emits,
+            offset  = 0x800,
+            List(SizeMapping(0x800, 0x400))
+          )),
           model   = SparseMemory(seed)
         )))
       }
@@ -568,10 +571,13 @@ class InterconnectTester extends AnyFunSuite{
     SimConfig.withFstWave.compile(new Component{
       val m0 = simpleMaster(readWrite)
       val s0, s1 = simpleSlave(addressWidth = 10)
-      val b0 = Node()
+      val s2 = simpleSlave(addressWidth = 15)
+      val b0, b1 = Node()
       b0 at 0xE0000 of m0.node
-      s0.node at 0x1000 of b0
-      s1.node at 0x2000 of b0
+      s0.node at 0x4000 of b0
+      s1.node at 0x6000 of b0
+      b1 << b0
+      s2.node at 0x4000 of b1
 
       s0.node.addTag(PMA.VOLATILE)
       s1.node.addTag(PMA.CACHED)
@@ -583,18 +589,27 @@ class InterconnectTester extends AnyFunSuite{
           w.node match {
             case s0.node =>
               hits += 1
-              assert(w.mapping.head.base == 0xE0000 + 0x1000)
+              assert(w.mapping.head.base == 0xE0000 + 0x4000)
               assert(w.mapping.head.size == 0x400)
+              assert(w.where.offset == 0xE4000)
               assert(w.node.hasTag(PMA.VOLATILE))
             case s1.node =>
               hits += 1
-              assert(w.mapping.head.base == 0xE0000 + 0x2000)
+              assert(w.mapping.head.base == 0xE0000 + 0x6000)
               assert(w.mapping.head.size == 0x400)
+              assert(w.where.offset == 0xE6000)
               assert(w.node.hasTag(PMA.CACHED))
+            case s2.node =>
+              hits += 1
+              assert(w.where.offset == 0xE0000 + 0x4000)
+              assert(w.mapping(0).base == 0xE0000 + 0x4400)
+              assert(w.mapping(0).size == 0x1C00)
+              assert(w.mapping(1).base == 0xE0000 + 0x6400)
+              assert(w.mapping(1).size == 0x5C00)
             case _ =>
           }
         }
-        assert(hits == 2)
+        assert(hits == 3)
       }
     }).doSim(seed = 42){dut =>
       //      dut.clockDomain.forkStimulus(10)

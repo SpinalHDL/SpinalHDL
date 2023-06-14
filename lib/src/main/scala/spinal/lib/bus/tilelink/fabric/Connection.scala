@@ -73,10 +73,10 @@ class Connection(val m : Node, val s : Node) extends Area {
     mapping.value
   }
 
-  def proposedAddressWidth() : Int = {
-    def full = m.m2s.proposed.addressWidth
+  def decoderAddressWidth() : Int = {
+    def full = s.m2s.supported.addressWidth
     mapping.addressSpec match {
-      case Some(v) => return full
+      case Some(v) => return  log2Up(v + (BigInt(1) << s.m2s.supported.addressWidth))
       case None =>
     }
 
@@ -86,7 +86,7 @@ class Connection(val m : Node, val s : Node) extends Area {
     }
 
     mapping.mappingSpec.get match {
-      case m : SizeMapping => log2Up(m.size)
+      case m : SizeMapping => log2Up(m.highestBound+1)
     }
   }
 

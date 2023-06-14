@@ -14,15 +14,20 @@ class BridgeTestbench(m : Bus, s : Bus, cd : ClockDomain) {
   val outputAgent = new MemoryAgent(s, cd)
   val globalMem = SparseMemory(outputAgent.mem.seed)
 
-  val inputMapping = Mapping(
-    allowed = s.p.node.m.toSupport().transfers,
-    mapping = List(SizeMapping(0, 1l << m.p.addressWidth)),
+  val inputMapping = Endpoint(
+    chunks = List(
+      Chunk(
+        allowed = s.p.node.m.toSupport().transfers,
+        offset = 0,
+        List(SizeMapping(0, 1l << m.p.addressWidth))
+      )
+    ),
     model = globalMem
   )
   val inputSpec = MasterSpec(
     bus = m,
     cd = cd,
-    mapping = Seq(inputMapping)
+    endpoints = Seq(inputMapping)
   )
 
   val inputAgent = new MasterAgent(inputSpec.bus, inputSpec.cd)

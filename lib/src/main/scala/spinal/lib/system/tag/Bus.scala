@@ -44,17 +44,23 @@ trait MemoryConnection extends SpinalTag {
 }
 
 object MappedNode{
-  def apply(m : Node) : MappedNode = MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth)
-  def apply(node : Nameable with SpinalTagReady, address : BigInt, size : BigInt) : MappedNode = MappedNode(node, List(SizeMapping(address, size)))
+  def apply(m : Node) : MappedNode = MappedNode(m, 0, 0, BigInt(1) << m.bus.p.addressWidth)
+  def apply(node : Nameable with SpinalTagReady, offset : Int, address : BigInt, size : BigInt) : MappedNode = MappedNode(node, offset, List(SizeMapping(address, size)))
 }
 
-case class MappedNode(node : Nameable with SpinalTagReady, mapping : Seq[SizeMapping]){
+/**
+ *
+ * @param node What is the endpoint
+ * @param localOffset What is the master address to access address 0 of that endpoint
+ * @param mapping Range of master address which can access the node
+ */
+case class MappedNode(node : Nameable with SpinalTagReady, offset : BigInt, mapping : Seq[SizeMapping]){
 //  def address = mapping.base
 //  def size = mapping.size
 
-  def remap(offset : BigInt) = MappedNode(node, mapping.map(_.withOffset(offset).asInstanceOf[SizeMapping]))
+  def remap(offset : BigInt) = MappedNode(node, offset + this.offset, mapping.map(_.withOffset(offset).asInstanceOf[SizeMapping]))
 
-  override def toString = f"$node $mapping"
+  override def toString = f"$node at=$offset%x mapped=$mapping"
 
   def foreachSlave(body : (MappedNode, MemoryConnection) => Unit): Unit ={
     node.foreachTag{
@@ -72,7 +78,7 @@ case class MappedNode(node : Nameable with SpinalTagReady, mapping : Seq[SizeMap
           }
         }
         val remaped = remap.map(_.withOffset(-c.offset).asInstanceOf[SizeMapping])
-        body(MappedNode(c.s, remaped), c)
+        body(MappedNode(c.s, 0, remaped), c)
       }
       case _ =>
     }
@@ -124,7 +130,7 @@ object MemoryConnection{
 
   def foreachSlave(m : Node)(body : (MappedNode, MemoryConnection) => Unit): Unit = {
     m.await()
-    MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth).foreachSlave(body)
+    MappedNode(m, 0, 0, BigInt(1) << m.bus.p.addressWidth).foreachSlave(body)
   }
 
 //  def walk(m : InterconnectNode)(body : MappedNode => Unit): Unit = {

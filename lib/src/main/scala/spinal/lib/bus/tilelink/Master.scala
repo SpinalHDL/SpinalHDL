@@ -15,6 +15,23 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
                         putPartial   : SizeRange = SizeRange.none,
                         hint         : SizeRange = SizeRange.none,
                         probeAckData : SizeRange = SizeRange.none) extends MemoryTransfers {
+
+  def allowA(opcode : Opcode.A.E)  : Boolean = opcode match {
+    case Opcode.A.PUT_FULL_DATA => putFull.some
+    case Opcode.A.PUT_PARTIAL_DATA => putPartial.some
+    case Opcode.A.GET => get.some
+    case Opcode.A.ACQUIRE_BLOCK => withBCE
+    case Opcode.A.ACQUIRE_PERM  => withBCE
+  }
+  def allowC(opcode : Opcode.C.E)  : Boolean = withBCE
+  def allow(opcode : Any) : Boolean = opcode match{
+    case Opcode.A.PUT_FULL_DATA => putFull.some
+    case Opcode.A.PUT_PARTIAL_DATA => putPartial.some
+    case Opcode.A.GET => get.some
+    case Opcode.A.ACQUIRE_BLOCK => withBCE
+    case Opcode.A.ACQUIRE_PERM  => withBCE
+    case Opcode.C.PROBE_ACK | Opcode.C.PROBE_ACK_DATA | Opcode.C.RELEASE | Opcode.C.RELEASE_DATA => withBCE
+  }
 //  def foreachWithOpcodeA(body : (Int, SizeRange) => Unit): Unit ={
 //    body(0, putFull   )
 //    body(1, putPartial)

@@ -113,10 +113,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     // m2s.proposed <- ups.m2s.proposed
     if(mode != NodeMode.MASTER) {
       val fromUps = ups.map(_.m.m2s.proposed).reduce(_ mincover _)
-      val addressConstrained = fromUps.copy(
-        addressWidth = ups.map(up => up.proposedAddressWidth()).max
-      )
-      val modified = m2s.proposedModifiers.foldLeft(addressConstrained)((e, f) => f(e))
+      val modified = m2s.proposedModifiers.foldLeft(fromUps)((e, f) => f(e))
       m2s.proposed load modified
     }
 
@@ -124,7 +121,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     if(mode != NodeMode.SLAVE) {
       val fromDowns = downs.map(_.s.m2s.supported.get).reduce(_ mincover _)
       val addressConstrained = fromDowns.copy(
-        addressWidth = m2s.proposed.addressWidth
+        addressWidth = downs.map(down => down.decoderAddressWidth()).max
       )
       val modified = m2s.supportedModifiers.foldLeft(addressConstrained)((e, f) => f(e))
       m2s.supported load modified
@@ -171,7 +168,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
         for(other <- sorted){
           val size = other.base - address
           if(size != 0) spec += SizeMapping(address, size)
-          address += other.base + other.size
+          address = other.base + other.size
         }
         val lastSize = endAt - address
         if(lastSize != 0) spec += SizeMapping(address, lastSize)

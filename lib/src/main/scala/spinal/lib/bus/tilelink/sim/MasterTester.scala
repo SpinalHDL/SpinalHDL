@@ -12,12 +12,14 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
-case class Mapping(allowed : M2sTransfers,
-                   mapping : Seq[SizeMapping],
-                   model : Any)
+case class Chunk(allowed : M2sTransfers,
+                 offset : BigInt,
+                 mapping : Seq[SizeMapping])
+case class Endpoint(model : Any,
+                    chunks : Seq[Chunk])
 case class MasterSpec(bus : Bus,
                       cd : ClockDomain,
-                      mapping : Seq[Mapping])
+                      endpoints : Seq[Endpoint])
 
 class MasterTester(m : MasterSpec , agent : MasterAgent){
   val threads = ArrayBuffer[SimThread]()
@@ -60,7 +62,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
             Thread.currentThread().setName(s"MasterTester_source_$sourceId" )
             val distribution = new WeightedDistribution[Unit]()
 
-            def randomized(mappings : Seq[Mapping], sizes : M2sTransfers => SizeRange): (Long, Int) = {
+            def randomized(mappings : Seq[Chunk], sizes : M2sTransfers => SizeRange): (Long, Int) = {
               val s = mappings.randomPick()
               val mapping = s.mapping.randomPick()
               randomizedImpl(mapping, sizes)
@@ -75,7 +77,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
             }
 
             def add(filter : M2sTransfers => SizeRange, weight : Int = 10)(body : (Long, Int) => Unit): Unit ={
-              val filtred = m.mapping.filter(e => filter(e.allowed).some)
+              val filtred = m.endpoints.flatMap(_.chunks).filter(e => filter(e.allowed).some)
               if(filtred.nonEmpty) distribution(weight) {
                 val (address, bytes) = randomized(filtred, filter)
                 lock(address)

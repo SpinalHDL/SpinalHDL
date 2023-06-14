@@ -10,34 +10,34 @@ case class MasterDebugTesterElement(m : MasterSpec, agent : MasterAgent)
 
 class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
   val flatten = masters.flatMap(e => e.m.bus.p.node.m.masters.flatMap(e2 => e2.mapping.map((e,_, e2))))
-  case class Ctx(val agent : MasterAgent, val source : Int, val address :  Long, val bytes : Int, slave : Mapping, m2sAgent: M2sAgent){
+  case class Ctx(val agent : MasterAgent, val source : Int, val address :  Long, val bytes : Int, slave : Endpoint, chunk: Chunk, m2sAgent: M2sAgent){
     def check(): Unit ={
-      if(slave.allowed.get.contains(bytes)){
+      if(chunk.allowed.get.contains(bytes)){
         agent.get(source, address, bytes)
-      } else if(slave.allowed.acquireB.contains(bytes)){
+      } else if(chunk.allowed.acquireB.contains(bytes)){
         val block = agent.acquireBlock(source, Param.Grow.NtoB, address, bytes)
         agent.release(source, Param.Cap.toN, block)
       }
     }
     def anotherMaster(sizes : M2sTransfers => SizeRange) : Ctx = {
-      val candidates = flatten.filter(e => e._3 != m2sAgent && e._1.m.mapping.exists(_.model == slave.model) && sizes(e._2.emits).some)
+      val candidates = flatten.filter(e => e._3 != m2sAgent && e._1.m.endpoints.exists(_.model == slave.model) && sizes(e._2.emits).some)
       val other = candidates.randomPick()
       val source = other._2.id.randomPick().toInt
-      Ctx(other._1.agent, source, address, bytes, slave, other._3)
+      Ctx(other._1.agent, source, address, bytes, slave, chunk, other._3)
     }
   }
 
   val checks = mutable.LinkedHashSet[() => Unit]()
   def cover(sizes : M2sTransfers => SizeRange)(body : Ctx => Unit): Unit ={
     for((e, source, m2sAgent) <- flatten if sizes(source.emits).some){
-      for(slave <- e.m.mapping if sizes(slave.allowed).some){
-        for(mapping <- slave.mapping) {
+      for(slave <- e.m.endpoints; chunk <- slave.chunks if sizes(chunk.allowed).some){
+        for(mapping <- chunk.mapping) {
           val sizeMax = mapping.size.toInt
           val bytes = sizes(source.emits).random(randMax = sizeMax)
           val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
           val address = mapping.base.toLong + addressLocal
           val sourceId = source.id.randomPick().toInt
-          body(Ctx(e.agent, sourceId, address, bytes, slave, m2sAgent))
+          body(Ctx(e.agent, sourceId, address, bytes, slave, chunk, m2sAgent))
         }
       }
     }
