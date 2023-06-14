@@ -48,11 +48,12 @@ case class Decoder(upNode : NodeParameters,
   }
 
   val sinkOffsetWidth = if(downsNodes.exists(_.withBCE)) log2Up(downsNodes.size) else 0
-  val downs = io.downs.zipWithIndex.map{case (bus, id) => bus.fromSinkOffset(id << sinkOffsetWidth, upNode.s.sinkWidth)}
+  val perNodeSinkWidth = downsNodes.map(_.s.sinkWidth).max
+  val downs = io.downs.zipWithIndex.map{case (bus, id) => bus.fromSinkOffset(id << perNodeSinkWidth, upNode.s.sinkWidth)}
 
   def decode(id : Int, address : UInt) = defaultDown(id) match {
     case true => Bool()
-    case false => mapping(id).map(_.hit(io.up.a.address)).orR
+    case false => mapping(id).map(_.hit(address)).orR
   }
 
   val a = new Area{
@@ -95,7 +96,7 @@ case class Decoder(upNode : NodeParameters,
       s.c.valid := io.up.c.valid && hit
       s.c.payload := io.up.c.payload
       s.c.address.removeAssignments() := (io.up.c.address - offsets(id)).resized
-      readys += s.a.ready && hit
+      readys += s.c.ready && hit
     }
 
     for((s, id) <- logic.zipWithIndex if s.isDefault){
@@ -107,12 +108,15 @@ case class Decoder(upNode : NodeParameters,
 
   val d = new Area{
     val arbiter = StreamArbiterFactory().roundRobin.lambdaLock[ChannelD](_.isLast()).build(ChannelD(upNode), downsNodes.size)
-    (arbiter.io.inputs, downs).zipped.foreach(_ connectFromRelaxed _.d)
+    (arbiter.io.inputs, downs).zipped.foreach{(arb, down) =>
+      arb.arbitrationFrom(down.d)
+      arb.payload.weakAssignFrom(down.d.payload)
+    }
     arbiter.io.output >> io.up.d
   }
 
   val e = upNode.withBCE generate new Area{
-    val sel = io.up.d.sink.takeHigh(sinkOffsetWidth).asUInt
+    val sel = io.up.e.sink.takeHigh(sinkOffsetWidth).asUInt
     io.up.e.ready := downs.map(v => if(v.p.withBCE) v.e.ready else False).read(sel)
     for((s, id) <- downs.zipWithIndex if s.p.withBCE) {
       val hit = sel === id

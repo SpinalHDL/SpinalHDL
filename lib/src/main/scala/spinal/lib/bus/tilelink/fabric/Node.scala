@@ -232,7 +232,9 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
         m = up.arbiter.m2s.parameters,
         s = up.arbiter.s2m.parameters
       )))
-      (ups, core.io.ups.map(_.fromCombStage())).zipped.foreach(_.arbiter.bus.load(_))
+      for((up, arbitred) <- (ups, core.io.ups).zipped){
+        up.arbiter.bus.load(arbitred.fromCombStage())
+      }
       val connection = arbiterConnector(bus, core.io.down)
     }
 
@@ -243,7 +245,9 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
 
     val decoder = (mode != NodeMode.SLAVE && downs.size > 1) generate new Area {
       val core = Decoder(bus.p.node, downs.map(_.s.m2s.supported), downs.map(_.decoder.s2m.parameters), downs.map(_.getMapping()), downs.map(_.tag.offset), downs.map(_.mapping.defaultSpec.nonEmpty))
-      (downs, core.io.downs.map(_.combStage())).zipped.foreach(_.decoder.bus.load(_))
+      for((down, decoded) <- (downs, core.io.downs).zipped){
+        down.decoder.bus.load(decoded.combStage())
+      }
       val connection = decoderConnector(core.io.up, bus)
     }
 

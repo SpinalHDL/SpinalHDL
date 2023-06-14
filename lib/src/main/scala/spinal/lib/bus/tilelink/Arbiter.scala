@@ -37,7 +37,11 @@ case class Arbiter(upsNodes : Seq[NodeParameters]) extends Component{
 
   val a = new Area{
     val arbiter = StreamArbiterFactory().roundRobin.lambdaLock[ChannelA](_.isLast()).build(ChannelA(obp.toBusParameter()), upsNodes.size)
-    (arbiter.io.inputs, ups).zipped.foreach(_ connectFromRelaxed _.a)
+//    (arbiter.io.inputs, ups).zipped.foreach(_ connectFromRelaxed _.a)
+    (arbiter.io.inputs, ups).zipped.foreach{(arb, up) =>
+      arb.arbitrationFrom(up.a)
+      arb.payload.weakAssignFrom(up.a.payload)
+    }
     arbiter.io.output >> io.down.a
 //    io.down.a.source(obp.m.sourceWidth-sourceOffsetWidth, sourceOffsetWidth bits) := arbiter.io.chosen
   }

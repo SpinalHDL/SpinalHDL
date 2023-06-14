@@ -2,6 +2,7 @@ package spinal.lib.bus.tilelink
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.bmb.WeakConnector
 import spinal.lib.bus.tilelink.sim._
 
 import scala.collection.mutable
@@ -211,6 +212,19 @@ case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
   def withData : Boolean = p.withDataA
   def withMask : Boolean = p.withDataA
   def withDenied : Boolean = false
+
+  def weakAssignFrom(m : ChannelA): Unit ={
+    def s = this
+    s.opcode := m.opcode
+    s.param := m.param
+    s.source := m.source
+    s.address := m.address
+    s.size := m.size
+    s.debugId := m.debugId
+    WeakConnector(m, s, m.mask,    s.mask   , defaultValue = () => cloneOf(s.mask).assignDontCare(), allowUpSize = false , allowDownSize = false, allowDrop = true)
+    WeakConnector(m, s, m.data,    s.data   , defaultValue = () => cloneOf(s.data).assignDontCare(), allowUpSize = false , allowDownSize = false, allowDrop = true)
+    WeakConnector(m, s, m.corrupt, s.corrupt, defaultValue = () => False, allowUpSize = false , allowDownSize = false, allowDrop = false)
+  }
 }
 case class ChannelB(override val p : BusParameter) extends BusFragment(p) {
   val opcode  = Opcode.B()
@@ -279,6 +293,18 @@ case class ChannelD(override val p : BusParameter) extends BusFragment(p) {
   def withData : Boolean = p.withDataD
   def withMask : Boolean = false
   def withDenied : Boolean = true
+
+  def weakAssignFrom(m : ChannelD): Unit ={
+    def s = this
+    s.opcode := m.opcode
+    s.param := m.param
+    s.source := m.source
+    s.sink := m.sink
+    s.size := m.size
+    s.denied := m.denied
+    WeakConnector(m, s, m.data,    s.data   , defaultValue = () => cloneOf(s.data).assignDontCare(), allowUpSize = false , allowDownSize = false, allowDrop = true)
+    WeakConnector(m, s, m.corrupt, s.corrupt, defaultValue = () => False, allowUpSize = false , allowDownSize = false, allowDrop = false)
+  }
 }
 case class ChannelE(p : BusParameter) extends Bundle {
   val sink    = p.sink()

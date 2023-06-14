@@ -14,7 +14,7 @@ import spinal.lib.bus.tilelink.coherent.HubFabric
 import spinal.lib.bus.tilelink.fabric._
 import spinal.lib.sim.SparseMemory
 import spinal.lib.system.tag.{MemoryConnection, PMA}
-import spinal.sim.SimThread
+import spinal.sim.{SimError, SimThread}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -30,7 +30,7 @@ class InterconnectTester extends AnyFunSuite{
                       (implicit idAllocator : IdAllocator = new IdAllocator(DebugId.width),
                                 idCallback  : IdCallback = new IdCallback)  = {
     val nodes = c.getTags().collect{case t : Node => t}.toSeq
-    testInterconnectImpl(nodes)
+    new TestbenchBase(nodes)
   }
 
   def testInterconnect(c : Component)
@@ -43,45 +43,76 @@ class InterconnectTester extends AnyFunSuite{
     tb.waitCheckers()
   }
 
-  def testInterconnectSimple(c : SimCompiled[Component]) : Unit = {
-    def doSim(name : String)(body : MasterDebugTester => Unit): Unit ={
-      val separator = "\n" + "-"*80 + "\n"
-      val errors = new StringBuilder()
+  def testInterconnectAll(cGen : => Component) : Unit = {
+    tilelink.DebugId.setup(16)
+    val c = SimConfig.withFstWave.compile(cGen)
+    val nodes = c.report.toplevel.getTags().collect{case t : Node => t}.toSeq
+
+    val separator = "\n" + "-"*80 + "\n"
+    val errors = new StringBuilder()
+    def doSim(name : String)(body : TestbenchBase => Unit): Unit ={
       Try{
         c.doSim(name, 42) { dut =>
-          dut.clockDomain.forkStimulus(10)
           implicit val idAllocator = new IdAllocator(DebugId.width)
           implicit val idCallback = new IdCallback
           val tb = testInterconnectTb(dut)
-          val tester = new MasterDebugTester((tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterDebugTesterElement(s, t.agent)))
-          body(tester)
+          val cds = nodes.map(_.clockDomain).distinct
+          cds.foreach(_.forkStimulus(Random.nextInt(40)+10))
+          var timeout = 0
+          cds.head.onSamplings{
+            timeout += 1
+            if(timeout == 10000){
+              SimError("Timeout")
+            }
+          }
+          tb.mastersStuff.foreach(_.monitor.add(new MonitorSubscriber {
+            override def onA(a: TransactionA) = {
+              timeout = 0
+            }
+          }))
+          body(tb)
         }
       } match {
         case Success(_) =>
         case Failure(e) => errors ++= s"$separator$name FAILED !!! with :\n" + e + EOL +  e.getStackTrace().mkString("", EOL, EOL) + separator
       }
+    }
 
-      if(errors.nonEmpty) {
-        System.err.println(errors.toString())
-        throw new Exception("Some tests failed")
+    def doSimDirected(name : String)(body : MasterDebugTester => Unit): Unit ={
+      doSim(name){tb =>
+        val tester = new MasterDebugTester((tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterDebugTesterElement(s, t.agent)))
+        body(tester)
       }
     }
-    doSim("get")(_.coverGet(2))
-    doSim("putf")(_.coverPutFullData(2))
-    doSim("putp")(_.coverPutPartialData(2))
-    doSim("getPut"){t => t.coverPutFullData(2); t.coverPutPartialData(2); t.coverGet(2)}
-    doSim("acquireB")(_.coverAcquireB(8))
-    doSim("acquireT")(_.coverAcquireT(8))
-    doSim("acquireBT")(_.coverAcquireBT(8))
-    doSim("acquireTB")(_.coverAcquireTB(8))
-    doSim("coherencyBx2")(_.coverCoherencyBx2(8))
-    doSim("coherencyTx2")(_.coverCoherencyTx2(8))
-    doSim("coherencyT_B")(_.coverCoherencyT_B(8))
-    doSim("coherencyBx2_T_Bx2")(_.coverCoherencyBx2_T_Bx2(8))
+
+
+    val emits = nodes.map(_.bus.p.node.m.emits).reduce(_ mincover _)
+    if(emits.get.some) doSimDirected("get")(_.coverGet(2))
+    if(emits.putFull.some) doSimDirected("putf")(_.coverPutFullData(2))
+    if(emits.putPartial.some) doSimDirected("putp")(_.coverPutPartialData(2))
+    if(emits.get.some) doSimDirected("getPut"){t => t.coverPutFullData(2); t.coverPutPartialData(2); t.coverGet(2)}
+    if(emits.acquireB.some) doSimDirected("acquireB")(_.coverAcquireB(8))
+    if(emits.acquireT.some) doSimDirected("acquireT")(_.coverAcquireT(8))
+    if(emits.withBCE) doSimDirected("acquireBT")(_.coverAcquireBT(8))
+    if(emits.withBCE) doSimDirected("acquireTB")(_.coverAcquireTB(8))
+    if(emits.withBCE) doSimDirected("coherencyBx2")(_.coverCoherencyBx2(8))
+    if(emits.withBCE) doSimDirected("coherencyTx2")(_.coverCoherencyTx2(8))
+    if(emits.withBCE) doSimDirected("coherencyT_B")(_.coverCoherencyT_B(8))
+    if(emits.withBCE) doSimDirected("coherencyBx2_T_Bx2")(_.coverCoherencyBx2_T_Bx2(8))
+    doSim("randomized"){tb =>
+      val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
+      testers.foreach(_.startPerSource(100))
+      testers.foreach(_.join())
+      tb.waitCheckers()
+    }
+
+    if(errors.nonEmpty) {
+      System.err.println(errors.toString())
+      throw new Exception("Some tests failed")
+    }
   }
 
-  def testInterconnectImpl(nodes : Seq[Node])
-                          (implicit idAllocator : IdAllocator, idCallback : IdCallback) = new Area {
+  class TestbenchBase(nodes : Seq[Node]) (implicit idAllocator : IdAllocator, idCallback : IdCallback) extends Area {
     val nodeToModel = mutable.LinkedHashMap[Node, SparseMemory]()
     val slaveNodes = nodes.filter(_.bus.isMasterInterface)
     val masterNodes = nodes.filter(_.bus.isSlaveInterface)
@@ -258,20 +289,15 @@ class InterconnectTester extends AnyFunSuite{
   }
 
   test("OneToOneAutomated"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val m0 = simpleMaster(readWrite)
       val s0 = simpleSlave(10)
       s0.node at 0x800 of m0.node
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-    }
+    })
   }
 
   test("Simple"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val m0, m1 = simpleMaster(readWrite)
       val s0, s1 = simpleSlave(8)
 
@@ -282,15 +308,11 @@ class InterconnectTester extends AnyFunSuite{
 
       s0.node at 0x200 of b0
       s1.node at 0x400 of b0
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-    }
+    })
   }
 
   test("unaligned mapping"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val m0, m1 = simpleMaster(readWrite)
       val s0, s1, s2 = simpleSlave(8)
 
@@ -302,10 +324,7 @@ class InterconnectTester extends AnyFunSuite{
       s0.node at 0x240 of b0
       s1.node at 0x380 of b0
       s2.node at 0x480 of b0
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-    }
+    })
   }
 
 //  test("check no overlap mapping"){
@@ -331,8 +350,7 @@ class InterconnectTester extends AnyFunSuite{
 
 
   test("Buffering"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val m0 = simpleMaster(readWrite)
       val s0 = simpleSlave(8)
 
@@ -350,15 +368,11 @@ class InterconnectTester extends AnyFunSuite{
 
       s0.node at 0x1000 of b0
 
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-    }
+    })
   }
 
   test("DefaultOverlap"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val m0, m1 = simpleMaster(readWrite)
       val s0, s1, s2 = simpleSlave(8)
 
@@ -390,15 +404,11 @@ class InterconnectTester extends AnyFunSuite{
 //
 //      val wo = simpleWriteOnlySlave()
 //      wo.node << b3
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-    }
+    })
   }
 
   test("WidthAdapter_A"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val m0 = simpleMaster(readWrite, 128)
       val s0 = simpleSlave(8, 32)
       val b0, b1, b2 = Node()
@@ -413,15 +423,11 @@ class InterconnectTester extends AnyFunSuite{
         assert(b2.bus.p.dataWidth == 32)
         assert(s0.node.bus.p.dataWidth == 32)
       }
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-    }
+    })
   }
 
   test("WidthAdapter_B"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
 
       val m0 = simpleMaster(readWrite, 128)
       val s0 = simpleSlave(8, 32)
@@ -440,15 +446,11 @@ class InterconnectTester extends AnyFunSuite{
         assert(b2.bus.p.dataWidth == 32)
         assert(s0.node.bus.p.dataWidth == 32)
       }
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-    }
+    })
   }
 
   test("WidthAdapter_C"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val m0 = simpleMaster(readWrite, 128)
       val s0 = simpleSlave(8, 32)
       val widthAdapter = new fabric.WidthAdapter()
@@ -465,88 +467,46 @@ class InterconnectTester extends AnyFunSuite{
         assert(widthAdapter.up.bus.p.dataWidth == 128)
         assert(widthAdapter.down.bus.p.dataWidth == 32)
       }
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-    }
+    })
   }
 
 
   test("Coherent_noGetPut"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val m0 = simpleMaster(coherentOnly, dataWidth = 128)
       val s0 = simpleSlave(12, 128, coherentSlave)
       val b0 = Node()
       b0 << m0.node
       s0.node at 0x1000 of b0
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-
-//      val tb = testInterconnectTb(dut)
-//      tb.mastersStuff(0).agent.acquireBlock(0, Param.Grow.NtoB, 0x1080, 0x40)
-//      tb.mastersStuff(0).agent.acquireBlock(4, Param.Grow.NtoB, 0x1080, 0x40)
-//      tb.mastersStuff(0).agent.acquireBlock(1, Param.Grow.BtoT, 0x1080, 0x40)
-//      dut.clockDomain.waitSampling(10)
-    }
+    })
   }
 
   test("Coherent_all"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val m0 = simpleMaster(all, dataWidth = 128)
       val s0 = simpleSlave(12, 128, coherentSlave)
       val b0 = Node()
       b0 << m0.node
       s0.node at 0x1000 of b0
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-//      testInterconnectSimple(dut)
-
-//      val tb = testInterconnectTb(dut)
-//      tb.mastersStuff(0).agent.acquireBlock(0, Param.Grow.NtoB, 0x1080, 0x40)
-//      tb.mastersStuff(0).agent.acquireBlock(4, Param.Grow.NtoB, 0x1080, 0x40)
-//      tb.mastersStuff(0).agent.acquireBlock(1, Param.Grow.BtoT, 0x1080, 0x40)
-//      dut.clockDomain.waitSampling(10)
-    }
-  }
-
-  test("Coherent_all2"){
-    tilelink.DebugId.setup(16)
-    testInterconnectSimple(
-      SimConfig.withFstWave.compile(new Component{
-        val m0 = simpleMaster(all, dataWidth = 128)
-        val s0 = simpleSlave(12, 128, coherentSlave)
-        val b0 = Node()
-        b0 << m0.node
-        s0.node at 0x1000 of b0
-      })
-    )
+    })
   }
 
   test("Coherent_B"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
-      val m0, m1 = simpleMaster(coherentOnly)
-      val s0, s1 = simpleSlave(12, 32, coherentSlave)
+    testInterconnectAll(new Component{
+      val m0, m1 = simpleMaster(all, dataWidth = 128)
+      val s0, s1 = simpleSlave(12, 128, coherentSlave)
       val b0 = Node()
       b0 << m0.node
       b0 << m1.node
       s0.node at 0x1000 of b0
       s1.node at 0x2000 of b0
-    }).doSim(seed = 42){dut =>
-//      dut.clockDomain.forkStimulus(10)
-//      testInterconnect(dut)
-    }
+    })
   }
 
   test("Coherent_C"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
-      val m0, m1 = simpleMaster(coherentOnly)
-      val s0, s1, s2 = simpleSlave(12, 32, coherentSlave)
+    testInterconnectAll(new Component{
+      val m0, m1 = simpleMaster(coherentOnly, dataWidth = 128)
+      val s0, s1, s2 = simpleSlave(12, 128, coherentSlave)
       val b0, b1 = Node()
       b0 << m0.node
       b0 << m1.node
@@ -554,44 +514,33 @@ class InterconnectTester extends AnyFunSuite{
       s1.node at 0x2000 of b0
       b1 at (0x10000) of b0
       s2.node at 0x3000 of b1
-    }).doSim(seed = 42){dut =>
-      //      dut.clockDomain.forkStimulus(10)
-      //      testInterconnect(dut)
-    }
+    })
   }
 
   test("Coherent_D"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
-      val m0 = simpleMaster(all)
+    testInterconnectAll(new Component{
+      val m0 = simpleMaster(all, dataWidth = 128)
       val b0 = Node()
       b0 << m0.node
 
-      val s0 = simpleSlave(12, 32, coherentSlave)
+      val s0 = simpleSlave(12, 128, coherentSlave)
       s0.node at 0x1000 of b0
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      testInterconnect(dut)
-    }
+    })
   }
 
   test("Coherent_withHub"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
-      val m0 = simpleMaster(all)
+    testInterconnectAll(new Component{
+      val m0 = simpleMaster(all, dataWidth = 128)
       val b0 = Node()
       b0 << m0.node
 
       val hub = new HubFabric()
       hub.up << b0
 
-      val s0 = simpleSlave(16, 32)
+      val s0 = simpleSlave(16, 128)
       s0.node at 0x10000 of hub.down
       s0.node.addTag(PMA.MAIN)
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-//      testInterconnect(dut)
-    }
+    })
   }
 
 //  test("Coherent_E"){
@@ -654,8 +603,7 @@ class InterconnectTester extends AnyFunSuite{
 
 
   test("Soc_A"){
-    tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       //A fictive CPU which has 2 memory bus, one from the data cache and one for peripheral accesses
       val cpu = new Area{
         val main = simpleMaster(coherentOnly)
@@ -722,18 +670,12 @@ class InterconnectTester extends AnyFunSuite{
         println("dma.main.node can access : ")
         println(dmaSupport.map("- " + _).mkString("\n"))
       }
-    }).doSim(seed = 42){dut =>
-
-      //      dut.clockDomain.forkStimulus(10)
-      //      testInterconnect(dut)
-    }
+    })
   }
 
 
   test("Advanced"){
-    tilelink.DebugId.setup(16)
-
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val cdA = ClockDomain.external("cdA")
 
       val m0, m1 = simpleMaster(readWrite)
@@ -806,11 +748,7 @@ class InterconnectTester extends AnyFunSuite{
       )
       s4.node at 0x400 of m2.node
       s5.node at 0x800 of m2.node
-    }).doSim(seed = 42){dut =>
-      dut.clockDomain.forkStimulus(10)
-      dut.cdA.forkStimulus(25)
-      testInterconnect(dut)
-    }
+    })
   }
 }
 

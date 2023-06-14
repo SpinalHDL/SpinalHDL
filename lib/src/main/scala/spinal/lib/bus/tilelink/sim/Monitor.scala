@@ -11,11 +11,11 @@ import scala.util.Random
 
 
 trait MonitorSubscriber{
-  def onA(a : TransactionA) : Unit = ???
-  def onB(b : TransactionB) : Unit = ???
-  def onC(c : TransactionC) : Unit = ???
-  def onD(d : TransactionD) : Unit = ???
-  def onE(e : TransactionE) : Unit = ???
+  def onA(a : TransactionA) : Unit = { }
+  def onB(b : TransactionB) : Unit = { }
+  def onC(c : TransactionC) : Unit = { }
+  def onD(d : TransactionD) : Unit = { }
+  def onE(e : TransactionE) : Unit = { }
 }
 
 class Monitor (val bus : Bus, cd : ClockDomain) {

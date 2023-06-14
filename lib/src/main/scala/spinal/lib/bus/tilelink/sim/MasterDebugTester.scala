@@ -26,16 +26,6 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
       Ctx(other._1.agent, source, address, bytes, slave, other._3)
     }
   }
-//  def find(sizes : M2sTransfers => SizeRange) : Ctx = {
-//    val master = flatten.filter(e => sizes(e._2.emits).some).randomPick()
-//    val mapping = master._1.m.mapping.filter(e => sizes(e.allowed).some).randomPick().mapping.randomPick()
-//    val source = master._2
-//    val sizeMax = mapping.size.toInt
-//    val bytes = sizes(source.emits).random(randMax = sizeMax)
-//    val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
-//    val address = mapping.base.toLong + addressLocal
-//    Ctx(master._1.agent, source.id.randomPick().toInt, address.toLong, bytes)
-//  }
 
   val checks = mutable.LinkedHashSet[() => Unit]()
   def cover(sizes : M2sTransfers => SizeRange)(body : Ctx => Unit): Unit ={
