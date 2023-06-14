@@ -402,9 +402,11 @@ class ComponentEmitterVerilog(
               assert(mapping.map(_.width).sum == widthOf(data))
               val ordered = mapping.sortBy(_.offset)
               val portAlign = s"%-${maxNameLength}s".format(emitExpression(data))
+              val single_ordered = ordered.size == 1
               val wireAlign = ordered.reverse.map(e => emitAssignedExpression(e.dst)).mkString(", ")
               val comma = if (data == ios.last) " " else ","
-              val exp = s"    .${portAlign} ({${wireAlign}})${comma}\n"
+              val exp = if(single_ordered) s"    .${portAlign} (${wireAlign})${comma}\n"
+                else s"    .${portAlign} ({${wireAlign}})${comma}\n"
               buf ++= exp
             }
             case None =>
