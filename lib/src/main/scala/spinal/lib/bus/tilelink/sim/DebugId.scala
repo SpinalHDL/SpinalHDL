@@ -41,6 +41,11 @@ class IdAllocator(width : Int) {
     id
   }
 
+  def allocate(id : Long) : Unit = {
+    assert(!allocated.contains(id))
+    allocated += id
+  }
+
   def remove(id : Long): Unit ={
     assert(allocated.contains(id))
     allocated.remove(id)

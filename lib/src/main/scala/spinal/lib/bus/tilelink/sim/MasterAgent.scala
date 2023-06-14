@@ -8,7 +8,7 @@ import spinal.lib.sim.{StreamDriver, StreamDriverOoo, StreamMonitor, StreamReady
 import scala.collection.{breakOut, mutable}
 import scala.util.Random
 
-class OrderingArgs(val address : BigInt, val bytes : Int){
+class OrderingArgs(val offset : BigInt, val bytes : Int){
   override def toString = f"addr=$address%x bytes=$bytes"
 }
 

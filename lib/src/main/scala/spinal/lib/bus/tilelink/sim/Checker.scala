@@ -159,7 +159,10 @@ class Checker(p : BusParameter, mappings : Seq[Mapping])(implicit idCallback : I
         val ctx = inflightA(d.source)
         assert(ctx != null)
         d.assertRspOf(ctx.a)
-        if(d.withData) assert((ctx.ref, d.data).zipped.forall(_ == _), s"Missmatch for :\n$ctx.a\n$d\n!=${ctx.ref.map(v => f"${v}%02x").mkString(" ")}")
+        if(d.withData) {
+          assert(ctx.ref != null, s"No reference data was provided for :\n${ctx.a}to compare with :\n$d")
+          assert((ctx.ref, d.data).zipped.forall(_ == _), s"Missmatch for :\n$ctx.a\n$d\n!=${ctx.ref.map(v => f"${v}%02x").mkString(" ")}")
+        }
         assert(!d.denied)
         assert(!d.corrupt)
         if(d.opcode == Opcode.D.GRANT || d.opcode == Opcode.D.GRANT_DATA){

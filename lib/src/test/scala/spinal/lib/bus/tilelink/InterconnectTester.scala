@@ -26,27 +26,23 @@ import scala.util.{Failure, Random, Success, Try}
 
 
 class InterconnectTester extends AnyFunSuite{
-  def testInterconnectTb(c : Component)
-                      (implicit idAllocator : IdAllocator = new IdAllocator(DebugId.width),
-                                idCallback  : IdCallback = new IdCallback)  = {
-    val nodes = c.getTags().collect{case t : Node => t}.toSeq
-    new TestbenchBase(nodes)
-  }
-
-  def testInterconnect(c : Component)
-                      (implicit idAllocator : IdAllocator = new IdAllocator(DebugId.width),
-                       idCallback  : IdCallback = new IdCallback) : Unit = {
-    val tb = testInterconnectTb(c)
-    val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
-    testers.foreach(_.startPerSource(100))
-    testers.foreach(_.join())
-    tb.waitCheckers()
-  }
-
+//  def testInterconnectTb(c : Component)
+//                      (implicit idAllocator : IdAllocator = new IdAllocator(DebugId.width),
+//                                idCallback  : IdCallback = new IdCallback)  = {
+//    val nodes = c.getTags().collect{case t : Node => t}.toSeq
+//    new TestbenchBase(nodes)
+//  }
+//
   def testInterconnectAll(cGen : => Component) : Unit = {
     tilelink.DebugId.setup(16)
     val c = SimConfig.withFstWave.compile(cGen)
-    val nodes = c.report.toplevel.getTags().collect{case t : Node => t}.toSeq
+    val nodes = ArrayBuffer[Node]()
+    val orderings = ArrayBuffer[OrderingTag]()
+    c.report.toplevel.walkComponents(_.foreachTag {
+      case t: Node => nodes += t
+      case t: OrderingTag => orderings += t
+      case _ =>
+    })
 
     val separator = "\n" + "-"*80 + "\n"
     val errors = new StringBuilder()
@@ -55,7 +51,8 @@ class InterconnectTester extends AnyFunSuite{
         c.doSim(name, 42) { dut =>
           implicit val idAllocator = new IdAllocator(DebugId.width)
           implicit val idCallback = new IdCallback
-          val tb = testInterconnectTb(dut)
+          for(i <- 0 until DebugId.space.reserved) idAllocator.allocate(i)
+          val tb = new TestbenchBase(nodes, orderings)
           val cds = nodes.map(_.clockDomain).distinct
           cds.foreach(_.forkStimulus(Random.nextInt(40)+10))
           var timeout = 0
@@ -112,10 +109,16 @@ class InterconnectTester extends AnyFunSuite{
     }
   }
 
-  class TestbenchBase(nodes : Seq[Node]) (implicit idAllocator : IdAllocator, idCallback : IdCallback) extends Area {
+  class TestbenchBase(nodes : Seq[Node], orderings : Seq[OrderingTag]) (implicit idAllocator : IdAllocator, idCallback : IdCallback) extends Area {
     val nodeToModel = mutable.LinkedHashMap[Node, SparseMemory]()
     val slaveNodes = nodes.filter(_.bus.isMasterInterface)
     val masterNodes = nodes.filter(_.bus.isSlaveInterface)
+
+    for(o <- orderings) o.cd.onSamplings{
+      if(o.cmd.valid.toBoolean){
+        idCallback.call(o.cmd.payload.toLong)(null)
+      }
+    }
 
     for(node <- slaveNodes) {
       nodeToModel(node) = SparseMemory(Random.nextInt())
@@ -531,11 +534,9 @@ class InterconnectTester extends AnyFunSuite{
   test("Coherent_withHub"){
     testInterconnectAll(new Component{
       val m0 = simpleMaster(all, dataWidth = 128)
-      val b0 = Node()
-      b0 << m0.node
 
       val hub = new HubFabric()
-      hub.up << b0
+      hub.up << m0.node
 
       val s0 = simpleSlave(16, 128)
       s0.node at 0x10000 of hub.down

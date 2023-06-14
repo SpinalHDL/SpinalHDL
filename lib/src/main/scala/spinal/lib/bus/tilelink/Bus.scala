@@ -1,6 +1,7 @@
 package spinal.lib.bus.tilelink
 
 import spinal.core._
+import spinal.core.sim.SimDataPimper
 import spinal.lib._
 import spinal.lib.bus.bmb.WeakConnector
 import spinal.lib.bus.tilelink.sim._
@@ -142,6 +143,10 @@ object ChannelD{
 }
 object ChannelE{
   def apply(node : NodeParameters) : ChannelE = ChannelE(node.toBusParameter())
+}
+
+case class OrderingTag(cmd : Flow[UInt], cd : ClockDomain = ClockDomain.current) extends SpinalTag{
+  cmd.simPublic()
 }
 
 object DebugId{

@@ -94,12 +94,13 @@ abstract class TransactionABCD {
             case false => " --"
             case true => f" ${data(i)}%02x"
           })
+
         }
         buf.toString()
       }
 
     }
-    f"param=$param source=$source addr=0x$address%x bytes=${1<<size}$dataString"
+    f"param=$param source=$source addr=0x$address%x bytes=${1<<size}$dataString\n"
   }
 }
 

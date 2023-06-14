@@ -66,6 +66,7 @@ case class HubParameters(var unp : NodeParameters,
   def setsRange = lineRange
 }
 
+case class OrderingCmd()
 
 /*
 access main memory :
@@ -135,8 +136,10 @@ class Hub(p : HubParameters) extends Component{
   val io = new Bundle{
     val up = slave(Bus(ubp))
     val down = master(Bus(dbp))
+    val ordering = master(Flow(DebugId()))
   }
 
+  this.addTag(OrderingTag(io.ordering))
 
 
   case class DataPayload() extends Bundle {
@@ -179,7 +182,7 @@ class Hub(p : HubParameters) extends Component{
     val full = valids.andR
     val allocate = Bool()
     val release = Flow(UInt(log2Up(downPendingMax) bits))
-    valids := (valids | freeOh.andMask(allocate)) & UIntToOh(release.payload).orMask(release.valid)
+    valids := (valids | freeOh.andMask(allocate)) & ~(UIntToOh(release.payload).andMask(release.valid))
     val ctx = Mem.fill(downPendingMax)(Bits((widthOf(CtxA()) max widthOf(CtxC())) + 1 bits))
     val ctxWrite = ctx.writePort()
   }
@@ -225,6 +228,7 @@ class Hub(p : HubParameters) extends Component{
       import stage._
 
       driveFrom(io.up.a)
+      haltWhen(!initializer.done)
       val CMD = insert(io.up.a.payload.asNoData())
       val LAST = io.up.a.isLast()
       if(ubp.withDataA) {
@@ -265,20 +269,28 @@ class Hub(p : HubParameters) extends Component{
       import stage._
       import readConflicts._
 
-      val hit    = setsBusy.hit.mem.readSync(readAddress, isReady)
-      val target = setsBusy.target.mem.readSync(readAddress, isReady)
-      val freed = RegNext(setsBusy.hit.write.valid && setsBusy.hit.write.address === spawn.CMD.address(setsRange)) clearWhen(isReady)
-      val hazard = (hit =/= target || JUST_BUSY) && !JUST_FREE && !freed
+      val hitPort = setsBusy.hit.mem.readSyncPort()
+      hitPort.cmd.valid := !stage.isStuck
+      hitPort.cmd.payload := readAddress
+      hitPort.writeFirstAndUpdate(setsBusy.hit.write)
+
+      val targetPort = setsBusy.target.mem.readSyncPort()
+      targetPort.cmd.valid := !stage.isStuck
+      targetPort.cmd.payload := readAddress
+      targetPort.writeFirstAndUpdate(setsBusy.target.write)
+
+      val hit    = hitPort.rsp
+      val target = targetPort.rsp
+      val hazard = hit =/= target
       haltIt(hazard)
 
-      val newTarget = JUST_BUSY ? hit | !target
       when(initializer.done) {
         setsBusy.target.write.valid := isFireing
         setsBusy.target.write.address := spawn.CMD.address(setsRange)
-        setsBusy.target.write.data := newTarget
+        setsBusy.target.write.data := !target
       }
 
-      CONFLICT_CTX := newTarget
+      CONFLICT_CTX := !target
     }
   }
 
@@ -292,6 +304,7 @@ class Hub(p : HubParameters) extends Component{
     val size    = ubp.size()
     val toTrunk = Bool()
     val source  = ubp.source()
+    val debugId  = DebugId()
     val bufferId = UInt(log2Up(aBufferCount) bits)
     val conflictCtx = CONFLICT_CTX()
   }
@@ -326,11 +339,12 @@ class Hub(p : HubParameters) extends Component{
     val push = Stream(ProbeCmd())
     val pushCmd = isl(frontendA.spawn.CMD)
     val isAcquire = Opcode.A.isAcquire(pushCmd.opcode)
-    push.valid := isl.isValid
+    push.valid := isl.isValid && !isl.internals.request.halts.orR
     isl.haltIt(!push.ready)
     push.ctx.opcode     := pushCmd.opcode
     push.ctx.address    := pushCmd.address
     push.ctx.toTrunk    := pushCmd.param =/= Param.Grow.NtoB
+    push.ctx.debugId    := pushCmd.debugId
     push.ctx.bufferId   := isl(frontendA.BUFFER_ID)
     push.ctx.conflictCtx := isl(CONFLICT_CTX)
     push.ctx.size       := pushCmd.size
@@ -461,7 +475,7 @@ class Hub(p : HubParameters) extends Component{
         val stage = stages(1)
         import stage._
 
-        stage(CTX) := ctxMem.readSync(insertion.hitId, isReady)
+        stage(CTX) := ctxMem.readSync(insertion.hitId, !isStuck)
 
         output.valid := isValid
         output.payload.assignSomeByName(CTX)
@@ -516,7 +530,7 @@ class Hub(p : HubParameters) extends Component{
         SIZE := a.size
         SOURCE := a.source
       }
-      LAST := WRITE_DATA && counter === sizeToBeatMinusOne(ubp, a.size)
+      LAST := READ_DATA || WRITE_DATA && counter === sizeToBeatMinusOne(ubp, a.size)
       BUFFER_ID := a.bufferId
       PROBE_ID := a.probeId
       CONFLICT_CTX := a.conflictCtx
@@ -534,6 +548,9 @@ class Hub(p : HubParameters) extends Component{
       //need update when $
       TO_DOWN := WRITE_DATA | READ_DATA
       SLOT_ALLOCATE := TO_DOWN
+
+      io.ordering.valid := isFireing && !FROM_C
+      io.ordering.payload := a.debugId
     }
 
     val aPayloadSyncRead = new Area{
@@ -610,7 +627,7 @@ class Hub(p : HubParameters) extends Component{
       val s0 = stages(0)
       val s1 = stages(1)
       val wordAddress = s0(D_PAYLOAD).source
-      s1(CTX) := slots.ctx.readSync(wordAddress, s1.isReady)
+      s1(CTX) := slots.ctx.readSync(wordAddress, !s1.isStuck)
     }
 
     def decodeCtx(ctx : Bits) = new Area{
@@ -662,7 +679,7 @@ class Hub(p : HubParameters) extends Component{
       val ctx = decodeCtx(CTX)
       val hit = ctx.fromC ? (!ctx.c.isProbeData) | True
       val fired = RegInit(False) setWhen(io.up.d.fire) clearWhen(isReady)
-      io.up.d.valid := isValid && hit && fired
+      io.up.d.valid := isValid && hit && !fired
       io.up.d.payload := D_PAYLOAD
       io.up.d.source.removeAssignments()
       io.up.d.sink.removeAssignments() := U(ctx.a.conflictCtx ## ctx.a.set)
