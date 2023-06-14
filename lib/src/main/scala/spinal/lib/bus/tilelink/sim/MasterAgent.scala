@@ -15,6 +15,7 @@ class OrderingArgs(val address : BigInt, val bytes : Int){
 class Block(val source : Int,
             val address : Long,
             var cap : Int,
+            var bytes : Int,
             var dirty : Boolean = false,
             var data : Array[Byte] = null,
             var retains : Int = 0){
@@ -237,7 +238,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
       case Opcode.D.GRANT_DATA => { //TODO on naxriscv, may sent a aquire BtoT but may have been probed out meanwhile => test
         assert(!block.contains(source, address))
         onGrant(source, address, param)
-        b = new Block(source, address, d.param, false, d.data){
+        b = new Block(source, address, d.param, bytes, false, d.data){
           override def release() = {
             super.release()
             if(retains == 0) {
@@ -287,7 +288,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
       }
       case None => {
         if(debug) println(f"acquirePerm  src=$source%02x addr=$address%x 2 -> 0 time=${simTime()}")
-        blk = new Block(source, address, d.param, false, null){
+        blk = new Block(source, address, d.param, bytes, false, null){
           override def release() = {
             super.release()
             if(retains == 0) {
@@ -309,8 +310,17 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     blk
   }
 
+  def releaseAuto(source : Int, toCap : Int, block : Block) : Unit = {
+    if(block.dirty){
+      releaseData(source, toCap, block)
+    } else {
+      release(source, toCap, block)
+    }
+  }
   def release(source : Int, toCap : Int, block : Block) : Unit = {
     block.retain()
+    assert(!block.dirty)
+    assert(block.cap < toCap)
 
     val c = new TransactionC()
     c.opcode  = Opcode.C.RELEASE
@@ -330,6 +340,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
 
   def releaseData(source : Int, toCap : Int, block : Block) : Unit = {
     assert(block.dirty)
+    assert(block.cap < toCap)
     block.dirty = false
     block.retain()
 

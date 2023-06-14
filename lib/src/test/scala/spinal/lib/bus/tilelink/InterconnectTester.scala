@@ -18,7 +18,8 @@ import spinal.sim.SimThread
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
+import scala.compat.Platform.EOL
+import scala.util.{Failure, Random, Success, Try}
 
 
 
@@ -44,23 +45,39 @@ class InterconnectTester extends AnyFunSuite{
 
   def testInterconnectSimple(c : SimCompiled[Component]) : Unit = {
     def doSim(name : String)(body : MasterDebugTester => Unit): Unit ={
-      c.doSim(name, 42){ dut =>
-        dut.clockDomain.forkStimulus(10)
-        implicit val idAllocator  = new IdAllocator(DebugId.width)
-        implicit val idCallback   = new IdCallback
-        val tb = testInterconnectTb(dut)
-        val tester = new MasterDebugTester((tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterDebugTesterElement(s, t.agent)))
-        body(tester)
+      val separator = "\n" + "-"*80 + "\n"
+      val errors = new StringBuilder()
+      Try{
+        c.doSim(name, 42) { dut =>
+          dut.clockDomain.forkStimulus(10)
+          implicit val idAllocator = new IdAllocator(DebugId.width)
+          implicit val idCallback = new IdCallback
+          val tb = testInterconnectTb(dut)
+          val tester = new MasterDebugTester((tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterDebugTesterElement(s, t.agent)))
+          body(tester)
+        }
+      } match {
+        case Success(_) =>
+        case Failure(e) => errors ++= s"$separator$name FAILED !!! with :\n" + e + EOL +  e.getStackTrace().mkString("", EOL, EOL) + separator
+      }
+
+      if(errors.nonEmpty) {
+        System.err.println(errors.toString())
+        throw new Exception("Some tests failed")
       }
     }
     doSim("get")(_.coverGet(2))
     doSim("putf")(_.coverPutFullData(2))
     doSim("putp")(_.coverPutPartialData(2))
-    doSim("getPut"){t => t.coverPutFullData(2); t.coverPutPartialData(2); t.coverGet(8)}
+    doSim("getPut"){t => t.coverPutFullData(2); t.coverPutPartialData(2); t.coverGet(2)}
     doSim("acquireB")(_.coverAcquireB(8))
     doSim("acquireT")(_.coverAcquireT(8))
     doSim("acquireBT")(_.coverAcquireBT(8))
     doSim("acquireTB")(_.coverAcquireTB(8))
+    doSim("coherencyBx2")(_.coverCoherencyBx2(8))
+    doSim("coherencyTx2")(_.coverCoherencyTx2(8))
+    doSim("coherencyT_B")(_.coverCoherencyT_B(8))
+    doSim("coherencyBx2_T_Bx2")(_.coverCoherencyBx2_T_Bx2(8))
   }
 
   def testInterconnectImpl(nodes : Seq[Node])

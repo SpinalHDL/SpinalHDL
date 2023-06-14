@@ -128,6 +128,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
                 b = agent.acquirePerm(sourceId, Param.Grow.BtoT, address, bytes)
               }
               assert(b.cap == Param.Cap.toT, f"$source $address%x")
+              b.dirty = true
               b.data = new Array[Byte](bytes)
               Random.nextBytes(b.data)
             }
