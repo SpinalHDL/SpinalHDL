@@ -171,6 +171,9 @@ class TransactionA extends TransactionABCD{
   override def toString = opcode + " " + super.toString
 
   override def isRspOf(that: TransactionABCD) = ???
+  def checkAligned(): Unit ={
+    assert((address & (1 << size)-1).toInt == 0)
+  }
 }
 
 object TransactionB{

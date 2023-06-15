@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.sim.SimDataPimper
 import spinal.lib._
 import spinal.lib.bus.bmb.WeakConnector
+import spinal.lib.bus.tilelink.coherent.OrderingCmd
 import spinal.lib.bus.tilelink.sim._
 
 import scala.collection.mutable
@@ -100,7 +101,7 @@ object Param{
       case BtoT => (Cap.toB, Cap.toT)
     }
   }
-
+  def reportPruneKeepCopy (param : Bits) = param ===  Prune.TtoB || param === Report.BtoB || param === Report.TtoT
   def reportPruneToCap(param : Int) = param match {
     case Prune.TtoB  => Cap.toB
     case Prune.TtoN  => Cap.toN
@@ -145,7 +146,7 @@ object ChannelE{
   def apply(node : NodeParameters) : ChannelE = ChannelE(node.toBusParameter())
 }
 
-case class OrderingTag(cmd : Flow[UInt], cd : ClockDomain = ClockDomain.current) extends SpinalTag{
+case class OrderingTag(cmd : Flow[OrderingCmd], cd : ClockDomain = ClockDomain.current) extends SpinalTag{
   cmd.simPublic()
 }
 

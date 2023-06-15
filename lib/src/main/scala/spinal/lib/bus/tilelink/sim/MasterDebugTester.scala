@@ -78,6 +78,7 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
   def coverAcquireB(repeat : Int): Unit ={
     for(i <- 0 until repeat) cover(_.acquireB){ ctx =>
       val block = ctx.agent.acquireBlock(ctx.source, Param.Grow.NtoB, ctx.address, ctx.bytes)
+      assert(block.cap == Param.Cap.toT)
       ctx.agent.release(ctx.source, Param.Cap.toN, block)
     }
   }
@@ -122,7 +123,10 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
     for(i <- 0 until repeat) cover(_.acquireB){ ctx1 =>
       val ctx2 = ctx1.anotherMaster(_.acquireB)
       var block1 = ctx1.agent.acquireBlock(ctx1.source, Param.Grow.NtoB, ctx1.address, ctx1.bytes)
+      assert(block1.cap == Param.Cap.toT)
       var block2 = ctx2.agent.acquireBlock(ctx2.source, Param.Grow.NtoB, ctx2.address, ctx2.bytes)
+      assert(block1.cap == Param.Cap.toB)
+      assert(block2.cap == Param.Cap.toB)
       ctx1.agent.release(ctx1.source, Param.Cap.toN, block1)
       ctx2.agent.release(ctx2.source, Param.Cap.toN, block2)
     }
@@ -160,6 +164,8 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
       var block2 = ctx2.agent.acquireBlock(ctx2.source, Param.Grow.NtoB, ctx2.address, ctx2.bytes)
       assert(block2.data sameElements block1.data)
       block1 = ctx1.agent.acquireBlock(ctx1.source, Param.Grow.BtoT, ctx1.address, ctx1.bytes)
+      assert(block1.cap == Param.Cap.toT)
+      assert(block2.cap == Param.Cap.toN)
       block1.makeDataDirty()
       block2 = ctx2.agent.acquireBlock(ctx2.source, Param.Grow.NtoB, ctx2.address, ctx2.bytes)
       assert(block1.cap == Param.Cap.toB)

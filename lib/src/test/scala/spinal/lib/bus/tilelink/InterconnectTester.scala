@@ -7,7 +7,7 @@ import spinal.core.fiber.{Fiber, hardFork}
 import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink._
-import spinal.lib.bus.tilelink.sim._
+import spinal.lib.bus.tilelink.sim.{OrderingArgs, _}
 import spinal.lib._
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink.coherent.HubFabric
@@ -116,7 +116,7 @@ class InterconnectTester extends AnyFunSuite{
 
     for(o <- orderings) o.cd.onSamplings{
       if(o.cmd.valid.toBoolean){
-        idCallback.call(o.cmd.payload.toLong)(null)
+        idCallback.call(o.cmd.debugId.toLong)(new OrderingArgs(0, o.cmd.bytes.toInt))
       }
     }
 
@@ -641,22 +641,19 @@ class InterconnectTester extends AnyFunSuite{
       something.node at 0x82000000l of n0
 
       //Will manage memory coherency
-      val hub = new fabric.CoherencyHub()
-      val p0 = hub.createPort()
-      p0 << n0
+      val hub = new HubFabric()
+      hub.up << n0
 //      p0 at 0x00000000l of n0
 
       //Define the main memory of the SoC (ex : DDR)
       val memory = simpleSlave(28, 32)
       memory.node.addTag(PMA.MAIN)
-      memory.node at 0x80000000l of hub.memGet
-      memory.node at 0x80000000l of hub.memPut
+      memory.node at 0x80000000l of hub.down
 
       //Define all the peripherals / low performance stuff, ex uart, scratch ram, rom, ..
       val peripheral = new Area{
         val bus = Node()
-        bus at 0x10000000 of hub.memGet
-        bus at 0x10000000 of hub.memPut
+        bus at 0x10000000 of hub.down
 
         val gpio = simpleSlave(12, 32)
         val uart = simpleSlave(12, 32)
