@@ -791,7 +791,7 @@ class Hub(p : HubParameters) extends Component{
 
 
 object HubGen extends App{
-  def basicConfig(probeCount : Int = 8, masterPerChannel : Int = 4, dataWidth : Int = 64, addressWidth : Int = 13, setCount : Int = 256, wayCount : Int = 2, lineSize : Int = 64) = {
+  def basicConfig(probeCount : Int = 8, downPendingMax : Int = 16, masterPerChannel : Int = 4, dataWidth : Int = 64, addressWidth : Int = 13, setCount : Int = 256, wayCount : Int = 2, lineSize : Int = 64) = {
     val blockSize = 64
     HubParameters(
       unp = NodeParameters(
@@ -824,7 +824,7 @@ object HubGen extends App{
           )
         ))
       ),
-      downPendingMax = 16,
+      downPendingMax = downPendingMax,
       probeCount = probeCount,
       sets = setCount,
       wayCount  = wayCount,
@@ -845,6 +845,31 @@ object HubSynt extends App{
   val targets = XilinxStdTargets().take(2) ++ AlteraStdTargets(quartusCycloneIIPath = null)
 
   Bench(rtls, targets)
+}
+
+
+object HubSyntLight extends App{
+  import spinal.lib.eda.bench._
+  val rtls = ArrayBuffer[Rtl]()
+  rtls += Rtl(SpinalVerilog((new Hub(HubGen.basicConfig(
+    probeCount = 2,
+    downPendingMax = 4,
+    masterPerChannel = 2,
+    dataWidth = 16,
+    addressWidth = 32
+  )).setDefinitionName(s"Hub"))))
+
+  val targets = XilinxStdTargets().take(2) ++ AlteraStdTargets(quartusCycloneIIPath = null)
+
+  Bench(rtls, targets)
+  /*
+
+Artix 7 -> 180 Mhz 336 LUT 381 FF
+Artix 7 -> 315 Mhz 404 LUT 381 FF
+Cyclone V -> FAILED
+Cyclone IV -> 152 Mhz 488 LUT 524 FF
+
+   */
 }
 
 /*
@@ -1014,6 +1039,25 @@ Artix 7 -> 119 Mhz 734 LUT 647 FF
 Artix 7 -> 199 Mhz 835 LUT 647 FF
 Cyclone V -> FAILED
 Cyclone IV -> 119 Mhz 879 LUT 578 FF
+
+Process finished with exit code 0
+
+
+Hub2 ->
+Artix 7 -> 126 Mhz 387 LUT 412 FF
+Artix 7 -> 292 Mhz 461 LUT 412 FF
+Cyclone V -> FAILED
+Cyclone IV -> 123 Mhz 529 LUT 481 FF
+Hub8 ->
+Artix 7 -> 160 Mhz 515 LUT 514 FF
+Artix 7 -> 230 Mhz 598 LUT 514 FF
+Cyclone V -> FAILED
+Cyclone IV -> 113 Mhz 907 LUT 859 FF
+Hub16 ->
+Artix 7 -> 116 Mhz 737 LUT 650 FF
+Artix 7 -> 193 Mhz 852 LUT 650 FF
+Cyclone V -> FAILED
+Cyclone IV -> 114 Mhz 898 LUT 581 FF
 
 Process finished with exit code 0
 

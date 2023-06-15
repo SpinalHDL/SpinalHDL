@@ -14,7 +14,9 @@ import scala.util.Random
 
 case class Chunk(allowed : M2sTransfers,
                  offset : BigInt,
-                 mapping : Seq[SizeMapping])
+                 mapping : Seq[SizeMapping]){
+  override def toString = f"$allowed $offset%x $mapping"
+}
 case class Endpoint(model : Any,
                     chunks : Seq[Chunk])
 case class MasterSpec(bus : Bus,
