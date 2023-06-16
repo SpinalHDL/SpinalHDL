@@ -386,9 +386,8 @@ class ComponentEmitterVerilog(
       logics ++= s"${child.getName()} (\n"
 
       val ios = child.getOrdredNodeIo.filterNot(_.isSuffix)
-      val instports: String = ios.map{ data =>
-        if(data.isInOut){
-          val buf = new mutable.StringBuilder()
+      val prepareInstports = ios.flatMap { data =>
+        if (data.isInOut) {
           analogDrivers.get(data) match {
             case Some(statements) => {
               case class Mapping(offset: Int, width: Int, dst: Expression)
@@ -405,16 +404,14 @@ class ComponentEmitterVerilog(
               val single_ordered = ordered.size == 1
               val wireAlign = ordered.reverse.map(e => emitAssignedExpression(e.dst)).mkString(", ")
               val comma = if (data == ios.last) " " else ","
-              val exp = if(single_ordered) s"    .${portAlign} (${wireAlign})${comma}\n"
-                else s"    .${portAlign} ({${wireAlign}})${comma}\n"
-              buf ++= exp
+              if (single_ordered) Some((s"    .${portAlign} (", s"${wireAlign}[${data.getBitsWidth - 1}:0]", s")${comma} //~\n"))
+              else Some((s"    .${portAlign} (", s"{${wireAlign}}", s")${comma} //~\n"))
             }
-            case None =>
+            case None => None
           }
-          buf.toString()
         } else {
           val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
-          val wireAlign = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
+          val wireAlign = s"${netsWithSection(data)}"
           val comma = if (data == ios.last) " " else ","
           val dirtag: String = data.dir match {
             case spinal.core.in | spinal.core.inWithNull => "i"
@@ -422,10 +419,14 @@ class ComponentEmitterVerilog(
             case spinal.core.inout => "~"
             case _ => SpinalError("Not founded IO type")
           }
-          s"    .${portAlign} (${wireAlign})${comma} //${dirtag}\n"
+          Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
         }
-      }.mkString
-
+      }
+      val maxNameLengthConNew = prepareInstports.map(_._2.length()).max
+      val prepareInstportsLen = prepareInstports
+        .map(x => (x._1, s"%-${maxNameLengthConNew}s".format(x._2), x._3))
+        .map(x => s"${x._1}${x._2}${x._3}")
+      val instports: String = prepareInstportsLen.mkString
 
       logics ++= instports
       logics ++= s"  );"
