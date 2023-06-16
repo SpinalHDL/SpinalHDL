@@ -95,7 +95,7 @@ final case class CHeaderGenerator(
                         case AccessType.NA => ""
                         case _ =>  ", reset: 0x" + fd.getResetValue().hexString(fd.getWidth())
                     }
-                    f"""$regType ${name.toLowerCase()}${_tab} : ${fd.getWidth()}%2d; //${fd.getAccessType()}${reset}, ${fd.getDoc().replace("\n","\\n")}""".stripMargin
+                    f"""$regType ${name.toLowerCase()}${_tab} : ${fd.getWidth()}%2d; /* ${fd.getAccessType()}${reset}, ${fd.getDoc().replace("\n","\\n")} */""".stripMargin
                 }).mkString("\n" + tab)
             }
 
@@ -124,7 +124,7 @@ final case class CHeaderGenerator(
                         if(fd.getSection().size == dataWidth) "" else
                         if(fd.getName() == "_bm_") "" else
                         s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb}
-                           |#define ${pre}_${newfdname}_MASK  ${_tab}0x${mask.hexString(32)} //${fd.getAccessType()}, ${fd.getWidth()} bit""".stripMargin
+                           |#define ${pre}_${newfdname}_MASK  ${_tab}0x${mask.hexString(32)} /* ${fd.getAccessType()}, ${fd.getWidth()} bit */""".stripMargin
                     }
                 }
             }
@@ -161,16 +161,16 @@ final case class CHeaderGenerator(
               |  */
               |typedef union {
               |    struct {
-              |        m_agl_common_t agl_common    ; // Register description
-              |        m_agl_inimg_t  agl_inimg     ; // Register description
-              |        u32            reserved0[100]; // reserved 100 reg
-              |        m_agl_hscale_t agl_hscale    ; // Register description
-              |        u32            reserved1[1]  ; // reserved 1 reg
-              |        m_agl_hscale_t agl_hscale    ; // Register description
-              |        u32            reserved2[94] ; // reserved 1 reg
-              |        m_agl_xxx_t    agl_xxx       ; // Register description
+              |        m_agl_common_t agl_common    ; /* Register description */
+              |        m_agl_inimg_t  agl_inimg     ; /* Register description */
+              |        u32            reserved0[100]; /* reserved 100 reg */
+              |        m_agl_hscale_t agl_hscale    ; /* Register description */
+              |        u32            reserved1[1]  ; /* reserved 1 reg */
+              |        m_agl_hscale_t agl_hscale    ; /* Register description */
+              |        u32            reserved2[94] ; /* reserved 1 reg */
+              |        m_agl_xxx_t    agl_xxx       ; /* Register description */
               |    };
-              |    u32  reg[200];  //total size 200
+              |    u32  reg[200];  /* total size 200 */
               |} xxx_sys_regbank_block_t;
               |""".stripMargin
         }
