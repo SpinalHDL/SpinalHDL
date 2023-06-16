@@ -354,9 +354,11 @@ class PhaseAnalog extends PhaseNetlist{
                   case (None, Some(island)) => island
                   case (Some(island), None) => island
                   case (Some(islandBt), Some(islandY)) =>
-                    for (e <- islandY.elements) bitToIsland(e.bt -> e.bitId) = islandBt
-                    islandBt.absorb(islandY)
-                    islands.remove(islandY)
+                    if(islandBt != islandY) {
+                      for (e <- islandY.elements) bitToIsland(e.bt -> e.bitId) = islandBt
+                      islandBt.absorb(islandY)
+                      islands.remove(islandY)
+                    }
                     islandBt
                 }
 
