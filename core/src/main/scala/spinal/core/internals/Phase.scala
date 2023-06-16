@@ -384,7 +384,7 @@ class PhaseAnalog extends PhaseNetlist{
       //Process the islands to generate seeds from component analog inouts, and build the group list for connections without inout analog
       islands.foreach(island => {
         val filtred = island.elements.map(_.bt).toSet
-        val count = filtred.count(e => e.isInOut && e.component == c)
+        val count = filtred.count(e => e.isAnalog && e.component == c)
         count match {
           case 0 => { //No analog inout, will need to create a connection seed later on
             val groups = island.elements.map(b => anlogToGroup.get(b.bt)).filter(_.nonEmpty).map(_.get).toArray.distinct
@@ -414,7 +414,7 @@ class PhaseAnalog extends PhaseNetlist{
               anlogToGroup(b.bt) = finalGroup
             }
           }
-          case 1 => seeds += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt //Got a analog inout to host the connection
+          case 1 => seeds += island.elements.find(e => e.bt.isAnalog && e.bt.component == c).get.bt //Got a analog inout to host the connection
           case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
         }
       })
