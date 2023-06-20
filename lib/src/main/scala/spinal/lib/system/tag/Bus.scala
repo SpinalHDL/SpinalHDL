@@ -33,9 +33,9 @@ trait MemoryTransfers {
 trait MemoryConnection extends SpinalTag {
   def m : Nameable with SpinalTagReady
   def s : Nameable with SpinalTagReady
-  def transformers : List[AddressTransformer]
-  def mapping : AddressMapping
-  def sToM(downs : MemoryTransfers, args : MappedNode) : MemoryTransfers
+  def mapping : AddressMapping //Specify the memory mapping of the slave from the master address (before transformers are applied)
+  def transformers : List[AddressTransformer]  //List of alteration done to the address on this connection (ex offset, interleaving, ...)
+  def sToM(downs : MemoryTransfers, args : MappedNode) : MemoryTransfers //Convert the slave MemoryTransfers capabilities into the master ones
 
   def populate(): Unit ={
     m.addTag(this)

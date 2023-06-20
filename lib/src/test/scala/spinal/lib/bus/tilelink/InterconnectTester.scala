@@ -416,13 +416,11 @@ class InterconnectTester extends AnyFunSuite{
     testInterconnectAll(new Component{
       val m0 = simpleMaster(readWrite)
 
-      val i1 = new Interleaver(0x10, 4, 1)
+      val i1 = Interleaver(0x10, 4, 1)
       i1 at 0x1000 of m0.node
-//      i1 at SizeMapping(0x1000, 0x2000) of m0.node
 
-      val i2 = new Interleaver(0x10, 4, 2)
+      val i2 = Interleaver(0x10, 4, 2)
       i2 at 0x1000 of m0.node
-//      i2 at SizeMapping(0x1000, 0x2000) of m0.node
 
       val s1, s2 = simpleSlave(8)
       s1.node at 0x200 of i1.down
