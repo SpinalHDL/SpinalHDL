@@ -23,7 +23,7 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint])(implicit idCallback : 
 
   def getMapping(address : BigInt, opcode : Any) : (Endpoint, Chunk) = {
     for(endpoint <- mappings; chunk <- endpoint.chunks){
-      if(chunk.allowed.allow(opcode) && chunk.mapping.exists(_.hit(address))){
+      if(chunk.allowed.allow(opcode) && chunk.mapping.hit(address)){
         return (endpoint, chunk)
       }
     }
@@ -132,7 +132,7 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint])(implicit idCallback : 
   override def onC(c: TransactionC) = {
     assert((c.address & (c.bytes-1)) == 0, "Unaligned address :(")
     val (endpoint, chunk) = getMapping(c.address, c.opcode)
-    val base = chunk.mapping.map(_.base).min.toLong
+    val base = chunk.offset.toLong //Correct ?
     import Opcode.B._
     import Opcode.C._
     c.opcode match {

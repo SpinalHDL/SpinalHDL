@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink.sim
 
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.sim.SparseMemory
 import spinal.sim.SimThread
@@ -14,7 +14,7 @@ import scala.util.Random
 
 case class Chunk(allowed : M2sTransfers,
                  offset : BigInt,
-                 mapping : Seq[SizeMapping]){
+                 mapping : AddressMapping){
   override def toString = f"$allowed $offset%x $mapping"
 }
 case class Endpoint(model : Any,
@@ -66,15 +66,13 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
 
             def randomized(mappings : Seq[Chunk], sizes : M2sTransfers => SizeRange): (Long, Int) = {
               val s = mappings.randomPick()
-              val mapping = s.mapping.randomPick()
-              randomizedImpl(mapping, sizes)
+              randomizedImpl(s, sizes)
             }
 
-            def randomizedImpl(mapping : SizeMapping, sizes : M2sTransfers => SizeRange): (Long, Int) ={
-              val sizeMax = mapping.size.toInt
+            def randomizedImpl(chunk : Chunk, sizes : M2sTransfers => SizeRange): (Long, Int) ={
+              val sizeMax = chunk.mapping.maxSequentialSize.toInt
               val bytes = sizes(source.emits).random(randMax = sizeMax)
-              val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
-              val address = mapping.base.toLong + addressLocal
+              val address = chunk.mapping.randomPick(bytes, true).toLong
               (address, bytes)
             }
 

@@ -50,7 +50,8 @@ case class HubParameters(var unp : NodeParameters,
                          var wayCount: Int,
                          var blockSize : Int,
                          var probeCount : Int = 8,
-                         var aBufferCount: Int = 4) {
+                         var aBufferCount: Int = 4,
+                         var probeRegion : UInt => Bool) {
   def cacheSize = sets*wayCount*blockSize
   def addressWidth = unp.m.addressWidth
   def dataWidth = unp.m.dataWidth
@@ -123,7 +124,7 @@ up.E will do a conflict release (aquireAck)
 
 class Hub(p : HubParameters) extends Component{
   import p._
-  
+
   val ubp = p.unp.toBusParameter()
   val dbp = NodeParameters(
     m = Hub.downM2s(
@@ -359,6 +360,10 @@ class Hub(p : HubParameters) extends Component{
     push.mask := ~push.selfMask
     when(!push.fromNone){
       push.mask.setAll()
+    }
+    val isProbeRegion = p.probeRegion(pushCmd.address)
+    when(!isProbeRegion){
+      push.mask.clearAll()
     }
 
 
@@ -828,7 +833,8 @@ object HubGen extends App{
       probeCount = probeCount,
       sets = setCount,
       wayCount  = wayCount,
-      blockSize = blockSize
+      blockSize = blockSize,
+      probeRegion = _ => True
     )
   }
   def gen = new Hub(HubGen.basicConfig(8, masterPerChannel = 4, dataWidth = 16, addressWidth = 32))

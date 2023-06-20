@@ -20,9 +20,11 @@
 \*                                                                           */
 package spinal.lib.bus.misc
 
+import spinal.lib._
 import spinal.core._
 
 import scala.collection.Seq
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 object AddressMapping{
@@ -32,6 +34,14 @@ object AddressMapping{
   }
 }
 
+
+/*
+- Provide offset address for decoder substraction
+- Provide a inverted mapping (default mapping)
+- Get maximal sequencial size
+- Calculate a random address from the mapping of a given sequencial size
+-  //Shift things ?????
+ */
 trait AddressMapping{
   def hit(address: UInt): Bool = ???
   def hit(address: BigInt): Boolean = ???
@@ -44,8 +54,17 @@ trait AddressMapping{
   def withOffset(addressOffset: BigInt): AddressMapping = ???
   def width = log2Up(highestBound+1)
   def foreach(body : BigInt => Unit) : Unit = ???
+  def maxSequentialSize : BigInt = ???
+  def randomPick(bytes : BigInt, aligned : Boolean) : BigInt = ???
+  def intersectImpl(that : AddressMapping, path : List[AddressMapping] = Nil) : AddressMapping = ???
+  def intersect(that : AddressMapping) : AddressMapping = {
+    intersectImpl(that, Nil)
+  }
 }
 
+object NeverMapping extends AddressMapping{
+
+}
 
 case class SingleMapping(address : BigInt) extends AddressMapping{
   override def hit(address: UInt) = this.address === address
@@ -79,6 +98,48 @@ case class MaskMapping(base : BigInt,mask : BigInt) extends AddressMapping{
   override def withOffset(addressOffset: BigInt): AddressMapping = ???
 }
 
+case class UnmaskMapping(base : BigInt,mask : BigInt) extends AddressMapping{
+  assert((base & mask) == 0)
+  override def hit(address: UInt): Bool = (address | U(mask, widthOf(address) bits)) === (base | mask)
+  override def hit(address: BigInt): Boolean = (address | mask) == (base | mask)
+  override def removeOffset(address: UInt) = ??? //address & ~U(mask, widthOf(address) bits)
+  override def lowerBound = base
+  override def highestBound = ???
+  override def randomPick() : BigInt = ???
+  override def withOffset(addressOffset: BigInt): AddressMapping = ???
+}
+
+case class OrMapping(conds : Seq[AddressMapping]) extends AddressMapping{
+  import spinal.core.sim._
+  override def hit(address: UInt): Bool = conds.map(_.hit(address)).orR
+  override def hit(address: BigInt): Boolean = conds.exists(_.hit(address))
+  override def removeOffset(address: UInt) = ??? //address & ~U(mask, widthOf(address) bits)
+  override def lowerBound = conds.map(_.lowerBound).min
+  override def highestBound = conds.map(_.highestBound).max
+  override def randomPick() : BigInt = conds.randomPick().randomPick()
+  override def withOffset(addressOffset: BigInt): AddressMapping = OrMapping(conds.map(_.withOffset(addressOffset)))
+  override def intersectImpl(that : AddressMapping, path : List[AddressMapping] = Nil) : AddressMapping = {
+    val filtred = conds.map(_.intersectImpl(that, this :: path)).filter(_ != NeverMapping)
+    filtred.size match {
+      case 0 => NeverMapping
+      case 1 => filtred.head
+      case _ => OrMapping(filtred)
+    }
+  }
+  override def maxSequentialSize : BigInt = conds.map(_.maxSequentialSize).min
+  override def randomPick(bytes : BigInt, aligned : Boolean) : BigInt = conds.randomPick().randomPick(bytes, aligned)
+}
+
+case class InvertMapping(inv : AddressMapping) extends AddressMapping{
+  import spinal.core.sim._
+  override def hit(address: UInt): Bool = !inv.hit(address)
+  override def hit(address: BigInt): Boolean = !inv.hit(address)
+  override def removeOffset(address: UInt) = inv.removeOffset(address)
+  override def lowerBound = ???
+  override def highestBound = ???
+  override def randomPick() : BigInt = ???
+  override def withOffset(addressOffset: BigInt): AddressMapping = InvertMapping(inv.withOffset(addressOffset))
+}
 
 object SizeMapping{
   implicit def implicitTuple1(that: (Int, Int))      : SizeMapping = SizeMapping(that._1, that._2)
@@ -147,10 +208,150 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   override def lowerBound = base
   override def highestBound = base + size - 1
-  override def randomPick() : BigInt = base + BigInt(log2Up(size), Random)
+  override def randomPick() : BigInt = base + BigInt(log2Up(size), Random) % size
   override def withOffset(addressOffset: BigInt): AddressMapping = SizeMapping(base + addressOffset, size)
   def overlap(that : SizeMapping) = this.base < that.base + that.size && this.base + this.size > that.base
   override def foreach(body: BigInt => Unit) = for(i <- 0 until size.toInt) body(base + i)
 
   override def toString: String = f"$base%x $size%x"
+  override def maxSequentialSize : BigInt = size
+  override def randomPick(bytes : BigInt, aligned : Boolean) : BigInt = {
+    var addr = base + BigInt(size.bitLength, Random) % (size-bytes)
+    if(aligned) addr = addr/bytes*bytes
+    addr
+  }
+
+//  override def asFilterOf(that : AddressMapping): AddressMapping = {
+//    def swap(e : AddressMapping) : Seq[AddressMapping] = {
+//      case sm : SizeMapping =>
+//      case e => e.walkSwap(that)
+//    }
+//
+//    that.walkSwap()
+//
+//  }
+
+  override def intersectImpl(that: AddressMapping, path: List[AddressMapping]) = {
+    val hits = ArrayBuffer[AddressMapping]()
+
+    //Will go though the other hierarchy to look for SizeMapping hit
+    def rec(other : AddressMapping, otherPath : List[AddressMapping]) : Unit = other match{
+      case other : SizeMapping => {
+        if(other.base < this.base + this.size && this.base < other.base + other.size){
+          val hitBase = this.base max other.base
+          val hitEnd = this.base + this.size min other.base + other.size
+          hits += otherPath.foldLeft[AddressMapping](SizeMapping(this.base max other.base, hitEnd - hitBase))((s, p) => p match {
+            case p : InterleavedMapping => p.copy(mapping = s)
+          })
+        }
+      }
+      case other : InterleavedMapping => rec(other.mapping, other :: otherPath)
+      case other : OrMapping => other.conds.foreach(e => rec(e, otherPath))
+    }
+
+
+    rec(that, Nil)
+
+    hits.size match {
+      case 0 => NeverMapping
+      case 1 => hits.head
+      case _ => OrMapping(hits)
+    }
+  }
+}
+
+
+case class InterleavedMapping(mapping : AddressMapping, blockSize : Int, pattern : Seq[Boolean]) extends AddressMapping{
+  assert(isPow2(blockSize))
+  assert(isPow2(pattern.size))
+  val patternIds = pattern.zipWithIndex.filter(_._1).map(_._2)
+
+  override def highestBound = mapping.highestBound
+  override def lowerBound = mapping.lowerBound
+
+  override def hit(address: UInt) = {
+    val l2 = mapping.hit(address)
+    val l1 = pattern.map(Bool(_)).read(address(log2Up(blockSize), log2Up(pattern.size) bits))
+    l2 && l1
+  }
+
+  override def hit(address: BigInt) = {
+    val blockId = (address.toInt / blockSize) & (pattern.size-1)
+    val l2 = mapping.hit(address)
+    val l1 = pattern(blockId)
+    l1 && l2
+  }
+
+  override def withOffset(addressOffset: BigInt) = {
+    copy(mapping = mapping.withOffset(addressOffset))
+  }
+
+
+  override def maxSequentialSize : BigInt = BigInt(blockSize) min mapping.maxSequentialSize
+  override def randomPick(bytes : BigInt, aligned : Boolean) : BigInt = {
+    import spinal.core.sim._
+    val l20 = mapping.randomPick(bytes, aligned)
+    val l1 = patternIds.randomPick()
+    val mask = (pattern.size-1)*blockSize
+    val addr = (l20 & ~mask) | l1 * blockSize
+    addr
+  }
+
+  override def intersectImpl(that : AddressMapping, path : List[AddressMapping] = Nil) : AddressMapping = mapping.intersectImpl(that, this :: path) match {
+    case NeverMapping => NeverMapping
+    case e => this.copy(e)
+  }
+}
+
+
+case class SizeMappingInterleaved(base: BigInt, size: BigInt, blockSize : Int, pattern : Seq[Boolean]) extends AddressMapping {
+  assert(isPow2(pattern.size))
+  val end = base + size - 1
+  val patternIds = pattern.zipWithIndex.filter(_._1).map(_._2)
+
+  override def hit(address: UInt): Bool = {
+    val l2 = if (isPow2(size) && base % size == 0){
+      (address & ~U(size - 1, address.getWidth bits)) === (base)
+    }else {
+      (base == 0, log2Up(base + size + 1) > widthOf(address)) match {
+        case (false, false) => address >= base && address < base + size
+        case (false, true) => address >= base
+        case (true, false) => address < base + size
+        case (true, true) => True
+      }
+    }
+    val l1 = pattern.map(Bool(_)).read(address(log2Up(blockSize), log2Up(pattern.size) bits))
+    l2 && l1
+  }
+  override def hit(address: BigInt): Boolean = {
+    val blockId = (address.toInt / blockSize) & (pattern.size-1)
+    address >= base && address < base + size && pattern(blockId)
+  }
+
+  override def removeOffset(address: UInt): UInt = {
+    if (isPow2(size) && base % size == 0)
+      address & (size - 1)
+    else
+      address - base
+  }.resize(log2Up(size))
+
+  override def lowerBound = base
+  override def highestBound = base + size - 1
+  override def randomPick() : BigInt = ??? //base + BigInt(log2Up(size), Random)
+  override def withOffset(addressOffset: BigInt): AddressMapping = SizeMappingInterleaved(base + addressOffset, size, blockSize, pattern)
+  def overlap(that : SizeMapping) = ??? //this.base < that.base + that.size && this.base + this.size > that.base
+  override def foreach(body: BigInt => Unit) = ??? //for(i <- 0 until size.toInt) body(base + i)
+
+  override def toString: String = f"$base%x $size%x $blockSize $pattern"
+  override def maxSequentialSize : BigInt = blockSize
+  override def randomPick(bytes : BigInt, aligned : Boolean) : BigInt = {
+    import spinal.core.sim._
+    val blockCount = size / (blockSize*pattern.size)
+    val l2 = BigInt(blockCount.bitLength, Random) % blockCount
+    val l1 = patternIds.randomPick()
+    val l0 = Random.nextInt(blockSize)
+    var addr = l2 * blockSize * pattern.size | l1 * blockSize | l0
+    if(aligned) addr = addr/bytes*bytes
+    addr
+  }
 }

@@ -4,7 +4,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim._
 import spinal.core._
 import spinal.core.fiber.{Fiber, hardFork}
-import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
+import spinal.lib.bus.misc.{AddressMapping, InterleavedMapping, OrMapping, SizeMapping, SizeMappingInterleaved}
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.sim.{OrderingArgs, _}
@@ -266,7 +266,7 @@ class InterconnectTester extends AnyFunSuite{
           chunks = List(Chunk(
             allowed = dut.m0.node.bus.p.node.m.emits,
             offset  = 0x800,
-            List(SizeMapping(0x800, 0x400))
+            SizeMapping(0x800, 0x400)
           )),
           model   = SparseMemory(seed)
         )))
@@ -324,8 +324,8 @@ class InterconnectTester extends AnyFunSuite{
 
       val b0 = Node()
 
-      b0 << m0.node
-      b0 << m1.node
+      b0 at 0x11C0 of m0.node
+      b0 at 0x11C0 of m1.node
 
       s0.node at 0x240 of b0
       s1.node at 0x380 of b0
@@ -333,7 +333,86 @@ class InterconnectTester extends AnyFunSuite{
     })
   }
 
-//  test("check no overlap mapping"){
+
+  test("roWo"){
+    testInterconnectAll(new Component{
+      val m0 = simpleMaster(readWrite)
+      val b0 = Node()
+
+      b0 at 0x1000 of m0.node
+
+      val r0 = simpleSlave(8, m2sTransfers = M2sTransfers(get = SizeRange.upTo(64)))
+      val w0 = simpleSlave(8, m2sTransfers = M2sTransfers(putFull = SizeRange.upTo(64), putPartial = SizeRange.upTo(64)))
+      r0.node at 0x200 of b0
+      w0.node at 0x300 of b0
+    })
+  }
+
+  test("roWoOverlapped"){
+    testInterconnectAll(new Component{
+      val m0 = simpleMaster(readWrite)
+      val b0 = Node()
+
+      b0 at 0x1000 of m0.node
+
+      val r0 = simpleSlave(8, m2sTransfers = readOnly)
+      val w0 = simpleSlave(8, m2sTransfers = writeOnly)
+      r0.node at 0x200 of b0
+      w0.node at 0x200 of b0
+    })
+  }
+
+
+  test("roWoForkJoin"){
+    testInterconnectAll(new Component{
+      val m0 = simpleMaster(readWrite)
+      val b0 = Node()
+
+      b0 at 0x1000 of m0.node
+
+      val r0 = Node()
+      val w0 = Node()
+      r0 at 0x400 of b0
+      w0 at 0x400 of b0
+
+      r0.m2s.addModifier(_.intersect(readOnly))
+      w0.m2s.addModifier(_.intersect(writeOnly))
+
+      val s0 = simpleSlave(8)
+      s0.node at 0x200 of r0
+      s0.node at 0x200 of w0
+    })
+  }
+
+
+  test("interleaving"){
+    testInterconnectAll(new Component{
+      val m0 = simpleMaster(readWrite)
+      val b0 = Node()
+
+      b0 at 0x1000 of m0.node
+
+      val s0,s1 = simpleSlave(8)
+      s0.node at InterleavedMapping(SizeMapping(0x200, 0x100), 0x10, Seq(true, false, false, false)) of b0
+      s1.node at InterleavedMapping(SizeMapping(0x200, 0x100), 0x10, Seq(false, true, false, false)) of b0
+    })
+  }
+
+  test("interleaving2"){
+    testInterconnectAll(new Component{
+      val m0 = simpleMaster(readWrite)
+      val b0, b1 = Node()
+
+      b0 at InterleavedMapping(SizeMapping(0x1000, 0x400), 0x10, Seq(true, false, false, false)) of m0.node
+      b1 at InterleavedMapping(SizeMapping(0x1000, 0x400), 0x10, Seq(false, true, false, false)) of m0.node
+
+      val s0, s1 = simpleSlave(8)
+      s0.node at 0x200 of b0
+      s1.node at 0x200 of b1
+    })
+  }
+
+  //  test("check no overlap mapping"){
 //    tilelink.DebugId.setup(16)
 //    SimConfig.withFstWave.compile(new Component{
 //
@@ -568,7 +647,7 @@ class InterconnectTester extends AnyFunSuite{
 
   test("scanRegions"){
     tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    testInterconnectAll(new Component{
       val m0 = simpleMaster(readWrite)
       val s0, s1 = simpleSlave(addressWidth = 10)
       val s2 = simpleSlave(addressWidth = 15)
@@ -589,32 +668,29 @@ class InterconnectTester extends AnyFunSuite{
           w.node match {
             case s0.node =>
               hits += 1
-              assert(w.mapping.head.base == 0xE0000 + 0x4000)
-              assert(w.mapping.head.size == 0x400)
               assert(w.where.offset == 0xE4000)
               assert(w.node.hasTag(PMA.VOLATILE))
+              assert(w.mapping == SizeMapping(0xE4000, 0x400))
             case s1.node =>
               hits += 1
-              assert(w.mapping.head.base == 0xE0000 + 0x6000)
-              assert(w.mapping.head.size == 0x400)
               assert(w.where.offset == 0xE6000)
               assert(w.node.hasTag(PMA.CACHED))
+              assert(w.mapping == SizeMapping(0xE6000, 0x400))
             case s2.node =>
               hits += 1
               assert(w.where.offset == 0xE0000 + 0x4000)
-              assert(w.mapping(0).base == 0xE0000 + 0x4400)
-              assert(w.mapping(0).size == 0x1C00)
-              assert(w.mapping(1).base == 0xE0000 + 0x6400)
-              assert(w.mapping(1).size == 0x5C00)
+              assert(w.mapping == OrMapping(
+                List(
+                  SizeMapping(0xE4400, 0x1C00),
+                  SizeMapping(0xE6400, 0x5C00)
+                )
+              ))
             case _ =>
           }
         }
         assert(hits == 3)
       }
-    }).doSim(seed = 42){dut =>
-      //      dut.clockDomain.forkStimulus(10)
-      //      testInterconnect(dut)
-    }
+    })
   }
 
 
@@ -626,16 +702,16 @@ class InterconnectTester extends AnyFunSuite{
         val io = simpleMaster(readWrite)
       }
 
-      val dma = new Area{
-        val main = simpleMaster(readWrite)
-        val filter = new fabric.TransferFilter()
-        filter.up << main.node
-      }
+//      val dma = new Area{ //TODO
+//        val main = simpleMaster(readWrite)
+//        val filter = new fabric.TransferFilter()
+//        filter.up << main.node
+//      }
 
       val n0 = Node()
       n0 << cpu.main.node
       n0 << cpu.io.node
-      n0 << dma.filter.down
+//      n0 << dma.filter.down
 
       val something = simpleSlave(20, 32, m2sTransfers = readWrite)
       something.node at 0x82000000l of n0
@@ -679,9 +755,9 @@ class InterconnectTester extends AnyFunSuite{
         val ioSupport = MemoryConnection.getMemoryTransfers(cpu.io.node)
         println("cpu.io.node can access : ")
         println(ioSupport.map("- " + _).mkString("\n"))
-        val dmaSupport = MemoryConnection.getMemoryTransfers(dma.main.node)
-        println("dma.main.node can access : ")
-        println(dmaSupport.map("- " + _).mkString("\n"))
+//        val dmaSupport = MemoryConnection.getMemoryTransfers(dma.main.node)
+//        println("dma.main.node can access : ")
+//        println(dmaSupport.map("- " + _).mkString("\n"))
       }
     })
   }

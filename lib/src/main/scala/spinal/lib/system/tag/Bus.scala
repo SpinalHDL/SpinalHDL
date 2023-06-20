@@ -34,7 +34,7 @@ trait MemoryConnection extends SpinalTag {
   def m : Nameable with SpinalTagReady
   def s : Nameable with SpinalTagReady
   def offset : BigInt
-  def mapping : Seq[SizeMapping]
+  def mapping : AddressMapping
   def sToM(downs : MemoryTransfers, args : MappedNode) : MemoryTransfers
 
   def populate(): Unit ={
@@ -45,7 +45,7 @@ trait MemoryConnection extends SpinalTag {
 
 object MappedNode{
   def apply(m : Node) : MappedNode = MappedNode(m, 0, 0, BigInt(1) << m.bus.p.addressWidth)
-  def apply(node : Nameable with SpinalTagReady, offset : Int, address : BigInt, size : BigInt) : MappedNode = MappedNode(node, offset, List(SizeMapping(address, size)))
+  def apply(node : Nameable with SpinalTagReady, offset : Int, address : BigInt, size : BigInt) : MappedNode = MappedNode(node, offset, SizeMapping(address, size))
 }
 
 /**
@@ -54,30 +54,27 @@ object MappedNode{
  * @param localOffset What is the master address to access address 0 of that endpoint
  * @param mapping Range of master address which can access the node
  */
-case class MappedNode(node : Nameable with SpinalTagReady, offset : BigInt, mapping : Seq[SizeMapping]){
+case class MappedNode(node : Nameable with SpinalTagReady, offset : BigInt, mapping : AddressMapping){
 //  def address = mapping.base
 //  def size = mapping.size
 
-  def remap(offset : BigInt) = MappedNode(node, offset + this.offset, mapping.map(_.withOffset(offset).asInstanceOf[SizeMapping]))
-
+  def remap(offset : BigInt) = MappedNode(node, offset + this.offset, mapping.withOffset(offset))
   override def toString = f"$node at=$offset%x mapped=$mapping"
 
   def foreachSlave(body : (MappedNode, MemoryConnection) => Unit): Unit ={
     node.foreachTag{
       case c : MemoryConnection if c.m == node => {
-        val remap = ArrayBuffer[SizeMapping]()
-        for(src <- mapping){
-          val srcEnd = src.base + src.size
-          for(dst <- c.mapping){
-            val dstEnd = dst.base + dst.size
-            if(dst.base < srcEnd && dstEnd > src.base){
-              val startAt = dst.base max src.base
-              val endAt = dstEnd min srcEnd
-              remap += SizeMapping(startAt, endAt - startAt)
-            }
-          }
-        }
-        val remaped = remap.map(_.withOffset(-c.offset).asInstanceOf[SizeMapping])
+        //Shift things
+        //          val srcEnd = src.base + src.size
+        //          for(dst <- c.mapping){
+        //            val dstEnd = dst.base + dst.size
+        //            if(dst.base < srcEnd && dstEnd > src.base){
+        //              val startAt = dst.base max src.base
+        //              val endAt = dstEnd min srcEnd
+        //              remap += SizeMapping(startAt, endAt - startAt)
+        //            }
+        //          }
+        val remaped = c.mapping.withOffset(-c.offset) //TODO Check it
         body(MappedNode(c.s, 0, remaped), c)
       }
       case _ =>
@@ -107,10 +104,17 @@ object MemoryConnection{
 
     //Collect slaves supports
     val ret = ArrayBuffer[MappedTransfers]()
-    val unfiltred = mutable.LinkedHashMap[MappedNode, MemoryTransfers]()
+    val unfiltred = mutable.LinkedHashMap[MappedNode, MemoryTransfers]() //The HashMap will allow handle a bus to fork RO WO and join later do a RW join. Will only work for exactly similar mappings
     args.foreachSlave{ (s, c) =>
       val spec = getMemoryTransfers(s)
-      val transformed = spec.map(e => e.where.remap(c.offset) -> c.sToM(e.transfers, e.where))
+      val transformed = for(e <- spec) yield {
+        val remapped = e.where.remap(c.offset) // Give the same address view point as the "args" (master)
+        val filtred = remapped.copy( // Will handle partial mapping and stuff as InterleavedMapping
+          mapping = c.mapping.intersect(remapped.mapping)
+        )
+        val mt = c.sToM(e.transfers, e.where)
+        filtred -> mt
+      }
       for((who, what) <- transformed){
         unfiltred.get(who) match {
           case None => unfiltred(who) = what

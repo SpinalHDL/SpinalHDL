@@ -17,7 +17,7 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
   }
   if(io.up.p.withBCE) assert(io.up.p.sinkWidth == io.down.p.sinkWidth + 1)
   val ipEmits = unp.m.emits
-  val addressHits = spec.map(_.mapping.map(_.hit(io.up.a.address)).orR).asBits()
+  val addressHits : Bits = ???//spec.map(_.mapping.hit(io.up.a.address)).asBits()
   val instruction = io.up.a.param ## io.up.a.size ## io.up.a.opcode
   val argsHits = spec.map{spec =>
     val st = spec.transfers.asInstanceOf[M2sTransfers]

@@ -19,7 +19,7 @@ class BridgeTestbench(m : Bus, s : Bus, cd : ClockDomain) {
       Chunk(
         allowed = s.p.node.m.toSupport().transfers,
         offset = 0,
-        List(SizeMapping(0, 1l << m.p.addressWidth))
+        SizeMapping(0, 1l << m.p.addressWidth)
       )
     ),
     model = globalMem

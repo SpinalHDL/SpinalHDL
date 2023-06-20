@@ -32,7 +32,7 @@ object Decoder{
 case class Decoder(upNode : NodeParameters,
                    downsSupports : Seq[M2sSupport],
                    downsS2m : Seq[S2mParameters],
-                   mapping : Seq[Seq[AddressMapping]],
+                   mapping : Seq[AddressMapping],
                    offsets : Seq[BigInt],
                    defaultDown : Seq[Boolean]) extends Component{
   val downsNodes = (downsSupports, downsS2m). zipped.map((support, s2m) => upNode.copy(
@@ -40,7 +40,7 @@ case class Decoder(upNode : NodeParameters,
     s = s2m
   ))
 
-  assert(!mapping.contains(DefaultMapping))
+  assert(mapping != DefaultMapping)
 
   val io = new Bundle{
     val up = slave(Bus(upNode))
@@ -53,7 +53,7 @@ case class Decoder(upNode : NodeParameters,
 
   def decode(id : Int, address : UInt) = defaultDown(id) match {
     case true => Bool()
-    case false => mapping(id).map(_.hit(address)).orR
+    case false => mapping(id).hit(address)
   }
 
   val a = new Area{

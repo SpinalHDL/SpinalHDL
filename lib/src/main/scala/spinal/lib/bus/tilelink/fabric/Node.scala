@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc.{AddressMapping, InvertMapping, OrMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink
 import spinal.lib.system.tag._
@@ -37,6 +37,11 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
 
     val proposedModifiers, supportedModifiers = ArrayBuffer[M2sSupport => M2sSupport]()
     val parametersModifiers = ArrayBuffer[M2sParameters => M2sParameters]()
+
+    def addModifier(f : M2sSupport => M2sSupport) = {
+      proposedModifiers += f
+      supportedModifiers += f
+    }
 
     def setProposedFromParameters(): Unit ={
       proposed load M2sSupport(parameters)
@@ -142,17 +147,24 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     //Generate final connections mapping
     if(mode != NodeMode.SLAVE) {
       var dc = ArrayBuffer[Connection]()
-      downs.foreach{ c =>
-        c.mapping.addressSpec match {
-          case Some(v) => c.mapping.value load List(SizeMapping(v, BigInt(1) << c.decoder.m2s.parameters.get.addressWidth))
-          case None =>
-        }
-        c.mapping.mappingSpec match {
-          case Some(x) => c.mapping.value load List(x)
-          case None =>
-        }
+        downs.foreach{ c =>
+          c.mapping.addressSpec match {
+            case Some(v) => c.mapping.value load SizeMapping(v, BigInt(1) << c.decoder.m2s.parameters.get.addressWidth)
+            case None =>
+          }
+          c.mapping.mappingSpec match {
+            case Some(x) => c.mapping.value load x
+            case None =>
+          }
         c.mapping.defaultSpec match {
           case Some(_) => {
+            //          case Some(_) => {
+            //            val others = downs.filter(_.mapping.defaultSpec.isEmpty).map(_.mapping.value.get)
+            //            c.mapping.value.load(InvertMapping(SeqMapping(others)))
+            //          }
+            //          case None => assert(c.mapping.value.isLoaded)
+
+
             //              assert(c.decoder.m2s.parameters.addressWidth == m2s.parameters.addressWidth, s"Default connection $c addressWidth doesn't match\n ${ m2s.parameters.addressWidth} bits >> ${c.decoder.m2s.parameters.addressWidth} bits")
             dc += c
           }
@@ -161,7 +173,10 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
       }
       for(c <- dc){
         val spec = ArrayBuffer[SizeMapping]()
-        val others = downs.filter(_.mapping.defaultSpec.isEmpty).flatMap(_.mapping.value.get)
+        val others = downs.filter(_.mapping.defaultSpec.isEmpty).flatMap(_.mapping.value.get match {
+          case m : SizeMapping => List(m)
+          case m : OrMapping => m.conds.map(_.asInstanceOf[SizeMapping]) //DefaultMapping only supported if all others are sizeMapping
+        })
         val sorted = others.sortWith(_.base < _.base)
         var address = BigInt(0)
         val endAt = BigInt(1) << c.decoder.m2s.parameters.addressWidth
@@ -172,7 +187,11 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
         }
         val lastSize = endAt - address
         if(lastSize != 0) spec += SizeMapping(address, lastSize)
-        c.mapping.value.load(spec)
+        c.mapping.value.load(spec.size match {
+          case 0 => ???
+          case 1 => spec.head
+          case _ => OrMapping(spec)
+        })
       }
     }
 
@@ -298,7 +317,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
   }
   def at(address : BigInt) = new At(_.mapping.addressSpec = Some(address))
   def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
-  def at(mapping : SizeMapping) = new At(_.mapping.mappingSpec = Some(mapping))
+  def at(mapping : AddressMapping) = new At(_.mapping.mappingSpec = Some(mapping))
 
   def forceDataWidth(dataWidth : Int): Unit ={
     m2s.proposedModifiers += { s =>

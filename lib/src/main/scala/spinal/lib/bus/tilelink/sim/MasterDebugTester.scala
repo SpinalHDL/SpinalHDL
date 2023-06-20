@@ -31,14 +31,11 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
   def cover(sizes : M2sTransfers => SizeRange)(body : Ctx => Unit): Unit ={
     for((e, source, m2sAgent) <- flatten if sizes(source.emits).some){
       for(slave <- e.m.endpoints; chunk <- slave.chunks if sizes(chunk.allowed).some){
-        for(mapping <- chunk.mapping) {
-          val sizeMax = mapping.size.toInt
-          val bytes = sizes(source.emits).random(randMax = sizeMax)
-          val addressLocal = bytes * Random.nextInt(sizeMax / bytes)
-          val address = mapping.base.toLong + addressLocal
-          val sourceId = source.id.randomPick().toInt
-          body(Ctx(e.agent, sourceId, address, bytes, slave, chunk, m2sAgent))
-        }
+        val sizeMax = chunk.mapping.maxSequentialSize.toInt
+        val bytes = sizes(source.emits).random(randMax = sizeMax)
+        val address = chunk.mapping.randomPick(bytes, true).toLong
+        val sourceId = source.id.randomPick().toInt
+        body(Ctx(e.agent, sourceId, address, bytes, slave, chunk, m2sAgent))
       }
     }
   }

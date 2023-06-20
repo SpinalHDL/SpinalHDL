@@ -23,7 +23,7 @@ class CoherencyHub() extends Area{
       override def m = ret
       override def s = internalConnection
       override def offset = 0
-      override def mapping = List(SizeMapping(0, BigInt(1) << addressWidth))
+      override def mapping = SizeMapping(0, BigInt(1) << addressWidth)
       populate()
       override def sToM(down: MemoryTransfers, args: MappedNode) = {
         down match{
@@ -50,7 +50,7 @@ class CoherencyHub() extends Area{
     override def m = internalConnection
     override def s = node
     override def offset = 0
-    override def mapping = List(SizeMapping(0, BigInt(1) << addressWidth))
+    override def mapping = SizeMapping(0, BigInt(1) << addressWidth)
     override def sToM(downs: MemoryTransfers, args : MappedNode) = downs
     populate()
   })

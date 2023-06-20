@@ -6,6 +6,8 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink._
 import spinal.lib.system.tag._
 import spinal.lib.bus.tilelink.fabric._
+import spinal.lib._
+
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -20,17 +22,19 @@ class HubFabric() extends Area{
     wayCount = 1,
     blockSize = -1, //Unknown yet
     probeCount = 4,
-    aBufferCount = 4
+    aBufferCount = 4,
+    probeRegion = null
   )
 
 
+  val mappingLock = Lock().retain()
   new MemoryConnection{
     override def m = up
     override def s = down
     override def offset = 0
     override def mapping = {
-      logic.get //Ensure that the parameter is final
-      List(SizeMapping(0, BigInt(1) << parameter.addressWidth))
+      mappingLock.get //Ensure that the parameter is final
+      SizeMapping(0, BigInt(1) << parameter.addressWidth)
     }
     populate()
     override def sToM(down: MemoryTransfers, args: MappedNode) = {
@@ -96,8 +100,15 @@ class HubFabric() extends Area{
     )
     up.s2m.setProposedFromParameters()
 
+    mappingLock.release()
     parameter.unp = up.bus.p.node
 
+    implicit def easy(mt : MemoryTransfers) = mt.asInstanceOf[M2sTransfers]
+    val transferSpec = MemoryConnection.getMemoryTransfers(up)
+    val probeSpec = transferSpec.filter(_.transfers.withBCE)
+    parameter.probeRegion = { addr =>
+      probeSpec.map(_.where.mapping.hit(addr)).orR //TODO optimze
+    }
     val hub = new Hub(parameter)
     hub.io.up << up.bus
     hub.io.down >> down.bus

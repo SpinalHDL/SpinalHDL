@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.system.tag._
 
@@ -18,9 +18,9 @@ class Connection(val m : Node, val s : Node) extends Area {
   //Specify how the connection is memory mapped to the decoder
   val mapping = new Area{
     var addressSpec = Option.empty[BigInt]
-    var mappingSpec = Option.empty[SizeMapping]
+    var mappingSpec = Option.empty[AddressMapping]
     var defaultSpec = Option.empty[Unit]
-    val value = Handle[Seq[SizeMapping]]
+    val value = Handle[AddressMapping]
   }
 
   //Document the memory connection in a agnostic way for further usages
@@ -29,7 +29,7 @@ class Connection(val m : Node, val s : Node) extends Area {
     override def s = Connection.this.s
     override def mapping = getMapping()
     override def offset = Connection.this.mapping.defaultSpec match {
-      case None => mapping.map(_.base).min
+      case None => mapping.lowerBound
       case Some(_) => 0
     }
     override def sToM(down: MemoryTransfers, args: MappedNode) = down
@@ -69,7 +69,7 @@ class Connection(val m : Node, val s : Node) extends Area {
   adapters += new InterconnectAdapterCc()
   adapters += new InterconnectAdapterWidth()
 
-  def getMapping() : Seq[SizeMapping] = {
+  def getMapping() : AddressMapping = {
     mapping.value
   }
 
@@ -86,7 +86,7 @@ class Connection(val m : Node, val s : Node) extends Area {
     }
 
     mapping.mappingSpec.get match {
-      case m : SizeMapping => log2Up(m.highestBound+1)
+      case m => log2Up(m.highestBound+1)
     }
   }
 
