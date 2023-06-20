@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib.tools.binarySystem
 import spinal.core.fiber.{Engine, Handle}
 import spinal.lib.TraversableOncePimped
+import spinal.lib.bus.misc.AddressTransformer
 import spinal.lib.generator.Export
 
 import scala.collection.{Iterable, Seq, TraversableOnce}
@@ -44,7 +45,7 @@ package object lib  {
   implicit def traversableOnceBoolPimped(that: TraversableOnce[Bool]) : TraversableOnceBoolPimped = new TraversableOnceBoolPimped(that.toSeq)
   implicit def traversableOnceAnyPimped[T <: Any](that: TraversableOnce[T]) : TraversableOnceAnyPimped[T] = new TraversableOnceAnyPimped(that.toSeq)
   implicit def traversableOnceAnyTuplePimped[T <: Any, T2 <: Any](that: TraversableOnce[(T, T2)]) : TraversableOnceAnyTuplePimped[T, T2] = new TraversableOnceAnyTuplePimped(that.toSeq)
-
+  implicit def traversableOnceAddressTransformerPimped(that: TraversableOnce[AddressTransformer]) : TraversableOnceAddressTransformerPimped =  new TraversableOnceAddressTransformerPimped(that.toSeq)
 
   implicit def growableAnyPimped[T <: Any](that: Growable[T]) : GrowableAnyPimped[T] = new GrowableAnyPimped(that)
 

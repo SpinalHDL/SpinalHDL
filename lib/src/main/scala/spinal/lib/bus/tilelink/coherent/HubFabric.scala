@@ -31,12 +31,11 @@ class HubFabric() extends Area{
   new MemoryConnection{
     override def m = up
     override def s = down
-    override def offset = 0
+    override def transformers = Nil
     override def mapping = {
       mappingLock.get //Ensure that the parameter is final
       SizeMapping(0, BigInt(1) << parameter.addressWidth)
     }
-    populate()
     override def sToM(down: MemoryTransfers, args: MappedNode) = {
       down match{
         case t : M2sTransfers => {

@@ -23,6 +23,7 @@ import spinal.core.internals._
 import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 import spinal.core._
+import spinal.lib.bus.misc.AddressTransformer
 
 import scala.collection.{Seq, TraversableOnce, mutable}
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer}
@@ -1051,6 +1052,13 @@ class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
   def orR: Bool  = pimped.asBits =/= 0
   def andR: Bool = pimped.reduce(_ && _)
   def xorR: Bool = pimped.reduce(_ ^ _)
+}
+
+class TraversableOnceAddressTransformerPimped(pimped: Seq[AddressTransformer]) {
+  def apply(address : BigInt) : BigInt = pimped.foldLeft(address)((a, t) => t(a))
+  def apply(address : UInt) : UInt = pimped.foldLeft(address)((a, t) => t(a))
+  def invert(address : BigInt) : BigInt = pimped.foldRight(address)((t, a) => t.invert(a))
+  def invert(address : UInt) : UInt = pimped.foldRight(address)((t, a) => t.invert(a))
 }
 
 class TraversableOncePimped[T <: Data](pimped: Seq[T]) {

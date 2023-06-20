@@ -4,7 +4,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim._
 import spinal.core._
 import spinal.core.fiber.{Fiber, hardFork}
-import spinal.lib.bus.misc.{AddressMapping, InterleavedMapping, OrMapping, SizeMapping, SizeMappingInterleaved}
+import spinal.lib.bus.misc.{AddressMapping, InterleavedMapping, OffsetTransformer, OrMapping, SizeMapping, SizeMappingInterleaved}
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.sim.{OrderingArgs, _}
@@ -133,7 +133,7 @@ class InterconnectTester extends AnyFunSuite{
             nodeToModel.get(n) match {
               case Some(m) => {
                 e.transfers match {
-                  case t : M2sTransfers => mappings += Endpoint(m, List(Chunk(t, e.where.offset, e.where.mapping)))
+                  case t : M2sTransfers => mappings += Endpoint(m, List(new Chunk(t, e.where.mapping, e.where.transformers)))
                 }
               }
               case None =>
@@ -265,8 +265,8 @@ class InterconnectTester extends AnyFunSuite{
         val checker = Checker(monitor, List(Endpoint(
           chunks = List(Chunk(
             allowed = dut.m0.node.bus.p.node.m.emits,
-            offset  = 0x800,
-            SizeMapping(0x800, 0x400)
+            mapping = SizeMapping(0x800, 0x400),
+            offset  = 0x800
           )),
           model   = SparseMemory(seed)
         )))
@@ -409,6 +409,24 @@ class InterconnectTester extends AnyFunSuite{
       val s0, s1 = simpleSlave(8)
       s0.node at 0x200 of b0
       s1.node at 0x200 of b1
+    })
+  }
+
+  test("interleavingBridge"){
+    testInterconnectAll(new Component{
+      val m0 = simpleMaster(readWrite)
+
+      val i1 = new Interleaver(0x10, 4, 1)
+      i1 at 0x1000 of m0.node
+//      i1 at SizeMapping(0x1000, 0x2000) of m0.node
+
+      val i2 = new Interleaver(0x10, 4, 2)
+      i2 at 0x1000 of m0.node
+//      i2 at SizeMapping(0x1000, 0x2000) of m0.node
+
+      val s1, s2 = simpleSlave(8)
+      s1.node at 0x200 of i1.down
+      s2.node at 0x200 of i2.down
     })
   }
 
@@ -668,17 +686,17 @@ class InterconnectTester extends AnyFunSuite{
           w.node match {
             case s0.node =>
               hits += 1
-              assert(w.where.offset == 0xE4000)
+              assert(w.where.transformers == List(OffsetTransformer(0xE0000), OffsetTransformer(0x4000)))
               assert(w.node.hasTag(PMA.VOLATILE))
               assert(w.mapping == SizeMapping(0xE4000, 0x400))
             case s1.node =>
               hits += 1
-              assert(w.where.offset == 0xE6000)
+              assert(w.where.transformers == List(OffsetTransformer(0xE0000), OffsetTransformer(0x6000)))
               assert(w.node.hasTag(PMA.CACHED))
               assert(w.mapping == SizeMapping(0xE6000, 0x400))
             case s2.node =>
               hits += 1
-              assert(w.where.offset == 0xE0000 + 0x4000)
+              assert(w.where.transformers == List(OffsetTransformer(0xE0000), OffsetTransformer(0x4000)))
               assert(w.mapping == OrMapping(
                 List(
                   SizeMapping(0xE4400, 0x1C00),

@@ -92,7 +92,7 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint])(implicit idCallback : 
     inflightA(a.source) = ctx
     idCallback.add(a.debugId, ctx){
       case o : OrderingArgs => {
-        val address = (a.address - ctx.chunk.offset + o.offset).toLong
+        val address = ctx.chunk.globalToLocal(a.address + o.offset).toLong
         ctx.endpoint.model match {
           case mem : SparseMemory => a.opcode match {
             case Opcode.A.GET => {
@@ -132,7 +132,7 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint])(implicit idCallback : 
   override def onC(c: TransactionC) = {
     assert((c.address & (c.bytes-1)) == 0, "Unaligned address :(")
     val (endpoint, chunk) = getMapping(c.address, c.opcode)
-    val base = chunk.offset.toLong //Correct ?
+    val localAddress = chunk.globalToLocal(c.address).toLong
     import Opcode.B._
     import Opcode.C._
     c.opcode match {
@@ -156,7 +156,7 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint])(implicit idCallback : 
     }
     endpoint.model match {
       case mem : SparseMemory => c.opcode match {
-        case PROBE_ACK_DATA | RELEASE_DATA => mem.write(c.address.toLong-base, c.data)
+        case PROBE_ACK_DATA | RELEASE_DATA => mem.write(localAddress, c.data)
         case PROBE_ACK | RELEASE =>
       }
     }

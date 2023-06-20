@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.misc.{AddressMapping, DefaultMapping}
+import spinal.lib.bus.misc.{AddressMapping, AddressTransformer, DefaultMapping}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -33,7 +33,7 @@ case class Decoder(upNode : NodeParameters,
                    downsSupports : Seq[M2sSupport],
                    downsS2m : Seq[S2mParameters],
                    mapping : Seq[AddressMapping],
-                   offsets : Seq[BigInt],
+                   transformers : Seq[Seq[AddressTransformer]],
                    defaultDown : Seq[Boolean]) extends Component{
   val downsNodes = (downsSupports, downsS2m). zipped.map((support, s2m) => upNode.copy(
     m = Decoder.downMastersFrom(upNode.m, support),
@@ -64,7 +64,7 @@ case class Decoder(upNode : NodeParameters,
       val hit = decoded && s.p.node.m.emits.contains(io.up.a.opcode)
       s.a.valid := io.up.a.valid && hit
       s.a.payload := io.up.a.payload
-      s.a.address.removeAssignments() := (io.up.a.address - offsets(id)).resized
+      s.a.address.removeAssignments() := transformers(id)(io.up.a.address).resized
       readys += s.a.ready && hit
     }
     io.up.a.ready := readys.orR
@@ -83,7 +83,7 @@ case class Decoder(upNode : NodeParameters,
     for(i <- 0 until downsSupports.size if downsNodes(i).withBCE){
       val arbiterInput = iter.next()
       arbiterInput << downs(i).b
-      arbiterInput.address.removeAssignments() := downs(i).b.address.resize(upNode.m.addressWidth) + offsets(i)
+      arbiterInput.address.removeAssignments() := transformers(i).invert(downs(i).b.address.resize(upNode.m.addressWidth))
     }
     arbiter.io.output >> io.up.b
   }
@@ -95,7 +95,7 @@ case class Decoder(upNode : NodeParameters,
       val hit = decode(id, io.up.c.address)
       s.c.valid := io.up.c.valid && hit
       s.c.payload := io.up.c.payload
-      s.c.address.removeAssignments() := (io.up.c.address - offsets(id)).resized
+      s.c.address.removeAssignments() := transformers(id)(io.up.c.address).resized
       readys += s.c.ready && hit
     }
 

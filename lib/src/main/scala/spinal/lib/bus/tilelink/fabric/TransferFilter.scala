@@ -18,7 +18,7 @@ class TransferFilter() extends Area{
   new MemoryConnection {
     override def m = up
     override def s = down
-    override def offset = 0
+    override def transformers = Nil
     override def mapping = SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth)
     override def sToM(downs: MemoryTransfers, args: MappedNode) = downs
     populate()

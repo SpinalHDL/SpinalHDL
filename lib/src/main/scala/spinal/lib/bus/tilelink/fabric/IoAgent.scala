@@ -20,9 +20,9 @@ class MasterBus(p : M2sParameters) extends Area{
 class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParameters.none) extends Area{
   val node = Node.slave()
   val logic = Fiber build new Area {
+    node.m2s.supported.load(m2sSupport.copy(transfers = node.m2s.proposed.transfers.intersect(m2sSupport.transfers)))
     node.s2m.parameters.load(s2mParameters)
     node.s2m.setProposedFromParameters()
-    node.m2s.supported.load(m2sSupport.copy(transfers = node.m2s.proposed.transfers.intersect(m2sSupport.transfers)))
     master(node.bus)
   }
 }

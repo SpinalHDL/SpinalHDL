@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
+import spinal.lib.bus.misc.{AddressMapping, OffsetTransformer, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.system.tag._
 
@@ -28,9 +28,9 @@ class Connection(val m : Node, val s : Node) extends Area {
     override def m = Connection.this.m
     override def s = Connection.this.s
     override def mapping = getMapping()
-    override def offset = Connection.this.mapping.defaultSpec match {
-      case None => mapping.lowerBound
-      case Some(_) => 0
+    override def transformers = Connection.this.mapping.defaultSpec match {
+      case None => List(OffsetTransformer(mapping.lowerBound))
+      case Some(_) => Nil
     }
     override def sToM(down: MemoryTransfers, args: MappedNode) = down
     populate()
@@ -85,8 +85,9 @@ class Connection(val m : Node, val s : Node) extends Area {
       case None =>
     }
 
-    mapping.mappingSpec.get match {
-      case m => log2Up(m.highestBound+1)
+    mapping.mappingSpec match {
+      case Some(m) => log2Up(m.highestBound+1)
+      case None => log2Up(mapping.value.highestBound+1)
     }
   }
 

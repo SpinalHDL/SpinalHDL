@@ -158,17 +158,9 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
           }
         c.mapping.defaultSpec match {
           case Some(_) => {
-            //          case Some(_) => {
-            //            val others = downs.filter(_.mapping.defaultSpec.isEmpty).map(_.mapping.value.get)
-            //            c.mapping.value.load(InvertMapping(SeqMapping(others)))
-            //          }
-            //          case None => assert(c.mapping.value.isLoaded)
-
-
-            //              assert(c.decoder.m2s.parameters.addressWidth == m2s.parameters.addressWidth, s"Default connection $c addressWidth doesn't match\n ${ m2s.parameters.addressWidth} bits >> ${c.decoder.m2s.parameters.addressWidth} bits")
             dc += c
           }
-          case None => assert(c.mapping.value.isLoaded)
+          case None => c.mapping.value.get
         }
       }
       for(c <- dc){
@@ -260,7 +252,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     }
 
     val decoder = (mode != NodeMode.SLAVE && downs.size > 1) generate new Area {
-      val core = Decoder(bus.p.node, downs.map(_.s.m2s.supported), downs.map(_.decoder.s2m.parameters), downs.map(_.getMapping()), downs.map(_.tag.offset), downs.map(_.mapping.defaultSpec.nonEmpty))
+      val core = Decoder(bus.p.node, downs.map(_.s.m2s.supported), downs.map(_.decoder.s2m.parameters), downs.map(_.getMapping()), downs.map(_.tag.transformers), downs.map(_.mapping.defaultSpec.nonEmpty))
       for((down, decoded) <- (downs, core.io.downs).zipped){
         down.decoder.bus.load(decoded.combStage())
       }
@@ -276,10 +268,10 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
       target << toDown
       target.a.size.removeAssignments() := toDown.a.size.resized
       toDown.d.size.removeAssignments() := target.d.size.resized
-      target.a.address.removeAssignments() := (toDown.a.address - c.tag.offset).resized
+      target.a.address.removeAssignments() := c.tag.transformers(toDown.a.address).resized
       if(toDown.p.withBCE) {
-        toDown.b.address.removeAssignments() := (target.b.address + c.tag.offset).resized
-        target.c.address.removeAssignments() := (toDown.c.address - c.tag.offset).resized
+        toDown.b.address.removeAssignments() := c.tag.transformers.invert(target.b.address).resized
+        target.c.address.removeAssignments() := c.tag.transformers(toDown.c.address).resized
       }
     }
   }

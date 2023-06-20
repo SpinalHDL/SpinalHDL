@@ -22,7 +22,7 @@ class CoherencyHub() extends Area{
     new MemoryConnection{
       override def m = ret
       override def s = internalConnection
-      override def offset = 0
+      override def transformers = Nil
       override def mapping = SizeMapping(0, BigInt(1) << addressWidth)
       populate()
       override def sToM(down: MemoryTransfers, args: MappedNode) = {
@@ -49,7 +49,7 @@ class CoherencyHub() extends Area{
   List(memGet, memPut).foreach(node => new MemoryConnection {
     override def m = internalConnection
     override def s = node
-    override def offset = 0
+    override def transformers = Nil
     override def mapping = SizeMapping(0, BigInt(1) << addressWidth)
     override def sToM(downs: MemoryTransfers, args : MappedNode) = downs
     populate()

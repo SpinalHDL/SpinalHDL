@@ -52,6 +52,8 @@ trait AddressMapping{
   @deprecated("Use withOffset instead")
   def applyOffset(addressOffset: BigInt): AddressMapping = withOffset(addressOffset)
   def withOffset(addressOffset: BigInt): AddressMapping = ???
+  def withOffset(t: AddressTransformer): AddressMapping = ???
+  def withOffsetInvert(t: AddressTransformer): AddressMapping = ???
   def width = log2Up(highestBound+1)
   def foreach(body : BigInt => Unit) : Unit = ???
   def maxSequentialSize : BigInt = ???
@@ -128,6 +130,8 @@ case class OrMapping(conds : Seq[AddressMapping]) extends AddressMapping{
   }
   override def maxSequentialSize : BigInt = conds.map(_.maxSequentialSize).min
   override def randomPick(bytes : BigInt, aligned : Boolean) : BigInt = conds.randomPick().randomPick(bytes, aligned)
+  override def withOffset(t: AddressTransformer): AddressMapping = OrMapping(conds.map(_.withOffset(t)))
+  override def withOffsetInvert(t: AddressTransformer): AddressMapping = OrMapping(conds.map(_.withOffsetInvert(t)))
 }
 
 case class InvertMapping(inv : AddressMapping) extends AddressMapping{
@@ -210,6 +214,14 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
   override def highestBound = base + size - 1
   override def randomPick() : BigInt = base + BigInt(log2Up(size), Random) % size
   override def withOffset(addressOffset: BigInt): AddressMapping = SizeMapping(base + addressOffset, size)
+  override def withOffset(t: AddressTransformer): AddressMapping = t match {
+    case OffsetTransformer(offset) => SizeMapping(base - offset, size)
+    case InterleaverTransformer(blockSize, ratio, sel) => SizeMapping(base/ratio, size/ratio)
+  }
+  override def withOffsetInvert(t: AddressTransformer): AddressMapping = t match {
+    case OffsetTransformer(offset) => SizeMapping(base + offset, size)
+    case InterleaverTransformer(blockSize, ratio, sel) => SizeMapping(base*ratio, size*ratio)
+  }
   def overlap(that : SizeMapping) = this.base < that.base + that.size && this.base + this.size > that.base
   override def foreach(body: BigInt => Unit) = for(i <- 0 until size.toInt) body(base + i)
 
@@ -258,9 +270,14 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
       case _ => OrMapping(hits)
     }
   }
+
 }
 
-
+object InterleavedMapping{
+  def apply(mapping : AddressMapping, blockSize : Int, ratio : Int, sel : Int) : InterleavedMapping = {
+    InterleavedMapping(mapping, blockSize, (0 until ratio).map(_ == sel))
+  }
+}
 case class InterleavedMapping(mapping : AddressMapping, blockSize : Int, pattern : Seq[Boolean]) extends AddressMapping{
   assert(isPow2(blockSize))
   assert(isPow2(pattern.size))
@@ -301,6 +318,10 @@ case class InterleavedMapping(mapping : AddressMapping, blockSize : Int, pattern
     case NeverMapping => NeverMapping
     case e => this.copy(e)
   }
+
+
+  override def withOffset(t: AddressTransformer): AddressMapping = copy(mapping.withOffset(t))
+  override def withOffsetInvert(t: AddressTransformer): AddressMapping = copy(mapping.withOffsetInvert(t))
 }
 
 
@@ -354,4 +375,38 @@ case class SizeMappingInterleaved(base: BigInt, size: BigInt, blockSize : Int, p
     if(aligned) addr = addr/bytes*bytes
     addr
   }
+}
+
+
+/**
+ * Model a transformation on a address, typicaly, an address decoder may apply an offset to each of its outputs
+ */
+trait AddressTransformer{
+  def apply(address : BigInt) : BigInt
+  def apply(address : UInt) : UInt
+  def invert(address : BigInt) : BigInt
+  def invert(address : UInt) : UInt
+}
+
+/**
+ * @param offset For instance, if a slave is mapped at address 0x100 of a master => offset = 0x100
+ */
+case class OffsetTransformer(offset : BigInt) extends AddressTransformer{
+  override def apply(address: BigInt) = address - offset
+  override def apply(address: UInt) = address - offset
+  override def invert(address: BigInt) = address + offset
+  override def invert(address: UInt) = address + offset
+  override def toString = f"OT(0x$offset%x)"
+}
+
+case class InterleaverTransformer(blockSize : Int, ratio : Int, sel : Int) extends AddressTransformer{
+  assert(isPow2(blockSize))
+  assert(isPow2(ratio))
+  val blockSizeWidth = log2Up(blockSize)
+  val ratioWidth = log2Up(ratio)
+  override def apply(address: BigInt) = ((address >> blockSizeWidth + ratioWidth) << blockSizeWidth) | (address & (blockSize-1))
+  override def apply(address: UInt) = U(address.dropLow(blockSizeWidth + ratioWidth) ## address(0, blockSizeWidth bits) )
+  override def invert(address: BigInt) = ((address >> blockSizeWidth) << (blockSizeWidth + ratio)) | sel << blockSizeWidth | (address & (blockSize-1))
+  override def invert(address: UInt) = U(address.dropLow(blockSizeWidth) ## B(sel, ratioWidth bits) ## address(0, blockSizeWidth bits))
+  override def toString = f"IT(0x$blockSize%x, $ratio, $sel)"
 }

@@ -16,11 +16,7 @@ class BridgeTestbench(m : Bus, s : Bus, cd : ClockDomain) {
 
   val inputMapping = Endpoint(
     chunks = List(
-      Chunk(
-        allowed = s.p.node.m.toSupport().transfers,
-        offset = 0,
-        SizeMapping(0, 1l << m.p.addressWidth)
-      )
+      Chunk(s.p.node.m.toSupport().transfers, SizeMapping(0, 1l << m.p.addressWidth), 0)
     ),
     model = globalMem
   )

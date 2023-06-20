@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink.sim
 
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
+import spinal.lib.bus.misc.{AddressMapping, AddressTransformer, OffsetTransformer, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.sim.SparseMemory
 import spinal.sim.SimThread
@@ -11,12 +11,20 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
-
-case class Chunk(allowed : M2sTransfers,
-                 offset : BigInt,
-                 mapping : AddressMapping){
-  override def toString = f"$allowed $offset%x $mapping"
+object Chunk{
+  def apply(allowed: M2sTransfers,
+            mapping: AddressMapping,
+            offset : BigInt): Chunk ={
+    Chunk(allowed, mapping, List(new OffsetTransformer(offset)))
+  }
 }
+case class Chunk(allowed: M2sTransfers,
+                 mapping: AddressMapping,
+                 transforms: List[AddressTransformer]) {
+  override def toString = f"$allowed $mapping"
+  def globalToLocal(address : BigInt) : BigInt = transforms.foldLeft(address)((a, t) => t(a))
+}
+
 case class Endpoint(model : Any,
                     chunks : Seq[Chunk])
 case class MasterSpec(bus : Bus,
