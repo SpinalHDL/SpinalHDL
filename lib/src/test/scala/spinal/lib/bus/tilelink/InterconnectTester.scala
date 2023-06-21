@@ -101,6 +101,7 @@ class InterconnectTester extends AnyFunSuite{
       testers.foreach(_.startPerSource(100))
       testers.foreach(_.join())
       tb.waitCheckers()
+      tb.assertCoverage()
     }
 
     if(errors.nonEmpty) {
@@ -150,12 +151,17 @@ class InterconnectTester extends AnyFunSuite{
       val checker = new Checker(monitor, m.endpoints)
     }
 
-    for(node <- slaveNodes) {
+    val slavesStuff = for(node <- slaveNodes) yield new Area{
       val model = new MemoryAgent(node.bus, node.clockDomain, nodeToModel(node).seed)
     }
 
     def waitCheckers(): Unit ={
       mastersStuff.foreach(_.checker.waitEmpty())
+    }
+    def assertCoverage(): Unit ={
+      for(s <- slavesStuff){
+        assert(s.model.monitor.counterA > 100)
+      }
     }
   }
 
@@ -472,6 +478,26 @@ class InterconnectTester extends AnyFunSuite{
     })
   }
 
+  test("DefaultA"){
+    testInterconnectAll(new Component{
+      val m0 = simpleMaster(readWrite)
+      val s0, s1 = simpleSlave(8)
+      val d0 = simpleSlave(16)
+
+      val b0 = Node()
+      b0 << m0.node
+
+      s0.node at 0x200 of b0
+      s1.node at 0x400 of b0
+      d0.node << b0
+
+      Fiber build {
+        val probed = MemoryConnection.getMemoryTransfers(m0.node)
+        println(probed)
+      }
+    })
+  }
+
   test("DefaultOverlap"){
     testInterconnectAll(new Component{
       val m0, m1 = simpleMaster(readWrite)
@@ -718,7 +744,6 @@ class InterconnectTester extends AnyFunSuite{
         val io = simpleMaster(readWrite)
       }
 
-//      ???
 //      val dma = new Area{ //TODO
 //        val main = simpleMaster(readWrite)
 //        val filter = new fabric.TransferFilter()
@@ -736,7 +761,6 @@ class InterconnectTester extends AnyFunSuite{
       //Will manage memory coherency
       val hub = new HubFabric()
       hub.up << n0
-//      p0 at 0x00000000l of n0
 
       //Define the main memory of the SoC (ex : DDR)
       val memory = simpleSlave(28, 32)

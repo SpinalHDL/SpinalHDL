@@ -20,6 +20,8 @@ trait MonitorSubscriber{
 
 class Monitor (val bus : Bus, cd : ClockDomain) {
   var debug = false
+  var counterA = 0
+  var counterD = 0
 
   def add(s : MonitorSubscriber) : this.type = {
     subscribers += s
@@ -27,10 +29,16 @@ class Monitor (val bus : Bus, cd : ClockDomain) {
   }
 
   val subscribers = ArrayBuffer[MonitorSubscriber]()
-  def onA(f : TransactionA) : Unit = subscribers.foreach(_.onA(f))
+  def onA(f : TransactionA) : Unit = {
+    subscribers.foreach(_.onA(f))
+    counterA += 1
+  }
   def onB(f : TransactionB) : Unit = subscribers.foreach(_.onB(f))
   def onC(f : TransactionC) : Unit = subscribers.foreach(_.onC(f))
-  def onD(f : TransactionD) : Unit = subscribers.foreach(_.onD(f))
+  def onD(f : TransactionD) : Unit = {
+    subscribers.foreach(_.onD(f))
+    counterD += 1
+  }
   def onE(f : TransactionE) : Unit = subscribers.foreach(_.onE(f))
 
   val faa = new TransactionAggregator[TransactionA](bus.p.dataBytes)(onA)
