@@ -140,6 +140,9 @@ class InterconnectTester extends AnyFunSuite{
               case None =>
             }
           }
+          case n if n.hasTag(TransferFilterTag) => {
+            mappings += Endpoint(TransferFilterTag, List(new Chunk(M2sTransfers(), e.where.mapping, e.where.transformers)))
+          }
         }
       }
       MasterSpec(n.bus, n.clockDomain, mappings)
@@ -456,6 +459,21 @@ class InterconnectTester extends AnyFunSuite{
 //  }
 
 
+  test("MixedBurstSize"){
+    testInterconnectAll(new Component{
+      val m0 = simpleMaster(readWrite)
+      val s0 = simpleSlave(8)
+      val s1 = simpleSlave(8, m2sTransfers = M2sTransfers(get = SizeRange.apply(4), putFull = SizeRange.apply(4)))
+
+      val b0 = Node()
+
+      b0 << m0.node
+
+      s0.node at 0x200 of b0
+      s1.node at 0x400 of b0
+    })
+  }
+
   test("Buffering"){
     testInterconnectAll(new Component{
       val m0 = simpleMaster(readWrite)
@@ -744,16 +762,16 @@ class InterconnectTester extends AnyFunSuite{
         val io = simpleMaster(readWrite)
       }
 
-//      val dma = new Area{ //TODO
-//        val main = simpleMaster(readWrite)
-//        val filter = new fabric.TransferFilter()
-//        filter.up << main.node
-//      }
+      val dma = new Area{ //TODO
+        val main = simpleMaster(readWrite)
+        val filter = new fabric.TransferFilter()
+        filter.up << main.node
+      }
 
       val n0 = Node()
       n0 << cpu.main.node
       n0 << cpu.io.node
-//      n0 << dma.filter.down
+      n0 << dma.filter.down
 
       val something = simpleSlave(20, 32, m2sTransfers = readWrite)
       something.node at 0x82000000l of n0
@@ -796,9 +814,9 @@ class InterconnectTester extends AnyFunSuite{
         val ioSupport = MemoryConnection.getMemoryTransfers(cpu.io.node)
         println("cpu.io.node can access : ")
         println(ioSupport.map("- " + _).mkString("\n"))
-//        val dmaSupport = MemoryConnection.getMemoryTransfers(dma.main.node)
-//        println("dma.main.node can access : ")
-//        println(dmaSupport.map("- " + _).mkString("\n"))
+        val dmaSupport = MemoryConnection.getMemoryTransfers(dma.main.node)
+        println("dma.main.node can access : ")
+        println(dmaSupport.map("- " + _).mkString("\n"))
       }
     })
   }

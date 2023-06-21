@@ -2,6 +2,7 @@ package spinal.lib.bus.tilelink.sim
 
 import spinal.core.ClockDomain
 import spinal.lib.bus.tilelink._
+import spinal.lib.bus.tilelink.fabric.TransferFilterTag
 import spinal.lib.sim.SparseMemory
 import spinal.sim.SimError
 
@@ -27,12 +28,20 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint])(implicit idCallback : 
         return (endpoint, chunk)
       }
     }
+    for(endpoint <- mappings; if endpoint.model == TransferFilterTag; chunk <- endpoint.chunks){
+      if(chunk.mapping.hit(address)){
+        return (endpoint, chunk)
+      }
+    }
+    println(f"Can't map $address%x $opcode")
     ???
   }
 
   class InflightA(val a : TransactionA){
     val (endpoint, chunk) = getMapping(a.address, a.opcode)
     var ref : Array[Byte] = null
+    var denied = false
+    var isSet = false
   }
 
   val inflightA = Array.fill[InflightA](1 << p.sourceWidth)(null)
@@ -90,9 +99,19 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint])(implicit idCallback : 
 
     val ctx = new InflightA(a)
     inflightA(a.source) = ctx
+
+    ctx.endpoint.model match {
+      case mem : SparseMemory =>
+      case TransferFilterTag => {
+        ctx.isSet = true
+        ctx.denied = true
+      }
+    }
+
     idCallback.add(a.debugId, ctx){
       case o : OrderingArgs => {
         val address = ctx.chunk.globalToLocal(a.address + o.offset).toLong
+        ctx.isSet = true
         ctx.endpoint.model match {
           case mem : SparseMemory => a.opcode match {
             case Opcode.A.GET => {
@@ -168,12 +187,13 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint])(implicit idCallback : 
       case Opcode.D.ACCESS_ACK | Opcode.D.ACCESS_ACK_DATA | Opcode.D.GRANT | Opcode.D.GRANT_DATA  =>  {
         val ctx = inflightA(d.source)
         assert(ctx != null)
+        assert(ctx.isSet, s"No reference was provided for :\n${ctx.a}to compare with :\n$d")
         d.assertRspOf(ctx.a)
-        if(d.withData) {
+        if(d.withData && !ctx.denied) {
           assert(ctx.ref != null, s"No reference data was provided for :\n${ctx.a}to compare with :\n$d")
           assert((ctx.ref, d.data).zipped.forall(_ == _), s"Missmatch for :\n$ctx.a\n$d\n!=${ctx.ref.map(v => f"${v}%02x").mkString(" ")}")
         }
-        assert(!d.denied)
+        assert(d.denied == ctx.denied)
         assert(!d.corrupt)
         if(d.opcode == Opcode.D.GRANT || d.opcode == Opcode.D.GRANT_DATA){
           doGrow(d.source, d.address, d.param)

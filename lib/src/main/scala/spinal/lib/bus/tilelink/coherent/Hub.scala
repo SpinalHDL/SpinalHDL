@@ -144,10 +144,12 @@ class Hub(p : HubParameters) extends Component{
   val io = new Bundle{
     val up = slave(Bus(ubp))
     val down = master(Bus(dbp))
-    val ordering = master(Flow(OrderingCmd(up.p.sizeBytes)))
+    val backendOrdering = master(Flow(OrderingCmd(up.p.sizeBytes)))
+    val probeOrdering = master(Flow(OrderingCmd(up.p.sizeBytes)))
   }
 
-  this.addTag(OrderingTag(io.ordering))
+  this.addTag(OrderingTag(io.backendOrdering))
+  this.addTag(OrderingTag(io.probeOrdering))
 
 
   case class DataPayload() extends Bundle {
@@ -542,6 +544,10 @@ class Hub(p : HubParameters) extends Component{
         toUpD.corrupt := False
         toUpD.data.assignDontCare()
 
+        io.probeOrdering.valid := toUpD.fire
+        io.probeOrdering.debugId := CTX.debugId
+        io.probeOrdering.bytes := (U(1) << toUpD.size).resized
+
         haltWhen(hitUpD ? !toUpD.ready | !toBackend.ready)
       }
     }
@@ -614,9 +620,9 @@ class Hub(p : HubParameters) extends Component{
       TO_DOWN := WRITE_DATA | READ_DATA
       SLOT_ALLOCATE := TO_DOWN
 
-      io.ordering.valid := isFireing && !FROM_C
-      io.ordering.debugId := a.debugId
-      io.ordering.bytes := (U(1) << a.size).resized
+      io.backendOrdering.valid := isFireing && !FROM_C
+      io.backendOrdering.debugId := a.debugId
+      io.backendOrdering.bytes := (U(1) << a.size).resized
     }
 
     val aPayloadSyncRead = new Area{

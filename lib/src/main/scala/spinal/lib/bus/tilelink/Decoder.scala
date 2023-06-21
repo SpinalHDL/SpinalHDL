@@ -95,6 +95,7 @@ case class Decoder(upNode : NodeParameters,
       s.a.valid := io.up.a.valid && hit
       s.a.payload := io.up.a.payload
       s.a.address.removeAssignments() := transformers(id)(io.up.a.address).resized
+      s.a.size.removeAssignments() := io.up.a.size.resized
       readys += s.a.ready && hit
     }
     io.up.a.ready := readys.orR
@@ -110,6 +111,7 @@ case class Decoder(upNode : NodeParameters,
       val arbiterInput = iter.next()
       arbiterInput << downs(i).b
       arbiterInput.address.removeAssignments() := transformers(i).invert(downs(i).b.address.resize(upNode.m.addressWidth))
+      arbiterInput.size.removeAssignments() := downs(i).b.size.resized
     }
     arbiter.io.output >> io.up.b
   }
@@ -122,6 +124,7 @@ case class Decoder(upNode : NodeParameters,
       s.c.valid := io.up.c.valid && hit
       s.c.payload := io.up.c.payload
       s.c.address.removeAssignments() := transformers(id)(io.up.c.address).resized
+      s.c.size.removeAssignments() := io.up.c.size.resized
       readys += s.c.ready && hit
     }
 

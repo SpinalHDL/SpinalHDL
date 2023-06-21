@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.bus.misc.{AddressMapping, AddressTransformer, OffsetTransformer, SizeMapping}
 import spinal.lib.bus.tilelink._
+import spinal.lib.bus.tilelink.fabric.TransferFilterTag
 import spinal.lib.sim.SparseMemory
 import spinal.sim.SimThread
 
@@ -51,7 +52,6 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
 
   def startPerSource(perSourceBurst : Int) {
     for (masterParam <- node.m.masters) {
-
       val locks = mutable.HashMap[Long, SimMutex]()
       var randomAddress = 0l
       def lock(address : Long) = {
@@ -79,7 +79,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
 
             def randomizedImpl(chunk : Chunk, sizes : M2sTransfers => SizeRange): (Long, Int) ={
               val sizeMax = chunk.mapping.maxSequentialSize.toInt
-              val bytes = sizes(source.emits).random(randMax = sizeMax)
+              val bytes = sizes(source.emits).intersect(sizes(chunk.allowed)).random(randMax = sizeMax)
               val address = chunk.mapping.randomPick(bytes, true).toLong
               (address, bytes)
             }
@@ -160,6 +160,50 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
                   }
                 }
                 unlock(block.address)
+              }
+            }
+
+            val deadEnds = m.endpoints.filter(_.model == TransferFilterTag)
+            if(deadEnds.nonEmpty) {
+              def deniedOn(kind : M2sTransfers => SizeRange)(body : (Long, Int) => Unit): Unit = {
+                if(kind(source.emits).some) distribution(1) {
+                  val deadEnd = deadEnds.randomPick()
+                  val chunk = deadEnd.chunks.randomPick()
+                  val sizes = kind(source.emits)
+                  val (address, bytes) = randomizedImpl(chunk, _ => sizes)
+                  val badAddress = m.endpoints.exists(e => e.model != TransferFilterTag && e.chunks.exists(c => kind(c.allowed).some && c.mapping.hit(address)))
+                  if (!badAddress) {
+                    body(address, bytes)
+                  }
+                }
+              }
+
+              deniedOn(_.get){(address, bytes) =>
+                val d = agent.get(sourceId, address, bytes)
+                assert(d.denied)
+              }
+              deniedOn(_.putPartial){(address, bytes) =>
+                val d = agent.putPartialData(sourceId, address, randomizedData(bytes), randomizedMask(bytes))
+                assert(d.denied)
+              }
+              deniedOn(_.putFull){(address, bytes) =>
+                val d = agent.putFullData(sourceId, address, randomizedData(bytes))
+                assert(d.denied)
+              }
+              deniedOn(_.acquireB){(address, bytes) =>
+                val b = agent.block.get(sourceId, address) match {
+                  case Some(x : Block) => x
+                  case None => agent.acquireBlock(sourceId, Param.Grow.NtoB, address, bytes)
+                }
+                assert(b.cap == Param.Cap.toN)
+              }
+              // acquireBlock NtoT
+              deniedOn(_.acquireT) { (address, bytes) =>
+                val b = agent.block.get(sourceId, address) match {
+                  case Some(x: Block) => x
+                  case None => agent.acquireBlock(sourceId, Param.Grow.NtoT, address, bytes)
+                }
+                assert(b.cap == Param.Cap.toN)
               }
             }
 

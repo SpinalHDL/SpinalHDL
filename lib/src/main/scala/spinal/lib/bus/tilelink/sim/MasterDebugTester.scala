@@ -32,7 +32,7 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
     for((e, source, m2sAgent) <- flatten if sizes(source.emits).some){
       for(slave <- e.m.endpoints; chunk <- slave.chunks if sizes(chunk.allowed).some){
         val sizeMax = chunk.mapping.maxSequentialSize.toInt
-        val bytes = sizes(source.emits).random(randMax = sizeMax)
+        val bytes = sizes(source.emits).intersect(sizes(chunk.allowed)).random(randMax = sizeMax)
         val address = chunk.mapping.randomPick(bytes, true).toLong
         val sourceId = source.id.randomPick().toInt
         body(Ctx(e.agent, sourceId, address, bytes, slave, chunk, m2sAgent))
@@ -67,7 +67,7 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
   }
 
   def coverPutPartialData(repeat : Int): Unit ={
-    for(i <- 0 until repeat) cover(_.putFull){ ctx =>
+    for(i <- 0 until repeat) cover(_.putPartial){ ctx =>
       ctx.agent.putPartialData(ctx.source, ctx.address, randomizedData(ctx.bytes), randomizedMask(ctx.bytes))
       ctx.check()
     }

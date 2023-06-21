@@ -3,7 +3,7 @@ package spinal.lib.system.tag
 import spinal.core._
 import spinal.lib.bus.misc.{AddressMapping, AddressTransformer, DefaultMapping, OffsetTransformer, SizeMapping}
 import spinal.lib.bus.tilelink.M2sTransfers
-import spinal.lib.bus.tilelink.fabric.Node
+import spinal.lib.bus.tilelink.fabric.{Node, TransferFilterTag}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -120,7 +120,7 @@ object MemoryConnection{
       case Some(x) => unfiltred.foreach(e => ret += MappedTransfers(e._1, e._2.intersect(x)))
     }
 
-    ret.filter(_.transfers.nonEmpty)
+    ret.filter(e => e.transfers.nonEmpty || e.where.node.hasTag(TransferFilterTag))
   }
 
   def foreachSlave(m : Node)(body : (MappedNode, MemoryConnection) => Unit): Unit = {

@@ -247,7 +247,11 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
             block.updateBlock(this)
           }
         }
-        if(debug) println(f"acquireBlock src=$source%02x addr=$address%x 2 -> ${d.param} time=${simTime()}")
+        if(d.denied){
+          b.cap = Param.Cap.toN
+          b.data = null
+        }
+        if(debug && !d.denied) println(f"acquireBlock src=$source%02x addr=$address%x 2 -> ${d.param} time=${simTime()}")
         block(source -> address) = b
       }
     }
@@ -287,7 +291,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
         blk.cap = Param.Cap.toT
       }
       case None => {
-        if(debug) println(f"acquirePerm  src=$source%02x addr=$address%x 2 -> 0 time=${simTime()}")
+        if(debug && !d.denied) println(f"acquirePerm  src=$source%02x addr=$address%x 2 -> 0 time=${simTime()}")
         blk = new Block(source, address, d.param, bytes, false, null){
           override def release() = {
             super.release()
@@ -296,6 +300,10 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
             }
             block.updateBlock(this)
           }
+        }
+        if(d.denied){
+          blk.cap = Param.Cap.toN
+          blk.data = null
         }
         block(source -> address) = blk
       }

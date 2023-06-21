@@ -25,11 +25,12 @@ abstract class TransactionABCD {
     val v = b.toBytes
   }
   def assertBeatOf(that: TransactionABCD, offset: Int): Unit = {
-    assert(this.corrupt == that.corrupt)
-    assert(this.address - offset == that.address)
-    assert(this.param == that.param)
-    assert(this.source == that.source)
-    assert(this.size == that.size)
+    def check(cond : Boolean) = assert(cond, s"Bad burst on :\n$that$this")
+    check(this.corrupt == that.corrupt)
+    check(this.address - offset == that.address)
+    check(this.param == that.param)
+    check(this.source == that.source)
+    check(this.size == that.size)
   }
 
   def copyNoDataFrom(src: TransactionABCD): T = {

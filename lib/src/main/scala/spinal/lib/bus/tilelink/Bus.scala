@@ -307,8 +307,8 @@ case class ChannelD(override val p : BusParameter) extends BusFragment(p) {
     s.param := m.param
     s.source := m.source
     s.sink := m.sink
-    s.size := m.size
     s.denied := m.denied
+    WeakConnector(m, s, m.size,    s.size   , defaultValue = null, allowUpSize = true , allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.data,    s.data   , defaultValue = () => cloneOf(s.data).assignDontCare(), allowUpSize = false , allowDownSize = false, allowDrop = true)
     WeakConnector(m, s, m.corrupt, s.corrupt, defaultValue = () => False, allowUpSize = false , allowDownSize = false, allowDrop = false)
   }

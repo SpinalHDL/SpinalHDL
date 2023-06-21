@@ -52,6 +52,8 @@ case class Masked(value : BigInt,care : BigInt){
 
   def === (hard : Bits) : Bool = (hard & care) === (value & care)
 
+  def shiftedLeft(amount : Int) = Masked(value << amount, care << amount)
+
   def toString(bitCount : Int) = (0 until bitCount).map(i => if(care.testBit(i)) (if(value.testBit(i)) "1" else "0") else "-").reverseIterator.reduce(_+_)
 
   override def toString = f"${value.toString(16)} ${care.toString(16)}"
