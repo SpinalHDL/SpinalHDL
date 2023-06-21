@@ -12,6 +12,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object Opcode extends AreaRoot{
   val A = new SpinalEnum{
+    //If you extends that list, don't forget to update the tilelink Decoder
     val PUT_FULL_DATA, PUT_PARTIAL_DATA, GET, ACQUIRE_BLOCK, ACQUIRE_PERM = newElement()
     defaultEncoding = SpinalEnumEncoding("enc")(
       GET -> 4,

@@ -11,6 +11,7 @@ import spinal.lib._
 import spinal.core.sim._
 import spinal.idslplugin.Location
 import spinal.lib.bus.amba4.axilite.AxiLite4
+import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
 import spinal.lib.graphic.Rgb
@@ -197,6 +198,8 @@ object Debug2 extends App{
   val Something = new ScopeProperty[Int]
   SpinalConfig(allowOutOfRangeLiterals = true)
   def gen = new Component{
+    val xxx = AddressMapping.terms(SizeMapping(0x5000, 0x9000), 20)
+    println(xxx)
 
 //    Something.set(42)
 //    println(Something.get)
@@ -1273,7 +1276,7 @@ class AssertDemo extends Component {
 
 object AssertDemo {
   def main(args: Array[String]): Unit = {
-    SimConfig.withIVerilog.doSim(new AssertDemo){ dut =>
+    SimConfig.doSim(new AssertDemo){ dut =>
       dut.getAllIo.filter(_.isInput).foreach(_.randomize())
       dut.clockDomain.forkStimulus(10)
       dut.clockDomain.waitSampling(100)

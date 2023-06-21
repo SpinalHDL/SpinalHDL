@@ -3,6 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.{AddressMapping, AddressTransformer, DefaultMapping}
+import spinal.lib.logic.{Masked, Symplify}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -33,14 +34,13 @@ case class Decoder(upNode : NodeParameters,
                    downsSupports : Seq[M2sSupport],
                    downsS2m : Seq[S2mParameters],
                    mapping : Seq[AddressMapping],
-                   transformers : Seq[Seq[AddressTransformer]],
-                   defaultDown : Seq[Boolean]) extends Component{
+                   transformers : Seq[Seq[AddressTransformer]]) extends Component{
   val downsNodes = (downsSupports, downsS2m). zipped.map((support, s2m) => upNode.copy(
     m = Decoder.downMastersFrom(upNode.m, support),
     s = s2m
   ))
 
-  assert(mapping != DefaultMapping)
+  assert(mapping.forall(_ != DefaultMapping))
 
   val io = new Bundle{
     val up = slave(Bus(upNode))
@@ -51,17 +51,47 @@ case class Decoder(upNode : NodeParameters,
   val perNodeSinkWidth = downsNodes.map(_.s.sinkWidth).max
   val downs = io.downs.zipWithIndex.map{case (bus, id) => bus.fromSinkOffset(id << perNodeSinkWidth, upNode.s.sinkWidth)}
 
-  def decode(id : Int, address : UInt) = defaultDown(id) match {
-    case true => Bool()
-    case false => mapping(id).hit(address)
+  def getTermsA(m : AddressMapping, s : M2sSupport) : Seq[Masked] = {
+    val mappingTerms = AddressMapping.terms(m, io.up.p.addressWidth)
+    val opcodeTerms = ArrayBuffer[Masked]()
+    def op(filter : M2sTransfers => Boolean, op : Int) = if(filter(s.transfers)) opcodeTerms += Masked(op << io.up.p.addressWidth, 7 << io.up.p.addressWidth)
+    op(_.get.some, 4)
+    op(_.putFull.some, 0)
+    op(_.putPartial.some, 1)
+    op(e => e.acquireB.some || e.acquireT.some, 6)
+    op(e => e.acquireB.some || e.acquireT.some, 7)
+    val terms = ArrayBuffer[Masked]()
+    for(m <- mappingTerms; o <- opcodeTerms){
+      terms += m fuse o
+    }
+    terms
+  }
+
+  def decodeA(id : Int, key : Bits) = {
+    val trueTerms, falseTerms = ArrayBuffer[Masked]()
+    for(eid <- 0 until mapping.size){
+      val terms = getTermsA(mapping(eid), downsSupports(eid))
+      val target = if(eid == id) trueTerms else falseTerms
+      target ++= terms
+    }
+    Symplify(key, trueTerms, falseTerms)
+  }
+
+  def decodeC(id : Int, key : Bits): Bool = {
+    val trueTerms, falseTerms = ArrayBuffer[Masked]()
+    for(eid <- 0 until mapping.size if downsSupports(eid).transfers.withBCE){
+      val terms = AddressMapping.terms(mapping(eid), io.up.p.addressWidth)
+      val target = if(eid == id) trueTerms else falseTerms
+      target ++= terms
+    }
+    Symplify(key, trueTerms, falseTerms)
   }
 
   val a = new Area{
     val readys = ArrayBuffer[Bool]()
+    val key = io.up.a.opcode ## io.up.a.address
     val logic = for((s, id) <- downs.zipWithIndex) yield new Area {
-      val isDefault = defaultDown(id)
-      val decoded = decode(id, io.up.a.address)
-      val hit = decoded && s.p.node.m.emits.contains(io.up.a.opcode)
+      val hit = decodeA(id, key) //mapping(id).hit(io.up.a.address)// && s.p.node.m.emits.contains(io.up.a.opcode)
       s.a.valid := io.up.a.valid && hit
       s.a.payload := io.up.a.payload
       s.a.address.removeAssignments() := transformers(id)(io.up.a.address).resized
@@ -69,12 +99,8 @@ case class Decoder(upNode : NodeParameters,
     }
     io.up.a.ready := readys.orR
 
-    for((s, id) <- logic.zipWithIndex if s.isDefault){
-      logic(id).decoded := !logic.filter(!_.isDefault).map(_.hit).orR && downs(id).p.node.m.emits.contains(io.up.a.opcode)
-    }
-
     val miss = !logic.filter(_ != null).map(_.hit).orR
-    assert(!(io.up.a.valid && miss))
+    assert(!(io.up.a.valid && miss), "Tilelink decoder miss ???")
   }
 
   val b = upNode.withBCE generate new Area{
@@ -90,17 +116,13 @@ case class Decoder(upNode : NodeParameters,
 
   val c = upNode.withBCE generate new Area{
     val readys = ArrayBuffer[Bool]()
+    val key = io.up.c.address asBits
     val logic = for((s, id) <- downs.zipWithIndex if s.p.withBCE) yield new Area {
-      val isDefault = defaultDown(id)
-      val hit = decode(id, io.up.c.address)
+      val hit = decodeC(id, key) //mapping(id).hit(io.up.c.address)
       s.c.valid := io.up.c.valid && hit
       s.c.payload := io.up.c.payload
       s.c.address.removeAssignments() := transformers(id)(io.up.c.address).resized
       readys += s.c.ready && hit
-    }
-
-    for((s, id) <- logic.zipWithIndex if s.isDefault){
-      logic(id).hit := !logic.filter(!_.isDefault).map(_.hit).orR
     }
 
     io.up.c.ready := readys.orR

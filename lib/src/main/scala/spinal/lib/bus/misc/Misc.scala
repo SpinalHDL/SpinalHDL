@@ -22,6 +22,7 @@ package spinal.lib.bus.misc
 
 import spinal.lib._
 import spinal.core._
+import spinal.lib.logic.{Masked, Symplify}
 
 import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
@@ -31,6 +32,47 @@ object AddressMapping{
   def verifyOverlapping(mapping: Seq[AddressMapping]): Boolean = {
     val sizeMapped = mapping.filter(_.isInstanceOf[SizeMapping]).map(_.asInstanceOf[SizeMapping])
     SizeMapping.verifyOverlapping(sizeMapped)
+  }
+
+  def decode(address : UInt, trueMapping : AddressMapping, falseMapping : AddressMapping) : Bool = {
+    val trueTerms = terms(trueMapping, widthOf(address))
+    val falseTerms = terms(falseMapping, widthOf(address))
+    Symplify(address.asBits, trueTerms, falseTerms)
+  }
+
+  def decode(address : UInt, trueMapping : Seq[AddressMapping], falseMapping : Seq[AddressMapping]) : Bool = {
+    decode(address, OrMapping(trueMapping), OrMapping(falseMapping))
+  }
+
+
+  def terms(mapping : AddressMapping, width : Int) : ArrayBuffer[Masked] = {
+    val ret = ArrayBuffer[Masked]()
+    val widthMask = (BigInt(1) << width)-1
+    def rec(e : AddressMapping, mask : Masked): Unit = e match {
+      case OrMapping(conds) => conds.foreach(cond => rec(cond, mask))
+      case InterleavedMapping(mapping, blockSize, ratio, sel) => rec(mapping, mask fuse Masked(sel << log2Up(blockSize), ratio-1 << log2Up(blockSize)))
+      case m : SizeMapping => {
+        var ptr = m.base
+        var end = m.base + m.size
+        while(ptr < end){
+          val step = if(ptr == 0) m.size else BigInt(1) << ptr.lowestSetBit
+          if(ptr + step > end){
+            while(ptr < end){
+              val step = if(end == 0) m.size else BigInt(1) << end.lowestSetBit
+              if(ptr <= end - step){
+                end -= step
+                ret += mask fuse Masked(end, (~(step-1)) & widthMask)
+              }
+            }
+          } else {
+            ret += mask fuse Masked(ptr, (~(step-1)) & widthMask)
+            ptr += step
+          }
+        }
+      }
+    }
+    rec(mapping, Masked(0,0))
+    ret
   }
 }
 
@@ -189,8 +231,10 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   val end = base + size - 1
 
+  def isAligned = isPow2(size) && base % size == 0
+
   override def hit(address: UInt): Bool = {
-    if (isPow2(size) && base % size == 0){
+    if (isAligned){
       (address & ~U(size - 1, address.getWidth bits)) === (base)
     }else {
       (base == 0, log2Up(base + size + 1) > widthOf(address)) match {
@@ -273,29 +317,25 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
 }
 
-object InterleavedMapping{
-  def apply(mapping : AddressMapping, blockSize : Int, ratio : Int, sel : Int) : InterleavedMapping = {
-    InterleavedMapping(mapping, blockSize, (0 until ratio).map(_ == sel))
-  }
-}
-case class InterleavedMapping(mapping : AddressMapping, blockSize : Int, pattern : Seq[Boolean]) extends AddressMapping{
+
+case class InterleavedMapping(mapping : AddressMapping, blockSize : Int, ratio : Int, sel : Int) extends AddressMapping{
   assert(isPow2(blockSize))
-  assert(isPow2(pattern.size))
-  val patternIds = pattern.zipWithIndex.filter(_._1).map(_._2)
+  assert(isPow2(ratio))
+  assert(sel < ratio)
 
   override def highestBound = mapping.highestBound
   override def lowerBound = mapping.lowerBound
 
   override def hit(address: UInt) = {
     val l2 = mapping.hit(address)
-    val l1 = pattern.map(Bool(_)).read(address(log2Up(blockSize), log2Up(pattern.size) bits))
+    val l1 = address(log2Up(blockSize), log2Up(ratio) bits) === sel
     l2 && l1
   }
 
   override def hit(address: BigInt) = {
-    val blockId = (address.toInt / blockSize) & (pattern.size-1)
+    val blockId = (address.toInt / blockSize) & (ratio-1)
     val l2 = mapping.hit(address)
-    val l1 = pattern(blockId)
+    val l1 = blockId == sel
     l1 && l2
   }
 
@@ -308,8 +348,8 @@ case class InterleavedMapping(mapping : AddressMapping, blockSize : Int, pattern
   override def randomPick(bytes : BigInt, aligned : Boolean) : BigInt = {
     import spinal.core.sim._
     val l20 = mapping.randomPick(bytes, aligned)
-    val l1 = patternIds.randomPick()
-    val mask = (pattern.size-1)*blockSize
+    val l1 = sel
+    val mask = (ratio-1)*blockSize
     val addr = (l20 & ~mask) | l1 * blockSize
     addr
   }

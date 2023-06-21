@@ -45,7 +45,7 @@ trait MemoryConnection extends SpinalTag {
 
 object MappedNode{
   def apply(m : Node) : MappedNode = MappedNode(m, Nil, 0, BigInt(1) << m.bus.p.addressWidth)
-  def apply(node : Nameable with SpinalTagReady, transformers: List[AddressTransformer], address : BigInt, size : BigInt) : MappedNode = MappedNode(node, transformers, SizeMapping(address, size))
+  def apply(node : Nameable with SpinalTagReady, transformers: List[AddressTransformer], address : BigInt, size : BigInt) : MappedNode = MappedNode(node, SizeMapping(address, size), transformers)
 }
 
 /**
@@ -54,19 +54,19 @@ object MappedNode{
  * @param localOffset What is the master address to access address 0 of that endpoint
  * @param mapping Range of master address which can access the node
  */
-case class MappedNode(node : Nameable with SpinalTagReady, transformers : List[AddressTransformer], mapping : AddressMapping){
+case class MappedNode(node : Nameable with SpinalTagReady, mapping : AddressMapping, transformers : List[AddressTransformer]){
 //  def address = mapping.base
 //  def size = mapping.size
 
-  def remap(transformers : List[AddressTransformer]) : MappedNode = MappedNode(node, transformers ++ this.transformers, transformers.foldRight(mapping)((t,m) => m.withOffsetInvert(t)))//
-  def remap(offset : BigInt) : MappedNode = MappedNode(node, new OffsetTransformer(offset) :: transformers, mapping.withOffset(offset))
-  override def toString = f"$node at=$transformers mapped=$mapping"
+  def remap(transformers : List[AddressTransformer]) : MappedNode = MappedNode(node, transformers.foldRight(mapping)((t,m) => m.withOffsetInvert(t)), transformers ++ this.transformers)//
+  def remap(offset : BigInt) : MappedNode = MappedNode(node, mapping.withOffset(offset), OffsetTransformer(offset) :: transformers)
+  override def toString = f"$node mapped=$mapping though=$transformers "
 
   def foreachSlave(body : (MappedNode, MemoryConnection) => Unit): Unit ={
     node.foreachTag{
       case c : MemoryConnection if c.m == node => {
         val remaped = c.transformers.foldRight(c.mapping)((t, a) => a.withOffset(t))
-        body(MappedNode(c.s, Nil, remaped), c)
+        body(MappedNode(c.s, remaped, Nil), c)
       }
       case _ =>
     }

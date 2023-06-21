@@ -252,7 +252,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     }
 
     val decoder = (mode != NodeMode.SLAVE && downs.size > 1) generate new Area {
-      val core = Decoder(bus.p.node, downs.map(_.s.m2s.supported), downs.map(_.decoder.s2m.parameters), downs.map(_.getMapping()), downs.map(_.tag.transformers), downs.map(_.mapping.defaultSpec.nonEmpty))
+      val core = Decoder(bus.p.node, downs.map(_.s.m2s.supported), downs.map(_.decoder.s2m.parameters), downs.map(_.getMapping()), downs.map(_.tag.transformers))
       for((down, decoded) <- (downs, core.io.downs).zipped){
         down.decoder.bus.load(decoded.combStage())
       }

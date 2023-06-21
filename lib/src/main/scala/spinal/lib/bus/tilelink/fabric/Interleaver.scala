@@ -28,7 +28,8 @@ case class Interleaver(blockSize : Int, ratio : Int, sel : Int) extends Area{
     override def mapping = InterleavedMapping(
       mapping = SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth),
       blockSize = blockSize,
-      pattern = (0 until ratio).map(_ == sel)
+      ratio = ratio,
+      sel = sel
     )
     override def sToM(down: MemoryTransfers, args: MappedNode) = down
     populate()
@@ -41,8 +42,8 @@ case class Interleaver(blockSize : Int, ratio : Int, sel : Int) extends Area{
 
     down.m2s.proposed load up.m2s.proposed.copy(addressWidth = up.m2s.proposed.addressWidth-patternBits)
     up.m2s.supported load down.m2s.supported.copy(addressWidth = down.m2s.supported.addressWidth+patternBits)
-    for((c,a) <- addressMappings){
-      c.mapping.value load InterleavedMapping(SizeMapping(a, BigInt(1) << up.m2s.supported.addressWidth), blockSize, ratio, sel)
+    for((c,a) <- addressMappings) c.mapping.value load {
+      InterleavedMapping(SizeMapping(a, BigInt(1) << up.m2s.supported.addressWidth), blockSize, ratio, sel)
     }
     down.m2s.parameters load up.m2s.parameters.copy(addressWidth = up.m2s.parameters.addressWidth-patternBits)
     up.s2m.from(down)

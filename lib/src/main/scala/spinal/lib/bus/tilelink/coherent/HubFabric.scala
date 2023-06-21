@@ -2,12 +2,11 @@ package spinal.lib.bus.tilelink.coherent
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.system.tag._
 import spinal.lib.bus.tilelink.fabric._
 import spinal.lib._
-
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -105,7 +104,10 @@ class HubFabric() extends Area{
     implicit def easy(mt : MemoryTransfers) = mt.asInstanceOf[M2sTransfers]
     val transferSpec = MemoryConnection.getMemoryTransfers(up)
     val probeSpec = transferSpec.filter(_.transfers.withBCE)
+    val ioSpec = transferSpec.filter(!_.transfers.withBCE)
+
     parameter.probeRegion = { addr =>
+//      AddressMapping.decode(addr, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
       probeSpec.map(_.where.mapping.hit(addr)).orR //TODO optimze
     }
     val hub = new Hub(parameter)

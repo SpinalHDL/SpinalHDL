@@ -393,8 +393,8 @@ class InterconnectTester extends AnyFunSuite{
       b0 at 0x1000 of m0.node
 
       val s0,s1 = simpleSlave(8)
-      s0.node at InterleavedMapping(SizeMapping(0x200, 0x100), 0x10, Seq(true, false, false, false)) of b0
-      s1.node at InterleavedMapping(SizeMapping(0x200, 0x100), 0x10, Seq(false, true, false, false)) of b0
+      s0.node at InterleavedMapping(SizeMapping(0x200, 0x100), 0x10, 4, 0) of b0
+      s1.node at InterleavedMapping(SizeMapping(0x200, 0x100), 0x10, 4, 1) of b0
     })
   }
 
@@ -403,8 +403,8 @@ class InterconnectTester extends AnyFunSuite{
       val m0 = simpleMaster(readWrite)
       val b0, b1 = Node()
 
-      b0 at InterleavedMapping(SizeMapping(0x1000, 0x400), 0x10, Seq(true, false, false, false)) of m0.node
-      b1 at InterleavedMapping(SizeMapping(0x1000, 0x400), 0x10, Seq(false, true, false, false)) of m0.node
+      b0 at InterleavedMapping(SizeMapping(0x1000, 0x400), 0x10, 4, 0) of m0.node
+      b1 at InterleavedMapping(SizeMapping(0x1000, 0x400), 0x10, 4, 1) of m0.node
 
       val s0, s1 = simpleSlave(8)
       s0.node at 0x200 of b0
@@ -718,6 +718,7 @@ class InterconnectTester extends AnyFunSuite{
         val io = simpleMaster(readWrite)
       }
 
+//      ???
 //      val dma = new Area{ //TODO
 //        val main = simpleMaster(readWrite)
 //        val filter = new fabric.TransferFilter()
