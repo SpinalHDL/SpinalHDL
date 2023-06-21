@@ -122,6 +122,10 @@ down.D may trigger:
 up.E will do a conflict release (aquireAck)
  */
 
+
+/*
+Currently when a io region access is done, the HUB will still lock the memory block (but that's not necessary)
+ */
 class Hub(p : HubParameters) extends Component{
   import p._
 

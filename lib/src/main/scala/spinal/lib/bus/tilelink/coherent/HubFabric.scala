@@ -98,17 +98,16 @@ class HubFabric() extends Area{
     )
     up.s2m.setProposedFromParameters()
 
-    mappingLock.release()
     parameter.unp = up.bus.p.node
+    mappingLock.release()
 
-    implicit def easy(mt : MemoryTransfers) = mt.asInstanceOf[M2sTransfers]
     val transferSpec = MemoryConnection.getMemoryTransfers(up)
-    val probeSpec = transferSpec.filter(_.transfers.withBCE)
-    val ioSpec = transferSpec.filter(!_.transfers.withBCE)
+    val probeSpec = transferSpec.filter(_.transfers.asInstanceOf[M2sTransfers].withBCE)
+    val ioSpec = transferSpec.filter(!_.transfers.asInstanceOf[M2sTransfers].withBCE)
 
     parameter.probeRegion = { addr =>
-//      AddressMapping.decode(addr, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
-      probeSpec.map(_.where.mapping.hit(addr)).orR //TODO optimze
+      AddressMapping.decode(addr.asBits, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
+//      equivalent to probeSpec.map(_.where.mapping.hit(addr)).orR
     }
     val hub = new Hub(parameter)
     hub.io.up << up.bus

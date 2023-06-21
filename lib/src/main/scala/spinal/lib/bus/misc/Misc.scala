@@ -34,13 +34,13 @@ object AddressMapping{
     SizeMapping.verifyOverlapping(sizeMapped)
   }
 
-  def decode(address : UInt, trueMapping : AddressMapping, falseMapping : AddressMapping) : Bool = {
+  def decode(address : Bits, trueMapping : AddressMapping, falseMapping : AddressMapping) : Bool = {
     val trueTerms = terms(trueMapping, widthOf(address))
     val falseTerms = terms(falseMapping, widthOf(address))
     Symplify(address.asBits, trueTerms, falseTerms)
   }
 
-  def decode(address : UInt, trueMapping : Seq[AddressMapping], falseMapping : Seq[AddressMapping]) : Bool = {
+  def decode(address : Bits, trueMapping : Seq[AddressMapping], falseMapping : Seq[AddressMapping]) : Bool = {
     decode(address, OrMapping(trueMapping), OrMapping(falseMapping))
   }
 
