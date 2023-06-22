@@ -18,8 +18,10 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
   if(io.up.p.withBCE) assert(io.up.p.sinkWidth == io.down.p.sinkWidth + 1)
   val ipEmits = unp.m.emits
 
-  val falseTerms, trueTerms = ArrayBuffer[Masked]()
-  for(s <- spec){
+  val instruction = io.up.a.param ## io.up.a.size ## io.up.a.opcode
+  val addrKey = io.up.a.address.asBits
+  val argsHits = spec.map(s => new Area{
+    val falseTerms, trueTerms = ArrayBuffer[Masked]()
     val st = s.transfers.asInstanceOf[M2sTransfers]
     val addressMasked = AddressMapping.terms(s.mapping, widthOf(io.up.a.address)).map(_.shiftedLeft(3+3+widthOf(io.up.a.size)))
     def simple(opcode : Int, getter : M2sTransfers => SizeRange): Unit = simpleImpl(opcode, getter(ipEmits), getter(st))
@@ -27,7 +29,7 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
       is.foreach{ size =>
         val term = Masked(opcode | (log2Up(size) << 3), (1 << io.up.p.sizeWidth+3)-1)
         val target = if(os.contains(size)) trueTerms else falseTerms
-        target ++= addressMasked.map(_ fuse term)
+        target += term
       }
     }
     def aquire(param : Int, getter : M2sTransfers => SizeRange): Unit = aquireImpl(param, getter(ipEmits), getter(st))
@@ -35,7 +37,7 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
       ipEmits.acquireB.foreach{ size =>
         val term = Masked(6 | (log2Up(size) << 3) | (param << 3 + io.up.p.sizeWidth), (1 << io.up.p.sizeWidth+3+3)-2) //-2 to cover opcode 6 and 7
         val target = if(os.contains(size)) trueTerms else falseTerms
-        target ++= addressMasked.map(_ fuse term)
+        target += term
       }
     }
 
@@ -48,10 +50,13 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
     aquire(Param.Grow.NtoB, _.acquireB)
     aquire(Param.Grow.NtoT, _.acquireT)
     aquire(Param.Grow.BtoT, _.acquireT)
-  }
 
-  val instruction = io.up.a.address ## io.up.a.param ## io.up.a.size ## io.up.a.opcode
-  val hit = Symplify.trueAndDontCare(instruction, trueTerms, falseTerms)
+    val argHit = Symplify(instruction, trueTerms, falseTerms)
+    val addrHit = AddressMapping.decode(addrKey, s.mapping)
+    val hit = argHit && addrHit
+  })
+
+  val hit = argsHits.map(_.hit).orR
 
   val start = io.up.a.fire && io.up.a.isLast() && !hit
   val errored = RegInit(False) setWhen(start)
@@ -96,3 +101,41 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
     io.down.e.sink := io.up.e.sink.resized
   }
 }
+
+
+/*
+  val falseTerms, trueTerms = ArrayBuffer[Masked]()
+  for(s <- spec){
+    val st = s.transfers.asInstanceOf[M2sTransfers]
+    val addressMasked = AddressMapping.terms(s.mapping, widthOf(io.up.a.address)).map(_.shiftedLeft(3+3+widthOf(io.up.a.size)))
+    def simple(opcode : Int, getter : M2sTransfers => SizeRange): Unit = simpleImpl(opcode, getter(ipEmits), getter(st))
+    def simpleImpl(opcode : Int, is: SizeRange, os: SizeRange): Unit ={
+      is.foreach{ size =>
+        val term = Masked(opcode | (log2Up(size) << 3), (1 << io.up.p.sizeWidth+3)-1)
+        val target = if(os.contains(size)) trueTerms else falseTerms
+        target ++= addressMasked.map(_ fuse term)
+      }
+    }
+    def aquire(param : Int, getter : M2sTransfers => SizeRange): Unit = aquireImpl(param, getter(ipEmits), getter(st))
+    def aquireImpl(param : Int, is: SizeRange, os: SizeRange): Unit ={
+      ipEmits.acquireB.foreach{ size =>
+        val term = Masked(6 | (log2Up(size) << 3) | (param << 3 + io.up.p.sizeWidth), (1 << io.up.p.sizeWidth+3+3)-2) //-2 to cover opcode 6 and 7
+        val target = if(os.contains(size)) trueTerms else falseTerms
+        target ++= addressMasked.map(_ fuse term)
+      }
+    }
+
+    simple(0, _.putFull)
+    simple(1, _.putPartial)
+    simple(2, _.arithmetic)
+    simple(3, _.logical)
+    simple(4, _.get)
+    simple(5, _.hint)
+    aquire(Param.Grow.NtoB, _.acquireB)
+    aquire(Param.Grow.NtoT, _.acquireT)
+    aquire(Param.Grow.BtoT, _.acquireT)
+  }
+
+  val instruction = io.up.a.address ## io.up.a.param ## io.up.a.size ## io.up.a.opcode
+  val hit = Symplify.trueAndDontCare(instruction, trueTerms, falseTerms)
+ */
