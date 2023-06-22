@@ -2,8 +2,9 @@ package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.bus.misc.{AddressMapping, OffsetTransformer, SizeMapping}
+import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, OffsetTransformer, SizeMapping}
 import spinal.lib.bus.tilelink._
+import spinal.lib.bus.tilelink
 import spinal.lib.system.tag._
 
 import scala.collection.mutable.ArrayBuffer
@@ -17,9 +18,7 @@ class Connection(val m : Node, val s : Node) extends Area {
 
   //Specify how the connection is memory mapped to the decoder
   val mapping = new Area{
-    var addressSpec = Option.empty[BigInt]
-    var mappingSpec = Option.empty[AddressMapping]
-    var defaultSpec = Option.empty[Unit]
+    var automatic = Option.empty[Any]
     val value = Handle[AddressMapping]
   }
 
@@ -28,9 +27,9 @@ class Connection(val m : Node, val s : Node) extends Area {
     override def m = Connection.this.m
     override def s = Connection.this.s
     override def mapping = getMapping()
-    override def transformers = Connection.this.mapping.defaultSpec match {
-      case None => List(OffsetTransformer(mapping.lowerBound))
-      case Some(_) => Nil
+    override def transformers = Connection.this.mapping.automatic match {
+      case Some(DefaultMapping) => Nil
+      case _ => List(OffsetTransformer(mapping.lowerBound))
     }
     override def sToM(down: MemoryTransfers, args: MappedNode) = down
     populate()
@@ -75,18 +74,10 @@ class Connection(val m : Node, val s : Node) extends Area {
 
   def decoderAddressWidth() : Int = {
     def full = s.m2s.supported.addressWidth
-    mapping.addressSpec match {
-      case Some(v) => return  log2Up(v + (BigInt(1) << s.m2s.supported.addressWidth))
-      case None =>
-    }
-
-    mapping.defaultSpec match {
-      case Some(x) => return full
-      case None =>
-    }
-
-    mapping.mappingSpec match {
-      case Some(m) => log2Up(m.highestBound+1)
+    mapping.automatic match {
+      case Some(v : BigInt) => log2Up(v + (BigInt(1) << s.m2s.supported.addressWidth))
+      case Some(DefaultMapping) => full
+      case Some(m : AddressMapping) => log2Up(m.highestBound+1)
       case None => log2Up(mapping.value.highestBound+1)
     }
   }
@@ -95,6 +86,54 @@ class Connection(val m : Node, val s : Node) extends Area {
 }
 
 
+class InterconnectAdapterWidth extends InterconnectAdapter{
+  var adapter = Option.empty[tilelink.WidthAdapter]
 
+  override def isRequired(c : Connection) = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
+  override def build(c : Connection)(m: Bus) : Bus = {
+    val adapter = new tilelink.WidthAdapter(
+      ip = m.p,
+      op = m.p.copy(dataWidth = c.s.m2s.parameters.dataWidth),
+      ctxBuffer = ContextAsyncBufferFull
+    )
+    adapter.setLambdaName(c.m.isNamed && c.s.isNamed)(s"${c.m.getName()}_to_${c.s.getName()}_widthAdapter")
+    this.adapter = Some(adapter)
+    adapter.io.up << m
+    adapter.io.down
+  }
+}
+
+
+trait InterconnectAdapter {
+  def isRequired(c : Connection) : Boolean
+  def build(c : Connection)(m : Bus) : Bus
+}
+
+class InterconnectAdapterCc extends InterconnectAdapter{
+  var aDepth = 8
+  var bDepth = 8
+  var cDepth = 8
+  var dDepth = 8
+  var eDepth = 8
+
+  var cc = Option.empty[FifoCc]
+  override def isRequired(c : Connection) = c.m.clockDomain.clock != c.s.clockDomain.clock
+  override def build(c : Connection)(m: Bus) : Bus = {
+    val cc = FifoCc(
+      busParameter = m.p,
+      inputCd      = c.m.clockDomain,
+      outputCd     = c.s.clockDomain,
+      aDepth       = aDepth,
+      bDepth       = bDepth,
+      cDepth       = cDepth,
+      dDepth       = dDepth,
+      eDepth       = eDepth
+    )
+    cc.setLambdaName(c.m.isNamed && c.s.isNamed)(s"${c.m.getName()}_to_${c.s.getName()}_cc")
+    this.cc = Some(cc)
+    cc.io.input << m
+    cc.io.output
+  }
+}
 
 

@@ -28,7 +28,7 @@ import scala.util.{Failure, Random, Success, Try}
 class InterconnectTester extends AnyFunSuite{
   def testInterconnectAll(cGen : => Component) : Unit = {
     tilelink.DebugId.setup(16)
-    val c = SimConfig.withFstWave.compile(cGen)
+    val c = SimConfig.compile(cGen)
     val nodes = ArrayBuffer[Node]()
     val orderings = ArrayBuffer[OrderingTag]()
     c.report.toplevel.walkComponents(_.foreachTag {
@@ -250,7 +250,7 @@ class InterconnectTester extends AnyFunSuite{
 
   test("OneToOne"){
     tilelink.DebugId.setup(16)
-    SimConfig.withFstWave.compile(new Component{
+    SimConfig.compile(new Component{
       val m0 = simpleMaster(readWrite)
       val s0 = simpleSlave(10)
       s0.node at 0x800 of m0.node

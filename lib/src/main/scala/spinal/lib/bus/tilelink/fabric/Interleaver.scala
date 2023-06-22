@@ -46,7 +46,7 @@ case class Interleaver(blockSize : Int, ratio : Int, sel : Int) extends Area{
       InterleavedMapping(SizeMapping(a, BigInt(1) << up.m2s.supported.addressWidth), blockSize, ratio, sel)
     }
     down.m2s.parameters load up.m2s.parameters.copy(addressWidth = up.m2s.parameters.addressWidth-patternBits)
-    up.s2m.from(down)
+    up.s2m.from(down.s2m)
 
     assert(!down.bus.p.withBCE)
     down.bus << up.bus

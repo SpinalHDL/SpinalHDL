@@ -32,7 +32,7 @@ class WidthAdapter() extends Area{
       dataWidth = down.m2s.supported.dataWidth
     )
 
-    up.s2m.from(down)
+    up.s2m.from(down.s2m)
 
     val bridge = new tilelink.WidthAdapter(up.bus.p, down.bus.p)
     bridge.io.up << up.bus

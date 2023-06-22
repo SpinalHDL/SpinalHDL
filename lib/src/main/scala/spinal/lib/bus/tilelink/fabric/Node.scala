@@ -2,19 +2,12 @@ package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.bus.misc.{AddressMapping, InvertMapping, OrMapping, SizeMapping}
+import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, InvertMapping, OrMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink
 import spinal.lib.system.tag._
 
 import scala.collection.mutable.ArrayBuffer
-
-
-
-class NodeMode extends Nameable
-object NodeMode extends AreaRoot {
-  val BOTH, MASTER, SLAVE = new NodeMode
-}
 
 object Node{
   def apply() : Node = new Node()
@@ -22,62 +15,18 @@ object Node{
   def master() : Node = apply().setMasterOnly()
 }
 
-class Node() extends Area with SpinalTagReady with SpinalTag {
-  val bus = Handle[Bus]()
+
+class Node() extends NodeRaw {
+  var withUps, withDowns = true //Used for assertion
+
   val ups = ArrayBuffer[Connection]()
   val downs = ArrayBuffer[Connection]()
-  val clockDomain = ClockDomain.currentHandle
-  val lock = Lock() //Allow to hold the generation of this node
 
-  //Negotiation handles for master to slave requests
-  val m2s = new Area{
-    val proposed = Handle[M2sSupport]()
-    val supported = Handle[M2sSupport]()
-    val parameters = Handle[M2sParameters]()
+  val m2s = new NodeM2s
+  val s2m = new NodeRawS2m
 
-    val proposedModifiers, supportedModifiers = ArrayBuffer[M2sSupport => M2sSupport]()
-    val parametersModifiers = ArrayBuffer[M2sParameters => M2sParameters]()
-
-    def addModifier(f : M2sSupport => M2sSupport) = {
-      proposedModifiers += f
-      supportedModifiers += f
-    }
-
-    def setProposedFromParameters(): Unit ={
-      proposed load M2sSupport(parameters)
-    }
-  }
-
-  //Negotiation handles for slave to master requests (memory coherency only)
-  val s2m = new Area{
-    val proposed = Handle[S2mSupport]()
-    val supported = Handle[S2mSupport]()
-    val parameters = Handle[S2mParameters]()
-    def none() = {
-      proposed.load(S2mSupport.none)
-      parameters.load(S2mParameters.none)
-    }
-    def setProposedFromParameters(): Unit ={
-      proposed load S2mSupport(parameters)
-    }
-    def from(s : Node) = s2mFrom(s)
-  }
-
-  def s2mFrom(s : Node): Unit ={
-    val m = Node.this
-    m.s2m.proposed.load(s.s2m.proposed)
-    s.s2m.supported.load(m.s2m.supported)
-    m.s2m.parameters.load(s.s2m.parameters)
-  }
-
-  //Document the current component being host for this node
-  Component.current.addTag(this)
-
-  //Document the memory transfer capabilities of the current node
-  this.addTag(new MemoryTransferTag {
-    override def get = m2s.parameters.emits
-  })
-
+  var arbiterConnector : (Bus, Bus) => Any = (s, m) => s << m
+  var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
 
   //Will negociate the m2s/s2m handles, then generate the arbiter / decoder required to connect the ups / downs connections
   val thread = Fiber build new Composite(this, weak = false) {
@@ -90,40 +39,33 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     soon(
       bus
     )
-    if(mode != NodeMode.MASTER) soon(
+    if(withUps) soon(
       m2s.proposed,
       m2s.parameters,
       s2m.supported
     )
-    if(mode != NodeMode.SLAVE) soon(
+    if(withDowns) soon(
       m2s.supported,
       s2m.parameters,
       s2m.proposed
     )
 
-
     await()
-    mode match {
-      case NodeMode.MASTER =>
-        if(ups.nonEmpty)  { SpinalError(s"${getName()} has masters") }
-        if(downs.isEmpty) { SpinalError(s"${getName()} has no slave") }
-      case NodeMode.BOTH =>
-        if(ups.isEmpty)   { SpinalError(s"${getName()} has no master") }
-        if(downs.isEmpty) { SpinalError(s"${getName()} has no slave") }
-      case NodeMode.SLAVE =>
-        if(ups.isEmpty)    { SpinalError(s"${getName()} has no master") }
-        if(downs.nonEmpty) { SpinalError(s"${getName()} has slaves") }
-    }
+    if(withDowns && downs.isEmpty) SpinalError(s"${getName()} has no slave")
+    if(!withDowns && downs.nonEmpty) SpinalError(s"${getName()} has slaves")
+
+    if(withUps && ups.isEmpty) SpinalError(s"${getName()} has no master")
+    if(!withUps && ups.nonEmpty) SpinalError(s"${getName()} has masters")
 
     // m2s.proposed <- ups.m2s.proposed
-    if(mode != NodeMode.MASTER) {
+    if(withUps) {
       val fromUps = ups.map(_.m.m2s.proposed).reduce(_ mincover _)
       val modified = m2s.proposedModifiers.foldLeft(fromUps)((e, f) => f(e))
       m2s.proposed load modified
     }
 
     // m2s.supported <- downs.m2s.supported
-    if(mode != NodeMode.SLAVE) {
+    if(withDowns) {
       val fromDowns = downs.map(_.s.m2s.supported.get).reduce(_ mincover _)
       val addressConstrained = fromDowns.copy(
         addressWidth = downs.map(down => down.decoderAddressWidth()).max
@@ -133,7 +75,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     }
 
     // m2s.parameters <- ups.arbiter.m2s.parameters
-    if(mode != NodeMode.MASTER) {
+    if(withUps) {
       m2s.parameters load Arbiter.downMastersFrom(
         ups.map(_.arbiter.m2s.parameters.get)
       )
@@ -145,27 +87,19 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     }
 
     //Generate final connections mapping
-    if(mode != NodeMode.SLAVE) {
+    if(withDowns) {
       var dc = ArrayBuffer[Connection]()
-        downs.foreach{ c =>
-          c.mapping.addressSpec match {
-            case Some(v) => c.mapping.value load SizeMapping(v, BigInt(1) << c.decoder.m2s.parameters.get.addressWidth)
-            case None =>
-          }
-          c.mapping.mappingSpec match {
-            case Some(x) => c.mapping.value load x
-            case None =>
-          }
-        c.mapping.defaultSpec match {
-          case Some(_) => {
-            dc += c
-          }
+      downs.foreach{ c =>
+        c.mapping.automatic match {
+          case Some(v : BigInt) => c.mapping.value load SizeMapping(v, BigInt(1) << c.decoder.m2s.parameters.get.addressWidth)
+          case Some(DefaultMapping) => dc += c
+          case Some(x : AddressMapping) => c.mapping.value load x
           case None => c.mapping.value.get
         }
       }
       for(c <- dc){
         val spec = ArrayBuffer[SizeMapping]()
-        val others = downs.filter(_.mapping.defaultSpec.isEmpty).flatMap(_.mapping.value.get match {
+        val others = downs.filter(_.mapping.automatic.exists(_ != DefaultMapping)).flatMap(_.mapping.value.get match {
           case m : SizeMapping => List(m)
           case m : OrMapping => m.conds.map(_.asInstanceOf[SizeMapping]) //DefaultMapping only supported if all others are sizeMapping
         })
@@ -190,21 +124,21 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     m2s.parameters.withBCE match {
       case true =>{
         // s2m.proposed <- downs.s2m.proposed
-        if(mode != NodeMode.SLAVE) {
+        if(withDowns) {
           val fromDowns = downs.map(_.s.s2m.proposed.get).reduce(_ mincover _)
           //        val modified = s2m.proposedModifiers.foldLeft(fromDowns)((e, f) => f(e))
           s2m.proposed load fromDowns
         }
 
         // s2m.supported <- ups.s2m.supported
-        if(mode != NodeMode.MASTER) {
+        if(withUps) {
           val fromUps = ups.map(_.m.s2m.supported.get).reduce(_ mincover _)
           //        val modified = m2s.supportedModifiers.foldLeft(addressConstrained)((e, f) => f(e))
           s2m.supported load fromUps
         }
 
         // s2m.parameters <- downs.decoder.s2m.parameters
-        if(mode != NodeMode.SLAVE){
+        if(withDowns){
           s2m.parameters.load(Decoder.upSlavesFrom(downs.map(_.decoder.s2m.parameters.get)))
         }
 
@@ -215,13 +149,13 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
         }
       }
       case false => {
-        if(mode != NodeMode.SLAVE) {
+        if(withDowns) {
           s2m.proposed load S2mSupport.none
         }
-        if(mode != NodeMode.MASTER) {
+        if(withUps) {
           s2m.supported load S2mSupport.none
         }
-        if(mode != NodeMode.SLAVE){
+        if(withDowns){
           s2m.parameters.load(S2mParameters.none())
         }
         for(up <- ups){
@@ -235,7 +169,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     val p = NodeParameters(m2s.parameters, s2m.parameters).toBusParameter()
     bus.load(Bus(p))
 
-    val arbiter = (mode != NodeMode.MASTER && ups.size > 1) generate new Area {
+    val arbiter = (withUps && ups.size > 1) generate new Area {
       val core = Arbiter(ups.map(up => NodeParameters(
         m = up.arbiter.m2s.parameters,
         s = up.arbiter.s2m.parameters
@@ -246,12 +180,12 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
       val connection = arbiterConnector(bus, core.io.down)
     }
 
-    val noArbiter = (mode != NodeMode.MASTER && ups.size == 1) generate new Area {
+    val noArbiter = (withUps && ups.size == 1) generate new Area {
       ups.head.arbiter.bus.load(cloneOf(bus.get))
       val connection = arbiterConnector(bus, ups.head.arbiter.bus)
     }
 
-    val decoder = (mode != NodeMode.SLAVE && downs.size > 1) generate new Area {
+    val decoder = (withDowns && downs.size > 1) generate new Area {
       val core = Decoder(bus.p.node, downs.map(_.s.m2s.supported), downs.map(_.decoder.s2m.parameters), downs.map(_.getMapping()), downs.map(_.tag.transformers))
       for((down, decoded) <- (downs, core.io.downs).zipped){
         down.decoder.bus.load(decoded.combStage())
@@ -259,7 +193,7 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
       val connection = decoderConnector(core.io.up, bus)
     }
 
-    val noDecoder = (mode != NodeMode.SLAVE && downs.size == 1) generate new Area {
+    val noDecoder = (withDowns && downs.size == 1) generate new Area {
       val c = downs.head
       val toDown = cloneOf(bus.get)
       val connection = decoderConnector(toDown, bus)
@@ -277,8 +211,6 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
   }
 
   //Allows to customize how the node is connected to its arbiter / decoder components (pipelining)
-  var arbiterConnector : (Bus, Bus) => Any = (s, m) => s << m
-  var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
   def setArbiterConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
   def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
 
@@ -286,15 +218,20 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
     lock.await()
   }
 
-  var mode = NodeMode.BOTH
-  def setSlaveOnly() = {mode = NodeMode.SLAVE; this}
-  def setMasterOnly() = {mode = NodeMode.MASTER; this}
-  def isSlaveOnly() = mode == NodeMode.SLAVE
-  def isMasterOnly() = mode == NodeMode.MASTER
+  def setSlaveOnly() = {
+    assert(withUps)
+    withDowns = false
+    this
+  }
+  def setMasterOnly() = {
+    assert(withDowns)
+    withUps = false
+    this
+  }
 
   def <<(m : Node): Connection = {
     val c = new Connection(m, this)
-    c.mapping.defaultSpec = Some(Unit)
+    c.mapping.automatic = Some(DefaultMapping)
     c
   }
 
@@ -307,9 +244,9 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
       c
     }
   }
-  def at(address : BigInt) = new At(_.mapping.addressSpec = Some(address))
+  def at(address : BigInt) = new At(_.mapping.automatic = Some(address))
   def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
-  def at(mapping : AddressMapping) = new At(_.mapping.mappingSpec = Some(mapping))
+  def at(mapping : AddressMapping) = new At(_.mapping.value load mapping)
 
   def forceDataWidth(dataWidth : Int): Unit ={
     m2s.proposedModifiers += { s =>
@@ -323,57 +260,15 @@ class Node() extends Area with SpinalTagReady with SpinalTag {
   override def toString =  (if(component != null)component.getPath() + "/"  else "") + getName()
 }
 
-trait InterconnectAdapter {
-  def isRequired(c : Connection) : Boolean
-  def build(c : Connection)(m : Bus) : Bus
-}
+class NodeM2s extends NodeRawM2s{
+  val proposedModifiers, supportedModifiers = ArrayBuffer[M2sSupport => M2sSupport]()
+  val parametersModifiers = ArrayBuffer[M2sParameters => M2sParameters]()
 
-class InterconnectAdapterCc extends InterconnectAdapter{
-  var aDepth = 8
-  var bDepth = 8
-  var cDepth = 8
-  var dDepth = 8
-  var eDepth = 8
-
-  var cc = Option.empty[FifoCc]
-  override def isRequired(c : Connection) = c.m.clockDomain.clock != c.s.clockDomain.clock
-  override def build(c : Connection)(m: Bus) : Bus = {
-    val cc = FifoCc(
-      busParameter = m.p,
-      inputCd      = c.m.clockDomain,
-      outputCd     = c.s.clockDomain,
-      aDepth       = aDepth,
-      bDepth       = bDepth,
-      cDepth       = cDepth,
-      dDepth       = dDepth,
-      eDepth       = eDepth
-    )
-    cc.setLambdaName(c.m.isNamed && c.s.isNamed)(s"${c.m.getName()}_to_${c.s.getName()}_cc")
-    this.cc = Some(cc)
-    cc.io.input << m
-    cc.io.output
+  def addModifier(f : M2sSupport => M2sSupport) = {
+    proposedModifiers += f
+    supportedModifiers += f
   }
 }
-
-class InterconnectAdapterWidth extends InterconnectAdapter{
-  var adapter = Option.empty[tilelink.WidthAdapter]
-
-  override def isRequired(c : Connection) = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
-  override def build(c : Connection)(m: Bus) : Bus = {
-    val adapter = new tilelink.WidthAdapter(
-      ip = m.p,
-      op = m.p.copy(dataWidth = c.s.m2s.parameters.dataWidth),
-      ctxBuffer = ContextAsyncBufferFull
-    )
-    adapter.setLambdaName(c.m.isNamed && c.s.isNamed)(s"${c.m.getName()}_to_${c.s.getName()}_widthAdapter")
-    this.adapter = Some(adapter)
-    adapter.io.up << m
-    adapter.io.down
-  }
-}
-
-
-
 
 
 
