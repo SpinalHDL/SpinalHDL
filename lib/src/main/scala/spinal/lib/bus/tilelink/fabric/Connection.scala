@@ -10,10 +10,7 @@ import spinal.lib.system.tag._
 import scala.collection.mutable.ArrayBuffer
 
 
-class Connection(val m : Node, val s : Node) extends Area {
-  //Register this connection in the connected nodes
-  m.downs += this
-  s.ups += this
+class Connection(val m : NodeRaw, val s : NodeRaw) extends Area {
   setLambdaName(m.isNamed && s.isNamed)(s"${m.getName()}_to_${s.getName()}")
 
   //Specify how the connection is memory mapped to the decoder

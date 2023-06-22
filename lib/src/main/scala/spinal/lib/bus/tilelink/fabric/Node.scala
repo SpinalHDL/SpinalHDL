@@ -13,12 +13,17 @@ object Node{
   def apply() : Node = new Node()
   def slave() : Node = apply().setSlaveOnly()
   def master() : Node = apply().setMasterOnly()
+  def connect(m : Node, s : Node) = {
+    val c = new Connection(m, s)
+    m.downs += c
+    s.ups += c
+    c
+  }
 }
 
 
 class Node() extends NodeRaw {
   var withUps, withDowns = true //Used for assertion
-
   val ups = ArrayBuffer[Connection]()
   val downs = ArrayBuffer[Connection]()
 
@@ -230,7 +235,7 @@ class Node() extends NodeRaw {
   }
 
   def <<(m : Node): Connection = {
-    val c = new Connection(m, this)
+    val c = Node.connect(m, this)
     c.mapping.automatic = Some(DefaultMapping)
     c
   }
@@ -239,7 +244,7 @@ class Node() extends NodeRaw {
 
   class At(body : Connection => Unit){
     def of(m : Node): Connection = {
-      val c = new Connection(m, Node.this)
+      val c = Node.connect(m, Node.this)
       body(c)
       c
     }

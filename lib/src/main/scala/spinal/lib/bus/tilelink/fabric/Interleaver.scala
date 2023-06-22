@@ -15,7 +15,7 @@ case class Interleaver(blockSize : Int, ratio : Int, sel : Int) extends Area{
   def at(mapping: AddressMapping) = up.at(InterleavedMapping(mapping, blockSize, ratio, sel))
   def at(address : BigInt) = new{
     def of(m : Node): Unit ={
-      val c = new Connection(m, up)
+      val c = Node.connect(m, up)
       addressMappings += c -> address
     }
   }
