@@ -24,6 +24,10 @@ abstract class NodeRaw extends Area with SpinalTagReady with SpinalTag {
   this.addTag(new MemoryTransferTag {
     override def get = m2s.parameters.emits
   })
+
+  def await() = {
+    lock.await()
+  }
 }
 
 //Negotiation handles for master to slave requests

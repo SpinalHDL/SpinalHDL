@@ -36,11 +36,11 @@ class Node() extends NodeRaw {
   //Will negociate the m2s/s2m handles, then generate the arbiter / decoder required to connect the ups / downs connections
   val thread = Fiber build new Composite(this, weak = false) {
     // Specify which Handle will be loaded by the current thread, as this help provide automated error messages
-    soon(ups.map(_.arbiter.bus) :_*)
-    soon(downs.map(_.decoder.bus) :_*)
-    soon(downs.map(_.decoder.m2s.parameters) :_*)
-    soon(ups.map(_.arbiter.s2m.parameters) :_*)
-    soon(ups.map(_.arbiter.bus) :_*)
+    soon(ups.map(_.down.bus) :_*)
+    soon(downs.map(_.up.bus) :_*)
+    soon(downs.map(_.up.m2s.parameters) :_*)
+    soon(ups.map(_.down.s2m.parameters) :_*)
+    soon(ups.map(_.down.bus) :_*)
     soon(
       bus
     )
@@ -82,13 +82,13 @@ class Node() extends NodeRaw {
     // m2s.parameters <- ups.arbiter.m2s.parameters
     if(withUps) {
       m2s.parameters load Arbiter.downMastersFrom(
-        ups.map(_.arbiter.m2s.parameters.get)
+        ups.map(_.down.m2s.parameters.get)
       )
     }
 
     //down.decoder.m2s.parameters <- m2s.parameters + down.s.m2s.supported
     for (down <- downs) {
-      down.decoder.m2s.parameters.load(Decoder.downMastersFrom(m2s.parameters, down.s.m2s.supported))
+      down.up.m2s.parameters.load(Decoder.downMastersFrom(m2s.parameters, down.s.m2s.supported))
     }
 
     //Generate final connections mapping
@@ -96,7 +96,7 @@ class Node() extends NodeRaw {
       var dc = ArrayBuffer[Connection]()
       downs.foreach{ c =>
         c.mapping.automatic match {
-          case Some(v : BigInt) => c.mapping.value load SizeMapping(v, BigInt(1) << c.decoder.m2s.parameters.get.addressWidth)
+          case Some(v : BigInt) => c.mapping.value load SizeMapping(v, BigInt(1) << c.up.m2s.parameters.get.addressWidth)
           case Some(DefaultMapping) => dc += c
           case Some(x : AddressMapping) => c.mapping.value load x
           case None => c.mapping.value.get
@@ -110,7 +110,7 @@ class Node() extends NodeRaw {
         })
         val sorted = others.sortWith(_.base < _.base)
         var address = BigInt(0)
-        val endAt = BigInt(1) << c.decoder.m2s.parameters.addressWidth
+        val endAt = BigInt(1) << c.up.m2s.parameters.addressWidth
         for(other <- sorted){
           val size = other.base - address
           if(size != 0) spec += SizeMapping(address, size)
@@ -144,13 +144,13 @@ class Node() extends NodeRaw {
 
         // s2m.parameters <- downs.decoder.s2m.parameters
         if(withDowns){
-          s2m.parameters.load(Decoder.upSlavesFrom(downs.map(_.decoder.s2m.parameters.get)))
+          s2m.parameters.load(Decoder.upSlavesFrom(downs.map(_.up.s2m.parameters.get)))
         }
 
         //ups.arbiter.s2m.parameters <- s2m.parameters
         for(up <- ups){
           //        up.arbiter.s2m.parameters.load(s2m.parameters)
-          up.arbiter.s2m.parameters.load(Arbiter.upSlaveFrom(s2m.parameters, up.m.s2m.supported))
+          up.down.s2m.parameters.load(Arbiter.upSlaveFrom(s2m.parameters, up.m.s2m.supported))
         }
       }
       case false => {
@@ -164,7 +164,7 @@ class Node() extends NodeRaw {
           s2m.parameters.load(S2mParameters.none())
         }
         for(up <- ups){
-          up.arbiter.s2m.parameters.load(S2mParameters.none())
+          up.down.s2m.parameters.load(S2mParameters.none())
         }
       }
     }
@@ -176,24 +176,24 @@ class Node() extends NodeRaw {
 
     val arbiter = (withUps && ups.size > 1) generate new Area {
       val core = Arbiter(ups.map(up => NodeParameters(
-        m = up.arbiter.m2s.parameters,
-        s = up.arbiter.s2m.parameters
+        m = up.down.m2s.parameters,
+        s = up.down.s2m.parameters
       )))
       for((up, arbitred) <- (ups, core.io.ups).zipped){
-        up.arbiter.bus.load(arbitred.fromCombStage())
+        up.down.bus.load(arbitred.fromCombStage())
       }
       val connection = arbiterConnector(bus, core.io.down)
     }
 
     val noArbiter = (withUps && ups.size == 1) generate new Area {
-      ups.head.arbiter.bus.load(cloneOf(bus.get))
-      val connection = arbiterConnector(bus, ups.head.arbiter.bus)
+      ups.head.down.bus.load(cloneOf(bus.get))
+      val connection = arbiterConnector(bus, ups.head.down.bus)
     }
 
     val decoder = (withDowns && downs.size > 1) generate new Area {
-      val core = Decoder(bus.p.node, downs.map(_.s.m2s.supported), downs.map(_.decoder.s2m.parameters), downs.map(_.getMapping()), downs.map(_.tag.transformers))
+      val core = Decoder(bus.p.node, downs.map(_.s.m2s.supported), downs.map(_.up.s2m.parameters), downs.map(_.getMapping()), downs.map(_.tag.transformers))
       for((down, decoded) <- (downs, core.io.downs).zipped){
-        down.decoder.bus.load(decoded.combStage())
+        down.up.bus.load(decoded.combStage())
       }
       val connection = decoderConnector(core.io.up, bus)
     }
@@ -202,8 +202,8 @@ class Node() extends NodeRaw {
       val c = downs.head
       val toDown = cloneOf(bus.get)
       val connection = decoderConnector(toDown, bus)
-      c.decoder.bus.load(Bus(NodeParameters(c.decoder.m2s.parameters, c.decoder.s2m.parameters)))
-      val target = c.decoder.bus
+      c.up.bus.load(Bus(NodeParameters(c.up.m2s.parameters, c.up.s2m.parameters)))
+      val target = c.up.bus
       target << toDown
       target.a.size.removeAssignments() := toDown.a.size.resized
       toDown.d.size.removeAssignments() := target.d.size.resized
@@ -218,10 +218,6 @@ class Node() extends NodeRaw {
   //Allows to customize how the node is connected to its arbiter / decoder components (pipelining)
   def setArbiterConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
   def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
-
-  def await() = {
-    lock.await()
-  }
 
   def setSlaveOnly() = {
     assert(withUps)

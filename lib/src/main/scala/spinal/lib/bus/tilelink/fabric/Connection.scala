@@ -33,7 +33,7 @@ class Connection(val m : NodeRaw, val s : NodeRaw) extends Area {
   }
 
   //Handles used for negociation
-  val decoder, arbiter = new Area{
+  val up, down = new Area{
     val bus = Handle[Bus]()
     val m2s = new Area{
       val parameters = Handle[M2sParameters]()
@@ -45,19 +45,19 @@ class Connection(val m : NodeRaw, val s : NodeRaw) extends Area {
 
   //Will negociate the parameters and then connect the ends through the required adapters
   val thread = Fiber build new Area{
-    soon(arbiter.m2s.parameters)
-    soon(decoder.s2m.parameters)
+    soon(down.m2s.parameters)
+    soon(up.s2m.parameters)
 
-    arbiter.m2s.parameters.load(s.m2s.supported join decoder.m2s.parameters)
-    decoder.s2m.parameters.load(m.s2m.supported join arbiter.s2m.parameters)
+    down.m2s.parameters.load(s.m2s.supported join up.m2s.parameters)
+    up.s2m.parameters.load(m.s2m.supported join down.s2m.parameters)
 
-    var ptr = decoder.bus.get
+    var ptr = up.bus.get
     for(adapter <- adapters){
       if(adapter.isRequired(Connection.this)){
         ptr = adapter.build(Connection.this)(ptr)
       }
     }
-    ptr >> arbiter.bus
+    ptr >> down.bus
   }
 
   
