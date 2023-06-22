@@ -183,12 +183,14 @@ abstract class BusFragment(val p : BusParameter) extends Bundle {
   def corrupt : Bool
   def maskNull : Bits = null
   def deniedNull : Bool = null
+  def sinkNull : UInt = null
   def addressNull : UInt
 
   def withAddress : Boolean
   def withData : Boolean
   def withMask : Boolean
   def withDenied : Boolean
+  def withSink : Boolean = false
 }
 
 case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
@@ -296,10 +298,16 @@ case class ChannelD(override val p : BusParameter) extends BusFragment(p) {
   override def deniedNull = denied
   override def clone = ChannelD(p)
   override def addressNull = null
+  override def sinkNull = sink
+
   def withAddress : Boolean = true
   def withData : Boolean = p.withDataD
   def withMask : Boolean = false
   def withDenied : Boolean = true
+  override def withSink = true
+
+
+
 
   def weakAssignFrom(m : ChannelD): Unit ={
     def s = this

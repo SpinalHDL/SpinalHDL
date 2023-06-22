@@ -45,6 +45,7 @@ class WidthAdapter(ip : BusParameter,
       val mask    = src.withMask generate Vec.fill(ratio)(Reg(src.maskNull))
       val corrupt = Reg(Bool())
       val denied  = src.withDenied generate Reg(Bool())
+      val sink  = src.withSink generate Reg(op.sink)
     }
 
     dst.valid := buffer.valid
@@ -53,18 +54,20 @@ class WidthAdapter(ip : BusParameter,
     dst.data    := Cat(buffer.data)
     dst.corrupt := buffer.corrupt
     if(src.withDenied) dst.deniedNull := buffer.denied
+    if(src.withSink) dst.sinkNull := buffer.sink
 
     buffer.valid clearWhen(dst.ready)
     src.ready := !buffer.valid || dst.ready
 
     when(src.fire){
-      buffer.valid     := wordLast
+      buffer.valid := wordLast
       buffer.first := wordLast
       when(buffer.first) {
         buffer.args.assignSomeByName(src.payload)
         buffer.corrupt := False
         if(src.withDenied) buffer.denied := False
         if(src.withMask) buffer.mask.foreach(_ := 0)
+        if(src.withSink) buffer.sink := src.sinkNull
       }
 
       if(src.withMask) {
@@ -99,6 +102,15 @@ class WidthAdapter(ip : BusParameter,
       val ctrl = new ChannelUpSizer(ia, io.down.a, ia.address(addrRange))
     }
 
+    val b = ip.withBCE generate new Area{
+      val ctrl = new ChannelDownSizer(io.down.b, io.up.b, io.down.b.address(addrRange))
+      io.up.b.address(addrRange) := ctrl.sel
+    }
+
+    val c = ip.withBCE generate new Area{
+      val ctrl = new ChannelUpSizer(io.up.c, io.down.c, io.up.c.address(addrRange))
+    }
+
     val d = new Area{
       val ctx = ctxBuffer(ip.sourceWidth, UInt(addrRange.size bits))
       ctx.io.bind(iaHalt, io.up.a, io.up.d)
@@ -106,6 +118,10 @@ class WidthAdapter(ip : BusParameter,
       ctx.io.query.id := io.down.d.source
 
       val ctrl = new ChannelDownSizer(io.down.d, io.up.d, ctx.io.query.context)
+    }
+
+    val e = ip.withBCE generate new Area{
+      io.down.e << io.up.e
     }
   }
 
@@ -118,9 +134,25 @@ class WidthAdapter(ip : BusParameter,
       io.down.a.address(addrRange) := ctrl.sel
     }
 
+    val b = ip.withBCE generate new Area{
+      val ctrl = io.up.b.withData generate new ChannelUpSizer(io.down.b, io.up.b, io.down.b.address(addrRange))
+      if(!io.up.b.withData) io.up.b << io.down.b
+    }
+
+    val c = ip.withBCE generate new Area{
+      val ctrl = new ChannelDownSizer(io.up.c, io.down.c, io.up.c.address(addrRange))
+      io.down.c.address(addrRange) := ctrl.sel
+    }
+
     val d = new Area{
       val sel = io.down.d.beatCounter().resize(addrRange.size)
       val ctrl = new ChannelUpSizer(io.down.d, io.up.d, sel)
     }
+
+    val e = ip.withBCE generate new Area{
+      io.down.e << io.up.e
+    }
   }
+
+
 }

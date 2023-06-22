@@ -26,13 +26,6 @@ import scala.util.{Failure, Random, Success, Try}
 
 
 class InterconnectTester extends AnyFunSuite{
-//  def testInterconnectTb(c : Component)
-//                      (implicit idAllocator : IdAllocator = new IdAllocator(DebugId.width),
-//                                idCallback  : IdCallback = new IdCallback)  = {
-//    val nodes = c.getTags().collect{case t : Node => t}.toSeq
-//    new TestbenchBase(nodes)
-//  }
-//
   def testInterconnectAll(cGen : => Component) : Unit = {
     tilelink.DebugId.setup(16)
     val c = SimConfig.withFstWave.compile(cGen)
@@ -758,12 +751,12 @@ class InterconnectTester extends AnyFunSuite{
     testInterconnectAll(new Component{
       //A fictive CPU which has 2 memory bus, one from the data cache and one for peripheral accesses
       val cpu = new Area{
-        val main = simpleMaster(coherentOnly)
+        val main = simpleMaster(coherentOnly, dataWidth = 64)
         val io = simpleMaster(readWrite)
       }
 
-      val dma = new Area{ //TODO
-        val main = simpleMaster(readWrite)
+      val dma = new Area{
+        val main = simpleMaster(readWrite, dataWidth = 64)
         val filter = new fabric.TransferFilter()
         filter.up << main.node
       }
@@ -791,10 +784,10 @@ class InterconnectTester extends AnyFunSuite{
         bus at 0x10000000 of hub.down
 
         val gpio = simpleSlave(12, 32)
-        val uart = simpleSlave(12, 32)
+        val uart = simpleSlave(12, 16)
         val spi = simpleSlave(12, 32)
         val memory = simpleSlave(16, 32)
-        val rom = simpleReadOnlySlave(12, 32)
+        val rom = simpleReadOnlySlave(12, 8)
 
         memory.node.addTag(PMA.MAIN)
         rom.node.addTag(PMA.MAIN)
