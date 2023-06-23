@@ -128,7 +128,7 @@ object Bench {
       val push = slave Stream(Bits(32 bits))
       val pop = master Stream(Bits(32 bits))
 
-      val f = new StreamFifoV2(Bits(32 bits), depth)
+      val f = new StreamFifo(Bits(32 bits), depth)
       f.io.push << push.halfPipe()
       f.io.pop.halfPipe() >> pop
     })))
