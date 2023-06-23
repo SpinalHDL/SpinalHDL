@@ -1202,6 +1202,7 @@ class StreamFifoV2[T <: Data](val dataType: HardType[T],
                               val withBypass : Boolean = false,
                               val occupancyFromRamOnly : Boolean = true) extends Component {
   require(depth >= 0)
+  if(!withAsyncRead) assert(!withBypass)
   val popStorageMatter = !withAsyncRead && !occupancyFromRamOnly
   val io = new Bundle {
     val push = slave Stream (dataType)
