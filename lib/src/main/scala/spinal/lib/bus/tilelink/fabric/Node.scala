@@ -22,10 +22,10 @@ object Node{
 }
 
 
-class Node() extends NodeRaw {
+class Node() extends NodeBase {
   var withUps, withDowns = true //Used for assertion
-  val ups = ArrayBuffer[Connection]()
-  val downs = ArrayBuffer[Connection]()
+  val ups = ArrayBuffer[ConnectionBase]()
+  val downs = ArrayBuffer[ConnectionBase]()
 
   val m2s = new NodeM2s
   val s2m = new NodeRawS2m
@@ -93,7 +93,7 @@ class Node() extends NodeRaw {
 
     //Generate final connections mapping
     if(withDowns) {
-      var dc = ArrayBuffer[Connection]()
+      var dc = ArrayBuffer[ConnectionBase]()
       downs.foreach{ c =>
         c.mapping.automatic match {
           case Some(v : BigInt) => c.mapping.value load SizeMapping(v, BigInt(1) << c.up.m2s.parameters.get.addressWidth)

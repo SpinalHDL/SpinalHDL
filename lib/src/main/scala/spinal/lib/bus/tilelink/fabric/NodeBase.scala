@@ -9,7 +9,7 @@ import spinal.lib.system.tag._
 
 import scala.collection.mutable.ArrayBuffer
 
-abstract class NodeRaw extends Area with SpinalTagReady with SpinalTag {
+abstract class NodeBase extends Area with SpinalTagReady with SpinalTag {
   val clockDomain = ClockDomain.currentHandle
   val bus = Handle[Bus]()
   val lock = Lock() //Allow to hold the generation of this node

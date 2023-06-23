@@ -10,38 +10,7 @@ import spinal.lib.system.tag._
 import scala.collection.mutable.ArrayBuffer
 
 
-class Connection(val m : NodeRaw, val s : NodeRaw) extends Area {
-  setLambdaName(m.isNamed && s.isNamed)(s"${m.getName()}_to_${s.getName()}")
-
-  //Specify how the connection is memory mapped to the decoder
-  val mapping = new Area{
-    var automatic = Option.empty[Any]
-    val value = Handle[AddressMapping]
-  }
-
-  //Document the memory connection in a agnostic way for further usages
-  val tag = new MemoryConnection{
-    override def m = Connection.this.m
-    override def s = Connection.this.s
-    override def mapping = getMapping()
-    override def transformers = Connection.this.mapping.automatic match {
-      case Some(DefaultMapping) => Nil
-      case _ => List(OffsetTransformer(mapping.lowerBound))
-    }
-    override def sToM(down: MemoryTransfers, args: MappedNode) = down
-    populate()
-  }
-
-  //Handles used for negociation
-  val up, down = new Area{
-    val bus = Handle[Bus]()
-    val m2s = new Area{
-      val parameters = Handle[M2sParameters]()
-    }
-    val s2m = new Area{
-      val parameters = Handle[S2mParameters]()
-    }
-  }
+class Connection(m : NodeBase, s : NodeBase) extends ConnectionBase(m, s) {
 
   //Will negociate the parameters and then connect the ends through the required adapters
   val thread = Fiber build new Area{
@@ -65,21 +34,6 @@ class Connection(val m : NodeRaw, val s : NodeRaw) extends Area {
   adapters += new InterconnectAdapterCc()
   adapters += new InterconnectAdapterWidth()
 
-  def getMapping() : AddressMapping = {
-    mapping.value
-  }
-
-  def decoderAddressWidth() : Int = {
-    def full = s.m2s.supported.addressWidth
-    mapping.automatic match {
-      case Some(v : BigInt) => log2Up(v + (BigInt(1) << s.m2s.supported.addressWidth))
-      case Some(DefaultMapping) => full
-      case Some(m : AddressMapping) => log2Up(m.highestBound+1)
-      case None => log2Up(mapping.value.highestBound+1)
-    }
-  }
-
-  override def toString = if(this.isNamed) getName() else s"${m}_to_${s}"
 }
 
 
