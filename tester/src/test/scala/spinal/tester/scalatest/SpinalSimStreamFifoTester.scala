@@ -66,16 +66,15 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
       }
 
       //Pop data randomly and check that it match with the queueModel
-      val popThread = fork {
-        dut.io.pop.ready #= true
-        for (repeat <- 0 until 10000) {
-          dut.io.pop.ready #= Random.nextFloat() < popRatio
-          dut.clockDomain.waitSampling()
-          if (dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean) {
-            assert(dut.io.pop.payload.toLong == queueModel.dequeue())
-          }
+      var popCount = 0
+      dut.io.pop.ready #= true
+      dut.clockDomain.onSamplings {
+        dut.io.pop.ready #= Random.nextFloat() < popRatio
+        if (dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean) {
+          assert(dut.io.pop.payload.toLong == queueModel.dequeue())
+          popCount += 1
         }
-        simSuccess()
+        if(popCount == 5000) simSuccess()
       }
     }
   }
