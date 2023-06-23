@@ -21,7 +21,9 @@ object Node{
   }
 }
 
-
+/**
+ * Implementation of NodeBase which provide connection capabilities to master/slaves
+ */
 class Node() extends NodeBase {
   var withUps, withDowns = true //Used for assertion
   val ups = ArrayBuffer[ConnectionBase]()

@@ -9,6 +9,10 @@ import spinal.lib.system.tag._
 
 import scala.collection.mutable.ArrayBuffer
 
+/**
+ * Specify the software interface of nodes. Mostly negociation Handles
+ * Threadless so far
+ */
 abstract class NodeBase extends Area with SpinalTagReady with SpinalTag {
   val clockDomain = ClockDomain.currentHandle
   val bus = Handle[Bus]()
@@ -30,7 +34,9 @@ abstract class NodeBase extends Area with SpinalTagReady with SpinalTag {
   }
 }
 
-//Negotiation handles for master to slave requests
+/**
+ * Negotiation handles for master to slave requests
+ */
 class NodeRawM2s extends Area{
   val proposed = Handle[M2sSupport]()
   val supported = Handle[M2sSupport]()
@@ -41,7 +47,9 @@ class NodeRawM2s extends Area{
   }
 }
 
-//Negotiation handles for slave to master requests (memory coherency only)
+/**
+ * Negotiation handles for slave to master requests (memory coherency only)
+ */
 class NodeRawS2m extends Area{
   val proposed = Handle[S2mSupport]()
   val supported = Handle[S2mSupport]()

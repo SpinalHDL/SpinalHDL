@@ -9,7 +9,9 @@ import spinal.lib.system.tag._
 
 import scala.collection.mutable.ArrayBuffer
 
-
+/**
+ * provide some software interface to connect 2 NodeBase
+ */
 class ConnectionBase(val m : NodeBase, val s : NodeBase) extends Area {
   setLambdaName(m.isNamed && s.isNamed)(s"${m.getName()}_to_${s.getName()}")
 
