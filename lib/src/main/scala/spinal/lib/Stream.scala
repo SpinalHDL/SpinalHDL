@@ -1183,6 +1183,139 @@ class StreamFifo[T <: Data](val dataType: HardType[T], val depth: Int) extends C
   }
 }
 
+
+/**
+  * Improved StreamFifo with
+  * - latency of 0, 1, 2 cycles
+  * - Better timings
+  *
+  * @param dataType
+  * @param depth Number of element stored in the fifo, Note that if withAsyncRead==false, then one extra transaction can be stored
+  * @param withAsyncRead Read the memory using asyncronous read port (ex distributed ram). If false, add 1 cycle latency
+  * @param withBypass Bypass the push port to the pop port when the fifo is empty. If false, add 1 cycle latency
+  * @param occupancyFromRamOnly When withAsyncRead is false, then the pop port act as a additional 1 depth storage.
+  *                             If this parameter is set, it will not be taken in acount for the io.occupancy / availability
+  */
+class StreamFifoV2[T <: Data](val dataType: HardType[T],
+                              val depth: Int,
+                              val withAsyncRead : Boolean = false,
+                              val withBypass : Boolean = false,
+                              val occupancyFromRamOnly : Boolean = true) extends Component {
+  require(depth >= 0)
+  val popStorageMatter = !withAsyncRead && !occupancyFromRamOnly
+  val io = new Bundle {
+    val push = slave Stream (dataType)
+    val pop = master Stream (dataType)
+    val flush = in Bool() default(False)
+    val occupancy    = out UInt (log2Up(depth + 1 + popStorageMatter.toInt) bits)
+    val availability = out UInt (log2Up(depth + 1 + popStorageMatter.toInt) bits)
+  }
+
+  val bypass = (depth == 0) generate new Area {
+    io.push >> io.pop
+    io.occupancy := 0
+    io.availability := 0
+  }
+  val oneStage = (depth == 1) generate new Area {
+    io.push.m2sPipe(flush = io.flush) >> io.pop
+    io.occupancy := U(io.pop.valid)
+    io.availability := U(!io.pop.valid)
+  }
+  val logic = (depth > 1) generate new Area {
+    val ram = Mem(dataType, depth)
+
+    val ptr = new Area{
+      val push = Reg(UInt(log2Up(depth) + isPow2(depth).toInt bits)) init(0)
+      val pop  = Reg(UInt(log2Up(depth) + isPow2(depth).toInt bits)) init(0)
+      val full, empty = Bool()
+
+      isPow2(depth) match {
+        case true => {
+          full := (push ^ pop ^ depth) === 0
+          empty := push === pop
+        }
+        case false => {
+          full := io.occupancy === depth
+          empty := io.occupancy === 0
+        }
+      }
+
+      val doPush, doPop = Bool()
+      when(doPush){
+        push := push + 1
+        if(!isPow2(depth)) when(push === depth - 1){ push := 0 }
+      }
+      when(doPop){
+        pop := pop + 1
+        if(!isPow2(depth)) when(pop === depth - 1){ pop := 0 }
+      }
+    }
+
+    val push = new Area {
+      io.push.ready := !ptr.full
+      ptr.doPush := io.push.fire
+      val write = ram.writePort()
+      write.valid := io.push.fire
+      write.address := ptr.push.resized
+      write.data := io.push.payload
+    }
+
+    val pop = new Area{
+      val addressGen = Stream(ram.addressType)
+      addressGen.valid := !ptr.empty
+      addressGen.payload := ptr.pop.resized
+      ptr.doPop := addressGen.fire
+
+      val sync = !withAsyncRead generate new Area{
+        val readArbitation = addressGen.m2sPipe(flush = io.flush)
+        val readPort = ram.readSyncPort
+        readPort.cmd := addressGen.toFlowFire
+
+        io.pop << readArbitation.translateWith(readPort.rsp)
+      }
+
+      val async = withAsyncRead generate new Area{
+        io.pop << addressGen.translateWith(ram.readAsync(addressGen.payload))
+
+        if(withBypass){
+          when(ptr.empty){
+            io.pop.valid := io.push.valid
+            io.pop.payload := io.push.payload
+            ptr.doPush clearWhen(io.pop.ready)
+          }
+        }
+      }
+    }
+
+    val ramOccupancy = cloneOf(io.occupancy)
+    val forPow2 = isPow2(depth) generate new Area{
+      ramOccupancy := ptr.push - ptr.pop
+    }
+
+    val notPow2 = !isPow2(depth) generate new Area{
+      val counter = Reg(UInt(log2Up(depth + 1) bits)) init(0)
+      counter := counter + U(ptr.doPush) - U(ptr.doPop)
+      ramOccupancy := counter
+    }
+
+    popStorageMatter match {
+      case true => {
+        io.occupancy := ramOccupancy + U(io.pop.valid)
+        io.availability := depth + 1 - io.occupancy
+      }
+      case false =>  {
+        io.occupancy := ramOccupancy
+        io.availability := depth - io.occupancy
+      }
+    }
+
+    when(io.flush){
+      ptr.push := 0
+      ptr.pop := 0
+    }
+  }
+}
+
 object StreamFifoLowLatency{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoLowLatency(dataType,depth)
 }
