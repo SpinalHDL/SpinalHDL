@@ -1226,9 +1226,11 @@ class StreamFifoV2[T <: Data](val dataType: HardType[T],
     val ram = Mem(dataType, depth)
 
     val ptr = new Area{
+      val doPush, doPop = Bool()
+      val full, empty = Bool()
       val push = Reg(UInt(log2Up(depth) + isPow2(depth).toInt bits)) init(0)
       val pop  = Reg(UInt(log2Up(depth) + isPow2(depth).toInt bits)) init(0)
-      val full, empty = Bool()
+      val occupancy = cloneOf(io.occupancy)
 
       isPow2(depth) match {
         case true => {
@@ -1241,7 +1243,6 @@ class StreamFifoV2[T <: Data](val dataType: HardType[T],
         }
       }
 
-      val doPush, doPop = Bool()
       when(doPush){
         push := push + 1
         if(!isPow2(depth)) when(push === depth - 1){ push := 0 }
@@ -1249,6 +1250,17 @@ class StreamFifoV2[T <: Data](val dataType: HardType[T],
       when(doPop){
         pop := pop + 1
         if(!isPow2(depth)) when(pop === depth - 1){ pop := 0 }
+      }
+
+
+      val forPow2 = isPow2(depth) generate new Area{
+        occupancy := push - pop
+      }
+
+      val notPow2 = !isPow2(depth) generate new Area{
+        val counter = Reg(UInt(log2Up(depth + 1) bits)) init(0)
+        counter := counter + U(doPush) - U(doPop)
+        occupancy := counter
       }
     }
 
@@ -1288,24 +1300,13 @@ class StreamFifoV2[T <: Data](val dataType: HardType[T],
       }
     }
 
-    val ramOccupancy = cloneOf(io.occupancy)
-    val forPow2 = isPow2(depth) generate new Area{
-      ramOccupancy := ptr.push - ptr.pop
-    }
-
-    val notPow2 = !isPow2(depth) generate new Area{
-      val counter = Reg(UInt(log2Up(depth + 1) bits)) init(0)
-      counter := counter + U(ptr.doPush) - U(ptr.doPop)
-      ramOccupancy := counter
-    }
-
     popStorageMatter match {
       case true => {
-        io.occupancy := ramOccupancy + U(io.pop.valid)
+        io.occupancy := ptr.occupancy + U(io.pop.valid)
         io.availability := depth + 1 - io.occupancy
       }
       case false =>  {
-        io.occupancy := ramOccupancy
+        io.occupancy := ptr.occupancy
         io.availability := depth - io.occupancy
       }
     }
