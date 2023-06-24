@@ -189,6 +189,18 @@ Artix 7 -> 347 Mhz 33 LUT 57 FF
 Cyclone V -> 275 Mhz 26 ALMs
 Cyclone IV -> 235 Mhz 82 LUT 207 FF
 
+fifo128 ->
+Artix 7 -> 297 Mhz 25 LUT 59 FF
+Artix 7 -> 420 Mhz 31 LUT 59 FF
+Cyclone V -> 275 Mhz 24 ALMs
+Cyclone IV -> 243 Mhz 76 LUT 203 FF
+fifo1024 ->
+Artix 7 -> 265 Mhz 31 LUT 68 FF
+Artix 7 -> 364 Mhz 33 LUT 68 FF
+Cyclone V -> 275 Mhz 31 ALMs
+Cyclone IV -> 234 Mhz 89 LUT 218 FF
+
+
      */
   }
 
