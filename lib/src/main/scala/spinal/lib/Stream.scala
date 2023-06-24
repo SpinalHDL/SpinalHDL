@@ -1121,9 +1121,19 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     io.availability := 0
   }
   val oneStage = (depth == 1) generate new Area {
-    io.push.m2sPipe(flush = io.flush) >> io.pop
-    io.occupancy := U(io.pop.valid)
-    io.availability := U(!io.pop.valid)
+    val doFlush = CombInit(io.flush)
+    val buffer = io.push.m2sPipe(flush = doFlush)
+    io.pop << buffer
+    io.occupancy := U(buffer.valid)
+    io.availability := U(!buffer.valid)
+
+    if(withBypass){
+      when(!buffer.valid){
+        io.pop.valid := io.push.valid
+        io.pop.payload := io.push.payload
+        doFlush setWhen(io.pop.ready)
+      }
+    }
   }
   val logic = (depth > 1) generate new Area {
     val ram = Mem(dataType, depth)
