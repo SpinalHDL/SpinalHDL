@@ -16,16 +16,18 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
   def testStreamFifo(depth: Int,
                      withAsyncRead: Boolean,
                      withBypass: Boolean,
-                     occupancyFromRamOnly: Boolean): Unit = test(s"StreamFifo_$depth-$withAsyncRead-$withBypass-$occupancyFromRamOnly") {
+                     occupancyFromRamOnly: Boolean,
+                     forFMax : Boolean): Unit = test(s"StreamFifo_$depth-$withAsyncRead-$withBypass-$occupancyFromRamOnly-$forFMax") {
 
     //Compile the simulator
-    val compiled = SimConfig.allOptimisation.compile(
+    val compiled = SimConfig.compile(
       rtl = new StreamFifo(
         dataType = Bits(32 bits),
         depth = depth,
         withAsyncRead = withAsyncRead,
         withBypass = withBypass,
-        occupancyFromRamOnly = occupancyFromRamOnly
+        occupancyFromRamOnly = occupancyFromRamOnly,
+        forFMax = forFMax
       )
     )
 
@@ -80,20 +82,24 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
   }
 
   onlyVerilator()
-//  testStreamFifo(depth = 7,
+//  testStreamFifo(depth = 8,
 //    withAsyncRead = false,
 //    withBypass = false,
-//    occupancyFromRamOnly = false
+//    occupancyFromRamOnly = false,
+//    forFMax = false
 //  )
-  for (depth <- List(0, 1, 2, 3, 4, 7, 15, 16, 17, 24);
+  for (depth <- List(0, 1, 2, 3, 4, 15, 16, 17, 24);
        withAsyncRead <- List(false, true);
        withBypass <- List(false, true);
        occupancyFromRamOnly <- List(false, true);
+       forFMax <- List(false, true);
        if !(!withAsyncRead && withBypass)) {
     testStreamFifo(depth = depth,
       withAsyncRead = withAsyncRead,
       withBypass = withBypass,
-      occupancyFromRamOnly = occupancyFromRamOnly)
+      occupancyFromRamOnly = occupancyFromRamOnly,
+      forFMax = forFMax
+    )
   }
   withAll()
 

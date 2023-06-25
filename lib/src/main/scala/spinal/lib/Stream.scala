@@ -1102,7 +1102,8 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
                             val withAsyncRead : Boolean = false,
                             val withBypass : Boolean = false,
                             val occupancyFromRamOnly : Boolean = false,
-                            val allowExtraMsb : Boolean = true) extends Component {
+                            val allowExtraMsb : Boolean = true,
+                            val forFMax : Boolean = false) extends Component {
   require(depth >= 0)
   if(!withAsyncRead) assert(!withBypass)
   val popStorageMatter = !withAsyncRead && !occupancyFromRamOnly
@@ -1112,6 +1113,17 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     val flush = in Bool() default(False)
     val occupancy    = out UInt (log2Up(depth + 1) bits)
     val availability = out UInt (log2Up(depth + 1) bits)
+  }
+
+  class CounterUpDownFmax(states : BigInt, init : BigInt) extends Area{
+    val incr, decr = Bool()
+    val counter = Reg(UInt(log2Up(states) bits)) init(init)
+    val plusOne = KeepAttribute(counter + 1)
+    val minusOne = KeepAttribute(counter - 1)
+    when(incr =/= decr){
+      counter := incr.mux(plusOne, minusOne)
+    }
+    when(io.flush) { counter := init }
   }
 
   val withExtraMsb = allowExtraMsb && isPow2(depth)
@@ -1147,16 +1159,36 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
       val popOnIo = cloneOf(pop) // Used to track the global occupancy of the fifo (the extra buffer of !withAsyncRead)
       val wentUp = RegNextWhen(doPush, doPush =/= doPop) init(False) clearWhen (io.flush)
 
-      withExtraMsb match {
-        case true => { //as we have extra MSB, we don't need the "wentUp"
-          full := (push ^ popOnIo ^ depth) === 0
-          empty := push === pop
+      val arb = new Area {
+        val area = !forFMax generate {
+          withExtraMsb match {
+            case true => { //as we have extra MSB, we don't need the "wentUp"
+              full := (push ^ popOnIo ^ depth) === 0
+              empty := push === pop
+            }
+            case false => {
+              full := push === popOnIo && wentUp
+              empty := push === pop && !wentUp
+            }
+          }
         }
-        case false => {
-          full := push === popOnIo && wentUp
-          empty := push === pop && !wentUp
+
+        val fmax = forFMax generate new Area {
+          val counterWidth = log2Up(depth) + 1
+          val emptyTracker = new CounterUpDownFmax(1 << counterWidth, 1 << counterWidth - 1) {
+            incr := doPop
+            decr := doPush
+            empty := counter.msb
+          }
+
+          val fullTracker = new CounterUpDownFmax(1 << counterWidth, (1 << counterWidth - 1) - depth) {
+            incr := io.push.fire
+            decr := io.pop.fire
+            full := counter.msb
+          }
         }
       }
+
 
       when(doPush){
         push := push + 1
@@ -1172,16 +1204,22 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
         pop := 0
       }
 
-      val forPow2 = withExtraMsb generate new Area{
+
+      val forPow2 = (withExtraMsb && !forFMax) generate new Area{
         occupancy := push - popOnIo  //if no extra msb, could be U(full ## (push - popOnIo))
       }
 
-      val notPow2 = !withExtraMsb generate new Area{
+      val notPow2 = (!withExtraMsb && !forFMax) generate new Area{
         val counter = Reg(UInt(log2Up(depth + 1) bits)) init(0)
         counter := counter + U(io.push.fire) - U(io.pop.fire)
         occupancy := counter
 
         when(io.flush) { counter := 0 }
+      }
+      val fmax = forFMax generate new CounterUpDownFmax(depth + 1, 0){
+        incr := io.push.fire
+        decr := io.pop.fire
+        occupancy := counter
       }
     }
 

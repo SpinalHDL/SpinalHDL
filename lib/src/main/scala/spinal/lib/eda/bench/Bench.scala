@@ -129,6 +129,7 @@ object Bench {
       val pop = master Stream(Bits(32 bits))
 
       val f = new StreamFifo(Bits(32 bits), depth)
+      f.logic.ram.addAttribute("ram_style", "block")
       f.io.push << push.halfPipe()
       f.io.pop.halfPipe() >> pop
     })))
@@ -199,6 +200,28 @@ Artix 7 -> 265 Mhz 31 LUT 68 FF
 Artix 7 -> 364 Mhz 33 LUT 68 FF
 Cyclone V -> 275 Mhz 31 ALMs
 Cyclone IV -> 234 Mhz 89 LUT 218 FF
+
+
+X
+fifo128 ->
+Artix 7 -> 374 Mhz 83 LUT 228 FF
+Artix 7 -> 444 Mhz 119 LUT 228 FF
+Cyclone V -> 263 Mhz 87 ALMs
+fifo1024 ->
+Artix 7 -> 355 Mhz 98 LUT 237 FF
+Artix 7 -> 435 Mhz 134 LUT 237 FF
+Cyclone V -> 275 Mhz 92 ALMs
+
+
+fifo128 ->
+Artix 7 -> 437 Mhz 52 LUT 65 FF
+Artix 7 -> 447 Mhz 59 LUT 65 FF
+Cyclone V -> 275 Mhz 50 ALMs
+
+fifo1024 ->
+Artix 7 -> 382 Mhz 70 LUT 77 FF
+Artix 7 -> 454 Mhz 79 LUT 77 FF
+Cyclone V -> 275 Mhz 68 ALMs
 
 
      */
