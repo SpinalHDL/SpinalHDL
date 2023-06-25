@@ -1117,13 +1117,13 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
 
   class CounterUpDownFmax(states : BigInt, init : BigInt) extends Area{
     val incr, decr = Bool()
-    val counter = Reg(UInt(log2Up(states) bits)) init(init)
-    val plusOne = KeepAttribute(counter + 1)
-    val minusOne = KeepAttribute(counter - 1)
+    val value = Reg(UInt(log2Up(states) bits)) init(init)
+    val plusOne = KeepAttribute(value + 1)
+    val minusOne = KeepAttribute(value - 1)
     when(incr =/= decr){
-      counter := incr.mux(plusOne, minusOne)
+      value := incr.mux(plusOne, minusOne)
     }
-    when(io.flush) { counter := init }
+    when(io.flush) { value := init }
   }
 
   val withExtraMsb = allowExtraMsb && isPow2(depth)
@@ -1178,13 +1178,13 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
           val emptyTracker = new CounterUpDownFmax(1 << counterWidth, 1 << counterWidth - 1) {
             incr := doPop
             decr := doPush
-            empty := counter.msb
+            empty := value.msb
           }
 
           val fullTracker = new CounterUpDownFmax(1 << counterWidth, (1 << counterWidth - 1) - depth) {
             incr := io.push.fire
             decr := io.pop.fire
-            full := counter.msb
+            full := value.msb
           }
         }
       }
@@ -1219,7 +1219,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
       val fmax = forFMax generate new CounterUpDownFmax(depth + 1, 0){
         incr := io.push.fire
         decr := io.pop.fire
-        occupancy := counter
+        occupancy := value
       }
     }
 
@@ -1264,7 +1264,12 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
 
     io.occupancy := ptr.occupancy
-    io.availability := depth - ptr.occupancy
+    if(!forFMax) io.availability := depth - ptr.occupancy
+    val fmaxAvail = forFMax generate new CounterUpDownFmax(depth + 1, depth){
+      incr := io.pop.fire
+      decr := io.push.fire
+      io.availability := value
+    }
   }
 
 
