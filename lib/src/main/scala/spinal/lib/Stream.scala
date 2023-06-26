@@ -1310,8 +1310,8 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
       mask := mask.getZero
     }
     val check = mask.zipWithIndex.map{case (x, id) => x & condition(id)}
-    Vec(check)
-  }
+    val vec = Vec(check)
+  }.vec
 
   def formalCheckm2sPipe(cond: T => Bool): Bool = this.rework {
     io.pop.valid & cond(io.pop.payload)
