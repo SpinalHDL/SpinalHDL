@@ -6,21 +6,22 @@ import spinal.lib.{StreamFifo, History, OHToUInt}
 import spinal.lib.formal._
 
 class FormalFifoTester extends SpinalFormalFunSuite {
-  //TODO fix me for all cases
+  //TODO fix me for other cases
   test("fifo-verify all") {
     val initialCycles = 2
     val inOutDelay = 3
-    val depth = 8
+    val depth = 4
     val coverCycles = depth * 2 + initialCycles + inOutDelay
     val asyncRead = false
+    val fMax = true
     FormalConfig
       .withBMC(14)
-      .withProve(12)
+      .withProve(14)
       .withCover(coverCycles)
       // .withDebug
       .doVerify(new Component {
         //val depth = 4
-        val dut = FormalDut(new StreamFifo(UInt(7 bits), depth, withAsyncRead=asyncRead, withBypass=false, occupancyFromRamOnly=false, forFMax=true))
+        val dut = FormalDut(new StreamFifo(UInt(7 bits), depth, withAsyncRead=asyncRead, withBypass=false, occupancyFromRamOnly=false, forFMax=fMax))
         val reset = ClockDomain.current.isResetActive
 
         assumeInitial(reset)
@@ -66,11 +67,20 @@ class FormalFifoTester extends SpinalFormalFunSuite {
         // cover the case that FIFO first goes to full, then to empty
         dut.formalFullToEmpty()
 
-        // initially (1 << log2Up(depth)), minus what is inside the StreamFifo
-        assert(dut.logic.ptr.arb.fmax.emptyTracker.value === ((1 << log2Up(depth)) - (dut.logic.ptr.push - dut.logic.ptr.pop)))
-        // initially (1 << log2Up(depth)) - depth, plus what is inside the StreamFifo and the output stage
-        assert((dut.logic.ptr.push - dut.logic.ptr.pop) <= depth)
-
+        // TODO for .withProve() induction prove to pass, relationship between push/pop distance and some fill rate
+        // must be asserted. Currently only asyncRead=false, withBypass=false, withFMax=true use case is supported.
+        if (fMax) {
+          // initially (1 << log2Up(depth)), minus what is inside the StreamFifo
+          assert(dut.logic.ptr.arb.fmax.emptyTracker.value === ((1 << log2Up(depth)) - (dut.logic.ptr.push - dut.logic.ptr.pop)))
+          // initially (1 << log2Up(depth)) - depth, plus what is inside the StreamFifo and the optional output stage
+          assert(dut.logic.ptr.arb.fmax.fullTracker.value ===  ((1 << log2Up(depth)) - depth + (dut.logic.ptr.push - dut.logic.ptr.pop) + U(dut.io.pop.valid & !Bool(asyncRead))))
+          assert((dut.logic.ptr.push - dut.logic.ptr.pop) <= depth)
+        // TODO broken?
+        } else if (dut.withExtraMsb) {
+          assert(dut.logic.ptr.occupancy === (dut.logic.ptr.push - dut.logic.ptr.popOnIo))
+          assert(dut.logic.ptr.full === ((dut.logic.ptr.push ^ dut.logic.ptr.popOnIo ^ depth) === 0))
+          assert(dut.logic.ptr.empty === (dut.logic.ptr.push === dut.logic.ptr.pop))
+        }
         // get order index of x
         // x with lowest index leaves StreamFifo first
         def getCompId(x: UInt): UInt = {
