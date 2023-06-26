@@ -1319,7 +1319,8 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
   }.vec
 
   def formalCheckm2sPipe(cond: T => Bool): Bool = this.rework {
-    io.pop.valid & cond(io.pop.payload)
+    // only with sync RAM read, io.pop is directly connected to the m2sPipe() stage
+    Bool(!withAsyncRead) & io.pop.valid & cond(io.pop.payload)
   }
 
   // verify this works, then we can simplify below
