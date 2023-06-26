@@ -560,17 +560,22 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val out = (aheadOut, behindOut)
   }.out
 
+  // flags if subjects have entered the StreamFifo
   def formalAssumesOrder(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = new Composite(this, "orders") {
     import spinal.core.formal._
+    // flags indicates if the subjects went in the StreamFIfo
     val aheadIn = RegInit(False) setWhen (fire && dataAhead === payload)
     val behindIn = RegInit(False) setWhen (fire && dataBehind === payload)
+    // once subject entered, prevent duplicate payloads from entering the StreamFifo
     when(aheadIn) { assume(payload =/= dataAhead) }
     when(behindIn) { assume(payload =/= dataBehind) }
     
+    // make sure our two subjects are distinguishable (different)
     assume(dataAhead =/= dataBehind)
+    // assume our subjects go inside the StreamFifo in correct order
     when(!aheadIn) { assume(!behindIn) }
     when(behindIn) { assume(aheadIn) }
-
+    // return which subjects went in the StreamFifo
     val out = (aheadIn, behindIn)
   }.out
 
