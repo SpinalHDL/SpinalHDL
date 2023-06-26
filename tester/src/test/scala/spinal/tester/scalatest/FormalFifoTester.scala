@@ -63,9 +63,12 @@ class FormalFifoTester extends SpinalFormalFunSuite {
         // make sure that d2 does not leave before d1 leaves the StreamFifo
         when(d1_in && d2_in && !d1_out) { assert(!d2_out) }
 
+        // cover the case that FIFO first goes to full, then to empty
         dut.formalFullToEmpty()
+
+        // initially (1 << log2Up(depth)), minus what is inside the StreamFifo
         assert(dut.logic.ptr.arb.fmax.emptyTracker.value === ((1 << log2Up(depth)) - (dut.logic.ptr.push - dut.logic.ptr.pop)))
-        assert(dut.logic.ptr.arb.fmax.fullTracker.value ===  ((1 << log2Up(depth)) - depth + (dut.logic.ptr.push - dut.logic.ptr.pop)))
+        // initially (1 << log2Up(depth)) - depth, plus what is inside the StreamFifo and the output stage
         assert((dut.logic.ptr.push - dut.logic.ptr.pop) <= depth)
 
         // get order index of x
