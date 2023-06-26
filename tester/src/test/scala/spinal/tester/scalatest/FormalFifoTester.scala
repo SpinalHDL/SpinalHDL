@@ -96,7 +96,7 @@ class FormalFifoTester extends SpinalFormalFunSuite {
             compId := (id +^ U(1)).resized
           }
           if (!asyncRead) {
-            when(dut.formalCheckm2sPipe(_ === x.pull())) {
+            when(dut.formalCheckOutputStage(_ === x.pull())) {
               // order index 0 for m2sPipe register
               compId := 0
             }

@@ -1318,30 +1318,30 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     val vec = Vec(check)
   }.vec
 
-  def formalCheckm2sPipe(cond: T => Bool): Bool = this.rework {
+  def formalCheckOutputStage(cond: T => Bool): Bool = this.rework {
     // only with sync RAM read, io.pop is directly connected to the m2sPipe() stage
     Bool(!withAsyncRead) & io.pop.valid & cond(io.pop.payload)
   }
 
   // verify this works, then we can simplify below
   //def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
-  //  Vec(formalCheckm2sPipe(cond) +: formalCheckRam(cond))
+  //  Vec(formalCheckOutputStage(cond) +: formalCheckRam(cond))
   //}
 
   def formalContains(word: T): Bool = this.rework {
-    formalCheckRam(_ === word.pull()).reduce(_ || _) || formalCheckm2sPipe(_ === word.pull())
+    formalCheckRam(_ === word.pull()).reduce(_ || _) || formalCheckOutputStage(_ === word.pull())
   }
   def formalContains(cond: T => Bool): Bool = this.rework {
-    formalCheckRam(cond).reduce(_ || _) || formalCheckm2sPipe(cond)
+    formalCheckRam(cond).reduce(_ || _) || formalCheckOutputStage(cond)
   }
 
   def formalCount(word: T): UInt = this.rework {
     // occurance count in RAM and in m2sPipe()
-    CountOne(formalCheckRam(_ === word.pull())) +^ U(formalCheckm2sPipe(_ === word.pull()))
+    CountOne(formalCheckRam(_ === word.pull())) +^ U(formalCheckOutputStage(_ === word.pull()))
   }
   def formalCount(cond: T => Bool): UInt = this.rework {
     // occurance count in RAM and in m2sPipe()
-    CountOne(formalCheckRam(cond)) +^ U(formalCheckm2sPipe(cond))
+    CountOne(formalCheckRam(cond)) +^ U(formalCheckOutputStage(cond))
   }
 
   def formalFullToEmpty() = this.rework {
