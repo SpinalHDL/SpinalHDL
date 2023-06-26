@@ -1274,15 +1274,38 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
 
 
 
-  def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
+  // check a condition against all valid payloads in the FIFO RAM
+  def formalCheckRam(cond: T => Bool): Vec[Bool] = this.rework {
     val condition = (0 until depth).map(x => cond(logic.ram(x)))
+    // create mask for all valid payloads in FIFO RAM
+    // inclusive [popd_idx, push_idx) exclusive
+    // assume FIFO RAM is full with valid payloads
+    //           [ ...  push_idx ... ]
+    //           [ ...  pop_idx  ... ]
+    // mask      [ 1 1 1 1 1 1 1 1 1 ]
     val mask = Vec(True, depth)
-    val popMask = (~((U(1) << logic.ptr.pop) - 1)).asBits
-    val pushMask = ((U(1) << logic.ptr.push) - 1).asBits
-    when(logic.ptr.pop < logic.ptr.push) {
+    val push_idx = logic.ptr.push.resize(log2Up(depth))
+    val pop_idx = logic.ptr.pop.resize(log2Up(depth))
+    // pushMask(i)==0 indicates location i was popped
+    val popMask = (~((U(1) << pop_idx) - 1)).asBits
+    // pushMask(i)==1 indicates location i was pushed
+    val pushMask = ((U(1) << push_idx) - 1).asBits
+    // no wrap   [ ... popd_idx ... push_idx ... ]
+    // popMask   [ 0 0 1 1 1 1  1 1 1 1 1 1 1 1 1]
+    // pushpMask [ 1 1 1 1 1 1  1 1 0 0 0 0 0 0 0] &
+    // mask      [ 0 0 1 1 1 1  1 1 0 0 0 0 0 0 0]
+    when(pop_idx < push_idx) {
       mask.assignFromBits(pushMask & popMask)
-    }.elsewhen(logic.ptr.pop > logic.ptr.push) {
+      // wrapped   [ ... push_idx ... popd_idx ... ]
+      // popMask   [ 0 0 0 0 0 0  0 0 1 1 1 1 1 1 1]
+      // pushpMask [ 1 1 0 0 0 0  0 0 0 0 0 0 0 0 0] |
+      // mask      [ 1 1 0 0 0 0  0 0 1 1 1 1 1 1 1]
+    }.elsewhen(pop_idx > push_idx) {
       mask.assignFromBits(pushMask | popMask)
+      // empty?
+      //           [ ...  push_idx ... ]
+      //           [ ...  pop_idx  ... ]
+      // mask      [ 0 0 0 0 0 0 0 0 0 ]
     }.elsewhen(logic.ptr.empty) {
       mask := mask.getZero
     }
@@ -1290,18 +1313,34 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     Vec(check)
   }
 
+  def formalCheckm2sPipe(cond: T => Bool): Bool = this.rework {
+    io.pop.valid & cond(io.pop.payload)
+  }
+
+  // verify this works, then we can simplify below
+  //def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
+  //  Vec(formalCheckm2sPipe(cond) +: formalCheckRam(cond))
+  //}
+
   def formalContains(word: T): Bool = this.rework {
-    formalCheck(_ === word.pull()).reduce(_ || _)
+    formalCheckRam(_ === word.pull()).reduce(_ || _) || formalCheckm2sPipe(_ === word.pull())
   }
   def formalContains(cond: T => Bool): Bool = this.rework {
-    formalCheck(cond).reduce(_ || _)
+    formalCheckRam(cond).reduce(_ || _) || formalCheckm2sPipe(cond)
   }
 
   def formalCount(word: T): UInt = this.rework {
-    CountOne(formalCheck(_ === word.pull()))
+    // occurance count in RAM and in m2sPipe()
+    CountOne(formalCheckRam(_ === word.pull())) +^ U(formalCheckm2sPipe(_ === word.pull()))
   }
   def formalCount(cond: T => Bool): UInt = this.rework {
-    CountOne(formalCheck(cond))
+    // occurance count in RAM and in m2sPipe()
+    CountOne(formalCheckRam(cond)) +^ U(formalCheckm2sPipe(cond))
+  }
+
+  def formalFullToEmpty() = this.rework {
+    val was_full = RegInit(False) setWhen(!io.push.ready)
+    cover(was_full && logic.ptr.empty)
   }
 }
 
