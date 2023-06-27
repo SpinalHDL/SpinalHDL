@@ -15,8 +15,7 @@ class FormalFifoTester extends SpinalFormalFunSuite {
   def formalTestStreamFifo(depth: Int,
                      withAsyncRead: Boolean,
                      withBypass: Boolean,
-                     occupancyFromRamOnly: Boolean,
-                     forFMax : Boolean): Unit = test(s"StreamFifo_$depth-$withAsyncRead-$withBypass-$occupancyFromRamOnly-$forFMax") {
+                     forFMax : Boolean): Unit = test(s"StreamFifo_depth.$depth-withAsyncRead.$withAsyncRead-withBypass.$withBypass-forFMax.$forFMax") {
 
     val initialCycles = 2
     val inOutDelay = 3
@@ -133,7 +132,6 @@ class FormalFifoTester extends SpinalFormalFunSuite {
     formalTestStreamFifo(depth = depth,
       withAsyncRead = withAsyncRead,
       withBypass = withBypass,
-      occupancyFromRamOnly = false,
       forFMax = forFMax
     )
   }
