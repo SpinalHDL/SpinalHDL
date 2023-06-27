@@ -65,7 +65,11 @@ class FormalFifoTester extends SpinalFormalFunSuite {
 
         dut.io.push.formalCovers()
         // back to back transaction cover test.
-        dut.io.pop.formalCovers(coverCycles - initialCycles - inOutDelay - 1)
+
+        // sync read requires a minimum depth (3?) for back-to-back
+        if (withAsyncRead || depth >= 4) {
+          dut.io.pop.formalCovers(coverCycles - initialCycles - inOutDelay - 1)
+        }
 
         val d1 = anyconst(UInt(7 bits))
         val d2 = anyconst(UInt(7 bits))
@@ -134,7 +138,8 @@ class FormalFifoTester extends SpinalFormalFunSuite {
   // [info]   java.lang.StackOverflowError:
   // for (depth <- List(0, 1, 2, 3, 4, 15, 16, 17, 24);
 
-  for (depth <- List(4, 8);
+  // depth < 2 will fail due to the formal test assuming FIFO RAM
+  for (depth <- List(2, 4);
     withAsyncRead <- List(false, true);
     withBypass <- List(false, true);
     forFMax <- List(false, true);
