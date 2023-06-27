@@ -8,7 +8,7 @@ import spinal.lib.formal._
 class FormalFifoTester extends SpinalFormalFunSuite {
 
   // @NOTE Passes BMC and Cover test for all StreamFifo configurations
-  // @TODO Passes Prove only for asyncRead=false, withBypass=false, forFMax=true
+  // @TODO Passes Prove only for withBypass=false, forFMax=true
   //
   // @TODO Fix induction Prove for other cases;
   // this requires assertions to establish pop/push relationship with counters for all cases
@@ -18,22 +18,31 @@ class FormalFifoTester extends SpinalFormalFunSuite {
                      forFMax : Boolean): Unit = test(s"StreamFifo_depth.$depth-withAsyncRead.$withAsyncRead-withBypass.$withBypass-forFMax.$forFMax") {
 
     val initialCycles = 2
-    val inOutDelay = 3
+    val inOutDelay = 1 + (!withAsyncRead).toInt + 1
     val coverCycles = depth * 2 + initialCycles + inOutDelay
 
-    //FormalConfig
-      //.withBMC(coverCycles + 2)
-      //.withProve(14)
-      //.withCover(coverCycles)
+    printf("coverCycles=%d for depth %d\n", coverCycles, depth)
 
-    // @TODO Passes BMC and Cover test for all StreamFifo configurations
+    // @TODO .withProve() still needs more assertions for some StreamFifo configurations
+    //FormalConfig
+    //  .withBMC(coverCycles + 2)
+    //  .withProve(14)
+    //  .withCover(coverCycles)
+
+    val definitionName = s"StreamFifo_depth_%d%s%s%s"
+    .format(depth,
+      if (withAsyncRead) "_withAsyncRead" else "",
+      if (withBypass) "_withBypass" else "",
+      if (forFMax) "_forFMax" else ""
+    )
+
+    // @TODO Passes BMC and Cover test for isPow2(depth >= 4) StreamFifo configurations
     var formalCfg = FormalConfig.withBMC(coverCycles + 2).withCover(coverCycles)
-    // @TODO Passes Prove only for asyncRead=false, withBypass=false, forFMax=true
-    if (withAsyncRead==false && withBypass==false && forFMax==true) formalCfg.withProve(14)
+    // @TODO Passes Prove only for isPow2(depth >= 4) and forFMax=true
+    if (forFMax==true && isPow2(depth)) formalCfg.withProve(coverCycles)
     formalCfg
       // .withDebug
       .doVerify(new Component {
-        //val depth = 4
         val dut = FormalDut(new StreamFifo(UInt(7 bits), depth, withAsyncRead=withAsyncRead, withBypass=withBypass, forFMax=forFMax))
         val reset = ClockDomain.current.isResetActive
 
@@ -119,15 +128,17 @@ class FormalFifoTester extends SpinalFormalFunSuite {
         when(d1_in && d2_in && !d1_out && !d2_out) {
           assert(getCompId(d1) < getCompId(d2))
         }
-      })
+      }.setDefinitionName(definitionName))
   }
   // @TODO [info] spinal.tester.scalatest.FormalFifoTester *** ABORTED ***
   // [info]   java.lang.StackOverflowError:
   // for (depth <- List(0, 1, 2, 3, 4, 15, 16, 17, 24);
-  for (depth <- List(4);
-    withAsyncRead <- List(true, false);
-    withBypass <- List(true, false);
-    forFMax <- List(true, false);
+
+  for (depth <- List(4, 8);
+    withAsyncRead <- List(false, true);
+    withBypass <- List(false, true);
+    forFMax <- List(false, true);
+
   if !(!withAsyncRead && withBypass)) {
     formalTestStreamFifo(depth = depth,
       withAsyncRead = withAsyncRead,
