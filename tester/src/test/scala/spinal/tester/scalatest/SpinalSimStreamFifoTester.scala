@@ -16,9 +16,8 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
   def testStreamFifo(depth: Int,
                      withAsyncRead: Boolean,
                      withBypass: Boolean,
-                     occupancyFromRamOnly: Boolean,
                      forFMax : Boolean,
-                     useVec : Boolean): Unit = test(s"StreamFifo_$depth-$withAsyncRead-$withBypass-$occupancyFromRamOnly-$forFMax-$useVec") {
+                     useVec : Boolean): Unit = test(s"StreamFifo_$depth-$withAsyncRead-$withBypass-$forFMax-$useVec") {
 
     //Compile the simulator
     val compiled = SimConfig.compile(
@@ -27,7 +26,6 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
         depth = depth,
         withAsyncRead = withAsyncRead,
         withBypass = withBypass,
-        occupancyFromRamOnly = occupancyFromRamOnly,
         forFMax = forFMax,
         useVec = useVec
       )
@@ -93,14 +91,12 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
   for (depth <- List(0, 1, 2, 3, 4, 15, 16, 17, 24);
        withAsyncRead <- List(false, true);
        withBypass <- List(false, true);
-       occupancyFromRamOnly <- List(false, true);
        forFMax <- List(false, true);
        useVec <- List(false, true);
        if !(!withAsyncRead && withBypass) && !(useVec && !withAsyncRead)) {
     testStreamFifo(depth = depth,
       withAsyncRead = withAsyncRead,
       withBypass = withBypass,
-      occupancyFromRamOnly = occupancyFromRamOnly,
       forFMax = forFMax,
       useVec = useVec
     )

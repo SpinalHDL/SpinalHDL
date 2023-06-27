@@ -20,7 +20,7 @@ class FormalFifoTester extends SpinalFormalFunSuite {
       // .withDebug
       .doVerify(new Component {
         //val depth = 4
-        val dut = FormalDut(new StreamFifo(UInt(7 bits), depth, withAsyncRead=asyncRead, withBypass=false, occupancyFromRamOnly=false, forFMax=true))
+        val dut = FormalDut(new StreamFifo(UInt(7 bits), depth, withAsyncRead=asyncRead, withBypass=false,  forFMax=true))
         val reset = ClockDomain.current.isResetActive
 
         assumeInitial(reset)

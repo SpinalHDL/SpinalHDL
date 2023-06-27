@@ -1094,14 +1094,11 @@ object StreamFifo{
   * @param depth Number of element stored in the fifo, Note that if withAsyncRead==false, then one extra transaction can be stored
   * @param withAsyncRead Read the memory using asyncronous read port (ex distributed ram). If false, add 1 cycle latency
   * @param withBypass Bypass the push port to the pop port when the fifo is empty. If false, add 1 cycle latency
-  * @param occupancyFromRamOnly When withAsyncRead is false, then the pop port act as a additional 1 depth storage.
-  *                             If this parameter is set, it will not be taken in acount for the io.occupancy / availability
   */
 class StreamFifo[T <: Data](val dataType: HardType[T],
                             val depth: Int,
                             val withAsyncRead : Boolean = false,
                             val withBypass : Boolean = false,
-                            val occupancyFromRamOnly : Boolean = false,
                             val allowExtraMsb : Boolean = true,
                             val forFMax : Boolean = false,
                             val useVec : Boolean = false) extends Component {
@@ -1109,7 +1106,6 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
   // bypass not supported for sync read case
   if(!withAsyncRead) require(!withBypass)
 
-  val popStorageMatter = !withAsyncRead && !occupancyFromRamOnly
   val io = new Bundle with StreamFifoInterface[T]{
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
