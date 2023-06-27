@@ -1103,7 +1103,8 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
                             val withBypass : Boolean = false,
                             val occupancyFromRamOnly : Boolean = false,
                             val allowExtraMsb : Boolean = true,
-                            val forFMax : Boolean = false) extends Component {
+                            val forFMax : Boolean = false,
+                            val useVec : Boolean = false) extends Component {
   require(depth >= 0)
   if(!withAsyncRead) assert(!withBypass)
   val popStorageMatter = !withAsyncRead && !occupancyFromRamOnly
@@ -1148,7 +1149,8 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
   val logic = (depth > 1) generate new Area {
-    val ram = Mem(dataType, depth)
+    val vec = useVec generate Vec(Reg(dataType), depth)
+    val ram = !useVec generate Mem(dataType, depth)
 
     val ptr = new Area{
       val doPush, doPop = Bool()
@@ -1226,19 +1228,27 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     val push = new Area {
       io.push.ready := !ptr.full
       ptr.doPush := io.push.fire
-      val write = ram.writePort()
-      write.valid := io.push.fire
-      write.address := ptr.push.resized
-      write.data := io.push.payload
+      val onRam = !useVec generate new Area {
+        val write = ram.writePort()
+        write.valid := io.push.fire
+        write.address := ptr.push.resized
+        write.data := io.push.payload
+      }
+      val onVec = useVec generate new Area {
+        when(io.push.fire){
+          vec.write(ptr.push.resized, io.push.payload)
+        }
+      }
     }
 
     val pop = new Area{
-      val addressGen = Stream(ram.addressType)
+      val addressGen = Stream(UInt(log2Up(depth) bits))
       addressGen.valid := !ptr.empty
       addressGen.payload := ptr.pop.resized
       ptr.doPop := addressGen.fire
 
       val sync = !withAsyncRead generate new Area{
+        assert(!useVec)
         val readArbitation = addressGen.m2sPipe(flush = io.flush)
         val readPort = ram.readSyncPort
         readPort.cmd := addressGen.toFlowFire
@@ -1250,7 +1260,11 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
       }
 
       val async = withAsyncRead generate new Area{
-        io.pop << addressGen.translateWith(ram.readAsync(addressGen.payload))
+        val readed = useVec match {
+          case true => vec.read(addressGen.payload)
+          case false => ram.readAsync(addressGen.payload)
+        }
+        io.pop << addressGen.translateWith(readed)
         ptr.popOnIo := ptr.pop
 
         if(withBypass){
