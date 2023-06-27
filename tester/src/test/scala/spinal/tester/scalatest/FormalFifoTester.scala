@@ -6,21 +6,35 @@ import spinal.lib.{StreamFifo, History, OHToUInt}
 import spinal.lib.formal._
 
 class FormalFifoTester extends SpinalFormalFunSuite {
-  //TODO fix me for all cases
-  test("fifo-verify all") {
+
+  // @NOTE Passes BMC and Cover test for all StreamFifo configurations
+  // @TODO Passes Prove only for asyncRead=false, withBypass=false, forFMax=true
+  //
+  // @TODO Fix induction Prove for other cases;
+  // this requires assertions to establish pop/push relationship with counters for all cases
+  def formalTestStreamFifo(depth: Int,
+                     withAsyncRead: Boolean,
+                     withBypass: Boolean,
+                     forFMax : Boolean): Unit = test(s"StreamFifo_depth.$depth-withAsyncRead.$withAsyncRead-withBypass.$withBypass-forFMax.$forFMax") {
+
     val initialCycles = 2
     val inOutDelay = 3
-    val depth = 8
     val coverCycles = depth * 2 + initialCycles + inOutDelay
-    val asyncRead = false
-    FormalConfig
-      .withBMC(14)
-      .withProve(12)
-      .withCover(coverCycles)
+
+    //FormalConfig
+      //.withBMC(coverCycles + 2)
+      //.withProve(14)
+      //.withCover(coverCycles)
+
+    // @TODO Passes BMC and Cover test for all StreamFifo configurations
+    var formalCfg = FormalConfig.withBMC(coverCycles + 2).withCover(coverCycles)
+    // @TODO Passes Prove only for asyncRead=false, withBypass=false, forFMax=true
+    if (withAsyncRead==false && withBypass==false && forFMax==true) formalCfg.withProve(14)
+    formalCfg
       // .withDebug
       .doVerify(new Component {
         //val depth = 4
-        val dut = FormalDut(new StreamFifo(UInt(7 bits), depth, withAsyncRead=asyncRead, withBypass=false,  forFMax=true))
+        val dut = FormalDut(new StreamFifo(UInt(7 bits), depth, withAsyncRead=withAsyncRead, withBypass=withBypass, forFMax=forFMax))
         val reset = ClockDomain.current.isResetActive
 
         assumeInitial(reset)
@@ -63,11 +77,23 @@ class FormalFifoTester extends SpinalFormalFunSuite {
         // make sure that d2 does not leave before d1 leaves the StreamFifo
         when(d1_in && d2_in && !d1_out) { assert(!d2_out) }
 
+        // cover the case that FIFO first goes to full, then to empty
         dut.formalFullToEmpty()
-        assert(dut.logic.ptr.arb.fmax.emptyTracker.value === ((1 << log2Up(depth)) - (dut.logic.ptr.push - dut.logic.ptr.pop)))
-        assert(dut.logic.ptr.arb.fmax.fullTracker.value ===  ((1 << log2Up(depth)) - depth + (dut.logic.ptr.push - dut.logic.ptr.pop)))
-        assert((dut.logic.ptr.push - dut.logic.ptr.pop) <= depth)
 
+        // TODO for .withProve() induction prove to pass, relationship between push/pop distance and some fill rate
+        // must be asserted. Currently only asyncRead=false, withBypass=false, withFMax=true use case is supported.
+        if (forFMax) {
+          // initially (1 << log2Up(depth)), minus what is inside the StreamFifo
+          assert(dut.logic.ptr.arb.fmax.emptyTracker.value === ((1 << log2Up(depth)) - (dut.logic.ptr.push - dut.logic.ptr.pop)))
+          // initially (1 << log2Up(depth)) - depth, plus what is inside the StreamFifo and the optional output stage
+          assert(dut.logic.ptr.arb.fmax.fullTracker.value ===  ((1 << log2Up(depth)) - depth + (dut.logic.ptr.push - dut.logic.ptr.pop) + U(dut.io.pop.valid & !Bool(withAsyncRead))))
+          assert((dut.logic.ptr.push - dut.logic.ptr.pop) <= depth)
+        // TODO broken?
+        } else if (dut.withExtraMsb) {
+          assert(dut.logic.ptr.occupancy === (dut.logic.ptr.push - dut.logic.ptr.popOnIo))
+          assert(dut.logic.ptr.full === ((dut.logic.ptr.push ^ dut.logic.ptr.popOnIo ^ depth) === 0))
+          assert(dut.logic.ptr.empty === (dut.logic.ptr.push === dut.logic.ptr.pop))
+        }
         // get order index of x
         // x with lowest index leaves StreamFifo first
         def getCompId(x: UInt): UInt = {
@@ -82,8 +108,8 @@ class FormalFifoTester extends SpinalFormalFunSuite {
             // offset all RAM order indexes by 1, as order index 0 is reserved for m2sPipe()
             compId := (id +^ U(1)).resized
           }
-          if (!asyncRead) {
-            when(dut.formalCheckm2sPipe(_ === x.pull())) {
+          if (!withAsyncRead) {
+            when(dut.formalCheckOutputStage(_ === x.pull())) {
               // order index 0 for m2sPipe register
               compId := 0
             }
@@ -94,5 +120,19 @@ class FormalFifoTester extends SpinalFormalFunSuite {
           assert(getCompId(d1) < getCompId(d2))
         }
       })
+  }
+  // @TODO [info] spinal.tester.scalatest.FormalFifoTester *** ABORTED ***
+  // [info]   java.lang.StackOverflowError:
+  // for (depth <- List(0, 1, 2, 3, 4, 15, 16, 17, 24);
+  for (depth <- List(4);
+    withAsyncRead <- List(true, false);
+    withBypass <- List(true, false);
+    forFMax <- List(true, false);
+  if !(!withAsyncRead && withBypass)) {
+    formalTestStreamFifo(depth = depth,
+      withAsyncRead = withAsyncRead,
+      withBypass = withBypass,
+      forFMax = forFMax
+    )
   }
 }
