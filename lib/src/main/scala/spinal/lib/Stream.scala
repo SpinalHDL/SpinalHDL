@@ -1106,7 +1106,9 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
                             val forFMax : Boolean = false,
                             val useVec : Boolean = false) extends Component {
   require(depth >= 0)
-  if(!withAsyncRead) assert(!withBypass)
+  // bypass not supported for sync read case
+  if(!withAsyncRead) require(!withBypass)
+
   val popStorageMatter = !withAsyncRead && !occupancyFromRamOnly
   val io = new Bundle with StreamFifoInterface[T]{
     val push = slave Stream (dataType)
