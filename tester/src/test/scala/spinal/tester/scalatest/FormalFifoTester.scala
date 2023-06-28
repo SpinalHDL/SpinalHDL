@@ -17,11 +17,12 @@ class FormalFifoTester extends SpinalFormalFunSuite {
                      forFMax : Boolean,
                      allowExtraMsb : Boolean): Unit = test(s"StreamFifo_depth.$depth-withAsyncRead.$withAsyncRead-withBypass.$withBypass-forFMax.$forFMax-allowExtraMsb.$allowExtraMsb") {
 
+    // it's not really testing much logic, so not used as argument
+    val useVec = false
+
     val initialCycles = 2
     val inOutDelay = 1 + (!withAsyncRead).toInt + 1
     val coverCycles = depth * 2 + initialCycles + inOutDelay
-
-    printf("coverCycles=%d for depth %d\n", coverCycles, depth)
 
     // @TODO .withProve() still needs more assertions for some StreamFifo configurations
     //FormalConfig
@@ -37,6 +38,8 @@ class FormalFifoTester extends SpinalFormalFunSuite {
       if (allowExtraMsb) "_allowExtraMsb" else ""
     )
 
+    val dataWidth = 7
+
     // @TODO Passes BMC and Cover test for isPow2(depth >= 4) StreamFifo configurations
     var formalCfg = FormalConfig.withBMC(coverCycles + 2).withCover(coverCycles)
     // @TODO Passes Prove only for forFMax=true, TODO forFMax=false cases
@@ -44,12 +47,12 @@ class FormalFifoTester extends SpinalFormalFunSuite {
     formalCfg
       // .withDebug
       .doVerify(new Component {
-        val dut = FormalDut(new StreamFifo(UInt(7 bits), depth, withAsyncRead=withAsyncRead, withBypass=withBypass, forFMax=forFMax, allowExtraMsb=allowExtraMsb))
+        val dut = FormalDut(new StreamFifo(UInt(dataWidth bits), depth, withAsyncRead=withAsyncRead, withBypass=withBypass, forFMax=forFMax, allowExtraMsb=allowExtraMsb, useVec=useVec & withAsyncRead))
         val reset = ClockDomain.current.isResetActive
 
         assumeInitial(reset)
 
-        val inValue = anyseq(UInt(7 bits))
+        val inValue = anyseq(UInt(dataWidth bits))
         val inValid = anyseq(Bool())
         val outReady = anyseq(Bool())
         dut.io.push.payload := inValue
@@ -72,8 +75,8 @@ class FormalFifoTester extends SpinalFormalFunSuite {
           dut.io.pop.formalCovers(coverCycles - initialCycles - inOutDelay - 1)
         }
 
-        val d1 = anyconst(UInt(7 bits))
-        val d2 = anyconst(UInt(7 bits))
+        val d1 = anyconst(UInt(dataWidth bits))
+        val d2 = anyconst(UInt(dataWidth bits))
 
         // assume first d1, then d2 enters the StreamFifo
         val (d1_in, d2_in) = dut.io.push.formalAssumesOrder(d1, d2)
