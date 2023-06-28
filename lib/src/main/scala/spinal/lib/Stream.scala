@@ -1182,13 +1182,13 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
 
         val fmax = forFMax generate new Area {
           val counterWidth = log2Up(depth) + 1
-          val emptyTracker = new CounterUpDownFmax(1 << counterWidth, 1 << counterWidth - 1) {
+          val emptyTracker = new CounterUpDownFmax(1 << counterWidth, 1 << (counterWidth - 1)) {
             incr := doPop
             decr := doPush
             empty := value.msb
           }
 
-          val fullTracker = new CounterUpDownFmax(1 << counterWidth, (1 << counterWidth - 1) - depth) {
+          val fullTracker = new CounterUpDownFmax(1 << counterWidth, (1 << (counterWidth - 1)) - depth) {
             incr := io.push.fire
             decr := io.pop.fire
             full := value.msb
