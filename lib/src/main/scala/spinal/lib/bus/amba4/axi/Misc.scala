@@ -10,8 +10,10 @@ import spinal.lib.bus.bsb.{Bsb, BsbTransaction}
 object Axi4ToAxi4Shared{
   def apply(axi : Axi4): Axi4Shared ={
     val axiShared = new Axi4Shared(axi.config)
-    val arbiter = StreamArbiterFactory().roundRobin.build(new Axi4Ax(axi.config, axi.config.arwUserWidth),2)
-    arbiter.io.inputs(0) << axi.ar.asInstanceOf[Stream[Axi4Ax]]
+    val arbiter = StreamArbiterFactory().roundRobin.build(new Axi4Ax(axi.config, axi.config.arwUserWidth, readOnly = false),2)
+    arbiter.io.inputs(0).arbitrationFrom(axi.ar.asInstanceOf[Stream[Axi4Ax]])
+    arbiter.io.inputs(0).payload.assignSomeByName(axi.ar.asInstanceOf[Stream[Axi4Ax]].payload)
+    if(axi.config.useAllStrb) arbiter.io.inputs(0).allStrb := False
     arbiter.io.inputs(1) << axi.aw.asInstanceOf[Stream[Axi4Ax]]
 
     axiShared.arw.arbitrationFrom(arbiter.io.output)

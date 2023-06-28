@@ -107,9 +107,13 @@ trait BusIf extends BusIfBase {
   type B <: this.type
   private val RegInsts = ListBuffer[RegInst]()
   private var regPtr: BigInt = 0
+  private var readDefaultValue: BigInt = 0
 
   def orderdRegInsts = RegInsts.sortBy(_.addr)
   def getModuleName: String
+  def setReservedAddressReadValue(value: BigInt) = readDefaultValue = value
+  def getReservedAddressReadValue = readDefaultValue
+
   val regPre: String
 
   private val regAddressHistory = ListBuffer[BigInt]()
@@ -357,7 +361,7 @@ trait BusIf extends BusIfBase {
         }
         default{
           //Reserved Address Set False, True is too much strict for software
-          //readData  := 0  //readData hold for LowPower consideration
+          readData  := readDefaultValue
           if(withStrb) {
             readError := False
           } else {
@@ -367,9 +371,8 @@ trait BusIf extends BusIfBase {
         }
       }
     }.otherwise{
-      //async should give a value avoid latch
-      //remove else statement when readSync case for lowerPower consideration
-      if(!readSync){readData := 0 }
+      //do not keep readData after read for the reason of security risk
+      readData  := readDefaultValue
       readError := False
     }
   }

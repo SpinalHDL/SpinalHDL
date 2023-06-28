@@ -135,7 +135,7 @@ class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
 }
 
 
-class SpinalSimRamTester extends AnyFunSuite {
+class SpinalSimRamTester extends SpinalAnyFunSuite {
   test("general") {
     SimConfig.withConfig(SpinalConfig(device = Device.XILINX)).compile(new Component {
       val ram = Mem(Bits(32 bits), 256)

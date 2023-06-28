@@ -57,21 +57,21 @@ final case class CHeaderGenerator(
         implicit class RegDescrCheadExtend(reg: RegDescr) {
             def define(maxreglen: Int, maxshiftlen: Int): String  = {
                 val _tab = " " * (maxreglen - reg.getName().size)
-                s"""#define ${reg.getName().toUpperCase()} ${_tab}0x${reg.getAddr().hexString(16)}${fddefine(maxshiftlen)}""".stripMargin
+                s"""#define ${prefix.toUpperCase()}_${reg.getName().toUpperCase()} ${_tab}0x${reg.getAddr().hexString(16)}${fddefine(maxshiftlen)}""".stripMargin
             }
 
             def union: String = {
                 s"""/**
-                   |  * @union       ${reg.getName().toLowerCase()}_t
+                   |  * @union       ${prefix.toLowerCase()}_${reg.getName().toLowerCase()}_t
                    |  * @address     0x${reg.getAddr().hexString(16)}
                    |  * @brief       ${reg.getDoc().replace("\n","\\n")}
                    |  */
                    |typedef union {
-                   |    u32 val;
+                   |    ${regType} val;
                    |    struct {
                    |        ${fdUnion(" " * 8)}
                    |    } reg;
-                   |} ${reg.getName().toLowerCase()}_t;""".stripMargin
+                   |}${prefix.toLowerCase()}_${reg.getName().toLowerCase()}_t;""".stripMargin
             }
 
             def fdNameLens = math.max("reserved_0".size, reg.getFieldDescrs().map(_.getName.size).max)
@@ -98,7 +98,8 @@ final case class CHeaderGenerator(
             def fddefine(maxlen: Int): String = {
                 val nmaxlen = maxlen - reg.getName().size
                 if(withshiftmask){
-                    val t = reg.getFieldDescrs().map(t => t.define(reg.getName().toUpperCase(), nmaxlen)).filterNot(_.isEmpty).mkString("\n")
+                    val pre = s"${prefix.toUpperCase()}_${reg.getName().toUpperCase()}"
+                    val t = reg.getFieldDescrs().map(t => t.define(pre, nmaxlen)).filterNot(_.isEmpty).mkString("\n")
                     if(t.isEmpty) "" else "\n" + t
                 } else ""
             }
@@ -112,9 +113,9 @@ final case class CHeaderGenerator(
                 def mask = BigInt((1 << fd.getSection().size) - 1) << lsb
                 val _tab = " " * (tabn - fd.getName().size)
                 fd.getAccessType() match {
-                    case `NA` |`RO` |`ROV`                       => ""
-                    case `W1S`|`W1C`|`W1T`|`W1P`|`W1CRS`|`W1SRC` => ""
-                    case `W0S`|`W0C`|`W0T`|`W0P`|`W0CRS`|`W0SRC` => ""
+                    case `NA`                                    => ""
+                    case `W1S`|`W1C`|`W1T`|`W1P`|`W1CRS`|`W1SRC` => s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}""".stripMargin
+                    case `W0S`|`W0C`|`W0T`|`W0P`|`W0CRS`|`W0SRC` => s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}""".stripMargin
                     case _ => {
                         s"""#define ${pre}_${fd.getName().toUpperCase()}_SHIFT ${_tab}${lsb}
                            |#define ${pre}_${fd.getName().toUpperCase()}_MASK  ${_tab}0x${mask.hexString(32)} //${fd.getAccessType()}, ${fd.getWidth()} bit""".stripMargin

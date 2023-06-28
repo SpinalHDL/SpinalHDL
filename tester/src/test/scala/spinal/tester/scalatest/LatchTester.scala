@@ -4,7 +4,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 
-class LatchTester extends AnyFunSuite {
+class LatchTester extends SpinalAnyFunSuite {
   test("bad latch") {
     var didRaise = false
 

@@ -126,6 +126,9 @@ class ComponentEmitterVerilog(
 
         val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
         s match {
+          case s : Nameable => s.unsetName().setName(portName)
+        }
+        s match {
           case s: MemReadSync  =>
             val name = component.localNamingScope.allocateName(portName)
             declarations ++= emitExpressionWrap(s, name, "reg")
@@ -171,15 +174,15 @@ class ComponentEmitterVerilog(
     cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
 
-    component.dslBody.walkStatements{ s =>
-      s.walkDrivingExpressions{ e =>
-        if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
-          var sName = s match {
-            case s : AssignmentStatement => "_" + s.dlcParent.getName()
-            case s : WhenStatement => "_when"
-            case s : SwitchContext => "_switch"
-            case s : Nameable => "_" + s.getName()
-            case s : MemPortStatement => "_" + s.dlcParent.getName() + "_port"
+    component.dslBody.walkStatements { s =>
+      s.walkDrivingExpressions { e =>
+        if (!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)) {
+          val sName = s match {
+            case s: AssignmentStatement => "_" + s.dlcParent.getName()
+            case _: WhenStatement => "_when"
+            case _: SwitchContext => "_switch"
+            case s: MemPortStatement => "_" + s.dlcParent.getName() + "_port"
+            case s: Nameable => "_" + s.getName()
             case _ => ""
           }
           val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
@@ -196,13 +199,13 @@ class ComponentEmitterVerilog(
     }
 
     //Wrap inout
-    analogs.foreach(io => {
-      io.foreachStatements{
-        case AssignmentStatement(target, source: BaseType) =>
-          referencesOverrides(source) = emitAssignedExpression(target)
-        case _ =>
-      }
-    })
+//    analogs.foreach(io => {
+//      io.foreachStatements{
+//        case AssignmentStatement(target, source: BaseType) =>
+//          referencesOverrides(source) = emitAssignedExpression(target)
+//        case _ =>
+//      }
+//    })
 
     //Collect all localEnums
     component.dslBody.walkStatements { s =>
@@ -329,6 +332,14 @@ class ComponentEmitterVerilog(
       }
     }
 
+    val analogDrivers = mutable.LinkedHashMap[BaseType, ArrayBuffer[AssignmentStatement]]()
+    for(analog <- analogs) analog.foreachStatements{s =>
+      s.walkDrivingExpressions{
+        case e : BaseType => analogDrivers.getOrElseUpdate(e, ArrayBuffer[AssignmentStatement]()) += s
+        case _ =>
+      }
+    }
+
     for (child <- component.children) {
       val isBB             = child.isInstanceOf[BlackBox] && child.asInstanceOf[BlackBox].isBlackBox
       val isBBUsingULogic  = isBB && child.asInstanceOf[BlackBox].isUsingULogic
@@ -376,16 +387,41 @@ class ComponentEmitterVerilog(
 
       val ios = child.getOrdredNodeIo.filterNot(_.isSuffix)
       val instports: String = ios.map{ data =>
-        val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
-        val wireAlign  = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
-        val comma      = if (data == ios.last) " " else ","
-        val dirtag: String = data.dir match{
-          case spinal.core.in  | spinal.core.inWithNull  => "i"
-          case spinal.core.out | spinal.core.outWithNull => "o"
-          case spinal.core.inout                         => "~"
-          case _  => SpinalError("Not founded IO type")
+        if(data.isInOut){
+          val buf = new mutable.StringBuilder()
+          analogDrivers.get(data) match {
+            case Some(statements) => {
+              case class Mapping(offset: Int, width: Int, dst: Expression)
+              val mapping = statements.map { s =>
+                s.source match {
+                  case bt: BaseType => Mapping(0, widthOf(bt), s.target)
+                  case e: BitVectorBitAccessFixed => Mapping(e.bitId, 1, s.target)
+                  case e: BitVectorRangedAccessFixed => Mapping(e.lo, e.getWidth, s.target)
+                }
+              }
+              assert(mapping.map(_.width).sum == widthOf(data))
+              val ordered = mapping.sortBy(_.offset)
+              val portAlign = s"%-${maxNameLength}s".format(emitExpression(data))
+              val wireAlign = ordered.reverse.map(e => emitAssignedExpression(e.dst)).mkString(", ")
+              val comma = if (data == ios.last) " " else ","
+              val exp = s"    .${portAlign} ({${wireAlign}})${comma}\n"
+              buf ++= exp
+            }
+            case None =>
+          }
+          buf.toString()
+        } else {
+          val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
+          val wireAlign = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
+          val comma = if (data == ios.last) " " else ","
+          val dirtag: String = data.dir match {
+            case spinal.core.in | spinal.core.inWithNull => "i"
+            case spinal.core.out | spinal.core.outWithNull => "o"
+            case spinal.core.inout => "~"
+            case _ => SpinalError("Not founded IO type")
+          }
+          s"    .${portAlign} (${wireAlign})${comma} //${dirtag}\n"
         }
-        s"    .${portAlign} (${wireAlign})${comma} //${dirtag}\n"
       }.mkString
 
 
@@ -1479,11 +1515,11 @@ end
   }
 
   def shiftRightByIntImpl(e: Operator.BitVector.ShiftRightByInt): String = {
-    s"(${emitExpression(e.source)} >>> ${e.shift})"
+    s"(${emitExpression(e.source)} >>> ${log2Up(e.shift+1)}'d${e.shift})"
   }
 
   def shiftLeftByIntImpl(e: Operator.BitVector.ShiftLeftByInt): String = {
-    s"({${e.shift}'d0,${emitExpression(e.source)}} <<< ${e.shift})"
+    s"({${e.shift}'d0,${emitExpression(e.source)}} <<< ${log2Up(e.shift+1)}'d${e.shift})"
   }
 
 
@@ -1506,7 +1542,7 @@ end
     if(e.getWidth > 4 && !e.hasPoison()){
       s"${e.getWidth}'h${e.hexString(e.getWidth,false)}"
     } else {
-      s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')}"
+      s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,if(spinalConfig.dontCareGenAsZero) '0' else 'x')}"
     }
   }
 
@@ -1546,7 +1582,7 @@ end
 
   def emitEnumPoison(e: EnumPoison): String = {
     val width = e.encoding.getWidth(e.senum)
-    s"(${width}'b${"x" * width})"
+    s"(${width}'b${(if(spinalConfig.dontCareGenAsZero) "0" else "x") * width})"
   }
 
   def accessBoolFixed(e: BitVectorBitAccessFixed): String = {
@@ -1572,7 +1608,7 @@ end
     case  e: BitVectorLiteral                         => emitBitVectorLiteral(e)
     case  e: EnumLiteral[_]                           => emitEnumLiteralWrap(e)
 
-    case  e: BoolPoison                               => "1'bx"
+    case  e: BoolPoison                               => if(spinalConfig.dontCareGenAsZero) "1'b0" else "1'bx"
     case  e: EnumPoison                               => emitEnumPoison(e)
 
     //unsigned

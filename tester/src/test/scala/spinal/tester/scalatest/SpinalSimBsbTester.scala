@@ -11,7 +11,7 @@ import spinal.lib.bus.bsb.sim.BsbBridgeTester
 import spinal.lib._
 import spinal.lib.system.dma.sg.{DmaSg, DmaSgTester, SgDmaTestsParameter}
 
-class SpinalSimBsbTester extends AnyFunSuite{
+class SpinalSimBsbTester extends SpinalAnyFunSuite{
   test("upsizerSparse"){
     SimConfig.doSim(new BsbUpSizerSparse(
       p = BsbParameter(

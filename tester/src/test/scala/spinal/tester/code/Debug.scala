@@ -11,7 +11,6 @@ import spinal.lib._
 import spinal.core.sim._
 import spinal.idslplugin.Location
 import spinal.lib.bus.amba4.axilite.AxiLite4
-import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
 import spinal.lib.graphic.Rgb
@@ -22,6 +21,29 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.math.ScalaNumber
 import scala.util.Random
+
+
+
+
+object DebugInOut extends App{
+  val report = SpinalVerilog(new Component {
+    //    val read = out(Bits(8 bits))
+    //    val writeEnable = in Bool()
+    //    val write = in Bits(8 bits)
+    //    read := io
+    val io = inout(Analog(Bits(8 bits)))
+    //    when(writeEnable) {
+    //      io(4) := write(6)
+    //    }
+    val sub = new BlackBox{
+      val subIo = inout(Analog(Bits(8 bits)))
+    }
+    io := sub.subIo
+    setDefinitionName("unamed")
+  })
+}
+
+
 
 
 object CamTest{
@@ -45,6 +67,8 @@ object CamTest{
   }
 }
 
+
+
 object Debug extends App{
   val report = SpinalVerilog(new Component {
     val a, b, c, d = in UInt(8 bits)
@@ -65,6 +89,82 @@ object Debug extends App{
   }
 }
 
+object DebugInOut2 extends App{
+  val report = SimConfig.compile(new Component {
+    val xxx = (Analog(Bits(8 bits)))
+
+
+    val read = out(Bits(8 bits))
+    val writeEnable = in Bool()
+    val write = in Bits(8 bits)
+    read := xxx
+
+
+    val tmp1 = Analog(Bits(8 bits))
+    val tmp2 = Analog(Bits(8 bits))
+    val sub = new Component{
+//      val subIo = inout(Analog(Bool()))
+      val subIo = inout(Analog(Bits(8 bits)))
+//      val a = in Bits(8 bits)
+//      val b = out Bits(8 bits)
+    }
+    when(writeEnable) {
+      xxx(4) := write(5)
+      tmp2(5) := write(6)
+      tmp1(6, 2 bits) := write(2, 2 bits)
+      tmp1 := write
+    }
+
+    sub.subIo(7 downto 2) := tmp1.apply(5 downto 0)
+    sub.subIo(1 downto 0) := tmp1.apply(7 downto 6)
+    println("asd")
+//    val a = in Bits(8 bits)
+//    val b = out Bits(8 bits)
+//    sub.a <> a
+//    sub.b <> b
+    xxx := tmp1
+    tmp2 := tmp1
+//    sub.subIo := tmp1
+
+//    when(writeEnable) {
+//      xxx(4) := write(5)
+//      tmp2(5) := write(6)
+//      tmp1(6, 2 bits) := write(2, 2 bits)
+//      tmp1 := write
+//    }
+
+//    val tmp3 = Analog(Bits(4 bits))
+//    tmp3 := tmp1(3, 4 bits).setAsAnalog() //TODO keep
+//    io(2) := sub.subIo
+//    io(3) := sub.subIo
+//    io(4) := sub.subIo
+//     io(4) := sub.subIo
+
+    val a,b,c,d = new Component{
+      //      val subIo = inout(Analog(Bool()))
+      val yyy = inout(Analog(Bool()))
+      //      val a = in Bits(8 bits)
+      //      val b = out Bits(8 bits)
+    }
+    val zzz = inout(Analog(Bits(4 bits)))
+    zzz(0) := a.yyy
+    zzz(1) := b.yyy
+    zzz(2) := c.yyy
+    zzz(3) := d.yyy
+    setDefinitionName("toplevel")
+  }).doSim{dut => }
+}
+
+object DebugInOut3 extends App{
+  case class Top() extends Component {
+    val test = inout(Analog(Bits(8 bits)))
+    val sub = new BlackBox {
+      val subIo = inout(Analog(Bits(8 bit)))
+    }
+    test(7 downto 0) := sub.subIo(7 downto 0)
+  }
+  SpinalVerilog(Top())
+}
 
 object DebugSim {
 
@@ -195,15 +295,15 @@ object Tesasdadt extends App{
 }
 
 object Debug2 extends App{
-  val Something = new ScopeProperty[Int]
   SpinalConfig(allowOutOfRangeLiterals = true)
   def gen = new Component{
-    val xxx = AddressMapping.terms(SizeMapping(0x5000, 0x9000), 20)
-    println(xxx)
-
-//    Something.set(42)
-//    println(Something.get)
-//    rework(println(Something.get))
+    val cdA = ClockDomain.external("cdA")
+    val cdB = ClockDomain.external("cdB")
+    val input = in Bool()
+    val regA = cdA(RegNext(input))
+    val tmp = CombInit(regA)
+    val outputA = cdA(out(RegNext(tmp)))
+    val outputB = cdB(out(RegNext(tmp)))
 //    val value = in UInt(2 bits)
 ////    val result = out((value < U"101011"))
 //
@@ -530,7 +630,7 @@ object Debug3 extends App{
       override def hasNetlistImpact = true
     })
   ).withFstWave.compile(new Component {
-    val counter = Reg(UInt(8 bits)) init(0) simPublic()
+    val counter = Reg(UInt(8 bits)).init(0).simPublic()
     counter := counter + 1
     val result = out(CombInit(counter))
     val bypass = simBypass(counter)
@@ -604,6 +704,14 @@ object Debug4 extends App{
     println(LatencyAnalysis(a.data, b.rsp))
     println(LatencyAnalysis(b.cmd.payload, b.rsp))
   })
+}
+object Debug4444 extends App{
+  val top = SpinalVerilog(new Component{
+    val xxx = in Bool()
+    val yyy = CombInit(xxx)
+    val zzz = RegNext(yyy)
+  }).toplevel
+//  AnalysisUtils.reportToplevelIoCd(top)
 }
 
 
@@ -1276,7 +1384,7 @@ class AssertDemo extends Component {
 
 object AssertDemo {
   def main(args: Array[String]): Unit = {
-    SimConfig.doSim(new AssertDemo){ dut =>
+    SimConfig.withIVerilog.doSim(new AssertDemo){ dut =>
       dut.getAllIo.filter(_.isInput).foreach(_.randomize())
       dut.clockDomain.forkStimulus(10)
       dut.clockDomain.waitSampling(100)
@@ -1534,4 +1642,28 @@ object MemTestCfg{
 // Hardware definition
 object MemTestVerilog extends App {
 //  config.spinal.addStandardMemBlackboxing(blackboxRequestedAndUninferable).generateVerilog(MemTest(MemTestCfg.gen))
+}
+
+
+object BlackboxTuning extends App{
+  val config = SpinalConfig()
+  config.addStandardMemBlackboxing(blackboxAll)
+  import spinal.core.internals._
+  config.memBlackBoxers += new PhaseNetlist {
+    override def impl(pc: PhaseContext): Unit = {
+      pc.walkComponents{
+        case c : Ram_1w_1rs => {
+          c.genericElements.clear()
+          c.addGeneric("miaou", "wuff")
+          c.addGeneric("answer", 42)
+          c.addGeneric("WORDS", c.wordCount)
+          c.setDefinitionName(s"RAM_DP_${c.wordCount}_${c.wordWidth}")
+          c.io.wr.en.setName("WRITE_ENABLE")
+        }
+        case _ =>
+      }
+    }
+  }
+
+  config.generateVerilog(new StreamFifo(Bits(8 bits), 1024))
 }

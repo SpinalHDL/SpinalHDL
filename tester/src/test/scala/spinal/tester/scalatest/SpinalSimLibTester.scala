@@ -1,3 +1,5 @@
+package spinal.tester.scalatest
+
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
@@ -8,7 +10,7 @@ import spinal.lib.sim.{FlowMonitor, StreamDriver, StreamMonitor, StreamReadyRand
 import scala.collection.mutable
 import scala.util.Random
 
-class SpinalSimLibTester extends AnyFunSuite {
+class SpinalSimLibTester extends SpinalAnyFunSuite {
   for (n <- 0 until 12) {
     test("Vec (op) Vec on " + n + " elements") {
       SimConfig.noOptimisation

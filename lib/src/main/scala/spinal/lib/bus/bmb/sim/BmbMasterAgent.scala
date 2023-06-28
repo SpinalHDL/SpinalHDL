@@ -18,7 +18,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
 
   var pendingMax = 50
   var pendingCounter = 0
-  StreamReadyRandomizer(bus.rsp, clockDomain).factor = rspFactor
+  val rspDriver = StreamReadyRandomizer(bus.rsp, clockDomain).factor = rspFactor
 
   def regionAllocate(sizeMax : Int) : SizeMapping
   def regionFree(region : SizeMapping) : Unit
@@ -28,7 +28,8 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
   def onRspRead(address : BigInt, data : Byte) : Unit = {}
   def onCmdWrite(address : BigInt, data : Byte) : Unit = {}
 
-
+  var writeLengthMax, readLengthMax = Int.MaxValue
+  var allowWrite, allowRead = true
 
   def getCmd(): () => Unit = {
     //Generate a new CMD if none is pending
@@ -36,16 +37,16 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
       val sourceId = bus.p.access.randSource()
       bus.cmd.source #= sourceId
       val ap = bus.p.access.sources(sourceId)
-      val region = regionAllocate(1 << ap.lengthWidth)
+      var usableOpcodes = ArrayBuffer[Int]()
+      if(ap.canRead && allowRead)  usableOpcodes += Bmb.Cmd.Opcode.READ
+      if(ap.canWrite && allowWrite) usableOpcodes += Bmb.Cmd.Opcode.WRITE
+      val opcode = usableOpcodes(Random.nextInt(usableOpcodes.size))
+      val region = regionAllocate((1 << ap.lengthWidth) min(if(opcode == Bmb.Cmd.Opcode.READ) readLengthMax else writeLengthMax))
       if(region == null) return null
       pendingCounter += 1
       val length = region.size.toInt-1
       val context = bus.cmd.context.randomizedLong
       val address = region.base
-      var usableOpcodes = ArrayBuffer[Int]()
-      if(ap.canRead)  usableOpcodes += Bmb.Cmd.Opcode.READ
-      if(ap.canWrite) usableOpcodes += Bmb.Cmd.Opcode.WRITE
-      val opcode = usableOpcodes(Random.nextInt(usableOpcodes.size))
       val startAddress = address
       val endAddress = address + length + 1
       val beatCount = ((((endAddress + bus.p.access.wordMask) & ~bus.p.access.wordMask) - (startAddress & ~bus.p.access.wordMask)) / bus.p.access.byteCount).toInt

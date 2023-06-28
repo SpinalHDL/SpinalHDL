@@ -55,7 +55,7 @@ case class Axi4SharedOnChipRamMultiPortWithSoftresetFixture(config: Axi4Config, 
     io.axis(1).toShared() >> port1
 }
 
-class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
+class Axi4SharedOnChipRamMultiPortTester extends SpinalAnyFunSuite {
 
     val memory  = mutable.HashMap[BigInt, Byte]()
     val regions = mutable.Set[SizeMapping]()

@@ -5,7 +5,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import scala.util.Random
-class CoreMiscTester extends AnyFunSuite{
+class CoreMiscTester extends SpinalAnyFunSuite{
   test("SlowArea"){
     SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(4000 Hz))).compile(new Component{
       val counter = out(RegInit(U"0000"))

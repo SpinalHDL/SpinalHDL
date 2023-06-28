@@ -41,7 +41,7 @@ object CheckTester{
   }
 }
 
-class ChecksTester extends AnyFunSuite  {
+class ChecksTester extends SpinalAnyFunSuite  {
   import CheckTester._
 
 
@@ -505,7 +505,7 @@ class ChecksTester extends AnyFunSuite  {
 
 }
 
-class RepeatabilityTester extends AnyFunSuite{
+class RepeatabilityTester extends SpinalAnyFunSuite{
   var checkOutputHashCounter = 0
   def checkOutputHash(gen : => Component): Unit ={
     checkOutputHashCounter = checkOutputHashCounter + 1
@@ -528,7 +528,7 @@ class RepeatabilityTester extends AnyFunSuite{
 
   test("Apb3I2cCtrlGraph"){
     val dut = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz)).generateVerilog(new Apb3I2cCtrl(configI2C)).toplevel
-    assert(GraphUtils.countNames(dut) == 221)
+    assert(GraphUtils.countNames(dut) == 251)
   }
 
   test("UartGraph"){
@@ -556,7 +556,7 @@ class RepeatabilityTester extends AnyFunSuite{
   }
 }
 
-class NameingTester extends AnyFunSuite {
+class NameingTester extends SpinalAnyFunSuite {
   import CheckTester._
 
 

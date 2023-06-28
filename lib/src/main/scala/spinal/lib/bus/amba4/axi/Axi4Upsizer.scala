@@ -16,11 +16,14 @@ case class Axi4WriteOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Con
     val (outputFork, dataFork) = StreamFork2(io.input.writeCmd)
     io.output.writeCmd << outputFork
 //    val len = (io.input.writeCmd.len >> (sizeMax - io.input.writeCmd.size)) +
-    val byteCount = (io.input.writeCmd.len << io.input.writeCmd.size).resize(12 bits)
+    val byteCount = (io.input.writeCmd.len << io.input.writeCmd.size).resize(8+log2Up(inputConfig.bytePerWord) bits)
     val incrLen = ((U"0" @@ byteCount) + io.input.writeCmd.addr(outputConfig.symbolRange))(byteCount.high + 1 downto log2Up(outputConfig.bytePerWord))
     when(io.output.writeCmd.isINCR()){
       io.output.writeCmd.size := sizeMax
       io.output.writeCmd.len := incrLen.resized
+      when(io.input.writeCmd.len === 0){
+        io.output.writeCmd.size := io.input.writeCmd.size
+      }
     }
   }
 
@@ -34,7 +37,7 @@ case class Axi4WriteOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Con
     val byteCounterNext = (U"0" @@ byteCounter) + (U"1" << size).resized
     val dataBuffer = Reg(Bits(outputConfig.dataWidth bits))
     val maskBuffer = Reg(Bits(outputConfig.bytePerWord bits)) init(0)
-    val byteActivity = (0 until sizeMax).map(sizeValue => U((1 << (1 << sizeValue))-1, outputConfig.bytePerWord bits)).read(size.resized) |<< byteCounter
+    val byteActivity = (0 until sizeMax).map(sizeValue => U((BigInt(1) << (1 << sizeValue))-1, outputConfig.bytePerWord bits)).read(size.resized) |<< byteCounter
 
     when(io.output.writeData.fire){
       maskBuffer := 0
@@ -96,12 +99,15 @@ case class Axi4ReadOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Conf
   val cmdLogic = new Area{
     val (outputFork, dataFork) = StreamFork2(io.input.readCmd)
     io.output.readCmd << outputFork
-    val byteCount = (io.input.readCmd.len << io.input.readCmd.size).resize(12 bits)
+    val byteCount = (io.input.readCmd.len << io.input.readCmd.size).resize(8+log2Up(inputConfig.bytePerWord) bits)
     val incrLen = ((U"0" @@ byteCount) + io.input.readCmd.addr(outputConfig.symbolRange))(byteCount.high + 1 downto log2Up(outputConfig.bytePerWord))
 
     io.output.readCmd.size.removeAssignments() := sizeMax
     io.output.readCmd.len.removeAssignments() := incrLen.resized
     if(io.output.readCmd.config.useId) io.output.readCmd.id.removeAssignments() := 0 //Do not allow out of order
+    when(io.input.readCmd.len === 0){
+      io.output.readCmd.size := io.input.readCmd.size
+    }
   }
 
   val dataLogic = new Area{

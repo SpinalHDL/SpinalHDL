@@ -69,7 +69,7 @@ object SpinalSimVerilatorIoTest{
   }
 }
 
-class SpinalSimVerilatorIoTest extends AnyFunSuite {
+class SpinalSimVerilatorIoTest extends SpinalAnyFunSuite {
   SpinalSimTester { env =>
     import env._
     var compiled: SimCompiled[SpinalSimVerilatorIoTestTop] = null

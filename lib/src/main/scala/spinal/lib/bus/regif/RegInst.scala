@@ -128,7 +128,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
     val reg = acc match{
       case AccessType.NA => {
         val reg = hardType()
-        reg.assignFromBits(B(0, reg.getBitsWidth bit))
+        reg.clearAll()
         reg
       }
       case AccessType.ROV => {
@@ -176,6 +176,10 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   def parasiteField[T <: BaseType](reg: T, acc: AccessType, resetValue: BigInt, doc: String): Unit = {
     assert(reg.isReg, "prasiteField should be register only, check please")
     registerInWithWriteLogic(reg, acc, resetValue, doc)
+  }
+  def parasiteFieldAt[T <: BaseType](pos: Int, reg: T, acc: AccessType, resetValue: BigInt, doc: String): Unit = {
+    assert(reg.isReg, "prasiteField should be register only, check please")
+    registerAtWithWriteLogic(pos, reg, acc, resetValue, doc)
   }
 
   def fieldHSRW[T <: BaseType](seten: Bool, setval: T)(implicit symbol: SymbolName): T = fieldHSRW(seten, setval, resetValue = 0, doc = "")(symbol)
@@ -492,7 +496,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
 
   protected def _RC[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll()) //busif.wdata(reg, section, "clear")
+      reg.clearAll() //busif.wdata(reg, section, "clear")
     }
     reg
   }
@@ -507,7 +511,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
 
   protected def _RS[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoRead){
-      reg.assignFromBits( Bits(reg.getBitsWidth bit).setAll())//busif.wdata(reg, section, "set")
+      reg.setAll() //busif.wdata(reg, section, "set")
     }
     reg
   }
@@ -524,7 +528,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       reg.assignFromBits(busif.wdata(reg, section)  )//busif.writeData(section))
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll())//busif.wdata(reg, section, "clear")
+      reg.clearAll() //busif.wdata(reg, section, "clear")
     }
     reg
   }
@@ -543,7 +547,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       reg.assignFromBits(busif.wdata(reg, section)  )//busif.writeData(section))
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll()) //busif.wdata(reg, section, "set")
+      reg.setAll() //busif.wdata(reg, section, "set")
     }
     reg
   }
@@ -592,7 +596,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       reg.assignFromBits(busif.wdata(reg, section, "set")  )//Bits(reg.getBitsWidth bit).setAll())
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).clearAll()) //busif.wdata(reg, section, "clear")
+      reg.clearAll() //busif.wdata(reg, section, "clear")
     }
     reg
   }
@@ -611,7 +615,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
     when(hitDoWrite){
       reg.assignFromBits(busif.wdata(reg, section, "clear"))//Bits(reg.getBitsWidth bit).clearAll())
     }.elsewhen(hitDoRead){
-      reg.assignFromBits(Bits(reg.getBitsWidth bit).setAll()) //busif.wdata(reg, section, "set")
+      reg.setAll() //busif.wdata(reg, section, "set")
     }
     reg
   }

@@ -32,8 +32,7 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   withStrb generate (wstrb := Mux(axiAr.valid ,B((1 << strbWidth) -1, strbWidth bit), axiW.strb))
   initStrbMasks()
 
-  
-  axiAr.ready := !axiRValid || axiR.ready
+
   when(readError) {
     axiR.payload.setSLVERR()
   } otherwise {
@@ -42,28 +41,31 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   axiR.valid := axiRValid
   axiR.payload.data := readData
 
-  axiAw.ready := axiAw.valid && axiW.valid
-  axiW.ready  := axiAw.valid && axiW.valid
+
   axiB.setOKAY()
   axiB.valid := axiBValid
 
   bus.r << axiR
   bus.b << axiB
 
-  val askWrite  = axiAw.valid
+  val askWrite  = axiAw.valid && axiW.valid 
   val askRead   = axiAr.valid
-  val doWrite   = axiAw.valid && axiW.valid 
-  val doRead    = axiAr.valid && axiAr.ready
+  val doWrite   = askWrite && (!axiB.valid || axiB.ready) //Assume one stage between xw and B
+  val doRead    = askRead  && (!axiR.valid || axiR.ready) //Assume one stage between Ar and R
   val writeData = axiW.payload.data
 
-  axiRValid := doRead
-  axiBValid := doWrite
+  axiRValid clearWhen(axiR.ready) setWhen(doRead) 
+  axiAr.ready := doRead
+  
+  axiBValid clearWhen(axiB.ready) setWhen(doWrite) 
+  axiAw.ready := doWrite
+  axiW.ready  := doWrite
 
   def readAddress()  = if(withStrb) U(axiAr.addr.drop(underbitWidth) ## B(0, underbitWidth bit)) else axiAr.addr
   def writeAddress() : UInt = axiAw.addr
 
-  override def readHalt(): Unit = axiAr.ready := False
-  override def writeHalt(): Unit = axiAw.ready := False
+  override def readHalt(): Unit = doRead := False
+  override def writeHalt(): Unit = doWrite := False
 
   override def busDataWidth   = bus.config.dataWidth
 }

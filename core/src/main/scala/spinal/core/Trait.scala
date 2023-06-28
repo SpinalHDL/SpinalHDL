@@ -764,6 +764,7 @@ trait SpinalTag {
   def driverShouldNotChange = false
   def canSymplifyHost       = false
   def allowMultipleInstance = true // Allow multiple instances of the tag on the same object
+  def ioTag                 = false // Propagate tag to IO
 
   def apply[T <: SpinalTagReady](that : T) : T = {
     that.addTag(this)
@@ -794,6 +795,8 @@ object allowOutOfRangeLiterals               extends SpinalTag{
     this
   }
 }
+
+object noInit                        extends SpinalTag
 object unusedTag                     extends SpinalTag
 object noCombinatorialLoopCheck      extends SpinalTag
 object noLatchCheck                  extends SpinalTag
@@ -815,6 +818,10 @@ class ExternalDriverTag(val driver : Data)             extends SpinalTag{
   override def allowMultipleInstance = false
 }
 
+
+class CrossClockBufferDepth(val value : Int) extends SpinalTag{
+  override val allowMultipleInstance = false
+}
 
 object Driver {
   val startTime = System.currentTimeMillis()

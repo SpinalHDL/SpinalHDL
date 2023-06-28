@@ -125,11 +125,12 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   def map[T2 <: Data](translate: (T) => T2): Flow[T2] = (this ~ translate(this.payload))
 
   def m2sPipe : Flow[T] = m2sPipe()
-  def m2sPipe(holdPayload : Boolean = false, flush : Bool = null): Flow[T] = {
+  def m2sPipe(holdPayload : Boolean = false, flush : Bool = null, crossClockData : Boolean = false): Flow[T] = {
     if(!holdPayload) {
       val ret = RegNext(this)
       ret.valid.init(False)
       if(flush != null) when(flush){ ret.valid := False }
+      if(crossClockData) ret.payload.addTag(crossClockDomain)
       ret
     } else {
       val ret = Reg(this)
@@ -139,6 +140,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
         ret.payload := this.payload
       }
       if(flush != null) when(flush){ ret.valid := False }
+      if(crossClockData) ret.payload.addTag(crossClockDomain)
       ret
     }.setCompositeName(this, "m2sPipe", true)
   }
@@ -188,8 +190,12 @@ object RegFlow{
 }
 
 object FlowCCByToggle {
-  def apply[T <: Data](input: Flow[T], inputClock: ClockDomain = ClockDomain.current, outputClock: ClockDomain = ClockDomain.current): Flow[T] = {
-    val c = new FlowCCByToggle[T](input.payload, inputClock, outputClock)
+  def apply[T <: Data](input: Flow[T],
+                       inputClock: ClockDomain = ClockDomain.current,
+                       outputClock: ClockDomain = ClockDomain.current,
+                       withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
+                       withOutputM2sPipe : Boolean = true): Flow[T] = {
+    val c = new FlowCCByToggle[T](input.payload, inputClock, outputClock, withOutputBufferedReset, withOutputM2sPipe)
     c.io.input connectFrom input
     return c.io.output
   }
@@ -198,7 +204,7 @@ object FlowCCByToggle {
 class FlowCCByToggle[T <: Data](dataType: HardType[T],
                                 inputClock: ClockDomain,
                                 outputClock: ClockDomain,
-                                withOutputBufferedReset : Boolean = true,
+                                withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
                                 withOutputM2sPipe : Boolean = true) extends Component {
   val io = new Bundle {
     val input = slave  Flow (dataType)
@@ -219,14 +225,13 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T],
 
   val outputArea = new ClockingArea(finalOutputClock) {
     val target = BufferCC(inputArea.target, doInit generate False, randBoot = !doInit)
-    val hit = RegNext(target)
+    val hit = RegNext(target).addTag(noInit)
 
     val flow = cloneOf(io.input)
     flow.valid := (target =/= hit)
     flow.payload := inputArea.data
-    flow.payload.addTag(crossClockDomain)
 
-    io.output << (if(withOutputM2sPipe) flow.m2sPipe(holdPayload = true) else flow)
+    io.output << (if(withOutputM2sPipe) flow.m2sPipe(holdPayload = true, crossClockData = true) else flow)
   }
 
 

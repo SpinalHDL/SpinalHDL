@@ -64,7 +64,7 @@ trait BusSlaveFactory extends Area{
   /** Set the endianness during write/read multiword */
   def setWordEndianness(value : Endianness) = setConfig(getConfig.copy(wordEndianness = value))
 
-  def withOffset(offset : Int) = new BusSlaveFactoryAddressWrapper(this, offset)
+  def withOffset(offset : BigInt) = new BusSlaveFactoryAddressWrapper(this, offset)
 
 
   /**

@@ -4,21 +4,26 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm._
 
+case class DebugModuleCpuConfig(xlen : Int,
+                                flen : Int,
+                                withFpuRegAccess : Boolean)
+
 case class DebugModuleParameter(version : Int,
                                 harts : Int,
                                 progBufSize : Int,
                                 datacount : Int,
-                                xlens : Seq[Int])
+                                hartsConfig : Seq[DebugModuleCpuConfig])
 
 
 object DebugDmToHartOp extends SpinalEnum{
-  val DATA, EXECUTE = newElement()
+  val DATA, EXECUTE, REG_WRITE, REG_READ = newElement()
 }
 
 case class DebugDmToHart() extends Bundle{
   val op = DebugDmToHartOp()
   val address = UInt(5 bits)
   val data = Bits(32 bits)
+  val size  = UInt(3 bits)
 }
 
 case class DebugHartToDm() extends Bundle{
@@ -28,7 +33,7 @@ case class DebugHartToDm() extends Bundle{
 
 case class DebugHartBus() extends Bundle with IMasterSlave {
   val halted, running, unavailable = Bool()
-  val exception, commit, ebreak, redo = Bool()  //Can only be set when the CPU is in debug mode
+  val exception, commit, ebreak, redo, regSuccess = Bool()  //Can only be set when the CPU is in debug mode
   val ackReset, haveReset = Bool()
   val resume = FlowCmdRsp()
   val haltReq = Bool()
@@ -37,7 +42,7 @@ case class DebugHartBus() extends Bundle with IMasterSlave {
   val hartToDm = Flow(DebugHartToDm())
 
   override def asMaster() = {
-    in(halted, running, unavailable, haveReset, exception, commit, ebreak, redo)
+    in(halted, running, unavailable, haveReset, exception, commit, ebreak, redo, regSuccess)
     master(resume)
     master(dmToHart)
     slave(hartToDm)
@@ -67,7 +72,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
   val factory = new DebugBusSlaveFactory(io.ctrl)
 
   val dmactive = factory.createReadAndWrite(Bool(), 0x10, 0) init(False)
-  val dmCd = ClockDomain(ClockDomain.current.clock, reset = dmactive, config = ClockDomain.current.config.copy(resetKind = SYNC, resetActiveLevel = LOW))
+  val dmCd = ClockDomain(ClockDomain.current.clock, reset = dmactive, config = ClockDomain.current.config.copy(resetKind = ASYNC, resetActiveLevel = LOW))
 
   val logic = dmCd on new Area{
     val dmcontrol = new Area {
@@ -87,7 +92,8 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val resumeReq = factory.setOnSet(False, 0x10, 30) clearWhen(haltSet)
       val ackhavereset = factory.setOnSet(False, 0x10, 28)
 
-      val hartSelAarsizeLimit = p.xlens.map(v => U(log2Up(v/8))).read(hartSel.resized)
+      val hartSelAarsizeLimit = p.hartsConfig.map(v => U(log2Up(v.xlen/8))).read(hartSel.resized)
+      val hartSelAarsizeLimitF = p.hartsConfig.map(v => U(log2Up(if(v.withFpuRegAccess) v.flen/8 else 0))).read(hartSel.resized)
 
       val harts = for((bus, hartId) <- io.harts.zipWithIndex) yield new Area{
         val haltReq = RegInit(False)
@@ -115,7 +121,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       def running = bus.running
       def unavailable = bus.unavailable
       def haveReset = bus.haveReset
-      bus.dmToHart << toHarts.throwWhen(toHarts.op === DebugDmToHartOp.EXECUTE && !sel)
+      bus.dmToHart << toHarts.throwWhen(toHarts.op =/= DebugDmToHartOp.DATA && !sel)
       bus.ackReset := RegNext(sel && dmcontrol.ackhavereset)
     }
 
@@ -124,9 +130,23 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val running = io.harts.map(_.running).read(hart)
       val halted = io.harts.map(_.halted).read(hart)
       val commit = io.harts.map(_.commit).read(hart)
+      val regSuccess = io.harts.map(_.regSuccess).read(hart)
       val exception = io.harts.map(_.exception).read(hart)
       val ebreak = io.harts.map(_.ebreak).read(hart)
       val redo = io.harts.map(_.redo).read(hart)
+    }
+
+    val haltsum = new Area{
+      assert(p.harts <= 32)
+      val value = U(0, 32 bits)
+      for(g <- 0 until (p.harts+31)/32){
+        when(dmcontrol.hartSel >> 5 === g){
+          for(hid <- g*32 to (g*32+31 min p.harts-1)){
+            value(hid%32) := harts(hid).halted
+          }
+        }
+      }
+      factory.read(value, 0x40)
     }
 
     val dmstatus = new Area{
@@ -213,7 +233,9 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
     }
 
     val command = new StateMachine{
-      val IDLE, DECODE, READ_REG, WRITE_REG, WAIT_DONE, POST_EXEC, POST_EXEC_WAIT = new State()
+      val withFpuAccess = p.hartsConfig.exists(_.withFpuRegAccess)
+      val IDLE, DECODE, READ_INT_REG, WRITE_INT_REG, WAIT_DONE, POST_EXEC, POST_EXEC_WAIT = new State()
+      val READ_FPU_REG, WRITE_FPU_REG = withFpuAccess generate new State()
 
       setEntry(IDLE)
       val executionCounter = Reg(UInt(log2Up(p.progBufSize) bits))
@@ -229,10 +251,10 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
           val aarsize = UInt(3 bits)
         }
         val args = data.as(Args())
-        val notSupported = args.aarsize > dmcontrol.hartSelAarsizeLimit || args.aarpostincrement || args.transfer && args.regno(5, 11 bits) =/= 0x1000 >> 5
+        val regnoMsk = if(withFpuAccess) 6 else 5
+        val transferFloat = args.regno(5)
+        val notSupported = args.aarsize > (transferFloat ? dmcontrol.hartSelAarsizeLimitF | dmcontrol.hartSelAarsizeLimit) || args.aarpostincrement || args.transfer && args.regno(regnoMsk, 16-regnoMsk bits) =/= 0x1000 >> regnoMsk
       }
-
-
 
       val request = commandRequest || abstractAuto.trigger
       when(request && abstractcs.busy && abstractcs.noError){
@@ -271,10 +293,20 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
                 goto(POST_EXEC)
               }
               when(access.args.transfer) {
-                when(access.args.write) {
-                  goto(WRITE_REG)
+                when(!access.args.regno(5)) {
+                  when(access.args.write) {
+                    goto(WRITE_INT_REG)
+                  } otherwise {
+                    goto(READ_INT_REG)
+                  }
                 } otherwise {
-                  goto(READ_REG)
+                  if(withFpuAccess) {
+                    when(access.args.write) {
+                      goto(WRITE_FPU_REG)
+                    } otherwise {
+                      goto(READ_FPU_REG)
+                    }
+                  }
                 }
               }
             }
@@ -294,11 +326,28 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         }
       }
 
-      writeInstruction(WRITE_REG     -> WAIT_DONE) (csrr(0, access.args.regno(4 downto 0)))
-      writeInstruction(READ_REG      -> WAIT_DONE) (csrw(0, access.args.regno(4 downto 0)))
+      writeInstruction(WRITE_INT_REG     -> WAIT_DONE) (csrr(0, access.args.regno(4 downto 0)))
+      writeInstruction(READ_INT_REG      -> WAIT_DONE) (csrw(0, access.args.regno(4 downto 0)))
+
+      toHarts.size := access.args.aarsize.resized
+      if(withFpuAccess) {
+        WRITE_FPU_REG.whenIsActive {
+          toHarts.valid := True
+          toHarts.op := DebugDmToHartOp.REG_WRITE
+          toHarts.address := access.args.regno.resized
+          goto(WAIT_DONE)
+        }
+
+        READ_FPU_REG.whenIsActive {
+          toHarts.valid := True
+          toHarts.op := DebugDmToHartOp.REG_READ
+          toHarts.address := access.args.regno.resized
+          goto(WAIT_DONE)
+        }
+      }
 
       WAIT_DONE.whenIsActive{
-        when(selected.commit){
+        when(selected.commit || selected.regSuccess){
           goto(IDLE)
           when(access.args.postExec){
             goto (POST_EXEC)

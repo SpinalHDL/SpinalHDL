@@ -125,9 +125,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   private[core] val level : Int = if(parent == null) 0 else parent.level + 1
   /** Contains an array of all children Component */
   val children = ArrayBuffer[Component]()
-  def walkComponents(body : Component => Unit) = {
+  def walkComponents(body : Component => Unit) : Unit = {
     body(this)
-    children.foreach(body)
+    children.foreach(_.walkComponents(body))
   }
 
   var traceEnabled = true

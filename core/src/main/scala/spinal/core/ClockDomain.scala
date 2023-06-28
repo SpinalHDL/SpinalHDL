@@ -43,6 +43,11 @@ case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag{
   override def allowMultipleInstance = false
 }
 
+case class ClockDomainReportTag(clockDomain: ClockDomain) extends SpinalTag{
+  override def toString = s"ClockDomainReportTag($clockDomain)"
+  override def allowMultipleInstance = true
+}
+
 sealed trait ClockDomainBoolTag extends SpinalTag{
   override def allowMultipleInstance = true
 }
@@ -59,12 +64,19 @@ case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind 
     case `ASYNC` | `SYNC` => true
     case _                => false
   }
+
+  def resetAssertValue = resetActiveLevel match {
+    case HIGH => True
+    case LOW => False
+  }
 }
 
 
 object ClockDomain {
 
-
+  val crossClockBufferPushToPopResetGen = new ScopeProperty[Boolean]{
+    override def default: Boolean = true
+  }
 
   /**
     *  Create a local clock domain with `name` as prefix. clock, reset, clockEnable signals should be assigned by your care.

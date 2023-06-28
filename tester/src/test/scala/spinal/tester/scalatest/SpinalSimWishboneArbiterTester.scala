@@ -45,7 +45,7 @@ case class WishboneMemoryHarness(config: WishboneConfig, size: Int) extends Comp
   ack := rEn & !ack
 }
 
-class SpinalSimWishboneArbiterTester extends AnyFunSuite{
+class SpinalSimWishboneArbiterTester extends SpinalAnyFunSuite{
   def testArbiter(config : WishboneConfig,size: Int,description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneArbiterComponent(config,size))
     fixture.doSim(description){ dut =>

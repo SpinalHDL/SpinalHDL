@@ -198,15 +198,15 @@ class ComponentEmitterVhdl(
     //Wrap expression which need it
     cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
-    component.dslBody.walkStatements{ s =>
-      s.walkExpression{ e =>
-        if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
-          var sName = s match {
-            case s : AssignmentStatement => "_" + s.dlcParent.getName()
-            case s : WhenStatement => "_when"
-            case s : SwitchContext => "_switch"
-            case s : Nameable => "_" + s.getName()
-            case s : MemPortStatement =>  "_" + s.dlcParent.getName() + "_port"
+    component.dslBody.walkStatements { s =>
+      s.walkExpression { e =>
+        if (!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)) {
+          val sName = s match {
+            case s: AssignmentStatement => "_" + s.dlcParent.getName()
+            case _: WhenStatement => "_when"
+            case _: SwitchContext => "_switch"
+            case s: MemPortStatement => "_" + s.dlcParent.getName() + "_port"
+            case s: Nameable => "_" + s.getName()
             case _ => ""
           }
 
@@ -222,13 +222,13 @@ class ComponentEmitterVhdl(
     }
 
     //Wrap inout
-    analogs.foreach(io => {
-      io.foreachStatements{
-        case AssignmentStatement(target, source: BaseType) =>
-          referencesOverrides(source) = emitAssignedExpression(target)
-        case _ =>
-      }
-    })
+//    analogs.foreach(io => {
+//      io.foreachStatements{
+//        case AssignmentStatement(target, source: BaseType) =>
+//          referencesOverrides(source) = emitAssignedExpression(target)
+//        case _ =>
+//      }
+//    })
 
     //Flush all that mess out ^^
     emitBlackBoxComponents()
@@ -277,11 +277,20 @@ class ComponentEmitterVhdl(
       emitAttributes(child.getName(), child.instanceAttributes, "label", declarations, "")
     }
 
+    val analogDrivers = mutable.LinkedHashMap[BaseType, ArrayBuffer[AssignmentStatement]]()
+    for(analog <- analogs) analog.foreachStatements{s =>
+      s.walkDrivingExpressions{
+        case e : BaseType => analogDrivers.getOrElseUpdate(e, ArrayBuffer[AssignmentStatement]()) += s
+        case _ =>
+      }
+    }
+
     for (children <- component.children) {
       val isBB             = children.isInstanceOf[BlackBox] && children.asInstanceOf[BlackBox].isBlackBox
       val isBBUsingULogic        = isBB && children.asInstanceOf[BlackBox].isUsingULogic
       val isBBUsingNoNumericType = isBB && children.asInstanceOf[BlackBox].isUsingNoNumericType
       val definitionString = if (isBB) children.definitionName else s"entity work.${getOrDefault(emitedComponentRef, children, children).definitionName}"
+      val postBb = new StringBuilder()
       logics ++= commentTagsToString(children, "  --")
       logics ++= s"  ${
         children.getName()
@@ -290,23 +299,33 @@ class ComponentEmitterVhdl(
 
       def addCasting(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
 
+        def wrapIo(t : String, body : String => String): String ={
+          val wrap = s"${children.getName()}_${logic}_bb_wrap"
+          declarations ++= s"  signal $wrap : $t${if(!bt.isInstanceOf[Bool]) s"(${bt.getBitsWidth-1} downto 0)" else ""};\n"
+          postBb ++= s"  ${body(wrap)};\n"
+          s"      $io => $wrap,\n"
+        }
+        def wrapTo(t : String) = wrapIo(t, w => s"$w <= $t($logic)")
+        def wrapFrom(t : String, t2 : String) = wrapIo(t, w => s"$logic <= $t2($w)")
         if (isBBUsingULogic || isBBUsingNoNumericType) {
           if (dir == in) {
             bt match {
-              case _: Bool if isBBUsingULogic                            => return s"      $io => std_ulogic($logic),\n"
-              case _: Bits if isBBUsingULogic                            => return s"      $io => std_ulogic_vector($logic),\n"
-              case _: UInt if isBBUsingNoNumericType && !isBBUsingULogic => return s"      $io => std_logic_vector($logic),\n"
-              case _: UInt if isBBUsingNoNumericType &&  isBBUsingULogic => return s"      $io => std_ulogic_vector($logic),\n"
-              case _: SInt if isBBUsingNoNumericType && !isBBUsingULogic => return s"      $io => std_logic_vector($logic),\n"
-              case _: SInt if isBBUsingNoNumericType &&  isBBUsingULogic  => return s"      $io => std_ulogic_vector($logic),\n"
+              case _: Bool if isBBUsingULogic                            => return wrapTo("std_ulogic")
+              case _: Bits if isBBUsingULogic                            => return wrapTo("std_ulogic_vector")
+              case _: UInt if isBBUsingNoNumericType && !isBBUsingULogic => return wrapTo("std_logic_vector")
+              case _: UInt if isBBUsingNoNumericType &&  isBBUsingULogic => return wrapTo("std_ulogic_vector")
+              case _: SInt if isBBUsingNoNumericType && !isBBUsingULogic => return wrapTo("std_logic_vector")
+              case _: SInt if isBBUsingNoNumericType &&  isBBUsingULogic => return wrapTo("std_ulogic_vector")
               case _                                                     => return s"      $io => $logic,\n"
             }
           } else if (dir == out) {
             bt match {
-              case _: Bool if isBBUsingULogic => return s"      std_logic($io) => $logic,\n"
-              case _: Bits if isBBUsingULogic => return s"      std_logic_vector($io) => $logic,\n"
-              case _: UInt if isBBUsingNoNumericType => return s"      unsigned($io) => $logic,\n"
-              case _: SInt if isBBUsingNoNumericType  => return s"      signed($io) => $logic,\n"
+              case _: Bool if isBBUsingULogic => return wrapFrom("std_ulogic", "std_logic")
+              case _: Bits if isBBUsingULogic => return wrapFrom("std_ulogic_vector", "std_logic_vector")
+              case _: UInt if isBBUsingNoNumericType && !isBBUsingULogic => return wrapFrom("std_logic_vector", "unsigned")
+              case _: UInt if isBBUsingNoNumericType &&  isBBUsingULogic => return wrapFrom("std_ulogic_vector", "unsigned")
+              case _: SInt if isBBUsingNoNumericType && !isBBUsingULogic => return wrapFrom("std_logic_vector", "signed")
+              case _: SInt if isBBUsingNoNumericType &&  isBBUsingULogic => return wrapFrom("std_ulogic_vector", "signed")
               case _                          => return s"      $io => $logic,\n"
             }
           }else{
@@ -348,7 +367,26 @@ class ComponentEmitterVhdl(
       for (data <- children.getOrdredNodeIo) {
         if (!data.isInstanceOf[SpinalStruct]) {
           val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
-          logics ++= addCasting(data, emitReferenceNoOverrides(data), logic , data.dir)
+          if(data.isInOut){
+            val buf = new mutable.StringBuilder()
+            analogDrivers.get(data) match {
+              case Some(statements) => {
+                case class Mapping(offset : Int, width : Int, dst : Expression)
+                val mapping = statements.map{ s =>
+                  val subio = s.source match {
+                    case bt : BaseType => emitExpression(bt)
+                    case e : BitVectorBitAccessFixed => s"${emitExpression(e.source)}(${e.bitId})"
+                    case e : BitVectorRangedAccessFixed => s"${emitExpression(e.source)}(${e.hi} downto ${e.lo})"
+                  }
+                  logics ++= addCasting(data, subio, emitAssignedExpression(s.target), data.dir)
+                }
+              }
+              case None =>
+            }
+
+          } else {
+            logics ++= addCasting(data, emitReferenceNoOverrides(data), logic, data.dir)
+          }
         }
       }
 
@@ -356,6 +394,10 @@ class ComponentEmitterVhdl(
 
       logics ++= s"    );"
       logics ++= s"\n"
+      if(postBb.nonEmpty) {
+        logics ++= postBb.toString()
+        logics ++= s"\n"
+      }
     }
   }
 
@@ -1263,15 +1305,15 @@ class ComponentEmitterVhdl(
   }
 
   def emitBitsLiteral(e: BitsLiteral): String = {
-    s"pkg_stdLogicVector(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
+    s"pkg_stdLogicVector(${'\"'}${e.getBitsStringOn(e.getWidth, if(spinalConfig.dontCareGenAsZero) '0' else 'X')}${'\"'})"
   }
 
   def emitUIntLiteral(e: UIntLiteral): String = {
-    s"pkg_unsigned(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
+    s"pkg_unsigned(${'\"'}${e.getBitsStringOn(e.getWidth, if(spinalConfig.dontCareGenAsZero) '0' else 'X')}${'\"'})"
   }
 
   def emitSIntLiteral(e : SIntLiteral): String = {
-    s"pkg_signed(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
+    s"pkg_signed(${'\"'}${e.getBitsStringOn(e.getWidth, if(spinalConfig.dontCareGenAsZero) '0' else 'X')}${'\"'})"
   }
 
   def emitEnumLiteralWrap(e: EnumLiteral[_  <: SpinalEnum]): String = {
@@ -1327,7 +1369,7 @@ class ComponentEmitterVhdl(
     if(dc.encoding.isNative)
       dc.senum.elements.head.getName()
     else
-      s"(${'"'}${"X" * dc.encoding.getWidth(dc.senum)}${'"'})"
+      s"(${'"'}${(if(spinalConfig.dontCareGenAsZero) "0" else "X") * dc.encoding.getWidth(dc.senum)}${'"'})"
   }
 
   def accessBoolFixed(e: BitVectorBitAccessFixed): String = {
@@ -1355,7 +1397,7 @@ class ComponentEmitterVhdl(
     case  e: SIntLiteral                             => emitSIntLiteral(e)
     case  e: EnumLiteral[_]                          => emitEnumLiteralWrap(e)
 
-    case  e: BoolPoison                              => "'X'"
+    case  e: BoolPoison                              => (if(spinalConfig.dontCareGenAsZero) "'0'" else "'X'")
     case  e: EnumPoison                              => emitEnumPoison(e)
 
     //unsigned
