@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.system.tag._
+import scala.collection.Seq
 
 
 case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,

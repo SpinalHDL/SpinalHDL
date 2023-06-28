@@ -29,7 +29,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
 
   override def onA(a: TransactionA) = fork{
     val r = Random.nextFloat()
-    cd.waitSampling(r*r*20 toInt) //Will enable out of order handeling
+    cd.waitSampling((r*r*20).toInt) //Will enable out of order handeling
     val blockAddress = a.address.toLong & ~(blockSize-1)
     reserve(blockAddress)
     a.opcode match {

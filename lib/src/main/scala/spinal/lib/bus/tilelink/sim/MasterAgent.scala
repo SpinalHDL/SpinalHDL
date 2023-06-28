@@ -5,7 +5,7 @@ import spinal.core.sim._
 import spinal.lib.bus.tilelink._
 import spinal.lib.sim.{StreamDriver, StreamDriverOoo, StreamMonitor, StreamReadyRandomizer}
 
-import scala.collection.{breakOut, mutable}
+import scala.collection.mutable
 import scala.util.Random
 
 class OrderingArgs(val offset : Int, val bytes : Int){

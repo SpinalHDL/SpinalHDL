@@ -5,7 +5,9 @@ import spinal.lib._
 import spinal.lib.bus.misc.{AddressMapping, AddressTransformer, DefaultMapping}
 import spinal.lib.logic.{Masked, Symplify}
 
+
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.Seq
 
 object Decoder{
   def upNodeFrom(downs : Seq[NodeParameters]) : NodeParameters = {

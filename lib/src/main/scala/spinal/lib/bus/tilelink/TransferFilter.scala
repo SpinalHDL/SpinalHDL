@@ -7,6 +7,7 @@ import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib.bus.tilelink.fabric._
 import spinal.lib.logic.{Masked, Symplify}
 import spinal.lib.system.tag.{MappedNode, MappedTransfers, MemoryConnection, MemoryTransfers}
+import scala.collection.Seq
 
 import scala.collection.mutable.ArrayBuffer
 

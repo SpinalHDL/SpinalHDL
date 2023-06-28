@@ -3,7 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.AddressMapping
-
+import scala.collection.Seq
 import scala.util.Random
 
 

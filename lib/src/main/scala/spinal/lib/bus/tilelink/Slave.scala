@@ -3,6 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
+import scala.collection.Seq
 
 
 case class S2mTransfers(probe:      SizeRange = SizeRange.none,

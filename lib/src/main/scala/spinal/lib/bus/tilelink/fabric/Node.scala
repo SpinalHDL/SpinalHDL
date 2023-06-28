@@ -6,7 +6,7 @@ import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, InvertMapping, OrMap
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink
 import spinal.lib.system.tag._
-
+import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
 object Node{
@@ -38,11 +38,11 @@ class Node() extends NodeBase {
   //Will negociate the m2s/s2m handles, then generate the arbiter / decoder required to connect the ups / downs connections
   val thread = Fiber build new Composite(this, weak = false) {
     // Specify which Handle will be loaded by the current thread, as this help provide automated error messages
-    soon(ups.map(_.down.bus) :_*)
-    soon(downs.map(_.up.bus) :_*)
-    soon(downs.map(_.up.m2s.parameters) :_*)
-    soon(ups.map(_.down.s2m.parameters) :_*)
-    soon(ups.map(_.down.bus) :_*)
+    soon(ups.map(_.down.bus))
+    soon(downs.map(_.up.bus))
+    soon(downs.map(_.up.m2s.parameters))
+    soon(ups.map(_.down.s2m.parameters))
+    soon(ups.map(_.down.bus))
     soon(
       bus
     )

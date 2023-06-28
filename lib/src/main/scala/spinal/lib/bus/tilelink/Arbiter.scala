@@ -2,6 +2,7 @@ package spinal.lib.bus.tilelink
 
 import spinal.core._
 import spinal.lib._
+import scala.collection.Seq
 
 object Arbiter{
   def downMastersFrom(ups : Seq[M2sParameters]) : M2sParameters = {

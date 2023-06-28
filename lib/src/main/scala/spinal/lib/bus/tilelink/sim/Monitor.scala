@@ -6,7 +6,6 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.sim.{StreamDriver, StreamDriverOoo, StreamMonitor, StreamReadyRandomizer}
 
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.{breakOut, mutable}
 import scala.util.Random
 
 

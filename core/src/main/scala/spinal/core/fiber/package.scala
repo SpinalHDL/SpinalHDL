@@ -1,6 +1,7 @@
 package spinal.core
 
 import spinal.sim.{JvmThread, JvmThreadUnschedule}
+import scala.collection.Seq
 
 package object fiber {
   class HardForkApi {
@@ -22,8 +23,14 @@ package object fiber {
     (ret, t)
   }
 
-  def soon(that : Handle[_]*)  : Unit = {
+  def soon(that : Seq[Handle[_]])  : Unit = {
     val t = Engine.get.currentAsyncThread
     that.foreach(t.addSoonHandle(_))
+  }
+
+  def soon(that : Handle[_], others : Handle[_]*)  : Unit = {
+    val t = Engine.get.currentAsyncThread
+    t.addSoonHandle(that)
+    others.foreach(t.addSoonHandle(_))
   }
 }
