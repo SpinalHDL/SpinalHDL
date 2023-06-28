@@ -1295,7 +1295,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
 
   // check a condition against all valid payloads in the FIFO RAM
   def formalCheckRam(cond: T => Bool): Vec[Bool] = this rework new Composite(this){
-    val condition = (0 until depth).map(x => cond(logic.ram(x)))
+    val condition = (0 until depth).map(x => cond(if (useVec) logic.vec(x) else logic.ram(x)))
     // create mask for all valid payloads in FIFO RAM
     // inclusive [popd_idx, push_idx) exclusive
     // assume FIFO RAM is full with valid payloads
