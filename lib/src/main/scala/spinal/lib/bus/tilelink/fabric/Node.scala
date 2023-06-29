@@ -246,6 +246,9 @@ class Node() extends NodeBase {
       body(c)
       c
     }
+    def of(m : Node, others : Node*): Unit= {
+      (m :: others.toList).foreach(e => body(Node.connect(e, Node.this)))
+    }
   }
   def at(address : BigInt) = new At(_.mapping.automatic = Some(address))
   def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
