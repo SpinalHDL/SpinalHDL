@@ -1091,14 +1091,17 @@ object StreamFifo{
 }
 
 /**
-  * Improved StreamFifo over the original implementation
+  * Fully redesigned in release 1.8.2 allowing improved timing closure.
   * - latency of 0, 1, 2 cycles
-  * - Better timings
   *
   * @param dataType
   * @param depth Number of element stored in the fifo, Note that if withAsyncRead==false, then one extra transaction can be stored
   * @param withAsyncRead Read the memory using asyncronous read port (ex distributed ram). If false, add 1 cycle latency
   * @param withBypass Bypass the push port to the pop port when the fifo is empty. If false, add 1 cycle latency
+  *                   Only available if withAsyncRead == true
+  * @param forFMax Tune the design to get the maximal clock frequency
+  * @param useVec Use an Vec of register instead of a Mem to store the content
+  *               Only available if withAsyncRead == true
   */
 class StreamFifo[T <: Data](val dataType: HardType[T],
                             val depth: Int,
@@ -1108,8 +1111,9 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
                             val forFMax : Boolean = false,
                             val useVec : Boolean = false) extends Component {
   require(depth >= 0)
-  // bypass not supported for sync read case
-  if(!withAsyncRead) require(!withBypass)
+  
+  if(withBypass) require(withAsyncRead)
+  if(useVec) require (withAsyncRead)
 
   val io = new Bundle with StreamFifoInterface[T]{
     val push = slave Stream (dataType)
