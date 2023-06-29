@@ -177,8 +177,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Connect this to a fifo and return its pop stream
   */
-  def queue(size: Int): Stream[T] = new Composite(this){
-    val fifo = new StreamFifo(payloadType, size)
+  def queue(size: Int, latency : Int = 2, forFMax : Boolean = false): Stream[T] = new Composite(this){
+    val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax)
     fifo.io.push << self
   }.fifo.io.pop
 
@@ -192,14 +192,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Connect this to a fifo and return its pop stream and its occupancy
   */
-  def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithOccupancy", true)
+  def queueWithOccupancy(size: Int, latency : Int = 2, forFMax : Boolean = false): (Stream[T], UInt) = {
+    val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax).setCompositeName(this,"queueWithOccupancy", true)
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.occupancy)
   }
 
-  def queueWithAvailability(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithAvailability", true)
+  def queueWithAvailability(size: Int, latency : Int = 2, forFMax : Boolean = false): (Stream[T], UInt) = {
+    val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax).setCompositeName(this,"queueWithAvailability", true)
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.availability)
   }
@@ -1087,7 +1087,19 @@ trait StreamFifoInterface[T <: Data]{
 }
 
 object StreamFifo{
-  def apply[T <: Data](dataType: T, depth: Int) = new StreamFifo(dataType,depth)
+  def apply[T <: Data](dataType: HardType[T],
+                       depth: Int,
+                       latency : Int = 2,
+                       forFMax : Boolean = false) = {
+    assert(latency >= 0 && latency <= 2)
+    new StreamFifo(
+      dataType,
+      depth,
+      withAsyncRead = latency < 2,
+      withBypass = latency == 0,
+      forFMax = forFMax
+    )
+  }
 }
 
 /**
@@ -1111,7 +1123,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
                             val forFMax : Boolean = false,
                             val useVec : Boolean = false) extends Component {
   require(depth >= 0)
-  
+
   if(withBypass) require(withAsyncRead)
   if(useVec) require (withAsyncRead)
 
