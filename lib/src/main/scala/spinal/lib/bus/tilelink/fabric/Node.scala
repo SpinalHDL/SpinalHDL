@@ -38,14 +38,7 @@ class Node() extends NodeBase {
   //Will negociate the m2s/s2m handles, then generate the arbiter / decoder required to connect the ups / downs connections
   val thread = Fiber build new Composite(this, weak = false) {
     // Specify which Handle will be loaded by the current thread, as this help provide automated error messages
-    soon(ups.map(_.down.bus))
-    soon(downs.map(_.up.bus))
-    soon(downs.map(_.up.m2s.parameters))
-    soon(ups.map(_.down.s2m.parameters))
-    soon(ups.map(_.down.bus))
-    soon(
-      bus
-    )
+    soon(bus)
     if(withUps) soon(
       m2s.proposed,
       m2s.parameters,
@@ -56,8 +49,13 @@ class Node() extends NodeBase {
       s2m.parameters,
       s2m.proposed
     )
-
     await()
+    soon(ups.map(_.down.bus))
+    soon(downs.map(_.up.bus))
+    soon(downs.map(_.up.m2s.parameters))
+    soon(ups.map(_.down.s2m.parameters))
+    soon(ups.map(_.down.bus))
+    
     if(withDowns && downs.isEmpty) SpinalError(s"${getName()} has no slave")
     if(!withDowns && downs.nonEmpty) SpinalError(s"${getName()} has slaves")
 
@@ -133,14 +131,12 @@ class Node() extends NodeBase {
         // s2m.proposed <- downs.s2m.proposed
         if(withDowns) {
           val fromDowns = downs.map(_.s.s2m.proposed.get).reduce(_ mincover _)
-          //        val modified = s2m.proposedModifiers.foldLeft(fromDowns)((e, f) => f(e))
           s2m.proposed load fromDowns
         }
 
         // s2m.supported <- ups.s2m.supported
         if(withUps) {
           val fromUps = ups.map(_.m.s2m.supported.get).reduce(_ mincover _)
-          //        val modified = m2s.supportedModifiers.foldLeft(addressConstrained)((e, f) => f(e))
           s2m.supported load fromUps
         }
 
@@ -151,7 +147,6 @@ class Node() extends NodeBase {
 
         //ups.arbiter.s2m.parameters <- s2m.parameters
         for(up <- ups){
-          //        up.arbiter.s2m.parameters.load(s2m.parameters)
           up.down.s2m.parameters.load(Arbiter.upSlaveFrom(s2m.parameters, up.m.s2m.supported))
         }
       }
