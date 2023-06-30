@@ -122,24 +122,109 @@ object Bench {
       })
     }
 
-    val rtls = List(fifo128)
+    import spinal.lib._
+    val rtls = List(128, 1024).map(depth => Rtl(SpinalVerilog(new Component {
+      setDefinitionName(s"fifo$depth")
+      val push = slave Stream(Bits(32 bits))
+      val pop = master Stream(Bits(32 bits))
 
-//    val targets = AlteraStdTargets(
-//      quartusCycloneIIPath = "D:/altera/13.0sp1/quartus/bin64",
-//      quartusCycloneIVPath = "D:/altera_lite/15.1/quartus/bin64",
-//      quartusCycloneVPath  = "D:/altera_lite/15.1/quartus/bin64"
-//    ) ++ XilinxStdTargets(
-//      vivadoArtix7Path = "E:\\Xilinx\\Vivado\\2016.3\\bin"
-//    )
+      val f = new StreamFifo(Bits(32 bits), depth)
+      f.logic.ram.addAttribute("ram_style", "block")
+      f.io.push << push.halfPipe()
+      f.io.pop.halfPipe() >> pop
+    })))
 
-//    val targets =  XilinxStdTargets(
-//      vivadoArtix7Path = "/media/miaou/HD/linux/Xilinx/Vivado/2018.3/bin"
-//    )
-    val targets = AlteraStdTargets(
-      quartusCycloneIVPath = "/media/miaou/HD/linux/intelFPGA_lite/18.1/quartus/bin",
-      quartusCycloneVPath  = "/media/miaou/HD/linux/intelFPGA_lite/18.1/quartus/bin"
-    )
-    Bench(rtls, targets, "/media/miaou/HD/linux/tmp")
+    //    val targets = AlteraStdTargets(
+    //      quartusCycloneIIPath = "D:/altera/13.0sp1/quartus/bin64",
+    //      quartusCycloneIVPath = "D:/altera_lite/15.1/quartus/bin64",
+    //      quartusCycloneVPath  = "D:/altera_lite/15.1/quartus/bin64"
+    //    ) ++ XilinxStdTargets(
+    //      vivadoArtix7Path = "E:\\Xilinx\\Vivado\\2016.3\\bin"
+    //    )
+
+    val targets =  XilinxStdTargets() ++ AlteraStdTargets()
+    Bench(rtls, targets)
+
+    /*
+    fifo128 ->
+Artix 7 -> 242 Mhz 23 LUT 50 FF
+Artix 7 -> 335 Mhz 32 LUT 50 FF
+Cyclone V -> 216 Mhz 23 ALMs
+Cyclone IV -> 219 Mhz 30 LUT 50 FF
+fifo1024 ->
+Artix 7 -> 195 Mhz 36 LUT 56 FF
+Artix 7 -> 263 Mhz 45 LUT 56 FF
+Cyclone V -> 195 Mhz 26 ALMs
+Cyclone IV -> 205 Mhz 40 LUT 56 FF
+
+fifo128 ->
+Artix 7 -> 243 Mhz 29 LUT 50 FF
+Artix 7 -> 354 Mhz 38 LUT 50 FF
+Cyclone V -> 249 Mhz 30 ALMs
+Cyclone IV -> 250 Mhz 51 LUT 50 FF
+fifo1024 ->
+Artix 7 -> 240 Mhz 41 LUT 56 FF
+Artix 7 -> 285 Mhz 48 LUT 56 FF
+Cyclone V -> 216 Mhz 41 ALMs
+Cyclone IV -> 217 Mhz 68 LUT 56 FF
+
+fifo128 ->
+Artix 7 -> 248 Mhz 32 LUT 63 FF
+Artix 7 -> 357 Mhz 37 LUT 63 FF
+Cyclone V -> 275 Mhz 30 ALMs
+Cyclone IV -> 250 Mhz 49 LUT 63 FF
+fifo1024 ->
+Artix 7 -> 251 Mhz 41 LUT 75 FF
+Artix 7 -> 296 Mhz 48 LUT 75 FF
+Cyclone V -> 230 Mhz 39 ALMs
+Cyclone IV -> 227 Mhz 68 LUT 75 FF
+
+fifo128 ->
+Artix 7 -> 374 Mhz 23 LUT 51 FF
+Artix 7 -> 415 Mhz 29 LUT 51 FF
+Cyclone V -> 275 Mhz 23 ALMs
+Cyclone IV -> 226 Mhz 72 LUT 195 FF
+fifo1024 ->
+Artix 7 -> 250 Mhz 29 LUT 57 FF
+Artix 7 -> 347 Mhz 33 LUT 57 FF
+Cyclone V -> 275 Mhz 26 ALMs
+Cyclone IV -> 235 Mhz 82 LUT 207 FF
+
+fifo128 ->
+Artix 7 -> 297 Mhz 25 LUT 59 FF
+Artix 7 -> 420 Mhz 31 LUT 59 FF
+Cyclone V -> 275 Mhz 24 ALMs
+Cyclone IV -> 243 Mhz 76 LUT 203 FF
+fifo1024 ->
+Artix 7 -> 265 Mhz 31 LUT 68 FF
+Artix 7 -> 364 Mhz 33 LUT 68 FF
+Cyclone V -> 275 Mhz 31 ALMs
+Cyclone IV -> 234 Mhz 89 LUT 218 FF
+
+
+X
+fifo128 ->
+Artix 7 -> 374 Mhz 83 LUT 228 FF
+Artix 7 -> 444 Mhz 119 LUT 228 FF
+Cyclone V -> 263 Mhz 87 ALMs
+fifo1024 ->
+Artix 7 -> 355 Mhz 98 LUT 237 FF
+Artix 7 -> 435 Mhz 134 LUT 237 FF
+Cyclone V -> 275 Mhz 92 ALMs
+
+
+fifo128 ->
+Artix 7 -> 437 Mhz 52 LUT 65 FF
+Artix 7 -> 447 Mhz 59 LUT 65 FF
+Cyclone V -> 275 Mhz 50 ALMs
+
+fifo1024 ->
+Artix 7 -> 382 Mhz 70 LUT 77 FF
+Artix 7 -> 454 Mhz 79 LUT 77 FF
+Cyclone V -> 275 Mhz 68 ALMs
+
+
+     */
   }
 
   def compressIo[T <: Component](c : T) : T = {
