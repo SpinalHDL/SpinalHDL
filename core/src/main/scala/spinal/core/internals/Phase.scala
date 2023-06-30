@@ -354,9 +354,11 @@ class PhaseAnalog extends PhaseNetlist{
                   case (None, Some(island)) => island
                   case (Some(island), None) => island
                   case (Some(islandBt), Some(islandY)) =>
-                    for (e <- islandY.elements) bitToIsland(e.bt -> e.bitId) = islandBt
-                    islandBt.absorb(islandY)
-                    islands.remove(islandY)
+                    if(islandBt != islandY) {
+                      for (e <- islandY.elements) bitToIsland(e.bt -> e.bitId) = islandBt
+                      islandBt.absorb(islandY)
+                      islands.remove(islandY)
+                    }
                     islandBt
                 }
 
@@ -2564,6 +2566,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
       binarySequential
       binaryOneHot
       val top = gen
+      fiber.hardFork(ctx.globalData.elab.runSync())
       if(top.isInBlackBoxTree){
         SpinalError(s"The toplevel can't be a BlackBox (${top.getClass.getSimpleName})")
       }
