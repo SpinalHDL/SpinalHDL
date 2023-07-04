@@ -2059,16 +2059,12 @@ class StreamTransactionCounter(
 
     def formalAsserts() = new Composite(this, "asserts") {
       val startedReg = Reg(Bool()) init False
-      val started = CombInit(startedReg)
-      val waiting = io.working & !started
       when(io.targetFire & io.working) {
-        started := True
         startedReg := True
       }
       when(done) { startedReg := False }
+      assert(startedReg === (counter.value > 0))
 
-      when(startedReg) { assert(io.working && counter.value > 0) }
-      when(counter.value > 0) { assert(started) }
       when(!io.working) { assert(counter.value === 0) }
       assert(counter.value <= expected)
     }
