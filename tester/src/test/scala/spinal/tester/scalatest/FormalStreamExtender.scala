@@ -119,27 +119,27 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
         val reset = ClockDomain.current.isResetActive
         assumeInitial(reset)
 
-        val countHist = History(count, 2, inStream.fire, init = count.getZero)
-
-        when(pastValid & past(!reset & inStream.fire)) { assert(dut.io.working) }
-        when(pastValid & past(dut.io.done & !inStream.fire)) { assert(!dut.io.working) }
-
-        when(dut.io.done) { assert(dut.counter.counter.value >= countHist(1)) }
-        when(dut.io.working) {
-          assert(countHist(1) === dut.counter.expected) // key to sync verification logic and internal logic.
-          when(dut.counter.counter.value === countHist(1) & outStream.fire) { assert(dut.io.done) }
-          when(!dut.io.done) { assert(!inStream.ready) }
-        }
-        cover(inStream.fire & outStream.fire & dut.io.done)
-        cover(pastValid & past(dut.io.working) & !dut.io.working)
-
         inStream.formalAssumesSlave()
         outStream.formalAssertsMaster()
+
+        when(pastValidAfterReset & past(inStream.fire)) { assert(dut.io.working) }
+        when(pastValidAfterReset & past(dut.io.done & !inStream.fire)) { assert(!dut.io.working) }
+
+        val countHist = History(count, 2, inStream.fire, init = count.getZero)
+        assert(dut.io.done === (dut.counter.counter.value === countHist(1) & outStream.fire))
+        when(dut.io.working) {
+          assert(countHist(1) === dut.counter.expected) // key to sync verification logic and internal logic.
+          assert(dut.counter.counter.value <= dut.counter.expected)
+        }.otherwise{
+          assert(dut.counter.counter.value === 0)
+        }
 
         for(i <- 1 until 2) {
           inStream.formalCovers(i)
           outStream.formalCovers(i)
         }
+        cover(inStream.fire & outStream.fire & dut.io.done)
+        cover(pastValidAfterReset & past(dut.io.working) & !dut.io.working)
       })
   }
   
