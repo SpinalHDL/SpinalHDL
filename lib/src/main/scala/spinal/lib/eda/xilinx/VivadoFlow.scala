@@ -42,7 +42,7 @@ object VivadoFlow {
 s"""${readRtl}
 read_xdc doit.xdc
 
-synth_design -part $device -top ${rtl.getTopModuleName()}
+synth_design -mode out_of_context -part $device -top ${rtl.getTopModuleName()}
 opt_design
 place_design
 route_design
