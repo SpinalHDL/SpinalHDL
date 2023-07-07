@@ -74,7 +74,9 @@ case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind 
 
 object ClockDomain {
 
-
+  val crossClockBufferPushToPopResetGen = new ScopeProperty[Boolean]{
+    override def default: Boolean = true
+  }
 
   /**
     *  Create a local clock domain with `name` as prefix. clock, reset, clockEnable signals should be assigned by your care.

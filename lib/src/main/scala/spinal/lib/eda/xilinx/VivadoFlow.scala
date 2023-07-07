@@ -24,7 +24,7 @@ object VivadoFlow {
    * @return Report
    */
   def apply(vivadoPath: String, workspacePath: String, rtl: Rtl, family: String, device: String, frequencyTarget: HertzNumber = null, processorCount: Int = 1): Report = {
-    val targetPeriod = (if (frequencyTarget != null) frequencyTarget else 400 MHz).toTime
+    val targetPeriod = (if (frequencyTarget != null) frequencyTarget else 500 MHz).toTime
 
     val workspacePathFile = new File(workspacePath)
     FileUtils.deleteDirectory(workspacePathFile)

@@ -115,22 +115,22 @@ case class ClockDomainResetGeneratorV2() extends ClockDomainResetGeneratorIf {
 
     val duration = holdDuration.get
     val holdingLogic = (duration != 0) generate new ClockingArea(inputClockDomain.withoutReset().copy(
-      reset = doAsyncReset,
+      reset = spinal.lib.ResetCtrl.asyncAssertSyncDeassert(
+        doAsyncReset,
+        inputClockDomain,
+        inputPolarity = spinal.core.HIGH,
+        outputPolarity = spinal.core.HIGH
+      ),
       config = inputClockDomain.config.copy(resetKind = ASYNC, resetActiveLevel = HIGH)
     )){
-      val resetCounter = Reg(UInt(log2Up(duration) + 1 bits))
+      val resetCounter = Reg(UInt(log2Up(duration) + 1 bits)) init(0)
       val doIt = !resetCounter.msb
 
       when(doIt) {
         resetCounter := resetCounter + 1
       }
 
-      val clear = spinal.lib.ResetCtrl.asyncAssertSyncDeassert(
-        doHoldReset,
-        inputClockDomain,
-        inputPolarity = spinal.core.HIGH,
-        outputPolarity = spinal.core.HIGH
-      )
+      val clear = inputClockDomain on BufferCC(doHoldReset)
       when(clear){
         resetCounter := 0
       }

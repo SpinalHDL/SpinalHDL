@@ -591,6 +591,13 @@ object Operator {
       }
       override def calcWidth: Int = Math.max(0, source.getWidth - shift)
       override def toString() = s"(${super.toString()})[$getWidth bits]"
+      override def simplifyNode: Expression = {
+        if(shift == 0){
+          source
+        } else {
+          this
+        }
+      }
     }
 
     abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator {
@@ -2452,7 +2459,7 @@ abstract class BitVectorLiteral() extends Literal with WidthProvider {
     val hexCount = scala.math.ceil(bitCount/4.0).toInt
     val alignCount = if (aligin) (hexCount * 4) else bitCount
     val unsignedValue = if(value >= 0) value else ((BigInt(1) << alignCount) + value)
-    if(value == 0) "0" else s"%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
+    s"%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
   }
 
 

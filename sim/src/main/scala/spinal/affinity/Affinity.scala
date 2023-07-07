@@ -1,7 +1,7 @@
 package spinal.affinity
 
 object Affinity {
-  var warningFired = false
+  var warningFired = System.getProperty("os.name").contains("Win")
   def apply(cpuId : Int) {
     try {
       if(!warningFired) net.openhft.affinity.Affinity.setAffinity(cpuId)

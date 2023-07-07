@@ -90,6 +90,11 @@ class SpinalSimFunSuite extends SpinalAnyFunSuite{
     iverilogEnabled = false
     ghdlEnabled = false
   }
+
+  def withAll(): Unit ={
+    iverilogEnabled = true
+    ghdlEnabled = true
+  }
   def test(testName: String)(testFun: => Unit): Unit = {
     super.test("verilator_" + testName) {
       tester = SpinalSimTesterVerilator

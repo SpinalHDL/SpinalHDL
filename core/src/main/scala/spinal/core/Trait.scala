@@ -22,7 +22,7 @@ package spinal.core
 
 import spinal.core.DslScopeStack.storeAsMutable
 import spinal.core.Nameable._
-import spinal.core.fiber.Handle
+import spinal.core.fiber.{Fiber, Handle}
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
@@ -118,6 +118,7 @@ class GlobalData(val config : SpinalConfig) {
   var scalaLocatedEnable = false
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
   val scalaLocateds = mutable.HashSet[ScalaLocated]()
+  val elab = new Fiber()
 
   def applyScalaLocated(): Unit ={
     try {
@@ -763,11 +764,17 @@ trait SpinalTag {
   def driverShouldNotChange = false
   def canSymplifyHost       = false
   def allowMultipleInstance = true // Allow multiple instances of the tag on the same object
+  def ioTag                 = false // Propagate tag to IO
 
   def apply[T <: SpinalTagReady](that : T) : T = {
     that.addTag(this)
     that
   }
+}
+
+
+trait SpinalTagGetter[T] extends SpinalTag{
+  def get() : T
 }
 
 class DefaultTag(val that: BaseType) extends SpinalTag

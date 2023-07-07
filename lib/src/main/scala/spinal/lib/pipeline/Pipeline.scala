@@ -49,6 +49,15 @@ class Pipeline extends Area{
     }
   }
 
+  def newStages(count : Int)(logics : => Seq[ConnectionLogic]): List[Stage] ={
+    val sequentially = List.fill(count)(new Stage)
+    for((m, s) <- (sequentially.dropRight(1), sequentially.tail).zipped){
+      connect(m, s)(logics.toList :_*)
+    }
+    sequentially
+  }
+  def newChained(count : Int, connection : => ConnectionLogic): List[Stage] = newStages(count)(List(connection))
+
   def precedenceOf(that : Stage, over : Stage) : Boolean = {
     val stageMasters = mutable.LinkedHashMap[Stage, ArrayBuffer[Stage]]()
     for(c <- connections){
