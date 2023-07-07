@@ -48,7 +48,10 @@ place_design
 route_design
 
 report_utilization
-report_timing"""
+report_timing_summary -warn_on_violation
+report_pulse_width -warn_on_violation -all_violators
+report_design_analysis -logic_level_distribution
+"""
     )
     tcl.flush();
     tcl.close();
@@ -65,15 +68,46 @@ report_timing"""
     val report = log.getLines().mkString
 
     new Report {
+      // Non-logic elements such as PLL or BRAMs may have stricter timing then logic, check for their pulse slack
+      // getFMax() will then take this into account later. Uses "report_pulse_width -warn_on_violation -all_violators"
+      //
+      // Pulse Width Checks
+      // <...>
+      // Check Type        Corner  Lib Pin             Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location      Pin
+      // Min Period        n/a     RAMB18E2/CLKARDCLK  n/a            1.569         2.857       1.288      RAMB18_X9Y68  fifo128x32_inst/f/logic_ram_reg/CLKARDCLK
+      // Low Pulse Width   Slow    RAMB18E2/CLKARDCLK  n/a            0.542         1.429       0.887      RAMB18_X9Y68  fifo128x32_inst/f/logic_ram_reg/CLKARDCLK
+      // High Pulse Width  Slow    RAMB18E2/CLKARDCLK  n/a            0.542         1.429       0.887      RAMB18_X9Y68  fifo128x32_inst/f/logic_ram_reg/CLKARDCLK
+
+      def getPulseSlack(): Double /*nanoseconds*/ = {
+        // if not found, assume only logic is involved and do not take pulse slack into account
+        var lowest_pulse_slack : Double = 100000.0
+        val pulse_strings = "(Min Period|Low Pulse Width|High Pulse Width)(?:\\s+\\S+){5}(?:\\s+)-?(\\d+.?\\d+)+".r.findAllIn(report).toList
+        // iterate through pulse slack lines
+        for (pulse_string <- pulse_strings) {
+          // iterate through number columns
+          val pulse_slack_numbers = "\\s-?([0-9]+\\.?[0-9]+)+".r.findAllIn(pulse_string).toList
+          // third number column is pulse slack
+          if (pulse_slack_numbers.length >= 3) {
+            if (pulse_slack_numbers.apply(2).toDouble < lowest_pulse_slack) {
+              lowest_pulse_slack = pulse_slack_numbers.apply(2).toDouble
+            }
+          }
+        }       
+        return lowest_pulse_slack 
+      }
       override def getFMax(): Double = {
         val intFind = "-?(\\d+\\.?)+".r
-        val slack = try {
+        var slack = try {
           (family match {
             case "Artix 7" | "Kintex 7" | "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
               intFind.findFirstIn("-?(\\d+.?)+ns  \\(required time - arrival time\\)".r.findFirstIn(report).get).get
           }).toDouble
         } catch {
           case e : Exception => -100000.0
+        }
+        val pulse_slack = getPulseSlack()
+        if (pulse_slack < slack) {
+          slack = pulse_slack
         }
         return 1.0 / (targetPeriod.toDouble - slack * 1e-9)
       }
@@ -96,4 +130,3 @@ report_timing"""
     }
   }
 }
-
