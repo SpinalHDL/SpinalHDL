@@ -112,15 +112,20 @@ report_design_analysis -logic_level_distribution
         return 1.0 / (targetPeriod.toDouble - slack * 1e-9)
       }
       override def getArea(): String =  {
-        val intFind = "(\\d+,?)+".r
+        // 0, 30, 0.5, 15,5
+        val intFind = "(\\d+,?\\.?\\d*)".r
         val leArea = try {
           family match {
             case "Artix 7" | "Kintex 7" =>
               intFind.findFirstIn("Slice LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
               intFind.findFirstIn("Slice Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
+            // Assume the the resources table is the only one with 5 columns (this is the case in Vivado 2021.2)
+            // (Not very version-proof, we should actually first look at the right table header first...)
             case "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
-              intFind.findFirstIn("CLB LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
-              intFind.findFirstIn("CLB Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
+              intFind.findFirstIn("\\| CLB LUTs[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " LUT " +
+              intFind.findFirstIn("\\| CLB Registers[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " FF " +
+              intFind.findFirstIn("\\| Block RAM Tile[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " BRAM " + 
+              intFind.findFirstIn("\\| URAM[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " URAM "
           }
         } catch {
           case e : Exception => "???"
