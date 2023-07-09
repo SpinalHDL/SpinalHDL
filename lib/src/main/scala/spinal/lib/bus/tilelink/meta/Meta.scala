@@ -7,6 +7,11 @@ import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, OrMapping, SizeMappi
 
 import scala.collection.mutable.ArrayBuffer
 
+trait InterconnectAdapter[T <: Bundle, C, DC <: DeferredConfig[C], N <: NodeBase[T, C, DC, N, CB], CB <: ConnectionBase[T, C, DC, N, CB]] {
+  def isRequired(c: CB): Boolean
+  def build(c: CB)(m: T): T
+}
+
 abstract class ConnectionBase[T <: Bundle, C, DC <: DeferredConfig[C], N <: NodeBase[T, C, DC, N, CB], CB <: ConnectionBase[T, C, DC, N, CB]](val m: N, val s: N) extends Area {
   val mapping = new Area {
     var automatic = Option.empty[Any]
@@ -19,7 +24,31 @@ abstract class ConnectionBase[T <: Bundle, C, DC <: DeferredConfig[C], N <: Node
     val s2m = new Handle[DC]
   }
 
+  val adapters = ArrayBuffer[InterconnectAdapter[T, C, DC, N, CB]]()
+
+  val thread = Fiber build new Area {
+    threadBody()
+  }
+
+  protected def threadBody() = {
+    soon(down.m2s.parameters)
+    soon(up.s2m.parameters)
+
+    down.m2s.parameters.load(up.m2s.mincover(up.m2s.parameters, s.m2s.supported))
+    up.s2m.parameters.load(down.s2m.mincover(down.s2m.parameters, m.m2s.supported))
+
+    var ptr = up.bus.get
+    for (adapter <- adapters) {
+      if (adapter.isRequired(this.asInstanceOf[CB])) {
+        ptr = adapter.build(this.asInstanceOf[CB])(ptr)
+      }
+    }
+
+    connect(ptr, down.bus)
+  }
+
   def decoderAddressWidth(): BigInt
+  def connect(m: T, s: T): Unit
 }
 
 abstract class DeferredConfig[C] extends Area {
