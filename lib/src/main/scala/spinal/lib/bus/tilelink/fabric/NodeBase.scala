@@ -15,7 +15,7 @@ import scala.collection.mutable.ArrayBuffer
  * Specify the software interface of nodes. Mostly negociation Handles
  * Threadless so far
  */
-abstract class NodeBase extends spinal.lib.bus.fabric.Node {
+abstract class NodeBase extends bus.fabric.Node {
   val bus = Handle[Bus]()
 
   val m2s = new NodeM2s()
@@ -27,7 +27,7 @@ abstract class NodeBase extends spinal.lib.bus.fabric.Node {
   })
 }
 
-class NodeUpDown() extends NodeBase with UpDown[NodeUpDown, ConnectionBase]{
+class NodeUpDown() extends NodeBase with bus.fabric.UpDown[NodeUpDown, ConnectionBase]{
   override def connectFrom(m: NodeUpDown): ConnectionBase = Node.connect(m, NodeUpDown.this)
 }
 
