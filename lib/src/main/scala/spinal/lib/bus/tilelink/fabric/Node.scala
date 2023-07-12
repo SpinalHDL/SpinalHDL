@@ -26,11 +26,25 @@ object Node{
 
 
 /**
- * Implementation of NodeBase which provide connection capabilities to master/slaves
+ * Implement the elaboration thread to handle the negociation and hardware generation of a NodeUpDown
  */
 class Node() extends NodeUpDown{
   var arbiterConnector : (Bus, Bus) => Any = (s, m) => s << m
   var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
+
+  //Allows to customize how the node is connected to its arbiter / decoder components (pipelining)
+  def setArbiterConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
+  def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
+
+
+  def forceDataWidth(dataWidth : Int): Unit ={
+    m2s.proposedModifiers += { s =>
+      s.copy(dataWidth = dataWidth)
+    }
+    m2s.supportedModifiers += { s =>
+      s.copy(dataWidth = dataWidth)
+    }
+  }
 
   //Will negociate the m2s/s2m handles, then generate the arbiter / decoder required to connect the ups / downs connections
   val thread = Fiber build new Composite(this, weak = false) {
@@ -42,9 +56,11 @@ class Node() extends NodeUpDown{
     soon(bus)
     m2s.soons(Node.this)
     s2m.soonsInv(Node.this)
+
     await()
     assertUpDown()
 
+    // Start of the m2s negociation
     // m2s.proposed <- ups.m2s.proposed
     if(withUps) {
       val fromUps = ups.map(_.m.m2s.proposed).reduce(_ mincover _)
@@ -79,6 +95,7 @@ class Node() extends NodeUpDown{
     //Generate final connections mapping
     generateMapping(_.up.m2s.parameters.addressWidth)
 
+    //Start of the s2m negociation
     m2s.parameters.withBCE match {
       case true =>{
         // s2m.proposed <- downs.s2m.proposed
@@ -158,20 +175,6 @@ class Node() extends NodeUpDown{
         toDown.b.address.removeAssignments() := c.tag.transformers.invert(target.b.address).resized
         target.c.address.removeAssignments() := c.tag.transformers(toDown.c.address).resized
       }
-    }
-  }
-
-  //Allows to customize how the node is connected to its arbiter / decoder components (pipelining)
-  def setArbiterConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
-  def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
-
-
-  def forceDataWidth(dataWidth : Int): Unit ={
-    m2s.proposedModifiers += { s =>
-      s.copy(dataWidth = dataWidth)
-    }
-    m2s.supportedModifiers += { s =>
-      s.copy(dataWidth = dataWidth)
     }
   }
 }

@@ -18,6 +18,7 @@ import scala.collection.mutable.ArrayBuffer
 abstract class NodeRaw extends bus.fabric.Node {
   val bus = Handle[Bus]()
 
+  //Negociation handles
   val m2s = new NodeM2s()
   val s2m = new NodeS2m()
 
@@ -27,6 +28,9 @@ abstract class NodeRaw extends bus.fabric.Node {
   })
 }
 
+/**
+  * Extends NodeRaw with the capability of connecting masters / slaves
+  */
 class NodeUpDown() extends NodeRaw with bus.fabric.MappedUpDown[NodeUpDown, ConnectionRaw]{
   override def connectFrom(m: NodeUpDown): ConnectionRaw = Node.connect(m, NodeUpDown.this)
 }

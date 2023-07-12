@@ -10,7 +10,7 @@ import spinal.lib.system.tag._
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * Implementation of ConnectionBase which allows the automatic insertion of bridges
+ * Implementation of ConnectionRaw which allows the automatic insertion of bridges
  */
 class Connection(m : NodeUpDown, s : NodeUpDown) extends ConnectionRaw(m, s) {
 
