@@ -50,4 +50,41 @@ trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends Namea
     if(withUps && ups.isEmpty) SpinalError(s"${getName()} has no master")
     if(!withUps && ups.nonEmpty) SpinalError(s"${getName()} has masters")
   }
+
+
+  def generateMapping(cToAddressWidth : C => Int): Unit ={
+    if(withDowns) {
+      var dc = ArrayBuffer[C]()
+      downs.foreach{ c =>
+        c.mapping.automatic match {
+          case Some(v : BigInt) => c.mapping.value load SizeMapping(v, BigInt(1) << cToAddressWidth(c))
+          case Some(DefaultMapping) => dc += c
+          case Some(x : AddressMapping) => c.mapping.value load x
+          case None => c.mapping.value.get
+        }
+      }
+      for(c <- dc){
+        val spec = ArrayBuffer[SizeMapping]()
+        val others = downs.filter(_.mapping.automatic.exists(_ != DefaultMapping)).flatMap(_.mapping.value.get match {
+          case m : SizeMapping => List(m)
+          case m : OrMapping => m.conds.map(_.asInstanceOf[SizeMapping]) //DefaultMapping only supported if all others are sizeMapping
+        })
+        val sorted = others.sortWith(_.base < _.base)
+        var address = BigInt(0)
+        val endAt = BigInt(1) << cToAddressWidth(c)
+        for(other <- sorted){
+          val size = other.base - address
+          if(size != 0) spec += SizeMapping(address, size)
+          address = other.base + other.size
+        }
+        val lastSize = endAt - address
+        if(lastSize != 0) spec += SizeMapping(address, lastSize)
+        c.mapping.value.load(spec.size match {
+          case 0 => ???
+          case 1 => spec.head
+          case _ => OrMapping(spec)
+        })
+      }
+    }
+  }
 }

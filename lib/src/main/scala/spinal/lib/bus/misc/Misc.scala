@@ -456,3 +456,8 @@ case class InterleaverTransformer(blockSize : Int, ratio : Int, sel : Int) exten
   override def invert(address: UInt) = U(address.dropLow(blockSizeWidth) ## B(sel, ratioWidth bits) ## address(0, blockSizeWidth bits))
   override def toString = f"IT(0x$blockSize%x, $ratio, $sel)"
 }
+
+
+//trait LogicalOp[T]{
+//  def mincover(rhs : T) : T
+//}

@@ -240,7 +240,7 @@ object M2sSupport{
 case class M2sSupport(transfers : M2sTransfers,
                       addressWidth : Int,
                       dataWidth : Int,
-                      allowExecute : Boolean = false){
+                      allowExecute : Boolean = false) {
   def mincover(that : M2sSupport): M2sSupport ={
     M2sSupport(
       transfers = transfers.mincover(that.transfers),
@@ -259,6 +259,8 @@ case class M2sSupport(transfers : M2sTransfers,
   }
 
   def intersect(that : M2sTransfers) : M2sSupport = copy(transfers = transfers.intersect(that))
+
+  def withAddressWidth(w: Int): M2sSupport = copy(addressWidth = w)
 }
 
 

@@ -12,4 +12,6 @@ class Node extends Area with SpinalTagReady with SpinalTag {
 
   //Document the current component being host for this node
   Component.current.addTag(this)
+
+  override def toString = (if(component != null) component.getPath() + "/"  else "") + getName()
 }

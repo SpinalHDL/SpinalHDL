@@ -1,7 +1,7 @@
 package spinal.lib.bus.fabric
 
 import spinal.core._
-import spinal.core.fiber.Handle
+import spinal.core.fiber.{Handle, soon}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -28,5 +28,24 @@ abstract class NegociateSP[S, P] extends Area{
     proposed.load(m.proposed)
     m.supported.load(supported)
     parameters.load(m.parameters)
+  }
+
+  def applyProposedModifiersOn(that : S) = {
+    proposedModifiers.foldLeft(that)((e, f) => f(e))
+  }
+  def applySupportedModifiersOn(that : S) = {
+    supportedModifiers.foldLeft(that)((e, f) => f(e))
+  }
+  def applyParametersModifiersOn(that : P) = {
+    parametersModifiers.foldLeft(that)((e, f) => f(e))
+  }
+
+  def soons(that : MappedUpDown[_,_]): Unit ={
+    if(that.withUps) soon(proposed, parameters)
+    if(that.withDowns) soon(supported)
+  }
+  def soonsInv(that : MappedUpDown[_,_]): Unit ={
+    if(that.withUps) soon(supported)
+    if(that.withDowns) soon(parameters, proposed)
   }
 }

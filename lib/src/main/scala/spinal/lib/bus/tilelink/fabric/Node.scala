@@ -2,10 +2,11 @@ package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.bus.fabric.MappedUpDown
+import spinal.lib.bus.fabric.{MappedUpDown, NegociateSP}
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, InvertMapping, OrMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink
+import spinal.lib._
 import spinal.lib.system.tag._
 
 import scala.collection.Seq
@@ -38,28 +39,16 @@ class Node() extends NodeUpDown{
     soon(downs.map(_.up.bus))
     soon(downs.map(_.up.m2s.parameters))
     soon(ups.map(_.down.s2m.parameters))
-    soon(ups.map(_.down.bus))
-    soon(
-      bus
-    )
-    if(withUps) soon(
-      m2s.proposed,
-      m2s.parameters,
-      s2m.supported
-    )
-    if(withDowns) soon(
-      m2s.supported,
-      s2m.parameters,
-      s2m.proposed
-    )
-
+    soon(bus)
+    m2s.soons(Node.this)
+    s2m.soonsInv(Node.this)
     await()
     assertUpDown()
 
     // m2s.proposed <- ups.m2s.proposed
     if(withUps) {
       val fromUps = ups.map(_.m.m2s.proposed).reduce(_ mincover _)
-      val modified = m2s.proposedModifiers.foldLeft(fromUps)((e, f) => f(e))
+      val modified = m2s.applyProposedModifiersOn(fromUps)
       m2s.proposed load modified
     }
 
@@ -69,15 +58,17 @@ class Node() extends NodeUpDown{
       val addressConstrained = fromDowns.copy(
         addressWidth = downs.map(down => down.decoderAddressWidth()).max
       )
-      val modified = m2s.supportedModifiers.foldLeft(addressConstrained)((e, f) => f(e))
+      val modified = m2s.applySupportedModifiersOn(addressConstrained)
       m2s.supported load modified
     }
 
     // m2s.parameters <- ups.arbiter.m2s.parameters
     if(withUps) {
-      m2s.parameters load Arbiter.downMastersFrom(
+      val p = Arbiter.downMastersFrom(
         ups.map(_.down.m2s.parameters.get)
       )
+      val modified = m2s.applyParametersModifiersOn(p)
+      m2s.parameters load modified
     }
 
     //down.decoder.m2s.parameters <- m2s.parameters + down.s.m2s.supported
@@ -86,80 +77,41 @@ class Node() extends NodeUpDown{
     }
 
     //Generate final connections mapping
-    if(withDowns) {
-      var dc = ArrayBuffer[ConnectionBase]()
-      downs.foreach{ c =>
-        c.mapping.automatic match {
-          case Some(v : BigInt) => c.mapping.value load SizeMapping(v, BigInt(1) << c.up.m2s.parameters.get.addressWidth)
-          case Some(DefaultMapping) => dc += c
-          case Some(x : AddressMapping) => c.mapping.value load x
-          case None => c.mapping.value.get
-        }
-      }
-      for(c <- dc){
-        val spec = ArrayBuffer[SizeMapping]()
-        val others = downs.filter(_.mapping.automatic.exists(_ != DefaultMapping)).flatMap(_.mapping.value.get match {
-          case m : SizeMapping => List(m)
-          case m : OrMapping => m.conds.map(_.asInstanceOf[SizeMapping]) //DefaultMapping only supported if all others are sizeMapping
-        })
-        val sorted = others.sortWith(_.base < _.base)
-        var address = BigInt(0)
-        val endAt = BigInt(1) << c.up.m2s.parameters.addressWidth
-        for(other <- sorted){
-          val size = other.base - address
-          if(size != 0) spec += SizeMapping(address, size)
-          address = other.base + other.size
-        }
-        val lastSize = endAt - address
-        if(lastSize != 0) spec += SizeMapping(address, lastSize)
-        c.mapping.value.load(spec.size match {
-          case 0 => ???
-          case 1 => spec.head
-          case _ => OrMapping(spec)
-        })
-      }
-    }
+    generateMapping(_.up.m2s.parameters.addressWidth)
 
     m2s.parameters.withBCE match {
       case true =>{
         // s2m.proposed <- downs.s2m.proposed
         if(withDowns) {
           val fromDowns = downs.map(_.s.s2m.proposed.get).reduce(_ mincover _)
-          //        val modified = s2m.proposedModifiers.foldLeft(fromDowns)((e, f) => f(e))
-          s2m.proposed load fromDowns
+          val modified = s2m.applyProposedModifiersOn(fromDowns)
+          s2m.proposed load modified
         }
 
         // s2m.supported <- ups.s2m.supported
         if(withUps) {
           val fromUps = ups.map(_.m.s2m.supported.get).reduce(_ mincover _)
-          //        val modified = m2s.supportedModifiers.foldLeft(addressConstrained)((e, f) => f(e))
-          s2m.supported load fromUps
+          val modified = s2m.applySupportedModifiersOn(fromUps)
+          s2m.supported load modified
         }
 
         // s2m.parameters <- downs.decoder.s2m.parameters
         if(withDowns){
-          s2m.parameters.load(Decoder.upSlavesFrom(downs.map(_.up.s2m.parameters.get)))
+          val p = Decoder.upSlavesFrom(downs.map(_.up.s2m.parameters.get))
+          val modified = s2m.applyParametersModifiersOn(p)
+          s2m.parameters.load(p)
         }
 
         //ups.arbiter.s2m.parameters <- s2m.parameters
         for(up <- ups){
-          //        up.arbiter.s2m.parameters.load(s2m.parameters)
           up.down.s2m.parameters.load(Arbiter.upSlaveFrom(s2m.parameters, up.m.s2m.supported))
         }
       }
       case false => {
-        if(withDowns) {
-          s2m.proposed load S2mSupport.none
-        }
-        if(withUps) {
-          s2m.supported load S2mSupport.none
-        }
-        if(withDowns){
-          s2m.parameters.load(S2mParameters.none())
-        }
-        for(up <- ups){
-          up.down.s2m.parameters.load(S2mParameters.none())
-        }
+        if(withDowns) s2m.proposed load S2mSupport.none()
+        if(withUps) s2m.supported load S2mSupport.none()
+        if(withDowns) s2m.parameters.load(S2mParameters.none())
+        for(up <- ups) up.down.s2m.parameters.load(S2mParameters.none())
       }
     }
 
@@ -222,11 +174,42 @@ class Node() extends NodeUpDown{
       s.copy(dataWidth = dataWidth)
     }
   }
-
-
-  override def toString =  (if(component != null)component.getPath() + "/"  else "") + getName()
 }
 
 
 
 
+/*
+    def negociate[S <: spinal.lib.bus.misc.LogicalOp[S],
+                  P,
+                  NSP <: NegociateSP[S, P],
+                  N  <: spinal.lib.bus.fabric.Node ,
+                  C <: spinal.lib.bus.fabric.MappedConnection[N]]
+                  (ups : Seq[C], self : NSP, downs : Seq[C])
+                  (nToNsp : N => NSP): Unit ={
+
+      // self.proposed <- ups.proposed
+      if(ups.nonEmpty) {
+        val fromUps = ups.map(e => nToNsp(e.m).proposed).reduce(_ mincover _)
+        val modified = self.applyProposedModifiersOn(fromUps)
+        self.proposed load modified
+      }
+
+      // self.supported <- downs.supported
+      if(withDowns) {
+        val fromDowns = downs.map(e => nToNsp(e.s).supported.get).reduce(_ mincover _)
+        val addressConstrained = fromDowns.withAddressWidth(
+          downs.map(down => down.decoderAddressWidth()).max
+        )
+        val modified = self.applySupportedModifiersOn(addressConstrained)
+        self.supported load modified
+      }
+    }
+
+
+    negociate[M2sSupport, M2sParameters, NodeM2s, NodeUpDown, ConnectionBase](
+      ups,
+      m2s,
+      downs
+    )(e => e.m2s)
+ */

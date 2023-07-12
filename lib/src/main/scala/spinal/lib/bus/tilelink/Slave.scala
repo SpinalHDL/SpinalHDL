@@ -132,7 +132,7 @@ object S2mSupport{
     transfers    = p.emits
   )
 
-  def none = S2mSupport(
+  def none() = S2mSupport(
     transfers = S2mTransfers.none
   )
 }
