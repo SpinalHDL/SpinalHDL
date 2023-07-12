@@ -2,10 +2,12 @@ package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber._
+import spinal.lib.bus.fabric.UpDown
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, InvertMapping, OrMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink
 import spinal.lib.system.tag._
+
 import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
@@ -13,7 +15,7 @@ object Node{
   def apply() : Node = new Node()
   def slave() : Node = apply().setSlaveOnly()
   def master() : Node = apply().setMasterOnly()
-  def connect(m : Node, s : Node) = {
+  def connect(m : NodeUpDown, s : NodeUpDown) = {
     val c = new Connection(m, s)
     m.downs += c
     s.ups += c
@@ -21,47 +23,11 @@ object Node{
   }
 }
 
-trait UpDown[N] {
-  var withUps, withDowns = true //Used for assertion
-  val ups = ArrayBuffer[ConnectionBase]()
-  val downs = ArrayBuffer[ConnectionBase]()
-
-  def setSlaveOnly() : this.type = {
-    assert(withUps)
-    withDowns = false
-    this
-  }
-  def setMasterOnly() : this.type = {
-    assert(withDowns)
-    withUps = false
-    this
-  }
-
-  def <<(m : N): ConnectionBase = {
-    val c = connectFrom(m)
-    c.mapping.automatic = Some(DefaultMapping)
-    c
-  }
-
-  def <<(m : Seq[N]): Seq[ConnectionBase] = m.map(this << _)
-
-  class At(body : ConnectionBase => Unit){
-    def of(m : N): ConnectionBase = {
-      val c = connectFrom(m)
-      body(c)
-      c
-    }
-  }
-  def at(address : BigInt) = new At(_.mapping.automatic = Some(address))
-  def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
-  def at(mapping : AddressMapping) = new At(_.mapping.value load mapping)
-  def connectFrom(m : N) : ConnectionBase
-}
 
 /**
  * Implementation of NodeBase which provide connection capabilities to master/slaves
  */
-class Node() extends NodeBase with UpDown[Node]{
+class Node() extends NodeUpDown{
   var arbiterConnector : (Bus, Bus) => Any = (s, m) => s << m
   var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
 
@@ -261,7 +227,6 @@ class Node() extends NodeBase with UpDown[Node]{
     }
   }
 
-  override def connectFrom(m: Node): ConnectionBase = Node.connect(m, Node.this)
 
   override def toString =  (if(component != null)component.getPath() + "/"  else "") + getName()
 }

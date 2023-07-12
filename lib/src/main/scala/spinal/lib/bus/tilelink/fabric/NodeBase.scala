@@ -27,6 +27,11 @@ abstract class NodeBase extends spinal.lib.bus.fabric.Node {
   })
 }
 
+class NodeUpDown() extends NodeBase with UpDown[NodeUpDown, ConnectionBase]{
+  override def connectFrom(m: NodeUpDown): ConnectionBase = Node.connect(m, NodeUpDown.this)
+}
+
+
 /**
  * Negotiation handles for master to slave requests
  */
