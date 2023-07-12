@@ -21,17 +21,47 @@ object Node{
   }
 }
 
-/**
- * Implementation of NodeBase which provide connection capabilities to master/slaves
- */
-class Node() extends NodeBase {
+trait UpDown[N] {
   var withUps, withDowns = true //Used for assertion
   val ups = ArrayBuffer[ConnectionBase]()
   val downs = ArrayBuffer[ConnectionBase]()
 
-  val m2s = new NodeM2s
-  val s2m = new NodeRawS2m
+  def setSlaveOnly() : this.type = {
+    assert(withUps)
+    withDowns = false
+    this
+  }
+  def setMasterOnly() : this.type = {
+    assert(withDowns)
+    withUps = false
+    this
+  }
 
+  def <<(m : N): ConnectionBase = {
+    val c = connectFrom(m)
+    c.mapping.automatic = Some(DefaultMapping)
+    c
+  }
+
+  def <<(m : Seq[N]): Seq[ConnectionBase] = m.map(this << _)
+
+  class At(body : ConnectionBase => Unit){
+    def of(m : N): ConnectionBase = {
+      val c = connectFrom(m)
+      body(c)
+      c
+    }
+  }
+  def at(address : BigInt) = new At(_.mapping.automatic = Some(address))
+  def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
+  def at(mapping : AddressMapping) = new At(_.mapping.value load mapping)
+  def connectFrom(m : N) : ConnectionBase
+}
+
+/**
+ * Implementation of NodeBase which provide connection capabilities to master/slaves
+ */
+class Node() extends NodeBase with UpDown[Node]{
   var arbiterConnector : (Bus, Bus) => Any = (s, m) => s << m
   var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
 
@@ -221,35 +251,6 @@ class Node() extends NodeBase {
   def setArbiterConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
   def setDecoderConnection(body : (Bus, Bus) => Any) = decoderConnector = body
 
-  def setSlaveOnly() = {
-    assert(withUps)
-    withDowns = false
-    this
-  }
-  def setMasterOnly() = {
-    assert(withDowns)
-    withUps = false
-    this
-  }
-
-  def <<(m : Node): Connection = {
-    val c = Node.connect(m, this)
-    c.mapping.automatic = Some(DefaultMapping)
-    c
-  }
-
-  def <<(m : Seq[Node]): Seq[Connection] = m.map(this << _)
-
-  class At(body : Connection => Unit){
-    def of(m : Node): Connection = {
-      val c = Node.connect(m, Node.this)
-      body(c)
-      c
-    }
-  }
-  def at(address : BigInt) = new At(_.mapping.automatic = Some(address))
-  def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
-  def at(mapping : AddressMapping) = new At(_.mapping.value load mapping)
 
   def forceDataWidth(dataWidth : Int): Unit ={
     m2s.proposedModifiers += { s =>
@@ -260,18 +261,11 @@ class Node() extends NodeBase {
     }
   }
 
+  override def connectFrom(m: Node): ConnectionBase = Node.connect(m, Node.this)
+
   override def toString =  (if(component != null)component.getPath() + "/"  else "") + getName()
 }
 
-class NodeM2s extends NodeRawM2s{
-  val proposedModifiers, supportedModifiers = ArrayBuffer[M2sSupport => M2sSupport]()
-  val parametersModifiers = ArrayBuffer[M2sParameters => M2sParameters]()
-
-  def addModifier(f : M2sSupport => M2sSupport) = {
-    proposedModifiers += f
-    supportedModifiers += f
-  }
-}
 
 
 
