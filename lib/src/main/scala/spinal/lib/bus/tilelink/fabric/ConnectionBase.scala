@@ -13,7 +13,7 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * provide some software interface to connect 2 NodeBase
  */
-class ConnectionBase(m : NodeUpDown, s : NodeUpDown) extends bus.fabric.ConnectionMapped(m, s) {
+class ConnectionBase(m : NodeUpDown, s : NodeUpDown) extends bus.fabric.MappedConnection(m, s) {
   //Handles used for negociation
   val up, down = new Area{
     val bus = Handle[Bus]()

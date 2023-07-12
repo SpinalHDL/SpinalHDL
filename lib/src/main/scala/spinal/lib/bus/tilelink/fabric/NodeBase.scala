@@ -27,7 +27,7 @@ abstract class NodeBase extends bus.fabric.Node {
   })
 }
 
-class NodeUpDown() extends NodeBase with bus.fabric.UpDown[NodeUpDown, ConnectionBase]{
+class NodeUpDown() extends NodeBase with bus.fabric.MappedUpDown[NodeUpDown, ConnectionBase]{
   override def connectFrom(m: NodeUpDown): ConnectionBase = Node.connect(m, NodeUpDown.this)
 }
 

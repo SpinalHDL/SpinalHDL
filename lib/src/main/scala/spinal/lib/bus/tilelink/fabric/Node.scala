@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.bus.fabric.UpDown
+import spinal.lib.bus.fabric.MappedUpDown
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, InvertMapping, OrMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink
@@ -54,11 +54,7 @@ class Node() extends NodeUpDown{
     )
 
     await()
-    if(withDowns && downs.isEmpty) SpinalError(s"${getName()} has no slave")
-    if(!withDowns && downs.nonEmpty) SpinalError(s"${getName()} has slaves")
-
-    if(withUps && ups.isEmpty) SpinalError(s"${getName()} has no master")
-    if(!withUps && ups.nonEmpty) SpinalError(s"${getName()} has masters")
+    assertUpDown()
 
     // m2s.proposed <- ups.m2s.proposed
     if(withUps) {

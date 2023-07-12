@@ -10,7 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * provide some software interface to connect 2 NodeBase
   */
-abstract class ConnectionMapped[N <: Node](val m : N, val s : N) extends Area {
+abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
   setLambdaName(m.isNamed && s.isNamed)(s"${m.getName()}_to_${s.getName()}")
 
   //Specify how the connection is memory mapped to the decoder
@@ -22,10 +22,10 @@ abstract class ConnectionMapped[N <: Node](val m : N, val s : N) extends Area {
 
   //Document the memory connection in a agnostic way for further usages
   val tag = new MemoryConnection{
-    override def m = ConnectionMapped.this.m
-    override def s = ConnectionMapped.this.s
+    override def m = MappedConnection.this.m
+    override def s = MappedConnection.this.s
     override def mapping = getMapping()
-    override def transformers = ConnectionMapped.this.mapping.automatic match {
+    override def transformers = MappedConnection.this.mapping.automatic match {
       case Some(DefaultMapping) => Nil
       case _ => List(OffsetTransformer(mapping.lowerBound))
     }

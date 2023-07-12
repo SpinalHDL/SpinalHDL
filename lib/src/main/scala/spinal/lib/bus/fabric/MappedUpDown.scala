@@ -1,12 +1,13 @@
 package spinal.lib.bus.fabric
 
+import spinal.core.{Nameable, SpinalError}
 import spinal.lib.bus.misc._
 import spinal.lib._
 
 import scala.collection.mutable.ArrayBuffer
 
 
-trait UpDown[N <: bus.fabric.Node, C <: ConnectionMapped[N]] {
+trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends Nameable {
   var withUps, withDowns = true //Used for assertion
   val ups = ArrayBuffer[C]()
   val downs = ArrayBuffer[C]()
@@ -41,4 +42,12 @@ trait UpDown[N <: bus.fabric.Node, C <: ConnectionMapped[N]] {
   def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
   def at(mapping : AddressMapping) = new At(_.mapping.value load mapping)
   def connectFrom(m : N) : C
+
+  def assertUpDown(): Unit ={
+    if(withDowns && downs.isEmpty) SpinalError(s"${getName()} has no slave")
+    if(!withDowns && downs.nonEmpty) SpinalError(s"${getName()} has slaves")
+
+    if(withUps && ups.isEmpty) SpinalError(s"${getName()} has no master")
+    if(!withUps && ups.nonEmpty) SpinalError(s"${getName()} has masters")
+  }
 }
