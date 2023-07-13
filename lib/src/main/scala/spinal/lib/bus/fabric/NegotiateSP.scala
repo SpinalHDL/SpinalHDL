@@ -8,7 +8,7 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * Negotiation handles for master to slave requests
   */
-abstract class NegociateSP[S, P] extends Area{
+abstract class NegotiateSP[S, P] extends Area{
   val proposed = Handle[S]()
   val supported = Handle[S]()
   val parameters = Handle[P]()
@@ -24,7 +24,7 @@ abstract class NegociateSP[S, P] extends Area{
 
   def setProposedFromParameters(): Unit
 
-  def from(m : NegociateSP[S, P]) ={
+  def from(m : NegotiateSP[S, P]) ={
     proposed.load(m.proposed)
     m.supported.load(supported)
     parameters.load(m.parameters)

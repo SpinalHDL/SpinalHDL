@@ -39,7 +39,7 @@ class NodeUpDown() extends NodeRaw with bus.fabric.MappedUpDown[NodeUpDown, Conn
 /**
  * Negotiation handles for master to slave requests
  */
-class NodeM2s extends bus.fabric.NegociateSP[M2sSupport, M2sParameters] {
+class NodeM2s extends bus.fabric.NegotiateSP[M2sSupport, M2sParameters] {
   override def setProposedFromParameters(): Unit ={
     proposed load M2sSupport(parameters)
   }
@@ -48,7 +48,7 @@ class NodeM2s extends bus.fabric.NegociateSP[M2sSupport, M2sParameters] {
 /**
  * Negotiation handles for slave to master requests (memory coherency only)
  */
-class NodeS2m extends bus.fabric.NegociateSP[S2mSupport, S2mParameters]{
+class NodeS2m extends bus.fabric.NegotiateSP[S2mSupport, S2mParameters]{
   def none() = {
     proposed.load(S2mSupport.none)
     parameters.load(S2mParameters.none)

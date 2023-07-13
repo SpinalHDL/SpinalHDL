@@ -2,7 +2,7 @@ package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.bus.fabric.{MappedUpDown, NegociateSP}
+import spinal.lib.bus.fabric.{MappedUpDown, NegotiateSP}
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, InvertMapping, OrMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink
