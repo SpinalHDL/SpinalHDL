@@ -166,6 +166,14 @@ case class M2sSource(id           : AddressMapping,
   def bSourceId = id.lowerBound.toInt
 }
 
+object M2sAgent{
+  def apply(name    : Nameable,
+            mapping : M2sSource) : M2sAgent = M2sAgent(
+    name = name,
+    mapping = List(mapping)
+  )
+}
+
 case class M2sAgent(name    : Nameable,
                     mapping : Seq[M2sSource]) extends OverridedEqualsHashCode {
   def withSourceOffset(offset : Int): M2sAgent ={

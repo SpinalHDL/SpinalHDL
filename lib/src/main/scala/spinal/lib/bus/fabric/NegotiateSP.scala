@@ -23,6 +23,10 @@ abstract class NegotiateSP[S, P] extends Area{
   }
 
   def setProposedFromParameters(): Unit
+  def forceParameters(p : P): Unit ={
+    parameters.load(p)
+    setProposedFromParameters()
+  }
 
   def from(m : NegotiateSP[S, P]) ={
     proposed.load(m.proposed)
