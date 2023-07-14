@@ -228,8 +228,8 @@ case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
     s.param := m.param
     s.source := m.source
     s.address := m.address
-    s.size := m.size
     s.debugId := m.debugId
+    WeakConnector(m, s, m.size,    s.size   , defaultValue = () => null, allowUpSize = true , allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.mask,    s.mask   , defaultValue = () => cloneOf(s.mask).assignDontCare(), allowUpSize = false , allowDownSize = false, allowDrop = true)
     WeakConnector(m, s, m.data,    s.data   , defaultValue = () => cloneOf(s.data).assignDontCare(), allowUpSize = false , allowDownSize = false, allowDrop = true)
     WeakConnector(m, s, m.corrupt, s.corrupt, defaultValue = () => False, allowUpSize = false , allowDownSize = false, allowDrop = false)
@@ -316,9 +316,9 @@ case class ChannelD(override val p : BusParameter) extends BusFragment(p) {
     s.source := m.source
     s.sink := m.sink
     s.denied := m.denied
-    WeakConnector(m, s, m.size,    s.size   , defaultValue = null, allowUpSize = true , allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.size,    s.size   , defaultValue = null, allowUpSize = true , allowDownSize = true, allowDrop = false)
     WeakConnector(m, s, m.data,    s.data   , defaultValue = () => cloneOf(s.data).assignDontCare(), allowUpSize = false , allowDownSize = false, allowDrop = true)
-    WeakConnector(m, s, m.corrupt, s.corrupt, defaultValue = () => False, allowUpSize = false , allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.corrupt, s.corrupt, defaultValue = () => False, allowUpSize = false , allowDownSize = false, allowDrop = true)
   }
 }
 case class ChannelE(p : BusParameter) extends Bundle {
@@ -327,6 +327,7 @@ case class ChannelE(p : BusParameter) extends Bundle {
 
 object Bus{
   def  apply(p : NodeParameters) : Bus = Bus(p.toBusParameter())
+  def  apply(p : M2sParameters) : Bus = Bus(p.toNodeParameters().toBusParameter())
 }
 
 case class Bus(p : BusParameter) extends Bundle with IMasterSlave{

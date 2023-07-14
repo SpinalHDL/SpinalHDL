@@ -70,7 +70,7 @@ case class Arbiter(upsNodes : Seq[NodeParameters]) extends Component{
     for((s, id) <- ups.zipWithIndex){
       val hit = sel === id
       s.d.valid := io.down.d.valid && hit
-      s.d.payload := io.down.d.payload
+      s.d.payload.weakAssignFrom(io.down.d.payload)
       if(!s.p.withBCE) s.d.sink.removeAssignments() := 0
     }
   }
