@@ -9,6 +9,8 @@ import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbPa
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneSlaveFactory}
 
+import scala.collection.mutable.ArrayBuffer
+
 object Clint{
   def getWisboneConfig() = WishboneConfig(
     addressWidth = addressWidth-2,
@@ -180,14 +182,20 @@ case class TilelinkClint(hartCount : Int, p : bus.tilelink.BusParameter) extends
   new bus.tilelink.SlaveFactory(_)
 )
 
-case class TilelinkFabricClint(hartCount : Int) extends Area{
+case class TilelinkFabricClint() extends Area{
   val node = bus.tilelink.fabric.Node.slave()
+
+  var harts = ArrayBuffer[Any]()
+  def bindHart(cpu : Any) = {
+    //TODO
+    harts += cpu
+  }
 
   val thread = Fiber build new Area{
     node.m2s.supported.load(Clint.getTilelinkSupport(node.m2s.proposed))
     node.s2m.none()
 
-    val core = TilelinkClint(hartCount, node.bus.p)
+    val core = TilelinkClint(harts.size, node.bus.p)
     core.io.bus <> node.bus
   }
 }
