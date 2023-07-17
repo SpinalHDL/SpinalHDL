@@ -30,6 +30,7 @@ trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends Namea
   }
 
   def <<(m : Seq[N]): Seq[C] = m.map(this << _)
+  def <<(first : N, m : N*): Seq[C] = this <<(first :: m.toList)
 
   class At(body : C => Unit){
     def of(m : N): C = {

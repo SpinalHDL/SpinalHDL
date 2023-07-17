@@ -35,7 +35,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
     a.opcode match {
       case Opcode.A.GET => {
         handleCoherency(a, Param.Cap.toN)
-        idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
+        if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
         val d = TransactionD(a)
         d.opcode = Opcode.D.ACCESS_ACK_DATA
         d.data = mem.readBytes(a.address.toLong, a.bytes)
@@ -43,7 +43,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
       }
       case Opcode.A.PUT_PARTIAL_DATA | Opcode.A.PUT_FULL_DATA => { //TODO probePerm not tested
         handleCoherency(a, Param.Cap.toN, a.bytes == blockSize && a.opcode == Opcode.A.PUT_FULL_DATA)
-        idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
+        if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
         mem.write(a.address.toLong, a.data, a.mask)
         val d = TransactionD(a)
         d.opcode = Opcode.D.ACCESS_ACK
@@ -51,7 +51,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
       }
       case Opcode.A.ACQUIRE_BLOCK => {
         val probe = handleCoherency(a, Param.Grow.getCap(a.param))
-        idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
+        if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
 
         val sink = sinkAllocator.allocate()
         val d = TransactionD(a)
