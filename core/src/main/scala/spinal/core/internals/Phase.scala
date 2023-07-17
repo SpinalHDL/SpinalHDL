@@ -2418,6 +2418,13 @@ class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
     import pc._
     val algoId = globalData.allocateAlgoIncrementale() //Allows to avoid chaining allocated names
 
+    // All unamed signals are cleaned up to avoid composite / partial name side effects
+    walkStatements{
+      case bt : BaseType if bt.isUnnamed => bt.unsetName()
+      case _ =>
+    }
+
+    // propagate all named signals names to their unamed drivers
     walkStatements{
       case dst : BaseType => if (dst.isNamed && dst.algoIncrementale != algoId) {
         def explore(bt: BaseType, depth : Int): Unit = {
@@ -2433,7 +2440,6 @@ class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
               case _ =>
             }
           }
-
         }
         explore(dst, 0)
       }
