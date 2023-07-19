@@ -138,10 +138,16 @@ class Node() extends NodeUpDown{
     bus.load(Bus(p))
 
     val arbiter = (withUps && ups.size > 1) generate new Area {
-      val core = Arbiter(ups.map(up => NodeParameters(
-        m = up.down.m2s.parameters,
-        s = up.down.s2m.parameters
-      )))
+      val core = Arbiter(
+        ups.map(up => NodeParameters(
+          m = up.down.m2s.parameters,
+          s = up.down.s2m.parameters
+        )),
+        NodeParameters(
+          m2s.parameters,
+          s2m.parameters
+        )
+      )
       for((up, arbitred) <- (ups, core.io.ups).zipped){
         up.down.bus.load(arbitred.fromCombStage())
       }

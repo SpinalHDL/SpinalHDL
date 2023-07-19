@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.sim.SimDataPimper
 import spinal.lib._
 import spinal.lib.bus.bmb.WeakConnector
+import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink.coherent.OrderingCmd
 import spinal.lib.bus.tilelink.sim._
 
@@ -90,6 +91,16 @@ object Param{
     val NtoT = 1
     val BtoT = 2
 
+    def apply(withData : Bool, toUnique : Bool) = {
+      toUnique mux(
+        withData mux(
+          B(NtoT, 3 bits),
+          B(BtoT, 3 bits)
+        ),
+        B(NtoB, 3 bits)
+      )
+    }
+
     def getCap(grow : Int) = grow match {
       case NtoB => Cap.toB
       case NtoT => Cap.toT
@@ -127,6 +138,18 @@ object Param{
     case Report.BtoB => (Cap.toB, Cap.toB)
     case Report.NtoN => (Cap.toN, Cap.toN)
   }
+  def report(fromUnique : Bool, fromShared : Bool,
+             toUnique : Bool, toShared : Bool) = {
+    (fromUnique ## fromShared ## toUnique ## toShared).muxDc(
+      B"1001" -> B(Prune.TtoB, 3 bits),
+      B"1000" -> B(Prune.TtoN, 3 bits),
+      B"0100" -> B(Prune.BtoN, 3 bits),
+      B"1010" -> B(Report.TtoT, 3 bits),
+      B"0101" -> B(Report.BtoB, 3 bits),
+      B"0000" -> B(Report.NtoN, 3 bits)
+    )
+  }
+
 }
 
 

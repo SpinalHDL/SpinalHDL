@@ -49,9 +49,13 @@ case class Decoder(upNode : NodeParameters,
     val downs = Vec(downsNodes.map(e => master(Bus(e))))
   }
 
-  val sinkOffsetWidth = if(downsNodes.exists(_.withBCE)) log2Up(downsNodes.size) else 0
+  val sinkOffsetWidth = log2Up(downsNodes.count(_.withBCE))
   val perNodeSinkWidth = downsNodes.map(_.s.sinkWidth).max
-  val downs = io.downs.zipWithIndex.map{case (bus, id) => bus.fromSinkOffset(id << perNodeSinkWidth, upNode.s.sinkWidth)}
+  var sinkPtr = -1
+  val downs = io.downs.map { bus =>
+    if(bus.p.withBCE) sinkPtr += 1
+    bus.fromSinkOffset(sinkPtr << perNodeSinkWidth, upNode.s.sinkWidth)
+  }
 
   def getTermsA(m : AddressMapping, s : M2sSupport) : Seq[Masked] = {
     val mappingTerms = AddressMapping.terms(m, io.up.p.addressWidth)
@@ -144,8 +148,8 @@ case class Decoder(upNode : NodeParameters,
 
   val e = upNode.withBCE generate new Area{
     val sel = io.up.e.sink.takeHigh(sinkOffsetWidth).asUInt
-    io.up.e.ready := downs.map(v => if(v.p.withBCE) v.e.ready else False).read(sel)
-    for((s, id) <- downs.zipWithIndex if s.p.withBCE) {
+    io.up.e.ready := downs.filter(_.p.withBCE).map(_.e.ready).read(sel)
+    for((s, id) <- downs.filter(_.p.withBCE).zipWithIndex) {
       val hit = sel === id
       s.e.valid := io.up.e.valid && hit
       s.e.payload := io.up.e.payload

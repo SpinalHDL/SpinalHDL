@@ -25,8 +25,8 @@ object Arbiter{
   }
 }
 
-case class Arbiter(upsNodes : Seq[NodeParameters]) extends Component{
-  val obp = Arbiter.downNodeFrom(upsNodes)
+case class Arbiter(upsNodes : Seq[NodeParameters], downNode : NodeParameters) extends Component{
+  val obp = downNode //Arbiter.downNodeFrom(upsNodes)
   val io = new Bundle{
     val ups = Vec(upsNodes.map(e => slave(Bus(e))))
     val down = master(Bus(obp))
