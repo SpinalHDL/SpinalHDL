@@ -14,7 +14,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
 
   val monitor = new Monitor(bus, cd).add(this)
   val driver = new SlaveDriver(bus, cd)
-  val sinkAllocator = new IdAllocator(bus.p.sinkWidth)
+  val sinkAllocator = new BlockingIdAllocator(bus.p.sinkWidth)
   val locks = mutable.LinkedHashMap[Long, SimMutex]()
   def reserve(address : Long) = {
     locks.getOrElseUpdate(address, SimMutex(randomized=true)).lock
@@ -72,7 +72,7 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
       }
       case Opcode.A.ACQUIRE_PERM => {
         val probe = handleCoherency(a, Param.Grow.getCap(a.param))
-        idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
+        if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
         assert(probe.unique)
 
         val sink = sinkAllocator.allocate()

@@ -56,7 +56,7 @@ object Opcode extends AreaRoot{
       GRANT_DATA  -> 5,
       RELEASE_ACK -> 6
     )
-    def fromA(opcode : C) : Bool = List(ACCESS_ACK, ACCESS_ACK_DATA).map(opcode === _).orR
+    def fromA(opcode : C) : Bool = List(ACCESS_ACK, ACCESS_ACK_DATA, GRANT, GRANT_DATA).map(opcode === _).orR
   }
 }
 

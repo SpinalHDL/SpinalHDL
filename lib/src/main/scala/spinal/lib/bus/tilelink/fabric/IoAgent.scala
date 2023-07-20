@@ -2,7 +2,8 @@ package spinal.lib.bus.tilelink.fabric
 
 import spinal.core._
 import spinal.core.fiber.Fiber
-import spinal.lib.bus.tilelink.{M2sParameters, M2sSupport, S2mParameters}
+import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.tilelink.{M2sParameters, M2sSupport, S2mAgent, S2mParameters, S2mTransfers, SizeRange}
 import spinal.lib.{master, slave}
 
 //Will create a interconnect master as an io of the toplevel
@@ -28,11 +29,24 @@ class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParame
 }
 
 //Will create a interconnect slave as an io of the toplevel
-class SlaveBusAny() extends Area{
+class SlaveBusAny(sinkCount : Int = 8) extends Area{
   val node = Node.slave()
   val logic = Fiber build new Area {
     node.m2s.supported.load(node.m2s.proposed)
-    node.s2m.none()
+    node.m2s.parameters.withBCE match {
+      case false => node.s2m.none()
+      case true => node.s2m forceParameters S2mParameters(
+        List(
+          S2mAgent(
+            name = null,
+            sinkId = SizeMapping(0, sinkCount),
+            emits = S2mTransfers(
+              probe = node.m2s.parameters.emits.acquireB mincover node.m2s.parameters.emits.acquireT
+            )
+          )
+        )
+      )
+    }
     master(node.bus)
   }
 }
