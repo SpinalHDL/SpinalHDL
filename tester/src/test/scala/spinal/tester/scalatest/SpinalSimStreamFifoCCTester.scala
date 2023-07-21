@@ -22,6 +22,7 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
     var pushRate, popRate = 0.5f
     dut.io.push.valid #= false
     dut.pushClock.onSamplings{
+      assert(dut.io.pushOccupancy.toInt >= queueModel.size)
       if(dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean){
         queueModel.enqueue(dut.io.push.payload.toLong)
       }
@@ -37,6 +38,7 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
     val repeatTarget = 1000
     dut.popClock.onSamplings{
       if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
+        assert(dut.io.popOccupancy.toInt <= queueModel.size)
         assert(dut.io.pop.payload.toLong == queueModel.dequeue())
         if(repeat % (repeatTarget/10) == 0){
           pushRate = Random.nextFloat()
@@ -84,11 +86,17 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
           sleep(1)
 
           //Forever, randomly toggle one of the clocks (will create asynchronous clocks without fixed frequencies)
+          var clkRatio = 0.5f
+          var counter = 0
           while (true) {
-            if (Random.nextBoolean()) {
+            if (clkRatio < Random.nextFloat()) {
               dut.pushClock.clockToggle()
             } else {
               dut.popClock.clockToggle()
+            }
+            counter += 1
+            if(counter % 100 == 0){
+              clkRatio = Random.nextFloat()
             }
             sleep(1)
           }
