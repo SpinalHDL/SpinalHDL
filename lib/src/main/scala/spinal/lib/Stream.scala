@@ -1566,6 +1566,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
       }
       assert(popCC.popPtrGray === toGray(popCC.popPtr))
       assert(fromGray(popCC.pushPtrGray) - popCC.popPtr <= depth)
+      assert(popCC.popPtr === fromGray(popCC.ptrToPush) + io.pop.valid.asUInt)
     }
 
     val globalArea = new ClockingArea(gclk) {
