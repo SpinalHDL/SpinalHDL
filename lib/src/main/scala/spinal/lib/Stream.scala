@@ -1524,23 +1524,30 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
   val finalPopCd = popClock.withOptionalBufferedResetFrom(withPopBufferedReset)(pushClock)
   val popCC = new ClockingArea(finalPopCd) {
     val popPtr      = Reg(UInt(log2Up(2*depth) bits)) init(0)
-    val popPtrPlus  = popPtr + 1
-    val popPtrGray  = RegNextWhen(toGray(popPtrPlus), io.pop.fire) init(0)
+    val popPtrPlus  = KeepAttribute(popPtr + 1)
+    val popPtrGray  = toGray(popPtr)
     val pushPtrGray = BufferCC(pushToPopGray, B(0, ptrWidth bit))
-    val empty       = isEmpty(popPtrGray, pushPtrGray)
+    val addressGen = Stream(UInt(log2Up(depth) bits))
+    val empty = isEmpty(popPtrGray, pushPtrGray)
+    addressGen.valid := !empty
+    addressGen.payload := popPtr.resized
 
-    io.pop.valid   := !empty
-    io.pop.payload := ram.readSync((io.pop.fire ? popPtrPlus | popPtr).resized, clockCrossing = true)
-
-    when(io.pop.fire) {
+    when(addressGen.fire){
       popPtr := popPtrPlus
     }
 
-    io.popOccupancy := (fromGray(pushPtrGray) - popPtr).resized
+    val readArbitation = addressGen.m2sPipe()
+    val readPort = ram.readSyncPort
+    readPort.cmd := addressGen.toFlowFire
+    io.pop << readArbitation.translateWith(readPort.rsp)
+
+    val ptrToPush = RegNextWhen(popPtrGray, readArbitation.fire) init(0)
+    val ptrToOccupancy = RegNextWhen(popPtr, readArbitation.fire) init(0)
+    io.popOccupancy := (fromGray(pushPtrGray) - ptrToOccupancy).resized
   }
 
   pushToPopGray := pushCC.pushPtrGray
-  popToPushGray := popCC.popPtrGray
+  popToPushGray := popCC.ptrToPush
 
   def formalAsserts(gclk: ClockDomain) = new Composite(this, "asserts") {
     import spinal.core.formal._
@@ -1559,6 +1566,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
       }
       assert(popCC.popPtrGray === toGray(popCC.popPtr))
       assert(fromGray(popCC.pushPtrGray) - popCC.popPtr <= depth)
+      assert(popCC.popPtr === fromGray(popCC.ptrToPush) + io.pop.valid.asUInt)
     }
 
     val globalArea = new ClockingArea(gclk) {
