@@ -23,6 +23,7 @@ import spinal.core.internals._
 import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 import spinal.core._
+import spinal.lib.bus.misc.AddressTransformer
 
 import scala.collection.{Seq, TraversableOnce, mutable}
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer}
@@ -312,6 +313,23 @@ object OHMasking{
     val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  (LutInputs.get/2) max 2)
     val (pLow, pHigh) = doubleOh.splitAt(width)
     val selOh = pHigh | pLow
+  }.selOh
+
+  /** Easy to use round robin. Priorities are cleared as soon as there is no requests pending
+   *
+   * @param requests
+   * @param next Move on to the next priority
+   */
+  def roundRobinNext[T <: Data](requests : T, next : Bool): Bits = new Composite(requests, "roundRobinNext"){
+    val input = B(requests)
+    val width = widthOf(requests)
+    val priority = Reg(Bits(width bits)) init(0)
+    val selOh = roundRobinMaskedFull(requests, priority)
+
+    val overflow = (priority & input) === 0
+    when(next){
+      priority := priority.orMask(overflow) & ~selOh
+    }
   }.selOh
 }
 
@@ -1073,6 +1091,13 @@ class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
   def orR: Bool  = pimped.asBits =/= 0
   def andR: Bool = pimped.reduce(_ && _)
   def xorR: Bool = pimped.reduce(_ ^ _)
+}
+
+class TraversableOnceAddressTransformerPimped(pimped: Seq[AddressTransformer]) {
+  def apply(address : BigInt) : BigInt = pimped.foldLeft(address)((a, t) => t(a))
+  def apply(address : UInt) : UInt = pimped.foldLeft(address)((a, t) => t(a))
+  def invert(address : BigInt) : BigInt = pimped.foldRight(address)((t, a) => t.invert(a))
+  def invert(address : UInt) : UInt = pimped.foldRight(address)((t, a) => t.invert(a))
 }
 
 class TraversableOncePimped[T <: Data](pimped: Seq[T]) {

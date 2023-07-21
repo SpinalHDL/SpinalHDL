@@ -182,11 +182,28 @@ case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundl
     in(rsp)
   }
 
-  def bypass(writeLast : Flow[MemWriteCmd[T]]): Unit = new Composite(this, "bypass", true){
-    val cmdLast = RegNext(cmd.payload)
+  def writeFirst(writeLast : Flow[MemWriteCmd[T]]): Unit = new Composite(this, "bypassWriteFirst", true){
+    val cmdLast = RegNextWhen(cmd.payload, cmd.valid)
     val hit     = cmdLast === writeLast.address && writeLast.valid
     when(hit){
       rsp := writeLast.data
+    }
+  }
+
+  def writeFirstAndUpdate(write : Flow[MemWriteCmd[T]]): Unit = new Composite(this, "bypass", true){
+    val bypassValid = RegInit(False)
+    val bypassData = Reg(dataType)
+    bypassValid clearWhen(cmd.valid)
+    when(bypassValid){
+      rsp := bypassData
+    }
+
+    val readAddressBuffer = RegNextWhen(cmd.payload, cmd.valid)
+    val addressToCheck = cmd.valid ? cmd.payload | readAddressBuffer
+    val hit = addressToCheck === write.address && write.valid
+    when(hit){
+      bypassValid := True
+      bypassData := write.data
     }
   }
 }

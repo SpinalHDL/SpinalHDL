@@ -309,6 +309,8 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     spinal.core.allowOutOfRangeLiterals.doIt(this)
     this
   }
+
+  def mux[T <: Data](t : T, f : T) : T = this ? t | f
 }
 
 /**
