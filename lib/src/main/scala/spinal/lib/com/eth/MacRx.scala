@@ -296,7 +296,7 @@ case class MacRxBuffer(pushCd : ClockDomain,
     cmd.valid := !isEmpty(currentPtr, pushPtr)
     cmd.payload := currentPtr.resized
 
-    io.pop.stream << ram.streamReadSync(cmd)
+    io.pop.stream << ram.streamReadSync(cmd, crossClock = true)
 
     when(cmd.fire){
       currentPtr := currentPtr + 1
