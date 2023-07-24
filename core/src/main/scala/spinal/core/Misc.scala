@@ -172,6 +172,7 @@ object globalCache{
  */
 object Cat {
   def apply(data: Data*): Bits = apply(data.toList.reverse)
+  def apply[T <: Data](data: Vec[T]): Bits = data.asBits
 
   def apply[T <: Data](data: Iterable[T]) = {
     if (data.isEmpty) B(0, 0 bit)

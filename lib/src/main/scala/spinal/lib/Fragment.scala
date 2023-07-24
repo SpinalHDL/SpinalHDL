@@ -223,6 +223,16 @@ object FragmentToBitsStates extends SpinalEnum {
 }
 
 
+
+class StreamBundlePimped[T <: Bundle](self: Stream[T]) {
+  def connectFromRelaxed(that: Stream[T]): Unit = {
+    self.valid := that.valid
+    that.ready := self.ready
+    self.payload assignSomeByName(that.payload)
+    self.payload.assignDontCareToUnasigned()
+  }
+}
+
 class StreamBitsPimped(pimped: Stream[Bits]) {
   //  def toStreamFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x53"): Stream[Fragment[Bits]] = {
   //    val ret = Stream Fragment (pimped.data)

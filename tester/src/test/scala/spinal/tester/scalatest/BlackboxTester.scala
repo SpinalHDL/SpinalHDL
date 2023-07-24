@@ -1,6 +1,7 @@
 package spinal.tester.scalatest
 
 
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.lib._
 
@@ -62,5 +63,36 @@ class SpinalSimBlackboxTester extends SpinalSimFunSuite {
         outB_ref = ((outB_ref + dut.io.inB.toInt) & dut.io.outB.maxValue).toInt
       }
     }
+  }
+}
+
+class BlackBoxTester2 extends AnyFunSuite{
+  case class MyBlackBox() extends BlackBox {
+    val io = new Bundle {
+      val aclk = in Bool()
+      val data_in = in UInt(32 bits)
+      val data_out = out UInt(32 bits)
+    }
+
+    mapClockDomain(clock=io.aclk)
+    noIoPrefix()
+    addTag(noNumericType)
+  }
+
+  case class BlackBoxMulti() extends Component {
+    val channels = 2
+    val io = new Bundle {
+      val data_in = in UInt(32 bits)
+      val data_out = out Vec(UInt(32 bits), channels)
+    }
+    for(i <- 0 until channels){
+      val bb = MyBlackBox()
+      bb.io.data_in := io.data_in
+      io.data_out(i) := bb.io.data_out
+    }
+
+  }
+  test("vhdl"){
+    SimConfig.withGhdl.doSim(new BlackBoxMulti){dut => }
   }
 }

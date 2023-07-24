@@ -1,13 +1,20 @@
 package spinal.tester.code
 
-import spinal.lib.bus.amba3.apb.Apb3
-import spinal.lib.bus.amba4.axi.Axi4CrossbarFactory
-import spinal.lib.bus.wishbone.{Wishbone, WishboneSlaveFactory}
+import spinal.core.{SpinalTagReady, SpinalVerilog}
+import spinal.core.fiber.{Fiber, Handle}
+import spinal.lib.IMasterSlave
+import spinal.lib.bus.amba3.apb._
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config, Axi4CrossbarFactory, Axi4SpecRenamer}
+import spinal.lib.bus.misc.DefaultMapping
+import spinal.lib.bus.tilelink.{M2sParameters, M2sSupport, M2sTransfers, S2mSupport, SizeRange}
+import spinal.lib.bus.tilelink.fabric.WidthAdapter
+import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneSlaveFactory}
 import spinal.lib.memory.sdram.sdr.MT48LC16M16A2
 
 import java.io.{File, PrintWriter}
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.{Future, Promise}
 
 
 /**
@@ -726,3 +733,445 @@ object Main6 extends App{
     }
   )
 }
+
+
+
+////////////////////////////////////////////
+/*
+- with wires
+- with buses
+- with software API
+- with automation
+- with decentralization
+- with negotiation
+- with introspection
+ */
+object Main100 extends App{
+  import spinal.core._
+  import spinal.lib._
+
+  SpinalVerilog(new Module{
+
+    val axiConfig = Axi4Config(20, 32, 4, useQos = false, useProt = false, useCache = false, useLock = false, useRegion = false, useBurst = false)
+    val axi = Axi4(axiConfig)
+    Axi4SpecRenamer(axi)
+
+    val apb = Apb3(
+      addressWidth = 20,
+      dataWidth = 32
+    )
+
+    val apbConfig = Apb3Config(
+      addressWidth = 20,
+      dataWidth    = 32
+    )
+    val apb2 = Apb3(apbConfig)
+
+    val commonBus = Apb3(
+      addressWidth = 20,
+      dataWidth = 32
+    )
+
+    val gpioBus, uartBus = Apb3(
+      addressWidth = 12,
+      dataWidth = 32
+    )
+
+    val apbDecoder = Apb3Decoder(
+      master = commonBus,
+      slaves = List(
+        gpioBus -> (0x2000, 4 kB),
+        uartBus -> (0x5000, 4 kB)
+      )
+    )
+  })
+}
+
+
+object Main101 extends App{
+  import spinal.core._
+  import spinal.lib._
+
+  SpinalVerilog(new Module{
+    val cpu0Bus, cpu1Bus = Axi4(Axi4Config(32, 32, idWidth = 2))
+    val mainBus          = Axi4(Axi4Config(32, 32, idWidth = 4))
+    val ramBus           = Axi4(Axi4Config(16, 32, idWidth = 6))
+    val peripheralBus    = Axi4(Axi4Config(20, 32, idWidth = 6))
+    val gpioBus, uartBus = Axi4(Axi4Config(12, 32, idWidth = 8))
+
+    val axiCrossbar = Axi4CrossbarFactory()
+    axiCrossbar.addSlaves(
+      mainBus       -> (0x00000000,  4 GB),
+      ramBus        -> (0x40000000, 64 kB),
+      peripheralBus -> (0x10000000,  1 MB),
+      gpioBus       -> (    0x2000,  4 kB),
+      uartBus       -> (    0x5000,  4 kB)
+    )
+
+    axiCrossbar.addConnections(
+      cpu0Bus       -> List(mainBus),
+      cpu1Bus       -> List(mainBus),
+      mainBus       -> List(ramBus, peripheralBus),
+      peripheralBus -> List(gpioBus, uartBus)
+    )
+    axiCrossbar.build()
+
+  })
+}
+
+object Main102 extends App{
+  import spinal.core._
+  import spinal.lib._
+
+  SpinalVerilog(new Module{
+    import spinal.lib.bus.tilelink
+//    val m0, m1 = tilelink.fabric.Node()
+//    val shared = tilelink.fabric.Node()
+//    val s0, s1 = tilelink.fabric.Node()
+//
+//    shared << m0
+//    shared << m0
+//    s0 at 0x1000 of shared
+//    s1 at 0x2000 of shared
+
+    import spinal.lib.bus.tilelink.fabric.Node
+
+    val cpu0Bus, cpu1Bus = Node()
+    val mainBus          = Node()
+    val ramBus           = Node()
+    val peripheralBus    = Node()
+    val gpioBus, uartBus = Node()
+
+    mainBus << List(cpu0Bus, cpu1Bus)
+    ramBus        at 0x40000000  of ramBus
+    peripheralBus at 0x10000000  of ramBus
+    gpioBus       at     0x2000  of peripheralBus
+    uartBus       at     0x5000  of peripheralBus
+
+  })
+
+  import spinal.lib.bus.tilelink.fabric._
+  case class Cpu() extends Area{
+    val node = Node.master()
+    val logic = Fiber build new Area{
+      node.m2s.proposed load M2sSupport(
+        addressWidth = 32,
+        dataWidth = 64,
+        transfers = M2sTransfers(
+          get = SizeRange.upTo(64),
+          putFull = SizeRange.upTo(64)
+        )
+      )
+      node.m2s.parameters load M2sParameters(
+        support = node.m2s.proposed,
+        sourceCount = 4
+      )
+
+      node.s2m.supported load S2mSupport.none
+      slave(node.bus)
+    }
+  }
+
+  case class Peripheral() extends Area{
+    val node = Node.master()
+    val logic = Fiber build new Area{
+      node.m2s.supported load M2sSupport(
+        addressWidth = 12,
+        dataWidth = 32,
+        transfers = M2sTransfers(
+          get = SizeRange.upTo(64),
+          putFull = SizeRange.upTo(64)
+        )
+      )
+
+      node.s2m.none()
+      master(node.bus)
+    }
+  }
+
+  import spinal.lib.bus.tilelink
+  {
+
+    class Node extends Area{
+      // Node data model
+      val cpuBus   = Handle[tilelink.Bus]()
+      val adapter  = ArrayBuffer[Connection]()
+      val downs = ArrayBuffer[Connection]()
+
+      val proposed = Handle[tilelink.M2sSupport]()
+      val supported = Handle[tilelink.M2sSupport]()
+      val parameters = Handle[tilelink.M2sParameters]()
+
+      //Fork an elaboration thread
+      val thread = Fiber build new Area{
+        // Do the Negotiation
+        // Generate the required arbiter / decoder logic.
+      }
+    }
+
+    class Connection(val m : Node, val s : Node) extends Area{
+      val thread = Fiber build new Area{
+        // Connect the m.decoder to the s.arbiter
+      }
+    }
+
+  }
+}
+
+
+
+object Main103 extends App{
+  import spinal.core._
+  import spinal.lib._
+  import spinal.lib.bus.tilelink
+  import spinal.core.fiber._
+
+  SpinalVerilog(new Module{
+    val bus = Handle[tilelink.Bus]
+
+    val thread1 = Fiber build {
+      println("Thread 1 start")
+      //Will wait on bus.load (from thread 2)
+      bus.a.valid   := False
+      bus.a.address := 42
+      println("Thread 1 done")
+    }
+
+    val thread2 = Fiber build {
+      println("Thread 2 start")
+      val config = tilelink.BusParameter.simple(
+        addressWidth = 32,
+        dataWidth    = 64,
+        sizeBytes    = 16,
+        sourceWidth  =  4
+      )
+      //Will allow thread 1 to continue
+      bus.load(tilelink.Bus(config))
+      println("Thread 2 done")
+    }
+  })
+}
+
+
+object Main104 extends App {
+
+  import spinal.core._
+  import spinal.lib._
+
+
+  import spinal.lib.bus.tilelink.fabric._
+
+  case class Cpu() extends Area {
+    val node = Node.master()
+
+    val thread = Fiber build new Area {
+      node.m2s.proposed load M2sSupport(
+        addressWidth = 32,
+        dataWidth = 64,
+        transfers = M2sTransfers(
+          get = SizeRange.upTo(64),
+          putFull = SizeRange.upTo(64)
+        )
+      )
+      node.m2s.parameters load M2sParameters(
+        support = node.m2s.supported,
+        sourceCount = 4
+      )
+
+      node.s2m.supported load S2mSupport.none
+      // Implement the actual CPU hardware
+      node.bus.a.valid := False
+      node.bus.a.address := 0x42
+      slave(node.bus)
+    }
+  }
+
+  case class Peripheral() extends Area {
+    val node = Node.slave()
+    val logic = Fiber build new Area {
+      node.m2s.supported load M2sSupport(
+        addressWidth = 12,
+        dataWidth = 32,
+        transfers = M2sTransfers(
+          get = SizeRange(4),
+          putFull = SizeRange(4)
+        )
+      )
+
+      node.s2m.none()
+      master(node.bus)
+    }
+  }
+
+  SpinalVerilog(new Module{
+    import spinal.lib.bus.tilelink
+    import spinal.lib.bus.tilelink.fabric.Node
+    import tilelink.fabric
+
+    val cpu        = Cpu()
+    val adapter    = WidthAdapter()
+    val peripheral = Peripheral()
+
+    adapter.up << cpu.node
+    peripheral.node at 0x2000 of adapter.down
+  })
+
+}
+
+
+object Main105 extends App {
+  import spinal.core._
+  case class Node() extends Area with SpinalTagReady{
+    def <<(that : Any) = {}
+    def at(v : Int) = new {
+      def of (a : Any) = {}
+    }
+  }
+
+  import spinal.lib.bus.misc.SizeMapping
+  trait MemoryConnection extends SpinalTag {
+    def m : Nameable with SpinalTagReady
+    def s : Nameable with SpinalTagReady
+    def mapping : SizeMapping
+//    def sToM(downs : MemoryTransfers, args : MappedNode) : MemoryTransfers
+
+    override def toString = s"${m.getName()} ${s.getName()} $mapping"
+  }
+
+  SpinalVerilog(new Module{
+    class CustomTag(val str : String) extends SpinalTag
+
+    val counter = Reg(UInt(8 bits))
+    counter := counter + 1
+
+    counter.addTag(new CustomTag("hello"))
+    counter.addTag(new CustomTag("miaou"))
+
+    counter.foreachTag{
+      case ct : CustomTag => println(ct.str)
+      case _ =>
+    }
+
+
+    val cpu0Bus, cpu1Bus = Node()
+    val mainBus          = Node()
+    val ramBus           = Node()
+    val peripheralBus    = Node()
+    val gpioBus, uartBus = Node()
+
+    mainBus << List(cpu0Bus, cpu1Bus)
+    ramBus        at 0x40000000  of ramBus
+    peripheralBus at 0x10000000  of ramBus
+    gpioBus       at     0x2000  of peripheralBus
+    uartBus       at     0x5000  of peripheralBus
+
+    new MemoryConnection{
+      def m = cpu0Bus
+      def s = mainBus
+      def mapping = SizeMapping(0, 0x100000000l)
+      m.addTag(this)
+      s.addTag(this)
+    }
+    new MemoryConnection{
+      def m = mainBus
+      def s = ramBus
+      def mapping = SizeMapping(0x40000000, 0x10000)
+      m.addTag(this)
+      s.addTag(this)
+    }
+    new MemoryConnection{
+      def m = mainBus
+      def s = peripheralBus
+      def mapping = SizeMapping(0x10000000, 0x100000)
+      m.addTag(this)
+      s.addTag(this)
+    }
+    val tag = new MemoryConnection{
+      def m = peripheralBus
+      def s = gpioBus
+      def mapping = SizeMapping(0x2000, 0x1000)
+    }
+    peripheralBus.addTag(tag)
+    gpioBus.addTag(tag)
+    new MemoryConnection{
+      def m = peripheralBus
+      def s = uartBus
+      def mapping = SizeMapping(0x5000, 0x1000)
+      m.addTag(this)
+      s.addTag(this)
+    }
+
+    uartBus.foreachTag{
+      case mc : MemoryConnection => println(mc)
+      case _ =>
+    }
+
+    def rec(node : Nameable with SpinalTagReady, level : Int){
+      node.foreachTag{
+        case mc : MemoryConnection if mc.m == node => {
+          println("  "*level + mc)
+          rec(mc.s, level + 1)
+        }
+        case _ =>
+      }
+    }
+
+    rec(cpu0Bus, 0)
+
+    {
+      val peripheralBus = Node()
+      val apbBus = Apb3(12, 32)
+      val tag = new MemoryConnection {
+        def m = peripheralBus
+        def s = apbBus
+        def mapping = SizeMapping(0x5000, 0x1000)
+      }
+
+
+      import spinal.lib.bus.tilelink
+
+//      class TilelinkToAxiBridge() extends Area{
+//        val up = tilelink.fabric.Node.slave()
+//        val down = axi4.fabric.Node.master()
+//
+//        val tag = new MemoryConnection {
+//          def m = peripheralBus
+//          def s = apbBus
+//          def mapping = SizeMapping(0, 0x1000)
+//          up.add(this)
+//          down.add(this)
+//        }
+//
+//        val logic = Fiber build new Area{
+//          // Handle the negotiation from Tilelink to AXI
+//          // ...
+//          // Generate the hardware
+//          // ...
+//        }
+//      }
+
+    }
+
+  })
+
+
+  case class Apb3(addressWidth: Int,
+                  dataWidth : Int) extends Bundle with IMasterSlave {
+
+    val PADDR      = UInt(addressWidth bits)
+    val PSEL       = Bool()
+    val PENABLE    = Bool()
+    val PREADY     = Bool()
+    val PWRITE     = Bool()
+    val PWDATA     = Bits(dataWidth bits)
+    val PRDATA     = Bits(dataWidth bits)
+    val PSLVERROR  = Bool()
+
+    override def asMaster(): Unit = {
+      out(PADDR, PSEL, PENABLE, PWRITE, PWDATA)
+      in(PREADY, PRDATA, PSLVERROR)
+    }
+  }
+}
+
+//ffmpeg -i video.mp4 -ac 1 video_mono.mp4

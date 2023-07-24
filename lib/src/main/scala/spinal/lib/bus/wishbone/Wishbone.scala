@@ -106,7 +106,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     * wishbone3.clearAll()
     * }}}
     */
-  def clearAll() : Unit = {
+  override def clearAll() : this.type = {
     /////////////////////
     // MINIMAl SIGLALS //
     /////////////////////
@@ -136,6 +136,8 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     if(this.config.useBTE &&  isMasterInterface) this.BTE.clearAll()
     if(this.config.useTGD && !isMasterInterface) this.TGD_MISO.clearAll()
     if(this.config.useTGD &&  isMasterInterface) this.TGD_MOSI.clearAll()
+
+    this
   }
 
   /** Connect common Wishbone signals

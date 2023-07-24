@@ -4,7 +4,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
-import spinal.lib.{StreamFifo, StreamFifoLowLatency}
+import spinal.lib._
 import spinal.lib.graphic.Rgb
 import spinal.lib.sim._
 import spinal.tester
@@ -13,12 +13,21 @@ import scala.collection.mutable
 import scala.util.Random
 
 class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
-  test("testBits") {
+  def testStreamFifo(depth: Int,
+                     withAsyncRead: Boolean,
+                     withBypass: Boolean,
+                     forFMax : Boolean,
+                     useVec : Boolean): Unit = test(s"StreamFifo_$depth-$withAsyncRead-$withBypass-$forFMax-$useVec") {
+
     //Compile the simulator
-    val compiled = SimConfig.allOptimisation.compile(
+    val compiled = SimConfig.compile(
       rtl = new StreamFifo(
         dataType = Bits(32 bits),
-        depth = 32
+        depth = depth,
+        withAsyncRead = withAsyncRead,
+        withBypass = withBypass,
+        forFMax = forFMax,
+        useVec = useVec
       )
     )
 
@@ -31,31 +40,68 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
 
       dut.io.flush #= false
 
+      var pushRatio, popRatio = 0.5
+      var sampledFLush = false
+      dut.clockDomain.onSamplings {
+        if(sampledFLush){
+          queueModel.clear()
+        }
+        if(Random.nextFloat() < 0.01){
+          pushRatio = 0.5 + 0.5*Random.nextFloat()
+          popRatio = 0.5 + 0.5*Random.nextFloat()
+        }
+        sampledFLush = dut.io.flush.toBoolean
+        assert(dut.io.occupancy.toInt == queueModel.size)
+        assert(dut.io.availability.toInt == depth - queueModel.size)
+        dut.io.flush #= Random.nextFloat() < 0.005
+      }
+
+
       //Push data randomly and fill the queueModel with pushed transactions
       dut.io.push.valid #= false
       dut.clockDomain.onSamplings {
         if (dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean) {
           queueModel.enqueue(dut.io.push.payload.toLong)
         }
-        dut.io.push.valid.randomize()
+        dut.io.push.valid #= Random.nextFloat() < pushRatio
         dut.io.push.payload.randomize()
       }
 
       //Pop data randomly and check that it match with the queueModel
-      val popThread = fork {
-        dut.io.pop.ready #= true
-        for (repeat <- 0 until 10000) {
-          dut.io.pop.ready.randomize()
-          dut.clockDomain.waitSampling()
-          if (dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean) {
-            assert(dut.io.pop.payload.toLong == queueModel.dequeue())
-          }
+      var popCount = 0
+      dut.io.pop.ready #= true
+      dut.clockDomain.onSamplings {
+        dut.io.pop.ready #= Random.nextFloat() < popRatio
+        if (dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean) {
+          assert(dut.io.pop.payload.toLong == queueModel.dequeue())
+          popCount += 1
         }
-        simSuccess()
+        if(popCount == 5000) simSuccess()
       }
     }
   }
 
+  onlyVerilator()
+//  testStreamFifo(depth = 8,
+//    withAsyncRead = false,
+//    withBypass = false,
+//    occupancyFromRamOnly = false,
+//    forFMax = false
+//  )
+  for (depth <- List(0, 1, 2, 3, 4, 15, 16, 17, 24);
+       withAsyncRead <- List(false, true);
+       withBypass <- List(false, true);
+       forFMax <- List(false, true);
+       useVec <- List(false, true);
+       if !(!withAsyncRead && withBypass) && !(useVec && !withAsyncRead)) {
+    testStreamFifo(depth = depth,
+      withAsyncRead = withAsyncRead,
+      withBypass = withBypass,
+      forFMax = forFMax,
+      useVec = useVec
+    )
+  }
+  withAll()
 
   test("testOne") {
     //Compile the simulator

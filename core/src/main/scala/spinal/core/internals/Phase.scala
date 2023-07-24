@@ -21,6 +21,7 @@
 package spinal.core.internals
 
 import java.io.{BufferedWriter, File, FileWriter}
+
 import scala.collection.mutable.ListBuffer
 import spinal.core._
 import spinal.core.fiber.Engine
@@ -29,9 +30,10 @@ import spinal.core.internals.Operator.BitVector
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
-
 import java.util
+
 import scala.io.Source
+import scala.util.Random
 
 
 class PhaseContext(val config: SpinalConfig) {
@@ -352,9 +354,11 @@ class PhaseAnalog extends PhaseNetlist{
                   case (None, Some(island)) => island
                   case (Some(island), None) => island
                   case (Some(islandBt), Some(islandY)) =>
-                    for (e <- islandY.elements) bitToIsland(e.bt -> e.bitId) = islandBt
-                    islandBt.absorb(islandY)
-                    islands.remove(islandY)
+                    if(islandBt != islandY) {
+                      for (e <- islandY.elements) bitToIsland(e.bt -> e.bitId) = islandBt
+                      islandBt.absorb(islandY)
+                      islands.remove(islandY)
+                    }
                     islandBt
                 }
 
@@ -729,9 +733,9 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
       case _ =>
     }
     mems.foreach(mem => {
-      if(mem.addressWidth != 0) {
+      if(mem.addressWidth != 0 && mem.width != 0) {
         doBlackboxing(pc, new MemTopology(mem, consumers))
-      } else{
+      } else if(mem.width != 0){
         def wrapConsumers(oldSource: Expression, newSource: Expression): Unit ={
           consumers.get(oldSource) match {
             case None        =>
@@ -2414,6 +2418,13 @@ class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
     import pc._
     val algoId = globalData.allocateAlgoIncrementale() //Allows to avoid chaining allocated names
 
+    // All unamed signals are cleaned up to avoid composite / partial name side effects
+    walkStatements{
+      case bt : BaseType if bt.isUnnamed => bt.unsetName()
+      case _ =>
+    }
+
+    // propagate all named signals names to their unamed drivers
     walkStatements{
       case dst : BaseType => if (dst.isNamed && dst.algoIncrementale != algoId) {
         def explore(bt: BaseType, depth : Int): Unit = {
@@ -2429,7 +2440,6 @@ class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
               case _ =>
             }
           }
-
         }
         explore(dst, 0)
       }
@@ -2562,6 +2572,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
       binarySequential
       binaryOneHot
       val top = gen
+      fiber.hardFork(ctx.globalData.elab.runSync())
       if(top.isInBlackBoxTree){
         SpinalError(s"The toplevel can't be a BlackBox (${top.getClass.getSimpleName})")
       }
@@ -2659,6 +2670,16 @@ class PhaseFillRegsInit() extends Phase{
   override def hasNetlistImpact: Boolean = true
 }
 
+class PhaseRandomizedMem() extends PhaseNetlist {
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkDeclarations{
+      case mem : Mem[_] if mem.initialContent == null => {
+        mem.initBigInt(Array.fill(mem.wordCount)(BigInt.apply(mem.width, Random)))
+      }
+      case _ =>
+    }
+  }
+}
 
 class PhaseCheckAsyncResetsSources() extends PhaseCheck {
   override def impl(pc: PhaseContext): Unit = {

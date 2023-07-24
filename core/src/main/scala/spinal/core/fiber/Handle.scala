@@ -74,7 +74,7 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
   }
 
   def load(value : Handle[T]): Unit ={ //TODO optimise if value is loaded already
-    loadAsync(value.get)
+    load(value.get)
   }
 
   def loadAsync(body : => T) : Unit = {

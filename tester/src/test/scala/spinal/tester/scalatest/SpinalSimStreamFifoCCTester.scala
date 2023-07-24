@@ -18,30 +18,36 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
     val queueModel = mutable.Queue[Long]()
 
     //Push data randomly and fill the queueModel with pushed transactions
-    val pushThread = fork{
-      while(true){
-        dut.io.push.valid.randomize()
-        dut.io.push.payload.randomize()
-        dut.pushClock.waitSampling()
-        if(dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean){
-          queueModel.enqueue(dut.io.push.payload.toLong)
-        }
+
+    var pushRate, popRate = 0.5f
+    dut.io.push.valid #= false
+    dut.pushClock.onSamplings{
+      assert(dut.io.pushOccupancy.toInt >= queueModel.size)
+      if(dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean){
+        queueModel.enqueue(dut.io.push.payload.toLong)
       }
+      dut.io.push.valid #= pushRate > Random.nextFloat()
+      dut.io.push.payload.randomize()
     }
 
     //Pop data randomly and check that it match with the queueModel
-    val popThread = fork{
-      dut.io.pop.ready #= false
-      dut.pushClock.waitSampling()
-      dut.popClock.waitSampling()
-      for(repeat <- 0 until 10000){
-        dut.io.pop.ready.randomize()
-        dut.popClock.waitSampling()
-        if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
-          assert(dut.io.pop.payload.toLong == queueModel.dequeue())
+    dut.io.pop.ready #= false
+    dut.pushClock.waitSampling()
+    dut.popClock.waitSampling()
+    var repeat = 0
+    val repeatTarget = 1000
+    dut.popClock.onSamplings{
+      if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
+        assert(dut.io.popOccupancy.toInt <= queueModel.size)
+        assert(dut.io.pop.payload.toLong == queueModel.dequeue())
+        if(repeat % (repeatTarget/10) == 0){
+          pushRate = Random.nextFloat()
+          popRate = Random.nextFloat()
         }
+        repeat += 1
       }
-      simSuccess()
+      dut.io.pop.ready #= popRate > Random.nextFloat()
+      if(repeat == repeatTarget) simSuccess()
     }
   }
 
@@ -80,11 +86,17 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
           sleep(1)
 
           //Forever, randomly toggle one of the clocks (will create asynchronous clocks without fixed frequencies)
+          var clkRatio = 0.5f
+          var counter = 0
           while (true) {
-            if (Random.nextBoolean()) {
+            if (clkRatio < Random.nextFloat()) {
               dut.pushClock.clockToggle()
             } else {
               dut.popClock.clockToggle()
+            }
+            counter += 1
+            if(counter % 100 == 0){
+              clkRatio = Random.nextFloat()
             }
             sleep(1)
           }
@@ -95,7 +107,7 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
 
     test("testSyncReset_" + postfix) {
       //Compile the simulator
-      val compiled = SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC))).allOptimisation.compile(
+      val compiled = SimConfig.withFstWave.withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC))).allOptimisation.compile(
         rtl = new StreamFifoCC(
           dataType = Bits(32 bits),
           depth = 32,

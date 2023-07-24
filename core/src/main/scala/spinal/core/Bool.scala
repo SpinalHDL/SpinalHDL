@@ -89,6 +89,24 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   /** this is assigned to False */
   def clear(): Unit = this := False
 
+  /** Set to True.
+    *
+    * Direct call to `set()` to reduce the number of nodes in the netlist.
+    */
+  override def setAll(): this.type = {
+    this.set()
+    this
+  }
+
+  /** Set to False.
+    *
+    * Direct call to `clear()` to reduce the number of nodes in the netlist.
+    */
+  override def clearAll(): this.type = {
+    this.clear()
+    this
+  }
+
   /**
     * this is assigned to True when cond is True
     * @example{{{ myBool.setWhen(cond) }}}
@@ -291,6 +309,8 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     spinal.core.allowOutOfRangeLiterals.doIt(this)
     this
   }
+
+  def mux[T <: Data](t : T, f : T) : T = this ? t | f
 }
 
 /**

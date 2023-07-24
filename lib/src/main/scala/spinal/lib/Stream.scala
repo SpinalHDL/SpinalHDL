@@ -177,8 +177,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Connect this to a fifo and return its pop stream
   */
-  def queue(size: Int): Stream[T] = new Composite(this){
-    val fifo = new StreamFifo(payloadType, size)
+  def queue(size: Int, latency : Int = 2, forFMax : Boolean = false): Stream[T] = new Composite(this){
+    val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax)
     fifo.io.push << self
   }.fifo.io.pop
 
@@ -192,14 +192,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Connect this to a fifo and return its pop stream and its occupancy
   */
-  def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithOccupancy", true)
+  def queueWithOccupancy(size: Int, latency : Int = 2, forFMax : Boolean = false): (Stream[T], UInt) = {
+    val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax).setCompositeName(this,"queueWithOccupancy", true)
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.occupancy)
   }
 
-  def queueWithAvailability(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithAvailability", true)
+  def queueWithAvailability(size: Int, latency : Int = 2, forFMax : Boolean = false): (Stream[T], UInt) = {
+    val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax).setCompositeName(this,"queueWithAvailability", true)
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.availability)
   }
@@ -277,19 +277,19 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Return True when a transaction is present on the bus but the ready signal is low
     */
-  def isStall : Bool = (valid && !ready).setCompositeName(this, "isStall", true)
+  def isStall : Bool = signalCache(this ->"isStall")((valid && !ready).setCompositeName(this, "isStall", true))
 
   /** Return True when a transaction has appeared (first cycle)
     */
-  def isNew : Bool = (valid && !(RegNext(isStall) init(False))).setCompositeName(this, "isNew", true)
+  def isNew : Bool = signalCache(this ->"isNew")((valid && !(RegNext(isStall) init(False))).setCompositeName(this, "isNew", true))
 
   /** Return True when a transaction occurs on the bus (valid && ready)
   */
-  override def fire: Bool = (valid & ready).setCompositeName(this, "fire", true)
+  override def fire: Bool = signalCache(this ->"fire")((valid & ready).setCompositeName(this, "fire", true))
 
 /** Return True when the bus is ready, but no data is present
   */
-  def isFree: Bool = (!valid || ready).setCompositeName(this, "isFree", true)
+  def isFree: Bool = signalCache(this ->"isFree")((!valid || ready).setCompositeName(this, "isFree", true))
   
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
@@ -375,15 +375,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def s2mPipe(flush : Bool = null): Stream[T] = new Composite(this) {
     val s2mPipe = Stream(payloadType)
 
-    val rValid = RegInit(False) setWhen(self.valid) clearWhen(s2mPipe.ready)
+    val rValidN = RegInit(True) clearWhen(self.valid) setWhen(s2mPipe.ready)
     val rData = RegNextWhen(self.payload, self.ready)
 
-    self.ready := !rValid
+    self.ready := rValidN
 
-    s2mPipe.valid := self.valid || rValid
-    s2mPipe.payload := Mux(rValid, rData, self.payload)
+    s2mPipe.valid := self.valid || !rValidN
+    s2mPipe.payload := Mux(rValidN, self.payload, rData)
 
-    if(flush != null) rValid.clearWhen(flush)
+    if(flush != null) rValidN.setWhen(flush)
   }.s2mPipe
 
   def s2mPipe(stagesCount : Int): Stream[T] = {
@@ -560,17 +560,22 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val out = (aheadOut, behindOut)
   }.out
 
+  // flags if subjects have entered the StreamFifo
   def formalAssumesOrder(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = new Composite(this, "orders") {
     import spinal.core.formal._
+    // flags indicates if the subjects went in the StreamFIfo
     val aheadIn = RegInit(False) setWhen (fire && dataAhead === payload)
     val behindIn = RegInit(False) setWhen (fire && dataBehind === payload)
+    // once subject entered, prevent duplicate payloads from entering the StreamFifo
     when(aheadIn) { assume(payload =/= dataAhead) }
     when(behindIn) { assume(payload =/= dataBehind) }
     
+    // make sure our two subjects are distinguishable (different)
     assume(dataAhead =/= dataBehind)
+    // assume our subjects go inside the StreamFifo in correct order
     when(!aheadIn) { assume(!behindIn) }
     when(behindIn) { assume(aheadIn) }
-
+    // return which subjects went in the StreamFifo
     val out = (aheadIn, behindIn)
   }.out
 
@@ -1082,104 +1087,296 @@ trait StreamFifoInterface[T <: Data]{
 }
 
 object StreamFifo{
-  def apply[T <: Data](dataType: T, depth: Int) = new StreamFifo(dataType,depth)
+  def apply[T <: Data](dataType: HardType[T],
+                       depth: Int,
+                       latency : Int = 2,
+                       forFMax : Boolean = false) = {
+    assert(latency >= 0 && latency <= 2)
+    new StreamFifo(
+      dataType,
+      depth,
+      withAsyncRead = latency < 2,
+      withBypass = latency == 0,
+      forFMax = forFMax
+    )
+  }
 }
 
-class StreamFifo[T <: Data](val dataType: HardType[T], val depth: Int) extends Component {
+/**
+  * Fully redesigned in release 1.8.2 allowing improved timing closure.
+  * - latency of 0, 1, 2 cycles
+  *
+  * @param dataType
+  * @param depth Number of element stored in the fifo, Note that if withAsyncRead==false, then one extra transaction can be stored
+  * @param withAsyncRead Read the memory using asyncronous read port (ex distributed ram). If false, add 1 cycle latency
+  * @param withBypass Bypass the push port to the pop port when the fifo is empty. If false, add 1 cycle latency
+  *                   Only available if withAsyncRead == true
+  * @param forFMax Tune the design to get the maximal clock frequency
+  * @param useVec Use an Vec of register instead of a Mem to store the content
+  *               Only available if withAsyncRead == true
+  */
+class StreamFifo[T <: Data](val dataType: HardType[T],
+                            val depth: Int,
+                            val withAsyncRead : Boolean = false,
+                            val withBypass : Boolean = false,
+                            val allowExtraMsb : Boolean = true,
+                            val forFMax : Boolean = false,
+                            val useVec : Boolean = false) extends Component {
   require(depth >= 0)
-  val io = new Bundle {
+
+  if(withBypass) require(withAsyncRead)
+  if(useVec) require (withAsyncRead)
+
+  val io = new Bundle with StreamFifoInterface[T]{
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
     val flush = in Bool() default(False)
     val occupancy    = out UInt (log2Up(depth + 1) bits)
     val availability = out UInt (log2Up(depth + 1) bits)
+    override def pushOccupancy = occupancy
+    override def popOccupancy = occupancy
   }
 
+  class CounterUpDownFmax(states : BigInt, init : BigInt) extends Area{
+    val incr, decr = Bool()
+    val value = Reg(UInt(log2Up(states) bits)) init(init)
+    val plusOne = KeepAttribute(value + 1)
+    val minusOne = KeepAttribute(value - 1)
+    when(incr =/= decr){
+      value := incr.mux(plusOne, minusOne)
+    }
+    when(io.flush) { value := init }
+  }
+
+  val withExtraMsb = allowExtraMsb && isPow2(depth)
   val bypass = (depth == 0) generate new Area {
-      io.push >> io.pop
-      io.occupancy := 0
-      io.availability := 0
+    io.push >> io.pop
+    io.occupancy := 0
+    io.availability := 0
+  }
+  val oneStage = (depth == 1) generate new Area {
+    val doFlush = CombInit(io.flush)
+    val buffer = io.push.m2sPipe(flush = doFlush)
+    io.pop << buffer
+    io.occupancy := U(buffer.valid)
+    io.availability := U(!buffer.valid)
+
+    if(withBypass){
+      when(!buffer.valid){
+        io.pop.valid := io.push.valid
+        io.pop.payload := io.push.payload
+        doFlush setWhen(io.pop.ready)
+      }
     }
-  val oneStage = (depth == 1) generate new Area{
-      io.push.m2sPipe(flush = io.flush) >> io.pop
-      io.occupancy := U(io.pop.valid)
-      io.availability := U(!io.pop.valid)
-    }
+  }
   val logic = (depth > 1) generate new Area {
-    val ram = Mem(dataType, depth)
-    val pushPtr = Counter(depth)
-    val popPtr = Counter(depth)
-    val ptrMatch = pushPtr === popPtr
-    val risingOccupancy = RegInit(False)
-    val pushing = io.push.fire
-    val popping = io.pop.fire
-    val empty = ptrMatch & !risingOccupancy
-    val full = ptrMatch & risingOccupancy
+    val vec = useVec generate Vec(Reg(dataType), depth)
+    val ram = !useVec generate Mem(dataType, depth)
 
-    io.push.ready := !full
-    io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
-    io.pop.payload := ram.readSync(popPtr.valueNext)
+    val ptr = new Area{
+      val doPush, doPop = Bool()
+      val full, empty = Bool()
+      val push = Reg(UInt(log2Up(depth) + withExtraMsb.toInt bits)) init(0)
+      val pop  = Reg(UInt(log2Up(depth) + withExtraMsb.toInt bits)) init(0)
+      val occupancy = cloneOf(io.occupancy)
+      val popOnIo = cloneOf(pop) // Used to track the global occupancy of the fifo (the extra buffer of !withAsyncRead)
+      val wentUp = RegNextWhen(doPush, doPush =/= doPop) init(False) clearWhen (io.flush)
 
-    when(pushing =/= popping) {
-      risingOccupancy := pushing
-    }
-    when(pushing) {
-      ram(pushPtr.value) := io.push.payload
-      pushPtr.increment()
-    }
-    when(popping) {
-      popPtr.increment()
-    }
+      val arb = new Area {
+        val area = !forFMax generate {
+          withExtraMsb match {
+            case true => { //as we have extra MSB, we don't need the "wentUp"
+              full := (push ^ popOnIo ^ depth) === 0
+              empty := push === pop
+            }
+            case false => {
+              full := push === popOnIo && wentUp
+              empty := push === pop && !wentUp
+            }
+          }
+        }
 
-    val ptrDif = pushPtr - popPtr
-    if (isPow2(depth)) {
-      io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
-      io.availability := ((!risingOccupancy && ptrMatch) ## (popPtr - pushPtr)).asUInt
-    } else {
-      when(ptrMatch) {
-        io.occupancy    := Mux(risingOccupancy, U(depth), U(0))
-        io.availability := Mux(risingOccupancy, U(0), U(depth))
-      } otherwise {
-        io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
-        io.availability := Mux(pushPtr > popPtr, U(depth) + (popPtr - pushPtr), (popPtr - pushPtr))
+        val fmax = forFMax generate new Area {
+          val counterWidth = log2Up(depth) + 1
+          val emptyTracker = new CounterUpDownFmax(1 << counterWidth, 1 << (counterWidth - 1)) {
+            incr := doPop
+            decr := doPush
+            empty := value.msb
+          }
+
+          val fullTracker = new CounterUpDownFmax(1 << counterWidth, (1 << (counterWidth - 1)) - depth) {
+            incr := io.push.fire
+            decr := io.pop.fire
+            full := value.msb
+          }
+        }
+      }
+
+
+      when(doPush){
+        push := push + 1
+        if(!isPow2(depth)) when(push === depth - 1){ push := 0 }
+      }
+      when(doPop){
+        pop := pop + 1
+        if(!isPow2(depth)) when(pop === depth - 1){ pop := 0 }
+      }
+
+      when(io.flush){
+        push := 0
+        pop := 0
+      }
+
+
+      val forPow2 = (withExtraMsb && !forFMax) generate new Area{
+        occupancy := push - popOnIo  //if no extra msb, could be U(full ## (push - popOnIo))
+      }
+
+      val notPow2 = (!withExtraMsb && !forFMax) generate new Area{
+        val counter = Reg(UInt(log2Up(depth + 1) bits)) init(0)
+        counter := counter + U(io.push.fire) - U(io.pop.fire)
+        occupancy := counter
+
+        when(io.flush) { counter := 0 }
+      }
+      val fmax = forFMax generate new CounterUpDownFmax(depth + 1, 0){
+        incr := io.push.fire
+        decr := io.pop.fire
+        occupancy := value
       }
     }
 
-    when(io.flush){
-      pushPtr.clear()
-      popPtr.clear()
-      risingOccupancy := False
+    val push = new Area {
+      io.push.ready := !ptr.full
+      ptr.doPush := io.push.fire
+      val onRam = !useVec generate new Area {
+        val write = ram.writePort()
+        write.valid := io.push.fire
+        write.address := ptr.push.resized
+        write.data := io.push.payload
+      }
+      val onVec = useVec generate new Area {
+        when(io.push.fire){
+          vec.write(ptr.push.resized, io.push.payload)
+        }
+      }
+    }
+
+    val pop = new Area{
+      val addressGen = Stream(UInt(log2Up(depth) bits))
+      addressGen.valid := !ptr.empty
+      addressGen.payload := ptr.pop.resized
+      ptr.doPop := addressGen.fire
+
+      val sync = !withAsyncRead generate new Area{
+        assert(!useVec)
+        val readArbitation = addressGen.m2sPipe(flush = io.flush)
+        val readPort = ram.readSyncPort
+        readPort.cmd := addressGen.toFlowFire
+        io.pop << readArbitation.translateWith(readPort.rsp)
+
+        val popReg = RegNextWhen(ptr.pop, readArbitation.fire) init(0)
+        ptr.popOnIo := popReg
+        when(io.flush){ popReg := 0 }
+      }
+
+      val async = withAsyncRead generate new Area{
+        val readed = useVec match {
+          case true => vec.read(addressGen.payload)
+          case false => ram.readAsync(addressGen.payload)
+        }
+        io.pop << addressGen.translateWith(readed)
+        ptr.popOnIo := ptr.pop
+
+        if(withBypass){
+          when(ptr.empty){
+            io.pop.valid := io.push.valid
+            io.pop.payload := io.push.payload
+            ptr.doPush clearWhen(io.pop.ready)
+          }
+        }
+      }
+    }
+
+    io.occupancy := ptr.occupancy
+    if(!forFMax) io.availability := depth - ptr.occupancy
+    val fmaxAvail = forFMax generate new CounterUpDownFmax(depth + 1, depth){
+      incr := io.pop.fire
+      decr := io.push.fire
+      io.availability := value
     }
   }
 
-  def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
-    val condition = (0 until depth).map(x => cond(logic.ram(x)))
+
+
+  // check a condition against all valid payloads in the FIFO RAM
+  def formalCheckRam(cond: T => Bool): Vec[Bool] = this rework new Composite(this){
+    val condition = (0 until depth).map(x => cond(if (useVec) logic.vec(x) else logic.ram(x)))
+    // create mask for all valid payloads in FIFO RAM
+    // inclusive [popd_idx, push_idx) exclusive
+    // assume FIFO RAM is full with valid payloads
+    //           [ ...  push_idx ... ]
+    //           [ ...  pop_idx  ... ]
+    // mask      [ 1 1 1 1 1 1 1 1 1 ]
     val mask = Vec(True, depth)
-    val popMask = (~((U(1) << logic.popPtr) - 1)).asBits
-    val pushMask = ((U(1) << logic.pushPtr) - 1).asBits
-    when(logic.popPtr < logic.pushPtr) {
+    val push_idx = logic.ptr.push.resize(log2Up(depth))
+    val pop_idx = logic.ptr.pop.resize(log2Up(depth))
+    // pushMask(i)==0 indicates location i was popped
+    val popMask = (~((U(1) << pop_idx) - 1)).asBits
+    // pushMask(i)==1 indicates location i was pushed
+    val pushMask = ((U(1) << push_idx) - 1).asBits
+    // no wrap   [ ... popd_idx ... push_idx ... ]
+    // popMask   [ 0 0 1 1 1 1  1 1 1 1 1 1 1 1 1]
+    // pushpMask [ 1 1 1 1 1 1  1 1 0 0 0 0 0 0 0] &
+    // mask      [ 0 0 1 1 1 1  1 1 0 0 0 0 0 0 0]
+    when(pop_idx < push_idx) {
       mask.assignFromBits(pushMask & popMask)
-    }.elsewhen(logic.popPtr > logic.pushPtr) {
+      // wrapped   [ ... push_idx ... popd_idx ... ]
+      // popMask   [ 0 0 0 0 0 0  0 0 1 1 1 1 1 1 1]
+      // pushpMask [ 1 1 0 0 0 0  0 0 0 0 0 0 0 0 0] |
+      // mask      [ 1 1 0 0 0 0  0 0 1 1 1 1 1 1 1]
+    }.elsewhen(pop_idx > push_idx) {
       mask.assignFromBits(pushMask | popMask)
-    }.elsewhen(logic.empty) {
+      // empty?
+      //           [ ...  push_idx ... ]
+      //           [ ...  pop_idx  ... ]
+      // mask      [ 0 0 0 0 0 0 0 0 0 ]
+    }.elsewhen(logic.ptr.empty) {
       mask := mask.getZero
     }
     val check = mask.zipWithIndex.map{case (x, id) => x & condition(id)}
-    Vec(check)
+    val vec = Vec(check)
+  }.vec
+
+  def formalCheckOutputStage(cond: T => Bool): Bool = this.rework {
+    // only with sync RAM read, io.pop is directly connected to the m2sPipe() stage
+    Bool(!withAsyncRead) & io.pop.valid & cond(io.pop.payload)
   }
 
+  // verify this works, then we can simplify below
+  //def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
+  //  Vec(formalCheckOutputStage(cond) +: formalCheckRam(cond))
+  //}
+
   def formalContains(word: T): Bool = this.rework {
-    formalCheck(_ === word.pull()).reduce(_ || _)
+    formalCheckRam(_ === word.pull()).reduce(_ || _) || formalCheckOutputStage(_ === word.pull())
   }
   def formalContains(cond: T => Bool): Bool = this.rework {
-    formalCheck(cond).reduce(_ || _)
+    formalCheckRam(cond).reduce(_ || _) || formalCheckOutputStage(cond)
   }
 
   def formalCount(word: T): UInt = this.rework {
-    CountOne(formalCheck(_ === word.pull()))
+    // occurance count in RAM and in m2sPipe()
+    CountOne(formalCheckRam(_ === word.pull())) +^ U(formalCheckOutputStage(_ === word.pull()))
   }
   def formalCount(cond: T => Bool): UInt = this.rework {
-    CountOne(formalCheck(cond))
+    // occurance count in RAM and in m2sPipe()
+    CountOne(formalCheckRam(cond)) +^ U(formalCheckOutputStage(cond))
+  }
+
+  def formalFullToEmpty() = this.rework {
+    val was_full = RegInit(False) setWhen(!io.push.ready)
+    cover(was_full && logic.ptr.empty)
   }
 }
 
@@ -1188,80 +1385,41 @@ object StreamFifoLowLatency{
 }
 
 class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0, useVec : Boolean = false) extends Component {
-  require(depth >= 1)
-  val io = new Bundle with StreamFifoInterface[T] {
+  assert(latency == 0 || latency == 1)
+
+  val io = new Bundle with StreamFifoInterface[T]{
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
-    val flush = in Bool() default (False)
-    val occupancy = out UInt (log2Up(depth + 1) bit)
-    override def pushOccupancy: UInt = occupancy
-    override def popOccupancy: UInt = occupancy
-  }
-  val vec = useVec generate Vec(Reg(dataType), depth)
-  val ram = !useVec generate Mem(dataType, depth)
-  val pushPtr = Counter(depth)
-  val popPtr = Counter(depth)
-  val ptrMatch = pushPtr === popPtr
-  val risingOccupancy = RegInit(False)
-  val empty = ptrMatch & !risingOccupancy
-  val full = ptrMatch & risingOccupancy
-
-  val pushing = io.push.fire
-  val popping = io.pop.fire
-
-  io.push.ready := !full
-
-  val readed = if(useVec) vec(popPtr.value) else ram(popPtr.value)
-
-  latency match{
-    case 0 => {
-      when(!empty){
-        io.pop.valid := True
-        io.pop.payload := readed
-      } otherwise{
-        io.pop.valid := io.push.valid
-        io.pop.payload := io.push.payload
-      }
-    }
-    case 1 => {
-      io.pop.valid := !empty
-      io.pop.payload := readed
-    }
-  }
-  when(pushing =/= popping) {
-    risingOccupancy := pushing
-  }
-  when(pushing) {
-    if(useVec)
-      vec.write(pushPtr.value, io.push.payload)
-    else
-      ram.write(pushPtr.value, io.push.payload)
-    pushPtr.increment()
-  }
-  when(popping) {
-    popPtr.increment()
+    val flush = in Bool() default(False)
+    val occupancy    = out UInt (log2Up(depth + 1) bits)
+    val availability = out UInt (log2Up(depth + 1) bits)
+    override def pushOccupancy = occupancy
+    override def popOccupancy = occupancy
   }
 
-  val ptrDif = pushPtr - popPtr
-  if (isPow2(depth))
-    io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
-  else {
-    when(ptrMatch) {
-      io.occupancy := Mux(risingOccupancy, U(depth), U(0))
-    } otherwise {
-      io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
-    }
-  }
+  val fifo = new StreamFifo(
+    dataType = dataType,
+    depth = depth,
+    withAsyncRead = true,
+    withBypass = latency == 0,
+    useVec = useVec
+  )
 
-  when(io.flush){
-    pushPtr.clear()
-    popPtr.clear()
-    risingOccupancy := False
-  }
+  io.push <> fifo.io.push
+  io.pop <> fifo.io.pop
+  io.flush <> fifo.io.flush
+  io.occupancy <> fifo.io.occupancy
+  io.availability <> fifo.io.availability
 }
 
 object StreamFifoCC{
   def apply[T <: Data](dataType: HardType[T], depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
+  def apply[T <: Data](push : Stream[T], pop : Stream[T], depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = {
+    val fifo = new StreamFifoCC(push.payloadType, depth, pushClock, popClock)
+    fifo.io.push << push
+    fifo.io.pop >> pop
+    fifo
+  }
 }
 
 //class   StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
@@ -1366,23 +1524,30 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
   val finalPopCd = popClock.withOptionalBufferedResetFrom(withPopBufferedReset)(pushClock)
   val popCC = new ClockingArea(finalPopCd) {
     val popPtr      = Reg(UInt(log2Up(2*depth) bits)) init(0)
-    val popPtrPlus  = popPtr + 1
-    val popPtrGray  = RegNextWhen(toGray(popPtrPlus), io.pop.fire) init(0)
+    val popPtrPlus  = KeepAttribute(popPtr + 1)
+    val popPtrGray  = toGray(popPtr)
     val pushPtrGray = BufferCC(pushToPopGray, B(0, ptrWidth bit))
-    val empty       = isEmpty(popPtrGray, pushPtrGray)
+    val addressGen = Stream(UInt(log2Up(depth) bits))
+    val empty = isEmpty(popPtrGray, pushPtrGray)
+    addressGen.valid := !empty
+    addressGen.payload := popPtr.resized
 
-    io.pop.valid   := !empty
-    io.pop.payload := ram.readSync((io.pop.fire ? popPtrPlus | popPtr).resized, clockCrossing = true)
-
-    when(io.pop.fire) {
+    when(addressGen.fire){
       popPtr := popPtrPlus
     }
 
-    io.popOccupancy := (fromGray(pushPtrGray) - popPtr).resized
+    val readArbitation = addressGen.m2sPipe()
+    val readPort = ram.readSyncPort
+    readPort.cmd := addressGen.toFlowFire
+    io.pop << readArbitation.translateWith(readPort.rsp)
+
+    val ptrToPush = RegNextWhen(popPtrGray, readArbitation.fire) init(0)
+    val ptrToOccupancy = RegNextWhen(popPtr, readArbitation.fire) init(0)
+    io.popOccupancy := (fromGray(pushPtrGray) - ptrToOccupancy).resized
   }
 
   pushToPopGray := pushCC.pushPtrGray
-  popToPushGray := popCC.popPtrGray
+  popToPushGray := popCC.ptrToPush
 
   def formalAsserts(gclk: ClockDomain) = new Composite(this, "asserts") {
     import spinal.core.formal._
@@ -1401,6 +1566,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
       }
       assert(popCC.popPtrGray === toGray(popCC.popPtr))
       assert(fromGray(popCC.pushPtrGray) - popCC.popPtr <= depth)
+      assert(popCC.popPtr === fromGray(popCC.ptrToPush) + io.pop.valid.asUInt)
     }
 
     val globalArea = new ClockingArea(gclk) {
@@ -1901,16 +2067,12 @@ class StreamTransactionCounter(
 
     def formalAsserts() = new Composite(this, "asserts") {
       val startedReg = Reg(Bool()) init False
-      val started = CombInit(startedReg)
-      val waiting = io.working & !started
       when(io.targetFire & io.working) {
-        started := True
         startedReg := True
       }
       when(done) { startedReg := False }
+      assert(startedReg === (counter.value > 0))
 
-      when(startedReg) { assert(io.working && counter.value > 0 && counter.value <= expected) }
-      when(counter.value > 0) { assert(started) }
       when(!io.working) { assert(counter.value === 0) }
       assert(counter.value <= expected)
     }
@@ -1976,6 +2138,8 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     io.done := counter.io.done
     io.first := (counter.io.value === 0) && counter.io.working
     io.working := counter.io.working
+    
+    def formalAsserts() = counter.formalAsserts()
 }
 
 object StreamUnpacker {

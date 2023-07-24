@@ -30,10 +30,20 @@ object SmtBmcSolver extends Enumeration {
   type SmtBmcSolver = Value
 
   val Yices = Value("yices")
-  val Boolector = Value("booleactor")
+  /** bitwuzla: is untested
+   */
+  val bitwuzla = Value("bitwuzla")
+  /** Boolector: is untested
+   */
+  val Boolector = Value("boolector")
   val Z3 = Value("z3")
+  /** mathsat: is untested
+   */
   val mathsat = Value("mathsat")
   val cvc4 = Value("cvc4")
+  /** cvc5: is untested
+   */
+  val cvc5 = Value("cvc5")
 }
 
 case class SmtBmc(
