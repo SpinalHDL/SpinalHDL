@@ -76,6 +76,59 @@ class CrossClockCheckerTester extends SpinalAnyFunSuite{
       c
     })
   }
+
+  test("mem write to readSync") {
+    generationShouldFail(new Component{
+      val mem = Mem.fill(16)(UInt(8 bits))
+      val cdA = ClockDomain.external("cdA")
+      val cdB = ClockDomain.external("cdB")
+      import spinal.lib._
+      val writePort = cdA on slave(mem.writePort())
+      val readPort = cdB on slave(mem.readSyncPort())
+    })
+  }
+
+  test("mem through readAsync") {
+    generationShouldFail(new Component{
+      val mem = Mem.fill(16)(UInt(8 bits))
+      val cdA = ClockDomain.external("cdA")
+      val cdB = ClockDomain.external("cdB")
+      import spinal.lib._
+      val writePort = cdA on slave(mem.writePort())
+      val readPort = (mem.readAsyncPort())
+      in(readPort.address)
+      val miaou = CombInit(readPort.data)
+      val reg = out(cdB(RegNext(miaou)))
+    })
+  }
+
+  test("mem readAsync address") {
+    generationShouldFail(new Component{
+      val mem = Mem.fill(16)(UInt(8 bits))
+      val cdA = ClockDomain.external("cdA")
+      val cdB = ClockDomain.external("cdB")
+      import spinal.lib._
+      val writePort = cdB on slave(mem.writePort())
+      val readPort = (mem.readAsyncPort())
+      readPort.address := cdA(RegNext(in(UInt(4 bits))))
+      val miaou = CombInit(readPort.data)
+      val reg = out(cdB(RegNext(miaou)))
+    })
+  }
+
+  test("mem readSync address") {
+    generationShouldFail(new Component{
+      val mem = Mem.fill(16)(UInt(8 bits))
+      val cdA = ClockDomain.external("cdA")
+      val cdB = ClockDomain.external("cdB")
+      import spinal.lib._
+      val writePort = cdB on slave(mem.writePort())
+      val readPort = cdB on (mem.readSyncPort())
+
+      readPort.cmd.valid := in Bool()
+      readPort.cmd.payload := cdA(RegNext(in(UInt(4 bits))))
+    })
+  }
 }
 
 

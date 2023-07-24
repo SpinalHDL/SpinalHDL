@@ -70,7 +70,7 @@ case class MacTxManagedStreamFifoCc[T <: Data](payloadType : HardType[T],
 
     val commitPtr = RegNextWhen(currentPtr, io.pop.stream.fire)
 
-    io.pop.stream << ram.streamReadSync(cmd).throwWhen(io.pop.redo)
+    io.pop.stream << ram.streamReadSync(cmd, crossClock = true).throwWhen(io.pop.redo)
 
     when(cmd.fire){
       currentPtr := currentPtr + 1
