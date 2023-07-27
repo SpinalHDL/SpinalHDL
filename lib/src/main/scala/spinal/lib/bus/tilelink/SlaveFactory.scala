@@ -3,6 +3,7 @@ package spinal.lib.bus.tilelink
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc._
+import scala.collection.Seq
 
 object SlaveFactory{
   def getSupported(addressWidth : Int,
