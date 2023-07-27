@@ -55,6 +55,8 @@ object ScopeProperty {
     def restoreCloned(): Unit ={
       it.set(context.clone())
     }
+
+    def get[T](sp: ScopeProperty[T]) : T = context.get(sp.asInstanceOf[ScopeProperty[Any]]).asInstanceOf[T]
   }
 
   def capture(): Capture ={
