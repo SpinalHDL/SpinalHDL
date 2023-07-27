@@ -118,9 +118,8 @@ package object sim {
   }
 
   /** Get a Long value from a BaseType */
-  private def getLong(bt: BaseType): Long = {
+  private def getLong(bt: BaseType)(implicit manager: SimManager = SimManagerContext.current.manager): Long = {
     if(bt.getBitsWidth == 0) return 0l
-    val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
     manager.getLong(signal)
   }
@@ -323,8 +322,18 @@ package object sim {
     * Add implicit function to Bool
     */
   implicit class SimBoolPimper(bt: Bool) {
+    def simProxy() = new SimProxy(bt)
+    class SimProxy(bt : Bool){
+      val manager = SimManagerContext.current.manager
+      val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
+      def toBoolean = manager.getLong(signal) != 0
 
-    def toBoolean = if(getLong(bt) != 0) true else false
+      def #=(value: Boolean) : Unit  = {
+        manager.setLong(signal, if(value) 1 else 0)
+      }
+    }
+
+    def toBoolean = getLong(bt) != 0
 
     def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
 
@@ -339,9 +348,40 @@ package object sim {
     * Add implicit function to BitVector
     */
   implicit class SimBitVectorPimper(bt: BitVector) {
+    def simProxy() = new SimProxy(bt)
+    class SimProxy(bt : BitVector){
+      val manager = SimManagerContext.current.manager
+      val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
+      val alwaysZero = bt.getBitsWidth == 0
+      def toInt = if(alwaysZero) 0 else manager.getInt(signal)
+      def toLong = if(alwaysZero) 0 else manager.getLong(signal)
+      def toBigInt = if(alwaysZero) 0 else manager.getBigInt(signal)
+
+      def #=(value: Int) : Unit  = {
+        if(alwaysZero) {
+          assert(value == 0)
+          return
+        }
+        manager.setLong(signal, value)
+      }
+      def #=(value: Long) : Unit  = {
+        if(alwaysZero) {
+          assert(value == 0)
+          return
+        }
+        manager.setLong(signal, value)
+      }
+      def #=(value: BigInt) : Unit = {
+        if(alwaysZero) {
+          assert(value == 0)
+          return
+        }
+        manager.setBigInt(signal, value)
+      }
+    }
 
     def toInt    = getInt(bt)
-    def toLong   = getLong(bt)
+    def toLong(implicit manager: SimManager = SimManagerContext.current.manager)   = getLong(bt)
     def toBigInt = getBigInt(bt)
     def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
     def toBooleans : Array[Boolean] = {
