@@ -8,6 +8,7 @@ import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4Config, AxiLite4SlaveFact
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneSlaveFactory}
+import spinal.lib.cpu.riscv.RiscvHart
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -185,9 +186,8 @@ case class TilelinkClint(hartCount : Int, p : bus.tilelink.BusParameter) extends
 case class TilelinkFabricClint() extends Area{
   val node = bus.tilelink.fabric.Node.slave()
 
-  var harts = ArrayBuffer[Any]()
-  def bindHart(cpu : Any) = {
-    //TODO
+  var harts = ArrayBuffer[RiscvHart]()
+  def bindHart(cpu : RiscvHart) = {
     harts += cpu
   }
 
@@ -197,5 +197,11 @@ case class TilelinkFabricClint() extends Area{
 
     val core = TilelinkClint(harts.size, node.bus.p)
     core.io.bus <> node.bus
+
+    for(hart <- harts){
+      val id = hart.getHartId()
+      hart.getIntMachineTimer() := core.io.timerInterrupt(id)
+      hart.getIntMachineSoftware() := core.io.softwareInterrupt(id)
+    }
   }
 }
