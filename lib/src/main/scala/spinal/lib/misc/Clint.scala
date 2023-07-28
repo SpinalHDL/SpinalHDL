@@ -1,12 +1,15 @@
 package spinal.lib.misc
 
 import spinal.core._
+import spinal.core.fiber.Fiber
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4Config, AxiLite4SlaveFactory}
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneSlaveFactory}
+
+import scala.collection.mutable.ArrayBuffer
 
 object Clint{
   def getWisboneConfig() = WishboneConfig(
@@ -18,6 +21,11 @@ object Clint{
     accessSource,
     addressWidth = addressWidth,
     dataWidth = 32
+  )
+  def getTilelinkSupport(proposed : bus.tilelink.M2sSupport) = bus.tilelink.SlaveFactory.getSupported(
+    addressWidth = addressWidth,
+    dataWidth = 32,
+    proposed
   )
   def addressWidth = 16
 }
@@ -140,4 +148,54 @@ case class BmbClint(bmbParameter : BmbParameter, hartCount : Int) extends Compon
   }
 
   io.time := logic.time
+}
+
+class MappedClint[T <: spinal.core.Data with IMasterSlave](hartCount : Int,
+                                                           bufferTime : Boolean,
+                                                           busType: HardType[T],
+                                                           factoryGen: T => BusSlaveFactory) extends Component{
+  val io = new Bundle {
+    val bus = slave(busType())
+    val timerInterrupt = out Bits(hartCount bits)
+    val softwareInterrupt = out Bits(hartCount bits)
+    val time = out UInt(64 bits)
+    val stop = in Bool() default(False)
+  }
+
+  val factory = factoryGen(io.bus)
+  val logic = Clint(hartCount)
+  logic.driveFrom(factory, bufferTime)
+  logic.stop setWhen(io.stop)
+
+  for(hartId <- 0 until hartCount){
+    io.timerInterrupt(hartId) := logic.harts(hartId).timerInterrupt
+    io.softwareInterrupt(hartId) := logic.harts(hartId).softwareInterrupt
+  }
+
+  io.time := logic.time
+}
+
+case class TilelinkClint(hartCount : Int, p : bus.tilelink.BusParameter) extends MappedClint[bus.tilelink.Bus](
+  hartCount,
+  true,
+  new bus.tilelink.Bus(p),
+  new bus.tilelink.SlaveFactory(_)
+)
+
+case class TilelinkFabricClint() extends Area{
+  val node = bus.tilelink.fabric.Node.slave()
+
+  var harts = ArrayBuffer[Any]()
+  def bindHart(cpu : Any) = {
+    //TODO
+    harts += cpu
+  }
+
+  val thread = Fiber build new Area{
+    node.m2s.supported.load(Clint.getTilelinkSupport(node.m2s.proposed))
+    node.s2m.none()
+
+    val core = TilelinkClint(harts.size, node.bus.p)
+    core.io.bus <> node.bus
+  }
 }
