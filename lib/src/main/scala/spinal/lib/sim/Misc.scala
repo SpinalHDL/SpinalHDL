@@ -105,13 +105,37 @@ object Phase{
   def isUsed = SimManagerContext.current.contains(Phase)
 }
 
-case class SparseMemory(val seed : Long = Random.nextLong()){
+//Easy to reimplement in another environment (ex C, python, ...)
+class RandomGen(){
+  var state = Random.nextLong()
+  def setSeed(seed : Long) : Unit = state = seed
+  def nextInt() : Int = {
+    state = state * 25214903917L + 11L & 281474976710655L
+    (state >>> 16).toInt
+  }
+
+  def nextBytes(bytes: Array[Byte]) = {
+    var randCnt = 0
+    var rand = 0l
+    for(i <- 0 until bytes.size){
+      if(randCnt == 0) {
+        rand = nextInt()
+        randCnt = 4
+      }
+      bytes(i) = rand.toByte
+      rand >>= 8
+      randCnt -=1
+    }
+  }
+}
+
+case class SparseMemory(val seed : Long = Random.nextLong(), var randOffset : Long = 0l){
   val content = Array.fill[Array[Byte]](4096)(null)
 
   def getElseAlocate(idx : Int) = {
     if(content(idx) == null) {
-      val rand = new Random()
-      rand.setSeed(seed ^ idx)
+      val rand = new RandomGen()
+      rand.setSeed(seed ^ ((idx.toLong << 12) + randOffset))
       content(idx) = new Array[Byte](1024*1024)
       rand.nextBytes(content(idx))
     }
