@@ -25,8 +25,8 @@ object Arbiter{
   }
 }
 
-case class Arbiter(upsNodes : Seq[NodeParameters]) extends Component{
-  val obp = Arbiter.downNodeFrom(upsNodes)
+case class Arbiter(upsNodes : Seq[NodeParameters], downNode : NodeParameters) extends Component{
+  val obp = downNode //Arbiter.downNodeFrom(upsNodes)
   val io = new Bundle{
     val ups = Vec(upsNodes.map(e => slave(Bus(e))))
     val down = master(Bus(obp))
@@ -70,7 +70,7 @@ case class Arbiter(upsNodes : Seq[NodeParameters]) extends Component{
     for((s, id) <- ups.zipWithIndex){
       val hit = sel === id
       s.d.valid := io.down.d.valid && hit
-      s.d.payload := io.down.d.payload
+      s.d.payload.weakAssignFrom(io.down.d.payload)
       if(!s.p.withBCE) s.d.sink.removeAssignments() := 0
     }
   }

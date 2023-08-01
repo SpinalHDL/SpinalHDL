@@ -495,7 +495,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | ${verilatorBinFilename}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
-       | -CFLAGS -I"$jdkIncludes" -CFLAGS -I"$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}"
+       | -CFLAGS -I"$jdkIncludes" -CFLAGS -I"$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else (if(isFreeBsd) "freebsd" else "linux"))}"
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
        | -CFLAGS -std=c++11

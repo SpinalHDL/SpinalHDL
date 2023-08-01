@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.sim.SimDataPimper
 import spinal.lib._
 import spinal.lib.bus.bmb.WeakConnector
+import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink.coherent.OrderingCmd
 import spinal.lib.bus.tilelink.sim._
 
@@ -55,7 +56,7 @@ object Opcode extends AreaRoot{
       GRANT_DATA  -> 5,
       RELEASE_ACK -> 6
     )
-    def fromA(opcode : C) : Bool = List(ACCESS_ACK, ACCESS_ACK_DATA).map(opcode === _).orR
+    def fromA(opcode : C) : Bool = List(ACCESS_ACK, ACCESS_ACK_DATA, GRANT, GRANT_DATA).map(opcode === _).orR
   }
 }
 
@@ -89,6 +90,16 @@ object Param{
     val NtoB = 0
     val NtoT = 1
     val BtoT = 2
+
+    def apply(withData : Bool, toUnique : Bool) = {
+      toUnique mux(
+        withData mux(
+          B(NtoT, 3 bits),
+          B(BtoT, 3 bits)
+        ),
+        B(NtoB, 3 bits)
+      )
+    }
 
     def getCap(grow : Int) = grow match {
       case NtoB => Cap.toB
@@ -127,6 +138,18 @@ object Param{
     case Report.BtoB => (Cap.toB, Cap.toB)
     case Report.NtoN => (Cap.toN, Cap.toN)
   }
+  def report(fromUnique : Bool, fromShared : Bool,
+             toUnique : Bool, toShared : Bool) = {
+    (fromUnique ## fromShared ## toUnique ## toShared).muxDc(
+      B"1001" -> B(Prune.TtoB, 3 bits),
+      B"1000" -> B(Prune.TtoN, 3 bits),
+      B"0100" -> B(Prune.BtoN, 3 bits),
+      B"1010" -> B(Report.TtoT, 3 bits),
+      B"0101" -> B(Report.BtoB, 3 bits),
+      B"0000" -> B(Report.NtoN, 3 bits)
+    )
+  }
+
 }
 
 
@@ -228,8 +251,8 @@ case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
     s.param := m.param
     s.source := m.source
     s.address := m.address
-    s.size := m.size
     s.debugId := m.debugId
+    WeakConnector(m, s, m.size,    s.size   , defaultValue = () => null, allowUpSize = true , allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.mask,    s.mask   , defaultValue = () => cloneOf(s.mask).assignDontCare(), allowUpSize = false , allowDownSize = false, allowDrop = true)
     WeakConnector(m, s, m.data,    s.data   , defaultValue = () => cloneOf(s.data).assignDontCare(), allowUpSize = false , allowDownSize = false, allowDrop = true)
     WeakConnector(m, s, m.corrupt, s.corrupt, defaultValue = () => False, allowUpSize = false , allowDownSize = false, allowDrop = false)
@@ -316,9 +339,9 @@ case class ChannelD(override val p : BusParameter) extends BusFragment(p) {
     s.source := m.source
     s.sink := m.sink
     s.denied := m.denied
-    WeakConnector(m, s, m.size,    s.size   , defaultValue = null, allowUpSize = true , allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.size,    s.size   , defaultValue = null, allowUpSize = true , allowDownSize = true, allowDrop = false)
     WeakConnector(m, s, m.data,    s.data   , defaultValue = () => cloneOf(s.data).assignDontCare(), allowUpSize = false , allowDownSize = false, allowDrop = true)
-    WeakConnector(m, s, m.corrupt, s.corrupt, defaultValue = () => False, allowUpSize = false , allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.corrupt, s.corrupt, defaultValue = () => False, allowUpSize = false , allowDownSize = false, allowDrop = true)
   }
 }
 case class ChannelE(p : BusParameter) extends Bundle {
@@ -327,6 +350,7 @@ case class ChannelE(p : BusParameter) extends Bundle {
 
 object Bus{
   def  apply(p : NodeParameters) : Bus = Bus(p.toBusParameter())
+  def  apply(p : M2sParameters) : Bus = Bus(p.toNodeParameters().toBusParameter())
 }
 
 case class Bus(p : BusParameter) extends Bundle with IMasterSlave{

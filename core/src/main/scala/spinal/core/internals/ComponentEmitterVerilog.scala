@@ -1050,10 +1050,10 @@ class ComponentEmitterVerilog(
             " = $urandom"
           case bv: BitVector =>
             val randCount = (bv.getBitsWidth+31)/32
-            s" = {${randCount}{$$urandom}}"
+            s" = {${(Array.fill(randCount)("$urandom")).mkString(",")}}"
           case e: SpinalEnumCraft[_] =>
             val randCount = (e.getBitsWidth+31)/32
-            s" = {${randCount}{$$urandom}}"
+            s" = {${(Array.fill(randCount)("$urandom")).mkString(",")}}"
         }
       }
     }
