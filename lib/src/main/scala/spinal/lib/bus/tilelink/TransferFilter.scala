@@ -68,7 +68,7 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
   val beats = RegNextWhen(sizeToBeatMinusOne(io.up.p, io.up.a.size), start)
   val counter = Reg(beats)
 
-  io.down.a << io.up.a.haltWhen(errored).throwWhen(!hit)
+  io.down.a << io.up.a.haltWhen(errored || doIt).throwWhen(!hit)
   io.up.d << io.down.d.haltWhen(doIt)
   io.up.d.sink.removeAssignments() := io.down.d.sink.resized
   when(doIt){
