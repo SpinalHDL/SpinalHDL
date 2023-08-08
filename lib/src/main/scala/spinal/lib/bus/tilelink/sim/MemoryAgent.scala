@@ -17,7 +17,10 @@ class MemoryAgent(bus: Bus, cd: ClockDomain, seed : Long = Random.nextInt(), blo
   val sinkAllocator = new BlockingIdAllocator(bus.p.sinkWidth)
   val locks = mutable.LinkedHashMap[Long, SimMutex]()
   def reserve(address : Long) = {
-    locks.getOrElseUpdate(address, SimMutex(randomized=true)).lock
+    locks.get(address) match {
+      case Some(x) => x.lock(); cd.waitSampling(Random.nextInt(10))
+      case None => locks(address) = SimMutex(randomized=true).lock
+    }
   }
   def release(address : Long) = {
     val l = locks(address)
