@@ -36,6 +36,79 @@ class SpinalSimPerfTester extends SpinalAnyFunSuite {
         .compile(new SpinalSimPerfTester.SpinalSimPerfTesterDut())
     }
 
+    test(prefix + "TestReadSpeedRaw") {
+      compiled.doSim { dut =>
+        dut.clockDomain.forkStimulus(period = 10)
+        dut.io.a #= 1
+        dut.io.b #= 1
+        dut.io.c #= 1
+        sleep(10)
+
+        for (repeat <- 0 until 10) {
+          var accesses = 0
+          var acc = 0l
+          val bt = dut.io.a
+          val startAt = System.nanoTime
+          while(accesses != 1000000){
+            acc += bt.toLong
+            accesses += 1
+          }
+          val endAt = System.nanoTime
+          val nano = (endAt - startAt) / accesses
+          System.out.println(nano + " ns per call acc=" + acc)
+        }
+      }
+    }
+
+    test(prefix + "TestReadSpeedImplicit") {
+      compiled.doSim { dut =>
+        dut.clockDomain.forkStimulus(period = 10)
+        dut.io.a #= 1
+        dut.io.b #= 1
+        dut.io.c #= 1
+        sleep(10)
+
+        implicit val manager: SimManager = SimManagerContext.current.manager
+        for (repeat <- 0 until 10) {
+          var accesses = 0
+          var acc = 0l
+          val bt = dut.io.a
+          val startAt = System.nanoTime
+          while(accesses != 1000000){
+            acc += bt.toLong
+            accesses += 1
+          }
+          val endAt = System.nanoTime
+          val nano = (endAt - startAt) / accesses
+          System.out.println(nano + " ns per call acc=" + acc)
+        }
+      }
+    }
+
+    test(prefix + "TestReadSpeedProxy") {
+      compiled.doSim { dut =>
+        dut.clockDomain.forkStimulus(period = 10)
+        dut.io.a #= 1
+        dut.io.b #= 1
+        dut.io.c #= 1
+        sleep(10)
+
+        for (repeat <- 0 until 10) {
+          var accesses = 0
+          var acc = 0l
+          val bt = dut.io.a.simProxy()
+          val startAt = System.nanoTime
+          while(accesses != 1000000){
+            acc += bt.toLong
+            accesses += 1
+          }
+          val endAt = System.nanoTime
+          val nano = (endAt - startAt) / accesses
+          System.out.println(nano + " ns per call acc=" + acc)
+        }
+      }
+    }
+
 
     test(prefix + "TestStdSimIntThreadLess") {
       compiled.doSim { dut =>

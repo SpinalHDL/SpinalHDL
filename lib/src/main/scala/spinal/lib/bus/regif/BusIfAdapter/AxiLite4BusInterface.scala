@@ -49,9 +49,9 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   bus.b << axiB
 
   val askWrite  = axiAw.valid && axiW.valid 
-  val askRead   = axiAr.valid
-  val doWrite   = askWrite && (!axiB.valid || axiB.ready) //Assume one stage between xw and B
-  val doRead    = askRead  && (!axiR.valid || axiR.ready) //Assume one stage between Ar and R
+  val askRead   = axiAr.valid || (axiR.valid && !axiR.ready)
+  val doWrite   = askWrite && (!axiB.valid || axiB.ready)    //Assume one stage between xw and B
+  val doRead    = axiAr.valid && (!axiR.valid || axiR.ready) //Assume one stage between Ar and R
   val writeData = axiW.payload.data
 
   axiRValid clearWhen(axiR.ready) setWhen(doRead) 

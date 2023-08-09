@@ -446,8 +446,9 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
   }
 
   class Logger extends ProcessLogger {
+    var outStr = new StringBuilder()
     override def err(s: => String): Unit = { if(!s.startsWith("ar: creating ")) println(s) }
-    override def out(s: => String): Unit = {}
+    override def out(s: => String): Unit = { outStr ++= s; outStr ++= "\n" }
     override def buffer[T](f: => T) = f
   }
 
@@ -495,7 +496,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | ${verilatorBinFilename}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
-       | -CFLAGS -I"$jdkIncludes" -CFLAGS -I"$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}"
+       | -CFLAGS -I"$jdkIncludes" -CFLAGS -I"$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else (if(isFreeBsd) "freebsd" else "linux"))}"
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
        | -CFLAGS -std=c++11
@@ -639,19 +640,21 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       // invoke verilator or copy cached files depending on whether cache is not used or used
       if (!useCache) {
         val shCommand = if(isWindows) "sh.exe" else "sh"
+        val logger = new Logger()
         assert(Process(Seq(shCommand, "verilatorScript.sh"),
-                       new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
+                       new File(workspacePath)).! (logger) == 0, "Verilator invocation failed\n" + logger.outStr.toString())
       } else {
         FileUtils.copyDirectory(workspaceCacheDir, workspaceDir)
       }
 
       genWrapperCpp(verilatorVersionDeci >= BigDecimal("4.034"))
       val threadCount = SimManager.cpuCount
+      val logger = new Logger
       if (!useCache) {
-        assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+        assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
       } else {
         // do not remake Vtoplevel__ALL.a
-        assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk -o V${config.toplevelName}__ALL.a V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+        assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk -o V${config.toplevelName}__ALL.a V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
       }
 
       FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
@@ -736,7 +739,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
   compileJava()
 
   val nativeImpl = DynamicCompiler.getClass(s"wrapper_${workspaceName}.VerilatorNative", s"${workspacePath}/${workspaceName}")
-  val nativeInstance: IVerilatorNative = nativeImpl.newInstance().asInstanceOf[IVerilatorNative]
+  val nativeInstance: IVerilatorNative = nativeImpl.getConstructor().newInstance().asInstanceOf[IVerilatorNative]
 
   def instanciate(name: String, seed: Int) = nativeInstance.newHandle(name, seed)
 
