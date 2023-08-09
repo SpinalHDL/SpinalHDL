@@ -10,6 +10,8 @@ import spinal.lib._
 
 import scala.collection.mutable.ArrayBuffer
 
+
+//TODO remove probe on IO regions
 class HubFabric() extends Area{
   val up = Node.slave()
   val down = Node.master()
