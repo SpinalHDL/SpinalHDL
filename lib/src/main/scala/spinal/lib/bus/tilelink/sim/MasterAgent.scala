@@ -32,6 +32,11 @@ class Block(val source : Int,
     dirty = true
     for (i <- 0 until data.size if Random.nextBoolean()) data(i) = Random.nextInt().toByte
   }
+
+  def setCap(cap : Int): Unit ={
+//    if(address == 0x24c0) println(f"$source $address%04x setcap ${this.cap} $cap $simTime")
+    this.cap = cap
+  }
 }
 case class Probe(source : Int, param : Int, address : Long, size : Int, perm : Boolean){
 
@@ -205,6 +210,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
   def probeAckData(source : Int,
                    toCap : Int,
                    block  : Block) : Unit = {
+
     probeAckData(source, Param.reportPruneToCap(block.cap, toCap), block.address, block.data)
     this.block.probeCap(block, toCap)
   }
@@ -231,7 +237,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
         val param = d.param
         b = block(source, address)
         assert(b.cap == Param.Cap.toB)
-        b.cap = Param.Cap.toT
+        b.setCap(Param.Cap.toT)
         if(debug) println(f"acquireBlock src=$source%02x addr=$address%x 1 -> 0 time=${simTime()}")
         onGrant(source, address, param)
       }
@@ -248,7 +254,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
           }
         }
         if(d.denied){
-          b.cap = Param.Cap.toN
+          b.setCap(Param.Cap.toN)
           b.data = null
         }
         if(debug && !d.denied) println(f"acquireBlock src=$source%02x addr=$address%x 2 -> ${d.param} time=${simTime()}")
@@ -288,7 +294,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
       case Some(x) => {
         blk = x
         if(debug) println(f"acquirePerm  src=$source%02x addr=$address%x ${blk.cap} -> 0 time=${simTime()}")
-        blk.cap = Param.Cap.toT
+        blk.setCap(Param.Cap.toT)
       }
       case None => {
         if(debug && !d.denied) println(f"acquirePerm  src=$source%02x addr=$address%x 2 -> 0 time=${simTime()}")
@@ -302,7 +308,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
           }
         }
         if(d.denied){
-          blk.cap = Param.Cap.toN
+          blk.setCap(Param.Cap.toN)
           blk.data = null
         }
         block(source -> address) = blk
@@ -399,13 +405,13 @@ class BlockManager(ma : MasterAgent){
   }
   def probeCap(block : Block, cap : Int) = {
     if(debug) if(cap != block.cap) println(f"probeCap     src=${block.source}%02x addr=${block.address}%x ${block.cap} -> $cap time=${simTime()}")
-    block.cap = cap
+    block.setCap(cap)
     updateBlock(block)
   }
 
   def releaseCap(block : Block, cap : Int) = {
     if(debug) if(cap != block.cap) println(f"releaseCap   src=${block.source}%02x addr=${block.address}%x ${block.cap} -> $cap time=${simTime()}")
-    block.cap = cap
+    block.setCap(cap)
     updateBlock(block)
   }
 

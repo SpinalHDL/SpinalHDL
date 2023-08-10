@@ -679,6 +679,21 @@ class InterconnectTester extends AnyFunSuite{
     })
   }
 
+  test("Coherent_withHub2"){
+    testInterconnectAll(new Component{
+      val m0,m1,m2 = simpleMaster(all, dataWidth = 128)
+
+      val hub = new HubFabric()
+      hub.up << m0.node
+      hub.up << m1.node
+      hub.up << m2.node
+
+      val s0 = simpleSlave(16, 128)
+      s0.node at 0x10000 of hub.down
+      s0.node.addTag(PMA.MAIN)
+    })
+  }
+
 //  test("Coherent_E"){
 //    tilelink.DebugId.setup(16)
 //    SimConfig.withFstWave.compile(new Component{
