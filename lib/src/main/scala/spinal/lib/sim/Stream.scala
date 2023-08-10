@@ -24,10 +24,11 @@ class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
   var keepValue = false
   var payload : SimData = null
   var keepValueEnable = false
-
+  val validProxy = stream.valid.simProxy()
+  val readyProxy = stream.ready.simProxy()
   clockDomain.onSamplings{
-    val valid = stream.valid.toBoolean
-    val ready = stream.ready.toBoolean
+    val valid = validProxy.toBoolean
+    val ready = readyProxy.toBoolean
 
     if (valid && ready) {
       callbacks.foreach(_ (stream.payload))
@@ -94,6 +95,8 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
   stream.valid #= false
   stream.payload.randomize()
 
+  val readyProxy = stream.ready.simProxy()
+
   def fsm(): Unit = {
     state match{
       case 0 => {
@@ -111,7 +114,7 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
         }
       }
       case 2 => {
-        if(stream.ready.toBoolean){
+        if(readyProxy.toBoolean){
           stream.valid #= false
           stream.payload.randomize()
           delay = transactionDelay()
