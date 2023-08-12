@@ -135,7 +135,7 @@ case class SparseMemory(val seed : Long = Random.nextLong(), var randOffset : Lo
   def getElseAlocate(idx : Int) = {
     if(content(idx) == null) {
       val rand = new RandomGen()
-      rand.setSeed(seed ^ ((idx.toLong << 12) + randOffset))
+      rand.setSeed(seed ^ ((idx.toLong << 20) + randOffset))
       content(idx) = new Array[Byte](1024*1024)
       rand.nextBytes(content(idx))
     }
