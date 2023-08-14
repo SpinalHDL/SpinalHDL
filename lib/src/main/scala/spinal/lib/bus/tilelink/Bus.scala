@@ -214,6 +214,8 @@ abstract class BusFragment(val p : BusParameter) extends Bundle {
   def withMask : Boolean
   def withDenied : Boolean
   def withSink : Boolean = false
+
+  def sizeToBeatMinusOne() = spinal.lib.bus.tilelink.sizeToBeatMinusOne(p, size)
 }
 
 case class ChannelA(override val p : BusParameter) extends BusFragment(p) {

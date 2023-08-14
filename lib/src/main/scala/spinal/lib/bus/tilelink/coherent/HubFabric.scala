@@ -74,8 +74,7 @@ class HubFabric() extends Area{
           acquireB = SizeRange(parameter.blockSize),
           get = SizeRange.upTo(parameter.blockSize),
           putFull = SizeRange.upTo(parameter.blockSize),
-          putPartial = SizeRange.upTo(parameter.blockSize),
-          probeAckData = SizeRange(parameter.blockSize)
+          putPartial = SizeRange.upTo(parameter.blockSize)
         )
       )
     )

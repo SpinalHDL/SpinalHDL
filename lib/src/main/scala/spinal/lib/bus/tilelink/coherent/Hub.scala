@@ -822,8 +822,7 @@ object HubGen extends App{
                   putFull = SizeRange(64),
                   putPartial = SizeRange(64),
                   acquireT = SizeRange(64),
-                  acquireB = SizeRange(64),
-                  probeAckData = SizeRange(64)
+                  acquireB = SizeRange(64)
                 ),
                 id = SizeMapping(mId*4, 4)
               ))

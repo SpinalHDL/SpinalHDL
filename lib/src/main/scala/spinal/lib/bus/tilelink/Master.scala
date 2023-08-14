@@ -14,8 +14,9 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
                         get          : SizeRange = SizeRange.none,
                         putFull      : SizeRange = SizeRange.none,
                         putPartial   : SizeRange = SizeRange.none,
-                        hint         : SizeRange = SizeRange.none,
-                        probeAckData : SizeRange = SizeRange.none) extends MemoryTransfers {
+                        hint         : SizeRange = SizeRange.none) extends MemoryTransfers {
+
+  def isOnlyGetPut() = List(acquireT, acquireB, arithmetic, logical, hint).forall(_.none)
 
   def allowA(opcode : Opcode.A.E)  : Boolean = opcode match {
     case Opcode.A.PUT_FULL_DATA => putFull.some
@@ -43,7 +44,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
 //    body(6, acquireT  )
 //    body(7, acquireB  )
 //  }
-  def withBCE = acquireT.some || acquireB.some || probeAckData.some
+  def withBCE = acquireT.some || acquireB.some
   def withDataA = putFull.some || putFull.some
   def withDataD = get.some || acquireT.some || acquireB.some || logical.some || arithmetic.some
   def withAny = withDataA || withDataD || withBCE || hint.some
@@ -56,8 +57,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     get          = get         .intersect(rhs.get),
     putFull      = putFull     .intersect(rhs.putFull),
     putPartial   = putPartial  .intersect(rhs.putPartial),
-    hint         = hint        .intersect(rhs.hint),
-    probeAckData = probeAckData.intersect(rhs.probeAckData))
+    hint         = hint        .intersect(rhs.hint))
   def mincover(rhs: M2sTransfers) = M2sTransfers(
     acquireT     = acquireT    .mincover(rhs.acquireT),
     acquireB     = acquireB    .mincover(rhs.acquireB),
@@ -66,8 +66,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     get          = get         .mincover(rhs.get),
     putFull      = putFull     .mincover(rhs.putFull),
     putPartial   = putPartial  .mincover(rhs.putPartial),
-    hint         = hint        .mincover(rhs.hint),
-    probeAckData = probeAckData.mincover(rhs.probeAckData))
+    hint         = hint        .mincover(rhs.hint))
 
 
   override def mincover(rhs: MemoryTransfers) = rhs match {
@@ -115,8 +114,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     logical.max,
     get.max,
     putFull.max,
-    putPartial.max,
-    probeAckData.max
+    putPartial.max
   ).max
 
   def contains(opcode : Opcode.A.C) : Bool = {
@@ -139,7 +137,8 @@ object M2sTransfers {
     get        = SizeRange(1, 4096),
     putFull    = SizeRange(1, 4096),
     putPartial = SizeRange(1, 4096),
-    hint       = SizeRange(1, 4096))
+    hint       = SizeRange(1, 4096)
+  )
   def unknownSupports = M2sTransfers()
 
   def singleSize(size : Int) = M2sTransfers(
@@ -151,6 +150,12 @@ object M2sTransfers {
     putFull    = SizeRange(size),
     putPartial = SizeRange(size),
     hint       = SizeRange(size)
+  )
+
+  def unknownGetPut = M2sTransfers(
+    get        = SizeRange(1, 4096),
+    putFull    = SizeRange(1, 4096),
+    putPartial = SizeRange(1, 4096)
   )
 
   def intersect(values : Seq[M2sTransfers]) : M2sTransfers = values.reduce(_ intersect _)
