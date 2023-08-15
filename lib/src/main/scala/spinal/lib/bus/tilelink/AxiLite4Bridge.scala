@@ -15,6 +15,13 @@ object AxiLite4Bridge{
       dataWidth    = p.m.dataWidth
     )
   }
+  def getSupported(proposed : M2sSupport) = proposed.intersect(
+    M2sTransfers(
+      get        = SizeRange.upTo(proposed.dataBytes),
+      putFull    = SizeRange.upTo(proposed.dataBytes),
+      putPartial = SizeRange.upTo(proposed.dataBytes)
+    )
+  )
 }
 
 class AxiLite4Bridge(p : NodeParameters) extends Component{

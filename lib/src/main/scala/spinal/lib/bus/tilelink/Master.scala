@@ -274,6 +274,7 @@ case class M2sSupport(transfers : M2sTransfers,
   def intersect(that : M2sTransfers) : M2sSupport = copy(transfers = transfers.intersect(that))
 
   def withAddressWidth(w: Int): M2sSupport = copy(addressWidth = w)
+  def dataBytes = dataWidth/8
 }
 
 

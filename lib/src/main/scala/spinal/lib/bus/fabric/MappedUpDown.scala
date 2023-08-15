@@ -38,6 +38,10 @@ trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends Namea
       body(c)
       c
     }
+    def of(m : N, others : N*) : Unit = {
+      of(m)
+      others.foreach(of)
+    }
   }
   def at(address : BigInt) = new At(_.mapping.automatic = Some(address))
   def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
