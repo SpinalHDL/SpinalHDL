@@ -1537,7 +1537,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
     }
 
     val readArbitation = addressGen.m2sPipe()
-    val readPort = ram.readSyncPort
+    val readPort = ram.readSyncPort(clockCrossing = true)
     readPort.cmd := addressGen.toFlowFire
     io.pop << readArbitation.translateWith(readPort.rsp)
 

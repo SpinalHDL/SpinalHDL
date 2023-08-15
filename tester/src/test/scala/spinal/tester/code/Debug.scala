@@ -297,13 +297,63 @@ object Tesasdadt extends App{
 object Debug2 extends App{
   SpinalConfig(allowOutOfRangeLiterals = true)
   def gen = new Component{
-    val cdA = ClockDomain.external("cdA")
-    val cdB = ClockDomain.external("cdB")
-    val input = in Bool()
-    val regA = cdA(RegNext(input))
-    val tmp = CombInit(regA)
-    val outputA = cdA(out(RegNext(tmp)))
-    val outputB = cdB(out(RegNext(tmp)))
+    import spinal.lib._
+
+    //Create 4 address slots
+    val slots = for(i <- 0 to 3) yield new Area{ //Note each slot is an Area, not a Bundle
+      val valid = RegInit(False)       //Because the slot is an Area, we can define hardware here, ex : a register
+      val address = Reg(UInt(8 bits))
+      val age = Reg(UInt(16 bits)) //Will count since how many cycles the slot is valid
+
+      //Because the slot is an Area, we can also define some interface / behaviour for each slot.
+      when(valid){
+        age := age + 1
+      }
+
+      val removeIt = False
+      when(removeIt){
+        valid := False
+      }
+    }
+
+    //Logic to allocate a new slot
+    val insert = new Area{
+      val cmd = Stream(UInt(8 bits))
+      val free = slots.map(!_.valid)
+      val freeOh = OHMasking.first(free)
+      cmd.ready := free.orR
+      when(cmd.fire){
+        slots.onMask(freeOh){slot =>
+          slot.address := cmd.payload
+          slot.age := 0
+        }
+      }
+    }
+
+    //Logic to remove the slots which match a given address (assuming there is not more than one)
+    val remove = new Area{
+      val cmd = Flow(UInt(8 bits))
+      val oh = slots.map(s => s.valid && s.address === cmd.payload) //oh meaning one hot
+      when(cmd.fire){
+        slots.onMask(oh){ slot =>
+          slot.removeIt := True
+        }
+      }
+
+      val reader = slots.reader(OHToUInt(oh)) //Create a facility to read the slots using "oh" as index
+      val age = reader(_.age) //Age of the slot which was removed
+    }
+
+
+
+
+//    val cdA = ClockDomain.external("cdA")
+//    val cdB = ClockDomain.external("cdB")
+//    val input = in Bool()
+//    val regA = cdA(RegNext(input))
+//    val tmp = CombInit(regA)
+//    val outputA = cdA(out(RegNext(tmp)))
+//    val outputB = cdB(out(RegNext(tmp)))
 //    val value = in UInt(2 bits)
 ////    val result = out((value < U"101011"))
 //
@@ -1666,4 +1716,23 @@ object BlackboxTuning extends App{
   }
 
   config.generateVerilog(new StreamFifo(Bits(8 bits), 1024))
+}
+
+
+
+object CompilationTest {
+  def main(args: Array[String]): Unit = {
+    SimConfig.withIVerilog.withWave.doSim(new Component{
+      val a = Reg(Bits(31 bits)).randBoot()
+      val b = Reg(Bits(32 bits)).randBoot()
+      val c = Reg(Bits(33 bits)).randBoot()
+      val x = Reg(Bits(127 bits)).randBoot()
+      val y = Reg(Bits(128 bits)).randBoot()
+      val z = Reg(Bits(129 bits)).randBoot()
+
+      setDefinitionName("aaa")
+    }){ dut =>
+      sleep(100)
+    }
+  }
 }

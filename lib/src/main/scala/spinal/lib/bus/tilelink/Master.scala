@@ -166,6 +166,14 @@ case class M2sSource(id           : AddressMapping,
   def bSourceId = id.lowerBound.toInt
 }
 
+object M2sAgent{
+  def apply(name    : Nameable,
+            mapping : M2sSource) : M2sAgent = M2sAgent(
+    name = name,
+    mapping = List(mapping)
+  )
+}
+
 case class M2sAgent(name    : Nameable,
                     mapping : Seq[M2sSource]) extends OverridedEqualsHashCode {
   def withSourceOffset(offset : Int): M2sAgent ={
@@ -240,7 +248,7 @@ object M2sSupport{
 case class M2sSupport(transfers : M2sTransfers,
                       addressWidth : Int,
                       dataWidth : Int,
-                      allowExecute : Boolean = false){
+                      allowExecute : Boolean = false) {
   def mincover(that : M2sSupport): M2sSupport ={
     M2sSupport(
       transfers = transfers.mincover(that.transfers),
@@ -259,6 +267,8 @@ case class M2sSupport(transfers : M2sTransfers,
   }
 
   def intersect(that : M2sTransfers) : M2sSupport = copy(transfers = transfers.intersect(that))
+
+  def withAddressWidth(w: Int): M2sSupport = copy(addressWidth = w)
 }
 
 

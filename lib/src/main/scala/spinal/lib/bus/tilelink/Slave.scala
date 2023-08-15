@@ -12,8 +12,7 @@ case class S2mTransfers(probe:      SizeRange = SizeRange.none,
                         get:        SizeRange = SizeRange.none,
                         putFull:    SizeRange = SizeRange.none,
                         putPartial: SizeRange = SizeRange.none,
-                        hint:       SizeRange = SizeRange.none
-                         )  {
+                        hint:       SizeRange = SizeRange.none)  {
   def withBCE = probe.some
   def withDataB = putFull.some || putPartial.some
   def withAny = probe.some || arithmetic.some || logical.some || get.some || putFull.some || putPartial.some || hint.some
@@ -132,7 +131,7 @@ object S2mSupport{
     transfers    = p.emits
   )
 
-  def none = S2mSupport(
+  def none() = S2mSupport(
     transfers = S2mTransfers.none
   )
 }

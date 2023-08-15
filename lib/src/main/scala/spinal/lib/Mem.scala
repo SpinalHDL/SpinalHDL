@@ -23,7 +23,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     val ret = Stream(new ReadRetLinked(mem.wordType, linkedData))
 
     val retValid = RegInit(False)
-    val retData = mem.readSync(cmd.payload, cmd.ready, clockCrossing = crossClock)
+    val retData = mem.readSync(cmd.payload, cmd.fire, clockCrossing = crossClock)
     val retLinked = RegNextWhen(linkedData, cmd.ready)
 
     when(ret.ready) {
@@ -41,11 +41,12 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret
   }
 
-  def streamReadSync(cmd: Stream[UInt]): Stream[T] = {
+  def streamReadSync(cmd: Stream[UInt]): Stream[T] = streamReadSync(cmd, crossClock = false)
+  def streamReadSync(cmd: Stream[UInt], crossClock : Boolean): Stream[T] = {
     val ret = Stream(mem.wordType)
 
     val retValid = RegInit(False)
-    val retData = mem.readSync(cmd.payload, cmd.ready)
+    val retData = mem.readSync(cmd.payload, cmd.fire, clockCrossing = crossClock)
 
     when(ret.ready) {
       retValid := Bool(false)

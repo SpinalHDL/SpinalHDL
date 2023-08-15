@@ -363,6 +363,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     SpinalMap.list(this,mappings)
   }
 
+  def muxDc[T2 <: Data](mappings: (Any, T2)*): T2 = {
+    SpinalMap.listDc(this,mappings)
+  }
+
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = if(isReg) func(clockDomain)
 
   override def toString: String = {

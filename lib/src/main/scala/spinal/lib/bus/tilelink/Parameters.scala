@@ -145,11 +145,20 @@ object NodeParameters{
   def mergeSlaves(node : Seq[S2mParameters]): S2mParameters ={
     if(node.exists(_.withBCE)) {
       val sinkPreWidth = node.map(_.sinkWidth).max
-      S2mParameters(
+      val ref = S2mParameters(
         slaves = node.zipWithIndex.flatMap {
           case (s, i) => s.slaves.map(_.withSinkOffset(i << sinkPreWidth))
         }
       )
+
+      var sinkId = -1
+      val ret = S2mParameters(
+        slaves = node.flatMap { s =>
+          if(s.emits.withAny) sinkId += 1
+          s.slaves.map(e => e.withSinkOffset(if(e.emits.withAny) {sinkId << sinkPreWidth } else 0))
+        }
+      )
+      ret
     } else {
       S2mParameters(
         slaves = node.zipWithIndex.flatMap {
