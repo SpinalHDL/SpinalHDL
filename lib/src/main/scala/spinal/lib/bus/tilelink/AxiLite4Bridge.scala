@@ -58,7 +58,7 @@ class AxiLite4Bridge(p : NodeParameters) extends Component{
 
       for (ax <- List(io.down.aw, io.down.ar)) {
         ax.addr := filtred.address
-        ax.prot := 0
+        ax.prot := 2
       }
     }
     val data = new Area{
