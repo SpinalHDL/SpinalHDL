@@ -1662,8 +1662,46 @@ class PhaseCheckCrossClock() extends PhaseCheck{
     //        }
 
 
+
     walkStatements(s => {
       var walked = 0
+
+      def issueRaw(syncDriver: BaseNode with ScalaLocated, otherClockDomain: ClockDomain, path : List[(BaseNode)], dstCd : ClockDomain): Unit = {
+        val wellNameLoop = new StringBuilder()
+
+        for(n <- path) n match{
+          case n: DeclarationStatement =>
+            wellNameLoop ++= s"      >>> ${n.toString()} at ${n.getScalaLocationShort} >>>\n"
+          case _  =>
+        }
+        val multiLineLoop = path.map(n => "      " + n.toString).foldLeft("")(_ + "\n" + _)
+
+        PendingError(
+          s"""CLOCK CROSSING VIOLATION :
+             |- Source            : ${syncDriver} ${syncDriver.getScalaLocationShort}
+             |- Source clock      : ${otherClockDomain.clock}
+             |- Destination       : ${s} ${s.getScalaLocationShort}
+             |- Destination clock : ${dstCd.clock}
+             |- Source declaration :
+             |${syncDriver.getScalaLocationLong}
+             |- Destination declaration :
+             |${s.getScalaLocationLong}
+             |- Connection path :
+             |${wellNameLoop}
+             """.stripMargin
+        )
+      }
+
+      def checkMem(mem : Mem[_], path: List[(BaseNode)], targetCd : ClockDomain) : Unit ={
+        val newPath = mem :: path
+        mem.foreachStatements{
+          case s : MemReadSync =>
+          case s : MemReadAsync =>
+          case s : MemWrite => if(!areSynchronous(s.clockDomain, targetCd)) issueRaw(s, s.clockDomain, newPath, targetCd)
+          case s : MemReadWrite => if(!areSynchronous(s.clockDomain, targetCd)) issueRaw(s, s.clockDomain, newPath, targetCd)
+        }
+      }
+
 
       def walk(node: BaseNode, path: List[(BaseNode)], clockDomain: ClockDomain): Unit = {
         if(node.algoIncrementale == walked) return
@@ -1672,36 +1710,14 @@ class PhaseCheckCrossClock() extends PhaseCheck{
 
         val newPath = node :: path
 
+        def issue(syncDriver: BaseNode with ScalaLocated, otherClockDomain: ClockDomain): Unit = {
+          issueRaw(syncDriver, otherClockDomain, newPath, clockDomain)
+        }
+
         //Add tag to the toplevel inputs and blackbox inputs as a report
         node match {
           case bt : BaseType if bt.component == topLevel || bt.component.isInBlackBoxTree && !bt.isDirectionLess=> bt.addTag(ClockDomainReportTag(clockDomain))
           case _ =>
-        }
-
-        def issue(syncDriver: BaseNode with ScalaLocated, otherClockDomain: ClockDomain): Unit = {
-          val wellNameLoop = new StringBuilder()
-
-          for(n <- newPath) n match{
-            case n: DeclarationStatement =>
-              wellNameLoop ++= s"      >>> ${n.toString()} at ${n.getScalaLocationShort} >>>\n"
-            case _  =>
-          }
-          val multiLineLoop = newPath.map(n => "      " + n.toString).foldLeft("")(_ + "\n" + _)
-
-          PendingError(
-            s"""CLOCK CROSSING VIOLATION :
-               |- Source            : ${syncDriver} ${syncDriver.getScalaLocationShort}
-               |- Source clock      : ${otherClockDomain.clock}
-               |- Destination       : ${s} ${s.getScalaLocationShort}
-               |- Destination clock : ${clockDomain.clock}
-               |- Source declaration :
-               |${syncDriver.getScalaLocationLong}
-               |- Destination declaration :
-               |${s.getScalaLocationLong}
-               |- Connection path :
-               |${wellNameLoop}
-             """.stripMargin
-          )
         }
 
         node match {
@@ -1723,7 +1739,13 @@ class PhaseCheckCrossClock() extends PhaseCheck{
             node.walkParentTreeStatementsUntilRootScope(s => walk(s, newPath, clockDomain))
           case node: TreeStatement =>
             node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
-          case node: Mem[_] =>
+          case node: Mem[_] => {
+            ???
+          }
+          case node: MemReadAsync => {
+            checkMem(node.mem, newPath.tail, clockDomain)
+            node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
+          }
           case node: MemReadSync =>
             if(!areSynchronous(node.clockDomain, clockDomain)) {
               issue(node, node.clockDomain)
@@ -1736,6 +1758,8 @@ class PhaseCheckCrossClock() extends PhaseCheck{
             node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
         }
       }
+
+
 
       s match {
         case s: BaseType if s.hasTag(classOf[ClockDomainTag]) =>
@@ -1750,12 +1774,20 @@ class PhaseCheckCrossClock() extends PhaseCheck{
         case s: BaseType if s.isReg && !s.hasTag(crossClockDomain) =>
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachStatements(as => walk(as, as :: s :: Nil, s.clockDomain))
+        case s: MemReadSync if !s.hasTag(crossClockDomain) =>
+          if (s.hasTag(classOf[ClockDomainTag])) {
+            PendingError(s"Can't add ClockDomainTag to memory ports:\n" + s.getScalaLocationLong)
+          }
+          walked = GlobalData.get.allocateAlgoIncrementale()
+          s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
+          checkMem(s.mem, s :: Nil, s.clockDomain)
         case s: MemReadWrite if !s.hasTag(crossClockDomain) =>
           if (s.hasTag(classOf[ClockDomainTag])) {
             PendingError(s"Can't add ClockDomainTag to memory ports:\n" + s.getScalaLocationLong)
           }
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
+          checkMem(s.mem, s :: Nil, s.clockDomain)
         case s: MemWrite if !s.hasTag(crossClockDomain) =>
           if (s.hasTag(classOf[ClockDomainTag])) {
             PendingError(s"Can't add ClockDomainTag to memory ports:\n" + s.getScalaLocationLong)

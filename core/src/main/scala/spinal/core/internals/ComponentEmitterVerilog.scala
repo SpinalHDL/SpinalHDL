@@ -1050,10 +1050,10 @@ class ComponentEmitterVerilog(
             " = $urandom"
           case bv: BitVector =>
             val randCount = (bv.getBitsWidth+31)/32
-            s" = {${randCount}{$$urandom}}"
+            s" = {${(Array.fill(randCount)("$urandom")).mkString(",")}}"
           case e: SpinalEnumCraft[_] =>
             val randCount = (e.getBitsWidth+31)/32
-            s" = {${randCount}{$$urandom}}"
+            s" = {${(Array.fill(randCount)("$urandom")).mkString(",")}}"
         }
       }
     }
@@ -1440,6 +1440,7 @@ end
       e match {
     //    case node: Literal => applyTo(node)
         case node: Resize                           => applyTo(node)
+        case node: Literal                          => // Avoid triggering on SInt literals
         case node if node.getTypeObject == TypeSInt => applyTo(node)
         case node: Operator.UInt.Add                => applyTo(node)
         case node: Operator.UInt.Sub                => applyTo(node)

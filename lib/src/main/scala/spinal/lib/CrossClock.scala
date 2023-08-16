@@ -13,6 +13,17 @@ object BufferCC {
     return ret
   }
 
+  def apply[T <: Data](input: T, init: => T, bufferDepth: Int, randBoot : Boolean): T =
+    apply(input, init, Some(bufferDepth), randBoot)
+  def apply[T <: Data](input: T, init: => T, bufferDepth: Int): T =
+    apply(input, init, Some(bufferDepth))
+  def apply[T <: Data](input: T, bufferDepth: Int, randBoot : Boolean): T =
+    apply(input, null.asInstanceOf[T], Some(bufferDepth), randBoot)
+  def apply[T <: Data](input: T, bufferDepth: Int): T =
+    apply(input, null.asInstanceOf[T], Some(bufferDepth))
+
+
+
   val defaultDepth = ScopeProperty(2)
   def defaultDepthOptioned(cd : ClockDomain, option : Option[Int]) : Int = {
     option match {

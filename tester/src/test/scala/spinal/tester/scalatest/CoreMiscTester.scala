@@ -174,4 +174,5 @@ class CoreMiscTester extends SpinalAnyFunSuite{
       }
     }
   }
+
 }
