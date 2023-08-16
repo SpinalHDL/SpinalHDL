@@ -66,7 +66,7 @@ case class Apb3CC(config : Apb3Config,
 
   val outputLogic = new ClockingArea(outputClock){
     val outputCmdFlow = FlowCCByToggle(inputLogic.inputCmd, inputClock, outputClock, withOutputM2sPipe = false)
-    val outputCmd = outputCmdFlow.toStream.m2sPipe(crossClockData = true)
+    val outputCmd = outputCmdFlow.toStream.m2sPipe(crossClockData = true, holdPayload = true)
     val state = RegInit(False)
 
     io.output.PENABLE := False
