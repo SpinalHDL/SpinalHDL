@@ -306,6 +306,9 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       #ifdef COVERAGE
       VerilatedCov::write((("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".dat").c_str());
       #endif
+
+      Verilated::runFlushCallbacks();
+      Verilated::runExitCallbacks();
     }
 
 };
@@ -314,6 +317,20 @@ double sc_time_stamp () {
   return simHandle${uniqueId}->time;
 }
 
+
+void vl_finish(const char* filename, int linenum, const char* hier) VL_MT_UNSAFE {
+    if (false && hier) {}
+    VL_PRINTF(  // Not VL_PRINTF_MT, already on main thread
+        "- %s:%d: Verilog $$finish\\n", filename, linenum);
+   /*if (Verilated::threadContextp()->gotFinish()) {
+        VL_PRINTF(  // Not VL_PRINTF_MT, already on main thread
+            "- %s:%d: Second verilog $$finish, exiting\\n", filename, linenum);
+        Verilated::runFlushCallbacks();
+        Verilated::runExitCallbacks();
+        std::exit(0);
+    }*/
+    Verilated::threadContextp()->gotFinish(true);
+}
 
 #ifdef __cplusplus
 extern "C" {
@@ -501,6 +518,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -LDFLAGS -fvisibility=hidden
        | -CFLAGS -std=c++11
        | -LDFLAGS -std=c++11
+       | -CFLAGS -DVL_USER_FINISH=1
        | --autoflush  
        | --output-split 5000
        | --output-split-cfuncs 500

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 install_verilator(){
-  sudo apt install -y git make autoconf build-essential flex libfl-dev bison  # First time prerequisites
+  sudo apt install -y git make autoconf build-essential flex libfl-dev bison help2man # First time prerequisites
   git clone http://git.veripool.org/git/verilator   # Only first time
   unset VERILATOR_ROOT  # For bash
   cd verilator
