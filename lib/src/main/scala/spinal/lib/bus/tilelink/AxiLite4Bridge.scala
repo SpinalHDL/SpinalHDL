@@ -9,19 +9,12 @@ object AxiLite4Bridge{
   def getAxiLite4Config(p : NodeParameters): AxiLite4Config ={
     assert(!p.withBCE)
     assert(p.m.emits.isOnlyGetPut())
-    assert(p.sizeBytes <= p.m.dataBytes)
     AxiLite4Config(
       addressWidth = p.m.addressWidth,
       dataWidth    = p.m.dataWidth
     )
   }
-  def getSupported(proposed : M2sSupport) = proposed.intersect(
-    M2sTransfers(
-      get        = SizeRange.upTo(proposed.dataBytes),
-      putFull    = SizeRange.upTo(proposed.dataBytes),
-      putPartial = SizeRange.upTo(proposed.dataBytes)
-    )
-  )
+  def getSupported(proposed : M2sSupport) = proposed.intersect(M2sTransfers.unknownGetPut)
 }
 
 class AxiLite4Bridge(p : NodeParameters) extends Component{
@@ -31,33 +24,44 @@ class AxiLite4Bridge(p : NodeParameters) extends Component{
     val down = master port AxiLite4(axiConfig)
   }
 
-  val pending = new Area{
-    val valid = RegInit(False) clearWhen(io.up.d.fire)
+
+  val pending = new Area {
+    val valid = RegInit(False) clearWhen (io.up.d.fire && io.up.d.isLast)
     val get = Reg(Bool())
     val source = Reg(io.up.p.source)
     val size = Reg(io.up.p.size)
-    when(io.up.a.fire){
-      valid := True
-      get := io.up.a.opcode === Opcode.A.GET
-      source := io.up.a.source
-      size := io.up.a.size
-    }
   }
 
   val a = new Area {
-    val halted = io.up.a.haltWhen(pending.valid)
+    val halted = io.up.a.haltWhen(pending.valid && io.up.a.isFirst)
+    when(halted.fire) {
+      pending.valid := True
+      pending.get := halted.opcode === Opcode.A.GET
+      pending.source := halted.source
+      pending.size := halted.size
+    }
 
-    val (cmdFork, dataFork) = StreamFork2(halted)
+    val buffered = halted.halfPipe()
+    val (cmdFork, dataFork) = StreamFork2(buffered)
     val cmd = new Area {
-      val filtred = cmdFork.takeWhen(cmdFork.isFirst())
-      val isGet = filtred.opcode === Opcode.A.GET
+      val isGet = cmdFork.opcode === Opcode.A.GET
+      val counter = Reg(io.up.p.beat) init(0)
+      val forked = cmdFork.forkSerial(!isGet || counter === cmdFork.sizeToBeatMinusOne())
+      when(forked.fire) {
+        counter := counter + 1
+        when(cmdFork.fire) {
+          counter := 0
+        }
+      }
 
-      io.down.aw.valid := filtred.valid && !isGet
-      io.down.ar.valid := filtred.valid &&  isGet
-      filtred.ready := isGet.mux(io.down.ar.ready, io.down.aw.ready)
+      io.down.aw.valid := forked.valid && !isGet
+      io.down.ar.valid := forked.valid &&  isGet
+      forked.ready := isGet.mux(io.down.ar.ready, io.down.aw.ready)
+
+      val address = forked.address | (counter << log2Up(p.m.dataBytes)).resized
 
       for (ax <- List(io.down.aw, io.down.ar)) {
-        ax.addr := filtred.address
+        ax.addr := address
         ax.prot := 2
       }
     }
@@ -71,9 +75,18 @@ class AxiLite4Bridge(p : NodeParameters) extends Component{
   }
 
   val d = new Area{
+    val counter = Reg(io.up.p.beat) init(0)
+    val lastB = counter === io.up.d.sizeToBeatMinusOne()
+    when(io.down.b.fire){
+      counter := counter + 1
+      when(lastB){
+        counter := 0
+      }
+    }
+
     io.down.r.ready := io.up.d.ready
-    io.down.b.ready := io.up.d.ready
-    io.up.d.valid := io.down.r.valid || io.down.b.valid
+    io.down.b.ready := io.up.d.ready || !lastB
+    io.up.d.valid := io.down.r.valid || io.down.b.valid && lastB
     io.up.d.opcode := pending.get.mux(Opcode.D.ACCESS_ACK_DATA(), Opcode.D.ACCESS_ACK())
     io.up.d.param := 0
     io.up.d.source := pending.source

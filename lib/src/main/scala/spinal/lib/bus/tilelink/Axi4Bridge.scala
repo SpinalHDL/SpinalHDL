@@ -16,7 +16,6 @@ object Axi4Bridge{
       useLock      = false,
       useCache     = false,
       useQos       = false,
-      useBurst     = false,
       useProt      = false,
       useRegion    = false,
       useAllStrb   = true
@@ -61,6 +60,7 @@ class Axi4Bridge(p : NodeParameters) extends Component{
         ax.id := buffered.source
         ax.len := len
         ax.size := sizePerBeat
+        ax.setBurstINCR()
       }
 
       io.down.aw.allStrb := buffered.opcode === Opcode.A.PUT_PARTIAL_DATA

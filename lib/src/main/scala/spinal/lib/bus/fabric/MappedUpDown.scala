@@ -70,7 +70,7 @@ trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends Namea
       }
       for(c <- dc){
         val spec = ArrayBuffer[SizeMapping]()
-        val others = downs.filter(_.mapping.automatic.exists(_ != DefaultMapping)).flatMap(_.mapping.value.get match {
+        val others = downs.filter(e => e.mapping.automatic.isEmpty || e.mapping.automatic.get != DefaultMapping).flatMap(_.mapping.value.get match {
           case m : SizeMapping => List(m)
           case m : OrMapping => m.conds.map(_.asInstanceOf[SizeMapping]) //DefaultMapping only supported if all others are sizeMapping
         })
