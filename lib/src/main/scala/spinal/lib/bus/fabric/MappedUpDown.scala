@@ -7,22 +7,33 @@ import spinal.lib._
 import scala.collection.mutable.ArrayBuffer
 
 
-trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends Nameable {
+trait UpDown[C] extends Nameable{
   var withUps, withDowns = true //Used for assertion
   val ups = ArrayBuffer[C]()
   val downs = ArrayBuffer[C]()
 
-  def setSlaveOnly() : this.type = {
+  def setSlaveOnly(): this.type = {
     assert(withUps)
     withDowns = false
     this
   }
-  def setMasterOnly() : this.type = {
+
+  def setMasterOnly(): this.type = {
     assert(withDowns)
     withUps = false
     this
   }
 
+  def assertUpDown(): Unit = {
+    if (withDowns && downs.isEmpty) SpinalError(s"${getName()} has no slave")
+    if (!withDowns && downs.nonEmpty) SpinalError(s"${getName()} has slaves")
+
+    if (withUps && ups.isEmpty) SpinalError(s"${getName()} has no master")
+    if (!withUps && ups.nonEmpty) SpinalError(s"${getName()} has masters")
+  }
+}
+
+trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends UpDown[C]{
   def <<(m : N): C = {
     val c = connectFrom(m)
     c.mapping.automatic = Some(DefaultMapping)
@@ -47,14 +58,6 @@ trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends Namea
   def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
   def at(mapping : AddressMapping) = new At(_.mapping.value load mapping)
   def connectFrom(m : N) : C
-
-  def assertUpDown(): Unit ={
-    if(withDowns && downs.isEmpty) SpinalError(s"${getName()} has no slave")
-    if(!withDowns && downs.nonEmpty) SpinalError(s"${getName()} has slaves")
-
-    if(withUps && ups.isEmpty) SpinalError(s"${getName()} has no master")
-    if(!withUps && ups.nonEmpty) SpinalError(s"${getName()} has masters")
-  }
 
 
   def generateMapping(cToAddressWidth : C => Int): Unit ={
