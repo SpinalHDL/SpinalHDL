@@ -67,10 +67,9 @@ class AxiLite4Bridge(p : NodeParameters) extends Component{
     }
     val data = new Area{
       val filtred = dataFork.takeWhen(dataFork.opcode === Opcode.A.PUT_FULL_DATA || dataFork.opcode === Opcode.A.PUT_PARTIAL_DATA)
-      val buffer = filtred.pipelined(m2s = true)
-      io.down.w.arbitrationFrom(buffer)
-      io.down.w.data := buffer.data
-      io.down.w.strb := buffer.mask
+      io.down.w.arbitrationFrom(filtred)
+      io.down.w.data := filtred.data
+      io.down.w.strb := filtred.mask
     }
   }
 
