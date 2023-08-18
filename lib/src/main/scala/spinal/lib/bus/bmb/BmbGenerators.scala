@@ -184,12 +184,13 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
     lock.await()
     val bmb = Bmb(accessRequirements.toBmbParameter())
     val bus = BmbSlaveFactory(bmb)
-    val targets = targetsModel.map(flag =>
+    val targets = (targetsModel.zipWithIndex).map { case (flag, id) =>
       PlicTarget(
+        id = id,
         gateways = gateways.map(_.get),
         priorityWidth = priorityWidth
       ).setCompositeName(flag.target, "plic_target")
-    )
+    }
 
     //    gateways.foreach(_.priority := 1)
     //    targets.foreach(_.threshold := 0)
