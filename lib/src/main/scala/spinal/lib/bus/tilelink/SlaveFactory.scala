@@ -29,9 +29,9 @@ class SlaveFactory(bus: Bus) extends BusSlaveFactoryDelayed{
   val doWrite  = (askWrite && bus.a.ready).allowPruning()
   val doRead   = (askRead && bus.a.ready).allowPruning()
 
-
-  override def readAddress() : UInt = bus.a.address
-  override def writeAddress() : UInt = bus.a.address
+  val address = (bus.a.address >> bus.p.dataBytesLog2Up) << bus.p.dataBytesLog2Up
+  override def readAddress()  : UInt  = address
+  override def writeAddress() : UInt = address
 
 //  override def writeByteEnable(): Bits = bus.a.mask
 
@@ -64,7 +64,7 @@ class SlaveFactory(bus: Bus) extends BusSlaveFactoryDelayed{
       readData = rspAsync.data
     )
 
-    switch(bus.a.address) {
+    switch(address) {
       for ((address, jobs) <- elementsPerAddress if address.isInstanceOf[SingleMapping]) {
         is(address.asInstanceOf[SingleMapping].address) {
           doMappedElements(jobs)
@@ -73,7 +73,7 @@ class SlaveFactory(bus: Bus) extends BusSlaveFactoryDelayed{
     }
 
     for ((address, jobs) <- elementsPerAddress if !address.isInstanceOf[SingleMapping]) {
-      when(address.hit(bus.a.address)){
+      when(address.hit(this.address)){
         doMappedElements(jobs)
       }
     }

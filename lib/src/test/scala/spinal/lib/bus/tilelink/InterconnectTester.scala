@@ -476,7 +476,7 @@ class InterconnectTester extends AnyFunSuite{
       b0 << m0.node
 
 
-      b0.setDecoderConnection { (s, m) =>
+      b0.setDownConnection { (s, m) =>
         new Area {
           println("wuff")
           val miaou = False
