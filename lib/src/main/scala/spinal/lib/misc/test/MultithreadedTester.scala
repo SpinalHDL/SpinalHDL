@@ -10,7 +10,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 
-class MultithreadedTester(threadCount : Int = 0, logsPath : File = new File("logs")){
+class MultithreadedTester(threadCount : Int = 0, workspace : File = new File("logs")){
   val finalThreadCount = if(threadCount > 0) threadCount else {
     new oshi.SystemInfo().getHardware.getProcessor.getLogicalProcessorCount
   }
@@ -20,8 +20,9 @@ class MultithreadedTester(threadCount : Int = 0, logsPath : File = new File("log
 
   val jobs = ArrayBuffer[Job]()
   class Job(testName : String) (body : => Unit){
+    val logsPath = new File(workspace, testName)
     FileUtils.forceMkdir(logsPath)
-    val file = new PrintStream(new File(logsPath, testName + ".log"))
+    val file = new PrintStream(new File(logsPath,"stdout.log"))
     val originalOutput = Console.out
     var failed = false
     val future = Future{
@@ -59,7 +60,7 @@ class MultithreadedTester(threadCount : Int = 0, logsPath : File = new File("log
 
   def await(): Unit = {
     jobs.foreach(_.join())
-    jobs.foreach(j => if(j.failed) throw new Exception(s"Some jobs failed, see ${logsPath.getAbsolutePath}"))
+    jobs.foreach(j => if(j.failed) throw new Exception(s"Some jobs failed, see ${workspace.getAbsolutePath}"))
     jobs.clear()
   }
 }
