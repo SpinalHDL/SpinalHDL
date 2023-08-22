@@ -763,7 +763,9 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
   val nativeImpl = DynamicCompiler.getClass(s"wrapper_${workspaceName}.VerilatorNative", s"${workspacePath}/${workspaceName}")
   val nativeInstance: IVerilatorNative = nativeImpl.getConstructor().newInstance().asInstanceOf[IVerilatorNative]
 
-  def instanciate(name: String, seed: Int) = nativeInstance.newHandle(name, seed)
+  def instanciate(name: String, seed: Int) = nativeInstance.synchronized{ //synchronized is used as a Verilator isn't thread safe on construction (bug ?)
+    nativeInstance.newHandle(name, seed)
+  }
 
   override def isBufferedWrite: Boolean = false
 }
