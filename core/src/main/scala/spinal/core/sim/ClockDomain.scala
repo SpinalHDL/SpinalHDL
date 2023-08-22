@@ -50,26 +50,20 @@ object DoReset {
   * Generate a clock
   */
 object DoClock {
-
   def apply(clk: Bool, period: Long): Unit = {
     assert(period >= 2)
 
     var value = clk.toBoolean
+    val clkProxy = clk.simProxy()
 
-    def t : Unit = {
+    def t: Unit = {
       value = !value
-      clk  #= value
+      clkProxy #= value
       delayed(period >> 1)(t)
     }
+
     t
-
-//    while(true){
-//      value = !value
-//      clk  #= value
-//      sleep(period >> 1)
-//    }
   }
-
 }
 
 /**
