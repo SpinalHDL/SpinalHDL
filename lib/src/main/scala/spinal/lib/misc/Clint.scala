@@ -9,6 +9,7 @@ import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbPa
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneSlaveFactory}
 import spinal.lib.cpu.riscv.RiscvHart
+import scala.collection.Seq
 
 import scala.collection.mutable.ArrayBuffer
 
