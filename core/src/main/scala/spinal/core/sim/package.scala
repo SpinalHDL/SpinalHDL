@@ -157,6 +157,8 @@ package object sim {
     manager.setBigInt(signal, value)
   }
 
+  def currentTestName() : String = sm.testName
+
   /** Return the current simulation time */
   def simTime(): Long = SimManagerContext.current.manager.time
   def simDeltaCycle(): Long = SimManagerContext.current.manager.deltaCycle

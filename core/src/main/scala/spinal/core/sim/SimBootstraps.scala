@@ -586,7 +586,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
 
     val sim = newSimRaw(allocatedName, backendSeed)
 
-    val manager = new SimManager(sim, random){
+    val manager = new SimManager(sim, random, allocatedName){
       val spinalGlobalData =  GlobalData.get
       override def setupJvmThread(thread: Thread): Unit = {
         super.setupJvmThread(thread)
