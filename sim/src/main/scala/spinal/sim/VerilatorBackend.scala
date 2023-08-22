@@ -255,7 +255,7 @@ public:
     high_resolution_clock::time_point lastFlushAt;
     uint32_t timeCheck;
     bool waveEnabled;
-    V${config.toplevelName} top;
+    V${config.toplevelName} *top;
     ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
 	  Verilated${format.ext.capitalize}C tfp;
@@ -264,6 +264,8 @@ public:
     int32_t time_precision;
 
     Wrapper_${uniqueId}(const char * name){
+      top = new V${config.toplevelName}();
+
       simHandle${uniqueId} = this;
       time = 0;
       timeCheck = 0;
@@ -276,7 +278,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       else if(signal.dataType.width <= 64) "QData"
       else "WData"
       val enforcedCast = if(signal.dataType.width > 64) "(WData*)" else ""
-      val signalReference = s"top.${signal.path.mkString("->")}"
+      val signalReference = s"top->${signal.path.mkString("->")}"
       val memPatch = if(signal.dataType.isMem) "[0]" else ""
 
       s"      signalAccess[$id] = new ${typePrefix}SignalAccess($enforcedCast $signalReference$memPatch ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
@@ -287,7 +289,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
     }
       #ifdef TRACE
       Verilated::traceEverOn(true);
-      top.trace(&tfp, 99);
+      top->trace(&tfp, 99);
       tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${format.ext}").c_str());
       #endif
       this->name = name;
@@ -309,6 +311,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
 
       Verilated::runFlushCallbacks();
       Verilated::runExitCallbacks();
+      delete top;
     }
 
 };
@@ -349,6 +352,7 @@ JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
     srand48(seedValue);
     #endif
     Verilated::randReset(2);
+    Verilated::randSeed(seedValue);
     const char* ch = env->GetStringUTFChars(name, 0);
     Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch);
     env->ReleaseStringUTFChars(name, ch);
@@ -357,7 +361,7 @@ JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
 
 JNIEXPORT jboolean API JNICALL ${jniPrefix}eval_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle){
-   handle->top.eval();
+   handle->top->eval();
    return Verilated::gotFinish();
 }
 
