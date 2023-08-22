@@ -9,6 +9,7 @@ import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.misc.InterruptNode
 
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.Seq
 
 class MappedPlic[T <: spinal.core.Data with IMasterSlave](sourceIds : Seq[Int],
                                                           targetIds : Seq[Int],
