@@ -34,6 +34,9 @@ class MultithreadedTester(threadCount : Int = 0, logsPath : File = new File("log
               failed = true
               println(e.getMessage)
               println(e.getStackTrace.map(_.toString).mkString("\n"))
+              Console.out.flush()
+              Console.err.flush()
+              Thread.sleep(50)
             }
           }
         )

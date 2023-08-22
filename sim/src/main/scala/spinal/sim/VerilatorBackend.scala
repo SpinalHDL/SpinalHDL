@@ -255,6 +255,7 @@ public:
     high_resolution_clock::time_point lastFlushAt;
     uint32_t timeCheck;
     bool waveEnabled;
+    VerilatedContext* contextp;
     V${config.toplevelName} *top;
     ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
@@ -263,7 +264,10 @@ public:
     string name;
     int32_t time_precision;
 
-    Wrapper_${uniqueId}(const char * name){
+    Wrapper_${uniqueId}(const char * name, int seed){
+      contextp = new VerilatedContext;
+      contextp->randReset(2);
+      contextp->randSeed(seed);
       top = new V${config.toplevelName}();
 
       simHandle${uniqueId} = this;
@@ -303,15 +307,20 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
 
       #ifdef TRACE
       if(waveEnabled) tfp.dump((vluint64_t)time);
+      tfp.flush();
       tfp.close();
       #endif
       #ifdef COVERAGE
       VerilatedCov::write((("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".dat").c_str());
       #endif
 
-      Verilated::runFlushCallbacks();
-      Verilated::runExitCallbacks();
+      // Verilated::runFlushCallbacks();
+      // Verilated::runExitCallbacks();
+
+      contextp->gotFinish(true);
+      top->final();
       delete top;
+      delete contextp;
     }
 
 };
@@ -351,10 +360,8 @@ JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
     #else
     srand48(seedValue);
     #endif
-    Verilated::randReset(2);
-    Verilated::randSeed(seedValue);
     const char* ch = env->GetStringUTFChars(name, 0);
-    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch);
+    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch, seedValue);
     env->ReleaseStringUTFChars(name, ch);
     return handle;
 }
