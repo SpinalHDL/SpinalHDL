@@ -7,7 +7,6 @@ import spinal.core.sim._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 object StreamMonitor{
   def apply[T <: Data](stream : Stream[T], clockDomain: ClockDomain)(callback : (T) => Unit) = new StreamMonitor(stream,clockDomain).addCallback(callback)
@@ -71,8 +70,9 @@ object StreamDriver{
 }
 
 class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var driver : (T) => Boolean){
+  implicit val _ = sm
   var transactionDelay : () => Int = () => {
-    val x = Random.nextDouble()
+    val x = simRandom.nextDouble()
     (x*x*10).toInt
   }
 
@@ -92,7 +92,8 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
 
   var state = 0
   var delay = transactionDelay()
-  stream.valid #= false
+  val validProxy = stream.valid.simProxy()
+  validProxy #= false
   stream.payload.randomize()
 
   val readyProxy = stream.ready.simProxy()
@@ -109,13 +110,13 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
       }
       case 1 => {
         if(driver(stream.payload)){
-          stream.valid #= true
+          validProxy #= true
           state += 1
         }
       }
       case 2 => {
         if(readyProxy.toBoolean){
-          stream.valid #= false
+          validProxy #= false
           stream.payload.randomize()
           delay = transactionDelay()
           state = 0
@@ -138,11 +139,12 @@ object StreamReadyRandomizer {
 
 case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain,var condition: () => Boolean){
   var factor = 0.5f
+  val readyProxy = stream.ready.simProxy()
   clockDomain.onSamplings{
     if (condition()) {
-      stream.ready #= Random.nextFloat() < factor
+      readyProxy #= simRandom(readyProxy.manager).nextFloat() < factor
     } else {
-      stream.ready #= false
+      readyProxy #= false
     }
   }
 }
@@ -218,11 +220,12 @@ class SimStreamAssert[T <: Data](s : Stream[T], cd : ClockDomain){
  * }
  */
 class StreamDriverOoo[T <: Data](stream : Stream[T], cd: ClockDomain){
+  implicit val _ = sm
   val storage = ArrayBuffer[mutable.Queue[(T) => Unit] => Unit]()
   val queue = mutable.Queue[(T) => Unit]()
   val ctrl = StreamDriver(stream, cd) { p =>
     while(queue.isEmpty && !storage.isEmpty){
-      val index = Random.nextInt(storage.length)
+      val index = simRandom.nextInt(storage.length)
       storage(index).apply(queue)
       storage.remove(index)
     }

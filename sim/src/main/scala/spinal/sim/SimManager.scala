@@ -90,7 +90,7 @@ object SimManager{
   }
 }
 
-class SimManager(val raw : SimRaw) {
+class SimManager(val raw : SimRaw, val random: Random = Random) {
   val cpuAffinity = SimManager.newCpuAffinity()
   val mainThread = Thread.currentThread()
   var threads : SimCallSchedule = null

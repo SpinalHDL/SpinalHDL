@@ -7,16 +7,17 @@ import spinal.core.sim._
 import spinal.sim.SimThread
 
 import scala.collection.mutable
-import scala.util.Random
 
 
 class MemoryAgent(bus: Bus,
                   cd: ClockDomain,
-                  seed : Long = Random.nextInt(),
+                  seed : Long = simRandom.nextInt(),
                   blockSize : Int = 64,
                   var randomProberFactor : Float = 0.0f,
                   var randomProberDelayMax : Int = 1000
                  )(implicit idCallback : IdCallback) extends MonitorSubscriber{
+  implicit val _ = sm
+
   val mem = SparseMemory(seed)
 
   val monitor = new Monitor(bus, cd).add(this)
@@ -25,7 +26,7 @@ class MemoryAgent(bus: Bus,
   val locks = mutable.LinkedHashMap[Long, SimMutex]()
   def reserve(address : Long) = {
     locks.get(address) match {
-      case Some(x) => x.lock(); cd.waitSampling(Random.nextInt(10))
+      case Some(x) => x.lock(); cd.waitSampling(simRandom.nextInt(10))
       case None => locks(address) = SimMutex(randomized=true).lock
     }
   }
@@ -61,8 +62,8 @@ class MemoryAgent(bus: Bus,
   }
 
   override def onA(a: TransactionA) = {
-    if(Random.nextFloat() < randomProberFactor) fork {
-      cd.waitSampling(Random.nextInt(randomProberDelayMax))
+    if(bus.p.withBCE && simRandom.nextFloat() < randomProberFactor) fork {
+      cd.waitSampling(simRandom.nextInt(randomProberDelayMax))
       val address = a.address.toLong
       reserve(address)
       handleCoherency(
@@ -76,7 +77,7 @@ class MemoryAgent(bus: Bus,
     }
 
     fork{
-      val r = Random.nextFloat()
+      val r = simRandom.nextFloat()
       cd.waitSampling((r*r*20).toInt) //Will enable out of order handeling
       val blockAddress = a.address.toLong & ~(blockSize-1)
       reserve(blockAddress)
@@ -169,7 +170,7 @@ class MemoryAgent(bus: Bus,
         case false => getCap(m, address) == Param.Cap.toT || cap != Param.Cap.toB
         case true =>  false
       }
-      val doProbe = needProbe || Random.nextBoolean() //Randomly generate unecessary probe, to simulate a lack of knowledge
+      val doProbe = needProbe || simRandom.nextBoolean() //Randomly generate unecessary probe, to simulate a lack of knowledge
       if(!doProbe) {
         if(isSelf && getCap(m, address) == Param.Cap.toN) needData = true
         if(!isSelf && getCap(m, address) != Param.Cap.toN) unique = false
@@ -177,7 +178,7 @@ class MemoryAgent(bus: Bus,
         val mapping = m.mapping.randomPick()
         val b = TransactionB()
         b.opcode = Opcode.B.PROBE_BLOCK
-        if(allowProbePerm && Random.nextBoolean()) {
+        if(allowProbePerm && simRandom.nextBoolean()) {
           b.opcode = Opcode.B.PROBE_PERM
         }
         b.address = blockAddress
