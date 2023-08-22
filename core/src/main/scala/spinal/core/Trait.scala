@@ -770,6 +770,10 @@ trait SpinalTag {
     that.addTag(this)
     that
   }
+  def apply(that : SpinalTagReady, others : SpinalTagReady*) : Unit = {
+    apply(that)
+    others.foreach(apply)
+  }
 }
 
 

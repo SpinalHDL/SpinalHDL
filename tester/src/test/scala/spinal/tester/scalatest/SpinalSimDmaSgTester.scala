@@ -16,8 +16,8 @@ class SpinalSimDmaSgTester extends SpinalAnyFunSuite {
       SgDmaTestsParameter.test(p)
   }
   for(testId <- 0 until 5){
-    val p = SgDmaTestsParameter.random()
     test(s"random_$testId") {
+      val p = SgDmaTestsParameter.random()
       SgDmaTestsParameter.test(p)
     }
   }

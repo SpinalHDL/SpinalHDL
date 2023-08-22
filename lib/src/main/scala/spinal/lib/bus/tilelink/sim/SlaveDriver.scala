@@ -5,7 +5,6 @@ import spinal.core.sim._
 import spinal.lib.bus.tilelink._
 import spinal.lib.sim.{StreamDriver, StreamDriverOoo, StreamMonitor, StreamReadyRandomizer}
 
-import scala.util.Random
 
 class SlaveDriver(bus : Bus, cd : ClockDomain) {
   val driver = new Area{

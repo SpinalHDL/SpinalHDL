@@ -23,6 +23,7 @@ class WishbonePlic(sourceCount : Int, targetCount : Int) extends Component{
   )).toSeq
 
   val targets = for (i <- 0 until targetCount) yield PlicTarget(
+    id = i,
     gateways = gateways,
     priorityWidth = priorityWidth
   )

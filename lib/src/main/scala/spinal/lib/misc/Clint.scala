@@ -1,13 +1,14 @@
 package spinal.lib.misc
 
 import spinal.core._
-import spinal.core.fiber.Fiber
+import spinal.core.fiber.{Fiber, Lock}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4Config, AxiLite4SlaveFactory}
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneSlaveFactory}
+import spinal.lib.cpu.riscv.RiscvHart
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -30,14 +31,14 @@ object Clint{
   def addressWidth = 16
 }
 
-case class Clint(hartCount : Int) extends Area{
+case class Clint(hartIds : Seq[Int]) extends Area{
   val stop = False
   val time = Reg(UInt(64 bits)) init(0)
   when(!stop){
     time := time + 1
   }
 
-  val harts = for(hartId <- 0 until hartCount) yield new Area{
+  val harts = for(hartId <- hartIds) yield new Area{
     val cmp = Reg(UInt(64 bits))
     val timerInterrupt = RegNext(time >= cmp)
     val softwareInterrupt = RegInit(False)
@@ -59,7 +60,7 @@ case class Clint(hartCount : Int) extends Area{
       }
     }
 
-    val hartsMapping = for(hartId <- 0 until hartCount) yield new Area{
+    val hartsMapping = for(hartId <- hartIds) yield new Area{
       bus.writeMultiWord(harts(hartId).cmp, CMP_ADDR + 8*hartId)
       bus.readAndWrite(harts(hartId).softwareInterrupt, IPI_ADDR + 4*hartId, bitOffset = 0)
     }
@@ -76,7 +77,7 @@ case class Apb3Clint(hartCount : Int) extends Component{
   }
 
   val factory = Apb3SlaveFactory(io.bus)
-  val logic = Clint(hartCount)
+  val logic = Clint(0 until hartCount)
   logic.driveFrom(factory)
 
   for(hartId <- 0 until hartCount){
@@ -97,7 +98,7 @@ case class WishboneClint(hartCount : Int) extends Component{
   }
 
   val factory = WishboneSlaveFactory(io.bus)
-  val logic = Clint(hartCount)
+  val logic = Clint(0 until hartCount)
   logic.driveFrom(factory)
 
   for(hartId <- 0 until hartCount){
@@ -117,7 +118,7 @@ case class AxiLite4Clint(hartCount : Int, bufferTime : Boolean = false) extends 
   }
 
   val factory = new AxiLite4SlaveFactory(io.bus)
-  val logic = Clint(hartCount)
+  val logic = Clint(0 until hartCount)
   logic.driveFrom(factory, bufferTime)
 
   for(hartId <- 0 until hartCount){
@@ -138,7 +139,7 @@ case class BmbClint(bmbParameter : BmbParameter, hartCount : Int) extends Compon
   }
 
   val factory = BmbSlaveFactory(io.bus)
-  val logic = Clint(hartCount)
+  val logic = Clint(0 until hartCount)
   logic.driveFrom(factory)
   logic.stop setWhen(io.stop)
 
@@ -150,24 +151,24 @@ case class BmbClint(bmbParameter : BmbParameter, hartCount : Int) extends Compon
   io.time := logic.time
 }
 
-class MappedClint[T <: spinal.core.Data with IMasterSlave](hartCount : Int,
+class MappedClint[T <: spinal.core.Data with IMasterSlave](hartIds : Seq[Int],
                                                            bufferTime : Boolean,
                                                            busType: HardType[T],
                                                            factoryGen: T => BusSlaveFactory) extends Component{
   val io = new Bundle {
     val bus = slave(busType())
-    val timerInterrupt = out Bits(hartCount bits)
-    val softwareInterrupt = out Bits(hartCount bits)
+    val timerInterrupt = out Bits(hartIds.size bits)
+    val softwareInterrupt = out Bits(hartIds.size bits)
     val time = out UInt(64 bits)
     val stop = in Bool() default(False)
   }
 
   val factory = factoryGen(io.bus)
-  val logic = Clint(hartCount)
+  val logic = Clint(hartIds)
   logic.driveFrom(factory, bufferTime)
   logic.stop setWhen(io.stop)
 
-  for(hartId <- 0 until hartCount){
+  for(hartId <- hartIds.indices){
     io.timerInterrupt(hartId) := logic.harts(hartId).timerInterrupt
     io.softwareInterrupt(hartId) := logic.harts(hartId).softwareInterrupt
   }
@@ -175,27 +176,39 @@ class MappedClint[T <: spinal.core.Data with IMasterSlave](hartCount : Int,
   io.time := logic.time
 }
 
-case class TilelinkClint(hartCount : Int, p : bus.tilelink.BusParameter) extends MappedClint[bus.tilelink.Bus](
-  hartCount,
+case class TilelinkClint(hartIds : Seq[Int], p : bus.tilelink.BusParameter) extends MappedClint[bus.tilelink.Bus](
+  hartIds,
   true,
   new bus.tilelink.Bus(p),
   new bus.tilelink.SlaveFactory(_)
 )
 
+case class ClintPort(hardId: Int) extends Area {
+  val mti, msi = InterruptNode.master()
+}
+
 case class TilelinkFabricClint() extends Area{
   val node = bus.tilelink.fabric.Node.slave()
+  val lock = Lock()
 
-  var harts = ArrayBuffer[Any]()
-  def bindHart(cpu : Any) = {
-    //TODO
-    harts += cpu
+
+  var specs = ArrayBuffer[ClintPort]()
+  def createPort(hartId : Int) = {
+    specs.addRet(node.clockDomain on ClintPort(hartId))
   }
 
   val thread = Fiber build new Area{
+    lock.await()
+
     node.m2s.supported.load(Clint.getTilelinkSupport(node.m2s.proposed))
     node.s2m.none()
 
-    val core = TilelinkClint(harts.size, node.bus.p)
+    val core = TilelinkClint(specs.map(_.hardId), node.bus.p)
     core.io.bus <> node.bus
+
+    for(id <- specs.indices){
+      specs(id).mti.flag := core.io.timerInterrupt(id)
+      specs(id).msi.flag := core.io.softwareInterrupt(id)
+    }
   }
 }

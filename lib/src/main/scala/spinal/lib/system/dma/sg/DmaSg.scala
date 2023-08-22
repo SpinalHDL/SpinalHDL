@@ -2464,9 +2464,9 @@ object SgDmaTestsParameter{
 
     do{
       layout = DmaMemoryLayout(
-        bankCount            = List(1,2,4).randomPick(),
-        bankWidth            = List(8,16,32).randomPick(),
-        bankWords            = List(512, 1024, 2048).randomPick(),
+        bankCount            = List(1,2,4)(Random.nextInt(3)),
+        bankWidth            = List(8,16,32)(Random.nextInt(3)),
+        bankWords            = List(512, 1024, 2048)(Random.nextInt(3)),
         priorityWidth        = Random.nextInt(3)
       )
 

@@ -6,7 +6,7 @@ import spinal.lib.bus.misc.BusSlaveFactory
 import scala.collection.Seq
 
 
-case class PlicTarget(gateways : Seq[PlicGateway], priorityWidth : Int) extends Area{
+case class PlicTarget(id : Int, gateways : Seq[PlicGateway], priorityWidth : Int) extends Area{
   assert(gateways.map(_.id).distinct.length == gateways.length, "PLIC gatways have duplicated ID")
   val ie = Vec.fill(gateways.length)(Bool())
   val threshold = UInt(priorityWidth bits)

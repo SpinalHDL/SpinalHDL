@@ -578,7 +578,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
   }
 
   def doSimApi(name: String = "test", seed: Int = newSeed(), joinAll: Boolean)(body: T => Unit): Unit = {
-    Random.setSeed(seed)
+    val random = new Random(seed)
     GlobalData.set(report.globalData)
 
     val allocatedName = allocateTestName(name)
@@ -586,7 +586,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
 
     val sim = newSimRaw(allocatedName, backendSeed)
 
-    val manager = new SimManager(sim){
+    val manager = new SimManager(sim, random, allocatedName){
       val spinalGlobalData =  GlobalData.get
       override def setupJvmThread(thread: Thread): Unit = {
         super.setupJvmThread(thread)

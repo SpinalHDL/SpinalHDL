@@ -44,6 +44,7 @@ class SpinalSimPlicTester extends SpinalSimFunSuite {
         )).toSeq
 
         val targets = for (i <- 0 until targetCount) yield PlicTarget(
+          id = i,
           gateways = gateways,
           priorityWidth = priorityWidth
         )

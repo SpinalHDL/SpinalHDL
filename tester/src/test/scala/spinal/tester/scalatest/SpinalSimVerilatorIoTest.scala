@@ -4,6 +4,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
+import spinal.lib.misc.test.MultithreadedTester
 import spinal.tester.scalatest.SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop
 
 import scala.concurrent.{Await, Future}
@@ -235,5 +236,42 @@ class SpinalSimVerilatorIoTest extends SpinalAnyFunSuite {
       futures.foreach(f => Await.result(f, 60 seconds))
     }
 
+  }
+}
+
+class SpinalSimVerilatorDeterministicTester extends AnyFunSuite {
+  test("1") {
+    val x = new MultithreadedTester {
+      println("Compile")
+      val c = SimConfig.compile(new Component {
+        val wuff = in SInt(64 bits)
+        val reg = out(Reg(SInt(64 bits)))
+        reg := reg + 1
+      })
+
+      println("get ref")
+      var regRef = 0l
+      var randomRef = 0l
+      var inRef = 0l
+      c.doSim(seed = 42) { dut =>
+        dut.wuff.randomize()
+        sleep(2)
+        regRef = dut.reg.toLong
+        randomRef = simRandom.nextLong()
+        inRef = dut.wuff.toLong
+      }
+
+      println("testit")
+      for (i <- 0 until 100) test("test" + i){
+        c.doSim(seed = 42) { dut =>
+          dut.wuff.randomize()
+          sleep(2)
+          assert(dut.reg.toLong == regRef)
+          assert(dut.wuff.toLong == inRef)
+          assert(simRandom.nextLong() == randomRef)
+        }
+      }
+      await()
+    }
   }
 }
