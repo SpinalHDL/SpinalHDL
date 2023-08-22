@@ -259,11 +259,9 @@ class SimManager(val raw : SimRaw, val random: Random = Random) {
       var evalNanoTimeRef = System.nanoTime()
       deltaCycle = 0
 
-      //TODO
-
-//      if(raw.eval()){
-//        throw new SimFailure("RTL assertion failure")
-//      }
+      if(raw.eval()){
+        throw new SimFailure("RTL assertion failure")
+      }
 
       var nanoCounter = 0l
       var evalCalls = 0l
