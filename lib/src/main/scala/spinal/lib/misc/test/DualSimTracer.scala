@@ -6,7 +6,7 @@ import spinal.core.sim._
 import scala.collection.mutable.ArrayBuffer
 
 object DualSimTracer {
-  def apply[T <: Component](compiled: SimCompiled[T], window: Int, seed: Int)(testbench: T => Unit): Unit = withSb(compiled, window, seed) { (dut, _) => testbench(dut) }
+  def apply[T <: Component](compiled: SimCompiled[T], window: Int, seed: Int)(testbench: T => Unit): Unit = withCb(compiled, window, seed) { (dut, _) => testbench(dut) }
   def withCb[T <: Component](compiled: SimCompiled[T], window: Int, seed: Int)(testbench: (T, (=> Unit) => Unit) => Unit): Unit = {
     var mTime = 0l
     var mEnded = false
