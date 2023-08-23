@@ -292,11 +292,11 @@ class SimManager(val raw : SimRaw, val random: Random = Random, val testName : S
         if(forceDeltaCycle){
           printEvalTime match {
             case false => {
-              if (raw.eval()) throw new SimFailure("Verilog assertion failure")
+              if (raw.eval()) throw new SimFailure("HDL assertion failure")
             }
             case true => {
               val t1 = System.nanoTime()
-              if (raw.eval()) throw new SimFailure("Verilog assertion failure")
+              if (raw.eval()) throw new SimFailure("HDL assertion failure")
               val t2 = System.nanoTime()
               evalCalls += 1
               nanoCounter += t2 - t1
