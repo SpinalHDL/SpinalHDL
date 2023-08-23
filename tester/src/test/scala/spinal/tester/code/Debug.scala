@@ -15,8 +15,10 @@ import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
 import spinal.lib.graphic.Rgb
 import spinal.lib.io.TriState
+import spinal.lib.misc.test.{DualSimTracer, MultithreadedTester}
 import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
+import java.io.File
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.math.ScalaNumber
@@ -1734,5 +1736,73 @@ object CompilationTest {
     }){ dut =>
       sleep(100)
     }
+  }
+}
+
+
+
+object InterruptInterconnectPlay extends App{
+  import spinal.core.fiber._
+  class InterruptNode extends Area{
+    val flag = Bool()
+    val cd = ClockDomain.current
+    val ups = ArrayBuffer[InterruptNode]()
+
+    def <<(source : InterruptNode): Unit = ups += source
+    def >>(sink : InterruptNode) : Unit = sink << this
+
+    val thread = Fiber build new Area{
+      val gateways = for(up <- ups) yield new Area {
+        val flag = Bool()
+        ClockDomain.areSynchronous(cd, up.cd) match {
+          case true => flag := up.flag
+          case false => BufferCC(up.flag, init=False)
+        }
+      }
+      flag := gateways.map(_.flag).orR
+    }
+  }
+
+  class Cpu extends Area {
+    val thread = Fiber build new Area {
+      val interrupt = new InterruptNode()
+    }
+  }
+
+  class Plic extends Area {
+    def bind(riscvHart : Cpu) = {
+//      riscvHart.lock
+    }
+    def createTarget(id : Int): InterruptNode = {
+      new InterruptNode()
+    }
+
+    def createSource(id : Int): InterruptNode = {
+      new InterruptNode()
+    }
+  }
+
+  class Peripheral extends Area {
+    val interrupt = new InterruptNode()
+  }
+
+  SpinalVerilog(new Component{
+
+  })
+}
+
+
+object ExplorerTracerTest extends App{
+  class Toplevel extends Component{
+    val counter = Reg(UInt(32 bits)) init(0)
+    counter := counter + 1
+  }
+
+  val compiled = SimConfig.withFstWave.compile(new Toplevel())
+
+  DualSimTracer(compiled, window = 10000, seed = 42){dut=>
+    dut.clockDomain.forkStimulus(10)
+    sleep(100000)
+    simFailure()
   }
 }
