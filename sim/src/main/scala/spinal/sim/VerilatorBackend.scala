@@ -317,7 +317,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       // Verilated::runFlushCallbacks();
       // Verilated::runExitCallbacks();
 
-      contextp->gotFinish(true);
+      //contextp->gotFinish(true);
       top->final();
       delete top;
       delete contextp;
