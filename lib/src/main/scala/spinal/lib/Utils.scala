@@ -47,6 +47,17 @@ object UIntToOh {
   }
 }
 
+// Meaning that value 2 will give 0011 instead of 0100
+object UIntToOhMinusOne {
+  def apply(value: UInt, width: Int): Bits = {
+    if (width <= 0) B(0, width bits)
+    else B(U(B(1, width bits) |<< value)-1)
+  }
+
+
+  def apply(value : UInt) : Bits = apply(value,  1 << widthOf(value))
+}
+
 
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
@@ -381,6 +392,17 @@ object LeastSignificantBitSet{
     }
     ret
   }
+}
+
+object PropagateOnes{
+  def toLsb[T <: BitVector](that : T) : T = {
+    val ret =  cloneOf(that)
+    for(i <- ret.bitsRange){
+      ret(i) := that.dropLow(i).orR
+    }
+    ret
+  }
+  def toMsb[T <: BitVector](that : T) : T = toLsb(that.reversed).reversed
 }
 
 
