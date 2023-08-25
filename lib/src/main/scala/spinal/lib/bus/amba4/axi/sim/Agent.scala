@@ -21,7 +21,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     this(bus.aw, bus.w, bus.b, clockDomain);
   }
 
-  val pageAlignBits = 12
+  val pageAlignBits = Axi4.boundaryWidth
   val busConfig = aw.config
   if(!busConfig.useLen){
     SpinalWarning("The Axi4Config with useLen == false is only tested by assigning len = 0, " 
@@ -61,6 +61,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     var address, startAddress, endAddress: BigInt = null
     var addrValid                                 = false
 
+    var attempts = 0
     do{
       if (busConfig.useLen) {
         len = burst match {
@@ -91,6 +92,8 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
       endAddress = endAddress & ~BigInt(sizeByte - 1)
       addrValid = endAddress <= boundAddress
       if (addrValid) mapping = SizeMapping(startAddress, endAddress - startAddress)
+      attempts += 1
+      if(attempts == 10) return
     } while(!addrValid || !mappingAllocate(mapping));
 
     cmdCounter += 1
@@ -114,7 +117,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
       wQueue.enqueue { () =>
         w.data.randomize()
         val bytesInBeat = sizeByte - (beatOffsetCache % sizeByte)
-        if(busConfig.useStrb)  w.strb #= ((BigInt(bytesInBeat, Random)) << beatOffsetCache) & ((BigInt(1) << busConfig.bytePerWord)-1)
+        if(busConfig.useStrb)  w.strb #= ((BigInt(bytesInBeat, Random)) << beatOffsetCache) & ((BigInt(1) << size)-1)
         if(busConfig.useWUser) w.user.randomize()
         if(busConfig.useLast)  w.last #= beat == len
       }
