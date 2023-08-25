@@ -37,8 +37,8 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   def forkStream() : Stream[NoData] = {
     val ret = Stream(NoData())
     val fired = RegInit(False) setWhen(ret.fire) clearWhen(isChanging)
-    ret.valid := isValid && fired
-    haltIt(!fired && ret.ready)
+    ret.valid := isValid && !fired
+    haltIt(!fired && !ret.ready)
     ret
   }
 
