@@ -33,8 +33,24 @@ class Node() extends NodeUpDown{
   var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
 
   //Allows to customize how the node is connected to its arbiter / decoder components (pipelining)
-  def setUpConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
-  def setDownConnection(body : (Bus, Bus) => Any) = decoderConnector = body
+  def setUpConnection(body : (Bus, Bus) => Any) : Unit  = arbiterConnector = body
+  def setDownConnection(body : (Bus, Bus) => Any) : Unit  = decoderConnector = body
+
+  def setUpConnection(a: StreamPipe = StreamPipe.NONE,
+                      b: StreamPipe = StreamPipe.NONE,
+                      c: StreamPipe = StreamPipe.NONE,
+                      d: StreamPipe = StreamPipe.NONE,
+                      e: StreamPipe = StreamPipe.NONE) : Unit = {
+    setUpConnection(_.connectFrom(_)(a, b, c, d, e))
+  }
+
+  def setDownConnection(a: StreamPipe = StreamPipe.NONE,
+                        b: StreamPipe = StreamPipe.NONE,
+                        c: StreamPipe = StreamPipe.NONE,
+                        d: StreamPipe = StreamPipe.NONE,
+                        e: StreamPipe = StreamPipe.NONE) : Unit  = {
+    setDownConnection(_.connectFrom(_)(a, b, c, d, e))
+  }
 
 
   def forceDataWidth(dataWidth : Int): Unit ={

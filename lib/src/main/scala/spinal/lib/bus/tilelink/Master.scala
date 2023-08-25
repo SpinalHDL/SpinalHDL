@@ -45,7 +45,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
 //    body(7, acquireB  )
 //  }
   def withBCE = acquireT.some || acquireB.some
-  def withDataA = putFull.some || putFull.some
+  def withDataA = putFull.some || putPartial.some
   def withDataD = get.some || acquireT.some || acquireB.some || logical.some || arithmetic.some
   def withAny = withDataA || withDataD || withBCE || hint.some
 

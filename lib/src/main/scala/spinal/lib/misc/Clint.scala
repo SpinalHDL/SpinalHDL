@@ -188,7 +188,7 @@ case class ClintPort(hardId: Int) extends Area {
   val mti, msi = InterruptNode.master()
 }
 
-case class TilelinkFabricClint() extends Area{
+case class TilelinkClintFiber() extends Area{
   val node = bus.tilelink.fabric.Node.slave()
   val lock = Lock()
 

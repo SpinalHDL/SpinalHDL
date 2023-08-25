@@ -7,10 +7,10 @@ import spinal.core.fiber.{Fiber, hardFork}
 import spinal.lib.bus.misc.{AddressMapping, InterleavedMapping, OffsetTransformer, OrMapping, SizeMapping, SizeMappingInterleaved}
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink._
-import spinal.lib.bus.tilelink.sim.{OrderingArgs, _}
+import spinal.lib.bus.tilelink.sim._
 import spinal.lib._
 import spinal.lib.bus.tilelink
-import spinal.lib.bus.tilelink.coherent.HubFabric
+import spinal.lib.bus.tilelink.coherent.HubFiber
 import spinal.lib.bus.tilelink.fabric._
 import spinal.lib.sim.SparseMemory
 import spinal.lib.system.tag.{MemoryConnection, PMA}
@@ -670,7 +670,7 @@ class InterconnectTester extends AnyFunSuite{
     testInterconnectAll(new Component{
       val m0 = simpleMaster(all, dataWidth = 128)
 
-      val hub = new HubFabric()
+      val hub = new HubFiber()
       hub.up << m0.node
 
       val s0 = simpleSlave(16, 128)
@@ -683,7 +683,7 @@ class InterconnectTester extends AnyFunSuite{
     testInterconnectAll(new Component{
       val m0,m1,m2 = simpleMaster(all, dataWidth = 128)
 
-      val hub = new HubFabric()
+      val hub = new HubFiber()
       hub.up << m0.node
       hub.up << m1.node
       hub.up << m2.node
@@ -785,7 +785,7 @@ class InterconnectTester extends AnyFunSuite{
       something.node at 0x82000000l of n0
 
       //Will manage memory coherency
-      val hub = new HubFabric()
+      val hub = new HubFiber()
       hub.up << n0
 
       //Define the main memory of the SoC (ex : DDR)
