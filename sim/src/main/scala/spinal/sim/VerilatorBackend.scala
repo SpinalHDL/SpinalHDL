@@ -341,7 +341,7 @@ void vl_finish(const char* filename, int linenum, const char* hier) VL_MT_UNSAFE
         Verilated::runExitCallbacks();
         std::exit(0);
     }*/
-    //Verilated::threadContextp()->gotFinish(true);
+    Verilated::threadContextp()->gotFinish(true);
 }
 
 #ifdef __cplusplus
