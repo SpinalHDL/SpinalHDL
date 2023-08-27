@@ -255,7 +255,7 @@ public:
     high_resolution_clock::time_point lastFlushAt;
     uint32_t timeCheck;
     bool waveEnabled;
-    VerilatedContext* contextp;
+    //VerilatedContext* contextp; //Buggy in multi threaded spinalsim
     V${config.toplevelName} *top;
     ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
@@ -265,9 +265,9 @@ public:
     int32_t time_precision;
 
     Wrapper_${uniqueId}(const char * name, int seed){
-      contextp = new VerilatedContext;
-      contextp->randReset(2);
-      contextp->randSeed(seed);
+      //contextp = new VerilatedContext;
+      Verilated::randReset(2);
+      Verilated::randSeed(seed);
       top = new V${config.toplevelName}();
 
       simHandle${uniqueId} = this;
@@ -320,7 +320,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       //contextp->gotFinish(true);
       top->final();
       delete top;
-      delete contextp;
+      //delete contextp;
     }
 
 };
