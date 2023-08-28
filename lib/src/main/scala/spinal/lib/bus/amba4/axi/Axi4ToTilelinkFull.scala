@@ -22,7 +22,7 @@ object Axi4WriteOnlyToTilelinkFull{
   }
 }
 
-object Axi4ReadOnlyToTileFull{
+object Axi4ReadOnlyToTilelinkFull{
   def getTilelinkProposal(config: Axi4Config, bytesMax : Int) = {
     val range = SizeRange.upTo(bytesMax)
     M2sSupport(
@@ -68,3 +68,39 @@ object Axi4WriteOnlyToTilelinkFullGen extends App{
 
   Bench(List(Rtl(gen)), XilinxStdTargets("/media/data2/tools/xilinx/Vivado/2023.1/bin"))
 }
+
+
+//Assume burst aligned and not more than 1 burst per id inflight
+class Axi4ReadOnlyToTilelinkFull(val config: Axi4Config, bytesMax : Int, slotsCount : Int, upPipe : StreamPipe = StreamPipe.NONE) extends Component{
+  val ac = Axi4ReadOnlyAligner.getDownConfig(config, slotsCount)
+  val dp = Axi4ReadOnlyToTilelinkFull.getTilelinkProposal(ac, bytesMax)
+  val io = new Bundle {
+    val up = slave port Axi4ReadOnly(config)
+    val down = master port tilelink.Bus(M2sParameters(dp, slotsCount))
+  }
+
+  val onePerId = new Axi4ReadOnlyOnePerId(config)
+  onePerId.io.up << io.up.pipelined(ar = upPipe)
+
+  val compactor = new Axi4ReadOnlyCompactor(config)
+  compactor.io.up << onePerId.io.down
+
+  val aligner = new Axi4ReadOnlyAligner(config, bytesMax, slotsCount)
+  aligner.io.up << compactor.io.down
+
+  val toTileink = new Axi4ReadOnlyToTilelink(ac, bytesMax)
+  toTileink.io.up << aligner.io.down
+
+  io.down << toTileink.io.down
+}
+
+object Axi4ReadOnlyToTilelinkFullGen extends App{
+  val gen = SpinalVerilog(new Axi4ReadOnlyToTilelinkFull(
+    Axi4Config(16, 32, 4),
+    64,
+    4
+  ))
+
+  Bench(List(Rtl(gen)), XilinxStdTargets("/media/data2/tools/xilinx/Vivado/2023.1/bin"))
+}
+

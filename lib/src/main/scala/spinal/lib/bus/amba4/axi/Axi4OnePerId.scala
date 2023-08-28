@@ -14,7 +14,7 @@ class Axi4WriteOnlyOnePerId(config: Axi4Config) extends Component {
   }
 
   val onAw = new Area{
-    val busy = pendings.valids(io.down.aw.id)
+    val busy = pendings.valids(io.up.aw.id)
     val halted = io.up.aw.haltWhen(busy)
     when(halted.fire){
       pendings.valids(io.up.aw.id) := True
@@ -47,6 +47,43 @@ class Axi4WriteOnlyOnePerId(config: Axi4Config) extends Component {
 
 object Axi4WriteOnlyOnePerIdGen extends App{
   SpinalVerilog(new Axi4WriteOnlyOnePerId(
+    Axi4Config(16,32, 4)
+  ))
+}
+
+
+
+class Axi4ReadOnlyOnePerId(config: Axi4Config) extends Component {
+  val io = new Bundle {
+    val up = slave port Axi4ReadOnly(config)
+    val down = master port Axi4ReadOnly(config)
+  }
+
+  val pendings = new Area{
+    val valids = Reg(Bits(1 << config.idWidth bits)) init(0)
+  }
+
+  val onAw = new Area{
+    val busy = pendings.valids(io.up.ar.id)
+    val halted = io.up.ar.haltWhen(busy)
+    when(halted.fire){
+      pendings.valids(io.up.ar.id) := True
+    }
+
+    io.down.ar << halted
+  }
+
+  val onB = new Area {
+    io.up.r << io.down.r
+    when(io.down.r.fire && io.down.r.last){
+      pendings.valids(io.down.r.id) := False
+    }
+  }
+}
+
+
+object Axi4ReadOnlyOnePerIdGen extends App{
+  SpinalVerilog(new Axi4ReadOnlyOnePerId(
     Axi4Config(16,32, 4)
   ))
 }

@@ -39,6 +39,23 @@ object Axi4ReadOnlyToTilelink{
   }
 }
 
+
+object Axi4ToTilelink{
+  def getTilelinkProposal(config: Axi4Config, bytesMax : Int) = {
+    val range = SizeRange.upTo(bytesMax)
+    M2sSupport(
+      addressWidth = config.addressWidth,
+      dataWidth = config.dataWidth,
+      transfers = M2sTransfers(
+        get = range,
+        putFull = if (config.useAllStrb) range else SizeRange.none,
+        putPartial = range
+      )
+    )
+  }
+}
+
+
 //Assume burst aligned and not more than 1 burst per id inflight
 class Axi4WriteOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Component{
   val dp = Axi4WriteOnlyToTilelink.getTilelinkProposal(config, bytesMax)
@@ -88,7 +105,7 @@ class Axi4WriteOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Compon
 
 //Assume burst aligned and not more than 1 burst per id inflight
 class Axi4ReadOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Component{
-  val dp = Axi4WriteOnlyToTilelink.getTilelinkProposal(config, bytesMax)
+  val dp = Axi4ReadOnlyToTilelink.getTilelinkProposal(config, bytesMax)
   val io = new Bundle {
     val up = slave port Axi4ReadOnly(config)
     val down = master port tilelink.Bus(M2sParameters(dp, 1 << config.idWidth))
@@ -114,3 +131,23 @@ class Axi4ReadOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Compone
     when(io.down.d.denied){io.up.r.setSLVERR()}
   }
 }
+
+
+//class Axi4ToTilelinkFull(config: Axi4Config,
+//                         bytesMax : Int,
+//                         slotsCount : Int,
+//                         upPipe : StreamPipe = StreamPipe.NONE) extends Component{
+//  val dp = Axi4ReadOnlyToTilelink.getTilelinkProposal(config, bytesMax)
+//  val io = new Bundle {
+//    val up = slave port Axi4(config)
+//    val down = master port tilelink.Bus(M2sParameters(dp, 1 << config.idWidth))
+//  }
+//
+//  val write = new Axi4WriteOnlyToTilelinkFull(config, bytesMax, slotsCount, upPipe)
+//  val read = new Axi4ReadOnlyToTilelinkFull(config, bytesMax, slotsCount, upPipe)
+//
+//  write.io.up << io.up.toWriteOnly()
+//  write.io.down << io.down.toWriteOnly()
+//
+//
+//}

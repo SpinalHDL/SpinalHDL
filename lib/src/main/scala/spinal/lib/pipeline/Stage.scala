@@ -157,6 +157,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     if(internals.arbitration.isFlushed == null) internals.arbitration.isFlushed = ContextSwapper.outsideCondScope(Bool())
     internals.arbitration.isFlushed
   }
+  //So, not realy well named, as it just check if a transaction is moving to the next stage (output.valid && output.ready)
   def isForked : Bool = {
     if(internals.arbitration.isForked == null) internals.arbitration.isForked = ContextSwapper.outsideCondScope(Bool())
     internals.arbitration.isForked
