@@ -7,7 +7,6 @@ import spinal.sim.SimManagerContext
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 class Phase(var next : Phase){
   var isActive : Boolean = false
@@ -107,7 +106,7 @@ object Phase{
 
 //Easy to reimplement in another environment (ex C, python, ...)
 class RandomGen(){
-  var state = Random.nextLong()
+  var state = simRandom.nextLong()
   def setSeed(seed : Long) : Unit = state = seed
   def nextInt() : Int = {
     state = state * 25214903917L + 11L & 281474976710655L
@@ -129,7 +128,7 @@ class RandomGen(){
   }
 }
 
-case class SparseMemory(val seed : Long = Random.nextLong(), var randOffset : Long = 0l){
+case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset : Long = 0l){
   val content = Array.fill[Array[Byte]](4096)(null)
 
   def getElseAlocate(idx : Int) = {
@@ -267,7 +266,7 @@ case class SparseMemory(val seed : Long = Random.nextLong(), var randOffset : Lo
 case class MemoryRegionAllocator(base : Long, size : Long){
 //  case class Allocation(base : Long, size : Long)
   val allocations = mutable.HashSet[SizeMapping]()
-  def sizeRand() = (Random.nextLong()&Long.MaxValue)%size
+  def sizeRand() = (simRandom.nextLong()&Long.MaxValue)%size
   def free(region : SizeMapping) = allocations.remove(region)
   def free(address : BigInt) = {
     allocations.remove(allocations.find(a => a.base <= address && a.base + a.size > address).get)
@@ -278,7 +277,7 @@ case class MemoryRegionAllocator(base : Long, size : Long){
     var tryies = 0
     while(tryies < 10){
 
-      val region = SizeMapping(sizeRand() + base, Random.nextLong%(sizeMax-sizeMin + 1)+sizeMin)
+      val region = SizeMapping(sizeRand() + base, simRandom.nextLong%(sizeMax-sizeMin + 1)+sizeMin)
       if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < size) {
         allocations += region
         return region
