@@ -116,7 +116,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       }
 
       haltWhen(!io.down.aw.ready)
-      io.down.aw.valid := valid
+      io.down.aw.valid := valid && !ptr.full
       io.down.aw.payload := AW
       io.down.aw.addr(blockRange) := CHUNK_START
       io.down.aw.addr(Axi4.boundaryWidth-1 downto blockRange.high + 1) := BOUNDED_BLOCK
@@ -124,7 +124,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       io.down.aw.id.removeAssignments() := ptr.cmd.resized
 
       val wCmd = Stream(WCmd())
-      wCmd.arbitrationFrom(forkStream())
+      wCmd.arbitrationFrom(forkStream(!ptr.full))
       wCmd.last := LAST
       wCmd.header := (AW.addr.resized - CHUNK_START)(blockWordRange).andMask(FIRST)
       wCmd.ups := split.spliter.CHUNKS_WORDS
