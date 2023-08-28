@@ -203,8 +203,11 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
     var mapping: SizeMapping                      = null
     var address, startAddress, endAddress: BigInt = null
     var addrValid                                 = false
+    var attempts = 0
 
     do{
+      attempts += 1
+      if(attempts == 10) return
       if (busConfig.useLen) {
         len = burst match {
           case 0 => simRandom.nextInt(16)
