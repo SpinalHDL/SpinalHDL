@@ -551,7 +551,7 @@ object SdramXdrTesterHelpers{
 }
 
 
-object SdramXdrDdr3SpinalSim extends App{
+class SdramXdrDdr3SpinalSim extends SpinalAnyFunSuite{
   import spinal.core.sim._
 
   val rl = 5
@@ -573,32 +573,32 @@ object SdramXdrDdr3SpinalSim extends App{
     FAW =    40000
   )
 
-  SdramXdrTesterHelpers.complied(
-    rl = rl ,
-    wl = wl ,
-    sdramPeriod = sdramPeriod ,
-    pl = pl ,
-    timing = timing
-  ).doSimUntilVoid("test", 42) { dut =>
-    dut.clockDomain.forkStimulus(sdramPeriod*pl.phaseCount)
-    dut.cp.ports.map(_.clockDomain).filter(_ != dut.clockDomain).foreach(_.forkStimulus(sdramPeriod*pl.phaseCount*2))
-    SdramXdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod)
-    SdramXdrTesterHelpers.ddr3Init(
-      dut = dut,
-      timing = timing,
-      rl = rl,
-      wl = wl,
-      ctrlBurstLength = pl.beatCount,
-      phyClkRatio = pl.phaseCount,
-      sdramPeriod = sdramPeriod
-    )
+  test("compile") {
+    SdramXdrTesterHelpers.complied(
+      rl = rl ,
+      wl = wl ,
+      sdramPeriod = sdramPeriod ,
+      pl = pl ,
+      timing = timing
+    ).doSimUntilVoid("test", 42) { dut =>
+      dut.clockDomain.forkStimulus(sdramPeriod*pl.phaseCount)
+      dut.cp.ports.map(_.clockDomain).filter(_ != dut.clockDomain).foreach(_.forkStimulus(sdramPeriod*pl.phaseCount*2))
+      SdramXdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod)
+      SdramXdrTesterHelpers.ddr3Init(
+        dut = dut,
+        timing = timing,
+        rl = rl,
+        wl = wl,
+        ctrlBurstLength = pl.beatCount,
+        phyClkRatio = pl.phaseCount,
+        sdramPeriod = sdramPeriod
+      )
+    }      
   }
 }
 
 
-
-
-object SdramXdrDdr2SpinalSim extends App{
+class SdramXdrDdr2SpinalSim extends SpinalAnyFunSuite{
   import spinal.core.sim._
 
   val rl = 5
@@ -620,29 +620,31 @@ object SdramXdrDdr2SpinalSim extends App{
     FAW =    45000
   )
 
-  SdramXdrTesterHelpers.complied(
-    rl = rl ,
-    wl = wl ,
-    sdramPeriod = sdramPeriod ,
-    pl = pl ,
-    timing = timing
-  ).doSimUntilVoid("test", 42) { dut =>
-    dut.clockDomain.forkStimulus(sdramPeriod*pl.phaseCount)
-    SdramXdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod)
-    SdramXdrTesterHelpers.ddr2Init(
-      dut = dut,
-      timing = timing,
-      rl = rl,
-      ctrlBurstLength = pl.beatCount,
-      phyClkRatio = pl.phaseCount,
-      sdramPeriod = sdramPeriod
-    )
+  test("compile") {
+    SdramXdrTesterHelpers.complied(
+      rl = rl ,
+      wl = wl ,
+      sdramPeriod = sdramPeriod ,
+      pl = pl ,
+      timing = timing
+    ).doSimUntilVoid("test", 42) { dut =>
+      dut.clockDomain.forkStimulus(sdramPeriod*pl.phaseCount)
+      SdramXdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod)
+      SdramXdrTesterHelpers.ddr2Init(
+        dut = dut,
+        timing = timing,
+        rl = rl,
+        ctrlBurstLength = pl.beatCount,
+        phyClkRatio = pl.phaseCount,
+        sdramPeriod = sdramPeriod
+      )
+    }
   }
 }
 
 
 
-object SdramXdrSdrSpinalSim extends App{
+class SdramXdrSdrSpinalSim extends SpinalAnyFunSuite{
   import spinal.core.sim._
 
   val rl = 2
@@ -666,31 +668,28 @@ object SdramXdrSdrSpinalSim extends App{
     FAW =        0
   )
 
-  SdramXdrTesterHelpers.complied(
-    rl = rl ,
-    wl = wl ,
-    sdramPeriod = sdramPeriod ,
-    pl = pl ,
-    timing = timing
-  ).doSimUntilVoid("test", 42) { dut =>
-    dut.clockDomain.forkStimulus(sdramPeriod*pl.phaseCount)
-    SdramXdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod, transactionCountPerPort = 100)
-    SdramXdrTesterHelpers.sdrInit(
-      dut = dut,
-      timing = timing,
-      rl = rl,
-      wl = wl,
-      ctrlBurstLength = pl.beatCount,
-      phyClkRatio = pl.phaseCount,
-      sdramPeriod = sdramPeriod
-    )
+  test("compile") {
+    SdramXdrTesterHelpers.complied(
+      rl = rl ,
+      wl = wl ,
+      sdramPeriod = sdramPeriod ,
+      pl = pl ,
+      timing = timing
+    ).doSimUntilVoid("test", 42) { dut =>
+      dut.clockDomain.forkStimulus(sdramPeriod*pl.phaseCount)
+      SdramXdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod, transactionCountPerPort = 100)
+      SdramXdrTesterHelpers.sdrInit(
+        dut = dut,
+        timing = timing,
+        rl = rl,
+        wl = wl,
+        ctrlBurstLength = pl.beatCount,
+        phyClkRatio = pl.phaseCount,
+        sdramPeriod = sdramPeriod
+      )
+    }
   }
 }
-
-
-
-
-
 
 import spinal.core._
 import spinal.lib.eda.bench._
