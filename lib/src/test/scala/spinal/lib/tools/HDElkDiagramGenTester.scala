@@ -1,8 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib.tools
 
 import spinal.core._
-import org.scalatest.funsuite._
 import spinal.lib.{StreamFifoCC, master, slave}
+import spinal.tester.SpinalAnyFunSuite
 
 
 class HDElkDiagramGenTesterA_MYSub0(cd: ClockDomain) extends Component {
