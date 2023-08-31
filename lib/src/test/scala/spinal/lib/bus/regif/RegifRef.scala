@@ -1,6 +1,5 @@
-package spinal.tester.generator.regif
+package spinal.lib.bus.regif
 
-import spinal.lib.bus.regif._
 import spinal.lib._
 
 import scala.collection.{immutable, mutable}

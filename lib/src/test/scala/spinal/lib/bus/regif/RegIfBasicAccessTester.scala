@@ -1,8 +1,6 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.regif
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.tester.generator.regif.{BasicTest, RegIfStrbTesterSim}
-
+import spinal.tester.SpinalAnyFunSuite
 
 class RegIfBasicRtlGenerater extends SpinalAnyFunSuite{
   test("gen_demo_regbank"){BasicTest.genrtl("demo")}

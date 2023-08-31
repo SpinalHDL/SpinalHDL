@@ -1,11 +1,11 @@
-package spinal.tester.generator.regif
+package spinal.lib.bus.regif
+
+import AccessType._
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba4.apb._
-import spinal.lib.bus.regif.AccessType._
-import spinal.lib.bus.regif._
 
 class RegIfExample extends Component {
   val io = new Bundle{

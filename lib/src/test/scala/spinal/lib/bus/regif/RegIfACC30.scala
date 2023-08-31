@@ -1,4 +1,6 @@
-package spinal.tester.generator.regif
+package spinal.lib.bus.regif
+
+import AccessType._
 
 import spinal.core._
 import spinal.core.sim._
@@ -8,8 +10,6 @@ import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 import spinal.lib.bus.amba4.apb._
 import spinal.lib.bus.amba4.apb.sim.Apb4Driver
-import spinal.lib.bus.regif.AccessType._
-import spinal.lib.bus.regif._
 import spinal.lib.bus.wishbone.Wishbone
 
 
