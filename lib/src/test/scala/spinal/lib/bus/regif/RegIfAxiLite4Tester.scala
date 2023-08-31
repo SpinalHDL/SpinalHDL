@@ -1,18 +1,17 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.regif
 
-import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.amba4.axilite.sim.{AxiLite4Driver, AxiLite4ReadOnlyMonitor, AxiLite4WriteOnlyMonitor}
-import spinal.lib.bus.regif.{AccessType, BusInterface}
+import spinal.tester.SpinalAnyFunSuite
 
 import scala.collection.mutable
 import scala.math.{BigInt}
 import scala.util.Random
 
-class RegIfTester extends Component {
+class RegIfTestFixture extends Component {
   //RO generate wire not register fixed in commit "adfda73" , so here should not test RO as Register else Latch detect
   val ACCESS_LIST = List(
     AccessType.RW, AccessType.RW, AccessType.RC, AccessType.RS, // 0 - 3
@@ -136,7 +135,7 @@ class RegIfAxiLite4Tester extends SpinalAnyFunSuite {
 
   test("random") {
     SimConfig
-      .compile(new RegIfTester()).doSim { dut =>
+      .compile(new RegIfTestFixture()).doSim { dut =>
       dut.clockDomain.forkStimulus(10 ns)
 
       dut.io.t #= false
