@@ -1,7 +1,6 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
-import org.scalatest.funsuite._
+import spinal.tester.SpinalAnyFunSuite
 
 class DataAnalyzerTest extends SpinalAnyFunSuite {
 
