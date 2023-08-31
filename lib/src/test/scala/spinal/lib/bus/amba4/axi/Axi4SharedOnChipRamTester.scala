@@ -1,10 +1,8 @@
-package spinal.tester.scalatest
-
+package spinal.lib.bus.amba4.axi
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axi._
-
+import spinal.tester.{SpinalAnyFunSuite, SpinalTesterCocotbBase}
 
 class Axi4SharedOnChipRamTester extends SpinalTesterCocotbBase {
   override def getName: String = "Axi4SharedOnChipRamTester"
