@@ -1,12 +1,11 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.amba4.axis
 
-import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.lib._
 import spinal.core.sim._
-import spinal.lib.bus.amba4.axis.Axi4Stream.{Axi4Stream, Axi4StreamBundle}
-import spinal.lib.bus.amba4.axis._
+import Axi4Stream.{Axi4Stream, Axi4StreamBundle}
 import spinal.lib.sim.{ScoreboardInOrder, StreamDriver, StreamMonitor, StreamReadyRandomizer}
+import spinal.tester.SpinalAnyFunSuite
 
 import scala.BigInt
 import scala.collection.mutable.ListBuffer
