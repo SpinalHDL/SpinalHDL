@@ -1,10 +1,9 @@
-package spinal.tester.scalatest
+package spinal.lib.bus.amba4.axis
 
-import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.lib._
 import spinal.core.sim._
-import spinal.lib.bus.amba4.axis._
+import spinal.tester.SpinalAnyFunSuite
 
 case class Axi4StreamEndianFixture[T <: Data](config: Axi4StreamConfig, outType: HardType[T]) extends Component {
   val io = new Bundle {
