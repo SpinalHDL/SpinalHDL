@@ -270,6 +270,7 @@ object DmaSg{
         val readDone = Reg(Bool())
         val writeDone = Reg(Bool())
         val gotDescriptorStall = Reg(Bool())
+        val controlNoCompletion = Reg(Bool())
         val packet = Reg(Bool()) clearWhen(descriptorStart)
         val requireSync = Reg(Bool()) clearWhen(descriptorStart)
         val ptr, ptrNext = Reg(UInt(p.addressWidth bits))
@@ -1101,6 +1102,7 @@ object DmaSg{
         }
         val head = channel(_.ll.head)
         val isJustASink = channel(_.descriptorValid)
+        val doDescriptorStall = channel(c => !c.ll.controlNoCompletion || c.ll.gotDescriptorStall)
       }
 
       val cmd = new Area{
@@ -1112,6 +1114,7 @@ object DmaSg{
         val bytesDone = if(channels.exists(_.cp.canInput)) fromArbiter(_.bytesProbe.value, _.cp.canInput) else U(0)
         val endOfPacket = fromArbiter(_.ll.packet)
         val isJustASink = RegNextWhen(arbiter.isJustASink, !valid)
+        val doDescriptorStall = RegNextWhen(arbiter.doDescriptorStall, !valid)
 
         val readFired, writeFired = Reg(Bool())
 
@@ -1161,7 +1164,7 @@ object DmaSg{
         writeDataSplit.head := 0
         writeDataSplit.head(0, 27 bits) := B(bytesDone).resized
         writeDataSplit.head(30) := endOfPacket
-        writeDataSplit.head(31) := !isJustASink
+        writeDataSplit.head(31) := !isJustASink && doDescriptorStall
 
         readFired setWhen(io.sgRead.cmd.fire)
         writeFired setWhen(io.sgWrite.cmd.fire)
@@ -1209,6 +1212,7 @@ object DmaSg{
           mapChannel(_.pop.b2m.address, _.canWrite, popOffset, 0)
           mapChannel(_.ll.ptrNext, _ => true, nextOffset, 0)
           mapChannel(_.bytes, _ => true, controlOffset, 0)
+          mapChannel(_.ll.controlNoCompletion, _ => true, controlOffset, 31)
           mapChannel(_.pop.b2s.last, _.canOutput, controlOffset, 30)
           mapChannel(_.ll.gotDescriptorStall, _ => true, statusOffset, 31)
 
