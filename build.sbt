@@ -159,7 +159,8 @@ lazy val lib = (project in file("lib"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.11.0",
-    version := SpinalVersion.lib
+    version := SpinalVersion.lib,
+    Test / unmanagedClasspath ++= (LocalProject("tester") / Compile / fullClasspath).value
   )
   .dependsOn (sim, core)
 
