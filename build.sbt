@@ -135,6 +135,9 @@ lazy val core = (project in file("core"))
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
     libraryDependencies += "com.github.scopt" %% "scopt" % "4.1.0",
     libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.3.0",
+    
+    Test / unmanagedClasspath ++= (LocalProject("tester") / Compile / fullClasspath).value,
+    Test / unmanagedClasspath ++= (LocalProject("lib") / Compile / fullClasspath).value,
 
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
