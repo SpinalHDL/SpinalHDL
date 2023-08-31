@@ -1,10 +1,12 @@
-package spinal.tester.scalatest
+package spinal.lib.memory.sdram.xdr
+
+import phy.{Ecp5Sdrx2Phy, RtlPhy, RtlPhyInterface, SdrInferedPhy, XilinxS7Phy}
 
 import spinal.core._
 import spinal.core.sim.SpinalSimConfig
 import spinal.lib.bus.bmb._
 import spinal.lib.memory.sdram.sdr.{MT41K128M16JT, MT47H64M16HR, MT48LC16M16A2, SdramInterface}
-import spinal.lib.memory.sdram.xdr.{BmbPortParameter, CoreParameter, CtrlParameter, CtrlWithPhy, CtrlWithoutPhy, PhyLayout, SdramTiming, SoftConfig, mt48lc16m16a2_model}
+// import spinal.lib.memory.sdram.xdr.{BmbPortParameter, CoreParameter, CtrlParameter, CtrlWithPhy, CtrlWithoutPhy, PhyLayout, SdramTiming, SoftConfig, mt48lc16m16a2_model}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.amba3.apb.sim.Apb3Driver
@@ -12,8 +14,8 @@ import spinal.lib.bus.bmb.sim.{BmbMemoryMultiPort, BmbMemoryMultiPortTester}
 import spinal.lib.eda.bench.Rtl
 import spinal.lib.memory.sdram.SdramLayout
 import spinal.lib.memory.sdram.sdr.sim.SdramModel
-import spinal.lib.memory.sdram.xdr.phy.{Ecp5Sdrx2Phy, RtlPhy, RtlPhyInterface, SdrInferedPhy, XilinxS7Phy}
 import spinal.lib.sim.Phase
+import spinal.tester.SpinalAnyFunSuite
 
 import scala.util.Random
 
