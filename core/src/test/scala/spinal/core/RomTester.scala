@@ -18,11 +18,12 @@
  * License along with this library.
  */
 
-package spinal.tester.scalatest
+package spinal.core
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
-import spinal.tester.scalatest.RomTester.{RomTesterSymbols, RomTesterSymbolsSInt}
+// import spinal.tester.scalatest.RomTester.{RomTesterSymbols, RomTesterSymbolsSInt}
+import spinal.tester.{SpinalAnyFunSuite, SpinalTesterGhdlBase, SpinalTesterCocotbBase}
+
 object RomTester {
 
   object MyEnum extends SpinalEnum{
@@ -146,7 +147,7 @@ class SpinalSimRomTester extends SpinalAnyFunSuite {
   test("test1"){
     import spinal.core.sim._
     import spinal.sim._
-    SimConfig.compile(new RomTesterSymbols()).doSim{ dut =>
+    SimConfig.compile(new RomTester.RomTesterSymbols()).doSim{ dut =>
       val rom = Seq(
         BigInt(0x01234567l),
         BigInt(0x12345670l),
@@ -169,7 +170,7 @@ class SpinalSimRomTester extends SpinalAnyFunSuite {
   test("testSInt"){
     import spinal.core.sim._
     import spinal.sim._
-    SimConfig.compile(new RomTesterSymbolsSInt()).doSim{ dut =>
+    SimConfig.compile(new RomTester.RomTesterSymbolsSInt()).doSim{ dut =>
       val rom = Seq(
         BigInt(0x01234567),
         BigInt(0x12345670),
