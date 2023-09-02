@@ -403,7 +403,7 @@ trait BusIf extends BusIfBase {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
     require(int_levels.size <= this.busDataWidth )
     val MASK_SET   = this.newRegAt(offset, "Interrupt Mask_SET   Register\n1: int off\n0: int open\n default 1, int off\n set when write 1")(SymbolName(s"${regNamePre_}INT_MASK_SET"))
-    val MASK_CLR   = this.newRegAt(offset, "Interrupt Mask_CLR   Register\n1: int off\n0: int open\n default 1, int off\n clear when write 1")(SymbolName(s"${regNamePre_}INT_MASK_CLR"))
+    val MASK_CLR   = this.newReg( "Interrupt Mask_CLR   Register\n1: int off\n0: int open\n default 1, int off\n clear when write 1")(SymbolName(s"${regNamePre_}INT_MASK_CLR"))
     val STATUS = this.newReg("Interrupt status Register\n status = int_level && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = int_levels.map{ level =>
       val nm = level.getPartialName()
