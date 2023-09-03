@@ -1,9 +1,8 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim._
-import spinal.core._
 import spinal.lib._
+import spinal.tester.{SpinalSimFunSuite, SpinalAnyFunSuite}
 
 class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
   test("general") {
