@@ -1,9 +1,6 @@
-package spinal.tester.scalatest
+package spinal.core
 
-
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
-import spinal.lib._
+import spinal.tester.{SpinalAnyFunSuite, SpinalSimFunSuite, SpinalTesterCocotbBase}
 
 object BlackboxTester {
 
@@ -66,7 +63,7 @@ class SpinalSimBlackboxTester extends SpinalSimFunSuite {
   }
 }
 
-class BlackBoxTester2 extends AnyFunSuite{
+class BlackBoxTester2 extends SpinalAnyFunSuite{
   case class MyBlackBox() extends BlackBox {
     val io = new Bundle {
       val aclk = in Bool()
