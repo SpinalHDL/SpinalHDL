@@ -16,11 +16,9 @@
  * License along with this library.
  */
 
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
-import spinal.lib._
-import spinal.tester.scalatest.OperatorTester.OperatorTester
+import spinal.tester.SpinalTesterCocotbBase
 
 object OperatorTester {
   object State extends SpinalEnum{
