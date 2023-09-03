@@ -1,13 +1,12 @@
-package spinal.tester.scalatest
+package spinal.lib
 
 import scala.collection.mutable
 import scala.util.Random
-import org.scalatest.funsuite.AnyFunSuite
 
 import spinal.core._
-import spinal.lib._
 import spinal.lib.sim._
 import spinal.core.sim._
+import spinal.tester.SpinalSimFunSuite
 
 class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
     def prepare(
