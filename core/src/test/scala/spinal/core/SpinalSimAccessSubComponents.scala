@@ -1,9 +1,9 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
-import spinal.core.sim._
+import sim._
 import spinal.sim._
+
+import spinal.tester.{SpinalAnyFunSuite, SpinalSimTester}
 
 object SpinalSimAccessSubComponents {
   class SubSub extends Component {
