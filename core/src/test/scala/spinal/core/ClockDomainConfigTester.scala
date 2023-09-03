@@ -1,9 +1,10 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
-import spinal.tester.scalatest.ClockDomainConfigTester.ClockDomainConfigTester
-import spinal.tester.scalatest.GrayCounterTester.GrayCounterTester
-import language.postfixOps
+import spinal.tester.SpinalTesterCocotbBase
+// import spinal.core._
+// import spinal.tester.scalatest.ClockDomainConfigTester.ClockDomainConfigTester
+// import spinal.tester.scalatest.GrayCounterTester.GrayCounterTester
+// import language.postfixOps
 
 object ClockDomainConfigTester {
   class ClockDomainConfigTester() extends Component {
@@ -199,5 +200,5 @@ object ClockDomainConfigTester {
 class ClockDomainConfigTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "ClockDomainConfigTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/ClockDomainConfigTester"
-  override def createToplevel: Component = new ClockDomainConfigTester()
+  override def createToplevel: Component = new ClockDomainConfigTester.ClockDomainConfigTester()
 }
