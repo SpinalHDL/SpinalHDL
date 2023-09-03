@@ -1,10 +1,7 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
-import spinal.core.sim._
-
-import scala.language.postfixOps
+import sim._
+import spinal.tester.SpinalAnyFunSuite
 
 object SomeEnum extends SpinalEnum {
   val sIdle, sStart, sData, sParity, sStop = newElement()
