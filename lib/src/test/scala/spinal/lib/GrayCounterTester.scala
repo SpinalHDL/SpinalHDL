@@ -1,8 +1,7 @@
-package spinal.tester.scalatest
+package spinal.lib
 
 import spinal.core._
-import spinal.lib._
-import spinal.tester.scalatest.GrayCounterTester.GrayCounterTester
+import spinal.tester.SpinalTesterCocotbBase
 import language.postfixOps
 
 object GrayCounterTester {
@@ -69,5 +68,5 @@ object GrayCounterTester {
 class GrayCounterTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "GrayCounterTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/GrayCounterTester"
-  override def createToplevel: Component = new GrayCounterTester(8)
+  override def createToplevel: Component = new GrayCounterTester.GrayCounterTester(8)
 }
