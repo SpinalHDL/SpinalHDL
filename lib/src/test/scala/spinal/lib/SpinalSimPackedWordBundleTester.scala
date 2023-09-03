@@ -1,11 +1,10 @@
-package spinal.tester.scalatest
+package spinal.lib
 
-import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
-import spinal.lib._
 import spinal.core.sim._
+import spinal.tester.SpinalAnyFunSuite
 
-class SpinalSimPackedWordBundleTester extends AnyFunSuite {
+class SpinalSimPackedWordBundleTester extends SpinalAnyFunSuite {
   test("pack") {
     SimConfig.withWave
       .compile(new Component {
