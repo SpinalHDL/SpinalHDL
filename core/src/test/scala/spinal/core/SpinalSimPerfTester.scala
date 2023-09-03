@@ -1,11 +1,8 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
-import spinal.tester.scalatest
-import spinal.tester.scalatest.SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop
+import spinal.tester.{SpinalAnyFunSuite, SpinalSimTester}
 
 import scala.concurrent.{Await, Future}
 import scala.util.Random
