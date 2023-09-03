@@ -1,11 +1,10 @@
-package spinal.tester.scalatest
+package spinal.lib
 
-import org.scalatest.funsuite.AnyFunSuite
+import sim.{ScoreboardInOrder, StreamDriver, StreamMonitor}
+
 import spinal.core._
-import spinal.lib._
 import spinal.core.sim._
-import spinal.lib.sim.{ScoreboardInOrder, StreamDriver, StreamMonitor}
-
+import spinal.tester.SpinalAnyFunSuite
 import scala.util.Random
 
 class SpinalSimStreamUnpackTester extends SpinalAnyFunSuite {
