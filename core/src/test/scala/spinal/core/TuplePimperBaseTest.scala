@@ -1,10 +1,9 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
 import spinal.core.sim._
+import spinal.tester.SpinalAnyFunSuite
 
-class TuplePimperBaseTest extends AnyFunSuite {
+class TuplePimperBaseTest extends SpinalAnyFunSuite {
   test("tuple_assignment_matching") {
     SimConfig.compile(new Component {
       val right = in port Bits(4 bit)

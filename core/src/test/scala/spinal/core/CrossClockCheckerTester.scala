@@ -1,7 +1,6 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
+import spinal.tester.SpinalAnyFunSuite
 
 
 class BBA(val cd : ClockDomain) extends BlackBox{

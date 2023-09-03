@@ -1,13 +1,10 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
-import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.formal.{FormalConfig, SpinalFormalConfig}
 import spinal.lib.formal.SpinalFormalFunSuite
+import spinal.tester.SpinalAnyFunSuite
 
-import scala.language.postfixOps
-
-class SubdivideInTestErrors extends AnyFunSuite {
+class SubdivideInTestErrors extends SpinalAnyFunSuite {
   import CheckTester._
   def testInvalidStrict(width: Int, sliceWidth: BitCount): Unit =
     test(s"$width bit Bits can't be divided into ${sliceWidth.value} bits evenly (strict)") {

@@ -1,15 +1,14 @@
-package spinal.tester.scalatest
+package spinal.core
 
 import java.io.File
 
 import org.apache.commons.io.FileUtils
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
 import spinal.core.internals.GraphUtils
 import spinal.lib.com.i2c._
 import spinal.lib.com.uart.{UartCtrl, UartCtrlGenerics}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.lib.{Delay, StreamFifo}
+import spinal.tester.SpinalAnyFunSuite
 
 import scala.collection.mutable.ArrayBuffer
 import scala.sys.process._
@@ -552,7 +551,171 @@ class RepeatabilityTester extends SpinalAnyFunSuite{
   }
 
   test("BmbInterconnectVerilog"){
-    checkOutputHash(SpinalSimBmbInterconnectGeneratorTester.f())
+    checkOutputHash(new Component{
+      import spinal.lib._
+      import spinal.lib.bus.bmb._
+      import spinal.lib.bus.misc._
+      import spinal.lib.generator._
+      import spinal.core.fiber._
+
+      val interconnect = BmbInterconnectGenerator()
+
+      def addMaster(requirements: BmbParameter) = new Generator {
+        val busHandle = Handle[Bmb]
+        interconnect.addMaster(requirements.access, bus = busHandle)
+
+        val logic = add task new Area {
+          val bus = slave(Bmb(requirements))
+          busHandle.load(bus)
+        }
+      }
+
+      def addSlave(address: BigInt, capabilities: BmbAccessCapabilities) = new Generator {
+        val requirements = Handle[BmbAccessParameter]
+        val busHandle = Handle[Bmb]
+        interconnect.addSlave(
+          accessCapabilities = capabilities,
+          accessRequirements = requirements,
+          bus = busHandle,
+          mapping = SizeMapping(address, 1 << capabilities.addressWidth)
+        )
+        dependencies += requirements
+        val logic = add task new Area {
+          val bus = master(Bmb(BmbParameter(requirements.get, BmbInvalidationParameter())))
+          busHandle.load(bus)
+        }
+      }
+
+
+      val mA = addMaster(BmbParameter(
+        addressWidth = 20,
+        dataWidth = 32,
+        lengthWidth = 8,
+        sourceWidth = 4,
+        contextWidth = 4,
+        canRead = true,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.BYTE
+      ))
+
+      val mB = addMaster(BmbParameter(
+        addressWidth = 20,
+        dataWidth = 32,
+        lengthWidth = 8,
+        sourceWidth = 4,
+        contextWidth = 4,
+        canRead = true,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.WORD
+      ))
+
+      val mC = addMaster(BmbParameter(
+        addressWidth = 20,
+        dataWidth = 32,
+        lengthWidth = 6,
+        sourceWidth = 0,
+        contextWidth = 5,
+        canRead = true,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.LENGTH
+      ))
+
+
+      val mD = addMaster(BmbParameter(
+        addressWidth = 20,
+        dataWidth = 32,
+        lengthWidth = 2,
+        sourceWidth = 4,
+        contextWidth = 3,
+        canRead = true,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.LENGTH
+      ))
+
+      val sA = addSlave(0x00000, BmbAccessCapabilities(
+        addressWidth = 18,
+        dataWidth = 32,
+        lengthWidthMax = 10,
+        canRead = true,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.BYTE
+      ))
+
+      val sB = addSlave(0x40000, BmbAccessCapabilities(
+        addressWidth = 17,
+        dataWidth = 32,
+        sourceWidthMax = 8,
+        canRead = true,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.BYTE
+      ))
+
+      val sB2 = addSlave(0x60000, BmbAccessCapabilities(
+        addressWidth = 17,
+        dataWidth = 32,
+        lengthWidthMax = 2,
+        canRead = true,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.LENGTH
+      ))
+
+      // write only
+      val sC = addSlave(0x80000, BmbAccessCapabilities(
+        addressWidth = 16,
+        dataWidth = 32,
+        contextWidthMax = 9,
+        canRead = false,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.BYTE
+      ))
+
+      //read only
+      val sD = addSlave(0x90000, BmbAccessCapabilities(
+        addressWidth = 16,
+        dataWidth = 32,
+        canRead = true,
+        canWrite = false,
+        alignment = BmbParameter.BurstAlignement.BYTE
+      ))
+
+      //Read only and write only mapped at the same address
+      val sE = addSlave(0xA0000, BmbAccessCapabilities(
+        addressWidth = 17,
+        dataWidth = 32,
+        canRead = false,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.BYTE
+      ))
+
+      val sE2 = addSlave(0xA0000, BmbAccessCapabilities(
+        addressWidth = 17,
+        dataWidth = 32,
+        canRead = true,
+        canWrite = false,
+        alignment = BmbParameter.BurstAlignement.BYTE
+      ))
+
+      // down sizer
+      val sF = addSlave(0xC0000, BmbAccessCapabilities(
+        addressWidth = 17,
+        dataWidth = 16,
+        canRead = true,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.LENGTH
+      ))
+
+      def fullAccess(bus: Handle[Bmb]) = {
+        println("fullAccess")
+        interconnect.slaves.keys.foreach(s => interconnect.addConnection(bus, s))
+        println("fullAccess done")
+      }
+
+      fullAccess(mA.busHandle)
+      fullAccess(mB.busHandle)
+      fullAccess(mC.busHandle)
+      fullAccess(mD.busHandle)
+      println("DONE")
+    })
   }
 }
 

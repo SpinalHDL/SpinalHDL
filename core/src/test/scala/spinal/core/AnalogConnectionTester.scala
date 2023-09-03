@@ -1,10 +1,9 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
 import spinal.lib._
 import spinal.lib.io._
 import spinal.lib.blackbox.xilinx.s7.IOBUF
+import spinal.tester.{SpinalAnyFunSuite, SpinalTesterCocotbBase}
 
 class PortBlackBox extends BlackBox {
   val write = in(Bool())
@@ -67,7 +66,7 @@ class AnalogConnectionCocotbBoot extends SpinalTesterCocotbBase {
   override def createToplevel = new AnalogConnectionTester
 }
 
-class AnalogConnectionTest extends AnyFunSuite {
+class AnalogConnectionTest extends SpinalAnyFunSuite {
   import CheckTester._
 
   test("drive analog signal") {
