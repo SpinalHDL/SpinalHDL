@@ -1,11 +1,9 @@
-package spinal.tester.scalatest
-
-import org.scalatest.funsuite.AnyFunSuite
+package spinal.lib.com.linecode
 
 import spinal.sim._
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.com.linecode.Encoding8b10b
+import spinal.tester.SpinalAnyFunSuite
 
 class Encoding8b10bTest extends SpinalAnyFunSuite {
 
