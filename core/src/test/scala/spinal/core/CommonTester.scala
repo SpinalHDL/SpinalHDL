@@ -1,7 +1,7 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
 import spinal.lib._
+import spinal.tester.SpinalTesterCocotbBase
 
 object CommonTester {
 
