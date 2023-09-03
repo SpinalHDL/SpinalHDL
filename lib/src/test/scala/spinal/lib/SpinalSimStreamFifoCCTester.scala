@@ -1,11 +1,9 @@
-package spinal.tester.scalatest
+package spinal.lib
 
-import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
-import spinal.lib.StreamFifoCC
-import spinal.tester
+import spinal.tester.SpinalSimFunSuite
 
 import scala.collection.mutable
 import scala.util.Random
