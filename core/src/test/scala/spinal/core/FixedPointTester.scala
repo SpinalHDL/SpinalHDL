@@ -1,8 +1,6 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
-import spinal.lib.com.uart._
-import spinal.tester.scalatest.FixedPointTester.FixedPointTester
+import spinal.tester.SpinalTesterCocotbBase
 
 object FixedPointTester{
 
@@ -49,5 +47,5 @@ object FixedPointTester{
 class FixedPointTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "FixedPointTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/FixedPointTester"
-  override def createToplevel: Component = new FixedPointTester
+  override def createToplevel: Component = new FixedPointTester.FixedPointTester
 }
