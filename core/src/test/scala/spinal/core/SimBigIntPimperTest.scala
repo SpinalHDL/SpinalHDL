@@ -1,8 +1,8 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core.sim._
-import spinal.core.{BIG, Endianness, LITTLE}
+import sim._
+
+import spinal.tester.SpinalAnyFunSuite
 
 class SimBigIntPimperTest extends SpinalAnyFunSuite {
   def toBytes(bi: BigInt, bits: Int = -1, endian: Endianness = LITTLE) =
