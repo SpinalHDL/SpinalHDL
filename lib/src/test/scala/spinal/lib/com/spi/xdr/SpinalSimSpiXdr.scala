@@ -1,14 +1,12 @@
-package spinal.tester.scalatest
+package spinal.lib.com.spi.ddr
 
-import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib.bus.amba3.apb.Apb3
-import spinal.lib.com.i2c._
 import spinal.sim._
 import spinal.lib._
-import spinal.lib.com.spi.ddr._
 import spinal.lib.sim.{FlowMonitor, ScoreboardInOrder, SimData}
+import spinal.tester.{SpinalAnyFunSuite, SpinalSimTester}
 
 import scala.collection.mutable.ListBuffer
 import scala.util.Random
