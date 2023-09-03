@@ -1,13 +1,11 @@
-package spinal.tester.scalatest
+package spinal.lib
 
-import org.scalatest.funsuite.AnyFunSuite
+import sim._
+
 import spinal.core._
-import spinal.lib._
 import spinal.sim._
 import spinal.core.sim._
-import spinal.lib.StreamWidthAdapter
-import spinal.lib.sim._
-import spinal.tester
+import spinal.tester.SpinalSimFunSuite
 
 import scala.collection.mutable
 import scala.util.Random
