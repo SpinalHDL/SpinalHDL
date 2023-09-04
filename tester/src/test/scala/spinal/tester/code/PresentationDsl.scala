@@ -1175,3 +1175,76 @@ object Main105 extends App {
 }
 
 //ffmpeg -i video.mp4 -ac 1 video_mono.mp4
+
+
+object Shubacktchan{
+  import spinal.core._
+  class Mux extends Component {
+    // define some IO
+    val a,b = in UInt(8 bits)
+    val sel = in Bool()
+    val result = out UInt(8 bits)
+
+    //Define some behaviour
+    when(sel){
+      result := a
+    } otherwise {
+      result := b
+    }
+  }
+
+
+
+
+  import spinal.lib.bus.tilelink
+  class Node extends Area {
+    val bus = Handle[tilelink.Bus]()
+
+  }
+
+////EXECUTION UNITES
+//plugins += new ExecutionUnitBase("EU0")
+//plugins += new SrcPlugin("EU0", earlySrc = true)
+//plugins += new IntAluPlugin("EU0", aluStage = 0)
+//plugins += new ShiftPlugin("EU0" , aluStage = 0)
+//plugins += new BranchPlugin("EU0")
+//
+//plugins += new ExecutionUnitBase("EU1")
+//plugins += new SrcPlugin("EU1")
+//plugins += new IntAluPlugin("EU1")
+//plugins += new ShiftPlugin("EU1")
+//plugins += new BranchPlugin("EU1")
+//
+//plugins += new ExecutionUnitBase("EU2", writebackCountMax = 1)
+//plugins += new SrcPlugin("EU2", earlySrc = true)
+//plugins += new MulPlugin("EU2", writebackAt = 2, staticLatency = false)
+//plugins += new DivPlugin("EU2", writebackAt = 2)
+//plugins += new LoadPlugin("EU2")
+//plugins += new StorePlugin("EU2")
+//plugins += new EnvCallPlugin("EU2")(rescheduleAt = 2)
+//plugins += new CsrAccessPlugin("EU2")(
+//  decodeAt = 0,
+//  readAt = 1,
+//  writeAt = 2,
+//  writebackAt = 2,
+//  staticLatency = false
+//)
+}
+
+object Shubacktchan2 extends App{
+  import spinal.core._
+  import spinal.core.fiber._
+  SpinalVerilog(new Component{
+    val widthProposal = Handle[Int]
+    val widthSupported = Handle[Int]
+
+    val cpu = Fiber build {
+      widthProposal.load(64)
+      val data = UInt(widthSupported.get bits)
+    }
+
+    val ram = Fiber build {
+      widthSupported.load(math.min(widthProposal, 32))
+    }
+  })
+}

@@ -105,8 +105,7 @@ object Phase{
 }
 
 //Easy to reimplement in another environment (ex C, python, ...)
-class RandomGen(){
-  var state = simRandom.nextLong()
+class RandomGen(var state : Long = simRandom.nextLong()){
   def setSeed(seed : Long) : Unit = state = seed
   def nextInt() : Int = {
     state = state * 25214903917L + 11L & 281474976710655L
@@ -133,8 +132,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
 
   def getElseAlocate(idx : Int) = {
     if(content(idx) == null) {
-      val rand = new RandomGen()
-      rand.setSeed(seed ^ ((idx.toLong << 20) + randOffset))
+      val rand = new RandomGen(seed ^ ((idx.toLong << 20) + randOffset))
       content(idx) = new Array[Byte](1024*1024)
       rand.nextBytes(content(idx))
     }
