@@ -9,22 +9,42 @@ class Ram (p : NodeParameters) extends Component {
   }
 
   val mem = Mem.fill((1 << p.m.addressWidth)/p.m.dataBytes)(Bits(p.m.dataWidth bits))
-  val write = mem.writePortWithMask(p.m.dataBytes)
-  val read = mem.readSyncPort()
+  val port = mem.readWriteSyncPort(p.m.dataBytes)
+
   val pipeline = new Pipeline{
     val cmd = new Stage{
-      driveFrom(io.up.a)
+      val counter = Reg(io.up.p.beat) init(0)
+      val LAST = insert(counter === io.up.a.sizeToBeatMinusOne())
+      val IS_GET = insert(io.up.a.opcode === Opcode.A.GET)
       val A = insert(io.up.a.payload)
 
-      val address = A.address >> log2Up(p.m.dataBytes)
-      write.valid := valid && Opcode.A.isPut(io.up.a.opcode)
-      write.address := address
-      write.data := A.data
-      write.mask := A.mask
+      valid := io.up.a.valid
+      io.up.a.ready := isReady && LAST
+      when(isFireing){
+        counter := counter + 1
+        when(LAST){
+          counter := 0
+        }
+      }
 
-      read.cmd.valid := valid && Opcode.A.isGet(io.up.a.opcode)
-      read.cmd.payload := address
-      ???
+      val address = (A.address >> log2Up(p.m.dataBytes)) | counter.resized
+      port.enable := isFireing && Opcode.A.isPut(io.up.a.opcode)
+      port.address := address
+      port.wdata := A.data
+      port.mask := A.mask
+    }
+
+    val rsp = new Stage(Connection.M2S()){
+      val takeIt = cmd.LAST || cmd.IS_GET
+      haltWhen(!io.up.d.ready && takeIt)
+      io.up.d.valid := valid && takeIt
+      io.up.d.opcode := cmd.IS_GET.mux(Opcode.D.ACCESS_ACK_DATA, Opcode.D.ACCESS_ACK)
+      io.up.d.param := cmd.A.param
+      io.up.d.source := cmd.A.source
+      io.up.d.size := cmd.A.size
+      io.up.d.denied := False
+      io.up.d.corrupt := False
+      io.up.d.data := port.rdata
     }
     build()
   }
