@@ -35,8 +35,7 @@ abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
 
   def getMapping() : AddressMapping = mapping.value
 
-  def decoderAddressWidth() : Int = {
-    def full = getSlaveAddressWidth
+  def decoderAddressWidth(full : Int) : Int = {
     mapping.automatic match {
       case Some(v : BigInt) => log2Up(v + (BigInt(1) << full))
       case Some(DefaultMapping) => full
@@ -45,7 +44,6 @@ abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
     }
   }
 
-  def getSlaveAddressWidth() : Int
 
   override def toString = if(this.isNamed) getName() else s"${m}_to_${s}"
 }

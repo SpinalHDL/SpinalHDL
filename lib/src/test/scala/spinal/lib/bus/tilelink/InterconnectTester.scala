@@ -118,6 +118,13 @@ class InterconnectTester extends AnyFunSuite{
       nodeToModel(node) = SparseMemory(Random.nextInt())
     }
 
+    for(node <- nodes){
+      node.refOwner match {
+        case r : RamFiber => nodeToModel(node) = SparseMemory(42)
+        case _ =>
+      }
+    }
+
     val masterSpecs = masterNodes.map(n => {
       val mappings = ArrayBuffer[Endpoint]()
       val suportedTransfers = MemoryConnection.getMemoryTransfers(n)
@@ -320,13 +327,42 @@ class InterconnectTester extends AnyFunSuite{
   }
 
 
-//  test("ram") {
-//    testInterconnectAll(new Component {
-//      val m0 = simpleMaster(readWrite)
-//      val ram = new RamFiber()
-//      ram.up at (0x4000, 0x1000) of m0.node
-//    })
-//  }
+  test("ram") {
+    testInterconnectAll(new Component {
+      val m0 = simpleMaster(readWrite)
+      val ram = new RamFiber(4 KiB)
+      ram.up at 0x0000 of m0.node
+
+      Fiber build new Area{
+        val sparse = SparseMemory(42)
+        val v = for(i <- 0 until 4096 by 4) yield {
+          val e = sparse.readBytes(i, 5).reverse
+          e(0) = 0
+          BigInt(e)
+        }
+        ram.thread.logic.mem.initBigInt(v)
+      }
+    })
+  }
+
+  test("ram2") {
+    testInterconnectAll(new Component {
+      val m0 = simpleMaster(readWrite)
+      val b0 = Node()
+      val ram = new RamFiber(4 KiB)
+      b0 << m0.node
+      ram.up at 0x4000 of b0
+      Fiber build new Area {
+        val sparse = SparseMemory(42)
+        val v = for (i <- 0 until 4096 by 4) yield {
+          val e = sparse.readBytes(i, 5).reverse
+          e(0) = 0
+          BigInt(e)
+        }
+        ram.thread.logic.mem.initBigInt(v)
+      }
+    })
+  }
 
   test("unaligned mapping"){
     testInterconnectAll(new Component{
