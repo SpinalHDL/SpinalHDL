@@ -1,7 +1,7 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
 import spinal.lib._
+import spinal.tester.SpinalTesterCocotbBase
 
 
 object MultiClockTester{
@@ -11,7 +11,7 @@ object MultiClockTester{
   }
 }
 
-import spinal.tester.scalatest.StreamTester._
+import MultiClockTester._
 
 class MultiClockTester extends Component {
   import MultiClockTester._
