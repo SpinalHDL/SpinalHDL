@@ -1,15 +1,11 @@
-package spinal.tester.scalatest
+package spinal.core.sim
 
-import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
-import spinal.core.sim._
-
-import java.io.File
-import org.apache.commons.io.FileUtils
 import spinal.lib.Delay
+import spinal.tester.SpinalAnyFunSuite
 
-import java.io.PrintStream
-
+import java.io.{File, PrintStream}
+import org.apache.commons.io.FileUtils
 
 object VerilatorCacheTester {
   case class ComponentA(n: Int, x: BigInt) extends Component {
