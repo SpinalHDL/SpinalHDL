@@ -4,12 +4,12 @@ import spinal.lib._
 import spinal.lib.bus.tilelink.coherent.OrderingCmd
 import spinal.lib.pipeline._
 
-class Ram (p : NodeParameters) extends Component {
+class Ram (p : NodeParameters, bytes : Int) extends Component {
   val io = new Bundle{
     val up = slave port Bus(p)
   }
 
-  val mem = Mem.fill((1 << p.m.addressWidth)/p.m.dataBytes)(Bits(p.m.dataWidth bits))
+  val mem = Mem.fill(bytes/p.m.dataBytes)(Bits(p.m.dataWidth bits))
   val port = mem.readWriteSyncPort(p.m.dataBytes)
 
   val pipeline = new Pipeline{
