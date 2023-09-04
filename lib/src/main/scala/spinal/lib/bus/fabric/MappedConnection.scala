@@ -39,11 +39,20 @@ abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
     mapping.automatic match {
       case Some(v : BigInt) => log2Up(v + (BigInt(1) << full))
       case Some(DefaultMapping) => full
-      case Some(m : AddressMapping) => log2Up(m.highestBound+1)
       case None => log2Up(mapping.value.highestBound+1)
     }
   }
 
+  def proposalAddressWidth(full: Int): Int = {
+    mapping.automatic match {
+      case Some(_) => {
+        full
+      }
+      case None => {
+        log2Up(mapping.value.highestBound - mapping.value.lowerBound + 1)
+      }
+    }
+  }
 
   override def toString = if(this.isNamed) getName() else s"${m}_to_${s}"
 }

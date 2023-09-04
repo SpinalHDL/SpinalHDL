@@ -331,7 +331,7 @@ class InterconnectTester extends AnyFunSuite{
     testInterconnectAll(new Component {
       val m0 = simpleMaster(readWrite)
       val ram = new RamFiber(4 KiB)
-      ram.up at 0x0000 of m0.node
+      ram.up at 0x4200 of m0.node
 
       Fiber build new Area{
         val sparse = SparseMemory(42)
@@ -351,7 +351,7 @@ class InterconnectTester extends AnyFunSuite{
       val b0 = Node()
       val ram = new RamFiber(4 KiB)
       b0 << m0.node
-      ram.up at 0x4000 of b0
+      ram.up at 0x4100 of b0
       Fiber build new Area {
         val sparse = SparseMemory(42)
         val v = for (i <- 0 until 4096 by 4) yield {
@@ -464,10 +464,13 @@ class InterconnectTester extends AnyFunSuite{
       val m0 = simpleMaster(readWrite)
 
       val i1 = Interleaver(0x10, 4, 1)
-      i1 at 0x1000 of m0.node
+      i1 at (0x1000, 0x1000) of m0.node
+//
+//      val s1 = simpleSlave(8)
+//      s1.node at 0x200 of i1.down
 
       val i2 = Interleaver(0x10, 4, 2)
-      i2 at 0x1000 of m0.node
+      i2 at (0x1000, 0x1000) of m0.node
 
       val s1, s2 = simpleSlave(8)
       s1.node at 0x200 of i1.down

@@ -83,7 +83,7 @@ class Node() extends NodeUpDown{
     if(withUps) {
       val fromUps = ups.map(_.m.m2s.proposed).reduce(_ mincover _)
       val addressConstrained = fromUps.copy(
-//        addressWidth = fromUps.addressWidth min ups.map(up => up.decoderAddressWidth(up.m.m2s.proposed.addressWidth)).max
+        addressWidth = fromUps.addressWidth min ups.map(up => up.proposalAddressWidth(up.m.m2s.proposed.addressWidth)).max
       )
       val modified = m2s.applyProposedModifiersOn(addressConstrained)
       m2s.proposed load modified
