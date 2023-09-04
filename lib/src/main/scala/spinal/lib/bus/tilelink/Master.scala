@@ -129,7 +129,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
 }
 
 object M2sTransfers {
-  def unknownEmits = M2sTransfers(
+  def all = M2sTransfers(
     acquireT   = SizeRange(1, 4096),
     acquireB   = SizeRange(1, 4096),
     arithmetic = SizeRange(1, 4096),
@@ -139,7 +139,6 @@ object M2sTransfers {
     putPartial = SizeRange(1, 4096),
     hint       = SizeRange(1, 4096)
   )
-  def unknownSupports = M2sTransfers()
 
   def singleSize(size : Int) = M2sTransfers(
     acquireT   = SizeRange(size),
@@ -152,7 +151,7 @@ object M2sTransfers {
     hint       = SizeRange(size)
   )
 
-  def unknownGetPut = M2sTransfers(
+  def allGetPut = M2sTransfers(
     get        = SizeRange(1, 4096),
     putFull    = SizeRange(1, 4096),
     putPartial = SizeRange(1, 4096)

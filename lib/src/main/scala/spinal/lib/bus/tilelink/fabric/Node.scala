@@ -16,6 +16,8 @@ object Node{
   def apply() : Node = new Node()
   def slave() : Node = apply().setSlaveOnly()
   def master() : Node = apply().setMasterOnly()
+  def up(): Node = apply().setSlaveOnly()
+  def down(): Node = apply().setMasterOnly()
   def connect(m : NodeUpDown, s : NodeUpDown) = {
     val c = new Connection(m, s)
     m.downs += c

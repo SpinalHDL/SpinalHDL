@@ -215,7 +215,7 @@ class InterconnectTester extends AnyFunSuite{
     )
   )
 
-  def simpleSlave(addressWidth : Int, dataWidth : Int = 32, s2mParameters: S2mParameters = S2mParameters.none, m2sTransfers: M2sTransfers = M2sTransfers.unknownEmits)  = new SlaveBus(
+  def simpleSlave(addressWidth : Int, dataWidth : Int = 32, s2mParameters: S2mParameters = S2mParameters.none, m2sTransfers: M2sTransfers = M2sTransfers.all)  = new SlaveBus(
     M2sSupport(
       transfers = m2sTransfers,
       dataWidth = dataWidth,
@@ -318,6 +318,15 @@ class InterconnectTester extends AnyFunSuite{
       s1.node at 0x400 of b0
     })
   }
+
+
+//  test("ram") {
+//    testInterconnectAll(new Component {
+//      val m0 = simpleMaster(readWrite)
+//      val ram = new RamFiber()
+//      ram.up at (0x4000, 0x1000) of m0.node
+//    })
+//  }
 
   test("unaligned mapping"){
     testInterconnectAll(new Component{
