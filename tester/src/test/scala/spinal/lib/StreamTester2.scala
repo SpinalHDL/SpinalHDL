@@ -1,7 +1,7 @@
-package spinal.tester.scalatest
+package spinal.lib
 
 import spinal.core._
-import spinal.lib._
+import spinal.tester.SpinalTesterCocotbBase
 
 
 object StreamTester2 {
