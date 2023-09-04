@@ -105,7 +105,7 @@ class PackedBundle extends Bundle {
       // Check if the assignment range falls within the current data's range
       // This happens when the data range's high or low falls within the assignment's hi and lo
       // ...or whenever lo isn't past the data range's high and hi isn't below the data range's low
-      if (!(lo >= elRange.high || hi < elRange.low)) {
+      if ((elRange.low >= lo && elRange.low < hi) || (elRange.high >= lo && elRange.high < hi)) {
         if (elRange.step > 0) {
           // "Little endian" -- ascending range
           val subBits = bits(elRange).resize(el.getBitsWidth)
