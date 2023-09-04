@@ -1,4 +1,4 @@
-package spinal.lib.com.spi.xdr
+package spinal.lib.com.spi.ddr
 
 import spinal.core._
 import spinal.core.sim._
