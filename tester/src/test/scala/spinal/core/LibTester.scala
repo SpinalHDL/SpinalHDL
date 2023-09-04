@@ -1,11 +1,9 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
 import spinal.lib.{Delay, LatencyAnalysis}
 import spinal.lib.com.uart._
 import spinal.lib.math.SIntMath
-import spinal.tester.scalatest.FixedPointTester.FixedPointTester
+import spinal.tester.SpinalTesterCocotbBase
 
 object LibTester{
 

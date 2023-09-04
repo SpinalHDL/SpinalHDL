@@ -1,4 +1,4 @@
-package spinal.prout
+package spinal.core
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
