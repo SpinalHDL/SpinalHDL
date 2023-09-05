@@ -1,7 +1,7 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
 import spinal.lib._
+import spinal.tester.SpinalTesterCocotbBase
 
 
 object InternalClockTester{
@@ -49,7 +49,7 @@ object InternalClockTester{
   }
 }
 
-import spinal.tester.scalatest.InternalClockTester._
+import InternalClockTester._
 class InternalClockTester extends Component {
   val io = new Bundle {
     val internalClkCounter = out UInt(8 bit)
