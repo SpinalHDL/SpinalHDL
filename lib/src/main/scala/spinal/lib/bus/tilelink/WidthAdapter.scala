@@ -99,7 +99,8 @@ class WidthAdapter(ip : BusParameter,
     val ia = io.up.a.haltWhen(iaHalt)
 
     val a = new Area{
-      val ctrl = new ChannelUpSizer(ia, io.down.a, ia.address(addrRange))
+      val ctrl = ia.withData generate new ChannelUpSizer(ia, io.down.a, ia.address(addrRange))
+      if(!ia.withData) ia >> io.down.a
     }
 
     val b = ip.withBCE generate new Area{
