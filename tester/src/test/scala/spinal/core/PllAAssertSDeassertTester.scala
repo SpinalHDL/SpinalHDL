@@ -1,9 +1,7 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
 import spinal.lib.{ResetCtrl, CounterFreeRun, Counter}
-import spinal.lib.com.uart._
-
+import spinal.tester.SpinalTesterCocotbBase
 
 
 object PllAAssertSDeassertTester{
