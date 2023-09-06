@@ -1,8 +1,8 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
 import spinal.lib._
 import spinal.core.sim._
+import spinal.tester.SpinalSimFunSuite
 
 import scala.util.Random
 
