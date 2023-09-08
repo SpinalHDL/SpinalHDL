@@ -20,6 +20,7 @@ object BusParameter{
     withBCE      = false,
     withDataA    = false,
     withDataB    = false,
+    withDataC    = true,
     withDataD    = true,
     node         = null
   )
@@ -33,6 +34,7 @@ case class BusParameter(addressWidth : Int,
                         withBCE      : Boolean,
                         withDataA    : Boolean,
                         withDataB    : Boolean,
+                        withDataC    : Boolean,
                         withDataD    : Boolean,
                         node         : NodeParameters){
   val dataBytes   = dataWidth/8
@@ -117,6 +119,7 @@ case class NodeParameters(m : M2sParameters,
     withBCE       = withBCE,
     withDataA     = m.withDataA,
     withDataB     = s.withDataB,
+    withDataC     = true,
     withDataD     = m.withDataD,
     node          = this
   )
