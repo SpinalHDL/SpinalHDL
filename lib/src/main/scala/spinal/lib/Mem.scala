@@ -207,6 +207,21 @@ case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundl
       bypassData := write.data
     }
   }
+
+  def gotReadDuringWrite(write: Flow[MemWriteCmd[T]]): Bool = new Composite(this, "gotReadDurringWrite", true) {
+    val hit = cmd.valid && write.valid && cmd.payload === write.address
+    val buffer = RegNextWhen(hit, cmd.valid) init(False)
+  }.buffer
+}
+
+case class MemReadStreamFlowPort[T <: Data](dataType : T,addressWidth : Int) extends Bundle with IMasterSlave{
+  val cmd = Stream(UInt(addressWidth bit))
+  val rsp = Flow(dataType)
+
+  override def asMaster(): Unit = {
+    master(cmd)
+    slave(rsp)
+  }
 }
 
 
