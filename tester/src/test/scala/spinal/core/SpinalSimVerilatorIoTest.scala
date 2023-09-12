@@ -1,11 +1,9 @@
-package spinal.tester.scalatest
+package spinal.core
 
-import org.scalatest.funsuite.AnyFunSuite
-import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
 import spinal.lib.misc.test.MultithreadedTester
-import spinal.tester.scalatest.SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop
+import spinal.tester.{SpinalAnyFunSuite, SpinalSimTester}
 
 import scala.concurrent.{Await, Future}
 import scala.util.Random
@@ -73,7 +71,7 @@ object SpinalSimVerilatorIoTest{
 class SpinalSimVerilatorIoTest extends SpinalAnyFunSuite {
   SpinalSimTester { env =>
     import env._
-    var compiled: SimCompiled[SpinalSimVerilatorIoTestTop] = null
+    var compiled: SimCompiled[SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop] = null
 
     def doTest: Unit = {
       compiled.doSim { dut =>
@@ -239,7 +237,7 @@ class SpinalSimVerilatorIoTest extends SpinalAnyFunSuite {
   }
 }
 
-class SpinalSimVerilatorDeterministicTester extends AnyFunSuite {
+class SpinalSimVerilatorDeterministicTester extends SpinalAnyFunSuite {
   test("1") {
     val x = new MultithreadedTester {
       println("Compile")

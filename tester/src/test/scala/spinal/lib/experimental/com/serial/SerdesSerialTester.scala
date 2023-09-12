@@ -1,8 +1,8 @@
-package spinal.tester.scalatest
+package spinal.lib.experimental.com.serial
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.experimental.com.serial._
+import spinal.tester.SpinalTesterGhdlBase
 
 object SerdesSerialTester {
 
@@ -13,7 +13,7 @@ object SerdesSerialTester {
 
 }
 
-import spinal.tester.scalatest.StreamTester._
+import SerdesSerialTester._
 
 class SerdesSerialTester extends Component {
   val io = new Bundle {

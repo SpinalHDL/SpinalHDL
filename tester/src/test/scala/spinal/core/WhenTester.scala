@@ -16,9 +16,10 @@
  * License along with this library.
  */
 
-package spinal.tester.scalatest
+package spinal.core
 
-import spinal.core._
+import spinal.tester.SpinalTesterCocotbBase
+
 class WhenTester extends Component {
   val io = new Bundle {
     val conds = in Vec(Bool(),8)
