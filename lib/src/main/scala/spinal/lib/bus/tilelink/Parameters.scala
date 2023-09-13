@@ -55,7 +55,9 @@ case class BusParameter(addressWidth : Int,
 
 object SizeRange{
   def none = SizeRange(0, 0)
-  def upTo(x: Int) : SizeRange = SizeRange(1, x)
+  def all = SizeRange(1, 4096)
+  def upTo(x: Int): SizeRange = SizeRange(1, x)
+  def downTo(x: Int): SizeRange = SizeRange(x, 4096)
   def apply(x: Int) : SizeRange = SizeRange(x, x)
 }
 

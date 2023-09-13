@@ -27,6 +27,7 @@ object Clint{
   def getTilelinkSupport(proposed : bus.tilelink.M2sSupport) = bus.tilelink.SlaveFactory.getSupported(
     addressWidth = addressWidth,
     dataWidth = 32,
+    allowBurst = true,
     proposed
   )
   def addressWidth = 16
@@ -166,7 +167,7 @@ class MappedClint[T <: spinal.core.Data with IMasterSlave](hartIds : Seq[Int],
 
   val factory = factoryGen(io.bus)
   val logic = Clint(hartIds)
-  logic.driveFrom(factory, bufferTime)
+  logic.driveFrom(factory, bufferTime && factory.busDataWidth < 64)
   logic.stop setWhen(io.stop)
 
   for(hartId <- hartIds.indices){
@@ -181,7 +182,7 @@ case class TilelinkClint(hartIds : Seq[Int], p : bus.tilelink.BusParameter) exte
   hartIds,
   true,
   new bus.tilelink.Bus(p),
-  new bus.tilelink.SlaveFactory(_)
+  new bus.tilelink.SlaveFactory(_, true)
 )
 
 case class ClintPort(hardId: Int) extends Area {
@@ -211,5 +212,34 @@ case class TilelinkClintFiber() extends Area{
       specs(id).mti.flag := core.io.timerInterrupt(id)
       specs(id).msi.flag := core.io.softwareInterrupt(id)
     }
+  }
+}
+
+
+object ClintSim extends App{
+  import spinal.core.sim._
+  import spinal.lib.bus.tilelink
+  SimConfig.withFstWave.compile(new TilelinkClint(List(0),
+    tilelink.M2sParameters(
+      sourceCount = 1,
+      support = tilelink.M2sSupport(
+        addressWidth = 16,
+        dataWidth = 32,
+        transfers = tilelink.M2sTransfers(
+          get = tilelink.SizeRange(8),
+          putFull = tilelink.SizeRange(8)
+        )
+      )
+    ).toNodeParameters().toBusParameter()
+  )).doSim{ dut =>
+    dut.clockDomain.forkStimulus(10)
+    dut.io.stop #= false
+    implicit val idAllocator = new tilelink.sim.IdAllocator(tilelink.DebugId.width)
+    val agent = new tilelink.sim.MasterAgent(dut.io.bus, dut.clockDomain)
+    println(agent.get(0, 0xBFF8, 8))
+    println(agent.get(0, 0xBFF8, 8))
+    println(agent.get(0, 0xBFF8, 8))
+    println(agent.putFullData(0, 0x4000, 0 to 7 map(_.toByte)))
+    dut.clockDomain.waitSampling(10)
   }
 }
