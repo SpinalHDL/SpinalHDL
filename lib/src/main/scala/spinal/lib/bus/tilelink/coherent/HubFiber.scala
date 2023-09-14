@@ -55,6 +55,7 @@ class HubFiber() extends Area{
 
   val logic = Fiber build new Area{
     parameter.blockSize = up.m2s.proposed.transfers.acquireB.getSingleSize().get
+    println("HubFiber proposal " + up.m2s.proposed.get + " " + up.m2s.proposed.transfers.acquireB)
     up.m2s.proposed.transfers.acquireT.getSingleSize().foreach(size => assert(size == parameter.blockSize))
 
     down.m2s.proposed.load(
