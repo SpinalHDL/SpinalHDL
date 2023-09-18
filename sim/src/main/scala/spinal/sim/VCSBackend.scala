@@ -357,7 +357,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       val iface = sharedMemIface
       val logger = new LoggerPrintWithTerminationFilter()
       def run(): Unit = {
-        val runCommand = Seq(s"./$toplevelName", config.runFlags).mkString(" ")
+        val runCommand = Seq(s"./$toplevelName", config.flags.getRunFlags).mkString(" ")
         println(s"[SIMV] $runCommand")
         val retCode = Process(runCommand, new File(workspacePath)).!(logger)
         if (retCode != 0 && !logger.terminationOfSimulation) {
