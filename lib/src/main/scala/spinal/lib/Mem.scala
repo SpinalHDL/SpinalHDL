@@ -161,10 +161,19 @@ class MemPimped[T <: Data](mem: Mem[T]) {
 }
 
 
-case class MemWriteCmd[T <: Data](mem : Mem[T], maskWidth : Int = -1) extends Bundle{
+object MemWriteCmd{
+  def apply[T <: Data](mem : Mem[T]) : MemWriteCmd[T] = {
+    MemWriteCmd(mem.wordType, mem.addressWidth, -1)
+  }
+  def apply[T <: Data](mem : Mem[T], maskWidth : Int) : MemWriteCmd[T] = {
+    MemWriteCmd(mem.wordType, mem.addressWidth, maskWidth)
+  }
+}
+
+case class MemWriteCmd[T <: Data](dataType : HardType[T], addressWidth : Int, maskWidth : Int = -1) extends Bundle{
   def useMask = maskWidth >= 0
-  val address = mem.addressType()
-  val data    = mem.wordType()
+  val address = UInt(addressWidth bits)
+  val data    = dataType()
   val mask    = ifGen(useMask)(Bits(maskWidth bits))
 }
 
