@@ -194,10 +194,30 @@ class Directory(val p : DirectoryParam) extends Component {
       }
     }
     val data = withData generate new Area{
-      val ram = new BankedMem(Bits(p.dataWidth bits), cacheBytes/p.dataBytes, cacheBanks)
-      val longWrite = ram.createWritePort(p.dataBytes)
-      val longRead = ram.createReadSyncPort()
-      val refillWrite = ram.createWritePort()
+      val upWrite, downWrite = Stream(MemWriteCmd(Bits(p.dataWidth bits), log2Up(cacheBytes/p.dataBytes), p.dataBytes))
+      val upWriteDemux = StreamDemux(upWrite, upWrite.address >> log2Up(cacheBanks), cacheBanks)
+      val downWriteDemux = StreamDemux(downWrite, downWrite.address >> log2Up(cacheBanks), cacheBanks)
+      val read = Stream(UInt(addressWidth bit))
+
+      val banks = for(i <- 0 until cacheBanks) yield new Area{
+        val ram = Mem.fill(cacheBytes/p.dataBytes/cacheBanks)(Bits(p.dataWidth bits))
+        val readed = Bits(p.dataWidth bits)
+        val writeArbiter = StreamArbiterFactory().noLock.lowerFirst.buildOn(downWriteDemux(i), upWriteDemux(i))
+        val write = writeArbiter.io.output.combStage()
+      }
+
+      val fpgaImpl = new Area{
+        // Use simple dual port memories
+        read.ready := True
+        val b =  for((bank, i) <- banks.zipWithIndex) yield new Area{
+          import bank._
+          write.ready := True
+          ram.write(write.address >> log2Up(cacheBanks), write.data, write.valid, write.mask)
+
+          val readSel =  read.valid && read.payload.resize(log2Up(cacheBanks)) === i
+          readed := ram.readSync(read.payload >> log2Up(cacheBanks), readSel)
+        }
+      }
     }
   }
 
@@ -286,6 +306,8 @@ class Directory(val p : DirectoryParam) extends Component {
 
 
   val CTRL_CMD = Stageable(new CtrlCmd())
+  val BUFFER_A_ID = Stageable(UInt(log2Up(aBufferCount) bits))
+
 
 
   class Slot extends Area{
@@ -328,6 +350,7 @@ class Directory(val p : DirectoryParam) extends Component {
   }
 
 
+
   val bufferA = new ChannelDataBuffer(
     entries = aBufferCount,
     blockSize = blockSize,
@@ -350,10 +373,9 @@ class Directory(val p : DirectoryParam) extends Component {
     toCtrl.source := pusher.down.source
   }
 
-  val BUFFER_A_ID = Stageable(UInt(log2Up(aBufferCount) bits))
 
   val victimBuffer = new Area{
-    val ram = Mem.fill(???)(io.up.p.data)
+    val ram = Mem.fill(generalSlotCount)(io.up.p.data)
     val write = ram.writePort()
     val read = ram.readSyncPort()
   }
@@ -542,7 +564,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val GET_PUT = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA()).sContains(CTRL_CMD.opcode))
       val ACQUIRE = insert(List(ACQUIRE_PERM(), ACQUIRE_BLOCK()).sContains(CTRL_CMD.opcode))
       val IS_GET = insert(List(GET()).sContains(CTRL_CMD.opcode))
-      val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === Opcode.A.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
+      val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === CtrlOpcode.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
       val WRITE_DATA = insert(List(PUT_PARTIAL_DATA(), PUT_FULL_DATA(), RELEASE_DATA(), PROBE_ACK_DATA()).sContains(CTRL_CMD.opcode))
     }
 
@@ -683,7 +705,7 @@ class Directory(val p : DirectoryParam) extends Component {
             askWriteBackend := !preCtrl.IS_GET
             toWriteBackend.fromUpA    := True
             toWriteBackend.toDownA    := False
-            toWriteBackend.partialUpA := CTRL_CMD.opcode === Opcode.A.PUT_PARTIAL_DATA
+            toWriteBackend.partialUpA := CTRL_CMD.opcode === CtrlOpcode.PUT_PARTIAL_DATA
             toWriteBackend.address    := CTRL_CMD.address
             toWriteBackend.size       := CTRL_CMD.size
             toWriteBackend.wayId      := CACHE_HIT_WAY_ID
@@ -787,10 +809,10 @@ class Directory(val p : DirectoryParam) extends Component {
       upCSplit.dataPop.ready := fromUpC && isFireing
 
       val toCacheFork = forkStream(!CMD.toDownA)
-      cache.data.longWrite.arbitrationFrom(toCacheFork.haltWhen(hazardUpC))
-      cache.data.longWrite.address := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
-      cache.data.longWrite.data := UP_DATA
-      cache.data.longWrite.mask := UP_MASK
+      cache.data.upWrite.arbitrationFrom(toCacheFork.haltWhen(hazardUpC))
+      cache.data.upWrite.address := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
+      cache.data.upWrite.data := UP_DATA
+      cache.data.upWrite.mask := UP_MASK
 
       val toDownAFork = forkStream(CMD.toDownA)
       val toDownA = toDownAFork.haltWhen(hazardUpC).swapPayload(io.down.a.payloadType)
@@ -838,16 +860,17 @@ class Directory(val p : DirectoryParam) extends Component {
 
     val fetcher = new Area {
       import fetchStage._
-      def cacheCmd = cache.data.longRead.cmd
 
-      cacheCmd.valid := isFireing
-      cacheCmd.payload := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
+      cache.data.read.valid := isFireing
+      cache.data.read.payload := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
     }
 
-    val CACHED = ??? //readStage.insert(cache.data.longRead.rsp)
+    val CACHED = readStage.insert(Vec(cache.data.banks.map(_.readed))) //May want KEEP attribute
 
     val process = new Area {
       import processStage._
+
+      val DATA = insert(CACHED(CMD.address(log2Up(p.dataBytes), log2Up(cacheBanks) bits)))
 
       val toUpDFork = forkStream(CMD.toUpD)
       val toUpD = toUpDFork swapPayload io.up.d.payloadType()
@@ -857,12 +880,12 @@ class Directory(val p : DirectoryParam) extends Component {
       toUpD.sink := CMD.gsId
       toUpD.size := CMD.size
       toUpD.denied := False
-      toUpD.data := CACHED
+      toUpD.data := DATA
       toUpD.corrupt := False
 
       victimBuffer.write.valid := isValid && !CMD.toUpD
-      victimBuffer.write.address := CMD.victimId @@ CMD.address(wordRange)
-      victimBuffer.write.data := CACHED
+      victimBuffer.write.address := CMD.gsId @@ CMD.address(wordRange)
+      victimBuffer.write.data := DATA
     }
   }
 
