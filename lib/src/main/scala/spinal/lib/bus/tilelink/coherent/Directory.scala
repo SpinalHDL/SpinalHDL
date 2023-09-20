@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink._
+import spinal.lib.misc.Plru
 import spinal.lib.pipeline._
 
 case class DirectoryParam(var unp : NodeParameters,
@@ -16,6 +17,7 @@ case class DirectoryParam(var unp : NodeParameters,
                           var aBufferCount: Int = 4,
                           var ctrlLoopbackDepth : Int = 4,
                           var generalSlotCount : Int = 8,
+                          var generalSlotCountUpCOnly : Int = 2,
                           var probeRegion : UInt => Bool) {
   assert(isPow2(cacheBytes))
 
@@ -28,12 +30,14 @@ case class DirectoryParam(var unp : NodeParameters,
   def tagRange = addressWidth-1 downto log2Up(cacheBytes/cacheWays)
   def lineRange = tagRange.low-1 downto log2Up(lineSize)
   def wordRange = log2Up(lineSize)-1 downto log2Up(dataBytes)
+  def wordsPerLine = lineSize/dataBytes
   def refillRange = tagRange.high downto lineRange.low
   def blockRange = addressWidth-1 downto log2Up(lineSize)
   def lineSize = blockSize
   def setsRange = lineRange
+  def cacheAddressWidth = log2Up(cacheBytes/dataBytes)
 
-  def addressCheckRange = setsRange.high downto log2Up(lineSize)
+  def addressCheckRange = setsRange.high downto log2Up(lineSize) //For now, it also avoid way clash (gsHits)
   def addressCheckWidth = addressCheckRange.size
 //  def lockSetsRange = log2Up(lineSize*lockSets)-1 downto log2Up(lineSize)
 }
@@ -119,11 +123,16 @@ down.D can trigger :
 - up.a to $ (up.a.put allocating a cache line)
 - if non inclusive cache : probe completion (initiated from probe_data_ack)
 
+
+General slot allocations on :
+- upA   : When it either directly go to backend or go to probe
+- upC   : When release_data
  */
 
 class Directory(val p : DirectoryParam) extends Component {
-
   import p._
+
+  assert(generalSlotCountUpCOnly < generalSlotCount)
 
   val ubp = p.unp.toBusParameter()
   val dbp = NodeParameters(
@@ -177,8 +186,14 @@ class Directory(val p : DirectoryParam) extends Component {
 
 
   class LineCtrl(bytes : Int, ways: Int, withData : Boolean) extends Area {
+    val sets = bytes / blockSize / ways
+    val plru = new Area{
+      val ram = Mem.fill(sets)(Plru.State(cacheWays))
+      val read = ram.readSyncPort
+      val write = ram.writePort
+    }
+
     val tags = new Area {
-      val sets = bytes / blockSize / ways
       val ram = Mem.fill(sets)(Vec.fill(ways)(Tags(withData)))
       val read = ram.readSyncPort
       val writeRaw = ram.writePortWithMask(ways)
@@ -194,10 +209,10 @@ class Directory(val p : DirectoryParam) extends Component {
       }
     }
     val data = withData generate new Area{
-      val upWrite, downWrite = Stream(MemWriteCmd(Bits(p.dataWidth bits), log2Up(cacheBytes/p.dataBytes), p.dataBytes))
-      val upWriteDemux = StreamDemux(upWrite, upWrite.address >> log2Up(cacheBanks), cacheBanks)
-      val downWriteDemux = StreamDemux(downWrite, downWrite.address >> log2Up(cacheBanks), cacheBanks)
-      val read = Stream(UInt(addressWidth bit))
+      val upWrite, downWrite = Stream(MemWriteCmd(Bits(p.dataWidth bits), cacheAddressWidth, p.dataBytes))
+      val upWriteDemux = StreamDemux(upWrite, upWrite.address.resize(log2Up(cacheBanks)), cacheBanks)
+      val downWriteDemux = StreamDemux(downWrite, downWrite.address.resize(log2Up(cacheBanks)), cacheBanks)
+      val read = Stream(UInt(cacheAddressWidth bits))
 
       val banks = for(i <- 0 until cacheBanks) yield new Area{
         val ram = Mem.fill(cacheBytes/p.dataBytes/cacheBanks)(Bits(p.dataWidth bits))
@@ -297,7 +312,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val size = ubp.size()
     val wayId = UInt(log2Up(cacheWays) bits)
 //    val victimId = VICTIME_ID()
-    val upD = new Area {
+    val upD = new Bundle {
       val opcode = Opcode.D()
       val param  = Bits(3 bits)
       val source = ubp.source()
@@ -347,6 +362,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val wayId = UInt(log2Up(cacheWays) bits)
     }
     val ctxDownD = Mem.fill(generalSlotCount)(CtxDownD())
+    val fullUpA = slots.dropRight(p.generalSlotCountUpCOnly).map(_.valid).andR
   }
 
 
@@ -360,6 +376,7 @@ class Directory(val p : DirectoryParam) extends Component {
 
     val pusher = push(io.up.a)
     val toCtrl = pusher.down.swapPayload(new CtrlCmd())
+    toCtrl.bufferAId := pusher.bufferId
     toCtrl.opcode := pusher.down.opcode.muxDc(
       Opcode.A.GET -> CtrlOpcode.GET(),
       Opcode.A.PUT_PARTIAL_DATA -> CtrlOpcode.PUT_PARTIAL_DATA(),
@@ -375,7 +392,7 @@ class Directory(val p : DirectoryParam) extends Component {
 
 
   val victimBuffer = new Area{
-    val ram = Mem.fill(generalSlotCount)(io.up.p.data)
+    val ram = Mem.fill(generalSlotCount*wordsPerLine)(io.up.p.data)
     val write = ram.writePort()
     val read = ram.readSyncPort()
   }
@@ -480,7 +497,8 @@ class Directory(val p : DirectoryParam) extends Component {
       down.toNone   := !Param.reportPruneKeepCopy(input.param)
       down.address  := input.address
       down.size     := input.size
-      down.source   := input.source
+      down.source := input.source
+      down.bufferAId.assignDontCare()
     }
 
     val wake = new Area {
@@ -519,7 +537,6 @@ class Directory(val p : DirectoryParam) extends Component {
 
     val loopback = new Area{
       val occupancy = new CounterUpDown(ctrlLoopbackDepth, handleOverflow = false)
-      ???
       val allowUpA = !occupancy.mayOverflow
       val fifo = StreamFifo(new CtrlCmd, ctrlLoopbackDepth, forFMax = true)
     }
@@ -532,10 +549,14 @@ class Directory(val p : DirectoryParam) extends Component {
         that.haltWhen(hits.orR)
       }
 
-      val arbiter = StreamArbiterFactory().roundRobin.noLock.build(CTRL_CMD, 2)
+      val arbiter = StreamArbiterFactory().roundRobin.noLock.build(CTRL_CMD, 3)
       arbiter.io.inputs(0) << prober.arbiter.down
       arbiter.io.inputs(1) << loopback.fifo.io.pop
       arbiter.io.inputs(2) << bufferA.toCtrl.continueWhen(loopback.allowUpA)
+
+      when(bufferA.toCtrl.fire) {
+        loopback.occupancy.increment()
+      }
 
       driveFrom(hazardHalt(arbiter.io.output))
       inserterStage(CTRL_CMD) := arbiter.io.output
@@ -550,6 +571,11 @@ class Directory(val p : DirectoryParam) extends Component {
     cache.tags.read.cmd.payload := addressStage(CTRL_CMD).address(lineRange)
     val CACHE_TAGS = dataStage.insert(cache.tags.read.rsp)
 
+    cache.plru.read.cmd.valid := addressStage.isFireing
+    cache.plru.read.cmd.payload := addressStage(CTRL_CMD).address(setsRange)
+    val CACHE_PLRU = dataStage.insert(cache.plru.read.rsp)
+
+
     val tags = new Area{
       import tagStage._
       val read = tagStage(CACHE_TAGS)
@@ -560,19 +586,27 @@ class Directory(val p : DirectoryParam) extends Component {
     val preCtrl = new Area{
       import prepStage._
       val ALLOCATE_ON_MISS = insert(False) //TODO
+      val FROM_A = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA(), ACQUIRE_BLOCK(), ACQUIRE_PERM()).sContains(CTRL_CMD.opcode))
       val FROM_C = insert(List(RELEASE(), RELEASE_DATA(), PROBE_ACK_DATA()).sContains(CTRL_CMD.opcode))
       val GET_PUT = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA()).sContains(CTRL_CMD.opcode))
       val ACQUIRE = insert(List(ACQUIRE_PERM(), ACQUIRE_BLOCK()).sContains(CTRL_CMD.opcode))
       val IS_GET = insert(List(GET()).sContains(CTRL_CMD.opcode))
       val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === CtrlOpcode.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
       val WRITE_DATA = insert(List(PUT_PARTIAL_DATA(), PUT_FULL_DATA(), RELEASE_DATA(), PROBE_ACK_DATA()).sContains(CTRL_CMD.opcode))
+      val gsHits = gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address)
+      val GS_HIT = insert(gsHits.orR)
     }
 
     val process = new Area{
       import processStage._
 
-      val hazard = False
-      throwIt(hazard)
+      val redoUpA = False
+      assert(!(redoUpA && !preCtrl.FROM_A))
+      throwIt(redoUpA)
+
+      val haltUpC = False
+      assert(!(haltUpC && !preCtrl.FROM_C))
+      haltIt(haltUpC)
 
       val askProbe = False
       val askReadDown = False
@@ -581,12 +615,23 @@ class Directory(val p : DirectoryParam) extends Component {
       val askGs = False //TODO use it
       val askUpD = False
 
-      hazard setWhen (askGs && gs.allocate.full)
+      when(askGs){
+        when(preCtrl.FROM_A && gs.fullUpA){
+          redoUpA := True
+        }
+        when(preCtrl.FROM_C && gs.allocate.full){
+          haltUpC := True
+        }
+      }
 
-      val toReadDown = forkStream(askReadDown && !hazard).swapPayload(new ReadDownCmd)
-      val toReadBackend = forkStream(askReadBackend && !hazard).swapPayload(new ReadBackendCmd)
-      val toWriteBackend = forkStream(askWriteBackend && !hazard).swapPayload(new WriteBackendCmd)
-      val toUpD = forkStream(askUpD && !hazard).swapPayload(io.up.d.payloadType)
+      when(isFireing && preCtrl.FROM_A && askGs && !redoUpA){
+        loopback.occupancy.decrement()
+      }
+
+      val toReadDown = forkStream(askReadDown && !redoUpA).swapPayload(new ReadDownCmd)
+      val toReadBackend = forkStream(askReadBackend && !redoUpA).swapPayload(new ReadBackendCmd)
+      val toWriteBackend = forkStream(askWriteBackend && !redoUpA && !haltUpC).swapPayload(new WriteBackendCmd)
+      val toUpD = forkStream(askUpD && !redoUpA).swapPayload(io.up.d.payloadType)
 
       val CACHE_HIT = insert(tags.CACHE_HITS.orR)
       val CACHE_HIT_WAY_ID = insert(OHToUInt(tags.CACHE_HITS))
@@ -595,12 +640,25 @@ class Directory(val p : DirectoryParam) extends Component {
       val OTHERS = insert(CACHE_LINE.owners & ~inserter.SOURCE_OH)
       val OTHER = insert(OTHERS.orR)
 
-      //ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, PROBE_ACK_DATA, GET
+      val backendWayId = CombInit(apply(CACHE_HIT_WAY_ID))
+
+      val gotGs = RegInit(False)
+      val gsOhLocked = RegNextWhen(gs.allocate.oh, !gotGs)
+      val gsOh = gotGs.mux(gsOhLocked, gs.allocate.oh)
+      val gsId = OHToUInt(gsOh)
+      val gsInit = new GeneralSlot()
+      gsInit.address := CTRL_CMD.address(addressCheckRange)
+      gsInit.refill := False
+      gsInit.write := False
+      gsInit.way := backendWayId
+      gsInit.pending.victim := False
+      gsInit.pending.downD := False
+      gsInit.pending.upE := False
 
       cache.tags.write.address := CTRL_CMD.address(setsRange)
       cache.tags.write.mask := 0
       cache.tags.write.data := CACHE_LINE
-      cache.tags.write.data.tag.removeAssignments() := CTRL_CMD.address(setsRange)
+      cache.tags.write.data.tag.removeAssignments() := CTRL_CMD.address(tagRange)
 
       val owners = new Area{
         val add, remove, clean = False
@@ -612,12 +670,11 @@ class Directory(val p : DirectoryParam) extends Component {
       //TODO don't forget to ensure that a victim get out of the cache before downD/upA erase it
 
       val acquireParam = (CACHE_LINE.owners & ~inserter.SOURCE_OH).orR.mux[Bits](Param.Cap.toB, Param.Cap.toT)
-      toUpD.valid   := askUpD
       toUpD.opcode  := Opcode.D.GRANT
       toUpD.source  := CTRL_CMD.source
-      toUpD.sink    := gs.allocate.id
+      toUpD.sink    := OHToUInt(gsOh)
       toUpD.size    := log2Up(blockSize)
-      toUpD.param   := acquireParam
+      toUpD.param   := acquireParam.resized
       toUpD.denied  := False
       toUpD.corrupt := False
       toUpD.data.assignDontCare()
@@ -630,29 +687,79 @@ class Directory(val p : DirectoryParam) extends Component {
 
       loopback.fifo.io.push.valid := prober.cmd.isStall
       loopback.fifo.io.push.payload := CTRL_CMD
-      hazard setWhen(prober.cmd.isStall)
+      redoUpA setWhen(prober.cmd.isStall)
 
       val doIt = isFireing && !isRemoved
-      val askEvict = False //Will handle victim
+      val askAllocate = False //Will handle victim
 
       val olderWay = new Area{
-        val unlocked = Bool() //TODO check that nothing is going on on that way
-        val wayId = UInt()
+        val plru = new Plru(cacheWays, true)
+        plru.io.context.valids := B(CACHE_TAGS.map(_.loaded))
+        plru.io.context.state := CACHE_PLRU
+
+        cache.plru.write.valid := CACHE_HIT
+        plru.io.update.id := CACHE_HIT_WAY_ID
+
+        when(askAllocate) {
+          cache.plru.write.valid := True
+          plru.io.update.id := plru.io.evict.id
+        }
+
+        cache.plru.write.valid clearWhen (!isFireing)
+        cache.plru.write.address := CTRL_CMD.address(setsRange)
+        cache.plru.write.data := plru.io.update.state
+
+        val unlocked = CombInit(!preCtrl.GS_HIT) //Pessimistic, as way check could help reduce conflict
+        val wayId = CombInit(plru.io.evict.id)
         val tags = CACHE_TAGS(wayId)
         val address = tags.tag @@ CTRL_CMD.address(setsRange) @@ U(0, log2Up(blockSize) bits)
       }
 
 
-      toReadBackend.gsId := gs.allocate.id
-      toWriteBackend.gsId := gs.allocate.id
 
-      toReadDown.gsId    := gs.allocate.id
+
+      when(isValid && askGs && !redoUpA && !gs.allocate.full) {
+        gotGs := True
+        gs.slots.onMask(gsOh) { s =>
+          s.address := gsInit.address
+          s.refill := gsInit.refill
+          s.write := gsInit.write
+          s.way :=  gsInit.way
+          s.pending.victim := gsInit.pending.victim
+          s.pending.downD := gsInit.pending.downD
+          s.pending.upE := gsInit.pending.upE
+
+          when(isReady) {
+            s.valid := True
+          }
+        }
+      }
+      gotGs clearWhen (isFireing)
+
+      toReadBackend.address := CTRL_CMD.address
+      toReadBackend.size := CTRL_CMD.size
+      toReadBackend.gsId := gsId
+      toReadBackend.wayId := backendWayId
+      toReadBackend.toUpD := False
+      toReadBackend.upD.opcode.assignDontCare()
+      toReadBackend.upD.param := 0
+      toReadBackend.upD.source := CTRL_CMD.source
+
+      toWriteBackend.toDownA := False
+      toWriteBackend.fromUpA := False
+      toWriteBackend.address := CTRL_CMD.address
+      toWriteBackend.size := CTRL_CMD.size
+      toWriteBackend.gsId := gsId
+      toWriteBackend.bufferAId := CTRL_CMD.bufferAId
+      toWriteBackend.partialUpA := CTRL_CMD.opcode === CtrlOpcode.PUT_PARTIAL_DATA
+      toWriteBackend.wayId := backendWayId
+
+      toReadDown.gsId    := gsId
       toReadDown.address := CTRL_CMD.address
       toReadDown.size    := CTRL_CMD.size
 
-      when(askEvict && olderWay.tags.loaded && olderWay.unlocked){
+      when(askAllocate && olderWay.tags.loaded && olderWay.unlocked){
         askReadBackend setWhen(olderWay.tags.dirty)
-        toReadBackend.toUpD     := False
         toReadBackend.address   := olderWay.address
         toReadBackend.size      := log2Up(blockSize)
         toReadBackend.wayId  := olderWay.wayId
@@ -663,6 +770,8 @@ class Directory(val p : DirectoryParam) extends Component {
         prober.cmd.size := log2Up(blockSize)
         prober.cmd.mask := olderWay.tags.owners
         prober.cmd.probeToN := True
+
+        gsInit.pending.victim := olderWay.tags.dirty
       }
 
       when(preCtrl.FROM_C){
@@ -675,16 +784,17 @@ class Directory(val p : DirectoryParam) extends Component {
 
         //Write to backend
         when(preCtrl.WRITE_DATA){
-          askEvict := !CACHE_HIT && preCtrl.ALLOCATE_ON_MISS
+          askAllocate := !CACHE_HIT && preCtrl.ALLOCATE_ON_MISS
           askWriteBackend := True
-          toWriteBackend.fromUpA    := False
-          toWriteBackend.toDownA    := !CACHE_HIT && (!preCtrl.ALLOCATE_ON_MISS || !olderWay.unlocked)
-          toWriteBackend.address    := CTRL_CMD.address
-          toWriteBackend.size       := CTRL_CMD.size
-          toWriteBackend.wayId      := olderWay.wayId
+          toWriteBackend.toDownA  := !CACHE_HIT && (!preCtrl.ALLOCATE_ON_MISS || !olderWay.unlocked)
+          backendWayId := olderWay.wayId
+
+          gsInit.write := True
+          gsInit.pending.downD := !CACHE_HIT && !preCtrl.ALLOCATE_ON_MISS
         }
       }
       when(preCtrl.GET_PUT){
+        gsInit.write := !preCtrl.IS_GET
         when(CACHE_HIT && (!preCtrl.IS_GET || CACHE_LINE.trunk)){
           //Need to be probed out of coherent masters
           askProbe := True
@@ -695,28 +805,23 @@ class Directory(val p : DirectoryParam) extends Component {
           when(CACHE_HIT) {
             askReadBackend := preCtrl.IS_GET
             toReadBackend.toUpD      := True
-            toReadBackend.address    := CTRL_CMD.address
-            toReadBackend.size       := CTRL_CMD.size
-            toReadBackend.wayId   := CACHE_HIT_WAY_ID
             toReadBackend.upD.opcode := Opcode.D.ACCESS_ACK_DATA
-            toReadBackend.upD.param  := 0
-            toReadBackend.upD.source := CTRL_CMD.source
 
             askWriteBackend := !preCtrl.IS_GET
             toWriteBackend.fromUpA    := True
-            toWriteBackend.toDownA    := False
-            toWriteBackend.partialUpA := CTRL_CMD.opcode === CtrlOpcode.PUT_PARTIAL_DATA
-            toWriteBackend.address    := CTRL_CMD.address
-            toWriteBackend.size       := CTRL_CMD.size
             toWriteBackend.wayId      := CACHE_HIT_WAY_ID
-            toWriteBackend.bufferAId  := CTRL_CMD.bufferAId
           }otherwise {
-            askEvict := preCtrl.ALLOCATE_ON_MISS
+            askAllocate := preCtrl.ALLOCATE_ON_MISS
             askReadDown := (preCtrl.ALLOCATE_ON_MISS && !preCtrl.IS_PUT_FULL_BLOCK) || preCtrl.IS_GET
+
+            gsInit.refill := preCtrl.ALLOCATE_ON_MISS
+            gsInit.pending.downD := True
           }
         }
       }
       when(preCtrl.ACQUIRE){
+        gsInit.pending.upE := True
+
         when(CACHE_HIT){
           when(CACHE_LINE.trunk || CTRL_CMD.toTrunk) {
             //Need to probe the others first
@@ -727,19 +832,17 @@ class Directory(val p : DirectoryParam) extends Component {
             when(CTRL_CMD.opcode === CtrlOpcode.ACQUIRE_BLOCK) {
               askReadBackend := True
               toReadBackend.toUpD := True
-              toReadBackend.address := CTRL_CMD.address
-              toReadBackend.size := CTRL_CMD.size
-              toReadBackend.wayId := CACHE_HIT_WAY_ID
               toReadBackend.upD.opcode := Opcode.D.GRANT_DATA
-              toReadBackend.upD.param := acquireParam
-              toReadBackend.upD.source := CTRL_CMD.source
+              toReadBackend.upD.param := acquireParam.resized
             } otherwise {
               askUpD := True
             }
           }
         } otherwise {
-          askEvict := True
+          askAllocate := True
           askReadDown := preCtrl.ALLOCATE_ON_MISS
+
+          gsInit.refill := preCtrl.ALLOCATE_ON_MISS
         }
       }
 
@@ -755,7 +858,7 @@ class Directory(val p : DirectoryParam) extends Component {
 
     toDownA.opcode := Opcode.A.GET
     toDownA.param := 0
-    toDownA.source := cmd.gsId
+    toDownA.source := U"0" @@ cmd.gsId
     toDownA.address := cmd.address
     toDownA.size := cmd.size
     toDownA.mask.assignDontCare()
@@ -784,7 +887,7 @@ class Directory(val p : DirectoryParam) extends Component {
       cmd.ready := isReady && LAST
       valid := cmd.valid
       inserterStage(CMD) := cmd.payload
-      CMD.address.removeAssignments() := (cmd.address | (counter << log2Up(p.dataBytes))).resized
+      CMD.address.removeAssignments() := cmd.address | (counter << log2Up(p.dataBytes)).resized
 
       when(isFireing) {
         counter := counter + 1
@@ -821,8 +924,8 @@ class Directory(val p : DirectoryParam) extends Component {
       toDownA.source := U"0" @@ CMD.gsId
       toDownA.address := CMD.address
       toDownA.size := CMD.size
-      toDownA.mask := UP_DATA
-      toDownA.data := UP_MASK
+      toDownA.data := UP_DATA
+      toDownA.mask := UP_MASK
       toDownA.corrupt := False
     }
   }
@@ -848,7 +951,7 @@ class Directory(val p : DirectoryParam) extends Component {
       cmd.ready := isReady && LAST
       valid := cmd.valid
       inserterStage(CMD) := cmd.payload
-      CMD.address.removeAssignments() := (cmd.address | (counter << log2Up(p.dataBytes))).resized
+      CMD.address.removeAssignments() := cmd.address | (counter << log2Up(p.dataBytes)).resized
 
       when(isFireing) {
         counter := counter + 1
@@ -892,16 +995,15 @@ class Directory(val p : DirectoryParam) extends Component {
   val toDownA = new Area{
     val arbiter = StreamArbiterFactory().lowerFirst.lambdaLock[ChannelA](_.isLast()).build(io.down.a.payloadType, 3)
     arbiter.io.inputs(0) << readDown.toDownA
-    arbiter.io.inputs(1) << ??? //victim
+    arbiter.io.inputs(1).setIdle() //TODO
     arbiter.io.inputs(2) << writeBackend.process.toDownA
     io.down.a << arbiter.io.output
   }
 
   val toUpD = new Area{
-    val arbiter = StreamArbiterFactory().lowerFirst.lambdaLock[ChannelD](_.isLast()).build(io.up.d.payloadType, 3)
+    val arbiter = StreamArbiterFactory().lowerFirst.lambdaLock[ChannelD](_.isLast()).build(io.up.d.payloadType, 2)
     arbiter.io.inputs(0) << readBackend.process.toUpD
-    arbiter.io.inputs(1) << ???
-    arbiter.io.inputs(2) << ctrl.process.toUpD.m2sPipe()
+    arbiter.io.inputs(1) << ctrl.process.toUpD.m2sPipe()
 
     io.up.d << arbiter.io.output
   }
@@ -916,15 +1018,15 @@ class Directory(val p : DirectoryParam) extends Component {
     cache.tags.write.data.loaded := False
   }
 
-  io.up.d.setIdle()
   io.up.e.ready := False
-
   io.down.d.ready := False
+  cache.data.downWrite.setIdle()
 }
 
 
 object DirectoryGen extends App{
-  def basicConfig(probeCount: Int = 8,
+  def basicConfig(generalSlotCount : Int = 8,
+                  probeCount: Int = 4,
                   downPendingMax: Int = 16,
                   masterPerChannel: Int = 4,
                   dataWidth: Int = 64,
@@ -960,7 +1062,7 @@ object DirectoryGen extends App{
             emits = S2mTransfers(
               probe = SizeRange(64)
             ),
-            sinkId = SizeMapping(0, lockSets * 2)
+            sinkId = SizeMapping(0, generalSlotCount)
           )
         ))
       ),
@@ -971,7 +1073,8 @@ object DirectoryGen extends App{
       downPendingMax = downPendingMax,
       probeCount = probeCount,
       blockSize = blockSize,
-      probeRegion = _ => True
+      probeRegion = _ => True,
+      generalSlotCount = generalSlotCount
     )
   }
 
