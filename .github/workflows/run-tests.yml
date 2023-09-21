@@ -58,7 +58,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - run: sbt 'core/testOnly * -- -l spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.core.* -- -l spinal.tester.formal'
 
   core-formal:
     needs: compile
@@ -69,7 +69,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - run: sbt 'core/testOnly * -- -n spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.core.* -- -n spinal.tester.formal'
 
   sim-test:
     needs: compile
@@ -91,7 +91,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - run: sbt 'tester/testOnly * -- -l spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.tester.* -- -l spinal.tester.formal'
 
   tester-formal:
     needs: compile
@@ -102,7 +102,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - run: sbt 'tester/testOnly * -- -n spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.tester.* -- -n spinal.tester.formal'
 
   lib-test:
     needs: compile
@@ -113,7 +113,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - run: sbt 'lib/testOnly * -- -l spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.lib.* -- -l spinal.tester.formal'
 
   lib-formal:
     needs: compile
@@ -124,7 +124,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - run: sbt 'lib/testOnly * -- -n spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.lib.* -- -n spinal.tester.formal'
 
   scaladoc:
     needs: compile
