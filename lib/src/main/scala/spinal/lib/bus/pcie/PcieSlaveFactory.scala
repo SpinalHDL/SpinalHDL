@@ -72,7 +72,7 @@ case class PcieSlaveFactory(cmd: Stream[Fragment[Tlp]], rsp: Stream[Fragment[Tlp
 
   val write = new Area {
     val askWrite = demux.WriteCmd.haltWhen(writeHaltRequest).freeRun.fire
-    val doWrite = RegNext(askWrite) init False
+    val doWrite = askWrite
     val hdr = MemCmdHeader()
     hdr.assignFromBits(demux.WriteCmd.hdr)
   }

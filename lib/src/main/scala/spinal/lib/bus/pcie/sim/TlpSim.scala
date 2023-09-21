@@ -72,7 +72,7 @@ object MemCmdHeader {
       lastBe = lastBe,
       firstBe = firstBe,
       addr = addr,
-      ph = ph,
+      ph = ph
     )
   }
 
@@ -209,33 +209,33 @@ object TlpSimTest extends App {
   //   lastBe = 2,
   //   firstBe = 1,
   //   addr = 3,
-  //   ph = 2,
+  //   ph = 2
   // )
   // val bits = hdr.buildBits()
   // val hdrEmit = MemCmdHeader.parse(bits)
   // println(hdr)
   // println(hdrEmit)
   // assert(hdr == hdrEmit)
-  // val hdr = CplHeader(fmt = 2,
-  //                     typ = 3,
-  //                     tc = 1,
-  //                     attr = 2,
-  //                     th = true,
-  //                     td = false,
-  //                     ep = false,
-  //                     at = 1,
-  //                     cplId = 3,
-  //                     cplStatus = 2,
-  //                     bcm = true,
-  //                     reqId = 6,
-  //                     tag = 2,
-  //                     lowerAddr = 6,
-  //                     length = 2,
-  //                     byteCount = 4)
-  // val bits = hdr.buildBits()
-  // val hdrEmit = CplHeader.parse(bits)
-  // println(hdr)
-  // println(hdrEmit)
-  // assert(hdr == hdrEmit)
+  val hdr = CplHeader(fmt = 2,
+                      typ = 3,
+                      tc = 1,
+                      attr = 2,
+                      th = true,
+                      td = false,
+                      ep = false,
+                      at = 1,
+                      cplId = 3,
+                      cplStatus = 2,
+                      bcm = true,
+                      reqId = 6,
+                      tag = 2,
+                      lowerAddr = 6,
+                      length = 2,
+                      byteCount = 4)
+  val bits = hdr.buildBits()
+  val hdrEmit = CplHeader.parse(bits)
+  println(hdr)
+  println(hdrEmit)
+  assert(hdr == hdrEmit)
   
 }

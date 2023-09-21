@@ -40,8 +40,8 @@ abstract class PcieCompleterMasterAgent(cmd: Stream[Fragment[Tlp]], rsp: Stream[
   val cmdQueue = mutable.Queue[() => Unit]()
   val rspQueue = Array.fill(tagCount)(mutable.Queue[() => Unit]())
 
-  def pending = (0 until (1 << tagWidth)).exists(x => rspQueue.isEmpty)
-  def availTag = (0 until (1 << tagWidth)).find(x => rspQueue.isEmpty)
+  def pending = (0 until (1 << tagWidth)).exists(x => rspQueue(x).isEmpty)
+  def availTag = (0 until (1 << tagWidth)).find(x => rspQueue(x).isEmpty)
   
   def mappingAllocate(mapping : SizeMapping) : Boolean
   def mappingFree(mapping : SizeMapping) : Unit
