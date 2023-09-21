@@ -71,18 +71,18 @@ object Util {
   }
 
 
-  // def countOne(bi: BigInt) = {
-  //   assert(bi >= 0)
-  //   var count = 0
-  //   var bits = bi
-  //   while(bits != 0) {
-  //     if((bits & 1) == 1) {
-  //       count = count + 1
-  //     }
-  //     bits = bits >> 1
-  //   }
-  //   count
-  // }
+  def countOne(bi: BigInt) = {
+    assert(bi >= 0)
+    var count = 0
+    var bits = bi
+    while(bits != 0) {
+      if((bits & 1) == 1) {
+        count = count + 1
+      }
+      bits = bits >> 1
+    }
+    count
+  }
 
 }
 

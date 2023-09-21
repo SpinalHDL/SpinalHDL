@@ -1,136 +1,176 @@
 package spinal.lib.bus.pcie.sim
 
-// import spinal.core._
-// import spinal.core.sim._
-// import spinal.lib._
-// import spinal.lib.bus.bmb.{Bmb, BmbParameter}
-// import spinal.lib.sim.{Phase, SimStreamAssert, SparseMemory, StreamDriver, StreamMonitor, StreamReadyRandomizer}
+import spinal.core._
+import spinal.core.sim._
+import spinal.lib._
+import spinal.lib.sim.{Phase, SimStreamAssert, SparseMemory, StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
-// import scala.collection.mutable
-// import scala.util.Random
-// import spinal.lib.bus.misc.SizeMapping
+import scala.collection.mutable
+import scala.util.Random
+import spinal.lib.bus.misc.SizeMapping
 
-// import scala.collection.mutable.ArrayBuffer
-
-
-// class BmbMemoryAgent(val memorySize : BigInt = 0) {
-//   val memory = SparseMemory()
+import scala.collection.mutable.ArrayBuffer
+import spinal.lib.bus.pcie.Tlp
+import spinal.lib.bus.pcie.Header
 
 
-//   def getByteAsInt(address : Long) = getByte(address).toInt & 0xFF
-//   def getByte(address : Long) = memory.read(address)
-//   def setByte(address : Long, value : Byte) = memory.write(address, value)
-//   def writeNotification(address : Long, value : Byte) = {}//memory.write(address, value)
+class PcieMemoryAgent(val memorySize : BigInt = 0) {
+  val memory = SparseMemory()
 
-//   def addPort(bus : Bmb,
-//               busAddress : Long,
-//               clockDomain : ClockDomain,
-//               withDriver : Boolean,
-//               withStall : Boolean = true) = {
-//     var cmdBeat = 0
-//     var writeFragments = ArrayBuffer[() => Unit]() //Allow to apply write data on their rsp (out of oder)
 
-//     if(withDriver) {
-//       bus.cmd.ready #= true
-//       if(withStall)StreamReadyRandomizer(bus.cmd, clockDomain)
-//     }
+  def getByteAsInt(address : Long) = getByte(address).toInt & 0xFF
+  def getByte(address : Long) = memory.read(address)
+  def setByte(address : Long, value : Byte) = memory.write(address, value)
+  def writeNotification(address : Long, value : Byte) = {}//memory.write(address, value)
 
-//     val rspQueue =  Array.fill(1 << bus.p.access.sourceWidth)(mutable.Queue[mutable.Queue[() => Unit]]())
-//     var rspActive =  mutable.Queue[() => Unit]()
+  def addPort(cmd : Stream[Fragment[Tlp]],
+              rsp : Stream[Fragment[Tlp]],
+              clockDomain : ClockDomain,
+              withDriver : Boolean,
+              withStall : Boolean = true) = {
+    // var cmdBeat = 0
+    // var writeFragments = ArrayBuffer[() => Unit]() //Allow to apply write data on their rsp (out of oder)
+    val tagWidth = 8
+    val pageAlignBits = 12
+    val dwAlign = pageAlignBits >> 2
+    val tagCount = 1 << 8
+    val pcieIfDwWidth = cmd.payload.fragment.config.dwCount
 
-//     def addRsp(source : Int,rsps : mutable.Queue[() => Unit]) = if(withDriver) {
-//       rspQueue(source).enqueue(rsps)
-//     }
+    if(withDriver) {
+      cmd.ready #= true
+      if(withStall)StreamReadyRandomizer(cmd, clockDomain)
+    }
 
-//     if(withDriver) {
-//       val driver = StreamDriver(bus.rsp, clockDomain){ _ =>
-//         if(rspActive.isEmpty){
-//           val threads = rspQueue.filter(_.nonEmpty)
-//           if(threads.nonEmpty){
-//             val thread = threads(Random.nextInt(threads.size))
-//             rspActive = thread.dequeue()
-//           }
-//         }
-//         if(rspActive.nonEmpty){
-//           rspActive.dequeue().apply()
-//           true
-//         } else {
-//           false
-//         }
-//       }
-//       if(!withStall) driver.transactionDelay = () => 0
-//     }
+    val rspQueue =  Array.fill(tagCount)(mutable.Queue[() => Unit]())
 
-// //    new SimStreamAssert(bus.cmd,clockDomain)
-//     StreamMonitor(bus.cmd, clockDomain) { payload =>
-//       delayed(0) { //To be sure the of timing relation ship between CMD and RSP
-//         val opcode = bus.cmd.opcode.toInt
-//         val last = bus.cmd.last.toBoolean
-//         val source = bus.cmd.source.toInt
-//         val context = bus.cmd.context.toLong
-//         opcode match {
-//           case Bmb.Cmd.Opcode.READ => {
-//             assert(bus.p.access.sources(source).canRead)
-//             val length = bus.cmd.length.toLong
-//             val address = bus.cmd.address.toLong + busAddress
-//             val startByte = (address & (bus.p.access.byteCount - 1))
-//             val endByte = startByte + length + 1
-//             val rspBeatCount = ((endByte + bus.p.access.byteCount - 1) / bus.p.access.byteCount).toInt
-//             val rsps = mutable.Queue[() => Unit]()
-//             for (rspBeat <- 0 until rspBeatCount) {
-//               rsps.enqueue{ () =>
-//                 val beatAddress = (address & ~(bus.p.access.byteCount - 1)) + rspBeat * bus.p.access.byteCount
-//                 bus.rsp.last #= rspBeat == rspBeatCount - 1
-//                 bus.rsp.opcode #= Bmb.Rsp.Opcode.SUCCESS
-//                 bus.rsp.source  #= source
-//                 bus.rsp.context #= context
-//                 var data = BigInt(0)
-//                 for (byteId <- 0 until bus.p.access.byteCount) {
-//                   val byteAddress = beatAddress + byteId
-//                   val byte = getByteAsInt(byteAddress)
-//                   data |= (BigInt(byte) << byteId * 8)
-//                 }
-//                 bus.rsp.data #= data
-//               }
-//             }
-//             addRsp(source, rsps)
-//           }
-//           case Bmb.Cmd.Opcode.WRITE => {
-//             assert(bus.p.access.sources(source).canWrite)
-//             val mask = bus.cmd.mask.toLong
-//             val address = bus.cmd.address.toLong + busAddress
-//             val data = bus.cmd.data.toBigInt
-//             val beatAddress = (address & ~(bus.p.access.byteCount - 1)) + cmdBeat * bus.p.access.byteCount
-//             for (byteId <- 0 until bus.p.access.byteCount) if ((mask & (1l << byteId)) != 0) {
-//               writeNotification(beatAddress + byteId, (data >> byteId * 8).toByte)
-//             }
-//             writeFragments += {() =>
-//               for (byteId <- 0 until bus.p.access.byteCount) if ((mask & (1l << byteId)) != 0) {
-//                 setByte(beatAddress + byteId, (data >> byteId * 8).toByte)
-//               }
-//             }
-//             if (last) {
-//               writeFragments.foreach(_.apply())
-//               writeFragments.clear()
+    def addRsp(tag : Int, rsp : () => Unit) = if(withDriver) {
+      rspQueue(tag).enqueue(rsp)
+    }
 
-//               val rsps = mutable.Queue[() => Unit]()
-//               rsps += { () =>
-//                 bus.rsp.last #= true
-//                 bus.rsp.opcode #= Bmb.Rsp.Opcode.SUCCESS
-//                 bus.rsp.source  #= source
-//                 bus.rsp.context #= context
-//               }
-//               addRsp(source, rsps)
-//             }
-//           }
-//           case _ => simFailure("Bad opcode")
-//         }
+    if(withDriver) {
+      val driver = StreamDriver(rsp, clockDomain){ _ =>
+        val threads = rspQueue.filter(_.nonEmpty)
+        if(threads.nonEmpty) {
+          val id = Random.nextInt(threads.size)
+          threads(id).dequeue().apply()
+          assert(threads(id).isEmpty)
+          true
+        } else {
+          false
+        }
+      }
+      if(!withStall) driver.transactionDelay = () => 0
+    }
 
-//         cmdBeat += 1
-//         if (last) {
-//           cmdBeat = 0
-//         }
-//       }
-//     }
-//   }
-// }
+    var first = true
+    var header: BigInt = 0
+    StreamMonitor(cmd, clockDomain) { payload =>
+      delayed(0) {
+        if(first) {
+          header = payload.hdr.toBigInt
+        }
+        val cmdHdr = MemCmdHeader.parse(header)
+        val realDwCount = if(cmdHdr.length == 0) 1 << dwAlign else cmdHdr.length
+        val trans = (0 until realDwCount).grouped(pcieIfDwWidth).toArray
+
+        (cmdHdr.fmt, cmdHdr.typ) match {
+          case (1, 0) => {
+            // read
+            assert(first && payload.last.toBoolean)
+            var addr = (cmdHdr.addr << 2).toLong
+            for(curDws <- trans) {
+              rspQueue(cmdHdr.tag).enqueue {() =>
+                val data = mutable.ArrayBuffer[Byte]()
+                def calcByteCount(realDwCount: Int, firstBe: Int, lastBe: Int): Int = {
+                  val firstBeSum = Util.countOne(firstBe)
+                  val lastBeSum = Util.countOne(lastBe)
+                  if(realDwCount == 1) {
+                    firstBeSum
+                  } else {
+                    (realDwCount-2)*4 + firstBeSum + lastBeSum
+                  }
+                }
+                def calcLowerAddr(dwAddr: BigInt, firstBe: Int): Int = {
+                  val addrMasked = ((dwAddr & ((1<<5)-1)) << 2).toInt
+                  assert(firstBe <= 16)
+                  if((firstBe & 1)==0|| firstBe == 0) {
+                    addrMasked + 1
+                  } else if((firstBe & 2) == 0) {
+                    addrMasked + 2
+                  } else if((firstBe & 4) == 0) {
+                    addrMasked + 4
+                  } else if((firstBe & 8) == 0) {
+                    addrMasked + 8
+                  } else {
+                    SpinalError("????")
+                  }
+                }
+                val rspHdr = CplHeader.createCplDSimple(0, cmdHdr.reqId, cmdHdr.tag, calcLowerAddr(cmdHdr.addr, cmdHdr.firstBe), cmdHdr.length, calcByteCount(realDwCount, cmdHdr.firstBe, cmdHdr.lastBe))
+                for((dw, id) <- curDws.zipWithIndex) {
+                  for(i <- 0 until 4) {
+                    var byte: Byte = Byte.MinValue
+                    if(dw == 0) {
+                      if((cmdHdr.firstBe & (1<<i))!=0) {
+                        byte = getByte(addr)
+                      }
+                    } else if(dw == realDwCount-1) {
+                      if((cmdHdr.lastBe & (1<<i))!=0) {
+                        byte = getByte(addr)
+                      }
+                    } else {
+                      byte = getByte(addr)
+                    }
+                    data.append(byte)
+                    addr = addr + 1
+                  }
+                }
+                rsp.last #= (curDws == trans.last)
+                rsp.data #= data.toArray
+                rsp.strb #= curDws.map(x => 1 << (x%4)).reduce(_|_)
+                rsp.payload.fragment.hdr #= rspHdr.buildBits()
+                rsp.config.withBarFunc generate {
+                  rsp.bar_id #= 0
+                  rsp.func_num #= 0
+                }
+                rsp.config.useError generate rsp.error #= 0
+                rsp.config.useSeq generate rsp.seq #= 0
+
+              }
+            }
+          }
+          case (3, 0) => {
+            // write
+            var addr = (cmdHdr.addr << 2).toLong
+            for(curDws <- trans) { //transaction level
+              for((dw, id) <- curDws.zipWithIndex) { // dw level
+                for(i <- 0 until 4) { // byte level
+                  if(dw == 0) {
+                    if((cmdHdr.firstBe & (1<<i))!=0) {
+                      setByte(addr, payload.data.toBytes(4*dw+i))
+                    }
+                  } else if(dw == realDwCount-1) {
+                    if((cmdHdr.lastBe & (1<<i))!=0) {
+                      setByte(addr, payload.data.toBytes(4*dw+i))
+                    }
+                  } else {
+                    setByte(addr, payload.data.toBytes(4*dw+i))                    
+                  }
+                  addr = addr+1
+                }
+              }
+            }
+          }
+          case _ => SpinalError("do not support this kind of tlp currently")
+        }
+
+        if(first) {
+          first = false
+        }
+        if(payload.last.toBoolean) {
+          first = true
+        }
+      }
+    }
+
+  }
+}
