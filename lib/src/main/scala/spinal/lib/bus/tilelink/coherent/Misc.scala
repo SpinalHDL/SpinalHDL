@@ -33,6 +33,8 @@ class ChannelDataBuffer(entries: Int,
     throwIt(!hazard && !LAST)
 
 
+    for (i <- log2Up(dataBytes) until log2Up(blockSize)) CMD.addressNull(i) clearWhen (i < CMD.size)
+
     val locked = RegInit(False) setWhen (write.valid)
     val lockedValue = RegNextWhen(firstFree, !locked)
     val BUFFER_ID = insert(locked ? lockedValue | firstFree)
@@ -54,6 +56,8 @@ class ChannelDataBuffer(entries: Int,
     val locked = RegInit(False) setWhen (write.valid)
     val lockedValue = RegNextWhen(firstFree, !locked)
     val bufferId = locked ? lockedValue | firstFree
+
+    for(i <- log2Up(dataBytes) until log2Up(blockSize)) down.addressNull(i) clearWhen(i < down.size)
 
     write.valid := up.valid && withBeats && !hazard
     write.address := bufferId @@ up.addressNull(log2Up(blockSize) - 1 downto log2Up(dataBytes))
