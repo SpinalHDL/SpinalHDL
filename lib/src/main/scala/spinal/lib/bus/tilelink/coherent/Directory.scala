@@ -272,6 +272,8 @@ class Directory(val p : DirectoryParam) extends Component {
     val size = ubp.size()
     val source = ubp.source()
     val bufferAId = BUFFER_A_ID()
+    val gsValid = Bool()
+    val gsId = GS_ID()
 
     def toTrunk = args(0)
     def toNone = args(0)
@@ -333,7 +335,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val slots = for(i <- 0 until slotsCount) yield gen
     val allocate = new Area{
       val full = slots.map(_.valid).andR
-      val oh = OHMasking.firstV2(Vec(slots.map(!_.valid)))
+      val oh = B(OHMasking.firstV2(Vec(slots.map(!_.valid))))
       val id = OHToUInt(oh)
     }
   }
@@ -388,6 +390,8 @@ class Directory(val p : DirectoryParam) extends Component {
     toCtrl.address := pusher.down.address
     toCtrl.size := pusher.down.size
     toCtrl.source := pusher.down.source
+    toCtrl.gsValid := False
+    toCtrl.gsId.assignDontCare()
   }
 
 
@@ -499,6 +503,8 @@ class Directory(val p : DirectoryParam) extends Component {
       down.size     := input.size
       down.source := input.source
       down.bufferAId.assignDontCare()
+      down.gsValid := False
+      down.gsId.assignDontCare()
     }
 
     val wake = new Area {
@@ -593,8 +599,10 @@ class Directory(val p : DirectoryParam) extends Component {
       val IS_GET = insert(List(GET()).sContains(CTRL_CMD.opcode))
       val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === CtrlOpcode.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
       val WRITE_DATA = insert(List(PUT_PARTIAL_DATA(), PUT_FULL_DATA(), RELEASE_DATA(), PROBE_ACK_DATA()).sContains(CTRL_CMD.opcode))
+      val GS_NEED = insert(List(ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, PROBE_ACK_DATA, GET, EVICT).map(_.craft()).sContains(CTRL_CMD.opcode))
       val gsHits = gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address)
       val GS_HIT = insert(gsHits.orR)
+      val GS_OH = insert(UIntToOh(CTRL_CMD.gsId))
     }
 
     val process = new Area{
@@ -612,7 +620,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val askReadDown = False
       val askReadBackend = False
       val askWriteBackend = False
-      val askGs = False //TODO use it
+      val askGs = preCtrl.GS_NEED && !CTRL_CMD.gsValid
       val askUpD = False
 
       when(askGs){
@@ -628,6 +636,7 @@ class Directory(val p : DirectoryParam) extends Component {
         loopback.occupancy.decrement()
       }
 
+//      val toProbe = forkStream(askProbe && !redoUpA).swapPayload(new ProbeCmd())
       val toReadDown = forkStream(askReadDown && !redoUpA).swapPayload(new ReadDownCmd)
       val toReadBackend = forkStream(askReadBackend && !redoUpA).swapPayload(new ReadBackendCmd)
       val toWriteBackend = forkStream(askWriteBackend && !redoUpA && !haltUpC).swapPayload(new WriteBackendCmd)
@@ -645,6 +654,10 @@ class Directory(val p : DirectoryParam) extends Component {
       val gotGs = RegInit(False)
       val gsOhLocked = RegNextWhen(gs.allocate.oh, !gotGs)
       val gsOh = gotGs.mux(gsOhLocked, gs.allocate.oh)
+      when(CTRL_CMD.gsValid) {
+        gsOh := preCtrl.GS_OH
+      }
+
       val gsId = OHToUInt(gsOh)
       val gsInit = new GeneralSlot()
       gsInit.address := CTRL_CMD.address(addressCheckRange)
@@ -679,15 +692,17 @@ class Directory(val p : DirectoryParam) extends Component {
       toUpD.corrupt := False
       toUpD.data.assignDontCare()
 
-      prober.cmd.valid := askProbe
+      prober.cmd.valid := askProbe && !redoUpA
       prober.cmd.payload.assignSomeByName(CTRL_CMD)
       prober.cmd.mask.assignDontCare()
       prober.cmd.probeToN.assignDontCare()
+      prober.cmd.gsValid.removeAssignments() := True
+      prober.cmd.gsId.removeAssignments()    := gsId
       //TODO probe hazard
 
       loopback.fifo.io.push.valid := prober.cmd.isStall
       loopback.fifo.io.push.payload := CTRL_CMD
-      redoUpA setWhen(prober.cmd.isStall)
+      redoUpA setWhen(!prober.cmd.ready)
 
       val doIt = isFireing && !isRemoved
       val askAllocate = False //Will handle victim
