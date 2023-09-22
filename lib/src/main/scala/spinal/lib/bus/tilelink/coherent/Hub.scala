@@ -7,7 +7,6 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.pipeline._
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 object Hub{
   def downM2s(name : Nameable,

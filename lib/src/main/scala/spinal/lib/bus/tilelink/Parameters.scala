@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.AddressMapping
 import scala.collection.Seq
-import scala.util.Random
+import spinal.core.sim.simRandom
 
 
 object BusParameter{
@@ -94,7 +94,7 @@ case class SizeRange(min : Int, max : Int){
   def random(randMax : Int) : Int = {
     val min = log2Up(this.min)
     val max = log2Up(this.max min randMax)
-    1 << (min + Random.nextInt(max+1-min))
+    1 << (min + simRandom.nextInt(max+1-min))
   }
 
   def getSingleSize(): Option[Int] = {

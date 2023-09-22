@@ -10,7 +10,6 @@ import spinal.sim.SimThread
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 object Chunk{
   def apply(allowed: M2sTransfers,
@@ -43,11 +42,11 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
 
   def randomizedData(bytes : Int) = {
     val data = new Array[Byte](bytes)
-    Random.nextBytes(data)
+    simRandom.nextBytes(data)
     data
   }
   def randomizedMask(bytes : Int) = {
-    Array.fill[Boolean](bytes)(Random.nextBoolean())
+    Array.fill[Boolean](bytes)(simRandom.nextBoolean())
   }
 
   def startPerSource(perSourceBurst : Int) {
@@ -56,7 +55,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
       var randomAddress = 0l
       def lock(address : Long) = {
         val l = locks.getOrElseUpdate(address, new SimMutex(randomized = true))
-        if(Random.nextBoolean()) randomAddress = address
+        if(simRandom.nextBoolean()) randomAddress = address
         l.lock()
       }
       def unlock(address : Long) = {
@@ -122,9 +121,9 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
                 b = agent.acquireBlock(sourceId, Param.Grow.BtoT, address, bytes)
               }
               assert(b.cap == Param.Cap.toT, f"$source $address%x")
-              if(Random.nextFloat() < 0.8) {
+              if(simRandom.nextFloat() < 0.8) {
                 b.dirty = true
-                for (i <- 0 until bytes if Random.nextBoolean()) b.data(i) = Random.nextInt().toByte
+                for (i <- 0 until bytes if simRandom.nextBoolean()) b.data(i) = simRandom.nextInt().toByte
               }
             }
             // acquirePerm XtoT
@@ -140,7 +139,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
               assert(b.cap == Param.Cap.toT, f"$source $address%x")
               b.dirty = true
               b.data = new Array[Byte](bytes)
-              Random.nextBytes(b.data)
+              simRandom.nextBytes(b.data)
             }
             // release + releaseData
             if(masterParam.emits.withBCE) distribution(3) {
@@ -151,7 +150,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
                   case Param.Cap.toN =>
                   case Param.Cap.toB => agent.release(sourceId, Param.Cap.toN, block)
                   case Param.Cap.toT => {
-                    val cap = if(Random.nextBoolean()) Param.Cap.toB else Param.Cap.toN
+                    val cap = if(simRandom.nextBoolean()) Param.Cap.toB else Param.Cap.toN
                     block.dirty match {
                       case true  => agent.releaseData(sourceId, cap, block);
                       case false => agent.release(sourceId, cap, block)

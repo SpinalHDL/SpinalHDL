@@ -19,7 +19,7 @@ import spinal.sim.{SimError, SimThread}
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.compat.Platform.EOL
-import scala.util.{Failure, Random, Success, Try}
+import scala.util.{Failure, Success, Try}
 
 
 
@@ -45,7 +45,7 @@ class TilelinkTester(cGen: => Component, simConfig : SpinalSimConfig = SimConfig
         for (i <- 0 until DebugId.space.reserved) idAllocator.allocate(i)
         val tb = new TilelinkTestbenchBase(nodes, orderings)
         val cds = nodes.map(_.clockDomain).distinct
-        cds.foreach(_.forkStimulus(Random.nextInt(40) + 10))
+        cds.foreach(_.forkStimulus(simRandom.nextInt(40) + 10))
         var timeout = 0
         cds.head.onSamplings {
           timeout += 1
@@ -118,7 +118,7 @@ class TilelinkTestbenchBase(nodes: Seq[Node], orderings: Seq[OrderingTag])(impli
   }
 
   for (node <- slaveNodes) {
-    nodeToModel(node) = SparseMemory(Random.nextInt())
+    nodeToModel(node) = SparseMemory(simRandom.nextInt())
   }
 
   for (node <- nodes) {

@@ -4,7 +4,6 @@ import spinal.core.sim._
 import spinal.lib.bus.tilelink.{M2sTransfers, _}
 
 import scala.collection.mutable
-import scala.util.Random
 
 case class MasterDebugTesterElement(m : MasterSpec, agent : MasterAgent)
 
@@ -46,11 +45,11 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
 
   def randomizedData(bytes : Int) = {
     val data = new Array[Byte](bytes)
-    Random.nextBytes(data)
+    simRandom.nextBytes(data)
     data
   }
   def randomizedMask(bytes : Int) = {
-    Array.fill[Boolean](bytes)(Random.nextBoolean())
+    Array.fill[Boolean](bytes)(simRandom.nextBoolean())
   }
 
   def coverGet(repeat : Int): Unit ={
@@ -82,7 +81,7 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
   def coverAcquireT(repeat : Int): Unit ={
     for(i <- 0 until repeat) cover(_.acquireT){ ctx =>
       val block = ctx.agent.acquireBlock(ctx.source, Param.Grow.NtoT, ctx.address, ctx.bytes)
-      if(Random.nextBoolean()) block.makeDataDirty()
+      if(simRandom.nextBoolean()) block.makeDataDirty()
       ctx.agent.releaseAuto(ctx.source, Param.Cap.toN, block)
       ctx.check()
     }
@@ -91,7 +90,7 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
     for(i <- 0 until repeat) cover(BT){ ctx =>
       var block = ctx.agent.acquireBlock(ctx.source, Param.Grow.NtoB, ctx.address, ctx.bytes)
       if(block.cap == Param.Cap.toB) ctx.agent.acquireBlock(ctx.source, Param.Grow.BtoT, ctx.address, ctx.bytes)
-      if(Random.nextBoolean()) block.makeDataDirty()
+      if(simRandom.nextBoolean()) block.makeDataDirty()
       ctx.agent.releaseAuto(ctx.source, Param.Cap.toN, block)
       ctx.check()
     }
@@ -99,7 +98,7 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
   def coverAcquireTB(repeat : Int): Unit ={
     for(i <- 0 until repeat) cover(BT){ ctx =>
       var block = ctx.agent.acquireBlock(ctx.source, Param.Grow.NtoT, ctx.address, ctx.bytes)
-      if(Random.nextBoolean()) block.makeDataDirty()
+      if(simRandom.nextBoolean()) block.makeDataDirty()
       ctx.agent.releaseAuto(ctx.source, Param.Cap.toB, block)
       ctx.agent.release(ctx.source, Param.Cap.toN, block)
       ctx.check()
@@ -110,7 +109,7 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
       var block = ctx.agent.acquirePerm(ctx.source, Param.Grow.NtoT, ctx.address, ctx.bytes)
       block.dirty = true
       block.data = new Array[Byte](block.bytes)
-      Random.nextBytes(block.data)
+      simRandom.nextBytes(block.data)
       ctx.agent.releaseData(ctx.source, Param.Cap.toN, block)
       ctx.check()
     }

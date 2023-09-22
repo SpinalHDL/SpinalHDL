@@ -5,7 +5,6 @@ import spinal.core.sim._
 import spinal.lib.Flow
 
 import scala.collection.mutable.{Queue, ArrayBuffer}
-import scala.util.Random
 
 object FlowMonitor{
   def apply[T <: Data](Flow : Flow[T], clockDomain: ClockDomain)(callback : (T) => Unit) = new FlowMonitor(Flow,clockDomain).addCallback(callback)
@@ -43,7 +42,7 @@ object FlowDriver {
 
 class FlowDriver[T <: Data](flow: Flow[T], clockDomain: ClockDomain, var driver: (T) => Boolean) {
   var transactionDelay: () => Int = () => {
-    val x = Random.nextDouble()
+    val x = simRandom.nextDouble()
     (x * x * 10).toInt
   }
 

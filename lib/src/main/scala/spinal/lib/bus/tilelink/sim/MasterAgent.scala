@@ -6,7 +6,6 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.sim.{StreamDriver, StreamDriverOoo, StreamMonitor, StreamReadyRandomizer}
 
 import scala.collection.mutable
-import scala.util.Random
 
 class OrderingArgs(val offset : Int, val bytes : Int){
   override def toString = f"offset=$offset%x bytes=$bytes"
@@ -30,7 +29,7 @@ class Block(val source : Int,
 
   def makeDataDirty(): Unit ={
     dirty = true
-    for (i <- 0 until data.size if Random.nextBoolean()) data(i) = Random.nextInt().toByte
+    for (i <- 0 until data.size if simRandom.nextBoolean()) data(i) = simRandom.nextInt().toByte
   }
 
   def setCap(cap : Int): Unit ={
@@ -386,7 +385,7 @@ class BlockManager(ma : MasterAgent){
   val blockHistorySize = 16
   val blockRandomHistory = mutable.LinkedHashMap[M2sAgent, Array[Block]]()
   ma.bus.p.node.m.masters.foreach(blockRandomHistory(_) = Array.fill[Block](blockHistorySize)(null))
-  def getRandomBlock(m : M2sAgent) = blockRandomHistory(m)(Random.nextInt(blockHistorySize))
+  def getRandomBlock(m : M2sAgent) = blockRandomHistory(m)(simRandom.nextInt(blockHistorySize))
   def apply(source : Int, address : Long) = blocks(sourceToMaster(source) -> address)
   def get(source : Int, address : Long) : Option[Block] = blocks.get(sourceToMaster(source) -> address)
   def contains(source : Int, address : Long) = blocks.contains(sourceToMaster(source) -> address)
@@ -394,7 +393,7 @@ class BlockManager(ma : MasterAgent){
     val key2 = (sourceToMaster(key._1) -> key._2)
     assert(!blocks.contains(key2))
     blocks(key2) = block
-    blockRandomHistory(key2._1)(Random.nextInt(blockHistorySize)) = block
+    blockRandomHistory(key2._1)(simRandom.nextInt(blockHistorySize)) = block
   }
   def removeBlock(source : Int, address : Long) = {
     val m = sourceToMaster(source)
