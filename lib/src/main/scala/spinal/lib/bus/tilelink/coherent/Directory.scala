@@ -393,15 +393,16 @@ class Directory(val p : DirectoryParam) extends Component {
     }
   }
 
-
+  // release_data =>
+  // get => read, [lock], [victim]
+  // put => write, [lock], [victim]
+  // acquire_block => [lock], [victim]
   class GeneralSlot extends Slot{
-    val refill = Reg(Bool())
-    val write = Reg(Bool()) // Else assume it's a read
     val address = Reg(UInt(addressCheckWidth bits))
     val way = Reg(UInt(log2Up(cacheWays) bits))
     val pending = new Area{
-      val victim, primary = Reg(Bool())
-      fire setWhen(List(victim, primary).norR)
+      val victim, primary, upC = Reg(Bool())
+      fire setWhen(List(victim, primary, upC).norR)
     }
   }
 
@@ -748,6 +749,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val gsWay = CombInit(backendWayId)
       val gsPendingVictim = False
       val gsPendingPrimary = True
+      val gsPendingUpc = CTRL_CMD.withDataUpC
 
       cache.tags.write.valid := False
       cache.tags.write.address := CTRL_CMD.address(setsRange)
@@ -819,11 +821,10 @@ class Directory(val p : DirectoryParam) extends Component {
         gotGs := True
         gs.slots.onMask(gsOh) { s =>
           s.address := gsAddress
-          s.refill := gsRefill
-          s.write := gsWrite
           s.way :=  gsWay
           s.pending.victim := gsPendingVictim
           s.pending.primary := gsPendingPrimary
+          s.pending.upC := gsPendingUpc
 
           when(isReady) {
             s.valid := True
