@@ -41,7 +41,7 @@ class DirectoryTester extends AnyFunSuite{
         val directory = new DirectoryFiber()
         directory.parameter.cacheWays = 4
         directory.parameter.cacheBytes = 4096
-        directory.parameter.allocateOnMiss = (op, src, addr, size) => False
+        directory.parameter.allocateOnMiss = (op, src, addr, size) => True
         directory.up << m0.node
 
         val s0 = new SlaveBus(
@@ -68,7 +68,10 @@ class DirectoryTester extends AnyFunSuite{
         s1.node at 0x20000 of directory.down
       }
     )
-
+    tester.doSimDirected("manual"){tb =>
+      tb.coverPutFullData(4)
+    }
+    
     tester.doSimDirected("get"){_.coverGet(4)}
     tester.doSimDirected("putFull") {_.coverPutFullData(4)}
     tester.doSimDirected("putPartial") {_.coverPutPartialData(4)}
