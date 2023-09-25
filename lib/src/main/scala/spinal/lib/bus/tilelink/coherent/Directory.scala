@@ -18,6 +18,7 @@ case class DirectoryParam(var unp : NodeParameters,
                           var ctrlLoopbackDepth : Int = 4,
                           var generalSlotCount : Int = 8,
                           var generalSlotCountUpCOnly : Int = 2,
+                          var victimBufferLines : Int = 2,
                           var probeRegion : UInt => Bool,
                           var allocateOnMiss : (Directory.CtrlOpcode.C, UInt, UInt, UInt) => Bool = null // opcode, source, address, size
                          ) {
@@ -458,10 +459,48 @@ class Directory(val p : DirectoryParam) extends Component {
   }
 
 
+
   val victimBuffer = new Area{
-    val ram = Mem.fill(generalSlotCount*wordsPerLine)(io.up.p.data)
-    val write = ram.writePort()
-    val read = ram.readSyncPort()
+    case class Word(withCtx : Boolean = true, withData : Boolean = true) extends Bundle{
+      val address = withCtx generate UInt(refillRange.size bits)
+      val gsId = withCtx generate GS_ID()
+      val data = withData generate io.up.p.data()
+    }
+
+    val cmdFifo = StreamFifo(new Word(withData = false), victimBufferLines)
+    val dataFifo = StreamFifo(new Word(withCtx = false), wordsPerLine * victimBufferLines)
+
+
+    val push = new Area{
+      val stream = Stream(Fragment(Word()))
+
+      cmdFifo.io.push.arbitrationFrom(stream.throwWhen(!stream.last))
+      cmdFifo.io.push.payload.assignSomeByName(stream.fragment)
+
+      dataFifo.io.push.valid := stream.fire
+      dataFifo.io.push.payload.assignSomeByName(stream.fragment)
+    }
+
+    val pop = new Area{
+      val counter = Reg(ubp.beat()) init(0)
+      val last = counter.andR
+      val toDownA = Stream(io.down.a.payloadType)
+      toDownA.valid := cmdFifo.io.pop.valid
+      toDownA.opcode  := Opcode.A.PUT_FULL_DATA
+      toDownA.param   := 0
+      toDownA.source  := U"1" @@ cmdFifo.io.pop.gsId
+      toDownA.address := cmdFifo.io.pop.address @@ counter @@ U(0, log2Up(dataBytes) bits)
+      toDownA.size    := log2Up(blockSize)
+      toDownA.mask.setAll()
+      toDownA.data    := dataFifo.io.pop.data
+      toDownA.corrupt := False
+      toDownA.debugId := DebugId.withPostfix(toDownA.source)
+      cmdFifo.io.pop.ready := toDownA.fire && last
+      dataFifo.io.pop.ready := toDownA.fire
+      when(toDownA.fire){
+        counter := counter + 1
+      }
+    }
   }
 
 
@@ -1024,7 +1063,7 @@ class Directory(val p : DirectoryParam) extends Component {
     toDownA.mask.assignDontCare()
     toDownA.data.assignDontCare()
     toDownA.corrupt := False
-    toDownA.debugId := DebugId.withPostfix(io.down.a.source)
+    toDownA.debugId := DebugId.withPostfix(toDownA.source)
   }
 
   case class PutMergeCmd() extends Bundle{
@@ -1140,7 +1179,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toDownA.data := UP_DATA
       toDownA.mask := UP_MASK
       toDownA.corrupt := False
-      toDownA.debugId := DebugId.withPostfix(io.down.a.source)
+      toDownA.debugId := DebugId.withPostfix(toDownA.source)
 
       import Directory.ToUpDOpcode._
       val toUpDData = List(ACCESS_ACK_DATA(), GRANT_DATA()).sContains(CMD.toUpD)
@@ -1220,16 +1259,21 @@ class Directory(val p : DirectoryParam) extends Component {
       toUpD.data := DATA
       toUpD.corrupt := False
 
-      victimBuffer.write.valid := isValid && !CMD.toUpD
-      victimBuffer.write.address := CMD.gsId @@ CMD.address(wordRange)
-      victimBuffer.write.data := DATA
+
+      val toVictimFork = forkStream(!CMD.toUpD)
+      victimBuffer.push.stream.arbitrationFrom(toVictimFork)
+      victimBuffer.push.stream.address := CMD.address >> refillRange.low
+      victimBuffer.push.stream.gsId := CMD.gsId
+      victimBuffer.push.stream.data := DATA
+      victimBuffer.push.stream.last := inserter.LAST
     }
   }
+
 
   val toDownA = new Area{
     val arbiter = StreamArbiterFactory().lowerFirst.lambdaLock[ChannelA](_.isLast()).build(io.down.a.payloadType, 3)
     arbiter.io.inputs(0) << readDown.toDownA
-    arbiter.io.inputs(1).setIdle() //TODO
+    arbiter.io.inputs(1) << victimBuffer.pop.toDownA
     arbiter.io.inputs(2) << writeBackend.process.toDownA
     io.down.a << arbiter.io.output
   }
@@ -1262,6 +1306,10 @@ class Directory(val p : DirectoryParam) extends Component {
       import processStage._
 
       val withData = CMD.opcode === Opcode.D.ACCESS_ACK_DATA
+
+      when(isFireing && CMD.source.msb){
+        gs.slots.onSel(CMD.source.resized)(_.pending.victim := False)
+      }
 
       //TODO handle refill while partial get to upD
       val toUpDHead = !withData || !CTX.toCache || (BEAT >= CTX.wordOffset && BEAT <= CTX.wordOffset + sizeToBeatMinusOne(io.down.p, CTX.size))
