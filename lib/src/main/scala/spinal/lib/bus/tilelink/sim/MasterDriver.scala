@@ -11,6 +11,14 @@ class MasterDriver (val bus : Bus, cd : ClockDomain) {
     val c = bus.p.withBCE generate StreamDriverOoo(bus.c, cd)
     val d = StreamReadyRandomizer(bus.d, cd)
     val e = bus.p.withBCE generate StreamDriverOoo(bus.e, cd)
+
+    def noStall(): Unit = {
+      a.ctrl.transactionDelay = () => 0
+      if(b != null) b.factor = 1.0f
+      if(c != null) c.ctrl.transactionDelay = () => 0
+      d.factor = 1.0f
+      if(e != null) e.ctrl.transactionDelay = () => 0
+    }
   }
 
   def scheduleA(a : TransactionA): Unit ={

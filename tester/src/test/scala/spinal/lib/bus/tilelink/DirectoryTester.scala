@@ -14,6 +14,7 @@ import spinal.lib.system.tag.PMA
 
 class DirectoryTester extends AnyFunSuite{
 
+
   test("directed"){
     val tester = new TilelinkTester(
       simConfig = SimConfig.withFstWave,
@@ -68,6 +69,9 @@ class DirectoryTester extends AnyFunSuite{
         s1.node at 0x20000 of directory.down
       }
     )
+
+    tester.noStall = true //TODO for test only
+
     tester.doSimDirected("manual"){tb =>
       tb.coverPutFullData(4)
     }

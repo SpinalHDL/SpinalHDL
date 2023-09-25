@@ -13,6 +13,14 @@ class SlaveDriver(bus : Bus, cd : ClockDomain) {
     val c = bus.p.withBCE generate StreamReadyRandomizer(bus.c, cd)
     val d = StreamDriverOoo(bus.d, cd)
     val e = bus.p.withBCE generate StreamReadyRandomizer(bus.e, cd)
+
+    def noStall(): Unit = {
+      a.factor = 1.0f
+      if (b != null) b.ctrl.transactionDelay = () => 0
+      if (c != null) c.factor = 1.0f
+      d.ctrl.transactionDelay = () => 0
+      if (e != null) e.factor = 1.0f
+    }
   }
 
   def scheduleD(d : TransactionD): Unit ={

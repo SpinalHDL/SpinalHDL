@@ -36,6 +36,7 @@ class TilelinkTester(cGen: => Component, simConfig : SpinalSimConfig = SimConfig
 
   val separator = "\n" + "-" * 80 + "\n"
   val errors = new StringBuilder()
+  var noStall = false
 
   def doSim(name: String)(body: TilelinkTestbenchBase => Unit): Unit = {
     Try {
@@ -58,6 +59,10 @@ class TilelinkTester(cGen: => Component, simConfig : SpinalSimConfig = SimConfig
             timeout = 0
           }
         }))
+        if(noStall){
+          tb.mastersStuff.foreach(_.agent.driver.driver.noStall())
+          tb.slavesStuff.foreach(_.model.driver.driver.noStall())
+        }
         body(tb)
       }
     } match {
