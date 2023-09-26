@@ -53,6 +53,15 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     ret
   }
 
+
+  def forkFlow(cond: Bool = True): Flow[NoData] = {
+    val ret = Flow(NoData())
+    val fired = RegInit(False) setWhen (ret.fire) clearWhen (isChanging) setCompositeName(ret, "fired")
+    ret.valid := isValid && !fired && cond
+    ret
+  }
+
+
   def toStream(): Stream[NoData] = {
     val ret = Stream(NoData())
     ret.valid := isValid && !isRemoved

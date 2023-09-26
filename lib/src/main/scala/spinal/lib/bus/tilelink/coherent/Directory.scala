@@ -199,9 +199,13 @@ class Directory(val p : DirectoryParam) extends Component {
   val io = new Bundle {
     val up = slave(Bus(ubp))
     val down = master(Bus(dbp))
-    val backendOrdering = master(Flow(OrderingCmd(up.p.sizeBytes)))
+    val ordering = new Bundle {
+      val ctrlProcess, writeBackend = master(Flow(OrderingCmd(up.p.sizeBytes)))
+      def all = List(ctrlProcess, writeBackend)
+    }
   }
-  this.addTag(OrderingTag(io.backendOrdering))
+
+  this.addTags(io.ordering.all.map(OrderingTag(_)))
 
   val coherentMasters = unp.m.masters.filter(_.emits.withBCE)
   val coherentMasterCount = coherentMasters.size
@@ -360,6 +364,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val size = ubp.size()
     val wayId = UInt(log2Up(cacheWays) bits)
     val bufferAId = BUFFER_A_ID()
+    val debugId = DebugId()
   }
 
   class ReadBackendCmd() extends Bundle {
@@ -744,6 +749,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val askProbe = False
       val askReadDown = False
       val askReadBackend = False
+      val askOrdering = False
       val askWriteBackend = False
       val askGs = preCtrl.GS_NEED && !CTRL_CMD.probed
       val askUpD = False
@@ -766,12 +772,14 @@ class Directory(val p : DirectoryParam) extends Component {
       val toReadBackend = forkStream(askReadBackend && !redoUpA).swapPayload(new ReadBackendCmd)
       val toWriteBackend = forkStream(askWriteBackend && !redoUpA && !haltUpC).swapPayload(new WriteBackendCmd)
       val toUpD = forkStream(askUpD && !redoUpA).swapPayload(io.up.d.payloadType)
+      val toOrdering = forkFlow(askOrdering && !redoUpA).swapPayload(io.ordering.ctrlProcess.payloadType)
 
       val CACHE_HIT = insert(tags.CACHE_HITS.orR)
       val CACHE_HIT_WAY_ID = insert(OHToUInt(tags.CACHE_HITS))
       val SOURCE_HIT = insert((tags.CACHE_HITS & tags.SOURCE_HITS).orR)
       val CACHE_LINE = insert(OhMux.or(tags.CACHE_HITS, CACHE_TAGS))
       val OTHERS = insert(CACHE_LINE.owners & ~inserter.SOURCE_OH)
+      val SELF = insert((CACHE_LINE.owners & inserter.SOURCE_OH).orR)
       val OTHER = insert(OTHERS.orR)
       val ANY = insert(CACHE_LINE.owners.orR)
 
@@ -850,7 +858,7 @@ class Directory(val p : DirectoryParam) extends Component {
       cache.tags.write.data.loaded := True
       cache.tags.write.data.tag := CTRL_CMD.address(tagRange)
       cache.tags.write.data.dirty := CACHE_LINE.dirty && !askAllocate
-      cache.tags.write.data.trunk := True
+      cache.tags.write.data.trunk := CACHE_LINE.trunk
 
       val owners = new Area {
         val add, remove, clean = False
@@ -896,6 +904,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toWriteBackend.source     := CTRL_CMD.source
       toWriteBackend.toT        := True
       toWriteBackend.toUpD      := Directory.ToUpDOpcode.NONE()
+      toWriteBackend.debugId    := CTRL_CMD.debugId
 
       toReadDown.gsId    := gsId
       toReadDown.address := CTRL_CMD.address
@@ -922,6 +931,9 @@ class Directory(val p : DirectoryParam) extends Component {
       ctxDownD.data.sourceId      := CTRL_CMD.source
       ctxDownD.data.wayId         := backendWayId
 
+      toOrdering.debugId := CTRL_CMD.debugId
+      toOrdering.bytes := (U(1) << CTRL_CMD.size).resized
+      toOrdering >> io.ordering.ctrlProcess
 
       //Generate a victim
       when(askAllocate && olderWay.tags.loaded){
@@ -975,10 +987,10 @@ class Directory(val p : DirectoryParam) extends Component {
       val getPutNeedProbe = CACHE_HIT && ANY && !CTRL_CMD.probed && (!preCtrl.IS_GET || CACHE_LINE.trunk)
       when(preCtrl.GET_PUT){
         gsWrite := !preCtrl.IS_GET
+        owners.clean := True
 
         //Ensure that the cache.others is cleared on PUT
         when(CACHE_HIT && !preCtrl.IS_GET){
-          owners.clean := True
           cache.tags.write.valid := True
         }
 
@@ -993,6 +1005,7 @@ class Directory(val p : DirectoryParam) extends Component {
               askWriteBackend := True
               cache.tags.write.data.dirty := True
             } otherwise {
+              askOrdering := True
               askReadBackend := preCtrl.IS_GET
               toReadBackend.toUpD := True
               toReadBackend.upD.opcode := Opcode.D.ACCESS_ACK_DATA
@@ -1006,6 +1019,7 @@ class Directory(val p : DirectoryParam) extends Component {
               Directory.ToUpDOpcode.ACCESS_ACK()
             )
           }.elsewhen(preCtrl.ALLOCATE_ON_MISS) {
+            askOrdering := True
             askAllocate := True
             ctxDownD.data.toCache := True
             when(preCtrl.IS_PUT_FULL_BLOCK){
@@ -1023,6 +1037,7 @@ class Directory(val p : DirectoryParam) extends Component {
               cache.tags.write.data.dirty := True
             }
           }.otherwise {
+            askOrdering := True
             askReadDown := preCtrl.IS_GET
             toWriteBackend.toDownA := True
             askWriteBackend := !preCtrl.IS_GET
@@ -1033,13 +1048,18 @@ class Directory(val p : DirectoryParam) extends Component {
 
       val aquireToB = !CTRL_CMD.toTrunk && OTHER
       val acquireParam = aquireToB.mux[Bits](Param.Cap.toB, Param.Cap.toT)
+
+
       when(preCtrl.ACQUIRE){
-        owners.add := True
         when(!CACHE_HIT){
+          owners.clean := True
+          owners.add := True
+          askOrdering := True
           askAllocate := True
           ctxDownD.data.toUpD := True
           ctxDownD.data.toCache := True
           ctxDownD.data.toT := !aquireToB
+          cache.tags.write.data.trunk := !aquireToB
           when(CTRL_CMD.opcode === CtrlOpcode.ACQUIRE_BLOCK) {
             askReadDown := True
             gsRefill := True
@@ -1055,9 +1075,12 @@ class Directory(val p : DirectoryParam) extends Component {
             prober.cmd.probeToN := CTRL_CMD.toTrunk
           } otherwise {
             when(aquireToB) {
-              cache.tags.write.data.trunk := False
               ctxDownD.data.toT := False
+            } otherwise {
+              owners.clean := True
             }
+            owners.add := True
+            cache.tags.write.data.trunk := !aquireToB
 
             //TODO warning gs may will complet before writebackend is done !
             when(CTRL_CMD.withDataUpC) {
@@ -1065,7 +1088,7 @@ class Directory(val p : DirectoryParam) extends Component {
               cache.tags.write.data.dirty := True
             }
 
-            when(CTRL_CMD.opcode === CtrlOpcode.ACQUIRE_BLOCK) {
+            when(CTRL_CMD.opcode === CtrlOpcode.ACQUIRE_BLOCK && !SELF) {
               toReadBackend.toUpD := True
               toReadBackend.upD.opcode := Opcode.D.GRANT_DATA
               toReadBackend.upD.param := acquireParam.resized
@@ -1074,9 +1097,11 @@ class Directory(val p : DirectoryParam) extends Component {
               toWriteBackend.toUpD := Directory.ToUpDOpcode.GRANT_DATA()
 
               when(!CTRL_CMD.withDataUpC){
+                askOrdering := True
                 askReadBackend := True
               }
             } otherwise {
+              askOrdering := True
               askUpD := True
               toUpD.opcode := Opcode.D.GRANT
               toUpD.param := acquireParam.resized
@@ -1088,10 +1113,6 @@ class Directory(val p : DirectoryParam) extends Component {
       when(!doIt){
         cache.tags.write.valid := False
       }
-
-      io.backendOrdering.valid := isFireing && preCtrl.FROM_A && !redoUpA && !CTRL_CMD.probed
-      io.backendOrdering.debugId := CTRL_CMD.debugId
-      io.backendOrdering.bytes := (U(1) << CTRL_CMD.size).resized
     }
   }
 
@@ -1252,6 +1273,12 @@ class Directory(val p : DirectoryParam) extends Component {
           }
         }
       }
+
+      val askOrdering = inserter.LAST && List(ACCESS_ACK, ACCESS_ACK_DATA, GRANT, GRANT_DATA).map(_()).sContains(CMD.toUpD)
+      val toOrdering = forkFlow(askOrdering).swapPayload(io.ordering.writeBackend.payloadType)
+      toOrdering.debugId := CMD.debugId
+      toOrdering.bytes := (U(1) << CTRL_CMD.size).resized
+      toOrdering >> io.ordering.writeBackend
     }
   }
 
