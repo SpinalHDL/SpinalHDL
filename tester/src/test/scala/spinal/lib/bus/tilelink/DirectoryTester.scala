@@ -73,7 +73,7 @@ class DirectoryTester extends AnyFunSuite{
     tester.noStall = true //TODO for test only
 
     tester.doSimDirected("manual"){tb =>
-      tb.coverGet(32)
+      tb.coverAcquirePerm(32)
     }
     
     tester.doSimDirected("get"){_.coverGet(32)}
@@ -83,7 +83,7 @@ class DirectoryTester extends AnyFunSuite{
     tester.doSimDirected("acquireT")(_.coverAcquireT(32))
     tester.doSimDirected("acquireBT")(_.coverAcquireBT(32))
     tester.doSimDirected("acquireTB")(_.coverAcquireTB(32))
-//    tester.doSimDirected("acquirePerm")(_.coverAcquirePerm(32))
+    tester.doSimDirected("acquirePerm")(_.coverAcquirePerm(32))
 //    tester.doSimDirected("coherencyBx2")(_.coverCoherencyBx2(32))
 //    tester.doSimDirected("coherencyTx2")(_.coverCoherencyTx2(32))
 //    tester.doSimDirected("coherencyT_B")(_.coverCoherencyT_B(32))

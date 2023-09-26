@@ -795,7 +795,7 @@ class Directory(val p : DirectoryParam) extends Component {
 
       toUpD.opcode.assignDontCare()
       toUpD.source  := CTRL_CMD.source
-      toUpD.sink    := OHToUInt(gsOh)
+      toUpD.sink    := gsId
       toUpD.size    := log2Up(blockSize)
       toUpD.param   := 0
       toUpD.denied  := False
@@ -847,7 +847,7 @@ class Directory(val p : DirectoryParam) extends Component {
       cache.tags.write.mask := tags.CACHE_HITS | UIntToOh(olderWay.wayId).andMask(askAllocate)
       cache.tags.write.data.loaded := True
       cache.tags.write.data.tag := CTRL_CMD.address(tagRange)
-      cache.tags.write.data.dirty := CACHE_LINE.dirty
+      cache.tags.write.data.dirty := CACHE_LINE.dirty && !askAllocate
       cache.tags.write.data.trunk := True
 
       val owners = new Area {
@@ -1033,14 +1033,18 @@ class Directory(val p : DirectoryParam) extends Component {
       val acquireParam = aquireToB.mux[Bits](Param.Cap.toB, Param.Cap.toT)
       when(preCtrl.ACQUIRE){
         owners.add := True
-
         when(!CACHE_HIT){
           askAllocate := True
-          askReadDown := True
-          gsRefill := True
           ctxDownD.data.toUpD := True
           ctxDownD.data.toCache := True
           ctxDownD.data.toT := !aquireToB
+          when(CTRL_CMD.opcode === CtrlOpcode.ACQUIRE_BLOCK) {
+            askReadDown := True
+            gsRefill := True
+          } otherwise {
+            askUpD := True
+            toUpD.opcode := Opcode.D.GRANT
+          }
         }otherwise{
           //Need probing ?
           when(!CTRL_CMD.probed && (CACHE_LINE.trunk && OTHER || CTRL_CMD.toTrunk)) {
