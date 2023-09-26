@@ -508,7 +508,7 @@ object DmaSg{
           val loadDone = RegInit(True)
           val bytesLeft = Reg(UInt(p.bytePerTransferWidth bits)) //minus one
 
-          val loadRequest = descriptorValid && !channelStop && !loadDone && fifo.push.available > (dwPerBurst >> log2Up(p.memory.bankWidth/8)) && pcieActive
+          val loadRequest = descriptorValid && !channelStop && !loadDone && fifo.push.available > (dwPerBurst >> log2Up(p.memory.bankWidth/8)) && pcieActive && !memory
 
           when(descriptorStart){
             bytesLeft := bytes
@@ -630,29 +630,23 @@ object DmaSg{
           val flush = Reg(Bool()) clearWhen(fire)  //Check flush
           val packetSync = False
           val packet = Reg(Bool()) clearWhen(channelStart || fire)
-          val memRsp = False
-          val memPending = Reg(UInt(log2Up(p.pendingWritePerChannel + 1) bits)) init(0)
           val address = Reg(UInt(config.dwAddressWidth<<2 bits))
           val bytesLeft = Reg(UInt(p.bytePerTransferWidth+1 bits)) //minus one
 
           // Trigger request when there is enough to do a burst, fifo occupancy > 50 %, flush
           // ! (fifo.pop.bytes > (dwPerBurst << 2)
-          val request = descriptorValid && !channelStop && !waitFinalRsp && (fifo.pop.bytes > (dwPerBurst << 2) || (fifo.push.available < (fifo.words >> 1) || flush)) && fifo.pop.bytes =/= 0 && memPending =/= p.pendingWritePerChannel && pcieActive
+          val request = descriptorValid && !channelStop && !waitFinalRsp && (fifo.pop.bytes > (dwPerBurst << 2) || (fifo.push.available < (fifo.words >> 1) || flush)) && fifo.pop.bytes =/= 0 && pcieActive && !memory
           val bytesToSkip = Reg(UInt(log2Up(p.writeByteCount) bits))
 
           val decrBytes = fifo.pop.bytesDecr.newPort()
 
-          val memPendingInc = False
-          memPending := memPending + U(memPendingInc) - U(memRsp)
-
           decrBytes := 0
-
 
           when(bytesLeft < fifo.pop.bytes){
             flush := True
           }
 
-          when(memPending === 0 && fifo.pop.bytes === 0){ //TODO bouarf
+          when(/*memPending === 0 &&*/fifo.pop.bytes === 0){
             flush := False
             packet := False
             packetSync setWhen(packet)
@@ -676,7 +670,7 @@ object DmaSg{
             }
           }
 
-          when(descriptorValid && memPending === 0 && waitFinalRsp){
+          when(descriptorValid && waitFinalRsp.fall()){
             descriptorCompletion := True
           }
           when(channelStart){
@@ -1269,7 +1263,8 @@ object DmaSg{
 
       val channels = Core.this.channels.filter(_.cp.pcieCapable)
       val tm = new Area {
-        val tagTable = Mem(TagTableEntry(), (1 << 8))
+        val tagCount = 1 << 8
+        val tagTable = Mem(TagTableEntry(), tagCount)
         private val head = UInt(9 bits)
         private val tail = UInt(9 bits)
 
@@ -1277,8 +1272,10 @@ object DmaSg{
         def headIncr() {head := head+1}
         def headPtr = head.dropLow(1).asUInt
 
-        when(tagTable(tail.dropLow(1).asUInt).finish) {
+        val full = (head - tail) >= (tagCount-1)
 
+        when(tagTable(tail.dropLow(1).asUInt).finish) {
+          tail := tail+1
         }
       }
 
@@ -1412,7 +1409,7 @@ object DmaSg{
 
           val arbiter = new ArbiterLogic(channels) {
             def requestFrom(c: ChannelLogic): Bool = c.pop.b2p.request
-            def acceptFrom(c: ChannelLogic): Unit = {c.pop.b2p.memPendingInc := True}
+            def acceptFrom(c: ChannelLogic): Unit = {}
           }
           def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(arbiter.chosen)
 
