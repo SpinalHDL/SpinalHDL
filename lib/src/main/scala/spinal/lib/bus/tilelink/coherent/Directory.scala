@@ -645,6 +645,7 @@ class Directory(val p : DirectoryParam) extends Component {
     }
   }
 
+  //TODO check older way is allocated
   val ctrl = new Pipeline{
     val stages = newChained(3, Connection.M2S())
     val inserterStage = stages(0)
@@ -684,7 +685,6 @@ class Directory(val p : DirectoryParam) extends Component {
       inserterStage(CTRL_CMD) := arbiter.io.output
 
       haltWhen(loopback.occupancy.mayOverflow)
-      loopback.occupancy.incrementIt.setWhen(isFireing)
 
       val SOURCE_OH = insert(B(coherentMasters.map(_.sourceHit(CTRL_CMD.source))))
     }
@@ -793,7 +793,6 @@ class Directory(val p : DirectoryParam) extends Component {
 
       //TODO don't forget to ensure that a victim get out of the cache before downD/upA erase it
 
-      val acquireParam = (CACHE_LINE.owners & ~inserter.SOURCE_OH).orR.mux[Bits](Param.Cap.toB, Param.Cap.toT)
       toUpD.opcode.assignDontCare()
       toUpD.source  := CTRL_CMD.source
       toUpD.sink    := OHToUInt(gsOh)
@@ -812,9 +811,10 @@ class Directory(val p : DirectoryParam) extends Component {
       prober.cmd.gsId.removeAssignments()    := gsId
       //TODO probe hazard
 
-      loopback.fifo.io.push.valid := prober.cmd.isStall
+      loopback.fifo.io.push.valid := redoUpA
       loopback.fifo.io.push.payload := CTRL_CMD
-      redoUpA setWhen(!prober.cmd.ready)
+      redoUpA setWhen(!CTRL_CMD.probed && preCtrl.FROM_A && !prober.cmd.ready)
+      assert(!(isValid && redoUpA && !loopback.fifo.io.push.ready))
 
       val doIt = isFireing && !isRemoved
 
@@ -923,7 +923,7 @@ class Directory(val p : DirectoryParam) extends Component {
 
 
       //Generate a victim
-      when(askAllocate && olderWay.tags.loaded && olderWay.unlocked){
+      when(askAllocate && olderWay.tags.loaded){
         askReadBackend setWhen(olderWay.tags.dirty)
         toReadBackend.address   := olderWay.address
         toReadBackend.size      := log2Up(blockSize)
@@ -937,7 +937,15 @@ class Directory(val p : DirectoryParam) extends Component {
         prober.cmd.probeToN := True
 
         gsPendingVictim := olderWay.tags.dirty
+
+        when(!olderWay.unlocked){
+          //Assume it come from A (inclusive)
+          assert(!isValid || preCtrl.FROM_A)
+          redoUpA := True
+        }
       }
+
+      assert(!(isValid && CTRL_CMD.probed && askAllocate))
 
 
       when(preCtrl.FROM_C_RELEASE){
@@ -1021,35 +1029,53 @@ class Directory(val p : DirectoryParam) extends Component {
         }
       }
 
+      val aquireToB = !CTRL_CMD.toTrunk && OTHER
+      val acquireParam = aquireToB.mux[Bits](Param.Cap.toB, Param.Cap.toT)
       when(preCtrl.ACQUIRE){
-        when(CACHE_HIT){
-          //TODO handle upC writeback !!!!!!!!!!! (need toWriteBackend)
+        owners.add := True
+
+        when(!CACHE_HIT){
+          askAllocate := True
+          askReadDown := True
+          gsRefill := True
+          ctxDownD.data.toUpD := True
+          ctxDownD.data.toCache := True
+          ctxDownD.data.toT := !aquireToB
+        }otherwise{
+          //Need probing ?
           when(!CTRL_CMD.probed && (CACHE_LINE.trunk && OTHER || CTRL_CMD.toTrunk)) {
-            //Need to probe the others first
             askProbe := True
             prober.cmd.mask := OTHERS
             prober.cmd.probeToN := CTRL_CMD.toTrunk
           } otherwise {
-            when(!CTRL_CMD.toTrunk && OTHER) {
+            when(aquireToB) {
               cache.tags.write.data.trunk := False
               ctxDownD.data.toT := False
             }
 
+            //TODO warning gs may will complet before writebackend is done !
+            when(CTRL_CMD.withDataUpC) {
+              askWriteBackend := True
+              cache.tags.write.data.dirty := True
+            }
+
             when(CTRL_CMD.opcode === CtrlOpcode.ACQUIRE_BLOCK) {
-              askReadBackend := True
               toReadBackend.toUpD := True
               toReadBackend.upD.opcode := Opcode.D.GRANT_DATA
               toReadBackend.upD.param := acquireParam.resized
+
+              toWriteBackend.toT := !aquireToB
+              toWriteBackend.toUpD := Directory.ToUpDOpcode.GRANT_DATA()
+
+              when(!CTRL_CMD.withDataUpC){
+                askReadBackend := True
+              }
             } otherwise {
               askUpD := True
               toUpD.opcode := Opcode.D.GRANT
               toUpD.param := acquireParam.resized
             }
           }
-        } otherwise {
-          askAllocate := True
-          askReadDown := preCtrl.ALLOCATE_ON_MISS
-          gsRefill := preCtrl.ALLOCATE_ON_MISS
         }
       }
 
@@ -1214,7 +1240,10 @@ class Directory(val p : DirectoryParam) extends Component {
 
       when(isFireing && inserter.LAST) {
         when(List(ACCESS_ACK, ACCESS_ACK_DATA, RELEASE_ACK).map(_()).sContains(CMD.toUpD)) {
-          gs.slots.onSel(CMD.gsId)(_.pending.primary := False)
+          gs.slots.onSel(CMD.gsId) { s =>
+            s.pending.primary := False
+            s.pending.upC := False
+          }
         }
       }
     }

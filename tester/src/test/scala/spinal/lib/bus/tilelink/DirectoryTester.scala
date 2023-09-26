@@ -73,12 +73,23 @@ class DirectoryTester extends AnyFunSuite{
     tester.noStall = true //TODO for test only
 
     tester.doSimDirected("manual"){tb =>
-      tb.coverPutFullData(4)
+      tb.coverAcquireT(32)
     }
     
-    tester.doSimDirected("get"){_.coverGet(4)}
-    tester.doSimDirected("putFull") {_.coverPutFullData(4)}
-    tester.doSimDirected("putPartial") {_.coverPutPartialData(4)}
+    tester.doSimDirected("get"){_.coverGet(32)}
+    tester.doSimDirected("putFull") {_.coverPutFullData(32)}
+    tester.doSimDirected("putPartial") {_.coverPutPartialData(32)}
+    tester.doSimDirected("acquireB")(_.coverAcquireB(32))
+    tester.doSimDirected("acquireT")(_.coverAcquireT(32))
+//    tester.doSimDirected("acquireBT")(_.coverAcquireBT(8))
+//    tester.doSimDirected("acquireTB")(_.coverAcquireTB(8))
+//    tester.doSimDirected("acquirePerm")(_.coverAcquirePerm(8))
+//    tester.doSimDirected("coherencyBx2")(_.coverCoherencyBx2(8))
+//    tester.doSimDirected("coherencyTx2")(_.coverCoherencyTx2(8))
+//    tester.doSimDirected("coherencyT_B")(_.coverCoherencyT_B(8))
+//    tester.doSimDirected("coherencyBx2_T_Bx2")(_.coverCoherencyBx2_T_Bx2(8))
+
+
 
     tester.checkErrors()
   }

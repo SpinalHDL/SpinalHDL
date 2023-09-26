@@ -95,6 +95,7 @@ class TilelinkTester(cGen: => Component, simConfig : SpinalSimConfig = SimConfig
     if (emits.acquireT.some) doSimDirected("acquireT")(_.coverAcquireT(8))
     if (emits.withBCE) doSimDirected("acquireBT")(_.coverAcquireBT(8))
     if (emits.withBCE) doSimDirected("acquireTB")(_.coverAcquireTB(8))
+    if (emits.withBCE) doSimDirected("acquirePerm")(_.coverAcquirePerm(8))
     if (emits.withBCE) doSimDirected("coherencyBx2")(_.coverCoherencyBx2(8))
     if (emits.withBCE) doSimDirected("coherencyTx2")(_.coverCoherencyTx2(8))
     if (emits.withBCE) doSimDirected("coherencyT_B")(_.coverCoherencyT_B(8))
