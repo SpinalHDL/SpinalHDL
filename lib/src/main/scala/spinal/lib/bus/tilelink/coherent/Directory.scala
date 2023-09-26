@@ -7,6 +7,8 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.misc.Plru
 import spinal.lib.pipeline._
 
+import scala.collection.mutable.ArrayBuffer
+
 case class DirectoryParam(var unp : NodeParameters,
                           var downPendingMax : Int,
                           var cacheWays: Int,
@@ -448,7 +450,7 @@ class Directory(val p : DirectoryParam) extends Component {
       Opcode.A.ACQUIRE_PERM -> CtrlOpcode.ACQUIRE_PERM(),
       Opcode.A.ACQUIRE_BLOCK -> CtrlOpcode.ACQUIRE_BLOCK()
     )
-    toCtrl.toTrunk := pusher.down.param === Param.Grow.BtoT
+    toCtrl.toTrunk := pusher.down.param =/= Param.Grow.NtoB
     toCtrl.address := pusher.down.address
     toCtrl.size := pusher.down.size
     toCtrl.source := pusher.down.source
@@ -1224,8 +1226,8 @@ class Directory(val p : DirectoryParam) extends Component {
 
       import Directory.ToUpDOpcode._
       val toUpDData = List(ACCESS_ACK_DATA(), GRANT_DATA()).sContains(CMD.toUpD)
-      val needForkTOUpD = CMD.toUpD =/= NONE && toUpDData.mux[Bool](inserter.IN_UP_A, inserter.LAST)
-      val toUpDFork = forkStream(needForkTOUpD)
+      val needForkToUpD = CMD.toUpD =/= NONE && toUpDData.mux[Bool](inserter.IN_UP_A || !CMD.fromUpA, inserter.LAST)
+      val toUpDFork = forkStream(needForkToUpD)
       val toUpD = toUpDFork.swapPayload(io.up.d.payloadType)
       toUpD.opcode  := CMD.toUpD.muxDc(
         ACCESS_ACK      -> Opcode.D.ACCESS_ACK(),
@@ -1496,9 +1498,21 @@ object DirectoryGen extends App{
       probeCount = probeCount,
       blockSize = blockSize,
       probeRegion = _ => True,
-      generalSlotCount = generalSlotCount
+      generalSlotCount = generalSlotCount,
+      allocateOnMiss = (_,_,_,_) => True
     )
   }
 
   SpinalVerilog(new Directory(basicConfig()))
+
+
+  import spinal.lib.eda.bench._
+
+  val rtls = ArrayBuffer[Rtl]()
+  for (probeCount <- List(2)) { //Rtl.ffIo
+    rtls += Rtl(SpinalVerilog((new Directory(basicConfig(dataWidth = 16, addressWidth = 32)).setDefinitionName(s"Hub$probeCount"))))
+  }
+  val targets = XilinxStdTargets().take(2)
+
+  Bench(rtls, targets)
 }

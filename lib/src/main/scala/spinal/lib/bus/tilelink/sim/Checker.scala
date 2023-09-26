@@ -198,7 +198,7 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
           assert(ctx.isSet, s"No reference was provided for :\n${ctx.a}to compare with :\n$d")
           if (d.withData && !ctx.denied) {
             assert(ctx.ref != null, s"No reference data was provided for :\n${ctx.a}to compare with :\n$d")
-            assert((ctx.ref, d.data).zipped.forall(_ == _), s"Missmatch for :\n$ctx.a\n$d\n!=${ctx.ref.map(v => f"${v}%02x").mkString(" ")}")
+            assert((ctx.ref, d.data).zipped.forall(_ == _), s"Missmatch for :\n${ctx.a}\n$d\n!=${ctx.ref.map(v => f"${v}%02x").mkString(" ")}")
           }
           assert(d.denied == ctx.denied)
           assert(!d.corrupt)
