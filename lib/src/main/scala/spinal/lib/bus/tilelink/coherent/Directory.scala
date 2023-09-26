@@ -811,7 +811,7 @@ class Directory(val p : DirectoryParam) extends Component {
       prober.cmd.gsId.removeAssignments()    := gsId
       //TODO probe hazard
 
-      loopback.fifo.io.push.valid := redoUpA
+      loopback.fifo.io.push.valid := isValid && redoUpA
       loopback.fifo.io.push.payload := CTRL_CMD
       redoUpA setWhen(!CTRL_CMD.probed && preCtrl.FROM_A && !prober.cmd.ready)
       assert(!(isValid && redoUpA && !loopback.fifo.io.push.ready))
@@ -819,8 +819,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val doIt = isFireing && !isRemoved
 
       val olderWay = new Area{
-        val plru = new Plru(cacheWays, true)
-        plru.io.context.valids := B(CACHE_TAGS.map(_.loaded))
+        val plru = new Plru(cacheWays, false)
         plru.io.context.state := CACHE_PLRU
 
         cache.plru.write.valid := CACHE_HIT
@@ -951,6 +950,7 @@ class Directory(val p : DirectoryParam) extends Component {
       when(preCtrl.FROM_C_RELEASE){
         //Update tags
         owners.remove setWhen (CTRL_CMD.toNone)
+        cache.tags.write.data.trunk := False
 
         when(valid){
           cache.tags.write.valid := True
