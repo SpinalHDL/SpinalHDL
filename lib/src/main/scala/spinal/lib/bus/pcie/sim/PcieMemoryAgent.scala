@@ -128,7 +128,7 @@ class PcieMemoryAgent(readCmd: Stream[Fragment[Tlp]], writeCmd: Stream[Fragment[
           rsp.config.useSeq generate rsp.seq #= 0
         }
       }
-      println(s"[INFO]: receive read request: ${cmdHdr}, data: ${allData}")
+      println(s"[INFO]: receive read request: ${cmdHdr}, data: ${allData.map(_.toInt)}")
     }
   }
 
@@ -159,8 +159,10 @@ class PcieMemoryAgent(readCmd: Stream[Fragment[Tlp]], writeCmd: Stream[Fragment[
 
       if(payload.last.toBoolean) {
         val dataFinal = data.toArray
-        assert(dataFinal.size == cmdHdr.length)
-        println(s"[INFO]: receive write request: ${cmdHdr}, data: ${dataFinal}")
+        assert(cmdHdr.length !=1 && cmdHdr.length != 2) // do not support
+        val bytesExpected = cmdHdr.length*4-8+Util.countOne(cmdHdr.firstBe)+Util.countOne(cmdHdr.lastBe)
+        assert(dataFinal.size == bytesExpected, s"${dataFinal.size}, ${bytesExpected}")
+        println(s"[INFO]: receive write request: ${cmdHdr}, data: ${dataFinal.map(_.toInt)}")
         for((byte, id) <- dataFinal.zipWithIndex) {
 
           if(id<4) {
