@@ -679,9 +679,9 @@ class Directory(val p : DirectoryParam) extends Component {
         that.haltWhen(hits.orR)
       }
 
-      val arbiter = StreamArbiterFactory().roundRobin.noLock.build(CTRL_CMD, 3)
-      arbiter.io.inputs(0) << prober.schedule.toCtrl
-      arbiter.io.inputs(1) << loopback.fifo.io.pop
+      val arbiter = StreamArbiterFactory().lowerFirst.noLock.build(CTRL_CMD, 3)
+      arbiter.io.inputs(0) << prober.schedule.toCtrl.pipelined(m2s = true, s2m = true)
+      arbiter.io.inputs(1) << loopback.fifo.io.pop.halfPipe()
       arbiter.io.inputs(2) << bufferA.toCtrl.continueWhen(loopback.allowUpA)
 
       when(bufferA.toCtrl.fire) {
@@ -1117,7 +1117,7 @@ class Directory(val p : DirectoryParam) extends Component {
   }
 
   val readDown = new Area {
-    val cmd = ctrl.process.toReadDown.pipelined(m2s = true)
+    val cmd = ctrl.process.toReadDown.pipelined(m2s = true, s2m = true)
     val toDownA = cmd.swapPayload(io.down.a.payloadType())
 
     toDownA.opcode := Opcode.A.GET
@@ -1178,7 +1178,7 @@ class Directory(val p : DirectoryParam) extends Component {
       import inserterStage._
 
 
-      val ctrlBuffered = ctrl.process.toWriteBackend.pipelined(m2s = true)
+      val ctrlBuffered = ctrl.process.toWriteBackend.pipelined(halfRate = true)
       val arbiter = StreamArbiterFactory().lowerFirst.transactionLock.buildOn(putMerges.cmd, ctrlBuffered)
       def cmd = arbiter.io.output
 
@@ -1277,7 +1277,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val askOrdering = inserter.LAST && List(ACCESS_ACK, ACCESS_ACK_DATA, GRANT, GRANT_DATA).map(_()).sContains(CMD.toUpD)
       val toOrdering = forkFlow(askOrdering).swapPayload(io.ordering.writeBackend.payloadType)
       toOrdering.debugId := CMD.debugId
-      toOrdering.bytes := (U(1) << CTRL_CMD.size).resized
+      toOrdering.bytes := (U(1) << CMD.size).resized
       toOrdering >> io.ordering.writeBackend
     }
   }
@@ -1296,7 +1296,7 @@ class Directory(val p : DirectoryParam) extends Component {
 
       import inserterStage._
 
-      val cmd = ctrl.process.toReadBackend.pipelined(m2s = true)
+      val cmd = ctrl.process.toReadBackend.pipelined(m2s = true, s2m = true)
       val counter = Reg(io.up.p.beat()) init (0)
       val LAST = insert(counter === sizeToBeatMinusOne(io.up.p, cmd.size))
 
@@ -1537,7 +1537,7 @@ object DirectoryGen extends App{
 
   val rtls = ArrayBuffer[Rtl]()
   for (probeCount <- List(2)) { //Rtl.ffIo
-    rtls += Rtl(SpinalVerilog((new Directory(basicConfig(dataWidth = 16, addressWidth = 32)).setDefinitionName(s"Hub$probeCount"))))
+    rtls += Rtl(SpinalVerilog((new Directory(basicConfig(dataWidth = 16, addressWidth = 32, cacheWays = 4)).setDefinitionName(s"Hub$probeCount"))))
   }
   val targets = XilinxStdTargets().take(2)
 
