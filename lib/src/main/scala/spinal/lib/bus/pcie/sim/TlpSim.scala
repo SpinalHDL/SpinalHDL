@@ -45,9 +45,9 @@ object MemCmdHeader {
     val fmt = take(bits, 125 to 127).toInt
     val typ = take(bits, 120 to 124).toInt // type
     val tc = take(bits, 116 to 118).toInt // TC
-    val th = toBoolean(take(bits, 112 to 112)) // TH
-    val td = toBoolean(take(bits, 111 to 111)) // TD
-    val ep = toBoolean(take(bits, 110 to 110)) // EP
+    val th = take(bits, 112 to 112) == 0 // TH
+    val td = take(bits, 111 to 111) == 0 // TD
+    val ep = take(bits, 110 to 110) == 0 // EP
     val attr = (take(bits, 108 to 109) | (take(bits, 114 to 114) << 2)).toInt  // attr
     val at = take(bits, 106 to 107).toInt // AT
     val length = take(bits, 96 to 105).toInt  //len
@@ -148,14 +148,14 @@ object CplHeader {
     val fmt = take(bits, 125 to 127).toInt
     val typ = take(bits, 120 to 124).toInt // type
     val tc = take(bits, 116 to 118).toInt // TC
-    val th = toBoolean(take(bits, 112 to 112)) // TH
-    val td = toBoolean(take(bits, 111 to 111)) // TD
-    val ep = toBoolean(take(bits, 110 to 110)) // EP
+    val th = take(bits, 112 to 112) == 0 // TH
+    val td = take(bits, 111 to 111) == 0 // TD
+    val ep = take(bits, 110 to 110) == 0 // EP
     val attr = (take(bits, 108 to 109) | (take(bits, 114 to 114) << 2)).toInt  // attr
     val at = take(bits, 106 to 107).toInt // AT
     val cplId = take(bits, 80 to 95).toInt // completer ID
     val cplStatus = take(bits, 77 to 79).toInt // completion status
-    val bcm = toBoolean(take(bits, 76 to 76)) // BCM
+    val bcm = take(bits, 76 to 76) == 0 // BCM
     val reqId = take(bits, 48 to 63).toInt // requester ID
     val tag = take(bits, 40 to 47).toInt // tag
     val lowerAddr = take(bits, 32 to 38).toInt // lower address
