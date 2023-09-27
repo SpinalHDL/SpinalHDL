@@ -339,6 +339,7 @@ class Directory(val p : DirectoryParam) extends Component {
   class ProberCmd() extends CtrlCmd {
     val mask = Bits(coherentMasterCount bits)
     val probeToN = Bool()
+    val evictClean = Bool()
   }
 
 
@@ -364,6 +365,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val size = ubp.size()
     val wayId = UInt(log2Up(cacheWays) bits)
     val bufferAId = BUFFER_A_ID()
+    val evict = Bool()
     val debugId = DebugId()
   }
 
@@ -524,6 +526,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val probeAckDataCompleted = Reg(Bool())
     val unique = Reg(Bool())
     val done = valid && (pending & ~U(probeAckDataCompleted, widthOf(pending) bits)) === 0
+    val evictClean = Reg(Bool())
   }
 
   //Currently we ignore the cache owners tracking of PROBE_ACK_DATA TtoN (will behave like a TtoB)
@@ -548,10 +551,11 @@ class Directory(val p : DirectoryParam) extends Component {
       when(push.valid && !sloted && !allocate.full) {
         slots.onMask(allocate.oh) { s =>
           s.valid := True
-          s.address := cmd.address(addressCheckRange)
+          s.address := push.address(addressCheckRange)
           s.pending := pending
           s.unique := True
           s.probeAckDataCompleted := False
+          s.evictClean := push.evictClean
         }
         ctx.write.valid := True
         sloted := True
@@ -620,7 +624,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val schedule = new Area {
       val fromUpC = upC.down.halfPipe()
       val fromProbe = Stream(NoData())
-      val toCtrl = Stream(new CtrlCmd())
+      val merged = Stream(new CtrlCmd())
       val hits = slots.map(_.done).asBits
       val hitOh = CombInit(OHMasking.roundRobinNext(hits, fromProbe.fire))
       val probeId = OHToUInt(hitOh)
@@ -632,22 +636,28 @@ class Directory(val p : DirectoryParam) extends Component {
         }
       }
 
-      fromUpC.ready := toCtrl.ready
-      fromProbe.ready := toCtrl.ready && !fromUpC.valid
-      toCtrl.valid := fromUpC.valid || fromProbe.valid
-      toCtrl.payload := ctx.ram.readAsync(probeId)
+      fromUpC.ready := merged.ready
+      fromProbe.ready := merged.ready && !fromUpC.valid
+      merged.valid := fromUpC.valid || fromProbe.valid
+      merged.payload := ctx.ram.readAsync(probeId)
       when(fromUpC.valid) {
         probeId := fromUpC.hitId
-        toCtrl.withDataUpC setWhen(Opcode.C.withData(fromUpC.opcode))
+        merged.withDataUpC setWhen(Opcode.C.withData(fromUpC.opcode))
         when(Opcode.C.isRelease(fromUpC.opcode)){
-          toCtrl.address := fromUpC.address
-          toCtrl.source := fromUpC.source
-          toCtrl.toNone := fromUpC.toNone
-          toCtrl.opcode := fromUpC.opcode.muxDc(
+          merged.address := fromUpC.address
+          merged.source := fromUpC.source
+          merged.toNone := fromUpC.toNone
+          merged.opcode := fromUpC.opcode.muxDc(
             Opcode.C.RELEASE -> CtrlOpcode.RELEASE(),
             Opcode.C.RELEASE_DATA -> CtrlOpcode.RELEASE_DATA()
           )
         }
+      }
+
+      val isEvictClean = !fromUpC.valid && (hitOh & slots.map(_.evictClean).asBits).orR
+      val toCtrl = merged.throwWhen(isEvictClean)
+      when(merged.valid && isEvictClean){
+        gs.slots.onSel(merged.gsId)(_.pending.victim := False)
       }
     }
   }
@@ -691,8 +701,6 @@ class Directory(val p : DirectoryParam) extends Component {
       driveFrom(hazardHalt(arbiter.io.output))
       inserterStage(CTRL_CMD) := arbiter.io.output
 
-      haltWhen(loopback.occupancy.mayOverflow)
-
       val SOURCE_OH = insert(B(coherentMasters.map(_.sourceHit(CTRL_CMD.source))))
     }
 
@@ -717,6 +725,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val ALLOCATE_ON_MISS = insert(p.allocateOnMiss(CTRL_CMD.opcode, CTRL_CMD.source, CTRL_CMD.address, CTRL_CMD.size)) //TODO
       val FROM_A = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA(), ACQUIRE_BLOCK(), ACQUIRE_PERM()).sContains(CTRL_CMD.opcode))
       val FROM_C_RELEASE = insert(List(RELEASE(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
+      val IS_EVICT = insert(CTRL_CMD.opcode === EVICT)
       val GET_PUT = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA()).sContains(CTRL_CMD.opcode))
       val ACQUIRE = insert(List(ACQUIRE_PERM(), ACQUIRE_BLOCK()).sContains(CTRL_CMD.opcode))
       val IS_GET = insert(List(GET()).sContains(CTRL_CMD.opcode))
@@ -741,9 +750,12 @@ class Directory(val p : DirectoryParam) extends Component {
       assert(!(isValid && redoUpA && !preCtrl.FROM_A))
       throwIt(redoUpA)
 
-      val haltUpC = False
-      assert(!(isValid && haltUpC && preCtrl.FROM_A))
-      haltIt(haltUpC)
+      redoUpA.setWhen(preCtrl.FROM_A && !CTRL_CMD.probed && preCtrl.GS_HIT) //TODO could be less pessimistic
+
+
+      val stallIt = False
+      assert(!(isValid && stallIt && preCtrl.FROM_A))
+      haltIt(stallIt)
 
       val askAllocate = False //Will handle victim
       val askProbe = False
@@ -759,7 +771,7 @@ class Directory(val p : DirectoryParam) extends Component {
           redoUpA := True
         }
         when(!preCtrl.FROM_A && gs.allocate.full){
-          haltUpC := True
+          stallIt := True
         }
       }
 
@@ -770,7 +782,7 @@ class Directory(val p : DirectoryParam) extends Component {
 //      val toProbe = forkStream(askProbe && !redoUpA).swapPayload(new ProbeCmd())
       val toReadDown = forkStream(askReadDown && !redoUpA).swapPayload(new ReadDownCmd)
       val toReadBackend = forkStream(askReadBackend && !redoUpA).swapPayload(new ReadBackendCmd)
-      val toWriteBackend = forkStream(askWriteBackend && !redoUpA && !haltUpC).swapPayload(new WriteBackendCmd)
+      val toWriteBackend = forkStream(askWriteBackend && !redoUpA && !stallIt).swapPayload(new WriteBackendCmd)
       val toUpD = forkStream(askUpD && !redoUpA).swapPayload(io.up.d.payloadType)
       val toOrdering = forkFlow(askOrdering && !redoUpA).swapPayload(io.ordering.ctrlProcess.payloadType)
 
@@ -819,6 +831,7 @@ class Directory(val p : DirectoryParam) extends Component {
       prober.cmd.probeToN.assignDontCare()
       prober.cmd.probed.removeAssignments() := True
       prober.cmd.gsId.removeAssignments()    := gsId
+      prober.cmd.evictClean := False
       //TODO probe hazard
 
       loopback.fifo.io.push.valid := isValid && redoUpA
@@ -904,6 +917,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toWriteBackend.source     := CTRL_CMD.source
       toWriteBackend.toT        := True
       toWriteBackend.toUpD      := Directory.ToUpDOpcode.NONE()
+      toWriteBackend.evict      := False
       toWriteBackend.debugId    := CTRL_CMD.debugId
 
       toReadDown.gsId    := gsId
@@ -916,7 +930,7 @@ class Directory(val p : DirectoryParam) extends Component {
 
       val ctxDownDWritten = RegInit(False) setWhen (gs.ctxDownD.write.valid) clearWhen (isFireing)
       val ctxDownD = gs.ctxDownD.write
-      ctxDownD.valid := isValid && !redoUpA && !haltUpC && !ctxDownDWritten
+      ctxDownD.valid := isValid && askGs && !redoUpA && !stallIt && !ctxDownDWritten
       ctxDownD.address            := gsId
       ctxDownD.data.toUpD         := False
       ctxDownD.data.toCache       := False
@@ -937,19 +951,25 @@ class Directory(val p : DirectoryParam) extends Component {
 
       //Generate a victim
       when(askAllocate && olderWay.tags.loaded){
-        askReadBackend setWhen(olderWay.tags.dirty)
+        when(olderWay.tags.owners.orR) {
+          askProbe := True
+          gsPendingVictim := True
+        } elsewhen (olderWay.tags.dirty) {
+          askReadBackend := True
+          gsPendingVictim := True
+        }
+
         toReadBackend.address   := olderWay.address
         toReadBackend.size      := log2Up(blockSize)
         toReadBackend.wayId  := olderWay.wayId
 
-        askProbe := olderWay.tags.owners.orR
         prober.cmd.opcode := CtrlOpcode.EVICT
         prober.cmd.address := olderWay.address
         prober.cmd.size := log2Up(blockSize)
         prober.cmd.mask := olderWay.tags.owners
         prober.cmd.probeToN := True
+        prober.cmd.evictClean := !olderWay.tags.dirty
 
-        gsPendingVictim := olderWay.tags.dirty
 
         when(!olderWay.unlocked){
           //Assume it come from A (inclusive)
@@ -960,6 +980,19 @@ class Directory(val p : DirectoryParam) extends Component {
 
       assert(!(isValid && CTRL_CMD.probed && askAllocate))
 
+      //EVICT which are clean are already fully handled by the prober.
+      when(preCtrl.IS_EVICT){
+        when(CTRL_CMD.withDataUpC){
+          askWriteBackend := True
+          toWriteBackend.toDownA := True
+          toWriteBackend.evict := True
+          toWriteBackend.size := log2Up(blockSize)
+        } otherwise {
+          askReadBackend := True
+          toReadBackend.address := CTRL_CMD.address
+          toReadBackend.size := log2Up(blockSize)
+        }
+      }
 
       when(preCtrl.FROM_C_RELEASE){
         //Update tags
@@ -1069,7 +1102,7 @@ class Directory(val p : DirectoryParam) extends Component {
           }
         }otherwise{
           //Need probing ?
-          when(!CTRL_CMD.probed && (CACHE_LINE.trunk && OTHER || CTRL_CMD.toTrunk)) {
+          when(!CTRL_CMD.probed && (CACHE_LINE.trunk || CTRL_CMD.toTrunk && OTHER)) {
             askProbe := True
             prober.cmd.mask := OTHERS
             prober.cmd.probeToN := CTRL_CMD.toTrunk
@@ -1172,6 +1205,7 @@ class Directory(val p : DirectoryParam) extends Component {
       cmd.fromUpC := False
       cmd.toT := True
       cmd.source := buffered.source
+      cmd.evict := False
     }
 
     val inserter = new Area {
@@ -1237,7 +1271,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val toDownA = toDownAFork.haltWhen(hazardUpC).swapPayload(io.down.a.payloadType)
       toDownA.opcode := (CMD.fromUpA && CMD.partialUpA).mux(Opcode.A.PUT_PARTIAL_DATA, Opcode.A.PUT_FULL_DATA)
       toDownA.param := 0
-      toDownA.source := U"0" @@ CMD.gsId
+      toDownA.source := U(CMD.evict) @@ CMD.gsId
       toDownA.address := CMD.address
       toDownA.size := CMD.fromUpC.mux(U(log2Up(blockSize)), CMD.size)
       toDownA.data := UP_DATA
@@ -1432,7 +1466,7 @@ class Directory(val p : DirectoryParam) extends Component {
         when(!CMD.source.msb){
           when(CTX.mergeBufferA){
             writeBackend.putMerges.push.valid := True
-          } otherwise {
+          }.elsewhen(!CTX.acquire) {
             gs.slots.onSel(CMD.source.resized)(_.pending.primary := False)
           }
         }

@@ -41,7 +41,7 @@ case class Probe(source : Int, param : Int, address : Long, size : Int, perm : B
 
 }
 
-class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(implicit idAllocator: IdAllocator) extends MonitorSubscriber{
+class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64)(implicit idAllocator: IdAllocator) extends MonitorSubscriber{
   var debug = false
 
   val driver = new MasterDriver(bus, cd)

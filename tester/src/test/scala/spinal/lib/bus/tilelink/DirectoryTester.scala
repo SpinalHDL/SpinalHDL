@@ -10,7 +10,11 @@ import spinal.core.Component
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink.coherent.DirectoryFiber
 import spinal.lib.bus.tilelink.fabric.{MasterBus, SlaveBus}
+import spinal.lib.bus.tilelink.sim.MasterTester
 import spinal.lib.system.tag.PMA
+import spinal.sim.SimThread
+
+import scala.collection.mutable.ArrayBuffer
 
 class DirectoryTester extends AnyFunSuite{
 
@@ -42,7 +46,7 @@ class DirectoryTester extends AnyFunSuite{
         val directory = new DirectoryFiber()
         directory.parameter.cacheWays = 4
         directory.parameter.cacheBytes = 4096
-        directory.parameter.allocateOnMiss = (op, src, addr, size) => True
+        directory.parameter.allocateOnMiss = (op, src, addr, size) => addr(6)
         directory.up << m0.node
 
         val s0 = new SlaveBus(
@@ -72,22 +76,48 @@ class DirectoryTester extends AnyFunSuite{
 
     tester.noStall = true //TODO for test only
 
-    tester.doSimDirected("manual"){tb =>
-      tb.coverCoherencyBx2_T_Bx2(32)
+    tester.doSim("manual") { tb =>
+      val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
+      testers.foreach(_.startPerSource(100))
+      testers.foreach(_.join())
+      tb.waitCheckers()
+      tb.assertCoverage()
     }
-    
-    tester.doSimDirected("get"){_.coverGet(32)}
-    tester.doSimDirected("putFull") {_.coverPutFullData(32)}
-    tester.doSimDirected("putPartial") {_.coverPutPartialData(32)}
-    tester.doSimDirected("acquireB")(_.coverAcquireB(32))
-    tester.doSimDirected("acquireT")(_.coverAcquireT(32))
-    tester.doSimDirected("acquireBT")(_.coverAcquireBT(32))
-    tester.doSimDirected("acquireTB")(_.coverAcquireTB(32))
-    tester.doSimDirected("acquirePerm")(_.coverAcquirePerm(32))
-    tester.doSimDirected("coherencyBx2")(_.coverCoherencyBx2(32))
-    tester.doSimDirected("coherencyTx2")(_.coverCoherencyTx2(32))
-    tester.doSimDirected("coherencyT_B")(_.coverCoherencyT_B(32))
-    tester.doSimDirected("coherencyBx2_T_Bx2")(_.coverCoherencyBx2_T_Bx2(32))
+
+//    tester.doSimDirected("manual"){tb =>
+//      tb.coverAcquireB(32)
+//    }
+
+//    tester.doSim("manual"){tb =>
+//      val agent = tb.mastersStuff.head.agent
+//      val threads = ArrayBuffer[SimThread]()
+//      def doFork(body : => Unit) = threads += fork(body)
+//      def doJoin() = threads.foreach(_.join())
+//      def doBlock(name : String)(body : => Unit): Unit = { println(s"test $name"); body; doJoin(); agent.cd.waitSampling(20) }
+//
+//      for(address <- List(0x10000, 0x10040)) {
+//        doBlock("multiGet") {
+//          for (i <- 0 to 7) doFork(agent.get(i, address, 16))
+//        }
+//        doBlock("multiGetPut") {
+//          for (i <- 0 to 3) doFork(agent.get(i, address, 16))
+//          for (i <- 4 to 8) doFork(agent.putPartialData(i, address, Array.fill(16)(simRandom.nextInt.toByte), Array.fill(16)(simRandom.nextBoolean())))
+//        }
+//      }
+//    }
+
+//    tester.doSimDirected("get"){_.coverGet(32)}
+//    tester.doSimDirected("putFull") {_.coverPutFullData(32)}
+//    tester.doSimDirected("putPartial") {_.coverPutPartialData(32)}
+//    tester.doSimDirected("acquireB")(_.coverAcquireB(32))
+//    tester.doSimDirected("acquireT")(_.coverAcquireT(32))
+//    tester.doSimDirected("acquireBT")(_.coverAcquireBT(32))
+//    tester.doSimDirected("acquireTB")(_.coverAcquireTB(32))
+//    tester.doSimDirected("acquirePerm")(_.coverAcquirePerm(32))
+//    tester.doSimDirected("coherencyBx2")(_.coverCoherencyBx2(32))
+//    tester.doSimDirected("coherencyTx2")(_.coverCoherencyTx2(32))
+//    tester.doSimDirected("coherencyT_B")(_.coverCoherencyT_B(32))
+//    tester.doSimDirected("coherencyBx2_T_Bx2")(_.coverCoherencyBx2_T_Bx2(32))
 
 
 
