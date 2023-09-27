@@ -519,6 +519,10 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
     val verilatorBinFilename = if(isWindows) "verilator_bin.exe" else "verilator"
 
+    // allow a user to overwrite/add verilator flags, e.g. C++ version
+    // if the default is too old (see e.g. #278)
+    val envFlags = sys.env.getOrElse("SPINAL_VERILATOR_FLAGS", "")
+
     // when changing the verilator script, the hash generation (below) must also be updated
     val verilatorScript = s""" set -e ;
        | ${verilatorBinFilename}
@@ -527,8 +531,6 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -CFLAGS -I"$jdkIncludes" -CFLAGS -I"$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else (if(isFreeBsd) "freebsd" else "linux"))}"
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
-       | -CFLAGS -std=c++11
-       | -LDFLAGS -std=c++11
        | -CFLAGS -DVL_USER_FINISH=1
        | --autoflush  
        | --output-split 5000
@@ -553,6 +555,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
                                      .map('"' + _.replace("\\","/") + '"')
                                      .mkString(" ")}
        | --exe $workspaceName/$wrapperCppName
+       | $envFlags
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
 
