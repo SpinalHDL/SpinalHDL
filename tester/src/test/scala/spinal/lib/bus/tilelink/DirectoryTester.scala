@@ -78,17 +78,18 @@ class DirectoryTester extends AnyFunSuite{
 
     tester.doSim("manual") { tb =>
       val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
-      testers.foreach(_.startPerSource(100))
+      val globalLock = Some(SimMutex()) //TODO for test only
+      testers.foreach(_.startPerSource(100000, globalLock))
       testers.foreach(_.join())
       tb.waitCheckers()
       tb.assertCoverage()
     }
 
 //    tester.doSimDirected("manual"){tb =>
-//      tb.coverAcquireB(32)
+//      tb.coverPutFullData(32)
 //    }
-
-//    tester.doSim("manual"){tb =>
+//
+//    tester.doSim("manual2"){tb =>
 //      val agent = tb.mastersStuff.head.agent
 //      val threads = ArrayBuffer[SimThread]()
 //      def doFork(body : => Unit) = threads += fork(body)
@@ -105,7 +106,7 @@ class DirectoryTester extends AnyFunSuite{
 //        }
 //      }
 //    }
-
+//
 //    tester.doSimDirected("get"){_.coverGet(32)}
 //    tester.doSimDirected("putFull") {_.coverPutFullData(32)}
 //    tester.doSimDirected("putPartial") {_.coverPutPartialData(32)}

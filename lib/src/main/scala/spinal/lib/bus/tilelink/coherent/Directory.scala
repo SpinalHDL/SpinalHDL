@@ -21,6 +21,7 @@ case class DirectoryParam(var unp : NodeParameters,
                           var generalSlotCount : Int = 8,
                           var generalSlotCountUpCOnly : Int = 2,
                           var victimBufferLines : Int = 2,
+                          var upCBufferDepth : Int = 8,
                           var probeRegion : UInt => Bool,
                           var allocateOnMiss : (Directory.CtrlOpcode.C, UInt, UInt, UInt) => Bool = null // opcode, source, address, size
                          ) {
@@ -272,6 +273,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val upWriteDemux = StreamDemux(upWrite, upWrite.address.resize(log2Up(cacheBanks)), cacheBanks)
       val downWriteDemux = StreamDemux(downWrite, downWrite.address.resize(log2Up(cacheBanks)), cacheBanks)
       val read = Stream(UInt(cacheAddressWidth bits))
+      val readIntend = Bool()
 
       val banks = for(i <- 0 until cacheBanks) yield new Area{
         val ram = Mem.fill(cacheBytes/p.dataBytes/cacheBanks)(Bits(p.dataWidth bits))
@@ -330,6 +332,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val source = ubp.source()
     val bufferAId = BUFFER_A_ID()
     val probed = Bool()
+    val probedUnique = Bool()
     val gsId = GS_ID() //Only valid when probed
     val debugId = DebugId()
     val withDataUpC = Bool()
@@ -374,6 +377,8 @@ class Directory(val p : DirectoryParam) extends Component {
 
   class ReadBackendCmd() extends Bundle {
     val toUpD = Bool() // else to victim
+    def toVictim = !toUpD
+    val toWriteBackend = Bool()
 
     val gsId = GS_ID()
     val address = ubp.address()
@@ -414,8 +419,9 @@ class Directory(val p : DirectoryParam) extends Component {
     val address = Reg(UInt(addressCheckWidth bits))
     val way = Reg(UInt(log2Up(cacheWays) bits))
     val pending = new Area{
-      val victim, primary, upC = Reg(Bool())
-      fire setWhen(List(victim, primary, upC).norR)
+      val victim, primary, upC, victimRead = Reg(Bool()) //TODO upC ???
+      fire setWhen(List(victim, primary, upC, victimRead).norR)
+
     }
   }
 
@@ -469,51 +475,15 @@ class Directory(val p : DirectoryParam) extends Component {
     toCtrl.debugId := pusher.down.debugId
     toCtrl.withDataUpC := False
     toCtrl.evictWay.assignDontCare()
+    toCtrl.probedUnique := False
   }
 
 
 
   val victimBuffer = new Area{
-    case class Word(withCtx : Boolean = true, withData : Boolean = true) extends Bundle{
-      val address = withCtx generate UInt(refillRange.size bits)
-      val gsId = withCtx generate GS_ID()
-      val data = withData generate io.up.p.data()
-    }
-
-    val cmdFifo = StreamFifo(new Word(withData = false), victimBufferLines)
-    val dataFifo = StreamFifo(new Word(withCtx = false), wordsPerLine * victimBufferLines)
-
-
-    val push = new Area{
-      val stream = Stream(Fragment(Word()))
-
-      cmdFifo.io.push.arbitrationFrom(stream.throwWhen(!stream.last))
-      cmdFifo.io.push.payload.assignSomeByName(stream.fragment)
-
-      dataFifo.io.push.valid := stream.fire
-      dataFifo.io.push.payload.assignSomeByName(stream.fragment)
-    }
-
-    val pop = new Area{
-      val counter = Reg(ubp.beat()) init(0)
-      val last = counter.andR
-      val toDownA = Stream(io.down.a.payloadType)
-      toDownA.valid := cmdFifo.io.pop.valid
-      toDownA.opcode  := Opcode.A.PUT_FULL_DATA
-      toDownA.param   := 0
-      toDownA.source  := U"1" @@ cmdFifo.io.pop.gsId
-      toDownA.address := cmdFifo.io.pop.address @@ counter @@ U(0, log2Up(dataBytes) bits)
-      toDownA.size    := log2Up(blockSize)
-      toDownA.mask.setAll()
-      toDownA.data    := dataFifo.io.pop.data
-      toDownA.corrupt := False
-      toDownA.debugId := DebugId.withPostfix(toDownA.source)
-      cmdFifo.io.pop.ready := toDownA.fire && last
-      dataFifo.io.pop.ready := toDownA.fire
-      when(toDownA.fire){
-        counter := counter + 1
-      }
-    }
+    val ram = Mem.fill(generalSlotCount*wordsPerLine)(io.up.p.data())
+    val write = ram.writePort()
+    val read = ram.readSyncPort()
   }
 
 
@@ -521,7 +491,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val (cmdFork, dataFork) = StreamFork2(io.up.c)
     val cmd = cmdFork.translateWith(io.up.c.asNoData()).takeWhen(io.up.c.isFirst())
     val data = dataFork.takeWhen(io.up.c.withBeats).translateWith(dataFork.data)
-    val dataPop = data.m2sPipe().m2sPipe()
+    val dataPop = data.queue(upCBufferDepth).m2sPipe()
   }
 
   class ProberSlot extends Slot{
@@ -640,14 +610,17 @@ class Directory(val p : DirectoryParam) extends Component {
         }
       }
 
+      //fromUpC does not come for PROBE_ACK
       fromUpC.ready := merged.ready
       fromProbe.ready := merged.ready && !fromUpC.valid
       merged.valid := fromUpC.valid || fromProbe.valid
       merged.payload := ctx.ram.readAsync(probeId)
+      merged.probedUnique.removeAssignments() := slots.reader(hitOh)(_.unique)
       when(fromUpC.valid) {
         probeId := fromUpC.hitId
         merged.probed clearWhen(Opcode.C.isRelease(fromUpC.opcode))
         merged.withDataUpC setWhen(Opcode.C.withData(fromUpC.opcode))
+        merged.probedUnique := fromUpC.toNone
         when(Opcode.C.isRelease(fromUpC.opcode)){
           merged.address := fromUpC.address
           merged.source := fromUpC.source
@@ -659,10 +632,30 @@ class Directory(val p : DirectoryParam) extends Component {
         }
       }
 
+      val isEvict = merged.opcode === CtrlOpcode.EVICT
+      val (toCtrl, toEvict) = StreamDemux.two(merged, isEvict)
+
       val isEvictClean = !fromUpC.valid && (hitOh & slots.map(_.evictClean).asBits).orR
-      val toCtrl = merged.throwWhen(isEvictClean)
+      val toWriteBackend = toEvict.throwWhen(isEvictClean).swapPayload(new WriteBackendCmd())
+      toWriteBackend.fromUpA := False
+      toWriteBackend.fromUpC := merged.withDataUpC
+      toWriteBackend.toDownA := True
+      toWriteBackend.toUpD := Directory.ToUpDOpcode.NONE
+      toWriteBackend.toT := True
+      toWriteBackend.source := 0
+      toWriteBackend.gsId := toEvict.gsId
+      toWriteBackend.partialUpA := False
+      toWriteBackend.address := toEvict.address
+      toWriteBackend.size := log2Up(blockSize)
+      toWriteBackend.wayId := 0
+      toWriteBackend.bufferAId := 0
+      toWriteBackend.evict := True
+      toWriteBackend.debugId := 0
+
       when(merged.valid && isEvictClean){
-        gs.slots.onSel(merged.gsId)(_.pending.victim := False)
+        gs.slots.onSel(merged.gsId){s =>
+          s.pending.victim := False
+        }
       }
     }
   }
@@ -730,14 +723,13 @@ class Directory(val p : DirectoryParam) extends Component {
       val ALLOCATE_ON_MISS = insert(p.allocateOnMiss(CTRL_CMD.opcode, CTRL_CMD.source, CTRL_CMD.address, CTRL_CMD.size)) //TODO
       val FROM_A = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA(), ACQUIRE_BLOCK(), ACQUIRE_PERM()).sContains(CTRL_CMD.opcode))
       val FROM_C_RELEASE = insert(List(RELEASE(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
-      val IS_EVICT = insert(CTRL_CMD.opcode === EVICT)
       val GET_PUT = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA()).sContains(CTRL_CMD.opcode))
       val ACQUIRE = insert(List(ACQUIRE_PERM(), ACQUIRE_BLOCK()).sContains(CTRL_CMD.opcode))
       val IS_GET = insert(List(GET()).sContains(CTRL_CMD.opcode))
       val IS_PUT = insert(List(PUT_FULL_DATA(), PUT_PARTIAL_DATA()).sContains(CTRL_CMD.opcode))
       val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === CtrlOpcode.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
       val WRITE_DATA = insert(List(PUT_PARTIAL_DATA(), PUT_FULL_DATA(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
-      val GS_NEED = insert(List(ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, GET, EVICT).map(_.craft()).sContains(CTRL_CMD.opcode))
+      val GS_NEED = insert(List(ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, GET).map(_.craft()).sContains(CTRL_CMD.opcode))
       val gsHits = gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address)
       val GS_HIT = insert(gsHits.orR)
       val GS_OH = insert(UIntToOh(CTRL_CMD.gsId))
@@ -750,6 +742,8 @@ class Directory(val p : DirectoryParam) extends Component {
 
     val process = new Area{
       import processStage._
+
+      val firstCycle = RegNext(!isStuck) init(True)
 
       val redoUpA = False
       assert(!(isValid && redoUpA && !preCtrl.FROM_A))
@@ -815,6 +809,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val gsWrite = preCtrl.WRITE_DATA || CTRL_CMD.withDataUpC
       val gsWay = CombInit(backendWayId)
       val gsPendingVictim = False
+      val gsPendingVictimRead = False
       val gsPendingPrimary = True
       val gsPendingUpc = CTRL_CMD.withDataUpC
 
@@ -830,7 +825,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toUpD.data.assignDontCare()
 
 
-      prober.cmd.valid := isValid && askProbe && !redoUpA
+      prober.cmd.valid := isValid && askProbe && !redoUpA && firstCycle
       prober.cmd.payload.assignSomeByName(CTRL_CMD)
       prober.cmd.mask.assignDontCare()
       prober.cmd.probeToN.assignDontCare()
@@ -841,7 +836,7 @@ class Directory(val p : DirectoryParam) extends Component {
 
       loopback.fifo.io.push.valid := isValid && redoUpA
       loopback.fifo.io.push.payload := CTRL_CMD
-      redoUpA setWhen(!CTRL_CMD.probed && preCtrl.FROM_A && !prober.cmd.ready)
+      redoUpA setWhen(!CTRL_CMD.probed && preCtrl.FROM_A && !prober.cmd.ready && firstCycle)
       assert(!(isValid && redoUpA && !loopback.fifo.io.push.ready))
 
       val doIt = isFireing && !isRemoved
@@ -882,6 +877,8 @@ class Directory(val p : DirectoryParam) extends Component {
         val add, remove, clean = False
         val next = (CACHE_LINE.owners.andMask(!clean) | inserter.SOURCE_OH.andMask(add)) & ~inserter.SOURCE_OH.andMask(remove)
         cache.tags.write.data.owners.removeAssignments() := next
+
+        clean setWhen(CTRL_CMD.probed && CTRL_CMD.probedUnique)
       }
 
 
@@ -891,6 +888,7 @@ class Directory(val p : DirectoryParam) extends Component {
           s.address := gsAddress
           s.way :=  gsWay
           s.pending.victim := gsPendingVictim
+          s.pending.victimRead := gsPendingVictimRead
           s.pending.primary := gsPendingPrimary
           s.pending.upC := gsPendingUpc
 
@@ -909,6 +907,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toReadBackend.upD.opcode.assignDontCare()
       toReadBackend.upD.param := 0
       toReadBackend.upD.source := CTRL_CMD.source
+      toReadBackend.toWriteBackend := False
 
       toWriteBackend.toDownA    := False
       toWriteBackend.fromUpA    := preCtrl.IS_PUT
@@ -958,10 +957,14 @@ class Directory(val p : DirectoryParam) extends Component {
       when(askAllocate && olderWay.tags.loaded){
         when(olderWay.tags.owners.orR) {
           askProbe := True
-          gsPendingVictim := True
-        } elsewhen (olderWay.tags.dirty) {
+        } otherwise {
+          toReadBackend.toWriteBackend := True
+        }
+
+        when(olderWay.tags.dirty || olderWay.tags.trunk) {
           askReadBackend := True
           gsPendingVictim := True
+          gsPendingVictimRead := True
         }
 
         toReadBackend.address   := olderWay.address
@@ -984,21 +987,6 @@ class Directory(val p : DirectoryParam) extends Component {
       }
 
       assert(!(isValid && CTRL_CMD.probed && askAllocate))
-
-      //EVICT which are clean are already fully handled by the prober.
-      when(preCtrl.IS_EVICT){
-        backendWayId := CTRL_CMD.evictWay
-        when(CTRL_CMD.withDataUpC){
-          askWriteBackend := True
-          toWriteBackend.toDownA := True
-          toWriteBackend.evict := True
-          toWriteBackend.size := log2Up(blockSize)
-        } otherwise {
-          askReadBackend := True
-          toReadBackend.address := CTRL_CMD.address
-          toReadBackend.size := log2Up(blockSize)
-        }
-      }
 
       when(preCtrl.FROM_C_RELEASE){
         //Update tags
@@ -1026,7 +1014,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val getPutNeedProbe = CACHE_HIT && ANY && !CTRL_CMD.probed && (!preCtrl.IS_GET || CACHE_LINE.trunk)
       when(preCtrl.GET_PUT){
         gsWrite := !preCtrl.IS_GET
-        owners.clean := True
+        owners.clean setWhen(preCtrl.IS_PUT)
         cache.tags.write.data.trunk := False
 
         //Ensure that the cache.others is cleared on PUT
@@ -1181,7 +1169,109 @@ class Directory(val p : DirectoryParam) extends Component {
     val size = ubp.size()
   }
 
-  //TODO add logic to ensure that a victim do not get refilled before being readed
+  val readBackend = new Pipeline {
+    val stages = newChained(3, Connection.M2S())
+    val inserterStage = stages(0)
+    val fetchStage = stages(0)
+    val readStage = stages(1)
+    val processStage = stages(2)
+
+    val CMD = Stageable(new ReadBackendCmd())
+
+
+    val inserter = new Area {
+
+      import inserterStage._
+
+      val cmd = ctrl.process.toReadBackend.pipelined(m2s = true, s2m = true)
+      val counter = Reg(io.up.p.beat()) init (0)
+      val LAST = insert(counter === sizeToBeatMinusOne(io.up.p, cmd.size))
+
+      cmd.ready := isReady && LAST
+      valid := cmd.valid
+      inserterStage(CMD) := cmd.payload
+      CMD.address.removeAssignments() := cmd.address | (counter << log2Up(p.dataBytes)).resized
+
+      when(isFireing) {
+        counter := counter + 1
+        when(LAST) {
+          counter := 0
+        }
+      }
+    }
+
+    val fetcher = new Area {
+
+      import fetchStage._
+
+      cache.data.readIntend := isValid
+      cache.data.read.valid := isFireing
+      cache.data.read.payload := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
+    }
+
+    val CACHED = readStage.insert(Vec(cache.data.banks.map(_.readed))) //May want KEEP attribute
+
+    val process = new Area {
+
+      import processStage._
+
+      val DATA = insert(CACHED(CMD.address(log2Up(p.dataBytes), log2Up(cacheBanks) bits)))
+
+      val toUpDFork = forkStream(CMD.toUpD)
+      val toUpD = toUpDFork swapPayload io.up.d.payloadType()
+      toUpD.opcode := CMD.upD.opcode
+      toUpD.param := CMD.upD.param
+      toUpD.source := CMD.upD.source
+      toUpD.sink := CMD.gsId
+      toUpD.size := CMD.size
+      toUpD.denied := False
+      toUpD.data := DATA
+      toUpD.corrupt := False
+
+
+      val toVictimFork = forkFlow(!CMD.toUpD)
+      victimBuffer.write.valid := toVictimFork.valid
+      victimBuffer.write.address := CMD.gsId @@ CMD.address(wordRange)
+      victimBuffer.write.data := DATA
+
+      val victimCounter = Reg(ubp.beat) init(0)
+      val victimBusy = victimCounter =/= 0
+      val victimGsId = CMD.gsId
+      when(victimBuffer.write.valid){
+        victimCounter := victimCounter + 1
+      }
+
+      val gsOh = UIntToOh(CMD.gsId)
+      when(isFireing && inserter.LAST) {
+        when(CMD.toUpD && Opcode.D.isFinal(CMD.upD.opcode)) {
+          gs.slots.onMask(gsOh)(_.pending.primary := False)
+        }
+      }
+      when(isFireing && CMD.toVictim && !victimBusy) {
+        gs.slots.onMask(gsOh) { s =>
+          s.pending.victimRead := False
+        }
+      }
+
+      val toWriteBackendFork = forkStream(CMD.toWriteBackend && CMD.address(wordRange) === 0)
+      val toWriteBackend = toWriteBackendFork.swapPayload(new WriteBackendCmd())
+      toWriteBackend.fromUpA    := False
+      toWriteBackend.fromUpC    := False
+      toWriteBackend.toDownA    := True
+      toWriteBackend.toUpD      := Directory.ToUpDOpcode.NONE
+      toWriteBackend.toT        := True
+      toWriteBackend.source     := 0
+      toWriteBackend.gsId       := CMD.gsId
+      toWriteBackend.partialUpA := False
+      toWriteBackend.address    := CMD.address
+      toWriteBackend.size       := log2Up(blockSize)
+      toWriteBackend.wayId      := 0
+      toWriteBackend.bufferAId  := 0
+      toWriteBackend.evict      := True
+      toWriteBackend.debugId    := 0
+    }
+  }
+
   val writeBackend = new Pipeline {
     val stages = newChained(3, Connection.M2S())
     val inserterStage = stages(0)
@@ -1196,7 +1286,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val push = Stream(PutMergeCmd())
       val fifo = StreamFifo(PutMergeCmd(), Math.min(generalSlotCount, aBufferCount))
       fifo.io.push << push
-      val buffered = fifo.io.pop.halfPipe()
+      val buffered = fifo.io.pop.combStage()
       val cmd = buffered.swapPayload(CMD())
       cmd.fromUpA := True
       cmd.toDownA := False
@@ -1219,16 +1309,16 @@ class Directory(val p : DirectoryParam) extends Component {
       import inserterStage._
 
 
-      val ctrlBuffered = ctrl.process.toWriteBackend.pipelined(halfRate = true)
-      val arbiter = StreamArbiterFactory().lowerFirst.transactionLock.buildOn(putMerges.cmd, ctrlBuffered)
-      def cmd = arbiter.io.output
+      val ctrlBuffered = ctrl.process.toWriteBackend
+      val arbiter = StreamArbiterFactory().lowerFirst.transactionLock.buildOn(ctrlBuffered, putMerges.cmd, readBackend.process.toWriteBackend.halfPipe(), prober.schedule.toWriteBackend)
+      val cmd = arbiter.io.output.pipelined(m2s = true, s2m = true)
 
       val counter = Reg(io.up.p.beat()) init (0)
       val upABeatsMinusOne = sizeToBeatMinusOne(io.up.p, cmd.size)
       val beatMax = CMD.fromUpC.mux(U(ubp.beatMax-1), upABeatsMinusOne)
       val LAST = insert(counter === beatMax)
       val addressWord = cmd.address(wordRange)
-      val IN_UP_A = insert(!CMD.fromUpC || CMD.fromUpA && counter >= addressWord && counter <= addressWord + upABeatsMinusOne)
+      val IN_UP_A = insert(!CMD.fromUpC || counter >= addressWord && counter <= addressWord + upABeatsMinusOne)
 
       cmd.ready := isReady && LAST
       valid := cmd.valid
@@ -1253,18 +1343,26 @@ class Directory(val p : DirectoryParam) extends Component {
       when(isFireing && inserter.LAST && CMD.fromUpA) {
         bufferA.clear(fetchStage(CMD).bufferAId) := True
       }
+
+      victimBuffer.read.cmd.valid := fetchStage.isFireing
+      victimBuffer.read.cmd.payload := fetchStage(CMD).gsId @@ fetchStage(CMD).address(wordRange)
+      val vh = readBackend.process
+      val victimHazard = CMD.evict && (gs.slots.map(_.pending.victimRead).read(CMD.gsId) || vh.victimBusy && vh.victimGsId === CMD.gsId && vh.victimCounter === fetchStage(CMD).address(wordRange))
+      haltWhen(victimHazard)
     }
 
     val BUFFER_A = readStage.insert(bufferA.read.rsp)
+    val VICTIM = readStage.insert(victimBuffer.read.rsp)
 
     val process = new Area {
       import processStage._
 
       val aSplit = BUFFER_A.data.subdivideIn(8 bits)
       val cSplit = upCSplit.dataPop.payload.subdivideIn(8 bits)
-      val acMerge = (0 until dataBytes).map(i => (inserter.IN_UP_A && BUFFER_A.mask(i)).mux(aSplit(i), cSplit(i)))
-      val UP_DATA = insert(acMerge.asBits)
-      val UP_MASK = insert(BUFFER_A.mask.orMask(CMD.fromUpC))
+      val selA = inserter.IN_UP_A && CMD.fromUpA
+      val acMerge = (0 until dataBytes).map(i => (selA && BUFFER_A.mask(i)).mux(aSplit(i), cSplit(i)))
+      val UP_DATA = insert((CMD.evict && !CMD.fromUpC).mux[Bits](VICTIM, acMerge.asBits))
+      val UP_MASK = insert(BUFFER_A.mask.orMask(CMD.fromUpC || CMD.evict))
       val hazardUpC = CMD.fromUpC && !upCSplit.dataPop.valid
       upCSplit.dataPop.ready := CMD.fromUpC && isFireing
 
@@ -1330,82 +1428,12 @@ class Directory(val p : DirectoryParam) extends Component {
     }
   }
 
-  val readBackend = new Pipeline {
-    val stages = newChained(3, Connection.M2S())
-    val inserterStage = stages(0)
-    val fetchStage = stages(0)
-    val readStage = stages(1)
-    val processStage = stages(2)
-
-    val CMD = Stageable(new ReadBackendCmd())
-
-
-    val inserter = new Area {
-
-      import inserterStage._
-
-      val cmd = ctrl.process.toReadBackend.pipelined(m2s = true, s2m = true)
-      val counter = Reg(io.up.p.beat()) init (0)
-      val LAST = insert(counter === sizeToBeatMinusOne(io.up.p, cmd.size))
-
-      cmd.ready := isReady && LAST
-      valid := cmd.valid
-      inserterStage(CMD) := cmd.payload
-      CMD.address.removeAssignments() := cmd.address | (counter << log2Up(p.dataBytes)).resized
-
-      when(isFireing) {
-        counter := counter + 1
-        when(LAST) {
-          counter := 0
-        }
-      }
-    }
-
-    val fetcher = new Area {
-      import fetchStage._
-
-      cache.data.read.valid := isFireing
-      cache.data.read.payload := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
-    }
-
-    val CACHED = readStage.insert(Vec(cache.data.banks.map(_.readed))) //May want KEEP attribute
-
-    val process = new Area {
-      import processStage._
-
-      val DATA = insert(CACHED(CMD.address(log2Up(p.dataBytes), log2Up(cacheBanks) bits)))
-
-      val toUpDFork = forkStream(CMD.toUpD)
-      val toUpD = toUpDFork swapPayload io.up.d.payloadType()
-      toUpD.opcode := CMD.upD.opcode
-      toUpD.param := CMD.upD.param
-      toUpD.source := CMD.upD.source
-      toUpD.sink := CMD.gsId
-      toUpD.size := CMD.size
-      toUpD.denied := False
-      toUpD.data := DATA
-      toUpD.corrupt := False
-
-
-      val toVictimFork = forkStream(!CMD.toUpD)
-      victimBuffer.push.stream.arbitrationFrom(toVictimFork)
-      victimBuffer.push.stream.address := CMD.address >> refillRange.low
-      victimBuffer.push.stream.gsId := CMD.gsId
-      victimBuffer.push.stream.data := DATA
-      victimBuffer.push.stream.last := inserter.LAST
-
-      when(isFireing && inserter.LAST && CMD.toUpD && Opcode.D.isFinal(CMD.upD.opcode)) {
-        gs.slots.onSel(CMD.gsId.resized)(_.pending.primary := False)
-      }
-    }
-  }
 
 
   val toDownA = new Area{
-    val arbiter = StreamArbiterFactory().lowerFirst.lambdaLock[ChannelA](_.isLast()).build(io.down.a.payloadType, 3)
+    val arbiter = StreamArbiterFactory().lowerFirst.lambdaLock[ChannelA](_.isLast()).build(io.down.a.payloadType, 2)
     arbiter.io.inputs(0) << readDown.toDownA
-    arbiter.io.inputs(1) << victimBuffer.pop.toDownA
-    arbiter.io.inputs(2) << writeBackend.process.toDownA
+    arbiter.io.inputs(1) << writeBackend.process.toDownA
     io.down.a << arbiter.io.output
   }
 
@@ -1460,7 +1488,9 @@ class Directory(val p : DirectoryParam) extends Component {
       toCache.address := CTX.wayId @@ CTX.setId @@ BEAT
       toCache.data := CMD.data
       toCache.mask.setAll()
-      toCache >> cache.data.downWrite
+
+      val victimHazard = gs.slots.map(_.pending.victimRead).read(CMD.source.resized) || cache.data.readIntend && cache.data.read.payload === toCache.address
+      toCache.haltWhen(victimHazard) >> cache.data.downWrite
 
       def putMerges = writeBackend.putMerges.push
       putMerges.valid      := False

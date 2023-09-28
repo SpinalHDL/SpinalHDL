@@ -910,6 +910,12 @@ object StreamDemux{
     select >> c.io.createSelector()
     c.io.outputs
   }
+
+  def two[T <: Data](input: Stream[T], select : UInt) : (Stream[T], Stream[T]) = {
+    val demux = apply(input, select, 2)
+    (demux(0).combStage(), demux(1).combStage())
+  }
+  def two[T <: Data](input: Stream[T], select : Bool) : (Stream[T], Stream[T]) = two(input, select.asUInt)
 }
 
 class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {

@@ -49,7 +49,7 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
     Array.fill[Boolean](bytes)(simRandom.nextBoolean())
   }
 
-  def startPerSource(perSourceBurst : Int) {
+  def startPerSource(perSourceBurst : Int, globalLock : Option[SimMutex] = None) {
     for (masterParam <- node.m.masters) {
       val locks = mutable.HashMap[Long, SimMutex]()
       var randomAddress = 0l
@@ -57,10 +57,12 @@ class MasterTester(m : MasterSpec , agent : MasterAgent){
         val l = locks.getOrElseUpdate(address, new SimMutex(randomized = true))
         if(simRandom.nextBoolean()) randomAddress = address
         l.lock()
+        globalLock.foreach(_.lock())
       }
       def unlock(address : Long) = {
         val l = locks(address)
         l.unlock()
+        globalLock.foreach(_.unlock())
         if(!l.locked) locks.remove(address)
       }
 

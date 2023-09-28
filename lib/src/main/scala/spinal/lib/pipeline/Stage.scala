@@ -45,7 +45,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     }
   }
 
-  def forkStream(cond : Bool = True) : Stream[NoData] = {
+  def forkStream(cond : Bool = True)(implicit loc: Location) : Stream[NoData] = {
     val ret = Stream(NoData())
     val fired = RegInit(False) setWhen(ret.fire) clearWhen(isChanging) setCompositeName(ret, "fired")
     ret.valid := isValid && !fired && cond
@@ -54,7 +54,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   }
 
 
-  def forkFlow(cond: Bool = True): Flow[NoData] = {
+  def forkFlow(cond: Bool = True)(implicit loc: Location): Flow[NoData] = {
     val ret = Flow(NoData())
     val fired = RegInit(False) setWhen (ret.fire) clearWhen (isChanging) setCompositeName(ret, "fired")
     ret.valid := isValid && !fired && cond
@@ -62,7 +62,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   }
 
 
-  def toStream(): Stream[NoData] = {
+  def toStream()(implicit loc: Location): Stream[NoData] = {
     val ret = Stream(NoData())
     ret.valid := isValid && !isRemoved
     haltIt(!ret.ready)
