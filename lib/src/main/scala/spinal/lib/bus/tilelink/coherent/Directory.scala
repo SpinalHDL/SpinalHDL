@@ -834,7 +834,6 @@ class Directory(val p : DirectoryParam) extends Component {
       prober.cmd.probed.removeAssignments() := True
       prober.cmd.gsId.removeAssignments()    := gsId
       prober.cmd.evictClean := False
-      //TODO probe hazard
 
       loopback.fifo.io.push.valid := isValid && redoUpA
       loopback.fifo.io.push.payload := CTRL_CMD
@@ -1283,8 +1282,15 @@ class Directory(val p : DirectoryParam) extends Component {
       toDownA.debugId := DebugId.withPostfix(toDownA.source)
 
       import Directory.ToUpDOpcode._
-      val toUpDData = List(ACCESS_ACK_DATA(), GRANT_DATA()).sContains(CMD.toUpD)
-      val needForkToUpD = CMD.toUpD =/= NONE && toUpDData.mux[Bool](inserter.IN_UP_A || !CMD.fromUpA, inserter.LAST)
+
+      val needForkToUpD = CMD.toUpD.muxDc[Bool](
+        NONE            -> False,
+        ACCESS_ACK      -> inserter.LAST,
+        RELEASE_ACK     -> inserter.LAST,
+        GRANT           -> inserter.LAST,
+        ACCESS_ACK_DATA -> inserter.IN_UP_A,
+        GRANT_DATA      -> True
+      )
       val toUpDFork = forkStream(needForkToUpD)
       val toUpD = toUpDFork.swapPayload(io.up.d.payloadType)
       toUpD.opcode  := CMD.toUpD.muxDc(
