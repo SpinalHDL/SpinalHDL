@@ -644,6 +644,7 @@ class Directory(val p : DirectoryParam) extends Component {
       merged.payload := ctx.ram.readAsync(probeId)
       when(fromUpC.valid) {
         probeId := fromUpC.hitId
+        merged.probed clearWhen(Opcode.C.isRelease(fromUpC.opcode))
         merged.withDataUpC setWhen(Opcode.C.withData(fromUpC.opcode))
         when(Opcode.C.isRelease(fromUpC.opcode)){
           merged.address := fromUpC.address
@@ -1434,9 +1435,6 @@ class Directory(val p : DirectoryParam) extends Component {
       val isVictim = CMD.source.msb
       val withData = CMD.opcode === Opcode.D.ACCESS_ACK_DATA
 
-      when(isFireing && isVictim){
-        gs.slots.onSel(CMD.source.resized)(_.pending.victim := False)
-      }
 
       //TODO handle refill while partial get to upD
       val toUpDHead = !withData || !CTX.toCache || (BEAT >= CTX.wordOffset && BEAT <= CTX.wordOffset + sizeToBeatMinusOne(io.down.p, CTX.size))
@@ -1471,9 +1469,12 @@ class Directory(val p : DirectoryParam) extends Component {
       putMerges.source     := CTX.sourceId
 
       assert(!writeBackend.putMerges.push.isStall)
-      when(!isVictim && isFireing && LAST){
-        when(!CMD.source.msb){
-          when(CTX.mergeBufferA){
+
+      when(isFireing && LAST) {
+        when(isVictim) {
+          gs.slots.onSel(CMD.source.resized)(_.pending.victim := False)
+        } otherwise {
+          when(CTX.mergeBufferA) {
             writeBackend.putMerges.push.valid := True
           }.elsewhen(!CTX.acquire) {
             gs.slots.onSel(CMD.source.resized)(_.pending.primary := False)
