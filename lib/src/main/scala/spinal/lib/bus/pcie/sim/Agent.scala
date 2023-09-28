@@ -54,7 +54,7 @@ abstract class PcieCompleterMasterAgent(cmd: Stream[Fragment[Tlp]], rsp: Stream[
     assert(Util.notCrossAlignment(cr.dwAddr, cr.dwCount, 1<<dwAlign))
     if(!mappingAllocate(SizeMapping(cr.dwAddr << 2, cr.dwCount << 2))) return false
 
-    val tag = availTag.getOrElse(SpinalError("no enough tag"))
+    val tag = availTag.getOrElse(throw new java.lang.AssertionError("error"))
     val hdr =MemCmdHeader.createReadSimple(cr.dwAddr, cr.dwCount, cr.firstBe, cr.lastBe, tag)
     
     cmdQueue.enqueue{() => 

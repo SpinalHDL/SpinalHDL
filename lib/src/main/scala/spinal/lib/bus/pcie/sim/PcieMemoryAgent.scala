@@ -39,16 +39,22 @@ class PcieMemoryAgent(readCmd: Stream[Fragment[Tlp]], writeCmd: Stream[Fragment[
 
   val rspQueue =  Array.fill(tagCount)(mutable.Queue[() => Unit]())
 
+  val thread = mutable.Queue[()=>Unit]()
   if(withDriver) {
     val driver = StreamDriver(rsp, clockDomain){ _ =>
-      val threads = rspQueue.filter(_.nonEmpty)
-      if(threads.nonEmpty) {
-        val id = Random.nextInt(threads.size)
-        threads(id).dequeue().apply()
-        assert(threads(id).isEmpty)
-        true
+      if(thread.isEmpty) {
+        val threads = rspQueue.filter(_.nonEmpty)
+        if(threads.nonEmpty) {
+          val id = Random.nextInt(threads.size)
+          threads(id).dequeueAll(_=>true).foreach(thread.enqueue(_))
+          thread.dequeue().apply()
+          true
+        } else {
+          false
+        }
       } else {
-        false
+        thread.dequeue().apply()
+        true
       }
     }
     if(!withStall) driver.transactionDelay = () => 0
@@ -68,23 +74,23 @@ class PcieMemoryAgent(readCmd: Stream[Fragment[Tlp]], writeCmd: Stream[Fragment[
   def calcLowerAddr(dwAddr: BigInt, firstBe: Int): Int = {
     val addrMasked = ((dwAddr & ((1<<5)-1)) << 2).toInt
     assert(firstBe <= 16)
-    if((firstBe & 1)==0|| firstBe == 0) {
+    if((firstBe & 1)==1|| firstBe == 0) {
+      addrMasked
+    } else if((firstBe & 2) == 2) {
       addrMasked + 1
-    } else if((firstBe & 2) == 0) {
+    } else if((firstBe & 4) == 4) {
       addrMasked + 2
-    } else if((firstBe & 4) == 0) {
-      addrMasked + 4
-    } else if((firstBe & 8) == 0) {
-      addrMasked + 8
+    } else if((firstBe & 8) == 8) {
+      addrMasked + 3
     } else {
-      SpinalError("????")
+      throw new java.lang.AssertionError("error")
     }
   }
 
   StreamMonitor(readCmd, clockDomain) { payload =>
 
     delayed(0) {
-      assert(payload.last, "read req tlp is only 1 beat")
+      assert(payload.last.toBoolean, "read req tlp is only 1 beat")
       val cmdHdr = MemCmdHeader.parse(payload.hdr.toBigInt)
       assert(cmdHdr.fmt==1 && cmdHdr.typ==0, "format error")
 
@@ -113,19 +119,21 @@ class PcieMemoryAgent(readCmd: Stream[Fragment[Tlp]], writeCmd: Stream[Fragment[
           }
         }
         allData.appendAll(data)
-        val rspHdr = CplHeader.createCplDSimple(0, cmdHdr.reqId, cmdHdr.tag, calcLowerAddr(cmdHdr.addr, cmdHdr.firstBe), cmdHdr.length, calcByteCount(realDwCount, cmdHdr.firstBe, cmdHdr.lastBe))
+        val lowerAddr = calcLowerAddr(cmdHdr.addr, cmdHdr.firstBe)
+        val byteCount = calcByteCount(realDwCount, cmdHdr.firstBe, cmdHdr.lastBe)
+        val rspHdr = CplHeader.createCplDSimple(0, cmdHdr.reqId, cmdHdr.tag, lowerAddr, cmdHdr.length, byteCount)
         
         rspQueue(cmdHdr.tag).enqueue{()=>
           rsp.last #= (curDws == trans.last)
           rsp.data #= data.toArray
-          rsp.payload.fragment.hdr #= rspHdr.buildBits()
-          rsp.config.useStrb generate rsp.strb #= curDws.map(x => 1 << (x%4)).reduce(_|_)
-          rsp.config.withBarFunc generate {
+          rsp.hdr #= rspHdr.buildBits()
+          if(rsp.config.useStrb) rsp.strb #= curDws.map(x => 1 << (x%4)).reduce(_|_)
+          if(rsp.config.withBarFunc) {
             rsp.bar_id #= 0
             rsp.func_num #= 0
           }
-          rsp.config.useError generate rsp.error #= 0
-          rsp.config.useSeq generate rsp.seq #= 0
+          if(rsp.config.useError) rsp.error #= 0
+          if(rsp.config.useSeq) rsp.seq #= 0
         }
       }
       println(s"[INFO]: receive read request: ${cmdHdr}, data: ${allData.map(_.toInt)}")
