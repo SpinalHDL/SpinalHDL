@@ -323,7 +323,7 @@ object SpiXdrMasterCtrl {
 
   case class Config(p: Parameters) extends Bundle {
     val kind = SpiKind()
-    val sclkToogle = UInt(p.timerWidth bits)
+    val sclkToggle = UInt(p.timerWidth bits)
     val mod = in(p.ModType())
 
     val ss = ifGen(p.ssGen) (new Bundle {
@@ -357,7 +357,7 @@ object SpiXdrMasterCtrl {
                                      cpolInit : Boolean = false,
                                      cphaInit : Boolean = false,
                                      modInit : Int = 0,
-                                     sclkToogleInit : Int = 0,
+                                     sclkToggleInit : Int = 0,
                                      ssSetupInit : Int = 0,
                                      ssHoldInit : Int = 0,
                                      ssDisableInit : Int = 0,
@@ -492,7 +492,7 @@ object SpiXdrMasterCtrl {
     //Configs
     bus.drive(config.kind, baseAddress + 8, bitOffset = 0)
     bus.drive(config.mod, baseAddress + 8, bitOffset = 4)
-    bus.drive(config.sclkToogle, baseAddress + 0x20)
+    bus.drive(config.sclkToggle, baseAddress + 0x20)
     if(p.ssGen) {
       bus.drive(config.ss.setup, baseAddress + 0x24)
       bus.drive(config.ss.hold, baseAddress + 0x28)
@@ -504,7 +504,7 @@ object SpiXdrMasterCtrl {
       config.kind.cpol init(cpolInit)
       config.kind.cpha init(cphaInit)
       config.mod init(modInit)
-      config.sclkToogle init(sclkToogleInit)
+      config.sclkToggle init(sclkToggleInit)
       config.ss.setup init(ssSetupInit)
       config.ss.hold init(ssHoldInit)
       config.ss.disable init(ssDisableInit)
@@ -708,7 +708,7 @@ object SpiXdrMasterCtrl {
         val holdHit     = counter === io.config.ss.hold
         val disableHit  = counter === io.config.ss.disable
       })
-      val sclkToogleHit = counter === io.config.sclkToogle
+      val sclkToggleHit = counter === io.config.sclkToggle
 
       counter := (counter + 1).resized
       when(reset){
@@ -737,16 +737,16 @@ object SpiXdrMasterCtrl {
       io.cmd.ready := False
       when(io.cmd.valid) {
         when(io.cmd.isData) {
-          timer.reset := timer.sclkToogleHit
+          timer.reset := timer.sclkToggleHit
 
-          when(timer.sclkToogleHit && ((!state ^ lateSampling) || isDdr) || fastRate){
+          when(timer.sclkToggleHit && ((!state ^ lateSampling) || isDdr) || fastRate){
             readFill := True
             readDone := io.cmd.read && counter === counterMax
           }
-          when(timer.sclkToogleHit){
+          when(timer.sclkToggleHit){
             state := !state
           }
-          when((timer.sclkToogleHit && (state || isDdr)) || fastRate) {
+          when((timer.sclkToggleHit && (state || isDdr)) || fastRate) {
             counter := counterPlus
             when(counter === counterMax){
               io.cmd.ready := True
