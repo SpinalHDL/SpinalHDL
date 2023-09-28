@@ -176,17 +176,25 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
         inflightB.remove(key)
       }
     }
-    if(checkMapping) {
+  }
+
+
+  override def onBeatC(c: TransactionC) = {
+    //The reason why the need to update the endpoint models on each beat instead than on the whole transaction
+    //is because some coherent agent may loop back C to D, and in the case that loopback only need the few first beat
+    //D will finish before C
+    if (checkMapping) {
+      import Opcode.C._
+      val (endpoint, chunk) = getMapping(c.address, c.opcode)
       val localAddress = chunk.globalToLocal(c.address).toLong
       endpoint.model match {
-        case mem : SparseMemory => c.opcode match {
+        case mem: SparseMemory => c.opcode match {
           case PROBE_ACK_DATA | RELEASE_DATA => mem.write(localAddress, c.data)
           case PROBE_ACK | RELEASE =>
         }
       }
     }
   }
-
 
   override def onD(d: TransactionD) = {
     d.opcode match{

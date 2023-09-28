@@ -263,6 +263,8 @@ class Directory(val p : DirectoryParam) extends Component {
         writeRaw.address := address
         writeRaw.mask := mask
         writeRaw.data.foreach(_:= data)
+
+        assert(!(valid && data.trunk && data.owners === 0))
       }
     }
     val data = withData generate new Area{
@@ -1021,9 +1023,10 @@ class Directory(val p : DirectoryParam) extends Component {
       when(preCtrl.GET_PUT){
         gsWrite := !preCtrl.IS_GET
         owners.clean := True
+        cache.tags.write.data.trunk := False
 
         //Ensure that the cache.others is cleared on PUT
-        when(CACHE_HIT && !preCtrl.IS_GET){
+        when(CACHE_HIT){
           cache.tags.write.valid := True
         }
 
@@ -1220,13 +1223,13 @@ class Directory(val p : DirectoryParam) extends Component {
       val upABeatsMinusOne = sizeToBeatMinusOne(io.up.p, cmd.size)
       val beatMax = CMD.fromUpC.mux(U(ubp.beatMax-1), upABeatsMinusOne)
       val LAST = insert(counter === beatMax)
-      val addressWord = cmd.address(refillRange.low-1 downto 0)
+      val addressWord = cmd.address(wordRange)
       val IN_UP_A = insert(!CMD.fromUpC || CMD.fromUpA && counter >= addressWord && counter <= addressWord + upABeatsMinusOne)
 
       cmd.ready := isReady && LAST
       valid := cmd.valid
       inserterStage(CMD) := cmd.payload
-      val addressBase = cmd.address(refillRange) @@ addressWord.andMask(!CMD.fromUpC)
+      val addressBase = cmd.address(refillRange) @@ cmd.address(refillRange.low-1 downto 0).andMask(!CMD.fromUpC)
       CMD.address.removeAssignments() := addressBase | (counter << log2Up(p.dataBytes)).resized
 
       when(isFireing) {
@@ -1308,7 +1311,7 @@ class Directory(val p : DirectoryParam) extends Component {
         }
       }
 
-      val askOrdering = inserter.LAST && List(ACCESS_ACK, ACCESS_ACK_DATA, GRANT, GRANT_DATA).map(_()).sContains(CMD.toUpD)
+      val askOrdering = toUpD.isLast() && List(ACCESS_ACK, ACCESS_ACK_DATA, GRANT, GRANT_DATA).map(_()).sContains(CMD.toUpD)
       val toOrdering = forkFlow(askOrdering).swapPayload(io.ordering.writeBackend.payloadType)
       toOrdering.debugId := CMD.debugId
       toOrdering.bytes := (U(1) << CMD.size).resized
