@@ -333,6 +333,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val gsId = GS_ID() //Only valid when probed
     val debugId = DebugId()
     val withDataUpC = Bool()
+    val evictWay = UInt(log2Up(cacheWays) bits)
 
     def toTrunk = args(0)
     def toNone = args(0)
@@ -467,6 +468,7 @@ class Directory(val p : DirectoryParam) extends Component {
     toCtrl.gsId.assignDontCare()
     toCtrl.debugId := pusher.down.debugId
     toCtrl.withDataUpC := False
+    toCtrl.evictWay.assignDontCare()
   }
 
 
@@ -835,6 +837,7 @@ class Directory(val p : DirectoryParam) extends Component {
       prober.cmd.probed.removeAssignments() := True
       prober.cmd.gsId.removeAssignments()    := gsId
       prober.cmd.evictClean := False
+      prober.cmd.evictWay.removeAssignments() := backendWayId
 
       loopback.fifo.io.push.valid := isValid && redoUpA
       loopback.fifo.io.push.payload := CTRL_CMD
@@ -984,6 +987,7 @@ class Directory(val p : DirectoryParam) extends Component {
 
       //EVICT which are clean are already fully handled by the prober.
       when(preCtrl.IS_EVICT){
+        backendWayId := CTRL_CMD.evictWay
         when(CTRL_CMD.withDataUpC){
           askWriteBackend := True
           toWriteBackend.toDownA := True
