@@ -887,10 +887,11 @@ class Directory(val p : DirectoryParam) extends Component {
         gs.slots.onMask(gsOh) { s =>
           s.address := gsAddress
           s.way :=  gsWay
-          s.pending.victim := gsPendingVictim
-          s.pending.victimRead := gsPendingVictimRead
-          s.pending.primary := gsPendingPrimary
-
+          when(firstCycle) {
+            s.pending.victim := gsPendingVictim
+            s.pending.victimRead := gsPendingVictimRead
+            s.pending.primary := gsPendingPrimary
+          }
           when(isReady) {
             s.valid := True
           }
@@ -1233,7 +1234,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toUpD.corrupt := False
 
 
-      val toVictimFork = forkFlow(!CMD.toUpD)
+      val toVictimFork = forkFlow(CMD.toVictim)
       victimBuffer.write.valid := toVictimFork.valid
       victimBuffer.write.address := CMD.gsId @@ CMD.address(wordRange)
       victimBuffer.write.data := DATA
@@ -1241,9 +1242,6 @@ class Directory(val p : DirectoryParam) extends Component {
       val victimCounter = Reg(ubp.beat) init(0)
       val victimBusy = victimCounter =/= 0
       val victimGsId = CMD.gsId
-      when(victimBuffer.write.valid){
-        victimCounter := victimCounter + 1
-      }
 
       val gsOh = UIntToOh(CMD.gsId)
       when(isFireing && inserter.LAST) {
@@ -1251,9 +1249,12 @@ class Directory(val p : DirectoryParam) extends Component {
           gs.slots.onMask(gsOh)(_.pending.primary := False)
         }
       }
-      when(isFireing && CMD.toVictim && !victimBusy) {
-        gs.slots.onMask(gsOh) { s =>
-          s.pending.victimRead := False
+      when(isFireing && CMD.toVictim) {
+        victimCounter := victimCounter + 1
+        when(!victimBusy) {
+          gs.slots.onMask(gsOh) { s =>
+            s.pending.victimRead := False
+          }
         }
       }
 
@@ -1470,10 +1471,19 @@ class Directory(val p : DirectoryParam) extends Component {
       val isVictim = CMD.source.msb
       val withData = CMD.opcode === Opcode.D.ACCESS_ACK_DATA
 
+      val toCache = forkStream(!isVictim && CTX.toCache).swapPayload(cache.data.downWrite.payloadType)
+      toCache.address := CTX.wayId @@ CTX.setId @@ BEAT
+      toCache.data := CMD.data
+      toCache.mask.setAll()
+
+      val victimHazard = gs.slots.map(_.pending.victimRead).read(CMD.source.resized) || cache.data.readIntend && cache.data.read.payload === toCache.address
+      toCache.haltWhen(victimHazard) >> cache.data.downWrite
+
 
       //TODO handle refill while partial get to upD
       val toUpDHead = !withData || !CTX.toCache || (BEAT >= CTX.wordOffset && BEAT <= CTX.wordOffset + sizeToBeatMinusOne(io.down.p, CTX.size))
-      val toUpD = forkStream(!isVictim && CTX.toUpD && toUpDHead).swapPayload(io.up.d.payloadType)
+      val toUpDFork = forkStream(!isVictim && CTX.toUpD && toUpDHead)
+      val toUpD = toUpDFork.haltWhen(toCache.valid && victimHazard).swapPayload(io.up.d.payloadType)
 
       toUpD.opcode  := CTX.acquire.mux(
         withData.mux(Opcode.D.GRANT_DATA, Opcode.D.GRANT),
@@ -1490,13 +1500,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toUpD.data    := CMD.data
       toUpD.corrupt := CMD.corrupt
 
-      val toCache = forkStream(!isVictim && CTX.toCache).swapPayload(cache.data.downWrite.payloadType)
-      toCache.address := CTX.wayId @@ CTX.setId @@ BEAT
-      toCache.data := CMD.data
-      toCache.mask.setAll()
 
-      val victimHazard = gs.slots.map(_.pending.victimRead).read(CMD.source.resized) || cache.data.readIntend && cache.data.read.payload === toCache.address
-      toCache.haltWhen(victimHazard) >> cache.data.downWrite
 
       def putMerges = writeBackend.putMerges.push
       putMerges.valid      := False
@@ -1631,4 +1635,5 @@ object DirectoryGen extends App{
 /*
 tricky cases :
 - release while a probe is going on
+
  */

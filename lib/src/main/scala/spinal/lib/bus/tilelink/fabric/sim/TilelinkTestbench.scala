@@ -51,7 +51,7 @@ class TilelinkTester(cGen: => Component, simConfig : SpinalSimConfig = SimConfig
         cds.head.onSamplings {
           timeout += 1
           if (timeout == 10000) {
-            SimError("Timeout")
+              SimError("Timeout")
           }
         }
         tb.mastersStuff.foreach(_.monitor.add(new MonitorSubscriber {
