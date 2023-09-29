@@ -96,19 +96,19 @@ class SpinalSimSpiXdrMaster extends SpinalAnyFunSuite {
             val mod = dut.p.mods.apply(Random.nextInt(dut.p.mods.length))
             val writeData, readData = Random.nextInt(1 << mod.dataWidth)
             val write, read = Random.nextBoolean()
-            val sclkToogle = Random.nextInt(1 << 2)
+            val sclkToggle = Random.nextInt(1 << 2)
 
             dut.io.cmd.kind #= false
             dut.io.cmd.data #= writeData
             dut.io.cmd.write #= write
             dut.io.cmd.read #= read
             dut.io.config.mod #= mod.id
-            dut.io.config.sclkToogle #= sclkToogle
+            dut.io.config.sclkToggle #= sclkToggle
 
             if (read) rspScoreboard.pushRef(readData)
             val spiThread = fork {
               for (beat <- 0 until mod.dataWidth / mod.bitrate) {
-                for (counter <- 0 until (if (mod.clkRate == 1) (sclkToogle + 1) * (if (mod.slowDdr) 1 else 2) else 1)) {
+                for (counter <- 0 until (if (mod.clkRate == 1) (sclkToggle + 1) * (if (mod.slowDdr) 1 else 2) else 1)) {
                   dut.clockDomain.waitSampling()
                   if (mod.clkRate != 1) {
                     assert(dut.io.spi.sclk.write.toInt == ((0 until dut.p.spi.ioRate).filter(i => i / (dut.p.spi.ioRate / mod.clkRate) % 2 == 1).map(1 << _).reduce(_ | _) ^ (if (cpol ^ cpha) (1 << dut.p.spi.ioRate) - 1 else 0)))
@@ -116,7 +116,7 @@ class SpinalSimSpiXdrMaster extends SpinalAnyFunSuite {
                     if (mod.slowDdr)
                       assert(dut.io.spi.sclk.write.toInt == (if (cpol ^ cpha ^ (beat % 2 == 1)) (1 << dut.p.spi.ioRate) - 1 else 0))
                     else
-                      assert(dut.io.spi.sclk.write.toInt == (if (cpol ^ cpha ^ (counter > sclkToogle)) (1 << dut.p.spi.ioRate) - 1 else 0))
+                      assert(dut.io.spi.sclk.write.toInt == (if (cpol ^ cpha ^ (counter > sclkToggle)) (1 << dut.p.spi.ioRate) - 1 else 0))
                   }
                   val beatBuffer = beat
                   fork {
