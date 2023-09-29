@@ -62,8 +62,8 @@ class PcieMemoryAgent(readCmd: Stream[Fragment[Tlp]], writeCmd: Stream[Fragment[
 
 
   def calcByteCount(realDwCount: Int, firstBe: Int, lastBe: Int): Int = {
-    val firstBeSum = Util.countOne(firstBe)
-    val lastBeSum = Util.countOne(lastBe)
+    val firstBeSum = BigInt(firstBe).bitCount
+    val lastBeSum = BigInt(lastBe).bitCount
     if(realDwCount == 1) {
       firstBeSum
     } else {
@@ -168,7 +168,7 @@ class PcieMemoryAgent(readCmd: Stream[Fragment[Tlp]], writeCmd: Stream[Fragment[
       if(payload.last.toBoolean) {
         val dataFinal = data.toArray
         assert(cmdHdr.length !=1 && cmdHdr.length != 2) // do not support
-        val bytesExpected = cmdHdr.length*4-8+Util.countOne(cmdHdr.firstBe)+Util.countOne(cmdHdr.lastBe)
+        val bytesExpected = cmdHdr.length*4-8+BigInt(cmdHdr.firstBe).bitCount+BigInt(cmdHdr.lastBe).bitCount
         assert(dataFinal.size == bytesExpected, s"${dataFinal.size}, ${bytesExpected}")
         println(s"[INFO]: receive write request: ${cmdHdr}, data: ${dataFinal.map(_.toInt)}")
         for((byte, id) <- dataFinal.zipWithIndex) {

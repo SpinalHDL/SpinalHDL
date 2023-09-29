@@ -20,23 +20,5 @@ object Util {
     return ((bi >> range.start) & ((1 << len)-1))
   }
   
-  def notCrossAlignment(addr: BigInt, len: BigInt, align: BigInt): Boolean = {
-    (addr/align) == ((addr+len-1)/align)
-  }
-
-
-  def countOne(bi: BigInt) = {
-    assert(bi >= 0)
-    var count = 0
-    var bits = bi
-    while(bits != 0) {
-      if((bits & 1) == 1) {
-        count = count + 1
-      }
-      bits = bits >> 1
-    }
-    count
-  }
-
 }
 

@@ -49,9 +49,12 @@ abstract class PcieCompleterMasterAgent(cmd: Stream[Fragment[Tlp]], rsp: Stream[
   def onCmdWrite(address : BigInt, data : Byte) : Unit = {}
 
   case class CompleterRequest(dwAddr: BigInt, dwCount: Int, firstBe: Int, lastBe: Int)
+  def notCrossAlignment(addr: BigInt, len: BigInt, align: BigInt): Boolean = {
+    (addr/align) == ((addr+len-1)/align)
+  }
 
   def applyRead(cr: CompleterRequest): Boolean = {
-    assert(Util.notCrossAlignment(cr.dwAddr, cr.dwCount, 1<<dwAlign))
+    assert(notCrossAlignment(cr.dwAddr, cr.dwCount, 1<<dwAlign))
     if(!mappingAllocate(SizeMapping(cr.dwAddr << 2, cr.dwCount << 2))) return false
 
     val tag = availTag.getOrElse(throw new java.lang.AssertionError("error"))
@@ -90,7 +93,7 @@ abstract class PcieCompleterMasterAgent(cmd: Stream[Fragment[Tlp]], rsp: Stream[
   }
 
   def applyWrite(cr: CompleterRequest): Boolean = {
-    assert(Util.notCrossAlignment(cr.dwAddr, cr.dwCount, 1<<dwAlign))
+    assert(notCrossAlignment(cr.dwAddr, cr.dwCount, 1<<dwAlign))
     if(!mappingAllocate(SizeMapping(cr.dwAddr << 2, cr.dwCount << 2))) return false
 
     val hdr = MemCmdHeader.createWriteSimple(cr.dwAddr, cr.dwCount, cr.firstBe, cr.lastBe)
