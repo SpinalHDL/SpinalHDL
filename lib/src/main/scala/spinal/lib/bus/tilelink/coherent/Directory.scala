@@ -633,24 +633,8 @@ class Directory(val p : DirectoryParam) extends Component {
       }
 
       val isEvict = merged.opcode === CtrlOpcode.EVICT
-      val (toCtrl, toEvict) = StreamDemux.two(merged, isEvict)
-
-      val isEvictClean = !fromUpC.valid && (hitOh & slots.map(_.evictClean).asBits).orR
-      val toWriteBackend = toEvict.throwWhen(isEvictClean).swapPayload(new WriteBackendCmd())
-      toWriteBackend.fromUpA := False
-      toWriteBackend.fromUpC := merged.withDataUpC
-      toWriteBackend.toDownA := True
-      toWriteBackend.toUpD := Directory.ToUpDOpcode.NONE
-      toWriteBackend.toT := True
-      toWriteBackend.source := 0
-      toWriteBackend.gsId := toEvict.gsId
-      toWriteBackend.partialUpA := False
-      toWriteBackend.address := toEvict.address
-      toWriteBackend.size := log2Up(blockSize)
-      toWriteBackend.wayId := 0
-      toWriteBackend.bufferAId := 0
-      toWriteBackend.evict := True
-      toWriteBackend.debugId := 0
+      val isEvictClean = isEvict && !fromUpC.valid && (hitOh & slots.map(_.evictClean).asBits).orR
+      val toCtrl = merged.throwWhen(isEvictClean)
 
       when(merged.valid && isEvictClean){
         gs.slots.onSel(merged.gsId){s =>
@@ -726,6 +710,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val GET_PUT = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA()).sContains(CTRL_CMD.opcode))
       val ACQUIRE = insert(List(ACQUIRE_PERM(), ACQUIRE_BLOCK()).sContains(CTRL_CMD.opcode))
       val IS_RELEASE = insert(List(RELEASE(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
+      val IS_EVICT = insert(List(EVICT()).sContains(CTRL_CMD.opcode))
       val IS_GET = insert(List(GET()).sContains(CTRL_CMD.opcode))
       val IS_PUT = insert(List(PUT_FULL_DATA(), PUT_PARTIAL_DATA()).sContains(CTRL_CMD.opcode))
       val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === CtrlOpcode.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
@@ -980,7 +965,6 @@ class Directory(val p : DirectoryParam) extends Component {
         prober.cmd.probeToN := True
         prober.cmd.evictClean := !olderWay.tags.dirty
 
-
         when(!olderWay.unlocked){
           //Assume it come from A (inclusive)
           assert(!isValid || preCtrl.FROM_A)
@@ -989,6 +973,14 @@ class Directory(val p : DirectoryParam) extends Component {
       }
 
       assert(!(isValid && CTRL_CMD.probed && askAllocate))
+
+
+      when(preCtrl.IS_EVICT){
+        askWriteBackend := True
+        toWriteBackend.evict := True
+        toWriteBackend.toDownA := True
+        toWriteBackend.size := log2Up(blockSize)
+      }
 
       //May not CACHE_HIT
       when(preCtrl.FROM_C_RELEASE){
@@ -1313,9 +1305,8 @@ class Directory(val p : DirectoryParam) extends Component {
     val inserter = new Area {
       import inserterStage._
 
-
       val ctrlBuffered = ctrl.process.toWriteBackend
-      val arbiter = StreamArbiterFactory().lowerFirst.transactionLock.buildOn(ctrlBuffered, putMerges.cmd, readBackend.process.toWriteBackend.halfPipe(), prober.schedule.toWriteBackend)
+      val arbiter = StreamArbiterFactory().lowerFirst.transactionLock.buildOn(ctrlBuffered, putMerges.cmd, readBackend.process.toWriteBackend.halfPipe())
       val cmd = arbiter.io.output.pipelined(m2s = true, s2m = true)
 
       val counter = Reg(io.up.p.beat()) init (0)
@@ -1636,4 +1627,6 @@ object DirectoryGen extends App{
 tricky cases :
 - release while a probe is going on
 
+maybe add little bufer on readBackend.toWriteBackend
+need to prevent writebackend to write a cache line which has victimRead going on
  */
