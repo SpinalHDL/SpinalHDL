@@ -351,14 +351,19 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
   }
   def release(source : Int, toCap : Int, block : Block) : Unit = {
     block.retain()
-    releaseIds(source).lock()
 
     assert(!block.dirty)
     assert(block.cap < toCap)
 
+    val blockCap = block.cap
+    this.block.releaseCap(block, toCap)
+    assert(block.cap == toCap)
+
+    releaseIds(source).lock()
+
     val c = new TransactionC()
     c.opcode  = Opcode.C.RELEASE
-    c.param   = Param.Prune.fromTo(block.cap, toCap)
+    c.param   = Param.Prune.fromTo(blockCap, toCap)
     c.size    = log2Up(blockSize)
     c.source  = source
     c.address = block.address
@@ -367,23 +372,28 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
     val d = waitCtoD(source)
     assert(d.opcode == Opcode.D.RELEASE_ACK)
 
-    this.block.releaseCap(block, toCap)
-    assert(block.cap == toCap)
-
     releaseIds(source).unlock()
     block.release()
+    this.block.updateBlock(block)
   }
 
   def releaseData(source : Int, toCap : Int, block : Block) : Unit = {
+    block.retain()
+
     assert(block.dirty)
     assert(block.cap < toCap)
+
     block.dirty = false
-    block.retain()
+
+    val blockCap = block.cap
+    this.block.releaseCap(block, toCap)
+    assert(block.cap == toCap)
+
     releaseIds(source).lock()
 
     val c = new TransactionC()
     c.opcode  = Opcode.C.RELEASE_DATA
-    c.param   = Param.Prune.fromTo(block.cap, toCap)
+    c.param   = Param.Prune.fromTo(blockCap, toCap)
     c.size    = log2Up(blockSize)
     c.source  = source
     c.address = block.address
@@ -393,11 +403,9 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
     val d = waitCtoD(source)
     assert(d.opcode == Opcode.D.RELEASE_ACK)
 
-    this.block.releaseCap(block, toCap)
-    assert(block.cap == toCap)
-
     releaseIds(source).unlock()
     block.release()
+    this.block.updateBlock(block)
   }
 }
 

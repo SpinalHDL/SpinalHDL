@@ -957,6 +957,7 @@ class Directory(val p : DirectoryParam) extends Component {
       when(askAllocate && olderWay.tags.loaded){
         when(olderWay.tags.owners.orR) {
           askProbe := True
+          gsPendingVictim := True
         } otherwise {
           toReadBackend.toWriteBackend := True
         }

@@ -78,8 +78,9 @@ class DirectoryTester extends AnyFunSuite{
 
     tester.doSim("manual") { tb =>
       val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
-      testers.foreach(_.agent.block.allowReleaseOnProbe = true)
-      val globalLock = Some(SimMutex()) //TODO for test only
+      testers.foreach(_.agent.block.allowReleaseOnProbe = false) //TODO turn true
+//      val globalLock = Some(SimMutex()) //TODO for test only
+      val globalLock = Option.empty[SimMutex]
       testers.foreach(_.startPerSource(100000, globalLock))
       testers.foreach(_.join())
       tb.waitCheckers()
