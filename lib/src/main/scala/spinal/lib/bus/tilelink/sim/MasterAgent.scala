@@ -46,17 +46,32 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
 
   val driver = new MasterDriver(bus, cd)
   val monitor = new Monitor(bus, cd).add(this)
-  val callbackOnD = Array.fill[TransactionD => Unit](1 << bus.p.sourceWidth)(null)
+  val callbackOnAtoD, callbackOnCtoD = Array.fill[TransactionD => Unit](1 << bus.p.sourceWidth)(null)
 
-  def waitD(source : Int) : TransactionD = {
+
+  val releaseIds = Array.fill(1 << bus.p.sourceWidth) (SimMutex())
+
+  def waitAtoD(source : Int) : TransactionD = {
     var value : TransactionD = null
     val lock = SimMutex().lock()
-    callbackOnD(source) = { d =>
+    callbackOnAtoD(source) = { d =>
       value = d
       lock.unlock()
     }
     lock.await()
-    callbackOnD(source) = null
+    callbackOnAtoD(source) = null
+    value
+  }
+
+  def waitCtoD(source: Int): TransactionD = {
+    var value: TransactionD = null
+    val lock = SimMutex().lock()
+    callbackOnCtoD(source) = { d =>
+      value = d
+      lock.unlock()
+    }
+    lock.await()
+    callbackOnCtoD(source) = null
     value
   }
 
@@ -88,7 +103,11 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
 
   }
   override def onD(d : TransactionD) : Unit = {
-    callbackOnD(d.source.toInt)(d)
+    import Opcode.D._
+    d.opcode match {
+      case RELEASE_ACK =>  callbackOnCtoD(d.source.toInt)(d)
+      case ACCESS_ACK | ACCESS_ACK_DATA | GRANT | GRANT_DATA =>  callbackOnAtoD(d.source.toInt)(d)
+    }
   }
   override def onE(e : TransactionE) : Unit = {
 
@@ -120,7 +139,7 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
     a.debugId = debugId
     driver.scheduleA(a)
 
-    val d = waitD(source)
+    val d = waitAtoD(source)
     assert(d.opcode == Opcode.D.ACCESS_ACK_DATA, s"Unexpected transaction on $bus")
     assert(d.bytes == bytes, s"Unexpected transaction on $bus")
     idAllocator.remove(debugId)
@@ -141,7 +160,7 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
     a.mask = mask.toArray
     driver.scheduleA(a)
 
-    val d = waitD(source)
+    val d = waitAtoD(source)
     assert(d.opcode == Opcode.D.ACCESS_ACK, s"Unexpected transaction on $bus")
     assert(d.bytes == bytes, s"Unexpected transaction on $bus")
     idAllocator.remove(debugId)
@@ -161,7 +180,7 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
     a.mask = Array.fill(data.size)(true)
     driver.scheduleA(a)
 
-    val d = waitD(source)
+    val d = waitAtoD(source)
     assert(d.opcode == Opcode.D.ACCESS_ACK, s"Unexpected transaction on $bus")
     assert(d.bytes == bytes, s"Unexpected transaction on $bus")
     idAllocator.remove(debugId)
@@ -229,7 +248,7 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
     a.debugId = debugId
     driver.scheduleA(a)
 
-    val d = waitD(source)
+    val d = waitAtoD(source)
     var b : Block = null
     d.opcode match {
       case Opcode.D.GRANT => {
@@ -285,7 +304,7 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
     a.debugId = debugId
     driver.scheduleA(a)
 
-    val d = waitD(source)
+    val d = waitAtoD(source)
     var blk : Block = null
     assert(d.opcode == Opcode.D.GRANT)
     assert(d.param == Param.Cap.toT)
@@ -332,6 +351,8 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
   }
   def release(source : Int, toCap : Int, block : Block) : Unit = {
     block.retain()
+    releaseIds(source).lock()
+
     assert(!block.dirty)
     assert(block.cap < toCap)
 
@@ -343,11 +364,13 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
     c.address = block.address
     driver.scheduleC(c)
 
-    val d = waitD(source)
+    val d = waitCtoD(source)
     assert(d.opcode == Opcode.D.RELEASE_ACK)
 
     this.block.releaseCap(block, toCap)
     assert(block.cap == toCap)
+
+    releaseIds(source).unlock()
     block.release()
   }
 
@@ -356,6 +379,7 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
     assert(block.cap < toCap)
     block.dirty = false
     block.retain()
+    releaseIds(source).lock()
 
     val c = new TransactionC()
     c.opcode  = Opcode.C.RELEASE_DATA
@@ -366,11 +390,13 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
     c.data    = block.data
     driver.scheduleC(c)
 
-    val d = waitD(source)
+    val d = waitCtoD(source)
     assert(d.opcode == Opcode.D.RELEASE_ACK)
 
     this.block.releaseCap(block, toCap)
     assert(block.cap == toCap)
+
+    releaseIds(source).unlock()
     block.release()
   }
 }
@@ -385,6 +411,7 @@ class BlockManager(ma : MasterAgent, var allowReleaseOnProbe : Boolean = false){
   val blockHistorySize = 16
   val blockRandomHistory = mutable.LinkedHashMap[M2sAgent, Array[Block]]()
   ma.bus.p.node.m.masters.foreach(blockRandomHistory(_) = Array.fill[Block](blockHistorySize)(null))
+
   def getRandomBlock(m : M2sAgent) = blockRandomHistory(m)(simRandom.nextInt(blockHistorySize))
   def apply(source : Int, address : Long) = blocks(sourceToMaster(source) -> address)
   def get(source : Int, address : Long) : Option[Block] = blocks.get(sourceToMaster(source) -> address)
@@ -420,7 +447,6 @@ class BlockManager(ma : MasterAgent, var allowReleaseOnProbe : Boolean = false){
         b.probe = None
         b.retains match {
           case 0 => {
-
             def doProbeAck(): Unit = {
               b.cap < probe.param match {
                 case false => probeAck(

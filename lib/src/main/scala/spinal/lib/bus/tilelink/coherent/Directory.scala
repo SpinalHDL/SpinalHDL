@@ -419,8 +419,8 @@ class Directory(val p : DirectoryParam) extends Component {
     val address = Reg(UInt(addressCheckWidth bits))
     val way = Reg(UInt(log2Up(cacheWays) bits))
     val pending = new Area{
-      val victim, primary, upC, victimRead = Reg(Bool()) //TODO upC ???
-      fire setWhen(List(victim, primary, upC, victimRead).norR)
+      val victim, primary, victimRead = Reg(Bool()) //TODO upC ???
+      fire setWhen(List(victim, primary, victimRead).norR)
 
     }
   }
@@ -572,14 +572,10 @@ class Directory(val p : DirectoryParam) extends Component {
       val keptCopy = isProbe && Param.reportPruneKeepCopy(input.param)
 
       when(input.fire) {
-        slots.onSel(hitId) { s =>
+        slots.onMask(hitOh) { s =>
           s.unique.clearWhen(keptCopy)
-          when(isProbeNoData) {
-            s.pending := pendingNext
-          }
-          when(isReleaseData){
-            s.evictClean := True
-          }
+          s.evictClean setWhen(isReleaseData)
+          when(isProbeNoData) { s.pending := pendingNext }
         }
       }
 
@@ -816,7 +812,6 @@ class Directory(val p : DirectoryParam) extends Component {
       val gsPendingVictim = False
       val gsPendingVictimRead = False
       val gsPendingPrimary = True
-      val gsPendingUpc = CTRL_CMD.withDataUpC
 
       //TODO don't forget to ensure that a victim get out of the cache before downD/upA erase it
 
@@ -895,7 +890,6 @@ class Directory(val p : DirectoryParam) extends Component {
           s.pending.victim := gsPendingVictim
           s.pending.victimRead := gsPendingVictimRead
           s.pending.primary := gsPendingPrimary
-          s.pending.upC := gsPendingUpc
 
           when(isReady) {
             s.valid := True
@@ -1424,7 +1418,6 @@ class Directory(val p : DirectoryParam) extends Component {
         when(List(ACCESS_ACK, ACCESS_ACK_DATA, RELEASE_ACK).map(_()).sContains(CMD.toUpD)) {
           gs.slots.onSel(CMD.gsId) { s =>
             s.pending.primary := False
-            s.pending.upC := False
           }
         }
       }
