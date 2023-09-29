@@ -31,7 +31,7 @@ case class MasterSpec(bus : Bus,
                       cd : ClockDomain,
                       endpoints : Seq[Endpoint])
 
-class MasterTester(m : MasterSpec , agent : MasterAgent){
+class MasterTester(val m : MasterSpec, val agent : MasterAgent){
   val threads = ArrayBuffer[SimThread]()
   def join() = {
     threads.foreach(_.join())

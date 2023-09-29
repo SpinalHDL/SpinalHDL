@@ -378,7 +378,7 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64
 import spinal.core.sim._
 import spinal.lib.sim._
 
-class BlockManager(ma : MasterAgent){
+class BlockManager(ma : MasterAgent, var allowReleaseOnProbe : Boolean = false){
   import ma._
   val sourceToMaster = (0 until  1 << bus.p.sourceWidth).map(source => bus.p.node.m.getMasterFromSource(source))
   val blocks = mutable.LinkedHashMap[(M2sAgent, Long), Block]()
@@ -420,30 +420,46 @@ class BlockManager(ma : MasterAgent){
         b.probe = None
         b.retains match {
           case 0 => {
-            b.cap < probe.param match {
-              case false => probeAck(
-                source = probe.source,
-                toCap =  b.cap,
-                block = b
-              )
-              case true  => {
-                (b.dirty && !probe.perm) match {
-                  case false => probeAck(
-                    source = probe.source,
-                    toCap = probe.param,
-                    block = b
-                  )
-                  case true => {
-                    b.dirty = false
-                    probeAckData(
-                      toCap = probe.param,
+
+            def doProbeAck(): Unit = {
+              b.cap < probe.param match {
+                case false => probeAck(
+                  source = probe.source,
+                  toCap = b.cap,
+                  block = b
+                )
+                case true => {
+                  (b.dirty && !probe.perm) match {
+                    case false => probeAck(
                       source = probe.source,
+                      toCap = probe.param,
                       block = b
                     )
+                    case true => {
+                      b.dirty = false
+                      probeAckData(
+                        toCap = probe.param,
+                        source = probe.source,
+                        block = b
+                      )
+                    }
                   }
                 }
               }
             }
+
+            //Sporadic release
+            if(allowReleaseOnProbe && b.cap != Param.Cap.toN && simRandom.nextFloat() < 0.2f) fork{
+              releaseAuto(
+                source = sourceToMaster(probe.source).mapping.randomPick().id.randomPick().toInt,
+                toCap =  (b.cap+1 to Param.Cap.toN).randomPick(),
+                block = b
+              )
+              doProbeAck()
+            } else {
+              doProbeAck()
+            }
+
           }
           case _ => ???
         }

@@ -78,6 +78,7 @@ class DirectoryTester extends AnyFunSuite{
 
     tester.doSim("manual") { tb =>
       val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
+      testers.foreach(_.agent.block.allowReleaseOnProbe = true)
       val globalLock = Some(SimMutex()) //TODO for test only
       testers.foreach(_.startPerSource(100000, globalLock))
       testers.foreach(_.join())
@@ -86,7 +87,7 @@ class DirectoryTester extends AnyFunSuite{
     }
 
 //    tester.doSimDirected("manual"){tb =>
-//      tb.coverPutFullData(32)
+//      tb.coverCoherencyTx2(32)
 //    }
 //
 //    tester.doSim("manual2"){tb =>

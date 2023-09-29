@@ -132,11 +132,12 @@ class MasterDebugTester(masters : Seq[MasterDebugTesterElement]){
     for(i <- 0 until repeat) cover(_.acquireT){ ctx1 =>
       val ctx2 = ctx1.anotherMaster(_.acquireT)
       var block1 = ctx1.agent.acquireBlock(ctx1.source, Param.Grow.NtoT, ctx1.address, ctx1.bytes)
-      block1.makeDataDirty()
+      if(simRandom.nextBoolean()) block1.makeDataDirty()
       var block2 = ctx2.agent.acquireBlock(ctx2.source, Param.Grow.NtoT, ctx2.address, ctx2.bytes)
       assert(block1.cap == Param.Cap.toN)
       assert(block2.data sameElements block1.data)
-      ctx2.agent.release(ctx2.source, Param.Cap.toN, block2)
+      if (simRandom.nextBoolean()) block2.makeDataDirty()
+      ctx2.agent.releaseAuto(ctx2.source, Param.Cap.toN, block2)
     }
   }
 

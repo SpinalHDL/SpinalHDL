@@ -435,7 +435,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val setId = UInt(setsRange.size bits)
     val wayId = UInt(log2Up(cacheWays) bits)
     val size = ubp.size()
-    val acquire = Bool()
+    val acquire, release = Bool()
     val toT = Bool()
   }
 
@@ -495,7 +495,7 @@ class Directory(val p : DirectoryParam) extends Component {
   }
 
   class ProberSlot extends Slot{
-    val address = Reg(UInt(addressCheckWidth bits))
+    val address = Reg(UInt(blockRange.size bits)) //We realy need the full address range, as we need to catch RELEASE_DATA while proving, to update the dirtyness of the data
     val pending = Reg(UInt(log2Up(coherentMasterCount + 1) bits))
     val probeAckDataCompleted = Reg(Bool())
     val unique = Reg(Bool())
@@ -525,7 +525,7 @@ class Directory(val p : DirectoryParam) extends Component {
       when(push.valid && !sloted && !allocate.full) {
         slots.onMask(allocate.oh) { s =>
           s.valid := True
-          s.address := push.address(addressCheckRange)
+          s.address := push.address(blockRange)
           s.pending := pending
           s.unique := True
           s.probeAckDataCompleted := False
@@ -560,9 +560,10 @@ class Directory(val p : DirectoryParam) extends Component {
 
     val upC = new Area {
       val input = upCSplit.cmd
+      val isReleaseData = input.opcode === Opcode.C.RELEASE_DATA
       val isProbeNoData = input.opcode === Opcode.C.PROBE_ACK
       val isProbe = Opcode.C.isProbe(input.opcode)
-      val hitOh = slots.map(s => s.valid && s.address === input.address(addressCheckRange))
+      val hitOh = slots.map(s => s.valid && s.address === input.address(blockRange))
       val hitId = OHToUInt(hitOh)
       val pending = slots.map(_.pending).read(hitId)
       val pendingNext = pending - 1
@@ -575,6 +576,9 @@ class Directory(val p : DirectoryParam) extends Component {
           s.unique.clearWhen(keptCopy)
           when(isProbeNoData) {
             s.pending := pendingNext
+          }
+          when(isReleaseData){
+            s.evictClean := True
           }
         }
       }
@@ -725,6 +729,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val FROM_C_RELEASE = insert(List(RELEASE(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
       val GET_PUT = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA()).sContains(CTRL_CMD.opcode))
       val ACQUIRE = insert(List(ACQUIRE_PERM(), ACQUIRE_BLOCK()).sContains(CTRL_CMD.opcode))
+      val IS_RELEASE = insert(List(RELEASE(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
       val IS_GET = insert(List(GET()).sContains(CTRL_CMD.opcode))
       val IS_PUT = insert(List(PUT_FULL_DATA(), PUT_PARTIAL_DATA()).sContains(CTRL_CMD.opcode))
       val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === CtrlOpcode.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
@@ -941,6 +946,7 @@ class Directory(val p : DirectoryParam) extends Component {
       ctxDownD.data.toProbe       := False
       ctxDownD.data.toT           := True
       ctxDownD.data.acquire       := preCtrl.ACQUIRE
+      ctxDownD.data.release       := preCtrl.IS_RELEASE
       ctxDownD.data.mergeBufferA  := False
       ctxDownD.data.bufferAId     := CTRL_CMD.bufferAId
       ctxDownD.data.wordOffset    := CTRL_CMD.address(wordRange)
@@ -988,23 +994,26 @@ class Directory(val p : DirectoryParam) extends Component {
 
       assert(!(isValid && CTRL_CMD.probed && askAllocate))
 
+      //May not CACHE_HIT
       when(preCtrl.FROM_C_RELEASE){
         //Update tags
         owners.remove setWhen (CTRL_CMD.toNone)
+        cache.tags.write.valid := True
         cache.tags.write.data.trunk := False
-
-        when(valid){
-          cache.tags.write.valid := True
-          assert(CACHE_HIT)  //As it is a inclusive cache
-        }
 
         //Write to backend
         when(preCtrl.WRITE_DATA){
           askGs := True
           askWriteBackend := True
-          toWriteBackend.toUpD := Directory.ToUpDOpcode.RELEASE_ACK()
           cache.tags.write.data.dirty := True
           gsWrite := True
+
+          when(CACHE_HIT){
+            toWriteBackend.toUpD := Directory.ToUpDOpcode.RELEASE_ACK()
+          } otherwise {
+            toWriteBackend.toDownA := True
+            ctxDownD.data.toUpD := True
+          }
         } otherwise {
           askUpD := True
           toUpD.opcode := Opcode.D.RELEASE_ACK
@@ -1474,7 +1483,10 @@ class Directory(val p : DirectoryParam) extends Component {
 
       toUpD.opcode  := CTX.acquire.mux(
         withData.mux(Opcode.D.GRANT_DATA, Opcode.D.GRANT),
-        withData.mux(Opcode.D.ACCESS_ACK_DATA, Opcode.D.ACCESS_ACK)
+        CTX.release.mux(
+          Opcode.D.RELEASE_ACK(),
+          withData.mux(Opcode.D.ACCESS_ACK_DATA, Opcode.D.ACCESS_ACK)
+        )
       )
       toUpD.param   := CTX.toT.mux[Bits](Param.Cap.toT, Param.Cap.toB).resized
       toUpD.source  := CTX.sourceId
@@ -1621,3 +1633,8 @@ object DirectoryGen extends App{
 
   Bench(rtls, targets)
 }
+
+/*
+tricky cases :
+- release while a probe is going on
+ */
