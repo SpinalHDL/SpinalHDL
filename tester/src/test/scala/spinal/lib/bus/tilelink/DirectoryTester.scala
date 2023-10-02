@@ -21,7 +21,7 @@ class DirectoryTester extends AnyFunSuite{
 
   test("directed"){
     val tester = new TilelinkTester(
-      simConfig = SimConfig.withFstWave,
+      simConfig = SimConfig,
       cGen = new Component {
         val m0 = new MasterBus(
           M2sParameters(
@@ -74,11 +74,12 @@ class DirectoryTester extends AnyFunSuite{
       }
     )
 
-    tester.noStall = true //TODO for test only
+//    tester.noStall = true //TODO for test only
 
+    //Simulation failed at time=1873254641
     tester.doSim("manual") { tb =>
-      disableSimWave()
-      delayed(261168201)(enableSimWave())
+//      disableSimWave()
+//      delayed(261168201)(enableSimWave())
       val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
       testers.foreach(_.agent.block.allowReleaseOnProbe = false) //TODO turn true
 //      val globalLock = Some(SimMutex()) //TODO for test only
@@ -100,7 +101,7 @@ class DirectoryTester extends AnyFunSuite{
 //    }
 
 //    tester.doSimDirected("manual"){tb =>
-//      tb.coverCoherencyBx2(32)
+//      tb.coverAcquirePerm(32)
 //    }
 //
 //    tester.doSim("manual2"){tb =>

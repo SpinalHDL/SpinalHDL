@@ -419,8 +419,8 @@ class Directory(val p : DirectoryParam) extends Component {
     val address = Reg(UInt(addressCheckWidth bits))
     val way = Reg(UInt(log2Up(cacheWays) bits))
     val pending = new Area{
-      val victim, primary, victimRead, victimWrite = Reg(Bool())
-      fire setWhen(List(victim, primary, victimWrite).norR)
+      val victim, primary, acquire, victimRead, victimWrite = Reg(Bool())
+      fire setWhen(List(victim, acquire, primary, victimWrite).norR)
     }
   }
 
@@ -808,6 +808,13 @@ class Directory(val p : DirectoryParam) extends Component {
       toUpD.data.assignDontCare()
 
 
+      val clearPrimary = False
+      val oldClearPrimary = RegNext(clearPrimary && isFireing && !isRemoved) init(False)
+      val oldGsId = RegNext(gsId)
+      when(oldClearPrimary) {
+        gs.slots.onSel(oldGsId)(_.pending.primary := False)
+      }
+
       prober.cmd.valid := isValid && askProbe && !redoUpA && firstCycle
       prober.cmd.payload.assignSomeByName(CTRL_CMD)
       prober.cmd.mask.assignDontCare()
@@ -875,6 +882,7 @@ class Directory(val p : DirectoryParam) extends Component {
             s.pending.victimRead := gsPendingVictimReadWrite
             s.pending.victimWrite := gsPendingVictimReadWrite
             s.pending.primary := gsPendingPrimary
+            s.pending.acquire := preCtrl.ACQUIRE
           }
           when(isReady) {
             s.valid := True
@@ -1100,6 +1108,7 @@ class Directory(val p : DirectoryParam) extends Component {
           } otherwise {
             askUpD := True
             toUpD.opcode := Opcode.D.GRANT
+            clearPrimary := True
           }
         }otherwise{
           //Need probing ?
@@ -1137,8 +1146,10 @@ class Directory(val p : DirectoryParam) extends Component {
             } otherwise {
               askOrdering := True
               askUpD := True
+              clearPrimary := True
               toUpD.opcode := Opcode.D.GRANT
               toUpD.param := acquireParam.resized
+              assert(!(isValid && CTRL_CMD.withDataUpC))
             }
           }
         }
@@ -1261,7 +1272,7 @@ class Directory(val p : DirectoryParam) extends Component {
       }
 
       when(isFireing && inserter.LAST) {
-        when(CMD.toUpD && Opcode.D.isFinal(CMD.upD.opcode)) {
+        when(CMD.toUpD) {
           gs.slots.onMask(gsOh)(_.pending.primary := False)
         }
       }
@@ -1439,7 +1450,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toUpD.corrupt := False
 
       when(isFireing && inserter.LAST) {
-        when(List(ACCESS_ACK, ACCESS_ACK_DATA, RELEASE_ACK).map(_()).sContains(CMD.toUpD)) {
+        when(CMD.toUpD =/= NONE) {
           gs.slots.onSel(CMD.gsId) { s =>
             s.pending.primary := False
           }
@@ -1547,7 +1558,7 @@ class Directory(val p : DirectoryParam) extends Component {
         } otherwise {
           when(CTX.mergeBufferA) {
             writeBackend.putMerges.push.valid := True
-          }.elsewhen(!CTX.acquire) {
+          }.otherwise{
             gs.slots.onSel(CMD.source.resized)(_.pending.primary := False)
           }
         }
@@ -1568,7 +1579,7 @@ class Directory(val p : DirectoryParam) extends Component {
   val fromUpE = new Area{
     io.up.e.ready := True
     when(io.up.e.fire){
-      gs.slots.onSel(io.up.e.sink)(_.pending.primary := False)
+      gs.slots.onSel(io.up.e.sink)(_.pending.acquire := False)
     }
   }
 
