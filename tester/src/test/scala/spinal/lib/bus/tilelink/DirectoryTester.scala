@@ -77,18 +77,30 @@ class DirectoryTester extends AnyFunSuite{
     tester.noStall = true //TODO for test only
 
     tester.doSim("manual") { tb =>
+      disableSimWave()
+      delayed(261168201)(enableSimWave())
       val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
       testers.foreach(_.agent.block.allowReleaseOnProbe = false) //TODO turn true
 //      val globalLock = Some(SimMutex()) //TODO for test only
       val globalLock = Option.empty[SimMutex]
-      testers.foreach(_.startPerSource(100000, globalLock))
+      testers.foreach(_.startPerSource(1000000, globalLock))
       testers.foreach(_.join())
       tb.waitCheckers()
       tb.assertCoverage()
     }
 
+//    tester.doSim("manual") { tb =>
+//      val agent = tb.mastersStuff(0).agent
+//      agent.
+//      for(i <- 64 until 4096 by 128) {
+//        agent.putFullData(0, 0x10000, Array.fill(16)(simRandom.nextInt.toByte))
+//      }
+//      tb.waitCheckers()
+//      tb.assertCoverage()
+//    }
+
 //    tester.doSimDirected("manual"){tb =>
-//      tb.coverCoherencyTx2(32)
+//      tb.coverCoherencyBx2(32)
 //    }
 //
 //    tester.doSim("manual2"){tb =>
