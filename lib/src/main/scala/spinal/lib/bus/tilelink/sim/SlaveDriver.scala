@@ -21,6 +21,14 @@ class SlaveDriver(bus : Bus, cd : ClockDomain) {
       d.ctrl.transactionDelay = () => 0
       if (e != null) e.factor = 1.0f
     }
+
+    def randomizeStallRate(): Unit = {
+      a.setFactor(simRandom.nextFloat())
+      if (b != null) b.ctrl.setFactor(simRandom.nextFloat())
+      if (c != null) c.setFactor(simRandom.nextFloat())
+      d.ctrl.setFactor(simRandom.nextFloat())
+      if (e != null) e.setFactor(simRandom.nextFloat())
+    }
   }
 
   def scheduleD(d : TransactionD): Unit ={

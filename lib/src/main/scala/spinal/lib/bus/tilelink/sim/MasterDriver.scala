@@ -3,6 +3,7 @@ package spinal.lib.bus.tilelink.sim
 import spinal.core._
 import spinal.lib.sim._
 import spinal.lib.bus.tilelink._
+import spinal.core.sim._
 
 class MasterDriver (val bus : Bus, cd : ClockDomain) {
   val driver = new Area {
@@ -18,6 +19,14 @@ class MasterDriver (val bus : Bus, cd : ClockDomain) {
       if(c != null) c.ctrl.transactionDelay = () => 0
       d.factor = 1.0f
       if(e != null) e.ctrl.transactionDelay = () => 0
+    }
+
+    def randomizeStallRate() : Unit = {
+      a.ctrl.setFactor(simRandom.nextFloat())
+      if (b != null) b.setFactor(simRandom.nextFloat())
+      if (c != null) c.ctrl.setFactor(simRandom.nextFloat())
+      d.setFactor(simRandom.nextFloat())
+      if (e != null) e.ctrl.setFactor(simRandom.nextFloat())
     }
   }
 
