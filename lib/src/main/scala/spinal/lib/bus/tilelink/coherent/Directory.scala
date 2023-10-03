@@ -1667,7 +1667,7 @@ object DirectoryGen extends App{
 
   val rtls = ArrayBuffer[Rtl]()
   for (probeCount <- List(2)) { //Rtl.ffIo
-    rtls += Rtl(SpinalVerilog((new Directory(basicConfig(dataWidth = 16, addressWidth = 32, cacheWays = 4)).setDefinitionName(s"Hub$probeCount"))))
+    rtls += Rtl(SpinalVerilog((new Directory(basicConfig(dataWidth = 16, addressWidth = 32, cacheWays = 4,cacheBytes = 128*1024)).setDefinitionName(s"Hub$probeCount"))))
   }
   val targets = XilinxStdTargets().take(2)
 

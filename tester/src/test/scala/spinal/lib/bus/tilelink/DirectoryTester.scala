@@ -74,17 +74,23 @@ class DirectoryTester extends AnyFunSuite{
       }
     )
 
-//    tester.noStall = true //TODO for test only
-//TODO randomized stall factors
+//    tester.noStall = true //for test only
+
 
     //Simulation failed at time=1873254641
     tester.doSim("manual") { tb =>
       disableSimWave()
+
+      periodicaly(10000){
+        tb.mastersStuff.foreach(_.agent.driver.driver.randomizeStallRate())
+        tb.slavesStuff.foreach(_.model.driver.driver.randomizeStallRate())
+      }
+
 //      delayed(2147898761l-1000000)(enableSimWave())
       val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
-//      val globalLock = Some(SimMutex()) //TODO for test only
+//      val globalLock = Some(SimMutex()) //for test only
       val globalLock = Option.empty[SimMutex]
-      testers.foreach(_.startPerSource(1000000, globalLock))
+      testers.foreach(_.startPerSource(10000, globalLock))
       testers.foreach(_.join())
       tb.waitCheckers()
       tb.assertCoverage()
