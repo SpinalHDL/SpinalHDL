@@ -714,8 +714,8 @@ class Directory(val p : DirectoryParam) extends Component {
       val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === CtrlOpcode.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
       val WRITE_DATA = insert(List(PUT_PARTIAL_DATA(), PUT_FULL_DATA(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
       val GS_NEED = insert(List(ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, GET).map(_.craft()).sContains(CTRL_CMD.opcode))
-      val gsHits = gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address)
-      val GS_HIT = insert(gsHits.orR)
+      val GS_HITS = insert(gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address).asBits)
+      val GS_HIT = insert(GS_HITS.orR)
       val GS_OH = insert(UIntToOh(CTRL_CMD.gsId))
 
       //For as long as the cache is inclusive
@@ -727,7 +727,6 @@ class Directory(val p : DirectoryParam) extends Component {
     val process = new Area{
       import processStage._
 
-      val firstCycle = RegNext(!isStuck) init(True)
 
       val redoUpA = False
       assert(!(isValid && redoUpA && !preCtrl.FROM_A))
@@ -739,6 +738,11 @@ class Directory(val p : DirectoryParam) extends Component {
       val stallIt = False
       assert(!(isValid && stallIt && preCtrl.FROM_A))
       haltIt(stallIt)
+
+      val firstCycle = RegNext(!isStuck || stallIt) init (True)
+
+      val gsHitVictim = CTRL_CMD.opcode === RELEASE_DATA && (preCtrl.GS_HITS & B(gs.slots.map(_.pending.victimWrite))).orR
+      stallIt setWhen(gsHitVictim)
 
       val askAllocate = False //Will handle victim
       val askProbe = False
@@ -872,7 +876,7 @@ class Directory(val p : DirectoryParam) extends Component {
       }
 
 
-      when(isValid && askGs && !redoUpA && !gs.allocate.full) {
+      when(isValid && askGs && !redoUpA && !stallIt) {
         gotGs := True
         gs.slots.onMask(gsOh) { s =>
           s.address := gsAddress
@@ -1433,7 +1437,7 @@ class Directory(val p : DirectoryParam) extends Component {
         GRANT_DATA      -> True
       )
       val toUpDFork = forkStream(needForkToUpD)
-      val toUpD = toUpDFork.haltWhen(victimHazard).swapPayload(io.up.d.payloadType)
+      val toUpD = toUpDFork.haltWhen(victimHazard || hazardUpC).swapPayload(io.up.d.payloadType)
       toUpD.opcode  := CMD.toUpD.muxDc(
         ACCESS_ACK      -> Opcode.D.ACCESS_ACK(),
         ACCESS_ACK_DATA -> Opcode.D.ACCESS_ACK_DATA(),
@@ -1457,8 +1461,8 @@ class Directory(val p : DirectoryParam) extends Component {
         }
       }
 
-      val askOrdering = toUpD.isLast() && List(ACCESS_ACK, ACCESS_ACK_DATA, GRANT, GRANT_DATA).map(_()).sContains(CMD.toUpD)
-      val toOrdering = forkFlow(askOrdering).swapPayload(io.ordering.writeBackend.payloadType)
+      val toOrdering = Flow(io.ordering.writeBackend.payloadType)
+      toOrdering.valid := toUpD.fire && toUpD.isLast() && List(ACCESS_ACK, ACCESS_ACK_DATA, GRANT, GRANT_DATA).map(_()).sContains(CMD.toUpD)
       toOrdering.debugId := CMD.debugId
       toOrdering.bytes := (U(1) << CMD.size).resized
       toOrdering >> io.ordering.writeBackend
@@ -1674,6 +1678,7 @@ object DirectoryGen extends App{
 tricky cases :
 - release while a probe is going on
 - release data just before victim probe logic is enabled => think data are still in the victim buffer, while is already written to memory by release data
+- acquire T then release data before the victim of the acquire got time to read the $ and get overriden by release data
 
 maybe add little bufer on readBackend.toWriteBackend
 need to prevent writebackend to write a cache line which has victimRead going on
