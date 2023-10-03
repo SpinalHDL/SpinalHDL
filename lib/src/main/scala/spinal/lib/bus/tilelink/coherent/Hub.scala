@@ -7,7 +7,6 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.pipeline._
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 object Hub{
   def downM2s(name : Nameable,
@@ -120,6 +119,21 @@ down.D may trigger:
 - probe bypass (on ProbeData), need probeId context
 
 up.E will do a conflict release (aquireAck)
+
+
+$ =>
+- [dma no allocate]
+- [release allocate]
+- [victim buffer]
+- [inclusive]
+
+Inclusive tricky things :
+- Allocation require making room
+- Allocation while a release is also on the way (but easily solved by not allowing same set in the pipeline)
+
+non inclusive :
+- Probe filtering via a Set counter memory
+
  */
 
 

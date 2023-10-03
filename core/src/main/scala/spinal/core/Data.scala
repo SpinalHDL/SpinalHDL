@@ -540,15 +540,39 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       val thisDir = dirSolve(thisTrue)
       val thatDir = dirSolve(thatTrue)
 
-      (thisDir,thatDir) match {
-        case (`out`,`in`)                         => this := that
-        case (`out`,null)                         => this := that
-        case (`in`,`out`)                         => that := this
-        case (`in`,null)                          => that := this
-        case (null,`in`)                          => this := that
-        case (null,`out`)                         => that := this
-        case _ if this.isAnalog && that.isAnalog  => this := that
-        case _                                    => LocatedPendingError(s"DIRECTION MISMATCH, impossible to infer the connection direction between $this and $that ")
+      def dirFormat(d: IODirection, wire: Data) = {
+        d match {
+          case _ if wire.isAnalog => "analog"
+          case `out` => "out"
+          case `in` => "in"
+          case `inout` => "inout"
+          case null => "directionless"
+        }
+      }
+      def bundleInfo(wire: Data): String = {
+        wire match {
+          case null => ""
+          case b => s"\n      part of Bundle $b" + bundleInfo(b.parent)
+        }
+      }
+      def thisThatInfo() =
+        s"""
+           |  $this (${dirFormat(this.dir, this)}, normalized: ${dirFormat(thisDir, this)})${bundleInfo(this)} and
+           |  $that (${dirFormat(that.dir, that)}, normalized: ${dirFormat(thatDir, that)})${bundleInfo(that)}""".stripMargin
+
+      (thisDir, thatDir) match {
+        case (`out`, `in`) => this := that
+        case (`out`, null) => this := that
+        case (`in`, `out`) => that := this
+        case (`in`, null) => that := this
+        case (null, `in`) => this := that
+        case (null, `out`) => that := this
+        case _ if this.isAnalog && that.isAnalog => this := that
+        // errors
+        case _ if that.isAnalog || that.isAnalog => LocatedPendingError("AUTOCONNECT FAILED, can't connect analog to non-analog" + thisThatInfo())
+        case (null, null) => LocatedPendingError("AUTOCONNECT FAILED, directionless signals can't be autoconnected" + thisThatInfo())
+        case _ if thisDir != thisTrue.dir ^ thatDir != thatTrue.dir => LocatedPendingError("AUTOCONNECT FAILED, mismatched directions for connections between parent and child component" + thisThatInfo())
+        case _ => LocatedPendingError("AUTOCONNECT FAILED, mismatched directions" + thisThatInfo())
       }
     }
   }

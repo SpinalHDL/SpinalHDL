@@ -1,8 +1,7 @@
 package spinal.lib.bus.tilelink.sim
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
-
+import spinal.core.sim._
 
 class WeightedDistribution[T](){
   val storage = ArrayBuffer[(Int, () => T)]()
@@ -13,7 +12,7 @@ class WeightedDistribution[T](){
   }
 
   def randomExecute() : T = {
-    val rand = Random.nextInt(total)
+    val rand = simRandom.nextInt(total)
     var stack = 0
     for((w,body) <- storage) {
       stack += w
