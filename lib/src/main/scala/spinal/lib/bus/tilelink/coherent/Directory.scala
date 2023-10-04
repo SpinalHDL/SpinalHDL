@@ -394,7 +394,7 @@ class Directory(val p : DirectoryParam) extends Component {
 
 
   val CTRL_CMD = Stageable(new CtrlCmd())
-  val BUFFER_A_ID = Stageable(UInt(log2Up(aBufferCount) bits))
+  val BUFFER_A_ID = Stageable(UInt((if(ubp.withDataA) log2Up(aBufferCount).toInt else 0) bits))
 
 
 
@@ -447,36 +447,40 @@ class Directory(val p : DirectoryParam) extends Component {
   }
 
 
+  val fromUpA = new Area{
+    val halted = io.up.a.haltWhen(!initializer.done)
 
-  val bufferA = new ChannelDataBuffer(
-    entries = aBufferCount,
-    blockSize = blockSize,
-    dataBytes = ubp.dataBytes
-  ){
-    val read = ram.readSyncPort()
+    val buffer = ubp.withDataA generate new ChannelDataBuffer(
+      entries = aBufferCount,
+      blockSize = blockSize,
+      dataBytes = ubp.dataBytes
+    ) {
+      val read = ram.readSyncPort()
+      val pusher = push(halted)
+    }
 
-    val pusher = push(io.up.a.haltWhen(!initializer.done))
-    val toCtrl = pusher.down.swapPayload(new CtrlCmd())
-    toCtrl.bufferAId := pusher.bufferId
-    toCtrl.opcode := pusher.down.opcode.muxDc(
+    val conv = if (ubp.withDataA) buffer.pusher.down else halted
+
+    val toCtrl = conv.swapPayload(new CtrlCmd())
+    if (ubp.withDataA) toCtrl.bufferAId := buffer.pusher.bufferId
+    toCtrl.opcode := conv.opcode.muxDc(
       Opcode.A.GET -> CtrlOpcode.GET(),
       Opcode.A.PUT_PARTIAL_DATA -> CtrlOpcode.PUT_PARTIAL_DATA(),
       Opcode.A.PUT_FULL_DATA -> CtrlOpcode.PUT_FULL_DATA(),
       Opcode.A.ACQUIRE_PERM -> CtrlOpcode.ACQUIRE_PERM(),
       Opcode.A.ACQUIRE_BLOCK -> CtrlOpcode.ACQUIRE_BLOCK()
     )
-    toCtrl.toTrunk := pusher.down.param =/= Param.Grow.NtoB
-    toCtrl.address := pusher.down.address
-    toCtrl.size := pusher.down.size
-    toCtrl.source := pusher.down.source
+    toCtrl.toTrunk := conv.param =/= Param.Grow.NtoB
+    toCtrl.address := conv.address
+    toCtrl.size := conv.size
+    toCtrl.source := conv.source
     toCtrl.probed := False
     toCtrl.gsId.assignDontCare()
-    toCtrl.debugId := pusher.down.debugId
+    toCtrl.debugId := conv.debugId
     toCtrl.withDataUpC := False
     toCtrl.evictWay.assignDontCare()
     toCtrl.probedUnique := False
   }
-
 
 
   val victimBuffer = new Area{
@@ -672,9 +676,9 @@ class Directory(val p : DirectoryParam) extends Component {
       val arbiter = StreamArbiterFactory().lowerFirst.noLock.build(CTRL_CMD, 3)
       arbiter.io.inputs(0) << prober.schedule.toCtrl.pipelined(m2s = true, s2m = true)
       arbiter.io.inputs(1) << loopback.fifo.io.pop.halfPipe()
-      arbiter.io.inputs(2) << bufferA.toCtrl.continueWhen(loopback.allowUpA)
 
-      when(bufferA.toCtrl.fire) {
+      arbiter.io.inputs(2) << fromUpA.toCtrl.continueWhen(loopback.allowUpA)
+      when(fromUpA.toCtrl.fire) {
         loopback.occupancy.increment()
       }
 
@@ -1311,7 +1315,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val CMD = Stageable(new WriteBackendCmd())
 
     // Put merge is used on upA put which trigger a cache line load
-    val putMerges = new Area {
+    val putMerges = ubp.withDataA generate new Area {
       val push = Stream(PutMergeCmd())
       val fifo = StreamFifo(PutMergeCmd(), Math.min(generalSlotCount, aBufferCount))
       fifo.io.push << push
@@ -1339,7 +1343,11 @@ class Directory(val p : DirectoryParam) extends Component {
 
       val ctrlBuffered = ctrl.process.toWriteBackend
       val fromReadBackend = readBackend.process.toWriteBackend.queue(generalSlotCount).halfPipe()//TODO not that great for area
-      val arbiter = StreamArbiterFactory().lowerFirst.transactionLock.buildOn(ctrlBuffered, putMerges.cmd, fromReadBackend)
+      val arbiterInputs = ArrayBuffer[Stream[WriteBackendCmd]]()
+      arbiterInputs += ctrlBuffered
+      if(ubp.withDataA) arbiterInputs += putMerges.cmd
+      arbiterInputs += fromReadBackend
+      val arbiter = StreamArbiterFactory().lowerFirst.transactionLock.buildOn(arbiterInputs)
       val cmd = arbiter.io.output.pipelined(m2s = true, s2m = true)
 
       val counter = Reg(io.up.p.beat()) init (0)
@@ -1367,10 +1375,12 @@ class Directory(val p : DirectoryParam) extends Component {
     val fetch = new Area{
       import fetchStage._
 
-      bufferA.read.cmd.valid := fetchStage.isFireing
-      bufferA.read.cmd.payload := fetchStage(CMD).bufferAId @@ fetchStage(CMD).address(wordRange)
-      when(isFireing && inserter.LAST && CMD.fromUpA) {
-        bufferA.clear(fetchStage(CMD).bufferAId) := True
+      if(ubp.withDataA) {
+        fromUpA.buffer.read.cmd.valid := fetchStage.isFireing
+        fromUpA.buffer.read.cmd.payload := fetchStage(CMD).bufferAId @@ fetchStage(CMD).address(wordRange)
+        when(isFireing && inserter.LAST && CMD.fromUpA) {
+          fromUpA.buffer.clear(fetchStage(CMD).bufferAId) := True
+        }
       }
 
       victimBuffer.read.cmd.valid := fetchStage.isFireing
@@ -1385,18 +1395,23 @@ class Directory(val p : DirectoryParam) extends Component {
       haltWhen(victimHazard)
     }
 
-    val BUFFER_A = readStage.insert(bufferA.read.rsp)
+    val BUFFER_A = ubp.withDataA generate readStage.insert(fromUpA.buffer.read.rsp)
     val VICTIM = readStage.insert(victimBuffer.read.rsp)
 
     val process = new Area {
       import processStage._
 
-      val aSplit = BUFFER_A.data.subdivideIn(8 bits)
-      val cSplit = upCSplit.dataPop.payload.subdivideIn(8 bits)
-      val selA = inserter.IN_UP_A && CMD.fromUpA
-      val acMerge = (0 until dataBytes).map(i => (selA && BUFFER_A.mask(i)).mux(aSplit(i), cSplit(i)))
-      val UP_DATA = insert((CMD.evict && !CMD.fromUpC).mux[Bits](VICTIM, acMerge.asBits))
-      val UP_MASK = insert(BUFFER_A.mask.orMask(CMD.fromUpC || CMD.evict))
+      val acMergeLogic = ubp.withDataA generate new Area {
+        val aSplit = BUFFER_A.data.subdivideIn(8 bits)
+        val cSplit = upCSplit.dataPop.payload.subdivideIn(8 bits)
+        val selA = inserter.IN_UP_A && CMD.fromUpA
+        val result = (0 until dataBytes).map(i => (selA && BUFFER_A.mask(i)).mux(aSplit(i), cSplit(i)))
+      }
+      val UP_DATA = insert((CMD.evict && !CMD.fromUpC).mux[Bits](VICTIM, if(ubp.withDataA) acMergeLogic.result.asBits else upCSplit.dataPop.payload))
+      val UP_MASK = insert(Bits(ubp.dataBytes bits).setAll())
+      if(ubp.withDataA) when(!(CMD.fromUpC || CMD.evict)){
+        UP_MASK := BUFFER_A.mask
+      }
       val hazardUpC = CMD.fromUpC && !upCSplit.dataPop.valid
       upCSplit.dataPop.ready := CMD.fromUpC && isFireing
 
@@ -1545,23 +1560,25 @@ class Directory(val p : DirectoryParam) extends Component {
 
 
       def putMerges = writeBackend.putMerges.push
-      putMerges.valid      := False
-      putMerges.gsId       := CMD.source.resized
-      putMerges.setId      := CTX.setId
-      putMerges.wayId      := CTX.wayId
-      putMerges.wordOffset := CTX.wordOffset
-      putMerges.bufferAId  := CTX.bufferAId
-      putMerges.size       := CTX.size
-      putMerges.source     := CTX.sourceId
+      if(ubp.withDataA) {
+        putMerges.valid := False
+        putMerges.gsId := CMD.source.resized
+        putMerges.setId := CTX.setId
+        putMerges.wayId := CTX.wayId
+        putMerges.wordOffset := CTX.wordOffset
+        putMerges.bufferAId := CTX.bufferAId
+        putMerges.size := CTX.size
+        putMerges.source := CTX.sourceId
 
-      assert(!writeBackend.putMerges.push.isStall)
+        assert(!writeBackend.putMerges.push.isStall)
+      }
 
       when(isFireing && LAST) {
         when(isVictim) {
           gs.slots.onSel(CMD.source.resized)(_.pending.victim := False)
         } otherwise {
           when(CTX.mergeBufferA) {
-            writeBackend.putMerges.push.valid := True
+            if(ubp.withDataA) writeBackend.putMerges.push.valid := True
           }.otherwise{
             gs.slots.onSel(CMD.source.resized)(_.pending.primary := False)
           }

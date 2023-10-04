@@ -105,9 +105,10 @@ class DirectoryFiber() extends Area{
 
     parameter.probeRegion = { addr =>
       AddressMapping.decode(addr.asBits, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
-//      equivalent to probeSpec.map(_.where.mapping.hit(addr)).orR
     }
+    parameter.allocateOnMiss =  (op, src, addr, size) => parameter.probeRegion(addr)
     val directory = new Directory(parameter)
+    //TODO probeRegion
     directory.io.up << up.bus
     directory.io.down >> down.bus
   }
