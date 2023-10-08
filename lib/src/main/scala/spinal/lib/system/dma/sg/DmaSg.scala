@@ -158,6 +158,7 @@ object DmaSg{
   }
 
   case class SgWriteCmd(p: SgBusParameter) extends Bundle {
+    val channelId = UInt(log2Up(p.channels) bits)
     val bytesDone = UInt(p.bytePerTransferWidth+1 bits)
     val endOfPacket = Bool()
     val completed = Bool()
@@ -1618,7 +1619,7 @@ object DmaSg{
     }
 
     val ll = p.canSgRead generate new Area{
-      val channels = Core.this.channels.filter(_.cp.linkedListCapable)
+      val (channels, channelsId) = Core.this.channels.zipWithIndex.filter(_._1.cp.linkedListCapable).unzip
       val arbiter = new Area{
         val requests = channels.map(c => c.ll.requestLl)
         val oh = OHMasking.first(requests)
@@ -1699,12 +1700,15 @@ object DmaSg{
         writeFired setWhen(io.sgWrite.cmd.fire)
 
         val sgStreamLogic = p.withSgBus generate new Area{
+          val channelId = channelsId.map(U(_, log2Up(p.channels.size) bits)).reader(oh).apply(e => e)
+
           readFired setWhen (io.sg.read.cmd.fire)
           io.sg.read.cmd.valid := valid && !readFired && onSgStream
-          io.sg.read.cmd.channelId := OHToUInt(oh)
+          io.sg.read.cmd.channelId := channelId
 
           writeFired setWhen (io.sg.write.cmd.fire)
           io.sg.write.cmd.valid := valid && !writeFired && onSgStream
+          io.sg.write.cmd.channelId := channelId
           io.sg.write.cmd.bytesDone := bytesDone
           io.sg.write.cmd.endOfPacket := endOfPacket
           io.sg.write.cmd.completed := !isJustASink && doDescriptorStall
