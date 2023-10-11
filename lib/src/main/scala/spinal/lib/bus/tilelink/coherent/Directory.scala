@@ -964,7 +964,7 @@ class Directory(val p : DirectoryParam) extends Component {
         }
 
         when(olderWay.tags.dirty || olderWay.tags.trunk) {
-          askReadBackend := True
+          askReadBackend := True //TODO Seems like it would not be necessary if only olderWay.tags.trunk is set, only on dirty
           gsPendingVictim := True
           gsPendingVictimReadWrite := True
         }
