@@ -92,93 +92,6 @@ object Cache{
   ))
 }
 
-
-//class BankedMem[T <: Data](wordType: HardType[T], words: Int, banks : Int) extends Area{
-//  def createWritePort(maskWidth : Int = -1): Stream[MemWriteCmd[T]] = {
-//    ???
-//  }
-//
-//  def createReadSyncPort(): MemReadStreamFlowPort[T] = {
-//    ???
-//  }
-//
-//  def build() = new Area{
-//
-//  }
-//}
-
-
-
-/*
-
-get / put
-- lock
-- [probe victim]
-- backend
-- ack
-
-acquire
-- lock
-- [probe hit]
-- [update tags], [probe victim]
-- backend
-- ack
-
-probeAck
-- get context from probe slots
-- [update tags]
-
-probeAckData
-- get context from probe slots
-- [update tags], [probe victim]
-- backend
-- probes update
-
-release
-- [update tags] (as release -> probe can be out of order)
-- ack
-
-releaseData
-- update tags, [probe victim]
-- backend
-- ack
-
-
-Probes to deal with :
-- All toN : from get / put / acquire / releaseData / probeData which need room
-- Others toN : from acquire XtoT
-- single TtoB : from acquire NtoB while line is in a unique state
-
-
-get : [probe all toN] => read $/down, down may as well refill $
-put : [probe all toN] => write down else refill cache then write it
-acquire : [probe] => read $/down, down may as well refill $
-upC data : write $/down => [wake probe]
-
-
-Stuff which need concurrent protection :
-- Cache line refill
-- address inflight (to avoid read <> write coherency issue)
-- address being probed (this will also ensure probe_ack_data are good)
-
-Backend ops :
-- up.a/c to $/down
-- $ to up
-- $ to victim [wait up.c], then write victim to down
-- down to $/up [then write up.a to $]
-
-down.D can trigger :
-- to $
-- to up.D
-- up.a to $ (up.a.put allocating a cache line)
-- if non inclusive cache : probe completion (initiated from probe_data_ack)
-
-
-General slot allocations on :
-- upA   : When it either directly go to backend or go to probe
-- upC   : When release_data
- */
-
 class Cache(val p : CacheParam) extends Component {
   import p._
   import Cache.CtrlOpcode
@@ -298,31 +211,6 @@ class Cache(val p : CacheParam) extends Component {
 
   val cache = new LineCtrl(cacheBytes, cacheWays, true)
 
-
-
-  val setsLock = new Area {
-    class MemArea extends Area {
-      val mem = Mem.fill(lockSets)(Bool())
-      val write = mem.writePort()
-      write.valid := !initializer.done
-      write.address := initializer.counter.resized
-      write.data := False
-    }
-
-    val target = new MemArea
-    val hit = new MemArea {
-//      val upE = Stream(write.payload)
-//      val downD = Stream(write.payload)
-//      val arbiter = StreamArbiterFactory().noLock.lowerFirst.onArgs(upE, downD).toFlow
-//      when(initializer.done) {
-//        write << arbiter
-//      }
-    }
-
-    val unlockEvent = False
-  }
-
-
   class CtrlCmd() extends Bundle {
     val opcode = CtrlOpcode()
     val args = Bits(1 bits)
@@ -353,8 +241,6 @@ class Cache(val p : CacheParam) extends Component {
     val address = ubp.address()
     val size = ubp.size()
   }
-
-//  val VICTIME_ID = Stageable(UInt(-1 bits)) ;???
 
   class WriteBackendCmd() extends Bundle {
     val fromUpA = Bool()
@@ -417,7 +303,7 @@ class Cache(val p : CacheParam) extends Component {
   // acquire_block => [lock], [victim]
   class GeneralSlot extends Slot{
     val address = Reg(UInt(addressCheckWidth bits))
-    val way = Reg(UInt(log2Up(cacheWays) bits))
+//    val way = Reg(UInt(log2Up(cacheWays) bits))
     val pending = new Area{
       val victim, primary, acquire, victimRead, victimWrite = Reg(Bool())
       fire setWhen(List(victim, acquire, primary, victimWrite).norR)
@@ -884,7 +770,6 @@ class Cache(val p : CacheParam) extends Component {
         gotGs := True
         gs.slots.onMask(gsOh) { s =>
           s.address := gsAddress
-          s.way :=  gsWay
           when(firstCycle) {
             s.pending.victim := gsPendingVictim
             s.pending.victimRead := gsPendingVictimReadWrite
@@ -1696,7 +1581,4 @@ tricky cases :
 - release while a probe is going on
 - release data just before victim probe logic is enabled => think data are still in the victim buffer, while is already written to memory by release data
 - acquire T then release data before the victim of the acquire got time to read the $ and get overriden by release data
-
-maybe add little bufer on readBackend.toWriteBackend
-need to prevent writebackend to write a cache line which has victimRead going on
  */
