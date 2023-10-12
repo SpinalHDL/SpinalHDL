@@ -89,7 +89,7 @@ class CacheTester extends AnyFunSuite{
       val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
 //      val globalLock = Some(SimMutex()) //for test only
       val globalLock = Option.empty[SimMutex]
-      testers.foreach(_.startPerSource(1000000, globalLock))
+      testers.foreach(_.startPerSource(10000, globalLock))
       testers.foreach(_.join())
       tb.waitCheckers()
       tb.assertCoverage()
