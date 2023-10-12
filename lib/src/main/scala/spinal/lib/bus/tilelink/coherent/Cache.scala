@@ -451,18 +451,17 @@ class Cache(val p : CacheParam) extends Component {
       val isReleaseData = input.opcode === Opcode.C.RELEASE_DATA
       val isProbeNoData = input.opcode === Opcode.C.PROBE_ACK
       val isProbe = Opcode.C.isProbe(input.opcode)
-      val hitOh = slots.map(s => s.valid && s.address === input.address(blockRange)) //TODO no need of blockrange anymore, can likely be checkRange, as now, release are checked in ctrl.process aswell
+      val hitOh = slots.map(s => s.valid && s.address(0, addressCheckRange.size bits) === input.address(addressCheckRange))
       val hitId = OHToUInt(hitOh)
       val pending = slots.map(_.pending).read(hitId)
       val pendingNext = pending - 1
       val masterOh = coherentMasterToSource.map(input.source === _).asBits
       val masterId = OHToUInt(masterOh)
-      val keptCopy = isProbe && Param.reportPruneKeepCopy(input.param)
+      val keptCopy = Param.reportPruneKeepCopy(input.param)
 
-      when(input.fire) {
+      when(input.fire && isProbe) {
         slots.onMask(hitOh) { s =>
           s.unique.clearWhen(keptCopy)
-          s.evictClean setWhen(isReleaseData)
           when(isProbeNoData) { s.pending := pendingNext }
         }
       }
@@ -908,11 +907,13 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
 
-      when(CTRL_CMD.opcode === RELEASE_DATA){
+      when(preCtrl.IS_RELEASE){
         when(isFireing){
           for(s <- prober.slots){
             when(s.address === CTRL_CMD.address(blockRange)){
-              s.evictClean := True
+              when(preCtrl.WRITE_DATA) {
+                s.evictClean := True
+              }
             }
           }
         }

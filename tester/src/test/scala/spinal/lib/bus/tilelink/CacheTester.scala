@@ -77,7 +77,6 @@ class CacheTester extends AnyFunSuite{
 //    tester.noStall = true //for test only
 
 
-    //Simulation failed at time=1873254641
     tester.doSim("manual") { tb =>
       disableSimWave()
 
@@ -90,7 +89,7 @@ class CacheTester extends AnyFunSuite{
       val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
 //      val globalLock = Some(SimMutex()) //for test only
       val globalLock = Option.empty[SimMutex]
-      testers.foreach(_.startPerSource(10000, globalLock))
+      testers.foreach(_.startPerSource(1000000, globalLock))
       testers.foreach(_.join())
       tb.waitCheckers()
       tb.assertCoverage()
@@ -128,18 +127,18 @@ class CacheTester extends AnyFunSuite{
 //      }
 //    }
 //
-//    tester.doSimDirected("get"){_.coverGet(32)}
-//    tester.doSimDirected("putFull") {_.coverPutFullData(32)}
-//    tester.doSimDirected("putPartial") {_.coverPutPartialData(32)}
-//    tester.doSimDirected("acquireB")(_.coverAcquireB(32))
-//    tester.doSimDirected("acquireT")(_.coverAcquireT(32))
-//    tester.doSimDirected("acquireBT")(_.coverAcquireBT(32))
-//    tester.doSimDirected("acquireTB")(_.coverAcquireTB(32))
-//    tester.doSimDirected("acquirePerm")(_.coverAcquirePerm(32))
-//    tester.doSimDirected("coherencyBx2")(_.coverCoherencyBx2(32))
-//    tester.doSimDirected("coherencyTx2")(_.coverCoherencyTx2(32))
-//    tester.doSimDirected("coherencyT_B")(_.coverCoherencyT_B(32))
-//    tester.doSimDirected("coherencyBx2_T_Bx2")(_.coverCoherencyBx2_T_Bx2(32))
+    tester.doSimDirected("get"){_.coverGet(32)}
+    tester.doSimDirected("putFull") {_.coverPutFullData(32)}
+    tester.doSimDirected("putPartial") {_.coverPutPartialData(32)}
+    tester.doSimDirected("acquireB")(_.coverAcquireB(32))
+    tester.doSimDirected("acquireT")(_.coverAcquireT(32))
+    tester.doSimDirected("acquireBT")(_.coverAcquireBT(32))
+    tester.doSimDirected("acquireTB")(_.coverAcquireTB(32))
+    tester.doSimDirected("acquirePerm")(_.coverAcquirePerm(32))
+    tester.doSimDirected("coherencyBx2")(_.coverCoherencyBx2(32))
+    tester.doSimDirected("coherencyTx2")(_.coverCoherencyTx2(32))
+    tester.doSimDirected("coherencyT_B")(_.coverCoherencyT_B(32))
+    tester.doSimDirected("coherencyBx2_T_Bx2")(_.coverCoherencyBx2_T_Bx2(32))
 
 
 
