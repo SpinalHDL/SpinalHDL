@@ -9,21 +9,21 @@ import spinal.lib.pipeline._
 
 import scala.collection.mutable.ArrayBuffer
 
-case class DirectoryParam(var unp : NodeParameters,
-                          var downPendingMax : Int,
-                          var cacheWays: Int,
-                          var cacheBytes: Int,
-                          var blockSize : Int,
-                          var cacheBanks : Int = 1,
-                          var probeCount : Int = 8,
-                          var aBufferCount: Int = 4,
-                          var ctrlLoopbackDepth : Int = 4,
-                          var generalSlotCount : Int = 8,
-                          var generalSlotCountUpCOnly : Int = 2,
-                          var victimBufferLines : Int = 2,
-                          var upCBufferDepth : Int = 8,
-                          var probeRegion : UInt => Bool,
-                          var allocateOnMiss : (Directory.CtrlOpcode.C, UInt, UInt, UInt) => Bool = null // opcode, source, address, size
+case class CacheParam(var unp : NodeParameters,
+                      var downPendingMax : Int,
+                      var cacheWays: Int,
+                      var cacheBytes: Int,
+                      var blockSize : Int,
+                      var cacheBanks : Int = 1,
+                      var probeCount : Int = 8,
+                      var aBufferCount: Int = 4,
+                      var ctrlLoopbackDepth : Int = 4,
+                      var generalSlotCount : Int = 8,
+                      var generalSlotCountUpCOnly : Int = 2,
+                      var victimBufferLines : Int = 2,
+                      var upCBufferDepth : Int = 8,
+                      var probeRegion : UInt => Bool,
+                      var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt) => Bool = null // opcode, source, address, size
                          ) {
   assert(isPow2(cacheBytes))
 
@@ -49,7 +49,7 @@ case class DirectoryParam(var unp : NodeParameters,
 }
 
 
-object Directory{
+object Cache{
   val CtrlOpcode = new SpinalEnum {
     val ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, GET, EVICT = newElement()
   }
@@ -179,15 +179,15 @@ General slot allocations on :
 - upC   : When release_data
  */
 
-class Directory(val p : DirectoryParam) extends Component {
+class Cache(val p : CacheParam) extends Component {
   import p._
-  import Directory.CtrlOpcode
+  import Cache.CtrlOpcode
 
   assert(generalSlotCountUpCOnly < generalSlotCount)
 
   val ubp = p.unp.toBusParameter()
   val dbp = NodeParameters(
-    m = Directory.downM2s(
+    m = Cache.downM2s(
       name = this,
       addressWidth = addressWidth,
       dataWidth = dataWidth,
@@ -361,7 +361,7 @@ class Directory(val p : DirectoryParam) extends Component {
     val fromUpC = Bool()
     val toDownA = Bool() //else to cache
     def toCache = !toDownA
-    val toUpD = Directory.ToUpDOpcode()
+    val toUpD = Cache.ToUpDOpcode()
 
     val toT = Bool()
     val source = ubp.source()
@@ -920,7 +920,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toWriteBackend.wayId      := backendWayId
       toWriteBackend.source     := CTRL_CMD.source
       toWriteBackend.toT        := True
-      toWriteBackend.toUpD      := Directory.ToUpDOpcode.NONE()
+      toWriteBackend.toUpD      := Cache.ToUpDOpcode.NONE()
       toWriteBackend.evict      := False
       toWriteBackend.debugId    := CTRL_CMD.debugId
 
@@ -1012,7 +1012,7 @@ class Directory(val p : DirectoryParam) extends Component {
           gsWrite := True
 
           when(CACHE_HIT){
-            toWriteBackend.toUpD := Directory.ToUpDOpcode.RELEASE_ACK()
+            toWriteBackend.toUpD := Cache.ToUpDOpcode.RELEASE_ACK()
           } otherwise {
             toWriteBackend.toDownA := True
             ctxDownD.data.toUpD := True
@@ -1065,8 +1065,8 @@ class Directory(val p : DirectoryParam) extends Component {
               }
             }
             toWriteBackend.toUpD := preCtrl.IS_GET.mux(
-              Directory.ToUpDOpcode.ACCESS_ACK_DATA(),
-              Directory.ToUpDOpcode.ACCESS_ACK()
+              Cache.ToUpDOpcode.ACCESS_ACK_DATA(),
+              Cache.ToUpDOpcode.ACCESS_ACK()
             )
           }.elsewhen(preCtrl.ALLOCATE_ON_MISS) {
             askOrdering := True
@@ -1074,7 +1074,7 @@ class Directory(val p : DirectoryParam) extends Component {
             ctxDownD.data.toCache := True
             when(preCtrl.IS_PUT_FULL_BLOCK){
               askWriteBackend := True
-              toWriteBackend.toUpD := Directory.ToUpDOpcode.ACCESS_ACK
+              toWriteBackend.toUpD := Cache.ToUpDOpcode.ACCESS_ACK
             } otherwise {
               askReadDown := True
             }
@@ -1145,7 +1145,7 @@ class Directory(val p : DirectoryParam) extends Component {
               toReadBackend.upD.param := acquireParam.resized
 
               toWriteBackend.toT := !aquireToB
-              toWriteBackend.toUpD := Directory.ToUpDOpcode.GRANT_DATA()
+              toWriteBackend.toUpD := Cache.ToUpDOpcode.GRANT_DATA()
 
               when(!CTRL_CMD.withDataUpC){
                 askOrdering := True
@@ -1291,7 +1291,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toWriteBackend.fromUpA    := False
       toWriteBackend.fromUpC    := False
       toWriteBackend.toDownA    := True
-      toWriteBackend.toUpD      := Directory.ToUpDOpcode.NONE
+      toWriteBackend.toUpD      := Cache.ToUpDOpcode.NONE
       toWriteBackend.toT        := True
       toWriteBackend.source     := 0
       toWriteBackend.gsId       := CMD.gsId
@@ -1323,7 +1323,7 @@ class Directory(val p : DirectoryParam) extends Component {
       val cmd = buffered.swapPayload(CMD())
       cmd.fromUpA := True
       cmd.toDownA := False
-      cmd.toUpD := Directory.ToUpDOpcode.ACCESS_ACK
+      cmd.toUpD := Cache.ToUpDOpcode.ACCESS_ACK
       cmd.gsId := buffered.gsId
       cmd.partialUpA := False
       cmd.address.assignDontCare()
@@ -1441,7 +1441,7 @@ class Directory(val p : DirectoryParam) extends Component {
       toDownA.corrupt := False
       toDownA.debugId := DebugId.withPostfix(toDownA.source)
 
-      import Directory.ToUpDOpcode._
+      import Cache.ToUpDOpcode._
 
       val needForkToUpD = CMD.toUpD.muxDc[Bool](
         NONE            -> False,
@@ -1633,7 +1633,7 @@ object DirectoryGen extends App{
                   cacheBytes : Int = 64*1024,
                   cacheWays : Int = 8) = {
     val blockSize = 64
-    DirectoryParam(
+    CacheParam(
       unp = NodeParameters(
         m = M2sParameters(
           addressWidth = addressWidth,
@@ -1677,14 +1677,14 @@ object DirectoryGen extends App{
     )
   }
 
-  SpinalVerilog(new Directory(basicConfig()))
+  SpinalVerilog(new Cache(basicConfig()))
 
 
   import spinal.lib.eda.bench._
 
   val rtls = ArrayBuffer[Rtl]()
   for (probeCount <- List(2)) { //Rtl.ffIo
-    rtls += Rtl(SpinalVerilog((new Directory(basicConfig(dataWidth = 16, addressWidth = 32, cacheWays = 4,cacheBytes = 128*1024)).setDefinitionName(s"Hub$probeCount"))))
+    rtls += Rtl(SpinalVerilog((new Cache(basicConfig(dataWidth = 16, addressWidth = 32, cacheWays = 4,cacheBytes = 128*1024)).setDefinitionName(s"Hub$probeCount"))))
   }
   val targets = XilinxStdTargets().take(2)
 

@@ -8,7 +8,7 @@ import tilelink.fabric.sim._
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.Component
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.bus.tilelink.coherent.DirectoryFiber
+import spinal.lib.bus.tilelink.coherent.CacheFiber
 import spinal.lib.bus.tilelink.fabric.{MasterBus, SlaveBus}
 import spinal.lib.bus.tilelink.sim.MasterTester
 import spinal.lib.system.tag.PMA
@@ -16,7 +16,7 @@ import spinal.sim.SimThread
 
 import scala.collection.mutable.ArrayBuffer
 
-class DirectoryTester extends AnyFunSuite{
+class CacheTester extends AnyFunSuite{
 
 
   test("directed"){
@@ -43,7 +43,7 @@ class DirectoryTester extends AnyFunSuite{
           )
         )
 
-        val directory = new DirectoryFiber()
+        val directory = new CacheFiber()
         directory.parameter.cacheWays = 4
         directory.parameter.cacheBytes = 4096
         directory.parameter.allocateOnMiss = (op, src, addr, size) => addr(6)

@@ -9,11 +9,11 @@ import spinal.lib.system.tag._
 
 
 //TODO remove probe on IO regions
-class DirectoryFiber() extends Area{
+class CacheFiber() extends Area{
   val up = Node.slave()
   val down = Node.master()
 
-  var parameter = DirectoryParam(
+  var parameter = CacheParam(
     unp = null, //Unknown yet
     downPendingMax = 4,
     cacheWays = 4,
@@ -77,7 +77,7 @@ class DirectoryFiber() extends Area{
     )
 
     down.m2s.parameters.load(
-      Directory.downM2s(
+      Cache.downM2s(
         name           = down,
         addressWidth   = up.m2s.parameters.addressWidth,
         dataWidth      = up.m2s.parameters.dataWidth,
@@ -88,7 +88,7 @@ class DirectoryFiber() extends Area{
     down.s2m.supported.load(S2mSupport.none)
 
     up.s2m.parameters.load(
-      Directory.upS2m(
+      Cache.upS2m(
         name = up,
         blockSize = parameter.blockSize,
         generalSlotCount = parameter.generalSlotCount
@@ -107,9 +107,9 @@ class DirectoryFiber() extends Area{
       AddressMapping.decode(addr.asBits, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
     }
     parameter.allocateOnMiss =  (op, src, addr, size) => parameter.probeRegion(addr)
-    val directory = new Directory(parameter)
+    val cache = new Cache(parameter)
     //TODO probeRegion
-    directory.io.up << up.bus
-    directory.io.down >> down.bus
+    cache.io.up << up.bus
+    cache.io.down >> down.bus
   }
 }
