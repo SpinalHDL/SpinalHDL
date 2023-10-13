@@ -22,7 +22,7 @@ case class CacheParam(var unp : NodeParameters,
                       var generalSlotCountUpCOnly : Int = 2,
                       var victimBufferLines : Int = 2,
                       var upCBufferDepth : Int = 8,
-                      var probeRegion : UInt => Bool,
+                      var coherentRegion : UInt => Bool,
                       var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt) => Bool = null // opcode, source, address, size
                          ) {
   assert(isPow2(cacheBytes))
@@ -591,6 +591,7 @@ class Cache(val p : CacheParam) extends Component {
 
     val preCtrl = new Area{
       import prepStage._
+      val PROBE_REGION = insert(p.coherentRegion(CTRL_CMD.address))
       val ALLOCATE_ON_MISS = insert(p.allocateOnMiss(CTRL_CMD.opcode, CTRL_CMD.source, CTRL_CMD.address, CTRL_CMD.size)) //TODO
       val FROM_A = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA(), ACQUIRE_BLOCK(), ACQUIRE_PERM()).sContains(CTRL_CMD.opcode))
       val FROM_C_RELEASE = insert(List(RELEASE(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
@@ -1051,6 +1052,10 @@ class Cache(val p : CacheParam) extends Component {
 
       when(!doIt){
         cache.tags.write.valid := False
+      }
+      when(!preCtrl.PROBE_REGION){
+        assert(!(isValid && preCtrl.ACQUIRE))
+        askProbe := False
       }
     }
   }
@@ -1557,7 +1562,7 @@ object DirectoryGen extends App{
       downPendingMax = downPendingMax,
       probeCount = probeCount,
       blockSize = blockSize,
-      probeRegion = _ => True,
+      coherentRegion = _ => True,
       generalSlotCount = generalSlotCount,
       allocateOnMiss = (_,_,_,_) => True
     )

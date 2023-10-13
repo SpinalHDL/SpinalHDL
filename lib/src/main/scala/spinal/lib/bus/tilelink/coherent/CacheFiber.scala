@@ -21,7 +21,7 @@ class CacheFiber() extends Area{
     blockSize = -1, //Unknown yet
     probeCount = 4,
     aBufferCount = 4,
-    probeRegion = null
+    coherentRegion = null
   )
 
 
@@ -103,10 +103,10 @@ class CacheFiber() extends Area{
     val probeSpec = transferSpec.filter(_.transfers.asInstanceOf[M2sTransfers].withBCE)
     val ioSpec = transferSpec.filter(!_.transfers.asInstanceOf[M2sTransfers].withBCE)
 
-    parameter.probeRegion = { addr =>
+    parameter.coherentRegion = { addr =>
       AddressMapping.decode(addr.asBits, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
     }
-    parameter.allocateOnMiss =  (op, src, addr, size) => parameter.probeRegion(addr)
+    parameter.allocateOnMiss =  (op, src, addr, size) => parameter.coherentRegion(addr)
     val cache = new Cache(parameter)
     //TODO probeRegion
     cache.io.up << up.bus
