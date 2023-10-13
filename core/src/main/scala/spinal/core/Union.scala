@@ -9,7 +9,7 @@ object UnionElement {
 }
 
 class UnionElement[T <: Data](val t: HardType[T], host: Union) {
-  def get(): T = {
+  def get(): T = signalCache(this, "get") {
     val wrap = host.raw.resized.as(t)
     var offsetCounter = 0
     for (e <- wrap.flatten) {
