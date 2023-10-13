@@ -6,10 +6,10 @@ package spinal.tester.code
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
 import spinal.core.fiber.Handle
-import spinal.core.internals.{Operator, Phase, PhaseContext}
+import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, Operator, Phase, PhaseContext, RangedAssignmentFixed, RangedAssignmentFloating}
 import spinal.lib._
 import spinal.core.sim._
-import spinal.idslplugin.Location
+import spinal.idslplugin.{Location, PostInitCallback}
 import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
@@ -1805,4 +1805,41 @@ object ExplorerTracerTest extends App{
     sleep(100000)
     simFailure()
   }
+}
+
+
+object UnionPlay extends App{
+  SpinalVerilog(new Component {
+    case class TypeA() extends Bundle {
+      val x, y, z = UInt(8 bits)
+    }
+
+    case class TypeB() extends Bundle {
+      val l, m, n = UInt(4 bits)
+      val rgb = Rgb(2,3,4)
+    }
+
+    case class MyUnion() extends Union{
+      val a = newElement(TypeA())
+      val b = newElement(TypeB())
+    }
+
+    val miaou, wuff = MyUnion()
+    wuff := miaou
+    miaou.raw := 0
+//    val x = miaou.raw(4, 10 bits)
+//    val y = B"1001"
+//    x := y
+    val b = miaou.b.get()
+//    b.m := U"1010"
+//    b.m(2) := True
+    b.m(2 downto 1) := U"10"
+    val sel = in UInt(2 bits)
+    b.rgb.g(1) := False
+    b.rgb.b(sel) := True
+    miaou.a.get().z(sel, 2 bits) := U"11"
+
+    miaou.a.y := U(4)
+    miaou.a.x := U(4, 4 bits)
+  })
 }
