@@ -1252,7 +1252,7 @@ object Shubacktchan2 extends App{
 
     import spinal.lib.pipeline._
     import spinal.lib.pipeline.Connection._
-    val _ = new Area {
+   /* val _ = new Area {
 
       val pipeline = new Pipeline {
         val fetch = new Stage()
@@ -1273,7 +1273,7 @@ object Shubacktchan2 extends App{
         val isNop = pipeline.decode(PC) === 0x00000013
         lock.release()
       }
-    }
+    }*/
 
     //    val proposal = Handle[Int]
 //    val supported = Handle[Int]
