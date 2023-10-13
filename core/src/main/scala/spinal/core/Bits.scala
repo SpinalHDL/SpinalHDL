@@ -234,7 +234,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
 
 
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBits(delay))
-  def reversed = B(asBools.reverse)
+  def reversed = B(asBools.reverse).asInstanceOf[this.type]
 
   override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpBits(kind, widthOf(this)))
 }

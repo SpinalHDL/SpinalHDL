@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.AddressMapping
 import scala.collection.Seq
-import scala.util.Random
+import spinal.core.sim.simRandom
 
 
 object BusParameter{
@@ -20,6 +20,7 @@ object BusParameter{
     withBCE      = false,
     withDataA    = false,
     withDataB    = false,
+    withDataC    = true,
     withDataD    = true,
     node         = null
   )
@@ -33,6 +34,7 @@ case class BusParameter(addressWidth : Int,
                         withBCE      : Boolean,
                         withDataA    : Boolean,
                         withDataB    : Boolean,
+                        withDataC    : Boolean,
                         withDataD    : Boolean,
                         node         : NodeParameters){
   val dataBytes   = dataWidth/8
@@ -55,7 +57,9 @@ case class BusParameter(addressWidth : Int,
 
 object SizeRange{
   def none = SizeRange(0, 0)
-  def upTo(x: Int) : SizeRange = SizeRange(1, x)
+  def all = SizeRange(1, 4096)
+  def upTo(x: Int): SizeRange = SizeRange(1, x)
+  def downTo(x: Int): SizeRange = SizeRange(x, 4096)
   def apply(x: Int) : SizeRange = SizeRange(x, x)
 }
 
@@ -92,7 +96,7 @@ case class SizeRange(min : Int, max : Int){
   def random(randMax : Int) : Int = {
     val min = log2Up(this.min)
     val max = log2Up(this.max min randMax)
-    1 << (min + Random.nextInt(max+1-min))
+    1 << (min + simRandom.nextInt(max+1-min))
   }
 
   def getSingleSize(): Option[Int] = {
@@ -117,6 +121,7 @@ case class NodeParameters(m : M2sParameters,
     withBCE       = withBCE,
     withDataA     = m.withDataA,
     withDataB     = s.withDataB,
+    withDataC     = true,
     withDataD     = m.withDataD,
     node          = this
   )

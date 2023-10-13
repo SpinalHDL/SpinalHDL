@@ -6,7 +6,6 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.sim.{StreamDriver, StreamDriverOoo, StreamMonitor, StreamReadyRandomizer}
 
 import scala.collection.mutable
-import scala.util.Random
 
 class OrderingArgs(val offset : Int, val bytes : Int){
   override def toString = f"offset=$offset%x bytes=$bytes"
@@ -30,7 +29,7 @@ class Block(val source : Int,
 
   def makeDataDirty(): Unit ={
     dirty = true
-    for (i <- 0 until data.size if Random.nextBoolean()) data(i) = Random.nextInt().toByte
+    for (i <- 0 until data.size if simRandom.nextBoolean()) data(i) = simRandom.nextInt().toByte
   }
 
   def setCap(cap : Int): Unit ={
@@ -42,22 +41,37 @@ case class Probe(source : Int, param : Int, address : Long, size : Int, perm : B
 
 }
 
-class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(implicit idAllocator: IdAllocator) extends MonitorSubscriber{
+class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64)(implicit idAllocator: IdAllocator) extends MonitorSubscriber{
   var debug = false
 
   val driver = new MasterDriver(bus, cd)
   val monitor = new Monitor(bus, cd).add(this)
-  val callbackOnD = Array.fill[TransactionD => Unit](1 << bus.p.sourceWidth)(null)
+  val callbackOnAtoD, callbackOnCtoD = Array.fill[TransactionD => Unit](1 << bus.p.sourceWidth)(null)
 
-  def waitD(source : Int) : TransactionD = {
+
+  val releaseIds = Array.fill(1 << bus.p.sourceWidth) (SimMutex())
+
+  def waitAtoD(source : Int) : TransactionD = {
     var value : TransactionD = null
     val lock = SimMutex().lock()
-    callbackOnD(source) = { d =>
+    callbackOnAtoD(source) = { d =>
       value = d
       lock.unlock()
     }
     lock.await()
-    callbackOnD(source) = null
+    callbackOnAtoD(source) = null
+    value
+  }
+
+  def waitCtoD(source: Int): TransactionD = {
+    var value: TransactionD = null
+    val lock = SimMutex().lock()
+    callbackOnCtoD(source) = { d =>
+      value = d
+      lock.unlock()
+    }
+    lock.await()
+    callbackOnCtoD(source) = null
     value
   }
 
@@ -89,7 +103,11 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
 
   }
   override def onD(d : TransactionD) : Unit = {
-    callbackOnD(d.source.toInt)(d)
+    import Opcode.D._
+    d.opcode match {
+      case RELEASE_ACK =>  callbackOnCtoD(d.source.toInt)(d)
+      case ACCESS_ACK | ACCESS_ACK_DATA | GRANT | GRANT_DATA =>  callbackOnAtoD(d.source.toInt)(d)
+    }
   }
   override def onE(e : TransactionE) : Unit = {
 
@@ -121,7 +139,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     a.debugId = debugId
     driver.scheduleA(a)
 
-    val d = waitD(source)
+    val d = waitAtoD(source)
     assert(d.opcode == Opcode.D.ACCESS_ACK_DATA, s"Unexpected transaction on $bus")
     assert(d.bytes == bytes, s"Unexpected transaction on $bus")
     idAllocator.remove(debugId)
@@ -142,7 +160,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     a.mask = mask.toArray
     driver.scheduleA(a)
 
-    val d = waitD(source)
+    val d = waitAtoD(source)
     assert(d.opcode == Opcode.D.ACCESS_ACK, s"Unexpected transaction on $bus")
     assert(d.bytes == bytes, s"Unexpected transaction on $bus")
     idAllocator.remove(debugId)
@@ -162,7 +180,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     a.mask = Array.fill(data.size)(true)
     driver.scheduleA(a)
 
-    val d = waitD(source)
+    val d = waitAtoD(source)
     assert(d.opcode == Opcode.D.ACCESS_ACK, s"Unexpected transaction on $bus")
     assert(d.bytes == bytes, s"Unexpected transaction on $bus")
     idAllocator.remove(debugId)
@@ -230,7 +248,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     a.debugId = debugId
     driver.scheduleA(a)
 
-    val d = waitD(source)
+    val d = waitAtoD(source)
     var b : Block = null
     d.opcode match {
       case Opcode.D.GRANT => {
@@ -286,7 +304,7 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
     a.debugId = debugId
     driver.scheduleA(a)
 
-    val d = waitD(source)
+    val d = waitAtoD(source)
     var blk : Block = null
     assert(d.opcode == Opcode.D.GRANT)
     assert(d.param == Param.Cap.toT)
@@ -333,60 +351,76 @@ class MasterAgent (val bus : Bus, cd : ClockDomain, val blockSize : Int = 64)(im
   }
   def release(source : Int, toCap : Int, block : Block) : Unit = {
     block.retain()
+
     assert(!block.dirty)
     assert(block.cap < toCap)
 
+    val blockCap = block.cap
+    this.block.releaseCap(block, toCap)
+    assert(block.cap == toCap)
+
+    releaseIds(source).lock()
+
     val c = new TransactionC()
     c.opcode  = Opcode.C.RELEASE
-    c.param   = Param.Prune.fromTo(block.cap, toCap)
+    c.param   = Param.Prune.fromTo(blockCap, toCap)
     c.size    = log2Up(blockSize)
     c.source  = source
     c.address = block.address
     driver.scheduleC(c)
 
-    val d = waitD(source)
+    val d = waitCtoD(source)
     assert(d.opcode == Opcode.D.RELEASE_ACK)
 
-    this.block.releaseCap(block, toCap)
-    assert(block.cap == toCap)
+    releaseIds(source).unlock()
     block.release()
+    this.block.updateBlock(block)
   }
 
   def releaseData(source : Int, toCap : Int, block : Block) : Unit = {
+    block.retain()
+
     assert(block.dirty)
     assert(block.cap < toCap)
+
     block.dirty = false
-    block.retain()
+
+    val blockCap = block.cap
+    this.block.releaseCap(block, toCap)
+    assert(block.cap == toCap)
+
+    releaseIds(source).lock()
 
     val c = new TransactionC()
     c.opcode  = Opcode.C.RELEASE_DATA
-    c.param   = Param.Prune.fromTo(block.cap, toCap)
+    c.param   = Param.Prune.fromTo(blockCap, toCap)
     c.size    = log2Up(blockSize)
     c.source  = source
     c.address = block.address
     c.data    = block.data
     driver.scheduleC(c)
 
-    val d = waitD(source)
+    val d = waitCtoD(source)
     assert(d.opcode == Opcode.D.RELEASE_ACK)
 
-    this.block.releaseCap(block, toCap)
-    assert(block.cap == toCap)
+    releaseIds(source).unlock()
     block.release()
+    this.block.updateBlock(block)
   }
 }
 
 import spinal.core.sim._
 import spinal.lib.sim._
 
-class BlockManager(ma : MasterAgent){
+class BlockManager(ma : MasterAgent, var allowReleaseOnProbe : Boolean = false){
   import ma._
   val sourceToMaster = (0 until  1 << bus.p.sourceWidth).map(source => bus.p.node.m.getMasterFromSource(source))
   val blocks = mutable.LinkedHashMap[(M2sAgent, Long), Block]()
   val blockHistorySize = 16
   val blockRandomHistory = mutable.LinkedHashMap[M2sAgent, Array[Block]]()
   ma.bus.p.node.m.masters.foreach(blockRandomHistory(_) = Array.fill[Block](blockHistorySize)(null))
-  def getRandomBlock(m : M2sAgent) = blockRandomHistory(m)(Random.nextInt(blockHistorySize))
+
+  def getRandomBlock(m : M2sAgent) = blockRandomHistory(m)(simRandom.nextInt(blockHistorySize))
   def apply(source : Int, address : Long) = blocks(sourceToMaster(source) -> address)
   def get(source : Int, address : Long) : Option[Block] = blocks.get(sourceToMaster(source) -> address)
   def contains(source : Int, address : Long) = blocks.contains(sourceToMaster(source) -> address)
@@ -394,7 +428,7 @@ class BlockManager(ma : MasterAgent){
     val key2 = (sourceToMaster(key._1) -> key._2)
     assert(!blocks.contains(key2))
     blocks(key2) = block
-    blockRandomHistory(key2._1)(Random.nextInt(blockHistorySize)) = block
+    blockRandomHistory(key2._1)(simRandom.nextInt(blockHistorySize)) = block
   }
   def removeBlock(source : Int, address : Long) = {
     val m = sourceToMaster(source)
@@ -421,30 +455,45 @@ class BlockManager(ma : MasterAgent){
         b.probe = None
         b.retains match {
           case 0 => {
-            b.cap < probe.param match {
-              case false => probeAck(
-                source = probe.source,
-                toCap =  b.cap,
-                block = b
-              )
-              case true  => {
-                (b.dirty && !probe.perm) match {
-                  case false => probeAck(
-                    source = probe.source,
-                    toCap = probe.param,
-                    block = b
-                  )
-                  case true => {
-                    b.dirty = false
-                    probeAckData(
-                      toCap = probe.param,
+            def doProbeAck(): Unit = {
+              b.cap < probe.param match {
+                case false => probeAck(
+                  source = probe.source,
+                  toCap = b.cap,
+                  block = b
+                )
+                case true => {
+                  (b.dirty && !probe.perm) match {
+                    case false => probeAck(
                       source = probe.source,
+                      toCap = probe.param,
                       block = b
                     )
+                    case true => {
+                      b.dirty = false
+                      probeAckData(
+                        toCap = probe.param,
+                        source = probe.source,
+                        block = b
+                      )
+                    }
                   }
                 }
               }
             }
+
+            //Sporadic release
+            if(allowReleaseOnProbe && b.cap != Param.Cap.toN && simRandom.nextFloat() < 0.2f) fork{
+              releaseAuto(
+                source = sourceToMaster(probe.source).mapping.randomPick().id.randomPick().toInt,
+                toCap =  (b.cap+1 to Param.Cap.toN).randomPick(),
+                block = b
+              )
+              doProbeAck()
+            } else {
+              doProbeAck()
+            }
+
           }
           case _ => ???
         }

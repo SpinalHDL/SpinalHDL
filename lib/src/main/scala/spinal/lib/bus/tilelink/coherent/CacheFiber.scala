@@ -4,27 +4,24 @@ import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
-import spinal.lib.system.tag._
 import spinal.lib.bus.tilelink.fabric._
-import spinal.lib._
-
-import scala.collection.mutable.ArrayBuffer
+import spinal.lib.system.tag._
 
 
 //TODO remove probe on IO regions
-class HubFabric() extends Area{
+class CacheFiber() extends Area{
   val up = Node.slave()
   val down = Node.master()
 
-  var parameter = HubParameters(
+  var parameter = CacheParam(
     unp = null, //Unknown yet
     downPendingMax = 4,
-    sets = 256,
-    wayCount = 1,
+    cacheWays = 4,
+    cacheBytes = 4096,
     blockSize = -1, //Unknown yet
     probeCount = 4,
     aBufferCount = 4,
-    probeRegion = null
+    coherentRegion = null
   )
 
 
@@ -80,21 +77,21 @@ class HubFabric() extends Area{
     )
 
     down.m2s.parameters.load(
-      Hub.downM2s(
+      Cache.downM2s(
         name           = down,
         addressWidth   = up.m2s.parameters.addressWidth,
         dataWidth      = up.m2s.parameters.dataWidth,
         blockSize      = parameter.blockSize,
-        downPendingMax = parameter.downPendingMax
+        generalSlotCount = parameter.generalSlotCount
       )
     )
     down.s2m.supported.load(S2mSupport.none)
 
     up.s2m.parameters.load(
-      Hub.upS2m(
+      Cache.upS2m(
         name = up,
         blockSize = parameter.blockSize,
-        setCount = parameter.sets
+        generalSlotCount = parameter.generalSlotCount
       )
     )
     up.s2m.setProposedFromParameters()
@@ -106,12 +103,13 @@ class HubFabric() extends Area{
     val probeSpec = transferSpec.filter(_.transfers.asInstanceOf[M2sTransfers].withBCE)
     val ioSpec = transferSpec.filter(!_.transfers.asInstanceOf[M2sTransfers].withBCE)
 
-    parameter.probeRegion = { addr =>
+    parameter.coherentRegion = { addr =>
       AddressMapping.decode(addr.asBits, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
-//      equivalent to probeSpec.map(_.where.mapping.hit(addr)).orR
     }
-    val hub = new Hub(parameter)
-    hub.io.up << up.bus
-    hub.io.down >> down.bus
+    parameter.allocateOnMiss =  (op, src, addr, size) => parameter.coherentRegion(addr)
+    val cache = new Cache(parameter)
+    //TODO probeRegion
+    cache.io.up << up.bus
+    cache.io.down >> down.bus
   }
 }

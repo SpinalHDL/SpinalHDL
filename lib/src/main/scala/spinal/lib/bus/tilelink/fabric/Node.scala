@@ -16,6 +16,8 @@ object Node{
   def apply() : Node = new Node()
   def slave() : Node = apply().setSlaveOnly()
   def master() : Node = apply().setMasterOnly()
+  def up(): Node = apply().setSlaveOnly()
+  def down(): Node = apply().setMasterOnly()
   def connect(m : NodeUpDown, s : NodeUpDown) = {
     val c = new Connection(m, s)
     m.downs += c
@@ -33,8 +35,24 @@ class Node() extends NodeUpDown{
   var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
 
   //Allows to customize how the node is connected to its arbiter / decoder components (pipelining)
-  def setUpConnection(body : (Bus, Bus) => Any) = arbiterConnector = body
-  def setDownConnection(body : (Bus, Bus) => Any) = decoderConnector = body
+  def setUpConnection(body : (Bus, Bus) => Any) : Unit  = arbiterConnector = body
+  def setDownConnection(body : (Bus, Bus) => Any) : Unit  = decoderConnector = body
+
+  def setUpConnection(a: StreamPipe = StreamPipe.NONE,
+                      b: StreamPipe = StreamPipe.NONE,
+                      c: StreamPipe = StreamPipe.NONE,
+                      d: StreamPipe = StreamPipe.NONE,
+                      e: StreamPipe = StreamPipe.NONE) : Unit = {
+    setUpConnection(_.connectFrom(_)(a, b, c, d, e))
+  }
+
+  def setDownConnection(a: StreamPipe = StreamPipe.NONE,
+                        b: StreamPipe = StreamPipe.NONE,
+                        c: StreamPipe = StreamPipe.NONE,
+                        d: StreamPipe = StreamPipe.NONE,
+                        e: StreamPipe = StreamPipe.NONE) : Unit  = {
+    setDownConnection(_.connectFrom(_)(a, b, c, d, e))
+  }
 
 
   def forceDataWidth(dataWidth : Int): Unit ={
@@ -64,7 +82,10 @@ class Node() extends NodeUpDown{
     // m2s.proposed <- ups.m2s.proposed
     if(withUps) {
       val fromUps = ups.map(_.m.m2s.proposed).reduce(_ mincover _)
-      val modified = m2s.applyProposedModifiersOn(fromUps)
+      val addressConstrained = fromUps.copy(
+        addressWidth = fromUps.addressWidth min ups.map(up => up.proposalAddressWidth(up.m.m2s.proposed.addressWidth)).max
+      )
+      val modified = m2s.applyProposedModifiersOn(addressConstrained)
       m2s.proposed load modified
     }
 
@@ -72,7 +93,7 @@ class Node() extends NodeUpDown{
     if(withDowns) {
       val fromDowns = downs.map(_.s.m2s.supported.get).reduce(_ mincover _)
       val addressConstrained = fromDowns.copy(
-        addressWidth = downs.map(down => down.decoderAddressWidth()).max
+        addressWidth = downs.map(down => down.decoderAddressWidth(down.s.m2s.supported.addressWidth)).max
       )
       val modified = m2s.applySupportedModifiersOn(addressConstrained)
       m2s.supported load modified

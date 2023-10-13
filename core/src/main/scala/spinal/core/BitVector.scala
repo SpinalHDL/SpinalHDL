@@ -55,6 +55,8 @@ abstract class BitVector extends BaseType with Widthable {
 
   def bitsRange: Range = 0 until getWidth
 
+  def reversed : this.type
+
   /** Logical OR of all bits */
 //  def orR: Bool = this.asBits =/= 0
   def orR: Bool = {

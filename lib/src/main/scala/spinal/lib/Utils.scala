@@ -47,6 +47,17 @@ object UIntToOh {
   }
 }
 
+// Meaning that value 2 will give 0011 instead of 0100
+object UIntToOhMinusOne {
+  def apply(value: UInt, width: Int): Bits = {
+    if (width <= 0) B(0, width bits)
+    else B(U(B(1, width bits) |<< value)-1)
+  }
+
+
+  def apply(value : UInt) : Bits = apply(value,  1 << widthOf(value))
+}
+
 
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
@@ -383,6 +394,17 @@ object LeastSignificantBitSet{
   }
 }
 
+object PropagateOnes{
+  def toLsb[T <: BitVector](that : T) : T = {
+    val ret =  cloneOf(that)
+    for(i <- ret.bitsRange){
+      ret(i) := that.dropLow(i).orR
+    }
+    ret
+  }
+  def toMsb[T <: BitVector](that : T) : T = toLsb(that.reversed).reversed
+}
+
 
 object toGray {
   def apply(uint: UInt): Bits = {
@@ -674,7 +696,7 @@ object CounterUpDown {
   //  implicit def implicitValue(c: Counter) = c.value
 }
 
-class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
+class CounterUpDown(val stateCount: BigInt, val handleOverflow : Boolean = true) extends ImplicitArea[UInt] {
   val incrementIt = False
   val decrementIt = False
 
@@ -687,7 +709,8 @@ class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
 
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext) init(0)
-  val willOverflowIfInc = value === stateCount - 1 && !decrementIt
+  val mayOverflow = value === stateCount - 1
+  val willOverflowIfInc = mayOverflow && !decrementIt
   val willOverflow = willOverflowIfInc && incrementIt
 
   val finalIncrement = UInt(log2Up(stateCount) bit)
@@ -699,7 +722,7 @@ class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
     finalIncrement := 0
   }
 
-  if (isPow2(stateCount)) {
+  if (isPow2(stateCount) || !handleOverflow) {
     valueNext := (value + finalIncrement).resized
   }
   else {
@@ -1110,6 +1133,10 @@ class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
   def orR: Bool  = pimped.asBits =/= 0
   def andR: Bool = pimped.reduce(_ && _)
   def xorR: Bool = pimped.reduce(_ ^ _)
+
+  def norR: Bool = pimped.asBits === 0
+  def nandR: Bool = !nandR
+  def nxorR: Bool = !xorR
 }
 
 class TraversableOnceAddressTransformerPimped(pimped: Seq[AddressTransformer]) {

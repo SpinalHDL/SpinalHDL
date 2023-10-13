@@ -23,7 +23,7 @@ object Axi4Bridge{
   }
 
   def getSupported(proposed : M2sSupport) = proposed.intersect(
-    M2sTransfers.unknownGetPut
+    M2sTransfers.allGetPut
   )
 }
 

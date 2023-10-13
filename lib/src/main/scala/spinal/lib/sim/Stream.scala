@@ -76,6 +76,8 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
     (x*x*10).toInt
   }
 
+  var factor = Option.empty[Float]
+  def setFactor(value : Float) = factor = Some(value)
 
   //The  following commented threaded code is the equivalent to the following uncommented thread-less code (nearly)
 //  fork{
@@ -101,11 +103,18 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
   def fsm(): Unit = {
     state match{
       case 0 => {
-        if (delay == 0) {
-          state += 1
-          fsm()
-        } else {
-          delay -= 1
+        factor match {
+          case Some(x) => if(simRandom.nextFloat() < x) {
+            state += 1
+            fsm()
+          }
+          case None =>
+            if (delay == 0) {
+            state += 1
+            fsm()
+          } else {
+            delay -= 1
+          }
         }
       }
       case 1 => {
@@ -118,14 +127,14 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
         if(readyProxy.toBoolean){
           validProxy #= false
           stream.payload.randomize()
-          delay = transactionDelay()
+          if(factor.isEmpty){delay = transactionDelay()}
           state = 0
           fsm()
         }
       }
     }
   }
-  clockDomain.onSamplings(fsm)
+  clockDomain.onSamplings (fsm)
 
   def reset() {
     state = 0
@@ -139,6 +148,7 @@ object StreamReadyRandomizer {
 
 case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain,var condition: () => Boolean){
   var factor = 0.5f
+  def setFactor(value : Float) = factor = value
   val readyProxy = stream.ready.simProxy()
   clockDomain.onSamplings{
     if (condition()) {

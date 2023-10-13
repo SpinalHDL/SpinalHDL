@@ -108,7 +108,7 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
   }
 
 
-  override def toString: String = getName("???")
+  override def toString: String = getName("???") + (if(!loaded) "" else "=" + value.toString)
 
   def map[T2](body : (T) => T2) = hardFork(body(get))
 

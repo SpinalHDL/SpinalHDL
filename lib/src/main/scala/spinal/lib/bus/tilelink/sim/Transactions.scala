@@ -5,7 +5,6 @@ import spinal.lib.bus.tilelink._
 import spinal.sim.SimError
 
 import scala.reflect.ClassTag
-import scala.util.Random
 
 abstract class TransactionABCD {
   type T <: TransactionABCD
@@ -62,7 +61,7 @@ abstract class TransactionABCD {
         var accessOffset = address & (bytes - 1)
         val beatOffset = address & (bytesPerBeat - 1)
         beat.data = new Array[Byte](bytesPerBeat)
-        if(bytes < bytesPerBeat) Random.nextBytes(beat.data)
+        if(bytes < bytesPerBeat) simRandom.nextBytes(beat.data)
         if(withMask) {
           beat.mask = new Array(bytesPerBeat)
         }

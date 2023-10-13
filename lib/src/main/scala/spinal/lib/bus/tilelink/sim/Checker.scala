@@ -6,6 +6,7 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.fabric.TransferFilterTag
 import spinal.lib.sim.SparseMemory
 import spinal.sim.SimError
+import scala.collection.Seq
 
 import scala.collection.mutable
 
@@ -176,17 +177,25 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
         inflightB.remove(key)
       }
     }
-    if(checkMapping) {
+  }
+
+
+  override def onBeatC(c: TransactionC) = {
+    //The reason why the need to update the endpoint models on each beat instead than on the whole transaction
+    //is because some coherent agent may loop back C to D, and in the case that loopback only need the few first beat
+    //D will finish before C
+    if (checkMapping) {
+      import Opcode.C._
+      val (endpoint, chunk) = getMapping(c.address, c.opcode)
       val localAddress = chunk.globalToLocal(c.address).toLong
       endpoint.model match {
-        case mem : SparseMemory => c.opcode match {
+        case mem: SparseMemory => c.opcode match {
           case PROBE_ACK_DATA | RELEASE_DATA => mem.write(localAddress, c.data)
           case PROBE_ACK | RELEASE =>
         }
       }
     }
   }
-
 
   override def onD(d: TransactionD) = {
     d.opcode match{
@@ -198,7 +207,7 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
           assert(ctx.isSet, s"No reference was provided for :\n${ctx.a}to compare with :\n$d")
           if (d.withData && !ctx.denied) {
             assert(ctx.ref != null, s"No reference data was provided for :\n${ctx.a}to compare with :\n$d")
-            assert((ctx.ref, d.data).zipped.forall(_ == _), s"Missmatch for :\n$ctx.a\n$d\n!=${ctx.ref.map(v => f"${v}%02x").mkString(" ")}")
+            assert((ctx.ref, d.data).zipped.forall(_ == _), s"Missmatch for :\n${ctx.a}\n$d\n!=${ctx.ref.map(v => f"${v}%02x").mkString(" ")}")
           }
           assert(d.denied == ctx.denied)
           assert(!d.corrupt)

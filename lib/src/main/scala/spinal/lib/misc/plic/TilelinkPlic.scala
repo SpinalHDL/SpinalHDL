@@ -51,6 +51,7 @@ object TilelinkPlic{
   def getTilelinkSupport(proposed: bus.tilelink.M2sSupport) = bus.tilelink.SlaveFactory.getSupported(
     addressWidth = addressWidth,
     dataWidth = 32,
+    allowBurst = false,
     proposed
   )
 
@@ -65,7 +66,7 @@ class TilelinkPlic(p : bus.tilelink.BusParameter,
   sourceIds,
   targetIds,
   new bus.tilelink.Bus(p),
-  new bus.tilelink.SlaveFactory(_)
+  new bus.tilelink.SlaveFactory(_, false)
 )
 
 trait InterruptCtrlFiber {

@@ -14,6 +14,8 @@ trait MonitorSubscriber{
   def onC(c : TransactionC) : Unit = { }
   def onD(d : TransactionD) : Unit = { }
   def onE(e : TransactionE) : Unit = { }
+
+  def onBeatC(c: TransactionC): Unit = { }
 }
 
 class Monitor (val bus : Bus, cd : ClockDomain) {
@@ -58,6 +60,8 @@ class Monitor (val bus : Bus, cd : ClockDomain) {
       case Opcode.C.RELEASE | Opcode.C.RELEASE_DATA => cToD(f.source) = f.address
       case Opcode.C.PROBE_ACK | Opcode.C.PROBE_ACK_DATA =>
     }
+
+    subscribers.foreach(_.onBeatC(f))
 
     fac.push(f)
   }

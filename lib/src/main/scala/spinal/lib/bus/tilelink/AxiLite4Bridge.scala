@@ -14,7 +14,7 @@ object AxiLite4Bridge{
       dataWidth    = p.m.dataWidth
     )
   }
-  def getSupported(proposed : M2sSupport) = proposed.intersect(M2sTransfers.unknownGetPut)
+  def getSupported(proposed : M2sSupport) = proposed.intersect(M2sTransfers.allGetPut)
 }
 
 class AxiLite4Bridge(p : NodeParameters) extends Component{

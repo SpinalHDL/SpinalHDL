@@ -26,19 +26,46 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     valid := stream.valid
     stream.ready := isReady
   }
-  def driveFrom(stage : Stage, cond : Bool, values : List[Stageable[_ <: Data]]) = new Composite(this, "driveFrom"){
-    val fired = RegInit(False) setWhen(isFireing) clearWhen(isChanging)
-    isValid := stage.isValid && cond && !fired
-    stage.haltIt(isValid && !fired && !isReady)
+
+  def driveFrom(stage : Stage, cond : Bool, values : List[Stageable[_ <: Data]], syncronous : Boolean = true) = new Composite(this, "driveFrom"){
+    isValid := stage.isValid && cond
+    val doHalt = isValid && cond && !isReady
+    stage.haltIt(doHalt)
+
+    val fired = !syncronous generate new Area{
+      val done = RegInit(False) setWhen(isFireing) clearWhen(isChanging)
+      when(done){
+        doHalt := False
+        isValid := False
+      }
+    }
+
     for(value <- values){
       self(value).assignFrom(stage(value))
     }
   }
-  def forkStream() : Stream[NoData] = {
+
+  def forkStream(cond : Bool = True)(implicit loc: Location) : Stream[NoData] = {
     val ret = Stream(NoData())
-    val fired = RegInit(False) setWhen(ret.fire) clearWhen(isChanging)
-    ret.valid := isValid && fired
-    haltIt(!fired && ret.ready)
+    val fired = RegInit(False) setWhen(ret.fire) clearWhen(isChanging) setCompositeName(ret, "fired")
+    ret.valid := isValid && !fired && cond
+    haltIt(!fired && !ret.ready && cond)
+    ret
+  }
+
+
+  def forkFlow(cond: Bool = True)(implicit loc: Location): Flow[NoData] = {
+    val ret = Flow(NoData())
+    val fired = RegInit(False) setWhen (ret.fire) clearWhen (isChanging) setCompositeName(ret, "fired")
+    ret.valid := isValid && !fired && cond
+    ret
+  }
+
+
+  def toStream()(implicit loc: Location): Stream[NoData] = {
+    val ret = Stream(NoData())
+    ret.valid := isValid && !isRemoved
+    haltIt(!ret.ready)
     ret
   }
 
@@ -157,6 +184,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     if(internals.arbitration.isFlushed == null) internals.arbitration.isFlushed = ContextSwapper.outsideCondScope(Bool())
     internals.arbitration.isFlushed
   }
+  //So, not realy well named, as it just check if a transaction is moving to the next stage (output.valid && output.ready)
   def isForked : Bool = {
     if(internals.arbitration.isForked == null) internals.arbitration.isForked = ContextSwapper.outsideCondScope(Bool())
     internals.arbitration.isForked

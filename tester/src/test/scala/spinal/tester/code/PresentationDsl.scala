@@ -1175,3 +1175,172 @@ object Main105 extends App {
 }
 
 //ffmpeg -i video.mp4 -ac 1 video_mono.mp4
+
+
+object Shubacktchan{
+  import spinal.core._
+  class Mux extends Component {
+    // define some IO
+    val a,b = in UInt(8 bits)
+    val sel = in Bool()
+    val result = out UInt(8 bits)
+
+    //Define some behaviour
+    when(sel){
+      result := a
+    } otherwise {
+      result := b
+    }
+  }
+
+
+
+
+  import spinal.lib.bus.tilelink
+  class Node extends Area {
+    val bus = Handle[tilelink.Bus]()
+
+  }
+
+////EXECUTION UNITES
+//plugins += new ExecutionUnitBase("EU0")
+//plugins += new SrcPlugin("EU0", earlySrc = true)
+//plugins += new IntAluPlugin("EU0", aluStage = 0)
+//plugins += new ShiftPlugin("EU0" , aluStage = 0)
+//plugins += new BranchPlugin("EU0")
+//
+//plugins += new ExecutionUnitBase("EU1")
+//plugins += new SrcPlugin("EU1")
+//plugins += new IntAluPlugin("EU1")
+//plugins += new ShiftPlugin("EU1")
+//plugins += new BranchPlugin("EU1")
+//
+//plugins += new ExecutionUnitBase("EU2", writebackCountMax = 1)
+//plugins += new SrcPlugin("EU2", earlySrc = true)
+//plugins += new MulPlugin("EU2", writebackAt = 2, staticLatency = false)
+//plugins += new DivPlugin("EU2", writebackAt = 2)
+//plugins += new LoadPlugin("EU2")
+//plugins += new StorePlugin("EU2")
+//plugins += new EnvCallPlugin("EU2")(rescheduleAt = 2)
+//plugins += new CsrAccessPlugin("EU2")(
+//  decodeAt = 0,
+//  readAt = 1,
+//  writeAt = 2,
+//  writebackAt = 2,
+//  staticLatency = false
+//)
+}
+
+object Shubacktchan2 extends App{
+  import spinal.core._
+  import spinal.core.fiber._
+  SpinalVerilog(new Component{
+
+
+
+    val _ = new Area {
+      val dataWidth = Handle[Int]
+
+      val peripheral = Fiber build new Area {
+        val data = UInt(dataWidth.get bits)
+      }
+
+      val cpu = Fiber build new Area {
+        dataWidth.load(32)
+      }
+    }
+
+    import spinal.lib.pipeline._
+    import spinal.lib.pipeline.Connection._
+   /* val _ = new Area {
+
+      val pipeline = new Pipeline {
+        val fetch = new Stage()
+        val decode = new Stage(M2S())
+        val execute = new Stage(M2S())
+      }
+
+      val lock = Lock()
+      Fiber build {
+        lock.await()
+        pipeline.build()
+      }
+
+      val PC = Stageable(UInt(32 bits))
+
+      lock.retain()
+      val decoder = Fiber build new Area {
+        val isNop = pipeline.decode(PC) === 0x00000013
+        lock.release()
+      }
+    }*/
+
+    //    val proposal = Handle[Int]
+//    val supported = Handle[Int]
+//
+//    val cpu = Fiber build new Area{
+//      proposal.load(32)
+//
+//    }
+//
+//    val ram = Fiber build new Area {
+//      supported.load(Math.min(proposal, 32))
+//    }
+
+//    val ram = new Area{
+//      val dataWidth = Handle[Int]
+//      val hardware = Fiber build new Area {
+//        val bus = UInt(dataWidth.get bits)
+//      }
+//    }
+//
+//    val interconnect = Fiber build new Area{
+//      // ...
+//      ram.dataWidth.load(32)
+//    }
+
+
+    class Node extends Nameable{
+      val ups = ArrayBuffer[Node]()
+      val downs = ArrayBuffer[Node]()
+
+      def <<(up: Node): Unit = {
+        ups += up
+        up.downs += this
+      }
+
+      val proposal = Handle[Int]
+      val supported = Handle[Int]
+
+      Fiber build {
+        if(ups.nonEmpty) proposal.load(ups.map(_.proposal.get).max)
+        if(downs.nonEmpty) supported.load(downs.map(_.supported.get).max)
+        println(s"$this got ${proposal.get} ${supported.get}")
+      }
+    }
+
+    class Cpu(propose : Int) extends Node{
+      Fiber build{
+        proposal.load(propose)
+      }
+    }
+
+    class Peripheral(upTo: Int) extends Node {
+      Fiber build {
+        supported.load(Math.min(proposal, upTo))
+      }
+    }
+
+    val a = new Cpu(16)
+    val b = new Cpu(32)
+    val shared = new Node()
+    val x = new Peripheral(16)
+    val y = new Peripheral(32)
+
+    shared << a
+    shared << b
+    x << shared
+    y << shared
+
+  })
+}
