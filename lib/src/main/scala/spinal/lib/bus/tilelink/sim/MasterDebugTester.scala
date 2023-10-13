@@ -2,6 +2,7 @@ package spinal.lib.bus.tilelink.sim
 
 import spinal.core.sim._
 import spinal.lib.bus.tilelink.{M2sTransfers, _}
+import scala.collection.Seq
 
 import scala.collection.mutable
 

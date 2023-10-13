@@ -10,6 +10,7 @@ import spinal.sim.SimThread
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.Seq
 
 object Chunk{
   def apply(allowed: M2sTransfers,

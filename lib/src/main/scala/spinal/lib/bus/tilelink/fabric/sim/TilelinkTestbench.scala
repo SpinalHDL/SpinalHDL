@@ -20,7 +20,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.compat.Platform.EOL
 import scala.util.{Failure, Success, Try}
-
+import scala.collection.Seq
 
 
 class TilelinkTester(cGen: => Component, simConfig : SpinalSimConfig = SimConfig){

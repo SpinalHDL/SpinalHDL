@@ -6,6 +6,7 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.fabric.TransferFilterTag
 import spinal.lib.sim.SparseMemory
 import spinal.sim.SimError
+import scala.collection.Seq
 
 import scala.collection.mutable
 
