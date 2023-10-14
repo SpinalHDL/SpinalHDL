@@ -15,6 +15,12 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import scala.collection.Seq
+import spinal.lib.bus.pcie.TlpConfig
+import spinal.lib.bus.pcie.Tlp
+import spinal.lib.bus.pcie.MemCmdHeader
+import spinal.lib.bus.pcie.Header
+import spinal.lib.bus.pcie.CplHeader
+import spinal.lib.bus.pcie.sim.PcieMemoryAgent
 
 object DmaSg{
   val ctrlAddressWidth = 16
@@ -82,7 +88,11 @@ object DmaSg{
                        weightWidth : Int,
                        withSgBus : Boolean = false,
                        pendingWritePerChannel : Int = 15,
-                       pendingReadPerChannel : Int = 15){
+                       pendingReadPerChannel : Int = 15,
+                       withPcie : Boolean = false,
+                       pcieReadCmdConfig : TlpConfig = null,
+                       pcieWriteCmdConfig : TlpConfig = null,
+                       pcieRspConfig : TlpConfig = null){
 
     def toSgBusParameter() = SgBusParameter(addressWidth, bytePerTransferWidth, channels.size)
     val readWriteMinDataWidth = Math.min(readDataWidth, writeDataWidth)
@@ -92,6 +102,8 @@ object DmaSg{
     assert(outputs.map(_.byteCount*8).fold(0)(Math.max) <= readWriteMinDataWidth)
     assert(inputs.map(_.byteCount*8).fold(0)(Math.max) <= readWriteMinDataWidth)
     assert(readWriteMaxDataWidth <= memory.bankCount*memory.bankWidth)
+    // assert(channels.exists(_.pcieCapable) ^ withPcie)
+    // assert(withPcie && !withSgBus)
 
     def canRead = channels.exists(_.canRead)
     def canWrite = channels.exists(_.canWrite)
@@ -179,7 +191,9 @@ object DmaSg{
                      progressProbes : Boolean,
                      halfCompletionInterrupt : Boolean,
                      bytePerBurst : Option[Int] = None,
-                     fifoMapping : Option[(Int, Int)] = None) extends OverridedEqualsHashCode {
+                     fifoMapping : Option[(Int, Int)] = None, 
+                     pcieCapable: Boolean = false,
+                     pcieDwPerBurst: Option[Int] = None) extends OverridedEqualsHashCode {
     def canRead = memoryToMemory || outputsPorts.nonEmpty
     def canWrite = memoryToMemory || inputsPorts.nonEmpty
     def canInput = inputsPorts.nonEmpty
@@ -216,6 +230,9 @@ object DmaSg{
       val interrupts = out Bits(p.channels.size bits)
       val ctrl = slave(ctrlType())
       val sg = p.withSgBus generate master(SgBus(p.toSgBusParameter()))
+      val pcieWriteCmd = p.withPcie generate master(Stream Fragment Tlp(p.pcieWriteCmdConfig))
+      val pcieReadCmd = p.withPcie generate master(Stream Fragment Tlp(p.pcieReadCmdConfig))
+      val pcieRsp = p.withPcie generate slave(Stream Fragment Tlp(p.pcieRspConfig))
     }
 
     val ctrl = slaveFactory(io.ctrl)
@@ -240,14 +257,27 @@ object DmaSg{
       val veryLast = Bool()
       val endPacket = Bool()
     }
+    val config = new {
+      val dwAddressWidth = 62
+      // high bit for 4k transfer
+      val burstDwWidth = 10
+    }
+
+    case class PcieFetchContext() extends Bundle {
+      val dwAddress = UInt(config.dwAddressWidth bits)
+      val dwInBurst = UInt(config.burstDwWidth bits)
+    }
 
     val memory = new Area{
+      val pcieWidth = 256/8
       val writesParameter = ArrayBuffer[DmaMemoryCoreWriteParameter]()
       val readsParameter = ArrayBuffer[DmaMemoryCoreReadParameter]()
 
       writesParameter ++= p.inputs.zipWithIndex.map{case (p, portId) => DmaMemoryCoreWriteParameter(p.byteCount, widthOf(InputContext(p, portId)), false)}
       readsParameter ++= p.outputs.zipWithIndex.map{case (p, portId) => DmaMemoryCoreReadParameter(p.byteCount, widthOf(B2sReadContext(portId)), false)}
 
+      if(p.withPcie) writesParameter += DmaMemoryCoreWriteParameter(pcieWidth, 0, false)
+      if(p.withPcie) readsParameter += DmaMemoryCoreReadParameter(pcieWidth, widthOf(PcieFetchContext()), false)
       if(p.canRead) writesParameter += DmaMemoryCoreWriteParameter(io.read.p.access.byteCount, widthOf(M2bWriteContext()), true)
       if(p.canWrite) readsParameter += DmaMemoryCoreReadParameter(io.write.p.access.byteCount, ptrWidth + 1, true)
 
@@ -260,6 +290,8 @@ object DmaSg{
       val ports = new Area{
         val m2b = core.io.writes.last
         val b2m = core.io.reads.last
+        val p2b = p.withPcie generate(if(p.canRead) core.io.writes.dropRight(1).last else core.io.writes.last)
+        val b2p = p.withPcie generate(if(p.canWrite) core.io.reads.dropRight(1).last else core.io.reads.last)
         val s2b = core.io.writes.take(io.inputs.size)
         val b2s = core.io.reads.take(io.outputs.size)
       }
@@ -437,6 +469,7 @@ object DmaSg{
       val push = new Area{
         val memory  = Reg(Bool())
 
+        val pcieActive = Reg(Bool())
 
         val m2b = cp.canRead generate new Area {
           val address = Reg(UInt(io.read.p.access.addressWidth bits))
@@ -451,7 +484,7 @@ object DmaSg{
           val memPendingIncr, memPendingDecr = False
           memPending := memPending + U(memPendingIncr) - U(memPendingDecr)
 
-          val loadRequest = descriptorValid && !channelStop && !loadDone && memory && fifo.push.available > (bytePerBurst >> log2Up(p.memory.bankWidth/8)) && memPending =/= p.pendingReadPerChannel
+          val loadRequest = descriptorValid && !channelStop && !loadDone && memory && fifo.push.available > (bytePerBurst >> log2Up(p.memory.bankWidth/8)) && memPending =/= p.pendingReadPerChannel && !pcieActive
 
           when(descriptorStart){
             bytesLeft := bytes
@@ -471,10 +504,31 @@ object DmaSg{
             packetLock := False
           }
         }
+      
+        val p2b = cp.pcieCapable generate new Area {
+          val address = Reg(UInt(config.dwAddressWidth+2 bits)) init 0
+          val dwPerBurst = cp.pcieDwPerBurst match {
+            case None => Reg(UInt(config.burstDwWidth bits)) init 0
+            case Some(x) => U(x-1, config.burstDwWidth bits)
+          }
+          dwPerBurst := 0
+
+          val loadDone = RegInit(True)
+          val bytesLeft = Reg(UInt(p.bytePerTransferWidth bits)) //minus one
+          val bytesPerBurst = ((dwPerBurst===0)##dwPerBurst##B"00").asUInt
+
+          val loadRequest = descriptorValid && !channelStop && !loadDone && fifo.push.available >= (bytesPerBurst >> log2Up(p.memory.bankWidth/8)) && pcieActive && !memory
+
+          when(descriptorStart){
+            bytesLeft := bytes
+            loadDone := False
+          }
+        }
       }
 
       val pop = new Area{
         val memory  = Reg(Bool())
+        val pcieActive = Reg(Bool())
         val b2s = cp.canOutput generate new Area{
           val last  = Reg(Bool())
           val portId = Reg(UInt(log2Up(p.outputs.size) bits))
@@ -570,6 +624,73 @@ object DmaSg{
             bytesLeft := bytes.resized
             waitFinalRsp := False
           }
+        }
+        
+        val b2p = cp.pcieCapable generate new Area {
+
+          val dwPerBurst = cp.pcieDwPerBurst match {
+            case None => Reg(UInt(config.burstDwWidth bits)) init 0
+            case Some(x) => U(x-1, config.burstDwWidth bits)
+          }
+          dwPerBurst := 0
+
+          val fire = False
+          val waitFinalRsp = Reg(Bool())
+          val flush = Reg(Bool()) clearWhen(fire)  //Check flush
+          val packetSync = False
+          val packet = Reg(Bool()) clearWhen(channelStart || fire)
+          val address = Reg(UInt(config.dwAddressWidth+2 bits)) init 0
+          val bytesLeft = Reg(UInt(p.bytePerTransferWidth bits)) //minus one
+
+          // Trigger request when there is enough to do a burst, fifo occupancy > 50 %, flush
+          // ! (fifo.pop.bytes > (dwPerBurst << 2)
+          val request = descriptorValid && !channelStop && !waitFinalRsp && (fifo.pop.bytes >= bytes || flush) && fifo.pop.bytes =/= 0 && pcieActive && !memory
+          val bytesToSkip = Reg(UInt(log2Up(p.pcieRspConfig.dwCount*4) bits))
+
+          val decrBytes = fifo.pop.bytesDecr.newPort()
+
+          decrBytes := 0
+
+          when(bytesLeft < fifo.pop.bytes){
+            flush := True
+          }
+
+          when(/*memPending === 0 &&*/fifo.pop.bytes === 0){
+            flush := False
+            packet := False
+            packetSync setWhen(packet)
+          }
+
+          if(cp.canInput) when(packetSync){
+            fifo.pop.withOverride.unload := True
+            push.s2b.packetLock := False
+            when(descriptorValid && !push.memory){
+              when(push.s2b.completionOnLast){
+                descriptorCompletion := True
+              } otherwise{
+                if(cp.linkedListCapable) when(!waitFinalRsp){
+                  ll.requireSync := True
+                }
+              }
+
+              if(cp.linkedListCapable) {
+                ll.packet := True
+              }
+            }
+          }
+
+          when(descriptorValid && waitFinalRsp.fall()){
+            descriptorCompletion := True
+          }
+          when(channelStart){
+            bytesToSkip := 0
+            flush := False
+          }
+          when(descriptorStart){
+            bytesLeft := bytes
+            waitFinalRsp := False
+          }
+
         }
       }
 
@@ -1142,6 +1263,361 @@ object DmaSg{
     }
 
 
+    val p2b = p.withPcie generate new Area {
+      val channels = Core.this.channels.filter(_.cp.pcieCapable)
+      case class TagTableEntry() extends Bundle {
+        val finish = Bool()
+        val channel = UInt(log2Up(channels.size) bits)
+        // val address =
+      }
+
+      val tm = new Area {
+        val tagCount = 1 << 8
+        val tagTable = new Area {
+          val finish = Mem(TagTableEntry().finish, tagCount)
+          val channel = Mem(TagTableEntry().channel, tagCount)
+        }
+        private val head = Reg(UInt(9 bits))
+        private val tail = Reg(UInt(9 bits))
+
+        def headPtr = head.dropHigh(1).asUInt
+        def tailPtr = tail.dropHigh(1).asUInt
+
+        def headIncr() {head := head+1}
+
+        val full = (head - tail) >= (tagCount-1)
+
+        when(tagTable.finish(tailPtr)) {
+          tail := tail+1
+        }
+      }
+
+      val cmd = new Area {
+        val s0 = new ArbiterLogic(channels) {
+          def requestFrom(c : ChannelLogic) : Bool = c.push.p2b.loadRequest
+          def acceptFrom(c : ChannelLogic) : Unit = {}
+          
+          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(chosen)
+          val address = channel(_.push.p2b.address)
+          val bytesLeft = channel(_.push.p2b.bytesLeft)
+          val dwAddress = address.dropLow(2).asUInt
+          val dwLeft = (address.resize(2) +^ bytesLeft).dropLow(2).asUInt // minus one
+          val dwAddressBurstOffset = (dwAddress.resized & ((1<<10)-1))
+          val alignSize = ((1<<10)-1)-dwAddressBurstOffset // minus 1
+          val bytesInBurst = UInt(config.burstDwWidth+2 bits)
+          val dwInBurst = UInt(config.burstDwWidth bits) // minus 1
+          when(dwLeft < alignSize) {
+            bytesInBurst := bytesLeft.resized
+            dwInBurst := dwLeft.resized
+          } otherwise {
+            bytesInBurst := (((1<<10)-1)-(address & ((1<<10)-1))).resized
+            dwInBurst := alignSize
+          }
+        }
+
+        val s1 = new Area {
+          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(s0.chosen)
+          val valid = RegInit(False) setWhen((s0.valid && !tm.full).rise())
+          val header = new MemCmdHeader()
+          val address = RegNext(s0.address)
+          val bytesLeft = RegNext(s0.bytesLeft)
+          val bytesInBurst = RegNext(s0.bytesInBurst)
+          val dwInBurst = RegNext(s0.dwInBurst)
+          val dwAddress = RegNext(s0.dwAddress)
+          val chosen = RegNext(s0.chosen)
+
+          val fifoPushDecr = ((address(log2Up(io.pcieRsp.config.dwCount*4)-1 downto 0) + bytesInBurst | (io.pcieRsp.config.dwCount*4-1))+^1 >> log2Up(p.memory.bankWidth/8)).resized
+          val bytesInBurstP1 = bytesInBurst +^ 1
+          val addressNext = address + bytesInBurstP1
+          val bytesLeftNext = bytesLeft -^ bytesInBurstP1
+          val isFinalCmd = bytesLeftNext.msb
+
+          header.assignSimple()
+          header.fmt := Header.Fmt.DW4
+          header.typ := Header.Type.MRd
+          header.addr := address.dropLow(2).asUInt
+          header.tag := tm.headPtr
+          header.lastBe := (B"1111" >> (address.takeLow(2).asUInt + bytesInBurstP1.takeLow(2).asUInt).takeLow(2).asUInt).resize(4)
+          header.firstBe := (B"1111" << address.takeLow(2).asUInt).resize(4)
+          header.len := dwInBurst+1
+
+          io.pcieReadCmd.valid := False
+          io.pcieReadCmd.last := True
+          io.pcieReadCmd.hdr := header.asBits
+          when(valid) {
+            io.pcieReadCmd.valid := True
+            when(io.pcieReadCmd.fire) {
+              // !do not support ood
+              // s0.valid := False
+              valid := False
+              tm.headIncr()
+              tm.tagTable.finish(tm.headPtr) := False
+              tm.tagTable.channel(tm.headPtr) := chosen
+              for((channel, ohId) <- channels.zipWithIndex) when(ohId === s0.chosen){
+                channel.push.p2b.address := addressNext
+                channel.push.p2b.bytesLeft :=   bytesLeftNext.resized
+                channel.fifo.push.availableDecr := fifoPushDecr
+                when(isFinalCmd) {
+                  channel.push.p2b.loadDone := True
+                }
+              }
+            }
+          }
+        }
+      }
+
+      val rsp = new Area {
+        val s0 = new Area {
+          case class RspWithContext() extends Bundle {
+            val rsp = cloneOf(io.pcieRsp.payload)
+            val context = TagTableEntry()
+          }
+
+          val header = CplHeader()
+          header.assignFromBits(io.pcieRsp.hdr)
+          val tag = header.tag
+          val context = TagTableEntry()
+          context.channel := tm.tagTable.channel(tag)
+          context.finish := tm.tagTable.finish(tag)
+          tm.tagTable.finish(tag) := True
+          // do not support multi completion
+          val rspWithContext = Stream(RspWithContext()).translateFrom(io.pcieRsp){(to, from)=>
+            to.rsp := from
+            to.context := context
+          }.addFragmentLast(io.pcieRsp.last)
+        }
+        val s1 = new Area {
+          val rspWithContext = s0.rspWithContext.stage()
+          val header = CplHeader()
+          header.assignFromBits(rspWithContext.rsp.hdr)
+
+          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(rspWithContext.context.channel)
+          val memoryPort = memory.ports.p2b.cmd
+          memoryPort.arbitrationFrom(rspWithContext)
+          memoryPort.address := channel(_.fifo.push.ptrWithBase).resized
+          memoryPort.data := rspWithContext.rsp.data
+
+          val masks = for{
+            (dw, dwId) <- memoryPort.mask.asBools.indices.grouped(4).zipWithIndex
+            byteInDwId <- dw
+          } yield {
+            val byteId = dwId*4+byteInDwId
+            val mask = Bool()
+            when(rspWithContext.first && Bool(dwId==0)) {
+              mask := byteInDwId >= header.lowerAddr.resized
+              // polish
+            } otherwise {
+              mask := True
+            }
+            mask
+          }
+          memoryPort.mask := masks.asBits()
+
+          for ((channel, ohId) <- channels.zipWithIndex) {
+            val fire = memory.ports.p2b.rsp.fire && (rspWithContext.context.channel === ohId)
+            channel.fifo.pop.bytesIncr.newPort := (fire ? (header.byteCnt) | U(0)).resized
+          }
+
+          when(rspWithContext.rsp.last && rspWithContext.fire) {
+            cmd.s0.valid := False
+          }
+        }
+      }
+
+    }
+
+    val b2p = p.withPcie generate new Area {
+      val channels = Core.this.channels.filter(_.cp.pcieCapable)
+
+      val cmd = new Area {
+        val sel = new Area {
+          val valid = RegInit(False)
+          val ready = Bool()
+          val channel = Reg(UInt(log2Up(channels.size) bits))
+          val ptr = Reg(ptrType())
+          val ptrMask = Reg(ptrType())
+
+          val dwPerBurst = Reg(UInt(config.burstDwWidth bits))
+          val bytesInFifo = Reg(bytesType)
+          val address = Reg(UInt(config.dwAddressWidth+2 bits))
+          val bytesLeft = Reg(UInt(p.bytePerTransferWidth bits)) //minus one
+          
+          val dwInBurst = Reg(UInt(config.burstDwWidth bits)) // minus one
+          val bytesInBurst = Reg(UInt(config.burstDwWidth+2 bits)) // minus one
+          val dwAddress = Reg(UInt(config.dwAddressWidth bits))
+
+          val firstBe = Reg(Bits(4 bits))
+          val lastBe = Reg(Bits(4 bits))
+
+          val flush = Reg(Bool)
+          val packet = Reg(Bool)
+
+          def isStall = valid && !ready
+
+          val arbiter = new ArbiterLogic(channels) {
+            def requestFrom(c: ChannelLogic): Bool = c.pop.b2p.request
+            def acceptFrom(c: ChannelLogic): Unit = {}
+          }
+          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(arbiter.chosen)
+
+          when(ready) {
+            valid := False
+            when(valid) {arbiter.valid := False}
+          }
+          when(!valid && arbiter.valid) {
+            valid := True
+            channel := arbiter.chosen
+            ptr := channel(_.fifo.pop.ptrWithBase)
+            ptrMask := channel(_.fifo.words)
+
+            dwPerBurst := channel(_.pop.b2p.dwPerBurst)
+            bytesInFifo := channel(_.fifo.pop.bytes)
+            address := channel(_.pop.b2p.address)
+            bytesLeft := channel(_.pop.b2p.bytesLeft)
+
+            flush := channel(_.pop.b2p.flush)
+            packet := channel(_.pop.b2p.packet)
+
+            channel((_.pop.b2p.fire)) := True
+          }
+        }
+
+        val s0 = sel.valid.rise(False)
+        val s1 = RegNext(s0) init False
+        val s2 = RegInit(False) setWhen(s1) clearWhen(!sel.valid)
+
+        val beatCounter = Reg(UInt(config.burstDwWidth - log2Up(p.pcieRspConfig.dwCount) bits))
+
+        when(s0) {
+          // calc addr
+          val dwAddress = sel.address.drop(2).asUInt
+          sel.dwAddress := dwAddress
+          val dwLeft = (sel.address.resize(2) +^ sel.bytesLeft).dropLow(2).asUInt // minus one
+          // ! further check
+          val dwInFifo = (sel.address.resize(2) +^ (sel.bytesInFifo-1)).dropLow(2).asUInt // minus one
+          // ! further check
+          val dwAddressBurstOffset = (dwAddress.resized & ((1<<10)-1))
+          val alignSize = ((1<<10)-1)-dwAddressBurstOffset // minus 1
+          // do not support 1, 2 dw request
+          when(dwLeft < alignSize) {
+            sel.dwInBurst := dwLeft.resized
+            sel.bytesInBurst := sel.bytesLeft.resized
+          } otherwise {
+            sel.dwInBurst := alignSize
+            sel.bytesInBurst := (((1<<10)-1)-(sel.address & ((1<<10)-1))).resized
+          }
+          sel.firstBe := (B"1111" << sel.address.takeLow(2).asUInt).resize(4)
+          sel.lastBe := (B"1111" >> (3-(sel.bytesInBurst.getAheadValue().take(2).asUInt + sel.address.take(2).asUInt)))
+        }
+        val fifoCompletion = sel.bytesInBurst === sel.bytesInFifo-1
+
+        when(s1) {
+          val bytesInBurstP1 = sel.bytesInBurst +^ 1
+          val addressNext = sel.address + bytesInBurstP1
+          val bytesLeftNext = sel.bytesLeft -^ bytesInBurstP1
+          val isFinalCmd = bytesLeftNext.msb
+
+          beatCounter := sel.dwAddress(log2Up(p.pcieRspConfig.dwCount)-1 downto 0) + sel.dwInBurst >> log2Up(p.pcieRspConfig.dwCount)
+          for((channel, ohId) <- channels.zipWithIndex) when(sel.channel === ohId){
+            channel.pop.b2p.decrBytes := sel.bytesInBurst.resized
+            channel.pop.b2p.address := addressNext
+            channel.pop.b2p.bytesLeft := bytesLeftNext.resized
+            channel.pop.b2p.waitFinalRsp setWhen(isFinalCmd)
+            when(!fifoCompletion) {
+              when(sel.flush) {
+                channel.pop.b2p.flush := True
+              }
+              when(sel.packet) {
+                channel.pop.b2p.packet := True
+              }
+            }
+          }
+        }
+
+        val fetch = new Area {
+          sel.ready := False
+          
+          // todo polish
+          val context = PcieFetchContext()
+          context.dwAddress := sel.dwAddress
+          context.dwInBurst := sel.dwInBurst
+          memory.ports.b2p.cmd.valid := sel.valid
+          memory.ports.b2p.cmd.address := sel.ptr.resized
+          memory.ports.b2p.cmd.context := B(context)
+          
+          when(sel.valid && memory.ports.b2p.cmd.ready) {
+            sel.ptr.getDrivingReg() := (sel.ptr & ~sel.ptrMask) | ((sel.ptr + U(p.pcieRspConfig.dwCount*32 / p.memory.bankWidth) & sel.ptrMask))
+          }
+        }
+      }
+
+      val rsp = new Area {
+        val aggregate = new Area {
+          val memoryPort = memory.ports.b2p.rsp.s2mPipe()
+          val context = memoryPort.context.as(PcieFetchContext())
+          val engine = Aggregator(AggregatorParameter(
+            byteCount = p.pcieRspConfig.dwCount*4,
+            burstLength = config.burstDwWidth+2,
+            context = NoData()
+          ))
+          val first = Reg(Bool()) clearWhen(memoryPort.fire) setWhen(!cmd.sel.isStall)
+          val bytesToSkip = cmd.sel.channel(_.pop.b2p.bytesToSkip)
+          val bytesToSkipMask = B((0 until p.pcieRspConfig.dwCount*4).map(byteId => !first || byteId >= bytesToSkip))
+          // val bytesToSkipMask = cloneOf(B((0 until p.pcieRspConfig.dwCount*4).map(byteId => !first || byteId >= bytesToSkip))).setAll()
+          engine.io.input.arbitrationFrom(memoryPort)
+          engine.io.input.data := memoryPort.data
+          engine.io.input.mask := memoryPort.mask & bytesToSkipMask
+          engine.io.offset := cmd.sel.address.takeLow(2).asUInt.resized
+          engine.io.burstLength := cmd.sel.bytesInBurst
+          engine.io.flush := ! (RegNext(cmd.sel.isStall) init(False))
+        }
+        
+        val tlpCmd = new Area {
+          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(cmd.sel.channel)
+          val maskFirstTrigger = cmd.sel.address.resize(log2Up(p.pcieRspConfig.dwCount*4) bits)
+          val maskLastTriggerComb = maskFirstTrigger + cmd.sel.bytesInBurst.resized
+          val maskLastTriggerReg = RegNext(maskLastTriggerComb)
+          val maskLast = RegNext(B((0 until p.pcieRspConfig.dwCount*4).map(byteId => byteId <= maskLastTriggerComb)))
+          val maskFirst = B((0 until p.pcieRspConfig.dwCount*4).map(byteId => byteId >= maskFirstTrigger))
+          val enoughAggregation = cmd.s2 && cmd.sel.valid && !aggregate.engine.io.flush && (io.pcieWriteCmd.last ? ((aggregate.engine.io.output.mask & maskLast) === maskLast) | aggregate.engine.io.output.mask.andR)
+
+          aggregate.engine.io.output.enough := enoughAggregation
+          aggregate.engine.io.output.consume := io.pcieWriteCmd.fire
+          aggregate.engine.io.output.lastByteUsed := maskLastTriggerReg
+
+          val header = MemCmdHeader()
+          header.assignSimple()
+          header.fmt := Header.Fmt.DW4_DATA
+          header.typ := Header.Type.MWr
+          header.addr := cmd.sel.dwAddress
+          header.tag := 0
+          header.lastBe := cmd.sel.lastBe
+          header.firstBe := cmd.sel.firstBe
+          header.len := cmd.sel.dwInBurst + 1
+          
+          io.pcieWriteCmd.valid := enoughAggregation
+          io.pcieWriteCmd.last := cmd.beatCounter === 0
+          io.pcieWriteCmd.hdr := header.asBits
+          io.pcieWriteCmd.strb := aggregate.engine.io.output.mask.asBools.grouped(4).map(_.orR).asBits
+          io.pcieWriteCmd.data := aggregate.engine.io.output.data
+          
+          val doPtrIncr = cmd.sel.valid && (aggregate.engine.io.output.consumed || io.pcieWriteCmd.lastFire && aggregate.engine.io.output.usedUntil === aggregate.engine.io.output.usedUntil.maxValue)
+          for((channel, ohId) <- channels.zipWithIndex){
+            channel.fifo.pop.ptrIncr.newPort() := ((doPtrIncr && cmd.sel.channel === ohId) ? U(p.pcieRspConfig.dwCount*32/p.memory.bankWidth) | U(0)).resized
+          }
+
+          when(io.pcieWriteCmd.fire) {
+            cmd.beatCounter := cmd.beatCounter-1
+          }
+          when(io.pcieWriteCmd.lastFire) {
+            cmd.sel.ready := True
+            channel(_.pop.b2p.bytesToSkip) := aggregate.engine.io.output.usedUntil + 1
+          }
+
+        }
+      }
+    }
+
     val ll = p.canSgRead generate new Area{
       val (channels, channelsId) = Core.this.channels.zipWithIndex.filter(_._1.cp.linkedListCapable).unzip
       val arbiter = new Area{
@@ -1336,6 +1812,7 @@ object DmaSg{
 //        if (channel.cp.canInput) ctrl.write(channel.push.s2b.sinkId, a + 0x08, 16)
         if (channel.cp.canRead && channel.cp.bytePerBurst.isEmpty) ctrl.write(channel.push.m2b.bytePerBurst, a + 0x0C, 0)
         ctrl.write(channel.push.memory, a + 0x0C, 12)
+        ctrl.write(channel.push.pcieActive, a + 0x0C, 15)
         if (channel.cp.canInput) ctrl.write(channel.push.s2b.completionOnLast, a + 0x0C, 13)
         if (channel.cp.canInput) ctrl.write(channel.push.s2b.waitFirst, a + 0x0C, 14)
 
@@ -1345,6 +1822,7 @@ object DmaSg{
         if (channel.cp.canOutput) ctrl.write(channel.pop.b2s.sinkId, a + 0x18, 16)
         if (channel.cp.canWrite && channel.cp.bytePerBurst.isEmpty) ctrl.write(channel.pop.b2m.bytePerBurst, a + 0x1C, 0)
         ctrl.write(channel.pop.memory, a + 0x1C, 12)
+        ctrl.write(channel.pop.pcieActive, a + 0x1C, 15)
         if (channel.cp.canOutput) ctrl.write(channel.pop.b2s.last, a + 0x1C, 13)
 
         ctrl.read(channel.channelValid, a + 0x2C, 0)
@@ -1380,6 +1858,9 @@ object DmaSg{
           ctrl.read(interrupt.valid, a+0x54, id)
           io.interrupts(channel.id) setWhen(interrupt.valid)
         }
+
+        if(channel.cp.pcieCapable && channel.cp.directCtrlCapable) ctrl.writeMultiWord(channel.push.p2b.address, a + 0x60)
+        if(channel.cp.pcieCapable && channel.cp.directCtrlCapable) ctrl.writeMultiWord(channel.pop.b2p.address, a + 0x70)
 
         map(channel.interrupts.completion, 0)
         if(channel.cp.halfCompletionInterrupt) map(channel.interrupts.halfCompletion.interrupt, 1)
@@ -1520,118 +2001,14 @@ object DmaSg{
   }
 }
 
-abstract class DmaSgTesterCtrl(clockDomain: ClockDomain){
-  import spinal.core.sim._
-  val mutex = SimMutex()
-
-  def ctrlWriteHal(data : BigInt, address : BigInt): Unit
-  def ctrlReadHal(address : BigInt): BigInt
-
-  def ctrlWrite(data : BigInt, address : BigInt): Unit ={
-    mutex.lock()
-    ctrlWriteHal(data,address)
-    mutex.unlock()
-  }
-
-  def ctrlRead(address : BigInt): BigInt ={
-    mutex.lock()
-    val ret = ctrlReadHal(address)
-    mutex.unlock()
-    ret
-  }
-
-
-  def channelToAddress(channel : Int) = 0x000 + channel*0x80
-  def channelPushMemory(channel : Int, address : BigInt, bytePerBurst : Int): Unit ={
-    val channelAddress = channelToAddress(channel)
-    ctrlWrite(address, channelAddress + 0x00)
-    ctrlWrite(bytePerBurst-1 | 1 << 12, channelAddress + 0x0C)
-  }
-  def channelPopMemory(channel : Int, address : BigInt, bytePerBurst : Int): Unit ={
-    val channelAddress = channelToAddress(channel)
-    ctrlWrite(address, channelAddress + 0x10)
-    ctrlWrite(bytePerBurst-1 | 1 << 12, channelAddress + 0x1C)
-  }
-  def channelPushStream(channel : Int, portId : Int, sourceId : Int, sinkId : Int, completionOnPacket : Boolean = false): Unit ={
-    val channelAddress = channelToAddress(channel)
-    ctrlWrite(portId << 0 | sourceId << 8 | sinkId << 16, channelAddress + 0x08)
-    ctrlWrite((if(completionOnPacket) 1 << 13 else 0) | (1 << 14), channelAddress + 0x0C)
-  }
-  def channelPopStream(channel : Int, portId : Int, sourceId : Int, sinkId : Int, withLast : Boolean): Unit ={
-    val channelAddress = channelToAddress(channel)
-    ctrlWrite(portId << 0 | sourceId << 8 | sinkId << 16, channelAddress + 0x18)
-    ctrlWrite(if(withLast) 1 << 13 else 0, channelAddress + 0x1C)
-  }
-  def channelStart(channel : Int, bytes : BigInt, selfRestart : Boolean): Unit ={
-    val channelAddress = channelToAddress(channel)
-    ctrlWrite(bytes-1, channelAddress + 0x20)
-    ctrlWrite(1 + (if(selfRestart) 2 else 0), channelAddress+0x2C)
-  }
-  def channelStartSg(channel : Int, head : Long): Unit ={
-    val channelAddress = channelToAddress(channel)
-    ctrlWrite(head, channelAddress+0x70)
-    ctrlWrite(0x10, channelAddress+0x2C)
-  }
-  def channelProgress(channel : Int): Int ={
-    val channelAddress = channelToAddress(channel)
-    ctrlRead(channelAddress + 0x60).toInt
-  }
-  def channelConfig(channel : Int,
-                    fifoBase : Int,
-                    fifoBytes : Int,
-                    priority : Int,
-                    weight : Int): Unit ={
-    val channelAddress = channelToAddress(channel)
-    ctrlWrite(fifoBase << 0 | fifoBytes-1 << 16,  channelAddress+0x40)
-    ctrlWrite(priority | weight << 8,  channelAddress+0x44)
-  }
-  def channelInterruptConfigure(channel : Int, mask : Int): Unit = {
-    val channelAddress = channelToAddress(channel)
-    ctrlWrite(0xFFFFFFFFl, channelAddress+0x54)
-    ctrlWrite(mask, channelAddress+0x50)
-  }
-  def channelStop(channel : Int): Unit ={
-    val channelAddress = channelToAddress(channel)
-    clockDomain.waitSampling(Random.nextInt(10))
-    ctrlWrite(4, channelAddress + 0x2c)
-  }
-
-  def channelStartAndWait(channel : Int, bytes : BigInt): Unit = {
-    val channelAddress = channelToAddress(channel)
-    channelStart(channel, bytes, false)
-    channelWaitCompletion(channel)
-
-  }
-  def channelBusy(channel : Int) ={
-    val channelAddress = channelToAddress(channel)
-    (ctrlRead(channelAddress + 0x2C) & 1) != 0
-  }
-
-  def channelSgBusy(channel : Int) ={
-    val channelAddress = channelToAddress(channel)
-    (ctrlRead(channelAddress + 0x2C) & 0x10) != 0
-  }
-  def channelWaitSgDone(channel : Int) ={
-    val channelAddress = channelToAddress(channel)
-    while (channelSgBusy(channel)) {
-      clockDomain.waitSampling(Random.nextInt(50))
-    }
-  }
-  def channelWaitCompletion(channel : Int) ={
-    do{
-      clockDomain.waitSampling(Random.nextInt(50))
-    } while(channelBusy(channel))
-  }
-
-}
-
 abstract class DmaSgTester(p : DmaSg.Parameter,
                            clockDomain : ClockDomain,
                            inputsIo : Seq[Bsb],
                            outputsIo : Seq[Bsb],
                            interruptsIo : Bits,
                            memory : SparseMemory,
-                           dut : DmaSg.Core[_]) {
+                           dut : DmaSg.Core[_],
+                           pcieHostmemory : SparseMemory = null) {
 
   import spinal.core.sim._
 
@@ -1743,6 +2120,19 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     ctrlWrite(address, channelAddress + 0x10)
     ctrlWrite(bytePerBurst-1 | 1 << 12, channelAddress + 0x1C)
   }
+
+  def channelPushPcie(channel : Int, address : BigInt): Unit ={
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(address, channelAddress + 0x60)
+    ctrlWrite(1 << 15, channelAddress + 0x0C)
+  }
+
+  def channelPopPcie(channel : Int, address : BigInt): Unit ={
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(address, channelAddress + 0x70)
+    ctrlWrite(1 << 15, channelAddress + 0x1C)
+  }
+
   def channelPushStream(channel : Int, portId : Int, sourceId : Int, sinkId : Int, completionOnPacket : Boolean = false): Unit ={
     val channelAddress = channelToAddress(channel)
     ctrlWrite(portId << 0 | sourceId << 8 | sinkId << 16, channelAddress + 0x08)
@@ -1880,12 +2270,14 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
   val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex) yield fork {
     Thread.currentThread().setName(s"CH $channelId")
     val cp = p.channels(channelId)
-    val M2M, M2S, S2M = new Object
+    val M2M, M2S, S2M, Pcie = new Object
     var tests = ArrayBuffer[Object]()
-    if(cp.memoryToMemory)        tests += M2M
-    if(cp.outputsPorts.nonEmpty) tests += M2S
-    if(cp.inputsPorts.nonEmpty)  tests += S2M
-    for (r <- 0 until 100) {
+    // if(cp.memoryToMemory)        tests += M2M
+    // if(cp.outputsPorts.nonEmpty) tests += M2S
+    // if(cp.inputsPorts.nonEmpty)  tests += S2M
+    if(cp.pcieCapable)           tests += Pcie
+    
+    for (r <- 0 until 1) {
 //      println(f"Channel $channelId")
       clockDomain.waitSampling(Random.nextInt(100))
       tests.randomPick() match {
@@ -2279,10 +2671,10 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 //          val from = 0x100 + Random.nextInt(4)
                 //          val to = 0x400 + Random.nextInt(4)
                 //          val bytes = 0x40 + Random.nextInt(4)
-//              val bytes = 0x40
-//              val from = SizeMapping(0x1000 + 0x100*channelId, bytes)
-//              val to = SizeMapping(0x2000 + 0x100*channelId, bytes)
-//              val doCount = 3
+              // val bytes = 0x40
+              // val from = SizeMapping(0x1000 + 0x100*channelId, bytes)
+              // val to = SizeMapping(0x2000 + 0x100*channelId, bytes)
+              // val doCount = 3
               for (byteId <- 0 until bytes) {
                 allowWrite (to.base.toInt + byteId, memory.read (from.base.toInt + byteId))
               }
@@ -2487,6 +2879,27 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
             }
           }
         }
+      
+        case Pcie => {
+          val bytes = 0x40
+          val from = SizeMapping(0x1000 + 0x100*channelId, bytes)
+          val to = SizeMapping(0x2000 + 0x100*channelId, bytes)
+          val doCount = 1
+          for (byteId <- 0 until bytes) {
+            pcieHostmemory.write(from.base.toInt+byteId, byteId)
+          }
+
+          channelPushPcie (channelId, from.base.toInt)
+          // channelPushMemory (channelId, from.base.toInt, 16)
+          channelPopPcie (channelId, to.base.toInt)
+          channelConfig (channelId, 0x40 * channelId, 0x4000, Random.nextInt(2), Random.nextInt(4))
+          channelStartAndWait (channelId, bytes, doCount)
+
+          for (byteId <- 0 until bytes) {
+            assert(pcieHostmemory.read(to.base.toInt+byteId)==byteId)
+          }
+
+        }
       }
     }
   }
@@ -2502,7 +2915,7 @@ object SgDmaTestsParameter{
 
   import spinal.core.sim._
 
-  def test(p: Parameter) = {
+  def test(p: Parameter, name: String = "") = {
     val pCtrl = BmbParameter(
       addressWidth = DmaSg.ctrlAddressWidth,
       dataWidth    = 32,
@@ -2511,7 +2924,7 @@ object SgDmaTestsParameter{
       lengthWidth  = 2
     )
 
-    SimConfig.allOptimisation.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42){ dut =>
+    SimConfig.withFstWave.allOptimisation.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42, name="Core"+name){ dut =>
       dut.clockDomain.forkStimulus(10)
       dut.clockDomain.forkSimSpeedPrinter(1.0)
 
@@ -2528,6 +2941,8 @@ object SgDmaTestsParameter{
       if(p.canRead) memory.addPort(dut.io.read, 0, dut.clockDomain, true)
       if(p.canWrite) memory.addPort(dut.io.write, 0, dut.clockDomain, true)
 
+      val pcieMemory: PcieMemoryAgent = if(p.withPcie) new PcieMemoryAgent(dut.io.pcieReadCmd, dut.io.pcieWriteCmd, dut.io.pcieRsp, dut.clockDomain) else null
+
       val ctrl = BmbDriver(dut.io.ctrl, dut.clockDomain)
 
       val tester = new DmaSgTester(
@@ -2537,7 +2952,8 @@ object SgDmaTestsParameter{
         outputsIo    = dut.io.outputs,
         interruptsIo = dut.io.interrupts,
         memory       = memory.memory,
-        dut
+        dut,
+        pcieHostmemory = pcieMemory.memory
       ) {
         override def ctrlWriteHal(data: BigInt, address: BigInt): Unit = ctrl.write(data, address)
         override def ctrlReadHal(address: BigInt): BigInt = ctrl.read(address)
@@ -2651,15 +3067,17 @@ object SgDmaTestsParameter{
   def apply(allowSmallerStreams : Boolean) : Seq[(String, DmaSg.Parameter)] = {
     val parameters = ArrayBuffer[(String, DmaSg.Parameter)]()
 
-    for(withMemoryToMemory <- List(true, false);
-        withOutputs <- List(true, false);
-        withInputs <- List(true, false);
+    for(withMemoryToMemory <- List(true);
+        withOutputs <- List(false);
+        withInputs <- List(false);
         if withMemoryToMemory || withOutputs || withInputs){
-
+      
+      val withPcie = true
       var name = ""
       if(withMemoryToMemory) name = name + "M2m"
       if(withOutputs) name = name + "M2s"
       if(withInputs) name = name + "S2m"
+      if(withPcie) name = name + "P2"
 
       val outputs = ArrayBuffer[BsbParameter]()
       if(withOutputs) {
@@ -2733,6 +3151,9 @@ object SgDmaTestsParameter{
         )
       }
 
+      if(withPcie) {
+        
+      }
 
       val channels = ArrayBuffer[Channel]()
       channels += DmaSg.Channel(
@@ -2743,90 +3164,91 @@ object SgDmaTestsParameter{
         progressProbes = true,
         halfCompletionInterrupt = true,
         linkedListCapable = true,
-        directCtrlCapable = true
-      )
-      if(withOutputs) channels += DmaSg.Channel(
-        memoryToMemory = false,
-        inputsPorts    = Nil,
-        outputsPorts   = outputs.zipWithIndex.map(_._2),
-        selfRestartCapable = true,
-        progressProbes = false,
-        halfCompletionInterrupt = true,
-        linkedListCapable = true,
-        directCtrlCapable = true
-      )
-      if(withInputs) channels += DmaSg.Channel(
-        memoryToMemory = false,
-        inputsPorts    = inputs.zipWithIndex.map(_._2),
-        outputsPorts   = Nil,
-        selfRestartCapable = true,
-        progressProbes = true,
-        halfCompletionInterrupt = false,
-        linkedListCapable = true,
-        directCtrlCapable = true
-      )
-      if(withMemoryToMemory) channels += DmaSg.Channel(
-        memoryToMemory = true,
-        inputsPorts    = Nil,
-        outputsPorts   = Nil,
-        selfRestartCapable = true,
-        progressProbes = false,
-        halfCompletionInterrupt = false,
-        linkedListCapable = true,
-        directCtrlCapable = true
-      )
-      channels += DmaSg.Channel(
-        memoryToMemory = withMemoryToMemory,
-        inputsPorts    = inputs.zipWithIndex.map(_._2),
-        outputsPorts   = outputs.zipWithIndex.map(_._2),
-        selfRestartCapable = true,
-        progressProbes = true,
-        halfCompletionInterrupt = true,
-        linkedListCapable = true,
-        directCtrlCapable = true
-      )
-      channels += DmaSg.Channel(
-        memoryToMemory = withMemoryToMemory,
-        inputsPorts    = inputs.zipWithIndex.map(_._2).grouped(2).map(_(0)).toSeq,
-        outputsPorts   = outputs.zipWithIndex.map(_._2).grouped(2).map(_(1)).toSeq,
-        selfRestartCapable = true,
-        progressProbes = true,
-        halfCompletionInterrupt = true,
-        linkedListCapable = true,
-        directCtrlCapable = true
-      )
-      channels += DmaSg.Channel(
-        memoryToMemory = withMemoryToMemory,
-        inputsPorts    = inputs.zipWithIndex.map(_._2).grouped(2).map(_(0)).toSeq,
-        outputsPorts   = outputs.zipWithIndex.map(_._2).grouped(2).map(_(1)).toSeq,
-        selfRestartCapable = true,
-        progressProbes = false,
-        halfCompletionInterrupt = true,
-        linkedListCapable = false,
-        directCtrlCapable = true
-      )
-      channels += DmaSg.Channel(
-        memoryToMemory = withMemoryToMemory,
-        inputsPorts    = inputs.zipWithIndex.map(_._2).grouped(2).map(_(0)).toSeq,
-        outputsPorts   = outputs.zipWithIndex.map(_._2).grouped(2).map(_(1)).toSeq,
-        selfRestartCapable = false,
-        progressProbes = true,
-        halfCompletionInterrupt = false,
-        linkedListCapable = true,
-        directCtrlCapable = false
-      )
-      channels += DmaSg.Channel(
-        memoryToMemory = withMemoryToMemory,
-        inputsPorts    = inputs.zipWithIndex.map(_._2),
-        outputsPorts   = outputs.zipWithIndex.map(_._2),
-        selfRestartCapable = false,
-        progressProbes = true,
-        halfCompletionInterrupt = true,
-        linkedListCapable = true,
         directCtrlCapable = true,
-        bytePerBurst = Some(0x20),
-        fifoMapping = Some(0x600, 0x200)
+        pcieCapable = true
       )
+      // if(withOutputs) channels += DmaSg.Channel(
+      //   memoryToMemory = false,
+      //   inputsPorts    = Nil,
+      //   outputsPorts   = outputs.zipWithIndex.map(_._2),
+      //   selfRestartCapable = true,
+      //   progressProbes = false,
+      //   halfCompletionInterrupt = true,
+      //   linkedListCapable = true,
+      //   directCtrlCapable = true
+      // )
+      // if(withInputs) channels += DmaSg.Channel(
+      //   memoryToMemory = false,
+      //   inputsPorts    = inputs.zipWithIndex.map(_._2),
+      //   outputsPorts   = Nil,
+      //   selfRestartCapable = true,
+      //   progressProbes = true,
+      //   halfCompletionInterrupt = false,
+      //   linkedListCapable = true,
+      //   directCtrlCapable = true
+      // )
+      // if(withMemoryToMemory) channels += DmaSg.Channel(
+      //   memoryToMemory = true,
+      //   inputsPorts    = Nil,
+      //   outputsPorts   = Nil,
+      //   selfRestartCapable = true,
+      //   progressProbes = false,
+      //   halfCompletionInterrupt = false,
+      //   linkedListCapable = true,
+      //   directCtrlCapable = true
+      // )
+      // channels += DmaSg.Channel(
+      //   memoryToMemory = withMemoryToMemory,
+      //   inputsPorts    = inputs.zipWithIndex.map(_._2),
+      //   outputsPorts   = outputs.zipWithIndex.map(_._2),
+      //   selfRestartCapable = true,
+      //   progressProbes = true,
+      //   halfCompletionInterrupt = true,
+      //   linkedListCapable = true,
+      //   directCtrlCapable = true
+      // )
+      // channels += DmaSg.Channel(
+      //   memoryToMemory = withMemoryToMemory,
+      //   inputsPorts    = inputs.zipWithIndex.map(_._2).grouped(2).map(_(0)).toSeq,
+      //   outputsPorts   = outputs.zipWithIndex.map(_._2).grouped(2).map(_(1)).toSeq,
+      //   selfRestartCapable = true,
+      //   progressProbes = true,
+      //   halfCompletionInterrupt = true,
+      //   linkedListCapable = true,
+      //   directCtrlCapable = true
+      // )
+      // channels += DmaSg.Channel(
+      //   memoryToMemory = withMemoryToMemory,
+      //   inputsPorts    = inputs.zipWithIndex.map(_._2).grouped(2).map(_(0)).toSeq,
+      //   outputsPorts   = outputs.zipWithIndex.map(_._2).grouped(2).map(_(1)).toSeq,
+      //   selfRestartCapable = true,
+      //   progressProbes = false,
+      //   halfCompletionInterrupt = true,
+      //   linkedListCapable = false,
+      //   directCtrlCapable = true
+      // )
+      // channels += DmaSg.Channel(
+      //   memoryToMemory = withMemoryToMemory,
+      //   inputsPorts    = inputs.zipWithIndex.map(_._2).grouped(2).map(_(0)).toSeq,
+      //   outputsPorts   = outputs.zipWithIndex.map(_._2).grouped(2).map(_(1)).toSeq,
+      //   selfRestartCapable = false,
+      //   progressProbes = true,
+      //   halfCompletionInterrupt = false,
+      //   linkedListCapable = true,
+      //   directCtrlCapable = false
+      // )
+      // channels += DmaSg.Channel(
+      //   memoryToMemory = withMemoryToMemory,
+      //   inputsPorts    = inputs.zipWithIndex.map(_._2),
+      //   outputsPorts   = outputs.zipWithIndex.map(_._2),
+      //   selfRestartCapable = false,
+      //   progressProbes = true,
+      //   halfCompletionInterrupt = true,
+      //   linkedListCapable = true,
+      //   directCtrlCapable = true,
+      //   bytePerBurst = Some(0x20),
+      //   fifoMapping = Some(0x600, 0x200)
+      // )
 
       parameters += name -> Parameter(
         readAddressWidth  = 24,
@@ -2841,7 +3263,7 @@ object SgDmaTestsParameter{
         memory = DmaMemoryLayout(
           //      bankCount            = 1,
           //      bankWidth            = 32,
-          bankCount            = 2,
+          bankCount            = 256/16,
           bankWidth            = 16,
           //      bankCount            = 4,
           //      bankWidth            = 8,
@@ -2854,7 +3276,11 @@ object SgDmaTestsParameter{
         inputs = inputs,
         channels = channels,
         bytePerTransferWidth = 16,
-        weightWidth = 2
+        weightWidth = 2,
+        withPcie = withPcie,
+        pcieWriteCmdConfig = TlpConfig(useData = true, useStrb = true),
+        pcieReadCmdConfig = TlpConfig(),
+        pcieRspConfig = TlpConfig(useData = true, useStrb = true)
       )
     }
     parameters
