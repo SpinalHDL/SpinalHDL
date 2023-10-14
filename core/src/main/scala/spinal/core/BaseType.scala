@@ -214,7 +214,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     } else None
   }
 
-  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
+  override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     def statement(that : Expression) = kind match {
       case `DataAssign` =>
         DataAssignmentStatement(target = target.asInstanceOf[Expression], source = that).setLocation(loc)

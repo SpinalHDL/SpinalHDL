@@ -155,7 +155,7 @@ class SpinalEnumCraft[T <: SpinalEnum](var spinalEnum: SpinalEnum) extends BaseT
   @deprecated("Use =/= instead","???")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
-  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = that match{
+  protected override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = that match{
     case that : SpinalEnumCraft[T]          => super.assignFromImpl(that, target, kind)
     case that : Expression with EnumEncoded => super.assignFromImpl(that, target, kind)
     //    case that : DontCareNodeEnum => super.assignFromImpl(that, conservative)

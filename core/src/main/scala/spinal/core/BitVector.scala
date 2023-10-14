@@ -355,7 +355,7 @@ abstract class BitVector extends BaseType with Widthable {
     val bool = wrapWithBool(extract)
 
     bool.compositeAssign = new Assignable {
-      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef)(implicit loc: Location): Unit = that match {
+      override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef)(implicit loc: Location): Unit = that match {
         case that: Bool         => BitVector.this.compositAssignFrom(that,BitAssignmentFixed(BitVector.this, bitId), kind)
         //        case that: DontCareNode => BitVector.this.assignFrom(that, BitAssignmentFixed(BitVector.this, new DontCareNodeFixed(Bool(), 1), bitId), conservative = true)
       }
@@ -370,7 +370,7 @@ abstract class BitVector extends BaseType with Widthable {
     extract.bitId = bitId
     val bool =  wrapWithBool(extract)
     bool.compositeAssign = new Assignable  {
-      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef)(implicit loc: Location): Unit = that match {
+      override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef)(implicit loc: Location): Unit = that match {
         case x: Bool         => BitVector.this.compositAssignFrom(that, BitAssignmentFloating(BitVector.this, bitId), kind)
 //        case x: DontCareNode => BitVector.this.assignFrom(that,BitAssignmentFloating(BitVector.this, new DontCareNodeFixed(Bool(), 1), bitId), true)
       }
@@ -414,7 +414,7 @@ abstract class BitVector extends BaseType with Widthable {
       extract.offset = offset
       val ret = wrapWithWeakClone(extract)
       ret.compositeAssign = new Assignable {
-        override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef)(implicit loc: Location): Unit = target match {
+        override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef)(implicit loc: Location): Unit = target match {
           case x: BitVector                => BitVector.this.compositAssignFrom(that,RangedAssignmentFloating(BitVector.this, offset, size), kind)
 //          case x: DontCareNode             => BitVector.this.assignFrom(that,new RangedAssignmentFloating(BitVector.this, new DontCareNodeFixed(BitVector.this, size), offset, size bit), true)
           case x: BitAssignmentFixed       => BitVector.this.apply(offset + x.bitId).compositAssignFrom(that, BitVector.this, kind)
