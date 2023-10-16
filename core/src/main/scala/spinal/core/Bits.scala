@@ -238,7 +238,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
 
   override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpBits(kind, widthOf(this)))
   
-  def union[T <: Data](t : HardType[T]) : T = {
+  def alias[T <: Data](t : HardType[T]) : T = {
     val wrap = this.resized.as(t)
     var offsetCounter = 0
     for (e <- wrap.flatten) {

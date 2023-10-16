@@ -9,7 +9,7 @@ object UnionElement {
 }
 
 class UnionElement[T <: Data](val t: HardType[T], host: Union) {
-  def get(): T = signalCache(this, "get") (host.raw.union(t))
+  def get(): T = signalCache(this, "get") (host.raw.alias(t))
 }
 
 class Union(selfBuild : Boolean = true) extends MultiData with PostInitCallback {
