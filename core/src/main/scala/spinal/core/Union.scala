@@ -46,8 +46,7 @@ class UnionElement[T <: Data](val t: HardType[T], host: Union) {
   }
 }
 
-
-class Union extends MultiData with PostInitCallback {
+class Union(selfBuild : Boolean = true) extends MultiData with PostInitCallback {
   val uTypes = ArrayBuffer[UnionElement[Data]]()
   var raw: Bits = null
 
@@ -77,7 +76,7 @@ class Union extends MultiData with PostInitCallback {
   }
 
   override def postInitCallback() = {
-    build()
+    if(selfBuild) build()
     this
   }
 }
