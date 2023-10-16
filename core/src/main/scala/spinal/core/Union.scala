@@ -9,41 +9,7 @@ object UnionElement {
 }
 
 class UnionElement[T <: Data](val t: HardType[T], host: Union) {
-  def get(): T = signalCache(this, "get") {
-    val wrap = host.raw.resized.as(t)
-    var offsetCounter = 0
-    for (e <- wrap.flatten) {
-      val eWidth = e.getBitsWidth
-
-      e.compositeAssign = new Assignable {
-        val offset = offsetCounter
-
-        override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
-          def getBits(w: Int) = that match {
-            case that: BitVector if widthOf(that) != w => {
-              val tmp = cloneOf(that).setWidth(w)
-              tmp := that
-              tmp.asBits
-            }
-            case that: Data => that.asBits
-          }
-
-          target match {
-            case x: BaseType => host.raw.compositAssignFrom(getBits(eWidth), RangedAssignmentFixed(host.raw, offset + eWidth - 1, offset), kind)
-            case x: BitAssignmentFixed => host.raw(offset + x.bitId).compositAssignFrom(that, host.raw, kind)
-            case x: BitAssignmentFloating => host.raw(offset + x.bitId.asInstanceOf[UInt]).compositAssignFrom(that, host.raw, kind)
-            case x: RangedAssignmentFixed => host.raw(offset + x.hi downto offset + x.lo).compositAssignFrom(getBits(x.getWidth), host.raw, kind)
-            case x: RangedAssignmentFloating => host.raw(offset + x.offset.asInstanceOf[UInt], x.bitCount bits).compositAssignFrom(getBits(x.getWidth), host.raw, kind)
-          }
-        }
-
-        override def getRealSourceNoRec: Any = host.raw
-      }
-
-      offsetCounter += eWidth
-    }
-    wrap
-  }
+  def get(): T = signalCache(this, "get") (host.raw.union(t))
 }
 
 class Union(selfBuild : Boolean = true) extends MultiData with PostInitCallback {
