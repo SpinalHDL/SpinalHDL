@@ -237,9 +237,15 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
   def reversed = B(asBools.reverse).asInstanceOf[this.type]
 
   override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpBits(kind, widthOf(this)))
-  
-  def alias[T <: Data](t : HardType[T]) : T = {
-    val wrap = this.resized.as(t)
+
+  /**
+   * Return a instance of the paramter which alias this.Bits in both read and assignments accesses.
+   * Usefull for union like data structures.
+   * @param t The type in which the alias will be
+   * @return The alias
+   */
+  def aliasAs[T <: Data](t : HardType[T]) : T = {
+    val wrap = this.as(t)
     var offsetCounter = 0
     for (e <- wrap.flatten) {
       val eWidth = e.getBitsWidth
