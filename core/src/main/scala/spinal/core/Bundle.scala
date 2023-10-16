@@ -190,3 +190,12 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
 class BundleCase extends Bundle {
   private[core] override def rejectOlder = false
 }
+
+trait IConnectable[T <: IConnectable[T]] {
+  def connectFrom(that: T): T
+  def <<(that: T): T = connectFrom(that)
+  def >>(into: T): T = {
+    into << this.asInstanceOf[T]
+    into
+  }
+}
