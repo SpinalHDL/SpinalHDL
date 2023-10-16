@@ -62,9 +62,6 @@ trait IMasterSlave {
   def asSlave(): Unit = intoMaster().asInstanceOf[Data].flip()
 }
 
-/** Master/slave inteface with connectable */
-trait IMasterSlaveConnectable[T <: IMasterSlaveConnectable[T]] extends IMasterSlave with IConnectable[T]
-
 /** Something which can create master/slave interfaces */
 trait MSFactory {
 
