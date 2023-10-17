@@ -1098,7 +1098,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def rounded(rounding  : RoundType): AFix = truncated(saturation = false, overflow = false, rounding = rounding)
   def rounded: AFix = this.rounded(getTrunc.rounding)
 
-  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
+  override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     that match {
       case af: AFix =>
         val trunc = af.getTag(classOf[TagAFixTruncated])

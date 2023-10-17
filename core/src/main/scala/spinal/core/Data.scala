@@ -788,7 +788,7 @@ trait DataWrapper extends Data{
   override def getZero: DataWrapper.this.type = ???
   override private[core] def isNotEqualTo(that: Any): Bool = ???
   override def flattenLocalName: Seq[String] = ???
-  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = ???
+  override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = ???
   override def setAsReg(): DataWrapper.this.type = ???
   override def setAsComb(): DataWrapper.this.type = ???
   override def freeze(): DataWrapper.this.type = ???

@@ -27,7 +27,7 @@
 //    ArrayBuffer(("" -> raw))
 //  }
 //
-//  override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = ???
+//  override protected def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = ???
 //
 //
 //

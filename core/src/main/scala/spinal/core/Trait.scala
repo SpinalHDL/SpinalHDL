@@ -271,7 +271,7 @@ trait Assignable {
     }
   }
 
-  private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit
+  protected def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit
 
   def getRealSourceNoRec: Any
 

@@ -164,8 +164,7 @@ object M2sTransfers {
 
 
 case class M2sSource(id           : AddressMapping,
-                     emits        : M2sTransfers,
-                     isExecute : Boolean = false){
+                     emits        : M2sTransfers){
   def withSourceOffset(offset : Int) = copy(id = id.withOffset(offset))
   def bSourceId = id.lowerBound.toInt
 }
@@ -188,7 +187,6 @@ case class M2sAgent(name    : Nameable,
   def bSourceId = mapping.head.bSourceId
   def sourceHit(source : UInt) = mapping.map(_.id.hit(source)).orR
   def sourceHit(source : Int) = mapping.exists(_.id.hit(source))
-  def withExecute = mapping.exists(_.isExecute)
   def remapSources(f : M2sSource => M2sSource) = {
     copy(mapping = mapping.map(f))
   }
@@ -203,8 +201,7 @@ object M2sParameters{
       name = null,
       mapping = List(M2sSource(
         id = SizeMapping(0, sourceCount),
-        emits = support.transfers,
-        isExecute = false
+        emits = support.transfers
       ))
     ))
   )
@@ -218,7 +215,6 @@ case class M2sParameters(addressWidth : Int,
   val withBCE = masters.map(_.emits.withBCE).reduce(_ || _)
   val emits = M2sTransfers.mincover(masters.map(_.emits))
   def dataBytes = dataWidth / 8
-  def withExecute = masters.exists(_.withExecute)
   def withDataA = masters.map(_.emits.withDataA).reduce(_ || _)
   def withDataD = masters.map(_.emits.withDataD).reduce(_ || _)
   def sourceHit(source : UInt) = masters.map(_.sourceHit(source)).orR
@@ -232,8 +228,7 @@ case class M2sParameters(addressWidth : Int,
   def toSupport() = new M2sSupport(
     transfers    = emits,
     addressWidth = addressWidth,
-    dataWidth    = dataWidth,
-    allowExecute = withExecute
+    dataWidth    = dataWidth
   )
 
   def toNodeParameters() = NodeParameters(this)
@@ -244,21 +239,18 @@ object M2sSupport{
   def apply(p : M2sParameters) : M2sSupport = M2sSupport(
     transfers    = p.emits,
     addressWidth = p.addressWidth,
-    dataWidth    = p.dataWidth,
-    allowExecute = p.withExecute
+    dataWidth    = p.dataWidth
   )
 }
 
 case class M2sSupport(transfers : M2sTransfers,
                       addressWidth : Int,
-                      dataWidth : Int,
-                      allowExecute : Boolean = false) {
+                      dataWidth : Int) {
   def mincover(that : M2sSupport): M2sSupport ={
     M2sSupport(
       transfers = transfers.mincover(that.transfers),
       dataWidth = dataWidth max that.dataWidth,
-      addressWidth = addressWidth max that.addressWidth,
-      allowExecute = this.allowExecute && that.allowExecute
+      addressWidth = addressWidth max that.addressWidth
     )
   }
 

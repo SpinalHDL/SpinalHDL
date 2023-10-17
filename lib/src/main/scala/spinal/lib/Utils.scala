@@ -622,15 +622,17 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
 }
 
 object Timeout {
-  def apply(cycles: BigInt) : Timeout = new Timeout(cycles)
-  def apply(time: TimeNumber) : Timeout = new Timeout((time*ClockDomain.current.frequency.getValue).toBigInt)
-  def apply(frequency: HertzNumber) : Timeout = Timeout(frequency.toTime)
+  def apply(cycles: BigInt): Timeout = new Timeout(cycles)
+
+  def apply(time: TimeNumber): Timeout = new Timeout((time * ClockDomain.current.frequency.getValue).toBigInt)
+
+  def apply(frequency: HertzNumber): Timeout = Timeout(frequency.toTime)
 }
 
-class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
+class Timeout(val limit: BigInt, init: Bool = False) extends ImplicitArea[Bool] {
   assert(limit > 1)
 
-  val state = RegInit(False)
+  val state = RegInit(init)
   val stateRise = False
 
   val counter = CounterFreeRun(limit)
@@ -650,6 +652,11 @@ class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
     this
   }
 
+  def init(value: Bool): this.type = {
+    state.removeInitAssignments()
+    state.init(value)
+    this
+  }
 
   override def implicitValue: Bool = state
 }
