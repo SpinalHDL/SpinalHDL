@@ -29,6 +29,14 @@ class SlaveDriver(bus : Bus, cd : ClockDomain) {
       d.ctrl.setFactor(simRandom.nextFloat())
       if (e != null) e.setFactor(simRandom.nextFloat())
     }
+    
+    def setFactor(factor : Float): Unit = {
+      a.setFactor(factor)
+      if (b != null) b.ctrl.setFactor(factor)
+      if (c != null) c.setFactor(factor)
+      d.ctrl.setFactor(factor)
+      if (e != null) e.setFactor(factor)
+    }
   }
 
   def scheduleD(d : TransactionD): Unit ={
