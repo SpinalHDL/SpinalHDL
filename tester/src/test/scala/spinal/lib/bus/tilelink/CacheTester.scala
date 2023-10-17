@@ -53,8 +53,7 @@ class CacheTester extends AnyFunSuite{
           M2sSupport(
             transfers = M2sTransfers.all,
             dataWidth = 64,
-            addressWidth = 13,
-            allowExecute = false
+            addressWidth = 13
           ),
           S2mParameters.none()
         )
@@ -65,8 +64,7 @@ class CacheTester extends AnyFunSuite{
           M2sSupport(
             transfers = M2sTransfers.all,
             dataWidth = 64,
-            addressWidth = 10,
-            allowExecute = false
+            addressWidth = 10
           ),
           S2mParameters.none()
         )
