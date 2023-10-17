@@ -5,6 +5,9 @@ import spinal.core.sim._
 
 import scala.collection.mutable.ArrayBuffer
 
+/**
+ * Double simulation, one ahead of the other which will trigger wave capture of the second simulation when it fail
+ */
 object DualSimTracer {
   def apply[T <: Component](compiled: SimCompiled[T], window: Int, seed: Int)(testbench: T => Unit): Unit = withCb(compiled, window, seed) { (dut, _) => testbench(dut) }
   def withCb[T <: Component](compiled: SimCompiled[T], window: Int, seed: Int)(testbench: (T, (=> Unit) => Unit) => Unit): Unit = {
@@ -15,7 +18,7 @@ object DualSimTracer {
     val tester = new MultithreadedTester(workspace = compiled.compiledPath)
     import tester._
 
-    test("explorer") {
+    test("explorer", toStdout = true) {
       try {
         compiled.doSimUntilVoid(name = s"explorer", seed = seed) { dut =>
           disableSimWave()
@@ -28,6 +31,7 @@ object DualSimTracer {
           }
           testbench(dut, cb => {})
         }
+        println("Waiting for tracer completion")
       } catch {
         case e: Throwable => throw e
       }
@@ -54,6 +58,7 @@ object DualSimTracer {
           }
         }
         testbench(dut, callback => traceCallbacks += (() => callback))
+        println("Tracer done without failure")
       }
     }
 

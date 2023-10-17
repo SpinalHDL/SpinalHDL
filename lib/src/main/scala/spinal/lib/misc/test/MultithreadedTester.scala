@@ -1,6 +1,7 @@
 package spinal.lib.misc.test
 
 import org.apache.commons.io.FileUtils
+import org.apache.commons.io.output.TeeOutputStream
 
 import java.io.{File, OutputStream, PrintStream, PrintWriter}
 import java.util.concurrent.ForkJoinPool
@@ -19,15 +20,16 @@ class MultithreadedTester(threadCount : Int = 0, workspace : File = new File("lo
   )
 
   val jobs = ArrayBuffer[Job]()
-  class Job(testName : String) (body : => Unit){
+  class Job(testName : String, toStdout : Boolean) (body : => Unit){
     val logsPath = new File(workspace, testName)
     FileUtils.forceMkdir(logsPath)
     val file = new PrintStream(new File(logsPath,"stdout.log"))
     val originalOutput = Console.out
     var failed = false
+    val stdout = if(toStdout) new TeeOutputStream(Console.out, file) else file
     val future = Future{
-      Console.withOut(file){
-        Console.withErr(file)(
+      Console.withOut(stdout){
+        Console.withErr(stdout)(
           try {
             body
           } catch {
@@ -54,8 +56,8 @@ class MultithreadedTester(threadCount : Int = 0, workspace : File = new File("lo
     }
   }
 
-  def test(testName: String)(testFun: => Unit) {
-    jobs += new Job(testName)(testFun)
+  def test(testName: String, toStdout : Boolean = false)(testFun: => Unit) {
+    jobs += new Job(testName, toStdout)(testFun)
   }
 
   def await(): Unit = {
