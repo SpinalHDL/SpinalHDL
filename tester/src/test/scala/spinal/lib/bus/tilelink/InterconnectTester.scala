@@ -83,8 +83,7 @@ class InterconnectTester extends AnyFunSuite{
     M2sSupport(
       transfers = m2sTransfers,
       dataWidth = dataWidth,
-      addressWidth = addressWidth,
-      allowExecute = false
+      addressWidth = addressWidth
     ),
     s2mParameters
   )
@@ -95,8 +94,7 @@ class InterconnectTester extends AnyFunSuite{
         get = SizeRange.upTo(0x1000)
       ),
       dataWidth = dataWidth,
-      addressWidth = addressWidth,
-      allowExecute = false
+      addressWidth = addressWidth
     )
   )
 
@@ -107,8 +105,7 @@ class InterconnectTester extends AnyFunSuite{
         putPartial = SizeRange.upTo(0x1000)
       ),
       dataWidth = 32,
-      addressWidth = 8,
-      allowExecute = false
+      addressWidth = 8
     )
   )
 
@@ -803,8 +800,7 @@ class InterconnectTester extends AnyFunSuite{
             putPartial = SizeRange.upTo(0x1000)
           ),
           dataWidth    = 256,
-          addressWidth = 10,
-          allowExecute = false
+          addressWidth = 10
         )
       )
       s4.node at 0x400 of m2.node
