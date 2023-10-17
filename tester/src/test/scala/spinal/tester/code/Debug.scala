@@ -15,7 +15,6 @@ import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
 import spinal.lib.graphic.Rgb
 import spinal.lib.io.TriState
-import spinal.lib.misc.test.{DualSimTracer, MultithreadedTester}
 import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
 import java.io.File
@@ -1793,8 +1792,13 @@ object InterruptInterconnectPlay extends App{
 
 
 object ExplorerTracerTest extends App{
+
+  import spinal.core._
+  import spinal.core.sim._
+  import spinal.lib.misc.test.DualSimTracer
+
   class Toplevel extends Component{
-    val counter = Reg(UInt(32 bits)) init(0)
+    val counter = out(Reg(UInt(16 bits))) init(0)
     counter := counter + 1
   }
 
@@ -1802,8 +1806,15 @@ object ExplorerTracerTest extends App{
 
   DualSimTracer(compiled, window = 10000, seed = 42){dut=>
     dut.clockDomain.forkStimulus(10)
-    sleep(100000)
-    simFailure()
+    dut.clockDomain.onSamplings{
+      val value = dut.counter.toInt
+      if(value % 0x1000 == 0){
+        println(f"Value=0x$value%x at ${simTime()}")
+      }
+      if(value== 0xFFFF){
+        simFailure()
+      }
+    }
   }
 }
 
