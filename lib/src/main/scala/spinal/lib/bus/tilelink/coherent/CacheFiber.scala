@@ -27,8 +27,8 @@ class CacheFiber() extends Area{
 
   val mappingLock = Lock().retain()
   new MemoryConnection{
-    override def m = up
-    override def s = down
+    override def up = up
+    override def down = down
     override def transformers = Nil
     override def mapping = {
       mappingLock.get //Ensure that the parameter is final

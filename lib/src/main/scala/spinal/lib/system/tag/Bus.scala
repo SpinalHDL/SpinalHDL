@@ -31,15 +31,15 @@ trait MemoryTransfers {
 
 //Address seen by the slave slave are mapping.foreach(_.base-offset)
 trait MemoryConnection extends SpinalTag {
-  def m : Nameable with SpinalTagReady
-  def s : Nameable with SpinalTagReady
+  def up : Nameable with SpinalTagReady
+  def down : Nameable with SpinalTagReady
   def mapping : AddressMapping //Specify the memory mapping of the slave from the master address (before transformers are applied)
   def transformers : List[AddressTransformer]  //List of alteration done to the address on this connection (ex offset, interleaving, ...)
-  def sToM(downs : MemoryTransfers, args : MappedNode) : MemoryTransfers //Convert the slave MemoryTransfers capabilities into the master ones
+  def sToM(downs : MemoryTransfers, args : MappedNode) : MemoryTransfers = downs//Convert the slave MemoryTransfers capabilities into the master ones
 
   def populate(): Unit ={
-    m.addTag(this)
-    s.addTag(this)
+    up.addTag(this)
+    down.addTag(this)
   }
 }
 
@@ -60,13 +60,13 @@ case class MappedNode(node : Nameable with SpinalTagReady, mapping : AddressMapp
 
   def remap(transformers : List[AddressTransformer]) : MappedNode = MappedNode(node, transformers.foldRight(mapping)((t,m) => m.withOffsetInvert(t)), transformers ++ this.transformers)//
   def remap(offset : BigInt) : MappedNode = MappedNode(node, mapping.withOffset(offset), OffsetTransformer(offset) :: transformers)
-  override def toString = f"$node mapped=$mapping though=$transformers "
+  override def toString = f"$node mapped=$mapping through=$transformers "
 
   def foreachSlave(body : (MappedNode, MemoryConnection) => Unit): Unit ={
     node.foreachTag{
-      case c : MemoryConnection if c.m == node => {
+      case c : MemoryConnection if c.up == node => {
         val remaped = c.transformers.foldRight(c.mapping)((t, a) => a.withOffset(t))
-        body(MappedNode(c.s, remaped, Nil), c)
+        body(MappedNode(c.down, remaped, Nil), c)
       }
       case _ =>
     }
@@ -87,7 +87,7 @@ object MemoryConnection{
   def getMemoryTransfers(args : MappedNode): ArrayBuffer[MappedTransfers] ={
     // Stop on leafs
     if(!args.node.existsTag{
-      case c : MemoryConnection if c.m == args.node => true
+      case c : MemoryConnection if c.up == args.node => true
       case _ => false
     }) {
       val elem = MemoryTransfers.of(args.node).get
@@ -146,12 +146,12 @@ trait PMA extends SpinalTag
 object PMA {
   object MAIN          extends PMA
   object IO            extends PMA
-  object CACHED        extends PMA // an intermediate agent may have cached a copy of the region for you
-  object TRACKED       extends PMA // the region may have been cached by another master, but coherence is being provided
-  object UNCACHED      extends PMA // the region has not been cached yet, but should be cached when possible
+  object CACHABLE      extends PMA // an intermediate agent may have cached a copy of the region for you
+  object TRACEABLE     extends PMA // the region may have been cached by another master, but coherence is being provided
+  object UNCACHABLE    extends PMA // the region has not been cached yet, but should be cached when possible
   object IDEMPOTENT    extends PMA // reads return most recently put content, but content should not be cached
+  object EXECUTABLE    extends PMA // Allows an agent to fetch code from this region
   object VOLATILE      extends PMA // content may change without a write
   object WRITE_EFFECTS extends PMA // writes produce side effects and so must not be combined/delayed
   object READ_EFFECTS  extends PMA // reads produce side effects and so must not be issued speculatively
-  object EXECUTABLE    extends PMA // Allows an agent to fetch code from this region
 }
