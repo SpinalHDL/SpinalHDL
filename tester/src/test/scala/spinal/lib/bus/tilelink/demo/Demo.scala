@@ -5,6 +5,8 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink.M2sTransfers
 import spinal.lib.io.TriStateArray
 
+import scala.collection.mutable.ArrayBuffer
+
 object Demo extends App {
   SpinalVerilog(new Component{
 
@@ -175,7 +177,179 @@ object Demo extends App {
     })
 
 
+
+    class ResetHolder(cycles : Int, pol : Polarity) extends Area {
+      val counter = Reg(UInt(log2Up(cycles+1) bits)) init(0)
+      val reset = (counter =/= cycles) ^ pol.deassertedBool
+      when(reset === pol.assertedBool){
+        counter := counter + 1
+      }
+      def doSyncReset(): Unit = {
+        counter := 0
+      }
+    }
+
+    class ResetCtrlFiber(val config : ClockDomainConfig = ClockDomain.defaultConfig) extends Area{
+      val lock = spinal.core.fiber.Lock()
+
+      val reset = Bool()
+      val cd = ClockDomain.current.copy(reset = reset, config = config)
+      var holdCycles = 64
+      var withBootReset = false
+
+      val resets = ArrayBuffer[ResetAggregatorSource]()
+      val syncRelaxedResets = ArrayBuffer[ResetAggregatorSource]()
+
+      def addAsyncReset(pin : Bool, pol : Polarity): this.type = {
+        resets += ResetAggregatorSource(pin, false, pol)
+        this
+      }
+
+      def addSyncReset(pin: Bool, pol: Polarity): this.type = {
+        resets += ResetAggregatorSource(pin, true, pol)
+        this
+      }
+
+      def addSyncRelaxedReset(pin: Bool, pol: Polarity): this.type = {
+        syncRelaxedResets += ResetAggregatorSource(pin, true, pol)
+        this
+      }
+
+      def addReset(ctrl: ResetCtrlFiber): this.type = {
+        addAsyncReset(ctrl.reset, ctrl.config.resetActiveLevel)
+        this
+      }
+
+      def enableBootReset() : this.type = {
+        withBootReset = true
+        this
+      }
+
+      def createAsyncReset(pol: Polarity): Bool = {
+        val pin = Bool()
+        addAsyncReset(pin, pol)
+        pin
+      }
+
+      def createSyncReset(pol: Polarity): Bool = {
+        val pin = Bool()
+        addSyncReset(pin, pol)
+        pin
+      }
+
+      def createSyncRelaxedReset(pol: Polarity): Bool = {
+        val pin = Bool()
+        addSyncRelaxedReset(pin, pol)
+        pin
+      }
+
+      val fiber = Fiber build new Area {
+        lock.await()
+        val ccd = ClockDomain.current
+
+        val bootReset = withBootReset generate new Area{
+          val cd = ccd.withBootReset()
+          val reg = cd(RegNext(True) init(False))
+          addSyncReset(reg, LOW)
+        }
+
+        val aggregator = new ResetAggregator(resets, config.resetActiveLevel)
+
+        val holderCd = ClockDomain(
+          clock = ccd.clock,
+          reset = aggregator.reset,
+          config = ccd.config.copy(
+            resetKind = ASYNC,
+            resetActiveLevel = config.resetActiveLevel
+          )
+        )
+        val holder = holderCd on new ResetHolder(holdCycles, config.resetActiveLevel)
+        if(syncRelaxedResets.nonEmpty) holderCd on {
+          when(syncRelaxedResets.map(e => e.pin === e.pol.assertedBool).orR){
+            holder.doSyncReset()
+          }
+        }
+
+        val bufferCd = ClockDomain(
+          clock = ccd.clock,
+          reset = holder.reset,
+          config = ccd.config.copy(
+            resetKind = ASYNC,
+            resetActiveLevel = config.resetActiveLevel
+          )
+        )
+        val buffer = bufferCd on new BufferCC(
+          dataType = Bool(),
+          init = config.resetActiveLevel.assertedBool,
+          bufferDepth = None
+        )
+        buffer.io.dataIn := config.resetActiveLevel.deassertedBool
+
+        reset := buffer.io.dataOut
+      }
+    }
+
+    import spinal.core.sim._
+    SimConfig.withFstWave.compile(new Component {
+      val clk100, clk48 = in Bool()
+      val asyncReset = in Bool()
+
+      val cd100 = ClockDomain(clk100)
+      val cd48 = ClockDomain(clk48)
+
+      val debugResetCtrl = cd100 on new ResetCtrlFiber().addAsyncReset(asyncReset, HIGH)
+      val peripheralResetCtrl = cd48 on new ResetCtrlFiber().addReset(debugResetCtrl)
+      val mainResetCtrl = cd100 on new ResetCtrlFiber().addReset(peripheralResetCtrl)
+
+      val debug = debugResetCtrl.cd on new Area{
+        val counter = CounterFreeRun(10000)
+      }
+      val peripheral = peripheralResetCtrl.cd on new Area {
+        val counter = CounterFreeRun(10000)
+        val asyncReset = in(peripheralResetCtrl.createAsyncReset(HIGH))
+        val syncReset = in(peripheralResetCtrl.createSyncReset(HIGH))
+        val syncRelaxedReset = in(peripheralResetCtrl.createSyncRelaxedReset(HIGH))
+      }
+      val main = mainResetCtrl.cd on new Area {
+        val counter = CounterFreeRun(10000)
+      }
+    }).doSim(2){dut =>
+      dut.peripheral.asyncReset #= false
+      dut.peripheral.syncReset #= false
+      dut.peripheral.syncRelaxedReset #= false
+      dut.asyncReset #= true
+      sleep(100)
+      dut.asyncReset #= false
+      ClockDomain(dut.clk100).forkStimulus(10)
+      val cd48 = ClockDomain(dut.clk48)
+      cd48.forkStimulus(21)
+      for(i <- 0 until 5) {
+        dut.asyncReset #= true
+        sleep(100)
+        dut.asyncReset #= false
+        sleep(simRandom.nextInt(10000))
+      }
+      for (i <- 0 until 3*3) {
+        val pin = (i%3) match {
+          case 0 => dut.peripheral.asyncReset
+          case 1 => cd48.waitSampling(); dut.peripheral.syncReset
+          case 2 => cd48.waitSampling(); dut.peripheral.syncRelaxedReset
+        }
+
+        pin #= true
+        (i % 3) match {
+          case 0 => sleep(5)
+          case 1 => cd48.waitSampling()
+          case 2 => cd48.waitSampling()
+        }
+        pin #= false
+        sleep(simRandom.nextInt(10000))
+      }
+    }
+
   }
 
 
 }
+
+
