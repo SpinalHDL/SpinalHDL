@@ -629,7 +629,7 @@ class InterconnectTester extends AnyFunSuite{
       s2.node at 0x4000 of b1
 
       s0.node.addTag(PMA.VOLATILE)
-      s1.node.addTag(PMA.CACHED)
+      s1.node.addTag(PMA.CACHABLE)
 
       Fiber build {
         var hits = 0
@@ -644,7 +644,7 @@ class InterconnectTester extends AnyFunSuite{
             case s1.node =>
               hits += 1
               assert(w.where.transformers == List(OffsetTransformer(0xE0000), OffsetTransformer(0x6000)))
-              assert(w.node.hasTag(PMA.CACHED))
+              assert(w.node.hasTag(PMA.CACHABLE))
               assert(w.mapping == SizeMapping(0xE6000, 0x400))
             case s2.node =>
               hits += 1
