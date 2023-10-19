@@ -165,3 +165,30 @@ object ResetCtrl{
     )
   }
 }
+
+
+case class ResetAggregatorSource(pin: Bool, sync: Boolean, pol: Polarity)
+class ResetAggregator(sources: Seq[ResetAggregatorSource], pol: Polarity) extends Area {
+  def asyncBuffer(s : ResetAggregatorSource) : BufferCC[Bool] = {
+    val samplerCd = ClockDomain.current.copy(
+      reset = s.pin,
+      config = ClockDomain.current.config.copy(
+        resetKind = ASYNC,
+        resetActiveLevel = s.pol
+      )
+    )
+
+    val cc = samplerCd on new BufferCC(
+      dataType = Bool(),
+      init = pol.assertedBool,
+      bufferDepth = None
+    )
+    cc.io.dataIn := pol.deassertedBool
+    cc
+  }
+
+  val asyncBuffers = for (s <- sources if !s.sync) yield asyncBuffer(s)
+  val syncBuffers = for (s <- sources if s.sync) yield (if (s.pol == pol) s.pin else !s.pin)
+  val resets = asyncBuffers.map(_.io.dataOut) ++ syncBuffers
+  val reset = if (pol == HIGH) resets.orR else resets.norR
+}

@@ -36,9 +36,18 @@ object ASYNC extends ResetKind
 object SYNC  extends ResetKind
 object BOOT  extends ResetKind
 
-sealed trait Polarity
-object HIGH extends Polarity
-object LOW  extends Polarity
+sealed trait Polarity{
+  def assertedBool : Bool
+  def deassertedBool : Bool
+}
+object HIGH extends Polarity{
+  override def assertedBool: Bool = True
+  override def deassertedBool: Bool = False
+}
+object LOW  extends Polarity{
+  override def assertedBool: Bool = False
+  override def deassertedBool: Bool = True
+}
 
 case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag{
   override def toString = s"ClockDomainTag($clockDomain)"
