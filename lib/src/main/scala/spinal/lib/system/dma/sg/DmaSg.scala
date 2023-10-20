@@ -1305,7 +1305,7 @@ object DmaSg{
             if (channel.cp.canWrite) channel.pop.b2m.address := rsp.dstAddress
             channel.bytes := rsp.bytes
             channel.ll.controlNoCompletion := False
-            channel.pop.b2s.last := rsp.last
+            if(channel.cp.canOutput) channel.pop.b2s.last := rsp.last
             channel.ll.gotDescriptorStall := rsp.stall
           }
         }
