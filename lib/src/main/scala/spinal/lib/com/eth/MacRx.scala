@@ -99,7 +99,7 @@ case class Crc(kind : CrcKind, dataWidth : Int) extends Component{
 
   val state = Reg(Bits(kind.polynomialWidth bits)) init(kind.initValue)
 
-  var acc = state
+  var acc = CombInit(state)
   for(i <- if(kind.inputReflected) 0 to dataWidth-1 else dataWidth-1 downto 0){
     acc \= ((acc |<< 1) ^ ((io.input.payload(i) ^ acc.msb) ? B(kind.polynomial, kind.polynomialWidth bits) | B(0, kind.polynomialWidth bits)))
   }

@@ -185,7 +185,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
 
   // Buffer update
   val fillLevel = Reg(UInt(log2Up(MAX_SIZE) bit)) init(0)
-  var fillLevel_next = fillLevel
+  var fillLevel_next = CombInit(fillLevel)
   when(outStream.fire) {
     fillLevel_next \= fillLevel - outConfig.dataWidth
   }
