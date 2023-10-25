@@ -1854,3 +1854,36 @@ object UnionPlay extends App{
 //    miaou.a.x := U(4, 4 bits)
   })
 }
+
+
+object MulDebugPlay extends App{
+  SimConfig.withFstWave.compile(new Component{
+    val w = 8
+    val t = 7
+    val a,b = in SInt(w bits)
+    val l = t-1 downto 0
+    val h = w-1 downto t
+    val ll = a(l).asUInt * b(l).asUInt
+    val lh = (S(U(a(l)).resize(t+1)) * b(h)).resize(w)
+    val hl = (a(h) * S(U(b(l)).resize(t+1))).resize(w)
+    val hh = a(h) * b(h)
+    val adder = ll + U(lh.resize(2*w-t) << t) + U(hl.resize(2*w-t) << t) + U(hh << t*2)
+    val c = out(S(adder))
+//    val c = out(S(ll.resize(16)) + (lh.resize(12) << 4) + (hl.resize(12) << 4) + (hh << 8))
+  }).doSim(2){dut =>
+    for(i <- 0 until 100000){
+      dut.a.randomize()
+      dut.b.randomize()
+
+//      dut.a #= simRandom.nextInt(128)
+//      dut.b #= simRandom.nextInt(128)
+//      dut.a #= 64
+//      dut.b #= 96
+      sleep(10)
+      val ref = dut.a.toInt*dut.b.toInt
+      val got = dut.c.toInt
+
+      assert(got == ref,f"$got%x $ref%x")
+    }
+  }
+}
