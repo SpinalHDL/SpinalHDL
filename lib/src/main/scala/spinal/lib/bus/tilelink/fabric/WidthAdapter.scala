@@ -15,8 +15,8 @@ class WidthAdapter() extends Area{
   val down = Node.master()
 
   new MemoryConnection {
-    override def up = up
-    override def down = down
+    override def up = WidthAdapter.this.up
+    override def down = WidthAdapter.this.down
     override def transformers = Nil
     override def mapping = SizeMapping(0, BigInt(1) << WidthAdapter.this.up.m2s.parameters.addressWidth)
     populate()

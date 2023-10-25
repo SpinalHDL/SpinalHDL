@@ -14,8 +14,8 @@ class Axi4Bridge() extends Area{
   val down = new Handle[Axi4] with SpinalTagReady
 
   new MemoryConnection {
-    override def up = up
-    override def down = down
+    override def up = Axi4Bridge.this.up
+    override def down = Axi4Bridge.this.down
     override def transformers = Nil
     override def mapping = SizeMapping(0, BigInt(1) << Axi4Bridge.this.up.m2s.parameters.addressWidth)
     populate()

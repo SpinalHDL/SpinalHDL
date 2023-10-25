@@ -16,8 +16,8 @@ case class Interleaver(blockSize : Int, ratio : Int, sel : Int) extends Area{
 
   val transformer = InterleaverTransformer(blockSize, ratio, sel)
   new MemoryConnection {
-    override def up = up
-    override def down = down
+    override def up = Interleaver.this.up
+    override def down = Interleaver.this.down
     override def transformers = List(transformer)
     override def mapping = InterleavedMapping(
       mapping = SizeMapping(0, BigInt(1) << Interleaver.this.up.m2s.parameters.addressWidth),

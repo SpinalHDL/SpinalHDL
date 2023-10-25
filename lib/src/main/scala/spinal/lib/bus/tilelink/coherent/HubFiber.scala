@@ -30,8 +30,8 @@ class HubFiber() extends Area{
 
   val mappingLock = Lock().retain()
   new MemoryConnection{
-    override def up = up
-    override def down = down
+    override def up = HubFiber.this.up
+    override def down = HubFiber.this.down
     override def transformers = Nil
     override def mapping = {
       mappingLock.get //Ensure that the parameter is final
