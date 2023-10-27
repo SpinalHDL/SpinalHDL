@@ -144,6 +144,15 @@ class Cache(val p : CacheParam) extends Component {
   }
 
 
+  val events = new Area{
+    val getPut = new Area{
+      val hit, miss = False
+    }
+    val acquire = new Area{
+      val hit, miss = False
+    }
+  }
+
   case class Tags(val withData : Boolean) extends Bundle {
     val loaded = Bool()
     val tag = UInt(tagRange.size bits)
@@ -938,6 +947,7 @@ class Cache(val p : CacheParam) extends Component {
           //TODO ensure that once the probe is done, the initial request isn't overtaken by another one (ex acquire)
         } otherwise {
           when(CACHE_HIT) {
+            events.getPut.hit setWhen(doIt)
             when(CTRL_CMD.withDataUpC){
               askWriteBackend := True
               cache.tags.write.data.dirty := True
@@ -956,6 +966,7 @@ class Cache(val p : CacheParam) extends Component {
               Cache.ToUpDOpcode.ACCESS_ACK()
             )
           }.elsewhen(preCtrl.ALLOCATE_ON_MISS) {
+            events.getPut.miss setWhen (doIt)
             askOrdering := True
             askAllocate := True
             ctxDownD.data.toCache := True
@@ -989,6 +1000,7 @@ class Cache(val p : CacheParam) extends Component {
 
       when(preCtrl.ACQUIRE){
         when(!CACHE_HIT){
+          events.acquire.miss setWhen (doIt)
           owners.clean := True
           owners.add := True
           askOrdering := True
@@ -1012,6 +1024,7 @@ class Cache(val p : CacheParam) extends Component {
             prober.cmd.mask := OTHERS
             prober.cmd.probeToN := CTRL_CMD.toTrunk
           } otherwise {
+            events.acquire.hit setWhen (doIt)
             when(aquireToB) {
               ctxDownD.data.toT := False
             } otherwise {

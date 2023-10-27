@@ -46,6 +46,9 @@ trait DataPrimitives[T <: Data]{
 
   /** Use as \= to have the same behavioral as VHDL variable */
   def \(that: T): T = {
+    if(!this._data.isComb) {
+      SpinalWarning(s"\\= used on a non-combinatorial signals (${this._data}). This will generate a combinatorial value and the register will not be updated.")
+    }
 
     val globalData = GlobalData.get
 

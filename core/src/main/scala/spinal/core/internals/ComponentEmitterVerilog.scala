@@ -85,10 +85,10 @@ class ComponentEmitterVerilog(
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
-        portMaps += f"${syntax}${dir}%6s ${""}%3s ${section}%-8s ${name}${EDAcomment}${comma}"
+        portMaps += f"${syntax}${dir}%6s wire ${section}%-8s ${name}${EDAcomment}${comma}"
       } else {
-        val isReg   = if(signalNeedProcess(baseType)) "reg" else ""
-        portMaps += f"${syntax}${dir}%6s ${isReg}%3s ${section}%-8s ${name}${EDAcomment}${comma}"
+        val isReg   = if(signalNeedProcess(baseType)) "reg" else "wire"
+        portMaps += f"${syntax}${dir}%6s ${isReg}%-4s ${section}%-8s ${name}${EDAcomment}${comma}"
       }
     }
   }
