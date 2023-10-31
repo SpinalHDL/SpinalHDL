@@ -997,6 +997,16 @@ class Cache(val p : CacheParam) extends Component {
       val aquireToB = !CTRL_CMD.toTrunk && OTHER
       val acquireParam = aquireToB.mux[Bits](Param.Cap.toB, Param.Cap.toT)
 
+      val missCost = 200
+      val threshold = 300
+      val throttles = for(p <- coherentMasters) yield new Area{
+        val counter = Reg(UInt(log2Up(threshold + missCost + 1) bits)) init(0)
+        val halt = counter >= threshold
+        val hit = p.sourceHit(CTRL_CMD.source)
+        when(counter =/= 0){
+          counter := counter - 1
+        }
+      }
 
       when(preCtrl.ACQUIRE){
         when(!CACHE_HIT){
@@ -1016,6 +1026,13 @@ class Cache(val p : CacheParam) extends Component {
             askUpD := True
             toUpD.opcode := Opcode.D.GRANT
             clearPrimary := True
+          }
+
+          redoUpA setWhen(!CTRL_CMD.probed && preCtrl.FROM_A && firstCycle && throttles.map(t => t.hit && t.halt).orR)
+          when(doIt){
+            for(t <- throttles) when(t.hit){
+              t.counter := t.counter + missCost
+            }
           }
         }otherwise{
           //Need probing ?
