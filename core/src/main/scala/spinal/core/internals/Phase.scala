@@ -2041,7 +2041,8 @@ class PhaseCheckHiearchy extends PhaseCheck{
             val bt = s.finalTarget
 
             if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
-              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
+              val identifier = if(c == null) "toplevel" else s"$c component"
+              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $identifier.\n${s.getScalaLocationLong}")
               error = true
             }
 
