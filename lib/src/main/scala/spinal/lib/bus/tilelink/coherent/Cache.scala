@@ -14,6 +14,8 @@ case class CacheParam(var unp : NodeParameters,
                       var cacheWays: Int,
                       var cacheBytes: Int,
                       var blockSize : Int,
+                      var cnp : NodeParameters = null,
+                      var throttleList : Seq[Nameable] = Nil,
                       var cacheBanks : Int = 1,
                       var probeCount : Int = 8,
                       var aBufferCount: Int = 4,
@@ -111,6 +113,7 @@ class Cache(val p : CacheParam) extends Component {
   ).toBusParameter()
 
   val io = new Bundle {
+    val ctrl = slave(Bus(p.cnp))
     val up = slave(Bus(ubp))
     val down = master(Bus(dbp))
     val ordering = new Bundle {
@@ -119,11 +122,15 @@ class Cache(val p : CacheParam) extends Component {
     }
   }
 
+
+
   this.addTags(io.ordering.all.map(OrderingTag(_)))
 
   val coherentMasters = unp.m.masters.filter(_.emits.withBCE)
   val coherentMasterCount = coherentMasters.size
   val coherentMasterToSource = coherentMasters.map(_.bSourceId)
+
+  val ctrlFactory = new SlaveFactory(io.ctrl, allowBurst = false)
 
   val SET_ID = Stageable(UInt(log2Up(lockSets) bits))
   val LOCK_CTX = Stageable(Bool())
@@ -997,12 +1004,15 @@ class Cache(val p : CacheParam) extends Component {
       val aquireToB = !CTRL_CMD.toTrunk && OTHER
       val acquireParam = aquireToB.mux[Bits](Param.Cap.toB, Param.Cap.toT)
 
-      val missCost = 200
-      val threshold = 300
-      val throttles = for(p <- coherentMasters) yield new Area{
-        val counter = Reg(UInt(log2Up(threshold + missCost + 1) bits)) init(0)
-        val halt = counter >= threshold
-        val hit = p.sourceHit(CTRL_CMD.source)
+
+      val thresholdWidth = 10
+      val throttles = for((te, i) <- throttleList.zipWithIndex) yield new Area{
+        val agent = p.unp.m.masters.find(_.name == te).get
+        val missCost = ctrlFactory.createReadAndWrite(UInt(thresholdWidth bits), 0x00 + 0x10*i, 0) init(0)
+        val threshold  = ctrlFactory.createReadAndWrite(UInt(thresholdWidth bits), 0x04 + 0x10*i, 0) init(0)
+        val counter = Reg(UInt(thresholdWidth+1 bits)) init(0)
+        val halt = counter > threshold
+        val hit = agent.sourceHit(CTRL_CMD.source)
         when(counter =/= 0){
           counter := counter - 1
         }
@@ -1031,7 +1041,7 @@ class Cache(val p : CacheParam) extends Component {
           redoUpA setWhen(!CTRL_CMD.probed && preCtrl.FROM_A && firstCycle && throttles.map(t => t.hit && t.halt).orR)
           when(doIt){
             for(t <- throttles) when(t.hit){
-              t.counter := t.counter + missCost
+              t.counter := t.counter + t.missCost
             }
           }
         }otherwise{
