@@ -6,7 +6,7 @@ package spinal.tester.code
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
 import spinal.core.fiber.Handle
-import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, Operator, Phase, PhaseContext, RangedAssignmentFixed, RangedAssignmentFloating}
+import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, MemBlackboxOf, Operator, Phase, PhaseContext, PhaseMemBlackBoxingWithPolicy, PhaseNetlist, RangedAssignmentFixed, RangedAssignmentFloating}
 import spinal.lib._
 import spinal.core.sim._
 import spinal.idslplugin.{Location, PostInitCallback}
@@ -18,7 +18,6 @@ import spinal.lib.io.TriState
 import spinal.lib.misc.test.{DualSimTracer, MultithreadedTester}
 import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
-import java.io.File
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.math.ScalaNumber
@@ -1842,4 +1841,103 @@ object UnionPlay extends App{
     miaou.a.y := U(4)
 //    miaou.a.x := U(4, 4 bits)
   })
+}
+
+object BBcustomcustom extends App{
+
+  class CustomTag(val doSleep : Bool) extends SpinalTag
+  class CustomPhase extends PhaseNetlist{
+    override def impl(pc: PhaseContext): Unit = {
+      pc.walkComponents{
+        case bb : Ram_1w_1rs => {
+          val mem = bb.getTag(classOf[MemBlackboxOf]).get.mem
+          mem.getTag(classOf[CustomTag])match {
+            case Some(tag) => {
+              val pin = bb rework new AreaRoot {
+                val sleep = in Bool()
+              }
+              bb.parent.rework {
+                pin.sleep := tag.doSleep.pull()
+              }
+            }
+            case None =>
+          }
+        }
+        case _ =>
+      }
+    }
+  }
+
+  val c = SpinalConfig(mode = Verilog)
+  c.addStandardMemBlackboxing(blackboxAll)
+  c.phasesInserters += { phases =>
+    val i = phases.lastIndexWhere(_.isInstanceOf[PhaseMemBlackBoxingWithPolicy])
+    phases.insert(i + 1, new CustomPhase)
+  }
+
+
+  c.generate(new Component{
+    val generalSleep = in Bool()
+    val sub = new Component {
+      val fifo = StreamFifo(UInt(8 bits), 64)
+      val io = fifo.io.toIo()
+    }
+    val io = sub.io.toIo()
+    sub.fifo.logic.ram.addTag(new CustomTag(generalSleep))
+  })
+
+}
+
+
+object PlayScopedMess extends App{
+  class DataBase{
+    val storage = mutable.LinkedHashMap[ScopedThing[_ <: Any], Any]()
+    def update[T](key : ScopedThing[T], value : T) = storage.update(key, value)
+    def apply[T](key : ScopedThing[T]) : T = storage.apply(key).asInstanceOf[T]
+  }
+
+  class ScopedThing[T]() {
+//    def get: T = dataBase.get.apply(this)
+//    def set(value: T) = dataBase.update(this, value)
+  }
+
+  val XLEN = new ScopedThing[Int]()
+
+  import spinal.core.fiber._
+  class Plugin extends Area{
+    this.setName(ClassName(this))
+    def withPrefix(prefix: String) = setName(prefix + "_" + getName())
+
+    val host = Handle[Component]
+    def setHost(h : Component) : Unit = host.load(h)
+
+    def create = new {
+      def early[T](body: => T): Handle[T] = Fiber setup host.rework(body)
+      def late[T](body: => T): Handle[T] = Fiber build host.rework(body)
+    }
+  }
+
+
+  class VexiiRiscv extends Component{
+
+  }
+
+  class PcPlugin extends Plugin {
+    val early = create early new Area {
+
+    }
+
+    val logic = create late new Area {
+      val pc = UInt(32 bits)
+    }
+  }
+
+  class TopLevel extends Component {
+    val vexii = new VexiiRiscv
+
+    val pc = new PcPlugin()
+    pc.setHost(vexii)
+  }
+
+  SpinalVerilog(new TopLevel).printRtl()
 }
