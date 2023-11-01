@@ -90,7 +90,8 @@ object MemoryConnection{
       case c : MemoryConnection if c.m == args.node => true
       case _ => false
     }) {
-      return ArrayBuffer(MappedTransfers(args, MemoryTransfers.of(args.node).get))
+      val elem = MemoryTransfers.of(args.node).get
+      return ArrayBuffer(MappedTransfers(args, elem))
     }
 
     //Collect slaves supports

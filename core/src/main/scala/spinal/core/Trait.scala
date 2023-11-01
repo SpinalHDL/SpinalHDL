@@ -271,7 +271,7 @@ trait Assignable {
     }
   }
 
-  private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit
+  protected def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit
 
   def getRealSourceNoRec: Any
 
@@ -769,6 +769,10 @@ trait SpinalTag {
   def apply[T <: SpinalTagReady](that : T) : T = {
     that.addTag(this)
     that
+  }
+  def apply(that : SpinalTagReady, others : SpinalTagReady*) : Unit = {
+    apply(that)
+    others.foreach(apply)
   }
 }
 

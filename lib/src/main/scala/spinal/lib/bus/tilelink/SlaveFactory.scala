@@ -8,47 +8,74 @@ import scala.collection.Seq
 object SlaveFactory{
   def getSupported(addressWidth : Int,
                    dataWidth : Int,
+                   allowBurst : Boolean,
                    proposed : M2sSupport) = proposed.copy(
     addressWidth = addressWidth,
     dataWidth = dataWidth,
     transfers = proposed.transfers.intersect(
-      M2sTransfers(
-        get = SizeRange.upTo(dataWidth/8),
-        putFull = SizeRange(dataWidth/8)
-      )
+      allowBurst match {
+        case false => M2sTransfers(
+          get = SizeRange.upTo(dataWidth / 8),
+          putFull = SizeRange(dataWidth / 8)
+        )
+        case true => M2sTransfers(
+          get = SizeRange.all,
+          putFull = SizeRange.downTo(dataWidth / 8)
+        )
+      }
     )
   )
 }
 
-class SlaveFactory(bus: Bus) extends BusSlaveFactoryDelayed{
+class SlaveFactory(bus: Bus, allowBurst : Boolean) extends BusSlaveFactoryDelayed{
+  val implementBurst = allowBurst && bus.p.beatMax > 1
+  val unburstify = implementBurst generate new Area {
+    val isGet = bus.a.opcode === Opcode.A.GET
+    val counter = Reg(bus.p.beat) init (0)
+    val last = counter === bus.a.sizeToBeatMinusOne()
+    val busA = bus.a.forkSerial(!isGet || last)
+    when(busA.fire) {
+      counter := counter + 1
+      when(bus.a.fire && (isGet || last)) {
+        counter := 0
+      }
+    }
+    busA.address.removeAssignments() := bus.a.address | (counter << log2Up(bus.p.dataBytes)).resized
+    val withRsp = isGet || last
+  }
+
 
   val rspAsync = cloneOf(bus.d)
 
-  val askWrite = (bus.a.valid && Opcode.A.isPut(bus.a.opcode)).allowPruning()
-  val askRead  = (bus.a.valid && Opcode.A.isGet(bus.a.opcode)).allowPruning()
-  val doWrite  = (askWrite && bus.a.ready).allowPruning()
-  val doRead   = (askRead && bus.a.ready).allowPruning()
+  def busA = if (implementBurst) unburstify.busA else bus.a
+  def withRsp = if (implementBurst) unburstify.withRsp else True
 
 
-  override def readAddress() : UInt = bus.a.address
-  override def writeAddress() : UInt = bus.a.address
+  val askWrite = (busA.valid && Opcode.A.isPut(busA.opcode)).allowPruning()
+  val askRead  = (busA.valid && Opcode.A.isGet(busA.opcode)).allowPruning()
+  val doWrite  = (askWrite && busA.ready).allowPruning()
+  val doRead   = (askRead && busA.ready).allowPruning()
 
-//  override def writeByteEnable(): Bits = bus.a.mask
+  val address = (busA.address >> bus.p.dataBytesLog2Up) << bus.p.dataBytesLog2Up
+  override def readAddress()  : UInt  = address
+  override def writeAddress() : UInt = address
+
+//  override def writeByteEnable(): Bits = busA.mask
 
   val halt = False
   override def readHalt(): Unit = halt := True
   override def writeHalt(): Unit = halt := True
 
   override def build(): Unit = {
-    super.doNonStopWrite(bus.a.data)
-    bus.a.ready := rspAsync.ready && !halt
-    rspAsync.valid := bus.a.valid && !halt
+    super.doNonStopWrite(busA.data)
+    busA.ready := rspAsync.ready && !halt
+    rspAsync.valid := busA.valid && !halt && withRsp
     rspAsync.data := 0
-    rspAsync.opcode := Opcode.A.isGet(bus.a.opcode).mux(Opcode.D.ACCESS_ACK_DATA(), Opcode.D.ACCESS_ACK())
+    rspAsync.opcode := Opcode.A.isGet(busA.opcode).mux(Opcode.D.ACCESS_ACK_DATA(), Opcode.D.ACCESS_ACK())
     rspAsync.param := 0
-    rspAsync.source := bus.a.source
+    rspAsync.source := busA.source
     rspAsync.sink := 0
-    rspAsync.size := bus.a.size
+    rspAsync.size := busA.size
     rspAsync.corrupt := False
     rspAsync.denied := False
 
@@ -60,11 +87,11 @@ class SlaveFactory(bus: Bus) extends BusSlaveFactoryDelayed{
       askRead = askRead,
       doWrite = doWrite,
       doRead = doRead,
-      writeData = bus.a.data,
+      writeData = busA.data,
       readData = rspAsync.data
     )
 
-    switch(bus.a.address) {
+    switch(address) {
       for ((address, jobs) <- elementsPerAddress if address.isInstanceOf[SingleMapping]) {
         is(address.asInstanceOf[SingleMapping].address) {
           doMappedElements(jobs)
@@ -73,7 +100,7 @@ class SlaveFactory(bus: Bus) extends BusSlaveFactoryDelayed{
     }
 
     for ((address, jobs) <- elementsPerAddress if !address.isInstanceOf[SingleMapping]) {
-      when(address.hit(bus.a.address)){
+      when(address.hit(this.address)){
         doMappedElements(jobs)
       }
     }

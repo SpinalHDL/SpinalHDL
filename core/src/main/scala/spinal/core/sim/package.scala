@@ -28,7 +28,6 @@ import java.math.BigInteger
 import scala.collection.generic.Shrinkable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 import scala.collection.Seq
 
 /**
@@ -36,6 +35,9 @@ import scala.collection.Seq
   */
 package object sim {
   def SimConfig: SpinalSimConfig = new SpinalSimConfig()
+
+  def simRandom(implicit simManager: SimManager = sm) = simManager.random
+  def sm = SimManagerContext.current.manager
 
   @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")
   def SimConfig[T <: Component](rtl: => T): SimConfigLegacy[T] = {
@@ -155,6 +157,8 @@ package object sim {
     manager.setBigInt(signal, value)
   }
 
+  def currentTestName() : String = sm.testName
+
   /** Return the current simulation time */
   def simTime(): Long = SimManagerContext.current.manager.time
   def simDeltaCycle(): Long = SimManagerContext.current.manager.deltaCycle
@@ -167,6 +171,8 @@ package object sim {
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
   def sleep(cycles: Double): Unit = SimManagerContext.current.thread.sleep(cycles.toLong)
+  def sleep(time: TimeNumber): Unit =
+    sleep((time.toBigDecimal / SimManagerContext.current.manager.timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong)
   def waitUntil(cond: => Boolean): Unit = {
     SimManagerContext.current.thread.waitUntil(cond)
   }
@@ -247,7 +253,7 @@ package object sim {
   implicit class SimBaseTypePimper(bt: BaseType) {
 
     def randomize(): Unit = bt match{
-      case bt: Bool               => bt #= Random.nextBoolean()
+      case bt: Bool               => bt #= simRandom.nextBoolean()
       case bt: Bits               => bt.randomize()
       case bt: UInt               => bt.randomize()
       case bt: SInt               => bt.randomize()
@@ -276,16 +282,16 @@ package object sim {
 
 
   implicit class SimSeqPimper[T](pimped: Seq[T]){
-    def randomPick(): T = pimped(Random.nextInt(pimped.length))
+    def randomPick(): T = pimped(simRandom.nextInt(pimped.length))
     def randomPickWithIndex(): (T, Int) = {
-      val index = Random.nextInt(pimped.length)
+      val index = simRandom.nextInt(pimped.length)
       (pimped(index), index)
     }
   }
 
   implicit class SimArrayBufferPimper[T](pimped: ArrayBuffer[T]){
     def randomPop() : T = {
-      val index = Random.nextInt(pimped.length)
+      val index = simRandom.nextInt(pimped.length)
       val ret = pimped(index)
       pimped(index) = pimped.last
       pimped.remove(pimped.length-1)
@@ -338,7 +344,7 @@ package object sim {
     def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
 
     def randomize(): Boolean = {
-      val b = Random.nextBoolean()
+      val b = simRandom.nextBoolean()
       bt #= b
       b
     }
@@ -381,7 +387,7 @@ package object sim {
     }
 
     def toInt    = getInt(bt)
-    def toLong(implicit manager: SimManager = SimManagerContext.current.manager)   = getLong(bt)
+    def toLong(implicit manager: SimManager = SimManagerContext.current.manager)   = getLong(bt)(manager)
     def toBigInt = getBigInt(bt)
     def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
     def toBooleans : Array[Boolean] = {
@@ -427,16 +433,16 @@ package object sim {
       }
     }
 
-    def randomizedBigInt() = BigInt(width, Random)
+    def randomizedBigInt() = BigInt(width, simRandom)
 
     def randomizedLong() = {
       assert(width < 64)
-      Random.nextLong() & ((1l << width) - 1)
+      simRandom.nextLong() & ((1l << width) - 1)
     }
 
     def randomizedInt() = {
       assert(width < 32)
-      Random.nextInt() & ((1 << width) - 1)
+      simRandom.nextInt() & ((1 << width) - 1)
     }
   }
 
@@ -458,16 +464,16 @@ package object sim {
     override def randomizedLong(): Long = {
       assert(width <= 64)
       val shift = 64 - width
-      (Random.nextLong << shift) >> shift
+      (simRandom.nextLong << shift) >> shift
     }
 
     override def randomizedInt(): Int = {
       assert(width <= 32)
       val shift = 32 - width
-      (Random.nextInt() << shift) >> shift
+      (simRandom.nextInt() << shift) >> shift
     }
 
-    override def randomizedBigInt(): BigInt = BigInt(width, Random) - (BigInt(1) << width - 1)
+    override def randomizedBigInt(): BigInt = BigInt(width, simRandom) - (BigInt(1) << width - 1)
   }
 
   /**
@@ -480,7 +486,7 @@ package object sim {
     def #=(value: SpinalEnumElement[T]) = setBigInt(bt, bt.encoding.getValue(value))
 
     def randomize(): SpinalEnumElement[T] = {
-      val e = bt.spinalEnum.elements(Random.nextInt(bt.spinalEnum.elements.length))
+      val e = bt.spinalEnum.elements(simRandom.nextInt(bt.spinalEnum.elements.length))
       setBigInt(bt, bt.encoding.getValue(e))
       e.asInstanceOf[SpinalEnumElement[T]]
     }
@@ -505,7 +511,7 @@ package object sim {
     }
     def #= (that : Double): Unit = this #= BigDecimal(that)
     def randomize(): BigDecimal = {
-      var rhs = Random.nextDouble()
+      var rhs = simRandom.nextDouble()
       rhs = Math.max(minValue, rhs)
       rhs = Math.min(maxValue, rhs)
       this #= rhs
@@ -572,10 +578,10 @@ package object sim {
       if (inRange) {
         var randBigInt: BigInt = null
         do {
-          if (!bt.signed || !Random.nextBoolean()) {
-            randBigInt = BigInt(maxRawIntValue.bitLength, Random) * maxRawIntValue.signum
+          if (!bt.signed || !simRandom.nextBoolean()) {
+            randBigInt = BigInt(maxRawIntValue.bitLength, simRandom) * maxRawIntValue.signum
           } else {
-            randBigInt = BigInt(minRawIntValue.bitLength, Random) * minRawIntValue.signum
+            randBigInt = BigInt(minRawIntValue.bitLength, simRandom) * minRawIntValue.signum
           }
         } while (randBigInt > maxRawIntValue || randBigInt < minRawIntValue)
 
@@ -895,12 +901,14 @@ package object sim {
       if(cd.hasSoftResetSignalSim) cd.deassertSoftReset()
       if(cd.hasClockEnableSignalSim) cd.deassertClockEnable()
       fork(doStimulus(period))
-      if(sleepDuration >= 0) sleep(sleepDuration) //This allows the doStimulus to give initial value to clock/reset before going futher
+      if(sleepDuration >= 0) sleep(sleepDuration) //This allows the doStimulus to give initial value to clock/reset before going further
     }
 
     def forkStimulus(period: TimeNumber): Unit = {
       forkStimulus(timeToLong(period))
     }
+
+    def forkStimulus(frequency: HertzNumber): Unit = forkStimulus(frequency.toTime)
 
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) : Unit = SimSpeedPrinter(cd, printPeriod)
 

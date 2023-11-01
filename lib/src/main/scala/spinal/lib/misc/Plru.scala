@@ -17,7 +17,7 @@ case class Plru(entries : Int, withEntriesValid : Boolean) extends Area{
   val io = new Bundle{
     val context = new Bundle{
       val state = Plru.State(entries)
-      val valids = withEntriesValid generate Bits(entries bits)
+      val valids = withEntriesValid generate Bits(entries bits) //Allow to specify prefered entries to remove
     }
     val evict = new Bundle{
       val id =  UInt(log2Up(entries) bits)

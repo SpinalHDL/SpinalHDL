@@ -24,8 +24,5 @@ class ConnectionRaw(m : NodeUpDown, s : NodeUpDown) extends bus.fabric.MappedCon
       val parameters = Handle[S2mParameters]()
     }
   }
-
-
-  override def getSlaveAddressWidth(): Int = s.m2s.supported.addressWidth
 }
 

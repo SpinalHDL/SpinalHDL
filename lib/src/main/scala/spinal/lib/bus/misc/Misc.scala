@@ -23,10 +23,10 @@ package spinal.lib.bus.misc
 import spinal.lib._
 import spinal.core._
 import spinal.lib.logic.{Masked, Symplify}
+import spinal.core.sim.simRandom
 
 import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 object AddressMapping{
   def verifyOverlapping(mapping: Seq[AddressMapping]): Boolean = {
@@ -262,7 +262,7 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   override def lowerBound = base
   override def highestBound = base + size - 1
-  override def randomPick() : BigInt = base + BigInt(log2Up(size), Random) % size
+  override def randomPick() : BigInt = base + BigInt(log2Up(size), simRandom) % size
   override def withOffset(addressOffset: BigInt): AddressMapping = SizeMapping(base + addressOffset, size)
   override def withOffset(t: AddressTransformer): AddressMapping = t match {
     case OffsetTransformer(offset) => SizeMapping(base - offset, size)
@@ -278,7 +278,7 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
   override def toString: String = f"$base%x $size%x"
   override def maxSequentialSize : BigInt = size
   override def randomPick(bytes : BigInt, aligned : Boolean) : BigInt = {
-    var addr = base + BigInt(size.bitLength, Random) % (size-bytes)
+    var addr = base + BigInt(size.bitLength, simRandom) % (size-bytes)
     if(aligned) addr = addr/bytes*bytes
     addr
   }
@@ -404,7 +404,7 @@ case class SizeMappingInterleaved(base: BigInt, size: BigInt, blockSize : Int, p
 
   override def lowerBound = base
   override def highestBound = base + size - 1
-  override def randomPick() : BigInt = ??? //base + BigInt(log2Up(size), Random)
+  override def randomPick() : BigInt = ??? //base + BigInt(log2Up(size), simRandom)
   override def withOffset(addressOffset: BigInt): AddressMapping = SizeMappingInterleaved(base + addressOffset, size, blockSize, pattern)
   def overlap(that : SizeMapping) = ??? //this.base < that.base + that.size && this.base + this.size > that.base
   override def foreach(body: BigInt => Unit) = ??? //for(i <- 0 until size.toInt) body(base + i)
@@ -414,9 +414,9 @@ case class SizeMappingInterleaved(base: BigInt, size: BigInt, blockSize : Int, p
   override def randomPick(bytes : BigInt, aligned : Boolean) : BigInt = {
     import spinal.core.sim._
     val blockCount = size / (blockSize*pattern.size)
-    val l2 = BigInt(blockCount.bitLength, Random) % blockCount
+    val l2 = BigInt(blockCount.bitLength, simRandom) % blockCount
     val l1 = patternIds.randomPick()
-    val l0 = Random.nextInt(blockSize)
+    val l0 = simRandom.nextInt(blockSize)
     var addr = l2 * blockSize * pattern.size | l1 * blockSize | l0
     if(aligned) addr = addr/bytes*bytes
     addr

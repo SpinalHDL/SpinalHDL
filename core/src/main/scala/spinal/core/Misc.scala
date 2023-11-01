@@ -128,6 +128,11 @@ object widthOf {
 object HardType{
   implicit def implFactory[T <: Data](t : => T): HardType[T] = new HardType(t)
   def apply[T <: Data](t : => T) = new HardType(t)
+
+  def union(elements: Data*): HardType[Bits] = {
+    val width = elements.map(widthOf(_)).max
+    HardType(Bits(width bits))
+  }
 }
 
 class HardType[T <: Data](t : => T) extends OverridedEqualsHashCode{

@@ -131,12 +131,12 @@ object PlicMapper{
     }
 
     // for each target/context, generate threshold and claim/complete registers
-    val targetMapping = for((target, targetId) <- targets.zipWithIndex) yield new Area {
-      val thresholdOffset = targetThresholdOffset + (targetId << targetThresholdShift)
-      val claimOffset = targetClaimOffset + (targetId << targetClaimShift)
-      if(targetThresholdWriteGen && !target.threshold.hasAssignement) bus.drive(target.threshold, address = thresholdOffset, documentation = s"Drive target threshold for target ${targetId}. inits to 0") init (0)
-      if(targetThresholdReadGen) bus.read(target.threshold, address = thresholdOffset, documentation = s"Read target threshold for target ${targetId}")
-      bus.read(target.claim, address = claimOffset, documentation = s"Read target claim for target ${targetId} ")
+    val targetMapping = for(target <- targets) yield new Area {
+      val thresholdOffset = targetThresholdOffset + (target.id << targetThresholdShift)
+      val claimOffset = targetClaimOffset + (target.id << targetClaimShift)
+      if(targetThresholdWriteGen && !target.threshold.hasAssignement) bus.drive(target.threshold, address = thresholdOffset, documentation = s"Drive target threshold for target ${target.id}. inits to 0") init (0)
+      if(targetThresholdReadGen) bus.read(target.threshold, address = thresholdOffset, documentation = s"Read target threshold for target ${target.id}")
+      bus.read(target.claim, address = claimOffset, documentation = s"Read target claim for target ${target.id} ")
       bus.onRead(claimOffset) {
         claim.valid := True
         claim.payload := target.claim
@@ -152,10 +152,10 @@ object PlicMapper{
       }
       // for each gateway/interrupt source, generate the enable bits for each target/context
       for ((gateway, gatewayIndex) <- gateways.zipWithIndex) {
-        val address = targetEnableOffset + (targetId << targetEnableShift) + bus.busDataWidth/8 * (gateway.id / bus.busDataWidth)
+        val address = targetEnableOffset + (target.id << targetEnableShift) + bus.busDataWidth/8 * (gateway.id / bus.busDataWidth)
         val bitOffset = gateway.id % bus.busDataWidth
-        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignement) bus.drive(target.ie(gatewayIndex), address, bitOffset, documentation = s"Drive target enable for gateway ${gatewayIndex} for target ${targetId}. inits to 0b0") init(False)
-        if(targetEnableReadGen)  bus.read(target.ie(gatewayIndex),  address, bitOffset, documentation = s"Read target enable for gateway ${gatewayIndex} for target ${targetId}.")
+        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignement) bus.drive(target.ie(gatewayIndex), address, bitOffset, documentation = s"Drive target enable for gateway ${gatewayIndex} for target ${target.id}. inits to 0b0") init(False)
+        if(targetEnableReadGen)  bus.read(target.ie(gatewayIndex),  address, bitOffset, documentation = s"Read target enable for gateway ${gatewayIndex} for target ${target.id}.")
       }
     }
   }

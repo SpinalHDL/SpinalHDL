@@ -255,7 +255,8 @@ public:
     high_resolution_clock::time_point lastFlushAt;
     uint32_t timeCheck;
     bool waveEnabled;
-    V${config.toplevelName} top;
+    //VerilatedContext* contextp; //Buggy in multi threaded spinalsim
+    V${config.toplevelName} *top;
     ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
 	  Verilated${format.ext.capitalize}C tfp;
@@ -263,7 +264,12 @@ public:
     string name;
     int32_t time_precision;
 
-    Wrapper_${uniqueId}(const char * name){
+    Wrapper_${uniqueId}(const char * name, int seed){
+      //contextp = new VerilatedContext;
+      Verilated::randReset(2);
+      Verilated::randSeed(seed);
+      top = new V${config.toplevelName}();
+
       simHandle${uniqueId} = this;
       time = 0;
       timeCheck = 0;
@@ -276,7 +282,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       else if(signal.dataType.width <= 64) "QData"
       else "WData"
       val enforcedCast = if(signal.dataType.width > 64) "(WData*)" else ""
-      val signalReference = s"top.${signal.path.mkString("->")}"
+      val signalReference = s"top->${signal.path.map(_.replace("$", "__024")).mkString("->")}"
       val memPatch = if(signal.dataType.isMem) "[0]" else ""
 
       s"      signalAccess[$id] = new ${typePrefix}SignalAccess($enforcedCast $signalReference$memPatch ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
@@ -287,7 +293,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
     }
       #ifdef TRACE
       Verilated::traceEverOn(true);
-      top.trace(&tfp, 99);
+      top->trace(&tfp, 99);
       tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${format.ext}").c_str());
       #endif
       this->name = name;
@@ -301,14 +307,20 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
 
       #ifdef TRACE
       if(waveEnabled) tfp.dump((vluint64_t)time);
+      tfp.flush();
       tfp.close();
       #endif
       #ifdef COVERAGE
       VerilatedCov::write((("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".dat").c_str());
       #endif
 
-      Verilated::runFlushCallbacks();
-      Verilated::runExitCallbacks();
+      // Verilated::runFlushCallbacks();
+      // Verilated::runExitCallbacks();
+
+      //contextp->gotFinish(true);
+      top->final();
+      delete top;
+      //delete contextp;
     }
 
 };
@@ -348,16 +360,15 @@ JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
     #else
     srand48(seedValue);
     #endif
-    Verilated::randReset(2);
     const char* ch = env->GetStringUTFChars(name, 0);
-    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch);
+    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch, seedValue);
     env->ReleaseStringUTFChars(name, ch);
     return handle;
 }
 
 JNIEXPORT jboolean API JNICALL ${jniPrefix}eval_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle){
-   handle->top.eval();
+   handle->top->eval();
    return Verilated::gotFinish();
 }
 
@@ -508,6 +519,10 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
     val verilatorBinFilename = if(isWindows) "verilator_bin.exe" else "verilator"
 
+    // allow a user to overwrite/add verilator flags, e.g. C++ version
+    // if the default is too old (see e.g. #278)
+    val envFlags = sys.env.getOrElse("SPINAL_VERILATOR_FLAGS", "")
+
     // when changing the verilator script, the hash generation (below) must also be updated
     val verilatorScript = s""" set -e ;
        | ${verilatorBinFilename}
@@ -516,8 +531,6 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -CFLAGS -I"$jdkIncludes" -CFLAGS -I"$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else (if(isFreeBsd) "freebsd" else "linux"))}"
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
-       | -CFLAGS -std=c++11
-       | -LDFLAGS -std=c++11
        | -CFLAGS -DVL_USER_FINISH=1
        | --autoflush  
        | --output-split 5000
@@ -542,6 +555,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
                                      .map('"' + _.replace("\\","/") + '"')
                                      .mkString(" ")}
        | --exe $workspaceName/$wrapperCppName
+       | $envFlags
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
 
@@ -759,7 +773,9 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
   val nativeImpl = DynamicCompiler.getClass(s"wrapper_${workspaceName}.VerilatorNative", s"${workspacePath}/${workspaceName}")
   val nativeInstance: IVerilatorNative = nativeImpl.getConstructor().newInstance().asInstanceOf[IVerilatorNative]
 
-  def instanciate(name: String, seed: Int) = nativeInstance.newHandle(name, seed)
+  def instanciate(name: String, seed: Int) = nativeInstance.synchronized{ //synchronized is used as a Verilator isn't thread safe on construction (bug ?)
+    nativeInstance.newHandle(name, seed)
+  }
 
   override def isBufferedWrite: Boolean = false
 }

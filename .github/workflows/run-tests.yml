@@ -12,30 +12,27 @@ jobs:
   compile:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
-    - uses: ./.github/actions/sbt
+    - name: Get submodules
+      shell: bash
+      run: git submodule update --init --recursive
     - run: sbt ++compile
     - run: sbt Test/compile
     - uses: actions/cache/save@v3
       with:
         path: |
-          **/target
+          **/
         key: ${{ runner.os }}-compiled-${{ github.sha }}
-
-  build-tools:
-    # This action is actually optional
-    # Avoids building tools several times
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/tools
 
   idslplugin-test:
     needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -45,85 +42,96 @@ jobs:
     needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
     - run: sbt idslpayload/test
 
   core-test:
-    needs: [compile, build-tools]
+    needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - uses: ./.github/actions/tools
-    - run: sbt 'core/testOnly * -- -l spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.core.* -- -l spinal.tester.formal'
 
   core-formal:
-    needs: [compile, build-tools]
+    needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - uses: ./.github/actions/tools
-    - run: sbt 'core/testOnly * -- -n spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.core.* -- -n spinal.tester.formal'
 
   sim-test:
-    needs: [compile, build-tools]
+    needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - uses: ./.github/actions/tools
     - run: sbt sim/test
 
   tester-test:
-    needs: [compile, build-tools]
+    needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - uses: ./.github/actions/tools
-    - run: sbt 'tester/testOnly * -- -l spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.tester.* -- -l spinal.tester.formal'
 
   tester-formal:
-    needs: [compile, build-tools]
+    needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - uses: ./.github/actions/tools
-    - run: sbt 'tester/testOnly * -- -n spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.tester.* -- -n spinal.tester.formal'
 
   lib-test:
-    needs: [compile, build-tools]
+    needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - uses: ./.github/actions/tools
-    - run: sbt 'lib/testOnly * -- -l spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.lib.* -- -l spinal.tester.formal'
 
   lib-formal:
-    needs: [compile, build-tools]
+    needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - uses: ./.github/actions/tools
-    - run: sbt 'lib/testOnly * -- -n spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.lib.* -- -n spinal.tester.formal'
 
   scaladoc:
     needs: compile
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    container:
+      image: ghcr.io/spinalhdl/docker:master
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled

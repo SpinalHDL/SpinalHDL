@@ -7,7 +7,6 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.pipeline._
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 object Hub{
   def downM2s(name : Nameable,
@@ -120,6 +119,21 @@ down.D may trigger:
 - probe bypass (on ProbeData), need probeId context
 
 up.E will do a conflict release (aquireAck)
+
+
+$ =>
+- [dma no allocate]
+- [release allocate]
+- [victim buffer]
+- [inclusive]
+
+Inclusive tricky things :
+- Allocation require making room
+- Allocation while a release is also on the way (but easily solved by not allowing same set in the pipeline)
+
+non inclusive :
+- Probe filtering via a Set counter memory
+
  */
 
 
@@ -128,7 +142,6 @@ Currently when a io region access is done, the HUB will still lock the memory bl
  */
 class Hub(p : HubParameters) extends Component{
   import p._
-
   val ubp = p.unp.toBusParameter()
   val dbp = NodeParameters(
     m = Hub.downM2s(
@@ -223,7 +236,7 @@ class Hub(p : HubParameters) extends Component{
     val PAYLOAD = Stageable(DataPayload())
     val BUFFER_ID = Stageable(UInt(log2Up(aBufferCount) bits))
 
-    val buffer =  new Area{
+    val buffer =  ubp.withDataA generate new Area{
       val ram = Mem.fill(aBufferCount*p.blockSize/p.unp.m.dataBytes)(DataPayload())
       val allocated = Reg(Bits(aBufferCount bits)) init(0)
       val set, clear = B(0, aBufferCount bits)
@@ -318,7 +331,7 @@ class Hub(p : HubParameters) extends Component{
     val toTrunk = Bool()
     val source  = ubp.source()
     val debugId  = DebugId()
-    val bufferId = UInt(log2Up(aBufferCount) bits)
+    val bufferId = ubp.withDataA generate UInt(log2Up(aBufferCount) bits)
     val conflictCtx = CONFLICT_CTX()
   }
   class ProbeCtxFull extends ProbeCtx{
@@ -357,7 +370,7 @@ class Hub(p : HubParameters) extends Component{
     push.ctx.address    := pushCmd.address
     push.ctx.toTrunk    := pushCmd.param =/= Param.Grow.NtoB
     push.ctx.debugId    := pushCmd.debugId
-    push.ctx.bufferId   := isl(frontendA.BUFFER_ID)
+    if(ubp.withDataA) push.ctx.bufferId := isl(frontendA.BUFFER_ID)
     push.ctx.conflictCtx := isl(CONFLICT_CTX)
     push.ctx.size       := pushCmd.size
     push.ctx.source     := pushCmd.source
@@ -600,7 +613,7 @@ class Hub(p : HubParameters) extends Component{
         PROBE_ID := a.probeId
       }
       LAST := READ_DATA || WRITE_DATA && counter === sizeToBeatMinusOne(ubp, SIZE)
-      BUFFER_ID := a.bufferId
+      if(ubp.withDataA) BUFFER_ID := a.bufferId
       CONFLICT_CTX := a.conflictCtx
 
       c.ready := isReady &&  selC
@@ -631,11 +644,13 @@ class Hub(p : HubParameters) extends Component{
       val wordAddress = s0(BUFFER_ID) @@ s0(ADDRESS)(wordRange)
 
       s1(PAYLOAD) := s1(PAYLOAD_C)
-      when(!s1(FROM_C)){
-        s1(PAYLOAD) := frontendA.buffer.ram.readSync(wordAddress, !s1.isStuck)
-      }
-      when(s1.isFireing && s1(LAST) && !s1(FROM_C) && s1(WRITE_DATA)){
-        frontendA.buffer.clear(s1(BUFFER_ID)) := True
+      if(ubp.withDataA) {
+        when(!s1(FROM_C)){
+          s1(PAYLOAD) := frontendA.buffer.ram.readSync(wordAddress, !s1.isStuck)
+        }
+        when(s1.isFireing && s1(LAST) && !s1(FROM_C) && s1(WRITE_DATA)){
+          frontendA.buffer.clear(s1(BUFFER_ID)) := True
+        }
       }
     }
 
@@ -822,8 +837,7 @@ object HubGen extends App{
                   putFull = SizeRange(64),
                   putPartial = SizeRange(64),
                   acquireT = SizeRange(64),
-                  acquireB = SizeRange(64),
-                  probeAckData = SizeRange(64)
+                  acquireB = SizeRange(64)
                 ),
                 id = SizeMapping(mId*4, 4)
               ))

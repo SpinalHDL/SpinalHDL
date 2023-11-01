@@ -712,6 +712,16 @@ class StreamArbiterFactory {
     new StreamArbiter(dataType, portCount)(arbitrationLogic, lockLogic)
   }
 
+  def buildOn[T <: Data](inputs : Seq[Stream[T]]): StreamArbiter[T] = {
+    val a = new StreamArbiter(inputs.head.payloadType, inputs.size)(arbitrationLogic, lockLogic)
+    (a.io.inputs, inputs).zipped.foreach(_ << _)
+    a
+  }
+
+  def buildOn[T <: Data](first : Stream[T], others : Stream[T]*): StreamArbiter[T] = {
+    buildOn(first :: others.toList)
+  }
+
   def onArgs[T <: Data](inputs: Stream[T]*): Stream[T] = on(inputs.seq)
   def on[T <: Data](inputs: Seq[Stream[T]]): Stream[T] = {
     val arbiter = build(inputs(0).payloadType, inputs.size)
@@ -900,6 +910,12 @@ object StreamDemux{
     select >> c.io.createSelector()
     c.io.outputs
   }
+
+  def two[T <: Data](input: Stream[T], select : UInt) : (Stream[T], Stream[T]) = {
+    val demux = apply(input, select, 2)
+    (demux(0).combStage(), demux(1).combStage())
+  }
+  def two[T <: Data](input: Stream[T], select : Bool) : (Stream[T], Stream[T]) = two(input, select.asUInt)
 }
 
 class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
@@ -953,6 +969,12 @@ object StreamFork2 {
   def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2"){
     val outputs = (cloneOf(input), cloneOf(input))
     val logic = new StreamForkArea(input, List(outputs._1, outputs._2), synchronous)
+  }.outputs
+
+  def takes[T <: Data](input: Stream[T],take0 : Bool, take1 : Bool, synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2") {
+    val forks = (cloneOf(input), cloneOf(input))
+    val logic = new StreamForkArea(input, List(forks._1, forks._2), synchronous)
+    val outputs = (forks._1.takeWhen(take0), forks._1.takeWhen(take1))
   }.outputs
 }
 

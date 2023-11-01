@@ -6,6 +6,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 object ElabOrderId{
+  val INIT  = -1000000
   val SETUP = 0
   val BUILD = 1000000
   val CHECK = 2000000
@@ -21,8 +22,11 @@ object Fiber {
 }
 
 class Fiber {
+  var currentOrderId = ElabOrderId.INIT
   def addTask[T](orderId : Int)(body : => T) : Handle[T] = {
     val lock = Lock().retain()
+    assert(currentOrderId <= orderId)
+    if(currentOrderId == orderId) lock.release()
     val (h, t) = hardForkRaw(withDep = false){
       lock.await()
       body
@@ -43,6 +47,7 @@ class Fiber {
     })
     while(tasks.nonEmpty){
       val orderId = tasks.keys.min
+      currentOrderId = orderId
       val queue = tasks(orderId)
       val locks = ArrayBuffer[Handle[_]]()
       while(queue.nonEmpty){

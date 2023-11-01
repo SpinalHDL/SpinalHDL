@@ -157,7 +157,7 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
     }
   }
 
-  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
+  protected override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     that match {
       case that: SpinalStruct =>
         if (!this.getClass.isAssignableFrom(that.getClass)) SpinalError("Structs must have the same final class to" +

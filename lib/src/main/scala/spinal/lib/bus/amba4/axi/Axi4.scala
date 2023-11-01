@@ -239,6 +239,8 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
   * Definition of the constants used by the Axi4 bus
   */
 object Axi4{
+  val boundaryWidth = 12
+
   object size{
     def apply() = Bits(3 bits)
     def BYTE_1   = B"000"

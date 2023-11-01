@@ -141,7 +141,7 @@ case class RtlPhy(pl : PhyLayout) extends Component{
   when(readTrigger) {
     readed := ram.readAsync(
       address = (read.row @@ read.bank @@ (read.column >> columnPerBeatLog2Up)) | readCounter.resized
-    )
+    ).addTag(crossClockDomain)
   }
   Vec(io.ctrl.phases.flatMap(_.DQr)).assignFromBits(readed)
 

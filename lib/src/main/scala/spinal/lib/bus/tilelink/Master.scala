@@ -14,8 +14,9 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
                         get          : SizeRange = SizeRange.none,
                         putFull      : SizeRange = SizeRange.none,
                         putPartial   : SizeRange = SizeRange.none,
-                        hint         : SizeRange = SizeRange.none,
-                        probeAckData : SizeRange = SizeRange.none) extends MemoryTransfers {
+                        hint         : SizeRange = SizeRange.none) extends MemoryTransfers {
+
+  def isOnlyGetPut() = List(acquireT, acquireB, arithmetic, logical, hint).forall(_.none)
 
   def allowA(opcode : Opcode.A.E)  : Boolean = opcode match {
     case Opcode.A.PUT_FULL_DATA => putFull.some
@@ -43,8 +44,8 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
 //    body(6, acquireT  )
 //    body(7, acquireB  )
 //  }
-  def withBCE = acquireT.some || acquireB.some || probeAckData.some
-  def withDataA = putFull.some || putFull.some
+  def withBCE = acquireT.some || acquireB.some
+  def withDataA = putFull.some || putPartial.some
   def withDataD = get.some || acquireT.some || acquireB.some || logical.some || arithmetic.some
   def withAny = withDataA || withDataD || withBCE || hint.some
 
@@ -56,8 +57,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     get          = get         .intersect(rhs.get),
     putFull      = putFull     .intersect(rhs.putFull),
     putPartial   = putPartial  .intersect(rhs.putPartial),
-    hint         = hint        .intersect(rhs.hint),
-    probeAckData = probeAckData.intersect(rhs.probeAckData))
+    hint         = hint        .intersect(rhs.hint))
   def mincover(rhs: M2sTransfers) = M2sTransfers(
     acquireT     = acquireT    .mincover(rhs.acquireT),
     acquireB     = acquireB    .mincover(rhs.acquireB),
@@ -66,8 +66,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     get          = get         .mincover(rhs.get),
     putFull      = putFull     .mincover(rhs.putFull),
     putPartial   = putPartial  .mincover(rhs.putPartial),
-    hint         = hint        .mincover(rhs.hint),
-    probeAckData = probeAckData.mincover(rhs.probeAckData))
+    hint         = hint        .mincover(rhs.hint))
 
 
   override def mincover(rhs: MemoryTransfers) = rhs match {
@@ -115,8 +114,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
     logical.max,
     get.max,
     putFull.max,
-    putPartial.max,
-    probeAckData.max
+    putPartial.max
   ).max
 
   def contains(opcode : Opcode.A.C) : Bool = {
@@ -131,7 +129,7 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
 }
 
 object M2sTransfers {
-  def unknownEmits = M2sTransfers(
+  def all = M2sTransfers(
     acquireT   = SizeRange(1, 4096),
     acquireB   = SizeRange(1, 4096),
     arithmetic = SizeRange(1, 4096),
@@ -139,8 +137,8 @@ object M2sTransfers {
     get        = SizeRange(1, 4096),
     putFull    = SizeRange(1, 4096),
     putPartial = SizeRange(1, 4096),
-    hint       = SizeRange(1, 4096))
-  def unknownSupports = M2sTransfers()
+    hint       = SizeRange(1, 4096)
+  )
 
   def singleSize(size : Int) = M2sTransfers(
     acquireT   = SizeRange(size),
@@ -153,6 +151,12 @@ object M2sTransfers {
     hint       = SizeRange(size)
   )
 
+  def allGetPut = M2sTransfers(
+    get        = SizeRange(1, 4096),
+    putFull    = SizeRange(1, 4096),
+    putPartial = SizeRange(1, 4096)
+  )
+
   def intersect(values : Seq[M2sTransfers]) : M2sTransfers = values.reduce(_ intersect _)
   def mincover(values : Seq[M2sTransfers]) : M2sTransfers = values.reduce(_ mincover _)
 }
@@ -160,8 +164,7 @@ object M2sTransfers {
 
 
 case class M2sSource(id           : AddressMapping,
-                     emits        : M2sTransfers,
-                     isExecute : Boolean = false){
+                     emits        : M2sTransfers){
   def withSourceOffset(offset : Int) = copy(id = id.withOffset(offset))
   def bSourceId = id.lowerBound.toInt
 }
@@ -184,7 +187,6 @@ case class M2sAgent(name    : Nameable,
   def bSourceId = mapping.head.bSourceId
   def sourceHit(source : UInt) = mapping.map(_.id.hit(source)).orR
   def sourceHit(source : Int) = mapping.exists(_.id.hit(source))
-  def withExecute = mapping.exists(_.isExecute)
   def remapSources(f : M2sSource => M2sSource) = {
     copy(mapping = mapping.map(f))
   }
@@ -199,8 +201,7 @@ object M2sParameters{
       name = null,
       mapping = List(M2sSource(
         id = SizeMapping(0, sourceCount),
-        emits = support.transfers,
-        isExecute = false
+        emits = support.transfers
       ))
     ))
   )
@@ -214,7 +215,6 @@ case class M2sParameters(addressWidth : Int,
   val withBCE = masters.map(_.emits.withBCE).reduce(_ || _)
   val emits = M2sTransfers.mincover(masters.map(_.emits))
   def dataBytes = dataWidth / 8
-  def withExecute = masters.exists(_.withExecute)
   def withDataA = masters.map(_.emits.withDataA).reduce(_ || _)
   def withDataD = masters.map(_.emits.withDataD).reduce(_ || _)
   def sourceHit(source : UInt) = masters.map(_.sourceHit(source)).orR
@@ -228,8 +228,7 @@ case class M2sParameters(addressWidth : Int,
   def toSupport() = new M2sSupport(
     transfers    = emits,
     addressWidth = addressWidth,
-    dataWidth    = dataWidth,
-    allowExecute = withExecute
+    dataWidth    = dataWidth
   )
 
   def toNodeParameters() = NodeParameters(this)
@@ -240,21 +239,18 @@ object M2sSupport{
   def apply(p : M2sParameters) : M2sSupport = M2sSupport(
     transfers    = p.emits,
     addressWidth = p.addressWidth,
-    dataWidth    = p.dataWidth,
-    allowExecute = p.withExecute
+    dataWidth    = p.dataWidth
   )
 }
 
 case class M2sSupport(transfers : M2sTransfers,
                       addressWidth : Int,
-                      dataWidth : Int,
-                      allowExecute : Boolean = false) {
+                      dataWidth : Int) {
   def mincover(that : M2sSupport): M2sSupport ={
     M2sSupport(
       transfers = transfers.mincover(that.transfers),
       dataWidth = dataWidth max that.dataWidth,
-      addressWidth = addressWidth max that.addressWidth,
-      allowExecute = this.allowExecute && that.allowExecute
+      addressWidth = addressWidth max that.addressWidth
     )
   }
 
@@ -269,6 +265,7 @@ case class M2sSupport(transfers : M2sTransfers,
   def intersect(that : M2sTransfers) : M2sSupport = copy(transfers = transfers.intersect(that))
 
   def withAddressWidth(w: Int): M2sSupport = copy(addressWidth = w)
+  def dataBytes = dataWidth/8
 }
 
 

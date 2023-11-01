@@ -535,7 +535,7 @@ class SimVerilatorPhase extends PhaseNetlist {
 /**
   * Run simulation
   */
-abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
+abstract class SimCompiled[T <: Component](val report: SpinalReport[T], val compiledPath : File){
   def dut = report.toplevel
 
   val testNameMap = mutable.HashMap[String, Int]()
@@ -578,7 +578,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
   }
 
   def doSimApi(name: String = "test", seed: Int = newSeed(), joinAll: Boolean)(body: T => Unit): Unit = {
-    Random.setSeed(seed)
+    val random = new Random(seed)
     GlobalData.set(report.globalData)
 
     val allocatedName = allocateTestName(name)
@@ -586,7 +586,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
 
     val sim = newSimRaw(allocatedName, backendSeed)
 
-    val manager = new SimManager(sim){
+    val manager = new SimManager(sim, random, allocatedName){
       val spinalGlobalData =  GlobalData.get
       override def setupJvmThread(thread: Thread): Unit = {
         super.setupJvmThread(thread)
@@ -949,6 +949,8 @@ case class SpinalSimConfig(
     new File(s"${_workspacePath}/${_workspaceName}").mkdirs()
     new File(s"${_workspacePath}/${_workspaceName}/rtl").mkdirs()
 
+    val compiledPath = new File(s"${_workspacePath}/${_workspaceName}")
+
     val rtlDir = new File(s"${_workspacePath}/${_workspaceName}/rtl")
 //    val rtlPath = rtlDir.getAbsolutePath
     report.generatedSourcesPaths.foreach { srcPath =>
@@ -1001,7 +1003,7 @@ case class SpinalSimConfig(
         val backend = SpinalVerilatorBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
         println(f"[Progress] Verilator compilation done in $deltaTime%1.3f ms")
-        new SimCompiled(report){
+        new SimCompiled(report, compiledPath){
           override def newSimRaw(name: String, seed: Int): SimRaw = {
             val raw = new SimVerilator(backend, backend.instanciate(name, seed))
             raw.userData = backend.config.signals
@@ -1030,7 +1032,7 @@ case class SpinalSimConfig(
         val backend = SpinalGhdlBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
         println(f"[Progress] GHDL compilation done in $deltaTime%1.3f ms")
-        new SimCompiled(report){
+        new SimCompiled(report, compiledPath){
           override def newSimRaw(name: String, seed: Int): SimRaw = {
             val raw = new SimVpi(backend)
             raw.userData = backend.signals
@@ -1058,7 +1060,7 @@ case class SpinalSimConfig(
         val backend = SpinalIVerilogBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
         println(f"[Progress] IVerilog compilation done in $deltaTime%1.3f ms")
-        new SimCompiled(report){
+        new SimCompiled(report, compiledPath){
           override def newSimRaw(name: String, seed: Int): SimRaw = {
             val raw = new SimVpi(backend)
             raw.userData = backend.signals
@@ -1087,7 +1089,7 @@ case class SpinalSimConfig(
           timePrecision = _timePrecision
         )
         val backend = SpinalVCSBackend(vConfig)
-        new SimCompiled(report) {
+        new SimCompiled(report, compiledPath) {
           override def newSimRaw(name: String, seed: Int): SimRaw = {
             val raw = new SimVpi(backend)
             raw.userData = backend.signals
@@ -1111,7 +1113,7 @@ case class SpinalSimConfig(
           timePrecision = _timePrecision
         )
         val backend = SpinalXSimBackend(vConfig)
-        new SimCompiled(report) {
+        new SimCompiled(report, compiledPath) {
           override def newSimRaw(name: String, seed: Int): SimRaw = {
             val raw = new SimXSim(backend)
             raw.userData = backend.signals

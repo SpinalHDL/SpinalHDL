@@ -11,14 +11,8 @@ case class Interleaver(blockSize : Int, ratio : Int, sel : Int) extends Area{
   val up = Node.slave()
   val down = Node.master()
 
-  val addressMappings = ArrayBuffer[(Connection, BigInt)]()
   def at(mapping: AddressMapping) = up.at(InterleavedMapping(mapping, blockSize, ratio, sel))
-  def at(address : BigInt) = new{
-    def of(m : Node): Unit ={
-      val c = Node.connect(m, up)
-      addressMappings += c -> address
-    }
-  }
+  def at(base : BigInt, size : BigInt) = up.at(InterleavedMapping(SizeMapping(base, size), blockSize, ratio, sel))
 
   val transformer = InterleaverTransformer(blockSize, ratio, sel)
   new MemoryConnection {
@@ -42,9 +36,6 @@ case class Interleaver(blockSize : Int, ratio : Int, sel : Int) extends Area{
 
     down.m2s.proposed load up.m2s.proposed.copy(addressWidth = up.m2s.proposed.addressWidth-patternBits)
     up.m2s.supported load down.m2s.supported.copy(addressWidth = down.m2s.supported.addressWidth+patternBits)
-    for((c,a) <- addressMappings) c.mapping.value load {
-      InterleavedMapping(SizeMapping(a, BigInt(1) << up.m2s.supported.addressWidth), blockSize, ratio, sel)
-    }
     down.m2s.parameters load up.m2s.parameters.copy(addressWidth = up.m2s.parameters.addressWidth-patternBits)
     up.s2m.from(down.s2m)
 

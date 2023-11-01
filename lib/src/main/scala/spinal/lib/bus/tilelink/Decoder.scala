@@ -2,9 +2,8 @@ package spinal.lib.bus.tilelink
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.misc.{AddressMapping, AddressTransformer, DefaultMapping}
+import spinal.lib.bus.misc.{AddressMapping, AddressTransformer, DefaultMapping, InterleavedMapping, NeverMapping}
 import spinal.lib.logic.{Masked, Symplify}
-
 
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
@@ -43,6 +42,14 @@ case class Decoder(upNode : NodeParameters,
   ))
 
   assert(mapping.forall(_ != DefaultMapping))
+  for(self <- mapping.indices;
+      other <- mapping.indices.dropWhile(_ != self).tail){
+    if(!mapping(self).isInstanceOf[InterleavedMapping]) { //workaround for now
+      if (downsSupports(self).transfers.intersect(downsSupports(other).transfers).nonEmpty) {
+        assert(mapping(self).intersect(mapping(other)) == NeverMapping, s"Overlap between $self and $other")
+      }
+    }
+  }
 
   val io = new Bundle{
     val up = slave(Bus(upNode))

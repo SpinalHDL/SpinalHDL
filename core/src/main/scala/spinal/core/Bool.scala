@@ -310,7 +310,8 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     this
   }
 
-  def mux[T <: Data](t : T, f : T) : T = this ? t | f
+  def mux[T <: Data](t: T, f: T): T = this ? t | f
+  def mux[T <: SpinalEnum](t: SpinalEnumElement[T], f: SpinalEnumElement[T]): SpinalEnumCraft[T] = this ? t | f
 }
 
 /**
