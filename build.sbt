@@ -159,7 +159,16 @@ lazy val lib = (project in file("lib"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.11.0",
+    libraryDependencies ++= Seq(
+      "com.fasterxml.jackson.core" % "jackson-core" % "2.16.0-rc1",
+      "com.fasterxml.jackson.core" % "jackson-annotations" % "2.16.0-rc1",
+      "com.fasterxml.jackson.core" % "jackson-databind" % "2.16.0-rc1",
+      "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.16.0-rc1",
+      "com.fasterxml.jackson.module" % "jackson-module-scala_2.12" % "2.16.0-rc1"
+    ),
+
     version := SpinalVersion.lib,
+
   )
   .dependsOn (sim, core)
 
