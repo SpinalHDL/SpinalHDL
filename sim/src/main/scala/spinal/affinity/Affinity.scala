@@ -4,7 +4,7 @@ object Affinity {
   var warningFired = System.getProperty("os.name").contains("Win")
   def apply(cpuId : Int) {
     try {
-      if(!warningFired) net.openhft.affinity.Affinity.setAffinity(cpuId)
+//      if(!warningFired) net.openhft.affinity.Affinity.setAffinity(cpuId)
     } catch{
       case _ : Throwable => if(!warningFired){
         warningFired = true
@@ -16,7 +16,7 @@ object Affinity {
 
   def apply(set : java.util.BitSet) {
     try {
-      if(!warningFired) net.openhft.affinity.Affinity.setAffinity(set)
+//      if(!warningFired) net.openhft.affinity.Affinity.setAffinity(set)
     } catch{
       case _ : Throwable => if(!warningFired){
         warningFired = true

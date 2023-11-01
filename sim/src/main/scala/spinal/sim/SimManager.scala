@@ -120,7 +120,8 @@ class SimManager(val raw : SimRaw, val random: Random = Random, val testName : S
         }
       }
       jvmIdleThreads.push(newJvmThread)
-      newJvmThread.start()
+      Thread.startVirtualThread(newJvmThread)
+//      newJvmThread.start()
       newJvmThread.barrier.await()
     }
 
