@@ -29,7 +29,7 @@ class PackedBundle extends Bundle {
     * Does not check for overlap of elements.
     */
   private class MappingBuilder {
-    var lastPos = 0
+    var nextPos = 0
     var highBit = 0
     val mapping = ArrayBuffer[(Range, Data)]()
 
@@ -55,9 +55,9 @@ class PackedBundle extends Bundle {
 
         case None =>
           // Assume the full range of the data with the MSB as the highest bit
-          (lastPos + d.getBitsWidth - 1) downto (lastPos)
+          (nextPos + d.getBitsWidth - 1) downto (nextPos)
       }
-      lastPos = r.high
+      nextPos = r.high + 1
 
       // Update the bit width
       highBit = highBit.max(r.high)
