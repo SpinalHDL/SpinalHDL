@@ -1956,32 +1956,49 @@ object PlayScopedMess extends App{
     override def set(db: Database, value: T) = ???
   }
 
-  object Service{
-    def list[T: ClassTag](c : Component): Seq[T] = {
-      val clazz = classTag[T].runtimeClass
-      val filtered = ArrayBuffer[Any]()
-      c.getTags().foreach{
-        case t : Service if clazz.isAssignableFrom(t.that.getClass) => filtered += t.that
-        case t =>
+  class ServiceHost{
+    val services = ArrayBuffer[Any]()
+
+    val _context = ScopeProperty.capture() //TODO not as heavy
+
+    def rework[T](body: => T): T = {
+      val oldContext = ScopeProperty.captureNoClone()
+      _context.restoreCloned()
+      val b = ServiceHost(this) {
+        body
       }
-      filtered.asInstanceOf[Seq[T]]
+      oldContext.restore()
+      b
     }
 
-    def list[T: ClassTag] : Seq[T] = list[T](Component.current)
+    def add(that : Any) : Unit = services += that
 
-    def apply[T : ClassTag](c : Component): T = {
-      val filtered = list[T](c)
+    def list[T: ClassTag]: Seq[T] = {
+      val clazz = classTag[T].runtimeClass
+      val filtered = ArrayBuffer[Any]()
+      services.collect{ case t : T => t }
+    }
+
+    def apply[T: ClassTag]: T = {
+      val filtered = list[T]
       filtered.length match {
         case 0 => throw new Exception(s"Can't find the service ${classTag[T].runtimeClass.getName}")
         case 1 => filtered.head
         case _ => throw new Exception(s"Found multiple instances of ${classTag[T].runtimeClass.getName}")
       }
     }
-
-    def apply[T: ClassTag] : T = apply(Component.current)
   }
 
-  class Service(val that : Any) extends SpinalTag
+  object ServiceHost extends ScopeProperty[ServiceHost] {
+    def on[T](body: => T) = this (new ServiceHost).on(body)
+  }
+
+  object Service{
+    def list[T: ClassTag] : Seq[T] = ServiceHost.get.list[T]
+    def apply[T : ClassTag] : T = ServiceHost.get.apply[T]
+  }
+
+//  class Service(val that : Any) extends SpinalTag
 
   trait Lockable extends Area {
     val lock = spinal.core.fiber.Lock()
@@ -1994,14 +2011,12 @@ object PlayScopedMess extends App{
     def withPrefix(prefix: String) = setName(prefix + "_" + getName())
 
     var pluginEnabled = true
-    val host = Handle[Component]
+    val host = Handle[ServiceHost]
 
-    def setHost(h : Component) : Unit = {
-      h.addTag(new Service(this))
+    def setHost(h : ServiceHost) : Unit = {
+      h.add(this)
       host.load(h)
     }
-
-//    def getService[T: ClassTag]: T =  Service[T]()
 
     def during = new {
       def setup[T](body: => T): Handle[T] = spinal.core.fiber.Fiber setup {
@@ -2025,6 +2040,7 @@ object PlayScopedMess extends App{
 
   class VexiiRiscv extends Component{
     val database = Database.get
+    val host = new ServiceHost
   }
 
   class PcPlugin extends HostedPlugin {
@@ -2091,15 +2107,15 @@ object PlayScopedMess extends App{
     vexii.database(Riscv.XLEN) = 32
 
 
-    new PcPlugin().setHost(vexii)
-    new JumpPlugin().setHost(vexii)
-    new FetchPlugin().setHost(vexii)
+    new PcPlugin().setHost(vexii.host)
+    new JumpPlugin().setHost(vexii.host)
+    new FetchPlugin().setHost(vexii.host)
 //    new DummyPlugin()
   }
 
   val report = SpinalVerilog(new TopLevel).printRtl()
   println(report.toplevel.vexii.database(Riscv.XLEN_PLUS_2))
   println("done")
-  println(Service[PcPlugin](report.toplevel.vexii))
+  println(report.toplevel.vexii.host[PcPlugin])
 
 }
