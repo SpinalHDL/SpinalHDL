@@ -21,6 +21,7 @@ import spinal.lib.sim.{StreamDriver, StreamMonitor}
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.math.ScalaNumber
+import scala.reflect.{ClassTag, classTag}
 import scala.util.Random
 
 
@@ -1890,54 +1891,194 @@ object BBcustomcustom extends App{
 
 
 object PlayScopedMess extends App{
+
+
+  // This is just a HashMap storage
   class DataBase{
-    val storage = mutable.LinkedHashMap[ScopedThing[_ <: Any], Any]()
-    def update[T](key : ScopedThing[T], value : T) = storage.update(key, value)
-    def apply[T](key : ScopedThing[T]) : T = storage.apply(key).asInstanceOf[T]
+    // User API
+    def update[T](key: Parameter[T], value: T) = key.set(this, value)
+    def apply[T](key: Parameter[T]): T = key.get(this)
+
+    // "private" API
+    val storage = mutable.LinkedHashMap[Parameter[_ <: Any], Any]()
+    def storageUpdate[T](key : Parameter[T], value : T) = storage.update(key, value)
+    def storageGet[T](key : Parameter[T]) : T = storage.apply(key).asInstanceOf[T]
+    def storageGetElseUpdate[T](key: Parameter[T], create: => T): T = storage.getOrElseUpdate(key, create).asInstanceOf[T]
+    def storageExists[T](key : Parameter[T]) = storage.contains(key)
   }
 
-  class ScopedThing[T]() {
-//    def get: T = dataBase.get.apply(this)
-//    def set(value: T) = dataBase.update(this, value)
+  // This is the default thread local database instance
+  object DataBase extends ScopeProperty[DataBase] {
+    def on[T](body: => T) = this (new DataBase).on(body)
   }
 
-  val XLEN = new ScopedThing[Int]()
+  // Represent a thing which can be in a data base (this is the key)
+  abstract class Parameter[T](sp: ScopeProperty[DataBase] = DataBase) extends Nameable {
+    // user API
+    def get(): T = get(sp.get)
+    def apply(): T = get(sp.get)
+    def set(value: T): Unit = set(sp.get, value)
 
-  import spinal.core.fiber._
-  class Plugin extends Area{
+    // private API
+    def get(db: DataBase) : T
+    def set(db: DataBase, value: T) : Unit
+  }
+
+  // Simple implementation
+  class ParameterVal[T](sp : ScopeProperty[DataBase] = DataBase) extends Parameter[T](sp) {
+    def get(db: DataBase): T = db.storageGet(this)
+    def set(db: DataBase, value: T) = db.storageUpdate(this, value)
+  }
+
+  // Layered with a handle to allow blocking "get"
+  class ParameterHandle[T](sp : ScopeProperty[DataBase] = DataBase) extends Parameter[T](sp) with Area{
+    val thing = new ParameterVal[Handle[T]]()
+    def getHandle(db : DataBase) : Handle[T] = db.storageGetElseUpdate(thing, new Handle[T].setCompositeName(this))
+    def get(db: DataBase) : T = getHandle(db).get
+    def set(db: DataBase, value : T) = {
+      assert(!getHandle(db).isLoaded)
+      getHandle(db).load(value)
+    }
+  }
+
+  // The body provide the processing to generate the value
+  class Eval[T](body : => T, sp : ScopeProperty[DataBase] = DataBase) extends ParameterVal[T](sp){
+    override def get(db: DataBase) : T = {
+      if(!db.storageExists(this)){
+        db.storageUpdate(this, body)
+      }
+      super.get(db)
+    }
+
+    override def set(db: DataBase, value: T) = ???
+  }
+
+  object ServiceTag{
+    def list[T: ClassTag]: Seq[T] = {
+      val clazz = (classTag[T].runtimeClass)
+      val filtered = ArrayBuffer[Any]()
+      Component.current.getTags().foreach{
+        case t : ServiceTag if clazz.isAssignableFrom(t.that.getClass) => filtered += t.that
+        case t =>
+      }
+      filtered.asInstanceOf[Seq[T]]
+    }
+    def apply[T : ClassTag]: T = {
+      val filtered = list[T]
+      filtered.length match {
+        case 0 => throw new Exception(s"Can't find the service ${classTag[T].runtimeClass.getName}")
+        case 1 => filtered.head
+        case _ => throw new Exception(s"Found multiple instances of ${classTag[T].runtimeClass.getName}")
+      }
+    }
+  }
+
+  class ServiceTag(val that : Any) extends SpinalTag
+
+  trait Lockable extends Area {
+    val lock = spinal.core.fiber.Lock()
+    def retain() = lock.retain()
+    def release() = lock.release()
+  }
+
+  class HostedPlugin extends Area with Lockable{
     this.setName(ClassName(this))
     def withPrefix(prefix: String) = setName(prefix + "_" + getName())
 
+    var pluginEnabled = true
     val host = Handle[Component]
-    def setHost(h : Component) : Unit = host.load(h)
 
-    def create = new {
-      def early[T](body: => T): Handle[T] = Fiber setup host.rework(body)
-      def late[T](body: => T): Handle[T] = Fiber build host.rework(body)
+    def setHost(h : Component) : Unit = {
+      h.addTag(new ServiceTag(this))
+      host.load(h)
+    }
+
+    def getService[T: ClassTag]: T =  ServiceTag.apply[T]
+
+    def during = new {
+      def setup[T](body: => T): Handle[T] = spinal.core.fiber.Fiber setup {
+        pluginEnabled match {
+          case false => null.asInstanceOf[T]
+          case true => host.rework(body)
+        }
+      }
+      def build[T](body: => T): Handle[T] = spinal.core.fiber.Fiber build {
+        pluginEnabled match {
+          case false => null.asInstanceOf[T]
+          case true => {
+            lock.await()
+            host.rework(body)
+          }
+        }
+      }
     }
   }
 
 
   class VexiiRiscv extends Component{
-
+    val database = DataBase.get
   }
 
-  class PcPlugin extends Plugin {
-    val early = create early new Area {
+  class PcPlugin extends HostedPlugin {
+    val jumps = ArrayBuffer[Flow[UInt]]()
+    val logic = during build new Area {
+      val pc = Reg(UInt(32 bits)) init(0)
+      for(jump <- jumps) when(jump.valid){ pc := jump.payload}
+    }
+  }
+
+  class JumpPlugin extends HostedPlugin {
+    val setup = during setup new Area{
+      getService[PcPlugin].retain()
+    }
+    val logic = during build new Area {
+      println(Riscv.RVC())
+      println(Riscv.XLEN_PLUS_2())
+      val jump = Flow(Riscv.PC())
+      getService[PcPlugin].jumps += jump
+      getService[PcPlugin].release()
+    }
+  }
+
+  class FetchPlugin extends HostedPlugin{
+    val pipeline = during build new Pipeline {
+      Riscv.RVC.set(true)
+//      Riscv.XLEN.set(32)
+//      val stagesCount = framework.getServices.map {
+//        case s: FetchPipelineRequirements => s.stagesCountMin
+//        case _ => 0
+//      }.max
+//      val stages = Array.fill(stagesCount)(newStage())
+//
+//      import spinal.lib.pipeline.Connection._
+//
+//      for ((m, s) <- (stages.dropRight(1), stages.tail).zipped) {
+//        connect(m, s)(M2S(flushPreserveInput = m == stages.head))
+//      }
 
     }
+  }
 
-    val logic = create late new Area {
-      val pc = UInt(32 bits)
-    }
+  object Riscv extends AreaObject {
+    val RVC = new ParameterHandle[Boolean]
+    val XLEN = new ParameterHandle[Int]
+    val XLEN_PLUS_2 = new Eval(XLEN() + 2)
+    val PC = Stageable(UInt(XLEN() bits))
   }
 
   class TopLevel extends Component {
-    val vexii = new VexiiRiscv
+    val vexii = DataBase on new VexiiRiscv
+//    Riscv.XLEN.set(vexii.database, 32)
+    vexii.database(Riscv.XLEN) = 32
 
-    val pc = new PcPlugin()
-    pc.setHost(vexii)
+
+    new PcPlugin().setHost(vexii)
+    new JumpPlugin().setHost(vexii)
+    new FetchPlugin().setHost(vexii)
   }
 
-  SpinalVerilog(new TopLevel).printRtl()
+  val report = SpinalVerilog(new TopLevel).printRtl()
+  println(report.toplevel.vexii.database(Riscv.XLEN_PLUS_2))
+  println("done")
+
 }
