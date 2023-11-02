@@ -1894,63 +1894,66 @@ object PlayScopedMess extends App{
 
 
   // This is just a HashMap storage
-  class DataBase{
+  class Database{
     // User API
-    def update[T](key: Parameter[T], value: T) = key.set(this, value)
-    def apply[T](key: Parameter[T]): T = key.get(this)
+    def update[T](key: Element[T], value: T) = key.set(this, value)
+    def apply[T](key: Element[T]): T = key.get(this)
 
     // "private" API
-    val storage = mutable.LinkedHashMap[Parameter[_ <: Any], Any]()
-    def storageUpdate[T](key : Parameter[T], value : T) = storage.update(key, value)
-    def storageGet[T](key : Parameter[T]) : T = storage.apply(key).asInstanceOf[T]
-    def storageGetElseUpdate[T](key: Parameter[T], create: => T): T = storage.getOrElseUpdate(key, create).asInstanceOf[T]
-    def storageExists[T](key : Parameter[T]) = storage.contains(key)
+    val storage = mutable.LinkedHashMap[Element[_ <: Any], Any]()
+    def storageUpdate[T](key : Element[T], value : T) = storage.update(key, value)
+    def storageGet[T](key : Element[T]) : T = storage.apply(key).asInstanceOf[T]
+    def storageGetElseUpdate[T](key: Element[T], create: => T): T = storage.getOrElseUpdate(key, create).asInstanceOf[T]
+    def storageExists[T](key : Element[T]) = storage.contains(key)
   }
 
   // This is the default thread local database instance
-  object DataBase extends ScopeProperty[DataBase] {
-    def on[T](body: => T) = this (new DataBase).on(body)
+  object Database extends ScopeProperty[Database] {
+    def on[T](body: => T) = this (new Database).on(body)
+    def value[T]() = new ElementValue[T]()
+    def blocking[T]() = new ElementBlocking[T]()
+    def landa[T](body : => T) = new ElementLanda(body)
   }
 
   // Represent a thing which can be in a data base (this is the key)
-  abstract class Parameter[T](sp: ScopeProperty[DataBase] = DataBase) extends Nameable {
+  abstract class Element[T](sp: ScopeProperty[Database] = Database) extends Nameable {
     // user API
     def get(): T = get(sp.get)
     def apply(): T = get(sp.get)
     def set(value: T): Unit = set(sp.get, value)
 
     // private API
-    def get(db: DataBase) : T
-    def set(db: DataBase, value: T) : Unit
+    def get(db: Database) : T
+    def set(db: Database, value: T) : Unit
   }
 
   // Simple implementation
-  class ParameterVal[T](sp : ScopeProperty[DataBase] = DataBase) extends Parameter[T](sp) {
-    def get(db: DataBase): T = db.storageGet(this)
-    def set(db: DataBase, value: T) = db.storageUpdate(this, value)
+  class ElementValue[T](sp : ScopeProperty[Database] = Database) extends Element[T](sp) {
+    def get(db: Database): T = db.storageGet(this)
+    def set(db: Database, value: T) = db.storageUpdate(this, value)
   }
 
   // Layered with a handle to allow blocking "get"
-  class ParameterHandle[T](sp : ScopeProperty[DataBase] = DataBase) extends Parameter[T](sp) with Area{
-    val thing = new ParameterVal[Handle[T]]()
-    def getHandle(db : DataBase) : Handle[T] = db.storageGetElseUpdate(thing, new Handle[T].setCompositeName(this))
-    def get(db: DataBase) : T = getHandle(db).get
-    def set(db: DataBase, value : T) = {
+  class ElementBlocking[T](sp : ScopeProperty[Database] = Database) extends Element[T](sp) with Area{
+    val thing = new ElementValue[Handle[T]]()
+    def getHandle(db : Database) : Handle[T] = db.storageGetElseUpdate(thing, new Handle[T].setCompositeName(this))
+    def get(db: Database) : T = getHandle(db).get
+    def set(db: Database, value : T) = {
       assert(!getHandle(db).isLoaded)
       getHandle(db).load(value)
     }
   }
 
   // The body provide the processing to generate the value
-  class Eval[T](body : => T, sp : ScopeProperty[DataBase] = DataBase) extends ParameterVal[T](sp){
-    override def get(db: DataBase) : T = {
+  class ElementLanda[T](body : => T, sp : ScopeProperty[Database] = Database) extends ElementValue[T](sp){
+    override def get(db: Database) : T = {
       if(!db.storageExists(this)){
         db.storageUpdate(this, body)
       }
       super.get(db)
     }
 
-    override def set(db: DataBase, value: T) = ???
+    override def set(db: Database, value: T) = ???
   }
 
   object ServiceTag{
@@ -2016,7 +2019,7 @@ object PlayScopedMess extends App{
 
 
   class VexiiRiscv extends Component{
-    val database = DataBase.get
+    val database = Database.get
   }
 
   class PcPlugin extends HostedPlugin {
@@ -2059,22 +2062,34 @@ object PlayScopedMess extends App{
     }
   }
 
+  class DummyPlugin extends HostedPlugin {
+    val pipeline = during build new Pipeline {
+
+    }
+  }
+
+  class RiscvPlugin(val xlen : Int) extends HostedPlugin{
+
+  }
+
   object Riscv extends AreaObject {
-    val RVC = new ParameterHandle[Boolean]
-    val XLEN = new ParameterHandle[Int]
-    val XLEN_PLUS_2 = new Eval(XLEN() + 2)
+    val RVC = Database.blocking[Boolean]
+    val XLEN = Database.blocking[Int]
+    val XLEN_PLUS_2 = Database.landa(XLEN() + 2)
     val PC = Stageable(UInt(XLEN() bits))
   }
 
+
+
   class TopLevel extends Component {
-    val vexii = DataBase on new VexiiRiscv
-//    Riscv.XLEN.set(vexii.database, 32)
+    val vexii = Database on new VexiiRiscv
     vexii.database(Riscv.XLEN) = 32
 
 
     new PcPlugin().setHost(vexii)
     new JumpPlugin().setHost(vexii)
     new FetchPlugin().setHost(vexii)
+//    new DummyPlugin()
   }
 
   val report = SpinalVerilog(new TopLevel).printRtl()
