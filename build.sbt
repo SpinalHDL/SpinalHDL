@@ -164,7 +164,7 @@ lazy val lib = (project in file("lib"))
       "com.fasterxml.jackson.core" % "jackson-annotations" % "2.15.3",
       "com.fasterxml.jackson.core" % "jackson-databind" % "2.15.3",
       "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.15.3",
-      "com.fasterxml.jackson.module" % "jackson-module-scala_2.12" % "2.15.3"
+      "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.15.3"
     ),
 
     version := SpinalVersion.lib,
