@@ -1956,27 +1956,32 @@ object PlayScopedMess extends App{
     override def set(db: Database, value: T) = ???
   }
 
-  object ServiceTag{
-    def list[T: ClassTag]: Seq[T] = {
-      val clazz = (classTag[T].runtimeClass)
+  object Service{
+    def list[T: ClassTag](c : Component): Seq[T] = {
+      val clazz = classTag[T].runtimeClass
       val filtered = ArrayBuffer[Any]()
-      Component.current.getTags().foreach{
-        case t : ServiceTag if clazz.isAssignableFrom(t.that.getClass) => filtered += t.that
+      c.getTags().foreach{
+        case t : Service if clazz.isAssignableFrom(t.that.getClass) => filtered += t.that
         case t =>
       }
       filtered.asInstanceOf[Seq[T]]
     }
-    def apply[T : ClassTag]: T = {
-      val filtered = list[T]
+
+    def list[T: ClassTag] : Seq[T] = list[T](Component.current)
+
+    def apply[T : ClassTag](c : Component): T = {
+      val filtered = list[T](c)
       filtered.length match {
         case 0 => throw new Exception(s"Can't find the service ${classTag[T].runtimeClass.getName}")
         case 1 => filtered.head
         case _ => throw new Exception(s"Found multiple instances of ${classTag[T].runtimeClass.getName}")
       }
     }
+
+    def apply[T: ClassTag] : T = apply(Component.current)
   }
 
-  class ServiceTag(val that : Any) extends SpinalTag
+  class Service(val that : Any) extends SpinalTag
 
   trait Lockable extends Area {
     val lock = spinal.core.fiber.Lock()
@@ -1992,11 +1997,11 @@ object PlayScopedMess extends App{
     val host = Handle[Component]
 
     def setHost(h : Component) : Unit = {
-      h.addTag(new ServiceTag(this))
+      h.addTag(new Service(this))
       host.load(h)
     }
 
-    def getService[T: ClassTag]: T =  ServiceTag.apply[T]
+//    def getService[T: ClassTag]: T =  Service[T]()
 
     def during = new {
       def setup[T](body: => T): Handle[T] = spinal.core.fiber.Fiber setup {
@@ -2032,14 +2037,14 @@ object PlayScopedMess extends App{
 
   class JumpPlugin extends HostedPlugin {
     val setup = during setup new Area{
-      getService[PcPlugin].retain()
+      Service[PcPlugin].retain()
     }
     val logic = during build new Area {
       println(Riscv.RVC())
       println(Riscv.XLEN_PLUS_2())
       val jump = Flow(Riscv.PC())
-      getService[PcPlugin].jumps += jump
-      getService[PcPlugin].release()
+      Service[PcPlugin].jumps += jump
+      Service[PcPlugin].release()
     }
   }
 
@@ -2095,5 +2100,6 @@ object PlayScopedMess extends App{
   val report = SpinalVerilog(new TopLevel).printRtl()
   println(report.toplevel.vexii.database(Riscv.XLEN_PLUS_2))
   println("done")
+  println(Service[PcPlugin](report.toplevel.vexii))
 
 }
