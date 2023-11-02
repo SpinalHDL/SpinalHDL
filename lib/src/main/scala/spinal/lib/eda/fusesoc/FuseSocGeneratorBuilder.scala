@@ -6,14 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.{YAMLFactory, YAMLGenerator}
 import com.fasterxml.jackson.module.scala._
 
-abstract class FuseSocGeneratorBuilder[P, C<:Component](componentName: String, defaultPram: P) {
+abstract class FuseSocGeneratorBuilder[T, TC<:Component](componentName: String, defaultPram: T, description: String = "", version: String = "0.0.0") {
   private val yamlMapper = new ObjectMapper(new YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER))
   yamlMapper.registerModule(DefaultScalaModule)
   private val jsonMapper = new ObjectMapper(new JsonFactory().configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true).configure(JsonParser.Feature.INCLUDE_SOURCE_IN_LOCATION, true))
   jsonMapper.registerModule(DefaultScalaModule)
 
 
-  private case class P2SParam(spinal_parameter: P,
+  private case class P2SParam(spinal_parameter: T,
                               output: Object = Map("files"->List(Map(componentName+".v"->new Object{val file_type: String = "verilogSource"}))),
                               target_directory: String = "./generate",
                               entry_function: String = "",
@@ -22,7 +22,8 @@ abstract class FuseSocGeneratorBuilder[P, C<:Component](componentName: String, d
 
 
   private val CoreFile = new Object {
-    val name: String = s"::$componentName:0.0.0"
+    val name: String = s"::$componentName:$version"
+    val description: String = description
     val filesets: Object = new Object{
       val base: Map[String, List[String]] = Map("depend"->List("chenbosoft:utils:generators:0.0.0"))
     }
@@ -45,10 +46,11 @@ abstract class FuseSocGeneratorBuilder[P, C<:Component](componentName: String, d
          |        mode : lint-only
          |    toplevel : $componentName
          |
-         |""".stripMargin
+         |""".stripMargin +
+      "# get generator: `fusesoc library add spinal_generator https://github.com/chenbo-again/spinalhdl_fusesoc_ generator`"
   }
 
-  def buildComponent(parameter: P): C
+  def buildComponent(parameter: T): TC
 
   def run(args: Array[String]): Unit = {
     val p = getParameter(args)
