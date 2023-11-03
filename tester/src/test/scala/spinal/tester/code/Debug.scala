@@ -2006,7 +2006,7 @@ object PlayScopedMess extends App{
     def release() = lock.release()
   }
 
-  class HostedPlugin extends Area with Lockable{
+  class Plugin extends Area with Lockable{
     this.setName(ClassName(this))
     def withPrefix(prefix: String) = setName(prefix + "_" + getName())
 
@@ -2039,11 +2039,11 @@ object PlayScopedMess extends App{
 
 
   class VexiiRiscv extends Component{
-    val database = Database.get
-    val host = new ServiceHost
+    val database = new Database
+    val host = Database(database) on (new ServiceHost)
   }
 
-  class PcPlugin extends HostedPlugin {
+  class PcPlugin extends Plugin {
     val jumps = ArrayBuffer[Flow[UInt]]()
     val logic = during build new Area {
       val pc = Reg(UInt(32 bits)) init(0)
@@ -2051,7 +2051,7 @@ object PlayScopedMess extends App{
     }
   }
 
-  class JumpPlugin extends HostedPlugin {
+  class JumpPlugin extends Plugin {
     val setup = during setup new Area{
       Service[PcPlugin].retain()
     }
@@ -2064,7 +2064,7 @@ object PlayScopedMess extends App{
     }
   }
 
-  class FetchPlugin extends HostedPlugin{
+  class FetchPlugin extends Plugin{
     val pipeline = during build new Pipeline {
       Riscv.RVC.set(true)
 //      Riscv.XLEN.set(32)
@@ -2083,13 +2083,13 @@ object PlayScopedMess extends App{
     }
   }
 
-  class DummyPlugin extends HostedPlugin {
+  class DummyPlugin extends Plugin {
     val pipeline = during build new Pipeline {
 
     }
   }
 
-  class RiscvPlugin(val xlen : Int) extends HostedPlugin{
+  class RiscvPlugin(val xlen : Int) extends Plugin{
 
   }
 
@@ -2103,7 +2103,7 @@ object PlayScopedMess extends App{
 
 
   class TopLevel extends Component {
-    val vexii = Database on new VexiiRiscv
+    val vexii = new VexiiRiscv
     vexii.database(Riscv.XLEN) = 32
 
 
@@ -2118,4 +2118,129 @@ object PlayScopedMess extends App{
   println("done")
   println(report.toplevel.vexii.host[PcPlugin])
 
+}
+
+
+object PlayPipelineApi extends App{
+
+  case class StageableKey(stageable: Stageable[Data], key: Any) {
+    override def toString = {
+      var name = stageable.getName()
+      if (key != null) name = name + "_" + key
+      name
+    }
+  }
+
+  SpinalVerilog(new Component{
+//    val pip = new Pipeline{
+//      val s0, s1, s2 = new Stage()
+//    }
+
+
+
+
+    trait NodeUp {
+      def addPayloadRequest(key : StageableKey) : Unit
+    }
+
+    trait NodeDown {
+      def addPayloadProposal(key : StageableKey) : Unit
+    }
+
+    class Node() extends Area {
+      val valid : Bool = null
+      val ready : Bool = null
+      val stageableToData = mutable.LinkedHashMap[StageableKey, Data]()
+
+      def <<(up : Node) = ???
+
+
+      var withValid = false
+      var withReady = false
+      val payloadProposal = mutable.LinkedHashSet[StageableKey]()
+      val payloadRequest = mutable.LinkedHashSet[StageableKey]()
+
+      var up : NodeUp = null
+      var down : NodeDown = null
+
+      def addPayloadProposal(key: StageableKey): Unit = {
+        if (!payloadProposal.add(key)) return
+        if(down != null) down.addPayloadProposal(key)
+      }
+
+      def addPayloadRequest(key: StageableKey): Unit = {
+        if (!payloadRequest.add(key)) return
+        if (up != null) up.addPayloadRequest(key)
+      }
+    }
+
+    class Connector extends Area{
+
+    }
+
+
+    class Source(down : Node) extends Connector{
+
+    }
+
+    class Sink(up: Node) extends Connector {
+
+    }
+
+    class Layer(val up : Node, val down : Node) extends Connector {
+      def throwWhen(cond: Bool): Unit = ???
+      def haltWhen(cond: Bool): Unit = ???
+      def flushWhen(cond: Bool): Unit = ???
+
+      val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
+
+      def apply(key: StageableKey): Data = {
+        keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
+          key.stageable()
+        })
+      }
+
+
+      up.up = new NodeUp{
+        override def addPayloadRequest(key: StageableKey): Unit = down.addPayloadRequest(key)
+      }
+      up.down = new NodeDown {
+        override def addPayloadProposal(key: StageableKey): Unit = down.addPayloadProposal(key)
+      }
+    }
+
+    class Stage(up : Node, down : Node) extends Connector {
+      up.up = new NodeUp {
+        override def addPayloadRequest(key: StageableKey): Unit = down.addPayloadRequest(key)
+      }
+      up.down = new NodeDown {
+        override def addPayloadProposal(key: StageableKey): Unit = down.addPayloadProposal(key)
+      }
+    }
+
+    val a,b,c,d,e,f = new Node
+
+    val i = new Source(a)
+    val s0 = new Layer(a,b)
+    val b01 = new Stage(b, c)
+    val s1 = new Layer(c,d)
+    val b12 = new Stage(d, e)
+    val s2 = new Layer(e,f)
+    val o = new Sink(f)
+
+
+    val PC = new StageableKey(Stageable(UInt(32 bits)), null)
+    s1(PC)
+
+
+    val nodes = List(a, b, c, d, e, f)
+    val connectors = List(s0, s1, s2, b01, b12)
+
+    def build(): Unit = {
+      connectors.foreach(_.broadcast)
+    }
+
+
+    println("asd")
+  })
 }
