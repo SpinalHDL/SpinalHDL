@@ -2148,12 +2148,12 @@ object PlayPipelineApi extends App{
     }
 
     class FromUp(){
-      val withValid = false
+      var withValid = false
       val payload = mutable.LinkedHashSet[StageableKey]()
     }
 
     class FromDown() {
-      val withReady = false
+      var withReady = false
       val payload = mutable.LinkedHashSet[StageableKey]()
     }
 
@@ -2162,13 +2162,8 @@ object PlayPipelineApi extends App{
       val ready : Bool = null
       val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
 
-      def <<(up : Node) = ???
-
-
-      var withValid = false
-      var withReady = false
-      val fromUp = Handle[FromUp]
-      val fromDown = Handle[FromDown]
+      var fromUp : FromUp = null
+      var fromDown : FromDown = null
 
       var up : Connector = null
       var down : Connector = null
@@ -2205,31 +2200,39 @@ object PlayPipelineApi extends App{
 
       def propagateDown(): Unit
       def propagateUp(): Unit
+      def build() : Unit
     }
 
 
-    class Source(down : Node) extends Connector{
+    class Source(val down : Node) extends Connector{
       down.up = this
       val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
 
-      val logic = Fiber build new Area{
-        val tmp = new FromUp()
-        tmp.payload ++= keyToData.keys
-        down.fromUp.load(tmp)
+//      val logic = Fiber build new Area{
+//        val tmp = new FromUp()
+//        tmp.payload ++= keyToData.keys
+//        down.fromUp.load(tmp)
+//
+//        for((key, data) <- keyToData){
+//          down(key) := data
+//        }
+//      }
 
+      var withValid = true
+
+      override def propagateDown(): Unit = {
+        down.fromUp = new FromUp()
+        down.fromUp.payload ++= keyToData.keys
+        down.fromUp.withValid = withValid
+      }
+
+      override def propagateUp(): Unit = {}
+
+      override def build(): Unit = {
         for((key, data) <- keyToData){
           down(key) := data
         }
       }
-
-
-      override def propagateDown(): Unit = {
-        val tmp = new FromUp()
-        tmp.payload ++= keyToData.keys
-        down.fromUp.load(tmp)
-      }
-
-      override def propagateUp(): Unit = {}
 
       def apply(key: StageableKey): Data = {
         keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
@@ -2245,19 +2248,19 @@ object PlayPipelineApi extends App{
       override def downs: Seq[Node] = List(down)
     }
 
-    class Sink(up: Node) extends Connector {
+    class Sink(val up: Node) extends Connector {
       up.down = this
       val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
 
-      val logic = Fiber build new Area {
-        val tmp = new FromDown()
-        tmp.payload ++= keyToData.keys
-        up.fromDown.load(tmp)
-
-        for ((key, data) <- keyToData) {
-          data := up(key)
-        }
-      }
+//      val logic = Fiber build new Area {
+//        val tmp = new FromDown()
+//        tmp.payload ++= keyToData.keys
+//        up.fromDown.load(tmp)
+//
+//        for ((key, data) <- keyToData) {
+//          data := up(key)
+//        }
+//      }
 
       def apply(key: StageableKey): Data = {
         keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
@@ -2272,9 +2275,16 @@ object PlayPipelineApi extends App{
       override def ups: Seq[Node] = List(up)
       override def downs: Seq[Node] = Nil
 
-      override def propagateDown(): Unit = ???
-      override def propagateUp(): Unit = ???
-
+      override def propagateDown(): Unit = {}
+      override def propagateUp(): Unit = {
+        up.fromDown = new FromDown()
+        up.fromDown.payload ++= keyToData.keys
+      }
+      override def build(): Unit = {
+        for ((key, data) <- keyToData) {
+          data := up(key)
+        }
+      }
     }
 
     class Layer(val up : Node, val down : Node) extends Connector {
@@ -2283,7 +2293,6 @@ object PlayPipelineApi extends App{
 
       def throwWhen(cond: Bool): Unit = ???
       def haltWhen(cond: Bool): Unit = ???
-      def flushWhen(cond: Bool): Unit = ???
 
       val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
 
@@ -2298,27 +2307,40 @@ object PlayPipelineApi extends App{
 
       override def propagateDown(): Unit = ???
       override def propagateUp(): Unit = ???
+      override def build(): Unit =  ???
 
     }
 
-    class Stage(up : Node, down : Node) extends Connector {
+    class Stage(val up : Node, val down : Node) extends Connector {
       down.up = this
       up.down = this
 
-      val logic = Fiber build new Area{
-        down.fromUp.load(up.fromUp)
-        up.fromDown.load(down.fromDown)
+//      val logic = Fiber build new Area{
+//        down.fromUp.load(up.fromUp)
+//        up.fromDown.load(down.fromDown)
+//        val matches = up.fromUp.payload.intersect(down.fromDown.payload)
+//        for(m <- matches){
+//          down(m) := up(m)
+//        }
+//      }
+
+      override def ups: Seq[Node] = List(up)
+      override def downs: Seq[Node] = List(down)
+
+      override def propagateDown(): Unit = {
+        down.fromUp = new FromUp
+        down.fromUp.payload ++= up.fromUp.payload
+      }
+      override def propagateUp(): Unit = {
+        up.fromDown = new FromDown
+        up.fromDown.payload ++= down.fromDown.payload
+      }
+      override def build(): Unit = {
         val matches = up.fromUp.payload.intersect(down.fromDown.payload)
         for(m <- matches){
           down(m) := up(m)
         }
       }
-
-      override def ups: Seq[Node] = List(up)
-      override def downs: Seq[Node] = List(down)
-
-      override def propagateDown(): Unit = ???
-      override def propagateUp(): Unit = ???
     }
 
     val a,b,c,d,e,f = new Node
@@ -2338,31 +2360,57 @@ object PlayPipelineApi extends App{
     val y = o(PC)
 
 
-//    def build(): Unit = {
-//      val nodes = List(a, b, c, d, e, f)
-//      val connectors = List(s0, s1, s2, b01, b12)
-//
-//      def propagateUps() : Unit = {
-//        val solved = mutable.ArrayBuffer[Connector]()
-//        val seeds = mutable.ArrayBuffer[Connector]()
-//        seeds ++= connectors.filter(_.ups.isEmpty)
-//        while(seeds.nonEmpty){
-//          val tmp = seeds
-//          seeds.clear()
-//          for(e <- tmp){
-//            e.propagateDown()
-//            for(d <- e.downs) {
-//              if (d.down.ups.forall(u => solved.contains(u))) {
-//                seeds += d
-//              }
-//            }
-//          }
-//        }
-//      }
-//
-//      propagateUps()
-//    }
+    def build(): Unit = {
+      val nodes = List(a, b, c, d, e, f)
+      val connectors = List(i,o,s0, s1, s2, b01, b12)
 
+      def propagateDown() : Unit = {
+        val solved = mutable.ArrayBuffer[Node]()
+        val seeds = mutable.ArrayBuffer[Connector]()
+        seeds ++= connectors.filter(_.ups.isEmpty)
+        while(seeds.nonEmpty){
+          val tmp = seeds.toArray
+          seeds.clear()
+          for(e <- tmp){
+//            println(s"PR DOWN $e")
+            e.propagateDown()
+            for(d <- e.downs) {
+              solved += d
+              if (d.down.ups.forall(u => solved.contains(u))) {
+                seeds += d.down
+              }
+            }
+          }
+        }
+      }
+
+      def propagateUp(): Unit = {
+        val solved = mutable.ArrayBuffer[Node]()
+        val seeds = mutable.ArrayBuffer[Connector]()
+        seeds ++= connectors.filter(_.downs.isEmpty)
+        while (seeds.nonEmpty) {
+          val tmp = seeds.toArray
+          seeds.clear()
+          for (e <- tmp) {
+//            println(s"PR UP $e")
+            e.propagateUp()
+            for (d <- e.ups) {
+              solved += d
+              if (d.up.downs.forall(u => solved.contains(u))) {
+                seeds += d.up
+              }
+            }
+          }
+        }
+      }
+
+      propagateUp()
+      propagateDown()
+      for(c <- connectors) c.build()
+    }
+
+
+    build()
 
 
 
