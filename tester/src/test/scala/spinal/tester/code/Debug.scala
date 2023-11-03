@@ -5,7 +5,7 @@ package spinal.tester.code
 
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
-import spinal.core.fiber.Handle
+import spinal.core.fiber.{Fiber, Handle}
 import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, MemBlackboxOf, Operator, Phase, PhaseContext, PhaseMemBlackBoxingWithPolicy, PhaseNetlist, RangedAssignmentFixed, RangedAssignmentFloating}
 import spinal.lib._
 import spinal.core.sim._
@@ -2140,54 +2140,147 @@ object PlayPipelineApi extends App{
 
 
     trait NodeUp {
-      def addPayloadRequest(key : StageableKey) : Unit
+      def getPayloadProposals(key : StageableKey) : mutable.LinkedHashSet[StageableKey]
     }
 
     trait NodeDown {
-      def addPayloadProposal(key : StageableKey) : Unit
+      def getPayloadProposals(key : StageableKey) : mutable.LinkedHashSet[StageableKey]
+    }
+
+    class FromUp(){
+      val withValid = false
+      val payload = mutable.LinkedHashSet[StageableKey]()
+    }
+
+    class FromDown() {
+      val withReady = false
+      val payload = mutable.LinkedHashSet[StageableKey]()
     }
 
     class Node() extends Area {
       val valid : Bool = null
       val ready : Bool = null
-      val stageableToData = mutable.LinkedHashMap[StageableKey, Data]()
+      val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
 
       def <<(up : Node) = ???
 
 
       var withValid = false
       var withReady = false
-      val payloadProposal = mutable.LinkedHashSet[StageableKey]()
-      val payloadRequest = mutable.LinkedHashSet[StageableKey]()
+      val fromUp = Handle[FromUp]
+      val fromDown = Handle[FromDown]
 
-      var up : NodeUp = null
-      var down : NodeDown = null
+      var up : Connector = null
+      var down : Connector = null
 
-      def addPayloadProposal(key: StageableKey): Unit = {
-        if (!payloadProposal.add(key)) return
-        if(down != null) down.addPayloadProposal(key)
+      def nameThat(target: Nameable, key: StageableKey, postfix: String): Unit = {
+        target.setLambdaName(this.isNamed && key.stageable.isNamed) {
+          val stageName = this.getName
+          val stageSlices = stageName.split('_')
+          val postfixName = key.toString + postfix
+          val postfixSlices = postfixName.split('_')
+          var i = 0
+          val iEnd = stageSlices.length min postfixSlices.length
+          while (i != iEnd && stageSlices(i) == postfixSlices(i)) i += 1
+          stageName + "_" + postfixSlices.drop(i).mkString("_")
+        }
       }
 
-      def addPayloadRequest(key: StageableKey): Unit = {
-        if (!payloadRequest.add(key)) return
-        if (up != null) up.addPayloadRequest(key)
+      def apply(key: StageableKey): Data = {
+        keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
+          val ret = key.stageable()
+          nameThat(ret, key, "")
+          ret
+        })
+      }
+
+      def apply[T <: Data](key: Stageable[T]): T = {
+        apply(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
       }
     }
 
-    class Connector extends Area{
+    trait Connector extends Area{
+      def ups : Seq[Node]
+      def downs : Seq[Node]
 
+      def propagateDown(): Unit
+      def propagateUp(): Unit
     }
 
 
     class Source(down : Node) extends Connector{
+      down.up = this
+      val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
 
+      val logic = Fiber build new Area{
+        val tmp = new FromUp()
+        tmp.payload ++= keyToData.keys
+        down.fromUp.load(tmp)
+
+        for((key, data) <- keyToData){
+          down(key) := data
+        }
+      }
+
+
+      override def propagateDown(): Unit = {
+        val tmp = new FromUp()
+        tmp.payload ++= keyToData.keys
+        down.fromUp.load(tmp)
+      }
+
+      override def propagateUp(): Unit = {}
+
+      def apply(key: StageableKey): Data = {
+        keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
+          key.stageable() //.setCompositeName(this, s"${key}")
+        })
+      }
+
+      def apply[T <: Data](key: Stageable[T]): T = {
+        apply(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
+      }
+
+      override def ups: Seq[Node] = Nil
+      override def downs: Seq[Node] = List(down)
     }
 
     class Sink(up: Node) extends Connector {
+      up.down = this
+      val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
+
+      val logic = Fiber build new Area {
+        val tmp = new FromDown()
+        tmp.payload ++= keyToData.keys
+        up.fromDown.load(tmp)
+
+        for ((key, data) <- keyToData) {
+          data := up(key)
+        }
+      }
+
+      def apply(key: StageableKey): Data = {
+        keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
+          key.stageable() //.setCompositeName(this, s"${key}")
+        })
+      }
+
+      def apply[T <: Data](key: Stageable[T]): T = {
+        apply(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
+      }
+
+      override def ups: Seq[Node] = List(up)
+      override def downs: Seq[Node] = Nil
+
+      override def propagateDown(): Unit = ???
+      override def propagateUp(): Unit = ???
 
     }
 
     class Layer(val up : Node, val down : Node) extends Connector {
+      down.up = this
+      up.down = this
+
       def throwWhen(cond: Bool): Unit = ???
       def haltWhen(cond: Bool): Unit = ???
       def flushWhen(cond: Bool): Unit = ???
@@ -2200,47 +2293,83 @@ object PlayPipelineApi extends App{
         })
       }
 
+      override def ups: Seq[Node] = List(up)
+      override def downs: Seq[Node] = List(down)
 
-      up.up = new NodeUp{
-        override def addPayloadRequest(key: StageableKey): Unit = down.addPayloadRequest(key)
-      }
-      up.down = new NodeDown {
-        override def addPayloadProposal(key: StageableKey): Unit = down.addPayloadProposal(key)
-      }
+      override def propagateDown(): Unit = ???
+      override def propagateUp(): Unit = ???
+
     }
 
     class Stage(up : Node, down : Node) extends Connector {
-      up.up = new NodeUp {
-        override def addPayloadRequest(key: StageableKey): Unit = down.addPayloadRequest(key)
+      down.up = this
+      up.down = this
+
+      val logic = Fiber build new Area{
+        down.fromUp.load(up.fromUp)
+        up.fromDown.load(down.fromDown)
+        val matches = up.fromUp.payload.intersect(down.fromDown.payload)
+        for(m <- matches){
+          down(m) := up(m)
+        }
       }
-      up.down = new NodeDown {
-        override def addPayloadProposal(key: StageableKey): Unit = down.addPayloadProposal(key)
-      }
+
+      override def ups: Seq[Node] = List(up)
+      override def downs: Seq[Node] = List(down)
+
+      override def propagateDown(): Unit = ???
+      override def propagateUp(): Unit = ???
     }
 
     val a,b,c,d,e,f = new Node
 
     val i = new Source(a)
-    val s0 = new Layer(a,b)
+    val s0 = new Stage(a,b)
     val b01 = new Stage(b, c)
-    val s1 = new Layer(c,d)
+    val s1 = new Stage(c,d)
     val b12 = new Stage(d, e)
-    val s2 = new Layer(e,f)
+    val s2 = new Stage(e,f)
     val o = new Sink(f)
 
+    val PC = Stageable(UInt(32 bits))
 
-    val PC = new StageableKey(Stageable(UInt(32 bits)), null)
-    s1(PC)
+    val x = i(PC)
+    i(PC) := 42
+    val y = o(PC)
 
 
-    val nodes = List(a, b, c, d, e, f)
-    val connectors = List(s0, s1, s2, b01, b12)
+//    def build(): Unit = {
+//      val nodes = List(a, b, c, d, e, f)
+//      val connectors = List(s0, s1, s2, b01, b12)
+//
+//      def propagateUps() : Unit = {
+//        val solved = mutable.ArrayBuffer[Connector]()
+//        val seeds = mutable.ArrayBuffer[Connector]()
+//        seeds ++= connectors.filter(_.ups.isEmpty)
+//        while(seeds.nonEmpty){
+//          val tmp = seeds
+//          seeds.clear()
+//          for(e <- tmp){
+//            e.propagateDown()
+//            for(d <- e.downs) {
+//              if (d.down.ups.forall(u => solved.contains(u))) {
+//                seeds += d
+//              }
+//            }
+//          }
+//        }
+//      }
+//
+//      propagateUps()
+//    }
 
-    def build(): Unit = {
-      connectors.foreach(_.broadcast)
+
+
+
+    Fiber build {
+//      println(a.payloadRequest.get)
+//      println(f.payloadProposal.get)
+      println("asd")
     }
-
-
-    println("asd")
   })
 }
