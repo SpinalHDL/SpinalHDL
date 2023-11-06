@@ -1,46 +1,95 @@
 package spinal.lib.eda.fusesoc
-
 import spinal.core._
-import com.fasterxml.jackson.core.{JsonFactory, JsonParser}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.{YAMLFactory, YAMLGenerator}
 import com.fasterxml.jackson.module.scala._
+import scala.collection.mutable
+import scala.reflect.ClassTag
 
-abstract class FuseSocGeneratorBuilder[T, TC <: Component](
+class FusesocOutput() {
+  val parameters = mutable.Map[String, String]()
+  val files = mutable.ArrayBuffer[Map[String, Map[String, String]]]()
+
+  def addParameters(k: String, v: String): Unit = {
+    parameters.update(k, v)
+  }
+
+  def addFiles(file_name: String, file_type: String): Unit = {
+
+    files.append(Map(file_name -> Map("file_type" -> file_type)))
+  }
+
+}
+case class P2SParam[P: ClassTag](
+    // for python only
+    entry_function: String = "",
+    copy_core: Boolean = false,
+    spinal_project_path: String = ".",
+    // for scala only
+    target_directory: String = "./generate",
+    output: FusesocOutput,
+    spinal_parameter: P
+)
+
+abstract class FusesocRunner[C <: Component, P: ClassTag] {
+  private val yamlMapper = new ObjectMapper(new YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER))
+    .registerModule(DefaultScalaModule) :: ClassTagExtensions
+
+  def run(args: Array[String]): Unit = {
+    val corePath = parseCli(args)
+    val file = new java.io.FileReader(corePath)
+
+    val p = parseCore(file)
+    assert(p.output.files.size == 1, "only support 1 output file only")
+    assert(p.target_directory.startsWith("/"), s"target_directory: ${p.target_directory} why is not absolute?")
+
+    val targetDirectory = p.target_directory
+    val mode = p.output.files.head.head._2.head._2 match {
+      case "verilogSource"       => spinal.core.Verilog
+      case "systemVerilogSource" => spinal.core.SystemVerilog
+      case "vhdlSource"          => spinal.core.VHDL
+      case _ => throw new Exception(s"file_type: ${p.output.files.head.head._2.head._2} not supported filetype")
+    }
+    val config = SpinalConfig(mode = mode, targetDirectory = targetDirectory)
+    config.generate(buildComponent(p.spinal_parameter))
+  }
+
+  def buildComponent(parameter: P): C
+
+  private def parseCore(reader: java.io.Reader): P2SParam[P] =
+    yamlMapper.readValue[P2SParam[P]](reader)
+
+  private def parseCli(args: Array[String]): String = {
+    val builder = scopt.OParser.builder[String]
+    val parser = scopt.OParser.sequence(
+      builder.opt[String]("core_file_path").required().action((x, _) => x)
+    )
+    scopt.OParser.parse(parser, args, null).getOrElse(throw new Exception(""))
+  }
+
+}
+
+class FusesocGeneratorBuilder[C <: Component, P: ClassTag](
     componentName: String,
-    defaultPram: T,
-    description: String = "",
+    defaultPram: P,
+    descriptions: String = "",
     version: String = "0.0.0"
 ) {
   private val yamlMapper = new ObjectMapper(new YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER))
   yamlMapper.registerModule(DefaultScalaModule)
-  private val jsonMapper = new ObjectMapper(
-    new JsonFactory()
-      .configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true)
-      .configure(JsonParser.Feature.INCLUDE_SOURCE_IN_LOCATION, true)
-  )
-  jsonMapper.registerModule(DefaultScalaModule)
 
-  private case class P2SParam(
-      spinal_parameter: T,
-      output: Object = Map("files" -> List(Map(componentName + ".v" -> new Object {
-        val file_type: String = "verilogSource"
-      }))),
-      target_directory: String = "./generate",
-      entry_function: String = "",
-      copy_core: Boolean = false,
-      spinal_project_path: String = "."
-  )
+  private val output = new FusesocOutput
+  output.addFiles(componentName + ".v", "verilogSource")
 
   private val CoreFile = new Object {
     val name: String = s"::$componentName:$version"
-    val description: String = description
-    val filesets: Object = new Object {
+    val description: String = descriptions
+    val filesets = new Object {
       val base: Map[String, List[String]] = Map("depend" -> List("chenbosoft:utils:generators:0.0.0"))
     }
-    val generate: Map[String, Object] = Map(componentName + "_gen" -> new Object {
+    val generate = Map((componentName + "_gen") -> new Object {
       val generator = "spinalhdl"
-      val parameters: P2SParam = P2SParam(defaultPram)
+      val parameters: P2SParam[P] = P2SParam(spinal_parameter = defaultPram, output = output)
     })
   }
 
@@ -59,25 +108,5 @@ abstract class FuseSocGeneratorBuilder[T, TC <: Component](
          |
          |""".stripMargin +
       "# get generator: `fusesoc library add spinal_generator https://github.com/chenbo-again/spinalhdl_fusesoc_ generator`"
-  }
-
-  def buildComponent(parameter: T): TC
-
-  def run(args: Array[String]): Unit = {
-    val p = getParameter(args)
-    val config = SpinalConfig(targetDirectory = p.target_directory)
-    SpinalVerilog(config)(buildComponent(p.spinal_parameter))
-  }
-
-  private def getParameter(args: Array[String]): P2SParam = {
-    val builder = scopt.OParser.builder[P2SParam]
-    val parser = scopt.OParser.sequence(
-      builder
-        .opt[String]("spinal_parameter")
-        .required()
-        .action((x, c) => c.copy(spinal_parameter = jsonMapper.readValue(x, defaultPram.getClass))),
-      builder.opt[String]("target_directory").required().action((x, c) => c.copy(target_directory = x))
-    )
-    scopt.OParser.parse(parser, args, P2SParam(defaultPram)).getOrElse(throw new Exception("can't parse parameter from fusesoc"))
   }
 }
