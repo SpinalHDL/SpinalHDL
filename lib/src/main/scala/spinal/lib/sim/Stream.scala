@@ -78,6 +78,7 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
 
   var factor = Option.empty[Float]
   def setFactor(value : Float) = factor = Some(value)
+  def setFactorPeriodically(period : Long) = periodicaly(period)(setFactor(simRandom.nextFloat()))
 
   //The  following commented threaded code is the equivalent to the following uncommented thread-less code (nearly)
 //  fork{
@@ -149,6 +150,7 @@ object StreamReadyRandomizer {
 case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain,var condition: () => Boolean){
   var factor = 0.5f
   def setFactor(value : Float) = factor = value
+  def setFactorPeriodically(period : Long) = periodicaly(period)(setFactor(simRandom.nextFloat()))
   val readyProxy = stream.ready.simProxy()
   clockDomain.onSamplings{
     if (condition()) {
