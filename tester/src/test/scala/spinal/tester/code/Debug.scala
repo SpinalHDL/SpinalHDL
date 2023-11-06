@@ -2122,287 +2122,32 @@ object PlayScopedMess extends App{
 
 
 object PlayPipelineApi extends App{
-
-  case class StageableKey(stageable: Stageable[Data], key: Any) {
-    override def toString = {
-      var name = stageable.getName()
-      if (key != null) name = name + "_" + key
-      name
-    }
-  }
-
   SpinalVerilog(new Component{
-//    val pip = new Pipeline{
-//      val s0, s1, s2 = new Stage()
-//    }
+    import spinal.lib.misc.pipeline._
 
-
-
-
-    trait NodeUp {
-      def getPayloadProposals(key : StageableKey) : mutable.LinkedHashSet[StageableKey]
-    }
-
-    trait NodeDown {
-      def getPayloadProposals(key : StageableKey) : mutable.LinkedHashSet[StageableKey]
-    }
-
-    class FromUp(){
-      var withValid = false
-      val payload = mutable.LinkedHashSet[StageableKey]()
-    }
-
-    class FromDown() {
-      var withReady = false
-      val payload = mutable.LinkedHashSet[StageableKey]()
-    }
-
-    class Node() extends Area {
-      val valid = Bool()
-      val ready = Bool()
-
-      val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
-
-      var fromUp : FromUp = null
-      var fromDown : FromDown = null
-
-      var up : Connector = null
-      var down : Connector = null
-
-      var alwaysValid = false
-      var alwaysReady = false
-
-      def nameThat(target: Nameable, key: StageableKey, postfix: String): Unit = {
-        target.setLambdaName(this.isNamed && key.stageable.isNamed) {
-          val stageName = this.getName
-          val stageSlices = stageName.split('_')
-          val postfixName = key.toString + postfix
-          val postfixSlices = postfixName.split('_')
-          var i = 0
-          val iEnd = stageSlices.length min postfixSlices.length
-          while (i != iEnd && stageSlices(i) == postfixSlices(i)) i += 1
-          stageName + "_" + postfixSlices.drop(i).mkString("_")
-        }
-      }
-
-      def apply(key: StageableKey): Data = {
-        keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
-          val ret = key.stageable()
-          nameThat(ret, key, "")
-          ret
-        })
-      }
-
-      def apply[T <: Data](key: Stageable[T]): T = {
-        apply(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
-      }
-    }
-
-    trait Connector extends Area{
-      def ups : Seq[Node]
-      def downs : Seq[Node]
-
-      def propagateDown(): Unit
-      def propagateUp(): Unit
-      def build() : Unit
-    }
-
-
-    class Source(val down : Node) extends Connector{
-      down.up = this
-      val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
-
-      override def propagateDown(): Unit = {
-        down.fromUp = new FromUp()
-        down.fromUp.payload ++= keyToData.keys
-      }
-
-      override def propagateUp(): Unit = {}
-
-      override def build(): Unit = {
-        for((key, data) <- keyToData){
-          down(key) := data
-        }
-      }
-
-      def apply(key: StageableKey): Data = {
-        keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
-          key.stageable() //.setCompositeName(this, s"${key}")
-        })
-      }
-
-      def apply[T <: Data](key: Stageable[T]): T = {
-        apply(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
-      }
-
-      override def ups: Seq[Node] = Nil
-      override def downs: Seq[Node] = List(down)
-    }
-
-    class Sink(val up: Node) extends Connector {
-      up.down = this
-      val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
-
-//      val logic = Fiber build new Area {
-//        val tmp = new FromDown()
-//        tmp.payload ++= keyToData.keys
-//        up.fromDown.load(tmp)
-//
-//        for ((key, data) <- keyToData) {
-//          data := up(key)
-//        }
-//      }
-
-      def apply(key: StageableKey): Data = {
-        keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
-          key.stageable() //.setCompositeName(this, s"${key}")
-        })
-      }
-
-      def apply[T <: Data](key: Stageable[T]): T = {
-        apply(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
-      }
-
-      override def ups: Seq[Node] = List(up)
-      override def downs: Seq[Node] = Nil
-
-      override def propagateDown(): Unit = {}
-      override def propagateUp(): Unit = {
-        up.fromDown = new FromDown()
-        up.fromDown.payload ++= keyToData.keys
-      }
-      override def build(): Unit = {
-        for ((key, data) <- keyToData) {
-          data := up(key)
-        }
-      }
-    }
-
-    class Layer(val up : Node, val down : Node) extends Connector {
-      down.up = this
-      up.down = this
-
-      def throwWhen(cond: Bool): Unit = ???
-      def haltWhen(cond: Bool): Unit = ???
-
-      val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
-
-      def apply(key: StageableKey): Data = {
-        keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
-          key.stageable()
-        })
-      }
-
-      override def ups: Seq[Node] = List(up)
-      override def downs: Seq[Node] = List(down)
-
-      override def propagateDown(): Unit = ???
-      override def propagateUp(): Unit = ???
-      override def build(): Unit =  ???
-    }
-
-    class CombStage(val up : Node, val down : Node) extends Connector {
-      down.up = this
-      up.down = this
-
-      override def ups: Seq[Node] = List(up)
-      override def downs: Seq[Node] = List(down)
-
-      override def propagateDown(): Unit = {
-        down.fromUp = new FromUp
-        down.fromUp.payload ++= up.fromUp.payload
-        down.alwaysValid = up.alwaysValid
-      }
-      override def propagateUp(): Unit = {
-        up.fromDown = new FromDown
-        up.fromDown.payload ++= down.fromDown.payload
-        up.alwaysReady = down.alwaysReady
-      }
-      override def build(): Unit = {
-        down.valid := up.valid
-        up.ready := down.ready
-        val matches = up.fromUp.payload.intersect(down.fromDown.payload)
-        for(m <- matches){
-          down(m) := up(m)
-        }
-      }
-    }
-
+    // Define a few pipelining Nodes (Stream-like)
     val a,b,c,d,e,f = new Node
 
-    val i = new Source(a)
-    val s0 = new CombStage(a,b)
-    val b01 = new CombStage(b, c)
-    val s1 = new CombStage(c,d)
-    val b12 = new CombStage(d, e)
-    val s2 = new CombStage(e,f)
-    val o = new Sink(f)
+    // Define the connections between those node
+    val c0 = new Ctrl(a, b) // Ctrl is a facility which allows to control the flow between 2 nodes (ex halt the flow)
+    val b01 = new RegStage(b, c) // RegStage implement a register based connection between 2 nodes (Stream.m2s like)
+    val c1 = new Ctrl(c, d)
+    val b12 = new RegStage(d, e)
+    val c2 = new Ctrl(e, f)
 
+    // Define a thing which can go through the pipeline (this is a typedef used as a key)
     val PC = Stageable(UInt(32 bits))
 
-    val x = i(PC)
-    i(PC) := 42
-    val y = o(PC)
+
+    val source = slave Stream(PC)
+    val sink = master Stream(PC)
+
+    a.driveFrom(source)((self, payload) => self(PC) := payload)
+    c1.haltWhen(c(PC) === 42)
+    f.toStream(sink)((payload, self) => payload := self(PC))
 
 
-    def build(): Unit = {
-      val nodes = List(a, b, c, d, e, f)
-      val connectors = List(i,o,s0, s1, s2, b01, b12)
-
-      def propagateDown() : Unit = {
-        val solved = mutable.ArrayBuffer[Node]()
-        val seeds = mutable.ArrayBuffer[Connector]()
-        seeds ++= connectors.filter(_.ups.isEmpty)
-        while(seeds.nonEmpty){
-          val tmp = seeds.toArray
-          seeds.clear()
-          for(e <- tmp){
-//            println(s"PR DOWN $e")
-            e.propagateDown()
-            for(d <- e.downs) {
-              solved += d
-              if (d.down.ups.forall(u => solved.contains(u))) {
-                seeds += d.down
-              }
-            }
-          }
-        }
-      }
-
-      def propagateUp(): Unit = {
-        val solved = mutable.ArrayBuffer[Node]()
-        val seeds = mutable.ArrayBuffer[Connector]()
-        seeds ++= connectors.filter(_.downs.isEmpty)
-        while (seeds.nonEmpty) {
-          val tmp = seeds.toArray
-          seeds.clear()
-          for (e <- tmp) {
-//            println(s"PR UP $e")
-            e.propagateUp()
-            for (d <- e.ups) {
-              solved += d
-              if (d.up.downs.forall(u => solved.contains(u))) {
-                seeds += d.up
-              }
-            }
-          }
-        }
-      }
-
-      propagateUp()
-      propagateDown()
-      for(c <- connectors) c.build()
-    }
-
-
-    build()
-
-
-
-    Fiber build {
-//      println(a.payloadRequest.get)
-//      println(f.payloadProposal.get)
-      println("asd")
-    }
+    val connectors = List(c0, c1, c2, b01, b12)
+    Builder(connectors)
   })
 }
