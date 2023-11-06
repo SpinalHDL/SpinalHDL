@@ -1956,87 +1956,7 @@ object PlayScopedMess extends App{
     override def set(db: Database, value: T) = ???
   }
 
-  class ServiceHost{
-    val services = ArrayBuffer[Any]()
-
-    val _context = ScopeProperty.capture() //TODO not as heavy
-
-    def rework[T](body: => T): T = {
-      val oldContext = ScopeProperty.captureNoClone()
-      _context.restoreCloned()
-      val b = ServiceHost(this) {
-        body
-      }
-      oldContext.restore()
-      b
-    }
-
-    def add(that : Any) : Unit = services += that
-
-    def list[T: ClassTag]: Seq[T] = {
-      val clazz = classTag[T].runtimeClass
-      val filtered = ArrayBuffer[Any]()
-      services.collect{ case t : T => t }
-    }
-
-    def apply[T: ClassTag]: T = {
-      val filtered = list[T]
-      filtered.length match {
-        case 0 => throw new Exception(s"Can't find the service ${classTag[T].runtimeClass.getName}")
-        case 1 => filtered.head
-        case _ => throw new Exception(s"Found multiple instances of ${classTag[T].runtimeClass.getName}")
-      }
-    }
-  }
-
-  object ServiceHost extends ScopeProperty[ServiceHost] {
-    def on[T](body: => T) = this (new ServiceHost).on(body)
-  }
-
-  object Service{
-    def list[T: ClassTag] : Seq[T] = ServiceHost.get.list[T]
-    def apply[T : ClassTag] : T = ServiceHost.get.apply[T]
-  }
-
-//  class Service(val that : Any) extends SpinalTag
-
-  trait Lockable extends Area {
-    val lock = spinal.core.fiber.Lock()
-    def retain() = lock.retain()
-    def release() = lock.release()
-  }
-
-  class Plugin extends Area with Lockable{
-    this.setName(ClassName(this))
-    def withPrefix(prefix: String) = setName(prefix + "_" + getName())
-
-    var pluginEnabled = true
-    val host = Handle[ServiceHost]
-
-    def setHost(h : ServiceHost) : Unit = {
-      h.add(this)
-      host.load(h)
-    }
-
-    def during = new {
-      def setup[T](body: => T): Handle[T] = spinal.core.fiber.Fiber setup {
-        pluginEnabled match {
-          case false => null.asInstanceOf[T]
-          case true => host.rework(body)
-        }
-      }
-      def build[T](body: => T): Handle[T] = spinal.core.fiber.Fiber build {
-        pluginEnabled match {
-          case false => null.asInstanceOf[T]
-          case true => {
-            lock.await()
-            host.rework(body)
-          }
-        }
-      }
-    }
-  }
-
+  import spinal.lib.misc.composable._
 
   class VexiiRiscv extends Component{
     val database = new Database
@@ -2177,4 +2097,40 @@ object PlayPipelineApi2 extends App{
     val connectors = List(c0, c1, c2, s01, s12)
     Builder(connectors)
   })
+}
+
+object PlayComposablePlugin extends App{
+  import spinal.lib.misc.composable._
+
+  class VexiiRiscv extends Component{
+    val host = new ServiceHost
+  }
+
+  class PcPlugin extends Plugin {
+    val jumps = ArrayBuffer[Flow[UInt]]()
+    val logic = during build new Area {
+      val pc = Reg(UInt(32 bits)) init(0)
+      for(jump <- jumps) when(jump.valid){ pc := jump.payload}
+    }
+  }
+
+  class JumpPlugin extends Plugin {
+    val setup = during setup new Area{
+      Service[PcPlugin].retain()
+    }
+    val logic = during build new Area {
+      val jump = Flow(UInt(32 bits))
+      Service[PcPlugin].jumps += jump
+      Service[PcPlugin].release()
+    }
+  }
+
+  class TopLevel extends Component {
+    val vexii = new VexiiRiscv
+    new PcPlugin().setHost(vexii.host)
+    new JumpPlugin().setHost(vexii.host)
+  }
+
+  val report = SpinalVerilog(new TopLevel).printRtl()
+  println(report.toplevel.vexii.host[PcPlugin])
 }
