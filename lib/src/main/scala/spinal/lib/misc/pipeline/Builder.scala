@@ -4,7 +4,6 @@ import scala.collection.mutable
 
 object Builder {
   def apply(connectors: Seq[Connector]): Unit = {
-
     def propagateDown(): Unit = {
       val solved = mutable.ArrayBuffer[Node]()
       val seeds = mutable.ArrayBuffer[Connector]()
@@ -50,3 +49,5 @@ object Builder {
     for (c <- connectors) c.build()
   }
 }
+
+

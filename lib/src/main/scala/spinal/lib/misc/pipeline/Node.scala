@@ -54,6 +54,12 @@ class Node() extends Area {
     apply(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
   }
 
+  def insert[T <: Data](that: T): Stageable[T] = {
+    val s = Stageable(cloneOf(that))
+    this(s) := that
+    s
+  }
+
   def driveFrom[T <: Data](stream: Stream[T])(con: (Node, T) => Unit): Unit = {
     valid := stream.valid
     stream.ready := ready

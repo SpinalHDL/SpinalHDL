@@ -2166,14 +2166,13 @@ object PlayPipelineApi2 extends App{
     // Define a thing which can go through the pipeline (this is a typedef used as a key)
     val PC = Stageable(UInt(32 bits))
 
-
     val source = slave Stream(PC)
     val sink = master Stream(PC)
 
     c0.up.driveFrom(source)((self, payload) => self(PC) := payload)
-    c1.haltWhen(c1.up(PC) === 42)
-    c2.down.toStream(sink)((payload, self) => payload := self(PC))
-
+    c1.haltWhen(c1(PC) === 42)
+    val PC_PLUS_4 = c1.insert(c1(PC) + 4)
+    c2.down.toStream(sink)((payload, self) => payload := self(PC_PLUS_4))
 
     val connectors = List(c0, c1, c2, s01, s12)
     Builder(connectors)

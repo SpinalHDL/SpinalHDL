@@ -31,6 +31,8 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     val removeSeeds = ArrayBuffer[Bool]()
   }
 
+  def insert[T <: Data](that: T): Stageable[T] = up.insert(that)
+  def apply[T <: Data](key: Stageable[T]): T = down(key)
 
   def haltWhen(cond: Bool)(implicit loc: Location): Unit = requests.halts += nameFromLocation(CombInit(cond), "haltRequest")
   def duplicateWhen(cond: Bool)(implicit loc: Location): Unit = requests.duplicates += nameFromLocation(CombInit(cond), "duplicateRequest")
