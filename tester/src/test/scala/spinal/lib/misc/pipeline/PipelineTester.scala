@@ -159,7 +159,7 @@ class PipelineTester extends SpinalAnyFunSuite{
   // and we want to make that readed value being updated in C0 / C1 by each transaction in C2
   // This is done using the Ctrl.bypass function
   test("bypass") {
-    SimConfig.withFstWave.compile(new SimplePipeline {
+    SimConfig.compile(new SimplePipeline {
       val state = Reg(UInt(16 bits)) init(0)
       c0.up(OUT) := state
 
