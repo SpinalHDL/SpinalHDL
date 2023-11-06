@@ -2158,8 +2158,9 @@ object PlayPipelineApi extends App{
     }
 
     class Node() extends Area {
-      val valid : Bool = null
-      val ready : Bool = null
+      val valid = Bool()
+      val ready = Bool()
+
       val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
 
       var fromUp : FromUp = null
@@ -2167,6 +2168,9 @@ object PlayPipelineApi extends App{
 
       var up : Connector = null
       var down : Connector = null
+
+      var alwaysValid = false
+      var alwaysReady = false
 
       def nameThat(target: Nameable, key: StageableKey, postfix: String): Unit = {
         target.setLambdaName(this.isNamed && key.stageable.isNamed) {
@@ -2208,22 +2212,9 @@ object PlayPipelineApi extends App{
       down.up = this
       val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
 
-//      val logic = Fiber build new Area{
-//        val tmp = new FromUp()
-//        tmp.payload ++= keyToData.keys
-//        down.fromUp.load(tmp)
-//
-//        for((key, data) <- keyToData){
-//          down(key) := data
-//        }
-//      }
-
-      var withValid = true
-
       override def propagateDown(): Unit = {
         down.fromUp = new FromUp()
         down.fromUp.payload ++= keyToData.keys
-        down.fromUp.withValid = withValid
       }
 
       override def propagateUp(): Unit = {}
@@ -2308,21 +2299,11 @@ object PlayPipelineApi extends App{
       override def propagateDown(): Unit = ???
       override def propagateUp(): Unit = ???
       override def build(): Unit =  ???
-
     }
 
-    class Stage(val up : Node, val down : Node) extends Connector {
+    class CombStage(val up : Node, val down : Node) extends Connector {
       down.up = this
       up.down = this
-
-//      val logic = Fiber build new Area{
-//        down.fromUp.load(up.fromUp)
-//        up.fromDown.load(down.fromDown)
-//        val matches = up.fromUp.payload.intersect(down.fromDown.payload)
-//        for(m <- matches){
-//          down(m) := up(m)
-//        }
-//      }
 
       override def ups: Seq[Node] = List(up)
       override def downs: Seq[Node] = List(down)
@@ -2330,12 +2311,16 @@ object PlayPipelineApi extends App{
       override def propagateDown(): Unit = {
         down.fromUp = new FromUp
         down.fromUp.payload ++= up.fromUp.payload
+        down.alwaysValid = up.alwaysValid
       }
       override def propagateUp(): Unit = {
         up.fromDown = new FromDown
         up.fromDown.payload ++= down.fromDown.payload
+        up.alwaysReady = down.alwaysReady
       }
       override def build(): Unit = {
+        down.valid := up.valid
+        up.ready := down.ready
         val matches = up.fromUp.payload.intersect(down.fromDown.payload)
         for(m <- matches){
           down(m) := up(m)
@@ -2346,11 +2331,11 @@ object PlayPipelineApi extends App{
     val a,b,c,d,e,f = new Node
 
     val i = new Source(a)
-    val s0 = new Stage(a,b)
-    val b01 = new Stage(b, c)
-    val s1 = new Stage(c,d)
-    val b12 = new Stage(d, e)
-    val s2 = new Stage(e,f)
+    val s0 = new CombStage(a,b)
+    val b01 = new CombStage(b, c)
+    val s1 = new CombStage(c,d)
+    val b12 = new CombStage(d, e)
+    val s2 = new CombStage(e,f)
     val o = new Sink(f)
 
     val PC = Stageable(UInt(32 bits))
