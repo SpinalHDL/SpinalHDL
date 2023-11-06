@@ -29,23 +29,10 @@ class Node() extends Area {
   var alwaysValid = false
   var alwaysReady = false
 
-  def nameThat(target: Nameable, key: StageableKey, postfix: String): Unit = {
-    target.setLambdaName(this.isNamed && key.stageable.isNamed) {
-      val stageName = this.getName
-      val stageSlices = stageName.split('_')
-      val postfixName = key.toString + postfix
-      val postfixSlices = postfixName.split('_')
-      var i = 0
-      val iEnd = stageSlices.length min postfixSlices.length
-      while (i != iEnd && stageSlices(i) == postfixSlices(i)) i += 1
-      stageName + "_" + postfixSlices.drop(i).mkString("_")
-    }
-  }
-
   def apply(key: StageableKey): Data = {
     keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
       val ret = key.stageable()
-      nameThat(ret, key, "")
+      Misc.nameThat(this, ret, key, "")
       ret
     })
   }

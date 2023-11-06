@@ -31,14 +31,34 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     val removeSeeds = ArrayBuffer[Bool]()
   }
 
-  def insert[T <: Data](that: T): Stageable[T] = up.insert(that)
-  def apply[T <: Data](key: Stageable[T]): T = down(key)
+  def apply[T <: Data](key: Stageable[T]): T = down.apply(key)
+  def insert[T <: Data](that: T): Stageable[T] = down.insert(that)
 
-  def haltWhen(cond: Bool)(implicit loc: Location): Unit = requests.halts += nameFromLocation(CombInit(cond), "haltRequest")
-  def duplicateWhen(cond: Bool)(implicit loc: Location): Unit = requests.duplicates += nameFromLocation(CombInit(cond), "duplicateRequest")
-  def terminateWhen(cond: Bool)(implicit loc: Location): Unit = requests.terminates += nameFromLocation(CombInit(cond), "terminateRequest")
+  def bypass[T <: Data](key: Stageable[T]): T =  bypass(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
+  def bypass[T <: Data](key: StageableKey): Data = bypasses.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
+    val ret = key.stageable()
+    Misc.nameThat(this, ret, key, "bypass")
+    ret := up(key)
+    ret
+  })
+
+  def haltWhen(cond: Bool)      (implicit loc: Location): Unit = requests.halts += nameFromLocation(CombInit(cond), "haltRequest")
+  def duplicateWhen(cond: Bool) (implicit loc: Location): Unit = requests.duplicates += nameFromLocation(CombInit(cond), "duplicateRequest")
+  def terminateWhen(cond: Bool) (implicit loc: Location): Unit = requests.terminates += nameFromLocation(CombInit(cond), "terminateRequest")
   def removeSeedWhen(cond: Bool)(implicit loc: Location): Unit = requests.removeSeeds += nameFromLocation(CombInit(cond), "removeSeedRequest")
+  def throwWhen(cond : Bool)    (implicit loc: Location) : Unit = {
+    val flag = nameFromLocation(CombInit(cond), "throwWhen")
+    requests.terminates += flag
+    requests.removeSeeds += flag
+  }
 
+  def haltIt()      (implicit loc: Location) : Unit = haltWhen(ConditionalContext.isTrue)
+  def duplicateIt() (implicit loc: Location) : Unit = duplicateWhen(ConditionalContext.isTrue)
+  def terminateIt() (implicit loc: Location) : Unit = terminateWhen(ConditionalContext.isTrue)
+  def removeSeedIt()(implicit loc: Location) : Unit = removeSeedWhen(ConditionalContext.isTrue)
+  def throwIt()     (implicit loc: Location) : Unit = throwWhen(ConditionalContext.isTrue)
+
+  val bypasses = mutable.LinkedHashMap[StageableKey, Data]()
   val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
 
   def apply(key: StageableKey): Data = {
@@ -77,7 +97,10 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     }
     val matches = down.fromUp.payload.intersect(up.fromDown.payload)
     for (m <- matches) {
-      down(m) := up(m)
+      bypasses.get(m) match {
+        case Some(x) => down(m) := x
+        case None => down(m) := up(m)
+      }
     }
   }
 }

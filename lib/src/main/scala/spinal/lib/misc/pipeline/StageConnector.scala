@@ -32,6 +32,7 @@ class StageConnector(val up : Node, val down : Node) extends Connector {
     s.valid.setAsReg() init (False)
     matches.foreach(p => s(p).setAsReg())
 
+    down.ctrl.removeSeed foreach  { cond =>  s.valid clearWhen(cond) }
 
     m.alwaysReady match {
       case true =>
@@ -47,7 +48,6 @@ class StageConnector(val up : Node, val down : Node) extends Connector {
       }
     }
 
-    down.ctrl.removeSeed foreach  { cond =>  s.valid clearWhen (cond) }
 
     if (m.ready != null) {
       m.ready := s.ready
