@@ -6,17 +6,17 @@ import spinal.idslplugin.Location
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable
 
-object Ctrl {
-  def apply(up : Node, down : Node) = new Ctrl(up, down)
+object CtrlConnector {
+  def apply(up : Node, down : Node) = new CtrlConnector(up, down)
   def apply() = {
-    val c = new Ctrl(new Node(), new Node())
+    val c = new CtrlConnector(new Node(), new Node())
     c.up.setCompositeName(c, "up")
     c.down.setCompositeName(c, "down")
     c
   }
 }
 
-class Ctrl(val up : Node, val down : Node) extends Connector {
+class CtrlConnector(val up : Node, val down : Node) extends Connector {
   down.up = this
   up.down = this
 

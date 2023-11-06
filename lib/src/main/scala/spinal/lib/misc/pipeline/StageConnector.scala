@@ -7,7 +7,12 @@ import spinal.lib._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class RegStage(val up : Node, val down : Node) extends Connector {
+
+object StageConnector{
+  def apply(up : Node, down : Node) = new StageConnector(up, down)
+}
+
+class StageConnector(val up : Node, val down : Node) extends Connector {
   down.up = this
   up.down = this
 

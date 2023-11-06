@@ -2129,11 +2129,11 @@ object PlayPipelineApi extends App{
     val a,b,c,d,e,f = new Node
 
     // Define the connections between those node
-    val c0 = new Ctrl(a, b) // Ctrl is a facility which allows to control the flow between 2 nodes (ex halt the flow)
-    val b01 = new RegStage(b, c) // RegStage implement a register based connection between 2 nodes (Stream.m2s like)
-    val c1 = new Ctrl(c, d)
-    val b12 = new RegStage(d, e)
-    val c2 = new Ctrl(e, f)
+    val c0 = new CtrlConnector(a, b) // Ctrl is a facility which allows to control the flow between 2 nodes (ex halt the flow)
+    val s01 = new StageConnector(b, c) // RegStage implement a register based connection between 2 nodes (Stream.m2s like)
+    val c1 = new CtrlConnector(c, d)
+    val s12 = new StageConnector(d, e)
+    val c2 = new CtrlConnector(e, f)
 
     // Define a thing which can go through the pipeline (this is a typedef used as a key)
     val PC = Stageable(UInt(32 bits))
@@ -2147,7 +2147,35 @@ object PlayPipelineApi extends App{
     f.toStream(sink)((payload, self) => payload := self(PC))
 
 
-    val connectors = List(c0, c1, c2, b01, b12)
+    val connectors = List(c0, c1, c2, s01, s12)
+    Builder(connectors)
+  })
+}
+
+object PlayPipelineApi2 extends App{
+  SpinalVerilog(new Component{
+    import spinal.lib.misc.pipeline._
+
+    val c0 = CtrlConnector() // Ctrl is a facility which allows to control the flow between 2 nodes (ex halt the flow)
+    val c1 = CtrlConnector()
+    val c2 = CtrlConnector()
+
+    val s01 = StageConnector(c0.down, c1.up) // RegStage implement a register based connection between 2 nodes (Stream.m2s like)
+    val s12 = StageConnector(c1.down, c2.up)
+
+    // Define a thing which can go through the pipeline (this is a typedef used as a key)
+    val PC = Stageable(UInt(32 bits))
+
+
+    val source = slave Stream(PC)
+    val sink = master Stream(PC)
+
+    c0.up.driveFrom(source)((self, payload) => self(PC) := payload)
+    c1.haltWhen(c1.up(PC) === 42)
+    c2.down.toStream(sink)((payload, self) => payload := self(PC))
+
+
+    val connectors = List(c0, c1, c2, s01, s12)
     Builder(connectors)
   })
 }
