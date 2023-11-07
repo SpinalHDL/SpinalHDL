@@ -79,7 +79,7 @@ class PipelineTester extends SpinalAnyFunSuite{
       n2(OUT) := n2(TMP)+45
     }).doSimUntilVoid { dut =>
       dut.testIt { (value, queue) =>
-        queue += value + 4 + 45
+        queue += (value + 4 + 45) & 0xFFFF
       }
     }
   }

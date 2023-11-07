@@ -1,6 +1,7 @@
 package spinal.lib.misc.pipeline
 
 import spinal.core.Nameable
+import spinal.lib.StageableKey
 
 import scala.collection.mutable
 
