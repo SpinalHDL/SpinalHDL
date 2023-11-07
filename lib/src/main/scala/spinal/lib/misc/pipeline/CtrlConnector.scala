@@ -31,14 +31,20 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     val removeSeeds = ArrayBuffer[Bool]()
   }
 
-  def apply[T <: Data](key: Stageable[T]): T = down.apply(key)
+  def apply[T <: Data](that: Stageable[T]): T = down(that)
+  def apply[T <: Data](that: Stageable[T], key: Any): T = down(that, key)
+  def apply(subKeys: Seq[Any]) = down(subKeys)
+
+
+
   def insert[T <: Data](that: T): Stageable[T] = down.insert(that)
 
-  def bypass[T <: Data](key: Stageable[T]): T =  bypass(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
-  def bypass[T <: Data](key: StageableKey): Data = bypasses.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
-    val ret = key.stageable()
-    Misc.nameThat(this, ret, key, "bypass")
-    ret := up(key)
+  def bypass[T <: Data](that: Stageable[T]): T =  bypass(that, null)
+  def bypass[T <: Data](that: Stageable[T], key : Any): T =  bypass(StageableKey(that.asInstanceOf[Stageable[Data]], key)).asInstanceOf[T]
+  def bypass[T <: Data](that: StageableKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
+    val ret = that.stageable()
+    Misc.nameThat(this, ret, that, "bypass")
+    ret := up(that)
     ret
   })
 

@@ -13,9 +13,7 @@ class Node() extends Area {
   }
 
   def isValid = valid
-
   def isReady = ready
-
   val isFireing = valid && ready
 
   val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
@@ -37,8 +35,15 @@ class Node() extends Area {
     })
   }
 
-  def apply[T <: Data](key: Stageable[T]): T = {
-    apply(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
+  def apply[T <: Data](key: Stageable[T]): T = apply(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
+  def apply[T <: Data](key: Stageable[T], key2: Any): T = apply(StageableKey(key.asInstanceOf[Stageable[Data]], key2)).asInstanceOf[T]
+
+  //Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE)
+  def apply(subKey: Seq[Any]) = new OffsetApi(subKey)
+  class OffsetApi(subKeys: Seq[Any]) {
+    def apply[T <: Data](key: Stageable[T]): Seq[T] = {
+      subKeys.map(subKey => Node.this.apply(key, subKey))
+    }
   }
 
   def insert[T <: Data](that: T): Stageable[T] = {

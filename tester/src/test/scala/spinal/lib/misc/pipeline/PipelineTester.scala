@@ -65,6 +65,41 @@ class PipelineTester extends SpinalAnyFunSuite{
     }
   }
 
+  test("simple") {
+    SimConfig.compile(new SimplePipeline {
+      c1(OUT) := c1(IN)
+    }).doSimUntilVoid { dut =>
+      dut.simpleTest { (value, queue) =>
+        queue += value
+      }
+    }
+  }
+
+  test("secondaryKeys") {
+    SimConfig.compile(new SimplePipeline {
+      c0.up(OUT, "one") := c0.up(IN) + 1
+      c0(OUT, "two") := c0(IN) + 2
+      c1(OUT) := c1(IN) + c1(OUT, "one") + c1(OUT, "two")
+    }).doSimUntilVoid { dut =>
+      dut.simpleTest { (value, queue) =>
+        queue += (value + (value + 1) + (value + 2)) & 0xFFFF
+      }
+    }
+  }
+
+  test("secondaryKeysList") {
+    SimConfig.compile(new SimplePipeline {
+      c0.up(OUT, 1) := c0.up(IN) + 1
+      c0(OUT, 2) := c0(IN) + 2
+      c1(OUT) := c1(IN) + c1(1 to 2)(OUT).reduce(_ + _)
+    }).doSimUntilVoid { dut =>
+      dut.simpleTest { (value, queue) =>
+        queue += (value + (value + 1) + (value + 2)) & 0xFFFF
+      }
+    }
+  }
+
+
   // Remove C1 transactions which have the LSB set
   test("throw") {
     SimConfig.compile(new SimplePipeline {
@@ -187,7 +222,7 @@ class PipelineTester extends SpinalAnyFunSuite{
 
   // 1 input stream is forked into to output stream
   test("fork") {
-    SimConfig.withFstWave.compile(new Component {
+    SimConfig.compile(new Component {
       val n0, n1, n2, n3, n4, n5, n6 = new Node()
 
       val s0 = StageConnector(n0, n1)
@@ -239,7 +274,7 @@ class PipelineTester extends SpinalAnyFunSuite{
 
   // 2 input stream are joined into 1 output stream which sum their values
   test("join") {
-    SimConfig.withFstWave.compile(new Component {
+    SimConfig.compile(new Component {
       val n0, n1, n2, n3, n4, n5 = new Node()
 
       val s0 = StageConnector(n0, n1)
