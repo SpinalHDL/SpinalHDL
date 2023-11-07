@@ -321,4 +321,84 @@ class PipelineTester extends SpinalAnyFunSuite{
       }
     }
   }
+
+
+  class S2mPipeline extends Component {
+    val c0 = CtrlConnector()
+    val c1 = CtrlConnector()
+    val c2 = CtrlConnector()
+    val c3 = CtrlConnector()
+
+    val s01 = StageConnector(c0.down, c1.up)
+    val s12 = S2mConnector(c1.down, c2.up)
+    val s23 = StageConnector(c2.down, c3.up)
+
+    val IN = Stageable(UInt(16 bits))
+    val OUT = Stageable(UInt(16 bits))
+
+    val up = slave Stream (IN)
+    val down = master Stream (OUT)
+
+    c0.up.driveFrom(up)((self, payload) => self(IN) := payload)
+    c3.down.toStream(down)((payload, self) => payload := self(OUT))
+
+    val connectors = List(c0, c1, c2, c3, s01, s12, s23)
+
+    override def postInitCallback() = {
+      Builder(connectors)
+      super.postInitCallback()
+    }
+
+    // The user just need to implement that callback to specify what should be expected
+    // on the down stream in function of what is pushed
+    def simpleTest(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = {
+      val dut = this
+      val cd = dut.clockDomain
+      cd.forkStimulus(10)
+      var coverage = 0
+
+      val refQueue = mutable.Queue[Int]()
+      StreamDriver(dut.up, cd) { p =>
+        p.randomize()
+        true
+      }.setFactorPeriodically(500)
+      StreamMonitor(dut.up, cd) { p =>
+        onPush(p.toInt, refQueue)
+      }
+
+      StreamReadyRandomizer(dut.down, cd).setFactorPeriodically(500)
+      StreamMonitor(dut.down, cd) { p =>
+        val got = p.toInt
+        assert(got == refQueue.dequeue())
+        coverage += 1
+        if (coverage == 1000) simSuccess()
+      }
+    }
+  }
+
+  test("s2m"){
+    SimConfig.compile(new S2mPipeline {
+      c1(OUT) := c1(IN)
+    }).doSimUntilVoid { dut =>
+      dut.simpleTest { (value, queue) =>
+        queue += value
+      }
+    }
+  }
+
+  test("s2mThrow") {
+    SimConfig.withFstWave.compile(new S2mPipeline {
+      val halt = in Bool()
+      c2.haltWhen(halt) //This is used to get better coverage on the throw logic
+      c2.throwWhen(c2(IN).lsb && !halt)
+      c2(OUT) := c2(IN)
+    }).doSimUntilVoid { dut =>
+      dut.clockDomain.onSamplings(dut.halt.randomize())
+      dut.simpleTest { (value, queue) =>
+        if ((value & 1) == 0) {
+          queue += value
+        }
+      }
+    }
+  }
 }

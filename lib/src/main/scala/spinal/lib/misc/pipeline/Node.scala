@@ -9,6 +9,7 @@ class Node() extends Area {
   val ready = Bool()
 
   val ctrl = new {
+    def nameRemoveSeed(): Unit = removeSeed.foreach(_.setCompositeName(Node.this, "removeSeed"))
     var removeSeed = Option.empty[Bool]
   }
 

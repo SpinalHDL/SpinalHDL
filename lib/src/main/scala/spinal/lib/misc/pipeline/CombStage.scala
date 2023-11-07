@@ -17,7 +17,8 @@ class CombStage(val up : Node, val down : Node) extends Connector {
   override def propagateDown(): Unit = propagateDownAll()
   override def propagateUp(): Unit = {
     propagateUpAll()
-    up.ctrl.removeSeed = down.ctrl.removeSeed
+    down.ctrl.removeSeed.foreach(_ => up.ctrl.removeSeed = Some(Bool()))
+    up.ctrl.nameRemoveSeed()
   }
 
   override def build(): Unit = {

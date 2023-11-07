@@ -86,6 +86,7 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   override def propagateUp(): Unit = {
     propagateUpAll()
     up.ctrl.removeSeed = or(down.ctrl.removeSeed, requests.removeSeeds)
+    up.ctrl.nameRemoveSeed()
   }
 
   override def build(): Unit = {

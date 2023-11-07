@@ -48,7 +48,6 @@ class StageConnector(val up : Node, val down : Node) extends Connector {
       }
     }
 
-
     if (m.ready != null) {
       m.ready := s.ready
       if (collapseBubble) m.ready setWhen (!s.valid)
