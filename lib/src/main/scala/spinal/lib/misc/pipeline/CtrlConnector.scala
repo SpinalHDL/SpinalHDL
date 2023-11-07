@@ -32,7 +32,7 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   }
 
   def apply[T <: Data](that: Stageable[T]): T = down(that)
-  def apply[T <: Data](that: Stageable[T], key: Any): T = down(that, key)
+  def apply[T <: Data](that: Stageable[T], subKey: Any): T = down(that, subKey)
   def apply(subKeys: Seq[Any]) = down(subKeys)
 
 
@@ -40,7 +40,7 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   def insert[T <: Data](that: T): Stageable[T] = down.insert(that)
 
   def bypass[T <: Data](that: Stageable[T]): T =  bypass(that, null)
-  def bypass[T <: Data](that: Stageable[T], key : Any): T =  bypass(StageableKey(that.asInstanceOf[Stageable[Data]], key)).asInstanceOf[T]
+  def bypass[T <: Data](that: Stageable[T], subKey : Any): T =  bypass(StageableKey(that.asInstanceOf[Stageable[Data]], subKey)).asInstanceOf[T]
   def bypass[T <: Data](that: StageableKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
     val ret = that.stageable()
     Misc.nameThat(this, ret, that, "bypass")

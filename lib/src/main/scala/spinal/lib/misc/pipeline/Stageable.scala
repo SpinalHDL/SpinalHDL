@@ -12,10 +12,10 @@ class Stageable[T <: Data](gen : => T) extends HardType(gen) with Nameable {
 }
 case class StageableOffset(val value : Any)
 object StageableOffsetNone extends StageableOffset(null)
-case class StageableKey(stageable: Stageable[Data], key : Any){
+case class StageableKey(stageable: Stageable[Data], subKey : Any){
   override def toString = {
     var name = stageable.getName()
-    if(key != null) name = name + "_" + key
+    if(subKey != null) name = name + "_" + subKey
     name
   }
 }
