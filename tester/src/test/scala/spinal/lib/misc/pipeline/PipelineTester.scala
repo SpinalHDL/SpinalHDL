@@ -37,7 +37,7 @@ class PipelineTester extends SpinalAnyFunSuite{
 
   // Simple pipeline composed of 4 nodes connected by 3 register stages
   class NodePipeline extends Component {
-    val n0, n1, n2, n3 = new Node()
+    val n0, n1, n2, n3 = Node()
 
     val s01 = StageConnector(n0, n1)
     val s12 = StageConnector(n1, n2)
@@ -275,10 +275,10 @@ class PipelineTester extends SpinalAnyFunSuite{
   // 1 input stream is forked into to output stream
   test("fork") {
     SimConfig.compile(new Component {
-      val n0, n1, n2, n3, n4, n5, n6 = new Node()
+      val n0, n1, n2, n3, n4, n5, n6 = Node()
 
       val s0 = StageConnector(n0, n1)
-      val f0 = new ForkConnector(n1, List(n2, n4))
+      val f0 = ForkConnector(n1, List(n2, n4))
       val s1 = StageConnector(n2, n3)
       val c0 = CtrlConnector(n4, n5)
       val s2 = StageConnector(n5, n6)
@@ -327,11 +327,11 @@ class PipelineTester extends SpinalAnyFunSuite{
   // 2 input stream are joined into 1 output stream which sum their values
   test("join") {
     SimConfig.compile(new Component {
-      val n0, n1, n2, n3, n4, n5 = new Node()
+      val n0, n1, n2, n3, n4, n5 = Node()
 
       val s0 = StageConnector(n0, n1)
       val s1 = StageConnector(n2, n3)
-      val j0 = new JoinConnector(List(n1, n3), n4)
+      val j0 = JoinConnector(List(n1, n3), n4)
       val s2 = StageConnector(n4, n5)
 
       val A, B = Stageable(UInt(16 bits))

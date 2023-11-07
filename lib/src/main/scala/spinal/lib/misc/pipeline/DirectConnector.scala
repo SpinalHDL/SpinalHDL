@@ -7,7 +7,7 @@ import spinal.lib._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class CombStage(val up : Node, val down : Node) extends Connector {
+class DirectConnector(val up : Node, val down : Node) extends Connector {
   down.up = this
   up.down = this
 

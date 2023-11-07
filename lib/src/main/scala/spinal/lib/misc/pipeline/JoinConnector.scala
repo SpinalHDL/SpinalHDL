@@ -3,8 +3,10 @@ package spinal.lib.misc.pipeline
 import spinal.core._
 import spinal.lib._
 
-
-class JoinConnector(override val ups : Seq[Node], val down : Node, synchronous: Boolean = false) extends Connector {
+object JoinConnector{
+  def apply(ups : Seq[Node], down : Node) : JoinConnector = new JoinConnector(ups, down)
+}
+class JoinConnector(override val ups : Seq[Node], val down : Node) extends Connector {
   this.ups.foreach(_.down = this)
   down.up = this
 

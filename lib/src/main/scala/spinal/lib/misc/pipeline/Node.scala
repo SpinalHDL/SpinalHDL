@@ -4,6 +4,10 @@ import scala.collection.mutable
 import spinal.core._
 import spinal.lib._
 
+object Node{
+  def apply() : Node = new Node
+}
+
 class Node() extends Area {
   val valid = Bool()
   val ready = Bool()
