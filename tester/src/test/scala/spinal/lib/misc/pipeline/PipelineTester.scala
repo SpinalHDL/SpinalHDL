@@ -7,6 +7,7 @@ import spinal.lib.sim.{StreamDriver, StreamMonitor, StreamReadyRandomizer}
 import spinal.tester.SpinalAnyFunSuite
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 class PipelineTester extends SpinalAnyFunSuite{
 
@@ -180,6 +181,108 @@ class PipelineTester extends SpinalAnyFunSuite{
       dut.simpleTest { (value, queue) =>
         queue += state
         state = value
+      }
+    }
+  }
+
+  // 1 input stream is forked into to output stream
+  test("fork") {
+    SimConfig.withFstWave.compile(new Component {
+      val n0, n1, n2, n3, n4, n5, n6 = new Node()
+
+      val s0 = StageConnector(n0, n1)
+      val f0 = new ForkConnector(n1, List(n2, n4))
+      val s1 = StageConnector(n2, n3)
+      val c0 = CtrlConnector(n4, n5)
+      val s2 = StageConnector(n5, n6)
+
+      val IN = Stageable(UInt(16 bits))
+
+      val up = slave Stream (IN)
+      val downs = Vec.fill(2)(master Stream (IN))
+
+      n0.driveFrom(up)((self, payload) => self(IN) := payload)
+      n3.toStream(downs(0))((payload, self) => payload := self(IN) + 0x1234)
+      c0.throwWhen(c0.up(IN)(0))
+      n6.toStream(downs(1))((payload, self) => payload := self(IN) + 0x4836)
+
+      val connectors = List(f0, s0, s1, s2, c0)
+      Builder(connectors)
+    }).doSimUntilVoid{ dut =>
+      val cd = dut.clockDomain
+      cd.forkStimulus(10)
+      val coverages = ArrayBuffer.fill(2)(0)
+
+      val refQueues = List.fill(2)(mutable.Queue[Int]())
+      StreamDriver(dut.up, cd) { p =>
+        p.randomize()
+        true
+      }.setFactorPeriodically(500)
+      StreamMonitor(dut.up, cd) { p =>
+        val v = p.toInt
+        refQueues(0) += (v + 0x1234) & 0xFFFF
+        if((v & 1) == 0) refQueues(1) += (v + 0x4836) & 0xFFFF
+      }
+
+      for((down, i) <- dut.downs.zipWithIndex){
+        StreamReadyRandomizer(down, cd).setFactorPeriodically(500)
+        StreamMonitor(down, cd) { p =>
+          val got = p.toInt
+          assert(got == refQueues(i).dequeue())
+          coverages(i) += 1
+          if (coverages.forall(_ > 1000)) simSuccess()
+        }
+      }
+    }
+  }
+
+
+  // 2 input stream are joined into 1 output stream which sum their values
+  test("join") {
+    SimConfig.withFstWave.compile(new Component {
+      val n0, n1, n2, n3, n4, n5 = new Node()
+
+      val s0 = StageConnector(n0, n1)
+      val s1 = StageConnector(n2, n3)
+      val j0 = new JoinConnector(List(n1, n3), n4)
+      val s2 = StageConnector(n4, n5)
+
+      val A, B = Stageable(UInt(16 bits))
+      val OUT = Stageable(UInt(16 bits))
+
+      val ups = Vec.fill(2)(slave Stream (UInt(16 bits)))
+      val down = master Stream (OUT)
+
+      n0.driveFrom(ups(0))((self, payload) => self(A) := payload)
+      n2.driveFrom(ups(1))((self, payload) => self(B) := payload)
+
+      n5.toStream(down)((payload, self) => payload := self(A) + self(B))
+
+      val connectors = List(j0, s0, s1, s2)
+      Builder(connectors)
+    }).doSimUntilVoid { dut =>
+      val cd = dut.clockDomain
+      cd.forkStimulus(10)
+      var coverage = 0
+
+      val refQueues = List.fill(2)(mutable.Queue[Int]())
+      for(i <- 0 until 2) {
+        val up = dut.ups(i)
+        StreamDriver(up, cd) { p =>
+          p.randomize()
+          true
+        }.setFactorPeriodically(500)
+        StreamMonitor(up, cd) { p =>
+          refQueues(i) += p.toInt
+        }
+      }
+
+      StreamReadyRandomizer(dut.down, cd).setFactorPeriodically(500)
+      StreamMonitor(dut.down, cd) { p =>
+        val got = p.toInt
+        assert(got == ((refQueues(0).dequeue() + refQueues(1).dequeue()) & 0xFFFF))
+        coverage += 1
+        if (coverage > 1000) simSuccess()
       }
     }
   }
