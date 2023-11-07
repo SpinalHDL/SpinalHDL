@@ -7,6 +7,9 @@ import spinal.lib._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
+object DirectConnector{
+  def apply(up : Node, down : Node) : DirectConnector = new DirectConnector(up, down)
+}
 class DirectConnector(val up : Node, val down : Node) extends Connector {
   down.up = this
   up.down = this

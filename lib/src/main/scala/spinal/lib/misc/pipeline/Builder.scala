@@ -3,6 +3,7 @@ package spinal.lib.misc.pipeline
 import scala.collection.mutable
 
 object Builder {
+  def apply(head : Connector, tail : Connector*) : Unit = apply(head +: tail)
   def apply(connectors: Seq[Connector]): Unit = {
     def propagateDown(): Unit = {
       val solved = mutable.ArrayBuffer[Node]()
