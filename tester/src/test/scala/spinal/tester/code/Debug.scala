@@ -2106,22 +2106,43 @@ object PlayComposablePlugin extends App{
     val host = new ServiceHost
   }
 
+  trait AddressTranslationService extends Area{
+    def PHYSICAL_WIDTH : Int
+    def MIXED_WIDTH: Int
+    def VIRTUAL_WIDTH: Int
+    def PC_WIDTH : Int
+
+    val VIRTUAL_ADDRESS = Stageable(UInt(VIRTUAL_WIDTH bits))
+    val MIXED_ADDRESS = Stageable(UInt(MIXED_WIDTH bits))
+    val PHYSICAL_ADDRESS = Stageable(UInt(PHYSICAL_WIDTH bits))
+    val PC = Stageable(UInt(PC_WIDTH bits))
+  }
+
+  class StaticTranslationPlugin(physicalWidth : Int) extends Plugin with AddressTranslationService{
+    override def PHYSICAL_WIDTH: Int = physicalWidth
+    override def VIRTUAL_WIDTH: Int = physicalWidth
+    override def PC_WIDTH: Int = physicalWidth
+    override def MIXED_WIDTH: Int = physicalWidth
+  }
+
   class PcPlugin extends Plugin {
     val jumps = ArrayBuffer[Flow[UInt]]()
     val logic = during build new Area {
-      val pc = Reg(UInt(32 bits)) init(0)
+      val ats = host[AddressTranslationService]
+      val pc = Reg(ats.PC) init(0)
       for(jump <- jumps) when(jump.valid){ pc := jump.payload}
     }
   }
 
   class JumpPlugin extends Plugin {
     val setup = during setup new Area{
-      Service[PcPlugin].retain()
+      host[PcPlugin].retain()
     }
     val logic = during build new Area {
-      val jump = Flow(UInt(32 bits))
-      Service[PcPlugin].jumps += jump
-      Service[PcPlugin].release()
+      val ats = host[AddressTranslationService]
+      val jump = Flow(ats.PC)
+      host[PcPlugin].jumps += jump
+      host[PcPlugin].release()
     }
   }
 
@@ -2129,8 +2150,11 @@ object PlayComposablePlugin extends App{
     val vexii = new VexiiRiscv
     new PcPlugin().setHost(vexii.host)
     new JumpPlugin().setHost(vexii.host)
+    new StaticTranslationPlugin(physicalWidth = 30).setHost(vexii.host)
   }
 
   val report = SpinalVerilog(new TopLevel).printRtl()
   println(report.toplevel.vexii.host[PcPlugin])
+  println(report.toplevel.vexii.host[AddressTranslationService].PC.getName())
+//  println(report.toplevel.vexii.host[StaticTranslationPlugin].Miaou.getName())
 }

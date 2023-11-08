@@ -34,6 +34,9 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     def impactReady = halts.nonEmpty || duplicates.nonEmpty
   }
 
+  def isValid = up.isValid
+  def isReady = down.isReady
+
   def apply[T <: Data](that: Stageable[T]): T = down(that)
   def apply[T <: Data](that: Stageable[T], subKey: Any): T = down(that, subKey)
   def apply(subKeys: Seq[Any]) = down(subKeys)

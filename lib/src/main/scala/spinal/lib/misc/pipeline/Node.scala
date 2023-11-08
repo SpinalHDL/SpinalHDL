@@ -12,6 +12,17 @@ class Node() extends Area {
   val valid = Bool()
   val ready = Bool()
 
+  val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
+
+  val fromUp = new FromUp()
+  val fromDown = new FromDown()
+
+  var up: Connector = null
+  var down: Connector = null
+
+  var alwaysValid = false
+  var alwaysReady = false
+
   val ctrl = new {
     def nameRemoveSeed(): Unit = removeSeed.foreach(_.setCompositeName(Node.this, "removeSeed"))
     var removeSeed = Option.empty[Bool]
@@ -23,11 +34,19 @@ class Node() extends Area {
     var remove = Option.empty[Bool]
   }
 
+  def build(): Unit = {
+    status.fire.foreach(_ := isValid && isReady && !isRemoved)
+    status.moving.foreach(_ := isValid && (isReady || isRemoved))
+    status.remove.foreach(_ := ctrl.removeSeed.getOrElse(False))
+  }
+
+  // ********* USER API **********
+
   def isValid = valid
   def isReady = ready
 
   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
-  def isFireing = {
+  def isFiring = {
     if (status.fire.isEmpty) status.fire = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(this, "isFireing")))
     status.fire.get
   }
@@ -43,26 +62,6 @@ class Node() extends Area {
     if (status.moving.isEmpty) status.moving = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(this, "isMoving")))
     status.moving.get
   }
-
-
-  def build(): Unit = {
-    status.fire.foreach(_ := isValid && isReady && !isRemoved)
-    status.moving.foreach(_ := isValid && (isReady || isRemoved))
-    status.remove.foreach(_ := ctrl.removeSeed.getOrElse(False))
-  }
-
-
-  val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
-
-  val fromUp = new FromUp()
-  val fromDown = new FromDown()
-
-  var up: Connector = null
-  var down: Connector = null
-
-  var alwaysValid = false
-  var alwaysReady = false
-
 
   def setAlwaysValid(): Unit = {
     valid := True

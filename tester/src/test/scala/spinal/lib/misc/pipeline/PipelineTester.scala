@@ -193,13 +193,13 @@ class PipelineTester extends SpinalAnyFunSuite{
 
       when(c1.up.isValid && doThrow) {
         spinal.core.assert(c1.up.isMoving)
-        spinal.core.assert(!c1.up.isFireing)
+        spinal.core.assert(!c1.up.isFiring)
         spinal.core.assert(!c1.down.isMoving)
-        spinal.core.assert(!c1.down.isFireing)
+        spinal.core.assert(!c1.down.isFiring)
       }
       when(!c1.up.isValid || doThrow){
         spinal.core.assert(!c1.down.isMoving)
-        spinal.core.assert(!c1.down.isFireing)
+        spinal.core.assert(!c1.down.isFiring)
       }
 
       c1.throwWhen(doThrow)
@@ -219,7 +219,7 @@ class PipelineTester extends SpinalAnyFunSuite{
       val counter = Reg(UInt(2 bits)) init (0)
       val last = counter === c1(IN)(counter.bitsRange)
       c1.duplicateWhen(!last)
-      when(c1.down.isFireing) {
+      when(c1.down.isFiring) {
         counter := counter + 1
         when(last) {
           counter := 0
@@ -264,7 +264,7 @@ class PipelineTester extends SpinalAnyFunSuite{
       val last = counter.andR
       val adder = accumulator + c1(IN)
       c1.terminateWhen(!last)
-      when(c1.up.isFireing) {
+      when(c1.up.isFiring) {
         counter := counter + 1
         accumulator := adder
         when(last){
@@ -307,7 +307,7 @@ class PipelineTester extends SpinalAnyFunSuite{
       addBypassOn(c0)
       addBypassOn(c1)
 
-      when(c2.down.isFireing){
+      when(c2.down.isFiring){
         state := c2(IN)
       }
     }).doSimUntilVoid { dut =>
