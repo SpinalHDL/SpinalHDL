@@ -32,30 +32,28 @@ class StageConnector(val up : Node, val down : Node) extends Connector {
 
   override def build(): Unit = {
     val matches = down.fromUp.payload.intersect(up.fromDown.payload)
-    val s = down
-    val m = up
-    if(!s.alwaysValid) s.valid.setAsReg() init (False)
-    matches.foreach(p => s(p).setAsReg())
+    if(!down.alwaysValid) down.valid.setAsReg() init (False)
+    matches.foreach(p => down(p).setAsReg())
 
-    down.ctrl.removeSeed foreach  { cond =>  s.valid clearWhen(cond) }
+    down.ctrl.removeSeed foreach  { cond =>  down.valid clearWhen(cond) }
 
-    m.alwaysReady match {
+    up.alwaysReady match {
       case true =>
-        if(!s.alwaysValid) s.valid := m.valid
-        matches.foreach(p => s(p) := m(p))
+        if(!down.alwaysValid) down.valid := up.valid
+        matches.foreach(p => down(p) := up(p))
       case false => {
-        if(!s.alwaysValid) when(m.ready) {
-          s.valid := m.valid
+        if(!down.alwaysValid) when(up.ready) {
+          down.valid := up.valid
         }
-        when(if (holdPayload) m.valid && m.ready else m.ready) {
-          matches.foreach(p => s(p) := m(p))
+        when(if (holdPayload) up.valid && up.ready else up.ready) {
+          matches.foreach(p => down(p) := up(p))
         }
       }
     }
 
-    if (!m.alwaysReady) {
-      m.ready := s.ready
-      if (collapseBubble) m.ready setWhen (!s.valid)
+    if (!up.alwaysReady) {
+      up.ready := down.ready
+      if (collapseBubble) up.ready setWhen (!down.valid)
     }
   }
 }
