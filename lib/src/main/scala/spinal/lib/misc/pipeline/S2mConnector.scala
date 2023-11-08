@@ -25,7 +25,7 @@ class S2mConnector(val up : Node, val down : Node) extends Connector {
 
   override def build(): Unit = {
     val matches = down.fromUp.payload.intersect(up.fromDown.payload)
-    
+
     val rValid = RegInit(False) setWhen (up.valid) clearWhen (down.ready) setCompositeName(this, "rValid")
     val rData = matches.map(e => RegNextWhen(up(e), up.ready).setCompositeName(this, "s2mBuffer"))
 

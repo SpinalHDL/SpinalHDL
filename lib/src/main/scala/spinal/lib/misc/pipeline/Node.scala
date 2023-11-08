@@ -70,26 +70,42 @@ class Node() extends Area {
     s
   }
 
-  def driveFrom[T <: Data](that: Stream[T])(con: (Node, T) => Unit): Unit = {
+  def arbitrateFrom[T <: Data](that: Stream[T]): Unit = {
     valid := that.valid
     that.ready := ready
+  }
+
+  def arbitrateFrom[T <: Data](that: Flow[T]): Unit = {
+    valid := that.valid
+  }
+
+  def driveFrom[T <: Data](that: Stream[T])(con: (Node, T) => Unit): Unit = {
+    arbitrateFrom(that)
     con(this, that.payload)
   }
 
   def driveFrom[T <: Data](that: Flow[T])(con: (Node, T) => Unit): Unit = {
-    valid := that.valid
+    arbitrateFrom(that)
     con(this, that.payload)
   }
 
-  def driveTo[T <: Data](that: Stream[T])(con: (T, Node) => Unit): Unit = {
+  def arbitrateTo[T <: Data](that: Stream[T]): Unit = {
     that.valid := valid
     ready := that.ready
+  }
+
+  def arbitrateTo[T <: Data](that: Flow[T]): Unit = {
+    that.valid := valid
+    setAlwaysReady()
+  }
+
+  def driveTo[T <: Data](that: Stream[T])(con: (T, Node) => Unit): Unit = {
+    arbitrateTo(that)
     con(that.payload, this)
   }
 
   def driveTo[T <: Data](that: Flow[T])(con: (T, Node) => Unit): Unit = {
-    that.valid := valid
+    arbitrateTo(that)
     con(that.payload, this)
-    setAlwaysReady()
   }
 }

@@ -39,8 +39,39 @@ class TopLevel extends Component {
   Builder(s01, s12)
 }
 
+class TopLevel2 extends Component {
+  val VALUE = Stageable(UInt(16 bits))
+
+  val io = new Bundle{
+    val up = slave Stream(VALUE)  //VALUE can also be used as a HardType
+    val down = master Stream(VALUE)
+  }
+
+  // Let's define 3 Nodes for our pipeline
+  val n0, n1, n2 = Node()
+
+  // Let's connect those nodes by using simples registers
+  val s01 = StageConnector(n0, n1)
+  val s12 = StageConnector(n1, n2)
+
+  // Let's bind io.up to n0
+  n0.arbitrateFrom(io.up)
+  n0(VALUE) := io.up.payload
+
+  // Let's do some processing on n1
+  val RESULT = n1.insert(n1(VALUE) + 0x1200)
+
+  // Let's bind n2 to io.down
+  n2.arbitrateTo(io.down)
+  io.down.payload := n2(RESULT)
+
+  // Let's ask the builder to generate all the required hardware
+  Builder(s01, s12)
+}
+
+
 object PipelineDemo1 extends App {
-  SimConfig.withFstWave.compile(new TopLevel).doSim{ dut =>
+  SimConfig.withFstWave.compile(new TopLevel2).doSim{ dut =>
     dut.clockDomain.forkStimulus(10)
     dut.io.down.ready #= true
     dut.clockDomain.waitSampling(5)
