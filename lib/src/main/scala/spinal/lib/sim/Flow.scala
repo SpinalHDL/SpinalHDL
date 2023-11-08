@@ -46,6 +46,11 @@ class FlowDriver[T <: Data](flow: Flow[T], clockDomain: ClockDomain, var driver:
     (x * x * 10).toInt
   }
 
+  var factor = Option.empty[Float]
+  def setFactor(value: Float) = factor = Some(value)
+  def setFactorPeriodically(period: Long) = periodicaly(period)(setFactor(simRandom.nextFloat()))
+
+
   var state = 0
   var delay = transactionDelay()
   flow.valid #= false
@@ -54,11 +59,18 @@ class FlowDriver[T <: Data](flow: Flow[T], clockDomain: ClockDomain, var driver:
   def fsm(): Unit = {
     state match {
       case 0 => {
-        if (delay == 0) {
-          state += 1
-          fsm()
-        } else {
-          delay -= 1
+        factor match {
+          case Some(x) => if (simRandom.nextFloat() < x) {
+            state += 1
+            fsm()
+          }
+          case None =>
+            if (delay == 0) {
+              state += 1
+              fsm()
+            } else {
+              delay -= 1
+            }
         }
       }
       case 1 => {
@@ -70,7 +82,7 @@ class FlowDriver[T <: Data](flow: Flow[T], clockDomain: ClockDomain, var driver:
       case 2 => {
         flow.valid #= false
         flow.payload.randomize()
-        delay = transactionDelay()
+        if (factor.isEmpty) {delay = transactionDelay()}
         state = 0
         fsm()
       }

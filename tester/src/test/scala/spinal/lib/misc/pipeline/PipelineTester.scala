@@ -3,7 +3,7 @@ package spinal.lib.misc.pipeline
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import spinal.lib.sim.{StreamDriver, StreamMonitor, StreamReadyRandomizer}
+import spinal.lib.sim.{FlowDriver, FlowMonitor, StreamDriver, StreamMonitor, StreamReadyRandomizer}
 import spinal.tester.SpinalAnyFunSuite
 
 import scala.collection.mutable
@@ -13,27 +13,67 @@ class PipelineTester extends SpinalAnyFunSuite{
 
   // The user just need to implement that callback to specify what should be expected
   // on the down stream in function of what is pushed on the up stream
-  def simpleTest(cd : ClockDomain, up : Stream[UInt], down : Stream[UInt])(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = {
+  def simpleTest(cd : ClockDomain, up : Any, down : Any)(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = {
     cd.forkStimulus(10)
     var coverage = 0
 
     val refQueue = mutable.Queue[Int]()
-    StreamDriver(up, cd) { p =>
-      p.randomize()
-      true
-    }.setFactorPeriodically(500)
-    StreamMonitor(up, cd) { p =>
-      onPush(p.toInt, refQueue)
+    up match {
+      case up : Stream[UInt] => {
+        StreamDriver(up, cd) { p =>
+          p.randomize()
+          true
+        }.setFactorPeriodically(500)
+        StreamMonitor(up, cd) { p =>
+          onPush(p.toInt, refQueue)
+        }
+      }
+      case up: Flow[UInt] => {
+        FlowDriver(up, cd) { p =>
+          p.randomize()
+          true
+        }.setFactorPeriodically(500)
+        FlowMonitor(up, cd) { p =>
+          onPush(p.toInt, refQueue)
+        }
+      }
+      case up: UInt => {
+        cd.onSamplings {
+          onPush(up.toInt, refQueue)
+          up.randomize()
+        }
+      }
     }
 
-    StreamReadyRandomizer(down, cd).setFactorPeriodically(500)
-    StreamMonitor(down, cd) { p =>
-      val got = p.toInt
-      assert(got == refQueue.dequeue())
-      coverage += 1
-      if (coverage == 1000) simSuccess()
+    down match {
+      case down: Stream[UInt] => {
+        StreamReadyRandomizer(down, cd).setFactorPeriodically(500)
+        StreamMonitor(down, cd) { p =>
+          val got = p.toInt
+          assert(got == refQueue.dequeue())
+          coverage += 1
+          if (coverage == 1000) simSuccess()
+        }
+      }
+      case down: Flow[UInt] => {
+        FlowMonitor(down, cd) { p =>
+          val got = p.toInt
+          assert(got == refQueue.dequeue())
+          coverage += 1
+          if (coverage == 1000) simSuccess()
+        }
+      }
+      case down: UInt => {
+        cd.onSamplings{
+          val got = down.toInt
+          assert(got == refQueue.dequeue())
+          coverage += 1
+          if (coverage == 1000) simSuccess()
+        }
+      }
     }
   }
+
 
   // Simple pipeline composed of 4 nodes connected by 3 register stages
   class NodePipeline extends Component {
@@ -53,12 +93,7 @@ class PipelineTester extends SpinalAnyFunSuite{
     n3.toStream(down)((payload, self) => payload := self(OUT))
 
     val connectors = List(s01, s12, s23)
-
-    override def postInitCallback() = {
-      Builder(connectors)
-      super.postInitCallback()
-    }
-
+    afterElaboration(Builder(connectors))
 
     def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, up, down)(onPush)
   }
@@ -106,11 +141,7 @@ class PipelineTester extends SpinalAnyFunSuite{
     c2.down.toStream(down)((payload, self) => payload := self(OUT))
 
     val connectors = List(c0, c1, c2, s01, s12)
-
-    override def postInitCallback() = {
-      Builder(connectors)
-      super.postInitCallback()
-    }
+    afterElaboration(Builder(connectors))
 
     // The user just need to implement that callback to specify what should be expected
     // on the down stream in function of what is pushed
@@ -396,10 +427,7 @@ class PipelineTester extends SpinalAnyFunSuite{
 
     val connectors = List(c0, c1, c2, c3, s01, s12, s23)
 
-    override def postInitCallback() = {
-      Builder(connectors)
-      super.postInitCallback()
-    }
+    afterElaboration(Builder(connectors))
 
     // The user just need to implement that callback to specify what should be expected
     // on the down stream in function of what is pushed
@@ -417,7 +445,7 @@ class PipelineTester extends SpinalAnyFunSuite{
   }
 
   test("s2mThrow") {
-    SimConfig.withFstWave.compile(new S2mPipeline {
+    SimConfig.compile(new S2mPipeline {
       val halt = in Bool()
       c2.haltWhen(halt) //This is used to get better coverage on the throw logic
       c2.throwWhen(c2(IN).lsb && !halt)
@@ -428,6 +456,74 @@ class PipelineTester extends SpinalAnyFunSuite{
         if ((value & 1) == 0) {
           queue += value
         }
+      }
+    }
+  }
+
+
+  class UnmappedPipeline extends Component {
+    val c0 = CtrlConnector()
+    val c1 = CtrlConnector()
+    val c2 = CtrlConnector()
+
+    val s01 = StageConnector(c0.down, c1.up)
+    val s12 = StageConnector(c1.down, c2.up)
+
+    val IN = Stageable(UInt(16 bits))
+    val OUT = Stageable(UInt(16 bits))
+
+    val connectors = List(c0, c1, c2, s01, s12)
+    afterElaboration(Builder(connectors))
+  }
+
+  class FlowPipeline extends UnmappedPipeline {
+    val up = slave Flow (IN)
+    val down = master Flow (OUT)
+    c0.up.driveFrom(up)((self, payload) => self(IN) := payload)
+    c2.down.toFlow(down)((payload, self) => payload := self(OUT))
+    def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, up, down)(onPush)
+  }
+
+  class StreamToFlowPipeline extends UnmappedPipeline {
+    val up = slave Stream (IN)
+    val down = master Flow (OUT)
+    c0.up.driveFrom(up)((self, payload) => self(IN) := payload)
+    c2.down.toFlow(down)((payload, self) => payload := self(OUT))
+    def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, up, down)(onPush)
+  }
+
+  test("StreamToFlowPipeline") {
+    SimConfig.compile(new StreamToFlowPipeline {
+      c1(OUT) := c1(IN)
+      val halt = in Bool()
+      c1.haltWhen(halt)
+    }).doSimUntilVoid { dut =>
+      dut.clockDomain.onSamplings(dut.halt.randomize())
+      dut.testIt { (value, queue) =>
+        queue += value
+      }
+    }
+  }
+
+
+  class DataPipeline extends UnmappedPipeline {
+    val up = in UInt (16 bits)
+    val down = master Flow(UInt(16 bits))
+
+    c0.up.setAlwaysValid()
+    c0.up(IN) := up
+
+    c2.down.toFlow(down)((payload, self) => payload := self(OUT))
+
+    def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, up, down)(onPush)
+  }
+
+  test("DataPipeline") {
+    SimConfig.compile(new DataPipeline {
+      c1(OUT) := c1(IN)
+    }).doSimUntilVoid { dut =>
+      dut.testIt { (value, queue) =>
+        queue += value
       }
     }
   }

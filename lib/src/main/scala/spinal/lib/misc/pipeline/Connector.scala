@@ -14,14 +14,12 @@ trait Connector extends Area{
     for(up <- ups; down <- downs) {
       down.fromUp.payload ++= up.fromUp.payload
       down.fromUp.payload ++= up.keyToData.keys
-      down.alwaysValid = up.alwaysValid
     }
   }
   def propagateUpAll(): Unit = {
     for (up <- ups; down <- downs) {
       up.fromDown.payload ++= down.fromDown.payload
       up.fromDown.payload ++= down.keyToData.keys
-      up.alwaysReady = down.alwaysReady
     }
   }
 }

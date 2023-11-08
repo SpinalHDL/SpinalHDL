@@ -17,16 +17,21 @@ class DirectConnector(val up : Node, val down : Node) extends Connector {
   override def ups: Seq[Node] = List(up)
   override def downs: Seq[Node] = List(down)
 
-  override def propagateDown(): Unit = propagateDownAll()
+  override def propagateDown(): Unit = {
+    propagateDownAll()
+    if(up.alwaysValid) down.setAlwaysValid()
+  }
   override def propagateUp(): Unit = {
     propagateUpAll()
     down.ctrl.removeSeed.foreach(_ => up.ctrl.removeSeed = Some(Bool()))
     up.ctrl.nameRemoveSeed()
+
+    if(down.alwaysReady) up.setAlwaysReady()
   }
 
   override def build(): Unit = {
-    down.valid := up.valid
-    up.ready := down.ready
+    if(!down.alwaysValid) down.valid := up.valid
+    if(!up.alwaysReady) up.ready := down.ready
     val matches = down.fromUp.payload.intersect(up.fromDown.payload)
     for(m <- matches){
       down(m) := up(m)

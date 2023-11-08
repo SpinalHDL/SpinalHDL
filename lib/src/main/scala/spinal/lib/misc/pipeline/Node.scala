@@ -32,6 +32,19 @@ class Node() extends Area {
   var alwaysValid = false
   var alwaysReady = false
 
+  def setAlwaysValid(): Unit = {
+    valid := True
+    valid.freeze()
+    alwaysValid = true
+  }
+
+  def setAlwaysReady(): Unit = {
+    ready := True
+    ready.freeze()
+    alwaysReady = true
+  }
+
+
   def apply(key: StageableKey): Data = {
     keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
       val ret = key.stageable()
@@ -57,15 +70,26 @@ class Node() extends Area {
     s
   }
 
-  def driveFrom[T <: Data](stream: Stream[T])(con: (Node, T) => Unit): Unit = {
-    valid := stream.valid
-    stream.ready := ready
-    con(this, stream.payload)
+  def driveFrom[T <: Data](that: Stream[T])(con: (Node, T) => Unit): Unit = {
+    valid := that.valid
+    that.ready := ready
+    con(this, that.payload)
   }
 
-  def toStream[T <: Data](stream: Stream[T])(con: (T, Node) => Unit): Unit = {
-    stream.valid := valid
-    ready := stream.ready
-    con(stream.payload, this)
+  def driveFrom[T <: Data](that: Flow[T])(con: (Node, T) => Unit): Unit = {
+    valid := that.valid
+    con(this, that.payload)
+  }
+
+  def toStream[T <: Data](that: Stream[T])(con: (T, Node) => Unit): Unit = {
+    that.valid := valid
+    ready := that.ready
+    con(that.payload, this)
+  }
+
+  def toFlow[T <: Data](that: Flow[T])(con: (T, Node) => Unit): Unit = {
+    that.valid := valid
+    con(that.payload, this)
+    setAlwaysReady()
   }
 }

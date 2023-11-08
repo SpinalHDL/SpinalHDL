@@ -29,6 +29,9 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     val duplicates = ArrayBuffer[Bool]()
     val terminates = ArrayBuffer[Bool]()
     val removeSeeds = ArrayBuffer[Bool]()
+
+    def impactValid = halts.nonEmpty || terminates.nonEmpty
+    def impactReady = halts.nonEmpty || duplicates.nonEmpty
   }
 
   def apply[T <: Data](that: Stageable[T]): T = down(that)
@@ -82,16 +85,26 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     Some(l.orR)
   }
 
-  override def propagateDown(): Unit = propagateDownAll()
+  override def propagateDown(): Unit = {
+    propagateDownAll()
+    if(up.alwaysValid && !requests.impactValid){
+      down.setAlwaysValid()
+    }
+  }
+
   override def propagateUp(): Unit = {
     propagateUpAll()
     up.ctrl.removeSeed = or(down.ctrl.removeSeed, requests.removeSeeds)
     up.ctrl.nameRemoveSeed()
+
+    if (down.alwaysReady && !requests.impactReady) {
+      up.setAlwaysReady()
+    }
   }
 
   override def build(): Unit = {
-    down.valid := up.valid
-    up.ready := down.ready
+    if(!down.alwaysValid) down.valid := up.valid
+    if(!up.alwaysReady) up.ready := down.ready
     if(requests.halts.nonEmpty) when(requests.halts.orR){
       down.valid := False
       up.ready := False
