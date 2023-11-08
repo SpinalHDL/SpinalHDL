@@ -2064,7 +2064,7 @@ object PlayPipelineApi extends App{
 
     a.driveFrom(source)((self, payload) => self(PC) := payload)
     c1.haltWhen(c(PC) === 42)
-    f.toStream(sink)((payload, self) => payload := self(PC))
+    f.driveTo(sink)((payload, self) => payload := self(PC))
 
 
     val connectors = List(c0, c1, c2, s01, s12)
@@ -2092,7 +2092,7 @@ object PlayPipelineApi2 extends App{
     c0.up.driveFrom(source)((self, payload) => self(PC) := payload)
     c1.haltWhen(c1(PC) === 42)
     val PC_PLUS_4 = c1.insert(c1(PC) + 4)
-    c2.down.toStream(sink)((payload, self) => payload := self(PC_PLUS_4))
+    c2.down.driveTo(sink)((payload, self) => payload := self(PC_PLUS_4))
 
     val connectors = List(c0, c1, c2, s01, s12)
     Builder(connectors)

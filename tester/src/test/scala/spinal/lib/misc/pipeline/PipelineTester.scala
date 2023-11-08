@@ -90,7 +90,7 @@ class PipelineTester extends SpinalAnyFunSuite{
     val down = master Stream (OUT)
 
     n0.driveFrom(up)((self, payload) => self(IN) := payload)
-    n3.toStream(down)((payload, self) => payload := self(OUT))
+    n3.driveTo(down)((payload, self) => payload := self(OUT))
 
     val connectors = List(s01, s12, s23)
     afterElaboration(Builder(connectors))
@@ -138,7 +138,7 @@ class PipelineTester extends SpinalAnyFunSuite{
     val down = master Stream (OUT)
 
     c0.up.driveFrom(up)((self, payload) => self(IN) := payload)
-    c2.down.toStream(down)((payload, self) => payload := self(OUT))
+    c2.down.driveTo(down)((payload, self) => payload := self(OUT))
 
     val connectors = List(c0, c1, c2, s01, s12)
     afterElaboration(Builder(connectors))
@@ -320,9 +320,9 @@ class PipelineTester extends SpinalAnyFunSuite{
       val downs = Vec.fill(2)(master Stream (IN))
 
       n0.driveFrom(up)((self, payload) => self(IN) := payload)
-      n3.toStream(downs(0))((payload, self) => payload := self(IN) + 0x1234)
+      n3.driveTo(downs(0))((payload, self) => payload := self(IN) + 0x1234)
       c0.throwWhen(c0.up(IN)(0))
-      n6.toStream(downs(1))((payload, self) => payload := self(IN) + 0x4836)
+      n6.driveTo(downs(1))((payload, self) => payload := self(IN) + 0x4836)
 
       val connectors = List(f0, s0, s1, s2, c0)
       Builder(connectors)
@@ -374,7 +374,7 @@ class PipelineTester extends SpinalAnyFunSuite{
       n0.driveFrom(ups(0))((self, payload) => self(A) := payload)
       n2.driveFrom(ups(1))((self, payload) => self(B) := payload)
 
-      n5.toStream(down)((payload, self) => payload := self(A) + self(B))
+      n5.driveTo(down)((payload, self) => payload := self(A) + self(B))
 
       val connectors = List(j0, s0, s1, s2)
       Builder(connectors)
@@ -423,7 +423,7 @@ class PipelineTester extends SpinalAnyFunSuite{
     val down = master Stream (OUT)
 
     c0.up.driveFrom(up)((self, payload) => self(IN) := payload)
-    c3.down.toStream(down)((payload, self) => payload := self(OUT))
+    c3.down.driveTo(down)((payload, self) => payload := self(OUT))
 
     val connectors = List(c0, c1, c2, c3, s01, s12, s23)
 
@@ -480,7 +480,7 @@ class PipelineTester extends SpinalAnyFunSuite{
     val up = slave Flow (IN)
     val down = master Flow (OUT)
     c0.up.driveFrom(up)((self, payload) => self(IN) := payload)
-    c2.down.toFlow(down)((payload, self) => payload := self(OUT))
+    c2.down.driveTo(down)((payload, self) => payload := self(OUT))
     def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, up, down)(onPush)
   }
 
@@ -488,7 +488,7 @@ class PipelineTester extends SpinalAnyFunSuite{
     val up = slave Stream (IN)
     val down = master Flow (OUT)
     c0.up.driveFrom(up)((self, payload) => self(IN) := payload)
-    c2.down.toFlow(down)((payload, self) => payload := self(OUT))
+    c2.down.driveTo(down)((payload, self) => payload := self(OUT))
     def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, up, down)(onPush)
   }
 
@@ -513,7 +513,7 @@ class PipelineTester extends SpinalAnyFunSuite{
     c0.up.setAlwaysValid()
     c0.up(IN) := up
 
-    c2.down.toFlow(down)((payload, self) => payload := self(OUT))
+    c2.down.driveTo(down)((payload, self) => payload := self(OUT))
 
     def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, up, down)(onPush)
   }

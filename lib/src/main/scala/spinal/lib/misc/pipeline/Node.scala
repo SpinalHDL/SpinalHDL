@@ -81,13 +81,13 @@ class Node() extends Area {
     con(this, that.payload)
   }
 
-  def toStream[T <: Data](that: Stream[T])(con: (T, Node) => Unit): Unit = {
+  def driveTo[T <: Data](that: Stream[T])(con: (T, Node) => Unit): Unit = {
     that.valid := valid
     ready := that.ready
     con(that.payload, this)
   }
 
-  def toFlow[T <: Data](that: Flow[T])(con: (T, Node) => Unit): Unit = {
+  def driveTo[T <: Data](that: Flow[T])(con: (T, Node) => Unit): Unit = {
     that.valid := valid
     con(that.payload, this)
     setAlwaysReady()
