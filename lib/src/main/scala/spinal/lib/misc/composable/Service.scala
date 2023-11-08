@@ -20,7 +20,7 @@ object ServiceHost extends ScopeProperty[ServiceHost] {
 class ServiceHost {
   val services = ArrayBuffer[Any]()
 
-  val _context = ScopeProperty.capture() //TODO not as heavy
+  val _context = ScopeProperty.capture()
 
   def rework[T](body: => T): T = {
     val oldContext = ScopeProperty.captureNoClone()

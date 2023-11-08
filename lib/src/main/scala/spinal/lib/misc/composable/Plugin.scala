@@ -2,8 +2,9 @@ package spinal.lib.misc.composable
 
 import spinal.core._
 import spinal.core.fiber._
-import scala.reflect.{ClassTag, classTag}
+import spinal.lib.Stageable
 
+import scala.reflect.{ClassTag, classTag}
 import scala.collection.mutable.ArrayBuffer
 
 trait Lockable extends Area {
@@ -18,11 +19,11 @@ class Plugin extends Area with Lockable {
   def withPrefix(prefix: String) = setName(prefix + "_" + getName())
 
   var pluginEnabled = true
-  val host = Handle[ServiceHost]
+  var host : ServiceHost = null
 
   def setHost(h: ServiceHost): Unit = {
     h.add(this)
-    host.load(h)
+    host = h
   }
 
   def during = new {
@@ -41,6 +42,13 @@ class Plugin extends Area with Lockable {
           host.rework(body)
         }
       }
+    }
+  }
+
+  override def valCallbackRec(obj: Any, name: String) = {
+    obj match {
+      case obj : Stageable[_] => obj.setName(name)
+      case _ => super.valCallbackRec(obj, name)
     }
   }
 }
