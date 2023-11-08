@@ -45,13 +45,8 @@ class ForkConnector(val up : Node, override val downs : Seq[Node], synchronous: 
        * When an output fires, mark its value as taken. */
       for (i <- 0 until downs.size) {
         downs(i).valid := up.valid && linkEnable(i)
-        when(downs(i).isFireing) {
+        when(downs(i).isMoving) {
           linkEnable(i) := False
-        }
-        downs(i).ctrl.removeSeed.foreach{cond =>
-          when(downs(i).valid && cond) {
-            linkEnable(i) := False
-          }
         }
       }
 

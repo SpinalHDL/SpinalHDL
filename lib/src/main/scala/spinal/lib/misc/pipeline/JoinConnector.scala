@@ -19,7 +19,7 @@ class JoinConnector(override val ups : Seq[Node], val down : Node) extends Conne
     assert(down.ctrl.removeSeed.isEmpty)
 
     down.valid := ups.map(_.valid).andR
-    ups.foreach(_.ready := down.isFireing)
+    ups.foreach(_.ready := down.valid && down.ready)
     for(key <- down.fromUp.payload){
       val filtred = ups.filter(up => up.keyToData.contains(key) || up.fromUp.payload.contains(key))
       filtred.size match {

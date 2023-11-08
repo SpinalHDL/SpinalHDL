@@ -48,6 +48,9 @@ object Builder {
     propagateUp()
     propagateDown()
     for (c <- connectors) c.build()
+
+    val nodes = connectors.flatMap(c => c.ups ++ c.downs).distinctLinked
+    for(n <- nodes) n.build()
   }
 }
 

@@ -17,9 +17,40 @@ class Node() extends Area {
     var removeSeed = Option.empty[Bool]
   }
 
+  val status = new {
+    var fire = Option.empty[Bool]
+    var moving = Option.empty[Bool]
+    var remove = Option.empty[Bool]
+  }
+
   def isValid = valid
   def isReady = ready
-  val isFireing = valid && ready
+
+  // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
+  def isFireing = {
+    if (status.fire.isEmpty) status.fire = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(this, "isFireing")))
+    status.fire.get
+  }
+
+  // True when the current node is being cleaned up
+  def isRemoved = {
+    if (status.remove.isEmpty) status.remove = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(this, "isRemoved")))
+    status.remove.get
+  }
+
+  // True when it is the last cycle that the current transaction is present on this node. Useful to "reset" some states
+  def isMoving = {
+    if (status.moving.isEmpty) status.moving = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(this, "isMoving")))
+    status.moving.get
+  }
+
+
+  def build(): Unit = {
+    status.fire.foreach(_ := isValid && isReady && !isRemoved)
+    status.moving.foreach(_ := isValid && (isReady || isRemoved))
+    status.remove.foreach(_ := ctrl.removeSeed.getOrElse(False))
+  }
+
 
   val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
 
@@ -31,6 +62,7 @@ class Node() extends Area {
 
   var alwaysValid = false
   var alwaysReady = false
+
 
   def setAlwaysValid(): Unit = {
     valid := True
