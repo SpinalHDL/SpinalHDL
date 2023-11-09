@@ -1,30 +1,30 @@
-package spinal.lib.misc.service
+package spinal.lib.misc.plugin
 
 import spinal.core._
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.{ClassTag, classTag}
 
-object Service {
-  def list[T: ClassTag]: Seq[T] = ServiceHost.get.list[T]
-  def apply[T: ClassTag]: T = ServiceHost.get.apply[T]
+object Plugin {
+  def list[T: ClassTag]: Seq[T] = PluginHost.get.list[T]
+  def apply[T: ClassTag]: T = PluginHost.get.apply[T]
 }
 
-object ServiceHost extends ScopeProperty[ServiceHost] {
-  def on[T](body: => T) = this (new ServiceHost).on(body)
+object PluginHost extends ScopeProperty[PluginHost] {
+  def on[T](body: => T) = this (new PluginHost).on(body)
 }
 
 trait Hostable{
-  def setHost(h: ServiceHost) : Unit
+  def setHost(h: PluginHost) : Unit
 }
 
-class ServiceHost {
+class PluginHost {
   val services = ArrayBuffer[Any]()
   val _context = ScopeProperty.capture()
 
   def rework[T](body: => T): T = {
     val oldContext = ScopeProperty.captureNoClone()
     _context.restoreCloned()
-    val b = ServiceHost(this) {
+    val b = PluginHost(this) {
       body
     }
     oldContext.restore()

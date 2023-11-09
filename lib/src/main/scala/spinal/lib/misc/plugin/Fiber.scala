@@ -1,4 +1,4 @@
-package spinal.lib.misc.service
+package spinal.lib.misc.plugin
 
 import spinal.core._
 import spinal.core.fiber._
@@ -11,11 +11,11 @@ class FiberPlugin extends Area with Lockable with Hostable {
   def withPrefix(prefix: String) = setName(prefix + "_" + getName())
 
   var pluginEnabled = true
-  var host : ServiceHost = null
+  var host : PluginHost = null
 
   val subservices = ArrayBuffer[Any]()
 
-  override def setHost(h: ServiceHost): Unit = {
+  override def setHost(h: PluginHost): Unit = {
     h.addService(this)
     subservices.foreach(h.addService)
     host = h

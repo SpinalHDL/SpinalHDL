@@ -1,19 +1,19 @@
-package spinal.lib.misc.service
+package spinal.lib.misc.plugin
 
 import spinal.core._
-import spinal.lib.misc.service._
+import spinal.lib.misc.plugin._
 
 
 object Example1 extends App{
 
-  // Let's define a Component with a ServiceHost instance
+  // Let's define a Component with a PluginHost instance
   class SubComponent extends Component {
-    val host = new ServiceHost()
+    val host = new PluginHost()
   }
 
   // Let's define a plugin which create a register
   class StatePlugin extends FiberPlugin {
-    // during build new Area { body } will run the body of code in the Fiber build phase, in the context of the ServiceHost
+    // during build new Area { body } will run the body of code in the Fiber build phase, in the context of the PluginHost
     val logic = during build new Area {
       val signal = Reg(UInt(32 bits))
     }
@@ -21,12 +21,12 @@ object Example1 extends App{
 
   // Let's define a plugin which will make the StatePlugin's register increment
   class DriverPlugin extends FiberPlugin {
-    // We define how to get the instance of StatePlugin in the ServiceHost
-    lazy val spl = host[StatePlugin].logic.get
+    // We define how to get the instance of StatePlugin in the PluginHost
+    lazy val sp = host[StatePlugin].logic.get
 
     val logic = during build new Area {
       // Generate the increment hardware
-      spl.signal := spl.signal + 1
+      sp.signal := sp.signal + 1
     }
   }
 
@@ -34,8 +34,10 @@ object Example1 extends App{
     val sub = new SubComponent()
 
     // Here we create plugins and embed them in sub.host
-    new DriverPlugin().setHost(sub.host)
-    new StatePlugin().setHost(sub.host)
+    sub.host.asHostOf(
+      new DriverPlugin(),
+      new StatePlugin()
+    )
   }
 
   SpinalVerilog(new TopLevel).printRtl()
@@ -43,7 +45,7 @@ object Example1 extends App{
 
 object Example2 extends App{
   class SubComponent extends Component {
-    val host = new ServiceHost()
+    val host = new PluginHost()
   }
 
   class StatePlugin extends FiberPlugin {
@@ -53,18 +55,18 @@ object Example2 extends App{
   }
 
   class DriverPlugin extends FiberPlugin {
-    lazy val spl = host[StatePlugin].logic.get
+    lazy val sp = host[StatePlugin].logic.get
 
     // incrementBy will be set by others plugin at elaboration time
     var incrementBy = 0
     val logic = during build new Area {
       // Generate the incrementer hardware
-      spl.signal := spl.signal + incrementBy
+      sp.signal := sp.signal + incrementBy
     }
   }
 
   // Let's define a plugin which will modify the DriverPlugin.incrementBy variable because letting it elaborate its hardware
-  class IncrementerPlugin extends FiberPlugin {
+  class SetupPlugin extends FiberPlugin {
     def dp = host[DriverPlugin]
     // during setup { body } will run the body of code in the Fiber setup phase (it is before the Fiber build phase)
     during setup {
@@ -86,8 +88,8 @@ object Example2 extends App{
     sub.host.asHostOf(
       new DriverPlugin(),
       new StatePlugin(),
-      new IncrementerPlugin(),
-      new IncrementerPlugin()
+      new SetupPlugin(),
+      new SetupPlugin()
     )
   }
 

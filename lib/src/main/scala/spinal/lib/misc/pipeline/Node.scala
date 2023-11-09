@@ -20,7 +20,7 @@ trait NodeApi {
 
   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
   def isFiring = {
-    if (status.fire.isEmpty) status.fire = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isFireing")))
+    if (status.fire.isEmpty) status.fire = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isFiring")))
     status.fire.get
   }
 

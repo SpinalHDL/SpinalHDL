@@ -15,7 +15,7 @@ import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
 import spinal.lib.graphic.Rgb
 import spinal.lib.io.TriState
-import spinal.lib.misc.service.{FiberPlugin, Service, ServiceHost}
+import spinal.lib.misc.plugin.{FiberPlugin, Plugin, PluginHost}
 import spinal.lib.misc.test.{DualSimTracer, MultithreadedTester}
 import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
@@ -1959,7 +1959,7 @@ object PlayScopedMess extends App{
 
   class VexiiRiscv extends Component{
     val database = new Database
-    val host = Database(database) on (new ServiceHost)
+    val host = Database(database) on (new PluginHost)
   }
 
   class PcPlugin extends FiberPlugin {
@@ -1972,14 +1972,14 @@ object PlayScopedMess extends App{
 
   class JumpPlugin extends FiberPlugin {
     val setup = during setup new Area{
-      Service[PcPlugin].retain()
+      Plugin[PcPlugin].retain()
     }
     val logic = during build new Area {
       println(Riscv.RVC())
       println(Riscv.XLEN_PLUS_2())
       val jump = Flow(Riscv.PC())
-      Service[PcPlugin].jumps += jump
-      Service[PcPlugin].release()
+      Plugin[PcPlugin].jumps += jump
+      Plugin[PcPlugin].release()
     }
   }
 
@@ -2102,7 +2102,7 @@ object PlayComposablePlugin extends App{
   import spinal.lib.misc.pipeline._
 
   class VexiiRiscv extends Component{
-    val host = new ServiceHost
+    val host = new PluginHost
   }
 
   trait AddressTranslationService extends Area{
