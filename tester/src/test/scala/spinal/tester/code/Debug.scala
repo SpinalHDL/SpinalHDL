@@ -2116,45 +2116,87 @@ object PlayComposablePlugin extends App{
     val MIXED_ADDRESS = Stageable(UInt(MIXED_WIDTH bits))
     val PHYSICAL_ADDRESS = Stageable(UInt(PHYSICAL_WIDTH bits))
     val PC = Stageable(UInt(PC_WIDTH bits))
+
+    def createTranslationPort() : Unit = ???
   }
 
   class StaticTranslationPlugin(physicalWidth : Int) extends Plugin with AddressTranslationService{
     override def PHYSICAL_WIDTH: Int = physicalWidth
     override def VIRTUAL_WIDTH: Int = physicalWidth
-    override def PC_WIDTH: Int = physicalWidth
     override def MIXED_WIDTH: Int = physicalWidth
+    override def PC_WIDTH: Int = physicalWidth
   }
 
-  class PcPlugin extends Plugin {
+  trait PcService extends Area with Lockable{
+    def createJumpInterface(): Flow[UInt]
+  }
+
+  class PcPlugin extends Plugin with PcService {
+    def ats = host[AddressTranslationService]
+
     val jumps = ArrayBuffer[Flow[UInt]]()
+    override def createJumpInterface(): Flow[UInt] = {
+      val bus = Flow(ats.PC)
+      jumps += bus
+      bus
+    }
+
     val logic = during build new Area {
-      val ats = host[AddressTranslationService]
       val pc = Reg(ats.PC) init(0)
       for(jump <- jumps) when(jump.valid){ pc := jump.payload}
     }
   }
 
-  class JumpPlugin extends Plugin {
-    val setup = during setup new Area{
-      host[PcPlugin].retain()
+  class PcPluginComposed extends Plugin {
+    def ats = host[AddressTranslationService]
+
+    val pcs = new PcService{
+      subservices += this
+      val jumps = ArrayBuffer[Flow[UInt]]()
+      override def createJumpInterface(): Flow[UInt] = {
+        val bus = Flow(ats.PC)
+        jumps += bus
+        bus
+      }
     }
+
     val logic = during build new Area {
-      val ats = host[AddressTranslationService]
-      val jump = Flow(ats.PC)
-      host[PcPlugin].jumps += jump
-      host[PcPlugin].release()
+      val pc = Reg(ats.PC) init (0)
+      for (jump <- pcs.jumps) when(jump.valid) {
+        pc := jump.payload
+      }
+    }
+  }
+
+  class JumpPlugin extends Plugin {
+    def pcs = host[PcService]
+
+    during setup {
+      pcs.retain()
+    }
+
+    val logic = during build new Area {
+      val jump = pcs.createJumpInterface()
+      pcs.release()
+
+      jump.valid := False
+      jump.payload := 0x42
     }
   }
 
   class TopLevel extends Component {
     val vexii = new VexiiRiscv
-    new PcPlugin().setHost(vexii.host)
-    new JumpPlugin().setHost(vexii.host)
-    new StaticTranslationPlugin(physicalWidth = 30).setHost(vexii.host)
+
+    val plugins = ArrayBuffer(
+      new PcPluginComposed(),
+      new JumpPlugin(),
+      new StaticTranslationPlugin(physicalWidth = 30)
+    )
+    plugins.foreach(_.setHost(vexii.host))
+
   }
 
   val report = SpinalVerilog(new TopLevel).printRtl()
-  println(report.toplevel.vexii.host[PcPlugin])
+  println(report.toplevel.vexii.host[PcPluginComposed])
   println(report.toplevel.vexii.host[AddressTranslationService].PC.getName())
-//  println(report.toplevel.vexii.host[StaticTranslationPlugin].Miaou.getName())
 }

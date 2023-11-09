@@ -21,26 +21,25 @@ class Plugin extends Area with Lockable {
   var pluginEnabled = true
   var host : ServiceHost = null
 
+  val subservices = ArrayBuffer[Any]()
+
   def setHost(h: ServiceHost): Unit = {
     h.add(this)
+    subservices.foreach(h.add)
     host = h
   }
 
   def during = new {
     def setup[T](body: => T): Handle[T] = spinal.core.fiber.Fiber setup {
-      pluginEnabled match {
-        case false => null.asInstanceOf[T]
-        case true => host.rework(body)
+      pluginEnabled generate {
+        host.rework(body)
       }
     }
 
     def build[T](body: => T): Handle[T] = spinal.core.fiber.Fiber build {
-      pluginEnabled match {
-        case false => null.asInstanceOf[T]
-        case true => {
-          lock.await()
-          host.rework(body)
-        }
+      pluginEnabled generate {
+        lock.await()
+        host.rework(body)
       }
     }
   }

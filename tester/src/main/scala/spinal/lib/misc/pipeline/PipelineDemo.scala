@@ -116,6 +116,89 @@ class TopLevel3 extends Component {
   Builder(s01, s12, c0, c1, c2)
 }
 
+// This area allows to take a input value and do +1 +1 +1 over 3 stages.
+// It can be instantiated in pipeline (reusability)
+// I know that's useless, but let's pretend that instead it does a square root XD
+class PLus3(INPUT: Stageable[UInt], stage1: Node, stage2: Node, stage3: Node) extends Area {
+  val ONE = stage1.insert(stage1(INPUT) + 1)
+  val TWO = stage2.insert(stage2(ONE) + 1)
+  val THREE = stage3.insert(stage3(TWO) + 1)
+}
+
+// Let's define a component which takes a stream as input,
+// which carries 'lanesCount' values that we want to process in parallel
+// and put the result on an output stream
+class TopLevel4(lanesCount : Int) extends Component {
+  val io = new Bundle{
+    val up = slave Stream(Vec.fill(lanesCount)(UInt(16 bits)))
+    val down = master Stream(Vec.fill(lanesCount)(UInt(16 bits)))
+  }
+
+  // Let's define 3 Nodes for our pipeline
+  val n0, n1, n2 = Node()
+
+  // Let's connect those nodes by using simples registers
+  val s01 = StageConnector(n0, n1)
+  val s12 = StageConnector(n1, n2)
+
+  // Let's bind io.up to n0
+  n0.arbitrateFrom(io.up)
+  val LANES_INPUT = io.up.payload.map(n0.insert(_))
+
+  // Let's use our "reusable" Plus3 area to generate each processing lane
+  val lanes = for(i <- 0 until lanesCount) yield new PLus3(LANES_INPUT(i), n0, n1, n2)
+
+  // Let's bind n2 to io.down
+  n2.arbitrateTo(io.down)
+  for(i <- 0 until lanesCount) io.down.payload(i) := n2(lanes(i).THREE)
+
+  // Let's ask the builder to generate all the required hardware
+  Builder(s01, s12)
+}
+
+
+import spinal.lib.graphic.Rgb
+class RgbToSomething(stagesCount : Int,
+                     addAt : Int,
+                     invAt : Int,
+                     subAt : Int) extends Component {
+
+  val io = new Bundle {
+    val up = slave Stream (Rgb(8, 8, 8))
+    val down = master Stream (UInt(8 bits))
+  }
+
+  // Let's define the Nodes for our pipeline
+  val nodes = Array.fill(stagesCount)(Node())
+
+  // Let's connect those nodes by using simples registers
+  val connectors = for(i <- 0 to stagesCount-2) yield StageConnector(nodes(i), nodes(i+1))
+
+  val insertNode = nodes(0)
+  val addNode = nodes(addAt)
+  val invNode = nodes(invAt)
+  val subNode = nodes(subAt)
+
+  class NodeArea(node : Node) extends Area{
+
+  }
+
+//  // Let's bind io.up to n0
+//  insertNode.arbitrateFrom(io.up)
+//  val RGB = insertNode.insert(io.up.payload)
+//  val ADDED = addNode.insert()
+//  // Let's do some processing on n1
+//  n1(RESULT) := n1(RGB) + 0x1200
+//
+//  // Let's bind n2 to io.down
+//  n2.ready := io.down.ready
+//  io.down.valid := n2.valid
+//  io.down.payload := n2(RESULT)
+//
+//  // Let's ask the builder to generate all the required hardware
+//  Builder(s01, s12)
+}
+
 
 object PipelineDemo1 extends App {
   SimConfig.withFstWave.compile(new TopLevel3).doSim{ dut =>
