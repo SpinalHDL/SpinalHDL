@@ -1,12 +1,8 @@
-package spinal.lib.misc.composable
+package spinal.lib.misc.service
 
 import spinal.core._
-import spinal.core.fiber._
-import scala.reflect.{ClassTag, classTag}
-
 import scala.collection.mutable.ArrayBuffer
-
-
+import scala.reflect.{ClassTag, classTag}
 
 object Service {
   def list[T: ClassTag]: Seq[T] = ServiceHost.get.list[T]
@@ -19,7 +15,6 @@ object ServiceHost extends ScopeProperty[ServiceHost] {
 
 class ServiceHost {
   val services = ArrayBuffer[Any]()
-
   val _context = ScopeProperty.capture()
 
   def rework[T](body: => T): T = {

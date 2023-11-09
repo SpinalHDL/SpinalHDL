@@ -18,3 +18,10 @@ case class Lock() extends Handle[Int]{
     }
   }
 }
+
+
+trait Lockable {
+  val lock = spinal.core.fiber.Lock()
+  def retain() = lock.retain()
+  def release() = lock.release()
+}

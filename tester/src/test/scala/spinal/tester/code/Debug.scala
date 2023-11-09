@@ -5,16 +5,18 @@ package spinal.tester.code
 
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
-import spinal.core.fiber.{Fiber, Handle}
+import spinal.core.fiber.{Fiber, Handle, Lockable}
 import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, MemBlackboxOf, Operator, Phase, PhaseContext, PhaseMemBlackBoxingWithPolicy, PhaseNetlist, RangedAssignmentFixed, RangedAssignmentFloating}
 import spinal.lib._
 import spinal.core.sim._
 import spinal.idslplugin.{Location, PostInitCallback}
 import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
+import spinal.lib.fiber.plugin.Plugin
 import spinal.lib.fsm._
 import spinal.lib.graphic.Rgb
 import spinal.lib.io.TriState
+import spinal.lib.misc.service.{Service, ServiceHost}
 import spinal.lib.misc.test.{DualSimTracer, MultithreadedTester}
 import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
@@ -1956,8 +1958,6 @@ object PlayScopedMess extends App{
     override def set(db: Database, value: T) = ???
   }
 
-  import spinal.lib.misc.composable._
-
   class VexiiRiscv extends Component{
     val database = new Database
     val host = Database(database) on (new ServiceHost)
@@ -2100,7 +2100,6 @@ object PlayPipelineApi2 extends App{
 }
 
 object PlayComposablePlugin extends App{
-  import spinal.lib.misc.composable._
 
   class VexiiRiscv extends Component{
     val host = new ServiceHost

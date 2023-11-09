@@ -1,17 +1,13 @@
-package spinal.lib.misc.composable
+package spinal.lib.fiber.plugin
 
 import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.NamedType
+import spinal.lib.misc.service.ServiceHost
 
 import scala.reflect.{ClassTag, classTag}
 import scala.collection.mutable.ArrayBuffer
 
-trait Lockable extends Area {
-  val lock = spinal.core.fiber.Lock()
-  def retain() = lock.retain()
-  def release() = lock.release()
-}
 
 class Plugin extends Area with Lockable {
   this.setName(ClassName(this))
