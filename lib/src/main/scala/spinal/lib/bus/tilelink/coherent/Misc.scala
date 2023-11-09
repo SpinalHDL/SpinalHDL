@@ -3,7 +3,7 @@ package spinal.lib.bus.tilelink.coherent
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.tilelink._
-import spinal.lib.pipeline.{Stage}
+import spinal.lib.pipeline._
 
 
 case class DataPayload(bytes : Int) extends Bundle {

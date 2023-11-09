@@ -49,29 +49,29 @@ trait NodeApi {
   }
 
 
-  def apply(key: StageableKey): Data = {
+  def apply(key: NamedTypeKey): Data = {
     keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
-      val ret = key.stageable()
+      val ret = key.tpe()
       Misc.nameThat(getNode, ret, key, "")
       ret
     })
   }
 
-  def apply[T <: Data](key: Stageable[T]): T = apply(StageableKey(key.asInstanceOf[Stageable[Data]], null)).asInstanceOf[T]
+  def apply[T <: Data](key: NamedType[T]): T = apply(NamedTypeKey(key.asInstanceOf[NamedType[Data]], null)).asInstanceOf[T]
 
-  def apply[T <: Data](key: Stageable[T], subKey: Any): T = apply(StageableKey(key.asInstanceOf[Stageable[Data]], subKey)).asInstanceOf[T]
+  def apply[T <: Data](key: NamedType[T], subKey: Any): T = apply(NamedTypeKey(key.asInstanceOf[NamedType[Data]], subKey)).asInstanceOf[T]
 
   //Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE)
   def apply(subKey: Seq[Any]) = new OffsetApi(subKey)
 
   class OffsetApi(subKeys: Seq[Any]) {
-    def apply[T <: Data](that: Stageable[T]): Seq[T] = {
+    def apply[T <: Data](that: NamedType[T]): Seq[T] = {
       subKeys.map(subKey => getNode.apply(that, subKey))
     }
   }
 
-  def insert[T <: Data](that: T): Stageable[T] = {
-    val s = Stageable(cloneOf(that))
+  def insert[T <: Data](that: T): NamedType[T] = {
+    val s = NamedType(cloneOf(that))
     this (s) := that
     s
   }
@@ -118,7 +118,7 @@ trait NodeApi {
 
 
 //  implicit def stageablePiped[T <: Data](stageable: Stageable[T])(implicit key : StageableOffset = StageableOffsetNone) = Stage.this(stageable, key.value)
-  implicit def stageablePiped2[T <: Data](stageable: Stageable[T]) = this(stageable)
+  implicit def stageablePiped2[T <: Data](stageable: NamedType[T]) = this(stageable)
 
 }
 
@@ -128,7 +128,7 @@ class Node() extends Area with NodeApi{
   override val valid = Bool()
   override val ready = Bool()
 
-  val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
+  val keyToData = mutable.LinkedHashMap[NamedTypeKey, Data]()
 
   val fromUp = new FromUp()
   val fromDown = new FromDown()

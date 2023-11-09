@@ -2,7 +2,7 @@ package spinal.lib.misc.composable
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.Stageable
+import spinal.lib.NamedType
 
 import scala.reflect.{ClassTag, classTag}
 import scala.collection.mutable.ArrayBuffer
@@ -46,7 +46,7 @@ class Plugin extends Area with Lockable {
 
   override def valCallbackRec(obj: Any, name: String) = {
     obj match {
-      case obj : Stageable[_] => obj.setName(name)
+      case obj : NamedType[_] => obj.setName(name)
       case _ => super.valCallbackRec(obj, name)
     }
   }

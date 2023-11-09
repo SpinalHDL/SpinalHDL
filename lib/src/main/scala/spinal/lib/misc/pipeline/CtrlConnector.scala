@@ -37,18 +37,18 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   def isValid = up.isValid
   def isReady = down.isReady
 
-  def apply[T <: Data](that: Stageable[T]): T = down(that)
-  def apply[T <: Data](that: Stageable[T], subKey: Any): T = down(that, subKey)
+  def apply[T <: Data](that: NamedType[T]): T = down(that)
+  def apply[T <: Data](that: NamedType[T], subKey: Any): T = down(that, subKey)
   def apply(subKeys: Seq[Any]) = down(subKeys)
 
 
 
-  def insert[T <: Data](that: T): Stageable[T] = down.insert(that)
+  def insert[T <: Data](that: T): NamedType[T] = down.insert(that)
 
-  def bypass[T <: Data](that: Stageable[T]): T =  bypass(that, null)
-  def bypass[T <: Data](that: Stageable[T], subKey : Any): T =  bypass(StageableKey(that.asInstanceOf[Stageable[Data]], subKey)).asInstanceOf[T]
-  def bypass[T <: Data](that: StageableKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
-    val ret = that.stageable()
+  def bypass[T <: Data](that: NamedType[T]): T =  bypass(that, null)
+  def bypass[T <: Data](that: NamedType[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[NamedType[Data]], subKey)).asInstanceOf[T]
+  def bypass[T <: Data](that: NamedTypeKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
+    val ret = that.tpe()
     Misc.nameThat(this, ret, that, "bypass")
     ret := up(that)
     ret
@@ -70,12 +70,12 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   def removeSeedIt()(implicit loc: Location) : Unit = removeSeedWhen(ConditionalContext.isTrue)
   def throwIt()     (implicit loc: Location) : Unit = throwWhen(ConditionalContext.isTrue)
 
-  val bypasses = mutable.LinkedHashMap[StageableKey, Data]()
-  val keyToData = mutable.LinkedHashMap[StageableKey, Data]()
+  val bypasses = mutable.LinkedHashMap[NamedTypeKey, Data]()
+  val keyToData = mutable.LinkedHashMap[NamedTypeKey, Data]()
 
-  def apply(key: StageableKey): Data = {
+  def apply(key: NamedTypeKey): Data = {
     keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
-      key.stageable()
+      key.tpe()
     })
   }
 

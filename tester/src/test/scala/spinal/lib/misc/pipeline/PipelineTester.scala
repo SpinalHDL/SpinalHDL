@@ -83,8 +83,8 @@ class PipelineTester extends SpinalAnyFunSuite{
     val s12 = StageConnector(n1, n2)
     val s23 = StageConnector(n2, n3)
 
-    val IN = Stageable(UInt(16 bits))
-    val OUT = Stageable(UInt(16 bits))
+    val IN = NamedType(UInt(16 bits))
+    val OUT = NamedType(UInt(16 bits))
 
     val up = slave Stream (IN)
     val down = master Stream (OUT)
@@ -131,8 +131,8 @@ class PipelineTester extends SpinalAnyFunSuite{
     val s01 = StageConnector(c0.down, c1.up)
     val s12 = StageConnector(c1.down, c2.up)
 
-    val IN = Stageable(UInt(16 bits))
-    val OUT = Stageable(UInt(16 bits))
+    val IN = NamedType(UInt(16 bits))
+    val OUT = NamedType(UInt(16 bits))
 
     val up = slave Stream (IN)
     val down = master Stream (OUT)
@@ -330,7 +330,7 @@ class PipelineTester extends SpinalAnyFunSuite{
       val c0 = CtrlConnector(n4, n5)
       val s2 = StageConnector(n5, n6)
 
-      val IN = Stageable(UInt(16 bits))
+      val IN = NamedType(UInt(16 bits))
 
       val up = slave Stream (IN)
       val downs = Vec.fill(2)(master Stream (IN))
@@ -381,8 +381,8 @@ class PipelineTester extends SpinalAnyFunSuite{
       val j0 = JoinConnector(List(n1, n3), n4)
       val s2 = StageConnector(n4, n5)
 
-      val A, B = Stageable(UInt(16 bits))
-      val OUT = Stageable(UInt(16 bits))
+      val A, B = NamedType(UInt(16 bits))
+      val OUT = NamedType(UInt(16 bits))
 
       val ups = Vec.fill(2)(slave Stream (UInt(16 bits)))
       val down = master Stream (OUT)
@@ -432,8 +432,8 @@ class PipelineTester extends SpinalAnyFunSuite{
     val s12 = S2mConnector(c1.down, c2.up)
     val s23 = StageConnector(c2.down, c3.up)
 
-    val IN = Stageable(UInt(16 bits))
-    val OUT = Stageable(UInt(16 bits))
+    val IN = NamedType(UInt(16 bits))
+    val OUT = NamedType(UInt(16 bits))
 
     val up = slave Stream (IN)
     val down = master Stream (OUT)
@@ -485,8 +485,8 @@ class PipelineTester extends SpinalAnyFunSuite{
     val s01 = StageConnector(c0.down, c1.up)
     val s12 = StageConnector(c1.down, c2.up)
 
-    val IN = Stageable(UInt(16 bits))
-    val OUT = Stageable(UInt(16 bits))
+    val IN = NamedType(UInt(16 bits))
+    val OUT = NamedType(UInt(16 bits))
 
     val connectors = List(c0, c1, c2, s01, s12)
     afterElaboration(Builder(connectors))

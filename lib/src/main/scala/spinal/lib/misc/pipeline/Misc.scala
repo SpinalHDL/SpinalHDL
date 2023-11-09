@@ -1,23 +1,23 @@
 package spinal.lib.misc.pipeline
 
 import spinal.core.Nameable
-import spinal.lib.StageableKey
+import spinal.lib.NamedTypeKey
 
 import scala.collection.mutable
 
 class FromUp() {
   var withValid = false
-  val payload = mutable.LinkedHashSet[StageableKey]()
+  val payload = mutable.LinkedHashSet[NamedTypeKey]()
 }
 
 class FromDown() {
   var withReady = false
-  val payload = mutable.LinkedHashSet[StageableKey]()
+  val payload = mutable.LinkedHashSet[NamedTypeKey]()
 }
 
 object Misc{
-  def nameThat(self : Nameable, target: Nameable, key: StageableKey, postfix: String): Unit = {
-    target.setLambdaName(self.isNamed && key.stageable.isNamed) {
+  def nameThat(self : Nameable, target: Nameable, key: NamedTypeKey, postfix: String): Unit = {
+    target.setLambdaName(self.isNamed && key.tpe.isNamed) {
       val stageName = self.getName
       val stageSlices = stageName.split('_')
       val postfixName = key.toString + postfix
