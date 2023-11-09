@@ -157,62 +157,86 @@ class TopLevel4(lanesCount : Int) extends Component {
 }
 
 
-import spinal.lib.graphic.Rgb
-class RgbToSomething(stagesCount : Int,
-                     addAt : Int,
+class RgbToSomething(addAt : Int,
                      invAt : Int,
-                     subAt : Int) extends Component {
+                     mulAt : Int,
+                     resultAt : Int) extends Component {
 
   val io = new Bundle {
-    val up = slave Stream (Rgb(8, 8, 8))
-    val down = master Stream (UInt(8 bits))
+    val up = slave Stream(spinal.lib.graphic.Rgb(8, 8, 8))
+    val down = master Stream (UInt(16 bits))
   }
 
   // Let's define the Nodes for our pipeline
-  val nodes = Array.fill(stagesCount)(Node())
+  val nodes = Array.fill(resultAt+1)(Node())
 
-  // Let's connect those nodes by using simples registers
-  val connectors = for(i <- 0 to stagesCount-2) yield StageConnector(nodes(i), nodes(i+1))
+  // Let's connect those nodes sequencialy by using simples registers
+  val connectors = for(i <- 0 to resultAt-1) yield StageConnector(nodes(i), nodes(i+1))
 
+  // Let's specify which node will be used for what part of the pipeline
   val insertNode = nodes(0)
   val addNode = nodes(addAt)
   val invNode = nodes(invAt)
-  val subNode = nodes(subAt)
+  val mulNode = nodes(mulAt)
+  val resultNode = nodes(resultAt)
 
-  class NodeArea(node : Node) extends Area{
-
+  // Define the hardware which will feed the io.up stream into the pipeline
+  val inserter = new insertNode.Area {
+    arbitrateFrom(io.up)
+    val RGB = insert(io.up.payload)
   }
 
-//  // Let's bind io.up to n0
-//  insertNode.arbitrateFrom(io.up)
-//  val RGB = insertNode.insert(io.up.payload)
-//  val ADDED = addNode.insert()
-//  // Let's do some processing on n1
-//  n1(RESULT) := n1(RGB) + 0x1200
-//
-//  // Let's bind n2 to io.down
-//  n2.ready := io.down.ready
-//  io.down.valid := n2.valid
-//  io.down.payload := n2(RESULT)
-//
-//  // Let's ask the builder to generate all the required hardware
-//  Builder(s01, s12)
+  // sum the r g b values of the color
+  val adder = new addNode.Area {
+    val SUM = insert(inserter.RGB.r + inserter.RGB.g + inserter.RGB.b)
+  }
+
+  // flip all the bit of the RGB sum
+  val inverter = new invNode.Area {
+    val INV = insert(~adder.SUM)
+  }
+
+  // multiplie the inverted bits with 0xEE
+  val multiplier = new mulNode.Area {
+    val MUL = insert(inverter.INV*0xEE)
+  }
+
+  // Connect the end of the pipeline to the io.down stream
+  val resulter = new resultNode.Area {
+    arbitrateTo(io.down)
+    io.down.payload := multiplier.MUL
+  }
+
+  // Let's ask the builder to generate all the required hardware
+  Builder(connectors)
 }
 
 
 object PipelineDemo1 extends App {
-  SimConfig.withFstWave.compile(new TopLevel3).doSim{ dut =>
+  SimConfig.withFstWave.compile(new TopLevel).doSim{ dut =>
     dut.clockDomain.forkStimulus(10)
-//    dut.io.down.ready #= true
-//    dut.clockDomain.waitSampling(5)
-//
-//    // Push one transaction
-//    dut.io.up.valid #= true
-//    dut.io.up.payload #= 0x0042
-//    dut.clockDomain.waitSamplingWhere(dut.io.up.ready.toBoolean)
-//    dut.io.up.valid #= false
+    dut.io.down.ready #= true
+    dut.clockDomain.waitSampling(5)
+
+    // Push one transaction
+    dut.io.up.valid #= true
+    dut.io.up.payload #= 0x0042
+    dut.clockDomain.waitSamplingWhere(dut.io.up.ready.toBoolean)
+    dut.io.up.valid #= false
 
     dut.clockDomain.waitSampling(10)
     simSuccess()
   }
+}
+
+
+object PipelineDemo5 extends App {
+  SpinalVerilog(
+    new RgbToSomething(
+      addAt    = 0,
+      invAt    = 1,
+      mulAt    = 2,
+      resultAt = 3
+    )
+  )
 }
