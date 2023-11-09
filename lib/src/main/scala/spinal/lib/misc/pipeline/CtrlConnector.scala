@@ -37,16 +37,16 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   def isValid = up.isValid
   def isReady = down.isReady
 
-  def apply[T <: Data](that: NamedType[T]): T = down(that)
-  def apply[T <: Data](that: NamedType[T], subKey: Any): T = down(that, subKey)
+  def apply[T <: Data](that: SignalKey[T]): T = down(that)
+  def apply[T <: Data](that: SignalKey[T], subKey: Any): T = down(that, subKey)
   def apply(subKeys: Seq[Any]) = down(subKeys)
 
 
 
-  def insert[T <: Data](that: T): NamedType[T] = down.insert(that)
+  def insert[T <: Data](that: T): SignalKey[T] = down.insert(that)
 
-  def bypass[T <: Data](that: NamedType[T]): T =  bypass(that, null)
-  def bypass[T <: Data](that: NamedType[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[NamedType[Data]], subKey)).asInstanceOf[T]
+  def bypass[T <: Data](that: SignalKey[T]): T =  bypass(that, null)
+  def bypass[T <: Data](that: SignalKey[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
   def bypass[T <: Data](that: NamedTypeKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
     val ret = that.tpe()
     Misc.nameThat(this, ret, that, "bypass")

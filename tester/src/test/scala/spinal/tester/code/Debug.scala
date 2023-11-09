@@ -12,11 +12,10 @@ import spinal.core.sim._
 import spinal.idslplugin.{Location, PostInitCallback}
 import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
-import spinal.lib.fiber.plugin.Plugin
 import spinal.lib.fsm._
 import spinal.lib.graphic.Rgb
 import spinal.lib.io.TriState
-import spinal.lib.misc.service.{Service, ServiceHost}
+import spinal.lib.misc.service.{FiberPlugin, Service, ServiceHost}
 import spinal.lib.misc.test.{DualSimTracer, MultithreadedTester}
 import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
@@ -1893,7 +1892,7 @@ object BBcustomcustom extends App{
 
 
 object PlayScopedMess extends App{
-
+  import spinal.lib.misc.pipeline._
 
   // This is just a HashMap storage
   class Database{
@@ -1963,7 +1962,7 @@ object PlayScopedMess extends App{
     val host = Database(database) on (new ServiceHost)
   }
 
-  class PcPlugin extends Plugin {
+  class PcPlugin extends FiberPlugin {
     val jumps = ArrayBuffer[Flow[UInt]]()
     val logic = during build new Area {
       val pc = Reg(UInt(32 bits)) init(0)
@@ -1971,7 +1970,7 @@ object PlayScopedMess extends App{
     }
   }
 
-  class JumpPlugin extends Plugin {
+  class JumpPlugin extends FiberPlugin {
     val setup = during setup new Area{
       Service[PcPlugin].retain()
     }
@@ -1984,7 +1983,7 @@ object PlayScopedMess extends App{
     }
   }
 
-  class FetchPlugin extends Plugin{
+  class FetchPlugin extends FiberPlugin{
     val pipeline = during build new Pipeline {
       Riscv.RVC.set(true)
 //      Riscv.XLEN.set(32)
@@ -2003,13 +2002,13 @@ object PlayScopedMess extends App{
     }
   }
 
-  class DummyPlugin extends Plugin {
+  class DummyPlugin extends FiberPlugin {
     val pipeline = during build new Pipeline {
 
     }
   }
 
-  class RiscvPlugin(val xlen : Int) extends Plugin{
+  class RiscvPlugin(val xlen : Int) extends FiberPlugin{
 
   }
 
@@ -2017,7 +2016,7 @@ object PlayScopedMess extends App{
     val RVC = Database.blocking[Boolean]
     val XLEN = Database.blocking[Int]
     val XLEN_PLUS_2 = Database.landa(XLEN() + 2)
-    val PC = NamedType(UInt(XLEN() bits))
+    val PC = SignalKey(UInt(XLEN() bits))
   }
 
 
@@ -2056,7 +2055,7 @@ object PlayPipelineApi extends App{
     val c2 = new CtrlConnector(e, f)
 
     // Define a thing which can go through the pipeline (this is a typedef used as a key)
-    val PC = NamedType(UInt(32 bits))
+    val PC = SignalKey(UInt(32 bits))
 
 
     val source = slave Stream(PC)
@@ -2084,7 +2083,7 @@ object PlayPipelineApi2 extends App{
     val s12 = StageConnector(c1.down, c2.up)
 
     // Define a thing which can go through the pipeline (this is a typedef used as a key)
-    val PC = NamedType(UInt(32 bits))
+    val PC = SignalKey(UInt(32 bits))
 
     val source = slave Stream(PC)
     val sink = master Stream(PC)
@@ -2100,6 +2099,7 @@ object PlayPipelineApi2 extends App{
 }
 
 object PlayComposablePlugin extends App{
+  import spinal.lib.misc.pipeline._
 
   class VexiiRiscv extends Component{
     val host = new ServiceHost
@@ -2111,15 +2111,15 @@ object PlayComposablePlugin extends App{
     def VIRTUAL_WIDTH: Int
     def PC_WIDTH : Int
 
-    val VIRTUAL_ADDRESS = NamedType(UInt(VIRTUAL_WIDTH bits))
-    val MIXED_ADDRESS = NamedType(UInt(MIXED_WIDTH bits))
-    val PHYSICAL_ADDRESS = NamedType(UInt(PHYSICAL_WIDTH bits))
-    val PC = NamedType(UInt(PC_WIDTH bits))
+    val VIRTUAL_ADDRESS = SignalKey(UInt(VIRTUAL_WIDTH bits))
+    val MIXED_ADDRESS = SignalKey(UInt(MIXED_WIDTH bits))
+    val PHYSICAL_ADDRESS = SignalKey(UInt(PHYSICAL_WIDTH bits))
+    val PC = SignalKey(UInt(PC_WIDTH bits))
 
     def createTranslationPort() : Unit = ???
   }
 
-  class StaticTranslationPlugin(physicalWidth : Int) extends Plugin with AddressTranslationService{
+  class StaticTranslationPlugin(physicalWidth : Int) extends FiberPlugin with AddressTranslationService{
     override def PHYSICAL_WIDTH: Int = physicalWidth
     override def VIRTUAL_WIDTH: Int = physicalWidth
     override def MIXED_WIDTH: Int = physicalWidth
@@ -2130,7 +2130,7 @@ object PlayComposablePlugin extends App{
     def createJumpInterface(): Flow[UInt]
   }
 
-  class PcPlugin extends Plugin with PcService {
+  class PcPlugin extends FiberPlugin with PcService {
     def ats = host[AddressTranslationService]
 
     val jumps = ArrayBuffer[Flow[UInt]]()
@@ -2146,7 +2146,7 @@ object PlayComposablePlugin extends App{
     }
   }
 
-  class PcPluginComposed extends Plugin {
+  class PcPluginComposed extends FiberPlugin {
     def ats = host[AddressTranslationService]
 
     val pcs = new PcService{
@@ -2167,7 +2167,7 @@ object PlayComposablePlugin extends App{
     }
   }
 
-  class JumpPlugin extends Plugin {
+  class JumpPlugin extends FiberPlugin {
     def pcs = host[PcService]
 
     during setup {

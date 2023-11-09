@@ -131,22 +131,3 @@ class FlowCmdRsp[T <: Data, T2 <: Data](cmdType : HardType[T], rspType : HardTyp
     case 1 => RegInit(False) setWhen(cmd.valid) clearWhen(rsp.valid)
   }
 }
-
-
-object NamedType{
-  def apply[T <: Data](gen : => T) = new NamedType(gen)
-  def apply[T <: Data](gen : HardType[T]) = new NamedType(gen.craft())
-}
-
-class NamedType[T <: Data](gen : => T) extends HardType(gen) with Nameable
-
-//case class StageableOffset(val value : Any)
-//object StageableOffsetNone extends StageableOffset(null)
-case class NamedTypeKey(tpe: NamedType[Data], key : Any){
-  override def toString = {
-    var name = tpe.getName()
-    if(key != null) name = name + "_" + key
-    name
-  }
-}
-

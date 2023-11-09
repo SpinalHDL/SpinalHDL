@@ -57,21 +57,21 @@ trait NodeApi {
     })
   }
 
-  def apply[T <: Data](key: NamedType[T]): T = apply(NamedTypeKey(key.asInstanceOf[NamedType[Data]], null)).asInstanceOf[T]
+  def apply[T <: Data](key: SignalKey[T]): T = apply(NamedTypeKey(key.asInstanceOf[SignalKey[Data]], null)).asInstanceOf[T]
 
-  def apply[T <: Data](key: NamedType[T], subKey: Any): T = apply(NamedTypeKey(key.asInstanceOf[NamedType[Data]], subKey)).asInstanceOf[T]
+  def apply[T <: Data](key: SignalKey[T], subKey: Any): T = apply(NamedTypeKey(key.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
 
   //Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE)
   def apply(subKey: Seq[Any]) = new OffsetApi(subKey)
 
   class OffsetApi(subKeys: Seq[Any]) {
-    def apply[T <: Data](that: NamedType[T]): Seq[T] = {
+    def apply[T <: Data](that: SignalKey[T]): Seq[T] = {
       subKeys.map(subKey => getNode.apply(that, subKey))
     }
   }
 
-  def insert[T <: Data](that: T): NamedType[T] = {
-    val s = NamedType(cloneOf(that))
+  def insert[T <: Data](that: T): SignalKey[T] = {
+    val s = SignalKey(cloneOf(that))
     this (s) := that
     s
   }
@@ -118,7 +118,7 @@ trait NodeApi {
 
 
 //  implicit def stageablePiped[T <: Data](stageable: Stageable[T])(implicit key : StageableOffset = StageableOffsetNone) = Stage.this(stageable, key.value)
-  implicit def stageablePiped2[T <: Data](stageable: NamedType[T]) = this(stageable)
+  implicit def stageablePiped2[T <: Data](stageable: SignalKey[T]) = this(stageable)
 
 }
 

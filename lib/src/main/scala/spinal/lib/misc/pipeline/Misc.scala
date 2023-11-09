@@ -1,7 +1,6 @@
 package spinal.lib.misc.pipeline
 
 import spinal.core.Nameable
-import spinal.lib.NamedTypeKey
 
 import scala.collection.mutable
 
@@ -29,3 +28,14 @@ object Misc{
     }
   }
 }
+
+//case class StageableOffset(val value : Any)
+//object StageableOffsetNone extends StageableOffset(null)
+case class NamedTypeKey(tpe: SignalKey[spinal.core.Data], key : Any){
+  override def toString = {
+    var name = tpe.getName()
+    if(key != null) name = name + "_" + key
+    name
+  }
+}
+
