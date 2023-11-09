@@ -13,6 +13,10 @@ object ServiceHost extends ScopeProperty[ServiceHost] {
   def on[T](body: => T) = this (new ServiceHost).on(body)
 }
 
+trait Hostable{
+  def setHost(h: ServiceHost) : Unit
+}
+
 class ServiceHost {
   val services = ArrayBuffer[Any]()
   val _context = ScopeProperty.capture()
@@ -27,7 +31,9 @@ class ServiceHost {
     b
   }
 
-  def add(that: Any): Unit = services += that
+  def addService(that: Any): Unit = services += that
+  def asHostOf(hostables: Seq[Hostable]) : Unit = hostables.foreach(_.setHost(this))
+  def asHostOf(head : Hostable, tail: Hostable*) : Unit = asHostOf(head +: tail)
 
   def list[T: ClassTag]: Seq[T] = {
     val clazz = classTag[T].runtimeClass

@@ -1,15 +1,11 @@
-package spinal.lib.fiber.plugin
+package spinal.lib.misc.service
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.NamedType
-import spinal.lib.misc.service.ServiceHost
 
-import scala.reflect.{ClassTag, classTag}
 import scala.collection.mutable.ArrayBuffer
 
-
-class Plugin extends Area with Lockable {
+class FiberPlugin extends Area with Lockable with Hostable {
   this.setName(ClassName(this))
 
   def withPrefix(prefix: String) = setName(prefix + "_" + getName())
@@ -19,9 +15,9 @@ class Plugin extends Area with Lockable {
 
   val subservices = ArrayBuffer[Any]()
 
-  def setHost(h: ServiceHost): Unit = {
-    h.add(this)
-    subservices.foreach(h.add)
+  override def setHost(h: ServiceHost): Unit = {
+    h.addService(this)
+    subservices.foreach(h.addService)
     host = h
   }
 
