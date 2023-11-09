@@ -1,6 +1,9 @@
 package spinal.lib.misc.pipeline
 
+import spinal.core.Nameable
+
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 object Builder {
   def apply(head : Connector, tail : Connector*) : Unit = apply(head +: tail)
@@ -51,6 +54,22 @@ object Builder {
 
     val nodes = connectors.flatMap(c => c.ups ++ c.downs).distinctLinked
     for(n <- nodes) n.build()
+  }
+}
+
+class NodesBuilder() extends Nameable {
+  val nodes = ArrayBuffer[Node]()
+  val connectors = ArrayBuffer[Connector]()
+
+  class Node extends spinal.lib.misc.pipeline.Node {
+    nodes += this
+  }
+
+  def genStagedPipeline(): Unit = {
+    for ((up, down) <- (nodes, nodes.tail).zipped) {
+      connectors += StageConnector(up, down).setCompositeName(this, "connector")
+    }
+    Builder(connectors)
   }
 }
 

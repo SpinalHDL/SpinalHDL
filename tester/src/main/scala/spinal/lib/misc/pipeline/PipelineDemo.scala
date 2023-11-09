@@ -5,6 +5,8 @@ import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.misc.pipeline._
 
+import scala.collection.mutable.ArrayBuffer
+
 class TopLevel extends Component {
   val io = new Bundle{
     val up = slave Stream (UInt(16 bits))
@@ -67,6 +69,38 @@ class TopLevel2 extends Component {
 
   // Let's ask the builder to generate all the required hardware
   Builder(s01, s12)
+}
+
+class TopLevel2a extends Component {
+  val VALUE = Stageable(UInt(16 bits))
+
+  val io = new Bundle{
+    val up = slave Stream(VALUE)  //VALUE can also be used as a HardType
+    val down = master Stream(VALUE)
+  }
+
+  // NodesBuilder will be used to register all the nodes created, connect them via stages and generate the hardware
+  val builder = new NodesBuilder()
+
+  // Let's define a Node which connect from io.up
+  val n0 = new builder.Node{
+    arbitrateFrom(io.up)
+    VALUE := io.up.payload
+  }
+
+  // Let's define a Node which do some processing
+  val n1 = new builder.Node{
+    val RESULT = insert(VALUE + 0x1200)
+  }
+
+  //  Let's define a Node which connect to io.down
+  val n2 = new builder.Node {
+    arbitrateTo(io.down)
+    io.down.payload := n1.RESULT
+  }
+
+  // Let's connect those nodes by using simples registers and generate the relatedhardware
+  builder.genStagedPipeline()
 }
 
 
@@ -161,7 +195,6 @@ class RgbToSomething(addAt : Int,
                      invAt : Int,
                      mulAt : Int,
                      resultAt : Int) extends Component {
-
   val io = new Bundle {
     val up = slave Stream(spinal.lib.graphic.Rgb(8, 8, 8))
     val down = master Stream (UInt(16 bits))
@@ -169,9 +202,6 @@ class RgbToSomething(addAt : Int,
 
   // Let's define the Nodes for our pipeline
   val nodes = Array.fill(resultAt+1)(Node())
-
-  // Let's connect those nodes sequencialy by using simples registers
-  val connectors = for(i <- 0 to resultAt-1) yield StageConnector(nodes(i), nodes(i+1))
 
   // Let's specify which node will be used for what part of the pipeline
   val insertNode = nodes(0)
@@ -207,13 +237,16 @@ class RgbToSomething(addAt : Int,
     io.down.payload := multiplier.MUL
   }
 
+  // Let's connect those nodes sequencialy by using simples registers
+  val connectors = for (i <- 0 to resultAt - 1) yield StageConnector(nodes(i), nodes(i + 1))
+
   // Let's ask the builder to generate all the required hardware
   Builder(connectors)
 }
 
 
 object PipelineDemo1 extends App {
-  SimConfig.withFstWave.compile(new TopLevel).doSim{ dut =>
+  SimConfig.withFstWave.compile(new TopLevel2a).doSim{ dut =>
     dut.clockDomain.forkStimulus(10)
     dut.io.down.ready #= true
     dut.clockDomain.waitSampling(5)
