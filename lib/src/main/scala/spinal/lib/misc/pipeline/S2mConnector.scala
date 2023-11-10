@@ -20,10 +20,8 @@ class S2mConnector(val up : Node, val down : Node) extends Connector {
   }
   override def propagateUp(): Unit = {
     propagateUpAll()
-    if(down.ctrl.forgetOne.nonEmpty){
-      up.ctrl.forgetOne = Some(Bool())
-      up.ctrl.nameForgetSingle()
-    }
+    if (down.ctrl.forgetOne.nonEmpty) up.ctrl.forgetOneCreate()
+    if (down.ctrl.cancel.nonEmpty) up.ctrl.cancelCreate()
   }
 
   override def build(): Unit = {
@@ -44,6 +42,9 @@ class S2mConnector(val up : Node, val down : Node) extends Connector {
     down.ctrl.forgetOne.foreach { cond =>
       rValid clearWhen(cond)
       up.ctrl.forgetOne.get := cond && !rValid
+    }
+    down.ctrl.cancel.foreach { cond =>
+      up.ctrl.cancel.get := cond && !rValid
     }
   }
 }

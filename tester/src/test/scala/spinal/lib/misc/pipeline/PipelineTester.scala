@@ -202,6 +202,12 @@ class PipelineTester extends SpinalAnyFunSuite{
         spinal.core.assert(!c1.down.isFiring)
       }
 
+      when(doThrow){
+        spinal.core.assert(!c0.down.hasCancelRequest)
+        spinal.core.assert(c1.up.hasCancelRequest)
+        spinal.core.assert(!c1.down.hasCancelRequest)
+      }
+
       c1.throwWhen(doThrow)
       c1(OUT) := c1(IN)
     }).doSimUntilVoid { dut =>
@@ -218,6 +224,11 @@ class PipelineTester extends SpinalAnyFunSuite{
   test("throwC0") {
     SimConfig.compile(new CtrlPipeline {
       val doThrow = c0(IN).lsb
+
+      when(doThrow) {
+        spinal.core.assert(c0.up.hasCancelRequest)
+        spinal.core.assert(!c0.down.hasCancelRequest)
+      }
 
       c0.throwWhen(doThrow)
       c1(OUT) := c1(IN)
@@ -480,8 +491,13 @@ class PipelineTester extends SpinalAnyFunSuite{
   test("s2mThrow") {
     SimConfig.compile(new S2mPipeline {
       val halt = in Bool()
+      val doThrow = c2(IN).lsb && !halt
       c2.haltWhen(halt) //This is used to get better coverage on the throw logic
-      c2.throwWhen(c2(IN).lsb && !halt)
+      c2.throwWhen(doThrow)
+
+      when(doThrow){
+        spinal.core.assert(c2.up.hasCancelRequest)
+      }
       c2(OUT) := c2(IN)
     }).doSimUntilVoid { dut =>
       dut.clockDomain.onSamplings(dut.halt.randomize())

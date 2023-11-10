@@ -28,7 +28,9 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     val halts = ArrayBuffer[Bool]()
     val duplicates = ArrayBuffer[Bool]()
     val terminates = ArrayBuffer[Bool]()
+    val ignoresReady = ArrayBuffer[Bool]()
     val forgetsOne = ArrayBuffer[Bool]()
+    val cancels = ArrayBuffer[Bool]()
 
     def impactValid = halts.nonEmpty || terminates.nonEmpty
     def impactReady = halts.nonEmpty || duplicates.nonEmpty
@@ -40,8 +42,6 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   def apply[T <: Data](that: SignalKey[T]): T = down(that)
   def apply[T <: Data](that: SignalKey[T], subKey: Any): T = down(that, subKey)
   def apply(subKeys: Seq[Any]) = down(subKeys)
-
-
 
   def insert[T <: Data](that: T): SignalKey[T] = down.insert(that)
 
@@ -57,18 +57,24 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   def haltWhen(cond: Bool)      (implicit loc: Location): Unit = requests.halts += nameFromLocation(CombInit(cond), "haltRequest")
   def duplicateWhen(cond: Bool) (implicit loc: Location): Unit = requests.duplicates += nameFromLocation(CombInit(cond), "duplicateRequest")
   def terminateWhen(cond: Bool) (implicit loc: Location): Unit = requests.terminates += nameFromLocation(CombInit(cond), "terminateRequest")
-  def forgetSingleWhen(cond: Bool)(implicit loc: Location): Unit = requests.forgetsOne += nameFromLocation(CombInit(cond), "forgetsSingle")
-  def throwWhen(cond : Bool)    (implicit loc: Location) : Unit = {
+  def forgetSingleWhen(cond: Bool)(implicit loc: Location): Unit = requests.forgetsOne += nameFromLocation(CombInit(cond), "forgetsSingleRequest")
+  def ignoreReadyWhen(cond: Bool)(implicit loc: Location): Unit = requests.ignoresReady += nameFromLocation(CombInit(cond), "ignoreReadyRequest")
+  def throwWhen(cond : Bool, usingReady : Boolean = false)    (implicit loc: Location) : Unit = {
     val flag = nameFromLocation(CombInit(cond), "throwWhen")
     requests.terminates += flag
-    requests.forgetsOne += flag
+    requests.cancels += flag
+    usingReady match {
+      case false => requests.forgetsOne += flag
+      case true =>  requests.ignoresReady += flag
+    }
   }
 
   def haltIt()      (implicit loc: Location) : Unit = haltWhen(ConditionalContext.isTrue)
   def duplicateIt() (implicit loc: Location) : Unit = duplicateWhen(ConditionalContext.isTrue)
   def terminateIt() (implicit loc: Location) : Unit = terminateWhen(ConditionalContext.isTrue)
-  def removeSeedIt()(implicit loc: Location) : Unit = forgetSingleWhen(ConditionalContext.isTrue)
-  def throwIt()     (implicit loc: Location) : Unit = throwWhen(ConditionalContext.isTrue)
+  def throwIt(usingReady : Boolean = false)(implicit loc: Location): Unit = throwWhen(ConditionalContext.isTrue, usingReady = usingReady)
+  def forgetSingleNow()(implicit loc: Location): Unit = forgetSingleWhen(ConditionalContext.isTrue)
+  def ignoreReadyNow()(implicit loc: Location): Unit = ignoreReadyWhen(ConditionalContext.isTrue)
 
   val bypasses = mutable.LinkedHashMap[NamedTypeKey, Data]()
   val keyToData = mutable.LinkedHashMap[NamedTypeKey, Data]()
@@ -98,8 +104,8 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
 
   override def propagateUp(): Unit = {
     propagateUpAll()
-    up.ctrl.forgetOne = or(down.ctrl.forgetOne, requests.forgetsOne)
-    up.ctrl.nameForgetSingle()
+    up.ctrl.forgetOneCreate(or(down.ctrl.forgetOne, requests.forgetsOne))
+    up.ctrl.cancelCreate(or(down.ctrl.cancel, requests.cancels))
 
     if (down.alwaysReady && !requests.impactReady) {
       up.setAlwaysReady()
@@ -108,7 +114,12 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
 
   override def build(): Unit = {
     if(!down.alwaysValid) down.valid := up.valid
-    if(!up.alwaysReady) up.ready := down.ready
+    if(!up.alwaysReady) {
+      up.ready := down.ready
+      if(requests.ignoresReady.nonEmpty) when(requests.ignoresReady.orR){
+        up.ready := True
+      }
+    }
     if(requests.halts.nonEmpty) when(requests.halts.orR){
       down.valid := False
       up.ready := False

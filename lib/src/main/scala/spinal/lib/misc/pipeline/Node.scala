@@ -37,7 +37,7 @@ trait NodeApi {
   }
 
   def hasCancelRequest: Bool = {
-    if (status.hasCancelRequest.isEmpty) status.hasCancelRequest = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "hasCancelRequest")))
+    if (status.hasCancelRequest.isEmpty) status.hasCancelRequest = Some(ContextSwapper.outsideCondScope(Bool())) //Unamed as it come from ctrl.cancel anyway
     status.hasCancelRequest.get
   }
 
@@ -146,9 +146,12 @@ class Node() extends Area with NodeApi{
   var alwaysReady = false
 
   val ctrl = new {
-    def nameForgetSingle(): Unit = forgetOne.foreach(_.setCompositeName(Node.this, "removeSingle"))
     var forgetOne = Option.empty[Bool]
     var forgetOneSupported = false
+    def forgetOneCreate(value: Option[Bool] = Some(Bool())): Unit = forgetOne = value.map(_.setCompositeName(Node.this, "removeSingle"))
+
+    var cancel = Option.empty[Bool]
+    def cancelCreate(value: Option[Bool] = Some(Bool())): Unit = cancel = value.map(_.setCompositeName(Node.this, "cancel"))
   }
 
   val status = new {
@@ -164,8 +167,8 @@ class Node() extends Area with NodeApi{
     }
     status.isFiring.foreach(_ := isValid && isReady && !hasCancelRequest)
     status.isMoving.foreach(_ := isValid && (isReady || hasCancelRequest))
-    status.hasCancelRequest.foreach(_ := ctrl.forgetOne.getOrElse(False))
-    status.isCanceling.foreach(_ := ctrl.forgetOne.map(isValid && _).getOrElse(False))
+    status.hasCancelRequest.foreach(_ := ctrl.cancel.getOrElse(False))
+    status.isCanceling.foreach(_ := status.hasCancelRequest.map(isValid && _).getOrElse(False))
   }
 
   class Area extends spinal.core.Area with NodeApi {
