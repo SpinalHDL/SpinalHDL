@@ -37,9 +37,6 @@ import spinal.idslplugin.PostInitCallback
   */
 class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData with Nameable with ValCallbackRec with PostInitCallback {
 
-    // The hardtype of the TaggedUnion, used for cloning purposes.
-    var hardtype: HardType[_] = null
-
     // A cache of union member descriptors, storing a tuple of their name and the corresponding Data object.
     var unionDescriptors = ArrayBuffer[(String, Data)]()
 
@@ -72,13 +69,7 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
         * @return a new instance of TaggedUnion with the same hardtype.
         */
     override def clone: TaggedUnion = {
-        if (hardtype != null) {
-            val ret = hardtype().asInstanceOf[this.type]
-            ret.hardtype = hardtype
-            ret
-        } else {
-            super.clone.asInstanceOf[TaggedUnion]
-        }
+        super.clone.asInstanceOf[TaggedUnion]
     }
 
     /** Assign the bundle with an other bundle by name */
