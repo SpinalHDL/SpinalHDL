@@ -24,6 +24,7 @@ class StageConnector(val up : Node, val down : Node) extends Connector {
 
   override def propagateDown(): Unit = {
     propagateDownAll()
+    down.ctrl.forgetOneSupported = true
   }
   override def propagateUp(): Unit = {
     propagateUpAll()
@@ -35,7 +36,7 @@ class StageConnector(val up : Node, val down : Node) extends Connector {
     if(!down.alwaysValid) down.valid.setAsReg() init (False)
     matches.foreach(p => down(p).setAsReg())
 
-    down.ctrl.removeSeed foreach  { cond =>  down.valid clearWhen(cond) }
+    down.ctrl.forgetOne foreach  { cond =>  down.valid clearWhen(cond) }
 
     up.alwaysReady match {
       case true =>

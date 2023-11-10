@@ -17,7 +17,10 @@ class ForkConnector(val up : Node, override val downs : Seq[Node], synchronous: 
 
   override def ups: Seq[Node] = List(up)
 
-  override def propagateDown(): Unit = propagateDownAll()
+  override def propagateDown(): Unit = {
+    propagateDownAll()
+    if(!synchronous) downs.foreach(_.ctrl.forgetOneSupported = true)
+  }
   override def propagateUp(): Unit = propagateUpAll()
 
   override def build(): Unit = {
@@ -31,7 +34,7 @@ class ForkConnector(val up : Node, override val downs : Seq[Node], synchronous: 
     if (synchronous) {
       up.ready := downs.map(_.ready).reduce(_ && _)
       downs.foreach(_.valid := up.valid && up.ready)
-      assert(downs.forall(_.ctrl.removeSeed.isEmpty))
+      assert(downs.forall(_.ctrl.forgetOne.isEmpty))
     } else {
       /* Ready is true when every output stream takes or has taken its value */
       up.ready := True

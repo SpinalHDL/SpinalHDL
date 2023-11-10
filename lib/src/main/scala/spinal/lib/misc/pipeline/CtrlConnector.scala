@@ -28,7 +28,7 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     val halts = ArrayBuffer[Bool]()
     val duplicates = ArrayBuffer[Bool]()
     val terminates = ArrayBuffer[Bool]()
-    val removeSeeds = ArrayBuffer[Bool]()
+    val forgetsOne = ArrayBuffer[Bool]()
 
     def impactValid = halts.nonEmpty || terminates.nonEmpty
     def impactReady = halts.nonEmpty || duplicates.nonEmpty
@@ -57,17 +57,17 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   def haltWhen(cond: Bool)      (implicit loc: Location): Unit = requests.halts += nameFromLocation(CombInit(cond), "haltRequest")
   def duplicateWhen(cond: Bool) (implicit loc: Location): Unit = requests.duplicates += nameFromLocation(CombInit(cond), "duplicateRequest")
   def terminateWhen(cond: Bool) (implicit loc: Location): Unit = requests.terminates += nameFromLocation(CombInit(cond), "terminateRequest")
-  def removeSeedWhen(cond: Bool)(implicit loc: Location): Unit = requests.removeSeeds += nameFromLocation(CombInit(cond), "removeSeedRequest")
+  def forgetSingleWhen(cond: Bool)(implicit loc: Location): Unit = requests.forgetsOne += nameFromLocation(CombInit(cond), "forgetsSingle")
   def throwWhen(cond : Bool)    (implicit loc: Location) : Unit = {
     val flag = nameFromLocation(CombInit(cond), "throwWhen")
     requests.terminates += flag
-    requests.removeSeeds += flag
+    requests.forgetsOne += flag
   }
 
   def haltIt()      (implicit loc: Location) : Unit = haltWhen(ConditionalContext.isTrue)
   def duplicateIt() (implicit loc: Location) : Unit = duplicateWhen(ConditionalContext.isTrue)
   def terminateIt() (implicit loc: Location) : Unit = terminateWhen(ConditionalContext.isTrue)
-  def removeSeedIt()(implicit loc: Location) : Unit = removeSeedWhen(ConditionalContext.isTrue)
+  def removeSeedIt()(implicit loc: Location) : Unit = forgetSingleWhen(ConditionalContext.isTrue)
   def throwIt()     (implicit loc: Location) : Unit = throwWhen(ConditionalContext.isTrue)
 
   val bypasses = mutable.LinkedHashMap[NamedTypeKey, Data]()
@@ -93,12 +93,13 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     if(up.alwaysValid && !requests.impactValid){
       down.setAlwaysValid()
     }
+    down.ctrl.forgetOneSupported = true
   }
 
   override def propagateUp(): Unit = {
     propagateUpAll()
-    up.ctrl.removeSeed = or(down.ctrl.removeSeed, requests.removeSeeds)
-    up.ctrl.nameRemoveSeed()
+    up.ctrl.forgetOne = or(down.ctrl.forgetOne, requests.forgetsOne)
+    up.ctrl.nameForgetSingle()
 
     if (down.alwaysReady && !requests.impactReady) {
       up.setAlwaysReady()

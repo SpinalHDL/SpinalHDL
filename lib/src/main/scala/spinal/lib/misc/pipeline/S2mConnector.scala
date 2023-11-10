@@ -14,12 +14,15 @@ class S2mConnector(val up : Node, val down : Node) extends Connector {
   override def ups: Seq[Node] = List(up)
   override def downs: Seq[Node] = List(down)
 
-  override def propagateDown(): Unit = propagateDownAll()
+  override def propagateDown(): Unit = {
+    propagateDownAll()
+    down.ctrl.forgetOneSupported = true
+  }
   override def propagateUp(): Unit = {
     propagateUpAll()
-    if(down.ctrl.removeSeed.nonEmpty){
-      up.ctrl.removeSeed = Some(Bool())
-      up.ctrl.nameRemoveSeed()
+    if(down.ctrl.forgetOne.nonEmpty){
+      up.ctrl.forgetOne = Some(Bool())
+      up.ctrl.nameForgetSingle()
     }
   }
 
@@ -38,9 +41,9 @@ class S2mConnector(val up : Node, val down : Node) extends Connector {
       matches.foreach(e => down(e) := up(e))
     }
 
-    down.ctrl.removeSeed.foreach { cond =>
+    down.ctrl.forgetOne.foreach { cond =>
       rValid clearWhen(cond)
-      up.ctrl.removeSeed.get := cond && !rValid
+      up.ctrl.forgetOne.get := cond && !rValid
     }
   }
 }

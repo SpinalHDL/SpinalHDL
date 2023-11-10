@@ -20,12 +20,12 @@ class DirectConnector(val up : Node, val down : Node) extends Connector {
   override def propagateDown(): Unit = {
     propagateDownAll()
     if(up.alwaysValid) down.setAlwaysValid()
+    up.ctrl.forgetOneSupported = true
   }
   override def propagateUp(): Unit = {
     propagateUpAll()
-    down.ctrl.removeSeed.foreach(_ => up.ctrl.removeSeed = Some(Bool()))
-    up.ctrl.nameRemoveSeed()
-
+    down.ctrl.forgetOne.foreach(_ => up.ctrl.forgetOne = Some(Bool()))
+    up.ctrl.nameForgetSingle()
     if(down.alwaysReady) up.setAlwaysReady()
   }
 

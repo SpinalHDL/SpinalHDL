@@ -187,9 +187,9 @@ class PipelineTester extends SpinalAnyFunSuite{
   test("throw") {
     SimConfig.compile(new CtrlPipeline {
       val doThrow = c1(IN).lsb
-      spinal.core.assert(c1.up.isRemoved === doThrow)
+      spinal.core.assert(c1.up.hasCancelRequest === doThrow)
       spinal.core.assert(!(c1.down.valid && doThrow))
-      spinal.core.assert(!c1.down.isRemoved)
+      spinal.core.assert(!c1.down.hasCancelRequest)
 
       when(c1.up.isValid && doThrow) {
         spinal.core.assert(c1.up.isMoving)
@@ -203,6 +203,23 @@ class PipelineTester extends SpinalAnyFunSuite{
       }
 
       c1.throwWhen(doThrow)
+      c1(OUT) := c1(IN)
+    }).doSimUntilVoid { dut =>
+      dut.testIt { (value, queue) =>
+        if ((value & 1) == 0) {
+          queue += value
+        }
+      }
+    }
+  }
+
+
+  // Remove C1 transactions which have the LSB set
+  test("throwC0") {
+    SimConfig.compile(new CtrlPipeline {
+      val doThrow = c0(IN).lsb
+
+      c0.throwWhen(doThrow)
       c1(OUT) := c1(IN)
     }).doSimUntilVoid { dut =>
       dut.testIt { (value, queue) =>

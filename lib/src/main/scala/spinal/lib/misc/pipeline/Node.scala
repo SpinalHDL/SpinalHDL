@@ -19,21 +19,26 @@ trait NodeApi {
   def isReady = ready
 
   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
-  def isFiring = {
-    if (status.fire.isEmpty) status.fire = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isFiring")))
-    status.fire.get
-  }
-
-  // True when the current node is being cleaned up
-  def isRemoved = {
-    if (status.remove.isEmpty) status.remove = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isRemoved")))
-    status.remove.get
+  def isFiring : Bool = {
+    if (status.isFiring.isEmpty) status.isFiring = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isFiring")))
+    status.isFiring.get
   }
 
   // True when it is the last cycle that the current transaction is present on this node. Useful to "reset" some states
-  def isMoving = {
-    if (status.moving.isEmpty) status.moving = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isMoving")))
-    status.moving.get
+  def isMoving : Bool = {
+    if (status.isMoving.isEmpty) status.isMoving = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isMoving")))
+    status.isMoving.get
+  }
+
+  // True when the current node is being cleaned up
+  def isCanceling: Bool = {
+    if (status.isCanceling.isEmpty) status.isCanceling = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isCanceling")))
+    status.isCanceling.get
+  }
+
+  def hasCancelRequest: Bool = {
+    if (status.hasCancelRequest.isEmpty) status.hasCancelRequest = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "hasCancelRequest")))
+    status.hasCancelRequest.get
   }
 
   def setAlwaysValid(): Unit = {
@@ -78,7 +83,8 @@ trait NodeApi {
 
   def arbitrateFrom[T <: Data](that: Stream[T]): Unit = {
     valid := that.valid
-    that.ready := ready
+    that.ready := ready || hasCancelRequest
+    ctrl.forgetOneSupported = true
   }
 
   def arbitrateFrom[T <: Data](that: Flow[T]): Unit = {
@@ -140,20 +146,26 @@ class Node() extends Area with NodeApi{
   var alwaysReady = false
 
   val ctrl = new {
-    def nameRemoveSeed(): Unit = removeSeed.foreach(_.setCompositeName(Node.this, "removeSeed"))
-    var removeSeed = Option.empty[Bool]
+    def nameForgetSingle(): Unit = forgetOne.foreach(_.setCompositeName(Node.this, "removeSingle"))
+    var forgetOne = Option.empty[Bool]
+    var forgetOneSupported = false
   }
 
   val status = new {
-    var fire = Option.empty[Bool]
-    var moving = Option.empty[Bool]
-    var remove = Option.empty[Bool]
+    var isFiring = Option.empty[Bool]
+    var isMoving = Option.empty[Bool]
+    var isCanceling = Option.empty[Bool]
+    var hasCancelRequest = Option.empty[Bool]
   }
 
   def build(): Unit = {
-    status.fire.foreach(_ := isValid && isReady && !isRemoved)
-    status.moving.foreach(_ := isValid && (isReady || isRemoved))
-    status.remove.foreach(_ := ctrl.removeSeed.getOrElse(False))
+    if(!ctrl.forgetOneSupported && ctrl.forgetOne.nonEmpty){
+      SpinalError(s"${this.getName()} doesn't support ctrl.forgetOne")
+    }
+    status.isFiring.foreach(_ := isValid && isReady && !hasCancelRequest)
+    status.isMoving.foreach(_ := isValid && (isReady || hasCancelRequest))
+    status.hasCancelRequest.foreach(_ := ctrl.forgetOne.getOrElse(False))
+    status.isCanceling.foreach(_ := ctrl.forgetOne.map(isValid && _).getOrElse(False))
   }
 
   class Area extends spinal.core.Area with NodeApi {

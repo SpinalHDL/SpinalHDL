@@ -16,7 +16,7 @@ class JoinConnector(override val ups : Seq[Node], val down : Node) extends Conne
   override def propagateUp(): Unit = propagateUpAll()
 
   override def build(): Unit = {
-    assert(down.ctrl.removeSeed.isEmpty)
+    assert(down.ctrl.forgetOne.isEmpty)
 
     down.valid := ups.map(_.valid).andR
     ups.foreach(_.ready := down.valid && down.ready)
