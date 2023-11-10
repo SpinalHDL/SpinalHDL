@@ -133,6 +133,11 @@ object HardType{
     val width = elements.map(widthOf(_)).max
     HardType(Bits(width bits))
   }
+
+  def unionSeq(elements: Seq[Data]): HardType[Bits] = {
+    val width = elements.map(widthOf(_)).max
+    HardType(Bits(width bits))
+  }
 }
 
 class HardType[T <: Data](t : => T) extends OverridedEqualsHashCode{
