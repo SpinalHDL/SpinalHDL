@@ -1,5 +1,6 @@
 package spinal.lib.misc.pipeline
 
+import scala.collection.Seq
 import scala.collection.mutable
 import spinal.core._
 import spinal.lib._

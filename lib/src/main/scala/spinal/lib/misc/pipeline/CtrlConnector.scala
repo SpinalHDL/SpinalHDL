@@ -5,6 +5,7 @@ import spinal.lib._
 import spinal.idslplugin.Location
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable
+import scala.collection.Seq
 
 object CtrlConnector {
   def apply(up : Node, down : Node) = new CtrlConnector(up, down)

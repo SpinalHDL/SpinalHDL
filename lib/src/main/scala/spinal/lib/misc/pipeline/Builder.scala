@@ -1,7 +1,7 @@
 package spinal.lib.misc.pipeline
 
 import spinal.core.Nameable
-
+import scala.collection.Seq
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 

@@ -3,6 +3,7 @@ package spinal.lib.misc.plugin
 import spinal.core._
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.{ClassTag, classTag}
+import scala.collection.Seq
 
 object Plugin {
   def list[T: ClassTag]: Seq[T] = PluginHost.get.list[T]

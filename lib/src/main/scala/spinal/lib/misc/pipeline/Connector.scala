@@ -1,6 +1,7 @@
 package spinal.lib.misc.pipeline
 
 import spinal.core._
+import scala.collection.Seq
 
 trait Connector extends Area{
   def ups : Seq[Node]
