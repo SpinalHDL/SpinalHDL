@@ -8,19 +8,19 @@ import scala.collection.immutable.Map.Map1
 import scala.collection.mutable
 import scala.reflect.ClassTag
 
-class GeneratorOutput() {
+class FusesocGeneratorOutput() {
   val parameters = mutable.Map[String, String]()
   // List(file_name -> {file_type -> verilogSource})
   val files = mutable.ArrayBuffer[Map1[String, Map[String, String]]]()
 }
-case class GeneratorParameters[P: ClassTag](
+case class FusesocGeneratorParameters[P](
     // for python only
     entry_function: String = "",
     copy_core: Boolean = false,
     spinal_project_path: String = ".",
     // for scala only
     target_directory: String = "./generate",
-    output: GeneratorOutput,
+    output: FusesocGeneratorOutput,
     spinal_parameter: P
 )
 
@@ -53,8 +53,8 @@ abstract class FusesocRunner[C <: Component, P: ClassTag] {
 
   def buildComponent(parameter: P): C
 
-  private def parseCore(reader: java.io.Reader): GeneratorParameters[P] =
-    yamlMapper.readValue[GeneratorParameters[P]](reader)
+  private def parseCore(reader: java.io.Reader): FusesocGeneratorParameters[P] =
+    yamlMapper.readValue[FusesocGeneratorParameters[P]](reader)
 
   private def parseCli(args: Array[String]): String = {
     val builder = scopt.OParser.builder[String]
@@ -70,7 +70,8 @@ class GeneratorBuilder[C <: Component, P: ClassTag](
     componentName: String,
     defaultPram: P,
     descriptions: String = "",
-    version: String = "0.0.0"
+    version: String = "0.0.0",
+    generator: String = "chenbosoft:utils:generators:0.0.1"
 ) {
   private val yamlMapper = new ObjectMapper(new YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER))
   yamlMapper.registerModule(DefaultScalaModule)
@@ -84,7 +85,7 @@ class GeneratorBuilder[C <: Component, P: ClassTag](
     output.files.append(new Map1(file_name, Map("file_type" -> file_type)))
     this
   }
-  private val output = new GeneratorOutput
+  private val output = new FusesocGeneratorOutput
 
   // default add a source file(which will be generated)
   addFiles(componentName + ".v", "verilogSource")
@@ -93,11 +94,11 @@ class GeneratorBuilder[C <: Component, P: ClassTag](
     val name: String = s"::$componentName:$version"
     val description: String = descriptions
     val filesets = new Object {
-      val base: Map[String, List[String]] = Map("depend" -> List("chenbosoft:utils:generators:0.0.0"))
+      val base: Map[String, List[String]] = Map("depend" -> List(generator))
     }
     val generate = Map((componentName + "_gen") -> new Object {
       val generator = "spinalhdl"
-      val parameters: GeneratorParameters[P] = GeneratorParameters(spinal_parameter = defaultPram, output = output)
+      val parameters: FusesocGeneratorParameters[P] = FusesocGeneratorParameters(spinal_parameter = defaultPram, output = output)
     })
   }
 
