@@ -57,7 +57,7 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   def haltWhen(cond: Bool)      (implicit loc: Location): Unit = requests.halts += nameFromLocation(CombInit(cond), "haltRequest")
   def duplicateWhen(cond: Bool) (implicit loc: Location): Unit = requests.duplicates += nameFromLocation(CombInit(cond), "duplicateRequest")
   def terminateWhen(cond: Bool) (implicit loc: Location): Unit = requests.terminates += nameFromLocation(CombInit(cond), "terminateRequest")
-  def forgetSingleWhen(cond: Bool)(implicit loc: Location): Unit = requests.forgetsOne += nameFromLocation(CombInit(cond), "forgetsSingleRequest")
+  def forgetOneWhen(cond: Bool)(implicit loc: Location): Unit = requests.forgetsOne += nameFromLocation(CombInit(cond), "forgetsSingleRequest")
   def ignoreReadyWhen(cond: Bool)(implicit loc: Location): Unit = requests.ignoresReady += nameFromLocation(CombInit(cond), "ignoreReadyRequest")
   def throwWhen(cond : Bool, usingReady : Boolean = false)    (implicit loc: Location) : Unit = {
     val flag = nameFromLocation(CombInit(cond), "throwWhen")
@@ -73,7 +73,7 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   def duplicateIt() (implicit loc: Location) : Unit = duplicateWhen(ConditionalContext.isTrue)
   def terminateIt() (implicit loc: Location) : Unit = terminateWhen(ConditionalContext.isTrue)
   def throwIt(usingReady : Boolean = false)(implicit loc: Location): Unit = throwWhen(ConditionalContext.isTrue, usingReady = usingReady)
-  def forgetSingleNow()(implicit loc: Location): Unit = forgetSingleWhen(ConditionalContext.isTrue)
+  def forgetOneNow()(implicit loc: Location): Unit = forgetOneWhen(ConditionalContext.isTrue)
   def ignoreReadyNow()(implicit loc: Location): Unit = ignoreReadyWhen(ConditionalContext.isTrue)
 
   val bypasses = mutable.LinkedHashMap[NamedTypeKey, Data]()

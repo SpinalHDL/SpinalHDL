@@ -15,6 +15,7 @@ trait NodeApi {
 
   def valid : Bool = getNode.valid
   def ready : Bool = getNode.ready
+  def cancel = status.hasCancelRequest
   def isValid = valid
   def isReady = ready
 
@@ -148,7 +149,7 @@ class Node() extends Area with NodeApi{
   val ctrl = new {
     var forgetOne = Option.empty[Bool]
     var forgetOneSupported = false
-    def forgetOneCreate(value: Option[Bool] = Some(Bool())): Unit = forgetOne = value.map(_.setCompositeName(Node.this, "removeSingle"))
+    def forgetOneCreate(value: Option[Bool] = Some(Bool())): Unit = forgetOne = value.map(_.setCompositeName(Node.this, "forgetOne"))
 
     var cancel = Option.empty[Bool]
     def cancelCreate(value: Option[Bool] = Some(Bool())): Unit = cancel = value.map(_.setCompositeName(Node.this, "cancel"))
@@ -165,8 +166,18 @@ class Node() extends Area with NodeApi{
     if(!ctrl.forgetOneSupported && ctrl.forgetOne.nonEmpty){
       SpinalError(s"${this.getName()} doesn't support ctrl.forgetOne")
     }
-    status.isFiring.foreach(_ := isValid && isReady && !hasCancelRequest)
-    status.isMoving.foreach(_ := isValid && (isReady || hasCancelRequest))
+
+    ctrl.cancel match {
+      case Some(cancel) => {
+        status.isFiring.foreach(_ := isValid && isReady && !hasCancelRequest)
+        status.isMoving.foreach(_ := isValid && (isReady || hasCancelRequest))
+      }
+      case None => { //To avoid hasCancelRequest usages
+        status.isFiring.foreach(_ := isValid && isReady)
+        status.isMoving.foreach(_ := isValid && isReady)
+      }
+    }
+
     status.hasCancelRequest.foreach(_ := ctrl.cancel.getOrElse(False))
     status.isCanceling.foreach(_ := status.hasCancelRequest.map(isValid && _).getOrElse(False))
   }
