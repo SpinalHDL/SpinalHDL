@@ -19,6 +19,11 @@ class StageConnector(val up : Node, val down : Node) extends Connector {
   var holdPayload = false
   var collapseBubble = true
 
+  def withoutCollapse() : this.type = {
+    collapseBubble = false
+    this
+  }
+
   override def ups: Seq[Node] = List(up)
   override def downs: Seq[Node] = List(down)
 

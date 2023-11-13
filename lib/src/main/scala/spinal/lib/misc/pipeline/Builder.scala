@@ -16,7 +16,7 @@ object Builder {
         val tmp = seeds.toArray
         seeds.clear()
         for (e <- tmp) {
-          println(s"PR DOWN $e")
+//          println(s"PR DOWN $e")
           e.propagateDown()
           for (d <- e.downs) {
             solved += d
@@ -36,7 +36,7 @@ object Builder {
         val tmp = seeds.toArray
         seeds.clear()
         for (e <- tmp) {
-          println(s"PR UP $e")
+//          println(s"PR UP $e")
           e.propagateUp()
           for (d <- e.ups) {
             solved += d
