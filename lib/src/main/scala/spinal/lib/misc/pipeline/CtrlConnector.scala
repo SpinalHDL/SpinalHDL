@@ -17,32 +17,17 @@ object CtrlConnector {
   }
 }
 
-class CtrlConnector(val up : Node, val down : Node) extends Connector {
-  down.up = this
-  up.down = this
-
-  def nameFromLocation[T <: Data](that: T, prefix: String)(implicit loc: Location): T = {
-    that.setCompositeName(this, prefix + "_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
-  }
-
-  val requests = new{
-    val halts = ArrayBuffer[Bool]()
-    val duplicates = ArrayBuffer[Bool]()
-    val terminates = ArrayBuffer[Bool]()
-    val ignoresReady = ArrayBuffer[Bool]()
-    val forgetsOne = ArrayBuffer[Bool]()
-    val cancels = ArrayBuffer[Bool]()
-
-    def impactValid = halts.nonEmpty || terminates.nonEmpty
-    def impactReady = halts.nonEmpty || duplicates.nonEmpty
-  }
+trait CtrlApi {
+  def getCtrl: CtrlConnector
+  private val _c = getCtrl
+  import _c._
 
   def isValid = up.isValid
   def isReady = down.isReady
 
   def apply[T <: Data](that: SignalKey[T]): T = down(that)
   def apply[T <: Data](that: SignalKey[T], subKey: Any): T = down(that, subKey)
-  def apply(subKeys: Seq[Any]) = down(subKeys)
+//  def apply(subKeys: Seq[Any]) = down(subKeys)
 
   def insert[T <: Data](that: T): SignalKey[T] = down.insert(that)
 
@@ -50,7 +35,7 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
   def bypass[T <: Data](that: SignalKey[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
   def bypass[T <: Data](that: NamedTypeKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
     val ret = that.tpe()
-    Misc.nameThat(this, ret, that, "bypass")
+    Misc.nameThat(_c, ret, that, "bypass")
     ret := up(that)
     ret
   })
@@ -84,6 +69,29 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
     keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
       key.tpe()
     })
+  }
+}
+
+class CtrlConnector(val up : Node, val down : Node) extends Connector with CtrlApi {
+  down.up = this
+  up.down = this
+
+  override def getCtrl: CtrlConnector = this
+
+  def nameFromLocation[T <: Data](that: T, prefix: String)(implicit loc: Location): T = {
+    that.setCompositeName(this, prefix + "_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
+  }
+
+  val requests = new{
+    val halts = ArrayBuffer[Bool]()
+    val duplicates = ArrayBuffer[Bool]()
+    val terminates = ArrayBuffer[Bool]()
+    val ignoresReady = ArrayBuffer[Bool]()
+    val forgetsOne = ArrayBuffer[Bool]()
+    val cancels = ArrayBuffer[Bool]()
+
+    def impactValid = halts.nonEmpty || terminates.nonEmpty
+    def impactReady = halts.nonEmpty || duplicates.nonEmpty
   }
 
   override def ups: Seq[Node] = List(up)
@@ -138,5 +146,9 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector {
         case None => down(m) := up(m)
       }
     }
+  }
+
+  class Area extends spinal.core.Area with CtrlApi {
+    override def getCtrl: CtrlConnector = CtrlConnector.this
   }
 }
