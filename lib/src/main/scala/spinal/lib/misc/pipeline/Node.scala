@@ -7,6 +7,12 @@ import spinal.lib._
 
 object Node{
   def apply() : Node = new Node
+
+  class OffsetApi(subKeys: Seq[Any], node: Node) {
+    def apply[T <: Data](that: SignalKey[T]): Seq[T] = {
+      subKeys.map(subKey => node.apply(that, subKey))
+    }
+  }
 }
 
 trait NodeApi {
@@ -69,13 +75,7 @@ trait NodeApi {
   def apply[T <: Data](key: SignalKey[T], subKey: Any): T = apply(NamedTypeKey(key.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
 
   //Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE)
-  def apply(subKey: Seq[Any]) = new OffsetApi(subKey)
-
-  class OffsetApi(subKeys: Seq[Any]) {
-    def apply[T <: Data](that: SignalKey[T]): Seq[T] = {
-      subKeys.map(subKey => getNode.apply(that, subKey))
-    }
-  }
+  def apply(subKey: Seq[Any]) : Node.OffsetApi = new Node.OffsetApi(subKey, getNode)
 
   def insert[T <: Data](that: T): SignalKey[T] = {
     val s = SignalKey(cloneOf(that))
@@ -122,8 +122,6 @@ trait NodeApi {
     arbitrateTo(that)
     con(that.payload, getNode)
   }
-
-
 
 //  implicit def stageablePiped[T <: Data](stageable: Stageable[T])(implicit key : StageableOffset = StageableOffsetNone) = Stage.this(stageable, key.value)
     implicit def stageablePiped2[T <: Data](stageable: SignalKey[T]) : T = this(stageable)

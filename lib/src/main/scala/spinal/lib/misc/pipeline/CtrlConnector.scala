@@ -27,7 +27,7 @@ trait CtrlApi {
 
   def apply[T <: Data](that: SignalKey[T]): T = down(that)
   def apply[T <: Data](that: SignalKey[T], subKey: Any): T = down(that, subKey)
-  def apply(subKeys: Seq[Any]) : Unit = down(subKeys)
+  def apply(subKeys: Seq[Any]) : Node.OffsetApi = down(subKeys)
 
   def insert[T <: Data](that: T): SignalKey[T] = down.insert(that)
 
