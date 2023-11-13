@@ -126,7 +126,12 @@ trait NodeApi {
 
 
 //  implicit def stageablePiped[T <: Data](stageable: Stageable[T])(implicit key : StageableOffset = StageableOffsetNone) = Stage.this(stageable, key.value)
-  implicit def stageablePiped2[T <: Data](stageable: SignalKey[T]) = this(stageable)
+    implicit def stageablePiped2[T <: Data](stageable: SignalKey[T]) : T = this(stageable)
+
+    class BundlePimper[T <: Bundle](pimped : T){
+      def :=(that: T): Unit = pimped := that
+    }
+    implicit def bundlePimper[T <: Bundle](stageable: SignalKey[T]) = new  BundlePimper[T](this(stageable))
 
 }
 
