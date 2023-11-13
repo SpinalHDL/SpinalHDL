@@ -34,9 +34,6 @@ class DirectConnector(val up : Node, val down : Node) extends Connector {
     if(!up.alwaysReady) up.ready := down.ready
     up.ctrl.forgetOne.foreach(_ := down.ctrl.forgetOne.get)
     up.ctrl.cancel.foreach(_ := down.ctrl.cancel.get)
-    val matches = down.fromUp.payload.intersect(up.fromDown.payload)
-    for(m <- matches){
-      down(m) := up(m)
-    }
+    Connector.connectDatas(up, down)
   }
 }
