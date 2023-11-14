@@ -2,7 +2,7 @@ package spinal.lib
 
 import spinal.core._
 import spinal.core.fiber._
-
+import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
 object BufferCC {
