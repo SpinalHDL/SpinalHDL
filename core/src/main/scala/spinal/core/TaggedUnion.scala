@@ -138,7 +138,7 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
 
     // Initializes the union payload based on the descriptors.
     private def initializeUnionPayload(): Unit = {
-        val unionHT = HardType.unionSeq(unionDescriptors.map(_._2))
+        val unionHT = HardType.union(unionDescriptors.map(_._2))
         unionPayload = unionHT()
         unionPayload.setPartialName("unionPayload")
     }
@@ -189,6 +189,19 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
         }
     }
 
+//    def choose[T <: Data](data: T)(callback: T => Unit): Unit = {
+//        val chosenElement = this.unionDescriptors.find(_._2 == data)
+//        chosenElement match {
+//            case Some((name, _)) => {
+//                val variant = tagUnionDescriptors(name)
+//                this.tag := variant
+//                callback(this.unionPayload.aliasAs(data))
+//            }
+//            case None => SpinalError(s"$data is not a member of this TaggedUnion")
+//        }
+//    }
+//
+//    pf: PartialFunction[A, B]
     /**
     * Iterates over all members of the union and applies a callback function to the active member.
     *
