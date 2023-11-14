@@ -155,6 +155,14 @@ class HardType[T <: Data](t : => T) extends OverridedEqualsHashCode{
 }
 
 
+object NamedType{
+  def apply[T <: Data](gen : => T) = new NamedType(gen)
+  def apply[T <: Data](gen : HardType[T]) = new NamedType(gen.craft())
+}
+
+class NamedType[T <: Data](gen : => T) extends HardType(gen) with Nameable
+
+
 object signalCache{
   def apply[T](key: Any)(factory: => T): T = {
     Component.current.userCache.getOrElseUpdate(key, factory).asInstanceOf[T]

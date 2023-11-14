@@ -5,8 +5,8 @@ package spinal.tester.code
 
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
-import spinal.core.fiber.Handle
-import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, Operator, Phase, PhaseContext, RangedAssignmentFixed, RangedAssignmentFloating}
+import spinal.core.fiber.{Fiber, Handle, Lockable}
+import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, MemBlackboxOf, Operator, Phase, PhaseContext, PhaseMemBlackBoxingWithPolicy, PhaseNetlist, RangedAssignmentFixed, RangedAssignmentFloating}
 import spinal.lib._
 import spinal.core.sim._
 import spinal.idslplugin.{Location, PostInitCallback}
@@ -15,12 +15,14 @@ import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
 import spinal.lib.graphic.Rgb
 import spinal.lib.io.TriState
+import spinal.lib.misc.plugin.{FiberPlugin, Plugin, PluginHost}
+import spinal.lib.misc.test.{DualSimTracer, MultithreadedTester}
 import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
-import java.io.File
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.math.ScalaNumber
+import scala.reflect.{ClassTag, classTag}
 import scala.util.Random
 
 
@@ -1792,13 +1794,8 @@ object InterruptInterconnectPlay extends App{
 
 
 object ExplorerTracerTest extends App{
-
-  import spinal.core._
-  import spinal.core.sim._
-  import spinal.lib.misc.test.DualSimTracer
-
   class Toplevel extends Component{
-    val counter = out(Reg(UInt(16 bits))) init(0)
+    val counter = Reg(UInt(32 bits)) init(0)
     counter := counter + 1
   }
 
@@ -1806,15 +1803,8 @@ object ExplorerTracerTest extends App{
 
   DualSimTracer(compiled, window = 10000, seed = 42){dut=>
     dut.clockDomain.forkStimulus(10)
-    dut.clockDomain.onSamplings{
-      val value = dut.counter.toInt
-      if(value % 0x1000 == 0){
-        println(f"Value=0x$value%x at ${simTime()}")
-      }
-      if(value== 0xFFFF){
-        simFailure()
-      }
-    }
+    sleep(100000)
+    simFailure()
   }
 }
 
@@ -1855,35 +1845,357 @@ object UnionPlay extends App{
   })
 }
 
+object BBcustomcustom extends App{
 
-object MulDebugPlay extends App{
-  SimConfig.withFstWave.compile(new Component{
-    val w = 8
-    val t = 7
-    val a,b = in SInt(w bits)
-    val l = t-1 downto 0
-    val h = w-1 downto t
-    val ll = a(l).asUInt * b(l).asUInt
-    val lh = (S(U(a(l)).resize(t+1)) * b(h)).resize(w)
-    val hl = (a(h) * S(U(b(l)).resize(t+1))).resize(w)
-    val hh = a(h) * b(h)
-    val adder = ll + U(lh.resize(2*w-t) << t) + U(hl.resize(2*w-t) << t) + U(hh << t*2)
-    val c = out(S(adder))
-//    val c = out(S(ll.resize(16)) + (lh.resize(12) << 4) + (hl.resize(12) << 4) + (hh << 8))
-  }).doSim(2){dut =>
-    for(i <- 0 until 100000){
-      dut.a.randomize()
-      dut.b.randomize()
-
-//      dut.a #= simRandom.nextInt(128)
-//      dut.b #= simRandom.nextInt(128)
-//      dut.a #= 64
-//      dut.b #= 96
-      sleep(10)
-      val ref = dut.a.toInt*dut.b.toInt
-      val got = dut.c.toInt
-
-      assert(got == ref,f"$got%x $ref%x")
+  class CustomTag(val doSleep : Bool) extends SpinalTag
+  class CustomPhase extends PhaseNetlist{
+    override def impl(pc: PhaseContext): Unit = {
+      pc.walkComponents{
+        case bb : Ram_1w_1rs => {
+          val mem = bb.getTag(classOf[MemBlackboxOf]).get.mem
+          mem.getTag(classOf[CustomTag])match {
+            case Some(tag) => {
+              val pin = bb rework new AreaRoot {
+                val sleep = in Bool()
+              }
+              bb.parent.rework {
+                pin.sleep := tag.doSleep.pull()
+              }
+            }
+            case None =>
+          }
+        }
+        case _ =>
+      }
     }
   }
+
+  val c = SpinalConfig(mode = Verilog)
+  c.addStandardMemBlackboxing(blackboxAll)
+  c.phasesInserters += { phases =>
+    val i = phases.lastIndexWhere(_.isInstanceOf[PhaseMemBlackBoxingWithPolicy])
+    phases.insert(i + 1, new CustomPhase)
+  }
+
+
+  c.generate(new Component{
+    val generalSleep = in Bool()
+    val sub = new Component {
+      val fifo = StreamFifo(UInt(8 bits), 64)
+      val io = fifo.io.toIo()
+    }
+    val io = sub.io.toIo()
+    sub.fifo.logic.ram.addTag(new CustomTag(generalSleep))
+  })
+
+}
+
+
+object PlayScopedMess extends App{
+  import spinal.lib.misc.pipeline._
+
+  // This is just a HashMap storage
+  class Database{
+    // User API
+    def update[T](key: Element[T], value: T) = key.set(this, value)
+    def apply[T](key: Element[T]): T = key.get(this)
+
+    // "private" API
+    val storage = mutable.LinkedHashMap[Element[_ <: Any], Any]()
+    def storageUpdate[T](key : Element[T], value : T) = storage.update(key, value)
+    def storageGet[T](key : Element[T]) : T = storage.apply(key).asInstanceOf[T]
+    def storageGetElseUpdate[T](key: Element[T], create: => T): T = storage.getOrElseUpdate(key, create).asInstanceOf[T]
+    def storageExists[T](key : Element[T]) = storage.contains(key)
+  }
+
+  // This is the default thread local database instance
+  object Database extends ScopeProperty[Database] {
+    def on[T](body: => T) = this (new Database).on(body)
+    def value[T]() = new ElementValue[T]()
+    def blocking[T]() = new ElementBlocking[T]()
+    def landa[T](body : => T) = new ElementLanda(body)
+  }
+
+  // Represent a thing which can be in a data base (this is the key)
+  abstract class Element[T](sp: ScopeProperty[Database] = Database) extends Nameable {
+    // user API
+    def get(): T = get(sp.get)
+    def apply(): T = get(sp.get)
+    def set(value: T): Unit = set(sp.get, value)
+
+    // private API
+    def get(db: Database) : T
+    def set(db: Database, value: T) : Unit
+  }
+
+  // Simple implementation
+  class ElementValue[T](sp : ScopeProperty[Database] = Database) extends Element[T](sp) {
+    def get(db: Database): T = db.storageGet(this)
+    def set(db: Database, value: T) = db.storageUpdate(this, value)
+  }
+
+  // Layered with a handle to allow blocking "get"
+  class ElementBlocking[T](sp : ScopeProperty[Database] = Database) extends Element[T](sp) with Area{
+    val thing = new ElementValue[Handle[T]]()
+    def getHandle(db : Database) : Handle[T] = db.storageGetElseUpdate(thing, new Handle[T].setCompositeName(this))
+    def get(db: Database) : T = getHandle(db).get
+    def set(db: Database, value : T) = {
+      assert(!getHandle(db).isLoaded)
+      getHandle(db).load(value)
+    }
+  }
+
+  // The body provide the processing to generate the value
+  class ElementLanda[T](body : => T, sp : ScopeProperty[Database] = Database) extends ElementValue[T](sp){
+    override def get(db: Database) : T = {
+      if(!db.storageExists(this)){
+        db.storageUpdate(this, body)
+      }
+      super.get(db)
+    }
+
+    override def set(db: Database, value: T) = ???
+  }
+
+  class VexiiRiscv extends Component{
+    val database = new Database
+    val host = Database(database) on (new PluginHost)
+  }
+
+  class PcPlugin extends FiberPlugin {
+    val jumps = ArrayBuffer[Flow[UInt]]()
+    val logic = during build new Area {
+      val pc = Reg(UInt(32 bits)) init(0)
+      for(jump <- jumps) when(jump.valid){ pc := jump.payload}
+    }
+  }
+
+  class JumpPlugin extends FiberPlugin {
+    val setup = during setup new Area{
+      Plugin[PcPlugin].retain()
+    }
+    val logic = during build new Area {
+      println(Riscv.RVC())
+      println(Riscv.XLEN_PLUS_2())
+      val jump = Flow(Riscv.PC())
+      Plugin[PcPlugin].jumps += jump
+      Plugin[PcPlugin].release()
+    }
+  }
+
+  class FetchPlugin extends FiberPlugin{
+    val pipeline = during build new Pipeline {
+      Riscv.RVC.set(true)
+//      Riscv.XLEN.set(32)
+//      val stagesCount = framework.getServices.map {
+//        case s: FetchPipelineRequirements => s.stagesCountMin
+//        case _ => 0
+//      }.max
+//      val stages = Array.fill(stagesCount)(newStage())
+//
+//      import spinal.lib.pipeline.Connection._
+//
+//      for ((m, s) <- (stages.dropRight(1), stages.tail).zipped) {
+//        connect(m, s)(M2S(flushPreserveInput = m == stages.head))
+//      }
+
+    }
+  }
+
+  class DummyPlugin extends FiberPlugin {
+    val pipeline = during build new Pipeline {
+
+    }
+  }
+
+  class RiscvPlugin(val xlen : Int) extends FiberPlugin{
+
+  }
+
+  object Riscv extends AreaObject {
+    val RVC = Database.blocking[Boolean]
+    val XLEN = Database.blocking[Int]
+    val XLEN_PLUS_2 = Database.landa(XLEN() + 2)
+    val PC = SignalKey(UInt(XLEN() bits))
+  }
+
+
+
+  class TopLevel extends Component {
+    val vexii = new VexiiRiscv
+    vexii.database(Riscv.XLEN) = 32
+
+
+    new PcPlugin().setHost(vexii.host)
+    new JumpPlugin().setHost(vexii.host)
+    new FetchPlugin().setHost(vexii.host)
+//    new DummyPlugin()
+  }
+
+  val report = SpinalVerilog(new TopLevel).printRtl()
+  println(report.toplevel.vexii.database(Riscv.XLEN_PLUS_2))
+  println("done")
+  println(report.toplevel.vexii.host[PcPlugin])
+
+}
+
+
+object PlayPipelineApi extends App{
+  SpinalVerilog(new Component{
+    import spinal.lib.misc.pipeline._
+
+    // Define a few pipelining Nodes (Stream-like)
+    val a,b,c,d,e,f = new Node
+
+    // Define the connections between those node
+    val c0 = new CtrlConnector(a, b) // Ctrl is a facility which allows to control the flow between 2 nodes (ex halt the flow)
+    val s01 = new StageConnector(b, c) // RegStage implement a register based connection between 2 nodes (Stream.m2s like)
+    val c1 = new CtrlConnector(c, d)
+    val s12 = new StageConnector(d, e)
+    val c2 = new CtrlConnector(e, f)
+
+    // Define a thing which can go through the pipeline (this is a typedef used as a key)
+    val PC = SignalKey(UInt(32 bits))
+
+
+    val source = slave Stream(PC)
+    val sink = master Stream(PC)
+
+    a.driveFrom(source)((self, payload) => self(PC) := payload)
+    c1.haltWhen(c(PC) === 42)
+    f.driveTo(sink)((payload, self) => payload := self(PC))
+
+
+    val connectors = List(c0, c1, c2, s01, s12)
+    Builder(connectors)
+  })
+}
+
+object PlayPipelineApi2 extends App{
+  SpinalVerilog(new Component{
+    import spinal.lib.misc.pipeline._
+
+    val c0 = CtrlConnector() // Ctrl is a facility which allows to control the flow between 2 nodes (ex halt the flow)
+    val c1 = CtrlConnector()
+    val c2 = CtrlConnector()
+
+    val s01 = StageConnector(c0.down, c1.up) // RegStage implement a register based connection between 2 nodes (Stream.m2s like)
+    val s12 = StageConnector(c1.down, c2.up)
+
+    // Define a thing which can go through the pipeline (this is a typedef used as a key)
+    val PC = SignalKey(UInt(32 bits))
+
+    val source = slave Stream(PC)
+    val sink = master Stream(PC)
+
+    c0.up.driveFrom(source)((self, payload) => self(PC) := payload)
+    c1.haltWhen(c1(PC) === 42)
+    val PC_PLUS_4 = c1.insert(c1(PC) + 4)
+    c2.down.driveTo(sink)((payload, self) => payload := self(PC_PLUS_4))
+
+    val connectors = List(c0, c1, c2, s01, s12)
+    Builder(connectors)
+  })
+}
+
+object PlayComposablePlugin extends App{
+  import spinal.lib.misc.pipeline._
+
+  class VexiiRiscv extends Component{
+    val host = new PluginHost
+  }
+
+  trait AddressTranslationService extends Area{
+    def PHYSICAL_WIDTH : Int
+    def MIXED_WIDTH: Int
+    def VIRTUAL_WIDTH: Int
+    def PC_WIDTH : Int
+
+    val VIRTUAL_ADDRESS = SignalKey(UInt(VIRTUAL_WIDTH bits))
+    val MIXED_ADDRESS = SignalKey(UInt(MIXED_WIDTH bits))
+    val PHYSICAL_ADDRESS = SignalKey(UInt(PHYSICAL_WIDTH bits))
+    val PC = SignalKey(UInt(PC_WIDTH bits))
+
+    def createTranslationPort() : Unit = ???
+  }
+
+  class StaticTranslationPlugin(physicalWidth : Int) extends FiberPlugin with AddressTranslationService{
+    override def PHYSICAL_WIDTH: Int = physicalWidth
+    override def VIRTUAL_WIDTH: Int = physicalWidth
+    override def MIXED_WIDTH: Int = physicalWidth
+    override def PC_WIDTH: Int = physicalWidth
+  }
+
+  trait PcService extends Area with Lockable{
+    def createJumpInterface(): Flow[UInt]
+  }
+
+  class PcPlugin extends FiberPlugin with PcService {
+    def ats = host[AddressTranslationService]
+
+    val jumps = ArrayBuffer[Flow[UInt]]()
+    override def createJumpInterface(): Flow[UInt] = {
+      val bus = Flow(ats.PC)
+      jumps += bus
+      bus
+    }
+
+    val logic = during build new Area {
+      val pc = Reg(ats.PC) init(0)
+      for(jump <- jumps) when(jump.valid){ pc := jump.payload}
+    }
+  }
+
+  class PcPluginComposed extends FiberPlugin {
+    def ats = host[AddressTranslationService]
+
+    val pcs = new PcService{
+      subservices += this
+      val jumps = ArrayBuffer[Flow[UInt]]()
+      override def createJumpInterface(): Flow[UInt] = {
+        val bus = Flow(ats.PC)
+        jumps += bus
+        bus
+      }
+    }
+
+    val logic = during build new Area {
+      val pc = Reg(ats.PC) init (0)
+      for (jump <- pcs.jumps) when(jump.valid) {
+        pc := jump.payload
+      }
+    }
+  }
+
+  class JumpPlugin extends FiberPlugin {
+    def pcs = host[PcService]
+
+    during setup {
+      pcs.retain()
+    }
+
+    val logic = during build new Area {
+      val jump = pcs.createJumpInterface()
+      pcs.release()
+
+      jump.valid := False
+      jump.payload := 0x42
+    }
+  }
+
+  class TopLevel extends Component {
+    val vexii = new VexiiRiscv
+
+    val plugins = ArrayBuffer(
+      new PcPluginComposed(),
+      new JumpPlugin(),
+      new StaticTranslationPlugin(physicalWidth = 30)
+    )
+    plugins.foreach(_.setHost(vexii.host))
+
+  }
+
+  val report = SpinalVerilog(new TopLevel).printRtl()
+  println(report.toplevel.vexii.host[PcPluginComposed])
+  println(report.toplevel.vexii.host[AddressTranslationService].PC.getName())
 }
