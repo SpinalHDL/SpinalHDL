@@ -872,7 +872,7 @@ abstract class PhaseMemBlackBoxingWithPolicy(policy: MemBlackboxingPolicy) exten
   def doBlackboxing(memTopology: MemTopology) : String
 }
 
-
+class MemBlackboxOf(val mem : Mem[Data]) extends SpinalTag
 class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemBlackBoxingWithPolicy(policy){
   def doBlackboxing(topo: MemTopology): String = {
     val mem = topo.mem
@@ -915,6 +915,8 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
             technology = mem.technology
           )
 
+          ram.addTag(new MemBlackboxOf(topo.mem.asInstanceOf[Mem[Data]]))
+
           ram.io.wr.en := wrapBool(wr.writeEnable) && clockDomain.isClockEnableActive
           ram.io.wr.addr.assignFrom(wr.address)
           ram.io.wr.data.assignFrom(wr.data)
@@ -946,6 +948,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
             readUnderWrite = rd.readUnderWrite,
             technology = mem.technology
           )
+          ram.addTag(new MemBlackboxOf(topo.mem.asInstanceOf[Mem[Data]]))
 
           ram.io.wr.en := wrapBool(wr.writeEnable) && wr.clockDomain.isClockEnableActive
           ram.io.wr.addr.assignFrom(wr.address)
@@ -979,6 +982,8 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           maskWidth = if (port.mask != null) port.mask.getWidth else 1,
           maskEnable = port.mask != null
         )
+
+        ram.addTag(new MemBlackboxOf(topo.mem.asInstanceOf[Mem[Data]]))
 
         ram.io.addr.assignFrom(port.address)
         ram.io.en.assignFrom(wrapBool(port.chipSelect) && port.clockDomain.isClockEnableActive)
@@ -1020,6 +1025,8 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           portB_maskWidth = if (portB.mask != null) portB.mask.getWidth else 1,
           portB_maskEnable = portB.mask != null
         )
+
+        ram.addTag(new MemBlackboxOf(topo.mem.asInstanceOf[Mem[Data]]))
 
         ram.io.portA.addr.assignFrom(portA.address)
         ram.io.portA.en.assignFrom(wrapBool(portA.chipSelect) && portA.clockDomain.isClockEnableActive)
@@ -2041,7 +2048,8 @@ class PhaseCheckHiearchy extends PhaseCheck{
             val bt = s.finalTarget
 
             if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
-              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
+              val identifier = if(c == null) "toplevel" else s"$c component"
+              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $identifier.\n${s.getScalaLocationLong}")
               error = true
             }
 

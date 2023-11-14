@@ -62,12 +62,12 @@ class BitsDataType(width : Int) extends BitVectorDataType(width) {
   }
 
   override def raw64ToLong(that: Long, signal : Signal) = {
-    if(width > 63) readLongError(signal)
+    if(width > 64) readLongError(signal)
     that
   }
 
   override def raw64ToInt(that: Long, signal : Signal) = {
-    if(width > 31) readIntError(signal)
+    if(width > 32) readIntError(signal)
     that.toInt
   }
 

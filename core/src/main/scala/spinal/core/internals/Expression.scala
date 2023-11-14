@@ -134,10 +134,10 @@ abstract class Resize extends Expression with WidthProvider {
   override def getWidth: Int = size
 
   override def simplifyNode: Expression = {
-    if(input.getWidth == 0){
-      getLiteralFactory(0,size)
-    } else {
-      this
+    input.getWidth match {
+      case 0 => getLiteralFactory(0, size)
+      case s if s == size => input //Useless resize
+      case _ => this
     }
   }
 

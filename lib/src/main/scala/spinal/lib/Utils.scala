@@ -757,18 +757,20 @@ object CounterMultiRequest {
 object AnalysisUtils{
   def seekNonCombDrivers(that : BaseType)(body : Any => Unit): Unit ={
     that.foreachStatements{ s =>
-      def walkExp(e : Expression) = e match {
+      def forExp(e : Expression) : Unit = e match {
         case s : Statement => s match {
           case s : BaseType if s.isComb => {seekNonCombDrivers(s)(body) }
           case s : BaseType if !s.isComb => body(s)
           case s =>
         }
-        case e : Expression =>
+        case e: MemReadSync =>
+        case e: MemReadWrite =>
+        case e : Expression => e.foreachDrivingExpression(forExp)
       }
       s.walkParentTreeStatementsUntilRootScope{sParent =>
-        sParent.walkDrivingExpressions(walkExp)
+        sParent.foreachDrivingExpression(forExp)
       }
-      s.walkDrivingExpressions(walkExp)
+      s.foreachDrivingExpression(forExp)
     }
   }
 
@@ -782,6 +784,10 @@ object AnalysisUtils{
       }
       case o if o.isOutput => {
         val cds = mutable.LinkedHashSet[ClockDomain]()
+        println(o)
+        if(o.getName() == "io_ddrA_r_ready"){
+          println("asd")
+        }
         seekNonCombDrivers(o){
           case bt : BaseType if bt.isReg => cds += bt.clockDomain
           case _ => println("???")
