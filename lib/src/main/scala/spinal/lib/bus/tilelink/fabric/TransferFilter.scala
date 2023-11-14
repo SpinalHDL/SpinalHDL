@@ -24,20 +24,18 @@ class TransferFilter() extends Area {
   }
 
   new MemoryConnection {
-    override def m = up
-    override def s = down
+    override def up = TransferFilter.this.up
+    override def down = TransferFilter.this.down
     override def transformers = Nil
-    override def mapping = SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth)
-    override def sToM(downs: MemoryTransfers, args: MappedNode) = downs
+    override def mapping = SizeMapping(0, BigInt(1) << TransferFilter.this.up.m2s.parameters.addressWidth)
     populate()
   }
 
   new MemoryConnection {
-    override def m = up
-    override def s = deadEnd
+    override def up = TransferFilter.this.up
+    override def down = TransferFilter.this.deadEnd
     override def transformers = Nil
-    override def mapping = SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth)
-    override def sToM(downs: MemoryTransfers, args: MappedNode) = downs
+    override def mapping = SizeMapping(0, BigInt(1) << TransferFilter.this.up.m2s.parameters.addressWidth)
     populate()
   }
 

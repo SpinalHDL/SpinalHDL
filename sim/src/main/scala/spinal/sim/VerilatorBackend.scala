@@ -1,18 +1,17 @@
 package spinal.sim
 
 import java.io.{File, PrintWriter}
-
 import javax.tools.JavaFileObject
 import net.openhft.affinity.impl.VanillaCpuLayout
 import org.apache.commons.io.FileUtils
-import java.security.MessageDigest
+import spinal.SpinalEnv
 
+import java.security.MessageDigest
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import sys.process._
-
 import scala.io.Source
 import java.io.BufferedInputStream
 import java.io.FileInputStream
@@ -683,10 +682,10 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       val threadCount = SimManager.cpuCount
       val logger = new Logger
       if (!useCache) {
-        assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
+        assert(s"${SpinalEnv.makeCmd} -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
       } else {
         // do not remake Vtoplevel__ALL.a
-        assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk -o V${config.toplevelName}__ALL.a V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
+        assert(s"${SpinalEnv.makeCmd} -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk -o V${config.toplevelName}__ALL.a V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
       }
 
       FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))

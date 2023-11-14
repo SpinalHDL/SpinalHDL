@@ -194,11 +194,12 @@ case class M2sAgent(name    : Nameable,
 
 
 object M2sParameters{
-  def apply(support : M2sSupport, sourceCount : Int) : M2sParameters = M2sParameters(
+  def apply(support : M2sSupport, sourceCount : Int) : M2sParameters = apply(support, sourceCount, null)
+  def apply(support: M2sSupport, sourceCount: Int, name : Nameable): M2sParameters = M2sParameters(
     addressWidth = support.addressWidth,
     dataWidth = support.dataWidth,
     masters = List(M2sAgent(
-      name = null,
+      name = name,
       mapping = List(M2sSource(
         id = SizeMapping(0, sourceCount),
         emits = support.transfers

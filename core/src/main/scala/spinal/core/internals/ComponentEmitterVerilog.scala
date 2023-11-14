@@ -1429,8 +1429,8 @@ end
 
     def onEachExpression(e: Expression): Unit = {
       e match {
-        case node: SubAccess => applyTo(node.getBitVector)
-        case node: Resize    => applyTo(node.input)
+        case node: Resize    if !node.input.isInstanceOf[BaseType] => applyTo(node.input)
+        case node: SubAccess if !node.getBitVector.isInstanceOf[BaseType] => applyTo(node.getBitVector)
         case _               =>
       }
     }
@@ -1438,7 +1438,6 @@ end
     def onEachExpressionNotDrivingBaseType(e: Expression): Unit = {
       onEachExpression(e)
       e match {
-    //    case node: Literal => applyTo(node)
         case node: Resize                           => applyTo(node)
         case node: Literal                          => // Avoid triggering on SInt literals
         case node if node.getTypeObject == TypeSInt => applyTo(node)

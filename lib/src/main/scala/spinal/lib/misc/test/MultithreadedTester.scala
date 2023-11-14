@@ -11,6 +11,39 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 
+class AsyncJob(toStdout: Boolean, val logsPath : File)(body: => Unit)(implicit @deprecatedName('execctx) executor: ExecutionContext) {
+  FileUtils.forceMkdir(logsPath)
+  val file = new PrintStream(new File(logsPath, "stdout.log"))
+  val originalOutput = Console.out
+  var failed = false
+  val stdout = if (toStdout) new TeeOutputStream(Console.out, file) else file
+  val future = Future {
+    Console.withOut(stdout) {
+      Console.withErr(stdout)(
+        try {
+          body
+        } catch {
+          case e: Throwable => {
+            failed = true
+            println(e.getMessage)
+            println(e.getStackTrace.map(_.toString).mkString("\n"))
+            Console.out.flush()
+            Console.err.flush()
+            Thread.sleep(50)
+          }
+        }
+      )
+    }
+    if (failed) println(s"Failure")
+  }
+
+  def join(): Unit = {
+    Await.result(future, Duration.Inf)
+    file.flush()
+    file.close()
+  }
+}
+
 class MultithreadedTester(threadCount : Int = 0, workspace : File = new File("logs")){
   val finalThreadCount = if(threadCount > 0) threadCount else {
     new oshi.SystemInfo().getHardware.getProcessor.getLogicalProcessorCount
@@ -19,45 +52,11 @@ class MultithreadedTester(threadCount : Int = 0, workspace : File = new File("lo
     new ForkJoinPool(finalThreadCount, ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
   )
 
-  val jobs = ArrayBuffer[Job]()
-  class Job(testName : String, toStdout : Boolean) (body : => Unit){
-    val logsPath = new File(workspace, testName)
-    FileUtils.forceMkdir(logsPath)
-    val file = new PrintStream(new File(logsPath,"stdout.log"))
-    val originalOutput = Console.out
-    var failed = false
-    val stdout = if(toStdout) new TeeOutputStream(Console.out, file) else file
-    val future = Future{
-      Console.withOut(stdout){
-        Console.withErr(stdout)(
-          try {
-            body
-          } catch {
-            case e: Throwable => {
-              failed = true
-              println(e.getMessage)
-              println(e.getStackTrace.map(_.toString).mkString("\n"))
-              Console.out.flush()
-              Console.err.flush()
-              Thread.sleep(50)
-            }
-          }
-        )
-      }
-      if(failed){
-        println(s"$testName failed")
-      }
-    }
+  val jobs = ArrayBuffer[AsyncJob]()
 
-    def join(): Unit = {
-      Await.result(future, Duration.Inf)
-      file.flush()
-      file.close()
-    }
-  }
 
   def test(testName: String, toStdout : Boolean = false)(testFun: => Unit) {
-    jobs += new Job(testName, toStdout)(testFun)
+    jobs += new AsyncJob(toStdout, new File(workspace, testName))(testFun)
   }
 
   def await(): Unit = {
