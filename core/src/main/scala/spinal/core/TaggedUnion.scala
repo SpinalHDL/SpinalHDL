@@ -141,6 +141,7 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
         val unionHT = HardType.union(unionDescriptors.map(_._2))
         unionPayload = unionHT()
         unionPayload.setPartialName("unionPayload")
+        unionPayload.setRefOwner(this)
     }
 
     // Initializes the tag based on the descriptors.
@@ -151,6 +152,8 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
                 tagUnionDescriptors += name -> element // Store the mapping of name to descriptor.
         }
         tag = tagEnum()
+        tag.setPartialName("tag")
+        tag.setRefOwner(this)
     }
 
     // Callback function invoked after initialization to build the TaggedUnion.
