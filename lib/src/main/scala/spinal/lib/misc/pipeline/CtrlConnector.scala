@@ -70,6 +70,23 @@ trait CtrlApi {
       key.tpe()
     })
   }
+
+
+  def forkStream[T <: Data](): Stream[NoData] = {
+    val ret = Stream(NoData())
+    val fired = RegInit(False) setWhen (ret.fire) clearWhen (up.isMoving) setCompositeName(ret, "fired")
+    ret.valid := isValid && !fired
+    haltWhen(!fired && !ret.ready)
+    ret
+  }
+
+  implicit def stageablePiped2[T <: Data](stageable: SignalKey[T]): T = this (stageable)
+
+  class BundlePimper[T <: Bundle](pimped: T) {
+    def :=(that: T): Unit = pimped := that
+  }
+
+  implicit def bundlePimper[T <: Bundle](stageable: SignalKey[T]) = new BundlePimper[T](this (stageable))
 }
 
 class CtrlConnector(val up : Node, val down : Node) extends Connector with CtrlApi {
