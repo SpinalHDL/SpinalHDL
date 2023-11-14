@@ -3,7 +3,9 @@ package spinal.lib.misc.test
 import spinal.core._
 import spinal.core.sim._
 
+import java.io.File
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.ExecutionContext
 
 /**
  * Double simulation, one ahead of the other which will trigger wave capture of the second simulation when it fail
@@ -14,11 +16,9 @@ object DualSimTracer {
     var mTime = 0l
     var mEnded = false
 
+    implicit val ec = ExecutionContext.global
 
-    val tester = new MultithreadedTester(workspace = compiled.compiledPath)
-    import tester._
-
-    test("explorer", toStdout = true) {
+    val explorer = new AsyncJob(toStdout = true, logsPath = new File(compiled.compiledPath, "explorer")) ({
       try {
         compiled.doSimUntilVoid(name = s"explorer", seed = seed) { dut =>
           disableSimWave()
@@ -31,13 +31,13 @@ object DualSimTracer {
           }
           testbench(dut, cb => {})
         }
-        println("Waiting for tracer completion")
+        println("Explorer success")
       } catch {
         case e: Throwable => throw e
       }
-    }
+    })
 
-    test("tracer") {
+    val tracer = new AsyncJob(toStdout = false, logsPath = new File(compiled.compiledPath, "tracer"))({
       val traceCallbacks = ArrayBuffer[() => Unit]()
       compiled.doSimUntilVoid(name = s"tracer", seed = seed) { dut =>
         disableSimWave()
@@ -57,12 +57,22 @@ object DualSimTracer {
             sleep(window)
           }
         }
+        println("Tracer success")
         testbench(dut, callback => traceCallbacks += (() => callback))
-        println("Tracer done without failure")
       }
+    })
+
+    explorer.join()
+    tracer.join()
+
+    assert(explorer.failed == tracer.failed)
+
+    if(tracer.failed){
+      throw new Exception(s"Some jobs failed, see ${tracer.logsPath.getAbsolutePath}")
+    } else {
+      println("Done")
     }
 
-    await()
   }
 
 }

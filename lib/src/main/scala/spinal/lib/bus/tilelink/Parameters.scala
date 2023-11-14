@@ -18,7 +18,7 @@ object BusParameter{
     sourceWidth  = sourceWidth,
     sinkWidth    = 0,
     withBCE      = false,
-    withDataA    = false,
+    withDataA    = true,
     withDataB    = false,
     withDataC    = true,
     withDataD    = true,
