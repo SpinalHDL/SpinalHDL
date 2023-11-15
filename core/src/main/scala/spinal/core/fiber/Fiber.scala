@@ -19,6 +19,13 @@ object Fiber {
   def setup[T](body : => T) : Handle[T] = apply(ElabOrderId.SETUP)(body)
   def build[T](body : => T) : Handle[T] = apply(ElabOrderId.BUILD)(body)
   def check[T](body : => T) : Handle[T] = apply(ElabOrderId.CHECK)(body)
+
+  def callback(orderId: Int)(body: => Unit): Unit = {
+    GlobalData.get.elab.addCallback(orderId)(body)
+  }
+
+  def setupCallback(body: => Unit): Unit = callback(ElabOrderId.SETUP)(body)
+  def buildCallback(body: => Unit): Unit = callback(ElabOrderId.BUILD)(body)
 }
 
 class Fiber {
@@ -37,6 +44,12 @@ class Fiber {
   }
   val tasks = new mutable.LinkedHashMap[Int, mutable.Queue[(Lock, Handle[_], AsyncThread)]]()
 
+  def addCallback(orderId : Int)(body : => Unit): Unit = {
+    callbacks.getOrElseUpdate(orderId, mutable.Queue[() => Unit]()).enqueue(() => body)
+  }
+  val callbacks = new mutable.LinkedHashMap[Int, mutable.Queue[() => Unit]]()
+
+
   def runSync(): Unit ={
     val e = Engine.get
 
@@ -46,8 +59,14 @@ class Fiber {
       AsyncThread.current.addSoonHandle(e._1)
     })
     while(tasks.nonEmpty){
-      val orderId = tasks.keys.min
+      val orderId = tasks.keys.min min callbacks.keys.min
       currentOrderId = orderId
+
+      callbacks.get(orderId).foreach{ l =>
+        l.foreach(_.apply())
+        callbacks.remove(orderId)
+      }
+
       val queue = tasks(orderId)
       val locks = ArrayBuffer[Handle[_]]()
       while(queue.nonEmpty){
