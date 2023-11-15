@@ -203,7 +203,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   }
 
   override def assignFromBits(bits: Bits): Unit = {
-    assert(widthOf(bits) == 1)
+    assert(widthOf(bits) == 1 || bits.hasTag(tagAutoResize))
     this := bits(0)
   }
 
