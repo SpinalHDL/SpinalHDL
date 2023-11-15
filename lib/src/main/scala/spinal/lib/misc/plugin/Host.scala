@@ -50,6 +50,8 @@ class PluginHost {
       case _ => throw new Exception(s"Found multiple instances of ${classTag[T].runtimeClass.getName}")
     }
   }
+
+  def find[T: ClassTag](filter : T => Boolean) = list[T].find(filter).get
 }
 
 
