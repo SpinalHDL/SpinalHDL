@@ -26,7 +26,7 @@ import spinal.idslplugin.{Location, ValCallback}
 
 import scala.collection.mutable
 import spinal.idslplugin.PostInitCallback
-
+import scala.reflect.ClassTag
 
 
 /**
@@ -180,7 +180,7 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
     * @param callback the function to be applied on the selected data.
     * @tparam T the type of the data to be selected.
     */
-    def choose[T <: Data](data: T)(callback: T => Unit): Unit = {
+    def chooseVariant[T <: Data](data: T)(callback: T => Unit): Unit = {
         val chosenElement = this.unionDescriptors.find(_._2 == data)
         chosenElement match {
             case Some((name, _)) => {
@@ -192,25 +192,43 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
         }
     }
 
-//    def choose[T <: Data](data: T)(callback: T => Unit): Unit = {
-//        val chosenElement = this.unionDescriptors.find(_._2 == data)
-//        chosenElement match {
-//            case Some((name, _)) => {
-//                val variant = tagUnionDescriptors(name)
-//                this.tag := variant
-//                callback(this.unionPayload.aliasAs(data))
-//            }
-//            case None => SpinalError(s"$data is not a member of this TaggedUnion")
-//        }
-//    }
-//
-//    pf: PartialFunction[A, B]
+    /**
+    * Selects a member of the union from its type and applies a callback on it.
+    *
+    * @param callback the function to be applied on the selected data.
+    * @tparam T the type of the data to be selected.
+    */
+    def choose(callback: PartialFunction[Data, Unit]): Unit = {
+        // count variants matching the callback
+        var matchingVariants: ArrayBuffer[String] = ArrayBuffer[String]()
+        for((name: String, k) <- unionDescriptors if callback.isDefinedAt(k)) {
+            matchingVariants += name
+        }
+
+        // error if not only one match
+        if(matchingVariants.size > 1) {
+            SpinalError(s"Several variants (${matchingVariants}) are matching your callback for $this: your choice is ambiguous.")
+        }
+
+        if(matchingVariants.isEmpty) {
+            SpinalError(s"No variant is matching your callback for $this: you need to modify it to deal with one valid case.")
+        }
+
+        for((name, k) <- unionDescriptors if callback.isDefinedAt(k)){
+            val variant = tagUnionDescriptors(name)
+            this.tag := variant
+            callback(this.unionPayload.aliasAs(k))
+            return
+        }
+        SpinalError(s"Variants are not matching the members of this TaggedUnion")
+    }
+
     /**
     * Iterates over all members of the union and applies a callback function to the active member.
     *
     * @param callback the callback function to apply, taking a pair of the variant and the corresponding hardware element.
     */
-    def among(callback: (Data, Data) => Unit): Unit = {
+    def amongVariants(callback: (Data, Data) => Unit): Unit = {
         switch(this.tag) {
             for((name, enumVariant) <- this.tagUnionDescriptors) {
                 is(enumVariant) {
@@ -223,6 +241,35 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
                         case None => SpinalError(s"$name is not a member of this TaggedUnion")
                     }
                     
+                }
+            }
+        }
+    }
+
+    /**
+    * Iterates over all members of the union and applies a callback function to the active member.
+    * This version of the function assumes that each type in the union is unique and will apply the callback
+    * based on the type of the active member.
+    *
+    * @param callback the callback function to apply, taking the hardware element.
+    */
+    def among(callback: PartialFunction[Data, Unit]): Unit = {
+        switch(this.tag) {
+            for ((name, enumVariant) <- this.tagUnionDescriptors) {
+                
+                is(enumVariant) {
+                    val dataVariant = this.unionDescriptors.find(_._1 == name)
+                    
+                    dataVariant match {
+                        case Some((_, d)) => {
+                            if(!callback.isDefinedAt(d)) {
+                                SpinalError(s"Your among argument is missing a case : ${d.getClass.getSimpleName}, for variant $name, is not dealt with.\nYou need to add `case val: ${d.getClass.getSimpleName} =>`.")
+                            }
+                            val dataHardware = this.unionPayload.aliasAs(d)
+                            callback(dataHardware)
+                        }
+                        case None => SpinalError(s"$name is not a member of this TaggedUnion")
+                    }
                 }
             }
         }
