@@ -88,26 +88,27 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
   val simulatePath       = new File(simulateDir).getAbsolutePath
   val compilePath        = s"${simulatePath}/compile.${scriptSuffix}"
   val elaboratePath      = s"${simulatePath}/elaborate.${scriptSuffix}"
-  
-  val msys2Shell = sys.env.get("MSYS2_ROOT") match {
-    case Some(x) => s"${x}\\msys2_shell.cmd"
-    case None => {
-        val msysShellPath = "C:\\msys64\\msys2_shell.cmd"
-        if (new File(msysShellPath).exists){
-          msysShellPath
-        } else {
-          assert(!isWindows, "MSYS2 Shell not found! Please Setup you MSYS2_ROOT Environment Variable.")
-          ""
-        }
+
+  val msys2Shell = {
+    if (isWindows) {
+      val msys2ShellPath =
+        sys.env.getOrElse("MSYS2_ROOT", "C:\\msys64") + "\\msys2_shell.cmd"
+      if (!new File(msys2ShellPath).exists) {
+        throw new Exception(
+          "MSYS2 Shell not found! Please Setup you MSYS2_ROOT Environment Variable."
+        )
       }
-  }
-  val vivadoInstallPath = sys.env.get("VIVADO_HOME") match {
-    case Some(x) => x
-    case None => {
-      assert(assertion = false, "VIVADO_HOME not found! Setup your vivado environment first.")
+      msys2ShellPath
+    } else {
       ""
     }
   }
+  val vivadoHome = sys.env.getOrElse(
+    "VIVADO_HOME",
+    throw new Exception(
+      "VIVADO_HOME not found! Setup your vivado environment first."
+    )
+  )
 
   def doCmd(command: String, cwd: File, message : String) = {
     val logger = new Logger()
@@ -271,7 +272,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       jdk + "/include"
     }
 
-    val xsim = Paths.get(vivadoInstallPath, "data", "xsim").toAbsolutePath.toString
+    val xsim = Paths.get(vivadoHome, "data", "xsim").toAbsolutePath.toString
     val xsimIncludes = if (isWindows) {
       FileUtils.copyDirectory(new File(s"$xsim\\include"), new File(s"${workspacePath}\\${workspaceName}\\xsimIncludes"))
       s"xsimIncludes"
