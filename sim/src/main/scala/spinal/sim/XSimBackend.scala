@@ -84,11 +84,23 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       ".sh"
     }
   }
-  val simulatePath = new File(s"${workPath}/${projectName}.sim/sim_1/behav/xsim").getAbsolutePath
-  val simulateKernelPath = new File(s"${simulatePath}/xsim.dir/${toplevelName}_behav").getAbsolutePath
-  val compilePath = s"${simulatePath}/compile.${scriptSuffix}"
-  val elaboratePath = s"${simulatePath}/elaborate.${scriptSuffix}"
-
+  val simulateDir        = s"${workPath}/${toplevelName}_xsim.sim/sim_1/behav/xsim"
+  val simulatePath       = new File(simulateDir).getAbsolutePath
+  val compilePath        = s"${simulatePath}/compile.${scriptSuffix}"
+  val elaboratePath      = s"${simulatePath}/elaborate.${scriptSuffix}"
+  
+  val msys2Shell = sys.env.get("MSYS2_ROOT") match {
+    case Some(x) => s"${x}\\msys2_shell.cmd"
+    case None => {
+        val msysShellPath = "C:\\msys64\\msys2_shell.cmd"
+        if (new File(msysShellPath).exists){
+          msysShellPath
+        } else {
+          assert(!isWindows, "MSYS2 Shell not found! Please Setup you MSYS2_ROOT Environment Variable.")
+          ""
+        }
+      }
+  }
   val vivadoInstallPath = sys.env.get("VIVADO_HOME") match {
     case Some(x) => x
     case None => {
@@ -111,6 +123,15 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       throw new Exception(message)
     }
   }
+  def doCmdMys2(command: String, cwd: File, message : String) = {
+    val cmd_msys2 = s""" $msys2Shell -defterm -here -no-start -mingw64 -c "$command" """.trim
+    doCmd(cmd_msys2, cwd, message)
+  }
+  def doCmdMys2(command: String, cwd: File, extraEnv: Seq[(String, String)], message : String) = {
+    val cmd_msys2 = s""" $msys2Shell -defterm -here -no-start -mingw64 -c "$command" """.trim
+    doCmd(cmd_msys2, cwd, extraEnv, message)
+  }
+
 
   class Logger extends ProcessLogger {
     val logs = new StringBuilder()
@@ -208,9 +229,9 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
 
     val vivadoScriptPath = scriptPath.replace("\\", "/")
     val command = {
-      val baseCommand = s"vivado -mode batch -source $vivadoScriptPath"
+      val baseCommand = s""" vivado -mode batch -source "$vivadoScriptPath" """.trim
       if (isWindows) {
-        s"sh -c \'${baseCommand}\'"
+        s"cmd /c $baseCommand"
       } else {
         baseCommand
       }
@@ -222,7 +243,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
 
   def getScriptCommand(cmd: String) = {
     if (isWindows) {
-      s"cmd /k ${cmd}.bat"
+      s"cmd /c ${cmd}.bat"
     } else {
       s"bash ${cmd}.sh"
     }
@@ -235,8 +256,8 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     doCmd(getScriptCommand("elaborate"),
       new File(simulatePath),
       "run elaborate failed")
-    val simDesignDir = s"${workspacePath}/${workspaceName}/${toplevelName}_xsim.sim/sim_1/behav/xsim/xsim.dir"
-    FileUtils.copyDirectory(new File(simDesignDir), new File("xsim.dir"))
+      val simDesignDir = s"${simulatePath}/xsim.dir"
+      FileUtils.copyDirectory(new File(simDesignDir), new File("xsim.dir"))
   }
 
   def compileDriver() = {
@@ -313,13 +334,20 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       ldFlags.mkString(" ")
     )
 
-    doCmd(
-      Seq(CC,
-        cFlags.mkString(" ")
-      ).mkString(" "),
-      new File(s"${workspacePath}/${workspaceName}"),
-      "Compilation of driver failed"
-    )
+    val gccCmd = Seq(CC, cFlags.mkString(" ")).mkString(" ")
+    if (isWindows) {
+      doCmdMys2(
+        gccCmd,
+        new File(s"${workspacePath}/${workspaceName}"),
+        "Compilation of driver failed"
+      )
+    } else {
+      doCmd(
+        gccCmd,
+        new File(s"${workspacePath}/${workspaceName}"),
+        "Compilation of driver failed"
+      )
+    }
     System.load(driverPath)
   }
 
@@ -329,6 +357,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
   }
 
   FileUtils.deleteQuietly(new File(s"${workPath}"))
+  FileUtils.deleteQuietly(new File("xsim.dir"))
   new File(workPath).mkdirs()
   generateScript()
   runScript()
