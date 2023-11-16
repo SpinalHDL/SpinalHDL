@@ -20,6 +20,8 @@ trait NodeApi {
   private val _n = getNode
   import _n._
 
+  def defaultKey : Any = null
+
   def valid : Bool = getNode.valid
   def ready : Bool = getNode.ready
   def cancel = status.hasCancelRequest
@@ -70,7 +72,7 @@ trait NodeApi {
     })
   }
 
-  def apply[T <: Data](key: SignalKey[T]): T = apply(NamedTypeKey(key.asInstanceOf[SignalKey[Data]], null)).asInstanceOf[T]
+  def apply[T <: Data](key: SignalKey[T]): T = apply(NamedTypeKey(key.asInstanceOf[SignalKey[Data]], defaultKey)).asInstanceOf[T]
 
   def apply[T <: Data](key: SignalKey[T], subKey: Any): T = apply(NamedTypeKey(key.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
 
@@ -186,7 +188,7 @@ class Node() extends Area with NodeApi{
     status.isCanceling.foreach(_ := status.hasCancelRequest.map(isValid && _).getOrElse(False))
   }
 
-  class Area extends spinal.core.Area with NodeApi {
+  class Area(override val defaultKey : Any = null) extends spinal.core.Area with NodeApi {
     override def getNode: Node = Node.this
   }
 }

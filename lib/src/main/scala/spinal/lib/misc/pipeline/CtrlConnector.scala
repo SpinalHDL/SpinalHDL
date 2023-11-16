@@ -22,16 +22,18 @@ trait CtrlApi {
   private val _c = getCtrl
   import _c._
 
+  def defaultKey : Any = null
+
   def isValid = up.isValid
   def isReady = down.isReady
 
-  def apply[T <: Data](that: SignalKey[T]): T = down(that)
+  def apply[T <: Data](that: SignalKey[T]): T = down(that, defaultKey)
   def apply[T <: Data](that: SignalKey[T], subKey: Any): T = down(that, subKey)
   def apply(subKeys: Seq[Any]) : Node.OffsetApi = down(subKeys)
 
   def insert[T <: Data](that: T): SignalKey[T] = down.insert(that)
 
-  def bypass[T <: Data](that: SignalKey[T]): T =  bypass(that, null)
+  def bypass[T <: Data](that: SignalKey[T]): T =  bypass(that, defaultKey)
   def bypass[T <: Data](that: SignalKey[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
   def bypass[T <: Data](that: NamedTypeKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
     val ret = that.tpe()
@@ -165,7 +167,7 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector with CtrlA
     }
   }
 
-  class Area extends spinal.core.Area with CtrlApi {
+  class Area(override val defaultKey : Any = null)  extends spinal.core.Area with CtrlApi {
     override def getCtrl: CtrlConnector = CtrlConnector.this
   }
 }

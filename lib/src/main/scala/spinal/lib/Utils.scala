@@ -1112,8 +1112,8 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     ret
   }
 
-  class ReaderOh(oh : TraversableOnce[Bool]) {
-    def apply[T2 <: Data](f : T => T2) = OHMux.or(oh.toIndexedSeq, pimped.map(f))
+  class ReaderOh(oh : TraversableOnce[Bool], bypassIfSingle : Boolean = false) {
+    def apply[T2 <: Data](f : T => T2) = OHMux.or(oh.toIndexedSeq, pimped.map(f), bypassIfSingle)
   }
 
   class ReaderSel(sel : UInt) {
@@ -1121,7 +1121,9 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   }
 
   def reader(oh : TraversableOnce[Bool]) = new ReaderOh(oh)
-  def reader(oh : Bits) = new ReaderOh(oh.asBools)
+  def reader(oh: Bits) = new ReaderOh(oh.asBools)
+  def reader(oh: TraversableOnce[Bool], bypassIfSingle: Boolean) = new ReaderOh(oh, bypassIfSingle)
+  def reader(oh: Bits, bypassIfSingle: Boolean) = new ReaderOh(oh.asBools, bypassIfSingle)
   def reader(sel : UInt) = new ReaderSel(sel)
 }
 
