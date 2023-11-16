@@ -178,7 +178,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       s"import_files -force $p"
     }
     val importXsi = xciAbsoluteSourcesPaths map { p =>
-      s"import_files -force -quiet [findFiles $p *.xci]"
+      s"import_files -force -quiet [findFiles $p *.{xci,xcix}]"
     }
     val importBd = bdAbsoluteSourcesPaths map { p =>
       s"import_files -force -quiet [findFiles $p *.bd]"
