@@ -11,6 +11,18 @@ import scala.collection.mutable.ArrayBuffer
 
 class PipelineTester extends SpinalAnyFunSuite{
 
+
+  test("node") {
+    SimConfig.compile(new Component {
+      val node = Node()
+      val X = SignalKey(UInt(8 bits))
+      node.apply(X) := 42
+      println("Miaou")
+    }).doSimUntilVoid { dut =>
+      simSuccess()
+    }
+  }
+
   // The user just need to implement that callback to specify what should be expected
   // on the down stream in function of what is pushed on the up stream
   def simpleTest(cd : ClockDomain, up : Any, down : Any)(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = {

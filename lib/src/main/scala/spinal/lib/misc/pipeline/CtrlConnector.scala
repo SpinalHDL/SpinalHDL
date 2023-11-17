@@ -35,7 +35,7 @@ trait CtrlApi {
 
   def bypass[T <: Data](that: SignalKey[T]): T =  bypass(that, defaultKey)
   def bypass[T <: Data](that: SignalKey[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
-  def bypass[T <: Data](that: NamedTypeKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
+  def bypass[T <: Data](that: NamedTypeKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScopeData {
     val ret = that.tpe()
     Misc.nameThat(_c, ret, that, "bypass")
     ret := up(that)
@@ -68,7 +68,7 @@ trait CtrlApi {
   val keyToData = mutable.LinkedHashMap[NamedTypeKey, Data]()
 
   def apply(key: NamedTypeKey): Data = {
-    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
+    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData {
       key.tpe()
     })
   }

@@ -34,6 +34,12 @@ class FiberPlugin extends Area with Lockable with Hostable {
     lockables += (() => l)
   }
 
+  def addRetain(l: => Lockable): Unit = {
+    spinal.core.fiber.Fiber.setupCallback {
+      l.retain()
+    }
+  }
+
   var buildCount = 0
 
 

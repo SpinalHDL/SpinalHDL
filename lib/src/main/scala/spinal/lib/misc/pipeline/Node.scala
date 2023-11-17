@@ -30,24 +30,24 @@ trait NodeApi {
 
   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
   def isFiring : Bool = {
-    if (status.isFiring.isEmpty) status.isFiring = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isFiring")))
+    if (status.isFiring.isEmpty) status.isFiring = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isFiring")))
     status.isFiring.get
   }
 
   // True when it is the last cycle that the current transaction is present on this node. Useful to "reset" some states
   def isMoving : Bool = {
-    if (status.isMoving.isEmpty) status.isMoving = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isMoving")))
+    if (status.isMoving.isEmpty) status.isMoving = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isMoving")))
     status.isMoving.get
   }
 
   // True when the current node is being cleaned up
   def isCanceling: Bool = {
-    if (status.isCanceling.isEmpty) status.isCanceling = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isCanceling")))
+    if (status.isCanceling.isEmpty) status.isCanceling = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isCanceling")))
     status.isCanceling.get
   }
 
   def hasCancelRequest: Bool = {
-    if (status.hasCancelRequest.isEmpty) status.hasCancelRequest = Some(ContextSwapper.outsideCondScope(Bool())) //Unamed as it come from ctrl.cancel anyway
+    if (status.hasCancelRequest.isEmpty) status.hasCancelRequest = Some(ContextSwapper.outsideCondScopeData(Bool())) //Unamed as it come from ctrl.cancel anyway
     status.hasCancelRequest.get
   }
 
@@ -65,7 +65,7 @@ trait NodeApi {
 
 
   def apply(key: NamedTypeKey): Data = {
-    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
+    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData {
       val ret = key.tpe()
       Misc.nameThat(getNode, ret, key, "")
       ret
