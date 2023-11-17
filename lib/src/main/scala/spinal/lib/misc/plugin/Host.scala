@@ -51,6 +51,15 @@ class PluginHost {
     }
   }
 
+  def get[T: ClassTag]: Option[T] = {
+    val filtered = list[T]
+    filtered.length match {
+      case 0 => None
+      case 1 => Some(filtered.head)
+      case _ => throw new Exception(s"Found multiple instances of ${classTag[T].runtimeClass.getName}")
+    }
+  }
+
   def find[T: ClassTag](filter : T => Boolean) = list[T].find(filter).get
 }
 
