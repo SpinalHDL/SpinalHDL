@@ -359,6 +359,32 @@ class PipelineTester extends SpinalAnyFunSuite{
     }
   }
 
+  test("bypassExplicit") {
+    SimConfig.compile(new CtrlPipeline {
+      val state = Reg(UInt(16 bits)) init (0)
+      c0.up(OUT) := state
+
+      def addBypassOn(ctrl: CtrlLink): Unit = {
+        when(c2.down.valid) {
+          ctrl.bypass(OUT) := c2(IN)
+        }
+      }
+      c0.bypass(OUT) := c0.up(OUT)
+      addBypassOn(c0)
+      addBypassOn(c1)
+
+      when(c2.down.isFiring) {
+        state := c2(IN)
+      }
+    }).doSimUntilVoid { dut =>
+      var state = 0
+      dut.testIt { (value, queue) =>
+        queue += state
+        state = value
+      }
+    }
+  }
+
   // 1 input stream is forked into to output stream
   test("fork") {
     SimConfig.compile(new Component {

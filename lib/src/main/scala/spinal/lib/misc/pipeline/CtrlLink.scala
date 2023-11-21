@@ -35,12 +35,15 @@ trait CtrlApi {
 
   def bypass[T <: Data](that: Payload[T]): T =  bypass(that, defaultKey)
   def bypass[T <: Data](that: Payload[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
-  def bypass[T <: Data](that: NamedTypeKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScopeData {
-    val ret = that.tpe()
-    Misc.nameThat(_c, ret, that, "bypass")
-    ret := up(that)
-    ret
-  })
+  def bypass[T <: Data](that: NamedTypeKey): Data = {
+    val preserve = DslScopeStack.get != getCtrl.parentScope
+    bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScopeData {
+      val ret = that.tpe()
+      Misc.nameThat(_c, ret, that, "bypass")
+      if(preserve) ret := up(that)
+      ret
+    })
+  }
 
   def haltWhen(cond: Bool)      (implicit loc: Location): Unit = requests.halts += nameFromLocation(CombInit(cond), "haltRequest")
   def duplicateWhen(cond: Bool) (implicit loc: Location): Unit = requests.duplicates += nameFromLocation(CombInit(cond), "duplicateRequest")
