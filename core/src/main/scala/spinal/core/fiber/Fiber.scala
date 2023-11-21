@@ -58,8 +58,8 @@ class Fiber {
       e._1.willBeLoadedBy = AsyncThread.current
       AsyncThread.current.addSoonHandle(e._1)
     })
-    while(tasks.nonEmpty){
-      val orderId = tasks.keys.min min callbacks.keys.min
+    while(tasks.nonEmpty || callbacks.nonEmpty){
+      val orderId = (tasks.keys ++ callbacks.keys).min
       currentOrderId = orderId
 
       callbacks.get(orderId).foreach{ l =>
