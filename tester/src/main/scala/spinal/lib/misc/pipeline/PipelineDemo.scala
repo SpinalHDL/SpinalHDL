@@ -23,8 +23,8 @@ class TopLevel extends Component {
   val s12 = StageConnector(n1, n2)
 
   // Let's define a few stageable things that can go through the pipeline
-  val VALUE = SignalKey(UInt(16 bits))
-  val RESULT = SignalKey(UInt(16 bits))
+  val VALUE = Payload(UInt(16 bits))
+  val RESULT = Payload(UInt(16 bits))
 
   // Let's bind io.up to n0
   io.up.ready := n0.ready
@@ -44,7 +44,7 @@ class TopLevel extends Component {
 }
 
 class TopLevel2 extends Component {
-  val VALUE = SignalKey(UInt(16 bits))
+  val VALUE = Payload(UInt(16 bits))
 
   val io = new Bundle{
     val up = slave Stream(VALUE)  //VALUE can also be used as a HardType
@@ -74,7 +74,7 @@ class TopLevel2 extends Component {
 }
 
 class TopLevel2a extends Component {
-  val VALUE = SignalKey(UInt(16 bits))
+  val VALUE = Payload(UInt(16 bits))
 
   val io = new Bundle{
     val up = slave Stream(VALUE)  //VALUE can also be used as a HardType
@@ -107,7 +107,7 @@ class TopLevel2a extends Component {
 
 
 class TopLevel3 extends Component {
-  val ADDRESS = SignalKey(UInt(8 bits))
+  val ADDRESS = Payload(UInt(8 bits))
 
   val io = new Bundle{
     val up = slave Flow(ADDRESS)  //VALUE can also be used as a HardType
@@ -155,7 +155,7 @@ class TopLevel3 extends Component {
 // This area allows to take a input value and do +1 +1 +1 over 3 stages.
 // It can be instantiated in pipeline (reusability)
 // I know that's useless, but let's pretend that instead it does a square root XD
-class PLus3(INPUT: SignalKey[UInt], stage1: Node, stage2: Node, stage3: Node) extends Area {
+class PLus3(INPUT: Payload[UInt], stage1: Node, stage2: Node, stage3: Node) extends Area {
   val ONE = stage1.insert(stage1(INPUT) + 1)
   val TWO = stage2.insert(stage2(ONE) + 1)
   val THREE = stage3.insert(stage3(TWO) + 1)
@@ -330,7 +330,7 @@ object PipelineDemo6 extends App {
     down.up = this
     up.down = this
 
-    val swaps = mutable.LinkedHashMap[SignalKey[_ <: Data], SignalKey[_ <: Data]]()
+    val swaps = mutable.LinkedHashMap[Payload[_ <: Data], Payload[_ <: Data]]()
 
     override def ups: Seq[Node] = List(up)
     override def downs: Seq[Node] = List(down)
@@ -384,14 +384,14 @@ object PipelineDemo6 extends App {
     val feedback = new Node()
 
     val mul = new Node {
-      val XX, YY, XY = SignalKey(fixType)
+      val XX, YY, XY = Payload(fixType)
       this(XX) := (inject.X * inject.X).truncated
       this(YY) := (inject.Y * inject.Y).truncated
       this(XY) := (inject.X * inject.Y).truncated
     }
 
     val add = new Node {
-      val XN, YN         = SignalKey(fixType)
+      val XN, YN         = Payload(fixType)
       this(XN)          := (mul.XX - mul.YY + inject.TASK.x).truncated
       this(YN)          := (((mul.XY) << 1) + inject.TASK.y).truncated
       val DONE_NEXT      = insert(inject.DONE || mul.XX + mul.YY >= 4.0 || inject.ITERATION === iterationLimit)

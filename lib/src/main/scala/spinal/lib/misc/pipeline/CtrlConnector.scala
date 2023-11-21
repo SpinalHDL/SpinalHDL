@@ -27,14 +27,14 @@ trait CtrlApi {
   def isValid = up.isValid
   def isReady = down.isReady
 
-  def apply[T <: Data](that: SignalKey[T]): T = down(that, defaultKey)
-  def apply[T <: Data](that: SignalKey[T], subKey: Any): T = down(that, subKey)
+  def apply[T <: Data](that: Payload[T]): T = down(that, defaultKey)
+  def apply[T <: Data](that: Payload[T], subKey: Any): T = down(that, subKey)
   def apply(subKeys: Seq[Any]) : Node.OffsetApi = down(subKeys)
 
-  def insert[T <: Data](that: T): SignalKey[T] = down.insert(that)
+  def insert[T <: Data](that: T): Payload[T] = down.insert(that)
 
-  def bypass[T <: Data](that: SignalKey[T]): T =  bypass(that, defaultKey)
-  def bypass[T <: Data](that: SignalKey[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
+  def bypass[T <: Data](that: Payload[T]): T =  bypass(that, defaultKey)
+  def bypass[T <: Data](that: Payload[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
   def bypass[T <: Data](that: NamedTypeKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScopeData {
     val ret = that.tpe()
     Misc.nameThat(_c, ret, that, "bypass")
@@ -82,13 +82,13 @@ trait CtrlApi {
     ret
   }
 
-  implicit def stageablePiped2[T <: Data](stageable: SignalKey[T]): T = this (stageable)
+  implicit def stageablePiped2[T <: Data](stageable: Payload[T]): T = this (stageable)
 
   class BundlePimper[T <: Bundle](pimped: T) {
     def :=(that: T): Unit = pimped := that
   }
 
-  implicit def bundlePimper[T <: Bundle](stageable: SignalKey[T]) = new BundlePimper[T](this (stageable))
+  implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new BundlePimper[T](this (stageable))
 }
 
 class CtrlConnector(val up : Node, val down : Node) extends Connector with CtrlApi {

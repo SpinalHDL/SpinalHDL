@@ -9,7 +9,7 @@ object Node{
   def apply() : Node = new Node
 
   class OffsetApi(subKeys: Seq[Any], node: Node) {
-    def apply[T <: Data](that: SignalKey[T]): Seq[T] = {
+    def apply[T <: Data](that: Payload[T]): Seq[T] = {
       subKeys.map(subKey => node.apply(that, subKey))
     }
   }
@@ -72,15 +72,15 @@ trait NodeApi {
     })
   }
 
-  def apply[T <: Data](key: SignalKey[T]): T = apply(NamedTypeKey(key.asInstanceOf[SignalKey[Data]], defaultKey)).asInstanceOf[T]
+  def apply[T <: Data](key: Payload[T]): T = apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], defaultKey)).asInstanceOf[T]
 
-  def apply[T <: Data](key: SignalKey[T], subKey: Any): T = apply(NamedTypeKey(key.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
+  def apply[T <: Data](key: Payload[T], subKey: Any): T = apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
 
   //Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE)
   def apply(subKey: Seq[Any]) : Node.OffsetApi = new Node.OffsetApi(subKey, getNode)
 
-  def insert[T <: Data](that: T): SignalKey[T] = {
-    val s = SignalKey(cloneOf(that))
+  def insert[T <: Data](that: T): Payload[T] = {
+    val s = Payload(cloneOf(that))
     this (s) := that
     s
   }
@@ -126,12 +126,12 @@ trait NodeApi {
   }
 
 //  implicit def stageablePiped[T <: Data](stageable: Stageable[T])(implicit key : StageableOffset = StageableOffsetNone) = Stage.this(stageable, key.value)
-    implicit def stageablePiped2[T <: Data](stageable: SignalKey[T]) : T = this(stageable)
+    implicit def stageablePiped2[T <: Data](stageable: Payload[T]) : T = this(stageable)
 
     class BundlePimper[T <: Bundle](pimped : T){
       def :=(that: T): Unit = pimped := that
     }
-    implicit def bundlePimper[T <: Bundle](stageable: SignalKey[T]) = new  BundlePimper[T](this(stageable))
+    implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new  BundlePimper[T](this(stageable))
 
 }
 

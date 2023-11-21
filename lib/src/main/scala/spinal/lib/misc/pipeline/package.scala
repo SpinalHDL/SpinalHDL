@@ -1,6 +1,6 @@
 package spinal.lib.misc
 
 package object pipeline {
-  type SignalKey[T <: spinal.core.Data] = spinal.core.NamedType[T]
-  val SignalKey = spinal.core.NamedType
+  type Payload[T <: spinal.core.Data] = spinal.core.NamedType[T]
+  val Payload = spinal.core.NamedType
 }

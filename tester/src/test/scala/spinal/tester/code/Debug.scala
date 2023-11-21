@@ -2016,7 +2016,7 @@ object PlayScopedMess extends App{
     val RVC = Database.blocking[Boolean]
     val XLEN = Database.blocking[Int]
     val XLEN_PLUS_2 = Database.landa(XLEN() + 2)
-    val PC = SignalKey(UInt(XLEN() bits))
+    val PC = Payload(UInt(XLEN() bits))
   }
 
 
@@ -2055,7 +2055,7 @@ object PlayPipelineApi extends App{
     val c2 = new CtrlConnector(e, f)
 
     // Define a thing which can go through the pipeline (this is a typedef used as a key)
-    val PC = SignalKey(UInt(32 bits))
+    val PC = Payload(UInt(32 bits))
 
 
     val source = slave Stream(PC)
@@ -2083,7 +2083,7 @@ object PlayPipelineApi2 extends App{
     val s12 = StageConnector(c1.down, c2.up)
 
     // Define a thing which can go through the pipeline (this is a typedef used as a key)
-    val PC = SignalKey(UInt(32 bits))
+    val PC = Payload(UInt(32 bits))
 
     val source = slave Stream(PC)
     val sink = master Stream(PC)
@@ -2111,10 +2111,10 @@ object PlayComposablePlugin extends App{
     def VIRTUAL_WIDTH: Int
     def PC_WIDTH : Int
 
-    val VIRTUAL_ADDRESS = SignalKey(UInt(VIRTUAL_WIDTH bits))
-    val MIXED_ADDRESS = SignalKey(UInt(MIXED_WIDTH bits))
-    val PHYSICAL_ADDRESS = SignalKey(UInt(PHYSICAL_WIDTH bits))
-    val PC = SignalKey(UInt(PC_WIDTH bits))
+    val VIRTUAL_ADDRESS = Payload(UInt(VIRTUAL_WIDTH bits))
+    val MIXED_ADDRESS = Payload(UInt(MIXED_WIDTH bits))
+    val PHYSICAL_ADDRESS = Payload(UInt(PHYSICAL_WIDTH bits))
+    val PC = Payload(UInt(PC_WIDTH bits))
 
     def createTranslationPort() : Unit = ???
   }

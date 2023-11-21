@@ -31,7 +31,7 @@ object Misc{
 
 //case class StageableOffset(val value : Any)
 //object StageableOffsetNone extends StageableOffset(null)
-case class NamedTypeKey(tpe: SignalKey[spinal.core.Data], key : Any){
+case class NamedTypeKey(tpe: Payload[spinal.core.Data], key : Any){
   override def toString = {
     var name = tpe.getName()
     if(key != null) name = name + "_" + key
