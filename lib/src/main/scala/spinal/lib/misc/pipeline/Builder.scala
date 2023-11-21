@@ -6,11 +6,11 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 object Builder {
-  def apply(head : Connector, tail : Connector*) : Unit = apply(head +: tail)
-  def apply(connectors: Seq[Connector]): Unit = {
+  def apply(head : Link, tail : Link*) : Unit = apply(head +: tail)
+  def apply(connectors: Seq[Link]): Unit = {
     def propagateDown(): Unit = {
       val solved = mutable.ArrayBuffer[Node]()
-      val seeds = mutable.ArrayBuffer[Connector]()
+      val seeds = mutable.ArrayBuffer[Link]()
       seeds ++= connectors.filter(c => c.ups.isEmpty || c.ups.forall(_.up == null))
       while (seeds.nonEmpty) {
         val tmp = seeds.toArray
@@ -30,7 +30,7 @@ object Builder {
 
     def propagateUp(): Unit = {
       val solved = mutable.ArrayBuffer[Node]()
-      val seeds = mutable.ArrayBuffer[Connector]()
+      val seeds = mutable.ArrayBuffer[Link]()
       seeds ++= connectors.filter(c => c.downs.isEmpty || c.downs.forall(_.down == null))
       while (seeds.nonEmpty) {
         val tmp = seeds.toArray
@@ -60,7 +60,7 @@ object Builder {
 
 class NodesBuilder() extends Nameable {
   val nodes = ArrayBuffer[Node]()
-  val connectors = ArrayBuffer[Connector]()
+  val connectors = ArrayBuffer[Link]()
 
   class Node extends spinal.lib.misc.pipeline.Node {
     nodes += this
@@ -68,7 +68,7 @@ class NodesBuilder() extends Nameable {
 
   def genStagedPipeline(): Unit = {
     for ((up, down) <- (nodes, nodes.tail).zipped) {
-      connectors += StageConnector(up, down).setCompositeName(this, "connector")
+      connectors += StageLink(up, down).setCompositeName(this, "connector")
     }
     Builder(connectors)
   }

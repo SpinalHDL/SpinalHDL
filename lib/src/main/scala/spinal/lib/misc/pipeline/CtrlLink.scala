@@ -7,10 +7,10 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable
 import scala.collection.Seq
 
-object CtrlConnector {
-  def apply(up : Node, down : Node) = new CtrlConnector(up, down)
+object CtrlLink {
+  def apply(up : Node, down : Node) = new CtrlLink(up, down)
   def apply() = {
-    val c = new CtrlConnector(new Node(), new Node())
+    val c = new CtrlLink(new Node(), new Node())
     c.up.setCompositeName(c, "up")
     c.down.setCompositeName(c, "down")
     c
@@ -18,27 +18,33 @@ object CtrlConnector {
 }
 
 trait CtrlApi {
-  def getCtrl: CtrlConnector
+  def getCtrl: CtrlLink
   private val _c = getCtrl
   import _c._
+
+  def defaultKey : Any = null
 
   def isValid = up.isValid
   def isReady = down.isReady
 
-  def apply[T <: Data](that: SignalKey[T]): T = down(that)
-  def apply[T <: Data](that: SignalKey[T], subKey: Any): T = down(that, subKey)
+  def apply[T <: Data](that: Payload[T]): T = down(that, defaultKey)
+  def apply[T <: Data](that: Payload[T], subKey: Any): T = down(that, subKey)
   def apply(subKeys: Seq[Any]) : Node.OffsetApi = down(subKeys)
 
-  def insert[T <: Data](that: T): SignalKey[T] = down.insert(that)
+  def insert[T <: Data](that: T): Payload[T] = down.insert(that)
 
-  def bypass[T <: Data](that: SignalKey[T]): T =  bypass(that, null)
-  def bypass[T <: Data](that: SignalKey[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
-  def bypass[T <: Data](that: NamedTypeKey): Data = bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
-    val ret = that.tpe()
-    Misc.nameThat(_c, ret, that, "bypass")
-    ret := up(that)
-    ret
-  })
+  def bypass[T <: Data](that: Payload[T]): T =  bypass(that, defaultKey)
+  def bypass[T <: Data](that: Payload[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
+  def bypass[T <: Data](that: NamedTypeKey): Data = {
+    val preserve = DslScopeStack.get != getCtrl.parentScope
+    bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScopeData {
+      val ret = that.tpe()
+      Misc.nameThat(_c, ret, that, "_bypass")
+      down(that) := ret
+      if(preserve) ret := up(that)
+      ret
+    })
+  }
 
   def haltWhen(cond: Bool)      (implicit loc: Location): Unit = requests.halts += nameFromLocation(CombInit(cond), "haltRequest")
   def duplicateWhen(cond: Bool) (implicit loc: Location): Unit = requests.duplicates += nameFromLocation(CombInit(cond), "duplicateRequest")
@@ -66,17 +72,34 @@ trait CtrlApi {
   val keyToData = mutable.LinkedHashMap[NamedTypeKey, Data]()
 
   def apply(key: NamedTypeKey): Data = {
-    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
+    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData {
       key.tpe()
     })
   }
+
+
+  def forkStream[T <: Data](): Stream[NoData] = {
+    val ret = Stream(NoData())
+    val fired = RegInit(False) setWhen (ret.fire) clearWhen (up.isMoving) setCompositeName(ret, "fired")
+    ret.valid := isValid && !fired
+    haltWhen(!fired && !ret.ready)
+    ret
+  }
+
+  implicit def stageablePiped2[T <: Data](stageable: Payload[T]): T = this (stageable)
+
+  class BundlePimper[T <: Bundle](pimped: T) {
+    def :=(that: T): Unit = pimped := that
+  }
+
+  implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new BundlePimper[T](this (stageable))
 }
 
-class CtrlConnector(val up : Node, val down : Node) extends Connector with CtrlApi {
+class CtrlLink(val up : Node, val down : Node) extends Link with CtrlApi {
   down.up = this
   up.down = this
 
-  override def getCtrl: CtrlConnector = this
+  override def getCtrl: CtrlLink = this
 
   def nameFromLocation[T <: Data](that: T, prefix: String)(implicit loc: Location): T = {
     that.setCompositeName(this, prefix + "_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
@@ -142,13 +165,13 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector with CtrlA
     val matches = down.fromUp.payload.intersect(up.fromDown.payload)
     for (m <- matches) {
       bypasses.get(m) match {
-        case Some(x) => down(m) := x
+        case Some(x) =>
         case None => down(m) := up(m)
       }
     }
   }
 
-  class Area extends spinal.core.Area with CtrlApi {
-    override def getCtrl: CtrlConnector = CtrlConnector.this
+  class Area(override val defaultKey : Any = null)  extends spinal.core.Area with CtrlApi {
+    override def getCtrl: CtrlLink = CtrlLink.this
   }
 }

@@ -9,7 +9,7 @@ object Node{
   def apply() : Node = new Node
 
   class OffsetApi(subKeys: Seq[Any], node: Node) {
-    def apply[T <: Data](that: SignalKey[T]): Seq[T] = {
+    def apply[T <: Data](that: Payload[T]): Seq[T] = {
       subKeys.map(subKey => node.apply(that, subKey))
     }
   }
@@ -20,6 +20,8 @@ trait NodeApi {
   private val _n = getNode
   import _n._
 
+  def defaultKey : Any = null
+
   def valid : Bool = getNode.valid
   def ready : Bool = getNode.ready
   def cancel = status.hasCancelRequest
@@ -28,24 +30,24 @@ trait NodeApi {
 
   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
   def isFiring : Bool = {
-    if (status.isFiring.isEmpty) status.isFiring = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isFiring")))
+    if (status.isFiring.isEmpty) status.isFiring = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isFiring")))
     status.isFiring.get
   }
 
   // True when it is the last cycle that the current transaction is present on this node. Useful to "reset" some states
   def isMoving : Bool = {
-    if (status.isMoving.isEmpty) status.isMoving = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isMoving")))
+    if (status.isMoving.isEmpty) status.isMoving = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isMoving")))
     status.isMoving.get
   }
 
   // True when the current node is being cleaned up
   def isCanceling: Bool = {
-    if (status.isCanceling.isEmpty) status.isCanceling = Some(ContextSwapper.outsideCondScope(Bool().setCompositeName(getNode, "isCanceling")))
+    if (status.isCanceling.isEmpty) status.isCanceling = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isCanceling")))
     status.isCanceling.get
   }
 
   def hasCancelRequest: Bool = {
-    if (status.hasCancelRequest.isEmpty) status.hasCancelRequest = Some(ContextSwapper.outsideCondScope(Bool())) //Unamed as it come from ctrl.cancel anyway
+    if (status.hasCancelRequest.isEmpty) status.hasCancelRequest = Some(ContextSwapper.outsideCondScopeData(Bool())) //Unamed as it come from ctrl.cancel anyway
     status.hasCancelRequest.get
   }
 
@@ -63,22 +65,22 @@ trait NodeApi {
 
 
   def apply(key: NamedTypeKey): Data = {
-    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope {
+    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData {
       val ret = key.tpe()
       Misc.nameThat(getNode, ret, key, "")
       ret
     })
   }
 
-  def apply[T <: Data](key: SignalKey[T]): T = apply(NamedTypeKey(key.asInstanceOf[SignalKey[Data]], null)).asInstanceOf[T]
+  def apply[T <: Data](key: Payload[T]): T = apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], defaultKey)).asInstanceOf[T]
 
-  def apply[T <: Data](key: SignalKey[T], subKey: Any): T = apply(NamedTypeKey(key.asInstanceOf[SignalKey[Data]], subKey)).asInstanceOf[T]
+  def apply[T <: Data](key: Payload[T], subKey: Any): T = apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
 
   //Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE)
   def apply(subKey: Seq[Any]) : Node.OffsetApi = new Node.OffsetApi(subKey, getNode)
 
-  def insert[T <: Data](that: T): SignalKey[T] = {
-    val s = SignalKey(cloneOf(that))
+  def insert[T <: Data](that: T): Payload[T] = {
+    val s = Payload(cloneOf(that))
     this (s) := that
     s
   }
@@ -124,12 +126,12 @@ trait NodeApi {
   }
 
 //  implicit def stageablePiped[T <: Data](stageable: Stageable[T])(implicit key : StageableOffset = StageableOffsetNone) = Stage.this(stageable, key.value)
-    implicit def stageablePiped2[T <: Data](stageable: SignalKey[T]) : T = this(stageable)
+    implicit def stageablePiped2[T <: Data](stageable: Payload[T]) : T = this(stageable)
 
     class BundlePimper[T <: Bundle](pimped : T){
       def :=(that: T): Unit = pimped := that
     }
-    implicit def bundlePimper[T <: Bundle](stageable: SignalKey[T]) = new  BundlePimper[T](this(stageable))
+    implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new  BundlePimper[T](this(stageable))
 
 }
 
@@ -144,8 +146,8 @@ class Node() extends Area with NodeApi{
   val fromUp = new FromUp()
   val fromDown = new FromDown()
 
-  var up: Connector = null
-  var down: Connector = null
+  var up: Link = null
+  var down: Link = null
 
   var alwaysValid = false
   var alwaysReady = false
@@ -186,7 +188,7 @@ class Node() extends Area with NodeApi{
     status.isCanceling.foreach(_ := status.hasCancelRequest.map(isValid && _).getOrElse(False))
   }
 
-  class Area extends spinal.core.Area with NodeApi {
+  class Area(override val defaultKey : Any = null) extends spinal.core.Area with NodeApi {
     override def getNode: Node = Node.this
   }
 }

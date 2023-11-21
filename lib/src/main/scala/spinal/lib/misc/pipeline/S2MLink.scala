@@ -3,11 +3,11 @@ package spinal.lib.misc.pipeline
 import spinal.core._
 
 
-object S2mConnector{
-  def apply(up : Node, down : Node) = new S2mConnector(up, down)
+object S2MLink{
+  def apply(up : Node, down : Node) = new S2MLink(up, down)
 }
 
-class S2mConnector(val up : Node, val down : Node) extends Connector {
+class S2MLink(val up : Node, val down : Node) extends Link {
   down.up = this
   up.down = this
 

@@ -11,6 +11,18 @@ import scala.collection.mutable.ArrayBuffer
 
 class PipelineTester extends SpinalAnyFunSuite{
 
+
+  test("node") {
+    SimConfig.compile(new Component {
+      val node = Node()
+      val X = Payload(UInt(8 bits))
+      node.apply(X) := 42
+      println("Miaou")
+    }).doSimUntilVoid { dut =>
+      simSuccess()
+    }
+  }
+
   // The user just need to implement that callback to specify what should be expected
   // on the down stream in function of what is pushed on the up stream
   def simpleTest(cd : ClockDomain, up : Any, down : Any)(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = {
@@ -79,12 +91,12 @@ class PipelineTester extends SpinalAnyFunSuite{
   class NodePipeline extends Component {
     val n0, n1, n2, n3 = Node()
 
-    val s01 = StageConnector(n0, n1)
-    val s12 = StageConnector(n1, n2)
-    val s23 = StageConnector(n2, n3)
+    val s01 = StageLink(n0, n1)
+    val s12 = StageLink(n1, n2)
+    val s23 = StageLink(n2, n3)
 
-    val IN = SignalKey(UInt(16 bits))
-    val OUT = SignalKey(UInt(16 bits))
+    val IN = Payload(UInt(16 bits))
+    val OUT = Payload(UInt(16 bits))
 
     val up = slave Stream (IN)
     val down = master Stream (OUT)
@@ -124,15 +136,15 @@ class PipelineTester extends SpinalAnyFunSuite{
   // - 3 CtrlConnector connected by 2 register stages
   // - up / down streams to feed and read the pipeline
   class CtrlPipeline extends Component{
-    val c0 = CtrlConnector()
-    val c1 = CtrlConnector()
-    val c2 = CtrlConnector()
+    val c0 = CtrlLink()
+    val c1 = CtrlLink()
+    val c2 = CtrlLink()
 
-    val s01 = StageConnector(c0.down, c1.up)
-    val s12 = StageConnector(c1.down, c2.up)
+    val s01 = StageLink(c0.down, c1.up)
+    val s12 = StageLink(c1.down, c2.up)
 
-    val IN = SignalKey(UInt(16 bits))
-    val OUT = SignalKey(UInt(16 bits))
+    val IN = Payload(UInt(16 bits))
+    val OUT = Payload(UInt(16 bits))
 
     val up = slave Stream (IN)
     val down = master Stream (OUT)
@@ -326,7 +338,7 @@ class PipelineTester extends SpinalAnyFunSuite{
       val state = Reg(UInt(16 bits)) init(0)
       c0.up(OUT) := state
 
-      def addBypassOn(ctrl : CtrlConnector): Unit = {
+      def addBypassOn(ctrl : CtrlLink): Unit = {
         when(c2.down.valid){
           ctrl.bypass(OUT) := c2(IN)
         }
@@ -347,18 +359,44 @@ class PipelineTester extends SpinalAnyFunSuite{
     }
   }
 
+  test("bypassExplicit") {
+    SimConfig.compile(new CtrlPipeline {
+      val state = Reg(UInt(16 bits)) init (0)
+      c0.up(OUT) := state
+
+      def addBypassOn(ctrl: CtrlLink): Unit = {
+        when(c2.down.valid) {
+          ctrl.bypass(OUT) := c2(IN)
+        }
+      }
+      c0.bypass(OUT) := c0.up(OUT)
+      addBypassOn(c0)
+      addBypassOn(c1)
+
+      when(c2.down.isFiring) {
+        state := c2(IN)
+      }
+    }).doSimUntilVoid { dut =>
+      var state = 0
+      dut.testIt { (value, queue) =>
+        queue += state
+        state = value
+      }
+    }
+  }
+
   // 1 input stream is forked into to output stream
   test("fork") {
     SimConfig.compile(new Component {
       val n0, n1, n2, n3, n4, n5, n6 = Node()
 
-      val s0 = StageConnector(n0, n1)
-      val f0 = ForkConnector(n1, List(n2, n4))
-      val s1 = StageConnector(n2, n3)
-      val c0 = CtrlConnector(n4, n5)
-      val s2 = StageConnector(n5, n6)
+      val s0 = StageLink(n0, n1)
+      val f0 = ForkLink(n1, List(n2, n4))
+      val s1 = StageLink(n2, n3)
+      val c0 = CtrlLink(n4, n5)
+      val s2 = StageLink(n5, n6)
 
-      val IN = SignalKey(UInt(16 bits))
+      val IN = Payload(UInt(16 bits))
 
       val up = slave Stream (IN)
       val downs = Vec.fill(2)(master Stream (IN))
@@ -404,13 +442,13 @@ class PipelineTester extends SpinalAnyFunSuite{
     SimConfig.compile(new Component {
       val n0, n1, n2, n3, n4, n5 = Node()
 
-      val s0 = StageConnector(n0, n1)
-      val s1 = StageConnector(n2, n3)
-      val j0 = JoinConnector(List(n1, n3), n4)
-      val s2 = StageConnector(n4, n5)
+      val s0 = StageLink(n0, n1)
+      val s1 = StageLink(n2, n3)
+      val j0 = JoinLink(List(n1, n3), n4)
+      val s2 = StageLink(n4, n5)
 
-      val A, B = SignalKey(UInt(16 bits))
-      val OUT = SignalKey(UInt(16 bits))
+      val A, B = Payload(UInt(16 bits))
+      val OUT = Payload(UInt(16 bits))
 
       val ups = Vec.fill(2)(slave Stream (UInt(16 bits)))
       val down = master Stream (OUT)
@@ -451,17 +489,17 @@ class PipelineTester extends SpinalAnyFunSuite{
 
 
   class S2mPipeline extends Component {
-    val c0 = CtrlConnector()
-    val c1 = CtrlConnector()
-    val c2 = CtrlConnector()
-    val c3 = CtrlConnector()
+    val c0 = CtrlLink()
+    val c1 = CtrlLink()
+    val c2 = CtrlLink()
+    val c3 = CtrlLink()
 
-    val s01 = StageConnector(c0.down, c1.up)
-    val s12 = S2mConnector(c1.down, c2.up)
-    val s23 = StageConnector(c2.down, c3.up)
+    val s01 = StageLink(c0.down, c1.up)
+    val s12 = S2MLink(c1.down, c2.up)
+    val s23 = StageLink(c2.down, c3.up)
 
-    val IN = SignalKey(UInt(16 bits))
-    val OUT = SignalKey(UInt(16 bits))
+    val IN = Payload(UInt(16 bits))
+    val OUT = Payload(UInt(16 bits))
 
     val up = slave Stream (IN)
     val down = master Stream (OUT)
@@ -511,15 +549,15 @@ class PipelineTester extends SpinalAnyFunSuite{
 
 
   class UnmappedPipeline extends Component {
-    val c0 = CtrlConnector()
-    val c1 = CtrlConnector()
-    val c2 = CtrlConnector()
+    val c0 = CtrlLink()
+    val c1 = CtrlLink()
+    val c2 = CtrlLink()
 
-    val s01 = StageConnector(c0.down, c1.up)
-    val s12 = StageConnector(c1.down, c2.up)
+    val s01 = StageLink(c0.down, c1.up)
+    val s12 = StageLink(c1.down, c2.up)
 
-    val IN = SignalKey(UInt(16 bits))
-    val OUT = SignalKey(UInt(16 bits))
+    val IN = Payload(UInt(16 bits))
+    val OUT = Payload(UInt(16 bits))
 
     val connectors = List(c0, c1, c2, s01, s12)
     afterElaboration(Builder(connectors))

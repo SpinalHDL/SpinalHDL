@@ -1,6 +1,6 @@
 package spinal.core.fiber
 
-import spinal.core.assert
+import spinal.core.{Area, assert}
 
 case class Lock() extends Handle[Int]{
   load(0)
@@ -20,8 +20,9 @@ case class Lock() extends Handle[Int]{
 }
 
 
-trait Lockable {
+trait Lockable extends Area{
   val lock = spinal.core.fiber.Lock()
   def retain() = lock.retain()
   def release() = lock.release()
+  def await() = lock.await()
 }

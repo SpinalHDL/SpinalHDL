@@ -19,12 +19,12 @@ class TopLevel extends Component {
   val n0, n1, n2 = Node()
 
   // Let's connect those nodes by using simples registers
-  val s01 = StageConnector(n0, n1)
-  val s12 = StageConnector(n1, n2)
+  val s01 = StageLink(n0, n1)
+  val s12 = StageLink(n1, n2)
 
   // Let's define a few stageable things that can go through the pipeline
-  val VALUE = SignalKey(UInt(16 bits))
-  val RESULT = SignalKey(UInt(16 bits))
+  val VALUE = Payload(UInt(16 bits))
+  val RESULT = Payload(UInt(16 bits))
 
   // Let's bind io.up to n0
   io.up.ready := n0.ready
@@ -44,7 +44,7 @@ class TopLevel extends Component {
 }
 
 class TopLevel2 extends Component {
-  val VALUE = SignalKey(UInt(16 bits))
+  val VALUE = Payload(UInt(16 bits))
 
   val io = new Bundle{
     val up = slave Stream(VALUE)  //VALUE can also be used as a HardType
@@ -55,8 +55,8 @@ class TopLevel2 extends Component {
   val n0, n1, n2 = Node()
 
   // Let's connect those nodes by using simples registers
-  val s01 = StageConnector(n0, n1)
-  val s12 = StageConnector(n1, n2)
+  val s01 = StageLink(n0, n1)
+  val s12 = StageLink(n1, n2)
 
   // Let's bind io.up to n0
   n0.arbitrateFrom(io.up)
@@ -74,7 +74,7 @@ class TopLevel2 extends Component {
 }
 
 class TopLevel2a extends Component {
-  val VALUE = SignalKey(UInt(16 bits))
+  val VALUE = Payload(UInt(16 bits))
 
   val io = new Bundle{
     val up = slave Stream(VALUE)  //VALUE can also be used as a HardType
@@ -107,18 +107,18 @@ class TopLevel2a extends Component {
 
 
 class TopLevel3 extends Component {
-  val ADDRESS = SignalKey(UInt(8 bits))
+  val ADDRESS = Payload(UInt(8 bits))
 
   val io = new Bundle{
     val up = slave Flow(ADDRESS)  //VALUE can also be used as a HardType
   }
 
   // Let's define 3 Nodes for our pipeline
-  val c0, c1, c2 = CtrlConnector()
+  val c0, c1, c2 = CtrlLink()
 
   // Let's connect those nodes by using simples registers
-  val s01 = StageConnector(c0.down, c1.up)
-  val s12 = StageConnector(c1.down, c2.up)
+  val s01 = StageLink(c0.down, c1.up)
+  val s12 = StageLink(c1.down, c2.up)
 
   c0.up.arbitrateFrom(io.up)
   c0(ADDRESS) := io.up.payload
@@ -155,7 +155,7 @@ class TopLevel3 extends Component {
 // This area allows to take a input value and do +1 +1 +1 over 3 stages.
 // It can be instantiated in pipeline (reusability)
 // I know that's useless, but let's pretend that instead it does a square root XD
-class PLus3(INPUT: SignalKey[UInt], stage1: Node, stage2: Node, stage3: Node) extends Area {
+class PLus3(INPUT: Payload[UInt], stage1: Node, stage2: Node, stage3: Node) extends Area {
   val ONE = stage1.insert(stage1(INPUT) + 1)
   val TWO = stage2.insert(stage2(ONE) + 1)
   val THREE = stage3.insert(stage3(TWO) + 1)
@@ -174,8 +174,8 @@ class TopLevel4(lanesCount : Int) extends Component {
   val n0, n1, n2 = Node()
 
   // Let's connect those nodes by using simples registers
-  val s01 = StageConnector(n0, n1)
-  val s12 = StageConnector(n1, n2)
+  val s01 = StageLink(n0, n1)
+  val s12 = StageLink(n1, n2)
 
   // Let's bind io.up to n0
   n0.arbitrateFrom(io.up)
@@ -240,7 +240,7 @@ class RgbToSomething(addAt : Int,
   }
 
   // Let's connect those nodes sequencialy by using simples registers
-  val connectors = for (i <- 0 to resultAt - 1) yield StageConnector(nodes(i), nodes(i + 1))
+  val connectors = for (i <- 0 to resultAt - 1) yield StageLink(nodes(i), nodes(i + 1))
 
   // Let's ask the builder to generate all the required hardware
   Builder(connectors)
@@ -299,7 +299,7 @@ object PipelineDemo6 extends App {
     val iteration = g.iterationType
   }
 
-  class DeflectorConnector(val up : Node, val down : Node, val deflect : Node) extends Connector{
+  class DeflectorLink(val up : Node, val down : Node, val deflect : Node) extends Link{
     deflect.up = this
     down.up = this
     up.down = this
@@ -316,8 +316,8 @@ object PipelineDemo6 extends App {
     }
 
     override def build(): Unit = {
-      Connector.connectDatas(up, down)
-      Connector.connectDatas(up, deflect)
+      Link.connectDatas(up, down)
+      Link.connectDatas(up, deflect)
 
       val doDeflect = up.valid && (forceDeflect || !down.ready)
       down.valid := up.valid && !doDeflect
@@ -326,11 +326,11 @@ object PipelineDemo6 extends App {
     }
   }
 
-  class FeedbackConnector(val up: Node, val feedback: Node, val down: Node) extends Connector {
+  class FeedbackLink(val up: Node, val feedback: Node, val down: Node) extends Link {
     down.up = this
     up.down = this
 
-    val swaps = mutable.LinkedHashMap[SignalKey[_ <: Data], SignalKey[_ <: Data]]()
+    val swaps = mutable.LinkedHashMap[Payload[_ <: Data], Payload[_ <: Data]]()
 
     override def ups: Seq[Node] = List(up)
     override def downs: Seq[Node] = List(down)
@@ -354,9 +354,9 @@ object PipelineDemo6 extends App {
       down.valid := up.valid || feedback.valid
       up.ready := !feedback.valid
 
-      Connector.connectDatas(up, down)
+      Link.connectDatas(up, down)
       when(feedback.valid){
-        Connector.connectDatasWithSwap(feedback, down, swaps)
+        Link.connectDatasWithSwap(feedback, down, swaps)
       }
     }
   }
@@ -384,14 +384,14 @@ object PipelineDemo6 extends App {
     val feedback = new Node()
 
     val mul = new Node {
-      val XX, YY, XY = SignalKey(fixType)
+      val XX, YY, XY = Payload(fixType)
       this(XX) := (inject.X * inject.X).truncated
       this(YY) := (inject.Y * inject.Y).truncated
       this(XY) := (inject.X * inject.Y).truncated
     }
 
     val add = new Node {
-      val XN, YN         = SignalKey(fixType)
+      val XN, YN         = Payload(fixType)
       this(XN)          := (mul.XX - mul.YY + inject.TASK.x).truncated
       this(YN)          := (((mul.XY) << 1) + inject.TASK.y).truncated
       val DONE_NEXT      = insert(inject.DONE || mul.XX + mul.YY >= 4.0 || inject.ITERATION === iterationLimit)
@@ -406,7 +406,7 @@ object PipelineDemo6 extends App {
     }
 
     //Let's connect all the nodes
-    val arbiter = new FeedbackConnector(inject, feedback, mul){
+    val arbiter = new FeedbackLink(inject, feedback, mul){
       swaps(inject.TASK)      = inject.TASK
       swaps(inject.ID)        = inject.ID
       swaps(inject.X)         = add.XN
@@ -414,9 +414,9 @@ object PipelineDemo6 extends App {
       swaps(inject.DONE)      = add.DONE_NEXT
       swaps(inject.ITERATION) = add.ITERATION_NEXT
     }
-    val mulToAdd  = new StageConnector(mul, add)
-    val addToS2   = new StageConnector(add, s2)
-    val deflector = new DeflectorConnector(s2, completed, feedback){
+    val mulToAdd  = new StageLink(mul, add)
+    val addToS2   = new StageLink(add, s2)
+    val deflector = new DeflectorLink(s2, completed, feedback){
       val wantedId = Counter(1 << idWidth, inc = completed.isFiring)
       forceDeflect setWhen(!up(add.DONE_NEXT) || wantedId =/= up(inject.ID))
     }

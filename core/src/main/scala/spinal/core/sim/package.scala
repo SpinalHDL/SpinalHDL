@@ -157,6 +157,7 @@ package object sim {
     manager.setBigInt(signal, value)
   }
 
+  def simCompiled : SimCompiled[_ <: Component] = sm.asInstanceOf[CoreSimManager].compiled
   def currentTestName() : String = sm.testName
 
   /** Return the current simulation time */

@@ -532,6 +532,19 @@ class SimVerilatorPhase extends PhaseNetlist {
   }
 }
 
+class CoreSimManager(sim : SimRaw, random : Random, allocatedName : String, val compiled : SimCompiled[_ <: Component]) extends SimManager(sim, random, allocatedName){
+  val spinalGlobalData =  GlobalData.get
+  override def setupJvmThread(thread: Thread): Unit = {
+    super.setupJvmThread(thread)
+    GlobalData.it.set(spinalGlobalData)
+  }
+
+  override def newSpawnTask() = new SimThreadSpawnTask {
+    val initialContext = ScopeProperty.capture()
+    override def setup() = initialContext.restore()
+  }
+}
+
 /**
   * Run simulation
   */
@@ -586,18 +599,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T], val comp
 
     val sim = newSimRaw(allocatedName, backendSeed)
 
-    val manager = new SimManager(sim, random, allocatedName){
-      val spinalGlobalData =  GlobalData.get
-      override def setupJvmThread(thread: Thread): Unit = {
-        super.setupJvmThread(thread)
-        GlobalData.it.set(spinalGlobalData)
-      }
-
-      override def newSpawnTask() = new SimThreadSpawnTask {
-        val initialContext = ScopeProperty.capture()
-        override def setup() = initialContext.restore()
-      }
-    }
+    val manager = new CoreSimManager(sim, random, allocatedName, this)
     manager.userData = dut
 
     println(f"[Progress] Start ${dut.definitionName} $allocatedName simulation with seed $seed")

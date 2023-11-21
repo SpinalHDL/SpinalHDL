@@ -596,6 +596,35 @@ object ContextSwapper{
     t.allowSuspend = true
     ret                                   // return the value returned by that
   }
+
+  //Allows to (only) to create base type instances on the top of the netlist. Support Fiber suspend
+  def outsideCondScopeData[T <: Data](that: => T): T = {
+    val dummyBody = new ScopeStatement(null)
+    dummyBody.component = Component.current
+    val ctx = dummyBody.push() // Now all access to the SpinalHDL API will be append to it (instead of the current context)
+    val ret = that // Execute the block of code (will be added to the recently empty body)
+    ctx.restore() // Restore the original context in which this function was called
+
+    val topBody = Component.current.dslBody // Get the head of the current component symboles tree (AST in other words)
+    val oldHead = topBody.head
+    val oldLast = topBody.last
+    val addedHead = dummyBody.head
+    val addedLast = dummyBody.last
+
+    //Move the AST from dummyBody to the head of topBody
+    dummyBody.foreachStatements {
+      case cu: ContextUser => cu.parentScope = topBody
+      case _ =>
+    }
+    topBody.head = addedHead
+    addedHead.lastScopeStatement = null.asInstanceOf[Statement]
+    addedLast.nextScopeStatement = oldHead
+    oldHead.lastScopeStatement = addedLast
+    oldLast.nextScopeStatement = null.asInstanceOf[Statement]
+    topBody.last = oldLast
+
+    ret // return the value returned by that
+  }
 }
 
 

@@ -3,20 +3,20 @@ package spinal.lib.misc.pipeline
 import spinal.core._
 import scala.collection.Seq
 
-object Connector{
+object Link{
   def connectDatas(up: Node, down: Node): Unit = {
     val matches = down.fromUp.payload.intersect(up.fromDown.payload)
     for (m <- matches) down(m) := up(m)
   }
 
-  def connectDatasWithSwap(up: Node, down: Node, swap : scala.collection.Map[SignalKey[_ <: Data], SignalKey[_ <: Data]]): Unit = {
+  def connectDatasWithSwap(up: Node, down: Node, swap : scala.collection.Map[Payload[_ <: Data], Payload[_ <: Data]]): Unit = {
     val matches = down.fromUp.payload.intersect(up.fromDown.payload).filter(e => !swap.contains(e.tpe))
     for (m <- matches) down(m) := up(m)
-    for((to, from) <- swap) down(to.asInstanceOf[SignalKey[Data]]) := up(from.asInstanceOf[SignalKey[Data]])
+    for((to, from) <- swap) down(to.asInstanceOf[Payload[Data]]) := up(from.asInstanceOf[Payload[Data]])
   }
 }
 
-trait Connector extends Area{
+trait Link extends Area{
   def ups : Seq[Node]
   def downs : Seq[Node]
 
