@@ -39,7 +39,7 @@ trait CtrlApi {
     val preserve = DslScopeStack.get != getCtrl.parentScope
     bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScopeData {
       val ret = that.tpe()
-      Misc.nameThat(_c, ret, that, "bypass")
+      Misc.nameThat(_c, ret, that, "_bypass")
       if(preserve) ret := up(that)
       ret
     })
@@ -161,10 +161,16 @@ class CtrlLink(val up : Node, val down : Node) extends Link with CtrlApi {
     if(requests.terminates.nonEmpty) when(requests.terminates.orR){
       down.valid := False
     }
+    for (m <- down.keyToData.keys) {
+      bypasses.get(m) match {
+        case Some(x) => down(m) := x
+        case None => 
+      }
+    }
     val matches = down.fromUp.payload.intersect(up.fromDown.payload)
     for (m <- matches) {
       bypasses.get(m) match {
-        case Some(x) => down(m) := x
+        case Some(x) =>
         case None => down(m) := up(m)
       }
     }
