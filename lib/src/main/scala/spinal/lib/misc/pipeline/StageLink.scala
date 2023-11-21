@@ -8,11 +8,11 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-object StageConnector{
-  def apply(up : Node, down : Node) = new StageConnector(up, down)
+object StageLink{
+  def apply(up : Node, down : Node) = new StageLink(up, down)
 }
 
-class StageConnector(val up : Node, val down : Node) extends Connector {
+class StageLink(val up : Node, val down : Node) extends Link {
   down.up = this
   up.down = this
 

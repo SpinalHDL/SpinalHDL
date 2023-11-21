@@ -146,8 +146,8 @@ class Node() extends Area with NodeApi{
   val fromUp = new FromUp()
   val fromDown = new FromDown()
 
-  var up: Connector = null
-  var down: Connector = null
+  var up: Link = null
+  var down: Link = null
 
   var alwaysValid = false
   var alwaysReady = false

@@ -7,10 +7,10 @@ import spinal.lib._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-object DirectConnector{
-  def apply(up : Node, down : Node) : DirectConnector = new DirectConnector(up, down)
+object DirectLink{
+  def apply(up : Node, down : Node) : DirectLink = new DirectLink(up, down)
 }
-class DirectConnector(val up : Node, val down : Node) extends Connector {
+class DirectLink(val up : Node, val down : Node) extends Link {
   down.up = this
   up.down = this
 
@@ -34,6 +34,6 @@ class DirectConnector(val up : Node, val down : Node) extends Connector {
     if(!up.alwaysReady) up.ready := down.ready
     up.ctrl.forgetOne.foreach(_ := down.ctrl.forgetOne.get)
     up.ctrl.cancel.foreach(_ := down.ctrl.cancel.get)
-    Connector.connectDatas(up, down)
+    Link.connectDatas(up, down)
   }
 }

@@ -2048,11 +2048,11 @@ object PlayPipelineApi extends App{
     val a,b,c,d,e,f = new Node
 
     // Define the connections between those node
-    val c0 = new CtrlConnector(a, b) // Ctrl is a facility which allows to control the flow between 2 nodes (ex halt the flow)
-    val s01 = new StageConnector(b, c) // RegStage implement a register based connection between 2 nodes (Stream.m2s like)
-    val c1 = new CtrlConnector(c, d)
-    val s12 = new StageConnector(d, e)
-    val c2 = new CtrlConnector(e, f)
+    val c0 = new CtrlLink(a, b) // Ctrl is a facility which allows to control the flow between 2 nodes (ex halt the flow)
+    val s01 = new StageLink(b, c) // RegStage implement a register based connection between 2 nodes (Stream.m2s like)
+    val c1 = new CtrlLink(c, d)
+    val s12 = new StageLink(d, e)
+    val c2 = new CtrlLink(e, f)
 
     // Define a thing which can go through the pipeline (this is a typedef used as a key)
     val PC = Payload(UInt(32 bits))
@@ -2075,12 +2075,12 @@ object PlayPipelineApi2 extends App{
   SpinalVerilog(new Component{
     import spinal.lib.misc.pipeline._
 
-    val c0 = CtrlConnector() // Ctrl is a facility which allows to control the flow between 2 nodes (ex halt the flow)
-    val c1 = CtrlConnector()
-    val c2 = CtrlConnector()
+    val c0 = CtrlLink() // Ctrl is a facility which allows to control the flow between 2 nodes (ex halt the flow)
+    val c1 = CtrlLink()
+    val c2 = CtrlLink()
 
-    val s01 = StageConnector(c0.down, c1.up) // RegStage implement a register based connection between 2 nodes (Stream.m2s like)
-    val s12 = StageConnector(c1.down, c2.up)
+    val s01 = StageLink(c0.down, c1.up) // RegStage implement a register based connection between 2 nodes (Stream.m2s like)
+    val s12 = StageLink(c1.down, c2.up)
 
     // Define a thing which can go through the pipeline (this is a typedef used as a key)
     val PC = Payload(UInt(32 bits))

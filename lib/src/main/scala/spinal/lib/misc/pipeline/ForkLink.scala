@@ -7,11 +7,11 @@ import spinal.lib._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-object ForkConnector{
-  def apply(up : Node, downs : Seq[Node], synchronous: Boolean = false) : ForkConnector = new ForkConnector(up, downs, synchronous)
+object ForkLink{
+  def apply(up : Node, downs : Seq[Node], synchronous: Boolean = false) : ForkLink = new ForkLink(up, downs, synchronous)
 }
 
-class ForkConnector(val up : Node, override val downs : Seq[Node], synchronous: Boolean = false) extends Connector {
+class ForkLink(val up : Node, override val downs : Seq[Node], synchronous: Boolean = false) extends Link {
   this.downs.foreach(_.up = this)
   up.down = this
 

@@ -7,10 +7,10 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable
 import scala.collection.Seq
 
-object CtrlConnector {
-  def apply(up : Node, down : Node) = new CtrlConnector(up, down)
+object CtrlLink {
+  def apply(up : Node, down : Node) = new CtrlLink(up, down)
   def apply() = {
-    val c = new CtrlConnector(new Node(), new Node())
+    val c = new CtrlLink(new Node(), new Node())
     c.up.setCompositeName(c, "up")
     c.down.setCompositeName(c, "down")
     c
@@ -18,7 +18,7 @@ object CtrlConnector {
 }
 
 trait CtrlApi {
-  def getCtrl: CtrlConnector
+  def getCtrl: CtrlLink
   private val _c = getCtrl
   import _c._
 
@@ -91,11 +91,11 @@ trait CtrlApi {
   implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new BundlePimper[T](this (stageable))
 }
 
-class CtrlConnector(val up : Node, val down : Node) extends Connector with CtrlApi {
+class CtrlLink(val up : Node, val down : Node) extends Link with CtrlApi {
   down.up = this
   up.down = this
 
-  override def getCtrl: CtrlConnector = this
+  override def getCtrl: CtrlLink = this
 
   def nameFromLocation[T <: Data](that: T, prefix: String)(implicit loc: Location): T = {
     that.setCompositeName(this, prefix + "_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
@@ -168,6 +168,6 @@ class CtrlConnector(val up : Node, val down : Node) extends Connector with CtrlA
   }
 
   class Area(override val defaultKey : Any = null)  extends spinal.core.Area with CtrlApi {
-    override def getCtrl: CtrlConnector = CtrlConnector.this
+    override def getCtrl: CtrlLink = CtrlLink.this
   }
 }
