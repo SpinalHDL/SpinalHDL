@@ -74,7 +74,7 @@ class FiberPlugin extends Area with Lockable with Hostable {
 
   override def valCallbackRec(obj: Any, name: String) = {
     obj match {
-      case obj : NamedType[_] => obj.setName(name)
+//      case obj : NamedType[_] => obj.setName(name)
       case _ => super.valCallbackRec(obj, name)
     }
   }
