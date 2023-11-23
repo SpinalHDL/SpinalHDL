@@ -15,7 +15,10 @@ class FiberPlugin extends Area with Lockable with Hostable {
   var host : PluginHost = null
 
   val subservices = ArrayBuffer[Any]()
-
+  def addService[T](that : T) : T = {
+    subservices += that
+    that
+  }
 
   val lockables = mutable.LinkedHashSet[() => Lockable]()
   def addLockable(l : => Lockable): Unit = {
@@ -23,11 +26,8 @@ class FiberPlugin extends Area with Lockable with Hostable {
       spinal.core.fiber.Fiber.setupCallback {
         val things = lockables.map(_())
         things.foreach(_.retain())
-      }
-      spinal.core.fiber.Fiber.buildCallback {
         if (buildCount == 0) {
-          val things = lockables.map(_())
-          things.foreach(_.release())
+          during build{}
         }
       }
     }
