@@ -370,7 +370,7 @@ object DmaSg{
           case None => (Reg(ptrType),Reg(ptrType))
           case Some((x,y)) => {
             val n = cp.name.getOrElse("")
-            assert(x < internalMemoryBytes || x+y <= internalMemoryBytes, f"The channel $n buffer range (0x$x%x -> 0x${x+y-1}%x isn't contained in the internal memory space (0x0 ->0x${internalMemoryBytes-1}%x)")
+            assert(x < internalMemoryBytes && x+y <= internalMemoryBytes, f"The channel $n buffer range (0x$x%x -> 0x${x+y-1}%x isn't contained in the internal memory space (0x0 -> 0x${internalMemoryBytes-1}%x)")
             (U(x*8/p.memory.bankWidth, ptrWidth bits), U(y*8/p.memory.bankWidth-1, ptrWidth bits))
           }
         }
