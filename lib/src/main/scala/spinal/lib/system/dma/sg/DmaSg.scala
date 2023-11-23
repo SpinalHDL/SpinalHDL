@@ -1239,7 +1239,7 @@ object DmaSg{
           writeFired setWhen (io.sg.write.cmd.fire)
           io.sg.write.cmd.valid := valid && !writeFired && onSgStream
           io.sg.write.cmd.channelId := channelId
-          io.sg.write.cmd.bytesDone := bytesDone
+          io.sg.write.cmd.bytesDone := bytesDone.resized
           io.sg.write.cmd.endOfPacket := endOfPacket
           io.sg.write.cmd.completed := !isJustASink && doDescriptorStall
         }
