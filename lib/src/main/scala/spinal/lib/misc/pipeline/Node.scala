@@ -65,16 +65,28 @@ trait NodeApi {
 
 
   def apply(key: NamedTypeKey): Data = {
-    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData {
-      val ret = key.tpe()
-      Misc.nameThat(getNode, ret, key, "")
-      ret
-    })
+    keyToData.get(key) match {
+      case Some(x) => x
+      case None => {
+        val made = ContextSwapper.outsideCondScopeData(key.tpe())
+        //So, that's a bit complicated, because it need to survive a Fiber blocking key.tpe()
+        keyToData.get(key) match {
+          case Some(x) => x
+          case None => {
+            keyToData(key) = made
+            Misc.nameThat(getNode, made, key, "")
+            made
+          }
+        }
+      }
+    }
   }
 
   def apply[T <: Data](key: Payload[T]): T = apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], defaultKey)).asInstanceOf[T]
 
-  def apply[T <: Data](key: Payload[T], subKey: Any): T = apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
+  def apply[T <: Data](key: Payload[T], subKey: Any): T = {
+    apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
+  }
 
   //Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE)
   def apply(subKey: Seq[Any]) : Node.OffsetApi = new Node.OffsetApi(subKey, getNode)

@@ -37,7 +37,7 @@ trait CtrlApi {
   def bypass[T <: Data](that: Payload[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
   def bypass[T <: Data](that: NamedTypeKey): Data = {
     val preserve = DslScopeStack.get != getCtrl.parentScope
-    bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScopeData {
+    bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
       val ret = that.tpe()
       Misc.nameThat(_c, ret, that, "_bypass")
       down(that) := ret
@@ -69,14 +69,6 @@ trait CtrlApi {
   def ignoreReadyNow()(implicit loc: Location): Unit = ignoreReadyWhen(ConditionalContext.isTrue)
 
   val bypasses = mutable.LinkedHashMap[NamedTypeKey, Data]()
-  val keyToData = mutable.LinkedHashMap[NamedTypeKey, Data]()
-
-  def apply(key: NamedTypeKey): Data = {
-    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData {
-      key.tpe()
-    })
-  }
-
 
   def forkStream[T <: Data](): Stream[NoData] = {
     val ret = Stream(NoData())

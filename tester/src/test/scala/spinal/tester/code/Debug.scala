@@ -1971,16 +1971,16 @@ object PlayScopedMess extends App{
   }
 
   class JumpPlugin extends FiberPlugin {
-    val setup = during setup new Area{
-      Plugin[PcPlugin].retain()
-    }
-    val logic = during build new Area {
-      println(Riscv.RVC())
-      println(Riscv.XLEN_PLUS_2())
-      val jump = Flow(Riscv.PC())
-      Plugin[PcPlugin].jumps += jump
-      Plugin[PcPlugin].release()
-    }
+//    val setup = during setup new Area{
+//      Plugin[PcPlugin].retain()
+//    }
+//    val logic = during build new Area {
+//      println(Riscv.RVC())
+//      println(Riscv.XLEN_PLUS_2())
+//      val jump = Flow(Riscv.PC())
+//      Plugin[PcPlugin].jumps += jump
+//      Plugin[PcPlugin].release()
+//    }
   }
 
   class FetchPlugin extends FiberPlugin{

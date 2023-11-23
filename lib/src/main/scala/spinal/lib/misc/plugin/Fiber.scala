@@ -6,7 +6,7 @@ import spinal.core.fiber._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class FiberPlugin extends Area with Lockable with Hostable {
+class FiberPlugin extends Area with Hostable {
   this.setName(ClassName(this))
 
   def withPrefix(prefix: String) = setName(prefix + "_" + getName())
@@ -20,8 +20,8 @@ class FiberPlugin extends Area with Lockable with Hostable {
     that
   }
 
-  val lockables = mutable.LinkedHashSet[() => Lockable]()
-  def addLockable(l : => Lockable): Unit = {
+  val lockables = mutable.LinkedHashSet[() => Lock]()
+  def buildBefore(l : => Lock): Unit = {
     if (lockables.isEmpty) {
       spinal.core.fiber.Fiber.setupCallback {
         val things = lockables.map(_())
@@ -34,7 +34,7 @@ class FiberPlugin extends Area with Lockable with Hostable {
     lockables += (() => l)
   }
 
-  def addRetain(l: => Lockable): Unit = {
+  def setupRetain(l: => Lock): Unit = {
     spinal.core.fiber.Fiber.setupCallback {
       l.retain()
     }
@@ -60,7 +60,6 @@ class FiberPlugin extends Area with Lockable with Hostable {
       buildCount += 1
       spinal.core.fiber.Fiber build {
         pluginEnabled generate {
-          lock.await()
           val ret = host.rework(body)
           buildCount -= 1
           if (buildCount == 0) {
