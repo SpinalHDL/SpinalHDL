@@ -70,11 +70,17 @@ trait CtrlApi {
 
   val bypasses = mutable.LinkedHashMap[NamedTypeKey, Data]()
 
-  def forkStream[T <: Data](): Stream[NoData] = {
+  def forkStream[T <: Data](forceSpawn : Option[Bool] = Option.empty[Bool]): Stream[NoData] = {
     val ret = Stream(NoData())
-    val fired = RegInit(False) setWhen (ret.fire) clearWhen (up.isMoving) setCompositeName(ret, "fired")
-    ret.valid := isValid && !fired
-    haltWhen(!fired && !ret.ready)
+    val fired = RegInit(False) setCompositeName(ret, "fired")
+    val firedComb = CombInit(fired)
+    ret.valid := isValid && !firedComb
+    haltWhen(!firedComb && !ret.ready)
+    if (forceSpawn.nonEmpty) when(forceSpawn.get) {
+      fired := False
+      firedComb := False
+    }
+    fired setWhen (ret.fire) clearWhen (up.isMoving)
     ret
   }
 
