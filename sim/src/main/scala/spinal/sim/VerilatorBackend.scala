@@ -263,7 +263,7 @@ public:
     string name;
     int32_t time_precision;
 
-    Wrapper_${uniqueId}(const char * name, int seed){
+    Wrapper_${uniqueId}(const char * name, const char * wavePath, int seed){
       //contextp = new VerilatedContext;
       Verilated::randReset(2);
       Verilated::randSeed(seed);
@@ -293,7 +293,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top->trace(&tfp, 99);
-      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${format.ext}").c_str());
+      tfp.open((std::string(wavePath) + name + ".${format.ext}").c_str());
       #endif
       this->name = name;
       this->time_precision = ${if (useTimePrecision) "Verilated::timeprecision()" else "VL_TIME_PRECISION" };
@@ -353,15 +353,17 @@ extern "C" {
 
 
 JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
-  (JNIEnv * env, jobject obj, jstring name, jint seedValue){
+  (JNIEnv * env, jobject obj, jstring name, jstring wavePath, jint seedValue){
     #if defined(_WIN32) && !defined(__CYGWIN__)
     srand(seedValue);
     #else
     srand48(seedValue);
     #endif
     const char* ch = env->GetStringUTFChars(name, 0);
-    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch, seedValue);
+    const char* wavePathCh = env->GetStringUTFChars(wavePath, 0);
+    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch, wavePathCh, seedValue);
     env->ReleaseStringUTFChars(name, ch);
+    env->ReleaseStringUTFChars(wavePath, wavePathCh);
     return handle;
 }
 
@@ -713,7 +715,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |import spinal.sim.IVerilatorNative;
          |
          |public class VerilatorNative implements IVerilatorNative {
-         |    public long newHandle(String name, int seed) { return newHandle_${uniqueId}(name, seed);}
+         |    public long newHandle(String name, String wavePath, int seed) { return newHandle_${uniqueId}(name, wavePath, seed);}
          |    public boolean eval(long handle) { return eval_${uniqueId}(handle);}
          |    public int get_time_precision(long handle) { return getTimePrecision_${uniqueId}(handle);}
          |    public void sleep(long handle, long cycles) { sleep_${uniqueId}(handle, cycles);}
@@ -730,7 +732,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |    public void disableWave(long handle) { disableWave_${uniqueId}(handle);}
          |
          |
-         |    public native long newHandle_${uniqueId}(String name, int seed);
+         |    public native long newHandle_${uniqueId}(String name, String wavePath, int seed);
          |    public native boolean eval_${uniqueId}(long handle);
          |    public native int getTimePrecision_${uniqueId}(long handle);
          |    public native void sleep_${uniqueId}(long handle, long cycles);
@@ -773,7 +775,10 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
   val nativeInstance: IVerilatorNative = nativeImpl.getConstructor().newInstance().asInstanceOf[IVerilatorNative]
 
   def instanciate(name: String, seed: Int) = nativeInstance.synchronized{ //synchronized is used as a Verilator isn't thread safe on construction (bug ?)
-    nativeInstance.newHandle(name, seed)
+    val patched = config.vcdPath.replace("$TEST", name)
+    val wavePath = s"${new File(patched).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}"
+    FileUtils.forceMkdirParent(new File(wavePath, "."))
+    nativeInstance.newHandle(name, wavePath, seed)
   }
 
   override def isBufferedWrite: Boolean = false
