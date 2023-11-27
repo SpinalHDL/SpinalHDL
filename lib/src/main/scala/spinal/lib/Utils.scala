@@ -1138,9 +1138,9 @@ class TraversableOnceAnyTuplePimped[T <: Any, T2 <: Any](pimped: Seq[(T, T2)]) {
 }
 
 class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
-  def orR: Bool  = pimped.asBits =/= 0
-  def andR: Bool = pimped.reduce(_ && _)
-  def xorR: Bool = pimped.reduce(_ ^ _)
+  def orR: Bool  = pimped.asBits.orR
+  def andR: Bool = pimped.asBits.andR
+  def xorR: Bool = pimped.asBits.xorR
 
   def norR: Bool = pimped.asBits === 0
   def nandR: Bool = !nandR
