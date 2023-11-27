@@ -886,6 +886,8 @@ case class SpinalSimConfig(
     this
   }
 
+  def getTestPath(test : String) = _testPath.replace("$TEST", test)
+
   def withTestFolder : this.type = {
     this.setTestPath("$WORKSPACE/$COMPILED/$TEST")
     this
