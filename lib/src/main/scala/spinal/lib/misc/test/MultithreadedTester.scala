@@ -25,6 +25,7 @@ class AsyncJob(toStdout: Boolean, val logsPath : File)(body: => Unit)(implicit @
         } catch {
           case e: Throwable => {
             failed = true
+            onFail()
             println(e.getMessage)
             println(e.getStackTrace.map(_.toString).mkString("\n"))
             Console.out.flush()
@@ -35,6 +36,10 @@ class AsyncJob(toStdout: Boolean, val logsPath : File)(body: => Unit)(implicit @
       )
     }
     if (failed) println(s"Failure")
+  }
+
+  def onFail(): Unit = {
+
   }
 
   def join(): Unit = {
