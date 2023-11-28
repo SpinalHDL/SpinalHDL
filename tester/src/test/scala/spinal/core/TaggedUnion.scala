@@ -51,6 +51,7 @@ class TaggedUnionTester() extends Component {
         }
     }
 
+    io.ansAdd.assignDontCare()
     when(io.ans.valid) {
         io.ans.payload.among {
             case r: ReadRequest => {
