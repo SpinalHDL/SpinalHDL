@@ -13,7 +13,8 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 class AsyncJob(toStdout: Boolean, val logsPath : File)(body: => Unit)(implicit @deprecatedName('execctx) executor: ExecutionContext) {
   FileUtils.forceMkdir(logsPath)
-  val file = new PrintStream(new File(logsPath, "stdout.log"))
+  val logsFile = new File(logsPath, "stdout.log")
+  val file = new PrintStream(logsFile)
   val originalOutput = Console.out
   var failed = false
   val stdout = if (toStdout) new TeeOutputStream(Console.out, file) else file
@@ -35,7 +36,7 @@ class AsyncJob(toStdout: Boolean, val logsPath : File)(body: => Unit)(implicit @
         }
       )
     }
-    if (failed) println(s"Failure")
+//    if (failed) println(s"Failure")
   }
 
   def onFail(): Unit = {
