@@ -22,7 +22,7 @@ trait NodeBaseApi {
 
   def isValid = valid
   def isReady = ready
-  def isCancel: Bool
+  def isCancel = cancel
 
   def isFiring : Bool   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
   def isMoving : Bool   // True when it is the last cycle that the current transaction is present on this node. Useful to "reset" some states
