@@ -46,11 +46,11 @@ trait CtrlApi {
     })
   }
 
-  def haltWhen(cond: Bool)      (implicit loc: Location): Unit = requests.halts += nameFromLocation(CombInit(cond), "haltRequest")
-  def duplicateWhen(cond: Bool) (implicit loc: Location): Unit = requests.duplicates += nameFromLocation(CombInit(cond), "duplicateRequest")
-  def terminateWhen(cond: Bool) (implicit loc: Location): Unit = requests.terminates += nameFromLocation(CombInit(cond), "terminateRequest")
-  def forgetOneWhen(cond: Bool)(implicit loc: Location): Unit = requests.forgetsOne += nameFromLocation(CombInit(cond), "forgetsSingleRequest")
-  def ignoreReadyWhen(cond: Bool)(implicit loc: Location): Unit = requests.ignoresReady += nameFromLocation(CombInit(cond), "ignoreReadyRequest")
+  def haltWhen(cond: Bool)      (implicit loc: Location): Bool = requests.halts addRet nameFromLocation(CombInit(cond), "haltRequest")
+  def duplicateWhen(cond: Bool) (implicit loc: Location): Bool = requests.duplicates addRet nameFromLocation(CombInit(cond), "duplicateRequest")
+  def terminateWhen(cond: Bool) (implicit loc: Location): Bool = requests.terminates addRet nameFromLocation(CombInit(cond), "terminateRequest")
+  def forgetOneWhen(cond: Bool)(implicit loc: Location): Bool = requests.forgetsOne addRet nameFromLocation(CombInit(cond), "forgetsSingleRequest")
+  def ignoreReadyWhen(cond: Bool)(implicit loc: Location): Bool = requests.ignoresReady addRet nameFromLocation(CombInit(cond), "ignoreReadyRequest")
   def throwWhen(cond : Bool, usingReady : Boolean = false)    (implicit loc: Location) : Unit = {
     val flag = nameFromLocation(CombInit(cond), "throwWhen")
     requests.terminates += flag

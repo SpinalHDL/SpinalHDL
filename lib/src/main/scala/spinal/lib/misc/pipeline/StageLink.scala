@@ -23,6 +23,10 @@ class StageLink(val up : Node, val down : Node) extends Link {
     collapseBubble = false
     this
   }
+  def withPayloadHold() : this.type = {
+    holdPayload = true
+    this
+  }
 
   override def ups: Seq[Node] = List(up)
   override def downs: Seq[Node] = List(down)
