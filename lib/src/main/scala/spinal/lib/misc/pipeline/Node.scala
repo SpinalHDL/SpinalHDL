@@ -15,7 +15,42 @@ object Node{
   }
 }
 
-trait NodeApi {
+trait NodeBaseApi {
+  def valid : Bool
+  def ready : Bool
+  def cancel: Bool
+
+  def isValid = valid
+  def isReady = ready
+  def isCancel: Bool
+
+  def isFiring : Bool   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
+  def isMoving : Bool   // True when it is the last cycle that the current transaction is present on this node. Useful to "reset" some states
+  def isCanceling: Bool // True when the current node is being cleaned up
+
+
+
+  def apply(key: NamedTypeKey): Data
+  def apply[T <: Data](key: Payload[T]): T
+  def apply[T <: Data](key: Payload[T], subKey: Any): T = {
+    apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
+  }
+  def apply(subKey: Seq[Any]) : Node.OffsetApi  //Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE)
+  def insert[T <: Data](that: T): Payload[T] = {
+    val s = Payload(cloneOf(that))
+    this (s) := that
+    s
+  }
+
+  implicit def stageablePiped2[T <: Data](stageable: Payload[T]) : T = this(stageable)
+
+  class BundlePimper[T <: Bundle](pimped : T){
+    def :=(that: T): Unit = pimped := that
+  }
+  implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new  BundlePimper[T](this(stageable))
+}
+
+trait NodeApi extends NodeBaseApi {
   def getNode : Node
   private val _n = getNode
   import _n._
@@ -24,9 +59,9 @@ trait NodeApi {
 
   def valid : Bool = getNode.valid
   def ready : Bool = getNode.ready
-  def cancel = status.hasCancelRequest
-  def isValid = valid
-  def isReady = ready
+
+
+  override def isCancel: Bool = cancel
 
   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
   def isFiring : Bool = {
@@ -46,9 +81,9 @@ trait NodeApi {
     status.isCanceling.get
   }
 
-  def hasCancelRequest: Bool = {
-    if (status.hasCancelRequest.isEmpty) status.hasCancelRequest = Some(ContextSwapper.outsideCondScopeData(Bool())) //Unamed as it come from ctrl.cancel anyway
-    status.hasCancelRequest.get
+  def cancel: Bool = {
+    if (status.cancel.isEmpty) status.cancel = Some(ContextSwapper.outsideCondScopeData(Bool())) //Unamed as it come from ctrl.cancel anyway
+    status.cancel.get
   }
 
   def setAlwaysValid(): Unit = {
@@ -83,23 +118,12 @@ trait NodeApi {
   }
 
   def apply[T <: Data](key: Payload[T]): T = apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], defaultKey)).asInstanceOf[T]
-
-  def apply[T <: Data](key: Payload[T], subKey: Any): T = {
-    apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
-  }
-
-  //Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE)
   def apply(subKey: Seq[Any]) : Node.OffsetApi = new Node.OffsetApi(subKey, getNode)
 
-  def insert[T <: Data](that: T): Payload[T] = {
-    val s = Payload(cloneOf(that))
-    this (s) := that
-    s
-  }
 
   def arbitrateFrom[T <: Data](that: Stream[T]): Unit = {
     valid := that.valid
-    that.ready := ready || hasCancelRequest
+    that.ready := ready || cancel
     ctrl.forgetOneSupported = true
   }
 
@@ -136,15 +160,6 @@ trait NodeApi {
     arbitrateTo(that)
     con(that.payload, getNode)
   }
-
-//  implicit def stageablePiped[T <: Data](stageable: Stageable[T])(implicit key : StageableOffset = StageableOffsetNone) = Stage.this(stageable, key.value)
-    implicit def stageablePiped2[T <: Data](stageable: Payload[T]) : T = this(stageable)
-
-    class BundlePimper[T <: Bundle](pimped : T){
-      def :=(that: T): Unit = pimped := that
-    }
-    implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new  BundlePimper[T](this(stageable))
-
 }
 
 class Node() extends Area with NodeApi{
@@ -177,7 +192,7 @@ class Node() extends Area with NodeApi{
     var isFiring = Option.empty[Bool]
     var isMoving = Option.empty[Bool]
     var isCanceling = Option.empty[Bool]
-    var hasCancelRequest = Option.empty[Bool]
+    var cancel = Option.empty[Bool]
   }
 
   def build(): Unit = {
@@ -187,8 +202,8 @@ class Node() extends Area with NodeApi{
 
     ctrl.cancel match {
       case Some(cancel) => {
-        status.isFiring.foreach(_ := isValid && isReady && !hasCancelRequest)
-        status.isMoving.foreach(_ := isValid && (isReady || hasCancelRequest))
+        status.isFiring.foreach(_ := isValid && isReady && !cancel)
+        status.isMoving.foreach(_ := isValid && (isReady || cancel))
       }
       case None => { //To avoid hasCancelRequest usages
         status.isFiring.foreach(_ := isValid && isReady)
@@ -196,8 +211,8 @@ class Node() extends Area with NodeApi{
       }
     }
 
-    status.hasCancelRequest.foreach(_ := ctrl.cancel.getOrElse(False))
-    status.isCanceling.foreach(_ := status.hasCancelRequest.map(isValid && _).getOrElse(False))
+    status.cancel.foreach(_ := ctrl.cancel.getOrElse(False))
+    status.isCanceling.foreach(_ := status.cancel.map(isValid && _).getOrElse(False))
   }
 
   class Area(override val defaultKey : Any = null) extends spinal.core.Area with NodeApi {
