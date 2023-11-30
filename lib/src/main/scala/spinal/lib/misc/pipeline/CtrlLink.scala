@@ -24,6 +24,9 @@ trait CtrlApi {
 
   def defaultKey : Any = null
 
+  def up : NodeApi = _c.up
+  def down : NodeApi = _c.down
+
   def isValid = up.isValid
   def isReady = down.isReady
 
@@ -93,7 +96,7 @@ trait CtrlApi {
   implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new BundlePimper[T](this (stageable))
 }
 
-class CtrlLink(val up : Node, val down : Node) extends Link with CtrlApi {
+class CtrlLink(override val up : Node, override val down : Node) extends Link with CtrlApi {
   down.up = this
   up.down = this
 
@@ -172,4 +175,9 @@ class CtrlLink(val up : Node, val down : Node) extends Link with CtrlApi {
   class Area(override val defaultKey : Any = null)  extends spinal.core.Area with CtrlApi {
     override def getCtrl: CtrlLink = CtrlLink.this
   }
+}
+
+
+class CtrlLinkMirror(from : CtrlLink) extends spinal.core.Area with CtrlApi {
+  override def getCtrl: CtrlLink = from
 }
