@@ -68,7 +68,7 @@ object DualSimTracer {
     assert(explorer.failed == tracer.failed)
 
     if(tracer.failed){
-      throw new Exception(s"Some jobs failed, see ${tracer.logsPath.getAbsolutePath}")
+      throw new Exception(s"Dual sim reached end with failure, see ${tracer.logsPath.getAbsolutePath}")
     } else {
       println("Done")
     }
