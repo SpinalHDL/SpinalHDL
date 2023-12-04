@@ -69,8 +69,14 @@ object Component {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
 abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode with ValCallbackRec {
-  if(globalData.toplevel == null) globalData.toplevel = this
-  if(globalData.phaseContext.topLevel == null) globalData.phaseContext.topLevel = this
+  if(parentScope == null) {
+    if(globalData.config.singleTopLevel) {
+      if (globalData.toplevel != null) SpinalError(s"MULTIPLE TOPLEVEL : SpinalHDL only allows a single toplevel Component.\n- ${globalData.toplevel.getClass}\n- ${this.getClass}")
+      assert(globalData.phaseContext.topLevel == null, "???")
+    }
+    globalData.toplevel = this
+    globalData.phaseContext.topLevel = this
+  }
   val dslBody = new ScopeStatement(null)
 
   dslBody.component = this
