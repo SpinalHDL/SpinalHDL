@@ -219,3 +219,8 @@ class Node() extends Area with NodeApi{
     override def getNode: Node = Node.this
   }
 }
+
+
+class NodeMirror(node : Node) extends NodeApi {
+  def getNode: Node = node
+}
