@@ -35,15 +35,15 @@ class TaggedUnionTester() extends Component {
         io.req.valid := True
 
         when(io.rw) { // write
-            io.req.payload.choose {
-                case w: WriteRequest => {
+            io.req.payload.update {
+                w: WriteRequest => {
                     w.address := 1
                     w.value := 0
                 }
             }
         }
         .otherwise {
-            io.req.payload.chooseVariant(io.req.payload.read) {
+            io.req.payload.update(io.req.payload.read) {
                 r: ReadRequest => {
                     r.address := 2
                 }
@@ -53,7 +53,7 @@ class TaggedUnionTester() extends Component {
 
     io.ansAdd.assignDontCare()
     when(io.ans.valid) {
-        io.ans.payload.among {
+        io.ans.payload {
             case r: ReadRequest => {
                 io.ansAdd := r.address
             }
