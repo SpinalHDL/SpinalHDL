@@ -37,6 +37,4 @@ trait Link extends Area{
       up.fromDown.payload ++= down.keyToData.keys
     }
   }
-
-
 }
