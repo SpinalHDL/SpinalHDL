@@ -38,13 +38,13 @@ import scala.reflect.ClassTag
 class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData with Nameable with ValCallbackRec with PostInitCallback {
 
     // A cache of union member descriptors, storing a tuple of their name and the corresponding Data object.
-    var unionDescriptors = ArrayBuffer[(String, Data)]()
+    val unionDescriptors = ArrayBuffer[(String, Data)]()
 
     // The enumeration representing possible tags for the union members.
-    var tagEnum: SpinalEnum = new SpinalEnum(encoding)
+    val tagEnum: SpinalEnum = new SpinalEnum(encoding)
 
     // A mapping from member names to their respective enumeration elements.
-    var tagUnionDescriptors: mutable.Map[String, SpinalEnumElement[SpinalEnum]] = mutable.Map[String, SpinalEnumElement[SpinalEnum]]()
+    val tagUnionDescriptors: mutable.Map[String, SpinalEnumElement[SpinalEnum]] = mutable.Map[String, SpinalEnumElement[SpinalEnum]]()
 
     // The current tag value, which indicates the active member of the union.
     var tag: SpinalEnumCraft[SpinalEnum] = null
@@ -174,6 +174,24 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
     override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : $getTypeString"
 
     /**
+    * Get a hardware Bool signal if this taggedUnion selected variant is equal to specified data.
+    */
+    def is[T <: Data](data: T): Bool = {
+        val isData = Bool()
+
+        val inputDescriptor = this.unionDescriptors.find(_._2 == data) 
+        inputDescriptor match {
+            case Some((name, _)) => { // find name of variant from data: T
+                val variant = tagUnionDescriptors(name) // find the enum value corresponding to name
+                isData := this.tag === variant  // test if enum value is equal to tag
+            }
+            case None => SpinalError(s"$data is not a member of this TaggedUnion")
+        }
+
+        return isData
+    }
+
+    /**
     * Select the union variant from a given value and update the union value
     */
     def update[T <: Data](data: T)(callback: T => Unit): Unit = {
@@ -225,7 +243,7 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
     def apply(callback: PartialFunction[Any, Unit]): Unit = {
         switch(this.tag) {
             for ((name, enumVariant) <- this.tagUnionDescriptors) {
-                is(enumVariant) {
+                spinal.core.is(enumVariant) {
                     val dataVariant = this.unionDescriptors.find(_._1 == name)
                     dataVariant match {
                         case Some((_, d)) => { // d is descriptor (Data instance)

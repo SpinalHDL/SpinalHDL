@@ -3,62 +3,59 @@ package spinal.core
 import spinal.lib._
 import spinal.tester.SpinalTesterCocotbBase
 
-case class ReadRequest() extends Bundle {
-    val address = UInt(32 bits)
+
+case class TypeA() extends Bundle {
+    val x,y = UInt(8 bits)
 }
 
-case class WriteRequest() extends Bundle {
-    val address = UInt(32 bits)
-    val value = Bits(32 bits)
+case class TypeB() extends Bundle {
+    val l = UInt(10 bits)
+    val v = Bool()
 }
 
-case class ReadWriteRequest() extends TaggedUnion {
-    val read = ReadRequest()
-    val write = WriteRequest()
+case class TypeC() extends Bundle {
+    val m = UInt(16 bits)
+}
+
+case class InUnion() extends TaggedUnion {
+    val a1 = TypeA()
+    val a2 = TypeA()
+    val b = TypeB()
+}
+
+case class OutUnion() extends TaggedUnion {
+    val b = TypeB()
+    val c = TypeC()
 }
 
 class TaggedUnionTester() extends Component {
     val io = new Bundle {
-        val rw = in Bool()
-        val doReq = in Bool()
-
-        val req = master(Stream(ReadWriteRequest()))
-
-        val ans = slave(Flow(ReadWriteRequest()))
-        val ansAdd = out(UInt(32 bits))
+        val i = in(InUnion())
+        val o = out(OutUnion())
     }
 
-    io.req.valid := False
-    io.req.payload.assignDontCare()
+    io.o.assignDontCare()
 
-    when(io.doReq) {
-        io.req.valid := True
-
-        when(io.rw) { // write
-            io.req.payload.update {
-                w: WriteRequest => {
-                    w.address := 1
-                    w.value := 0
+    io.i {
+        case b: TypeB => { // input is variant b
+            io.o.update {
+                bOut: TypeB => {
+                    bOut := b
                 }
             }
         }
-        .otherwise {
-            io.req.payload.update(io.req.payload.read) {
-                r: ReadRequest => {
-                    r.address := 2
+        case (io.i.a1, a: TypeA) => {
+            io.o.update {
+                cOut: TypeC => {
+                    cOut.m := a.x.resized
                 }
             }
         }
-    }
-
-    io.ansAdd.assignDontCare()
-    when(io.ans.valid) {
-        io.ans.payload {
-            case r: ReadRequest => {
-                io.ansAdd := r.address
-            }
-            case w: WriteRequest => {
-                io.ansAdd := w.address
+        case (io.i.a2, a: TypeA) => {
+            io.o.update(io.o.c) { // explicit c variant chosen
+                cOut: TypeC => {
+                    cOut.m := a.y.resized
+                }
             }
         }
     }
