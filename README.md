@@ -104,3 +104,7 @@ Your obligations (and my wish) are:
  - If you modify the SpinalHDL core (the compiler itself), please, share your improvements.
 
 Also, SpinalHDL is provided "as is", without warranty of any kind.
+
+## Thanks to
+
+The continuous localization is hosted on [Weblate](https://hosted.weblate.org/projects/spinaldoc-rtd/).
