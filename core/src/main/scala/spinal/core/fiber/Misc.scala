@@ -16,6 +16,7 @@ case class Lock() extends Handle[Int]{
   def release() : Unit = {
     assert(retains > 0)
     retains -= 1
+
     if(retains == 0) {
       this.load(0)
     }
@@ -52,11 +53,26 @@ case class Retainer() {
   }
 }
 
-class RetainerGroup(args : Seq[Nameable]) extends Area{
-  val things = args.map{
-    case r : Retainer => r()
-    case r : Lock => r.retain()
+
+object RetainerGroup{
+  def apply(args : Seq[Nameable]): RetainerGroup = {
+    val ret = new RetainerGroup
+    ret ++= args
+    ret
   }
+}
+
+class RetainerGroup() extends Area{
+  val things = ArrayBuffer[Nameable]()
+  def += (that : Nameable): Unit = {
+    things += (that match {
+      case r: Retainer => r().setCompositeName(this)
+      case r: Lock => r.retain()
+    })
+  }
+
+  def ++=(that: Seq[Nameable]): Unit = that.foreach(this += _)
+
   def release() = {
     things.foreach{
       case r : RetainerHold => r.release()

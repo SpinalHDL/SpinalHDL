@@ -13,8 +13,8 @@ class FiberPlugin extends Area with Hostable {
 
   def withPrefix(prefix: String) = setName(prefix + "_" + getName())
 
-  def retains(that: Seq[Nameable]) = new RetainerGroup(that)
-  def retains(head: Nameable, tail: Nameable*) = new RetainerGroup(head +: tail)
+  def retains(that: Seq[Nameable]) = RetainerGroup(that)
+  def retains(head: Nameable, tail: Nameable*) = RetainerGroup(head +: tail)
 
 
   var pluginEnabled = true
