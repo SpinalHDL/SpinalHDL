@@ -5,11 +5,12 @@ package spinal.tester.code
 
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
-import spinal.core.fiber.{Fiber, Handle, Lockable}
+import spinal.core.fiber.{Fiber, Handle, Lock, Lockable}
 import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, MemBlackboxOf, Operator, Phase, PhaseContext, PhaseMemBlackBoxingWithPolicy, PhaseNetlist, RangedAssignmentFixed, RangedAssignmentFloating}
 import spinal.lib._
 import spinal.core.sim._
 import spinal.idslplugin.{Location, PostInitCallback}
+import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
@@ -1577,6 +1578,56 @@ class DemoBlackbox extends BlackBox {
       |""".stripMargin)
 }
 
+class Arrayer[T <: Data](dataType: => T, count: Int) extends Area {
+  def apply(i: Int) = accesses(i)
+
+  val mapping = mutable.LinkedHashMap[BaseType, Bits]()
+  val template = dataType.setName("")
+  val accesses = Component.current.parent.rework {
+    Vec.fill(count)(dataType.setAsDirectionLess())
+  }
+  val keys = template.flatten
+  // Generate the Bits array from the template
+  for (e <- keys) {
+    val array = Bits(widthOf(e) * count bits).setCompositeName(this, e.getName())
+    e.getDirection match {
+      case `in` => in(array)
+      case `out` => out(array)
+    }
+    mapping(e) = array
+    e.removeStatement()
+  }
+  // Generate the parent component access points
+  Component.current.parent.rework {
+    val accessesKeys = accesses.map(_.flatten)
+    for (i <- 0 until keys.size) {
+      val key = mapping(keys(i))
+      val slices = key.subdivideIn(count slices)
+      for (sliceId <- 0 until count) {
+        key.getDirection match {
+          case `in` => slices(sliceId) := accessesKeys(sliceId)(i).asBits
+          case `out` => accessesKeys(sliceId)(i).assignFromBits(slices(sliceId))
+        }
+      }
+    }
+  }
+}
+
+object ArrayVecPlay extends App{
+  class MyBlackBox extends BlackBox{
+    val miaou = new Arrayer(slave(Apb3(32, 32)), 2)
+    getAllIo
+  }
+
+  SpinalVerilog(new Component{
+    val buses = Vec.fill(2)(slave(Apb3(32, 32)))
+    val bb = new MyBlackBox()
+    for(i <- 0 until 2){
+      buses(i) >> bb.miaou(i)
+    }
+  })
+}
+
 class Test12345 extends Component{
   val io = new Bundle{
     val a = in Bool()
@@ -2198,4 +2249,83 @@ object PlayComposablePlugin extends App{
   val report = SpinalVerilog(new TopLevel).printRtl()
   println(report.toplevel.vexii.host[PcPluginComposed])
   println(report.toplevel.vexii.host[AddressTranslationService].PC.getName())
+}
+
+
+
+object PlayLockV2 extends App{
+
+  class Retainer extends Area{
+    val handle = Handle[Unit]
+    def await() = handle.await()
+    def release(): Unit = {
+      handle.load()
+    }
+  }
+  case class LockV2() {
+    val retainers = mutable.Queue[Retainer]()
+    def retainer(): Retainer = {
+      val r = new Retainer
+      retainers += r
+      r
+    }
+
+    def await(): Unit = {
+      while(retainers.nonEmpty){
+        retainers.dequeue().await()
+      }
+    }
+  }
+
+  SpinalVerilog(new Component{
+    import spinal.lib.misc.pipeline._
+
+    val lock = LockV2()
+    val f1 = Fiber build new Area{
+      lock.await()
+    }
+
+    val retainerF2 = lock.retainer()
+    val f2 = Fiber build new Area {
+//      lock.release()
+    }
+  })
+}
+
+
+
+
+object PlayLockV3 extends App{
+
+
+  case class LockV2() {
+    val retainers = mutable.Queue[Retainer]()
+
+    class Retainer extends Handle[Unit] {
+      retainers += this
+      def release(): Unit = {
+        load()
+      }
+    }
+
+    def await(): Unit = {
+      while(retainers.nonEmpty){
+        retainers.dequeue().await()
+      }
+    }
+  }
+
+  SpinalVerilog(new Component{
+    import spinal.lib.misc.pipeline._
+
+    val lock = LockV2()
+    val f1 = Fiber build new Area{
+      lock.await()
+    }
+
+    val retainer = new lock.Retainer
+    val f2 = Fiber build new Area {
+      //      lock.release()
+    }
+  })
 }

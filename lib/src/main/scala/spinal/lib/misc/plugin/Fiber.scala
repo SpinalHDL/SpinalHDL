@@ -5,6 +5,8 @@ import spinal.core.fiber._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
 class FiberPlugin extends Area with Hostable {
   this.setName(ClassName(this))
@@ -50,13 +52,13 @@ class FiberPlugin extends Area with Hostable {
   }
 
   def during = new {
-    def setup[T](body: => T): Handle[T] = spinal.core.fiber.Fiber setup {
+    def setup[T: ClassTag](body: => T): Handle[T] = spinal.core.fiber.Fiber setup {
       pluginEnabled generate {
         host.rework(body)
       }
     }
 
-    def build[T](body: => T): Handle[T] = {
+    def build[T: ClassTag](body: => T): Handle[T] = {
       buildCount += 1
       spinal.core.fiber.Fiber build {
         pluginEnabled generate {

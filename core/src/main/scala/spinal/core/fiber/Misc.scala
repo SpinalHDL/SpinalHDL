@@ -2,6 +2,8 @@ package spinal.core.fiber
 
 import spinal.core.{Area, assert}
 
+import scala.collection.mutable
+
 case class Lock() extends Handle[Int]{
   load(0)
   private var retains = 0
@@ -25,4 +27,22 @@ trait Lockable extends Area{
   def retain() = lock.retain()
   def release() = lock.release()
   def await() = lock.await()
+}
+
+case class Retainer() {
+  val retainers = mutable.Queue[Retainer]()
+  def apply() : Retainer = new Retainer()
+
+  class Retainer extends Handle[Unit] {
+    retainers += this
+
+    def release() = load()
+    def done() = load()
+  }
+
+  def await(): Unit = {
+    while (retainers.nonEmpty) {
+      retainers.dequeue().await()
+    }
+  }
 }
