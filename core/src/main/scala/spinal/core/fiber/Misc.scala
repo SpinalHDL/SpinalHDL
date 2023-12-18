@@ -37,7 +37,7 @@ class RetainerHold extends Handle[Unit] {
 }
 
 
-case class Retainer() {
+case class Retainer() extends Nameable{
   val retainers = mutable.Queue[RetainerHold]()
   def apply() : RetainerHold = {
     val rh = new RetainerHold()
@@ -45,17 +45,28 @@ case class Retainer() {
     rh
   }
 
-
+  var busy = false
+  val locker = Lock()
   def await(): Unit = {
-    while (retainers.nonEmpty) {
-      retainers.dequeue().await()
+    if(busy) {
+      locker.await()
+      return;
     }
+
+    busy = true
+    locker.retain()
+    while (retainers.nonEmpty) {
+      val pop = retainers.dequeue()
+      pop.await()
+    }
+    locker.release()
+    busy = false
   }
 }
 
 
 object RetainerGroup{
-  def apply(args : Seq[Nameable]): RetainerGroup = {
+  def apply(args : Seq[Any]): RetainerGroup = {
     val ret = new RetainerGroup
     ret ++= args
     ret
@@ -64,14 +75,14 @@ object RetainerGroup{
 
 class RetainerGroup() extends Area{
   val things = ArrayBuffer[Nameable]()
-  def += (that : Nameable): Unit = {
+  def += (that : Any): Unit = {
     things += (that match {
       case r: Retainer => r().setCompositeName(this)
       case r: Lock => r.retain()
     })
   }
 
-  def ++=(that: Seq[Nameable]): Unit = that.foreach(this += _)
+  def ++=(that: Seq[Any]): Unit = that.foreach(this += _)
 
   def release() = {
     things.foreach{
