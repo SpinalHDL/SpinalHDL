@@ -30,10 +30,10 @@ trait Lockable extends Area{
 }
 
 case class Retainer() {
-  val retainers = mutable.Queue[Retainer]()
-  def apply() : Retainer = new Retainer()
+  val retainers = mutable.Queue[RetainerHold]()
+  def apply() : RetainerHold = new RetainerHold()
 
-  class Retainer extends Handle[Unit] {
+  class RetainerHold extends Handle[Unit] {
     retainers += this
 
     def release() = load()
