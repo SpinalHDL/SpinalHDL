@@ -13,6 +13,10 @@ class FiberPlugin extends Area with Hostable {
 
   def withPrefix(prefix: String) = setName(prefix + "_" + getName())
 
+  def retains(that: Seq[Nameable]) = new RetainerGroup(that)
+  def retains(head: Nameable, tail: Nameable*) = new RetainerGroup(head +: tail)
+
+
   var pluginEnabled = true
   var host : PluginHost = null
 
@@ -22,7 +26,11 @@ class FiberPlugin extends Area with Hostable {
     that
   }
 
+  def awaitBuild() = Fiber.awaitBuild()
+
   val lockables = mutable.LinkedHashSet[() => Lock]()
+//  val retainers = mutable.LinkedHashSet[() => Retainer]()
+//  val retainersHold = mutable.LinkedHashSet[() => RetainerHold]()
   def buildBefore(l : => Lock): Unit = {
     if (lockables.isEmpty) {
       spinal.core.fiber.Fiber.setupCallback {
@@ -41,6 +49,24 @@ class FiberPlugin extends Area with Hostable {
       l.retain()
     }
   }
+
+//  def buildBefore(l: => Retainer): Unit = {
+//    if (lockables.isEmpty) {
+//      spinal.core.fiber.Fiber.setupCallback {
+//        val things = lockables.map(_())
+//        things.foreach(retainersHold += _)
+//        if (buildCount == 0) {
+//          during build {}
+//        }
+//      }
+//    }
+//  }
+//
+//  def setupRetain(l: => Retainer): Unit = {
+//    spinal.core.fiber.Fiber.setupCallback {
+//      l.retain()
+//    }
+//  }
 
   var buildCount = 0
 

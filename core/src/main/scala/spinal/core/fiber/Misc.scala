@@ -1,8 +1,9 @@
 package spinal.core.fiber
 
-import spinal.core.{Area, assert}
+import spinal.core.{Area, Nameable, assert}
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 case class Lock() extends Handle[Int]{
   load(0)
@@ -29,20 +30,37 @@ trait Lockable extends Area{
   def await() = lock.await()
 }
 
+class RetainerHold extends Handle[Unit] {
+  def release() = load()
+  def done() = load()
+}
+
+
 case class Retainer() {
   val retainers = mutable.Queue[RetainerHold]()
-  def apply() : RetainerHold = new RetainerHold()
-
-  class RetainerHold extends Handle[Unit] {
-    retainers += this
-
-    def release() = load()
-    def done() = load()
+  def apply() : RetainerHold = {
+    val rh = new RetainerHold()
+    retainers += rh
+    rh
   }
+
 
   def await(): Unit = {
     while (retainers.nonEmpty) {
       retainers.dequeue().await()
+    }
+  }
+}
+
+class RetainerGroup(args : Seq[Nameable]) extends Area{
+  val things = args.map{
+    case r : Retainer => r()
+    case r : Lock => r.retain()
+  }
+  def release() = {
+    things.foreach{
+      case r : RetainerHold => r.release()
+      case r : Lock => r.release()
     }
   }
 }
