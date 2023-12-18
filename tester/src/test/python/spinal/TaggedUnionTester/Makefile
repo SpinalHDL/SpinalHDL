@@ -7,7 +7,7 @@ endif
 
 ifeq ($(TOPLEVEL_LANG),vhdl)
 	VHDL_SOURCES += $(SPINALROOT)/TaggedUnionTester.vhd
-	TOPLEVEL=TaggedUnionTester
+	TOPLEVEL=taggeduniontester
 endif
 
 MODULE=TaggedUnionTester
