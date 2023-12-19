@@ -29,8 +29,6 @@ class FiberPlugin extends Area with Hostable {
   def awaitBuild() = Fiber.awaitBuild()
 
   val lockables = mutable.LinkedHashSet[() => Lock]()
-//  val retainers = mutable.LinkedHashSet[() => Retainer]()
-//  val retainersHold = mutable.LinkedHashSet[() => RetainerHold]()
   def buildBefore(l : => Lock): Unit = {
     if (lockables.isEmpty) {
       spinal.core.fiber.Fiber.setupCallback {
@@ -49,24 +47,6 @@ class FiberPlugin extends Area with Hostable {
       l.retain()
     }
   }
-
-//  def buildBefore(l: => Retainer): Unit = {
-//    if (lockables.isEmpty) {
-//      spinal.core.fiber.Fiber.setupCallback {
-//        val things = lockables.map(_())
-//        things.foreach(retainersHold += _)
-//        if (buildCount == 0) {
-//          during build {}
-//        }
-//      }
-//    }
-//  }
-//
-//  def setupRetain(l: => Retainer): Unit = {
-//    spinal.core.fiber.Fiber.setupCallback {
-//      l.retain()
-//    }
-//  }
 
   var buildCount = 0
 
@@ -96,13 +76,6 @@ class FiberPlugin extends Area with Hostable {
           ret
         }
       }
-    }
-  }
-
-  override def valCallbackRec(obj: Any, name: String) = {
-    obj match {
-//      case obj : NamedType[_] => obj.setName(name)
-      case _ => super.valCallbackRec(obj, name)
     }
   }
 }
