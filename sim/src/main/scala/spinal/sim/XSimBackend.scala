@@ -129,8 +129,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     val cmdVivado =
       if (isWindows) {
         if (isMsys) {
-          // msys turns "/c" to "c:\" because of posix path conversion, needs escape
-          s"cmd //c ${vivadoBinPath}/setEnvAndRunCmd.bat ${command}"
+          s"sh ${vivadoBinPath}/setEnvAndRunCmd.sh ${command}"
         } else {
           s"cmd /c ${vivadoBinPath}/setEnvAndRunCmd.bat ${command}"
         }
@@ -249,7 +248,11 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
 
   def getScriptCommand(cmd: String) = {
     if (isWindows) {
-      s"${cmd}.bat"
+      if (isMsys){
+        s"${simulatePath}\\${cmd}.bat"  
+      } else {
+        s"${cmd}.bat"
+      }
     } else {
       s"${cmd}.sh"
     }
