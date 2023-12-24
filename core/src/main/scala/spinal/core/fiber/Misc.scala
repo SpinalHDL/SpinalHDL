@@ -32,7 +32,10 @@ trait Lockable extends Area{
 }
 
 class RetainerHold extends Handle[Unit] {
-  def release() = load()
+  def release() = {
+    assert(!isLoaded, "Double retainer release :(")
+    load()
+  }
   def done() = load()
 }
 

@@ -1344,3 +1344,29 @@ object Shubacktchan2 extends App{
 
   })
 }
+
+
+object ShoubakaklalaChackalak{
+  val featureEnabled = true
+  if(featureEnabled){
+    Reg(UInt(8 bits))
+  }
+
+
+  for(i <- 0 to 2){
+    Reg(UInt(8 bits))
+  }
+
+  val flushes = ArrayBuffer[FlushCmd]()
+  flushes += new FlushCmd()
+  flushes += new FlushCmd()
+  flushes += new FlushCmd()
+
+  val PC = Hardtype(UInt(32 bits))
+  val Instruction = Hardtype(UInt(32 bits))
+  val fetch, decode, execute = HashMap[Hardtype, Hardware]()
+  ...
+  fetch(PC) := ...
+  ...
+  val target = execute(PC) + 0x666
+}
