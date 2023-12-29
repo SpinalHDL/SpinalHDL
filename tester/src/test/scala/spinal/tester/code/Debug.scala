@@ -298,55 +298,81 @@ object Tesasdadt extends App{
   }
 }
 
+object Opcode extends AreaRoot {
+  val miaou = new SpinalEnum {
+    val A, B, C = newElement()
+  }
+}
 object Debug2 extends App{
+
   SpinalConfig(allowOutOfRangeLiterals = true)
   def gen = new Component{
     import spinal.lib._
 
-    //Create 4 address slots
-    val slots = for(i <- 0 to 3) yield new Area{ //Note each slot is an Area, not a Bundle
-      val valid = RegInit(False)       //Because the slot is an Area, we can define hardware here, ex : a register
-      val address = Reg(UInt(8 bits))
-      val age = Reg(UInt(16 bits)) //Will count since how many cycles the slot is valid
 
-      //Because the slot is an Area, we can also define some interface / behaviour for each slot.
-      when(valid){
-        age := age + 1
-      }
 
-      val removeIt = False
-      when(removeIt){
-        valid := False
+
+    val wuff = out(Opcode.miaou())
+    wuff := Opcode.miaou.A
+
+
+    val wuff2 = out(spinal.lib.bus.tilelink.Opcode.A.PUT_PARTIAL_DATA())
+
+
+
+    val rawrr = for(i <- 0 until 4) yield new Area{
+      val spec = new SpinalEnum {
+        val A, B, C = newElement()
+        setName("sppppec")
       }
+      val sig = out(spec.A())
     }
 
-    //Logic to allocate a new slot
-    val insert = new Area{
-      val cmd = Stream(UInt(8 bits))
-      val free = slots.map(!_.valid)
-      val freeOh = OHMasking.first(free)
-      cmd.ready := free.orR
-      when(cmd.fire){
-        slots.onMask(freeOh){slot =>
-          slot.address := cmd.payload
-          slot.age := 0
-        }
-      }
-    }
 
-    //Logic to remove the slots which match a given address (assuming there is not more than one)
-    val remove = new Area{
-      val cmd = Flow(UInt(8 bits))
-      val oh = slots.map(s => s.valid && s.address === cmd.payload) //oh meaning one hot
-      when(cmd.fire){
-        slots.onMask(oh){ slot =>
-          slot.removeIt := True
-        }
-      }
-
-      val reader = slots.reader(OHToUInt(oh)) //Create a facility to read the slots using "oh" as index
-      val age = reader(_.age) //Age of the slot which was removed
-    }
+//    //Create 4 address slots
+//    val slots = for(i <- 0 to 3) yield new Area{ //Note each slot is an Area, not a Bundle
+//      val valid = RegInit(False)       //Because the slot is an Area, we can define hardware here, ex : a register
+//      val address = Reg(UInt(8 bits))
+//      val age = Reg(UInt(16 bits)) //Will count since how many cycles the slot is valid
+//
+//      //Because the slot is an Area, we can also define some interface / behaviour for each slot.
+//      when(valid){
+//        age := age + 1
+//      }
+//
+//      val removeIt = False
+//      when(removeIt){
+//        valid := False
+//      }
+//    }
+//
+//    //Logic to allocate a new slot
+//    val insert = new Area{
+//      val cmd = Stream(UInt(8 bits))
+//      val free = slots.map(!_.valid)
+//      val freeOh = OHMasking.first(free)
+//      cmd.ready := free.orR
+//      when(cmd.fire){
+//        slots.onMask(freeOh){slot =>
+//          slot.address := cmd.payload
+//          slot.age := 0
+//        }
+//      }
+//    }
+//
+//    //Logic to remove the slots which match a given address (assuming there is not more than one)
+//    val remove = new Area{
+//      val cmd = Flow(UInt(8 bits))
+//      val oh = slots.map(s => s.valid && s.address === cmd.payload) //oh meaning one hot
+//      when(cmd.fire){
+//        slots.onMask(oh){ slot =>
+//          slot.removeIt := True
+//        }
+//      }
+//
+//      val reader = slots.reader(OHToUInt(oh)) //Create a facility to read the slots using "oh" as index
+//      val age = reader(_.age) //Age of the slot which was removed
+//    }
 
 
 
