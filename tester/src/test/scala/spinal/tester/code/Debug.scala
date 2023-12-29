@@ -5,11 +5,12 @@ package spinal.tester.code
 
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
-import spinal.core.fiber.{Fiber, Handle, Lockable}
+import spinal.core.fiber.{Fiber, Handle, Lock, Lockable}
 import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, MemBlackboxOf, Operator, Phase, PhaseContext, PhaseMemBlackBoxingWithPolicy, PhaseNetlist, RangedAssignmentFixed, RangedAssignmentFloating}
 import spinal.lib._
 import spinal.core.sim._
 import spinal.idslplugin.{Location, PostInitCallback}
+import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
@@ -297,55 +298,81 @@ object Tesasdadt extends App{
   }
 }
 
+object Opcode extends AreaRoot {
+  val miaou = new SpinalEnum {
+    val A, B, C = newElement()
+  }
+}
 object Debug2 extends App{
+
   SpinalConfig(allowOutOfRangeLiterals = true)
   def gen = new Component{
     import spinal.lib._
 
-    //Create 4 address slots
-    val slots = for(i <- 0 to 3) yield new Area{ //Note each slot is an Area, not a Bundle
-      val valid = RegInit(False)       //Because the slot is an Area, we can define hardware here, ex : a register
-      val address = Reg(UInt(8 bits))
-      val age = Reg(UInt(16 bits)) //Will count since how many cycles the slot is valid
 
-      //Because the slot is an Area, we can also define some interface / behaviour for each slot.
-      when(valid){
-        age := age + 1
-      }
 
-      val removeIt = False
-      when(removeIt){
-        valid := False
+
+    val wuff = out(Opcode.miaou())
+    wuff := Opcode.miaou.A
+
+
+    val wuff2 = out(spinal.lib.bus.tilelink.Opcode.A.PUT_PARTIAL_DATA())
+
+
+
+    val rawrr = for(i <- 0 until 4) yield new Area{
+      val spec = new SpinalEnum {
+        val A, B, C = newElement()
+        setName("sppppec")
       }
+      val sig = out(spec.A())
     }
 
-    //Logic to allocate a new slot
-    val insert = new Area{
-      val cmd = Stream(UInt(8 bits))
-      val free = slots.map(!_.valid)
-      val freeOh = OHMasking.first(free)
-      cmd.ready := free.orR
-      when(cmd.fire){
-        slots.onMask(freeOh){slot =>
-          slot.address := cmd.payload
-          slot.age := 0
-        }
-      }
-    }
 
-    //Logic to remove the slots which match a given address (assuming there is not more than one)
-    val remove = new Area{
-      val cmd = Flow(UInt(8 bits))
-      val oh = slots.map(s => s.valid && s.address === cmd.payload) //oh meaning one hot
-      when(cmd.fire){
-        slots.onMask(oh){ slot =>
-          slot.removeIt := True
-        }
-      }
-
-      val reader = slots.reader(OHToUInt(oh)) //Create a facility to read the slots using "oh" as index
-      val age = reader(_.age) //Age of the slot which was removed
-    }
+//    //Create 4 address slots
+//    val slots = for(i <- 0 to 3) yield new Area{ //Note each slot is an Area, not a Bundle
+//      val valid = RegInit(False)       //Because the slot is an Area, we can define hardware here, ex : a register
+//      val address = Reg(UInt(8 bits))
+//      val age = Reg(UInt(16 bits)) //Will count since how many cycles the slot is valid
+//
+//      //Because the slot is an Area, we can also define some interface / behaviour for each slot.
+//      when(valid){
+//        age := age + 1
+//      }
+//
+//      val removeIt = False
+//      when(removeIt){
+//        valid := False
+//      }
+//    }
+//
+//    //Logic to allocate a new slot
+//    val insert = new Area{
+//      val cmd = Stream(UInt(8 bits))
+//      val free = slots.map(!_.valid)
+//      val freeOh = OHMasking.first(free)
+//      cmd.ready := free.orR
+//      when(cmd.fire){
+//        slots.onMask(freeOh){slot =>
+//          slot.address := cmd.payload
+//          slot.age := 0
+//        }
+//      }
+//    }
+//
+//    //Logic to remove the slots which match a given address (assuming there is not more than one)
+//    val remove = new Area{
+//      val cmd = Flow(UInt(8 bits))
+//      val oh = slots.map(s => s.valid && s.address === cmd.payload) //oh meaning one hot
+//      when(cmd.fire){
+//        slots.onMask(oh){ slot =>
+//          slot.removeIt := True
+//        }
+//      }
+//
+//      val reader = slots.reader(OHToUInt(oh)) //Create a facility to read the slots using "oh" as index
+//      val age = reader(_.age) //Age of the slot which was removed
+//    }
 
 
 
@@ -1577,6 +1604,56 @@ class DemoBlackbox extends BlackBox {
       |""".stripMargin)
 }
 
+class Arrayer[T <: Data](dataType: => T, count: Int) extends Area {
+  def apply(i: Int) = accesses(i)
+
+  val mapping = mutable.LinkedHashMap[BaseType, Bits]()
+  val template = dataType.setName("")
+  val accesses = Component.current.parent.rework {
+    Vec.fill(count)(dataType.setAsDirectionLess())
+  }
+  val keys = template.flatten
+  // Generate the Bits array from the template
+  for (e <- keys) {
+    val array = Bits(widthOf(e) * count bits).setCompositeName(this, e.getName())
+    e.getDirection match {
+      case `in` => in(array)
+      case `out` => out(array)
+    }
+    mapping(e) = array
+    e.removeStatement()
+  }
+  // Generate the parent component access points
+  Component.current.parent.rework {
+    val accessesKeys = accesses.map(_.flatten)
+    for (i <- 0 until keys.size) {
+      val key = mapping(keys(i))
+      val slices = key.subdivideIn(count slices)
+      for (sliceId <- 0 until count) {
+        key.getDirection match {
+          case `in` => slices(sliceId) := accessesKeys(sliceId)(i).asBits
+          case `out` => accessesKeys(sliceId)(i).assignFromBits(slices(sliceId))
+        }
+      }
+    }
+  }
+}
+
+object ArrayVecPlay extends App{
+  class MyBlackBox extends BlackBox{
+    val miaou = new Arrayer(slave(Apb3(32, 32)), 2)
+    getAllIo
+  }
+
+  SpinalVerilog(new Component{
+    val buses = Vec.fill(2)(slave(Apb3(32, 32)))
+    val bb = new MyBlackBox()
+    for(i <- 0 until 2){
+      buses(i) >> bb.miaou(i)
+    }
+  })
+}
+
 class Test12345 extends Component{
   val io = new Bundle{
     val a = in Bool()
@@ -1971,16 +2048,16 @@ object PlayScopedMess extends App{
   }
 
   class JumpPlugin extends FiberPlugin {
-    val setup = during setup new Area{
-      Plugin[PcPlugin].retain()
-    }
-    val logic = during build new Area {
-      println(Riscv.RVC())
-      println(Riscv.XLEN_PLUS_2())
-      val jump = Flow(Riscv.PC())
-      Plugin[PcPlugin].jumps += jump
-      Plugin[PcPlugin].release()
-    }
+//    val setup = during setup new Area{
+//      Plugin[PcPlugin].retain()
+//    }
+//    val logic = during build new Area {
+//      println(Riscv.RVC())
+//      println(Riscv.XLEN_PLUS_2())
+//      val jump = Flow(Riscv.PC())
+//      Plugin[PcPlugin].jumps += jump
+//      Plugin[PcPlugin].release()
+//    }
   }
 
   class FetchPlugin extends FiberPlugin{
@@ -2198,4 +2275,83 @@ object PlayComposablePlugin extends App{
   val report = SpinalVerilog(new TopLevel).printRtl()
   println(report.toplevel.vexii.host[PcPluginComposed])
   println(report.toplevel.vexii.host[AddressTranslationService].PC.getName())
+}
+
+
+
+object PlayLockV2 extends App{
+
+  class Retainer extends Area{
+    val handle = Handle[Unit]
+    def await() = handle.await()
+    def release(): Unit = {
+      handle.load()
+    }
+  }
+  case class LockV2() {
+    val retainers = mutable.Queue[Retainer]()
+    def retainer(): Retainer = {
+      val r = new Retainer
+      retainers += r
+      r
+    }
+
+    def await(): Unit = {
+      while(retainers.nonEmpty){
+        retainers.dequeue().await()
+      }
+    }
+  }
+
+  SpinalVerilog(new Component{
+    import spinal.lib.misc.pipeline._
+
+    val lock = LockV2()
+    val f1 = Fiber build new Area{
+      lock.await()
+    }
+
+    val retainerF2 = lock.retainer()
+    val f2 = Fiber build new Area {
+//      lock.release()
+    }
+  })
+}
+
+
+
+
+object PlayLockV3 extends App{
+
+
+  case class LockV2() {
+    val retainers = mutable.Queue[Retainer]()
+
+    class Retainer extends Handle[Unit] {
+      retainers += this
+      def release(): Unit = {
+        load()
+      }
+    }
+
+    def await(): Unit = {
+      while(retainers.nonEmpty){
+        retainers.dequeue().await()
+      }
+    }
+  }
+
+  SpinalVerilog(new Component{
+    import spinal.lib.misc.pipeline._
+
+    val lock = LockV2()
+    val f1 = Fiber build new Area{
+      lock.await()
+    }
+
+    val retainer = new lock.Retainer
+    val f2 = Fiber build new Area {
+      //      lock.release()
+    }
+  })
 }

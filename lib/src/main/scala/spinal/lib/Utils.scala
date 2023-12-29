@@ -915,43 +915,6 @@ object LatencyAnalysis {
 
     SpinalError("latencyAnalysis don't find any path")
     -1
-//    val walked = mutable.Set[Expression]()
-//    var pendingStack = mutable.ArrayBuffer[Expression](to)
-//    var depth = 0;
-//
-//    while (pendingStack.size != 0) {
-//      val iterOn = pendingStack
-//      pendingStack = new mutable.ArrayBuffer[Expression](10000)
-//      for (start <- iterOn) {
-//        if (walk(start)) return depth;
-//      }
-//      depth = depth + 1
-//    }
-//
-//    def walk(that: Expression, depth: Integer = 0): Boolean = {
-//      if (that == null) return false
-//      if (walked.contains(that)) return false
-//      walked += that
-//      if (that == from)
-//        return true
-//      that match {
-//        case delay: SyncNode => {
-//          for (input <- delay.getAsynchronousInputs) {
-//            if (walk(input)) return true
-//          }
-//          pendingStack ++= delay.getSynchronousInputs
-//        }
-//        case _ => {
-//          that.onEachInput(input =>  {
-//            if (walk(input)) return true
-//          })
-//        }
-//      }
-//      false
-//    }
-//
-//    SpinalError("latencyAnalysis don't find any path")
-//    -1
   }
 }
 
@@ -1138,9 +1101,9 @@ class TraversableOnceAnyTuplePimped[T <: Any, T2 <: Any](pimped: Seq[(T, T2)]) {
 }
 
 class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
-  def orR: Bool  = pimped.asBits =/= 0
-  def andR: Bool = pimped.reduce(_ && _)
-  def xorR: Bool = pimped.reduce(_ ^ _)
+  def orR: Bool  = pimped.asBits.orR
+  def andR: Bool = pimped.asBits.andR
+  def xorR: Bool = pimped.asBits.xorR
 
   def norR: Bool = pimped.asBits === 0
   def nandR: Bool = !nandR

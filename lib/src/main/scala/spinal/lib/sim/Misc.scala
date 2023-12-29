@@ -1,10 +1,10 @@
 package spinal.lib.sim
 import java.nio.file.{Files, Paths}
-
 import spinal.core.sim._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.sim.SimManagerContext
 
+import java.io.File
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -252,8 +252,9 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
     for(i <- 0 until 4) write(address + i, (data >> 8*i).toByte)
   }
 
-  def loadBin(offset : Long, file : String): Unit ={
-    val bin = Files.readAllBytes(Paths.get(file))
+  def loadBin(offset: Long, file: String): Unit = loadBin(offset, new File(file))
+  def loadBin(offset : Long, file : File): Unit ={
+    val bin = Files.readAllBytes(file.toPath)
     for(byteId <- 0 until bin.size){
       write(offset + byteId, bin(byteId))
     }

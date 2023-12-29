@@ -24,6 +24,9 @@ trait CtrlApi {
 
   def defaultKey : Any = null
 
+  def up : NodeApi = _c.up
+  def down : NodeApi = _c.down
+
   def isValid = up.isValid
   def isReady = down.isReady
 
@@ -37,7 +40,7 @@ trait CtrlApi {
   def bypass[T <: Data](that: Payload[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
   def bypass[T <: Data](that: NamedTypeKey): Data = {
     val preserve = DslScopeStack.get != getCtrl.parentScope
-    bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScopeData {
+    bypasses.getOrElseUpdate(that, ContextSwapper.outsideCondScope {
       val ret = that.tpe()
       Misc.nameThat(_c, ret, that, "_bypass")
       down(that) := ret
@@ -46,11 +49,11 @@ trait CtrlApi {
     })
   }
 
-  def haltWhen(cond: Bool)      (implicit loc: Location): Unit = requests.halts += nameFromLocation(CombInit(cond), "haltRequest")
-  def duplicateWhen(cond: Bool) (implicit loc: Location): Unit = requests.duplicates += nameFromLocation(CombInit(cond), "duplicateRequest")
-  def terminateWhen(cond: Bool) (implicit loc: Location): Unit = requests.terminates += nameFromLocation(CombInit(cond), "terminateRequest")
-  def forgetOneWhen(cond: Bool)(implicit loc: Location): Unit = requests.forgetsOne += nameFromLocation(CombInit(cond), "forgetsSingleRequest")
-  def ignoreReadyWhen(cond: Bool)(implicit loc: Location): Unit = requests.ignoresReady += nameFromLocation(CombInit(cond), "ignoreReadyRequest")
+  def haltWhen(cond: Bool)      (implicit loc: Location): Bool = requests.halts addRet nameFromLocation(CombInit(cond), "haltRequest")
+  def duplicateWhen(cond: Bool) (implicit loc: Location): Bool = requests.duplicates addRet nameFromLocation(CombInit(cond), "duplicateRequest")
+  def terminateWhen(cond: Bool) (implicit loc: Location): Bool = requests.terminates addRet nameFromLocation(CombInit(cond), "terminateRequest")
+  def forgetOneWhen(cond: Bool)(implicit loc: Location): Bool = requests.forgetsOne addRet nameFromLocation(CombInit(cond), "forgetsSingleRequest")
+  def ignoreReadyWhen(cond: Bool)(implicit loc: Location): Bool = requests.ignoresReady addRet nameFromLocation(CombInit(cond), "ignoreReadyRequest")
   def throwWhen(cond : Bool, usingReady : Boolean = false)    (implicit loc: Location) : Unit = {
     val flag = nameFromLocation(CombInit(cond), "throwWhen")
     requests.terminates += flag
@@ -69,20 +72,18 @@ trait CtrlApi {
   def ignoreReadyNow()(implicit loc: Location): Unit = ignoreReadyWhen(ConditionalContext.isTrue)
 
   val bypasses = mutable.LinkedHashMap[NamedTypeKey, Data]()
-  val keyToData = mutable.LinkedHashMap[NamedTypeKey, Data]()
 
-  def apply(key: NamedTypeKey): Data = {
-    keyToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData {
-      key.tpe()
-    })
-  }
-
-
-  def forkStream[T <: Data](): Stream[NoData] = {
+  def forkStream[T <: Data](forceSpawn : Option[Bool] = Option.empty[Bool]): Stream[NoData] = {
     val ret = Stream(NoData())
-    val fired = RegInit(False) setWhen (ret.fire) clearWhen (up.isMoving) setCompositeName(ret, "fired")
-    ret.valid := isValid && !fired
-    haltWhen(!fired && !ret.ready)
+    val fired = RegInit(False) setCompositeName(ret, "fired")
+    val firedComb = CombInit(fired)
+    ret.valid := isValid && !firedComb
+    haltWhen(!firedComb && !ret.ready)
+    if (forceSpawn.nonEmpty) when(forceSpawn.get) {
+      fired := False
+      firedComb := False
+    }
+    fired setWhen (ret.fire) clearWhen (up.isMoving)
     ret
   }
 
@@ -95,7 +96,7 @@ trait CtrlApi {
   implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new BundlePimper[T](this (stageable))
 }
 
-class CtrlLink(val up : Node, val down : Node) extends Link with CtrlApi {
+class CtrlLink(override val up : Node, override val down : Node) extends Link with CtrlApi {
   down.up = this
   up.down = this
 
@@ -174,4 +175,9 @@ class CtrlLink(val up : Node, val down : Node) extends Link with CtrlApi {
   class Area(override val defaultKey : Any = null)  extends spinal.core.Area with CtrlApi {
     override def getCtrl: CtrlLink = CtrlLink.this
   }
+}
+
+
+class CtrlLinkMirror(from : CtrlLink) extends spinal.core.Area with CtrlApi {
+  override def getCtrl: CtrlLink = from
 }

@@ -199,9 +199,9 @@ class PipelineTester extends SpinalAnyFunSuite{
   test("throw") {
     SimConfig.compile(new CtrlPipeline {
       val doThrow = c1(IN).lsb
-      spinal.core.assert(c1.up.hasCancelRequest === doThrow)
+      spinal.core.assert(c1.up.cancel === doThrow)
       spinal.core.assert(!(c1.down.valid && doThrow))
-      spinal.core.assert(!c1.down.hasCancelRequest)
+      spinal.core.assert(!c1.down.cancel)
 
       when(c1.up.isValid && doThrow) {
         spinal.core.assert(c1.up.isMoving)
@@ -215,9 +215,9 @@ class PipelineTester extends SpinalAnyFunSuite{
       }
 
       when(doThrow){
-        spinal.core.assert(!c0.down.hasCancelRequest)
-        spinal.core.assert(c1.up.hasCancelRequest)
-        spinal.core.assert(!c1.down.hasCancelRequest)
+        spinal.core.assert(!c0.down.cancel)
+        spinal.core.assert(c1.up.cancel)
+        spinal.core.assert(!c1.down.cancel)
       }
 
       c1.throwWhen(doThrow)
@@ -238,8 +238,8 @@ class PipelineTester extends SpinalAnyFunSuite{
       val doThrow = c0(IN).lsb
 
       when(doThrow) {
-        spinal.core.assert(c0.up.hasCancelRequest)
-        spinal.core.assert(!c0.down.hasCancelRequest)
+        spinal.core.assert(c0.up.cancel)
+        spinal.core.assert(!c0.down.cancel)
       }
 
       c0.throwWhen(doThrow)
@@ -534,7 +534,7 @@ class PipelineTester extends SpinalAnyFunSuite{
       c2.throwWhen(doThrow)
 
       when(doThrow){
-        spinal.core.assert(c2.up.hasCancelRequest)
+        spinal.core.assert(c2.up.cancel)
       }
       c2(OUT) := c2(IN)
     }).doSimUntilVoid { dut =>

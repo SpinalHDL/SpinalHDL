@@ -2554,7 +2554,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
       binarySequential
       binaryOneHot
       val top = gen
-      fiber.hardFork(ctx.globalData.elab.runSync())
+      fiber.hardFork(ctx.globalData.elab.runSync()).setName("global_elab")
       if(top.isInBlackBoxTree){
         SpinalError(s"The toplevel can't be a BlackBox (${top.getClass.getSimpleName})")
       }
@@ -2843,6 +2843,7 @@ object SpinalVerilogBoot{
         System.out.flush()
         throw e
       case e: Throwable => {
+        println(e.getStackTrace.mkString("\n"))
         println("\n**********************************************************************************************")
         val errCnt = SpinalError.getErrorCount()
         SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
