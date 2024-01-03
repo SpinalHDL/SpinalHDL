@@ -96,13 +96,6 @@ trait NodeApi extends NodeBaseApi {
     alwaysValid = true
   }
 
-  def setAlwaysReady(): Unit = {
-    ready := True
-    ready.freeze()
-    alwaysReady = true
-  }
-
-
   def apply(key: NamedTypeKey): Data = {
     keyToData.get(key) match {
       case Some(x) => x
@@ -152,7 +145,6 @@ trait NodeApi extends NodeBaseApi {
 
   def arbitrateTo[T <: Data](that: Flow[T]): Unit = {
     that.valid := valid
-    setAlwaysReady()
   }
 
   def driveTo[T <: Data](that: Stream[T])(con: (T, Node) => Unit): Unit = {
@@ -188,7 +180,6 @@ class Node() extends Area with NodeApi{
   var down: Link = null
 
   var alwaysValid = false
-  var alwaysReady = false
 
   val ctrl = new {
     var forgetOne = Option.empty[Bool]
@@ -201,10 +192,10 @@ class Node() extends Area with NodeApi{
 
   val status = new {
     var isReady = Option.empty[Bool]
+    var isCancel = Option.empty[Bool]
     var isFiring = Option.empty[Bool]
     var isMoving = Option.empty[Bool]
     var isCanceling = Option.empty[Bool]
-    var isCancel = Option.empty[Bool]
   }
 
   def build(): Unit = {

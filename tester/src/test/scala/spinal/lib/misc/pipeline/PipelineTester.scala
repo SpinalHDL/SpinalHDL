@@ -570,6 +570,16 @@ class PipelineTester extends SpinalAnyFunSuite{
     def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, up, down)(onPush)
   }
 
+  test("FlowPipeline") {
+    SimConfig.compile(new FlowPipeline {
+      c1(OUT) := c1(IN)
+    }).doSimUntilVoid { dut =>
+      dut.testIt { (value, queue) =>
+        queue += value
+      }
+    }
+  }
+
   class StreamToFlowPipeline extends UnmappedPipeline {
     val up = slave Stream (IN)
     val down = master Flow (OUT)

@@ -13,7 +13,10 @@ class JoinLink(override val ups : Seq[Node], val down : Node) extends Link {
   override def downs: Seq[Node] = List(down)
 
   override def propagateDown(): Unit = propagateDownAll()
-  override def propagateUp(): Unit = propagateUpAll()
+  override def propagateUp(): Unit = {
+    propagateUpAll()
+    ups.foreach(_.ready)
+  }
 
   override def build(): Unit = {
     assert(down.ctrl.forgetOne.isEmpty)

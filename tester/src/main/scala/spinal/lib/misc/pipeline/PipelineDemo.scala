@@ -127,7 +127,6 @@ class TopLevel3 extends Component {
   val WRITE_DATA = c2.insert(c2(READ_DATA)+1)
   ram.write(c2(ADDRESS), c2(WRITE_DATA), c2.down.isFiring)
   ram.generateAsBlackBox()
-  c2.down.setAlwaysReady()
 
   for(c <- List(c1, c2)){
     c0.haltWhen(c.up.isValid && c(ADDRESS) === c0(ADDRESS))
@@ -312,7 +311,6 @@ object PipelineDemo6 extends App {
     }
     override def propagateUp(): Unit = {
       propagateUpAll()
-      up.setAlwaysReady()
     }
 
     override def build(): Unit = {
@@ -322,7 +320,7 @@ object PipelineDemo6 extends App {
       val doDeflect = up.valid && (forceDeflect || !down.ready)
       down.valid := up.valid && !doDeflect
       deflect.valid := up.valid && doDeflect
-      assert(deflect.alwaysReady)
+      assert(deflect.ctrl.ready.isEmpty)
     }
   }
 
@@ -347,7 +345,6 @@ object PipelineDemo6 extends App {
 
     override def propagateUp(): Unit = {
       propagateUpAll()
-      feedback.setAlwaysReady()
     }
 
     override def build(): Unit = {

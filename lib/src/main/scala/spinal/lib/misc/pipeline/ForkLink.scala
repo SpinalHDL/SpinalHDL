@@ -21,7 +21,10 @@ class ForkLink(val up : Node, override val downs : Seq[Node], synchronous: Boole
     propagateDownAll()
     if(!synchronous) downs.foreach(_.ctrl.forgetOneSupported = true)
   }
-  override def propagateUp(): Unit = propagateUpAll()
+  override def propagateUp(): Unit = {
+    propagateUpAll()
+    up.ready
+  }
 
   override def build(): Unit = {
     for(down <- downs) {

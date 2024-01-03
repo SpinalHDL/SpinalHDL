@@ -37,7 +37,7 @@ class StageLink(val up : Node, val down : Node) extends Link {
   }
   override def propagateUp(): Unit = {
     propagateUpAll()
-    if(down.alwaysReady) up.setAlwaysReady()
+    if(down.ctrl.ready.nonEmpty) up.ready
   }
 
   override def build(): Unit = {
@@ -47,21 +47,21 @@ class StageLink(val up : Node, val down : Node) extends Link {
 
     down.ctrl.forgetOne foreach  { cond =>  down.valid clearWhen(cond) }
 
-    up.alwaysReady match {
+    up.ctrl.ready.isEmpty match {
       case true =>
-        if(!down.alwaysValid) down.valid := up.valid
+        if(!down.alwaysValid) down.valid := up.isValid
         matches.foreach(p => down(p) := up(p))
       case false => {
-        if(!down.alwaysValid) when(up.ready) {
-          down.valid := up.valid
+        if(!down.alwaysValid) when(up.isReady) {
+          down.valid := up.isValid
         }
-        when(if (holdPayload) up.valid && up.ready else up.ready) {
+        when(if (holdPayload) up.isValid && up.isReady else up.isReady) {
           matches.foreach(p => down(p) := up(p))
         }
       }
     }
 
-    if (!up.alwaysReady) {
+    if (up.ctrl.ready.nonEmpty) {
       up.ready := down.ready
       if (collapseBubble) up.ready setWhen (!down.valid)
     }
