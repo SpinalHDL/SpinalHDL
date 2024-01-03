@@ -5,7 +5,25 @@ import spinal.lib._
 import spinal.tester.SpinalAnyFunSuite
 import scala.util.Random
 
+object CoreMiscTesterObj extends AreaObject{
+  val miaou = new Area{
+
+  }
+}
+
+object CoreMiscTesterObj2 extends AreaRoot{
+  val miaou = new Area{
+
+  }
+}
+
 class CoreMiscTester extends SpinalAnyFunSuite{
+
+  test("AreaObject") {
+    assert(CoreMiscTesterObj.miaou.getName() == "CoreMiscTesterObj_miaou")
+    assert(CoreMiscTesterObj2.miaou.getName() == "miaou")
+  }
+
   test("SlowArea"){
     SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(4000 Hz))).compile(new Component{
       val counter = out(RegInit(U"0000"))
