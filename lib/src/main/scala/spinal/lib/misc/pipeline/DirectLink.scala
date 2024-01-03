@@ -25,7 +25,7 @@ class DirectLink(val up : Node, val down : Node) extends Link {
   override def propagateUp(): Unit = {
     propagateUpAll()
     down.ctrl.forgetOne.foreach(_ => up.ctrl.forgetOneCreate())
-    down.ctrl.cancel.foreach(_ => up.ctrl.cancelCreate())
+    if(down.ctrl.cancel.nonEmpty) up.cancel
     if(down.alwaysReady) up.setAlwaysReady()
   }
 

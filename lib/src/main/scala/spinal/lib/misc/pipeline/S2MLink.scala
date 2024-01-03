@@ -21,7 +21,7 @@ class S2MLink(val up : Node, val down : Node) extends Link {
   override def propagateUp(): Unit = {
     propagateUpAll()
     if (down.ctrl.forgetOne.nonEmpty) up.ctrl.forgetOneCreate()
-    if (down.ctrl.cancel.nonEmpty) up.ctrl.cancelCreate()
+    if (down.ctrl.cancel.nonEmpty) up.cancel
   }
 
   override def build(): Unit = {
