@@ -21,7 +21,7 @@ trait NodeBaseApi {
   def cancel: Bool
 
   def isValid = valid
-  def isReady = ready
+  def isReady : Bool
   def isCancel : Bool
 
   def isFiring : Bool   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
@@ -62,6 +62,11 @@ trait NodeApi extends NodeBaseApi {
   def cancel : Bool = getNode.cancel
 
 
+  def isReady: Bool = {
+    if (status.isReady.isEmpty) status.isReady = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isReady")))
+    status.isReady.get
+  }
+
   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
   def isFiring : Bool = {
     if (status.isFiring.isEmpty) status.isFiring = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isFiring")))
@@ -81,7 +86,7 @@ trait NodeApi extends NodeBaseApi {
   }
 
   def isCancel: Bool = {
-    if (status.isCancel.isEmpty) status.isCancel = Some(ContextSwapper.outsideCondScopeData(Bool())) //Unamed as it come from ctrl.cancel anyway
+    if (status.isCancel.isEmpty) status.isCancel = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isCancel")))
     status.isCancel.get
   }
 
@@ -165,7 +170,10 @@ class Node() extends Area with NodeApi{
   override def getNode: Node = this
 
   override val valid = Bool()
-  override val ready = Bool()
+  override def ready = {
+    if (ctrl.ready.isEmpty) ctrl.ready = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "ready")))
+    ctrl.ready.get
+  }
   override def cancel = {
     if (ctrl.cancel.isEmpty) ctrl.cancel = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "cancel")))
     ctrl.cancel.get
@@ -187,10 +195,12 @@ class Node() extends Area with NodeApi{
     var forgetOneSupported = false
     def forgetOneCreate(value: Option[Bool] = Some(Bool())): Unit = forgetOne = value.map(_.setCompositeName(Node.this, "forgetOne"))
 
+    var ready = Option.empty[Bool]
     var cancel = Option.empty[Bool]
   }
 
   val status = new {
+    var isReady = Option.empty[Bool]
     var isFiring = Option.empty[Bool]
     var isMoving = Option.empty[Bool]
     var isCanceling = Option.empty[Bool]
@@ -213,6 +223,7 @@ class Node() extends Area with NodeApi{
       }
     }
 
+    status.isReady.foreach(_ := ctrl.ready.getOrElse(True))
     status.isCancel.foreach(_ := ctrl.cancel.getOrElse(False))
     status.isCanceling.foreach(_ := status.isCancel.map(isValid && _).getOrElse(False))
   }

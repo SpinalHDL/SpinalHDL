@@ -17,7 +17,6 @@ class PipelineTester extends SpinalAnyFunSuite{
       val node = Node()
       val X = Payload(UInt(8 bits))
       node.apply(X) := 42
-      println("Miaou")
     }).doSimUntilVoid { dut =>
       simSuccess()
     }
