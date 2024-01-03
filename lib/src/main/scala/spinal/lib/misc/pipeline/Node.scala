@@ -20,9 +20,9 @@ trait NodeBaseApi {
   def ready : Bool
   def cancel: Bool
 
-  def isValid = valid
-  def isReady = ready
-  def isCancel = cancel
+  def isValid : Bool
+  def isReady : Bool
+  def isCancel : Bool
 
   def isFiring : Bool   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
   def isMoving : Bool   // True when it is the last cycle that the current transaction is present on this node. Useful to "reset" some states
@@ -59,9 +59,17 @@ trait NodeApi extends NodeBaseApi {
 
   def valid : Bool = getNode.valid
   def ready : Bool = getNode.ready
+  def cancel : Bool = getNode.cancel
 
+  def isValid: Bool = {
+    if (status.isValid.isEmpty) status.isValid = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isValid")))
+    status.isValid.get
+  }
 
-  override def isCancel: Bool = cancel
+  def isReady: Bool = {
+    if (status.isReady.isEmpty) status.isReady = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isReady")))
+    status.isReady.get
+  }
 
   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
   def isFiring : Bool = {
@@ -81,23 +89,10 @@ trait NodeApi extends NodeBaseApi {
     status.isCanceling.get
   }
 
-  def cancel: Bool = {
-    if (status.cancel.isEmpty) status.cancel = Some(ContextSwapper.outsideCondScopeData(Bool())) //Unamed as it come from ctrl.cancel anyway
-    status.cancel.get
+  def isCancel: Bool = {
+    if (status.isCancel.isEmpty) status.isCancel = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isCancel")))
+    status.isCancel.get
   }
-
-  def setAlwaysValid(): Unit = {
-    valid := True
-    valid.freeze()
-    alwaysValid = true
-  }
-
-  def setAlwaysReady(): Unit = {
-    ready := True
-    ready.freeze()
-    alwaysReady = true
-  }
-
 
   def apply(key: NamedTypeKey): Data = {
     keyToData.get(key) match {
@@ -123,7 +118,7 @@ trait NodeApi extends NodeBaseApi {
 
   def arbitrateFrom[T <: Data](that: Stream[T]): Unit = {
     valid := that.valid
-    that.ready := ready || cancel
+    that.ready := isReady || isCancel
     ctrl.forgetOneSupported = true
   }
 
@@ -142,13 +137,12 @@ trait NodeApi extends NodeBaseApi {
   }
 
   def arbitrateTo[T <: Data](that: Stream[T]): Unit = {
-    that.valid := valid
+    that.valid := isValid
     ready := that.ready
   }
 
   def arbitrateTo[T <: Data](that: Flow[T]): Unit = {
-    that.valid := valid
-    setAlwaysReady()
+    that.valid := isValid
   }
 
   def driveTo[T <: Data](that: Stream[T])(con: (T, Node) => Unit): Unit = {
@@ -165,8 +159,18 @@ trait NodeApi extends NodeBaseApi {
 class Node() extends Area with NodeApi{
   override def getNode: Node = this
 
-  override val valid = Bool()
-  override val ready = Bool()
+  override def valid = {
+    if (ctrl.valid.isEmpty) ctrl.valid = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "valid")))
+    ctrl.valid.get
+  }
+  override def ready = {
+    if (ctrl.ready.isEmpty) ctrl.ready = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "ready")))
+    ctrl.ready.get
+  }
+  override def cancel = {
+    if (ctrl.cancel.isEmpty) ctrl.cancel = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "cancel")))
+    ctrl.cancel.get
+  }
 
   val keyToData = mutable.LinkedHashMap[NamedTypeKey, Data]()
 
@@ -176,23 +180,23 @@ class Node() extends Area with NodeApi{
   var up: Link = null
   var down: Link = null
 
-  var alwaysValid = false
-  var alwaysReady = false
-
   val ctrl = new {
     var forgetOne = Option.empty[Bool]
     var forgetOneSupported = false
     def forgetOneCreate(value: Option[Bool] = Some(Bool())): Unit = forgetOne = value.map(_.setCompositeName(Node.this, "forgetOne"))
 
+    var valid = Option.empty[Bool]
+    var ready = Option.empty[Bool]
     var cancel = Option.empty[Bool]
-    def cancelCreate(value: Option[Bool] = Some(Bool())): Unit = cancel = value.map(_.setCompositeName(Node.this, "cancel"))
   }
 
   val status = new {
+    var isValid = Option.empty[Bool]
+    var isReady = Option.empty[Bool]
+    var isCancel = Option.empty[Bool]
     var isFiring = Option.empty[Bool]
     var isMoving = Option.empty[Bool]
     var isCanceling = Option.empty[Bool]
-    var cancel = Option.empty[Bool]
   }
 
   def build(): Unit = {
@@ -211,8 +215,10 @@ class Node() extends Area with NodeApi{
       }
     }
 
-    status.cancel.foreach(_ := ctrl.cancel.getOrElse(False))
-    status.isCanceling.foreach(_ := status.cancel.map(isValid && _).getOrElse(False))
+    status.isValid.foreach(_ := ctrl.valid.getOrElse(True))
+    status.isReady.foreach(_ := ctrl.ready.getOrElse(True))
+    status.isCancel.foreach(_ := ctrl.cancel.getOrElse(False))
+    status.isCanceling.foreach(_ := status.isCancel.map(isValid && _).getOrElse(False))
   }
 
   class Area(override val defaultKey : Any = null) extends spinal.core.Area with NodeApi {

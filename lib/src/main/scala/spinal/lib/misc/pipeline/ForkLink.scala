@@ -19,9 +19,13 @@ class ForkLink(val up : Node, override val downs : Seq[Node], synchronous: Boole
 
   override def propagateDown(): Unit = {
     propagateDownAll()
+    downs.foreach(_.valid)
     if(!synchronous) downs.foreach(_.ctrl.forgetOneSupported = true)
   }
-  override def propagateUp(): Unit = propagateUpAll()
+  override def propagateUp(): Unit = {
+    propagateUpAll()
+    up.ready
+  }
 
   override def build(): Unit = {
     for(down <- downs) {
@@ -33,7 +37,7 @@ class ForkLink(val up : Node, override val downs : Seq[Node], synchronous: Boole
     val linkEnable = (!synchronous) generate Vec(RegInit(True), downs.size).setCompositeName(this, "linkEnable")
     if (synchronous) {
       up.ready := downs.map(_.ready).reduce(_ && _)
-      downs.foreach(_.valid := up.valid && up.ready)
+      downs.foreach(_.valid := up.isValid && up.ready)
       assert(downs.forall(_.ctrl.forgetOne.isEmpty))
     } else {
       /* Ready is true when every output stream takes or has taken its value */
@@ -47,7 +51,7 @@ class ForkLink(val up : Node, override val downs : Seq[Node], synchronous: Boole
       /* downs are valid if the up is valid and they haven't taken their value yet.
        * When an output fires, mark its value as taken. */
       for (i <- 0 until downs.size) {
-        downs(i).valid := up.valid && linkEnable(i)
+        downs(i).valid := up.isValid && linkEnable(i)
         when(downs(i).isMoving) {
           linkEnable(i) := False
         }

@@ -12,14 +12,20 @@ class JoinLink(override val ups : Seq[Node], val down : Node) extends Link {
 
   override def downs: Seq[Node] = List(down)
 
-  override def propagateDown(): Unit = propagateDownAll()
-  override def propagateUp(): Unit = propagateUpAll()
+  override def propagateDown(): Unit = {
+    propagateDownAll()
+    down.valid
+  }
+  override def propagateUp(): Unit = {
+    propagateUpAll()
+    ups.foreach(_.ready)
+  }
 
   override def build(): Unit = {
     assert(down.ctrl.forgetOne.isEmpty)
 
-    down.valid := ups.map(_.valid).andR
-    ups.foreach(_.ready := down.valid && down.ready)
+    down.valid := ups.map(_.isValid).andR
+    ups.foreach(_.ready := down.isValid && down.isReady)
     for(key <- down.fromUp.payload){
       val filtred = ups.filter(up => up.keyToData.contains(key) || up.fromUp.payload.contains(key))
       filtred.size match {

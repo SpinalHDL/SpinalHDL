@@ -129,26 +129,24 @@ class CtrlLink(override val up : Node, override val down : Node) extends Link wi
 
   override def propagateDown(): Unit = {
     propagateDownAll()
-    if(up.alwaysValid && !requests.impactValid){
-      down.setAlwaysValid()
-    }
+    if(up.ctrl.valid.nonEmpty || requests.impactValid) down.valid
     down.ctrl.forgetOneSupported = true
   }
 
   override def propagateUp(): Unit = {
     propagateUpAll()
     up.ctrl.forgetOneCreate(or(down.ctrl.forgetOne, requests.forgetsOne))
-    up.ctrl.cancelCreate(or(down.ctrl.cancel, requests.cancels))
+    or(down.ctrl.cancel, requests.cancels).map(up.cancel := _)
 
-    if (down.alwaysReady && !requests.impactReady) {
-      up.setAlwaysReady()
+    if (down.ctrl.ready.nonEmpty || requests.impactReady) {
+      up.ready
     }
   }
 
   override def build(): Unit = {
-    if(!down.alwaysValid) down.valid := up.valid
-    if(!up.alwaysReady) {
-      up.ready := down.ready
+    if(down.ctrl.valid.nonEmpty) down.valid := up.valid
+    if(up.ctrl.ready.nonEmpty) {
+      up.ready := down.isReady
       if(requests.ignoresReady.nonEmpty) when(requests.ignoresReady.orR){
         up.ready := True
       }
