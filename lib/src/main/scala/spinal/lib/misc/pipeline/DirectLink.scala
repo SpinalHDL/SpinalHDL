@@ -19,7 +19,7 @@ class DirectLink(val up : Node, val down : Node) extends Link {
 
   override def propagateDown(): Unit = {
     propagateDownAll()
-    if(up.alwaysValid) down.setAlwaysValid()
+    if(up.ctrl.valid.nonEmpty) down.valid
     up.ctrl.forgetOneSupported = true
   }
   override def propagateUp(): Unit = {
@@ -30,7 +30,7 @@ class DirectLink(val up : Node, val down : Node) extends Link {
   }
 
   override def build(): Unit = {
-    if(!down.alwaysValid) down.valid := up.valid
+    if(down.ctrl.valid.nonEmpty) down.valid := up.isValid
     if(up.ctrl.ready.nonEmpty) up.ready := down.ready
     up.ctrl.forgetOne.foreach(_ := down.ctrl.forgetOne.get)
     up.ctrl.cancel.foreach(_ := down.ctrl.cancel.get)

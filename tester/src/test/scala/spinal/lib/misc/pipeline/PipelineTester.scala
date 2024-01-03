@@ -24,7 +24,7 @@ class PipelineTester extends SpinalAnyFunSuite{
 
   // The user just need to implement that callback to specify what should be expected
   // on the down stream in function of what is pushed on the up stream
-  def simpleTest(cd : ClockDomain, up : Any, down : Any)(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = {
+  def simpleTest(cd : ClockDomain, up : Any, down : Any)(onPush: (Int, mutable.Queue[Int]) => Unit) = new Area{
     cd.forkStimulus(10)
     var coverage = 0
 
@@ -567,7 +567,7 @@ class PipelineTester extends SpinalAnyFunSuite{
     val down = master Flow (OUT)
     c0.up.driveFrom(up)((self, payload) => self(IN) := payload)
     c2.down.driveTo(down)((payload, self) => payload := self(OUT))
-    def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, up, down)(onPush)
+    def testIt(onPush: (Int, mutable.Queue[Int]) => Unit) = simpleTest(clockDomain, up, down)(onPush)
   }
 
   test("FlowPipeline") {
@@ -579,6 +579,32 @@ class PipelineTester extends SpinalAnyFunSuite{
       }
     }
   }
+
+  class PayloadPipeline extends UnmappedPipeline {
+    val up = in(IN)
+    val down = out(OUT)
+    c0.up(IN) := up
+    down := c2.down(OUT)
+
+    def testIt(onPush: (Int, mutable.Queue[Int]) => Unit) = simpleTest(clockDomain, up, down)(onPush)
+  }
+
+  test("PayloadPipeline") {
+    SimConfig.compile(new PayloadPipeline {
+      c1(OUT) := c1(IN)
+      afterElaboration{
+        c1.up(IN) init(0)
+        c2.up(OUT) init(0)
+      }
+    }).doSimUntilVoid { dut =>
+      val tb = dut.testIt { (value, queue) =>
+        queue += value
+      }
+      tb.refQueue += 0
+      tb.refQueue += 0
+    }
+  }
+
 
   class StreamToFlowPipeline extends UnmappedPipeline {
     val up = slave Stream (IN)
@@ -606,8 +632,8 @@ class PipelineTester extends SpinalAnyFunSuite{
     val up = in UInt (16 bits)
     val down = master Flow(UInt(16 bits))
 
-    c0.up.setAlwaysValid()
     c0.up(IN) := up
+    c0.up.valid := True
 
     c2.down.driveTo(down)((payload, self) => payload := self(OUT))
 

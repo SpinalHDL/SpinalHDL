@@ -620,8 +620,8 @@ object ContextSwapper{
     topBody.head = addedHead
     addedHead.lastScopeStatement = null.asInstanceOf[Statement]
     addedLast.nextScopeStatement = oldHead
-    oldHead.lastScopeStatement = addedLast
-    oldLast.nextScopeStatement = null.asInstanceOf[Statement]
+    if(oldHead != null) oldHead.lastScopeStatement = addedLast
+    if(oldLast != null) oldLast.nextScopeStatement = null.asInstanceOf[Statement]
     topBody.last = oldLast
 
     ret // return the value returned by that

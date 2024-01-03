@@ -20,7 +20,7 @@ trait NodeBaseApi {
   def ready : Bool
   def cancel: Bool
 
-  def isValid = valid
+  def isValid : Bool
   def isReady : Bool
   def isCancel : Bool
 
@@ -61,6 +61,10 @@ trait NodeApi extends NodeBaseApi {
   def ready : Bool = getNode.ready
   def cancel : Bool = getNode.cancel
 
+  def isValid: Bool = {
+    if (status.isValid.isEmpty) status.isValid = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isValid")))
+    status.isValid.get
+  }
 
   def isReady: Bool = {
     if (status.isReady.isEmpty) status.isReady = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isReady")))
@@ -88,12 +92,6 @@ trait NodeApi extends NodeBaseApi {
   def isCancel: Bool = {
     if (status.isCancel.isEmpty) status.isCancel = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isCancel")))
     status.isCancel.get
-  }
-
-  def setAlwaysValid(): Unit = {
-    valid := True
-    valid.freeze()
-    alwaysValid = true
   }
 
   def apply(key: NamedTypeKey): Data = {
@@ -139,12 +137,12 @@ trait NodeApi extends NodeBaseApi {
   }
 
   def arbitrateTo[T <: Data](that: Stream[T]): Unit = {
-    that.valid := valid
+    that.valid := isValid
     ready := that.ready
   }
 
   def arbitrateTo[T <: Data](that: Flow[T]): Unit = {
-    that.valid := valid
+    that.valid := isValid
   }
 
   def driveTo[T <: Data](that: Stream[T])(con: (T, Node) => Unit): Unit = {
@@ -161,7 +159,10 @@ trait NodeApi extends NodeBaseApi {
 class Node() extends Area with NodeApi{
   override def getNode: Node = this
 
-  override val valid = Bool()
+  override def valid = {
+    if (ctrl.valid.isEmpty) ctrl.valid = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "valid")))
+    ctrl.valid.get
+  }
   override def ready = {
     if (ctrl.ready.isEmpty) ctrl.ready = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "ready")))
     ctrl.ready.get
@@ -179,18 +180,18 @@ class Node() extends Area with NodeApi{
   var up: Link = null
   var down: Link = null
 
-  var alwaysValid = false
-
   val ctrl = new {
     var forgetOne = Option.empty[Bool]
     var forgetOneSupported = false
     def forgetOneCreate(value: Option[Bool] = Some(Bool())): Unit = forgetOne = value.map(_.setCompositeName(Node.this, "forgetOne"))
 
+    var valid = Option.empty[Bool]
     var ready = Option.empty[Bool]
     var cancel = Option.empty[Bool]
   }
 
   val status = new {
+    var isValid = Option.empty[Bool]
     var isReady = Option.empty[Bool]
     var isCancel = Option.empty[Bool]
     var isFiring = Option.empty[Bool]
@@ -214,6 +215,7 @@ class Node() extends Area with NodeApi{
       }
     }
 
+    status.isValid.foreach(_ := ctrl.valid.getOrElse(True))
     status.isReady.foreach(_ := ctrl.ready.getOrElse(True))
     status.isCancel.foreach(_ := ctrl.cancel.getOrElse(False))
     status.isCanceling.foreach(_ := status.isCancel.map(isValid && _).getOrElse(False))
