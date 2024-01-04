@@ -177,33 +177,33 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   def isStuck: Bool = isValid && !isReady
   def isChanging:Bool = isReady || isRemoved
   def isRemoved : Bool = {
-    if(internals.arbitration.isRemoved == null) internals.arbitration.isRemoved = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isRemoved == null) internals.arbitration.isRemoved = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isRemoved
   }
   def isFlushed : Bool = {
-    if(internals.arbitration.isFlushed == null) internals.arbitration.isFlushed = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isFlushed == null) internals.arbitration.isFlushed = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isFlushed
   }
   //So, not realy well named, as it just check if a transaction is moving to the next stage (output.valid && output.ready)
   def isForked : Bool = {
-    if(internals.arbitration.isForked == null) internals.arbitration.isForked = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isForked == null) internals.arbitration.isForked = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isForked
   }
   def isFlushingNext : Bool = {
-    if(internals.arbitration.isFlushingNext == null) internals.arbitration.isFlushingNext = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isFlushingNext == null) internals.arbitration.isFlushingNext = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isFlushingNext
   }
   def isFlushingRoot : Bool = {
-    if(internals.arbitration.isFlushingRoot == null) internals.arbitration.isFlushingRoot = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isFlushingRoot == null) internals.arbitration.isFlushingRoot = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isFlushingRoot
   }
   def isReady : Bool = {
-    if(internals.input.ready == null) internals.input.ready = ContextSwapper.outsideCondScope(Bool())
+    if(internals.input.ready == null) internals.input.ready = ContextSwapper.outsideCondScopeData(Bool())
     internals.input.ready
   }
   def isSelfRemoved : Bool = isFlushingRoot
   def isThrown : Bool = {
-    if(internals.arbitration.isThrown == null) internals.arbitration.isThrown = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isThrown == null) internals.arbitration.isThrown = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isThrown
   }
 
@@ -212,17 +212,17 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
 
 
   def apply(key : StageableKey) : Data = {
-    internals.stageableToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope{
+    internals.stageableToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData{
       key.stageable()//.setCompositeName(this, s"${key}")
     })
   }
   def overloaded(key : StageableKey) : Data = {
-    internals.stageableOverloadedToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope{
+    internals.stageableOverloadedToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData{
       key.stageable()//.setCompositeName(this, s"${key}_overloaded")
     })
   }
   def resulting(key : StageableKey) : Data = {
-    internals.stageableResultingToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope{
+    internals.stageableResultingToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData{
       key.stageable()//.setCompositeName(this, s"${key}_overloaded")
     })
   }

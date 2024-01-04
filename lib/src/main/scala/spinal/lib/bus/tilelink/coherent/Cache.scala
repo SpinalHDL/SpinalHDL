@@ -49,7 +49,7 @@ case class CacheParam(var unp : NodeParameters,
 }
 
 
-object Cache{
+object Cache extends AreaObject{
   val CtrlOpcode = new SpinalEnum {
     val ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, GET, EVICT = newElement()
   }

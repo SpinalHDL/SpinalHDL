@@ -355,8 +355,8 @@ class SimManager(val raw : SimRaw, val random: Random = Random, val testName : S
       for(t <- (jvmIdleThreads ++ jvmBusyThreads)){
         while(t.isAlive()){Thread.sleep(0)}
       }
-      raw.end()
       onEndListeners.foreach(_())
+      raw.end()
       SimManagerContext.threadLocal.set(null)
     }
   }
