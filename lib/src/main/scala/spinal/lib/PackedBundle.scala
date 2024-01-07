@@ -83,14 +83,14 @@ class PackedBundle extends Bundle {
         // "Little endian" -- ascending range
         val subBits = data match {
           case subPacked: PackedBundle => subPacked.packed
-          case _ => data.asBits
+          case _                       => data.asBits
         }
         packed(range) := subBits.takeLow(range.size.min(data.getBitsWidth)).resize(range.size)
       } else {
         // "Big endian" -- descending range
         val subBits = data match {
           case subPacked: PackedBundle => subPacked.packed
-          case _ => data.asBits
+          case _                       => data.asBits
         }
         packed(range) := subBits.takeHigh(range.size.min(data.getBitsWidth)).resizeLeft(range.size)
       }
@@ -111,21 +111,21 @@ class PackedBundle extends Bundle {
           val subBits = bits(elRange).resize(el.getBitsWidth)
           el match {
             case subPacked: PackedBundle => subPacked.unpack(subBits)
-            case _ => el.assignFromBits(subBits)
+            case _                       => el.assignFromBits(subBits)
           }
         } else {
           // "Big endian" -- descending range
           val subBits = bits(elRange).resizeLeft(el.getBitsWidth)
           el match {
             case subPacked: PackedBundle => subPacked.unpack(subBits)
-            case _ => el.assignFromBits(subBits)
+            case _                       => el.assignFromBits(subBits)
           }
         }
       }
     }
   }
 
-  def getPackedWidth: Int = mappings.map(_._1.high).max+1
+  def getPackedWidth: Int = mappings.map(_._1.high).max + 1
 
   implicit class DataPositionEnrich[T <: Data](t: T) {
 
