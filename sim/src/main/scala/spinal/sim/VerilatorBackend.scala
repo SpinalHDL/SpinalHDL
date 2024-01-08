@@ -625,7 +625,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       val hash = digest.map(x => (x & 0xFF).toHexString.padTo(2, '0')).mkString("")
       workspaceCacheDir = new File(s"${cachePath}/${hash}/${workspaceName}")
       hashCacheDir = new File(s"${cachePath}/${hash}")
-      uniqueId = BigInt(digest).toInt.abs
+      uniqueId = BigInt(digest).toLong.abs
 
       cacheGlobalSynchronized {
         // remove old cache entries

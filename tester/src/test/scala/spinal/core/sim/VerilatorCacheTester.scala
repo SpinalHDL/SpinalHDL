@@ -98,6 +98,15 @@ class VerilatorCacheTester extends SpinalAnyFunSuite {
     duration
   }
 
+
+//  test("large_design") {
+//    SimConfig.compile(new Component{
+//      val i = in UInt(8 bits)
+//      val o = out UInt(8 bits)
+//      o := Delay(i, 10000)
+//    })
+//  }
+
   test("verilator cache") {
     deleteCache()
 
