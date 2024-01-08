@@ -590,10 +590,6 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       md.update(config.simulatorFlags.mkString(" ").getBytes())
       md.update(0.toByte)
       md.update(verilatorVersion.getBytes())
-      md.update(0.toByte)
-      md.update(workspacePath.getBytes())
-      md.update(0.toByte)
-      md.update(workspaceName.getBytes())
 
 
       def hashFile(md: MessageDigest, file: File) = {
