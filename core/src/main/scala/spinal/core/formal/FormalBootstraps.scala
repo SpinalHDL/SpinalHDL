@@ -198,7 +198,8 @@ case class SpinalFormalConfig(
 
     val rtlFiles = new ArrayBuffer[String]()
 //    val rtlPath = rtlDir.getAbsolutePath
-    report.generatedSourcesPaths.foreach { srcPath =>
+    val rtlSources = (report.generatedSourcesPaths ++ report.blackboxesSourcesPaths)
+    rtlSources.foreach { srcPath =>
       val src = new File(srcPath)
       val lines = Source.fromFile(src).getLines.toArray
       val w = new PrintWriter(src)

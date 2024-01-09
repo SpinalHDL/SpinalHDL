@@ -14,11 +14,10 @@ class AxiLite4Bridge() extends Area{
   val down = new Handle[AxiLite4] with SpinalTagReady
 
   new MemoryConnection {
-    override def m = up
-    override def s = down
+    override def up = AxiLite4Bridge.this.up
+    override def down = AxiLite4Bridge.this.down
     override def transformers = Nil
-    override def mapping = SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth)
-    override def sToM(downs: MemoryTransfers, args: MappedNode) = downs
+    override def mapping = SizeMapping(0, BigInt(1) << AxiLite4Bridge.this.up.m2s.parameters.addressWidth)
     populate()
   }
 

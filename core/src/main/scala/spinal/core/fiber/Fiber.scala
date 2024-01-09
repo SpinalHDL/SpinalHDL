@@ -1,9 +1,11 @@
 package spinal.core.fiber
 
-import spinal.core.GlobalData
+import spinal.core.{Area, GlobalData}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.reflect.{ClassTag, classTag}
+import scala.reflect.runtime.universe._
 
 object ElabOrderId{
   val INIT  = -1000000
@@ -13,52 +15,115 @@ object ElabOrderId{
 }
 
 object Fiber {
-  def apply[T](orderId : Int)(body : => T) : Handle[T] = {
+  def apply[T: ClassTag](orderId : Int)(body : => T) : Handle[T] = {
     GlobalData.get.elab.addTask(orderId)(body)
   }
-  def setup[T](body : => T) : Handle[T] = apply(ElabOrderId.SETUP)(body)
-  def build[T](body : => T) : Handle[T] = apply(ElabOrderId.BUILD)(body)
-  def check[T](body : => T) : Handle[T] = apply(ElabOrderId.CHECK)(body)
+  def setup[T: ClassTag](body : => T) : Handle[T] = apply(ElabOrderId.SETUP)(body)
+  def build[T: ClassTag](body : => T) : Handle[T] = apply(ElabOrderId.BUILD)(body)
+  def check[T: ClassTag](body : => T) : Handle[T] = apply(ElabOrderId.CHECK)(body)
+
+  def callback(orderId: Int)(body: => Unit): Unit = {
+    GlobalData.get.elab.addCallback(orderId)(body)
+  }
+
+  def setupCallback(body: => Unit): Unit = callback(ElabOrderId.SETUP)(body)
+  def buildCallback(body: => Unit): Unit = callback(ElabOrderId.BUILD)(body)
+
+  def await(id : Int): Unit = {
+    GlobalData.get.elab.await(id)
+  }
+
+  def awaitSetup() = await(ElabOrderId.SETUP)
+  def awaitBuild() = await(ElabOrderId.BUILD)
+  def awaitCheck() = await(ElabOrderId.CHECK)
 }
 
-class Fiber {
+class Fiber extends Area{
   var currentOrderId = ElabOrderId.INIT
-  def addTask[T](orderId : Int)(body : => T) : Handle[T] = {
+
+
+  class Fence(id : Int) extends Area{
     val lock = Lock().retain()
-    assert(currentOrderId <= orderId)
-    if(currentOrderId == orderId) lock.release()
-    val (h, t) = hardForkRaw(withDep = false){
+    val pendings = mutable.ArrayBuffer[AsyncThread]()
+    def await(): Unit = {
+      pendings += AsyncThread.current
       lock.await()
-      body
     }
-    lock.setCompositeName(h, "lock")
-    tasks.getOrElseUpdate(orderId, mutable.Queue[(Lock, Handle[_], AsyncThread)]()) += Tuple3(lock, h, t)
+    setCompositeName(Fiber.this, s"lock_${id.toString}")
+  }
+
+  val inflightLock = Lock()
+  val inflight = mutable.LinkedHashSet[AsyncThread]()
+  val fences = mutable.LinkedHashMap[Int, Fence]()
+  val callbacks = new mutable.LinkedHashMap[Int, mutable.Queue[() => Unit]]()
+
+  private def active(t : AsyncThread): Unit = {
+    inflight += t
+    inflightLock.retain()
+  }
+
+  private def idle(): Unit = {
+    inflight -= AsyncThread.current
+    inflightLock.release()
+  }
+
+  def addTask[T: ClassTag](body: => T): Handle[T] = {
+    addTask(ElabOrderId.INIT)(body)
+  }
+  def addTask[T: ClassTag](orderId : Int)(body : => T) : Handle[T] = {
+    val (h, t) = hardForkRawHandle(withDep = true) { h : Handle[T] =>
+      Fiber.await(orderId)
+      if(classTag[T].runtimeClass == classOf[Area]) {
+        GlobalData.get.onAreaInit = Some(a => a.setCompositeName(h))
+      }
+      val ret = body
+      idle()
+      ret
+    }
+    t.setCompositeName(h)
+    active(t)
     h
   }
-  val tasks = new mutable.LinkedHashMap[Int, mutable.Queue[(Lock, Handle[_], AsyncThread)]]()
+
+  def await(id : Int) = {
+    idle()
+    fences.getOrElseUpdate(id, new Fence(id)).await()
+  }
+
+  def addCallback(orderId : Int)(body : => Unit): Unit = {
+    callbacks.getOrElseUpdate(orderId, mutable.Queue[() => Unit]()).enqueue(() => body)
+  }
+
 
   def runSync(): Unit ={
     val e = Engine.get
-
     //Link locks to current thread
-    tasks.foreach(_._2.foreach{ e =>
-      e._1.willBeLoadedBy = AsyncThread.current
-      AsyncThread.current.addSoonHandle(e._1)
-    })
-    while(tasks.nonEmpty){
-      val orderId = tasks.keys.min
+    fences.values.foreach{ e =>
+      e.lock.willBeLoadedBy = AsyncThread.current
+      AsyncThread.current.addSoonHandle(e.lock)
+    }
+    while(fences.nonEmpty || callbacks.nonEmpty || inflight.nonEmpty){
+      inflightLock.await()
+      assert(inflight.size == 0)
+
+      val orderId = (fences.keys ++ callbacks.keys).min
       currentOrderId = orderId
-      val queue = tasks(orderId)
-      val locks = ArrayBuffer[Handle[_]]()
-      while(queue.nonEmpty){
-        val (l, h, t) = queue.dequeue()
-        h.willBeLoadedBy = t
-        t.addSoonHandle(h)
-        l.release()
-        locks += h
+
+      callbacks.get(orderId).foreach{ l =>
+        l.foreach(_.apply())
+        callbacks.remove(orderId)
       }
-      locks.foreach(_.await())
-      tasks.remove(orderId)
+
+      fences.get(orderId) match {
+        case Some(lock) => {
+          lock.pendings.foreach(active)
+          lock.lock.release()
+          fences.remove(orderId)
+        }
+        case None =>
+      }
+
+      inflightLock.await()
     }
   }
 }

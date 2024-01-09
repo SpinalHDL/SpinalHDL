@@ -9,9 +9,9 @@ import scala.collection.mutable.ArrayBuffer
 class ScopeFiber extends Area{
   val up = fabric.Node.up()
 
-  def add(pin : => Bool, address : Int) = probes += Probe(() => pin, address)
+  def add(pin : Bool, address : Int) = probes += Probe(pin, address)
 
-  case class Probe(pin : () => Bool, address : Int)
+  case class Probe(pin : Bool, address : Int)
   val probes = ArrayBuffer[Probe]()
   val lock = Lock()
   val fiber = Fiber build new Area{
@@ -26,7 +26,7 @@ class ScopeFiber extends Area{
 
     lock.await()
     val factory = new SlaveFactory(up.bus, false)
-    for(probe <- probes; pin = probe.pin()) new Composite(this, pin.getRtlPath("_")){
+    for(probe <- probes; pin = probe.pin) new Composite(this, pin.getRtlPath("_")){
       val counter = Reg(UInt(32 bits)) init(0)
       when(pin.pull())(counter := counter + 1)
       factory.read(counter, probe.address)

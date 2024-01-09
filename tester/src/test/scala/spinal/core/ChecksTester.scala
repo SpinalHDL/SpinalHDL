@@ -412,6 +412,14 @@ class ChecksTester extends SpinalAnyFunSuite  {
     })
   }
 
+
+  test("catchMultiToplevel") {
+    generationShouldFail{
+      new Component{}
+      new Component{}
+    }
+  }
+
   test("catchShiftBig"){
     generationShouldFail(new Component {
       val a = B(1)
