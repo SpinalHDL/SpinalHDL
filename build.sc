@@ -4,15 +4,17 @@ import $file.project.Version
 
 trait SpinalModule extends SbtModule { outer =>
   def scalaVersion = Version.SpinalVersion.compilers(0)
+  def scalatestVersion = "3.2.14"
   def scalacOptions = super.scalacOptions() ++ Seq("-unchecked", "-target:jvm-1.8")
   def javacOptions = super.javacOptions() ++ Seq("-source", "1.8", "-target", "1.8")
 
   val IvyDeps = Agg(
     ivy"org.scala-lang:scala-library:${scalaVersion}",
-    ivy"net.java.dev.jna:jna:5.5.0",
-    ivy"net.java.dev.jna:jna-platform:5.5.0",
-    ivy"org.slf4j:slf4j-api:1.7.25",
-    ivy"org.scala-lang.modules::scala-xml:1.2.0"
+    ivy"org.scalactic:scalactic::3.2.10",
+    ivy"net.java.dev.jna:jna:5.12.1",
+    ivy"net.java.dev.jna:jna-platform:5.12.1",
+    ivy"org.slf4j:slf4j-api:2.0.5",
+    ivy"org.scala-lang.modules::scala-xml:1.3.0"
   )
 }
 
@@ -49,7 +51,7 @@ object idslplugin extends SpinalModule with SpinalPublishModule {
 object sim extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.sim")
   def ivyDeps = super.ivyDeps() ++ Agg(
-    ivy"commons-io:commons-io:2.4",
+    ivy"commons-io:commons-io:2.11.0",
     ivy"net.openhft:affinity:3.21ea1.1",
     ivy"org.slf4j:slf4j-simple:1.7.25",
     ivy"com.github.oshi:oshi-core:5.2.0"
@@ -61,7 +63,7 @@ object lib extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.lib")
   def moduleDeps = Seq(core, sim)
   def scalacOptions = super.scalacOptions() ++ idslplugin.pluginOptions()
-  def ivyDeps = super.ivyDeps() ++ Agg(ivy"commons-io:commons-io:2.4", ivy"org.scalatest::scalatest:3.2.5")
+  def ivyDeps = super.ivyDeps() ++ Agg(ivy"commons-io:commons-io:2.11.0", ivy"org.scalatest::scalatest:${scalatestVersion}")
   def publishVersion = Version.SpinalVersion.lib
 }
 
@@ -102,9 +104,9 @@ object tester extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.tester")
   def moduleDeps = Seq(core, sim, lib)
   def scalacOptions = super.scalacOptions()
-  def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:3.2.5")
+  def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:${scalatestVersion}")
 
-  object test extends Tests with TestModule.ScalaTest {
-    def ivyDeps = Agg(ivy"org.scalatest::scalatest::3.2.5")
+  object test extends SbtModuleTests with TestModule.ScalaTest {
+    def ivyDeps = Agg(ivy"org.scalatest::scalatest::${scalatestVersion}")
   }
 }
