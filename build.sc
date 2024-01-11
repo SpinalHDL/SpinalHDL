@@ -3,7 +3,6 @@ import mill._, scalalib._, publish._
 import $file.project.Version
 
 trait SpinalModule extends SbtModule { outer =>
-  def scalaVersion = Version.SpinalVersion.compilers(0)
   def scalatestVersion = "3.2.14"
   def scalacOptions = super.scalacOptions() ++ Seq("-unchecked", "-target:jvm-1.8")
   def javacOptions = super.javacOptions() ++ Seq("-source", "1.8", "-target", "1.8")
@@ -34,21 +33,24 @@ trait SpinalPublishModule extends PublishModule {
   )
 }
 
-object idslpayload extends SpinalModule with SpinalPublishModule {
+object idslpayload extends Cross[IdslPayload](Version.SpinalVersion.compilers)
+trait IdslPayload extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   def mainClass = Some("spinal.idslpayload")
   override def artifactName = "spinalhdl-idsl-payload"
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scala-lang:scala-reflect:${scalaVersion}")
 }
 
-object idslplugin extends SpinalModule with SpinalPublishModule {
+object idslplugin extends Cross[IdslPlugin](Version.SpinalVersion.compilers)
+trait IdslPlugin extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   def mainClass = Some("spinal.idslplugin")
   override def artifactName = "spinalhdl-idsl-plugin"
-  def moduleDeps = Seq(idslpayload)
+  def moduleDeps = Seq(idslpayload(crossScalaVersion))
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scala-lang:scala-compiler:${scalaVersion}")
   def pluginOptions = T { Seq(s"-Xplugin:${assembly().path}") }
 }
 
-object sim extends SpinalModule with SpinalPublishModule {
+object sim extends Cross[Sim](Version.SpinalVersion.compilers)
+trait Sim extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   def mainClass = Some("spinal.sim")
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"commons-io:commons-io:2.11.0",
@@ -59,10 +61,11 @@ object sim extends SpinalModule with SpinalPublishModule {
   def publishVersion = Version.SpinalVersion.sim
 }
 
-object lib extends SpinalModule with SpinalPublishModule {
+object lib extends Cross[Lib](Version.SpinalVersion.compilers)
+trait Lib extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   def mainClass = Some("spinal.lib")
-  def moduleDeps = Seq(core, sim)
-  def scalacOptions = super.scalacOptions() ++ idslplugin.pluginOptions()
+  def moduleDeps = Seq(core(crossScalaVersion), sim(crossScalaVersion))
+  def scalacOptions = super.scalacOptions() ++ idslplugin(crossScalaVersion).pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"commons-io:commons-io:2.11.0", ivy"org.scalatest::scalatest:${scalatestVersion}")
   def publishVersion = Version.SpinalVersion.lib
 }
@@ -74,11 +77,12 @@ def gitHash(dir: os.Path) = (try {
   case e: java.io.IOException => "???"
 }).linesIterator.next()
 
-object core extends SpinalModule with SpinalPublishModule {
+object core extends Cross[Core](Version.SpinalVersion.compilers)
+trait Core extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   def mainClass = Some("spinal.core")
-  def moduleDeps = Seq(idslplugin, sim)
+  def moduleDeps = Seq(idslplugin(crossScalaVersion), sim(crossScalaVersion))
 
-  def scalacOptions = super.scalacOptions() ++ idslplugin.pluginOptions()
+  def scalacOptions = super.scalacOptions() ++ idslplugin(crossScalaVersion).pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"org.scala-lang:scala-reflect:${scalaVersion}",
     ivy"com.github.scopt::scopt:3.7.1",
@@ -100,13 +104,14 @@ object core extends SpinalModule with SpinalPublishModule {
   }
 }
 
-object tester extends SpinalModule with SpinalPublishModule {
+object tester extends Cross[Tester](Version.SpinalVersion.compilers)
+trait Tester extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   def mainClass = Some("spinal.tester")
-  def moduleDeps = Seq(core, sim, lib)
+  def moduleDeps = Seq(core(crossScalaVersion), sim(crossScalaVersion), lib(crossScalaVersion))
   def scalacOptions = super.scalacOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:${scalatestVersion}")
 
-  object test extends SbtModuleTests with TestModule.ScalaTest {
+  object test extends CrossSbtModuleTests with TestModule.ScalaTest {
     def ivyDeps = Agg(ivy"org.scalatest::scalatest::${scalatestVersion}")
   }
 }
