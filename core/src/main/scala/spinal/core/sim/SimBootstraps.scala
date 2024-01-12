@@ -519,7 +519,6 @@ class SimVerilatorPhase extends PhaseNetlist {
     pc.walkDeclarations { d =>
       d match {
         case x: SpinalTagReady if (x.hasTag(SimPublic)) => {
-          x.removeTag(SimPublic)
           x.addTag(Verilator.public)
         }
         case _ =>

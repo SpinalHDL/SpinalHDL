@@ -318,6 +318,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   /** set a data as inout */
   def asInOut(): this.type = {
+    assert(this.isAnalog, "inout can only be used on Analog signal")
     if(this.component != Component.current) {
       LocatedPendingError(s"You should not set $this as output outside its own component." )
     }else {

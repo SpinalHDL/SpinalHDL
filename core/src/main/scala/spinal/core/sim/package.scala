@@ -659,7 +659,7 @@ package object sim {
 
     private def getBool(manager: SimManager, who: Bool): Bool = {
       val component = who.component
-      if((who.isInput || who.isOutput) && component != null && component.parent == null){
+      if((who.isInput || who.isOutput) && component != null && component.parent == null || who.hasTag(SimPublic)){
         who
       }else {
         manager.userData.asInstanceOf[Component].pulledDataCache.getOrElse(who, null).asInstanceOf[Bool]

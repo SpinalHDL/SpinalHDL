@@ -50,7 +50,7 @@ sealed class WaveFormat(val ext : String = "???"){
 
 
 trait Backend{
-  val uniqueId       = Backend.allocateUniqueId()
+  var uniqueId       = Backend.allocateUniqueId().toLong
   def isBufferedWrite : Boolean
 }
 

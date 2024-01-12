@@ -55,7 +55,7 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
           }
 
 
-          //ValCallback management
+          //ValCallback management for class def
           if (symbolHasTrait(cd.symbol, "spinal.idslplugin.ValCallback")) {
             val clazz = cd.impl.symbol.owner
             val func = clazz.tpe.members.find(_.name.toString == "valCallback").get
@@ -105,6 +105,38 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
               }
             }
           }
+          ret
+        }
+
+        case cd : ModuleDef => {
+          var ret: Tree = cd
+
+          //ValCallback management for objects def, 99
+          if (symbolHasTrait(cd.symbol, "spinal.idslplugin.ValCallback")) {
+            val clazz = cd.impl.symbol.owner
+            val func = clazz.tpe.members.find(_.name.toString == "valCallback").get
+            val body = cd.impl.body.map {
+              case vd: ValDef if !vd.mods.isParamAccessor && !vd.symbol.annotations.exists(_.symbol.name.toString == "DontName") && vd.rhs.nonEmpty =>
+                val nameStr = vd.getterName.toString
+                val const = Constant(nameStr)
+                val lit = Literal(const)
+                val thiz = This(clazz)
+                val sel = Select(thiz, func)
+                val appl = Apply(sel, List(vd.rhs, lit))
+
+                thiz.tpe = clazz.tpe
+                sel.tpe = func.tpe
+                appl.tpe = definitions.UnitTpe
+                lit.setType(definitions.StringTpe)
+                treeCopy.ValDef(vd, vd.mods, vd.name, vd.tpt, appl)
+              case e => e
+            }
+            val impl = treeCopy.Template(cd.impl, cd.impl.parents, cd.impl.self, body)
+            val cdNew = treeCopy.ModuleDef(cd, cd.mods, cd.name, impl) //)mods0, name0, tparams0, impl0
+
+            ret = cdNew
+          }
+
           ret
         }
         case oth => {

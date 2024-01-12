@@ -591,6 +591,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       md.update(0.toByte)
       md.update(verilatorVersion.getBytes())
 
+
       def hashFile(md: MessageDigest, file: File) = {
         val bis = new BufferedInputStream(new FileInputStream(file))
         val buf = new Array[Byte](1024)
@@ -616,9 +617,11 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
         md.update(0.toByte)
       }
 
-      val hash = md.digest().map(x => (x & 0xFF).toHexString.padTo(2, '0')).mkString("")
+      val digest = md.digest()
+      val hash = digest.map(x => (x & 0xFF).toHexString.padTo(2, '0')).mkString("")
       workspaceCacheDir = new File(s"${cachePath}/${hash}/${workspaceName}")
       hashCacheDir = new File(s"${cachePath}/${hash}")
+      uniqueId = BigInt(digest).toLong.abs
 
       cacheGlobalSynchronized {
         // remove old cache entries
@@ -671,26 +674,20 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       verilatorScriptFile.close
 
       // invoke verilator or copy cached files depending on whether cache is not used or used
+      val libExt = if(isWindows) "dll" else (if(isMac) "dylib" else "so")
       if (!useCache) {
         val shCommand = if(isWindows) "sh.exe" else "sh"
         val logger = new Logger()
         assert(Process(Seq(shCommand, "verilatorScript.sh"),
                        new File(workspacePath)).! (logger) == 0, "Verilator invocation failed\n" + logger.outStr.toString())
+        val threadCount = SimManager.cpuCount
+        genWrapperCpp(verilatorVersionDeci >= BigDecimal("4.034"))
+        assert(s"${SpinalEnv.makeCmd} -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
+        FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${libExt}"))
       } else {
         FileUtils.copyDirectory(workspaceCacheDir, workspaceDir)
       }
 
-      genWrapperCpp(verilatorVersionDeci >= BigDecimal("4.034"))
-      val threadCount = SimManager.cpuCount
-      val logger = new Logger
-      if (!useCache) {
-        assert(s"${SpinalEnv.makeCmd} -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
-      } else {
-        // do not remake Vtoplevel__ALL.a
-        assert(s"${SpinalEnv.makeCmd} -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk -o V${config.toplevelName}__ALL.a V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
-      }
-
-      FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
 
       if (cacheEnabled) {
         // update cache
@@ -700,7 +697,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
           // copy only needed files to save disk space
           FileUtils.copyDirectory(workspaceDir, workspaceCacheDir, new FileFilter() {
-            def accept(file: File): Boolean = file.getName() == s"V${config.toplevelName}__ALL.a" || file.getName().endsWith(".mk") || file.getName().endsWith(".h")
+            def accept(file: File): Boolean = file.getName().endsWith("." + libExt)
           })
         }
 
