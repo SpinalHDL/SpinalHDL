@@ -120,6 +120,7 @@ class Axi4ReadOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Compone
     io.down.a.source := io.up.ar.id
     io.down.a.address := io.up.ar.addr
     io.down.a.size := (lenToSize + io.up.ar.size).resized
+    io.down.a.debugId := 0
   }
 
   val d = new Area{
