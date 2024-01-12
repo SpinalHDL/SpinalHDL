@@ -341,6 +341,7 @@ object PipelineDemo6 extends App {
 
     override def propagateDown(): Unit = {
       propagateDownAll()
+      down.valid
     }
 
     override def propagateUp(): Unit = {
