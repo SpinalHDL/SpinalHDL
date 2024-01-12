@@ -93,6 +93,7 @@ class Axi4WriteOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Compon
     io.down.a.mask := io.up.w.strb
     io.down.a.data := io.up.w.data
     io.down.a.corrupt := False
+    io.down.a.debugId := 0
   }
 
   val d = new Area{
