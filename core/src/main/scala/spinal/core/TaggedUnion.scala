@@ -128,6 +128,8 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
         case ref =>
     }
 
+    
+
 
     // Builds the TaggedUnion structure, initializing the union payload and tag based on the descriptors.
     def build(): Unit = {
@@ -267,6 +269,54 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
         }
     }
 
+    // /**
+    // * Set the init value of this union from the input variant type
+    // */
+    // def initVariant[T <: Data](variantData: T): this.type = {
+    //     // Ensure that the variantData provided is actually one of the variants of this TaggedUnion
+    //     val variantOption = unionDescriptors.find(_._2.getClass == variantData.getClass)
+        
+    //     variantOption match {
+    //         case Some((name, _)) =>
 
+    //             // Set the initial value of the union payload to the provided variant data
+    //             this.unionPayload.aliasAs(variantData).initFrom(variantData)
+
+    //             // Find the corresponding tag element for the provided variant data
+    //             val tagElement = tagUnionDescriptors(name)
+    //             this.tag.init(tagElement)
+
+                
+    //         case None =>
+    //             // If the provided data isn't a variant of this TaggedUnion, raise an error
+    //             SpinalError(s"Provided data is not a valid variant of this TaggedUnion")
+            
+    //     }
+    //     this
+    // }
+
+    // /**
+    // * Set the init value of this union from the selected descriptor
+    // */
+    // def initVariant[T <: Data](descriptor: T)(variantData: T): this.type = {
+    //     // Ensure that the variantData provided is actually one of the variants of this TaggedUnion
+    //     val variantOption = unionDescriptors.find(_._2.getClass == variantData.getClass)
+    //     variantOption match {
+    //         case Some((name, _)) =>
+    //             // Set the initial value of the union payload to the provided variant data
+    //             this.unionPayload.initFrom(variantData)
+
+    //             // Find the corresponding tag element for the provided variant data
+    //             val tagElement = tagUnionDescriptors(name)
+    //             this.tag.init(tagElement)
+
+                
+    //         case None =>
+    //             // If the provided data isn't a variant of this TaggedUnion, raise an error
+    //             SpinalError(s"Provided data is not a valid variant of this TaggedUnion")
+            
+    //     }
+    //     this
+    // }
 }
 
