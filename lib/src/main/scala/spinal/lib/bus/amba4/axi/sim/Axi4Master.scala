@@ -1,4 +1,4 @@
-package axi.sim
+package spinal.lib.bus.amba4.axi.sim
 
 import spinal.core._
 import spinal.core.sim._
@@ -23,22 +23,43 @@ object Axi4Resps extends Enumeration {
 import Axi4Bursts._
 import Axi4Resps._
 
-// TODO: upstream
+/**
+ * Simulation master for the Axi4 bus protocol [[spinal.lib.bus.amba4.axi.Axi4]].
+ *
+ * @constructor create a new simulation master with the given bus instance and clock domain.
+ * @param axi bus master to drive
+ * @param clockDomain clock domain to sample data on
+ * @example
+ * {{{
+ *   SimConfig.compile(new Component {
+ *     val io = new Bundle {
+ *       val axiSlave = slave(Axi4(Axi4Config(32, 32)))
+ *     }
+ *     io.axiSlave.assignDontCare
+ *   }).doSim("sample") { dut =>
+ *     val master = Axi4Master(dut.io.axiSlave, dut.clockDomain)
+ *     val data = master.read(0x1000, 4)
+ *   }
+ * }}}
+ */
 case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
   private val busConfig = axi.config
 
-  val arQueue = mutable.Queue[Axi4Ar => Unit]()
-  val awQueue = mutable.Queue[Axi4Aw => Unit]()
+  private val arQueue = mutable.Queue[Axi4Ar => Unit]()
+  private val awQueue = mutable.Queue[Axi4Aw => Unit]()
 
   private val idCount = if (busConfig.useId) (1 << busConfig.idWidth) else 1
-  val rQueue = Array.fill(idCount)(mutable.Queue[Axi4R => Unit]())
-  val wQueue = mutable.Queue[Axi4W => Unit]()
-  val bQueue = Array.fill(idCount)(mutable.Queue[Axi4B => Unit]())
+  private val rQueue = Array.fill(idCount)(mutable.Queue[Axi4R => Unit]())
+  private val wQueue = mutable.Queue[Axi4W => Unit]()
+  private val bQueue = Array.fill(idCount)(mutable.Queue[Axi4B => Unit]())
 
+  /** check if all read channels are idle (no read transactions active) */
   def readIdle = arQueue.isEmpty && rQueue.map(_.isEmpty).reduce(_ && _)
 
+  /** check if all write channels are idle (no write transactions active) */
   def writeIdle = awQueue.isEmpty && wQueue.isEmpty && bQueue.map(_.isEmpty).reduce(_ && _)
 
+  /** check if bus master is idle (readIdle && writeIdle) */
   def idle = readIdle && writeIdle
 
   private val maxSize = log2Up(busConfig.bytePerWord)
@@ -47,6 +68,18 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
     println(s"Axi4Master [$chan]\t: $msg")
   }
 
+  /**
+   * Read synchronously multiple bytes from the specified address.
+   *
+   * @param address address to read from; does not need to be aligned (data will be truncated automatically)
+   * @param totalBytes total number of bytes in the result;
+   *                   if longer than a single transaction (as specified by `burst`, `len`, and `size`),
+   *                   the bus master will issue multiple transactions
+   * @param id AxID to use in the request; xID in the response will be checked against this (cf. AXI specification)
+   * @param burst burst mode to issue (cf. AXI specification)
+   * @param len number of beats in a single transaction minus one (cf. AXI specification)
+   * @param size number of bytes in one beat, log encoded (cf. AXI specification)
+   */
   def read(address: BigInt, totalBytes: BigInt, id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize) = {
     var result: List[Byte] = null
     val mtx = SimMutex().lock()
@@ -58,6 +91,10 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
     result
   }
 
+  /** Read asynchronously; same as {@link read}, but result is delivered in a callback
+   *
+   * @param callback callback function on finish
+   */
   def readCB(address: BigInt, totalBytes: BigInt, id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: List[Byte] => Unit) = {
     val bytePerBeat = 1 << size
     val bytes = (len + 1) * bytePerBeat // FIXME: 4K limitation?
@@ -86,6 +123,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
     run(address, totalBytes.toInt, numTransactions)
   }
 
+  /** Read asynchronously with only one transaction */
   def readSingle(address: BigInt, totalBytes: Int, id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: List[Byte] => Unit): Unit = {
     assert(size <= maxSize, s"requested beat size too big: $size vs $maxSize")
     if (burst != Incr) {
@@ -167,7 +205,18 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
     (roundedAddress, padFront, padBack, paddedData)
   }
 
-  // FIXME: this can only handle one-transaction writes
+  /**
+   * Write synchronously multiple bytes to the specified address.
+   *
+   * @param address address to write to; does not need to be aligned (data will be truncated automatically)
+   * @param data list of bytes to write to address;
+   *             if longer than a single transaction (as specified by `burst`, `len`, and `size`),
+   *             the bus master will issue multiple transactions
+   * @param id AxID to use in the request; xID in the response will be checked against this (cf. AXI specification)
+   * @param burst burst mode to issue (cf. AXI specification)
+   * @param len number of beats in a single transaction minus one (cf. AXI specification)
+   * @param size number of bytes in one beat, log encoded (cf. AXI specification)
+   */
   def write(address: BigInt, data: List[Byte], id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize): Unit = {
     val mtx = SimMutex().lock()
     writeCB(address, data, id, burst, len, size) {
@@ -176,6 +225,10 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
     mtx.await()
   }
 
+  /** Write asynchronously; same as {@link write}, but completion is delivered in a callback
+   *
+   * @param callback callback function on finish
+   */
   def writeCB(address: BigInt, data: List[Byte], id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: => Unit): Unit = {
     val bytePerBeat = 1 << size
     val bytes = (len + 1) * bytePerBeat
@@ -211,6 +264,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
     run(address, data, 0)
   }
 
+  /** Write asynchronously with only one transaction */
   def writeSingle(address: BigInt, data: List[Byte], id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: => Unit): Unit = {
     assert(size <= maxSize, s"requested beat size too big: $size vs $maxSize")
     if (burst != Incr) {
@@ -280,6 +334,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
     }
   }
 
+  /** Reset bus master (dropping all pending transactions) */
   def reset(): Unit = {
     arQueue.clear
     rQueue.foreach(_.clear)
