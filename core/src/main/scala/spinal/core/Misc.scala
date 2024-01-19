@@ -617,13 +617,16 @@ object ContextSwapper{
       case cu: ContextUser => cu.parentScope = topBody
       case _ =>
     }
-    topBody.head = addedHead
-    addedHead.lastScopeStatement = null.asInstanceOf[Statement]
-    addedLast.nextScopeStatement = oldHead
-    if(oldHead != null) oldHead.lastScopeStatement = addedLast
-    if(oldLast != null) oldLast.nextScopeStatement = null.asInstanceOf[Statement]
-    topBody.last = oldLast
 
+    if(addedHead != null) {
+      topBody.head = addedHead
+      addedHead.lastScopeStatement = null.asInstanceOf[Statement]
+      addedLast.nextScopeStatement = oldHead
+      if (oldHead != null) oldHead.lastScopeStatement = addedLast
+      if (oldLast != null) oldLast.nextScopeStatement = null.asInstanceOf[Statement]
+      topBody.last = oldLast
+    }
+    
     ret // return the value returned by that
   }
 }
