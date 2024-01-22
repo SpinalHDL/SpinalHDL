@@ -19,13 +19,20 @@ import spinal.lib._
 case class Axi4StreamConfig(dataWidth: Int,
                             idWidth:   Int = -1,
                             destWidth: Int = -1,
-                            userWidth: Int = -1,
+                            userWidthPerByte: Int = -1,
+                            userWidthBits   : Int = -1,
                             useStrb:   Boolean = false,
                             useKeep:   Boolean = false,
                             useLast:   Boolean = false,
                             useId:     Boolean = false,
                             useDest:   Boolean = false,
-                            useUser:   Boolean = false)
+                            useUser:   Boolean = false){
+
+  def getUserWidth : Int = {
+    if(userWidthPerByte == -1 && userWidthBits == -1) return -1
+    (userWidthPerByte != -1).toInt*userWidthPerByte*dataWidth + (userWidthBits != -1).toInt*userWidthBits
+  }
+}
 
 object Axi4Stream {
 
@@ -36,7 +43,7 @@ object Axi4Stream {
     val keep = (config.useKeep) generate Bits(config.dataWidth bit)
     val last = (config.useLast) generate Bool()
     val dest = (config.useDest) generate UInt(config.destWidth bit)
-    val user = (config.useUser) generate Bits(config.userWidth*config.dataWidth bit)
+    val user = (config.useUser) generate Bits(config.getUserWidth bit)
 
     def isLast = if (this.last != null) this.last else False
 
@@ -51,7 +58,7 @@ object Axi4Stream {
           if (that.config.useDest)
             assert(that.config.destWidth <= this.config.destWidth, s"Axi4Stream $that directly drives stream $this with smaller destination width! (${that.config.destWidth} > ${this.config.destWidth})")
           if (that.config.useUser)
-            assert(that.config.userWidth <= this.config.userWidth, s"Axi4Stream $that directly drives stream $this with smaller user width! (${that.config.userWidth} > ${this.config.userWidth})")
+            assert(that.config.getUserWidth <= this.config.getUserWidth, s"Axi4Stream $that directly drives stream $this with smaller user width! (${that.config.getUserWidth} > ${this.config.getUserWidth})")
 
           this.data := that.data.resized
           Axi4StreamBundlePriv.driveWeak(that,this,that.id,this.id, () => U(this.id.bitsRange -> false), allowResize = true, allowDrop = false)
