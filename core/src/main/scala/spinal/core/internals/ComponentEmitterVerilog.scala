@@ -598,8 +598,11 @@ class ComponentEmitterVerilog(
 
   def emitEnumParams(): Unit = {
     for((e,encoding) <- localEnums) {
-      for(element <- e.elements) {
-        localparams ++= s"  localparam ${emitEnumLiteral(element, encoding,"")} = ${idToBits(element, encoding)};\n"
+      for (element <- e.elements) {
+        localparams ++= s"  localparam ${emitEnumLiteral(element, encoding, "")} = ${idToBits(element, encoding)};\n"
+      }
+      if(encoding == binaryOneHot) for (element <- e.elements) {
+        localparams ++= s"  localparam ${emitEnumLiteral(element, encoding, "")}_OH_ID = ${element.position};\n"
       }
     }
   }
@@ -825,8 +828,13 @@ class ComponentEmitterVerilog(
                   def emitIsCond(that: Expression): String = {
                     that match {
                       case lit: EnumLiteral[_] if (lit.encoding == binaryOneHot) => {
-                        val expr = emitEnumLiteral(lit.senum, lit.encoding)
-                        s"(((${emitExpression(switchStatement.value)}) & ${expr}) == ${expr})"
+                        switchValue match {
+                          case _ : SpinalEnumCraft[_] => s"(${emitExpression(switchStatement.value)}[${emitEnumLiteral(lit.senum, lit.encoding)}_OH_ID])"
+                          case _ => {
+                            val expr = emitEnumLiteral(lit.senum, lit.encoding)
+                            s"(((${emitExpression(switchStatement.value)}) & ${expr}) == ${expr})"
+                          }
+                        }
                       }
                     }
                   }
@@ -1562,8 +1570,8 @@ end
     encoding match {
       case `binaryOneHot` => {
         (e.left, e.right) match {
-//          case (sig, lit : EnumLiteral[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.senum.position}])"
-//          case (lit : EnumLiteral[_], sig) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.senum.position}])"
+          case (sig : SpinalEnumCraft[_], lit : EnumLiteral[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${emitEnumLiteral(lit.senum, lit.encoding)}_OH_ID])"
+          case (lit : EnumLiteral[_], sig : SpinalEnumCraft[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${emitEnumLiteral(lit.senum, lit.encoding)}_OH_ID])"
           case _ => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} ${encoding.getWidth(enumDef)}'b${"0" * encoding.getWidth(enumDef)})"
         }
       }
