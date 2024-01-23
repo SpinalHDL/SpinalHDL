@@ -347,6 +347,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   /** Set baseType to reg */
   def setAsReg(): this.type
+  /** Recursively set baseType to reg only for output */
+  def setOutputAsReg(): this.type = {
+    flatten.filter(_.dir == out).foreach(_.setAsReg())
+    this
+  }
   /** Set baseType to Combinatorial */
   def setAsComb(): this.type
 
