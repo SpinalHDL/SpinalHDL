@@ -1,7 +1,8 @@
-package spinal.core
+package tester
 
 import spinal.lib._
 import spinal.sim._
+import spinal.core._
 import spinal.core.sim._
 import spinal.tester.{SpinalAnyFunSuite, SpinalSimTester}
 
@@ -80,6 +81,67 @@ class TaggedUnionTesterSim extends SpinalAnyFunSuite {
 
     test(prefix + "TaggedUnionTest") {
       compiled.doSim { dut =>
+        println("Starting TaggedUnion simulation")
+        dut.clockDomain.forkStimulus(period = 10)
+
+        for (_ <- 0 until 1000) {
+          // Randomly select a type
+          val selectedType = Random.nextInt(3)
+
+          dut.io.i.tag #= dut.io.i.tagEnum.elements(selectedType)
+          val x = Random.nextInt(256)
+          val y = Random.nextInt(256)
+          val l = Random.nextInt(1024)
+          // val v = Random.nextBoolean()
+          val v = Random.nextInt(2)
+
+          selectedType match {
+            case 0 => // TypeA with a1 variant
+              dut.io.i.unionPayload #= (y << 8) | x
+
+            case 1 => // TypeA with a2 variant
+              dut.io.i.unionPayload #= (y << 8) | x
+
+            case 2 => // TypeB
+              dut.io.i.unionPayload #= (v << 10) | l
+          }
+
+          dut.clockDomain.waitSampling()
+
+          // println(s"x=$x, y=$y, l=$l, v=$v")
+          // println(s"In ${dut.io.i.tag.toEnum} = ${dut.io.i.unionPayload.toInt}")
+          // println(s"Out ${dut.io.o.tag.toEnum} = ${dut.io.o.unionPayload.toInt}")
+          
+      
+
+          // Validate the outputs depending on the tag
+          selectedType match {
+            case 0 => // in TypeA with a1 variant => out TypeC
+                assert(dut.io.o.tag.toEnum == dut.io.o.tagEnum.elements(1))
+                assert((dut.io.o.unionPayload.toInt & 0xFF) == x)
+                
+
+            case 1 => // in TypeA with a2 variant => out TypeC
+                 assert(dut.io.o.tag.toEnum == dut.io.o.tagEnum.elements(1))
+                 assert((dut.io.o.unionPayload.toInt & 0xFF) == y)
+
+            case 2 => // in/out TypeB
+                 assert(dut.io.o.tag.toEnum == dut.io.o.tagEnum.elements(0))
+                //  Most significant bits are "dont care".
+                 assert((dut.io.o.unionPayload.toInt & 0x7FF) == ((v << 10) | l))
+          }
+        }
+
+        println("Simulation TaggedUnion done")
+      } 
+    }
+  }
+}
+
+
+object TaggedUnionIndependantTester {
+  SimConfig.withWave.compile(new TaggedUnionTester()).doSim{ dut =>
+      println("Starting TaggedUnion simulation")
         dut.clockDomain.forkStimulus(period = 10)
 
         for (_ <- 0 until 1000) {
@@ -92,9 +154,9 @@ class TaggedUnionTesterSim extends SpinalAnyFunSuite {
               val x = Random.nextInt(256)
               val y = Random.nextInt(256)
               dut.io.i.update(dut.io.i.a1) {
-                a: TypeA => {
-                    a.x #= x
-                    a.y #= y
+                a1: TypeA => {
+                    a1.x #= x
+                    a1.y #= y
                 }
               }
 
@@ -102,9 +164,9 @@ class TaggedUnionTesterSim extends SpinalAnyFunSuite {
               val x = Random.nextInt(256)
               val y = Random.nextInt(256)
               dut.io.i.update(dut.io.i.a2) {
-                a: TypeA => {
-                    a.x #= x
-                    a.y #= y
+                a2: TypeA => {
+                    a2.x #= x
+                    a2.y #= y
                 }
               }
 
@@ -120,27 +182,30 @@ class TaggedUnionTesterSim extends SpinalAnyFunSuite {
               }
           }
 
-          dut.clockDomain.waitSampling()
-
+          println("Enum signature")
+          println(dut.io.o.tagEnum)
+          // dut.clockDomain.waitSampling()
+          sleep(1)
+      
 
           // Validate the outputs based on the input type
-          selectedType match {
-            case 0 => // in TypeA with a1 variant => out TypeC
-                // assert(otagAsUInt.toInt == 1)
-                assert(dut.io.o.tag.asBits === B"1")
+          // selectedType match {
+            // case 0 => // in TypeA with a1 variant => out TypeC
+                // assert(dut.io.o.tag.toEnum == dut.io.o.tagEnum.a1)
+                // println("Enum signature")
+                // println(dut.io.o.tagEnum)
+                // assert(dut.io.o.tag.toInt == 0)
 
-            case 1 => // in TypeA with a2 variant => out TypeC
-                assert(dut.io.o.tag.asBits === B"1")
+            // case 1 => // in TypeA with a2 variant => out TypeC
+            //     assert(dut.io.o.tag.asBits == B"1".asBits)
 
-            case 2 => // in/out TypeB
-                assert(dut.io.o.tag.asBits === B"0")
-          }
+            // case 2 => // in/out TypeB
+            //     assert(dut.io.o.tag.asBits == B"0".asBits)
+          // }
 
             
         }
 
-        println("Simulation done")
-      } 
+        println("Simulation TaggedUnion done")
     }
-  }
 }
