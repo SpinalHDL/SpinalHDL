@@ -74,6 +74,7 @@ object isPow2 {
     if (that < 0) return false
     that.bitCount == 1
   }
+  def apply(that : Int) : Boolean = apply(BigInt(that))
 }
 
 
@@ -153,6 +154,14 @@ class HardType[T <: Data](t : => T) extends OverridedEqualsHashCode{
   def craft() = apply()
   def getBitsWidth = t.getBitsWidth
 }
+
+
+object NamedType{
+  def apply[T <: Data](gen : => T) = new NamedType(gen)
+  def apply[T <: Data](gen : HardType[T]) = new NamedType(gen.craft())
+}
+
+class NamedType[T <: Data](gen : => T) extends HardType(gen) with Nameable
 
 
 object signalCache{
@@ -587,6 +596,35 @@ object ContextSwapper{
     swapContext.appendBack()              // append the original symboles tree to the modified body
     t.allowSuspend = true
     ret                                   // return the value returned by that
+  }
+
+  //Allows to (only) to create base type instances on the top of the netlist. Support Fiber suspend
+  def outsideCondScopeData[T <: Data](that: => T): T = {
+    val dummyBody = new ScopeStatement(null)
+    dummyBody.component = Component.current
+    val ctx = dummyBody.push() // Now all access to the SpinalHDL API will be append to it (instead of the current context)
+    val ret = that // Execute the block of code (will be added to the recently empty body)
+    ctx.restore() // Restore the original context in which this function was called
+
+    val topBody = Component.current.dslBody // Get the head of the current component symboles tree (AST in other words)
+    val oldHead = topBody.head
+    val oldLast = topBody.last
+    val addedHead = dummyBody.head
+    val addedLast = dummyBody.last
+
+    //Move the AST from dummyBody to the head of topBody
+    dummyBody.foreachStatements {
+      case cu: ContextUser => cu.parentScope = topBody
+      case _ =>
+    }
+    topBody.head = addedHead
+    addedHead.lastScopeStatement = null.asInstanceOf[Statement]
+    addedLast.nextScopeStatement = oldHead
+    if(oldHead != null) oldHead.lastScopeStatement = addedLast
+    if(oldLast != null) oldLast.nextScopeStatement = null.asInstanceOf[Statement]
+    topBody.last = oldLast
+
+    ret // return the value returned by that
   }
 }
 

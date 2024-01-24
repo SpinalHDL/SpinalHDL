@@ -534,11 +534,17 @@ class BitAggregator {
   * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
   */
 object CounterFreeRun {
-  def apply(stateCount: BigInt): Counter = {
-    val c = Counter(stateCount)
+  private def makeFreeRun(c: Counter): Counter = {
     c.willIncrement.removeAssignments()
     c.increment()
     c
+  }
+  def apply(stateCount: BigInt): Counter = {
+    makeFreeRun(Counter(stateCount))
+  }
+
+  def apply(bitCount: BitCount): Counter = {
+    makeFreeRun(Counter(bitCount))
   }
 }
 
@@ -915,43 +921,6 @@ object LatencyAnalysis {
 
     SpinalError("latencyAnalysis don't find any path")
     -1
-//    val walked = mutable.Set[Expression]()
-//    var pendingStack = mutable.ArrayBuffer[Expression](to)
-//    var depth = 0;
-//
-//    while (pendingStack.size != 0) {
-//      val iterOn = pendingStack
-//      pendingStack = new mutable.ArrayBuffer[Expression](10000)
-//      for (start <- iterOn) {
-//        if (walk(start)) return depth;
-//      }
-//      depth = depth + 1
-//    }
-//
-//    def walk(that: Expression, depth: Integer = 0): Boolean = {
-//      if (that == null) return false
-//      if (walked.contains(that)) return false
-//      walked += that
-//      if (that == from)
-//        return true
-//      that match {
-//        case delay: SyncNode => {
-//          for (input <- delay.getAsynchronousInputs) {
-//            if (walk(input)) return true
-//          }
-//          pendingStack ++= delay.getSynchronousInputs
-//        }
-//        case _ => {
-//          that.onEachInput(input =>  {
-//            if (walk(input)) return true
-//          })
-//        }
-//      }
-//      false
-//    }
-//
-//    SpinalError("latencyAnalysis don't find any path")
-//    -1
   }
 }
 
@@ -1112,8 +1081,8 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     ret
   }
 
-  class ReaderOh(oh : TraversableOnce[Bool]) {
-    def apply[T2 <: Data](f : T => T2) = OHMux.or(oh.toIndexedSeq, pimped.map(f))
+  class ReaderOh(oh : TraversableOnce[Bool], bypassIfSingle : Boolean = false) {
+    def apply[T2 <: Data](f : T => T2) = OHMux.or(oh.toIndexedSeq, pimped.map(f), bypassIfSingle)
   }
 
   class ReaderSel(sel : UInt) {
@@ -1121,7 +1090,9 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   }
 
   def reader(oh : TraversableOnce[Bool]) = new ReaderOh(oh)
-  def reader(oh : Bits) = new ReaderOh(oh.asBools)
+  def reader(oh: Bits) = new ReaderOh(oh.asBools)
+  def reader(oh: TraversableOnce[Bool], bypassIfSingle: Boolean) = new ReaderOh(oh, bypassIfSingle)
+  def reader(oh: Bits, bypassIfSingle: Boolean) = new ReaderOh(oh.asBools, bypassIfSingle)
   def reader(sel : UInt) = new ReaderSel(sel)
 }
 
@@ -1136,9 +1107,9 @@ class TraversableOnceAnyTuplePimped[T <: Any, T2 <: Any](pimped: Seq[(T, T2)]) {
 }
 
 class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
-  def orR: Bool  = pimped.asBits =/= 0
-  def andR: Bool = pimped.reduce(_ && _)
-  def xorR: Bool = pimped.reduce(_ ^ _)
+  def orR: Bool  = pimped.asBits.orR
+  def andR: Bool = pimped.asBits.andR
+  def xorR: Bool = pimped.asBits.xorR
 
   def norR: Bool = pimped.asBits === 0
   def nandR: Bool = !nandR

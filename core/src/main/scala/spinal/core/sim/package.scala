@@ -157,7 +157,9 @@ package object sim {
     manager.setBigInt(signal, value)
   }
 
-  def currentTestName() : String = sm.testName
+  def simCompiled : SimCompiled[_ <: Component] = sm.asInstanceOf[CoreSimManager].compiled
+  def currentTestName(): String = sm.testName
+  def currentTestPath(): String = simCompiled.simConfig._testPath.replace("$TEST", currentTestName())
 
   /** Return the current simulation time */
   def simTime(): Long = SimManagerContext.current.manager.time
@@ -657,7 +659,7 @@ package object sim {
 
     private def getBool(manager: SimManager, who: Bool): Bool = {
       val component = who.component
-      if((who.isInput || who.isOutput) && component != null && component.parent == null){
+      if((who.isInput || who.isOutput) && component != null && component.parent == null || who.hasTag(SimPublic)){
         who
       }else {
         manager.userData.asInstanceOf[Component].pulledDataCache.getOrElse(who, null).asInstanceOf[Bool]

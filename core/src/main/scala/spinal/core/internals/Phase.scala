@@ -2048,7 +2048,8 @@ class PhaseCheckHiearchy extends PhaseCheck{
             val bt = s.finalTarget
 
             if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
-              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
+              val identifier = if(c == null) "toplevel" else s"$c component"
+              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $identifier.\n${s.getScalaLocationLong}")
               error = true
             }
 
@@ -2553,7 +2554,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
       binarySequential
       binaryOneHot
       val top = gen
-      fiber.hardFork(ctx.globalData.elab.runSync())
+      fiber.hardFork(ctx.globalData.elab.runSync()).setName("global_elab")
       if(top.isInBlackBoxTree){
         SpinalError(s"The toplevel can't be a BlackBox (${top.getClass.getSimpleName})")
       }
@@ -2842,6 +2843,7 @@ object SpinalVerilogBoot{
         System.out.flush()
         throw e
       case e: Throwable => {
+        println(e.getStackTrace.mkString("\n"))
         println("\n**********************************************************************************************")
         val errCnt = SpinalError.getErrorCount()
         SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +

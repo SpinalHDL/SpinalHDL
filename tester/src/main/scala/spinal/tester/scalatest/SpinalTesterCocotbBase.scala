@@ -4,6 +4,7 @@ import java.io.File
 import java.nio.charset.Charset
 import org.scalatest._
 import org.scalatest.funsuite.AnyFunSuite
+import spinal.SpinalEnv
 import spinal.core._
 
 import scala.collection.mutable.ArrayBuffer
@@ -70,7 +71,7 @@ abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfter
     }
     val stdout = doCmd(Seq(
       s"cd $testPath",
-      s"make TOPLEVEL_LANG=${langString} ${additionalArgs.mkString(" ")}"
+      s"${SpinalEnv.makeCmd} TOPLEVEL_LANG=${langString} ${additionalArgs.mkString(" ")}"
     ))
 //    val pass = getCocotbPass(xmlPath)
     val pass = stdout.contains("FAIL=0 SKIP=0")

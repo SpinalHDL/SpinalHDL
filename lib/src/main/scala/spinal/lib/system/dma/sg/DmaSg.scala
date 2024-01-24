@@ -179,7 +179,8 @@ object DmaSg{
                      progressProbes : Boolean,
                      halfCompletionInterrupt : Boolean,
                      bytePerBurst : Option[Int] = None,
-                     fifoMapping : Option[(Int, Int)] = None) extends OverridedEqualsHashCode {
+                     fifoMapping : Option[(Int, Int)] = None,
+                     name : Option[String] = None) extends OverridedEqualsHashCode {
     def canRead = memoryToMemory || outputsPorts.nonEmpty
     def canWrite = memoryToMemory || inputsPorts.nonEmpty
     def canInput = inputsPorts.nonEmpty
@@ -220,6 +221,7 @@ object DmaSg{
 
     val ctrl = slaveFactory(io.ctrl)
 
+    val internalMemoryBytes = p.memory.bankWidth/8*p.memory.bankWords*p.memory.bankCount
     val ptrWidth = log2Up(p.memory.bankWords*p.memory.bankCount) + 1
     val ptrType = HardType(UInt(ptrWidth bits))
 
@@ -366,7 +368,11 @@ object DmaSg{
       val fifo = new Area{
         val (base, words) = cp.fifoMapping match {
           case None => (Reg(ptrType),Reg(ptrType))
-          case Some((x,y)) => (U(x*8/p.memory.bankWidth, ptrWidth bits), U(y*8/p.memory.bankWidth-1, ptrWidth bits))
+          case Some((x,y)) => {
+            val n = cp.name.getOrElse("")
+            assert(x < internalMemoryBytes && x+y <= internalMemoryBytes, f"The channel $n buffer range, 0x$x%x:0x${x+y-1}%x isn't contained in the internal memory space (0x0:0x${internalMemoryBytes-1}%x)")
+            (U(x*8/p.memory.bankWidth, ptrWidth bits), U(y*8/p.memory.bankWidth-1, ptrWidth bits))
+          }
         }
 
         val push = new Area {
@@ -1233,7 +1239,7 @@ object DmaSg{
           writeFired setWhen (io.sg.write.cmd.fire)
           io.sg.write.cmd.valid := valid && !writeFired && onSgStream
           io.sg.write.cmd.channelId := channelId
-          io.sg.write.cmd.bytesDone := bytesDone
+          io.sg.write.cmd.bytesDone := bytesDone.resized
           io.sg.write.cmd.endOfPacket := endOfPacket
           io.sg.write.cmd.completed := !isJustASink && doDescriptorStall
         }

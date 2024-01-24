@@ -119,6 +119,9 @@ class GlobalData(val config : SpinalConfig) {
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
   val scalaLocateds = mutable.HashSet[ScalaLocated]()
   val elab = new Fiber()
+  elab.setName("global_elab")
+  elab.inflightLock.globalData = this
+  var onAreaInit = Option.empty[Area => Unit]
 
   def applyScalaLocated(): Unit ={
     try {
@@ -191,7 +194,7 @@ class GlobalData(val config : SpinalConfig) {
 
 /** Get a link to the globalData */
 trait GlobalDataUser {
-  val globalData = GlobalData.get
+  var globalData = GlobalData.get
 }
 
 
@@ -934,13 +937,13 @@ trait Num[T <: Data] {
   */
 trait BitwiseOp[T <: Data]{
 
-  /** Logical AND operator */
+  /** Bitwise AND operator */
   def &(right: T): T
 
-  /** Logical OR operator */
+  /** Bitwise OR operator */
   def |(right: T): T
 
-  /** Logical XOR operator */
+  /** Bitwise XOR operator */
   def ^(right: T): T
 
   /** Inverse bitwise operator */

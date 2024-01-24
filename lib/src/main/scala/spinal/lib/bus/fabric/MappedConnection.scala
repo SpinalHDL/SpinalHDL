@@ -22,14 +22,13 @@ abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
 
   //Document the memory connection in a agnostic way for further usages
   val tag = new MemoryConnection{
-    override def m = MappedConnection.this.m
-    override def s = MappedConnection.this.s
+    override def up = MappedConnection.this.m
+    override def down = MappedConnection.this.s
     override def mapping = getMapping()
     override def transformers = MappedConnection.this.mapping.automatic match {
       case Some(DefaultMapping) => Nil
       case _ => List(OffsetTransformer(mapping.lowerBound))
     }
-    override def sToM(down: MemoryTransfers, args: MappedNode) = down
     populate()
   }
 

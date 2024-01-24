@@ -119,6 +119,8 @@ package object lib  {
     def toBinInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(toBigInt, num)
     def toDecInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(toBigInt, num)
     def toOctInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(toBigInt, num)
+
+    def toBytes: List[Byte] = binarySystem.LiteralToBytes.bigIntToBytes(toBigInt)
   }
 
   implicit class BigIntRicher(value: BigInt) extends LiteralRicher {
@@ -139,6 +141,11 @@ package object lib  {
     override val defaultAlignBit: Int = 8
   }
 
+  implicit class BytesRicher(lb: List[Byte]) {
+    def bytesToHex: String = binarySystem.BytesToLiteral.bytesToHexString(lb)
+    def bytesToBigInt: BigInt = binarySystem.BytesToLiteral.bytesToBigInt(lb)
+  }
+
   implicit class BinIntsRicher(li: List[Int]){
     def binIntsToOctAlignHigh: String  = binarySystem.BinIntsToLiteral.binIntsToOctString(li, true)
     def binIntsToHexAlignHigh: String  = binarySystem.BinIntsToLiteral.binIntsToHexString(li, true)
@@ -148,7 +155,7 @@ package object lib  {
     def binIntsToInt: Int       = binIntsToBigInt.toInt
     def binIntsToLong: Long     = binIntsToBigInt.toLong
   }
-  
-  
+
+
   val OHMux = new MuxOHImpl
 }

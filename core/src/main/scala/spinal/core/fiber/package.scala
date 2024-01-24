@@ -23,6 +23,20 @@ package object fiber {
     (ret, t)
   }
 
+  def hardForkRawHandle[T](withDep: Boolean = true)(body: Handle[T] => T): (Handle[T], AsyncThread) = {
+    val ret = Handle[T]
+    val e = Engine.get
+    val t = e.schedule {
+      val v = body(ret)
+      ret.load(v)
+    }
+    if (withDep) {
+      ret.willBeLoadedBy = t
+      t.addSoonHandle(ret)
+    }
+    (ret, t)
+  }
+
   def soon(that : Seq[Handle[_]])  : Unit = {
     val t = Engine.get.currentAsyncThread
     that.foreach(t.addSoonHandle(_))

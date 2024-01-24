@@ -1,7 +1,7 @@
 package spinal.sim;
 
 public interface IVerilatorNative {
-    public long newHandle(String name, int seed);
+    public long newHandle(String name, String wavePath, int seed);
     public boolean eval(long handle);
     public int get_time_precision(long handle);
     public void sleep(long handle, long cycles);
