@@ -62,6 +62,11 @@ class MemoryAgent(bus: Bus,
       capMap(m2s)(address) = cap
   }
 
+  def delayOnA(a : TransactionA): Unit = {
+    val r = simRandom.nextFloat()
+    cd.waitSampling((r * r * 20).toInt) //Will enable out of order handeling
+  }
+
   override def onA(a: TransactionA) = {
     if(bus.p.withBCE && simRandom.nextFloat() < randomProberFactor) fork {
       cd.waitSampling(simRandom.nextInt(randomProberDelayMax))
@@ -78,8 +83,7 @@ class MemoryAgent(bus: Bus,
     }
 
     fork{
-      val r = simRandom.nextFloat()
-      cd.waitSampling((r*r*20).toInt) //Will enable out of order handeling
+      delayOnA(a)
       val blockAddress = a.address.toLong & ~(blockSize-1)
       reserve(blockAddress)
       a.opcode match {
