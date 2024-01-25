@@ -14,11 +14,12 @@ class MemoryAgent(bus: Bus,
                   seed : Long = simRandom.nextInt(),
                   blockSize : Int = 64,
                   var randomProberFactor : Float = 0.0f,
-                  var randomProberDelayMax : Int = 1000
+                  var randomProberDelayMax : Int = 1000,
+                  memArg : Option[SparseMemory] = None
                  )(implicit idCallback : IdCallback) extends MonitorSubscriber{
   implicit val _ = sm
 
-  val mem = SparseMemory(seed)
+  val mem = memArg.getOrElse(SparseMemory(seed))
 
   val monitor = new Monitor(bus, cd).add(this)
   val driver = new SlaveDriver(bus, cd)
