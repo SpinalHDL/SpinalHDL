@@ -28,7 +28,10 @@ abstract class FusesocRunner[C <: Component, P: ClassTag] {
   private val yamlMapper = new ObjectMapper(new YAMLFactory().disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER))
     .registerModule(DefaultScalaModule) :: ClassTagExtensions
 
-  def run(args: Array[String]): Unit = {
+  def run(
+      args: Array[String],
+      defaultConfigForClockDomains: ClockDomainConfig = ClockDomainConfig()
+  ): SpinalReport[C] = {
     val corePath = parseCli(args)
     val file = new java.io.FileReader(corePath)
 
@@ -47,7 +50,12 @@ abstract class FusesocRunner[C <: Component, P: ClassTag] {
     }
     val netlistFileName = sourceOutput.head.head._1
 
-    val config = SpinalConfig(mode = mode, targetDirectory = targetDirectory, netlistFileName = netlistFileName)
+    val config = SpinalConfig(
+      mode = mode,
+      targetDirectory = targetDirectory,
+      netlistFileName = netlistFileName,
+      defaultConfigForClockDomains = defaultConfigForClockDomains
+    )
     config.generate(buildComponent(p.spinal_parameter))
   }
 
@@ -98,7 +106,8 @@ class GeneratorBuilder[C <: Component, P: ClassTag](
     }
     val generate = Map((componentName + "_gen") -> new Object {
       val generator = "spinalhdl"
-      val parameters: FusesocGeneratorParameters[P] = FusesocGeneratorParameters(spinal_parameter = defaultPram, output = output)
+      val parameters: FusesocGeneratorParameters[P] =
+        FusesocGeneratorParameters(spinal_parameter = defaultPram, output = output)
     })
   }
 
