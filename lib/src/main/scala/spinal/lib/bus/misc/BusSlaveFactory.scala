@@ -406,12 +406,16 @@ trait BusSlaveFactory extends Area{
 
   /**
     * Create a writable Flow register of type dataType at address and placed at bitOffset in the word
+    *
+    * @param checkByteEnable do not trigger flow if byte enable is all zero.  See [[https://github.com/SpinalHDL/SpinalHDL/issues/1265]]
+    *                        for the discussion about this behaviour.
     */
-  def createAndDriveFlow[T <: Data](dataType  : T,
-                                    address   : BigInt,
-                                    bitOffset : Int = 0): Flow[T] = {
+  def createAndDriveFlow[T <: Data](dataType       : T,
+                                    address        : BigInt,
+                                    bitOffset      : Int = 0,
+                                    checkByteEnable: Boolean = false): Flow[T] = {
     val flow = Flow(dataType)
-    driveFlow(flow, address, bitOffset)
+    driveFlow(flow, address, bitOffset, checkByteEnable)
     flow
   }
 
@@ -502,26 +506,54 @@ trait BusSlaveFactory extends Area{
 
   /**
     * Emit on that a transaction when a write happen at address by using data placed at bitOffset in the word
+    *
+    * @param checkByteEnable do not trigger flow if byte enable is all zero.  See [[https://github.com/SpinalHDL/SpinalHDL/issues/1265]]
+   *                        for the discussion about this behaviour.
     */
-  def driveFlow[T <: Data](that      : Flow[T],
-                           address   : BigInt,
-                           bitOffset : Int = 0): Unit = {
+  def driveFlow[T <: Data](that           : Flow[T],
+                           address        : BigInt,
+                           bitOffset      : Int = 0,
+                           checkByteEnable: Boolean = false): Unit = {
 
     val wordCount = (bitOffset + widthOf(that.payload) - 1 ) / busDataWidth + 1
+    val byteEnable = writeByteEnable()
+    def assignValidNext(valid: Bool): Unit = {
+      if (byteEnable != null && checkByteEnable) {
+        when(byteEnable =/= 0) { valid := True }
+      } else {
+        valid := True
+      }
+    }
 
     if (wordCount == 1){
       that.valid := False
-      onWrite(address){ that.valid := True }
+      onWrite(address){ assignValidNext(that.valid) }
       nonStopWrite(that.payload, bitOffset)
     }else{
 
       assert(bitOffset == 0, "BusSlaveFactory ERROR [driveFlow] : BitOffset must be equal to 0 if the payload of the Flow is bigger than the data bus width")
 
       val regValid = RegNext(False) init(False)
-      onWrite(address + ((wordCount - 1) * wordAddressInc)){ regValid := True }
+      onWrite(address + ((wordCount - 1) * wordAddressInc)){ assignValidNext(regValid) }
       driveMultiWord(that.payload, address)
       that.valid := regValid
     }
+  }
+
+  /**
+   * Emit on that a transaction when a write happen at address, by using data placed at bitOffset in the word.
+   * Block the write transaction until the transaction succeeds (stream becomes ready).
+   */
+  def driveStream[T <: Data](that: Stream[T], address: BigInt, bitOffset: Int = 0): Unit = {
+    val wordCount = (bitOffset + widthOf(that.payload) - 1) / busDataWidth + 1
+    onWritePrimitive(SizeMapping(address, wordCount * wordAddressInc), haltSensitive = false, null) {
+      when(!that.ready) {
+        writeHalt()
+      }
+    }
+    val flow = Flow(that.payloadType())
+    driveFlow(flow, address, bitOffset, checkByteEnable = true)
+    that << flow.toStream
   }
 
   /**
@@ -559,6 +591,27 @@ trait BusSlaveFactory extends Area{
     }
   }
 
+  /**
+   * Same as {@link readStreamNonBlocking}, but block the bus for at most `blockCycles` before returning the NACK.
+   * @param that data to read over bus
+   * @param address address to map at
+   * @param blockCycles cycles to block read transaction before returning NACK
+   * @tparam T type of stream payload
+   */
+  def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt): Unit = {
+    val counter = Counter(blockCycles.getWidth bits)
+    val wordCount = (1 + that.payload.getBitsWidth - 1) / busDataWidth + 1
+    onReadPrimitive(SizeMapping(address, wordCount * wordAddressInc), haltSensitive = false, null) {
+      counter.increment()
+      when(counter.value < blockCycles && !that.valid) {
+        readHalt()
+      } otherwise {
+        counter.clear()
+      }
+    }
+
+    readStreamNonBlocking(that, address)
+  }
 
   /**
     * Read that and consume the transaction when a read happen at address.

@@ -454,13 +454,13 @@ object SpinalXSimBackend {
     vconfig.xciSourcesPaths   =  xciSourcesPaths
     vconfig.bdSourcesPaths    = bdSourcesPaths
     vconfig.toplevelName      = rtl.toplevelName
-    vconfig.wavePath          = "test.wdb"
     vconfig.waveFormat        = waveFormat match {
       case WaveFormat.DEFAULT => WaveFormat.WDB
       case _ => waveFormat
     }
     vconfig.workspaceName     = workspaceName
     vconfig.workspacePath     = workspacePath
+    vconfig.wavePath          = s"${workspacePath}/${workspaceName}/${rtl.toplevelName}.wdb"
     vconfig.xilinxDevice      = xilinxDevice
     vconfig.userSimulationScript = simScript
     vconfig.xelabFlags        = simulatorFlags.toArray

@@ -534,11 +534,17 @@ class BitAggregator {
   * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
   */
 object CounterFreeRun {
-  def apply(stateCount: BigInt): Counter = {
-    val c = Counter(stateCount)
+  private def makeFreeRun(c: Counter): Counter = {
     c.willIncrement.removeAssignments()
     c.increment()
     c
+  }
+  def apply(stateCount: BigInt): Counter = {
+    makeFreeRun(Counter(stateCount))
+  }
+
+  def apply(bitCount: BitCount): Counter = {
+    makeFreeRun(Counter(bitCount))
   }
 }
 
