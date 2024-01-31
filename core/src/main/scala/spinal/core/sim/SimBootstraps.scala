@@ -683,7 +683,7 @@ case class SpinalSimConfig(
                             var _simScript         : String = null,
                             var _timePrecision     : TimeNumber = null,
                             var _timeScale         : TimeNumber = null,
-                            var _testPath          : String = "$WORKSPACE/$COMPILED"
+                            var _testPath          : String = "$WORKSPACE/$COMPILED/$TEST"
   ){
 
 

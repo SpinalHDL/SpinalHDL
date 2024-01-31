@@ -39,14 +39,26 @@ object VivadoFlow {
     // generate tcl script
     val tcl = new java.io.FileWriter(Paths.get(workspacePath, "doit.tcl").toFile)
     tcl.write(
-s"""${readRtl}
-read_xdc doit.xdc
+s"""
+create_project -force project_bft_batch ./project_bft_batch -part $device
 
-synth_design -mode out_of_context -part $device -top ${rtl.getTopModuleName()}
-opt_design
-place_design
-route_design
+add_files {${rtl.getRtlPaths().mkString(" ")}}
+add_files -fileset constrs_1 ./doit.xdc
 
+import_files -force
+
+set_property -name {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
+launch_runs synth_1
+wait_on_run synth_1
+open_run synth_1 -name netlist_1
+
+report_timing_summary -delay_type max -report_unconstrained -check_timing_verbose -max_paths 10 -input_pins -file syn_timing.rpt
+report_power -file syn_power.rpt
+
+launch_runs impl_1
+wait_on_run impl_1
+
+open_run impl_1
 report_utilization
 report_timing_summary -warn_on_violation
 report_pulse_width -warn_on_violation -all_violators

@@ -71,7 +71,7 @@ object Bench {
   def apply(rtls : Seq[Rtl], targets : Seq[Target], workspacesRoot : String = sys.env.getOrElse("SPINAL_BENCH_WORKSPACE", null)): Unit ={
     import scala.concurrent.ExecutionContext
     implicit val ec = ExecutionContext.fromExecutorService(
-      new ForkJoinPool(Math.max(1, SimManager.cpuCount / 2), ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
+      new ForkJoinPool(Math.max(1, sys.env.getOrElse("SPINAL_BENCH_THREAD_COUNT", SimManager.cpuCount/4 toString).toInt), ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
     )
 
     val results = (for (rtl <- rtls) yield {
