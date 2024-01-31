@@ -147,9 +147,6 @@ class CtrlLink(override val up : Node, override val down : Node) extends Link wi
     if(down.ctrl.valid.nonEmpty) down.valid := up.valid
     if(up.ctrl.ready.nonEmpty) {
       up.ready := down.isReady
-      if(requests.ignoresReady.nonEmpty) when(requests.ignoresReady.orR){
-        up.ready := True
-      }
     }
     if(requests.halts.nonEmpty) when(requests.halts.orR){
       down.valid := False
@@ -160,6 +157,11 @@ class CtrlLink(override val up : Node, override val down : Node) extends Link wi
     }
     if(requests.terminates.nonEmpty) when(requests.terminates.orR){
       down.valid := False
+    }
+    if (up.ctrl.ready.nonEmpty) {
+      if (requests.ignoresReady.nonEmpty) when(requests.ignoresReady.orR) {
+        up.ready := True
+      }
     }
     val matches = down.fromUp.payload.intersect(up.fromDown.payload)
     for (m <- matches) {
