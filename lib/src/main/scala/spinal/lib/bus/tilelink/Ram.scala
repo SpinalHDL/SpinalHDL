@@ -1,15 +1,17 @@
 package spinal.lib.bus.tilelink
 import spinal.core._
+import spinal.core.sim.SimMemPimper
 import spinal.lib._
 import spinal.lib.bus.tilelink.coherent.OrderingCmd
 import spinal.lib.pipeline._
 
-class Ram (p : NodeParameters, bytes : Int) extends Component {
+class Ram (p : NodeParameters,
+           bytes : Int) extends Component {
   val io = new Bundle{
     val up = slave port Bus(p)
   }
 
-  val mem = Mem.fill(bytes/p.m.dataBytes)(Bits(p.m.dataWidth bits))
+  val mem = Mem.fill(bytes/p.m.dataBytes)(Bits(p.m.dataWidth bits)).simPublic()
   val port = mem.readWriteSyncPort(p.m.dataBytes)
 
   val pipeline = new Pipeline{
