@@ -57,12 +57,12 @@ object Example2 extends App{
 
   class DriverPlugin extends FiberPlugin {
     lazy val sp = host[StatePlugin].logic.get
-    val lock = Lock()
+    val hostLockX = Lock()
 
     // incrementBy will be set by others plugin at elaboration time
     var incrementBy = 0
     val logic = during build new Area {
-      lock.await()
+      hostLockX.await()
       // Generate the incrementer hardware
       sp.signal := sp.signal + incrementBy
     }
@@ -74,14 +74,14 @@ object Example2 extends App{
     // during setup { body } will run the body of code in the Fiber setup phase (it is before the Fiber build phase)
     during setup {
       // Prevent the DriverPlugin from executing its build's body (until release() is called)
-      dp.lock.retain()
+      dp.hostLock.retain()
     }
     val logic = during build new Area {
       // Let's mutate DriverPlugin.incrementBy
       dp.incrementBy += 1
 
       // Allows the DriverPlugin to execute its build's body
-      dp.lock.release()
+      dp.hostLock.release()
     }
   }
 
