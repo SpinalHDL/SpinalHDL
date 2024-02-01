@@ -29,6 +29,7 @@ import scala.collection.generic.Shrinkable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
+import scala.util.Random
 
 /**
   * Simulation package
@@ -284,7 +285,7 @@ package object sim {
 
 
   implicit class SimSeqPimper[T](pimped: Seq[T]){
-    def randomPick(): T = pimped(simRandom.nextInt(pimped.length))
+    def randomPick(rand : Random = simRandom): T = pimped(rand.nextInt(pimped.length))
     def randomPickWithIndex(): (T, Int) = {
       val index = simRandom.nextInt(pimped.length)
       (pimped(index), index)
@@ -659,7 +660,7 @@ package object sim {
 
     private def getBool(manager: SimManager, who: Bool): Bool = {
       val component = who.component
-      if((who.isInput || who.isOutput) && component != null && component.parent == null){
+      if((who.isInput || who.isOutput) && component != null && component.parent == null || who.hasTag(SimPublic)){
         who
       }else {
         manager.userData.asInstanceOf[Component].pulledDataCache.getOrElse(who, null).asInstanceOf[Bool]

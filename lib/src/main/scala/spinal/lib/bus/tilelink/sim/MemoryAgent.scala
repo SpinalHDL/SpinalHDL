@@ -14,11 +14,12 @@ class MemoryAgent(bus: Bus,
                   seed : Long = simRandom.nextInt(),
                   blockSize : Int = 64,
                   var randomProberFactor : Float = 0.0f,
-                  var randomProberDelayMax : Int = 1000
+                  var randomProberDelayMax : Int = 1000,
+                  memArg : Option[SparseMemory] = None
                  )(implicit idCallback : IdCallback) extends MonitorSubscriber{
   implicit val _ = sm
 
-  val mem = SparseMemory(seed)
+  val mem = memArg.getOrElse(SparseMemory(seed))
 
   val monitor = new Monitor(bus, cd).add(this)
   val driver = new SlaveDriver(bus, cd)
@@ -61,6 +62,11 @@ class MemoryAgent(bus: Bus,
       capMap(m2s)(address) = cap
   }
 
+  def delayOnA(a : TransactionA): Unit = {
+    val r = simRandom.nextFloat()
+    cd.waitSampling((r * r * 20).toInt) //Will enable out of order handeling
+  }
+
   override def onA(a: TransactionA) = {
     if(bus.p.withBCE && simRandom.nextFloat() < randomProberFactor) fork {
       cd.waitSampling(simRandom.nextInt(randomProberDelayMax))
@@ -77,8 +83,7 @@ class MemoryAgent(bus: Bus,
     }
 
     fork{
-      val r = simRandom.nextFloat()
-      cd.waitSampling((r*r*20).toInt) //Will enable out of order handeling
+      delayOnA(a)
       val blockAddress = a.address.toLong & ~(blockSize-1)
       reserve(blockAddress)
       a.opcode match {

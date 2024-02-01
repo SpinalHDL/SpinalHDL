@@ -937,13 +937,13 @@ trait Num[T <: Data] {
   */
 trait BitwiseOp[T <: Data]{
 
-  /** Logical AND operator */
+  /** Bitwise AND operator */
   def &(right: T): T
 
-  /** Logical OR operator */
+  /** Bitwise OR operator */
   def |(right: T): T
 
-  /** Logical XOR operator */
+  /** Bitwise XOR operator */
   def ^(right: T): T
 
   /** Inverse bitwise operator */

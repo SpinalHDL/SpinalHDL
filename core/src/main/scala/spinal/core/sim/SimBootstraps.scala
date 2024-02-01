@@ -454,13 +454,13 @@ object SpinalXSimBackend {
     vconfig.xciSourcesPaths   =  xciSourcesPaths
     vconfig.bdSourcesPaths    = bdSourcesPaths
     vconfig.toplevelName      = rtl.toplevelName
-    vconfig.wavePath          = "test.wdb"
     vconfig.waveFormat        = waveFormat match {
       case WaveFormat.DEFAULT => WaveFormat.WDB
       case _ => waveFormat
     }
     vconfig.workspaceName     = workspaceName
     vconfig.workspacePath     = workspacePath
+    vconfig.wavePath          = s"${workspacePath}/${workspaceName}/${rtl.toplevelName}.wdb"
     vconfig.xilinxDevice      = xilinxDevice
     vconfig.userSimulationScript = simScript
     vconfig.xelabFlags        = simulatorFlags.toArray
@@ -519,7 +519,6 @@ class SimVerilatorPhase extends PhaseNetlist {
     pc.walkDeclarations { d =>
       d match {
         case x: SpinalTagReady if (x.hasTag(SimPublic)) => {
-          x.removeTag(SimPublic)
           x.addTag(Verilator.public)
         }
         case _ =>
@@ -684,7 +683,7 @@ case class SpinalSimConfig(
                             var _simScript         : String = null,
                             var _timePrecision     : TimeNumber = null,
                             var _timeScale         : TimeNumber = null,
-                            var _testPath          : String = "$WORKSPACE/$COMPILED"
+                            var _testPath          : String = "$WORKSPACE/$COMPILED/$TEST"
   ){
 
 

@@ -46,13 +46,13 @@ class StageLink(val up : Node, val down : Node) extends Link {
     if(down.ctrl.valid.nonEmpty) down.valid.setAsReg() init (False)
     matches.foreach(p => down(p).setAsReg())
 
-    down.ctrl.forgetOne foreach  { cond =>  down.valid clearWhen(cond) }
 
     up.ctrl.ready.isEmpty match {
       case true =>
         if(down.ctrl.valid.nonEmpty) down.valid := up.isValid
         matches.foreach(p => down(p) := up(p))
       case false => {
+        down.ctrl.forgetOne foreach { cond => down.valid clearWhen (cond) }
         if(down.ctrl.valid.nonEmpty) when(up.isReady) {
           down.valid := up.isValid
         }
