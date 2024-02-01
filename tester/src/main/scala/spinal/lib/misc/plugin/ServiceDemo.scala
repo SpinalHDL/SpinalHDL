@@ -57,12 +57,12 @@ object Example2 extends App{
 
   class DriverPlugin extends FiberPlugin {
     lazy val sp = host[StatePlugin].logic.get
-    val hostLock = Lock()
+    val hostLockX = Lock()
 
     // incrementBy will be set by others plugin at elaboration time
     var incrementBy = 0
     val logic = during build new Area {
-      hostLock.await()
+      hostLockX.await()
       // Generate the incrementer hardware
       sp.signal := sp.signal + incrementBy
     }
