@@ -49,7 +49,7 @@ object HexTools{
     val wordSize = ram.wordType.getBitsWidth/8
     val initContent = Array.fill[BigInt](ram.wordCount)(0)
     HexTools.readHexFile(onChipRamHexFile, 0,(address,data) => {
-      val addressWithoutOffset = (address - hexOffset).toLong
+      val addressWithoutOffset = ((address.toLong & 0xFFFFFFFFl) - hexOffset).toLong
       val addressWord = addressWithoutOffset/wordSize
       if(addressWord < 0 || addressWord >= initContent.size){
         assert(allowOverflow)
