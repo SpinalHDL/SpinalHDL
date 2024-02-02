@@ -29,6 +29,14 @@ trait MemoryTransfers {
   def nonEmpty : Boolean
 }
 
+trait PmaRegion{
+  def mapping : AddressMapping
+  def transfers: MemoryTransfers
+  def isMain : Boolean
+  def isIo : Boolean = !isMain
+  def isExecutable : Boolean
+}
+
 //Address seen by the slave slave are mapping.foreach(_.base-offset)
 trait MemoryConnection extends SpinalTag {
   def up : Nameable with SpinalTagReady
@@ -71,11 +79,16 @@ case class MappedNode(node : Nameable with SpinalTagReady, mapping : AddressMapp
       case _ =>
     }
   }
+
+  def isMain = node.hasTag(PMA.MAIN)
+  def isExecutable = node.hasTag(PMA.EXECUTABLE)
 }
 
-case class MappedTransfers(where : MappedNode, transfers: MemoryTransfers){
+case class MappedTransfers(where : MappedNode, transfers: MemoryTransfers) extends PmaRegion{
   def node = where.node
   def mapping = where.mapping
+  def isMain = where.isMain
+  def isExecutable = where.isExecutable
 }
 
 object MemoryConnection{
