@@ -37,6 +37,13 @@ trait PmaRegion{
   def isExecutable : Boolean
 }
 
+case class PmaRegionImpl(mapping: AddressMapping,
+                         transfers: MemoryTransfers,
+                         isMain: Boolean,
+                         isExecutable: Boolean) extends PmaRegion {
+}
+
+
 //Address seen by the slave slave are mapping.foreach(_.base-offset)
 trait MemoryConnection extends SpinalTag {
   def up : Nameable with SpinalTagReady
