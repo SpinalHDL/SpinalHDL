@@ -892,6 +892,12 @@ case class SpinalSimConfig(
     this
   }
 
+  def addOptions(parser: scopt.OptionParser[Unit]): Unit = {
+    import parser._
+    opt[Unit]("trace-fst") action { (v, c) => this.withFstWave }
+    opt[Unit]("trace-vcd") action { (v, c) => this.withVcdWave }
+  }
+
   def doSim[T <: Component](report: SpinalReport[T])(body: T => Unit): Unit = compile(report).doSim(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String)(body: T => Unit): Unit = compile(report).doSim(name)(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String, seed: Int)(body: T => Unit): Unit = compile(report).doSim(name, seed)(body)
