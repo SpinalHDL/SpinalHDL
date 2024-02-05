@@ -880,6 +880,12 @@ case class SpinalSimConfig(
     this
   }
 
+  def withTimeSpec(timeScale: TimeNumber, timePrecision: TimeNumber): this.type = {
+    withTimeScale(timeScale)
+    withTimePrecision(timePrecision)
+    this
+  }
+
   def setTestPath(path : String) : this.type = {
     _testPath = path
     this
