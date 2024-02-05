@@ -174,15 +174,23 @@ package object sim {
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
   def sleep(cycles: Double): Unit = SimManagerContext.current.thread.sleep(cycles.toLong)
-  def sleep(time: TimeNumber): Unit =
-    sleep((time.toBigDecimal / SimManagerContext.current.manager.timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong)
+  def sleep(time: TimeNumber): Unit = {
+    sleep((time.toBigDecimal / timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong)
+  }
   def waitUntil(cond: => Boolean): Unit = {
     SimManagerContext.current.thread.waitUntil(cond)
   }
 
   def timeToLong(time : TimeNumber) : Long = {
-    (time.toBigDecimal / SimManagerContext.current.manager.timePrecision).toLong
+    (time.toBigDecimal / timePrecision).toLong
   }
+
+  def hzToLong(hz: HertzNumber): Long = {
+    (1 / hz.toBigDecimal / timePrecision).toLong
+  }
+
+
+  def timePrecision = SimManagerContext.current.manager.timePrecision
 
   /** Fork */
   def fork(body: => Unit): SimThread = SimManagerContext.current.manager.newThread(body)
@@ -892,10 +900,17 @@ package object sim {
       } else {
         throw new Exception("???")
       }
-
     }
 
-    def forkStimulus(period: Long, sleepDuration : Int = 0) : Unit = {
+    def forkStimulus() : Unit = {
+      val hz = cd.frequency match {
+        case ClockDomain.FixedFrequency(value) => value.toBigDecimal
+      }
+      val period = (1 / hz / timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong
+      forkStimulus(period, 0)
+    }
+    def forkStimulus(period: Long) : Unit = forkStimulus(period, 0)
+    def forkStimulus(period: Long, sleepDuration : Int) : Unit = {
       cd.config.clockEdge match {
         case RISING  => fallingEdge()
         case FALLING => risingEdge()
