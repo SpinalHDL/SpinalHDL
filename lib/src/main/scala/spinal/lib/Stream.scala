@@ -289,7 +289,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Return True when the bus is ready, but no data is present
   */
-  def isFree: Bool = signalCache(this ->"isFree")((!valid || ready).setCompositeName(this, "isFree", true))
+  def isFree: Bool = signalCache(this ->"isFree")((!valid && ready).setCompositeName(this, "isFree", true))
   
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
