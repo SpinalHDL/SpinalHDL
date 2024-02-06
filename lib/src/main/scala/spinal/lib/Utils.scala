@@ -1007,6 +1007,8 @@ class AnyPimped[T <: Any](pimped: T) {
   def ifMap(cond : Boolean)(body : T => T): T ={
     if(cond) body(pimped) else pimped
   }
+
+  def nullOption : Option[T] = if(pimped != null) Some(pimped) else None
 }
 
 
