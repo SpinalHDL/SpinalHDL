@@ -287,7 +287,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   */
   override def fire: Bool = signalCache(this ->"fire")((valid & ready).setCompositeName(this, "fire", true))
 
-/** Return True when the bus is ready, but no data is present
+/** Return True when the bus isn't stuck with a transaction (!isStall)
   */
   def isFree: Bool = signalCache(this ->"isFree")((!valid || ready).setCompositeName(this, "isFree", true))
   
