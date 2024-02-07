@@ -304,6 +304,20 @@ class InterconnectTester extends AnyFunSuite{
       val s0 = simpleSlave(8)
       s0.node at 0x200 of r0
       s0.node at 0x200 of w0
+
+      Fiber build {
+        var hits = 0
+        val probed = MemoryConnection.getMemoryTransfers(m0.node)
+        probed.foreach { w =>
+          w.node match {
+            case s0.node =>
+              hits += 1
+              assert(w.where.transformers == List(OffsetTransformer(0x1000), OffsetTransformer(0x400), OffsetTransformer(0x200)))
+              assert(w.mapping == SizeMapping(0x1600, 0x100))
+          }
+        }
+        assert(hits == 1)
+      }
     })
   }
 

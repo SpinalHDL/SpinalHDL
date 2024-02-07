@@ -95,25 +95,34 @@ object MemoryConnection{
         return ret
       }
     }
-
-
-
+    
     //Collect slaves supports
     up.foreachTag {
       case c: MemoryConnection if c.up == up => {
         val dmt = getMemoryTransfersV2(c.down)
         val invertTransform = c.transformers.reverse
         val remapped = dmt.map{ e =>
-          new MappedTransfers(
-            where = new MappedNode(
-              e.node,
-              invertTransform.foldRight(e.mapping)((t, a) => a.withOffsetInvert(t)),
-              c.transformers ++ e.where.transformers
-            ),
-            transfers = c.sToM(e.transfers, e.where)
+          val where = new MappedNode(
+            e.node,
+            invertTransform.foldRight(e.mapping)((t, a) => a.withOffsetInvert(t)),
+            c.transformers ++ e.where.transformers
           )
+          val transfers = c.sToM(e.transfers, e.where)
+          new MappedTransfers(where, transfers)
         }
-        ret ++= remapped
+
+        //Let's merge entries which target the same endpoint
+        val aggreged = mutable.LinkedHashMap[MappedNode, MemoryTransfers]()
+        for(e <- remapped){
+          aggreged.get(e.where) match {
+            case None => aggreged(e.where) = e.transfers
+            case Some(value) => aggreged(e.where) = {
+              assert(e.transfers.intersect(value).isEmpty, "Same transfers can go to two different busses")
+              e.transfers.mincover(value)
+            }
+          }
+        }
+        ret ++= aggreged.map(e => new MappedTransfers(e._1, e._2))
       }
       case _ =>
     }
