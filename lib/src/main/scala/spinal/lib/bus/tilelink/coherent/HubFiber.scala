@@ -33,10 +33,6 @@ class HubFiber() extends Area{
     override def up = HubFiber.this.up
     override def down = HubFiber.this.down
     override def transformers = Nil
-    override def mapping = {
-      mappingLock.get //Ensure that the parameter is final
-      SizeMapping(0, BigInt(1) << parameter.addressWidth)
-    }
     override def sToM(down: MemoryTransfers, args: MappedNode) = {
       down match{
         case t : M2sTransfers => {

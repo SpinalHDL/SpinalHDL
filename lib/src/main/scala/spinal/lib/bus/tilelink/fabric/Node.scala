@@ -54,6 +54,13 @@ class Node() extends NodeUpDown{
     setDownConnection(_.connectFrom(_)(a, b, c, d, e))
   }
 
+  def setEndpoint(): Unit = {
+    addTag(new MemoryEndpoint {
+      override def mapping = SizeMapping(0, BigInt(1) << m2s.parameters.addressWidth)
+      override def transfers: MemoryTransfers = m2s.parameters.emits
+    })
+  }
+
 
   def forceDataWidth(dataWidth : Int): Unit ={
     m2s.proposedModifiers += { s =>

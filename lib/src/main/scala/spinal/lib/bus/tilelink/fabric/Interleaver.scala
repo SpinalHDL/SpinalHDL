@@ -19,12 +19,13 @@ case class Interleaver(blockSize : Int, ratio : Int, sel : Int) extends Area{
     override def up = Interleaver.this.up
     override def down = Interleaver.this.down
     override def transformers = List(transformer)
-    override def mapping = InterleavedMapping(
-      mapping = SizeMapping(0, BigInt(1) << Interleaver.this.up.m2s.parameters.addressWidth),
-      blockSize = blockSize,
-      ratio = ratio,
-      sel = sel
-    )
+    ???
+//    override def mapping = InterleavedMapping(
+//      mapping = SizeMapping(0, BigInt(1) << Interleaver.this.up.m2s.parameters.addressWidth),
+//      blockSize = blockSize,
+//      ratio = ratio,
+//      sel = sel
+//    )
     populate()
   }
 
