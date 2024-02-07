@@ -54,7 +54,7 @@ case class Decoder(upNode : NodeParameters,
   def getTermsA(m : AddressMapping, s : M2sTransfers) : Seq[Masked] = {
     val mappingTerms = AddressMapping.terms(m, io.up.p.addressWidth)
     val opcodeTerms = ArrayBuffer[Masked]()
-    def op(filter : M2sTransfers => Boolean, op : Int) = if(filter(s)) opcodeTerms += Masked(op << io.up.p.addressWidth, 7 << io.up.p.addressWidth)
+    def op(filter : M2sTransfers => Boolean, op : Int) = if(filter(s)) opcodeTerms += Masked(BigInt(op) << io.up.p.addressWidth, BigInt(7) << io.up.p.addressWidth)
     op(_.get.some, 4)
     op(_.putFull.some, 0)
     op(_.putPartial.some, 1)
