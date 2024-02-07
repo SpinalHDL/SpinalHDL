@@ -309,16 +309,27 @@ class InterconnectTester extends AnyFunSuite{
         val probed = MemoryConnection.getMemoryTransfers(m0.node)
         probed.foreach { w =>
           w.node match {
-            case s0.node =>
+            case s0.node => {
               hits += 1
               assert(w.where.transformers == List(OffsetTransformer(0x1000), OffsetTransformer(0x400), OffsetTransformer(0x200)))
               assert(w.mapping == SizeMapping(0x1600, 0x100))
+            }
           }
         }
         assert(hits == 1)
       }
     })
   }
+
+//  test("overlap") {
+//    testInterconnectAll(new Component {
+//      val m0 = simpleMaster(readWrite)
+//      val s0,s1 = simpleSlave(8)
+//      s0.node at 0x100 of m0.node
+//      s1.node at 0x1F0 of m0.node
+//    })
+//  }
+
 
   test("interleaving0") {
     testInterconnectAll(new Component {
@@ -329,6 +340,11 @@ class InterconnectTester extends AnyFunSuite{
 
       val s0 = simpleSlave(8)
       s0.node at InterleavedMapping(SizeMapping(0x200, 0x100), 0x10, 4, 0) of b0
+
+      Fiber build {
+        val probed = MemoryConnection.getMemoryTransfers(m0.node)
+        println(probed)
+      }
     })
   }
 
@@ -342,6 +358,11 @@ class InterconnectTester extends AnyFunSuite{
       val s0,s1 = simpleSlave(8)
       s0.node at InterleavedMapping(SizeMapping(0x200, 0x100), 0x10, 4, 0) of b0
       s1.node at InterleavedMapping(SizeMapping(0x200, 0x100), 0x10, 4, 1) of b0
+
+      Fiber build {
+        val probed = MemoryConnection.getMemoryTransfers(m0.node)
+        println(probed)
+      }
     })
   }
 
@@ -375,6 +396,11 @@ class InterconnectTester extends AnyFunSuite{
       val s1, s2 = simpleSlave(8)
       s1.node at 0x200 of i1.down
       s2.node at 0x200 of i2.down
+
+      Fiber build {
+        val probed = MemoryConnection.getMemoryTransfers(m0.node)
+        println(probed)
+      }
     })
   }
 

@@ -35,9 +35,7 @@ trait UpDown[C] extends Nameable{
 
 trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends UpDown[C]{
   def <<(m : N): C = {
-    val c = connectFrom(m)
-    c.mapping.automatic = Some(DefaultMapping)
-    c
+    connectFrom(m)
   }
 
   def <<(m : Seq[N]): Seq[C] = m.map(this << _)
@@ -54,9 +52,9 @@ trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends UpDow
       others.foreach(of)
     }
   }
-  def at(address : BigInt) = new At(_.mapping.automatic = Some(address))
+  def at(address : BigInt) = new At(_.userMapping = Some(address))
   def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
-  def at(mapping : AddressMapping) = new At(_.mapping.automatic = Some(mapping))
+  def at(mapping : AddressMapping) = new At(_.userMapping = Some(mapping))
   def connectFrom(m : N) : C
 
 

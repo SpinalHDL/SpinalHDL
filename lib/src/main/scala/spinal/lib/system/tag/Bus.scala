@@ -38,6 +38,7 @@ trait MemoryConnection extends SpinalTag {
   def down : Nameable with SpinalTagReady
   def transformers : List[AddressTransformer]  //List of alteration done to the address on this connection (ex offset, interleaving, ...)
   def sToM(downs : MemoryTransfers, args : MappedNode) : MemoryTransfers = downs//Convert the slave MemoryTransfers capabilities into the master ones
+  def sToM(down : AddressMapping) : AddressMapping = down//Convert the slave MemoryTransfers capabilities into the master ones
 
   def populate(): Unit ={
     up.addTag(this)
@@ -77,18 +78,23 @@ object MemoryConnection{
   }
 
   def getMemoryTransfers(up : Nameable with SpinalTagReady): ArrayBuffer[MappedTransfers] = {
+    val mc = up.getTags().collect {
+      case c: MemoryConnection if c.up == up => c
+    }
+    getMemoryTransfers(up, mc.toSeq)
+  }
+
+
+  def getMemoryTransfers(up : Nameable with SpinalTagReady, downs : Seq[MemoryConnection]): ArrayBuffer[MappedTransfers] = {
     val ret = ArrayBuffer[MappedTransfers]()
 
     // Stop on leafs
-    if (!up.existsTag {
-      case c: MemoryConnection if c.up == up => true
-      case _ => false
-    }) {
-      val mapping = up.getTags().collectFirst{ case t : MemoryEndpoint => t} match {
+    if (downs.isEmpty) {
+      val mapping = up.getTags().collectFirst { case t: MemoryEndpoint => t } match {
         case Some(ep) => ep.mapping
         case None => {
           up match {
-            case up : Node => SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth) //backward compatibility
+            case up: Node => SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth) //backward compatibility
             case _ => throw new Exception(s"Missing enpoint on $up")
           }
         }
@@ -101,34 +107,33 @@ object MemoryConnection{
     }
 
     //Collect slaves supports
-    up.foreachTag {
-      case c: MemoryConnection if c.up == up => {
-        val dmt = getMemoryTransfers(c.down)
-        val invertTransform = c.transformers.reverse
-        val remapped = dmt.map{ e =>
-          val where = new MappedNode(
-            e.node,
-            invertTransform.foldRight(e.mapping)((t, a) => a.withOffsetInvert(t)),
-            c.transformers ++ e.where.transformers
-          )
-          val transfers = c.sToM(e.transfers, e.where)
-          new MappedTransfers(where, transfers)
-        }
+    for(c <- downs) {
+      val dmt = getMemoryTransfers(c.down)
+      val invertTransform = c.transformers.reverse
+      val remapped = dmt.map { e =>
+        val transformed = invertTransform.foldRight(e.mapping)((t, a) => a.withOffsetInvert(t))
+        val filtred = c.sToM(transformed)
+        val where = new MappedNode(
+          e.node,
+          filtred,
+          c.transformers ++ e.where.transformers
+        )
+        val transfers = c.sToM(e.transfers, e.where)
+        new MappedTransfers(where, transfers)
+      }
 
-        //Let's merge entries which target the same endpoint
-        val aggreged = mutable.LinkedHashMap[MappedNode, MemoryTransfers]()
-        for(e <- remapped){
-          aggreged.get(e.where) match {
-            case None => aggreged(e.where) = e.transfers
-            case Some(value) => aggreged(e.where) = {
-              assert(e.transfers.intersect(value).isEmpty, "Same transfers can go to two different busses")
-              e.transfers.mincover(value)
-            }
+      //Let's merge entries which target the same endpoint
+      val aggreged = mutable.LinkedHashMap[MappedNode, MemoryTransfers]()
+      for (e <- remapped) {
+        aggreged.get(e.where) match {
+          case None => aggreged(e.where) = e.transfers
+          case Some(value) => aggreged(e.where) = {
+            assert(e.transfers.intersect(value).isEmpty, "Same transfers can go to two different busses")
+            e.transfers.mincover(value)
           }
         }
-        ret ++= aggreged.map(e => new MappedTransfers(e._1, e._2))
       }
-      case _ =>
+      ret ++= aggreged.map(e => new MappedTransfers(e._1, e._2))
     }
     ret
   }

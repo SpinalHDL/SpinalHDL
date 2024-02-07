@@ -14,9 +14,7 @@ abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
   setLambdaName(m.isNamed && s.isNamed)(s"${m.getName()}_to_${s.getName()}")
 
   //Specify how the connection is memory mapped to the decoder
-  val mapping = new Area{
-    var automatic = Option.empty[Any]
-  }
+  var userMapping = Option.empty[Any]
 
   def mEmits : MemoryTransfers
 
@@ -24,7 +22,7 @@ abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
   val tag = new MemoryConnection{
     override def up = MappedConnection.this.m
     override def down = MappedConnection.this.s
-    override def transformers = MappedConnection.this.mapping.automatic match {
+    override def transformers = MappedConnection.this.userMapping match {
       case None => Nil
       case Some(DefaultMapping) => Nil
       case Some(v: BigInt) =>  List(OffsetTransformer(v))
@@ -33,12 +31,22 @@ abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
     override def sToM(downs: MemoryTransfers, args: MappedNode) = {
       downs.intersect(mEmits)
     }
+    override def sToM(down: AddressMapping) = {
+      MappedConnection.this.userMapping match {
+        case None => down
+        case Some(DefaultMapping) => down
+        case Some(v : BigInt) => down
+        case Some(v: AddressMapping) => v.intersect(down)
+      }
+    }
+
     populate()
+
   }
 
 
   def decoderAddressWidth(full : Int) : Int = {
-    mapping.automatic match {
+    userMapping match {
       case Some(v: BigInt) => log2Up(v+(BigInt(1) << full))
       case Some(DefaultMapping) => full //you can remove this
       case Some(v: AddressMapping) => v.width
@@ -47,7 +55,7 @@ abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
   }
 
   def proposalAddressWidth(full: Int): Int = {
-    mapping.automatic match {
+    userMapping match {
       case Some(v: BigInt) => log2Up((BigInt(1) << full)-v)
       case Some(DefaultMapping) => full  //you can remove this
       case Some(v: AddressMapping) => log2Up(v.highestBound+1-v.lowerBound)
