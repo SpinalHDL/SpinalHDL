@@ -85,6 +85,7 @@ object MemoryConnection{
       case _ => false
     }) {
       val mapping = up.getTags().collectFirst{ case t : MemoryEndpoint => t} match {
+        case Some(ep) => ep.mapping
         case None => {
           up match {
             case up : Node => SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth) //backward compatibility
