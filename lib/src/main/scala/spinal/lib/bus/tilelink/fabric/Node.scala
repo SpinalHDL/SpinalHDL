@@ -181,7 +181,26 @@ class Node() extends NodeUpDown{
     }
 
     val decoder = (withDowns && downs.size > 1) generate new Area {
-      val core = Decoder(bus.p.node, downs.map(_.s.m2s.supported), downs.map(_.up.s2m.parameters), downs.map(_.getMapping()), downs.map(_.tag.transformers))
+      val downSpecs = downs.map{c =>
+        val dmt = MemoryConnection.getMemoryTransfersV2(c.s)
+        val invertTransform = c.tag.transformers.reverse
+        val remapped = dmt.map { e =>
+          new MappedTransfers(
+            where = new MappedNode(
+              e.node,
+              invertTransform.foldRight(e.mapping)((t, a) => a.withOffsetInvert(t)),
+              c.tag.transformers ++ e.where.transformers
+            ),
+            transfers = c.tag.sToM(e.transfers, e.where)
+          )
+        }
+        DecoderDownSpec(
+          remapped,
+          c.tag.transformers,
+          NodeParameters(c.up.m2s.parameters, c.up.s2m.parameters)
+        )
+      }
+      val core = Decoder(bus.p.node, downSpecs)
       for((down, decoded) <- (downs, core.io.downs).zipped){
         down.up.bus.load(decoded.combStage())
       }

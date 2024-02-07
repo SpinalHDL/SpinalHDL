@@ -180,6 +180,28 @@ class InterconnectTester extends AnyFunSuite{
     })
   }
 
+  test("debug") {
+    testInterconnectAll(new Component {
+      val m0 = simpleMaster(readWrite)
+      val s0, s1 = simpleSlave(8)
+
+      val b0,b1 = Node()
+
+      b0 << m0.node
+      b1 at (0x1000) of b0
+
+      s0.node at 0x200 of b1
+      s1.node at 0x400 of b1
+
+      val miaou = Fiber build new Area{
+        val v1 = MemoryConnection.getMemoryTransfers(m0.node)
+        val v2 = MemoryConnection.getMemoryTransfersV2(m0.node)
+        println(v1)
+        println(v2)
+      }
+    })
+  }
+
 
   test("ram") {
     testInterconnectAll(new Component {
@@ -394,15 +416,15 @@ class InterconnectTester extends AnyFunSuite{
   test("DefaultA"){
     testInterconnectAll(new Component{
       val m0 = simpleMaster(readWrite)
-      val s0, s1 = simpleSlave(8)
-      val d0 = simpleSlave(16)
+      val s0, s1, s2 = simpleSlave(8)
 
-      val b0 = Node()
+      val b0, b1 = Node()
       b0 << m0.node
 
       s0.node at 0x200 of b0
       s1.node at 0x400 of b0
-      d0.node << b0
+      b1 << b0
+      s2.node at 0x600 of b1
 
       Fiber build {
         val probed = MemoryConnection.getMemoryTransfers(m0.node)
@@ -620,13 +642,13 @@ class InterconnectTester extends AnyFunSuite{
     testInterconnectAll(new Component{
       val m0 = simpleMaster(readWrite)
       val s0, s1 = simpleSlave(addressWidth = 10)
-      val s2 = simpleSlave(addressWidth = 15)
+      val s2 = simpleSlave(addressWidth = 10)
       val b0, b1 = Node()
       b0 at 0xE0000 of m0.node
       s0.node at 0x4000 of b0
       s1.node at 0x6000 of b0
       b1 << b0
-      s2.node at 0x4000 of b1
+      s2.node at 0x5000 of b1
 
       s0.node.addTag(PMA.VOLATILE)
       s1.node.addTag(PMA.CACHABLE)
@@ -648,13 +670,8 @@ class InterconnectTester extends AnyFunSuite{
               assert(w.mapping == SizeMapping(0xE6000, 0x400))
             case s2.node =>
               hits += 1
-              assert(w.where.transformers == List(OffsetTransformer(0xE0000), OffsetTransformer(0x4000)))
-              assert(w.mapping == OrMapping(
-                List(
-                  SizeMapping(0xE4400, 0x1C00),
-                  SizeMapping(0xE6400, 0x5C00)
-                )
-              ))
+              assert(w.where.transformers == List(OffsetTransformer(0xE0000), OffsetTransformer(0x5000)))
+              assert(w.mapping == SizeMapping(0xE5000, 0x400))
             case _ =>
           }
         }
@@ -684,7 +701,7 @@ class InterconnectTester extends AnyFunSuite{
       n0 << dma.filter.down
 
       val something = simpleSlave(20, 32, m2sTransfers = readWrite)
-      something.node at 0x82000000l of n0
+      something.node at 0xE0000000l of n0
 
       //Will manage memory coherency
       val hub = new HubFiber()

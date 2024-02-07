@@ -19,6 +19,7 @@ abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
     val value = Handle[AddressMapping]
   }
 
+  def mEmits : MemoryTransfers
 
   //Document the memory connection in a agnostic way for further usages
   val tag = new MemoryConnection{
@@ -28,6 +29,9 @@ abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
     override def transformers = MappedConnection.this.mapping.automatic match {
       case Some(DefaultMapping) => Nil
       case _ => List(OffsetTransformer(mapping.lowerBound))
+    }
+    override def sToM(downs: MemoryTransfers, args: MappedNode) = {
+      downs.intersect(mEmits)
     }
     populate()
   }
