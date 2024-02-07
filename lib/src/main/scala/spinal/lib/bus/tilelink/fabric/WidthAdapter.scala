@@ -18,7 +18,6 @@ class WidthAdapter() extends Area{
     override def up = WidthAdapter.this.up
     override def down = WidthAdapter.this.down
     override def transformers = Nil
-    override def mapping = SizeMapping(0, BigInt(1) << WidthAdapter.this.up.m2s.parameters.addressWidth)
     populate()
   }
 

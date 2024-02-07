@@ -287,7 +287,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   */
   override def fire: Bool = signalCache(this ->"fire")((valid & ready).setCompositeName(this, "fire", true))
 
-/** Return True when the bus is ready, but no data is present
+/** Return True when the bus isn't stuck with a transaction (!isStall)
   */
   def isFree: Bool = signalCache(this ->"isFree")((!valid || ready).setCompositeName(this, "isFree", true))
   
@@ -1842,9 +1842,9 @@ object StreamFragmentWidthAdapter {
     ret
   }
 
-  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[Fragment[T2]] = {
+  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false, earlyLast : Boolean = false) : Stream[Fragment[T2]] = {
     val ret = Stream(Fragment(outputPayloadType()))
-    StreamFragmentWidthAdapter(input,ret,endianness,padding)
+    StreamFragmentWidthAdapter(input,ret,endianness,padding,earlyLast)
     ret
   }
 }
