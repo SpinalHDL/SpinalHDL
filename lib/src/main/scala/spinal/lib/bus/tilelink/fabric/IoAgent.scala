@@ -23,7 +23,6 @@ class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParame
   val node = Node.slave()
   node.addTag(new MemoryEndpoint {
     override def mapping = SizeMapping(0, BigInt(1) << node.m2s.parameters.addressWidth)
-    override def transfers: MemoryTransfers = node.m2s.parameters.emits
   })
   val logic = Fiber build new Area {
     node.m2s.supported.load(m2sSupport.copy(transfers = node.m2s.proposed.transfers.intersect(m2sSupport.transfers)))

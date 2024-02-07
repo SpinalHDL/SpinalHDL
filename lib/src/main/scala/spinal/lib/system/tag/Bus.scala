@@ -31,7 +31,6 @@ trait MemoryTransfers {
 
 trait MemoryEndpoint extends SpinalTag{
   def mapping: AddressMapping
-  def transfers: MemoryTransfers
 }
 //Address seen by the slave slave are mapping.foreach(_.base-offset)
 trait MemoryConnection extends SpinalTag {
@@ -90,7 +89,7 @@ object MemoryConnection{
         case Some(ep) => {
           ret += new MappedTransfers(
             where = new MappedNode(up, ep.mapping, Nil),
-            transfers = ep.transfers
+            transfers = MemoryTransfers.of(up).get
           )
         }
         return ret

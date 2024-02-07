@@ -57,7 +57,6 @@ class Node() extends NodeUpDown{
   def setEndpoint(): Unit = {
     addTag(new MemoryEndpoint {
       override def mapping = SizeMapping(0, BigInt(1) << m2s.parameters.addressWidth)
-      override def transfers: MemoryTransfers = m2s.parameters.emits
     })
   }
 
