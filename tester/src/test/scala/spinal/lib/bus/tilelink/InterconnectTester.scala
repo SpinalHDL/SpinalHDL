@@ -185,13 +185,14 @@ class InterconnectTester extends AnyFunSuite{
       val m0 = simpleMaster(readWrite)
       val s0, s1 = simpleSlave(8)
 
-      val b0,b1 = Node()
+      val b0,b1,b2 = Node()
 
       b0 << m0.node
-      b1 at (0x1000) of b0
+      b1 at (0x1000, 0x10000) of b0
+      b2 << b1
 
       s0.node at 0x200 of b1
-      s1.node at 0x400 of b1
+      s1.node at 0x400 of b2
 
       val miaou = Fiber build new Area{
         val v1 = MemoryConnection.getMemoryTransfers(m0.node)
@@ -319,6 +320,17 @@ class InterconnectTester extends AnyFunSuite{
     })
   }
 
+  test("interleaving0") {
+    testInterconnectAll(new Component {
+      val m0 = simpleMaster(readWrite)
+      val b0 = Node()
+
+      b0 at 0x1000 of m0.node
+
+      val s0 = simpleSlave(8)
+      s0.node at InterleavedMapping(SizeMapping(0x200, 0x100), 0x10, 4, 0) of b0
+    })
+  }
 
   test("interleaving"){
     testInterconnectAll(new Component{
@@ -444,6 +456,28 @@ class InterconnectTester extends AnyFunSuite{
       }
     })
   }
+
+  test("DefaultMany") {
+    testInterconnectAll(new Component {
+      val m0 = simpleMaster(readWrite)
+      val s0, s1, s2 = simpleSlave(8)
+
+      val b0, b1, b2 = Node()
+      b0 << m0.node
+      b1 << m0.node
+      b2 << m0.node
+
+      s0.node at 0x200 of b0
+      s1.node at 0x400 of b1
+      s2.node at 0x600 of b2
+
+      Fiber build {
+        val probed = MemoryConnection.getMemoryTransfers(m0.node)
+        println(probed)
+      }
+    })
+  }
+
 
   test("DefaultOverlap"){
     testInterconnectAll(new Component{
@@ -627,6 +661,23 @@ class InterconnectTester extends AnyFunSuite{
       val s0 = simpleSlave(16, 128)
       s0.node at 0x10000 of hub.down
       s0.node.addTag(PMA.MAIN)
+    })
+  }
+
+
+  test("filterA") {
+    testInterconnectAll(new Component {
+      val m0 = simpleMaster(readWrite)
+      val s0 = simpleSlave(8)
+
+      val filter = new fabric.TransferFilter()
+      filter.up << m0.node
+
+      s0.node at 0x1000 of filter.down
+      Fiber build {
+        val probed = MemoryConnection.getMemoryTransfers(m0.node)
+        println(probed)
+      }
     })
   }
 

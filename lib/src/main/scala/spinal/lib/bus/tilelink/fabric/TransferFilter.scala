@@ -21,10 +21,9 @@ class TransferFilter() extends Area {
       override def get = M2sTransfers()
     })
     addTag(TransferFilterTag)
-//    addTag(new MemoryEndpoint {
-//      override def mapping = ???
-//      override def transfers = new M2s
-//    })
+    addTag(new MemoryEndpoint {
+      override def mapping = SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth)
+    })
   }
 
   new MemoryConnection {
