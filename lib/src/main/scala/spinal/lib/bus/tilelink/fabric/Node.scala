@@ -188,7 +188,7 @@ class Node() extends NodeUpDown{
 
     val decoder = (withDowns && downs.size > 1) generate new Area {
       val downSpecs = downs.map{c =>
-        val dmt = MemoryConnection.getMemoryTransfersV2(c.s)
+        val dmt = MemoryConnection.getMemoryTransfers(c.s)
         val invertTransform = c.tag.transformers.reverse
         val remapped = dmt.map { e =>
           new MappedTransfers(

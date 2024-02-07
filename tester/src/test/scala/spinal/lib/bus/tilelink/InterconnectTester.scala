@@ -195,9 +195,7 @@ class InterconnectTester extends AnyFunSuite{
 
       val miaou = Fiber build new Area{
         val v1 = MemoryConnection.getMemoryTransfers(m0.node)
-        val v2 = MemoryConnection.getMemoryTransfersV2(m0.node)
         println(v1)
-        println(v2)
       }
     })
   }

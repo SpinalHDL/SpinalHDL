@@ -10,7 +10,6 @@ import spinal.lib.system.tag.PMA
 class RamFiber(var bytes : BigInt) extends Area{
   val up = Node.up()
   up.addTag(PMA.MAIN)
-  up.setEndpoint()
 
   val thread = Fiber build new Area{
     up.m2s.supported load up.m2s.proposed.intersect(M2sTransfers.allGetPut).copy(addressWidth = log2Up(bytes))

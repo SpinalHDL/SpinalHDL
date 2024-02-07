@@ -71,12 +71,12 @@ case class MappedTransfers(where : MappedNode, transfers: MemoryTransfers){
 }
 
 object MemoryConnection{
-  def getMemoryTransfersV2(m: Node): mutable.ArrayBuffer[MappedTransfers] = {
+  def getMemoryTransfers(m: Node): mutable.ArrayBuffer[MappedTransfers] = {
     m.await()
-    getMemoryTransfersV2(m.asInstanceOf[Nameable with SpinalTagReady])
+    getMemoryTransfers(m.asInstanceOf[Nameable with SpinalTagReady])
   }
 
-  def getMemoryTransfersV2(up : Nameable with SpinalTagReady): ArrayBuffer[MappedTransfers] = {
+  def getMemoryTransfers(up : Nameable with SpinalTagReady): ArrayBuffer[MappedTransfers] = {
     val ret = ArrayBuffer[MappedTransfers]()
 
     // Stop on leafs
@@ -84,22 +84,25 @@ object MemoryConnection{
       case c: MemoryConnection if c.up == up => true
       case _ => false
     }) {
-      up.getTags().collectFirst{ case t : MemoryEndpoint => t} match {
-        case None => throw new Exception(s"Missing enpoint on $up")
-        case Some(ep) => {
-          ret += new MappedTransfers(
-            where = new MappedNode(up, ep.mapping, Nil),
-            transfers = MemoryTransfers.of(up).get
-          )
+      val mapping = up.getTags().collectFirst{ case t : MemoryEndpoint => t} match {
+        case None => {
+          up match {
+            case up : Node => SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth) //backward compatibility
+            case _ => throw new Exception(s"Missing enpoint on $up")
+          }
         }
-        return ret
       }
+      ret += new MappedTransfers(
+        where = new MappedNode(up, mapping, Nil),
+        transfers = MemoryTransfers.of(up).get
+      )
+      return ret
     }
-    
+
     //Collect slaves supports
     up.foreachTag {
       case c: MemoryConnection if c.up == up => {
-        val dmt = getMemoryTransfersV2(c.down)
+        val dmt = getMemoryTransfers(c.down)
         val invertTransform = c.transformers.reverse
         val remapped = dmt.map{ e =>
           val where = new MappedNode(
@@ -126,110 +129,8 @@ object MemoryConnection{
       }
       case _ =>
     }
-
-    return ret
-
-//    val unfiltred = mutable.LinkedHashMap[MappedNode, MemoryTransfers]() //The HashMap will allow handle a bus to fork RO WO and join later do a RW join. Will only work for exactly similar mappings
-//    args.foreachSlave { (s, c) =>
-//      val spec = getMemoryTransfersV2(s)
-//      val transformed = for (e <- spec) yield {
-//        val remapped = e.where.remap(c.transformers) // c.offset Give the same address view point as the "args" (master)
-//        val filtred = remapped.copy( // Will handle partial mapping and stuff as InterleavedMapping
-//          mapping = c.mapping.intersect(remapped.mapping)
-//        )
-//        val mt = c.sToM(e.transfers, e.where)
-//        filtred -> mt
-//      }
-//      for ((who, what) <- transformed) {
-//        unfiltred.get(who) match {
-//          case None => unfiltred(who) = what
-//          case Some(x) => unfiltred(who) = what.mincover(x)
-//        }
-//      }
-//    }
-//
-//    //Filter the agregated slave supports with the current node capabilities
-//    MemoryTransfers.of(args.node) match {
-//      case None => unfiltred.foreach(e => ret += MappedTransfers(e._1, e._2))
-//      case Some(x) => unfiltred.foreach(e => ret += MappedTransfers(e._1, e._2.intersect(x)))
-//    }
-//
-//    ret.filter(e => e.transfers.nonEmpty || e.where.node.hasTag(TransferFilterTag))
+    ret
   }
-
-
-  def getMemoryTransfers(m : Node) : mutable.ArrayBuffer[MappedTransfers] = {
-    m.await()
-    getMemoryTransfers(MappedNode(m))
-  }
-
-  def getMemoryTransfers(args : MappedNode): ArrayBuffer[MappedTransfers] ={
-    return getMemoryTransfersV2(args.node)
-//
-//    // Stop on leafs
-//    if(!args.node.existsTag{
-//      case c : MemoryConnection if c.up == args.node => true
-//      case _ => false
-//    }) {
-//      val elem = MemoryTransfers.of(args.node).get
-//      return ArrayBuffer(MappedTransfers(args, elem))
-//    }
-//
-//    //Collect slaves supports
-//    val ret = ArrayBuffer[MappedTransfers]()
-//    val unfiltred = mutable.LinkedHashMap[MappedNode, MemoryTransfers]() //The HashMap will allow handle a bus to fork RO WO and join later do a RW join. Will only work for exactly similar mappings
-//    args.foreachSlave{ (s, c) =>
-//      val spec = getMemoryTransfers(s)
-//      val transformed = for(e <- spec) yield {
-//        val remapped = e.where.remap(c.transformers) // c.offset Give the same address view point as the "args" (master)
-//        val filtred = remapped.copy( // Will handle partial mapping and stuff as InterleavedMapping
-//          mapping = c.mapping.intersect(remapped.mapping)
-//        )
-//        val mt = c.sToM(e.transfers, e.where)
-//        filtred -> mt
-//      }
-//      for((who, what) <- transformed){
-//        unfiltred.get(who) match {
-//          case None => unfiltred(who) = what
-//          case Some(x) => unfiltred(who) = what.mincover(x)
-//        }
-//      }
-//    }
-//
-//    //Filter the agregated slave supports with the current node capabilities
-//    MemoryTransfers.of(args.node) match {
-//      case None => unfiltred.foreach(e => ret += MappedTransfers(e._1, e._2))
-//      case Some(x) => unfiltred.foreach(e => ret += MappedTransfers(e._1, e._2.intersect(x)))
-//    }
-//
-//    ret.filter(e => e.transfers.nonEmpty || e.where.node.hasTag(TransferFilterTag))
-  }
-
-//  def foreachSlave(m : Node)(body : (MappedNode, MemoryConnection) => Unit): Unit = {
-//    m.await()
-//    MappedNode(m, Nil, 0, BigInt(1) << m.bus.p.addressWidth).foreachSlave(body)
-//  }
-
-//  def foreachSlave(up : Nameable with SpinalTagReady)(body: (MappedNode, MemoryConnection) => Unit): Unit = {
-//    up.foreachTag {
-//      case c: MemoryConnection if c.up == up => {
-//        val remaped = c.transformers.foldRight(c.mapping)((t, a) => a.withOffset(t))
-//        body(MappedNode(c.down, remaped, Nil), c)
-//      }
-//      case _ =>
-//    }
-//  }
-
-//  def walk(m : InterconnectNode)(body : MappedNode => Unit): Unit = {
-//    m.await()
-//    walk(MappedNode(m, 0, BigInt(1) << m.bus.p.addressWidth))(body)
-//  }
-//  def walk(m : MappedNode)(body : MappedNode => Unit): Unit ={
-//    body(m)
-//    m.foreachSlave{(s,c) =>
-//      walk(s)(body)
-//    }
-//  }
 }
 
 trait PMA extends SpinalTag
