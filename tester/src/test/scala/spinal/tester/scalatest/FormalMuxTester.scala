@@ -77,20 +77,26 @@ class FormalMuxTester extends SpinalFormalFunSuite {
       .doVerify(new Component {
         val portCount = 5
         val dataType = Bits(8 bits)
-        val dut = FormalDut(new StreamMux(dataType, portCount))
-        val selector = dut.io.createSelector()
+        val muxSelector = slave(Stream(UInt(log2Up(portCount) bit)))
+        val muxInputs = Vec(slave(Stream(dataType)), portCount)
+        val muxOutput = master(Stream(dataType))
+        val dut = FormalDut(new Component {
+          val io = new Bundle {
+            val inputs = Vec(slave(Stream(dataType)), portCount)
+            val selector = slave(Stream(UInt(log2Up(portCount) bit)))
+            val output = master(Stream(dataType))
+          }
+          io.output << StreamMux(io.selector, io.inputs)
+        })
 
         val reset = ClockDomain.current.isResetActive
         assumeInitial(reset)
 
-        val muxSelector = slave(cloneOf(selector))
-        muxSelector >> selector
-        val muxInputs = Vec(slave(Stream(dataType)), portCount)
+        muxSelector >> dut.io.selector
+        muxOutput << dut.io.output
         for (i <- 0 until portCount) {
           muxInputs(i) >> dut.io.inputs(i)
         }
-        val muxOutput = master(Stream(dataType))
-        muxOutput << dut.io.output
 
         assumeInitial(muxSelector.payload < portCount)
         muxSelector.formalAssumesSlave()
@@ -102,21 +108,23 @@ class FormalMuxTester extends SpinalFormalFunSuite {
           assume(muxSelector.valid === False)
         }
 
-        muxOutput.formalAssertsMaster()
-        muxOutput.formalCovers(5)
-        cover(dut.io.select =/= muxSelector.payload)
+        dut.io.output.formalAssertsMaster()
+        dut.io.output.formalCovers(5)
+        // cover(dut.io.select =/= muxSelector.payload)
         cover(changed(muxSelector.payload) & stable(muxSelector.valid) & muxSelector.valid)
         val readyBits = muxInputs.map(_.ready).asBits()
         assert((readyBits === 0) || (CountOne(readyBits) === 1))
 
         for (i <- 0 until portCount) {
-          cover(dut.io.select === i)
+          cover(muxSelector.payload === i)
           muxInputs(i).formalAssumesSlave()
         }
 
-        when(dut.io.select < portCount) {
-          assert(muxOutput === muxInputs(dut.io.select))
+        when(muxSelector.payload < portCount && muxInputs(muxSelector.payload).valid && muxSelector.valid) {
+          assert(dut.io.output === muxInputs(muxSelector.payload))
+
         }
+        setDefinitionName("mux_with_selector")
       })
 
   }
