@@ -44,6 +44,7 @@ class Node() extends NodeUpDown{
                       d: StreamPipe = StreamPipe.NONE,
                       e: StreamPipe = StreamPipe.NONE) : Unit = {
     setUpConnection(_.connectFrom(_)(a, b, c, d, e))
+    assert(withUps)
   }
 
   def setDownConnection(a: StreamPipe = StreamPipe.NONE,
@@ -52,6 +53,7 @@ class Node() extends NodeUpDown{
                         d: StreamPipe = StreamPipe.NONE,
                         e: StreamPipe = StreamPipe.NONE) : Unit  = {
     setDownConnection(_.connectFrom(_)(a, b, c, d, e))
+    assert(withDowns)
   }
 
   def setEndpoint(): Unit = {
