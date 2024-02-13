@@ -865,12 +865,17 @@ object StreamMux {
     c.io.select := select
     c.io.output
   }
-
-  def apply[T <: Data](select: Stream[UInt], inputs: Seq[Stream[T]]): Stream[T] = {
+  /** useCreateStreamRegSelect selects the registered stream selector which does only halt the select stream and does not join the output stream. */
+  def apply[T <: Data](select: Stream[UInt], inputs: Seq[Stream[T]], useCreateStreamRegSelect: Boolean = false): Stream[T] = {
     val c = new StreamMux(inputs(0).payload, inputs.length)
     (c.io.inputs, inputs).zipped.foreach(_ << _)
-    c.io.select := select.payload
-    StreamJoin(c.io.output, select).map(_._1)
+    if (useCreateStreamRegSelect) {
+      select >> c.io.createStreamRegSelect()
+      c.io.output
+    } else {
+      c.io.select := select.payload
+      StreamJoin(c.io.output, select).map(_._1)
+    }
   }
 
 }
@@ -880,7 +885,7 @@ class StreamMux[T <: Data](dataType: T, portCount: Int) extends Component {
     val select = in UInt (log2Up(portCount) bit)
     val inputs = Vec(slave Stream (dataType), portCount)
     val output = master Stream (dataType)
-    def createSelector(): Stream[UInt] = new Composite(this, "selector") {
+    def createStreamRegSelect(): Stream[UInt] = new Composite(this, "selector") {
       val stream = Stream(cloneOf(select))
       val reg = stream.haltWhen(output.isStall).toReg(U(0))
       select := reg
