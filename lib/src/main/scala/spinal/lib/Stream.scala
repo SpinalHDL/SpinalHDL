@@ -2,7 +2,7 @@ package spinal.lib
 
 import spinal.core._
 import spinal.idslplugin.Location
-import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+import spinal.lib.eda.bench.{AlteraStdTargets, Bench, EfinixStdTargets, Rtl, XilinxStdTargets}
 
 import scala.collection.Seq
 import scala.collection.mutable
@@ -2021,7 +2021,7 @@ object StreamFifoMultiChannelBench extends App{
 
   val rtls = List(2,4,8).map(width => new BenchFpga(width)) ++ List(2,4,8).map(width => new BenchFpga2(width))
 
-  val targets = XilinxStdTargets()// ++ AlteraStdTargets()
+  val targets = EfinixStdTargets() ++ XilinxStdTargets() ++ AlteraStdTargets()
 
 
   Bench(rtls, targets)
