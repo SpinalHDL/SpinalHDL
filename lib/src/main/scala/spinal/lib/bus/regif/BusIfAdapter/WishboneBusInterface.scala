@@ -20,8 +20,11 @@ case class WishboneBusInterface(
 
   override def getModuleName = moduleName.name
 
+  val halted = Bool()
+  halted := False
   val readError = Bool()
   val readData = Bits(bus.config.dataWidth bits)
+  val ack = RegNext(bus.CYC && bus.STB) init(False)
 
   if (readSync) {
     readError.setAsReg() init False
@@ -31,24 +34,24 @@ case class WishboneBusInterface(
     readData := 0
   }
 
-  bus.ACK := True
+  // TODO: Possibly assert retry if halted && STB?
+  bus.ACK := ack && !halted
   bus.DAT_MISO := readData
 
-  val selMatch = if (bus.config.useSEL) bus.SEL(selId) else True
-  val askWrite = (selMatch && bus.CYC && bus.STB && bus.WE).allowPruning()
-  val askRead = (selMatch && bus.CYC && bus.STB && !bus.WE).allowPruning()
+  val askWrite = (bus.CYC && bus.STB && bus.WE).allowPruning()
+  val askRead = (bus.CYC && bus.STB && !bus.WE).allowPruning()
   val doWrite =
-    (selMatch && bus.CYC && bus.STB && bus.ACK && bus.WE).allowPruning()
+    (bus.CYC && bus.STB && !halted && bus.WE).allowPruning()
   val doRead =
-    (selMatch && bus.CYC && bus.STB && bus.ACK && !bus.WE).allowPruning()
+    (bus.CYC && bus.STB && !halted && !bus.WE).allowPruning()
   val writeData = bus.DAT_MOSI
 
   if (bus.config.useERR) bus.ERR := readError
   override def readAddress() = bus.ADR
   override def writeAddress() = bus.ADR
 
-  override def readHalt() = bus.ACK := False
-  override def writeHalt() = bus.ACK := False
+  override def readHalt() = halted := True
+  override def writeHalt() = halted := True
 
   override def busDataWidth = bus.config.dataWidth
 }
