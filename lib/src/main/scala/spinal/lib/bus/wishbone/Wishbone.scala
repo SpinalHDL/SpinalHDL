@@ -3,6 +3,12 @@ package spinal.lib.bus.wishbone
 import spinal.core._
 import spinal.lib._
 
+object AddressGranularity extends Enumeration {
+  type AddressGranularity = Value
+  val Unspecified, Byte, Word = Value
+}
+
+
 /** This class is used for configuring the Wishbone class
   * @param addressWidth size in bits of the address line
   * @param dataWidth size in bits of the data line
@@ -16,6 +22,7 @@ import spinal.lib._
   * @param tgcWidth size in bits of the tag cycle line, deafult to 0 (disabled)
   * @param tgdWidth size in bits of the tag data line, deafult to 0 (disabled)
   * @param useBTE activate the Burst Type Extension, default to false (disabled)
+  * @param addressGranularity This specifies the address granularity for the bus.
   * @example {{{
   * val wishboneBusConf = new WishboneConfig(32,8).withCycleTag(8).withDataTag(8)
   * val wishboneBus = new Wishbone(wishboneBusConf)
@@ -33,7 +40,8 @@ case class WishboneConfig(
   val tgaWidth : Int = 0,
   val tgcWidth : Int = 0,
   val tgdWidth : Int = 0,
-  val useBTE : Boolean = false
+  val useBTE : Boolean = false,
+  val addressGranularity : AddressGranularity.AddressGranularity = AddressGranularity.Unspecified
 ){
   def useTGA = tgaWidth > 0
   def useTGC = tgcWidth > 0
@@ -43,6 +51,14 @@ case class WishboneConfig(
   def isPipelined = useSTALL
 
   def pipelined : WishboneConfig = this.copy(useSTALL = true)
+
+  def wordAddressInc(addressGranularityIfUnspecified : AddressGranularity.AddressGranularity): Int = {
+    val effectiveAddressGranularity = if (addressGranularity == AddressGranularity.Unspecified) addressGranularityIfUnspecified else addressGranularity
+    effectiveAddressGranularity match {
+      case AddressGranularity.Byte => dataWidth / 8
+      case _ => 1
+    }
+  }
 
   def withDataTag(size : Int)    : WishboneConfig = this.copy(tgdWidth = size)
   def withAddressTag(size : Int) : WishboneConfig = this.copy(tgaWidth = size)

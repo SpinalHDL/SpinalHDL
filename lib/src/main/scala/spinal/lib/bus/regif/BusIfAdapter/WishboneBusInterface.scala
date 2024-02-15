@@ -53,6 +53,7 @@ case class WishboneBusInterface(
   if (bus.config.useERR) bus.ERR := readError
   override def readAddress() = bus.ADR
   override def writeAddress() = bus.ADR
+  override def wordAddressInc = bus.config.wordAddressInc(addressGranularityIfUnspecified = AddressGranularity.Byte)
 
   override def readHalt() = halted := True
   override def writeHalt() = halted := True
