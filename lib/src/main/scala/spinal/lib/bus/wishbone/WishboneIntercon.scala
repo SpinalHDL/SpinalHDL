@@ -113,11 +113,16 @@ case class WishboneInterconFactory(){
     for((bus, model) <- slaves){
       val busConnections = connections.filter(_.s == bus)
       val busMasters = busConnections.map(c => masters(c.m))
-      val arbiter = new WishboneArbiter(bus.config, busMasters.size)
-      arbiter.setCompositeName(bus, "arbiter")
-      model.connector(arbiter.io.output, bus)
-      for((connection, arbiterInput) <- (busConnections, arbiter.io.inputs).zipped) {
-        connectionsOutput(connection) = arbiterInput
+
+      if (busMasters.size != 1) {
+        val arbiter = new WishboneArbiter(bus.config, busMasters.size)
+        arbiter.setCompositeName(bus, "arbiter")
+        model.connector(arbiter.io.output, bus)
+        for ((connection, arbiterInput) <- (busConnections, arbiter.io.inputs).zipped) {
+          connectionsOutput(connection) = arbiterInput
+        }
+      } else {
+        connectionsOutput(busConnections(0)) = bus
       }
     }
 
