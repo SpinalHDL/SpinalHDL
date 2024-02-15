@@ -12,7 +12,7 @@ object WishboneConnectors{
 
 case class WishboneInterconFactory(){
   case class MasterModel(var connector : (Wishbone,Wishbone) => Unit = WishboneConnectors.direct)
-  case class SlaveModel(mapping : SizeMapping, var connector : (Wishbone,Wishbone) => Unit = WishboneConnectors.direct, var transactionLock : Boolean = true)
+  case class SlaveModel(mapping : AddressMapping, var connector : (Wishbone,Wishbone) => Unit = WishboneConnectors.direct, var transactionLock : Boolean = true)
   case class ConnectionModel(m : Wishbone, s : Wishbone, var connector : (Wishbone,Wishbone) => Unit = WishboneConnectors.direct)
 
 
@@ -46,9 +46,9 @@ case class WishboneInterconFactory(){
 
   /** add a slave to the intercon, and specify its address space
     * @param bus the slave device
-    * @param mapping the address defined via [[spinal.lib.bus.misc.SizeMapping]]
+    * @param mapping the address defined via [[spinal.lib.bus.misc.AddressMapping]]
     */
-  def addSlave(bus: Wishbone,mapping: SizeMapping) : this.type = {
+  def addSlave(bus: Wishbone,mapping: AddressMapping) : this.type = {
     slaves(bus) = SlaveModel(mapping)
     this
   }
@@ -65,7 +65,7 @@ case class WishboneInterconFactory(){
     * )
     * }}}
     */
-  def addSlaves(orders : (Wishbone,SizeMapping)*) : this.type = {
+  def addSlaves(orders : (Wishbone,AddressMapping)*) : this.type = {
     orders.foreach(order => addSlave(order._1,order._2))
     this
   }
