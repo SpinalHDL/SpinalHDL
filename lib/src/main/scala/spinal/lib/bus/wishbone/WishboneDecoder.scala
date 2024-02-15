@@ -55,15 +55,19 @@ class WishboneDecoder(config : WishboneConfig, decodings : Seq[AddressMapping]) 
 
   // the selector will use the decodings list to select the right slave based on the address line
   val selector = Vec(decodings.map(_.hit(io.input.ADR) && io.input.CYC))
+  val selectorIndex = OHToUInt(selector)
 
   // Generate the CYC sygnal for the selected slave
   (io.outputs.map(_.CYC), selector).zipped.foreach(_ := _)
-  //Implementing the multiplexer logic, it thakes the one Hot bit vector/bit array as input
-  io.input.ACK      := MuxOH(selector, Vec(io.outputs.map(_.ACK)))
-  io.input.DAT_MISO := MuxOH(selector, Vec(io.outputs.map(_.DAT_MISO)))
 
-  if(config.useSTALL) io.input.STALL    := MuxOH(selector, Vec(io.outputs.map(_.STALL)))
-  if(config.useERR)   io.input.ERR      := MuxOH(selector, Vec(io.outputs.map(_.ERR)))
-  if(config.useRTY)   io.input.RTY      := MuxOH(selector, Vec(io.outputs.map(_.RTY)))
-  if(config.useTGD)   io.input.TGD_MISO := MuxOH(selector, Vec(io.outputs.map(_.TGD_MISO)))
+  //Implementing the multiplexer logic, it thakes the one Hot bit vector/bit array as input
+  val selectedOutput = io.outputs(selectorIndex)
+
+  io.input.ACK := selectedOutput.ACK
+  io.input.DAT_MISO := selectedOutput.DAT_MISO
+
+  if(config.useSTALL) io.input.STALL    := selectedOutput.STALL
+  if(config.useERR)   io.input.ERR      := selectedOutput.ERR
+  if(config.useRTY)   io.input.RTY      := selectedOutput.RTY
+  if(config.useTGD)   io.input.TGD_MISO := selectedOutput.TGD_MISO
 }
