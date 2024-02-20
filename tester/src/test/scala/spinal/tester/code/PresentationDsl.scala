@@ -1370,3 +1370,86 @@ object Shubacktchan2 extends App{
 ////  ...
 //  val target = execute(PC) + 0x666
 //}
+
+
+
+object Date2024{
+
+  {
+    import spinal.core._
+
+    class Toplevel extends Component {
+      val x, y = in UInt (8 bits)
+      val result = out(x + y)
+    }
+
+    object MyMain extends App {
+      SpinalVerilog(new Toplevel)
+    }
+  }
+
+  {
+    import spinal.core._
+
+    class Toplevel extends Component {
+      val values = in(Vec.fill(4)(UInt(8 bits)))
+      val result = out(values.reduce((a,b) => (a > b).mux(a, b)))
+    }
+
+    object MyMain extends App {
+      SpinalVerilog(new Toplevel)
+    }
+  }
+
+
+  {
+    //      var tmp = elements.head
+    //      for(e <- elements.tail){
+    //        tmp = (e < tmp).mux(e, tmp)
+    //      }
+
+    import spinal.core._
+
+    class Toplevel extends Component {
+      val x,y,z = in(UInt(8 bits))
+
+      val elements = ArrayBuffer[UInt]()
+      elements += x
+      elements += y
+      elements += z
+
+      var tmp = U(0)
+      for(e <- elements){
+        tmp = tmp + e
+      }
+
+      val result = out(tmp)
+    }
+
+    object MyMain extends App {
+      SpinalVerilog(new Toplevel)
+    }
+  }
+}
+
+import spinal.core._
+
+class Toplevel extends Component {
+  val x, y, z = in(UInt(8 bits))
+
+  val elements = ArrayBuffer[UInt]()
+  elements += x
+  elements += y
+  elements += z
+
+  var tmp = elements.head
+  for (e <- elements.tail) {
+    tmp = (e < tmp).mux(e, tmp)
+  }
+
+  val result = out(tmp)
+}
+
+object MyMain extends App {
+  SpinalVerilog(new Toplevel)
+}
