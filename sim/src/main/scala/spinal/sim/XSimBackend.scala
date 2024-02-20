@@ -84,33 +84,66 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       ".sh"
     }
   }
-  val simulatePath = new File(s"${workPath}/${projectName}.sim/sim_1/behav/xsim").getAbsolutePath
-  val simulateKernelPath = new File(s"${simulatePath}/xsim.dir/${toplevelName}_behav").getAbsolutePath
-  val compilePath = s"${simulatePath}/compile.${scriptSuffix}"
-  val elaboratePath = s"${simulatePath}/elaborate.${scriptSuffix}"
+  val simulateDir        = s"${workPath}/${toplevelName}_xsim.sim/sim_1/behav/xsim"
+  val simulatePath       = new File(simulateDir).getAbsolutePath
+  val compilePath        = s"${simulatePath}/compile.${scriptSuffix}"
+  val elaboratePath      = s"${simulatePath}/elaborate.${scriptSuffix}"
 
-  val vivadoInstallPath = sys.env.get("VIVADO_HOME") match {
-    case Some(x) => x
-    case None => {
-      assert(assertion = false, "VIVADO_HOME not found! Setup your vivado environment first.")
+  val isMsys = sys.env.get("MSYSTEM").isDefined
+
+  val msys2Shell = {
+    if (isWindows) {
+      if (isMsys) { // SBT Called from Msys
+        "sh"
+      } else { // SBT Called from CMD
+        val msys2ShellPath =
+          sys.env.getOrElse("MSYS2_ROOT", "C:\\msys64") + "\\msys2_shell.cmd"
+        if (!new File(msys2ShellPath).exists) {
+          throw new Exception(
+            "MSYS2 Shell not found! Please Setup you MSYS2_ROOT Environment Variable."
+          )
+        }
+        msys2ShellPath + " -defterm -here -no-start -mingw64"
+      }
+    } else {
       ""
     }
   }
 
-  def doCmd(command: String, cwd: File, message : String) = {
-    val logger = new Logger()
-    if(Process(command, cwd)! (logger) != 0){
-      println(logger.logs)
-      throw new Exception(message)
-    }
-  }
-  def doCmd(command: String, cwd: File, extraEnv: Seq[(String, String)], message : String) = {
+  val vivadoHome = sys.env.getOrElse(
+    "VIVADO_HOME",
+    throw new Exception(
+      "VIVADO_HOME not found! Setup your vivado environment first."
+    )
+  )
+  val vivadoBinPath = new File(s"${vivadoHome}/bin").getAbsolutePath
+
+  def doCmd(command: String, cwd: File, message : String, extraEnv: Seq[(String, String)] = Seq.empty) : Unit = {
     val logger = new Logger()
     if(Process(command, cwd, extraEnv :_*)! (logger) != 0){
       println(logger.logs)
       throw new Exception(message)
     }
   }
+  def doCmdVivado(command: String, cwd: File, message: String, extraEnv: Seq[(String, String)] = Seq.empty) = {
+    val cmdVivado =
+      if (isWindows) {
+        if (isMsys) {
+          s"sh ${vivadoBinPath}/setEnvAndRunCmd.sh ${command}"
+        } else {
+          s"cmd /c ${vivadoBinPath}/setEnvAndRunCmd.bat ${command}"
+        }
+      } else {
+        s"${vivadoBinPath}/setEnvAndRunCmd.sh ${command}"
+      }
+
+    doCmd(cmdVivado, cwd, message, extraEnv)
+  }
+  def doCmdMys2(command: String, cwd: File, message: String, extraEnv: Seq[(String, String)] = Seq.empty) : Unit = {
+    val cmdMsys2 = s""" $msys2Shell -c "$command" """.trim
+    doCmd(cmdMsys2, cwd, message, extraEnv)
+  }
+
 
   class Logger extends ProcessLogger {
     val logs = new StringBuilder()
@@ -157,7 +190,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       s"import_files -force $p"
     }
     val importXsi = xciAbsoluteSourcesPaths map { p =>
-      s"import_files -force -quiet [findFiles $p *.xci]"
+      s"import_files -force -quiet [findFiles $p *.{xci,xcix}]"
     }
     val importBd = bdAbsoluteSourcesPaths map { p =>
       s"import_files -force -quiet [findFiles $p *.bd]"
@@ -207,36 +240,33 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     outFile.close()
 
     val vivadoScriptPath = scriptPath.replace("\\", "/")
-    val command = {
-      val baseCommand = s"vivado -mode batch -source $vivadoScriptPath"
-      if (isWindows) {
-        s"sh -c \'${baseCommand}\'"
-      } else {
-        baseCommand
-      }
-    };
-    doCmd(command,
+    val command =  s""" vivado -mode batch -source "$vivadoScriptPath" """.trim
+    doCmdVivado(command,
       new File(workPath),
       "Generation of vivado script failed")
   }
 
   def getScriptCommand(cmd: String) = {
     if (isWindows) {
-      s"cmd /k ${cmd}.bat"
+      if (isMsys){
+        s"${simulatePath}\\${cmd}.bat"  
+      } else {
+        s"${cmd}.bat"
+      }
     } else {
-      s"bash ${cmd}.sh"
+      s"${cmd}.sh"
     }
   }
 
   def runScript() = {
-    doCmd(getScriptCommand("compile"),
+    doCmdVivado(getScriptCommand("compile"),
       new File(simulatePath),
       "run compile failed")
-    doCmd(getScriptCommand("elaborate"),
+    doCmdVivado(getScriptCommand("elaborate"),
       new File(simulatePath),
       "run elaborate failed")
-    val simDesignDir = s"${workspacePath}/${workspaceName}/${toplevelName}_xsim.sim/sim_1/behav/xsim/xsim.dir"
-    FileUtils.copyDirectory(new File(simDesignDir), new File("xsim.dir"))
+      val simDesignDir = s"${simulatePath}/xsim.dir"
+      FileUtils.copyDirectory(new File(simDesignDir), new File("xsim.dir"))
   }
 
   def compileDriver() = {
@@ -250,7 +280,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       jdk + "/include"
     }
 
-    val xsim = Paths.get(vivadoInstallPath, "data", "xsim").toAbsolutePath.toString
+    val xsim = Paths.get(vivadoHome, "data", "xsim").toAbsolutePath.toString
     val xsimIncludes = if (isWindows) {
       FileUtils.copyDirectory(new File(s"$xsim\\include"), new File(s"${workspacePath}\\${workspaceName}\\xsimIncludes"))
       s"xsimIncludes"
@@ -313,13 +343,20 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       ldFlags.mkString(" ")
     )
 
-    doCmd(
-      Seq(CC,
-        cFlags.mkString(" ")
-      ).mkString(" "),
-      new File(s"${workspacePath}/${workspaceName}"),
-      "Compilation of driver failed"
-    )
+    val gccCmd = Seq(CC, cFlags.mkString(" ")).mkString(" ")
+    if (isWindows) {
+      doCmdMys2(
+        gccCmd,
+        new File(s"${workspacePath}/${workspaceName}"),
+        "Compilation of driver failed"
+      )
+    } else {
+      doCmd(
+        gccCmd,
+        new File(s"${workspacePath}/${workspaceName}"),
+        "Compilation of driver failed"
+      )
+    }
     System.load(driverPath)
   }
 
@@ -329,6 +366,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
   }
 
   FileUtils.deleteQuietly(new File(s"${workPath}"))
+  FileUtils.deleteQuietly(new File("xsim.dir"))
   new File(workPath).mkdirs()
   generateScript()
   runScript()

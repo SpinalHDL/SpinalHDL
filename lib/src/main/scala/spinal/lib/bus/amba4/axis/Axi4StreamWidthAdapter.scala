@@ -185,7 +185,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
 
   // Buffer update
   val fillLevel = Reg(UInt(log2Up(MAX_SIZE) bit)) init(0)
-  var fillLevel_next = fillLevel
+  var fillLevel_next = CombInit(fillLevel)
   when(outStream.fire) {
     fillLevel_next \= fillLevel - outConfig.dataWidth
   }
@@ -222,7 +222,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
   }
 
   // Input stream signals
-  val canWrite = !bufferValid.reversed(writeBytes)
+  val canWrite = !bufferValid.reversed.apply(writeBytes)
   val canWriteWhenRead = if (inConfig.dataWidth > outConfig.dataWidth) (writeBytes <= outConfig.dataWidth) else True
   inStage.ready := !bufferLast && (canWrite || (canWriteWhenRead && outStream.fire))
 

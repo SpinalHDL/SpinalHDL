@@ -50,7 +50,7 @@ sealed class WaveFormat(val ext : String = "???"){
 
 
 trait Backend{
-  val uniqueId       = Backend.allocateUniqueId()
+  var uniqueId       = Backend.allocateUniqueId().toLong
   def isBufferedWrite : Boolean
 }
 
@@ -65,6 +65,7 @@ object Backend{
 
   val osName         = System.getProperty("os.name").toLowerCase
   val isWindows      = osName.contains("windows")
+  val isFreeBsd      = osName.contains("freebsd")
   val isMac          = osName.contains("mac") || osName.contains("darwin")
   val isLinux = !isWindows && !isMac
 

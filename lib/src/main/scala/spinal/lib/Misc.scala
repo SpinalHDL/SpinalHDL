@@ -80,6 +80,17 @@ object DoCmd {
     Process(cmd, new java.io.File(path)).!(new Logger)
     stdOut.toString()
   }
+
+  def doCmd(cmd : Seq[String], location : File) = {
+    println(cmd.mkString(" "))
+    class Logger extends ProcessLogger {
+      override def err(s: => String): Unit = { if(!s.startsWith("ar: creating ")) println(s) }
+      override def out(s: => String): Unit = {}
+      override def buffer[T](f: => T) = f
+    }
+
+    assert(Process(cmd, location).! (new Logger()) == 0)
+  }
 }
 
 

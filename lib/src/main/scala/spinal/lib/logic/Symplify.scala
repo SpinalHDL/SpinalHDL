@@ -34,6 +34,10 @@ object Symplify{
   def apply(input : Bits, trueTerms : Iterable[Masked]) : Bool = {
     Symplify.logicOf(input, SymplifyBit.getPrimeImplicantsByTrueAndDontCare(trueTerms.toSeq, Nil, widthOf(input)))
   }
+
+  def trueAndDontCare(input : Bits, trueTerms : Iterable[Masked], dontCare : Iterable[Masked]) : Bool = {
+    Symplify.logicOf(input, SymplifyBit.getPrimeImplicantsByTrueAndDontCare(trueTerms.toSeq, dontCare.toSeq, widthOf(input)))
+  }
 }
 
 object SymplifyBit{

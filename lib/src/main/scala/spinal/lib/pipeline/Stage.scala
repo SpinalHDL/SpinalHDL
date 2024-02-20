@@ -26,19 +26,46 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     valid := stream.valid
     stream.ready := isReady
   }
-  def driveFrom(stage : Stage, cond : Bool, values : List[Stageable[_ <: Data]]) = new Composite(this, "driveFrom"){
-    val fired = RegInit(False) setWhen(isFireing) clearWhen(isChanging)
-    isValid := stage.isValid && cond && !fired
-    stage.haltIt(isValid && !fired && !isReady)
+
+  def driveFrom(stage : Stage, cond : Bool, values : List[Stageable[_ <: Data]], syncronous : Boolean = true) = new Composite(this, "driveFrom"){
+    isValid := stage.isValid && cond
+    val doHalt = isValid && cond && !isReady
+    stage.haltIt(doHalt)
+
+    val fired = !syncronous generate new Area{
+      val done = RegInit(False) setWhen(isFireing) clearWhen(isChanging)
+      when(done){
+        doHalt := False
+        isValid := False
+      }
+    }
+
     for(value <- values){
       self(value).assignFrom(stage(value))
     }
   }
-  def forkStream() : Stream[NoData] = {
+
+  def forkStream(cond : Bool = True)(implicit loc: Location) : Stream[NoData] = {
     val ret = Stream(NoData())
-    val fired = RegInit(False) setWhen(ret.fire) clearWhen(isChanging)
-    ret.valid := isValid && fired
-    haltIt(!fired && ret.ready)
+    val fired = RegInit(False) setWhen(ret.fire) clearWhen(isChanging) setCompositeName(ret, "fired")
+    ret.valid := isValid && !fired && cond
+    haltIt(!fired && !ret.ready && cond)
+    ret
+  }
+
+
+  def forkFlow(cond: Bool = True)(implicit loc: Location): Flow[NoData] = {
+    val ret = Flow(NoData())
+    val fired = RegInit(False) setWhen (ret.fire) clearWhen (isChanging) setCompositeName(ret, "fired")
+    ret.valid := isValid && !fired && cond
+    ret
+  }
+
+
+  def toStream()(implicit loc: Location): Stream[NoData] = {
+    val ret = Stream(NoData())
+    ret.valid := isValid && !isRemoved
+    haltIt(!ret.ready)
     ret
   }
 
@@ -150,32 +177,33 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   def isStuck: Bool = isValid && !isReady
   def isChanging:Bool = isReady || isRemoved
   def isRemoved : Bool = {
-    if(internals.arbitration.isRemoved == null) internals.arbitration.isRemoved = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isRemoved == null) internals.arbitration.isRemoved = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isRemoved
   }
   def isFlushed : Bool = {
-    if(internals.arbitration.isFlushed == null) internals.arbitration.isFlushed = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isFlushed == null) internals.arbitration.isFlushed = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isFlushed
   }
+  //So, not realy well named, as it just check if a transaction is moving to the next stage (output.valid && output.ready)
   def isForked : Bool = {
-    if(internals.arbitration.isForked == null) internals.arbitration.isForked = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isForked == null) internals.arbitration.isForked = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isForked
   }
   def isFlushingNext : Bool = {
-    if(internals.arbitration.isFlushingNext == null) internals.arbitration.isFlushingNext = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isFlushingNext == null) internals.arbitration.isFlushingNext = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isFlushingNext
   }
   def isFlushingRoot : Bool = {
-    if(internals.arbitration.isFlushingRoot == null) internals.arbitration.isFlushingRoot = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isFlushingRoot == null) internals.arbitration.isFlushingRoot = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isFlushingRoot
   }
   def isReady : Bool = {
-    if(internals.input.ready == null) internals.input.ready = ContextSwapper.outsideCondScope(Bool())
+    if(internals.input.ready == null) internals.input.ready = ContextSwapper.outsideCondScopeData(Bool())
     internals.input.ready
   }
   def isSelfRemoved : Bool = isFlushingRoot
   def isThrown : Bool = {
-    if(internals.arbitration.isThrown == null) internals.arbitration.isThrown = ContextSwapper.outsideCondScope(Bool())
+    if(internals.arbitration.isThrown == null) internals.arbitration.isThrown = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isThrown
   }
 
@@ -184,17 +212,17 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
 
 
   def apply(key : StageableKey) : Data = {
-    internals.stageableToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope{
+    internals.stageableToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData{
       key.stageable()//.setCompositeName(this, s"${key}")
     })
   }
   def overloaded(key : StageableKey) : Data = {
-    internals.stageableOverloadedToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope{
+    internals.stageableOverloadedToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData{
       key.stageable()//.setCompositeName(this, s"${key}_overloaded")
     })
   }
   def resulting(key : StageableKey) : Data = {
-    internals.stageableResultingToData.getOrElseUpdate(key, ContextSwapper.outsideCondScope{
+    internals.stageableResultingToData.getOrElseUpdate(key, ContextSwapper.outsideCondScopeData{
       key.stageable()//.setCompositeName(this, s"${key}_overloaded")
     })
   }

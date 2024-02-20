@@ -251,9 +251,6 @@ trait Statement extends ExpressionContainer with ContextUser with ScalaLocated w
     var ptr = parentScope
 
     while(ptr != root){
-      if(ptr.parentStatement == null){
-        print("asd")
-      }
       func(ptr.parentStatement)
       ptr = ptr.parentStatement.parentScope
     }

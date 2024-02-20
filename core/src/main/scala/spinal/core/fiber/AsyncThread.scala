@@ -72,6 +72,6 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
 
   override def toString: String = {
     if(isNamed) return getName()
-    if(willLoadHandles.nonEmpty) s"${willLoadHandles.map(_.getName("???")).mkString(", ")} loader" else super.toString
+    if(willLoadHandles.nonEmpty) s"${willLoadHandles.filter(!_.isLoaded).map(_.getName("???")).mkString(", ")} loader" else super.toString
   }
 }

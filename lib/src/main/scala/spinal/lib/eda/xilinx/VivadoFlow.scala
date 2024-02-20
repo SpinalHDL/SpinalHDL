@@ -24,7 +24,7 @@ object VivadoFlow {
    * @return Report
    */
   def apply(vivadoPath: String, workspacePath: String, rtl: Rtl, family: String, device: String, frequencyTarget: HertzNumber = null, processorCount: Int = 1): Report = {
-    val targetPeriod = (if (frequencyTarget != null) frequencyTarget else 400 MHz).toTime
+    val targetPeriod = (if (frequencyTarget != null) frequencyTarget else 500 MHz).toTime
 
     val workspacePathFile = new File(workspacePath)
     FileUtils.deleteDirectory(workspacePathFile)
@@ -39,16 +39,31 @@ object VivadoFlow {
     // generate tcl script
     val tcl = new java.io.FileWriter(Paths.get(workspacePath, "doit.tcl").toFile)
     tcl.write(
-s"""${readRtl}
-read_xdc doit.xdc
+s"""
+create_project -force project_bft_batch ./project_bft_batch -part $device
 
-synth_design -part $device -top ${rtl.getTopModuleName()}
-opt_design
-place_design
-route_design
+add_files {${rtl.getRtlPaths().mkString(" ")}}
+add_files -fileset constrs_1 ./doit.xdc
 
+import_files -force
+
+set_property -name {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
+launch_runs synth_1
+wait_on_run synth_1
+open_run synth_1 -name netlist_1
+
+report_timing_summary -delay_type max -report_unconstrained -check_timing_verbose -max_paths 10 -input_pins -file syn_timing.rpt
+report_power -file syn_power.rpt
+
+launch_runs impl_1
+wait_on_run impl_1
+
+open_run impl_1
 report_utilization
-report_timing"""
+report_timing_summary -warn_on_violation
+report_pulse_width -warn_on_violation -all_violators
+report_design_analysis -logic_level_distribution
+"""
     )
     tcl.flush();
     tcl.close();
@@ -65,9 +80,36 @@ report_timing"""
     val report = log.getLines().mkString
 
     new Report {
+      // Non-logic elements such as PLL or BRAMs may have stricter timing then logic, check for their pulse slack
+      // getFMax() will then take this into account later. Uses "report_pulse_width -warn_on_violation -all_violators"
+      //
+      // Pulse Width Checks
+      // <...>
+      // Check Type        Corner  Lib Pin             Reference Pin  Required(ns)  Actual(ns)  Slack(ns)  Location      Pin
+      // Min Period        n/a     RAMB18E2/CLKARDCLK  n/a            1.569         2.857       1.288      RAMB18_X9Y68  fifo128x32_inst/f/logic_ram_reg/CLKARDCLK
+      // Low Pulse Width   Slow    RAMB18E2/CLKARDCLK  n/a            0.542         1.429       0.887      RAMB18_X9Y68  fifo128x32_inst/f/logic_ram_reg/CLKARDCLK
+      // High Pulse Width  Slow    RAMB18E2/CLKARDCLK  n/a            0.542         1.429       0.887      RAMB18_X9Y68  fifo128x32_inst/f/logic_ram_reg/CLKARDCLK
+
+      def getPulseSlack(): Double /*nanoseconds*/ = {
+        // if not found, assume only logic is involved and do not take pulse slack into account
+        var lowest_pulse_slack : Double = 100000.0
+        val pulse_strings = "(Min Period|Low Pulse Width|High Pulse Width)(?:\\s+\\S+){5}(?:\\s+)-?(\\d+.?\\d+)+".r.findAllIn(report).toList
+        // iterate through pulse slack lines
+        for (pulse_string <- pulse_strings) {
+          // iterate through number columns
+          val pulse_slack_numbers = "\\s-?([0-9]+\\.?[0-9]+)+".r.findAllIn(pulse_string).toList
+          // third number column is pulse slack
+          if (pulse_slack_numbers.length >= 3) {
+            if (pulse_slack_numbers.apply(2).toDouble < lowest_pulse_slack) {
+              lowest_pulse_slack = pulse_slack_numbers.apply(2).toDouble
+            }
+          }
+        }       
+        return lowest_pulse_slack 
+      }
       override def getFMax(): Double = {
         val intFind = "-?(\\d+\\.?)+".r
-        val slack = try {
+        var slack = try {
           (family match {
             case "Artix 7" | "Kintex 7" | "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
               intFind.findFirstIn("-?(\\d+.?)+ns  \\(required time - arrival time\\)".r.findFirstIn(report).get).get
@@ -75,18 +117,27 @@ report_timing"""
         } catch {
           case e : Exception => -100000.0
         }
+        val pulse_slack = getPulseSlack()
+        if (pulse_slack < slack) {
+          slack = pulse_slack
+        }
         return 1.0 / (targetPeriod.toDouble - slack * 1e-9)
       }
       override def getArea(): String =  {
-        val intFind = "(\\d+,?)+".r
+        // 0, 30, 0.5, 15,5
+        val intFind = "(\\d+,?\\.?\\d*)".r
         val leArea = try {
           family match {
             case "Artix 7" | "Kintex 7" =>
               intFind.findFirstIn("Slice LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
               intFind.findFirstIn("Slice Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
+            // Assume the the resources table is the only one with 5 columns (this is the case in Vivado 2021.2)
+            // (Not very version-proof, we should actually first look at the right table header first...)
             case "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
-              intFind.findFirstIn("CLB LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
-              intFind.findFirstIn("CLB Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
+              intFind.findFirstIn("\\| CLB LUTs[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " LUT " +
+              intFind.findFirstIn("\\| CLB Registers[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " FF " +
+              intFind.findFirstIn("\\| Block RAM Tile[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " BRAM " + 
+              intFind.findFirstIn("\\| URAM[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " URAM "
           }
         } catch {
           case e : Exception => "???"
@@ -96,4 +147,3 @@ report_timing"""
     }
   }
 }
-

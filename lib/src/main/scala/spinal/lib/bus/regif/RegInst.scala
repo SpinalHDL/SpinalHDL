@@ -144,6 +144,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
           case t: Bits => t.init(resetValue)
           case t: UInt => t.init(resetValue)
           case t: SInt => t.init(resetValue)
+          case t: SpinalEnumCraft[SpinalEnum] => t.init(t.spinalEnum.elements(resetValue.toInt))
         }
         reg
       }

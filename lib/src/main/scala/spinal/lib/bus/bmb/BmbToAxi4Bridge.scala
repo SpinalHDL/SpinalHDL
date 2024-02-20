@@ -4,24 +4,28 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi._
 
-case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 31, halfRateAw : Boolean = true) extends Component{
-  val axiConfig = Axi4Config(
+object BmbToAxi4SharedBridge{
+  def getAxi4Config(bmbConfig : BmbParameter) = Axi4Config(
     addressWidth = bmbConfig.access.addressWidth,
-    dataWidth    = bmbConfig.access.dataWidth,
-    idWidth      = 0,
-    useId        = true,
-    useSize      = true,
-    useLen       = true,
-    useLast      = true,
-    useResp      = true,
-    useStrb      = true,
-    useProt      = true,
-    useCache     = true,
-    useQos       = false,
-    useRegion    = false,
-    useBurst     = false,
-    useLock      = false
+    dataWidth = bmbConfig.access.dataWidth,
+    idWidth = 0,
+    useId = true,
+    useSize = true,
+    useLen = true,
+    useLast = true,
+    useResp = true,
+    useStrb = true,
+    useProt = true,
+    useCache = true,
+    useQos = false,
+    useRegion = false,
+    useBurst = false,
+    useLock = false
   )
+}
+
+case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 31, halfRateAw : Boolean = true) extends Component{
+  val axiConfig = BmbToAxi4SharedBridge.getAxi4Config(bmbConfig)
 
   val io = new Bundle {
     val input = slave(Bmb(bmbConfig))

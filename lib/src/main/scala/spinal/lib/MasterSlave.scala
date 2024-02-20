@@ -1,6 +1,6 @@
 package spinal.lib
 
-import spinal.core.{Data, HardType}
+import spinal.core.{Data, HardType, IConnectable}
 
 /** Master/slave interface */
 trait IMasterSlave {

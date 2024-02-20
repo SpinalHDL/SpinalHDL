@@ -80,9 +80,11 @@ object DmaSg{
                        channels : Seq[Channel],
                        bytePerTransferWidth : Int,
                        weightWidth : Int,
+                       withSgBus : Boolean = false,
                        pendingWritePerChannel : Int = 15,
                        pendingReadPerChannel : Int = 15){
 
+    def toSgBusParameter() = SgBusParameter(addressWidth, bytePerTransferWidth, channels.size)
     val readWriteMinDataWidth = Math.min(readDataWidth, writeDataWidth)
     val readWriteMaxDataWidth = Math.max(readDataWidth, writeDataWidth)
     val writeByteCount = writeDataWidth/8
@@ -118,7 +120,53 @@ object DmaSg{
     }
   }
 
+  case class SgBusParameter(addressWidth : Int, bytePerTransferWidth : Int, channels : Int)
 
+  case class SgReadCmd(p : SgBusParameter) extends Bundle {
+    val channelId = UInt(log2Up(p.channels) bits)
+  }
+
+  case class SgReadRsp(p : SgBusParameter) extends Bundle{
+    val channelId = UInt(log2Up(p.channels) bits)
+    val srcAddress = UInt(p.addressWidth bits)
+    val dstAddress = UInt(p.addressWidth bits)
+    val bytes = UInt(p.bytePerTransferWidth bits)
+    val last = Bool()
+    val stall = Bool()
+  }
+
+  case class SgRead(p: SgBusParameter) extends Bundle with IMasterSlave{
+    val cmd = Stream(SgReadCmd(p))
+    val rsp = Flow(SgReadRsp(p))
+
+    override def asMaster(): Unit = {
+      master(cmd)
+      slave(rsp)
+    }
+  }
+
+  case class SgWriteCmd(p: SgBusParameter) extends Bundle {
+    val channelId = UInt(log2Up(p.channels) bits)
+    val bytesDone = UInt(p.bytePerTransferWidth+1 bits)
+    val endOfPacket = Bool()
+    val completed = Bool()
+  }
+
+  case class SgWrite(p: SgBusParameter) extends Bundle with IMasterSlave {
+    val cmd = Stream(SgWriteCmd(p))
+    override def asMaster(): Unit = {
+      master(cmd)
+    }
+  }
+
+  case class SgBus(p : SgBusParameter) extends Bundle with IMasterSlave{
+    val write = SgWrite(p)
+    val read = SgRead(p)
+
+    override def asMaster(): Unit = {
+      master(write, read)
+    }
+  }
 
   case class Channel(memoryToMemory : Boolean,
                      inputsPorts : Seq[Int],
@@ -126,10 +174,13 @@ object DmaSg{
                      linkedListCapable : Boolean,
                      directCtrlCapable : Boolean,
                      selfRestartCapable : Boolean,
+                     linkedListFromMemory: Boolean = true,
+                     linkedListFromSg: Boolean = true,
                      progressProbes : Boolean,
                      halfCompletionInterrupt : Boolean,
                      bytePerBurst : Option[Int] = None,
-                     fifoMapping : Option[(Int, Int)] = None) extends OverridedEqualsHashCode {
+                     fifoMapping : Option[(Int, Int)] = None,
+                     name : Option[String] = None) extends OverridedEqualsHashCode {
     def canRead = memoryToMemory || outputsPorts.nonEmpty
     def canWrite = memoryToMemory || inputsPorts.nonEmpty
     def canInput = inputsPorts.nonEmpty
@@ -165,10 +216,12 @@ object DmaSg{
       val inputs = Vec(p.inputs.map(s => slave(Bsb(s))))
       val interrupts = out Bits(p.channels.size bits)
       val ctrl = slave(ctrlType())
+      val sg = p.withSgBus generate master(SgBus(p.toSgBusParameter()))
     }
 
     val ctrl = slaveFactory(io.ctrl)
 
+    val internalMemoryBytes = p.memory.bankWidth/8*p.memory.bankWords*p.memory.bankCount
     val ptrWidth = log2Up(p.memory.bankWords*p.memory.bankCount) + 1
     val ptrType = HardType(UInt(ptrWidth bits))
 
@@ -264,12 +317,14 @@ object DmaSg{
       val ll = cp.linkedListCapable generate new Area{
         val sgStart = False
         val valid = RegInit(False)
+        val onSgStream = RegInit(False)
         val head = Reg(Bool())
         val justASync = Reg(Bool())
         val waitDone = Reg(Bool())
         val readDone = Reg(Bool())
         val writeDone = Reg(Bool())
         val gotDescriptorStall = Reg(Bool())
+        val controlNoCompletion = Reg(Bool())
         val packet = Reg(Bool()) clearWhen(descriptorStart)
         val requireSync = Reg(Bool()) clearWhen(descriptorStart)
         val ptr, ptrNext = Reg(UInt(p.addressWidth bits))
@@ -313,7 +368,11 @@ object DmaSg{
       val fifo = new Area{
         val (base, words) = cp.fifoMapping match {
           case None => (Reg(ptrType),Reg(ptrType))
-          case Some((x,y)) => (U(x*8/p.memory.bankWidth, ptrWidth bits), U(y*8/p.memory.bankWidth-1, ptrWidth bits))
+          case Some((x,y)) => {
+            val n = cp.name.getOrElse("")
+            assert(x < internalMemoryBytes && x+y <= internalMemoryBytes, f"The channel $n buffer range, 0x$x%x:0x${x+y-1}%x isn't contained in the internal memory space (0x0:0x${internalMemoryBytes-1}%x)")
+            (U(x*8/p.memory.bankWidth, ptrWidth bits), U(y*8/p.memory.bankWidth-1, ptrWidth bits))
+          }
         }
 
         val push = new Area {
@@ -1090,7 +1149,7 @@ object DmaSg{
 
 
     val ll = p.canSgRead generate new Area{
-      val channels = Core.this.channels.filter(_.cp.linkedListCapable)
+      val (channels, channelsId) = Core.this.channels.zipWithIndex.filter(_._1.cp.linkedListCapable).unzip
       val arbiter = new Area{
         val requests = channels.map(c => c.ll.requestLl)
         val oh = OHMasking.first(requests)
@@ -1101,6 +1160,8 @@ object DmaSg{
         }
         val head = channel(_.ll.head)
         val isJustASink = channel(_.descriptorValid)
+        val doDescriptorStall = channel(c => !c.ll.controlNoCompletion || c.ll.gotDescriptorStall)
+        val onSgStream = channel(_.ll.onSgStream)
       }
 
       val cmd = new Area{
@@ -1112,6 +1173,8 @@ object DmaSg{
         val bytesDone = if(channels.exists(_.cp.canInput)) fromArbiter(_.bytesProbe.value, _.cp.canInput) else U(0)
         val endOfPacket = fromArbiter(_.ll.packet)
         val isJustASink = RegNextWhen(arbiter.isJustASink, !valid)
+        val doDescriptorStall = RegNextWhen(arbiter.doDescriptorStall, !valid)
+        val onSgStream = RegNextWhen(arbiter.onSgStream, !valid)
 
         val readFired, writeFired = Reg(Bool())
 
@@ -1138,14 +1201,14 @@ object DmaSg{
         val context = p.SgReadContext()
         context.channel := OHToUInt(oh)
 
-        io.sgRead.cmd.valid := valid && !readFired
+        io.sgRead.cmd.valid := valid && !readFired && !onSgStream
         io.sgRead.cmd.last := True
         io.sgRead.cmd.address := ptrNext(ptrNext.high downto 5) @@ U"00000"
         io.sgRead.cmd.length := descriptorSize-1
         io.sgRead.cmd.opcode := Bmb.Cmd.Opcode.READ
         io.sgRead.cmd.context := B(context)
 
-        io.sgWrite.cmd.valid := valid && !writeFired
+        io.sgWrite.cmd.valid := valid && !writeFired && !onSgStream
         io.sgWrite.cmd.last := True
         io.sgWrite.cmd.address := ptr(ptrNext.high downto 5) @@ U"00000"
         io.sgWrite.cmd.length := 3
@@ -1161,10 +1224,25 @@ object DmaSg{
         writeDataSplit.head := 0
         writeDataSplit.head(0, 27 bits) := B(bytesDone).resized
         writeDataSplit.head(30) := endOfPacket
-        writeDataSplit.head(31) := !isJustASink
+        writeDataSplit.head(31) := !isJustASink && doDescriptorStall
 
         readFired setWhen(io.sgRead.cmd.fire)
         writeFired setWhen(io.sgWrite.cmd.fire)
+
+        val sgStreamLogic = p.withSgBus generate new Area{
+          val channelId = channelsId.map(U(_, log2Up(p.channels.size) bits)).reader(oh).apply(e => e)
+
+          readFired setWhen (io.sg.read.cmd.fire)
+          io.sg.read.cmd.valid := valid && !readFired && onSgStream
+          io.sg.read.cmd.channelId := channelId
+
+          writeFired setWhen (io.sg.write.cmd.fire)
+          io.sg.write.cmd.valid := valid && !writeFired && onSgStream
+          io.sg.write.cmd.channelId := channelId
+          io.sg.write.cmd.bytesDone := bytesDone.resized
+          io.sg.write.cmd.endOfPacket := endOfPacket
+          io.sg.write.cmd.completed := !isJustASink && doDescriptorStall
+        }
       }
 
       val readRsp = new Area{
@@ -1191,7 +1269,7 @@ object DmaSg{
           def mapChannel[T <: Data](f : ChannelLogic => T, gen : Channel => Boolean, byte : Int, bit : Int){
             val bitOffset = (byte % beatBytes)*8 + bit
             when(beatHit(byte)){
-              for((channel, e) <- (channels, oh).zipped) if(gen(channel.cp)) when(e){
+              for((channel, e) <- (channels, oh).zipped) if(gen(channel.cp) && channel.cp.linkedListFromMemory) when(e){
                 val target = f(channel)
                 target.assignFromBits(io.sgRead.rsp.data(bitOffset, widthOf(target) bits))
               }
@@ -1209,13 +1287,32 @@ object DmaSg{
           mapChannel(_.pop.b2m.address, _.canWrite, popOffset, 0)
           mapChannel(_.ll.ptrNext, _ => true, nextOffset, 0)
           mapChannel(_.bytes, _ => true, controlOffset, 0)
+          mapChannel(_.ll.controlNoCompletion, _ => true, controlOffset, 31)
           mapChannel(_.pop.b2s.last, _.canOutput, controlOffset, 30)
           mapChannel(_.ll.gotDescriptorStall, _ => true, statusOffset, 31)
 
-          when(io.sgRead.rsp.last){
+          when(io.sgRead.rsp.fire && io.sgRead.rsp.last){
             for ((channel, e) <- (channels, oh).zipped) when(e) {
               channel.ll.readDone := True
             }
+          }
+        }
+      }
+
+      val sgRsp = p.withSgBus generate new Area{
+        def rsp = io.sg.read.rsp
+        val oh = UIntToOh(rsp.channelId)
+
+        when(rsp.fire) {
+          for ((channel, e) <- (channels, oh.asBools).zipped; if channel.cp.linkedListFromSg) when(e) {
+            channel.ll.readDone := True
+            channel.ll.writeDone := True
+            if (channel.cp.canRead) channel.push.m2b.address := rsp.srcAddress
+            if (channel.cp.canWrite) channel.pop.b2m.address := rsp.dstAddress
+            channel.bytes := rsp.bytes
+            channel.ll.controlNoCompletion := False
+            if(channel.cp.canOutput) channel.pop.b2s.last := rsp.last
+            channel.ll.gotDescriptorStall := rsp.stall
           }
         }
       }
@@ -1273,6 +1370,7 @@ object DmaSg{
 
           ctrl.write(channel.ll.ptrNext, a + 0x70)
           ctrl.read(channel.ll.ptr, a + 0x70)
+          ctrl.write(channel.ll.onSgStream, a + 0x78)
         }
 
         if(channel.cp.fifoMapping.isEmpty) {
@@ -2464,9 +2562,9 @@ object SgDmaTestsParameter{
 
     do{
       layout = DmaMemoryLayout(
-        bankCount            = List(1,2,4).randomPick(),
-        bankWidth            = List(8,16,32).randomPick(),
-        bankWords            = List(512, 1024, 2048).randomPick(),
+        bankCount            = List(1,2,4)(Random.nextInt(3)),
+        bankWidth            = List(8,16,32)(Random.nextInt(3)),
+        bankWords            = List(512, 1024, 2048)(Random.nextInt(3)),
         priorityWidth        = Random.nextInt(3)
       )
 

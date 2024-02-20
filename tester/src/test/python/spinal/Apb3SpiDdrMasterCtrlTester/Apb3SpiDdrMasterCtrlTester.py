@@ -203,7 +203,7 @@ def test1(dut):
     # bus.drive(config.mod, baseAddress + 8, bitOffset=4)
     yield apb.write(8, 0)
     yield apb.write(8, 0)
-    # bus.drive(config.sclkToogle, baseAddress + 0x20)
+    # bus.drive(config.sclkToggle, baseAddress + 0x20)
     # bus.drive(config.fullRate, baseAddress + 0x20, bitOffset=31)
     yield apb.write(0x20, 2)
     # bus.drive(config.ss.setup, baseAddress + 0x24)

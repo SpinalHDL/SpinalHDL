@@ -214,7 +214,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     } else None
   }
 
-  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
+  override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     def statement(that : Expression) = kind match {
       case `DataAssign` =>
         DataAssignmentStatement(target = target.asInstanceOf[Expression], source = that).setLocation(loc)
@@ -361,6 +361,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   def mux[T2 <: Data](mappings: (Any, T2)*): T2 = {
     SpinalMap.list(this,mappings)
+  }
+
+  def muxDc[T2 <: Data](mappings: (Any, T2)*): T2 = {
+    SpinalMap.listDc(this,mappings)
   }
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = if(isReg) func(clockDomain)

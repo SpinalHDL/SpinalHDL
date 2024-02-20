@@ -564,7 +564,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastSInt(delay))
 
-  def reversed = S(B(this.asBools.reverse))
+  def reversed = S(B(this.asBools.reverse)).asInstanceOf[this.type]
 
   override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpSInt(kind, widthOf(this)))
 }

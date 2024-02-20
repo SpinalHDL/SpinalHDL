@@ -156,7 +156,7 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
     }
   }
 
-  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
+  protected override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     that match {
       case that: Bundle =>
         if (!this.getClass.isAssignableFrom(that.getClass)) SpinalError("Bundles must have the same final class to" +
@@ -189,4 +189,13 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
 
 class BundleCase extends Bundle {
   private[core] override def rejectOlder = false
+}
+
+trait IConnectable[T <: IConnectable[T]] {
+  def connectFrom(that: T): T
+  def <<(that: T): T = connectFrom(that)
+  def >>(into: T): T = {
+    into << this.asInstanceOf[T]
+    into
+  }
 }

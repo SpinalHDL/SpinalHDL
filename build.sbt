@@ -27,6 +27,7 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
 
   libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
   libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
+  libraryDependencies += "org.scalactic" %% "scalactic" % "3.2.10", //Ensure that scalatic version 3.2.5 is avoided
 
   dependencyOverrides += "net.java.dev.jna" % "jna" % "5.12.1",
   dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.12.1",
@@ -158,7 +159,7 @@ lazy val lib = (project in file("lib"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.11.0",
-    version := SpinalVersion.lib
+    version := SpinalVersion.lib,
   )
   .dependsOn (sim, core)
 

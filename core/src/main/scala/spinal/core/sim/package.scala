@@ -28,14 +28,17 @@ import java.math.BigInteger
 import scala.collection.generic.Shrinkable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 import scala.collection.Seq
+import scala.util.Random
 
 /**
   * Simulation package
   */
 package object sim {
   def SimConfig: SpinalSimConfig = new SpinalSimConfig()
+
+  def simRandom(implicit simManager: SimManager = sm) = simManager.random
+  def sm = SimManagerContext.current.manager
 
   @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")
   def SimConfig[T <: Component](rtl: => T): SimConfigLegacy[T] = {
@@ -118,9 +121,8 @@ package object sim {
   }
 
   /** Get a Long value from a BaseType */
-  private def getLong(bt: BaseType): Long = {
+  private def getLong(bt: BaseType)(implicit manager: SimManager = SimManagerContext.current.manager): Long = {
     if(bt.getBitsWidth == 0) return 0l
-    val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
     manager.getLong(signal)
   }
@@ -156,6 +158,10 @@ package object sim {
     manager.setBigInt(signal, value)
   }
 
+  def simCompiled : SimCompiled[_ <: Component] = sm.asInstanceOf[CoreSimManager].compiled
+  def currentTestName(): String = sm.testName
+  def currentTestPath(): String = simCompiled.simConfig._testPath.replace("$TEST", currentTestName())
+
   /** Return the current simulation time */
   def simTime(): Long = SimManagerContext.current.manager.time
   def simDeltaCycle(): Long = SimManagerContext.current.manager.deltaCycle
@@ -168,6 +174,8 @@ package object sim {
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
   def sleep(cycles: Double): Unit = SimManagerContext.current.thread.sleep(cycles.toLong)
+  def sleep(time: TimeNumber): Unit =
+    sleep((time.toBigDecimal / SimManagerContext.current.manager.timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong)
   def waitUntil(cond: => Boolean): Unit = {
     SimManagerContext.current.thread.waitUntil(cond)
   }
@@ -248,7 +256,7 @@ package object sim {
   implicit class SimBaseTypePimper(bt: BaseType) {
 
     def randomize(): Unit = bt match{
-      case bt: Bool               => bt #= Random.nextBoolean()
+      case bt: Bool               => bt #= simRandom.nextBoolean()
       case bt: Bits               => bt.randomize()
       case bt: UInt               => bt.randomize()
       case bt: SInt               => bt.randomize()
@@ -277,16 +285,16 @@ package object sim {
 
 
   implicit class SimSeqPimper[T](pimped: Seq[T]){
-    def randomPick(): T = pimped(Random.nextInt(pimped.length))
+    def randomPick(rand : Random = simRandom): T = pimped(rand.nextInt(pimped.length))
     def randomPickWithIndex(): (T, Int) = {
-      val index = Random.nextInt(pimped.length)
+      val index = simRandom.nextInt(pimped.length)
       (pimped(index), index)
     }
   }
 
   implicit class SimArrayBufferPimper[T](pimped: ArrayBuffer[T]){
     def randomPop() : T = {
-      val index = Random.nextInt(pimped.length)
+      val index = simRandom.nextInt(pimped.length)
       val ret = pimped(index)
       pimped(index) = pimped.last
       pimped.remove(pimped.length-1)
@@ -323,13 +331,23 @@ package object sim {
     * Add implicit function to Bool
     */
   implicit class SimBoolPimper(bt: Bool) {
+    def simProxy() = new SimProxy(bt)
+    class SimProxy(bt : Bool){
+      val manager = SimManagerContext.current.manager
+      val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
+      def toBoolean = manager.getLong(signal) != 0
 
-    def toBoolean = if(getLong(bt) != 0) true else false
+      def #=(value: Boolean) : Unit  = {
+        manager.setLong(signal, if(value) 1 else 0)
+      }
+    }
+
+    def toBoolean = getLong(bt) != 0
 
     def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
 
     def randomize(): Boolean = {
-      val b = Random.nextBoolean()
+      val b = simRandom.nextBoolean()
       bt #= b
       b
     }
@@ -339,11 +357,49 @@ package object sim {
     * Add implicit function to BitVector
     */
   implicit class SimBitVectorPimper(bt: BitVector) {
+    def simProxy() = new SimProxy(bt)
+    class SimProxy(bt : BitVector){
+      val manager = SimManagerContext.current.manager
+      val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
+      val alwaysZero = bt.getBitsWidth == 0
+      def toInt = if(alwaysZero) 0 else manager.getInt(signal)
+      def toLong = if(alwaysZero) 0 else manager.getLong(signal)
+      def toBigInt = if(alwaysZero) 0 else manager.getBigInt(signal)
+
+      def #=(value: Int) : Unit  = {
+        if(alwaysZero) {
+          assert(value == 0)
+          return
+        }
+        manager.setLong(signal, value)
+      }
+      def #=(value: Long) : Unit  = {
+        if(alwaysZero) {
+          assert(value == 0)
+          return
+        }
+        manager.setLong(signal, value)
+      }
+      def #=(value: BigInt) : Unit = {
+        if(alwaysZero) {
+          assert(value == 0)
+          return
+        }
+        manager.setBigInt(signal, value)
+      }
+    }
 
     def toInt    = getInt(bt)
-    def toLong   = getLong(bt)
+    def toLong(implicit manager: SimManager = SimManagerContext.current.manager)   = getLong(bt)(manager)
     def toBigInt = getBigInt(bt)
     def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
+    def toBooleans : Array[Boolean] = {
+      val width = bt.getBitsWidth
+      val ret = new Array[Boolean](width)
+      val bi = toBigInt
+      for(i <- 0 until width) ret(i) = bi.testBit(i)
+      ret
+    }
 
     def #=(value: Int)    = setLong(bt, value)
     def #=(value: Long)   = setLong(bt, value)
@@ -353,6 +409,13 @@ package object sim {
       for(i <- value.size-1 downto 0){
         acc = acc << 8
         acc |= value(i).toInt & 0xFF
+      }
+      setBigInt(bt, acc)
+    }
+    def #=(value: Array[Boolean]) = { //TODO improve perf
+      var acc = BigInt(0)
+      for(i <- value.size-1 downto 0){
+        if(value(i)) acc = acc.setBit(i)
       }
       setBigInt(bt, acc)
     }
@@ -373,16 +436,16 @@ package object sim {
       }
     }
 
-    def randomizedBigInt() = BigInt(width, Random)
+    def randomizedBigInt() = BigInt(width, simRandom)
 
     def randomizedLong() = {
       assert(width < 64)
-      Random.nextLong() & ((1l << width) - 1)
+      simRandom.nextLong() & ((1l << width) - 1)
     }
 
     def randomizedInt() = {
       assert(width < 32)
-      Random.nextInt() & ((1 << width) - 1)
+      simRandom.nextInt() & ((1 << width) - 1)
     }
   }
 
@@ -404,16 +467,16 @@ package object sim {
     override def randomizedLong(): Long = {
       assert(width <= 64)
       val shift = 64 - width
-      (Random.nextLong << shift) >> shift
+      (simRandom.nextLong << shift) >> shift
     }
 
     override def randomizedInt(): Int = {
       assert(width <= 32)
       val shift = 32 - width
-      (Random.nextInt() << shift) >> shift
+      (simRandom.nextInt() << shift) >> shift
     }
 
-    override def randomizedBigInt(): BigInt = BigInt(width, Random) - (BigInt(1) << width - 1)
+    override def randomizedBigInt(): BigInt = BigInt(width, simRandom) - (BigInt(1) << width - 1)
   }
 
   /**
@@ -426,7 +489,7 @@ package object sim {
     def #=(value: SpinalEnumElement[T]) = setBigInt(bt, bt.encoding.getValue(value))
 
     def randomize(): SpinalEnumElement[T] = {
-      val e = bt.spinalEnum.elements(Random.nextInt(bt.spinalEnum.elements.length))
+      val e = bt.spinalEnum.elements(simRandom.nextInt(bt.spinalEnum.elements.length))
       setBigInt(bt, bt.encoding.getValue(e))
       e.asInstanceOf[SpinalEnumElement[T]]
     }
@@ -451,7 +514,7 @@ package object sim {
     }
     def #= (that : Double): Unit = this #= BigDecimal(that)
     def randomize(): BigDecimal = {
-      var rhs = Random.nextDouble()
+      var rhs = simRandom.nextDouble()
       rhs = Math.max(minValue, rhs)
       rhs = Math.min(maxValue, rhs)
       this #= rhs
@@ -518,10 +581,10 @@ package object sim {
       if (inRange) {
         var randBigInt: BigInt = null
         do {
-          if (!bt.signed || !Random.nextBoolean()) {
-            randBigInt = BigInt(maxRawIntValue.bitLength, Random) * maxRawIntValue.signum
+          if (!bt.signed || !simRandom.nextBoolean()) {
+            randBigInt = BigInt(maxRawIntValue.bitLength, simRandom) * maxRawIntValue.signum
           } else {
-            randBigInt = BigInt(minRawIntValue.bitLength, Random) * minRawIntValue.signum
+            randBigInt = BigInt(minRawIntValue.bitLength, simRandom) * minRawIntValue.signum
           }
         } while (randBigInt > maxRawIntValue || randBigInt < minRawIntValue)
 
@@ -597,7 +660,7 @@ package object sim {
 
     private def getBool(manager: SimManager, who: Bool): Bool = {
       val component = who.component
-      if((who.isInput || who.isOutput) && component != null && component.parent == null){
+      if((who.isInput || who.isOutput) && component != null && component.parent == null || who.hasTag(SimPublic)){
         who
       }else {
         manager.userData.asInstanceOf[Component].pulledDataCache.getOrElse(who, null).asInstanceOf[Bool]
@@ -841,12 +904,14 @@ package object sim {
       if(cd.hasSoftResetSignalSim) cd.deassertSoftReset()
       if(cd.hasClockEnableSignalSim) cd.deassertClockEnable()
       fork(doStimulus(period))
-      if(sleepDuration >= 0) sleep(sleepDuration) //This allows the doStimulus to give initial value to clock/reset before going futher
+      if(sleepDuration >= 0) sleep(sleepDuration) //This allows the doStimulus to give initial value to clock/reset before going further
     }
 
     def forkStimulus(period: TimeNumber): Unit = {
       forkStimulus(timeToLong(period))
     }
+
+    def forkStimulus(frequency: HertzNumber): Unit = forkStimulus(frequency.toTime)
 
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) : Unit = SimSpeedPrinter(cd, printPeriod)
 
@@ -993,19 +1058,26 @@ package object sim {
       }
       this
     }
+
     def unlock() : this.type = {
       assert(locked)
-      if(queue.nonEmpty) {
-        randomized match {
-          case false => queue.dequeue().resume()
-          case true =>  {
+      randomized match {
+        case false => {
+          if(queue.nonEmpty) {
+            queue.dequeue().resume()
+          } else {
+            locked = false
+          }
+        }
+        case true =>  {
+          if(array.nonEmpty) {
             val (t, i) = array.randomPickWithIndex()
             array.remove(i)
             t.resume()
+          } else {
+            locked = false
           }
         }
-      } else {
-        locked = false
       }
       this
     }
@@ -1013,7 +1085,10 @@ package object sim {
     def await() : Unit = {
       if(locked) {
         val t = simThread
-        queue.enqueue(t)
+        randomized match {
+          case false => queue.enqueue(t)
+          case true => array += t
+        }
         t.suspend()
       }
     }

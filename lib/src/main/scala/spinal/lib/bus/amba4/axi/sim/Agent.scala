@@ -9,7 +9,6 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.sim.{SimData, StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
 import scala.collection.mutable
-import scala.util.Random
 
 
 
@@ -21,7 +20,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     this(bus.aw, bus.w, bus.b, clockDomain);
   }
 
-  val pageAlignBits = 12
+  val pageAlignBits = Axi4.boundaryWidth
   val busConfig = aw.config
   if(!busConfig.useLen){
     SpinalWarning("The Axi4Config with useLen == false is only tested by assigning len = 0, " 
@@ -52,7 +51,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     if(!allowGen) return
     val region        = if (busConfig.useRegion) aw.region.randomizedInt() else 0
     val id            = if (busConfig.useId) aw.id.randomizedInt() else 0
-    val burst         = if (busConfig.useBurst) bursts(Random.nextInt(bursts.size)) else 1
+    val burst         = if (busConfig.useBurst) bursts(simRandom.nextInt(bursts.size)) else 1
     var len: Int      = 0
     var size: Int     = log2Up(busConfig.bytePerWord)
     var sizeByte: Int = busConfig.bytePerWord    
@@ -61,16 +60,17 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     var address, startAddress, endAddress: BigInt = null
     var addrValid                                 = false
 
+    var attempts = 0
     do{
       if (busConfig.useLen) {
         len = burst match {
-          case 0 => Random.nextInt(16)
-          case 1 => lens(Random.nextInt(lens.size))
-          case 2 => List(2, 4, 8, 16)(Random.nextInt(4)) - 1
+          case 0 => simRandom.nextInt(16)
+          case 1 => lens(simRandom.nextInt(lens.size))
+          case 2 => List(2, 4, 8, 16)(simRandom.nextInt(4)) - 1
         }
       }
       val lenBeat = len + 1
-      if (busConfig.useSize) size = sizes(Random.nextInt(sizes.size))
+      if (busConfig.useSize) size = sizes(simRandom.nextInt(sizes.size))
       sizeByte = 1 << size
       val byteCount = sizeByte * lenBeat
 
@@ -91,6 +91,8 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
       endAddress = endAddress & ~BigInt(sizeByte - 1)
       addrValid = endAddress <= boundAddress
       if (addrValid) mapping = SizeMapping(startAddress, endAddress - startAddress)
+      attempts += 1
+      if(attempts == 10) return
     } while(!addrValid || !mappingAllocate(mapping));
 
     cmdCounter += 1
@@ -114,7 +116,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
       wQueue.enqueue { () =>
         w.data.randomize()
         val bytesInBeat = sizeByte - (beatOffsetCache % sizeByte)
-        if(busConfig.useStrb)  w.strb #= ((BigInt(bytesInBeat, Random)) << beatOffsetCache) & ((BigInt(1) << busConfig.bytePerWord)-1)
+        if(busConfig.useStrb)  w.strb #= ((BigInt(bytesInBeat, simRandom)) << beatOffsetCache) & ((BigInt(1) << size)-1)
         if(busConfig.useWUser) w.user.randomize()
         if(busConfig.useLast)  w.last #= beat == len
       }
@@ -130,7 +132,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     }
   }
 
-  def maskRandom() = Random.nextBoolean()
+  def maskRandom() = simRandom.nextBoolean()
   val awDriver = StreamDriver(aw, clockDomain){ _ =>
     if(awQueue.isEmpty) genCmd()
     if(awQueue.nonEmpty) { awQueue.dequeue().apply(); true } else false
@@ -193,7 +195,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
     if(!allowGen) return
     val region        = if (busConfig.useRegion) ar.region.randomizedInt() else 0
     val id            = if (busConfig.useId) ar.id.randomizedInt() else 0
-    val burst         = if (busConfig.useBurst) bursts(Random.nextInt(bursts.size)) else 1
+    val burst         = if (busConfig.useBurst) bursts(simRandom.nextInt(bursts.size)) else 1
     var len: Int      = 0
     var size: Int     = log2Up(busConfig.bytePerWord)
     var sizeByte: Int = busConfig.bytePerWord    
@@ -201,17 +203,20 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
     var mapping: SizeMapping                      = null
     var address, startAddress, endAddress: BigInt = null
     var addrValid                                 = false
+    var attempts = 0
 
     do{
+      attempts += 1
+      if(attempts == 10) return
       if (busConfig.useLen) {
         len = burst match {
-          case 0 => Random.nextInt(16)
-          case 1 => lens(Random.nextInt(lens.size))
-          case 2 => List(2, 4, 8, 16)(Random.nextInt(4)) - 1
+          case 0 => simRandom.nextInt(16)
+          case 1 => lens(simRandom.nextInt(lens.size))
+          case 2 => List(2, 4, 8, 16)(simRandom.nextInt(4)) - 1
         }
       }
       val lenBeat = len + 1
-      if (busConfig.useSize) size = sizes(Random.nextInt(sizes.size))
+      if (busConfig.useSize) size = sizes(simRandom.nextInt(sizes.size))
       sizeByte = 1 << size
       val byteCount = sizeByte * lenBeat
 
@@ -260,7 +265,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
     }
   }
 
-  def maskRandom() = Random.nextBoolean()
+  def maskRandom() = simRandom.nextBoolean()
   val arDriver = StreamDriver(ar, clockDomain){ _ =>
     if(arQueue.isEmpty) genCmd()
     if(arQueue.nonEmpty) { arQueue.dequeue().apply(); true } else false
@@ -337,7 +342,7 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
   val bDriver = StreamDriver(b, clockDomain){ _ =>
     val queues = bQueue.filter(_.nonEmpty)
     if(queues.nonEmpty) {
-      queues(Random.nextInt(queues.size)).dequeue().apply()
+      queues(simRandom.nextInt(queues.size)).dequeue().apply()
       qPending -= 1
       true
     }else{
@@ -379,7 +384,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
   val arIdQueue = !withArReordering generate mutable.Queue[Int]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val rQueue = Array.fill(idCount)(mutable.Queue[(Boolean, () => Unit)]())
-  def readByte(address : BigInt) : Byte = Random.nextInt().toByte
+  def readByte(address : BigInt) : Byte = simRandom.nextInt().toByte
   def onReadStart(address : BigInt, size : Int, length : Int) : Unit = {}
 
   val arMonitor = StreamMonitor(ar, clockDomain){ar =>
@@ -431,7 +436,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
         case true => {
           val queues = rQueue.filter(_.nonEmpty)
           if(queues.nonEmpty) {
-            rQueueLock = queues(Random.nextInt(queues.size))
+            rQueueLock = queues(simRandom.nextInt(queues.size))
           }
         }
       }

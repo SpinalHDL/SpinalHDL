@@ -23,7 +23,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     val ret = Stream(new ReadRetLinked(mem.wordType, linkedData))
 
     val retValid = RegInit(False)
-    val retData = mem.readSync(cmd.payload, cmd.ready, clockCrossing = crossClock)
+    val retData = mem.readSync(cmd.payload, cmd.fire, clockCrossing = crossClock)
     val retLinked = RegNextWhen(linkedData, cmd.ready)
 
     when(ret.ready) {
@@ -41,11 +41,12 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret
   }
 
-  def streamReadSync(cmd: Stream[UInt]): Stream[T] = {
+  def streamReadSync(cmd: Stream[UInt]): Stream[T] = streamReadSync(cmd, crossClock = false)
+  def streamReadSync(cmd: Stream[UInt], crossClock : Boolean): Stream[T] = {
     val ret = Stream(mem.wordType)
 
     val retValid = RegInit(False)
-    val retData = mem.readSync(cmd.payload, cmd.ready)
+    val retData = mem.readSync(cmd.payload, cmd.fire, clockCrossing = crossClock)
 
     when(ret.ready) {
       retValid := Bool(false)
@@ -160,10 +161,19 @@ class MemPimped[T <: Data](mem: Mem[T]) {
 }
 
 
-case class MemWriteCmd[T <: Data](mem : Mem[T], maskWidth : Int = -1) extends Bundle{
+object MemWriteCmd{
+  def apply[T <: Data](mem : Mem[T]) : MemWriteCmd[T] = {
+    MemWriteCmd(mem.wordType, mem.addressWidth, -1)
+  }
+  def apply[T <: Data](mem : Mem[T], maskWidth : Int) : MemWriteCmd[T] = {
+    MemWriteCmd(mem.wordType, mem.addressWidth, maskWidth)
+  }
+}
+
+case class MemWriteCmd[T <: Data](dataType : HardType[T], addressWidth : Int, maskWidth : Int = -1) extends Bundle{
   def useMask = maskWidth >= 0
-  val address = mem.addressType()
-  val data    = mem.wordType()
+  val address = UInt(addressWidth bits)
+  val data    = dataType()
   val mask    = ifGen(useMask)(Bits(maskWidth bits))
 }
 
@@ -182,12 +192,44 @@ case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundl
     in(rsp)
   }
 
-  def bypass(writeLast : Flow[MemWriteCmd[T]]): Unit = new Composite(this, "bypass", true){
-    val cmdLast = RegNext(cmd.payload)
+  def writeFirst(writeLast : Flow[MemWriteCmd[T]]): Unit = new Composite(this, "bypassWriteFirst", true){
+    val cmdLast = RegNextWhen(cmd.payload, cmd.valid)
     val hit     = cmdLast === writeLast.address && writeLast.valid
     when(hit){
       rsp := writeLast.data
     }
+  }
+
+  def writeFirstAndUpdate(write : Flow[MemWriteCmd[T]]): Unit = new Composite(this, "bypass", true){
+    val bypassValid = RegInit(False)
+    val bypassData = Reg(dataType)
+    bypassValid clearWhen(cmd.valid)
+    when(bypassValid){
+      rsp := bypassData
+    }
+
+    val readAddressBuffer = RegNextWhen(cmd.payload, cmd.valid)
+    val addressToCheck = cmd.valid ? cmd.payload | readAddressBuffer
+    val hit = addressToCheck === write.address && write.valid
+    when(hit){
+      bypassValid := True
+      bypassData := write.data
+    }
+  }
+
+  def gotReadDuringWrite(write: Flow[MemWriteCmd[T]]): Bool = new Composite(this, "gotReadDurringWrite", true) {
+    val hit = cmd.valid && write.valid && cmd.payload === write.address
+    val buffer = RegNextWhen(hit, cmd.valid) init(False)
+  }.buffer
+}
+
+case class MemReadStreamFlowPort[T <: Data](dataType : T,addressWidth : Int) extends Bundle with IMasterSlave{
+  val cmd = Stream(UInt(addressWidth bit))
+  val rsp = Flow(dataType)
+
+  override def asMaster(): Unit = {
+    master(cmd)
+    slave(rsp)
   }
 }
 

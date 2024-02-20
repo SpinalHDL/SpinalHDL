@@ -46,6 +46,9 @@ trait DataPrimitives[T <: Data]{
 
   /** Use as \= to have the same behavioral as VHDL variable */
   def \(that: T): T = {
+    if(!this._data.isComb) {
+      SpinalWarning(s"\\= used on a non-combinatorial signals (${this._data}). This will generate a combinatorial value and the register will not be updated.")
+    }
 
     val globalData = GlobalData.get
 
@@ -315,6 +318,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   /** set a data as inout */
   def asInOut(): this.type = {
+    assert(this.isAnalog, "inout can only be used on Analog signal")
     if(this.component != Component.current) {
       LocatedPendingError(s"You should not set $this as output outside its own component." )
     }else {
@@ -343,6 +347,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   /** Set baseType to reg */
   def setAsReg(): this.type
+  /** Recursively set baseType to reg only for output */
+  def setOutputAsReg(): this.type = {
+    flatten.filter(_.dir == out).foreach(_.setAsReg())
+    this
+  }
   /** Set baseType to Combinatorial */
   def setAsComb(): this.type
 
@@ -441,6 +450,12 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     flatten.foreach(_.assignDontCare())
     this
   }
+  def assignDontCareToUnasigned() : this.type = {
+    flattenForeach{ e =>
+      if(e.dlcIsEmpty) e.assignDontCare()
+    }
+    this
+  }
 
   def removeAssignments(data : Boolean = true, init : Boolean = true, initial : Boolean = true): this.type = {
     flattenForeach(_.removeAssignments(data, init, initial))
@@ -534,15 +549,39 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       val thisDir = dirSolve(thisTrue)
       val thatDir = dirSolve(thatTrue)
 
-      (thisDir,thatDir) match {
-        case (`out`,`in`)                         => this := that
-        case (`out`,null)                         => this := that
-        case (`in`,`out`)                         => that := this
-        case (`in`,null)                          => that := this
-        case (null,`in`)                          => this := that
-        case (null,`out`)                         => that := this
-        case _ if this.isAnalog && that.isAnalog  => this := that
-        case _                                    => LocatedPendingError(s"DIRECTION MISMATCH, impossible to infer the connection direction between $this and $that ")
+      def dirFormat(d: IODirection, wire: Data) = {
+        d match {
+          case _ if wire.isAnalog => "analog"
+          case `out` => "out"
+          case `in` => "in"
+          case `inout` => "inout"
+          case null => "directionless"
+        }
+      }
+      def bundleInfo(wire: Data): String = {
+        wire match {
+          case null => ""
+          case b => s"\n      part of Bundle $b" + bundleInfo(b.parent)
+        }
+      }
+      def thisThatInfo() =
+        s"""
+           |  $this (${dirFormat(this.dir, this)}, normalized: ${dirFormat(thisDir, this)})${bundleInfo(this)} and
+           |  $that (${dirFormat(that.dir, that)}, normalized: ${dirFormat(thatDir, that)})${bundleInfo(that)}""".stripMargin
+
+      (thisDir, thatDir) match {
+        case (`out`, `in`) => this := that
+        case (`out`, null) => this := that
+        case (`in`, `out`) => that := this
+        case (`in`, null) => that := this
+        case (null, `in`) => this := that
+        case (null, `out`) => that := this
+        case _ if this.isAnalog && that.isAnalog => this := that
+        // errors
+        case _ if that.isAnalog || that.isAnalog => LocatedPendingError("AUTOCONNECT FAILED, can't connect analog to non-analog" + thisThatInfo())
+        case (null, null) => LocatedPendingError("AUTOCONNECT FAILED, directionless signals can't be autoconnected" + thisThatInfo())
+        case _ if thisDir != thisTrue.dir ^ thatDir != thatTrue.dir => LocatedPendingError("AUTOCONNECT FAILED, mismatched directions for connections between parent and child component" + thisThatInfo())
+        case _ => LocatedPendingError("AUTOCONNECT FAILED, mismatched directions" + thisThatInfo())
       }
     }
   }
@@ -758,7 +797,7 @@ trait DataWrapper extends Data{
   override def getZero: DataWrapper.this.type = ???
   override private[core] def isNotEqualTo(that: Any): Bool = ???
   override def flattenLocalName: Seq[String] = ???
-  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = ???
+  override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = ???
   override def setAsReg(): DataWrapper.this.type = ???
   override def setAsComb(): DataWrapper.this.type = ???
   override def freeze(): DataWrapper.this.type = ???
