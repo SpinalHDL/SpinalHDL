@@ -5,7 +5,6 @@ import spinal.core.sim._
 import spinal.lib.Flow
 
 import scala.collection.mutable.{Queue, ArrayBuffer}
-import scala.util.Random
 
 object FlowMonitor{
   def apply[T <: Data](Flow : Flow[T], clockDomain: ClockDomain)(callback : (T) => Unit) = new FlowMonitor(Flow,clockDomain).addCallback(callback)
@@ -43,9 +42,14 @@ object FlowDriver {
 
 class FlowDriver[T <: Data](flow: Flow[T], clockDomain: ClockDomain, var driver: (T) => Boolean) {
   var transactionDelay: () => Int = () => {
-    val x = Random.nextDouble()
+    val x = simRandom.nextDouble()
     (x * x * 10).toInt
   }
+
+  var factor = Option.empty[Float]
+  def setFactor(value: Float) = factor = Some(value)
+  def setFactorPeriodically(period: Long) = periodicaly(period)(setFactor(simRandom.nextFloat()))
+
 
   var state = 0
   var delay = transactionDelay()
@@ -55,11 +59,18 @@ class FlowDriver[T <: Data](flow: Flow[T], clockDomain: ClockDomain, var driver:
   def fsm(): Unit = {
     state match {
       case 0 => {
-        if (delay == 0) {
-          state += 1
-          fsm()
-        } else {
-          delay -= 1
+        factor match {
+          case Some(x) => if (simRandom.nextFloat() < x) {
+            state += 1
+            fsm()
+          }
+          case None =>
+            if (delay == 0) {
+              state += 1
+              fsm()
+            } else {
+              delay -= 1
+            }
         }
       }
       case 1 => {
@@ -71,7 +82,7 @@ class FlowDriver[T <: Data](flow: Flow[T], clockDomain: ClockDomain, var driver:
       case 2 => {
         flow.valid #= false
         flow.payload.randomize()
-        delay = transactionDelay()
+        if (factor.isEmpty) {delay = transactionDelay()}
         state = 0
         fsm()
       }

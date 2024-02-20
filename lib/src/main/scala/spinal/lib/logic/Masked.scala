@@ -43,8 +43,18 @@ case class Masked(value : BigInt,care : BigInt){
     care == x.care && value > x.value && (diff & diff - 1) == 0
   }
 
+  def fuse(that : Masked) = {
+    assert((this.value & that.value) == 0)
+    assert((this.care & that.care) == 0)
+    Masked(this.value | that.value, this.care | that.care)
+  }
+
 
   def === (hard : Bits) : Bool = (hard & care) === (value & care)
 
+  def shiftedLeft(amount : Int) = Masked(value << amount, care << amount)
+
   def toString(bitCount : Int) = (0 until bitCount).map(i => if(care.testBit(i)) (if(value.testBit(i)) "1" else "0") else "-").reverseIterator.reduce(_+_)
+
+  override def toString = f"${value.toString(16)} ${care.toString(16)}"
 }

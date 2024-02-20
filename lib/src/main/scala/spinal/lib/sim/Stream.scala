@@ -7,7 +7,6 @@ import spinal.core.sim._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 object StreamMonitor{
   def apply[T <: Data](stream : Stream[T], clockDomain: ClockDomain)(callback : (T) => Unit) = new StreamMonitor(stream,clockDomain).addCallback(callback)
@@ -24,10 +23,11 @@ class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
   var keepValue = false
   var payload : SimData = null
   var keepValueEnable = false
-
+  val validProxy = stream.valid.simProxy()
+  val readyProxy = stream.ready.simProxy()
   clockDomain.onSamplings{
-    val valid = stream.valid.toBoolean
-    val ready = stream.ready.toBoolean
+    val valid = validProxy.toBoolean
+    val ready = readyProxy.toBoolean
 
     if (valid && ready) {
       callbacks.foreach(_ (stream.payload))
@@ -70,11 +70,15 @@ object StreamDriver{
 }
 
 class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var driver : (T) => Boolean){
+  implicit val _ = sm
   var transactionDelay : () => Int = () => {
-    val x = Random.nextDouble()
+    val x = simRandom.nextDouble()
     (x*x*10).toInt
   }
 
+  var factor = Option.empty[Float]
+  def setFactor(value : Float) = factor = Some(value)
+  def setFactorPeriodically(period : Long) = periodicaly(period)(setFactor(simRandom.nextFloat()))
 
   //The  following commented threaded code is the equivalent to the following uncommented thread-less code (nearly)
 //  fork{
@@ -91,37 +95,47 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
 
   var state = 0
   var delay = transactionDelay()
-  stream.valid #= false
+  val validProxy = stream.valid.simProxy()
+  validProxy #= false
   stream.payload.randomize()
+
+  val readyProxy = stream.ready.simProxy()
 
   def fsm(): Unit = {
     state match{
       case 0 => {
-        if (delay == 0) {
-          state += 1
-          fsm()
-        } else {
-          delay -= 1
+        factor match {
+          case Some(x) => if(simRandom.nextFloat() < x) {
+            state += 1
+            fsm()
+          }
+          case None =>
+            if (delay == 0) {
+            state += 1
+            fsm()
+          } else {
+            delay -= 1
+          }
         }
       }
       case 1 => {
         if(driver(stream.payload)){
-          stream.valid #= true
+          validProxy #= true
           state += 1
         }
       }
       case 2 => {
-        if(stream.ready.toBoolean){
-          stream.valid #= false
+        if(readyProxy.toBoolean){
+          validProxy #= false
           stream.payload.randomize()
-          delay = transactionDelay()
+          if(factor.isEmpty){delay = transactionDelay()}
           state = 0
           fsm()
         }
       }
     }
   }
-  clockDomain.onSamplings(fsm)
+  clockDomain.onSamplings (fsm)
 
   def reset() {
     state = 0
@@ -135,11 +149,14 @@ object StreamReadyRandomizer {
 
 case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain,var condition: () => Boolean){
   var factor = 0.5f
+  def setFactor(value : Float) = factor = value
+  def setFactorPeriodically(period : Long) = periodicaly(period)(setFactor(simRandom.nextFloat()))
+  val readyProxy = stream.ready.simProxy()
   clockDomain.onSamplings{
     if (condition()) {
-      stream.ready #= Random.nextFloat() < factor
+      readyProxy #= simRandom(readyProxy.manager).nextFloat() < factor
     } else {
-      stream.ready #= false
+      readyProxy #= false
     }
   }
 }
@@ -215,11 +232,12 @@ class SimStreamAssert[T <: Data](s : Stream[T], cd : ClockDomain){
  * }
  */
 class StreamDriverOoo[T <: Data](stream : Stream[T], cd: ClockDomain){
+  implicit val _ = sm
   val storage = ArrayBuffer[mutable.Queue[(T) => Unit] => Unit]()
   val queue = mutable.Queue[(T) => Unit]()
   val ctrl = StreamDriver(stream, cd) { p =>
     while(queue.isEmpty && !storage.isEmpty){
-      val index = Random.nextInt(storage.length)
+      val index = simRandom.nextInt(storage.length)
       storage(index).apply(queue)
       storage.remove(index)
     }

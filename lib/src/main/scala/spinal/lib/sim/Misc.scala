@@ -1,13 +1,12 @@
 package spinal.lib.sim
 import java.nio.file.{Files, Paths}
-
 import spinal.core.sim._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.sim.SimManagerContext
 
+import java.io.File
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 class Phase(var next : Phase){
   var isActive : Boolean = false
@@ -105,13 +104,35 @@ object Phase{
   def isUsed = SimManagerContext.current.contains(Phase)
 }
 
-case class SparseMemory(seed : Long = Random.nextLong()){
+//Easy to reimplement in another environment (ex C, python, ...)
+class RandomGen(var state : Long = simRandom.nextLong()){
+  def setSeed(seed : Long) : Unit = state = seed
+  def nextInt() : Int = {
+    state = state * 25214903917L + 11L & 281474976710655L
+    (state >>> 16).toInt
+  }
+
+  def nextBytes(bytes: Array[Byte]) = {
+    var randCnt = 0
+    var rand = 0l
+    for(i <- 0 until bytes.size){
+      if(randCnt == 0) {
+        rand = nextInt()
+        randCnt = 4
+      }
+      bytes(i) = rand.toByte
+      rand >>= 8
+      randCnt -=1
+    }
+  }
+}
+
+case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset : Long = 0l){
   val content = Array.fill[Array[Byte]](4096)(null)
 
   def getElseAlocate(idx : Int) = {
     if(content(idx) == null) {
-      val rand = new Random()
-      rand.setSeed(seed ^ idx)
+      val rand = new RandomGen(seed ^ ((idx.toLong << 20) + randOffset))
       content(idx) = new Array[Byte](1024*1024)
       rand.nextBytes(content(idx))
     }
@@ -174,6 +195,19 @@ case class SparseMemory(seed : Long = Random.nextLong()){
     }
   }
 
+  def write(address : Long, data : Array[Byte], mask : Array[Boolean], size : Int, dataSkip : Int) : Unit = {
+    var ptr = address
+    var offset = 0
+    while(offset != size){
+      val mem = getElseAlocate((ptr >> 20).toInt)
+      do{
+        if(mask(offset+dataSkip)) mem(ptr.toInt & 0xFFFFF) = data(offset+dataSkip)
+        ptr += 1
+        offset += 1
+      }while(offset != size && (ptr & 0xFFFFF) != 0)
+    }
+  }
+
   def read(address : Long) : Byte = {
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF)
   }
@@ -193,6 +227,20 @@ case class SparseMemory(seed : Long = Random.nextLong()){
     data
   }
 
+  def readBytes(address : Long, size : Int, dst : Array[Byte], dstOffset : Int = 0) : Unit = {
+    var ptr = address
+    var offset = 0
+    while(offset != size){
+      val mem = getElseAlocate((ptr >> 20).toInt)
+      do{
+        dst(offset + dstOffset) = mem(ptr.toInt & 0xFFFFF)
+        ptr += 1
+        offset += 1
+      }while(offset != size && (ptr & 0xFFFFF) != 0)
+    }
+  }
+
+
   def readByteAsInt(address : Long) : Int = read(address).toInt & 0xFF
 
   def readInt(address : Long) : Int = {
@@ -204,8 +252,9 @@ case class SparseMemory(seed : Long = Random.nextLong()){
     for(i <- 0 until 4) write(address + i, (data >> 8*i).toByte)
   }
 
-  def loadBin(offset : Long, file : String): Unit ={
-    val bin = Files.readAllBytes(Paths.get(file))
+  def loadBin(offset: Long, file: String): Unit = loadBin(offset, new File(file))
+  def loadBin(offset : Long, file : File): Unit ={
+    val bin = Files.readAllBytes(file.toPath)
     for(byteId <- 0 until bin.size){
       write(offset + byteId, bin(byteId))
     }
@@ -216,7 +265,7 @@ case class SparseMemory(seed : Long = Random.nextLong()){
 case class MemoryRegionAllocator(base : Long, size : Long){
 //  case class Allocation(base : Long, size : Long)
   val allocations = mutable.HashSet[SizeMapping]()
-  def sizeRand() = (Random.nextLong()&Long.MaxValue)%size
+  def sizeRand() = (simRandom.nextLong()&Long.MaxValue)%size
   def free(region : SizeMapping) = allocations.remove(region)
   def free(address : BigInt) = {
     allocations.remove(allocations.find(a => a.base <= address && a.base + a.size > address).get)
@@ -227,7 +276,7 @@ case class MemoryRegionAllocator(base : Long, size : Long){
     var tryies = 0
     while(tryies < 10){
 
-      val region = SizeMapping(sizeRand() + base, Random.nextLong%(sizeMax-sizeMin + 1)+sizeMin)
+      val region = SizeMapping(sizeRand() + base, simRandom.nextLong%(sizeMax-sizeMin + 1)+sizeMin)
       if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < size) {
         allocations += region
         return region

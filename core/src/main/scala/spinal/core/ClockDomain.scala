@@ -23,6 +23,8 @@ package spinal.core
 import spinal.core.ClockDomain.DivisionRate
 import spinal.core.fiber.Handle
 
+import scala.collection.mutable
+import scala.collection.immutable
 import scala.collection.mutable.ArrayBuffer
 
 sealed trait EdgeKind
@@ -34,9 +36,18 @@ object ASYNC extends ResetKind
 object SYNC  extends ResetKind
 object BOOT  extends ResetKind
 
-sealed trait Polarity
-object HIGH extends Polarity
-object LOW  extends Polarity
+sealed trait Polarity{
+  def assertedBool : Bool
+  def deassertedBool : Bool
+}
+object HIGH extends Polarity{
+  override def assertedBool: Bool = True
+  override def deassertedBool: Bool = False
+}
+object LOW  extends Polarity{
+  override def assertedBool: Bool = False
+  override def deassertedBool: Bool = True
+}
 
 case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag{
   override def toString = s"ClockDomainTag($clockDomain)"
@@ -240,6 +251,40 @@ object ClockDomain {
     def getMin:   HertzNumber = value
   }
 
+  def getSyncronous(that: Bool)(solved: mutable.HashMap[Bool, immutable.Set[Bool]] = mutable.HashMap[Bool, immutable.Set[Bool]]()): immutable.Set[Bool] = {
+    solved.get(that) match {
+      case Some(sync) => sync
+      case None => {
+        var sync = scala.collection.immutable.Set[Bool]()
+
+        //Collect all the directly syncronous Bool
+        sync += that
+        that.foreachTag {
+          case tag: ClockSyncTag => sync += tag.a; sync += tag.b
+          case tag: ClockDrivedTag => sync ++= getSyncronous(tag.driver)(solved)
+          case _ =>
+        }
+
+        //Lock for driver inferation
+        if (that.hasOnlyOneStatement && that.head.parentScope == that.rootScopeStatement && that.head.source.isInstanceOf[Bool] && that.head.source.asInstanceOf[Bool].isComb) {
+          sync ++= getSyncronous(that.head.source.asInstanceOf[Bool])(solved)
+        }
+
+        //Cache result
+        solved(that) = sync
+
+        sync
+      }
+    }
+  }
+
+  def areSynchronousBool(a: Bool, b: Bool)(solved: mutable.HashMap[Bool, immutable.Set[Bool]]): Boolean = getSyncronous(a)(solved).contains(b) || getSyncronous(b)(solved).contains(a) || getSyncronous(a)(solved).intersect(getSyncronous(b)(solved)).nonEmpty
+
+  def areSynchronous(a: ClockDomain, b: ClockDomain,solved: mutable.HashMap[Bool, immutable.Set[Bool]] = mutable.HashMap[Bool, immutable.Set[Bool]]()): Boolean = {
+    a == b || a.clock == b.clock || areSynchronousBool(a.clock, b.clock)(solved)
+  }
+
+  def areSynchronous(a: ClockDomain, b: ClockDomain) : Boolean = areSynchronous(a,b,mutable.HashMap[Bool, immutable.Set[Bool]]())
 
 }
 

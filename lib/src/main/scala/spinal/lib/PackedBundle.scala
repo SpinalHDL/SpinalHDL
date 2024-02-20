@@ -29,7 +29,7 @@ class PackedBundle extends Bundle {
     * Does not check for overlap of elements.
     */
   private class MappingBuilder {
-    var lastPos = 0
+    var nextPos = 0
     var highBit = 0
     val mapping = ArrayBuffer[(Range, Data)]()
 
@@ -55,9 +55,9 @@ class PackedBundle extends Bundle {
 
         case None =>
           // Assume the full range of the data with the MSB as the highest bit
-          (lastPos + d.getBitsWidth - 1) downto (lastPos)
+          (nextPos + d.getBitsWidth - 1) downto (nextPos)
       }
-      lastPos = r.high
+      nextPos = r.high + 1
 
       // Update the bit width
       highBit = highBit.max(r.high)
@@ -83,14 +83,14 @@ class PackedBundle extends Bundle {
         // "Little endian" -- ascending range
         val subBits = data match {
           case subPacked: PackedBundle => subPacked.packed
-          case _ => data.asBits
+          case _                       => data.asBits
         }
         packed(range) := subBits.takeLow(range.size.min(data.getBitsWidth)).resize(range.size)
       } else {
         // "Big endian" -- descending range
         val subBits = data match {
           case subPacked: PackedBundle => subPacked.packed
-          case _ => data.asBits
+          case _                       => data.asBits
         }
         packed(range) := subBits.takeHigh(range.size.min(data.getBitsWidth)).resizeLeft(range.size)
       }
@@ -105,27 +105,27 @@ class PackedBundle extends Bundle {
       // Check if the assignment range falls within the current data's range
       // This happens when the data range's high or low falls within the assignment's hi and lo
       // ...or whenever lo isn't past the data range's high and hi isn't below the data range's low
-      if (!(lo >= elRange.high || hi < elRange.low)) {
+      if ((elRange.low >= lo && elRange.low < hi) || (elRange.high >= lo && elRange.high < hi)) {
         if (elRange.step > 0) {
           // "Little endian" -- ascending range
           val subBits = bits(elRange).resize(el.getBitsWidth)
           el match {
             case subPacked: PackedBundle => subPacked.unpack(subBits)
-            case _ => el.assignFromBits(subBits)
+            case _                       => el.assignFromBits(subBits)
           }
         } else {
           // "Big endian" -- descending range
           val subBits = bits(elRange).resizeLeft(el.getBitsWidth)
           el match {
             case subPacked: PackedBundle => subPacked.unpack(subBits)
-            case _ => el.assignFromBits(subBits)
+            case _                       => el.assignFromBits(subBits)
           }
         }
       }
     }
   }
 
-  def getPackedWidth: Int = mappings.map(_._1.high).max+1
+  def getPackedWidth: Int = mappings.map(_._1.high).max + 1
 
   implicit class DataPositionEnrich[T <: Data](t: T) {
 

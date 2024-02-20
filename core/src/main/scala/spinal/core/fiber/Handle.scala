@@ -28,6 +28,8 @@ object Handle{
   implicit def initImplicit[T](value : Int) : Handle[BigInt] = Handle(value)
   implicit def initImplicit[T](value : Long) : Handle[BigInt] = Handle(value)
   implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
+
+  var loadHandleAsync = false
 }
 
 class Handle[T] extends Nameable with OverridedEqualsHashCode {
@@ -74,7 +76,10 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
   }
 
   def load(value : Handle[T]): Unit ={ //TODO optimise if value is loaded already
-    loadAsync(value.get)
+    Handle.loadHandleAsync match{
+      case false =>  load(value.get)
+      case true => loadAsync(value.get)
+    }
   }
 
   def loadAsync(body : => T) : Unit = {
@@ -103,7 +108,7 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
   }
 
 
-  override def toString: String = getName("???")
+  override def toString: String = getName("???") + (if(!loaded) "" else "=" + value.toString)
 
   def map[T2](body : (T) => T2) = hardFork(body(get))
 

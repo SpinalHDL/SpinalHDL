@@ -85,10 +85,10 @@ class ComponentEmitterVerilog(
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
-        portMaps += f"${syntax}${dir}%6s ${""}%3s ${section}%-8s ${name}${EDAcomment}${comma}"
+        portMaps += f"${syntax}${dir}%6s wire ${section}%-8s ${name}${EDAcomment}${comma}"
       } else {
-        val isReg   = if(signalNeedProcess(baseType)) "reg" else ""
-        portMaps += f"${syntax}${dir}%6s ${isReg}%3s ${section}%-8s ${name}${EDAcomment}${comma}"
+        val isReg   = if(signalNeedProcess(baseType)) "reg" else "wire"
+        portMaps += f"${syntax}${dir}%6s ${isReg}%-4s ${section}%-8s ${name}${EDAcomment}${comma}"
       }
     }
   }
@@ -601,8 +601,11 @@ class ComponentEmitterVerilog(
 
   def emitEnumParams(): Unit = {
     for((e,encoding) <- localEnums) {
-      for(element <- e.elements) {
-        localparams ++= s"  localparam ${emitEnumLiteral(element, encoding,"")} = ${idToBits(element, encoding)};\n"
+      for (element <- e.elements) {
+        localparams ++= s"  localparam ${emitEnumLiteral(element, encoding, "")} = ${idToBits(element, encoding)};\n"
+      }
+      if(encoding == binaryOneHot) for (element <- e.elements) {
+        localparams ++= s"  localparam ${emitEnumLiteral(element, encoding, "")}_OH_ID = ${element.position};\n"
       }
     }
   }
@@ -828,8 +831,13 @@ class ComponentEmitterVerilog(
                   def emitIsCond(that: Expression): String = {
                     that match {
                       case lit: EnumLiteral[_] if (lit.encoding == binaryOneHot) => {
-                        val expr = emitEnumLiteral(lit.senum, lit.encoding)
-                        s"(((${emitExpression(switchStatement.value)}) & ${expr}) == ${expr})"
+                        switchValue match {
+                          case _ : SpinalEnumCraft[_] => s"(${emitExpression(switchStatement.value)}[${emitEnumLiteral(lit.senum, lit.encoding)}_OH_ID])"
+                          case _ => {
+                            val expr = emitEnumLiteral(lit.senum, lit.encoding)
+                            s"(((${emitExpression(switchStatement.value)}) & ${expr}) == ${expr})"
+                          }
+                        }
                       }
                     }
                   }
@@ -1053,10 +1061,10 @@ class ComponentEmitterVerilog(
             " = $urandom"
           case bv: BitVector =>
             val randCount = (bv.getBitsWidth+31)/32
-            s" = {${randCount}{$$urandom}}"
+            s" = {${(Array.fill(randCount)("$urandom")).mkString(",")}}"
           case e: SpinalEnumCraft[_] =>
             val randCount = (e.getBitsWidth+31)/32
-            s" = {${randCount}{$$urandom}}"
+            s" = {${(Array.fill(randCount)("$urandom")).mkString(",")}}"
         }
       }
     }
@@ -1432,8 +1440,8 @@ end
 
     def onEachExpression(e: Expression): Unit = {
       e match {
-        case node: SubAccess => applyTo(node.getBitVector)
-        case node: Resize    => applyTo(node.input)
+        case node: Resize    if !node.input.isInstanceOf[BaseType] => applyTo(node.input)
+        case node: SubAccess if !node.getBitVector.isInstanceOf[BaseType] => applyTo(node.getBitVector)
         case _               =>
       }
     }
@@ -1441,8 +1449,8 @@ end
     def onEachExpressionNotDrivingBaseType(e: Expression): Unit = {
       onEachExpression(e)
       e match {
-    //    case node: Literal => applyTo(node)
         case node: Resize                           => applyTo(node)
+        case node: Literal                          => // Avoid triggering on SInt literals
         case node if node.getTypeObject == TypeSInt => applyTo(node)
         case node: Operator.UInt.Add                => applyTo(node)
         case node: Operator.UInt.Sub                => applyTo(node)
@@ -1565,8 +1573,8 @@ end
     encoding match {
       case `binaryOneHot` => {
         (e.left, e.right) match {
-//          case (sig, lit : EnumLiteral[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.senum.position}])"
-//          case (lit : EnumLiteral[_], sig) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.senum.position}])"
+          case (sig : SpinalEnumCraft[_], lit : EnumLiteral[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${emitEnumLiteral(lit.senum, lit.encoding)}_OH_ID])"
+          case (lit : EnumLiteral[_], sig : SpinalEnumCraft[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${emitEnumLiteral(lit.senum, lit.encoding)}_OH_ID])"
           case _ => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} ${encoding.getWidth(enumDef)}'b${"0" * encoding.getWidth(enumDef)})"
         }
       }

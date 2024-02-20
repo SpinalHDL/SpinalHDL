@@ -221,7 +221,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   //Patch some unecessary check in the fifo
   fifo.rework{
     //    fifo.logic.empty.removeAssignments() := False //Used against data overflow
-    fifo.logic.full.removeAssignments() := False
+    fifo.logic.ptr.full.removeAssignments() := False
   }
 
   io.phy.tx.valid := False

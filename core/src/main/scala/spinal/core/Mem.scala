@@ -229,7 +229,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     val asyncPort = dlcLast.asInstanceOf[MemReadAsync]
 
     ret.compositeAssign = new Assignable {
-      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
+      override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
         write(address, that.asInstanceOf[T])
         asyncPort.removeStatement()
         ret.flatten.foreach(_.removeAssignments())

@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib.tools.binarySystem
 import spinal.core.fiber.{Engine, Handle}
 import spinal.lib.TraversableOncePimped
+import spinal.lib.bus.misc.AddressTransformer
 import spinal.lib.generator.Export
 
 import scala.collection.{Iterable, Seq, TraversableOnce}
@@ -44,7 +45,7 @@ package object lib  {
   implicit def traversableOnceBoolPimped(that: TraversableOnce[Bool]) : TraversableOnceBoolPimped = new TraversableOnceBoolPimped(that.toSeq)
   implicit def traversableOnceAnyPimped[T <: Any](that: TraversableOnce[T]) : TraversableOnceAnyPimped[T] = new TraversableOnceAnyPimped(that.toSeq)
   implicit def traversableOnceAnyTuplePimped[T <: Any, T2 <: Any](that: TraversableOnce[(T, T2)]) : TraversableOnceAnyTuplePimped[T, T2] = new TraversableOnceAnyTuplePimped(that.toSeq)
-
+  implicit def traversableOnceAddressTransformerPimped(that: TraversableOnce[AddressTransformer]) : TraversableOnceAddressTransformerPimped =  new TraversableOnceAddressTransformerPimped(that.toSeq)
 
   implicit def growableAnyPimped[T <: Any](that: Growable[T]) : GrowableAnyPimped[T] = new GrowableAnyPimped(that)
 
@@ -64,6 +65,7 @@ package object lib  {
   implicit def stringPimped(that: String) : StringPimped = new StringPimped(that)
   implicit def memPimped[T <: Data](mem: Mem[T]) : MemPimped[T] = new MemPimped(mem)
   implicit def boolPimped(that: Bool) : BoolPimped = new BoolPimped(that)
+  implicit def streamBundlePimped[T <: Bundle](that: Stream[T]) : StreamBundlePimped[T] = new StreamBundlePimped[T](that)
 
   implicit class UIntPimper(that : UInt){
     def toOneHot : Bits = B"1" << that
@@ -117,6 +119,8 @@ package object lib  {
     def toBinInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(toBigInt, num)
     def toDecInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(toBigInt, num)
     def toOctInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(toBigInt, num)
+
+    def toBytes: List[Byte] = binarySystem.LiteralToBytes.bigIntToBytes(toBigInt)
   }
 
   implicit class BigIntRicher(value: BigInt) extends LiteralRicher {
@@ -137,6 +141,11 @@ package object lib  {
     override val defaultAlignBit: Int = 8
   }
 
+  implicit class BytesRicher(lb: List[Byte]) {
+    def bytesToHex: String = binarySystem.BytesToLiteral.bytesToHexString(lb)
+    def bytesToBigInt: BigInt = binarySystem.BytesToLiteral.bytesToBigInt(lb)
+  }
+
   implicit class BinIntsRicher(li: List[Int]){
     def binIntsToOctAlignHigh: String  = binarySystem.BinIntsToLiteral.binIntsToOctString(li, true)
     def binIntsToHexAlignHigh: String  = binarySystem.BinIntsToLiteral.binIntsToHexString(li, true)
@@ -146,7 +155,7 @@ package object lib  {
     def binIntsToInt: Int       = binIntsToBigInt.toInt
     def binIntsToLong: Long     = binIntsToBigInt.toLong
   }
-  
-  
+
+
   val OHMux = new MuxOHImpl
 }

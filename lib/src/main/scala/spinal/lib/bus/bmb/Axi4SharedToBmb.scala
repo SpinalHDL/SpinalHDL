@@ -5,16 +5,20 @@ import spinal.lib._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.bmb._
 
+object Axi4SharedToBmb{
+  def getBmbConfig(axi4Config: Axi4Config) = BmbAccessParameter(
+    axi4Config.addressWidth, axi4Config.dataWidth
+  ).addSources((1 << axi4Config.idWidth) << 1, BmbSourceParameter(
+    contextWidth = 0,
+    lengthWidth = 8 + log2Up(axi4Config.bytePerWord)
+  ))
+}
+
 //Assume word aligned memory accesses
 class Axi4SharedToBmb(axi4Config: Axi4Config) extends Component{
   val io = new Bundle{
     val axi = slave(Axi4Shared(axi4Config))
-    val bmb = master(Bmb(BmbAccessParameter(
-      axi4Config.addressWidth, axi4Config.dataWidth
-    ).addSources((1 << axi4Config.idWidth) << 1, BmbSourceParameter(
-      contextWidth = 0,
-      lengthWidth = 8+log2Up(axi4Config.bytePerWord)
-    ))))
+    val bmb = master(Bmb(Axi4SharedToBmb.getBmbConfig(axi4Config)))
   }
 
   val hazard = io.axi.arw.write && !io.axi.w.valid
