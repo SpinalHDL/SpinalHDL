@@ -108,7 +108,7 @@ object tester extends Cross[Tester](Version.SpinalVersion.compilers)
 trait Tester extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   def mainClass = Some("spinal.tester")
   def moduleDeps = Seq(core(crossScalaVersion), sim(crossScalaVersion), lib(crossScalaVersion))
-  def scalacOptions = super.scalacOptions()
+  def scalacOptions = super.scalacOptions() ++ idslplugin(crossScalaVersion).pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:${scalatestVersion}")
 
   object test extends CrossSbtModuleTests with TestModule.ScalaTest {
