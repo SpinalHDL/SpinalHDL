@@ -46,7 +46,7 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
       val clazz = cd.impl.symbol.owner
       val valCallbackClazz = if (cd.mods.hasFlag(Flag.TRAIT)) {
         val selfType = cd.impl.self.tpt.tpe
-        selfType.parents.find(_.toString == "spinal.core.Component").get.typeSymbol
+        selfType.parents.find(typeHasTrait(_, "spinal.idslplugin.ValCallback")).get.typeSymbol
       } else clazz
       val func = valCallbackClazz.tpe.members.find(_.name.toString == "valCallback").get
       val body = cd.impl.body.map {
