@@ -2,12 +2,11 @@ package spinal.lib.bus.regif
 
 import spinal.core._
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.bus.wishbone.Wishbone
+import spinal.lib.bus.wishbone._
 
 case class WishboneBusInterface(
     bus: Wishbone,
     sizeMap: SizeMapping,
-    selId: Int = 0,
     override val readSync: Boolean = true,
     regPre: String = ""
 )(implicit moduleName: ClassName)
@@ -22,16 +21,21 @@ case class WishboneBusInterface(
 
   val halted = Bool()
   halted := False
-  val readError = Bool()
-  val readData = Bits(bus.config.dataWidth bits)
-  val ack = RegNext(bus.CYC && bus.STB) init(False)
+  override val readError = Bool()
+  override val readData = Bits(bus.config.dataWidth bits)
+  val ack = Bool()
 
   if (readSync) {
     readError.setAsReg() init False
     readData.setAsReg() init 0
+    ack.setAsReg() init False
+
+    // Force ack down between bursts; avoids misread when write cycle proceeds a read cycle
+    ack := bus.CYC && bus.STB && !ack
   } else {
     readError := False
     readData := 0
+    ack := bus.CYC && bus.STB
   }
 
   // TODO: Possibly assert retry if halted && STB?
