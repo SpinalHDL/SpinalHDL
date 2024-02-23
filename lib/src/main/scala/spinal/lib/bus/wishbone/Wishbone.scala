@@ -52,8 +52,9 @@ case class WishboneConfig(
 
   def pipelined : WishboneConfig = this.copy(useSTALL = true)
 
-  def wordAddressInc(addressGranularityIfUnspecified : AddressGranularity.AddressGranularity): Int = {
+  def wordAddressInc(addressGranularityIfUnspecified : AddressGranularity.AddressGranularity = AddressGranularity.Unspecified): Int = {
     val effectiveAddressGranularity = if (addressGranularity == AddressGranularity.Unspecified) addressGranularityIfUnspecified else addressGranularity
+    require(effectiveAddressGranularity != AddressGranularity.Unspecified, "If the bus has not been configured with an address granularity, one must be provided to wordAddressInc")
     effectiveAddressGranularity match {
       case AddressGranularity.Byte => dataWidth / 8
       case _ => 1
