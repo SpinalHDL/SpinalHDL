@@ -70,7 +70,7 @@ class FormalMuxTester extends SpinalFormalFunSuite {
     shouldFail(formalmux(false))
   }
 
-  test("mux_with_selector") {
+  test("mux_sync_sel") {
     FormalConfig
       .withProve(20)
       .withCover(20)
@@ -86,7 +86,7 @@ class FormalMuxTester extends SpinalFormalFunSuite {
             val selector = slave(Stream(UInt(log2Up(portCount) bit)))
             val output = master(Stream(dataType))
           }
-          io.output << StreamMux(io.selector, io.inputs)
+          io.output << StreamMux.syncSel(io.selector, io.inputs)
         })
 
         val reset = ClockDomain.current.isResetActive
@@ -98,7 +98,7 @@ class FormalMuxTester extends SpinalFormalFunSuite {
           muxInputs(i) >> dut.io.inputs(i)
         }
 
-        assumeInitial(muxSelector.payload < portCount)
+        // assume(muxSelector.payload < portCount)
         muxSelector.formalAssumesSlave()
 
         when(reset || past(reset)) {
@@ -110,7 +110,6 @@ class FormalMuxTester extends SpinalFormalFunSuite {
 
         dut.io.output.formalAssertsMaster()
         dut.io.output.formalCovers(5)
-        // cover(dut.io.select =/= muxSelector.payload)
         cover(changed(muxSelector.payload) & stable(muxSelector.valid) & muxSelector.valid)
         val readyBits = muxInputs.map(_.ready).asBits()
         assert((readyBits === 0) || (CountOne(readyBits) === 1))
@@ -124,7 +123,59 @@ class FormalMuxTester extends SpinalFormalFunSuite {
           assert(dut.io.output === muxInputs(muxSelector.payload))
 
         }
+        setDefinitionName("mux_sync_sel")
+      })
+
+  }
+  test("mux_with_selector") {
+    FormalConfig
+      .withProve(20)
+      .withCover(20)
+      .doVerify(new Component {
+        val portCount = 5
+        val dataType = Bits(8 bits)
+        val dut = FormalDut(new StreamMux(dataType, portCount))
+        val selector = dut.io.createSelector()
+
+        val reset = ClockDomain.current.isResetActive
+        assumeInitial(reset)
+
+        val muxSelector = slave(cloneOf(selector))
+        muxSelector >> selector
+        val muxInputs = Vec(slave(Stream(dataType)), portCount)
+        for (i <- 0 until portCount) {
+          muxInputs(i) >> dut.io.inputs(i)
+        }
+        val muxOutput = master(Stream(dataType))
+        muxOutput << dut.io.output
+
+        assumeInitial(muxSelector.payload < portCount)
+        muxSelector.formalAssumesSlave()
+
+        when(reset || past(reset)) {
+          for (i <- 0 until portCount) {
+            assume(muxInputs(i).valid === False)
+          }
+          assume(muxSelector.valid === False)
+        }
+
+        muxOutput.formalAssertsMaster()
+        muxOutput.formalCovers(5)
+        cover(dut.io.select =/= muxSelector.payload)
+        cover(changed(muxSelector.payload) & stable(muxSelector.valid) & muxSelector.valid)
+        val readyBits = muxInputs.map(_.ready).asBits()
+        assert((readyBits === 0) || (CountOne(readyBits) === 1))
+
+        for (i <- 0 until portCount) {
+          cover(dut.io.select === i)
+          muxInputs(i).formalAssumesSlave()
+        }
+
+        when(dut.io.select < portCount) {
+          assert(muxOutput === muxInputs(dut.io.select))
+        }
         setDefinitionName("mux_with_selector")
+
       })
 
   }
