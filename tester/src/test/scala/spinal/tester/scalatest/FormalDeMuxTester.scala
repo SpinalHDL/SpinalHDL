@@ -107,6 +107,9 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
         }
         demuxSelector.formalAssumesSlave()
         demuxSelector.formalCovers(5)
+        when(demuxSelector.valid) {
+          assume(demuxSelector.payload < portCount)
+        }
         demuxInput.formalAssumesSlave()
         demuxInput.formalCovers(5)
 

@@ -867,7 +867,7 @@ object StreamMux {
     c.io.output
   }
 
-  /** syncSel joins the selection stream with the the output stream. <
+  /** syncSel joins the selection stream with the the output stream.
     * Making sure the selection stream is fully synchronized with the selected stream
     */
   def syncSel[T <: Data](select: Stream[UInt], inputs: Seq[Stream[T]]): Stream[T] = {
@@ -878,7 +878,7 @@ object StreamMux {
   }
 
   /** regSel select uses haltWhen on the selection stream, thus making sure it is only consumed when data is selected.
-    * Caution: the other direction is not synchronized. (input valid without selection stream valid). See StreamMux.syncSel for a fully synchronied version.
+    * Caution: the other direction is not synchronized. (input valid without selection stream valid). See StreamMux.syncSel for a fully synchronized version.
     */
   def regSel[T <: Data](select: Stream[UInt], inputs: Seq[Stream[T]]): Stream[T] = {
     val c = new StreamMux(inputs(0).payload, inputs.length)
@@ -918,16 +918,25 @@ object StreamDemux {
     c.io.outputs
   }
 
+  /** regSel select uses haltWhen on the selection stream, thus making sure it is only consumed when data is selected.
+    * Caution: the other direction is not synchronized. (input valid without selection stream valid). See StreamDemux.syncSel for a fully synchronized version.
+    */
   def regSel[T <: Data](input: Stream[T], select: Stream[UInt], portCount: Int): Vec[Stream[T]] = {
     val c = new StreamDemux(input.payload, portCount)
     c.io.input << input
     select >> c.io.createSelector()
     c.io.outputs
   }
+
+  /** syncSel joins the selection stream with the the input stream.
+    * Making sure the selection stream is synchronized with the input stream
+    * If the select stream payload is out of range for the port count it is ignored.
+    */
   def syncSel[T <: Data](input: Stream[T], select: Stream[UInt], portCount: Int): Vec[Stream[T]] = {
     val c = new StreamDemux(input.payload, portCount)
-    c.io.input << StreamJoin(input, select).map(_._1)
-    select >> c.io.createSelector()
+    val joined = StreamJoin(input, select).takeWhen(select.payload < portCount)
+    c.io.input << joined.map(_._1)
+    c.io.select := joined._2
     c.io.outputs
   }
 
