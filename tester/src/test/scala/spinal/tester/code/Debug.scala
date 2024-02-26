@@ -1592,7 +1592,10 @@ class DemoBlackbox extends BlackBox {
   val io = new Bundle{
     val a = in Bool()
     val b = out Bool()
+    val clk, rst = in Bool()
   }
+
+
   setInlineVerilog(
     """
       |module DemoBlackBox(
@@ -1602,6 +1605,10 @@ class DemoBlackbox extends BlackBox {
       |assign b = a;
       |endmodule
       |""".stripMargin)
+
+  mapCurrentClockDomain(io.clk, io.rst)
+
+  setIoCd()
 }
 
 class Arrayer[T <: Data](dataType: => T, count: Int) extends Area {
@@ -1662,7 +1669,7 @@ class Test12345 extends Component{
     val b2 = out Bool()
   }
   val black = new DemoBlackbox
-  black.io.a <> io.a
+  black.io.a <> ClockDomain.external("asd")(RegNext(io.a))
   black.io.b <> io.b
   val blue = new DemoBlackbox
   blue.io.a <> io.a2
