@@ -106,6 +106,10 @@ abstract class BlackBox extends Component{
     isSpinalSimWb = true
   }
 
+  def setIoCd(cd : ClockDomain = this.clockDomain): Unit = {
+    getAllIo.foreach(ClockDomainTag(cd)(_))
+  }
+
   def addGeneric(name : String, that : Any) : Unit = that match {
     case bt: BaseType => genericElements += Tuple2(name, bt.addTag(GenericValue(bt.head.source)))
     case s: String    => genericElements += Tuple2(name, s)
