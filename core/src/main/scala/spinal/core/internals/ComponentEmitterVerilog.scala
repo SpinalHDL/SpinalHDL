@@ -1125,38 +1125,6 @@ class ComponentEmitterVerilog(
     val symbolWidth = mem.getMemSymbolWidth()
     val symbolCount = mem.getMemSymbolCount()
 
-    val initAssignmentBuilder = for(i <- 0 until symbolCount) yield {
-      val builder = new StringBuilder()
-      val mask    = (BigInt(1) << symbolWidth) - 1
-
-      if (mem.initialContent != null) {
-        builder ++= " := ("
-
-        var first = true
-        for ((value, index) <- mem.initialContent.zipWithIndex) {
-          if (!first)
-            builder ++= ","
-          else
-            first = false
-
-          if ((index & 15) == 0) {
-            builder ++= "\n     "
-          }
-
-          val unfilledValue = ((value>>(i*symbolWidth)) & mask).toString(2)
-          val filledValue   = "0" * (symbolWidth-unfilledValue.length) + unfilledValue
-          builder ++= "\"" + filledValue + "\""
-        }
-
-        builder ++= ")"
-
-      }else if(mem.hasTag(randomBoot)){
-        val value = if(pc.config.randBootFixValue) {"'1'"} else { if(Random.nextBoolean()) "'1'" else "'0'"}
-        builder ++= s" := (others => (others => $value))"
-      }
-      builder
-    }
-
     if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
       val mappings = ArrayBuffer[MemSymbolesMapping]()
       for(i <- 0 until symbolCount) {
