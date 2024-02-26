@@ -5,7 +5,9 @@ import scala.reflect.macros.blackbox.Context
 
 
 
-class Location(val file : String, val line: Int, val col : Int)
+class Location(val file : String, val line: Int, val col : Int){
+  def fileSymbol = file.filter(_.isLetterOrDigit)
+}
 
 object Location {
   implicit def capture: Location = macro locationMacro
