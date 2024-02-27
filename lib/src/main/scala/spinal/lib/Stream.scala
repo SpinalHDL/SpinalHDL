@@ -934,7 +934,7 @@ object StreamDemux{
   def syncSel[T <: Data](input: Stream[T], select: Stream[UInt], portCount: Int): Vec[Stream[T]] = {
     val c = new StreamDemux(input.payload, portCount)
     val joined = StreamJoin(input, select)
-    assert(!select.valid || select.payload < portCount, L"${select.payload} is bigger than portCount $portCount. Will stall forever".toList)
+    assert(!select.valid || select.payload < portCount, L"${select.payload} is bigger than portCount ${portCount.toString()}. Will stall forever".toList)
     c.io.input << joined.map(_._1)
     c.io.select := joined._2
     c.io.outputs
