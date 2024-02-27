@@ -929,11 +929,12 @@ object StreamDemux{
 
   /** syncSel joins the selection stream with the the input stream.
     * Making sure the selection stream is synchronized with the input stream
-    * If the select stream payload is out of range for the port count it is ignored.
+    * If the select stream payload is out of range for the port count it will stall forever.
     */
   def syncSel[T <: Data](input: Stream[T], select: Stream[UInt], portCount: Int): Vec[Stream[T]] = {
     val c = new StreamDemux(input.payload, portCount)
-    val joined = StreamJoin(input, select).takeWhen(select.payload < portCount)
+    val joined = StreamJoin(input, select)
+    assert(!select.valid || select.payload < portCount, L"${select.payload} is bigger than portCount $portCount. Will stall forever".toList)
     c.io.input << joined.map(_._1)
     c.io.select := joined._2
     c.io.outputs
