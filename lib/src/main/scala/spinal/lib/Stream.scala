@@ -882,7 +882,7 @@ object StreamMux {
   def regSel[T <: Data](select: Stream[UInt], inputs: Seq[Stream[T]]): Stream[T] = {
     val c = new StreamMux(inputs(0).payload, inputs.length)
     (c.io.inputs, inputs).zipped.foreach(_ << _)
-    select >> c.io.createSelector()
+    select >> c.io.createStreamRegSelect()
     c.io.output
   }
 }
@@ -892,7 +892,7 @@ class StreamMux[T <: Data](dataType: T, portCount: Int) extends Component {
     val select = in UInt (log2Up(portCount) bit)
     val inputs = Vec(slave Stream (dataType), portCount)
     val output = master Stream (dataType)
-    def createSelector(): Stream[UInt] = new Composite(this, "selector") {
+    def createStreamRegSelect(): Stream[UInt] = new Composite(this, "selector") {
       val stream = Stream(cloneOf(select))
       val reg = stream.haltWhen(output.isStall).toReg(U(0))
       select := reg
@@ -923,7 +923,7 @@ object StreamDemux{
   def regSel[T <: Data](input: Stream[T], select: Stream[UInt], portCount: Int): Vec[Stream[T]] = {
     val c = new StreamDemux(input.payload, portCount)
     c.io.input << input
-    select >> c.io.createSelector()
+    select >> c.io.createStreamRegSelect()
     c.io.outputs
   }
 
@@ -952,7 +952,7 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
     val select = in UInt (log2Up(portCount) bit)
     val input = slave Stream (dataType)
     val outputs = Vec(master Stream (dataType),portCount)
-    def createSelector(): Stream[UInt] = new Composite(this, "selector") {
+    def createStreamRegSelect(): Stream[UInt] = new Composite(this, "selector") {
       val stream = Stream(cloneOf(select))
       val reg = stream.haltWhen(input.isStall).toReg(U(0))
       select := reg

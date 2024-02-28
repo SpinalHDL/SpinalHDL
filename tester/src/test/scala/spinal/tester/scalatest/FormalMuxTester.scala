@@ -135,7 +135,7 @@ class FormalMuxTester extends SpinalFormalFunSuite {
         val portCount = 5
         val dataType = Bits(8 bits)
         val dut = FormalDut(new StreamMux(dataType, portCount))
-        val selector = dut.io.createSelector()
+        val selector = dut.io.createStreamRegSelect()
 
         val reset = ClockDomain.current.isResetActive
         assumeInitial(reset)
