@@ -866,10 +866,10 @@ object StreamMux {
     c.io.output
   }
 
-  /** syncSel joins the selection stream with the the output stream.
+  /** joinSel joins the selection stream with the the output stream.
     * Making sure the selection stream is fully synchronized with the selected stream
     */
-  def syncSel[T <: Data](select: Stream[UInt], inputs: Seq[Stream[T]]): Stream[T] = {
+  def joinSel[T <: Data](select: Stream[UInt], inputs: Seq[Stream[T]]): Stream[T] = {
     val c = new StreamMux(inputs(0).payload, inputs.length)
     (c.io.inputs, inputs).zipped.foreach(_ << _)
     c.io.select := select.payload
@@ -877,7 +877,7 @@ object StreamMux {
   }
 
   /** regSel select uses haltWhen on the selection stream, thus making sure it is only consumed when data is selected.
-    * Caution: the other direction is not synchronized. (input valid without selection stream valid). See StreamMux.syncSel for a fully synchronized version.
+    * Caution: the other direction is not synchronized. (input valid without selection stream valid). See StreamMux.joinSel for a fully synchronized version.
     */
   def regSel[T <: Data](select: Stream[UInt], inputs: Seq[Stream[T]]): Stream[T] = {
     val c = new StreamMux(inputs(0).payload, inputs.length)
@@ -918,7 +918,7 @@ object StreamDemux{
   }
 
   /** regSel select uses haltWhen on the selection stream, thus making sure it is only consumed when data is selected.
-    * Caution: the other direction is not synchronized. (input valid without selection stream valid). See StreamDemux.syncSel for a fully synchronized version.
+    * Caution: the other direction is not synchronized. (input valid without selection stream valid). See StreamDemux.joinSel for a fully synchronized version.
     */
   def regSel[T <: Data](input: Stream[T], select: Stream[UInt], portCount: Int): Vec[Stream[T]] = {
     val c = new StreamDemux(input.payload, portCount)
@@ -927,11 +927,11 @@ object StreamDemux{
     c.io.outputs
   }
 
-  /** syncSel joins the selection stream with the the input stream.
+  /** joinSel joins the selection stream with the the input stream.
     * Making sure the selection stream is synchronized with the input stream
     * If the select stream payload is out of range for the port count it will stall forever.
     */
-  def syncSel[T <: Data](input: Stream[T], select: Stream[UInt], portCount: Int): Vec[Stream[T]] = {
+  def joinSel[T <: Data](input: Stream[T], select: Stream[UInt], portCount: Int): Vec[Stream[T]] = {
     val c = new StreamDemux(input.payload, portCount)
     val joined = StreamJoin(input, select)
     assert(!select.valid || select.payload < portCount, L"${select.payload} is bigger than portCount ${portCount.toString()}. Will stall forever".toList)

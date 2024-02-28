@@ -85,7 +85,7 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
             val selector = slave(Stream(UInt(log2Up(portCount) bit)))
             val outputs = Vec(master(Stream(dataType)), portCount)
           }
-          (io.outputs, StreamDemux.syncSel(io.input, io.selector, portCount)).zipped.foreach(_ << _)
+          (io.outputs, StreamDemux.joinSel(io.input, io.selector, portCount)).zipped.foreach(_ << _)
         })
 
         val reset = ClockDomain.current.isResetActive

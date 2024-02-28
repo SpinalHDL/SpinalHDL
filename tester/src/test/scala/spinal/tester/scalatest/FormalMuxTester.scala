@@ -86,7 +86,7 @@ class FormalMuxTester extends SpinalFormalFunSuite {
             val selector = slave(Stream(UInt(log2Up(portCount) bit)))
             val output = master(Stream(dataType))
           }
-          io.output << StreamMux.syncSel(io.selector, io.inputs)
+          io.output << StreamMux.joinSel(io.selector, io.inputs)
         })
 
         val reset = ClockDomain.current.isResetActive
