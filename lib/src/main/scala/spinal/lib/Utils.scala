@@ -157,8 +157,8 @@ object Max {
 }
 
 object SetFromFirstOne{
-  def apply[T <: Data](that : T) : T = {
-    val lutSize = LutInputs.get
+  def apply[T <: Data](that : T, firstOrder: Int = LutInputs.get) : T = {
+    val lutSize = firstOrder
     val input = that.asBits.asBools.setCompositeName(that, "bools")
     val size = widthOf(input)
     val tmp = Bits(size bits)
@@ -193,6 +193,10 @@ object SetFromFirstOne{
     tmp.as(that)
   }
 }
+object Napot{
+  def apply(that: Bits, firstOrder: Int = LutInputs.get): Bits = SetFromFirstOne(~that, firstOrder) << 1
+}
+
 object OHMasking{
 
   /** returns an one hot encoded vector with only LSB of the word present */
