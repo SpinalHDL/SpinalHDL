@@ -234,6 +234,26 @@ trait BusIf extends BusIfBase {
     intr.setName(regNamePre_ + "intr", weak = true)
     intr
   }
+
+  /*
+    interrupt with Raw/Force/Mask_SET/Mask_CLR/Status 5 Register Interface
+    It is to solve the atomic problem that may arise from operating the same mask address on multiple processor cores.
+    Currently, two independent mask addresses operate on the same mask register to ensure:
+    Two processor cores can independently set the state of one bit without affecting other bits
+    */
+  def interrupt_W1SCmask_FactoryAt(addrOffset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
+    require(triggers.size > 0)
+    val groups = triggers.grouped(this.busDataWidth).toList
+    val ret = groups.zipWithIndex.map{case (trigs, i) =>
+      val offset = addrOffset + 5 * i * this.busDataWidth/8
+      val namePre = if (groups.size == 1) regNamePre else regNamePre + i
+      int_RF2MS(offset, namePre, trigs:_*)
+    }
+    val intr = Vec(ret).asBits.orR
+    val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
+    intr.setName(regNamePre_ + "intr", weak = true)
+    intr
+  }
   /*
     interrupt with Raw/Mask/Status 3 Register Interface
     **/
@@ -269,6 +289,23 @@ trait BusIf extends BusIfBase {
     intr.setName(regNamePre_ + "intr", weak = true)
     intr
   }
+   /*
+    interrupt with Mask_SET/Mask_CLR/Status 3 Register Interface
+    always used for sys_level_int merge
+    **/
+  def interruptLevel_W1SCmask_FactoryAt(addrOffset: BigInt, regNamePre: String, levels: Bool*): Bool = {
+    require(levels.size > 0)
+    val groups = levels.grouped(this.busDataWidth).toList
+    val ret = groups.zipWithIndex.map{case (trigs, i) =>
+      val offset = addrOffset + 3 * i * this.busDataWidth/8
+      val namePre = if (groups.size == 1) regNamePre else regNamePre + i
+      int_2MS(offset, namePre, trigs:_*)
+    }
+    val intr = Vec(ret).asBits.orR
+    val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
+    intr.setName(regNamePre_ + "intr", weak = true)
+    intr
+  }
   /*
   interrupt with Raw/Force/Mask/Status Register Interface
   **/
@@ -294,7 +331,31 @@ trait BusIf extends BusIfBase {
     ret.setName(s"${regNamePre_.toLowerCase()}intr", weak = true)
     ret
   }
-
+ /*
+  interrupt with Raw/Force/Mask_SET/Mask_CLR/Status Register Interface
+  **/
+  protected def int_RF2MS(offset: BigInt, regNamePre: String, triggers: Bool*): Bool = {
+    val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
+    require(triggers.size <= this.busDataWidth )
+    val RAW    = this.newRegAt(offset,"Interrupt Raw status Register\n set when event \n clear raw when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
+    val FORCE  = this.newReg("Interrupt Force  Register\n for SW debug use \n write 1 set raw")(SymbolName(s"${regNamePre_}INT_FORCE"))
+    val MASK_SET   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off \n write 1 set")(SymbolName(s"${regNamePre_}INT_MASK_SET"))
+    val MASK_CLR   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off \n write 1 clear")(SymbolName(s"${regNamePre_}INT_MASK_CLR"))
+    val STATUS = this.newReg("Interrupt status Register\n status = raw && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
+    val ret = triggers.map{ event =>
+      val nm = event.getPartialName()
+      val raw   = RAW.field(Bool(), AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" )(SymbolName(s"${nm}_raw"))
+                  FORCE.parasiteField(raw, AccessType.W1S,   resetValue = 0, doc = s"force, write 1 set, debug use" )
+      val mask  = MASK_SET.field(Bool(), AccessType.W1S,    resetValue = 1, doc = s"mask, default 1, int off \n write 1 set" )(SymbolName(s"${nm}_mask"))
+                  MASK_CLR.parasiteField(mask, AccessType.W1C,   resetValue = 1, doc = s"mask, default 1, int off \n write 1 clear" )
+      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts default 0" )(SymbolName(s"${nm}_status"))
+      raw.setWhen(event)
+      status := raw && (!mask)
+      status
+    }.reduceLeft(_ || _)
+    ret.setName(s"${regNamePre_.toLowerCase()}intr", weak = true)
+    ret
+  }
   /*
     interrupt with Force/Mask/Status Register Interface
     * */
@@ -335,7 +396,26 @@ trait BusIf extends BusIfBase {
     ret.setName(s"${regNamePre_.toLowerCase()}intr", weak = true)
     ret
   }
-
+  /*
+    interrupt with Mask_SET/Mask_CLR/Status Register Interface
+    * */
+  protected def int_2MS(offset: BigInt, regNamePre: String, int_levels: Bool*): Bool = {
+    val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
+    require(int_levels.size <= this.busDataWidth )
+    val MASK_SET   = this.newRegAt(offset, "Interrupt Mask_SET   Register\n1: int off\n0: int open\n default 1, int off\n set when write 1")(SymbolName(s"${regNamePre_}INT_MASK_SET"))
+    val MASK_CLR   = this.newReg( "Interrupt Mask_CLR   Register\n1: int off\n0: int open\n default 1, int off\n clear when write 1")(SymbolName(s"${regNamePre_}INT_MASK_CLR"))
+    val STATUS = this.newReg("Interrupt status Register\n status = int_level && (!mask)")(SymbolName(s"${regNamePre_}INT_STATUS"))
+    val ret = int_levels.map{ level =>
+      val nm = level.getPartialName()
+      val mask  = MASK_SET.field(Bool(), AccessType.W1S,    resetValue = 1, doc = s"mask_set ,write 1 set" )(SymbolName(s"${nm}_mask"))
+                  MASK_CLR.parasiteField(mask, AccessType.W1C,   resetValue = 1, doc = s"mask_clr, write 1 clear" )
+      val status= STATUS.field(Bool(), AccessType.RO,  resetValue = 0, doc = s"stauts" )(SymbolName(s"${nm}_status"))
+      status := level && (!mask)
+      status
+    }.reduceLeft(_ || _)
+    ret.setName(s"${regNamePre_.toLowerCase()}intr", weak = true)
+    ret
+  }
   def accept(vs : BusIfVisitor) = {
     preCheck()
 
