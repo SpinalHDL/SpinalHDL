@@ -404,7 +404,7 @@ class ComponentEmitterVerilog(
               val single_ordered = ordered.size == 1
               val wireAlign = ordered.reverse.map(e => emitAssignedExpression(e.dst)).mkString(", ")
               val comma = if (data == ios.last) " " else ","
-              if (single_ordered) Some((s"    .${portAlign} (", s"${wireAlign}[${data.getBitsWidth - 1}:0]", s")${comma} //~\n"))
+              if (single_ordered) Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //~\n"))
               else Some((s"    .${portAlign} (", s"{${wireAlign}}", s")${comma} //~\n"))
             }
             case None => None
@@ -422,7 +422,7 @@ class ComponentEmitterVerilog(
           Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
         }
       }
-      val maxNameLengthConNew = prepareInstports.map(_._2.length()).max
+      val maxNameLengthConNew = if(prepareInstports.isEmpty) 0 else prepareInstports.map(_._2.length()).max
       val prepareInstportsLen = prepareInstports
         .map(x => (x._1, s"%-${maxNameLengthConNew}s".format(x._2), x._3))
         .map(x => s"${x._1}${x._2}${x._3}")
