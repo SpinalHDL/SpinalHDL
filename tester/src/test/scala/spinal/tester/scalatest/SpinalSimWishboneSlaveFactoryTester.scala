@@ -38,13 +38,15 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
       dut.clockDomain.waitSampling()
 
       val scoreboard = ScoreboardInOrder[WishboneTransaction]()
-      scoreboard.ref ++= List(
+      for(ref <- List(
         WishboneTransaction(10, 100), WishboneTransaction(0, 1),
         WishboneTransaction(10, 100), WishboneTransaction(0, 1),
         WishboneTransaction(10, 100), WishboneTransaction(0, 2)
-      )
+      )) {
+        scoreboard.pushRef(ref)
+      }
 
-      val monitor = WishboneMonitor(dut.io.bus, dut.clockDomain){ bus =>
+      WishboneMonitor(dut.io.bus, dut.clockDomain){ bus =>
            scoreboard.pushDut(WishboneTransaction.sampleAsMaster(bus))
       }
 
@@ -53,7 +55,7 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10, 200), WishboneTransaction(0, 2)), we = true)
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10), WishboneTransaction(0)), we = false)
 
-      println(scoreboard.dut)
+      scoreboard.checkEmptyness()
 //
 //      for(repeat <- 0 until 100){
 //        driver.drive(for(x <- 1 to 10) yield WishboneTransaction(address=10).randomizeData(dut.io.bus.config.dataWidth), we = true)

@@ -46,8 +46,16 @@ class SpinalSimWishboneBusInterfaceTester extends SpinalAnyFunSuite{
       dut.clockDomain.waitSampling()
 
       val sco = ScoreboardInOrder[WishboneTransaction]()
-      val monitor = WishboneMonitor(dut.io.bus, dut.clockDomain){ bus =>
-        sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
+      for(ref_output <- List(
+        WishboneTransaction(0, 0x12345678L), WishboneTransaction(4, 1),
+        WishboneTransaction(0, 0), WishboneTransaction(4, 0),
+        WishboneTransaction(0, 0x12345678L), WishboneTransaction(4, 2)
+      )) {
+        sco.pushRef(ref_output)
+      }
+
+      WishboneMonitor(dut.io.bus, dut.clockDomain){ bus =>
+        sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
       }
 
       val dri = new WishboneDriver(dut.io.bus, dut.clockDomain)
@@ -55,13 +63,7 @@ class SpinalSimWishboneBusInterfaceTester extends SpinalAnyFunSuite{
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(0, 100), WishboneTransaction(4, 2)), we = true)
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(0), WishboneTransaction(4)), we = false)
 
-      val expectedOutput = List(
-        WishboneTransaction(0, 0x12345678L), WishboneTransaction(4, 1),
-        WishboneTransaction(0, 0), WishboneTransaction(4, 0),
-        WishboneTransaction(0, 0x12345678L), WishboneTransaction(4, 2)
-      )
-      print(sco.ref)
-      assert(sco.ref.toList == expectedOutput)
+      sco.checkEmptyness()
     }
   }
 
