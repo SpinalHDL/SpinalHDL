@@ -5,7 +5,7 @@ package spinal.tester.code
 
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
-import spinal.core.fiber.{Fiber, Handle, Lock, Lockable}
+import spinal.core.fiber.{Fiber, Handle, Lock, Lockable, Retainer}
 import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, MemBlackboxOf, Operator, Phase, PhaseContext, PhaseMemBlackBoxingWithPolicy, PhaseNetlist, RangedAssignmentFixed, RangedAssignmentFloating}
 import spinal.lib._
 import spinal.core.sim._
@@ -2361,4 +2361,62 @@ object PlayLockV3 extends App{
       //      lock.release()
     }
   })
+}
+
+
+object PlayComposablePlugin2 extends App {
+
+  import spinal.lib.misc.pipeline._
+
+  class PluginA extends FiberPlugin {
+    val retainer = Retainer()
+
+    val logic = during setup new Area{
+      val b = host[PluginB]
+      val bRetainer = retains(b.retainer)
+      awaitBuild()
+      retainer.await()
+    }
+  }
+
+  class PluginB extends FiberPlugin {
+    val retainer = Retainer()
+
+    val logic = during setup new Area {
+      val c = host[PluginC]
+      val cRetainer = retains(c.retainer)
+      awaitBuild()
+      retainer.await()
+    }
+  }
+
+  class PluginC extends FiberPlugin {
+    val retainer = Retainer()
+
+    val logic = during setup new Area {
+      val a = host[PluginA]
+      val aRetainer = retains(a.retainer)
+      awaitBuild()
+      retainer.await()
+    }
+  }
+
+
+  class PluginD extends FiberPlugin {
+    val logic = during setup new Area {
+      val a = host[PluginA]
+      val aRetainer = retains(a.retainer)
+      awaitBuild()
+    }
+  }
+
+  class VexiiRiscv extends Component {
+    val host = new PluginHost
+    new PluginA().setHost(host)
+    new PluginB().setHost(host)
+    new PluginC().setHost(host)
+    new PluginD().setHost(host)
+  }
+
+  SpinalVerilog(new VexiiRiscv)
 }
