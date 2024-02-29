@@ -39,7 +39,7 @@ class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends Bu
     bus.ACK := reg_reg && bus.STB                 //Classic: Acknowledge at the next clock cycle
   }
 
-  val byteAddress = bus.ADR << (log2Up(bus.config.dataWidth / 8) - log2Up(wordAddressInc))
+  val byteAddress = bus.byteAddress(AddressGranularity.Word)
 
   override def readAddress()  = byteAddress
   override def writeAddress() = byteAddress
@@ -48,7 +48,7 @@ class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends Bu
   override def writeHalt() = bus.ACK := False
 
   override def busDataWidth = bus.config.dataWidth
-  override def wordAddressInc = bus.config.wordAddressInc(addressGranularityIfUnspecified = AddressGranularity.Word)
+
   override def writeByteEnable() = bus.SEL
 
   override def build(): Unit = {

@@ -37,11 +37,13 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
 
       dut.clockDomain.waitSampling()
 
+      val wordInc = conf.wordAddressInc(AddressGranularity.Word)
+
       val scoreboard = ScoreboardInOrder[WishboneTransaction]()
       for(ref <- List(
-        WishboneTransaction(10, 100), WishboneTransaction(0, 1),
-        WishboneTransaction(10, 100), WishboneTransaction(0, 1),
-        WishboneTransaction(10, 100), WishboneTransaction(0, 2)
+        WishboneTransaction(10 * wordInc, 100), WishboneTransaction(0, 1),
+        WishboneTransaction(10 * wordInc, 100), WishboneTransaction(0, 1),
+        WishboneTransaction(10 * wordInc, 100), WishboneTransaction(0, 2)
       )) {
         scoreboard.pushRef(ref)
       }
@@ -51,9 +53,9 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
       }
 
       val dri = new WishboneDriver(dut.io.bus, dut.clockDomain)
-      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10), WishboneTransaction(0)), we = false)
-      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10, 200), WishboneTransaction(0, 2)), we = true)
-      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10), WishboneTransaction(0)), we = false)
+      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10*wordInc), WishboneTransaction(0)), we = false)
+      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10*wordInc, 200), WishboneTransaction(0, 2)), we = true)
+      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10*wordInc), WishboneTransaction(0)), we = false)
 
       scoreboard.checkEmptyness()
 //
@@ -78,7 +80,17 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
     testBus(conf, description="classic32")
   }
 
-//  test("pipelined"){
+  test("classic32_byte"){
+    val conf = WishboneConfig(32, 32, addressGranularity = AddressGranularity.Byte)
+    testBus(conf, description="classic32_byte")
+  }
+
+  test("classic32_word"){
+    val conf = WishboneConfig(32, 32, addressGranularity = AddressGranularity.Word)
+    testBus(conf, description="classic32_word")
+  }
+
+  //  test("pipelined"){
 //    val conf = WishboneConfig(8,8).pipelined
 //    testBus(conf,description="pipelined")
 //  }

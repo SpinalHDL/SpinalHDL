@@ -45,11 +45,13 @@ class SpinalSimWishboneBusInterfaceTester extends SpinalAnyFunSuite{
 
       dut.clockDomain.waitSampling()
 
+      val wordInc = conf.wordAddressInc(AddressGranularity.Byte)
+
       val sco = ScoreboardInOrder[WishboneTransaction]()
       for(ref_output <- List(
-        WishboneTransaction(0, 0x12345678L), WishboneTransaction(4, 1),
-        WishboneTransaction(0, 0), WishboneTransaction(4, 0),
-        WishboneTransaction(0, 0x12345678L), WishboneTransaction(4, 2)
+        WishboneTransaction(0, 0x12345678L), WishboneTransaction(1 * wordInc, 1),
+        WishboneTransaction(0, 0), WishboneTransaction(1 * wordInc, 0),
+        WishboneTransaction(0, 0x12345678L), WishboneTransaction(1 * wordInc, 2)
       )) {
         sco.pushRef(ref_output)
       }
@@ -59,9 +61,9 @@ class SpinalSimWishboneBusInterfaceTester extends SpinalAnyFunSuite{
       }
 
       val dri = new WishboneDriver(dut.io.bus, dut.clockDomain)
-      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(0), WishboneTransaction(4)), we = false)
-      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(0, 100), WishboneTransaction(4, 2)), we = true)
-      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(0), WishboneTransaction(4)), we = false)
+      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(0), WishboneTransaction(1 * wordInc)), we = false)
+      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(0, 100), WishboneTransaction(1 * wordInc, 2)), we = true)
+      dri.drive(scala.collection.immutable.Seq(WishboneTransaction(0), WishboneTransaction(1 * wordInc)), we = false)
 
       sco.checkEmptyness()
     }
@@ -71,6 +73,16 @@ class SpinalSimWishboneBusInterfaceTester extends SpinalAnyFunSuite{
   test("sync"){
     val conf = WishboneConfig(32,32)
     testBus(conf, description="sync")
+  }
+
+  test("sync_byte"){
+    val conf = WishboneConfig(32,32, addressGranularity = AddressGranularity.Byte)
+    testBus(conf, description="sync_byte")
+  }
+
+  test("sync_word"){
+    val conf = WishboneConfig(32,32, addressGranularity = AddressGranularity.Word)
+    testBus(conf, description="sync_word")
   }
 
   test("async"){

@@ -255,6 +255,9 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   def doWrite : Bool    = doSend &&  WE
   def doRead  : Bool    = doSend && !WE
 
+  def byteAddress(addressGranularityIfUnspecified : AddressGranularity.AddressGranularity = AddressGranularity.Unspecified) : UInt = {
+    ADR << log2Up((config.dataWidth / 8) / config.wordAddressInc(addressGranularityIfUnspecified))
+  }
 }
 
 object Wishbone{
