@@ -10,8 +10,7 @@ import scala.reflect.runtime.universe._
 
 class FiberPlugin extends Area with Hostable {
   this.setName(ClassName(this))
-
-  def withPrefix(prefix: String) = setName(prefix + "_" + getName())
+  def withPrefix(prefix: String) = setName(prefix + "_" + ClassName(this))
 
   def retains(that: Seq[Any]) = RetainerGroup(that)
   def retains(head: Any, tail: Any*) = RetainerGroup(head +: tail)
@@ -56,6 +55,9 @@ class FiberPlugin extends Area with Hostable {
     h.addService(this)
     subservices.foreach(h.addService)
     host = h
+    if(!isNamed){
+      this.setName(ClassName(this))
+    }
     hostLock.release()
   }
 

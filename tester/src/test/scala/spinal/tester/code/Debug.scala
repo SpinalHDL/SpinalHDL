@@ -2410,13 +2410,62 @@ object PlayComposablePlugin2 extends App {
     }
   }
 
-  class VexiiRiscv extends Component {
-    val host = new PluginHost
-    new PluginA().setHost(host)
-    new PluginB().setHost(host)
-    new PluginC().setHost(host)
-    new PluginD().setHost(host)
+  class PluginX extends FiberPlugin {
+    val logic = during setup new Area {
+      val x = True
+    }
   }
 
-  SpinalVerilog(new VexiiRiscv)
+  class PluginY extends FiberPlugin {
+    val logic = during setup new Area {
+      val Y = True
+    }
+  }
+
+  class VexiiRiscv extends Component {
+    val host = new PluginHost
+    val plugX = new PluginX()
+    host.asHostOf(plugX)
+  }
+
+  SpinalVerilog{
+    val toplevel = new VexiiRiscv()
+
+    //Now let's parametrize the CPU with some plugins
+    toplevel.host.asHostOf(List(
+      new PluginY()
+    ))
+
+    toplevel
+  }
+}
+
+
+import spinal.core._
+import spinal.core.fiber.Handle
+import spinal.lib._
+import spinal.lib.misc.plugin._
+
+class Plugin1 extends FiberPlugin {
+  val logic = during setup new Area {
+    val int = host[Plugin2].logic.const
+  }
+}
+
+class Plugin2 extends FiberPlugin {
+  val logic: Handle[Area with Object{val const: Bool}] = during setup new Area {
+    val const = True
+    awaitBuild()
+    val o = out(Bool())
+    o := host[Plugin1].logic.int
+  }
+}
+
+class PluginTest extends Component {
+  val host = new PluginHost
+  host.asHostOf(new Plugin2, new Plugin1)
+}
+
+object PluginTest extends App {
+  SpinalVerilog(new PluginTest)
 }
