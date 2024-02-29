@@ -66,7 +66,7 @@ s"""
     val report = log.getLines().mkString("\n")
     new Report {
       override def getFMax() = {
-        val matches = "Maximum possible analyzed clocks frequency\\n[^\\n]*[\\n]clk[ ]*([+-]?[0-9]*[.]?[0-9]+)[ ]*([+-]?[0-9]*[.]?[0-9]+)".r.findAllMatchIn(report).toArray
+        val matches = "Maximum possible analyzed clocks frequency\\n[^\\n]*[\\n][ ]*clk[ ]*([+-]?[0-9]*[.]?[0-9]+)[ ]*([+-]?[0-9]*[.]?[0-9]+)".r.findAllMatchIn(report).toArray
         assert(matches.size == 1)
         matches(0).group(2).toDouble*1e6
       }
