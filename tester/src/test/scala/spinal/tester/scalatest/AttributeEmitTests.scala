@@ -10,8 +10,8 @@ class AttributeEmitTests extends SpinalAnyFunSuite {
       a.addAttribute("testname", "test \"value\" ")
     }
     val verilog = SpinalVerilog(new Test)
-    assert(verilog.getRtlString().contains("test \\\"value\\\""))
+    assert(verilog.getRtlString().contains(raw"""test \"value\""""))
     val vhdl = SpinalVhdl(new Test)
-    assert(vhdl.getRtlString().contains("test \"\"value\"\""))
+    assert(vhdl.getRtlString().contains(raw"""test ""value"""""))
   }
 }
