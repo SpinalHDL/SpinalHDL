@@ -1,6 +1,6 @@
 package spinal.core.fiber
 
-import spinal.core.{Area, GlobalData}
+import spinal.core.{Area, GlobalData, OnCreateStack}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -73,8 +73,8 @@ class Fiber extends Area{
   def addTask[T: ClassTag](orderId : Int)(body : => T) : Handle[T] = {
     val (h, t) = hardForkRawHandle(withDep = true) { h : Handle[T] =>
       Fiber.await(orderId)
-      if(classTag[T].runtimeClass == classOf[Area]) {
-        GlobalData.get.onAreaInit = Some(a => a.setCompositeName(h))
+      if(classOf[Area].isAssignableFrom(classTag[T].runtimeClass)) {
+        OnCreateStack.set(a => a.setCompositeName(h))
       }
       val ret = body
       idle()

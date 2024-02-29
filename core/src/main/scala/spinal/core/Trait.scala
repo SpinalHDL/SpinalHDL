@@ -88,6 +88,12 @@ object SwitchStack extends ScopeProperty[SwitchContext]{
   override def default = null
 }
 
+object OnCreateStack extends ScopeProperty[Nameable => Unit]{
+  storeAsMutable = false
+  override def default = null
+}
+
+
 
 /**
   * Global data
@@ -121,7 +127,6 @@ class GlobalData(val config : SpinalConfig) {
   val elab = new Fiber()
   elab.setName("global_elab")
   elab.inflightLock.globalData = this
-  var onAreaInit = Option.empty[Area => Unit]
 
   def applyScalaLocated(): Unit ={
     try {

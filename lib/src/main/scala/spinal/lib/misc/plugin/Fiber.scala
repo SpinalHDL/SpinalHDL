@@ -63,7 +63,11 @@ class FiberPlugin extends Area with Hostable {
     def setup[T: ClassTag](body: => T): Handle[T] = spinal.core.fiber.Fiber setup {
       pluginEnabled generate {
         hostLock.await()
-        host.rework(body)
+        val onCreate = OnCreateStack.getOrElse(null)
+        host.rework {
+          OnCreateStack.set(onCreate)
+          body
+        }
       }
     }
 
@@ -72,7 +76,11 @@ class FiberPlugin extends Area with Hostable {
       spinal.core.fiber.Fiber build {
         pluginEnabled generate {
           hostLock.await()
-          val ret = host.rework(body)
+          val onCreate = OnCreateStack.getOrElse(null)
+          val ret = host.rework{
+            OnCreateStack.set(onCreate)
+            body
+          }
           buildCount -= 1
           if (buildCount == 0) {
             lockables.foreach(_().release())
