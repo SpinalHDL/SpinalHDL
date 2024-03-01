@@ -125,7 +125,7 @@ class EngineContext {
         if (chain.contains(t)) {
           println("Fiber chain detected with : ")
           for(e <- chain.dropWhile(_ != t)){
-            println(s"- $e waiting on ${e.waitOn}")
+            println(s"- ${e} waiting on ${e.waitOn}")
           }
 
           return
@@ -140,11 +140,12 @@ class EngineContext {
       }
 
       for(thread <- waiting; wo = thread.waitOn if wo != null && wo.willBeLoadedBy != null && wo.willBeLoadedBy.waitOn == null){
-        println(s"Thread ${wo.willBeLoadedBy} forgot to load ${wo}")
+        println(s"Thread ${wo.willBeLoadedBy.getName} forgot to load ${wo}")
       }
 
 //      println(count)
       println("\n")
+      Thread.sleep(10)
       if(!hadException) throw new Exception("SpinalHDL async engine is stuck")
     }
   }

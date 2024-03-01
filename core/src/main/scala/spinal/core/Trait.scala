@@ -125,8 +125,8 @@ class GlobalData(val config : SpinalConfig) {
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
   val scalaLocateds = mutable.HashSet[ScalaLocated]()
   val elab = new Fiber()
-  elab.setName("global_elab")
-  elab.inflightLock.globalData = this
+  elab.setName("spinal_elab")
+//  elab.inflightLock.globalData = this
 
   def applyScalaLocated(): Unit ={
     try {

@@ -21,17 +21,16 @@
 package spinal.core.internals
 
 import java.io.{BufferedWriter, File, FileWriter}
-
 import scala.collection.mutable.ListBuffer
 import spinal.core._
-import spinal.core.fiber.Engine
+import spinal.core.fiber.{AsyncThread, Engine}
 import spinal.core.internals.Operator.BitVector
 
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
-import java.util
 
+import java.util
 import scala.io.Source
 import scala.util.Random
 
@@ -2554,7 +2553,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
       binarySequential
       binaryOneHot
       val top = gen
-      fiber.hardFork(ctx.globalData.elab.runSync()).setName("global_elab")
+      fiber.hardFork{AsyncThread.current.setName("spinal_elab"); ctx.globalData.elab.runSync()}.setName("spinal_elab")
       if(top.isInBlackBoxTree){
         SpinalError(s"The toplevel can't be a BlackBox (${top.getClass.getSimpleName})")
       }
