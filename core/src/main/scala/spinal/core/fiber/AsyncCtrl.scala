@@ -116,7 +116,7 @@ class EngineContext {
 
       for((handle, threads) <- handleToWaiters){
         println(s"Waiting on $handle defined at ${handle.getScalaLocationShort}:")
-        threads.zipWithIndex.foreach{case(t, i) => println(s"${i+1}) $t")}
+        threads.zipWithIndex.foreach{case(t, i) => println(s"${i+1}) $t at ${t.getLocationShort()}")}
       }
 
 
@@ -125,7 +125,7 @@ class EngineContext {
         if (chain.contains(t)) {
           println("Fiber chain detected with : ")
           for(e <- chain.dropWhile(_ != t)){
-            println(s"- ${e} waiting on ${e.waitOn}")
+            println(s"- ${e} waiting on ${e.waitOn} at ${e.getLocationShort()}")
           }
 
           return

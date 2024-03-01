@@ -599,7 +599,7 @@ object ScalaLocated {
 
   def filterStackTrace(that: Array[StackTraceElement]) = that.filter(trace => {
     val className = trace.getClassName
-    !(className.startsWith("scala.") || className.startsWith("spinal.core") || !filter(trace.toString)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+    !(className.startsWith("scala.") || className.startsWith("spinal.core")  || className.startsWith("spinal.sim") || !filter(trace.toString)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
   })
 
   def short(scalaTrace: Throwable): String = {

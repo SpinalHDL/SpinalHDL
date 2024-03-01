@@ -2496,3 +2496,15 @@ object FiberTest123 extends App {
     }
   })
 }
+
+object FiberTest1234 extends App {
+  SpinalVerilog(new Component{
+    val z = Handle[Int]
+    val x = Fiber build new Area {
+
+    }
+    val y = Fiber setup new Area {
+      z.get
+    }
+  })
+}
