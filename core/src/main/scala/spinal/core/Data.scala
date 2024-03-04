@@ -22,7 +22,7 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
-import spinal.idslplugin.Location
+import spinal.idslplugin.{Location, PostInitCallback}
 
 import scala.collection.Seq
 
@@ -646,13 +646,19 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       val constructor      = clazz.getConstructors.head
       val constrParamCount = constructor.getParameterTypes.length
 
-      //No param =>
-      if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
       def cleanCopy[T <: Data](that: T): T = {
+        that match {
+          case pcb : PostInitCallback => pcb.postInitCallback()
+          case _ => 
+        }
         that.purify()
         that
       }
+
+      //No param =>
+      if (constrParamCount == 0) return cleanCopy(constructor.newInstance().asInstanceOf[this.type])
+
 
       def constructorParamsAreVal: this.type = {
         val outer         = clazz.getFields.find(_.getName == "$outer")

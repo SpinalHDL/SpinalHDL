@@ -11,6 +11,7 @@ object ElabOrderId{
   val INIT  = -1000000
   val SETUP = 0
   val BUILD = 1000000
+  val PATCH = 1500000
   val CHECK = 2000000
 
   def getName(that : Int) = that match {
@@ -42,6 +43,7 @@ object Fiber {
 
   def awaitSetup() = await(ElabOrderId.SETUP)
   def awaitBuild() = await(ElabOrderId.BUILD)
+  def awaitPatch() = await(ElabOrderId.PATCH)
   def awaitCheck() = await(ElabOrderId.CHECK)
 }
 

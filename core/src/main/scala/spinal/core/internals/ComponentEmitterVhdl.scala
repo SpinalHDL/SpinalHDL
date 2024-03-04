@@ -1152,7 +1152,7 @@ class ComponentEmitterVhdl(
   def emitAttributes(node: String, attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder, postfix: String): Unit = {
     for (attribute <- attributes){
       val value = attribute match {
-        case attribute: AttributeString  => "\"" + attribute.value + "\""
+        case attribute: AttributeString  => "\"" + attribute.value.replace("\"", "\"\"") + "\""
         case attribute: AttributeInteger => attribute.value.toString
         case attribute: AttributeFlag    => "true"
       }

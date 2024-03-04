@@ -78,7 +78,7 @@ object when {
   def apply(cond: Bool)(block: => Unit)(implicit loc: Location): WhenContext = {
     if(cond.globalData.config.nameWhenByFile ) {
       if (cond.dlcIsEmpty || !cond.head.source.isInstanceOf[Operator.Formal.InitState]) {
-        cond.setName("when_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
+        cond.setName("when_" + loc.fileSymbol + "_l" + loc.line, Nameable.REMOVABLE)
       }
     }
     val whenStatement = new WhenStatement(cond)
@@ -151,7 +151,7 @@ object switch {
 
     def apply[T <: BaseType](value: T, coverUnreachable : Boolean = false, strict : Boolean = true)(block: => Unit)(implicit loc : Location): Unit = {
       if(value.globalData.config.nameWhenByFile) {
-        value.setName("switch_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
+        value.setName("switch_" + loc.fileSymbol + "_l" + loc.line, Nameable.REMOVABLE)
       }
       val globalData      = value.globalData
       val switchStatement = new SwitchStatement(value)

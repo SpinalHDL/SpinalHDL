@@ -103,7 +103,7 @@ class CtrlLink(override val up : Node, override val down : Node) extends Link wi
   override def getCtrl: CtrlLink = this
 
   def nameFromLocation[T <: Data](that: T, prefix: String)(implicit loc: Location): T = {
-    that.setCompositeName(this, prefix + "_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
+    that.setCompositeName(this, prefix + "_" + loc.fileSymbol + "_l" + loc.line, Nameable.REMOVABLE)
   }
 
   val requests = new{
