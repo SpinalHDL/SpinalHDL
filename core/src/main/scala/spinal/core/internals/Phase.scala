@@ -386,38 +386,42 @@ class PhaseAnalog extends PhaseNetlist{
       //Process the islands to generate seeds from component analog inouts, and build the group list for connections without inout analog
       islands.foreach(island => {
         val filtred = island.elements.map(_.bt).toSet
-        val count = filtred.count(e => e.isInOut && e.component == c)
-        count match {
-          case 0 => { //No analog inout, will need to create a connection seed later on
-            val groups = island.elements.map(b => anlogToGroup.get(b.bt)).filter(_.nonEmpty).map(_.get).toArray.distinct
-            val finalGroup = groups.length match {
-              case 0 => {
-                val group = new Group()
-                analogGroups += group
-                group
-              }
-              case 1 => groups.head
-              case _ =>{
-                val ghead = groups.head
-                for(group <- groups.tail){
-                  groups.head.islands ++= group.islands
-                  analogGroups -= group
-                  for(i <- group.islands){
-                    for(b <- i.elements){
-                      anlogToGroup(b.bt) = ghead
-                    }
+        val count = filtred.count(e => e.isAnalog && e.component == c)
+        val ioCount = filtred.count(e => e.isInOut && e.component == c)
+        if(ioCount == 1) {
+          seeds += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt //Got a analog inout to host the connection
+        } else if(count == 1) {
+          seeds += island.elements.find(e => e.bt.isAnalog && e.bt.component == c).get.bt
+        } else if(count == 0){
+          //No analog, will need to create a connection seed later on
+          val groups = island.elements.map(b => anlogToGroup.get(b.bt)).filter(_.nonEmpty).map(_.get).toArray.distinct
+          val finalGroup = groups.length match {
+            case 0 => {
+              val group = new Group()
+              analogGroups += group
+              group
+            }
+            case 1 => groups.head
+            case _ =>{
+              val ghead = groups.head
+              for(group <- groups.tail){
+                groups.head.islands ++= group.islands
+                analogGroups -= group
+                for(i <- group.islands){
+                  for(b <- i.elements){
+                    anlogToGroup(b.bt) = ghead
                   }
                 }
-                ghead
               }
-            }
-            finalGroup.islands += island
-            for(b <- island.elements){
-              anlogToGroup(b.bt) = finalGroup
+              ghead
             }
           }
-          case 1 => seeds += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt //Got a analog inout to host the connection
-          case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
+          finalGroup.islands += island
+          for(b <- island.elements){
+            anlogToGroup(b.bt) = finalGroup
+          }
+        } else {
+          PendingError("MULTIPLE INOUT interconnected in the same component")
         }
       })
 
