@@ -646,8 +646,6 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       val constructor      = clazz.getConstructors.head
       val constrParamCount = constructor.getParameterTypes.length
 
-      //No param =>
-      if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
       def cleanCopy[T <: Data](that: T): T = {
         that match {
@@ -657,6 +655,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         that.purify()
         that
       }
+
+      //No param =>
+      if (constrParamCount == 0) return cleanCopy(constructor.newInstance().asInstanceOf[this.type])
+
 
       def constructorParamsAreVal: this.type = {
         val outer         = clazz.getFields.find(_.getName == "$outer")
