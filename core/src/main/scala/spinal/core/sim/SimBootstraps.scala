@@ -916,6 +916,7 @@ case class SpinalSimConfig(
     val uniqueId = SimWorkspace.allocateUniqueId()
     new File(s"tmp").mkdirs()
     new File(s"tmp/job_$uniqueId").mkdirs()
+    _spinalConfig.noAssertAtTimeZero = true
     val config = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new PhaseNetlist {
       override def impl(pc: PhaseContext): Unit = {
         //Ensure the toplevel pull its clock domain

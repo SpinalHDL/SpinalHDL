@@ -172,7 +172,8 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var enumPrefixEnable           : Boolean = true,
                         var enumGlobalEnable           : Boolean = false,
                         bitVectorWidthMax              : Int = 4096,
-                        var singleTopLevel             : Boolean = true
+                        var singleTopLevel             : Boolean = true,
+                        var noAssertAtTimeZero         : Boolean = false
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)

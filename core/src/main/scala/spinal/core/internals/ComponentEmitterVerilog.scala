@@ -737,7 +737,8 @@ class ComponentEmitterVerilog(
               b ++= s"${tab}    $keyword($cond); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
               b ++= s"${tab}  `else\n"
               /* Emulate them using $display */
-              b ++= s"${tab}    if(!$cond) begin\n"
+              val zeroTimeCond = if (spinalConfig.noAssertAtTimeZero) " && $realtime != 0" else ""
+              b ++= s"${tab}    if(!${cond}${zeroTimeCond}) begin\n"
               b ++= s"""${tab}      $$display("$severity $frontString"$backString); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"""
               if (assertStatement.severity == `FAILURE`) b ++= tab + "      $finish;\n"
               b ++= s"${tab}    end\n"
@@ -751,7 +752,8 @@ class ComponentEmitterVerilog(
                 case `FAILURE` => "$fatal"
               }
               if (assertStatement.kind == AssertStatementKind.ASSERT && !spinalConfig.formalAsserts) {
-                b ++= s"${tab}$keyword($cond) else begin\n"
+                val zeroTimeCond = if (spinalConfig.noAssertAtTimeZero) " || $realtime == 0" else ""
+                b ++= s"${tab}$keyword(${cond}${zeroTimeCond}) else begin\n"
                 b ++= s"""${tab}  $severity("$frontString"$backString); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"""
                 if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
                 b ++= s"${tab}end\n"
