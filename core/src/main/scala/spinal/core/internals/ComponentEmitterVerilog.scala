@@ -751,10 +751,7 @@ class ComponentEmitterVerilog(
                 case `FAILURE` => "$fatal"
               }
               if (assertStatement.kind == AssertStatementKind.ASSERT && !spinalConfig.formalAsserts) {
-                b ++= s"${tab}$keyword($cond) else begin\n"
-                b ++= s"""${tab}  $severity("$frontString"$backString); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"""
-                if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
-                b ++= s"${tab}end\n"
+                b ++= s"${tab}$keyword($cond);\n"       
               } else {
                 b ++= s"${tab}$keyword($cond); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
               }
