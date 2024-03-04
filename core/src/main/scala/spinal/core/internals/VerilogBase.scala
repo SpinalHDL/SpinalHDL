@@ -81,7 +81,7 @@ trait VerilogBase extends VhdlVerilogBase{
     } ${reset}"
   }
   def emitQuotedString(string: String): String = {
-    string.replace("\"", "\\\"")
+    "\"" + string.replace("\"", "\\\"") + "\""
   }
   def emitSyntaxAttributes(attributes: Iterable[Attribute]): String = {
     val values = for (attribute <- attributes if attribute.attributeKind() == DEFAULT_ATTRIBUTE) yield attribute match {
