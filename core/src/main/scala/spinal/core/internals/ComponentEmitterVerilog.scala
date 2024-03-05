@@ -426,7 +426,7 @@ class ComponentEmitterVerilog(
             Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
           else {
             referencesOverrides.remove(data)
-            Some((s"    .${portAlign} (", s"", s")${comma} //${dirtag}\n"))
+            Some((s"    .${portAlign} (", s" ", s")${comma} //${dirtag}\n"))
           }
         }
       }
