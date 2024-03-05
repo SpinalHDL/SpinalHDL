@@ -596,17 +596,22 @@ trait BusSlaveFactory extends Area{
    * @param that data to read over bus
    * @param address address to map at
    * @param blockCycles cycles to block read transaction before returning NACK
+   * @param timeout whether the read transaction timed out (returned NACK)
    * @tparam T type of stream payload
    */
-  def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt): Unit = {
+  def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt, timeout: Bool = null): Unit = {
     val counter = Counter(blockCycles.getWidth bits)
     val wordCount = (1 + that.payload.getBitsWidth - 1) / busDataWidth + 1
+    timeout != null generate { timeout := False }
     onReadPrimitive(SizeMapping(address, wordCount * wordAddressInc), haltSensitive = false, null) {
       counter.increment()
       when(counter.value < blockCycles && !that.valid) {
         readHalt()
       } otherwise {
         counter.clear()
+        timeout != null generate {
+          when (!that.valid) { timeout := True }
+        }
       }
     }
 
