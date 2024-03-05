@@ -194,6 +194,14 @@ object SetFromFirstOne{
   }
 }
 object Napot{
+  /**
+   * @return Bits(widthOf(that + 1 bits) which work as a mask which will bet set after the lowest index in which that contains a bit 0
+   *         Ex : that = 1111 => 00000
+   *                     0111 => 10000
+   *                     x011 => 11000
+   *                     xx01 => 11100
+   *                     xxx0 => 11110
+   */
   def apply(that: Bits, firstOrder: Int = LutInputs.get): Bits = SetFromFirstOne(~that, firstOrder) << 1
 }
 
