@@ -165,7 +165,7 @@ class ComponentEmitterVerilog(
         val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
         val name = component.localNamingScope.allocateName(componentSignalName)
         val noUse = signalNoUse(io)
-        if (!io.isSuffix && (io.isVital || !noUse))
+        if (!io.isSuffix && ((io.isVital || !noUse) || !spinalConfig.cleanOutput))
           declarations ++= emitExpressionWrap(io, name)
         referencesOverrides(io) = name
       }
@@ -423,7 +423,7 @@ class ComponentEmitterVerilog(
             case spinal.core.inout => "~"
             case _ => SpinalError("Not founded IO type")
           }
-          if(data.isVital || !noUse)
+          if(data.isVital || !noUse || !spinalConfig.cleanOutput)
             Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
           else {
             referencesOverrides.remove(data)
