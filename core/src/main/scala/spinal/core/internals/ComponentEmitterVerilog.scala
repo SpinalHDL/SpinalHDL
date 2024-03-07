@@ -172,7 +172,8 @@ class ComponentEmitterVerilog(
     ))
 
     //Wrap expression which need it
-    cutLongExpressions()
+    if(spinalConfig.cutLongExpressions)
+      cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
 
     component.dslBody.walkStatements { s =>
