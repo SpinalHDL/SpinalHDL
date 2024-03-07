@@ -1,8 +1,8 @@
 package spinal.tester.code
 
-import spinal.core.{SpinalTagReady, SpinalVerilog}
+import spinal.core.{Component, SpinalTagReady, SpinalVerilog}
 import spinal.core.fiber.{Fiber, Handle}
-import spinal.lib.IMasterSlave
+import spinal.lib.{IMasterSlave, slave}
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config, Axi4CrossbarFactory, Axi4SpecRenamer}
 import spinal.lib.bus.misc.DefaultMapping
@@ -1430,26 +1430,65 @@ object Date2024{
       SpinalVerilog(new Toplevel)
     }
   }
+
+  {
+    import spinal.core._
+    import spinal.lib._
+
+    case class Pixel(width: Int) extends Bundle{
+      val r, g, b = UInt(width bits)
+    }
+
+    val fifo = StreamFifo(
+      dataType = Pixel(width = 8),
+      depth = 32
+    )
+
+    val feed    = Stream(Pixel(width = 8))
+    val staged  = feed.stage()
+    val filtred = staged.throwWhen(feed.r < 128)
+    val queued  = filtred.queue(size = 16)
+
+  }
+
+//  {
+//
+//    val aluAt = 0
+//    val jumpAt = 1
+//    val alu = new pipeline.Execute(aluAt) {
+//      val PC_TARGET = insert(PC + UOP(31 downto 20));
+//    }
+//    val jumpLogic = new pipeline.Execute(jumpAt) {
+//      pcPort.valid := ..
+//      pcPort.pc := alu.PC_TARGET
+//
+//      flushPort.valid := ..
+//    }
+//  }
 }
 
 import spinal.core._
 
-class Toplevel extends Component {
-  val x, y, z = in(UInt(8 bits))
+class Timer extends Component {
+  val increment = in Bool()
+  val counter = Reg(UInt(8 bits)) init(0)
+  val full = out(counter === 255)
 
-  val elements = ArrayBuffer[UInt]()
-  elements += x
-  elements += y
-  elements += z
-
-  var tmp = elements.head
-  for (e <- elements.tail) {
-    tmp = (e < tmp).mux(e, tmp)
+  when(increment){
+    counter := counter + 1
   }
-
-  val result = out(tmp)
+}
+object MyMain extends App{
+  SpinalVerilog(new Timer)
 }
 
-object MyMain extends App {
-  SpinalVerilog(new Toplevel)
+
+object MyMain41414 extends App {
+  SpinalVerilog(new Component {
+    val cond = in Bool()
+    val result = out UInt(8 bits)
+    when(cond){
+      result := 0
+    }
+  })
 }
