@@ -328,8 +328,8 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
 
   StreamReadyRandomizer(axi.b, clockDomain)
   StreamMonitor(axi.b, clockDomain) { b =>
-    if (bQueue.nonEmpty) {
-      val id = if (busConfig.useId) b.id.toInt else 0
+    val id = if (busConfig.useId) b.id.toInt else 0
+    if (bQueue(id).nonEmpty) {
       bQueue(id).dequeue()(b)
     }
   }
