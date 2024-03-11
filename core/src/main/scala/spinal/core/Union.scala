@@ -8,7 +8,7 @@ object UnionElement {
   implicit def wrapped[T <: Data](ue: UnionElement[T]) = ue.get()
 }
 
-class UnionElement[T <: Data](val t: HardType[T], host: Union) {
+class UnionElement[T <: Data](val t: HardType[T], val host: Union) {
   def get(): T = signalCache(this, "get") (host.raw.aliasAs(t))
 }
 

@@ -30,6 +30,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
 import scala.util.Random
+import scala.util.control.Breaks._
 
 /**
   * Simulation package
@@ -419,6 +420,49 @@ package object sim {
       }
       setBigInt(bt, acc)
     }
+  }
+
+  implicit class SimUnionElementPimper[T <: Data](ue: UnionElement[T]) {
+    val dummyData = ue.t()
+    class SimProxy[E <: Data](rawBits: Bits, e: E) {
+      var offset = 0
+      breakable {
+        for (ee <- dummyData.flatten) {
+          if (ee == e) break()
+          offset += ee.getBitsWidth
+        }
+      }
+      val range = offset + e.getBitsWidth - 1 downto offset
+      val alwaysZero = e.getBitsWidth == 0
+      val manager = SimManagerContext.current.manager
+      val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](rawBits.algoInt)
+
+      def toBigInt = if (alwaysZero) BigInt(0) else {
+        (manager.getBigInt(signal) & range.mask) >> offset
+      }
+      def #=(value: BigInt): Unit = {
+        if (alwaysZero) {
+          assert(value == 0)
+          return
+        }
+        val orig = manager.getBigInt(signal)
+        manager.setBigInt(signal, (orig &~ range.mask) | ((value << offset) & range.mask))
+      }
+      def toInt = {
+        assert(e.getBitsWidth <= 32)
+        toBigInt.toInt
+      }
+      def toBoolean = {
+        assert(e.getBitsWidth == 1)
+        toBigInt != 0
+      }
+      def #=(value: Boolean): Unit = {
+        assert(e.getBitsWidth == 1)
+        #=(value.toInt)
+      }
+    }
+
+    def simGet[E <: Data](locator: T => E) = new SimProxy(ue.host.raw, locator(dummyData))
   }
 
   protected abstract class RandomizableBitVector(bt: BitVector, longLimit: Int) {
