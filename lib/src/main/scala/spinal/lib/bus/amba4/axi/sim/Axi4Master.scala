@@ -42,7 +42,7 @@ import Axi4Resps._
  *   }
  * }}}
  */
-case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
+case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnamed") {
   private val busConfig = axi.config
 
   private val arQueue = mutable.Queue[Axi4Ar => Unit]()
@@ -65,7 +65,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain) {
   private val maxSize = log2Up(busConfig.bytePerWord)
 
   private def log(chan: String, msg: String): Unit = {
-    println(s"Axi4Master [$chan]\t: $msg")
+    println(s"Axi4Master ($name) [$chan]\t: $msg")
   }
 
   /**
