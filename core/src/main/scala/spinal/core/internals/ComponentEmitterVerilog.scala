@@ -165,7 +165,7 @@ class ComponentEmitterVerilog(
         val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
         val name = component.localNamingScope.allocateName(componentSignalName)
         val noUse = signalNoUse(io)
-        if (!io.isSuffix && ((io.isVital || !noUse) || !spinalConfig.cleanOutput))
+        if (!io.isSuffix && ((io.isVital || !noUse) || spinalConfig.emitFullComponentBindings))
           declarations ++= emitExpressionWrap(io, name)
         referencesOverrides(io) = name
       }
@@ -423,7 +423,7 @@ class ComponentEmitterVerilog(
             case spinal.core.inout => "~"
             case _ => SpinalError("Not founded IO type")
           }
-          if(data.isVital || !noUse || !spinalConfig.cleanOutput)
+          if(data.isVital || !noUse || spinalConfig.emitFullComponentBindings)
             Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
           else {
             referencesOverrides.remove(data)
@@ -1736,25 +1736,36 @@ end
     }
   }
 
+  var outputSignalNoUse: Set[BaseType] = Set()
+  if(!spinalConfig.emitFullComponentBindings) {
+    component.children.foreach(sub =>
+      sub.getAllIo
+      .foreach(io => if(io.isOutput) {
+        outputSignalNoUse = outputSignalNoUse + io
+      }
+    ))
+  }
+  component.dslBody.walkStatements {
+    case s: BaseType =>
+    case s => {
+      s.walkExpression {
+        case e: BaseType => {
+          if(outputSignalNoUse contains e) {
+            outputSignalNoUse = outputSignalNoUse - e
+          }
+        }
+        case _ =>
+      }
+    }
+  }
+
+  def signalNoUse(sig: BaseType): Boolean = {
+    outputSignalNoUse contains sig
+  }
+
   elaborate()
   fillExpressionToWrap()
   emitEntity()
   emitArchitecture()
 
-  def signalNoUse(sig: BaseType): Boolean = {
-    var noUse = true
-    component.dslBody.walkStatements {
-      case s: BaseType =>
-      case s => {
-        s.walkExpression {
-          case e => {
-            if(e == sig) {
-              noUse = false
-            }
-          }
-        }
-      }
-    }
-    noUse
-  }
 }
