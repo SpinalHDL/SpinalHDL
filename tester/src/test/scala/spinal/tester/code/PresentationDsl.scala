@@ -1450,7 +1450,70 @@ object Date2024{
     val queued  = filtred.queue(size = 16)
 
   }
-
+//  {
+//    case class Stream[T <: Data](dataType: HardType[T]) extends Bundle {
+//      val valid = Bool()
+//      val ready = Bool()
+//      val data: T = dataType()
+//    }
+//    case class Pixel(width: Int) extends Bundle{
+//      val r, g, b = UInt(width bits)
+//    }
+//
+//    val bus = Stream(Pixel(8))
+//    bus.valid := False
+//    bus.data.r := 0x11
+//    bus.data.g := 0x22
+//    bus.data.b := 0x33
+//  }
+//
+//  {
+//    import spinal.lib.fsm._
+//
+//    class TopLevel extends Component {
+//      val counter = Reg(UInt(8 bits)) init (0)
+//      val fsm = new StateMachine {
+//        val stateA, stateB, stateC = new State
+//        setEntry(stateA)
+//
+//        stateA.whenIsActive(goto(stateB))
+//
+//        stateB.onEntry(counter := 0)
+//        stateB.whenIsActive {
+//          counter := counter + 1
+//          when(counter === 4) {
+//            goto(stateC)
+//          }
+//        }
+//
+//        stateC.whenIsActive(goto(stateA))
+//      }
+//    }
+//  }
+//
+//  {
+//    class SimdAddPlugin(val layer: LaneLayer) extends ExecutionUnitElementSimple(layer) {
+//      val logic = during setup new Logic {
+//        awaitBuild()
+//        val wb = newWriteback(ifp, 0)
+//        val add4 = add(SimdAddPlugin.ADD4).spec
+//        add4.addRsSpec(RS1, executeAt = 0)
+//        add4.addRsSpec(RS2, executeAt = 0)
+//        uopRetainer.release()
+//        val process = new el.Execute(id = 0) {
+//          val rs1 = el(IntRegFile, RS1).asUInt
+//          val rs2 = el(IntRegFile, RS2).asUInt
+//          val rd = UInt(32 bits)
+//          rd( 7 downto  0) := rs1( 7 downto  0) + rs2( 7 downto  0)
+//          rd(16 downto  8) := rs1(16 downto  8) + rs2(16 downto  8)
+//          rd(23 downto 16) := rs1(23 downto 16) + rs2(23 downto 16)
+//          rd(31 downto 24) := rs1(31 downto 24) + rs2(31 downto 24)
+//          wb.valid := SEL
+//          wb.payload := rd.asBits
+//        }
+//      }
+//    }
+//  }
 //  {
 //
 //    val aluAt = 0
@@ -1482,13 +1545,65 @@ object MyMain extends App{
   SpinalVerilog(new Timer)
 }
 
+//class Toplevel(cdA : ClockDomain, cdB : ClockDomain) extends Component {
+//  val specs = LinkedHashMap[NamedType[Data], LinkedHashMap[Int, Data]]()
+//  def pip[T <: Data](key : NamedType[T], at : Int) = {
+//    val spec = specs.getOrElseUpdate(key.asInstanceOf[NamedType[Data]], new LinkedHashMap[Int, Data])
+//    spec.getOrElseUpdate(at, key().setName(key.getName + "_" + at)).asInstanceOf[T]
+//  }
+//
+//  val PC = NamedType(UInt(32 bits))
+//
+//  pip(PC, 0) := 0x42
+//  val x = pip(PC, 3) + 1
+//
+//  val CALC = NamedType(UInt(32 bits))
+//  pip(CALC, 2) := pip(PC, 2) + 0x11
+//  val y = pip(CALC, 4) + 0x22
+//
+//
+//  for((key, nodes) <- specs){
+//    for(i <- nodes.keys.min until nodes.keys.max) {
+//      pip(key, i+1) := RegNext(pip(key,i))
+//    }
+//  }
+//}
+object PipeliningDemo extends App {
+  import spinal.core._
+  import scala.collection.mutable.LinkedHashMap
 
-object MyMain41414 extends App {
-  SpinalVerilog(new Component {
-    val cond = in Bool()
-    val result = out UInt(8 bits)
-    when(cond){
-      result := 0
+  class Pipeline{
+    //Define the pipeline data model
+    val specs = LinkedHashMap[NamedType[Data], LinkedHashMap[Int, Data]]()
+
+    //Define how we can access the pipeline
+    def apply[T <: Data](what: NamedType[T], stageId: Int) = {
+      val spec = specs.getOrElseUpdate(what.asInstanceOf[NamedType[Data]], new LinkedHashMap[Int, Data])
+      spec.getOrElseUpdate(stageId, what().setName(what.getName + "_" + stageId)).asInstanceOf[T]
     }
+
+    //Connect all those handsomes together
+    def build(): Unit = {
+      for ((what, nodes) <- specs) {
+        for (i <- nodes.keys.min until nodes.keys.max) {
+          apply(what, i + 1) := RegNext(apply(what, i))
+        }
+      }
+    }
+  }
+
+  SpinalVerilog(new Component{
+    val pip = new Pipeline()
+
+    // User specifying the pipeling behaviour
+    val PC = NamedType(UInt(32 bits))
+    pip(PC, 0) := 0x42
+    val x = pip(PC, 3) + 1
+
+    val CALC = NamedType(UInt(32 bits))
+    pip(CALC, 2) := pip(PC, 2) + 0x11
+    val y = pip(CALC, 4) + 0x22
+
+    pip.build()
   })
 }
