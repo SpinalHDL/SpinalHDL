@@ -602,16 +602,26 @@ trait BusSlaveFactory extends Area{
   def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt, timeout: Bool = null): Unit = {
     val counter = Counter(blockCycles.getWidth bits)
     val wordCount = (1 + that.payload.getBitsWidth - 1) / busDataWidth + 1
-    timeout != null generate { timeout := False }
-    onReadPrimitive(SizeMapping(address, wordCount * wordAddressInc), haltSensitive = false, null) {
+    val counterWrapped = Reg(Bool()) init False
+    val mapping = SizeMapping(address, wordCount * wordAddressInc)
+    onReadPrimitive(mapping, haltSensitive = false, null) {
       counter.increment()
       when(counter.value < blockCycles && !that.valid) {
         readHalt()
       } otherwise {
         counter.clear()
         timeout != null generate {
-          when (!that.valid) { timeout := True }
+          when (!that.valid) { counterWrapped := True }
         }
+      }
+    }
+
+    // report timeout after transaction has completed
+    timeout != null generate {
+      timeout := False
+      onReadPrimitive(mapping, haltSensitive = true, null) {
+        timeout := counterWrapped
+        counterWrapped := False
       }
     }
 
