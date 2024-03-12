@@ -91,18 +91,8 @@ trait DataPrimitives[T <: Data]{
   def <>(that: T)(implicit loc: Location): Unit = _data autoConnect that
 
   /** Set initial value to a data */
-  def init[ANY](value: ANY)(implicit converter: ANY => T): T = {
-    value match {
-      // If value is taggedunion value, its value is not the same as the hardware
-    //   case t: TaggedUnion =>
-    //     _data.initFrom(t)
-      case v: Data =>
-        // If value is a subtype of Data, use it as is
-        _data.initFrom(v)
-      case _ =>
-        // If value is not a subtype of Data, use the converter
-        _data.initFrom(converter(value))
-    }
+  def init(that: T): T = {
+    _data.initFrom(that)
     _data
   }
 

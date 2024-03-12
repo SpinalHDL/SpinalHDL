@@ -116,9 +116,13 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
                 if (!this.getClass.isAssignableFrom(that.getClass)) SpinalError("TaggedUnions must have the same final class to" +
                     " be assigned. Either use assignByName or assignSomeByName at \n" + ScalaLocated.long)
                     bundleAssign(that)((to, from) => to.compositAssignFrom(from,to,kind))
+            case variant: Data => {
+
+            }
             case _ => throw new Exception("Undefined assignment")
         }
     }
+
 
     // collect the descriptors of the Tagged Union
     override def valCallbackRec(ref: Any, name: String): Unit = ref match {
@@ -269,54 +273,33 @@ class TaggedUnion(var encoding: SpinalEnumEncoding = native) extends MultiData w
         }
     }
 
-    // /**
-    // * Set the init value of this union from the input variant type
-    // */
-    // def initVariant[T <: Data](variantData: T): this.type = {
-    //     // Ensure that the variantData provided is actually one of the variants of this TaggedUnion
-    //     val variantOption = unionDescriptors.find(_._2.getClass == variantData.getClass)
+    /**
+    * Set the init value of this union from the input variant type
+    */
+    def initVariant[T <: Data](variantData: T): this.type = {
+        // Ensure that the variantData provided is actually one of the variants of this TaggedUnion
+        val variantOption = unionDescriptors.find(_._2.getClass == variantData.getClass)
+
+        println(s"TU isReg: ${this.isReg}")
+        println(s"TUpayload isReg: ${this.unionPayload.isReg}")
+        println(s"TUpayload (variant) isReg: ${this.unionPayload.aliasAs(variantData).isReg}")
+        println(s"TUtag isReg: ${this.tag.isReg}")
         
-    //     variantOption match {
-    //         case Some((name, _)) =>
+        variantOption match {
+            case Some((name, _)) =>
 
-    //             // Set the initial value of the union payload to the provided variant data
-    //             this.unionPayload.aliasAs(variantData).initFrom(variantData)
+                // Set the initial value of the union payload to the provided variant data
+                this.unionPayload.initFrom(variantData.asBits.aliasAs(this.unionPayload))
 
-    //             // Find the corresponding tag element for the provided variant data
-    //             val tagElement = tagUnionDescriptors(name)
-    //             this.tag.init(tagElement)
-
-                
-    //         case None =>
-    //             // If the provided data isn't a variant of this TaggedUnion, raise an error
-    //             SpinalError(s"Provided data is not a valid variant of this TaggedUnion")
-            
-    //     }
-    //     this
-    // }
-
-    // /**
-    // * Set the init value of this union from the selected descriptor
-    // */
-    // def initVariant[T <: Data](descriptor: T)(variantData: T): this.type = {
-    //     // Ensure that the variantData provided is actually one of the variants of this TaggedUnion
-    //     val variantOption = unionDescriptors.find(_._2.getClass == variantData.getClass)
-    //     variantOption match {
-    //         case Some((name, _)) =>
-    //             // Set the initial value of the union payload to the provided variant data
-    //             this.unionPayload.initFrom(variantData)
-
-    //             // Find the corresponding tag element for the provided variant data
-    //             val tagElement = tagUnionDescriptors(name)
-    //             this.tag.init(tagElement)
+                // Find the corresponding tag element for the provided variant data
+                val tagElement = tagUnionDescriptors(name)
+                this.tag.init(tagElement)
 
                 
-    //         case None =>
-    //             // If the provided data isn't a variant of this TaggedUnion, raise an error
-    //             SpinalError(s"Provided data is not a valid variant of this TaggedUnion")
+            case None =>
+                // If the provided data isn't a variant of this TaggedUnion, raise an error
+                SpinalError(s"Provided data is not a valid variant of this TaggedUnion")
             
-    //     }
-    //     this
-    // }
-}
-
+        }
+        this
+    }

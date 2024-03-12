@@ -2606,7 +2606,7 @@ class PhaseInitReg() extends PhaseNetlist {
                 case d: Bits                        => d.init(0)
                 case d: UInt                        => d.init(0)
                 case d: Bool                        => d.init(False)
-                case d: SpinalEnumCraft[SpinalEnum] => d.init(d.spinalEnum.elements(0).craft())
+                case d: SpinalEnumCraft[SpinalEnum] => d.init(d.spinalEnum.elements(0))
                 case _                              =>
               }
             }
@@ -2632,7 +2632,7 @@ class PhaseFillRegsInit() extends Phase{
         if (!bt.hasInit) {
           bt.parentScope.on {
             bt.init(bt match {
-              case bt : SpinalEnumCraft[_] => bt.spinalEnum.elements.head.craft()
+              case bt : SpinalEnumCraft[_] => bt.spinalEnum.elements.head
               case bt => bt.getZero
             })
           }
