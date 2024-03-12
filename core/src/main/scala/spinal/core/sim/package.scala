@@ -472,11 +472,13 @@ package object sim {
 
     def simGet[E <: Data](locator: T => E) = new SimProxy(ue.host.raw, locator(dummyData))
     def commit(): Unit = {
-      val newVal = pendingAssign.map { case (range, value) =>
-        (value << range.low) & range.mask
-      } reduce(_ | _)
       val manager = SimManagerContext.current.manager
       val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](ue.host.raw.algoInt)
+      val orig = manager.getBigInt(signal)
+      val filteredOrig = pendingAssign.map(_._1.mask).foldLeft(orig)(_ &~ _)
+      val newVal = pendingAssign.map { case (range, value) =>
+        (value << range.low) & range.mask
+      }.fold(filteredOrig)(_ | _)
       manager.setBigInt(signal, newVal)
       pendingAssign.clear()
     }
