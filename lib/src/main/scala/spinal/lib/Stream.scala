@@ -513,6 +513,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 
+  def assertPersistence(): Unit = {
+    assert(!(valid.fall(False) && !RegNext(ready).init(False)), "Stream valid persistence failed")
+    val checkIt = RegNext(isStall) init(False)
+    val ref = RegNext(payload)
+    when(checkIt){
+      assert(payload === ref, "Stream payload persistence failed")
+    }
+  }
+
   /**
    * Assert that this stream conforms to the stream semantics:
    * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
