@@ -599,30 +599,30 @@ trait BusSlaveFactory extends Area{
    * @param timeout whether the read transaction timed out (returned NACK)
    * @tparam T type of stream payload
    */
-  def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt, timeout: Bool = null): Unit = {
+  def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt, timeout: Bool = null): Unit = new Composite(that, "readBlockCycles") {
     val counter = Counter(blockCycles.getWidth bits)
     val wordCount = (1 + that.payload.getBitsWidth - 1) / busDataWidth + 1
-    val counterWrapped = Reg(Bool()) init False
-    val mapping = SizeMapping(address, wordCount * wordAddressInc)
-    onReadPrimitive(mapping, haltSensitive = false, null) {
-      counter.increment()
-      when(counter.value < blockCycles && !that.valid) {
+    val counterWillOverflow = counter === blockCycles
+    val respReady = RegNextWhen(True, counterWillOverflow || that.valid) init False
+    val counterOverflowed = RegNextWhen(True, counterWillOverflow) init False
+    // we only halt the first beat, since if we got a stream payload we got it all
+    onReadPrimitive(SingleMapping(address), haltSensitive = false, null) {
+      when(!respReady) {
+        counter.increment()
         readHalt()
       } otherwise {
         counter.clear()
-        timeout != null generate {
-          when (!that.valid) { counterWrapped := True }
-        }
       }
     }
 
-    // report timeout after transaction has completed
-    timeout != null generate {
-      timeout := False
-      onReadPrimitive(mapping, haltSensitive = true, null) {
-        timeout := counterWrapped
-        counterWrapped := False
+    // report timeout after transaction has completed (last beat)
+    timeout != null generate { timeout := False }
+    onReadPrimitive(SingleMapping(address + (wordCount - 1) * wordAddressInc), haltSensitive = true, null) {
+      timeout != null generate {
+        timeout := counterOverflowed
+        counterOverflowed := False
       }
+      respReady := False
     }
 
     readStreamNonBlocking(that, address)
