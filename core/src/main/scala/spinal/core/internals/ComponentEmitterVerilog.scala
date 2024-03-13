@@ -1726,6 +1726,7 @@ end
       }
       s"$prefix($width)"
     }
+    case e : Operator.Formal.IsUnknown                 => s"`IS_UNKNOWN(${emitExpression(e.source)})"
   }
 
   elaborate()

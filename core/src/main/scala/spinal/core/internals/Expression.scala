@@ -433,6 +433,12 @@ object Operator {
       override def getTypeObject = TypeBool
       override def opName: String = "$initstate(...)"
     }
+
+    class IsUnknown extends UnaryOperator {
+      override def opName: String = "$isunknown(Bits)"
+      override def getTypeObject: Any = TypeBool
+    }
+
   }
 
   /**
