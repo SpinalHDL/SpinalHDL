@@ -44,15 +44,6 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
       outFile.write("`timescale 1ns/1ps")
 
-      outFile.write(
-        s"""
-           |`ifdef __HAS_SYSTEM_VERILOG__
-           |`define IS_UNKNOWN(x) $$isunknown(x)
-           |`else
-           |`define IS_UNKNOWN(x) 0
-           |`endif
-           |""".stripMargin
-      )
       emitEnumPackage(outFile)
 
       val componentsText = ArrayBuffer[() => String]()

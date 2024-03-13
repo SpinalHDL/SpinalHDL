@@ -82,7 +82,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     */
   def unary_! : Bool = wrapUnaryOperator(new Operator.Bool.Not)
 
-  def isUnknown: Bool = wrapUnaryOperator(new Operator.Formal.IsUnknown)
+  def isUnknown: Bool = wrapUnaryOperator(new Operator.BitVector.IsUnknown)
 
   override def unary_~ : Bool = ! this
 

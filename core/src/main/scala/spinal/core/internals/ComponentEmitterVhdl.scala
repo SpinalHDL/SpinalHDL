@@ -1512,7 +1512,10 @@ class ComponentEmitterVhdl(
     case  e: BitVectorRangedAccessFixed              => accessBitVectorFixed(e)
     case  e: BitVectorRangedAccessFloating           => accessBitVectorFloating(e)
 
-    case  e: Operator.Formal.IsUnknown => "pkg_toStdLogic(false)"
+    case e: Operator.BitVector.IsUnknown => {
+      SpinalWarning(s"IsUnknown is always false in vhdl")
+      "pkg_toStdLogic(false)"
+    }
   }
 
   elaborate()

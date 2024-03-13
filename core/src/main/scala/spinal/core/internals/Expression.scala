@@ -433,12 +433,6 @@ object Operator {
       override def getTypeObject = TypeBool
       override def opName: String = "$initstate(...)"
     }
-
-    class IsUnknown extends UnaryOperator {
-      override def opName: String = "$isunknown(Bits)"
-      override def getTypeObject: Any = TypeBool
-    }
-
   }
 
   /**
@@ -665,6 +659,12 @@ object Operator {
       override def calcWidth: Int = left.getWidth
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
       override def toString() = s"(${super.toString()})[$getWidth bits]"
+    }
+
+    class IsUnknown extends UnaryOperator {
+      override def opName: String = "$isunknown(Bits)"
+
+      override def getTypeObject: Any = TypeBool
     }
   }
 

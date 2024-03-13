@@ -515,5 +515,5 @@ abstract class BitVector extends BaseType with Widthable {
     cloneOf(this).setWidth(w).asInstanceOf[T]
   }
 
-  def isUnknown: Bool = wrapUnaryWithBool(new Operator.Formal.IsUnknown)
+  def isUnknown: Bool = wrapUnaryWithBool(new Operator.BitVector.IsUnknown)
 }
