@@ -2791,7 +2791,7 @@ object SpinalVhdlBoot{
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
     report.globalData = pc.globalData
-    phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
+    phases += new PhaseDummy(SpinalProgress(s"Generate VHDL to ${config.targetDirectory}"))
     phases += new PhaseVhdl(pc, report)
 
     for(inserter <-config.phasesInserters){
@@ -2916,7 +2916,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
 
-    phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
+    phases += new PhaseDummy(SpinalProgress(s"Generate Verilog to ${config.targetDirectory}"))
 
     val report = new SpinalReport[T]()
     report.globalData = pc.globalData
