@@ -363,20 +363,24 @@ class ComponentEmitterVerilog(
         val genericFlat = bb.genericElements
 
         if (genericFlat.nonEmpty) {
-          logics ++= s"#(\n"
-          for (e <- genericFlat) {
+          val ret = genericFlat.map{ e =>
             e match {
-              case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}),\n"
-              case (name: String, s: String)    => logics ++= s"    .${name}(${"\""}${s}${"\""}),\n"
-              case (name: String, i: Int)       => logics ++= s"    .${name}($i),\n"
-              case (name: String, d: Double)    => logics ++= s"    .${name}($d),\n"
-              case (name: String, b: Boolean)   => logics ++= s"    .${name}(${if(b) "1'b1" else "1'b0"}),\n"
-              case (name: String, b: BigInt)    => logics ++= s"    .${name}(${b.toString(16).size*4}'h${b.toString(16)}),\n"
-              case _                            => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the blackbox ${"\""}${bb.definitionName}${"\""} is not supported in Verilog")
+              case (name: String, bt: BaseType)      => name -> s"${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}"
+              case (name: String, rs: RawExpression) => name -> s"${rs.e}"
+              case (name: String, s: String)         => name -> s"""\"$s\""""
+              case (name: String, i: Int)            => name -> s"$i"
+              case (name: String, d: Double)         => name -> s"$d"
+              case (name: String, b: Boolean)        => name -> s"${if(b) "1'b1" else "1'b0"}"
+              case (name: String, b: BigInt)         => name -> s"${b.toString(16).size*4}'h${b.toString(16)}"
+              case _                                 => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the blackbox ${"\""}${bb.definitionName}${"\""} is not supported in Verilog")
             }
           }
-          logics.replace(logics.length - 2, logics.length, "\n")
-          logics ++= s"  ) "
+          val namelens = ret.map(_._1.size).max
+          val exprlens = ret.map(_._2.size).max
+          val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s)".format(t._1, t._2))
+          logics ++= s"""#(
+            |${params.mkString(",\n")}
+            |  )""".stripMargin
         }
       }
 
