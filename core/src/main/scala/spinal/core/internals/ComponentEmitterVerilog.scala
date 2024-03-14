@@ -1736,25 +1736,25 @@ end
     }
   }
 
-  var outputSignalNoUse: Set[BaseType] = Set()
+  var outputSignalNoUse: mutable.LinkedHashSet[BaseType] = mutable.LinkedHashSet()
   if(!spinalConfig.emitFullComponentBindings) {
     component.children.foreach(sub =>
       sub.getAllIo
       .foreach(io => if(io.isOutput) {
-        outputSignalNoUse = outputSignalNoUse + io
+        outputSignalNoUse.add(io)
       }
     ))
-  }
-  component.dslBody.walkStatements {
-    case s: BaseType =>
-    case s => {
-      s.walkExpression {
-        case e: BaseType => {
-          if(outputSignalNoUse contains e) {
-            outputSignalNoUse = outputSignalNoUse - e
+    component.dslBody.walkStatements {
+      case s: BaseType =>
+      case s => {
+        s.walkExpression {
+          case e: BaseType => {
+            if(outputSignalNoUse contains e) {
+              outputSignalNoUse.remove(e)
+            }
           }
+          case _ =>
         }
-        case _ =>
       }
     }
   }
