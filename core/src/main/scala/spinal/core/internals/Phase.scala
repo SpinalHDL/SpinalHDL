@@ -2914,6 +2914,10 @@ object SpinalVerilogBoot{
     phases += new PhaseAllocateNames(pc)
     phases += new PhaseDevice(pc)
 
+    if(config.mode == SystemVerilog && config.svInterface) {
+      phases += new PhaseInterface(pc)
+    }
+
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
 
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))

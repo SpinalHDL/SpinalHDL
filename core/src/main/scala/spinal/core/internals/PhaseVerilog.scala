@@ -244,3 +244,22 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     })
   }
 }
+
+class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
+
+  override def impl(pc: PhaseContext): Unit = {
+    import pc._
+
+    walkDeclarations {
+      case node: BaseType if(node.hasTag(IsInterface)) => {
+        val p = node.parent.getName()
+        val newName = node.getName().replace(s"${p}_", s"${p}.")
+        //println(s"${node} rename to ${newName}")
+        //node.setName(node.getName().replace(s"${p}_", s"${p}."))
+        node.name = newName
+        //println(node.getName())
+      }
+      case _ =>
+    }
+  }
+}

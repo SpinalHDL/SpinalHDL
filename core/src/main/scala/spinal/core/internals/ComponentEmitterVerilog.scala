@@ -54,6 +54,7 @@ class ComponentEmitterVerilog(
   val definitionAttributes  = new StringBuilder()
   val beginModule = new StringBuilder()
   val declarations = new StringBuilder()
+  var declaredInterface: Set[String] = Set()
   val localparams = new StringBuilder()
   val logics       = new StringBuilder()
   val endModule = new StringBuilder()
@@ -81,16 +82,37 @@ class ComponentEmitterVerilog(
       val dir        = s"${emitDirection(baseType)}"
       val section    = s"${emitType(baseType)}"
       val name       = s"${baseType.getName()}"
-      val comma      = if(baseType == ios.last) "" else ","
+      val comma      = ","
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
-      if(outputsToBufferize.contains(baseType) || baseType.isInput){
-        portMaps += f"${syntax}${dir}%6s wire ${section}%-8s ${name}${EDAcomment}${comma}"
+      if(baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog && spinalConfig.svInterface) {
+        if(!declaredInterface.contains(baseType.parent.getNameElseThrow)) {
+          declaredInterface = declaredInterface + baseType.parent.getNameElseThrow
+          baseType.parent match {
+            case s: Interface => {
+              val intName = baseType.parent.getClass().getSimpleName()
+              //TODO:check more than one modport has same `in` `out` direction
+              val modport = if(s.checkModport().isEmpty) {
+                LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
+                ""
+              } else {
+                s.checkModport().head
+              }
+              portMaps += f"${intName}.${modport}%-14s ${baseType.parent.getName()}${EDAcomment}${comma}"
+            }
+            case _ =>
+          }
+        }
       } else {
-        val isReg   = if(signalNeedProcess(baseType)) "reg" else "wire"
-        portMaps += f"${syntax}${dir}%6s ${isReg}%-4s ${section}%-8s ${name}${EDAcomment}${comma}"
+        if(outputsToBufferize.contains(baseType) || baseType.isInput){
+          portMaps += f"${syntax}${dir}%6s wire ${section}%-8s ${name}${EDAcomment}${comma}"
+        } else {
+          val isReg   = if(signalNeedProcess(baseType)) "reg" else "wire"
+          portMaps += f"${syntax}${dir}%6s ${isReg}%-4s ${section}%-8s ${name}${EDAcomment}${comma}"
+        }
       }
     }
+    portMaps(portMaps.length - 1) = portMaps.last.stripSuffix(",")
   }
 
   override def wrapSubInput(io: BaseType): Unit = {
@@ -1015,6 +1037,12 @@ class ComponentEmitterVerilog(
     s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
   }
 
+  def emitInterfaceSignal(data: Data, name: String): String = {
+    //val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
+    //s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
+    f"${theme.maintab}${data.getClass().getSimpleName()}%-19s ${name};\n"
+  }
+
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
     val net = if(signalNeedProcess(baseType)) "reg" else "wire"
     val section = emitType(baseType)
@@ -1092,7 +1120,12 @@ class ComponentEmitterVerilog(
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
         if (!signal.isIo && !signal.isSuffix) {
-          declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
+          if(!signal.hasTag(IsInterface) || !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface)) {
+            declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
+          } else if(!declaredInterface.contains(signal.parent.getNameElseThrow)) {
+            declaredInterface = declaredInterface + signal.parent.getNameElseThrow
+            declarations ++= emitInterfaceSignal(signal.parent, signal.parent.getNameElseThrow)
+          }
         }
         if(spinalConfig._withEnumString) {
           signal match {
