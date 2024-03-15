@@ -286,7 +286,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
           }
           modportString += s"${theme.porttab}${theme.porttab}${dir}  ${name},\n"
         }
-        modportString = modportString.stripSuffix(",")
+        modportString = modportString.stripSuffix(",\n") + "\n"
         modportString += s"${theme.porttab});\n\n"
         ret ++= modportString
       }
@@ -299,6 +299,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
+    //rename myif_a to myif.a
     walkDeclarations {
       case node: BaseType if(node.hasTag(IsInterface)) => {
         svInterface += node.parent.getClass().getSimpleName() -> node.parent.asInstanceOf[Interface]
