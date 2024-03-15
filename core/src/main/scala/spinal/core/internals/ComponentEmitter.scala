@@ -72,6 +72,8 @@ abstract class ComponentEmitter {
   val subComponentInputToNotBufferize = mutable.HashSet[Any]()
   val openSubIo = mutable.HashSet[BaseType]()
 
+  val createInterfaceWrap = mutable.LinkedHashMap[Data, String]()
+
   def getOrDefault[X,Y](map: java.util.concurrent.ConcurrentHashMap[X,Y], key: X, default: Y) = map.get(key) match {
     case null => default
     case x    => x
@@ -299,14 +301,24 @@ abstract class ComponentEmitter {
 
     //Manage subcomponents input bindings
     for(sub <- component.children){
-      for(io <- sub.getOrdredNodeIo if io.isInput){
-        var subInputBinded = isSubComponentInputBinded(io)
+      for(io <- sub.getOrdredNodeIo) {
+        if(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && io.hasTag(IsInterface)) {
+          val theme = new Tab2 //TODO add into SpinalConfig
+          val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
+          val name = component.localNamingScope.allocateName(componentSignalName)
+          referencesOverrides(io) = name
+          val ifName = io.parent.getClass().getSimpleName()
+          val instName = sub.getNameElseThrow + "_" + io.getNameElseThrow.split('.')(0) + "()"//TODO:error handle?
+          createInterfaceWrap += io.parent -> f"${theme.maintab}${ifName}%-19s ${instName};\n"
+        } else if(io.isInput) {
+          var subInputBinded = isSubComponentInputBinded(io)
 
-        if(subInputBinded != null) {
-          referencesOverrides(io) = subInputBinded
-          subComponentInputToNotBufferize += io
-        }else {
-          wrapSubInput(io)
+          if(subInputBinded != null) {
+            referencesOverrides(io) = subInputBinded
+            subComponentInputToNotBufferize += io
+          }else {
+            wrapSubInput(io)
+          }
         }
       }
     }

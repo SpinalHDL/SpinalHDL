@@ -185,7 +185,7 @@ class ComponentEmitterVerilog(
 
     component.children.foreach(sub =>
       sub.getAllIo
-      .foreach(io => if(io.isOutput) {
+      .foreach(io => if(io.isOutput && !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface)) {
         val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
         val name = component.localNamingScope.allocateName(componentSignalName)
         val noUse = signalNoUse(io)
@@ -412,8 +412,21 @@ class ComponentEmitterVerilog(
       logics ++= s"${child.getName()} (\n"
 
       val ios = child.getOrdredNodeIo.filterNot(_.isSuffix)
+      val connectedIF = mutable.HashSet[Data]()
       val prepareInstports = ios.flatMap { data =>
-        if (data.isInOut) {
+        if (spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && data.hasTag(IsInterface)) {
+          if(!connectedIF.contains(data.parent)) {
+            connectedIF.add(data.parent)
+            val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data).split('.')(0))
+            val wireAlign = s"${netsWithSection(data)}".split('.')(0)
+            val comma = if (data.parent.asInstanceOf[Interface].elementsCache.map(_._2).contains(ios.last)) " " else ","
+            val modport = data.parent.asInstanceOf[Interface].checkModport
+            val dirtag = if(modport.isEmpty) "" else modport.head
+            Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
+          } else {
+            None
+          }
+        } else if (data.isInOut) {
           analogDrivers.get(data) match {
             case Some(statements) => {
               case class Mapping(offset: Int, width: Int, dst: Expression)
@@ -1042,7 +1055,7 @@ class ComponentEmitterVerilog(
   def emitInterfaceSignal(data: Data, name: String): String = {
     //val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
     //s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
-    f"${theme.maintab}${data.getClass().getSimpleName()}%-19s ${name};\n"
+    f"${theme.maintab}${data.getClass().getSimpleName()}%-19s ${name}();\n"
   }
 
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
@@ -1119,6 +1132,9 @@ class ComponentEmitterVerilog(
 
   def emitSignals(): Unit = {
     val enumDebugStringBuilder = new StringBuilder()
+    for((intf, s) <- createInterfaceWrap) {
+      declarations ++= s
+    }
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
         if (!signal.isIo && !signal.isSuffix) {

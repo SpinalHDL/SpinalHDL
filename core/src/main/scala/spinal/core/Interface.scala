@@ -32,7 +32,21 @@ class Interface extends Bundle {
   override def valCallbackRec(ref: Any, name: String): Unit = {
     ref match {
       case ref : Data => {
-        ref.addTag(IsInterface)
+        ref match {
+          case ref: BaseType => {
+            ref match {
+              case _: SpinalEnumCraft[_] => {
+                LocatedPendingError(s"sv interface is still under develop. by now SpinalEnum is not allowed")
+              }
+              case ref => {
+                ref.addTag(IsInterface)
+              }
+            }
+          }
+          case _ => {
+            LocatedPendingError(s"sv interface is still under develop. by now only BaseType is allowed")
+          }
+        }
       }
       case ref =>
     }
