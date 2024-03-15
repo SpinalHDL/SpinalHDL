@@ -86,8 +86,8 @@ class ComponentEmitterVerilog(
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog && spinalConfig.svInterface) {
-        if(!declaredInterface.contains(baseType.parent.getNameElseThrow)) {
-          declaredInterface = declaredInterface + baseType.parent.getNameElseThrow
+        if(!declaredInterface.contains(baseType.parent.getName(baseType.getNameElseThrow.split('.')(0)))) {
+          declaredInterface = declaredInterface + baseType.parent.getName(baseType.getNameElseThrow.split('.')(0))
           baseType.parent match {
             case s: Interface => {
               val intName = baseType.parent.getClass().getSimpleName()
@@ -98,7 +98,8 @@ class ComponentEmitterVerilog(
               } else {
                 s.checkModport().head
               }
-              portMaps += f"${intName}.${modport}%-14s ${baseType.parent.getName()}${EDAcomment}${comma}"
+              val intMod = s"${intName}.${modport}"
+              portMaps += f"${intMod}%-20s ${baseType.parent.getName()}${EDAcomment}${comma}"
             }
             case _ =>
           }
@@ -1123,9 +1124,9 @@ class ComponentEmitterVerilog(
         if (!signal.isIo && !signal.isSuffix) {
           if(!signal.hasTag(IsInterface) || !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface)) {
             declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
-          } else if(!declaredInterface.contains(signal.parent.getNameElseThrow)) {
-            declaredInterface = declaredInterface + signal.parent.getNameElseThrow
-            declarations ++= emitInterfaceSignal(signal.parent, signal.parent.getNameElseThrow)
+          } else if(!declaredInterface.contains(signal.parent.getName(signal.getNameElseThrow.split('.')(0)))) {
+            declaredInterface = declaredInterface + signal.parent.getName(signal.getNameElseThrow.split('.')(0))
+            declarations ++= emitInterfaceSignal(signal.parent, signal.parent.getName(signal.getNameElseThrow.split('.')(0)))
           }
         }
         if(spinalConfig._withEnumString) {

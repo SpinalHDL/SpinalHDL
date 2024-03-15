@@ -302,12 +302,13 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     walkDeclarations {
       case node: BaseType if(node.hasTag(IsInterface)) => {
         svInterface += node.parent.getClass().getSimpleName() -> node.parent.asInstanceOf[Interface]
+        if(node.parent.getName() == null || node.parent.getName() == "") {
+          PendingError(s"INTERFACE SHOULD HAVE NAME: ${node.toStringMultiLine} at \n${node.getScalaLocationLong}")
+        }
         val p = node.parent.getName()
-        val newName = node.getName().replace(s"${p}_", s"${p}.")
-        //println(s"${node} rename to ${newName}")
-        //node.setName(node.getName().replace(s"${p}_", s"${p}."))
+        val p_rename = p//node.component.localNamingScope.allocateName(p)
+        val newName = node.getName().replace(s"${p}_", s"${p_rename}.")//TODO:
         node.name = newName
-        //println(node.getName())
       }
       case _ =>
     }
