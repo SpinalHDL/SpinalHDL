@@ -112,7 +112,8 @@ class ComponentEmitterVerilog(
         }
       }
     }
-    portMaps(portMaps.length - 1) = portMaps.last.stripSuffix(",")
+    if(!portMaps.isEmpty)
+      portMaps(portMaps.length - 1) = portMaps.last.stripSuffix(",")
   }
 
   override def wrapSubInput(io: BaseType): Unit = {
