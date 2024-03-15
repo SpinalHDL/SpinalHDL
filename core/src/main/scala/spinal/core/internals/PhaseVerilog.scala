@@ -208,6 +208,11 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       }
     }
 
+    ret ++= "\n"
+    for ((name, interface) <- svInterface) {
+      emitInterface(interface, ret)
+    }
+
     def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
       val str    = encoding.getValue(senum).toString(2)
       val length = encoding.getWidth(senum.spinalEnum)
@@ -243,6 +248,50 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       case _ =>
     })
   }
+
+  def emitInterface(interface: Interface, ret: StringBuilder): Unit = {
+    val theme = new Tab2 //TODO add into SpinalConfig
+    ret ++= s"interface ${interface.getClass().getSimpleName()} () ;\n\n"
+    for ((name, elem) <- interface.elementsCache) {
+      val size = elem match {
+        case _: Bool => ""
+        case node: WidthProvider => s"[${node.getWidth - 1}:0]"
+        case _ => LocatedPendingError("The SystemVerilog interface feature is still an experimental feature. In interface, only BaseType is supported yet")
+      }
+      ret ++= f"${theme.porttab}logic  ${size}%-8s ${name} ;\n"
+    }
+    ret ++= "\n"
+    interface.allModPort
+      .foreach{case x =>
+        var modportString = ""
+        modportString += s"${theme.porttab}modport ${x} (\n"
+
+        val toplevel = globalData.toplevel
+        val phase = globalData.phaseContext.topLevel
+        globalData.toplevel = null
+        globalData.phaseContext.topLevel = null
+        val c = new Component {
+          val y = interface.clone().asInstanceOf[interface.type]
+          y.callModPort(x)
+        }
+        globalData.toplevel = toplevel
+        globalData.phaseContext.topLevel = phase
+
+        for ((name, elem) <- c.y.elementsCache) {
+          val dir = elem.dir match {
+            case `in`    => "input "
+            case `out`   => "output"
+            case `inout` => "inout "
+            case _       => throw new Exception(s"Unknown direction in interface ${interface}: ${elem}"); ""
+          }
+          modportString += s"${theme.porttab}${theme.porttab}${dir}  ${name},\n"
+        }
+        modportString = modportString.stripSuffix(",")
+        modportString += s"${theme.porttab});\n\n"
+        ret ++= modportString
+      }
+    ret ++= "endinterface\n\n"
+  }
 }
 
 class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
@@ -252,6 +301,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
 
     walkDeclarations {
       case node: BaseType if(node.hasTag(IsInterface)) => {
+        svInterface += node.parent.getClass().getSimpleName() -> node.parent.asInstanceOf[Interface]
         val p = node.parent.getName()
         val newName = node.getName().replace(s"${p}_", s"${p}.")
         //println(s"${node} rename to ${newName}")
