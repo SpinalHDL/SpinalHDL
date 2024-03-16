@@ -251,7 +251,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
   def emitInterface(interface: Interface, ret: StringBuilder): Unit = {
     val theme = new Tab2 //TODO add into SpinalConfig
-    ret ++= s"interface ${interface.getClass().getSimpleName()} () ;\n\n"
+    ret ++= s"interface ${interface.definitionName} () ;\n\n"
     for ((name, elem) <- interface.elementsCache) {
       val size = elem match {
         case _: Bool => ""
@@ -302,7 +302,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     //rename myif_a to myif.a
     walkDeclarations {
       case node: BaseType if(node.hasTag(IsInterface)) => {
-        svInterface += node.parent.getClass().getSimpleName() -> node.parent.asInstanceOf[Interface]
+        svInterface += node.parent.asInstanceOf[Interface].definitionName -> node.parent.asInstanceOf[Interface]
         if(node.parent.getName() == null || node.parent.getName() == "") {
           PendingError(s"INTERFACE SHOULD HAVE NAME: ${node.toStringMultiLine} at \n${node.getScalaLocationLong}")
         }

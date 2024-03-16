@@ -29,6 +29,12 @@ object IsInterface extends SpinalTag {}
   *
   */
 class Interface extends Bundle {
+  var definitionName: String = this.getClass.getSimpleName
+  /** Set the definition name of the component */
+  def setDefinitionName(name: String): this.type = {
+    definitionName = name
+    this
+  }
   override def valCallbackRec(ref: Any, name: String): Unit = {
     ref match {
       case ref : Data => {
@@ -60,7 +66,7 @@ class Interface extends Bundle {
       .map(m => m.getName())
       .toList
   }
-  def callModPort(s: String) {
+  def callModPort(s: String): Unit = {
     this.getClass.getMethod(s).invoke(this).asInstanceOf[Unit]
   }
   def checkModport() = {

@@ -90,7 +90,7 @@ class ComponentEmitterVerilog(
           declaredInterface = declaredInterface + baseType.parent.getName(baseType.getNameElseThrow.split('.')(0))
           baseType.parent match {
             case s: Interface => {
-              val intName = baseType.parent.getClass().getSimpleName()
+              val intName = baseType.parent.asInstanceOf[Interface].definitionName
               //TODO:check more than one modport has same `in` `out` direction
               val modport = if(s.checkModport().isEmpty) {
                 LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
@@ -1055,7 +1055,7 @@ class ComponentEmitterVerilog(
   def emitInterfaceSignal(data: Data, name: String): String = {
     //val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
     //s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
-    f"${theme.maintab}${data.getClass().getSimpleName()}%-19s ${name}();\n"
+    f"${theme.maintab}${data.asInstanceOf[Interface].definitionName}%-19s ${name}();\n"
   }
 
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
