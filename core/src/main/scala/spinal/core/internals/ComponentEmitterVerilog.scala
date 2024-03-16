@@ -366,7 +366,7 @@ class ComponentEmitterVerilog(
           val ret = genericFlat.map{ e =>
             e match {
               case (name: String, bt: BaseType)      => name -> s"${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}"
-              case (name: String, rs: RawExpression) => name -> s"${rs.e}"
+              case (name: String, rs: VerilogValues) => name -> s"${rs.v}"
               case (name: String, s: String)         => name -> s"""\"$s\""""
               case (name: String, i: Int)            => name -> s"$i"
               case (name: String, d: Double)         => name -> s"$d"
