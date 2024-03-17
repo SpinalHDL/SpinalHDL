@@ -1,6 +1,7 @@
 package spinal.core
 
 import scala.reflect.runtime.universe._
+import scala.collection.mutable.ArrayBuffer
 
 object IsInterface extends SpinalTag {}
 
@@ -34,6 +35,24 @@ class Interface extends Bundle {
   def setDefinitionName(name: String): this.type = {
     definitionName = name
     this
+  }
+  val genericElements = ArrayBuffer[(String, Any)]()
+  def addGeneric(name : String, that : Any): String = {
+    that match {
+      case bt: BaseType => genericElements += Tuple2(name, bt.addTag(GenericValue(bt.head.source)))
+      case vv: VerilogValues => genericElements += Tuple2(name, vv)
+      case s: String    => genericElements += Tuple2(name, s)
+      case i: Int       => genericElements += Tuple2(name, i)
+      case i: BigInt if i <= Integer.MAX_VALUE && i >= Integer.MIN_VALUE => genericElements += Tuple2(name, i.toInt)
+      case d: Double        => genericElements += Tuple2(name, d)
+      case boolean: Boolean => genericElements += Tuple2(name, boolean)
+      case t: TimeNumber    => genericElements += Tuple2(name, t)
+    }
+    name
+  }
+  val widthGeneric = scala.collection.mutable.LinkedHashMap[Data, String]()
+  def tieGeneric[T <: Data](signal: T, generic: String) = {
+    widthGeneric += signal -> generic
   }
   override def valCallbackRec(ref: Any, name: String): Unit = {
     ref match {
