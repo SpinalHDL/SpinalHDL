@@ -210,7 +210,8 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
     ret ++= "\n"
     for ((name, interface) <- svInterface) {
-      emitInterface(interface, ret)
+      println("interface: " + name)
+      ret ++= interface
     }
 
     def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
@@ -249,7 +250,13 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     })
   }
 
-  def emitInterface(interface: Interface, ret: StringBuilder): Unit = {
+  
+}
+
+class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
+  def emitInterface(interface: Interface): StringBuilder = {
+    import pc._
+    var ret = new StringBuilder()
     val theme = new Tab2 //TODO add into SpinalConfig
     ret ++= s"interface ${interface.definitionName} () ;\n\n"
     for ((name, elem) <- interface.elementsCache) {
@@ -291,10 +298,8 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         ret ++= modportString
       }
     ret ++= "endinterface\n\n"
+    ret
   }
-}
-
-class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -302,7 +307,18 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     //rename myif_a to myif.a
     walkDeclarations {
       case node: BaseType if(node.hasTag(IsInterface)) => {
-        svInterface += node.parent.asInstanceOf[Interface].definitionName -> node.parent.asInstanceOf[Interface]
+        def insertIFmap(): Unit = {
+          val interface = node.parent.asInstanceOf[Interface]
+          val interfaceString = emitInterface(interface)
+          svInterface.get(interface.definitionName) match {
+            case Some(s) => if(s != interfaceString) {
+              node.parent.asInstanceOf[Interface].setDefinitionName(s"${interface.definitionName}_1")//TODO:better rename
+              insertIFmap()
+            }
+            case None => svInterface += node.parent.asInstanceOf[Interface].definitionName -> interfaceString
+          }
+        }
+        insertIFmap()
         if(node.parent.getName() == null || node.parent.getName() == "") {
           PendingError(s"INTERFACE SHOULD HAVE NAME: ${node.toStringMultiLine} at \n${node.getScalaLocationLong}")
         }

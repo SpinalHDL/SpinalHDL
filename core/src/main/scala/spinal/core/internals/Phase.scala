@@ -115,7 +115,7 @@ class PhaseContext(val config: SpinalConfig) {
 
   def sortedComponents = components().sortWith(_.level > _.level)
 
-  val svInterface = mutable.HashMap[String, Interface]()
+  val svInterface = mutable.HashMap[String, StringBuilder]()
 
   def walkAll(func: Any => Unit): Unit = {
     GraphUtils.walkAllComponents(topLevel, c => {
