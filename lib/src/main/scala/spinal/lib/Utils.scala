@@ -1488,3 +1488,26 @@ object Shift{
     logic | scrap.asBits.resized
   }
 }
+
+/** Counts the number of consecutive zero bits starting from the MSB. */
+object CountLeadingZeroes {
+  def apply(in: Bits): UInt = {
+    val amountWidth = log2Up(in.getWidth) + 1
+    // MSB to LSB
+    in.asBools.reverse
+      // Map to number of leading zeroes in segment and whether all bits in segment are zero
+      .map(x => ((~x).asUInt, ~x))
+      .reduceBalancedTree((left, right) => {
+        val sum = U(0, amountWidth bits)
+        // When left segment is all zero, we can add up the right segment's zeroes
+        when(left._2) {
+          sum := left._1.resize(amountWidth) + right._1.resize(amountWidth)
+        } otherwise {
+          sum := left._1.resize(amountWidth)
+        }
+
+        (sum, left._2 && right._2)
+      })
+      ._1
+  }
+}
