@@ -131,3 +131,22 @@ class FlowCmdRsp[T <: Data, T2 <: Data](cmdType : HardType[T], rspType : HardTyp
     case 1 => RegInit(False) setWhen(cmd.valid) clearWhen(rsp.valid)
   }
 }
+
+
+/**
+ * Will use the BaseType.clockDomain to figure out how to connect 2 signals together (allowed use StreamCCByToggle)
+ */
+object DataCc{
+  def apply[T <: BaseType](to : T, from : T): Unit = {
+    ClockDomain.areSynchronous(to.clockDomain, from.clockDomain) match {
+      case true => to := from
+      case false => {
+        val cc = new StreamCCByToggle(to, from.clockDomain, to.clockDomain).setCompositeName(to, "cc_driver")
+        cc.io.input.valid := True
+        cc.io.input.payload := from
+        cc.io.output.ready := True
+        to := cc.io.output.payload
+      }
+    }
+  }
+}
