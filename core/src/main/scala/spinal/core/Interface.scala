@@ -96,4 +96,9 @@ class Interface extends Bundle {
         }
       })
   }
+  override def clone() = {
+    val ret = super.clone().asInstanceOf[this.type]
+    ret.setDefinitionName(this.definitionName)
+    ret
+  }
 }

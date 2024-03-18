@@ -185,7 +185,7 @@ class ComponentEmitterVerilog(
 
     component.children.foreach(sub =>
       sub.getAllIo
-      .foreach(io => if(io.isOutput && !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface)) {
+      .foreach(io => if(io.isOutput && !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && io.hasTag(IsInterface))) {
         val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
         val name = component.localNamingScope.allocateName(componentSignalName)
         val noUse = signalNoUse(io)

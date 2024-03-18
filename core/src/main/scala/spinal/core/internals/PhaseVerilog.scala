@@ -46,6 +46,13 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
       emitEnumPackage(outFile)
 
+      if(!svInterface.isEmpty) {
+        outFile.write("\n")
+        for ((name, interface) <- svInterface) {
+          outFile.write(interface.result())
+        }
+      }
+
       val componentsText = ArrayBuffer[() => String]()
       for (c <- sortedComponents) {
         if (!c.isInBlackBoxTree) {
@@ -84,6 +91,19 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         defineFile.flush()
         defineFile.close()
         fileList += defineFileName
+      }
+
+      // dump Interface define to (interface.definitionName).v
+      if(!svInterface.isEmpty) {
+        for ((name, interface) <- svInterface) {
+          val ifFileName = pc.config.targetDirectory + "/" + name + (if(pc.config.isSystemVerilog) ".sv" else ".v")
+          val ifFile = new java.io.FileWriter(ifFileName)
+          ifFile.write("\n")
+          ifFile.write(interface.result())
+          ifFile.flush()
+          ifFile.close()
+          fileList + ifFileName
+        }
       }
 
       val bbImplStrings = mutable.HashSet[String]()
@@ -206,12 +226,6 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
           ret ++= "\n"
         }
       }
-    }
-
-    ret ++= "\n"
-    for ((name, interface) <- svInterface) {
-      println("interface: " + name)
-      ret ++= interface
     }
 
     def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
