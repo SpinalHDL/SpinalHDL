@@ -596,18 +596,35 @@ trait BusSlaveFactory extends Area{
    * @param that data to read over bus
    * @param address address to map at
    * @param blockCycles cycles to block read transaction before returning NACK
+   * @param timeout whether the read transaction timed out (returned NACK)
    * @tparam T type of stream payload
    */
-  def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt): Unit = {
+  def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt, timeout: Bool = null): Unit = new Composite(that, "readBlockCycles") {
     val counter = Counter(blockCycles.getWidth bits)
     val wordCount = (1 + that.payload.getBitsWidth - 1) / busDataWidth + 1
-    onReadPrimitive(SizeMapping(address, wordCount * wordAddressInc), haltSensitive = false, null) {
-      counter.increment()
-      when(counter.value < blockCycles && !that.valid) {
+    val counterWillOverflow = counter === blockCycles
+    val readIssued = False
+    val respReady = RegNextWhen(True, counterWillOverflow || (readIssued && !counterWillOverflow && that.valid)) init False
+    val counterOverflowed = RegNextWhen(True, counterWillOverflow) init False
+    // we only halt the first beat, since if we got a stream payload we got it all
+    onReadPrimitive(SingleMapping(address), haltSensitive = false, null) {
+      readIssued := True
+      when(!respReady) {
+        counter.increment()
         readHalt()
       } otherwise {
         counter.clear()
       }
+    }
+
+    // report timeout after transaction has completed (last beat)
+    timeout != null generate { timeout := False }
+    onReadPrimitive(SingleMapping(address + (wordCount - 1) * wordAddressInc), haltSensitive = true, null) {
+      timeout != null generate {
+        timeout := counterOverflowed
+        counterOverflowed := False
+      }
+      respReady := False
     }
 
     readStreamNonBlocking(that, address)
