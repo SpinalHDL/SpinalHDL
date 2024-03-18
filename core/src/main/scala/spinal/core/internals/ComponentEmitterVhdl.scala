@@ -140,7 +140,8 @@ class ComponentEmitterVhdl(
           case e           => expressionToWrap += e
         }
 
-        val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
+        val portName = mem.getName() + "_spinal_port" + portId
+        portId = portId + 1
         s match {
           case s: MemReadSync =>
             val name = component.localNamingScope.allocateName(portName)

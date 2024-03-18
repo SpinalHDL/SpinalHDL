@@ -124,7 +124,7 @@ class ComponentEmitterVerilog(
           case e           => expressionToWrap += e
         }
 
-        val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
+        val portName = mem.getName() + "_spinal_port" + portId
         s match {
           case s : Nameable => s.unsetName().setName(portName)
         }
