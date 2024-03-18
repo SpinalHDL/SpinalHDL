@@ -236,6 +236,10 @@ class ResetCtrlFiber(val config: ClockDomainConfig = ClockDomain.defaultConfig) 
     this
   }
 
+  def addAsyncReset(ctrl: ResetCtrlFiber): this.type = {
+    addAsyncReset(ctrl.reset, ctrl.config.resetActiveLevel)
+    this
+  }
   def addReset(ctrl: ResetCtrlFiber): this.type = {
     addAsyncReset(ctrl.reset, ctrl.config.resetActiveLevel)
     this

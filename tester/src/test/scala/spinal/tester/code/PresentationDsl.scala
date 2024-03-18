@@ -1449,22 +1449,66 @@ object Date2024{
     val filtred = staged.throwWhen(feed.r < 128)
     val queued  = filtred.queue(size = 16)
 
+
+
   }
+  {
+    import spinal.core._
+    import spinal.lib._
+
+    case class Stream[T <: Data](dataType: HardType[T]) extends Bundle {
+      val valid = Bool()
+      val ready = Bool()
+      val data: T = dataType()
+
+
+      def stage(): Stream[T] = {
+        val ret = Stream(data)
+        ret.valid  := RegNextWhen(this.valid, this.ready) init (False)
+        ret.data   := RegNextWhen(this.data, this.ready)
+        this.ready := !ret.valid || ret.ready
+        ret
+      }
+    }
+    case class Pixel(width: Int) extends Bundle{
+      val r, g, b = UInt(width bits)
+    }
+
+    val bus = Stream(Pixel(8))
+    bus.valid := False
+    bus.data.r := 0x11
+    bus.data.g := 0x22
+    bus.data.b := 0x33
+
+    val staged = bus.stage()
+  }
+
 //  {
-//    case class Stream[T <: Data](dataType: HardType[T]) extends Bundle {
-//      val valid = Bool()
-//      val ready = Bool()
-//      val data: T = dataType()
+//    object SimdAddPlugin {
+//      val ADD4 = IntRegFile.TypeR(M"0000000----------000-----0001011")
 //    }
-//    case class Pixel(width: Int) extends Bundle{
-//      val r, g, b = UInt(width bits)
-//    }
+//    class SimdAddPlugin(val layer: LaneLayer) extends ExecutionUnitElementSimple(layer) {
+//      val logic = during setup new Logic {
+//        awaitBuild()
+//        val wb = newWriteback(ifp, 0)
+//        val add4 = add(SimdAddPlugin.ADD4).spec
+//        add4.addRsSpec(RS1, executeAt = 0)
+//        add4.addRsSpec(RS2, executeAt = 0)
+//        uopRetainer.release()
 //
-//    val bus = Stream(Pixel(8))
-//    bus.valid := False
-//    bus.data.r := 0x11
-//    bus.data.g := 0x22
-//    bus.data.b := 0x33
+//        val process = new el.Execute(id = 0) {
+//          val rs1 = el(IntRegFile, RS1).asUInt
+//          val rs2 = el(IntRegFile, RS2).asUInt
+//          val rd = UInt(32 bits)
+//          rd(7 downto 0) := rs1(7 downto 0) + rs2(7 downto 0)
+//          rd(16 downto 8) := rs1(16 downto 8) + rs2(16 downto 8)
+//          rd(23 downto 16) := rs1(23 downto 16) + rs2(23 downto 16)
+//          rd(31 downto 24) := rs1(31 downto 24) + rs2(31 downto 24)
+//          wb.valid := SEL
+//          wb.payload := rd.asBits
+//        }
+//      }
+//    }
 //  }
 //
 //  {
