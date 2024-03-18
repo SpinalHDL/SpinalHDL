@@ -164,7 +164,8 @@ class ComponentEmitterVerilog(
       .foreach(io => if(io.isOutput) {
         val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
         val name = component.localNamingScope.allocateName(componentSignalName)
-        if (!io.isSuffix)
+        val noUse = signalNoUse(io)
+        if (!io.isSuffix && ((io.isVital || !noUse) || spinalConfig.emitFullComponentBindings))
           declarations ++= emitExpressionWrap(io, name)
         referencesOverrides(io) = name
       }
@@ -415,6 +416,8 @@ class ComponentEmitterVerilog(
             case None => None
           }
         } else {
+          val noUse = signalNoUse(data)
+
           val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
           val wireAlign = s"${netsWithSection(data)}"
           val comma = if (data == ios.last) " " else ","
@@ -424,7 +427,12 @@ class ComponentEmitterVerilog(
             case spinal.core.inout => "~"
             case _ => SpinalError("Not founded IO type")
           }
-          Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
+          if(data.isVital || !noUse || spinalConfig.emitFullComponentBindings)
+            Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
+          else {
+            referencesOverrides.remove(data)
+            Some((s"    .${portAlign} (", s" ", s")${comma} //${dirtag}\n"))
+          }
         }
       }
       val maxNameLengthConNew = if(prepareInstports.isEmpty) 0 else prepareInstports.map(_._2.length()).max
@@ -1732,8 +1740,36 @@ end
     }
   }
 
+  var outputSignalNoUse: mutable.LinkedHashSet[BaseType] = mutable.LinkedHashSet()
+  if(!spinalConfig.emitFullComponentBindings) {
+    component.children.foreach(sub =>
+      sub.getAllIo
+      .foreach(io => if(io.isOutput) {
+        outputSignalNoUse.add(io)
+      }
+    ))
+    component.dslBody.walkStatements {
+      case s: BaseType =>
+      case s => {
+        s.walkExpression {
+          case e: BaseType => {
+            if(outputSignalNoUse contains e) {
+              outputSignalNoUse.remove(e)
+            }
+          }
+          case _ =>
+        }
+      }
+    }
+  }
+
+  def signalNoUse(sig: BaseType): Boolean = {
+    outputSignalNoUse contains sig
+  }
+
   elaborate()
   fillExpressionToWrap()
   emitEntity()
   emitArchitecture()
+
 }
