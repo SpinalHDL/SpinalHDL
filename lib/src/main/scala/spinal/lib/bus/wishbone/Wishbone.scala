@@ -5,7 +5,20 @@ import spinal.lib._
 
 object AddressGranularity extends Enumeration {
   type AddressGranularity = Value
-  val Unspecified, Byte, Word = Value
+  @deprecated("This option will be REMOVED in future versions, and the default will be Word granular. It exists " +
+    "to prevent changing library behavior for existing code.")
+  val Unspecified = Value
+
+  /**
+   * Word granular addressing increments by one per word. This is the standard defined behavior of the bus.
+   */
+  val Word = Value
+
+  /**
+   * Byte granular addressing increments by one per byte. This is not in adherence with the wishbone standard but is
+   * a commonly encountered configuration with external IP.
+   */
+  val Byte = Value
 }
 
 
@@ -41,7 +54,7 @@ case class WishboneConfig(
   val tgcWidth : Int = 0,
   val tgdWidth : Int = 0,
   val useBTE : Boolean = false,
-  val addressGranularity : AddressGranularity.AddressGranularity = AddressGranularity.Unspecified
+  private val addressGranularity : AddressGranularity.AddressGranularity = AddressGranularity.Unspecified
 ){
   def useTGA = tgaWidth > 0
   def useTGC = tgcWidth > 0
