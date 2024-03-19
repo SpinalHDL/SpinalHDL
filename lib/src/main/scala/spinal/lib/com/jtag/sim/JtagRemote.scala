@@ -21,12 +21,13 @@ import java.net.ServerSocket
  */
 
 object JtagRemote {
-  def apply(jtag: Jtag, jtagClkPeriod: Long) = fork {
+  val defaultPort = 44853
+  def apply(jtag: Jtag, jtagClkPeriod: Long, port : Int = defaultPort) = fork {
     var inputStream: InputStream = null
     var outputStream: OutputStream = null
 
     class SocketThread extends Thread  {
-      val socket = new ServerSocket(44853)
+      val socket = new ServerSocket(defaultPort)
       override def run() : Unit = {
         println("WAITING FOR TCP JTAG CONNECTION")
         while (true) {
