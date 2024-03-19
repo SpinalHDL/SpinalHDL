@@ -84,7 +84,7 @@ object OHToUInt {
 
   def apply(bitVector: BitVector, mapping : Seq[Int]): UInt = apply(bitVector.asBools, mapping)
   def apply(oh: Seq[Bool], mapping : Seq[Int]): UInt = {
-    assert(oh.size == mapping.size)
+    assert(oh.size == mapping.size, s"onhot selector size (${oh.size}) must match number of UInt to map (${mapping.size})")
     val ret = UInt(log2Up(mapping.max + 1) bits)
 
     if (mapping.size == 1) {
@@ -108,7 +108,7 @@ class MuxOHImpl {
 
   def apply[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
   def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = {
-    assert(oneHot.size == inputs.size)
+    assert(oneHot.size == inputs.size, s"MuxOH selector width (${oneHot.size}) must match number of elements (${inputs.size})")
     oneHot.size match {
       case 2 => oneHot(0) ? inputs(0) | inputs(1)
       case _ => inputs(OHToUInt(oneHot))
@@ -131,7 +131,7 @@ class MuxOHImpl {
   def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T], bypassIfSingle : Boolean): T =  or(oneHot,Vec(inputs), bypassIfSingle)
   def or[T <: Data](oneHot : BitVector,inputs : Vec[T], bypassIfSingle : Boolean): T = or(oneHot.asBools,inputs, bypassIfSingle)
   def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T], bypassIfSingle : Boolean): T = {
-    assert(oneHot.size == inputs.size)
+    assert(oneHot.size == inputs.size, s"MuxOH selector width (${oneHot.size}) must match number of elements (${inputs.size})")
     if(bypassIfSingle && inputs.size == 1) return CombInit(inputs.head)
     val masked = (oneHot, inputs).zipped.map((sel, value) => sel ? value.asBits | B(0, widthOf(value) bits))
     masked.reduceBalancedTree(_ | _).as(inputs.head)
@@ -305,7 +305,7 @@ object OHMasking{
     val input = B(requests)
     val priorityBits = B(priority)
     val width = widthOf(requests)
-    assert(widthOf(priority) == width-1)
+    assert(widthOf(priority) == width-1, s"round robin priority width (${widthOf(priority)}) must be one less than requests width (${width})")
     val doubleMask = input ## (input.dropLow(1) & priorityBits)
     val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  (LutInputs.get/2) max 2)
     val (pLow, pHigh) = doubleOh.splitAt(width-1)
@@ -317,7 +317,7 @@ object OHMasking{
     val input = B(requests).reversed
     val priorityBits = ~B(priority).reversed
     val width = widthOf(requests)
-    assert(widthOf(priority) == width-1)
+    assert(widthOf(priority) == width-1, s"round robin priority width (${widthOf(priority)}) must be one less than requests width (${width})")
     val doubleMask = input.rotateLeft(1) ## (input.dropHigh(1) & priorityBits)
     val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =(LutInputs.get/2) max 2)
     val (pLow, pHigh) = doubleOh.splitAt(width)
@@ -331,7 +331,7 @@ object OHMasking{
     val input = B(requests)
     val priorityBits = B(priority)
     val width = widthOf(requests)
-    assert(widthOf(priority) == width)
+    assert(widthOf(priority) == width, s"round robin priority width (${widthOf(priority)}) must be than requests width (${width})")
     val doubleMask = input ## (input & priorityBits)
     val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  (LutInputs.get/2) max 2)
     val (pLow, pHigh) = doubleOh.splitAt(width)
@@ -648,7 +648,7 @@ object Timeout {
 }
 
 class Timeout(val limit: BigInt, init: Bool = False) extends ImplicitArea[Bool] {
-  assert(limit > 1)
+  assert(limit > 1, "Timeout limit must be > 1")
 
   val state = RegInit(init)
   val stateRise = False
@@ -744,7 +744,7 @@ class CounterUpDown(val stateCount: BigInt, val handleOverflow : Boolean = true)
     valueNext := (value + finalIncrement).resized
   }
   else {
-    assert(false,"TODO")
+    assert(false,"stateCount that is not 2**n is unimplemented when handleOverflow is enabled")
   }
 
   def init(initValue : BigInt): this.type ={
@@ -823,7 +823,7 @@ object LatencyAnalysis {
   def apply(paths: Expression*): Integer = list(paths)
 
   def list(paths: Seq[Expression]): Integer = {
-    assert(!paths.contains(null))
+    assert(!paths.contains(null), "LatencyAnalysis expressions contains null, it must be called after all expressions are instantiated")
     var stack = 0
     for (i <- (0 to paths.size - 2)) {
       stack = stack + impl(paths(i), paths(i + 1))
@@ -1024,7 +1024,7 @@ class AnyPimped[T <: Any](pimped: T) {
 
 class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   def apply(id : UInt)(gen : (T) => Unit): Unit ={
-    assert(widthOf(id) == log2Up(pimped.size))
+    assert(widthOf(id) == log2Up(pimped.size), s"id has invalid length (${widthOf(id)}) for selection (${pimped.size} signals)")
     for((e,i) <- pimped.zipWithIndex) {
       when(id === i){
         gen(e)
@@ -1077,7 +1077,7 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
 
     }
     val array = ArrayBuffer[T]() ++ pimped
-    assert(array.length >= 1)
+    assert(array.nonEmpty, "can't use reduceBalancedTree on an empty collection")
     stage(array, 0)
   }
   def distinctLinked : mutable.LinkedHashSet[T] = {
@@ -1402,7 +1402,7 @@ object whenMasked{
   def apply[T](things : TraversableOnce[T], conds : TraversableOnce[Bool])(body : T => Unit): Unit ={
     val thingsList = things.toList
     val condsList = conds.toList
-    assert(thingsList.size == condsList.size)
+    assert(thingsList.size == condsList.size, s"number of things to mask (${things.size}) must match width of conditions (${condsList.size})")
     for((thing, cond) <- (thingsList, condsList).zipped) when(cond){ body(thing) }
   }
 
@@ -1416,7 +1416,7 @@ object whenIndexed{
     val thingsList = things.toList
     var indexPatched = index
     if(indexPatched.hasTag(tagAutoResize)) indexPatched = index.resize(log2Up(things.size))
-    assert(relaxedWidth || log2Up(thingsList.size) == widthOf(indexPatched))
+    assert(relaxedWidth || log2Up(thingsList.size) == widthOf(indexPatched), s"number of things to index (${thingsList.size}) can be indexed by ${widthOf(indexPatched)}-wide index")
     switch(indexPatched) {
       for ((thing, idx) <- thingsList.zipWithIndex) is(idx) {
         body(thing)

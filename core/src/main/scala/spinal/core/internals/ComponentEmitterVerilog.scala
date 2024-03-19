@@ -148,7 +148,7 @@ class ComponentEmitterVerilog(
           case e           => expressionToWrap += e
         }
 
-        val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
+        val portName = mem.getName() + "_spinal_port" + portId
         s match {
           case s : Nameable => s.unsetName().setName(portName)
         }
@@ -1767,6 +1767,12 @@ end
     case  e: Operator.BitVector.orR                    => s"(|${emitExpression(e.source)})"
     case  e: Operator.BitVector.andR                   => s"(&${emitExpression(e.source)})"
     case  e: Operator.BitVector.xorR                   => s"(^${emitExpression(e.source)})"
+    case e: Operator.BitVector.IsUnknown =>
+      if (systemVerilog) s"$$isunknown(${emitExpression(e.source)})"
+      else {
+        SpinalWarning(s"IsUnknown is always false since system verilog is not active.")
+        "0"
+      }
 
     case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)}, ${e.delay})"
     case e : Operator.Formal.Rose                     => s"$$rose(${emitExpression(e.source)})"

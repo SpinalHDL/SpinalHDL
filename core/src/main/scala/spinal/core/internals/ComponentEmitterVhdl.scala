@@ -140,7 +140,8 @@ class ComponentEmitterVhdl(
           case e           => expressionToWrap += e
         }
 
-        val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
+        val portName = mem.getName() + "_spinal_port" + portId
+        portId = portId + 1
         s match {
           case s: MemReadSync =>
             val name = component.localNamingScope.allocateName(portName)
@@ -1511,6 +1512,11 @@ class ComponentEmitterVhdl(
     case  e: BitVectorBitAccessFloating              => accessBoolFloating(e)
     case  e: BitVectorRangedAccessFixed              => accessBitVectorFixed(e)
     case  e: BitVectorRangedAccessFloating           => accessBitVectorFloating(e)
+
+    case e: Operator.BitVector.IsUnknown => {
+      SpinalWarning(s"IsUnknown is always false in vhdl")
+      "pkg_toStdLogic(false)"
+    }
   }
 
   elaborate()
