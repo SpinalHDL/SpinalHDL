@@ -1514,3 +1514,8 @@ object CountLeadingZeroes {
     }
   }
 }
+
+/** Counts the number of consecutive zero bits starting from the LSB. */
+object CountTrailingZeroes {
+  def apply(in: Bits): UInt = CountLeadingZeroes(in.reversed)
+}
