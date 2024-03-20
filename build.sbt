@@ -9,6 +9,7 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   crossScalaVersions := SpinalVersion.compilers,
   scalaVersion := SpinalVersion.compilers(0),
   scalacOptions ++= Seq("-unchecked","-target:jvm-1.8"/*, "-feature" ,"-deprecation"*/),
+  scalacOptions += "-language:reflectiveCalls",
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
   fork := true,
 
