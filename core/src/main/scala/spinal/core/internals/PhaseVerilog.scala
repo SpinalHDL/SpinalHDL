@@ -268,7 +268,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 }
 
 class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
-  def emitInterface(interface: Interface): StringBuilder = {
+  def emitInterface(interface: SVIF): StringBuilder = {
     import pc._
     var ret = new StringBuilder()
     val theme = new Tab2 //TODO add into SpinalConfig
@@ -340,14 +340,14 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     walkDeclarations {
       case node: BaseType if(node.hasTag(IsInterface)) => {
         def insertIFmap(): Unit = {
-          val interface = node.parent.asInstanceOf[Interface]
+          val interface = node.parent.asInstanceOf[SVIF]
           val interfaceString = emitInterface(interface)
           svInterface.get(interface.definitionName) match {
             case Some(s) => if(s != interfaceString) {
-              node.parent.asInstanceOf[Interface].setDefinitionName(s"${interface.definitionName}_1")//TODO:better rename
+              node.parent.asInstanceOf[SVIF].setDefinitionName(s"${interface.definitionName}_1")//TODO:better rename
               insertIFmap()
             }
-            case None => svInterface += node.parent.asInstanceOf[Interface].definitionName -> interfaceString
+            case None => svInterface += node.parent.asInstanceOf[SVIF].definitionName -> interfaceString
           }
         }
         insertIFmap()

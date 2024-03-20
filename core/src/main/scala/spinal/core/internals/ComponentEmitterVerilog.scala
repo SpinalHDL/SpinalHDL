@@ -89,8 +89,8 @@ class ComponentEmitterVerilog(
         if(!declaredInterface.contains(baseType.parent.getName(baseType.getNameElseThrow.split('.')(0)))) {
           declaredInterface = declaredInterface + baseType.parent.getName(baseType.getNameElseThrow.split('.')(0))
           baseType.parent match {
-            case s: Interface => {
-              val intName = baseType.parent.asInstanceOf[Interface].definitionName
+            case s: SVIF => {
+              val intName = baseType.parent.asInstanceOf[SVIF].definitionName
               //TODO:check more than one modport has same `in` `out` direction
               val modport = if(s.checkModport().isEmpty) {
                 LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
@@ -423,8 +423,8 @@ class ComponentEmitterVerilog(
             connectedIF.add(data.parent)
             val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data).split('.')(0))
             val wireAlign = s"${netsWithSection(data)}".split('.')(0)
-            val comma = if (data.parent.asInstanceOf[Interface].elementsCache.map(_._2).contains(ios.last)) " " else ","
-            val modport = data.parent.asInstanceOf[Interface].checkModport
+            val comma = if (data.parent.asInstanceOf[SVIF].elementsCache.map(_._2).contains(ios.last)) " " else ","
+            val modport = data.parent.asInstanceOf[SVIF].checkModport
             val dirtag = if(modport.isEmpty) "" else modport.head
             Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
           } else {
@@ -1056,7 +1056,7 @@ class ComponentEmitterVerilog(
     s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
   }
 
-  def emitInterfaceSignal(data: Interface, name: String): String = {
+  def emitInterfaceSignal(data: SVIF, name: String): String = {
     //val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
     //s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
     val genericFlat = data.genericElements
@@ -1159,7 +1159,7 @@ class ComponentEmitterVerilog(
   def emitSignals(): Unit = {
     val enumDebugStringBuilder = new StringBuilder()
     for((intf, s) <- createInterfaceWrap) {
-      declarations ++= emitInterfaceSignal(intf.asInstanceOf[Interface], s)
+      declarations ++= emitInterfaceSignal(intf.asInstanceOf[SVIF], s)
     }
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
@@ -1168,7 +1168,7 @@ class ComponentEmitterVerilog(
             declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
           } else if(!declaredInterface.contains(signal.parent.getName(signal.getNameElseThrow.split('.')(0)))) {
             declaredInterface = declaredInterface + signal.parent.getName(signal.getNameElseThrow.split('.')(0))
-            declarations ++= emitInterfaceSignal(signal.parent.asInstanceOf[Interface], signal.parent.getName(signal.getNameElseThrow.split('.')(0)))
+            declarations ++= emitInterfaceSignal(signal.parent.asInstanceOf[SVIF], signal.parent.getName(signal.getNameElseThrow.split('.')(0)))
           }
         }
         if(spinalConfig._withEnumString) {
