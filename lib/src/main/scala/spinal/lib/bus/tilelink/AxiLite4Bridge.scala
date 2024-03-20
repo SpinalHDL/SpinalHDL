@@ -48,7 +48,7 @@ class AxiLite4Bridge(p : NodeParameters) extends Component{
       val counter = Reg(io.up.p.beat) init(0)
       val forked = cmdFork.forkSerial(!isGet || counter === cmdFork.sizeToBeatMinusOne())
       when(forked.fire) {
-        counter := counter + 1
+        counter := (counter + 1).resized
         when(cmdFork.fire) {
           counter := 0
         }
@@ -77,7 +77,7 @@ class AxiLite4Bridge(p : NodeParameters) extends Component{
     val counter = Reg(io.up.p.beat) init(0)
     val lastB = counter === io.up.d.sizeToBeatMinusOne()
     when(io.down.b.fire){
-      counter := counter + 1
+      counter := (counter + 1).resized
       when(lastB){
         counter := 0
       }
