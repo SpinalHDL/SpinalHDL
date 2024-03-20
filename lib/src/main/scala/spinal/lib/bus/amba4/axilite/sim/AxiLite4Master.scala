@@ -110,7 +110,7 @@ case class AxiLite4Master(axil: AxiLite4, clockDomain: ClockDomain) {
       log("AR", f"addr $address%#x")
 
       rQueue += { r =>
-        val data = r.data.toBigInt.toByteArray.toList
+        val data = r.data.toBytes.toList
         log("R", f"got data ${data.bytesToHex}")
         callback(data)
       }
