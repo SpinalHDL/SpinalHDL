@@ -36,20 +36,21 @@ class Interface extends Bundle {
     definitionName = name
     this
   }
-  val genericElements = ArrayBuffer[(String, Any)]()
-  def addGeneric(name : String, that : Any): String = {
+  val genericElements = ArrayBuffer[(String, Any, String)]()
+  def addGeneric(name : String, that : Any, default: String = null): String = {
     that match {
-      case bt: BaseType => genericElements += Tuple2(name, bt.addTag(GenericValue(bt.head.source)))
-      case vv: VerilogValues => genericElements += Tuple2(name, vv)
-      case s: String    => genericElements += Tuple2(name, s)
-      case i: Int       => genericElements += Tuple2(name, i)
-      case i: BigInt if i <= Integer.MAX_VALUE && i >= Integer.MIN_VALUE => genericElements += Tuple2(name, i.toInt)
-      case d: Double        => genericElements += Tuple2(name, d)
-      case boolean: Boolean => genericElements += Tuple2(name, boolean)
-      case t: TimeNumber    => genericElements += Tuple2(name, t)
+      case bt: BaseType => genericElements += Tuple3(name, bt.addTag(GenericValue(bt.head.source)), default)
+      case vv: VerilogValues => genericElements += Tuple3(name, vv, default)
+      case s: String    => genericElements += Tuple3(name, s, default)
+      case i: Int       => genericElements += Tuple3(name, i, default)
+      case i: BigInt if i <= Integer.MAX_VALUE && i >= Integer.MIN_VALUE => genericElements += Tuple3(name, i.toInt, default)
+      case d: Double        => genericElements += Tuple3(name, d, default)
+      case boolean: Boolean => genericElements += Tuple3(name, boolean, default)
+      case t: TimeNumber    => genericElements += Tuple3(name, t, default)
     }
     name
   }
+  def addParameter(name: String, that: Any, default: String = null): String = addGeneric(name, that, default)
   val widthGeneric = scala.collection.mutable.LinkedHashMap[Data, String]()
   def tieGeneric[T <: Data](signal: T, generic: String) = {
     widthGeneric += signal -> generic

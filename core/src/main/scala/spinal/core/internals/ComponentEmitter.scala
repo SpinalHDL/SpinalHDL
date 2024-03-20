@@ -307,9 +307,8 @@ abstract class ComponentEmitter {
           val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
           val name = component.localNamingScope.allocateName(componentSignalName)
           referencesOverrides(io) = name
-          val ifName = io.parent.asInstanceOf[Interface].definitionName
-          val instName = sub.getNameElseThrow + "_" + io.getNameElseThrow.split('.')(0) + "()"//TODO:error handle?
-          createInterfaceWrap += io.parent -> f"${theme.maintab}${ifName}%-19s ${instName};\n"
+          val instName = sub.getNameElseThrow + "_" + io.getNameElseThrow.split('.')(0)//TODO:error handle?
+          createInterfaceWrap += io.parent -> instName
         } else if(io.isInput) {
           var subInputBinded = isSubComponentInputBinded(io)
 

@@ -274,8 +274,11 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     val theme = new Tab2 //TODO add into SpinalConfig
     val generic = if(interface.genericElements.isEmpty) ""
       else
-        "#(\n" + interface.genericElements.map{case (name, useless) =>
-          s"${theme.porttab}parameter ${name},\n"
+        "#(\n" + interface.genericElements.map{case (name, useless, default) =>
+          if(default == null)
+            s"${theme.porttab}parameter ${name},\n"
+          else
+            s"${theme.porttab}parameter ${name} = ${default},\n"
         }.reduce(_ + _).stripSuffix(",\n") + "\n) "
     ret ++= s"interface ${interface.definitionName} ${generic}() ;\n\n"
     for ((name, elem) <- interface.elementsCache) {
