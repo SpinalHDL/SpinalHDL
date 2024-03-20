@@ -272,17 +272,25 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     import pc._
     var ret = new StringBuilder()
     val theme = new Tab2 //TODO add into SpinalConfig
-    ret ++= s"interface ${interface.definitionName} () ;\n\n"
+    val generic = if(interface.genericElements.isEmpty) ""
+      else
+        "#(\n" + interface.genericElements.map{case (name, useless) =>
+          s"${theme.porttab}parameter ${name},\n"
+        }.reduce(_ + _).stripSuffix(",\n") + "\n) "
+    ret ++= s"interface ${interface.definitionName} ${generic}() ;\n\n"
     for ((name, elem) <- interface.elementsCache) {
       val size = elem match {
         case _: Bool => ""
-        case node: WidthProvider => if(node.getWidth > 0)
-          s"[${node.getWidth - 1}:0]"
-        else {
-          globalData.nodeAreInferringWidth = false
-          val width = node.getWidth
-          globalData.nodeAreInferringWidth = true
-          s"[${width - 1}:0]"
+        case node: WidthProvider => interface.widthGeneric.get(node) match {
+          case Some(x) => s"[${x}-1:0]"
+          case None => if(node.getWidth > 0)
+            s"[${node.getWidth - 1}:0]"
+          else {
+            globalData.nodeAreInferringWidth = false
+            val width = node.getWidth
+            globalData.nodeAreInferringWidth = true
+            s"[${width - 1}:0]"
+          }
         }
         case _ => LocatedPendingError("The SystemVerilog interface feature is still an experimental feature. In interface, only BaseType is supported yet")
       }
