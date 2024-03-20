@@ -276,7 +276,14 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     for ((name, elem) <- interface.elementsCache) {
       val size = elem match {
         case _: Bool => ""
-        case node: WidthProvider => s"[${node.getWidth - 1}:0]"
+        case node: WidthProvider => if(node.getWidth > 0)
+          s"[${node.getWidth - 1}:0]"
+        else {
+          globalData.nodeAreInferringWidth = false
+          val width = node.getWidth
+          globalData.nodeAreInferringWidth = true
+          s"[${width - 1}:0]"
+        }
         case _ => LocatedPendingError("The SystemVerilog interface feature is still an experimental feature. In interface, only BaseType is supported yet")
       }
       ret ++= f"${theme.porttab}logic  ${size}%-8s ${name} ;\n"
