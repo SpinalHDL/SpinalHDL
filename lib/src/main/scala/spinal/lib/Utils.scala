@@ -1491,23 +1491,26 @@ object Shift{
 
 /** Counts the number of consecutive zero bits starting from the MSB. */
 object CountLeadingZeroes {
+  // Inspired by https://electronics.stackexchange.com/a/649761
   def apply(in: Bits): UInt = {
-    val amountWidth = log2Up(in.getWidth) + 1
-    // MSB to LSB
-    in.asBools.reverse
-      // Map to number of leading zeroes in segment and whether all bits in segment are zero
-      .map(x => ((~x).asUInt, ~x))
-      .reduceBalancedTree((left, right) => {
-        val sum = U(0, amountWidth bits)
-        // When left segment is all zero, we can add up the right segment's zeroes
-        when(left._2) {
-          sum := left._1.resize(amountWidth) + right._1.resize(amountWidth)
-        } otherwise {
-          sum := left._1.resize(amountWidth)
-        }
+    val padLen = (1 << log2Up(in.getWidth)) - in.getWidth
+    if (in.getWidth == 0) U(0)
+    else if (in.getWidth == 1) ~in.asUInt
+    else if (padLen != 0) {
+      return CountLeadingZeroes(B(0, padLen bits) ## in) - padLen
+    } else {
+      val w = in.getWidth // input width
+      assert(w % 2 == 0 && w > 0, s"cannot do clz for width $w")
+      val ow = log2Up(w) + 1 // output width
+      val olrw = ow - 1 // output width of halves
 
-        (sum, left._2 && right._2)
-      })
-      ._1
+      val clzL = CountLeadingZeroes(in(w / 2, w / 2 bits))
+      val clzR = CountLeadingZeroes(in(0, w / 2 bits))
+      val first = clzL(olrw - 1) & clzR(olrw - 1)
+      val mux = Mux(~clzL(olrw - 1),
+        U("0") ## clzL(0, olrw - 1 bits),
+        (~clzR(olrw - 1)) ## clzR(0, olrw - 1 bits))
+      (first ## mux).asUInt
+    }
   }
 }
