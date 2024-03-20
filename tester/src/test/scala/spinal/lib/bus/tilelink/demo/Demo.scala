@@ -138,11 +138,11 @@ object Demo extends App {
         up.s2m.none()
 
         // Here we infer how many bytes our ram need to be, by looking at the memory mapping of the connected masters
-        val bytes = up.ups.map(e => e.mapping.value.highestBound - e.mapping.value.lowerBound + 1).max.toInt
+//        val bytes = up.ups.map(e => e.mapping.value.highestBound - e.mapping.value.lowerBound + 1).max.toInt
 
         // Then we finaly generate the regular hardware
-        val logic = new tilelink.Ram(up.bus.p.node, bytes)
-        logic.io.up << up.bus
+//        val logic = new tilelink.Ram(up.bus.p.node, bytes)
+//        logic.io.up << up.bus
       }
     }
 
