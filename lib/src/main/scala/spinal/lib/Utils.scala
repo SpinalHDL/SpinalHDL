@@ -1488,3 +1488,34 @@ object Shift{
     logic | scrap.asBits.resized
   }
 }
+
+/** Counts the number of consecutive zero bits starting from the MSB. */
+object CountLeadingZeroes {
+  // Inspired by https://electronics.stackexchange.com/a/649761
+  def apply(in: Bits): UInt = {
+    val padLen = (1 << log2Up(in.getWidth)) - in.getWidth
+    if (in.getWidth == 0) U(0)
+    else if (in.getWidth == 1) ~in.asUInt
+    else if (padLen != 0) {
+      return CountLeadingZeroes(B(0, padLen bits) ## in) - padLen
+    } else {
+      val w = in.getWidth // input width
+      assert(w % 2 == 0 && w > 0, s"cannot do clz for width $w")
+      val ow = log2Up(w) + 1 // output width
+      val olrw = ow - 1 // output width of halves
+
+      val clzL = CountLeadingZeroes(in(w / 2, w / 2 bits))
+      val clzR = CountLeadingZeroes(in(0, w / 2 bits))
+      val first = clzL(olrw - 1) & clzR(olrw - 1)
+      val mux = Mux(~clzL(olrw - 1),
+        U("0") ## clzL(0, olrw - 1 bits),
+        (~clzR(olrw - 1)) ## clzR(0, olrw - 1 bits))
+      (first ## mux).asUInt
+    }
+  }
+}
+
+/** Counts the number of consecutive zero bits starting from the LSB. */
+object CountTrailingZeroes {
+  def apply(in: Bits): UInt = CountLeadingZeroes(in.reversed)
+}
