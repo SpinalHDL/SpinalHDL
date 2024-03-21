@@ -39,7 +39,7 @@ class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends Bu
     bus.ACK := reg_reg && bus.STB                 //Classic: Acknowledge at the next clock cycle
   }
 
-  val byteAddress = bus.byteAddress(AddressGranularity.Word)
+  val byteAddress = bus.byteAddress(AddressGranularity.WORD)
 
   override def readAddress()  = byteAddress
   override def writeAddress() = byteAddress

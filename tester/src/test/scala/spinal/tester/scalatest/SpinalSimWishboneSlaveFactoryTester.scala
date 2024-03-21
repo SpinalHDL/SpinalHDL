@@ -37,7 +37,7 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
 
       dut.clockDomain.waitSampling()
 
-      val wordInc = conf.wordAddressInc(AddressGranularity.Word)
+      val wordInc = conf.wordAddressInc(AddressGranularity.WORD)
 
       val scoreboard = ScoreboardInOrder[WishboneTransaction]()
       for(ref <- List(
@@ -81,12 +81,12 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
   }
 
   test("classic32_byte"){
-    val conf = WishboneConfig(32, 32, addressGranularity = AddressGranularity.Byte)
+    val conf = WishboneConfig(32, 32, addressGranularity = AddressGranularity.BYTE)
     testBus(conf, description="classic32_byte")
   }
 
   test("classic32_word"){
-    val conf = WishboneConfig(32, 32, addressGranularity = AddressGranularity.Word)
+    val conf = WishboneConfig(32, 32, addressGranularity = AddressGranularity.WORD)
     testBus(conf, description="classic32_word")
   }
 

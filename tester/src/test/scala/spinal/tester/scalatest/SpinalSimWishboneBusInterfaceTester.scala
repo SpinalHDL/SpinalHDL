@@ -45,7 +45,7 @@ class SpinalSimWishboneBusInterfaceTester extends SpinalAnyFunSuite{
 
       dut.clockDomain.waitSampling()
 
-      val wordInc = conf.wordAddressInc(AddressGranularity.Byte)
+      val wordInc = conf.wordAddressInc(AddressGranularity.BYTE)
 
       val sco = ScoreboardInOrder[WishboneTransaction]()
       for(ref_output <- List(
@@ -76,12 +76,12 @@ class SpinalSimWishboneBusInterfaceTester extends SpinalAnyFunSuite{
   }
 
   test("sync_byte"){
-    val conf = WishboneConfig(32,32, addressGranularity = AddressGranularity.Byte)
+    val conf = WishboneConfig(32,32, addressGranularity = AddressGranularity.BYTE)
     testBus(conf, description="sync_byte")
   }
 
   test("sync_word"){
-    val conf = WishboneConfig(32,32, addressGranularity = AddressGranularity.Word)
+    val conf = WishboneConfig(32,32, addressGranularity = AddressGranularity.WORD)
     testBus(conf, description="sync_word")
   }
 

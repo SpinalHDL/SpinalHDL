@@ -52,7 +52,7 @@ case class WishboneBusInterface(
 
   if (bus.config.useERR) bus.ERR := readError
 
-  val byteAddress = bus.byteAddress(AddressGranularity.Byte)
+  val byteAddress = bus.byteAddress(AddressGranularity.BYTE)
   override def readAddress() = byteAddress
   override def writeAddress() = byteAddress
 
