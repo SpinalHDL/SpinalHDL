@@ -687,9 +687,10 @@ trait BusSlaveFactory extends Area{
 
   def readSyncMemWordAligned[T <: Data](mem           : Mem[T],
                                         addressOffset : BigInt,
-                                        bitOffset     : Int = 0) : Mem[T] = {
+                                        bitOffset     : Int = 0,
+                                        memOffset     : UInt = U(0).resized) : Mem[T] = {
     val mapping = SizeMapping(addressOffset,mem.wordCount << log2Up(busDataWidth/8))
-    val memAddress = readAddress(mapping) >> log2Up(busDataWidth/8)
+    val memAddress = (readAddress(mapping) >> log2Up(busDataWidth/8)) + memOffset
     val readData = mem.readSync(memAddress)
     multiCycleRead(mapping,2)
     readPrimitive(readData, mapping, bitOffset, null)
@@ -700,9 +701,10 @@ trait BusSlaveFactory extends Area{
     * Memory map a Mem to bus for reading. Elements can be larger than bus data width in bits.
     */
   def readSyncMemMultiWord[T <: Data](mem: Mem[T],
-                                      addressOffset: BigInt): Mem[T] = {
+                                      addressOffset: BigInt,
+                                      memOffset    : UInt = U(0).resized): Mem[T] = {
     val mapping = SizeMapping(addressOffset, mem.wordCount << log2Up(mem.width / 8))
-    val memAddress = readAddress(mapping) >> log2Up(mem.width / 8)
+    val memAddress = (readAddress(mapping) >> log2Up(mem.width / 8)) + memOffset
     val readData = mem.readSync(memAddress).asBits
     val offset = readAddress(mapping)(log2Up(mem.width / 8) - 1 downto log2Up(busDataWidth / 8))
     val partialRead = readData(offset << log2Up(busDataWidth), busDataWidth bits)
@@ -713,9 +715,10 @@ trait BusSlaveFactory extends Area{
 
   def writeMemWordAligned[T <: Data](mem           : Mem[T],
                                      addressOffset : BigInt,
-                                     bitOffset     : Int = 0) : Mem[T] = {
+                                     bitOffset     : Int = 0,
+                                     memOffset     : UInt = U(0).resized) : Mem[T] = {
     val mapping    = SizeMapping(addressOffset,mem.wordCount << log2Up(busDataWidth / 8))
-    val memAddress = writeAddress(mapping) >> log2Up(busDataWidth / 8)
+    val memAddress = (writeAddress(mapping) >> log2Up(busDataWidth / 8)) + memOffset
 
     // handle masking
     if (writeByteEnable != null) {
