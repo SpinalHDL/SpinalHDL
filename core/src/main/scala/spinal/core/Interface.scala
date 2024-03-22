@@ -57,6 +57,8 @@ class SVIF extends Bundle {
   def tieGeneric[T <: Data](signal: T, generic: String) = {
     widthGeneric += signal -> generic
   }
+  def tieParameter[T <: Data](signal: T, parameter: String) = tieGeneric(signal, parameter)
+
   override def valCallbackRec(ref: Any, name: String): Unit = {
     ref match {
       case ref : Data => {
@@ -70,15 +72,35 @@ class SVIF extends Bundle {
                 ref.addTag(IsInterface)
               }
             }
+            if(elementsCache != null)
+              if(elementsCache.find(_._1 == name).isDefined)
+                LocatedPendingError(s"name conflict: ${name} has been used")
+            super.valCallbackRec(ref, name)
+          }
+          case _: SVIF => {
+            if(elementsCache != null)
+              if(elementsCache.find(_._1 == name).isDefined)
+                LocatedPendingError(s"name conflict: ${name} has been used")
+            super.valCallbackRec(ref, name)
+          }
+          case ref: Vec[_] => {
+            if(OwnableRef.proposal(ref, this)) ref.setPartialName(name, Nameable.DATAMODEL_WEAK)
+            ref.zipWithIndex.foreach{case (node, idx) =>
+              valCallbackRec(node, s"${name}_${idx}")
+            }
           }
           case _ => {
             LocatedPendingError(s"sv interface is still under develop. by now only BaseType is allowed")
           }
         }
       }
-      case ref =>
+      case ref => {
+        if(elementsCache != null)
+          if(elementsCache.find(_._1 == name).isDefined)
+            LocatedPendingError(s"name conflict: ${name} has been used")
+        super.valCallbackRec(ref, name)
+      }
     }
-    super.valCallbackRec(ref, name)
   }
   def allModPort: List[String] = {
     this.getClass.getMethods()

@@ -54,7 +54,7 @@ class ComponentEmitterVerilog(
   val definitionAttributes  = new StringBuilder()
   val beginModule = new StringBuilder()
   val declarations = new StringBuilder()
-  var declaredInterface: Set[String] = Set()
+  var declaredInterface: Set[SVIF] = Set()
   val localparams = new StringBuilder()
   val logics       = new StringBuilder()
   val endModule = new StringBuilder()
@@ -86,23 +86,24 @@ class ComponentEmitterVerilog(
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog && spinalConfig.svInterface) {
-        if(!declaredInterface.contains(baseType.parent.getName(baseType.getNameElseThrow.split('.')(0)))) {
-          declaredInterface = declaredInterface + baseType.parent.getName(baseType.getNameElseThrow.split('.')(0))
-          baseType.parent match {
-            case s: SVIF => {
-              val intName = baseType.parent.asInstanceOf[SVIF].definitionName
+        baseType.parent match {
+          case s: SVIF => {
+            val rootIF = baseType.rootIF()
+            if(!declaredInterface.contains(rootIF)) {
+              declaredInterface = declaredInterface + rootIF
+              val intName = rootIF.definitionName
               //TODO:check more than one modport has same `in` `out` direction
-              val modport = if(s.checkModport().isEmpty) {
+              val modport = if(rootIF.checkModport().isEmpty) {
                 LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
                 ""
               } else {
-                s.checkModport().head
+                rootIF.checkModport().head
               }
               val intMod = s"${intName}.${modport}"
-              portMaps += f"${intMod}%-20s ${baseType.parent.getName()}${EDAcomment}${comma}"
+              portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
             }
-            case _ =>
           }
+          case _ => //Vec and so on
         }
       } else {
         if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -1166,9 +1167,12 @@ class ComponentEmitterVerilog(
         if (!signal.isIo && !signal.isSuffix) {
           if(!signal.hasTag(IsInterface) || !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface)) {
             declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
-          } else if(!declaredInterface.contains(signal.parent.getName(signal.getNameElseThrow.split('.')(0)))) {
-            declaredInterface = declaredInterface + signal.parent.getName(signal.getNameElseThrow.split('.')(0))
-            declarations ++= emitInterfaceSignal(signal.parent.asInstanceOf[SVIF], signal.parent.getName(signal.getNameElseThrow.split('.')(0)))
+          } else {
+            val rootIF = signal.rootIF()
+            if(!declaredInterface.contains(rootIF)) {
+              declaredInterface = declaredInterface + rootIF
+              declarations ++= emitInterfaceSignal(rootIF, rootIF.getName(signal.getNameElseThrow.split('.')(0)))//TODO:name?
+            }
           }
         }
         if(spinalConfig._withEnumString) {

@@ -282,22 +282,29 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         }.reduce(_ + _).stripSuffix(",\n") + "\n) "
     ret ++= s"interface ${interface.definitionName} ${generic}() ;\n\n"
     for ((name, elem) <- interface.elementsCache) {
-      val size = elem match {
-        case _: Bool => ""
-        case node: WidthProvider => interface.widthGeneric.get(node) match {
-          case Some(x) => s"[${x}-1:0]"
-          case None => if(node.getWidth > 0)
-            s"[${node.getWidth - 1}:0]"
-          else {
-            globalData.nodeAreInferringWidth = false
-            val width = node.getWidth
-            globalData.nodeAreInferringWidth = true
-            s"[${width - 1}:0]"
-          }
+      elem match {
+        case node: SVIF => {
+          ret ++= f"${theme.porttab}${node.definitionName}%-15s ${name} ;\n"//TODO:parameter
         }
-        case _ => LocatedPendingError("The SystemVerilog interface feature is still an experimental feature. In interface, only BaseType is supported yet")
+        case _ => {
+          val size = elem match {
+            case _: Bool => ""
+            case node: WidthProvider => interface.widthGeneric.get(node) match {
+              case Some(x) => s"[${x}-1:0]"
+              case None => if(node.getWidth > 0)
+                s"[${node.getWidth - 1}:0]"
+              else {
+                globalData.nodeAreInferringWidth = false
+                val width = node.getWidth
+                globalData.nodeAreInferringWidth = true
+                s"[${width - 1}:0]"
+              }
+            }
+            case _ => LocatedPendingError("The SystemVerilog interface feature is still an experimental feature. In interface, only BaseType is supported yet")
+          }
+          ret ++= f"${theme.porttab}logic  ${size}%-8s ${name} ;\n"
+        }
       }
-      ret ++= f"${theme.porttab}logic  ${size}%-8s ${name} ;\n"
     }
     ret ++= "\n"
     interface.allModPort
@@ -317,13 +324,28 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         globalData.phaseContext.topLevel = phase
 
         for ((name, elem) <- c.y.elementsCache) {
-          val dir = elem.dir match {
-            case `in`    => "input "
-            case `out`   => "output"
-            case `inout` => "inout "
-            case _       => throw new Exception(s"Unknown direction in interface ${interface}: ${elem}"); ""
+          elem match {
+            case elem: SVIF => {
+              //TODO:check more than one modport has same `in` `out` direction
+              val modport = if(elem.checkModport().isEmpty) {
+                LocatedPendingError(s"no suitable modport found for ${elem}")
+                ""
+              } else {
+                elem.checkModport().head
+              }
+              val intMod = s"${elem.definitionName}.${modport}"
+              modportString += f"${theme.porttab}${theme.porttab}${intMod}%-15s ${name},\n"
+            }
+            case elem => {
+              val dir = elem.dir match {
+                case `in`    => "input "
+                case `out`   => "output"
+                case `inout` => "inout "
+                case _       => throw new Exception(s"Unknown direction in interface ${interface}: ${elem}"); ""
+              }
+              modportString += f"${theme.porttab}${theme.porttab}${dir}%-15s ${name},\n"
+            }
           }
-          modportString += s"${theme.porttab}${theme.porttab}${dir}  ${name},\n"
         }
         modportString = modportString.stripSuffix(",\n") + "\n"
         modportString += s"${theme.porttab});\n\n"
@@ -336,6 +358,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
+    val allocated = mutable.HashSet[Data]()
     //rename myif_a to myif.a
     walkDeclarations {
       case node: BaseType if(node.hasTag(IsInterface)) => {
@@ -354,9 +377,17 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         if(node.parent.getName() == null || node.parent.getName() == "") {
           PendingError(s"INTERFACE SHOULD HAVE NAME: ${node.toStringMultiLine} at \n${node.getScalaLocationLong}")
         }
-        val p = node.parent.getName()
-        val p_rename = p//node.component.localNamingScope.allocateName(p)
-        val newName = node.getName().replace(s"${p}_", s"${p_rename}.")//TODO:
+        val rootIF = node.rootIF()
+        if(!allocated.contains(rootIF)) {
+          rootIF.setName(node.component.localNamingScope.allocateName(rootIF.getName()))
+          allocated += node.parent
+        }
+        val IFlist = node.rootIFList()
+        val newName = IFlist match {
+          case head :: tail => tail.foldLeft((head, List(head.getName()))){case ((nowIf, nameList), node) =>
+            (node, nowIf.elementsCache.find(_._2 == node).get._1 :: nameList)//TODO:error handle on find.get
+          }._2.reverse.reduce(_ + "." + _) + "." + IFlist.last.elementsCache.find(_._2 == node).get._1//TODO:error handle on find.get
+        }
         node.name = newName
       }
       case _ =>
