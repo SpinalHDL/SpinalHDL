@@ -53,12 +53,12 @@ class SVIF extends Bundle {
     name
   }
   def addParameter(name: String, that: Any, default: String = null): String = addGeneric(name, that, default)
-  val widthGeneric = scala.collection.mutable.LinkedHashMap[Data, String]()
+  val widthGeneric = scala.collection.mutable.LinkedHashMap[BitVector, String]()
   val IFGeneric = scala.collection.mutable.LinkedHashMap[(Data, String), String]()
-  def tieGeneric[T <: Data](signal: T, generic: String) = {
+  def tieGeneric[T <: BitVector](signal: T, generic: String) = {
     widthGeneric += signal -> generic
   }
-  def tieParameter[T <: Data](signal: T, parameter: String) = tieGeneric(signal, parameter)
+  def tieParameter[T <: BitVector](signal: T, parameter: String) = tieGeneric(signal, parameter)
   def tieIFParameter[T <: SVIF](signal: T, signalParam: String, inputParam: String) = {
     IFGeneric += (signal, signalParam) -> inputParam
   }

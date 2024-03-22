@@ -54,7 +54,7 @@ class ComponentEmitterVerilog(
   val definitionAttributes  = new StringBuilder()
   val beginModule = new StringBuilder()
   val declarations = new StringBuilder()
-  var declaredInterface: Set[SVIF] = Set()
+  val declaredInterface = mutable.HashSet[SVIF]()
   val localparams = new StringBuilder()
   val logics       = new StringBuilder()
   val endModule = new StringBuilder()
@@ -90,7 +90,7 @@ class ComponentEmitterVerilog(
           case s: SVIF => {
             val rootIF = baseType.rootIF()
             if(!declaredInterface.contains(rootIF)) {
-              declaredInterface = declaredInterface + rootIF
+              declaredInterface += rootIF
               val intName = rootIF.definitionName
               //TODO:check more than one modport has same `in` `out` direction
               val modport = if(rootIF.checkModport().isEmpty) {
@@ -1170,7 +1170,7 @@ class ComponentEmitterVerilog(
           } else {
             val rootIF = signal.rootIF()
             if(!declaredInterface.contains(rootIF)) {
-              declaredInterface = declaredInterface + rootIF
+              declaredInterface += rootIF
               declarations ++= emitInterfaceSignal(rootIF, rootIF.getName(signal.getNameElseThrow.split('.')(0)))//TODO:name?
             }
           }

@@ -318,7 +318,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         case _ => {
           val size = elem match {
             case _: Bool => ""
-            case node: WidthProvider => interface.widthGeneric.get(node) match {
+            case node: BitVector => interface.widthGeneric.get(node) match {
               case Some(x) => s"[${x}-1:0]"
               case None => if(node.getWidth > 0)
                 s"[${node.getWidth - 1}:0]"
