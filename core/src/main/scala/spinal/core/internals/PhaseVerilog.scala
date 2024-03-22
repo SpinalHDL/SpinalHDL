@@ -284,7 +284,36 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     for ((name, elem) <- interface.elementsCache) {
       elem match {
         case node: SVIF => {
-          ret ++= f"${theme.porttab}${node.definitionName}%-15s ${name} ;\n"//TODO:parameter
+
+          val genericFlat = node.genericElements
+
+          val t = if (genericFlat.nonEmpty) {
+            val ret = genericFlat.map{ e =>
+              interface.IFGeneric.get((node, e._1)) match {
+                case Some(value) => e._1 -> value
+                case None => {
+                  e match {
+                    //TODO:case (name: String, bt: BaseType, _)      => name -> s"${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}"
+                    case (name: String, rs: VerilogValues, _) => name -> s"${rs.v}"
+                    case (name: String, s: String, _)         => name -> s"""\"$s\""""
+                    case (name: String, i: Int, _)            => name -> s"$i"
+                    case (name: String, d: Double, _)         => name -> s"$d"
+                    case (name: String, b: Boolean, _)        => name -> s"${if(b) "1'b1" else "1'b0"}"
+                    case (name: String, b: BigInt, _)         => name -> s"${b.toString(16).size*4}'h${b.toString(16)}"
+                    case _                                 => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the interface ${"\""}${node.definitionName}${"\""} is not supported in Verilog")
+                  }
+                }
+              }
+            }
+            val namelens = ret.map(_._1.size).max
+            val exprlens = ret.map(_._2.size).max
+            val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s)".format(t._1, t._2))
+            s"""${node.definitionName} #(
+              |${params.mkString(",\n")}
+              |  )""".stripMargin
+          } else f"${node.definitionName}%-15s"
+
+          ret ++= f"${theme.porttab}${t} ${name}();\n"//TODO:parameter
         }
         case _ => {
           val size = elem match {

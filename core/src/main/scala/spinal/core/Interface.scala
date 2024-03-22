@@ -54,10 +54,14 @@ class SVIF extends Bundle {
   }
   def addParameter(name: String, that: Any, default: String = null): String = addGeneric(name, that, default)
   val widthGeneric = scala.collection.mutable.LinkedHashMap[Data, String]()
+  val IFGeneric = scala.collection.mutable.LinkedHashMap[(Data, String), String]()
   def tieGeneric[T <: Data](signal: T, generic: String) = {
     widthGeneric += signal -> generic
   }
   def tieParameter[T <: Data](signal: T, parameter: String) = tieGeneric(signal, parameter)
+  def tieIFParameter[T <: SVIF](signal: T, signalParam: String, inputParam: String) = {
+    IFGeneric += (signal, signalParam) -> inputParam
+  }
 
   override def valCallbackRec(ref: Any, name: String): Unit = {
     ref match {
