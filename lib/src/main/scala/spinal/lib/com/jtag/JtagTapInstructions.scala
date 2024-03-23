@@ -155,7 +155,7 @@ class JtagTapInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]], sinkClockD
   source.last := !(ctrl.enable && ctrl.shift)
   source.fragment.lsb := data
 
-  sink << FlowCCByToggle(source, outputClock = sinkClockDomain)
+  sink << FlowCCUnsafeByToggle(source, outputClock = sinkClockDomain)
 
   ctrl.tdo := False
 }

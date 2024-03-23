@@ -65,7 +65,7 @@ case class Apb3CC(config : Apb3Config,
   }
 
   val outputLogic = new ClockingArea(outputClock){
-    val outputCmdFlow = FlowCCByToggle(inputLogic.inputCmd, inputClock, outputClock, withOutputM2sPipe = false)
+    val outputCmdFlow = FlowCCUnsafeByToggle(inputLogic.inputCmd, inputClock, outputClock, withOutputM2sPipe = false)
     val outputCmd = outputCmdFlow.toStream.m2sPipe(crossClockData = true, holdPayload = true)
     val state = RegInit(False)
 
@@ -96,7 +96,7 @@ case class Apb3CC(config : Apb3Config,
     outputRsp.PRDATA := io.output.PRDATA
     if(config.useSlaveError) outputRsp.PSLVERROR := io.output.PSLVERROR
 
-    inputLogic.inputRsp := FlowCCByToggle(outputRsp, outputClock, inputClock)
+    inputLogic.inputRsp := FlowCCUnsafeByToggle(outputRsp, outputClock, inputClock)
   }
 }
 
