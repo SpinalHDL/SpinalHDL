@@ -165,9 +165,13 @@ class ComponentEmitterVerilog(
         val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
         val name = component.localNamingScope.allocateName(componentSignalName)
         val noUse = signalNoUse(io)
-        if (!io.isSuffix && ((io.isVital || !noUse) || spinalConfig.emitFullComponentBindings))
+        val canInline = outSigCanInline(io)
+        if (!io.isSuffix && ((io.isVital || !noUse) && !canInline || spinalConfig.emitFullComponentBindings))
           declarations ++= emitExpressionWrap(io, name)
-        referencesOverrides(io) = name
+        if ((!canInline) || spinalConfig.emitFullComponentBindings)
+          referencesOverrides(io) = name
+        else
+          referencesOverrides(io) = outputWrap(io)
       }
     ))
 
@@ -1746,16 +1750,44 @@ end
     }
   }
 
-  var outputSignalNoUse: mutable.LinkedHashSet[BaseType] = mutable.LinkedHashSet()
+  val outputSignalNoUse: mutable.LinkedHashSet[BaseType] = mutable.LinkedHashSet()
+  val outputNoNeedWrap = mutable.LinkedHashSet[Expression]()
+  val outputWrap = mutable.LinkedHashMap[Expression, String]()
   if(!spinalConfig.emitFullComponentBindings) {
     component.children.foreach(sub =>
       sub.getAllIo
       .foreach(io => if(io.isOutput) {
         outputSignalNoUse.add(io)
+        outputNoNeedWrap.add(io)
       }
     ))
     component.dslBody.walkStatements {
       case s: BaseType =>
+      case s: AssignmentStatement => {
+        s.source match {
+          case src: BaseType => if(outputNoNeedWrap.contains(src)) {
+            s.target match {
+              case x: BaseType if x.isComb && x.component == component => {
+                outputWrap += src -> emitReference(x, false)//x.getNameElseThrow//TODO:not getname.
+                outputNoNeedWrap.remove(src)
+                if(!spinalConfig.emitFullComponentBindings)
+                  s.removeStatement()
+              }
+              case _ =>
+            }
+          }
+          case _ =>
+        }
+
+        s.walkExpression {
+          case e: BaseType => {
+            if(outputSignalNoUse contains e) {
+              outputSignalNoUse.remove(e)
+            }
+          }
+          case _ =>
+        }
+      }
       case s => {
         s.walkExpression {
           case e: BaseType => {
@@ -1771,6 +1803,10 @@ end
 
   def signalNoUse(sig: BaseType): Boolean = {
     outputSignalNoUse contains sig
+  }
+
+  def outSigCanInline(sig: BaseType): Boolean = {
+    outputWrap contains sig
   }
 
   elaborate()
