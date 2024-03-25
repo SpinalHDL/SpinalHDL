@@ -86,24 +86,19 @@ class ComponentEmitterVerilog(
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog && spinalConfig.svInterface) {
-        baseType.parent match {
-          case s: SVIF => {
-            val rootIF = baseType.rootIF()
-            if(!declaredInterface.contains(rootIF)) {
-              declaredInterface += rootIF
-              val intName = rootIF.definitionName
-              //TODO:check more than one modport has same `in` `out` direction
-              val modport = if(rootIF.checkModport().isEmpty) {
-                LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
-                ""
-              } else {
-                rootIF.checkModport().head
-              }
-              val intMod = s"${intName}.${modport}"
-              portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
-            }
+        val rootIF = baseType.rootIF()
+        if(!declaredInterface.contains(rootIF)) {
+          declaredInterface += rootIF
+          val intName = rootIF.definitionName
+          //TODO:check more than one modport has same `in` `out` direction
+          val modport = if(rootIF.checkModport().isEmpty) {
+            LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
+            ""
+          } else {
+            rootIF.checkModport().head
           }
-          case _ => //Vec and so on
+          val intMod = s"${intName}.${modport}"
+          portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
         }
       } else {
         if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -420,12 +415,12 @@ class ComponentEmitterVerilog(
       val connectedIF = mutable.HashSet[Data]()
       val prepareInstports = ios.flatMap { data =>
         if (spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && data.hasTag(IsInterface)) {
-          if(!connectedIF.contains(data.parent)) {
-            connectedIF.add(data.parent)
+          if(!connectedIF.contains(data.rootIF())) {
+            connectedIF.add(data.rootIF())
             val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data).split('.')(0))
             val wireAlign = s"${netsWithSection(data)}".split('.')(0)
-            val comma = if (data.parent.asInstanceOf[SVIF].elementsCache.map(_._2).contains(ios.last)) " " else ","
-            val modport = data.parent.asInstanceOf[SVIF].checkModport
+            val comma = if (data.rootIF().flatten.contains(ios.last)) " " else ","
+            val modport = data.rootIF().checkModport
             val dirtag = if(modport.isEmpty) "" else modport.head
             Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
           } else {
