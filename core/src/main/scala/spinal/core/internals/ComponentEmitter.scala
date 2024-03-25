@@ -299,15 +299,23 @@ abstract class ComponentEmitter {
 
 
 
+    val interfaceWrapName = mutable.HashMap[String, String]()
     //Manage subcomponents input bindings
     for(sub <- component.children){
       for(io <- sub.getOrdredNodeIo) {
         if(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && io.hasTag(IsInterface)) {
           val theme = new Tab2 //TODO add into SpinalConfig
-          val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
-          val name = component.localNamingScope.allocateName(componentSignalName)
+          val ifName = sub.getNameElseThrow + "_" + io.getNameElseThrow.split('.')(0)
+          val instName = interfaceWrapName.get(ifName) match {
+            case Some(value) => value
+            case None => {
+              val ret = component.localNamingScope.allocateName(ifName)
+              interfaceWrapName += ifName -> ret
+              ret
+            }
+          }
+          val name = instName + io.getNameElseThrow.stripPrefix(io.getNameElseThrow.split('.')(0))
           referencesOverrides(io) = name
-          val instName = sub.getNameElseThrow + "_" + io.getNameElseThrow.split('.')(0)//TODO:error handle?
           createInterfaceWrap += io.parent -> instName
         } else if(io.isInput) {
           var subInputBinded = isSubComponentInputBinded(io)
