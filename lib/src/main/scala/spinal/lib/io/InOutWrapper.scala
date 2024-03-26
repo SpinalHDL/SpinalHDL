@@ -8,6 +8,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.language.postfixOps
 
+object keepUnwrapped extends SpinalTag
+
 object InOutWrapper {
   def InferredDriver(i: Bool, o: Bool, io: Bool, we: Bool, name: String): Unit = {
     when(we) {
@@ -37,6 +39,10 @@ object InOutWrapper {
   def apply[T <: Component](c: T, makeDriver: (Bool, Bool, Bool, Bool, String) => Unit = InferredDriver): T = {
     Engine.get.onCompletion += (() => {
       val dataParents = mutable.LinkedHashMap[Data, Int]()
+
+      @tailrec
+      def skip_io(d: Data): Boolean = d.hasTag(keepUnwrapped) || (d.parent != null && skip_io(d.parent))
+
       @tailrec
       def add(that: Data): Unit = {
         if (that.parent != null) {
@@ -50,7 +56,8 @@ object InOutWrapper {
       }
 
       for (io <- c.getAllIo) {
-        add(io)
+        if (!skip_io(io))
+          add(io)
       }
 
       def flattenedName(bundle: Data, signal: Data, marker: String) =
@@ -119,6 +126,7 @@ object InOutWrapper {
   }
 }
 
+
 object InOutWrapperPlayground extends App {
   import spinal.lib._
 
@@ -128,7 +136,13 @@ object InOutWrapperPlayground extends App {
 
   case class D() extends Bundle{
     val x = UInt(2 bits)
-    val y = Bool()
+  }
+
+  case class E() extends Bundle {
+    val xx = master(TriState(Bool()))
+    val zz = master(TriState(Bool()))
+    val yy = out port Bool()
+    xx.addTag(keepUnwrapped)
   }
 
   val report = SpinalVhdl(InOutWrapper(new Component{
@@ -136,12 +150,22 @@ object InOutWrapperPlayground extends App {
     val driver = in(t)
     val sink = out(t)
     val openDrain = master(ReadableOpenDrain(t))
+    val keepOpenDrain = master(ReadableOpenDrain(t))
+    val blaa = E()
+
+    blaa.yy := driver.x(0)
+    blaa.xx.write := driver.x(0)
+    blaa.xx.writeEnable := driver.x(0)
+    blaa.zz.write := driver.x(0)
+    blaa.zz.writeEnable := driver.x(0)
+
     openDrain.addTag(MyTriStateTag())
+    keepOpenDrain.addTag(keepUnwrapped)
     openDrain.write := driver
+    keepOpenDrain.write := driver
     sink := openDrain.read
   }))
   report.toplevel.getAllIo.foreach(io => println(s"${io.getName()} => ${io.getTags()}"))
 }
-
 
 
