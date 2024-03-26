@@ -256,15 +256,28 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   }
 
   def isCycle = CYC
+
+  def masterHasRequest = isCycle && STB
+  private def slaveRequestAck = if(config.isPipelined) !STALL else ACK
+
+  @deprecated("This status check doesn't map pipelined modes correctly, prefer isRequestStalled")
   def isStall : Bool    = if(config.isPipelined)  isCycle && STALL
                           else                    False
+
+  def isRequestStalled  = masterHasRequest && !slaveRequestAck
+
+  @deprecated("This status check doesn't map pipelined modes correctly, prefer isRequestAck")
   def isAck : Bool      = if(config.isPipelined)  isCycle && ACK && !STALL
                           else                    isCycle && ACK && STB
+  def isRequestAck      = slaveRequestAck && masterHasRequest
+
+  @deprecated("This status check doesn't map pipelined modes correctly, prefer masterHasRequest or isRequestAck " +
+    "depending on whether you want to check if a request exists or if one was acknowledged")
   def isTransfer : Bool = if(config.isPipelined)  isCycle && STB && !STALL
                           else                    isCycle && STB
-  def isWrite : Bool    = isTransfer &&  WE
-  def isRead : Bool     = isTransfer && !WE
-  def doSend  : Bool    = isTransfer && isAck
+  def isWrite : Bool    = masterHasRequest &&  WE
+  def isRead : Bool     = masterHasRequest && !WE
+  def doSend  : Bool    = masterHasRequest && isRequestAck
   def doWrite : Bool    = doSend &&  WE
   def doRead  : Bool    = doSend && !WE
 
