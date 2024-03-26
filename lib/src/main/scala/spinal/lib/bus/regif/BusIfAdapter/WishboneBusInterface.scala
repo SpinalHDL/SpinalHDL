@@ -41,6 +41,8 @@ case class WishboneBusInterface(
   // TODO: Possibly assert retry if halted && STB?
   bus.ACK := ack && !halted
   bus.DAT_MISO := readData
+  if(bus.config.isPipelined)
+    bus.STALL := !bus.ACK
 
   val askWrite = (bus.CYC && bus.STB && bus.WE).allowPruning()
   val askRead = (bus.CYC && bus.STB && !bus.WE).allowPruning()

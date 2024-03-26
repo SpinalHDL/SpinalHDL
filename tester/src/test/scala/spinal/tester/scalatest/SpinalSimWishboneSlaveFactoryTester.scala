@@ -26,7 +26,7 @@ class WishboneSimpleSlave(config : WishboneConfig, regFeedback : Boolean) extend
 
 class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
   def testBus(conf:WishboneConfig, description : String = "", regFeedback : Boolean): Unit = {
-    val fixture = SimConfig.allOptimisation.withFstWave.compile(rtl = new WishboneSimpleSlave(conf, regFeedback).setDefinitionName("WishboneSimpleSlave_" + description))
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleSlave(conf, regFeedback).setDefinitionName("WishboneSimpleSlave_" + description))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
       SimTimeout(1000*20*100)
