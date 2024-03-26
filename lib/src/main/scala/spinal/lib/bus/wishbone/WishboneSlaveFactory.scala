@@ -22,7 +22,7 @@ object WishboneSlaveFactory {
   */
 class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends BusSlaveFactoryDelayed{
   bus.DAT_MISO := 0
-  if(bus.config.isPipelined) bus.STALL := False
+  if(bus.config.isPipelined) bus.STALL := !bus.ACK
 
   val askWrite = bus.isWrite.allowPruning()
   val askRead = bus.isRead.allowPruning()
@@ -33,7 +33,7 @@ class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends Bu
     bus.ACK := bus.STB && bus.CYC                 //Acknowledge as fast as possible
   } else if(bus.config.isPipelined){
     val pip_reg = RegNext(bus.STB) init(False)
-    bus.ACK := pip_reg || (bus.STALL && bus.CYC)  //Pipelined: Acknowledge at the next clock cycle
+    bus.ACK := pip_reg || (bus.CYC)  //Pipelined: Acknowledge at the next clock cycle
   } else {
     val reg_reg = RegNext(bus.STB && bus.CYC) init(False)
     bus.ACK := reg_reg && bus.STB                 //Classic: Acknowledge at the next clock cycle

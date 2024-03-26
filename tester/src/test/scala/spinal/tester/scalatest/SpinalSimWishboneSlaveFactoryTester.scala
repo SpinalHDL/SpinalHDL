@@ -22,7 +22,7 @@ class WishboneSimpleSlave(config : WishboneConfig) extends Component{
 
 class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
   def testBus(conf:WishboneConfig, description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleSlave(conf))
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleSlave(conf).setDefinitionName("WishboneSimpleSlave_" + description))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
       SimTimeout(1000*20*100)
@@ -70,28 +70,16 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
     }
   }
 
-  test("classic"){
-    val conf = WishboneConfig(8,8)
-    testBus(conf,description="classic")
+  for(pipelined <- Seq(true, false)) {
+    for(granularity <- Seq(AddressGranularity.BYTE, AddressGranularity.WORD, AddressGranularity.UNSPECIFIED)) {
+      for(dataWith <- Seq(8, 16, 32)) {
+        val description = (if (pipelined) "pipelined" else "classic") + "_" + dataWith + "_" + granularity.toString
+        test(description){
+          val conf = WishboneConfig(32,dataWith, useSTALL = pipelined, addressGranularity = granularity)
+          testBus(conf,description=description)
+        }
+      }
+    }
   }
 
-  test("classic32"){
-    val conf = WishboneConfig(32, 32)
-    testBus(conf, description="classic32")
-  }
-
-  test("classic32_byte"){
-    val conf = WishboneConfig(32, 32, addressGranularity = AddressGranularity.BYTE)
-    testBus(conf, description="classic32_byte")
-  }
-
-  test("classic32_word"){
-    val conf = WishboneConfig(32, 32, addressGranularity = AddressGranularity.WORD)
-    testBus(conf, description="classic32_word")
-  }
-
-  //  test("pipelined"){
-//    val conf = WishboneConfig(8,8).pipelined
-//    testBus(conf,description="pipelined")
-//  }
 }
