@@ -305,7 +305,7 @@ abstract class ComponentEmitter {
       for(io <- sub.getOrdredNodeIo) {
         if(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && io.hasTag(IsInterface)) {
           val theme = new Tab2 //TODO add into SpinalConfig
-          val ifName = sub.getNameElseThrow + "_" + io.getNameElseThrow.split('.')(0)
+          val ifName = sub.getNameElseThrow + "_" + io.rootIF().getNameElseThrow
           val instName = interfaceWrapName.get(ifName) match {
             case Some(value) => value
             case None => {

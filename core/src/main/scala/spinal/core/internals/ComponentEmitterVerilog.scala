@@ -207,7 +207,7 @@ class ComponentEmitterVerilog(
             case s: Nameable => "_" + s.getName()
             case _ => ""
           }
-          val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
+          val name = component.localNamingScope.allocateName((anonymSignalPrefix + sName).replace('.', '_'))
           declarations ++= emitExpressionWrap(e, name)
           wrappedExpressionToName(e) = name
         }
@@ -415,13 +415,14 @@ class ComponentEmitterVerilog(
       val connectedIF = mutable.HashSet[Data]()
       val prepareInstports = ios.flatMap { data =>
         if (spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && data.hasTag(IsInterface)) {
-          if(!connectedIF.contains(data.rootIF())) {
-            connectedIF.add(data.rootIF())
-            val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data).split('.')(0))
+          val rootIF = data.rootIF()
+          if(!connectedIF.contains(rootIF)) {
+            connectedIF.add(rootIF)
+            val portAlign = s"%-${maxNameLength}s".format(rootIF.getNameElseThrow)
             val wireAlign = s"${netsWithSection(data)}".split('.')(0)
-            val comma = if (data.rootIF().flatten.contains(ios.last)) " " else ","
-            val modport = data.rootIF().checkModport
-            val dirtag = if(modport.isEmpty) "" else modport.head
+            val comma = if (rootIF.flatten.contains(ios.last)) " " else ","
+            val modport = rootIF.checkModport
+            val dirtag = if(modport.isEmpty) "" else rootIF.definitionName + "." + modport.head
             Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
           } else {
             None
