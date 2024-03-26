@@ -37,7 +37,7 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
      dut.io.busmaster.ADR #= 0
      dut.io.busmaster.DAT_MOSI #= 0
      dut.io.busslave.ACK #= false
-     dut.io.busslave.DAT_MOSI #= 0
+     dut.io.busslave.DAT_MISO #= 0
      dut.clockDomain.waitSampling(10)
      SimTimeout(500 * 1000)
      val sco = ScoreboardInOrder[WishboneTransaction]()
@@ -48,12 +48,12 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
        WishboneTransaction(BigInt(Random.nextInt(200)),BigInt(Random.nextInt(200)))
       }
 
-     val mon1 = WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
-       sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
+     WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
+       sco.pushRef(WishboneTransaction.sampleAsSlave(bus))
      }
 
-     val mon2 = WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
-       sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
+     WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
+       sco.pushDut(WishboneTransaction.sampleAsSlave(bus))
      }
 
      dri2.slaveSink()
@@ -63,7 +63,7 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
        val ddd = fork{
          while(!seq.isEmpty){
            val tran = seq.nextTransaction
-           dri.drive(tran ,true)
+           dri.drive(tran, we = true)
            dut.clockDomain.waitSampling(1)
          }
        }
@@ -82,7 +82,7 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
      dut.io.busmaster.ADR #= 0
      dut.io.busmaster.DAT_MOSI #= 0
      dut.io.busslave.ACK #= false
-     dut.io.busslave.DAT_MOSI #= 0
+     dut.io.busslave.DAT_MISO #= 0
      dut.clockDomain.waitSampling(10)
      SimTimeout(10000 * 1000)
       val sco = ScoreboardInOrder[WishboneTransaction]()
@@ -94,12 +94,12 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
            yield WishboneTransaction(BigInt(Random.nextInt(200)),BigInt(Random.nextInt(200)))
       }
 
-     val mon1 = WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
-       sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
+     WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
+       sco.pushRef(WishboneTransaction.sampleAsSlave(bus))
      }
 
-     val mon2 = WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
-       sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
+     WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
+       sco.pushDut(WishboneTransaction.sampleAsSlave(bus))
      }
 
      dri2.slaveSink()
@@ -109,7 +109,7 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
        val ddd = fork{
          while(!seq.isEmpty){
            val tran = seq.nextTransaction
-           dri.drive(tran ,true)
+           dri.drive(tran, we = true)
            dut.clockDomain.waitSampling(1)
          }
        }
@@ -129,7 +129,7 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
       dut.io.busmaster.ADR #= 0
       dut.io.busmaster.DAT_MOSI #= 0
       dut.io.busslave.ACK #= false
-      dut.io.busslave.DAT_MOSI #= 0
+      dut.io.busslave.DAT_MISO #= 0
       dut.clockDomain.waitSampling(10)
 
       SimTimeout(1000 * 1000)
@@ -141,11 +141,11 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
         WishboneTransaction(BigInt(Random.nextInt(200)),BigInt(Random.nextInt(200)))
        }
 
-      val mon1 = WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
+      WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
         sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
       }
 
-      val mon2 = WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
+      WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
         sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
       }
 
@@ -176,7 +176,7 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
       dut.io.busmaster.ADR #= 0
       dut.io.busmaster.DAT_MOSI #= 0
       dut.io.busslave.ACK #= false
-      dut.io.busslave.DAT_MOSI #= 0
+      dut.io.busslave.DAT_MISO #= 0
       dut.clockDomain.waitSampling(10)
 
       SimTimeout(1000 * 1000000)
@@ -189,12 +189,12 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
            yield WishboneTransaction(BigInt(Random.nextInt(200)),BigInt(Random.nextInt(200)))
        }
 
-      val mon1 = WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
-        sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
+      WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
+        sco.pushRef(WishboneTransaction.sampleAsSlave(bus))
       }
 
-      val mon2 = WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
-        sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
+      WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
+        sco.pushDut(WishboneTransaction.sampleAsSlave(bus))
       }
 
       dri2.slaveSink()

@@ -2,12 +2,11 @@ package spinal.lib.bus.regif
 
 import spinal.core._
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.bus.wishbone.Wishbone
+import spinal.lib.bus.wishbone._
 
 case class WishboneBusInterface(
     bus: Wishbone,
     sizeMap: SizeMapping,
-    selId: Int = 0,
     override val readSync: Boolean = true,
     regPre: String = ""
 )(implicit moduleName: ClassName)
@@ -20,35 +19,45 @@ case class WishboneBusInterface(
 
   override def getModuleName = moduleName.name
 
-  val readError = Bool()
-  val readData = Bits(bus.config.dataWidth bits)
+  val halted = Bool()
+  halted := False
+  override val readError = Bool()
+  override val readData = Bits(bus.config.dataWidth bits)
+  val ack = Bool()
 
   if (readSync) {
     readError.setAsReg() init False
     readData.setAsReg() init 0
+    ack.setAsReg() init False
+
+    // Force ack down between bursts; avoids misread when write cycle proceeds a read cycle
+    ack := bus.CYC && bus.STB && !ack
   } else {
     readError := False
     readData := 0
+    ack := bus.CYC && bus.STB
   }
 
-  bus.ACK := True
+  // TODO: Possibly assert retry if halted && STB?
+  bus.ACK := ack && !halted
   bus.DAT_MISO := readData
 
-  val selMatch = if (bus.config.useSEL) bus.SEL(selId) else True
-  val askWrite = (selMatch && bus.CYC && bus.STB && bus.WE).allowPruning()
-  val askRead = (selMatch && bus.CYC && bus.STB && !bus.WE).allowPruning()
+  val askWrite = (bus.CYC && bus.STB && bus.WE).allowPruning()
+  val askRead = (bus.CYC && bus.STB && !bus.WE).allowPruning()
   val doWrite =
-    (selMatch && bus.CYC && bus.STB && bus.ACK && bus.WE).allowPruning()
+    (bus.CYC && bus.STB && !halted && bus.WE).allowPruning()
   val doRead =
-    (selMatch && bus.CYC && bus.STB && bus.ACK && !bus.WE).allowPruning()
+    (bus.CYC && bus.STB && !halted && !bus.WE).allowPruning()
   val writeData = bus.DAT_MOSI
 
   if (bus.config.useERR) bus.ERR := readError
-  override def readAddress() = bus.ADR
-  override def writeAddress() = bus.ADR
 
-  override def readHalt() = bus.ACK := False
-  override def writeHalt() = bus.ACK := False
+  val byteAddress = bus.byteAddress(AddressGranularity.BYTE)
+  override def readAddress() = byteAddress
+  override def writeAddress() = byteAddress
+
+  override def readHalt() = halted := True
+  override def writeHalt() = halted := True
 
   override def busDataWidth = bus.config.dataWidth
 }
