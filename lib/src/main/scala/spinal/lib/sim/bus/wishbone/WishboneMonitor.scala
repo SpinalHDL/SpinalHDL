@@ -16,17 +16,27 @@ object WishboneMonitor{
   */
 class WishboneMonitor(bus: Wishbone, clockdomain: ClockDomain){
   val busStatus = WishboneStatus(bus)
-  val callbacks = ArrayBuffer[(Wishbone) => Unit]()
-
+  val requestAckCallbacks = ArrayBuffer[(Wishbone) => Unit]()
+  val responseCallbacks = ArrayBuffer[(Wishbone, WishboneTransaction, Boolean) => Unit]()
+  val requests = new Queue[(WishboneTransaction, Boolean)]()
   /** Add a callback, this will be executed on every bus acknoledge
     * @param callback a function or code block that takes a wishbone bus as parameter
     */
-  def addCallback(callback: (Wishbone) => Unit): Unit = callbacks += callback
+  def addCallback(callback: (Wishbone) => Unit): Unit = addReqAckCallback(callback)
+  def addReqAckCallback(callback: (Wishbone) => Unit): Unit = requestAckCallbacks += callback
+  def addResponseCallback(callback: (Wishbone, WishboneTransaction, Boolean) => Unit): Unit = responseCallbacks += callback
 
   fork{
     while(true){
-      clockdomain.waitSamplingWhere(busStatus.isAck)
-      callbacks.foreach{_(bus)}
+      clockdomain.waitSamplingWhere(busStatus.isAck || busStatus.isRequestAck)
+      if(busStatus.isRequestAck) {
+        requestAckCallbacks.foreach{_(bus)}
+        requests.enqueue((WishboneTransaction.sampleAsMaster(bus), bus.WE.toBoolean))
+      }
+      if(busStatus.isAck) {
+        val request = requests.dequeue()
+        responseCallbacks.foreach(_(bus, request._1, request._2))
+      }
     }
   }
 }

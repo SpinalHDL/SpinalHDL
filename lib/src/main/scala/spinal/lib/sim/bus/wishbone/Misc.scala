@@ -11,7 +11,11 @@ object WishboneStatus{
 }
 
 class WishboneStatus(bus: Wishbone){
+  def slaveRequestAck = if(bus.config.isPipelined) !bus.STALL.toBoolean else (bus.ACK.toBoolean)
   def isCycle   : Boolean = bus.CYC.toBoolean
+  def masterHasRequest : Boolean = isCycle && bus.STB.toBoolean
+  def isRequestAck : Boolean = slaveRequestAck && masterHasRequest
+
   def isStall   : Boolean = if(bus.config.isPipelined)  isCycle && bus.STALL.toBoolean
                             else                        false
   def isTransfer: Boolean = if(bus.config.isPipelined)  isCycle && bus.STB.toBoolean && !bus.STALL.toBoolean

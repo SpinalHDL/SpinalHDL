@@ -23,8 +23,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     */
   def sendAsMaster(transaction : WishboneTransaction, we: Boolean): Unit = {
     transaction.driveAsMaster(bus,we)
-    if(!bus.config.isPipelined) clockdomain.waitSamplingWhere(busStatus.isAck)
-    else clockdomain.waitSamplingWhere(!busStatus.isStall)
+    clockdomain.waitSamplingWhere(busStatus.isRequestAck)
   }
 
   /** Drive the wishbone bus as master.
