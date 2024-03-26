@@ -33,6 +33,7 @@ object IsInterface extends SpinalTag {}
   */
 class SVIF extends Bundle {
   var definitionName: String = this.getClass.getSimpleName
+  var thisIsNotSVIF = false
   /** Set the definition name of the component */
   def setDefinitionName(name: String): this.type = {
     definitionName = name
@@ -148,5 +149,22 @@ class SVIF extends Bundle {
     val ret = super.clone().asInstanceOf[this.type]
     ret.setDefinitionName(this.definitionName)
     ret
+  }
+
+  def notSVIF(): Unit = {
+    this.flattenForeach(x => x.removeTag(IsInterface))
+    this.elementsCache.foreach{
+      case (name, x: SVIF) => x.notSVIF()
+      case _ =>
+    }
+    this.thisIsNotSVIF = true
+  }
+
+  def notSVIFthisLevel(): Unit = {
+    this.elementsCache.foreach{case (name, x) => x match {
+      case s: BaseType => s.removeTag(IsInterface)
+      case _ =>
+    }}
+    this.thisIsNotSVIF = true
   }
 }

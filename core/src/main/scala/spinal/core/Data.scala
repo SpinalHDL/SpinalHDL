@@ -806,7 +806,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     if(now.parent == null) {
       lastRoot
     } else if(now.parent.isInstanceOf[SVIF]) {
-      rootIFrec(now.parent, now.parent.asInstanceOf[SVIF] :: lastRoot)
+      now.parent match {
+        case x: SVIF if x.thisIsNotSVIF => lastRoot
+        case _ => rootIFrec(now.parent, now.parent.asInstanceOf[SVIF] :: lastRoot)
+      }
     } else {
       rootIFrec(now.parent, lastRoot)
     }
