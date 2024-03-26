@@ -392,24 +392,26 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     walkDeclarations {
       case node: BaseType if(node.hasTag(IsInterface)) => {
         def insertIFmap(): Unit = {
-          val interface = node.parent.asInstanceOf[SVIF]
-          val interfaceString = emitInterface(interface)
-          svInterface.get(interface.definitionName) match {
-            case Some(s) => if(s != interfaceString) {
-              node.parent.asInstanceOf[SVIF].setDefinitionName(s"${interface.definitionName}_1")//TODO:better rename
-              insertIFmap()
+          node.rootIFList().foreach{interface =>
+            val interfaceString = emitInterface(interface)
+            svInterface.get(interface.definitionName) match {
+              case Some(s) => if(s != interfaceString) {
+                interface.setDefinitionName(s"${interface.definitionName}_1")//TODO:better rename
+                insertIFmap()
+              }
+              case None => svInterface += interface.definitionName -> interfaceString
             }
-            case None => svInterface += node.parent.asInstanceOf[SVIF].definitionName -> interfaceString
           }
         }
         insertIFmap()
-        if(node.parent.getName() == null || node.parent.getName() == "") {
-          PendingError(s"INTERFACE SHOULD HAVE NAME: ${node.toStringMultiLine} at \n${node.getScalaLocationLong}")
+        node.rootIFList().foreach{intf =>
+          if(intf.getName() == null || intf.getName() == "")
+            PendingError(s"INTERFACE SHOULD HAVE NAME: ${node.toStringMultiLine} at \n${node.getScalaLocationLong}")
         }
         val rootIF = node.rootIF()
         if(!allocated.contains(rootIF)) {
           rootIF.setName(node.component.localNamingScope.allocateName(rootIF.getName()))
-          allocated += node.parent
+          allocated += rootIF
         }
         val IFlist = node.rootIFList()
         val newName = IFlist match {
