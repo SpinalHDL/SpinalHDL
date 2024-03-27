@@ -6,9 +6,10 @@ import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
 object BufferCC {
-  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Option[Int] = None, randBoot : Boolean = false): T = {
-    val c = new BufferCC(input, init, bufferDepth, randBoot)
+  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Option[Int] = None, randBoot : Boolean = false, inputAttributes: Seq[SpinalTag] = List(), allBufAttributes: Seq[SpinalTag] = List()): T = {
+    val c = new BufferCC(input, init, bufferDepth, randBoot, inputAttributes, allBufAttributes)
     c.setCompositeName(input, "buffercc", true)
+    // keep hierarchy for timing constraint generation
     c.io.dataIn := input
 
     val ret = cloneOf(c.io.dataOut)
@@ -49,7 +50,7 @@ object BufferCC {
   }
 }
 
-class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option[Int], val  randBoot : Boolean = false) extends Component {
+class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option[Int], val  randBoot : Boolean = false, inputAttributes: Seq[SpinalTag] = List(), allBufAttributes: Seq[SpinalTag] = List()) extends Component {
   def getInit() : T = init
   val finalBufferDepth = BufferCC.defaultDepthOptioned(ClockDomain.current, bufferDepth)
   assert(finalBufferDepth >= 1)
@@ -64,12 +65,16 @@ class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option
 
   buffers(0) := io.dataIn
   buffers(0).addTag(crossClockDomain)
+  inputAttributes.foreach(buffers(0).addTag)
   for (i <- 1 until finalBufferDepth) {
     buffers(i) := buffers(i - 1)
     buffers(i).addTag(crossClockBuffer)
   }
+  buffers.map(b => allBufAttributes.foreach(b.addTag))
 
   io.dataOut := buffers.last
+
+  addAttribute("keep_hierarchy", "TRUE")
 }
 
 
@@ -97,7 +102,7 @@ class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain, withOutputBuf
 
   val finalOutputClock = clockOut.withOptionalBufferedResetFrom(withOutputBufferedReset)(clockIn)
   val outArea = finalOutputClock on new Area {
-    val target = BufferCC(inArea.target, False)
+    val target = BufferCC(inArea.target, False, inputAttributes = List(crossClockFalsePath()))
 
     io.pulseOut := target.edge(False)
   }
@@ -130,10 +135,12 @@ object ResetCtrl{
     )
 
     val solvedOutputPolarity = if(outputPolarity == null) clockDomain.config.resetActiveLevel else outputPolarity
+    val falsePathAttrs = List(crossClockFalsePath(Some(input), destIsReset = true))
     samplerCD(BufferCC(
       input       = (if(solvedOutputPolarity == HIGH) False else True) ^ inputSync,
-      init        = (if(solvedOutputPolarity == HIGH) True  else False),
-      bufferDepth = bufferDepth)
+      init        = if(solvedOutputPolarity == HIGH) True  else False,
+      bufferDepth = bufferDepth,
+      allBufAttributes = falsePathAttrs)
     )
   }
 
@@ -164,7 +171,7 @@ object ResetCtrl{
         inputPolarity = resetCd.config.resetActiveLevel,
         outputPolarity = clockCd.config.resetActiveLevel,
         bufferDepth = bufferDepth
-      ).setCompositeName(resetCd.reset, "syncronized", true)
+      ).setCompositeName(resetCd.reset, "synchronized", true)
     )
   }
 }
