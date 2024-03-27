@@ -56,6 +56,12 @@ sealed trait IODirection extends BaseTypeFactory {
     */
   def port[T <: Data](data: HardType[T]): T = port(data())
 
+  /** Declare a port without braces, spaceful syntax
+   *
+   * See [[IODirection]] for other syntax.
+   */
+  def ports[T <: Data](datas: T*): Seq[T] = datas.map(x => port(x))
+
   /** Declare a [[SpinalEnum]] port without braces, spaceful syntax
     *
     * See [[IODirection]] for other syntax.

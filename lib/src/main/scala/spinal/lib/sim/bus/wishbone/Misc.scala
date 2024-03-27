@@ -11,7 +11,11 @@ object WishboneStatus{
 }
 
 class WishboneStatus(bus: Wishbone){
+  def slaveRequestAck = if(bus.config.isPipelined) !bus.STALL.toBoolean else (bus.ACK.toBoolean)
   def isCycle   : Boolean = bus.CYC.toBoolean
+  def masterHasRequest : Boolean = isCycle && bus.STB.toBoolean
+  def isRequestAck : Boolean = slaveRequestAck && masterHasRequest
+
   def isStall   : Boolean = if(bus.config.isPipelined)  isCycle && bus.STALL.toBoolean
                             else                        false
   def isTransfer: Boolean = if(bus.config.isPipelined)  isCycle && bus.STB.toBoolean && !bus.STALL.toBoolean
@@ -37,16 +41,24 @@ case class AddressRange(base : BigInt, size: Int){
 object WishboneTransaction{
   implicit def singleToCycle(transaction : WishboneTransaction): Seq[WishboneTransaction] = List(transaction)
 
-  def sampleAsMaster(bus: Wishbone): WishboneTransaction = {
-    val transaction = WishboneTransaction(bus.ADR.toBigInt, bus.DAT_MISO.toBigInt)
+  def sampleAsMaster(bus: Wishbone, asByteAddress : Boolean = false): WishboneTransaction = {
+    var adr = bus.ADR.toBigInt
+    if(asByteAddress) {
+      adr = adr / bus.config.wordAddressInc(AddressGranularity.WORD)
+    }
+    val transaction = WishboneTransaction(adr, bus.DAT_MISO.toBigInt)
     if(bus.config.useTGA) transaction.copy(tga = bus.TGA.toBigInt)
     if(bus.config.useTGC) transaction.copy(tga = bus.TGC.toBigInt)
     if(bus.config.useTGD) transaction.copy(tga = bus.TGD_MISO.toBigInt)
     transaction
   }
 
-  def sampleAsSlave(bus: Wishbone): WishboneTransaction = {
-    val transaction = WishboneTransaction(bus.ADR.toBigInt, bus.DAT_MOSI.toBigInt)
+  def sampleAsSlave(bus: Wishbone, asByteAddress : Boolean = false): WishboneTransaction = {
+    var adr = bus.ADR.toBigInt
+    if(asByteAddress) {
+      adr = adr / bus.config.wordAddressInc(AddressGranularity.WORD)
+    }
+    val transaction = WishboneTransaction(adr, bus.DAT_MOSI.toBigInt)
     if(bus.config.useTGA) transaction.copy(tga = bus.TGA.toBigInt)
     if(bus.config.useTGC) transaction.copy(tgc = bus.TGC.toBigInt)
     if(bus.config.useTGD) transaction.copy(tgd = bus.TGD_MOSI.toBigInt)

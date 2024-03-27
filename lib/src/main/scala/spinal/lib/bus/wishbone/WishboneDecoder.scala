@@ -57,10 +57,10 @@ class WishboneDecoder(config : WishboneConfig, decodings : Seq[AddressMapping]) 
   val selector = Vec(decodings.map(_.hit(io.input.ADR) && io.input.CYC))
   val selectorIndex = OHToUInt(selector)
 
-  // Generate the CYC sygnal for the selected slave
+  // Generate the CYC signal for the selected slave
   (io.outputs.map(_.CYC), selector).zipped.foreach(_ := _)
 
-  //Implementing the multiplexer logic, it thakes the one Hot bit vector/bit array as input
+  //Implementing the multiplexer logic, it takes the one Hot bit vector/bit array as input
   val selectedOutput = io.outputs(selectorIndex)
 
   io.input.ACK := selectedOutput.ACK

@@ -34,7 +34,7 @@ class SpinalSimWishboneDecoderTester extends SpinalAnyFunSuite{
       dut.io.busOUT.foreach{ bus =>
         if(bus.config.isPipelined) bus.STALL #= false
         bus.ACK #= false
-        bus.DAT_MOSI #= 0
+        bus.DAT_MISO #= 0
       }
       dut.clockDomain.waitSampling(10)
       SimTimeout(1000*10000)
