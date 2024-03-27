@@ -14,18 +14,22 @@ class WishboneSimpleBusAdapted( configIn : WishboneConfig,
                                 configOut : WishboneConfig,
                                 allowAddressResize : Boolean = false,
                                 allowDataResize : Boolean = false,
-                                allowTagResize : Boolean = false) extends Component{
+                                allowTagResize : Boolean = false,
+                                autoconnect : Boolean = false) extends Component{
   val io = new Bundle{
     val busIN = slave(Wishbone(configIn))
     val busOUT = master(Wishbone(configOut))
   }
-  val ff = Reg(Bool())
-  val adapter = WishboneAdapter(io.busIN,io.busOUT,allowAddressResize,allowDataResize,allowTagResize)
+  if(autoconnect) new Area {
+    io.busIN <> io.busOUT
+  } else new Area {
+    val adapter = WishboneAdapter(io.busIN,io.busOUT,allowAddressResize,allowDataResize,allowTagResize)
+  }
 }
 
 class SpinalSimWishboneAdapterTester extends SpinalAnyFunSuite{
-  def testBus(confIN:WishboneConfig,confOUT:WishboneConfig,allowAddressResize: Boolean = false,allowDataResize: Boolean = false,allowTagResize: Boolean = false, description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleBusAdapted(confIN,confOUT){val miaou = out(RegNext(False))})
+  def testBus(confIN:WishboneConfig,confOUT:WishboneConfig,allowAddressResize: Boolean = false,allowDataResize: Boolean = false,allowTagResize: Boolean = false, autoconnect : Boolean = false, description : String = ""): Unit = {
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleBusAdapted(confIN,confOUT, autoconnect=autoconnect){val miaou = out(RegNext(False))}.setDefinitionName(description))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
       dut.io.busIN.CYC #= false
@@ -47,11 +51,11 @@ class SpinalSimWishboneAdapterTester extends SpinalAnyFunSuite{
         }
 
       val mon1 = WishboneMonitor(dut.io.busIN, dut.clockDomain){ bus =>
-        sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
+        sco.pushRef(WishboneTransaction.sampleAsMaster(bus, asByteAddress = true))
       }
 
       val mon2 = WishboneMonitor(dut.io.busOUT, dut.clockDomain){ bus =>
-        sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
+        sco.pushDut(WishboneTransaction.sampleAsMaster(bus, asByteAddress = true))
       }
 
       dri2.slaveSink()
@@ -84,9 +88,15 @@ class SpinalSimWishboneAdapterTester extends SpinalAnyFunSuite{
   }
 
   test("classicToPipelined"){
-    val confIN = WishboneConfig(8,8)
-    val confOUT = WishboneConfig(8,8).pipelined
-    testBus(confIN,confOUT,description="classicToPipelined")
+    for(autoconnect <- Seq(true, false)) {
+      for(inGranularity <- Seq(AddressGranularity.WORD, AddressGranularity.BYTE, AddressGranularity.UNSPECIFIED)) {
+        for(outGranularity <- Seq(AddressGranularity.WORD, AddressGranularity.BYTE, AddressGranularity.UNSPECIFIED)) {
+          val confIN = WishboneConfig(16,32, addressGranularity = inGranularity)
+          val confOUT = WishboneConfig(16,32, addressGranularity = outGranularity).pipelined
+          testBus(confIN, confOUT, autoconnect = autoconnect, description = "classicToPipelined_" + (if (autoconnect) "auto" else "adapter") + "_" + inGranularity + "_" + outGranularity)
+        }
+      }
+    }
   }
 
   test("pipelinedToClassic"){

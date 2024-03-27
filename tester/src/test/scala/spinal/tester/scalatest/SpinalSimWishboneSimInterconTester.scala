@@ -32,7 +32,7 @@ class WishboneInterconComponent(config : WishboneConfig,n_masters: Int,decodings
 
 class SpinalSimWishboneSimInterconTester extends SpinalAnyFunSuite{
   def testIntercon(config : WishboneConfig,decodings : Seq[SizeMapping],masters: Int,description : String = ""): Unit = {
-    val fixture = SimConfig.withFstWave.allOptimisation.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
     fixture.doSim(description){ dut =>
       def driver_slave(slave: (Wishbone,SizeMapping)) = new WishboneDriver(slave._1,dut.clockDomain)
 
