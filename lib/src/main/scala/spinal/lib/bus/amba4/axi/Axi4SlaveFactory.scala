@@ -56,11 +56,15 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
   val readOccur = bus.readRsp.fire
 
   def maskAddress(addr : UInt) = addr & ~U(bus.config.dataWidth/8 -1, bus.config.addressWidth bits)
-  val readAddressMasked = maskAddress(readDataStage.addr)
-  val writeAddressMasked = maskAddress(writeCmd.addr)
+  private var remapFunc: UInt => UInt = null
+  private def remap(addr: UInt) = if (remapFunc != null) remapFunc(addr) else addr
+  def remapAddress(mapping: UInt => UInt): this.type = { remapFunc = mapping; this }
+
+  def readAddressMasked = maskAddress(remap(readDataStage.addr))
+  def writeAddressMasked = maskAddress(remap(writeCmd.addr))
 
   override def readAddress(): UInt  = readAddressMasked
-  override def writeAddress(): UInt = writeAddressMasked
+  override def writeAddress(): UInt  = writeAddressMasked
 
   override def writeByteEnable(): Bits = bus.writeData.strb
 
