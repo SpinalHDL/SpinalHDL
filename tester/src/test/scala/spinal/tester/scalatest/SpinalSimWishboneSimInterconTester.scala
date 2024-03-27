@@ -32,15 +32,17 @@ class WishboneInterconComponent(config : WishboneConfig,n_masters: Int,decodings
 
 class SpinalSimWishboneSimInterconTester extends SpinalAnyFunSuite{
   def testIntercon(config : WishboneConfig,decodings : Seq[SizeMapping],masters: Int,description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
+    val fixture = SimConfig.withFstWave.allOptimisation.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
     fixture.doSim(description){ dut =>
+      def driver_slave(slave: (Wishbone,SizeMapping)) = new WishboneDriver(slave._1,dut.clockDomain)
+
       def send_transaction(id: BigInt,master: Wishbone,slaves: Seq[(Wishbone,SizeMapping)],req: Int = 10): Unit = {
         val scoreboard_master = ScoreboardInOrder[WishboneTransaction]()
         val sequencer_master = WishboneSequencer{
           WishboneTransaction(data=id)
         }
         val driver_master = new WishboneDriver(master,dut.clockDomain)
-        def driver_slave(slave: (Wishbone,SizeMapping)) = new WishboneDriver(slave._1,dut.clockDomain)
+
 
         val monitor_master = WishboneMonitor(master,dut.clockDomain){ bus =>
           scoreboard_master.pushRef(WishboneTransaction.sampleAsSlave(bus))
@@ -56,7 +58,6 @@ class SpinalSimWishboneSimInterconTester extends SpinalAnyFunSuite{
         }
 
         scala.util.Random.shuffle(slaves).foreach{slave =>
-          driver_slave(slave).slaveSink()
           monitor_slave(slave, scoreboard_master)
           (0 to req).foreach{x => sequencer_master.addTransaction(WishboneTransaction(data=id).randomAdressInRange(slave._2))}
         }
@@ -82,6 +83,8 @@ class SpinalSimWishboneSimInterconTester extends SpinalAnyFunSuite{
 
       dut.io.busSlaves.foreach{ bus =>
         bus.ACK #= false
+        if(bus.config.isPipelined)
+          bus.STALL #= false
         bus.DAT_MISO #= 0
       }
       dut.clockDomain.waitSampling(10)
@@ -90,6 +93,11 @@ class SpinalSimWishboneSimInterconTester extends SpinalAnyFunSuite{
       val n_transactions = 10
       val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
       val sss = scala.collection.mutable.ListBuffer[((Wishbone,Int),(Wishbone,SizeMapping))]()
+
+      slaves.foreach(slave => {
+        val driver = driver_slave(slave)
+        driver.slaveSink()
+      })
 
       scala.util.Random.shuffle(masters.zipWithIndex).foreach{master =>
         masterPool += fork{

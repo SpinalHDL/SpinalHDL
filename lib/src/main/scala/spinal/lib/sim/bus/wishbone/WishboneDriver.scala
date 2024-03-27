@@ -90,10 +90,10 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     * @param transactions a sequence of transactions that compouse the wishbone cycle
     */
   def sendPipelinedBlockAsSlave(transactions: Seq[WishboneTransaction]): Unit = {
-    bus.ACK #= true
+    bus.STALL #= false
+    bus.ACK #= false
     transactions.foreach{ transaction =>
-      clockdomain.waitSamplingWhere(busStatus.isTransfer)
-      transaction.driveAsSlave(bus)
+      sendAsSlave(transaction)
     }
     waitUntil(!busStatus.isTransfer)
     bus.ACK #= false
@@ -124,6 +124,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
   /** Dumb acknoledge, as a pipelined slave.
     */
   def slaveAckPipelinedResponse(): Unit = {
+    bus.STALL #= true
     clockdomain.waitSamplingWhere(busStatus.isCycle)
     val cycle = fork{
       fork{
@@ -131,12 +132,26 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
         bus.ACK #= false
         bus.STALL #= false
       }
+      var requests = 0
+      var acks = 0
+      var timeout = 100
       while(busStatus.isCycle){
-        val ack = Random.nextBoolean
+        timeout -= 1
+        assert(timeout > 0, s"${this} timed out")
+
+        requests += busStatus.isRequestAck.toInt
+
+        val stall = Random.nextBoolean
+        bus.STALL #= stall
+        val ack = Random.nextBoolean && (requests > 0)
+        requests -= ack.toInt
+        acks += ack.toInt
         bus.ACK #= ack
-        bus.STALL #= Random.nextBoolean && !ack
+
         clockdomain.waitSampling()
       }
+
+      assert(requests == 0, "Bus ended cycle too early")
     }
     cycle.join()
   }

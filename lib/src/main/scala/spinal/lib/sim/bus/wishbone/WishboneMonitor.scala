@@ -34,6 +34,7 @@ class WishboneMonitor(bus: Wishbone, clockdomain: ClockDomain){
         requests.enqueue((WishboneTransaction.sampleAsMaster(bus), bus.WE.toBoolean))
       }
       if(busStatus.isAck) {
+        assert(requests.nonEmpty, s"${bus} has an ACK with no requests")
         val request = requests.dequeue()
         responseCallbacks.foreach(_(bus, request._1, request._2))
       }

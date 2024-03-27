@@ -33,9 +33,9 @@ class SpinalSimWishboneAdapterTester extends SpinalAnyFunSuite{
       dut.io.busIN.WE #= false
       dut.io.busIN.ADR #= 0
       dut.io.busIN.DAT_MOSI #= 0
-      if(dut.io.busOUT.config.isPipelined) dut.io.busOUT.STALL #= false
+      if(dut.io.busOUT.config.isPipelined) dut.io.busOUT.STALL #= true
       dut.io.busOUT.ACK #= false
-      dut.io.busOUT.DAT_MOSI #= 0
+      dut.io.busOUT.DAT_MISO #= 0
       dut.clockDomain.waitSampling(10)
       SimTimeout(1000*20*100)
       val sco = ScoreboardInOrder[WishboneTransaction]()

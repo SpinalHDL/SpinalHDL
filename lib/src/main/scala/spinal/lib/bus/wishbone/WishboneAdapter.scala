@@ -77,7 +77,10 @@ class WishboneAdapter(wbmConfig : WishboneConfig,
       */
       io.wbs.STB.removeAssignments()
       val wait4ack = Reg(Bool()) init(False)
-      when(!wait4ack && io.wbs.STB){
+
+      // The spec doesn't specify to do this; but if io.wbs.STALL is asserted, it doesn't make sense to wait4ack
+      val unstalledSTB = io.wbs.STB && !io.wbs.STALL
+      when(!wait4ack && unstalledSTB){
         wait4ack := True
       }.elsewhen(wait4ack && io.wbs.ACK){
         wait4ack := False

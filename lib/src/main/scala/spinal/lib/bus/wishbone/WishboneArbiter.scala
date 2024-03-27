@@ -60,6 +60,7 @@ class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Compone
     val roundRobin : Vec[Bool] = OHMasking.roundRobin(requests, maskLock)
     val selector: Vec[Bool] = RegNext(roundRobin.orR ? roundRobin | maskLock,
                                       B(1, inputCount bits).asBools)
+    val selectorIndex = OHToUInt(selector)
 
     when (roundRobin.orR) {
       maskLock := roundRobin
@@ -68,7 +69,8 @@ class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Compone
     //Implement the selector for the output slave signals
     //This is ok becouse the signal is assumed as oneHotEncoded
                         (io.inputs.map(_.ACK),   selector).zipped.foreach(_ := _ && io.output.ACK)
-    if(config.useSTALL) (io.inputs.map(_.STALL), selector).zipped.foreach(_ := _ && io.output.STALL)
+
+    if(config.useSTALL) (io.inputs.map(_.STALL), selector).zipped.foreach(_ := !_ || io.output.STALL)
     if(config.useERR)   (io.inputs.map(_.ERR),   selector).zipped.foreach(_ := _ && io.output.ERR)
     if(config.useRTY)   (io.inputs.map(_.RTY),   selector).zipped.foreach(_ := _ && io.output.RTY)
 

@@ -132,7 +132,7 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
       dut.io.busslave.DAT_MISO #= 0
       dut.clockDomain.waitSampling(10)
 
-      SimTimeout(1000 * 1000)
+      SimTimeout(1000 * 1000 * 10)
       val sco = ScoreboardInOrder[WishboneTransaction]()
       val dri = new WishboneDriver(dut.io.busmaster, dut.clockDomain)
       val dri2 = new WishboneDriver(dut.io.busslave, dut.clockDomain)
