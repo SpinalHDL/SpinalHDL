@@ -390,7 +390,7 @@ abstract class ComponentEmitter {
             case None => {
               val name = instName + io.getNameElseThrow.stripPrefix(io.getNameElseThrow.split('.')(0))
               referencesOverrides(io) = name
-              createInterfaceWrap += io.parent -> instName
+              createInterfaceWrap += io.rootIF() -> instName
             }
           }
         } else if(io.isInput) {

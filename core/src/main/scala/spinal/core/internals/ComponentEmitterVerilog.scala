@@ -401,7 +401,7 @@ class ComponentEmitterVerilog(
           val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s)".format(t._1, t._2))
           logics ++= s"""#(
             |${params.mkString(",\n")}
-            |  )""".stripMargin
+            |  ) """.stripMargin
         }
       }
 
