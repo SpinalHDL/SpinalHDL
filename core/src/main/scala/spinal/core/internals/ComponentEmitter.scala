@@ -113,6 +113,67 @@ abstract class ComponentEmitter {
   def elaborate() = {
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
+    //check interface assign
+    val useWrap = mutable.HashMap[SVIF, SVIF]()
+    if(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface) {
+      val walked = mutable.HashSet[Data]()
+      val ios = component.children.reverse.flatMap(x => x.getOrdredNodeIo.reverse)
+      ios.filter(_.hasTag(IsInterface)).foreach{case t =>
+        val rootIF = t.rootIF()
+        if(!walked.contains(rootIF)) {
+          walked.add(rootIF)
+          val base = rootIF.flatten
+          var lif: SVIF = null
+          var rif: SVIF = null
+          var canGo = true
+          val allAssign = mutable.ArrayBuffer[(BaseType, BaseType)]()
+          val toRemove = mutable.ArrayBuffer[AssignmentStatement]()
+          component.dslBody.walkStatements {
+            case stmt: AssignmentStatement => if(base.contains(stmt.source) || base.contains(stmt.target)) {
+              if(stmt.source.isInstanceOf[BaseType] && stmt.target.isInstanceOf[BaseType]) {
+                lif = stmt.source.asInstanceOf[BaseType].rootIF()
+                rif = stmt.target.asInstanceOf[BaseType].rootIF()
+                allAssign += ((stmt.target.asInstanceOf[BaseType], stmt.source.asInstanceOf[BaseType]))
+                toRemove += stmt
+              } else {
+                canGo = false
+              }
+            }
+            case _ =>
+          }
+
+          if(canGo && lif != null && rif != null && lif.definitionName == rif.definitionName) {
+            val canRemove = if(lif.component == component) {
+              val lst = lif.flatten.zip(rif.flatten).map{case (x, y) =>
+                if(x.dir == in) {
+                  (y, x)
+                } else {
+                  (x, y)
+                }
+              }.toList.sortBy{case (a, b) => a.getName() + b.getName()}
+              lst.sameElements(allAssign.toList.sortBy{case (a, b) => a.getName() + b.getName()})
+            } else {
+              val lst = lif.flatten.zip(rif.flatten).map{case (x, y) =>
+                if(x.dir == in) {
+                  (x, y)
+                } else {
+                  (y, x)
+                }
+              }.toList.sortBy{case (a, b) => a.getName() + b.getName()}
+              lst.sameElements(allAssign.toList.sortBy{case (a, b) => a.getName() + b.getName()})
+            }
+            if(canRemove) {
+              toRemove.foreach(x => x.removeStatement())
+              if(lif != rootIF)
+                useWrap += rif -> lif
+              else
+                useWrap += lif -> rif
+            }
+          }
+        }
+      }
+    }
+
     //Sort all leaf statements into their nature (sync/async)
     var syncGroupInstanceCounter = 0
     component.dslBody.walkLeafStatements {
@@ -303,6 +364,7 @@ abstract class ComponentEmitter {
     //Manage subcomponents input bindings
     for(sub <- component.children){
       for(io <- sub.getOrdredNodeIo) {
+        //create subcomponents interface wrapper
         if(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && io.hasTag(IsInterface)) {
           val theme = new Tab2 //TODO add into SpinalConfig
           val ifName = sub.getNameElseThrow + "_" + io.rootIF().getNameElseThrow
@@ -314,9 +376,23 @@ abstract class ComponentEmitter {
               ret
             }
           }
-          val name = instName + io.getNameElseThrow.stripPrefix(io.getNameElseThrow.split('.')(0))
-          referencesOverrides(io) = name
-          createInterfaceWrap += io.parent -> instName
+          useWrap.get(io.rootIF()) match {
+            case Some(wif) => {
+              val name = referencesOverrides.get(wif.flatten(0))
+                .map(x => x match {
+                  case s: String => s
+                  case n: Nameable => n.getNameElseThrow
+                  case _ => throw new Exception(s"Could not determine name of ${wif.flatten(0)}")
+                })
+                .getOrElse(wif.flatten(0).getNameElseThrow).split('.')(0) + io.getNameElseThrow.stripPrefix(io.getNameElseThrow.split('.')(0))
+              referencesOverrides(io) = name
+            }
+            case None => {
+              val name = instName + io.getNameElseThrow.stripPrefix(io.getNameElseThrow.split('.')(0))
+              referencesOverrides(io) = name
+              createInterfaceWrap += io.parent -> instName
+            }
+          }
         } else if(io.isInput) {
           var subInputBinded = isSubComponentInputBinded(io)
 

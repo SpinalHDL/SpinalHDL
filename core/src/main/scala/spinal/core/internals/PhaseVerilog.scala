@@ -387,6 +387,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
+    //locate root interface name
     val allocated = mutable.HashSet[Data]()
     //rename myif_a to myif.a
     walkDeclarations {
