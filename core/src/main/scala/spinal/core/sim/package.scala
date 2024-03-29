@@ -30,6 +30,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
 import scala.util.Random
+import scala.util.control.Breaks._
 
 /**
   * Simulation package
@@ -421,6 +422,68 @@ package object sim {
     }
   }
 
+  object SimUnionElementPimper {
+    type PendingAssign = mutable.HashMap[Range, BigInt]
+    val pendingAssignMap = mutable.HashMap[UnionElement[_], PendingAssign]()
+  }
+  implicit class SimUnionElementPimper[T <: Data](ue: UnionElement[T]) {
+    val dummyData = ue.t()
+    val pendingAssign = SimUnionElementPimper.pendingAssignMap.getOrElseUpdate(
+      ue,
+      new SimUnionElementPimper.PendingAssign())
+
+    class SimProxy[E <: Data](rawBits: Bits, e: E) {
+      var offset = 0
+      breakable {
+        for (ee <- dummyData.flatten) {
+          if (ee == e) break()
+          offset += ee.getBitsWidth
+        }
+      }
+      val range = offset + e.getBitsWidth - 1 downto offset
+      val alwaysZero = e.getBitsWidth == 0
+      val manager = SimManagerContext.current.manager
+      val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](rawBits.algoInt)
+
+      def toBigInt = if (alwaysZero) BigInt(0) else {
+        (manager.getBigInt(signal) & range.mask) >> offset
+      }
+
+      def #=(value: BigInt): Unit = {
+        if (alwaysZero) {
+          assert(value == 0)
+          return
+        }
+        pendingAssign += range -> value
+      }
+      def toInt = {
+        assert(e.getBitsWidth <= 32)
+        toBigInt.toInt
+      }
+      def toBoolean = {
+        assert(e.getBitsWidth == 1)
+        toBigInt != 0
+      }
+      def #=(value: Boolean): Unit = {
+        assert(e.getBitsWidth == 1)
+        #=(value.toInt)
+      }
+    }
+
+    def simGet[E <: Data](locator: T => E) = new SimProxy(ue.host.raw, locator(dummyData))
+    def commit(): Unit = {
+      val manager = SimManagerContext.current.manager
+      val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](ue.host.raw.algoInt)
+      val orig = manager.getBigInt(signal)
+      val filteredOrig = pendingAssign.map(_._1.mask).foldLeft(orig)(_ &~ _)
+      val newVal = pendingAssign.map { case (range, value) =>
+        (value << range.low) & range.mask
+      }.fold(filteredOrig)(_ | _)
+      manager.setBigInt(signal, newVal)
+      pendingAssign.clear()
+    }
+  }
+
   protected abstract class RandomizableBitVector(bt: BitVector, longLimit: Int) {
     protected val width = bt.getWidth
 
@@ -626,7 +689,7 @@ package object sim {
       }
     }
   }
-  
+
   /**
     * Add implicit function to BigInt
     */

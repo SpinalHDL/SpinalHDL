@@ -18,10 +18,9 @@ object BusInterface {
   def apply(bus: AhbLite3, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = AhbLite3BusInterface(bus, sizeMap, regPre = regPre)(moduleName)
 
   def apply(bus: Wishbone, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = WishboneBusInterface(bus, sizeMap)(moduleName)
-  def apply(bus: Wishbone, sizeMap: SizeMapping, selID: Int)(implicit moduleName: ClassName): BusIf = WishboneBusInterface(bus, sizeMap, selID)(moduleName)
-  def apply(bus: Wishbone, sizeMap: SizeMapping, selID: Int, regPre: String)(implicit moduleName: ClassName): BusIf = WishboneBusInterface(bus, sizeMap, selID, regPre = regPre)(moduleName)
-  def apply(bus: Wishbone, sizeMap: SizeMapping, selID: Int, readSync: Boolean)(implicit moduleName: ClassName): BusIf = WishboneBusInterface(bus, sizeMap, selID, readSync)(moduleName)
-  def apply(bus: Wishbone, sizeMap: SizeMapping, selID: Int, readSync: Boolean, regPre: String)(implicit moduleName: ClassName): BusIf = WishboneBusInterface(bus, sizeMap, selID, readSync, regPre = regPre)(moduleName)
+  def apply(bus: Wishbone, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = WishboneBusInterface(bus, sizeMap, regPre = regPre)(moduleName)
+  def apply(bus: Wishbone, sizeMap: SizeMapping, readSync: Boolean)(implicit moduleName: ClassName): BusIf = WishboneBusInterface(bus, sizeMap, readSync)(moduleName)
+  def apply(bus: Wishbone, sizeMap: SizeMapping, readSync: Boolean, regPre: String)(implicit moduleName: ClassName): BusIf = WishboneBusInterface(bus, sizeMap, readSync, regPre = regPre)(moduleName)
 
   def apply(bus: AxiLite4, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap)(moduleName)
   def apply(bus: AxiLite4, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap, regPre)(moduleName)

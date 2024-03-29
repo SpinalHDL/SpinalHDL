@@ -11,16 +11,16 @@ case class Interleaver(blockSize : Int, ratio : Int, sel : Int) extends Area{
   val up = Node.slave()
   val down = Node.master()
 
-  def at(mapping: AddressMapping) = up.at(InterleavedMapping(mapping, blockSize, ratio, sel))
-  def at(base : BigInt, size : BigInt) = up.at(InterleavedMapping(SizeMapping(base, size), blockSize, ratio, sel))
+  def at(mapping: AddressMapping) = up.at(mapping)
+  def at(base: BigInt, size: BigInt) = up.at(base, size)
 
   val transformer = InterleaverTransformer(blockSize, ratio, sel)
   new MemoryConnection {
     override def up = Interleaver.this.up
     override def down = Interleaver.this.down
     override def transformers = List(transformer)
-    override def mapping = InterleavedMapping(
-      mapping = SizeMapping(0, BigInt(1) << Interleaver.this.up.m2s.parameters.addressWidth),
+    override def sToM(down: AddressMapping) = InterleavedMapping(
+      mapping = down,
       blockSize = blockSize,
       ratio = ratio,
       sel = sel

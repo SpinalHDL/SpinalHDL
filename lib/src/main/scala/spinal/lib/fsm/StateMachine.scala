@@ -362,6 +362,10 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     wantStart := True
   }
 
+  def exit(): Unit = {
+    exitFsm()
+  }
+
   override def exitFsm(): Unit = {
     wantExit := True
     goto(stateBoot)

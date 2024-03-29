@@ -514,4 +514,6 @@ abstract class BitVector extends BaseType with Widthable {
     val w = list.filter(!_.hasTag(tagAutoResize)).map(e => widthOf(e)).max
     cloneOf(this).setWidth(w).asInstanceOf[T]
   }
+
+  def isUnknown: Bool = wrapUnaryWithBool(new Operator.BitVector.IsUnknown)
 }

@@ -916,6 +916,7 @@ case class SpinalSimConfig(
     val uniqueId = SimWorkspace.allocateUniqueId()
     new File(s"tmp").mkdirs()
     new File(s"tmp/job_$uniqueId").mkdirs()
+    _spinalConfig.noAssertAtTimeZero = true
     val config = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new PhaseNetlist {
       override def impl(pc: PhaseContext): Unit = {
         //Ensure the toplevel pull its clock domain
@@ -942,7 +943,13 @@ case class SpinalSimConfig(
         config.generateVerilog(rtl)
       }
       case SpinalSimBackendSel.GHDL => config.generateVhdl(rtl)
-      case SpinalSimBackendSel.IVERILOG | SpinalSimBackendSel.VCS | SpinalSimBackendSel.XSIM => config.generateVerilog(rtl)
+      case SpinalSimBackendSel.VCS | SpinalSimBackendSel.XSIM => config.generateVerilog(rtl)
+      case SpinalSimBackendSel.IVERILOG => {
+        config.mode match {
+          case spinal.core.SystemVerilog => config.generateSystemVerilog(rtl)
+          case _ => config.generateVerilog(rtl)
+        }
+      }
     }
     report.blackboxesSourcesPaths ++= _additionalRtlPath
     report.blackboxesIncludeDir ++= _additionalIncludeDir
@@ -1062,6 +1069,16 @@ case class SpinalSimConfig(
       case SpinalSimBackendSel.IVERILOG =>
         println(f"[Progress] IVerilog compilation started")
         val startAt = System.nanoTime()
+        val additionalFlags = {
+          val stdConfigFlag = _simulatorFlags.find(_.startsWith("-g"))
+          if (stdConfigFlag.isEmpty && this._spinalConfig.mode == spinal.core.SystemVerilog) {
+            println(f"[Info] IVerilog set to use 2012 standard due to System Verilog being requested")
+            Seq("-g2012")
+          } else {
+            Seq()
+          }
+        }
+
         val vConfig = SpinalIVerilogBackendConfig[T](
           rtl = report,
           waveFormat = _waveFormat,
@@ -1071,7 +1088,7 @@ case class SpinalSimConfig(
           workspaceName = "iverilog",
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
-          simulatorFlags = _simulatorFlags,
+          simulatorFlags = _simulatorFlags ++ additionalFlags,
           enableLogging = _withLogging,
           usePluginsCache = !_disableCache,
           timePrecision = _timePrecision
