@@ -101,7 +101,7 @@ class StageCtrlPipeline() extends Nameable {
     for(i <- ctrls.keys.min until ctrls.keys.max){
       links += StageLink(ctrl(i).down, ctrl(i+1).up).setCompositeName(this, s"stage_${i+1}")
     }
-    Builder(links)
+    Builder(links ++ ctrls.values)
   }
 }
 
