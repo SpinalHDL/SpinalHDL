@@ -659,6 +659,12 @@ trait SpinalTagReady {
     this
   }
 
+  def addTags(h : SpinalTag, tail : SpinalTag*): this.type = {
+    addTag(h)
+    for (tag <- tail) addTag(tag)
+    this
+  }
+
   def removeTag(spinalTag: SpinalTag): this.type = {
     if(_spinalTags != null)
       _spinalTags -= spinalTag
