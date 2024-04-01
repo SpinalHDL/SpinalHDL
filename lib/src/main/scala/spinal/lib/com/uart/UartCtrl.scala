@@ -191,10 +191,10 @@ object UartCtrl {
 }
 
 case class UartCtrlInitConfig(
-  baudrate : Int = 0,
-  dataLength : Int = 0,
-  parity : UartParityType.E = null,
-  stop : UartStopType.E = null
+  var baudrate : Int = 0,
+  var dataLength : Int = 0,
+  var parity : UartParityType.E = null,
+  var stop : UartStopType.E = null
 ){
   def initReg(reg : UartCtrlConfig): Unit ={
     require(reg.isReg)
