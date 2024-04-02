@@ -137,7 +137,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
       var timeout = 100
       while(busStatus.isCycle){
         timeout -= 1
-        assert(timeout > 0, s"${this} ${bus} timed out")
+        assert(timeout > 0, s"${this} timed out")
 
         requests += busStatus.isRequestAck.toInt
 
