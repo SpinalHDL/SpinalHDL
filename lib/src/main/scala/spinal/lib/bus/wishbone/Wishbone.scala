@@ -124,7 +124,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     in.ports(DAT_MISO, TGD_MISO, ACK, STALL, ERR, RTY)
   }
 
-  def adaptSTB(stb : Bool, stall : Bool): this.type = {
+  def adaptSTB(stb : Bool, stall : Bool): Wishbone = new Composite(this) {
     if(STALL != null && stall == null) {
       /* Little state machine from chapter 5.1 of the wishbone B4 specification
          States:
@@ -286,7 +286,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     Wishbone.driveWeak(this.LOCK,that.LOCK, allowDrop = true)
     Wishbone.driveWeak(that.RTY,this.RTY, allowDrop = true)
     Wishbone.driveWeak(this.SEL,that.SEL, allowDrop = true)
-    Wishbone.driveWeak(this.CTI,that.CTI, allowDrop = true)
+    Wishbone.driveWeak(this.CTI,that.CTI, defaultValue = () => B(0), allowDrop = true)
 
     //////////
     // TAGS //

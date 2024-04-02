@@ -35,8 +35,8 @@ class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends Bu
     bus.ACK := bus.STB && bus.CYC                 //Acknowledge as fast as possible
   } else if(bus.config.isPipelined){
     //Pipelined: Acknowledge one cycle after accepting
-    val pip_reg = RegNext(bus.isRequestAck) init(False)
-    bus.ACK := pip_reg
+    val ack = RegNext(bus.isRequestAck) init(False)
+    bus.ACK := ack
 
     // Data must be registered too; after we accept the read the address can change. This also lets us pipeline another
     // read or write

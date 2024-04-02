@@ -88,9 +88,9 @@ class SpinalSimWishboneAdapterTester extends SpinalAnyFunSuite{
   }
 
   test("classicToPipelined"){
-    for(autoconnect <- Seq(true, false)) {
-      for(inGranularity <- Seq(AddressGranularity.WORD, AddressGranularity.BYTE, AddressGranularity.UNSPECIFIED)) {
-        for(outGranularity <- Seq(AddressGranularity.WORD, AddressGranularity.BYTE, AddressGranularity.UNSPECIFIED)) {
+    for(autoconnect <- Seq(true, false);
+        inGranularity <- Seq(AddressGranularity.WORD, AddressGranularity.BYTE, AddressGranularity.UNSPECIFIED));
+        outGranularity <- Seq(AddressGranularity.WORD, AddressGranularity.BYTE, AddressGranularity.UNSPECIFIED)) {
           val confIN = WishboneConfig(16,32, addressGranularity = inGranularity)
           val confOUT = WishboneConfig(16,32, addressGranularity = outGranularity).pipelined
           testBus(confIN, confOUT, autoconnect = autoconnect, description = "classicToPipelined_" + (if (autoconnect) "auto" else "adapter") + "_" + inGranularity + "_" + outGranularity)

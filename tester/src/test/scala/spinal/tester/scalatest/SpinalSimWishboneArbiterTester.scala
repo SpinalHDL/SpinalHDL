@@ -70,13 +70,12 @@ class SpinalSimWishboneArbiterTester extends SpinalAnyFunSuite{
       //val drivers = dut.io.busIN.map{bus => new WishboneDriver(bus,dut.clockDomain)}
       val receiver = new WishboneDriver(dut.io.busOUT,dut.clockDomain)
       WishboneMonitor(dut.io.busOUT,dut.clockDomain){ bus =>
-        score.pushRef(WishboneTransaction.sampleAsSlave(bus))
-        //pushDut
+        score.pushDut(WishboneTransaction.sampleAsSlave(bus))
       }
 
       dut.io.busIN.foreach { busIN =>
         WishboneMonitor(busIN, dut.clockDomain){ bus =>
-          score.pushDut(WishboneTransaction.sampleAsSlave(bus))
+          score.pushRef(WishboneTransaction.sampleAsSlave(bus))
         }
       }
 
@@ -90,11 +89,11 @@ class SpinalSimWishboneArbiterTester extends SpinalAnyFunSuite{
               WishboneTransaction().randomizeAddress(100).randomizeData(100)
             }
             seq.generateTransactions(10)
-            dut.clockDomain.waitSampling(Random.nextInt(10))
+            dut.clockDomain.waitSampling(simRandom.nextInt(10))
             while(!seq.isEmpty){
               dri.drive(seq.nextTransaction, we = true)
               dut.clockDomain.waitSampling(1)
-              dut.clockDomain.waitSampling(Random.nextInt(10))
+              dut.clockDomain.waitSampling(simRandom.nextInt(10))
             }
           }
         }

@@ -141,9 +141,9 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
 
         requests += busStatus.isRequestAck.toInt
 
-        val stall = Random.nextBoolean
+        val stall = simRandom.nextBoolean
         bus.STALL #= stall
-        val ack = Random.nextBoolean && (requests > 0)
+        val ack = simRandom.nextBoolean && (requests > 0)
         requests -= ack.toInt
         acks += ack.toInt
         bus.ACK #= ack
