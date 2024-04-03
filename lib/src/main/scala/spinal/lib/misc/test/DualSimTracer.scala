@@ -11,8 +11,18 @@ import scala.concurrent.ExecutionContext
  * Double simulation, one ahead of the other which will trigger wave capture of the second simulation when it fail
  */
 object DualSimTracer {
-  def apply[T <: Component](compiled: SimCompiled[T], window: Int, seed: Int)(testbench: T => Unit): Unit = withCb(compiled, window, seed) { (dut, _) => testbench(dut) }
-  def withCb[T <: Component](compiled: SimCompiled[T], window: Int, seed: Int)(testbench: (T, (=> Unit) => Unit) => Unit): Unit = {
+  def apply[T <: Component](compiled: SimCompiled[T], window: Long, seed: Int)(testbench: T => Unit): Unit = withCb(compiled, window, seed) { (dut, _) => testbench(dut) }
+  def withCb[T <: Component](compiled: SimCompiled[T], window: Long, seed: Int, dualSimEnable : Boolean)(testbench: (T, (=> Unit) => Unit) => Unit): Unit = {
+    dualSimEnable match {
+      case true => DualSimTracer.withCb(compiled, window, seed)(testbench)
+      case false => {
+        val traceCallbacks = ArrayBuffer[() => Unit]()
+        compiled.doSimUntilVoid(seed = seed) { dut => disableSimWave(); testbench(dut, f => traceCallbacks += (() => f)); traceCallbacks.foreach(_())}
+      }
+    }
+  }
+
+  def withCb[T <: Component](compiled: SimCompiled[T], window: Long, seed: Int)(testbench: (T, (=> Unit) => Unit) => Unit): Unit = {
     var mTime = 0l
     var mEnded = false
 

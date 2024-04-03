@@ -25,6 +25,7 @@ import spinal.core.sim.{SimBaseTypePimper, SpinalSimConfig}
 import spinal.sim._
 
 import java.math.BigInteger
+import java.util.concurrent.atomic.AtomicLong
 import scala.collection.generic.Shrinkable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -39,6 +40,12 @@ package object sim {
 
   def simRandom(implicit simManager: SimManager = sm) = simManager.random
   def sm = SimManagerContext.current.manager
+
+  def getForbiddenRandom() = {
+    val x = Random.self.getClass.getDeclaredField("seed")
+    x.setAccessible(true)
+    x.get(Random.self).asInstanceOf[AtomicLong]
+  }
 
   @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")
   def SimConfig[T <: Component](rtl: => T): SimConfigLegacy[T] = {
