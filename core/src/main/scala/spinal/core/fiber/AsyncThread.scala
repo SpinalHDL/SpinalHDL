@@ -47,7 +47,6 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
   var waitOn : Handle[_] = null
 
 
-  val seed = Random.nextLong()
   var terminatedStackTrace : Array[StackTraceElement] = null
 
   val jvmThread : JvmThread = Engine.get.newJvmThread {
@@ -55,7 +54,6 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
 //    SimManagerContext.threadLocal.set(mainContext)
 //    manager.context.thread = SimThread.this
     try {
-      Random.setSeed(seed)
       context.restore()
       engine.currentAsyncThread = this
       body
