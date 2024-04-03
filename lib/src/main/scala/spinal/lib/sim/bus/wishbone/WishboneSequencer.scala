@@ -9,14 +9,15 @@ import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig}
 
 object WishboneSequencer{
   def apply(builder: => Seq[WishboneTransaction]) = new WishboneSequencer(builder)
-  def randomGen(busConfig : WishboneConfig, upto : Int = 10) = {
 
+  def randomGen(busConfig : WishboneConfig, upto : Int = 10) = {
+    val upperBound = simRandom.nextInt(upto).max(1)
     WishboneSequencer {
-      (0 until (if (upto == 1)  1 else (simRandom.nextInt(upto - 1) + 1))).map(
-        x => WishboneTransaction(
+      (0 until upperBound).map(
+        _ => WishboneTransaction(
           BigInt(simRandom.nextLong() & (1L << (busConfig.addressWidth - log2Up(busConfig.dataWidth))) - 1),
           BigInt(simRandom.nextLong() & (1L << busConfig.dataWidth) - 1)
-        ),
+        )
       )
     }
   }
