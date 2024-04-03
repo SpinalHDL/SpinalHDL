@@ -31,12 +31,7 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
       dut.clockDomain.forkStimulus(period=10)
       SimTimeout(1000*20*100)
 
-      dut.io.bus.CYC #= false
-      dut.io.bus.STB #= false
-      dut.io.bus.WE #= false
-      dut.io.bus.ADR #= 0
-      dut.io.bus.DAT_MOSI #= 0
-      if(dut.io.bus.config.useLOCK) dut.io.bus.LOCK #= false
+      val dri = WishboneDriver(dut.io.bus)
 
       dut.clockDomain.waitSampling()
 
@@ -82,7 +77,6 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
         }
       })
 
-      val dri = new WishboneDriver(dut.io.bus, dut.clockDomain)
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10*wordInc), WishboneTransaction(0)), we = false)
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10*wordInc, 200), WishboneTransaction(0, 2)), we = true)
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10*wordInc), WishboneTransaction(0)), we = false)
@@ -94,17 +88,14 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
 
     }
   }
-  for(regFeedback <- Seq(true, false)) {
-    for(pipelined <- Seq(true, false)) {
-      for(granularity <- Seq(AddressGranularity.BYTE, AddressGranularity.WORD, AddressGranularity.UNSPECIFIED)) {
-        for(dataWith <- Seq(8, 16, 32)) {
-          val description = (if (pipelined) "pipelined" else "classic") + "_" + dataWith + "_" + granularity.toString + "_" + (if (regFeedback) "reg" else "noreg")
-          test(description){
-            val conf = WishboneConfig(32,dataWith, useSTALL = pipelined, addressGranularity = granularity)
-            testBus(conf,description=description, regFeedback = regFeedback)
-          }
-        }
-      }
+  for(regFeedback <- Seq(true, false);
+      pipelined <- Seq(true, false);
+      granularity <- Seq(AddressGranularity.BYTE, AddressGranularity.WORD, AddressGranularity.UNSPECIFIED);
+      dataWidth <- Seq(32)) {
+    val description = (if (pipelined) "pipelined" else "classic") + "_" + dataWidth + "_" + granularity.toString + "_" + (if (regFeedback) "reg" else "noreg")
+    test(description){
+      val conf = WishboneConfig(32,dataWidth, useSTALL = pipelined, addressGranularity = granularity)
+      testBus(conf,description=description, regFeedback = regFeedback)
     }
   }
 

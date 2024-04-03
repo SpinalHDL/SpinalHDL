@@ -1,5 +1,7 @@
 package spinal.lib.wishbone.sim
 
+import spinal.core.Bool
+
 import scala.util.Random
 import scala.collection.immutable._
 import spinal.core.sim._
@@ -11,21 +13,33 @@ object WishboneStatus{
 }
 
 class WishboneStatus(bus: Wishbone){
-  def slaveRequestAck = if(bus.config.isPipelined) !bus.STALL.toBoolean else (bus.ACK.toBoolean)
-  def isCycle   : Boolean = bus.CYC.toBoolean
-  def masterHasRequest : Boolean = isCycle && bus.STB.toBoolean
-  def isRequestAck : Boolean = slaveRequestAck && masterHasRequest
+  def isCycle = bus.CYC.toBoolean
+  def STB = bus.STB.toBoolean
+  def config = bus.config
+  def STALL = bus.STALL.toBoolean
+  def ACK = bus.ACK.toBoolean
+  def WE = bus.WE.toBoolean
 
-  def isStall   : Boolean = if(bus.config.isPipelined)  isCycle && bus.STALL.toBoolean
-                            else                        false
-  def isTransfer: Boolean = if(bus.config.isPipelined)  isCycle && bus.STB.toBoolean && !bus.STALL.toBoolean
-                            else                        isCycle && bus.STB.toBoolean
+  def masterHasRequest = isCycle && STB
+  private def slaveRequestAck = if(config.isPipelined) !STALL else ACK
+  def isAcceptingRequests = if(config.isPipelined) !STALL else true
 
-  def isAck     : Boolean = if(bus.config.isPipelined)  isCycle &&  bus.ACK.toBoolean
-                            else                        isTransfer &&  bus.ACK.toBoolean
+  @deprecated("This status check doesn't map pipelined modes correctly, prefer isRequestStalled")
+  def isStall    = if(config.isPipelined)  isCycle && STALL else false
 
-  def isWrite   : Boolean =                             isTransfer &&  bus.WE.toBoolean
-  def isRead    : Boolean =                             isTransfer && !bus.WE.toBoolean
+  def isRequestStalled  = masterHasRequest && !slaveRequestAck
+
+  @deprecated("This status check is ambiguous and may be removed in the future, prefer isRequestAck or isResponse")
+  def isAck      = isRequestAck
+  def isRequestAck      = slaveRequestAck && masterHasRequest
+  def isResponse        = if(config.isPipelined) isCycle && ACK else masterHasRequest && ACK
+
+  @deprecated("This status check doesn't map pipelined modes correctly, prefer masterHasRequest or isRequestAck " +
+    "depending on whether you want to check if a request exists or if one was acknowledged")
+  def isTransfer = if(config.isPipelined)  isCycle && STB && !STALL else isCycle && STB
+
+  def isWrite   : Boolean =                             masterHasRequest &&  WE
+  def isRead    : Boolean =                             masterHasRequest && !WE
 }
 
 object AddressRange{

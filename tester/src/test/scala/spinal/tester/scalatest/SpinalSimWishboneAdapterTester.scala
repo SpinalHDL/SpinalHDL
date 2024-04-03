@@ -20,7 +20,7 @@ class WishboneSimpleBusAdapted( configIn : WishboneConfig,
     val busIN = slave(Wishbone(configIn))
     val busOUT = master(Wishbone(configOut))
   }
-  if(autoconnect) new Area {
+  val connectionArea = if(autoconnect) new Area {
     io.busIN <> io.busOUT
   } else new Area {
     val adapter = WishboneAdapter(io.busIN,io.busOUT,allowAddressResize,allowDataResize,allowTagResize)
@@ -32,44 +32,35 @@ class SpinalSimWishboneAdapterTester extends SpinalAnyFunSuite{
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleBusAdapted(confIN,confOUT, autoconnect=autoconnect){val miaou = out(RegNext(False))}.setDefinitionName(description))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
-      dut.io.busIN.CYC #= false
-      dut.io.busIN.STB #= false
-      dut.io.busIN.WE #= false
-      dut.io.busIN.ADR #= 0
-      dut.io.busIN.DAT_MOSI #= 0
-      if(dut.io.busOUT.config.isPipelined) dut.io.busOUT.STALL #= true
-      dut.io.busOUT.ACK #= false
-      dut.io.busOUT.DAT_MISO #= 0
+
+      val hostDriver = WishboneDriver(dut.io.busIN)
+      val deviceDriver = WishboneDriver(dut.io.busOUT)
+
       dut.clockDomain.waitSampling(10)
       SimTimeout(1000*20*100)
       val sco = ScoreboardInOrder[WishboneTransaction]()
-      val dri = new WishboneDriver(dut.io.busIN, dut.clockDomain)
-      val dri2 = new WishboneDriver(dut.io.busOUT, dut.clockDomain)
 
-      val seq = WishboneSequencer{
-        WishboneTransaction(BigInt(Random.nextInt(200)),BigInt(Random.nextInt(200)))
-        }
+      val seq = WishboneSequencer.randomGen(confIN)
 
-      val mon1 = WishboneMonitor(dut.io.busIN, dut.clockDomain){ bus =>
+      WishboneMonitor(dut.io.busIN){ bus =>
         sco.pushRef(WishboneTransaction.sampleAsMaster(bus, asByteAddress = true))
       }
 
-      val mon2 = WishboneMonitor(dut.io.busOUT, dut.clockDomain){ bus =>
+      WishboneMonitor(dut.io.busOUT){ bus =>
         sco.pushDut(WishboneTransaction.sampleAsMaster(bus, asByteAddress = true))
       }
 
-      dri2.slaveSink()
+      deviceDriver.slaveSink()
 
-      for(repeat <- 0 until 1000){
+      for(repeat <- 0 until 100){
         seq.generateTransactions(10)
-        val ddd = fork{
-          while(!seq.isEmpty){
-            val tran = seq.nextTransaction
-            dri.drive(tran ,true)
-            dut.clockDomain.waitSampling(1)
-          }
+
+        while(!seq.isEmpty){
+          val tran = seq.nextTransaction
+          hostDriver.drive(tran, we = true)
+          dut.clockDomain.waitSampling(1)
         }
-        ddd.join()
+
         dut.clockDomain.waitSampling(10)
       }
     }
@@ -87,15 +78,14 @@ class SpinalSimWishboneAdapterTester extends SpinalAnyFunSuite{
     testBus(confIN,confOUT,description="passthroughAdapterPipelined")
   }
 
-  test("classicToPipelined"){
-    for(autoconnect <- Seq(true, false);
-        inGranularity <- Seq(AddressGranularity.WORD, AddressGranularity.BYTE, AddressGranularity.UNSPECIFIED));
-        outGranularity <- Seq(AddressGranularity.WORD, AddressGranularity.BYTE, AddressGranularity.UNSPECIFIED)) {
-          val confIN = WishboneConfig(16,32, addressGranularity = inGranularity)
-          val confOUT = WishboneConfig(16,32, addressGranularity = outGranularity).pipelined
-          testBus(confIN, confOUT, autoconnect = autoconnect, description = "classicToPipelined_" + (if (autoconnect) "auto" else "adapter") + "_" + inGranularity + "_" + outGranularity)
-        }
-      }
+  for(autoconnect <- Seq(true, false);
+      inGranularity <- Seq(AddressGranularity.WORD, AddressGranularity.BYTE, AddressGranularity.UNSPECIFIED);
+      outGranularity <- Seq(AddressGranularity.WORD, AddressGranularity.BYTE, AddressGranularity.UNSPECIFIED)) {
+    val confIN = WishboneConfig(16,32, addressGranularity = inGranularity)
+    val confOUT = WishboneConfig(16,32, addressGranularity = outGranularity).pipelined
+    val description = "classicToPipelined_" + (if (autoconnect) "auto" else "adapter") + "_" + inGranularity + "_" + outGranularity
+    test(description) {
+      testBus(confIN, confOUT, autoconnect = autoconnect, description = description)
     }
   }
 

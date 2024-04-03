@@ -1,10 +1,25 @@
 package spinal.lib.wishbone.sim
 
+import spinal.core.log2Up
+import spinal.core.sim.simRandom
+
 import scala.collection.immutable._
 import spinal.lib.bus.misc._
+import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig}
 
 object WishboneSequencer{
   def apply(builder: => Seq[WishboneTransaction]) = new WishboneSequencer(builder)
+  def randomGen(busConfig : WishboneConfig, upto : Int = 10) = {
+
+    WishboneSequencer {
+      (0 until (if (upto == 1)  1 else (simRandom.nextInt(upto - 1) + 1))).map(
+        x => WishboneTransaction(
+          BigInt(simRandom.nextLong() & (1L << (busConfig.addressWidth - log2Up(busConfig.dataWidth))) - 1),
+          BigInt(simRandom.nextLong() & (1L << busConfig.dataWidth) - 1)
+        ),
+      )
+    }
+  }
 }
 
 class WishboneSequencer(builder: => Seq[WishboneTransaction]){

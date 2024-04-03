@@ -120,8 +120,8 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
 
 
   override def asMaster(): Unit = {
-    out.ports(DAT_MOSI, TGD_MOSI, ADR, CYC, LOCK, SEL, STB, TGA, TGC, WE, CTI, BTE)
-    in.ports(DAT_MISO, TGD_MISO, ACK, STALL, ERR, RTY)
+    out(DAT_MOSI, TGD_MOSI, ADR, CYC, LOCK, SEL, STB, TGA, TGC, WE, CTI, BTE)
+    in(DAT_MISO, TGD_MISO, ACK, STALL, ERR, RTY)
   }
 
   def adaptSTB(stb : Bool, stall : Bool): Wishbone = new Composite(this) {
@@ -151,7 +151,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     }
 
     this
-  }
+  }.self
   /** Clear all the relevant signals in the wishbone bus
     * @example{{{
     * val wishbone1 = master(Wishbone(WishboneConfig(8,8)))
@@ -282,7 +282,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     // OPTIONAL FLOW CONTROS //
     ///////////////////////////
     Wishbone.driveWeak(that.STALL,this.STALL, defaultValue = () => !this.ACK && this.CYC, allowDrop = true)
-    Wishbone.driveWeak(that.ERR,this.ERR, allowDrop = true)
+    Wishbone.driveWeak(that.ERR,this.ERR, defaultValue = () => False, allowDrop = true)
     Wishbone.driveWeak(this.LOCK,that.LOCK, allowDrop = true)
     Wishbone.driveWeak(that.RTY,this.RTY, allowDrop = true)
     Wishbone.driveWeak(this.SEL,that.SEL, allowDrop = true)
@@ -310,10 +310,10 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
 
   def isRequestStalled  = masterHasRequest && !slaveRequestAck
 
-  @deprecated("This status check doesn't map pipelined modes correctly, prefer isRequestAck")
-  def isAck : Bool      = if(config.isPipelined)  isCycle && ACK && !STALL
-                          else                    isCycle && ACK && STB
-  def isRequestAck      = slaveRequestAck && masterHasRequest
+  @deprecated("This status check is ambiguous and may be removed in the future, prefer isRequestAck or isResponse")
+  def isAck      = isRequestAck
+  def isRequestAck      = masterHasRequest && slaveRequestAck
+  def isResponse        = if(config.isPipelined) isCycle && ACK else masterHasRequest && ACK
 
   @deprecated("This status check doesn't map pipelined modes correctly, prefer masterHasRequest or isRequestAck " +
     "depending on whether you want to check if a request exists or if one was acknowledged")
@@ -332,7 +332,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   def assignByteAddress(byteAddress : UInt, addressGranularityIfUnspecified : AddressGranularity.AddressGranularity = AddressGranularity.WORD, allowAddressResize : Boolean = false): Unit = {
     val wordAddressSize = config.addressWidth + log2Up(config.wordAddressInc(addressGranularityIfUnspecified))
     val busGranularAddress = byteAddress >> log2Up((config.dataWidth / 8) / config.wordAddressInc(addressGranularityIfUnspecified))
-    assert(!allowAddressResize || (wordAddressSize == busGranularAddress.getWidth) || (config.addressWidth == byteAddress.getWidth),
+    assert(allowAddressResize || (wordAddressSize == busGranularAddress.getWidth) || (config.addressWidth == byteAddress.getWidth),
       s"allowAddressResize must be true to assign from an unlike address space for ${this} and ${byteAddress}")
     ADR := busGranularAddress.resized
   }
@@ -363,7 +363,7 @@ object Wishbone{
     (from != null, to != null) match{
       case (false, false) =>
       case (false, true)  => if(defaultValue != null) to := defaultValue()
-      case (true , false) => if(!allowDrop) LocatedPendingError(s"$from can't drive $to because this last one doesn't has the corresponding pin")
+      case (true , false) => if(!allowDrop) LocatedPendingError(s"Wishbone buses can't be connected due to configuration mismatches, $from can't be connected and can not be safely ignored")
       case (true , true)  => to := (if(allowResize) from.resized else from)
     }
   }

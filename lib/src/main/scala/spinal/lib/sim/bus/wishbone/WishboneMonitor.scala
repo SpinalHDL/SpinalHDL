@@ -7,7 +7,8 @@ import spinal.lib.bus.wishbone._
 import scala.collection.mutable._
 
 object WishboneMonitor{
-  def apply(bus : Wishbone, clockdomain: ClockDomain)(callback: (Wishbone) => Unit) = new WishboneMonitor(bus,clockdomain).addCallback(callback)
+  def apply(bus : Wishbone, clockdomain: ClockDomain = null)(callback: (Wishbone) => Unit) =
+    new WishboneMonitor(bus, Option(clockdomain).getOrElse(bus.CYC.clockDomain)).addCallback(callback)
 }
 
 /** This is a helping class for executing code when an acknoledge happend on the bus
@@ -28,12 +29,12 @@ class WishboneMonitor(bus: Wishbone, clockdomain: ClockDomain){
 
   fork{
     while(true){
-      clockdomain.waitSamplingWhere(busStatus.isAck || busStatus.isRequestAck)
+      clockdomain.waitSamplingWhere(busStatus.isResponse || busStatus.isRequestAck)
       if(busStatus.isRequestAck) {
         requestAckCallbacks.foreach{_(bus)}
         requests.enqueue((WishboneTransaction.sampleAsMaster(bus), bus.WE.toBoolean))
       }
-      if(busStatus.isAck) {
+      if(busStatus.isResponse) {
         assert(requests.nonEmpty, s"${bus} has an ACK with no requests")
         val request = requests.dequeue()
         responseCallbacks.foreach(_(bus, request._1, request._2))
