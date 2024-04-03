@@ -7,6 +7,7 @@ import spinal.lib.bus.wishbone._
 import spinal.lib.wishbone.sim._
 import spinal.lib.sim._
 
+import scala.collection.mutable.ArrayBuffer
 import scala.language.postfixOps
 
 class WishboneSimpleSlave(config : WishboneConfig, regFeedback : Boolean) extends Component{
@@ -58,6 +59,8 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
       // Make sure that all configurations exhibit proper latencies.
       val expectedResponseTime = if(regFeedback) 10 else 0
       val busStatus = WishboneStatus(dut.io.bus)
+      val responseTimes = new ArrayBuffer[Long]
+
       var responseTime : Option[Long] = None
       dut.clockDomain.onSamplings({
         if(busStatus.isCycle) {
@@ -66,11 +69,12 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
             responseTime = Some(simTime())
           }
 
-          // Measure until ACK time.
-          if(dut.io.bus.ACK.toBoolean) {
-            val elapsedTime = simTime() - responseTime.get
-            //assert(expectedResponseTime == elapsedTime)
+          var expectedResponseTimeForAddr = expectedResponseTime
 
+          // Measure until ACK time.
+          if(busStatus.isResponse) {
+            val elapsedTime = simTime() - responseTime.get
+            responseTimes += elapsedTime
             // For the pipeline case; if STB is assert it means we got a request now
             responseTime = if(conf.isPipelined && dut.io.bus.STB.toBoolean && regFeedback) Some(simTime()) else None
           }
@@ -85,6 +89,9 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(21*wordInc)), we = false)
 
       scoreboard.checkEmptyness()
+
+      // We check min since memory read times are slower
+      assert(responseTimes.min == expectedResponseTime)
 
     }
   }
