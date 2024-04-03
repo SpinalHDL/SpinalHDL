@@ -23,7 +23,7 @@ class WishboneDecoderComponent(config : WishboneConfig,decodings : Seq[SizeMappi
 
 class SpinalSimWishboneDecoderTester extends SpinalAnyFunSuite{
   def testDecoder(config : WishboneConfig,decodings : Seq[SizeMapping],description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.withFstWave.compile(new WishboneDecoderComponent(config,decodings).setDefinitionName(s"WishboneDecoderComponent_${description}"))
+    val fixture = SimConfig.allOptimisation.compile(new WishboneDecoderComponent(config,decodings).setDefinitionName(s"WishboneDecoderComponent_${description}"))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
       val busInDriver = WishboneDriver(dut.io.busIN)

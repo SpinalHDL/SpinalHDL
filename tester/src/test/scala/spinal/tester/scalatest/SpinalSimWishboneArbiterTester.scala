@@ -47,7 +47,7 @@ case class WishboneMemoryHarness(config: WishboneConfig, size: Int) extends Comp
 
 class SpinalSimWishboneArbiterTester extends SpinalAnyFunSuite{
   def testArbiter(config : WishboneConfig,size: Int,description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.withFstWave.compile(rtl = new WishboneArbiterComponent(config,size).setDefinitionName(s"WishboneArbiterComponent_${description}"))
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneArbiterComponent(config,size).setDefinitionName(s"WishboneArbiterComponent_${description}"))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
       val senders = dut.io.busIN.map(WishboneDriver(_))

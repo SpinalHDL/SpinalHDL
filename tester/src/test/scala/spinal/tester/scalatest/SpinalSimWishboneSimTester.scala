@@ -21,7 +21,7 @@ class wishbonesimplebus(config : WishboneConfig) extends Component{
 }
 class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
 
-  lazy val compiled : SimCompiled[wishbonesimplebus] = SimConfig.allOptimisation.withFstWave.compile(new wishbonesimplebus(WishboneConfig(8, 8)).setDefinitionName("wishbonesimplebus_std"))
+  lazy val compiled : SimCompiled[wishbonesimplebus] = SimConfig.allOptimisation.compile(new wishbonesimplebus(WishboneConfig(8, 8)).setDefinitionName("wishbonesimplebus_std"))
   lazy val compPipe : SimCompiled[wishbonesimplebus] = SimConfig.allOptimisation.compile(new wishbonesimplebus(WishboneConfig(8, 8).pipelined).setDefinitionName("wishbonesimplebus_pipe"))
 
 
@@ -39,7 +39,7 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
      SimTimeout(20 us)
      val sco = ScoreboardInOrder[WishboneTransaction]()
 
-     val seq = WishboneSequencer.randomGen(dut.io.busmaster.config, upto = 1)
+     val seq = WishboneSequencer.randomGen(dut.io.busmaster.config, maxCnt = 1)
 
      WishboneMonitor(dut.io.busmaster){ bus =>
        sco.pushRef(WishboneTransaction.sampleAsSlave(bus))
