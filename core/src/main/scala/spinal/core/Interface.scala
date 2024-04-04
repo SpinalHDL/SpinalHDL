@@ -1,6 +1,7 @@
 package spinal.core
 
 import scala.reflect.runtime.universe._
+import scala.collection.mutable.ArrayBuffer
 
 object IsInterface extends SpinalTag {}
 
@@ -8,8 +9,10 @@ object IsInterface extends SpinalTag {}
   * 
   * ==Example==
   *{{{
-  * case class MyIf() extends Interface with IMasterSlave {
-  *  val a = Bits(8 bits)
+  * case class MyIf(width: Int = 8) extends SVIF with IMasterSlave {
+  *  val wParam = addGeneric("WIDTH", width, default = "8")
+  *  val a = Bits(width bits)
+  *  tieGeneric(a, wParam)
   *  val b = Bool()
   *  val c = SInt(8 bits)
   *
@@ -28,7 +31,39 @@ object IsInterface extends SpinalTag {}
   *}}}
   *
   */
-class Interface extends Bundle {
+class SVIF extends Bundle {
+  var definitionName: String = this.getClass.getSimpleName
+  var thisIsNotSVIF = false
+  /** Set the definition name of the component */
+  def setDefinitionName(name: String): this.type = {
+    definitionName = name
+    this
+  }
+  val genericElements = ArrayBuffer[(String, Any, String)]()
+  def addGeneric(name : String, that : Any, default: String = null): String = {
+    that match {
+      case bt: BaseType => genericElements += Tuple3(name, bt.addTag(GenericValue(bt.head.source)), default)
+      case vv: VerilogValues => genericElements += Tuple3(name, vv, default)
+      case s: String    => genericElements += Tuple3(name, s, default)
+      case i: Int       => genericElements += Tuple3(name, i, default)
+      case i: BigInt if i <= Integer.MAX_VALUE && i >= Integer.MIN_VALUE => genericElements += Tuple3(name, i.toInt, default)
+      case d: Double        => genericElements += Tuple3(name, d, default)
+      case boolean: Boolean => genericElements += Tuple3(name, boolean, default)
+      case t: TimeNumber    => genericElements += Tuple3(name, t, default)
+    }
+    name
+  }
+  def addParameter(name: String, that: Any, default: String = null): String = addGeneric(name, that, default)
+  val widthGeneric = scala.collection.mutable.LinkedHashMap[BitVector, String]()
+  val IFGeneric = scala.collection.mutable.LinkedHashMap[(Data, String), String]()
+  def tieGeneric[T <: BitVector](signal: T, generic: String) = {
+    widthGeneric += signal -> generic
+  }
+  def tieParameter[T <: BitVector](signal: T, parameter: String) = tieGeneric(signal, parameter)
+  def tieIFParameter[T <: SVIF](signal: T, signalParam: String, inputParam: String) = {
+    IFGeneric += (signal, signalParam) -> inputParam
+  }
+
   override def valCallbackRec(ref: Any, name: String): Unit = {
     ref match {
       case ref : Data => {
@@ -42,15 +77,35 @@ class Interface extends Bundle {
                 ref.addTag(IsInterface)
               }
             }
+            if(elementsCache != null)
+              if(elementsCache.find(_._1 == name).isDefined)
+                LocatedPendingError(s"name conflict: ${name} has been used")
+            super.valCallbackRec(ref, name)
+          }
+          case _: SVIF => {
+            if(elementsCache != null)
+              if(elementsCache.find(_._1 == name).isDefined)
+                LocatedPendingError(s"name conflict: ${name} has been used")
+            super.valCallbackRec(ref, name)
+          }
+          case ref: Vec[_] => {
+            if(OwnableRef.proposal(ref, this)) ref.setPartialName(name, Nameable.DATAMODEL_WEAK)
+            ref.zipWithIndex.foreach{case (node, idx) =>
+              valCallbackRec(node, s"${name}_${idx}")
+            }
           }
           case _ => {
             LocatedPendingError(s"sv interface is still under develop. by now only BaseType is allowed")
           }
         }
       }
-      case ref =>
+      case ref => {
+        if(elementsCache != null)
+          if(elementsCache.find(_._1 == name).isDefined)
+            LocatedPendingError(s"name conflict: ${name} has been used")
+        super.valCallbackRec(ref, name)
+      }
     }
-    super.valCallbackRec(ref, name)
   }
   def allModPort: List[String] = {
     this.getClass.getMethods()
@@ -60,7 +115,7 @@ class Interface extends Bundle {
       .map(m => m.getName())
       .toList
   }
-  def callModPort(s: String) {
+  def callModPort(s: String): Unit = {
     this.getClass.getMethod(s).invoke(this).asInstanceOf[Unit]
   }
   def checkModport() = {
@@ -89,5 +144,27 @@ class Interface extends Bundle {
           }
         }
       })
+  }
+  override def clone() = {
+    val ret = super.clone().asInstanceOf[this.type]
+    ret.setDefinitionName(this.definitionName)
+    ret
+  }
+
+  def notSVIF(): Unit = {
+    this.flattenForeach(x => x.removeTag(IsInterface))
+    this.elementsCache.foreach{
+      case (name, x: SVIF) => x.notSVIF()
+      case _ =>
+    }
+    this.thisIsNotSVIF = true
+  }
+
+  def notSVIFthisLevel(): Unit = {
+    this.elementsCache.foreach{case (name, x) => x match {
+      case s: BaseType => s.removeTag(IsInterface)
+      case _ =>
+    }}
+    this.thisIsNotSVIF = true
   }
 }

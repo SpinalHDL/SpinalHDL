@@ -46,6 +46,13 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
       emitEnumPackage(outFile)
 
+      if(!svInterface.isEmpty) {
+        outFile.write("\n")
+        for ((name, interface) <- svInterface) {
+          outFile.write(interface.result())
+        }
+      }
+
       val componentsText = ArrayBuffer[() => String]()
       for (c <- sortedComponents) {
         if (!c.isInBlackBoxTree) {
@@ -84,6 +91,19 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         defineFile.flush()
         defineFile.close()
         fileList += defineFileName
+      }
+
+      // dump Interface define to (interface.definitionName).v
+      if(!svInterface.isEmpty) {
+        for ((name, interface) <- svInterface) {
+          val ifFileName = pc.config.targetDirectory + "/" + name + (if(pc.config.isSystemVerilog) ".sv" else ".v")
+          val ifFile = new java.io.FileWriter(ifFileName)
+          ifFile.write("\n")
+          ifFile.write(interface.result())
+          ifFile.flush()
+          ifFile.close()
+          fileList + ifFileName
+        }
       }
 
       val bbImplStrings = mutable.HashSet[String]()
@@ -208,11 +228,6 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       }
     }
 
-    ret ++= "\n"
-    for ((name, interface) <- svInterface) {
-      emitInterface(interface, ret)
-    }
-
     def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
       val str    = encoding.getValue(senum).toString(2)
       val length = encoding.getWidth(senum.spinalEnum)
@@ -249,16 +264,76 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     })
   }
 
-  def emitInterface(interface: Interface, ret: StringBuilder): Unit = {
+  
+}
+
+class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
+  def emitInterface(interface: SVIF): StringBuilder = {
+    import pc._
+    var ret = new StringBuilder()
     val theme = new Tab2 //TODO add into SpinalConfig
-    ret ++= s"interface ${interface.getClass().getSimpleName()} () ;\n\n"
+    val generic = if(interface.genericElements.isEmpty) ""
+      else
+        "#(\n" + interface.genericElements.map{case (name, useless, default) =>
+          if(default == null)
+            s"${theme.porttab}parameter ${name},\n"
+          else
+            s"${theme.porttab}parameter ${name} = ${default},\n"
+        }.reduce(_ + _).stripSuffix(",\n") + "\n) "
+    ret ++= s"interface ${interface.definitionName} ${generic}() ;\n\n"
     for ((name, elem) <- interface.elementsCache) {
-      val size = elem match {
-        case _: Bool => ""
-        case node: WidthProvider => s"[${node.getWidth - 1}:0]"
-        case _ => LocatedPendingError("The SystemVerilog interface feature is still an experimental feature. In interface, only BaseType is supported yet")
+      elem match {
+        case node: SVIF => {
+
+          val genericFlat = node.genericElements
+
+          val t = if (genericFlat.nonEmpty) {
+            val ret = genericFlat.map{ e =>
+              interface.IFGeneric.get((node, e._1)) match {
+                case Some(value) => e._1 -> value
+                case None => {
+                  e match {
+                    //TODO:case (name: String, bt: BaseType, _)      => name -> s"${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}"
+                    case (name: String, rs: VerilogValues, _) => name -> s"${rs.v}"
+                    case (name: String, s: String, _)         => name -> s"""\"$s\""""
+                    case (name: String, i: Int, _)            => name -> s"$i"
+                    case (name: String, d: Double, _)         => name -> s"$d"
+                    case (name: String, b: Boolean, _)        => name -> s"${if(b) "1'b1" else "1'b0"}"
+                    case (name: String, b: BigInt, _)         => name -> s"${b.toString(16).size*4}'h${b.toString(16)}"
+                    case _                                 => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the interface ${"\""}${node.definitionName}${"\""} is not supported in Verilog")
+                  }
+                }
+              }
+            }
+            val namelens = ret.map(_._1.size).max
+            val exprlens = ret.map(_._2.size).max
+            val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s)".format(t._1, t._2))
+            s"""${node.definitionName} #(
+              |${params.mkString(",\n")}
+              |  )""".stripMargin
+          } else f"${node.definitionName}%-15s"
+
+          ret ++= f"${theme.porttab}${t} ${name}();\n"//TODO:parameter
+        }
+        case _ => {
+          val size = elem match {
+            case _: Bool => ""
+            case node: BitVector => interface.widthGeneric.get(node) match {
+              case Some(x) => s"[${x}-1:0]"
+              case None => if(node.getWidth > 0)
+                s"[${node.getWidth - 1}:0]"
+              else {
+                globalData.nodeAreInferringWidth = false
+                val width = node.getWidth
+                globalData.nodeAreInferringWidth = true
+                s"[${width - 1}:0]"
+              }
+            }
+            case _ => LocatedPendingError("The SystemVerilog interface feature is still an experimental feature. In interface, only BaseType is supported yet")
+          }
+          ret ++= f"${theme.porttab}logic  ${size}%-8s ${name} ;\n"
+        }
       }
-      ret ++= f"${theme.porttab}logic  ${size}%-8s ${name} ;\n"
     }
     ret ++= "\n"
     interface.allModPort
@@ -278,37 +353,73 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         globalData.phaseContext.topLevel = phase
 
         for ((name, elem) <- c.y.elementsCache) {
-          val dir = elem.dir match {
-            case `in`    => "input "
-            case `out`   => "output"
-            case `inout` => "inout "
-            case _       => throw new Exception(s"Unknown direction in interface ${interface}: ${elem}"); ""
+          elem match {
+            case elem: SVIF => {
+              //TODO:check more than one modport has same `in` `out` direction
+              val modport = if(elem.checkModport().isEmpty) {
+                LocatedPendingError(s"no suitable modport found for ${elem}")
+                ""
+              } else {
+                elem.checkModport().head
+              }
+              val intMod = s"${elem.definitionName}.${modport}"
+              modportString += f"${theme.porttab}${theme.porttab}${intMod}%-15s ${name},\n"
+            }
+            case elem => {
+              val dir = elem.dir match {
+                case `in`    => "input "
+                case `out`   => "output"
+                case `inout` => "inout "
+                case _       => throw new Exception(s"Unknown direction in interface ${interface}: ${elem}"); ""
+              }
+              modportString += f"${theme.porttab}${theme.porttab}${dir}%-15s ${name},\n"
+            }
           }
-          modportString += s"${theme.porttab}${theme.porttab}${dir}  ${name},\n"
         }
         modportString = modportString.stripSuffix(",\n") + "\n"
         modportString += s"${theme.porttab});\n\n"
         ret ++= modportString
       }
     ret ++= "endinterface\n\n"
+    ret
   }
-}
-
-class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
+    //locate root interface name
+    val allocated = mutable.HashSet[Data]()
     //rename myif_a to myif.a
     walkDeclarations {
       case node: BaseType if(node.hasTag(IsInterface)) => {
-        svInterface += node.parent.getClass().getSimpleName() -> node.parent.asInstanceOf[Interface]
-        if(node.parent.getName() == null || node.parent.getName() == "") {
-          PendingError(s"INTERFACE SHOULD HAVE NAME: ${node.toStringMultiLine} at \n${node.getScalaLocationLong}")
+        def insertIFmap(): Unit = {
+          node.rootIFList().foreach{interface =>
+            val interfaceString = emitInterface(interface)
+            svInterface.get(interface.definitionName) match {
+              case Some(s) => if(s != interfaceString) {
+                interface.setDefinitionName(s"${interface.definitionName}_1")//TODO:better rename
+                insertIFmap()
+              }
+              case None => svInterface += interface.definitionName -> interfaceString
+            }
+          }
         }
-        val p = node.parent.getName()
-        val p_rename = p//node.component.localNamingScope.allocateName(p)
-        val newName = node.getName().replace(s"${p}_", s"${p_rename}.")//TODO:
+        insertIFmap()
+        node.rootIFList().foreach{intf =>
+          if(intf.getName() == null || intf.getName() == "")
+            PendingError(s"INTERFACE SHOULD HAVE NAME: ${node.toStringMultiLine} at \n${node.getScalaLocationLong}")
+        }
+        val rootIF = node.rootIF()
+        if(!allocated.contains(rootIF)) {
+          rootIF.setName(node.component.localNamingScope.allocateName(rootIF.getName()))
+          allocated += rootIF
+        }
+        val IFlist = node.rootIFList()
+        val newName = IFlist match {
+          case head :: tail => tail.foldLeft((head, List(head.getName()))){case ((nowIf, nameList), node) =>
+            (node, nowIf.elementsCache.find(_._2 == node).get._1 :: nameList)//TODO:error handle on find.get
+          }._2.reverse.reduce(_ + "." + _) + "." + IFlist.last.elementsCache.find(_._2 == node).get._1//TODO:error handle on find.get
+        }
         node.name = newName
       }
       case _ =>

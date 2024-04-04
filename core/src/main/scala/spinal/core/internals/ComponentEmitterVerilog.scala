@@ -54,7 +54,7 @@ class ComponentEmitterVerilog(
   val definitionAttributes  = new StringBuilder()
   val beginModule = new StringBuilder()
   val declarations = new StringBuilder()
-  var declaredInterface: Set[String] = Set()
+  val declaredInterface = mutable.HashSet[SVIF]()
   val localparams = new StringBuilder()
   val logics       = new StringBuilder()
   val endModule = new StringBuilder()
@@ -86,23 +86,19 @@ class ComponentEmitterVerilog(
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog && spinalConfig.svInterface) {
-        if(!declaredInterface.contains(baseType.parent.getName(baseType.getNameElseThrow.split('.')(0)))) {
-          declaredInterface = declaredInterface + baseType.parent.getName(baseType.getNameElseThrow.split('.')(0))
-          baseType.parent match {
-            case s: Interface => {
-              val intName = baseType.parent.getClass().getSimpleName()
-              //TODO:check more than one modport has same `in` `out` direction
-              val modport = if(s.checkModport().isEmpty) {
-                LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
-                ""
-              } else {
-                s.checkModport().head
-              }
-              val intMod = s"${intName}.${modport}"
-              portMaps += f"${intMod}%-20s ${baseType.parent.getName()}${EDAcomment}${comma}"
-            }
-            case _ =>
+        val rootIF = baseType.rootIF()
+        if(!declaredInterface.contains(rootIF)) {
+          declaredInterface += rootIF
+          val intName = rootIF.definitionName
+          //TODO:check more than one modport has same `in` `out` direction
+          val modport = if(rootIF.checkModport().isEmpty) {
+            LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
+            ""
+          } else {
+            rootIF.checkModport().head
           }
+          val intMod = s"${intName}.${modport}"
+          portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
         }
       } else {
         if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -148,7 +144,7 @@ class ComponentEmitterVerilog(
           case e           => expressionToWrap += e
         }
 
-        val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
+        val portName = mem.getName() + "_spinal_port" + portId
         s match {
           case s : Nameable => s.unsetName().setName(portName)
         }
@@ -185,7 +181,7 @@ class ComponentEmitterVerilog(
 
     component.children.foreach(sub =>
       sub.getAllIo
-      .foreach(io => if(io.isOutput && !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface)) {
+      .foreach(io => if(io.isOutput && !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && io.hasTag(IsInterface))) {
         val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
         val name = component.localNamingScope.allocateName(componentSignalName)
         val noUse = signalNoUse(io)
@@ -211,7 +207,7 @@ class ComponentEmitterVerilog(
             case s: Nameable => "_" + s.getName()
             case _ => ""
           }
-          val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
+          val name = component.localNamingScope.allocateName((anonymSignalPrefix + sName).replace('.', '_'))
           declarations ++= emitExpressionWrap(e, name)
           wrappedExpressionToName(e) = name
         }
@@ -388,20 +384,24 @@ class ComponentEmitterVerilog(
         val genericFlat = bb.genericElements
 
         if (genericFlat.nonEmpty) {
-          logics ++= s"#(\n"
-          for (e <- genericFlat) {
+          val ret = genericFlat.map{ e =>
             e match {
-              case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}),\n"
-              case (name: String, s: String)    => logics ++= s"    .${name}(${"\""}${s}${"\""}),\n"
-              case (name: String, i: Int)       => logics ++= s"    .${name}($i),\n"
-              case (name: String, d: Double)    => logics ++= s"    .${name}($d),\n"
-              case (name: String, b: Boolean)   => logics ++= s"    .${name}(${if(b) "1'b1" else "1'b0"}),\n"
-              case (name: String, b: BigInt)    => logics ++= s"    .${name}(${b.toString(16).size*4}'h${b.toString(16)}),\n"
-              case _                            => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the blackbox ${"\""}${bb.definitionName}${"\""} is not supported in Verilog")
+              case (name: String, bt: BaseType)      => name -> s"${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}"
+              case (name: String, rs: VerilogValues) => name -> s"${rs.v}"
+              case (name: String, s: String)         => name -> s"""\"$s\""""
+              case (name: String, i: Int)            => name -> s"$i"
+              case (name: String, d: Double)         => name -> s"$d"
+              case (name: String, b: Boolean)        => name -> s"${if(b) "1'b1" else "1'b0"}"
+              case (name: String, b: BigInt)         => name -> s"${b.toString(16).size*4}'h${b.toString(16)}"
+              case _                                 => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the blackbox ${"\""}${bb.definitionName}${"\""} is not supported in Verilog")
             }
           }
-          logics.replace(logics.length - 2, logics.length, "\n")
-          logics ++= s"  ) "
+          val namelens = ret.map(_._1.size).max
+          val exprlens = ret.map(_._2.size).max
+          val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s)".format(t._1, t._2))
+          logics ++= s"""#(
+            |${params.mkString(",\n")}
+            |  ) """.stripMargin
         }
       }
 
@@ -415,13 +415,14 @@ class ComponentEmitterVerilog(
       val connectedIF = mutable.HashSet[Data]()
       val prepareInstports = ios.flatMap { data =>
         if (spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && data.hasTag(IsInterface)) {
-          if(!connectedIF.contains(data.parent)) {
-            connectedIF.add(data.parent)
-            val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data).split('.')(0))
+          val rootIF = data.rootIF()
+          if(!connectedIF.contains(rootIF)) {
+            connectedIF.add(rootIF)
+            val portAlign = s"%-${maxNameLength}s".format(rootIF.getNameElseThrow)
             val wireAlign = s"${netsWithSection(data)}".split('.')(0)
-            val comma = if (data.parent.asInstanceOf[Interface].elementsCache.map(_._2).contains(ios.last)) " " else ","
-            val modport = data.parent.asInstanceOf[Interface].checkModport
-            val dirtag = if(modport.isEmpty) "" else modport.head
+            val comma = if (rootIF.flatten.contains(ios.last)) " " else ","
+            val modport = rootIF.checkModport
+            val dirtag = if(modport.isEmpty) "" else rootIF.definitionName + "." + modport.head
             Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
           } else {
             None
@@ -1052,10 +1053,32 @@ class ComponentEmitterVerilog(
     s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
   }
 
-  def emitInterfaceSignal(data: Data, name: String): String = {
+  def emitInterfaceSignal(data: SVIF, name: String): String = {
     //val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
     //s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
-    f"${theme.maintab}${data.getClass().getSimpleName()}%-19s ${name}();\n"
+    val genericFlat = data.genericElements
+
+    val t = if (genericFlat.nonEmpty) {
+      val ret = genericFlat.map{ e =>
+        e match {
+          case (name: String, bt: BaseType, _)      => name -> s"${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}"
+          case (name: String, rs: VerilogValues, _) => name -> s"${rs.v}"
+          case (name: String, s: String, _)         => name -> s"""\"$s\""""
+          case (name: String, i: Int, _)            => name -> s"$i"
+          case (name: String, d: Double, _)         => name -> s"$d"
+          case (name: String, b: Boolean, _)        => name -> s"${if(b) "1'b1" else "1'b0"}"
+          case (name: String, b: BigInt, _)         => name -> s"${b.toString(16).size*4}'h${b.toString(16)}"
+          case _                                 => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the interface ${"\""}${data.definitionName}${"\""} is not supported in Verilog")
+        }
+      }
+      val namelens = ret.map(_._1.size).max
+      val exprlens = ret.map(_._2.size).max
+      val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s)".format(t._1, t._2))
+      s"""${data.definitionName} #(
+        |${params.mkString(",\n")}
+        |  )""".stripMargin
+    } else f"${data.definitionName}%-19s"
+    f"${theme.maintab}${t} ${name}();\n"
   }
 
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
@@ -1133,16 +1156,19 @@ class ComponentEmitterVerilog(
   def emitSignals(): Unit = {
     val enumDebugStringBuilder = new StringBuilder()
     for((intf, s) <- createInterfaceWrap) {
-      declarations ++= s
+      declarations ++= emitInterfaceSignal(intf.asInstanceOf[SVIF], s)
     }
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
         if (!signal.isIo && !signal.isSuffix) {
           if(!signal.hasTag(IsInterface) || !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface)) {
             declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
-          } else if(!declaredInterface.contains(signal.parent.getName(signal.getNameElseThrow.split('.')(0)))) {
-            declaredInterface = declaredInterface + signal.parent.getName(signal.getNameElseThrow.split('.')(0))
-            declarations ++= emitInterfaceSignal(signal.parent, signal.parent.getName(signal.getNameElseThrow.split('.')(0)))
+          } else {
+            val rootIF = signal.rootIF()
+            if(!declaredInterface.contains(rootIF)) {
+              declaredInterface += rootIF
+              declarations ++= emitInterfaceSignal(rootIF, rootIF.getName(signal.getNameElseThrow.split('.')(0)))//TODO:name?
+            }
           }
         }
         if(spinalConfig._withEnumString) {
@@ -1763,6 +1789,12 @@ end
     case  e: Operator.BitVector.orR                    => s"(|${emitExpression(e.source)})"
     case  e: Operator.BitVector.andR                   => s"(&${emitExpression(e.source)})"
     case  e: Operator.BitVector.xorR                   => s"(^${emitExpression(e.source)})"
+    case e: Operator.BitVector.IsUnknown =>
+      if (systemVerilog) s"$$isunknown(${emitExpression(e.source)})"
+      else {
+        SpinalWarning(s"IsUnknown is always false since system verilog is not active.")
+        "0"
+      }
 
     case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)}, ${e.delay})"
     case e : Operator.Formal.Rose                     => s"$$rose(${emitExpression(e.source)})"
