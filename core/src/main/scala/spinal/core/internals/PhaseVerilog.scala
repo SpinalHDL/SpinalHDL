@@ -397,7 +397,9 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             val interfaceString = emitInterface(interface)
             svInterface.get(interface.definitionName) match {
               case Some(s) => if(s != interfaceString) {
-                interface.setDefinitionName(s"${interface.definitionName}_1")//TODO:better rename
+                globalScope.lock = false
+                interface.setDefinitionName(globalScope.allocateName(interface.definitionName))
+                globalScope.lock = true
                 insertIFmap()
               }
               case None => svInterface += interface.definitionName -> interfaceString
