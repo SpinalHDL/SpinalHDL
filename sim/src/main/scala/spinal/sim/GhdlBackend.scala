@@ -6,6 +6,16 @@ import java.io.{File, PrintWriter}
 import java.nio.file.{Files, Paths}
 import scala.sys.process._
 
+import scala.collection.mutable
+
+case class GhdlFlags(
+    elaborationFlags: mutable.ArrayBuffer[String] = mutable.ArrayBuffer[String]()
+) {
+  def withElaborationFlags(flags: String*): this.type = {
+    elaborationFlags.appendAll(flags)
+    this
+  }
+}
 
 class GhdlBackendConfig extends VpiBackendConfig {
   var ghdlPath: String = null
