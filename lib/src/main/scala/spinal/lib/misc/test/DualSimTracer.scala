@@ -17,7 +17,7 @@ object DualSimTracer {
       case true => DualSimTracer.withCb(compiled, window, seed)(testbench)
       case false => {
         val traceCallbacks = ArrayBuffer[() => Unit]()
-        compiled.doSimUntilVoid(seed = seed) { dut => disableSimWave(); testbench(dut, f => traceCallbacks += (() => f)); traceCallbacks.foreach(_())}
+        compiled.doSimUntilVoid(seed = seed) { dut => testbench(dut, f => traceCallbacks += (() => f)); traceCallbacks.foreach(_())}
       }
     }
   }
