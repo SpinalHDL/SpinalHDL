@@ -255,7 +255,9 @@ case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalRepo
                                                    override val usePluginsCache   : Boolean = true,
                                                    override val pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath",
                                                    override val enableLogging     : Boolean = false,
-                                                   override val timePrecision     : TimeNumber = null) extends
+                                                   override val timePrecision     : TimeNumber = null,
+                                                   val ghdlFlags : GhdlFlags = GhdlFlags()
+) extends
                                               SpinalVpiBackendConfig[T](rtl,
                                                                         waveFormat,
                                                                         workspacePath,
@@ -277,9 +279,12 @@ object SpinalGhdlBackend {
 
   def apply[T <: Component](config: SpinalGhdlBackendConfig[T]) : Backend = {
     val vconfig = new GhdlBackendConfig()
-    vconfig.analyzeFlags = config.simulatorFlags.mkString(" ")
-    if (config.timePrecision != null) {
-      vconfig.elaborationFlags = s"--time-resolution=${config.timePrecision.decompose._2}"
+    val flagsConcat = config.simulatorFlags.mkString(" ")
+    vconfig.analyzeFlags = flagsConcat
+    vconfig.elaborationFlags = config.ghdlFlags.elaborationFlags.mkString(" ") + {
+      if (config.timePrecision != null) {
+        s" --time-resolution=${config.timePrecision.decompose._2}"
+      } else ""
     }
     vconfig.runFlags = config.runFlags.mkString(" ")
     vconfig.logSimProcess = config.enableLogging
@@ -683,7 +688,8 @@ case class SpinalSimConfig(
                             var _simScript         : String = null,
                             var _timePrecision     : TimeNumber = null,
                             var _timeScale         : TimeNumber = null,
-                            var _testPath          : String = "$WORKSPACE/$COMPILED/$TEST"
+                            var _testPath          : String = "$WORKSPACE/$COMPILED/$TEST",
+                            var _ghdlFlags: GhdlFlags = GhdlFlags()
   ){
 
 
@@ -691,7 +697,12 @@ case class SpinalSimConfig(
     _backend = SpinalSimBackendSel.VERILATOR
     this
   }
-  def  withGhdl : this.type = {
+  def withGHDL(ghdlFlags: GhdlFlags = GhdlFlags()) = {
+    _ghdlFlags = ghdlFlags
+    withGhdl()
+  }
+
+  def  withGhdl() : this.type = {
     _backend = SpinalSimBackendSel.GHDL
     this
   }
@@ -1053,7 +1064,8 @@ case class SpinalSimConfig(
           runFlags = _runFlags,
           enableLogging = _withLogging,
           usePluginsCache = !_disableCache,
-          timePrecision = _timePrecision
+          timePrecision = _timePrecision,
+          ghdlFlags = _ghdlFlags
         )
         val backend = SpinalGhdlBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
