@@ -62,7 +62,7 @@ class SpinalSimWishboneArbiterTester extends SpinalAnyFunSuite{
       }
 
       dut.io.busIN.foreach { busIN =>
-        WishboneMonitor(busIN){ bus =>
+        WishboneMonitor(busIN, dut.clockDomain){ bus =>
           score.pushRef(WishboneTransaction.sampleAsSlave(bus))
         }
       }

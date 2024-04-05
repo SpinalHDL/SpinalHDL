@@ -37,12 +37,12 @@ class SpinalSimWishboneDecoderTester extends SpinalAnyFunSuite{
         WishboneTransaction().randomAdressInRange(Random.shuffle(decodings).head).randomizeData(Math.pow(2,config.dataWidth).toInt-1)
       }
 
-      WishboneMonitor(dut.io.busIN){ bus =>
+      WishboneMonitor(dut.io.busIN, dut.clockDomain){ bus =>
         sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
       }
 
       dut.io.busOUT.foreach{busOut =>
-        WishboneMonitor(busOut){ bus =>
+        WishboneMonitor(busOut, dut.clockDomain){ bus =>
           sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
         }
       }

@@ -42,13 +42,16 @@ class SpinalSimWishboneAdapterTester extends SpinalAnyFunSuite{
 
       val seq = WishboneSequencer.randomGen(confIN)
 
-      WishboneMonitor(dut.io.busIN){ bus =>
-        sco.pushRef(WishboneTransaction.sampleAsMaster(bus, asByteAddress = true))
-      }
+      new WishboneMonitor(dut.io.busIN, dut.clockDomain, true).addResponseCallback(
+        (bus : Wishbone, transaction: WishboneTransaction, we: Boolean) =>
+          sco.pushRef(transaction)
+      )
 
-      WishboneMonitor(dut.io.busOUT){ bus =>
-        sco.pushDut(WishboneTransaction.sampleAsMaster(bus, asByteAddress = true))
-      }
+
+      new WishboneMonitor(dut.io.busOUT, dut.clockDomain, true).addResponseCallback(
+        (bus : Wishbone, transaction: WishboneTransaction, we: Boolean) =>
+          sco.pushDut(transaction)
+      )
 
       deviceDriver.slaveSink()
 

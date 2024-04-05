@@ -57,7 +57,7 @@ class SpinalSimWishboneBusInterfaceTester extends SpinalAnyFunSuite{
 
       new WishboneMonitor(dut.io.bus, dut.clockDomain).addResponseCallback(
         (bus, transaction, we) => {
-          sco.pushDut(transaction.copy(data = bus.DAT_MISO.toBigInt))
+          sco.pushDut(transaction)
         }
       )
 

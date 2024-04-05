@@ -32,20 +32,19 @@ class WishboneInterconComponent(config : WishboneConfig,n_masters: Int,decodings
 
 class SpinalSimWishboneSimInterconTester extends SpinalAnyFunSuite{
 
-  def send_transaction(id: BigInt, driver_master: WishboneDriver, slaves: Seq[(Wishbone,SizeMapping)],req: Int = 10): Unit = {
+  def send_transaction(clockDomain: ClockDomain,id: BigInt, driver_master: WishboneDriver, slaves: Seq[(Wishbone,SizeMapping)],req: Int = 10): Unit = {
     val scoreboard_master = ScoreboardInOrder[WishboneTransaction]()
     val sequencer_master = WishboneSequencer{
       WishboneTransaction(data=id)
     }
 
     val master = driver_master.bus
-    val clockDomain = master.CYC.clockDomain
 
-    WishboneMonitor(master){ bus =>
+    WishboneMonitor(master, clockDomain){ bus =>
       scoreboard_master.pushRef(WishboneTransaction.sampleAsSlave(bus))
     }
 
-    def monitor_slave(slave: (Wishbone,SizeMapping),scoreboard: ScoreboardInOrder[WishboneTransaction]): Unit = WishboneMonitor(slave._1){ bus =>
+    def monitor_slave(slave: (Wishbone,SizeMapping),scoreboard: ScoreboardInOrder[WishboneTransaction]): Unit = WishboneMonitor(slave._1, clockDomain){ bus =>
       val transaction = WishboneTransaction.sampleAsSlave(bus)
       if(id === transaction.data) {
         scoreboard.pushDut(transaction)
@@ -82,7 +81,7 @@ class SpinalSimWishboneSimInterconTester extends SpinalAnyFunSuite{
 
       scala.util.Random.shuffle(busDrivers.zipWithIndex).foreach{master =>
         masterPool += fork{
-          send_transaction(master._2,master._1,slaves,1)
+          send_transaction(dut.clockDomain, master._2,master._1,slaves,1)
         }
       }
 

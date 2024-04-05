@@ -41,11 +41,11 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
 
      val seq = WishboneSequencer.randomGen(dut.io.busmaster.config, maxCnt = 1)
 
-     WishboneMonitor(dut.io.busmaster){ bus =>
+     WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
        sco.pushRef(WishboneTransaction.sampleAsSlave(bus))
      }
 
-     WishboneMonitor(dut.io.busslave){ bus =>
+     WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
        sco.pushDut(WishboneTransaction.sampleAsSlave(bus))
      }
 
@@ -75,11 +75,11 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
 
       val seq = WishboneSequencer.randomGen(dut.io.busmaster.config, 20)
 
-     WishboneMonitor(dut.io.busmaster){ bus =>
+     WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
        sco.pushRef(WishboneTransaction.sampleAsSlave(bus))
      }
 
-     WishboneMonitor(dut.io.busslave){ bus =>
+     WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
        sco.pushDut(WishboneTransaction.sampleAsSlave(bus))
      }
 
@@ -109,11 +109,11 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
 
       val seq = WishboneSequencer.randomGen(dut.io.busmaster.config)
 
-      WishboneMonitor(dut.io.busmaster){ bus =>
+      WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
         sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
       }
 
-      WishboneMonitor(dut.io.busslave){ bus =>
+      WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
         sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
       }
 
@@ -143,11 +143,11 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
 
       val seq = WishboneSequencer.randomGen(dut.io.busmaster.config, 20)
 
-      WishboneMonitor(dut.io.busmaster){ bus =>
+      WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
         sco.pushRef(WishboneTransaction.sampleAsSlave(bus))
       }
 
-      WishboneMonitor(dut.io.busslave){ bus =>
+      WishboneMonitor(dut.io.busslave, dut.clockDomain){ bus =>
         sco.pushDut(WishboneTransaction.sampleAsSlave(bus))
       }
 
