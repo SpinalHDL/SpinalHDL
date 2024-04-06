@@ -6,7 +6,7 @@ import spinal.core.formal._
 import spinal.lib.formal._
 
 class PriorityMuxChecker extends SpinalFormalFunSuite {
-  def testMain(width: Int, highPreced: Boolean){
+  def testMain(width: Int, msbFirst: Boolean){
     FormalConfig
       .withBMC(3)
       .withCover(3)
@@ -14,14 +14,14 @@ class PriorityMuxChecker extends SpinalFormalFunSuite {
         val sel = in Bits(width bits)
         val inputWidth = log2Up(width)
         val inputs = in Vec(Bits(inputWidth bits), width)
-        val output = out(PriorityMux(sel, inputs, highPreced))
+        val output = out(PriorityMux(sel, inputs, msbFirst))
 
         for(id <- 0 until inputs.size){
           assume(inputs(id) === id)
         }
         
-        val selReorder = if(!highPreced) sel else sel.asBools.reverse.asBits
-        val inputsReorder = if(!highPreced) inputs else inputs.reverse
+        val selReorder = if(!msbFirst) sel else sel.asBools.reverse.asBits
+        val inputsReorder = if(!msbFirst) inputs else inputs.reverse
 
         val selected = OhMux.or(OHMasking.firstV2(selReorder), inputsReorder)
         val expected = cloneOf(output)
@@ -34,6 +34,7 @@ class PriorityMuxChecker extends SpinalFormalFunSuite {
 
         cover(sel === 0)        
         cover(sel =/= 0)
+        cover(sel === sel.getAllTrue)
       })
   }
 

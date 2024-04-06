@@ -1341,19 +1341,19 @@ class StringPimped(pimped : String){
 
 
 object PriorityMux{
-  def apply[T <: Data](in: Seq[(Bool, T)], highPreced: Boolean = false): T = {
+  def apply[T <: Data](in: Seq[(Bool, T)], msbFirst: Boolean = false): T = {
     if (in.size == 1) {
       in.head._2
     } else {
       var ordered = in
-      if(highPreced) ordered = in.reverse
+      if(msbFirst) ordered = in.reverse
       ordered.reduceBalancedTree((x, y) => {(x._1 | y._1, Mux(x._1, x._2, y._2))})._2
     }
   }
   def apply[T <: Data](sel: Seq[Bool], in: Seq[T]): T = apply(sel zip in)
-  def apply[T <: Data](sel: Seq[Bool], in: Seq[T], highPreced: Boolean): T = apply(sel zip in, highPreced)
+  def apply[T <: Data](sel: Seq[Bool], in: Seq[T], msbFirst: Boolean): T = apply(sel zip in, msbFirst)
   def apply[T <: Data](sel: Bits, in: Seq[T]): T = apply(sel.asBools.zip(in))
-  def apply[T <: Data](sel: Bits, in: Seq[T], highPreced: Boolean): T = apply(sel.asBools.zip(in), highPreced)
+  def apply[T <: Data](sel: Bits, in: Seq[T], msbFirst: Boolean): T = apply(sel.asBools.zip(in), msbFirst)
 }
 
 
