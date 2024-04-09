@@ -12,8 +12,7 @@ import scala.language.postfixOps
 object VivadoConstraintWriter {
   def apply[T <: Component](
                              report: SpinalReport[T],
-                             filename: String = null,
-                             trustSpinalTimings: Boolean = false
+                             filename: String = null
                            ): Unit = {
     val c = report.toplevel
     val realFilename = Option(filename).getOrElse(
