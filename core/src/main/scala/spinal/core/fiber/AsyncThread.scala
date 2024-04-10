@@ -21,6 +21,7 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
 
   def addSoonHandle(that : Handle[_]): Unit ={
     willLoadHandles += that
+    that.willBeLoadedBy = this
   }
 
   def managerResume() = {

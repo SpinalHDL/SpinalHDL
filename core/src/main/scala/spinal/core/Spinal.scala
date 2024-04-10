@@ -63,6 +63,8 @@ object Device{
   val ACTEL = Device(vendor = "actel")
   val ASIC = Device(vendor = "asic", supportBootResetKind = false)
   val NONE = Device(vendor = "none")
+
+  def get = GlobalData.get.config.device
 }
 
 
