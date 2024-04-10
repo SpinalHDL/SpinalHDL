@@ -25,6 +25,7 @@ object DualSimTracer {
   def withCb[T <: Component](compiled: SimCompiled[T], window: Long, seed: Int)(testbench: (T, (=> Unit) => Unit) => Unit): Unit = {
     var mTime = 0l
     var mEnded = false
+    var explorerFailed = false
 
     implicit val ec = ExecutionContext.global
 
@@ -43,7 +44,7 @@ object DualSimTracer {
         }
         println("Explorer success")
       } catch {
-        case e: Throwable => throw e
+        case e: Throwable => explorerFailed = true; throw e
       }
     })
 
@@ -57,7 +58,7 @@ object DualSimTracer {
             while (simTime + window * 2 >= mTime && !mEnded) {
               Thread.sleep(100, 0)
             }
-            if (mEnded) {
+            if (mEnded && explorerFailed) {
               sleep((mTime - simTime - window) max 0)
               enableSimWave()
               traceCallbacks.foreach(_())
