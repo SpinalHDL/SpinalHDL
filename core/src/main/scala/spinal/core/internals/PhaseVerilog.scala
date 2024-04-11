@@ -362,8 +362,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
               } else {
                 elem.checkModport().head
               }
-              val intMod = s"${elem.definitionName}.${modport}"
-              modportString += f"${theme.porttab}${theme.porttab}${intMod}%-15s ${name},\n"
+              modportString += f"${theme.porttab}${theme.porttab}.${name}(${name}.${modport}),\n"
             }
             case elem => {
               val dir = elem.dir match {
