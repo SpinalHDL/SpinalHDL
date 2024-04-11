@@ -131,10 +131,14 @@ abstract class ComponentEmitter {
           component.dslBody.walkStatements {
             case stmt: AssignmentStatement => if(base.contains(stmt.source) || base.contains(stmt.target)) {
               if(stmt.source.isInstanceOf[BaseType] && stmt.target.isInstanceOf[BaseType]) {
-                lif = stmt.source.asInstanceOf[BaseType].rootIF()
-                rif = stmt.target.asInstanceOf[BaseType].rootIF()
-                allAssign += ((stmt.target.asInstanceOf[BaseType], stmt.source.asInstanceOf[BaseType]))
-                toRemove += stmt
+                if(stmt.source.asInstanceOf[BaseType].hasTag(IsInterface) && stmt.target.asInstanceOf[BaseType].hasTag(IsInterface)) {
+                  lif = stmt.source.asInstanceOf[BaseType].rootIF()
+                  rif = stmt.target.asInstanceOf[BaseType].rootIF()
+                  allAssign += ((stmt.target.asInstanceOf[BaseType], stmt.source.asInstanceOf[BaseType]))
+                  toRemove += stmt
+                } else {
+                  canGo = false
+                }
               } else {
                 canGo = false
               }

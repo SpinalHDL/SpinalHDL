@@ -153,6 +153,8 @@ class TestInterface extends Component {
   i2.io.i.c := io.x.c + 1
   i2.io.ccc.valid := io.color.valid
   i2.io.ccc.payload := io.color.payload
+  val useless = Bool()
+  useless := io.color.valid
   val i3 = new TestAxi
   val i4 = new TestAxi
   i3.io.axi_s << io.axi_s//.map(_ + 3)
