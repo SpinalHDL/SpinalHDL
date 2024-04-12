@@ -2035,7 +2035,7 @@ class PhaseCheckIoBundle extends PhaseCheck{
   }
 }
 
-class PhaseCheckHiearchy extends PhaseCheck{
+class PhaseCheckHierarchy extends PhaseCheck{
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -2761,7 +2761,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCollectAndNameEnum(pc)
 
     phases += new PhaseCheckIoBundle()
-    phases += new PhaseCheckHiearchy()
+    phases += new PhaseCheckHierarchy()
     phases += new PhaseAnalog()
     phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
@@ -2887,7 +2887,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCollectAndNameEnum(pc)
 
     phases += new PhaseCheckIoBundle()
-    phases += new PhaseCheckHiearchy()
+    phases += new PhaseCheckHierarchy()
     phases += new PhaseAnalog()
     phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
