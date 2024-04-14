@@ -11,6 +11,8 @@ import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 import spinal.lib.bus.amba4.apb._
 import spinal.lib.bus.amba4.apb.sim.Apb4Driver
 import spinal.lib.bus.wishbone.Wishbone
+import spinal.lib.bus.bram._
+import spinal.lib.bus.bram.sim.BRAMDriver
 
 
 class RegIfBasicAccessTest(busname: String) extends Component{
@@ -24,6 +26,10 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       val bus = slave(Apb4(Apb4Config(32, 32)))
       bus -> BusInterface(bus, (0x000, 4 MiB), 0, regPre = "AP")
     }
+    case "bram" => {
+      val bus = slave(BRAM(BRAMConfig(32, 30)))
+      bus -> BusInterface(bus, (0x000, 4 MiB), regPre = "AP")
+    }
     case _ => SpinalError("not support yet")
   }
 
@@ -34,6 +40,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
     case bs: Apb4 => {
       assert(bs.PSLVERR.toBoolean == aset, msg)
     }
+    case bs: BRAM => {} // BRAM does not support bus errors
     case _ => SpinalError("not support yet")
   }
 
@@ -83,6 +90,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       case bs: Apb4     => Apb4Driver(bs, this.clockDomain).write(addr, data, strb)
       case bs: AhbLite3 => SpinalError("AhbLIte3 regif test not support yet")
       case bs: Wishbone => SpinalError("Wishbon  regif test not support yet")
+      case bs: BRAM => BRAMDriver(bs, this.clockDomain).write(addr >> 2, data, strb)
     }
     sleep(0)
   }
@@ -92,6 +100,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       case bs: Apb4 => Apb4Driver(bs, this.clockDomain).read(addr)
       case bs: AhbLite3 => SpinalError("AhbLIte3 regif test not support yet")
       case bs: Wishbone => SpinalError("Wishbon  regif test not support yet")
+      case bs: BRAM => BRAMDriver(bs, this.clockDomain).read(addr >> 2)
     }
     sleep(0)
     t
@@ -438,6 +447,7 @@ object BasicTest{
     name match {
       case "apb3" => spinalConfig.generateVerilog(new RegIfBasicAccessTest("apb3"))
       case "apb4" => spinalConfig.generateVerilog(new RegIfBasicAccessTest("apb4"))
+      case "bram" => spinalConfig.generateVerilog(new RegIfBasicAccessTest("bram"))
       case "demo" => spinalConfig.generateVerilog(new RegIfExample)
       case _      => spinalConfig.generateVerilog(new RegIfExample)
     }
