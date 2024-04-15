@@ -7,10 +7,10 @@ import spinal.lib.Delay
 
 case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = "", readDelay: Int = 1)(implicit moduleName: ClassName) extends BusIf {
   override val withStrb: Boolean = true
-  override val wstrb: Bits = withStrb generate(Bits(strbWidth bit))
-  override val wmask: Bits = withStrb generate(Bits(busDataWidth bit))
-  override val wmaskn: Bits = withStrb generate(Bits(busDataWidth bit))
-  withStrb generate(wstrb := bus.we)
+  override val wstrb: Bits = Bits(strbWidth bit)
+  override val wmask: Bits = Bits(busDataWidth bit)
+  override val wmaskn: Bits = Bits(busDataWidth bit)
+  wstrb := bus.we
   initStrbMasks()
 
   override val askWrite: Bool = bus.we.orR.allowPruning()
