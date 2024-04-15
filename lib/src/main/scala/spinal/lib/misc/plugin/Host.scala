@@ -60,7 +60,8 @@ class PluginHost {
     }
   }
 
-  def find[T: ClassTag](filter : T => Boolean) = list[T].find(filter).get
+  def find[T: ClassTag](filter: T => Boolean) = findOption(filter).get
+  def findOption[T: ClassTag](filter: T => Boolean) = list[T].find(filter)
 }
 
 

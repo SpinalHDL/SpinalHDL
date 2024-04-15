@@ -94,8 +94,9 @@ class EngineContext {
       }
 
       spinal.affinity.Affinity(initialAffinity)
-      (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
-      (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
+      for(thread <- jvmIdleThreads ++ jvmBusyThreads) {
+        thread.unschedule()
+      }
       for (t <- (jvmIdleThreads ++ jvmBusyThreads)) {
         while (t.isAlive()) {
           Thread.sleep(0)
