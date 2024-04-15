@@ -33,9 +33,9 @@ case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = ""
 
   override def writeAddress(): UInt = bus.addr << underbitWidth
 
-  override def readHalt(): Unit = {}
+  override def readHalt(): Unit = assert(false, "BRAM bus does not support halting")
 
-  override def writeHalt(): Unit = {}
+  override def writeHalt(): Unit = assert(false, "BRAM bus does not support halting")
 
   override def busDataWidth: Int = bus.config.dataWidth
 
