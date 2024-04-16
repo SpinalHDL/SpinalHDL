@@ -1101,6 +1101,7 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
 
   class ReaderSel(sel : UInt) {
     def apply[T2 <: Data](f : T => T2) =  pimped.map(f).read(sel)
+    def onSel(body : T => Unit) : Unit = pimped.onSel(sel)(body)
   }
 
   def reader(oh : TraversableOnce[Bool]) = new ReaderOh(oh)
