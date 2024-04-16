@@ -810,7 +810,15 @@ object noLatchCheck                  extends SpinalTag
 object noBackendCombMerge            extends SpinalTag
 object crossClockDomain              extends SpinalTag{ override def moveToSyncNode = true }
 object crossClockBuffer              extends SpinalTag{ override def moveToSyncNode = true }
-case class crossClockFalsePath(source: Option[BaseType] = None, destIsReset: Boolean = false) extends SpinalTag { override def allowMultipleInstance: Boolean = false }
+
+sealed trait TimingEndpointType
+object TimingEndpointType {
+  case object DATA extends TimingEndpointType
+  case object RESET extends TimingEndpointType
+  case object CLOCK_EN extends TimingEndpointType
+}
+
+case class crossClockFalsePath(source: Option[BaseType] = None, destType: TimingEndpointType = TimingEndpointType.DATA) extends SpinalTag { override def allowMultipleInstance: Boolean = false }
 case class crossClockMaxDelay(cycles: Int, useTargetClock: Boolean) extends SpinalTag { override def allowMultipleInstance: Boolean = false }
 object randomBoot                    extends SpinalTag{ override def moveToSyncNode = true }
 object tagAutoResize                 extends SpinalTag{ override def duplicative = true }

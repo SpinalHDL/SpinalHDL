@@ -67,7 +67,7 @@ object VivadoConstraintWriter {
 
   // see https://docs.xilinx.com/r/en-US/ug835-vivado-tcl-commands/set_false_path
   def writeFalsePath(s: DataAssignmentStatement, writer: Writer, falsePathTag: crossClockFalsePath): Unit = {
-    val resetIsDriver = falsePathTag.destIsReset
+    val resetIsDriver = falsePathTag.destType == TimingEndpointType.RESET
     var source = s.source.asInstanceOf[BaseType]
     if (!resetIsDriver) {
       AnalysisUtils.seekNonCombDrivers(source) { case b: BaseType =>
