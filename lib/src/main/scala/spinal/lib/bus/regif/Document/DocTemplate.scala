@@ -120,7 +120,7 @@ object DocTemplate {
       |          <th>Reset value</th>
       |          <th>Field-Description</th>
       |        </tr>
-      |      <thead>
+      |      </thead>
       |""".stripMargin
 
   def getHTML(moduleName: String, tbody: String): String = s"""
