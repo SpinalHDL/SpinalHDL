@@ -79,11 +79,13 @@ class StagePipeline() extends Nameable {
   val links = mutable.ArrayBuffer[StageLink]()
 
   def node(i : Int) = nodes.getOrElseUpdate(i, new Node().setCompositeName(this, s"node_${i.toString}"))
-  class Area(i : Int) extends NodeMirror(node(i))
+  class Area(i : Int) extends NodeMirror(node(i)) with spinal.core.Area
 
-  def build(): Unit = {
+  def build(withoutCollapse : Boolean = false): Unit = {
     for(i <- nodes.keys.min until nodes.keys.max){
-      links += StageLink(node(i), node(i+1)).setCompositeName(this, s"stage_${i+1}")
+      val stage = StageLink(node(i), node(i+1)).setCompositeName(this, s"stage_${i+1}")
+      if(withoutCollapse) stage.withoutCollapse()
+      links += stage
     }
     Builder(links)
   }
@@ -95,7 +97,7 @@ class StageCtrlPipeline() extends Nameable {
 
   def ctrl(i : Int) = ctrls.getOrElseUpdate(i, CtrlLink().setCompositeName(this, s"ctrl_${i.toString}"))
   class Ctrl(i : Int) extends CtrlLinkMirror(ctrl(i))
-  class InsertArea extends NodeMirror(ctrl(0).up)
+  class InsertArea extends NodeMirror(ctrl(0).up) with spinal.core.Area
 
   def build(): Unit = {
     for(i <- ctrls.keys.min until ctrls.keys.max){
