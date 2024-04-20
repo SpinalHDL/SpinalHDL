@@ -1766,12 +1766,27 @@ end
       case s: AssignmentStatement => {
         s.source match {
           case src: BaseType => if(outputNoNeedWrap.contains(src)) {
+            def whenMatch(x: Expression) = {
+              outputWrap += src -> emitAssignedExpression(x)//x.getNameElseThrow//TODO:not getname.
+              outputNoNeedWrap.remove(src)
+              if(!spinalConfig.emitFullComponentBindings)
+                s.removeStatement()
+            }
             s.target match {
               case x: BaseType if x.isComb && x.component == component => {
-                outputWrap += src -> emitReference(x, false)//x.getNameElseThrow//TODO:not getname.
-                outputNoNeedWrap.remove(src)
-                if(!spinalConfig.emitFullComponentBindings)
-                  s.removeStatement()
+                whenMatch(x)
+              }
+              case x: BitAssignmentFixed if x.out.isComb && x.out.component == component => {
+                whenMatch(x)
+              }
+              case x: BitAssignmentFloating if x.out.isComb && x.out.component == component => {
+                whenMatch(x)
+              }
+              case x: RangedAssignmentFixed if x.out.isComb && x.out.component == component => {
+                whenMatch(x)
+              }
+              case x: RangedAssignmentFloating if x.out.isComb && x.out.component == component => {
+                whenMatch(x)
               }
               case _ =>
             }
