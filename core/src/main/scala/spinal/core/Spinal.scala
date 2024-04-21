@@ -175,6 +175,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var singleTopLevel             : Boolean = true,
                         var noAssertAtTimeZero         : Boolean = false,
                         var cutLongExpressions         : Boolean = true,
+                        var withTimescale              : Boolean = false,
                         var emitFullComponentBindings  : Boolean = true
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
