@@ -31,7 +31,7 @@ case class BRAMDriver(bram: BRAM, clockDomain: ClockDomain) {
     bram.we.randomize()
     bram.addr.randomize()
     bram.wrdata.randomize()
-    clockDomain.waitSampling()
+    clockDomain.waitSampling(bram.config.readLatency)
     bram.rddata.toBigInt
   }
 }

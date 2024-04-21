@@ -5,7 +5,7 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.bram.BRAM
 import spinal.lib.Delay
 
-case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = "", readDelay: Int = 1)(implicit moduleName: ClassName) extends BusIf {
+case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf {
   override val withStrb: Boolean = true
   override val wstrb: Bits = Bits(strbWidth bit)
   override val wmask: Bits = Bits(busDataWidth bit)
@@ -23,7 +23,7 @@ case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = ""
 
   override val readData: Bits = Bits(busDataWidth bits)
 
-  bus.rddata := Delay(readData, readDelay) init B(0)
+  bus.rddata := Delay(readData, bus.config.readLatency) init B(0)
 
   override val writeData: Bits = bus.wrdata
 

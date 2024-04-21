@@ -27,5 +27,4 @@ object BusInterface {
   def apply(bus: AxiLite4, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap, regPre)(moduleName)
 
   def apply(bus: BRAM, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = BRAMBusInterface(bus, sizeMap, regPre)(moduleName)
-  def apply(bus: BRAM, sizeMap: SizeMapping, regPre: String, readDelay: Int)(implicit moduleName: ClassName): BusIf = BRAMBusInterface(bus, sizeMap, regPre, readDelay)(moduleName)
 }

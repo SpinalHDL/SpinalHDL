@@ -34,8 +34,9 @@ import spinal.lib._
   * Bus BRAM configuration
   * @param dataWidth    : data width
   * @param addressWidth : address width
+  * @param readLatency  : # of cycles between read request and valid data being placed on the bus.
   */
-case class BRAMConfig(dataWidth: Int, addressWidth: Int)
+case class BRAMConfig(dataWidth: Int, addressWidth: Int, readLatency: Int = 1)
 
 
 /**
@@ -64,6 +65,7 @@ case class BRAM(config: BRAMConfig) extends Bundle with IMasterSlave {
   def >> (sink: BRAM): Unit = {
     assert(this.config.addressWidth >= sink.config.addressWidth, "BRAM mismatch width address (slave address is bigger than master address )")
     assert(this.config.dataWidth == sink.config.dataWidth, "BRAM mismatch width data (slave and master doesn't have the same data width)")
+    assert(this.config.readLatency == sink.config.readLatency, "BRAM mismatch read latency (slave and master don't have the same read latency)")
 
     this.rddata := sink.rddata
 
