@@ -3,6 +3,25 @@ package spinal.lib.bus.wishbone
 import spinal.core._
 import spinal.lib._
 
+object AddressGranularity extends Enumeration {
+  type AddressGranularity = Value
+  @scala.deprecated("This option will be REMOVED in future versions, and the default will be Word granular. It exists " +
+    "to prevent changing library behavior for existing code.")
+  val UNSPECIFIED = Value
+
+  /**
+   * Word granular addressing increments by one per word. This is the standard defined behavior of the bus.
+   */
+  val WORD = Value
+
+  /**
+   * Byte granular addressing increments by one per byte. This is not in adherence with the wishbone standard but is
+   * a commonly encountered configuration with external IP.
+   */
+  val BYTE = Value
+}
+
+
 /** This class is used for configuring the Wishbone class
   * @param addressWidth size in bits of the address line
   * @param dataWidth size in bits of the data line
@@ -16,6 +35,7 @@ import spinal.lib._
   * @param tgcWidth size in bits of the tag cycle line, deafult to 0 (disabled)
   * @param tgdWidth size in bits of the tag data line, deafult to 0 (disabled)
   * @param useBTE activate the Burst Type Extension, default to false (disabled)
+  * @param addressGranularity This specifies the address granularity for the bus.
   * @example {{{
   * val wishboneBusConf = new WishboneConfig(32,8).withCycleTag(8).withDataTag(8)
   * val wishboneBus = new Wishbone(wishboneBusConf)
@@ -33,7 +53,8 @@ case class WishboneConfig(
   val tgaWidth : Int = 0,
   val tgcWidth : Int = 0,
   val tgdWidth : Int = 0,
-  val useBTE : Boolean = false
+  val useBTE : Boolean = false,
+  private val addressGranularity : AddressGranularity.AddressGranularity = AddressGranularity.UNSPECIFIED
 ){
   def useTGA = tgaWidth > 0
   def useTGC = tgcWidth > 0
@@ -43,6 +64,15 @@ case class WishboneConfig(
   def isPipelined = useSTALL
 
   def pipelined : WishboneConfig = this.copy(useSTALL = true)
+
+  def wordAddressInc(addressGranularityIfUnspecified : AddressGranularity.AddressGranularity = AddressGranularity.UNSPECIFIED): Int = {
+    val effectiveAddressGranularity = if (addressGranularity == AddressGranularity.UNSPECIFIED) addressGranularityIfUnspecified else addressGranularity
+    require(effectiveAddressGranularity != AddressGranularity.UNSPECIFIED, "If the bus has not been configured with an address granularity, one must be provided to wordAddressInc")
+    effectiveAddressGranularity match {
+      case AddressGranularity.BYTE => dataWidth / 8
+      case _ => 1
+    }
+  }
 
   def withDataTag(size : Int)    : WishboneConfig = this.copy(tgdWidth = size)
   def withAddressTag(size : Int) : WishboneConfig = this.copy(tgaWidth = size)
@@ -238,6 +268,9 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   def doWrite : Bool    = doSend &&  WE
   def doRead  : Bool    = doSend && !WE
 
+  def byteAddress(addressGranularityIfUnspecified : AddressGranularity.AddressGranularity = AddressGranularity.UNSPECIFIED) : UInt = {
+    ADR << log2Up((config.dataWidth / 8) / config.wordAddressInc(addressGranularityIfUnspecified))
+  }
 }
 
 object Wishbone{

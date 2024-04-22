@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.fiber.Fiber
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink.{M2sParameters, M2sSupport, S2mAgent, S2mParameters, S2mTransfers, SizeRange}
+import spinal.lib.system.tag.{MemoryEndpoint, MemoryTransfers}
 import spinal.lib.{master, slave}
 
 //Will create a interconnect master as an io of the toplevel
@@ -20,6 +21,9 @@ class MasterBus(p : M2sParameters) extends Area{
 //Will create a interconnect slave as an io of the toplevel
 class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParameters.none) extends Area{
   val node = Node.slave()
+  node.addTag(new MemoryEndpoint {
+    override def mapping = SizeMapping(0, BigInt(1) << node.m2s.parameters.addressWidth)
+  })
   val logic = Fiber build new Area {
     node.m2s.supported.load(m2sSupport.copy(transfers = node.m2s.proposed.transfers.intersect(m2sSupport.transfers)))
     node.s2m.parameters.load(s2mParameters)

@@ -76,4 +76,24 @@ class SpinalSimLibTester extends SpinalAnyFunSuite {
         }
     }
   }
+
+  for (bitCount <- 1 to 5) {
+    test("CountLeadingZeroes " + bitCount) {
+      SimConfig.noOptimisation
+        .compile(new Component {
+          val input = in(Bits(bitCount bits))
+          val output = out(UInt(log2Up(bitCount) + 1 bits))
+          output := CountLeadingZeroes(input)
+        })
+        .doSim(seed = 42) { dut =>
+          for (i <- 0 until 1 << bitCount) {
+            val expected = Integer.numberOfLeadingZeros(i) - 32 + bitCount
+            dut.input #= i
+            sleep(1)
+            val out = dut.output.toInt
+            assert(out == expected, f"in: ${i.toBinaryString} bits: ${bitCount}")
+          }
+        }
+    }
+  }
 }

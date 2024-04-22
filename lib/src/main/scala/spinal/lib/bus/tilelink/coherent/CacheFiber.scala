@@ -24,16 +24,11 @@ class CacheFiber() extends Area{
     coherentRegion = null
   )
 
-
-  val mappingLock = Lock().retain()
   new MemoryConnection{
     override def up = CacheFiber.this.up
     override def down = CacheFiber.this.down
     override def transformers = Nil
-    override def mapping = {
-      mappingLock.get //Ensure that the parameter is final
-      SizeMapping(0, BigInt(1) << parameter.addressWidth)
-    }
+
     override def sToM(down: MemoryTransfers, args: MappedNode) = {
       down match{
         case t : M2sTransfers => {
@@ -97,7 +92,6 @@ class CacheFiber() extends Area{
     up.s2m.setProposedFromParameters()
 
     parameter.unp = up.bus.p.node
-    mappingLock.release()
 
     val transferSpec = MemoryConnection.getMemoryTransfers(up)
     val probeSpec = transferSpec.filter(_.transfers.asInstanceOf[M2sTransfers].withBCE)
