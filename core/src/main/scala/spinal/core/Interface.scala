@@ -31,7 +31,7 @@ object IsInterface extends SpinalTag {}
   *}}}
   *
   */
-class SVIF extends Bundle {
+class Interface extends Bundle {
   var definitionName: String = this.getClass.getSimpleName
   var thisIsNotSVIF = false
   /** Set the definition name of the component */
@@ -60,7 +60,7 @@ class SVIF extends Bundle {
     widthGeneric += signal -> generic
   }
   def tieParameter[T <: BitVector](signal: T, parameter: String) = tieGeneric(signal, parameter)
-  def tieIFParameter[T <: SVIF](signal: T, signalParam: String, inputParam: String) = {
+  def tieIFParameter[T <: Interface](signal: T, signalParam: String, inputParam: String) = {
     IFGeneric += (signal, signalParam) -> inputParam
   }
 
@@ -82,7 +82,7 @@ class SVIF extends Bundle {
                 LocatedPendingError(s"name conflict: ${name} has been used")
             super.valCallbackRec(ref, name)
           }
-          case _: SVIF => {
+          case _: Interface => {
             if(elementsCache != null)
               if(elementsCache.find(_._1 == name).isDefined)
                 LocatedPendingError(s"name conflict: ${name} has been used")
@@ -132,7 +132,7 @@ class SVIF extends Bundle {
         }
         globalData.toplevel = toplevel
         globalData.phaseContext.topLevel = phase
-        
+
         c.y.elements.foldLeft(true) {case (dirSame, (name, element)) =>
           val other = this.find(name)
           if (other == null) {
@@ -154,7 +154,7 @@ class SVIF extends Bundle {
   def notSVIF(): Unit = {
     this.flattenForeach(x => x.removeTag(IsInterface))
     this.elementsCache.foreach{
-      case (name, x: SVIF) => x.notSVIF()
+      case (name, x: Interface) => x.notSVIF()
       case _ =>
     }
     this.thisIsNotSVIF = true

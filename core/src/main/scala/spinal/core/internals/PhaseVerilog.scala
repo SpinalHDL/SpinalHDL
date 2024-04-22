@@ -268,7 +268,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 }
 
 class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
-  def emitInterface(interface: SVIF): StringBuilder = {
+  def emitInterface(interface: Interface): StringBuilder = {
     import pc._
     var ret = new StringBuilder()
     val theme = new Tab2 //TODO add into SpinalConfig
@@ -283,7 +283,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     ret ++= s"interface ${interface.definitionName} ${generic}() ;\n\n"
     for ((name, elem) <- interface.elementsCache) {
       elem match {
-        case node: SVIF => {
+        case node: Interface => {
 
           val genericFlat = node.genericElements
 
@@ -354,7 +354,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
 
         for ((name, elem) <- c.y.elementsCache) {
           elem match {
-            case elem: SVIF => {
+            case elem: Interface => {
               //TODO:check more than one modport has same `in` `out` direction
               val modport = if(elem.checkModport().isEmpty) {
                 LocatedPendingError(s"no suitable modport found for ${elem}")

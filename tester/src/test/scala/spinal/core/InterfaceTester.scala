@@ -3,7 +3,7 @@ package spinal.core
 import spinal.lib._
 import org.scalatest.funsuite.AnyFunSuite
 
-case class ColorVec(channelWidth: Int) extends SVIF {
+case class ColorVec(channelWidth: Int) extends Interface {
   val width = addGeneric("WIDTH", channelWidth)// or addParameter
   val v0, v1, v2, v3 = Color(channelWidth)
   tieIFParameter(v0, "WIDTH", "WIDTH")
@@ -18,7 +18,7 @@ case class ColorVec(channelWidth: Int) extends SVIF {
   def slv = in(v0, v1, v2, v3)
 }
 
-case class Color(channelWidth: Int) extends SVIF {
+case class Color(channelWidth: Int) extends Interface {
   val width = addGeneric("WIDTH", channelWidth)// or addParameter
   val r, g, b = UInt(channelWidth bits)
   tieGeneric(r, width)// or tieParameter
@@ -32,7 +32,7 @@ case class Color(channelWidth: Int) extends SVIF {
   def slv = out(r, g, b)
 }
 
-case class ColorHandShake(Width: Int) extends SVIF with IMasterSlave {
+case class ColorHandShake(Width: Int) extends Interface with IMasterSlave {
   val w = addGeneric("W", Width, default = "8")
   val valid = Bool()
   val payload = ColorVec(Width)
@@ -51,7 +51,7 @@ case class ColorHandShake(Width: Int) extends SVIF with IMasterSlave {
   def slv = asSlave
 }
 
-case class MyInt(width: Int) extends SVIF with IMasterSlave {
+case class MyInt(width: Int) extends Interface with IMasterSlave {
   val wParam = addGeneric("WIDTH", width)
   val sParam = addParameter("SW", 8, default = "8")
   val a = Bits(width bits)
@@ -72,7 +72,7 @@ case class MyInt(width: Int) extends SVIF with IMasterSlave {
 
 }
 
-case class StreamIF[T <: Data](payloadType :  HardType[T]) extends SVIF with IMasterSlave with DataCarrier[T] {
+case class StreamIF[T <: Data](payloadType :  HardType[T]) extends Interface with IMasterSlave with DataCarrier[T] {
   val valid = Bool()
   val payload = payloadType()
   val ready = Bool()

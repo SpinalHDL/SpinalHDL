@@ -54,7 +54,7 @@ class ComponentEmitterVerilog(
   val definitionAttributes  = new StringBuilder()
   val beginModule = new StringBuilder()
   val declarations = new StringBuilder()
-  val declaredInterface = mutable.HashSet[SVIF]()
+  val declaredInterface = mutable.HashSet[Interface]()
   val localparams = new StringBuilder()
   val logics       = new StringBuilder()
   val endModule = new StringBuilder()
@@ -1057,7 +1057,7 @@ class ComponentEmitterVerilog(
     s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
   }
 
-  def emitInterfaceSignal(data: SVIF, name: String): String = {
+  def emitInterfaceSignal(data: Interface, name: String): String = {
     //val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
     //s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
     val genericFlat = data.genericElements
@@ -1160,7 +1160,7 @@ class ComponentEmitterVerilog(
   def emitSignals(): Unit = {
     val enumDebugStringBuilder = new StringBuilder()
     for((intf, s) <- createInterfaceWrap) {
-      declarations ++= emitInterfaceSignal(intf.asInstanceOf[SVIF], s)
+      declarations ++= emitInterfaceSignal(intf.asInstanceOf[Interface], s)
     }
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
