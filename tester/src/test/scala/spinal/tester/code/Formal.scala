@@ -182,3 +182,21 @@ object FormalRam extends App {
     assert(dut.read.data =/= 1)
   })
 }
+
+// Test whether formal works when .bin files are generated
+object FormalDutWithRom extends App {
+  import spinal.core.formal._
+  FormalConfig.withBMC(1).doVerify(new Component {
+    assumeInitial(ClockDomain.current.isResetActive)
+
+    val rom = Mem(
+    wordType=UInt(1 bit),
+    initialContent={
+      Array.fill(24)(U(0))
+    })
+
+    assert(rom.formalContains(U(0)))
+    assert(!rom.formalContains(U(1)))
+
+  })
+}
