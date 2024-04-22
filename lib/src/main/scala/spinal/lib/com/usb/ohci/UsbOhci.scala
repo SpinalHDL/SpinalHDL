@@ -23,7 +23,8 @@ case class UsbOhciParameter(noPowerSwitching : Boolean,
                             powerOnToPowerGoodTime : Int,
                             dataWidth : Int,
                             portsConfig : Seq[OhciPortParameter],
-                            dmaLengthWidth : Int = 6){
+                            dmaLengthWidth : Int = 6,
+                            fifoBytes : Int = 2048){
   assert(dmaLengthWidth >= 5 && dmaLengthWidth <= 12)
   def dmaLength = 1 << dmaLengthWidth
   val portCount = portsConfig.size
@@ -212,7 +213,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   }
 
   // Used as buffer for USB data <> DMA transfers
-  val fifo = StreamFifo(Bits(p.dataWidth bits), 1024*2*8/p.dataWidth) //ramBurstCapacity * p.dmaLength*8/p.dmaLengthWidth
+  assert(p.fifoBytes >= 1024+p.dataWidth/8)
+  val fifo = StreamFifo(Bits(p.dataWidth bits), p.fifoBytes*8/p.dataWidth) //ramBurstCapacity * p.dmaLength*8/p.dmaLengthWidth
   fifo.io.push.valid := False
   fifo.io.push.payload.assignDontCare()
   fifo.io.pop.ready := False

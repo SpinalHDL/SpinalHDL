@@ -47,8 +47,7 @@ case class UsbDeviceWithPhyWishbone(p : UsbDeviceCtrlParameter, phyCd : ClockDom
       native.dp.write := False
       native.dm.write := False
     }
-    val buffer = native.stage()
-    io.usb <> buffer.stage()
+    io.usb <> native.bufferized()
     logic.io.power := io.power
   }
 

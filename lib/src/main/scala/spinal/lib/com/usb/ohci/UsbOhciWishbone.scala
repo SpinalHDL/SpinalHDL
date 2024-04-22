@@ -13,6 +13,7 @@ object UsbOhciWishbone extends App{
   var portCount = 1
   var phyFrequency = 48000000
   var dmaWidth = 32
+  var fifoBytes = 2048
 
   assert(new scopt.OptionParser[Unit]("VexRiscvLitexSmpClusterCmdGen") {
     help("help").text("prints this usage text")
@@ -21,6 +22,7 @@ object UsbOhciWishbone extends App{
     opt[Int]("port-count") action { (v, c) => portCount = v }
     opt[Int]("phy-frequency") action { (v, c) => phyFrequency = v }
     opt[Int]("dma-width") action { (v, c) => dmaWidth = v }
+    opt[Int]("fifo-bytes") action { (v, c) => fifoBytes = v }
   }.parse(args, ()).isDefined)
 
 
@@ -31,7 +33,8 @@ object UsbOhciWishbone extends App{
     noOverCurrentProtection = false,
     powerOnToPowerGoodTime = 10,
     dataWidth = dmaWidth,
-    portsConfig = List.fill(portCount)(OhciPortParameter())
+    portsConfig = List.fill(portCount)(OhciPortParameter()),
+    fifoBytes = fifoBytes
   )
 
   SpinalConfig(
@@ -86,8 +89,8 @@ case class UsbOhciWishbone(p : UsbOhciParameter, frontCd : ClockDomain, backCd :
     //  phy.io.usb  <> io.usb
     phy.io.management.map(e => e.overcurrent := False)
     val native = phy.io.usb.map(_.toNativeIo())
-    val buffer = native.map(_.stage())
-    io.usb <> Vec(buffer.map(e => e.stage()))
+    val buffer = native.map(_.bufferized())
+    io.usb <> Vec(buffer)
   }
 
   val cc = CtrlCc(p.portCount, frontCd, backCd)
