@@ -1077,12 +1077,13 @@ class ComponentEmitterVerilog(
       }
       val namelens = ret.map(_._1.size).max
       val exprlens = ret.map(_._2.size).max
-      val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s)".format(t._1, t._2))
+      val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s )".format(t._1, t._2))
       s"""${data.definitionName} #(
         |${params.mkString(",\n")}
         |  )""".stripMargin
     } else f"${data.definitionName}%-19s"
-    f"${theme.maintab}${t} ${name}();\n"
+    val  cl = if(genericFlat.nonEmpty) "\n" else ""
+    f"${theme.maintab}${t} ${name}();\n${cl}"
   }
 
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
