@@ -924,11 +924,14 @@ case class SpinalSimConfig(
   }
 
   def compileCloned[T <: Component](rtl: => T) : SimCompiled[T] = {
+    if (_workspacePath.startsWith("~"))
+      _workspacePath = System.getProperty("user.home") + _workspacePath.drop(1)
+
     val uniqueId = SimWorkspace.allocateUniqueId()
-    new File(s"tmp").mkdirs()
-    new File(s"tmp/job_$uniqueId").mkdirs()
+    new File(s"${_workspacePath}/tmp").mkdirs()
+    new File(s"${_workspacePath}/tmp/job_$uniqueId").mkdirs()
     _spinalConfig.noAssertAtTimeZero = true
-    val config = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new PhaseNetlist {
+    val config = _spinalConfig.copy(targetDirectory = s"${_workspacePath}/tmp/job_$uniqueId").addTransformationPhase(new PhaseNetlist {
       override def impl(pc: PhaseContext): Unit = {
         //Ensure the toplevel pull its clock domain
         pc.topLevel.rework{
