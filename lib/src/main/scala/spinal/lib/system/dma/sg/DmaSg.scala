@@ -488,7 +488,7 @@ object DmaSg{
           val sinkId = Reg(UInt(cp.outputsPorts.map(p.outputs(_).sinkWidth).max bits))
 
           val veryLastTrigger = False
-          val veryLastValid = Reg(Bool()) setWhen(veryLastTrigger)
+          val veryLastValid = Reg(Bool()) setWhen(veryLastTrigger && last)
           val veryLastPtr = Reg(ptrType)
           val veryLastEndPacket = Reg(Bool())
 
