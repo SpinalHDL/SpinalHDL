@@ -1368,8 +1368,8 @@ object DmaSg{
           ctrl.setOnSet(channel.channelStart, a + 0x2C, 4)
           ctrl.setOnSet(channel.ll.sgStart, a + 0x2C, 4)
 
-          ctrl.write(channel.ll.ptrNext, a + 0x70)
-          ctrl.read(channel.ll.ptr, a + 0x70)
+          ctrl.writeMultiWord(channel.ll.ptrNext, a + 0x70)
+          ctrl.readMultiWord(channel.ll.ptr, a + 0x70)
           ctrl.write(channel.ll.onSgStream, a + 0x78)
         }
 
