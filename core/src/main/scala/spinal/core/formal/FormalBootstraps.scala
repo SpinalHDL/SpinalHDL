@@ -154,11 +154,14 @@ case class SpinalFormalConfig(
   }
 
   def compileCloned[T <: Component](rtl: => T): FormalBackend = {
+    if (_workspacePath.startsWith("~"))
+      _workspacePath = System.getProperty("user.home") + _workspacePath.drop(1)
+
     val uniqueId = FormalWorkspace.allocateUniqueId()
-    new File(s"tmp").mkdirs()
-    new File(s"tmp/job_$uniqueId").mkdirs()
+    new File(s"${_workspacePath}/tmp").mkdirs()
+    new File(s"${_workspacePath}/tmp/job_$uniqueId").mkdirs()
     val config = _spinalConfig
-      .copy(targetDirectory = s"tmp/job_$uniqueId")
+      .copy(targetDirectory = s"${_workspacePath}/tmp/job_$uniqueId")
       .addTransformationPhase(new PhaseNetlist {
         override def impl(pc: PhaseContext): Unit = pc.walkComponents {
           case b: BlackBox if b.isBlackBox && b.isSpinalSimWb => b.clearBlackBox()
