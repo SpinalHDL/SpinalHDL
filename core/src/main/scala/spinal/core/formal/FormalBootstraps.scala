@@ -143,20 +143,20 @@ case class SpinalFormalConfig(
   }
 
   def doVerify[T <: Component](report: SpinalReport[T])(implicit className: String): Unit = { 
-    workspaceName(className)
+    if(!className.isEmpty) workspaceName(className)
     compile(report).doVerify()
   }
   def doVerify[T <: Component](report: SpinalReport[T], name: String)(implicit className: String): Unit = {
-    workspaceName(className)
+    if(!className.isEmpty) workspaceName(className)
     compile(report).doVerify(name)
   }
 
   def doVerify[T <: Component](rtl: => T)(implicit className: String): Unit = {
-    workspaceName(className)
+    if(!className.isEmpty) workspaceName(className)
     compile(rtl).doVerify()
   }
   def doVerify[T <: Component](rtl: => T, name: String)(implicit className: String): Unit = {
-    workspaceName(className)
+    if(!className.isEmpty) workspaceName(className)
     compile(rtl).doVerify(name)
   }
 
