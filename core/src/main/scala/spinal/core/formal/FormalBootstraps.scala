@@ -142,12 +142,23 @@ case class SpinalFormalConfig(
     this
   }
 
-  def doVerify[T <: Component](report: SpinalReport[T]): Unit = compile(report).doVerify()
-  def doVerify[T <: Component](report: SpinalReport[T], name: String): Unit =
+  def doVerify[T <: Component](report: SpinalReport[T])(implicit className: String): Unit = { 
+    if(!className.isEmpty) workspaceName(className)
+    compile(report).doVerify()
+  }
+  def doVerify[T <: Component](report: SpinalReport[T], name: String)(implicit className: String): Unit = {
+    if(!className.isEmpty) workspaceName(className)
     compile(report).doVerify(name)
+  }
 
-  def doVerify[T <: Component](rtl: => T): Unit = compile(rtl).doVerify()
-  def doVerify[T <: Component](rtl: => T, name: String): Unit = compile(rtl).doVerify(name)
+  def doVerify[T <: Component](rtl: => T)(implicit className: String): Unit = {
+    if(!className.isEmpty) workspaceName(className)
+    compile(rtl).doVerify()
+  }
+  def doVerify[T <: Component](rtl: => T, name: String)(implicit className: String): Unit = {
+    if(!className.isEmpty) workspaceName(className)
+    compile(rtl).doVerify(name)
+  }
 
   def compile[T <: Component](rtl: => T): FormalBackend = {
     this.copy().compileCloned(rtl)
