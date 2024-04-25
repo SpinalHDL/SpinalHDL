@@ -21,11 +21,15 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
       check(4095,0,-4)(AFix.UQ(8 bits, 4 bits)) //Q8.4
 //      check(4095,0,-4)(AFix.U(255, -4 exp)) //Q8.4
 //      check(4095,2048,-4)(AFix.U(255, 128, -4 exp)) //Q8.4
+      check(4095, 0, 0)(AFix(QFormat(12, 0, false))) // Q12.0
+      check(4095, 0, -4)(AFix(QFormat(12, 4, false))) // Q8.4
       check(2047,-2048,0)(AFix.S(12 bits)) //Q11.0 + sign bit
       check(2047,-2048,-4)(AFix.S(7 exp, 12 bits)) //Q7.4  + sign bit
       check(2047,-2048,-4)(AFix.S(7 exp, -4 exp)) //Q7.4  + sign bit
       check(2047,-2048,-4)(AFix.SQ(7 bits, 4 bits)) //Q8.4 + sign bit
 //      check(2047,-2048,-4)(AFix.S(127, -128, -4 exp)) //Q7.4 + sign bit
+      check(2047, -2048, 0)(AFix(QFormat(12, 0, true))) // Q12.0
+      check(2047, -2048, -4)(AFix(QFormat(12, 4, true))) // Q7.4 + sign bit
     })
   }
 
