@@ -1053,14 +1053,9 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int)
 
   def fixTo(af: AFix, roundType: RoundType): AFix = this._round(roundType, af.exp).sat(af)
   def fixTo(af: AFix): AFix = this.fixTo(af, getTrunc.rounding)
-  def fixTo(Q: QFormat): AFix = {
-    val res = AFix(Q.width - Q.fraction exp, -Q.fraction exp, Q.signed)
-    res := this.fixTo(res)
-    res
-  }
-
+  def fixTo(Q: QFormat): AFix = this.fixTo(Q, getTrunc.rounding)
   def fixTo(Q: QFormat, roundType: RoundType): AFix = {
-    val res = AFix(Q) // assuming the above apply method is added
+    val res = AFix(Q)
     res := this.fixTo(res, roundType)
     res
   }
