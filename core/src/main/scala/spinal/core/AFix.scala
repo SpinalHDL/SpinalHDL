@@ -7,22 +7,23 @@ import scala.math.BigDecimal.RoundingMode
 
 object AFix {
 
-  def apply(maxRaw: BigInt, minRaw: BigInt, exp: ExpNumber) : AFix = new AFix(maxRaw = maxRaw, minRaw = minRaw, exp = exp.value)
+  def apply(maxRaw: BigInt, minRaw: BigInt, exp: ExpNumber): AFix =
+    new AFix(maxRaw = maxRaw, minRaw = minRaw, exp = exp.value)
   def apply(u: UInt): AFix = AFix(u, 0 exp)
   def apply(u: UInt, exp: ExpNumber): AFix = {
-    val maxValue = BigInt(2).pow(u.getWidth)-1
+    val maxValue = BigInt(2).pow(u.getWidth) - 1
     val ret = new AFix(maxValue, 0, exp.value)
     ret.raw := u.asBits
     ret
   }
-  def apply(u: UInt, maxRaw: BigInt, exp : ExpNumber): AFix = {
+  def apply(u: UInt, maxRaw: BigInt, exp: ExpNumber): AFix = {
     val ret = new AFix(maxRaw, 0, exp.value)
     ret.raw := u.asBits.resized
     ret
   }
 
   def apply(b: Bool): AFix = this(b, 0 exp)
-  def apply(b: Bool, exp : ExpNumber): AFix = {
+  def apply(b: Bool, exp: ExpNumber): AFix = {
     val ret = new AFix(1, 0, exp.value)
     ret.raw(0) := b
     ret
@@ -30,23 +31,23 @@ object AFix {
 
   def apply(s: SInt): AFix = AFix(s, 0 exp)
   def apply(s: SInt, exp: ExpNumber): AFix = {
-    val maxValue = BigInt(2).pow(s.getWidth-1)-1
-    val minValue = -BigInt(2).pow(s.getWidth-1)
+    val maxValue = BigInt(2).pow(s.getWidth - 1) - 1
+    val minValue = -BigInt(2).pow(s.getWidth - 1)
     val ret = new AFix(maxValue, minValue, exp.value)
     ret.raw := s.asBits
     ret
   }
 
   def apply(uf: UFix): AFix = {
-    val maxValue = BigInt(2).pow(uf.bitCount)-1
+    val maxValue = BigInt(2).pow(uf.bitCount) - 1
     val ret = new AFix(maxValue, 0, -uf.minExp)
     ret.raw := uf.raw.asBits
     ret
   }
 
   def apply(sf: SFix): AFix = {
-    val maxRaw = BigInt(2).pow(sf.bitCount-1)-1
-    val minRaw = -BigInt(2).pow(sf.bitCount-1)
+    val maxRaw = BigInt(2).pow(sf.bitCount - 1) - 1
+    val minRaw = -BigInt(2).pow(sf.bitCount - 1)
     val ret = new AFix(maxRaw, minRaw, -sf.minExp)
     ret.raw := sf.raw.asBits
     ret
@@ -62,17 +63,23 @@ object AFix {
   }
 
   def apply(num: BigInt): AFix = apply(num, 0 exp)
-  def apply(Q: QFormat): AFix = AFix(Q.width-Q.fraction exp, -Q.fraction exp, Q.signed)
 
-
-  def apply(amplitude : ExpNumber, resolution : ExpNumber, signed : Boolean) : AFix = {
-    val maxRaw = BigInt(2).pow(amplitude.value-resolution.value)-1
-    val minRaw = if (signed) -BigInt(2).pow(amplitude.value-resolution.value) else BigInt(0)
+  def apply(amplitude: ExpNumber, resolution: ExpNumber, signed: Boolean): AFix = {
+    val maxRaw = BigInt(2).pow(amplitude.value - resolution.value) - 1
+    val minRaw = if (signed) -BigInt(2).pow(amplitude.value - resolution.value) else BigInt(0)
     new AFix(maxRaw, minRaw, resolution.value)
   }
 
+  def apply(Q: QFormat): AFix = {
+    val integerWidth = if (Q.signed) { Q.width - Q.fraction - 1 }
+    else { Q.width - Q.fraction }
+    val fractionWidth = -Q.fraction
+    AFix(integerWidth exp, fractionWidth exp, Q.signed)
+  }
+
   def U(width: BitCount): AFix = AFix(width.value exp, 0 exp, signed = false)
-  def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AFix(integerWidth.value exp, -fractionWidth.value exp, signed = false)
+  def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix =
+    AFix(integerWidth.value exp, -fractionWidth.value exp, signed = false)
   def U(amplitude: ExpNumber, width: BitCount): AFix = AFix(amplitude, (amplitude.value - width.value) exp, false)
   def U(amplitude: ExpNumber, resolution: ExpNumber): AFix = AFix(amplitude, resolution, false)
 //  def U(wholeBits: BitCount, exp: ExpNumber): AFix = AFix(wholeBits, -exp bit, false)
@@ -87,8 +94,9 @@ object AFix {
 //      minimum*BigInt(2).pow(-resolution.value), resolution)
 //  }
 
-  def S(width: BitCount): AFix = AFix(width.value-1 exp, 0 exp, signed = true)
-  def SQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AFix(integerWidth.value exp, -fractionWidth.value exp, signed = true)
+  def S(width: BitCount): AFix = AFix(width.value - 1 exp, 0 exp, signed = true)
+  def SQ(integerWidth: BitCount, fractionWidth: BitCount): AFix =
+    AFix(integerWidth.value exp, -fractionWidth.value exp, signed = true)
   def S(amplitude: ExpNumber, width: BitCount): AFix = AFix(amplitude, (amplitude.value - width.value + 1) exp, true)
   def S(amplitude: ExpNumber, resolution: ExpNumber): AFix = AFix(amplitude, resolution, signed = true)
 //  def S(wholeBits: BitCount, exp: ExpNumber): AFix = AFix(wholeBits+(1 bit), -exp bit, signed = true)
@@ -99,17 +107,16 @@ object AFix {
 //    new AFix(maxRaw*BigInt(2).pow(-exp)+(BigInt(2).pow(-exp)*maxRaw.signum-maxRaw.signum),
 //      minRaw*BigInt(2).pow(-exp), exp)
 
-  def holding(values: TraversableOnce[AFix]) : AFix = {
+  def holding(values: TraversableOnce[AFix]): AFix = {
     val param = holdingParams(values)
     new AFix(
       maxRaw = param._1,
       minRaw = param._2,
-      exp      = param._3
+      exp = param._3
     )
   }
 
-
-  def holdingParams(values: TraversableOnce[AFix]) : (BigInt, BigInt, Int) = {
+  def holdingParams(values: TraversableOnce[AFix]): (BigInt, BigInt, Int) = {
     val ex = values.map(_.exp).min
     (
       values.map(e => e.maxRaw << (e.exp - ex).max(0)).max,
@@ -119,7 +126,11 @@ object AFix {
   }
 }
 
-class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiData with Num[AFix] with BitwiseOp[AFix] with MinMaxDecimalProvider {
+class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int)
+    extends MultiData
+    with Num[AFix]
+    with BitwiseOp[AFix]
+    with MinMaxDecimalProvider {
   assert(maxRaw >= minRaw)
 
   val signed = (maxRaw < 0) || (minRaw < 0)
@@ -149,7 +160,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 
   // Representable range, range which could be represented by the backing bit vector
   private val maxRepr = BigInt(2).pow(numWidth)
-  private val minRepr = BigInt(2).pow(numWidth)+1
+  private val minRepr = BigInt(2).pow(numWidth) + 1
 
   raw.setRefOwner(this)
   raw.setPartialName("", weak = true)
@@ -159,7 +170,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   /** This function differs from traditional Num[T] by returning a new AFix */
   override def tag(q: QFormat): AFix = {
     require(q.width == this.bitWidth)
-    val res = AFix(q.width-q.fraction exp, -q.fraction exp, q.signed)
+    val res = AFix(q.width - q.fraction exp, -q.fraction exp, q.signed)
     res.raw := this.raw
     res
   }
@@ -172,13 +183,9 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val expDiff = l.exp - r.exp
     // Scale left or right ranges if there's a difference in precision
     if (expDiff > 0) {
-      (l.maxRaw*BigInt(2).pow(expDiff),
-       l.minRaw*BigInt(2).pow(expDiff),
-       r.maxRaw, r.minRaw)
+      (l.maxRaw * BigInt(2).pow(expDiff), l.minRaw * BigInt(2).pow(expDiff), r.maxRaw, r.minRaw)
     } else if (expDiff < 0) {
-      (l.maxRaw, l.minRaw,
-       r.maxRaw*BigInt(2).pow(-expDiff),
-       r.minRaw*BigInt(2).pow(-expDiff))
+      (l.maxRaw, l.minRaw, r.maxRaw * BigInt(2).pow(-expDiff), r.minRaw * BigInt(2).pow(-expDiff))
     } else {
       (l.maxRaw, l.minRaw, r.maxRaw, r.minRaw)
     }
@@ -189,13 +196,9 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val expDiff = l.exp - r.exp
     // Scale left or right ranges if there's a difference in precision
     if (expDiff > 0) {
-      (l.maxRepr*BigInt(2).pow(expDiff),
-        l.minRepr*BigInt(2).pow(expDiff),
-        r.maxRepr, r.minRepr)
+      (l.maxRepr * BigInt(2).pow(expDiff), l.minRepr * BigInt(2).pow(expDiff), r.maxRepr, r.minRepr)
     } else if (expDiff < 0) {
-      (l.maxRepr, l.minRaw,
-        r.maxRepr*BigInt(2).pow(-expDiff),
-        r.minRepr*BigInt(2).pow(-expDiff))
+      (l.maxRepr, l.minRaw, r.maxRepr * BigInt(2).pow(-expDiff), r.minRepr * BigInt(2).pow(-expDiff))
     } else {
       (l.maxRepr, l.minRepr, r.maxRepr, r.minRepr)
     }
@@ -214,10 +217,9 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   }
 
   private def roundedBounds(exp: Int, roundType: RoundType): (BigInt, BigInt) = {
-    val drop = exp-this.exp
+    val drop = exp - this.exp
     (_roundFixedBigInt(maxRaw, drop, roundType), _roundFixedBigInt(minRaw, drop, roundType))
   }
-
 
   private def _roundFixedBigInt(i: BigInt, exp: Int, roundType: RoundType): BigInt = {
     import RoundType._
@@ -226,8 +228,8 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val even = if (exp >= 0) !i.abs.testBit(exp) else false
     val positive = i.signum >= 0
 
-    val halfBit = if (exp > 0) i.abs.testBit(exp-1) else false // 0.5
-    val halfDropped = if (exp > 1) ((i.abs & BigInt(2).pow(exp-1)-1) != 0) else false // Bits smaller than 0.5
+    val halfBit = if (exp > 0) i.abs.testBit(exp - 1) else false // 0.5
+    val halfDropped = if (exp > 1) ((i.abs & BigInt(2).pow(exp - 1) - 1) != 0) else false // Bits smaller than 0.5
     val droppedBits = halfBit || halfDropped // 0.5 + smaller
 
     roundType match {
@@ -259,7 +261,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
         }
       case CEILTOINF =>
         if (positive) {
-          _roundFixedBigInt(i ,exp, CEIL)
+          _roundFixedBigInt(i, exp, CEIL)
         } else {
           _roundFixedBigInt(i, exp, FLOOR)
         }
@@ -342,150 +344,164 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     }
   }
 
-  /**
-   * Adds `this` to the right hand side AFix value expanding ranges as necessary
-   * @param right Value to add to `this`
-   * @return Sum
-   */
+  /** Adds `this` to the right hand side AFix value expanding ranges as necessary
+    * @param right Value to add to `this`
+    * @return Sum
+    */
   def +(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    val ret = new AFix(lMax+rMax, lMin+rMin, Math.min(this.exp, right.exp))
+    val ret = new AFix(lMax + rMax, lMin + rMin, Math.min(this.exp, right.exp))
 
     val (_l, _r) = alignLR(this, right)
-    ret.raw := trim(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resize(ret.bitWidth) + _r.asUInt)
-      case (false,  true) => (_l.asUInt.intoSInt             + _r.asSInt.resize(ret.bitWidth))
-      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) + _r.asUInt.intoSInt)
-      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) + _r.asSInt)
-    }).asBits, ret.bitWidth)
+    ret.raw := trim(
+      ((this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt.resize(ret.bitWidth) + _r.asUInt)
+        case (false, true)  => (_l.asUInt.intoSInt + _r.asSInt.resize(ret.bitWidth))
+        case (true, false)  => (_l.asSInt.resize(ret.bitWidth) + _r.asUInt.intoSInt)
+        case (true, true)   => (_l.asSInt.resize(ret.bitWidth) + _r.asSInt)
+      }).asBits,
+      ret.bitWidth
+    )
 
     ret
   }
 
   def +^(right: AFix): AFix = this + right
 
-  /**
-   * Adds `this` to the right hand side AFix value without expanding ranges or checks on value overflow
-   * @param right Value to add to `this`
-   * @return Sum
-   */
+  /** Adds `this` to the right hand side AFix value without expanding ranges or checks on value overflow
+    * @param right Value to add to `this`
+    * @return Sum
+    */
   def +|(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax.max(rMax), lMin.min(rMin), Math.min(this.exp, right.exp))
 
     val (_l, _r) = alignLR(this, right)
-    ret.raw := trim(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resize(ret.bitWidth) + _r.asUInt)
-      case (false,  true) => (_l.asUInt.intoSInt             + _r.asSInt.resize(ret.bitWidth))
-      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) + _r.asUInt.intoSInt)
-      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) + _r.asSInt)
-    }).asBits, ret.bitWidth)
+    ret.raw := trim(
+      ((this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt.resize(ret.bitWidth) + _r.asUInt)
+        case (false, true)  => (_l.asUInt.intoSInt + _r.asSInt.resize(ret.bitWidth))
+        case (true, false)  => (_l.asSInt.resize(ret.bitWidth) + _r.asUInt.intoSInt)
+        case (true, true)   => (_l.asSInt.resize(ret.bitWidth) + _r.asSInt)
+      }).asBits,
+      ret.bitWidth
+    )
 
     ret
   }
 
-  /**
-   * Subtracts `this` to the right hand side AFix value expanding ranges as necessary
-   * @param right Value to subtract from `this`
-   * @return Difference
-   */
+  /** Subtracts `this` to the right hand side AFix value expanding ranges as necessary
+    * @param right Value to subtract from `this`
+    * @return Difference
+    */
   def -(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    val ret = new AFix(lMax-rMin, lMin-rMax, Math.min(this.exp, right.exp))
+    val ret = new AFix(lMax - rMin, lMin - rMax, Math.min(this.exp, right.exp))
 
     val (_l, _r) = alignLR(this, right)
-    ret.raw := trim(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resize(ret.bitWidth) - _r.asUInt)
-      case (false,  true) => (_l.asUInt.intoSInt - _r.asSInt.resize(ret.bitWidth))
-      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) - _r.asUInt.intoSInt)
-      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) - _r.asSInt)
-    }).asBits, ret.bitWidth)
+    ret.raw := trim(
+      ((this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt.resize(ret.bitWidth) - _r.asUInt)
+        case (false, true)  => (_l.asUInt.intoSInt - _r.asSInt.resize(ret.bitWidth))
+        case (true, false)  => (_l.asSInt.resize(ret.bitWidth) - _r.asUInt.intoSInt)
+        case (true, true)   => (_l.asSInt.resize(ret.bitWidth) - _r.asSInt)
+      }).asBits,
+      ret.bitWidth
+    )
 
     ret
   }
 
   def -^(right: AFix): AFix = this - right
 
-  /**
-   * Subtracts `this` from the right hand side AFix value without expanding ranges or checks on value underflow
-   * @param right Value to subtract from `this`
-   * @return Difference
-   */
+  /** Subtracts `this` from the right hand side AFix value without expanding ranges or checks on value underflow
+    * @param right Value to subtract from `this`
+    * @return Difference
+    */
   def -|(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax.max(rMin), lMin.min(rMax), Math.min(this.exp, right.exp))
 
     val (_l, _r) = alignLR(this, right)
-    ret.raw := trim(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resize(ret.bitWidth) - _r.asUInt)
-      case (false,  true) => (_l.asUInt.intoSInt - _r.asSInt.resize(ret.bitWidth))
-      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) - _r.asUInt.intoSInt)
-      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) - _r.asSInt)
-    }).asBits, ret.bitWidth)
+    ret.raw := trim(
+      ((this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt.resize(ret.bitWidth) - _r.asUInt)
+        case (false, true)  => (_l.asUInt.intoSInt - _r.asSInt.resize(ret.bitWidth))
+        case (true, false)  => (_l.asSInt.resize(ret.bitWidth) - _r.asUInt.intoSInt)
+        case (true, true)   => (_l.asSInt.resize(ret.bitWidth) - _r.asSInt)
+      }).asBits,
+      ret.bitWidth
+    )
 
     ret
   }
 
-  /**
-   * Mutiplies `this` by the right hand side AFix value expanding ranges as necessary
-   * @param right Value to multiply `this` by
-   * @return Product
-   */
+  /** Mutiplies `this` by the right hand side AFix value expanding ranges as necessary
+    * @param right Value to multiply `this` by
+    * @return Product
+    */
   def *(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = (this.maxRaw, this.minRaw, right.maxRaw, right.minRaw)
-    val possibleLimits = List(lMax*rMax, lMax*rMin, lMin*rMax, lMin*rMin)
+    val possibleLimits = List(lMax * rMax, lMax * rMin, lMin * rMax, lMin * rMin)
     val ret = new AFix(possibleLimits.max, possibleLimits.min, this.exp + right.exp)
 
     val _l = this.raw
     val _r = right.raw
-    ret.raw := trim(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resize(ret.bitWidth) * _r.asUInt)
-      case (false,  true) => (_l.asUInt.intoSInt             * _r.asSInt.resize(ret.bitWidth)).resize(ret.bitWidth)
-      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) * _r.asUInt.intoSInt)
-      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) * _r.asSInt)
-    }).asBits, ret.bitWidth)
+    ret.raw := trim(
+      ((this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt.resize(ret.bitWidth) * _r.asUInt)
+        case (false, true)  => (_l.asUInt.intoSInt * _r.asSInt.resize(ret.bitWidth)).resize(ret.bitWidth)
+        case (true, false)  => (_l.asSInt.resize(ret.bitWidth) * _r.asUInt.intoSInt)
+        case (true, true)   => (_l.asSInt.resize(ret.bitWidth) * _r.asSInt)
+      }).asBits,
+      ret.bitWidth
+    )
 
     ret
   }
 
-  /**
-   * Divides `this` by the right hand side AFix value expanding ranges as necessary
-   * @param right Value to divide `this` by
-   * @return Quotient
-   */
+  /** Divides `this` by the right hand side AFix value expanding ranges as necessary
+    * @param right Value to divide `this` by
+    * @return Quotient
+    */
   def /(right: AFix): AFix = {
     SpinalWarning("Fixed-point division is not finalized and not recommended for use!\n" + ScalaLocated.long)
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax.max(rMax), lMin.min(rMin), this.exp + right.exp)
 
     val (_l, _r) = alignLR(this, right)
-    ret.raw := trim(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt          / _r.asUInt).resize(ret.bitWidth)
-      case (false,  true) => (_l.asUInt.intoSInt / _r.asSInt).resize(ret.bitWidth)
-      case ( true, false) => (_l.asSInt          / _r.asUInt.intoSInt).resize(ret.bitWidth)
-      case ( true,  true) => (_l.asSInt          / _r.asSInt).resize(ret.bitWidth)
-    }).asBits, ret.bitWidth)
+    ret.raw := trim(
+      ((this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt / _r.asUInt).resize(ret.bitWidth)
+        case (false, true)  => (_l.asUInt.intoSInt / _r.asSInt).resize(ret.bitWidth)
+        case (true, false)  => (_l.asSInt / _r.asUInt.intoSInt).resize(ret.bitWidth)
+        case (true, true)   => (_l.asSInt / _r.asSInt).resize(ret.bitWidth)
+      }).asBits,
+      ret.bitWidth
+    )
 
     ret
   }
 
-  /**
-   * Divides `this` by the right hand side AFix value expanding ranges as necessary
-   * @param right Value to divide `this` by
-   * @return Remainder
-   */
+  /** Divides `this` by the right hand side AFix value expanding ranges as necessary
+    * @param right Value to divide `this` by
+    * @return Remainder
+    */
   def %(right: AFix): AFix = {
     SpinalWarning("Fixed-point modulo is not finalized and not recommended for use!\n" + ScalaLocated.long)
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax.max(rMax), lMin.min(rMin), this.exp + right.exp)
 
     val (_l, _r) = alignLR(this, right)
-    ret.raw := trim(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt          % _r.asUInt).resize(ret.bitWidth)
-      case (false,  true) => (_l.asUInt.intoSInt % _r.asSInt).resize(ret.bitWidth)
-      case ( true, false) => (_l.asSInt          % _r.asUInt.intoSInt).resize(ret.bitWidth)
-      case ( true,  true) => (_l.asSInt          % _r.asSInt).resize(ret.bitWidth)
-    }).asBits, ret.bitWidth)
+    ret.raw := trim(
+      ((this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt % _r.asUInt).resize(ret.bitWidth)
+        case (false, true)  => (_l.asUInt.intoSInt % _r.asSInt).resize(ret.bitWidth)
+        case (true, false)  => (_l.asSInt % _r.asUInt.intoSInt).resize(ret.bitWidth)
+        case (true, true)   => (_l.asSInt % _r.asSInt).resize(ret.bitWidth)
+      }).asBits,
+      ret.bitWidth
+    )
 
     ret
   }
@@ -494,10 +510,10 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def ===(right: AFix): Bool = {
     val (_l, _r) = alignLR(this, right)
     (this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resized          === _r.asUInt.resized)
-      case (false,  true) => (_l.asUInt.intoSInt.resized === _r.asSInt.resized)
-      case ( true, false) => (_l.asSInt.resized          === _r.asUInt.intoSInt.resized)
-      case ( true,  true) => (_l.asSInt.resized          === _r.asSInt.resized)
+      case (false, false) => (_l.asUInt.resized === _r.asUInt.resized)
+      case (false, true)  => (_l.asUInt.intoSInt.resized === _r.asSInt.resized)
+      case (true, false)  => (_l.asSInt.resized === _r.asUInt.intoSInt.resized)
+      case (true, true)   => (_l.asSInt.resized === _r.asSInt.resized)
     }
   }
 
@@ -505,50 +521,50 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def =/=(right: AFix): Bool = {
     val (_l, _r) = alignLR(this, right)
     (this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resized          =/= _r.asUInt.resized)
-      case (false,  true) => (_l.asUInt.intoSInt.resized =/= _r.asSInt.resized)
-      case ( true, false) => (_l.asSInt.resized          =/= _r.asUInt.intoSInt.resized)
-      case ( true,  true) => (_l.asSInt.resized          =/= _r.asSInt.resized)
+      case (false, false) => (_l.asUInt.resized =/= _r.asUInt.resized)
+      case (false, true)  => (_l.asUInt.intoSInt.resized =/= _r.asSInt.resized)
+      case (true, false)  => (_l.asSInt.resized =/= _r.asUInt.intoSInt.resized)
+      case (true, true)   => (_l.asSInt.resized =/= _r.asSInt.resized)
     }
   }
 
   def <(right: AFix): Bool = {
     val (_l, _r) = alignLR(this, right)
     (this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resized          < _r.asUInt.resized)
-      case (false,  true) => (_l.asUInt.intoSInt.resized < _r.asSInt.resized)
-      case ( true, false) => (_l.asSInt.resized          < _r.asUInt.intoSInt.resized)
-      case ( true,  true) => (_l.asSInt.resized          < _r.asSInt.resized)
+      case (false, false) => (_l.asUInt.resized < _r.asUInt.resized)
+      case (false, true)  => (_l.asUInt.intoSInt.resized < _r.asSInt.resized)
+      case (true, false)  => (_l.asSInt.resized < _r.asUInt.intoSInt.resized)
+      case (true, true)   => (_l.asSInt.resized < _r.asSInt.resized)
     }
   }
 
   def <=(right: AFix): Bool = {
     val (_l, _r) = alignLR(this, right)
     (this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resized          <= _r.asUInt.resized)
-      case (false,  true) => (_l.asUInt.intoSInt.resized <= _r.asSInt.resized)
-      case ( true, false) => (_l.asSInt.resized          <= _r.asUInt.intoSInt.resized)
-      case ( true,  true) => (_l.asSInt.resized          <= _r.asSInt.resized)
+      case (false, false) => (_l.asUInt.resized <= _r.asUInt.resized)
+      case (false, true)  => (_l.asUInt.intoSInt.resized <= _r.asSInt.resized)
+      case (true, false)  => (_l.asSInt.resized <= _r.asUInt.intoSInt.resized)
+      case (true, true)   => (_l.asSInt.resized <= _r.asSInt.resized)
     }
   }
 
   def >(right: AFix): Bool = {
     val (_l, _r) = alignLR(this, right)
     (this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resized          > _r.asUInt.resized)
-      case (false,  true) => (_l.asUInt.intoSInt.resized > _r.asSInt.resized)
-      case ( true, false) => (_l.asSInt.resized          > _r.asUInt.intoSInt.resized)
-      case ( true,  true) => (_l.asSInt.resized          > _r.asSInt.resized)
+      case (false, false) => (_l.asUInt.resized > _r.asUInt.resized)
+      case (false, true)  => (_l.asUInt.intoSInt.resized > _r.asSInt.resized)
+      case (true, false)  => (_l.asSInt.resized > _r.asUInt.intoSInt.resized)
+      case (true, true)   => (_l.asSInt.resized > _r.asSInt.resized)
     }
   }
 
   def >=(right: AFix): Bool = {
     val (_l, _r) = alignLR(this, right)
     (this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resized          >= _r.asUInt.resized)
-      case (false,  true) => (_l.asUInt.intoSInt.resized >= _r.asSInt.resized)
-      case ( true, false) => (_l.asSInt.resized          >= _r.asUInt.intoSInt.resized)
-      case ( true,  true) => (_l.asSInt.resized          >= _r.asSInt.resized)
+      case (false, false) => (_l.asUInt.resized >= _r.asUInt.resized)
+      case (false, true)  => (_l.asUInt.intoSInt.resized >= _r.asSInt.resized)
+      case (true, false)  => (_l.asSInt.resized >= _r.asUInt.intoSInt.resized)
+      case (true, true)   => (_l.asSInt.resized >= _r.asSInt.resized)
     }
   }
 
@@ -608,7 +624,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
-  //Shift right, lose lsb bits
+  // Shift right, lose lsb bits
   def >>|(shift: AFix): AFix = {
     assert(shift.exp == 0)
     assert(shift.minRaw == 0)
@@ -619,7 +635,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
-  //Shift left, lose MSB bits
+  // Shift left, lose MSB bits
   def |<<(shift: AFix): AFix = {
     assert(shift.exp == 0)
     assert(shift.minRaw == 0)
@@ -630,11 +646,11 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
-
   // Shift bits and decimal point left, loosing bits
   def |<<(shift: Int): AFix = {
-    val width = widthOf(raw)-shift
-    val ret = new AFix(this.maxRaw.min(BigInt(2).pow(width)-1), this.minRaw.max(-BigInt(2).pow(width)), (this.exp + shift))
+    val width = widthOf(raw) - shift
+    val ret =
+      new AFix(this.maxRaw.min(BigInt(2).pow(width) - 1), this.minRaw.max(-BigInt(2).pow(width)), (this.exp + shift))
 
     ret.raw := this.raw.resized
 
@@ -644,14 +660,14 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def unary_-(): AFix = negate(True)
 
   def negate(): AFix = negate(True)
-  def negate(enable : Bool, plusOneEnable : Bool = null): AFix = {
+  def negate(enable: Bool, plusOneEnable: Bool = null): AFix = {
     val ret = new AFix(-this.minRaw max this.maxRaw, -this.maxRaw min this.minRaw, this.exp)
     ret.raw := U(this.raw).twoComplement(enable, plusOneEnable).asBits
     ret
   }
 
-  def resize(newExp : ExpNumber): AFix ={
-    assert(newExp.value < exp) //for now
+  def resize(newExp: ExpNumber): AFix = {
+    assert(newExp.value < exp) // for now
     val dif = exp - newExp.value
     val ret = new AFix(
       this.maxRaw * (BigInt(1) << dif),
@@ -664,23 +680,22 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
-  def isNegative() : Bool = signed match {
+  def isNegative(): Bool = signed match {
     case false => False
     case true  => raw.msb
   }
-  def isPositive() : Bool = signed match {
+  def isPositive(): Bool = signed match {
     case false => True
     case true  => !raw.msb
   }
-  def isZero() : Bool = raw === 0
+  def isZero(): Bool = raw === 0
 
-  def asAlwaysPositive() : AFix = {
+  def asAlwaysPositive(): AFix = {
     assert(signed)
     val ret = AFix(maxRaw = maxRaw, minRaw = 0, exp = exp exp)
     ret := this.truncated
     ret
   }
-
 
   /** Logical AND operator */
   override def &(right: AFix): AFix = {
@@ -713,40 +728,37 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
-  /**
-   * Saturates a number to the range of another number.
-   * This accounts for decimal shifting.
-   * @param af - AFix value to saturate range to
-   * @return - Saturated AFix value
-   */
+  /** Saturates a number to the range of another number.
+    * This accounts for decimal shifting.
+    * @param af - AFix value to saturate range to
+    * @return - Saturated AFix value
+    */
   def sat(af: AFix): AFix = this.sat(af.maxRaw, af.minRaw, af.exp exp)
 
-  /**
-   *
-   * @param satMax
-   * @param satMin
-   * @param exp
-   * @return
-   */
+  /** @param satMax
+    * @param satMin
+    * @param exp
+    * @return
+    */
   def sat(satMax: BigInt, satMin: BigInt, exp: ExpNumber): AFix = {
     val expDiff = this.exp - exp.value
     if (expDiff > 0) {
-      sat(satMax/BigInt(2).pow(expDiff),
-          satMin/BigInt(2).pow(expDiff))
+      sat(satMax / BigInt(2).pow(expDiff), satMin / BigInt(2).pow(expDiff))
     } else if (expDiff < 0) {
-      sat(satMax*BigInt(2).pow(-expDiff) + (if (satMax != 0) BigInt(2).pow(-expDiff)-1 else 0),
-          satMin*BigInt(2).pow(-expDiff) + (if (satMin != 0) BigInt(2).pow(-expDiff)-1 else 0))
+      sat(
+        satMax * BigInt(2).pow(-expDiff) + (if (satMax != 0) BigInt(2).pow(-expDiff) - 1 else 0),
+        satMin * BigInt(2).pow(-expDiff) + (if (satMin != 0) BigInt(2).pow(-expDiff) - 1 else 0)
+      )
     } else {
       sat(satMax, satMin)
     }
   }
 
-  /**
-   * Saturates a number to a provided integer representation value range
-   * @param satMax Max integer value to saturate
-   * @param satMin Min integer value to saturate
-   * @return - Saturated AFix value
-   */
+  /** Saturates a number to a provided integer representation value range
+    * @param satMax Max integer value to saturate
+    * @param satMin Min integer value to saturate
+    * @return - Saturated AFix value
+    */
   def sat(satMax: BigInt, satMin: BigInt): AFix = {
     if (this.maxRaw < satMax || this.minRaw > satMin) {
       if (this.hasTag(tagAutoResize)) {
@@ -756,7 +768,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       }
     }
     val ret = new AFix(satMax.min(this.maxRaw), satMin.max(this.minRaw), exp)
-    when (this > AFix(satMax, exp exp)) {
+    when(this > AFix(satMax, exp exp)) {
       if (ret.signed)
         ret.raw := BigIntToSInt(ret.maxRaw).resize(ret.bitWidth).asBits
       else
@@ -775,16 +787,15 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
-  /**
-   * Saturates the top m bits. Other AFix specific saturation functions are recommended.
-   * This function is bit orientated unlike other AFix functions.
-   * @param m - Number of high bits to saturate off
-   * @return
-   */
+  /** Saturates the top m bits. Other AFix specific saturation functions are recommended.
+    * This function is bit orientated unlike other AFix functions.
+    * @param m - Number of high bits to saturate off
+    * @return
+    */
   def sat(m: Int): AFix = {
     if (m == 0) return this
-    val newMax = BigInt(2).pow(bitWidth-m).min(this.maxRaw)
-    val newMin = if (signed) (-BigInt(2).pow(bitWidth-m)).max(this.minRaw) else BigInt(0).max(this.minRaw)
+    val newMax = BigInt(2).pow(bitWidth - m).min(this.maxRaw)
+    val newMin = if (signed) (-BigInt(2).pow(bitWidth - m)).max(this.minRaw) else BigInt(0).max(this.minRaw)
     val ret = new AFix(newMax, newMin, exp)
 
     if (this.signed) {
@@ -796,16 +807,15 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
-  /**
-   * Trims the bottom m bits. Other AFix specific rounding functions are recommended.
-   * This function is bit orientated unlike other AFix functions.
-   * @param m - Number of low bits to trim off
-   * @return
-   */
+  /** Trims the bottom m bits. Other AFix specific rounding functions are recommended.
+    * This function is bit orientated unlike other AFix functions.
+    * @param m - Number of low bits to trim off
+    * @return
+    */
   def trim(m: Int): AFix = {
     val newMax = BigInt(2).pow(m).min(this.maxRaw)
     val newMin = if (signed) (-BigInt(2).pow(m)).max(this.minRaw) else BigInt(0).max(this.minRaw)
-    val newExp = if (m >= 0) exp+m else exp-m
+    val newExp = if (m >= 0) exp + m else exp - m
     val ret = new AFix(newMax, newMin, newExp)
 
     if (this.signed) {
@@ -817,13 +827,12 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
-  /**
-   * Rounds a value down towards negative infinity (truncation) at the given exp point position
-   * @return Rounded result
-   */
-  def floor(exp : Int): AFix = {
-    val drop = exp-this.exp
-    if(drop < 0) return CombInit(this)
+  /** Rounds a value down towards negative infinity (truncation) at the given exp point position
+    * @return Rounded result
+    */
+  def floor(exp: Int): AFix = {
+    val drop = exp - this.exp
+    if (drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.FLOOR)
     val res = new AFix(newMax, newMin, exp)
 
@@ -836,28 +845,26 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   }
 
   // Rounding which will set the LSB if any of the thrown bits is set
-  def scrap(exp : Int): AFix = {
-    val drop = exp-this.exp
-    if(drop < 0) return CombInit(this)
+  def scrap(exp: Int): AFix = {
+    val drop = exp - this.exp
+    if (drop < 0) return CombInit(this)
     val res = new AFix((this.maxRaw >> drop), this.minRaw >> drop, exp)
 
     res.raw := this.raw.dropLow(drop)
-    res.raw.lsb setWhen(this.raw.takeLow(drop).orR)
+    res.raw.lsb setWhen (this.raw.takeLow(drop).orR)
     res
   }
 
-
   def truncate(): AFix = this.floor(0)
 
-  /**
-   * Rounds a value up towards positive infinity at the given exp point position
-   * @return Rounded result
-   */
-  def ceil(exp : Int): AFix = ceil(exp, getTrunc.saturation)
+  /** Rounds a value up towards positive infinity at the given exp point position
+    * @return Rounded result
+    */
+  def ceil(exp: Int): AFix = ceil(exp, getTrunc.saturation)
 
   def ceil(exp: Int, aligned: Boolean): AFix = {
-    val drop = exp-this.exp
-    if(drop < 0) return CombInit(this)
+    val drop = exp - this.exp
+    if (drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.CEIL)
     val res = new AFix(newMax, newMin, exp)
 
@@ -870,14 +877,13 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     res
   }
 
-  /**
-   * Rounds a value towards zero
-   * @return Rounded result
-   */
+  /** Rounds a value towards zero
+    * @return Rounded result
+    */
   def floorToZero(exp: Int): AFix = {
     if (this.signed) {
-      val drop = exp-this.exp
-      if(drop < 0) return CombInit(this)
+      val drop = exp - this.exp
+      if (drop < 0) return CombInit(this)
       val (newMax, newMin) = roundedBounds(exp, RoundType.FLOORTOZERO)
       val res = new AFix(newMax, newMin, exp)
 
@@ -888,18 +894,17 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     }
   }
 
-  /**
-   * Rounds a value towards negative or positive infinity
-   * @return Rounded result
-   */
+  /** Rounds a value towards negative or positive infinity
+    * @return Rounded result
+    */
   def ceilToInf(exp: Int): AFix = {
     ceilToInf(exp, getTrunc.saturation)
   }
 
   def ceilToInf(exp: Int, aligned: Boolean): AFix = {
     if (this.signed) {
-      val drop = exp-this.exp
-      if(drop < 0) return CombInit(this)
+      val drop = exp - this.exp
+      if (drop < 0) return CombInit(this)
       val (newMax, newMin) = roundedBounds(exp, RoundType.CEILTOINF)
       val res = new AFix(newMax, newMin, exp)
 
@@ -910,17 +915,16 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     }
   }
 
-  /**
-   * Rounds a value up (ceiling) if x >= 0.5 otherwise rounds down (floor/truncate)
-   * @return Rounded result
-   */
+  /** Rounds a value up (ceiling) if x >= 0.5 otherwise rounds down (floor/truncate)
+    * @return Rounded result
+    */
   def roundHalfUp(exp: Int): AFix = {
     roundUp(exp, getTrunc.saturation)
   }
 
   def roundUp(exp: Int, aligned: Boolean): AFix = {
-    val drop = exp-this.exp
-    if(drop < 0) return CombInit(this)
+    val drop = exp - this.exp
+    if (drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDUP)
     val res = new AFix(newMax, newMin, exp)
 
@@ -932,17 +936,16 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     res
   }
 
-  /**
-   * Rounds a value down (floor/truncate) if x <= 0.5 otherwise rounds up (ceil)
-   * @return Rounded result
-   */
+  /** Rounds a value down (floor/truncate) if x <= 0.5 otherwise rounds up (ceil)
+    * @return Rounded result
+    */
   def roundHalfDown(exp: Int): AFix = {
     roundDown(exp, getTrunc.saturation)
   }
 
   def roundDown(exp: Int, aligned: Boolean): AFix = {
-    val drop = exp-this.exp
-    if(drop < 0) return CombInit(this)
+    val drop = exp - this.exp
+    if (drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDDOWN)
     val res = new AFix(newMax, newMin, exp)
 
@@ -954,18 +957,17 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     res
   }
 
-  /**
-   * Rounds a value towards zero (floor/truncate) if x <= 0.5 otherwise rounds towards infinity
-   * @return Rounded result
-   */
+  /** Rounds a value towards zero (floor/truncate) if x <= 0.5 otherwise rounds towards infinity
+    * @return Rounded result
+    */
   def roundHalfToZero(exp: Int): AFix = {
     roundToZero(exp, getTrunc.saturation)
   }
 
   def roundToZero(exp: Int, aligned: Boolean): AFix = {
     if (this.signed) {
-      val drop = exp-this.exp
-      if(drop < 0) return CombInit(this)
+      val drop = exp - this.exp
+      if (drop < 0) return CombInit(this)
       val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOZERO)
       val res = new AFix(newMax, newMin, exp)
 
@@ -976,18 +978,17 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     }
   }
 
-  /**
-   * Rounds a value towards infinity if x >= 0.5 otherwise rounds towards zero
-   * @return Rounded result
-   */
+  /** Rounds a value towards infinity if x >= 0.5 otherwise rounds towards zero
+    * @return Rounded result
+    */
   def roundHalfToInf(exp: Int): AFix = {
     roundToInf(exp, getTrunc.saturation)
   }
 
   def roundToInf(exp: Int, aligned: Boolean): AFix = {
     if (this.signed) {
-      val drop = exp-this.exp
-      if(drop < 0) return CombInit(this)
+      val drop = exp - this.exp
+      if (drop < 0) return CombInit(this)
       val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOINF)
       val res = new AFix(newMax, newMin, exp)
 
@@ -998,17 +999,16 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     }
   }
 
-  /**
-   * Rounds a value towards the nearest even value including half values, otherwise rounds towards odd values
-   * @return Rounded result
-   */
+  /** Rounds a value towards the nearest even value including half values, otherwise rounds towards odd values
+    * @return Rounded result
+    */
   def roundHalfToEven(exp: Int): AFix = {
     roundToEven(exp, getTrunc.saturation)
   }
 
   def roundToEven(exp: Int, aligned: Boolean): AFix = {
-    val drop = exp-this.exp
-    if(drop < 0) return CombInit(this)
+    val drop = exp - this.exp
+    if (drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOEVEN)
     val res = new AFix(newMax, newMin, exp)
 
@@ -1021,17 +1021,16 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     res
   }
 
-  /**
-   * Rounds a value towards the nearest odd value including half values, otherwise rounds towards even values
-   * @return Rounded result
-   */
+  /** Rounds a value towards the nearest odd value including half values, otherwise rounds towards even values
+    * @return Rounded result
+    */
   def roundHalfToOdd(exp: Int): AFix = {
     roundToOdd(exp, getTrunc.saturation)
   }
 
   def roundToOdd(exp: Int, align: Boolean): AFix = {
-    val drop = exp-this.exp
-    if(drop < 0) return CombInit(this)
+    val drop = exp - this.exp
+    if (drop < 0) return CombInit(this)
     val (newMax, newMin) = roundedBounds(exp, RoundType.ROUNDTOODD)
     val res = new AFix(newMax, newMin, exp)
 
@@ -1055,19 +1054,20 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def fixTo(af: AFix, roundType: RoundType): AFix = this._round(roundType, af.exp).sat(af)
   def fixTo(af: AFix): AFix = this.fixTo(af, getTrunc.rounding)
   def fixTo(Q: QFormat): AFix = {
-    val res = AFix(Q.width-Q.fraction exp, -Q.fraction exp, Q.signed)
+    val res = AFix(Q.width - Q.fraction exp, -Q.fraction exp, Q.signed)
     res := this.fixTo(res)
     res
   }
 
   def fixTo(Q: QFormat, roundType: RoundType): AFix = {
-    val res = AFix(Q)  // assuming the above apply method is added
+    val res = AFix(Q) // assuming the above apply method is added
     res := this.fixTo(res, roundType)
     res
   }
 
   override def toString: String = {
-    s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxRaw}($maxValue), min=${minRaw}($minValue), exp=${exp}($step), bits=${raw.getWidth}]"
+    s"${component.getPath() + "/" + this
+        .getDisplayName()} : ${getClass.getSimpleName}[max=${maxRaw}($maxValue), min=${minRaw}($minValue), exp=${exp}($step), bits=${raw.getWidth}]"
   }
 
   private def _round(roundType: RoundType, exp: Int = 0, align: Boolean = getTrunc.saturation): AFix = {
@@ -1082,35 +1082,39 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       case RoundType.ROUNDTOINF  => this.roundToInf(exp, align)
       case RoundType.ROUNDTOEVEN => this.roundToEven(exp, align)
       case RoundType.ROUNDTOODD  => this.roundToOdd(exp, align)
-      case RoundType.SCRAP        => this.scrap(exp)
+      case RoundType.SCRAP       => this.scrap(exp)
     }
   }
 
-  def saturated(rounding  : RoundType): AFix = this.truncated(saturation = true, overflow = false, rounding = rounding)
+  def saturated(rounding: RoundType): AFix = this.truncated(saturation = true, overflow = false, rounding = rounding)
   def saturated: AFix = this.saturated(getTrunc.rounding)
 
-  def truncated(saturation: Boolean, overflow: Boolean, rounding: RoundType) : AFix = {
+  def truncated(saturation: Boolean, overflow: Boolean, rounding: RoundType): AFix = {
     assert(!(saturation && overflow), s"Cannot both overflow and saturate.\n")
     val copy = cloneOf(this)
     copy.raw := this.raw
-    copy.addTag(new TagAFixTruncated(
-      saturation,
-      overflow,
-      rounding
-    ))
+    copy.addTag(
+      new TagAFixTruncated(
+        saturation,
+        overflow,
+        rounding
+      )
+    )
     copy
   }
   def truncated: AFix = this.truncated(saturation = false, overflow = true, getTrunc.rounding)
 
-  def rounded(rounding  : RoundType): AFix = truncated(saturation = false, overflow = false, rounding = rounding)
+  def rounded(rounding: RoundType): AFix = truncated(saturation = false, overflow = false, rounding = rounding)
   def rounded: AFix = this.rounded(getTrunc.rounding)
 
   override protected def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef)(implicit loc: Location): Unit = {
     that match {
       case af: AFix =>
         val trunc = af.getTag(classOf[TagAFixTruncated])
-        if(this.exp > af.exp && trunc.isEmpty){
-          PendingError(s"Cannot assign ${af} to ${this} as precision would be lost! Consider rounding before assignment.\n" + ScalaLocated.long)
+        if (this.exp > af.exp && trunc.isEmpty) {
+          PendingError(
+            s"Cannot assign ${af} to ${this} as precision would be lost! Consider rounding before assignment.\n" + ScalaLocated.long
+          )
           return
         }
 
@@ -1123,8 +1127,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
           }
         }
 
-
-
         var af_sat: AFix = af_rounded
         if (trunc.isDefined) {
           if (trunc.get.saturation) {
@@ -1136,18 +1138,21 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
         }
 
         val (du, dd, su, sd) = alignRanges(this, af_sat)
-        if((du < su || dd > sd) && (trunc.isEmpty || (!trunc.get.saturation && !trunc.get.overflow))){
-          PendingError(s"Cannot assign ${af} to ${this} as it would get out of range $du < $su || $dd > $sd \n" + ScalaLocated.long)
+        if ((du < su || dd > sd) && (trunc.isEmpty || (!trunc.get.saturation && !trunc.get.overflow))) {
+          PendingError(
+            s"Cannot assign ${af} to ${this} as it would get out of range $du < $su || $dd > $sd \n" + ScalaLocated.long
+          )
           return
         }
 
         (this.signed, af_sat.signed) match {
-          case (true, true) => this.raw.compositAssignFrom(af_sat.raw.asSInt.resize(widthOf(this.raw)).asBits, this.raw, kind)
-          case _            => this.raw.compositAssignFrom(af_sat.raw.resized, this.raw, kind)
+          case (true, true) =>
+            this.raw.compositAssignFrom(af_sat.raw.asSInt.resize(widthOf(this.raw)).asBits, this.raw, kind)
+          case _ => this.raw.compositAssignFrom(af_sat.raw.resized, this.raw, kind)
         }
 
-      case u: UInt => this.raw.compositAssignFrom(u.asBits, this.raw, kind)
-      case s: SInt => this.raw.compositAssignFrom(s.asBits, this.raw, kind)
+      case u: UInt  => this.raw.compositAssignFrom(u.asBits, this.raw, kind)
+      case s: SInt  => this.raw.compositAssignFrom(s.asBits, this.raw, kind)
       case uf: UFix => this.compositAssignFrom(AFix(uf), this, kind)
       case sf: SFix => this.compositAssignFrom(AFix(sf), this, kind)
     }
@@ -1178,27 +1183,28 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 
   def asUFix(): UFix = this.asUInt().toUFix >> -this.exp
   def asSFix(): SFix = this.asSInt().toSFix >> -this.exp
-  def toAFix(that : HardType[AFix]) : AFix = {
+  def toAFix(that: HardType[AFix]): AFix = {
     val ret = that()
     ret := this
     ret
   }
 
-  def :=(u: UInt) = this assignFrom(u)
-  def :=(s: SInt) = this assignFrom(s)
-  def :=(u: UFix) = this assignFrom(u)
-  def :=(s: SFix) = this assignFrom(s)
-  def :=(a: AFix) = this assignFrom(a)
+  def :=(u: UInt) = this assignFrom (u)
+  def :=(s: SInt) = this assignFrom (s)
+  def :=(u: UFix) = this assignFrom (u)
+  def :=(s: SFix) = this assignFrom (s)
+  def :=(a: AFix) = this assignFrom (a)
 
   def :=(that: BigDecimal) = {
     assert(that <= this.maxValue, s"Literal $that is too big to be assigned in $this")
     assert(that >= this.minValue, s"Literal $that is too negative to be assigned in this $this")
 
     val shift = -exp
-    val value = if(shift >= 0)
-      (that * BigDecimal(BigInt(1) << shift)).toBigInt
-    else
-      (that / BigDecimal(BigInt(1) << -shift)).toBigInt
+    val value =
+      if (shift >= 0)
+        (that * BigDecimal(BigInt(1) << shift)).toBigInt
+      else
+        (that / BigDecimal(BigInt(1) << -shift)).toBigInt
     this.raw := value
   }
 
@@ -1213,14 +1219,15 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 
   override def clone: this.type = new AFix(maxRaw, minRaw, exp).asInstanceOf[this.type]
 
-  def hasParametersOf(that : AFix) : Boolean = this.maxRaw == that.maxRaw && this.minRaw == that.minRaw && this.exp == that.exp
+  def hasParametersOf(that: AFix): Boolean =
+    this.maxRaw == that.maxRaw && this.minRaw == that.minRaw && this.exp == that.exp
   override def getMuxType[T <: Data](list: TraversableOnce[T]) = {
     val p = AFix.holdingParams(list.asInstanceOf[TraversableOnce[AFix]])
     HardType(new AFix(p._1, p._2, p._3).asInstanceOf[T])
   }
 
-  override def toMuxInput[T <: Data](muxOutput: T) : T = {
-    if(this.hasParametersOf(muxOutput.asInstanceOf[AFix])) return this.asInstanceOf[T]
+  override def toMuxInput[T <: Data](muxOutput: T): T = {
+    if (this.hasParametersOf(muxOutput.asInstanceOf[AFix])) return this.asInstanceOf[T]
     val ret = cloneOf(muxOutput)
     ret.assignFrom(this)
     ret
@@ -1237,23 +1244,27 @@ object AF {
   }
 }
 
-class TagAFixTruncated(val saturation: Boolean,
-                       val overflow  : Boolean,
-                       val rounding  : RoundType
-                       ) extends SpinalTag{
+class TagAFixTruncated(val saturation: Boolean, val overflow: Boolean, val rounding: RoundType) extends SpinalTag {
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
 }
 
-
 object AFixRounding extends ScopeProperty[TagAFixTruncated] {
   override def default: TagAFixTruncated = new TagAFixTruncated(false, false, RoundType.FLOOR)
 
-  def set(saturation: Boolean = true, overflow: Boolean = false, rounding: RoundType = RoundType.FLOOR): AFixRounding.SetReturn = {
-   new AFixRounding.SetReturn(new TagAFixTruncated(saturation, overflow, rounding))
+  def set(
+      saturation: Boolean = true,
+      overflow: Boolean = false,
+      rounding: RoundType = RoundType.FLOOR
+  ): AFixRounding.SetReturn = {
+    new AFixRounding.SetReturn(new TagAFixTruncated(saturation, overflow, rounding))
   }
 
-  def apply(saturation: Boolean = true, overflow: Boolean = false, rounding: RoundType = RoundType.FLOOR): AFixRounding.ApplyClass = {
+  def apply(
+      saturation: Boolean = true,
+      overflow: Boolean = false,
+      rounding: RoundType = RoundType.FLOOR
+  ): AFixRounding.ApplyClass = {
     new AFixRounding.ApplyClass(new TagAFixTruncated(saturation, overflow, rounding))
   }
 }

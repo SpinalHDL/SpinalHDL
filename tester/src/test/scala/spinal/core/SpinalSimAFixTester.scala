@@ -9,28 +9,32 @@ import scala.math.BigDecimal.RoundingMode
 import scala.util.Random
 
 class SpinalSimAFixTester extends SpinalAnyFunSuite {
-  def check(max : Int, min : Int, exp : Int)(f : AFix): Unit ={
+  def check(max: Int, min: Int, exp: Int)(f: AFix): Unit = {
     assert(f.maxRaw == max && f.minRaw == min && f.exp == exp)
   }
   test("instantiate") {
-    SpinalVerilog(new Component{
+    SpinalVerilog(new Component {
 
-      check(4095,0,0)(AFix.U(12 bits)) //Q12.0
-      check(4095,0,-4)(AFix.U(8 exp, 12 bits)) //Q8.4
-      check(4095,0,-4)(AFix.U(8 exp, -4 exp)) //Q8.4
-      check(4095,0,-4)(AFix.UQ(8 bits, 4 bits)) //Q8.4
+      check(4095, 0, 0)(AFix.U(12 bits)) // Q12.0
+      check(4095, 0, -4)(AFix.U(8 exp, 12 bits)) // Q8.4
+      check(4095, 0, -4)(AFix.U(8 exp, -4 exp)) // Q8.4
+      check(4095, 0, -4)(AFix.UQ(8 bits, 4 bits)) // Q8.4
 //      check(4095,0,-4)(AFix.U(255, -4 exp)) //Q8.4
 //      check(4095,2048,-4)(AFix.U(255, 128, -4 exp)) //Q8.4
-      check(2047,-2048,0)(AFix.S(12 bits)) //Q11.0 + sign bit
-      check(2047,-2048,-4)(AFix.S(7 exp, 12 bits)) //Q7.4  + sign bit
-      check(2047,-2048,-4)(AFix.S(7 exp, -4 exp)) //Q7.4  + sign bit
-      check(2047,-2048,-4)(AFix.SQ(7 bits, 4 bits)) //Q8.4 + sign bit
-//      check(2047,-2048,-4)(AFix.S(127, -128, -4 exp)) //Q7.4 + sign bit
+      check(4095, 0, 0)(AFix(QFormat(12, 0, false))) // Q12.0
+      check(4095, 0, -4)(AFix(QFormat(12, 4, false))) // Q8.4
+      check(2047, -2048, 0)(AFix.S(12 bits)) // Q11.0 + sign bit
+      check(2047, -2048, -4)(AFix.S(7 exp, 12 bits)) // Q7.4  + sign bit
+      check(2047, -2048, -4)(AFix.S(7 exp, -4 exp)) // Q7.4  + sign bit
+      check(2047, -2048, -4)(AFix.SQ(7 bits, 4 bits)) // Q8.4 + sign bit
+//      check(2047,-2048,-4)(AFix.S(127, -128, -4 exp)) // Q7.4 + sign bit
+      check(2047, -2048, 0)(AFix(QFormat(12, 0, true))) // Q12.0
+      check(2047, -2048, -4)(AFix(QFormat(12, 4, true))) // Q7.4 + sign bit
     })
   }
 
   test("assign") {
-    SpinalVerilog(new Component{
+    SpinalVerilog(new Component {
       val u_8_4_a = AFix.U(8 exp, -4 exp)
       val u_8_4_b = AFix.U(8 exp, -4 exp)
       val u_10_4_b = AFix.U(10 exp, -4 exp)
@@ -50,9 +54,9 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
     SimConfig.compile(new AFixTester()).doSim(seed = 0) { dut =>
       val OPS = 0 to 2
       val ROUNDS = 0 to 9
-      for(op <- OPS) {
-        for(round <- ROUNDS) {
-          for(i <- 0 until 1000) {
+      for (op <- OPS) {
+        for (round <- ROUNDS) {
+          for (i <- 0 until 1000) {
             dut.io.inFix.foreach(_.randomize())
             dut.io.opMode #= op
             dut.io.roundMode #= round
@@ -68,10 +72,12 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
     SimConfig.compile(new AFixTester()).doSim(seed = 0) { dut =>
       val OPS = 0 to 2
       val ROUNDS = 0 to 9
-      for(op <- OPS) {
-        for(round <- ROUNDS) {
-          for(x <- -BigInt(2).pow(dut.io.inFix(0).fracWidth)*3 until BigInt(2).pow(dut.io.inFix(0).fracWidth)*3) {
-            for (y <- -BigInt(2).pow(dut.io.inFix(1).fracWidth)*3 until BigInt(2).pow(dut.io.inFix(1).fracWidth)*3) {
+      for (op <- OPS) {
+        for (round <- ROUNDS) {
+          for (x <- -BigInt(2).pow(dut.io.inFix(0).fracWidth) * 3 until BigInt(2).pow(dut.io.inFix(0).fracWidth) * 3) {
+            for (
+              y <- -BigInt(2).pow(dut.io.inFix(1).fracWidth) * 3 until BigInt(2).pow(dut.io.inFix(1).fracWidth) * 3
+            ) {
               dut.io.inFix(0) #= BigDecimal(x) / BigDecimal(2).pow(dut.io.inFix(0).fracWidth)
               dut.io.inFix(1) #= BigDecimal(y) / BigDecimal(2).pow(dut.io.inFix(1).fracWidth)
               dut.io.opMode #= op
@@ -109,13 +115,7 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
     val b_deci_str = model.b.toString()
     val r_deci_str = model.result.toString()
 
-    val padWidth = List(
-        a_bin,
-        b_bin,
-        r_bin,
-        a_deci_str,
-        b_deci_str,
-        r_deci_str).map(_.length).max
+    val padWidth = List(a_bin, b_bin, r_bin, a_deci_str, b_deci_str, r_deci_str).map(_.length).max
 
     val a_bin_pad = a_bin.reverse.padTo(dut.io.inFix(0).bitWidth, '0').padTo(padWidth, ' ').reverse
     val b_bin_pad = b_bin.reverse.padTo(dut.io.inFix(1).bitWidth, '0').padTo(padWidth, ' ').reverse
@@ -156,22 +156,31 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
 
   case class AFixTesterModel(dut: AFixTester) {
     val a_int = dut.io.inFix(0).raw.toBigInt.abs
-    val a = if (dut.io.inFix(0).raw.toBigInt.testBit(dut.io.inFix(0).numWidth))
-      -BigDecimal(BigInt(a_int.toString(2).map(c => if (c == '0') '1' else '0'), 2) + 1) * BigDecimal(2).pow(dut.io.inFix(0).exp)
-    else
-      BigDecimal(a_int)*BigDecimal(2).pow(dut.io.inFix(0).exp)
+    val a =
+      if (dut.io.inFix(0).raw.toBigInt.testBit(dut.io.inFix(0).numWidth))
+        -BigDecimal(BigInt(a_int.toString(2).map(c => if (c == '0') '1' else '0'), 2) + 1) * BigDecimal(2).pow(
+          dut.io.inFix(0).exp
+        )
+      else
+        BigDecimal(a_int) * BigDecimal(2).pow(dut.io.inFix(0).exp)
 
     val b_int = dut.io.inFix(1).raw.toBigInt.abs
-    val b = if (dut.io.inFix(1).raw.toBigInt.testBit(dut.io.inFix(1).numWidth))
-      -BigDecimal(BigInt(b_int.toString(2).map(c => if (c == '0') '1' else '0'), 2) + 1)*BigDecimal(2).pow(dut.io.inFix(1).exp)
-    else
-      BigDecimal(b_int)*BigDecimal(2).pow(dut.io.inFix(1).exp)
+    val b =
+      if (dut.io.inFix(1).raw.toBigInt.testBit(dut.io.inFix(1).numWidth))
+        -BigDecimal(BigInt(b_int.toString(2).map(c => if (c == '0') '1' else '0'), 2) + 1) * BigDecimal(2).pow(
+          dut.io.inFix(1).exp
+        )
+      else
+        BigDecimal(b_int) * BigDecimal(2).pow(dut.io.inFix(1).exp)
 
     val result_int = dut.io.outFix.raw.toBigInt.abs
-    val result = if (dut.io.outFix.raw.toBigInt.testBit(dut.io.outFix.numWidth))
-      -BigDecimal(BigInt(result_int.toString(2).map(c => if (c == '0') '1' else '0'), 2) + 1)*BigDecimal(2).pow(dut.io.outFix.exp)
-    else
-      BigDecimal(result_int)*BigDecimal(2).pow(dut.io.outFix.exp)
+    val result =
+      if (dut.io.outFix.raw.toBigInt.testBit(dut.io.outFix.numWidth))
+        -BigDecimal(BigInt(result_int.toString(2).map(c => if (c == '0') '1' else '0'), 2) + 1) * BigDecimal(2).pow(
+          dut.io.outFix.exp
+        )
+      else
+        BigDecimal(result_int) * BigDecimal(2).pow(dut.io.outFix.exp)
 
     val op = dut.io.opMode.toInt
     val mode = dut.io.roundMode.toInt
@@ -214,8 +223,10 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
 
           val roundedBounds = deciBounds.map(b => doAFixSimRound(b, mode))
 
-          assert(roundedNum.maxValue == roundedBounds.max || roundedNum.minValue == roundedBounds.min,
-          s"\nRounded bounds check failed. AFix [${roundedNum.minValue} - ${roundedNum.maxValue}] vs Model [${roundedBounds.min} - ${roundedBounds.max}]. Rounding mode = ${mode}")
+          assert(
+            roundedNum.maxValue == roundedBounds.max || roundedNum.minValue == roundedBounds.min,
+            s"\nRounded bounds check failed. AFix [${roundedNum.minValue} - ${roundedNum.maxValue}] vs Model [${roundedBounds.min} - ${roundedBounds.max}]. Rounding mode = ${mode}"
+          )
         }
       }
     })
@@ -231,22 +242,23 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
       case 5 => if (c.signum == 1) c.setScale(0, RoundingMode.HALF_DOWN) else c.setScale(0, RoundingMode.HALF_UP)
       case 6 => c.setScale(0, RoundingMode.HALF_DOWN)
       case 7 => c.setScale(0, RoundingMode.HALF_UP)
-      case 8 => if (c.signum == 1)
-        if (c % 2 < 1) c.setScale(0, RoundingMode.HALF_DOWN) else c.setScale(0, RoundingMode.HALF_UP)
-      else
-        if (-c % 2 < 1) c.setScale(0, RoundingMode.HALF_DOWN) else c.setScale(0, RoundingMode.HALF_UP)
-      case 9 => if (c.signum == 1)
-        if (c % 2 < 1) c.setScale(0, RoundingMode.HALF_UP) else c.setScale(0, RoundingMode.HALF_DOWN)
-      else
-        if (-c % 2 < 1) c.setScale(0, RoundingMode.HALF_UP) else c.setScale(0, RoundingMode.HALF_DOWN)
+      case 8 =>
+        if (c.signum == 1)
+          if (c % 2 < 1) c.setScale(0, RoundingMode.HALF_DOWN) else c.setScale(0, RoundingMode.HALF_UP)
+        else if (-c % 2 < 1) c.setScale(0, RoundingMode.HALF_DOWN)
+        else c.setScale(0, RoundingMode.HALF_UP)
+      case 9 =>
+        if (c.signum == 1)
+          if (c % 2 < 1) c.setScale(0, RoundingMode.HALF_UP) else c.setScale(0, RoundingMode.HALF_DOWN)
+        else if (-c % 2 < 1) c.setScale(0, RoundingMode.HALF_UP)
+        else c.setScale(0, RoundingMode.HALF_DOWN)
     }
   }
 }
 
 class AFixTester extends Component {
   val io = new Bundle {
-    val inFix = in(Vec(Seq(new AFix(32767, -32768, -4),
-      new AFix(32767, -32768, -6))))
+    val inFix = in(Vec(Seq(new AFix(32767, -32768, -4), new AFix(32767, -32768, -6))))
     val outRaw = out(new AFix(68719476735L, -68719476736L, -13))
     val outFix = out(new AFix(8388607, -8388608, 0))
     val opMode = in(Bits(2 bit))
@@ -270,8 +282,8 @@ class AFixTester extends Component {
     println(res)
   }
   val rangeExpMin = opResultsSeq.minBy(_.exp).exp
-  val rangeMax = opResultsSeq.map(af => af.maxRaw*BigInt(2).pow(af.exp - rangeExpMin)).max
-  val rangeMin = opResultsSeq.map(af => af.minRaw*BigInt(2).pow(af.exp - rangeExpMin)).min
+  val rangeMax = opResultsSeq.map(af => af.maxRaw * BigInt(2).pow(af.exp - rangeExpMin)).max
+  val rangeMin = opResultsSeq.map(af => af.minRaw * BigInt(2).pow(af.exp - rangeExpMin)).min
   val opResults = Vec(opResultsSeq.map(af => {
     val resized_af = new AFix(rangeMax, rangeMin, rangeExpMin)
     resized_af := af
@@ -282,18 +294,20 @@ class AFixTester extends Component {
   println(chosenOp)
   io.outRaw := chosenOp.saturated
 
-  val roundResults = Vec(Seq(
-    chosenOp.ceil(0),
-    chosenOp.floor(0),
-    chosenOp.floorToZero(0),
-    chosenOp.ceilToInf(0),
-    chosenOp.roundHalfUp(0),
-    chosenOp.roundHalfDown(0),
-    chosenOp.roundHalfToZero(0),
-    chosenOp.roundHalfToInf(0),
-    chosenOp.roundHalfToEven(0),
-    chosenOp.roundHalfToOdd(0)
-  ))
+  val roundResults = Vec(
+    Seq(
+      chosenOp.ceil(0),
+      chosenOp.floor(0),
+      chosenOp.floorToZero(0),
+      chosenOp.ceilToInf(0),
+      chosenOp.roundHalfUp(0),
+      chosenOp.roundHalfDown(0),
+      chosenOp.roundHalfToZero(0),
+      chosenOp.roundHalfToInf(0),
+      chosenOp.roundHalfToEven(0),
+      chosenOp.roundHalfToOdd(0)
+    )
+  )
 
   io.outFix := roundResults(io.roundMode.asUInt).sat(io.outFix)
 }
