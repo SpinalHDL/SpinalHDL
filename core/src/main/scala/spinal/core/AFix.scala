@@ -62,6 +62,7 @@ object AFix {
   }
 
   def apply(num: BigInt): AFix = apply(num, 0 exp)
+  def apply(Q: QFormat): AFix = AFix(Q.width-Q.fraction exp, -Q.fraction exp, Q.signed)
 
 
   def apply(amplitude : ExpNumber, resolution : ExpNumber, signed : Boolean) : AFix = {
@@ -1056,6 +1057,12 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def fixTo(Q: QFormat): AFix = {
     val res = AFix(Q.width-Q.fraction exp, -Q.fraction exp, Q.signed)
     res := this.fixTo(res)
+    res
+  }
+
+  def fixTo(Q: QFormat, roundType: RoundType): AFix = {
+    val res = AFix(Q)  // assuming the above apply method is added
+    res := this.fixTo(res, roundType)
     res
   }
 
