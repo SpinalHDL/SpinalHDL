@@ -104,6 +104,7 @@ case class Decoder(upNode : NodeParameters,
 
     val miss = !logic.filter(_ != null).map(_.hit).orR
     assert(!(io.up.a.valid && miss), "Tilelink decoder miss ???")
+    assert(!(io.up.a.valid && CountOne(io.downs.map(_.a.valid)) =/= 1), "Tilelink decoder miss ???")
   }
 
   val b = upNode.withBCE generate new Area{
