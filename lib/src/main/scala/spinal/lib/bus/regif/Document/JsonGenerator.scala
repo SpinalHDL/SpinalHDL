@@ -41,6 +41,7 @@ final case class JsonGenerator(fileName : String) extends BusIfVisitor {
                   |           "accType" : "${f.getAccessType()}",
                   |           "name"    : "${f.getName()}",
                   |           "width"   : ${f.getWidth()},
+                  |           "offset"  : ${f.getSection().end},
                   |           "reset"   : ${f.getResetValue()},
                   |           "doc"     : "${clean(f.getDoc())}"
                   |       }""".stripMargin
