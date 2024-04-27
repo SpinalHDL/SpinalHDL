@@ -566,7 +566,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
     val verilatorVersionProcess = Process(Seq(verilatorBinFilename, "--version"), new File(workspacePath))
     val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n") // blocks and throws an exception if exit status != 0
-    val verilatorVersionDeci = BigDecimal("v([0-9]*\\.[0-9]*)".r.findFirstIn(verilatorVersion).get.tail)
+    val verilatorVersionDeci = BigDecimal("([0-9]+\\.[0-9]+)".r.findFirstIn(verilatorVersion).get)
 
     if (cacheEnabled) {
       // calculate hash of verilator version+options and source file contents
