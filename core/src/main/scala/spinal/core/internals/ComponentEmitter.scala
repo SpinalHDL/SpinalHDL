@@ -114,7 +114,7 @@ abstract class ComponentEmitter {
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
     //check interface assign
-    val useWrap = mutable.HashMap[SVIF, SVIF]()
+    val useWrap = mutable.HashMap[Interface, Interface]()
     if(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface) {
       val walked = mutable.HashSet[Data]()
       val ios = component.children.reverse.flatMap(x => x.getOrdredNodeIo.reverse)
@@ -123,8 +123,8 @@ abstract class ComponentEmitter {
         if(!walked.contains(rootIF)) {
           walked.add(rootIF)
           val base = rootIF.flatten
-          var lif: SVIF = null
-          var rif: SVIF = null
+          var lif: Interface = null
+          var rif: Interface = null
           var canGo = true
           val allAssign = mutable.ArrayBuffer[(BaseType, BaseType)]()
           val toRemove = mutable.ArrayBuffer[AssignmentStatement]()

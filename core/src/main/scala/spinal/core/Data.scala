@@ -794,21 +794,21 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /**
     * root interface
     */
-  def rootIF(): SVIF = {
+  def rootIF(): Interface = {
     rootIFrec(this, Nil).head
   }
 
-  def rootIFList(): List[SVIF] = {
+  def rootIFList(): List[Interface] = {
     rootIFrec(this, Nil)
   }
 
-  def rootIFrec(now: Data, lastRoot: List[SVIF]): List[SVIF] = {
+  def rootIFrec(now: Data, lastRoot: List[Interface]): List[Interface] = {
     if(now.parent == null) {
       lastRoot
-    } else if(now.parent.isInstanceOf[SVIF]) {
+    } else if(now.parent.isInstanceOf[Interface]) {
       now.parent match {
-        case x: SVIF if x.thisIsNotSVIF => lastRoot
-        case _ => rootIFrec(now.parent, now.parent.asInstanceOf[SVIF] :: lastRoot)
+        case x: Interface if x.thisIsNotSVIF => lastRoot
+        case _ => rootIFrec(now.parent, now.parent.asInstanceOf[Interface] :: lastRoot)
       }
     } else {
       rootIFrec(now.parent, lastRoot)
