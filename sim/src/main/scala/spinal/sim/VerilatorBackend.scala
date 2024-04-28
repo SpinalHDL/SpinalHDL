@@ -772,9 +772,10 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
   val nativeInstance: IVerilatorNative = nativeImpl.getConstructor().newInstance().asInstanceOf[IVerilatorNative]
 
   def instanciate(name: String, seed: Int) = nativeInstance.synchronized{ //synchronized is used as a Verilator isn't thread safe on construction (bug ?)
-    val patched = config.vcdPath.replace("$TEST", name)
-    val wavePath = s"${new File(patched).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}"
-    FileUtils.forceMkdirParent(new File(wavePath, "."))
+    val patchedPath = new File(config.vcdPath.replace("$TEST", name)).getAbsolutePath.replace("\\", "/")
+    val patchedPrefix = if(config.vcdPrefix == null) "" else config.vcdPrefix.replace("$TEST", name) + "_"
+    val wavePath = patchedPath + "/" + patchedPrefix
+    FileUtils.forceMkdirParent(new File(patchedPath, "."))
     nativeInstance.newHandle(name, wavePath, seed)
   }
 

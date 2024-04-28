@@ -21,6 +21,7 @@ case class VpiBackendConfig(
   var workspacePath: String  = null,
   var workspaceName: String  = null,
   var wavePath: String       = null,
+  var wavePrefix: String     = null,
   var waveFormat: WaveFormat = WaveFormat.NONE,
   var analyzeFlags: String   = "",
   var runFlags: String       = "",
@@ -40,7 +41,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   val pluginsPath     = config.pluginsPath     
   val workspacePath   = config.workspacePath   
   val workspaceName   = config.workspaceName   
-  var wavePath        = config.wavePath        
+  val wavePath        = config.wavePath
   val waveFormat      = config.waveFormat      
   val analyzeFlags    = config.analyzeFlags
   var runFlags        = config.runFlags        
