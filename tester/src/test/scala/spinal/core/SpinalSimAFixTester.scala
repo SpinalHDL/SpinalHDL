@@ -28,8 +28,8 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
       check(2047,-2048,-4)(AFix.S(7 exp, -4 exp)) //Q7.4  + sign bit
       check(2047,-2048,-4)(AFix.SQ(7 bits, 4 bits)) //Q8.4 + sign bit
 //      check(2047,-2048,-4)(AFix.S(127, -128, -4 exp)) //Q7.4 + sign bit
-      check(2047, -2048, 0)(AFix(QFormat(11, 0, true))) // Q11.0 + sign bit
-      check(2047, -2048, -4)(AFix(QFormat(11, 4, true))) // Q7.4 + sign bit
+      check(2047, -2048, 0)(AFix(QFormat(12, 0, true))) // Q12.0
+      check(2047, -2048, -4)(AFix(QFormat(12, 4, true))) // Q7.4 + sign bit
     })
   }
 

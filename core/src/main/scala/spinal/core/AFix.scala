@@ -70,7 +70,11 @@ object AFix {
     new AFix(maxRaw, minRaw, resolution.value)
   }
 
-  def apply(Q: QFormat): AFix = AFix((Q.width - Q.fraction) exp, -Q.fraction exp, Q.signed)
+  def apply(Q: QFormat): AFix = {
+    val integerWidth = if (Q.signed) { Q.width - Q.fraction - 1 } else { Q.width - Q.fraction }
+    val fractionWidth = -Q.fraction
+    AFix(integerWidth exp, fractionWidth exp, Q.signed)
+  }
 
   def U(width: BitCount): AFix = AFix(width.value exp, 0 exp, signed = false)
   def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AFix(integerWidth.value exp, -fractionWidth.value exp, signed = false)
