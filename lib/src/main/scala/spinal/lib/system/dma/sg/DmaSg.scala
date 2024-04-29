@@ -526,7 +526,8 @@ object DmaSg{
           val bytesLeft = Reg(UInt(p.bytePerTransferWidth+1 bits)) //minus one
 
           // Trigger request when there is enough to do a burst, fifo occupancy > 50 %, flush
-          val request = descriptorValid && !channelStop && !waitFinalRsp && memory && (fifo.pop.bytes > bytePerBurst || (fifo.push.available < (fifo.words >> 1) || flush)) && fifo.pop.bytes =/= 0 && memPending =/= p.pendingWritePerChannel
+          val selfFlush = bytesLeft < fifo.pop.bytes
+          val request = descriptorValid && !channelStop && !waitFinalRsp && memory && (fifo.pop.bytes > bytePerBurst || (fifo.push.available < (fifo.words >> 1) || flush || selfFlush)) && fifo.pop.bytes =/= 0 && memPending =/= p.pendingWritePerChannel
           val bytesToSkip = Reg(UInt(log2Up(p.writeByteCount) bits))
 
           val decrBytes = fifo.pop.bytesDecr.newPort()
@@ -535,11 +536,6 @@ object DmaSg{
           memPending := memPending + U(memPendingInc) - U(memRsp)
 
           decrBytes := 0
-
-
-          when(bytesLeft < fifo.pop.bytes){
-            flush := True
-          }
 
           when(memPending === 0 && fifo.pop.bytes === 0){ //TODO bouarf
             flush := False
