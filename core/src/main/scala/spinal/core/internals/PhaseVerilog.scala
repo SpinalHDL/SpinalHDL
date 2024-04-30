@@ -307,13 +307,13 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             }
             val namelens = ret.map(_._1.size).max
             val exprlens = ret.map(_._2.size).max
-            val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s)".format(t._1, t._2))
+            val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s )".format(t._1, t._2))
             s"""${node.definitionName} #(
               |${params.mkString(",\n")}
               |  )""".stripMargin
           } else f"${node.definitionName}%-15s"
-
-          ret ++= f"${theme.porttab}${t} ${name}();\n"//TODO:parameter
+          val  cl = if(genericFlat.nonEmpty) "\n" else ""
+          ret ++= f"${theme.porttab}${t} ${name}();\n${cl}"//TODO:parameter
         }
         case _ => {
           val size = elem match {

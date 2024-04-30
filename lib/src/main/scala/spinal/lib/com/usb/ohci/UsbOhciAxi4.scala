@@ -6,6 +6,7 @@ import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
 import spinal.lib.bus.bmb.{Axi4SharedToBmb, BmbParameter, BmbToAxi4SharedBridge, BmbToWishbone}
 import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneToBmb}
+import spinal.lib.com.usb.ohci.UsbOhciWishbone.fifoBytes
 import spinal.lib.com.usb.phy.UsbHubLsFs.CtrlCc
 import spinal.lib.com.usb.phy.{UsbLsFsPhy, UsbPhyFsNativeIo}
 
@@ -15,6 +16,7 @@ object UsbOhciAxi4 extends App{
   var portCount = 1
   var phyFrequency = 48000000
   var dmaWidth = 32
+  var fifoBytes = 2048
 
   assert(new scopt.OptionParser[Unit]("VexRiscvLitexSmpClusterCmdGen") {
     help("help").text("prints this usage text")
@@ -23,6 +25,7 @@ object UsbOhciAxi4 extends App{
     opt[Int]("port-count") action { (v, c) => portCount = v }
     opt[Int]("phy-frequency") action { (v, c) => phyFrequency = v }
     opt[Int]("dma-width") action { (v, c) => dmaWidth = v }
+    opt[Int]("fifo-bytes") action { (v, c) => fifoBytes = v }
   }.parse(args, ()).isDefined)
 
 
@@ -33,7 +36,8 @@ object UsbOhciAxi4 extends App{
     noOverCurrentProtection = false,
     powerOnToPowerGoodTime = 10,
     dataWidth = dmaWidth,
-    portsConfig = List.fill(portCount)(OhciPortParameter())
+    portsConfig = List.fill(portCount)(OhciPortParameter()),
+    fifoBytes = fifoBytes
   )
 
   SpinalConfig(
@@ -82,8 +86,8 @@ case class UsbOhciAxi4(p : UsbOhciParameter, frontCd : ClockDomain, backCd : Clo
     //  phy.io.usb  <> io.usb
     phy.io.management.map(e => e.overcurrent := False)
     val native = phy.io.usb.map(_.toNativeIo())
-    val buffer = native.map(_.stage())
-    io.usb <> Vec(buffer.map(e => e.stage()))
+    val buffer = native.map(_.bufferized())
+    io.usb <> Vec(buffer)
   }
 
   val cc = CtrlCc(p.portCount, frontCd, backCd)
