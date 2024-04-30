@@ -102,7 +102,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
           ifFile.write(interface.result())
           ifFile.flush()
           ifFile.close()
-          fileList + ifFileName
+          fileList += ifFileName
         }
       }
 
