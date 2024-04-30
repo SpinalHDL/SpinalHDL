@@ -325,6 +325,7 @@ object SpinalVCSBackend {
     vconfig.vcsCC = config.vcsCC
     vconfig.waveDepth = config.waveDepth
     vconfig.wavePath = config.wavePath
+    vconfig.wavePrefix = config.wavePrefix
     vconfig.simSetupFile = config.simSetupFile
     vconfig.envSetup = config.envSetup
     vconfig.timePrecision = config.timePrecision match {
@@ -689,6 +690,7 @@ case class SpinalSimConfig(
                             var _timePrecision     : TimeNumber = null,
                             var _timeScale         : TimeNumber = null,
                             var _testPath          : String = "$WORKSPACE/$COMPILED/$TEST",
+                            var _waveFilePrefix    : String = null,
                             var _ghdlFlags: GhdlFlags = GhdlFlags()
   ){
 
@@ -821,6 +823,11 @@ case class SpinalSimConfig(
 
   def workspaceName(name: String): this.type = {
     _workspaceName = name
+    this
+  }
+
+  def waveFilePrefix(prefix: String): this.type = {
+    _waveFilePrefix = prefix
     this
   }
 
@@ -1031,7 +1038,7 @@ case class SpinalSimConfig(
           cachePath = if (!_disableCache) (if (_cachePath != null) _cachePath else s"${_workspacePath}/.cache") else null,
           workspacePath = s"${_workspacePath}/${_workspaceName}",
           vcdPath = wavePath,
-          vcdPrefix = null,
+          vcdPrefix = _waveFilePrefix,
           workspaceName = "verilator",
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
@@ -1059,7 +1066,7 @@ case class SpinalSimConfig(
           waveFormat = _waveFormat,
           workspacePath = s"${_workspacePath}/${_workspaceName}",
           wavePath = wavePath,
-          wavePrefix = null,
+          wavePrefix = _waveFilePrefix,
           workspaceName = "ghdl",
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
@@ -1099,7 +1106,7 @@ case class SpinalSimConfig(
           waveFormat = _waveFormat,
           workspacePath = s"${_workspacePath}/${_workspaceName}",
           wavePath = s"${_workspacePath}/${_workspaceName}",
-          wavePrefix = null,
+          wavePrefix = _waveFilePrefix,
           workspaceName = "iverilog",
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
@@ -1125,7 +1132,7 @@ case class SpinalSimConfig(
           waveFormat = _waveFormat,
           workspacePath = s"${_workspacePath}/${_workspaceName}",
           wavePath = s"${_workspacePath}/${_workspaceName}",
-          wavePrefix = null,
+          wavePrefix = _waveFilePrefix,
           workspaceName = "vcs",
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
