@@ -807,7 +807,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       lastRoot
     } else if(now.parent.isInstanceOf[Interface]) {
       now.parent match {
-        case x: Interface if x.thisIsNotSVIF => lastRoot
+        case x: Interface if x.thisIsNotSVIF => rootIFrec(now.parent, lastRoot)
         case _ => rootIFrec(now.parent, now.parent.asInstanceOf[Interface] :: lastRoot)
       }
     } else {

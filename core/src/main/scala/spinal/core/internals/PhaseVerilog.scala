@@ -283,6 +283,26 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     ret ++= s"interface ${interface.definitionName} ${generic}() ;\n\n"
     for ((name, elem) <- interface.elementsCache) {
       elem match {
+        case nodes: Interface if nodes.thisIsNotSVIF => {
+          for ((name1, node) <- nodes.elementsCache) {
+            val size = node match {
+              case _: Bool => ""
+              case node: BitVector => interface.widthGeneric.get(node) match {
+                case Some(x) => s"[${x}-1:0]"
+                case None => if(node.getWidth > 0)
+                  s"[${node.getWidth - 1}:0]"
+                else {
+                  globalData.nodeAreInferringWidth = false
+                  val width = node.getWidth
+                  globalData.nodeAreInferringWidth = true
+                  s"[${width - 1}:0]"
+                }
+              }
+              case _ => LocatedPendingError("The SystemVerilog interface feature is still an experimental feature. In interface, only BaseType is supported yet")
+            }
+            ret ++= f"${theme.porttab}logic  ${size}%-8s ${name}_${name1} ;\n"
+          }
+        }
         case node: Interface => {
 
           val genericFlat = node.genericElements
@@ -354,6 +374,17 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
 
         for ((name, elem) <- c.y.elementsCache) {
           elem match {
+            case elem: Interface if elem.thisIsNotSVIF => {
+              for((name1, node) <- elem.elementsCache) {
+                val dir = node.dir match {
+                  case `in`    => "input "
+                  case `out`   => "output"
+                  case `inout` => "inout "
+                  case _       => throw new Exception(s"Unknown direction in interface ${interface}: ${elem}"); ""
+                }
+                modportString += f"${theme.porttab}${theme.porttab}${dir}%-15s ${name}_${name1},\n"
+              }
+            }
             case elem: Interface => {
               //TODO:check more than one modport has same `in` `out` direction
               val modport = if(elem.checkModport().isEmpty) {
@@ -419,7 +450,12 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         val newName = IFlist match {
           case head :: tail => tail.foldLeft((head, List(head.getName()))){case ((nowIf, nameList), node) =>
             (node, nowIf.elementsCache.find(_._2 == node).get._1 :: nameList)//TODO:error handle on find.get
-          }._2.reverse.reduce(_ + "." + _) + "." + IFlist.last.elementsCache.find(_._2 == node).get._1//TODO:error handle on find.get
+          }._2.reverse.reduce(_ + "." + _) + "." +
+            IFlist.last.elementsCache.find(_._2 == node)
+              .getOrElse(IFlist.last.elementsCache.flatMap{
+                case (a, x: Bundle) => x.elementsCache.find(_._2 == node).map(y => (s"${a}_${y._1}", y._2))
+                case _ => None
+              }.head)._1//TODO:error handle on find.get
         }
         node.name = newName
       }
