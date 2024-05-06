@@ -7,6 +7,7 @@ import spinal.lib.bus.amba4.axi.Axi4
 import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.wishbone.Wishbone
+import spinal.lib.bus.bram.BRAM
 
 object BusInterface {
   def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap, selID)(moduleName)
@@ -24,4 +25,6 @@ object BusInterface {
 
   def apply(bus: AxiLite4, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap)(moduleName)
   def apply(bus: AxiLite4, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap, regPre)(moduleName)
+
+  def apply(bus: BRAM, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = BRAMBusInterface(bus, sizeMap, regPre)(moduleName)
 }

@@ -79,6 +79,6 @@ class BRAMDecoder(inputConfig: BRAMConfig, decodings: Seq[SizeMapping]) extends 
     psel := decoding.hit(io.input.addr) & io.input.en
   }
 
-  val selIndex = RegNext(OHToUInt(sel))
+  val selIndex = Delay(OHToUInt(sel), inputConfig.readLatency)
   io.input.rddata := io.outputs(selIndex).rddata
 }
