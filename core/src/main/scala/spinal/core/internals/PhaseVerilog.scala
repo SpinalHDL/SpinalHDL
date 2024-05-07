@@ -281,6 +281,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             s"${theme.porttab}parameter ${name} = ${default},\n"
         }.reduce(_ + _).stripSuffix(",\n") + "\n) "
     ret ++= s"interface ${interface.definitionName} ${generic}() ;\n\n"
+    val sizeZero = mutable.HashSet[String]()
     for ((name, elem) <- interface.elementsCache) {
       elem match {
         case nodes: Interface if nodes.thisIsNotSVIF => {
@@ -351,7 +352,10 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             }
             case _ => LocatedPendingError("The SystemVerilog interface feature is still an experimental feature. In interface, only BaseType is supported yet")
           }
-          ret ++= f"${theme.porttab}logic  ${size}%-8s ${name} ;\n"
+          if(size != "[-1:0]")
+            ret ++= f"${theme.porttab}logic  ${size}%-8s ${name} ;\n"
+          else
+            sizeZero.add(name)
         }
       }
     }
@@ -402,7 +406,8 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                 case `inout` => "inout "
                 case _       => throw new Exception(s"Unknown direction in interface ${interface}: ${elem}"); ""
               }
-              modportString += f"${theme.porttab}${theme.porttab}${dir}%-15s ${name},\n"
+              if(!sizeZero.contains(name))
+                modportString += f"${theme.porttab}${theme.porttab}${dir}%-15s ${name},\n"
             }
           }
         }
