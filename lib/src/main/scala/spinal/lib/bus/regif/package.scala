@@ -40,7 +40,7 @@ package object regif {
       require(triggers.size > 0 && triggers.size <= bi.busDataWidth, s"The maxNum should be ${bi.busDataWidth} else split 2 or more groups")
       val IntrGrp = this.newIntrRFMS4(addrOffset, "")(SymbolName(s"${regNamePre}"))
       triggers.foreach{ event =>
-        IntrGrp.field(event, maskRstVal = 0x1, doc = "")
+        IntrGrp.field(event, maskRstVal = 0x1, doc = "")(SymbolName(s"${event.getPartialName()}"))
       }
       IntrGrp.intr()(SymbolName(s"${regNamePre}"))
     }
@@ -54,9 +54,9 @@ package object regif {
       require(triggers.size > 0 && triggers.size <= bi.busDataWidth, s"The maxNum should be ${bi.busDataWidth} else split 2 or more groups")
       val IntrGrp = this.newIntrRFMMS5(addrOffset, "")(SymbolName(s"${regNamePre}"))
       triggers.foreach{ event =>
-        IntrGrp.field(event, maskRstVal = 0x1, doc = "")
+        IntrGrp.field(event, maskRstVal = 0x1, doc = "")(SymbolName(s"${event.getPartialName()}"))
       }
-      IntrGrp.intr()
+      IntrGrp.intr()(SymbolName(s"${regNamePre}"))
     }
     /*
       interrupt with Raw/Mask/Status 3 Register Interface
@@ -66,9 +66,9 @@ package object regif {
       require(triggers.size > 0 && triggers.size <= bi.busDataWidth, s"The maxNum should be ${bi.busDataWidth} else split 2 or more groups")
       val IntrGrp = this.newIntrRMS3(addrOffset, "")(SymbolName(s"${regNamePre}"))
       triggers.foreach{ event =>
-        IntrGrp.field(event, maskRstVal = 0x1, doc = "")
+        IntrGrp.field(event, maskRstVal = 0x1, doc = "")(SymbolName(s"${event.getPartialName()}"))
       }
-      IntrGrp.intr()
+      IntrGrp.intr()(SymbolName(s"${regNamePre}"))
     }
     /*
       interrupt with Mask/Status 2 Register Interface
@@ -79,9 +79,9 @@ package object regif {
       require(levels.size > 0 && levels.size <= bi.busDataWidth, s"The maxNum should be ${bi.busDataWidth} else split 2 or more groups")
       val IntrGrp = this.newIntrMS2(addrOffset, "")(SymbolName(s"${regNamePre}"))
       levels.foreach{ level =>
-        IntrGrp.field(level, maskRstVal = 0x1, doc = "")
+        IntrGrp.field(level, maskRstVal = 0x1, doc = "")(SymbolName(s"${level.getPartialName()}"))
       }
-      IntrGrp.intr()
+      IntrGrp.intr()(SymbolName(s"${regNamePre}"))
     }
     /*
      interrupt with Mask_SET/Mask_CLR/Status 3 Register Interface
@@ -91,9 +91,9 @@ package object regif {
       require(levels.size > 0 && levels.size <= bi.busDataWidth, s"The maxNum should be ${bi.busDataWidth} else split 2 or more groups")
       val IntrGrp = this.newIntrMMS3(addrOffset, "")(SymbolName(s"${regNamePre}"))
       levels.foreach{ level =>
-        IntrGrp.field(level, maskRstVal = 0x1, doc = "")
+        IntrGrp.field(level, maskRstVal = 0x1, doc = "")(SymbolName(s"${level.getPartialName()}"))
       }
-      IntrGrp.intr()
+      IntrGrp.intr()(SymbolName(s"${regNamePre}"))
     }
 
     def newRegSCRAt(addr: BigInt, doc: String)(implicit symbol: SymbolName): RegSCR = new RegSCR(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newgrpTag(symbol.name))
