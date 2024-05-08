@@ -3,8 +3,7 @@ package spinal.lib.bus.regif
 import java.util.Calendar
 import spinal.lib.bus.regif.AccessType._
 
-final case class DocSystemRdl(name: String,
-                             ) extends BusIfDoc {
+final case class DocSystemRdl(name: String) extends BusIfDoc {
   override val suffix: String = "rdl"
 
   override def body(): String = {
