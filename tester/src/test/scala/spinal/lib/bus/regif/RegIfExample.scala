@@ -52,8 +52,9 @@ class RegIfExample extends Component {
   val fillPos   =  M_TURBO_3G_INTER_FILL.field(Bits(9 bits), RW, doc="interlave start Column of fill Number").asOutput()
   M_TURBO_3G_INTER_FILL.reserved(7 bits)
   val fillRow   =  M_TURBO_3G_INTER_FILL.field(Bits(2 bits), RW, doc="interlave fill Row number, 0~2 avaliable\n n+1 row").asOutput()
-  val M_LONGLONGLONGLONGLONGLONG_REGNAME = busif.newReg(doc = "Long Long regname")
-  val version = M_LONGLONGLONGLONGLONGLONG_REGNAME.field(Bits(16 bit), RW, doc = "Device version")
+  val M_LONG = busif.newReg(doc = "Long Long regname")
+  val version = M_LONG.field(Bits(16 bit), RW, doc = "Device version")
+  val device = busif.newReg(doc= "deviceVersion").field(B(0x240503, 32 bit), ROV, doc = "Device version")
   val M_DEVICE = busif.newReg(doc = "Device Infomation")
   M_DEVICE.field(Bits(16 bit), ROV, resetValue = 0xf234, doc = "i2c version")
   M_DEVICE.field(Bits(4 bit), RW, resetValue = 0xa, doc = "test number")
@@ -78,6 +79,130 @@ class RegIfExample extends Component {
   val irq = busif.interruptFactory("T", io.a, io.b, io.c, io.d, io.e)
   out(irq)
 
+  val RAM = busif.newRAM(256 Byte, doc = "ram test")
+  RAM.field(2, "doc ...")("ram_fd0")
+  RAM.field(8, "doc ...")("ram_fd1")
+  RAM.fieldAt(16, 2, "doc ...")("ram_fd2")
+  RAM.field(3, "doc ...")("ram_fd3")
+  RAM.bus.asMaster()
+
+  val RAM2 = busif.newRAM(256 Byte, doc = "ram test")
+  RAM2.field(2, "doc ...")("mem_fd0")
+  RAM2.field(8, "doc ...")("mem_fd1")
+  RAM2.fieldAt(16, 2, "doc ...")("mem_fd2")
+  RAM2.field(3, "doc ...")("mem_fd3")
+  RAM2.bus.asMaster()
+  RAM2.updateReadBits = Mux(io.a, RAM2.readBits, B(0x12345678, 32 bit))
+
+  val fifo = busif.newFifo(doc = "fifo test")
+  fifo.field(16, "doc ...")("fifo_fd0")
+  fifo.fieldAt(24, 1, "doc ...")("fifo_fd2")
+  fifo.fieldAt(31, 1, "doc ...")("fifo_fd3")
+  fifo.bus.asMaster()
+  fifo.updateReadBits = RAM.readBits
+
+  val fifo2 = busif.newFifoAt(0x300, doc = "fifo test")
+  fifo2.field(16, "doc ...")("fifo_fd0")
+  fifo2.bus.asMaster()
+
+  (0 to 10).foreach{i =>
+    val Reg = busif.newReg("reg0")(SymbolName(s"RegA_$i"))
+    val Rtype = Reg.field(Bits(2 bits), RW, 0, doc = "inter Row number\n0:5,1:10,2:20,3:20other")(SymbolName("rta")).asOutput()
+    val CPtype = Reg.field(Bits(2 bits), RW, 0, doc = "CP relation\n0: C=P-1\n1: C=p\n2: C=p+1")(SymbolName("rtb")).asOutput()
+    val KeqRxC = Reg.field(Bool(), RW, 0, doc = "1:K=R*C else 0")(SymbolName("rtc")).asOutput()
+    val Reg2 = busif.newReg(doc = "Turbo CRC Poly")(SymbolName(s"RegB_$i"))
+    val crc_mode = Reg2.field(Bool(), RW, 1, doc = "0: CRC24; 1: CRC16")(SymbolName(s"crca_${i}")).asOutput()
+    val crc_poly = Reg2.field(Bits(24 bit), RW, 0x864cfb, doc = "(D24+D23+D18+D17+D14+D11+D10+D7+D6+D5+D4+D3+D+1)")(SymbolName(s"crcb_${i}")).asOutput()
+  }
+
+  val fifo3 = busif.newFifo(doc = "fifo test")
+  fifo3.field(16, "doc ...")("fifo_fd0")
+  fifo3.bus.asMaster()
+
+  val grp0 = busif.newGrp(512 Byte, doc = "reg group test")
+  val Reg = grp0.newReg("reg0")
+  val ttype = Reg.field(Bits(2 bits), RW, 0, doc = "inter Row number\n0:5,1:10,2:20,3:20other").asOutput()
+  val tPtype = Reg.field(Bits(2 bits), RW, 0, doc = "CP relation\n0: C=P-1\n1: C=p\n2: C=p+1").asOutput()
+  val teqRxC = Reg.field(Bool(), RW, 0, doc = "1:K=R*C else 0").asOutput()
+  val Reg2 = grp0.newReg(doc = "Turbo CRC Poly")
+  val trc_mode = Reg2.field(Bool(), RW, 1, doc = "0: CRC24; 1: CRC16").asOutput()
+  val trc_poly = Reg2.field(Bits(24 bit), RW, 0x864cfb, doc = "(D24+D23+D18+D17+D14+D11+D10+D7+D6+D5+D4+D3+D+1)").asOutput()
+  val RAM3 = grp0.newRAM(256 Byte, doc = "ram test")
+      RAM3.fieldAt(16, 2, "doc ...")("mem_fd2")
+      RAM3.field(3, "doc ...")("mem_fd3")
+      RAM3.bus.asMaster()
+
+  val fifo4 = grp0.newFifo(doc = "fifo test")
+     fifo4.field(16, "doc ...")("fifo_fd0")
+     fifo4.bus.asMaster()
+
+  val TPC = busif.newGrp(512 Byte, doc = "reg group test")
+  val Reg1 = TPC.newReg("reg0")
+  val ttype1 = Reg1.field(Bits(2 bits), RW, 0, doc = "inter Row number\n0:5,1:10,2:20,3:20other").asOutput()
+  val tPtype1 = Reg1.field(Bits(2 bits), RW, 0, doc = "CP relation\n0: C=P-1\n1: C=p\n2: C=p+1").asOutput()
+  val teqRxC1 = Reg1.field(Bool(), RW, 0, doc = "1:K=R*C else 0").asOutput()
+  val Reg21 = TPC.newReg(doc = "Turbo CRC Poly")
+  val trc_mode1 = Reg21.field(Bool(), RW, 1, doc = "0: CRC24; 1: CRC16").asOutput()
+  val trc_poly1 = Reg21.field(Bits(24 bit), RW, 0x864cfb, doc = "(D24+D23+D18+D17+D14+D11+D10+D7+D6+D5+D4+D3+D+1)").asOutput()
+  val RAM31 = TPC.newRAM(256 Byte, doc = "ram test")
+  RAM31.fieldAt(16, 2, "doc ...")("mem_fd2")
+  RAM31.field(3, "doc ...")("mem_fd3")
+  RAM31.bus.asMaster()
+
+  val fifo41 = TPC.newFifo(doc = "fifo test")
+  fifo41.field(16, "doc ...")("fifo_fd0")
+  fifo41.bus.asMaster()
+
+  val CRG = busif.newRegSCR("SCR")
+  val cg1 = CRG.field(Bool(), 0, "doc ...")
+  val cg2 = CRG.field(Bits(3 bit), 0x4, "doc ...")
+  val cg3 = CRG.fieldAt(16, Bits(8 bit), 0xf4, "doc ...")
+
+  val CRG2 = busif.newRegSCRAt(0x0600, "SCR")
+  val cg4 = CRG2.field(Bits(3 bit), 0x4, "doc ...")
+  val cg5 = CRG2.fieldAt(16, Bits(8 bit), 0xf4, "doc ...")
+
+  val M1 = busif.newIntrRFMS4(doc = "Interrupt")
+  M1.field(io.a, 1, "event a")
+  M1.field(io.b, 0, "event b")
+  M1.fieldAt(16, io.c, 0, "event c")
+  M1.field(io.d, 1, "event d")
+  M1.field(io.e, 1, "event e")
+  val intr = M1.intr()
+
+  M_TURBO_3G_INTER_CRP.updateReadBits = M_TURBO_3G_INTER_FILL.readBits
+//  this.addPrePopTask{
+//    M_TURBO_3G_INTER_CRP.updateReadBits = M_TURBO_3G_INTER_FILL.readBits
+//  }
+  //  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
+//  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
+//  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
+//  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
+//
+//  val FIFO = busif.newFIFO(offset, doc = "")
+//  FIFO.field(0 ~ 10, defaultValue = 0x00a, doc = "")
+//  FIFO.field(11 ~ 12, defaultValue = 0x00a, doc = "")
+//  FIFO.field(11 ~ 12, defaultValue = 0x00a, doc = "")
+//  FIFO.field(11 ~ 12, defaultValue = 0x00a, doc = "")
+//  FIFO.field(11 ~ 12, defaultValue = 0x00a, doc = "")
+//
+//  val intr = busif.Intr_FMRS4(offset, doc = "")
+//  intr.bit(pos, e_sig, defualtMaskValue = 0x00a, doc = "")
+//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
+//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
+//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
+//
+//  val intr2 = busif.Intr_OMMS4(offset, doc = "")
+//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
+//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
+//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
+//
+//  val grps = busif.RegGrp(offset, size,  doc = "") // 任何片段的引用
+//  grps.addreg(x, b, c, d, e, f)
+//
+//  val a0 = grps2.copy(offset, doc = "")
+//  val a1 = grps2.copy(offset, doc = "")
+
   busif.accept(CHeaderGenerator("header", "AP", headers = List("Size: 4 KiB", "Author: Jack", "Version: 0.1(2022.11.24 22:29)")))
   busif.accept(HtmlGenerator("regif", "AP"))
   busif.accept(JsonGenerator("regif"))
@@ -86,7 +211,7 @@ class RegIfExample extends Component {
 
 object playregif extends App{
   val sp = SpinalConfig()
-    .copy(targetDirectory = "./out/playregif")
+    .copy(targetDirectory = "./out/playregif", removePruned = true)
   sp.generateVerilog(new RegIfExample)
   sp.generateVerilog(new RegIfBasicAccessTest("apb3"))
   sp.generateVerilog(new RegIfBasicAccessTest("apb4"))

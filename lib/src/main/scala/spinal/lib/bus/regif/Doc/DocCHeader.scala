@@ -1,0 +1,115 @@
+package spinal.lib.bus.regif
+
+import spinal.lib._
+
+import scala.math
+import spinal.lib.bus.regif.AccessType._
+
+final case class DocCHeader(name : String,
+                            override val prefix : String,
+                            regType : String = "u32",
+                            withshiftmask: Boolean = true) extends BusIfDoc {
+  override val suffix: String = "h"
+
+  val guardName : String = s"${prefix}_REGIF_H"
+
+  def body(): String = {
+    val maxnamelen = bi.slices.map(_.getName().size).max + prefix.length
+    val maxshiftlen = bi.slices.map(t => t.getName().size + t.fdNameLens).max + prefix.length
+
+    s"""|/*
+        | * ${header}
+        | * Reg Interface C-Header [AUTOGENERATE by SpinalHDL]
+        | */
+        |
+        |#ifndef ${guardName}
+        |#define ${guardName}
+        |
+        |${bi.slices.map(_.define(maxnamelen, maxshiftlen)).mkString("\n")}
+        |
+        |${bi.slices.map(_.union).mkString("\n\n")}
+        |
+        |#endif /* ${guardName} */
+        |""".stripMargin
+  }
+
+
+  def nameDedupliaction(repeat: String, word: String) = word.toUpperCase().replaceAll(repeat.toUpperCase() + "_", "")
+
+  implicit class RegSliceCheadExtend(reg: RegSlice) {
+    val deDupRegName = nameDedupliaction(prefix, reg.getName())
+    val preFixRegName = s"${prefix.toUpperCase()}_${deDupRegName}"
+
+    def define(maxreglen: Int, maxshiftlen: Int): String = {
+      val _tab = " " * (maxreglen - deDupRegName.size)
+      s"""#define ${preFixRegName} ${_tab}0x${reg.getAddr().hexString(16)}${fddefine(maxshiftlen)}""".stripMargin
+    }
+
+    def union: String = {
+      s"""/**
+         |  * @union       ${preFixRegName.toLowerCase()}_t
+         |  * @address     0x${reg.getAddr().hexString(16)}
+         |  * @brief       ${reg.getDoc().replace("\n", "\\n")}
+         |  */
+         |typedef union {
+         |    ${regType} val;
+         |    struct {
+         |        ${fdUnion(" " * 8)}
+         |    } reg;
+         |}${preFixRegName.toLowerCase()}_t;""".stripMargin
+    }
+
+    def fdNameLens = math.max("reserved_0".size, reg.getFields().map(_.getName.size).max)
+
+    def fdUnion(tab: String): String = {
+      var i, j = -1
+      val fields = reg.getFields()
+      val maxlen = fdNameLens
+      fields.map(fd => {
+        val name = fd.getAccessType match {
+          case AccessType.NA => i += 1; s"reserved_${i}"
+          case AccessType.ROV => j += 1; s"rov_${j}"
+          case _ => fd.getName()
+        }
+        val _tab = " " * (maxlen - name.size)
+        val reset = fd.getAccessType match {
+          case AccessType.NA => ""
+          case _ => ", reset: 0x" + fd.getResetValue().hexString(fd.getWidth())
+        }
+        f"""$regType ${name.toLowerCase()}${_tab} : ${fd.getWidth()}%2d; /* ${fd.getAccessType()}${reset}, ${fd.getDoc().replace("\n", "\\n")} */""".stripMargin
+      }).mkString("\n" + tab)
+    }
+
+    def fddefine(maxlen: Int): String = {
+      val nmaxlen = maxlen - preFixRegName.size
+      if (withshiftmask) {
+        val t = reg.getFields().map(t => t.define(preFixRegName, nmaxlen, prefix)).filterNot(_.isEmpty).mkString("\n")
+        if (t.isEmpty) "" else "\n" + t
+      } else ""
+    }
+  }
+
+  implicit class FieldCHeadExtend(fd: Field) {
+    def define(pre: String, tabn: Int = 0, duplicate: String = ""): String = {
+      //add Define  XXX_SHIFT   XXX_MASK  for SW bit operation
+      def lsb: Int = fd.getSection().min
+
+      def msb: Int = fd.getSection().max
+
+      def mask = BigInt((1 << fd.getSection().size) - 1) << lsb
+
+      val newfdname = nameDedupliaction(duplicate, fd.getName())
+      val _tab = " " * (tabn - newfdname.size)
+      fd.getAccessType() match {
+        case `NA` => ""
+        case `W1S` | `W1C` | `W1T` | `W1P` | `W1CRS` | `W1SRC` => s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb}""".stripMargin
+        case `W0S` | `W0C` | `W0T` | `W0P` | `W0CRS` | `W0SRC` => s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb}""".stripMargin
+        case _ => {
+          if (fd.getSection().size == bi.busDataWidth) "" else if (fd.getName() == "_bm_") "" else
+            s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb}
+               |#define ${pre}_${newfdname}_MASK  ${_tab}0x${mask.hexString(32)} /* ${fd.getAccessType()}, ${fd.getWidth()} bit */""".stripMargin
+        }
+      }
+    }
+  }
+}
