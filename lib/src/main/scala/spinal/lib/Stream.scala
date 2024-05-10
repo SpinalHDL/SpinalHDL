@@ -1669,7 +1669,6 @@ class StreamHistory[T <: Data](dataType: HardType[T], length: Int) extends Compo
     x.valid := y.valid
     x.payload := y.payload
   })
-  // (0 to length).map(x => io.states(x).valid := connections(x).valid, io.states(x).payload := connections(x).payload)
 }
 
 object StreamCCByToggle {
