@@ -1627,6 +1627,45 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
   }
 }
 
+object StreamHistory {
+  def apply[T <: Data](that: Stream[T], length: Int): Area = new Area{
+    val ret = new StreamHistory(that.payloadType, length)
+    ret.io.push << that
+    val output = cloneOf(that)
+    output << ret.io.pop
+    val states = cloneOf(ret.io.states)
+    (states, ret.io.states).zipped.map(_ << _)
+  }
+}
+
+class StreamHistory[T <: Data](dataType: HardType[T], length: Int) extends Component {
+  val io = new Bundle {
+    val push          = slave  Stream(dataType)
+    val pop           = master Stream(dataType)
+    val states        = Vec(master Flow(dataType), length)
+  }
+
+  def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
+    left match {
+      case 0 => Nil
+      case 1 => prev :: Nil
+      case _ => prev :: builder(
+        {
+          val stream = Stream(dataType)
+          stream <-< prev
+          stream
+        },
+        left - 1)
+    }
+  }
+  val connections = Vec(builder(io.push, length))
+  io.pop << connections.last
+  (io.states, connections).zipped.foreach((x, y) => {
+    x.valid := y.valid
+    x.payload := y.payload
+  })
+}
+
 object StreamCCByToggle {
   def apply[T <: Data](input: Stream[T], inputClock: ClockDomain, outputClock: ClockDomain): Stream[T] = {
     val c = new StreamCCByToggle[T](input.payload, inputClock, outputClock)
