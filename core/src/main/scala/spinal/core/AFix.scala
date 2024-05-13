@@ -70,6 +70,12 @@ object AFix {
     new AFix(maxRaw, minRaw, resolution.value)
   }
 
+  def apply(Q: QFormat): AFix = {
+    val integerWidth = if (Q.signed) { Q.width - Q.fraction - 1 } else { Q.width - Q.fraction }
+    val fractionWidth = -Q.fraction
+    AFix(integerWidth exp, fractionWidth exp, Q.signed)
+  }
+
   def U(width: BitCount): AFix = AFix(width.value exp, 0 exp, signed = false)
   def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AFix(integerWidth.value exp, -fractionWidth.value exp, signed = false)
   def U(amplitude: ExpNumber, width: BitCount): AFix = AFix(amplitude, (amplitude.value - width.value) exp, false)
@@ -1053,9 +1059,10 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 
   def fixTo(af: AFix, roundType: RoundType): AFix = this._round(roundType, af.exp).sat(af)
   def fixTo(af: AFix): AFix = this.fixTo(af, getTrunc.rounding)
-  def fixTo(Q: QFormat): AFix = {
-    val res = AFix(Q.width-Q.fraction exp, -Q.fraction exp, Q.signed)
-    res := this.fixTo(res)
+  def fixTo(Q: QFormat): AFix = this.fixTo(Q, getTrunc.rounding)
+  def fixTo(Q: QFormat, roundType: RoundType): AFix = {
+    val res = AFix(Q)
+    res := this.fixTo(res, roundType)
     res
   }
 
@@ -1223,6 +1230,14 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
 object AF {
   def apply(value: BigDecimal, integerWidth: BitCount, fractionWidth: BitCount, signed: Boolean): AFix = {
     val ret = if (signed) AFix.SQ(integerWidth, fractionWidth) else AFix.UQ(integerWidth, fractionWidth)
+    val tmp = cloneOf(ret)
+    tmp := value
+    ret.raw.assignFromBits(tmp.raw)
+    ret
+  }
+  
+  def apply(value: BigDecimal, Q: QFormat): AFix = {
+    val ret = AFix(Q)
     val tmp = cloneOf(ret)
     tmp := value
     ret.raw.assignFromBits(tmp.raw)

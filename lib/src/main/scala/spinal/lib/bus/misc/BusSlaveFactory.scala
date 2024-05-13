@@ -596,18 +596,35 @@ trait BusSlaveFactory extends Area{
    * @param that data to read over bus
    * @param address address to map at
    * @param blockCycles cycles to block read transaction before returning NACK
+   * @param timeout whether the read transaction timed out (returned NACK)
    * @tparam T type of stream payload
    */
-  def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt): Unit = {
+  def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt, timeout: Bool = null): Unit = new Composite(that, "readBlockCycles") {
     val counter = Counter(blockCycles.getWidth bits)
     val wordCount = (1 + that.payload.getBitsWidth - 1) / busDataWidth + 1
-    onReadPrimitive(SizeMapping(address, wordCount * wordAddressInc), haltSensitive = false, null) {
-      counter.increment()
-      when(counter.value < blockCycles && !that.valid) {
+    val counterWillOverflow = counter === blockCycles
+    val readIssued = False
+    val respReady = RegNextWhen(True, readIssued && (counterWillOverflow || (!counterWillOverflow && that.valid))) init False
+    val counterOverflowed = RegNextWhen(True, counterWillOverflow) init False
+    // we only halt the first beat, since if we got a stream payload we got it all
+    onReadPrimitive(SingleMapping(address), haltSensitive = false, null) {
+      readIssued := True
+      when(!respReady) {
+        counter.increment()
         readHalt()
       } otherwise {
         counter.clear()
       }
+    }
+
+    // report timeout after transaction has completed (last beat)
+    timeout != null generate { timeout := False }
+    onReadPrimitive(SingleMapping(address + (wordCount - 1) * wordAddressInc), haltSensitive = true, null) {
+      timeout != null generate {
+        timeout := counterOverflowed
+        counterOverflowed := False
+      }
+      respReady := False
     }
 
     readStreamNonBlocking(that, address)
@@ -670,9 +687,10 @@ trait BusSlaveFactory extends Area{
 
   def readSyncMemWordAligned[T <: Data](mem           : Mem[T],
                                         addressOffset : BigInt,
-                                        bitOffset     : Int = 0) : Mem[T] = {
+                                        bitOffset     : Int = 0,
+                                        memOffset     : UInt = U(0).resized) : Mem[T] = {
     val mapping = SizeMapping(addressOffset,mem.wordCount << log2Up(busDataWidth/8))
-    val memAddress = readAddress(mapping) >> log2Up(busDataWidth/8)
+    val memAddress = (readAddress(mapping) >> log2Up(busDataWidth/8)) + memOffset
     val readData = mem.readSync(memAddress)
     multiCycleRead(mapping,2)
     readPrimitive(readData, mapping, bitOffset, null)
@@ -683,9 +701,10 @@ trait BusSlaveFactory extends Area{
     * Memory map a Mem to bus for reading. Elements can be larger than bus data width in bits.
     */
   def readSyncMemMultiWord[T <: Data](mem: Mem[T],
-                                      addressOffset: BigInt): Mem[T] = {
+                                      addressOffset: BigInt,
+                                      memOffset    : UInt = U(0).resized): Mem[T] = {
     val mapping = SizeMapping(addressOffset, mem.wordCount << log2Up(mem.width / 8))
-    val memAddress = readAddress(mapping) >> log2Up(mem.width / 8)
+    val memAddress = (readAddress(mapping) >> log2Up(mem.width / 8)) + memOffset
     val readData = mem.readSync(memAddress).asBits
     val offset = readAddress(mapping)(log2Up(mem.width / 8) - 1 downto log2Up(busDataWidth / 8))
     val partialRead = readData(offset << log2Up(busDataWidth), busDataWidth bits)
@@ -696,9 +715,10 @@ trait BusSlaveFactory extends Area{
 
   def writeMemWordAligned[T <: Data](mem           : Mem[T],
                                      addressOffset : BigInt,
-                                     bitOffset     : Int = 0) : Mem[T] = {
+                                     bitOffset     : Int = 0,
+                                     memOffset     : UInt = U(0).resized) : Mem[T] = {
     val mapping    = SizeMapping(addressOffset,mem.wordCount << log2Up(busDataWidth / 8))
-    val memAddress = writeAddress(mapping) >> log2Up(busDataWidth / 8)
+    val memAddress = (writeAddress(mapping) >> log2Up(busDataWidth / 8)) + memOffset
 
     // handle masking
     if (writeByteEnable != null) {

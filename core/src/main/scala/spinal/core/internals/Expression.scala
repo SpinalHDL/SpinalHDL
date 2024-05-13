@@ -660,6 +660,12 @@ object Operator {
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
+
+    class IsUnknown extends UnaryOperator {
+      override def opName: String = "$isunknown(Bits)"
+
+      override def getTypeObject: Any = TypeBool
+    }
   }
 
 
@@ -2458,10 +2464,14 @@ abstract class BitVectorLiteral() extends Literal with WidthProvider {
   }
 
   def hexString(bitCount: Int, aligin: Boolean = false):String = {
-    val hexCount = scala.math.ceil(bitCount/4.0).toInt
-    val alignCount = if (aligin) (hexCount * 4) else bitCount
-    val unsignedValue = if(value >= 0) value else ((BigInt(1) << alignCount) + value)
-    s"%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
+    if(value == 0){
+      "0"
+    } else {
+      val hexCount = scala.math.ceil(bitCount/4.0).toInt
+      val alignCount = if (aligin) (hexCount * 4) else bitCount
+      val unsignedValue = if(value >= 0) value else ((BigInt(1) << alignCount) + value)
+      s"%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
+    }
   }
 
 

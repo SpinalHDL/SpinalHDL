@@ -197,7 +197,8 @@ class ComponentEmitterVhdl(
     })
 
     //Wrap expression which need it
-    cutLongExpressions()
+    if(spinalConfig.cutLongExpressions)
+      cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
     component.dslBody.walkStatements { s =>
       s.walkExpression { e =>
@@ -1511,6 +1512,11 @@ class ComponentEmitterVhdl(
     case  e: BitVectorBitAccessFloating              => accessBoolFloating(e)
     case  e: BitVectorRangedAccessFixed              => accessBitVectorFixed(e)
     case  e: BitVectorRangedAccessFloating           => accessBitVectorFloating(e)
+
+    case e: Operator.BitVector.IsUnknown => {
+      SpinalWarning(s"IsUnknown is always false in vhdl")
+      "pkg_toStdLogic(false)"
+    }
   }
 
   elaborate()

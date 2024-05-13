@@ -15,10 +15,15 @@ case class UsbPhyFsNativeIo() extends Bundle with IMasterSlave {
     master(dp,dm)
   }
 
-  def stage() : UsbPhyFsNativeIo = {
-    val ret = UsbPhyFsNativeIo().setCompositeName(this, "stage", true)
-    ret.dp << dp.stage()
-    ret.dm << dm.stage()
+  def bufferized() : UsbPhyFsNativeIo = {
+    val ret = UsbPhyFsNativeIo().setCompositeName(this, "bufferized", true)
+    def doIt(inside : TriState[Bool], outside : TriState[Bool]): Unit = {
+      outside.write := Delay(inside.write, 2)
+      outside.writeEnable := Delay(inside.writeEnable, 2)
+      inside.read := BufferCC(outside.read)
+    }
+    doIt(dp, ret.dp)
+    doIt(dm, ret.dm)
     ret
   }
 }

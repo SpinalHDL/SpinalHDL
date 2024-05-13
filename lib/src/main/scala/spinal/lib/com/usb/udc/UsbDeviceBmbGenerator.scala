@@ -39,8 +39,7 @@ class UsbDeviceBmbGenerator(ctrlOffset : Handle[BigInt] = Unset)
         native.dp.write := False
         native.dm.write := False
       }
-      val buffer = native.stage()
-      val dif = master(buffer.stage())
+      val dif = master(native.bufferized())
       val power = if(withPower) in(Bool()) else True
       logic.io.power := power
     }}}

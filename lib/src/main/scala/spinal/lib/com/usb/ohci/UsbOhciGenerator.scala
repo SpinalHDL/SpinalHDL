@@ -55,8 +55,7 @@ class UsbOhciGenerator(ctrlOffset : Handle[BigInt] = Unset)
       logic.clockDomain {
         management.get.map(e => e.overcurrent := False)
         val native = usb.get.map(_.toNativeIo())
-        val buffer = native.map(_.stage())
-        Vec(buffer.map(e => master(e.stage())))
+        native.map(e => master(e.bufferized()))
       }
     }
 

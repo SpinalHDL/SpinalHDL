@@ -189,19 +189,54 @@ object RegFlow{
   }
 }
 
+@deprecated("Renamed to 'UnsafeFlowCCByToggle' because it's not safe in many cases, see its comments")
 object FlowCCByToggle {
+  def apply[T <: Data](input: Flow[T],
+                       inputClock: ClockDomain = ClockDomain.current,
+                       outputClock: ClockDomain = ClockDomain.current,
+                       withOutputBufferedReset: Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
+                       withOutputM2sPipe: Boolean = true): Flow[T] = FlowCCUnsafeByToggle(input, inputClock, outputClock, withOutputBufferedReset, withOutputM2sPipe)
+}
+
+@deprecated("Renamed to 'UnsafeFlowCCByToggle' because it's not safe in many cases, see its comments")
+class FlowCCByToggle[T <: Data](dataType: HardType[T],
+                                inputClock: ClockDomain,
+                                outputClock: ClockDomain,
+                                withOutputBufferedReset: Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
+                                withOutputM2sPipe: Boolean = true) extends FlowCCUnsafeByToggle(dataType, inputClock, outputClock, withOutputBufferedReset, withOutputM2sPipe)
+
+object FlowCCUnsafeByToggle {
+  /** CDC for a Flow
+    *
+    * This component is not a safe CDC structure for the general use-case.
+    * The transmitting side MUST be slower then the receiving side e.g. if:
+    * - transmitting clock is appropriately faster than the receiving one
+    * - datarate from the transmitter is slow enough
+    * - the component is used as part of a larger CDC component with handshaking
+    *
+    * Do NOT use this component if you are unsure how it works or whether it is
+    * applicable.
+    * A safe alternative (that also shows data loss is):
+    * <pre>
+    * val overflow = Bool()
+    * val crossed = myFlow.toStream(overflow).ccToggle(inputClock, outputClock).toFlow
+    * </pre>
+    */
   def apply[T <: Data](input: Flow[T],
                        inputClock: ClockDomain = ClockDomain.current,
                        outputClock: ClockDomain = ClockDomain.current,
                        withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
                        withOutputM2sPipe : Boolean = true): Flow[T] = {
-    val c = new FlowCCByToggle[T](input.payload, inputClock, outputClock, withOutputBufferedReset, withOutputM2sPipe)
+    val c = new FlowCCUnsafeByToggle[T](input.payload, inputClock, outputClock, withOutputBufferedReset, withOutputM2sPipe)
     c.io.input connectFrom input
-    return c.io.output
+    c.io.output
   }
 }
 
-class FlowCCByToggle[T <: Data](dataType: HardType[T],
+/** CDC for a Flow, NOT SAFE for general use
+  * @see UnsafeFlowCCByToggle.apply
+  */
+class FlowCCUnsafeByToggle[T <: Data](dataType: HardType[T],
                                 inputClock: ClockDomain,
                                 outputClock: ClockDomain,
                                 withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,

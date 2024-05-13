@@ -54,6 +54,7 @@ class ComponentEmitterVerilog(
   val definitionAttributes  = new StringBuilder()
   val beginModule = new StringBuilder()
   val declarations = new StringBuilder()
+  val declaredInterface = mutable.HashSet[Interface]()
   val localparams = new StringBuilder()
   val logics       = new StringBuilder()
   val endModule = new StringBuilder()
@@ -81,16 +82,35 @@ class ComponentEmitterVerilog(
       val dir        = s"${emitDirection(baseType)}"
       val section    = s"${emitType(baseType)}"
       val name       = s"${baseType.getName()}"
-      val comma      = if(baseType == ios.last) "" else ","
+      val comma      = ","
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
-      if(outputsToBufferize.contains(baseType) || baseType.isInput){
-        portMaps += f"${syntax}${dir}%6s wire ${section}%-8s ${name}${EDAcomment}${comma}"
+      if(baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog && spinalConfig.svInterface) {
+        val rootIF = baseType.rootIF()
+        if(!declaredInterface.contains(rootIF)) {
+          declaredInterface += rootIF
+          val intName = rootIF.definitionName
+          //TODO:check more than one modport has same `in` `out` direction
+          val modport = if(rootIF.checkModport().isEmpty) {
+            LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
+            ""
+          } else {
+            rootIF.checkModport().head
+          }
+          val intMod = s"${intName}.${modport}"
+          portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
+        }
       } else {
-        val isReg   = if(signalNeedProcess(baseType)) "reg" else "wire"
-        portMaps += f"${syntax}${dir}%6s ${isReg}%-4s ${section}%-8s ${name}${EDAcomment}${comma}"
+        if(outputsToBufferize.contains(baseType) || baseType.isInput){
+          portMaps += f"${syntax}${dir}%6s wire ${section}%-8s ${name}${EDAcomment}${comma}"
+        } else {
+          val isReg   = if(signalNeedProcess(baseType)) "reg" else "wire"
+          portMaps += f"${syntax}${dir}%6s ${isReg}%-4s ${section}%-8s ${name}${EDAcomment}${comma}"
+        }
       }
     }
+    if(!portMaps.isEmpty)
+      portMaps(portMaps.length - 1) = portMaps.last.stripSuffix(",")
   }
 
   override def wrapSubInput(io: BaseType): Unit = {
@@ -161,17 +181,23 @@ class ComponentEmitterVerilog(
 
     component.children.foreach(sub =>
       sub.getAllIo
-      .foreach(io => if(io.isOutput) {
+      .foreach(io => if(io.isOutput && !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && io.hasTag(IsInterface))) {
         val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
         val name = component.localNamingScope.allocateName(componentSignalName)
-        if (!io.isSuffix)
+        val noUse = signalNoUse(io)
+        val canInline = outSigCanInline(io)
+        if (!io.isSuffix && ((io.isVital || !noUse) && !canInline || spinalConfig.emitFullComponentBindings))
           declarations ++= emitExpressionWrap(io, name)
-        referencesOverrides(io) = name
+        if ((!canInline) || spinalConfig.emitFullComponentBindings)
+          referencesOverrides(io) = name
+        else
+          referencesOverrides(io) = outputWrap(io)
       }
     ))
 
     //Wrap expression which need it
-    cutLongExpressions()
+    if(spinalConfig.cutLongExpressions)
+      cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
 
     component.dslBody.walkStatements { s =>
@@ -185,7 +211,7 @@ class ComponentEmitterVerilog(
             case s: Nameable => "_" + s.getName()
             case _ => ""
           }
-          val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
+          val name = component.localNamingScope.allocateName((anonymSignalPrefix + sName).replace('.', '_'))
           declarations ++= emitExpressionWrap(e, name)
           wrappedExpressionToName(e) = name
         }
@@ -362,20 +388,24 @@ class ComponentEmitterVerilog(
         val genericFlat = bb.genericElements
 
         if (genericFlat.nonEmpty) {
-          logics ++= s"#(\n"
-          for (e <- genericFlat) {
+          val ret = genericFlat.map{ e =>
             e match {
-              case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}),\n"
-              case (name: String, s: String)    => logics ++= s"    .${name}(${"\""}${s}${"\""}),\n"
-              case (name: String, i: Int)       => logics ++= s"    .${name}($i),\n"
-              case (name: String, d: Double)    => logics ++= s"    .${name}($d),\n"
-              case (name: String, b: Boolean)   => logics ++= s"    .${name}(${if(b) "1'b1" else "1'b0"}),\n"
-              case (name: String, b: BigInt)    => logics ++= s"    .${name}(${b.toString(16).size*4}'h${b.toString(16)}),\n"
-              case _                            => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the blackbox ${"\""}${bb.definitionName}${"\""} is not supported in Verilog")
+              case (name: String, bt: BaseType)      => name -> s"${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}"
+              case (name: String, rs: VerilogValues) => name -> s"${rs.v}"
+              case (name: String, s: String)         => name -> s"""\"$s\""""
+              case (name: String, i: Int)            => name -> s"$i"
+              case (name: String, d: Double)         => name -> s"$d"
+              case (name: String, b: Boolean)        => name -> s"${if(b) "1'b1" else "1'b0"}"
+              case (name: String, b: BigInt)         => name -> s"${b.toString(16).size*4}'h${b.toString(16)}"
+              case _                                 => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the blackbox ${"\""}${bb.definitionName}${"\""} is not supported in Verilog")
             }
           }
-          logics.replace(logics.length - 2, logics.length, "\n")
-          logics ++= s"  ) "
+          val namelens = ret.map(_._1.size).max
+          val exprlens = ret.map(_._2.size).max
+          val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s)".format(t._1, t._2))
+          logics ++= s"""#(
+            |${params.mkString(",\n")}
+            |  ) """.stripMargin
         }
       }
 
@@ -386,8 +416,22 @@ class ComponentEmitterVerilog(
       logics ++= s"${child.getName()} (\n"
 
       val ios = child.getOrdredNodeIo.filterNot(_.isSuffix)
+      val connectedIF = mutable.HashSet[Data]()
       val prepareInstports = ios.flatMap { data =>
-        if (data.isInOut) {
+        if (spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && data.hasTag(IsInterface)) {
+          val rootIF = data.rootIF()
+          if(!connectedIF.contains(rootIF)) {
+            connectedIF.add(rootIF)
+            val portAlign = s"%-${maxNameLength}s".format(rootIF.getNameElseThrow)
+            val wireAlign = s"${netsWithSection(data)}".split('.')(0)
+            val comma = if (rootIF.flatten.contains(ios.last)) " " else ","
+            val modport = rootIF.checkModport
+            val dirtag = if(modport.isEmpty) "" else rootIF.definitionName + "." + modport.head
+            Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
+          } else {
+            None
+          }
+        } else if (data.isInOut) {
           analogDrivers.get(data) match {
             case Some(statements) => {
               case class Mapping(offset: Int, width: Int, dst: Expression)
@@ -410,6 +454,8 @@ class ComponentEmitterVerilog(
             case None => None
           }
         } else {
+          val noUse = signalNoUse(data)
+
           val portAlign = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
           val wireAlign = s"${netsWithSection(data)}"
           val comma = if (data == ios.last) " " else ","
@@ -419,7 +465,12 @@ class ComponentEmitterVerilog(
             case spinal.core.inout => "~"
             case _ => SpinalError("Not founded IO type")
           }
-          Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
+          if(data.isVital || !noUse || spinalConfig.emitFullComponentBindings)
+            Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
+          else {
+            referencesOverrides.remove(data)
+            Some((s"    .${portAlign} (", s" ", s")${comma} //${dirtag}\n"))
+          }
         }
       }
       val maxNameLengthConNew = if(prepareInstports.isEmpty) 0 else prepareInstports.map(_._2.length()).max
@@ -1006,6 +1057,35 @@ class ComponentEmitterVerilog(
     s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
   }
 
+  def emitInterfaceSignal(data: Interface, name: String): String = {
+    //val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
+    //s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
+    val genericFlat = data.genericElements
+
+    val t = if (genericFlat.nonEmpty) {
+      val ret = genericFlat.map{ e =>
+        e match {
+          case (name: String, bt: BaseType, _)      => name -> s"${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}"
+          case (name: String, rs: VerilogValues, _) => name -> s"${rs.v}"
+          case (name: String, s: String, _)         => name -> s"""\"$s\""""
+          case (name: String, i: Int, _)            => name -> s"$i"
+          case (name: String, d: Double, _)         => name -> s"$d"
+          case (name: String, b: Boolean, _)        => name -> s"${if(b) "1'b1" else "1'b0"}"
+          case (name: String, b: BigInt, _)         => name -> s"${b.toString(16).size*4}'h${b.toString(16)}"
+          case _                                 => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the interface ${"\""}${data.definitionName}${"\""} is not supported in Verilog")
+        }
+      }
+      val namelens = ret.map(_._1.size).max
+      val exprlens = ret.map(_._2.size).max
+      val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s )".format(t._1, t._2))
+      s"""${data.definitionName} #(
+        |${params.mkString(",\n")}
+        |  )""".stripMargin
+    } else f"${data.definitionName}%-19s"
+    val  cl = if(genericFlat.nonEmpty) "\n" else ""
+    f"${theme.maintab}${t} ${name}();\n${cl}"
+  }
+
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
     val net = if(signalNeedProcess(baseType)) "reg" else "wire"
     val section = emitType(baseType)
@@ -1080,10 +1160,21 @@ class ComponentEmitterVerilog(
 
   def emitSignals(): Unit = {
     val enumDebugStringBuilder = new StringBuilder()
+    for((intf, s) <- createInterfaceWrap) {
+      declarations ++= emitInterfaceSignal(intf.asInstanceOf[Interface], s)
+    }
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
         if (!signal.isIo && !signal.isSuffix) {
-          declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
+          if(!signal.hasTag(IsInterface) || !(spinalConfig.mode == SystemVerilog && spinalConfig.svInterface)) {
+            declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
+          } else {
+            val rootIF = signal.rootIF()
+            if(!declaredInterface.contains(rootIF)) {
+              declaredInterface += rootIF
+              declarations ++= emitInterfaceSignal(rootIF, rootIF.getName(signal.getNameElseThrow.split('.')(0)))//TODO:name?
+            }
+          }
         }
         if(spinalConfig._withEnumString) {
           signal match {
@@ -1703,6 +1794,12 @@ end
     case  e: Operator.BitVector.orR                    => s"(|${emitExpression(e.source)})"
     case  e: Operator.BitVector.andR                   => s"(&${emitExpression(e.source)})"
     case  e: Operator.BitVector.xorR                   => s"(^${emitExpression(e.source)})"
+    case e: Operator.BitVector.IsUnknown =>
+      if (systemVerilog) s"$$isunknown(${emitExpression(e.source)})"
+      else {
+        SpinalWarning(s"IsUnknown is always false since system verilog is not active.")
+        "0"
+      }
 
     case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)}, ${e.delay})"
     case e : Operator.Formal.Rose                     => s"$$rose(${emitExpression(e.source)})"
@@ -1727,8 +1824,83 @@ end
     }
   }
 
+  val outputSignalNoUse: mutable.LinkedHashSet[BaseType] = mutable.LinkedHashSet()
+  val outputNoNeedWrap = mutable.LinkedHashSet[Expression]()
+  val outputWrap = mutable.LinkedHashMap[Expression, String]()
+  if(!spinalConfig.emitFullComponentBindings) {
+    component.children.foreach(sub =>
+      sub.getAllIo
+      .foreach(io => if(io.isOutput) {
+        outputSignalNoUse.add(io)
+        outputNoNeedWrap.add(io)
+      }
+    ))
+    component.dslBody.walkStatements {
+      case s: BaseType =>
+      case s: AssignmentStatement => {
+        s.source match {
+          case src: BaseType => if(outputNoNeedWrap.contains(src)) {
+            def whenMatch(x: Expression) = {
+              outputWrap += src -> emitAssignedExpression(x)//x.getNameElseThrow//TODO:not getname.
+              outputNoNeedWrap.remove(src)
+              if(!spinalConfig.emitFullComponentBindings)
+                s.removeStatement()
+            }
+            s.target match {
+              case x: BaseType if x.isComb && x.component == component => {
+                whenMatch(x)
+              }
+              case x: BitAssignmentFixed if x.out.isComb && x.out.component == component => {
+                whenMatch(x)
+              }
+              case x: BitAssignmentFloating if x.out.isComb && x.out.component == component => {
+                whenMatch(x)
+              }
+              case x: RangedAssignmentFixed if x.out.isComb && x.out.component == component => {
+                whenMatch(x)
+              }
+              case x: RangedAssignmentFloating if x.out.isComb && x.out.component == component => {
+                whenMatch(x)
+              }
+              case _ =>
+            }
+          }
+          case _ =>
+        }
+
+        s.walkExpression {
+          case e: BaseType => {
+            if(outputSignalNoUse contains e) {
+              outputSignalNoUse.remove(e)
+            }
+          }
+          case _ =>
+        }
+      }
+      case s => {
+        s.walkExpression {
+          case e: BaseType => {
+            if(outputSignalNoUse contains e) {
+              outputSignalNoUse.remove(e)
+            }
+          }
+          case _ =>
+        }
+      }
+    }
+  }
+
+  def signalNoUse(sig: BaseType): Boolean = {
+    outputSignalNoUse contains sig
+  }
+
+  def outSigCanInline(sig: BaseType): Boolean = {
+    outputWrap contains sig
+  }
+
   elaborate()
   fillExpressionToWrap()
   emitEntity()
   emitArchitecture()
+
 }

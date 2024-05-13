@@ -230,7 +230,7 @@ class StateDelay(cyclesCount: UInt)(implicit stateMachineAccessor: StateMachineA
   cache.addMinWidth(cyclesCount.getWidth)
 
   onEntry{
-    cache.value := cyclesCount
+    cache.value := cyclesCount.resized
   }
 
   whenIsActiveWithPriority(1){

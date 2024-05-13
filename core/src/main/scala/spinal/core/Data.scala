@@ -790,6 +790,30 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   // Cat this count times
   def #* (count : Int) =  Cat(List.fill(count)(this))
+
+  /**
+    * root interface
+    */
+  def rootIF(): Interface = {
+    rootIFrec(this, Nil).head
+  }
+
+  def rootIFList(): List[Interface] = {
+    rootIFrec(this, Nil)
+  }
+
+  def rootIFrec(now: Data, lastRoot: List[Interface]): List[Interface] = {
+    if(now.parent == null) {
+      lastRoot
+    } else if(now.parent.isInstanceOf[Interface]) {
+      now.parent match {
+        case x: Interface if x.thisIsNotSVIF => lastRoot
+        case _ => rootIFrec(now.parent, now.parent.asInstanceOf[Interface] :: lastRoot)
+      }
+    } else {
+      rootIFrec(now.parent, lastRoot)
+    }
+  }
 }
 
 trait DataWrapper extends Data{

@@ -114,6 +114,8 @@ class PhaseContext(val config: SpinalConfig) {
 
   def sortedComponents = components().sortWith(_.level > _.level)
 
+  val svInterface = mutable.LinkedHashMap[String, StringBuilder]()
+
   def walkAll(func: Any => Unit): Unit = {
     GraphUtils.walkAllComponents(topLevel, c => {
       func(c)
@@ -2034,7 +2036,7 @@ class PhaseCheckIoBundle extends PhaseCheck{
   }
 }
 
-class PhaseCheckHiearchy extends PhaseCheck{
+class PhaseCheckHierarchy extends PhaseCheck{
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -2760,7 +2762,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCollectAndNameEnum(pc)
 
     phases += new PhaseCheckIoBundle()
-    phases += new PhaseCheckHiearchy()
+    phases += new PhaseCheckHierarchy()
     phases += new PhaseAnalog()
     phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
@@ -2790,7 +2792,7 @@ object SpinalVhdlBoot{
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
     report.globalData = pc.globalData
-    phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
+    phases += new PhaseDummy(SpinalProgress(s"Generate VHDL to ${config.targetDirectory}"))
     phases += new PhaseVhdl(pc, report)
 
     for(inserter <-config.phasesInserters){
@@ -2886,7 +2888,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCollectAndNameEnum(pc)
 
     phases += new PhaseCheckIoBundle()
-    phases += new PhaseCheckHiearchy()
+    phases += new PhaseCheckHierarchy()
     phases += new PhaseAnalog()
     phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
@@ -2913,9 +2915,13 @@ object SpinalVerilogBoot{
     phases += new PhaseAllocateNames(pc)
     phases += new PhaseDevice(pc)
 
+    if(config.mode == SystemVerilog && config.svInterface) {
+      phases += new PhaseInterface(pc)
+    }
+
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
 
-    phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
+    phases += new PhaseDummy(SpinalProgress(s"Generate Verilog to ${config.targetDirectory}"))
 
     val report = new SpinalReport[T]()
     report.globalData = pc.globalData
