@@ -1653,12 +1653,7 @@ class StreamHistory[T <: Data](dataType: HardType[T], length: Int) extends Compo
         {
           val stream = Stream(dataType)
           stream <-< prev
-
-          val next = Stream(dataType)
-          next.valid := stream.valid
-          next.payload := stream.payload
-          stream.ready := next.ready | !stream.valid
-          next
+          stream
         },
         left - 1)
     }
