@@ -1631,17 +1631,14 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
 }
 
 object StreamHistory {
-  def apply[T <: Data](that: Stream[T], length: Int): Area = new Area{
-    val ret = new StreamHistory(that.payloadType, length)
-    ret.io.push << that
-    val output = cloneOf(that)
-    output << ret.io.pop
-    val states = cloneOf(ret.io.states)
-    (states, ret.io.states).zipped.map(_ << _)
+  def apply[T <: Data](that: Stream[T], length: Int)(implicit insertS2M: (Int) => Boolean = (_) => false): (Stream[T], Vec[Flow[T]]) = {
+    val inst = new StreamHistory(that.payloadType, length)(insertS2M)
+    inst.io.push << that
+    (inst.io.pop, inst.io.states)
   }
 }
 
-class StreamHistory[T <: Data](dataType: HardType[T], length: Int) extends Component {
+class StreamHistory[T <: Data](dataType: HardType[T], length: Int)(implicit insertS2M: (Int) => Boolean = (_) => false) extends Component {
   val io = new Bundle {
     val push          = slave  Stream(dataType)
     val pop           = master Stream(dataType)
@@ -1654,9 +1651,9 @@ class StreamHistory[T <: Data](dataType: HardType[T], length: Int) extends Compo
       case 1 => prev :: Nil
       case _ => prev :: builder(
         {
-          val stream = Stream(dataType)
-          stream <-< prev
-          stream
+          val id = length + 1 - left
+          val s2m = insertS2M(id)
+          prev.pipelined(true, s2m)
         },
         left - 1)
     }
