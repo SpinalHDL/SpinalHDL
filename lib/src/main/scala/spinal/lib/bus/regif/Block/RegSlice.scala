@@ -11,13 +11,13 @@ import scala.collection.mutable.ListBuffer
 *            \--------------->  RamInst
 *             \-------------->  FifoInst
 * */
-abstract class RegSlice(val name: String, val addr: BigInt, val doc: String, val size: BigInt, val grp: grpTag = null)(val bi: BusIf){
+abstract class RegSlice(val name: String, val addr: BigInt, val doc: String, val size: BigInt, val grp: GrpTag = null)(val bi: BusIf){
   protected var _name  = name
   protected val fields = ListBuffer[Field]()
   protected var fieldPtr: Int = 0
   protected var Rerror: Boolean = false
 
-  def getGrp = Option(grp).getOrElse(grpTag(0, ""))
+  def getGrp = Option(grp).getOrElse(GrpTag(0, ""))
 
   def endaddr = addr + size - bi.wordAddressInc
   def getfieldPtr = fieldPtr
@@ -31,6 +31,9 @@ abstract class RegSlice(val name: String, val addr: BigInt, val doc: String, val
 //  def getFieldDescrs() : List[FieldDescr] = fields.toList
   def getFields() : List[Field] = fields.toList
   def readBits() : Bits
+  val reuseTag: ReuseTag = bi.geturrentReuseTag
+
+  override def toString: String = s"${regType}($name, 0x${addr.hexString()}, 0x${size.hexString()})"
 
   // users to rewrite rdata to replace the original register read back signal
   var updateReadBits: Bits = null

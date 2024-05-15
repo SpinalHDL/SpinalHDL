@@ -8,7 +8,7 @@ import spinal.lib.bus.regif.{AccessType, BusIf, RegSlice}
 //  protected val fields = ListBuffer[Field]()
 //  protected var fieldPtr: Int = 0
 //  protected var Rerror: Boolean = false
-abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, grp: grpTag = null) extends RegSlice(name, addr, doc, size = busif.wordAddressInc, grp = grp)(busif){
+abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, grp: GrpTag = null) extends RegSlice(name, addr, doc, size = busif.wordAddressInc, grp = grp)(busif){
   def setName(name: String): RegBase
 
   def readErrorTag = Rerror

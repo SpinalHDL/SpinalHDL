@@ -8,6 +8,7 @@ import spinal.lib.bus.misc.SizeMapping
 import scala.collection.mutable.ListBuffer
 
 trait BusIf extends BusIfBase {
+  val bus: Bundle
   type B <: this.type
   private val SliceInsts   = ListBuffer[RegSlice]()
   private var regPtr: BigInt = 0
@@ -16,9 +17,32 @@ trait BusIf extends BusIfBase {
   protected var grpId: Int = 1
   protected def grpIdInc(): Unit = (grpId += 1)
 
+  lazy val regSlicesNotReuse: List[RegSlice] = slices.filter(_.reuseTag.id != 0)
+  lazy val reuseGroups: Map[String, List[RegSlice]] = slices.filter(_.reuseTag.id != 0).groupBy(_.reuseTag.partName)
+  lazy val reuseGroupsById: Map[String, Map[Int, List[RegSlice]]] = reuseGroups.map {case(name, slices) => (name, slices.groupBy(_.reuseTag.id)) }
+
+  lazy val repeatGroupsHead: Map[String, List[RegSlice]] = reuseGroupsById.map(t => t._1 -> t._2.head._2)
+  lazy val repeatGroupsBase: Map[String, List[RegSlice]] = reuseGroupsById.map(t => t._1 -> t._2.map(_._2.head).toList.sortBy(_.reuseTag.id))
+
+  def busName = bus.getClass.getSimpleName
   def newgrpTag(name: String) = {
-    val ret = grpTag(grpId, name)
+    val ret = GrpTag(grpId, name)
     this.grpIdInc()
+    ret
+  }
+
+//  protected var partIdFlag: Boolean = false
+  protected var reuseID: Int = 1
+  protected def reuseIDInc(): Unit = (reuseID += 1)
+  def resetPartID(): Unit = {
+    currentReuseTag = ReuseTag(0, "")
+  }
+  private var currentReuseTag = ReuseTag(0, "")
+  def geturrentReuseTag = currentReuseTag
+  def newpartTag(instName: String)(partName: String) = {
+    val ret = ReuseTag(reuseID, partName, regPtr, instName)
+    this.reuseIDInc()
+    currentReuseTag = ret
     ret
   }
 
@@ -97,60 +121,68 @@ trait BusIf extends BusIfBase {
     readGenerator()
   })
 
-  def newRegAt(address: BigInt, doc: String, grp: grpTag = null)(implicit symbol: SymbolName) = {
+
+  def regPart(name: String)(block : => Unit) = {
+    this.newpartTag(name)(name)
+    block
+    this.resetPartID()
+  }
+
+
+  def newRegAt(address: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
     val reg = creatReg(symbol.name, address, doc, grp)
     regPtr = address + wordAddressInc
     reg
   }
 
-  def newReg(doc: String, grp: grpTag = null)(implicit symbol: SymbolName) = {
+  def newReg(doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     val res = creatReg(symbol.name.toLowerCase(), regPtr, doc, grp)
     regPtr += wordAddressInc
     res
   }
 
-  def creatReg(name: String, addr: BigInt, doc: String, grp: grpTag = null) = {
+  def creatReg(name: String, addr: BigInt, doc: String, grp: GrpTag = null) = {
     val ret = new RegInst(name, addr, doc, this, grp)
     SliceInsts += ret
     attachAddr(regPtr)
     ret
   }
 
-  def newRAM(size: BigInt, doc: String, grp: grpTag = null)(implicit  symbol: SymbolName) = {
+  def newRAM(size: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     val res = creatRAM(symbol.name.toLowerCase(), regPtr, size, doc, grp)
     regPtr += scala.math.ceil(size.toDouble/wordAddressInc).toLong * wordAddressInc
     res
   }
 
-  def newRAMAt(address: BigInt, size: BigInt, doc: String, grp: grpTag = null)(implicit symbol: SymbolName) = {
+  def newRAMAt(address: BigInt, size: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
     val res = creatRAM(symbol.name, address, size, doc, grp)
     regPtr = address + scala.math.ceil(size.toDouble/wordAddressInc).toLong * wordAddressInc
     res
   }
 
-  def creatRAM(name: String, addr: BigInt, size: BigInt, doc: String, grp: grpTag = null) = {
+  def creatRAM(name: String, addr: BigInt, size: BigInt, doc: String, grp: GrpTag = null) = {
     val ret = new RamInst(name, addr, size, doc, grp)(this)
     SliceInsts += ret
     attachAddr(SizeMapping(addr, size))
     ret
   }
 
-  def newFifo(doc: String, grp: grpTag = null)(implicit  symbol: SymbolName) = {
+  def newFifo(doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     val res = creatFifo(symbol.name.toLowerCase(), regPtr, doc, grp)
     regPtr += wordAddressInc
     res
   }
 
-  def newFifoAt(address: BigInt, doc: String, grp: grpTag = null)(implicit symbol: SymbolName) = {
+  def newFifoAt(address: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
     val res = creatFifo(symbol.name.toLowerCase(), address, doc, grp)
     regPtr = address + wordAddressInc
     res
   }
 
-  def creatFifo(name: String, addr: BigInt, Doc: String, grp: grpTag = null) = {
+  def creatFifo(name: String, addr: BigInt, Doc: String, grp: GrpTag = null) = {
     val ret = new FifoInst(name, addr, Doc, grp)( this)
     SliceInsts += ret
     attachAddr(addr)

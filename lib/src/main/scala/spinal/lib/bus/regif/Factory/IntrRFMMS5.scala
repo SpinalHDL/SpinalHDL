@@ -45,7 +45,7 @@ import spinal.core._
  * assign  xxx_int = status_3 || status_2 || status_1 || status_0 ;
  * ```
  */
-class IntrRFMMS5(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: grpTag) extends RegSliceGrp(offset, maxSize = 3*bi.bw, doc, grp)(bi) with IntrBase{
+class IntrRFMMS5(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 3*bi.bw, doc, grp)(bi) with IntrBase{
   val RAW   = this.newRegAt(0, s"${doc} RFMMS5-Raw status Register\n set when event \n clear raw when write 1")(SymbolName(s"${name}_INT_RAW"))
   val FORCE = this.newReg(s"${doc} RFMMS5-Force Register\n for SW debug use \n write 1 set raw")(SymbolName(s"${name}_INT_FORCE"))
   val MASKS  = this.newReg(s"${doc} RFMMS5-Mask Set Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASKS"))

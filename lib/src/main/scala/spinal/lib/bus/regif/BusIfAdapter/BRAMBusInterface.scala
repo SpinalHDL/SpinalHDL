@@ -38,6 +38,7 @@ case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = ""
   override def writeHalt(): Unit = assert(false, "BRAM bus does not support halting")
 
   override def busDataWidth: Int = bus.config.dataWidth
+  override def busAddrWidth: Int = bus.config.addressWidth
 
   override def getModuleName: String = moduleName.name
 }

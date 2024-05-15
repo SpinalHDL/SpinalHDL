@@ -7,7 +7,7 @@ import spinal.lib.bus.regif.AccessType._
 
 final case class DocCHeader(name : String,
                             override val prefix : String,
-                            regType : String = "u32",
+                            regType : String = "u32", //unsigned int
                             withshiftmask: Boolean = true) extends BusIfDoc {
   override val suffix: String = "h"
 
@@ -25,24 +25,69 @@ final case class DocCHeader(name : String,
         |#ifndef ${guardName}
         |#define ${guardName}
         |
-        |${bi.slices.map(_.define(maxnamelen, maxshiftlen)).mkString("\n")}
+        |${bi.regSlicesNotReuse.map(_.define(maxnamelen, maxshiftlen)).mkString("")}
         |
-        |${bi.slices.map(_.union).mkString("\n\n")}
+        |${reuseDeclare(bi.reuseGroupsById)}
         |
+        |${bi.regSlicesNotReuse.map(_.union).mkString("\n")}
+        |
+        |${reuseStruct(bi.reuseGroupsById)}
         |#endif /* ${guardName} */
         |""".stripMargin
   }
 
+  def reuseDeclare(lst: Map[String, Map[Int, List[RegSlice]]]) = {
+
+    def base(name: String, t: RegSlice, max: Int) = {
+      val alignName = s"%-${max}s".format(t.reuseTag.instName)
+      val defineName = s"${name}_base_${alignName}".toUpperCase()
+      s"#define ${defineName}  0x${t.reuseTag.baseAddr.hexString()}"
+    }
+
+    lst.map{ t =>
+      val partName = t._1
+      val decPart: List[RegSlice]  = t._2.head._2
+      val heads : List[RegSlice] = t._2.map(_._2.head).toList.sortBy(_.reuseTag.id)
+
+      val instNameMaxLens = heads.map(_.reuseTag.instName.size).max
+      val maxnamelen = decPart.map(_.getName().size).max + prefix.length
+      val maxshiftlen = decPart.map(t => t.getName().size + t.fdNameLens).max + prefix.length
+
+      s"""
+        |/* part '${partName}' declare --> */
+        |${heads.map(t => base(partName, t, instNameMaxLens)).mkString("\n")}
+        |/* part '${partName}' defines */
+        |${decPart.map(_.baseDefine(maxnamelen, maxshiftlen)).mkString("\n")}
+        |/* <--- part '${partName}' declare */
+        |""".stripMargin
+    }.mkString("")
+  }
+
+  def reuseStruct(lst: Map[String, Map[Int, List[RegSlice]]]) = {
+    lst.map { t =>
+      val partName = t._1
+      val decPart: List[RegSlice] = t._2.head._2
+      s"""/*part '${partName}' start --> */
+         |${decPart.map(_.union).mkString("\n")}
+         |/*<-- part '${partName}' end*/
+         |""".stripMargin
+    }.mkString("\n")
+  }
 
   def nameDedupliaction(repeat: String, word: String) = word.toUpperCase().replaceAll(repeat.toUpperCase() + "_", "")
 
   implicit class RegSliceCheadExtend(reg: RegSlice) {
     val deDupRegName = nameDedupliaction(prefix, reg.getName())
-    val preFixRegName = s"${prefix.toUpperCase()}_${deDupRegName}"
+    val preFixRegName = s"${prefix}_${deDupRegName}".toUpperCase()
 
     def define(maxreglen: Int, maxshiftlen: Int): String = {
       val _tab = " " * (maxreglen - deDupRegName.size)
       s"""#define ${preFixRegName} ${_tab}0x${reg.getAddr().hexString(16)}${fddefine(maxshiftlen)}""".stripMargin
+    }
+
+    def baseDefine(maxreglen: Int, maxshiftlen: Int) = {
+      val _tab = " " * (maxreglen - deDupRegName.size)
+      s"""#define ${preFixRegName}(base)  ${_tab}base + 0x${(reg.getAddr() - reg.reuseTag.baseAddr).hexString(8)}${fddefine(maxshiftlen)}""".stripMargin
     }
 
     def union: String = {

@@ -4,7 +4,8 @@ import spinal.core._
 import spinal.lib.bus.localbus.{mbus, mbusConfig}
 import spinal.lib.bus.misc.SizeMapping
 
-class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, grp: grpTag = null)(bi: BusIf) extends RegSlice(name, addr, doc, size, grp)(bi) {
+class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, grp: GrpTag = null)(bi: BusIf) extends RegSlice(name, addr, doc, size, grp)(bi) {
+  require(size >= bi.wordAddressInc, "byte Size must be >= busWidth Byte")
   override val regType: String = "RAM"
 
   val hitDoRead  = (bi.readAddress < U(endaddr)) && (bi.readAddress  >= U(addr)) && bi.doRead

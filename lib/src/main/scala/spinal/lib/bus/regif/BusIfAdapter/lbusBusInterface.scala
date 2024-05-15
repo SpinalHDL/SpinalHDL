@@ -39,7 +39,8 @@ case class lbusBusInterface(bus: lbus, sizeMap: SizeMapping)(implicit moduleName
   override def readHalt()  = bus.rdy := False
   override def writeHalt() = bus.rdy := False
 
-  override def busDataWidth   = bus.c.dw
+  override def busDataWidth: Int = bus.c.dw
+  override def busAddrWidth: Int = bus.c.aw
 
   override val regPre: String = ""
 }

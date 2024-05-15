@@ -5,7 +5,7 @@ import spinal.core.SpinalError
 import scala.collection.mutable.ListBuffer
 
 
-case class RegSliceGrp(baseAddr: BigInt, maxSize: BigInt, doc: String, grp: grpTag)(bi: BusIf) {
+case class RegSliceGrp(baseAddr: BigInt, maxSize: BigInt, doc: String, grp: GrpTag)(bi: BusIf) {
   private val slices = ListBuffer[RegSlice]()
   def len: Int = slices.length
 

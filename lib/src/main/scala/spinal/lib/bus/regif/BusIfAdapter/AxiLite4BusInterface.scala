@@ -68,4 +68,5 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   override def writeHalt(): Unit = doWrite := False
 
   override def busDataWidth   = bus.config.dataWidth
+  override def busAddrWidth   = bus.config.addressWidth
 }

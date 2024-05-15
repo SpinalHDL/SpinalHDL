@@ -21,6 +21,10 @@ trait BusIfBase extends Area{
   val wmask: Bits  //= withstrb generate(Bits(busDataWidth bit))
   val wmaskn: Bits //= withstrb generate(Bits(busDataWidth bit))
 
+  private var version = s"SpinalHDL-${Spinal.version}"
+  def setVersion(ver: String): Unit = version = ver
+  def getVersion: String = version
+
   def readAddress(): UInt
   def writeAddress(): UInt
 
@@ -28,6 +32,7 @@ trait BusIfBase extends Area{
   def writeHalt(): Unit
 
   def busDataWidth: Int
+  def busAddrWidth: Int
   def busByteWidth: Int = scala.math.ceil(this.busDataWidth / 8.0).toInt
   def bw: Int = busByteWidth
 

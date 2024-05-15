@@ -45,6 +45,7 @@ object HtmlTemplate {
         |          background-size: 6px 6px;
         |      }
         |""".stripMargin
+
     val Spring =
       """
         |      .theme-spring{

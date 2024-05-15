@@ -36,4 +36,5 @@ case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, reg
   override def writeHalt() = bus.PREADY := False
 
   override def busDataWidth   = bus.config.dataWidth
+  override def busAddrWidth: Int = bus.config.addressWidth
 }

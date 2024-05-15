@@ -28,7 +28,7 @@ import spinal.core.Bool
  * ```
  */
 
-class IntrMS2(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: grpTag) extends RegSliceGrp(offset, maxSize = 2*bi.bw, doc, grp)(bi) with IntrBase {
+class IntrMS2(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 2*bi.bw, doc, grp)(bi) with IntrBase {
   val MASK   = this.newRegAt(0, s"${doc} MS2-Raw status Register\n set when event \n clear raw when write 1")(SymbolName(s"${name}_INT_MASK"))
   val STATUS = this.newReg(s"${doc} MS2-status Register\n status = raw && (!mask)")(SymbolName(s"${name}_INT_STATUS"))
 

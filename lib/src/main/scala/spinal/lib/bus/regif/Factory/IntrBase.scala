@@ -7,6 +7,7 @@ import scala.collection.mutable.ListBuffer
 trait IntrBase {
   val name: String
   protected val statusbuf = ListBuffer[Bool]()
+  def getStatus = statusbuf.toList
 
   def fieldAt(pos: Int, signal: Bool,  maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): Bool
   def field(signal: Bool,  maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): Bool

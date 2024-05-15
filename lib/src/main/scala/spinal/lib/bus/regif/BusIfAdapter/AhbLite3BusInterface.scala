@@ -50,4 +50,5 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: Str
   def writeHalt(): Unit = bus.HREADY === False
 
   def busDataWidth: Int = bus.config.dataWidth
+  def busAddrWidth: Int = bus.config.addressWidth
 }

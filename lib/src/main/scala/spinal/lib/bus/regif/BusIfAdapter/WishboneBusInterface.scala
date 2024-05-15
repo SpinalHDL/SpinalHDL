@@ -59,5 +59,6 @@ case class WishboneBusInterface(
   override def readHalt() = halted := True
   override def writeHalt() = halted := True
 
-  override def busDataWidth = bus.config.dataWidth
+  override def busDataWidth: Int = bus.config.dataWidth
+  override def busAddrWidth: Int = bus.config.addressWidth
 }
