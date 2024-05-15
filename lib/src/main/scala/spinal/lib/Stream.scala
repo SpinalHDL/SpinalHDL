@@ -158,6 +158,9 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       case (false,true,false) =>  StreamPipe.S2M(this)
       case (true,true,false) =>   StreamPipe.FULL(this)
       case (false,false,true) =>  StreamPipe.HALF(this)
+      case _ => { report(s"Parameters ($m2s, $s2m, $halfRate) are not valid for pipelined function.") 
+        null.asInstanceOf[Stream[T]]
+      }
     }
   }
 
