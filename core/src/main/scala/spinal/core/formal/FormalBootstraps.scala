@@ -239,7 +239,7 @@ case class SpinalFormalConfig(
 
       val dst = rtlDir.resolve(src.getName)
       FileUtils.copyFileToDirectory(src, rtlDir.toFile())
-      rtlFiles.append(dst.toString)
+      rtlFiles.append(workingWorksplace.relativize(dst).toString)
     }
 
     _backend match {
