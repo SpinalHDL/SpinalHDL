@@ -87,7 +87,7 @@ package object regif {
      interrupt with Mask_SET/Mask_CLR/Status 3 Register Interface
      always used for sys_level_int merge
      **/
-    def interruptLevel_W1SCmask_FactoryAt0(addrOffset: BigInt, regNamePre: String, levels: Bool*): Bool = {
+    def interruptLevel_W1SCmask_FactoryAt(addrOffset: BigInt, regNamePre: String, levels: Bool*): Bool = {
       require(levels.size > 0 && levels.size <= bi.busDataWidth, s"The maxNum should be ${bi.busDataWidth} else split 2 or more groups")
       val IntrGrp = this.newIntrMMS3(addrOffset, "")(SymbolName(s"${regNamePre}"))
       levels.foreach{ level =>
