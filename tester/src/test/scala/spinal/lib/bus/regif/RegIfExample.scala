@@ -94,6 +94,18 @@ class RegIfExample extends Component {
   RAM2.bus.asMaster()
   RAM2.updateReadBits = Mux(io.a, RAM2.readBits, B(0x12345678, 32 bit))
 
+  val cc = busif.regPart("turbo"){
+    val M_TURBO_MAX_ITER      = busif.newReg(doc = "Turbo Max Iter Times")
+    val max_iter  = M_TURBO_MAX_ITER.field(Bits(6 bits), RW, 0, doc="Max iter times 1~63 avaliable").asOutput()
+    val M_TURBO_FILL_NUM      = busif.newReg(doc = "Turbo block-head fill number")
+    val fill_num  = M_TURBO_FILL_NUM.field(Bits(6 bits), RW, 0, doc="0~63 avaliable, Head fill Number").asOutput()
+    val M_TURBO_3G_INTER_PVJJ   = busif.newReg(doc = "Turbo UMTS Interleave Parameter P,V")
+    val testjjj   =  M_TURBO_3G_INTER_PVJJ.field(Bits(9 bits), RW, 0,doc="parameter of prime").asOutput()
+    M_TURBO_3G_INTER_PVJJ.reserved(7 bits)
+    val v     =  M_TURBO_3G_INTER_PVJJ.field(Bits(5 bits), RW, 0,doc="Primitive root v").asOutput()
+  }
+
+
   val fifo = busif.newFifo(doc = "fifo test")
   fifo.field(16, "doc ...")("fifo_fd0")
   fifo.fieldAt(24, 1, "doc ...")("fifo_fd2")
@@ -106,6 +118,7 @@ class RegIfExample extends Component {
   fifo2.bus.asMaster()
 
   (0 to 10).foreach{i =>
+    busif.newpartTag(s"r${i}")("Turbo")
     val Reg = busif.newReg("reg0")(SymbolName(s"RegA_$i"))
     val Rtype = Reg.field(Bits(2 bits), RW, 0, doc = "inter Row number\n0:5,1:10,2:20,3:20other")(SymbolName("rta")).asOutput()
     val CPtype = Reg.field(Bits(2 bits), RW, 0, doc = "CP relation\n0: C=P-1\n1: C=p\n2: C=p+1")(SymbolName("rtb")).asOutput()
@@ -113,6 +126,7 @@ class RegIfExample extends Component {
     val Reg2 = busif.newReg(doc = "Turbo CRC Poly")(SymbolName(s"RegB_$i"))
     val crc_mode = Reg2.field(Bool(), RW, 1, doc = "0: CRC24; 1: CRC16")(SymbolName(s"crca_${i}")).asOutput()
     val crc_poly = Reg2.field(Bits(24 bit), RW, 0x864cfb, doc = "(D24+D23+D18+D17+D14+D11+D10+D7+D6+D5+D4+D3+D+1)")(SymbolName(s"crcb_${i}")).asOutput()
+    busif.resetPartID()
   }
 
   val fifo3 = busif.newFifo(doc = "fifo test")
@@ -171,10 +185,45 @@ class RegIfExample extends Component {
   val intr = M1.intr()
 
   M_TURBO_3G_INTER_CRP.updateReadBits = M_TURBO_3G_INTER_FILL.readBits
+
+  def part0(addr: BigInt, tname: String = "") = new Area {
+    busif.newpartTag(tname)("RAM")
+    val RAM2 = busif.newRAMAt(addr, 16 Byte, doc = "Area ram test")
+    RAM2.field(2, "doc ...")("mem_fd0")
+    RAM2.field(8, "doc ...")("mem_fd1")
+    RAM2.fieldAt(16, 2, "doc ...")("mem_fd2")
+    RAM2.field(3, "doc ...")("mem_fd3")
+    RAM2.updateReadBits = Mux(io.a, RAM2.readBits, B(0x12345678, 32 bit))
+    val TEST = busif.newReg("TESTJJ")
+    val param0 = TEST.field(Bits(8 bits), RW, 0, doc = "test param0")
+    val param1 = TEST.field(Bits(8 bits), RW, 0, doc = "test param0")
+    val bus = RAM2.bus
+    val M_LONG = busif.newReg(doc = "Long Long regname")
+    val version = M_LONG.field(Bits(32 bit), RW, 0x34afba00, doc = "Device version")
+    busif.resetPartID()
+  }
+
+  val x0 = part0(busif.getRegPtr(), "x0")
+  val x1 = part0(busif.getRegPtr(), "x1")
+  x0.bus.asMaster()
+  x1.bus.asMaster()
+  x0.param0.asOutput()
+  x0.param1.asOutput()
+  x1.param0.asOutput()
+  x1.param1.asOutput()
+  //  val x1 = part0(busif.getRegPtr())
+  val ptr = busif.getRegPtr()
+  for (i <- 0 to 6) {
+    val t = part0(ptr + i * 8 * 4,  s"bran${i}ch")
+    t.bus.setName(s"bus_ram${i}").asMaster()
+    t.param0.asOutput()
+    t.param1.asOutput()
+  }
+
 //  this.addPrePopTask{
 //    M_TURBO_3G_INTER_CRP.updateReadBits = M_TURBO_3G_INTER_FILL.readBits
 //  }
-  //  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
+//  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
 //  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
 //  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
 //  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
@@ -207,6 +256,7 @@ class RegIfExample extends Component {
   busif.accept(HtmlGenerator("regif", "AP"))
   busif.accept(JsonGenerator("regif"))
   busif.accept(RalfGenerator("regif"))
+  busif.accept(DocPlay("regif"))
 }
 
 object playregif extends App{
