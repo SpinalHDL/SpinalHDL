@@ -28,8 +28,11 @@ abstract class RegSlice(val name: String, val addr: BigInt, val doc: String, val
   def getSize(): BigInt = size
   val regType: String = "REG"
 
+  val hitDoRead: Bool
+  val hitDoWrite: Bool
 //  def getFieldDescrs() : List[FieldDescr] = fields.toList
   def getFields() : List[Field] = fields.toList
+  def readValid(): Bool = RegNext(hitDoRead, init = False)
   def readBits() : Bits
   val reuseTag: ReuseTag = bi.geturrentReuseTag
 

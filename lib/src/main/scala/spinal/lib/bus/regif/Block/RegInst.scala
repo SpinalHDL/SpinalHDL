@@ -367,8 +367,8 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, grp: GrpTag
 
   def readGenerator() = {
     is(addr) {
-      bi.readData  := this.rdata()
-      bi.readError := Bool(this.haveWO)
+      bi.reg_rdata := this.rdata()
+      bi.reg_rderr := Bool(this.haveWO)
     }
   }
 }

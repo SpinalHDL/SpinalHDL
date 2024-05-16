@@ -5,6 +5,14 @@ import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.misc.SizeMapping
 
 case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, regPre: String = "")(implicit moduleName: ClassName) extends BusIf{
+  val busDataWidth: Int = bus.config.dataWidth
+  val busAddrWidth: Int = bus.config.addressWidth
+
+  val readError: Bool = Bool()
+  val readData: Bits  = Bits(busDataWidth bits)
+  val reg_rderr: Bool = Reg(Bool(), init = False)
+  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
+
   override val withStrb: Boolean = false
   val wstrb: Bits = withStrb generate(Bits(strbWidth bit))
   val wmask: Bits = withStrb generate(Bits(busDataWidth bit))
@@ -12,12 +20,6 @@ case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, reg
   initStrbMasks()
 
   override def getModuleName = moduleName.name
-
-  val readError = Bool()
-  val readData  = Bits(bus.config.dataWidth bits)
-
-  readError.setAsReg() init False
-  readData.setAsReg()  init 0
 
   bus.PREADY := True
   bus.PRDATA := readData
@@ -34,7 +36,4 @@ case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, reg
 
   override def readHalt()  = bus.PREADY := False
   override def writeHalt() = bus.PREADY := False
-
-  override def busDataWidth   = bus.config.dataWidth
-  override def busAddrWidth: Int = bus.config.addressWidth
 }

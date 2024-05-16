@@ -6,6 +6,7 @@ import spinal.lib.Stream
 class FifoInst(name: String, addr: BigInt, doc: String, grp: GrpTag = null)(bi: BusIf) extends RegSlice(name, addr, doc, size = bi.wordAddressInc, grp)(bi){
   override val regType: String = "FIFO"
 
+  val hitDoRead: Bool = False
   val hitDoWrite = bi.writeAddress === U(addr) && bi.doWrite
   hitDoWrite.setName(f"write_hit_0x${addr}%04x", weak = true)
 
@@ -45,8 +46,8 @@ class FifoInst(name: String, addr: BigInt, doc: String, grp: GrpTag = null)(bi: 
 
   def readGenerator() = {
     is(addr) {
-      bi.readData  := this.rdata()
-      bi.readError := True
+      bi.reg_rdata  := this.rdata()
+      bi.reg_rderr := True
     }
   }
 }

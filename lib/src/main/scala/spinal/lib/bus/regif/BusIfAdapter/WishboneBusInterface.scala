@@ -4,14 +4,16 @@ import spinal.core._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.wishbone._
 
-case class WishboneBusInterface(
-    bus: Wishbone,
-    sizeMap: SizeMapping,
-    override val readSync: Boolean = true,
-    regPre: String = ""
-)(implicit moduleName: ClassName)
-    extends BusIf {
+case class WishboneBusInterface( bus: Wishbone, sizeMap: SizeMapping, override val readSync: Boolean = true, regPre: String = "" )(implicit moduleName: ClassName) extends BusIf {
+  override val busDataWidth: Int = bus.config.dataWidth
+  override val busAddrWidth: Int = bus.config.addressWidth
   override val withStrb: Boolean = false
+
+  val readError: Bool = Bool()
+  val readData: Bits  = Bits(busDataWidth bits)
+  val reg_rderr: Bool = Reg(Bool(), init = False)
+  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
+
   val wstrb: Bits  = withStrb generate (Bits(strbWidth bit))
   val wmask: Bits  = withStrb generate (Bits(busDataWidth bit))
   val wmaskn: Bits = withStrb generate (Bits(busDataWidth bit))
@@ -21,20 +23,19 @@ case class WishboneBusInterface(
 
   val halted = Bool()
   halted := False
-  override val readError = Bool()
-  override val readData = Bits(bus.config.dataWidth bits)
+
   val ack = Bool()
 
   if (readSync) {
-    readError.setAsReg() init False
-    readData.setAsReg() init 0
-    ack.setAsReg() init False
+//    readError.setAsReg() init False
+//    readData.setAsReg() init 0
+//    ack.setAsReg() init False
 
     // Force ack down between bursts; avoids misread when write cycle proceeds a read cycle
     ack := bus.CYC && bus.STB && !ack
   } else {
-    readError := False
-    readData := 0
+//    readError := False
+//    readData := 0
     ack := bus.CYC && bus.STB
   }
 
@@ -58,7 +59,4 @@ case class WishboneBusInterface(
 
   override def readHalt() = halted := True
   override def writeHalt() = halted := True
-
-  override def busDataWidth: Int = bus.config.dataWidth
-  override def busAddrWidth: Int = bus.config.addressWidth
 }

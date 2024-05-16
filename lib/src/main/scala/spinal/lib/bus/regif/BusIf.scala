@@ -9,6 +9,7 @@ import scala.collection.mutable.ListBuffer
 
 trait BusIf extends BusIfBase {
   val bus: Bundle
+
   type B <: this.type
   private val SliceInsts   = ListBuffer[RegSlice]()
   private var regPtr: BigInt = 0
@@ -118,7 +119,7 @@ trait BusIf extends BusIfBase {
   }
 
   component.addPrePopTask(() => {
-    readGenerator()
+    this.readGenerator()
   })
 
 
@@ -222,29 +223,48 @@ trait BusIf extends BusIfBase {
       }
       FifoInsts.foreach(_.readGenerator())
       default {
-        readData := readDefaultValue
+        reg_rdata := readDefaultValue
         //Reserved Address Set False, True is too much strict for software
         if (withStrb) {
-          readError := False
+          reg_rderr := False
         } else {
           val alignreadhit = readAddress.take(log2Up(wordAddressInc)).orR
-          readError := Mux(alignreadhit, True, False)
+          reg_rderr := Mux(alignreadhit, True, False)
         }
       }
     }
   }
-  private def readGenerator() = {
+//
+//  def lazyInit() = {
+//    // this should init before readGenerator for the reason of lazy declare scope issue
+//    reg_rderr.setName("reg_rderr")
+//    reg_rdata.setName("reg_rdata")
+//    readData.setName("readData")
+//    readError.setName("readError")
+//  }
+
+  private def regReadGenerator() = {
     when(askRead){
-      if(RamInsts.isEmpty){
-        regReadPart()
-      } else {
-        regReadPart()
-        RamInsts.foreach(_.readGenerator())
-      }
+      regReadPart()
     }.otherwise{
       //do not keep readData after read for the reason of security risk
-      readData  := readDefaultValue
-      readError := False
+      reg_rdata := readDefaultValue
+      reg_rderr := False
+    }
+  }
+
+  private def readGenerator(): Unit = {
+    this.regReadGenerator()
+    val mux = WhenBuilder()
+    RamInsts.foreach{ ram =>
+      mux.when(ram.ram_rdvalid) {
+        readError := False
+        readData  := ram.readBits
+      }
+    }
+    mux.otherwise {
+      readError := reg_rderr
+      readData  := reg_rdata
     }
   }
 }
