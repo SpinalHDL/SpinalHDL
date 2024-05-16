@@ -1,20 +1,27 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
-import spinal.lib.BigIntRicher
+import spinal.core.fiber.Handle
+import spinal.lib.{BigIntRicher, WhenBuilder}
 
 import language.experimental.macros
 import scala.collection.mutable.ListBuffer
 
 trait BusIfBase extends Area{
+  val busDataWidth: Int
+  val busAddrWidth: Int
+
   val askWrite: Bool
   val askRead: Bool
   val doWrite: Bool
   val doRead: Bool
 
-  val readData: Bits
-  val writeData: Bits
   val readError: Bool
+  val readData: Bits
+  val reg_rderr: Bool
+  val reg_rdata: Bits
+
+  val writeData: Bits
   val readSync: Boolean = true
   val withStrb: Boolean
   val wstrb: Bits  //= withstrb generate(Bits(strbWidth bit))
@@ -31,8 +38,6 @@ trait BusIfBase extends Area{
   def readHalt(): Unit
   def writeHalt(): Unit
 
-  def busDataWidth: Int
-  def busAddrWidth: Int
   def busByteWidth: Int = scala.math.ceil(this.busDataWidth / 8.0).toInt
   def bw: Int = busByteWidth
 

@@ -9,9 +9,9 @@ class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, grp: GrpTag
   override val regType: String = "RAM"
 
   val hitDoRead  = (bi.readAddress < U(endaddr)) && (bi.readAddress  >= U(addr)) && bi.doRead
-  hitDoRead.setName(f"read_hit_0x${addr}%04x", weak = true)
+  hitDoRead.setName(f"ram_read_hit_0x${endaddr}%04x_0x${addr}%04x", weak = true)
   val hitDoWrite = (bi.readAddress < U(endaddr)) && (bi.readAddress >= U(addr)) && bi.doWrite
-  hitDoWrite.setName(f"write_hit_0x${addr}%04x", weak = true)
+  hitDoWrite.setName(f"ram_write_hit_0x${endaddr}%04x_0x${addr}%04x", weak = true)
 
   val bus = mbus(mbusConfig(aw = log2Up(size/8), dw = bi.busDataWidth))
   bus.ce   :=  hitDoRead || hitDoWrite
@@ -20,21 +20,16 @@ class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, grp: GrpTag
   bus.wdat :=  bi.writeData
   bus.setName(s"${name}_mbus")
 
-  override def readBits: Bits = bus.rdat
+  val ram_rdvalid = RegNext(hitDoRead) init False
+  ram_rdvalid.setName(s"${name}_ram_rdvalid")
 
-  def readGenerator() = {
-    when(hitDoRead) {
-      bi.readData  := this.rdata()
-      bi.readError := False //todo Lock signal
-    }
-  }
+  override def readBits: Bits = bus.rdat
 
   def field(bit: Int, doc: String = "")(name: String) = {
     val section: Range = fieldPtr + bit -1 downto fieldPtr
     fields   += Field(name, Bits(bit bits), section, AccessType.RW, 0, Rerror, doc)
     fieldPtr += bit
   }
-
 
   def fieldAt(pos: Int, bit: Int, doc: String = "")(name: String) = {
     val sectionNext: Section = pos + bit-1 downto pos

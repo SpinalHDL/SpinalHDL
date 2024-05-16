@@ -6,24 +6,23 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif._
 
 case class lbusBusInterface(bus: lbus, sizeMap: SizeMapping)(implicit moduleName: ClassName) extends BusIf{
+  override val busDataWidth: Int = bus.c.dw
+  override val busAddrWidth: Int = bus.c.aw
   override val withStrb: Boolean = true
   override def getModuleName = moduleName.name
 
-  val readError = Bool()
-  val readData  = Bits(bus.c.dw bits)
+  val readError: Bool = Bool()
+  val readData: Bits  = Bits(busDataWidth bits)
+  val reg_rderr: Bool = Reg(Bool(), init = False)
+  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
+
   val wstrb: Bits  = withStrb generate(Bits(strbWidth bit))
   val wmask: Bits  = withStrb generate(Bits(busDataWidth bit))
   val wmaskn: Bits = withStrb generate(Bits(busDataWidth bit))
   withStrb generate(wstrb := bus.strb)
 
-//  readError.setAsReg() init False
-//  readData.setAsReg()  init 0
-
-  bus.rdat.setAsReg() init readDefaultValue
-
   bus.rdy := True
   bus.rdat := readData
-
 
   val askWrite  = bus.ce && bus.wr
   val askRead   = bus.ce && !bus.wr
@@ -38,9 +37,6 @@ case class lbusBusInterface(bus: lbus, sizeMap: SizeMapping)(implicit moduleName
 
   override def readHalt()  = bus.rdy := False
   override def writeHalt() = bus.rdy := False
-
-  override def busDataWidth: Int = bus.c.dw
-  override def busAddrWidth: Int = bus.c.aw
 
   override val regPre: String = ""
 }
