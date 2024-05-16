@@ -10,8 +10,8 @@ case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, selId: Int = 0, reg
   override val busAddrWidth: Int = bus.c.addressWidth
   override def getModuleName = moduleName.name
 
-  val readError: Bool = Bool()
-  val readData: Bits  = Bits(busDataWidth bits)
+  val bus_rderr: Bool = Bool()
+  val bus_rdata: Bits  = Bits(busDataWidth bits)
   val reg_rderr: Bool = Reg(Bool(), init = False)
   val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
 
@@ -21,8 +21,8 @@ case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, selId: Int = 0, reg
   withStrb generate(wstrb := bus.PSTRB)
 
   bus.PREADY := True
-  bus.PRDATA := readData
-  if(bus.c.useSlaveError) bus.PSLVERR := readError
+  bus.PRDATA := bus_rdata
+  if(bus.c.useSlaveError) bus.PSLVERR := bus_rderr
 
   val askWrite  = (bus.PSEL(selId) && bus.PWRITE).allowPruning()
   val askRead   = (bus.PSEL(selId) && !bus.PWRITE).allowPruning()

@@ -11,8 +11,8 @@ case class lbusBusInterface(bus: lbus, sizeMap: SizeMapping)(implicit moduleName
   override val withStrb: Boolean = true
   override def getModuleName = moduleName.name
 
-  val readError: Bool = Bool()
-  val readData: Bits  = Bits(busDataWidth bits)
+  val bus_rderr: Bool = Bool()
+  val bus_rdata: Bits  = Bits(busDataWidth bits)
   val reg_rderr: Bool = Reg(Bool(), init = False)
   val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
 
@@ -22,7 +22,7 @@ case class lbusBusInterface(bus: lbus, sizeMap: SizeMapping)(implicit moduleName
   withStrb generate(wstrb := bus.strb)
 
   bus.rdy := True
-  bus.rdat := readData
+  bus.rdat := bus_rdata
 
   val askWrite  = bus.ce && bus.wr
   val askRead   = bus.ce && !bus.wr
