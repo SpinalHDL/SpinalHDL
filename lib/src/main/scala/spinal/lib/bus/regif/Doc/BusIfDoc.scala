@@ -32,7 +32,7 @@ trait BusIfDoc {
     val pw = new PrintWriter(path)
     pw.write(this.body())
     pw.close()
-    SpinalInfo(s"dump ${path}.")
+    SpinalInfo(s"dump ${path} ")
   }
 
   val pc = GlobalData.get.phaseContext

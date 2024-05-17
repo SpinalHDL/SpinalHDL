@@ -21,7 +21,7 @@ class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, grp: GrpTag
   bus.setName(s"${name}_mbus")
 
   val ram_rdvalid = RegNext(hitDoRead) init False
-  ram_rdvalid.setName(s"${name}_ram_rdvalid")
+  ram_rdvalid.setName(s"${name}_ram_rdvalid", weak = true)
 
   override def readBits: Bits = bus.rdat
 

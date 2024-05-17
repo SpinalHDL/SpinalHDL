@@ -16,7 +16,8 @@ final case class DocCHeader(name : String,
   def body(): String = {
     val maxnamelen = bi.slices.map(_.getName().size).max + prefix.length
     val maxshiftlen = bi.slices.map(t => t.getName().size + t.fdNameLens).max + prefix.length
-
+    val normalRegSlices = bi.regSlicesNotReuse
+    val reuseGroupsById = bi.reuseGroupsById
     s"""|/*
         | * ${header}
         | * Reg Interface C-Header [AUTOGENERATE by SpinalHDL]
@@ -25,13 +26,13 @@ final case class DocCHeader(name : String,
         |#ifndef ${guardName}
         |#define ${guardName}
         |
-        |${bi.regSlicesNotReuse.map(_.define(maxnamelen, maxshiftlen)).mkString("")}
+        |${normalRegSlices.map(_.define(maxnamelen, maxshiftlen)).mkString("\n")}
         |
-        |${reuseDeclare(bi.reuseGroupsById)}
+        |${reuseDeclare(reuseGroupsById)}
         |
-        |${bi.regSlicesNotReuse.map(_.union).mkString("\n")}
+        |${normalRegSlices.map(_.union).mkString("\n")}
         |
-        |${reuseStruct(bi.reuseGroupsById)}
+        |${reuseStruct(reuseGroupsById)}
         |#endif /* ${guardName} */
         |""".stripMargin
   }
