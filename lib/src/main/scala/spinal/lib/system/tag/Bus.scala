@@ -33,6 +33,26 @@ trait MemoryEndpoint extends SpinalTag{
   def mapping: AddressMapping
 }
 
+class MemoryEndpointTag(body : => AddressMapping) extends MemoryEndpoint{
+  override def mapping: AddressMapping = body
+}
+
+class VirtualEndpoint(val up : Nameable with SpinalTagReady, val mapping : AddressMapping) extends Area with SpinalTagReady  {
+  val self = this
+  new MemoryConnection {
+    override def up = self.up
+    override def down = self
+    override def transformers = Nil
+    populate()
+  }
+  addTag(new MemoryTransferTag{
+    override def get: MemoryTransfers = MemoryTransfers.of(up).get
+  })
+  addTag(new MemoryEndpoint {
+    override def mapping = self.mapping
+  })
+}
+
 trait PmaRegion{
   def mapping : AddressMapping
   def transfers: MemoryTransfers
