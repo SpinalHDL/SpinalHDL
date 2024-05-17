@@ -9,8 +9,8 @@ case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = ""
   override val busDataWidth: Int = bus.config.dataWidth
   override val busAddrWidth: Int = bus.config.addressWidth
 
-  val readError: Bool = Bool()
-  val readData: Bits  = Bits(busDataWidth bits)
+  val bus_rderr: Bool = Bool()
+  val bus_rdata: Bits  = Bits(busDataWidth bits)
   val reg_rderr: Bool = Reg(Bool(), init = False)
   val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
 
@@ -31,7 +31,11 @@ case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = ""
 
 //  override val readData: Bits = Bits(busDataWidth bits)
 
-  bus.rddata := Delay(readData, bus.config.readLatency - 1) init B(0)
+  if(bus.config.readLatency == 1 ){
+    bus.rddata := bus_rdata
+  } else {
+    bus.rddata := Delay(bus_rdata, bus.config.readLatency - 1) init B(0)
+  }
 
   override val writeData: Bits = bus.wrdata
 

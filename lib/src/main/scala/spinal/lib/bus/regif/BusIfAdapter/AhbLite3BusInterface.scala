@@ -9,8 +9,8 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: Str
   override val busDataWidth: Int = bus.config.dataWidth
   override val busAddrWidth: Int = bus.config.addressWidth
 
-  val readError: Bool = Bool()
-  val readData: Bits  = Bits(busDataWidth bits)
+  val bus_rderr: Bool = Bool()
+  val bus_rdata: Bits  = Bits(busDataWidth bits)
   val reg_rderr: Bool = Reg(Bool(), init = False)
   val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
 
@@ -29,15 +29,15 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: Str
 
   val addressDelay = RegNextWhen(bus.HADDR, askRead | askWrite)
 
-  bus.HRDATA    := readData
+  bus.HRDATA    := bus_rdata
 
-  readError.clearWhen(readError)
-  val readError_2ndcycle = RegNext(readError) init False
+  bus_rderr.clearWhen(bus_rderr)
+  val readError_2ndcycle = RegNext(bus_rderr) init False
 
   when(readError_2ndcycle){
     bus.HREADYOUT := True
     bus.HRESP     := True
-  } elsewhen (readError){
+  } elsewhen (bus_rderr){
     bus.HREADYOUT := False
     bus.HRESP     := True
   } otherwise {

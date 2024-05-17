@@ -258,13 +258,13 @@ trait BusIf extends BusIfBase {
     val mux = WhenBuilder()
     RamInsts.foreach{ ram =>
       mux.when(ram.ram_rdvalid) {
-        readError := False
-        readData  := ram.readBits
+        bus_rderr := False
+        bus_rdata  := ram.readBits
       }
     }
     mux.otherwise {
-      readError := reg_rderr
-      readData  := reg_rdata
+      bus_rderr := reg_rderr
+      bus_rdata  := reg_rdata
     }
   }
 }

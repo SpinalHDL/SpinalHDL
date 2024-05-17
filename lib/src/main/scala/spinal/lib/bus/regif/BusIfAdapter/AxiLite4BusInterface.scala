@@ -10,8 +10,8 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   override val busAddrWidth   = bus.config.addressWidth
   override val withStrb: Boolean = true
 
-  val readError: Bool = Bool()
-  val readData: Bits  = Bits(busDataWidth bits)
+  val bus_rderr: Bool = Bool()
+  val bus_rdata: Bits  = Bits(busDataWidth bits)
   val reg_rderr: Bool = Reg(Bool(), init = False)
   val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
 
@@ -35,13 +35,13 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   initStrbMasks()
 
 
-  when(readError) {
+  when(bus_rderr) {
     axiR.payload.setSLVERR()
   } otherwise {
     axiR.payload.setOKAY()
   }
   axiR.valid := axiRValid
-  axiR.payload.data := readData
+  axiR.payload.data := bus_rdata
 
 
   axiB.setOKAY()
