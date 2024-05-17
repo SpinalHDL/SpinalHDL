@@ -975,6 +975,7 @@ package object sim {
     def forkStimulus() : Unit = {
       val hz = cd.frequency match {
         case ClockDomain.FixedFrequency(value) => value.toBigDecimal
+        case _ => throw new Exception(s"Can't forkStimulus() w/o explicit frequency since frequency of ClockDomain $cd is not known")
       }
       val period = (1 / hz / timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong
       forkStimulus(period, 0)
