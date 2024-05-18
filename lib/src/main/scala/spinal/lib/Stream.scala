@@ -1631,14 +1631,15 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
 }
 
 object StreamHistory {
-  def apply[T <: Data](that: Stream[T], length: Int)(implicit insertS2M: (Int) => Boolean = (_) => false): (Stream[T], Vec[Flow[T]]) = {
-    val inst = new StreamHistory(that.payloadType, length)(insertS2M)
-    inst.io.push << that
-    (inst.io.pop, inst.io.states)
+  def apply[T <: Data](input: Stream[T], output: Stream[T], length: Int = 2): StreamHistory[T] = {
+    val inst = new StreamHistory(input.payloadType, length)
+    inst.io.push << input
+    output << inst.io.pop
+    inst
   }
 }
 
-class StreamHistory[T <: Data](dataType: HardType[T], length: Int)(implicit insertS2M: (Int) => Boolean = (_) => false) extends Component {
+class StreamHistory[T <: Data](dataType: HardType[T], length: Int) extends Component {
   val io = new Bundle {
     val push          = slave  Stream(dataType)
     val pop           = master Stream(dataType)
@@ -1649,13 +1650,7 @@ class StreamHistory[T <: Data](dataType: HardType[T], length: Int)(implicit inse
     left match {
       case 0 => Nil
       case 1 => prev :: Nil
-      case _ => prev :: builder(
-        {
-          val id = length + 1 - left
-          val s2m = insertS2M(id)
-          prev.pipelined(true, s2m)
-        },
-        left - 1)
+      case _ => prev :: builder(prev.m2sPipe(), left - 1)
     }
   }
   val connections = Vec(builder(io.push, length))

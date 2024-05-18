@@ -110,28 +110,6 @@ class SpinalSimStreamHistoryTester extends SpinalSimFunSuite {
         }
     }
 
-    test("testRandomOutCutOffReady") {
-        val lastQueue = mutable.Queue[Boolean]()
-        val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamHistory(
-                UInt(32 bits),
-                12
-            )((id) => id match {
-                case 2 => true
-                case 10 => true
-                case _ => false
-            })
-            dut
-        }
-        compiled.doSimUntilVoid { dut =>
-            val inQueue    = mutable.Queue[BigInt]()
-            val outQueue   = mutable.Queue[BigInt]()
-            prepare(dut, true, false, inQueue, outQueue)
-            dut.clockDomain.waitSampling((1 KiB).toInt)
-            simSuccess()
-        }
-    }
-
     test("testFullPipeline") {
         val lastQueue = mutable.Queue[Boolean]()
         val compiled = SimConfig.allOptimisation.compile {
@@ -155,14 +133,10 @@ class SpinalSimStreamHistoryTester extends SpinalSimFunSuite {
         val compiled = SimConfig.allOptimisation.compile {
             val dut = new Component{
                 val input = slave Stream(UInt(32 bits))
-                val (inst, _) = StreamHistory(input, 12)(
-                    (id) => id match {
-                        case 2 => true
-                        case 10 => true
-                        case _ => false
-                    })
                 val output = master Stream(UInt(32 bits))
-                output << inst
+                val hist = StreamHistory(input, output, 12)
+                val test = out Bool()
+                test := hist.io.states(0).valid
             }
             dut
         }
