@@ -11,7 +11,7 @@ class Ram (p : NodeParameters,
     val up = slave port Bus(p)
   }
 
-  val mem = Mem.fill(bytes/p.m.dataBytes)(Bits(p.m.dataWidth bits)).simPublic()
+  val mem = Mem.fill(bytes/p.m.dataBytes)(Bits(p.m.dataWidth bits))
   val port = mem.readWriteSyncPort(p.m.dataBytes)
 
   val pipeline = new Pipeline{
