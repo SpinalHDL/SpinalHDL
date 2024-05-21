@@ -15,6 +15,7 @@ trait BusIfBase extends Area{
   val askRead: Bool
   val doWrite: Bool
   val doRead: Bool
+  val cg_en: Bool = True
 
   val bus_rderr: Bool
   val bus_rdata: Bits

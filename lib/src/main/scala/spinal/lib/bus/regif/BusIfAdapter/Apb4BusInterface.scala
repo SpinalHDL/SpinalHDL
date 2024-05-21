@@ -29,6 +29,7 @@ case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, selId: Int = 0, reg
   val doWrite   = (askWrite && bus.PENABLE && bus.PREADY).allowPruning()
   val doRead    = (askRead  && bus.PENABLE && bus.PREADY).allowPruning()
   val writeData = bus.PWDATA
+  override val cg_en: Bool = bus.PSEL(selId)
 
   initStrbMasks()
 

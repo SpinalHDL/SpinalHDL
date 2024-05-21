@@ -7,9 +7,9 @@ final case class DocJson(name : String) extends BusIfDoc {
     s"""{
       |  "system"     : "${name}",
       |  "busport"    : "${bi.busName}",
-      |  "datawidth"  : "${bi.busDataWidth}",
-      |  "addrwidth"  : "${bi.busAddrWidth}",
-      |  "byteMask"   : "${bi.withStrb}",
+      |  "datawidth"  : ${bi.busDataWidth},
+      |  "addrwidth"  : ${bi.busAddrWidth},
+      |  "byteMask"   : ${bi.withStrb},
       |  "date"       : "${java.time.LocalDate.now}",
       |  "ToolVersion": "${bi.getVersion}",
       |  "slices"     : [

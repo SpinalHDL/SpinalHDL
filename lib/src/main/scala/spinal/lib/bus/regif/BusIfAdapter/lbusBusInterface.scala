@@ -29,6 +29,7 @@ case class lbusBusInterface(bus: lbus, sizeMap: SizeMapping)(implicit moduleName
   val doWrite   = (askWrite && bus.rdy).allowPruning()
   val doRead    = (askRead  && bus.rdy).allowPruning()
   val writeData = bus.wdat
+  override val cg_en: Bool = bus.ce
 
   initStrbMasks()
 
