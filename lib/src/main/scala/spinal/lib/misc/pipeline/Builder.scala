@@ -78,6 +78,7 @@ class StagePipeline() extends Nameable {
   val nodes = mutable.LinkedHashMap[Int, Node]()
   val links = mutable.ArrayBuffer[StageLink]()
 
+  def apply(i : Int) = node(i)
   def node(i : Int) = nodes.getOrElseUpdate(i, new Node().setCompositeName(this, s"node_${i.toString}"))
   class Area(i : Int) extends NodeMirror(node(i)) with spinal.core.Area
 
