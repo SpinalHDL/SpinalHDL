@@ -33,7 +33,7 @@ case class Jtag(useTck : Boolean = true) extends Bundle with IMasterSlave {
 //══════════════════════════════════════════════════════════════════════════════
 // define Jtag States
 //
-object JtagState extends SpinalEnum {
+object JtagState extends SpinalEnum(binarySequential) {
   val RESET, IDLE,
       IR_SELECT, IR_CAPTURE, IR_SHIFT, IR_EXIT1, IR_PAUSE, IR_EXIT2, IR_UPDATE,
       DR_SELECT, DR_CAPTURE, DR_SHIFT, DR_EXIT1, DR_PAUSE, DR_EXIT2, DR_UPDATE
@@ -48,7 +48,7 @@ class JtagFsm(jtag: Jtag) extends Area {
   val stateNext = JtagState()
   val state = RegNext(stateNext) randBoot()
   stateNext := state.mux(
-    default    -> (jtag.tms ? RESET     | IDLE),           //RESET
+    RESET      -> (jtag.tms ? RESET     | IDLE),
     IDLE       -> (jtag.tms ? DR_SELECT | IDLE),
     IR_SELECT  -> (jtag.tms ? RESET     | IR_CAPTURE),
     IR_CAPTURE -> (jtag.tms ? IR_EXIT1  | IR_SHIFT),
