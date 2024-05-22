@@ -3,9 +3,9 @@ package spinal.lib.bus.localbus
 import spinal.core._
 import spinal.lib._
 
-case class mbusConfig(aw: Int, dw: Int)
+case class MemBusConfig(aw: Int, dw: Int)
 
-case class MemBus(c: mbusConfig) extends Interface with IMasterSlave {
+case class MemBus(c: MemBusConfig) extends Interface with IMasterSlave {
   val ce    = Bool()
   val wr    = Bool()
   val addr  = UInt(c.aw bit)

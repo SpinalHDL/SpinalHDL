@@ -1,7 +1,7 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
-import spinal.lib.bus.localbus.{MemBus, mbusConfig}
+import spinal.lib.bus.localbus.{MemBus, MemBusConfig}
 import spinal.lib.bus.misc.SizeMapping
 
 class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, grp: GrpTag = null)(bi: BusIf) extends RegSlice(name, addr, doc, size, grp)(bi) {
@@ -13,7 +13,7 @@ class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, grp: GrpTag
   val hitDoWrite = (bi.readAddress < U(endaddr)) && (bi.readAddress >= U(addr)) && bi.doWrite
   hitDoWrite.setName(f"ram_write_hit_0x${endaddr}%04x_0x${addr}%04x", weak = true)
 
-  val bus = MemBus(mbusConfig(aw = log2Up(size/8), dw = bi.busDataWidth))
+  val bus = MemBus(MemBusConfig(aw = log2Up(size/8), dw = bi.busDataWidth))
   bus.ce   :=  hitDoRead || hitDoWrite
   bus.wr   :=  hitDoWrite
   bus.addr := (bi.readAddress - U(addr)).resized

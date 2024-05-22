@@ -39,3 +39,9 @@ case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, regPre: String = ""
   override def readHalt()  = bus.PREADY := False
   override def writeHalt() = bus.PREADY := False
 }
+
+object Apb4BusInterface{
+  def apply(bus: Apb4, sizeMap: SizeMapping, selID: Int, regPre: String)(implicit moduleName: ClassName): Apb4BusInterface = new Apb4BusInterface(bus, sizeMap, regPre)
+  def apply(bus: Apb4, sizeMap: SizeMapping, selID: Int)(implicit moduleName: ClassName): Apb4BusInterface = new Apb4BusInterface(bus, sizeMap, regPre = "")
+  def apply(bus: Apb4, sizeMap: SizeMapping)(implicit moduleName: ClassName): Apb4BusInterface = new Apb4BusInterface(bus, sizeMap, regPre = "")
+}
