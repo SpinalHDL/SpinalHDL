@@ -3,13 +3,15 @@ package spinal.lib.bus.localbus
 import spinal.core._
 import spinal.lib._
 
-case class lbusConfig(aw: Int,
-                      dw: Int,
-                      pw: Int = 4){
-  val mw  = log2Up(dw/8)
+case class MinBusConfig(aw: Int,
+                        dw: Int,
+                        pw: Int = 4,
+                        withStrb: Boolean = false
+                       ){
+  val mw  = if(withStrb)log2Up(dw/8) else 0
 }
 
-case class lbus(c: lbusConfig) extends Interface with IMasterSlave {
+case class MinBus(c: MinBusConfig) extends Interface with IMasterSlave {
   val ce   = Bool()
   val wr   = Bool()
   val rdy  = Bool()

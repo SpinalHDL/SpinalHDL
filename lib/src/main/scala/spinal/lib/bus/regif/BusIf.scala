@@ -2,7 +2,7 @@ package spinal.lib.bus.regif
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.localbus.{lbus, mbus}
+import spinal.lib.bus.localbus.{MinBus, MemBus}
 import spinal.lib.bus.misc.SizeMapping
 
 import scala.collection.mutable.ListBuffer

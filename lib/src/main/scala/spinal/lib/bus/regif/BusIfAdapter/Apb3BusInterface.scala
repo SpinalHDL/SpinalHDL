@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.misc.SizeMapping
 
-case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, regPre: String = "")(implicit moduleName: ClassName) extends BusIf{
+case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf{
   val busDataWidth: Int = bus.config.dataWidth
   val busAddrWidth: Int = bus.config.addressWidth
 
@@ -24,12 +24,12 @@ case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, reg
   bus.PREADY := True
   bus.PRDATA := bus_rdata
 
-  val askWrite  = (bus.PSEL(selId) && bus.PWRITE).allowPruning()
-  val askRead   = (bus.PSEL(selId) && !bus.PWRITE).allowPruning()
+  val askWrite  = (bus.PSEL(0) && bus.PWRITE).allowPruning()
+  val askRead   = (bus.PSEL(0) && !bus.PWRITE).allowPruning()
   val doWrite   = (askWrite && bus.PENABLE && bus.PREADY).allowPruning()
   val doRead    = (askRead  && bus.PENABLE && bus.PREADY).allowPruning()
   val writeData = bus.PWDATA
-  override val cg_en: Bool = bus.PSEL(selId)
+  override val cg_en: Bool = bus.PSEL(0)
 
   if(bus.config.useSlaveError) bus.PSLVERROR := bus_rderr
   override def readAddress()  = bus.PADDR

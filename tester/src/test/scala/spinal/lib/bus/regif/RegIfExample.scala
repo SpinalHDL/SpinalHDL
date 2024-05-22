@@ -73,8 +73,10 @@ class RegIfExample extends Component {
 
   val M_CSTM = busif.newReg(doc = "cstm Infomation")
   val a = M_CSTM.field(Bits(16 bit), acc = CSTM("BMRW"), resetValue = 0x134, doc = "cstm")
+  a := 0
   val b = M_CSTM.field(Bits( 4 bit), acc = RW, resetValue = 0x4, doc = "cstm")
   val c = M_CSTM.field(Bits(8 bit), acc = CSTM("DBRW"), resetValue = 0x34, doc = "cstm")
+  c := 0
   busif.newReg(doc = "Device Infomation").field(Bits(32 bit), NA, 0, doc ="na")
   val irq = busif.interruptFactory("T", io.a, io.b, io.c, io.d, io.e)
   out(irq)

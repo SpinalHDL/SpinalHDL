@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib.bus.amba4.apb.Apb4
 import spinal.lib.bus.misc.SizeMapping
 
-case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, selId: Int = 0, regPre: String = "")(implicit moduleName: ClassName) extends BusIf{
+case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf{
   override val withStrb: Boolean = bus.c.useStrb
   override val busDataWidth: Int = bus.c.dataWidth
   override val busAddrWidth: Int = bus.c.addressWidth
@@ -24,12 +24,12 @@ case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, selId: Int = 0, reg
   bus.PRDATA := bus_rdata
   if(bus.c.useSlaveError) bus.PSLVERR := bus_rderr
 
-  val askWrite  = (bus.PSEL(selId) && bus.PWRITE).allowPruning()
-  val askRead   = (bus.PSEL(selId) && !bus.PWRITE).allowPruning()
+  val askWrite  = (bus.PSEL(0) && bus.PWRITE).allowPruning()
+  val askRead   = (bus.PSEL(0) && !bus.PWRITE).allowPruning()
   val doWrite   = (askWrite && bus.PENABLE && bus.PREADY).allowPruning()
   val doRead    = (askRead  && bus.PENABLE && bus.PREADY).allowPruning()
   val writeData = bus.PWDATA
-  override val cg_en: Bool = bus.PSEL(selId)
+  override val cg_en: Bool = bus.PSEL(0)
 
   initStrbMasks()
 

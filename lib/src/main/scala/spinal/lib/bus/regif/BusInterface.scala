@@ -10,10 +10,15 @@ import spinal.lib.bus.wishbone.Wishbone
 import spinal.lib.bus.bram.BRAM
 
 object BusInterface {
-  def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap, selID)(moduleName)
-  def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int, regPre: String)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap, selID, regPre = regPre)(moduleName)
-  def apply(bus: Apb4, sizeMap: SizeMapping, selID: Int)(implicit moduleName: ClassName): BusIf = Apb4BusInterface(bus, sizeMap, selID)(moduleName)
-  def apply(bus: Apb4, sizeMap: SizeMapping, selID: Int, regPre: String)(implicit moduleName: ClassName): BusIf = Apb4BusInterface(bus, sizeMap, selID, regPre = regPre)(moduleName)
+  def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap)(moduleName)
+  def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int, regPre: String)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap, regPre = regPre)(moduleName)
+  def apply(bus: Apb4, sizeMap: SizeMapping, selID: Int)(implicit moduleName: ClassName): BusIf = Apb4BusInterface(bus, sizeMap)(moduleName)
+  def apply(bus: Apb4, sizeMap: SizeMapping, selID: Int, regPre: String)(implicit moduleName: ClassName): BusIf = Apb4BusInterface(bus, sizeMap, regPre = regPre)(moduleName)
+
+  def apply(bus: Apb3, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap)(moduleName)
+  def apply(bus: Apb3, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap, regPre = regPre)(moduleName)
+  def apply(bus: Apb4, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = Apb4BusInterface(bus, sizeMap)(moduleName)
+  def apply(bus: Apb4, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = Apb4BusInterface(bus, sizeMap, regPre = regPre)(moduleName)
 
   def apply(bus: AhbLite3, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = AhbLite3BusInterface(bus, sizeMap)(moduleName)
   def apply(bus: AhbLite3, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = AhbLite3BusInterface(bus, sizeMap, regPre = regPre)(moduleName)

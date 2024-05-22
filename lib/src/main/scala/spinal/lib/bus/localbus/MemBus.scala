@@ -5,7 +5,7 @@ import spinal.lib._
 
 case class mbusConfig(aw: Int, dw: Int)
 
-case class mbus(c: mbusConfig) extends Interface with IMasterSlave {
+case class MemBus(c: mbusConfig) extends Interface with IMasterSlave {
   val ce    = Bool()
   val wr    = Bool()
   val addr  = UInt(c.aw bit)
@@ -21,7 +21,7 @@ case class mbus(c: mbusConfig) extends Interface with IMasterSlave {
     in(rdat)
   }
 
-  def << (sink: mbus): Unit = {
+  def << (sink: MemBus): Unit = {
     sink.ce   := this.ce
     sink.wr   := this.wr
     sink.addr := this.addr
@@ -29,7 +29,7 @@ case class mbus(c: mbusConfig) extends Interface with IMasterSlave {
     this.rdat := sink.rdat
   }
 
-  def >> (sink: mbus): Unit = {
+  def >> (sink: MemBus): Unit = {
     sink << this
   }
 
