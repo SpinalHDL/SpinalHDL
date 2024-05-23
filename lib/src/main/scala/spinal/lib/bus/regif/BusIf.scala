@@ -215,6 +215,13 @@ trait BusIf extends BusIfBase {
     doc.generate(this)
   }
 
+  def genBaseDocs(docname: String, prefix: String = "") = {
+    this.accept(DocHtml(docname))
+    this.accept(DocJson(docname))
+    this.accept(DocRalf(docname))
+    this.accept(DocCHeader(docname, prefix))
+  }
+
   private def regReadPart() = {
     switch(readAddress()) {
       RegInsts.foreach { (reg: RegInst) =>
