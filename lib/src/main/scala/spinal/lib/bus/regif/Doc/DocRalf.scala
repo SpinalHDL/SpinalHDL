@@ -8,9 +8,9 @@ final case class DocRalf(name : String, backdoor: Boolean = true) extends BusIfD
          |block ${this.name} {
          |  endian little;
          |  bytes ${bi.busByteWidth};
-         |${bi.RegAndFifos.map(_.toRalf).mkString(";\n")}}
-         |${bi.RamInsts.map(_.toRalf).mkString(";\n")}}
-         |""".stripMargin
+         |${bi.RegAndFifos.map(_.toRalf).mkString(";\n")};
+         |${bi.RamInsts.map(_.toRalf).mkString(";\n")};
+         |}""".stripMargin
   }
 
   implicit class RegSliceExtend(reg: RegSlice) {
