@@ -442,7 +442,7 @@ def renamePulledWires(clock     : String = null,
   }
 
   def newSlowedClockDomain(freq: HertzNumber): ClockDomain = {
-    val currentFreq = ClockDomain.current.frequency.getValue.toBigDecimal
+    val currentFreq = frequency.getValue.toBigDecimal
     freq match {
       case x if x.toBigDecimal > currentFreq => SpinalError("To high frequancy")
       case x                                 => newClockDomainSlowedBy((currentFreq/freq.toBigDecimal).toBigInt)
@@ -497,8 +497,3 @@ def renamePulledWires(clock     : String = null,
     }
   }
 }
-
-
-
-
-
