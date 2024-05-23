@@ -8,7 +8,8 @@ final case class DocRalf(name : String, backdoor: Boolean = true) extends BusIfD
          |block ${this.name} {
          |  endian little;
          |  bytes ${bi.busByteWidth};
-         |${bi.slices.map(_.toRalf).mkString(";\n")}}
+         |${bi.RegAndFifos.map(_.toRalf).mkString(";\n")}}
+         |${bi.RamInsts.map(_.toRalf).mkString(";\n")}}
          |""".stripMargin
   }
 
@@ -16,8 +17,18 @@ final case class DocRalf(name : String, backdoor: Boolean = true) extends BusIfD
     def toRalf: String = {
         s"""  register ${reg.getName()} @'h${reg.getAddr().toString(16).toUpperCase} {
            |${reg.getFields().map(_.toRalf).mkString("\n")}
-           |  }
-           |""".stripMargin
+           |  }""".stripMargin
+    }
+  }
+
+  implicit class RamSliceExtend(ram: RamInst) {
+    def toRalf: String = {
+      val hdlpath = if(backdoor) s"(${ram.getName()})" else ""
+      s"""  memory ${ram.getName()} ${hdlpath} @'h${ram.getAddr().toString(16).toUpperCase} {
+         |    size  ${ram.getSize()};
+         |    bits  ${ram.bi.busDataWidth};
+         |    access rw;
+         |  }""".stripMargin
     }
   }
 

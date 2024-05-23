@@ -6,12 +6,12 @@ import scala.math
 import spinal.lib.bus.regif.AccessType._
 
 final case class DocCHeader(name : String,
-                            override val prefix : String,
+                            override val prefix: String = "",
                             regType : String = "u32", //unsigned int
                             withshiftmask: Boolean = true) extends BusIfDoc {
   override val suffix: String = "h"
 
-  val guardName : String = s"${prefix}_REGIF_H"
+  def guardName : String = s"${name}_REGIF_H"
 
   def body(): String = {
     val maxnamelen = bi.slices.map(_.getName().size).max + prefix.length
@@ -79,7 +79,7 @@ final case class DocCHeader(name : String,
 
   implicit class RegSliceCheadExtend(reg: RegSlice) {
     val deDupRegName = nameDedupliaction(prefix, reg.getName())
-    val preFixRegName = s"${prefix}_${deDupRegName}".toUpperCase()
+    val preFixRegName = (if(prefix.isEmpty) deDupRegName else s"${prefix}_${deDupRegName}").toUpperCase()
 
     def define(maxreglen: Int, maxshiftlen: Int): String = {
       val _tab = " " * (maxreglen - deDupRegName.size)

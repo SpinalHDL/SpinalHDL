@@ -47,6 +47,7 @@ trait BusIf extends BusIfBase {
     ret
   }
 
+  def RegAndFifos = SliceInsts.filter(!_.isInstanceOf[RamInst]).toList
   def RegInsts = SliceInsts.filter(_.isInstanceOf[RegInst]).map(_.asInstanceOf[RegInst])
   def RamInsts = SliceInsts.filter(_.isInstanceOf[RamInst]).map(_.asInstanceOf[RamInst])
   def FifoInsts = SliceInsts.filter(_.isInstanceOf[FifoInst]).map(_.asInstanceOf[FifoInst])

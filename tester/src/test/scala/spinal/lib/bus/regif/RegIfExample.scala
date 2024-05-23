@@ -121,7 +121,7 @@ class RegIfExample extends Component {
 
   (0 to 10).foreach{i =>
     busif.newpartTag(s"r${i}")("Turbo")
-    val Reg = busif.newReg("reg0")(SymbolName(s"RegA_$i"))
+    val Reg = busif.newReg("reg0")(SymbolName(s"RegA"))
     val Rtype = Reg.field(Bits(2 bits), RW, 0, doc = "inter Row number\n0:5,1:10,2:20,3:20other")(SymbolName("rta")).asOutput()
     val CPtype = Reg.field(Bits(2 bits), RW, 0, doc = "CP relation\n0: C=P-1\n1: C=p\n2: C=p+1")(SymbolName("rtb")).asOutput()
     val KeqRxC = Reg.field(Bool(), RW, 0, doc = "1:K=R*C else 0")(SymbolName("rtc")).asOutput()
