@@ -102,7 +102,7 @@ final case class DocCHeader(name : String,
          |    struct {
          |        ${fdUnion(" " * 8)}
          |    } reg;
-         |}${preFixRegName.toLowerCase()}_t;""".stripMargin
+         |} ${preFixRegName.toLowerCase()}_t;""".stripMargin
     }
 
     def fdNameLens = math.max("reserved_0".size, reg.getFields().map(_.getName.size).max)
@@ -148,7 +148,7 @@ final case class DocCHeader(name : String,
       val _tab = " " * (tabn - newfdname.size)
       fd.getAccessType() match {
         case `NA` => ""
-        case `W1S` | `W1C` | `W1T` | `W1P` | `W1CRS` | `W1SRC` => s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb}""".stripMargin
+        case `W1S` | `W1C` | `W1T` | `W1P` | `W1CRS` | `W1SRC` | `W1SHS` | `W1CHS` => s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb}""".stripMargin
         case `W0S` | `W0C` | `W0T` | `W0P` | `W0CRS` | `W0SRC` => s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb}""".stripMargin
         case _ => {
           if (fd.getSection().size == bi.busDataWidth) "" else if (fd.getName() == "_bm_") "" else

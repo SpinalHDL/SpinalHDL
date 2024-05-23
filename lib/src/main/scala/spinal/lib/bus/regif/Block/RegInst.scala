@@ -194,6 +194,38 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, grp: GrpTag
     reg
   }
 
+  def fieldW1HS[T <: BaseType](seten: Bool, setval: T, acc: AccessType)(implicit symbol: SymbolName): T = fieldW1HS(seten, setval, acc, resetValue = 0, doc = "")(symbol)
+  def fieldW1HS[T <: BaseType](seten: Bool, setval: T, acc: AccessType, resetValue: BigInt)(implicit symbol: SymbolName): T = fieldW1HS(seten, setval, acc, resetValue, doc = "")(symbol)
+  def fieldW1HS[T <: BaseType](seten: Bool, setval: T, acc: AccessType, resetValue: BigInt, doc: String)(implicit symbol: SymbolName): T = {
+    acc match {
+      case `W1CHS` | `W1SHS` =>
+      case _ => SpinalError("fieldW1HSAt only support W1CHS or W1SHS")
+    }
+    val reg = reginit(cloneOf(setval).setAsReg(), resetValue)
+    setname(reg, symbol)
+    when(seten){
+      reg := setval
+    }
+    registerInWithWriteLogic(reg, acc, resetValue, doc)
+    reg
+  }
+
+  def fieldW1HSAt[T <: BaseType](pos: Int, seten: Bool, setval: T, acc: AccessType)(implicit symbol: SymbolName): T = fieldW1HSAt(pos, seten, setval, acc,  resetValue = 0, doc = "")(symbol)
+  def fieldW1HSAt[T <: BaseType](pos: Int, seten: Bool, setval: T, acc: AccessType, resetValue:BigInt)(implicit symbol: SymbolName): T = fieldW1HSAt(pos, seten, setval, acc, resetValue, doc = "")(symbol)
+  def fieldW1HSAt[T <: BaseType](pos: Int, seten: Bool, setval: T, acc: AccessType, resetValue:BigInt, doc: String)(implicit symbol: SymbolName): T = {
+    acc match {
+      case `W1CHS` | `W1SHS` =>
+      case _ => SpinalError("fieldW1HSAt only support W1CHS or W1SHS")
+    }
+    val reg = reginit(cloneOf(setval).setAsReg(), resetValue)
+    setname(reg, symbol)
+    when(seten){
+      reg := setval
+    }
+    registerAtWithWriteLogic(pos, reg, acc, resetValue, doc)
+    reg
+  }
+
   protected def creatWriteLogic[T <: BaseType](reg: T, acc: AccessType, section: Range): Unit = {
     acc match {
       case AccessType.RO|AccessType.ROV|AccessType.NA =>
@@ -233,6 +265,8 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, grp: GrpTag
       case AccessType.W0P   => _WBP(reg, section, AccessType.W0P)  //- W: 0/1 pulse/no effect on matching bit, R: no effect
       case AccessType.HSRW  => _W( reg, section)                   // HardWare Set then SoftWare RW
       case AccessType.RWHS  => _W( reg, section)                   // SoftWare RW then HardWare Set
+      case AccessType.W1CHS => _WB(reg, section, AccessType.W1C )   //- W: 1 clears/no effect on matching bit, R: no effect
+      case AccessType.W1SHS => _WB(reg, section, AccessType.W1S )   //- W: 1 sets/no effect on matching bit, R: no effect
       case x: AccessType.CSTM  =>                                  // CSTM-AccessType don't generate logic which implement use themselfs, only register for doc
     }
   }

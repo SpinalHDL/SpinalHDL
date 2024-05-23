@@ -253,6 +253,12 @@ class RegIfExample extends Component {
 //
 //  val a0 = grps2.copy(offset, doc = "")
 //  val a1 = grps2.copy(offset, doc = "")
+  val hw_set2 = in Bool()
+  val hw_set_val2 = in Bits(8 bit)
+  val M_W1SHS = busif.newReg(doc = "HSRW Infomation")
+  val reg_t0 = M_W1SHS.fieldW1HSAt(1, hw_set2, hw_set_val2, W1SHS, resetValue = 0x0a, doc = "hsrw")
+  val reg_t1 = M_W1SHS.fieldW1HSAt(10,hw_set2, hw_set_val2, W1SHS, resetValue = 0x0a, doc = "hsrw")
+  val reg_t2 = M_W1SHS.fieldW1HS  (   hw_set2, hw_set_val2, W1CHS, resetValue = 0x0b, doc = "rwhs")
 
   busif.accept(CHeaderGenerator("header", "AP", headers = List("Size: 4 KiB", "Author: Jack", "Version: 0.1(2022.11.24 22:29)")))
   busif.accept(HtmlGenerator("regif", "AP"))
