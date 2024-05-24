@@ -437,7 +437,7 @@ def renamePulledWires(clock     : String = null,
         case `SYNC` if hasResetSignal => enable || isResetActive //Ensure that the area get a reset even if the enable isn't set
         case _ => enable
       }
-      this.copy(clockEnable = syncResetFix(RegNext(tick) init(False)), clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
+      this.copy(clockEnable = syncResetFix(RegNext(tick) init(False)) && ClockDomain.current.isClockEnableActive, clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
     }
   }
 
