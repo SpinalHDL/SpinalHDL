@@ -26,24 +26,27 @@ trait BusIf extends BusIfBase {
   def repeatGroupsBase: Map[String, List[RegSlice]] = reuseGroupsById.map(t => t._1 -> t._2.map(_._2.head).toList.sortBy(_.reuseTag.id))
 
   def busName = bus.getClass.getSimpleName
-  def newgrpTag(name: String) = {
+  def newGrpTag(name: String) = {
     val ret = GrpTag(grpId, name)
     this.grpIdInc()
     ret
   }
 
 //  protected var partIdFlag: Boolean = false
-  protected var reuseID: Int = 1
-  protected def reuseIDInc(): Unit = (reuseID += 1)
-  def resetPartID(): Unit = {
-    currentReuseTag = ReuseTag(0, "")
+  protected var blockId: Int = 1
+  protected def blockIdInc(): Unit = (blockId += 1)
+  def resetBlockTag(): Unit = {
+    currentBlockTag = ReuseTag(0, "")
   }
-  private var currentReuseTag = ReuseTag(0, "")
-  def geturrentReuseTag = currentReuseTag
-  def newpartTag(instName: String)(partName: String) = {
-    val ret = ReuseTag(reuseID, partName, regPtr, instName)
-    this.reuseIDInc()
-    currentReuseTag = ret
+
+  private var currentBlockTag = ReuseTag(0, "")
+
+  def getCurrentBlockTag = currentBlockTag
+
+  def newBlockTag(instName: String)(partName: String) = {
+    val ret = ReuseTag(blockId, partName, regPtr, instName)
+    this.blockIdInc()
+    currentBlockTag = ret
     ret
   }
 
@@ -125,9 +128,9 @@ trait BusIf extends BusIfBase {
 
 
   def regPart(name: String)(block : => Unit) = {
-    this.newpartTag(name)(name)
+    this.newBlockTag(name)(name)
     block
-    this.resetPartID()
+    this.resetBlockTag()
   }
 
 
@@ -200,7 +203,7 @@ trait BusIf extends BusIfBase {
   }
 
   def creatGrp(name: String, addr: BigInt, maxSize: BigInt, doc: String) = {
-    val grp = this.newgrpTag(name)
+    val grp = this.newGrpTag(name)
     val ret = RegSliceGrp(addr, maxSize, doc, grp)(this)
     ret
   }

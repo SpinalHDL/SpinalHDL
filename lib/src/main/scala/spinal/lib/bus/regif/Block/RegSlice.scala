@@ -34,7 +34,7 @@ abstract class RegSlice(val name: String, val addr: BigInt, val doc: String, val
   def getFields() : List[Field] = fields.toList
   def readValid(): Bool = RegNext(hitDoRead, init = False)
   def readBits() : Bits
-  val reuseTag: ReuseTag = bi.geturrentReuseTag
+  val reuseTag: ReuseTag = bi.getCurrentBlockTag
 
   override def toString: String = s"${regType}($name, 0x${addr.hexString()}, 0x${size.hexString()})"
 

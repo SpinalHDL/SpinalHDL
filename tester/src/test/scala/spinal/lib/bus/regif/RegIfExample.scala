@@ -120,7 +120,7 @@ class RegIfExample extends Component {
   fifo2.bus.asMaster()
 
   (0 to 10).foreach{i =>
-    busif.newpartTag(s"r${i}")("Turbo")
+    busif.newBlockTag(s"r${i}")("Turbo")
     val Reg = busif.newReg("reg0")(SymbolName(s"RegA"))
     val Rtype = Reg.field(Bits(2 bits), RW, 0, doc = "inter Row number\n0:5,1:10,2:20,3:20other")(SymbolName("rta")).asOutput()
     val CPtype = Reg.field(Bits(2 bits), RW, 0, doc = "CP relation\n0: C=P-1\n1: C=p\n2: C=p+1")(SymbolName("rtb")).asOutput()
@@ -128,7 +128,7 @@ class RegIfExample extends Component {
     val Reg2 = busif.newReg(doc = "Turbo CRC Poly")(SymbolName(s"RegB_$i"))
     val crc_mode = Reg2.field(Bool(), RW, 1, doc = "0: CRC24; 1: CRC16")(SymbolName(s"crca_${i}")).asOutput()
     val crc_poly = Reg2.field(Bits(24 bit), RW, 0x864cfb, doc = "(D24+D23+D18+D17+D14+D11+D10+D7+D6+D5+D4+D3+D+1)")(SymbolName(s"crcb_${i}")).asOutput()
-    busif.resetPartID()
+    busif.resetBlockTag()
   }
 
   val fifo3 = busif.newFifo(doc = "fifo test")
@@ -189,7 +189,7 @@ class RegIfExample extends Component {
   M_TURBO_3G_INTER_CRP.updateReadBits = M_TURBO_3G_INTER_FILL.readBits
 
   def part0(addr: BigInt, tname: String = "") = new Area {
-    busif.newpartTag(tname)("RAM")
+    busif.newBlockTag(tname)("RAM")
     val RAM2 = busif.newRAMAt(addr, 16 Byte, doc = "Area ram test")
     RAM2.field(2, "doc ...")("mem_fd0")
     RAM2.field(8, "doc ...")("mem_fd1")
@@ -202,7 +202,7 @@ class RegIfExample extends Component {
     val bus = RAM2.bus
     val M_LONG = busif.newReg(doc = "Long Long regname")
     val version = M_LONG.field(Bits(32 bit), RW, 0x34afba00, doc = "Device version")
-    busif.resetPartID()
+    busif.resetBlockTag()
   }
 
   val x0 = part0(busif.getRegPtr(), "x0")
