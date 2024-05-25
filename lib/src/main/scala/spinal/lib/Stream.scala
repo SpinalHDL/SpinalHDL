@@ -1630,6 +1630,52 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
   }
 }
 
+object StreamFifoHistory {
+  def apply[T <: Data](input: Stream[T], output: Stream[T], length: Int = 2): StreamFifoHistory[T] = {
+    val inst = new StreamFifoHistory(input.payloadType, length)
+    inst.io.push << input
+    output << inst.io.pop
+    inst
+  }
+}
+
+class StreamFifoHistory[T <: Data](dataType: HardType[T], length: Int) extends Component {
+  val io = new Bundle {
+    val push          = slave  Stream(dataType)
+    val pop           = master Stream(dataType)
+    val states        = Vec(master Flow(dataType), length)
+  }
+
+  val pushToFirst = (1 until length).map(io.states(_).valid).andR
+  val pushToLast = (1 until length).map(~io.states(_).valid).andR
+  val pushToPos = pushToLast ## (1 until length - 1).map(i => 
+    (i+1 until length).map(io.states(_).valid).andR & ~io.states(i).valid).asBits ## pushToFirst
+  val pushToPosBits = CombInit(pushToPos)
+  when(io.pop.fire) {
+    pushToPosBits := (pushToPos << 1).resized
+  }
+
+  val pushId = OHToUInt(pushToPosBits)
+  val pushStreams = StreamDemux(io.push, pushId, length)
+  def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
+    left match {
+      case 0 => Nil
+      case 1 => prev :: Nil
+      case _ => prev :: builder({
+        val id = length + 1 - left
+        StreamMux(pushToPosBits(id).asUInt, Vec(prev, pushStreams(id))).stage
+      }, left - 1)
+    }
+  }
+  val connections = Vec(builder(pushStreams(0), length))
+  
+  io.pop << connections.last
+  (io.states, connections).zipped.foreach((x, y) => {
+    x.valid := y.valid
+    x.payload := y.payload
+  })
+}
+
 object StreamHistory {
   def apply[T <: Data](input: Stream[T], output: Stream[T], length: Int = 2): StreamHistory[T] = {
     val inst = new StreamHistory(input.payloadType, length)
