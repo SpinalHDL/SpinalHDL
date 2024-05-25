@@ -8,9 +8,9 @@ import spinal.lib.sim._
 import spinal.core.sim._
 import spinal.tester.SpinalSimFunSuite
 
-class SpinalSimStreamFifoHistoryTester extends SpinalSimFunSuite {
+class SpinalSimStreamAccessibleFifoTester extends SpinalSimFunSuite {
     def prepare(
-        dut: StreamFifoHistory[UInt],
+        dut: StreamAccessibleFifo[UInt],
         alwaysInput: Boolean = false,
         alwaysOutput: Boolean = false,
         inQueue: mutable.Queue[BigInt],
@@ -60,7 +60,7 @@ class SpinalSimStreamFifoHistoryTester extends SpinalSimFunSuite {
 
     test("testRandomInOut") {
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamFifoHistory(
+            val dut = new StreamAccessibleFifo(
                 UInt(32 bits),
                 12,
             )
@@ -77,7 +77,7 @@ class SpinalSimStreamFifoHistoryTester extends SpinalSimFunSuite {
 
     test("testRandomIn") {
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamFifoHistory(
+            val dut = new StreamAccessibleFifo(
                 UInt(32 bits),
                 12
             )
@@ -95,7 +95,7 @@ class SpinalSimStreamFifoHistoryTester extends SpinalSimFunSuite {
     test("testRandomOut") {
         val lastQueue = mutable.Queue[Boolean]()
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamFifoHistory(
+            val dut = new StreamAccessibleFifo(
                 UInt(32 bits),
                 12
             )
@@ -113,7 +113,7 @@ class SpinalSimStreamFifoHistoryTester extends SpinalSimFunSuite {
     test("testFullPipeline") {
         val lastQueue = mutable.Queue[Boolean]()
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamFifoHistory(
+            val dut = new StreamAccessibleFifo(
                 UInt(32 bits),
                 12
             )
@@ -134,7 +134,7 @@ class SpinalSimStreamFifoHistoryTester extends SpinalSimFunSuite {
             val dut = new Component{
                 val input = slave Stream(UInt(32 bits))
                 val output = master Stream(UInt(32 bits))
-                val hist = StreamFifoHistory(input, output, 12)
+                val hist = StreamAccessibleFifo(input, output, 12)
                 val test = out Bool()
                 test := hist.io.states(0).valid
             }
