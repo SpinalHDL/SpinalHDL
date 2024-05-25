@@ -59,7 +59,7 @@ class SpinalSimStreamHistoryTester extends SpinalSimFunSuite {
     }
 
     test("testRandomInOut") {
-        val compiled = SimConfig.withFstWave.allOptimisation.compile {
+        val compiled = SimConfig.allOptimisation.compile {
             val dut = new StreamHistory(
                 UInt(32 bits),
                 12,

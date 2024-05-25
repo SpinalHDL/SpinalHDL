@@ -1650,7 +1650,7 @@ class StreamHistory[T <: Data](dataType: HardType[T], length: Int) extends Compo
     left match {
       case 0 => Nil
       case 1 => prev :: Nil
-      case _ => prev :: builder(prev.m2sPipe(), left - 1)
+      case _ => prev :: builder(prev.stage(), left - 1)
     }
   }
   val connections = Vec(builder(io.push, length))
