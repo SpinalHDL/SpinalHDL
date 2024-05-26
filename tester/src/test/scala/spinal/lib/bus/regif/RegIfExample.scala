@@ -107,9 +107,10 @@ class RegIfExample extends Component {
     val v     =  M_TURBO_3G_INTER_PVJJ.field(Bits(5 bits), RW, 0,doc="Primitive root v").asOutput()
   }
 
-
   val fifo = busif.newFifo(doc = "fifo test")
   fifo.field(16, "doc ...")("fifo_fd0")
+  fifo.fieldNA(4)
+  fifo.field(4, "testNA ...")("fifo_fd0")
   fifo.fieldAt(24, 1, "doc ...")("fifo_fd2")
   fifo.fieldAt(31, 1, "doc ...")("fifo_fd3")
   fifo.bus.asMaster()
@@ -145,7 +146,8 @@ class RegIfExample extends Component {
   val trc_poly = Reg2.field(Bits(24 bit), RW, 0x864cfb, doc = "(D24+D23+D18+D17+D14+D11+D10+D7+D6+D5+D4+D3+D+1)").asOutput()
   val RAM3 = grp0.newRAM(256 Byte, doc = "ram test")
       RAM3.fieldAt(16, 2, "doc ...")("mem_fd2")
-      RAM3.field(3, "doc ...")("mem_fd3")
+      RAM3.fieldNA(4 )
+      RAM3.field(3, "doc TestRAM NA...")("mem_fd3")
       RAM3.bus.asMaster()
 
   val fifo4 = grp0.newFifo(doc = "fifo test")
@@ -202,6 +204,9 @@ class RegIfExample extends Component {
     val bus = RAM2.bus
     val M_LONG = busif.newReg(doc = "Long Long regname")
     val version = M_LONG.field(Bits(32 bit), RW, 0x34afba00, doc = "Device version")
+    val CRGB = busif.newRegSCR("SCR")
+    val cg4 = CRGB.field(Bits(3 bit), 0x4, "doc ...")
+    val cg5 = CRGB.fieldAt(16, Bits(8 bit), 0xf4, "doc ...")
     busif.resetBlockTag()
   }
 
@@ -216,7 +221,7 @@ class RegIfExample extends Component {
   //  val x1 = part0(busif.getRegPtr())
   val ptr = busif.getRegPtr()
   for (i <- 0 to 6) {
-    val t = part0(ptr + i * 8 * 4,  s"bran${i}ch")
+    val t = part0(ptr + i * 12 * 4,  s"bran${i}ch")
     t.bus.setName(s"bus_ram${i}").asMaster()
     t.param0.asOutput()
     t.param1.asOutput()

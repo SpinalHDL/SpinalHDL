@@ -8,8 +8,12 @@ final case class DocHtml(name : String) extends BusIfDoc {
   val title : String = s"${name} Register Interface"
 
   override def body(): String = {
-    val table = SlicesToHtmlSliceGrp(bi.slices).map(_.tbody).mkString("\n")
-    HtmlTemplate.getHTML(title, table)
+    val table = if(bi.hasBlock) {
+      SlicesToHtmlSliceBlock(bi.slices).map(_.tbody).mkString("\n")
+    } else {
+      SlicesToHtmlSliceGrp(bi.slices).map(_.tbody).mkString("\n")
+    }
+    HtmlTemplate.getHTML(title, table, bi.hasBlock)
   }
 }
 
@@ -41,6 +45,23 @@ trait TableTreeNode {
 
 case class HtmlSliceGrp(name: String, children: List[RegSlice])
 
+case class HtmlRegSliceBlock(instName: String, blockName: String,  children: List[RegSlice]){
+  def toGrps = SlicesToHtmlSliceGrp(children)
+  def name = if(instName.isEmpty && blockName.isEmpty) "" else s"${instName}\n[${blockName}]"
+  def body = toGrps.map(_.tbody).mkString("\n")
+}
+
+object SlicesToHtmlSliceBlock {
+  def apply(slices: List[RegSlice]): List[HtmlRegSliceBlock] = {
+    val fakeBlocks = HtmlRegSliceBlock("", "", children =  slices.filter(_.reuseTag.id == 0))
+    val realBlocks = slices.filter(_.reuseTag.id != 0).groupBy(t => (t.reuseTag.instName , t.reuseTag.partName)).map{ case (names, slices) =>
+      HtmlRegSliceBlock(names._1, names._2, slices)
+    }.toList
+    val ret = fakeBlocks :: realBlocks
+    ret.sortBy(_.children.head.addr)
+  }
+}
+
 object SlicesToHtmlSliceGrp {
   def apply(slices: List[RegSlice]): List[HtmlSliceGrp] = {
     val fakeGrps = slices.filter(_.grp == null).map(t => HtmlSliceGrp("-", List(t)))
@@ -53,6 +74,16 @@ object SlicesToHtmlSliceGrp {
 }
 
 object TableTreeNodeImplicits{
+
+  implicit class BlockRegSliceExtend(block: HtmlRegSliceBlock) extends TableTreeNode {
+    override val name: String = block.name
+    override val children: List[TableTreeNode] = block.toGrps.map(new GrpRegSliceExtend(_))
+    override def tr_begin = """<tr align="center" class="blk">""".stripMargin
+    override def td: String = {
+      s"""    <td  rowspan="${span}">${name}</td>
+         |""".stripMargin
+    }
+  }
 
   implicit class GrpRegSliceExtend(grp: HtmlSliceGrp) extends TableTreeNode {
     override val name: String = grp.name

@@ -61,6 +61,7 @@ trait BusIf extends BusIfBase {
   def getReservedAddressReadValue = readDefaultValue
   def defualtReadBits = B(readDefaultValue, busDataWidth bits)
   def slices= SliceInsts.toList
+  def hasBlock = SliceInsts.filter(_.reuseTag.id != 0).nonEmpty
 
   def docPath: String = GlobalData.get.phaseContext.config.targetDirectory
 

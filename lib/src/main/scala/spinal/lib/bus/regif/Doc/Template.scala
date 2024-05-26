@@ -27,7 +27,7 @@ object HtmlTemplate {
         |          /* text-decoration:line-through; */
         |          text-decoration-color:#888;
         |      }
-        |      .theme-default tr.grp{
+        |      .theme-default tr.blk, .theme-default tr.grp{
         |          border-top: 2px solid #000;
         |      }
         |      .theme-default tr.reg, .theme-default tr.ram, .theme-default tr.fifo{
@@ -121,10 +121,10 @@ object HtmlTemplate {
       |          color:#09f;
       |      }
       |""".stripMargin
-  val tableHead =
-    """
+  def tableHead(hasBlock: Boolean = true) =
+    s"""
       |      <thead>
-      |        <tr align="center" >
+      |        <tr align="center" >${if(hasBlock)"\n          <th>ReUseBlock</th>" else ""}
       |          <th>Group</th>
       |          <th>AddressOffset</th>
       |          <th>Type</th>
@@ -140,7 +140,7 @@ object HtmlTemplate {
       |      </thead>
       |""".stripMargin
 
-  def getHTML(moduleName: String, tbody: String): String = s"""
+  def getHTML(moduleName: String, tbody: String, hasBlock: Boolean = false): String = s"""
        |<!DOCTYPE html>
        |<html>
        |  <head>
@@ -164,7 +164,7 @@ object HtmlTemplate {
        |  <div class="table">
        |  <table  align="center" class="theme-default">
        |      <br/>
-       |${tableHead}
+       |${tableHead(hasBlock)}
        |      <tbody>
        |${tbody}
        |      </tbody>
