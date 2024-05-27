@@ -45,4 +45,5 @@ class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, grp: GrpTag
     }
     fieldPtr = pos + bit
   }
+  override def readGenerator(): Unit = ???  //RAM read couldn't implement here but at BusIf
 }

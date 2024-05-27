@@ -367,17 +367,6 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, grp: GrpTag
     field(bc, AccessType.NA)(SymbolName("reserved"))
   }
 
-  // RegDescr implementation
-//  def getAddr()        : BigInt           = addr
-//  def getSize()        : BigInt           = busif.wordAddressInc
-//  def getDoc()         : String           = doc
-//  def getFieldDescrs() : List[FieldDescr] = getFields
-
-//  override def accept(vs : BusIfVisitor) = {
-//    duplicateRenaming()
-//    vs.visit(this)
-//  }
-
   protected def duplicateRenaming() = { //TODO
     val counts = new scala.collection.mutable.HashMap[String, Int]()
     val ret = fields.zipWithIndex.map{case(fd, i) =>
@@ -399,7 +388,7 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, grp: GrpTag
   }
 
 
-  def readGenerator() = {
+  override def readGenerator() = {
     is(addr) {
       bi.reg_rdata := this.rdata()
       bi.reg_rderr := Bool(this.haveWO)

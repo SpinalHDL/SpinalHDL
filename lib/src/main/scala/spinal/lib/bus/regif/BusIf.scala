@@ -175,24 +175,44 @@ trait BusIf extends BusIfBase {
     ret
   }
 
-  def newFifo(doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    val res = creatFifo(symbol.name.toLowerCase(), regPtr, doc, grp)
+  def newWrFifo(doc: String, grp: GrpTag = null)(implicit symbol: SymbolName): WrFifoInst = {
+    val res = creatWrFifo(symbol.name.toLowerCase(), regPtr, doc, grp)
     regPtr += wordAddressInc
     res
   }
 
-  def newFifoAt(address: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
+  def newWrFifoAt(address: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    val res = creatFifo(symbol.name.toLowerCase(), address, doc, grp)
+    val res = creatWrFifo(symbol.name.toLowerCase(), address, doc, grp)
     regPtr = address + wordAddressInc
     res
   }
 
-  def creatFifo(name: String, addr: BigInt, Doc: String, grp: GrpTag = null) = {
-    val ret = new FifoInst(name, addr, Doc, grp)( this)
+  def creatWrFifo(name: String, addr: BigInt, Doc: String, grp: GrpTag = null) = {
+    val ret = new WrFifoInst(name, addr, Doc, grp)( this)
     SliceInsts += ret
     attachAddr(addr)
     ret
+  }
+
+  def creatRdFifo(name: String, addr: BigInt, Doc: String, grp: GrpTag = null): RdFifoInst = {
+    val ret = new RdFifoInst(name, addr, Doc, grp)(this)
+    SliceInsts += ret
+    attachAddr(addr)
+    ret
+  }
+
+  def newRdFifo(doc: String, grp: GrpTag = null)(implicit symbol: SymbolName): RdFifoInst = {
+    val res = creatRdFifo(symbol.name.toLowerCase(), regPtr, doc, grp)
+    regPtr += wordAddressInc
+    res
+  }
+
+  def newRdFifoAt(address: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName): RdFifoInst = {
+    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
+    val res = creatRdFifo(symbol.name.toLowerCase(), address, doc, grp)
+    regPtr = address + wordAddressInc
+    res
   }
 
   def newGrp(maxSize: BigInt, doc: String)(implicit  symbol: SymbolName) = {
@@ -229,12 +249,9 @@ trait BusIf extends BusIfBase {
 
   private def regReadPart() = {
     switch(readAddress()) {
-      RegInsts.foreach { (reg: RegInst) =>
-        if (!reg.allIsNA) {
-          reg.readGenerator()
-        }
+      RegAndFifos.foreach{ (x: RegSlice) =>
+        if(!x.allIsNA) x.readGenerator()
       }
-      FifoInsts.foreach(_.readGenerator())
       default {
         reg_rdata := readDefaultValue
         //Reserved Address Set False, True is too much strict for software
@@ -247,14 +264,6 @@ trait BusIf extends BusIfBase {
       }
     }
   }
-//
-//  def lazyInit() = {
-//    // this should init before readGenerator for the reason of lazy declare scope issue
-//    reg_rderr.setName("reg_rderr")
-//    reg_rdata.setName("reg_rdata")
-//    readData.setName("readData")
-//    readError.setName("readError")
-//  }
 
   private def regReadGenerator() = {
     when(askRead){
@@ -272,12 +281,12 @@ trait BusIf extends BusIfBase {
     RamInsts.foreach{ ram =>
       mux.when(ram.ram_rdvalid) {
         bus_rderr := False
-        bus_rdata  := ram.readBits
+        bus_rdata := ram.readBits
       }
     }
     mux.otherwise {
       bus_rderr := reg_rderr
-      bus_rdata  := reg_rdata
+      bus_rdata := reg_rdata
     }
   }
 }

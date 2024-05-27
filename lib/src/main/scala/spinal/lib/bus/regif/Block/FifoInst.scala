@@ -3,17 +3,13 @@ package spinal.lib.bus.regif
 import spinal.core._
 import spinal.lib.Stream
 
-class FifoInst(name: String, addr: BigInt, doc: String, grp: GrpTag = null)(bi: BusIf) extends RegSlice(name, addr, doc, size = bi.wordAddressInc, grp)(bi){
+abstract class FifoInst(name: String, addr: BigInt, doc: String, grp: GrpTag = null)(bi: BusIf) extends RegSlice(name, addr, doc, size = bi.wordAddressInc, grp)(bi){
   override val regType: String = "FIFO"
 
-  val hitDoRead: Bool = False
-  val hitDoWrite = bi.writeAddress === U(addr) && bi.doWrite
-  hitDoWrite.setName(f"write_hit_0x${addr}%04x", weak = true)
+  val hitDoRead: Bool
+  val hitDoWrite : Bool
 
-  val bus = Stream(Bits(bi.busDataWidth bit)).setName(s"${name}_fifo")
-
-  bus.valid   := hitDoWrite
-  bus.payload := bi.writeData
+  val bus = Stream(Bits(bi.busDataWidth bit))
 
   def field(bit: Int, doc: String = "")(name: String) = {
     val section: Range = fieldPtr + bit -1 downto fieldPtr
@@ -40,14 +36,5 @@ class FifoInst(name: String, addr: BigInt, doc: String, grp: GrpTag = null)(bi: 
       }
     }
     fieldPtr = pos + bit
-  }
-
-  override def readBits: Bits = bi.defualtReadBits
-
-  def readGenerator() = {
-    is(addr) {
-      bi.reg_rdata  := this.rdata()
-      bi.reg_rderr := True
-    }
   }
 }

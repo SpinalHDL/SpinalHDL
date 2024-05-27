@@ -63,4 +63,6 @@ abstract class RegSlice(val name: String, val addr: BigInt, val doc: String, val
     checkLast
     fields.map(_.accType == AccessType.NA).foldLeft(true)(_ && _)
   }
+
+  def readGenerator(): Unit
 }

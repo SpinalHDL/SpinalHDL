@@ -107,7 +107,7 @@ class RegIfExample extends Component {
     val v     =  M_TURBO_3G_INTER_PVJJ.field(Bits(5 bits), RW, 0,doc="Primitive root v").asOutput()
   }
 
-  val fifo = busif.newFifo(doc = "fifo test")
+  val fifo = busif.newWrFifo(doc = "fifo test")
   fifo.field(16, "doc ...")("fifo_fd0")
   fifo.fieldNA(4)
   fifo.field(4, "testNA ...")("fifo_fd0")
@@ -116,7 +116,7 @@ class RegIfExample extends Component {
   fifo.bus.asMaster()
   fifo.updateReadBits = RAM.readBits
 
-  val fifo2 = busif.newFifoAt(0x300, doc = "fifo test")
+  val fifo2 = busif.newWrFifoAt(0x300, doc = "fifo test")
   fifo2.field(16, "doc ...")("fifo_fd0")
   fifo2.bus.asMaster()
 
@@ -132,7 +132,7 @@ class RegIfExample extends Component {
     busif.resetBlockTag()
   }
 
-  val fifo3 = busif.newFifo(doc = "fifo test")
+  val fifo3 = busif.newWrFifo(doc = "fifo test")
   fifo3.field(16, "doc ...")("fifo_fd0")
   fifo3.bus.asMaster()
 
@@ -227,37 +227,15 @@ class RegIfExample extends Component {
     t.param1.asOutput()
   }
 
-//  this.addPrePopTask{
-//    M_TURBO_3G_INTER_CRP.updateReadBits = M_TURBO_3G_INTER_FILL.readBits
-//  }
-//  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
-//  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
-//  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
-//  RAM.feild(0 ~ 10, defaultValue = 0x00a, doc = "hsrw")
-//
-//  val FIFO = busif.newFIFO(offset, doc = "")
-//  FIFO.field(0 ~ 10, defaultValue = 0x00a, doc = "")
-//  FIFO.field(11 ~ 12, defaultValue = 0x00a, doc = "")
-//  FIFO.field(11 ~ 12, defaultValue = 0x00a, doc = "")
-//  FIFO.field(11 ~ 12, defaultValue = 0x00a, doc = "")
-//  FIFO.field(11 ~ 12, defaultValue = 0x00a, doc = "")
-//
-//  val intr = busif.Intr_FMRS4(offset, doc = "")
-//  intr.bit(pos, e_sig, defualtMaskValue = 0x00a, doc = "")
-//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
-//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
-//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
-//
-//  val intr2 = busif.Intr_OMMS4(offset, doc = "")
-//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
-//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
-//  intr.bit(pos, e_sig, defaultMaskValue = 0x00a, doc = "")
-//
-//  val grps = busif.RegGrp(offset, size,  doc = "") // 任何片段的引用
-//  grps.addreg(x, b, c, d, e, f)
-//
-//  val a0 = grps2.copy(offset, doc = "")
-//  val a1 = grps2.copy(offset, doc = "")
+  val fiford = busif.newRdFifo(doc = "Readfifo test")
+  fiford.field(16, "doc ...")("fifo_fd0")
+  fiford.fieldNA(4)
+  fiford.field(4, "testNA ...")("fifo_fd0")
+  fiford.fieldAt(24, 1, "doc ...")("fifo_fd2")
+  fiford.fieldAt(31, 1, "doc ...")("fifo_fd3")
+  fiford.bus.asSlave()
+
+
   val hw_set2 = in Bool()
   val hw_set_val2 = in Bits(8 bit)
   val M_W1SHS = busif.newReg(doc = "HSRW Infomation")

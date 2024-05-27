@@ -28,15 +28,15 @@ case class RegSliceGrp(baseAddr: BigInt, maxSize: BigInt, doc: String, grp: GrpT
     ret
   }
 
-  def newFifo(doc: String)(implicit symbol: SymbolName): FifoInst = {
-    val ret = bi.newFifo(doc, grp)(symbol)
+  def newFifo(doc: String)(implicit symbol: SymbolName): WrFifoInst = {
+    val ret = bi.newWrFifo(doc, grp)(symbol)
     slices += ret
     ret
   }
 
   def newFifoAt(offset: Int, doc: String)(implicit symbol: SymbolName) = {
     check(offset)
-    val ret = bi.newFifoAt(baseAddr + offset, doc, grp)(symbol)
+    val ret = bi.newWrFifoAt(baseAddr + offset, doc, grp)(symbol)
     slices += ret
     ret
   }

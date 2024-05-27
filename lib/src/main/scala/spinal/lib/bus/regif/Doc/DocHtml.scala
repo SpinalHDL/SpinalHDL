@@ -105,9 +105,13 @@ object TableTreeNodeImplicits{
       case _     => s"0x${reg.getAddr.hexString(16)}"
     }
 
+    val className = regType match {
+      case "rfifo" | "wfifo" | "fifo" => "fifo"
+      case _ => regType
+    }
     override def td: String = {
-      s"""            <td align="center" rowspan="${span}" class="${regType}">${addrInfo}</td>
-         |            <td align="center" rowspan="${span}" class="${regType}">${reg.regType}</td>
+      s"""            <td align="center" rowspan="${span}" class="${className}">${addrInfo}</td>
+         |            <td align="center" rowspan="${span}" class="${className}">${reg.regType}</td>
          |            <td align="left" rowspan="${span}">${(name).toUpperCase}</td>
          |            <td class="fixWidth" align="center" rowspan="${span}">${br(reg.getDoc)} </td>
          |            <td align="center" rowspan="${span}">${reg.bi.busDataWidth}</td>
