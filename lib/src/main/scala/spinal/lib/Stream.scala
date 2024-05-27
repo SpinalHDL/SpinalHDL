@@ -1676,16 +1676,16 @@ class StreamAccessibleFifo[T <: Data](dataType: HardType[T], length: Int) extend
   })
 }
 
-object StreamHistory {
-  def apply[T <: Data](input: Stream[T], output: Stream[T], length: Int = 2): StreamHistory[T] = {
-    val inst = new StreamHistory(input.payloadType, length)
+object StreamShiftChain {
+  def apply[T <: Data](input: Stream[T], output: Stream[T], length: Int = 2): StreamShiftChain[T] = {
+    val inst = new StreamShiftChain(input.payloadType, length)
     inst.io.push << input
     output << inst.io.pop
     inst
   }
 }
 
-class StreamHistory[T <: Data](dataType: HardType[T], length: Int) extends Component {
+class StreamShiftChain[T <: Data](dataType: HardType[T], length: Int) extends Component {
   val io = new Bundle {
     val push          = slave  Stream(dataType)
     val pop           = master Stream(dataType)
