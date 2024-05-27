@@ -11,11 +11,14 @@ import spinal.tester.SpinalSimFunSuite
 class SpinalSimStreamAccessibleFifoTester extends SpinalSimFunSuite {
     def prepare(
         dut: StreamAccessibleFifo[UInt],
+        length: Int,
         alwaysInput: Boolean = false,
         alwaysOutput: Boolean = false,
         inQueue: mutable.Queue[BigInt],
         outQueue: mutable.Queue[BigInt],
-    ) {
+    ) {        
+        val stateQueue    = mutable.Queue[BigInt]()
+        stateQueue.clear()
         dut.clockDomain.forkStimulus(period = 10)
         dut.io.push.valid #= false
 
@@ -42,11 +45,24 @@ class SpinalSimStreamAccessibleFifoTester extends SpinalSimFunSuite {
             }
         }
 
+        val pushMonitor = StreamMonitor(dut.io.push, dut.clockDomain) { payload =>
+                stateQueue.enqueue(payload.toBigInt)
+        }
+
         val monitor = StreamMonitor(dut.io.pop, dut.clockDomain) { payload =>
             {
                 val expected = outQueue.dequeue()
                 val data = payload.toBigInt
                 assert(data == expected)
+
+                var id = 0
+                for(i <- length - 1 downto 0) {
+                    if(dut.io.states(i).valid.toBoolean){
+                        assert(stateQueue(id) == dut.io.states(i).payload.toBigInt)
+                        id += 1
+                    }
+                }
+                stateQueue.dequeue()
             }
         }
 
@@ -59,7 +75,7 @@ class SpinalSimStreamAccessibleFifoTester extends SpinalSimFunSuite {
     }
 
     test("testRandomInOut") {
-        val compiled = SimConfig.allOptimisation.compile {
+        val compiled = SimConfig.withFstWave.allOptimisation.compile {
             val dut = new StreamAccessibleFifo(
                 UInt(32 bits),
                 12,
@@ -69,7 +85,7 @@ class SpinalSimStreamAccessibleFifoTester extends SpinalSimFunSuite {
         compiled.doSimUntilVoid { dut =>
             val inQueue    = mutable.Queue[BigInt]()
             val outQueue   = mutable.Queue[BigInt]()
-            prepare(dut, false, false, inQueue, outQueue)
+            prepare(dut, 12, false, false, inQueue, outQueue)
             dut.clockDomain.waitSampling((1 KiB).toInt)
             simSuccess()
         }
@@ -86,7 +102,7 @@ class SpinalSimStreamAccessibleFifoTester extends SpinalSimFunSuite {
         compiled.doSimUntilVoid { dut =>
             val inQueue    = mutable.Queue[BigInt]()
             val outQueue   = mutable.Queue[BigInt]()
-            prepare(dut, false, true, inQueue, outQueue)
+            prepare(dut, 12, false, true, inQueue, outQueue)
             dut.clockDomain.waitSampling((1 KiB).toInt)
             simSuccess()
         }
@@ -104,7 +120,7 @@ class SpinalSimStreamAccessibleFifoTester extends SpinalSimFunSuite {
         compiled.doSimUntilVoid { dut =>
             val inQueue    = mutable.Queue[BigInt]()
             val outQueue   = mutable.Queue[BigInt]()
-            prepare(dut, true, false, inQueue, outQueue)
+            prepare(dut, 12, true, false, inQueue, outQueue)
             dut.clockDomain.waitSampling((1 KiB).toInt)
             simSuccess()
         }
@@ -122,7 +138,7 @@ class SpinalSimStreamAccessibleFifoTester extends SpinalSimFunSuite {
         compiled.doSimUntilVoid { dut =>
             val inQueue    = mutable.Queue[BigInt]()
             val outQueue   = mutable.Queue[BigInt]()
-            prepare(dut, true, true, inQueue, outQueue)
+            prepare(dut, 12, true, true, inQueue, outQueue)
             dut.clockDomain.waitSampling((1 KiB).toInt)
             simSuccess()
         }
