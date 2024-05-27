@@ -21,15 +21,16 @@ case class MinBusInterface(bus: MinBus, sizeMap: SizeMapping, regPre: String = "
   val wmaskn: Bits = withStrb generate(Bits(busDataWidth bit))
   withStrb generate(wstrb := bus.strb)
 
-  bus.rdy := True
-  bus.rdat := bus_rdata
-
   val askWrite  = bus.ce && bus.wr
   val askRead   = bus.ce && !bus.wr
   val doWrite   = (askWrite && bus.rdy).allowPruning()
   val doRead    = (askRead  && bus.rdy).allowPruning()
   val writeData = bus.wdat
   override val cg_en: Bool = bus.ce
+
+  bus.rdy := True
+  bus.rvld := RegNext(askRead, False)
+  bus.rdat := bus_rdata
 
   initStrbMasks()
 

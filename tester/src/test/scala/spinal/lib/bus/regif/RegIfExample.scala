@@ -270,6 +270,7 @@ class RegIfExample extends Component {
   busif.accept(JsonGenerator("regif"))
   busif.accept(RalfGenerator("regif"))
   busif.accept(DocPlay("regif"))
+  busif.accept(DocSVHeader("regif"))
 }
 
 object playregif extends App{

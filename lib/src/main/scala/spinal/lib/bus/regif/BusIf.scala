@@ -224,6 +224,7 @@ trait BusIf extends BusIfBase {
     this.accept(DocJson(docname))
     this.accept(DocRalf(docname))
     this.accept(DocCHeader(docname, prefix))
+    this.accept(DocSVHeader(docname, prefix))
   }
 
   private def regReadPart() = {

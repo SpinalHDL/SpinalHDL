@@ -12,6 +12,8 @@ class RegIfBasicAccessTester extends SpinalAnyFunSuite{
   test("regif_basic_access_tester_apb4"){BasicTest.main(Array("apb4"))}
   test("regif_basic_access_tester_apb3"){BasicTest.main(Array("apb3"))}
   test("regif_basic_access_tester_bram"){BasicTest.main(Array("bram"))}
+  test("regif_basic_access_tester_minbus"){BasicTest.main(Array("minbus"))}
+  test("regif_basic_access_tester_membus"){BasicTest.main(Array("membus"))}
 }
 
 class RegIfStrbTester extends SpinalAnyFunSuite{

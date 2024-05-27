@@ -1,15 +1,14 @@
 package spinal.lib.bus.regif
 
 import spinal.lib._
-
-import scala.math
 import spinal.lib.bus.regif.AccessType._
 
-final case class DocCHeader(name : String,
-                            override val prefix: String = "",
-                            regType : String = "u32", //unsigned int
-                            withshiftmask: Boolean = true) extends BusIfDoc {
-  override val suffix: String = "h"
+import scala.math
+
+final case class DocSVHeader(name : String,
+                             override val prefix: String = "",
+                             withshiftmask: Boolean = true) extends BusIfDoc {
+  override val suffix: String = "svh"
 
   def guardName : String = s"${name}_REGIF_H"
 
@@ -20,20 +19,17 @@ final case class DocCHeader(name : String,
     val reuseGroupsById = bi.reuseGroupsById
     s"""|/*
         | * ${header}
-        | * Reg Interface C-Header [AUTOGENERATE by SpinalHDL]
+        | * Reg Interface SV-Header [AUTOGENERATE by SpinalHDL]
         | */
         |
-        |#ifndef ${guardName}
-        |#define ${guardName}
+        |`ifndef ${guardName}
+        |`define ${guardName}
         |
         |${normalRegSlices.map(_.define(maxnamelen, maxshiftlen)).mkString("\n")}
         |
         |${reuseDeclare(reuseGroupsById)}
         |
-        |${normalRegSlices.map(_.union).mkString("\n")}
-        |
-        |${reuseStruct(reuseGroupsById)}
-        |#endif /* ${guardName} */
+        |`endif /* ${guardName} */
         |""".stripMargin
   }
 
@@ -42,7 +38,7 @@ final case class DocCHeader(name : String,
     def base(name: String, t: RegSlice, max: Int) = {
       val alignName = s"%-${max}s".format(t.reuseTag.instName)
       val defineName = s"${name}_base_${alignName}".toUpperCase()
-      s"#define ${defineName}  0x${t.reuseTag.baseAddr.hexString()}"
+      s"`define ${defineName}  0x${t.reuseTag.baseAddr.hexString()}"
     }
 
     lst.map{ t =>
@@ -64,17 +60,6 @@ final case class DocCHeader(name : String,
     }.mkString("")
   }
 
-  def reuseStruct(lst: Map[String, Map[Int, List[RegSlice]]]) = {
-    lst.map { t =>
-      val partName = t._1
-      val decPart: List[RegSlice] = t._2.head._2
-      s"""/*part '${partName}' start --> */
-         |${decPart.map(_.union).mkString("\n")}
-         |/*<-- part '${partName}' end*/
-         |""".stripMargin
-    }.mkString("\n")
-  }
-
   def nameDedupliaction(repeat: String, word: String) = word.toUpperCase().replaceAll(repeat.toUpperCase() + "_", "")
 
   implicit class RegSliceCheadExtend(reg: RegSlice) {
@@ -83,48 +68,15 @@ final case class DocCHeader(name : String,
 
     def define(maxreglen: Int, maxshiftlen: Int): String = {
       val _tab = " " * (maxreglen - deDupRegName.size)
-      s"""#define ${preFixRegName} ${_tab}0x${reg.getAddr().hexString(16)}${fddefine(maxshiftlen)}""".stripMargin
+      s"""`define ${preFixRegName} ${_tab}0x${reg.getAddr().hexString(16)}${fddefine(maxshiftlen)}""".stripMargin
     }
 
     def baseDefine(maxreglen: Int, maxshiftlen: Int) = {
       val _tab = " " * (maxreglen - deDupRegName.size)
-      s"""#define ${preFixRegName}(base)  ${_tab}base + 0x${(reg.getAddr() - reg.reuseTag.baseAddr).hexString(8)}${fddefine(maxshiftlen)}""".stripMargin
-    }
-
-    def union: String = {
-      s"""/**
-         |  * @union       ${preFixRegName.toLowerCase()}_t
-         |  * @address     0x${reg.getAddr().hexString(16)}
-         |  * @brief       ${reg.getDoc().replace("\n", "\\n")}
-         |  */
-         |typedef union {
-         |    ${regType} val;
-         |    struct {
-         |        ${fdUnion(" " * 8)}
-         |    } reg;
-         |} ${preFixRegName.toLowerCase()}_t;""".stripMargin
+      s"""`define ${preFixRegName}(base)  ${_tab}base + 0x${(reg.getAddr() - reg.reuseTag.baseAddr).hexString(8)}${fddefine(maxshiftlen)}""".stripMargin
     }
 
     def fdNameLens = math.max("reserved_0".size, reg.getFields().map(_.getName.size).max)
-
-    def fdUnion(tab: String): String = {
-      var i, j = -1
-      val fields = reg.getFields()
-      val maxlen = fdNameLens
-      fields.map(fd => {
-        val name = fd.getAccessType match {
-          case AccessType.NA => i += 1; s"reserved_${i}"
-          case AccessType.ROV => j += 1; s"rov_${j}"
-          case _ => fd.getName()
-        }
-        val _tab = " " * (maxlen - name.size)
-        val reset = fd.getAccessType match {
-          case AccessType.NA => ""
-          case _ => ", reset: 0x" + fd.getResetValue().hexString(fd.getWidth())
-        }
-        f"""$regType ${name.toLowerCase()}${_tab} : ${fd.getWidth()}%2d; /* ${fd.getAccessType()}${reset}, ${fd.getDoc().replace("\n", "\\n")} */""".stripMargin
-      }).mkString("\n" + tab)
-    }
 
     def fddefine(maxlen: Int): String = {
       val nmaxlen = maxlen - preFixRegName.size
@@ -148,12 +100,12 @@ final case class DocCHeader(name : String,
       val _tab = " " * (tabn - newfdname.size)
       fd.getAccessType() match {
         case `NA` => ""
-        case `W1S` | `W1C` | `W1T` | `W1P` | `W1CRS` | `W1SRC` | `W1SHS` | `W1CHS` => s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
-        case `W0S` | `W0C` | `W0T` | `W0P` | `W0CRS` | `W0SRC` => s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
+        case `W1S` | `W1C` | `W1T` | `W1P` | `W1CRS` | `W1SRC` | `W1SHS` | `W1CHS` => s"""`define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
+        case `W0S` | `W0C` | `W0T` | `W0P` | `W0CRS` | `W0SRC` => s"""`define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
         case _ => {
           if (fd.getSection().size == bi.busDataWidth) "" else if (fd.getName() == "_bm_") "" else
-            s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb}
-               |#define ${pre}_${newfdname}_MASK  ${_tab}0x${mask.hexString(32)} /* ${fd.getName()}, ${fd.getAccessType()}, ${fd.getWidth()} bit */""".stripMargin
+            s"""`define ${pre}_${newfdname}_SHIFT ${_tab}${lsb}
+               |`define ${pre}_${newfdname}_MASK  ${_tab}0x${mask.hexString(32)} /* ${fd.getName()}, ${fd.getAccessType()}, ${fd.getWidth()} bit */""".stripMargin
         }
       }
     }
