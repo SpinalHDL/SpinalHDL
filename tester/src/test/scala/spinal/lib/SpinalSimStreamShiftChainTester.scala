@@ -8,9 +8,9 @@ import spinal.lib.sim._
 import spinal.core.sim._
 import spinal.tester.SpinalSimFunSuite
 
-class SpinalSimStreamHistoryTester extends SpinalSimFunSuite {
+class SpinalSimStreamShiftChainTester extends SpinalSimFunSuite {
     def prepare(
-        dut: StreamHistory[UInt],
+        dut: StreamShiftChain[UInt],
         alwaysInput: Boolean = false,
         alwaysOutput: Boolean = false,
         inQueue: mutable.Queue[BigInt],
@@ -59,8 +59,8 @@ class SpinalSimStreamHistoryTester extends SpinalSimFunSuite {
     }
 
     test("testRandomInOut") {
-        val compiled = SimConfig.withFstWave.allOptimisation.compile {
-            val dut = new StreamHistory(
+        val compiled = SimConfig.allOptimisation.compile {
+            val dut = new StreamShiftChain(
                 UInt(32 bits),
                 12,
             )
@@ -77,7 +77,7 @@ class SpinalSimStreamHistoryTester extends SpinalSimFunSuite {
 
     test("testRandomIn") {
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamHistory(
+            val dut = new StreamShiftChain(
                 UInt(32 bits),
                 12
             )
@@ -95,7 +95,7 @@ class SpinalSimStreamHistoryTester extends SpinalSimFunSuite {
     test("testRandomOut") {
         val lastQueue = mutable.Queue[Boolean]()
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamHistory(
+            val dut = new StreamShiftChain(
                 UInt(32 bits),
                 12
             )
@@ -113,7 +113,7 @@ class SpinalSimStreamHistoryTester extends SpinalSimFunSuite {
     test("testFullPipeline") {
         val lastQueue = mutable.Queue[Boolean]()
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamHistory(
+            val dut = new StreamShiftChain(
                 UInt(32 bits),
                 12
             )
@@ -125,6 +125,20 @@ class SpinalSimStreamHistoryTester extends SpinalSimFunSuite {
             prepare(dut, true, true, inQueue, outQueue)
             dut.clockDomain.waitSampling((1 KiB).toInt)
             simSuccess()
+        }
+    }
+
+    test("testObjectCompile") {
+        val lastQueue = mutable.Queue[Boolean]()
+        val compiled = SimConfig.allOptimisation.compile {
+            val dut = new Component{
+                val input = slave Stream(UInt(32 bits))
+                val output = master Stream(UInt(32 bits))
+                val hist = StreamShiftChain(input, output, 12)
+                val test = out Bool()
+                test := hist.io.states(0).valid
+            }
+            dut
         }
     }
 }
