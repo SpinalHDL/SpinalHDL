@@ -3,12 +3,7 @@ package spinal.lib.bus.localbus
 import spinal.core._
 import spinal.core.sim._
 
-case class MemBusDriver(bus : MemBus, clockDomain : ClockDomain) {
-  bus.ce #= false
-  bus.wr #= false
-  bus.addr  #= 0
-  bus.wdat  #= 0
-
+case class MemBusDriver(bus : MemBus, clockdomain : ClockDomain) {
   var verbose = false
   def write(address : BigInt, data : BigInt) : Unit = {
     if(verbose) println(s"Mem[0x${address.toString(16)}] = 0x${data.toString(16)}")
@@ -16,7 +11,7 @@ case class MemBusDriver(bus : MemBus, clockDomain : ClockDomain) {
     bus.wr   #= true
     bus.addr #= address
     bus.wdat #= data
-    clockDomain.waitSampling()
+    clockdomain.waitSampling()
     bus.ce   #= false
     bus.wr.randomize()
     bus.addr.randomize()
@@ -28,7 +23,7 @@ case class MemBusDriver(bus : MemBus, clockDomain : ClockDomain) {
     bus.wr #= false
     bus.addr #= address
     bus.wdat #= 1234 //.randomize()
-    clockDomain.waitSampling()
+    clockdomain.waitSampling()
     bus.ce #= false
     bus.wr.randomize()
     bus.addr.randomize()
@@ -36,4 +31,12 @@ case class MemBusDriver(bus : MemBus, clockDomain : ClockDomain) {
     sleep(0)
     bus.rdat.toBigInt
   }
+
+  def simClear(): Unit = {
+    bus.ce #= false
+    bus.wr #= false
+    bus.addr #= 0
+    bus.wdat #= 0
+  }
+  def hangMem(): MemVIP = (new MemVIP).hang(this.bus)(clockdomain)
 }

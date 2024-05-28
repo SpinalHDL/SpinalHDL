@@ -20,3 +20,7 @@ class RegIfStrbTester extends SpinalAnyFunSuite{
   test("apb4_strb_tester"){RegIfStrbTesterSim.sim("all", false)}
   test("apb4_strb_debug"){RegIfStrbTesterSim.sim("debug", true)}
 }
+
+class RegIfRamFifoTester extends SpinalAnyFunSuite{
+  test("membus_mem_fifo_test"){RegIfMemFifoSim.sim()}
+}
