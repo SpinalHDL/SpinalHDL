@@ -19,15 +19,12 @@ class MemVIP{
     fork{
       bus.rdat  #= 0
       while(true){
+        cd.waitSampling()
         if(bus.ce.toBoolean && !bus.wr.toBoolean ){
           bus.rdat #= lookUp(bus.addr.toLong)
         } else {
           bus.rdat #= BigInt(0)
         }
-        cd.waitSampling()
-        sleep(0)
-        sleep(0)
-        sleep(0)//add more times sleep(0) avoid competition in read operations
       }
     }
   }

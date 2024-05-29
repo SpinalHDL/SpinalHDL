@@ -29,6 +29,7 @@ case class MemBusDriver(bus : MemBus, clockdomain : ClockDomain) {
     bus.addr.randomize()
     bus.wdat.randomize()
     sleep(0)
+    sleep(0)
     bus.rdat.toBigInt
   }
 
