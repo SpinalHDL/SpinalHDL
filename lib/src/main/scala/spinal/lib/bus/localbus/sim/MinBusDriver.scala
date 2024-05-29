@@ -19,7 +19,7 @@ case class MinBusDriver(bus : MinBus, clockDomain : ClockDomain) {
     bus.wr   #= true
     bus.addr #= address
     bus.wdat #= data
-    bus.strb #= strb%(1<<bus.c.mw)
+    bus.strb #= strb%(1<<bus.c.sw)
     bus.prot #= prot
     clockDomain.waitSamplingWhere(bus.rdy.toBoolean)
     bus.ce   #= false

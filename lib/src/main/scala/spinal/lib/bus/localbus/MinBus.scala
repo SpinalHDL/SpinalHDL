@@ -8,7 +8,7 @@ case class MinBusConfig(aw: Int,
                         pw: Int = 4,
                         withStrb: Boolean = false
                        ){
-  val mw  = if(withStrb)log2Up(dw/8) else 0
+  val sw  = dw >> 3
 }
 
 case class MinBus(c: MinBusConfig) extends Interface with IMasterSlave {
@@ -17,7 +17,7 @@ case class MinBus(c: MinBusConfig) extends Interface with IMasterSlave {
   val rdy  = Bool()
   val addr = UInt(c.aw bit)
   val wdat = Bits(c.dw bit)
-  val strb = Bits(c.mw bit)
+  val strb = Bits(c.sw bit)
   val prot = Bits(c.pw bit)
   val rvld = Bool()
   val rdat = Bits(c.dw bit)
