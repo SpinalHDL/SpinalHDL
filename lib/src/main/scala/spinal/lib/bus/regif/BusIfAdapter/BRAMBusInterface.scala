@@ -30,6 +30,7 @@ case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = ""
   override val doRead: Bool = (askRead && bus.en).allowPruning()
 
   override val cg_en: Bool = bus.en
+  override val NS: Bool = False
 //  override val readData: Bits = Bits(busDataWidth bits)
 
   if(bus.config.readLatency == 1 ){

@@ -26,7 +26,9 @@ case class MemBusInterface(bus: MemBus, sizeMap: SizeMapping, regPre: String = "
   val doWrite   = askWrite.allowPruning()
   val doRead    = askRead.allowPruning()
   val writeData = bus.wdat
+
   override val cg_en: Bool = bus.ce
+  override val NS: Bool = False
 
   initStrbMasks()
 
