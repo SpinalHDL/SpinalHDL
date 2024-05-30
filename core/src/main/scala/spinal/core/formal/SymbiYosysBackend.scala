@@ -102,7 +102,8 @@ class SymbiYosysBackendConfig(
     var workspacePath: String = null,
     var workspaceName: String = null,
     var keepDebugInfo: Boolean = false,
-    var skipWireReduce: Boolean = false
+    var skipWireReduce: Boolean = false,
+    var withGhdl: Boolean = false
 )
 
 class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBackend {
@@ -149,7 +150,9 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
       engineCmds +
       "\n\n" +
       "[script]\n" +
-      s"read -formal $read\n" +
+      (if (!config.withGhdl) { s"read -formal $read" }
+       else { s"ghdl --std=08 $read -e ${config.toplevelName}" }) +
+      "\n" +
       s"prep ${skipWireReduce} -top ${config.toplevelName}\n" +
       "\n" +
       "[files]\n" +
@@ -172,7 +175,8 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
     println(f"[Progress] Start ${config.toplevelName} formal verification with $name.")
     val isWindows = System.getProperty("os.name").toLowerCase.contains("windows")
     val command = if (isWindows) "sby.exe" else "sby"
-    val success = Process(Seq(command, "-f", sbyFilePath.toString()), workspacePath.toFile()).!(new Logger()) == 0
+    val yosysCmd = if (config.withGhdl) "yosys -m ghdl" else "yosys"
+    val success = Process(Seq(command, "--yosys", yosysCmd, "-f", sbyFilePath.toString()), workspacePath.toFile()).!(new Logger()) == 0
     if(!success){
 
 

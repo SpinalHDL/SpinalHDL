@@ -48,6 +48,7 @@ object FormalWorkspace {
 class SpinalFormalBackendSel
 object SpinalFormalBackendSel {
   val SYMBIYOSYS = new SpinalFormalBackendSel
+  val SYMBIYOSYS_GHDL = new SpinalFormalBackendSel
 }
 
 class FormalPhase extends PhaseNetlist{
@@ -87,6 +88,11 @@ case class SpinalFormalConfig(
 ) {
   def withSymbiYosys: this.type = {
     _backend = SpinalFormalBackendSel.SYMBIYOSYS
+    this
+  }
+
+  def withGhdl: this.type = {
+    _backend = SpinalFormalBackendSel.SYMBIYOSYS_GHDL
     this
   }
 
@@ -209,6 +215,8 @@ case class SpinalFormalConfig(
       case SpinalFormalBackendSel.SYMBIYOSYS =>
         // config.generateVerilog(rtl)
         config.generateSystemVerilog(rtl)
+      case SpinalFormalBackendSel.SYMBIYOSYS_GHDL =>
+        config.generateVhdl(rtl)
     }
     report.blackboxesSourcesPaths ++= _additionalRtlPath
     report.blackboxesIncludeDir ++= _additionalIncludeDir
@@ -269,7 +277,7 @@ case class SpinalFormalConfig(
     }
 
     _backend match {
-      case SpinalFormalBackendSel.SYMBIYOSYS =>
+      case SpinalFormalBackendSel.SYMBIYOSYS | SpinalFormalBackendSel.SYMBIYOSYS_GHDL =>
         println(f"[Progress] Yosys compilation started")
         val startAt = System.nanoTime()
         val vConfig = new SymbiYosysBackendConfig(
@@ -280,7 +288,8 @@ case class SpinalFormalConfig(
           timeout = _timeout,
           keepDebugInfo = _keepDebugInfo,
           skipWireReduce = _skipWireReduce,
-          multiClock = _hasAsync
+          multiClock = _hasAsync,
+          withGhdl = _backend == SpinalFormalBackendSel.SYMBIYOSYS_GHDL
         )
         vConfig.rtlSourcesPaths ++= rtlFiles
         vConfig.rtlIncludeDirs ++= report.rtlIncludeDirs
