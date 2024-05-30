@@ -21,32 +21,25 @@ class wishbonesimplebus(config : WishboneConfig) extends Component{
 }
 class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
 
-  var compiled : SimCompiled[wishbonesimplebus] = null
-  var compPipe : SimCompiled[wishbonesimplebus] = null
+  lazy val compiled : SimCompiled[wishbonesimplebus] = SimConfig.allOptimisation.compile(new wishbonesimplebus(WishboneConfig(8, 8)).setDefinitionName("wishbonesimplebus_std"))
+  lazy val compPipe : SimCompiled[wishbonesimplebus] = SimConfig.allOptimisation.compile(new wishbonesimplebus(WishboneConfig(8, 8).pipelined).setDefinitionName("wishbonesimplebus_pipe"))
+
+
   test("compile") {
-    compiled = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8, 8)){val miaou = out(RegNext(False))})
-    compPipe = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8, 8).pipelined){ val miaou = out(RegNext(False)) })
+    compiled
+    compPipe
   }
 
  test("DriveSingle"){
-   compiled.doSim("DriveSingle"){ dut =>
+   compiled.doSim("DriveSingle") { dut =>
      dut.clockDomain.forkStimulus(period=10)
-     dut.io.busmaster.CYC #= false
-     dut.io.busmaster.STB #= false
-     dut.io.busmaster.WE #= false
-     dut.io.busmaster.ADR #= 0
-     dut.io.busmaster.DAT_MOSI #= 0
-     dut.io.busslave.ACK #= false
-     dut.io.busslave.DAT_MISO #= 0
+     val dri = WishboneDriver(dut.io.busmaster)
+     val dri2 = WishboneDriver(dut.io.busslave)
      dut.clockDomain.waitSampling(10)
-     SimTimeout(500 * 1000)
+     SimTimeout(20 us)
      val sco = ScoreboardInOrder[WishboneTransaction]()
-     val dri = new WishboneDriver(dut.io.busmaster, dut.clockDomain)
-     val dri2 = new WishboneDriver(dut.io.busslave, dut.clockDomain)
 
-     val seq = WishboneSequencer{
-       WishboneTransaction(BigInt(Random.nextInt(200)),BigInt(Random.nextInt(200)))
-      }
+     val seq = WishboneSequencer.randomGen(dut.io.busmaster.config, maxCnt = 1)
 
      WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
        sco.pushRef(WishboneTransaction.sampleAsSlave(bus))
@@ -60,14 +53,11 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
 
      for(repeat <- 0 until 1000){
        seq.generateTransactions(10)
-       val ddd = fork{
-         while(!seq.isEmpty){
-           val tran = seq.nextTransaction
-           dri.drive(tran, we = true)
-           dut.clockDomain.waitSampling(1)
-         }
+       while(!seq.isEmpty){
+         val tran = seq.nextTransaction
+         dri.drive(tran, we = true)
+         dut.clockDomain.waitSampling(1)
        }
-       ddd.join()
        dut.clockDomain.waitSampling(10)
      }
    }
@@ -76,23 +66,14 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
  test("DriveCycle"){
    compiled.doSim("DriveCycle"){ dut =>
      dut.clockDomain.forkStimulus(period=10)
-     dut.io.busmaster.CYC #= false
-     dut.io.busmaster.STB #= false
-     dut.io.busmaster.WE #= false
-     dut.io.busmaster.ADR #= 0
-     dut.io.busmaster.DAT_MOSI #= 0
-     dut.io.busslave.ACK #= false
-     dut.io.busslave.DAT_MISO #= 0
+     val dri = new WishboneDriver(dut.io.busmaster, dut.clockDomain)
+     val dri2 = new WishboneDriver(dut.io.busslave, dut.clockDomain)
+
      dut.clockDomain.waitSampling(10)
      SimTimeout(10000 * 1000)
       val sco = ScoreboardInOrder[WishboneTransaction]()
-      val dri = new WishboneDriver(dut.io.busmaster, dut.clockDomain)
-      val dri2 = new WishboneDriver(dut.io.busslave, dut.clockDomain)
 
-      val seq = WishboneSequencer{
-         for(i <- 0 to Random.nextInt(20))
-           yield WishboneTransaction(BigInt(Random.nextInt(200)),BigInt(Random.nextInt(200)))
-      }
+      val seq = WishboneSequencer.randomGen(dut.io.busmaster.config, 20)
 
      WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
        sco.pushRef(WishboneTransaction.sampleAsSlave(bus))
@@ -106,14 +87,11 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
 
      for(repeat <- 0 until 1000){
        seq.generateTransactions(10)
-       val ddd = fork{
-         while(!seq.isEmpty){
-           val tran = seq.nextTransaction
-           dri.drive(tran, we = true)
-           dut.clockDomain.waitSampling(1)
-         }
+       while(!seq.isEmpty){
+         val tran = seq.nextTransaction
+         dri.drive(tran, we = true)
+         dut.clockDomain.waitSampling(1)
        }
-       ddd.join()
        dut.clockDomain.waitSampling(10)
      }
    }
@@ -122,24 +100,14 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
   test("DriveSinglePipelined"){
     compPipe.doSim("DriveSinglePipelined"){ dut =>
       dut.clockDomain.forkStimulus(period=10)
-      dut.io.busmaster.CYC #= false
-      dut.io.busmaster.STB #= false
-      dut.io.busslave.STALL #= false
-      dut.io.busmaster.WE #= false
-      dut.io.busmaster.ADR #= 0
-      dut.io.busmaster.DAT_MOSI #= 0
-      dut.io.busslave.ACK #= false
-      dut.io.busslave.DAT_MISO #= 0
+      val mDriver = WishboneDriver(dut.io.busmaster)
+      val sDriver = WishboneDriver(dut.io.busslave)
       dut.clockDomain.waitSampling(10)
 
-      SimTimeout(1000 * 1000)
+      SimTimeout(1000 * 1000 * 10)
       val sco = ScoreboardInOrder[WishboneTransaction]()
-      val dri = new WishboneDriver(dut.io.busmaster, dut.clockDomain)
-      val dri2 = new WishboneDriver(dut.io.busslave, dut.clockDomain)
 
-      val seq = WishboneSequencer{
-        WishboneTransaction(BigInt(Random.nextInt(200)),BigInt(Random.nextInt(200)))
-       }
+      val seq = WishboneSequencer.randomGen(dut.io.busmaster.config)
 
       WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
         sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
@@ -149,18 +117,15 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
         sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
       }
 
-      dri2.slaveSink()
+      sDriver.slaveSink()
 
       for(repeat <- 0 until 1000){
         seq.generateTransactions(10)
-        val ddd = fork{
-          while(!seq.isEmpty){
-            val tran = seq.nextTransaction
-            dri.drive(tran ,true)
-            dut.clockDomain.waitSampling(5)
-          }
+        while(!seq.isEmpty){
+          val tran = seq.nextTransaction
+          mDriver.drive(tran, true)
+          dut.clockDomain.waitSampling(5)
         }
-        ddd.join()
         dut.clockDomain.waitSampling(10)
       }
     }
@@ -169,25 +134,14 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
   test("DriveCyclePipelined"){
     compPipe.doSim("DriveCyclePipelined"){ dut =>
       dut.clockDomain.forkStimulus(period=10)
-      dut.io.busmaster.CYC #= false
-      dut.io.busmaster.STB #= false
-      dut.io.busslave.STALL #= false
-      dut.io.busmaster.WE #= false
-      dut.io.busmaster.ADR #= 0
-      dut.io.busmaster.DAT_MOSI #= 0
-      dut.io.busslave.ACK #= false
-      dut.io.busslave.DAT_MISO #= 0
+      val dri = WishboneDriver(dut.io.busmaster)
+      val dri2 = WishboneDriver(dut.io.busslave)
       dut.clockDomain.waitSampling(10)
 
       SimTimeout(1000 * 1000000)
       val sco = ScoreboardInOrder[WishboneTransaction]()
-      val dri = new WishboneDriver(dut.io.busmaster, dut.clockDomain)
-      val dri2 = new WishboneDriver(dut.io.busslave, dut.clockDomain)
 
-      val seq = WishboneSequencer{
-         for(i <- 0 to Random.nextInt(20))
-           yield WishboneTransaction(BigInt(Random.nextInt(200)),BigInt(Random.nextInt(200)))
-       }
+      val seq = WishboneSequencer.randomGen(dut.io.busmaster.config, 20)
 
       WishboneMonitor(dut.io.busmaster, dut.clockDomain){ bus =>
         sco.pushRef(WishboneTransaction.sampleAsSlave(bus))
@@ -201,14 +155,13 @@ class SpinalSimWishboneSimTester extends SpinalAnyFunSuite{
 
       for(repeat <- 0 until 1000){
         seq.generateTransactions(10)
-        val ddd = fork{
-          while(!seq.isEmpty){
-            val tran = seq.nextTransaction
-            dri.drive(tran ,true)
-            dut.clockDomain.waitSampling(5)
-          }
+
+        while(!seq.isEmpty){
+          val tran = seq.nextTransaction
+          dri.drive(tran ,true)
+          dut.clockDomain.waitSampling(5)
         }
-        ddd.join()
+
         dut.clockDomain.waitSampling(10)
       }
     }

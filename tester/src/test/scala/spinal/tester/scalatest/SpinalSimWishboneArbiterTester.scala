@@ -47,53 +47,39 @@ case class WishboneMemoryHarness(config: WishboneConfig, size: Int) extends Comp
 
 class SpinalSimWishboneArbiterTester extends SpinalAnyFunSuite{
   def testArbiter(config : WishboneConfig,size: Int,description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneArbiterComponent(config,size))
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneArbiterComponent(config,size).setDefinitionName(s"WishboneArbiterComponent_${description}"))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
-      dut.io.busIN.foreach{ bus =>
-        bus.CYC #= false
-        bus.STB #= false
-        bus.WE #= false
-        bus.ADR #= 0
-        bus.DAT_MOSI #= 0
-        if(bus.config.useLOCK) bus.LOCK #= false
-        }
-        //if(dut.io.busOUT.config.isPipelined) dut.io.busOUT.STALL #= false
-        dut.io.busOUT.ACK #= false
-        if(dut.io.busOUT.config.useERR)dut.io.busOUT.ERR #= false
-        dut.io.busOUT.DAT_MOSI #= 0
+      val senders = dut.io.busIN.map(WishboneDriver(_))
+      val receiver = WishboneDriver(dut.io.busOUT)
+
       dut.clockDomain.waitSampling(10)
       SimTimeout(1000*10000)
       val score = ScoreboardInOrder[WishboneTransaction]()
 
-
-      //val drivers = dut.io.busIN.map{bus => new WishboneDriver(bus,dut.clockDomain)}
-      val receiver = new WishboneDriver(dut.io.busOUT,dut.clockDomain)
-      val receiveMonitor = WishboneMonitor(dut.io.busOUT,dut.clockDomain){ bus =>
-        score.pushRef(WishboneTransaction.sampleAsMaster(bus))
-        //pushDut
+      WishboneMonitor(dut.io.busOUT,dut.clockDomain){ bus =>
+        score.pushDut(WishboneTransaction.sampleAsSlave(bus))
       }
-      val driverMonitor = dut.io.busIN.map{ busIN =>
-        WishboneMonitor(busIN,dut.clockDomain){ bus =>
-          score.pushDut(WishboneTransaction.sampleAsMaster(bus))
+
+      dut.io.busIN.foreach { busIN =>
+        WishboneMonitor(busIN, dut.clockDomain){ bus =>
+          score.pushRef(WishboneTransaction.sampleAsSlave(bus))
         }
       }
 
       receiver.slaveSink()
       for(repeat <- 0 until 100){
         val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
-        dut.io.busIN.foreach{ bus =>
-        val dri = new WishboneDriver(bus,dut.clockDomain)
+        senders.foreach{ dri =>
           masterPool += fork{
-            val seq = WishboneSequencer{
-              WishboneTransaction().randomizeAddress(100).randomizeData(100)
-            }
+            val seq = WishboneSequencer.randomGen(dri.bus.config)
+
             seq.generateTransactions(10)
-            sleep(Random.nextInt(100))
+            dut.clockDomain.waitSampling(simRandom.nextInt(10))
             while(!seq.isEmpty){
-              dri.drive(seq.nextTransaction,true)
+              dri.drive(seq.nextTransaction, we = true)
               dut.clockDomain.waitSampling(1)
-              sleep(Random.nextInt(100))
+              dut.clockDomain.waitSampling(simRandom.nextInt(10))
             }
           }
         }
@@ -107,21 +93,13 @@ class SpinalSimWishboneArbiterTester extends SpinalAnyFunSuite{
     val fixture = SimConfig.withWave.allOptimisation.compile(rtl = WishboneMemoryHarness(config, 2))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
-      dut.io.busIN.foreach{ bus =>
-        bus.CYC #= false
-        bus.STB #= false
-        bus.WE #= false
-        bus.ADR #= 0
-        bus.DAT_MOSI #= 0
-        if(bus.config.useLOCK) bus.LOCK #= false
-      }
+      val drivers = dut.io.busIN.map(WishboneDriver(_))
 
       dut.clockDomain.waitSampling(10)
-      SimTimeout(1000*10000)
+      SimTimeout(1000*100)
 
-      val m0 = new WishboneDriver(dut.io.busIN(0), dut.clockDomain)
-      val m1 = new WishboneDriver(dut.io.busIN(1), dut.clockDomain)
-
+      val m0 = drivers(0)
+      val m1 = drivers(1)
 
       val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
 

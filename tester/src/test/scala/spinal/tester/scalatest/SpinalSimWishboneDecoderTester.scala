@@ -23,53 +23,40 @@ class WishboneDecoderComponent(config : WishboneConfig,decodings : Seq[SizeMappi
 
 class SpinalSimWishboneDecoderTester extends SpinalAnyFunSuite{
   def testDecoder(config : WishboneConfig,decodings : Seq[SizeMapping],description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneDecoderComponent(config,decodings){val miaou = out(RegNext(False))})
+    val fixture = SimConfig.allOptimisation.compile(new WishboneDecoderComponent(config,decodings).setDefinitionName(s"WishboneDecoderComponent_${description}"))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
-      dut.io.busIN.CYC #= false
-      dut.io.busIN.STB #= false
-      dut.io.busIN.WE #= false
-      dut.io.busIN.ADR #= 0
-      dut.io.busIN.DAT_MOSI #= 0
-      dut.io.busOUT.foreach{ bus =>
-        if(bus.config.isPipelined) bus.STALL #= false
-        bus.ACK #= false
-        bus.DAT_MOSI #= 0
-      }
+      val busInDriver = WishboneDriver(dut.io.busIN)
+      val busOutDrivers = dut.io.busOUT.map(WishboneDriver(_))
+
       dut.clockDomain.waitSampling(10)
       SimTimeout(1000*10000)
       val sco = ScoreboardInOrder[WishboneTransaction]()
-      val dri = new WishboneDriver(dut.io.busIN, dut.clockDomain)
 
       val seq = WishboneSequencer{
         WishboneTransaction().randomAdressInRange(Random.shuffle(decodings).head).randomizeData(Math.pow(2,config.dataWidth).toInt-1)
       }
 
-      val monIN = WishboneMonitor(dut.io.busIN, dut.clockDomain){ bus =>
+      WishboneMonitor(dut.io.busIN, dut.clockDomain){ bus =>
         sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
       }
 
       dut.io.busOUT.foreach{busOut =>
         WishboneMonitor(busOut, dut.clockDomain){ bus =>
-        sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
+          sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
         }
       }
-
-      dut.io.busOUT.foreach{busOut =>
-        val driver = new WishboneDriver(busOut, dut.clockDomain)
-        driver.slaveSink()
-      }
+      busOutDrivers.foreach(_.slaveSink())
 
       for(repeat <- 0 until 100){
         seq.generateTransactions(1000)
-        val ddd = fork{
-          while(!seq.isEmpty){
-            val tran = seq.nextTransaction
-            dri.drive(tran ,true)
-            dut.clockDomain.waitSampling(1)
-          }
+
+        while(!seq.isEmpty){
+          val tran = seq.nextTransaction
+          busInDriver.drive(tran, we = true)
+          dut.clockDomain.waitSampling(1)
         }
-        ddd.join()
+
         dut.clockDomain.waitSampling(10)
       }
     }
