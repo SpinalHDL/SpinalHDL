@@ -906,7 +906,7 @@ class MemReadBufferPhase extends PhaseNetlist {
           case e: Cast => walkExp(e.input, e :: through)
           case e: BitsRangedAccessFixed => walkExp(e.source, e :: through)
           case bt: BaseType if bt.isComb && bt.hasOnlyOneStatement => walkStm(bt.head, bt :: through)
-          case rs: MemReadSync if reg.component == rs.component => {
+          case rs: MemReadSync if reg.component == rs.component && reg.clockDomain == rs.clockDomain => {
 //            println(s"hit $rs through ${through.map(e => "- " + e).mkString("\n")}")
             val hitId = portsHits.size
             portsHits += rs
