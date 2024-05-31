@@ -88,6 +88,10 @@ class Interface extends Bundle {
                 LocatedPendingError(s"name conflict: ${name} has been used")
             super.valCallbackRec(ref, name)
           }
+          case b: Bundle => {
+            b.flattenForeach(x => x.addTag(IsInterface))
+            super.valCallbackRec(ref, name)
+          }
           case ref: Vec[_] => {
             if(OwnableRef.proposal(ref, this)) ref.setPartialName(name, Nameable.DATAMODEL_WEAK)
             ref.zipWithIndex.foreach{case (node, idx) =>
