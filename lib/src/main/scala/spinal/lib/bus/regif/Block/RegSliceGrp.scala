@@ -21,7 +21,7 @@ case class RegSliceGrp(baseAddr: BigInt, maxSize: BigInt, doc: String, grp: GrpT
     ret
   }
 
-  def newRegAt(offset: Int, doc: String)(implicit symbol: SymbolName): RegInst = {
+  def newRegAt(offset: BigInt, doc: String)(implicit symbol: SymbolName): RegInst = {
     check(offset)
     val ret = bi.newRegAt(baseAddr + offset, doc, grp)(symbol)
     slices += ret
@@ -34,7 +34,7 @@ case class RegSliceGrp(baseAddr: BigInt, maxSize: BigInt, doc: String, grp: GrpT
     ret
   }
 
-  def newFifoAt(offset: Int, doc: String)(implicit symbol: SymbolName) = {
+  def newFifoAt(offset: BigInt, doc: String)(implicit symbol: SymbolName) = {
     check(offset)
     val ret = bi.newWrFifoAt(baseAddr + offset, doc, grp)(symbol)
     slices += ret
@@ -47,7 +47,7 @@ case class RegSliceGrp(baseAddr: BigInt, maxSize: BigInt, doc: String, grp: GrpT
     ret
   }
 
-  def newRAMAt(offset: Int, size: BigInt, doc: String)(implicit symbol: SymbolName) = {
+  def newRAMAt(offset: BigInt, size: BigInt, doc: String)(implicit symbol: SymbolName) = {
     check(offset + size)
     val ret = bi.newRAMAt(baseAddr + offset, size, doc, grp)(symbol)
     slices += ret

@@ -17,7 +17,7 @@ import scala.collection.mutable.ListBuffer
   * ```
   */
 class IntrS1(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 1*bi.bw, doc, grp)(bi) with IntrBase {
-  val STATUS = this.newReg(s"${doc} MS2-status Register\n status = raw && (!mask)")(SymbolName(s"${name}_INT_STATUS"))
+  val STATUS = this.newRegAt(offset, s"${doc} MS2-status Register\n status = raw && (!mask)")(SymbolName(s"${name}_INT_STATUS"))
 
   @deprecated("IntrS1 without mask, sou maskRstVal is invalid, use fieldAt(pos: Int, signal: T, doc: String) instead", "???")
   def fieldAt[T <: BaseType](pos: Int, signal: T, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T = fieldAt(pos, signal, doc)(symbol)
