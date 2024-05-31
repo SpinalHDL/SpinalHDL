@@ -10,12 +10,14 @@ class RegIfGrpTester extends Component {
     val int_event = new Bundle {
       val a, b, c, d, e = in Bool()
       val f, g, h, k, i = in Bool()
+      val mebit = in Bits(3 bit)
     }
     val int_level = new Bundle {
       val a, b, c, d, e = in Bool()
       val f, g, h, k = in Bool()
       val int0, int1, int2 = in Bool()
       val int4, int5, int6, int7 = in Bool()
+      val mbit = in Bits(5 bit)
     }
     val dpu_intr, vdec_intr = out Bool()
     val top_intr = out Bool()
@@ -53,7 +55,8 @@ class RegIfGrpTester extends Component {
   val gps_ip0 = GPS_INTR.field(io.int_event.a, maskRstVal = 0x1, doc = "gps interrupt")
   val gps_ip1 = GPS_INTR.fieldAt(4, io.int_event.b, maskRstVal = 0x1, doc = "gps interrupt")
   val gps_ip2 = GPS_INTR.field(io.int_event.c, maskRstVal = 0x1, doc = "gps interrupt")
-  val gps_intr = GPS_INTR.intr()
+  val gps_ip3 = GPS_INTR.field(io.int_event.mebit, maskRstVal = 0x5, doc = "mebit gps interrupt")
+  val gps_intr: Bool = GPS_INTR.intr()
 
   val BD_INTR = busif.newIntrRFMMS5("gps")
   val bd_ip0 = BD_INTR.field(io.int_event.e, maskRstVal = 0x1, doc = "bd interrupt")
@@ -75,6 +78,7 @@ class RegIfGrpTester extends Component {
   TOP_INTR.field(gps_intr, doc = "gpu interrupt")
   TOP_INTR.field(CORE0_INTR.intr(), doc = "core0 interrupt")
   TOP_INTR.field(GPU_INTR.intr(), doc = "gpu interrupt")
+  TOP_INTR.field(io.int_level.mbit, doc = "multibit")
   TOP_INTR.field(BD_INTR.intr(), doc = "gpu interrupt")
   io.top_intr := TOP_INTR.intr()
 

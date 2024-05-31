@@ -1,6 +1,6 @@
 package spinal.lib.bus.regif
 
-import spinal.core.Bool
+import spinal.core._
 
 /* MMS3(MASKS/MASKC/STATUS) Interrupt 3 Register Group used for 2nd interrupt signal merge
  * 1. MASKS:  mask set register, 1: int off, 0: int open, default 1, int off
@@ -40,22 +40,22 @@ class IntrMMS3(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: Gr
   val MASKC  = this.newReg(s"${doc} MMS3-Mask W1C Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASKC"))
   val STATUS = this.newReg(s"${doc} MMS3-status Register\n status = raw && (!mask)")(SymbolName(s"${name}_INT_STATUS"))
 
-  def fieldAt(pos: Int, signal: Bool, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): Bool = {
+  def fieldAt[T <: BaseType](pos: Int, signal: T, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T = {
     val nm = if (symbol.name.startsWith("<local")) signal.getPartialName() else symbol.name
-    val mask   = MASKS.fieldAt(pos, Bool(), AccessType.W1S, resetValue = maskRstVal, doc = s"${doc} mask, write 1 set")(SymbolName(s"${nm}_mask"))
+    val mask   = MASKS.fieldAt(pos, signal, AccessType.W1S, resetValue = maskRstVal, doc = s"${doc} mask, write 1 set")(SymbolName(s"${nm}_mask"))
                  MASKC.parasiteFieldAt(pos, mask, AccessType.W1C, resetValue = maskRstVal, doc = s"${doc} mask, write 1 clr")
-    val status = STATUS.fieldAt(pos, Bool(), AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
-    status := signal && (!mask)
+    val status = STATUS.fieldAt(pos, signal, AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
+    this.levelLogic(signal, mask, status)
     statusbuf += status
     status
   }
 
-  def field(signal: Bool, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): Bool = {
+  def field[T <: BaseType](signal: T, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T = {
     val nm = if (symbol.name.startsWith("<local")) signal.getPartialName() else symbol.name
-    val mask   = MASKS.field(Bool(), AccessType.W1S, resetValue = maskRstVal, doc = s"${doc} mask, write 1 set")(SymbolName(s"${nm}_mask"))
+    val mask   = MASKS.field(signal, AccessType.W1S, resetValue = maskRstVal, doc = s"${doc} mask, write 1 set")(SymbolName(s"${nm}_mask"))
                  MASKC.parasiteField(mask, AccessType.W1C, resetValue = maskRstVal, doc = s"${doc} mask, write 1 clr")
-    val status = STATUS.field(Bool(), AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
-    status := signal && (!mask)
+    val status = STATUS.field(signal, AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
+    this.levelLogic(signal, mask, status)
     statusbuf += status
     status
   }

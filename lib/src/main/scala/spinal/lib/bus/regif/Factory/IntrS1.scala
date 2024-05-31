@@ -19,22 +19,21 @@ import scala.collection.mutable.ListBuffer
 class IntrS1(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 1*bi.bw, doc, grp)(bi) with IntrBase {
   val STATUS = this.newReg(s"${doc} MS2-status Register\n status = raw && (!mask)")(SymbolName(s"${name}_INT_STATUS"))
 
-  @deprecated("IntrS1 without mask, sou maskRstVal is invalid, use fieldAt(pos: Int, signal: Bool, doc: String) instead", "???")
-  def fieldAt(pos: Int, signal: Bool, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): Bool = fieldAt(pos, signal, doc)(symbol)
-
-  def fieldAt(pos: Int, signal: Bool, doc: String)(implicit symbol: SymbolName): Bool = {
+  @deprecated("IntrS1 without mask, sou maskRstVal is invalid, use fieldAt(pos: Int, signal: T, doc: String) instead", "???")
+  def fieldAt[T <: BaseType](pos: Int, signal: T, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T = fieldAt(pos, signal, doc)(symbol)
+  def fieldAt[T <: BaseType](pos: Int, signal: T, doc: String)(implicit symbol: SymbolName): T = {
     val nm = if (symbol.name.startsWith("<local")) signal.getPartialName() else symbol.name
-    val status = STATUS.fieldAt(pos, Bool(), AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
+    val status = STATUS.fieldAt(pos, signal, AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
     status := signal
     statusbuf += status
     status
   }
 
   @deprecated("IntrS1 without mask, sou maskRstVal is invalid, use field(signal: Bool, doc: String) instead", "???")
-  def field(signal: Bool, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): Bool = field(signal, doc)(symbol)
-  def field(signal: Bool, doc: String)(implicit symbol: SymbolName): Bool = {
+  def field[T <: BaseType](signal: T, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T = field(signal, doc)(symbol)
+  def field[T <: BaseType](signal: T, doc: String)(implicit symbol: SymbolName): T = {
     val nm = if (symbol.name.startsWith("<local")) signal.getPartialName() else symbol.name
-    val status = STATUS.field(Bool(), AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
+    val status = STATUS.field(signal, AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
     status := signal
     statusbuf += status
     status

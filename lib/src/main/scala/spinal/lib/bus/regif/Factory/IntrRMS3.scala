@@ -45,24 +45,26 @@ class IntrRMS3(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: Gr
   val MASK   = this.newReg(s"${doc} RMS3-Mask Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASK"))
   val STATUS = this.newReg(s"${doc} RMS3-status Register\n status = raw && (!mask)")(SymbolName(s"${name}_INT_STATUS"))
 
-  def fieldAt(pos: Int, signal: Bool,  maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): Bool  = {
+  def fieldAt[T <: BaseType](pos: Int, signal: T, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T  = {
     val nm = if (symbol.name.startsWith("<local")) signal.getPartialName() else symbol.name
-    val raw    = RAW.fieldAt(pos, Bool(), AccessType.W1C, resetValue = 0, doc = s"${doc} raw, default 0")(SymbolName(s"${nm}_raw"))
-    val mask   = MASK.fieldAt(pos, Bool(), AccessType.RW, resetValue = maskRstVal, doc = s"${doc} mask, default 1, int off")(SymbolName(s"${nm}_mask"))
-    val status = STATUS.fieldAt(pos, Bool(), AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
-    raw.setWhen(signal)
-    status := raw && (!mask)
+    val raw    = RAW.fieldAt(pos, signal, AccessType.W1C, resetValue = 0, doc = s"${doc} raw, default 0")(SymbolName(s"${nm}_raw"))
+    val mask   = MASK.fieldAt(pos, signal, AccessType.RW, resetValue = maskRstVal, doc = s"${doc} mask, default 1, int off")(SymbolName(s"${nm}_mask"))
+    val status = STATUS.fieldAt(pos, signal, AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
+//    raw.setWhen(signal)
+//    status := raw && (!mask)
+    this.eventLogic(signal, raw, mask, status)
     statusbuf += status
     status
   }
 
-  def field(signal: Bool,  maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): Bool = {
+  def field[T <: BaseType](signal: T,  maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T = {
     val nm = if (symbol.name.startsWith("<local")) signal.getPartialName() else symbol.name
-    val raw    = RAW.field(Bool(), AccessType.W1C, resetValue = 0, doc = s"${doc} raw, default 0")(SymbolName(s"${nm}_raw"))
-    val mask   = MASK.field(Bool(), AccessType.RW, resetValue = maskRstVal, doc = s"${doc} mask, default 1, int off")(SymbolName(s"${nm}_mask"))
-    val status = STATUS.field(Bool(), AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
-    raw.setWhen(signal)
-    status := raw && (!mask)
+    val raw    = RAW.field(signal, AccessType.W1C, resetValue = 0, doc = s"${doc} raw, default 0")(SymbolName(s"${nm}_raw"))
+    val mask   = MASK.field(signal, AccessType.RW, resetValue = maskRstVal, doc = s"${doc} mask, default 1, int off")(SymbolName(s"${nm}_mask"))
+    val status = STATUS.field(signal, AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
+//    raw.setWhen(signal)
+//    status := raw && (!mask)
+    this.eventLogic(signal, raw, mask, status)
     statusbuf += status
     status
   }

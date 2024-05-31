@@ -1,7 +1,7 @@
 package spinal.lib.bus.regif
 
 
-import spinal.core.Bool
+import spinal.core._
 
 /* MS2(MASK/STATUS) 2 Interrupt Register Group used for 2nd interrupt signal merge
  * 1. MASK:   mask register, 1: int off, 0: int open, default 1, int off
@@ -32,20 +32,22 @@ class IntrMS2(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: Grp
   val MASK   = this.newRegAt(0, s"${doc} MS2-Raw status Register\n set when event \n clear raw when write 1")(SymbolName(s"${name}_INT_MASK"))
   val STATUS = this.newReg(s"${doc} MS2-status Register\n status = raw && (!mask)")(SymbolName(s"${name}_INT_STATUS"))
 
-  def fieldAt(pos: Int, signal: Bool, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): Bool = {
+  def fieldAt[T <: BaseType](pos: Int, signal: T, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T = {
     val nm = if (symbol.name.startsWith("<local")) signal.getPartialName() else symbol.name
-    val mask   = MASK.fieldAt(pos, Bool(), AccessType.RW, resetValue = maskRstVal, doc = s"${doc} mask, default 1, int off")(SymbolName(s"${nm}_mask"))
-    val status = STATUS.fieldAt(pos, Bool(), AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
-    status := signal && (!mask)
+    val mask   = MASK.fieldAt(pos, signal, AccessType.RW, resetValue = maskRstVal, doc = s"${doc} mask, default 1, int off")(SymbolName(s"${nm}_mask"))
+    val status = STATUS.fieldAt(pos, signal, AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
+//    status := signal && (!mask)
+    this.levelLogic(signal, mask, status)
     statusbuf += status
     status
   }
 
-  def field(signal: Bool, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): Bool = {
+  def field[T <: BaseType](signal: T, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T = {
     val nm = if (symbol.name.startsWith("<local")) signal.getPartialName() else symbol.name
-    val mask   = MASK.field(Bool(), AccessType.RW, resetValue = maskRstVal, doc = s"${doc} mask, default 1, int off")(SymbolName(s"${nm}_mask"))
-    val status = STATUS.field(Bool(), AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
-    status := signal && (!mask)
+    val mask   = MASK.field(signal, AccessType.RW, resetValue = maskRstVal, doc = s"${doc} mask, default 1, int off")(SymbolName(s"${nm}_mask"))
+    val status = STATUS.field(signal, AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
+//    status := signal && (!mask)
+    this.levelLogic(signal, mask, status)
     statusbuf += status
     status
   }
