@@ -113,7 +113,7 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
 
 object AllowPartialyAssignedTag extends SpinalTag
 object AllowMixedWidth extends SpinalTag
-trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement] with Nameable {
+trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement] with Nameable with SpinalTagReady {
   var isVital = false
   var mem: Mem[_] = null
 }
@@ -528,7 +528,7 @@ object MemReadAsync{
 }
 
 
-class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagReady with ContextUser with Expression{
+class MemReadAsync extends MemPortStatement with WidthProvider  with ContextUser with Expression{
 
   override def getWidth: Int = width
 
@@ -601,7 +601,7 @@ object MemReadSync{
 }
 
 
-class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagReady with ContextUser with Expression {
+class MemReadSync() extends MemPortStatement with WidthProvider with ContextUser with Expression {
 
   var width          : Int = -1
   var address        : Expression with WidthProvider = null
@@ -686,7 +686,7 @@ object MemWrite{
   }
 }
 
-class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady {
+class MemWrite() extends MemPortStatement with WidthProvider{
   var width       : Int = -1
   var address     : Expression with WidthProvider = null
   var data        : Expression with WidthProvider = null
@@ -785,7 +785,7 @@ object MemReadWrite {
 }
 
 
-class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagReady  with ContextUser with Expression{
+class MemReadWrite() extends MemPortStatement with WidthProvider with ContextUser with Expression{
   var width        : Int = -1
   var address      : Expression with WidthProvider = null
   var data         : Expression with WidthProvider = null
