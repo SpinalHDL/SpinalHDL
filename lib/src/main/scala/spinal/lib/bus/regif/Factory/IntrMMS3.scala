@@ -36,7 +36,7 @@ import spinal.core._
  * ```
  */
 class IntrMMS3(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 3*bi.bw, doc, grp)(bi) with IntrBase {
-  val MASKS  = this.newRegAt(offset, s"${doc} MMS3-Mask W1S Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASKS"))
+  val MASKS  = this.newRegAt(0, s"${doc} MMS3-Mask W1S Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASKS"))
   val MASKC  = this.newReg(s"${doc} MMS3-Mask W1C Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASKC"))
   val STATUS = this.newReg(s"${doc} MMS3-status Register\n status = raw && (!mask)")(SymbolName(s"${name}_INT_STATUS"))
 

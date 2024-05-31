@@ -44,7 +44,7 @@ import scala.collection.mutable.ListBuffer
   * assign  xxx_int = status_3 || status_2 || status_1 || status_0 ;
   * ```
   */
-class IntrRFMS4(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 3*bi.bw, doc, grp)(bi) with IntrBase {
+class IntrRFMS4(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 4*bi.bw, doc, grp)(bi) with IntrBase {
   val RAW    = this.newRegAt(0, s"${doc} RFMS4-Raw status Register\n set when event \n clear raw when write 1")(SymbolName(s"${name}_INT_RAW"))
   val FORCE  = this.newReg(s"${doc} RFMS4-Force Register\n for SW debug use \n write 1 set raw")(SymbolName(s"${name}_INT_FORCE"))
   val MASK   = this.newReg(s"${doc} RFMS4-Mask Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASK"))
