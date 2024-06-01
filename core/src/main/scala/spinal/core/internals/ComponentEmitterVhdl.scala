@@ -249,6 +249,7 @@ class ComponentEmitterVhdl(
     emitSubComponents(openSubIo)
     emitAnalogs()
     emitMuxes()
+    emitFormals()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty) {
@@ -461,10 +462,10 @@ class ComponentEmitterVhdl(
       inc
       b ++= initialStatlementsGeneration
       dec
-      b ++= s"${tabStr}elsif ${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)}"
+      b ++= s"${tabStr}elsif ${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)} then\n"
       inc
     } else {
-      b ++= s"${tabStr}if ${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)}"
+      b ++= s"${tabStr}if ${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)} then\n"
       inc
     }
 
@@ -556,6 +557,30 @@ class ComponentEmitterVhdl(
     referenceSetStop()
   }
 
+  def emitFormals(): Unit = {
+    // VHDL formal assertions are special and can't exist in clocked processes.
+    // They have their own clocked attribute though.
+    if (spinalConfig.formalAsserts) {
+      syncGroups.valuesIterator.foreach { group =>
+        for (statement <- group.dataStatements) {
+          statement match {
+            case assertStatement: AssertStatement =>
+              val cond = emitExpression(assertStatement.cond)
+              val clock = component.pulledDataCache.getOrElse(group.clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
+              val trigger = s"@${emitClockEdge(emitReference(clock, false), group.clockDomain.config.clockEdge)}"
+              val statement = assertStatement.kind match {
+                case AssertStatementKind.ASSERT => s"assert always ($cond = '1') ${trigger}"
+                case AssertStatementKind.ASSUME => s"assume always ($cond = '1') ${trigger}"
+                case AssertStatementKind.COVER  => s"cover {$cond = '1'} ${trigger}"
+              }
+              logics ++= s"  ${statement}; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
+            case _ =>
+          }
+        }
+      }
+    }
+  }
+
   def emitAsynchronous(process: AsyncProcess): Unit = {
     process match {
       case _ if process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement => process.leafStatements.head match {
@@ -633,19 +658,21 @@ class ComponentEmitterVhdl(
         statement match {
           case assignment: AssignmentStatement  => b ++= emitAssignment(assignment,tab, assignmentKind)
           case assertStatement: AssertStatement =>
-            val cond = emitExpression(assertStatement.cond)
+            if (!spinalConfig.formalAsserts) {
+              val cond = emitExpression(assertStatement.cond)
 
-            require(assertStatement.message.isEmpty || (assertStatement.message.size == 1 && assertStatement.message.head.isInstanceOf[String]))
+              require(assertStatement.message.isEmpty || (assertStatement.message.size == 1 && assertStatement.message.head.isInstanceOf[String]))
 
-            val message = if(assertStatement.message.size == 1) s"""report "${assertStatement.message(0)}" """ else ""
+              val message = if(assertStatement.message.size == 1) s"""report "${assertStatement.message(0)}" """ else ""
 
-            val severity = "severity " +  (assertStatement.severity match{
-              case `NOTE`     => "NOTE"
-              case `WARNING`  => "WARNING"
-              case `ERROR`    => "ERROR"
-              case `FAILURE`  => "FAILURE"
-            })
-            b ++= s"${tab}assert $cond = '1' $message $severity;\n"
+              val severity = "severity " +  (assertStatement.severity match{
+                case `NOTE`     => "NOTE"
+                case `WARNING`  => "WARNING"
+                case `ERROR`    => "ERROR"
+                case `FAILURE`  => "FAILURE"
+              })
+              b ++= s"${tab}assert $cond = '1' $message $severity;\n"
+            }
         }
 
         statementIndex += 1

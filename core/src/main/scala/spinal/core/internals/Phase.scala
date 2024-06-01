@@ -1896,7 +1896,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
     walkStatements{
       case s: BaseType => if((keepNamed || s.dontSimplify) && s.isNamed && (s.namePriority >= Nameable.USER_WEAK || s.isVital)) propagate(s, false)
       case s: DeclarationStatement => if(keepNamed && s.isNamed) propagate(s, false)
-      case s: AssertStatement      => if(s.kind == AssertStatementKind.ASSERT || pc.config.isSystemVerilog) propagate(s, false)
+      case s: AssertStatement      => if(s.kind == AssertStatementKind.ASSERT || pc.config.formalAsserts) propagate(s, false)
       case s: TreeStatement        =>
       case s: AssignmentStatement  =>
       case s: MemWrite             =>
