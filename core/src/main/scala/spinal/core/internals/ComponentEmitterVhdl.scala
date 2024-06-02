@@ -558,6 +558,11 @@ class ComponentEmitterVhdl(
   }
 
   def emitFormals(): Unit = {
+    def getTrigger(component: Component, clockDomain: ClockDomain): String = {
+      val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
+      s"@${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)}"
+    }
+
     // VHDL formal assertions are special and can't exist in clocked processes.
     // They have their own clocked attribute though.
     if (spinalConfig.formalAsserts) {
@@ -566,8 +571,7 @@ class ComponentEmitterVhdl(
           statement match {
             case assertStatement: AssertStatement =>
               val cond = emitExpression(assertStatement.cond)
-              val clock = component.pulledDataCache.getOrElse(group.clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
-              val trigger = s"@${emitClockEdge(emitReference(clock, false), group.clockDomain.config.clockEdge)}"
+              val trigger = getTrigger(component, group.clockDomain)
               val statement = assertStatement.kind match {
                 case AssertStatementKind.ASSERT => s"assert always ($cond = '1') ${trigger}"
                 case AssertStatementKind.ASSUME => s"assume always ($cond = '1') ${trigger}"
@@ -577,6 +581,14 @@ class ComponentEmitterVhdl(
             case _ =>
           }
         }
+      }
+      initials.foreach {
+        case assertStatement: AssertStatement =>
+          require(assertStatement.kind == AssertStatementKind.ASSUME)
+          val cond = emitExpression(assertStatement.cond)
+          val trigger = getTrigger(component, assertStatement.clockDomain)
+          logics ++= s"  ${assertStatement.loc.file}_L${assertStatement.loc.line}: assume ($cond = '1') ${trigger}; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
+        case _ =>
       }
     }
   }
