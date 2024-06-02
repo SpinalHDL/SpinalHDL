@@ -177,21 +177,34 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
     val command = if (isWindows) "sby.exe" else "sby"
     val yosysCmd = if (config.withGhdl) "yosys -m ghdl" else "yosys"
     val success = Process(Seq(command, "--yosys", yosysCmd, "-f", sbyFilePath.toString()), workspacePath.toFile()).!(new Logger()) == 0
-    if(!success){
 
-
+    if (!success) {
       var assertedLines = ArrayBuffer[String]()
-      def analyseLog(file : File): Unit ={
-        if(file.exists()){
-          val pattern = """(\w+.sv):(\d+).(\d+)-(\d+).(\d+)""".r
+      def analyseLog(file : File): Unit = {
+        if (file.exists()) {
+          // Verilog: ##   0:00:00  Assert failed in FormalTest: FormalTest.sv:25.7-25.35 (_witness_.check_assert_FormalTest_sv_25_3)
+          // VHDL:    ##   0:00:00  Assert failed in FormalTest: test_l42
+          val pattern = {
+            if (!config.withGhdl) """(\w+.sv):(\d+).(\d+)-(\d+).(\d+)""".r
+            else                  """(\w+): (\w+_l\d+)""".r
+          }
           for (line <- Source.fromFile(file).getLines) {
             println(line)
-            if(line.contains("Assert failed in") || line.contains("Unreached cover statement")){
+            if (line.contains("Assert failed in") || line.contains("Unreached cover statement")) {
               pattern.findFirstMatchIn(line) match {
                 case Some(x) => {
                   val sourceName = x.group(1)
-                  val assertLine = x.group(2).toInt
-                  val source = Source.fromFile(workspacePath.resolve(Paths.get("rtl", sourceName)).toFile()).getLines.drop(assertLine)
+                  val source = {
+                    if (!config.withGhdl) {
+                      val assertLine = x.group(2).toInt
+                      Source.fromFile(workspacePath.resolve(Paths.get("rtl", sourceName)).toFile()).getLines
+                        .drop(assertLine - 1)
+                    } else {
+                      val assertLabel = x.group(2)
+                      Source.fromFile(workspacePath.resolve(Paths.get("rtl", s"${sourceName}.vhd")).toFile()).getLines
+                        .dropWhile(!_.toLowerCase.contains(assertLabel))
+                    }
+                  }
                   val assertString = source.next().dropWhile(_ == ' ')
                   assertedLines += assertString
                   println("--   " +assertString)
@@ -202,6 +215,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
           }
         }
       }
+
       for((name, depth) <- config.modesWithDepths) {
         val logFileName = name match {
           case "bmc" => Seq("logfile.txt")
@@ -212,7 +226,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
       }
 
       val assertedLinesFormated = assertedLines.map{l =>
-        val splits = l.split("// ")
+        val splits = l.split(if (!config.withGhdl) "// " else "-- ")
         "(" + splits(1).replace(":L", ":") + ")  "
       }
       val assertsReport = assertedLinesFormated.map(e => s"\tissue.triggered.from${e}\n").mkString("")

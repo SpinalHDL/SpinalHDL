@@ -573,7 +573,7 @@ class ComponentEmitterVhdl(
                 case AssertStatementKind.ASSUME => s"assume always ($cond = '1') ${trigger}"
                 case AssertStatementKind.COVER  => s"cover {$cond = '1'} ${trigger}"
               }
-              logics ++= s"  ${statement}; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
+              logics ++= s"  ${assertStatement.loc.file}_L${assertStatement.loc.line}: ${statement}; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
             case _ =>
           }
         }
