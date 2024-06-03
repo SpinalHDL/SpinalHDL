@@ -62,7 +62,7 @@ case class SpinalFormalConfig(
     var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS,
     var _keepDebugInfo: Boolean = false,
     var _skipWireReduce: Boolean = false,
-    var _hasAsync: Boolean = false,
+    var _hasAsync: Boolean = true,
     var _timeout: Option[Int] = None,
     var _engines: ArrayBuffer[FormalEngin] = ArrayBuffer()
 ) {
@@ -104,6 +104,11 @@ case class SpinalFormalConfig(
 
   def withAsync: this.type = {
     _hasAsync = true
+    this
+  }
+
+  def withOutAsync: this.type = {
+    _hasAsync = false
     this
   }
 
