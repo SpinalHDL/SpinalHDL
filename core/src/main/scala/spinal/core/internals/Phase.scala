@@ -892,7 +892,7 @@ class MemReadBufferPhase extends PhaseNetlist {
     val algo = pc.globalData.allocateAlgoIncrementale()
     val portsHits = ArrayBuffer[MemPortStatement]()
     pc.walkDeclarations {
-      case reg: BaseType if reg.isReg && !reg.hasInit && reg.hasOnlyOneStatement && reg.isDirectionLess => {
+      case reg: BaseType if reg.isReg && !reg.hasInit && reg.hasOnlyOneStatement => {
         def walkStm(s: LeafStatement, through: List[BaseNode]): Unit = s match {
           case s: DataAssignmentStatement if s.target.isInstanceOf[BaseType] =>
             val target = s.target.asInstanceOf[BaseType]
