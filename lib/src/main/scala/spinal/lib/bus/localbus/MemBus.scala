@@ -12,9 +12,12 @@ case class MemBus(c: MemBusConfig) extends Interface with IMasterSlave {
   val wdat  = Bits(c.dw bit)
   val rdat  = Bits(c.dw bit)
 
-  tieGeneric(addr, addGeneric("AW", c.aw))
-  tieGeneric(wdat, addGeneric("DW", c.dw))
-  tieGeneric(rdat, addGeneric("DW", c.dw))
+  addGeneric("AW", c.aw)
+  addGeneric("DW", c.dw)
+
+  tieGeneric(addr, "AW")
+  tieGeneric(wdat, "DW")
+  tieGeneric(rdat, "DW")
 
   override def asMaster(): Unit = {
     out(ce, wr, addr, wdat)
