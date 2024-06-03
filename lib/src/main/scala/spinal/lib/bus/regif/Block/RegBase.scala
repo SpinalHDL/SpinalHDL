@@ -3,19 +3,21 @@ package spinal.lib.bus.regif
 import spinal.core._
 import spinal.lib.bus.regif.{AccessType, BusIf, RegSlice}
 
+import scala.collection.mutable.ListBuffer
+
 //abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
 //  protected var _name = name
 //  protected val fields = ListBuffer[Field]()
 //  protected var fieldPtr: Int = 0
 //  protected var Rerror: Boolean = false
-abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, grp: GrpTag = null) extends RegSlice(name, addr, doc, size = busif.wordAddressInc, grp = grp)(busif){
+abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, sec: Secure = null, grp: GrpTag = null) extends RegSlice(name, addr, doc, size = busif.wordAddressInc, sec = sec,  grp = grp)(busif){
   def setName(name: String): RegBase
 
   def readErrorTag = Rerror
 
-  val hitDoRead  = busif.readAddress === U(addr) && busif.doRead
+  val hitDoRead  = secureBlock(busif.readAddress === U(addr) && busif.doRead)
   hitDoRead.setName(f"read_hit_0x${addr}%04x", weak = true)
-  val hitDoWrite = busif.writeAddress === U(addr) && busif.doWrite
+  val hitDoWrite = secureBlock(busif.writeAddress === U(addr) && busif.doWrite)
   hitDoWrite.setName(f"write_hit_0x${addr}%04x", weak = true)
 
   def haveWO = fields.filter(_.isWriteOnly).size != 0

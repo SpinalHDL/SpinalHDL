@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.misc.SizeMapping
 
-case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf{
+case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, regPre: String = "", withSecFireWall: Boolean = false)(implicit moduleName: ClassName) extends BusIf{
   val busDataWidth: Int = bus.config.dataWidth
   val busAddrWidth: Int = bus.config.addressWidth
 

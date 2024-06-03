@@ -5,7 +5,7 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.bram.BRAM
 import spinal.lib.Delay
 
-case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf {
+case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = "", withSecFireWall: Boolean = false)(implicit moduleName: ClassName) extends BusIf {
   override val busDataWidth: Int = bus.config.dataWidth
   override val busAddrWidth: Int = bus.config.addressWidth
 

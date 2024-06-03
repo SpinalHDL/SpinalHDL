@@ -6,7 +6,7 @@ import spinal.lib.bus.misc.SizeMapping
 import scala.collection.mutable.ListBuffer
 import AccessType._
 
-class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, grp: GrpTag = null) extends RegBase(name, addr, doc, busif, grp = grp) {
+class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, sec: Secure = null,  grp: GrpTag = null) extends RegBase(name, addr, doc, busif, sec = sec, grp = grp) {
   def setName(name: String): RegInst = {
     _name = name
     this

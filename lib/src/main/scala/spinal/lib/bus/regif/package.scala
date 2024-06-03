@@ -96,35 +96,45 @@ package object regif {
       IntrGrp.intr()(SymbolName(s"${regNamePre}"))
     }
 
-    def newRegSCRAt(addr: BigInt, doc: String)(implicit symbol: SymbolName): RegSCR = new RegSCR(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
-    def newRegSCR(doc: String)(implicit symbol: SymbolName): RegSCR = new RegSCR(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
+    def newRegSCRAt(addr: BigInt, doc: String, sec: Secure)(implicit symbol: SymbolName): RegSCR = new RegSCR(name = symbol.name, offset = addr, doc = doc, bi = bi, sec, grp = bi.newGrpTag(symbol.name))
+    def newRegSCRAt(addr: BigInt, doc: String)(implicit symbol: SymbolName): RegSCR = new RegSCR(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
+    def newRegSCR(doc: String)(implicit symbol: SymbolName): RegSCR = new RegSCR(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
 
-    def newRegSCAt(addr: BigInt, doc: String)(implicit symbol: SymbolName): RegSC = new RegSC(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
-    def newRegSC(doc: String)(implicit symbol: SymbolName): RegSC = new RegSC(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
+    def newRegSCAt(addr: BigInt, doc: String, sec: Secure)(implicit symbol: SymbolName): RegSC = new RegSC(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = sec,  grp = bi.newGrpTag(symbol.name))
+    def newRegSCAt(addr: BigInt, doc: String)(implicit symbol: SymbolName): RegSC = new RegSC(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = null,  grp = bi.newGrpTag(symbol.name))
+    def newRegSC(doc: String)(implicit symbol: SymbolName): RegSC = new RegSC(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
 
-    def newIntrRFMS4(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrRFMS4 = new IntrRFMS4(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
-    def newIntrRFMS4(doc: String)(implicit symbol: SymbolName): IntrRFMS4 = new IntrRFMS4(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
+    def newIntrRFMS4(addr: BigInt, doc: String, sec: Secure)(implicit symbol: SymbolName): IntrRFMS4 = new IntrRFMS4(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = sec, grp = bi.newGrpTag(symbol.name))
+    def newIntrRFMS4(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrRFMS4 = new IntrRFMS4(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
+    def newIntrRFMS4(doc: String)(implicit symbol: SymbolName): IntrRFMS4 = new IntrRFMS4(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
 
-    def newIntrRMS3(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrRMS3 = new IntrRMS3(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
-    def newIntrRMS3(doc: String)(implicit symbol: SymbolName): IntrRMS3 = new IntrRMS3(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
+    def newIntrRMS3(addr: BigInt, doc: String, sec: Secure)(implicit symbol: SymbolName): IntrRMS3 = new IntrRMS3(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = sec, grp = bi.newGrpTag(symbol.name))
+    def newIntrRMS3(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrRMS3 = new IntrRMS3(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
+    def newIntrRMS3(doc: String)(implicit symbol: SymbolName): IntrRMS3 = new IntrRMS3(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
 
-    def newIntrRFMMS5(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrRFMMS5 = new IntrRFMMS5(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
-    def newIntrRFMMS5(doc: String)(implicit symbol: SymbolName): IntrRFMMS5 = new IntrRFMMS5(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
+    def newIntrRFMMS5(addr: BigInt, doc: String, sec: Secure)(implicit symbol: SymbolName): IntrRFMMS5 = new IntrRFMMS5(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = sec, grp = bi.newGrpTag(symbol.name))
+    def newIntrRFMMS5(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrRFMMS5 = new IntrRFMMS5(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
+    def newIntrRFMMS5(doc: String)(implicit symbol: SymbolName): IntrRFMMS5 = new IntrRFMMS5(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
 
-    def newIntrOMS3(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrOMS3 = new IntrOMS3(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
-    def newIntrOMS3(doc: String)(implicit symbol: SymbolName): IntrOMS3 = new IntrOMS3(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
+    def newIntrOMS3(addr: BigInt, doc: String, sec: Secure)(implicit symbol: SymbolName): IntrOMS3 = new IntrOMS3(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = sec, grp = bi.newGrpTag(symbol.name))
+    def newIntrOMS3(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrOMS3 = new IntrOMS3(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
+    def newIntrOMS3(doc: String)(implicit symbol: SymbolName): IntrOMS3 = new IntrOMS3(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
 
-    def newIntrOMMS4(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrOMMS4 = new IntrOMMS4(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
-    def newIntrOMMS4(doc: String)(implicit symbol: SymbolName): IntrOMMS4 = new IntrOMMS4(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
+    def newIntrOMMS4(addr: BigInt, doc: String, sec: Secure)(implicit symbol: SymbolName): IntrOMMS4 = new IntrOMMS4(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = sec, grp = bi.newGrpTag(symbol.name))
+    def newIntrOMMS4(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrOMMS4 = new IntrOMMS4(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
+    def newIntrOMMS4(doc: String)(implicit symbol: SymbolName): IntrOMMS4 = new IntrOMMS4(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
 
-    def newIntrMS2(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrMS2 = new IntrMS2(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
-    def newIntrMS2(doc: String)(implicit symbol: SymbolName): IntrMS2 = new IntrMS2(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
+    def newIntrMS2(addr: BigInt, doc: String, sec: Secure)(implicit symbol: SymbolName): IntrMS2 = new IntrMS2(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = sec, grp = bi.newGrpTag(symbol.name))
+    def newIntrMS2(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrMS2 = new IntrMS2(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
+    def newIntrMS2(doc: String)(implicit symbol: SymbolName): IntrMS2 = new IntrMS2(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
 
-    def newIntrMMS3(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrMMS3 = new IntrMMS3(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
-    def newIntrMMS3(doc: String)(implicit symbol: SymbolName): IntrMMS3 = new IntrMMS3(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, grp = bi.newGrpTag(symbol.name))
+    def newIntrMMS3(addr: BigInt, doc: String, sec: Secure)(implicit symbol: SymbolName): IntrMMS3 = new IntrMMS3(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = sec, grp = bi.newGrpTag(symbol.name))
+    def newIntrMMS3(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrMMS3 = new IntrMMS3(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
+    def newIntrMMS3(doc: String)(implicit symbol: SymbolName): IntrMMS3 = new IntrMMS3(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag(symbol.name))
 
 
-    def newIntrS1(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrS1 = new IntrS1(name = symbol.name, offset = addr, doc = doc, bi = bi, grp = bi.newGrpTag("-"))
-    def newIntrS1(doc: String)(implicit symbol: SymbolName): IntrS1 = new IntrS1(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, grp = bi.newGrpTag("-"))
+    def newIntrS1(addr: BigInt, doc: String, sec: Secure)(implicit symbol: SymbolName): IntrS1 = new IntrS1(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = sec, grp = bi.newGrpTag("-"))
+    def newIntrS1(addr: BigInt, doc: String)(implicit symbol: SymbolName): IntrS1 = new IntrS1(name = symbol.name, offset = addr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag("-"))
+    def newIntrS1(doc: String)(implicit symbol: SymbolName): IntrS1 = new IntrS1(name = symbol.name, offset = bi.getRegPtr, doc = doc, bi = bi, sec = null, grp = bi.newGrpTag("-"))
   }
 }

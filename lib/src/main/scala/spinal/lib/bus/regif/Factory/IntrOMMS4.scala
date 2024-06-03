@@ -34,7 +34,7 @@ import spinal.core.fiber.Handle.initImplicit
  * assign  xxx_int = status_3 || status_2 || status_1 || status_0 ;
  * ```
  */
-class IntrOMMS4(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 4*bi.bw, doc, grp)(bi) with IntrBase {
+class IntrOMMS4(val name: String, offset: BigInt, doc: String, bi: BusIf, sec: Secure, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 4*bi.bw, doc, sec, grp)(bi) with IntrBase {
   val ORIGIN = this.newRegAt(0, s"${doc} OMMS4-Raw status Register\n set when event \n clear raw when write 1")(SymbolName(s"${name}_INT_RAW"))
   val MASKS  = this.newReg(s"${doc} OMMS4-Mask W1S Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASKS"))
   val MASKC  = this.newReg(s"${doc} OMMS4-Mask W1C Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASKC"))

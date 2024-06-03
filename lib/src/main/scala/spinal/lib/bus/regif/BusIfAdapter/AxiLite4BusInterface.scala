@@ -5,7 +5,7 @@ import spinal.lib._
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4B, AxiLite4R}
 import spinal.lib.bus.misc.SizeMapping
 
-case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf {
+case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: String = "", withSecFireWall: Boolean = false)(implicit moduleName: ClassName) extends BusIf {
   override val busDataWidth   = bus.config.dataWidth
   override val busAddrWidth   = bus.config.addressWidth
   override val withStrb: Boolean = true

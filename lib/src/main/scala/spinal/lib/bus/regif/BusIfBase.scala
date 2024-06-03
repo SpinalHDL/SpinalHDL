@@ -31,6 +31,8 @@ trait BusIfBase extends Area{
   val writeData: Bits
   val readSync: Boolean = true
   val withStrb: Boolean
+  val withSecFireWall: Boolean
+
   val wstrb: Bits  //= withstrb generate(Bits(strbWidth bit))
   val wmask: Bits  //= withstrb generate(Bits(busDataWidth bit))
   val wmaskn: Bits //= withstrb generate(Bits(busDataWidth bit))

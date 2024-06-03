@@ -3,12 +3,12 @@ package spinal.lib.bus.regif
 import spinal.core._
 import spinal.lib.Stream
 
-class RdFifoInst(name: String, addr: BigInt, doc: String, grp: GrpTag = null)(bi: BusIf) extends FifoInst(name, addr, doc, grp)(bi){
+class RdFifoInst(name: String, addr: BigInt, doc: String, sec: Secure, grp: GrpTag = null)(bi: BusIf) extends FifoInst(name, addr, doc, sec, grp)(bi){
   override val regType: String = "rFIFO"
 
   val bus = Stream(Bits(bi.busDataWidth bit))
 
-  val hitDoRead = bi.writeAddress === U(addr) && bi.doRead
+  val hitDoRead = secureBlock(bi.writeAddress === U(addr) && bi.doRead)
   val hitDoWrite: Bool = False
   hitDoRead.setName(f"read_hit_0x${addr}%04x", weak = true)
 

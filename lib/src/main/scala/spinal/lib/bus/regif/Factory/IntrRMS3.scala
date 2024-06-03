@@ -40,7 +40,7 @@ import spinal.core._
   * assign  xxx_int = status_3 || status_2 || status_1 || status_0 ;
   * ```
   */
-class IntrRMS3(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 3*bi.bw, doc, grp)(bi) with IntrBase {
+class IntrRMS3(val name: String, offset: BigInt, doc: String, bi: BusIf, sec: Secure, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 3*bi.bw, doc, sec, grp)(bi) with IntrBase {
   val RAW    = this.newRegAt(0, s"${doc} RMS3-Raw status Register\n set when event \n clear raw when write 1")(SymbolName(s"${name}_INT_RAW"))
   val MASK   = this.newReg(s"${doc} RMS3-Mask Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASK"))
   val STATUS = this.newReg(s"${doc} RMS3-status Register\n status = raw && (!mask)")(SymbolName(s"${name}_INT_STATUS"))
