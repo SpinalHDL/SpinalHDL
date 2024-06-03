@@ -107,7 +107,7 @@ case class SpinalFormalConfig(
     this
   }
 
-  def withOutAsync: this.type = {
+  def withSyncOnly: this.type = {
     _hasAsync = false
     this
   }
