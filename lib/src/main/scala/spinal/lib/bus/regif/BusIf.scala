@@ -137,18 +137,21 @@ trait BusIf extends BusIfBase {
 
   def newRegAt(address: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    val reg = creatReg(symbol.name, address, doc, grp)
+    val reg = createReg(symbol.name, address, doc, grp)
     regPtr = address + wordAddressInc
     reg
   }
 
   def newReg(doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    val res = creatReg(symbol.name.toLowerCase(), regPtr, doc, grp)
+    val res = createReg(symbol.name.toLowerCase(), regPtr, doc, grp)
     regPtr += wordAddressInc
     res
   }
 
-  def creatReg(name: String, addr: BigInt, doc: String, grp: GrpTag = null) = {
+  @deprecated("type error fix", "2024.06.03")
+  def creatReg(name: String, addr: BigInt, doc: String, grp: GrpTag = null) = createReg(name, addr, doc, grp)
+
+  def createReg(name: String, addr: BigInt, doc: String, grp: GrpTag = null) = {
     val ret = new RegInst(name, addr, doc, this, grp)
     SliceInsts += ret
     attachAddr(regPtr)
@@ -156,19 +159,19 @@ trait BusIf extends BusIfBase {
   }
 
   def newRAM(size: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    val res = creatRAM(symbol.name.toLowerCase(), regPtr, size, doc, grp)
+    val res = createRAM(symbol.name.toLowerCase(), regPtr, size, doc, grp)
     regPtr += scala.math.ceil(size.toDouble/wordAddressInc).toLong * wordAddressInc
     res
   }
 
   def newRAMAt(address: BigInt, size: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    val res = creatRAM(symbol.name, address, size, doc, grp)
+    val res = createRAM(symbol.name, address, size, doc, grp)
     regPtr = address + scala.math.ceil(size.toDouble/wordAddressInc).toLong * wordAddressInc
     res
   }
 
-  def creatRAM(name: String, addr: BigInt, size: BigInt, doc: String, grp: GrpTag = null) = {
+  def createRAM(name: String, addr: BigInt, size: BigInt, doc: String, grp: GrpTag = null) = {
     val ret = new RamInst(name, addr, size, doc, grp)(this)
     SliceInsts += ret
     attachAddr(SizeMapping(addr, size))
@@ -176,26 +179,26 @@ trait BusIf extends BusIfBase {
   }
 
   def newWrFifo(doc: String, grp: GrpTag = null)(implicit symbol: SymbolName): WrFifoInst = {
-    val res = creatWrFifo(symbol.name.toLowerCase(), regPtr, doc, grp)
+    val res = createWrFifo(symbol.name.toLowerCase(), regPtr, doc, grp)
     regPtr += wordAddressInc
     res
   }
 
   def newWrFifoAt(address: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    val res = creatWrFifo(symbol.name.toLowerCase(), address, doc, grp)
+    val res = createWrFifo(symbol.name.toLowerCase(), address, doc, grp)
     regPtr = address + wordAddressInc
     res
   }
 
-  def creatWrFifo(name: String, addr: BigInt, Doc: String, grp: GrpTag = null) = {
+  def createWrFifo(name: String, addr: BigInt, Doc: String, grp: GrpTag = null) = {
     val ret = new WrFifoInst(name, addr, Doc, grp)( this)
     SliceInsts += ret
     attachAddr(addr)
     ret
   }
 
-  def creatRdFifo(name: String, addr: BigInt, Doc: String, grp: GrpTag = null): RdFifoInst = {
+  def createRdFifo(name: String, addr: BigInt, Doc: String, grp: GrpTag = null): RdFifoInst = {
     val ret = new RdFifoInst(name, addr, Doc, grp)(this)
     SliceInsts += ret
     attachAddr(addr)
@@ -203,27 +206,27 @@ trait BusIf extends BusIfBase {
   }
 
   def newRdFifo(doc: String, grp: GrpTag = null)(implicit symbol: SymbolName): RdFifoInst = {
-    val res = creatRdFifo(symbol.name.toLowerCase(), regPtr, doc, grp)
+    val res = createRdFifo(symbol.name.toLowerCase(), regPtr, doc, grp)
     regPtr += wordAddressInc
     res
   }
 
   def newRdFifoAt(address: BigInt, doc: String, grp: GrpTag = null)(implicit symbol: SymbolName): RdFifoInst = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    val res = creatRdFifo(symbol.name.toLowerCase(), address, doc, grp)
+    val res = createRdFifo(symbol.name.toLowerCase(), address, doc, grp)
     regPtr = address + wordAddressInc
     res
   }
 
   def newGrp(maxSize: BigInt, doc: String)(implicit  symbol: SymbolName) = {
-    creatGrp(symbol.name, regPtr, maxSize, doc)
+    createGrp(symbol.name, regPtr, maxSize, doc)
   }
 
   def newGrpAt(address: BigInt, maxSize: BigInt, doc: String)(implicit  symbol: SymbolName) = {
-    creatGrp(symbol.name, address, maxSize, doc)
+    createGrp(symbol.name, address, maxSize, doc)
   }
 
-  def creatGrp(name: String, addr: BigInt, maxSize: BigInt, doc: String) = {
+  def createGrp(name: String, addr: BigInt, maxSize: BigInt, doc: String) = {
     val grp = this.newGrpTag(name)
     val ret = RegSliceGrp(addr, maxSize, doc, grp)(this)
     ret
