@@ -20,7 +20,7 @@ class DataAnalyzerTest extends SpinalAnyFunSuite {
   }
 
   test("test fanin") {
-    import spinal.lib.tools.DataAnalyzer.toAnalyzer
+    import spinal.core.tools.DataAnalyzer.toAnalyzer
     val rtl = SpinalVerilog(TestModule())
     val actualFanIn = rtl.toplevel.io.b.getFanIn.toSet
     val expectedFanin = Set(
@@ -32,7 +32,7 @@ class DataAnalyzerTest extends SpinalAnyFunSuite {
   }
 
   test("test fanout") {
-    import spinal.lib.tools.DataAnalyzer._
+    import spinal.core.tools.DataAnalyzer._
     val rtl = SpinalVerilog(TestModule())
     val actualFanout = rtl.toplevel.io.a.getFanOut.toSet
     val expectedFanout = Set(

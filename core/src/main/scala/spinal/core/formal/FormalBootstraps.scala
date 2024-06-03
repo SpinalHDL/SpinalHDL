@@ -24,7 +24,8 @@ import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{PhaseContext, PhaseNetlist}
 import spinal.core.sim.SimWorkspace
-import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport}
+import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, ASYNC}
+import spinal.core.tools.{ModuleAnalyzer}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -62,7 +63,7 @@ case class SpinalFormalConfig(
     var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS,
     var _keepDebugInfo: Boolean = false,
     var _skipWireReduce: Boolean = false,
-    var _hasAsync: Boolean = true,
+    var _hasAsync: Boolean = false,
     var _timeout: Option[Int] = None,
     var _engines: ArrayBuffer[FormalEngin] = ArrayBuffer()
 ) {
@@ -184,11 +185,15 @@ case class SpinalFormalConfig(
           case _                                              =>
         }
       })
+
     val report = _backend match {
       case SpinalFormalBackendSel.SYMBIYOSYS =>
         // config.generateVerilog(rtl)
         config.generateSystemVerilog(rtl)
     }
+    val clocks = new ModuleAnalyzer(report.toplevel).getClocks    
+    _hasAsync |= clocks.map(x => {x.config.resetKind == ASYNC}).reduce(_ || _)
+
     report.blackboxesSourcesPaths ++= _additionalRtlPath
     report.blackboxesIncludeDir ++= _additionalIncludeDir
     compile[T](report)
