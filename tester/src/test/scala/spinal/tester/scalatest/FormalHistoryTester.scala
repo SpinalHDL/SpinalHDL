@@ -39,7 +39,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         )
         val overflowModify = controls.sExist(x => x.fire && x.payload === dataOverflow)
         val overflowCount = outCount(dataOverflow)
-        when(past(dut.io.willOverflow && results.last.payload === dataOverflow && !overflowModify)) {
+        when(pastValidAfterReset && past(dut.io.willOverflow && results.last.payload === dataOverflow && !overflowModify)) {
           assert(results.last.valid && past(overflowCount) > overflowCount)
         }
 
@@ -56,7 +56,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
             .map {
               case (in, out) => {
                 val inputFire = if (in == controls.last) input.valid else False
-                when(past(in.payload === dataIn && in.fire && !out.fire && !inputFire) && past(!outExists(dataIn))) {
+                when(pastValidAfterReset && past(in.payload === dataIn && in.fire && !out.fire && !inputFire) && past(!outExists(dataIn))) {
                   assert(outExists(dataIn))
                 }
               }
