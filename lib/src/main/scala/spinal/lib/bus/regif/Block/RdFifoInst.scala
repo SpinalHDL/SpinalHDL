@@ -6,6 +6,8 @@ import spinal.lib.Stream
 class RdFifoInst(name: String, addr: BigInt, doc: String, grp: GrpTag = null)(bi: BusIf) extends FifoInst(name, addr, doc, grp)(bi){
   override val regType: String = "rFIFO"
 
+  val bus = Stream(Bits(bi.busDataWidth bit))
+
   val hitDoRead = bi.writeAddress === U(addr) && bi.doRead
   val hitDoWrite: Bool = False
   hitDoRead.setName(f"read_hit_0x${addr}%04x", weak = true)

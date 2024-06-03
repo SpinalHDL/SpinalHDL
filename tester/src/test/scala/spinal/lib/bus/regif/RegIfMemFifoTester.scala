@@ -12,7 +12,7 @@ class RegifFifoMem extends Component{
   val io = new Bundle{
     val bus = slave(MemBus(MemBusConfig(32, 32)))
     val ram = master(MemBus(MemBusConfig(aw = 8, dw = 32)))
-    val fifowr = master(Stream(Bits(32 bit)))
+    val fifowr = master(Flow(Bits(32 bit)))
     val fiford = slave(Stream(Bits(32 bit)))
   }
 
@@ -45,7 +45,6 @@ class RegIfMemFIfoTB extends RegifFifoMem{
     busdv.simClear()
     io.fiford.valid #= false
     io.fiford.payload #= 0
-    io.fifowr.ready   #= false
     SpinalProgress("simulation start")
     sleep(20)
     this.clockDomain.waitSampling(10)
@@ -92,11 +91,10 @@ class RegIfMemFIfoTB extends RegifFifoMem{
   def testWrFifo() = {
     val datas = (0 to 100).map(i => 0x123400 + i).toList
     val cache = scala.collection.mutable.Queue[Int](datas: _*)
-    io.fifowr.ready #= true
     fork {
       while (true) {
         clockDomain.waitSampling()
-        if (io.fifowr.valid.toBoolean && io.fifowr.ready.toBoolean) {
+        if (io.fifowr.valid.toBoolean) {
           val a = cache.dequeue()
           val b = io.fifowr.payload.toLong
           assert(a == b, s"WrFifo: 0x${a.hexString} != 0x${b.hexString}")
