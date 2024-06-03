@@ -24,7 +24,7 @@ import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{PhaseContext, PhaseNetlist, DataAssignmentStatement, Operator}
 import spinal.core.sim.SimWorkspace
-import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, ClockDomain, ASYNC}
+import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, SpinalWarning, ClockDomain, ASYNC}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -116,6 +116,7 @@ case class SpinalFormalConfig(
   }
 
   def withGhdl: this.type = {
+    SpinalWarning("Using GHDL as formal backend is experimental!")
     _backend = SpinalFormalBackendSel.SYMBIYOSYS_GHDL
     this
   }
