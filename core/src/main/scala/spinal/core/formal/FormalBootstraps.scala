@@ -24,8 +24,7 @@ import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{PhaseContext, PhaseNetlist}
 import spinal.core.sim.SimWorkspace
-import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, ASYNC}
-import spinal.core.tools.{ModuleAnalyzer}
+import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, ClockDomainConfig, SYNC}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -177,6 +176,12 @@ case class SpinalFormalConfig(
     val uniqueId = FormalWorkspace.allocateUniqueId()
     new File(s"${_workspacePath}/tmp").mkdirs()
     new File(s"${_workspacePath}/tmp/job_$uniqueId").mkdirs()
+    
+    if(!_hasAsync) {
+      _spinalConfig = _spinalConfig.copy(
+        defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)
+      ) 
+    }
     val config = _spinalConfig
       .copy(targetDirectory = s"${_workspacePath}/tmp/job_$uniqueId")
       .addTransformationPhase(new PhaseNetlist {
@@ -191,9 +196,6 @@ case class SpinalFormalConfig(
         // config.generateVerilog(rtl)
         config.generateSystemVerilog(rtl)
     }
-    val clocks = new ModuleAnalyzer(report.toplevel).getClocks    
-    _hasAsync |= clocks.map(x => {x.config.resetKind == ASYNC}).reduce(_ || _)
-
     report.blackboxesSourcesPaths ++= _additionalRtlPath
     report.blackboxesIncludeDir ++= _additionalIncludeDir
     compile[T](report)
