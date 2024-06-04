@@ -8,7 +8,7 @@ class RdFifoInst(name: String, addr: BigInt, doc: String, sec: Secure, grp: GrpT
 
   val bus = Stream(Bits(bi.busDataWidth bit))
 
-  val hitDoRead = secureBlock(bi.writeAddress === U(addr) && bi.doRead)
+  val hitDoRead = rdSecurePassage(bi.writeAddress === U(addr) && bi.doRead)
   val hitDoWrite: Bool = False
   hitDoRead.setName(f"read_hit_0x${addr}%04x", weak = true)
 
@@ -19,7 +19,7 @@ class RdFifoInst(name: String, addr: BigInt, doc: String, sec: Secure, grp: GrpT
 
   override def readGenerator() = {
     is(addr) {
-      bi.reg_rdata := this.rdata()
+      bi.reg_rdata := rdSecurePassage(this.rdata())
       bi.reg_rderr := !bus.valid
     }
   }

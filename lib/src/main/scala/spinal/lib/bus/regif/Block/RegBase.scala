@@ -15,9 +15,9 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, se
 
   def readErrorTag = Rerror
 
-  val hitDoRead  = secureBlock(busif.readAddress === U(addr) && busif.doRead)
+  val hitDoRead  = rdSecurePassage(busif.readAddress === U(addr) && busif.doRead)
   hitDoRead.setName(f"read_hit_0x${addr}%04x", weak = true)
-  val hitDoWrite = secureBlock(busif.writeAddress === U(addr) && busif.doWrite)
+  val hitDoWrite = wrSecurePassage(busif.writeAddress === U(addr) && busif.doWrite)
   hitDoWrite.setName(f"write_hit_0x${addr}%04x", weak = true)
 
   def haveWO = fields.filter(_.isWriteOnly).size != 0

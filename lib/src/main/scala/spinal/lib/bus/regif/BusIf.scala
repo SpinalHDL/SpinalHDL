@@ -2,9 +2,10 @@ package spinal.lib.bus.regif
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.localbus.{MinBus, MemBus}
+import spinal.lib.bus.localbus.{MemBus, MinBus}
 import spinal.lib.bus.misc.SizeMapping
 
+import scala.collection.mutable.HashMap
 import scala.collection.mutable.ListBuffer
 
 trait BusIf extends BusIfBase {
@@ -17,6 +18,12 @@ trait BusIf extends BusIfBase {
 
   protected var grpId: Int = 1
   protected def grpIdInc(): Unit = (grpId += 1)
+
+  private val secureLogicDict = HashMap[Bool, Bool]()
+
+  def getOrCreateSecLogic(key: Bool, logic: Bool): Bool = {
+    secureLogicDict.getOrElseUpdate(key, logic)
+  }
 
   def regSlicesNotReuse: List[RegSlice] = slices.filter(_.reuseTag.id == 0)
   def reuseGroups: Map[String, List[RegSlice]] = slices.filter(_.reuseTag.id != 0).groupBy(_.reuseTag.partName)

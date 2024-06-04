@@ -7,7 +7,7 @@ class WrFifoInst(name: String, addr: BigInt, doc: String, sec: Secure,  grp: Grp
   override val regType: String = "wFIFO"
 
   val hitDoRead: Bool = False
-  val hitDoWrite = secureBlock(bi.writeAddress === U(addr) && bi.doWrite)
+  val hitDoWrite = wrSecurePassage(bi.writeAddress === U(addr) && bi.doWrite)
   hitDoWrite.setName(f"write_hit_0x${addr}%04x", weak = true)
 
   val bus = Flow(Bits(bi.busDataWidth bit))
@@ -21,7 +21,7 @@ class WrFifoInst(name: String, addr: BigInt, doc: String, sec: Secure,  grp: Grp
 
   override def readGenerator() = {
     is(addr) {
-      bi.reg_rdata := this.rdata()
+      bi.reg_rdata := rdSecurePassage(this.rdata())
       bi.reg_rderr := True
     }
   }

@@ -390,7 +390,7 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, sec: Secure
 
   override def readGenerator() = {
     is(addr) {
-      bi.reg_rdata := this.rdata()
+      bi.reg_rdata := rdSecurePassage(this.rdata())
       bi.reg_rderr := Bool(this.haveWO)
     }
   }

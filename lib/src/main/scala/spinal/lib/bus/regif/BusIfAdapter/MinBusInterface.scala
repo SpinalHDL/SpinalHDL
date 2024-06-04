@@ -27,7 +27,7 @@ case class MinBusInterface(bus: MinBus, sizeMap: SizeMapping, regPre: String = "
   val doRead    = (askRead  && bus.rdy).allowPruning()
   val writeData = bus.wdat
   override val cg_en: Bool = bus.ce
-  override val NS: Bool = bus.prot(1)
+  override val bus_nsbit: Bool = bus.prot(1)
 
   bus.rdy := True
   bus.rvld := RegNext(askRead, False)
