@@ -9,8 +9,6 @@ abstract class FifoInst(name: String, addr: BigInt, doc: String, grp: GrpTag = n
   val hitDoRead: Bool
   val hitDoWrite : Bool
 
-  val bus = Stream(Bits(bi.busDataWidth bit))
-
   def field(bit: Int, doc: String = "")(name: String) = {
     val section: Range = fieldPtr + bit -1 downto fieldPtr
     fields   += Field(name, Bits(bit bits), section, AccessType.WO, 0, Rerror, doc)

@@ -23,6 +23,11 @@ trait BusIfBase extends Area{
   val reg_rderr: Bool
   val reg_rdata: Bits
 
+  @deprecated("readData rename to bus_rdata", "2024.12.30")
+  lazy val readData: Bits = bus_rdata
+  @deprecated("readError rename to bus_rderr", "2024.12.30")
+  lazy val readError: Bool = bus_rderr
+
   val writeData: Bits
   val readSync: Boolean = true
   val withStrb: Boolean

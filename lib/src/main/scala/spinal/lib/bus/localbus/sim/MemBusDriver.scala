@@ -22,7 +22,7 @@ case class MemBusDriver(bus : MemBus, clockdomain : ClockDomain) {
     bus.ce #= true
     bus.wr #= false
     bus.addr #= address
-    bus.wdat #= 1234 //.randomize()
+    bus.wdat.randomize()
     clockdomain.waitSampling()
     bus.ce #= false
     bus.wr.randomize()

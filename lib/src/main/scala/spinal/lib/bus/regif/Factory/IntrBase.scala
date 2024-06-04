@@ -35,7 +35,7 @@ trait IntrBase {
     (signal, raw, mask, status) match {
       case (sig: Bool, raww: Bool, msk: Bool, stt: Bool) => {
         raww.setWhen(sig)
-        stt := sig & (~msk)
+        stt := raww & (~msk)
       }
       case (sig: Bits, raww: Bits, msk: Bits, stt: Bits) => {
         val size = sig.getBitsWidth
