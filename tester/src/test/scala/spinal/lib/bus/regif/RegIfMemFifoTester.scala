@@ -39,7 +39,7 @@ class RegifFifoMem extends Component{
 }
 
 class RegIfMemFIfoTB extends RegifFifoMem{
-  val busdv = MemBusDriver(io.bus, this.clockDomain)
+  lazy val busdv = MemBusDriver(io.bus, this.clockDomain)
   def init() = {
     this.clockDomain.forkStimulus(10)
     busdv.simClear()
