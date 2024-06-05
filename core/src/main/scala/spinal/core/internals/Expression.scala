@@ -417,7 +417,7 @@ object Operator {
 
     class Changed extends UnaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "!$stable(...)"
+      override def opName: String = "$changed(...)"
     }
 
 
