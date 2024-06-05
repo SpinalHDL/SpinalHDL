@@ -56,7 +56,7 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   val doRead    = axiAr.valid && (!axiR.valid || axiR.ready) //Assume one stage between Ar and R
   val writeData = axiW.payload.data
 
-  override val bus_nsbit: Bool = Mux(askRead, bus.ar.prot(1), bus.aw.prot(1))
+  override lazy val bus_nsbit: Bool = Mux(askRead, bus.ar.prot(1), bus.aw.prot(1))
 
   axiRValid clearWhen(axiR.ready) setWhen(doRead)
   axiAr.ready := doRead
