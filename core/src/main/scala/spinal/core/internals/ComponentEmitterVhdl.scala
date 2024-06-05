@@ -563,6 +563,22 @@ class ComponentEmitterVhdl(
       s"@${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)}"
     }
 
+    def getAbort(component: Component, clockDomain: ClockDomain): String = {
+      val reset = component.pulledDataCache.get(clockDomain.reset) match {
+        case Some(x) => x.asInstanceOf[Bool]
+        case None    => return ""
+      }
+      val abortCond = clockDomain.config.resetActiveLevel match {
+        case HIGH => emitReference(reset, false)
+        case LOW  => s"(not ${emitReference(reset, false)})"
+      }
+      val abortKind = clockDomain.config.resetKind match {
+        case ASYNC       => "abort" // alias async_abort triggers a bug in GHDL
+        case SYNC | BOOT => "sync_abort"
+      }
+      s" $abortKind $abortCond"
+    }
+
     // VHDL formal assertions are special and can't exist in clocked processes.
     // They have their own clocked attribute though.
     if (spinalConfig.formalAsserts) {
@@ -572,8 +588,9 @@ class ComponentEmitterVhdl(
             case assertStatement: AssertStatement =>
               val cond = emitExpression(assertStatement.cond)
               val trigger = getTrigger(component, group.clockDomain)
+              val abort = getAbort(component, group.clockDomain)
               val statement = assertStatement.kind match {
-                case AssertStatementKind.ASSERT => s"assert always ($cond = '1') ${trigger}"
+                case AssertStatementKind.ASSERT => s"assert always ($cond = '1') ${abort} ${trigger}"
                 case AssertStatementKind.ASSUME => s"assume always ($cond = '1') ${trigger}"
                 case AssertStatementKind.COVER  => s"cover {$cond = '1'} ${trigger}"
               }
