@@ -15,8 +15,8 @@ trait BusIfBase extends Area{
   val askRead: Bool
   val doWrite: Bool
   val doRead: Bool
-  val cg_en: Bool = True
-  val bus_nsbit: Bool = False //NS-bit(Non-Secure Access flag bit)
+  lazy val cg_en: Bool = True
+  lazy val bus_nsbit: Bool = False //NS-bit(Non-Secure Access flag bit)
 
   val bus_rderr: Bool
   val bus_rdata: Bits

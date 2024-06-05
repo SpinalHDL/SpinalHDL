@@ -29,8 +29,8 @@ case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, regPre: String = ""
   val doWrite   = (askWrite && bus.PENABLE && bus.PREADY).allowPruning()
   val doRead    = (askRead  && bus.PENABLE && bus.PREADY).allowPruning()
   val writeData = bus.PWDATA
-  override val cg_en: Bool = bus.PSEL(0)
-  override val bus_nsbit: Bool = False
+  override lazy val cg_en: Bool = bus.PSEL(0) || RegNext(bus.PSEL(0), init = False) //why delay 1 cycle is used for W1P clear back after write
+  override lazy val bus_nsbit: Bool = False
 
   if(bus.config.useSlaveError) bus.PSLVERROR := bus_rderr
   override def readAddress()  = bus.PADDR

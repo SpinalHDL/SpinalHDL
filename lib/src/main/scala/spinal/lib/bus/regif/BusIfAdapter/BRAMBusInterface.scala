@@ -29,8 +29,8 @@ case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = ""
 
   override val doRead: Bool = (askRead && bus.en).allowPruning()
 
-  override val cg_en: Bool = bus.en
-  override val bus_nsbit: Bool = False
+  override lazy val cg_en: Bool = bus.en || RegNext(bus.en, False) // dleay 1 cycle for W1P clear
+  override lazy val bus_nsbit: Bool = False
 //  override val readData: Bits = Bits(busDataWidth bits)
 
   if(bus.config.readLatency == 1 ){

@@ -19,7 +19,7 @@ case class WishboneBusInterface( bus: Wishbone, sizeMap: SizeMapping, override v
   val wmaskn: Bits = withStrb generate (Bits(busDataWidth bit))
   initStrbMasks()
 
-  override val bus_nsbit: Bool = False
+  override lazy val bus_nsbit: Bool = False
   override def getModuleName = moduleName.name
 
   val halted = Bool()

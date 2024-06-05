@@ -26,8 +26,9 @@ case class MinBusInterface(bus: MinBus, sizeMap: SizeMapping, regPre: String = "
   val doWrite   = (askWrite && bus.rdy).allowPruning()
   val doRead    = (askRead  && bus.rdy).allowPruning()
   val writeData = bus.wdat
-  override val cg_en: Bool = bus.ce
-  override val bus_nsbit: Bool = bus.prot(1)
+
+  override lazy val cg_en: Bool = bus.ce || RegNext(bus.ce, False) //delay 1 cycle for W1P
+  override lazy val bus_nsbit: Bool = bus.prot(1)
 
   bus.rdy := True
   bus.rvld := RegNext(askRead, False)
