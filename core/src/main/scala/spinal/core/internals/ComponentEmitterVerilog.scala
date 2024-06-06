@@ -527,7 +527,7 @@ class ComponentEmitterVerilog(
       if(!initSensitivity) referenceSetResume()
     }
 
-    if (asyncReset && !component.isFormalTester) {
+    if (asyncReset) {
       referenceSetAdd(emitResetEdge(emitReference(reset, false), clockDomain.config.resetActiveLevel))
     }
 
