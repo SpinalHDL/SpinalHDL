@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.wishbone._
 
-case class WishboneBusInterface( bus: Wishbone, sizeMap: SizeMapping, override val readSync: Boolean = true, regPre: String = "" )(implicit moduleName: ClassName) extends BusIf {
+case class WishboneBusInterface( bus: Wishbone, sizeMap: SizeMapping, override val readSync: Boolean = true, regPre: String = "", withSecFireWall: Boolean = false)(implicit moduleName: ClassName) extends BusIf {
   override val busDataWidth: Int = bus.config.dataWidth
   override val busAddrWidth: Int = bus.config.addressWidth
   override val withStrb: Boolean = false
@@ -19,7 +19,7 @@ case class WishboneBusInterface( bus: Wishbone, sizeMap: SizeMapping, override v
   val wmaskn: Bits = withStrb generate (Bits(busDataWidth bit))
   initStrbMasks()
 
-  override val NS: Bool = False
+  override lazy val bus_nsbit: Bool = False
   override def getModuleName = moduleName.name
 
   val halted = Bool()

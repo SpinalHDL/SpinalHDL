@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib.bus.amba3.ahblite.AhbLite3
 import spinal.lib.bus.misc.SizeMapping
 
-case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName)  extends BusIf{
+case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: String = "", withSecFireWall: Boolean = false)(implicit moduleName: ClassName)  extends BusIf{
   override val withStrb: Boolean = false
   override val busDataWidth: Int = bus.config.dataWidth
   override val busAddrWidth: Int = bus.config.addressWidth

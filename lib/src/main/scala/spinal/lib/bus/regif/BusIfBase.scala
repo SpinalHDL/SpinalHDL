@@ -15,8 +15,8 @@ trait BusIfBase extends Area{
   val askRead: Bool
   val doWrite: Bool
   val doRead: Bool
-  val cg_en: Bool = True
-  val NS: Bool = False //NS(Non-Secure Access flag bit)
+  lazy val cg_en: Bool = True
+  lazy val bus_nsbit: Bool = False //NS-bit(Non-Secure Access flag bit)
 
   val bus_rderr: Bool
   val bus_rdata: Bits
@@ -31,6 +31,8 @@ trait BusIfBase extends Area{
   val writeData: Bits
   val readSync: Boolean = true
   val withStrb: Boolean
+  val withSecFireWall: Boolean
+
   val wstrb: Bits  //= withstrb generate(Bits(strbWidth bit))
   val wmask: Bits  //= withstrb generate(Bits(busDataWidth bit))
   val wmaskn: Bits //= withstrb generate(Bits(busDataWidth bit))

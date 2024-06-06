@@ -5,6 +5,11 @@ import spinal.core.sim._
 
 case class MemBusDriver(bus : MemBus, clockdomain : ClockDomain) {
   var verbose = false
+  bus.ce   #= false
+  bus.wr   #= false
+  bus.addr #= 0
+  bus.wdat #= 0
+
   def write(address : BigInt, data : BigInt) : Unit = {
     if(verbose) println(s"Mem[0x${address.toString(16)}] = 0x${data.toString(16)}")
     bus.ce   #= true

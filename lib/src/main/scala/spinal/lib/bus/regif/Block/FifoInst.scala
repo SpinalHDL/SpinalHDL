@@ -3,7 +3,7 @@ package spinal.lib.bus.regif
 import spinal.core._
 import spinal.lib.Stream
 
-abstract class FifoInst(name: String, addr: BigInt, doc: String, grp: GrpTag = null)(bi: BusIf) extends RegSlice(name, addr, doc, size = bi.wordAddressInc, grp)(bi){
+abstract class FifoInst(name: String, addr: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(bi: BusIf) extends RegSlice(name, addr, doc, size = bi.wordAddressInc, sec = sec, grp = grp)(bi){
   override val regType: String = "FIFO"
 
   val hitDoRead: Bool

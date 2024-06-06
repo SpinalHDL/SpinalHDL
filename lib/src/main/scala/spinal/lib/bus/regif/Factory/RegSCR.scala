@@ -25,7 +25,7 @@ import spinal.core._
   *    endcase
   * ```
   */
-class RegSCR(val name: String, offset: BigInt, doc: String, bi: BusIf, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 2, doc, grp)(bi){
+class RegSCR(val name: String, offset: BigInt, doc: String, bi: BusIf, sec: Secure, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 2, doc, sec, grp)(bi){
   val SET  = this.newRegAt(0, "SCR set register")(SymbolName(s"${name}_SET"))
   val CLR  = this.newReg("SCR clear register")(SymbolName(s"${name}_CLR"))
   val READ = this.newReg("SCR read register")(SymbolName(s"${name}_READ"))

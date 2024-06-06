@@ -5,7 +5,7 @@ import spinal.lib.bus.localbus.MinBus
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif._
 
-case class MinBusInterface(bus: MinBus, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf{
+case class MinBusInterface(bus: MinBus, sizeMap: SizeMapping, regPre: String = "", withSecFireWall: Boolean = false)(implicit moduleName: ClassName) extends BusIf{
   override val busDataWidth: Int = bus.c.dw
   override val busAddrWidth: Int = bus.c.aw
   override val withStrb: Boolean = bus.c.withStrb
@@ -26,8 +26,9 @@ case class MinBusInterface(bus: MinBus, sizeMap: SizeMapping, regPre: String = "
   val doWrite   = (askWrite && bus.rdy).allowPruning()
   val doRead    = (askRead  && bus.rdy).allowPruning()
   val writeData = bus.wdat
-  override val cg_en: Bool = bus.ce
-  override val NS: Bool = bus.prot(1)
+
+  override lazy val cg_en: Bool = bus.ce || RegNext(bus.ce, False) //delay 1 cycle for W1P
+  override lazy val bus_nsbit: Bool = bus.prot(1)
 
   bus.rdy := True
   bus.rvld := RegNext(askRead, False)
