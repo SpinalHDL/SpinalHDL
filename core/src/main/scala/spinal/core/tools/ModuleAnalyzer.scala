@@ -1,4 +1,4 @@
-package spinal.lib.tools
+package spinal.core.tools
 
 import spinal.core._
 
