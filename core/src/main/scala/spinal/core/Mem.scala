@@ -669,6 +669,7 @@ class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagRe
   def aspectRatio = mem.getWidth/getWidth
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
+  override def remapClockDomain(func: ClockDomain => ClockDomain) = clockDomain = func(clockDomain)
 }
 
 
@@ -764,6 +765,7 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
   }
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
+  override def remapClockDomain(func: ClockDomain => ClockDomain) = clockDomain = func(clockDomain)
 }
 
 
@@ -866,6 +868,7 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
   def aspectRatio = mem.getWidth / getWidth
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
+  override def remapClockDomain(func: ClockDomain => ClockDomain) = clockDomain = func(clockDomain)
 }
 
 case class MemSymbolesMapping(name : String, range: Range){
