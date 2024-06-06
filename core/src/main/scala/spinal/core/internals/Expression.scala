@@ -1660,19 +1660,19 @@ abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
 /** Bits range access with a fix range */
 class BitsRangedAccessFixed extends BitVectorRangedAccessFixed {
   override def getTypeObject  = TypeBits
-  override def opName: String = "Bits(Int downto Int)"
+  override def opName: String = s"Bits($hi downto $lo)"
 }
 
 /** UInt range access with a fix range */
 class UIntRangedAccessFixed extends BitVectorRangedAccessFixed {
   override def getTypeObject  = TypeUInt
-  override def opName: String = "UInt(Int downto Int)"
+  override def opName: String = s"UInt($hi downto $lo)"
 }
 
 /** SInt range access with a fix range */
 class SIntRangedAccessFixed extends BitVectorRangedAccessFixed {
   override def getTypeObject  = TypeSInt
-  override def opName: String = "SInt(Int downto Int)"
+  override def opName: String = s"SInt($hi downto $lo)"
 }
 
 

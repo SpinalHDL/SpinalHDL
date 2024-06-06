@@ -25,6 +25,7 @@ import spinal.core.sim.{SimBaseTypePimper, SpinalSimConfig}
 import spinal.sim._
 
 import java.math.BigInteger
+import java.util.concurrent.atomic.AtomicLong
 import scala.collection.generic.Shrinkable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -40,6 +41,12 @@ package object sim {
 
   def simRandom(implicit simManager: SimManager = sm) = simManager.random
   def sm = SimManagerContext.current.manager
+
+  def getForbiddenRandom() = {
+    val x = Random.self.getClass.getDeclaredField("seed")
+    x.setAccessible(true)
+    x.get(Random.self).asInstanceOf[AtomicLong]
+  }
 
   @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")
   def SimConfig[T <: Component](rtl: => T): SimConfigLegacy[T] = {
@@ -175,15 +182,23 @@ package object sim {
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
   def sleep(cycles: Double): Unit = SimManagerContext.current.thread.sleep(cycles.toLong)
-  def sleep(time: TimeNumber): Unit =
-    sleep((time.toBigDecimal / SimManagerContext.current.manager.timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong)
+  def sleep(time: TimeNumber): Unit = {
+    sleep((time.toBigDecimal / timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong)
+  }
   def waitUntil(cond: => Boolean): Unit = {
     SimManagerContext.current.thread.waitUntil(cond)
   }
 
   def timeToLong(time : TimeNumber) : Long = {
-    (time.toBigDecimal / SimManagerContext.current.manager.timePrecision).toLong
+    (time.toBigDecimal / timePrecision).toLong
   }
+
+  def hzToLong(hz: HertzNumber): Long = {
+    (1 / hz.toBigDecimal / timePrecision).toLong
+  }
+
+
+  def timePrecision = SimManagerContext.current.manager.timePrecision
 
   /** Fork */
   def fork(body: => Unit): SimThread = SimManagerContext.current.manager.newThread(body)
@@ -955,9 +970,17 @@ package object sim {
       } else {
         throw new Exception("???")
       }
-
     }
 
+    def forkStimulus() : Unit = {
+      val hz = cd.frequency match {
+        case ClockDomain.FixedFrequency(value) => value.toBigDecimal
+        case _ => throw new Exception(s"Can't forkStimulus() w/o explicit frequency since frequency of ClockDomain $cd is not known")
+      }
+      val period = (1 / hz / timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong
+      forkStimulus(period, 0)
+    }
+    def forkStimulus(period: Long) : Unit = forkStimulus(period, 0)
     def forkStimulus(period: Long, sleepDuration : Int = 0, resetCycles : Int = 16) : Unit = {
       cd.config.clockEdge match {
         case RISING  => fallingEdge()

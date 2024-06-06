@@ -1,8 +1,8 @@
 package spinal.tester.code
 
-import spinal.core.{SpinalTagReady, SpinalVerilog}
+import spinal.core.{Component, SpinalTagReady, SpinalVerilog}
 import spinal.core.fiber.{Fiber, Handle}
-import spinal.lib.IMasterSlave
+import spinal.lib.{IMasterSlave, slave}
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config, Axi4CrossbarFactory, Axi4SpecRenamer}
 import spinal.lib.bus.misc.DefaultMapping
@@ -1370,3 +1370,284 @@ object Shubacktchan2 extends App{
 ////  ...
 //  val target = execute(PC) + 0x666
 //}
+
+
+
+object Date2024{
+
+  {
+    import spinal.core._
+
+    class Toplevel extends Component {
+      val x, y = in UInt (8 bits)
+      val result = out(x + y)
+    }
+
+    object MyMain extends App {
+      SpinalVerilog(new Toplevel)
+    }
+  }
+
+  {
+    import spinal.core._
+
+    class Toplevel extends Component {
+      val values = in(Vec.fill(4)(UInt(8 bits)))
+      val result = out(values.reduce((a,b) => (a > b).mux(a, b)))
+    }
+
+    object MyMain extends App {
+      SpinalVerilog(new Toplevel)
+    }
+  }
+
+
+  {
+    //      var tmp = elements.head
+    //      for(e <- elements.tail){
+    //        tmp = (e < tmp).mux(e, tmp)
+    //      }
+
+    import spinal.core._
+
+    class Toplevel extends Component {
+      val x,y,z = in(UInt(8 bits))
+
+      val elements = ArrayBuffer[UInt]()
+      elements += x
+      elements += y
+      elements += z
+
+      var tmp = U(0)
+      for(e <- elements){
+        tmp = tmp + e
+      }
+
+      val result = out(tmp)
+    }
+
+    object MyMain extends App {
+      SpinalVerilog(new Toplevel)
+    }
+  }
+
+  {
+    import spinal.core._
+    import spinal.lib._
+
+    case class Pixel(width: Int) extends Bundle{
+      val r, g, b = UInt(width bits)
+    }
+
+    val fifo = StreamFifo(
+      dataType = Pixel(width = 8),
+      depth = 32
+    )
+
+    val feed    = Stream(Pixel(width = 8))
+    val staged  = feed.stage()
+    val filtred = staged.throwWhen(feed.r < 128)
+    val queued  = filtred.queue(size = 16)
+
+
+
+  }
+  {
+    import spinal.core._
+    import spinal.lib._
+
+    case class Stream[T <: Data](dataType: HardType[T]) extends Bundle {
+      val valid = Bool()
+      val ready = Bool()
+      val data: T = dataType()
+
+
+      def stage(): Stream[T] = {
+        val ret = Stream(data)
+        ret.valid  := RegNextWhen(this.valid, this.ready) init (False)
+        ret.data   := RegNextWhen(this.data, this.ready)
+        this.ready := !ret.valid || ret.ready
+        ret
+      }
+    }
+    case class Pixel(width: Int) extends Bundle{
+      val r, g, b = UInt(width bits)
+    }
+
+    val bus = Stream(Pixel(8))
+    bus.valid := False
+    bus.data.r := 0x11
+    bus.data.g := 0x22
+    bus.data.b := 0x33
+
+    val staged = bus.stage()
+  }
+
+//  {
+//    object SimdAddPlugin {
+//      val ADD4 = IntRegFile.TypeR(M"0000000----------000-----0001011")
+//    }
+//    class SimdAddPlugin(val layer: LaneLayer) extends ExecutionUnitElementSimple(layer) {
+//      val logic = during setup new Logic {
+//        awaitBuild()
+//        val wb = newWriteback(ifp, 0)
+//        val add4 = add(SimdAddPlugin.ADD4).spec
+//        add4.addRsSpec(RS1, executeAt = 0)
+//        add4.addRsSpec(RS2, executeAt = 0)
+//        uopRetainer.release()
+//
+//        val process = new el.Execute(id = 0) {
+//          val rs1 = el(IntRegFile, RS1).asUInt
+//          val rs2 = el(IntRegFile, RS2).asUInt
+//          val rd = UInt(32 bits)
+//          rd(7 downto 0) := rs1(7 downto 0) + rs2(7 downto 0)
+//          rd(16 downto 8) := rs1(16 downto 8) + rs2(16 downto 8)
+//          rd(23 downto 16) := rs1(23 downto 16) + rs2(23 downto 16)
+//          rd(31 downto 24) := rs1(31 downto 24) + rs2(31 downto 24)
+//          wb.valid := SEL
+//          wb.payload := rd.asBits
+//        }
+//      }
+//    }
+//  }
+//
+//  {
+//    import spinal.lib.fsm._
+//
+//    class TopLevel extends Component {
+//      val counter = Reg(UInt(8 bits)) init (0)
+//      val fsm = new StateMachine {
+//        val stateA, stateB, stateC = new State
+//        setEntry(stateA)
+//
+//        stateA.whenIsActive(goto(stateB))
+//
+//        stateB.onEntry(counter := 0)
+//        stateB.whenIsActive {
+//          counter := counter + 1
+//          when(counter === 4) {
+//            goto(stateC)
+//          }
+//        }
+//
+//        stateC.whenIsActive(goto(stateA))
+//      }
+//    }
+//  }
+//
+//  {
+//    class SimdAddPlugin(val layer: LaneLayer) extends ExecutionUnitElementSimple(layer) {
+//      val logic = during setup new Logic {
+//        awaitBuild()
+//        val wb = newWriteback(ifp, 0)
+//        val add4 = add(SimdAddPlugin.ADD4).spec
+//        add4.addRsSpec(RS1, executeAt = 0)
+//        add4.addRsSpec(RS2, executeAt = 0)
+//        uopRetainer.release()
+//        val process = new el.Execute(id = 0) {
+//          val rs1 = el(IntRegFile, RS1).asUInt
+//          val rs2 = el(IntRegFile, RS2).asUInt
+//          val rd = UInt(32 bits)
+//          rd( 7 downto  0) := rs1( 7 downto  0) + rs2( 7 downto  0)
+//          rd(16 downto  8) := rs1(16 downto  8) + rs2(16 downto  8)
+//          rd(23 downto 16) := rs1(23 downto 16) + rs2(23 downto 16)
+//          rd(31 downto 24) := rs1(31 downto 24) + rs2(31 downto 24)
+//          wb.valid := SEL
+//          wb.payload := rd.asBits
+//        }
+//      }
+//    }
+//  }
+//  {
+//
+//    val aluAt = 0
+//    val jumpAt = 1
+//    val alu = new pipeline.Execute(aluAt) {
+//      val PC_TARGET = insert(PC + UOP(31 downto 20));
+//    }
+//    val jumpLogic = new pipeline.Execute(jumpAt) {
+//      pcPort.valid := ..
+//      pcPort.pc := alu.PC_TARGET
+//
+//      flushPort.valid := ..
+//    }
+//  }
+}
+
+import spinal.core._
+
+class Timer extends Component {
+  val increment = in Bool()
+  val counter = Reg(UInt(8 bits)) init(0)
+  val full = out(counter === 255)
+
+  when(increment){
+    counter := counter + 1
+  }
+}
+object MyMain extends App{
+  SpinalVerilog(new Timer)
+}
+
+//class Toplevel(cdA : ClockDomain, cdB : ClockDomain) extends Component {
+//  val specs = LinkedHashMap[NamedType[Data], LinkedHashMap[Int, Data]]()
+//  def pip[T <: Data](key : NamedType[T], at : Int) = {
+//    val spec = specs.getOrElseUpdate(key.asInstanceOf[NamedType[Data]], new LinkedHashMap[Int, Data])
+//    spec.getOrElseUpdate(at, key().setName(key.getName + "_" + at)).asInstanceOf[T]
+//  }
+//
+//  val PC = NamedType(UInt(32 bits))
+//
+//  pip(PC, 0) := 0x42
+//  val x = pip(PC, 3) + 1
+//
+//  val CALC = NamedType(UInt(32 bits))
+//  pip(CALC, 2) := pip(PC, 2) + 0x11
+//  val y = pip(CALC, 4) + 0x22
+//
+//
+//  for((key, nodes) <- specs){
+//    for(i <- nodes.keys.min until nodes.keys.max) {
+//      pip(key, i+1) := RegNext(pip(key,i))
+//    }
+//  }
+//}
+object PipeliningDemo extends App {
+  import spinal.core._
+  import scala.collection.mutable.LinkedHashMap
+
+  class Pipeline{
+    //Define the pipeline data model
+    val specs = LinkedHashMap[NamedType[Data], LinkedHashMap[Int, Data]]()
+
+    //Define how we can access the pipeline
+    def apply[T <: Data](what: NamedType[T], stageId: Int) = {
+      val spec = specs.getOrElseUpdate(what.asInstanceOf[NamedType[Data]], new LinkedHashMap[Int, Data])
+      spec.getOrElseUpdate(stageId, what().setName(what.getName + "_" + stageId)).asInstanceOf[T]
+    }
+
+    //Connect all those handsomes together
+    def build(): Unit = {
+      for ((what, nodes) <- specs) {
+        for (i <- nodes.keys.min until nodes.keys.max) {
+          apply(what, i + 1) := RegNext(apply(what, i))
+        }
+      }
+    }
+  }
+
+  SpinalVerilog(new Component{
+    val pip = new Pipeline()
+
+    // User specifying the pipeling behaviour
+    val PC = NamedType(UInt(32 bits))
+    pip(PC, 0) := 0x42
+    val x = pip(PC, 3) + 1
+
+    val CALC = NamedType(UInt(32 bits))
+    pip(CALC, 2) := pip(PC, 2) + 0x11
+    val y = pip(CALC, 4) + 0x22
+
+    pip.build()
+  })
+}

@@ -898,6 +898,12 @@ case class SpinalSimConfig(
     this
   }
 
+  def withTimeSpec(timeScale: TimeNumber, timePrecision: TimeNumber): this.type = {
+    withTimeScale(timeScale)
+    withTimePrecision(timePrecision)
+    this
+  }
+
   def setTestPath(path : String) : this.type = {
     _testPath = path
     this
@@ -908,6 +914,12 @@ case class SpinalSimConfig(
   def withTestFolder : this.type = {
     this.setTestPath("$WORKSPACE/$COMPILED/$TEST")
     this
+  }
+
+  def addOptions(parser: scopt.OptionParser[Unit]): Unit = {
+    import parser._
+    opt[Unit]("trace-fst") action { (v, c) => this.withFstWave }
+    opt[Unit]("trace-vcd") action { (v, c) => this.withVcdWave }
   }
 
   def doSim[T <: Component](report: SpinalReport[T])(body: T => Unit): Unit = compile(report).doSim(body)

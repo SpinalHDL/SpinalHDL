@@ -2,7 +2,7 @@ package spinal.lib
 
 import spinal.core._
 import spinal.idslplugin.Location
-import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+import spinal.lib.eda.bench.{AlteraStdTargets, Bench, EfinixStdTargets, Rtl, XilinxStdTargets}
 
 import scala.collection.Seq
 import scala.collection.mutable
@@ -515,6 +515,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }.next
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
+
+  def assertPersistence(): Unit = {
+    assert(!(valid.fall(False) && !RegNext(ready).init(False)), "Stream valid persistence failed")
+    val checkIt = RegNext(isStall) init(False)
+    val ref = RegNext(payload)
+    when(checkIt){
+      assert(payload === ref, "Stream payload persistence failed")
+    }
+  }
 
   /**
    * Assert that this stream conforms to the stream semantics:
@@ -2129,7 +2138,7 @@ object StreamFifoMultiChannelBench extends App{
 
   val rtls = List(2,4,8).map(width => new BenchFpga(width)) ++ List(2,4,8).map(width => new BenchFpga2(width))
 
-  val targets = XilinxStdTargets()// ++ AlteraStdTargets()
+  val targets = EfinixStdTargets() ++ XilinxStdTargets() ++ AlteraStdTargets()
 
 
   Bench(rtls, targets)

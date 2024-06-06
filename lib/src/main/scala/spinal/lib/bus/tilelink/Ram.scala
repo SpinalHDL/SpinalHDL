@@ -1,10 +1,12 @@
 package spinal.lib.bus.tilelink
 import spinal.core._
+import spinal.core.sim.SimMemPimper
 import spinal.lib._
 import spinal.lib.bus.tilelink.coherent.OrderingCmd
 import spinal.lib.pipeline._
 
-class Ram (p : NodeParameters, bytes : Int) extends Component {
+class Ram (p : NodeParameters,
+           bytes : Int) extends Component {
   val io = new Bundle{
     val up = slave port Bus(p)
   }

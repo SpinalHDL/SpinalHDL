@@ -33,7 +33,7 @@ class InterruptNode extends Area with UpDown[InterruptNode]{
       val flag = Bool()
       ClockDomain.areSynchronous(cd, up.cd) match {
         case true => flag := up.flag
-        case false => BufferCC(up.flag, init = False)
+        case false => flag := BufferCC(up.flag, init = False)
       }
     }
     if(ups.nonEmpty) flag := gateways.map(_.flag).orR

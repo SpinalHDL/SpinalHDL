@@ -121,8 +121,8 @@ class ScopeProperty[T]  {
     case Some(x) => false
     case _ => true
   }
-//  def nonEmpty = stack.nonEmpty
-
+  def nonEmpty = !isEmpty
+  def getOrElse(that : => T) = if(nonEmpty) get else that
   def default : T = {
     this match {
       case n : Nameable => println("On $n")

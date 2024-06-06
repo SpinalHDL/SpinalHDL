@@ -51,9 +51,12 @@ class Composite[T <: Nameable](val self : T, postfix : String = null, weak : Boo
 }
 
 trait Area extends NameableByComponent with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec with OverridedEqualsHashCode  {
-  if(globalData != null) globalData.onAreaInit.foreach{f =>
-    f(this)
-    globalData.onAreaInit = None
+  if(OnCreateStack.nonEmpty){
+    OnCreateStack.get match {
+      case null =>
+      case f => f(this)
+    }
+    OnCreateStack.clear()
   }
   def childNamePriority = DATAMODEL_WEAK
   val _context = ScopeProperty.capture() //TODO not as heavy
