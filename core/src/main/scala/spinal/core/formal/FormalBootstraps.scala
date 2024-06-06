@@ -24,7 +24,7 @@ import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{PhaseContext, PhaseNetlist}
 import spinal.core.sim.SimWorkspace
-import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, ClockDomainConfig, SYNC}
+import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport}
 import spinal.sim._
 
 import scala.collection.mutable
