@@ -1401,7 +1401,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     val vec = Vec(check)
   }.vec
 
-  def formalCheckOutputStage(cond: T => Bool): Bool = new Area {
+  def formalCheckOutputStage(cond: T => Bool): Bool = {
     // only with sync RAM read, io.pop is directly connected to the m2sPipe() stage
     Bool(!withAsyncRead) & io.pop.valid & cond(io.pop.payload)
   }
@@ -1411,18 +1411,18 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
   //  Vec(formalCheckOutputStage(cond) +: formalCheckRam(cond))
   //}
 
-  def formalContains(word: T): Bool = new Area {
+  def formalContains(word: T): Bool = {
     formalCheckRam(_ === word.pull()).reduce(_ || _) || formalCheckOutputStage(_ === word.pull())
   }
-  def formalContains(cond: T => Bool): Bool = new Area {
+  def formalContains(cond: T => Bool): Bool = {
     formalCheckRam(cond).reduce(_ || _) || formalCheckOutputStage(cond)
   }
 
-  def formalCount(word: T): UInt = new Area {
+  def formalCount(word: T): UInt = {
     // occurance count in RAM and in m2sPipe()
     CountOne(formalCheckRam(_ === word.pull())) +^ U(formalCheckOutputStage(_ === word.pull()))
   }
-  def formalCount(cond: T => Bool): UInt = new Area {
+  def formalCount(cond: T => Bool): UInt = {
     // occurance count in RAM and in m2sPipe()
     CountOne(formalCheckRam(cond)) +^ U(formalCheckOutputStage(cond))
   }
