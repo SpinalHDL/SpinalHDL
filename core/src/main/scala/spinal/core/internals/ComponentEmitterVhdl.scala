@@ -770,6 +770,7 @@ class ComponentEmitterVhdl(
 
   def emitAssignment(assignment: AssignmentStatement, tab: String, assignmentKind: String): String = {
     assignment match {
+      case r if r.source.isInstanceOf[Operator.Formal.RandomExp] => "" // handled via attributes
       case _ =>
         if (!assignment.target.isInstanceOf[SpinalStruct])
           s"$tab${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};${emitLocation(assignment)}\n"

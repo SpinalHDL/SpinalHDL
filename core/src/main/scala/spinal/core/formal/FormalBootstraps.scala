@@ -22,7 +22,7 @@ package spinal.core.formal
 
 import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
-import spinal.core.internals.{PhaseContext, PhaseNetlist}
+import spinal.core.internals.{PhaseContext, PhaseNetlist, DataAssignmentStatement, Operator}
 import spinal.core.sim.SimWorkspace
 import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, ClockDomain, ASYNC}
 import spinal.sim._
@@ -51,19 +51,43 @@ object SpinalFormalBackendSel {
   val SYMBIYOSYS_GHDL = new SpinalFormalBackendSel
 }
 
-class FormalPhase extends PhaseNetlist{
+class FormalPhase(backend: SpinalFormalBackendSel) extends PhaseNetlist {
   override def impl(pc: PhaseContext): Unit = {
-    pc.walkComponents{ c =>
-      if(c.isFormalTester){
+
+    // force synchronous reset for DUTs marked with FormalDut()
+    pc.walkComponents { c =>
+      if (c.isFormalTester) {
         val cds = mutable.LinkedHashMap[ClockDomain, ClockDomain]()
-        c.dslBody.walkStatements{s =>
-          s.remapClockDomain{cd =>
-            if(cd.config.resetKind == ASYNC){
-              cds.getOrElseUpdate(cd,cd.withSyncReset())
+        c.dslBody.walkStatements { s =>
+          s.remapClockDomain { cd =>
+            if (cd.config.resetKind == ASYNC) {
+              cds.getOrElseUpdate(cd, cd.withSyncReset())
             } else {
               cd
             }
           }
+        }
+      }
+    }
+
+    pc.walkComponents {
+      case b: BlackBox if b.isBlackBox && b.isSpinalSimWb => b.clearBlackBox()
+      case _                                              =>
+    }
+
+    if (backend == SpinalFormalBackendSel.SYMBIYOSYS_GHDL) {
+      // convert formal random assignments to "unconstrained variables" via attributes
+      pc.walkComponents { c =>
+        c.dslBody.walkStatements {
+          case s: DataAssignmentStatement if s.source.isInstanceOf[Operator.Formal.RandomExp] =>
+            val kind = s.source.asInstanceOf[Operator.Formal.RandomExp].kind match {
+              case Operator.Formal.RANDOM_ANY_SEQ   => "anyseq"
+              case Operator.Formal.RANDOM_ANY_CONST => "anyconst"
+              case Operator.Formal.RANDOM_ALL_SEQ   => "allseq"
+              case Operator.Formal.RANDOM_ALL_CONST => "allconst"
+            }
+            s.dlcParent.addAttribute(kind)
+          case _ =>
         }
       }
     }
@@ -172,7 +196,7 @@ case class SpinalFormalConfig(
     this
   }
 
-  def doVerify[T <: Component](report: SpinalReport[T])(implicit className: String): Unit = { 
+  def doVerify[T <: Component](report: SpinalReport[T])(implicit className: String): Unit = {
     if(!className.isEmpty) workspaceName(className)
     compile(report).doVerify()
   }
@@ -201,15 +225,10 @@ case class SpinalFormalConfig(
     val uniqueId = FormalWorkspace.allocateUniqueId()
     new File(s"${_workspacePath}/tmp").mkdirs()
     new File(s"${_workspacePath}/tmp/job_$uniqueId").mkdirs()
-    
-    val config = _spinalConfig.addTransformationPhase(new FormalPhase)
+
+    val config = _spinalConfig
       .copy(targetDirectory = s"${_workspacePath}/tmp/job_$uniqueId")
-      .addTransformationPhase(new PhaseNetlist {
-        override def impl(pc: PhaseContext): Unit = pc.walkComponents {
-          case b: BlackBox if b.isBlackBox && b.isSpinalSimWb => b.clearBlackBox()
-          case _                                              =>
-        }
-      })
+      .addTransformationPhase(new FormalPhase(_backend))
 
     val report = _backend match {
       case SpinalFormalBackendSel.SYMBIYOSYS =>
