@@ -16,7 +16,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         val outOnly = false
         val depth = 4
         val input = anyseq(Flow(UInt(6 bits)))
-        val dut = HistoryModifyable(input, depth)
+        val dut = FormalDut(HistoryModifyable(input, depth))
         val results = Vec(master(Stream(input.payloadType)), depth)
         val controls = Vec(slave(Stream(input.payloadType)), depth)
         dut.io.outStreams.zip(results).map { case (from, to) => from >> to }
