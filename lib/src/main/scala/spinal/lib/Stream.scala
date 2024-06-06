@@ -1363,7 +1363,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
 
 
   // check a condition against all valid payloads in the FIFO RAM
-  def formalCheckRam(cond: T => Bool): Vec[Bool] = this rework new Composite(this){
+  def formalCheckRam(cond: T => Bool): Vec[Bool] = new Composite(this){
     val condition = (0 until depth).map(x => cond(if (useVec) logic.vec(x) else logic.ram(x)))
     // create mask for all valid payloads in FIFO RAM
     // inclusive [popd_idx, push_idx) exclusive
@@ -1401,33 +1401,33 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     val vec = Vec(check)
   }.vec
 
-  def formalCheckOutputStage(cond: T => Bool): Bool = this.rework {
+  def formalCheckOutputStage(cond: T => Bool): Bool = new Area {
     // only with sync RAM read, io.pop is directly connected to the m2sPipe() stage
     Bool(!withAsyncRead) & io.pop.valid & cond(io.pop.payload)
   }
 
   // verify this works, then we can simplify below
-  //def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
+  //def formalCheck(cond: T => Bool): Vec[Bool] = new Area {
   //  Vec(formalCheckOutputStage(cond) +: formalCheckRam(cond))
   //}
 
-  def formalContains(word: T): Bool = this.rework {
+  def formalContains(word: T): Bool = new Area {
     formalCheckRam(_ === word.pull()).reduce(_ || _) || formalCheckOutputStage(_ === word.pull())
   }
-  def formalContains(cond: T => Bool): Bool = this.rework {
+  def formalContains(cond: T => Bool): Bool = new Area {
     formalCheckRam(cond).reduce(_ || _) || formalCheckOutputStage(cond)
   }
 
-  def formalCount(word: T): UInt = this.rework {
+  def formalCount(word: T): UInt = new Area {
     // occurance count in RAM and in m2sPipe()
     CountOne(formalCheckRam(_ === word.pull())) +^ U(formalCheckOutputStage(_ === word.pull()))
   }
-  def formalCount(cond: T => Bool): UInt = this.rework {
+  def formalCount(cond: T => Bool): UInt = new Area {
     // occurance count in RAM and in m2sPipe()
     CountOne(formalCheckRam(cond)) +^ U(formalCheckOutputStage(cond))
   }
 
-  def formalFullToEmpty() = this.rework {
+  def formalFullToEmpty() = new Area {
     val was_full = RegInit(False) setWhen(!io.push.ready)
     cover(was_full && logic.ptr.empty)
   }
