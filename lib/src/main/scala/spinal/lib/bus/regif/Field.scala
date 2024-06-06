@@ -9,7 +9,7 @@ case class Field(name: String,
                  accType: AccessType,
                  resetValue: BigInt,
                  readError: Boolean,
-                 doc: String) extends FieldDescr {
+                 doc: String){
   private var _name = name
 
   def tailBitPos = section.max
@@ -26,4 +26,6 @@ case class Field(name: String,
     case `WO` | `WO1` | `WOS` | `WOC` => true
     case _ => false
   }
+  def uvmBaseAcc = List(RO, RW, RC, RS, WRC, WRS, WC, WS, WSRC, WCRS, W1C, W1S, W1T, W0C, W0S, W0T, W1SRC, W1CRS, W0SRC, W0CRS, WO, WOC, WOS, W1, WO1)
+  def isUvmAcc: Boolean = uvmBaseAcc.contains(getAccessType())
 }
