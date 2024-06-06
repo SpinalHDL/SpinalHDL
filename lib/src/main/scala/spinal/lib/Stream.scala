@@ -1604,7 +1604,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
 
   def formalAsserts(gclk: ClockDomain) = new Composite(this, "asserts") {
     import spinal.core.formal._
-    val pushArea = new ClockingArea(pushClock.withSyncReset) {
+    val pushArea = new ClockingArea(pushClock) {
       when(pastValid & changed(pushCC.popPtrGray)) {
         assert(fromGray(pushCC.popPtrGray) - past(fromGray(pushCC.popPtrGray)) <= depth)
       }
@@ -1613,7 +1613,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
     }
 
     val popCheckClock = if (withPopBufferedReset) popClock.copy(reset = pushClock.isResetActive) else popClock
-    val popArea = new ClockingArea(popCheckClock.withSyncReset) {
+    val popArea = new ClockingArea(popCheckClock) {
       when(pastValid & changed(popCC.pushPtrGray)) {
         assert(fromGray(popCC.pushPtrGray) - past(fromGray(popCC.pushPtrGray)) <= depth)
       }
