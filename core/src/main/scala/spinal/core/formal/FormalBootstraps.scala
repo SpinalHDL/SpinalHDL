@@ -177,11 +177,6 @@ case class SpinalFormalConfig(
     new File(s"${_workspacePath}/tmp").mkdirs()
     new File(s"${_workspacePath}/tmp/job_$uniqueId").mkdirs()
     
-    if(!_hasAsync) {
-      _spinalConfig = _spinalConfig.copy(
-        defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)
-      ) 
-    }
     val config = _spinalConfig
       .copy(targetDirectory = s"${_workspacePath}/tmp/job_$uniqueId")
       .addTransformationPhase(new PhaseNetlist {
