@@ -21,11 +21,35 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
       check(4095,0,-4)(AFix.UQ(8 bits, 4 bits)) //Q8.4
 //      check(4095,0,-4)(AFix.U(255, -4 exp)) //Q8.4
 //      check(4095,2048,-4)(AFix.U(255, 128, -4 exp)) //Q8.4
+      check(4095, 0, 0)(AFix(QFormat(12, 0, false))) // 12 bits wide, 12 integral bits, 0 fractional bits, 0 sign bit
+      check(4095, 0, -4)(AFix(QFormat(12, 4, false))) // 12 bits wide, 8 integral bits, 4 fractional bits, 0 sign bit
       check(2047,-2048,0)(AFix.S(12 bits)) //Q11.0 + sign bit
       check(2047,-2048,-4)(AFix.S(7 exp, 12 bits)) //Q7.4  + sign bit
       check(2047,-2048,-4)(AFix.S(7 exp, -4 exp)) //Q7.4  + sign bit
       check(2047,-2048,-4)(AFix.SQ(7 bits, 4 bits)) //Q8.4 + sign bit
 //      check(2047,-2048,-4)(AFix.S(127, -128, -4 exp)) //Q7.4 + sign bit
+      check(2047, -2048, 0)(AFix(QFormat(12, 0, true))) // 12 bits wide, 11 integral bits, 0 fractional bits, 1 sign bit
+      check(2047, -2048, -4)(AFix(QFormat(12, 4, true))) // 12 bits wide, 7 integral bits, 4 fractional bits, 1 sign bit
+    })
+  }
+
+  test("q_format") {
+    SpinalVerilog(new Component{
+      for(intVal <- 1 to 32) {
+        for(fracVal <- 0 to intVal) {
+          val qf_s = QFormat(intVal, fracVal, true)
+          val qf_u = QFormat(intVal, fracVal, false)
+          val af_qf_s = AFix(qf_s)
+          val af_qf_u = AFix(qf_u)
+          val af_sq = AFix.SQ((intVal - fracVal - 1) bits, fracVal bits)
+          val af_uq = AFix.UQ((intVal - fracVal) bits, fracVal bits)
+
+          assert(af_qf_s.Q == qf_s)
+          assert(af_sq.Q == qf_s)
+          assert(af_qf_u.Q == qf_u)
+          assert(af_uq.Q == qf_u)
+        }
+      }
     })
   }
 

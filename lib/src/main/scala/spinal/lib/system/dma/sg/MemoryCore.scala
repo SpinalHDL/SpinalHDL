@@ -82,8 +82,6 @@ case class DmaMemoryCore(p : DmaMemoryCoreParameter) extends Component{
     read.cmd := readOr.value
   }
 
-
-
   val write = new Area{
     val ports = for(i <- 0 until p.writes.size) yield new Area{
       def cmd = io.writes(i).cmd
@@ -231,6 +229,21 @@ case class DmaMemoryCore(p : DmaMemoryCoreParameter) extends Component{
       ports(self).buffer.s0.valid := doIt
       ports(self).buffer.s0.context := ports(self).cmd.context
       ports(self).buffer.s0.address := ports(self).cmd.address
+    }
+  }
+
+
+  val initialiser = new Area {
+    val counter = Reg(UInt(log2Up(p.layout.bankWords) + 1 bits)) init(0)
+    val done = counter.msb
+    when(!done){
+      counter := counter + 1
+      write.arbiter.foreach(_.doIt := False)
+      banks.foreach{b =>
+        b.write.valid := True
+        b.write.address := counter.resized
+        b.write.data.clearAll()
+      }
     }
   }
 }

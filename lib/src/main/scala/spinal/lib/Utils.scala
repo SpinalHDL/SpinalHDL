@@ -1019,6 +1019,8 @@ class AnyPimped[T <: Any](pimped: T) {
   def ifMap(cond : Boolean)(body : T => T): T ={
     if(cond) body(pimped) else pimped
   }
+
+  def nullOption : Option[T] = if(pimped != null) Some(pimped) else None
 }
 
 
@@ -1093,12 +1095,13 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     ret
   }
 
-  class ReaderOh(oh : TraversableOnce[Bool], bypassIfSingle : Boolean = false) {
+  class ReaderOh(val oh : TraversableOnce[Bool], bypassIfSingle : Boolean = false) {
     def apply[T2 <: Data](f : T => T2) = OHMux.or(oh.toIndexedSeq, pimped.map(f), bypassIfSingle)
   }
 
-  class ReaderSel(sel : UInt) {
+  class ReaderSel(val sel : UInt) {
     def apply[T2 <: Data](f : T => T2) =  pimped.map(f).read(sel)
+    def onSel(body : T => Unit) : Unit = pimped.onSel(sel)(body)
   }
 
   def reader(oh : TraversableOnce[Bool]) = new ReaderOh(oh)

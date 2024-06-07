@@ -32,6 +32,42 @@ trait MemoryTransfers {
 trait MemoryEndpoint extends SpinalTag{
   def mapping: AddressMapping
 }
+
+class MemoryEndpointTag(body : => AddressMapping) extends MemoryEndpoint{
+  override def mapping: AddressMapping = body
+}
+
+class VirtualEndpoint(val up : Nameable with SpinalTagReady, val mapping : AddressMapping) extends Area with SpinalTagReady  {
+  val self = this
+  new MemoryConnection {
+    override def up = self.up
+    override def down = self
+    override def transformers = Nil
+    populate()
+  }
+  addTag(new MemoryTransferTag{
+    override def get: MemoryTransfers = MemoryTransfers.of(up).get
+  })
+  addTag(new MemoryEndpoint {
+    override def mapping = self.mapping
+  })
+}
+
+trait PmaRegion{
+  def mapping : AddressMapping
+  def transfers: MemoryTransfers
+  def isMain : Boolean
+  def isIo : Boolean = !isMain
+  def isExecutable : Boolean
+}
+
+case class PmaRegionImpl(mapping: AddressMapping,
+                         transfers: MemoryTransfers,
+                         isMain: Boolean,
+                         isExecutable: Boolean) extends PmaRegion {
+}
+
+
 //Address seen by the slave slave are mapping.foreach(_.base-offset)
 trait MemoryConnection extends SpinalTag {
   def up : Nameable with SpinalTagReady
@@ -64,11 +100,16 @@ case class MappedNode(node : Nameable with SpinalTagReady, mapping : AddressMapp
   def remap(transformers : List[AddressTransformer]) : MappedNode = MappedNode(node, transformers.foldRight(mapping)((t,m) => m.withOffsetInvert(t)), transformers ++ this.transformers)//
   def remap(offset : BigInt) : MappedNode = MappedNode(node, mapping.withOffset(offset), OffsetTransformer(offset) :: transformers)
   override def toString = f"$node mapped=$mapping through=$transformers "
+
+  def isMain = node.hasTag(PMA.MAIN)
+  def isExecutable = node.hasTag(PMA.EXECUTABLE)
 }
 
-case class MappedTransfers(where : MappedNode, transfers: MemoryTransfers){
+case class MappedTransfers(where : MappedNode, transfers: MemoryTransfers) extends PmaRegion{
   def node = where.node
   def mapping = where.mapping
+  def isMain = where.isMain
+  def isExecutable = where.isExecutable
 }
 
 object MemoryConnection{

@@ -3,6 +3,8 @@ package spinal.lib
 import spinal.core._
 
 import java.io.File
+import java.net.Socket
+import scala.collection.mutable
 import scala.sys.process.{Process, ProcessLogger}
 
 class BoolPimped(pimped: Bool){
@@ -33,6 +35,41 @@ object KeepAttribute{
   val all = List(keep, syn_keep_verilog ,syn_keep_vhdl)
 }
 
+
+object CheckSocketPort{
+  val reserved = mutable.LinkedHashSet[Int]()
+  def reserve(port : Int): Unit = {
+    while(true) {
+      synchronized{
+        if(!reserved.contains(port)){
+          reserved += port
+          return
+        }
+      }
+      Thread.sleep(100) //I know, all of this is dirty
+    }
+  }
+  def release(port : Int): Unit = {
+    synchronized{
+      reserved -= port
+    }
+  }
+  def apply(port : Int) : Boolean = {
+    var s: Socket = null
+    try {
+      s = new Socket("localhost", port)
+      // If the code makes it this far without an exception it means
+      // something is using the port and has responded.
+      return false
+    } catch {
+      case e: Throwable =>
+        return true
+    } finally {
+      if (s != null) s.close
+    }
+  }
+}
+
 /**
  * Run command
  */
@@ -49,6 +86,14 @@ object DoCmd {
       Process("cmd /C " + cmd) !
     else
       Process(cmd) !
+  }
+
+  def startCmd(cmd: String): Process = {
+    println(cmd)
+    if (isWindows)
+      Process("cmd /C " + cmd).run()
+    else
+      Process(cmd).run()
   }
 
   /**
@@ -129,5 +174,24 @@ class FlowCmdRsp[T <: Data, T2 <: Data](cmdType : HardType[T], rspType : HardTyp
 
   def isPending(pendingMax : Int) : Bool = pendingMax match{
     case 1 => RegInit(False) setWhen(cmd.valid) clearWhen(rsp.valid)
+  }
+}
+
+
+/**
+ * Will use the BaseType.clockDomain to figure out how to connect 2 signals together (allowed use StreamCCByToggle)
+ */
+object DataCc{
+  def apply[T <: BaseType](to : T, from : T): Unit = {
+    ClockDomain.areSynchronous(to.clockDomain, from.clockDomain) match {
+      case true => to := from
+      case false => {
+        val cc = new StreamCCByToggle(to, from.clockDomain, to.clockDomain).setCompositeName(to, "cc_driver")
+        cc.io.input.valid := True
+        cc.io.input.payload := from
+        cc.io.output.ready := True
+        to := cc.io.output.payload
+      }
+    }
   }
 }

@@ -40,7 +40,7 @@ case class Apb4Driver(apb : Apb4, clockDomain : ClockDomain) {
   * Here we agree that regif chooses to use strb when reading
   * */
   def read(address : BigInt, strb: BigInt = 0xFFFF, prot: Int = 0) : BigInt = {
-    apb.PSEL #= 1
+    apb.PSEL    #= 1
     apb.PENABLE #= false
     apb.PADDR   #= address
     apb.PWRITE  #= false

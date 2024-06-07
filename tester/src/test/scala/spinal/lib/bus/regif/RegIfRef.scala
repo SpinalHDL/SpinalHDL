@@ -62,6 +62,8 @@ trait RegIfRef{
     case AccessType.W0P   => oldVal
     case AccessType.HSRW  => oldVal
     case AccessType.RWHS  => oldVal
+    case AccessType.W1SHS => oldVal
+    case AccessType.W1CHS => oldVal
     case _                => oldVal
   }
 

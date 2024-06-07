@@ -44,6 +44,7 @@ object BRAMSlaveFactory {
   * @param incAddress   : Incr address (default + dataWidth / 4)
   */
 class BRAMSlaveFactory(bus: BRAM, incAddress: Int = 0) extends BusSlaveFactoryDelayed{
+  assert(bus.config.readLatency == 1, "Slave factory only supports read latency of 1")
 
   override def readHalt()  = {}
   override def writeHalt() = {}

@@ -60,7 +60,15 @@ class PluginHost {
     }
   }
 
-  def find[T: ClassTag](filter : T => Boolean) = list[T].find(filter).get
+  def find[T: ClassTag](filter: T => Boolean) = findOption(filter).get
+  def findOption[T: ClassTag](filter: T => Boolean) = {
+    val flitred = list[T].filter(filter)
+    flitred.size match {
+      case 0 => None
+      case 1 => Some(flitred.head)
+    }
+
+  }
 }
 
 

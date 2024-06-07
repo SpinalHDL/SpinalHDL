@@ -378,7 +378,7 @@ case class ClockDomain(clock       : Bool,
 //                               reset : String = if(config.resetActiveLevel == HIGH) "reset" else "resetn",
 //                               softReset : String = if(config.softResetActiveLevel == HIGH) "soft_reset" else "soft_resetn",
 //                               enable : String  = if(config.clockEnableActiveLevel == HIGH) "clk_en" else "clk_en"): this.type ={
-def renamePulledWires(clock     : String = null,
+  def renamePulledWires(clock     : String = null,
                       reset     : String = null,
                       softReset : String = null,
                       enable    : String = null): this.type ={
@@ -437,12 +437,12 @@ def renamePulledWires(clock     : String = null,
         case `SYNC` if hasResetSignal => enable || isResetActive //Ensure that the area get a reset even if the enable isn't set
         case _ => enable
       }
-      this.copy(clockEnable = syncResetFix(RegNext(tick) init(False)), clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
+      this.copy(clockEnable = syncResetFix(RegNext(tick) init(False)) && ClockDomain.current.isClockEnableActive, clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
     }
   }
 
   def newSlowedClockDomain(freq: HertzNumber): ClockDomain = {
-    val currentFreq = ClockDomain.current.frequency.getValue.toBigDecimal
+    val currentFreq = frequency.getValue.toBigDecimal
     freq match {
       case x if x.toBigDecimal > currentFreq => SpinalError("To high frequancy")
       case x                                 => newClockDomainSlowedBy((currentFreq/freq.toBigDecimal).toBigInt)
@@ -496,9 +496,6 @@ def renamePulledWires(clock     : String = null,
       case _ : Throwable => return UnknownFrequency()
     }
   }
+
+  class Area extends ClockingArea(this)
 }
-
-
-
-
-

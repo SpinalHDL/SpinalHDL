@@ -206,8 +206,8 @@ class Node() extends Area with NodeApi{
 
     ctrl.cancel match {
       case Some(cancel) => {
-        status.isFiring.foreach(_ := isValid && isReady && !cancel)
-        status.isMoving.foreach(_ := isValid && (isReady || cancel))
+        status.isFiring.foreach(_ := isValid && isReady && !isCancel)
+        status.isMoving.foreach(_ := isValid && (isReady || isCancel))
       }
       case None => { //To avoid hasCancelRequest usages
         status.isFiring.foreach(_ := isValid && isReady)

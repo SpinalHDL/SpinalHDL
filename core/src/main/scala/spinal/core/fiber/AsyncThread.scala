@@ -1,6 +1,7 @@
 package spinal.core.fiber
 
-import spinal.core.{Nameable, ScopeProperty}
+import spinal.core.ScalaLocated.filterStackTrace
+import spinal.core.{Nameable, ScalaLocated, ScopeProperty}
 import spinal.sim.{JvmThread, JvmThreadUnschedule, SimThread, SimThreadUnschedule}
 
 import scala.collection.mutable
@@ -20,6 +21,7 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
 
   def addSoonHandle(that : Handle[_]): Unit ={
     willLoadHandles += that
+    that.willBeLoadedBy = this
   }
 
   def managerResume() = {
@@ -46,20 +48,20 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
   var waitOn : Handle[_] = null
 
 
-  val seed = Random.nextLong()
+  var terminatedStackTrace : Array[StackTraceElement] = null
 
-  val jvmThread = Engine.get.newJvmThread {
+  val jvmThread : JvmThread = Engine.get.newJvmThread {
 //    manager.setupJvmThread(Thread.currentThread())
 //    SimManagerContext.threadLocal.set(mainContext)
 //    manager.context.thread = SimThread.this
     try {
-      Random.setSeed(seed)
       context.restore()
       engine.currentAsyncThread = this
       body
     } catch {
       case e : JvmThreadUnschedule =>
         engine.currentAsyncThread = null
+        terminatedStackTrace = e.getStackTrace
         done = true
         throw e
 //      case e : SimThreadUnschedule =>
@@ -73,5 +75,15 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
   override def toString: String = {
     if(isNamed) return getName()
     if(willLoadHandles.nonEmpty) s"${willLoadHandles.filter(!_.isLoaded).map(_.getName("???")).mkString(", ")} loader" else super.toString
+  }
+
+  def getLocationShort() : String = {
+    done match {
+      case true => {
+        val filtred = filterStackTrace(terminatedStackTrace)
+        if(filtred.isEmpty) return terminatedStackTrace(0).toString
+        filtred(0).toString
+      }
+    }
   }
 }

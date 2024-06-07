@@ -4,21 +4,23 @@ import spinal.core._
 import spinal.lib.bus.amba3.ahblite.AhbLite3
 import spinal.lib.bus.misc.SizeMapping
 
-case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName)  extends BusIf{
+case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: String = "", withSecFireWall: Boolean = false)(implicit moduleName: ClassName)  extends BusIf{
   override val withStrb: Boolean = false
+  override val busDataWidth: Int = bus.config.dataWidth
+  override val busAddrWidth: Int = bus.config.addressWidth
+
+  val bus_rderr: Bool = Bool()
+  val bus_rdata: Bits  = Bits(busDataWidth bits)
+  val reg_rderr: Bool = Reg(Bool(), init = False)
+  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
+
   val wstrb: Bits = withStrb generate (Bits(strbWidth bit))
   val wmask: Bits = withStrb generate (Bits(busDataWidth bit))
   val wmaskn: Bits = withStrb generate (Bits(busDataWidth bit))
   initStrbMasks()
   override def getModuleName = moduleName.name
 
-  val readError = Bool()
-  val readData  = Bits(bus.config.dataWidth bits)
-
   val writeData: Bits  = bus.HWDATA
-
-  readError.setAsReg() init False
-  readData.setAsReg()  init 0
 
   val askWrite    = bus.HSEL & bus.HTRANS(1) &  bus.HWRITE
   val askRead     = bus.HSEL & bus.HTRANS(1) & !bus.HWRITE
@@ -27,15 +29,15 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: Str
 
   val addressDelay = RegNextWhen(bus.HADDR, askRead | askWrite)
 
-  bus.HRDATA    := readData
+  bus.HRDATA    := bus_rdata
 
-  readError.clearWhen(readError)
-  val readError_2ndcycle = RegNext(readError) init False
+  bus_rderr.clearWhen(bus_rderr)
+  val readError_2ndcycle = RegNext(bus_rderr) init False
 
   when(readError_2ndcycle){
     bus.HREADYOUT := True
     bus.HRESP     := True
-  } elsewhen (readError){
+  } elsewhen (bus_rderr){
     bus.HREADYOUT := False
     bus.HRESP     := True
   } otherwise {
@@ -48,6 +50,4 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, regPre: Str
 
   def readHalt(): Unit  = bus.HREADY === False
   def writeHalt(): Unit = bus.HREADY === False
-
-  def busDataWidth: Int = bus.config.dataWidth
 }

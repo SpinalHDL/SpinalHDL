@@ -21,12 +21,13 @@ case class VpiBackendConfig(
   var workspacePath: String  = null,
   var workspaceName: String  = null,
   var wavePath: String       = null,
+  var wavePrefix: String     = null,
   var waveFormat: WaveFormat = WaveFormat.NONE,
   var analyzeFlags: String   = "",
   var runFlags: String       = "",
   var sharedMemSize: Int     = 65536,
   var CC: String             = "g++",
-  var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing -Wno-write-strings", 
+  var CFLAGS: String         = "-std=c++14 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing -Wno-write-strings", 
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
   var logSimProcess: Boolean = false,
@@ -40,7 +41,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   val pluginsPath     = config.pluginsPath     
   val workspacePath   = config.workspacePath   
   val workspaceName   = config.workspaceName   
-  var wavePath        = config.wavePath        
+  val wavePath        = config.wavePath
   val waveFormat      = config.waveFormat      
   val analyzeFlags    = config.analyzeFlags
   var runFlags        = config.runFlags        

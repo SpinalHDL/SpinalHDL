@@ -88,6 +88,12 @@ object SwitchStack extends ScopeProperty[SwitchContext]{
   override def default = null
 }
 
+object OnCreateStack extends ScopeProperty[Nameable => Unit]{
+  storeAsMutable = false
+  override def default = null
+}
+
+
 
 /**
   * Global data
@@ -119,9 +125,8 @@ class GlobalData(val config : SpinalConfig) {
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
   val scalaLocateds = mutable.HashSet[ScalaLocated]()
   val elab = new Fiber()
-  elab.setName("global_elab")
-  elab.inflightLock.globalData = this
-  var onAreaInit = Option.empty[Area => Unit]
+  elab.setName("spinal_elab")
+//  elab.inflightLock.globalData = this
 
   def applyScalaLocated(): Unit ={
     try {
@@ -594,7 +599,7 @@ object ScalaLocated {
 
   def filterStackTrace(that: Array[StackTraceElement]) = that.filter(trace => {
     val className = trace.getClassName
-    !(className.startsWith("scala.") || className.startsWith("spinal.core") || !filter(trace.toString)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+    !(className.startsWith("scala.") || className.startsWith("spinal.core")  || className.startsWith("spinal.sim") || !filter(trace.toString)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
   })
 
   def short(scalaTrace: Throwable): String = {
@@ -651,6 +656,12 @@ trait SpinalTagReady {
 
   def addTags[T <: SpinalTag](tags: Iterable[T]): this.type = {
     for (tag <- tags) addTag(tag)
+    this
+  }
+
+  def addTags(h : SpinalTag, tail : SpinalTag*): this.type = {
+    addTag(h)
+    for (tag <- tail) addTag(tag)
     this
   }
 

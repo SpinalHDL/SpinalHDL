@@ -1,6 +1,6 @@
 package spinal.core.fiber
 
-import spinal.core.{Area, GlobalData}
+import spinal.core.{Area, GlobalData, OnCreateStack}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -13,6 +13,13 @@ object ElabOrderId{
   val BUILD = 1000000
   val PATCH = 1500000
   val CHECK = 2000000
+
+  def getName(that : Int) = that match {
+    case INIT  => "init"
+    case SETUP => "setup"
+    case BUILD => "build"
+    case CHECK => "check"
+  }
 }
 
 object Fiber {
@@ -43,53 +50,46 @@ object Fiber {
 class Fiber extends Area{
   var currentOrderId = ElabOrderId.INIT
 
-
-  class Fence(id : Int) extends Area{
-    val lock = Lock().retain()
-    val pendings = mutable.ArrayBuffer[AsyncThread]()
-    def await(): Unit = {
-      pendings += AsyncThread.current
-      lock.await()
-    }
-    setCompositeName(Fiber.this, s"lock_${id.toString}")
-  }
-
-  val inflightLock = Lock()
-  val inflight = mutable.LinkedHashSet[AsyncThread]()
-  val fences = mutable.LinkedHashMap[Int, Fence]()
+  val spawnLock = Lock()
+  val startLock = mutable.LinkedHashMap[Int, Lock]()
+  val doneRetainer = mutable.LinkedHashMap[Int, Retainer]()
+  val taskRetainer = mutable.LinkedHashMap[AsyncThread, RetainerHold]()
   val callbacks = new mutable.LinkedHashMap[Int, mutable.Queue[() => Unit]]()
 
-  private def active(t : AsyncThread): Unit = {
-    inflight += t
-    inflightLock.retain()
-  }
-
-  private def idle(): Unit = {
-    inflight -= AsyncThread.current
-    inflightLock.release()
-  }
+  var syncThread : AsyncThread = null
 
   def addTask[T: ClassTag](body: => T): Handle[T] = {
     addTask(ElabOrderId.INIT)(body)
   }
   def addTask[T: ClassTag](orderId : Int)(body : => T) : Handle[T] = {
+    spawnLock.retain()
     val (h, t) = hardForkRawHandle(withDep = true) { h : Handle[T] =>
+      spawnLock.release()
       Fiber.await(orderId)
-      if(classTag[T].runtimeClass == classOf[Area]) {
-        GlobalData.get.onAreaInit = Some(a => a.setCompositeName(h))
+      if(classOf[Area].isAssignableFrom(classTag[T].runtimeClass)) {
+        OnCreateStack.set(a => a.setCompositeName(h))
       }
       val ret = body
-      idle()
+      taskRetainer.get(AsyncThread.current).foreach(_.release())
       ret
     }
     t.setCompositeName(h)
-    active(t)
     h
   }
 
   def await(id : Int) = {
-    idle()
-    fences.getOrElseUpdate(id, new Fence(id)).await()
+    taskRetainer.get(AsyncThread.current).foreach(_.release())
+    val newRetainer = doneRetainer.getOrElseUpdate(id,new Retainer().setCompositeName(this, s"${ElabOrderId.getName(id)}_doneRetainer"))
+    taskRetainer(AsyncThread.current) = newRetainer().setCompositeName(AsyncThread.current, "fiber_completion")
+
+    startLock.getOrElseUpdate(id, {
+      val r = new Lock().setCompositeName(this, s"${ElabOrderId.getName(id)}_start").retain()
+      if(syncThread != null) {
+        r.willBeLoadedBy = syncThread
+        syncThread.addSoonHandle(r)
+      }
+      r
+    }).await()
   }
 
   def addCallback(orderId : Int)(body : => Unit): Unit = {
@@ -99,33 +99,21 @@ class Fiber extends Area{
 
   def runSync(): Unit ={
     val e = Engine.get
-    //Link locks to current thread
-    fences.values.foreach{ e =>
-      e.lock.willBeLoadedBy = AsyncThread.current
-      AsyncThread.current.addSoonHandle(e.lock)
+    syncThread = AsyncThread.current
+    spawnLock.await()
+
+    for(sl <- startLock.values){
+      sl.willBeLoadedBy = AsyncThread.current
+      AsyncThread.current.addSoonHandle(sl)
     }
-    while(fences.nonEmpty || callbacks.nonEmpty || inflight.nonEmpty){
-      inflightLock.await()
-      assert(inflight.size == 0)
 
-      val orderId = (fences.keys ++ callbacks.keys).min
-      currentOrderId = orderId
-
-      callbacks.get(orderId).foreach{ l =>
-        l.foreach(_.apply())
-        callbacks.remove(orderId)
-      }
-
-      fences.get(orderId) match {
-        case Some(lock) => {
-          lock.pendings.foreach(active)
-          lock.lock.release()
-          fences.remove(orderId)
-        }
-        case None =>
-      }
-
-      inflightLock.await()
+    while(startLock.nonEmpty){
+      val phaseId = startLock.keys.min
+      callbacks.get(phaseId).foreach(_.foreach(_.apply()))
+      callbacks.remove(phaseId)
+      startLock(phaseId).release()
+      startLock.remove(phaseId)
+      doneRetainer(phaseId).await()
     }
   }
 }

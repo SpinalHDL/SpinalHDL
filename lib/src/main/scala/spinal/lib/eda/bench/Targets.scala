@@ -2,6 +2,7 @@ package spinal.lib.eda.bench
 
 import spinal.core._
 import spinal.lib.eda.altera.QuartusFlow
+import spinal.lib.eda.efinix.EfinixFlow
 import spinal.lib.eda.xilinx.VivadoFlow
 import spinal.lib.eda.microsemi.LiberoFlow
 
@@ -69,11 +70,11 @@ object AlteraStdTargets {
 
 
 object XilinxStdTargets {
-  def apply(vivadoArtix7Path : String = sys.env.getOrElse("VIVADO_ARTIX_7_BIN", null)): Seq[Target] = {
+  def apply(vivadoArtix7Path : String = sys.env.getOrElse("VIVADO_ARTIX_7_BIN", null), withArea : Boolean = true, withFMax : Boolean = true): Seq[Target] = {
     val targets = ArrayBuffer[Target]()
 
     if(vivadoArtix7Path != null) {
-      targets += new Target {
+      if(withArea) targets += new Target {
         override def getFamilyName(): String = "Artix 7"
         override def synthesise(rtl: Rtl, workspace: String): Report = {
           VivadoFlow(
@@ -87,7 +88,7 @@ object XilinxStdTargets {
           )
         }
       }
-      targets += new Target {
+      if(withFMax) targets += new Target {
         override def getFamilyName(): String = "Artix 7"
         override def synthesise(rtl: Rtl, workspace: String): Report = {
           VivadoFlow(
@@ -98,6 +99,75 @@ object XilinxStdTargets {
             family=getFamilyName(),
             device="xc7a200tffv1156-3"
             //            device="xc7k70t-fbg676-3"
+          )
+        }
+      }
+    }
+
+    targets
+  }
+}
+
+
+
+object EfinixStdTargets {
+  def apply(efinixPath : String = sys.env.getOrElse("EFINIX_BIN", null), withArea : Boolean = true, withFMax : Boolean = true): Seq[Target] = {
+    val targets = ArrayBuffer[Target]()
+
+    if(efinixPath != null) {
+      if(withArea) targets += new Target {
+        override def getFamilyName(): String = "Trion"
+        override def synthesise(rtl: Rtl, workspace: String): Report = {
+          EfinixFlow(
+            frequencyTarget = 10 MHz,
+            efinixPath = efinixPath,
+            workspacePath = workspace + "_area",
+            rtl = rtl,
+            family = getFamilyName(),
+            device = "T120F576",
+            timing = "C4"
+          )
+        }
+      }
+      if(withFMax) targets += new Target {
+        override def getFamilyName(): String = "Trion"
+        override def synthesise(rtl: Rtl, workspace: String): Report = {
+          EfinixFlow(
+            frequencyTarget = 200 MHz,
+            efinixPath = efinixPath,
+            workspacePath = workspace + "_fmax",
+            rtl = rtl,
+            family = getFamilyName(),
+            device = "T120F576",
+            timing = "C4"
+          )
+        }
+      }
+      if(withArea) targets += new Target {
+        override def getFamilyName(): String = "Titanium"
+        override def synthesise(rtl: Rtl, workspace: String): Report = {
+          EfinixFlow(
+            frequencyTarget = 40 MHz,
+            efinixPath=efinixPath,
+            workspacePath=workspace + "_area",
+            rtl=rtl,
+            family=getFamilyName(),
+            device="Ti180M484",
+            timing = "C4"
+          )
+        }
+      }
+     if(withFMax) targets += new Target {
+        override def getFamilyName(): String = "Titanium"
+        override def synthesise(rtl: Rtl, workspace: String): Report = {
+          EfinixFlow(
+            frequencyTarget = 500 MHz,
+            efinixPath=efinixPath,
+            workspacePath=workspace + "_fmax",
+            rtl=rtl,
+            family=getFamilyName(),
+            device="Ti180M484",
+            timing = "C4"
           )
         }
       }
