@@ -187,6 +187,13 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
     ret
   }
 
+  def expendId(idWidth: Int): Axi4 = {
+    assert(config.idWidth <= idWidth)
+    val ret = Axi4(config.copy(idWidth = idWidth))
+    ret << this
+    ret
+  }
+
   def setIdle(): this.type = {
     this.writeCmd.setIdle()
     this.writeData.setIdle()
