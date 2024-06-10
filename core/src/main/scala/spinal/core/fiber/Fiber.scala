@@ -18,6 +18,7 @@ object ElabOrderId{
     case INIT  => "init"
     case SETUP => "setup"
     case BUILD => "build"
+    case PATCH => "patch"
     case CHECK => "check"
   }
 }
