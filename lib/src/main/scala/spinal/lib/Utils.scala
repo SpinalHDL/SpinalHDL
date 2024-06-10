@@ -802,10 +802,6 @@ object AnalysisUtils{
       }
       case o if o.isOutput => {
         val cds = mutable.LinkedHashSet[ClockDomain]()
-        println(o)
-        if(o.getName() == "io_ddrA_r_ready"){
-          println("asd")
-        }
         seekNonCombDrivers(o){
           case bt : BaseType if bt.isReg => cds += bt.clockDomain
           case _ => println("???")
