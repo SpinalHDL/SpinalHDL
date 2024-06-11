@@ -11,7 +11,7 @@ import scala.util.Random
 class RegifFifoMem extends Component{
   val io = new Bundle{
     val bus = slave(MemBus(MemBusConfig(32, 32)))
-    val ram = master(MemBus(MemBusConfig(aw = 8, dw = 32)))
+    val ram = master(MemBus(MemBusConfig(aw = 9, dw = 32)))
     val fifowr = master(Flow(Bits(32 bit)))
     val fiford = slave(Stream(Bits(32 bit)))
   }
