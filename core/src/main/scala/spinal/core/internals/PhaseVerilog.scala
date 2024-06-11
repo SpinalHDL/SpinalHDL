@@ -432,7 +432,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         for ((name, elem) <- c.y.elementsCache) {
           genModportSig(modportString, name, elem)
         }
-        ret ++= modportString.stripSuffix(",\n") + "\n" + s"${theme.porttab});\n\n"
+        ret ++= modportString.toString().stripSuffix(",\n") + "\n" + s"${theme.porttab});\n\n"
       }
     ret ++= "endinterface\n\n"
     ret
