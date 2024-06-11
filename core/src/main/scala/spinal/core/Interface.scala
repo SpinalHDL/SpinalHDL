@@ -9,7 +9,7 @@ object IsInterface extends SpinalTag {}
   * 
   * ==Example==
   *{{{
-  * case class MyIf(width: Int = 8) extends SVIF with IMasterSlave {
+  * case class MyIf(width: Int = 8) extends Interface with IMasterSlave {
   *  val wParam = addGeneric("WIDTH", width, default = "8")
   *  val a = Bits(width bits)
   *  tieGeneric(a, wParam)
