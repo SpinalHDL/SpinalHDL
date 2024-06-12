@@ -573,8 +573,8 @@ class ComponentEmitterVhdl(
         case LOW  => s"(not ${emitReference(reset, false)})"
       }
       val abortKind = clockDomain.config.resetKind match {
-        case ASYNC       => "abort" // alias async_abort triggers a bug in GHDL
-        case SYNC | BOOT => "sync_abort"
+        case ASYNC       => "async_abort"
+        case SYNC | BOOT =>  "sync_abort"
       }
       s" $abortKind $abortCond"
     }
