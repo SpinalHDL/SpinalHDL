@@ -23,6 +23,11 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int, readOnly : Boolean) ext
   val prot   = if(config.useProt)   Bits(3 bits)                else null
   val allStrb = if(config.useAllStrb && !readOnly) Bool()       else null
 
+  // ACE signal additions
+  // TODO: formal asserts about combination of AxDOMAIN and AxCACHE (ARM IHI 0022E, Table C3-3)
+  val domain = if(config.isAce)     Bits(2 bits)               else null
+  val bar    = if(config.isAce)     Bits(2 bits)                else null
+
   import Axi4.burst._
 
   def setBurstFIXED(): Unit = {assert(config.useBurst); burst := FIXED}
@@ -35,7 +40,6 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int, readOnly : Boolean) ext
   def setSize(sizeBurst :UInt) : Unit = if(config.useBurst) size := sizeBurst
   def setFullSize() : Unit = this.setSize(log2Up(config.dataWidth/8))
   def setLock(lockType :Bits) : Unit = if(config.useLock) lock := lockType
-  def setCache(cacheType : Bits) : Unit = if (config.useCache ) cache := cacheType
   def setQos(qosType : Bits) : Unit = if (config.useQos) qos := qosType
   def setProt(protType : Bits) : Unit = if (config.useProt) prot := protType
 
@@ -158,14 +162,22 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int, readOnly : Boolean) ext
 
 
 class Axi4Aw(config: Axi4Config) extends Axi4Ax(config, config.awUserWidth, readOnly = false){
+  val snoop  = if(config.isAce)     Bits(3 bits)                else null
+  val unique = if(config.aceConfig.get.useAwUnique) Bool()        else null
+
   override def clone: this.type = new Axi4Aw(config).asInstanceOf[this.type]
 }
 class Axi4Ar(config: Axi4Config) extends Axi4Ax(config, config.arUserWidth, readOnly = true){
+  val snoop  = if(config.isAce)     Bits(4 bits)                else null
+
   override def clone: this.type = new Axi4Ar(config).asInstanceOf[this.type]
 }
 class Axi4Arw(config: Axi4Config) extends Axi4Ax(config, config.arwUserWidth, readOnly = false){
   val write = Bool()
+
   override def clone: this.type = new Axi4Arw(config).asInstanceOf[this.type]
+
+  require(!config.isAce, "Axi4Shared does not support ACE4 extensions")
 }
 
 
@@ -228,7 +240,12 @@ case class Axi4B(config: Axi4Config) extends Bundle {
 case class Axi4R(config: Axi4Config) extends Bundle {
   val data = Bits(config.dataWidth bits)
   val id   = if(config.useId)    UInt(config.idWidth bits)    else null
-  val resp = if(config.useResp)  Bits(2 bits)                 else null
+  val resp = if(config.useResp) {
+    if (config.isAceFull) Bits(4 bits) else Bits(2 bits)
+  } else {
+    require(!config.isAceFull, "ACE full requires RRESP")
+    null
+  }
   val last = if(config.useLast)  Bool()                       else null
   val user = if(config.useRUser) Bits(config.rUserWidth bits) else null
 
@@ -250,10 +267,27 @@ case class Axi4R(config: Axi4Config) extends Bundle {
   }
 }
 
+case class Ace4Ac(config: Axi4Config) extends Bundle {
+  require(config.aceConfig.nonEmpty, "trying to instantiate AC channel for a AXI4 instance without ACE enabled")
 
+  val addr = UInt(config.addressWidth bits)
+  val snoop = Bits(4 bits)
+  val prot = if (config.useProt) Axi4.prot() else null
+}
 
+case class Ace4Cr(config: Axi4Config) extends Bundle {
+  require(config.aceConfig.nonEmpty, "trying to instantiate CR channel for a AXI4 instance without ACE enabled")
 
+  val resp = Bits(5 bits)
+}
 
+case class Ace4Cd(config: Axi4Config) extends Bundle {
+  require(config.aceConfig.nonEmpty, "trying to instantiate CD channel for a AXI4 instance without ACE enabled")
+  require(config.aceConfig.get.useSnoopData, "trying to instantiate CD channel without snoop data enabled")
+
+  val data = Bits(config.aceConfig.get.snoopDataWidth bits)
+  val last = Bool()
+}
 
 class Axi4AxUnburstified(val config : Axi4Config, userWidth : Int) extends Bundle {
   val addr   = UInt(config.addressWidth bits)
@@ -513,7 +547,7 @@ case class FormalAxi4Record(val config: Axi4Config, maxStrbs: Int) extends Bundl
     val lenCond = if (config.useLen) len === ax.len else True
     val sizeCond = if (config.useSize) size === ax.size else True
     val idCond = if (config.useId) id === ax.id else True
-    addrCond & lockCond & burstCond & lenCond & sizeCond & idCond  
+    addrCond & lockCond & burstCond & lenCond & sizeCond & idCond
   }
 
   def assignFromW(w: Stream[Axi4W], selected: FormalAxi4Record) = new Area {
