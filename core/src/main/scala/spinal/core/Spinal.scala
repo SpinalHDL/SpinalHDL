@@ -177,7 +177,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var singleTopLevel             : Boolean = true,
                         var noAssertAtTimeZero         : Boolean = false,
                         var cutLongExpressions         : Boolean = true,
-                        var withTimescale              : Boolean = false,
+                        var withTimescale              : Boolean = true,
                         var emitFullComponentBindings  : Boolean = true,
                         var svInterface                : Boolean = false
 ){
