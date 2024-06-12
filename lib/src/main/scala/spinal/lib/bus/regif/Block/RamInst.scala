@@ -16,7 +16,7 @@ class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, sec: Secure
   val bus = MemBus(MemBusConfig(aw = log2Up(size/bi.wordAddressInc), dw = bi.busDataWidth))
   bus.ce   :=  hitDoRead || hitDoWrite
   bus.wr   :=  hitDoWrite
-  bus.addr := (bi.readAddress - U(addr)).resized
+  bus.addr := (bi.readAddress - U(addr)).dropLow(bi.underbitWidth).asUInt.resized
   bus.wdat :=  bi.writeData
   bus.setName(s"${name}_mbus")
 
