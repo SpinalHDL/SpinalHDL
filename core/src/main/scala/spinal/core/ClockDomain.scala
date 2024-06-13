@@ -378,7 +378,7 @@ case class ClockDomain(clock       : Bool,
 //                               reset : String = if(config.resetActiveLevel == HIGH) "reset" else "resetn",
 //                               softReset : String = if(config.softResetActiveLevel == HIGH) "soft_reset" else "soft_resetn",
 //                               enable : String  = if(config.clockEnableActiveLevel == HIGH) "clk_en" else "clk_en"): this.type ={
-def renamePulledWires(clock     : String = null,
+  def renamePulledWires(clock     : String = null,
                       reset     : String = null,
                       softReset : String = null,
                       enable    : String = null): this.type ={
@@ -496,4 +496,6 @@ def renamePulledWires(clock     : String = null,
       case _ : Throwable => return UnknownFrequency()
     }
   }
+
+  class Area extends ClockingArea(this)
 }

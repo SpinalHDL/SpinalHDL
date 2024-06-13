@@ -5,7 +5,7 @@ package spinal.tester.code
 
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
-import spinal.core.fiber.{Fiber, Handle, Lock, Lockable}
+import spinal.core.fiber.{Fiber, Handle, Lock, Lockable, Retainer}
 import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, MemBlackboxOf, Operator, Phase, PhaseContext, PhaseMemBlackBoxingWithPolicy, PhaseNetlist, RangedAssignmentFixed, RangedAssignmentFloating}
 import spinal.lib._
 import spinal.core.sim._
@@ -1592,7 +1592,10 @@ class DemoBlackbox extends BlackBox {
   val io = new Bundle{
     val a = in Bool()
     val b = out Bool()
+    val clk, rst = in Bool()
   }
+
+
   setInlineVerilog(
     """
       |module DemoBlackBox(
@@ -1602,6 +1605,10 @@ class DemoBlackbox extends BlackBox {
       |assign b = a;
       |endmodule
       |""".stripMargin)
+
+  mapCurrentClockDomain(io.clk, io.rst)
+
+  setIoCd()
 }
 
 class Arrayer[T <: Data](dataType: => T, count: Int) extends Area {
@@ -1662,7 +1669,7 @@ class Test12345 extends Component{
     val b2 = out Bool()
   }
   val black = new DemoBlackbox
-  black.io.a <> io.a
+  black.io.a <> ClockDomain.external("asd")(RegNext(io.a))
   black.io.b <> io.b
   val blue = new DemoBlackbox
   blue.io.a <> io.a2
@@ -2352,6 +2359,152 @@ object PlayLockV3 extends App{
     val retainer = new lock.Retainer
     val f2 = Fiber build new Area {
       //      lock.release()
+    }
+  })
+}
+
+
+object PlayComposablePlugin2 extends App {
+
+  import spinal.lib.misc.pipeline._
+
+  class PluginA extends FiberPlugin {
+    val retainer = Retainer()
+
+    val logic = during setup new Area{
+      val b = host[PluginB]
+      val bRetainer = retains(b.retainer)
+      awaitBuild()
+      retainer.await()
+    }
+  }
+
+  class PluginB extends FiberPlugin {
+    val retainer = Retainer()
+
+    val logic = during setup new Area {
+      val c = host[PluginC]
+      val cRetainer = retains(c.retainer)
+      awaitBuild()
+      retainer.await()
+    }
+  }
+
+  class PluginC extends FiberPlugin {
+    val retainer = Retainer()
+
+    val logic = during setup new Area {
+      val a = host[PluginA]
+      val aRetainer = retains(a.retainer)
+      awaitBuild()
+      retainer.await()
+    }
+  }
+
+
+  class VexiiRiscv extends Component {
+    val host = new PluginHost
+  }
+
+  SpinalVerilog{
+    val toplevel = new VexiiRiscv()
+
+    //Now let's parametrize the CPU with some plugins
+    toplevel.host.asHostOf(List(
+      new PluginA(),
+      new PluginB(),
+      new PluginC()
+    ))
+
+    toplevel
+  }
+}
+
+
+object PlayComposablePlugin3 extends App {
+
+  import spinal.lib.misc.pipeline._
+
+
+  class PluginX extends FiberPlugin {
+    val logic = during setup new Area {
+      val x = True
+    }
+  }
+
+  class PluginY extends FiberPlugin {
+    val logic = during setup new Area {
+      val Y = True
+    }
+  }
+
+  class VexiiRiscv extends Component {
+    val host = new PluginHost
+    val plugX = new PluginX()
+    host.asHostOf(plugX)
+  }
+
+  SpinalVerilog{
+    val toplevel = new VexiiRiscv()
+
+    //Now let's parametrize the CPU with some plugins
+    toplevel.host.asHostOf(List(
+      new PluginY()
+    ))
+
+    toplevel
+  }
+}
+
+
+import spinal.core._
+import spinal.core.fiber.Handle
+import spinal.lib._
+import spinal.lib.misc.plugin._
+
+class Plugin1 extends FiberPlugin {
+  val logic = during setup new Area {
+    val int = host[Plugin2].logic.const
+  }
+}
+
+class Plugin2 extends FiberPlugin {
+  val logic: Handle[Area with Object{val const: Bool}] = during setup new Area {
+    val const = True
+    awaitBuild()
+    val o = out(Bool())
+    o := host[Plugin1].logic.int
+  }
+}
+
+class PluginTest extends Component {
+  val host = new PluginHost
+  host.asHostOf(new Plugin2, new Plugin1)
+}
+
+object PluginTest extends App {
+  SpinalVerilog(new PluginTest)
+}
+
+object FiberTest123 extends App {
+  SpinalVerilog(new Component{
+    val x = Fiber build new Area {
+
+    }
+    val y = Fiber setup new Area {
+      x.get
+    }
+  })
+}
+
+object FiberTest1234 extends App {
+  SpinalVerilog(new Component{
+    val z = Handle[Int]
+    val x = Fiber build new Area {
+
+    }
+    val y = Fiber setup new Area {
+      z.get
     }
   })
 }

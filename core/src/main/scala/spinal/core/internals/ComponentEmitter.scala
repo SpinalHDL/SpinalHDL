@@ -99,7 +99,20 @@ abstract class ComponentEmitter {
   }
 
   def isSubComponentInputBinded(data: BaseType) = {
-    if(data.isInput && data.isComb && Statement.isFullToFullStatement(data)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
+    var hasOtherUse = false
+    if(data.isInput && data.isComb && Statement.isFullToFullStatementOrLit(data)) {
+      data.component.parent.dslBody.foreachStatements{
+        case x: AssignmentStatement => {
+          if(x.source == data) {hasOtherUse = true}
+          x.source.walkExpression{
+            case x: BaseType => if(x == data) {hasOtherUse = true}
+            case _ =>
+          }
+        }
+        case _ =>
+      }
+    }
+    if(data.isInput && data.isComb && (if(hasOtherUse) Statement.isFullToFullStatement(data) else Statement.isFullToFullStatementOrLit(data))/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
       data.head.source
     else
       null

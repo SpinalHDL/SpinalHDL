@@ -10,8 +10,7 @@ import scala.reflect.runtime.universe._
 
 class FiberPlugin extends Area with Hostable {
   this.setName(ClassName(this))
-
-  def withPrefix(prefix: String) = setName(prefix + "_" + getName())
+  def withPrefix(prefix: String) = setName(prefix + "_" + ClassName(this))
 
   def retains(that: Seq[Any]) = RetainerGroup(that)
   def retains(head: Any, tail: Any*) = RetainerGroup(head +: tail)
@@ -56,6 +55,9 @@ class FiberPlugin extends Area with Hostable {
     h.addService(this)
     subservices.foreach(h.addService)
     host = h
+    if(!isNamed){
+      this.setName(ClassName(this))
+    }
     hostLock.release()
   }
 
@@ -63,7 +65,11 @@ class FiberPlugin extends Area with Hostable {
     def setup[T: ClassTag](body: => T): Handle[T] = spinal.core.fiber.Fiber setup {
       pluginEnabled generate {
         hostLock.await()
-        host.rework(body)
+        val onCreate = OnCreateStack.getOrElse(null)
+        host.rework {
+          OnCreateStack.set(onCreate)
+          body
+        }
       }
     }
 
@@ -72,7 +78,11 @@ class FiberPlugin extends Area with Hostable {
       spinal.core.fiber.Fiber build {
         pluginEnabled generate {
           hostLock.await()
-          val ret = host.rework(body)
+          val onCreate = OnCreateStack.getOrElse(null)
+          val ret = host.rework{
+            OnCreateStack.set(onCreate)
+            body
+          }
           buildCount -= 1
           if (buildCount == 0) {
             lockables.foreach(_().release())

@@ -644,3 +644,31 @@ object CpuDemo extends App{
     dut.clockDomain.waitSampling(100)
   }
 }
+
+
+
+class PipelineMul(width : Int) extends Component {
+  val io = new Bundle {
+    val a,b = in UInt(width bits)
+    val result = out UInt(2*width bits)
+  }
+
+  // Let's define the Nodes for our pipeline
+  val nodes = Array.fill(width)(Node())
+  val connectors = Array.tabulate(width-1)(i => StageLink(nodes(i), nodes(i + 1)))
+  val A = nodes(0).insert(io.a)
+  val B = nodes(0).insert(io.b)
+
+  val ACC = Array.tabulate(width)(i => Payload(UInt(width + i + 1 bits)))
+  for(i <- 0 until width; node = nodes(i)) new node.Area {
+    ACC(i) := (i == 0).mux[UInt](0, ACC(i-1)) +^ (A << i).andMask(B(i))
+  }
+
+  io.result := nodes.last(ACC.last)
+
+  Builder(connectors)
+}
+
+object PipelineMul extends App{
+  SpinalVerilog(new PipelineMul(8))
+}

@@ -7,6 +7,7 @@ import java.util.concurrent.ForkJoinPool
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.collection.Seq
+import scala.util.Random
 
 /**
  * Created by PIC32F_USER on 16/07/2017.
@@ -83,7 +84,7 @@ object Bench {
     }).toMap
 
     for (rtl <- rtls) {
-      for (target <- targets) {
+      for (target <- Random.shuffle(targets)) {
         Await.ready(results(rtl)(target), Duration.Inf)
       }
     }

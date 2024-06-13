@@ -1804,7 +1804,7 @@ end
     case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)}, ${e.delay})"
     case e : Operator.Formal.Rose                     => s"$$rose(${emitExpression(e.source)})"
     case e : Operator.Formal.Fell                     => s"$$fell(${emitExpression(e.source)})"
-    case e : Operator.Formal.Changed                  => s"!$$stable(${emitExpression(e.source)})"
+    case e : Operator.Formal.Changed                  => s"$$changed(${emitExpression(e.source)})"
     case e : Operator.Formal.Stable                   => s"$$stable(${emitExpression(e.source)})"
     case e : Operator.Formal.InitState                => s"$$initstate()"
     case e : Operator.Formal.RandomExp                => {

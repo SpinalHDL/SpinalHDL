@@ -66,6 +66,7 @@ class MemoryAgent(bus: Bus,
     val r = simRandom.nextFloat()
     cd.waitSampling((r * r * 20).toInt) //Will enable out of order handeling
   }
+  def checkAddress(address : Long) = true
 
   override def onA(a: TransactionA) = {
     if(bus.p.withBCE && simRandom.nextFloat() < randomProberFactor) fork {
@@ -86,24 +87,29 @@ class MemoryAgent(bus: Bus,
       delayOnA(a)
       val blockAddress = a.address.toLong & ~(blockSize-1)
       reserve(blockAddress)
+      val ok = checkAddress(a.address.toLong)
       a.opcode match {
         case Opcode.A.GET => {
           handleCoherency(a, Param.Cap.toN)
           if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
           val d = TransactionD(a)
           d.opcode = Opcode.D.ACCESS_ACK_DATA
-          d.data = mem.readBytes(a.address.toLong, a.bytes)
+          d.denied = !ok
+          if(ok) d.data = mem.readBytes(a.address.toLong, a.bytes)
+          if(!ok)  d.data = Array.fill(a.bytes)(simRandom.nextInt().toByte)
           driver.scheduleD(d)
         }
         case Opcode.A.PUT_PARTIAL_DATA | Opcode.A.PUT_FULL_DATA => { //TODO probePerm not tested
           handleCoherency(a, Param.Cap.toN, a.bytes == blockSize && a.opcode == Opcode.A.PUT_FULL_DATA)
           if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
-          mem.write(a.address.toLong, a.data, a.mask)
+          if(ok) mem.write(a.address.toLong, a.data, a.mask)
           val d = TransactionD(a)
           d.opcode = Opcode.D.ACCESS_ACK
+          d.denied = !ok
           driver.scheduleD(d)
         }
         case Opcode.A.ACQUIRE_BLOCK => {
+          assert(ok)
           val probe = handleCoherency(a, Param.Grow.getCap(a.param))
           if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
 
@@ -127,6 +133,7 @@ class MemoryAgent(bus: Bus,
 
         }
         case Opcode.A.ACQUIRE_PERM => {
+          assert(ok)
           val probe = handleCoherency(a, Param.Grow.getCap(a.param))
           if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
           assert(probe.unique)
