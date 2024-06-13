@@ -163,13 +163,13 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int, readOnly : Boolean) ext
 
 
 class Axi4Aw(config: Axi4Config) extends Axi4Ax(config, config.awUserWidth, readOnly = false){
-  val snoop  = if(config.withAce)     Bits(3 bits)                else null
-  val unique = if(config.aceConfig.get.useAwUnique) Bool()        else null
+  val snoop  = if(config.withAce)     Bits(3 bits)                           else null
+  val unique = if(config.withAce && config.aceConfig.get.useAwUnique) Bool() else null
 
   override def clone: this.type = new Axi4Aw(config).asInstanceOf[this.type]
 }
 class Axi4Ar(config: Axi4Config) extends Axi4Ax(config, config.arUserWidth, readOnly = true){
-  val snoop  = if(config.withAce)     Bits(4 bits)                else null
+  val snoop  = if(config.withAce)     Bits(4 bits)                           else null
 
   override def clone: this.type = new Axi4Ar(config).asInstanceOf[this.type]
 }
