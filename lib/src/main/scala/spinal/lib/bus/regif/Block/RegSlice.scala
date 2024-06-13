@@ -59,6 +59,20 @@ abstract class RegSlice(val name: String, val addr: BigInt, val doc: String, val
 
 //  lazy val blockPassLogic = if(blockSignals.isEmpty) None else Option(blockSignals.reduceLeft(_ & _))
 
+  def wrSecureError() = {
+    secureLogic._1 match {
+      case Some(pass: Bool) => !pass
+      case None => False
+    }
+  }
+
+  def rdSecureError(err: Bool) = {
+    secureLogic._2 match {
+      case Some(pass: Bool) => (!pass) || err
+      case None => err
+    }
+  }
+
   def wrSecurePassage(access: Bool) = {
     secureLogic._1 match {
       case Some(nspass: Bool) => access & nspass
@@ -135,4 +149,9 @@ abstract class RegSlice(val name: String, val addr: BigInt, val doc: String, val
   }
 
   def readGenerator(): Unit
+  def wrErrorGenerator() = {
+    is(addr) {
+      bi.reg_wrerr := wrSecureError()
+    }
+  }
 }

@@ -9,7 +9,7 @@ case class WishboneBusInterface( bus: Wishbone, sizeMap: SizeMapping, override v
   override val busAddrWidth: Int = bus.config.addressWidth
   override val withStrb: Boolean = false
 
-  val bus_rderr: Bool = Bool()
+  lazy val reg_wrerr: Bool = Reg(Bool(), init = False)
   val bus_rdata: Bits  = Bits(busDataWidth bits)
   val reg_rderr: Bool = Bool()
   val reg_rdata: Bits = Bits(busDataWidth bits)
@@ -49,7 +49,7 @@ case class WishboneBusInterface( bus: Wishbone, sizeMap: SizeMapping, override v
     (bus.CYC && bus.STB && !halted && !bus.WE).allowPruning()
   val writeData = bus.DAT_MOSI
 
-  if (bus.config.useERR) bus.ERR := bus_rderr
+  if (bus.config.useERR) bus.ERR := bus_slverr
 
   val byteAddress = bus.byteAddress(AddressGranularity.BYTE)
   override def readAddress() = byteAddress
