@@ -132,6 +132,7 @@ trait BusIf extends BusIfBase {
 
   component.addPrePopTask(() => {
     this.readGenerator()
+    if(withSecFireWall) this.writeErrorGenerator()
   })
 
 
@@ -290,13 +291,20 @@ trait BusIf extends BusIfBase {
     val mux = WhenBuilder()
     RamInsts.foreach{ ram =>
       mux.when(ram.ram_rdvalid) {
-        bus_rderr := False
+//        bus_rderr := False
         bus_rdata := ram.readBits
       }
     }
     mux.otherwise {
-      bus_rderr := reg_rderr
+//      bus_rderr := reg_rderr
       bus_rdata := reg_rdata
+    }
+  }
+
+  private def writeErrorGenerator(): Unit = {
+    reg_wrerr := False
+    SliceInsts.foreach{ x =>
+      x.wrErrorGenerator()
     }
   }
 }
