@@ -47,6 +47,7 @@ object Component {
 
   def toplevel : Component = {
     var ptr = Component.current
+    if(ptr == null) ptr = GlobalData.get.toplevel
     while(ptr.parent != null) ptr = ptr.parent
     ptr
   }

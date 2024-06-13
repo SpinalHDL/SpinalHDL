@@ -78,6 +78,11 @@ object JtagVpi {
       // main receive and processing loop
       while (this.synchronized(connection) != null) {
         try {
+          // Wait for input data, otherwise readFully would block the simulation
+          while(inputStream.available() < MaxSizeOfVpiCmd) {
+            sleep(jtagClkPeriod * 200)
+          }
+
           inputStream.readFully(buffer)
 
           val vpiCmd = deserializeVpiCmd(buffer)

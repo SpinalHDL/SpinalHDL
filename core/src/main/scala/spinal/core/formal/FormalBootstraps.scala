@@ -24,7 +24,7 @@ import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{PhaseContext, PhaseNetlist}
 import spinal.core.sim.SimWorkspace
-import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport}
+import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, ClockDomain, ASYNC}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -48,6 +48,25 @@ object FormalWorkspace {
 class SpinalFormalBackendSel
 object SpinalFormalBackendSel {
   val SYMBIYOSYS = new SpinalFormalBackendSel
+}
+
+class FormalPhase extends PhaseNetlist{
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkComponents{ c =>
+      if(c.isFormalTester){
+        val cds = mutable.LinkedHashMap[ClockDomain, ClockDomain]()
+        c.dslBody.walkStatements{s =>
+          s.remapClockDomain{cd =>
+            if(cd.config.resetKind == ASYNC){
+              cds.getOrElseUpdate(cd,cd.withSyncReset())
+            } else {
+              cd
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 /** SpinalSim configuration
@@ -107,6 +126,11 @@ case class SpinalFormalConfig(
     this
   }
 
+  def withSyncOnly: this.type = {
+    _hasAsync = false
+    this
+  }
+
   def workspacePath(path: String): this.type = {
     _workspacePath = path
     this
@@ -142,29 +166,45 @@ case class SpinalFormalConfig(
     this
   }
 
-  def doVerify[T <: Component](report: SpinalReport[T]): Unit = compile(report).doVerify()
-  def doVerify[T <: Component](report: SpinalReport[T], name: String): Unit =
+  def doVerify[T <: Component](report: SpinalReport[T])(implicit className: String): Unit = { 
+    if(!className.isEmpty) workspaceName(className)
+    compile(report).doVerify()
+  }
+  def doVerify[T <: Component](report: SpinalReport[T], name: String)(implicit className: String): Unit = {
+    if(!className.isEmpty) workspaceName(className)
     compile(report).doVerify(name)
+  }
 
-  def doVerify[T <: Component](rtl: => T): Unit = compile(rtl).doVerify()
-  def doVerify[T <: Component](rtl: => T, name: String): Unit = compile(rtl).doVerify(name)
+  def doVerify[T <: Component](rtl: => T)(implicit className: String): Unit = {
+    if(!className.isEmpty) workspaceName(className)
+    compile(rtl).doVerify()
+  }
+  def doVerify[T <: Component](rtl: => T, name: String)(implicit className: String): Unit = {
+    if(!className.isEmpty) workspaceName(className)
+    compile(rtl).doVerify(name)
+  }
 
   def compile[T <: Component](rtl: => T): FormalBackend = {
     this.copy().compileCloned(rtl)
   }
 
   def compileCloned[T <: Component](rtl: => T): FormalBackend = {
+    if (_workspacePath.startsWith("~"))
+      _workspacePath = System.getProperty("user.home") + _workspacePath.drop(1)
+
     val uniqueId = FormalWorkspace.allocateUniqueId()
-    new File(s"tmp").mkdirs()
-    new File(s"tmp/job_$uniqueId").mkdirs()
-    val config = _spinalConfig
-      .copy(targetDirectory = s"tmp/job_$uniqueId")
+    new File(s"${_workspacePath}/tmp").mkdirs()
+    new File(s"${_workspacePath}/tmp/job_$uniqueId").mkdirs()
+    
+    val config = _spinalConfig.addTransformationPhase(new FormalPhase)
+      .copy(targetDirectory = s"${_workspacePath}/tmp/job_$uniqueId")
       .addTransformationPhase(new PhaseNetlist {
         override def impl(pc: PhaseContext): Unit = pc.walkComponents {
           case b: BlackBox if b.isBlackBox && b.isSpinalSimWb => b.clearBlackBox()
           case _                                              =>
         }
       })
+
     val report = _backend match {
       case SpinalFormalBackendSel.SYMBIYOSYS =>
         // config.generateVerilog(rtl)
@@ -225,7 +265,7 @@ case class SpinalFormalConfig(
 
       val dst = rtlDir.resolve(src.getName)
       FileUtils.copyFileToDirectory(src, rtlDir.toFile())
-      rtlFiles.append(dst.toString)
+      rtlFiles.append(workingWorksplace.relativize(dst).toString)
     }
 
     _backend match {

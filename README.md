@@ -16,7 +16,8 @@ SpinalHDL is:
 ## Links
 
  - Documentation                  <br> https://spinalhdl.github.io/SpinalDoc-RTD/
- - Chinese documentation          <br> https://thucgra.github.io/SpinalHDL_Chinese_Doc/
+ - Chinese documentation          <br> https://spinalhdl.github.io/SpinalDoc-RTD/zh_CN/
+ - Chinese documentation (v1.7.2 from thuCGRA) <br> https://thucgra.github.io/SpinalHDL_Chinese_Doc/
  - API reference                  <br> https://spinalhdl.github.io/SpinalHDL/dev/spinal/index.html
  - Presentation of the language   <br> https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Getting%20Started/presentation.html
  - SBT base project               <br> https://github.com/SpinalHDL/SpinalTemplateSbt

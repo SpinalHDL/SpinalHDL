@@ -24,5 +24,7 @@ class ConnectionRaw(m : NodeUpDown, s : NodeUpDown) extends bus.fabric.MappedCon
       val parameters = Handle[S2mParameters]()
     }
   }
+
+  override def mEmits: MemoryTransfers = up.m2s.parameters.emits
 }
 

@@ -35,9 +35,7 @@ trait UpDown[C] extends Nameable{
 
 trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends UpDown[C]{
   def <<(m : N): C = {
-    val c = connectFrom(m)
-    c.mapping.automatic = Some(DefaultMapping)
-    c
+    connectFrom(m)
   }
 
   def <<(m : Seq[N]): Seq[C] = m.map(this << _)
@@ -54,45 +52,15 @@ trait MappedUpDown[N <: bus.fabric.Node, C <: MappedConnection[N]] extends UpDow
       others.foreach(of)
     }
   }
-  def at(address : BigInt) = new At(_.mapping.automatic = Some(address))
+  def at(address : BigInt) = new At(_.userMapping = Some(address))
   def at(address : BigInt, size : BigInt) : At = at(SizeMapping(address, size))
-  def at(mapping : AddressMapping) = new At(_.mapping.value load mapping)
+  def at(mapping : AddressMapping) = new At(_.userMapping = Some(mapping))
   def connectFrom(m : N) : C
 
 
   def generateMapping(cToAddressWidth : C => Int): Unit ={
     if(withDowns) {
-      var dc = ArrayBuffer[C]()
-      downs.foreach{ c =>
-        c.mapping.automatic match {
-          case Some(v : BigInt) => c.mapping.value load SizeMapping(v, BigInt(1) << cToAddressWidth(c))
-          case Some(DefaultMapping) => dc += c
-          case Some(x : AddressMapping) => c.mapping.value load x
-          case None => c.mapping.value.get
-        }
-      }
-      for(c <- dc){
-        val spec = ArrayBuffer[SizeMapping]()
-        val others = downs.filter(e => e.mapping.automatic.isEmpty || e.mapping.automatic.get != DefaultMapping).flatMap(_.mapping.value.get match {
-          case m : SizeMapping => List(m)
-          case m : OrMapping => m.conds.map(_.asInstanceOf[SizeMapping]) //DefaultMapping only supported if all others are sizeMapping
-        })
-        val sorted = others.sortWith(_.base < _.base)
-        var address = BigInt(0)
-        val endAt = BigInt(1) << cToAddressWidth(c)
-        for(other <- sorted){
-          val size = other.base - address
-          if(size != 0) spec += SizeMapping(address, size)
-          address = other.base + other.size
-        }
-        val lastSize = endAt - address
-        if(lastSize != 0) spec += SizeMapping(address, lastSize)
-        c.mapping.value.load(spec.size match {
-          case 0 => ???
-          case 1 => spec.head
-          case _ => OrMapping(spec)
-        })
-      }
+
     }
   }
 }

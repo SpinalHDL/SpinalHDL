@@ -125,7 +125,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   }
 
   def nameFromLocation[T <: Data](that : T, prefix : String)(implicit loc: Location) : T ={
-    that.setCompositeName(this, prefix + "_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
+    that.setCompositeName(this, prefix + "_" + loc.fileSymbol + "_l" + loc.line, Nameable.REMOVABLE)
   }
 
   implicit def stageablePiped[T <: Data](stageable: Stageable[T])(implicit key : StageableOffset = StageableOffsetNone) = Stage.this(stageable, key.value)

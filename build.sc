@@ -104,14 +104,23 @@ trait Core extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   }
 }
 
-object tester extends Cross[Tester](Version.SpinalVersion.compilers)
-trait Tester extends SpinalModule with SpinalPublishModule with CrossSbtModule {
+object crossTester extends Cross[CrossTester](Version.SpinalVersion.compilers)
+trait CrossTester extends SpinalModule with SpinalPublishModule with CrossSbtModule {
+  override def millSourcePath = os.pwd / "tester"
   def mainClass = Some("spinal.tester")
   def moduleDeps = Seq(core(crossScalaVersion), sim(crossScalaVersion), lib(crossScalaVersion))
-  def scalacOptions = super.scalacOptions()
+  def scalacOptions = super.scalacOptions() ++ idslplugin(crossScalaVersion).pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:${scalatestVersion}")
 
   object test extends CrossSbtModuleTests with TestModule.ScalaTest {
     def ivyDeps = Agg(ivy"org.scalatest::scalatest::${scalatestVersion}")
   }
+}
+
+object tester extends Module {
+  val defaultTester = crossTester(Version.SpinalVersion.compilers.head)
+  object test extends Module {
+    def testOnly(args: String*) = T.command { defaultTester.test.testOnly(args: _*) }
+  }
+  def runMain(mainClass: String) = T.command { defaultTester.runMain(mainClass) }
 }

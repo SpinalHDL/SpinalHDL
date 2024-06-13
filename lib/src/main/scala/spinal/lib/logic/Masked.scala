@@ -19,6 +19,8 @@ case class Masked(value : BigInt,care : BigInt){
   assert((value & ~care) == 0)
   var isPrime = true
 
+  def scalaDef = s"""Masked(BigInt("$value"), BigInt("$care")) """
+
   def < (that: Masked) = value < that.value || value == that.value && ~care < ~that.care
 
   def intersects(x: Masked) = ((value ^ x.value) & care & x.care) == 0

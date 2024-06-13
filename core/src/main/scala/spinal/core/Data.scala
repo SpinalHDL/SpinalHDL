@@ -22,7 +22,7 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
-import spinal.idslplugin.Location
+import spinal.idslplugin.{Location, PostInitCallback}
 
 import scala.collection.Seq
 
@@ -646,13 +646,19 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       val constructor      = clazz.getConstructors.head
       val constrParamCount = constructor.getParameterTypes.length
 
-      //No param =>
-      if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
       def cleanCopy[T <: Data](that: T): T = {
+        that match {
+          case pcb : PostInitCallback => pcb.postInitCallback()
+          case _ => 
+        }
         that.purify()
         that
       }
+
+      //No param =>
+      if (constrParamCount == 0) return cleanCopy(constructor.newInstance().asInstanceOf[this.type])
+
 
       def constructorParamsAreVal: this.type = {
         val outer         = clazz.getFields.find(_.getName == "$outer")
@@ -784,6 +790,30 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   // Cat this count times
   def #* (count : Int) =  Cat(List.fill(count)(this))
+
+  /**
+    * root interface
+    */
+  def rootIF(): Interface = {
+    rootIFrec(this, Nil).head
+  }
+
+  def rootIFList(): List[Interface] = {
+    rootIFrec(this, Nil)
+  }
+
+  def rootIFrec(now: Data, lastRoot: List[Interface]): List[Interface] = {
+    if(now.parent == null) {
+      lastRoot
+    } else if(now.parent.isInstanceOf[Interface]) {
+      now.parent match {
+        case x: Interface if x.thisIsNotSVIF => lastRoot
+        case _ => rootIFrec(now.parent, now.parent.asInstanceOf[Interface] :: lastRoot)
+      }
+    } else {
+      rootIFrec(now.parent, lastRoot)
+    }
+  }
 }
 
 trait DataWrapper extends Data{

@@ -9,7 +9,8 @@ import spinal.lib.system.tag._
 
 
 //TODO remove probe on IO regions
-class CacheFiber() extends Area{
+class CacheFiber(withCtrl : Boolean = false) extends Area{
+  val ctrl = withCtrl generate fabric.Node.up()
   val up = Node.slave()
   val down = Node.master()
 
@@ -24,16 +25,11 @@ class CacheFiber() extends Area{
     coherentRegion = null
   )
 
-
-  val mappingLock = Lock().retain()
   new MemoryConnection{
     override def up = CacheFiber.this.up
     override def down = CacheFiber.this.down
     override def transformers = Nil
-    override def mapping = {
-      mappingLock.get //Ensure that the parameter is final
-      SizeMapping(0, BigInt(1) << parameter.addressWidth)
-    }
+
     override def sToM(down: MemoryTransfers, args: MappedNode) = {
       down match{
         case t : M2sTransfers => {
@@ -63,6 +59,11 @@ class CacheFiber() extends Area{
         )
       )
     )
+
+    if(withCtrl){
+      ctrl.m2s.supported load SlaveFactory.getSupported(12, ctrl.m2s.proposed.dataWidth.min(64), true, ctrl.m2s.proposed)
+      ctrl.s2m.none()
+    }
 
     up.m2s.supported.load(
       down.m2s.supported.copy(
@@ -96,8 +97,8 @@ class CacheFiber() extends Area{
     )
     up.s2m.setProposedFromParameters()
 
+    if(withCtrl) parameter.cnp = ctrl.bus.p.node
     parameter.unp = up.bus.p.node
-    mappingLock.release()
 
     val transferSpec = MemoryConnection.getMemoryTransfers(up)
     val probeSpec = transferSpec.filter(_.transfers.asInstanceOf[M2sTransfers].withBCE)
@@ -109,6 +110,8 @@ class CacheFiber() extends Area{
     parameter.allocateOnMiss =  (op, src, addr, size) => parameter.coherentRegion(addr)
     val cache = new Cache(parameter)
     //TODO probeRegion
+
+    if(withCtrl) cache.io.ctrl << ctrl.bus
     cache.io.up << up.bus
     cache.io.down >> down.bus
   }

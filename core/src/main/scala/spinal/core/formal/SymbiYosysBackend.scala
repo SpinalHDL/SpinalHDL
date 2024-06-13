@@ -117,8 +117,9 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
   }
 
   def genSby(): Unit = {
-    val localSources = config.rtlSourcesPaths.map(f => new File(f).getAbsolutePath).mkString("\n")
+    val localSources = config.rtlSourcesPaths.map(f => new File(f)).mkString("\n")
     val read = config.rtlSourcesPaths
+      .filter(!_.endsWith(".bin"))
       .map(f => {
         Paths.get(f).getFileName
       })

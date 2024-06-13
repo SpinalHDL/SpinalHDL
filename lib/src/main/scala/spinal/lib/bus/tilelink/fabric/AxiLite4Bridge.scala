@@ -17,7 +17,6 @@ class AxiLite4Bridge() extends Area{
     override def up = AxiLite4Bridge.this.up
     override def down = AxiLite4Bridge.this.down
     override def transformers = Nil
-    override def mapping = SizeMapping(0, BigInt(1) << AxiLite4Bridge.this.up.m2s.parameters.addressWidth)
     populate()
   }
 

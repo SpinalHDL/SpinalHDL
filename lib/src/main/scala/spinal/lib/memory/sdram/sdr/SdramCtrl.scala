@@ -12,7 +12,7 @@ case class SdramCtrlCmd[T <: Data](c : SdramLayout,contextType : T) extends Bund
   val address = UInt(c.wordAddressWidth bits)
   val write = Bool()
   val data = Bits(c.dataWidth bits)
-  val mask = Bits(c.bytePerWord bits)
+  val mask = Bits(c.bytePerWord bits) // set high to let data be written into the sdram
   val context = cloneOf(contextType)
 }
 

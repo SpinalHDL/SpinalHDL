@@ -15,9 +15,9 @@ class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) ex
 
   val writeJoinEvent = StreamJoin.arg(bus.writeCmd,bus.writeData)
   val writeRsp = AxiLite4B(bus.config)
-  bus.writeRsp <-< writeJoinEvent.translateWith(writeRsp).haltWhen(writeHaltRequest)
+  bus.writeRsp << writeJoinEvent.translateWith(writeRsp).haltWhen(writeHaltRequest).halfPipe()
 
-  val readDataStage = bus.readCmd.stage()
+  val readDataStage = bus.readCmd.halfPipe()
   val readRsp = AxiLite4R(bus.config)
   bus.readRsp << readDataStage.haltWhen(readHaltRequest).translateWith(readRsp)
 

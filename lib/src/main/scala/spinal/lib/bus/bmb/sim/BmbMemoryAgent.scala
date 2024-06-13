@@ -7,7 +7,6 @@ import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 import spinal.lib.sim.{Phase, SimStreamAssert, SparseMemory, StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
 import scala.collection.mutable
-import scala.util.Random
 import spinal.lib.bus.misc.SizeMapping
 
 import scala.collection.mutable.ArrayBuffer
@@ -47,7 +46,7 @@ class BmbMemoryAgent(val memorySize : BigInt = 0) {
         if(rspActive.isEmpty){
           val threads = rspQueue.filter(_.nonEmpty)
           if(threads.nonEmpty){
-            val thread = threads(Random.nextInt(threads.size))
+            val thread = threads(simRandom.nextInt(threads.size))
             rspActive = thread.dequeue()
           }
         }

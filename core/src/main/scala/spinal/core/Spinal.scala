@@ -63,6 +63,8 @@ object Device{
   val ACTEL = Device(vendor = "actel")
   val ASIC = Device(vendor = "asic", supportBootResetKind = false)
   val NONE = Device(vendor = "none")
+
+  def get = GlobalData.get.config.device
 }
 
 
@@ -172,7 +174,12 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var enumPrefixEnable           : Boolean = true,
                         var enumGlobalEnable           : Boolean = false,
                         bitVectorWidthMax              : Int = 4096,
-                        var singleTopLevel             : Boolean = true
+                        var singleTopLevel             : Boolean = true,
+                        var noAssertAtTimeZero         : Boolean = false,
+                        var cutLongExpressions         : Boolean = true,
+                        var withTimescale              : Boolean = true,
+                        var emitFullComponentBindings  : Boolean = true,
+                        var svInterface                : Boolean = false
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)

@@ -473,6 +473,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       }
     }
 
+    def mask = ((BigInt(1) << (high - low + 1)) - 1) << low
   }
 
 
