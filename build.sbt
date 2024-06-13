@@ -2,6 +2,8 @@ import sbt.Keys._
 import sbt._
 import sbt.Tests._
 
+def parallelTest = scala.sys.env.getOrElse("SBT_TEST_PARALLEL", "1") == "1"
+
 val scalatestVersion = "3.2.14"
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
   organization := "com.github.spinalhdl",
@@ -17,7 +19,8 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   scalafmtPrintDiff := true,
 
   //Enable parallel tests
-  Test / testForkedParallel := true,
+  Test / parallelExecution := parallelTest,
+  Test / testForkedParallel := parallelTest,
   Test / testGrouping := (Test / testGrouping).value.flatMap { group =>
 //    for(i <- 0 until 4) yield {
 //      Group("g" + i,  group.tests.zipWithIndex.filter(_._2 % 4 == i).map(_._1), SubProcess(ForkOptions()))
