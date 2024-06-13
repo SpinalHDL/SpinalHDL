@@ -13,10 +13,10 @@ class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, sec: Secure
   val hitDoWrite = wrSecurePassage((bi.readAddress <= U(endaddr)) && (bi.readAddress >= U(addr)) && bi.doWrite)
   hitDoWrite.setName(f"ram_write_hit_0x${endaddr}%04x_0x${addr}%04x", weak = true)
 
-  val bus = MemBus(MemBusConfig(aw = log2Up(size/8), dw = bi.busDataWidth))
+  val bus = MemBus(MemBusConfig(aw = log2Up(size/bi.wordAddressInc), dw = bi.busDataWidth))
   bus.ce   :=  hitDoRead || hitDoWrite
   bus.wr   :=  hitDoWrite
-  bus.addr := (bi.readAddress - U(addr)).resized
+  bus.addr := (bi.readAddress - U(addr)).dropLow(bi.underbitWidth).asUInt.resized
   bus.wdat :=  bi.writeData
   bus.setName(s"${name}_mbus")
 
