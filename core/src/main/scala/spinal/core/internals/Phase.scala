@@ -943,7 +943,15 @@ class MemReadBufferPhase extends PhaseNetlist {
           val tags = port.getTags().collect { case e: MemReadBufferTag => e }
           if (tags.nonEmpty) {
             val enableScope = tags.head.enableScope
-            if (tags.exists(_.enableScope != enableScope)) {
+            val ok = tags.forall { self =>
+              if(self.enableScope == enableScope) true
+              else (enableScope.parentStatement, self.enableScope.parentStatement) match {
+                case (refWhen : WhenStatement, selfWhen : WhenStatement) =>
+                  refWhen.cond == selfWhen.cond
+                case _ => false
+              }
+            }
+            if (!ok) {
               clean(port)
             }
           }
