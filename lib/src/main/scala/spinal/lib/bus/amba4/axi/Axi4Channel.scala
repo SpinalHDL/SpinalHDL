@@ -25,8 +25,8 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int, readOnly : Boolean) ext
 
   // ACE signal additions
   // TODO: formal asserts about combination of AxDOMAIN and AxCACHE (ARM IHI 0022E, Table C3-3)
-  val domain = if(config.isAce)     Bits(2 bits)               else null
-  val bar    = if(config.isAce)     Bits(2 bits)                else null
+  val domain = if(config.withAce)     Bits(2 bits)              else null
+  val bar    = if(config.withAce)     Bits(2 bits)              else null
 
   import Axi4.burst._
 
@@ -162,13 +162,13 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int, readOnly : Boolean) ext
 
 
 class Axi4Aw(config: Axi4Config) extends Axi4Ax(config, config.awUserWidth, readOnly = false){
-  val snoop  = if(config.isAce)     Bits(3 bits)                else null
+  val snoop  = if(config.withAce)     Bits(3 bits)                else null
   val unique = if(config.aceConfig.get.useAwUnique) Bool()        else null
 
   override def clone: this.type = new Axi4Aw(config).asInstanceOf[this.type]
 }
 class Axi4Ar(config: Axi4Config) extends Axi4Ax(config, config.arUserWidth, readOnly = true){
-  val snoop  = if(config.isAce)     Bits(4 bits)                else null
+  val snoop  = if(config.withAce)     Bits(4 bits)                else null
 
   override def clone: this.type = new Axi4Ar(config).asInstanceOf[this.type]
 }
@@ -177,7 +177,7 @@ class Axi4Arw(config: Axi4Config) extends Axi4Ax(config, config.arwUserWidth, re
 
   override def clone: this.type = new Axi4Arw(config).asInstanceOf[this.type]
 
-  require(!config.isAce, "Axi4Shared does not support ACE4 extensions")
+  require(!config.withAce, "Axi4Shared does not support ACE4 extensions")
 }
 
 

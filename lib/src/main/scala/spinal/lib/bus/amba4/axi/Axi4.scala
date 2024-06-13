@@ -80,9 +80,9 @@ case class Axi4Config(addressWidth : Int,
   def useArwUser = arwUserWidth >= 0 //Shared AR/AW channel
   def arwUserWidth = Math.max(arUserWidth, awUserWidth)
 
-  def isAce = aceConfig.nonEmpty
-  def isAceFull = isAce && !aceConfig.get.isAceLite
-  def isAceLite = isAce && aceConfig.get.isAceLite
+  def withAce = aceConfig.nonEmpty
+  def isAceFull = withAce && !aceConfig.get.isAceLite
+  def isAceLite = withAce && aceConfig.get.isAceLite
 
   if(useId)
     require(idWidth >= 0,"You need to set idWidth")
@@ -155,7 +155,7 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
 
   def <<(that : Axi4) : Unit = that >> this
   def >> (that : Axi4) : Unit = {
-    require(!config.isAce && !that.config.isAce, "bus connection with ACE is not implemented yet")
+    require(!config.withAce && !that.config.withAce, "bus connection with ACE is not implemented yet")
 
     this.readCmd drive that.readCmd
     this.writeCmd drive that.writeCmd
