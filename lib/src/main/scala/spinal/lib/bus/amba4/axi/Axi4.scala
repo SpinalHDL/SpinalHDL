@@ -32,8 +32,7 @@ import spinal.lib._
 case class Ace4Config(isAceLite       : Boolean = true,
                       useSnoopData    : Boolean = false,
                       useAwUnique     : Boolean = false,
-                      snoopDataWidth  : Int = -1,
-                     ) {
+                      snoopDataWidth  : Int = -1) {
   if (useSnoopData)
     require(List(32, 64, 128, 256, 512, 1024) contains snoopDataWidth,
       "Valid snoop data width: 32, 64, 128, 256, 512 or 1024 bit")
