@@ -320,6 +320,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     into
   }
 
+  def translateBy[T2 <: Data](driver: (T) => T2): Stream[T2] = {
+    val newPayload = driver(this.payload)
+    translateWith(newPayload)
+  }
+
 /** Replace this stream's payload with another one
   */
   def translateWith[T2 <: Data](that: T2): Stream[T2] = {
