@@ -94,8 +94,9 @@ class EngineContext {
       }
 
       spinal.affinity.Affinity(initialAffinity)
-      (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
-      (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
+      for(thread <- jvmIdleThreads ++ jvmBusyThreads) {
+        thread.unschedule()
+      }
       for (t <- (jvmIdleThreads ++ jvmBusyThreads)) {
         while (t.isAlive()) {
           Thread.sleep(0)
@@ -116,11 +117,36 @@ class EngineContext {
 
       for((handle, threads) <- handleToWaiters){
         println(s"Waiting on $handle defined at ${handle.getScalaLocationShort}:")
-        threads.zipWithIndex.foreach{case(t, i) => println(s"${i+1}) $t")}
+        threads.zipWithIndex.foreach{case(t, i) => println(s"${i+1}) $t at ${t.getLocationShort()}")}
+      }
+
+
+      val explored = mutable.LinkedHashSet[AsyncThread]()
+      def rec(t : AsyncThread, chain : mutable.LinkedHashSet[AsyncThread]): Unit = {
+        if (chain.contains(t)) {
+          println("Fiber chain detected with : ")
+          for(e <- chain.dropWhile(_ != t)){
+            println(s"- ${e} waiting on ${e.waitOn} at ${e.getLocationShort()}")
+          }
+
+          return
+        }
+        if(explored.contains(t)) return
+        explored += t
+        chain += t
+        if(t.waitOn != null && t.waitOn.willBeLoadedBy != null) rec(t.waitOn.willBeLoadedBy, chain)
+      }
+      for(thread <- waiting){
+        rec(thread, new mutable.LinkedHashSet[AsyncThread]())
+      }
+
+      for(thread <- waiting; wo = thread.waitOn if wo != null && wo.willBeLoadedBy != null && wo.willBeLoadedBy.waitOn == null){
+        println(s"Thread ${wo.willBeLoadedBy.getName} forgot to load ${wo}")
       }
 
 //      println(count)
       println("\n")
+      Thread.sleep(10)
       if(!hadException) throw new Exception("SpinalHDL async engine is stuck")
     }
   }

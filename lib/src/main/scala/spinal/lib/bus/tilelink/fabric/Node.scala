@@ -44,6 +44,7 @@ class Node() extends NodeUpDown{
                       d: StreamPipe = StreamPipe.NONE,
                       e: StreamPipe = StreamPipe.NONE) : Unit = {
     setUpConnection(_.connectFrom(_)(a, b, c, d, e))
+    assert(withUps)
   }
 
   def setDownConnection(a: StreamPipe = StreamPipe.NONE,
@@ -52,6 +53,7 @@ class Node() extends NodeUpDown{
                         d: StreamPipe = StreamPipe.NONE,
                         e: StreamPipe = StreamPipe.NONE) : Unit  = {
     setDownConnection(_.connectFrom(_)(a, b, c, d, e))
+    assert(withDowns)
   }
 
   def setEndpoint(): Unit = {
@@ -61,13 +63,14 @@ class Node() extends NodeUpDown{
   }
 
 
-  def forceDataWidth(dataWidth : Int): Unit ={
+  def forceDataWidth(dataWidth : Int): this.type ={
     m2s.proposedModifiers += { s =>
       s.copy(dataWidth = dataWidth)
     }
     m2s.supportedModifiers += { s =>
       s.copy(dataWidth = dataWidth)
     }
+    this
   }
 
   //Will negociate the m2s/s2m handles, then generate the arbiter / decoder required to connect the ups / downs connections

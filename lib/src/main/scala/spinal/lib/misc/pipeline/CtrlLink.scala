@@ -71,8 +71,6 @@ trait CtrlApi {
   def forgetOneNow()(implicit loc: Location): Unit = forgetOneWhen(ConditionalContext.isTrue)
   def ignoreReadyNow()(implicit loc: Location): Unit = ignoreReadyWhen(ConditionalContext.isTrue)
 
-  val bypasses = mutable.LinkedHashMap[NamedTypeKey, Data]()
-
   def forkStream[T <: Data](forceSpawn : Option[Bool] = Option.empty[Bool]): Stream[NoData] = {
     val ret = Stream(NoData())
     val fired = RegInit(False) setCompositeName(ret, "fired")
@@ -106,6 +104,7 @@ class CtrlLink(override val up : Node, override val down : Node) extends Link wi
     that.setCompositeName(this, prefix + "_" + loc.fileSymbol + "_l" + loc.line, Nameable.REMOVABLE)
   }
 
+  val bypasses = mutable.LinkedHashMap[NamedTypeKey, Data]()
   val requests = new{
     val halts = ArrayBuffer[Bool]()
     val duplicates = ArrayBuffer[Bool]()

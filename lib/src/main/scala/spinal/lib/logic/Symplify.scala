@@ -2,8 +2,11 @@ package spinal.lib.logic
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.eda.bench.{AlteraStdTargets, Bench, EfinixStdTargets, Rtl, XilinxStdTargets}
+import spinal.lib.eda.xilinx.VivadoFlow
 
 import scala.collection.mutable
+import scala.math.BigInt
 
 
 object Symplify{
@@ -201,3 +204,203 @@ object SymplifyBit{
     }
   }
 }
+
+
+
+
+
+
+
+
+object SymplifyBench extends App{
+  val all = List(
+    Masked(BigInt("51"), BigInt("4261441663")) ,
+    Masked(BigInt("1073741875"), BigInt("4261441663")) ,
+    Masked(BigInt("8243"), BigInt("4261441663")) ,
+    Masked(BigInt("12339"), BigInt("4261441663")) ,
+    Masked(BigInt("16435"), BigInt("4261441663")) ,
+    Masked(BigInt("24627"), BigInt("4261441663")) ,
+    Masked(BigInt("28723"), BigInt("4261441663")) ,
+    Masked(BigInt("19"), BigInt("28799")) ,
+    Masked(BigInt("8211"), BigInt("28799")) ,
+    Masked(BigInt("12307"), BigInt("28799")) ,
+    Masked(BigInt("16403"), BigInt("28799")) ,
+    Masked(BigInt("24595"), BigInt("28799")) ,
+    Masked(BigInt("28691"), BigInt("28799")) ,
+    Masked(BigInt("55"), BigInt("127")) ,
+    Masked(BigInt("23"), BigInt("127")) ,
+    Masked(BigInt("4147"), BigInt("4261441663")) ,
+    Masked(BigInt("20531"), BigInt("4261441663")) ,
+    Masked(BigInt("1073762355"), BigInt("4261441663")) ,
+    Masked(BigInt("4115"), BigInt("4227887231")) ,
+    Masked(BigInt("20499"), BigInt("4227887231")) ,
+    Masked(BigInt("1073762323"), BigInt("4227887231")) ,
+    Masked(BigInt("111"), BigInt("127")) ,
+    Masked(BigInt("103"), BigInt("28799")) ,
+    Masked(BigInt("99"), BigInt("28799")) ,
+    Masked(BigInt("4195"), BigInt("28799")) ,
+    Masked(BigInt("16483"), BigInt("28799")) ,
+    Masked(BigInt("20579"), BigInt("28799")) ,
+    Masked(BigInt("24675"), BigInt("28799")) ,
+    Masked(BigInt("28771"), BigInt("28799")) ,
+    Masked(BigInt("4211"), BigInt("28799")) ,
+    Masked(BigInt("8307"), BigInt("28799")) ,
+    Masked(BigInt("12403"), BigInt("28799")) ,
+    Masked(BigInt("20595"), BigInt("28799")) ,
+    Masked(BigInt("24691"), BigInt("28799")) ,
+    Masked(BigInt("28787"), BigInt("28799")) ,
+    Masked(BigInt("3"), BigInt("28799")) ,
+    Masked(BigInt("4099"), BigInt("28799")) ,
+    Masked(BigInt("8195"), BigInt("28799")) ,
+    Masked(BigInt("16387"), BigInt("28799")) ,
+    Masked(BigInt("20483"), BigInt("28799")) ,
+    Masked(BigInt("35"), BigInt("28799")) ,
+    Masked(BigInt("4131"), BigInt("28799")) ,
+    Masked(BigInt("8227"), BigInt("28799")) ,
+    Masked(BigInt("15"), BigInt("28799")) ,
+    Masked(BigInt("115"), BigInt("4294967295")) ,
+    Masked(BigInt("1048691"), BigInt("4294967295")) ,
+    Masked(BigInt("807403635"), BigInt("4294967295")) ,
+    Masked(BigInt("4111"), BigInt("28799")) ,
+    Masked(BigInt("273678451"), BigInt("4294967295"))
+  )
+
+  val mayFlush = List(
+    Masked(BigInt("111"), BigInt("127")),
+    Masked(BigInt("103"), BigInt("28799")),
+    Masked(BigInt("99"), BigInt("28799")),
+    Masked(BigInt("4195"), BigInt("28799")),
+    Masked(BigInt("16483"), BigInt("28799")),
+    Masked(BigInt("20579"), BigInt("28799")),
+    Masked(BigInt("24675"), BigInt("28799")),
+    Masked(BigInt("28771"), BigInt("28799")),
+    Masked(BigInt("4211"), BigInt("28799")),
+    Masked(BigInt("8307"), BigInt("28799")),
+    Masked(BigInt("12403"), BigInt("28799")),
+    Masked(BigInt("20595"), BigInt("28799")),
+    Masked(BigInt("24691"), BigInt("28799")),
+    Masked(BigInt("28787"), BigInt("28799")),
+    Masked(BigInt("3"), BigInt("28799")),
+    Masked(BigInt("4099"), BigInt("28799")),
+    Masked(BigInt("8195"), BigInt("28799")),
+    Masked(BigInt("16387"), BigInt("28799")),
+    Masked(BigInt("20483"), BigInt("28799")),
+    Masked(BigInt("35"), BigInt("28799")),
+    Masked(BigInt("4131"), BigInt("28799")),
+    Masked(BigInt("8227"), BigInt("28799")),
+    Masked(BigInt("115"), BigInt("4294967295")),
+    Masked(BigInt("1048691"), BigInt("4294967295")),
+    Masked(BigInt("807403635"), BigInt("4294967295")),
+    Masked(BigInt("4111"), BigInt("28799")),
+    Masked(BigInt("273678451"), BigInt("4294967295"))
+  )
+  val mayFlushNot = (all.toSet -- mayFlush).toList
+
+  val symplify = Rtl(SpinalVerilog(new Component {
+    setDefinitionName("simplify")
+    val input = in Bits (32 bits)
+    val output = out Bool()
+
+    val bufferIn = Delay(input, 3)
+    val value = Symplify(bufferIn, all)
+    output := Delay(value, 3)
+  }))
+
+
+  val raw = Rtl(SpinalVerilog(new Component {
+    setDefinitionName("raw")
+    val input = in Bits (32 bits)
+    val output = out Bool()
+
+    val bufferIn = Delay(input, 3)
+    val value = False
+    switch(bufferIn){
+      for(e <- all){
+        is(new MaskedLiteral(e.value, e.care, 32)){
+          value := True
+        }
+      }
+    }
+    output := Delay(value, 3)
+  }))
+
+  val symplifyFlush = Rtl(SpinalVerilog(new Component {
+    setDefinitionName("simplifyFlush")
+    val input = in Bits (32 bits)
+    val output = out Bool()
+
+    val bufferIn = Delay(input, 3)
+    val value = Symplify(bufferIn, mayFlush, mayFlushNot)
+    output := Delay(value, 3)
+  }))
+
+
+  val rawFlush = Rtl(SpinalVerilog(new Component {
+    setDefinitionName("rawFlush")
+    val input = in Bits (32 bits)
+    val output = out Bool()
+
+    val bufferIn = Delay(input, 3)
+    val value = Bool().assignDontCare()
+    switch(bufferIn) {
+      for (e <- mayFlush) {
+        is(new MaskedLiteral(e.value, e.care, 32)) {
+          value := True
+        }
+      }
+      for (e <- mayFlushNot) {
+        is(new MaskedLiteral(e.value, e.care, 32)) {
+          value := False
+        }
+      }
+    }
+    output := Delay(value, 3)
+  }))
+
+
+  val rtls = List(symplify, raw, symplifyFlush, rawFlush)
+
+  val targets = XilinxStdTargets().take(2) ++ AlteraStdTargets() ++ EfinixStdTargets()
+
+  Bench(rtls, targets)
+}
+
+/*
+simplify ->
+Artix 7 -> 92 Mhz 18 LUT 97 FF
+Artix 7 -> 446 Mhz 18 LUT 98 FF
+Cyclone V -> 364 Mhz 31 ALMs
+Cyclone IV -> 250 Mhz 33 LUT 99 FF
+Trion -> 181 Mhz LUT 37   FF 143
+Trion -> 327 Mhz LUT 37   FF 143
+Titanium -> 754 Mhz LUT 37   FF 143
+Titanium -> 1176 Mhz LUT 37   FF 143
+raw ->
+Artix 7 -> 92 Mhz 19 LUT 97 FF
+Artix 7 -> 471 Mhz 21 LUT 98 FF
+Cyclone V -> 348 Mhz 32 ALMs
+Cyclone IV -> 250 Mhz 33 LUT 99 FF
+Trion -> 194 Mhz LUT 34   FF 141
+Trion -> 338 Mhz LUT 34   FF 141
+Titanium -> 682 Mhz LUT 34   FF 141
+Titanium -> 1050 Mhz LUT 34   FF 141
+simplifyFlush ->
+Artix 7 -> 92 Mhz 2 LUT 13 FF
+Artix 7 -> 495 Mhz 2 LUT 13 FF
+Cyclone V -> 717 Mhz 4 ALMs
+Cyclone IV -> 250 Mhz 1 LUT 15 FF
+Trion -> 276 Mhz LUT 1   FF 15
+Trion -> 506 Mhz LUT 1   FF 15
+Titanium -> 1066 Mhz LUT 1   FF 15
+Titanium -> 1455 Mhz LUT 1   FF 15
+rawFlush ->
+Artix 7 -> 92 Mhz 2 LUT 16 FF
+Artix 7 -> 495 Mhz 2 LUT 16 FF
+Cyclone V -> 470 Mhz 16 ALMs
+Cyclone IV -> 250 Mhz 10 LUT 54 FF
+Trion -> 245 Mhz LUT 15   FF 69
+Trion -> 343 Mhz LUT 15   FF 69
+Titanium -> 720 Mhz LUT 15   FF 69
+Titanium -> 940 Mhz LUT 15   FF 69
+
+ */

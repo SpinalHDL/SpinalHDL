@@ -56,7 +56,7 @@ class FormalDispatcherSequencialTester extends SpinalFormalFunSuite {
         val d2 = UInt(log2Up(portCount) bit)
         d2 := (d1 + 1) % portCount
 
-        val cntSeqCheck = changed(dut.counter.value) && (dut.counter.value === d2)
+        val cntSeqCheck = pastValidAfterReset && changed(dut.counter.value) && (dut.counter.value === d2)
         cover(cntSeqCheck)
         when(cntSeqCheck) {
           assert(past(dut.counter.value) === d1)

@@ -8,7 +8,7 @@ import tilelink.fabric.sim._
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.Component
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.bus.tilelink.coherent.CacheFiber
+import spinal.lib.bus.tilelink.coherent.{CacheFiber, SelfFLush}
 import spinal.lib.bus.tilelink.fabric.{MasterBus, SlaveBus}
 import spinal.lib.bus.tilelink.sim.MasterTester
 import spinal.lib.system.tag.PMA
@@ -47,6 +47,7 @@ class CacheTester extends AnyFunSuite{
         directory.parameter.cacheWays = 4
         directory.parameter.cacheBytes = 4096
         directory.parameter.allocateOnMiss = (op, src, addr, size) => addr(6)
+        directory.parameter.selfFlush = SelfFLush(0x80, 0x1000, 1000)
         directory.up << m0.node
 
         val s0 = new SlaveBus(

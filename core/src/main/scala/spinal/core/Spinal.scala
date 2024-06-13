@@ -63,6 +63,8 @@ object Device{
   val ACTEL = Device(vendor = "actel")
   val ASIC = Device(vendor = "asic", supportBootResetKind = false)
   val NONE = Device(vendor = "none")
+
+  def get = GlobalData.get.config.device
 }
 
 
@@ -175,7 +177,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var singleTopLevel             : Boolean = true,
                         var noAssertAtTimeZero         : Boolean = false,
                         var cutLongExpressions         : Boolean = true,
-                        var withTimescale              : Boolean = false,
+                        var withTimescale              : Boolean = true,
                         var emitFullComponentBindings  : Boolean = true,
                         var svInterface                : Boolean = false
 ){

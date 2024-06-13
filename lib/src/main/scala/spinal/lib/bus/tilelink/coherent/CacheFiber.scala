@@ -9,7 +9,8 @@ import spinal.lib.system.tag._
 
 
 //TODO remove probe on IO regions
-class CacheFiber() extends Area{
+class CacheFiber(withCtrl : Boolean = false) extends Area{
+  val ctrl = withCtrl generate fabric.Node.up()
   val up = Node.slave()
   val down = Node.master()
 
@@ -59,6 +60,11 @@ class CacheFiber() extends Area{
       )
     )
 
+    if(withCtrl){
+      ctrl.m2s.supported load SlaveFactory.getSupported(12, ctrl.m2s.proposed.dataWidth.min(64), true, ctrl.m2s.proposed)
+      ctrl.s2m.none()
+    }
+
     up.m2s.supported.load(
       down.m2s.supported.copy(
         transfers = M2sTransfers(
@@ -91,6 +97,7 @@ class CacheFiber() extends Area{
     )
     up.s2m.setProposedFromParameters()
 
+    if(withCtrl) parameter.cnp = ctrl.bus.p.node
     parameter.unp = up.bus.p.node
 
     val transferSpec = MemoryConnection.getMemoryTransfers(up)
@@ -103,6 +110,8 @@ class CacheFiber() extends Area{
     parameter.allocateOnMiss =  (op, src, addr, size) => parameter.coherentRegion(addr)
     val cache = new Cache(parameter)
     //TODO probeRegion
+
+    if(withCtrl) cache.io.ctrl << ctrl.bus
     cache.io.up << up.bus
     cache.io.down >> down.bus
   }

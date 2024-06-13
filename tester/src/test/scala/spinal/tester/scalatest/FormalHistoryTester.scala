@@ -16,7 +16,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         val outOnly = false
         val depth = 4
         val input = anyseq(Flow(UInt(6 bits)))
-        val dut = HistoryModifyable(input, depth)
+        val dut = FormalDut(HistoryModifyable(input, depth))
         val results = Vec(master(Stream(input.payloadType)), depth)
         val controls = Vec(slave(Stream(input.payloadType)), depth)
         dut.io.outStreams.zip(results).map { case (from, to) => from >> to }
@@ -39,7 +39,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         )
         val overflowModify = controls.sExist(x => x.fire && x.payload === dataOverflow)
         val overflowCount = outCount(dataOverflow)
-        when(past(dut.io.willOverflow && results.last.payload === dataOverflow && !overflowModify)) {
+        when(pastValidAfterReset && past(dut.io.willOverflow && results.last.payload === dataOverflow && !overflowModify)) {
           assert(results.last.valid && past(overflowCount) > overflowCount)
         }
 
@@ -56,7 +56,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
             .map {
               case (in, out) => {
                 val inputFire = if (in == controls.last) input.valid else False
-                when(past(in.payload === dataIn && in.fire && !out.fire && !inputFire) && past(!outExists(dataIn))) {
+                when(pastValidAfterReset && past(in.payload === dataIn && in.fire && !out.fire && !inputFire) && past(!outExists(dataIn))) {
                   assert(outExists(dataIn))
                 }
               }
