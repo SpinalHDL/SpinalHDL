@@ -302,9 +302,13 @@ trait BusIf extends BusIfBase {
   }
 
   private def writeErrorGenerator(): Unit = {
-    reg_wrerr := False
-    SliceInsts.foreach{ x =>
-      x.wrErrorGenerator()
+    switch(writeAddress()){
+      SliceInsts.foreach { slice =>
+        slice.wrErrorGenerator()
+      }
+      default{
+        reg_wrerr := False
+      }
     }
   }
 }

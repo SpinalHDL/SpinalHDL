@@ -24,3 +24,9 @@ class RegIfStrbTester extends SpinalAnyFunSuite{
 class RegIfRamFifoTester extends SpinalAnyFunSuite{
   test("membus_mem_fifo_test"){RegIfMemFifoSim.sim()}
 }
+
+class RegIfGenRtl extends SpinalAnyFunSuite{
+  test("gen_regifexample")  {playregif.main(Array())}
+  test("gen_regifgrptester"){RegIfGrpTesterMain.main(Array())}
+  test("gen_regifsecure")   {playregifsec.main(Array())}
+}
