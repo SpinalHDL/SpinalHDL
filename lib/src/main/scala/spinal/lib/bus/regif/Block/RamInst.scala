@@ -10,13 +10,14 @@ class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, sec: Secure
 
   val hitDoRead  = rdSecurePassage((bi.readAddress <= U(endaddr)) && (bi.readAddress >= U(addr)) && bi.doRead)
   hitDoRead.setName(f"ram_read_hit_0x${endaddr}%04x_0x${addr}%04x", weak = true)
-  val hitDoWrite = wrSecurePassage((bi.readAddress <= U(endaddr)) && (bi.readAddress >= U(addr)) && bi.doWrite)
+  val _hitDoWrite = (bi.readAddress <= U(endaddr)) && (bi.readAddress >= U(addr)) && bi.doWrite
+  val hitDoWrite = wrSecurePassage(_hitDoWrite)
   hitDoWrite.setName(f"ram_write_hit_0x${endaddr}%04x_0x${addr}%04x", weak = true)
 
-  val bus = MemBus(MemBusConfig(aw = log2Up(size/8), dw = bi.busDataWidth))
+  val bus = MemBus(MemBusConfig(aw = log2Up(size/bi.wordAddressInc), dw = bi.busDataWidth))
   bus.ce   :=  hitDoRead || hitDoWrite
   bus.wr   :=  hitDoWrite
-  bus.addr := (bi.readAddress - U(addr)).resized
+  bus.addr := (bi.readAddress - U(addr)).dropLow(bi.underbitWidth).asUInt.resized
   bus.wdat :=  bi.writeData
   bus.setName(s"${name}_mbus")
 
@@ -46,4 +47,9 @@ class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, sec: Secure
     fieldPtr = pos + bit
   }
   override def readGenerator(): Unit = ???  //RAM read couldn't implement here but at BusIf
+  override def wrErrorGenerator(): Unit = {
+    when(_hitDoWrite){
+      bi.reg_wrerr := wrSecureError()
+    }
+  }
 }

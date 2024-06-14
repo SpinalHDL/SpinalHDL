@@ -9,7 +9,7 @@ case class BRAMBusInterface(bus: BRAM, sizeMap: SizeMapping, regPre: String = ""
   override val busDataWidth: Int = bus.config.dataWidth
   override val busAddrWidth: Int = bus.config.addressWidth
 
-  val bus_rderr: Bool = Bool()
+  lazy val reg_wrerr: Bool = Reg(Bool(), init = False)
   val bus_rdata: Bits  = Bits(busDataWidth bits)
   val reg_rderr: Bool = Reg(Bool(), init = False)
   val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)

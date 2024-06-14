@@ -365,7 +365,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val rValid = RegNextWhen(self.valid, self.ready) init(False)
     val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready)
 
-    if (crossClockData) rData.addTag(crossClockDomain)
+    if (crossClockData) {
+      rData.addTag(crossClockDomain)
+      rData.addTag(crossClockMaxDelay(1, useTargetClock = true))
+    }
     if (flush != null) rValid clearWhen(flush)
 
     self.ready := m2sPipe.ready
@@ -1570,7 +1573,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
     val pushPtr     = Reg(UInt(log2Up(2*depth) bits)) init(0)
     val pushPtrPlus = pushPtr + 1
     val pushPtrGray = RegNextWhen(toGray(pushPtrPlus), io.push.fire) init(0)
-    val popPtrGray  = BufferCC(popToPushGray, B(0, ptrWidth bits))
+    val popPtrGray  = BufferCC(popToPushGray, B(0, ptrWidth bits), inputAttributes = List(crossClockMaxDelay(1, useTargetClock = false)))
     val full        = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
@@ -1588,7 +1591,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
     val popPtr      = Reg(UInt(log2Up(2*depth) bits)) init(0)
     val popPtrPlus  = KeepAttribute(popPtr + 1)
     val popPtrGray  = toGray(popPtr)
-    val pushPtrGray = BufferCC(pushToPopGray, B(0, ptrWidth bit))
+    val pushPtrGray = BufferCC(pushToPopGray, B(0, ptrWidth bit), inputAttributes = List(crossClockMaxDelay(1, useTargetClock = false)))
     val addressGen = Stream(UInt(log2Up(depth) bits))
     val empty = isEmpty(popPtrGray, pushPtrGray)
     addressGen.valid := !empty
