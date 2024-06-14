@@ -291,25 +291,26 @@ trait BusIf extends BusIfBase {
     val mux = WhenBuilder()
     RamInsts.foreach{ ram =>
       mux.when(ram.ram_rdvalid) {
-//        bus_rderr := False
         bus_rdata := ram.readBits
       }
     }
     mux.otherwise {
-//      bus_rderr := reg_rderr
       bus_rdata := reg_rdata
     }
   }
 
   private def writeErrorGenerator(): Unit = {
-    when(askWrite){
+    when(doWrite){
       switch(writeAddress()) {
-        SliceInsts.foreach { slice =>
+        RegAndFifos.foreach { slice =>
           slice.wrErrorGenerator()
         }
         default {
           reg_wrerr := False
         }
+      }
+      RamInsts.foreach { ram =>
+        ram.wrErrorGenerator()
       }
     }.otherwise{
       reg_wrerr := False
