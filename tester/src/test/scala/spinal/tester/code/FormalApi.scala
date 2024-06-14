@@ -27,7 +27,7 @@ import spinal.tester._
   *  - [x] cover
   *  - [x] assert
   *  - [ ] QOL show backtrace
-  *  - [ ] assume/assert inside conditional scope
+  *  - [x] assume/assert inside conditional scope
   *  - [x] assert during reset
   *  - [x] assert outside of reset
   *  - [ ] multiple clock domains
@@ -396,7 +396,7 @@ class FormalApiTest extends SpinalFormalFunSuite {
 
   /** Test the generation and verification of assert statement inside
     * conditional scope.
-    * 
+    *
     * This test works by wrapping an always failing assert into a when
     * conditional scope. In passing test, the when condition is always false,
     * hence the failing assert should not trigger. The condition of the failing
@@ -406,7 +406,7 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param doFail  false = condition is always false; true = always true
     */
   def runAssertWithinCondTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withAsync.withBMC(3)
+    val config = FormalConfig.copy(_backend = backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("AssertWithinCondTest")
@@ -414,6 +414,14 @@ class FormalApiTest extends SpinalFormalFunSuite {
 
       when(Bool(doFail)) {
         when(True) {
+          assert(False)
+        } otherwise {
+          assert(False)
+        }
+      }
+
+      switch(Bool(doFail)) {
+        is(True) {
           assert(False)
         }
       }
@@ -428,7 +436,7 @@ class FormalApiTest extends SpinalFormalFunSuite {
       runAssertWithinCondTest(symbiYosys, doFail = true)
     }
   }
-  test("FormalApiTest.assertWithinCond.ghdl") { // fails, TODO
+  test("FormalApiTest.assertWithinCond.ghdl") {
     runAssertWithinCondTest(ghdl)
   }
   test("FormalApiTest.assertWithinCond.ghdl.fail") {

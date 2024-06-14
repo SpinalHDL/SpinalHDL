@@ -579,6 +579,32 @@ class ComponentEmitterVhdl(
       s" $abortKind $abortCond"
     }
 
+    def getScopeConditional(statement: LeafStatement): String = {
+      def walkScopeConditionals(scope: ScopeStatement, conditions: List[String]): List[String] = {
+        if (scope.parentStatement == null) {
+          conditions // Reached root scope, back out.
+        } else if (scope.parentStatement.isInstanceOf[WhenStatement]) {
+          val w = scope.parentStatement.asInstanceOf[WhenStatement]
+          val cond = scope match {
+            case w.whenTrue  => s"${emitExpression(w.cond)} = '1'"
+            case w.whenFalse => s"${emitExpression(w.cond)} = '0'"
+            case _           => ""
+          }
+          cond :: walkScopeConditionals(scope.parentStatement.parentScope, conditions)
+        } else if (scope.parentStatement.isInstanceOf[SwitchStatement]) {
+          val s = scope.parentStatement.asInstanceOf[SwitchStatement]
+          if (scope == s.defaultScope) SpinalError(s"Formal statement $statement is not supported in default switch case with VHDL/GHDL.")
+          val cond = s.elements.find(scope == _.scopeStatement).get.keys.map(
+            ex => s"${emitExpression(s.value)} = ${emitExpression(ex)}"
+          ).mkString(" or ")
+          cond :: walkScopeConditionals(scope.parentStatement.parentScope, conditions)
+        } else {
+          walkScopeConditionals(scope.parentStatement.parentScope, conditions)
+        }
+      }
+      walkScopeConditionals(statement.parentScope, Nil).mkString(" and ")
+    }
+
     // VHDL formal assertions are special and can't exist in clocked processes.
     // They have their own clocked attribute though.
     if (spinalConfig.formalAsserts) {
@@ -586,15 +612,18 @@ class ComponentEmitterVhdl(
         for (statement <- group.dataStatements) {
           statement match {
             case assertStatement: AssertStatement =>
+              val scopeCond = getScopeConditional(assertStatement)
+              val concatOperator = if (assertStatement.kind == AssertStatementKind.COVER) ":" else "->"
+              val preCond = if (scopeCond.length > 0) s"$scopeCond $concatOperator " else ""
               val cond = emitExpression(assertStatement.cond)
               val trigger = getTrigger(component, group.clockDomain)
               val abort = getAbort(component, group.clockDomain)
               val statement = assertStatement.kind match {
-                case AssertStatementKind.ASSERT => s"assert always ($cond = '1') ${abort} ${trigger}"
-                case AssertStatementKind.ASSUME => s"assume always ($cond = '1') ${trigger}"
-                case AssertStatementKind.COVER  => s"cover {$cond = '1'} ${trigger}"
+                case AssertStatementKind.ASSERT => s"assert (always $preCond$cond$abort)$trigger"
+                case AssertStatementKind.ASSUME => s"assume (always $preCond$cond)$trigger"
+                case AssertStatementKind.COVER  => s"cover {$preCond$cond}$trigger"
               }
-              logics ++= s"  ${assertStatement.loc.file}_L${assertStatement.loc.line}: ${statement}; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
+              logics ++= s"  ${assertStatement.loc.file}_L${assertStatement.loc.line}: $statement; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
             case _ =>
           }
         }
