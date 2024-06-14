@@ -474,6 +474,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         def getElemName(cache: ArrayBuffer[(String, Data)], name: String): Option[(String, Data)] = {
           cache.flatMap{
             case (a, x: Bundle) => getElemName(x.elementsCache, s"${name}_${a}").map(x => (x._1.stripPrefix("_"), x._2))
+            case (a, x: Vec[_]) => getElemName(x.elements, s"${name}_${a}").map(x => (x._1.stripPrefix("_"), x._2))
             case (a, x) => if(x == node) Some((s"${name}_${a}".stripPrefix("_"), x)) else None
           }.headOption
         }

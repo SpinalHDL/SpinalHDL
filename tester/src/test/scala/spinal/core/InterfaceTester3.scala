@@ -30,7 +30,7 @@ case class BundleInBundleInIf () extends Component {
   //io.color.ready := RegNext(!io.color.valid)
   val o = Reg(UInt(8 bits)) init(0)
   when(io.color.valid && io.color.ready) {
-    o := io.color.payload.red + io.color.payload.blue + io.color.payload.green + io.color.payload.bd.a + io.color.payload.bd.b// + io.color.payload.num.reduce(_+_)
+    o := io.color.payload.red + io.color.payload.blue + io.color.payload.green + io.color.payload.bd.a + io.color.payload.bd.b + io.color.payload.num.reduce(_+_)
   }
   io.c.payload := o
   io.c.valid := RegNext(io.color.valid && io.color.ready, False)
@@ -91,7 +91,7 @@ case class ColorBundleVec(w: Int) extends Bundle {
   val red = UInt(w bits)
   val green = UInt(w bits)
   val blue = UInt(w bits)
-  //val num = Vec(UInt(w bits), 8)//TODO:wait for IFparent
+  val num = Vec(UInt(w bits), 8)
   val bd = Abundle(w)
 }
 
@@ -119,12 +119,13 @@ class BundleInIfTest2 extends SpinalAnyFunSuite{
       val c = dut.io.color.payload.green.randomize()
       val bda = dut.io.color.payload.bd.a.randomize()
       val bdb = dut.io.color.payload.bd.b.randomize()
+      val num = dut.io.color.payload.num.map(_.randomize())
 
       // Wait a rising edge on the clock
       dut.clockDomain.waitRisingEdge()
 
       if(dut.io.color.valid.toBoolean && dut.io.color.ready.toBoolean)
-        modelState = modelState.+:((a + b + c + bda + bdb) & 0xff)
+        modelState = modelState.+:((a + b + c + bda + bdb + num.reduce(_+_)) & 0xff)
       if(dut.io.c.valid.toBoolean) {
         toCompare = modelState.last
         modelState = modelState.dropRight(1)
