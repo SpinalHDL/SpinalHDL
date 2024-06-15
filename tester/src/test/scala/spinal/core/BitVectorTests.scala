@@ -1,6 +1,6 @@
 package spinal.core
 
-import spinal.core.formal.{FormalConfig, SpinalFormalConfig}
+import spinal.core.formal.{FormalConfig, SpinalFormalConfig, FormalDut}
 import spinal.lib.formal.SpinalFormalFunSuite
 import spinal.tester.SpinalAnyFunSuite
 
