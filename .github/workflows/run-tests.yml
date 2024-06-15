@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - name: Get submodules
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -109,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -120,7 +120,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -131,7 +131,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     container:
-      image: ghcr.io/spinalhdl/docker:master
+      image: ghcr.io/spinalhdl/docker:latest
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
