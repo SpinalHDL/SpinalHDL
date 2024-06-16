@@ -168,6 +168,13 @@ class PackedBundle extends Bundle {
     }
   }
 
+  /** Skip to the specified bit. The next unspecified field will be packed starting from here.
+    * @param pos Bit position to skip to
+    * */
+  protected def skipTo(pos: Int): Unit = {
+    this.mapBuilder.nextPos = pos
+  }
+
   override def valCallbackRec(ref: Any, name: String): Unit = {
     super.valCallbackRec(ref, name)
 
