@@ -150,9 +150,25 @@ trait NodeApi extends NodeBaseApi {
     con(that.payload, getNode)
   }
 
+  def driveTo[T <: Data](con: (Node) => T): Stream[T] = {
+    val newPayload = con(getNode)
+    val that = Stream(cloneOf(newPayload))
+    that.payload := newPayload 
+    arbitrateTo(that)
+    that
+  }
+
   def driveTo[T <: Data](that: Flow[T])(con: (T, Node) => Unit): Unit = {
     arbitrateTo(that)
     con(that.payload, getNode)
+  }
+  
+  def driveToFlow[T <: Data](con: (Node) => T): Flow[T] = {
+    val newPayload = con(getNode)
+    val that = Flow(cloneOf(newPayload))
+    that.payload := newPayload 
+    arbitrateTo(that)
+    that
   }
 }
 
