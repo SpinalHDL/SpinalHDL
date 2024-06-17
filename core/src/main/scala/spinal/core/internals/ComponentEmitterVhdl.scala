@@ -560,7 +560,7 @@ class ComponentEmitterVhdl(
   def emitFormals(): Unit = {
     def getTrigger(component: Component, clockDomain: ClockDomain): String = {
       val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
-      s"@${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)}"
+      s"${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)}"
     }
 
     def getAbort(component: Component, clockDomain: ClockDomain): String = {
@@ -606,8 +606,14 @@ class ComponentEmitterVhdl(
     }
 
     // VHDL formal assertions are special and can't exist in clocked processes.
-    // They have their own clocked attribute though.
+    // They have either their own clocked attribute or a common global clock.
     if (spinalConfig.formalAsserts) {
+      val multiclock = syncGroups.size == 0 || syncGroups.map(_._1._1).toSeq.length > 1
+      if (!multiclock) {
+        val group = syncGroups.valuesIterator.next()
+        declarations ++= s"  default clock is ${getTrigger(component, group.clockDomain)};\n"
+      }
+
       syncGroups.valuesIterator.foreach { group =>
         for (statement <- group.dataStatements) {
           statement match {
@@ -616,7 +622,7 @@ class ComponentEmitterVhdl(
               val concatOperator = if (assertStatement.kind == AssertStatementKind.COVER) ":" else "->"
               val preCond = if (scopeCond.length > 0) s"$scopeCond $concatOperator " else ""
               val cond = emitExpression(assertStatement.cond)
-              val trigger = getTrigger(component, group.clockDomain)
+              val trigger = if (multiclock) " @" + getTrigger(component, group.clockDomain) else ""
               val abort = getAbort(component, group.clockDomain)
               val statement = assertStatement.kind match {
                 case AssertStatementKind.ASSERT => s"assert (always $preCond$cond$abort)$trigger"
@@ -632,8 +638,8 @@ class ComponentEmitterVhdl(
         case assertStatement: AssertStatement =>
           require(assertStatement.kind == AssertStatementKind.ASSUME)
           val cond = emitExpression(assertStatement.cond)
-          val trigger = getTrigger(component, assertStatement.clockDomain)
-          logics ++= s"  ${assertStatement.loc.file}_L${assertStatement.loc.line}: assume ($cond = '1') ${trigger}; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
+          val trigger = if (multiclock) " @" + getTrigger(component, assertStatement.clockDomain) else ""
+          logics ++= s"  ${assertStatement.loc.file}_L${assertStatement.loc.line}: assume ($cond = '1')$trigger; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
         case _ =>
       }
     }

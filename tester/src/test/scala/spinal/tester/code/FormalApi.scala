@@ -30,7 +30,7 @@ import spinal.tester._
   *  - [x] assume/assert inside conditional scope
   *  - [x] assert during reset
   *  - [x] assert outside of reset
-  *  - [ ] multiple clock domains
+  *  - [x] multiple clock domains
   */
 class FormalApiTest extends SpinalFormalFunSuite {
 
@@ -442,6 +442,48 @@ class FormalApiTest extends SpinalFormalFunSuite {
   test("FormalApiTest.assertWithinCond.ghdl.fail") {
     shouldFailWithOutput("Assert failed in AssertWithinCondTest") {
       runAssertWithinCondTest(ghdl, doFail = true)
+    }
+  }
+
+  /** Test the generation and verification of statements within multiple clock
+    * domains.
+    *
+    * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
+    * @param doFail  false = assert shall not trigger; true = will trigger
+    */
+  def runWithinClockDomainTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+
+    config.doVerify(new Component {
+      setDefinitionName("WithinClockDomain")
+      setFormalTester()
+
+      val domainA = ClockDomain.internal("a")
+      val domainB = ClockDomain.internal("b")
+
+      val areaA = new ClockingArea(domainA) {
+        assert(Bool(!doFail))
+      }
+      val areaB = new ClockingArea(domainB) {
+        assert(Bool(!doFail))
+      }
+    })
+  }
+
+  test("FormalApiTest.withinClockDomain.symbiyosys") {
+    runWithinClockDomainTest(symbiYosys)
+  }
+  test("FormalApiTest.withinClockDomain.symbiyosys.fail") {
+    shouldFailWithOutput("Assert failed in WithinClockDomain") {
+      runWithinClockDomainTest(symbiYosys, doFail = true)
+    }
+  }
+  test("FormalApiTest.withinClockDomain.ghdl") {
+    runWithinClockDomainTest(ghdl)
+  }
+  test("FormalApiTest.withinClockDomain.ghdl.fail") {
+    shouldFailWithOutput("Assert failed in WithinClockDomain") {
+      runWithinClockDomainTest(ghdl, doFail = true)
     }
   }
 }
