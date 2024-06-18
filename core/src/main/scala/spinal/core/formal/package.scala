@@ -30,6 +30,12 @@ package object formal {
     ret
   }
 
+  def formalPast[T <: Data](that : T, delay : Int) : T = that.formalPast(delay)
+  def formalRose(that : Bool) : Bool = that.wrapUnaryOperator(new Operator.Formal.Rose)
+  def formalFell(that : Bool) : Bool = that.wrapUnaryOperator(new Operator.Formal.Fell)
+  def formalChanged(that : Bool) : Bool = that.wrapUnaryOperator(new Operator.Formal.Changed)
+  def formalStable(that : Bool) : Bool = that.wrapUnaryOperator(new Operator.Formal.Stable)
+
   def anyseq[T <: Data](that : T) : T = {
     that.assignFormalRandom(Operator.Formal.RANDOM_ANY_SEQ)
     that
