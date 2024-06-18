@@ -16,10 +16,10 @@ import spinal.tester._
   *  - [ ] past
   *  - [ ] pastValid
   *  - [ ] pastValidAfterReset
-  *  - [ ] rose
-  *  - [ ] fell
-  *  - [ ] changed
-  *  - [ ] stable
+  *  - [x] rose
+  *  - [x] fell
+  *  - [x] changed
+  *  - [x] stable
   *  - [ ] initstate
   *  - [x] anyseq / anyconst / allseq / allconst
   *  - [x] assumeInitial
@@ -484,6 +484,170 @@ class FormalApiTest extends SpinalFormalFunSuite {
   test("FormalApiTest.withinClockDomain.ghdl.fail") {
     shouldFailWithOutput("Assert failed in WithinClockDomain") {
       runWithinClockDomainTest(ghdl, doFail = true)
+    }
+  }
+
+  /** Test the generation and verification of rose statements.
+    *
+    * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
+    * @param doFail  false = assume a value change; true = dont change value
+    */
+  def runRoseTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+    val config = FormalConfig
+      .copy(_backend = backend)
+      .withBMC(3)
+      .withEngies(Seq(SmtBmc(nopresat = true)))
+
+    config.doVerify(new Component {
+      setDefinitionName("RoseTest")
+      setFormalTester()
+
+      val a = Bool()
+      anyseq(a)
+      assumeInitial(!a)
+      if (!doFail) { assume(a) }
+
+      assert(formalRose(a))
+    })
+  }
+
+  test("FormalApiTest.rose.symbiyosys") {
+    runRoseTest(symbiYosys)
+  }
+  test("FormalApiTest.rose.symbiyosys.fail") {
+    shouldFailWithOutput("Assert failed in RoseTest") {
+      runRoseTest(symbiYosys, doFail = true)
+    }
+  }
+  test("FormalApiTest.rose.ghdl") {
+    runRoseTest(ghdl)
+  }
+  test("FormalApiTest.rose.ghdl.fail") {
+    shouldFailWithOutput("Assert failed in RoseTest") {
+      runRoseTest(ghdl, doFail = true)
+    }
+  }
+
+  /** Test the generation and verification of fell statements.
+    *
+    * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
+    * @param doFail  false = assume a value change; true = dont change value
+    */
+  def runFellTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+    val config = FormalConfig
+      .copy(_backend = backend)
+      .withBMC(3)
+      .withEngies(Seq(SmtBmc(nopresat = true)))
+
+    config.doVerify(new Component {
+      setDefinitionName("FellTest")
+      setFormalTester()
+
+      val a = Bool()
+      anyseq(a)
+      assumeInitial(a)
+      if (!doFail) { assume(!a) }
+
+      assert(formalFell(a))
+    })
+  }
+
+  test("FormalApiTest.fell.symbiyosys") {
+    runFellTest(symbiYosys)
+  }
+  test("FormalApiTest.fell.symbiyosys.fail") {
+    shouldFailWithOutput("Assert failed in FellTest") {
+      runFellTest(symbiYosys, doFail = true)
+    }
+  }
+  test("FormalApiTest.fell.ghdl") {
+    runFellTest(ghdl)
+  }
+  test("FormalApiTest.fell.ghdl.fail") {
+    shouldFailWithOutput("Assert failed in FellTest") {
+      runFellTest(ghdl, doFail = true)
+    }
+  }
+
+  /** Test the generation and verification of changed statements.
+    *
+    * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
+    * @param doFail  false = assume a value change; true = dont change value
+    */
+  def runChangedTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+    val config = FormalConfig
+      .copy(_backend = backend)
+      .withBMC(3)
+      .withEngies(Seq(SmtBmc(nopresat = true)))
+
+    config.doVerify(new Component {
+      setDefinitionName("ChangedTest")
+      setFormalTester()
+
+      val a = Bool()
+      anyseq(a)
+      assumeInitial(a)
+      if (!doFail) { assume(!a) }
+
+      assert(formalChanged(a))
+    })
+  }
+
+  test("FormalApiTest.changed.symbiyosys") {
+    runChangedTest(symbiYosys)
+  }
+  test("FormalApiTest.changed.symbiyosys.fail") {
+    shouldFailWithOutput("Assert failed in ChangedTest") {
+      runChangedTest(symbiYosys, doFail = true)
+    }
+  }
+  test("FormalApiTest.changed.ghdl") {
+    runChangedTest(ghdl)
+  }
+  test("FormalApiTest.changed.ghdl.fail") {
+    shouldFailWithOutput("Assert failed in ChangedTest") {
+      runChangedTest(ghdl, doFail = true)
+    }
+  }
+
+  /** Test the generation and verification of stable statements.
+    *
+    * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
+    * @param doFail  false = keep constant value; true = change value
+    */
+  def runStableTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+
+    config.doVerify(new Component {
+      setDefinitionName("StableTest")
+      setFormalTester()
+
+      val a = Bool()
+      if (!doFail) {
+        anyconst(a)
+      } else {
+        anyseq(a)
+      }
+
+      assumeInitial(clockDomain.isResetActive)
+      assert(formalStable(a))
+    })
+  }
+
+  test("FormalApiTest.stable.symbiyosys") {
+    runStableTest(symbiYosys)
+  }
+  test("FormalApiTest.stable.symbiyosys.fail") {
+    shouldFailWithOutput("Assert failed in StableTest") {
+      runStableTest(symbiYosys, doFail = true)
+    }
+  }
+  test("FormalApiTest.stable.ghdl") {
+    runStableTest(ghdl)
+  }
+  test("FormalApiTest.stable.ghdl.fail") {
+    shouldFailWithOutput("Assert failed in StableTest") {
+      runStableTest(ghdl, doFail = true)
     }
   }
 }

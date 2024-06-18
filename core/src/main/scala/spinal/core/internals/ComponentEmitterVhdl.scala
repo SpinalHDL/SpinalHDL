@@ -1630,6 +1630,11 @@ class ComponentEmitterVhdl(
       SpinalWarning(s"IsUnknown is always false in vhdl")
       "pkg_toStdLogic(false)"
     }
+
+    case  e: Operator.Formal.Rose                    => s"pkg_toStdLogic(rose(${emitExpression(e.source)}))"
+    case  e: Operator.Formal.Fell                    => s"pkg_toStdLogic(fell(${emitExpression(e.source)}))"
+    case  e: Operator.Formal.Changed                 => s"pkg_toStdLogic(not stable(${emitExpression(e.source)}))"
+    case  e: Operator.Formal.Stable                  => s"pkg_toStdLogic(stable(${emitExpression(e.source)}))"
   }
 
   elaborate()
