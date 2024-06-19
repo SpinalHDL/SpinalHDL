@@ -25,6 +25,7 @@ import org.apache.commons.io.FileUtils
 import spinal.core.internals.{PhaseContext, PhaseNetlist, DataAssignmentStatement, Operator}
 import spinal.core.sim.SimWorkspace
 import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, SpinalWarning, ClockDomain, ASYNC}
+import spinal.core.{Reg, Bool, True, False}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -88,6 +89,32 @@ class FormalPhase(backend: SpinalFormalBackendSel) extends PhaseNetlist {
             }
             s.dlcParent.addAttribute(kind)
           case _ =>
+        }
+      }
+
+      // rework assignments of initstate() to manually crafted signals in each clock domain
+      val initAssignments = LinkedHashMap[(Component, ClockDomain), ArrayBuffer[DataAssignmentStatement]]()
+      pc.walkComponents { c =>
+        c.dslBody.walkStatements {
+          case i: DataAssignmentStatement if i.source.isInstanceOf[Operator.Formal.InitState] =>
+            val assignments = initAssignments.getOrElseUpdate((c, i.dlcParent.clockDomain), new ArrayBuffer[DataAssignmentStatement]())
+            assignments += i
+          case _ =>
+        }
+      }
+      for ((key, assignments) <- initAssignments) {
+        val component = key._1
+        val clockDomain = key._2
+        component.rework {
+          clockDomain.withBootReset() {
+            val initstate = Reg(Bool()) init(True)
+            initstate := False
+            initstate.setName(clockDomain.clock.getName() + "_initstate")
+            for (assignment <- assignments) {
+              assignment.dlcParent := initstate
+              assignment.removeStatement()
+            }
+          }
         }
       }
     }

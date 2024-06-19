@@ -20,7 +20,7 @@ import spinal.tester._
   *  - [x] fell
   *  - [x] changed
   *  - [x] stable
-  *  - [ ] initstate
+  *  - [x] initstate
   *  - [x] anyseq / anyconst / allseq / allconst
   *  - [x] assumeInitial
   *  - [x] assume
@@ -648,6 +648,48 @@ class FormalApiTest extends SpinalFormalFunSuite {
   test("FormalApiTest.stable.ghdl.fail") {
     shouldFailWithOutput("Assert failed in StableTest") {
       runStableTest(ghdl, doFail = true)
+    }
+  }
+
+  /** Test the generation and verification of inistate statements.
+    *
+    * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
+    * @param doFail  false = keep constant value; true = change value
+    */
+  def runInitStateTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+
+    config.doVerify(new Component {
+      setDefinitionName("InitStateTest")
+      setFormalTester()
+
+      clockDomain.withBootReset() {
+        val a = Reg(Bool()) init (False)
+        a := Bool(!doFail)
+
+        when(initstate()) {
+          assert(!a)
+        } otherwise {
+          assert(a)
+        }
+      }
+    })
+  }
+
+  test("FormalApiTest.initstate.symbiyosys") {
+    runInitStateTest(symbiYosys)
+  }
+  test("FormalApiTest.initstate.symbiyosys.fail") {
+    shouldFailWithOutput("Assert failed in InitStateTest") {
+      runInitStateTest(symbiYosys, doFail = true)
+    }
+  }
+  test("FormalApiTest.initstate.ghdl") {
+    runInitStateTest(ghdl)
+  }
+  test("FormalApiTest.initstate.ghdl.fail") {
+    shouldFailWithOutput("Assert failed in InitStateTest") {
+      runInitStateTest(ghdl, doFail = true)
     }
   }
 }
