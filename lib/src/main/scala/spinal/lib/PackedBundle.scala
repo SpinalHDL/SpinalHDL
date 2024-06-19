@@ -173,8 +173,8 @@ class PackedBundle extends Bundle {
     * of bits after the last placed field.
     * @param count Number of bits to skip over
     */
-  protected def skipOver(count: Int): Unit = {
-    this.mapBuilder.nextPos += count
+  protected def skipOver(count: BitCount): Unit = {
+    this.mapBuilder.nextPos += count.value
   }
 
   override def valCallbackRec(ref: Any, name: String): Unit = {
