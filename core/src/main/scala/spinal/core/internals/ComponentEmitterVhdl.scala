@@ -1631,6 +1631,7 @@ class ComponentEmitterVhdl(
       "pkg_toStdLogic(false)"
     }
 
+    case  e: Operator.Formal.Past                    => s"prev(${emitExpression(e.source)}, ${e.delay})"
     case  e: Operator.Formal.Rose                    => s"pkg_toStdLogic(rose(${emitExpression(e.source)}))"
     case  e: Operator.Formal.Fell                    => s"pkg_toStdLogic(fell(${emitExpression(e.source)}))"
     case  e: Operator.Formal.Changed                 => s"pkg_toStdLogic(not stable(${emitExpression(e.source)}))"

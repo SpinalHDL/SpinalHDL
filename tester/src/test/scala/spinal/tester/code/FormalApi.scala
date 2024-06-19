@@ -13,7 +13,7 @@ import spinal.tester._
   * culprit.
   *
   * Tested API:
-  *  - [ ] past
+  *  - [x] past
   *  - [ ] pastValid
   *  - [ ] pastValidAfterReset
   *  - [x] rose
@@ -690,6 +690,47 @@ class FormalApiTest extends SpinalFormalFunSuite {
   test("FormalApiTest.initstate.ghdl.fail") {
     shouldFailWithOutput("Assert failed in InitStateTest") {
       runInitStateTest(ghdl, doFail = true)
+    }
+  }
+
+  /** Test the generation and verification of past statements.
+    *
+    * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
+    * @param doFail  false = keep constant value; true = change value
+    */
+  def runPastTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+
+    config.doVerify(new Component {
+      setDefinitionName("PastTest")
+      setFormalTester()
+
+      clockDomain.withBootReset() {
+        val a = Reg(Bool()) init (False)
+        if (!doFail) {
+          a := !a
+        }
+        when(!initstate()) {
+          assert(!a === formalPast(a, 1))
+        }
+      }
+    })
+  }
+
+  test("FormalApiTest.past.symbiyosys") {
+    runPastTest(symbiYosys)
+  }
+  test("FormalApiTest.past.symbiyosys.fail") {
+    shouldFailWithOutput("Assert failed in PastTest") {
+      runPastTest(symbiYosys, doFail = true)
+    }
+  }
+  test("FormalApiTest.past.ghdl") {
+    runPastTest(ghdl)
+  }
+  test("FormalApiTest.past.ghdl.fail") {
+    shouldFailWithOutput("Assert failed in PastTest") {
+      runPastTest(ghdl, doFail = true)
     }
   }
 }
