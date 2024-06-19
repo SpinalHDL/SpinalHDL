@@ -144,7 +144,7 @@ trait BusIf extends BusIfBase {
 
 
   def newRegAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
+    addrAlignCheck(address)
     val reg = createReg(symbol.name, address, doc, sec, grp)
     regPtr = address + wordAddressInc
     reg
@@ -173,7 +173,7 @@ trait BusIf extends BusIfBase {
   }
 
   def newRAMAt(address: BigInt, size: BigInt, doc: String, sec: Secure = null,  grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
+    addrAlignCheck(address)
     val res = createRAM(symbol.name, address, size, doc, sec, grp)
     regPtr = address + scala.math.ceil(size.toDouble/wordAddressInc).toLong * wordAddressInc
     res
@@ -193,7 +193,7 @@ trait BusIf extends BusIfBase {
   }
 
   def newWrFifoAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
+    addrAlignCheck(address)
     val res = createWrFifo(symbol.name, address, doc, sec, grp)
     regPtr = address + wordAddressInc
     res
@@ -220,7 +220,7 @@ trait BusIf extends BusIfBase {
   }
 
   def newRdFifoAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName): RdFifoInst = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
+    addrAlignCheck(address)
     val res = createRdFifo(symbol.name, address, doc, sec, grp)
     regPtr = address + wordAddressInc
     res
@@ -248,6 +248,10 @@ trait BusIf extends BusIfBase {
   def gen(doc: BusIfDoc) = {
     preCheck()
     doc.generate(this)
+  }
+
+  def addrAlignCheck(address: BigInt) = {
+    if (_addrAlignCheck) assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
   }
 
   def genBaseDocs(docname: String, prefix: String = "") = {
