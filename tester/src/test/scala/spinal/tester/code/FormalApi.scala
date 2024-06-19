@@ -14,8 +14,8 @@ import spinal.tester._
   *
   * Tested API:
   *  - [x] past
-  *  - [ ] pastValid
-  *  - [ ] pastValidAfterReset
+  *  - [x] pastValid
+  *  - [x] pastValidAfterReset
   *  - [x] rose
   *  - [x] fell
   *  - [x] changed
@@ -732,5 +732,78 @@ class FormalApiTest extends SpinalFormalFunSuite {
     shouldFailWithOutput("Assert failed in PastTest") {
       runPastTest(ghdl, doFail = true)
     }
+  }
+
+  /** Test the generation and verification of pastValid statements.
+    *
+    * The function pastValid() is meant to be used together with the past()
+    * function. As calls to past() are meaningless the very first cycle, these
+    * calls can make conditional with pastValid(). The test works by asserting
+    * that the function pastValid() returns false only during the first clock.
+    *
+    * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
+    */
+  def runPastValidTest(backend: SpinalFormalBackendSel): Unit = {
+    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+
+    config.doVerify(new Component {
+      setDefinitionName("PastValidTest")
+      setFormalTester()
+
+      clockDomain.withBootReset() {
+        val a = Reg(UInt(2 bits)) init (0)
+        a := a + 1
+        when(!pastValid()) {
+          assert(a === 0)
+        } otherwise {
+          assert(a > 0)
+        }
+      }
+    })
+  }
+
+  test("FormalApiTest.pastValid.symbiyosys") {
+    runPastValidTest(symbiYosys)
+  }
+  test("FormalApiTest.pastValid.ghdl") {
+    runPastValidTest(ghdl)
+  }
+
+  /** Test the generation and verification of pastValidAfterReset statements.
+    *
+    * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
+    */
+  def runPastValidAfterResetTest(backend: SpinalFormalBackendSel): Unit = {
+    val config = FormalConfig
+      .copy(_backend = backend)
+      .withBMC(3)
+      .withEngies(Seq(SmtBmc(nopresat = true)))
+
+    config.doVerify(new Component {
+      setDefinitionName("PastValidAfterResetTest")
+      setFormalTester()
+
+      var a: UInt = null
+      clockDomain.withBootReset() {
+        a = Reg(UInt(2 bits)) init (0)
+        a := a + 1
+      }
+
+      when(!pastValidAfterReset()) {
+        assert(a < 2)
+      } otherwise {
+        assert(a > 1)
+      }
+
+      assumeInitial(clockDomain.isResetActive)
+      assume(!clockDomain.isResetActive)
+    })
+  }
+
+  test("FormalApiTest.pastValidAfterReset.symbiyosys") {
+    runPastValidAfterResetTest(symbiYosys)
+  }
+  test("FormalApiTest.pastValidAfterReset.ghdl") {
+    runPastValidAfterResetTest(ghdl)
   }
 }
