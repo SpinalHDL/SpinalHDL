@@ -415,13 +415,13 @@ class SpinalSimPackedBundleTester extends SpinalAnyFunSuite {
       })
   }
 
-  test("pack with skipTo") {
+  test("pack with skipOver") {
     SimConfig
       .compile(new Component {
         val packedBundle = new PackedBundle {
           val a = Bits(4 bits) // Bits 0 1 2 3
-          skipTo(8)
-          val b = Bits(8 bits)
+          skipOver(4)
+          val b = Bits(8 bits) // Bits 8 9 10 11 12 13 14 15
         }
 
         val io = new Bundle {
@@ -462,13 +462,13 @@ class SpinalSimPackedBundleTester extends SpinalAnyFunSuite {
       })
   }
 
-  test("unpack with skipTo") {
+  test("unpack with skipOver") {
     SimConfig
       .compile(new Component {
         val packedBundle = new PackedBundle {
           val a = Bits(4 bits) // Bits 0 1 2 3
-          skipTo(8)
-          val b = Bits(8 bits)
+          skipOver(4)
+          val b = Bits(8 bits) // Bits 8 9 10 11 12 13 14 15
         }
 
         val io = new Bundle {
