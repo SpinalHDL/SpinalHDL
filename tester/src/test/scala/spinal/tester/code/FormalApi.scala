@@ -26,7 +26,7 @@ import spinal.tester._
   *  - [x] assume
   *  - [x] cover
   *  - [x] assert
-  *  - [ ] QOL show backtrace
+  *  - [x] QOL show backtrace
   *  - [x] assume/assert inside conditional scope
   *  - [x] assert during reset
   *  - [x] assert outside of reset
@@ -805,5 +805,37 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
   test("FormalApiTest.pastValidAfterReset.ghdl") {
     runPastValidAfterResetTest(ghdl)
+  }
+
+  /** Test that backtrace of failed formal verification contains a reference to
+    * the failing line of the assert/cover.
+    * 
+    * This also additionally tests, that the VHDL specific generated label for
+    * each assert is unique. A ghdl error would occur otherwise.
+    *
+    * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
+    */
+  def runQolBacktraceTest(backend: SpinalFormalBackendSel): Unit = {
+    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+
+    config.doVerify(new Component {
+      setDefinitionName("QolBacktraceTest")
+      setFormalTester()
+
+      for (_ <- Seq(1, 2)) {
+        assert(False)
+      }
+    })
+  }
+
+  test("FormalApiTest.qolBacktrace.symbiyosys") {
+    shouldFailWithOutput("assert(1'b0);") {
+      runQolBacktraceTest(symbiYosys)
+    }
+  }
+  test("FormalApiTest.qolBacktrace.ghdl") {
+    shouldFailWithOutput("assert (always pkg_toStdLogic(false) sync_abort reset);") {
+      runQolBacktraceTest(ghdl)
+    }
   }
 }

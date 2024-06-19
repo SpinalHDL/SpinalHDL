@@ -186,7 +186,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
           // VHDL:    ##   0:00:00  Assert failed in FormalTest: test_l42
           val pattern = {
             if (!config.withGhdl) """(\w+.sv):(\d+).(\d+)-(\d+).(\d+)""".r
-            else                  """(\w+): (\w+_l\d+)""".r
+            else                  """(\w+): (\w+_l\d+(_\d+)?)""".r
           }
           for (line <- Source.fromFile(file).getLines) {
             println(line)

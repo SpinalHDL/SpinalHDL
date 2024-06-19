@@ -558,6 +558,8 @@ class ComponentEmitterVhdl(
   }
 
   def emitFormals(): Unit = {
+    val usedLabels = ArrayBuffer[String]()
+
     def getTrigger(component: Component, clockDomain: ClockDomain): String = {
       val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
       s"${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)}"
@@ -605,6 +607,22 @@ class ComponentEmitterVhdl(
       walkScopeConditionals(statement.parentScope, Nil).mkString(" and ")
     }
 
+    def getLabel(statement: AssertStatement): String = {
+      val basicLabel = s"${statement.loc.file}_L${statement.loc.line}"
+      var label: String = null
+      if (!usedLabels.contains(basicLabel)) {
+        label = basicLabel
+      } else {
+        var count = 2
+        do {
+          label = s"${basicLabel}_$count"
+          count = count + 1
+        } while (usedLabels.contains(label))
+      }
+      usedLabels += label
+      label
+    }
+
     // VHDL formal assertions are special and can't exist in clocked processes.
     // They have either their own clocked attribute or a common global clock.
     if (spinalConfig.formalAsserts) {
@@ -629,7 +647,8 @@ class ComponentEmitterVhdl(
                 case AssertStatementKind.ASSUME => s"assume (always $preCond$cond)$trigger"
                 case AssertStatementKind.COVER  => s"cover {$preCond$cond}$trigger"
               }
-              logics ++= s"  ${assertStatement.loc.file}_L${assertStatement.loc.line}: $statement; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
+              val label = getLabel(assertStatement)
+              logics ++= s"  $label: $statement; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
             case _ =>
           }
         }
@@ -639,7 +658,8 @@ class ComponentEmitterVhdl(
           require(assertStatement.kind == AssertStatementKind.ASSUME)
           val cond = emitExpression(assertStatement.cond)
           val trigger = if (multiclock) " @" + getTrigger(component, assertStatement.clockDomain) else ""
-          logics ++= s"  ${assertStatement.loc.file}_L${assertStatement.loc.line}: assume ($cond = '1')$trigger; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
+          val label = getLabel(assertStatement)
+          logics ++= s"  $label: assume ($cond = '1')$trigger; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
         case _ =>
       }
     }
