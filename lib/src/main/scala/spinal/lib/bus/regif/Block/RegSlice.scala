@@ -108,6 +108,8 @@ abstract class RegSlice(val name: String, val addr: BigInt, val doc: String, val
 
   def getDoc(): String  = doc
   def getName(): String = _name
+  def upperName(): String = _name.toUpperCase()
+  def lowerName(): String = _name.toLowerCase()
   def getAddr(): BigInt = addr
   def getSize(): BigInt = size
   val regType: String = "REG"

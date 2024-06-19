@@ -21,7 +21,7 @@ final case class DocSystemRdl(name: String) extends BusIfDoc {
   implicit class RegSliceExtend(reg: RegSlice) {
     def toSystemRdl: String = {
       s"""   reg {
-        |          name = "${reg.getName()}";
+        |          name = "${reg.upperName()}";
         |          desc = "${clean(reg.getDoc())}";
         |${reg.getFields().map(_.toSystemRdl).mkString("\n")}
         |   } ${reg.getName()} @ 0x${reg.getAddr()}%X;

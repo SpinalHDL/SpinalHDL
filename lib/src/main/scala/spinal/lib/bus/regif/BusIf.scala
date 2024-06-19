@@ -151,7 +151,7 @@ trait BusIf extends BusIfBase {
   }
 
   def newReg(doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    val res = createReg(symbol.name.toLowerCase(), regPtr, doc, sec, grp)
+    val res = createReg(symbol.name, regPtr, doc, sec, grp)
     regPtr += wordAddressInc
     res
   }
@@ -167,7 +167,7 @@ trait BusIf extends BusIfBase {
   }
 
   def newRAM(size: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    val res = createRAM(symbol.name.toLowerCase(), regPtr, size, doc, sec, grp)
+    val res = createRAM(symbol.name, regPtr, size, doc, sec, grp)
     regPtr += scala.math.ceil(size.toDouble/wordAddressInc).toLong * wordAddressInc
     res
   }
@@ -187,14 +187,14 @@ trait BusIf extends BusIfBase {
   }
 
   def newWrFifo(doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName): WrFifoInst = {
-    val res = createWrFifo(symbol.name.toLowerCase(), regPtr, doc, sec, grp)
+    val res = createWrFifo(symbol.name, regPtr, doc, sec, grp)
     regPtr += wordAddressInc
     res
   }
 
   def newWrFifoAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    val res = createWrFifo(symbol.name.toLowerCase(), address, doc, sec, grp)
+    val res = createWrFifo(symbol.name, address, doc, sec, grp)
     regPtr = address + wordAddressInc
     res
   }
@@ -214,14 +214,14 @@ trait BusIf extends BusIfBase {
   }
 
   def newRdFifo(doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName): RdFifoInst = {
-    val res = createRdFifo(symbol.name.toLowerCase(), regPtr, doc, sec, grp)
+    val res = createRdFifo(symbol.name, regPtr, doc, sec, grp)
     regPtr += wordAddressInc
     res
   }
 
   def newRdFifoAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName): RdFifoInst = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    val res = createRdFifo(symbol.name.toLowerCase(), address, doc, sec, grp)
+    val res = createRdFifo(symbol.name, address, doc, sec, grp)
     regPtr = address + wordAddressInc
     res
   }
