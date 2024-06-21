@@ -168,6 +168,15 @@ class PackedBundle extends Bundle {
     }
   }
 
+  /**
+    * Skips over the specified number of bits. The next unspecified field will be placed starting `count` number
+    * of bits after the last placed field.
+    * @param count Number of bits to skip over
+    */
+  protected def skipOver(count: BitCount): Unit = {
+    this.mapBuilder.nextPos += count.value
+  }
+
   override def valCallbackRec(ref: Any, name: String): Unit = {
     super.valCallbackRec(ref, name)
 

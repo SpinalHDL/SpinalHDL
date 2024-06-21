@@ -5,6 +5,17 @@ import spinal.core.formal._
 // import spinal.lib.{StreamFifo, History, OHToUInt}
 import spinal.lib.formal._
 
+case class PriorityMuxFixture(width: Int, msbFirst: Boolean) extends Component{
+  val inputWidth = log2Up(width)
+  val io = new Bundle {
+    val sel = in Bits(width bits)
+    val inputs = in Vec(Bits(inputWidth bits), width)
+    val output = out(Bits(inputWidth bits))
+  }
+  val output = PriorityMux(io.sel, io.inputs, msbFirst)
+  io.output <> output
+}
+
 class PriorityMuxChecker extends SpinalFormalFunSuite {
   def testMain(width: Int, msbFirst: Boolean){
     FormalConfig
@@ -14,7 +25,12 @@ class PriorityMuxChecker extends SpinalFormalFunSuite {
         val sel = in Bits(width bits)
         val inputWidth = log2Up(width)
         val inputs = in Vec(Bits(inputWidth bits), width)
-        val output = out(PriorityMux(sel, inputs, msbFirst))
+        val output = out(Bits(inputWidth bits))
+
+        val dut = FormalDut(PriorityMuxFixture(width, msbFirst))
+        sel <> dut.io.sel
+        inputs <> dut.io.inputs
+        output <> dut.io.output
 
         for(id <- 0 until inputs.size){
           assume(inputs(id) === id)
