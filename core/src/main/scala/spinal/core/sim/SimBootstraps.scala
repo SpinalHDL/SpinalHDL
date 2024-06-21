@@ -973,7 +973,10 @@ case class SpinalSimConfig(
     val report = _backend match {
       case SpinalSimBackendSel.VERILATOR => {
         config.addTransformationPhase(new SimVerilatorPhase)
-        config.generateVerilog(rtl)
+        config.mode match {
+          case spinal.core.SystemVerilog => config.generateSystemVerilog(rtl)
+          case _ => config.generateVerilog(rtl)
+        }
       }
       case SpinalSimBackendSel.GHDL => config.generateVhdl(rtl)
       case SpinalSimBackendSel.VCS | SpinalSimBackendSel.XSIM => config.generateVerilog(rtl)
