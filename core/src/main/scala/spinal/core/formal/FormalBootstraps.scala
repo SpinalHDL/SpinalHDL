@@ -34,8 +34,12 @@ import scala.io.Source
 import scala.util.Random
 import sys.process._
 
+sealed trait FormalBackend
+case object SymbiYosysFormalBackend extends FormalBackend
+case object GhdlFormalBackend extends FormalBackend
+
 trait FormalEngin {}
-trait FormalBackend {
+trait SpinalFormalBackend {
   def doVerify(name: String = "formal"): Unit
 }
 
@@ -46,13 +50,7 @@ object FormalWorkspace {
   def allocateWorkspace(path: String, name: String): String = SimWorkspace.allocateWorkspace(path, name)
 }
 
-class SpinalFormalBackendSel
-object SpinalFormalBackendSel {
-  val SYMBIYOSYS = new SpinalFormalBackendSel
-  val SYMBIYOSYS_GHDL = new SpinalFormalBackendSel
-}
-
-class FormalPhase(backend: SpinalFormalBackendSel) extends PhaseNetlist {
+class FormalPhase(backend: FormalBackend) extends PhaseNetlist {
   override def impl(pc: PhaseContext): Unit = {
 
     // force synchronous reset for DUTs marked with FormalDut()
@@ -76,7 +74,7 @@ class FormalPhase(backend: SpinalFormalBackendSel) extends PhaseNetlist {
       case _                                              =>
     }
 
-    if (backend == SpinalFormalBackendSel.SYMBIYOSYS_GHDL) {
+    if (backend == GhdlFormalBackend) {
       // convert formal random assignments to "unconstrained variables" via attributes
       pc.walkComponents { c =>
         c.dslBody.walkStatements {
@@ -130,7 +128,7 @@ case class SpinalFormalConfig(
     var _additionalRtlPath: ArrayBuffer[String] = ArrayBuffer[String](),
     var _additionalIncludeDir: ArrayBuffer[String] = ArrayBuffer[String](),
     var _modesWithDepths: LinkedHashMap[String, Int] = LinkedHashMap[String, Int](),
-    var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS,
+    var _backend: FormalBackend = SymbiYosysFormalBackend,
     var _keepDebugInfo: Boolean = false,
     var _skipWireReduce: Boolean = false,
     var _hasAsync: Boolean = false,
@@ -138,13 +136,19 @@ case class SpinalFormalConfig(
     var _engines: ArrayBuffer[FormalEngin] = ArrayBuffer()
 ) {
   def withSymbiYosys: this.type = {
-    _backend = SpinalFormalBackendSel.SYMBIYOSYS
+    _backend = SymbiYosysFormalBackend
     this
   }
 
   def withGhdl: this.type = {
     SpinalWarning("Using GHDL as formal backend is experimental!")
-    _backend = SpinalFormalBackendSel.SYMBIYOSYS_GHDL
+    _backend = GhdlFormalBackend
+    this
+  }
+
+  def withBackend(backend: FormalBackend): this.type = {
+    if (backend == GhdlFormalBackend) SpinalWarning("Using GHDL as formal backend is experimental!")
+    _backend = backend
     this
   }
 
@@ -242,11 +246,11 @@ case class SpinalFormalConfig(
     compile(rtl).doVerify(name)
   }
 
-  def compile[T <: Component](rtl: => T): FormalBackend = {
+  def compile[T <: Component](rtl: => T): SpinalFormalBackend = {
     this.copy().compileCloned(rtl)
   }
 
-  def compileCloned[T <: Component](rtl: => T): FormalBackend = {
+  def compileCloned[T <: Component](rtl: => T): SpinalFormalBackend = {
     if (_workspacePath.startsWith("~"))
       _workspacePath = System.getProperty("user.home") + _workspacePath.drop(1)
 
@@ -259,10 +263,10 @@ case class SpinalFormalConfig(
       .addTransformationPhase(new FormalPhase(_backend))
 
     val report = _backend match {
-      case SpinalFormalBackendSel.SYMBIYOSYS =>
+      case SymbiYosysFormalBackend =>
         // config.generateVerilog(rtl)
         config.generateSystemVerilog(rtl)
-      case SpinalFormalBackendSel.SYMBIYOSYS_GHDL =>
+      case GhdlFormalBackend =>
         config.generateVhdl(rtl)
     }
     report.blackboxesSourcesPaths ++= _additionalRtlPath
@@ -270,7 +274,7 @@ case class SpinalFormalConfig(
     compile[T](report)
   }
 
-  def compile[T <: Component](report: SpinalReport[T]): FormalBackend = {
+  def compile[T <: Component](report: SpinalReport[T]): SpinalFormalBackend = {
     if (_workspacePath.startsWith("~"))
       _workspacePath = System.getProperty("user.home") + _workspacePath.drop(1)
 
@@ -324,10 +328,10 @@ case class SpinalFormalConfig(
     }
 
     _backend match {
-      case SpinalFormalBackendSel.SYMBIYOSYS | SpinalFormalBackendSel.SYMBIYOSYS_GHDL =>
+      case SymbiYosysFormalBackend | GhdlFormalBackend =>
         println(f"[Progress] Yosys compilation started")
         val startAt = System.nanoTime()
-        val vConfig = new SymbiYosysBackendConfig(
+        val vConfig = new SymbiYosysFormalBackendConfig(
           workspacePath = workingWorksplace.toString(),
           workspaceName = "formal",
           toplevelName = report.toplevelName,
@@ -336,7 +340,7 @@ case class SpinalFormalConfig(
           keepDebugInfo = _keepDebugInfo,
           skipWireReduce = _skipWireReduce,
           multiClock = _hasAsync,
-          withGhdl = _backend == SpinalFormalBackendSel.SYMBIYOSYS_GHDL
+          withGhdl = _backend == GhdlFormalBackend
         )
         vConfig.rtlSourcesPaths ++= rtlFiles
         vConfig.rtlIncludeDirs ++= report.rtlIncludeDirs
@@ -347,7 +351,7 @@ case class SpinalFormalConfig(
             }
           )
 
-        val backend = new SymbiYosysBackend(vConfig)
+        val backend = new SymbiYosysFormalBackendImpl(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
         println(f"[Progress] Yosys compilation done in $deltaTime%1.3f ms")
         backend

@@ -34,16 +34,13 @@ import spinal.tester._
   */
 class FormalApiTest extends SpinalFormalFunSuite {
 
-  val symbiYosys = SpinalFormalBackendSel.SYMBIYOSYS
-  val ghdl = SpinalFormalBackendSel.SYMBIYOSYS_GHDL
-
   /** Test the generation and verification of assert statement.
     *
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  deliberately trigger the assert
     */
-  def runAssertTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(2)
+  def runAssertTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(2)
 
     config.doVerify(new Component {
       setDefinitionName("AssertTest")
@@ -56,19 +53,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.assert.symbiyosys") {
-    runAssertTest(symbiYosys)
+    runAssertTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.assert.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in AssertTest")(
-      runAssertTest(symbiYosys, doFail = true)
+      runAssertTest(SymbiYosysFormalBackend, doFail = true)
     )
   }
   test("FormalApiTest.assert.ghdl") {
-    runAssertTest(ghdl)
+    runAssertTest(GhdlFormalBackend)
   }
   test("FormalApiTest.assert.ghdl.fail") {
     shouldFailWithOutput("Assert failed in AssertTest")(
-      runAssertTest(ghdl, doFail = true)
+      runAssertTest(GhdlFormalBackend, doFail = true)
     )
   }
 
@@ -80,8 +77,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  dont to the assume, following assert will trigger
     */
-  def runAssumeIoTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(2)
+  def runAssumeIoTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(2)
 
     config.doVerify(new Component {
       setDefinitionName("AssumeIoTest")
@@ -96,19 +93,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.assume.io.symbiyosys") {
-    runAssumeIoTest(symbiYosys)
+    runAssumeIoTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.assume.io.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in AssumeIoTest")(
-      runAssumeIoTest(symbiYosys, doFail = true)
+      runAssumeIoTest(SymbiYosysFormalBackend, doFail = true)
     )
   }
   test("FormalApiTest.assume.io.ghdl") {
-    runAssumeIoTest(ghdl)
+    runAssumeIoTest(GhdlFormalBackend)
   }
   test("FormalApiTest.assume.io.ghdl.fail") {
     shouldFailWithOutput("Assert failed in AssumeIoTest")(
-      runAssumeIoTest(ghdl, doFail = true)
+      runAssumeIoTest(GhdlFormalBackend, doFail = true)
     )
   }
 
@@ -129,14 +126,14 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  dont assume a value, following assert will trigger
     */
-  def runUnconstrainedTest(func: (Data) => Data, backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+  def runUnconstrainedTest(func: (Data) => Data, backend: FormalBackend, doFail: Boolean = false): Unit = {
     // Allconst and allseq require option stdt as otherwise yosys generates err:
     //   "Forall-exists problems are only supported in -stbv or -stdt mode."
     // With the stdt flag the default solver yices then fails with error:
     //   "syntax error: declare-datatype is not a command"
     // so we use any other solver that supports forall, here Z3.
     val config = FormalConfig
-      .copy(_backend = backend)
+      .withBackend(backend)
       .withBMC(2)
       .withEngies(Seq(SmtBmc(stdt = true, nopresat = true, solver = SmtBmcSolver.Z3)))
 
@@ -160,19 +157,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
     )
   ) {
     test(s"FormalApiTest.${name}.symbiyosys") {
-      runUnconstrainedTest(func, symbiYosys)
+      runUnconstrainedTest(func, SymbiYosysFormalBackend)
     }
     test(s"FormalApiTest.${name}.symbiyosys.fail") {
       shouldFailWithOutput("Assert failed in UnconstrainedTest")(
-        runUnconstrainedTest(func, symbiYosys, doFail = true)
+        runUnconstrainedTest(func, SymbiYosysFormalBackend, doFail = true)
       )
     }
     test(s"FormalApiTest.${name}.ghdl") {
-      runUnconstrainedTest(func, ghdl)
+      runUnconstrainedTest(func, GhdlFormalBackend)
     }
     test(s"FormalApiTest.${name}.ghdl.fail") {
       shouldFailWithOutput("Assert failed in UnconstrainedTest")(
-        runUnconstrainedTest(func, ghdl, doFail = true)
+        runUnconstrainedTest(func, GhdlFormalBackend, doFail = true)
       )
     }
   }
@@ -183,8 +180,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  dont to the assume, following assert will trigger
     */
-  def runAssumeInternalTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(2)
+  def runAssumeInternalTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(2)
 
     config.doVerify(new Component {
       setDefinitionName("AssumeInternalTest")
@@ -201,19 +198,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.assume.internal.symbiyosys") {
-    runAssumeInternalTest(symbiYosys)
+    runAssumeInternalTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.assume.internal.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in AssumeInternalTest")(
-      runAssumeInternalTest(symbiYosys, doFail = true)
+      runAssumeInternalTest(SymbiYosysFormalBackend, doFail = true)
     )
   }
   test("FormalApiTest.assume.internal.ghdl") {
-    runAssumeInternalTest(ghdl)
+    runAssumeInternalTest(GhdlFormalBackend)
   }
   test("FormalApiTest.assume.internal.ghdl.fail") {
     shouldFailWithOutput("Assert failed in AssumeInternalTest")(
-      runAssumeInternalTest(ghdl, doFail = true)
+      runAssumeInternalTest(GhdlFormalBackend, doFail = true)
     )
   }
 
@@ -235,8 +232,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  false = use anyconst; true = use anyseq
     */
-  def runAssumeInitialTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+  def runAssumeInitialTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("AssumeInitialTest")
@@ -254,19 +251,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.assumeInitial.symbiyosys") {
-    runAssumeInitialTest(symbiYosys)
+    runAssumeInitialTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.assumeInitial.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in AssumeInitialTest")(
-      runAssumeInitialTest(symbiYosys, doFail = true)
+      runAssumeInitialTest(SymbiYosysFormalBackend, doFail = true)
     )
   }
   test("FormalApiTest.assumeInitial.ghdl") {
-    runAssumeInitialTest(ghdl)
+    runAssumeInitialTest(GhdlFormalBackend)
   }
   test("FormalApiTest.assumeInitial.ghdl.fail") {
     shouldFailWithOutput("Assert failed in AssumeInitialTest")(
-      runAssumeInitialTest(ghdl, doFail = true)
+      runAssumeInitialTest(GhdlFormalBackend, doFail = true)
     )
   }
 
@@ -275,8 +272,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  force cover statement to be non-reachable
     */
-  def runCoverTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withCover(3)
+  def runCoverTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withCover(3)
 
     config.doVerify(new Component {
       setDefinitionName("CoverTest")
@@ -293,19 +290,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.cover.symbiyosys") {
-    runCoverTest(symbiYosys)
+    runCoverTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.cover.symbiyosys.fail") {
     shouldFailWithOutput("Unreached cover statement")(
-      runCoverTest(symbiYosys, doFail = true)
+      runCoverTest(SymbiYosysFormalBackend, doFail = true)
     )
   }
   test("FormalApiTest.cover.ghdl") {
-    runCoverTest(ghdl)
+    runCoverTest(GhdlFormalBackend)
   }
   test("FormalApiTest.cover.ghdl.fail") {
     shouldFailWithOutput("Unreached cover statement")(
-      runCoverTest(ghdl, doFail = true)
+      runCoverTest(GhdlFormalBackend, doFail = true)
     )
   }
 
@@ -322,8 +319,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  false = constant reset; true = initial reset
     */
-  def runAssertUnderResetTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+  def runAssertUnderResetTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("AssertUnderResetTest")
@@ -339,19 +336,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.assertUnderReset.symbiyosys") {
-    runAssertUnderResetTest(symbiYosys)
+    runAssertUnderResetTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.assertUnderReset.symbiyosys.fail") {
     shouldFailWithOutput("Checking assertions in step 1..")( // must not fail in first clock
-      runAssertUnderResetTest(symbiYosys, doFail = true)
+      runAssertUnderResetTest(SymbiYosysFormalBackend, doFail = true)
     )
   }
   test("FormalApiTest.assertUnderReset.ghdl") { // fails
-    runAssertUnderResetTest(ghdl)
+    runAssertUnderResetTest(GhdlFormalBackend)
   }
   test("FormalApiTest.assertUnderReset.ghdl.fail") {
     shouldFailWithOutput("Checking assertions in step 1..")( // must not fail in first clock
-      runAssertUnderResetTest(ghdl, doFail = true)
+      runAssertUnderResetTest(GhdlFormalBackend, doFail = true)
     )
   }
 
@@ -369,8 +366,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     *
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     */
-  def runAssertWithoutResetTest(backend: SpinalFormalBackendSel): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+  def runAssertWithoutResetTest(backend: FormalBackend): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("AssertWithoutResetTest")
@@ -385,12 +382,12 @@ class FormalApiTest extends SpinalFormalFunSuite {
 
   test("FormalApiTest.assertWithoutReset.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in AssertWithoutResetTest") {
-      runAssertWithoutResetTest(symbiYosys)
+      runAssertWithoutResetTest(SymbiYosysFormalBackend)
     }
   }
   test("FormalApiTest.assertWithoutReset.ghdl.fail") {
     shouldFailWithOutput("Assert failed in AssertWithoutResetTest") {
-      runAssertWithoutResetTest(ghdl)
+      runAssertWithoutResetTest(GhdlFormalBackend)
     }
   }
 
@@ -405,8 +402,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  false = condition is always false; true = always true
     */
-  def runAssertWithinCondTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+  def runAssertWithinCondTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("AssertWithinCondTest")
@@ -429,19 +426,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.assertWithinCond.symbiyosys") {
-    runAssertWithinCondTest(symbiYosys)
+    runAssertWithinCondTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.assertWithinCond.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in AssertWithinCondTest") {
-      runAssertWithinCondTest(symbiYosys, doFail = true)
+      runAssertWithinCondTest(SymbiYosysFormalBackend, doFail = true)
     }
   }
   test("FormalApiTest.assertWithinCond.ghdl") {
-    runAssertWithinCondTest(ghdl)
+    runAssertWithinCondTest(GhdlFormalBackend)
   }
   test("FormalApiTest.assertWithinCond.ghdl.fail") {
     shouldFailWithOutput("Assert failed in AssertWithinCondTest") {
-      runAssertWithinCondTest(ghdl, doFail = true)
+      runAssertWithinCondTest(GhdlFormalBackend, doFail = true)
     }
   }
 
@@ -451,8 +448,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  false = assert shall not trigger; true = will trigger
     */
-  def runWithinClockDomainTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+  def runWithinClockDomainTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("WithinClockDomain")
@@ -471,19 +468,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.withinClockDomain.symbiyosys") {
-    runWithinClockDomainTest(symbiYosys)
+    runWithinClockDomainTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.withinClockDomain.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in WithinClockDomain") {
-      runWithinClockDomainTest(symbiYosys, doFail = true)
+      runWithinClockDomainTest(SymbiYosysFormalBackend, doFail = true)
     }
   }
   test("FormalApiTest.withinClockDomain.ghdl") {
-    runWithinClockDomainTest(ghdl)
+    runWithinClockDomainTest(GhdlFormalBackend)
   }
   test("FormalApiTest.withinClockDomain.ghdl.fail") {
     shouldFailWithOutput("Assert failed in WithinClockDomain") {
-      runWithinClockDomainTest(ghdl, doFail = true)
+      runWithinClockDomainTest(GhdlFormalBackend, doFail = true)
     }
   }
 
@@ -492,9 +489,9 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  false = assume a value change; true = dont change value
     */
-  def runRoseTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+  def runRoseTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
     val config = FormalConfig
-      .copy(_backend = backend)
+      .withBackend(backend)
       .withBMC(3)
       .withEngies(Seq(SmtBmc(nopresat = true)))
 
@@ -512,19 +509,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.rose.symbiyosys") {
-    runRoseTest(symbiYosys)
+    runRoseTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.rose.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in RoseTest") {
-      runRoseTest(symbiYosys, doFail = true)
+      runRoseTest(SymbiYosysFormalBackend, doFail = true)
     }
   }
   test("FormalApiTest.rose.ghdl") {
-    runRoseTest(ghdl)
+    runRoseTest(GhdlFormalBackend)
   }
   test("FormalApiTest.rose.ghdl.fail") {
     shouldFailWithOutput("Assert failed in RoseTest") {
-      runRoseTest(ghdl, doFail = true)
+      runRoseTest(GhdlFormalBackend, doFail = true)
     }
   }
 
@@ -533,9 +530,9 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  false = assume a value change; true = dont change value
     */
-  def runFellTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+  def runFellTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
     val config = FormalConfig
-      .copy(_backend = backend)
+      .withBackend(backend)
       .withBMC(3)
       .withEngies(Seq(SmtBmc(nopresat = true)))
 
@@ -553,19 +550,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.fell.symbiyosys") {
-    runFellTest(symbiYosys)
+    runFellTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.fell.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in FellTest") {
-      runFellTest(symbiYosys, doFail = true)
+      runFellTest(SymbiYosysFormalBackend, doFail = true)
     }
   }
   test("FormalApiTest.fell.ghdl") {
-    runFellTest(ghdl)
+    runFellTest(GhdlFormalBackend)
   }
   test("FormalApiTest.fell.ghdl.fail") {
     shouldFailWithOutput("Assert failed in FellTest") {
-      runFellTest(ghdl, doFail = true)
+      runFellTest(GhdlFormalBackend, doFail = true)
     }
   }
 
@@ -574,9 +571,9 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  false = assume a value change; true = dont change value
     */
-  def runChangedTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
+  def runChangedTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
     val config = FormalConfig
-      .copy(_backend = backend)
+      .withBackend(backend)
       .withBMC(3)
       .withEngies(Seq(SmtBmc(nopresat = true)))
 
@@ -594,19 +591,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.changed.symbiyosys") {
-    runChangedTest(symbiYosys)
+    runChangedTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.changed.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in ChangedTest") {
-      runChangedTest(symbiYosys, doFail = true)
+      runChangedTest(SymbiYosysFormalBackend, doFail = true)
     }
   }
   test("FormalApiTest.changed.ghdl") {
-    runChangedTest(ghdl)
+    runChangedTest(GhdlFormalBackend)
   }
   test("FormalApiTest.changed.ghdl.fail") {
     shouldFailWithOutput("Assert failed in ChangedTest") {
-      runChangedTest(ghdl, doFail = true)
+      runChangedTest(GhdlFormalBackend, doFail = true)
     }
   }
 
@@ -615,8 +612,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  false = keep constant value; true = change value
     */
-  def runStableTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+  def runStableTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("StableTest")
@@ -635,19 +632,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.stable.symbiyosys") {
-    runStableTest(symbiYosys)
+    runStableTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.stable.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in StableTest") {
-      runStableTest(symbiYosys, doFail = true)
+      runStableTest(SymbiYosysFormalBackend, doFail = true)
     }
   }
   test("FormalApiTest.stable.ghdl") {
-    runStableTest(ghdl)
+    runStableTest(GhdlFormalBackend)
   }
   test("FormalApiTest.stable.ghdl.fail") {
     shouldFailWithOutput("Assert failed in StableTest") {
-      runStableTest(ghdl, doFail = true)
+      runStableTest(GhdlFormalBackend, doFail = true)
     }
   }
 
@@ -656,8 +653,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  false = keep constant value; true = change value
     */
-  def runInitStateTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+  def runInitStateTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("InitStateTest")
@@ -677,19 +674,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.initstate.symbiyosys") {
-    runInitStateTest(symbiYosys)
+    runInitStateTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.initstate.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in InitStateTest") {
-      runInitStateTest(symbiYosys, doFail = true)
+      runInitStateTest(SymbiYosysFormalBackend, doFail = true)
     }
   }
   test("FormalApiTest.initstate.ghdl") {
-    runInitStateTest(ghdl)
+    runInitStateTest(GhdlFormalBackend)
   }
   test("FormalApiTest.initstate.ghdl.fail") {
     shouldFailWithOutput("Assert failed in InitStateTest") {
-      runInitStateTest(ghdl, doFail = true)
+      runInitStateTest(GhdlFormalBackend, doFail = true)
     }
   }
 
@@ -698,8 +695,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     * @param doFail  false = keep constant value; true = change value
     */
-  def runPastTest(backend: SpinalFormalBackendSel, doFail: Boolean = false): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+  def runPastTest(backend: FormalBackend, doFail: Boolean = false): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("PastTest")
@@ -718,19 +715,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.past.symbiyosys") {
-    runPastTest(symbiYosys)
+    runPastTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.past.symbiyosys.fail") {
     shouldFailWithOutput("Assert failed in PastTest") {
-      runPastTest(symbiYosys, doFail = true)
+      runPastTest(SymbiYosysFormalBackend, doFail = true)
     }
   }
   test("FormalApiTest.past.ghdl") {
-    runPastTest(ghdl)
+    runPastTest(GhdlFormalBackend)
   }
   test("FormalApiTest.past.ghdl.fail") {
     shouldFailWithOutput("Assert failed in PastTest") {
-      runPastTest(ghdl, doFail = true)
+      runPastTest(GhdlFormalBackend, doFail = true)
     }
   }
 
@@ -743,8 +740,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     *
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     */
-  def runPastValidTest(backend: SpinalFormalBackendSel): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+  def runPastValidTest(backend: FormalBackend): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("PastValidTest")
@@ -763,19 +760,19 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.pastValid.symbiyosys") {
-    runPastValidTest(symbiYosys)
+    runPastValidTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.pastValid.ghdl") {
-    runPastValidTest(ghdl)
+    runPastValidTest(GhdlFormalBackend)
   }
 
   /** Test the generation and verification of pastValidAfterReset statements.
     *
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     */
-  def runPastValidAfterResetTest(backend: SpinalFormalBackendSel): Unit = {
+  def runPastValidAfterResetTest(backend: FormalBackend): Unit = {
     val config = FormalConfig
-      .copy(_backend = backend)
+      .withBackend(backend)
       .withBMC(3)
       .withEngies(Seq(SmtBmc(nopresat = true)))
 
@@ -801,10 +798,10 @@ class FormalApiTest extends SpinalFormalFunSuite {
   }
 
   test("FormalApiTest.pastValidAfterReset.symbiyosys") {
-    runPastValidAfterResetTest(symbiYosys)
+    runPastValidAfterResetTest(SymbiYosysFormalBackend)
   }
   test("FormalApiTest.pastValidAfterReset.ghdl") {
-    runPastValidAfterResetTest(ghdl)
+    runPastValidAfterResetTest(GhdlFormalBackend)
   }
 
   /** Test that backtrace of failed formal verification contains a reference to
@@ -815,8 +812,8 @@ class FormalApiTest extends SpinalFormalFunSuite {
     *
     * @param backend formal backend to use, i.e. use SymbiYosys or GHDL
     */
-  def runQolBacktraceTest(backend: SpinalFormalBackendSel): Unit = {
-    val config = FormalConfig.copy(_backend = backend).withBMC(3)
+  def runQolBacktraceTest(backend: FormalBackend): Unit = {
+    val config = FormalConfig.withBackend(backend).withBMC(3)
 
     config.doVerify(new Component {
       setDefinitionName("QolBacktraceTest")
@@ -830,12 +827,12 @@ class FormalApiTest extends SpinalFormalFunSuite {
 
   test("FormalApiTest.qolBacktrace.symbiyosys") {
     shouldFailWithOutput("assert(1'b0);") {
-      runQolBacktraceTest(symbiYosys)
+      runQolBacktraceTest(SymbiYosysFormalBackend)
     }
   }
   test("FormalApiTest.qolBacktrace.ghdl") {
     shouldFailWithOutput("assert (always pkg_toStdLogic(false) sync_abort reset);") {
-      runQolBacktraceTest(ghdl)
+      runQolBacktraceTest(GhdlFormalBackend)
     }
   }
 }

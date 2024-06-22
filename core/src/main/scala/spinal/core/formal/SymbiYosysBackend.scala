@@ -91,7 +91,7 @@ case class Abc() extends SbyEngine {
   def command: String = { "abc" }
 }
 
-class SymbiYosysBackendConfig(
+class SymbiYosysFormalBackendConfig(
     val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
     val rtlIncludeDirs: ArrayBuffer[String] = ArrayBuffer[String](),
     var engines: ArrayBuffer[SbyEngine] = ArrayBuffer(SmtBmc()),
@@ -106,7 +106,7 @@ class SymbiYosysBackendConfig(
     var withGhdl: Boolean = false
 )
 
-class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBackend {
+class SymbiYosysFormalBackendImpl(val config: SymbiYosysFormalBackendConfig) extends SpinalFormalBackend {
   val workspaceName = new File(config.workspaceName).toPath()
   val workspacePath = new File(config.workspacePath).toPath()
   val workDir = workspaceName.resolve(workspacePath)
