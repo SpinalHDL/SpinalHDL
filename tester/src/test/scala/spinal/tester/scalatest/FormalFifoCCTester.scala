@@ -64,12 +64,13 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
     }
   }
 
-  def testMain(pushPeriod: Int, popPeriod: Int, seperateReset: Boolean = false) = {
+  def testMain(pushPeriod: Int, popPeriod: Int, seperateReset: Boolean, backend: FormalBackend) = {
     val proveCycles = 8
     val coverCycles = 8
     val maxPeriod = Math.max(pushPeriod, popPeriod)
 
     FormalConfig
+      .withBackend(backend)
       .withProve(maxPeriod * proveCycles)
       .withCover(maxPeriod * coverCycles)
       .withAsync
@@ -78,12 +79,18 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
       })
   }
 
-  test("fifo-verify fast pop") {
-    testMain(5, 3)
+  test("fifo-verify fast pop - symboyosys") {
+    testMain(5, 3, false, SymbiYosysFormalBackend)
+  }
+  test("fifo-verify fast pop - ghdl") {
+    testMain(5, 3, false, GhdlFormalBackend)
   }
 
-  test("fifo-verify fast push") {
-    testMain(3, 5)
+  test("fifo-verify fast push - symbiyosy") {
+    testMain(3, 5, false, SymbiYosysFormalBackend)
+  }
+  test("fifo-verify fast push - ghdl") {
+    testMain(3, 5, false, GhdlFormalBackend)
   }
 
 //   test("fifo-verify ultra fast pop") {
@@ -94,12 +101,18 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
 //     testMain(2, 11)
 //   }
 
-  test("fifo-verify fast pop reset seperately") {
-    testMain(5, 3, true)
+  test("fifo-verify fast pop reset seperately - symbiyosys") {
+    testMain(5, 3, true, SymbiYosysFormalBackend)
+  }
+  test("fifo-verify fast pop reset seperately - ghdl") {
+    testMain(5, 3, true, GhdlFormalBackend)
   }
 
-  test("fifo-verify fast push reset seperately") {
-    testMain(3, 5, true)
+  test("fifo-verify fast push reset seperately - symbiyosys") {
+    testMain(3, 5, true, SymbiYosysFormalBackend)
+  }
+  test("fifo-verify fast push reset seperately - ghdl") {
+    testMain(3, 5, true, GhdlFormalBackend)
   }
 
 //   test("fifo-verify ultra fast pop reset seperately") {
@@ -110,12 +123,13 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
 //     testMain(2, 11, true)
 //   }
 
-  def testNoLoss(pushPeriod: Int, popPeriod: Int, seperateReset: Boolean = false) = {
+  def testNoLoss(pushPeriod: Int, popPeriod: Int, seperateReset: Boolean, backend: FormalBackend) = {
     val proveCycles = 8
     val coverCycles = 8
     val maxPeriod = Math.max(pushPeriod, popPeriod)
 
     FormalConfig
+      .withBackend(backend)
       .withCover(maxPeriod * coverCycles)
       .withAsync
       .withDebug
@@ -157,12 +171,18 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
       })
   }
 
-  test("noloss fast pop") {
-    shouldFail(testNoLoss(5, 3))
+  test("noloss fast pop - symbiyosys") {
+    shouldFail(testNoLoss(5, 3, false, SymbiYosysFormalBackend))
+  }
+  test("noloss fast pop - ghdl") {
+    shouldFail(testNoLoss(5, 3, false, GhdlFormalBackend))
   }
 
-  test("noloss fast push") {
-    shouldFail(testNoLoss(3, 5))
+  test("noloss fast push - symbiyosys") {
+    shouldFail(testNoLoss(3, 5, false, SymbiYosysFormalBackend))
+  }
+  test("noloss fast push - ghdl") {
+    shouldFail(testNoLoss(3, 5, false, GhdlFormalBackend))
   }
 
   // test("noloss ultra fast pop") {
@@ -173,12 +193,18 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
   //   shouldFail(testNoLoss(2, 11))
   // }
 
-  test("noloss fast pop reset seperately") {
-    shouldFail(testNoLoss(5, 3, true))
+  test("noloss fast pop reset seperately - symbiyosys") {
+    shouldFail(testNoLoss(5, 3, true, SymbiYosysFormalBackend))
+  }
+  test("noloss fast pop reset seperately - ghdl") {
+    shouldFail(testNoLoss(5, 3, true, GhdlFormalBackend))
   }
 
-  test("noloss fast push reset seperately") {
-    shouldFail(testNoLoss(3, 5, true))
+  test("noloss fast push reset seperately - symbiyosys") {
+    shouldFail(testNoLoss(3, 5, true, SymbiYosysFormalBackend))
+  }
+  test("noloss fast push reset seperately - ghdl") {
+    shouldFail(testNoLoss(3, 5, true, GhdlFormalBackend))
   }
 
   // test("noloss ultra fast pop reset seperately") {
