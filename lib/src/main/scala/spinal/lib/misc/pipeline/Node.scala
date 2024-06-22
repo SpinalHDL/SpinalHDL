@@ -154,6 +154,22 @@ trait NodeApi extends NodeBaseApi {
     arbitrateTo(that)
     con(that.payload, getNode)
   }
+
+  def toStream[T <: Data](con: (Node) => T): Stream[T] = {
+    val newPayload = con(getNode)
+    val that = Stream(cloneOf(newPayload))
+    that.payload := newPayload 
+    arbitrateTo(that)
+    that
+  }
+  
+  def toFlow[T <: Data](con: (Node) => T): Flow[T] = {
+    val newPayload = con(getNode)
+    val that = Flow(cloneOf(newPayload))
+    that.payload := newPayload 
+    arbitrateTo(that)
+    that
+  }
 }
 
 class Node() extends Area with NodeApi{
