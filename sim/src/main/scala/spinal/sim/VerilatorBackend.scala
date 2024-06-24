@@ -325,6 +325,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
 };
 
 double sc_time_stamp () {
+  if(simHandle${uniqueId} == NULL) return 0.0;
   return simHandle${uniqueId}->time;
 }
 
