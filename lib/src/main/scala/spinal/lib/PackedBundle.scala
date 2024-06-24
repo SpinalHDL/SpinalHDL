@@ -77,7 +77,7 @@ class PackedBundle extends Bundle {
 
   def packed: Bits = {
     val maxWidth = mappings.map(_._1.high).max + 1
-    val packed = B(0, maxWidth bit)
+    val packed = B(0, maxWidth bit).allowOverride()
     for ((range, data) <- mappings) {
       if (range.step > 0) {
         // "Little endian" -- ascending range

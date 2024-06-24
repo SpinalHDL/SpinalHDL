@@ -415,6 +415,24 @@ class SpinalSimPackedBundleTester extends SpinalAnyFunSuite {
       })
   }
 
+  test("pack single field") {
+    SimConfig
+      .compile(new Component {
+
+        val packedBundle = new PackedBundle {
+          val a = Bits(4 bits)
+        }
+
+        val io = new Bundle {
+          val a = in Bits(4 bits)
+          val packed = out Bits(4 bits)
+        }
+
+        packedBundle.a := io.a
+        io.packed := packedBundle.packed
+      })
+  }
+  
   test("pack with skipOver") {
     SimConfig
       .compile(new Component {
