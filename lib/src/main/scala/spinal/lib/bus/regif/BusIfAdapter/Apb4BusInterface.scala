@@ -25,9 +25,11 @@ case class Apb4BusInterface(bus: Apb4, sizeMap: SizeMapping, regPre: String = ""
   if(bus.c.useSlaveError) bus.PSLVERR := bus_slverr
 
   val askWrite  = (bus.PSEL(0) && bus.PWRITE).allowPruning()
-  val askRead   = (bus.PSEL(0) && !bus.PWRITE).allowPruning()
+//  val askRead   = (bus.PSEL(0) && !bus.PWRITE).allowPruning()
+  val askRead   = (bus.PSEL(0) && !bus.PWRITE && !bus.PENABLE).allowPruning()
   val doWrite   = (askWrite && bus.PENABLE && bus.PREADY).allowPruning()
-  val doRead    = (askRead  && bus.PENABLE && bus.PREADY).allowPruning()
+//  val doRead    = (askRead  && bus.PENABLE && bus.PREADY).allowPruning()
+  val doRead    = (bus.PSEL(0) && !bus.PWRITE && bus.PENABLE && bus.PREADY).allowPruning()
   val writeData = bus.PWDATA
   override lazy val cg_en: Bool = bus.PSEL(0) || RegNext(bus.PSEL(0), init = False) //why delay 1 cycle is used for W1P clear back after write
   override lazy val bus_nsbit: Bool = bus.PPROT(1)
