@@ -844,23 +844,31 @@ class ComponentEmitterVhdl(
     dispatchExpression(that)
   }
 
+  val attributeDefSet = mutable.LinkedHashSet[String]()
   def emitAttributesDef(into : StringBuilder, io : Boolean): Unit = {
     val map = mutable.Map[String, Attribute]()
 
     def walk(that : Any) : Unit = that match{
       case s: SpinalTagReady =>
-        that match {
-          case bt : BaseType if io == bt.isDirectionLess => return
-          case _ =>
-        }
         for (attribute <- s.instanceAttributes(Language.VHDL)) {
-          val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
-          if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${component}})")
+          val key = attribute.getName
+          if(!attributeDefSet.contains(key)){
+            attributeDefSet += attribute.getName
+            val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
+            if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${component}})")
+          }
         }
       case s =>
     }
 
-    component.dslBody.walkStatements(walk)
+    if(io){
+      component.getAllIo.foreach(walk)
+    } else {
+      component.dslBody.walkStatements{
+        case bt: BaseType if !bt.isDirectionLess => 
+        case s => walk(s)
+      }
+    }
     component.children.foreach(walk)
 
     for (attribute <- map.values) {
