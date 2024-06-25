@@ -15,6 +15,7 @@ trait BusIf extends BusIfBase {
   private val SliceInsts   = ListBuffer[RegSlice]()
   private var regPtr: BigInt = 0
   protected var readDefaultValue: BigInt = 0
+  protected var secFailReadValue: BigInt = null
 
   protected var grpId: Int = 1
   protected def grpIdInc(): Unit = (grpId += 1)
@@ -66,7 +67,12 @@ trait BusIf extends BusIfBase {
   def getModuleName: String
   def setReservedAddressReadValue(value: BigInt) = readDefaultValue = value
   def getReservedAddressReadValue = readDefaultValue
+
+  def setSecFailReadValue(value: BigInt) = secFailReadValue = value
+  def getSecFailReadValue = secFailReadValue
+
   def defualtReadBits = B(readDefaultValue, busDataWidth bits)
+  def secFailDefaultBits = B(Option(readDefaultValue).getOrElse(readDefaultValue), busDataWidth bits)
   def slices= SliceInsts.toList
   def hasBlock = SliceInsts.filter(_.reuseTag.id != 0).nonEmpty
 
