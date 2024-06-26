@@ -151,7 +151,7 @@ class SymbiYosysFormalBackendImpl(val config: SymbiYosysFormalBackendConfig) ext
       "\n\n" +
       "[script]\n" +
       (if (!config.withGhdl) { s"read -formal $read" }
-       else { s"ghdl --std=08 $read -e ${config.toplevelName}" }) +
+       else { s"ghdl --std=08 --no-assert-cover $read -e ${config.toplevelName}" }) +
       "\n" +
       s"prep ${skipWireReduce} -top ${config.toplevelName}\n" +
       "\n" +
