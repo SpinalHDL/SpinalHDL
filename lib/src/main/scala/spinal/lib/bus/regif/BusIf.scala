@@ -72,7 +72,7 @@ trait BusIf extends BusIfBase {
   def getSecFailReadValue = secFailReadValue
 
   def defualtReadBits = B(readDefaultValue, busDataWidth bits)
-  def secFailDefaultBits = B(Option(readDefaultValue).getOrElse(readDefaultValue), busDataWidth bits)
+  def secFailDefaultBits = B(Option(secFailReadValue).getOrElse(readDefaultValue), busDataWidth bits)
   def slices= SliceInsts.toList
   def hasBlock = SliceInsts.filter(_.reuseTag.id != 0).nonEmpty
 
