@@ -6,8 +6,9 @@ import spinal.lib._
 import spinal.lib.formal._
 
 class FormalDeMuxTester extends SpinalFormalFunSuite {
-  def formaldemux(selWithCtrl: Boolean = false) = {
+  def formaldemuxControl(selWithCtrl: Boolean = false, backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -65,14 +66,22 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
         }
       })
   }
-  test("demux_sel_with_control") {
-    formaldemux(true)
+  test("demux_sel_with_control_symbiyosys") {
+    formaldemuxControl(true, SymbiYosysFormalBackend)
   }
-  test("demux_sel_without_control") {
-    shouldFail(formaldemux(false))
+  test("demux_sel_without_control_symbiyosys") {
+    shouldFail(formaldemuxControl(false, SymbiYosysFormalBackend))
   }
-  test("demux_sync_sel") {
+  test("demux_sel_with_control_ghdl") {
+    formaldemuxControl(true, GhdlFormalBackend)
+  }
+  test("demux_sel_without_control_ghdl") {
+    shouldFail(formaldemuxControl(false, GhdlFormalBackend))
+  }
+
+  def formaldemuxSync(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withProve(20)
       .withCover(20)
       .doVerify(new Component {
@@ -132,8 +141,16 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
         setDefinitionName("demux_sync_sel")
       })
   }
-  test("demux_with_selector") {
+  test("demux_sync_sel_symbiyosys") {
+    formaldemuxSync(SymbiYosysFormalBackend)
+  }
+  test("demux_sync_sel_ghdl") {
+    formaldemuxSync(GhdlFormalBackend)
+  }
+
+  def formaldemuxSelector(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withProve(20)
       .withCover(20)
       .doVerify(new Component {
@@ -181,5 +198,11 @@ class FormalDeMuxTester extends SpinalFormalFunSuite {
           assert(demuxOutputs(dut.io.select) === demuxInput)
         }
       })
+  }
+  test("demux_with_selector_symbiyosys") {
+    formaldemuxSelector(SymbiYosysFormalBackend)
+  }
+  test("demux_with_selector_ghdl") {
+    formaldemuxSelector(GhdlFormalBackend)
   }
 }

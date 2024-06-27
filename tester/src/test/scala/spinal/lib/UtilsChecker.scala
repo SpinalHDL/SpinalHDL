@@ -17,8 +17,9 @@ case class PriorityMuxFixture(width: Int, msbFirst: Boolean) extends Component{
 }
 
 class PriorityMuxChecker extends SpinalFormalFunSuite {
-  def testMain(width: Int, msbFirst: Boolean){
+  def testMain(width: Int, msbFirst: Boolean, backend: FormalBackend) {
     FormalConfig
+      .withBackend(backend)
       .withBMC(3)
       .withCover(3)
       .doVerify(new Component {
@@ -54,19 +55,29 @@ class PriorityMuxChecker extends SpinalFormalFunSuite {
       })
   }
 
-  test("check in out basic") {
-    testMain(2, false)
+  test("check in out basic - symbiyosys") {
+    testMain(2, false, SymbiYosysFormalBackend)
+  }
+  test("check in out reverse - symbiyosys") {
+    testMain(2, true, SymbiYosysFormalBackend)
+  }
+  test("check 3 in out basic - symbiyosys") {
+    testMain(3, false, SymbiYosysFormalBackend)
+  }
+  test("check 3 in out reverse - symbiyosys") {
+    testMain(3, true, SymbiYosysFormalBackend)
   }
 
-  test("check in out reverse") {
-    testMain(2, true)
+  test("check in out basic - ghdl") {
+    testMain(2, false, GhdlFormalBackend)
   }
-
-  test("check 3 in out basic") {
-    testMain(3, false)
+  test("check in out reverse - ghdl") {
+    testMain(2, true, GhdlFormalBackend)
   }
-
-  test("check 3 in out reverse") {
-    testMain(3, true)
+  test("check 3 in out basic - ghdl") {
+    testMain(3, false, GhdlFormalBackend)
+  }
+  test("check 3 in out reverse - ghdl") {
+    testMain(3, true, GhdlFormalBackend)
   }
 }

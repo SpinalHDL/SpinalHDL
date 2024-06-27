@@ -5,7 +5,7 @@ import spinal.core.formal._
 import spinal.lib._
 
 case class GlobalClock() {
-  val domain = ClockDomain.internal("_global").withBootReset()
+  val domain = ClockDomain.internal("global").withBootReset()
   domain.clock.addAttribute("gclk")
 
   private def getActiveEdge(target: ClockDomain): Bool = {

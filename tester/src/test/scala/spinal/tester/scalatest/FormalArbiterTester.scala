@@ -145,8 +145,9 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
       }
     }
 
-  test("Arbiter-sequentialOrder-verify") {
+  def testSequentialOrder(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -174,9 +175,16 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         val sequentialOrder = sequentialOrderVerify(context.select, context.portCount)
       })
   }
+  test("Arbiter-sequentialOrder-verify-symbiyosys") {
+    testSequentialOrder(SymbiYosysFormalBackend)
+  }
+  test("Arbiter-sequentialOrder-verify-ghdl") {
+    testSequentialOrder(GhdlFormalBackend)
+  }
 
-  test("Arbiter-lowerfirst-none-verify") {
+  def testLowerfirstNone(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -204,9 +212,16 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         val lowFirst = lowFirstVerify(context.selectOH, context.inputsValid, context.selectUnLockCond)
       })
   }
+  test("Arbiter-lowerfirst-none-verify-symbiyosys") {
+    testLowerfirstNone(SymbiYosysFormalBackend)
+  }
+  test("Arbiter-lowerfirst-none-verify-ghdl") {
+    testLowerfirstNone(GhdlFormalBackend)
+  }
 
-  test("Arbiter-lowerfirst-transactionLock-verify") {
+  def testLowerFirstTransactionLock(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -239,9 +254,16 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         val lowFirst = lowFirstVerify(context.selectOH, context.inputsValid, context.selectUnLockCond)
       })
   }
+  test("Arbiter-lowerfirst-transactionLock-verify-symbiyosys") {
+    testLowerFirstTransactionLock(SymbiYosysFormalBackend)
+  }
+  test("Arbiter-lowerfirst-transactionLock-verify-ghdl") {
+    testLowerFirstTransactionLock(GhdlFormalBackend)
+  }
 
-  test("Arbiter-lowerfirst-fragment-verify") {
+  def testLowerfirstFragment(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -269,9 +291,16 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         val lowFirst = lowFirstVerify(context.selectOH, context.inputsValid, context.selectUnLockCond)
       })
   }
+  test("Arbiter-lowerfirst-fragment-verify-symbiyosys") {
+    testLowerfirstFragment(SymbiYosysFormalBackend)
+  }
+  test("Arbiter-lowerfirst-fragment-verify-ghdl") {
+    testLowerfirstFragment(GhdlFormalBackend)
+  }
 
-  test("Arbiter-roundrobin-none-verify") {
+  def testRoundrobinNone(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -305,9 +334,16 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         val selStable = selStableVerify(context.selectOH, context.selStableCond, withLock)
       })
   }
+  test("Arbiter-roundrobin-none-verify-symbiyosys") {
+    testRoundrobinNone(SymbiYosysFormalBackend)
+  }
+  test("Arbiter-roundrobin-none-verify-ghdl") {
+    testRoundrobinNone(GhdlFormalBackend)
+  }
 
-  test("Arbiter-roundrobin-transactionLock-verify") {
+  def testRoundrobinTransactionLock(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -344,9 +380,16 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         val selStable = selStableVerify(context.selectOH, context.selStableCond, withLock)
       })
   }
+  test("Arbiter-roundrobin-transactionLock-verify-symbiyosys") {
+    testRoundrobinTransactionLock(SymbiYosysFormalBackend)
+  }
+  test("Arbiter-roundrobin-transactionLock-verify-ghdl") {
+    testRoundrobinTransactionLock(GhdlFormalBackend)
+  }
 
-  test("Arbiter-roundrobin-fragment-verify") {
+  def testRoundrobinFragment(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -379,5 +422,11 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
         val withAssert = withAssertsVerify(context.output.isStall, roundRobin.masked.asBools, context.output, withLock)
         val selStable = selStableVerify(context.selectOH, context.selStableCond, withLock)
       })
+  }
+  test("Arbiter-roundrobin-fragment-verify-symbiyosys") {
+    testRoundrobinFragment(SymbiYosysFormalBackend)
+  }
+  test("Arbiter-roundrobin-fragment-verify-ghdl") {
+    testRoundrobinFragment(GhdlFormalBackend)
   }
 }

@@ -6,8 +6,9 @@ import spinal.lib._
 import spinal.lib.formal._
 
 class FormalDispatcherSequencialTester extends SpinalFormalFunSuite {
-  test("DispatcherSequencial-verify") {
+  def testMain(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(40)
@@ -62,5 +63,13 @@ class FormalDispatcherSequencialTester extends SpinalFormalFunSuite {
           assert(past(dut.counter.value) === d1)
         }
       })
+  }
+
+  test("DispatcherSequencial-verify-symbiyosys") {
+    testMain(SymbiYosysFormalBackend)
+  }
+
+  test("DispatcherSequencial-verify-ghdl") {
+    testMain(GhdlFormalBackend)
   }
 }

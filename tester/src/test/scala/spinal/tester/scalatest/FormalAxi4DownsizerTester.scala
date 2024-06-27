@@ -65,8 +65,9 @@ object Util {
 }
 
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
-  def writeTester(inConfig: Axi4Config, outConfig: Axi4Config) {
+  def writeTester(inConfig: Axi4Config, outConfig: Axi4Config, backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(10)
       // .withProve(10)
       .withCover(10)
@@ -144,8 +145,9 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
       })
   }
 
-  def readTester(inConfig: Axi4Config, outConfig: Axi4Config) {
+  def readTester(inConfig: Axi4Config, outConfig: Axi4Config, backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(10)
       .withProve(10)
       .withCover(10)
@@ -417,11 +419,17 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
   val inConfig = Axi4Config(20, 64, 4, useBurst = false, useId = false, useLock = false)
   val outConfig = Axi4Config(20, 32, 4, useBurst = false, useId = false, useLock = false)
 
-  test("64_32_write") {
-    writeTester(inConfig, outConfig)
+  test("64_32_write - symbiyosys") {
+    writeTester(inConfig, outConfig, SymbiYosysFormalBackend)
+  }
+  test("64_32_write - ghdl") {
+    writeTester(inConfig, outConfig, GhdlFormalBackend)
   }
 
-  test("64_32_read") {
-    readTester(inConfig, outConfig)
+  test("64_32_read - symbiyosys") {
+    readTester(inConfig, outConfig, SymbiYosysFormalBackend)
+  }
+  test("64_32_read - ghdl") {
+    readTester(inConfig, outConfig, GhdlFormalBackend)
   }
 }
