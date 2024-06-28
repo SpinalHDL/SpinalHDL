@@ -11,7 +11,7 @@ final case class DocCHeader(name : String,
                             withshiftmask: Boolean = true) extends BusIfDoc {
   override val suffix: String = "h"
 
-  def guardName : String = s"${name}_REGIF_H"
+  def guardName : String = s"${name.toUpperCase()}_REGIF_H"
 
   def body(): String = {
     val maxnamelen = bi.slices.map(_.getName().size).max + prefix.length

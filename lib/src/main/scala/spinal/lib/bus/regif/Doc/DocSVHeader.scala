@@ -10,7 +10,7 @@ final case class DocSVHeader(name : String,
                              withshiftmask: Boolean = true) extends BusIfDoc {
   override val suffix: String = "svh"
 
-  def guardName : String = s"${name}_REGIF_H"
+  def guardName : String = s"${name.toUpperCase()}_REGIF_H"
 
   def body(): String = {
     val maxnamelen = bi.slices.map(_.getName().size).max + prefix.length
