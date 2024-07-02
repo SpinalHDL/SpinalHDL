@@ -1018,7 +1018,7 @@ class Cache(val p : CacheParam) extends Component {
           prober.cmd.opcode := CtrlOpcode.EVICT
           prober.cmd.mask := CACHE_LINE.owners
           prober.cmd.probeToN := True
-          prober.cmd.evictClean := CACHE_LINE.dirty
+          prober.cmd.evictClean := !CACHE_LINE.dirty
         }
         when(doIt){
           flush.fsm.inflight.decrementIt := True
