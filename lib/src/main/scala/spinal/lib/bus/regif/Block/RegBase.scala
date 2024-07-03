@@ -344,7 +344,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, se
         case t: BitVector => t(i)
       }
       val x = i + section.min
-      wirebit := Mux(hitDoWrite, busif.wdata(wirebit, x, "normal"), False)  // Combinational ImPulse Out
+      wirebit := Mux(hitDoWrite, busif.writeData(x), False)  // Combinational ImPulse Out, combinational not support strb write
     }
     wire
   }
