@@ -67,7 +67,7 @@ final case class DocCHeader(name : String,
   def reuseStruct(lst: Map[String, Map[Int, List[RegSlice]]]) = {
     lst.map { t =>
       val partName = t._1
-      val decPart: List[RegSlice] = t._2.head._2
+      val decPart: List[RegSlice] = t._2.toList.sortBy(_._2.head.addr).head._2
       s"""/*part '${partName}' start --> */
          |${decPart.map(_.union).mkString("\n")}
          |/*<-- part '${partName}' end*/
@@ -147,7 +147,7 @@ final case class DocCHeader(name : String,
       val newfdname = nameDedupliaction(duplicate, fd.getName())
       val _tab = " " * (tabn - newfdname.size)
       fd.getAccessType() match {
-        case `NA` => ""
+        case `NA`  | `ROV` => ""
         case `W1S` | `W1C` | `W1T` | `W1P` | `W1CRS` | `W1SRC` | `W1SHS` | `W1CHS` | `W1I` => s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
         case `W0S` | `W0C` | `W0T` | `W0P` | `W0CRS` | `W0SRC` => s"""#define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
         case _ => {
