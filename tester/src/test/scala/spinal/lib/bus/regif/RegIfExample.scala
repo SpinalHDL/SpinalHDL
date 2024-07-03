@@ -130,8 +130,8 @@ class RegIfExample extends Component {
       val Reg2 = busif.newReg(doc = "Turbo CRC Poly")(SymbolName(s"RegB_$i"))
       val crc_mode = Reg2.field(Bool(), RW, 1, doc = "0: CRC24; 1: CRC16")(SymbolName(s"crca_${i}")).asOutput()
       val crc_poly = Reg2.field(Bits(24 bit), RW, 0x864cfb, doc = "(D24+D23+D18+D17+D14+D11+D10+D7+D6+D5+D4+D3+D+1)")(SymbolName(s"crcb_${i}")).asOutput()
-      busif.resetBlockTag()
     }.setName(s"tr${i}")
+    busif.resetBlockTag()
   }
 
   val fifo3 = busif.newWrFifo(doc = "fifo test")
@@ -259,4 +259,5 @@ object playregif extends App{
   sp.generateVerilog(new RegIfExample)
   sp.generateVerilog(new RegIfBasicAccessTest("apb3"))
   sp.generateVerilog(new RegIfBasicAccessTest("apb4"))
+  sp.generateVerilog(new RegIfReuseBlock)
 }
