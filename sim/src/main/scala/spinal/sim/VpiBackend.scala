@@ -94,8 +94,8 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
 
   class Logger extends ProcessLogger {
     val logs = new StringBuilder()
-    override def err(s: => String): Unit = { logs ++= (s) }
-    override def out(s: => String): Unit = { logs ++= (s) }
+    override def err(s: => String): Unit = { logs ++= (s ++ Properties.lineSeparator) }
+    override def out(s: => String): Unit = { logs ++= (s ++ Properties.lineSeparator) }
     override def buffer[T](f: => T) = f
   }
 
