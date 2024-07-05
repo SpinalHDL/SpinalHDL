@@ -10,6 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.sys.process._
+import scala.util.Properties
 
 import spinal.sim.vpi._
 
