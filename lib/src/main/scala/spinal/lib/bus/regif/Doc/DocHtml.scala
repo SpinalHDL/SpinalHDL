@@ -55,7 +55,7 @@ case class HtmlRegSliceBlock(instName: String, blockName: String,  children: Lis
 object SlicesToHtmlSliceBlock {
   def apply(slices: List[RegSlice]): List[HtmlRegSliceBlock] = {
     val fakeBlocks = HtmlRegSliceBlock("", "", children =  slices.filter(_.reuseTag.id == 0))
-    val realBlocks = slices.filter(_.reuseTag.id != 0).groupBy(t => (t.reuseTag.instName , t.reuseTag.partName)).map{ case (names, slices) =>
+    val realBlocks = slices.filter(_.reuseTag.id != 0).groupBy(t => (t.reuseTag.instName , t.reuseTag.blockName)).map{ case (names, slices) =>
       HtmlRegSliceBlock(names._1, names._2, slices)
     }.toList
     val ret = if(fakeBlocks.isEmpty) realBlocks else fakeBlocks :: realBlocks

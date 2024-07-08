@@ -38,7 +38,7 @@ final case class DocSVHeader(name : String,
     def base(name: String, t: RegSlice, max: Int) = {
       val alignName = s"%-${max}s".format(t.reuseTag.instName)
       val defineName = s"${name}_base_${alignName}".toUpperCase()
-      s"`define ${defineName}  0x${t.reuseTag.baseAddr.hexString()}"
+      s"`define ${defineName}  0x${t.addr.hexString()}"
     }
 
     lst.map{ t =>

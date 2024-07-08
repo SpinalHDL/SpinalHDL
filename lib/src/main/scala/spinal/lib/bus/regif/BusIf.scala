@@ -27,7 +27,7 @@ trait BusIf extends BusIfBase {
   }
 
   def regSlicesNotReuse: List[RegSlice] = slices.filter(_.reuseTag.id == 0)
-  def reuseGroups: Map[String, List[RegSlice]] = slices.filter(_.reuseTag.id != 0).groupBy(_.reuseTag.partName)
+  def reuseGroups: Map[String, List[RegSlice]] = slices.filter(_.reuseTag.id != 0).groupBy(_.reuseTag.blockName)
   def reuseGroupsById: Map[String, Map[Int, List[RegSlice]]] = reuseGroups.map {case(name, slices) => (name, slices.groupBy(_.reuseTag.id)) }
 
   def repeatGroupsHead: Map[String, List[RegSlice]] = reuseGroupsById.map(t => t._1 -> t._2.head._2)
@@ -53,6 +53,13 @@ trait BusIf extends BusIfBase {
 
   def newBlockTag(instName: String)(partName: String) = {
     val ret = ReuseTag(blockId, partName, regPtr, instName)
+    this.blockIdInc()
+    currentBlockTag = ret
+    ret
+  }
+
+  def newBlockTagAt(addr: BigInt, instName: String)(partName: String) = {
+    val ret = ReuseTag(blockId, partName, addr, instName)
     this.blockIdInc()
     currentBlockTag = ret
     ret

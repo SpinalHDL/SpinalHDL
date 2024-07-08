@@ -14,9 +14,10 @@ class RegIfReuseBlock extends Component {
   val busif = BusInterface(io.apb, (0x000, 4 KiB), 0, regPre = "AP")
 
   (0 to 8).foreach{i =>
-    busif.newBlockTag(s"r${i}")("Turbo")
+    val tagAddr = 0x20 + i *4*2
+    busif.newBlockTagAt(tagAddr, s"r${i}")("Turbo")
     new Area {
-      val Reg = busif.newReg("reg0")(SymbolName(s"RegA"))
+      val Reg = busif.newRegAt(tagAddr, "reg0")(SymbolName(s"RegA"))
       val field0 = Reg.field(Bits(2 bits), RW, 0, doc = "inter Row number\n0:5,1:10,2:20,3:20other").asOutput()
       val field1 = Reg.field(Bits(2 bits), RW, 0, doc = "CP relation\n0: C=P-1\n1: C=p\n2: C=p+1").asOutput()
       val Reg2 = busif.newReg(doc = "Turbo CRC Poly")(SymbolName(s"RegB"))
@@ -30,6 +31,7 @@ class RegIfReuseBlock extends Component {
   busif.accept(DocJson("regif"))
   busif.accept(DocRalf("regif"))
   busif.accept(DocCHeader("regif", ""))
+  busif.accept(DocSVHeader("regif", ""))
   busif.accept(DocSystemRdl("regif"))
 }
 
