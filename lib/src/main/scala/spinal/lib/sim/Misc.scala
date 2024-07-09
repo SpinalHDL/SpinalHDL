@@ -128,15 +128,16 @@ class RandomGen(var state : Long = simRandom.nextLong()){
 }
 
 case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset : Long = 0l){
-  val content = Array.fill[Array[Byte]](4096)(null)
+  val content = mutable.HashMap[Long, Array[Byte]]()
 
   def getElseAlocate(idx : Int) = {
-    if(content(idx) == null) {
-      val rand = new RandomGen(seed ^ ((idx.toLong << 20) + randOffset))
-      content(idx) = new Array[Byte](1024*1024)
-      rand.nextBytes(content(idx))
+    content.get(idx) match {
+      case Some(value) => value
+      case None => val rand = new RandomGen(seed ^ ((idx << 20) + randOffset))
+        content(idx) = new Array[Byte](1024 * 1024)
+        rand.nextBytes(content(idx))
+        content(idx)
     }
-    content(idx)
   }
   def write(address : Long, data : Int) : Unit = {
     for(i <- 0 to 3) {
