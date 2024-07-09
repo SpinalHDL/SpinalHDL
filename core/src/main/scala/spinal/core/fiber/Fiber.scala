@@ -18,6 +18,7 @@ object ElabOrderId{
     case INIT  => "init"
     case SETUP => "setup"
     case BUILD => "build"
+    case PATCH => "patch"
     case CHECK => "check"
   }
 }
@@ -28,7 +29,8 @@ object Fiber {
   }
   def setup[T: ClassTag](body : => T) : Handle[T] = apply(ElabOrderId.SETUP)(body)
   def build[T: ClassTag](body : => T) : Handle[T] = apply(ElabOrderId.BUILD)(body)
-  def check[T: ClassTag](body : => T) : Handle[T] = apply(ElabOrderId.CHECK)(body)
+  def patch[T: ClassTag](body: => T): Handle[T] = apply(ElabOrderId.PATCH)(body)
+  def check[T: ClassTag](body: => T): Handle[T] = apply(ElabOrderId.CHECK)(body)
 
   def callback(orderId: Int)(body: => Unit): Unit = {
     GlobalData.get.elab.addCallback(orderId)(body)
