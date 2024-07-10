@@ -98,6 +98,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         for ((name, interface) <- svInterface) {
           val ifFileName = pc.config.targetDirectory + "/" + name + (if(pc.config.isSystemVerilog) ".sv" else ".v")
           val ifFile = new java.io.FileWriter(ifFileName)
+          ifFile.write(VhdlVerilogBase.getIntfHeader("//", pc.config.rtlHeader, name, config.headerWithDate, config.headerWithRepoHash))
           ifFile.write("\n")
           ifFile.write(interface.result())
           ifFile.flush()
@@ -456,7 +457,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                 globalScope.lock = true
                 insertIFmap()
               }
-              case None => svInterface += interface.definitionName -> interfaceString
+              case None => if(!interface.isBlackBox) svInterface += interface.definitionName -> interfaceString
             }
           }
         }
