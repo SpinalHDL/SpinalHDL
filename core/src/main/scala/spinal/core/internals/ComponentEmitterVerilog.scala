@@ -369,7 +369,15 @@ class ComponentEmitterVerilog(
     for (child <- component.children) {
       val isBB             = child.isInstanceOf[BlackBox] && child.asInstanceOf[BlackBox].isBlackBox
       val isBBUsingULogic  = isBB && child.asInstanceOf[BlackBox].isUsingULogic
-      val definitionString =  if (isBB) child.definitionName else getOrDefault(emitedComponentRef, child, child).definitionName
+      val definitionString =  if (isBB)
+        {
+          if (child.definitionName == "Rom_1rs") {
+            // each ROM blackbox needs a unique name since it contains the ROM data
+            s"${child.name}_${child.definitionName}"
+          } else {
+            child.definitionName
+          }
+        } else getOrDefault(emitedComponentRef, child, child).definitionName
 
       val instanceAttributes = emitSyntaxAttributes(child.instanceAttributes)
 
@@ -1248,13 +1256,13 @@ class ComponentEmitterVerilog(
             logics ++= s"    ${emitReference(mem, false)}[$index] = ${filledValue.length}'b$filledValue;\n"
           }
         }
-      }else {
-
-
+      } else {
         val withSymbols = memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1
         for (i <- 0 until symbolCount) {
+          // TODO: fix for multiple symbols
           val symbolPostfix = if(withSymbols) s"_symbol$i" else ""
           val builder = new mutable.StringBuilder()
+          val v_builder = new mutable.StringBuilder()
           for ((value, index) <- mem.initialContent.zipWithIndex) {
             val unfilledValue = value.toString(2)
             val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
@@ -1262,9 +1270,11 @@ class ComponentEmitterVerilog(
               builder ++=  s"${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))}\n"
             } else {
               builder ++= s"$filledValue\n"
+              v_builder ++= s"            'd$index: data <= 32'b$filledValue;\n"
             }
           }
 
+          // Emit a .bin file template for the ROM
           val romStr = builder.toString
           val relativePath = romCache.get(romStr) match {
             case None =>
@@ -1279,8 +1289,58 @@ class ComponentEmitterVerilog(
               file.getName
             case Some(x) => x
           }
-
           logics ++= s"""    $$readmemb("${relativePath}",${emitReference(mem, false)}${symbolPostfix});\n"""
+
+          // Emit a verilog blackbox template for the ROM
+          val template =
+            """
+              |`resetall
+              |`timescale 1ns / 1ps
+              |`default_nettype none
+              |
+              |module {prefix}_Rom_1rs #(
+              |    parameter wordCount = 512,
+              |    parameter wordWidth = 32,
+              |    parameter addrWidth = $clog2(wordCount)
+              |)
+              |(
+              |    input  wire                             clk,
+              |    input  wire                             en,
+              |    input  wire [addrWidth - 1:0]           addr,
+              |    output reg  [wordWidth - 1:0]           data,
+              |);
+              |
+              |always @(posedge clk) begin
+              |    if (en) begin
+              |        case (addr)
+              |{romvals}
+              |
+              |            default: data <= 32'h0;
+              |        endcase
+              |    end else begin
+              |        data <= data;
+              |    end
+              |end
+              |
+              |endmodule
+              |`resetall
+              |""".stripMargin
+
+          val refFullName = emitReference(mem, false)
+          val lastUnderscoreIndex = refFullName.lastIndexOf('_')
+          val baseName = if (lastUnderscoreIndex != -1) refFullName.substring(0, lastUnderscoreIndex) else refFullName
+
+          val content = template
+            .replace("{romvals}", v_builder.toString)
+            .replace("{prefix}", s"${baseName}")
+
+          val filePath = s"${pc.config.targetDirectory}/${baseName}_Rom_1rs.v"
+          val file = new File(filePath)
+          emitedRtlSourcesPath += filePath
+          val writer = new java.io.FileWriter(file)
+          writer.write(content)
+          writer.flush()
+          writer.close()
         }
       }
 
