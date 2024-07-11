@@ -898,7 +898,26 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
     }
 
     if (mem.initialContent != null) {
-      return "Can't blackbox ROM"  //TODO
+      if (topo.portCount == 1 && topo.readsSync.size == 1 && topo.readWriteSync.isEmpty) {
+        mem.component.rework {
+          val port = topo.readsSync.head
+
+          val rom = new Rom_1rs(
+            wordWidth = port.width,
+            wordCount = mem.wordCount*mem.width/port.width,
+            technology = mem.technology
+          )
+
+          rom.io.addr.assignFrom(port.address)
+          rom.io.en.assignFrom(port.clockDomain.isClockEnableActive)
+
+          wrapConsumers(port, rom.io.data)
+
+          rom.setName(mem.getName())
+        }
+      } else {
+        return "Can't blackbox ROM" // TODO
+      }
       //      } else if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.portCount == 2) {
     } else if (topo.writes.size == 1 && (topo.readsAsync.nonEmpty || topo.readsSync.nonEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.isEmpty) {
       mem.component.rework {
