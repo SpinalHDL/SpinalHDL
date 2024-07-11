@@ -1270,7 +1270,7 @@ class ComponentEmitterVerilog(
               builder ++=  s"${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))}\n"
             } else {
               builder ++= s"$filledValue\n"
-              v_builder ++= s"            'd$index: data <= 32'b$filledValue;\n"
+              v_builder ++= s"            'd$index: data <= $symbolWidth'b$filledValue;\n"
             }
           }
 
@@ -1315,7 +1315,7 @@ class ComponentEmitterVerilog(
               |        case (addr)
               |{romvals}
               |
-              |            default: data <= 32'h0;
+              |            default: data <= {wordWidth}'h0;
               |        endcase
               |    end else begin
               |        data <= data;
