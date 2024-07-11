@@ -1299,8 +1299,8 @@ class ComponentEmitterVerilog(
               |`default_nettype none
               |
               |module {prefix}_Rom_1rs #(
-              |    parameter wordCount = 512,
-              |    parameter wordWidth = 32,
+              |    parameter wordCount = {wordCount},
+              |    parameter wordWidth = {wordWidth},
               |    parameter addrWidth = $clog2(wordCount)
               |)
               |(
@@ -1333,6 +1333,8 @@ class ComponentEmitterVerilog(
           val content = template
             .replace("{romvals}", v_builder.toString)
             .replace("{prefix}", s"${baseName}")
+            .replace("{wordCount}", s"${mem.wordCount}")
+            .replace("{wordWidth}", s"${symbolWidth}")
 
           val filePath = s"${pc.config.targetDirectory}/${baseName}_Rom_1rs.v"
           val file = new File(filePath)
