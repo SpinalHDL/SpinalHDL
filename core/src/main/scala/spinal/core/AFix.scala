@@ -444,10 +444,10 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val _l = this.raw
     val _r = right.raw
     ret.raw := trim(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resize(ret.bitWidth) * _r.asUInt)
-      case (false,  true) => (_l.asUInt.intoSInt             * _r.asSInt.resize(ret.bitWidth)).resize(ret.bitWidth)
-      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) * _r.asUInt.intoSInt)
-      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) * _r.asSInt)
+      case (false, false) => (_l.asUInt * _r.asUInt)
+      case (false,  true) => (_l.asUInt.intoSInt * _r.asSInt)
+      case ( true, false) => (_l.asSInt * _r.asUInt.intoSInt)
+      case ( true,  true) => (_l.asSInt * _r.asSInt)
     }).asBits, ret.bitWidth)
 
     ret
