@@ -122,6 +122,7 @@ trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainer
 class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady with InComponent{
   if(parentScope != null) parentScope.append(this)
 
+  var preventMemToBlackboxTranslation = false
   var forceMemToBlackboxTranslation = false
   val _widths = wordType().flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
   val width   = _widths.sum
@@ -150,6 +151,10 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     this
   }
 
+  def preventAsBlackBox(): this.type = {
+    preventMemToBlackboxTranslation = true
+    this
+  }
 
   override def getComponent(): Component = parentScope.component
 
