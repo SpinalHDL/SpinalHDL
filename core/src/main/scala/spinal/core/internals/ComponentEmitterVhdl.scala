@@ -1527,6 +1527,11 @@ class ComponentEmitterVhdl(
     case  e: ResizeUInt                              => resizeFunction("pkg_unsigned")(e)
     case  e: ResizeBits                              => resizeFunction("pkg_stdLogicVector")(e)
 
+    case e: Operator.Bool.Repeat => s"pkg_stdLogicVector(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+    case e: Operator.Bits.Repeat => s"pkg_stdLogicVector(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+    case e: Operator.UInt.Repeat => s"pkg_unsigned(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+    case e: Operator.SInt.Repeat => s"pkg_signed(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+
     case  e: BinaryMultiplexer                       => muxImplAsFunction("pkg_mux")(e)
 
     case  e: BitVectorBitAccessFixed                 => accessBoolFixed(e)
