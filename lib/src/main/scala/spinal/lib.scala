@@ -72,6 +72,7 @@ package object lib  {
   }
 
   implicit def easyFragment[T <: Data](that: Fragment[T]) : T = that.fragment
+  implicit def fragmentFixer[T <: Data](_data: Fragment[T]) = new DataPimper(_data)
 
   def StreamArbiterFactory() = new StreamArbiterFactory()
   type ScalaStream[T] = collection.immutable.Stream[T]
