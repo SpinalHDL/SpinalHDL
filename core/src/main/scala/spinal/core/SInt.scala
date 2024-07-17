@@ -490,6 +490,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
   }
 
+  def @*(count: Int): SInt = wrapUnaryOperator(new Operator.SInt.Repeat(count))
+
   /**
     * Assign a range value to a SInt
     * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}

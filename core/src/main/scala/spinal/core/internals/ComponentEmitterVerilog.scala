@@ -1784,6 +1784,11 @@ end
     case  e: ResizeUInt                               => operatorImplResize(e)
     case  e: ResizeBits                               => operatorImplResize(e)
 
+    case e: Operator.Bool.Repeat                      => s"{${e.count}{${emitExpression(e.source)}}}"
+    case e: Operator.Bits.Repeat                      => s"{${e.count}{${emitExpression(e.source)}}}"
+    case e: Operator.UInt.Repeat                      => s"{${e.count}{${emitExpression(e.source)}}}"
+    case e: Operator.SInt.Repeat                      => s"{${e.count}{${emitExpression(e.source)}}}"
+
     case  e: BinaryMultiplexer                        => operatorImplAsMux(e)
 
     case  e: BitVectorBitAccessFixed                  => accessBoolFixed(e)

@@ -357,6 +357,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
   }
 
+  def @*(count: Int): UInt = wrapUnaryOperator(new Operator.UInt.Repeat(count))
+
   /**
     * 2'Complement
     * @param enable enable the 2'complement
