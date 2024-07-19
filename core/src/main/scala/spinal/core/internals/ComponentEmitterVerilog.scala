@@ -1351,7 +1351,7 @@ end
 
         if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
           val topo = new MemTopology(mem)
-          if (caseRom && topo.portCount == 1){
+          if (caseRom && mem.initialContent != null && topo.writes.isEmpty && topo.readWriteSync.isEmpty){
             val symbolWidth = mem.getMemSymbolWidth()
             val symbolCount = mem.getMemSymbolCount()
             assert(symbolCount == 1, "This implementation does not handle banked ROM")
