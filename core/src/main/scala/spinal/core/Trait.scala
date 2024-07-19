@@ -102,6 +102,7 @@ class GlobalData(val config : SpinalConfig) {
 
   private var algoIncrementale = 1
   var toplevel : Component = null
+  var report : SpinalReport[Component] = null
 
   def allocateAlgoIncrementale(): Int = {
     assert(algoIncrementale != Integer.MAX_VALUE)
