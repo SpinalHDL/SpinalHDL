@@ -909,7 +909,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           )
 
           rom.io.addr.assignFrom(port.address)
-          rom.io.en.assignFrom(port.clockDomain.isClockEnableActive)
+          rom.io.en.assignFrom(port.clockDomain.isClockEnableActive && port.readEnable.asInstanceOf[Bool])
 
           wrapConsumers(port, rom.io.data)
 
