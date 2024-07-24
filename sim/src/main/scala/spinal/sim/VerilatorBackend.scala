@@ -267,10 +267,12 @@ public:
       //contextp = new VerilatedContext;
       Verilated::randReset(2);
       Verilated::randSeed(seed);
-      top = new V${config.toplevelName}();
-
+      // Verilator v5.026+ calls time() inside Vtop::Vtop()
+      // initialize the simHandle before we call Vtop
       simHandle${uniqueId} = this;
       time = 0;
+      top = new V${config.toplevelName}();
+
       timeCheck = 0;
       lastFlushAt = high_resolution_clock::now();
       waveEnabled = true;
