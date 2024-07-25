@@ -44,12 +44,13 @@ class ComponentEmitterVhdl(
   override def component = c
 
   val portMaps     = ArrayBuffer[String]()
+  val portAttributes = ArrayBuffer[String]()
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
 
   override def readedOutputWrapEnable = true
 
-  def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps)
+  def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps ++ portAttributes)
 
 
   def emitLibrary(ret: StringBuilder): Unit = {
@@ -91,6 +92,9 @@ class ComponentEmitterVhdl(
       ret ++= "\n  );\n"
     }
 
+    for(e <- portAttributes){
+      ret ++= e
+    }
     ret ++= s"end ${c.definitionName};\n"
     ret ++= s"\n"
 
@@ -104,10 +108,15 @@ class ComponentEmitterVhdl(
   }
 
   def emitEntity(): Unit = {
+    val attributeBuilder = new StringBuilder()
+    emitAttributesDef(attributeBuilder, true)
     component.getOrdredNodeIo.foreach(baseType =>
-      if (!baseType.isSuffix)
+      if (!baseType.isSuffix) {
         portMaps += s"${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
+        emitAttributes(baseType, baseType.instanceAttributes(Language.VHDL), "signal", attributeBuilder)
+      }
     )
+    portAttributes += attributeBuilder.toString
   }
   def emitLocation(that : AssignmentStatement) : String = if(that.locationString != null) " --" + that.locationString else ""
 
@@ -234,7 +243,7 @@ class ComponentEmitterVhdl(
 
     //Flush all that mess out ^^
     emitBlackBoxComponents()
-    emitAttributesDef()
+    emitAttributesDef(declarations, false)
     emitSignals()
     emitMems(mems)
     emitSubComponents(openSubIo)
@@ -835,19 +844,31 @@ class ComponentEmitterVhdl(
     dispatchExpression(that)
   }
 
-  def emitAttributesDef(): Unit = {
+  val attributeDefSet = mutable.LinkedHashSet[String]()
+  def emitAttributesDef(into : StringBuilder, io : Boolean): Unit = {
     val map = mutable.Map[String, Attribute]()
 
-    def walk(that : Any) = that match{
+    def walk(that : Any) : Unit = that match{
       case s: SpinalTagReady =>
         for (attribute <- s.instanceAttributes(Language.VHDL)) {
-          val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
-          if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${component}})")
+          val key = attribute.getName
+          if(!attributeDefSet.contains(key)){
+            attributeDefSet += attribute.getName
+            val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
+            if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${component}})")
+          }
         }
       case s =>
     }
 
-    component.dslBody.walkStatements(walk)
+    if(io){
+      component.getAllIo.foreach(walk)
+    } else {
+      component.dslBody.walkStatements{
+        case bt: BaseType if !bt.isDirectionLess => 
+        case s => walk(s)
+      }
+    }
     component.children.foreach(walk)
 
     for (attribute <- map.values) {
@@ -857,10 +878,10 @@ class ComponentEmitterVhdl(
         case _: AttributeFlag    => "boolean"
       }
 
-      declarations ++= s"  attribute ${attribute.getName} : $typeString;\n"
+      into ++= s"  attribute ${attribute.getName} : $typeString;\n"
     }
 
-    declarations ++= "\n"
+    into ++= "\n"
   }
 
 
@@ -926,7 +947,7 @@ class ComponentEmitterVhdl(
         if (!signal.isIo && !signal.isSuffix) {
           declarations ++= s"  signal ${emitReference(signal, false)} : ${emitDataType(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
         }
-        emitAttributes(signal, signal.instanceAttributes(Language.VHDL), "signal", declarations)
+        if(signal.isDirectionLess) emitAttributes(signal, signal.instanceAttributes(Language.VHDL), "signal", declarations)
       case mem: Mem[_] =>
     }
   }
@@ -1505,6 +1526,11 @@ class ComponentEmitterVhdl(
     case  e: ResizeSInt                              => resizeFunction("pkg_signed")(e)
     case  e: ResizeUInt                              => resizeFunction("pkg_unsigned")(e)
     case  e: ResizeBits                              => resizeFunction("pkg_stdLogicVector")(e)
+
+    case e: Operator.Bool.Repeat => s"pkg_stdLogicVector(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+    case e: Operator.Bits.Repeat => s"pkg_stdLogicVector(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+    case e: Operator.UInt.Repeat => s"pkg_unsigned(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+    case e: Operator.SInt.Repeat => s"pkg_signed(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
 
     case  e: BinaryMultiplexer                       => muxImplAsFunction("pkg_mux")(e)
 

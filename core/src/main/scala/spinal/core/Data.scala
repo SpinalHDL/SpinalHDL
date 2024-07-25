@@ -294,6 +294,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   private[core] def isSuffix = parent != null && parent.isInstanceOf[Suffixable]
 
   var parent: Data = null
+  def IFparent: Data = parent//TODO:Vec elem do not have parent
   def getRootParent: Data = if(parent == null) this else parent.getRootParent
 
   /** Set a data as input */
@@ -789,7 +790,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def toMuxInput[T <: Data](muxOutput : T) : T = this.asInstanceOf[T]
 
   // Cat this count times
-  def #* (count : Int) =  Cat(List.fill(count)(this))
+  def #* (count : Int) : Bits =  this.asBits #* count
 
   /**
     * root interface
@@ -803,15 +804,15 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   }
 
   def rootIFrec(now: Data, lastRoot: List[Interface]): List[Interface] = {
-    if(now.parent == null) {
+    if(now.IFparent == null) {
       lastRoot
-    } else if(now.parent.isInstanceOf[Interface]) {
-      now.parent match {
-        case x: Interface if x.thisIsNotSVIF => lastRoot
-        case _ => rootIFrec(now.parent, now.parent.asInstanceOf[Interface] :: lastRoot)
+    } else if(now.IFparent.isInstanceOf[Interface]) {
+      now.IFparent match {
+        case x: Interface if x.thisIsNotSVIF => rootIFrec(now.IFparent, lastRoot)
+        case _ => rootIFrec(now.IFparent, now.IFparent.asInstanceOf[Interface] :: lastRoot)
       }
     } else {
-      rootIFrec(now.parent, lastRoot)
+      rootIFrec(now.IFparent, lastRoot)
     }
   }
 }

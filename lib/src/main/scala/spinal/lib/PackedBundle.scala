@@ -77,7 +77,7 @@ class PackedBundle extends Bundle {
 
   def packed: Bits = {
     val maxWidth = mappings.map(_._1.high).max + 1
-    val packed = B(0, maxWidth bit)
+    val packed = B(0, maxWidth bit).allowOverride()
     for ((range, data) <- mappings) {
       if (range.step > 0) {
         // "Little endian" -- ascending range
@@ -166,6 +166,15 @@ class PackedBundle extends Bundle {
     def packTo(pos: Int): T = {
       t.pack(pos downto pos - t.getBitsWidth + 1)
     }
+  }
+
+  /**
+    * Skips over the specified number of bits. The next unspecified field will be placed starting `count` number
+    * of bits after the last placed field.
+    * @param count Number of bits to skip over
+    */
+  protected def skipOver(count: BitCount): Unit = {
+    this.mapBuilder.nextPos += count.value
   }
 
   override def valCallbackRec(ref: Any, name: String): Unit = {

@@ -167,6 +167,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       anonymSignalPrefix          = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,
       nativeRom                   = config.inlineRom,
       nativeRomFilePrefix         = rtlName,
+      caseRom                     = config.caseRom,
       emitedComponentRef          = emitedComponentRef,
       emitedRtlSourcesPath        = report.generatedSourcesPaths,
       spinalConfig                = pc.config,
@@ -281,9 +282,36 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             s"${theme.porttab}parameter ${name} = ${default},\n"
         }.reduce(_ + _).stripSuffix(",\n") + "\n) "
     ret ++= s"interface ${interface.definitionName} ${generic}() ;\n\n"
-    for ((name, elem) <- interface.elementsCache) {
+    val sizeZero = mutable.HashSet[String]()
+    def genBase[T <: Data](ret: StringBuilder, name: String, name1: String, elem: T): Unit = {
       elem match {
-        case node: Interface => {
+        case _: Bool => {
+          val size = ""
+          ret ++= f"${theme.porttab}logic  ${size}%-8s ${name}_${name1} ;\n"
+        }
+        case node: BitVector => {
+          val size = interface.widthGeneric.get(node) match {
+            case Some(x) => s"[${x}-1:0]"
+            case None => if (node.getWidth > 0)
+              s"[${node.getWidth - 1}:0]"
+            else {
+              globalData.nodeAreInferringWidth = false
+              val width = node.getWidth
+              globalData.nodeAreInferringWidth = true
+              s"[${width - 1}:0]"
+            }
+          }
+          if (size != "[-1:0]")
+            ret ++= f"${theme.porttab}logic  ${size}%-8s ${name}_${name1} ;\n"
+          else
+            sizeZero.add(name)
+        }
+        case x => genSig(ret, s"${name}_${name1}", x)
+      }
+    }
+    def genSig[T <: Data](ret: StringBuilder, name: String, elem: T): Unit = {
+      elem match {
+        case node: Interface if !node.thisIsNotSVIF => {
 
           val genericFlat = node.genericElements
 
@@ -309,11 +337,21 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             val exprlens = ret.map(_._2.size).max
             val params   = ret.map(t =>  s"    .%-${namelens}s (%-${exprlens}s )".format(t._1, t._2))
             s"""${node.definitionName} #(
-              |${params.mkString(",\n")}
-              |  )""".stripMargin
+               |${params.mkString(",\n")}
+               |  )""".stripMargin
           } else f"${node.definitionName}%-15s"
           val  cl = if(genericFlat.nonEmpty) "\n" else ""
           ret ++= f"${theme.porttab}${t} ${name}();\n${cl}"//TODO:parameter
+        }
+        case nodes: Bundle => {
+          for ((name1, node) <- nodes.elementsCache) {
+            genBase(ret, name, name1, node)
+          }
+        }
+        case nodes: Vec[_] => {
+          for ((node, idx) <- nodes.zipWithIndex) {
+            genBase(ret, name, idx.toString, node)
+          }
         }
         case _ => {
           val size = elem match {
@@ -329,17 +367,23 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                 s"[${width - 1}:0]"
               }
             }
-            case _ => LocatedPendingError("The SystemVerilog interface feature is still an experimental feature. In interface, only BaseType is supported yet")
+            case x => LocatedPendingError(s"The SystemVerilog interface feature is still an experimental feature. In interface, ${x} is not supported yet")
           }
-          ret ++= f"${theme.porttab}logic  ${size}%-8s ${name} ;\n"
+          if(size != "[-1:0]")
+            ret ++= f"${theme.porttab}logic  ${size}%-8s ${name} ;\n"
+          else
+            sizeZero.add(name)
         }
       }
+    }
+    for ((name, elem) <- interface.elementsCache) {
+      genSig(ret, name, elem)
     }
     ret ++= "\n"
     interface.allModPort
       .foreach{case x =>
-        var modportString = ""
-        modportString += s"${theme.porttab}modport ${x} (\n"
+        var modportString = new StringBuilder()
+        modportString ++= s"${theme.porttab}modport ${x} (\n"
 
         val toplevel = globalData.toplevel
         val phase = globalData.phaseContext.topLevel
@@ -352,9 +396,9 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         globalData.toplevel = toplevel
         globalData.phaseContext.topLevel = phase
 
-        for ((name, elem) <- c.y.elementsCache) {
+        def genModportSig[T <: Data](modportString: StringBuilder, name: String, elem: T): Unit = {
           elem match {
-            case elem: Interface => {
+            case elem: Interface if !elem.thisIsNotSVIF => {
               //TODO:check more than one modport has same `in` `out` direction
               val modport = if(elem.checkModport().isEmpty) {
                 LocatedPendingError(s"no suitable modport found for ${elem}")
@@ -362,7 +406,17 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
               } else {
                 elem.checkModport().head
               }
-              modportString += f"${theme.porttab}${theme.porttab}.${name}(${name}.${modport}),\n"
+              modportString ++= f"${theme.porttab}${theme.porttab}.${name}(${name}.${modport}),\n"
+            }
+            case elem: Bundle => {
+              for((name1, node) <- elem.elementsCache) {
+                genModportSig(modportString, s"${name}_${name1}", node)
+              }
+            }
+            case elem: Vec[_] => {
+              for((node, idx) <- elem.zipWithIndex) {
+                genModportSig(modportString, s"${name}_${idx}", node)
+              }
             }
             case elem => {
               val dir = elem.dir match {
@@ -371,13 +425,15 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                 case `inout` => "inout "
                 case _       => throw new Exception(s"Unknown direction in interface ${interface}: ${elem}"); ""
               }
-              modportString += f"${theme.porttab}${theme.porttab}${dir}%-15s ${name},\n"
+              if(!sizeZero.contains(name))
+                modportString ++= f"${theme.porttab}${theme.porttab}${dir}%-15s ${name},\n"
             }
           }
         }
-        modportString = modportString.stripSuffix(",\n") + "\n"
-        modportString += s"${theme.porttab});\n\n"
-        ret ++= modportString
+        for ((name, elem) <- c.y.elementsCache) {
+          genModportSig(modportString, name, elem)
+        }
+        ret ++= modportString.toString().stripSuffix(",\n") + "\n" + s"${theme.porttab});\n\n"
       }
     ret ++= "endinterface\n\n"
     ret
@@ -416,10 +472,18 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           allocated += rootIF
         }
         val IFlist = node.rootIFList()
+        def getElemName(cache: ArrayBuffer[(String, Data)], name: String): Option[(String, Data)] = {
+          cache.flatMap{
+            case (a, x: Bundle) => getElemName(x.elementsCache, s"${name}_${a}").map(x => (x._1.stripPrefix("_"), x._2))
+            case (a, x: Vec[_]) => getElemName(x.elements, s"${name}_${a}").map(x => (x._1.stripPrefix("_"), x._2))
+            case (a, x) => if(x == node) Some((s"${name}_${a}".stripPrefix("_"), x)) else None
+          }.headOption
+        }
         val newName = IFlist match {
           case head :: tail => tail.foldLeft((head, List(head.getName()))){case ((nowIf, nameList), node) =>
             (node, nowIf.elementsCache.find(_._2 == node).get._1 :: nameList)//TODO:error handle on find.get
-          }._2.reverse.reduce(_ + "." + _) + "." + IFlist.last.elementsCache.find(_._2 == node).get._1//TODO:error handle on find.get
+          }._2.reverse.reduce(_ + "." + _) + "." +
+            getElemName(IFlist.last.elementsCache, "").getOrElse("no_name", null)._1//TODO:error handle on find.get
         }
         node.name = newName
       }

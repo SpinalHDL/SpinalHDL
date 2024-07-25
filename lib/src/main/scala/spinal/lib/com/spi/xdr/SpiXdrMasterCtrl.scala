@@ -64,6 +64,8 @@ case class SpiXdrParameter(dataWidth : Int,
 case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlave{
   import p._
 
+  override def clone = new SpiXdrMaster(p)
+
   val sclk = XdrOutput(p.ioRate)
   val data = Vec(XdrPin(p.ioRate), dataWidth)
   val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
