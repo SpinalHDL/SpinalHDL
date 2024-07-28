@@ -293,6 +293,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top->trace(&tfp, 99);
+      tfp.set_time_resolution(${if (useTimePrecision) "Verilated::threadContextp()->timeprecisionString()" else "VL_TIME_PRECISION_STR" });
       tfp.open((std::string(wavePath) + "wave" + ".${format.ext}").c_str());
       #endif
       this->name = name;
