@@ -118,7 +118,6 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       case bs: MemBus => MemBusDriver(bs, this.clockDomain).read(addr)
       case bs: MinBus => MinBusDriver(bs, this.clockDomain).read(addr)
     }
-    sleep(0)
     t
   }
 
