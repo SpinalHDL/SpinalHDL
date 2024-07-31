@@ -59,7 +59,7 @@ case class Axi4StreamMaster(axis: Axi4Stream, clockDomain: ClockDomain, nullSegm
     val beats = (data.flatMap { byte =>
       val numNullBytes = if (maxNullSegment == 0) 0 else
         (Random.nextFloat() < nullSegmentProb).toInt * Random.nextInt(maxNullSegment)
-      Seq((byte, 1)) ++ Seq.fill(numNullBytes)((0.toByte, 0))
+      Seq.fill(numNullBytes)((0.toByte, 0)) ++ Seq((byte, 1))
     } padTo(fullLength, (0.toByte, 0)) grouped busConfig.dataWidth).toList
     log(s"initiating send, ${beats.length} beats in total")
     beats.zipWithIndex.foreach { case (dataWithStrb, idx) =>
