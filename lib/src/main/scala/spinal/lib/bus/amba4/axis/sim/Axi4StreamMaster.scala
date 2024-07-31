@@ -7,6 +7,7 @@ import spinal.lib.bus.amba4.axis.Axi4Stream._
 import spinal.lib.sim._
 
 import scala.collection.mutable
+import scala.util.Random
 
 /**
  * Simulation master for the Axi4Stream bus protocol [[Axi4Stream]].
@@ -14,6 +15,10 @@ import scala.collection.mutable
  * @constructor create a simulation master with the given bus instance and clock domain
  * @param axis bus master to drive
  * @param clockDomain clock domain to sample data on
+ * @param nullSegmentProb probability to insert null segment at any byte offset (between 0 and 1);
+ *                        default to 0.0 (no null bytes inserted)
+ * @param maxNullSegment maximum length of null (TKEEP=0) segment in the middle of the stream;
+ *                       default to 0 (no null bytes)
  * @example
  * {{{
  *   SimConfig.compile(new Component {
@@ -27,7 +32,7 @@ import scala.collection.mutable
  *   }
  * }}}
  */
-case class Axi4StreamMaster(axis: Axi4Stream, clockDomain: ClockDomain) {
+case class Axi4StreamMaster(axis: Axi4Stream, clockDomain: ClockDomain, nullSegmentProb: Double = 0.0, maxNullSegment: Int = 0) {
   private val busConfig = axis.config
   private val queue = mutable.Queue[Axi4StreamBundle => Unit]()
 
@@ -51,7 +56,11 @@ case class Axi4StreamMaster(axis: Axi4Stream, clockDomain: ClockDomain) {
       log(s"not using strb or keep but length not multiple of data width; data will be zero padded")
     }
 
-    val beats = (data.map { byte => (byte, 1) } padTo(fullLength, (0.toByte, 0)) grouped busConfig.dataWidth).toList
+    val beats = (data.flatMap { byte =>
+      val numNullBytes = if (maxNullSegment == 0) 0 else
+        (Random.nextFloat() < nullSegmentProb).toInt * Random.nextInt(maxNullSegment)
+      Seq((byte, 1)) ++ Seq.fill(numNullBytes)((0.toByte, 0))
+    } padTo(fullLength, (0.toByte, 0)) grouped busConfig.dataWidth).toList
     log(s"initiating send, ${beats.length} beats in total")
     beats.zipWithIndex.foreach { case (dataWithStrb, idx) =>
       val (data, strbBinInts) = dataWithStrb.unzip
