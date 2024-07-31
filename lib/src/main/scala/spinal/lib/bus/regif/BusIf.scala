@@ -317,7 +317,7 @@ trait BusIf extends BusIfBase {
   }
 
   private def writeErrorGenerator(): Unit = {
-    when(doWrite){
+    when(askWrite){
       switch(writeAddress()) {
         RegAndFifos.foreach { slice =>
           slice.wrErrorGenerator()
