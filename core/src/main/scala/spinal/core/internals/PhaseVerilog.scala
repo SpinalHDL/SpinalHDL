@@ -168,6 +168,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       nativeRom                   = config.inlineRom,
       nativeRomFilePrefix         = rtlName,
       blackBoxRom                 = config.blackBoxRom,
+      caseRom                     = config.caseRom,
       emitedComponentRef          = emitedComponentRef,
       emitedRtlSourcesPath        = report.generatedSourcesPaths,
       spinalConfig                = pc.config,

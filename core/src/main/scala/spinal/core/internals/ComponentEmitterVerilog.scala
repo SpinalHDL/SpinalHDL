@@ -39,6 +39,7 @@ class ComponentEmitterVerilog(
   anonymSignalPrefix                 : String,
   nativeRom                          : Boolean,
   nativeRomFilePrefix                : String,
+  caseRom                            : Boolean,
   blackBoxRom                        : Boolean,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
   emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
@@ -380,6 +381,10 @@ class ComponentEmitterVerilog(
           }
         } else getOrDefault(emitedComponentRef, child, child).definitionName
 
+      if (child.isInstanceOf[Rom_1rs] && !blackBoxRom) {
+        // abort blackboxing if blackboxing not selected for ROM
+        return
+      }
       val instanceAttributes = emitSyntaxAttributes(child.instanceAttributes)
 
       val istracingOff = child.hasTag(TracingOff)
@@ -1244,111 +1249,114 @@ class ComponentEmitterVerilog(
     }
 
     if (mem.initialContent != null) {
-      logics ++= "  initial begin\n"
-      if(nativeRom) {
-        for ((value, index) <- mem.initialContent.zipWithIndex) {
-          val unfilledValue = value.toString(2)
-          val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
-          if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
-            for (i <- 0 until symbolCount) {
-              logics ++= s"    ${emitReference(mem, false)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))};\n"
-            }
-          } else {
-            logics ++= s"    ${emitReference(mem, false)}[$index] = ${filledValue.length}'b$filledValue;\n"
-          }
-        }
-      } else {
-        val withSymbols = memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1
-        for (i <- 0 until symbolCount) {
-          // TODO: fix for multiple symbols
-          val symbolPostfix = if(withSymbols) s"_symbol$i" else ""
-          val builder = new mutable.StringBuilder()
-          val v_builder = new mutable.StringBuilder()
+      if(!caseRom) {
+        logics ++= "  initial begin\n"
+        if (nativeRom) {
           for ((value, index) <- mem.initialContent.zipWithIndex) {
             val unfilledValue = value.toString(2)
             val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
-            if(withSymbols) {
-              builder ++=  s"${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))}\n"
+            if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+              for (i <- 0 until symbolCount) {
+                logics ++= s"    ${emitReference(mem, false)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))};\n"
+              }
             } else {
-              builder ++= s"$filledValue\n"
-              v_builder ++= s"            'd$index: data <= $symbolWidth'b$filledValue;\n"
+              logics ++= s"    ${emitReference(mem, false)}[$index] = ${filledValue.length}'b$filledValue;\n"
             }
           }
-          // Emit a .bin file template for the ROM
-          val romStr = builder.toString
-          val relativePath = romCache.get(romStr) match {
-            case None =>
-              val filePath = s"${pc.config.targetDirectory}/${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}${symbolPostfix}.bin"
+        } else {
+
+          val withSymbols = memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1
+          for (i <- 0 until symbolCount) {
+            val symbolPostfix = if (withSymbols) s"_symbol$i" else ""
+            val builder = new mutable.StringBuilder()
+            val v_builder = new mutable.StringBuilder()
+            for ((value, index) <- mem.initialContent.zipWithIndex) {
+              val unfilledValue = value.toString(2)
+              val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
+              if (withSymbols) {
+                builder ++= s"${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))}\n"
+              } else {
+                builder ++= s"$filledValue\n"
+                v_builder ++= s"            'd$index: data <= $symbolWidth'b$filledValue;\n"
+              }
+            }
+
+            val romStr = builder.toString
+            val relativePath = romCache.get(romStr) match {
+              case None =>
+                val filePath = s"${pc.config.targetDirectory}/${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}${symbolPostfix}.bin"
+                val file = new File(filePath)
+                emitedRtlSourcesPath += filePath
+                val writer = new java.io.FileWriter(file)
+                writer.write(romStr)
+                writer.flush()
+                writer.close()
+                if (spinalConfig.romReuse) romCache(romStr) = file.getName
+                file.getName
+              case Some(x) => x
+            }
+
+            if (!blackBoxRom) {
+              logics ++= s"""    $$readmemb("${relativePath}",${emitReference(mem, false)}${symbolPostfix});\n"""
+            } else {
+              // Emit a verilog blackbox template for the ROM
+              val template =
+                """
+                  |`resetall
+                  |`timescale 1ns / 1ps
+                  |`default_nettype none
+                  |
+                  |module {prefix}_Rom_1rs #(
+                  |    parameter wordCount = {wordCount},
+                  |    parameter wordWidth = {wordWidth},
+                  |    parameter addrWidth = $clog2(wordCount)
+                  |)
+                  |(
+                  |    input  wire                             clk,
+                  |    input  wire                             en,
+                  |    input  wire [addrWidth - 1:0]           addr,
+                  |    output reg  [wordWidth - 1:0]           data,
+                  |);
+                  |
+                  |always @(posedge clk) begin
+                  |    if (en) begin
+                  |        case (addr)
+                  |{romvals}
+                  |
+                  |            default: data <= {wordWidth}'h0;
+                  |        endcase
+                  |    end else begin
+                  |        data <= data;
+                  |    end
+                  |end
+                  |
+                  |endmodule
+                  |`resetall
+                  |""".stripMargin
+
+              val refFullName = emitReference(mem, false)
+              val lastUnderscoreIndex = refFullName.lastIndexOf('_')
+              val baseName = if (lastUnderscoreIndex != -1) refFullName.substring(0, lastUnderscoreIndex) else refFullName
+
+              val content = template
+                .replace("{romvals}", v_builder.toString)
+                .replace("{prefix}", s"${baseName}")
+                .replace("{wordCount}", s"${mem.wordCount}")
+                .replace("{wordWidth}", s"${symbolWidth}")
+
+              val filePath = s"${pc.config.targetDirectory}/${baseName}_Rom_1rs.v"
               val file = new File(filePath)
               emitedRtlSourcesPath += filePath
               val writer = new java.io.FileWriter(file)
-              writer.write(romStr)
+              writer.write(content)
               writer.flush()
               writer.close()
-              if (spinalConfig.romReuse) romCache(romStr) = file.getName
-              file.getName
-            case Some(x) => x
-          }
-          logics ++= s"""    $$readmemb("${relativePath}",${emitReference(mem, false)}${symbolPostfix});\n"""
-
-          if (blackBoxRom) {
-            // Emit a verilog blackbox template for the ROM
-            val template =
-              """
-                |`resetall
-                |`timescale 1ns / 1ps
-                |`default_nettype none
-                |
-                |module {prefix}_Rom_1rs #(
-                |    parameter wordCount = {wordCount},
-                |    parameter wordWidth = {wordWidth},
-                |    parameter addrWidth = $clog2(wordCount)
-                |)
-                |(
-                |    input  wire                             clk,
-                |    input  wire                             en,
-                |    input  wire [addrWidth - 1:0]           addr,
-                |    output reg  [wordWidth - 1:0]           data,
-                |);
-                |
-                |always @(posedge clk) begin
-                |    if (en) begin
-                |        case (addr)
-                |{romvals}
-                |
-                |            default: data <= {wordWidth}'h0;
-                |        endcase
-                |    end else begin
-                |        data <= data;
-                |    end
-                |end
-                |
-                |endmodule
-                |`resetall
-                |""".stripMargin
-
-            val refFullName = emitReference(mem, false)
-            val lastUnderscoreIndex = refFullName.lastIndexOf('_')
-            val baseName = if (lastUnderscoreIndex != -1) refFullName.substring(0, lastUnderscoreIndex) else refFullName
-
-            val content = template
-              .replace("{romvals}", v_builder.toString)
-              .replace("{prefix}", s"${baseName}")
-              .replace("{wordCount}", s"${mem.wordCount}")
-              .replace("{wordWidth}", s"${symbolWidth}")
-
-            val filePath = s"${pc.config.targetDirectory}/${baseName}_Rom_1rs.v"
-            val file = new File(filePath)
-            emitedRtlSourcesPath += filePath
-            val writer = new java.io.FileWriter(file)
-            writer.write(content)
-            writer.flush()
-            writer.close()
+            }
           }
         }
-      }
 
-      logics ++= "  end\n"
+        logics ++= "  end\n"
+      }
     }else if(mem.hasTag(randomBoot)){
       if(!verilogIndexGenerated) {
         verilogIndexGenerated = true
@@ -1410,9 +1418,28 @@ end
       val ramRead = {
         val symbolCount = mem.getMemSymbolCount()
 
-        if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-          b ++= s"$tab${emitExpression(target)} <= ${emitReference(mem, false)}[${emitExpression(address)}];\n"
-        else{
+        if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
+          val topo = new MemTopology(mem)
+          if (caseRom && mem.initialContent != null && topo.writes.isEmpty && topo.readWriteSync.isEmpty){
+            val symbolWidth = mem.getMemSymbolWidth()
+            val symbolCount = mem.getMemSymbolCount()
+            assert(symbolCount == 1, "This implementation does not handle banked ROM")
+
+            b ++= s"      case (${emitExpression(address)})\n"
+
+            val v_builder = new mutable.StringBuilder()
+            for ((value, index) <- mem.initialContent.zipWithIndex) {
+              val unfilledValue = value.toString(2)
+              val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
+              v_builder ++= s"        'd$index: ${emitExpression(target)} <= $symbolWidth'b$filledValue;\n"
+            }
+            b ++= v_builder.toString()
+            b ++= s"        default: ${emitExpression(target)} <= ${symbolWidth}'h0;\n"
+            b ++= s"      endcase\n"
+          } else {
+            b ++= s"$tab${emitExpression(target)} <= ${emitReference(mem, false)}[${emitExpression(address)}];\n"
+          }
+        } else{
 //          val symWidth = mem.getMemSymbolWidth()
 //          for (i <- 0 until symbolCount) {
 //            val upLim = symWidth * (i + 1) - 1
@@ -1847,6 +1874,11 @@ end
     case  e: ResizeSInt                               => operatorImplResizeSigned(e)
     case  e: ResizeUInt                               => operatorImplResize(e)
     case  e: ResizeBits                               => operatorImplResize(e)
+
+    case e: Operator.Bool.Repeat                      => s"{${e.count}{${emitExpression(e.source)}}}"
+    case e: Operator.Bits.Repeat                      => s"{${e.count}{${emitExpression(e.source)}}}"
+    case e: Operator.UInt.Repeat                      => s"{${e.count}{${emitExpression(e.source)}}}"
+    case e: Operator.SInt.Repeat                      => s"{${e.count}{${emitExpression(e.source)}}}"
 
     case  e: BinaryMultiplexer                        => operatorImplAsMux(e)
 

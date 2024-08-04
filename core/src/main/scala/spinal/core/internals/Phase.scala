@@ -729,7 +729,7 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
     val mems      = mutable.LinkedHashSet[Mem[_]]()
 
     walkBaseNodes{
-      case mem: Mem[_] => mems += mem
+      case mem: Mem[_] if !mem.preventMemToBlackboxTranslation => mems += mem
       case ec: ExpressionContainer =>
         ec.foreachExpression{
           case port: MemPortStatement => consumers.getOrElseUpdate(port, ArrayBuffer[ExpressionContainer]()) += ec

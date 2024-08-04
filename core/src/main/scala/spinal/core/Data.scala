@@ -790,7 +790,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def toMuxInput[T <: Data](muxOutput : T) : T = this.asInstanceOf[T]
 
   // Cat this count times
-  def #* (count : Int) =  Cat(List.fill(count)(this))
+  def #* (count : Int) : Bits =  this.asBits #* count
 
   /**
     * root interface

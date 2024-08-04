@@ -444,10 +444,10 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     val _l = this.raw
     val _r = right.raw
     ret.raw := trim(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt.resize(ret.bitWidth) * _r.asUInt)
-      case (false,  true) => (_l.asUInt.intoSInt             * _r.asSInt.resize(ret.bitWidth)).resize(ret.bitWidth)
-      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) * _r.asUInt.intoSInt)
-      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) * _r.asSInt)
+      case (false, false) => (_l.asUInt * _r.asUInt)
+      case (false,  true) => (_l.asUInt.intoSInt * _r.asSInt)
+      case ( true, false) => (_l.asSInt * _r.asUInt.intoSInt)
+      case ( true,  true) => (_l.asSInt * _r.asSInt)
     }).asBits, ret.bitWidth)
 
     ret
@@ -586,7 +586,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
-  // Shift bits and decimal point right, adding padding bits left
+  // Shift bits and decimal point right, truncating bits on the right
   def >>|(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
     val ret = new AFix(this.maxRaw / shiftBig, this.minRaw / shiftBig, this.exp)
@@ -608,7 +608,10 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       (this.exp - shift.maxRaw.toInt)
     )
 
-    ret.raw := (this.raw << shift.maxRaw.toInt) >> U(shift)
+    if (this.signed)
+      ret.raw := ((this.raw << shift.maxRaw.toInt).asSInt >> U(shift)).asBits
+    else
+      ret.raw := (this.raw << shift.maxRaw.toInt) >> U(shift)
 
     ret
   }
@@ -619,7 +622,10 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     assert(shift.minRaw == 0)
     val ret = cloneOf(this)
 
-    ret.raw := this.raw >> U(shift)
+    if (this.signed)
+      ret.raw := (this.raw.asSInt >> U(shift)).asBits
+    else
+      ret.raw := this.raw >> U(shift)
 
     ret
   }
