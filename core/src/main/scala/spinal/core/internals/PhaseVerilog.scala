@@ -167,6 +167,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       anonymSignalPrefix          = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,
       nativeRom                   = config.inlineRom,
       nativeRomFilePrefix         = rtlName,
+      blackBoxRom                 = config.blackBoxRom,
       emitedComponentRef          = emitedComponentRef,
       emitedRtlSourcesPath        = report.generatedSourcesPaths,
       spinalConfig                = pc.config,
