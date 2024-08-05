@@ -8,7 +8,12 @@ import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
 object BufferCC {
-  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Option[Int] = None, randBoot : Boolean = false, inputAttributes: Seq[SpinalTag] = List(), allBufAttributes: Seq[SpinalTag] = List()): T = {
+  def apply[T <: Data](input: T,
+                       init: => T = null,
+                       bufferDepth: Option[Int] = None,
+                       randBoot : Boolean = false,
+                       inputAttributes: Seq[SpinalTag] = List(),
+                       allBufAttributes: Seq[SpinalTag] = List()): T = {
     val c = new BufferCC(input, init, bufferDepth, randBoot, inputAttributes, allBufAttributes)
     c.setCompositeName(input, "buffercc", true)
     // keep hierarchy for timing constraint generation
@@ -52,7 +57,12 @@ object BufferCC {
   }
 }
 
-class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option[Int], val  randBoot : Boolean = false, inputAttributes: Seq[SpinalTag] = List(), allBufAttributes: Seq[SpinalTag] = List()) extends Component {
+class BufferCC[T <: Data](val dataType: T,
+                          init :  => T,
+                          val bufferDepth: Option[Int],
+                          val  randBoot : Boolean = false,
+                          inputAttributes: Seq[SpinalTag] = List(),
+                          allBufAttributes: Seq[SpinalTag] = List()) extends Component {
   def getInit() : T = init
   val finalBufferDepth = BufferCC.defaultDepthOptioned(ClockDomain.current, bufferDepth)
   assert(finalBufferDepth >= 1)
@@ -79,6 +89,34 @@ class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option
   addAttribute("keep_hierarchy", "TRUE")
 }
 
+
+class SamplerCC[T <: Data](val pushCd : ClockDomain,
+                           val popCd : ClockDomain,
+                           val dataType: T,
+                           init : => T,
+                           val bufferDepth: Option[Int],
+                           val  randBoot : Boolean = false,
+                           bufferInputAttributes: Seq[SpinalTag] = List(),
+                           bufferRegAttributes: Seq[SpinalTag] = List()) extends Component{
+  val io = new Bundle {
+    val push = slave Flow(dataType)
+    val pop = out(cloneOf(dataType))
+  }
+
+  val sampler = pushCd on RegNextWhen[T](io.push.payload, io.push.valid, init)
+  if (randBoot) sampler.randBoot()
+
+  val buffer = popCd on new BufferCC[T](
+    dataType = dataType,
+    init = init,
+    bufferDepth = bufferDepth,
+    randBoot = randBoot,
+    inputAttributes = bufferInputAttributes,
+    allBufAttributes = bufferRegAttributes
+  )
+  buffer.io.dataIn := sampler
+  io.pop := buffer.io.dataOut
+}
 
 object PulseCCByToggle {
   def apply(input: Bool,
