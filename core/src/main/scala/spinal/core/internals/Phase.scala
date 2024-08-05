@@ -914,6 +914,8 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           wrapConsumers(port, rom.io.data)
 
           rom.setName(mem.getName())
+          rom.addTag(new MemBlackboxOf(topo.mem.asInstanceOf[Mem[Data]]))
+          removeMem()
         }
       } else {
         return "Can't blackbox ROM" // TODO
@@ -2845,6 +2847,7 @@ object SpinalVhdlBoot{
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
     report.globalData = pc.globalData
+    pc.globalData.report = report.asInstanceOf[SpinalReport[Component]]
     phases += new PhaseDummy(SpinalProgress(s"Generate VHDL to ${config.targetDirectory}"))
     phases += new PhaseVhdl(pc, report)
 
@@ -2978,6 +2981,7 @@ object SpinalVerilogBoot{
 
     val report = new SpinalReport[T]()
     report.globalData = pc.globalData
+    pc.globalData.report = report.asInstanceOf[SpinalReport[Component]]
     phases += new PhaseVerilog(pc, report)
 
     for(inserter <-config.phasesInserters){
