@@ -21,8 +21,8 @@ case class GrpTag(id: Int, name: String){
   override def toString: String = s"$id|$name"
 }
 
-case class ReuseTag(id: Int, partName: String, baseAddr: BigInt = 0, instName: String = ""){
-  override def toString: String = s"$id|$partName|0x${baseAddr.hexString()}"
+case class ReuseTag(id: Int, blockName: String, baseAddr: BigInt = 0, instName: String = ""){
+  override def toString: String = s"$id|$blockName|0x${baseAddr.hexString()}"
 
   def offset(x: BigInt): BigInt = x - baseAddr
 }

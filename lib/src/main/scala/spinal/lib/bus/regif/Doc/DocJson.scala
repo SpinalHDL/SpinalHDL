@@ -20,7 +20,7 @@ final case class DocJson(name : String) extends BusIfDoc {
   implicit class RegSliceExtend(reg: RegSlice) {
     def toJson: String = {
       s"""|{"addr"   : ${reg.getAddr()},
-          |      "name"   : "${reg.getName()}",
+          |      "name"   : "${reg.upperName()}",
           |      "type"   : "${reg.regType}",
           |      "doc"    : "${clean(reg.getDoc())}",
           |      "grp"    : "${reg.getGrp}",

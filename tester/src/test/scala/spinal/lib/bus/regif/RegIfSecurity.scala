@@ -8,7 +8,7 @@ import spinal.lib.bus.regif.AccessType.RW
 class RegIfSecurity extends Component {
   val io = new Bundle {
     val apb = slave(Apb3(Apb3Config(16, 32)))
-    val tzpc = in Bool()
+    val tzpc, ramtzpc = in Bool()
   }
 
   val busif = BusInterface(io.apb, (0x000,4 KiB), 0, regPre = "AP", withSecFireWall = true)
@@ -29,6 +29,15 @@ class RegIfSecurity extends Component {
 
   val REG4 = busif.newReg(doc = "test", Secure.CS(io.tzpc))
   val test2 = REG4.field(Bits(32 bit), RW, 0x00, doc = "test2").asOutput()
+
+  val wrFIFO = busif.newWrFifo(doc = "fifo", Secure.CS(io.tzpc))
+  wrFIFO.field(8, "fifo test")("fifo_a")
+  wrFIFO.field(16, "fifo test")("fifo_b")
+
+  val RAM = busif.newRAM(16, "ram", Secure.CS(io.ramtzpc))
+  RAM.field(8 , "ram fd0")("fd0")
+  RAM.fieldAt(16, 10 , "ram fd1")("fd0")
+  RAM.bus.asMaster()
 }
 
 object playregifsec extends App{

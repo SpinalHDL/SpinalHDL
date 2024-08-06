@@ -8,9 +8,10 @@ class RamInst(name: String, addr: BigInt, size: BigInt, doc: String, sec: Secure
   require(size >= bi.wordAddressInc, "byte Size must be >= busWidth Byte")
   override val regType: String = "RAM"
 
-  val hitDoRead  = rdSecurePassage((bi.readAddress <= U(endaddr)) && (bi.readAddress >= U(addr)) && bi.doRead)
+  val _hitAddr = (bi.readAddress <= U(endaddr)) && (bi.readAddress >= U(addr))
+  val hitDoRead  = rdSecurePassage(_hitAddr && bi.askRead)
   hitDoRead.setName(f"ram_read_hit_0x${endaddr}%04x_0x${addr}%04x", weak = true)
-  val _hitDoWrite = (bi.readAddress <= U(endaddr)) && (bi.readAddress >= U(addr)) && bi.doWrite
+  val _hitDoWrite = _hitAddr && bi.doWrite
   val hitDoWrite = wrSecurePassage(_hitDoWrite)
   hitDoWrite.setName(f"ram_write_hit_0x${endaddr}%04x_0x${addr}%04x", weak = true)
 

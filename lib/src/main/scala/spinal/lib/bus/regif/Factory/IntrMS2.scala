@@ -29,7 +29,7 @@ import spinal.core._
  */
 
 class IntrMS2(val name: String, offset: BigInt, doc: String, bi: BusIf, sec: Secure, grp: GrpTag) extends RegSliceGrp(offset, maxSize = 2*bi.bw, doc, sec, grp)(bi) with IntrBase {
-  val MASK   = this.newRegAt(0, s"${doc} MS2-Raw status Register\n set when event \n clear raw when write 1")(SymbolName(s"${name}_INT_MASK"))
+  val MASK   = this.newRegAt(0, s"${doc} MS2-Mask Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${name}_INT_MASK"))
   val STATUS = this.newReg(s"${doc} MS2-status Register\n status = raw && (!mask)")(SymbolName(s"${name}_INT_STATUS"))
 
   def fieldAt[T <: BaseType](pos: Int, signal: T, maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T = {

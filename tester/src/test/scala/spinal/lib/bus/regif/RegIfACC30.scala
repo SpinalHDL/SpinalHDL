@@ -92,6 +92,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
                     busif.newReg(doc = "BMSC-C").parasiteField(reg_bmsc_4a, W1C  , 0, doc = "32 bit write 1 clear") //4 address share one reg
                     busif.newReg(doc = "BMSC-D").parasiteField(reg_bmsc_4a, RO , 0, doc = "32 bit read only")     //4 address share one reg
   val reg_rwhs    = busif.newReg(doc = "RWHS  ").field(Bits(32 bit), RWHS , "bb88001e".asHex, doc = "rwhs ").asOutput()
+  val reg_w1i     = busif.newReg(doc = "W1I   ").field(Bits(32 bit), W1I  , "00000000".asHex, doc = "w1i  ").asOutput()
   reg_ro := "fedcba98".asHex
 
   val refdata = List("12345678".asHex, "5a5a5a5a".asHex, "ffffffff".asHex, "00000000".asHex, "37abcdef".asHex, "11111111".asHex, "35af0782".asHex)
@@ -117,7 +118,6 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       case bs: MemBus => MemBusDriver(bs, this.clockDomain).read(addr)
       case bs: MinBus => MinBusDriver(bs, this.clockDomain).read(addr)
     }
-    sleep(0)
     t
   }
 

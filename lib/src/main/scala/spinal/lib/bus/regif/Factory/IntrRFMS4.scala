@@ -53,7 +53,7 @@ class IntrRFMS4(val name: String, offset: BigInt, doc: String, bi: BusIf, sec: S
   def fieldAt[T <: BaseType](pos: Int, signal: T,  maskRstVal: BigInt, doc: String)(implicit symbol: SymbolName): T  = {
     val nm = if (symbol.name.startsWith("<local")) signal.getPartialName() else symbol.name
     val raw    = RAW.fieldAt(pos, signal, AccessType.W1C, resetValue = 0, doc = s"${doc} raw, default 0")(SymbolName(s"${nm}_raw"))
-                 FORCE.parasiteField(raw, AccessType.W1S, resetValue = 0, doc = s"${doc} force, write 1 set, debug use")
+                 FORCE.parasiteFieldAt(pos, raw, AccessType.W1S, resetValue = 0, doc = s"${doc} force, write 1 set, debug use")
     val mask   = MASK.fieldAt(pos, signal, AccessType.RW, resetValue = maskRstVal, doc = s"${doc} mask, default 1, int off")(SymbolName(s"${nm}_mask"))
     val status = STATUS.fieldAt(pos, signal, AccessType.RO, resetValue = 0, doc = s"${doc} stauts default 0")(SymbolName(s"${nm}_status"))
 //    raw.setWhen(signal)

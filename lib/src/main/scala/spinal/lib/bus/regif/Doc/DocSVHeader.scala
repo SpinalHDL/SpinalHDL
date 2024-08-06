@@ -10,7 +10,7 @@ final case class DocSVHeader(name : String,
                              withshiftmask: Boolean = true) extends BusIfDoc {
   override val suffix: String = "svh"
 
-  def guardName : String = s"${name}_REGIF_H"
+  def guardName : String = s"${name.toUpperCase()}_REGIF_H"
 
   def body(): String = {
     val maxnamelen = bi.slices.map(_.getName().size).max + prefix.length
@@ -38,7 +38,7 @@ final case class DocSVHeader(name : String,
     def base(name: String, t: RegSlice, max: Int) = {
       val alignName = s"%-${max}s".format(t.reuseTag.instName)
       val defineName = s"${name}_base_${alignName}".toUpperCase()
-      s"`define ${defineName}  0x${t.reuseTag.baseAddr.hexString()}"
+      s"`define ${defineName}  0x${t.addr.hexString()}"
     }
 
     lst.map{ t =>
@@ -100,7 +100,7 @@ final case class DocSVHeader(name : String,
       val _tab = " " * (tabn - newfdname.size)
       fd.getAccessType() match {
         case `NA` => ""
-        case `W1S` | `W1C` | `W1T` | `W1P` | `W1CRS` | `W1SRC` | `W1SHS` | `W1CHS` => s"""`define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
+        case `W1S` | `W1C` | `W1T` | `W1P` | `W1CRS` | `W1SRC` | `W1SHS` | `W1CHS` | `W1I` => s"""`define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
         case `W0S` | `W0C` | `W0T` | `W0P` | `W0CRS` | `W0SRC` => s"""`define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
         case _ => {
           if (fd.getSection().size == bi.busDataWidth) "" else if (fd.getName() == "_bm_") "" else
