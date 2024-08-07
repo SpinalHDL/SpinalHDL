@@ -16,7 +16,10 @@ trait Target {
 }
 
 object AlteraStdTargets {
-  def apply(quartusCycloneIIPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_II_BIN", null), quartusCycloneIVPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_IV_BIN", null), quartusCycloneVPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_V_BIN", null)): Seq[Target] = {
+  def apply(quartusCycloneIIPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_II_BIN", null),
+            quartusCycloneIVPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_IV_BIN", null),
+            quartusCycloneVPath: String = sys.env.getOrElse("QUARTUS_CYCLONE_V_BIN", null),
+            quartusAgilexVPath: String = sys.env.getOrElse("QUARTUS_AGILEX_V_BIN", null)): Seq[Target] = {
     val targets = ArrayBuffer[Target]()
 
     if(quartusCycloneVPath != null) {
@@ -64,6 +67,22 @@ object AlteraStdTargets {
       }
     }
 
+    if (quartusAgilexVPath != null) {
+      targets += new Target {
+        override def getFamilyName(): String = "Agilex V"
+
+        override def synthesise(rtl: Rtl, workspace: String): Report = {
+          QuartusFlow(
+            quartusPath = quartusAgilexVPath,
+            workspacePath = workspace,
+            toplevelPath = rtl.getRtlPath(),
+            family = getFamilyName(),
+            device = "A5ED065BB32AI4S" //A5ED065BB32AE6SR0
+          )
+        }
+      }
+    }
+
     targets
   }
 }
@@ -98,7 +117,7 @@ object XilinxStdTargets {
             rtl=rtl,
             family=getFamilyName(),
             device="xc7a200tffv1156-3"
-            //            device="xc7k70t-fbg676-3"
+            //            device="xc7k70t-fbg676-3"  xc7a75tfgg676-3
           )
         }
       }
