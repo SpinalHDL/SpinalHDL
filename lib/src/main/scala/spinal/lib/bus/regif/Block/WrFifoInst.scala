@@ -17,7 +17,7 @@ class WrFifoInst(name: String, addr: BigInt, doc: String, sec: Secure,  grp: Grp
   bus.valid   := hitDoWrite
   bus.payload := bi.writeData
 
-  override def readBits: Bits = bi.defualtReadBits
+  override def readBits: Bits = bi.defaultReadBits
 
   override def readGenerator() = {
     is(addr) {
