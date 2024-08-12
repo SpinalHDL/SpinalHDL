@@ -144,10 +144,12 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         }
       }
 
-      val fileListFile = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
-      fileList.foreach(file => fileListFile.write(file.replace("//", "/") + "\n"))
-      fileListFile.flush()
-      fileListFile.close()
+      if(pc.config.printFilelist){
+        val fileListFile = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
+        fileList.foreach(file => fileListFile.write(file.replace("//", "/") + "\n"))
+        fileListFile.flush()
+        fileListFile.close()
+      }
     }
   }
 
