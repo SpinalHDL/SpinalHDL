@@ -1336,6 +1336,12 @@ class StringPimped(pimped : String){
   def toVecOfByte(encoding : String = "UTF-8") : Vec[Bits] = {
     Vec(pimped.getBytes(Charset.forName(encoding)).map(b => B(b.toInt, 8 bit)))
   }
+  def toBigInt = {
+    if(pimped.contains("0x"))
+      BigInt(pimped.replace("0x",""), 16)
+    else
+      BigInt(pimped, 10)
+  }
 }
 
 
