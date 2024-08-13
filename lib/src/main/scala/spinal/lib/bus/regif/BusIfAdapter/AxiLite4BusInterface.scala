@@ -5,18 +5,20 @@ import spinal.lib._
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4B, AxiLite4R}
 import spinal.lib.bus.misc.SizeMapping
 
-case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf {
+case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: String = "", withSecFireWall: Boolean = false)(implicit moduleName: ClassName) extends BusIf {
+  override val busDataWidth   = bus.config.dataWidth
+  override val busAddrWidth   = bus.config.addressWidth
   override val withStrb: Boolean = true
+
+  lazy val reg_wrerr: Bool = Reg(Bool(), init = False)
+  val bus_rdata: Bits  = Bits(busDataWidth bits)
+  val reg_rderr: Bool = Reg(Bool(), init = False)
+  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
+
   val wstrb: Bits = withStrb generate (Bits(strbWidth bit))
   val wmask: Bits = withStrb generate (Bits(busDataWidth bit))
   val wmaskn: Bits = withStrb generate (Bits(busDataWidth bit))
   override def getModuleName = moduleName.name
-
-  val readError = Bool()
-  val readData  = Bits(bus.config.dataWidth bits)
-
-  readError.setAsReg() init False
-  readData.setAsReg()  init 0
 
   val axiAr = bus.readCmd.stage()
   val axiR  = Stream(AxiLite4R(bus.config))
@@ -32,14 +34,15 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   withStrb generate (wstrb := Mux(axiAr.valid ,B((1 << strbWidth) -1, strbWidth bit), axiW.strb))
   initStrbMasks()
 
+  val bus_err: Bool = this.bus_slverr
 
-  when(readError) {
+  when(bus_err) {
     axiR.payload.setSLVERR()
   } otherwise {
     axiR.payload.setOKAY()
   }
   axiR.valid := axiRValid
-  axiR.payload.data := readData
+  axiR.payload.data := bus_rdata
 
 
   axiB.setOKAY()
@@ -54,7 +57,9 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   val doRead    = axiAr.valid && (!axiR.valid || axiR.ready) //Assume one stage between Ar and R
   val writeData = axiW.payload.data
 
-  axiRValid clearWhen(axiR.ready) setWhen(doRead) 
+  override lazy val bus_nsbit: Bool = Mux(askRead, bus.ar.prot(1), bus.aw.prot(1))
+
+  axiRValid clearWhen(axiR.ready) setWhen(doRead)
   axiAr.ready := doRead
   
   axiBValid clearWhen(axiB.ready) setWhen(doWrite) 
@@ -66,6 +71,4 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
 
   override def readHalt(): Unit = doRead := False
   override def writeHalt(): Unit = doWrite := False
-
-  override def busDataWidth   = bus.config.dataWidth
 }

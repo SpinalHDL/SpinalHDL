@@ -122,11 +122,16 @@ object DmaSg{
 
   case class SgBusParameter(addressWidth : Int, bytePerTransferWidth : Int, channels : Int)
 
-  case class SgReadCmd(p : SgBusParameter) extends Bundle {
+  case class SgCmd(p: SgBusParameter) extends Bundle {
+    val read = Bool()
+    val write = Bool()
     val channelId = UInt(log2Up(p.channels) bits)
+    val bytesDone = UInt(p.bytePerTransferWidth + 1 bits)
+    val endOfPacket = Bool()
+    val completed = Bool()
   }
 
-  case class SgReadRsp(p : SgBusParameter) extends Bundle{
+  case class SgRsp(p : SgBusParameter) extends Bundle{
     val channelId = UInt(log2Up(p.channels) bits)
     val srcAddress = UInt(p.addressWidth bits)
     val dstAddress = UInt(p.addressWidth bits)
@@ -135,36 +140,14 @@ object DmaSg{
     val stall = Bool()
   }
 
-  case class SgRead(p: SgBusParameter) extends Bundle with IMasterSlave{
-    val cmd = Stream(SgReadCmd(p))
-    val rsp = Flow(SgReadRsp(p))
+
+  case class SgBus(p : SgBusParameter) extends Bundle with IMasterSlave{
+    val cmd = Stream(SgCmd(p))
+    val rsp = Flow(SgRsp(p))
 
     override def asMaster(): Unit = {
       master(cmd)
       slave(rsp)
-    }
-  }
-
-  case class SgWriteCmd(p: SgBusParameter) extends Bundle {
-    val channelId = UInt(log2Up(p.channels) bits)
-    val bytesDone = UInt(p.bytePerTransferWidth+1 bits)
-    val endOfPacket = Bool()
-    val completed = Bool()
-  }
-
-  case class SgWrite(p: SgBusParameter) extends Bundle with IMasterSlave {
-    val cmd = Stream(SgWriteCmd(p))
-    override def asMaster(): Unit = {
-      master(cmd)
-    }
-  }
-
-  case class SgBus(p : SgBusParameter) extends Bundle with IMasterSlave{
-    val write = SgWrite(p)
-    val read = SgRead(p)
-
-    override def asMaster(): Unit = {
-      master(write, read)
     }
   }
 
@@ -1227,17 +1210,15 @@ object DmaSg{
 
         val sgStreamLogic = p.withSgBus generate new Area{
           val channelId = channelsId.map(U(_, log2Up(p.channels.size) bits)).reader(oh).apply(e => e)
-
-          readFired setWhen (io.sg.read.cmd.fire)
-          io.sg.read.cmd.valid := valid && !readFired && onSgStream
-          io.sg.read.cmd.channelId := channelId
-
-          writeFired setWhen (io.sg.write.cmd.fire)
-          io.sg.write.cmd.valid := valid && !writeFired && onSgStream
-          io.sg.write.cmd.channelId := channelId
-          io.sg.write.cmd.bytesDone := bytesDone.resized
-          io.sg.write.cmd.endOfPacket := endOfPacket
-          io.sg.write.cmd.completed := !isJustASink && doDescriptorStall
+          readFired setWhen (io.sg.cmd.fire)
+          writeFired setWhen (io.sg.cmd.fire)
+          io.sg.cmd.valid := valid && (!readFired || !writeFired) && onSgStream
+          io.sg.cmd.channelId := channelId
+          io.sg.cmd.bytesDone := bytesDone.resized
+          io.sg.cmd.endOfPacket := endOfPacket
+          io.sg.cmd.completed := !isJustASink && doDescriptorStall
+          io.sg.cmd.read := !readFired
+          io.sg.cmd.write := !writeFired
         }
       }
 
@@ -1296,7 +1277,7 @@ object DmaSg{
       }
 
       val sgRsp = p.withSgBus generate new Area{
-        def rsp = io.sg.read.rsp
+        def rsp = io.sg.rsp
         val oh = UIntToOh(rsp.channelId)
 
         when(rsp.fire) {

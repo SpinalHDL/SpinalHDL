@@ -30,7 +30,7 @@ class FormalSimpleTester extends SpinalFormalFunSuite {
     }
 
     FormalConfig.withProve(25).doVerify(new Component {
-      val dut = new StartDoneDut()
+      val dut = FormalDut(new StartDoneDut())
       assumeInitial(ClockDomain.current.isResetActive)
 
       val busy = RegInit(False) setWhen (dut.start) clearWhen (dut.done)

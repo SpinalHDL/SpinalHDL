@@ -1,7 +1,6 @@
 package spinal.lib.bus.regif
 
 import AccessType._
-
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
@@ -13,6 +12,8 @@ import spinal.lib.bus.amba4.apb.sim.Apb4Driver
 import spinal.lib.bus.wishbone.Wishbone
 import spinal.lib.bus.bram._
 import spinal.lib.bus.bram.sim.BRAMDriver
+import spinal.lib.bus.localbus._
+import spinal.lib.bus.localbus.sim.MinBusDriver
 
 
 class RegIfBasicAccessTest(busname: String) extends Component{
@@ -30,6 +31,14 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       val bus = slave(BRAM(BRAMConfig(32, 30)))
       bus -> BusInterface(bus, (0x000, 4 MiB), regPre = "AP")
     }
+    case "minbus" => {
+      val bus = slave(MinBus(MinBusConfig(32, 32)))
+      bus -> BusInterface(bus, (0x000, 4 MiB), regPre = "AP")
+    }
+    case "membus" => {
+      val bus = slave(MemBus(MemBusConfig(32, 32)))
+      bus -> BusInterface(bus, (0x000, 4 MiB), regPre = "AP")
+    }
     case _ => SpinalError("not support yet")
   }
 
@@ -41,6 +50,8 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       assert(bs.PSLVERR.toBoolean == aset, msg)
     }
     case bs: BRAM => {} // BRAM does not support bus errors
+    case bs: MinBus => {} // MinBus does not support bus errors
+    case bs: MemBus => {} // MemBus does not support bus errors
     case _ => SpinalError("not support yet")
   }
 
@@ -81,6 +92,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
                     busif.newReg(doc = "BMSC-C").parasiteField(reg_bmsc_4a, W1C  , 0, doc = "32 bit write 1 clear") //4 address share one reg
                     busif.newReg(doc = "BMSC-D").parasiteField(reg_bmsc_4a, RO , 0, doc = "32 bit read only")     //4 address share one reg
   val reg_rwhs    = busif.newReg(doc = "RWHS  ").field(Bits(32 bit), RWHS , "bb88001e".asHex, doc = "rwhs ").asOutput()
+  val reg_w1i     = busif.newReg(doc = "W1I   ").field(Bits(32 bit), W1I  , "00000000".asHex, doc = "w1i  ").asOutput()
   reg_ro := "fedcba98".asHex
 
   val refdata = List("12345678".asHex, "5a5a5a5a".asHex, "ffffffff".asHex, "00000000".asHex, "37abcdef".asHex, "11111111".asHex, "35af0782".asHex)
@@ -91,6 +103,8 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       case bs: AhbLite3 => SpinalError("AhbLIte3 regif test not support yet")
       case bs: Wishbone => SpinalError("Wishbon  regif test not support yet")
       case bs: BRAM => BRAMDriver(bs, this.clockDomain).write(addr >> 2, data, strb)
+      case bs: MemBus => MemBusDriver(bs, this.clockDomain).write(addr, data)
+      case bs: MinBus => MinBusDriver(bs, this.clockDomain).write(addr, data, strb)
     }
     sleep(0)
   }
@@ -101,8 +115,9 @@ class RegIfBasicAccessTest(busname: String) extends Component{
       case bs: AhbLite3 => SpinalError("AhbLIte3 regif test not support yet")
       case bs: Wishbone => SpinalError("Wishbon  regif test not support yet")
       case bs: BRAM => BRAMDriver(bs, this.clockDomain).read(addr >> 2)
+      case bs: MemBus => MemBusDriver(bs, this.clockDomain).read(addr)
+      case bs: MinBus => MinBusDriver(bs, this.clockDomain).read(addr)
     }
-    sleep(0)
     t
   }
 
@@ -147,7 +162,7 @@ class RegIfBasicAccessTest(busname: String) extends Component{
   }
   def tc00_ro   (addr: Long) = {
     val rdata = read(addr)
-    assert("fedcba98".asHex == rdata, s"0xfedcba98 != 0x${rdata.hexString(32)}, RW test failed")
+    assert("fedcba98".asHex == rdata, s"0xfedcba98 != 0x${rdata.hexString(32)}, RO test failed")
     SpinalInfo("tc00 RO - testpass")
   }
   def tc01_rw   (addr: Long) = {
@@ -445,17 +460,20 @@ object BasicTest{
 
   def genrtl(name: String = "apb4") = {
     name match {
-      case "apb3" => spinalConfig.generateVerilog(new RegIfBasicAccessTest("apb3"))
-      case "apb4" => spinalConfig.generateVerilog(new RegIfBasicAccessTest("apb4"))
-      case "bram" => spinalConfig.generateVerilog(new RegIfBasicAccessTest("bram"))
-      case "demo" => spinalConfig.generateVerilog(new RegIfExample)
-      case _      => spinalConfig.generateVerilog(new RegIfExample)
+      case "apb3"   => spinalConfig.generateVerilog(new RegIfBasicAccessTest("apb3"))
+      case "apb4"   => spinalConfig.generateVerilog(new RegIfBasicAccessTest("apb4"))
+      case "bram"   => spinalConfig.generateVerilog(new RegIfBasicAccessTest("bram"))
+      case "minbus" => spinalConfig.generateVerilog(new RegIfBasicAccessTest("minbus"))
+      case "membus" => spinalConfig.generateVerilog(new RegIfBasicAccessTest("membus"))
+      case "demo"   => spinalConfig.generateVerilog(new RegIfExample)
+      case _        => spinalConfig.generateVerilog(new RegIfExample)
     }
   }
 
   def main(args: Array[String] = Array("apb4")) = {
     val bus = args.head
     simcfg
+//      .withFstWave
       .compile(new RegIfBasicAccessTest(bus))
       .doSimUntilVoid(s"regif_${bus}_test") { dut =>
         dut.regression()

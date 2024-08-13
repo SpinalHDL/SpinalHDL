@@ -437,12 +437,12 @@ case class ClockDomain(clock       : Bool,
         case `SYNC` if hasResetSignal => enable || isResetActive //Ensure that the area get a reset even if the enable isn't set
         case _ => enable
       }
-      this.copy(clockEnable = syncResetFix(RegNext(tick) init(False)), clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
+      this.copy(clockEnable = syncResetFix(RegNext(tick) init(False)) && ClockDomain.current.isClockEnableActive, clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
     }
   }
 
   def newSlowedClockDomain(freq: HertzNumber): ClockDomain = {
-    val currentFreq = ClockDomain.current.frequency.getValue.toBigDecimal
+    val currentFreq = frequency.getValue.toBigDecimal
     freq match {
       case x if x.toBigDecimal > currentFreq => SpinalError("To high frequancy")
       case x                                 => newClockDomainSlowedBy((currentFreq/freq.toBigDecimal).toBigInt)
@@ -499,8 +499,3 @@ case class ClockDomain(clock       : Bool,
 
   class Area extends ClockingArea(this)
 }
-
-
-
-
-

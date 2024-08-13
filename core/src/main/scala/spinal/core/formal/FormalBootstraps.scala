@@ -24,7 +24,7 @@ import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{PhaseContext, PhaseNetlist}
 import spinal.core.sim.SimWorkspace
-import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport}
+import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, ClockDomain, ASYNC}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -48,6 +48,25 @@ object FormalWorkspace {
 class SpinalFormalBackendSel
 object SpinalFormalBackendSel {
   val SYMBIYOSYS = new SpinalFormalBackendSel
+}
+
+class FormalPhase extends PhaseNetlist{
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkComponents{ c =>
+      if(c.isFormalTester){
+        val cds = mutable.LinkedHashMap[ClockDomain, ClockDomain]()
+        c.dslBody.walkStatements{s =>
+          s.remapClockDomain{cd =>
+            if(cd.config.resetKind == ASYNC){
+              cds.getOrElseUpdate(cd,cd.withSyncReset())
+            } else {
+              cd
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 /** SpinalSim configuration
@@ -104,6 +123,11 @@ case class SpinalFormalConfig(
 
   def withAsync: this.type = {
     _hasAsync = true
+    this
+  }
+
+  def withSyncOnly: this.type = {
+    _hasAsync = false
     this
   }
 
@@ -171,7 +195,8 @@ case class SpinalFormalConfig(
     val uniqueId = FormalWorkspace.allocateUniqueId()
     new File(s"${_workspacePath}/tmp").mkdirs()
     new File(s"${_workspacePath}/tmp/job_$uniqueId").mkdirs()
-    val config = _spinalConfig
+    
+    val config = _spinalConfig.addTransformationPhase(new FormalPhase)
       .copy(targetDirectory = s"${_workspacePath}/tmp/job_$uniqueId")
       .addTransformationPhase(new PhaseNetlist {
         override def impl(pc: PhaseContext): Unit = pc.walkComponents {
@@ -179,6 +204,7 @@ case class SpinalFormalConfig(
           case _                                              =>
         }
       })
+
     val report = _backend match {
       case SpinalFormalBackendSel.SYMBIYOSYS =>
         // config.generateVerilog(rtl)

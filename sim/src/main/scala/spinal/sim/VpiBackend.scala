@@ -10,6 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.sys.process._
+import scala.util.Properties
 
 import spinal.sim.vpi._
 
@@ -27,7 +28,7 @@ case class VpiBackendConfig(
   var runFlags: String       = "",
   var sharedMemSize: Int     = 65536,
   var CC: String             = "g++",
-  var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing -Wno-write-strings", 
+  var CFLAGS: String         = "-std=c++14 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing -Wno-write-strings", 
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
   var logSimProcess: Boolean = false,
@@ -94,8 +95,8 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
 
   class Logger extends ProcessLogger {
     val logs = new StringBuilder()
-    override def err(s: => String): Unit = { logs ++= (s) }
-    override def out(s: => String): Unit = { logs ++= (s) }
+    override def err(s: => String): Unit = { logs ++= (s ++ Properties.lineSeparator) }
+    override def out(s: => String): Unit = { logs ++= (s ++ Properties.lineSeparator) }
     override def buffer[T](f: => T) = f
   }
 

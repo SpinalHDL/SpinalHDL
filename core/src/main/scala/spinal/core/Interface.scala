@@ -9,7 +9,7 @@ object IsInterface extends SpinalTag {}
   * 
   * ==Example==
   *{{{
-  * case class MyIf(width: Int = 8) extends SVIF with IMasterSlave {
+  * case class MyIf(width: Int = 8) extends Interface with IMasterSlave {
   *  val wParam = addGeneric("WIDTH", width, default = "8")
   *  val a = Bits(width bits)
   *  tieGeneric(a, wParam)
@@ -86,6 +86,10 @@ class Interface extends Bundle {
             if(elementsCache != null)
               if(elementsCache.find(_._1 == name).isDefined)
                 LocatedPendingError(s"name conflict: ${name} has been used")
+            super.valCallbackRec(ref, name)
+          }
+          case b: Bundle => {
+            b.flattenForeach(x => x.addTag(IsInterface))
             super.valCallbackRec(ref, name)
           }
           case ref: Vec[_] => {

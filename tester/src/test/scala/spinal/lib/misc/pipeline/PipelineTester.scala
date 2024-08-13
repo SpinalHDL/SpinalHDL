@@ -98,10 +98,9 @@ class PipelineTester extends SpinalAnyFunSuite{
     val OUT = Payload(UInt(16 bits))
 
     val up = slave Stream (IN)
-    val down = master Stream (OUT)
 
     n0.driveFrom(up)((self, payload) => self(IN) := payload)
-    n3.driveTo(down)((payload, self) => payload := self(OUT))
+    val down = master(n3.toStream((self) => self(OUT)))
 
     val connectors = List(s01, s12, s23)
     afterElaboration(Builder(connectors))

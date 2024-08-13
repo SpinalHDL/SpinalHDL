@@ -414,4 +414,116 @@ class SpinalSimPackedBundleTester extends SpinalAnyFunSuite {
         }
       })
   }
+
+  test("pack single field") {
+    SimConfig
+      .compile(new Component {
+
+        val packedBundle = new PackedBundle {
+          val a = Bits(4 bits)
+        }
+
+        val io = new Bundle {
+          val a = in Bits(4 bits)
+          val packed = out Bits(4 bits)
+        }
+
+        packedBundle.a := io.a
+        io.packed := packedBundle.packed
+      })
+  }
+  
+  test("pack with skipOver") {
+    SimConfig
+      .compile(new Component {
+        val packedBundle = new PackedBundle {
+          val a = Bits(4 bits) // Bits 0 1 2 3
+          skipOver(4 bits)
+          val b = Bits(8 bits) // Bits 8 9 10 11 12 13 14 15
+        }
+
+        val io = new Bundle {
+          val a = in(Bits(4 bit))
+          val b = in(Bits(8 bit))
+          val packed = out(Bits(packedBundle.getPackedWidth bits))
+        }
+
+        io.packed := RegNext(packedBundle.packed)
+        packedBundle.a := io.a
+        packedBundle.b := io.b
+      })
+      .doSim(dut => {
+        dut.clockDomain.forkStimulus(10)
+
+        def pack(a: BigInt, b: BigInt): BigInt = {
+          var res = BigInt(0)
+          res += a
+          res += b << 8
+          res
+        }
+
+        for (i <- 0 to 15) {
+          val n = 1 << i
+          dut.io.a #= n & 0xF
+          dut.io.b #= (n >> 8) & 0xFF
+          dut.clockDomain.waitFallingEdge()
+          val packedCalc = pack(
+            dut.io.a.toBigInt,
+            dut.io.b.toBigInt
+          )
+
+          assert(
+            dut.io.packed.toBigInt == packedCalc,
+            s"Bit ${i}: 0x${dut.io.packed.toBigInt.toString(16)} =!= 0x${packedCalc.toString(16)}\n"
+          )
+        }
+      })
+  }
+
+  test("unpack with skipOver") {
+    SimConfig
+      .compile(new Component {
+        val packedBundle = new PackedBundle {
+          val a = Bits(4 bits) // Bits 0 1 2 3
+          skipOver(4 bits)
+          val b = Bits(8 bits) // Bits 8 9 10 11 12 13 14 15
+        }
+
+        val io = new Bundle {
+          val a = out(Bits(4 bit))
+          val b = out(Bits(8 bit))
+          val packed = in(Bits(packedBundle.getPackedWidth bits))
+        }
+
+        packedBundle.unpack(RegNext(io.packed))
+        io.a := packedBundle.a
+        io.b := packedBundle.b
+      })
+      .doSim(dut => {
+        dut.clockDomain.forkStimulus(10)
+
+        def pack(a: BigInt, b: BigInt): BigInt = {
+          var res = BigInt(0)
+          res += a
+          res += b << 8
+          res
+        }
+
+        for (i <- 0 to 15) {
+          dut.io.packed #= 1 << i
+          dut.clockDomain.waitFallingEdge()
+          var packedCalc = pack(
+            dut.io.a.toBigInt,
+            dut.io.b.toBigInt
+          )
+          // Add the ignored bits back in
+          packedCalc |= (dut.io.packed.toBigInt & 0xF << 4)
+
+          assert(
+            dut.io.packed.toBigInt == packedCalc,
+            s"Bit ${i}: 0x${dut.io.packed.toBigInt.toString(16)} =!= 0x${packedCalc.toString(16)}\n"
+          )
+        }
+      })
+  }
 }

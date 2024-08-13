@@ -275,7 +275,7 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
   def overlap(that : SizeMapping) = this.base < that.base + that.size && this.base + this.size > that.base
   override def foreach(body: BigInt => Unit) = for(i <- 0 until size.toInt) body(base + i)
 
-  override def toString: String = f"SM(0x$base%x, 0x$size%x)"
+  override def toString: String = f"(0x${base+size}%x ~ 0x$base%x]"
   override def maxSequentialSize : BigInt = size
   override def randomPick(bytes : BigInt, aligned : Boolean) : BigInt = {
     var addr = base + BigInt(size.bitLength, simRandom) % (size-bytes)

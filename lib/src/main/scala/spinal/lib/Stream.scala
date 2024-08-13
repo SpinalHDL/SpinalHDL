@@ -172,6 +172,9 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       case (false,true,false) =>  StreamPipe.S2M(this)
       case (true,true,false) =>   StreamPipe.FULL(this)
       case (false,false,true) =>  StreamPipe.HALF(this)
+      case _ => { report(s"Parameters ($m2s, $s2m, $halfRate) are not valid for pipelined function.") 
+        null.asInstanceOf[Stream[T]]
+      }
     }
   }
 
@@ -377,7 +380,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready)
     if (keep) KeepAttribute.apply(rValid, rData)
 
-    if (crossClockData) rData.addTag(crossClockDomain)
+    if (crossClockData) {
+      rData.addTag(crossClockDomain)
+      rData.addTag(crossClockMaxDelay(1, useTargetClock = true))
+    }
     if (flush != null) rValid clearWhen(flush)
 
     self.ready := m2sPipe.ready
@@ -961,7 +967,6 @@ object StreamDemux{
   def joinSel[T <: Data](input: Stream[T], select: Stream[UInt], portCount: Int): Vec[Stream[T]] = {
     val c = new StreamDemux(input.payload, portCount)
     val joined = StreamJoin(input, select)
-    assert(!select.valid || select.payload < portCount, L"${select.payload} is bigger than portCount ${portCount.toString()}. Will stall forever".toList)
     c.io.input << joined.map(_._1)
     c.io.select := joined._2
     c.io.outputs
@@ -1388,7 +1393,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
 
 
   // check a condition against all valid payloads in the FIFO RAM
-  def formalCheckRam(cond: T => Bool): Vec[Bool] = this rework new Composite(this){
+  def formalCheckRam(cond: T => Bool): Vec[Bool] = new Composite(this){
     val condition = (0 until depth).map(x => cond(if (useVec) logic.vec(x) else logic.ram(x)))
     // create mask for all valid payloads in FIFO RAM
     // inclusive [popd_idx, push_idx) exclusive
@@ -1426,33 +1431,33 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     val vec = Vec(check)
   }.vec
 
-  def formalCheckOutputStage(cond: T => Bool): Bool = this.rework {
+  def formalCheckOutputStage(cond: T => Bool): Bool = {
     // only with sync RAM read, io.pop is directly connected to the m2sPipe() stage
     Bool(!withAsyncRead) & io.pop.valid & cond(io.pop.payload)
   }
 
   // verify this works, then we can simplify below
-  //def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
+  //def formalCheck(cond: T => Bool): Vec[Bool] = new Area {
   //  Vec(formalCheckOutputStage(cond) +: formalCheckRam(cond))
   //}
 
-  def formalContains(word: T): Bool = this.rework {
+  def formalContains(word: T): Bool = {
     formalCheckRam(_ === word.pull()).reduce(_ || _) || formalCheckOutputStage(_ === word.pull())
   }
-  def formalContains(cond: T => Bool): Bool = this.rework {
+  def formalContains(cond: T => Bool): Bool = {
     formalCheckRam(cond).reduce(_ || _) || formalCheckOutputStage(cond)
   }
 
-  def formalCount(word: T): UInt = this.rework {
+  def formalCount(word: T): UInt = {
     // occurance count in RAM and in m2sPipe()
     CountOne(formalCheckRam(_ === word.pull())) +^ U(formalCheckOutputStage(_ === word.pull()))
   }
-  def formalCount(cond: T => Bool): UInt = this.rework {
+  def formalCount(cond: T => Bool): UInt = {
     // occurance count in RAM and in m2sPipe()
     CountOne(formalCheckRam(cond)) +^ U(formalCheckOutputStage(cond))
   }
 
-  def formalFullToEmpty() = this.rework {
+  def formalFullToEmpty() = new Area {
     val was_full = RegInit(False) setWhen(!io.push.ready)
     cover(was_full && logic.ptr.empty)
   }
@@ -1586,7 +1591,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
     val pushPtr     = Reg(UInt(log2Up(2*depth) bits)) init(0)
     val pushPtrPlus = pushPtr + 1
     val pushPtrGray = RegNextWhen(toGray(pushPtrPlus), io.push.fire) init(0)
-    val popPtrGray  = BufferCC(popToPushGray, B(0, ptrWidth bits))
+    val popPtrGray  = BufferCC(popToPushGray, B(0, ptrWidth bits), inputAttributes = List(crossClockMaxDelay(1, useTargetClock = false)))
     val full        = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
@@ -1604,7 +1609,7 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
     val popPtr      = Reg(UInt(log2Up(2*depth) bits)) init(0)
     val popPtrPlus  = KeepAttribute(popPtr + 1)
     val popPtrGray  = toGray(popPtr)
-    val pushPtrGray = BufferCC(pushToPopGray, B(0, ptrWidth bit))
+    val pushPtrGray = BufferCC(pushToPopGray, B(0, ptrWidth bit), inputAttributes = List(crossClockMaxDelay(1, useTargetClock = false)))
     val addressGen = Stream(UInt(log2Up(depth) bits))
     val empty = isEmpty(popPtrGray, pushPtrGray)
     addressGen.valid := !empty
@@ -1652,6 +1657,83 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
         .otherwise { assert(pushCC.pushPtr - popCC.popPtr <= depth) }
     }
   }
+}
+
+object StreamAccessibleFifo {
+  def apply[T <: Data](input: Stream[T], output: Stream[T], length: Int = 2): StreamAccessibleFifo[T] = {
+    val inst = new StreamAccessibleFifo(input.payloadType, length)
+    inst.io.push << input
+    output << inst.io.pop
+    inst
+  }
+}
+
+class StreamAccessibleFifo[T <: Data](dataType: HardType[T], length: Int) extends Component {
+  val io = new Bundle {
+    val push          = slave  Stream(dataType)
+    val pop           = master Stream(dataType)
+    val states        = Vec(master Flow(dataType), length)
+  }
+
+  val pushToFirst = (1 until length).map(io.states(_).valid).andR
+  val pushToLast = (1 until length).map(~io.states(_).valid).andR
+  val pushToPos = pushToLast ## (1 until length - 1).map(i => 
+    (i+1 until length).map(io.states(_).valid).andR & ~io.states(i).valid).asBits ## pushToFirst
+  val pushToPosBits = CombInit(pushToPos)
+  when(io.pop.fire) {
+    pushToPosBits := (pushToPos << 1).resized
+  }
+
+  val pushId = OHToUInt(pushToPosBits)
+  val pushStreams = StreamDemux(io.push, pushId, length)
+  def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
+    left match {
+      case 0 => Nil
+      case 1 => prev :: Nil
+      case _ => prev :: builder({
+        val id = length + 1 - left
+        StreamMux(pushToPosBits(id).asUInt, Vec(prev, pushStreams(id))).stage
+      }, left - 1)
+    }
+  }
+  val connections = Vec(builder(pushStreams(0), length))
+  
+  io.pop << connections.last
+  (io.states, connections).zipped.foreach((x, y) => {
+    x.valid := y.valid
+    x.payload := y.payload
+  })
+}
+
+object StreamShiftChain {
+  def apply[T <: Data](input: Stream[T], output: Stream[T], length: Int = 2): StreamShiftChain[T] = {
+    val inst = new StreamShiftChain(input.payloadType, length)
+    inst.io.push << input
+    output << inst.io.pop
+    inst
+  }
+}
+
+class StreamShiftChain[T <: Data](dataType: HardType[T], length: Int) extends Component {
+  val io = new Bundle {
+    val push          = slave  Stream(dataType)
+    val pop           = master Stream(dataType)
+    val states        = Vec(master Flow(dataType), length)
+  }
+
+  def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
+    left match {
+      case 0 => Nil
+      case 1 => prev :: Nil
+      case _ => prev :: builder(prev.stage(), left - 1)
+    }
+  }
+  val connections = Vec(builder(io.push, length))
+  io.pop << connections.last
+  (io.states, connections).zipped.foreach((x, y) => {
+    x.valid := y.valid
+    x.payload := y.payload
+  })
 }
 
 object StreamCCByToggle {

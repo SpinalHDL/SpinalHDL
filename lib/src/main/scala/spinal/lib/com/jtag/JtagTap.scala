@@ -33,7 +33,7 @@ case class Jtag(useTck : Boolean = true) extends Bundle with IMasterSlave {
 //══════════════════════════════════════════════════════════════════════════════
 // define Jtag States
 //
-object JtagState extends SpinalEnum {
+object JtagState extends SpinalEnum(binarySequential) {
   val RESET, IDLE,
       IR_SELECT, IR_CAPTURE, IR_SHIFT, IR_EXIT1, IR_PAUSE, IR_EXIT2, IR_UPDATE,
       DR_SELECT, DR_CAPTURE, DR_SHIFT, DR_EXIT1, DR_PAUSE, DR_EXIT2, DR_UPDATE
@@ -47,24 +47,25 @@ class JtagFsm(jtag: Jtag) extends Area {
   import JtagState._
   val stateNext = JtagState()
   val state = RegNext(stateNext) randBoot()
-  stateNext := state.mux(
-    default    -> (jtag.tms ? RESET     | IDLE),           //RESET
-    IDLE       -> (jtag.tms ? DR_SELECT | IDLE),
-    IR_SELECT  -> (jtag.tms ? RESET     | IR_CAPTURE),
-    IR_CAPTURE -> (jtag.tms ? IR_EXIT1  | IR_SHIFT),
-    IR_SHIFT   -> (jtag.tms ? IR_EXIT1  | IR_SHIFT),
-    IR_EXIT1   -> (jtag.tms ? IR_UPDATE | IR_PAUSE),
-    IR_PAUSE   -> (jtag.tms ? IR_EXIT2  | IR_PAUSE),
-    IR_EXIT2   -> (jtag.tms ? IR_UPDATE | IR_SHIFT),
-    IR_UPDATE  -> (jtag.tms ? DR_SELECT | IDLE),
-    DR_SELECT  -> (jtag.tms ? IR_SELECT | DR_CAPTURE),
-    DR_CAPTURE -> (jtag.tms ? DR_EXIT1  | DR_SHIFT),
-    DR_SHIFT   -> (jtag.tms ? DR_EXIT1  | DR_SHIFT),
-    DR_EXIT1   -> (jtag.tms ? DR_UPDATE | DR_PAUSE),
-    DR_PAUSE   -> (jtag.tms ? DR_EXIT2  | DR_PAUSE),
-    DR_EXIT2   -> (jtag.tms ? DR_UPDATE | DR_SHIFT),
-    DR_UPDATE  -> (jtag.tms ? DR_SELECT | IDLE)
-  )
+  switch(state, coverUnreachable = true){
+   def add(k : JtagState.E, t : JtagState.E, f : JtagState.E) = is(k)(stateNext := jtag.tms.mux(t, f))
+    add(RESET     , RESET    , IDLE)
+    add(IDLE      , DR_SELECT, IDLE)
+    add(IR_SELECT , RESET    , IR_CAPTURE)
+    add(IR_CAPTURE, IR_EXIT1 , IR_SHIFT)
+    add(IR_SHIFT  , IR_EXIT1 , IR_SHIFT)
+    add(IR_EXIT1  , IR_UPDATE, IR_PAUSE)
+    add(IR_PAUSE  , IR_EXIT2 , IR_PAUSE)
+    add(IR_EXIT2  , IR_UPDATE, IR_SHIFT)
+    add(IR_UPDATE , DR_SELECT, IDLE)
+    add(DR_SELECT , IR_SELECT, DR_CAPTURE)
+    add(DR_CAPTURE, DR_EXIT1 , DR_SHIFT)
+    add(DR_SHIFT  , DR_EXIT1 , DR_SHIFT)
+    add(DR_EXIT1  , DR_UPDATE, DR_PAUSE)
+    add(DR_PAUSE  , DR_EXIT2 , DR_PAUSE)
+    add(DR_EXIT2  , DR_UPDATE, DR_SHIFT)
+    add(DR_UPDATE , DR_SELECT, IDLE)
+  }
 }
 
 //══════════════════════════════════════════════════════════════════════════════

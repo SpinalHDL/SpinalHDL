@@ -145,7 +145,7 @@ object DoCmd {
 
 
 object Repeat{
-  def apply[T <: Data](value : T, times : Int) = Cat(List.fill(times)(value))
+  def apply[T <: Data](value : T, times : Int) = value #* times
 }
 
 

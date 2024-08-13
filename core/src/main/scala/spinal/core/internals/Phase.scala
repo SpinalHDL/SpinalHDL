@@ -729,7 +729,7 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
     val mems      = mutable.LinkedHashSet[Mem[_]]()
 
     walkBaseNodes{
-      case mem: Mem[_] => mems += mem
+      case mem: Mem[_] if !mem.preventMemToBlackboxTranslation => mems += mem
       case ec: ExpressionContainer =>
         ec.foreachExpression{
           case port: MemPortStatement => consumers.getOrElseUpdate(port, ArrayBuffer[ExpressionContainer]()) += ec
@@ -2481,6 +2481,40 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
     for (c <- sortedComponents.reverse) {
       c.allocateNames(pc.globalScope)
     }
+
+    val invalidVhdlIdentifier = List (
+      ("[^\\w]".r, "contains non-alphanumeric characters"),
+      ("_$".r, "ends with an underscore"),
+      ("__".r, "contains a double underscore"),
+      ("^[^a-zA-Z]".r, "doesn't start with a letter")
+    )
+    val invalidVerilogIdentifier = List (
+      ("[^\\w$]".r, "contains non-alphanumeric or dollar characters"),
+      ("^[^a-zA-Z_]".r, "doesn't start with a letter or underscore")
+    )
+    def checkName(namedObj: Nameable): Unit = {
+      var name = namedObj.getName()
+      if (!name.startsWith(pc.globalData.anonymSignalPrefix)) {
+        for ((regex, reason) <- invalidVhdlIdentifier) {
+          if (regex.findFirstIn(name).exists(_ => true)) {
+            val msg = s"Name of $namedObj is invalid in VHDL because it $reason."
+            if (pc.config.mode == VHDL) SpinalError(msg)
+            else SpinalWarning(msg)
+          }
+        }
+        for ((regex, reason) <- invalidVerilogIdentifier) {
+          if (regex.findFirstIn(name).exists(_ => true)) {
+            val msg = s"Name of $namedObj is invalid in (System)Verilog bacause it $reason."
+            if (pc.config.mode != VHDL) SpinalError(msg)
+            else SpinalWarning(msg)
+          }
+        }
+      }
+    }
+    pc.walkComponents( c => {
+      checkName(c)
+      c.dslBody.walkDeclarations( d => checkName(d) )
+    })
   }
 }
 
