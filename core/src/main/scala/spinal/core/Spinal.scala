@@ -137,9 +137,9 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         defaultConfigForClockDomains   : ClockDomainConfig = ClockDomainConfig(),
                         onlyStdLogicVectorAtTopLevelIo : Boolean = false,
                         defaultClockDomainFrequency    : IClockDomainFrequency = UnknownFrequency(),
-                        targetDirectory                : String = SpinalConfig.defaultTargetDirectory,
+                        var targetDirectory            : String = SpinalConfig.defaultTargetDirectory,
                         oneFilePerComponent            : Boolean = false,
-                        netlistFileName                : String = null,
+                        var netlistFileName            : String = null,
                         dumpWave                       : DumpWaveConfig = null,
                         globalPrefix                   : String = "",
                         var privateNamespace           : Boolean = false,
@@ -249,6 +249,10 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     genLineComments = true
     this
   }
+  def addOptions(parser: scopt.OptionParser[Unit]): Unit = {
+    import parser._
+    opt[String]("target-directory") action { (v, c) => targetDirectory = v }
+  }
 }
 class GenerationFlags {
   def isEnabled = GlobalData.get.config.flags.contains(this)
@@ -275,6 +279,10 @@ object SpinalConfig{
       case Some(config) => config
       case None         => ???
     }
+  }
+
+  def addOptions(): Unit = {
+
   }
 
   var defaultTargetDirectory: String = System.getenv().getOrDefault("SPINAL_TARGET_DIR", ".")
