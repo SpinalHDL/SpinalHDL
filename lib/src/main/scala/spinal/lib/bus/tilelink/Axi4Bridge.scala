@@ -64,7 +64,7 @@ class Axi4Bridge(p : NodeParameters, withAxi3 : Boolean = false) extends Compone
         ax.setBurstINCR()
       }
 
-      io.down.aw.allStrb := buffered.opcode === Opcode.A.PUT_PARTIAL_DATA
+      io.down.aw.allStrb := buffered.opcode === Opcode.A.PUT_FULL_DATA
     }
     val data = new Area{
       val filtred = dataFork.takeWhen(dataFork.opcode === Opcode.A.PUT_FULL_DATA || dataFork.opcode === Opcode.A.PUT_PARTIAL_DATA)
