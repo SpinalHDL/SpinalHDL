@@ -14,7 +14,7 @@ class SpinalSimStreamShiftChainTester extends SpinalSimFunSuite {
         alwaysInput: Boolean = false,
         alwaysOutput: Boolean = false,
         inQueue: mutable.Queue[BigInt],
-        outQueue: mutable.Queue[BigInt],
+        outQueue: mutable.Queue[BigInt]
     ) {
         dut.clockDomain.forkStimulus(period = 10)
         dut.io.push.valid #= false
@@ -62,7 +62,7 @@ class SpinalSimStreamShiftChainTester extends SpinalSimFunSuite {
         val compiled = SimConfig.allOptimisation.compile {
             val dut = new StreamShiftChain(
                 UInt(32 bits),
-                12,
+                12
             )
             dut
         }
