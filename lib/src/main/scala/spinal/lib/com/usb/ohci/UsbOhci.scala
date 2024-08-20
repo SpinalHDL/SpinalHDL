@@ -19,15 +19,15 @@ case class OhciPortParameter(removable : Boolean = true, powerControlMask : Bool
 case class UsbOhciParameter(noPowerSwitching : Boolean,
                             powerSwitchingMode : Boolean,
                             noOverCurrentProtection : Boolean,
-                            //                            overCurrentProtectionMode : Boolean,
                             powerOnToPowerGoodTime : Int,
                             dataWidth : Int,
                             portsConfig : Seq[OhciPortParameter],
                             dmaLengthWidth : Int = 6,
-                            fifoBytes : Int = 2048){
+                            fifoBytes : Int = 2048,
+                            storageBursts : Int = 4){
   assert(dmaLengthWidth >= 5 && dmaLengthWidth <= 12)
   def dmaLength = 1 << dmaLengthWidth
-  val portCount = portsConfig.size
+  def portCount = portsConfig.size
 }
 
 object UsbOhci{
@@ -908,7 +908,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     val currentAddress = Reg(UInt(14 bits)) //One extra bit to allow overflow comparison
     val currentAddressFull = (currentAddress(12) ? TD.BE(31 downto 12) | TD.CBP(31 downto 12)) @@ currentAddress(11 downto 0)
-    val currentAddressBmb = currentAddressFull & U(currentAddressFull.getWidth bits, default -> true, io.dma.p.access.wordRange -> false)
+    val currentAddressBmb = currentAddressFull.clearedLow(p.dmaLengthWidth)
     val lastAddress = Reg(UInt(13 bits))
     val transactionSizeMinusOne = lastAddress - currentAddress
     val transactionSize = transactionSizeMinusOne + 1
@@ -919,6 +919,27 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val INIT, TO_USB, FROM_USB, VALIDATION, CALC_CMD, READ_CMD, WRITE_CMD = new State
       setEntry(INIT)
       disableAutoStart()
+
+
+      val storage = new Area{
+        assert(isPow2(p.storageBursts))
+        val wordPerBurst = p.dmaLength*8/p.dataWidth
+        val ram = Mem.fill(p.storageBursts*wordPerBurst)(Bits(p.dataWidth bits))
+        val readCmd = Stream(ram.addressType).setIdle()
+        val readRsp = ram.streamReadSync(readCmd); readRsp.ready := isStopped
+        val write = ram.writePort();    write.setIdle()
+        val writePtr, readPtr = Reg(UInt(ram.addressWidth + 1 bits))
+        val full = U(writePtr.dropLow(log2Up(wordPerBurst))).invertedMsb === currentAddress.dropLow(log2Up(p.dmaLength)).resized
+      }
+
+      when(isStopped){
+
+      }
+
+      when(isRunning){
+
+      }
+
 
       always{
         when(unscheduleAll.fire){ killFsm() }
@@ -940,6 +961,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       when(isStarted && !isIn && ioDma.rsp.valid) {
         fifo.io.push.valid := True
         fifo.io.push.payload := ioDma.rsp.data
+
+        storage.write.valid := True
+        storage.write.address := storage.writePtr.resized
+        storage.write.data := ioDma.rsp.data
+        storage.writePtr := storage.writePtr + 1
       }
 
       val selWidth = log2Up(p.dataWidth / 8)
@@ -953,13 +979,90 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
       }
 
+
+      val toUsb = new Area {
+        val dmaReady = False
+        val run = RegInit(False) setWhen(dmaReady) clearWhen(isEntering(stateBoot))
+        always {
+          when(run) {
+            storage.readCmd.valid := True
+            storage.readCmd.payload := storage.readPtr.resized
+            when(storage.readCmd.ready) {
+              storage.readPtr := storage.readPtr + 1
+            }
+
+            dataTx.data.fragment := storage.readRsp.payload.subdivideIn(8 bits).read(byteCtx.sel)
+            dataTx.data.last := byteCtx.last
+            when(storage.readRsp.valid) {
+              dataTx.data.valid := True
+              when(dataTx.data.ready) {
+                byteCtx.increment := True
+                when(byteCtx.sel.andR) {
+                  storage.readRsp.ready := True
+                }
+                when(byteCtx.last) {
+                  exitFsm()
+                }
+              }
+            }
+          }
+        }
+      }
+
+      val fromUsb = new Area{
+        val buffer = Reg(Bits(p.dataWidth bits))
+        val push = RegNext(False) init(False)
+
+        when(push){
+          storage.write.valid := True
+          storage.write.address := storage.writePtr.resized
+          storage.write.data := buffer
+          storage.writePtr := storage.writePtr + 1
+        }
+
+        val start = False
+        val run = RegInit(False) setWhen(start) clearWhen(isEntering(stateBoot))
+        val dmaReady = (storage.writePtr ^ storage.readPtr).dropLow(log2Up(wordPerBurst))) =/= 0 ||
+          !run && !push
+
+
+        when(run){
+          when(dataRx.wantExit){
+            push := byteCtx.sel.orR
+            val u = fromUsbCounter < transactionSize
+            underflow := u
+            overflow  := !u && fromUsbCounter =/= transactionSize
+            when(zeroLength){
+              underflow := False
+              overflow := fromUsbCounter =/= 0
+            }
+            when(u){
+              lastAddress := (currentAddress + fromUsbCounter - 1).resized
+            }
+            run := False //goto(VALIDATION)
+          }
+          when(dataRx.data.valid) {
+            fromUsbCounter := fromUsbCounter + U(!fromUsbCounter.msb)
+            byteCtx.increment := True
+            buffer.subdivideIn(8 bits)(byteCtx.sel) := dataRx.data.payload
+            push setWhen (byteCtx.sel.andR)
+          }
+        }
+      }
+
       INIT whenIsActive {
         underflow := False
         overflow := False
         fifo.io.flush := True
         when(isIn) {
-          goto(FROM_USB)
+          fromUsbCounter := 0
+          storage.writePtr := U(currentAddress.dropLow(log2Up(p.dataWidth/8))).resized
+          storage.readPtr  := U(currentAddress.clearedLow(log2Up(p.dmaLength)).dropLow(log2Up(p.dataWidth/8))).resized
+          fromUsb.start := True
+          goto(CALC_CMD)
         } otherwise {
+          storage.writePtr := U(currentAddress.clearedLow(log2Up(p.dmaLength)).dropLow(log2Up(p.dataWidth/8))).resized
+          storage.readPtr  := U(currentAddress.dropLow(log2Up(p.dataWidth/8))).resized
           goto(CALC_CMD)
         }
       }
@@ -970,17 +1073,21 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         when(dataDone) {
           when(isIn){
             exitFsm()
-          } otherwise {
+          }otherwise {
             when(dmaCtx.pendingEmpty) {
-              goto(TO_USB)
+              toUsb.dmaReady := True
             }
           }
         }otherwise {
-          val checkShift = log2Up(p.dmaLength * 8 / p.dataWidth)
           when(isIn){
+            when()
             goto(WRITE_CMD)
           } otherwise {
-            goto(READ_CMD)
+            when(!storage.full) {
+              goto(READ_CMD)
+            } otherwise {
+              toUsb.dmaReady := True
+            }
           }
         }
       }
@@ -989,7 +1096,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         ioDma.cmd.last := True
         ioDma.cmd.setRead()
         ioDma.cmd.address := currentAddressBmb
-        ioDma.cmd.length := lengthBmb
+        ioDma.cmd.length := p.dmaLength-1
         ioDma.cmd.valid := True
         when(ioDma.cmd.ready) {
           currentAddress := currentAddress + length + 1
@@ -1018,53 +1125,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
       }
 
-      TO_USB whenIsActive{
-        dataTx.data.fragment := fifo.io.pop.payload.subdivideIn(8 bits).read(byteCtx.sel)
-        dataTx.data.last := byteCtx.last
-        dataTx.data.valid := True
-        when(dataTx.data.ready) {
-          byteCtx.increment := True
-          when(byteCtx.sel.andR){
-            fifo.io.pop.ready := True
-          }
-          when(byteCtx.last) {
-            exitFsm()
-          }
-        }
-      }
-
-      val buffer = Reg(Bits(p.dataWidth bits))
-      val push = RegNext(False) init(False)
-      when(push){
-        fifo.io.push.valid := True
-        fifo.io.push.payload := buffer
-      }
-
-      FROM_USB onEntry {
-        fromUsbCounter := 0
-      }
-      FROM_USB whenIsActive{
-        when(dataRx.wantExit){
-          push := byteCtx.sel.orR
-          val u = fromUsbCounter < transactionSize
-          underflow := u
-          overflow  := !u && fromUsbCounter =/= transactionSize
-          when(zeroLength){
-            underflow := False
-            overflow := fromUsbCounter =/= 0
-          }
-          when(u){
-            lastAddress := (currentAddress + fromUsbCounter - 1).resized
-          }
-          goto(VALIDATION)
-        }
-        when(dataRx.data.valid) {
-          fromUsbCounter := fromUsbCounter + U(!fromUsbCounter.msb)
-          byteCtx.increment := True
-          buffer.subdivideIn(8 bits)(byteCtx.sel) := dataRx.data.payload
-          push setWhen (byteCtx.sel.andR)
-        }
-      }
 
       VALIDATION whenIsActive{
         when(fromUsbCounter === 0){
@@ -1127,7 +1187,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     BUFFER_READ.whenIsActive {
-      when(dmaLogic.isActive(dmaLogic.TO_USB)) {
+      when(dmaLogic.toUsb.run) {
         goto(TOKEN)
         when(timeCheck){
           status := Status.FRAME_TIME
