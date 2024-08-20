@@ -1,17 +1,11 @@
-import com.typesafe.config._
-import java.io.File
-import scala.collection.JavaConverters._
-
 object SpinalVersion {
-  val conf = ConfigFactory.parseFile(new File("project/version.conf")).resolve()
+  val compilers = List("2.12.18", "2.11.12", "2.13.12")
+  val compilerIsRC = false
 
-  val compilers = conf.getStringList("compilers").asScala.toList
-  val compilerIsRC = conf.getBoolean("compilerIsRC")
-
-  val isDev = conf.getBoolean("isDev")
-  val isSnapshot = conf.getBoolean("isSnapshot")
+  val isDev = true
+  val isSnapshot = false
   private def snapshot = if (isSnapshot) "-SNAPSHOT" else ""
-  private val major = conf.getString("major")
+  private val major = "1.7.3"
   val all         = if(isDev) "dev" else s"$major$snapshot"
   val sim         = all
   val core        = all
