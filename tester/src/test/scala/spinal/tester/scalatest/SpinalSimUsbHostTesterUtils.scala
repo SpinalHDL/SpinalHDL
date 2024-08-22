@@ -203,7 +203,7 @@ class TesterUtils(dut : UsbOhciTbTop) {
   dut.phyCd.forkStimulus(20800)
   val memory = new BmbMemoryAgent(){
     override def writeNotification(address: Long, value: Byte) = {
-      assert(malloc.isAllocated(address))
+      assert(malloc.isAllocated(address), f"Address $address%x wasn't allocated")
     }
   }
   memory.addPort(dut.dma, 0, dut.clockDomain, true)
@@ -240,7 +240,7 @@ class UsbDeviceScoreboard(io : UsbDeviceAgent) extends UsbDeviceAgentListener{
     val ed = setupOutRef.get(key).get
     val entry = ed.dequeue()
     assert(tockenPid == entry.tockenPid)
-    assert(packet == entry.packet)
+    assert(packet == entry.packet, s"\n- got $packet\n- exp ${entry.packet}")
     entry.onCompletion()
   }
 

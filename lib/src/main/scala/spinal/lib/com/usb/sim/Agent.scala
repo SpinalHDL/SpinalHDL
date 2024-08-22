@@ -400,9 +400,6 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
       case EOP_1 => {
         assert(txEnable && txSe0)
         if(bitEvent){
-          if(packetBits.length > 16 && !packetBits.takeRight(7).exists(_ != packetBits.last)){
-            println("asd")
-          }
           val detoggled = decodePacketToggle(packetBits)
           val destuffed = decodeStuffing(detoggled)
           val bytes = decodeBytes(destuffed)
