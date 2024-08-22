@@ -228,10 +228,16 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
       down = down.tail
       up = up.tail
     }
-    if(common != null)
+    val fullPath = if(common != null)
       (down.reverse :+ common) ++ up
     else
       down.reverse ++ up
+
+    // drop toplevel head for more consistent signal naming
+    fullPath match {
+      case h :: xs if h == globalData.toplevel => xs
+      case xs => xs
+    }
   }
 
   override def getName(default: String): String = {
