@@ -10,7 +10,7 @@ object BmbToTilelink{
   def getTilelinkM2s(p : BmbAccessParameter, name : Nameable): M2sParameters = {
     assert(p.alignment == BmbParameter.BurstAlignement.LENGTH)
     M2sParameters(
-      addressWidth = p.addressWidth-log2Up(p.byteCount),
+      addressWidth = p.addressWidth,
       dataWidth = p.dataWidth,
       masters = List(
         M2sAgent(
@@ -44,18 +44,19 @@ case class BmbToTilelink(p : BmbParameter) extends Component{
   io.down.a.opcode  := halted.isWrite.mux(tilelink.Opcode.A.PUT_PARTIAL_DATA, tilelink.Opcode.A.GET)
   io.down.a.param   := 0
   io.down.a.source  := 0
-  io.down.a.address := halted.address
+  io.down.a.address := halted.address | (io.down.a.beatCounter() << log2Up(p.access.dataWidth/8)).resized
   io.down.a.mask    := halted.mask
   io.down.a.data    := halted.data
   io.down.a.corrupt := False
-
   io.down.a.size    := halted.length.muxListDc(
     for(i <- 0 until p.access.lengthWidth; length = (1 << i)-1) yield
       length -> U(i, io.down.a.p.sizeWidth bits)
   )
 
+  io.up.rsp.arbitrationFrom(io.down.d)
   io.up.rsp.opcode(0)  := io.down.d.denied
   io.up.rsp.data       := io.down.d.data
+  io.up.rsp.last       := io.down.d.isLast()
 //  io.up.rsp.source     :=
 //  io.up.rsp.context    :=
 

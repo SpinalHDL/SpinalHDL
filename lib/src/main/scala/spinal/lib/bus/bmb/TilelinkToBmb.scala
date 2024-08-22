@@ -45,7 +45,7 @@ case class TilelinkToBmb(p : tilelink.M2sParameters) extends Component{
   io.down.cmd.address   := io.up.a.address
   io.down.cmd.length    := ((U(1) << io.up.a.size)-1).resized
   io.down.cmd.data      := io.up.a.data
-  io.down.cmd.mask      := io.up.a.mask
+//  io.down.cmd.mask      := io.up.a.mask
   io.down.cmd.context   := io.up.a.size ## io.down.cmd.opcode
 
   io.up.d.arbitrationFrom(io.down.rsp)

@@ -13,8 +13,9 @@ import spinal.lib.misc.InterruptNode
 class UsbOhciTilelinkFiber extends Area{
   var parameter : UsbOhciParameter = null
 
-  val dma = tilelink.fabric.Node.up()
-  val ctrl = tilelink.fabric.Node.down()
+  val cd = ClockDomain.current
+  val dma = tilelink.fabric.Node.down()
+  val ctrl = tilelink.fabric.Node.up()
   val interrupt = InterruptNode.master()
 
   val logic = Fiber build new Area{
@@ -31,7 +32,7 @@ class UsbOhciTilelinkFiber extends Area{
     ohci.io.ctrl << ctrl.bus
     interrupt.flag := ohci.io.interrupt
 
-    ohci.io.phy.flatten.filter(_.isInput).foreach(_.clearAll())
+//    ohci.io.phy.flatten.filter(_.isInput).foreach(_.clearAll())
   }
 
   def createPhyDefault() = new Area{
@@ -40,12 +41,12 @@ class UsbOhciTilelinkFiber extends Area{
     val logic = Handle(UsbLsFsPhy(parameter.portCount, sim=false))
 
     Handle{
-      val ctrlCd = UsbOhciGenerator.this.logic.clockDomain
+      val ctrlCd = UsbOhciTilelinkFiber.this.cd
       val phyCd = logic.clockDomain
       if(ctrlCd == phyCd) {
-        UsbOhciGenerator.this.logic.io.phy <> logic.io.ctrl
+        UsbOhciTilelinkFiber.this.logic.ohci.io.phy <> logic.io.ctrl
       } else {
-        UsbOhciGenerator.this.logic.io.phy.cc(ctrlCd, phyCd) <> logic.io.ctrl
+        UsbOhciTilelinkFiber.this.logic.ohci.io.phy.cc(ctrlCd, phyCd) <> logic.io.ctrl
       }
     }
 
