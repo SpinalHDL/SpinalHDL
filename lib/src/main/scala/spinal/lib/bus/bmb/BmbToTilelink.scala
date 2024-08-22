@@ -49,7 +49,7 @@ case class BmbToTilelink(p : BmbParameter) extends Component{
   io.down.a.data    := halted.data
   io.down.a.corrupt := False
   io.down.a.size    := halted.length.muxListDc(
-    for(i <- 0 until p.access.lengthWidth; length = (1 << i)-1) yield
+    for(i <- 0 to p.access.lengthWidth; length = (1 << i)-1) yield
       length -> U(i, io.down.a.p.sizeWidth bits)
   )
 
