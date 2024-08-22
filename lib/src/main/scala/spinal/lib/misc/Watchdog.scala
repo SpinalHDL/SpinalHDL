@@ -9,48 +9,55 @@ import spinal.lib.generator.InterruptCtrlGeneratorI
 
 class WatchdogParam(
   var prescalerWidth : Int,
-  var timeoutWidth : Int
+  var timeoutWidth : Int,
+  var counters : Int
 )
 
 class Watchdog(p : WatchdogParam) extends Area{
   val api = new Area {
-    val enable, softPanicEnable, hardPanicEnable = Bool()
+    val enables = Bits(p.counters bits)
     val heartbeat = Bool()
-    val softPanic, hardPanic = RegInit(False).randBoot()
+    val panics = Bits(p.counters bits)
   }
 
   val prescaler = new Prescaler(p.prescalerWidth)
-  val softTimer = new Timer(p.timeoutWidth)
-  val hardTimer = new Timer(p.timeoutWidth)
+  prescaler.io.clear := api.heartbeat || api.enables === 0
 
-  val softPanic, hardPanic = RegInit(False).randBoot()
-  api.softPanic := softPanic && api.softPanicEnable
-  api.hardPanic := hardPanic && api.hardPanicEnable
+  val counters =  List.tabulate(p.counters)(i => new Area{
+    val clear = !api.enables(i) || api.heartbeat
 
-  softPanic setWhen(softTimer.io.full)
-  hardPanic setWhen(hardTimer.io.full)
+    val timer = Timer(p.timeoutWidth)
+    timer.io.tick := prescaler.io.overflow
+    timer.io.clear := clear
 
-  val clear = !api.enable || api.heartbeat
-  prescaler.io.clear := clear
-  softTimer.io.clear := clear
-  hardTimer.io.clear := clear
-  softPanic clearWhen(clear)
-  hardPanic clearWhen(clear)
+    val full = RegInit(False) setWhen(timer.io.full) clearWhen(clear)
+    api.panics(i) := full
+  })
 
-  softTimer.io.tick := prescaler.io.overflow
-  hardTimer.io.tick := prescaler.io.overflow && api.softPanic
+
 
   def driveFrom(busCtrl: BusSlaveFactory, baseAddress: Int) = new Area {
     api.heartbeat := busCtrl.isWriting(baseAddress) && busCtrl.nonStopWrite(Bits(32 bits)) === 0xAD68E70Dl
-    List(api.softPanicEnable, api.hardPanicEnable, api.enable).foreach(_.setAsReg() init (False))
-    busCtrl.setOnSet(api.enable   ,baseAddress + 0x4, 0)
-    busCtrl.setOnSet(api.softPanicEnable,baseAddress + 0x4, 1)
-    busCtrl.setOnSet(api.hardPanicEnable,baseAddress + 0x4, 2)
-    busCtrl.drive(softTimer.io.limit, baseAddress + 0x10)
-    busCtrl.drive(hardTimer.io.limit, baseAddress + 0x14)
-    busCtrl.drive(prescaler.io.limit, baseAddress + 0x18)
-    busCtrl.read(softTimer.io.value, baseAddress + 0x20)
-    busCtrl.read(hardTimer.io.value, baseAddress + 0x24)
+    api.enables.setAsReg().init(0)
+    busCtrl.setOnSet(api.enables, baseAddress + 0x04, 0)
+
+    def lockedDrive[T <: Data](that : T, allowed : Bool, address : Int): T = {
+      val reg = Reg(that)
+      val driver = busCtrl.nonStopWrite(cloneOf(that))
+      busCtrl.onWrite(address) {
+        when(allowed) {
+          reg := driver
+        }
+      }
+      that := reg
+      reg
+    }
+
+    lockedDrive(prescaler.io.limit, api.enables === 0, baseAddress + 0x40) init(0)
+    for(i <- 0 until p.counters){
+      lockedDrive(counters(i).timer.io.limit, !api.enables(i), baseAddress + 0x80 + i*4) init(0)
+      busCtrl.read(counters(i).timer.io.value, baseAddress + 0xC0 + i*4)
+    }
   }
 }
 
@@ -61,21 +68,20 @@ object BmbWatchdog{
     addressWidth = addressWidth,
     dataWidth = 32
   )
-  def addressWidth = 6
+  def addressWidth = 8
 }
 
 case class BmbWatchdog(p : WatchdogParam, bmbParameter: BmbParameter) extends Component{
   val io = new Bundle{
     val bus =  slave(Bmb(bmbParameter))
-    val softPanic, hardPanic = out Bool()
+    val panics = out Bits(p.counters bits)
     val heartBeat = in Bool() default(False)
   }
   val wd = new Watchdog(p)
   val busCtrl = BmbSlaveFactory(io.bus)
   wd.driveFrom(busCtrl, 0)
   wd.api.heartbeat setWhen(io.heartBeat)
-  io.softPanic <> wd.api.softPanic
-  io.hardPanic <> wd.api.hardPanic
+  io.panics <> wd.api.panics
 }
 
 case class BmbWatchdogGenerator(apbOffset : Handle[BigInt] = Unset)
@@ -87,8 +93,7 @@ case class BmbWatchdogGenerator(apbOffset : Handle[BigInt] = Unset)
 
   val logic     = Handle(BmbWatchdog(parameter, accessRequirements.toBmbParameter()))
   val ctrl      = Handle(logic.io.bus)
-  val softPanic = Handle(logic.io.softPanic)
-  val hardPanic = Handle(logic.io.hardPanic)
+  val panics    = Handle(logic.io.panics.asBools.map(v => Handle(v)))
 
   interconnect.addSlave(
     accessSource       = accessSource,
@@ -101,7 +106,9 @@ case class BmbWatchdogGenerator(apbOffset : Handle[BigInt] = Unset)
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
 
   def connectInterrupt(ctrl : InterruptCtrlGeneratorI, id : Int): Unit = {
-    ctrl.addInterrupt(softPanic, id)
+    for(i <- 0 until parameter.counters) {
+      ctrl.addInterrupt(panics(i), id + i)
+    }
   }
 }
 
