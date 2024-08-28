@@ -2,7 +2,7 @@
 import mill._, scalalib._, publish._
 import $file.project.Version
 
-trait SpinalModule extends SbtModule { outer =>
+trait SpinalModule extends SbtModule with CrossSbtModule { outer =>
   def scalatestVersion = "3.2.14"
   def scalacOptions = super.scalacOptions() ++ Seq("-unchecked", "-target:jvm-1.8")
   def javacOptions = super.javacOptions() ++ Seq("-source", "1.8", "-target", "1.8")
@@ -15,6 +15,10 @@ trait SpinalModule extends SbtModule { outer =>
     ivy"org.slf4j:slf4j-api:2.0.5",
     ivy"org.scala-lang.modules::scala-xml:1.3.0"
   )
+
+  object test extends CrossSbtModuleTests with TestModule.ScalaTest {
+    def ivyDeps = Agg(ivy"org.scalatest::scalatest::${scalatestVersion}")
+  }
 }
 
 trait SpinalPublishModule extends PublishModule {
@@ -104,23 +108,12 @@ trait Core extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   }
 }
 
-object crossTester extends Cross[CrossTester](Version.SpinalVersion.compilers)
-trait CrossTester extends SpinalModule with SpinalPublishModule with CrossSbtModule {
+object tester extends Cross[Tester](Version.SpinalVersion.compilers)
+trait Tester extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   override def millSourcePath = os.pwd / "tester"
   def mainClass = Some("spinal.tester")
   def moduleDeps = Seq(core(crossScalaVersion), sim(crossScalaVersion), lib(crossScalaVersion))
   def scalacOptions = super.scalacOptions() ++ idslplugin(crossScalaVersion).pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:${scalatestVersion}")
-
-  object test extends CrossSbtModuleTests with TestModule.ScalaTest {
-    def ivyDeps = Agg(ivy"org.scalatest::scalatest::${scalatestVersion}")
-  }
-}
-
-object tester extends Module {
-  val defaultTester = crossTester(Version.SpinalVersion.compilers.head)
-  object test extends Module {
-    def testOnly(args: String*) = T.command { defaultTester.test.testOnly(args: _*) }
-  }
-  def runMain(mainClass: String) = T.command { defaultTester.runMain(mainClass) }
+  def publishVersion = Version.SpinalVersion.tester
 }
