@@ -60,9 +60,9 @@ trait Sim extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   def mainClass = Some("spinal.sim")
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"commons-io:commons-io:2.11.0",
-    ivy"net.openhft:affinity:3.21ea1.1",
-    ivy"org.slf4j:slf4j-simple:1.7.25",
-    ivy"com.github.oshi:oshi-core:5.2.0"
+    ivy"net.openhft:affinity:3.23.2",
+    ivy"org.slf4j:slf4j-simple:2.0.5",
+    ivy"com.github.oshi:oshi-core:6.4.0"
   )
   def publishVersion = Version.SpinalVersion.sim
 }
@@ -95,8 +95,8 @@ trait Core extends SpinalModule with SpinalPublishModule with CrossSbtModule {
   def scalacOptions = super.scalacOptions() ++ idslplugin(crossScalaVersion).pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"org.scala-lang:scala-reflect:${scalaVersion}",
-    ivy"com.github.scopt::scopt:3.7.1",
-    ivy"com.lihaoyi::sourcecode:0.2.7"
+    ivy"com.github.scopt::scopt:4.1.0",
+    ivy"com.lihaoyi::sourcecode:0.3.0"
   )
 
   override def generatedSources = T {
