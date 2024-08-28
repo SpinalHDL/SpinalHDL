@@ -15,7 +15,7 @@ class SpinalSimStreamAccessibleFifoTester extends SpinalSimFunSuite {
         alwaysInput: Boolean = false,
         alwaysOutput: Boolean = false,
         inQueue: mutable.Queue[BigInt],
-        outQueue: mutable.Queue[BigInt],
+        outQueue: mutable.Queue[BigInt]
     ) {        
         val stateQueue    = mutable.Queue[BigInt]()
         stateQueue.clear()
@@ -78,7 +78,7 @@ class SpinalSimStreamAccessibleFifoTester extends SpinalSimFunSuite {
         val compiled = SimConfig.withFstWave.allOptimisation.compile {
             val dut = new StreamAccessibleFifo(
                 UInt(32 bits),
-                12,
+                12
             )
             dut
         }

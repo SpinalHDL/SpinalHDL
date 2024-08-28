@@ -95,14 +95,16 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
    *
    * @param callback callback function on finish
    */
-  def readCB(address: BigInt, totalBytes: BigInt, id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: List[Byte] => Unit) = {
+  def readCB(address: BigInt, totalBytes: BigInt, id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: List[Byte] => Unit): Unit = {
     val bytePerBeat = 1 << size
     val bytes = (len + 1) * bytePerBeat // FIXME: 4K limitation?
     val numTransactions = (totalBytes.toDouble / bytes).ceil.toInt
     val builder = new mutable.ArrayBuilder.ofByte
 
-    if (numTransactions > 1) {
-      log("..", f"read $address%#x in $numTransactions transactions")
+    numTransactions match {
+      case 0 => callback(List()); return
+      case x if x > 1 => log("..", f"read $address%#x in $x transactions")
+      case _ =>
     }
 
     def run(addr: BigInt, totBytes: Int, numTransactions: Int) = {
