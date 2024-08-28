@@ -1532,11 +1532,11 @@ class Cache(val p : CacheParam) extends Component {
   }
 
   val fromDownD = new Pipeline{
-    val stages = newChained(2, Connection.M2S())
+    val stages = newChained(3, Connection.M2S())
     val inserterStage = stages(0)
     val fetchStage = stages(0)
     val readStage = stages(1)
-    val processStage = stages(1)
+    val processStage = stages(2)
 
     val CTX = Stageable(new CtxDownD())
     val inserter = new Area{
