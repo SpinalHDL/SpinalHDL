@@ -3,8 +3,8 @@ import java.io.File
 import scala.collection.JavaConverters._
 
 object SpinalVersion {
-  val projDescDir = os.Path(sourcecode.File()) / os.up / "version.conf"
-  val conf = ConfigFactory.parseFile(new File(projDescDir.toString)).resolve()
+  val configFilePath = os.Path(sourcecode.File()) / os.up / "version.conf"
+  val conf = ConfigFactory.parseFile(new File(configFilePath.toString)).resolve()
 
   val compilers = conf.getStringList("compilers").asScala.toList
   val compilerIsRC = conf.getBoolean("compilerIsRC")
