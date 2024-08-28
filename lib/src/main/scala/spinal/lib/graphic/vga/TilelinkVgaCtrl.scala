@@ -1,211 +1,329 @@
-//package spinal.lib.graphic.vga
-//
-//import spinal.core._
-//import spinal.core.fiber._
-//import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
-//import spinal.lib.bus.amba4.axi.Axi4ReadOnly
-//import spinal.lib.bus.tilelink
-//import spinal.lib.bus.tilelink._
-//import spinal.lib.bus.bsb.{Bsb, BsbInterconnectGenerator, BsbParameter}
-//import spinal.lib.graphic._
-//import spinal.lib.generator._
-//import spinal.lib._
-//import spinal.lib.bus.misc.SizeMapping
-//import spinal.lib.bus.tilelink.SlaveFactory
-//import spinal.lib.com.uart.TilelinkUartCtrl
-//import spinal.lib.graphic.hdmi.VgaToHdmiEcp5
-//import spinal.lib.misc.slot.SlotPool
-//
-//
-//
-//object TilelinkVgaCtrl{
-//  def getSupported(proposed: M2sSupport) = SlaveFactory.getSupported(
-//    addressWidth = addressWidth,
-//    dataWidth = 32,
-//    allowBurst = false,
-//    proposed = proposed
-//  )
-//  def addressWidth = 8
-//}
-//
-//case class TilelinkVgaCtrlParameter(dmaParam : TilelinkVideoDmaParam,
-//                                    rgbConfig: RgbConfig,
-//                                    timingsWidth: Int = 12){
-//
-//}
-//
-//case class TilelinkVideoDmaParam(frameSize : Int,
-//                                 pendingSize : Int,
-//                                 accessSize : Int,
-//                                 storageSize : Int){
-//  val frameSizeWidth = log2Up(frameSize)
-//}
-//
-//case class TilelinkVideoDma(param : TilelinkVideoDmaParam,
-//                            memParam: BusParameter,
-//                            vgaCd : ClockDomain,
-//                            ) extends Component {
-//  import param._
-//  val io = new Bundle{
-//    val start = in Bool()
-//    val busy = out Bool()
-//
-//    val base = in UInt (memParam.addressWidth bits) //in byte
-//    val size = in UInt (memParam.addressWidth bits) //in byte
-//
-//    val mem = master(Bus(memParam))
-//    val frame = master(Stream(Fragment(Bits(memParam.dataWidth bits))))
-//  }
-//
-//
-//
-//  val storage = new Area{
-//    val ram = Mem.fill(storageSize/memParam.dataBytes)(memParam.data)
-//    val write = ram.writePort()
-//    val read = vgaCd(ram.readSyncPort(clockCrossing = true))
-//  }
-//
-//  val push = new Area {
-//    val isActive = RegInit(False)
-//    val cmdActive = RegInit(False)
-//    io.busy := isActive
-//
-//    val ptr = Reg(UInt(memParam.addressWidth bits))
-//    val memCmdDone = ptr === io.size
-//
-//    val TARGET = HardType(UInt(log2Up(storageSize / accessSize) bits))
-//    val TARGET_PTR = HardType(UInt(log2Up(storageSize / accessSize) + 1 bits))
-//    val slots = new SlotPool(pendingSize)(
-//      new Area {
-//        val target = Reg(TARGET)
-//      }
-//    )
-//
-//    val pushTarget = Reg(TARGET_PTR) init (0)
-//    val popTarget = TARGET_PTR()
-//    val hazard = pushTarget.msb
-//
-//    val memA = cloneOf(io.mem.a)
-//    io.mem.a <-< memA
-//
-//    memA.valid := False
-//    memA.opcode := Opcode.A.GET
-//    memA.param := 0
-//    memA.source := slots.allocate.id
-//    memA.address := io.base + ptr
-//    memA.size := log2Up(accessSize)
-//    when(memA.fire) {
-//      ptr := ptr + accessSize
-//      slots.allocate(_.target := pushTarget)
-//    }
-//
-//    io.mem.d.ready := True
-//    storage.write.valid := io.mem.d.valid
-//    storage.write.address := slots.slots.map(_.target).read(io.mem.d.source) @@ io.mem.d.beatCounter()
-//    storage.write.data := io.mem.d.data
-//
-//    when(!isActive) {
-//      when(io.start) {
-//        isActive := True
-//      }
-//    } otherwise {
-//      when(!memCmdDone) {
-//        memA.valid := True
-//      } elsewhen (???) {
-//        isActive := False
-//      }
-//    }
-//
-//    when(io.mem.cmd.fire) {
-//      memCmdCounter := memCmdCounter + 1
-//    }
-//  }
-//
-//}
-//
-//case class TilelinkVgaCtrl(param : TilelinkVgaCtrlParameter,
-//                           ctrlParam: BusParameter,
-//                           dmaParam: BusParameter,
-//                           vgaCd : ClockDomain) extends Component{
-//
-//  val io = new Bundle{
+package spinal.lib.graphic.vga
+
+import spinal.core.{Reg, _}
+import spinal.core.fiber._
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
+import spinal.lib.bus.amba4.axi.Axi4ReadOnly
+import spinal.lib.bus.tilelink
+import spinal.lib.bus.tilelink._
+import spinal.lib.bus.bsb.{Bsb, BsbInterconnectGenerator, BsbParameter}
+import spinal.lib.graphic._
+import spinal.lib.generator._
+import spinal.lib._
+import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.tilelink.SlaveFactory
+import spinal.lib.com.uart.TilelinkUartCtrl
+import spinal.lib.graphic.hdmi.VgaToHdmiEcp5
+import spinal.lib.misc.slot.{Slot, SlotPool}
+
+import scala.collection.mutable.ArrayBuffer
+
+
+
+object TilelinkVgaCtrl{
+  def getSupported(proposed: M2sSupport) = SlaveFactory.getSupported(
+    addressWidth = addressWidth,
+    dataWidth = 32,
+    allowBurst = false,
+    proposed = proposed
+  )
+  def addressWidth = 8
+}
+
+case class TilelinkVgaCtrlInits(run : Boolean,
+                                base : BigInt,
+                                size : BigInt,
+                                timings : VgaTimingsScala)
+
+case class TilelinkVgaCtrlMapping(offset : Int, width : Int){
+  def range = offset+width-1 downto offset
+}
+
+case class TilelinkVgaCtrlMode(pixelWidth : Int,
+                               mapping: Seq[TilelinkVgaCtrlMapping]){
+}
+
+case class TilelinkVgaCtrlParam(dmaParam : TilelinkVideoDmaParam,
+                                rgbConfig: RgbConfig,
+                                mods : Seq[TilelinkVgaCtrlMode],
+                                inits : TilelinkVgaCtrlInits = null,
+                                timingsWidth: Int = 12){
+
+}
+
+case class TilelinkVideoDmaParam(var addressWidth : Int,
+                                 var dataWidth : Int,
+                                 var pendingSize : Int,
+                                 var accessSize : Int,
+                                 var storageSize : Int){
+}
+
+object TilelinkVideoDma {
+  def getDmaM2s(param : TilelinkVideoDmaParam, name : Nameable) = M2sParameters(
+    addressWidth = param.addressWidth,
+    dataWidth = param.dataWidth,
+    masters = List(
+      M2sAgent(
+        name = name,
+        mapping = M2sSource(
+          id = SizeMapping(0, param.pendingSize),
+          emits = M2sTransfers(
+            get = SizeRange(param.accessSize)
+          )
+        )
+      )
+    )
+  )
+}
+
+case class TilelinkVideoDma(param : TilelinkVideoDmaParam,
+                            memParam: BusParameter,
+                            vgaCd : ClockDomain,
+                            ) extends Component {
+  import param._
+  val io = new Bundle{
+    val start = in Bool()
+    val busy = out Bool()
+
+    val base = in UInt (memParam.addressWidth bits) //in byte
+    val size = in UInt (memParam.addressWidth bits) //in byte
+
+    val mem = master(Bus(memParam))
+    val frame = master(Stream(Fragment(Bits(memParam.dataWidth bits))))
+  }
+
+  val ptrWidth = log2Up(storageSize / accessSize) + 1
+  val TARGET = HardType(UInt(ptrWidth-1 bits))
+  val PTR = HardType(UInt(ptrWidth bits))
+
+  val popToPushGray = Bits(ptrWidth bits)
+  val pushToPopGray = Bits(ptrWidth bits)
+
+  case class Word() extends Bundle{
+    val data = memParam.data()
+    val last = Bool()
+  }
+
+  val storage = new Area{
+    val ram = Mem.fill(storageSize/memParam.dataBytes)(Word())
+    val write = ram.writePort()
+    val readCmd = Stream(ram.addressType)
+    val readRsp = vgaCd(ram.streamReadSync(readCmd, crossClock = true))
+  }
+
+  val push = new Area {
+    val isActive = RegInit(False)
+    io.busy := isActive
+
+    val offset = Reg(UInt(memParam.addressWidth bits))
+    val offsetNext = offset + accessSize
+    val cmdLast = offsetNext === io.size
+
+    val slots = new SlotPool(pendingSize)(
+      new Slot {
+        val target = Reg(TARGET)
+        val last = Reg(Bool())
+      }
+    )
+    def isFull(a: Bits, b: Bits) = a(ptrWidth - 1 downto ptrWidth - 2) === ~b(ptrWidth - 1 downto ptrWidth - 2) && a(ptrWidth - 3 downto 0) === b(ptrWidth - 3 downto 0)
+
+    val memA = cloneOf(io.mem.a)
+    io.mem.a <-< memA
+
+    val cmdPtr = Reg(PTR) init (0)
+    memA.valid := False
+    memA.opcode := Opcode.A.GET
+    memA.param := 0
+    memA.source := slots.allocate.id
+    memA.address := io.base + offset
+    memA.size := log2Up(accessSize)
+    when(memA.fire) {
+      slots.allocate { s =>
+        s.target := cmdPtr.resized
+        s.last := cmdLast
+      }
+      cmdPtr := cmdPtr + 1
+      offset := offsetNext
+    }
+
+    io.mem.d.ready := True
+    val slotsReader = slots.slots.reader(io.mem.d.source)
+    storage.write.valid := io.mem.d.valid
+    storage.write.address := slotsReader(_.target) @@ io.mem.d.beatCounter()
+    storage.write.data.data := io.mem.d.data
+    storage.write.data.last := slotsReader(_.last) && io.mem.d.isLast()
+    when(io.mem.d.fire && io.mem.d.isLast()){
+      slots.free(io.mem.d.source)
+    }
+
+    val pushPtr = Reg(PTR) init (0)
+    val pushPtrGray = RegNext(toGray(pushPtr.getAheadValue())) init (0)
+    when(pushPtr =/= cmdPtr && slots.slots.map(s => s.valid && s.target === pushPtr.resized).norR) {
+      pushPtr := pushPtr + 1
+    }
+
+    val popPtrGray = BufferCC(popToPushGray, B(0, ptrWidth bits), inputAttributes = List(crossClockMaxDelay(1, useTargetClock = false)))
+    val storageFull = isFull(toGray(cmdPtr), popPtrGray)
+
+    when(!isActive) {
+      when(io.start) {
+        offset := 0
+        isActive := True
+      }
+    } otherwise {
+      when (!storageFull && !slots.allocate.full) {
+        memA.valid := True
+        when(memA.fire && cmdLast){
+          isActive := False
+        }
+      }
+    }
+  }
+
+  val pop = new ClockingArea(vgaCd){
+    def isEmpty(a: Bits, b: Bits) = a === b
+
+    val readPtr = Reg(UInt(storage.ram.addressWidth+1 bits)) init(0)
+
+    val popPtr = readPtr >> log2Up(accessSize/memParam.dataBytes)
+    val popPtrGray = toGray(popPtr)
+    val pushPtrGray = BufferCC(pushToPopGray, B(0, ptrWidth bit), inputAttributes = List(crossClockMaxDelay(1, useTargetClock = false)))
+    val ptrToPush = RegNext(popPtrGray) init (0)
+    val empty = isEmpty(popPtrGray, pushPtrGray)
+
+    storage.readCmd.valid := !empty
+    storage.readCmd.payload := readPtr.resized
+    when(storage.readCmd.fire) {
+      readPtr := readPtr + 1
+    }
+
+    io.frame.arbitrationFrom(storage.readRsp)
+    io.frame.last := storage.readRsp.last
+    io.frame.fragment := storage.readRsp.data
+  }
+
+  pushToPopGray := push.pushPtrGray
+  popToPushGray := pop.ptrToPush
+}
+
+case class TilelinkVgaCtrl(param : TilelinkVgaCtrlParam,
+                           ctrlParam: BusParameter,
+                           dmaParam: BusParameter,
+                           vgaCd : ClockDomain) extends Component{
+  import param._
+
+  val io = new Bundle{
 //    val ctrl = slave(Bus(ctrlParam))
-//    val dma = master(Bus(dmaParam))
-//    val vga = master(Vga(param.rgbConfig))
-//  }
-//
+    val dma = master(Bus(dmaParam))
+    val vga = master(Vga(rgbConfig))
+  }
+
 //  val ctrl = new SlaveFactory(io.ctrl, false)
-//
+
 //  val regs = new Area {
-//    val run = ctrl.createReadAndWrite(Bool(), 0x00) init (False)
-//    val timings = ctrl.createWriteOnly(VgaTimings(param.timingsWidth), 0x40)
+//    val run = RegInit(False)
+//    val timings = Reg(VgaTimings(param.timingsWidth))
+//
+////    val run = ctrl.createReadAndWrite(Bool(), 0x00) init (False)
+////    val timings = ctrl.createWriteOnly(VgaTimings(param.timingsWidth), 0x40)
 //  }
-//
-//  val dma = new TilelinkVideoDma(
-//    param    = param.dmaParam,
-//    memParam = dmaParam,
-//    vgaCd    = vgaCd
-//  )
-//
-//  val vga = new ClockingArea(vgaCd) {
-//    val input = io.input.toStreamFragment(omitMask = true)
-//    val resized = Stream(Fragment(Bits(16 bits)))
-//    StreamFragmentWidthAdapter(input, resized)
-//    val adapted = Stream(Fragment(Rgb(param.rgbConfig)))
-//    adapted.arbitrationFrom(resized)
-//    adapted.last := resized.last
-//    adapted.r := U(resized.fragment(15-param.rgbConfig.rWidth+1, param.rgbConfig.rWidth bits))
-//    adapted.g := U(resized.fragment(10-param.rgbConfig.gWidth+1, param.rgbConfig.gWidth bits))
-//    adapted.b := U(resized.fragment( 4-param.rgbConfig.bWidth+1, param.rgbConfig.bWidth bits))
-//
-//    val run = BufferCC(TilelinkVgaCtrl.this.run)
-//    val ctrl = VgaCtrl(param.rgbConfig, param.timingsWidth)
-//    ctrl.feedWith(adapted, resync = run.rise)
-//    io.input.ready setWhen(!run) //Flush
-//    ctrl.io.softReset := !run
-//
-//    ctrl.io.vga <> io.vga
-//    ctrl.io.timings := regs.timings
-//    ctrl.io.timings.addTag(crossClockDomain)
-//  }
-//
-//
-//}
-//
-//case class TilelinkVgaCtrlGenerator(ctrlOffset : Handle[BigInt] = Unset)
-//                              (implicit val interconnect: TilelinkInterconnectGenerator, val bsbInterconnect : BsbInterconnectGenerator, decoder : TilelinkImplicitPeripheralDecoder = null) extends Area{
-//
-//  val ctrl = Handle(logic.io.ctrl)
-//  val input = Handle(logic.io.input)
-//  val output = Handle(logic.io.vga)
-//  val parameter = Handle[TilelinkVgaCtrlParameter]
-//  val vgaCd = Handle[ClockDomain]
-//
-//  val logic : Handle[TilelinkVgaCtrl] = Handle(TilelinkVgaCtrl(
-//    param              = parameter,
-//    ctrlParam  = accessRequirements.toTilelinkParameter(),
-//    inputParameter = BsbParameter(
-//      byteCount = is.byteCount,
-//      sourceWidth = is.sourceWidth,
-//      sinkWidth = is.sinkWidth,
-//      withMask = is.withMask
-//    ),
-//    vgaCd          = vgaCd
-//  ))
-//
-//  val accessSource = Handle[TilelinkAccessCapabilities]
-//  val accessRequirements = Handle[TilelinkAccessParameter]
-//  interconnect.addSlave(
-//    accessSource = accessSource,
-//    accessCapabilities = accessSource.derivate(TilelinkVgaCtrl.getTilelinkCapabilities),
-//    accessRequirements = accessRequirements,
-//    bus = ctrl,
-//    mapping = ctrlOffset.derivate(SizeMapping(_, 1 << TilelinkVgaCtrl.addressWidth))
-//  )
-//  if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
-//  val is = vgaCd on bsbInterconnect.addSlave(input)
-//  is.sinkWidth.load(0)
-//
+
+  val run = Bool()
+  run := Bool(inits.run)
+
+  val dma = new TilelinkVideoDma(
+    param    = param.dmaParam,
+    memParam = dmaParam,
+    vgaCd    = vgaCd
+  )
+  dma.io.mem <> io.dma
+  dma.io.base := inits.base
+  dma.io.size := inits.size
+  dma.io.start := run
+
+  val vga = new ClockingArea(vgaCd) {
+    assert(mods.size == 1)
+    val mod = mods.head
+    assert(mod.mapping.size == 3)
+
+    val run = BufferCC(TilelinkVgaCtrl.this.run)
+    val resized = Stream(Fragment(Bits(mod.pixelWidth bits)))
+    val adapter = StreamFragmentWidthAdapter(dma.io.frame, resized)
+    val adapted = Stream(Fragment(Rgb(param.rgbConfig)))
+
+    adapted.arbitrationFrom(resized)
+    adapted.last := resized.last
+    adapted.r := U(resized.fragment(mod.mapping(0).range))
+    adapted.g := U(resized.fragment(mod.mapping(1).range))
+    adapted.b := U(resized.fragment(mod.mapping(2).range))
+
+    val ctrl = VgaCtrl(param.rgbConfig, param.timingsWidth)
+    val feed = ctrl.feedWith(adapted, resync = run.rise)
+    ctrl.io.softReset := !run
+
+    ctrl.io.vga <> io.vga
+    ctrl.io.timings.assign(inits.timings)
+    ctrl.io.timings.addTag(crossClockDomain)
+  }
+}
+
+
+case class TilelinkVgaCtrlSpec(name : String,
+                               param : TilelinkVgaCtrlParam)
+
+object TilelinkVgaCtrlSpec{
+  def addOption(parser: scopt.OptionParser[Unit], vga: ArrayBuffer[TilelinkVgaCtrlSpec]): Unit = {
+    import parser._
+    opt[Map[String, String]]("video") unbounded() action { (v, c) =>
+      vga += TilelinkVgaCtrlSpec(
+        name = v("name"),
+        param = TilelinkVgaCtrlParam(
+          dmaParam = TilelinkVideoDmaParam(
+            addressWidth = 32,
+            dataWidth = 0,
+            pendingSize = 4,
+            accessSize = 64,
+            storageSize = 4096
+          ),
+          rgbConfig = RgbConfig(8,8,8),
+          mods = List(
+            TilelinkVgaCtrlMode(
+              pixelWidth = 32,
+              mapping = Seq(
+                TilelinkVgaCtrlMapping(0,8),
+                TilelinkVgaCtrlMapping(8,8),
+                TilelinkVgaCtrlMapping(16,8)
+              )
+            )
+          ),
+          inits = new TilelinkVgaCtrlInits(
+            run = true,
+            base = 0x40c00000,
+            size = 0x4000,
+            timings = VgaTimingsScala.h64_v64_r60
+          ),
+          timingsWidth = 12
+        )
+      )
+    } text (s"")
+  }
+}
+
+case class TilelinkVgaCtrlFiber(param : TilelinkVgaCtrlParam, vgaCd : ClockDomain) extends Area{
+  val dma = tilelink.fabric.Node.down()
+
+  val logic = Fiber build new Area{
+    dma.m2s.forceParameters(TilelinkVideoDma.getDmaM2s(param.dmaParam, TilelinkVgaCtrlFiber.this))
+    dma.s2m.unsupported()
+    val ctrl = TilelinkVgaCtrl(
+      param = param,
+      ctrlParam = null,
+      dmaParam = dma.bus.p,
+      vgaCd = vgaCd
+    )
+    ctrl.io.dma <> dma.bus
+  }
+
 //  def withRegisterPhy(withColorEn : Boolean) = output.produce{
 //    val reg = out(vgaCd.get(Reg(Vga(output.rgbConfig, false))))
 //    reg.assignSomeByName(output)
@@ -214,12 +332,4 @@
 //    }
 //    reg
 //  }
-//
-//  def withHdmiEcp5(hdmiCd : Handle[ClockDomain]) = output produce new Area{
-//    val bridge = VgaToHdmiEcp5(vgaCd, hdmiCd)
-//    bridge.io.vga << output
-//    val gpdi_dp, gpdi_dn = out Bits(4 bits)
-//    gpdi_dp := bridge.io.gpdi_dp
-//    gpdi_dn := bridge.io.gpdi_dn
-//  }
-//}
+}
