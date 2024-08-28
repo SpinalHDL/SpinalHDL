@@ -18,4 +18,5 @@ class SlotPool[T <: Slot](slotsCount: Int)(gen: => T) extends Area {
       slots.onMask(oh){s => s.valid := True; body(s)}
     }
   }
+  def free(id : UInt) = slots.onSel(id)(_.fire := True)
 }

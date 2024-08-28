@@ -56,4 +56,5 @@ class NodeS2m extends bus.fabric.NegotiateSP[S2mSupport, S2mParameters]{
   override def setProposedFromParameters(): Unit ={
     proposed load S2mSupport(parameters)
   }
+  def unsupported() = supported.load(S2mSupport.none())
 }

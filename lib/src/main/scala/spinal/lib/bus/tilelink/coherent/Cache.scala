@@ -28,7 +28,7 @@ case class CacheParam(var unp : NodeParameters,
                       var upCBufferDepth : Int = 8,
                       var coherentRegion : UInt => Bool,
                       var selfFlush : SelfFLush = null,
-                      var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt) => Bool = null // opcode, source, address, size
+                      var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt) => Bool = {(_,_,_,_) => True} // opcode, source, address, size
                          ) {
   assert(isPow2(cacheBytes))
 

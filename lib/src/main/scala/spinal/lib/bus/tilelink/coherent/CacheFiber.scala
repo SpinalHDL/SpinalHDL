@@ -107,7 +107,8 @@ class CacheFiber(withCtrl : Boolean = false) extends Area{
     parameter.coherentRegion = { addr =>
       AddressMapping.decode(addr.asBits, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
     }
-    parameter.allocateOnMiss =  (op, src, addr, size) => parameter.coherentRegion(addr)
+    val allocateOnMissOld = parameter.allocateOnMiss
+    parameter.allocateOnMiss =  (op, src, addr, size) => parameter.coherentRegion(addr) && allocateOnMissOld(op, src, addr, size)
     val cache = new Cache(parameter)
     //TODO probeRegion
 
