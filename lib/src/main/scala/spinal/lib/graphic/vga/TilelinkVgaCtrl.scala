@@ -258,7 +258,7 @@ case class TilelinkVgaCtrl(param : TilelinkVgaCtrlParam,
     adapted.b := U(resized.fragment(mod.mapping(2).range))
 
     val ctrl = VgaCtrl(param.rgbConfig, param.timingsWidth)
-    val feed = ctrl.feedWith(adapted, resync = run.rise)
+    val feed = ctrl.feedWith(adapted.stage(), resync = run.rise)
     ctrl.io.softReset := !run
 
     ctrl.io.vga <> io.vga
@@ -285,22 +285,23 @@ object TilelinkVgaCtrlSpec{
             accessSize = 64,
             storageSize = 4096
           ),
-          rgbConfig = RgbConfig(8,8,8),
+          rgbConfig = RgbConfig(5, 6, 5),
+//          rgbConfig = RgbConfig(8, 8, 8),
           mods = List(
             TilelinkVgaCtrlMode(
-              pixelWidth = 32,
+              pixelWidth = 16,
               mapping = Seq(
-                TilelinkVgaCtrlMapping(0,8),
-                TilelinkVgaCtrlMapping(8,8),
-                TilelinkVgaCtrlMapping(16,8)
+                TilelinkVgaCtrlMapping(0,5),
+                TilelinkVgaCtrlMapping(5,6),
+                TilelinkVgaCtrlMapping(11,5)
               )
             )
           ),
           inits = new TilelinkVgaCtrlInits(
             run = true,
             base = 0x40c00000,
-            size = 0x4000,
-            timings = VgaTimingsScala.h64_v64_r60
+            size = 640*480*2,
+            timings = VgaTimingsScala.h640_v480_r60
           ),
           timingsWidth = 12
         )
@@ -332,4 +333,45 @@ case class TilelinkVgaCtrlFiber(param : TilelinkVgaCtrlParam, vgaCd : ClockDomai
 //    }
 //    reg
 //  }
+}
+
+
+object ColorConversion {
+
+  def rgbToYCbCr(r: Int, g: Int, b: Int): (Int, Int, Int) = {
+    require(r >= 0 && r <= 255, "R must be in the range 0 to 255")
+    require(g >= 0 && g <= 255, "G must be in the range 0 to 255")
+    require(b >= 0 && b <= 255, "B must be in the range 0 to 255")
+
+    val y  = (0.299 * r + 0.587 * g + 0.114 * b).round.toInt
+    val cb = (128 - 0.168736 * r - 0.331264 * g + 0.5 * b).round.toInt
+    val cr = (128 + 0.5 * r - 0.418688 * g - 0.081312 * b).round.toInt
+
+    def sat(x : Int) = x.min(255).max(0)
+    (sat(y), sat(cb), sat (cr))
+  }
+
+  def main(args: Array[String]): Unit = {
+//    for(i <- 0 until 32){
+//      println(f"mww 0x${0x40c00000 + i*640*5*4}%x 0x${1 << i}%x ${640*5}")
+//    }
+
+    println(s"mww 0x40c00000 0xFFFFFFFF ${640/2*7*35}")
+    for (i <- 0 until 32) {
+      println(f"mww 0x${0x40c00000 + i * 640/2*4*7}%x 0x${0x00001 << i}%x ${640/2 * 5}")
+    }
+
+    var line = 0
+    def show(r : Int, g : Int, b : Int) {
+      val (y, cb, cr) = rgbToYCbCr(r, g, b)
+      println(f"mww 0x${0x40c00000+line*640/2}%x ${f"0x${cr}%02x${y}%02x${cb}%02x${y}%02x"} ${640/2*20}")
+      line += 20
+    }
+
+    show(255, 0, 0)
+    show(0, 255, 0)
+    show(0, 0, 255)
+    show(0, 0, 0)
+    show(255,255,255)
+  }
 }

@@ -28,7 +28,7 @@ class VgaTimingsScala(val h : VgaTimingsHvScala,
                       val v : VgaTimingsHvScala)
 
 object VgaTimingsScala{
-  def h640_v480_r60: Unit = {
+  def h640_v480_r60 = {
     new VgaTimingsScala(
       h = new VgaTimingsHvScala(
         syncStart = 95,
