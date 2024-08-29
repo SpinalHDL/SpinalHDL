@@ -285,23 +285,25 @@ object TilelinkVgaCtrlSpec{
             accessSize = 64,
             storageSize = 4096
           ),
-          rgbConfig = RgbConfig(5, 6, 5),
-//          rgbConfig = RgbConfig(8, 8, 8),
+//          rgbConfig = RgbConfig(5, 6, 5),
+          rgbConfig = RgbConfig(8, 8, 8),
           mods = List(
             TilelinkVgaCtrlMode(
-              pixelWidth = 16,
+              pixelWidth = 32,
               mapping = Seq(
-                TilelinkVgaCtrlMapping(0,5),
-                TilelinkVgaCtrlMapping(5,6),
-                TilelinkVgaCtrlMapping(11,5)
+                TilelinkVgaCtrlMapping(0,8),
+                TilelinkVgaCtrlMapping(8,8),
+                TilelinkVgaCtrlMapping(16,8)
               )
             )
           ),
           inits = new TilelinkVgaCtrlInits(
             run = true,
             base = 0x40c00000,
-            size = 640*480*2,
-            timings = VgaTimingsScala.h640_v480_r60
+            size = 800 * 600 * 4,
+            timings = VgaTimingsScala.h800_v600_r60
+//            size = 640*480*4,
+//            timings = VgaTimingsScala.h640_v480_r60
           ),
           timingsWidth = 12
         )
@@ -343,10 +345,11 @@ object ColorConversion {
     require(g >= 0 && g <= 255, "G must be in the range 0 to 255")
     require(b >= 0 && b <= 255, "B must be in the range 0 to 255")
 
-    val y  = (0.299 * r + 0.587 * g + 0.114 * b).round.toInt
-    val cb = (128 - 0.168736 * r - 0.331264 * g + 0.5 * b).round.toInt
-    val cr = (128 + 0.5 * r - 0.418688 * g - 0.081312 * b).round.toInt
+    val y  = (0.299 * r + 0.587 * g + 0.114 * b).floor.toInt
+    val cb = (128 - 0.168736 * r - 0.331264 * g + 0.5 * b).floor.toInt
+    val cr = (128 + 0.5 * r - 0.418688 * g - 0.081312 * b).floor.toInt
 
+    println(s"$y $cb $cr")
     def sat(x : Int) = x.min(255).max(0)
     (sat(y), sat(cb), sat (cr))
   }
@@ -356,10 +359,10 @@ object ColorConversion {
 //      println(f"mww 0x${0x40c00000 + i*640*5*4}%x 0x${1 << i}%x ${640*5}")
 //    }
 
-    println(s"mww 0x40c00000 0xFFFFFFFF ${640/2*7*35}")
-    for (i <- 0 until 32) {
-      println(f"mww 0x${0x40c00000 + i * 640/2*4*7}%x 0x${0x00001 << i}%x ${640/2 * 5}")
-    }
+//    println(s"mww 0x40c00000 0xFFFFFFFF ${640/2*7*35}")
+//    for (i <- 0 until 32) {
+//      println(f"mww 0x${0x40c00000 + i * 640/2*4*7}%x 0x${0x00001 << i}%x ${640/2 * 5}")
+//    }
 
     var line = 0
     def show(r : Int, g : Int, b : Int) {
@@ -368,10 +371,11 @@ object ColorConversion {
       line += 20
     }
 
+    show(0, 0, 0)
     show(255, 0, 0)
     show(0, 255, 0)
     show(0, 0, 255)
-    show(0, 0, 0)
-    show(255,255,255)
+    show(255, 255, 255)
+    show(0x80, 0, 0x80)
   }
 }

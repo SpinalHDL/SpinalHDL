@@ -5,17 +5,7 @@ import spinal.lib._
 import spinal.lib.graphic.{RgbConfig, Rgb}
 
 
-case class Vga (rgbConfig: RgbConfig, withColorEn : Boolean = true) extends Bundle with IMasterSlave{
-  val vSync = Bool()
-  val hSync = Bool()
-
-  val colorEn = withColorEn generate Bool()
-  val color = Rgb(rgbConfig)
-
-  override def asMaster() = this.asOutput()
-  override def asSlave() = this.asInput()
-
-
+case class Vga (rgbConfig: RgbConfig, withColorEn : Boolean = true) extends VgaBus(Rgb(rgbConfig), withColorEn){
   def <<(m : Vga): Unit ={
     this.vSync := m.vSync
     this.hSync := m.hSync
@@ -33,3 +23,13 @@ case class Vga (rgbConfig: RgbConfig, withColorEn : Boolean = true) extends Bund
 }
 
 
+class VgaBus[T <: Data](colorType : HardType[T], withColorEn : Boolean = true) extends Bundle with IMasterSlave{
+  val vSync = Bool()
+  val hSync = Bool()
+
+  val colorEn = withColorEn generate Bool()
+  val color = colorType()
+
+  override def asMaster() = this.asOutput()
+  override def asSlave() = this.asInput()
+}

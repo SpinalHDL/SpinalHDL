@@ -10,11 +10,23 @@ import spinal.lib.graphic.{RgbConfig, Rgb}
 
 object VgaTimingsHvScala{
   def craft(sync: Int, front: Int, pix: Int, post: Int) = new VgaTimingsHvScala(
-    syncStart = sync,
-    colorStart = sync + front,
-    colorEnd = sync + front + pix,
-    syncEnd = sync + front + pix + post,
+    syncStart = sync - 1,
+    colorStart = sync + front - 1,
+    colorEnd = sync + front + pix - 1,
+    syncEnd = sync + front + pix + post - 1,
     polarity = false
+  )
+
+  def timing(pixels: Int,
+             sync: Int,
+             front: Int,
+             back: Int,
+             polarity: Boolean) = new VgaTimingsHvScala(
+    syncStart = sync - 1,
+    colorStart = sync + back - 1,
+    colorEnd = sync + back + pixels - 1,
+    syncEnd = sync + back + pixels + front - 1,
+    polarity = polarity
   )
 }
 
@@ -47,24 +59,22 @@ object VgaTimingsScala{
     )
   }
 
-  def craft(hPulse : Int, hPre : Int, hPix : Int, hPost : Int): Unit = {
-    new VgaTimingsScala(
-      h = new VgaTimingsHvScala(
-        syncStart = hPulse,
-        colorStart = hPulse + hPre,
-        colorEnd = hPulse + hPre + hPix,
-        syncEnd = hPulse + hPre + hPix + hPost,
-        polarity = false
-      ),
-      v = new VgaTimingsHvScala(
-        syncStart = 1,
-        syncEnd = 524,
-        colorStart = 34,
-        colorEnd = 514,
-        polarity = false
-      ),
+  def h800_v600_r60 = new VgaTimingsScala(
+    h = VgaTimingsHvScala.timing(
+      pixels = 800,
+      sync = 128,
+      front = 40,
+      back = 88,
+      polarity = true
+    ),
+    v = VgaTimingsHvScala.timing(
+      pixels = 600,
+      sync = 4,
+      front = 1,
+      back = 23,
+      polarity = true
     )
-  }
+  )
 
   def h128_v128_r60 = new VgaTimingsScala(
     h = VgaTimingsHvScala.craft(10,15,128,5),
