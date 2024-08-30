@@ -32,4 +32,6 @@ class VgaBus[T <: Data](colorType : HardType[T], withColorEn : Boolean = true) e
 
   override def asMaster() = this.asOutput()
   override def asSlave() = this.asInput()
+
+  override def clone = new VgaBus(colorType, withColorEn)
 }
