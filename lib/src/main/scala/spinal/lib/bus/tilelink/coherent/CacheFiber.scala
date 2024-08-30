@@ -2,6 +2,7 @@ package spinal.lib.bus.tilelink.coherent
 
 import spinal.core._
 import spinal.core.fiber._
+import spinal.lib._
 import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.fabric._
@@ -107,12 +108,17 @@ class CacheFiber(withCtrl : Boolean = false) extends Area{
     parameter.coherentRegion = { addr =>
       AddressMapping.decode(addr.asBits, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
     }
-    val allocateOnMissOld = parameter.allocateOnMiss
-    parameter.allocateOnMiss =  (op, src, addr, size) => parameter.coherentRegion(addr) && allocateOnMissOld(op, src, addr, size)
+
+//    parameter.allocateOnMiss =  (op, src, addr, size, upParam) => parameter.coherentRegion(addr)
+    parameter.allocateOnMiss = { (op, src, addr, size, upParam) =>
+      parameter.coherentRegion(addr) && !(
+        List(Cache.CtrlOpcode.PUT_PARTIAL_DATA(), Cache.CtrlOpcode.PUT_FULL_DATA(), Cache.CtrlOpcode.GET()).map(e => e === op).orR && upParam === Param.Hint.NO_ALLOCATE_ON_MISS
+      )
+    }
     val cache = new Cache(parameter)
     //TODO probeRegion
 
-    if(withCtrl) cache.io.ctrl << ctrl.bus
+    if (withCtrl) cache.io.ctrl << ctrl.bus
     cache.io.up << up.bus
     cache.io.down >> down.bus
   }

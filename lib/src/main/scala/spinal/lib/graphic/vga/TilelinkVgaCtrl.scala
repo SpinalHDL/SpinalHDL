@@ -133,7 +133,7 @@ case class TilelinkVideoDma(param : TilelinkVideoDmaParam,
     val cmdPtr = Reg(PTR) init (0)
     memA.valid := False
     memA.opcode := Opcode.A.GET
-    memA.param := 0
+    memA.param := Param.Hint.NO_ALLOCATE_ON_MISS
     memA.source := slots.allocate.id
     memA.address := io.base + offset
     memA.size := log2Up(accessSize)

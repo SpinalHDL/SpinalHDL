@@ -28,7 +28,7 @@ case class CacheParam(var unp : NodeParameters,
                       var upCBufferDepth : Int = 8,
                       var coherentRegion : UInt => Bool,
                       var selfFlush : SelfFLush = null,
-                      var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt) => Bool = {(_,_,_,_) => True} // opcode, source, address, size
+                      var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt, Bits) => Bool = null // opcode, source, address, size
                          ) {
   assert(isPow2(cacheBytes))
 
@@ -234,6 +234,7 @@ class Cache(val p : CacheParam) extends Component {
     val address = ubp.address()
     val size = ubp.size()
     val source = ubp.source()
+    val upParam = Bits(3 bits)
     val bufferAId = BUFFER_A_ID()
     val probed = Bool()
     val probedUnique = Bool()
@@ -464,6 +465,7 @@ class Cache(val p : CacheParam) extends Component {
     toCtrl.withDataUpC := False
     toCtrl.evictWay.assignDontCare()
     toCtrl.probedUnique := False
+    toCtrl.upParam := conv.param
   }
 
 
@@ -707,7 +709,7 @@ class Cache(val p : CacheParam) extends Component {
     val preCtrl = new Area{
       import prepStage._
       val PROBE_REGION = insert(p.coherentRegion(CTRL_CMD.address))
-      val ALLOCATE_ON_MISS = insert(p.allocateOnMiss(CTRL_CMD.opcode, CTRL_CMD.source, CTRL_CMD.address, CTRL_CMD.size)) //TODO
+      val ALLOCATE_ON_MISS = insert(p.allocateOnMiss(CTRL_CMD.opcode, CTRL_CMD.source, CTRL_CMD.address, CTRL_CMD.size, CTRL_CMD.upParam)) //TODO
       val FROM_A = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA(), ACQUIRE_BLOCK(), ACQUIRE_PERM(), FLUSH()).sContains(CTRL_CMD.opcode))
       val FROM_C_RELEASE = insert(List(RELEASE(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
       val GET_PUT = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA()).sContains(CTRL_CMD.opcode))
@@ -1711,7 +1713,7 @@ object DirectoryGen extends App{
       blockSize = blockSize,
       coherentRegion = _ => True,
       generalSlotCount = generalSlotCount,
-      allocateOnMiss = (_,_,_,_) => True
+      allocateOnMiss = (_,_,_,_,_) => True
     )
   }
 

@@ -66,6 +66,11 @@ object Opcode extends AreaRoot{
 }
 
 object Param{
+  val Hint = new Area{
+    val NONE = 0
+    val NO_ALLOCATE_ON_MISS = 2
+  }
+
   val Cap = new Area {
     val toT = 0
     val toB = 1
