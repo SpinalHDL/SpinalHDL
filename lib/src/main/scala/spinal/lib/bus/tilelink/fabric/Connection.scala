@@ -43,7 +43,7 @@ class InterconnectAdapterWidth extends InterconnectAdapter{
   var adapter = Option.empty[tilelink.WidthAdapter]
 
   override def isRequired(c : Connection) = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
-  override def build(c : Connection)(m: Bus) : Bus = {
+  override def build(c : Connection)(m: Bus) : Bus = c.s.clockDomain{
     val adapter = new tilelink.WidthAdapter(
       ip = m.p,
       op = m.p.copy(dataWidth = c.s.m2s.parameters.dataWidth),
