@@ -41,8 +41,24 @@ class DebugModuleFiber() extends Area{
     for(i <- harts.indices){
       val from = logic.io.harts(i)
       val to = harts(i).getDebugBus
-      from <> to
-      to.dmToHart.removeAssignments() <-< from.dmToHart
+//      from <> to
+//      to.dmToHart.removeAssignments() <-< from.dmToHart
+
+      from.halted := RegNext(to.halted) init(False)
+      from.running := RegNext(to.running) init(False)
+      from.unavailable := RegNext(to.unavailable) init(False)
+      from.haveReset := RegNext(to.haveReset) init(False)
+      from.exception := RegNext(to.exception) init(False)
+      from.commit := RegNext(to.commit) init(False)
+      from.ebreak := RegNext(to.ebreak) init(False)
+      from.redo := RegNext(to.redo) init (False)
+      from.regSuccess := RegNext(to.regSuccess) init (False)
+      to.haltReq := RegNext(from.haltReq) init (False)
+      to.ackReset := RegNext(from.ackReset) init (False)
+      to.hartToDm >-> from.hartToDm
+      to.dmToHart <-< from.dmToHart
+      to.resume.cmd <-< from.resume.cmd
+      to.resume.rsp >-> from.resume.rsp
     }
   }
 
