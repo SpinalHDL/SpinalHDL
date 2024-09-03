@@ -1631,7 +1631,7 @@ class Cache(val p : CacheParam) extends Component {
 
   val toUpD = new Area{
     val arbiter = StreamArbiterFactory().lowerFirst.lambdaLock[ChannelD](_.isLast()).build(io.up.d.payloadType, 4)
-    arbiter.io.inputs(0) << fromDownD.process.toUpD
+    arbiter.io.inputs(0) << fromDownD.process.toUpD.m2sPipe()
     arbiter.io.inputs(1) << ctrl.process.toUpD.m2sPipe()
     arbiter.io.inputs(2) << readBackend.process.toUpD
     arbiter.io.inputs(3) << writeBackend.process.toUpD
