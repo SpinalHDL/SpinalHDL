@@ -31,8 +31,8 @@ abstract class NodeRaw extends bus.fabric.Node {
 /**
   * Extends NodeRaw with the capability of connecting masters / slaves
   */
-class NodeUpDown() extends NodeRaw with bus.fabric.MappedUpDown[NodeUpDown, ConnectionRaw]{
-  override def connectFrom(m: NodeUpDown): ConnectionRaw = Node.connect(m, NodeUpDown.this)
+class NodeUpDown() extends NodeRaw with bus.fabric.MappedUpDown[NodeUpDown, Connection]{
+  override def connectFrom(m: NodeUpDown): Connection = Node.connect(m, NodeUpDown.this)
 }
 
 
