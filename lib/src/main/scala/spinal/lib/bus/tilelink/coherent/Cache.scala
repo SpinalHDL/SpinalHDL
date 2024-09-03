@@ -26,6 +26,7 @@ case class CacheParam(var unp : NodeParameters,
                       var generalSlotCountUpCOnly : Int = 2,
                       var victimBufferLines : Int = 2,
                       var upCBufferDepth : Int = 8,
+                      var readProcessAt : Int = 2,
                       var coherentRegion : UInt => Bool,
                       var selfFlush : SelfFLush = null,
                       var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt, Bits) => Bool = null // opcode, source, address, size
@@ -403,6 +404,7 @@ class Cache(val p : CacheParam) extends Component {
       cmd.debugId := 0 // DebugId()
       cmd.withDataUpC := False // Bool()
       cmd.evictWay := 0 // UInt(log2Up(cacheWays) bits)
+      cmd.upParam := 0
     }
   }
 
@@ -1241,11 +1243,11 @@ class Cache(val p : CacheParam) extends Component {
   - fromDownD from writing cache
    */
   val readBackend = new Pipeline {
-    val stages = newChained(3, Connection.M2S())
+    val stages = newChained(p.readProcessAt+1, Connection.M2S())
     val inserterStage = stages(0)
     val fetchStage = stages(0)
     val readStage = stages(1)
-    val processStage = stages(2)
+    val processStage = stages(p.readProcessAt)
 
     val CMD = Stageable(new ReadBackendCmd())
 
@@ -1574,7 +1576,7 @@ class Cache(val p : CacheParam) extends Component {
       val victimOnGoing = vh.valid && vh(readBackend.CMD).toVictim && readBackend.victimAddress(vh) === (gsId @@ BEAT)
       val victimHazard = victimRead || victimOnGoing
 
-      toCache.haltWhen(victimHazard) >> cache.data.downWrite
+      toCache.haltWhen(victimHazard) >-> cache.data.downWrite
 
 
       //TODO handle refill while partial get to upD
