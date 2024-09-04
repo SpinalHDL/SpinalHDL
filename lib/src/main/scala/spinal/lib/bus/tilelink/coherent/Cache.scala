@@ -1540,6 +1540,7 @@ class Cache(val p : CacheParam) extends Component {
     val inserterStage = stages(0)
     val fetchStage = stages(0)
     val readStage = stages(1)
+    val preprocessStage = stages(1)
     val processStage = stages(2)
 
     val CTX = Stageable(new CtxDownD())
@@ -1559,11 +1560,18 @@ class Cache(val p : CacheParam) extends Component {
     readPort.cmd.payload := fetchStage(CMD).source.resized
     readStage(CTX) := readPort.rsp
 
+    val preprocess = new Area{
+      import preprocessStage._
+
+      val withData = insert(CMD.opcode === Opcode.D.ACCESS_ACK_DATA)
+      val toUpDHead = insert(!withData || !CTX.toCache || (BEAT >= CTX.wordOffset && BEAT <= CTX.wordOffset + sizeToBeatMinusOne(io.down.p, CTX.size)))
+    }
+
     val process = new Area{
+      import preprocess._
       import processStage._
 
       val isVictim = CMD.source.msb
-      val withData = CMD.opcode === Opcode.D.ACCESS_ACK_DATA
 
       val toCache = forkStream(!isVictim && CTX.toCache).swapPayload(cache.data.downWrite.payloadType)
       toCache.address := CTX.wayId @@ CTX.setId @@ BEAT
@@ -1580,7 +1588,7 @@ class Cache(val p : CacheParam) extends Component {
 
 
       //TODO handle refill while partial get to upD
-      val toUpDHead = !withData || !CTX.toCache || (BEAT >= CTX.wordOffset && BEAT <= CTX.wordOffset + sizeToBeatMinusOne(io.down.p, CTX.size))
+
       val toUpDFork = forkStream(!isVictim && CTX.toUpD && toUpDHead)
       val toUpD = toUpDFork.haltWhen(toCache.valid && victimHazard).swapPayload(io.up.d.payloadType)
 
@@ -1631,9 +1639,9 @@ class Cache(val p : CacheParam) extends Component {
 
   val toUpD = new Area{
     val arbiter = StreamArbiterFactory().lowerFirst.lambdaLock[ChannelD](_.isLast()).build(io.up.d.payloadType, 4)
-    arbiter.io.inputs(0) << fromDownD.process.toUpD.m2sPipe()
+    arbiter.io.inputs(0) << fromDownD.process.toUpD//.m2sPipe()
     arbiter.io.inputs(1) << ctrl.process.toUpD.m2sPipe()
-    arbiter.io.inputs(2) << readBackend.process.toUpD
+    arbiter.io.inputs(2) << readBackend.process.toUpD.s2mPipe()
     arbiter.io.inputs(3) << writeBackend.process.toUpD
 
     io.up.d << arbiter.io.output
