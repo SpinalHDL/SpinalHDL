@@ -41,6 +41,9 @@ object StreamPipe {
   val HALF_KEEP = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.halfPipe(keep=true)
   }
+  val HALF_X2_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.halfPipe(keep = true).halfPipe(keep = true)
+  }
 }
 
 class StreamFactory extends MSFactory {
