@@ -191,11 +191,13 @@ object DataCc{
     ClockDomain.areSynchronous(to.clockDomain, from.clockDomain) match {
       case true => to := from
       case false => {
-        val cc = new StreamCCByToggle(to, from.clockDomain, to.clockDomain).setCompositeName(to, "cc_driver")
-        cc.io.input.valid := True
-        cc.io.input.payload := from
-        cc.io.output.ready := True
-        to := cc.io.output.payload
+        to := signalCache((from, to.clockDomain, "DataCc")) {
+          val cc = new StreamCCByToggle(to, from.clockDomain, to.clockDomain).setCompositeName(to, "cc_driver")
+          cc.io.input.valid := True
+          cc.io.input.payload := from
+          cc.io.output.ready := True
+          cc.io.output.payload
+        }
       }
     }
   }
