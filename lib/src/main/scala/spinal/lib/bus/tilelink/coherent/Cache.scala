@@ -1243,7 +1243,7 @@ class Cache(val p : CacheParam) extends Component {
   - fromDownD from writing cache
    */
   val readBackend = new Pipeline {
-    val stages = newChained(p.readProcessAt+1, Connection.M2S())
+    val stages = newChained(p.readProcessAt+1, Connection.M2S(collapse = true))
     val inserterStage = stages(0)
     val fetchStage = stages(0)
     val readStage = stages(1)
@@ -1254,13 +1254,13 @@ class Cache(val p : CacheParam) extends Component {
     def victimAddress(stage : Stage) = stage(CMD).gsId @@ stage(CMD).address(wordRange)
 
     val inserter = new Area {
-
       import inserterStage._
 
       val cmd = ctrl.process.toReadBackend.pipelined(m2s = true, s2m = true)
       val counter = Reg(io.up.p.beat()) init (0)
       val LAST = insert(counter === sizeToBeatMinusOne(io.up.p, cmd.size))
       val FIRST = insert(counter === 0)
+      val WRITE_FORK = insert(CMD.toWriteBackend && FIRST)
 
       cmd.ready := isReady && LAST
       valid := cmd.valid
@@ -1291,7 +1291,6 @@ class Cache(val p : CacheParam) extends Component {
     val CACHED = readStage.insert(Vec(cache.data.banks.map(_.readed))) //May want KEEP attribute
 
     val process = new Area {
-
       import processStage._
 
       val DATA = insert(CACHED(CMD.address(log2Up(p.dataBytes), log2Up(cacheBanks) bits)))
@@ -1328,7 +1327,7 @@ class Cache(val p : CacheParam) extends Component {
       }
 
 
-      val toWriteBackendFork = forkStream(CMD.toWriteBackend && CMD.address(wordRange) === 0)
+      val toWriteBackendFork = forkStream(inserter.WRITE_FORK)
       val toWriteBackend = toWriteBackendFork.swapPayload(new WriteBackendCmd())
       toWriteBackend.fromUpA    := False
       toWriteBackend.fromUpC    := False
@@ -1384,7 +1383,7 @@ class Cache(val p : CacheParam) extends Component {
       import inserterStage._
 
       val ctrlBuffered = ctrl.process.toWriteBackend
-      val fromReadBackend = readBackend.process.toWriteBackend.queue(generalSlotCount).halfPipe()//TODO not that great for area
+      val fromReadBackend = readBackend.process.toWriteBackend.s2mPipe().queue(generalSlotCount).halfPipe()//TODO not that great for area
       val arbiterInputs = ArrayBuffer[Stream[WriteBackendCmd]]()
       arbiterInputs += ctrlBuffered
       if(ubp.withDataA) arbiterInputs += putMerges.cmd
