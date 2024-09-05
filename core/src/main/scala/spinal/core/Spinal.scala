@@ -179,6 +179,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var noAssertAtTimeZero         : Boolean = false,
                         var cutLongExpressions         : Boolean = true,
                         var withTimescale              : Boolean = true,
+                        var printFilelist              : Boolean = true,
                         var emitFullComponentBindings  : Boolean = true,
                         var svInterface                : Boolean = false
 ){
