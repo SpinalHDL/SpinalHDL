@@ -38,7 +38,7 @@ final case class DocSVHeader(name : String,
     def base(name: String, t: RegSlice, max: Int) = {
       val alignName = s"%-${max}s".format(t.reuseTag.instName)
       val defineName = s"${name}_base_${alignName}".toUpperCase()
-      s"`define ${defineName}  0x${t.addr.hexString()}"
+      s"`define ${defineName}  'h${t.addr.hexString()}"
     }
 
     lst.map{ t =>
@@ -68,12 +68,12 @@ final case class DocSVHeader(name : String,
 
     def define(maxreglen: Int, maxshiftlen: Int): String = {
       val _tab = " " * (maxreglen - deDupRegName.size)
-      s"""`define ${preFixRegName} ${_tab}0x${reg.getAddr().hexString(16)}${fddefine(maxshiftlen)}""".stripMargin
+      s"""`define ${preFixRegName} ${_tab}'h${reg.getAddr().hexString(16)}${fddefine(maxshiftlen)}""".stripMargin
     }
 
     def baseDefine(maxreglen: Int, maxshiftlen: Int) = {
       val _tab = " " * (maxreglen - deDupRegName.size)
-      s"""`define ${preFixRegName}(base)  ${_tab}base + 0x${(reg.getAddr() - reg.reuseTag.baseAddr).hexString(8)}${fddefine(maxshiftlen)}""".stripMargin
+      s"""`define ${preFixRegName}(base)  ${_tab}base + 'h${(reg.getAddr() - reg.reuseTag.baseAddr).hexString(8)}${fddefine(maxshiftlen)}""".stripMargin
     }
 
     def fdNameLens = math.max("reserved_0".size, reg.getFields().map(_.getName.size).max)
@@ -99,13 +99,13 @@ final case class DocSVHeader(name : String,
       val newfdname = nameDedupliaction(duplicate, fd.getName())
       val _tab = " " * (tabn - newfdname.size)
       fd.getAccessType() match {
-        case `NA` => ""
+        case `NA` | `ROV` => ""
         case `W1S` | `W1C` | `W1T` | `W1P` | `W1CRS` | `W1SRC` | `W1SHS` | `W1CHS` | `W1I` => s"""`define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
         case `W0S` | `W0C` | `W0T` | `W0P` | `W0CRS` | `W0SRC` => s"""`define ${pre}_${newfdname}_SHIFT ${_tab}${lsb} /*${fd.getName()} 1bit*/""".stripMargin
         case _ => {
           if (fd.getSection().size == bi.busDataWidth) "" else if (fd.getName() == "_bm_") "" else
             s"""`define ${pre}_${newfdname}_SHIFT ${_tab}${lsb}
-               |`define ${pre}_${newfdname}_MASK  ${_tab}0x${mask.hexString(32)} /* ${fd.getName()}, ${fd.getAccessType()}, ${fd.getWidth()} bit */""".stripMargin
+               |`define ${pre}_${newfdname}_MASK  ${_tab}'h${mask.hexString(32)} /* ${fd.getName()}, ${fd.getAccessType()}, ${fd.getWidth()} bit */""".stripMargin
         }
       }
     }
