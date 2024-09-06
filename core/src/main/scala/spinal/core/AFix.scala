@@ -23,9 +23,9 @@ object AFix {
     ret
   }
 
-  // Constructs an AFix which is driven to 0 or 1.
+  /** Constructs an AFix which is driven to 0 or 1. */
   def apply(b: Bool): AFix = this(b, 0 exp)
-  // Constructs an AFix which is driven to 0 or 2^exp.
+  /** Constructs an AFix which is driven to 0 or 2^exp. */
   def apply(b: Bool, exp : ExpNumber): AFix = {
     val ret = new AFix(1, 0, exp.value)
     ret.raw(0) := b
