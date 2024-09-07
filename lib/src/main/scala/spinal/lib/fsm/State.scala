@@ -126,6 +126,8 @@ class StateFsm[T <: StateMachineAccessor](val fsm:  T)(implicit stateMachineAcce
 
   onEntry{
     fsm.startFsm()
+    fsm.getEntry().onEntryTasks.foreach(_())
+    fsm.getEntry().whenIsNextTasks.foreach(_())
   }
 
   whenIsActiveWithPriority(1){
@@ -171,7 +173,11 @@ class StateParallelFsm(val _fsms: StateMachineAccessor*)(implicit stateMachineAc
   val fsms = _fsms
   
   onEntry{
-    fsms.foreach(_.startFsm())
+    fsms.foreach { fsm =>
+      fsm.startFsm()
+      fsm.getEntry().onEntryTasks.foreach(_())
+      fsm.getEntry().whenIsNextTasks.foreach(_())
+    }
   }
 
   whenIsActiveWithPriority(1){
