@@ -1,6 +1,5 @@
 package spinal.lib.memory.sdram.xdr.Dfi.Interface
 
-import Interface.DDR.DDR3Config
 import spinal.core.{Bundle, assert}
 case class DfiTimeConfig(
                           tPhyWrLat: Int=0,

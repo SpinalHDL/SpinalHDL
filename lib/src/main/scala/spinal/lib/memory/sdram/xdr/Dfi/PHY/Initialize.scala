@@ -2,7 +2,7 @@ package spinal.lib.memory.sdram.xdr.Dfi.PHY
 
 import spinal.lib._
 import spinal.core._
-import _root_.Interface.{CoreParameter, CoreParameterAggregate, DfiAddr, DfiCmd, SdramLayout}
+import spinal.lib.memory.sdram.xdr.Dfi.Interface.{CoreParameter, CoreParameterAggregate, DfiAddr, DfiCmd, SdramLayout}
 case class Initialize(cpa:CoreParameterAggregate) extends Component{
   import cpa._
   import cpa.pl._

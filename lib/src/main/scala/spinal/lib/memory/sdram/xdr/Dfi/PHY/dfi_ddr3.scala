@@ -1,10 +1,10 @@
 package spinal.lib.memory.sdram.xdr.Dfi.PHY
 
-import CtrlWithBmb.{Bmb2Dfi, BmbAdapter, BmbPortParameter, CtrlParameter}
+import spinal.lib.memory.sdram.xdr.Dfi.CtrlWithBmb.{Bmb2Dfi, BmbAdapter, BmbPortParameter, CtrlParameter}
 //import PHY.dfi_ddr3.{config, pl}
 import spinal.lib._
 import spinal.core._
-import _root_.Interface.{CoreParameter, CoreParameterAggregate, DDR, DfiConfig, DfiTimeConfig, PhyLayout, SdramGeneration, SdramLayout, SdramTiming}
+import spinal.lib.memory.sdram.xdr.Dfi.Interface.{CoreParameter, CoreParameterAggregate, DDR, DfiConfig, DfiTimeConfig, PhyLayout, SdramGeneration, SdramLayout, SdramTiming}
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 
 case class bmb_dfi_ddr3(pl : PhyLayout, config: DfiConfig) extends Component{
