@@ -38,7 +38,6 @@ case class BmbAdapter(pp : BmbPortParameter,
     val aligner = BmbAligner(pp.bmb, log2Up(pl.burstWidth / 8))
     aligner.io.input << io.input
 
-
     val splitLength = Math.min(cpa.cp.bytePerTaskMax, 1 << pp.bmb.access.lengthWidth)
     assert(pp.rspBufferSize*cpa.pl.bytePerBeat >= splitLength)
 

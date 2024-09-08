@@ -20,7 +20,6 @@ case class Bmb2Dfi(val ctp : CtrlParameter, pl : PhyLayout, config: DfiConfig/*,
   val io = new Bundle {
     val bmb = slave(Bmb(ctp.port.bmb))
     val dfi = master(Dfi(config))
-//    val ctrl = slave(Bmb(initp))
     val initDone = out Bool()
   }
 
