@@ -12,19 +12,13 @@ case class RdDataRxd(cpa:CoreParameterAggregate) extends Component {
     val rden = out Vec(Bool(),frequencyRatio)
     val coreRddata =  master(Flow(Fragment(CoreRsp(cpp, cpa))))
   }
-//  io.idfiRddata.foreach(_.ready.clear())
-//  io.rden.foreach(_.clear())
 
   case class PipelineCmd() extends Bundle {
-//    val write = Bool()
-//    val last = Bool()
     val context = Bits(backendContextWidth bits)
-//    val source = UInt(log2Up(portCount) bits)
   }
 
   case class PipelineRsp() extends Bundle {
     val data = Bits(pl.beatWidth bits)
-//    val source = UInt(log2Up(portCount) bits)
     val context = Bits(backendContextWidth bits)
   }
 
@@ -37,15 +31,6 @@ case class RdDataRxd(cpa:CoreParameterAggregate) extends Component {
     rdensHistory.foreach(_ := History(input.valid,0 to (cmdPhase+timeConfig.tRddataEn)/frequencyRatio+1))
     rdensHistory.foreach(_.tail.foreach(_ init (False)))
 
-//    io.phy.readEnable.allowOverride
-//    io.phy.readEnable := False
-//    switch(io.config.readLatency) {
-//      for (i <- 0 until cp.readLatencies.size) {
-//        is(i) {
-//          io.phy.readEnable := readHistory.drop(cp.readLatencies(i)).take(pl.beatCount).orR
-//        }
-//      }
-//    }
     val beatCounter = Counter(pl.beatCount, io.idfiRddata.map(_.valid).orR)
 
     val delay = DelayCyc(config,timeConfig)
@@ -64,36 +49,26 @@ case class RdDataRxd(cpa:CoreParameterAggregate) extends Component {
     output.valid.clear()
     output.valid.setWhen(io.idfiRddata.map(_.valid).orR)
     output.context := cmd.context
-//    output.source := cmd.source
     output.last := beatCounter.willOverflowIfInc && cmd.last
     cmd.ready := beatCounter.willOverflow
 
     for ((outputData, phase) <- (output.data.subdivideIn(frequencyRatio slices).reverse, io.idfiRddata).zipped) {
       outputData := B(phase.rddata)
     }
-
-//    val debugData = RegNextWhen(output.data, output.valid)
   }
 
   rspPipeline.input.valid := False
   rspPipeline.input.last := io.task.task.last
   rspPipeline.input.context := io.task.task.context
-//  rspPipeline.input.source := muxedCmd.portId
-//  rspPipeline.input.write.assignDontCare()
 
   val rspPop = rspPipeline.output.stage()
-//  for (output <- io.coreRddata) {
-//    val hit = rspPop.source === outputId
   io.coreRddata.valid := rspPop.valid
   io.coreRddata.last := rspPop.last
-    if(io.coreRddata.cpp.canRead) io.coreRddata.data := rspPop.data
+  if(io.coreRddata.cpp.canRead) io.coreRddata.data := rspPop.data
   io.coreRddata.context := rspPop.context.resized
-//  }
 
+  rspPipeline.input.valid.setWhen(io.task.task.read)
 
-//  when(io.task.task.read){
-    rspPipeline.input.valid.setWhen(io.task.task.read)
-//  }
   val ready = Vec(Reg(Bool()),frequencyRatio)
   ready.foreach(_.init(False))
     for(i <- 0 until(frequencyRatio)){
@@ -102,5 +77,4 @@ case class RdDataRxd(cpa:CoreParameterAggregate) extends Component {
   for((outport,iready) <- (io.idfiRddata,ready).zipped){
     outport.ready := iready
   }
-
 }

@@ -55,6 +55,10 @@ case class BusAddress(l : SdramLayout, config:DfiConfig) extends Bundle {
   val csAddr = UInt(log2Up(config.chipSelectNumber) bits)
 }
 
+
+
+
+
 case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
   import cpa._
 
@@ -127,6 +131,21 @@ case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
     slave(rsp)
   }
 }
+
+case class TaskPort(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle with IMasterSlave{
+  val tasks = CoreTasks(cpa)
+  val writeData = cpp.canWrite generate Stream(CoreWriteData(cpp, cpa))
+  val rsp = Stream(Fragment(CoreRsp(cpp, cpa)))
+
+  val writeDataAdded = UInt(cpp.writeTockenInterfaceWidth bits)
+
+  override def asMaster(): Unit = {
+    masterWithNull(writeData)
+    slave(rsp)
+    out(tasks)
+  }
+}
+
 case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
   import cpa._
   val write = Bool()

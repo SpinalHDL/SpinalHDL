@@ -4,42 +4,25 @@ import spinal.core._
 import spinal.lib.memory.sdram.xdr.Dfi.Interface.{DfiAddr, DfiCmd, DfiConfig, DfiControlInterface, Dfiodt, IDFI, InitBus}
 import spinal.lib._
 
-//case class CAInterface(config: DfiConfig) extends Bundle{
-//  import config._
-//  val cmd     = Vec(slave(Flow(DfiCmd(config))),config.frequencyRatio)
-////  val odt     = useOdt generate Vec(slave(Flow(Dfiodt(config))),config.frequencyRatio)
-//  val address = Vec(slave(Flow(DfiAddr(config))),config.frequencyRatio)
-////  val cke     = in Vec(Bits(config.chipSelectNumber bits),config.frequencyRatio)
-////  val rstn    = useResetN generate in Vec(Bits(config.chipSelectNumber bits),config.frequencyRatio)
-//  val output  = master(DfiControlInterface(config))
-//}
-
 case class CAAlignment(config: DfiConfig) extends Component{
   import config._
   val io = new Bundle{
     val cmd     = Vec(slave(Flow(DfiCmd(config))),config.frequencyRatio)
-//    val odt     = useOdt generate Vec(slave(Flow(Dfiodt(config))),config.frequencyRatio)
     val address = Vec(slave(Flow(DfiAddr(config))),config.frequencyRatio)
     val ckeN    = in Vec(Bits(config.chipSelectNumber bits),config.frequencyRatio)
-//    val rstn    = useResetN generate in Vec(Bits(config.chipSelectNumber bits),config.frequencyRatio)
-//    val initBus = slave(InitBus(config))
     val output  = master(DfiControlInterface(config))
   }
   //cke,reserN,odt
   //Most DRAMs define CKE as low at reset; some devices, such as LPDDR1, LPDDR2 and LPDDR3, define CKE as high at
   // reset. The default value should adhere to the DRAM definition.
-//  io.output.cke := io.cke.asBits
+  io.output.cke := io.ckeN.asBits
   //In general, the dfi_reset_n signal is defined as low at reset; however, in some cases it may be necessary
   // to hold dfi_reset_n high during initialization.
-//  if(useResetN)io.output.resetN := io.rstn.asBits
+  if(useResetN)io.output.resetN.setAll()
   //The MC generates dfi_odt (dfi_odt_pN in frequency ratio systems) based on the DRAM burst length including 
   //CRC data. With CRC enabled, the MC may need to extend ODT.
-  if(useOdt)io.output.odt := B(0,chipSelectNumber*frequencyRatio bits)
-  for(i <- 0 until frequencyRatio){
-//    when(io.odt(i).valid){
-//      io.output.odt(i*chipSelectNumber,chipSelectNumber bits) := io.odt(i).payload.odt
-//    }
-  }
+  if(useOdt)io.output.odt.clearAll()
+
   //cmd
   if(useAckN)io.output.actN := Bits(widthOf(io.output.actN) bits).setAll()
   io.output.csN  := Bits(widthOf(io.output.csN) bits).setAll()
@@ -53,35 +36,23 @@ case class CAAlignment(config: DfiConfig) extends Component{
   io.output.bank    := Bits(widthOf(io.output.bank) bits).clearAll()
   io.output.address := Bits(widthOf(io.output.address) bits).clearAll()
 
-//  when(io.initBus.cmd.valid){
-////    for(i <- 0 until(frequencyRatio)){
-//    io.output.csN(0,chipSelectNumber bits)  := io.initBus.cmd.CSn
-//    io.output.rasN(0) := io.initBus.cmd.RASn
-//    io.output.casN(0) := io.initBus.cmd.CASn
-//    io.output.weN(0)  := io.initBus.cmd.WEn
-//    io.output.bank(0,bankWidth bits)       := io.initBus.cmd.BA
-//    io.output.address(0,addressWidth bits) := io.initBus.cmd.ADDR
-////    }
-//  }otherwise{
-    for(i <- 0 until(frequencyRatio)){
-      when(io.cmd(i).valid){
-        if(useAckN)io.output.actN(i) := io.cmd(i).actN
-        io.output.csN(i*chipSelectNumber,chipSelectNumber bits)  := io.cmd(i).csN
-        io.output.rasN(i) := io.cmd(i).rasN
-        io.output.casN(i) := io.cmd(i).casN
-        io.output.weN(i)  := io.cmd(i).weN
-        if(useCid)io.output.cid(i*chipIdWidth,chipIdWidth bits) := io.cmd(i).cid
-      }
+  for(i <- 0 until(frequencyRatio)){
+    when(io.cmd(i).valid){
+      if(useAckN)io.output.actN(i) := io.cmd(i).actN
+      io.output.csN(i*chipSelectNumber,chipSelectNumber bits)  := io.cmd(i).csN
+      io.output.rasN(i) := io.cmd(i).rasN
+      io.output.casN(i) := io.cmd(i).casN
+      io.output.weN(i)  := io.cmd(i).weN
+      if(useCid)io.output.cid(i*chipIdWidth,chipIdWidth bits) := io.cmd(i).cid
     }
+  }
 
-    for(i <- 0 until(frequencyRatio)){
-      when(io.address(i).valid){
-        if(config.useBg)io.output.bg(i*bankGroupWidth,bankGroupWidth bits) := io.address(i).bg
-        io.output.bank(i*bankWidth,bankWidth bits)         := io.address(i).bank
-        io.output.address(i*addressWidth,addressWidth bits) := io.address(i).address
-      }
+  for(i <- 0 until(frequencyRatio)){
+    when(io.address(i).valid){
+      if(config.useBg)io.output.bg(i*bankGroupWidth,bankGroupWidth bits) := io.address(i).bg
+      io.output.bank(i*bankWidth,bankWidth bits)         := io.address(i).bank
+      io.output.address(i*addressWidth,addressWidth bits) := io.address(i).address
     }
-    /////////////////////////////
-    io.output.cke := io.ckeN.asBits
-//  }
+  }
+
 }

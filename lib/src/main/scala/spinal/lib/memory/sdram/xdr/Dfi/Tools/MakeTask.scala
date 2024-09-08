@@ -3,12 +3,10 @@ package spinal.lib.memory.sdram.xdr.Dfi.Tools
 import spinal.core._
 import spinal.lib.memory.sdram.xdr.Dfi.Interface.{BusAddress, DfiConfig, SdramAddress, CorePortParameter, CoreCmd, CoreConfig, CoreParameterAggregate, CoreTask, CoreTasks}
 import spinal.lib._
-//import spinal.lib.memory.sdram.xdr
 
 case class MakeTask(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Component{
   import cpa._
   val io = new Bundle{
-//    val config = in(CoreConfig(cpa))
     val cmd = slave(Stream(CoreCmd(cpp, cpa)))
     val refresh = slave(Event)
     val writeDataTockens = in UInt(cpp.writeTockenInterfaceWidth bits)
@@ -129,33 +127,11 @@ case class MakeTask(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
     def inputs = io.cmd
 
     val output = Stream(Task())
-    //    val state = RegInit(B(1, cpp.size bits))
     val inputsValids = inputs.valid
-    //    val selOH = OHMasking.roundRobin(inputsValids, state)
-    //    val selOH = OHMasking.roundRobin(inputsValids & B((inputs, writeTockens).zipped.map(!_.write || _.ready)), state)
-
-//    val tocken = Reg(UInt(log2Up(cp.portTockenMax + 1) bits)) init (0)
-//    val tockenIncrement = CombInit(output.ready)
-//    when(tockenIncrement) {
-//      tocken := tocken + 1
-//    }
-//    when(!(inputs.valid) || tockenIncrement && (inputs.burstLast && tocken >= cp.portTockenMin || tocken >= cp.portTockenMax)) {
-//      //      state := state.rotateLeft(1)
-//      tocken := 0
-//    }
     output.valid := inputsValids
     inputs.ready := output.ready
-//    val converted = inputs.map{ i =>
-//      val o = cloneOf(output.payload)
-//      o.write := i.write
-//      o.address := i.address
-//      o.context := i.context.resized
-//      o.burstLast := i.burstLast
-//      o.length := i.length
-////      o.portId := OHToUInt(selOH)
-//      o
-//    }.payload
-val converted = cloneOf(output.payload)
+
+    val converted = cloneOf(output.payload)
     converted.write := inputs.write
     converted.address := inputs.address
     converted.context := inputs.context.resized
@@ -189,19 +165,12 @@ val converted = cloneOf(output.payload)
   val columnBurstShift = log2Up(pl.transferPerBurst)
   val columnBurstMask  = (pl.sdram.columnSize-1) - (cpa.stationLengthMax-1 << columnBurstShift)
   val stations = new Area {
-//    val id = stationId
-//    val othersMask = False
     val valid = RegInit(False)
     val status = Reg(Status())
     val address = Reg(BusAddress(cpa.pl.sdram,cpa.config))
     val write = Reg(Bool())
     val context = Reg(Bits(backendContextWidth bits))
-//    val portId = Reg(UInt(log2Up(cpa.cpp.size) bits))
     val offset, offsetLast = Reg(UInt(cpa.stationLengthWidth bits))
-
-    //Arbitration states vs other ports
-//    val stronger = Reg(Bits(cp.stationCount bits)) init(0)                  //Solve basic ordering
-//    val afterBank, afterAccess = Reg(Bits(cp.stationCount bits)) init(0)    //Solve port inner oder, bank conflicts across stations and read/write conflicts across stations
 
     import status._
     allowPrecharge := True
@@ -210,13 +179,11 @@ val converted = cloneOf(output.payload)
     allowRead := !WTR.busy &&  (if(CCD != null) !CCD.busy else True)
     status.patch(address)
 
-//    val inputMiss = !bankActive || !bankHit
     val inputActive = !bankActive
     val inputPrecharge = bankActive && !bankHit
     val inputAccess =  bankActive && bankHit
     val inputWrite =  bankActive && bankHit && write
     val inputRead  = bankActive && bankHit && !write
-//    val inibated = False
 
     val doActive = inputActive && allowActive
     val doPrecharge = inputPrecharge && allowPrecharge
@@ -227,11 +194,9 @@ val converted = cloneOf(output.payload)
 
     val blockedByWriteTocken = inputWrite && allowWrite && !writeTockens.ready //For debug visualisation
 
-//    val sel = Bool() //Arbitration allow you to do your stuff
     val fire = False //It is the last cycle for this station
     val last = offset === offsetLast
     val cmdOutputPayload = CoreTask(cpa)
-//    io.output.task.portId := portId
     io.output.task.address.byte := address.byte
     io.output.task.address.column := address.column | (offset << columnBurstShift).resized
     io.output.task.address.row := address.row
@@ -253,26 +218,12 @@ val converted = cloneOf(output.payload)
     }
 
     readyForRefresh clearWhen(valid)
-
-//    val frustration = new Area {
-//      val counter = Reg(UInt(cp.frustrationWidth bits))
-//      val increment = False
-//      val full = counter.msb
-//      when(increment && !full){
-//        counter := counter + 1
-//      }
-//    }
   }
 
   val loader = new Area{
-//    val stationsValid = stations.valid
-//    val stronger = CombInit(stationsValid)
-//    val afterBank = stationsValid & stations.address.bank === taskConstructor.s1.address.bank
-//    val afterAccess = stationsValid & stations.frustration.full
     taskConstructor.s1.input.ready := !stations.valid
     val offset = taskConstructor.s1.address.column(columnBurstShift, cpa.stationLengthWidth bits)
     val offsetLast = offset + taskConstructor.s1.input.length
-//    val slot = for(station <- stations) yield new Area{
       val canSpawn = !stations.valid
       //Insert taskConstructor into one free station
       when(taskConstructor.s1.input.valid && canSpawn) {
@@ -287,39 +238,9 @@ val converted = cloneOf(output.payload)
         stations.offsetLast     := offsetLast
         stations.write          := taskConstructor.s1.input.write
         stations.context        := taskConstructor.s1.input.context
-//        stations.portId         := taskConstructor.s1.input.portId
-//        stations.stronger       := stronger & stations.othersMask
-//        stations.afterBank      := afterBank & stations.othersMask
-//        stations.afterAccess    := afterAccess & stations.othersMask
-//        stations.frustration.counter := 0
       }
-//    }
   }
 
-//  val arbiter = new Area{
-//    val selOH = Bits(cp.stationCount bits)
-//    val logic = for(station <- stations) yield new Area {
-//      station.inibated setWhen(station.inputAccess && station.afterAccess.orR)
-//      station.inibated setWhen(station.inputMiss   && station.afterBank.orR)
-//
-//      val othersDoSomething = B(stations.map(_.doSomething)) & station.stronger & B(station.othersMask)
-//      selOH(station.id) := station.doSomething && !othersDoSomething.orR
-//    }
-//
-//    for((station, sel, port) <- (stations, selOH.asBools, io.output.ports).zipped){
-//      station.sel := sel
-//      when(station.fire) {
-        //Remove priorities when a station is done
-//        for (anotherStation <- stations if anotherStation != station) {
-//          anotherStation.stronger(station.id) := False
-//          anotherStation.afterAccess(station.id) := False
-//          anotherStation.afterBank(station.id) := False
-//          when(station.stronger(anotherStation.id)) {
-//            anotherStation.frustration.increment := True
-//          }
-//        }
-//      }
-//    }
 val askRefresh = io.refresh.valid && readyForRefresh
   io.refresh.ready := False
   io.output.prechargeAll := False

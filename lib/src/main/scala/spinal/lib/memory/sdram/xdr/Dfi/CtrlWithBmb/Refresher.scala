@@ -6,7 +6,6 @@ import spinal.lib.memory.sdram.xdr.Dfi.Interface._
 case class Refresher(cpa : CoreParameterAggregate) extends Component{
   import cpa._
   val io = new Bundle {
-//    val config = in(CoreConfig(cpa))
     val refresh = master(Event)
   }
   val config = CoreConfig(cpa)

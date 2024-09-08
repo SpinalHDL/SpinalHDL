@@ -14,21 +14,6 @@ import cpa._
   }
   def cmdphase(i:Int) = io.cmd(i)
   def addrphase(i:Int) = io.address(i)
-//  def cmmand(i:Int) = new Bundle{
-//    val weN  = cloneOf(cmdphase(i).weN)
-//    val rasN = cloneOf(cmdphase(i).rasN)
-//    val casN = cloneOf(cmdphase(i).casN)
-//    val csN  = cloneOf(cmdphase(i).csN)
-//  }
-//  def cmmand(i:Int) = (cmdphase(i).csN ## cmdphase(i).casN ## cmdphase(i).rasN ## cmdphase(i).weN)
-//  def command(i:Int):Unit = {
-//    cmdphase(i).csN :=
-//  }
-//  def address(i:Int) = new Bundle{
-//    addrphase(i).address
-//    addrphase(i).bank
-//    if(config.useBg)addrphase(i).bg
-//  }
 
   def ACTIVE:Bits    = (~(B(1) << io.task.task.address.csAddr).resize(config.chipSelectNumber) ## B"b011").setName("ACTIVE")
   def WRITE:Bits     = (~(B(1) << io.task.task.address.csAddr).resize(config.chipSelectNumber) ## B"b100").setName("WRITE")
@@ -58,7 +43,6 @@ import cpa._
 
   when(active){
     cmdphase(config.cmdPhase).valid.set()
-//    cmmand(config.cmdPhase).assignFromBits(ACTIVE)
     cmdphase(config.cmdPhase).payload.assignFromBits(ACTIVE)
     addrphase(config.cmdPhase).valid.set()
     addrphase(config.cmdPhase).bank := BANK.resized
@@ -66,7 +50,6 @@ import cpa._
   }
   when(write){
     cmdphase(config.cmdPhase).valid := True
-//    cmmand(config.cmdPhase).assignFromBits(WRITE)
     cmdphase(config.cmdPhase).payload.assignFromBits(WRITE)
     addrphase(config.cmdPhase).valid.set()
     addrphase(config.cmdPhase).bank := BANK.resized
@@ -75,7 +58,6 @@ import cpa._
   }
   when(read){
     cmdphase(config.cmdPhase).valid := True
-//    cmmand(config.cmdPhase).assignFromBits(READ)
     cmdphase(config.cmdPhase).payload.assignFromBits(READ)
     addrphase(config.cmdPhase).valid.set()
     addrphase(config.cmdPhase).bank := BANK.resized
@@ -84,7 +66,6 @@ import cpa._
   }
   when(precharge){
     cmdphase(config.cmdPhase).valid := True
-//    cmmand(config.cmdPhase).assignFromBits(PRECHARGE)
     cmdphase(config.cmdPhase).payload.assignFromBits(PRECHARGE.setName("PRECHARGE"))
     addrphase(config.cmdPhase).valid.set()
     addrphase(config.cmdPhase).bank := BANK.resized
@@ -92,7 +73,6 @@ import cpa._
   }
   when(prechargeAll){
     cmdphase(config.cmdPhase).valid := True
-//    cmmand(config.cmdPhase).assignFromBits(PRECHARGE)
     cmdphase(config.cmdPhase).payload.assignFromBits(PRECHARGE.setName("PRECHARGEALL"))
     addrphase(config.cmdPhase).valid.set()
     addrphase(config.cmdPhase).address(ALL_BANKS_BIT).set()
@@ -100,7 +80,6 @@ import cpa._
   }
   when(refresh){
     cmdphase(config.cmdPhase).valid := True
-//    cmmand(config.cmdPhase).assignFromBits(REFRESH)
     cmdphase(config.cmdPhase).payload.assignFromBits(REFRESH)
     addrphase(config.cmdPhase).valid.set()
   }

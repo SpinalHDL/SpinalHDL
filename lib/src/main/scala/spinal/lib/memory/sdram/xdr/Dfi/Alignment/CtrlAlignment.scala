@@ -15,26 +15,12 @@ case class CtrlAlignment(cpp : CorePortParameter, cpa : CoreParameterAggregate) 
     val refresh = out Bool()
   }
 
-//  val coreconfig = CoreConfig(cpa)
-//  coreconfig.RAS := 4
-//  coreconfig.RP := 4
-//  coreconfig.WR := 4
-//  coreconfig.RCD := 4
-//  coreconfig.WTR := 4
-//  coreconfig.RTP := 4
-//  coreconfig.RRD := 4
-//  coreconfig.RTW := 4
-//  coreconfig.REF := 50
-//  coreconfig.RFC := 4
-//  coreconfig.autoRefresh := True
 
   val maketask = MakeTask(cpp,cpa)
-//  maketask.io.config <> coreconfig
   maketask.io.cmd << io.inport.cmd
   maketask.io.writeDataTockens <> io.inport.writeDataTocken
 
   val refresher = Refresher(cpa)
-//  refresher.io.config <> coreconfig
   refresher.io.refresh.valid <> io.refresh
   refresher.io.refresh <> maketask.io.refresh
 
