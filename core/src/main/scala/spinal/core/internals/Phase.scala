@@ -729,7 +729,7 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
     val mems      = mutable.LinkedHashSet[Mem[_]]()
 
     walkBaseNodes{
-      case mem: Mem[_] => mems += mem
+      case mem: Mem[_] if !mem.preventMemToBlackboxTranslation => mems += mem
       case ec: ExpressionContainer =>
         ec.foreachExpression{
           case port: MemPortStatement => consumers.getOrElseUpdate(port, ArrayBuffer[ExpressionContainer]()) += ec
@@ -738,8 +738,9 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
       case _ =>
     }
     mems.foreach(mem => {
+      val topo = new MemTopology(mem, consumers)
       if(mem.addressWidth != 0 && mem.width != 0) {
-        doBlackboxing(pc, new MemTopology(mem, consumers))
+        doBlackboxing(pc, topo)
       } else if(mem.width != 0){
         def wrapConsumers(oldSource: Expression, newSource: Expression): Unit ={
           consumers.get(oldSource) match {
@@ -751,6 +752,10 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
               }
             })
           }
+        }
+
+        if(!(topo.writes.nonEmpty || topo.readWriteSync.nonEmpty || topo.writeReadSameAddressSync.nonEmpty || mem.initialContent != null)) {
+          SpinalError(s"MEM-WITHOUT-DRIVER. $mem has no write ports nor initial content. Defined at :\n${mem.getScalaLocationLong}")
         }
 
         mem.component.rework{

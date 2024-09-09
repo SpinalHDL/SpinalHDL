@@ -102,6 +102,7 @@ class GlobalData(val config : SpinalConfig) {
 
   private var algoIncrementale = 1
   var toplevel : Component = null
+  var report : SpinalReport[Component] = null
 
   def allocateAlgoIncrementale(): Int = {
     assert(algoIncrementale != Integer.MAX_VALUE)
@@ -227,22 +228,28 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
       down = down.tail
       up = up.tail
     }
-    if(common != null)
+    val fullPath = if(common != null)
       (down.reverse :+ common) ++ up
     else
       down.reverse ++ up
+
+    // drop toplevel head for more consistent signal naming
+    fullPath match {
+      case h :: xs if h == globalData.toplevel => xs
+      case xs => xs
+    }
   }
 
   override def getName(default: String): String = {
 
     (getMode, nameableRef) match{
-      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
         val path = getPath(this.component, other.component) :+ nameableRef
         if(path.forall(_.isNamed))
           path.map(_.getName()).mkString("_") + "_" + name
         else
           default
-      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
+      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
         val path = getPath(this.component, other.component) :+ nameableRef
         if(path.forall(_.isNamed))
           path.map(_.getName()).mkString("_")
@@ -255,9 +262,9 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
 
   override def isNamed: Boolean = {
     (getMode, nameableRef) match{
-      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
         nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
-      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != other.component =>
+      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
         nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
       case _ => super.isNamed
     }

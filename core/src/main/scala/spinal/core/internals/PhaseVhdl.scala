@@ -101,10 +101,12 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
         }
       }
 
-      val fileListFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + topLevel.definitionName + ".lst")
-      fileList.foreach(file => fileListFile.write(file.replace("//", "/") + "\n"))
-      fileListFile.flush()
-      fileListFile.close()
+      if(pc.config.printFilelist){
+        val fileListFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + topLevel.definitionName + ".lst")
+        fileList.foreach(file => fileListFile.write(file.replace("//", "/") + "\n"))
+        fileListFile.flush()
+        fileListFile.close()
+      }
     } else {
       // All in one
       targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName)

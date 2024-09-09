@@ -267,10 +267,12 @@ public:
       //contextp = new VerilatedContext;
       Verilated::randReset(2);
       Verilated::randSeed(seed);
-      top = new V${config.toplevelName}();
-
+      // Verilator v5.026+ calls time() inside Vtop::Vtop()
+      // initialize the simHandle before we call Vtop
       simHandle${uniqueId} = this;
       time = 0;
+      top = new V${config.toplevelName}();
+
       timeCheck = 0;
       lastFlushAt = high_resolution_clock::now();
       waveEnabled = true;
@@ -293,6 +295,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top->trace(&tfp, 99);
+      tfp.set_time_resolution(${if (useTimePrecision) "Verilated::threadContextp()->timeprecisionString()" else "VL_TIME_PRECISION_STR" });
       tfp.open((std::string(wavePath) + "wave" + ".${format.ext}").c_str());
       #endif
       this->name = name;

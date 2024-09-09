@@ -40,6 +40,8 @@ trait BusIfBase extends Area{
   val wmaskn: Bits //= withstrb generate(Bits(busDataWidth bit))
 
   private var version = s"SpinalHDL-${Spinal.version}"
+  protected var _addrAlignCheck = true
+  def setAlignCheck(value: Boolean = false) = _addrAlignCheck = value
   def setVersion(ver: String): Unit = version = ver
   def getVersion: String = version
 

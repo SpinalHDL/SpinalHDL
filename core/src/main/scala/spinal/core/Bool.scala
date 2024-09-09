@@ -86,6 +86,15 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
 
   override def unary_~ : Bool = ! this
 
+  override def #* (count : Int) : Bits = {
+    val node = new Operator.Bool.Repeat(count)
+    node.source = this.asInstanceOf[node.T]
+    val result = Bits(count bits)
+    result.assignFrom(node)
+    result.setAsTypeNode()
+    result
+  }
+
   /** this is assigned to True */
   def set(): Unit = this := True
   /** this is assigned to False */

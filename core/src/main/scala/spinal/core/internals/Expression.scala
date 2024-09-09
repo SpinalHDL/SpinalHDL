@@ -469,6 +469,12 @@ object Operator {
       override def getTypeObject = TypeBool
       override def opName: String = "Bool =/= Bool"
     }
+
+    class Repeat(val count : Int) extends UnaryOperator with Widthable {
+      override def getTypeObject = TypeBits
+      override def opName: String = "Bool #* Int"
+      override def calcWidth: Int = count
+    }
   }
 
 
@@ -581,6 +587,10 @@ object Operator {
       override def getTypeObject = TypeBool
       override def normalizeInputs: Unit
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
+    }
+
+    abstract class Repeat(val count : Int) extends UnaryOperatorWidthableInputs {
+      override def calcWidth: Int = source.getWidth*count
     }
 
     trait ShiftOperator
@@ -725,6 +735,11 @@ object Operator {
       override def opName: String = "Bits =/= Bits"
     }
 
+    class Repeat(count: Int) extends BitVector.Repeat(count) {
+      override def getTypeObject = TypeBits
+      override def opName: String = "Bits #* Int"
+    }
+
     class ShiftRightByInt(shift: Int) extends BitVector.ShiftRightByInt(shift){
       override def getTypeObject = TypeBits
       override def opName: String = "Bits >> Int"
@@ -863,6 +878,11 @@ object Operator {
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
+    }
+
+    class Repeat(count: Int) extends BitVector.Repeat(count) {
+      override def getTypeObject = TypeUInt
+      override def opName: String = "UInt #* Int"
     }
 
     class ShiftRightByInt(shift: Int) extends BitVector.ShiftRightByInt(shift) {
@@ -1009,6 +1029,11 @@ object Operator {
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }
+    }
+
+    class Repeat(count: Int) extends BitVector.Repeat(count) {
+      override def getTypeObject = TypeSInt
+      override def opName: String = "SInt #* Int"
     }
 
     class ShiftRightByInt(shift: Int) extends BitVector.ShiftRightByInt(shift) {
