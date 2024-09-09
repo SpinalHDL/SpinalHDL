@@ -9,7 +9,7 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   organization := "com.github.spinalhdl",
   version      := SpinalVersion.all,
   crossScalaVersions := SpinalVersion.compilers,
-  scalaVersion := SpinalVersion.compilers(1),
+  scalaVersion := SpinalVersion.compilers(0),
   scalacOptions ++= Seq("-unchecked","-target:jvm-1.8"/*, "-feature" ,"-deprecation"*/),
   scalacOptions += "-language:reflectiveCalls",
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
@@ -32,7 +32,7 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
   libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
   libraryDependencies += "org.scalactic" %% "scalactic" % "3.2.10", //Ensure that scalatic version 3.2.5 is avoided
-  libraryDependencies += "io.github.zhaokunhu" % "ipxactscalacases" % "0.0.2",
+  libraryDependencies += "io.github.zhaokunhu" % "ipxactscalacases" % "0.0.3",
   dependencyOverrides += "net.java.dev.jna" % "jna" % "5.12.1",
   dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.12.1",
   dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.5",
@@ -190,8 +190,3 @@ addCommandAlias("testFormal", "testOnly * -- -n spinal.tester.formal")
 addCommandAlias("testWithoutFormal", "testOnly * -- -l spinal.tester.formal")
 
 assembly / assemblyOutputPath := file("./release/spinalhdl.jar")
-
-
-
-
-
