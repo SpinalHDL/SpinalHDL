@@ -1,14 +1,11 @@
 package spinal.lib.memory.sdram.Dfi.Alignment
 
-import spinal.lib.memory.sdram.xdr.Dfi.CtrlWithBmb._
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.Dfi.CtrlWithBmb.Refresher
-import spinal.lib.memory.sdram.Dfi.Interface.{CoreConfig, CoreParameterAggregate, CorePort, CorePortParameter, DfiConfig, DfiTimeConfig, IDFI}
-import spinal.lib.memory.sdram.Dfi.Tools
-import spinal.lib.memory.sdram.Dfi.Tools.{CmdTxd, MakeTask, RdDataRxd, WrDataTxd}
+import spinal.lib.memory.sdram.Dfi.CtrlWithBmb._
+import spinal.lib.memory.sdram.Dfi.Interface._
+import spinal.lib.memory.sdram.Dfi.Tools._
 
-//import spinal.lib.memory.sdram.xdr
 case class CtrlAlignment(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Component{
   import cpa._
   import cpa.config._
@@ -34,13 +31,13 @@ case class CtrlAlignment(cpp : CorePortParameter, cpa : CoreParameterAggregate) 
   }
 
   val wrdata = new Area {
-    val wrdatatxd = Tools.WrDataTxd(cpa)
+    val wrdatatxd = WrDataTxd(cpa)
     wrdatatxd.io.write <> RegNext(maketask.io.output.task.write).init(False)
     wrdatatxd.io.coreWrdata << io.inport.writeData
   }
 
   val radata = new Area {
-    val rddatarxd = Tools.RdDataRxd(cpa)
+    val rddatarxd = RdDataRxd(cpa)
     rddatarxd.io.task <> maketask.io.output.init()
     io.inport.rsp << rddatarxd.io.coreRddata.toStream
   }

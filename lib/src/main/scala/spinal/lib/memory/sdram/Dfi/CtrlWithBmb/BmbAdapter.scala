@@ -1,10 +1,9 @@
 package spinal.lib.memory.sdram.Dfi.CtrlWithBmb
 
-import spinal.lib.memory.sdram.xdr.Dfi._
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbAlignedSpliter, BmbAligner, BmbLengthFixer}
-import spinal.lib.memory.sdram.Dfi.Interface.{CoreCmd, CoreParameterAggregate, CorePort, CorePortParameter, PhyLayout}
+import spinal.lib.memory.sdram.Dfi.Interface._
 import spinal.lib.memory.sdram.Dfi.Tools.BmbToCorePort
 //import spinal.lib.memory.sdram.xdr.{BmbPortParameter, PhyLayout}
 

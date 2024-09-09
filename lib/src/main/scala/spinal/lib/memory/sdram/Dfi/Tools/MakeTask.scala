@@ -1,9 +1,8 @@
 package spinal.lib.memory.sdram.Dfi.Tools
 
 import spinal.core._
-import spinal.lib.memory.sdram.xdr.Dfi.Interface.{BusAddress, CoreCmd, CoreConfig, CoreParameterAggregate, CorePortParameter, CoreTask, CoreTasks, DfiConfig, SdramAddress}
 import spinal.lib._
-import spinal.lib.memory.sdram.Dfi.Interface.{BusAddress, CoreCmd, CoreConfig, CoreParameterAggregate, CorePortParameter, CoreTask, CoreTasks}
+import spinal.lib.memory.sdram.Dfi.Interface._
 
 case class MakeTask(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Component{
   import cpa._
