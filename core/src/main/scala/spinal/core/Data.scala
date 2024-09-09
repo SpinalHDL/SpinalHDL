@@ -767,6 +767,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     comb.asInstanceOf[this.type]
   }
 
+  /** For a register, get the value it will have at the next clock, as a combinational signal. */
   def getAheadValue() : this.type = {
     assert(this.isReg, "Next value is only for regs")
 
