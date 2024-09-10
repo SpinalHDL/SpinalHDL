@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.Dfi.PHY
+package spinal.lib.memory.sdram.xdr.PHY
 
 import spinal.core.BlackBox
 import spinal.lib._

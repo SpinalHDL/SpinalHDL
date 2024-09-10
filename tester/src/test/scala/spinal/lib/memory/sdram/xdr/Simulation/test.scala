@@ -4,12 +4,10 @@ import spinal.core._
 import spinal.lib.bus.bmb.BmbParameter
 import spinal.lib.memory.sdram.Dfi.CtrlWithBmb.{Bmb2Dfi, BmbAdapter, BmbPortParameter, CtrlParameter}
 import spinal.lib.memory.sdram.Dfi.Interface.{CoreParameter, CoreParameterAggregate, DDR, DfiConfig, DfiTimeConfig, PhyLayout, SdramGeneration, SdramLayout, SdramTiming}
-import spinal.lib.memory.sdram.Dfi.Tools.RdDataRxd
+import spinal.lib.memory.sdram.Dfi.Tools._
 import spinal.lib.memory.sdram.Dfi.CtrlWithBmb._
 import spinal.lib.memory.sdram.Dfi.Interface._
-//import spinal.lib.memory.sdram.{SdramGeneration, SdramLayout}
-//import spinal.lib.memory.sdram.PhyLayout
-//import spinal.lib.memory.sdram.CorePortParameter
+
 
 case class test() extends Component{
 //  import cpa.config._
@@ -34,8 +32,9 @@ case class test() extends Component{
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 val bmbclockDomain = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,config=ClockDomainConfig(resetActiveLevel = HIGH))
   val core:CoreParameter = CoreParameter(timingWidth=3,refWidth=9)
-  val pl:PhyLayout = PhyLayout(sdram = SdramLayout(SdramGeneration.MYDDR,bankWidth=2,columnWidth=9,rowWidth=12,dataWidth=8,sdramtime=SdramTiming(3)),
-    phaseCount=4,dataRate=SdramGeneration.MYDDR.dataRate,0,0,0,0,transferPerBurst=8)
+  val sdramtime = SdramTiming(3, RFC = 260, RAS = 38, RP = 15, RCD = 15, WTR = 8, WTP = 0, RTP = 8, RRD = 6, REF = 64000, FAW = 35)
+  val sdram = SdramLayout(SdramGeneration.MYDDR,bankWidth=2,columnWidth=9,rowWidth=12,dataWidth=8,ddrMHZ=100,ddrWrLat=4,ddrRdLat=4,sdramtime=sdramtime)
+  val pl:PhyLayout = PhyLayout(sdram = sdram, phaseCount=4,dataRate=SdramGeneration.MYDDR.dataRate,0,0,0,0,transferPerBurst=8)
   val timeConfig = DfiTimeConfig(tPhyWrLat=4,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,tRddataEn=4,tPhyRdlat=4,tPhyRdCsGap=3)
   val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
     dramChipselectNumber=2,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=DDR(),timeConfig=timeConfig)

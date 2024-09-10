@@ -56,9 +56,9 @@ case class SdramLayout( generation : SdramGeneration,
                         columnWidth : Int,
                         rowWidth : Int,
                         dataWidth : Int,
-                        ddrMHZ:Int=100,
-                        ddrWrLat:Int=4,
-                        ddrRdLat:Int=4,
+                        ddrMHZ:Int,
+                        ddrWrLat:Int,
+                        ddrRdLat:Int,
                         sdramtime:SdramTiming
                         ){
   import sdramtime._
@@ -93,13 +93,13 @@ case class SdramLayout( generation : SdramGeneration,
 }
 
 case class SdramTiming(generation : Int,
-                       RFC : Int=260,//ns // Command Period (REF to ACT)
-                       RAS : Int=38, // Command Period (ACT to PRE)   Per bank
-                       RP  : Int=15,//ns // Command Period (PRE to ACT)
-                       RCD : Int=15,//ns // Active Command To Read / Write Command Delay Time
-                       WTR : Int=8, // WRITE to READ
-                       WTP : Int=0, // WRITE to PRE (WRITE recovery time)
-                       RTP : Int=8, // READ to PRE
-                       RRD : Int=6, // ACT to ACT cross bank
-                       REF : Int=64000,//us // Refresh Cycle Time (single row)
-                       FAW : Int=35) // Four ACTIVATE windows
+                       RFC : Int,//ns // Command Period (REF to ACT)
+                       RAS : Int, // Command Period (ACT to PRE)   Per bank
+                       RP  : Int,//ns // Command Period (PRE to ACT)
+                       RCD : Int,//ns // Active Command To Read / Write Command Delay Time
+                       WTR : Int, // WRITE to READ
+                       WTP : Int, // WRITE to PRE (WRITE recovery time)
+                       RTP : Int, // READ to PRE
+                       RRD : Int, // ACT to ACT cross bank
+                       REF : Int,//us // Refresh Cycle Time (single row)
+                       FAW : Int) // Four ACTIVATE windows

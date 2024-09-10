@@ -3,14 +3,10 @@ package spinal.lib.memory.sdram.Dfi.Interface
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
-//import spinal.lib.memory.sdram.xdr.InitCmd
-//import spinal.lib.memory.sdram.SdramLayout
-//import spinal.lib.memory.sdram.xdr.{PhyLayout}
+
 case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   import cpa._
 
-//  val writeLatency = UInt(log2Up(cp.writeLatencies.size) bits)
-//  val readLatency = UInt(log2Up(cp.readLatencies.size) bits)
   val sdram = cpa.pl.sdram
   def time(tcyc : Int, phase : Int=config.frequencyRatio) = (tcyc + phase - 1) / phase
   def RAS = time(sdram.tRAS)
@@ -33,13 +29,7 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
 //  val FAW = generation.FAW generate UInt(cp.timingWidth bits)
 //  val REF = UInt(cp.refWidth bits)
 //  val autoRefresh, noActive = Bool()
-//
-//  val phase = new Bundle {
-//    val active = UInt(log2Up(cpa.pl.phaseCount) bits)
-//    val precharge = UInt(log2Up(cpa.pl.phaseCount) bits)
-//    val read = UInt(log2Up(cpa.pl.phaseCount) bits)
-//    val write = UInt(log2Up(cpa.pl.phaseCount) bits)
-//  }
+
 }
 case class SdramAddress(l : SdramLayout) extends Bundle {
   val byte   = UInt(log2Up(l.bytePerWord) bits)
@@ -56,17 +46,12 @@ case class BusAddress(l : SdramLayout, config:DfiConfig) extends Bundle {
 }
 
 
-
-
-
 case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
   import cpa._
 
-  //  val kind = FrontendCmdOutputKind()
   val read, write, active, precharge = Bool() //OH encoded
   val last = Bool()
   val address = BusAddress(pl.sdram,config)
-  //  val portId = UInt(log2Up(cpp.size) bits)
   val context = Bits(backendContextWidth bits)
 }
 
@@ -89,24 +74,16 @@ case class CoreTasks(cpa : CoreParameterAggregate) extends Bundle with IMasterSl
 
 case class CoreParameterAggregate(cp : CoreParameter, pl : PhyLayout, cpp : CorePortParameter, config: DfiConfig){
   def backendContextWidth = cpp.contextWidth
-//  def portCount = cpp.size
   def generation = pl.sdram.generation
   def stationLengthWidth = log2Up(stationLengthMax)
   def stationLengthMax = cp.bytePerTaskMax/pl.bytePerBurst
   def chipSelectWidth = log2Up(config.chipSelectNumber)
   def addressWidth = pl.sdram.byteAddressWidth+chipSelectWidth
 }
-case class CoreParameter(
-//                          stationCount  : Int = 2,
-                          bytePerTaskMax : Int = 64,
+case class CoreParameter(bytePerTaskMax : Int = 64,
                           timingWidth : Int,
-                          refWidth : Int
-//                          writeLatencies : List[Int],
-//                          readLatencies : List[Int]){
-                        ){
+                          refWidth : Int){
   assert(isPow2(bytePerTaskMax))
-  //  assert(isPow2(frustrationMax))
-  //  def frustrationWidth = log2Up(frustrationMax + 1)
 }
 
 case class CorePortParameter(contextWidth : Int,
@@ -181,6 +158,8 @@ case class PhyLayout(sdram : SdramLayout,
   def bytePerBurst = burstWidth/8
   def bytePerBeat = beatWidth/8
 }
+
+
 case class InitCmd(config: DfiConfig) extends Bundle{
   val ADDR  = Bits(config.addressWidth bits)
   val BA    = Bits(config.bankWidth bits)

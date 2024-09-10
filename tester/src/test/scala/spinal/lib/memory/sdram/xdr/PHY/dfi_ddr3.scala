@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.Dfi.PHY
+package spinal.lib.memory.sdram.xdr.PHY
 
 import spinal.lib.memory.sdram.Dfi.CtrlWithBmb.{Bmb2Dfi, BmbAdapter, BmbPortParameter, CtrlParameter}
 import spinal.lib.memory.sdram.Dfi.Interface.{CoreParameter, DfiConfig, PhyLayout, SdramGeneration}
