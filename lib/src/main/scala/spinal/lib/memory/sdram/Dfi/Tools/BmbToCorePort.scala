@@ -4,8 +4,8 @@ import spinal.core._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 import spinal.lib.memory.sdram.Dfi.CtrlWithBmb.BmbPortParameter
 import spinal.lib.memory.sdram.Dfi.Interface.{CoreParameterAggregate, CorePort, CorePortParameter}
-//import spinal.lib.memory.sdram.xdr.
 import spinal.lib._
+
 
 
 case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreParameterAggregate, pp : BmbPortParameter) extends Component{

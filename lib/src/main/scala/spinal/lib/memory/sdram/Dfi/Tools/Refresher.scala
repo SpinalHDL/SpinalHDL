@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.Dfi.CtrlWithBmb
+package spinal.lib.memory.sdram.Dfi.Tools
 
 import spinal.core._
 import spinal.lib._

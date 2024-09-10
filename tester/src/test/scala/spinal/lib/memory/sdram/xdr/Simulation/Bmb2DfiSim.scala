@@ -26,23 +26,18 @@ case class Bmb2DfiSim(x:Int) extends Component{
   val cpa = CoreParameterAggregate(ctp.core, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
   val io = new Bundle {
     val bmb = slave(Bmb(ctp.port.bmb))
-//    val ctrl = slave(Bmb(ctrlbmbp))
     val dfi = master(Dfi(config))
-    val initDone = out Bool()
   }
-//  val bmb2dfi = Bmb2Dfi(ctp,pl,config, ctrlbmbp)
   val bmb2dfi = Bmb2Dfi(ctp,pl,config)
   bmb2dfi.io.bmb <> io.bmb
   bmb2dfi.io.dfi <> io.dfi
-//  bmb2dfi.io.initDone <> io.initDone
-//  bmb2dfi.io.ctrl <> io.ctrl
+
 
 }
 object Bmb2DfiSim {
   def main(args: Array[String]): Unit = {
     SimConfig.withWave.compile{val dut = Bmb2DfiSim(1)
       dut.bmb2dfi.bmbBridge.bmbAdapter.io.output.rsp.payload.last.simPublic()
-//      dut.bmb2dfi.dfiAlignment.initialize.io.initDone.simPublic()
       dut}.doSimUntilVoid {dut =>
       dut.clockDomain.forkStimulus(10)
       import dut._
@@ -162,6 +157,10 @@ object Bmb2DfiSim {
 
       clockDomain.waitSampling(5)
       write(array = bmbDatas,address = 4120)
+      println("writing is OK")
+
+      clockDomain.waitSampling(5)
+      write(array = bmbDatas,address = 12280)
       println("writing is OK")
       clockDomain.waitSampling(20)
 

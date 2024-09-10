@@ -114,12 +114,10 @@ case class TaskPort(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
   val writeData = cpp.canWrite generate Stream(CoreWriteData(cpp, cpa))
   val rsp = Stream(Fragment(CoreRsp(cpp, cpa)))
 
-  val writeDataAdded = UInt(cpp.writeTockenInterfaceWidth bits)
-
   override def asMaster(): Unit = {
     masterWithNull(writeData)
     slave(rsp)
-    out(tasks)
+    master(tasks)
   }
 }
 

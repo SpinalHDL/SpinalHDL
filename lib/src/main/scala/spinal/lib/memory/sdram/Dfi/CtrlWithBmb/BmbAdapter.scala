@@ -5,7 +5,6 @@ import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbAlignedSpliter, BmbAligner, BmbLengthFixer}
 import spinal.lib.memory.sdram.Dfi.Interface._
 import spinal.lib.memory.sdram.Dfi.Tools.BmbToCorePort
-//import spinal.lib.memory.sdram.xdr.{BmbPortParameter, PhyLayout}
 
 object BmbAdapter{
   def corePortParameter(pp : BmbPortParameter, pl : PhyLayout) = CorePortParameter(

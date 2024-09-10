@@ -2,10 +2,8 @@ package spinal.lib.memory.sdram.Dfi.CtrlWithBmb
 
 import spinal.lib._
 import spinal.core._
-import spinal.lib.memory.sdram.Dfi.Interface.DfiConfig
-//import spinal.lib.memory.DfiConfig
-import spinal.lib.memory.sdram.Dfi.Alignment.{CAAlignment, RdAlignment, WrAlignment}
-import spinal.lib.memory.sdram.Dfi.Interface.{Dfi, IDFI}
+import spinal.lib.memory.sdram.Dfi._
+import spinal.lib.memory.sdram.Dfi.Interface.{Dfi, DfiConfig, IDFI}
 
 case class Alignment(config : DfiConfig) extends Component{
 
@@ -30,5 +28,6 @@ case class Alignment(config : DfiConfig) extends Component{
   if(config.useRddataCsN)rdAlignment.io.rdcs <> io.inIdfiport.rdcs
   rdAlignment.io.rd <> io.outDfiport.read.rd
   if(config.useRddataCsN)rdAlignment.io.rdCs <> io.outDfiport.read.rdCs
+  io.inIdfiport.rden <> io.outDfiport.read.rden
   rdAlignment.io.phaseclear := False
 }

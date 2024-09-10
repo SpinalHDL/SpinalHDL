@@ -86,5 +86,4 @@ case class RdAlignment(config: DfiConfig) extends Component {
       }
     }
   }
-
 }

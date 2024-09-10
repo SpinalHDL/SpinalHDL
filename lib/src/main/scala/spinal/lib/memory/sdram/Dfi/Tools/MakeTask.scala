@@ -120,7 +120,6 @@ case class MakeTask(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
     val context = Bits(backendContextWidth bits)
     val burstLast = Bool()
     val length = Reg(UInt(cpa.stationLengthWidth bits))
-//    val portId = UInt(log2Up(cpp.size) bits)
   }
 
   val inputsArbiter = new Area {
