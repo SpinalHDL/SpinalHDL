@@ -726,7 +726,7 @@ class Cache(val p : CacheParam) extends Component {
       val GS_NEED = insert(List(ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, GET, FLUSH).map(_.craft()).sContains(CTRL_CMD.opcode))
       val GS_HITS = insert(gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address).asBits)
       val GS_HIT = insert(GS_HITS.orR)
-      val GS_OH = insert(UIntToOh(CTRL_CMD.gsId))
+      val GS_OH = insert(UIntToOh(CTRL_CMD.gsId, generalSlotCount))
 
       //For as long as the cache is inclusive
       when(ACQUIRE){
@@ -1312,7 +1312,7 @@ class Cache(val p : CacheParam) extends Component {
       victimBuffer.write.address := victimAddress(processStage)
       victimBuffer.write.data := DATA
 
-      val gsOh = UIntToOh(CMD.gsId)
+      val gsOh = UIntToOh(CMD.gsId, generalSlotCount)
 
       when(isFireing && CMD.toVictim && inserter.FIRST) {
         gs.slots.onMask(gsOh) { s =>
