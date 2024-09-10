@@ -362,30 +362,30 @@ object VivadoBusReference {
   //    BusInterfaceType(busNameGroupSequence, thisBusType, Some(abstractionType), busDirectionRecord, portMaps = Some(thisPortMaps))
   //  }
 
-  def referenceNormalStream(streamSignal: Stream[_]): BusInterfaceType = {
-    val payloadClassName = streamSignal.payload.getClass.getSimpleName
-    val thisBusName = s"Stream_$payloadClassName" + "_" + streamSignal.name
-    val busChildren = streamSignal.flatten
-    val busDirectionRecord = getDirectionRecord(streamSignal)
-    var portSeqMap: Seq[PortMap] = Seq()
-    for (thisSignal <- busChildren) {
-      val thisSignalPhysicalName = thisSignal.name
-      val thisPhysicalPort = PhysicalPort(thisSignalPhysicalName)
-      val lastWord = thisSignalPhysicalName.split("_").last
-      val thisSignalLogicalName = if (lastWord == "payload") {
-        "TDATA"
-      } else {
-        "T" + thisSignalPhysicalName.split("_").last.toUpperCase
-      }
-      val thisLogicalPort = LogicalPort(thisSignalLogicalName)
-      val thisPortMap = PortMap(thisLogicalPort, thisPhysicalPort)
-      portSeqMap = portSeqMap :+ thisPortMap
-    }
-    val thisPortMaps = PortMaps(portSeqMap)
-    val (thisBusType, abstractionType) = createBusTypeAndAbstractionType("axis")
-    val busNameGroupSequence = NameGroupSequence(thisBusName)
-    BusInterfaceType(busNameGroupSequence, thisBusType, Some(abstractionType), busDirectionRecord, portMaps = Some(thisPortMaps))
-  }
+//  def referenceNormalStream(streamSignal: Stream[_]): BusInterfaceType = {
+//    val payloadClassName = streamSignal.payload.getClass.getSimpleName
+//    val thisBusName = s"Stream_$payloadClassName" + "_" + streamSignal.name
+//    val busChildren = streamSignal.flatten
+//    val busDirectionRecord = getDirectionRecord(streamSignal)
+//    var portSeqMap: Seq[PortMap] = Seq()
+//    for (thisSignal <- busChildren) {
+//      val thisSignalPhysicalName = thisSignal.name
+//      val thisPhysicalPort = PhysicalPort(thisSignalPhysicalName)
+//      val lastWord = thisSignalPhysicalName.split("_").last
+//      val thisSignalLogicalName = if (lastWord == "payload") {
+//        "TDATA"
+//      } else {
+//        "T" + thisSignalPhysicalName.split("_").last.toUpperCase
+//      }
+//      val thisLogicalPort = LogicalPort(thisSignalLogicalName)
+//      val thisPortMap = PortMap(thisLogicalPort, thisPhysicalPort)
+//      portSeqMap = portSeqMap :+ thisPortMap
+//    }
+//    val thisPortMaps = PortMaps(portSeqMap)
+//    val (thisBusType, abstractionType) = createBusTypeAndAbstractionType("axis")
+//    val busNameGroupSequence = NameGroupSequence(thisBusName)
+//    BusInterfaceType(busNameGroupSequence, thisBusType, Some(abstractionType), busDirectionRecord, portMaps = Some(thisPortMaps))
+//  }
 
   def referenceAxis4(axi4StreamBundle: Stream[Axi4StreamBundle]): BusInterfaceType = {
     val thisBusName = "Axis4" + "_" + axi4StreamBundle.name

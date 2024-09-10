@@ -62,18 +62,18 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
                     appendBusElement(busStream)
                     break
                   }
-                case normalType if normalType.isInstanceOf[Bool]
-                  || normalType.isInstanceOf[UInt] ||
-                  normalType.isInstanceOf[SInt] ||
-                  normalType.isInstanceOf[Bits] ||
-                  normalType.isInstanceOf[UFix] ||
-                  normalType.isInstanceOf[SFix] ||
-                  normalType.isInstanceOf[AFix] =>
-                  if (!busStringSet.contains(busStream.name)) {
-                    busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceNormalStream(busStream)
-                    appendBusElement(busStream)
-                    break
-                  }
+//                case normalType if normalType.isInstanceOf[Bool]
+//                  || normalType.isInstanceOf[UInt] ||
+//                  normalType.isInstanceOf[SInt] ||
+//                  normalType.isInstanceOf[Bits] ||
+//                  normalType.isInstanceOf[UFix] ||
+//                  normalType.isInstanceOf[SFix] ||
+//                  normalType.isInstanceOf[AFix] =>
+//                  if (!busStringSet.contains(busStream.name)) {
+//                    busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceNormalStream(busStream)
+//                    appendBusElement(busStream)
+//                    break
+//                  }
                 case _ =>
               }
             //            case busFlow: Flow[_] =>
