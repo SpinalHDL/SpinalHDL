@@ -106,12 +106,14 @@ object Bench {
       }
     }
 
+    val targetNameLengthMax = targets.map(_.getFamilyName().size).max
     for (rtl <- rtls) {
       println(s"${rtl.getName()} ->")
       for (target <- targets) {
         try{
           val report = results(rtl)(target).value.get.get
-          println(s"${target.getFamilyName()} -> ${(report.getFMax / 1e6).toInt} Mhz ${report.getArea()}")
+          val name = target.getFamilyName()
+          println(s"- ${name}${" " * (targetNameLengthMax-name.size)} -> ${(report.getFMax / 1e6).toInt} Mhz ${report.getArea()}")
         } catch {
           case t : Throwable =>  println(s"${target.getFamilyName()} -> FAILED")
         }
