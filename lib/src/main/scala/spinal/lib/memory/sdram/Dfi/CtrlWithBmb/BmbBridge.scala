@@ -3,9 +3,8 @@ package spinal.lib.memory.sdram.Dfi.CtrlWithBmb
 import spinal.lib._
 import spinal.core._
 import spinal.lib.bus.bmb.Bmb
-import spinal.lib.memory.sdram.Dfi.Interface.{CoreParameterAggregate, TaskPort}
+import spinal.lib.memory.sdram.Dfi.Interface._
 import spinal.lib.memory.sdram.Dfi.Tools.MakeTask
-import spinal.lib.memory.sdram.xdr.Dfi.Interface._
 
 case class BmbBridge(port : BmbPortParameter, cpa : CoreParameterAggregate) extends Component{
   import cpa._

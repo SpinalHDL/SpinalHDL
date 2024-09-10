@@ -2,8 +2,7 @@ package spinal.lib.memory.sdram.Dfi.Tools
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.Dfi.Interface.{CoreParameterAggregate, CoreRsp, CoreTasks, Dfirddata}
-import spinal.lib.memory.sdram.xdr.Dfi.Interface._
+import spinal.lib.memory.sdram.Dfi.Interface._
 case class RdDataRxd(cpa:CoreParameterAggregate) extends Component {
   import cpa._
   import cpa.config._

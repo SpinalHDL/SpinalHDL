@@ -2,8 +2,7 @@ package spinal.lib.memory.sdram.Dfi.CtrlWithBmb
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.Dfi.Interface.{CoreConfig, CoreParameterAggregate}
-import spinal.lib.memory.sdram.xdr.Dfi.Interface._
+import spinal.lib.memory.sdram.Dfi.Interface._
 case class Refresher(cpa : CoreParameterAggregate) extends Component{
   import cpa._
   val io = new Bundle {
