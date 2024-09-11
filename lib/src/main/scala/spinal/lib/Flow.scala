@@ -2,6 +2,8 @@ package spinal.lib
 
 import spinal.core._
 
+import scala.collection.mutable.ArrayBuffer
+
 
 class FlowFactory extends MSFactory{
   object Fragment extends FlowFragmentFactory
@@ -277,4 +279,18 @@ class FlowCCUnsafeByToggle[T <: Data](dataType: HardType[T],
     inputArea.target.randBoot()
     outputArea.hit.randBoot()
   }
+}
+
+object FlowArbiter{
+  def apply[T <: Data](inputs : Seq[Flow[T]], output : Flow[T]) = {
+    assert(OH.isLegal(inputs.map(_.valid).asBits))
+    output.valid := inputs.map(_.valid).orR
+    output.payload := OHMux.or(inputs.map(_.valid).toIndexedSeq, inputs.map(_.payload), true)
+  }
+}
+
+class FlowArbiterBuilder[T <: Data](output : Flow[T]){
+  val inputs = ArrayBuffer[Flow[T]]()
+  def create() = inputs.addRet(cloneOf(output))
+  def build() = FlowArbiter(inputs, output)
 }

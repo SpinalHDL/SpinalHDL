@@ -205,6 +205,13 @@ object Napot{
   def apply(that: Bits, firstOrder: Int = LutInputs.get): Bits = SetFromFirstOne(~that, firstOrder) << 1
 }
 
+object OH{
+  def isLegal(that : Bits): Bool = {
+    val oneHots = (0 until widthOf(that)).map(e => that === (BigInt(1) << e))
+    (oneHots :+ (that === 0)).orR
+  }
+}
+
 object OHMasking{
 
   /** returns an one hot encoded vector with only LSB of the word present */
