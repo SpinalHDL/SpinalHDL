@@ -244,13 +244,13 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
 
     (getMode, nameableRef) match{
       case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
-        val path = getPath(this.component, other.component) :+ nameableRef
+        val path = getPath(this.component, other.component).tail :+ nameableRef
         if(path.forall(_.isNamed))
           path.map(_.getName()).mkString("_") + "_" + name
         else
           default
       case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
-        val path = getPath(this.component, other.component) :+ nameableRef
+        val path = getPath(this.component, other.component).tail :+ nameableRef
         if(path.forall(_.isNamed))
           path.map(_.getName()).mkString("_")
         else
@@ -263,9 +263,9 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
   override def isNamed: Boolean = {
     (getMode, nameableRef) match{
       case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
-        nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
+        nameableRef.isNamed && getPath(this.component, other.component).tail.forall(_.isNamed)
       case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
-        nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
+        nameableRef.isNamed && getPath(this.component, other.component).tail.forall(_.isNamed)
       case _ => super.isNamed
     }
   }
