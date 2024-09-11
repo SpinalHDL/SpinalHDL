@@ -116,7 +116,7 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
 
 }
 
-case class BmbCmd(bmbp: BmbParameter,pl: PhyConfig) extends Component{
+case class Bmb_Cmd(bmbp: BmbParameter, pl: PhyConfig) extends Component{
 
   val io = new Bundle{
     val bmb = master(Bmb(bmbp))
@@ -136,13 +136,9 @@ case class BmbCmd(bmbp: BmbParameter,pl: PhyConfig) extends Component{
       io.bmb.cmd.length := U(length * pl.bytePerBeat - 1).resized
       io.bmb.cmd.opcode := True.asBits
     }
-//    when(counter === length) {
-//      cmdValid := True
-//    }
-    //        io.bmb.cmd.data #= array(0)
+
     io.bmb.cmd.data := initdata.rotateLeft(((U(length) - counter) >> 1).resize(log2Up(io.bmb.cmd.data.getWidth))).asBits
     when(counter === 1) {
-//      cmdValid := False
       io.bmb.cmd.last.set()
     }
     println("write command")
@@ -201,7 +197,8 @@ case class dfi_ddr3() extends Component{
   val sdramtime = SdramTiming(3, RFC = 260, RAS = 38, RP = 15, RCD = 15, WTR = 8, WTP = 0, RTP = 8, RRD = 6, REF = 64000, FAW = 35)
   val sdram = SdramConfig(SdramGeneration.MYDDR,bankWidth=3,columnWidth=10,rowWidth=15,dataWidth=16,ddrMHZ=100,ddrWrLat=4,ddrRdLat=4,sdramtime=sdramtime)
   val pl:PhyConfig = PhyConfig(sdram = sdram, phaseCount=1,dataRate=SdramGeneration.MYDDR.dataRate,0,0,0,0,transferPerBurst=8)
-  val timeConfig = DfiTimeConfig(tPhyWrLat=pl.sdram.tPhyWrlat,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
+  val timeConfig = DfiTimeConfig(tPhyWrLat=pl.sdram.tPhyWrlat,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,
+    tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
   val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
     dramChipselectNumber=1,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=new DDR(),timeConfig=timeConfig)
   import config._
@@ -261,21 +258,23 @@ object bmb_dfi_ddr3 extends App{
   val sdramtime = SdramTiming(3, RFC = 260, RAS = 38, RP = 15, RCD = 15, WTR = 8, WTP = 0, RTP = 8, RRD = 6, REF = 64000, FAW = 35)
   val sdram = SdramConfig(SdramGeneration.MYDDR,bankWidth=3,columnWidth=10,rowWidth=15,dataWidth=16,ddrMHZ=100,ddrWrLat=4,ddrRdLat=4,sdramtime=sdramtime)
   val pl:PhyConfig = PhyConfig(sdram = sdram, phaseCount=1,dataRate=SdramGeneration.MYDDR.dataRate,0,0,0,0,transferPerBurst=8)
-  val timeConfig = DfiTimeConfig(tPhyWrLat=pl.sdram.tPhyWrlat,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
+  val timeConfig = DfiTimeConfig(tPhyWrLat=pl.sdram.tPhyWrlat,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,
+    tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
   val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
     dramChipselectNumber=1,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=new DDR(),timeConfig=timeConfig)
   SpinalConfig().generateVerilog(bmb_dfi_ddr3(pl, config))
 }
-object BmbCmd extends App{
+object Bmb_Cmd extends App{
   val sdramtime = SdramTiming(3, RFC = 260, RAS = 38, RP = 15, RCD = 15, WTR = 8, WTP = 0, RTP = 8, RRD = 6, REF = 64000, FAW = 35)
   val sdram = SdramConfig(SdramGeneration.MYDDR,bankWidth=3,columnWidth=10,rowWidth=15,dataWidth=16,ddrMHZ=100,ddrWrLat=4,ddrRdLat=4,sdramtime=sdramtime)
   val pl:PhyConfig = PhyConfig(sdram = sdram, phaseCount=1,dataRate=SdramGeneration.MYDDR.dataRate,0,0,0,0,transferPerBurst=8)
-  val timeConfig = DfiTimeConfig(tPhyWrLat=pl.sdram.tPhyWrlat,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
+  val timeConfig = DfiTimeConfig(tPhyWrLat=pl.sdram.tPhyWrlat,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,
+    tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
   val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
     dramChipselectNumber=1,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=new DDR(),timeConfig=timeConfig)
   val bmbp:BmbParameter = BmbParameter(addressWidth=pl.sdram.byteAddressWidth+log2Up(config.chipSelectNumber),dataWidth=pl.beatWidth,
     sourceWidth=1,contextWidth=2,lengthWidth=6,alignment= BmbParameter.BurstAlignement.WORD)
 
-  SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetActiveLevel = LOW)).generateVerilog(BmbCmd(bmbp,pl))
+  SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetActiveLevel = LOW)).generateVerilog(Bmb_Cmd(bmbp,pl))
 
 }

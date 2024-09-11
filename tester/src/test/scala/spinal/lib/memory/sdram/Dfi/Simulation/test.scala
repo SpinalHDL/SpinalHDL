@@ -42,7 +42,7 @@ val bmbclockDomain = ClockDomain(ClockDomain.current.clock,ClockDomain.current.r
 //    sourceWidth=1,contextWidth=2,lengthWidth=6,alignment= BmbParameter.BurstAlignement.WORD)
   val bmbpp:BmbPortParameter = BmbPortParameter(bmbp,bmbclockDomain,cmdBufferSize=16,dataBufferSize=16,rspBufferSize=36)
   val ctp : CtrlParameter = CtrlParameter(core, bmbpp)
-  val cpa = TaskParameterAggregate(ctp.core, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
+  val cpa = TaskParameterAggregate(ctp.task, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
 //  val bmb2dfi = Bmb2Dfi(ctp,pl,config,ctrlbmbp)
   val bmb2dfi = Bmb2Dfi(ctp,pl,config)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

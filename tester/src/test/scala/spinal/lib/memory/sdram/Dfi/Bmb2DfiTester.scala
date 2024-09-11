@@ -1,42 +1,31 @@
-package spinal.lib.memory.sdram.Dfi.Simulation
+package spinal.lib
 
-import spinal.core._
-import spinal.core.sim._
-import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbParameter}
-import spinal.lib.memory.sdram.Dfi.Interface._
-import spinal.lib.memory.sdram.Dfi.CtrlWithBmb._
+import spinal.tester.code.SpinalAnyFunSuite
 
-case class Bmb2DfiSim(x:Int) extends Component{
-
-  val bmbclockDomain = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,config=ClockDomainConfig(resetActiveLevel = HIGH))
-  val core:TaskParameter = TaskParameter(timingWidth=5,refWidth=23)
-  val sdramtime = SdramTiming(3, RFC = 260, RAS = 38, RP = 15, RCD = 15, WTR = 8, WTP = 0, RTP = 8, RRD = 6, REF = 64000, FAW = 35)
-  val sdram = SdramConfig(SdramGeneration.MYDDR,bankWidth=3,columnWidth=10,rowWidth=15,dataWidth=16,ddrMHZ=100,ddrWrLat=4,ddrRdLat=4,sdramtime=sdramtime)
-  val pl:PhyConfig = PhyConfig(sdram = sdram, phaseCount=4,dataRate=SdramGeneration.MYDDR.dataRate,0,0,0,0,transferPerBurst=8)
-  val timeConfig = DfiTimeConfig(tPhyWrLat=pl.sdram.tPhyWrlat,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,
-    tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
-  val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
-    dramChipselectNumber=2,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=new DDR(),timeConfig=timeConfig)
-  val bmbp:BmbParameter = BmbParameter(addressWidth=pl.sdram.byteAddressWidth+log2Up(config.chipSelectNumber),dataWidth=pl.beatWidth,
-    sourceWidth=1,contextWidth=2,lengthWidth=6,alignment= BmbParameter.BurstAlignement.WORD)
-  val bmbpp:BmbPortParameter = BmbPortParameter(bmbp,bmbclockDomain,cmdBufferSize=64,dataBufferSize=64,rspBufferSize=64)
-  val ctp : CtrlParameter = CtrlParameter(core, bmbpp)
-  val cpa = TaskParameterAggregate(ctp.task, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
-  val io = new Bundle {
-    val bmb = slave(Bmb(ctp.port.bmb))
-    val dfi = master(Dfi(config))
-  }
-  val bmb2dfi = Bmb2Dfi(ctp,pl,config)
-  bmb2dfi.io.bmb <> io.bmb
-  bmb2dfi.io.dfi <> io.dfi
-}
-
-
-object Bmb2DfiSim {
-  def main(args: Array[String]): Unit = {
-    SimConfig.withWave.compile{val dut = Bmb2DfiSim(1)
-      dut.bmb2dfi.bmbBridge.bmbAdapter.io.output.rsp.payload.last.simPublic()
+class Bmb2DfiTester extends SpinalAnyFunSuite{
+  import spinal.core.sim._
+  import spinal.core._
+  import spinal.lib._
+  import spinal.lib.bus.bmb.BmbParameter
+  import spinal.lib.memory.sdram.Dfi.Interface._
+  import spinal.lib.memory.sdram.Dfi.CtrlWithBmb._
+  import spinal.lib.memory.sdram.Dfi._
+  test("Bmb2Dfi"){
+    SimConfig.compile{val bmbclockDomain = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,config=ClockDomainConfig(resetActiveLevel = HIGH))
+      val core:TaskParameter = TaskParameter(timingWidth=5,refWidth=23)
+      val sdramtime = SdramTiming(3, RFC = 260, RAS = 38, RP = 15, RCD = 15, WTR = 8, WTP = 0, RTP = 8, RRD = 6, REF = 64000, FAW = 35)
+      val sdram = SdramConfig(SdramGeneration.MYDDR,bankWidth=3,columnWidth=10,rowWidth=15,dataWidth=16,ddrMHZ=100,ddrWrLat=4,ddrRdLat=4,sdramtime=sdramtime)
+      val pl:PhyConfig = PhyConfig(sdram = sdram, phaseCount=4,dataRate=SdramGeneration.MYDDR.dataRate,0,0,0,0,transferPerBurst=8)
+      val timeConfig = DfiTimeConfig(tPhyWrLat=pl.sdram.tPhyWrlat,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,
+        tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
+      val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
+        dramChipselectNumber=2,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=new DDR(),timeConfig=timeConfig)
+      val bmbp:BmbParameter = BmbParameter(addressWidth=pl.sdram.byteAddressWidth+log2Up(config.chipSelectNumber),dataWidth=pl.beatWidth,
+        sourceWidth=1,contextWidth=2,lengthWidth=6,alignment= BmbParameter.BurstAlignement.WORD)
+      val bmbpp:BmbPortParameter = BmbPortParameter(bmbp,bmbclockDomain,cmdBufferSize=64,dataBufferSize=64,rspBufferSize=64)
+      val ctp : CtrlParameter = CtrlParameter(core, bmbpp)
+      val dut = Bmb2Dfi(ctp,pl,config)
+      dut.bmbBridge.bmbAdapter.io.output.rsp.payload.last.simPublic()
       dut}.doSimUntilVoid {dut =>
       dut.clockDomain.forkStimulus(10)
       import dut._
@@ -86,7 +75,7 @@ object Bmb2DfiSim {
           clockDomain.waitSampling()
         }
         dut.io.dfi.read.rd.foreach(_.rddatavalid #= false)
-        clockDomain.waitSamplingWhere(dut.bmb2dfi.bmbBridge.bmbAdapter.io.output.rsp.payload.last.toBoolean)
+        clockDomain.waitSamplingWhere(dut.bmbBridge.bmbAdapter.io.output.rsp.payload.last.toBoolean)
         clockDomain.waitSampling()
         io.bmb.rsp.ready #= false
       }
@@ -106,7 +95,6 @@ object Bmb2DfiSim {
         }
       }
 
-
       io.dfi.read.rd.foreach(_.rddatavalid #= false)
       clockDomain.waitSampling(10)
       io.bmb.cmd.valid #= false
@@ -119,14 +107,14 @@ object Bmb2DfiSim {
       io.bmb.cmd.data #= 0
       io.bmb.cmd.mask #= 0
       io.bmb.cmd.context #= 0
-//      io.dfi.read.rd.foreach(_.rddatavalid #= false)
-//      io.bmb.rsp.ready #= true
-//      clockDomain.waitSampling()
-//      io.bmb.rsp.ready #= false
-//      io.dfi.read.rd.foreach(_.rddata.randomize())
-//      io.bmb.rsp.ready #= true
-//      clockDomain.waitSamplingWhere(dut.bmb2dfi.dfiAlignment.initialize.io.initDone.toBoolean)
-//      clockDomain.waitSamplingWhere(dut.io.initDone.toBoolean)
+      //      io.dfi.read.rd.foreach(_.rddatavalid #= false)
+      //      io.bmb.rsp.ready #= true
+      //      clockDomain.waitSampling()
+      //      io.bmb.rsp.ready #= false
+      //      io.dfi.read.rd.foreach(_.rddata.randomize())
+      //      io.bmb.rsp.ready #= true
+      //      clockDomain.waitSamplingWhere(dut.bmb2dfi.dfiAlignment.initialize.io.initDone.toBoolean)
+      //      clockDomain.waitSamplingWhere(dut.io.initDone.toBoolean)
       clockDomain.waitSampling(5)
       write(array = bmbDatas,address = 64)
       println("writing is OK")
@@ -159,8 +147,6 @@ object Bmb2DfiSim {
       clockDomain.waitSampling(20)
 
       simSuccess()
-
-
     }
   }
 }
