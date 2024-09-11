@@ -2,8 +2,8 @@ package spinal.lib.memory.sdram.Dfi.Alignment
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.memory.sdram.Dfi.DelayCyc
 import spinal.lib.memory.sdram.Dfi.Interface.{DfiConfig, DfiTimeConfig, DfiWrcs, DfiWrdata, DfiWriteInterface}
-import spinal.lib.memory.sdram.Dfi.Tools.DelayCyc
 
 case class WrAlignment(config: DfiConfig) extends Component{
   import config._

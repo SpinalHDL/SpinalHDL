@@ -1,18 +1,18 @@
-package spinal.lib.memory.sdram.Dfi.Tools
+package spinal.lib.memory.sdram.Dfi
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.memory.sdram.Dfi.Interface._
 
-case class MakeTask(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Component{
+case class MakeTask(cpp : TaskPortParameter, cpa : TaskParameterAggregate) extends Component{
   import cpa._
   val io = new Bundle{
-    val cmd = slave(Stream(CoreCmd(cpp, cpa)))
+    val cmd = slave(Stream(TaskCmd(cpp, cpa)))
     val refresh = slave(Event)
     val writeDataTockens = in UInt(cpp.writeTockenInterfaceWidth bits)
-    val output = master(CoreTasks(cpa))
+    val output = master(PortTasks(cpa))
   }
-  val config = CoreConfig(cpa)
+  val config = TaskTimingConfig(cpa)
   val readyForRefresh = True
 
   val banksRow = Mem(UInt(pl.sdram.rowWidth bits), pl.sdram.bankCount)
@@ -44,7 +44,7 @@ case class MakeTask(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
 
   val banks = for(bankId <- 0 until pl.sdram.bankCount) yield new Area {
     val hits = B(io.output.task.address.bank === bankId)
-    def portEvent(f : CoreTask => Bool) = (hits & B(f(io.output.task))).orR
+    def portEvent(f : PortTask => Bool) = (hits & B(f(io.output.task))).orR
 
     val activeNext = Bool()
     val active = RegNext(activeNext) init(False)
@@ -195,7 +195,7 @@ case class MakeTask(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
 
     val fire = False //It is the last cycle for this station
     val last = offset === offsetLast
-    val cmdOutputPayload = CoreTask(cpa)
+    val cmdOutputPayload = PortTask(cpa)
     io.output.task.address.byte := address.byte
     io.output.task.address.column := address.column | (offset << columnBurstShift).resized
     io.output.task.address.row := address.row

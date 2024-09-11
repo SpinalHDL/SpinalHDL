@@ -2,31 +2,31 @@ package spinal.lib.memory.sdram.Dfi.Interface
 
 import spinal.core.{Bundle, assert}
 case class DfiTimeConfig(
-                          tPhyWrLat: Int=0,
+                          tPhyWrLat: Int,
                           //  the number of cycles between when the write command is driven on the DFI to
                           // assertion of the dfi_wrdata_en signal
-                          tPhyWrData: Int=0,
+                          tPhyWrData: Int,
                           // The tphy_wrdata parameter works to define the number of cycles from the
                           // assertion of a write command on the DFI control interface
                           // to when write data is driven on the DFI bus
-                          tPhyWrCsLat: Int=0,
+                          tPhyWrCsLat: Int,
                           // specify the desired alignment of the
                           // command to the dfi_wrdata_cs_n signal
-                          tPhyWrCsGap: Int=1,
+                          tPhyWrCsGap: Int,
                           // specify the additional delay it requires between two consecutive commands
                           // that are targeting different chip selects.
                           dramBurst: Int,
                           frequencyRatio: Int, // PHY:MC
-                          tRddataEn: Int=0,
+                          tRddataEn: Int,
                           // defines the timing requirements between the read command on the DFI interface and the
                           // assertion of the dfi_rddata_en signal to maintain synchronicity between the MC and the PHY for the start of
                           // contiguous read data expected on the DFI interface.
-                          tPhyRdlat: Int=0,
+                          tPhyRdlat: Int,
                           // dfi_rddata_en -> dfi_rddata/dfi_rddata_valid
-                          tPhyRdCslat: Int=0,
+                          tPhyRdCslat: Int,
                           // specify the desired alignment of the command to the
                           // dfi_rddata_cs_n signal
-                          tPhyRdCsGap: Int=0,
+                          tPhyRdCsGap: Int,
                           //specify the additional delay it
                           //requires between two consecutive commands that are targeting different chip selects.
                           phyCrcMode: Boolean=false,

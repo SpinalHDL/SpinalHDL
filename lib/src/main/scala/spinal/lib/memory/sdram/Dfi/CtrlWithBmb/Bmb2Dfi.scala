@@ -13,16 +13,16 @@ case class BmbPortParameter(bmb : BmbParameter,
                             rspBufferSize : Int){
 }
 
-case class CtrlParameter( core : CoreParameter,
-                          port : BmbPortParameter)
+case class CtrlParameter(core : TaskParameter,
+                         port : BmbPortParameter)
 
-case class Bmb2Dfi(val ctp : CtrlParameter, pl : PhyLayout, config: DfiConfig/*, initp : BmbParameter*/) extends Component {
+case class Bmb2Dfi(val ctp : CtrlParameter, pl : PhyConfig, config: DfiConfig /*, initp : BmbParameter*/) extends Component {
   val io = new Bundle {
     val bmb = slave(Bmb(ctp.port.bmb))
     val dfi = master(Dfi(config))
   }
 
-  val cpa = CoreParameterAggregate(ctp.core, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
+  val cpa = TaskParameterAggregate(ctp.core, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
 
   val bmbBridge = BmbBridge(ctp.port, cpa)
   bmbBridge.io.bmb <>  io.bmb

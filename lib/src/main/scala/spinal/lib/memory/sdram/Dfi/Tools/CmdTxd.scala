@@ -3,12 +3,12 @@ package spinal.lib.memory.sdram.Dfi.Tools
 import spinal.core._
 import spinal.lib.memory.sdram.Dfi.Interface.DDR.DDRConfig
 import spinal.lib._
-import spinal.lib.memory.sdram.Dfi.Interface.{CoreParameterAggregate, CoreTasks, DfiAddr, DfiCmd, DfiConfig}
+import spinal.lib.memory.sdram.Dfi.Interface.{TaskParameterAggregate, PortTasks, DfiAddr, DfiCmd, DfiConfig}
 
-case class CmdTxd(cpa:CoreParameterAggregate) extends Component{
+case class CmdTxd(cpa:TaskParameterAggregate) extends Component{
 import cpa._
   val io = new Bundle{
-    val task    = slave(CoreTasks(cpa))
+    val task    = slave(PortTasks(cpa))
     val cmd     = Vec(master(Flow(DfiCmd(config))),config.frequencyRatio)
     val address = Vec(master(Flow(DfiAddr(config))),config.frequencyRatio)
   }
@@ -83,5 +83,4 @@ import cpa._
     cmdphase(config.cmdPhase).payload.assignFromBits(REFRESH)
     addrphase(config.cmdPhase).valid.set()
   }
-
 }

@@ -2,15 +2,16 @@ package spinal.lib.memory.sdram.Dfi.Tools
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.memory.sdram.Dfi.DelayCyc
 import spinal.lib.memory.sdram.Dfi.Interface._
-case class RdDataRxd(cpa:CoreParameterAggregate) extends Component {
+case class RdDataRxd(cpa:TaskParameterAggregate) extends Component {
   import cpa._
   import cpa.config._
   val io = new Bundle{
-    val task = slave(CoreTasks(cpa))
+    val task = slave(PortTasks(cpa))
     val idfiRddata = Vec(slave(Stream(Fragment(Dfirddata(config)))), config.frequencyRatio)
     val rden = out Vec(Bool(),frequencyRatio)
-    val coreRddata =  master(Flow(Fragment(CoreRsp(cpp, cpa))))
+    val coreRddata =  master(Flow(Fragment(TaskRsp(cpp, cpa))))
   }
 
   case class PipelineCmd() extends Bundle {

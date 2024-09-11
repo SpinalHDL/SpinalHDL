@@ -51,15 +51,15 @@ object SdramGeneration{
 }
 
 
-case class SdramLayout( generation : SdramGeneration,
-                        bankWidth : Int,
-                        columnWidth : Int,
-                        rowWidth : Int,
-                        dataWidth : Int,
-                        ddrMHZ:Int,
-                        ddrWrLat:Int,
-                        ddrRdLat:Int,
-                        sdramtime:SdramTiming
+case class SdramConfig(generation : SdramGeneration,
+                       bankWidth : Int,
+                       columnWidth : Int,
+                       rowWidth : Int,
+                       dataWidth : Int,
+                       ddrMHZ:Int,
+                       ddrWrLat:Int,
+                       ddrRdLat:Int,
+                       sdramtime:SdramTiming
                         ){
   import sdramtime._
   def bytePerWord = dataWidth/8

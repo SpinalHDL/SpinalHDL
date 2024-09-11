@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
 
-case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
+case class TaskTimingConfig(cpa : TaskParameterAggregate) extends Bundle {
   import cpa._
 
   val sdram = cpa.pl.sdram
@@ -31,13 +31,13 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
 //  val autoRefresh, noActive = Bool()
 
 }
-case class SdramAddress(l : SdramLayout) extends Bundle {
+case class SdramAddress(l : SdramConfig) extends Bundle {
   val byte   = UInt(log2Up(l.bytePerWord) bits)
   val column = UInt(l.columnWidth bits)
   val bank   = UInt(l.bankWidth bits)
   val row    = UInt(l.rowWidth bits)
 }
-case class BusAddress(l : SdramLayout, config:DfiConfig) extends Bundle {
+case class BusAddress(l : SdramConfig, config:DfiConfig) extends Bundle {
   val byte   = UInt(log2Up(l.bytePerWord) bits)
   val column = UInt(l.columnWidth bits)
   val row    = UInt(l.rowWidth bits)
@@ -46,7 +46,7 @@ case class BusAddress(l : SdramLayout, config:DfiConfig) extends Bundle {
 }
 
 
-case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
+case class PortTask(cpa : TaskParameterAggregate) extends Bundle {
   import cpa._
 
   val read, write, active, precharge = Bool() //OH encoded
@@ -55,11 +55,11 @@ case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
   val context = Bits(backendContextWidth bits)
 }
 
-case class CoreTasks(cpa : CoreParameterAggregate) extends Bundle with IMasterSlave {
-  val task = CoreTask(cpa)
+case class PortTasks(cpa : TaskParameterAggregate) extends Bundle with IMasterSlave {
+  val task = PortTask(cpa)
   val prechargeAll, refresh = Bool() //OH encoded
 
-  def init(): CoreTasks ={
+  def init(): PortTasks ={
     val ret = RegNext(this).setCompositeName(this, "init", true)
     ret.task.read init(False)
     ret.task.write init(False)
@@ -72,7 +72,7 @@ case class CoreTasks(cpa : CoreParameterAggregate) extends Bundle with IMasterSl
   override def asMaster(): Unit = out(this)
 }
 
-case class CoreParameterAggregate(cp : CoreParameter, pl : PhyLayout, cpp : CorePortParameter, config: DfiConfig){
+case class TaskParameterAggregate(cp : TaskParameter, pl : PhyConfig, cpp : TaskPortParameter, config: DfiConfig){
   def backendContextWidth = cpp.contextWidth
   def generation = pl.sdram.generation
   def stationLengthWidth = log2Up(stationLengthMax)
@@ -80,23 +80,23 @@ case class CoreParameterAggregate(cp : CoreParameter, pl : PhyLayout, cpp : Core
   def chipSelectWidth = log2Up(config.chipSelectNumber)
   def addressWidth = pl.sdram.byteAddressWidth+chipSelectWidth
 }
-case class CoreParameter(bytePerTaskMax : Int = 64,
-                          timingWidth : Int,
-                          refWidth : Int){
+case class TaskParameter(bytePerTaskMax : Int = 64,
+                         timingWidth : Int,
+                         refWidth : Int){
   assert(isPow2(bytePerTaskMax))
 }
 
-case class CorePortParameter(contextWidth : Int,
+case class TaskPortParameter(contextWidth : Int,
                              writeTockenInterfaceWidth : Int,
                              writeTockenBufferSize : Int,
                              canRead : Boolean,
                              canWrite : Boolean)
 
-case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle with IMasterSlave{
-  val cmd = Stream(CoreCmd(cpp, cpa))
-  val writeData = cpp.canWrite generate Stream(CoreWriteData(cpp, cpa))
+case class TaskCmdPort(cpp : TaskPortParameter, cpa : TaskParameterAggregate) extends Bundle with IMasterSlave{
+  val cmd = Stream(TaskCmd(cpp, cpa))
+  val writeData = cpp.canWrite generate Stream(TaskWriteData(cpp, cpa))
   val writeDataTocken = cpp.canWrite generate (out UInt(cpp.writeTockenInterfaceWidth bits))
-  val rsp = Stream(Fragment(CoreRsp(cpp, cpa)))
+  val rsp = Stream(Fragment(TaskRsp(cpp, cpa)))
 
   val writeDataAdded = UInt(cpp.writeTockenInterfaceWidth bits)
 
@@ -109,10 +109,10 @@ case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
   }
 }
 
-case class TaskPort(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle with IMasterSlave{
-  val tasks = CoreTasks(cpa)
-  val writeData = cpp.canWrite generate Stream(CoreWriteData(cpp, cpa))
-  val rsp = Stream(Fragment(CoreRsp(cpp, cpa)))
+case class TaskPort(cpp : TaskPortParameter, cpa : TaskParameterAggregate) extends Bundle with IMasterSlave{
+  val tasks = PortTasks(cpa)
+  val writeData = cpp.canWrite generate Stream(TaskWriteData(cpp, cpa))
+  val rsp = Stream(Fragment(TaskRsp(cpp, cpa)))
 
   override def asMaster(): Unit = {
     masterWithNull(writeData)
@@ -121,7 +121,7 @@ case class TaskPort(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
   }
 }
 
-case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
+case class TaskCmd(cpp : TaskPortParameter, cpa : TaskParameterAggregate) extends Bundle{
   import cpa._
   val write = Bool()
   val address = UInt(addressWidth bits)
@@ -129,17 +129,17 @@ case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extend
   val burstLast = Bool()
   val length = UInt(cpa.stationLengthWidth bits)
 }
-case class CoreWriteData(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
+case class TaskWriteData(cpp : TaskPortParameter, cpa : TaskParameterAggregate) extends Bundle{
   import cpa._
   val data = Bits(pl.beatWidth bits)
   val mask = Bits(pl.beatWidth/8 bits)
 }
-case class CoreRsp(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
+case class TaskRsp(cpp : TaskPortParameter, cpa : TaskParameterAggregate) extends Bundle{
   val data = cpp.canRead generate Bits(cpa.pl.beatWidth bits)
   val context = Bits(cpp.contextWidth bits)
 }
 
-case class PhyLayout(sdram : SdramLayout,
+case class PhyConfig(sdram : SdramConfig,
                      phaseCount : Int, //How many DRAM clock per core clock
                      dataRate : Int, //(SDR=1, DDR=2, QDR=4)
                      outputLatency : Int, //Max delay for a command on the phy to arrive on the sdram

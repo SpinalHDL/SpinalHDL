@@ -2,8 +2,8 @@ package spinal.lib.memory.sdram.Dfi.Alignment
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.memory.sdram.Dfi.DelayCyc
 import spinal.lib.memory.sdram.Dfi.Interface.{DfiConfig, DfiRd, DfiRdCs, DfiReadInterface, DfiTimeConfig, Dfirddata, Dfireadcs}
-import spinal.lib.memory.sdram.Dfi.Tools.DelayCyc
 
 case class RdAlignment(config: DfiConfig) extends Component {
   import config._

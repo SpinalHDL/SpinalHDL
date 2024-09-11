@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.Dfi.Tools
+package spinal.lib.memory.sdram.Dfi
 
 import spinal.core._
 import spinal.lib.memory.sdram.Dfi.Interface.{DfiConfig, DfiTimeConfig}

@@ -2,8 +2,8 @@ package spinal.lib.memory.sdram.xdr.PHY
 
 import spinal.lib._
 import spinal.core._
-import spinal.lib.memory.sdram.Dfi.Interface.{CoreParameter, CoreParameterAggregate, DfiAddr, DfiCmd, SdramLayout}
-case class Initialize(cpa:CoreParameterAggregate) extends Component{
+import spinal.lib.memory.sdram.Dfi.Interface.{TaskParameter, TaskParameterAggregate, DfiAddr, DfiCmd, SdramConfig}
+case class Initialize(cpa:TaskParameterAggregate) extends Component{
   import cpa._
   import cpa.pl._
   val io = new Bundle{

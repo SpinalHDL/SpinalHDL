@@ -3,7 +3,6 @@ package spinal.lib.memory.sdram.Dfi
 import spinal.core._
 import spinal.lib._
 import spinal.lib.memory.sdram.Dfi.Interface._
-import spinal.lib.memory.sdram.Dfi.Tools.DelayCyc
 
 case class CAAlignment(config: DfiConfig) extends Component{
   import config._

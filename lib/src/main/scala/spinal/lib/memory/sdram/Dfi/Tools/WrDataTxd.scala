@@ -2,15 +2,16 @@ package spinal.lib.memory.sdram.Dfi.Tools
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.Dfi.Interface.{CoreParameterAggregate, CoreTasks, CoreWriteData, DfiAddr, DfiCmd, DfiConfig, DfiTimeConfig, DfiWrdata}
+import spinal.lib.memory.sdram.Dfi.DelayCyc
+import spinal.lib.memory.sdram.Dfi.Interface.{TaskParameterAggregate, PortTasks, TaskWriteData, DfiAddr, DfiCmd, DfiConfig, DfiTimeConfig, DfiWrdata}
 
 //import spinal.lib.memory.sdram.xdr.CoreWriteData
-case class WrDataTxd(cpa:CoreParameterAggregate) extends Component{
+case class WrDataTxd(cpa:TaskParameterAggregate) extends Component{
   import cpa._
   import cpa.config._
   val io = new Bundle{
     val write = in Bool()
-    val coreWrdata = slave(Stream(CoreWriteData(cpp, cpa)))
+    val coreWrdata = slave(Stream(TaskWriteData(cpp, cpa)))
     val idfiWrdata = Vec(master(Flow(DfiWrdata(config))),config.frequencyRatio)
   }
   def wrdataPhase(i:Int) = io.idfiWrdata(i)

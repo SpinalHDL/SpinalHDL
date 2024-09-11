@@ -2,11 +2,11 @@ package spinal.lib.memory.sdram.Dfi.CtrlWithBmb
 
 import spinal.lib._
 import spinal.core._
-import spinal.lib.memory.sdram.Dfi.Interface.{CoreParameterAggregate, IDFI, TaskPort}
+import spinal.lib.memory.sdram.Dfi.Interface.{TaskParameterAggregate, IDFI, TaskPort}
 import spinal.lib.memory.sdram.Dfi.Tools
-import spinal.lib.memory.sdram.Dfi.Tools.{CmdTxd, RdDataRxd, WrDataTxd}
+import spinal.lib.memory.sdram.Dfi._
 
-case class Control(cpa : CoreParameterAggregate) extends Component{
+case class Control(cpa : TaskParameterAggregate) extends Component{
   import cpa._
   val io = new Bundle{
     val inport  = slave(TaskPort(cpp, cpa))
