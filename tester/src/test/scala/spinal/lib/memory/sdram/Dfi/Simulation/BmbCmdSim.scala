@@ -1,3 +1,5 @@
+package spinal.lib.memory.sdram.Dfi.Simulation
+
 //package spinal.lib.memory.sdram.xdr.Simulation
 //
 //import spinal.lib.bus.bmb.BmbParameter

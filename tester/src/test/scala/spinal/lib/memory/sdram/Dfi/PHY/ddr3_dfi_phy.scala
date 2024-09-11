@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.xdr.PHY
+package spinal.lib.memory.sdram.Dfi.PHY
 
 import spinal.core.BlackBox
 import spinal.lib._
@@ -60,17 +60,7 @@ case class ddr3_dfi_phy() extends BlackBox{
   addGeneric("TPHY_RDLAT",3)
   addGeneric("TPHY_WRLAT",3)
   addGeneric("TPHY_WRDATA",0)
-//  mapCurrentClockDomain(io.clk.i)
   noIoPrefix()
-//  private def renameIO(): Unit = {
-//    io.flatten.foreach(bt => {
-//      if(bt.getName().contains("portA")) bt.setName(bt.getName().replace("portA_", "") + "_A")
-//      if(bt.getName().contains("portB")) bt.setName(bt.getName().replace("portB_", "") + "_B")
-//    })
-//  }
-//  addPrePopTask(() => renameIO())
 
-  addRTLPath("./scala/Verilog/ddr3_dfi_phy.v")
-
-
+  addRTLPath("spinal/lib/memory/sdram/Dfi/PHY/ddr3_dfi_phy.v")
 }

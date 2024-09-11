@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.xdr.PHY
+package spinal.lib.memory.sdram.Dfi.PHY
 
 import spinal.core._
 case class pll_clk() extends BlackBox{
