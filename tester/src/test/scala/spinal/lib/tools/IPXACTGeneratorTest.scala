@@ -61,8 +61,8 @@ class IPXACTGeneratorTest extends SpinalAnyFunSuite{
     ).generate(new IPXACTGeneratorTestComponent)
 
     val ipxactGenerrator=new IPXACTGenerator( SpinalVerilog(new IPXACTGeneratorTestComponent))
-    ipxactGenerrator.generate2022Component()
-    ipxactGenerrator.generateVivadoComponent()
+    ipxactGenerrator.generateIPXACT2022Component()
+    ipxactGenerrator.generateIPXACTVivadoComponent()
   }
 }
 

@@ -1,5 +1,7 @@
 package spinal.lib.tools.IPXACTGenerator
 
+import IPXACT2009ScalaCases._
+import IPXACT2009scalaxb._
 import spinal.core._
 import spinal.core.tools.ModuleAnalyzer
 import spinal.lib._
@@ -19,9 +21,8 @@ import java.nio.file.{Files, Paths, StandardCopyOption, StandardOpenOption}
 import scala.language.implicitConversions
 import scala.util.control.Breaks._
 import scala.xml._
-import IPXACT2009scalaxb._
-import IPXACT2009ScalaCases._
-class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", module: Component) {
+
+class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", module: Component) {
   private val moduleDefinitionName = module.definitionName
   private var busStringSet: Set[String] = Set()
   private val moduleAnalyzer = new ModuleAnalyzer(module)
@@ -31,26 +32,25 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
   private val allPorts = inPorts ++ outPorts
   private val versionSuffix = version.split("\\.").mkString("_")
 
-
-  private def appendBusElement[T <: Data](thisBus: T): Unit = {
-    busStringSet = busStringSet + thisBus.name
-    busClockMap = busClockMap + (thisBus.name -> thisBus.flatten.head.clockDomain.clock.name)
+  private def appendBusElement[T <: Data](bus: T): Unit = {
+    busStringSet = busStringSet + bus.name
+    busClockMap = busClockMap + (bus.name -> bus.flatten.head.clockDomain.clock.name)
   }
 
-  private def getBusInterfaces: Option[BusInterfaces] = {
+  private def createBusInterfaces: Option[BusInterfaces] = {
     var busInterfacesSeq: Seq[BusInterfaceType] = Seq()
     val allClocks = moduleAnalyzer.getClocks(_ => true)
     var clockNameSet: Set[String] = Set()
     var clockSet: Set[ClockDomain] = Set()
-    for (thisClock <- allClocks) {
-      val thisClockName = thisClock.clock.name
-      if (!clockNameSet.contains(thisClockName)) {
-        clockNameSet += thisClockName
-        clockSet = clockSet + thisClock
+    for (clock <- allClocks) {
+      val clockName = clock.clock.name
+      if (!clockNameSet.contains(clockName)) {
+        clockNameSet += clockName
+        clockSet = clockSet + clock
       }
     }
-    for (thisPort <- allPorts) {
-      val parentChain = thisPort.getRefOwnersChain()
+    for (port <- allPorts) {
+      val parentChain = port.getRefOwnersChain()
       breakable {
         for (parentElement <- parentChain) {
           parentElement match {
@@ -58,22 +58,22 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
               busStream.payload match {
                 case _: Axi4StreamBundle =>
                   if (!busStringSet.contains(busStream.name)) {
-                    busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceAxis4(busStream.asInstanceOf[Stream[Axi4StreamBundle]])
+                    busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceAxis4(busStream.asInstanceOf[Stream[Axi4StreamBundle]])
                     appendBusElement(busStream)
                     break
                   }
-//                case normalType if normalType.isInstanceOf[Bool]
-//                  || normalType.isInstanceOf[UInt] ||
-//                  normalType.isInstanceOf[SInt] ||
-//                  normalType.isInstanceOf[Bits] ||
-//                  normalType.isInstanceOf[UFix] ||
-//                  normalType.isInstanceOf[SFix] ||
-//                  normalType.isInstanceOf[AFix] =>
-//                  if (!busStringSet.contains(busStream.name)) {
-//                    busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceNormalStream(busStream)
-//                    appendBusElement(busStream)
-//                    break
-//                  }
+                //                case normalType if normalType.isInstanceOf[Bool]
+                //                  || normalType.isInstanceOf[UInt] ||
+                //                  normalType.isInstanceOf[SInt] ||
+                //                  normalType.isInstanceOf[Bits] ||
+                //                  normalType.isInstanceOf[UFix] ||
+                //                  normalType.isInstanceOf[SFix] ||
+                //                  normalType.isInstanceOf[AFix] =>
+                //                  if (!busStringSet.contains(busStream.name)) {
+                //                    busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceNormalStream(busStream)
+                //                    appendBusElement(busStream)
+                //                    break
+                //                  }
                 case _ =>
               }
             //            case busFlow: Flow[_] =>
@@ -94,55 +94,55 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
             //              }
             case busAxi4: Axi4 =>
               if (!busStringSet.contains(busAxi4.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceAxi4(busAxi4)
+                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceAxi4(busAxi4)
                 appendBusElement(busAxi4)
                 break
               }
             case axiLite4: AxiLite4 =>
               if (!busStringSet.contains(axiLite4.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceAxiLite4(axiLite4)
+                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceAxiLite4(axiLite4)
                 appendBusElement(axiLite4)
                 break
               }
             case bram: BRAM =>
               if (!busStringSet.contains(bram.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceBRAM(bram)
+                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceBRAM(bram)
                 appendBusElement(bram)
                 break
               }
             case vga: Vga =>
               if (!busStringSet.contains(vga.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceVga(vga)
+                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceVga(vga)
                 appendBusElement(vga)
                 break
               }
             case uart: Uart =>
               if (!busStringSet.contains(uart.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceUART(uart)
+                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceUART(uart)
                 appendBusElement(uart)
                 break
               }
             case busApb3: Apb3 =>
               if (!busStringSet.contains(busApb3.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceApb3(busApb3)
+                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceApb3(busApb3)
                 appendBusElement(busApb3)
                 break
               }
             case busApb4: Apb4 =>
               if (!busStringSet.contains(busApb4.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceApb4(busApb4)
+                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceApb4(busApb4)
                 appendBusElement(busApb4)
                 break
               }
             case ahbLite3: AhbLite3 =>
               if (!busStringSet.contains(ahbLite3.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceAhbLite3(ahbLite3)
+                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceAhbLite3(ahbLite3)
                 appendBusElement(ahbLite3)
                 break
               }
             case avalonMM: AvalonMM =>
               if (!busStringSet.contains(avalonMM.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceAvalonMM(avalonMM)
+                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceAvalonMM(avalonMM)
                 appendBusElement(avalonMM)
                 break
               }
@@ -151,13 +151,13 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
         }
       }
     }
-    for (thisPort <- allPorts) {
-      if (clockNameSet.contains(thisPort.name)) {
-        for (thisClk <- clockSet) {
-          if (thisClk.clock.name == thisPort.name) {
-            busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceClock(thisClk, busClockMap)
-            if (thisClk.reset != null) {
-              busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceReset(thisClk.reset)
+    for (port <- allPorts) {
+      if (clockNameSet.contains(port.name)) {
+        for (clk <- clockSet) {
+          if (clk.clock.name == port.name) {
+            busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceClock(clk, busClockMap)
+            if (clk.reset != null) {
+              busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceReset(clk.reset)
             }
           }
         }
@@ -168,58 +168,55 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
   }
 
 
-  private def getPorts: Option[Ports] = {
+  private def createPorts: Option[Ports] = {
     var portsSeq: Seq[PortTypable] = Seq()
-    for (thisPort <- inPorts ++ outPorts) {
-      val wireTypeDef = if (thisPort.isReg) {
+    for (port <- inPorts ++ outPorts) {
+      val wireTypeNameDef = if (port.isReg) {
         TypeName4("register")
       } else {
         TypeName4("wire")
       }
-      val thisViewNameRef = Seq("xilinx_anylanguagesynthesis", "xilinx_anylanguagebehavioralsimulation")
-      val thisWireTypeDef = WireTypeDef(typeName = wireTypeDef, viewNameRef = thisViewNameRef)
-      val wireTypeDefSeq: Seq[WireTypeDef] = Seq(thisWireTypeDef)
-      val thisWireTypeDefs = WireTypeDefs(wireTypeDefSeq)
-
-
-      val thisPortdeclarationtypablesequence = PortDeclarationTypableSequence1()
-
+      val viewNameRef = Seq("xilinx_anylanguagesynthesis", "xilinx_anylanguagebehavioralsimulation")
+      val wireTypeDef = WireTypeDef(typeName = wireTypeNameDef, viewNameRef = viewNameRef)
+      val wireTypeDefSeq: Seq[WireTypeDef] = Seq(wireTypeDef)
+      val wireTypeDefs = WireTypeDefs(wireTypeDefSeq)
+      val portDeclarationTypableSequence = PortDeclarationTypableSequence1()
       val inOutValue =
-        if (thisPort.isInput) {
+        if (port.isInput) {
           In
-        } else if (thisPort.isOutput) {
+        } else if (port.isOutput) {
           Out
         } else {
           Inout
         }
-      val longRecord = DataRecord(Some("namespace"), Some("spirit:format"), "long")
-      val longTypeMap = Map("key1" -> longRecord)
-      val thisVector = if (thisPort.getBitsWidth != 1) {
-        val leftUnsignedIntExpression = LeftType4(thisPort.getBitsWidth - 1, attributes = longTypeMap)
+      val longRecord = DataRecord(Some(""), Some("spirit:format"), "long")
+      val longTypeMap = Map("format" -> longRecord)
+      val vector = if (port.getBitsWidth != 1) {
+        val leftUnsignedIntExpression = LeftType4(port.getBitsWidth - 1, attributes = longTypeMap)
         val rightUnsignedIntExpression = RightType4(0, attributes = longTypeMap)
         Some(Vector4(left = leftUnsignedIntExpression, right = rightUnsignedIntExpression))
       } else None
 
-      val thisPortWireType = PortWireType(direction = inOutValue, vector = thisVector, wireTypeDefs = Some(thisWireTypeDefs))
-      val thisWireRecord = DataRecord(Some("namespace1"), Some("spirit:wire"), thisPortWireType)
-      val thisNameGroupPortSequence = NameGroupPortSequence(thisPort.name)
+      val portWireType = PortWireType(direction = inOutValue, vector = vector, wireTypeDefs = Some(wireTypeDefs))
+      val wireRecord = DataRecord(Some(""), Some("spirit:wire"), portWireType)
+      val nameGroupPortSequence = NameGroupPortSequence(port.name)
 
-      val thisPort2 = PortType(thisNameGroupPortSequence, thisWireRecord, thisPortdeclarationtypablesequence)
-      portsSeq = portsSeq :+ thisPort2
+      val portType = PortType(nameGroupPortSequence, wireRecord, portDeclarationTypableSequence)
+      portsSeq = portsSeq :+ portType
     }
-    val thisPorts: Option[Ports] = if (portsSeq.nonEmpty) Some(Ports(portsSeq)) else None
-    thisPorts
+    val ports: Option[Ports] = if (portsSeq.nonEmpty) Some(Ports(portsSeq)) else None
+    ports
   }
 
-  private def getViews: Option[Views] = {
+  private def createViews: Option[Views] = {
     var viewSep: Seq[ViewType] = Seq()
 
     val guiComponentViewNameGroupNMTOKEN = NameGroupNMTOKENSequence("xilinx_xpgui")
     val guiComponentViewEnvIdentifier = Seq(":vivado.xilinx.com:xgui.ui")
-    val guiComponentViewFileSetRefRecord = DataRecord(Some("namespace"), Some("spirit:localName"), "xilinx_xpgui_view_fileset")
+    val guiComponentViewFileSetRefRecord = DataRecord(Some(""), Some("spirit:localName"), "xilinx_xpgui_view_fileset")
     val guiFileSetRef = FileSetRef(guiComponentViewFileSetRefRecord)
     val guiViewTypeSequence = ViewTypeSequence1(fileSetRef = Seq(guiFileSetRef))
-    val guiViewTypeSequenceRecord = DataRecord(Some("namespace"), Some("noInfluence"), guiViewTypeSequence)
+    val guiViewTypeSequenceRecord = DataRecord(Some(""), Some(""), guiViewTypeSequence)
     val guiComponentView = ViewType(guiComponentViewNameGroupNMTOKEN, envIdentifier = guiComponentViewEnvIdentifier, viewtypeoption = guiViewTypeSequenceRecord)
     viewSep = viewSep :+ guiComponentView
 
@@ -227,10 +224,10 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
     val simulationComponentViewEnvIdentifier = Seq(":vivado.xilinx.com:simulation")
     val simulationLanguage = IPXACT2009ScalaCases.Language("Verilog")
     val simulationModuleName = moduleDefinitionName
-    val simulationComponentViewFileSetRefRecord = DataRecord(Some("namespace"), Some("spirit:localName"), "xilinx_anylanguagebehavioralsimulation_view_fileset")
+    val simulationComponentViewFileSetRefRecord = DataRecord(Some(""), Some("spirit:localName"), "xilinx_anylanguagebehavioralsimulation_view_fileset")
     val simulationFileSetRef = FileSetRef(simulationComponentViewFileSetRefRecord)
     val simulationViewTypeSequence = ViewTypeSequence1(Some(simulationLanguage), Some(simulationModuleName), fileSetRef = Seq(simulationFileSetRef))
-    val simulationViewTypeSequenceRecord = DataRecord(Some("namespace"), Some("noInfluence"), simulationViewTypeSequence)
+    val simulationViewTypeSequenceRecord = DataRecord(Some(""), Some(""), simulationViewTypeSequence)
     val simulationComponentView = ViewType(simulationComponentViewNameGroupNMTOKEN, envIdentifier = simulationComponentViewEnvIdentifier, viewtypeoption = simulationViewTypeSequenceRecord)
     viewSep = viewSep :+ simulationComponentView
 
@@ -238,10 +235,10 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
     val synthesisComponentViewEnvIdentifier = Seq(":vivado.xilinx.com:synthesis")
     val synthesisLanguage = IPXACT2009ScalaCases.Language("Verilog")
     val synthesisModuleName = moduleDefinitionName
-    val synthesisComponentViewFileSetRefRecord = DataRecord(Some("namespace"), Some("spirit:localName"), "xilinx_anylanguagesynthesis_view_fileset")
+    val synthesisComponentViewFileSetRefRecord = DataRecord(Some(""), Some("spirit:localName"), "xilinx_anylanguagesynthesis_view_fileset")
     val synthesisFileSetRef = FileSetRef(synthesisComponentViewFileSetRefRecord)
     val synthesisViewTypeSequence = ViewTypeSequence1(Some(synthesisLanguage), Some(synthesisModuleName), fileSetRef = Seq(synthesisFileSetRef))
-    val synthesisViewTypeSequenceRecord = DataRecord(Some("namespace"), Some("noInfluence"), synthesisViewTypeSequence)
+    val synthesisViewTypeSequenceRecord = DataRecord(Some(""), Some(""), synthesisViewTypeSequence)
     val synthesisComponentView = ViewType(synthesisComponentViewNameGroupNMTOKEN, envIdentifier = synthesisComponentViewEnvIdentifier, viewtypeoption = synthesisViewTypeSequenceRecord)
     viewSep = viewSep :+ synthesisComponentView
 
@@ -251,27 +248,25 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
     //      val designConfigurationView = View(designConfigurationViewNameGroupNMTOKEN, designConfigurationInstantiationRef = Some(designConfigRefName))
     //      viewSep = viewSep :+ designConfigurationView
     //    }
-    val thisViews: Option[Views] = Some(Views(viewSep))
-    thisViews
+    val views: Option[Views] = Some(Views(viewSep))
+    views
   }
 
-
-  private def getModel: ModelType = {
-    val thisViews = getViews
-    val thisPorts = getPorts
-    val thisModel = ModelType(views = thisViews, ports = thisPorts)
-    thisModel
+  private def createModel: ModelType = {
+    val views = createViews
+    val ports = createPorts
+    val model = ModelType(views = views, ports = ports)
+    model
   }
 
-
-  private def getVLNV: VersionedIdentifierSequence = {
+  private def createVLNV: VersionedIdentifierSequence = {
     val documentNameGroupSequence = VersionedIdentifierSequence(toplevelVendor, toplevelName, moduleDefinitionName, version)
     documentNameGroupSequence
   }
 
-  private def getFileSets: FileSets = {
+  private def createFileSets: FileSets = {
     val xpguiFileName = Name(s"xgui/${moduleDefinitionName}_v$versionSuffix.tcl")
-    val xpguiFileTypeRecord = DataRecord(Some("namespace"), Some("spirit:fileType"), "tclSource")
+    val xpguiFileTypeRecord = DataRecord(Some(""), Some("spirit:fileType"), "tclSource")
     //    val xpguiUserFileTypeRecord = DataRecord(Some("namespace"), Some("spirit:userFileType"), "XGUI_VERSION_2")
     val xpguiFileSequence = FileSequence1(xpguiFileTypeRecord)
 
@@ -280,14 +275,14 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
     val xpguiFileSet = FileSetType(xpguiFileSetNameGroupSequence, file = Seq(xpguiFileSetFile))
 
     val simulationFileName = Name(module.definitionName + ".v")
-    val simulationFileTypeRecord = DataRecord(Some("namespace"), Some("spirit:fileType"), "verilogSource")
+    val simulationFileTypeRecord = DataRecord(Some(""), Some("spirit:fileType"), "verilogSource")
     val simulationFileSequence = FileSequence1(simulationFileTypeRecord)
     val simulationFileSetFile = IPXACT2009ScalaCases.File(name = simulationFileName, filesequence1 = simulationFileSequence)
     val simulationFileSetNameGroupSequence = NameGroupSequence("xilinx_anylanguagebehavioralsimulation_view_fileset")
     val simulationFileSet = FileSetType(simulationFileSetNameGroupSequence, file = Seq(simulationFileSetFile))
 
     val synthesisFileName = Name(module.definitionName + ".v")
-    val synthesisFileTypeRecord = DataRecord(Some("namespace"), Some("spirit:fileType"), "verilogSource")
+    val synthesisFileTypeRecord = DataRecord(Some(""), Some("spirit:fileType"), "verilogSource")
     val synthesisFileSequence = FileSequence1(synthesisFileTypeRecord)
     val synthesisFileSetFile = IPXACT2009ScalaCases.File(name = synthesisFileName, filesequence1 = synthesisFileSequence)
     val synthesisFileSetNameGroupSequence = NameGroupSequence("xilinx_anylanguagesynthesis_view_fileset")
@@ -295,8 +290,8 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
 
 
     val fileSetsSeq = Seq(synthesisFileSet, simulationFileSet, xpguiFileSet)
-    val thisFileSets = FileSets(fileSetsSeq)
-    thisFileSets
+    val fileSets = FileSets(fileSetsSeq)
+    fileSets
   }
 
 
@@ -349,6 +344,7 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
 
   def beginGenerate(): Unit = {
     val fileDirectory = s"./VivadoIpFolder/$toplevelName/"
+    // 确保目录存在
     generateTcl(fileDirectory)
     val filePath = s"${fileDirectory}component.xml"
     val verilogSourcePath = s"./$toplevelName.v"
@@ -360,22 +356,22 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
       Paths.get(verilogTargetPath),
       StandardCopyOption.REPLACE_EXISTING
     )
-    val thisFileSets = getFileSets
-    val thisModel = getModel
-    val versionedIdentifierSequence = getVLNV
+    val fileSets = createFileSets
+    val model = createModel
+    val versionedIdentifierSequence = createVLNV
     val vivadoExtensions = getExtensions
-    val thisBusInterfaces = getBusInterfaces
-    val thisDescription = "This IP is generated automatically by SpinalHDL"
-    val thisComponent = ComponentType(
+    val busInterfaces = createBusInterfaces
+    val description = "This IP is generated automatically by SpinalHDL"
+    val component = ComponentType(
       versionedIdentifierSequence1 = versionedIdentifierSequence,
-      thisBusInterfaces,
-      fileSets = Some(thisFileSets),
-      model = Some(thisModel),
-      description = Some(thisDescription)
+      busInterfaces,
+      fileSets = Some(fileSets),
+      model = Some(model),
+      description = Some(description)
     )
 
 
-    val xml: NodeSeq = toXML[ComponentType](thisComponent, "spirit:component", defaultScope)
+    val xml: NodeSeq = toXML[ComponentType](component, "spirit:component", defaultScope)
     val updatedXml = xml.head match {
       case elem: Elem =>
         val newElem = elem % new UnprefixedAttribute("xmlns:xilinx", "http://www.xilinx.com", Null)
@@ -390,12 +386,12 @@ class VivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelNam
 }
 
 
-object VivadoComponentGenerator {
+object IPXACTVivadoComponentGenerator {
   def generate(toplevelVendor: String = "SpinalHDL",
                toplevelName: String,
                version: String = "1.0",
                module: Component): Unit = {
-    val generator = new VivadoComponentGenerator(toplevelVendor, toplevelName, version, module)
+    val generator = new IPXACTVivadoComponentGenerator(toplevelVendor, toplevelName, version, module)
     generator.beginGenerate()
   }
 }
