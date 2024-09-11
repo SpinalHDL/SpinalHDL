@@ -149,7 +149,7 @@ object DDR {
     override def useRddataCsN: Boolean = false
   }
 }
-case class DDR(generation:Int = 0,isPLDDR:Boolean = false){
+class DDR(generation:Int = 0,isPLDDR:Boolean = false){
   val kind = if(!isPLDDR){
     generation match {
       case 1 => DDR.DDR1

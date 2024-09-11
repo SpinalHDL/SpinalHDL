@@ -3,7 +3,6 @@ package spinal.lib.memory.sdram.Dfi.CtrlWithBmb
 import spinal.lib._
 import spinal.core._
 import spinal.lib.memory.sdram.Dfi.Interface.{TaskParameterAggregate, IDFI, TaskPort}
-import spinal.lib.memory.sdram.Dfi.Tools
 import spinal.lib.memory.sdram.Dfi._
 
 case class Control(cpa : TaskParameterAggregate) extends Component{
@@ -19,13 +18,13 @@ case class Control(cpa : TaskParameterAggregate) extends Component{
   }
 
   val wrdata = new Area {
-    val wrdatatxd = Tools.WrDataTxd(cpa)
+    val wrdatatxd = WrDataTxd(cpa)
     wrdatatxd.io.write <> RegNext(io.inport.tasks.task.write).init(False)
     wrdatatxd.io.coreWrdata << io.inport.writeData
   }
 
   val radata = new Area {
-    val rddatarxd = Tools.RdDataRxd(cpa)
+    val rddatarxd = RdDataRxd(cpa)
     rddatarxd.io.task <> io.inport.tasks.init()
     rddatarxd.io.coreRddata.toStream >> io.inport.rsp
   }

@@ -4,9 +4,7 @@ import spinal.core._
 import spinal.lib.bus.bmb.BmbParameter
 import spinal.lib.memory.sdram.Dfi.CtrlWithBmb.{Bmb2Dfi, BmbAdapter, BmbPortParameter, CtrlParameter}
 import spinal.lib.memory.sdram.Dfi.Interface.{TaskParameter, TaskParameterAggregate, DDR, DfiConfig, DfiTimeConfig, PhyConfig, SdramGeneration, SdramConfig, SdramTiming}
-import spinal.lib.memory.sdram.Dfi.Tools._
-import spinal.lib.memory.sdram.Dfi.CtrlWithBmb._
-import spinal.lib.memory.sdram.Dfi.Interface._
+
 
 
 case class test() extends Component{
@@ -37,7 +35,7 @@ val bmbclockDomain = ClockDomain(ClockDomain.current.clock,ClockDomain.current.r
   val pl:PhyConfig = PhyConfig(sdram = sdram, phaseCount=4,dataRate=SdramGeneration.MYDDR.dataRate,0,0,0,0,transferPerBurst=8)
   val timeConfig = DfiTimeConfig(tPhyWrLat=4,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,tRddataEn=4,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
   val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
-    dramChipselectNumber=2,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=DDR(),timeConfig=timeConfig)
+    dramChipselectNumber=2,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=new DDR(),timeConfig=timeConfig)
   val bmbp:BmbParameter = BmbParameter(addressWidth=pl.sdram.byteAddressWidth+log2Up(config.chipSelectNumber),dataWidth=pl.beatWidth,
     sourceWidth=1,contextWidth=2,lengthWidth=6,alignment= BmbParameter.BurstAlignement.WORD)
 //  val ctrlbmbp:BmbParameter = BmbParameter(addressWidth = 5, dataWidth = pl.sdram.chipAddressWidth,

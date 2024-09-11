@@ -112,7 +112,7 @@ case class RdDataRxd(cpa:TaskParameterAggregate) extends Component {
   val rspPipeline = new Area {
     val input = Flow(Fragment(PipelineCmd()))
     assert(timeConfig.tPhyRdlat + timeConfig.tRddataEn >= 1)
-    val cmd = input.toStream.queueLowLatency(1 << log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + pl.beatCount-1)/pl.beatCount + 1), latency = 1) //TODO
+    val cmd = input.toStream.queueLowLatency(1 << log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + pl.beatCount-1)/pl.beatCount + 1), latency = 1)
 
     val rdensHistory = Vec(Vec(Bool(),(cmdPhase+timeConfig.tRddataEn)/frequencyRatio+2),frequencyRatio)
     rdensHistory.foreach(_ := History(input.valid,0 to (cmdPhase+timeConfig.tRddataEn)/frequencyRatio+1))

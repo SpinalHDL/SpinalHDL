@@ -41,9 +41,9 @@ object SdramGeneration{
   )
   val MYDDR = new SdramGeneration(
     RESETn = true,
-    ODT = false,
+    ODT = true,
     DQS = true,
-    FAW = false,
+    FAW = true,
     CCD = 4,
     burstLength = 8,
     dataRate = 2
