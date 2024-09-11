@@ -107,14 +107,7 @@ class Bmb2DfiTester extends SpinalAnyFunSuite{
       io.bmb.cmd.data #= 0
       io.bmb.cmd.mask #= 0
       io.bmb.cmd.context #= 0
-      //      io.dfi.read.rd.foreach(_.rddatavalid #= false)
-      //      io.bmb.rsp.ready #= true
-      //      clockDomain.waitSampling()
-      //      io.bmb.rsp.ready #= false
-      //      io.dfi.read.rd.foreach(_.rddata.randomize())
-      //      io.bmb.rsp.ready #= true
-      //      clockDomain.waitSamplingWhere(dut.bmb2dfi.dfiAlignment.initialize.io.initDone.toBoolean)
-      //      clockDomain.waitSamplingWhere(dut.io.initDone.toBoolean)
+
       clockDomain.waitSampling(5)
       write(array = bmbDatas,address = 64)
       println("writing is OK")

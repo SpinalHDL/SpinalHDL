@@ -91,7 +91,6 @@ case class RdAlignment(config: DfiConfig) extends Component {
     }
   }
 
-  val delay = DelayCyc(config, timeConfig)
   val curphase = Reg(UInt(log2Up(frequencyRatio) bits)) init (0)
   val rddataphase = Reg(UInt(log2Up(frequencyRatio)+1 bits)) init (0)
   rddataphase.clearAll()
@@ -162,11 +161,11 @@ case class WrAlignment(config: DfiConfig) extends Component{
   for(i <- 0 until(frequencyRatio)){
     io.output.wr(i).wrdataen := io.wrdata(i).valid
   }
-  val delay = DelayCyc(config,timeConfig)
-  val delaycyc  = Reg(delay.mcdelaycyc(delay.findsp(io.wrdata.map(_.valid)),timeConfig.tPhyWrData)<<1)
+
+  val delaycyc  = Reg(U(timeConfig.tPhyWrData/frequencyRatio)<<1).init(0)
 
   when(io.wrdata.map(_.valid).orR.rise()){
-    delaycyc := delay.mcdelaycyc(delay.findsp(io.wrdata.map(_.valid)),timeConfig.tPhyWrData)
+    delaycyc := timeConfig.tPhyWrData/frequencyRatio
   }
 
   val wrdatahistary = Vec(Vec(DfiWrdata(config),timeConfig.tPhyWrData/frequencyRatio+2),frequencyRatio)

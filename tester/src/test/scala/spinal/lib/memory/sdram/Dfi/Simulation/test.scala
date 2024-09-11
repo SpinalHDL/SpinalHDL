@@ -71,9 +71,6 @@ val bmbclockDomain = ClockDomain(ClockDomain.current.clock,ClockDomain.current.r
 
 object test {
   def main(args: Array[String]): Unit = {
-//    SpinalConfig().generateVerilog(test(CoreParameterAggregate(CoreParameter(64,5,5),PhyLayout(SdramLayout(SdramGeneration.DDR3,2,9,12,12),4,2,0,0,0,0,8),
-//      CorePortParameter(contextWidth = 8, writeTockenInterfaceWidth = 1, writeTockenBufferSize = 8, canRead = true, canWrite = true),DfiConfig(4,12,24,4,2,2,1,1,0,DDR(),
-//        DfiTimeConfig(tPhyWrData = 4,dramBurst = 8,frequencyRatio = 4,tRddataEn = 5)))))
     SpinalConfig().generateVerilog(test())
   }
 }
