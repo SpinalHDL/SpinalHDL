@@ -262,7 +262,8 @@ object bmb_dfi_ddr3 extends App{
     tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
   val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
     dramChipselectNumber=1,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=new DDR(),timeConfig=timeConfig)
-  SpinalConfig().generateVerilog(bmb_dfi_ddr3(pl, config))
+  val ver = SpinalConfig().generateVerilog(bmb_dfi_ddr3(pl, config))
+  ver.mergeRTLSource("mergeRTL")
 }
 object Bmb_Cmd extends App{
   val sdramtime = SdramTiming(3, RFC = 260, RAS = 38, RP = 15, RCD = 15, WTR = 8, WTP = 0, RTP = 8, RRD = 6, REF = 64000, FAW = 35)

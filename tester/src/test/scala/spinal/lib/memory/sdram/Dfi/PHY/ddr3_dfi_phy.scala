@@ -62,5 +62,5 @@ case class ddr3_dfi_phy() extends BlackBox{
   addGeneric("TPHY_WRDATA",0)
   noIoPrefix()
 
-  addRTLPath("./spinal/lib/memory/sdram/Dfi/PHY/ddr3_dfi_phy.v")
+  addRTLPath("tester/src/test/scala/spinal/lib/memory/sdram/Dfi/PHY/ddr3_dfi_phy.v")
 }
