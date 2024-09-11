@@ -2474,7 +2474,15 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
       else if (!c.definitionNameNoMerge)
         c.definitionName = globalScope.allocateName(c.definitionName)
     }
-    for (parent <- sortedComponents.reverse) {
+
+    val componentsReversed = ArrayBuffer[Component]()
+    def walk(c: Component): Unit = {
+      c.children.foreach(walk(_))
+      componentsReversed += c
+    }
+    walk(topLevel)
+
+    for (parent <- componentsReversed) {
       for(c <- parent.children) {
         allocate(c)
       }
@@ -2483,7 +2491,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 
     globalScope.lockScope()
 
-    for (c <- sortedComponents.reverse) {
+    for (c <- componentsReversed) {
       c.allocateNames(pc.globalScope)
     }
 
