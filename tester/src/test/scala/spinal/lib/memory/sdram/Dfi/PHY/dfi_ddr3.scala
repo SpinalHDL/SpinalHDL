@@ -1,12 +1,29 @@
 package spinal.lib.memory.sdram.Dfi.PHY
 
-import spinal.lib.memory.sdram.Dfi.CtrlWithBmb.{Bmb2Dfi, BmbAdapter, BmbPortParameter, CtrlParameter}
+import spinal.lib.memory.sdram.Dfi.CtrlWithBmb.{Bmb2Dfi, BmbPortParameter, CtrlParameter}
 import spinal.lib.memory.sdram.Dfi.Interface._
-//import PHY.dfi_ddr3.{config, pl}
 import spinal.lib._
 import spinal.core._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
-import spinal.lib.memory.sdram.Dfi.Interface._
+
+class ddr3IO(pl:PhyConfig, config: DfiConfig) extends Bundle{
+  import config._
+  val ck_p_o = out Bits(chipSelectNumber bits)
+  val ck_n_o = out Bits(chipSelectNumber bits)
+  val cke_o = out Bits(chipSelectNumber bits)
+  val reset_n_o = out Bits(chipSelectNumber bits)
+  val ras_n_o = out Bits(chipSelectNumber bits)
+  val cas_n_o = out Bits(chipSelectNumber bits)
+  val we_n_o = out Bits(chipSelectNumber bits)
+  val cs_n_o = out Bits(chipSelectNumber bits)
+  val ba_o = out Bits(bankWidth * chipSelectNumber bits)
+  val addr_o = out Bits(addressWidth * chipSelectNumber bits)
+  val odt_o = out Bits(chipSelectNumber bits)
+  val dm_o = out Bits(pl.sdram.bytePerWord * chipSelectNumber bits)
+  val dqs_p_io = inout (Analog(Bits(2 * chipSelectNumber bits)))
+  val dqs_n_io = inout (Analog(Bits(2 * chipSelectNumber bits)))
+  val dq_io = inout (Analog(Bits(pl.sdram.dataWidth*chipSelectNumber bits)))
+}
 
 case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
   val core:TaskParameter = TaskParameter(timingWidth=5,refWidth=23)
@@ -23,23 +40,7 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
     val clkw = out Bool()
     val rstNw = out Bool()
     val bmb = slave(Bmb(ctp.port.bmb))
-    val ddr3 = new Bundle{
-      val ck_p_o = out Bits(chipSelectNumber bits)
-      val ck_n_o = out Bits(chipSelectNumber bits)
-      val cke_o = out Bits(chipSelectNumber bits)
-      val reset_n_o = out Bits(chipSelectNumber bits)
-      val ras_n_o = out Bits(chipSelectNumber bits)
-      val cas_n_o = out Bits(chipSelectNumber bits)
-      val we_n_o = out Bits(chipSelectNumber bits)
-      val cs_n_o = out Bits(chipSelectNumber bits)
-      val ba_o = out Bits(3*chipSelectNumber bits)
-      val addr_o = out Bits(15*chipSelectNumber bits)
-      val odt_o = out Bits(chipSelectNumber bits)
-      val dm_o = out Bits(2*chipSelectNumber bits)
-      val dqs_p_io = inout (Analog(Bits(2*chipSelectNumber bits)))
-      val dqs_n_io = inout (Analog(Bits(2*chipSelectNumber bits)))
-      val dq_io = inout (Analog(Bits(16*chipSelectNumber bits)))
-    }
+    val ddr3 = new ddr3IO(pl,config)
   }
 
   val pll = pll_clk()
@@ -48,7 +49,6 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
 
   val rstN = io.rstN & pll.io.locked
 
-//  val bmbClockDomain = ClockDomain(pll.io.clk.out1,rstN,config = bmbClockDomainCfg)
   myClockDomain.clock := pll.io.clk.out1
   myClockDomain.reset := rstN
   io.clkw := pll.io.clk.out1
@@ -104,13 +104,13 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
       ddr3Chip.phy.io.ddr3.cas_n_o <> io.ddr3.cas_n_o(ddr3Chip.sel)
       ddr3Chip.phy.io.ddr3.we_n_o  <> io.ddr3.we_n_o(ddr3Chip.sel)
       ddr3Chip.phy.io.ddr3.cs_n_o  <> io.ddr3.cs_n_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.ba_o  <> io.ddr3.ba_o(3*ddr3Chip.sel,3 bits)
-      ddr3Chip.phy.io.ddr3.addr_o  <> io.ddr3.addr_o(15*ddr3Chip.sel,15 bits)
+      ddr3Chip.phy.io.ddr3.ba_o  <> io.ddr3.ba_o(bankWidth*ddr3Chip.sel,bankWidth bits)
+      ddr3Chip.phy.io.ddr3.addr_o  <> io.ddr3.addr_o(addressWidth*ddr3Chip.sel,addressWidth bits)
       ddr3Chip.phy.io.ddr3.odt_o  <> io.ddr3.odt_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.dm_o  <> io.ddr3.dm_o(2*ddr3Chip.sel,2 bits)
+      ddr3Chip.phy.io.ddr3.dm_o  <> io.ddr3.dm_o(pl.sdram.bytePerWord*ddr3Chip.sel,pl.sdram.bytePerWord bits)
       ddr3Chip.phy.io.ddr3.dqs_p_io <> io.ddr3.dqs_p_io(2*ddr3Chip.sel,2 bits)
       ddr3Chip.phy.io.ddr3.dqs_n_io <> io.ddr3.dqs_n_io(2*ddr3Chip.sel,2 bits)
-      ddr3Chip.phy.io.ddr3.dq_io  <> io.ddr3.dq_io(16*ddr3Chip.sel,16 bits)
+      ddr3Chip.phy.io.ddr3.dq_io  <> io.ddr3.dq_io(pl.sdram.dataWidth*ddr3Chip.sel,pl.sdram.dataWidth bits)
     }
   }
 
@@ -147,14 +147,12 @@ case class Bmb_Cmd(bmbp: BmbParameter, pl: PhyConfig) extends Component{
     io.bmb.cmd.address := address
     io.bmb.cmd.length := U(length * pl.bytePerBeat - 1).resized
     io.bmb.cmd.opcode := False.asBits
-//    cmdValid := True
     io.bmb.cmd.last.set()
     io.bmb.cmd.valid.set()
   }
 
 //  val start = RegInit(False).setWhen(io.initDone)
   val start = True
-//  io.bmb.cmd.valid := cmdValid
   io.bmb.cmd.valid.clear()
   io.bmb.cmd.last.clear()
   io.bmb.cmd.source.clearAll()
@@ -188,7 +186,6 @@ case class Bmb_Cmd(bmbp: BmbParameter, pl: PhyConfig) extends Component{
         read(32,128)
       }
     }
-
   }
 
 }
@@ -201,57 +198,23 @@ case class dfi_ddr3() extends Component{
     tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
   val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
     dramChipselectNumber=1,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=new DDR(),timeConfig=timeConfig)
+  val bmbp:BmbParameter = BmbParameter(addressWidth=pl.sdram.byteAddressWidth+log2Up(config.chipSelectNumber),dataWidth=pl.beatWidth,
+    sourceWidth=1,contextWidth=2,lengthWidth=6,alignment= BmbParameter.BurstAlignement.WORD)
   import config._
   val io = new Bundle{
     val clk = in Bool()
     val rstN = in Bool()
-    val ddr3 = new Bundle{
-      val ck_p_o = out Bits(chipSelectNumber bits)
-      val ck_n_o = out Bits(chipSelectNumber bits)
-      val cke_o = out Bits(chipSelectNumber bits)
-      val reset_n_o = out Bits(chipSelectNumber bits)
-      val ras_n_o = out Bits(chipSelectNumber bits)
-      val cas_n_o = out Bits(chipSelectNumber bits)
-      val we_n_o = out Bits(chipSelectNumber bits)
-      val cs_n_o = out Bits(chipSelectNumber bits)
-      val ba_o = out Bits(3*chipSelectNumber bits)
-      val addr_o = out Bits(15*chipSelectNumber bits)
-      val odt_o = out Bits(chipSelectNumber bits)
-      val dm_o = out Bits(2*chipSelectNumber bits)
-      val dqs_p_io = inout (Analog(Bits(2*chipSelectNumber bits)))
-      val dqs_n_io = inout (Analog(Bits(2*chipSelectNumber bits)))
-      val dq_io = inout (Analog(Bits(16*chipSelectNumber bits)))
-    }
+    val ddr3 = new ddr3IO(pl,config)
   }
 
+  val bmb_cmd = Bmb_Cmd(bmbp,pl)
+
   val bmbddr = bmb_dfi_ddr3(pl, config)
+  bmbddr.io.bmb <> bmb_cmd.io.bmb
   bmbddr.io.clk := io.clk
   bmbddr.io.rstN := io.rstN
-  bmbddr.io.ddr3.ck_p_o <> io.ddr3.ck_p_o
-  bmbddr.io.ddr3.ck_n_o <> io.ddr3.ck_n_o
-  bmbddr.io.ddr3.cke_o <> io.ddr3.cke_o
-  bmbddr.io.ddr3.reset_n_o <> io.ddr3.reset_n_o
-  bmbddr.io.ddr3.ras_n_o <> io.ddr3.ras_n_o
-  bmbddr.io.ddr3.cas_n_o <> io.ddr3.cas_n_o
-  bmbddr.io.ddr3.we_n_o <> io.ddr3.we_n_o
-  bmbddr.io.ddr3.cs_n_o <> io.ddr3.cs_n_o
-  bmbddr.io.ddr3.ba_o <> io.ddr3.ba_o
-  bmbddr.io.ddr3.addr_o <> io.ddr3.addr_o
-  bmbddr.io.ddr3.odt_o <> io.ddr3.odt_o
-  bmbddr.io.ddr3.dm_o <> io.ddr3.dm_o
-  bmbddr.io.ddr3.dqs_p_io <> io.ddr3.dqs_p_io
-  bmbddr.io.ddr3.dqs_n_io <> io.ddr3.dqs_n_io
-  bmbddr.io.ddr3.dq_io <> io.ddr3.dq_io
-  bmbddr.io.bmb.rsp.ready := RegInit(False).setWhen(bmbddr.io.bmb.cmd.valid && bmbddr.io.bmb.cmd.opcode === 0).clearWhen(bmbddr.io.bmb.rsp.last)
-  bmbddr.io.bmb.cmd.valid.assignDontCare()
-  bmbddr.io.bmb.cmd.last.assignDontCare()
-  bmbddr.io.bmb.cmd.opcode.assignDontCare()
-  bmbddr.io.bmb.cmd.length.assignDontCare()
-  bmbddr.io.bmb.cmd.data.assignDontCare()
-  bmbddr.io.bmb.cmd.mask.assignDontCare()
-  bmbddr.io.bmb.cmd.address.assignDontCare()
-  bmbddr.io.bmb.cmd.source.assignDontCare()
-  bmbddr.io.bmb.cmd.context.assignDontCare()
+  bmbddr.io.ddr3 <> io.ddr3
+
 }
 
 object bmb_dfi_ddr3 extends App{
@@ -263,7 +226,7 @@ object bmb_dfi_ddr3 extends App{
   val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
     dramChipselectNumber=1,dramBankWidth=pl.sdram.bankWidth,0,0,1,cmdPhase=0,ddr=new DDR(),timeConfig=timeConfig)
   val ver = SpinalConfig().generateVerilog(bmb_dfi_ddr3(pl, config))
-  ver.mergeRTLSource("mergeRTL")
+  ver.mergeRTLSource("ddr3_dfi_phy")
 }
 object Bmb_Cmd extends App{
   val sdramtime = SdramTiming(3, RFC = 260, RAS = 38, RP = 15, RCD = 15, WTR = 8, WTP = 0, RTP = 8, RRD = 6, REF = 64000, FAW = 35)
@@ -278,4 +241,9 @@ object Bmb_Cmd extends App{
 
   SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetActiveLevel = LOW)).generateVerilog(Bmb_Cmd(bmbp,pl))
 
+}
+
+object dfi_ddr3 extends App{
+  val ver = SpinalConfig().generateVerilog(dfi_ddr3())
+  ver.mergeRTLSource("ddr3_dfi_phy")
 }
