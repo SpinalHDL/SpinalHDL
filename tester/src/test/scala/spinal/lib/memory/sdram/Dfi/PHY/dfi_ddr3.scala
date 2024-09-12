@@ -29,32 +29,19 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
   val core:TaskParameter = TaskParameter(timingWidth=5,refWidth=23)
   val bmbp:BmbParameter = BmbParameter(addressWidth=pl.sdram.byteAddressWidth+log2Up(config.chipSelectNumber),dataWidth=pl.beatWidth,
     sourceWidth=1,contextWidth=2,lengthWidth=6,alignment= BmbParameter.BurstAlignement.WORD)
-  val bmbClockDomainCfg = ClockDomainConfig(resetActiveLevel = LOW)
-  val myClockDomain = ClockDomain.internal("work",bmbClockDomainCfg)
-  val bmbpp:BmbPortParameter = BmbPortParameter(bmbp,myClockDomain,cmdBufferSize=64,dataBufferSize=64,rspBufferSize=64)
-  val ctp = CtrlParameter(core, bmbpp)
   import config._
   val io = new Bundle{
-    val clk = in Bool()
-    val rstN = in Bool()
-    val clkw = out Bool()
-    val rstNw = out Bool()
-    val bmb = slave(Bmb(ctp.port.bmb))
+    val clk1 = in Bool()
+    val clk2 = in Bool()
+    val clk3 = in Bool()
+    val clk4 = in Bool()
+    val bmb = slave(Bmb(bmbp))
     val ddr3 = new ddr3IO(pl,config)
   }
+  val bmbpp:BmbPortParameter = BmbPortParameter(bmbp,ClockDomain.current,cmdBufferSize=64,dataBufferSize=64,rspBufferSize=64)
+  val ctp = CtrlParameter(core, bmbpp)
 
-  val pll = pll_clk()
-  pll.io.clk.in1 <> io.clk
-  pll.io.reset <> ~io.rstN
-
-  val rstN = io.rstN & pll.io.locked
-
-  myClockDomain.clock := pll.io.clk.out1
-  myClockDomain.reset := rstN
-  io.clkw := pll.io.clk.out1
-  io.rstNw := rstN
-
-  val clockArea = new ClockingArea(myClockDomain) {
+  val clockArea = new ClockingArea(ClockDomain.current) {
     val bmb2dfi = Bmb2Dfi(ctp, pl, config)
     bmb2dfi.io.bmb <> io.bmb
   }
@@ -68,12 +55,13 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
     ddr3Chips.map(_.phy.io.dfi.rddata_valid_o).orR <> clockArea.bmb2dfi.io.dfi.read.rd(0).rddatavalid
     ddr3Chips.map(_.phy.io.dfi.rddata_o).reduceBalancedTree(_|_) <> clockArea.bmb2dfi.io.dfi.read.rd(0).rddata
 
+    val rst = ClockDomain.readResetWire
     val adapter = for(ddr3Chip <- ddr3Chips) yield new Area{
-      ddr3Chip.phy.io.clk.i <> pll.io.clk.out1
-      ddr3Chip.phy.io.clk.ddr_i <> pll.io.clk.out2
-      ddr3Chip.phy.io.clk.ddr90_i <> pll.io.clk.out3
-      ddr3Chip.phy.io.clk.ref_i <> pll.io.clk.out4
-      ddr3Chip.phy.io.rst_i <> ~rstN
+      ddr3Chip.phy.io.clk.i <> io.clk1
+      ddr3Chip.phy.io.clk.ddr_i <> io.clk2
+      ddr3Chip.phy.io.clk.ddr90_i <> io.clk3
+      ddr3Chip.phy.io.clk.ref_i <> io.clk4
+      ddr3Chip.phy.io.rst_i := ~rst
 
       ddr3Chip.phy.io.dfi.cke_i <> clockArea.bmb2dfi.io.dfi.control.cke(ddr3Chip.sel)
       ddr3Chip.phy.io.dfi.odt_i.clear()
@@ -90,8 +78,6 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
       ddr3Chip.phy.io.dfi.wrdata_i <> clockArea.bmb2dfi.io.dfi.write.wr(0).wrdata
 
       ddr3Chip.phy.io.dfi.rddata_en_i <> clockArea.bmb2dfi.io.dfi.read.rden(0)
-//      ddr3Chip.phy.io.dfi.rddata_valid_o <> clockArea.bmb2dfi.io.dfi.read.rd(0).rddatavalid
-//      ddr3Chip.phy.io.dfi.rddata_o <> clockArea.bmb2dfi.io.dfi.read.rd(0).rddata
 
       ddr3Chip.phy.io.cfg.valid_i.clear()
       ddr3Chip.phy.io.cfg.i.assignDontCare()
@@ -206,15 +192,27 @@ case class dfi_ddr3() extends Component{
     val rstN = in Bool()
     val ddr3 = new ddr3IO(pl,config)
   }
+  val bmbClockDomainCfg = ClockDomainConfig(resetActiveLevel = LOW)
+  val myClockDomain = ClockDomain.internal("work",bmbClockDomainCfg)
 
-  val bmb_cmd = Bmb_Cmd(bmbp,pl)
+  val pll = pll_clk()
+  pll.io.clk.in1 <> io.clk
+  pll.io.reset <> ~io.rstN
+  val rst_n = io.rstN & pll.io.locked
+  myClockDomain.clock := pll.io.clk.out1
+  myClockDomain.reset := rst_n
 
-  val bmbddr = bmb_dfi_ddr3(pl, config)
-  bmbddr.io.bmb <> bmb_cmd.io.bmb
-  bmbddr.io.clk := io.clk
-  bmbddr.io.rstN := io.rstN
-  bmbddr.io.ddr3 <> io.ddr3
+  val topClockingArea = new ClockingArea(myClockDomain){
+    val bmb_cmd = Bmb_Cmd(bmbp,pl)
 
+    val bmbddr = bmb_dfi_ddr3(pl, config)
+    bmbddr.io.clk1 <> pll.io.clk.out1
+    bmbddr.io.clk2 <> pll.io.clk.out2
+    bmbddr.io.clk3 <> pll.io.clk.out3
+    bmbddr.io.clk4 <> pll.io.clk.out4
+    bmbddr.io.bmb <> bmb_cmd.io.bmb
+    bmbddr.io.ddr3 <> io.ddr3
+  }
 }
 
 object bmb_dfi_ddr3 extends App{
