@@ -9,13 +9,13 @@ case class CAAlignment(config: DfiConfig) extends Component{
   val io = new Bundle{
     val cmd     = Vec(slave(Flow(DfiCmd(config))),config.frequencyRatio)
     val address = Vec(slave(Flow(DfiAddr(config))),config.frequencyRatio)
-    val ckeN    = in Vec(Bits(config.chipSelectNumber bits),config.frequencyRatio)
+    val cke     = in Vec(Bits(config.chipSelectNumber bits),config.frequencyRatio)
     val output  = master(DfiControlInterface(config))
   }
   //cke,reserN,odt
   //Most DRAMs define CKE as low at reset; some devices, such as LPDDR1, LPDDR2 and LPDDR3, define CKE as high at
   // reset. The default value should adhere to the DRAM definition.
-  io.output.cke := io.ckeN.asBits
+  io.output.cke := io.cke.asBits
   //In general, the dfi_reset_n signal is defined as low at reset; however, in some cases it may be necessary
   // to hold dfi_reset_n high during initialization.
   if(useResetN)io.output.resetN.setAll()

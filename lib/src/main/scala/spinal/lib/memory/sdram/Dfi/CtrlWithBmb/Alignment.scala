@@ -13,7 +13,7 @@ case class Alignment(config : DfiConfig) extends Component{
   }
 
   val caAlignment = CAAlignment(config)
-    caAlignment.io.ckeN.clearAll()
+    caAlignment.io.cke.setAll()
     caAlignment.io.cmd <> io.inIdfiport.cmd
     caAlignment.io.address <> io.inIdfiport.address
     caAlignment.io.output <> io.outDfiport.control

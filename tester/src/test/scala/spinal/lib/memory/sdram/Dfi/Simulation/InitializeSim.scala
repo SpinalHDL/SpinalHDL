@@ -24,15 +24,23 @@ case class InitializeSim() extends Component{
   val ctp : CtrlParameter = CtrlParameter(core, bmbpp)
   val tpa = TaskParameterAggregate(core, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
   val io = new Bundle{
-    val cmd      = Vec(master(Flow(DfiCmd(config))),config.frequencyRatio)
-    val address  = Vec(master(Flow(DfiAddr(config))),config.frequencyRatio)
-    val ckeN     = out Bits(config.chipSelectNumber * config.frequencyRatio bits)
+    val cmd      = master(Flow{new Bundle{
+      val weN = out Bool()
+      val casN = out Bool()
+      val rasN = out Bool()
+      val csN = out Bool()
+    }})
+    val address  = master(Flow(new Bundle{
+      val address = Bits(sdram.rowWidth bits)
+      val bank = Bits(sdram.bankWidth bits)
+    }))
+    val cke     = out Bool()
     val initDone = out Bool()
   }
   val init = Initialize(tpa)
   io.cmd := init.io.cmd
   io.address := init.io.address
-  io.ckeN := init.io.ckeN
+  io.cke := init.io.cke
   io.initDone := init.io.initDone
 }
 
