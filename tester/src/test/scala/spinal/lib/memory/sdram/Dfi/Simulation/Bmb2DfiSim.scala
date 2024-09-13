@@ -22,7 +22,7 @@ case class Bmb2DfiSim(x:Int) extends Component{
     sourceWidth=1,contextWidth=2,lengthWidth=6,alignment= BmbParameter.BurstAlignement.WORD)
   val bmbpp:BmbPortParameter = BmbPortParameter(bmbp,bmbclockDomain,cmdBufferSize=64,dataBufferSize=64,rspBufferSize=64)
   val ctp : CtrlParameter = CtrlParameter(core, bmbpp)
-  val cpa = TaskParameterAggregate(ctp.task, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
+  val tpa = TaskParameterAggregate(ctp.task, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
   val io = new Bundle {
     val bmb = slave(Bmb(ctp.port.bmb))
     val dfi = master(Dfi(config))

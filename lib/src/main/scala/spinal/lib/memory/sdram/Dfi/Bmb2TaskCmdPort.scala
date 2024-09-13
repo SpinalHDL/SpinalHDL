@@ -7,11 +7,11 @@ import spinal.lib.memory.sdram.Dfi.CtrlWithBmb.BmbPortParameter
 import spinal.lib.memory.sdram.Dfi.Interface._
 
 
-case class BmbToCorePort(ip : BmbParameter, cpp : TaskPortParameter, cpa : TaskParameterAggregate, pp : BmbPortParameter) extends Component{
+case class BmbToTaskCmdPort(ip : BmbParameter, tpp : TaskPortParameter, tpa : TaskParameterAggregate, pp : BmbPortParameter) extends Component{
   val io = new Bundle{
     val input = slave(Bmb(ip))
     val inputBurstLast = in Bool()
-    val output = master(TaskCmdPort(cpp, cpa))
+    val output = master(TaskCmdPort(tpp, tpa))
   }
 
   case class Context() extends Bundle{
@@ -19,12 +19,12 @@ case class BmbToCorePort(ip : BmbParameter, cpp : TaskPortParameter, cpa : TaskP
     val input = Bits(ip.access.contextWidth bits)
   }
 
-  val cmdToRspCount = io.output.cmd.write ? U(0) | (io.output.cmd.length +^ 1) << log2Up(cpa.pl.beatCount)
+  val cmdToRspCount = io.output.cmd.write ? U(0) | (io.output.cmd.length +^ 1) << log2Up(tpa.pl.beatCount)
 
   val rspPendingCounter = Reg(UInt(log2Up(pp.rspBufferSize + 1) bits)) init(0)
   rspPendingCounter := rspPendingCounter + (io.input.cmd.lastFire ? cmdToRspCount | U(0)) - U(io.output.rsp.fire)
 
-  val toManyRsp = (U"0" @@ rspPendingCounter) + cmdToRspCount > pp.rspBufferSize //pp.rspBufferSize - pp.beatPerBurst*cpa.pl.beatCount //Pessimistic
+  val toManyRsp = (U"0" @@ rspPendingCounter) + cmdToRspCount > pp.rspBufferSize //pp.rspBufferSize - pp.beatPerBurst*tpa.pl.beatCount //Pessimistic
 
   io.input.cmd.ready := io.output.cmd.ready && !toManyRsp
   if(ip.access.canWrite) io.input.cmd.ready clearWhen(!io.output.writeData.ready)
@@ -36,8 +36,8 @@ case class BmbToCorePort(ip : BmbParameter, cpp : TaskPortParameter, cpa : TaskP
   io.output.cmd.valid := io.input.cmd.firstFire
   io.output.cmd.write := io.input.cmd.isWrite
   io.output.cmd.address := io.input.cmd.address
-  assert(widthOf(io.output.cmd.length) >= widthOf(io.input.cmd.length) - log2Up(cpa.pl.bytePerBurst))
-  io.output.cmd.length := (io.input.cmd.length >> log2Up(cpa.pl.bytePerBurst)).resized
+  assert(widthOf(io.output.cmd.length) >= widthOf(io.input.cmd.length) - log2Up(tpa.pl.bytePerBurst))
+  io.output.cmd.length := (io.input.cmd.length >> log2Up(tpa.pl.bytePerBurst)).resized
   io.output.cmd.context := B(cmdContext)
   io.output.cmd.burstLast := io.inputBurstLast
 
@@ -75,16 +75,16 @@ object BmbAdapter{
 }
 
 case class BmbAdapter(pp : BmbPortParameter,
-                      cpa : TaskParameterAggregate) extends Component{
-  import cpa._
-  val cpp = BmbAdapter.corePortParameter(pp, cpa.pl)
+                      tpa : TaskParameterAggregate) extends Component{
+  import tpa._
+  val tpp = BmbAdapter.corePortParameter(pp, tpa.pl)
   assert(pl.beatCount*4 <= pp.rspBufferSize, s"SDRAM rspBufferSize should be at least ${pl.beatCount*4}")
   assert(pl.beatCount <= pp.dataBufferSize, s"SDRAM dataBufferSize should be at least ${pl.beatCount}")
 
   val io = new Bundle{
     val refresh = in Bool()
     val input = slave(Bmb(pp.bmb))
-    val output = master(TaskCmdPort(cpp, cpa))
+    val output = master(TaskCmdPort(tpp, tpa))
   }
 
   val asyncCc = pp.clockDomain != ClockDomain.current
@@ -92,18 +92,18 @@ case class BmbAdapter(pp : BmbPortParameter,
     val aligner = BmbAligner(pp.bmb, log2Up(pl.burstWidth / 8))
     aligner.io.input << io.input
 
-    val splitLength = Math.min(cpa.cp.bytePerTaskMax, 1 << pp.bmb.access.lengthWidth)
-    assert(pp.rspBufferSize*cpa.pl.bytePerBeat >= splitLength)
+    val splitLength = Math.min(tpa.tp.bytePerTaskMax, 1 << pp.bmb.access.lengthWidth)
+    assert(pp.rspBufferSize*tpa.pl.bytePerBeat >= splitLength)
 
     val spliter = BmbAlignedSpliter(aligner.io.output.p, splitLength)
     spliter.io.input << aligner.io.output
 
-    val converter = BmbToCorePort(spliter.io.output.p, io.output.cpp, cpa, pp)
+    val converter = BmbToTaskCmdPort(spliter.io.output.p, io.output.tpp, tpa, pp)
     converter.io.input << spliter.io.output.pipelined(cmdValid = true)
     converter.io.inputBurstLast := spliter.io.outputBurstLast
   }
 
-  val cmdAddress = Stream(TaskCmd(cpp, cpa))
+  val cmdAddress = Stream(TaskCmd(tpp, tpa))
   val syncBuffer = if(!asyncCc) new Area{
     cmdAddress << inputLogic.converter.io.output.cmd.queueLowLatency(pp.cmdBufferSize, 1)
     inputLogic.converter.io.output.rsp << io.output.rsp.queueLowLatency(pp.rspBufferSize, 1)

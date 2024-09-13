@@ -3,9 +3,9 @@ package spinal.lib.memory.sdram.Dfi.PHY
 import spinal.lib._
 import spinal.core._
 import spinal.lib.memory.sdram.Dfi.Interface.{TaskParameter, TaskParameterAggregate, DfiAddr, DfiCmd, SdramConfig}
-case class Initialize(cpa:TaskParameterAggregate) extends Component{
-  import cpa._
-  import cpa.pl._
+case class Initialize(tpa:TaskParameterAggregate) extends Component{
+  import tpa._
+  import tpa.pl._
   val io = new Bundle{
     val cmd      = Vec(master(Flow(DfiCmd(config))),config.frequencyRatio)
     val address  = Vec(master(Flow(DfiAddr(config))),config.frequencyRatio)
@@ -37,7 +37,7 @@ case class Initialize(cpa:TaskParameterAggregate) extends Component{
   def ALL_BANKS_BIT =10        // Precharge all banks
   def ZQCL_BIT =10        // Precharge all banks
 
-  val refreshTimer = Reg(UInt(cp.refWidth bits)).init(sdram.ddrStartdelay)
+  val refreshTimer = Reg(UInt(tp.refWidth bits)).init(sdram.ddrStartdelay)
 
   io.cmd.foreach(_.valid.set())
   io.cmd.foreach(_.payload.assignFromBits(NOP))
@@ -80,12 +80,10 @@ case class Initialize(cpa:TaskParameterAggregate) extends Component{
   }
   when(refreshTimer === 40000 / (1000 / sdram.ddrMHZ)){
     cmdphase(config.cmdPhase).payload.assignFromBits(ZQCL)
-//    addrphase(config.cmdPhase).bank := 2
     addrphase(config.cmdPhase).address(ZQCL_BIT).set()
   }
   when(refreshTimer === 200 / (1000 / sdram.ddrMHZ)){
     cmdphase(config.cmdPhase).payload.assignFromBits(PRECHARGE)
-//    addrphase(config.cmdPhase).bank := 0
     addrphase(config.cmdPhase).address(ALL_BANKS_BIT).set()
   }
 

@@ -4,20 +4,20 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.memory.sdram.Dfi.Interface._
 
-case class MakeTask(cpp : TaskPortParameter, cpa : TaskParameterAggregate) extends Component{
-  import cpa._
+case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Component{
+  import tpa._
   val io = new Bundle{
-    val cmd = slave(Stream(TaskCmd(cpp, cpa)))
+    val cmd = slave(Stream(TaskCmd(tpp, tpa)))
     val refresh = slave(Event)
-    val writeDataTockens = in UInt(cpp.writeTockenInterfaceWidth bits)
-    val output = master(PortTasks(cpa))
+    val writeDataTockens = in UInt(tpp.writeTockenInterfaceWidth bits)
+    val output = master(PortTasks(tpa))
   }
-  val config = TaskTimingConfig(cpa)
+  val config = TaskTimingConfig(tpa)
   val readyForRefresh = True
 
   val banksRow = Mem(UInt(pl.sdram.rowWidth bits), pl.sdram.bankCount)
 
-  def Timing(loadValid : Bool, loadValue : UInt, timingWidth : Int = cp.timingWidth) = new Area{
+  def Timing(loadValid : Bool, loadValue : UInt, timingWidth : Int = tp.timingWidth) = new Area{
     val value = Reg(UInt(timingWidth bits)) randBoot()
     val notZero = value =/= loadValue.resized
     val busy = CombInit(notZero)
@@ -28,7 +28,7 @@ case class MakeTask(cpp : TaskPortParameter, cpa : TaskParameterAggregate) exten
   }
 
   val CCD = (pl.beatCount > 1) generate Timing(io.output.task.read || io.output.task.write, pl.beatCount-2, log2Up(pl.beatCount))
-  val RFC = Timing(io.output.refresh,  config.RFC, cp.timingWidth+3)
+  val RFC = Timing(io.output.refresh,  config.RFC, tp.timingWidth+3)
   val RRD = Timing(io.output.task.active,  config.RRD)
   val WTR = Timing(io.output.task.write,  config.WTR)
   val RTW = Timing(io.output.task.read,  config.RTW)
@@ -105,9 +105,9 @@ case class MakeTask(cpp : TaskPortParameter, cpa : TaskParameterAggregate) exten
     }
   }
   val writeTockens =  new Area{
-    val canWrite = cpp.canWrite
+    val canWrite = tpp.canWrite
     val consume = io.output.task.write
-    val counter = canWrite generate Reg(UInt(log2Up(cpp.writeTockenBufferSize + 1) bits)).init(0)
+    val counter = canWrite generate Reg(UInt(log2Up(tpp.writeTockenBufferSize + 1) bits)).init(0)
     if(canWrite) {
       counter := counter + io.writeDataTockens - (U(consume) << log2Up(pl.beatCount))
     }
@@ -119,7 +119,7 @@ case class MakeTask(cpp : TaskPortParameter, cpa : TaskParameterAggregate) exten
     val address = UInt(pl.sdram.byteAddressWidth+chipSelectWidth bits)
     val context = Bits(backendContextWidth bits)
     val burstLast = Bool()
-    val length = Reg(UInt(cpa.stationLengthWidth bits))
+    val length = Reg(UInt(tpa.stationLengthWidth bits))
   }
 
   val inputsArbiter = new Area {
@@ -144,11 +144,11 @@ case class MakeTask(cpp : TaskPortParameter, cpa : TaskParameterAggregate) exten
   val taskConstructor = new Area {
     val s0 = new Area {
       def input = inputsArbiter.output
-      val portAddress = input.address.as(BusAddress(pl.sdram,cpa.config))
+      val portAddress = input.address.as(BusAddress(pl.sdram,tpa.config))
     }
     val s1 = new Area {
       val input = s0.input.stage()
-      val address = input.address.as(BusAddress(pl.sdram,cpa.config))
+      val address = input.address.as(BusAddress(pl.sdram,tpa.config))
       val status = Status()
       status.allowPrecharge := True
       status.allowActive := !RRD.busy && (if(generation.FAW) !FAW.busyNext else True)
@@ -162,14 +162,14 @@ case class MakeTask(cpp : TaskPortParameter, cpa : TaskParameterAggregate) exten
     }
   }
   val columnBurstShift = log2Up(pl.transferPerBurst)
-  val columnBurstMask  = (pl.sdram.columnSize-1) - (cpa.stationLengthMax-1 << columnBurstShift)
+  val columnBurstMask  = (pl.sdram.columnSize-1) - (tpa.stationLengthMax-1 << columnBurstShift)
   val stations = new Area {
     val valid = RegInit(False)
     val status = Reg(Status())
-    val address = Reg(BusAddress(cpa.pl.sdram,cpa.config))
+    val address = Reg(BusAddress(tpa.pl.sdram,tpa.config))
     val write = Reg(Bool())
     val context = Reg(Bits(backendContextWidth bits))
-    val offset, offsetLast = Reg(UInt(cpa.stationLengthWidth bits))
+    val offset, offsetLast = Reg(UInt(tpa.stationLengthWidth bits))
 
     import status._
     allowPrecharge := True
@@ -195,7 +195,7 @@ case class MakeTask(cpp : TaskPortParameter, cpa : TaskParameterAggregate) exten
 
     val fire = False //It is the last cycle for this station
     val last = offset === offsetLast
-    val cmdOutputPayload = PortTask(cpa)
+    val cmdOutputPayload = PortTask(tpa)
     io.output.task.address.byte := address.byte
     io.output.task.address.column := address.column | (offset << columnBurstShift).resized
     io.output.task.address.row := address.row
@@ -221,7 +221,7 @@ case class MakeTask(cpp : TaskPortParameter, cpa : TaskParameterAggregate) exten
 
   val loader = new Area{
     taskConstructor.s1.input.ready := !stations.valid
-    val offset = taskConstructor.s1.address.column(columnBurstShift, cpa.stationLengthWidth bits)
+    val offset = taskConstructor.s1.address.column(columnBurstShift, tpa.stationLengthWidth bits)
     val offsetLast = offset + taskConstructor.s1.input.length
       val canSpawn = !stations.valid
       //Insert taskConstructor into one free station

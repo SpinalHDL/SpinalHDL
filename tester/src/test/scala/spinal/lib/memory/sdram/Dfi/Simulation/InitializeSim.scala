@@ -22,14 +22,14 @@ case class InitializeSim() extends Component{
     sourceWidth=1,contextWidth=2,lengthWidth=6,alignment= BmbParameter.BurstAlignement.WORD)
   val bmbpp:BmbPortParameter = BmbPortParameter(bmbp,bmbclockDomain,cmdBufferSize=64,dataBufferSize=64,rspBufferSize=64)
   val ctp : CtrlParameter = CtrlParameter(core, bmbpp)
-  val cpa = TaskParameterAggregate(core, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
+  val tpa = TaskParameterAggregate(core, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
   val io = new Bundle{
     val cmd      = Vec(master(Flow(DfiCmd(config))),config.frequencyRatio)
     val address  = Vec(master(Flow(DfiAddr(config))),config.frequencyRatio)
     val ckeN     = out Bits(config.chipSelectNumber * config.frequencyRatio bits)
     val initDone = out Bool()
   }
-  val init = Initialize(cpa)
+  val init = Initialize(tpa)
   io.cmd := init.io.cmd
   io.address := init.io.address
   io.ckeN := init.io.ckeN

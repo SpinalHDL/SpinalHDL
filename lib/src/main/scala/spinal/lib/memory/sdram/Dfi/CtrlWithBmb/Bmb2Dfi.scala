@@ -22,15 +22,15 @@ case class Bmb2Dfi(val ctp : CtrlParameter, pl : PhyConfig, config: DfiConfig) e
     val dfi = master(Dfi(config))
   }
 
-  val cpa = TaskParameterAggregate(ctp.task, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
+  val tpa = TaskParameterAggregate(ctp.task, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
 
-  val bmbBridge = BmbBridge(ctp.port, cpa)
+  val bmbBridge = BmbBridge(ctp.port, tpa)
   bmbBridge.io.bmb <>  io.bmb
 
-  val control = Control(cpa)
+  val control = Control(tpa)
   control.io.inport <> bmbBridge.io.taskPort
 
-  val alignment = Alignment(cpa.config)
+  val alignment = Alignment(tpa.config)
   alignment.io.inIdfiport <> control.io.outport
   alignment.io.outDfiport <> io.dfi
 }

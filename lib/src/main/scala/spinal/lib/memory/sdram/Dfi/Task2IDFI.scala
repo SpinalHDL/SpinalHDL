@@ -5,10 +5,10 @@ import spinal.lib.memory.sdram.Dfi.Interface.DDR.DDRConfig
 import spinal.lib._
 import spinal.lib.memory.sdram.Dfi.Interface.{TaskParameterAggregate, TaskRsp, PortTasks, TaskWriteData, DfiAddr, DfiCmd, DfiConfig, DfiWrdata, Dfirddata}
 
-case class CmdTxd(cpa:TaskParameterAggregate) extends Component{
-  import cpa._
+case class CmdTxd(tpa:TaskParameterAggregate) extends Component{
+  import tpa._
   val io = new Bundle{
-    val task    = slave(PortTasks(cpa))
+    val task    = slave(PortTasks(tpa))
     val cmd     = Vec(master(Flow(DfiCmd(config))),config.frequencyRatio)
     val address = Vec(master(Flow(DfiAddr(config))),config.frequencyRatio)
   }
@@ -23,7 +23,7 @@ case class CmdTxd(cpa:TaskParameterAggregate) extends Component{
 
   def AUTO_PRECHARGE_BIT = 10  // Disable auto precharge (auto close of row)
   def ALL_BANKS_BIT =10        // Precharge all banks
-  def COULMNRang = 0 until(cpa.pl.sdram.columnWidth)
+  def COULMNRang = 0 until(tpa.pl.sdram.columnWidth)
   def BANK:Bits   = io.task.task.address.bank.asBits
   def ROW:Bits    =  io.task.task.address.row.asBits
   def COLUMN:Bits    =  io.task.task.address.column.asBits
@@ -90,14 +90,14 @@ case class CmdTxd(cpa:TaskParameterAggregate) extends Component{
 
 
 
-case class RdDataRxd(cpa:TaskParameterAggregate) extends Component {
-  import cpa._
-  import cpa.config._
+case class RdDataRxd(tpa:TaskParameterAggregate) extends Component {
+  import tpa._
+  import tpa.config._
   val io = new Bundle{
-    val task = slave(PortTasks(cpa))
+    val task = slave(PortTasks(tpa))
     val idfiRddata = Vec(slave(Stream(Fragment(Dfirddata(config)))), config.frequencyRatio)
     val rden = out Vec(Bool(),frequencyRatio)
-    val coreRddata =  master(Flow(Fragment(TaskRsp(cpp, cpa))))
+    val coreRddata =  master(Flow(Fragment(TaskRsp(tpp, tpa))))
   }
 
   case class PipelineCmd() extends Bundle {
@@ -151,7 +151,7 @@ case class RdDataRxd(cpa:TaskParameterAggregate) extends Component {
   val rspPop = rspPipeline.output.stage()
   io.coreRddata.valid := rspPop.valid
   io.coreRddata.last := rspPop.last
-  if(io.coreRddata.cpp.canRead) io.coreRddata.data := rspPop.data
+  if(io.coreRddata.tpp.canRead) io.coreRddata.data := rspPop.data
   io.coreRddata.context := rspPop.context.resized
 
   rspPipeline.input.valid.setWhen(io.task.task.read)
@@ -171,12 +171,12 @@ case class RdDataRxd(cpa:TaskParameterAggregate) extends Component {
 
 
 
-case class WrDataTxd(cpa:TaskParameterAggregate) extends Component{
-  import cpa._
-  import cpa.config._
+case class WrDataTxd(tpa:TaskParameterAggregate) extends Component{
+  import tpa._
+  import tpa.config._
   val io = new Bundle{
     val write = in Bool()
-    val coreWrdata = slave(Stream(TaskWriteData(cpp, cpa)))
+    val coreWrdata = slave(Stream(TaskWriteData(tpp, tpa)))
     val idfiWrdata = Vec(master(Flow(DfiWrdata(config))),config.frequencyRatio)
   }
   def wrdataPhase(i:Int) = io.idfiWrdata(i)

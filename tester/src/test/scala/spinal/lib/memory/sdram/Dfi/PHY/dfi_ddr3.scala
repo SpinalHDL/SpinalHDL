@@ -55,13 +55,13 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
     ddr3Chips.map(_.phy.io.dfi.rddata_valid_o).orR <> clockArea.bmb2dfi.io.dfi.read.rd(0).rddatavalid
     ddr3Chips.map(_.phy.io.dfi.rddata_o).reduceBalancedTree(_|_) <> clockArea.bmb2dfi.io.dfi.read.rd(0).rddata
 
-    val rst = ClockDomain.readResetWire
+    val rst = ~ClockDomain.readResetWire
     val adapter = for(ddr3Chip <- ddr3Chips) yield new Area{
       ddr3Chip.phy.io.clk.i <> io.clk1
       ddr3Chip.phy.io.clk.ddr_i <> io.clk2
       ddr3Chip.phy.io.clk.ddr90_i <> io.clk3
       ddr3Chip.phy.io.clk.ref_i <> io.clk4
-      ddr3Chip.phy.io.rst_i := ~rst
+      ddr3Chip.phy.io.rst_i := rst
 
       ddr3Chip.phy.io.dfi.cke_i <> clockArea.bmb2dfi.io.dfi.control.cke(ddr3Chip.sel)
       ddr3Chip.phy.io.dfi.odt_i.clear()
@@ -189,16 +189,17 @@ case class dfi_ddr3() extends Component{
   import config._
   val io = new Bundle{
     val clk = in Bool()
-    val rstN = in Bool()
+    val rst_n = in Bool()
     val ddr3 = new ddr3IO(pl,config)
   }
+  noIoPrefix()
   val bmbClockDomainCfg = ClockDomainConfig(resetActiveLevel = LOW)
   val myClockDomain = ClockDomain.internal("work",bmbClockDomainCfg)
 
   val pll = pll_clk()
   pll.io.clk.in1 <> io.clk
-  pll.io.reset <> ~io.rstN
-  val rst_n = io.rstN & pll.io.locked
+  pll.io.reset <> ~io.rst_n
+  val rst_n = io.rst_n & pll.io.locked
   myClockDomain.clock := pll.io.clk.out1
   myClockDomain.reset := rst_n
 
