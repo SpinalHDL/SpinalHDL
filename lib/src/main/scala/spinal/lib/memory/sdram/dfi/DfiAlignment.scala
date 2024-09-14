@@ -1,8 +1,8 @@
-package spinal.lib.memory.sdram.Dfi
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.Dfi.Interface._
+import spinal.lib.memory.sdram.dfi.Interface._
 
 case class CAAlignment(config: DfiConfig) extends Component{
   import config._
@@ -67,15 +67,15 @@ case class RdAlignment(config: DfiConfig) extends Component {
   import config._
   val io = new Bundle {
     val phaseclear = in Bool()
-    val rdcs = useRddataCsN generate Vec(slave(Flow(Dfireadcs(config))), config.frequencyRatio)
+    val rdcs = useRddataCsN generate Vec(slave(Flow(DfiReadCs(config))), config.frequencyRatio)
     val rd = in Vec(DfiRd(config), config.frequencyRatio)
     val rdCs = useRddataCsN generate Vec(out(DfiRdCs(config)), config.frequencyRatio)
-    val rddata = Vec(master(Stream(Fragment(Dfirddata(config)))), config.frequencyRatio)
+    val rddata = Vec(master(Stream(Fragment(DfiRdData(config)))), config.frequencyRatio)
   }
 
 
   val validCnt = Vec(Reg(UInt(widthOf(U(timeConfig.dfiRWLength)) bits)), frequencyRatio)
-  val rddataTemp = Vec(Stream(Fragment(Dfirddata(config))), config.frequencyRatio)
+  val rddataTemp = Vec(Stream(Fragment(DfiRdData(config))), config.frequencyRatio)
   validCnt.foreach(_.init(0))
   rddataTemp.foreach(_.last.clear())
   for (i <- 0 until (frequencyRatio)) {
@@ -139,7 +139,7 @@ case class RdAlignment(config: DfiConfig) extends Component {
     for(i <- 0 until(frequencyRatio)){
       io.rdCs(i).rddataCsN.setAll()
       when(io.rdcs(i).valid){
-        io.rdCs(i).rddataCsN := io.rdcs(i).rdcs
+        io.rdCs(i).rddataCsN := io.rdcs(i).rdCs
       }
     }
   }
@@ -154,8 +154,8 @@ case class RdAlignment(config: DfiConfig) extends Component {
 case class WrAlignment(config: DfiConfig) extends Component{
   import config._
   val io = new Bundle{
-    val wrcs   = useWrdataCsN generate Vec(slave(Flow(DfiWrcs(config))),config.frequencyRatio)
-    val wrdata = Vec(slave(Flow(DfiWrdata(config))),config.frequencyRatio)
+    val wrcs   = useWrdataCsN generate Vec(slave(Flow(DfiWrCs(config))),config.frequencyRatio)
+    val wrdata = Vec(slave(Flow(DfiWrData(config))),config.frequencyRatio)
     val output = master(DfiWriteInterface(config))
   }
   for(i <- 0 until(frequencyRatio)){
@@ -168,7 +168,7 @@ case class WrAlignment(config: DfiConfig) extends Component{
     delaycyc := timeConfig.tPhyWrData/frequencyRatio
   }
 
-  val wrdatahistary = Vec(Vec(DfiWrdata(config),timeConfig.tPhyWrData/frequencyRatio+2),frequencyRatio)
+  val wrdatahistary = Vec(Vec(DfiWrData(config),timeConfig.tPhyWrData/frequencyRatio+2),frequencyRatio)
   for(i <- 0 until(frequencyRatio)){
     wrdatahistary(i) := History(io.wrdata(i).payload,0 to timeConfig.tPhyWrData/frequencyRatio+1)
     io.output.wr(i).wrdata.assignDontCare()
@@ -177,11 +177,11 @@ case class WrAlignment(config: DfiConfig) extends Component{
 
   for(k <- 0 until(frequencyRatio)){
     if(k < timeConfig.tPhyWrData%frequencyRatio){
-      io.output.wr(k).wrdata := (delaycyc + 1).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrdata
-      io.output.wr(k).wrdataMask := (delaycyc + 1).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrdataMask
+      io.output.wr(k).wrdata := (delaycyc + 1).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrData
+      io.output.wr(k).wrdataMask := (delaycyc + 1).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrDataMask
     }else{
-      io.output.wr(k).wrdata := (delaycyc).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrdata
-      io.output.wr(k).wrdataMask := (delaycyc).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrdataMask
+      io.output.wr(k).wrdata := (delaycyc).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrData
+      io.output.wr(k).wrdataMask := (delaycyc).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrDataMask
     }
   }
 
@@ -189,7 +189,7 @@ case class WrAlignment(config: DfiConfig) extends Component{
     for(i <- 0 until(frequencyRatio)){
       io.output.wr(i).wrdataCsN.setAll()
       when(io.wrcs(i).valid){
-        io.output.wr(i).wrdataCsN := io.wrcs(i).wrcs
+        io.output.wr(i).wrdataCsN := io.wrcs(i).wrCs
       }
     }
   }

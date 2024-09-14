@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.Dfi.Interface
+package spinal.lib.memory.sdram.dfi.Interface
 
 import spinal.core.{Bundle, assert}
 case class DfiTimeConfig(
@@ -39,103 +39,103 @@ case class DfiTimeConfig(
 
 object DDR {
   abstract class DDRInterface(
-                             val UseCtrl:Boolean=true,
-                             val UseWrData:Boolean=true,
-                             val UseRdData:Boolean=true,
-                             val UseUpdate:Boolean=false,
-                             val UseStatus:Boolean=false,
-                             val UseTraining:Boolean=false,
-                             val UseLowPower:Boolean=false,
-                             val UseError:Boolean=false
+                               val useCtrlSignals:Boolean=true,
+                               val useWrDataSignals:Boolean=true,
+                               val useRdDataSignals:Boolean=true,
+                               val useUpdateSignals:Boolean=false,
+                               val useStatusSignals:Boolean=false,
+                               val useTrainingSignals:Boolean=false,
+                               val useLowPowerSignals:Boolean=false,
+                               val useErrorSignals:Boolean=false
                              )
   abstract class DDRConfig extends DDRInterface {
-    def useBank = true & UseCtrl
-    def useAckN = false & UseCtrl
-    def useRasN = true & UseCtrl
-    def useCasN = true & UseCtrl
-    def useWeN = true & UseCtrl
-    def useBg = false & UseCtrl
-    def useCid = false & UseCtrl
-    def useOdt = false & UseCtrl
-    def useResetN = false & UseCtrl
+    def useBank = true & useCtrlSignals
+    def useAckN = false & useCtrlSignals
+    def useRasN = true & useCtrlSignals
+    def useCasN = true & useCtrlSignals
+    def useWeN = true & useCtrlSignals
+    def useBg = false & useCtrlSignals
+    def useCid = false & useCtrlSignals
+    def useOdt = false & useCtrlSignals
+    def useResetN = false & useCtrlSignals
 
-    def useWrdataCsN = true & UseWrData
+    def useWrdataCsN = true & useWrDataSignals
 
-    def useRddataDbiN = false & UseRdData
-    def useRddataCsN = true & UseRdData
-    def useRddataDnv = false & UseRdData
+    def useRddataDbiN = false & useRdDataSignals
+    def useRddataCsN = true & useRdDataSignals
+    def useRddataDnv = false & useRdDataSignals
 
-    def useCtrlupdReq = true & UseUpdate
-    def useCtrlupdAck = true & UseUpdate
-    def usePhyupdReq = true & UseUpdate
-    def usePhyupdAck = true & UseUpdate
-    def usePhyupdType = true & UseUpdate
+    def useCtrlupdReq = true & useUpdateSignals
+    def useCtrlupdAck = true & useUpdateSignals
+    def usePhyupdReq = true & useUpdateSignals
+    def usePhyupdAck = true & useUpdateSignals
+    def usePhyupdType = true & useUpdateSignals
 
-    def useDataByteDisable = true & UseStatus
-    def useFreqRatio = true & UseStatus
-    def useInitStart = true & UseStatus
-    def useParityIn =  true & UseStatus
-    def useAlertN =  true & UseStatus
+    def useDataByteDisable = true & useStatusSignals
+    def useFreqRatio = true & useStatusSignals
+    def useInitStart = true & useStatusSignals
+    def useParityIn =  true & useStatusSignals
+    def useAlertN =  true & useStatusSignals
 
-    def useRdlvlReq =  false & UseTraining
-    def usePhyRdlvlCsN = false & UseTraining
-    def useRdlvlEn = false & UseTraining
-    def useRdlvlResp = false & UseTraining
-    def useRdlvlGateReq = false & UseTraining
-    def usePhyRdlvlGateCsN = false & UseTraining
-    def useRdlvlGateEn = false & UseTraining
-    def useWrlvlReq = false & UseTraining
-    def usePhyWrlvlCsN = false & UseTraining
-    def useWrlvlEn = false & UseTraining
-    def useWrlvlStrobe = false & UseTraining
-    def useWrlvlResp = false & UseTraining
-    def useCalvlReq = false & UseTraining
-    def usePhyCalvlCsN = false & UseTraining
-    def useCalvlEn = false & UseTraining
-    def useCalvlCapture = false & UseTraining
-    def useCalvlResp = false & UseTraining
-    def useLvlPattern = false & UseTraining
-    def useLvlPeriodic = true & UseTraining
-    def usePhylvlReqCsN = false & UseTraining
-    def usePhylvlAckCsN = false & UseTraining
+    def useRdlvlReq =  false & useTrainingSignals
+    def usePhyRdlvlCsN = false & useTrainingSignals
+    def useRdlvlEn = false & useTrainingSignals
+    def useRdlvlResp = false & useTrainingSignals
+    def useRdlvlGateReq = false & useTrainingSignals
+    def usePhyRdlvlGateCsN = false & useTrainingSignals
+    def useRdlvlGateEn = false & useTrainingSignals
+    def useWrlvlReq = false & useTrainingSignals
+    def usePhyWrlvlCsN = false & useTrainingSignals
+    def useWrlvlEn = false & useTrainingSignals
+    def useWrlvlStrobe = false & useTrainingSignals
+    def useWrlvlResp = false & useTrainingSignals
+    def useCalvlReq = false & useTrainingSignals
+    def usePhyCalvlCsN = false & useTrainingSignals
+    def useCalvlEn = false & useTrainingSignals
+    def useCalvlCapture = false & useTrainingSignals
+    def useCalvlResp = false & useTrainingSignals
+    def useLvlPattern = false & useTrainingSignals
+    def useLvlPeriodic = true & useTrainingSignals
+    def usePhylvlReqCsN = false & useTrainingSignals
+    def usePhylvlAckCsN = false & useTrainingSignals
 
-    def useLpCtrlReq = true & UseLowPower
-    def useLpDataReq = true & UseLowPower
-    def useLpWakeUp = true & UseLowPower
-    def useLpAck = true & UseLowPower
+    def useLpCtrlReq = true & useLowPowerSignals
+    def useLpDataReq = true & useLowPowerSignals
+    def useLpWakeUp = true & useLowPowerSignals
+    def useLpAck = true & useLowPowerSignals
 
-    def useError = true & UseError
-    def useErrorInfo = true & useError
+    def useError = true & useErrorSignals
+    def useErrorInfo = true & useErrorSignals
   }
   abstract class DDR1Config extends DDRConfig
   abstract class DDR2Config extends DDR1Config{
-    override def useOdt = true & UseCtrl
+    override def useOdt = true & useCtrlSignals
   }
   abstract class DDR3Config extends DDR2Config{
-    override def useResetN = true & UseCtrl
+    override def useResetN = true & useCtrlSignals
 
-    override def useRdlvlReq =  true & UseTraining
-    override def usePhyRdlvlCsN = true & UseTraining
-    override def useRdlvlEn = true & UseTraining
-    override def useRdlvlResp = true & UseTraining
-    override def useRdlvlGateReq = true & UseTraining
-    override def usePhyRdlvlGateCsN = true & UseTraining
-    override def useRdlvlGateEn = true & UseTraining
-    override def useWrlvlReq = true & UseTraining
-    override def usePhyWrlvlCsN = true & UseTraining
-    override def useWrlvlEn = true & UseTraining
-    override def useWrlvlStrobe = true & UseTraining
-    override def useWrlvlResp = true & UseTraining
+    override def useRdlvlReq =  true & useTrainingSignals
+    override def usePhyRdlvlCsN = true & useTrainingSignals
+    override def useRdlvlEn = true & useTrainingSignals
+    override def useRdlvlResp = true & useTrainingSignals
+    override def useRdlvlGateReq = true & useTrainingSignals
+    override def usePhyRdlvlGateCsN = true & useTrainingSignals
+    override def useRdlvlGateEn = true & useTrainingSignals
+    override def useWrlvlReq = true & useTrainingSignals
+    override def usePhyWrlvlCsN = true & useTrainingSignals
+    override def useWrlvlEn = true & useTrainingSignals
+    override def useWrlvlStrobe = true & useTrainingSignals
+    override def useWrlvlResp = true & useTrainingSignals
   }
   abstract class DDR4Config extends DDR3Config{
-    override def useAckN = true & UseCtrl
-    override def useBg = true & UseCtrl
-    override def useCid = true & UseCtrl
+    override def useAckN = true & useCtrlSignals
+    override def useBg = true & useCtrlSignals
+    override def useCid = true & useCtrlSignals
 
-    override def useRddataDbiN = true & UseRdData
-    override def useLvlPattern = true & UseTraining
-    override def usePhylvlReqCsN = true & UseTraining
-    override def usePhylvlAckCsN = true & UseTraining
+    override def useRddataDbiN = true & useRdDataSignals
+    override def useLvlPattern = true & useTrainingSignals
+    override def usePhylvlReqCsN = true & useTrainingSignals
+    override def usePhylvlAckCsN = true & useTrainingSignals
   }
   object DDR1 extends DDR1Config
   object DDR2 extends DDR2Config

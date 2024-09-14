@@ -1,25 +1,25 @@
-package spinal.lib.memory.sdram.Dfi
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
-import spinal.lib.memory.sdram.Dfi.Interface.DDR.DDRConfig
+import spinal.lib.memory.sdram.dfi.Interface.DDR.DDRConfig
 import spinal.lib._
-import spinal.lib.memory.sdram.Dfi.Interface.{TaskParameterAggregate, TaskRsp, PortTasks, TaskWriteData, DfiAddr, DfiCmd, DfiConfig, DfiWrdata, Dfirddata}
+import spinal.lib.memory.sdram.dfi.Interface.{TaskParameterAggregate, TaskRsp, OpTasks, TaskWriteData, DfiAddr, DfiCmd, DfiConfig, DfiWrData, DfiRdData}
 
 case class CmdTxd(tpa:TaskParameterAggregate) extends Component{
   import tpa._
   val io = new Bundle{
-    val task    = slave(PortTasks(tpa))
+    val task    = slave(OpTasks(tpa))
     val cmd     = Vec(master(Flow(DfiCmd(config))),config.frequencyRatio)
     val address = Vec(master(Flow(DfiAddr(config))),config.frequencyRatio)
   }
   def cmdphase(i:Int) = io.cmd(i)
   def addrphase(i:Int) = io.address(i)
 
-  def ACTIVE:Bits    = (~(B(1) << io.task.task.address.csAddr).resize(config.chipSelectNumber) ## B"b011").setName("ACTIVE")
-  def WRITE:Bits     = (~(B(1) << io.task.task.address.csAddr).resize(config.chipSelectNumber) ## B"b100").setName("WRITE")
-  def READ:Bits      = (~(B(1) << io.task.task.address.csAddr).resize(config.chipSelectNumber) ## B"b101").setName("READ")
-  def PRECHARGE:Bits = (~(B(1) << io.task.task.address.csAddr).resize(config.chipSelectNumber) ## B"b010")
-  def REFRESH:Bits   = (~(B(1) << io.task.task.address.csAddr).resize(config.chipSelectNumber) ## B"b001").setName("REFRESH")
+  def ACTIVE:Bits    = (~(B(1) << io.task.task.address.cs).resize(config.chipSelectNumber) ## B"b011").setName("ACTIVE")
+  def WRITE:Bits     = (~(B(1) << io.task.task.address.cs).resize(config.chipSelectNumber) ## B"b100").setName("WRITE")
+  def READ:Bits      = (~(B(1) << io.task.task.address.cs).resize(config.chipSelectNumber) ## B"b101").setName("READ")
+  def PRECHARGE:Bits = (~(B(1) << io.task.task.address.cs).resize(config.chipSelectNumber) ## B"b010")
+  def REFRESH:Bits   = (~(B(1) << io.task.task.address.cs).resize(config.chipSelectNumber) ## B"b001").setName("REFRESH")
 
   def AUTO_PRECHARGE_BIT = 10  // Disable auto precharge (auto close of row)
   def ALL_BANKS_BIT =10        // Precharge all banks
@@ -94,23 +94,24 @@ case class RdDataRxd(tpa:TaskParameterAggregate) extends Component {
   import tpa._
   import tpa.config._
   val io = new Bundle{
-    val task = slave(PortTasks(tpa))
-    val idfiRddata = Vec(slave(Stream(Fragment(Dfirddata(config)))), config.frequencyRatio)
+    val task = slave(OpTasks(tpa))
+    val idfiRddata = Vec(slave(Stream(Fragment(DfiRdData(config)))), config.frequencyRatio)
     val rden = out Vec(Bool(),frequencyRatio)
     val coreRddata =  master(Flow(Fragment(TaskRsp(tpp, tpa))))
   }
 
-  case class PipelineCmd() extends Bundle {
-    val context = Bits(backendContextWidth bits)
-  }
 
   case class PipelineRsp() extends Bundle {
     val data = Bits(pl.beatWidth bits)
     val context = Bits(backendContextWidth bits)
   }
 
+  case class Context() extends Bundle{
+    val context = Bits(backendContextWidth bits)
+  }
+
   val rspPipeline = new Area {
-    val input = Flow(Fragment(PipelineCmd()))
+    val input = Flow(Fragment(Context()))
     assert(timeConfig.tPhyRdlat + timeConfig.tRddataEn >= 1)
     val cmd = input.toStream.queueLowLatency(1 << log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + pl.beatCount-1)/pl.beatCount + 1), latency = 1)
 
@@ -177,7 +178,7 @@ case class WrDataTxd(tpa:TaskParameterAggregate) extends Component{
   val io = new Bundle{
     val write = in Bool()
     val coreWrdata = slave(Stream(TaskWriteData(tpp, tpa)))
-    val idfiWrdata = Vec(master(Flow(DfiWrdata(config))),config.frequencyRatio)
+    val idfiWrdata = Vec(master(Flow(DfiWrData(config))),config.frequencyRatio)
   }
   def wrdataPhase(i:Int) = io.idfiWrdata(i)
 
@@ -204,12 +205,12 @@ case class WrDataTxd(tpa:TaskParameterAggregate) extends Component{
   for(i <- 0 until(frequencyRatio)){
     if(i>= nextphase){
       wrdataPhase(i).valid := wrensHistory(nextphase)(delaycyc)
-      wrdataPhase(i).wrdata := Vec(io.coreWrdata.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i)
-      wrdataPhase(i).wrdataMask := Vec(io.coreWrdata.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i)
+      wrdataPhase(i).wrData := Vec(io.coreWrdata.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i)
+      wrdataPhase(i).wrDataMask := Vec(io.coreWrdata.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i)
     }else{
       wrdataPhase(i).valid := wrensHistory(nextphase)(delaycyc+1)
-      wrdataPhase(i).wrdata := RegNext(Vec(io.coreWrdata.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i))
-      wrdataPhase(i).wrdataMask := RegNext(Vec(io.coreWrdata.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i))
+      wrdataPhase(i).wrData := RegNext(Vec(io.coreWrdata.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i))
+      wrdataPhase(i).wrDataMask := RegNext(Vec(io.coreWrdata.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i))
     }
   }
 }

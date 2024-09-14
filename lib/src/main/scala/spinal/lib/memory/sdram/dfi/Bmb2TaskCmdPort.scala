@@ -1,10 +1,61 @@
-package spinal.lib.memory.sdram.Dfi.CtrlWithBmb
+package spinal.lib.memory.sdram.dfi
 
-import spinal.lib._
 import spinal.core._
-import spinal.lib.bus.bmb.{Bmb, BmbAlignedSpliter, BmbAligner, BmbLengthFixer}
-import spinal.lib.memory.sdram.Dfi.Interface._
-import spinal.lib.memory.sdram.Dfi._
+import spinal.lib._
+import spinal.lib.bus.bmb.{Bmb, BmbAlignedSpliter, BmbAligner, BmbLengthFixer, BmbParameter}
+import spinal.lib.memory.sdram.dfi.CtrlWithBmb.BmbPortParameter
+import spinal.lib.memory.sdram.dfi.Interface._
+
+
+case class BmbToTaskCmdPort(ip : BmbParameter, tpp : TaskPortParameter, tpa : TaskParameterAggregate, pp : BmbPortParameter) extends Component{
+  val io = new Bundle{
+    val input = slave(Bmb(ip))
+    val inputBurstLast = in Bool()
+    val output = master(TaskCmdPort(tpp, tpa))
+  }
+
+  case class PackContext() extends Bundle{
+    val source = UInt(ip.access.sourceWidth bits)
+    val context = Bits(ip.access.contextWidth bits)
+  }
+
+  val cmdToRspCount = io.output.cmd.write ? U(0) | (io.output.cmd.length +^ 1) << log2Up(tpa.pl.beatCount)
+
+  val rspPendingCounter = Reg(UInt(log2Up(pp.rspBufferSize + 1) bits)) init(0)
+  rspPendingCounter := rspPendingCounter + (io.input.cmd.lastFire ? cmdToRspCount | U(0)) - U(io.output.rsp.fire)
+
+  val toManyRsp = (U"0" @@ rspPendingCounter) + cmdToRspCount > pp.rspBufferSize //pp.rspBufferSize - pp.beatPerBurst*tpa.pl.beatCount //Pessimistic
+
+  io.input.cmd.ready := io.output.cmd.ready && !toManyRsp
+  if(ip.access.canWrite) io.input.cmd.ready clearWhen(!io.output.writeData.ready)
+
+  val cmdContext = PackContext()
+  cmdContext.context := io.input.cmd.context
+  cmdContext.source := io.input.cmd.source
+
+  io.output.cmd.valid := io.input.cmd.firstFire
+  io.output.cmd.write := io.input.cmd.isWrite
+  io.output.cmd.address := io.input.cmd.address
+  assert(widthOf(io.output.cmd.length) >= widthOf(io.input.cmd.length) - log2Up(tpa.pl.bytePerBurst))
+  io.output.cmd.length := (io.input.cmd.length >> log2Up(tpa.pl.bytePerBurst)).resized
+  io.output.cmd.context := B(cmdContext)
+  io.output.cmd.burstLast := io.inputBurstLast
+
+  if(ip.access.canWrite) {
+    io.output.writeData.valid := io.input.cmd.fire && io.input.cmd.isWrite
+    io.output.writeData.data := io.input.cmd.data
+    io.output.writeData.mask := io.input.cmd.mask
+  }
+
+  val rspContext = io.output.rsp.context.as(PackContext())
+  io.input.rsp.arbitrationFrom(io.output.rsp)
+  io.input.rsp.setSuccess()
+  io.input.rsp.last := io.output.rsp.last
+  if(ip.access.canRead) io.input.rsp.data := io.output.rsp.data
+  io.input.rsp.context := rspContext.context
+  io.input.rsp.source := rspContext.source
+}
+
 
 object BmbAdapter{
   def corePortParameter(pp : BmbPortParameter, pl : PhyConfig) = TaskPortParameter(
@@ -12,8 +63,8 @@ object BmbAdapter{
       val converterBmb = BmbLengthFixer.outputParameter(BmbAligner.outputParameter(pp.bmb.access, log2Up(pl.burstWidth/8)), log2Up(pl.burstWidth/8))
       converterBmb.contextWidth + converterBmb.sourceWidth
     },
-    writeTockenInterfaceWidth = 1,
-    writeTockenBufferSize = pp.dataBufferSize + 4,
+    writeTokenInterfaceWidth = 1,
+    writeTokenBufferSize = pp.dataBufferSize + 4,
     canRead = pp.bmb.access.canRead,
     canWrite = pp.bmb.access.canWrite
   )
@@ -49,13 +100,14 @@ case class BmbAdapter(pp : BmbPortParameter,
   }
 
   val cmdAddress = Stream(TaskCmd(tpp, tpa))
+  val writeDataToken = UInt(tpp.writeTokenInterfaceWidth bits)
   val syncBuffer = if(!asyncCc) new Area{
     cmdAddress << inputLogic.converter.io.output.cmd.queueLowLatency(pp.cmdBufferSize, 1)
     inputLogic.converter.io.output.rsp << io.output.rsp.queueLowLatency(pp.rspBufferSize, 1)
 
     if(pp.bmb.access.canWrite) {
       io.output.writeData << inputLogic.converter.io.output.writeData.queueLowLatency(pp.dataBufferSize, 1)
-      io.output.writeDataTocken := RegNext(U(inputLogic.converter.io.output.writeData.fire)) init (0)
+      writeDataToken := RegNext(U(inputLogic.converter.io.output.writeData.fire)) init (0)
     }
   }
   val asyncBuffer = if(asyncCc) new Area {
@@ -73,8 +125,17 @@ case class BmbAdapter(pp : BmbPortParameter,
       when(tockenIncrement) {
         tockenCounter := tockenCounter + 1
       }
+      writeDataToken := RegNext(U(tockenIncrement)) init (0)
+    }
+  }
 
-      io.output.writeDataTocken := RegNext(U(tockenIncrement)) init (0)
+  val writeTokens =  new Area{
+    val canWrite = tpp.canWrite
+    val consume = io.output.writeDataToken.ready
+    val counter = canWrite generate Reg(UInt(log2Up(tpp.writeTokenBufferSize + 1) bits)).init(0)
+    if(canWrite) {
+      counter := counter + writeDataToken - (U(consume) << log2Up(pl.beatCount))
+      io.output.writeDataToken.valid := RegInit(False) setWhen(counter >= pl.beatCount) clearWhen(consume && counter < pl.beatCount*2)
     }
   }
 
@@ -83,28 +144,3 @@ case class BmbAdapter(pp : BmbPortParameter,
 }
 
 
-
-
-
-
-case class BmbBridge(port : BmbPortParameter, tpa : TaskParameterAggregate) extends Component{
-  import tpa._
-  val io = new Bundle{
-    val bmb      = slave(Bmb(port.bmb))
-    val taskPort = master(TaskPort(tpp, tpa))
-  }
-
-  val bmbAdapter =  BmbAdapter(port, tpa)
-  bmbAdapter.io.input <>  io.bmb
-  bmbAdapter.io.output.writeData <> io.taskPort.writeData
-  bmbAdapter.io.output.rsp <> io.taskPort.rsp
-
-  val maketask = MakeTask(tpp,tpa)
-  maketask.io.cmd << bmbAdapter.io.output.cmd
-  maketask.io.writeDataTockens <> bmbAdapter.io.output.writeDataTocken
-  maketask.io.output <> io.taskPort.tasks
-
-  val refresher = Refresher(tpa)
-  refresher.io.refresh.valid <> bmbAdapter.io.refresh
-  refresher.io.refresh <> maketask.io.refresh
-}

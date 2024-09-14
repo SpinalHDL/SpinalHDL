@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.Dfi.Interface
+package spinal.lib.memory.sdram.dfi.Interface
 
 import spinal.core._
 
@@ -74,7 +74,7 @@ case class SdramConfig(generation : SdramGeneration,
 
   def timeCycle(time:Int,cycTime:Int) = (time + cycTime - 1) / cycTime
   def cycleTime_ns = 1000 / ddrMHZ
-  def tREF = (REF * ddrMHZ) / (1<<rowWidth)
+  def tREF = (REF * ddrMHZ) / rowSize
   def tRCD = timeCycle(RCD,cycleTime_ns)
   def tRP = timeCycle(RP,cycleTime_ns)
   def tRFC = timeCycle(RFC,cycleTime_ns)
@@ -85,8 +85,6 @@ case class SdramConfig(generation : SdramGeneration,
   def tRTP = math.max(timeCycle(RTP,cycleTime_ns),generation.burstLength/generation.dataRate)
   def tRRD = math.max(timeCycle(RRD,cycleTime_ns),generation.burstLength/generation.dataRate)
   def tFAW = timeCycle(FAW,cycleTime_ns)
-//  def tRAS = timeCycle(RAS,cycleTime_ns)
-//  def tRAS = timeCycle(RAS,cycleTime_ns)
 
   def tPhyWrlat = ddrWrLat - 1
   def tRddataEn = ddrRdLat - 1
@@ -94,12 +92,12 @@ case class SdramConfig(generation : SdramGeneration,
 
 case class SdramTiming(generation : Int,
                        RFC : Int,//ns // Command Period (REF to ACT)
-                       RAS : Int, // Command Period (ACT to PRE)   Per bank
+                       RAS : Int, //ns// Command Period (ACT to PRE)   Per bank
                        RP  : Int,//ns // Command Period (PRE to ACT)
                        RCD : Int,//ns // Active Command To Read / Write Command Delay Time
-                       WTR : Int, // WRITE to READ
-                       WTP : Int, // WRITE to PRE (WRITE recovery time)
-                       RTP : Int, // READ to PRE
-                       RRD : Int, // ACT to ACT cross bank
+                       WTR : Int, //ns// WRITE to READ
+                       WTP : Int, //ns// WRITE to PRE (WRITE recovery time)
+                       RTP : Int, //ns// READ to PRE
+                       RRD : Int, //ns// ACT to ACT cross bank
                        REF : Int,//us // Refresh Cycle Time (single row)
-                       FAW : Int) // Four ACTIVATE windows
+                       FAW : Int)//ns // Four ACTIVATE windows

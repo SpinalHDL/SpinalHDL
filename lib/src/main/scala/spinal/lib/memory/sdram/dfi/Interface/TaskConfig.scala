@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.Dfi.Interface
+package spinal.lib.memory.sdram.dfi.Interface
 
 import spinal.core._
 import spinal.lib._
@@ -40,13 +40,13 @@ case class SdramAddress(l : SdramConfig) extends Bundle {
 case class BusAddress(l : SdramConfig, config:DfiConfig) extends Bundle {
   val byte   = UInt(log2Up(l.bytePerWord) bits)
   val column = UInt(l.columnWidth bits)
-  val row    = UInt(l.rowWidth bits)
   val bank   = UInt(l.bankWidth bits)
-  val csAddr = UInt(log2Up(config.chipSelectNumber) bits)
+  val row    = UInt(l.rowWidth bits)
+  val cs     = UInt(log2Up(config.chipSelectNumber) bits)
 }
 
 
-case class PortTask(tpa : TaskParameterAggregate) extends Bundle {
+case class OpTask(tpa : TaskParameterAggregate) extends Bundle {
   import tpa._
 
   val read, write, active, precharge = Bool() //OH encoded
@@ -55,11 +55,11 @@ case class PortTask(tpa : TaskParameterAggregate) extends Bundle {
   val context = Bits(backendContextWidth bits)
 }
 
-case class PortTasks(tpa : TaskParameterAggregate) extends Bundle with IMasterSlave {
-  val task = PortTask(tpa)
+case class OpTasks(tpa : TaskParameterAggregate) extends Bundle with IMasterSlave {
+  val task = OpTask(tpa)
   val prechargeAll, refresh = Bool() //OH encoded
 
-  def init(): PortTasks ={
+  def init(): OpTasks ={
     val ret = RegNext(this).setCompositeName(this, "init", true)
     ret.task.read init(False)
     ret.task.write init(False)
@@ -72,6 +72,18 @@ case class PortTasks(tpa : TaskParameterAggregate) extends Bundle with IMasterSl
   override def asMaster(): Unit = out(this)
 }
 
+
+case class TaskParameter(bytePerTaskMax : Int = 64,
+                         timingWidth : Int,
+                         refWidth : Int){
+  assert(isPow2(bytePerTaskMax))
+}
+
+case class TaskPortParameter(contextWidth : Int,
+                             writeTokenInterfaceWidth : Int,
+                             writeTokenBufferSize : Int,
+                             canRead : Boolean,
+                             canWrite : Boolean)
 case class TaskParameterAggregate(tp : TaskParameter, pl : PhyConfig, tpp : TaskPortParameter, config: DfiConfig){
   def backendContextWidth = tpp.contextWidth
   def generation = pl.sdram.generation
@@ -80,37 +92,9 @@ case class TaskParameterAggregate(tp : TaskParameter, pl : PhyConfig, tpp : Task
   def chipSelectWidth = log2Up(config.chipSelectNumber)
   def addressWidth = pl.sdram.byteAddressWidth+chipSelectWidth
 }
-case class TaskParameter(bytePerTaskMax : Int = 64,
-                         timingWidth : Int,
-                         refWidth : Int){
-  assert(isPow2(bytePerTaskMax))
-}
-
-case class TaskPortParameter(contextWidth : Int,
-                             writeTockenInterfaceWidth : Int,
-                             writeTockenBufferSize : Int,
-                             canRead : Boolean,
-                             canWrite : Boolean)
-
-case class TaskCmdPort(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle with IMasterSlave{
-  val cmd = Stream(TaskCmd(tpp, tpa))
-  val writeData = tpp.canWrite generate Stream(TaskWriteData(tpp, tpa))
-  val writeDataTocken = tpp.canWrite generate (out UInt(tpp.writeTockenInterfaceWidth bits))
-  val rsp = Stream(Fragment(TaskRsp(tpp, tpa)))
-
-  val writeDataAdded = UInt(tpp.writeTockenInterfaceWidth bits)
-
-  override def asMaster(): Unit = {
-    master(cmd)
-    masterWithNull(writeData)
-    out(writeDataAdded)
-    outWithNull(writeDataTocken)
-    slave(rsp)
-  }
-}
 
 case class TaskPort(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle with IMasterSlave{
-  val tasks = PortTasks(tpa)
+  val tasks = OpTasks(tpa)
   val writeData = tpp.canWrite generate Stream(TaskWriteData(tpp, tpa))
   val rsp = Stream(Fragment(TaskRsp(tpp, tpa)))
 
@@ -120,6 +104,22 @@ case class TaskPort(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
     master(tasks)
   }
 }
+
+case class TaskCmdPort(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle with IMasterSlave{
+  val cmd = Stream(TaskCmd(tpp, tpa))
+  val writeData = tpp.canWrite generate Stream(TaskWriteData(tpp, tpa))
+  val writeDataToken = tpp.canWrite generate Stream(Event)
+  val rsp = Stream(Fragment(TaskRsp(tpp, tpa)))
+
+  override def asMaster(): Unit = {
+    master(cmd,writeDataToken)
+    masterWithNull(writeData)
+//    outWithNull(writeDataToken)
+    slave(rsp)
+  }
+}
+
+
 
 case class TaskCmd(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle{
   import tpa._
@@ -155,42 +155,4 @@ case class PhyConfig(sdram : SdramConfig,
   def bytePerDq = dataWidth/8
   def bytePerBurst = burstWidth/8
   def bytePerBeat = beatWidth/8
-}
-
-
-case class InitCmd(config: DfiConfig) extends Bundle{
-  val ADDR  = Bits(config.addressWidth bits)
-  val BA    = Bits(config.bankWidth bits)
-  val CASn  = Bool()
-  val CSn   = Bits(config.chipSelectNumber bits)
-  val RASn  = Bool()
-  val WEn   = Bool()
-}
-case class InitBus(config: DfiConfig) extends Bundle with IMasterSlave{
-  val cmd = Flow(InitCmd(config))
-  val CKE = Bool()
-  val RESETn = config.useResetN generate Bool()
-
-  def driveFrom(mapper : BusSlaveFactory): Unit ={
-    val valid = RegNext(mapper.isWriting(0x00)) init(False)
-    cmd.valid := valid
-    mapper.drive(
-      address = 0x04,
-      4 -> cmd.CSn,
-      3 -> cmd.RASn,
-      2 -> cmd.CASn,
-      1 -> cmd.WEn
-    )
-    mapper.drive(cmd.ADDR, 0x08)
-    mapper.drive(cmd.BA, 0x0C)
-
-    if(RESETn != null) mapper.drive(RESETn, 0x10, 0) init(False)
-    mapper.drive(CKE, 0x10, 1) init(False)
-  }
-
-  override def asMaster(): Unit = {
-    master(cmd)
-    out(CKE)
-    outWithNull(RESETn)
-  }
 }

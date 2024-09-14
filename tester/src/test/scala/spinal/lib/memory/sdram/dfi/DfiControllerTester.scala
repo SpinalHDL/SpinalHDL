@@ -2,14 +2,14 @@ package spinal.lib
 
 import spinal.tester.code.SpinalAnyFunSuite
 
-class Bmb2DfiTester extends SpinalAnyFunSuite{
+class DfiControllerTester extends SpinalAnyFunSuite{
   import spinal.core.sim._
   import spinal.core._
   import spinal.lib._
   import spinal.lib.bus.bmb.BmbParameter
-  import spinal.lib.memory.sdram.Dfi.Interface._
-  import spinal.lib.memory.sdram.Dfi.CtrlWithBmb._
-  import spinal.lib.memory.sdram.Dfi._
+  import spinal.lib.memory.sdram.dfi.Interface._
+  import spinal.lib.memory.sdram.dfi.CtrlWithBmb._
+  import spinal.lib.memory.sdram.dfi._
   test("Bmb2Dfi"){
     SimConfig.compile{val bmbclockDomain = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,config=ClockDomainConfig(resetActiveLevel = HIGH))
       val core:TaskParameter = TaskParameter(timingWidth=5,refWidth=23)
@@ -24,7 +24,7 @@ class Bmb2DfiTester extends SpinalAnyFunSuite{
         sourceWidth=1,contextWidth=2,lengthWidth=6,alignment= BmbParameter.BurstAlignement.WORD)
       val bmbpp:BmbPortParameter = BmbPortParameter(bmbp,bmbclockDomain,cmdBufferSize=64,dataBufferSize=64,rspBufferSize=64)
       val ctp : CtrlParameter = CtrlParameter(core, bmbpp)
-      val dut = Bmb2Dfi(ctp,pl,config)
+      val dut = DfiController(ctp,pl,config)
       dut.bmbBridge.bmbAdapter.io.output.rsp.payload.last.simPublic()
       dut}.doSimUntilVoid {dut =>
       dut.clockDomain.forkStimulus(10)

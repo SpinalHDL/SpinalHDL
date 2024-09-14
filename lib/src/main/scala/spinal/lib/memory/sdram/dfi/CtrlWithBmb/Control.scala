@@ -1,9 +1,9 @@
-package spinal.lib.memory.sdram.Dfi.CtrlWithBmb
+package spinal.lib.memory.sdram.dfi.CtrlWithBmb
 
 import spinal.lib._
 import spinal.core._
-import spinal.lib.memory.sdram.Dfi.Interface.{TaskParameterAggregate, IDFI, TaskPort}
-import spinal.lib.memory.sdram.Dfi._
+import spinal.lib.memory.sdram.dfi.Interface.{TaskParameterAggregate, IDFI, TaskPort}
+import spinal.lib.memory.sdram.dfi._
 
 case class Control(tpa : TaskParameterAggregate) extends Component{
   import tpa._
@@ -32,9 +32,9 @@ case class Control(tpa : TaskParameterAggregate) extends Component{
   val idfiout = new Area {
     io.outport.cmd <> cmd.cmdtxd.io.cmd
     io.outport.address <> cmd.cmdtxd.io.address
-    io.outport.wrdata <> wrdata.wrdatatxd.io.idfiWrdata
-    io.outport.rddata <> radata.rddatarxd.io.idfiRddata
-    io.outport.rden <> radata.rddatarxd.io.rden
+    io.outport.wrData <> wrdata.wrdatatxd.io.idfiWrdata
+    io.outport.rdData <> radata.rddatarxd.io.idfiRddata
+    io.outport.rdEn <> radata.rddatarxd.io.rden
   }
 
 

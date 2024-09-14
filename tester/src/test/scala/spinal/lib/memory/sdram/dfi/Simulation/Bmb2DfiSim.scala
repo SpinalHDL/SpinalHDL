@@ -1,11 +1,12 @@
-package spinal.lib.memory.sdram.Dfi.Simulation
+package spinal.lib.memory.sdram.dfi.Simulation
 
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
-import spinal.lib.memory.sdram.Dfi.Interface._
-import spinal.lib.memory.sdram.Dfi.CtrlWithBmb._
+import spinal.lib.memory.sdram.dfi.Interface._
+import spinal.lib.memory.sdram.dfi._
+import spinal.lib.memory.sdram.dfi.CtrlWithBmb._
 
 case class Bmb2DfiSim(x:Int) extends Component{
 
@@ -27,7 +28,7 @@ case class Bmb2DfiSim(x:Int) extends Component{
     val bmb = slave(Bmb(ctp.port.bmb))
     val dfi = master(Dfi(config))
   }
-  val bmb2dfi = Bmb2Dfi(ctp,pl,config)
+  val bmb2dfi = DfiController(ctp,pl,config)
   bmb2dfi.io.bmb <> io.bmb
   bmb2dfi.io.dfi <> io.dfi
 }
@@ -38,9 +39,24 @@ object Bmb2DfiSim {
     SimConfig.withWave.compile{val dut = Bmb2DfiSim(1)
       dut.bmb2dfi.bmbBridge.bmbAdapter.io.output.rsp.payload.last.simPublic()
       dut}.doSimUntilVoid {dut =>
-      dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.forkStimulus(10000)
       import dut._
-
+      fork {
+        dut.clockDomain.deassertReset()
+        sleep(5000)
+        dut.clockDomain.assertReset()
+        sleep(10000)
+        dut.clockDomain.deassertReset()
+        sleep(10000)
+      }
+      fork{
+        dut.clockDomain.risingEdge()
+        sleep(10000)
+        while(true) {
+          dut.clockDomain.clockToggle()
+          sleep(5000)
+        }
+      }
       def write(array: Array[Int], address:Int) = {
 
         io.bmb.cmd.address #= address
@@ -96,19 +112,11 @@ object Bmb2DfiSim {
         bmbDatas(i) = i
       }
 
-      fork {
-        dut.clockDomain.assertReset()
-        dut.clockDomain.fallingEdge()
-        sleep(10)
-        while(true) {
-          dut.clockDomain.clockToggle()
-          sleep(5)
-        }
-      }
+
 
 
       io.dfi.read.rd.foreach(_.rddatavalid #= false)
-      clockDomain.waitSampling(10)
+      clockDomain.waitSampling(30)
       io.bmb.cmd.valid #= false
       io.bmb.cmd.last #= false
       io.bmb.cmd.source #= 0
@@ -137,7 +145,7 @@ object Bmb2DfiSim {
       write(array = bmbDatas,address = 2048)
       println("writing is OK")
 
-      clockDomain.waitSampling(10)
+      clockDomain.waitSampling(15)
       read(beatCount = bmbDatas.size, address = 128)
       clockDomain.waitSampling(2)//The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + pl.beatCount-1)/pl.beatCount + 1)
       readdata(bmbDatas.size)

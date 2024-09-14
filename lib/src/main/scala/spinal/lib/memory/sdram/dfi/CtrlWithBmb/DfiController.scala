@@ -1,9 +1,10 @@
-package spinal.lib.memory.sdram.Dfi.CtrlWithBmb
+package spinal.lib.memory.sdram.dfi.CtrlWithBmb
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
-import spinal.lib.memory.sdram.Dfi.Interface._
+import spinal.lib.memory.sdram.dfi.BmbAdapter
+import spinal.lib.memory.sdram.dfi.Interface._
 
 
 case class BmbPortParameter(bmb : BmbParameter,
@@ -16,7 +17,7 @@ case class BmbPortParameter(bmb : BmbParameter,
 case class CtrlParameter(task : TaskParameter,
                          port : BmbPortParameter)
 
-case class Bmb2Dfi(val ctp : CtrlParameter, pl : PhyConfig, config: DfiConfig) extends Component {
+case class DfiController(val ctp : CtrlParameter, pl : PhyConfig, config: DfiConfig) extends Component {
   val io = new Bundle {
     val bmb = slave(Bmb(ctp.port.bmb))
     val dfi = master(Dfi(config))

@@ -1,7 +1,8 @@
-package spinal.lib.memory.sdram.Dfi.PHY
+package spinal.lib.memory.sdram.dfi.PHY
 
-import spinal.lib.memory.sdram.Dfi.CtrlWithBmb.{Bmb2Dfi, BmbAdapter, BmbPortParameter, CtrlParameter}
-import spinal.lib.memory.sdram.Dfi.Interface._
+import spinal.lib.memory.sdram.dfi.CtrlWithBmb.{DfiController, BmbPortParameter, CtrlParameter}
+import spinal.lib.memory.sdram.dfi.Interface._
+import spinal.lib.memory.sdram.dfi._
 import spinal.lib._
 import spinal.core._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
@@ -44,7 +45,7 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
   val tpa = TaskParameterAggregate(tp,pl,BmbAdapter.corePortParameter(bmbpp, pl),config)
 
   val clockArea = new ClockingArea(ClockDomain.current) {
-    val bmb2dfi = Bmb2Dfi(ctp, pl, config)
+    val bmb2dfi = DfiController(ctp, pl, config)
     bmb2dfi.io.bmb <> io.bmb
   }
 
