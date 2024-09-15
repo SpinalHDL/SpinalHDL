@@ -1,8 +1,8 @@
-package spinal.lib.memory.sdram.dfi.PHY
+package spinal.lib.memory.sdram.dfi.phy
 
 import spinal.lib._
 import spinal.core._
-import spinal.lib.memory.sdram.dfi.Interface.{TaskParameter, TaskParameterAggregate, DfiAddr, DfiCmd, SdramConfig}
+import spinal.lib.memory.sdram.dfi.interface.{TaskParameter, TaskParameterAggregate, DfiAddr, DfiCmd, SdramConfig}
 case class Initialize(tpa:TaskParameterAggregate) extends Component{
   import tpa._
   import tpa.pl._

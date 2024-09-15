@@ -1,8 +1,8 @@
-package spinal.lib.memory.sdram.dfi
+package spinal.lib.memory.sdram.dfi.foundation
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi.Interface.{TaskParameterAggregate, TaskRsp, OpTasks, TaskWriteData, DfiAddr, DfiCmd, DfiWrData, DfiRdData}
+import spinal.lib.memory.sdram.dfi.interface.{TaskParameterAggregate, TaskRsp, OpTasks, TaskWriteData, DfiAddr, DfiCmd, DfiWrData, DfiRdData}
 
 case class CmdTxd(tpa:TaskParameterAggregate) extends Component{
   import tpa._

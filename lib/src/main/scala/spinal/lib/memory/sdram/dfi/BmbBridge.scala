@@ -1,10 +1,10 @@
-package spinal.lib.memory.sdram.dfi.CtrlWithBmb
+package spinal.lib.memory.sdram.dfi
 
 import spinal.lib._
 import spinal.core._
-import spinal.lib.bus.bmb.{Bmb}
-import spinal.lib.memory.sdram.dfi.Interface._
-import spinal.lib.memory.sdram.dfi._
+import spinal.lib.bus.bmb.Bmb
+import spinal.lib.memory.sdram.dfi.interface._
+import spinal.lib.memory.sdram.dfi.foundation._
 
 case class BmbBridge(port : BmbPortParameter, tpa : TaskParameterAggregate) extends Component{
   import tpa._

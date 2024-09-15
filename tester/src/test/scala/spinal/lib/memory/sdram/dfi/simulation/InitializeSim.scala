@@ -1,13 +1,13 @@
-package spinal.lib.memory.sdram.dfi.Simulation
+package spinal.lib.memory.sdram.dfi.simulation
 
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi.CtrlWithBmb._
-import spinal.lib.memory.sdram.dfi.Interface._
+import spinal.lib.memory.sdram.dfi.interface._
 import spinal.lib.memory.sdram.dfi._
 import spinal.lib.bus.bmb.BmbParameter
-import spinal.lib.memory.sdram.dfi.PHY.Initialize
+import spinal.lib.memory.sdram.dfi.phy.Initialize
+import spinal.lib.memory.sdram.dfi.foundation.BmbAdapter
 
 case class InitializeSim() extends Component{
   val bmbclockDomain = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,config=ClockDomainConfig(resetActiveLevel = HIGH))

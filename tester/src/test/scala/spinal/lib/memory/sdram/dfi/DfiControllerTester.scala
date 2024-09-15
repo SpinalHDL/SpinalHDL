@@ -5,10 +5,8 @@ import spinal.tester.code.SpinalAnyFunSuite
 class DfiControllerTester extends SpinalAnyFunSuite{
   import spinal.core.sim._
   import spinal.core._
-  import spinal.lib._
   import spinal.lib.bus.bmb.BmbParameter
-  import spinal.lib.memory.sdram.dfi.Interface._
-  import spinal.lib.memory.sdram.dfi.CtrlWithBmb._
+  import spinal.lib.memory.sdram.dfi.interface._
   import spinal.lib.memory.sdram.dfi._
   test("Bmb2Dfi"){
     SimConfig.compile{val bmbclockDomain = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,config=ClockDomainConfig(resetActiveLevel = HIGH))

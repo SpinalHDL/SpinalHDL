@@ -1,8 +1,8 @@
-package spinal.lib.memory.sdram.dfi
+package spinal.lib.memory.sdram.dfi.foundation
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi.Interface._
+import spinal.lib.memory.sdram.dfi.interface._
 
 case class CAAlignment(config: DfiConfig) extends Component{
   import config._
@@ -39,11 +39,9 @@ case class CAAlignment(config: DfiConfig) extends Component{
   for(i <- 0 until(frequencyRatio)){
     when(io.cmd(i).valid){
       if(useAckN)io.output.actN(i) := io.cmd(i).actN
-      io.output.csN(i*chipSelectNumber,chipSelectNumber bits)  := io.cmd(i).csN
-      io.output.rasN(i) := io.cmd(i).rasN
-      io.output.casN(i) := io.cmd(i).casN
-      io.output.weN(i)  := io.cmd(i).weN
       if(useCid)io.output.cid(i*chipIdWidth,chipIdWidth bits) := io.cmd(i).cid
+      io.output.csN(i*chipSelectNumber,chipSelectNumber bits)  := io.cmd(i).csN
+      io.output.assignUnassignedByName(io.cmd(i))
     }
   }
 

@@ -1,13 +1,13 @@
-package spinal.lib.memory.sdram.dfi
+package spinal.lib.memory.sdram.dfi.foundation
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbAlignedSpliter, BmbAligner, BmbLengthFixer, BmbParameter}
-import spinal.lib.memory.sdram.dfi.CtrlWithBmb.BmbPortParameter
-import spinal.lib.memory.sdram.dfi.Interface._
+import spinal.lib.memory.sdram.dfi._
+import spinal.lib.memory.sdram.dfi.interface._
 
 
-case class BmbToTaskCmdPort(ip : BmbParameter, tpp : TaskPortParameter, tpa : TaskParameterAggregate, pp : BmbPortParameter) extends Component{
+case class BmbToPreTaskPort(ip : BmbParameter, tpp : TaskPortParameter, tpa : TaskParameterAggregate, pp : BmbPortParameter) extends Component{
   val io = new Bundle{
     val input = slave(Bmb(ip))
     val inputBurstLast = in Bool()
@@ -94,7 +94,7 @@ case class BmbAdapter(pp : BmbPortParameter,
     val spliter = BmbAlignedSpliter(aligner.io.output.p, splitLength)
     spliter.io.input << aligner.io.output
 
-    val converter = BmbToTaskCmdPort(spliter.io.output.p, io.output.tpp, tpa, pp)
+    val converter = BmbToPreTaskPort(spliter.io.output.p, io.output.tpp, tpa, pp)
     converter.io.input << spliter.io.output.pipelined(cmdValid = true)
     converter.io.inputBurstLast := spliter.io.outputBurstLast
   }

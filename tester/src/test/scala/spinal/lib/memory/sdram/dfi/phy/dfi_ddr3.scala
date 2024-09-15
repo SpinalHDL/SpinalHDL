@@ -1,11 +1,11 @@
-package spinal.lib.memory.sdram.dfi.PHY
+package spinal.lib.memory.sdram.dfi.phy
 
-import spinal.lib.memory.sdram.dfi.CtrlWithBmb.{DfiController, BmbPortParameter, CtrlParameter}
-import spinal.lib.memory.sdram.dfi.Interface._
+import spinal.lib.memory.sdram.dfi.interface._
 import spinal.lib.memory.sdram.dfi._
 import spinal.lib._
 import spinal.core._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.memory.sdram.dfi.foundation.BmbAdapter
 
 class DDR3IO(pl:PhyConfig, config: DfiConfig) extends Bundle{
   import config._

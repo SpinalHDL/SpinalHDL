@@ -1,7 +1,7 @@
-package spinal.lib.memory.sdram.dfi
+package spinal.lib.memory.sdram.dfi.foundation
 
 import spinal.core._
-import spinal.lib.memory.sdram.dfi.Interface.{DfiConfig, DfiTimeConfig}
+import spinal.lib.memory.sdram.dfi.interface.{DfiConfig, DfiTimeConfig}
 import spinal.lib.{OHMasking, OHToUInt}
 
 case class DelayCyc(config: DfiConfig, timeConfig: DfiTimeConfig){

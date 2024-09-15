@@ -1,9 +1,9 @@
-package spinal.lib.memory.sdram.dfi.PHY
+package spinal.lib.memory.sdram.dfi.phy
 
 import spinal.core.BlackBox
 import spinal.lib._
 import spinal.core._
-import spinal.lib.memory.sdram.dfi.Interface.TaskParameterAggregate
+import spinal.lib.memory.sdram.dfi.interface.TaskParameterAggregate
 
 class dfi_IO extends Bundle with IMasterSlave {
   val address_i =  Bits(15 bits)

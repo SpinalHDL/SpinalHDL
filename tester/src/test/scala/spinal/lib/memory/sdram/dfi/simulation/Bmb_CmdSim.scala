@@ -1,11 +1,11 @@
-package spinal.lib.memory.sdram.dfi.Simulation
+package spinal.lib.memory.sdram.dfi.simulation
 
 import spinal.lib.bus.bmb.BmbParameter
-import spinal.lib.memory.sdram.dfi.Interface._
+import spinal.lib.memory.sdram.dfi.interface._
 import spinal.lib.memory.sdram.dfi._
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.memory.sdram.dfi.PHY.Bmb_Cmd
+import spinal.lib.memory.sdram.dfi.phy.Bmb_Cmd
 
 object Bmb_CmdSim {
   def main(args: Array[String]): Unit = {

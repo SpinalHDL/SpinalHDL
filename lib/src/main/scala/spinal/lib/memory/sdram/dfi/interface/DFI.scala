@@ -1,5 +1,5 @@
 //package spinal.lib.memory
-package spinal.lib.memory.sdram.dfi.Interface
+package spinal.lib.memory.sdram.dfi.interface
 
 import spinal.core._
 import spinal.lib._

@@ -1,12 +1,12 @@
-package spinal.lib.memory.sdram.dfi.Simulation
+package spinal.lib.memory.sdram.dfi.simulation
 
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
-import spinal.lib.memory.sdram.dfi.Interface._
+import spinal.lib.memory.sdram.dfi.interface._
 import spinal.lib.memory.sdram.dfi._
-import spinal.lib.memory.sdram.dfi.CtrlWithBmb._
+import spinal.lib.memory.sdram.dfi.foundation.BmbAdapter
 
 case class Bmb2DfiSim(x:Int) extends Component{
 

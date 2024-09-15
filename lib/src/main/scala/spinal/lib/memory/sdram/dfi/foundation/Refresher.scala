@@ -1,8 +1,8 @@
-package spinal.lib.memory.sdram.dfi
+package spinal.lib.memory.sdram.dfi.foundation
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi.Interface._
+import spinal.lib.memory.sdram.dfi.interface._
 case class Refresher(tpa : TaskParameterAggregate) extends Component{
   import tpa._
   val io = new Bundle {
