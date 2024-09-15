@@ -14,7 +14,7 @@ case class Bmb2DfiSim(x:Int) extends Component{
   val core:TaskParameter = TaskParameter(timingWidth=5,refWidth=23)
   val sdramtime = SdramTiming(3, RFC = 260, RAS = 38, RP = 15, RCD = 15, WTR = 8, WTP = 0, RTP = 8, RRD = 6, REF = 64000, FAW = 35)
   val sdram = SdramConfig(SdramGeneration.MYDDR,bankWidth=3,columnWidth=10,rowWidth=15,dataWidth=16,ddrMHZ=100,ddrWrLat=4,ddrRdLat=4,sdramtime=sdramtime)
-  val pl:PhyConfig = PhyConfig(sdram = sdram, phaseCount=4,dataRate=SdramGeneration.MYDDR.dataRate,0,0,0,0,transferPerBurst=8)
+  val pl:PhyConfig = PhyConfig(sdram = sdram, phaseCount=2,dataRate=SdramGeneration.MYDDR.dataRate,0,0,0,0,transferPerBurst=8)
   val timeConfig = DfiTimeConfig(tPhyWrLat=pl.sdram.tPhyWrlat,tPhyWrData=0,tPhyWrCsGap=3,dramBurst=pl.transferPerBurst,frequencyRatio=pl.phaseCount,
     tRddataEn=pl.sdram.tRddataEn,tPhyRdlat=4,tPhyRdCsGap=3,tPhyRdCslat = 0,tPhyWrCsLat = 0)
   val config:DfiConfig = DfiConfig(frequencyRatio=pl.phaseCount,dramAddrWidth=Math.max(pl.sdram.columnWidth,pl.sdram.rowWidth),dramDataWidth=pl.phyIoWidth,
@@ -42,8 +42,8 @@ object Bmb2DfiSim {
       dut.clockDomain.forkStimulus(10000)
       import dut._
       fork {
-        dut.clockDomain.deassertReset()
-        sleep(5000)
+//        dut.clockDomain.deassertReset()
+//        sleep(5000)
         dut.clockDomain.assertReset()
         sleep(10000)
         dut.clockDomain.deassertReset()
@@ -97,11 +97,11 @@ object Bmb2DfiSim {
       }
       def readdata(beatCount:Int):Unit = {
         for(i <- 0 until beatCount){
-          dut.io.dfi.read.rd.foreach(_.rddatavalid #= true)
+          dut.io.dfi.read.rd.foreach(_.rddataValid #= true)
           dut.io.dfi.read.rd.foreach(_.rddata.randomize())
           clockDomain.waitSampling()
         }
-        dut.io.dfi.read.rd.foreach(_.rddatavalid #= false)
+        dut.io.dfi.read.rd.foreach(_.rddataValid #= false)
         clockDomain.waitSamplingWhere(dut.bmb2dfi.bmbBridge.bmbAdapter.io.output.rsp.payload.last.toBoolean)
         clockDomain.waitSampling()
         io.bmb.rsp.ready #= false
@@ -115,7 +115,7 @@ object Bmb2DfiSim {
 
 
 
-      io.dfi.read.rd.foreach(_.rddatavalid #= false)
+      io.dfi.read.rd.foreach(_.rddataValid #= false)
       clockDomain.waitSampling(30)
       io.bmb.cmd.valid #= false
       io.bmb.cmd.last #= false

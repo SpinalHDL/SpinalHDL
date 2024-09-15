@@ -35,7 +35,7 @@ case class DfiWrCs(config: DfiConfig) extends Bundle{
 
 case class DfiRdData(config: DfiConfig) extends Bundle{
   import config._
-  val rddata = Bits( dataWidth bits)
+  val rdData = Bits( dataWidth bits)
   val rdDataDbiN =  useRddataDbiN generate Bits( dbiWidth bits)
   val rdDataDnv =  useRddataDnv generate Bits( dataWidth / 8 bits)
 }

@@ -20,20 +20,20 @@ case class Control(tpa : TaskParameterAggregate) extends Component{
   val wrdata = new Area {
     val wrdatatxd = WrDataTxd(tpa)
     wrdatatxd.io.write <> RegNext(io.inport.tasks.write).init(False)
-    wrdatatxd.io.coreWrdata << io.inport.writeData
+    wrdatatxd.io.taskWrData << io.inport.writeData
   }
 
   val radata = new Area {
     val rddatarxd = RdDataRxd(tpa)
     rddatarxd.io.task <> io.inport.tasks.init()
-    rddatarxd.io.coreRddata.toStream >> io.inport.rsp
+    rddatarxd.io.taskRdData.toStream >> io.inport.rsp
   }
 
   val idfiout = new Area {
     io.outport.cmd <> cmd.cmdtxd.io.cmd
     io.outport.address <> cmd.cmdtxd.io.address
-    io.outport.wrData <> wrdata.wrdatatxd.io.idfiWrdata
-    io.outport.rdData <> radata.rddatarxd.io.idfiRddata
+    io.outport.wrData <> wrdata.wrdatatxd.io.idfiWrData
+    io.outport.rdData <> radata.rddatarxd.io.idfiRdData
     io.outport.rdEn <> radata.rddatarxd.io.rden
   }
 

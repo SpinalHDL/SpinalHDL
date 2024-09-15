@@ -70,11 +70,11 @@ class DfiControllerTester extends SpinalAnyFunSuite{
       }
       def readdata(beatCount:Int):Unit = {
         for(i <- 0 until beatCount){
-          dut.io.dfi.read.rd.foreach(_.rddatavalid #= true)
+          dut.io.dfi.read.rd.foreach(_.rddataValid #= true)
           dut.io.dfi.read.rd.foreach(_.rddata.randomize())
           clockDomain.waitSampling()
         }
-        dut.io.dfi.read.rd.foreach(_.rddatavalid #= false)
+        dut.io.dfi.read.rd.foreach(_.rddataValid #= false)
         clockDomain.waitSamplingWhere(dut.bmbBridge.bmbAdapter.io.output.rsp.payload.last.toBoolean)
         clockDomain.waitSampling()
         io.bmb.rsp.ready #= false
@@ -95,7 +95,7 @@ class DfiControllerTester extends SpinalAnyFunSuite{
         }
       }
 
-      io.dfi.read.rd.foreach(_.rddatavalid #= false)
+      io.dfi.read.rd.foreach(_.rddataValid #= false)
       clockDomain.waitSampling(10)
       io.bmb.cmd.valid #= false
       io.bmb.cmd.last #= false

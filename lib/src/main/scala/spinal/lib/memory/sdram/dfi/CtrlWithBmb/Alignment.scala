@@ -19,15 +19,15 @@ case class Alignment(config : DfiConfig) extends Component{
     caAlignment.io.output <> io.outDfiport.control
 
   val wrAlignment = WrAlignment(config)
-  wrAlignment.io.wrdata <> io.inIdfiport.wrData
-  if(config.useWrdataCsN)wrAlignment.io.wrcs <> io.inIdfiport.wrCs
-  wrAlignment.io.output <> io.outDfiport.write
+  wrAlignment.io.idfiWrData <> io.inIdfiport.wrData
+  if(config.useWrdataCsN)wrAlignment.io.idfiWrCs <> io.inIdfiport.wrCs
+  wrAlignment.io.dfiWr <> io.outDfiport.write
 
   val rdAlignment = RdAlignment(config)
-  rdAlignment.io.rddata <> io.inIdfiport.rdData
-  if(config.useRddataCsN)rdAlignment.io.rdcs <> io.inIdfiport.rdCs
-  rdAlignment.io.rd <> io.outDfiport.read.rd
-  if(config.useRddataCsN)rdAlignment.io.rdCs <> io.outDfiport.read.rdCs
+  rdAlignment.io.idfiRd <> io.inIdfiport.rdData
+  if(config.useRddataCsN)rdAlignment.io.idfiRdCs <> io.inIdfiport.rdCs
+  rdAlignment.io.dfiRd <> io.outDfiport.read.rd
+  if(config.useRddataCsN)rdAlignment.io.dfiRdCs <> io.outDfiport.read.rdCs
   io.inIdfiport.rdEn <> io.outDfiport.read.rden
-  rdAlignment.io.phaseclear := False
+  rdAlignment.io.phaseClear := False
 }

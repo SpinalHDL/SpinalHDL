@@ -141,6 +141,20 @@ case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
     bankHit.init(False)
     bankActive.init(False)
     status.employ(address)
+    when(io.output.active){
+      status.allowActive := False
+    }
+    if(CCD != null) when(io.output.read || io.output.write){
+      status.allowRead := False
+      status.allowWrite := False
+    } else {
+      when(io.output.read){
+        status.allowWrite := False
+      }
+      when(io.output.write){
+        status.allowRead := False
+      }
+    }
 
     val inputActive = !bankActive
     val inputPrecharge = bankActive && !bankHit
@@ -178,8 +192,12 @@ case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
         fire := True
       }
     }
-
     readyForRefresh clearWhen(valid)
+  }
+
+  val selectedAddress =  io.output.address
+  when(stations.doSomething){
+    banksRow.write(selectedAddress.bank, selectedAddress.row)
   }
 
   val loader = new Area{
@@ -218,29 +236,5 @@ case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
     prechargeAllCmd.onExit(io.output.prechargeAll := True)
     refreshCmd.onExit(io.output.refresh := True)
     refreshReady.onExit(io.refresh.ready := True)
-  }
-
-  val stationsPatch = new Area{
-    import stations._
-    when(io.output.active){
-      status.allowActive := False
-    }
-
-    if(CCD != null) when(io.output.read || io.output.write){
-      status.allowRead := False
-      status.allowWrite := False
-    } else {
-      when(io.output.read){
-        status.allowWrite := False
-      }
-      when(io.output.write){
-        status.allowRead := False
-      }
-    }
-  }
-
-  val selectedAddress =  io.output.address
-  when(stations.doSomething){
-    banksRow.write(selectedAddress.bank, selectedAddress.row)
   }
 }

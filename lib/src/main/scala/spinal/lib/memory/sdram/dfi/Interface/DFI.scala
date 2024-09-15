@@ -24,7 +24,7 @@ case class DfiControlInterface(config: DfiConfig) extends Bundle with IMasterSla
 }
 
 case class DfiWr(config: DfiConfig) extends Bundle {
-  val wrdataen = Bool()
+  val wrdataEn = Bool()
   val wrdata = Bits(config.dataWidth bits)
   val wrdataMask = Bits(config.dataWidth/8 bits)
   // config.dramDataSlice must >= 8, or else config.dataWidth / 8 / config.dataEnableWidth < 1
@@ -40,7 +40,7 @@ case class DfiWriteInterface(config: DfiConfig) extends Bundle with  IMasterSlav
 
 case class DfiRd(config: DfiConfig) extends Bundle {
 //  val rden = Bool()
-  val rddatavalid = Bool()
+  val rddataValid = Bool()
   val rddata = Bits(config.dataWidth bits)
   val rddataDbiN = config.useRddataDbiN generate Bits(config.dbiWidth bits)
   val rddataDnv = config.useRddataDnv generate Bits(config.dataWidth / 8 bits)

@@ -56,140 +56,101 @@ case class CAAlignment(config: DfiConfig) extends Component{
   }
 }
 
-
-
-
-
-
-
-
 case class RdAlignment(config: DfiConfig) extends Component {
   import config._
   val io = new Bundle {
-    val phaseclear = in Bool()
-    val rdcs = useRddataCsN generate Vec(slave(Flow(DfiReadCs(config))), config.frequencyRatio)
-    val rd = in Vec(DfiRd(config), config.frequencyRatio)
-    val rdCs = useRddataCsN generate Vec(out(DfiRdCs(config)), config.frequencyRatio)
-    val rddata = Vec(master(Stream(Fragment(DfiRdData(config)))), config.frequencyRatio)
+    val phaseClear = in Bool()
+    val dfiRd = in Vec(DfiRd(config), config.frequencyRatio)
+    val dfiRdCs = useRddataCsN generate Vec(out(DfiRdCs(config)), config.frequencyRatio)
+    val idfiRd = Vec(master(Stream(Fragment(DfiRdData(config)))), config.frequencyRatio)
+    val idfiRdCs = useRddataCsN generate Vec(slave(Flow(DfiReadCs(config))), config.frequencyRatio)
   }
 
-
-  val validCnt = Vec(Reg(UInt(widthOf(U(timeConfig.dfiRWLength)) bits)), frequencyRatio)
-  val rddataTemp = Vec(Stream(Fragment(DfiRdData(config))), config.frequencyRatio)
-  validCnt.foreach(_.init(0))
-  rddataTemp.foreach(_.last.clear())
+  val rdDataTemp = Vec(Stream(Fragment(DfiRdData(config))), config.frequencyRatio)
+  rdDataTemp.foreach(_.last.clear())
   for (i <- 0 until (frequencyRatio)) {
-    rddataTemp(i).valid := io.rd(i).rddatavalid
-    rddataTemp(i).rddata.assignDontCare()
-    rddataTemp(i).last.setWhen(validCnt(i) === timeConfig.dfiRWLength - 1 & io.rd(i).rddatavalid)
-
-    when(rddataTemp(i).last) {
-      validCnt(i) := 0
-    }
-    when(rddataTemp(i).fire) {
-      validCnt(i) := validCnt(i) + 1
-    }
+    rdDataTemp(i).valid := io.dfiRd(i).rddataValid
+    rdDataTemp(i).rdData.assignDontCare()
   }
 
-  val curphase = Reg(UInt(log2Up(frequencyRatio) bits)) init (0)
-  val rddataphase = Reg(UInt(log2Up(frequencyRatio)+1 bits)) init (0)
-  rddataphase.clearAll()
-  when(io.phaseclear) {
-    curphase := U(0)
+  val curPhase = Reg(UInt(log2Up(frequencyRatio) bits)) init (0)
+  val rdDataPhase = Reg(UInt(log2Up(frequencyRatio)+1 bits)) init (0)
+  rdDataPhase.clearAll()
+  when(io.phaseClear) {
+    curPhase := U(0)
   }
 
 
   for (i <- 0 until (frequencyRatio)) {
-    when(rddataTemp(i).fire) {
-      rddataTemp(i).rddata := ((i + curphase + frequencyRatio - rddataphase)%frequencyRatio).muxListDc(io.rd.zipWithIndex.map(t => (t._2,t._1))).rddata
-      curphase := (i + 1) % frequencyRatio
-      rddataphase := (rddataphase + i + 1 + frequencyRatio - curphase) % frequencyRatio
+    when(rdDataTemp(i).fire) {
+      rdDataTemp(i).rdData := ((i + curPhase + frequencyRatio - rdDataPhase)%frequencyRatio).muxListDc(io.dfiRd.zipWithIndex.map(t => (t._2,t._1))).rddata
+      curPhase := (i + 1) % frequencyRatio
+      rdDataPhase := (rdDataPhase + i + 1 + frequencyRatio - curPhase) % frequencyRatio
     }
   }
-
-
-  val rddatadelay = Vec(Reg(UInt(log2Up(timeConfig.dfiRWLength)+1 bits)),frequencyRatio)
-  val rddateHistory = History(rddataTemp,0 to timeConfig.dfiRWLength)
-  val rddatadelayRst = Vec(Vec(Bool(),timeConfig.dfiRWLength),frequencyRatio)
-  val rddatadelayCnt = Vec(Vec(Bool(),timeConfig.dfiRWLength),frequencyRatio)
-
-  rddatadelay.map(_.init(timeConfig.dfiRWLength))
-  for(i <- 0 until(frequencyRatio)){
-    rddatadelayRst(i) := History(rddataTemp(i).last.fall() & !rddataTemp(i).valid,0 until timeConfig.dfiRWLength)
-    when(rddatadelayRst(i)(timeConfig.dfiRWLength-1)){
-      rddatadelay(i) := timeConfig.dfiRWLength
-    }
-    rddatadelayCnt(i) := History(if(frequencyRatio == 1)rddataTemp(i).fire.fall() & RegNext(!rddataTemp(i).last) else !rddataTemp(i).fire & rddataTemp.map(_.valid).orR & RegNext(!rddataTemp(i).last),0 until timeConfig.dfiRWLength)
-
-    when(rddatadelayCnt(i)(timeConfig.dfiRWLength-1) & rddataTemp(i).ready){
-      when(rddatadelay(i) =/= 0){
-        rddatadelay(i) := rddatadelay(i) - 1
-      }otherwise{
-        rddatadelay(i) := rddatadelay(i)
-      }
-    }
+  val rdDataFifos = for(i <- 0 until(frequencyRatio)) yield new Area{
+    val rdDataFifo = new StreamFifo(Fragment(DfiRdData(config)),timeConfig.dfiRWLength + 2)
+    rdDataFifo.io.flush.clear()
+    rdDataFifo.io.flush.setWhen(io.phaseClear)
   }
+  val readyForPop = Mux(rdDataFifos.map(_.rdDataFifo.io.occupancy =/= 0).andR,io.idfiRd.map(_.ready).orR,False)
 
   for(i <- 0 until(frequencyRatio)){
-    rddataTemp(i).ready := io.rddata(i).ready
-    io.rddata(i) << rddatadelay(i).muxListDc(rddateHistory.zipWithIndex.map(t => (t._2,t._1)))(i)
+    rdDataFifos(i).rdDataFifo.io.push << rdDataTemp(i)
+    io.idfiRd(i).valid := rdDataFifos.map(_.rdDataFifo.io.pop.valid).andR
+    io.idfiRd(i).payload := rdDataFifos(i).rdDataFifo.io.pop.payload
+    rdDataFifos(i).rdDataFifo.io.pop.ready := RegNext(readyForPop)
   }
 
   if(useRddataCsN){
     for(i <- 0 until(frequencyRatio)){
-      io.rdCs(i).rddataCsN.setAll()
-      when(io.rdcs(i).valid){
-        io.rdCs(i).rddataCsN := io.rdcs(i).rdCs
+      io.dfiRdCs(i).rddataCsN.setAll()
+      when(io.idfiRdCs(i).valid){
+        io.dfiRdCs(i).rddataCsN := io.idfiRdCs(i).rdCs
       }
     }
   }
 }
 
-
-
-
-
-
-
 case class WrAlignment(config: DfiConfig) extends Component{
   import config._
   val io = new Bundle{
-    val wrcs   = useWrdataCsN generate Vec(slave(Flow(DfiWrCs(config))),config.frequencyRatio)
-    val wrdata = Vec(slave(Flow(DfiWrData(config))),config.frequencyRatio)
-    val output = master(DfiWriteInterface(config))
+    val idfiWrCs   = useWrdataCsN generate Vec(slave(Flow(DfiWrCs(config))),config.frequencyRatio)
+    val idfiWrData = Vec(slave(Flow(DfiWrData(config))),config.frequencyRatio)
+    val dfiWr = master(DfiWriteInterface(config))
   }
   for(i <- 0 until(frequencyRatio)){
-    io.output.wr(i).wrdataen := io.wrdata(i).valid
+    io.dfiWr.wr(i).wrdataEn := io.idfiWrData(i).valid
   }
 
-  val delaycyc  = Reg(U(timeConfig.tPhyWrData/frequencyRatio)<<1).init(0)
+  val delay  = Reg(U(timeConfig.tPhyWrData/frequencyRatio)<<1).init(0)
 
-  when(io.wrdata.map(_.valid).orR.rise()){
-    delaycyc := timeConfig.tPhyWrData/frequencyRatio
+  when(io.idfiWrData.map(_.valid).orR.rise()){
+    delay := timeConfig.tPhyWrData/frequencyRatio
   }
 
   val wrdatahistary = Vec(Vec(DfiWrData(config),timeConfig.tPhyWrData/frequencyRatio+2),frequencyRatio)
   for(i <- 0 until(frequencyRatio)){
-    wrdatahistary(i) := History(io.wrdata(i).payload,0 to timeConfig.tPhyWrData/frequencyRatio+1)
-    io.output.wr(i).wrdata.assignDontCare()
-    io.output.wr(i).wrdataMask.assignDontCare()
+    wrdatahistary(i) := History(io.idfiWrData(i).payload,0 to timeConfig.tPhyWrData/frequencyRatio+1)
+    io.dfiWr.wr(i).wrdata.assignDontCare()
+    io.dfiWr.wr(i).wrdataMask.assignDontCare()
   }
 
   for(k <- 0 until(frequencyRatio)){
     if(k < timeConfig.tPhyWrData%frequencyRatio){
-      io.output.wr(k).wrdata := (delaycyc + 1).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrData
-      io.output.wr(k).wrdataMask := (delaycyc + 1).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrDataMask
+      io.dfiWr.wr(k).wrdata := (delay + 1).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrData
+      io.dfiWr.wr(k).wrdataMask := (delay + 1).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrDataMask
     }else{
-      io.output.wr(k).wrdata := (delaycyc).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrData
-      io.output.wr(k).wrdataMask := (delaycyc).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrDataMask
+      io.dfiWr.wr(k).wrdata := (delay).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrData
+      io.dfiWr.wr(k).wrdataMask := (delay).muxListDc(wrdatahistary.shuffle(t => (t+timeConfig.tPhyWrData%frequencyRatio)%frequencyRatio)(k).zipWithIndex.map(t =>(t._2,t._1))).wrDataMask
     }
   }
 
   if(useWrdataCsN){
     for(i <- 0 until(frequencyRatio)){
-      io.output.wr(i).wrdataCsN.setAll()
-      when(io.wrcs(i).valid){
-        io.output.wr(i).wrdataCsN := io.wrcs(i).wrCs
+      io.dfiWr.wr(i).wrdataCsN.setAll()
+      when(io.idfiWrCs(i).valid){
+        io.dfiWr.wr(i).wrdataCsN := io.idfiWrCs(i).wrCs
       }
     }
   }

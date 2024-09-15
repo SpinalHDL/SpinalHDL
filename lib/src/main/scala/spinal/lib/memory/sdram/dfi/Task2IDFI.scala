@@ -84,19 +84,14 @@ case class CmdTxd(tpa:TaskParameterAggregate) extends Component{
   }
 }
 
-
-
-
-
-
 case class RdDataRxd(tpa:TaskParameterAggregate) extends Component {
   import tpa._
   import tpa.config._
   val io = new Bundle{
     val task = slave(OpTasks(tpa))
-    val idfiRddata = Vec(slave(Stream(Fragment(DfiRdData(config)))), config.frequencyRatio)
+    val idfiRdData = Vec(slave(Stream(Fragment(DfiRdData(config)))), config.frequencyRatio)
     val rden = out Vec(Bool(),frequencyRatio)
-    val coreRddata =  master(Flow(Fragment(TaskRsp(tpp, tpa))))
+    val taskRdData =  master(Flow(Fragment(TaskRsp(tpp, tpa))))
   }
 
 
@@ -118,29 +113,29 @@ case class RdDataRxd(tpa:TaskParameterAggregate) extends Component {
     rdensHistory.foreach(_ := History(input.valid,0 to (cmdPhase+timeConfig.tRddataEn)/frequencyRatio+1))
     rdensHistory.foreach(_.tail.foreach(_ init (False)))
 
-    val beatCounter = Counter(pl.beatCount, io.idfiRddata.map(_.valid).orR)
+    val beatCounter = Counter(pl.beatCount, io.idfiRdData.map(_.valid).orR)
 
     val delay = DelayCyc(config,timeConfig)
-    val delaycyc  = delay.mcdelaycyc(cmdPhase,timeConfig.tRddataEn)
-    val nextphase = delay.sp2np(cmdPhase,timeConfig.tRddataEn)
+    val delayCyc  = delay.mcdelaycyc(cmdPhase,timeConfig.tRddataEn)
+    val nextPhase = delay.sp2np(cmdPhase,timeConfig.tRddataEn)
 
     for(i <- 0 until(frequencyRatio)){
-      if(i >= nextphase){
-        io.rden(i) := History(rdensHistory(nextphase)(delaycyc),0 until(timeConfig.dfiRWLength)).orR
+      if(i >= nextPhase){
+        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc),0 until(timeConfig.dfiRWLength)).orR
       }else{
-        io.rden(i) := History(rdensHistory(nextphase)(delaycyc + 1),0 until(timeConfig.dfiRWLength)).orR
+        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc + 1),0 until(timeConfig.dfiRWLength)).orR
       }
     }
 
     val output = Flow(Fragment(PipelineRsp()))
     output.valid.clear()
-    output.valid.setWhen(io.idfiRddata.map(_.valid).orR)
+    output.valid.setWhen(io.idfiRdData.map(_.valid).orR)
     output.context := cmd.context
     output.last := beatCounter.willOverflowIfInc && cmd.last
     cmd.ready := beatCounter.willOverflow
 
-    for ((outputData, phase) <- (output.data.subdivideIn(frequencyRatio slices).reverse, io.idfiRddata).zipped) {
-      outputData := B(phase.rddata)
+    for ((outputData, phase) <- (output.data.subdivideIn(frequencyRatio slices).reverse, io.idfiRdData).zipped) {
+      outputData := B(phase.rdData)
     }
   }
 
@@ -149,10 +144,10 @@ case class RdDataRxd(tpa:TaskParameterAggregate) extends Component {
   rspPipeline.input.context := io.task.context
 
   val rspPop = rspPipeline.output.stage()
-  io.coreRddata.valid := rspPop.valid
-  io.coreRddata.last := rspPop.last
-  if(io.coreRddata.tpp.canRead) io.coreRddata.data := rspPop.data
-  io.coreRddata.context := rspPop.context.resized
+  io.taskRdData.valid := rspPop.valid
+  io.taskRdData.last := rspPop.last
+  if(io.taskRdData.tpp.canRead) io.taskRdData.data := rspPop.data
+  io.taskRdData.context := rspPop.context.resized
 
   rspPipeline.input.valid.setWhen(io.task.read)
 
@@ -161,31 +156,25 @@ case class RdDataRxd(tpa:TaskParameterAggregate) extends Component {
   for(i <- 0 until(frequencyRatio)){
     ready(i).setWhen(io.task.read).clearWhen(io.task.write)
   }
-  for((outport,iready) <- (io.idfiRddata,ready).zipped){
+  for((outport,iready) <- (io.idfiRdData,ready).zipped){
     outport.ready := iready
   }
 }
-
-
-
-
-
 
 case class WrDataTxd(tpa:TaskParameterAggregate) extends Component{
   import tpa._
   import tpa.config._
   val io = new Bundle{
     val write = in Bool()
-    val coreWrdata = slave(Stream(TaskWriteData(tpp, tpa)))
-    val idfiWrdata = Vec(master(Flow(DfiWrData(config))),config.frequencyRatio)
+    val taskWrData = slave(Stream(TaskWriteData(tpp, tpa)))
+    val idfiWrData = Vec(master(Flow(DfiWrData(config))),config.frequencyRatio)
   }
-  def wrdataPhase(i:Int) = io.idfiWrdata(i)
-
-
+  def wrdataPhase(i:Int) = io.idfiWrData(i)
+  
   val delay = DelayCyc(config,timeConfig)
 
-  val delaycyc  = delay.mcdelaycyc(cmdPhase,timeConfig.tPhyWrLat)
-  val nextphase = delay.sp2np(cmdPhase,timeConfig.tPhyWrLat)
+  val delayCyc  = delay.mcdelaycyc(cmdPhase,timeConfig.tPhyWrLat)
+  val nextPhase = delay.sp2np(cmdPhase,timeConfig.tPhyWrLat)
 
   val writeHistory = History(io.write,0 until  timeConfig.dfiRWLength)
   val write = writeHistory.orR
@@ -198,18 +187,18 @@ case class WrDataTxd(tpa:TaskParameterAggregate) extends Component{
   }
   wrens.foreach(_.clear())
   wrens.foreach(_.setWhen(write))
-  io.coreWrdata.ready.clear()
-  io.coreWrdata.ready.setWhen(wrensHistory(nextphase)(delaycyc))
-  assert(!(!io.coreWrdata.valid && io.coreWrdata.ready), "SDRAM write data stream starved !", ERROR)
+  io.taskWrData.ready.clear()
+  io.taskWrData.ready.setWhen(wrensHistory(nextPhase)(delayCyc))
+  assert(!(!io.taskWrData.valid && io.taskWrData.ready), "SDRAM write data stream starved !", ERROR)
   for(i <- 0 until(frequencyRatio)){
-    if(i>= nextphase){
-      wrdataPhase(i).valid := wrensHistory(nextphase)(delaycyc)
-      wrdataPhase(i).wrData := Vec(io.coreWrdata.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i)
-      wrdataPhase(i).wrDataMask := Vec(io.coreWrdata.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i)
+    if(i>= nextPhase){
+      wrdataPhase(i).valid := wrensHistory(nextPhase)(delayCyc)
+      wrdataPhase(i).wrData := Vec(io.taskWrData.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextPhase)%frequencyRatio)(i)
+      wrdataPhase(i).wrDataMask := Vec(io.taskWrData.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextPhase)%frequencyRatio)(i)
     }else{
-      wrdataPhase(i).valid := wrensHistory(nextphase)(delaycyc+1)
-      wrdataPhase(i).wrData := RegNext(Vec(io.coreWrdata.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i))
-      wrdataPhase(i).wrDataMask := RegNext(Vec(io.coreWrdata.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextphase)%frequencyRatio)(i))
+      wrdataPhase(i).valid := wrensHistory(nextPhase)(delayCyc+1)
+      wrdataPhase(i).wrData := RegNext(Vec(io.taskWrData.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextPhase)%frequencyRatio)(i))
+      wrdataPhase(i).wrDataMask := RegNext(Vec(io.taskWrData.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t=>(t+nextPhase)%frequencyRatio)(i))
     }
   }
 }

@@ -6,7 +6,6 @@ import spinal.lib.bus.misc.BusSlaveFactory
 
 case class TaskTimingConfig(tpa : TaskParameterAggregate) extends Bundle {
   import tpa._
-
   val sdram = tpa.pl.sdram
   def time(tcyc : Int, phase : Int=config.frequencyRatio) = (tcyc + phase - 1) / phase
   def RAS = time(sdram.tRAS)
@@ -22,21 +21,15 @@ case class TaskTimingConfig(tpa : TaskParameterAggregate) extends Bundle {
   def FAW = time(sdram.tFAW)
   def REF = time(sdram.tREF)
   def autoRefresh = True
-//  val RAS, RP, WR, RCD, WTR, RTP, RRD, RTW = UInt(tp.timingWidth bits)
-//  val RFC = UInt(tp.timingWidth+3 bits)
-//  val ODT = generation.ODT generate UInt(tp.timingWidth bits)
-//  val ODTend = generation.ODT generate Bits(pl.phaseCount bits)
-//  val FAW = generation.FAW generate UInt(tp.timingWidth bits)
-//  val REF = UInt(tp.refWidth bits)
-//  val autoRefresh, noActive = Bool()
-
 }
+
 case class SdramAddress(l : SdramConfig) extends Bundle {
   val byte   = UInt(log2Up(l.bytePerWord) bits)
   val column = UInt(l.columnWidth bits)
   val bank   = UInt(l.bankWidth bits)
   val row    = UInt(l.rowWidth bits)
 }
+
 case class BusAddress(l : SdramConfig, config:DfiConfig) extends Bundle {
   val byte   = UInt(log2Up(l.bytePerWord) bits)
   val column = UInt(l.columnWidth bits)

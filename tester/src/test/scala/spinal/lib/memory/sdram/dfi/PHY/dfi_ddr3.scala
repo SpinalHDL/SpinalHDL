@@ -55,7 +55,7 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
       val phy = dfi_phy_ddr3(tpa)
     }
 
-    ddr3Chips.map(_.phy.io.dfi.rddata_valid_o).orR <> clockArea.bmb2dfi.io.dfi.read.rd(0).rddatavalid
+    ddr3Chips.map(_.phy.io.dfi.rddata_valid_o).orR <> clockArea.bmb2dfi.io.dfi.read.rd(0).rddataValid
     ddr3Chips.map(_.phy.io.dfi.rddata_o).reduceBalancedTree(_|_) <> clockArea.bmb2dfi.io.dfi.read.rd(0).rddata
 
     val rst = ~ClockDomain.readResetWire
@@ -76,7 +76,7 @@ case class bmb_dfi_ddr3(pl : PhyConfig, config: DfiConfig) extends Component{
       ddr3Chip.phy.io.dfi.bank_i <> clockArea.bmb2dfi.io.dfi.control.bank
       ddr3Chip.phy.io.dfi.address_i <> clockArea.bmb2dfi.io.dfi.control.address
 
-      ddr3Chip.phy.io.dfi.wrdata_en_i <> clockArea.bmb2dfi.io.dfi.write.wr(0).wrdataen
+      ddr3Chip.phy.io.dfi.wrdata_en_i <> clockArea.bmb2dfi.io.dfi.write.wr(0).wrdataEn
       ddr3Chip.phy.io.dfi.wrdata_mask_i <> clockArea.bmb2dfi.io.dfi.write.wr(0).wrdataMask
       ddr3Chip.phy.io.dfi.wrdata_i <> clockArea.bmb2dfi.io.dfi.write.wr(0).wrdata
 
