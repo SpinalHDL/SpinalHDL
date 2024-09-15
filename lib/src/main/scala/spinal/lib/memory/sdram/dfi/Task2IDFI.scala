@@ -1,9 +1,8 @@
 package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
-import spinal.lib.memory.sdram.dfi.Interface.DDR.DDRConfig
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi.Interface.{TaskParameterAggregate, TaskRsp, OpTasks, TaskWriteData, DfiAddr, DfiCmd, DfiConfig, DfiWrData, DfiRdData}
+import spinal.lib.memory.sdram.dfi.Interface.{TaskParameterAggregate, TaskRsp, OpTasks, TaskWriteData, DfiAddr, DfiCmd, DfiWrData, DfiRdData}
 
 case class CmdTxd(tpa:TaskParameterAggregate) extends Component{
   import tpa._
@@ -15,23 +14,23 @@ case class CmdTxd(tpa:TaskParameterAggregate) extends Component{
   def cmdphase(i:Int) = io.cmd(i)
   def addrphase(i:Int) = io.address(i)
 
-  def ACTIVE:Bits    = (~(B(1) << io.task.task.address.cs).resize(config.chipSelectNumber) ## B"b011").setName("ACTIVE")
-  def WRITE:Bits     = (~(B(1) << io.task.task.address.cs).resize(config.chipSelectNumber) ## B"b100").setName("WRITE")
-  def READ:Bits      = (~(B(1) << io.task.task.address.cs).resize(config.chipSelectNumber) ## B"b101").setName("READ")
-  def PRECHARGE:Bits = (~(B(1) << io.task.task.address.cs).resize(config.chipSelectNumber) ## B"b010")
-  def REFRESH:Bits   = (~(B(1) << io.task.task.address.cs).resize(config.chipSelectNumber) ## B"b001").setName("REFRESH")
+  def ACTIVE:Bits    = (~(B(1) << io.task.address.cs).resize(config.chipSelectNumber) ## B"b011").setName("ACTIVE")
+  def WRITE:Bits     = (~(B(1) << io.task.address.cs).resize(config.chipSelectNumber) ## B"b100").setName("WRITE")
+  def READ:Bits      = (~(B(1) << io.task.address.cs).resize(config.chipSelectNumber) ## B"b101").setName("READ")
+  def PRECHARGE:Bits = (~(B(1) << io.task.address.cs).resize(config.chipSelectNumber) ## B"b010")
+  def REFRESH:Bits   = (~(B(1) << io.task.address.cs).resize(config.chipSelectNumber) ## B"b001").setName("REFRESH")
 
   def AUTO_PRECHARGE_BIT = 10  // Disable auto precharge (auto close of row)
   def ALL_BANKS_BIT =10        // Precharge all banks
   def COULMNRang = 0 until(tpa.pl.sdram.columnWidth)
-  def BANK:Bits   = io.task.task.address.bank.asBits
-  def ROW:Bits    =  io.task.task.address.row.asBits
-  def COLUMN:Bits    =  io.task.task.address.column.asBits
+  def BANK:Bits   = io.task.address.bank.asBits
+  def ROW:Bits    =  io.task.address.row.asBits
+  def COLUMN:Bits    =  io.task.address.column.asBits
 
-  def active = io.task.task.active
-  def write = io.task.task.write
-  def read  = io.task.task.read
-  def precharge  = io.task.task.precharge
+  def active = io.task.active
+  def write = io.task.write
+  def read  = io.task.read
+  def precharge  = io.task.precharge
   def prechargeAll = io.task.prechargeAll
   def refresh = io.task.refresh
 
@@ -146,8 +145,8 @@ case class RdDataRxd(tpa:TaskParameterAggregate) extends Component {
   }
 
   rspPipeline.input.valid := False
-  rspPipeline.input.last := io.task.task.last
-  rspPipeline.input.context := io.task.task.context
+  rspPipeline.input.last := io.task.last
+  rspPipeline.input.context := io.task.context
 
   val rspPop = rspPipeline.output.stage()
   io.coreRddata.valid := rspPop.valid
@@ -155,12 +154,12 @@ case class RdDataRxd(tpa:TaskParameterAggregate) extends Component {
   if(io.coreRddata.tpp.canRead) io.coreRddata.data := rspPop.data
   io.coreRddata.context := rspPop.context.resized
 
-  rspPipeline.input.valid.setWhen(io.task.task.read)
+  rspPipeline.input.valid.setWhen(io.task.read)
 
   val ready = Vec(Reg(Bool()),frequencyRatio)
   ready.foreach(_.init(False))
   for(i <- 0 until(frequencyRatio)){
-    ready(i).setWhen(io.task.task.read).clearWhen(io.task.task.write)
+    ready(i).setWhen(io.task.read).clearWhen(io.task.write)
   }
   for((outport,iready) <- (io.idfiRddata,ready).zipped){
     outport.ready := iready

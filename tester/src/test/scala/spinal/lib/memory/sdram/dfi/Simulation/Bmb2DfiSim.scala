@@ -145,26 +145,26 @@ object Bmb2DfiSim {
       write(array = bmbDatas,address = 2048)
       println("writing is OK")
 
-      clockDomain.waitSampling(15)
+      clockDomain.waitSampling(30)
       read(beatCount = bmbDatas.size, address = 128)
       clockDomain.waitSampling(2)//The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + pl.beatCount-1)/pl.beatCount + 1)
       readdata(bmbDatas.size)
       println("reading is OK")
 
       clockDomain.waitSampling(5)
-      read(beatCount = bmbDatas.size, address = 9437184)
+      read(beatCount = bmbDatas.size, address = 64)
       clockDomain.waitSampling()
       readdata(bmbDatas.size)
       println("reading is OK")
 
       clockDomain.waitSampling(5)
-      write(array = bmbDatas,address = 4120)
+      write(array = bmbDatas,address = 3145728)
       println("writing is OK")
 
       clockDomain.waitSampling(5)
       write(array = bmbDatas,address = 12280)
       println("writing is OK")
-      clockDomain.waitSampling(20)
+      clockDomain.waitSampling(40)
 
       simSuccess()
 

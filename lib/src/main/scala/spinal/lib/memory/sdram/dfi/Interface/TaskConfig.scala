@@ -45,34 +45,6 @@ case class BusAddress(l : SdramConfig, config:DfiConfig) extends Bundle {
   val cs     = UInt(log2Up(config.chipSelectNumber) bits)
 }
 
-
-case class OpTask(tpa : TaskParameterAggregate) extends Bundle {
-  import tpa._
-
-  val read, write, active, precharge = Bool() //OH encoded
-  val last = Bool()
-  val address = BusAddress(pl.sdram,config)
-  val context = Bits(backendContextWidth bits)
-}
-
-case class OpTasks(tpa : TaskParameterAggregate) extends Bundle with IMasterSlave {
-  val task = OpTask(tpa)
-  val prechargeAll, refresh = Bool() //OH encoded
-
-  def init(): OpTasks ={
-    val ret = RegNext(this).setCompositeName(this, "init", true)
-    ret.task.read init(False)
-    ret.task.write init(False)
-    ret.task.precharge init(False)
-    ret.task.active init(False)
-    ret.prechargeAll init(False)
-    ret.refresh init(False)
-    ret
-  }
-  override def asMaster(): Unit = out(this)
-}
-
-
 case class TaskParameter(bytePerTaskMax : Int = 64,
                          timingWidth : Int,
                          refWidth : Int){
@@ -93,6 +65,60 @@ case class TaskParameterAggregate(tp : TaskParameter, pl : PhyConfig, tpp : Task
   def addressWidth = pl.sdram.byteAddressWidth+chipSelectWidth
 }
 
+case class TaskWrRdCmd(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle{
+  import tpa._
+  val write = Bool()
+  val address = UInt(addressWidth bits)
+  val context = Bits(tpp.contextWidth bits)
+  val burstLast = Bool()
+  val length = UInt(tpa.stationLengthWidth bits)
+}
+
+case class TaskWriteData(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle{
+  import tpa._
+  val data = Bits(pl.beatWidth bits)
+  val mask = Bits(pl.beatWidth/8 bits)
+}
+
+case class TaskRsp(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle{
+  val data = tpp.canRead generate Bits(tpa.pl.beatWidth bits)
+  val context = Bits(tpp.contextWidth bits)
+}
+
+case class PreTaskPort(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle with IMasterSlave{
+  val cmd = Stream(TaskWrRdCmd(tpp, tpa))
+  val writeData = tpp.canWrite generate Stream(TaskWriteData(tpp, tpa))
+  val writeDataToken = tpp.canWrite generate Stream(Event)
+  val rsp = Stream(Fragment(TaskRsp(tpp, tpa)))
+
+  override def asMaster(): Unit = {
+    master(cmd,writeDataToken)
+    masterWithNull(writeData)
+    //    outWithNull(writeDataToken)
+    slave(rsp)
+  }
+}
+case class OpTasks(tpa : TaskParameterAggregate) extends Bundle with IMasterSlave {
+  import tpa._
+  val read, write, active, precharge = Bool() //OH encoded
+  val last = Bool()
+  val address = BusAddress(pl.sdram,config)
+  val context = Bits(backendContextWidth bits)
+  val prechargeAll, refresh = Bool() //OH encoded
+
+  def init(): OpTasks ={
+    val ret = RegNext(this).setCompositeName(this, "init", true)
+    ret.read init(False)
+    ret.write init(False)
+    ret.precharge init(False)
+    ret.active init(False)
+    ret.prechargeAll init(False)
+    ret.refresh init(False)
+    ret
+  }
+  override def asMaster(): Unit = out(this)
+}
+
 case class TaskPort(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle with IMasterSlave{
   val tasks = OpTasks(tpa)
   val writeData = tpp.canWrite generate Stream(TaskWriteData(tpp, tpa))
@@ -103,40 +129,6 @@ case class TaskPort(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
     slave(rsp)
     master(tasks)
   }
-}
-
-case class TaskCmdPort(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle with IMasterSlave{
-  val cmd = Stream(TaskCmd(tpp, tpa))
-  val writeData = tpp.canWrite generate Stream(TaskWriteData(tpp, tpa))
-  val writeDataToken = tpp.canWrite generate Stream(Event)
-  val rsp = Stream(Fragment(TaskRsp(tpp, tpa)))
-
-  override def asMaster(): Unit = {
-    master(cmd,writeDataToken)
-    masterWithNull(writeData)
-//    outWithNull(writeDataToken)
-    slave(rsp)
-  }
-}
-
-
-
-case class TaskCmd(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle{
-  import tpa._
-  val write = Bool()
-  val address = UInt(addressWidth bits)
-  val context = Bits(tpp.contextWidth bits)
-  val burstLast = Bool()
-  val length = UInt(tpa.stationLengthWidth bits)
-}
-case class TaskWriteData(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle{
-  import tpa._
-  val data = Bits(pl.beatWidth bits)
-  val mask = Bits(pl.beatWidth/8 bits)
-}
-case class TaskRsp(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Bundle{
-  val data = tpp.canRead generate Bits(tpa.pl.beatWidth bits)
-  val context = Bits(tpp.contextWidth bits)
 }
 
 case class PhyConfig(sdram : SdramConfig,

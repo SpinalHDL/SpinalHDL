@@ -8,7 +8,7 @@ import spinal.lib.memory.sdram.dfi.Interface._
 case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) extends Component{
   import tpa._
   val io = new Bundle{
-    val cmd = slave(Stream(TaskCmd(tpp, tpa)))
+    val cmd = slave(Stream(TaskWrRdCmd(tpp, tpa)))
     val refresh = slave(Event)
     val writeDataToken = slave(Stream(Event))
     val output = master(OpTasks(tpa))
@@ -28,14 +28,14 @@ case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
     }
   }
 
-  val CCD = (pl.beatCount > 1) generate Timing(io.output.task.read || io.output.task.write, pl.beatCount-2, log2Up(pl.beatCount))
+  val CCD = (pl.beatCount > 1) generate Timing(io.output.read || io.output.write, pl.beatCount-2, log2Up(pl.beatCount))
   val RFC = Timing(io.output.refresh,  config.RFC, tp.timingWidth+3)
-  val RRD = Timing(io.output.task.active,  config.RRD)
-  val WTR = Timing(io.output.task.write,  config.WTR)
-  val RTW = Timing(io.output.task.read,  config.RTW)
+  val RRD = Timing(io.output.active,  config.RRD)
+  val WTR = Timing(io.output.write,  config.WTR)
+  val RTW = Timing(io.output.read,  config.RTW)
   val RP  = Timing(io.output.prechargeAll,  config.RP + 1)
   val FAW = generation.FAW generate new Area{ //Can be optimized
-    val trigger = io.output.task.active
+    val trigger = io.output.active
     val ptr = RegInit(U"00")
     val slots = (0 to 3).map(i => Timing(ptr === i && trigger,  config.FAW))
     val busyNext =  Vec(slots.map(_.busy)).read(ptr+1)
@@ -44,25 +44,25 @@ case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
 
 
   val banks = for(bankId <- 0 until pl.sdram.bankCount) yield new Area {
-    val hits = io.output.task.address.bank === bankId
+    val hits = io.output.address.bank === bankId
     def gate(task: Bool) = hits & task
 
     val activeNext = Bool()
     val active = RegNext(activeNext) init(False)
     activeNext := active
-    when(gate(io.output.task.precharge) || io.output.prechargeAll){
+    when(gate(io.output.precharge) || io.output.prechargeAll){
       activeNext := False
     }otherwise {
-      when(gate(io.output.task.active)){
+      when(gate(io.output.active)){
         activeNext := True
       }
     }
 
-    val WR  = Timing(gate(io.output.task.write),  config.WR)
-    val RAS = Timing(gate(io.output.task.active),  config.RAS)
-    val RP  = Timing(gate(io.output.task.precharge),  config.RP)
-    val RCD = Timing(gate(io.output.task.active),  config.RCD)
-    val RTP = Timing(gate(io.output.task.read),  config.RTP)
+    val WR  = Timing(gate(io.output.write),  config.WR)
+    val RAS = Timing(gate(io.output.active),  config.RAS)
+    val RP  = Timing(gate(io.output.precharge),  config.RP)
+    val RCD = Timing(gate(io.output.active),  config.RCD)
+    val RTP = Timing(gate(io.output.read),  config.RTP)
 
     val allowPrecharge = !WR.busy && !RAS.busy && !RTP.busy
     val allowActive = !RP.busy
@@ -79,36 +79,36 @@ case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
     val allowWrite = Bool()
     val allowRead = Bool()
 
-    def patch(address: BusAddress): Unit = {
+    def employ(address: BusAddress): Unit = {
       allowPrecharge clearWhen (!banks.map(_.allowPrecharge).read(address.bank))
       allowActive clearWhen (!banks.map(_.allowActive).read(address.bank))
       allowWrite clearWhen (!banks.map(_.allowWrite).read(address.bank))
       allowRead clearWhen (!banks.map(_.allowRead).read(address.bank))
 
-      when(io.output.task.address.bank === address.bank) {
-        when(io.output.task.precharge) {
+      when(io.output.address.bank === address.bank) {
+        when(io.output.precharge) {
           bankActive := False
         }
-        when(io.output.task.active) {
+        when(io.output.active) {
           bankActive := True
-          bankHit := io.output.task.address.row === address.row
+          bankHit := io.output.address.row === address.row
           allowRead := False
           allowWrite := False
           allowPrecharge := False
         }
-        when(io.output.task.read || io.output.task.write) {
+        when(io.output.read || io.output.write) {
           allowPrecharge := False
         }
-        when(io.output.task.precharge) {
+        when(io.output.precharge) {
           allowActive := False
         }
       }
     }
   }
-  
-  
+
+
   readyForRefresh clearWhen(io.cmd.valid)
-  
+
   val taskConstructor = new Area {
     val input = io.cmd.stage()
     val address = input.address.as(BusAddress(pl.sdram,tpa.config))
@@ -119,9 +119,10 @@ case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
     status.allowRead := !WTR.busy &&  (if(CCD != null) !CCD.busy else True)
     status.bankHit := banksRow.readAsync(address.bank) === address.row
     status.bankActive := banks.map(_.active).read(address.bank)
-    status.patch(address)
+    status.employ(address)
     readyForRefresh clearWhen(input.valid)
   }
+
   val columnBurstShift = log2Up(pl.transferPerBurst)
   val columnBurstMask  = (pl.sdram.columnSize-1) - (tpa.stationLengthMax-1 << columnBurstShift)
   val stations = new Area {
@@ -137,7 +138,9 @@ case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
     allowActive := !RRD.busy && (if(generation.FAW) !FAW.busyNext else True)
     allowWrite := !RTW.busy && (if(CCD != null) !CCD.busy else True)
     allowRead := !WTR.busy &&  (if(CCD != null) !CCD.busy else True)
-    status.patch(address)
+    bankHit.init(False)
+    bankActive.init(False)
+    status.employ(address)
 
     val inputActive = !bankActive
     val inputPrecharge = bankActive && !bankHit
@@ -156,18 +159,17 @@ case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
 
     val fire = False //It is the last cycle for this station
     val last = offset === offsetLast
-    val cmdOutputPayload = OpTask(tpa)
-    io.output.task.address.column := address.column | (offset << columnBurstShift).resized
-    io.output.task.address.assignUnassignedByName(address)
-    io.output.task.context := context
-    io.output.task.active := inputActive
-    io.output.task.precharge := inputPrecharge
-    io.output.task.write := doWrite & valid
-    io.output.task.read := doRead & valid
-    io.output.task.last := last
+    io.output.address.column := address.column | (offset << columnBurstShift).resized
+    io.output.address.assignUnassignedByName(address)
+    io.output.context := context
+    io.output.active := inputActive
+    io.output.precharge := inputPrecharge
+    io.output.write := doWrite & valid
+    io.output.read := doRead & valid
+    io.output.last := last
 
     io.writeDataToken.ready.clear()
-    io.writeDataToken.ready.setWhen(io.output.task.write)
+    io.writeDataToken.ready.setWhen(io.output.write)
 
     when(doAccess & valid){
       offset := offset + 1
@@ -220,26 +222,25 @@ case class MakeTask(tpp : TaskPortParameter, tpa : TaskParameterAggregate) exten
 
   val stationsPatch = new Area{
     import stations._
-    when(io.output.task.active){
+    when(io.output.active){
       status.allowActive := False
     }
 
-    if(CCD != null) when(io.output.task.read || io.output.task.write){
+    if(CCD != null) when(io.output.read || io.output.write){
       status.allowRead := False
       status.allowWrite := False
     } else {
-      when(io.output.task.read){
+      when(io.output.read){
         status.allowWrite := False
       }
-      when(io.output.task.write){
+      when(io.output.write){
         status.allowRead := False
       }
     }
   }
 
-  val selectedAddress =  io.output.task.address
+  val selectedAddress =  io.output.address
   when(stations.doSomething){
     banksRow.write(selectedAddress.bank, selectedAddress.row)
   }
-
 }

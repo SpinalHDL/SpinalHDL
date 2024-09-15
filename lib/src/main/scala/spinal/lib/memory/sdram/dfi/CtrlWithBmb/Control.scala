@@ -19,7 +19,7 @@ case class Control(tpa : TaskParameterAggregate) extends Component{
 
   val wrdata = new Area {
     val wrdatatxd = WrDataTxd(tpa)
-    wrdatatxd.io.write <> RegNext(io.inport.tasks.task.write).init(False)
+    wrdatatxd.io.write <> RegNext(io.inport.tasks.write).init(False)
     wrdatatxd.io.coreWrdata << io.inport.writeData
   }
 

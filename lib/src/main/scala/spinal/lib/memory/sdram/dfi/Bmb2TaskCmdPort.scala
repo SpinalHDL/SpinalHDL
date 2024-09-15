@@ -11,7 +11,7 @@ case class BmbToTaskCmdPort(ip : BmbParameter, tpp : TaskPortParameter, tpa : Ta
   val io = new Bundle{
     val input = slave(Bmb(ip))
     val inputBurstLast = in Bool()
-    val output = master(TaskCmdPort(tpp, tpa))
+    val output = master(PreTaskPort(tpp, tpa))
   }
 
   case class PackContext() extends Bundle{
@@ -80,7 +80,7 @@ case class BmbAdapter(pp : BmbPortParameter,
   val io = new Bundle{
     val refresh = in Bool()
     val input = slave(Bmb(pp.bmb))
-    val output = master(TaskCmdPort(tpp, tpa))
+    val output = master(PreTaskPort(tpp, tpa))
   }
 
   val asyncCc = pp.clockDomain != ClockDomain.current
@@ -99,7 +99,7 @@ case class BmbAdapter(pp : BmbPortParameter,
     converter.io.inputBurstLast := spliter.io.outputBurstLast
   }
 
-  val cmdAddress = Stream(TaskCmd(tpp, tpa))
+  val cmdAddress = Stream(TaskWrRdCmd(tpp, tpa))
   val writeDataToken = UInt(tpp.writeTokenInterfaceWidth bits)
   val syncBuffer = if(!asyncCc) new Area{
     cmdAddress << inputLogic.converter.io.output.cmd.queueLowLatency(pp.cmdBufferSize, 1)
