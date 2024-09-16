@@ -918,10 +918,14 @@ trait Num[T <: Data] {
   /** Is equal or greater than right */
   def >= (right: T): Bool
 
-  /** Logical left shift (w(T) = w(this) + shift)*/
+  /** Arithmetic left shift (w(T) = w(this) + shift)*/
   def << (shift: Int): T
-  /** Logical right shift (w(T) = w(this) - shift)*/
+  /** Arithmetic right shift (w(T) = w(this) - shift)*/
   def >> (shift: Int): T
+  /** Arithmetic left shift (w(T) = w(this) + (1 << shift)-1*/
+  def << (shift: UInt): T
+  /** Arithmetic right shift (w(T) = w(this)*/
+  def >> (shift: UInt): T
 
   /** Return the minimum value between this and right  */
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
