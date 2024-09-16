@@ -8,6 +8,8 @@ import spinal.lib.memory.sdram.dfi.interface._
 import spinal.lib.memory.sdram.dfi._
 import spinal.lib.memory.sdram.dfi.foundation.BmbAdapter
 
+import scala.collection.mutable
+
 case class Bmb2DfiSim(x:Int) extends Component{
 
   val bmbclockDomain = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,config=ClockDomainConfig(resetActiveLevel = HIGH))
@@ -42,10 +44,8 @@ object Bmb2DfiSim {
       dut.clockDomain.forkStimulus(10000)
       import dut._
       fork {
-//        dut.clockDomain.deassertReset()
-//        sleep(5000)
         dut.clockDomain.assertReset()
-        sleep(10000)
+        sleep(50000)
         dut.clockDomain.deassertReset()
         sleep(10000)
       }
@@ -57,118 +57,145 @@ object Bmb2DfiSim {
           sleep(5000)
         }
       }
-      def write(array: Array[Int], address:Int) = {
 
-        io.bmb.cmd.address #= address
-        io.bmb.cmd.length #= array.length * dut.pl.bytePerBeat - 1
-        io.bmb.cmd.opcode #= 1
-
-        io.bmb.cmd.data.randomize()
-        io.bmb.cmd.valid #= true
-        println("write command")
-        clockDomain.waitSampling()
-        for(arr <- array.tail){
-          while (!io.bmb.cmd.ready.toBoolean){
-            clockDomain.waitSampling()
-          }
-
-          io.bmb.cmd.data.randomize()
-          if(arr == array.last) io.bmb.cmd.last #= true
-          clockDomain.waitSampling()
-        }
-        io.bmb.cmd.last #= false
-        io.bmb.cmd.valid #= false
-      }
-      def read(beatCount:Int, address:Int): Unit = {
-        io.bmb.cmd.address #= address
-        io.bmb.cmd.length #= beatCount * dut.pl.bytePerBeat - 1
-        io.bmb.cmd.opcode #= 0
-        io.bmb.cmd.valid #= true
-        io.bmb.cmd.last #= true
-        clockDomain.waitSampling()
-
-        io.bmb.cmd.last #= false
-        io.bmb.cmd.valid #= false
-        io.bmb.cmd.opcode #= 1
-        clockDomain.waitSamplingWhere(dut.io.dfi.read.rden(0).toBoolean)
-
-        io.bmb.rsp.ready #= true
-        println("read command")
-      }
-      def readdata(beatCount:Int):Unit = {
-        for(i <- 0 until beatCount){
-          dut.io.dfi.read.rd.foreach(_.rddataValid #= true)
-          dut.io.dfi.read.rd.foreach(_.rddata.randomize())
-          clockDomain.waitSampling()
-        }
-        dut.io.dfi.read.rd.foreach(_.rddataValid #= false)
-        clockDomain.waitSamplingWhere(dut.bmb2dfi.bmbBridge.bmbAdapter.io.output.rsp.payload.last.toBoolean)
-        clockDomain.waitSampling()
-        io.bmb.rsp.ready #= false
-      }
-
+      val writeQueue = mutable.Queue[BigInt]()
+      val readQueue = mutable.Queue[BigInt]()
       val bmbDatas = new Array[Int]((1<<dut.ctp.port.bmb.access.lengthWidth)/dut.pl.bytePerBeat)
       for(i <- 0 until(bmbDatas.length)){
         bmbDatas(i) = i
       }
 
+      fork{
+        var writeSlicesCount:Int = 0
+        var writeDataBigInt:BigInt = 0
+        var writeDataTemp:BigInt = 0
+        while (true) {
+          clockDomain.waitSampling()
+          for(wr <- io.dfi.write.wr){
+            if(wr.wrdataEn.toBoolean){
+              writeDataBigInt += wr.wrdata.toBigInt << (config.frequencyRatio-writeSlicesCount-1) * pl.phyIoWidth
+              writeSlicesCount += 1
+              if(writeSlicesCount == config.frequencyRatio){
+                writeSlicesCount = 0
+                writeDataTemp = writeQueue.dequeue()
+                assert(writeDataTemp == writeDataBigInt,s"writeQueue.dequeue'${writeDataTemp.hexString()}' =/= writeDataBigInt'${writeDataBigInt.hexString()}'")
+                writeDataBigInt = 0
+              }
+            }
+          }
+        }
+      }
+      fork{
+        var readDataTemp:BigInt = 0
+        while (true){
+          clockDomain.waitSampling()
+          if(io.bmb.rsp.valid.toBoolean){
+            readDataTemp = readQueue.dequeue()
+            assert(readDataTemp == io.bmb.rsp.data.toBigInt,s"writeQueue.dequeue'${readDataTemp.hexString()}' =/= writeDataBigInt'${io.bmb.rsp.data.toBigInt.hexString()}'")
+          }
+        }
+      }
 
+      fork{
+        def write(array: Array[Int], address:BigInt=BigInt(dut.bmbp.access.addressWidth - log2Up(tpa.tp.bytePerTaskMax), simRandom) << log2Up(tpa.tp.bytePerTaskMax)) = {
 
+          io.bmb.cmd.address #= address
+          io.bmb.cmd.length #= array.length * dut.pl.bytePerBeat - 1
+          io.bmb.cmd.opcode #= 1
+          io.bmb.cmd.valid #= true
+          io.bmb.cmd.data.randomize()
+          println("write command")
+          clockDomain.waitSampling()
+          for(arr <- array.tail){
+            while (!io.bmb.cmd.ready.toBoolean){
+              io.bmb.cmd.valid #= false
+              clockDomain.waitSampling()
+            }
+            io.bmb.cmd.valid #= true
+            io.bmb.cmd.data.randomize()
+            writeQueue.enqueue(io.bmb.cmd.data.toBigInt)
+            if(arr == array.last) io.bmb.cmd.last #= true
+            clockDomain.waitSampling()
+          }
+          io.bmb.cmd.last #= false
+          io.bmb.cmd.valid #= false
+          writeQueue.enqueue(io.bmb.cmd.data.toBigInt)
+        }
+        def read(beatCount:Int, address:BigInt=BigInt(dut.bmbp.access.addressWidth - log2Up(tpa.tp.bytePerTaskMax), simRandom) << log2Up(tpa.tp.bytePerTaskMax)): Unit = {
+          io.bmb.cmd.address #= address
+          io.bmb.cmd.length #= beatCount * dut.pl.bytePerBeat - 1
+          io.bmb.cmd.opcode #= 0
+          io.bmb.cmd.valid #= true
+          io.bmb.cmd.last #= true
+          clockDomain.waitSampling()
 
-      io.dfi.read.rd.foreach(_.rddataValid #= false)
-      clockDomain.waitSampling(30)
-      io.bmb.cmd.valid #= false
-      io.bmb.cmd.last #= false
-      io.bmb.cmd.source #= 0
+          io.bmb.cmd.last #= false
+          io.bmb.cmd.valid #= false
+          io.bmb.cmd.opcode #= 1
+          clockDomain.waitSamplingWhere(dut.io.dfi.read.rden(0).toBoolean)
 
-      io.bmb.cmd.opcode.randomize()
-      io.bmb.cmd.address #= 0
-      io.bmb.cmd.length #= 0
-      io.bmb.cmd.data #= 0
-      io.bmb.cmd.mask #= 0
-      io.bmb.cmd.context #= 0
-//      io.dfi.read.rd.foreach(_.rddatavalid #= false)
-//      io.bmb.rsp.ready #= true
-//      clockDomain.waitSampling()
-//      io.bmb.rsp.ready #= false
-//      io.dfi.read.rd.foreach(_.rddata.randomize())
-//      io.bmb.rsp.ready #= true
-//      clockDomain.waitSamplingWhere(dut.bmb2dfi.dfiAlignment.initialize.io.initDone.toBoolean)
-//      clockDomain.waitSamplingWhere(dut.io.initDone.toBoolean)
-      clockDomain.waitSampling(5)
-      write(array = bmbDatas,address = 64)
-      println("writing is OK")
-      clockDomain.waitSampling(10)
-      write(array = bmbDatas,address = 3145728)
-      println("writing is OK")
-      clockDomain.waitSampling(10)
-      write(array = bmbDatas,address = 2048)
-      println("writing is OK")
+          io.bmb.rsp.ready #= true
+          println("read command")
+        }
+        def readdata(beatCount:Int):Unit = {
+          for(i <- 0 until beatCount){
+            dut.io.dfi.read.rd.foreach(_.rddataValid #= true)
+            dut.io.dfi.read.rd.foreach(_.rddata.randomize())
+            clockDomain.waitSampling()
+            readQueue.enqueue(dut.io.dfi.read.rd.map(_.rddata.toBigInt).reverse.zipWithIndex.reduceLeft((a,b)=>(a._1+(b._1<<(b._2*pl.phyIoWidth)),0))._1)
+          }
+          dut.io.dfi.read.rd.foreach(_.rddataValid #= false)
+          clockDomain.waitSamplingWhere(dut.bmb2dfi.bmbBridge.bmbAdapter.io.output.rsp.payload.last.toBoolean)
+          clockDomain.waitSampling()
+          io.bmb.rsp.ready #= false
+        }
 
-      clockDomain.waitSampling(30)
-      read(beatCount = bmbDatas.size, address = 128)
-      clockDomain.waitSampling(2)//The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + pl.beatCount-1)/pl.beatCount + 1)
-      readdata(bmbDatas.size)
-      println("reading is OK")
+        io.dfi.read.rd.foreach(_.rddataValid #= false)
+        clockDomain.waitSampling(30)
+        io.bmb.cmd.valid #= false
+        io.bmb.cmd.last #= false
+        io.bmb.cmd.source #= 0
 
-      clockDomain.waitSampling(5)
-      read(beatCount = bmbDatas.size, address = 64)
-      clockDomain.waitSampling()
-      readdata(bmbDatas.size)
-      println("reading is OK")
+        io.bmb.cmd.opcode.randomize()
+        io.bmb.cmd.address #= 0
+        io.bmb.cmd.length #= 0
+        io.bmb.cmd.data #= 0
+        io.bmb.cmd.mask #= 0
+        io.bmb.cmd.context #= 0
 
-      clockDomain.waitSampling(5)
-      write(array = bmbDatas,address = 3145728)
-      println("writing is OK")
+        write(array = bmbDatas)
+        println("writing is OK")
+        clockDomain.waitSampling(10)
+        write(array = bmbDatas)
+        println("writing is OK")
+        clockDomain.waitSampling(10)
+        write(array = bmbDatas)
+        println("writing is OK")
 
-      clockDomain.waitSampling(5)
-      write(array = bmbDatas,address = 12280)
-      println("writing is OK")
-      clockDomain.waitSampling(40)
+        clockDomain.waitSampling(30)
+        read(beatCount = bmbDatas.size)
+        clockDomain.waitSampling(2)//The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + pl.beatCount-1)/pl.beatCount + 1)
+        readdata(bmbDatas.size)
+        println("reading is OK")
 
-      simSuccess()
+        clockDomain.waitSampling(5)
+        read(beatCount = bmbDatas.size)
+        clockDomain.waitSampling()
+        readdata(bmbDatas.size)
+        println("reading is OK")
 
+        clockDomain.waitSampling(5)
+        write(array = bmbDatas)
+        println("writing is OK")
 
+        clockDomain.waitSampling(10)
+        write(array = bmbDatas)
+        println("writing is OK")
+        clockDomain.waitSampling(100)
+
+        simSuccess()
+
+      }
     }
   }
 }
