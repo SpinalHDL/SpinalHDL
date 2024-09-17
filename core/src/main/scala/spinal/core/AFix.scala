@@ -667,9 +667,13 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   override def <<(shift: UInt): AFix = ???
   override def >>(shift: UInt): AFix = this >> AFix(shift)
 
-  def unary_-(): AFix = negate(True)
+  def unary_-(): AFix = negate()
 
-  def negate(): AFix = negate(True)
+  def negate(): AFix = {
+    val ret = new AFix(-this.minRaw max this.maxRaw, -this.maxRaw min this.minRaw, this.exp)
+    ret.raw := (-S(this.raw).resize(ret.bitWidth)).asBits
+    ret
+  }
   def negate(enable : Bool, plusOneEnable : Bool = null): AFix = {
     val ret = new AFix(-this.minRaw max this.maxRaw, -this.maxRaw min this.minRaw, this.exp)
     ret.raw := U(this.raw).twoComplement(enable, plusOneEnable).asBits
