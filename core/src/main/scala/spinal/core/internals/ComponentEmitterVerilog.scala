@@ -416,7 +416,7 @@ class ComponentEmitterVerilog(
 
       logics ++= s"${child.getName()} (\n"
 
-      val ios = child.getOrdredNodeIo.filterNot(_.isSuffix)
+      val ios = child.getOrdredNodeIo.filterNot(_.isSuffix).filter(data => !data.isInOut || analogDrivers.isDefinedAt(data))
       val connectedIF = mutable.HashSet[Data]()
       val prepareInstports = ios.flatMap { data =>
         if (spinalConfig.mode == SystemVerilog && spinalConfig.svInterface && data.hasTag(IsInterface)) {
