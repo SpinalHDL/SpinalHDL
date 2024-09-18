@@ -672,7 +672,10 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   def negate(): AFix = negate(True)
   def negate(enable : Bool, plusOneEnable : Bool = null): AFix = {
     val ret = new AFix(-this.minRaw max this.maxRaw, -this.maxRaw min this.minRaw, this.exp)
-    ret.raw := U(this.raw).twoComplement(enable, plusOneEnable).asBits
+    if(this.minRaw >= 0)
+      ret.raw := U(this.raw).twoComplement(enable, plusOneEnable).asBits
+    else
+      ret.raw := S(this.raw).twoComplement(enable, plusOneEnable).asBits
     ret
   }
 
