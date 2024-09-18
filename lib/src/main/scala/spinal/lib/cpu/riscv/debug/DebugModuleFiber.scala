@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.cpu.riscv.RiscvHart
 import spinal.lib.cpu.riscv.debug._
+import spinal.lib.{OHMux, traversableOnceBoolPimped}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -14,14 +15,14 @@ class DebugModuleFiber() extends Area{
   }
 
   val ndmreset = Bool()
-
+  val p = DebugTransportModuleParameter(
+    addressWidth = 7,
+    version = 1,
+    idle = 7
+  )
+  val cmCd = ClockDomain.current
+  val debugBuses = ArrayBuffer[DebugBus]()
   val thread = Fiber build new Area{
-    val p = DebugTransportModuleParameter(
-      addressWidth = 7,
-      version = 1,
-      idle = 7
-    )
-
     val logic = DebugModule(
       DebugModuleParameter(
         version = p.version + 1,
@@ -60,24 +61,38 @@ class DebugModuleFiber() extends Area{
       to.resume.cmd <-< from.resume.cmd
       to.resume.rsp >-> from.resume.rsp
     }
+
+    //Assumes only one interface is used on the field
+    logic.io.ctrl.cmd.valid := debugBuses.map(_.cmd.valid).orR
+    logic.io.ctrl.cmd.payload := OHMux.or(debugBuses.map(_.cmd.valid), debugBuses.map(_.cmd.payload), true)
+    for(db <- debugBuses) {
+      db.cmd.ready := logic.io.ctrl.cmd.ready
+      db.rsp << logic.io.ctrl.rsp
+    }
   }
 
-  def withJtagTap() = Fiber build new Area {
-    val logic = DebugTransportModuleJtagTap(
-      thread.p,
-      debugCd = thread.logic.clockDomain
-    )
-    thread.logic.io.ctrl <> logic.io.bus
-    val jtag = logic.io.jtag.toIo
+  def withJtagTap() = {
+    val db = DebugBus(p.addressWidth); debugBuses += db
+    Fiber build new Area {
+      val logic = DebugTransportModuleJtagTap(
+        p,
+        debugCd = cmCd
+      )
+      db <> logic.io.bus
+      val jtag = logic.io.jtag.toIo
+    }
   }
 
-  def withJtagInstruction() = Fiber build new Area {
-    val logic = DebugTransportModuleTunneled(
-      p = thread.p,
-      jtagCd = ClockDomain.current,
-      debugCd = thread.logic.clockDomain
-    )
-    thread.logic.io.ctrl <> logic.io.bus
-    val instruction = logic.io.instruction.toIo
+  def withJtagInstruction() = {
+    val db = DebugBus(p.addressWidth); debugBuses += db
+    Fiber build new Area {
+      val logic = DebugTransportModuleTunneled(
+        p = p,
+        jtagCd = ClockDomain.current,
+        debugCd = cmCd
+      )
+      db <> logic.io.bus
+      val instruction = logic.io.instruction.toIo
+    }
   }
 }
