@@ -1,14 +1,14 @@
 package spinal.lib.memory.sdram.dfi
 
-import spinal.lib._
 import spinal.core._
-import spinal.lib.memory.sdram.dfi.interface.{TaskParameterAggregate, IDFI, TaskPort}
+import spinal.lib._
 import spinal.lib.memory.sdram.dfi.foundation._
+import spinal.lib.memory.sdram.dfi.interface.{IDFI, TaskParameterAggregate, TaskPort}
 
-case class Control(tpa : TaskParameterAggregate) extends Component{
+case class Control(tpa: TaskParameterAggregate) extends Component {
   import tpa._
-  val io = new Bundle{
-    val inport  = slave(TaskPort(tpp, tpa))
+  val io = new Bundle {
+    val inport = slave(TaskPort(tpp, tpa))
     val outport = master(IDFI(config))
   }
 
@@ -36,6 +36,5 @@ case class Control(tpa : TaskParameterAggregate) extends Component{
     io.outport.rdData <> radata.rddatarxd.io.idfiRdData
     io.outport.rdEn <> radata.rddatarxd.io.rden
   }
-
 
 }
