@@ -2,6 +2,7 @@ package spinal.lib.memory.sdram.dfi.interface
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.bmb.BmbParameter
 
 case class TaskTimingConfig(tpa: TaskParameterAggregate) extends Bundle {
 
@@ -40,9 +41,18 @@ case class BusAddress(l: SdramConfig, config: DfiConfig) extends Bundle {
   val cs = UInt(log2Up(config.chipSelectNumber) bits)
 }
 
-case class TaskParameter(bytePerTaskMax: Int = 64, timingWidth: Int, refWidth: Int) {
+case class TaskParameter(
+    bytePerTaskMax: Int = 64,
+    timingWidth: Int,
+    refWidth: Int,
+    cmdBufferSize: Int,
+    dataBufferSize: Int,
+    rspBufferSize: Int
+) {
   assert(isPow2(bytePerTaskMax))
 }
+
+case class CtrlParameter(task: TaskParameter, bmbp: BmbParameter)
 
 case class TaskPortParameter(
     contextWidth: Int,

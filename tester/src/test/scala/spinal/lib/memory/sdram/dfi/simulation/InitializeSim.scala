@@ -5,17 +5,12 @@ import spinal.core.sim._
 import spinal.demo.phy.Initialize
 import spinal.lib._
 import spinal.lib.bus.bmb.BmbParameter
-import spinal.lib.memory.sdram.dfi._
 import spinal.lib.memory.sdram.dfi.foundation.BmbAdapter
 import spinal.lib.memory.sdram.dfi.interface._
 
 case class InitializeSim() extends Component {
-  val bmbclockDomain = ClockDomain(
-    ClockDomain.current.clock,
-    ClockDomain.current.reset,
-    config = ClockDomainConfig(resetActiveLevel = HIGH)
-  )
-  val task: TaskParameter = TaskParameter(timingWidth = 3, refWidth = 23)
+  val task: TaskParameter =
+    TaskParameter(timingWidth = 3, refWidth = 23, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
   val sdramtime = SdramTiming(
     generation = 3,
     RFC = 260,
@@ -83,10 +78,8 @@ case class InitializeSim() extends Component {
     lengthWidth = 6,
     alignment = BmbParameter.BurstAlignement.WORD
   )
-  val bmbpp: BmbPortParameter =
-    BmbPortParameter(bmbp, bmbclockDomain, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
-  val ctp: CtrlParameter = CtrlParameter(task, bmbpp)
-  val tpa = TaskParameterAggregate(task, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
+  val ctp: CtrlParameter = CtrlParameter(task, bmbp)
+  val tpa = TaskParameterAggregate(task, pl, BmbAdapter.taskPortParameter(ctp.bmbp, pl, task), config)
   val io = new Bundle {
     val cmd = master(Flow {
       new Bundle {

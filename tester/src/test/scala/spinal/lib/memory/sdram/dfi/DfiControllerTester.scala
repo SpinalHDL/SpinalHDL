@@ -15,12 +15,8 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   test("DfiControllerTester") {
     SimConfig
       .compile {
-        val bmbclockDomain = ClockDomain(
-          ClockDomain.current.clock,
-          ClockDomain.current.reset,
-          config = ClockDomainConfig(resetActiveLevel = HIGH)
-        )
-        val task: TaskParameter = TaskParameter(timingWidth = 5, refWidth = 23)
+        val task: TaskParameter =
+          TaskParameter(timingWidth = 5, refWidth = 23, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
         val sdramtime = SdramTiming(
           generation = 3,
           RFC = 260,
@@ -88,9 +84,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           lengthWidth = 6,
           alignment = BmbParameter.BurstAlignement.WORD
         )
-        val bmbpp: BmbPortParameter =
-          BmbPortParameter(bmbp, bmbclockDomain, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
-        val ctp: CtrlParameter = CtrlParameter(task, bmbpp)
+        val ctp: CtrlParameter = CtrlParameter(task, bmbp)
         val dut = DfiController(ctp, pl, config)
         dut.bmbBridge.bmbAdapter.io.output.rsp.payload.last.simPublic()
         dut
@@ -103,10 +97,9 @@ class DfiControllerTester extends SpinalAnyFunSuite {
 
         def write(
             array: Array[Int],
-            address: BigInt =
-              BigInt(ctp.port.bmb.access.addressWidth - log2Up(tpa.tp.bytePerTaskMax), simRandom) << log2Up(
-                tpa.tp.bytePerTaskMax
-              )
+            address: BigInt = BigInt(ctp.bmbp.access.addressWidth - log2Up(tpa.tp.bytePerTaskMax), simRandom) << log2Up(
+              tpa.tp.bytePerTaskMax
+            )
         ) = {
 
           io.bmb.cmd.address #= address
@@ -134,10 +127,9 @@ class DfiControllerTester extends SpinalAnyFunSuite {
 
         def read(
             beatCount: Int,
-            address: BigInt =
-              BigInt(ctp.port.bmb.access.addressWidth - log2Up(tpa.tp.bytePerTaskMax), simRandom) << log2Up(
-                tpa.tp.bytePerTaskMax
-              )
+            address: BigInt = BigInt(ctp.bmbp.access.addressWidth - log2Up(tpa.tp.bytePerTaskMax), simRandom) << log2Up(
+              tpa.tp.bytePerTaskMax
+            )
         ): Unit = {
           io.bmb.cmd.address #= address
           io.bmb.cmd.length #= beatCount * dut.pl.bytePerBeat - 1
@@ -174,7 +166,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           io.bmb.rsp.ready #= false
         }
 
-        val bmbDatas = new Array[Int]((1 << dut.ctp.port.bmb.access.lengthWidth) / dut.pl.bytePerBeat)
+        val bmbDatas = new Array[Int]((1 << dut.ctp.bmbp.access.lengthWidth) / dut.pl.bytePerBeat)
         for (i <- 0 until (bmbDatas.length)) {
           bmbDatas(i) = i
         }

@@ -2,18 +2,18 @@ package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.bmb.Bmb
+import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 import spinal.lib.memory.sdram.dfi.foundation._
 import spinal.lib.memory.sdram.dfi.interface._
 
-case class BmbBridge(port: BmbPortParameter, tpa: TaskParameterAggregate) extends Component {
+case class BmbBridge(bmbp: BmbParameter, tpa: TaskParameterAggregate) extends Component {
   import tpa._
   val io = new Bundle {
-    val bmb = slave(Bmb(port.bmb))
+    val bmb = slave(Bmb(bmbp))
     val taskPort = master(TaskPort(tpp, tpa))
   }
 
-  val bmbAdapter = BmbAdapter(port, tpa)
+  val bmbAdapter = BmbAdapter(bmbp, tpa)
   bmbAdapter.io.input <> io.bmb
   bmbAdapter.io.output.writeData <> io.taskPort.writeData
   bmbAdapter.io.output.rsp <> io.taskPort.rsp

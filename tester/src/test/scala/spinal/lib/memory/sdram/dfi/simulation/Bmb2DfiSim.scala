@@ -12,12 +12,8 @@ import scala.collection.mutable
 
 case class Bmb2DfiSim(x: Int) extends Component {
 
-  val bmbclockDomain = ClockDomain(
-    ClockDomain.current.clock,
-    ClockDomain.current.reset,
-    config = ClockDomainConfig(resetActiveLevel = HIGH)
-  )
-  val task: TaskParameter = TaskParameter(timingWidth = 5, refWidth = 23)
+  val task: TaskParameter =
+    TaskParameter(timingWidth = 5, refWidth = 23, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
   val sdramtime = SdramTiming(
     generation = 3,
     RFC = 260,
@@ -85,12 +81,10 @@ case class Bmb2DfiSim(x: Int) extends Component {
     lengthWidth = 6,
     alignment = BmbParameter.BurstAlignement.WORD
   )
-  val bmbpp: BmbPortParameter =
-    BmbPortParameter(bmbp, bmbclockDomain, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
-  val ctp: CtrlParameter = CtrlParameter(task, bmbpp)
-  val tpa = TaskParameterAggregate(ctp.task, pl, BmbAdapter.corePortParameter(ctp.port, pl), config)
+  val ctp: CtrlParameter = CtrlParameter(task, bmbp)
+  val tpa = TaskParameterAggregate(ctp.task, pl, BmbAdapter.taskPortParameter(ctp.bmbp, pl, task), config)
   val io = new Bundle {
-    val bmb = slave(Bmb(ctp.port.bmb))
+    val bmb = slave(Bmb(ctp.bmbp))
     val dfi = master(Dfi(config))
   }
   val bmb2dfi = DfiController(ctp, pl, config)
@@ -126,7 +120,7 @@ object Bmb2DfiSim {
 
         val writeQueue = mutable.Queue[BigInt]()
         val readQueue = mutable.Queue[BigInt]()
-        val bmbDatas = new Array[Int]((1 << dut.ctp.port.bmb.access.lengthWidth) / dut.pl.bytePerBeat)
+        val bmbDatas = new Array[Int]((1 << dut.ctp.bmbp.access.lengthWidth) / dut.pl.bytePerBeat)
         for (i <- 0 until (bmbDatas.length)) {
           bmbDatas(i) = i
         }

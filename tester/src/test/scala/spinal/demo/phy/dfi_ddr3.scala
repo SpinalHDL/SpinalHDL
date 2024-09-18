@@ -29,7 +29,8 @@ class DDR3IO(pl: PhyConfig, config: DfiConfig) extends Bundle {
 }
 
 case class bmb_dfi_ddr3(pl: PhyConfig, config: DfiConfig) extends Component {
-  val tp: TaskParameter = TaskParameter(timingWidth = 5, refWidth = 23)
+  val tp: TaskParameter =
+    TaskParameter(timingWidth = 5, refWidth = 23, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
   val bmbp: BmbParameter = BmbParameter(
     addressWidth = pl.sdram.byteAddressWidth + log2Up(config.chipSelectNumber),
     dataWidth = pl.beatWidth,
@@ -50,10 +51,8 @@ case class bmb_dfi_ddr3(pl: PhyConfig, config: DfiConfig) extends Component {
     val ddr3 = new DDR3IO(pl, config)
     val initDone = out Bool ()
   }
-  val bmbpp: BmbPortParameter =
-    BmbPortParameter(bmbp, ClockDomain.current, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
-  val ctp = CtrlParameter(tp, bmbpp)
-  val tpa = TaskParameterAggregate(tp, pl, BmbAdapter.corePortParameter(bmbpp, pl), config)
+  val ctp = CtrlParameter(tp, bmbp)
+  val tpa = TaskParameterAggregate(tp, pl, BmbAdapter.taskPortParameter(bmbp, pl, tp), config)
 
   val clockArea = new ClockingArea(ClockDomain.current) {
     val bmb2dfi = DfiController(ctp, pl, config)
