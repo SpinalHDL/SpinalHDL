@@ -4,6 +4,7 @@ import spinal.lib._
 import spinal.lib.io._
 import spinal.lib.blackbox.xilinx.s7.IOBUF
 import spinal.tester.{SpinalAnyFunSuite, SpinalTesterCocotbBase}
+import spinal.core.sim._
 
 class PortBlackBox extends BlackBox {
   val write = in(Bool())
@@ -236,5 +237,28 @@ class AnalogConnectionTest extends SpinalAnyFunSuite {
         x(0 downto 0) := y(1 downto 1)
       }
     }
+  }
+  test("Test Unconnected IO Port") {
+    // Test for extra comma
+    SimConfig.withIVerilog // Test with iverlog as verilator does ignore the extra comma
+      .compile(new Component {
+        val io = new Bundle {
+          val a = inout port Analog(Bool())
+        }
+        val sub = new Component {
+          val io = new Bundle {
+            val a = inout port Analog(Bool())
+            val b = inout port Analog(Bool())
+          }
+        }
+        io.a <> sub.io.a
+      })
+      .doSim { dut =>
+        dut.clockDomain.forkStimulus(period = 10)
+
+        for (repeat <- 0 to 100) {
+          dut.clockDomain.waitSampling()
+        }
+      }
   }
 }
