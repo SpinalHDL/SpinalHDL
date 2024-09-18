@@ -82,9 +82,9 @@ object Bmb_CmdSim {
       }
       .doSimUntilVoid { dut =>
         dut.clockDomain.forkStimulus(10)
-//      dut.io.initDone #= false
+        dut.io.initDone #= false
         dut.clockDomain.waitSampling(10)
-//      dut.io.initDone #= true
+        dut.io.initDone #= true
         dut.clockDomain.waitSampling(100)
         simSuccess()
 

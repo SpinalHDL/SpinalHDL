@@ -139,7 +139,7 @@ case class RdDataRxd(tpa: TaskParameterAggregate) extends Component {
 
   case class PipelineRsp() extends Bundle {
     val data = Bits(pl.beatWidth bits)
-    val context = Bits(backendContextWidth bits)
+    val context = Bits(contextWidth bits)
   }
   io.taskRdData.valid := rspPop.valid
   io.taskRdData.last := rspPop.last
@@ -149,7 +149,7 @@ case class RdDataRxd(tpa: TaskParameterAggregate) extends Component {
   rspPipeline.input.valid.setWhen(io.task.read)
 
   case class Context() extends Bundle {
-    val context = Bits(backendContextWidth bits)
+    val context = Bits(contextWidth bits)
   }
   ready.foreach(_.init(False))
   for (i <- 0 until (frequencyRatio)) {

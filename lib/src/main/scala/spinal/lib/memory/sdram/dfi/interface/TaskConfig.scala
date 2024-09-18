@@ -66,7 +66,7 @@ case class TaskPortParameter(contextWidth: Int,
                              canWrite: Boolean)
 
 case class TaskParameterAggregate(tp: TaskParameter, pl: PhyConfig, tpp: TaskPortParameter, config: DfiConfig) {
-  def backendContextWidth = tpp.contextWidth
+  def contextWidth = tpp.contextWidth
 
   def generation = pl.sdram.generation
 
@@ -124,7 +124,7 @@ case class OpTasks(tpa: TaskParameterAggregate) extends Bundle with IMasterSlave
   val read, write, active, precharge = Bool() //OH encoded
   val last = Bool()
   val address = BusAddress(pl.sdram, config)
-  val context = Bits(backendContextWidth bits)
+  val context = Bits(contextWidth bits)
   val prechargeAll, refresh = Bool() //OH encoded
 
   def init(): OpTasks = {

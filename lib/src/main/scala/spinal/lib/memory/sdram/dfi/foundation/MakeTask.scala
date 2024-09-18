@@ -80,7 +80,7 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
     val status = Reg(Status())
     val address = Reg(BusAddress(tpa.pl.sdram, tpa.config))
     val write = Reg(Bool())
-    val context = Reg(Bits(backendContextWidth bits))
+    val context = Reg(Bits(contextWidth bits))
     val offset, offsetLast = Reg(UInt(tpa.stationLengthWidth bits))
 
     import status._

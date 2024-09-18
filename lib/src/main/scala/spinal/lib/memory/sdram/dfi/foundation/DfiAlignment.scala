@@ -80,11 +80,11 @@ case class RdAlignment(config: DfiConfig) extends Component {
 
   for (i <- 0 until (frequencyRatio)) {
     when(rdDataTemp(i).fire) {
-      rdDataTemp(i).rdData := ((i + curPhase + frequencyRatio - rdDataPhase) % frequencyRatio)
+      rdDataTemp(i).rdData := (i + curPhase + frequencyRatio - rdDataPhase).resize(log2Up(frequencyRatio))
         .muxListDc(io.dfiRd.zipWithIndex.map(t => (t._2, t._1)))
         .rddata
       curPhase := (i + 1) % frequencyRatio
-      rdDataPhase := (rdDataPhase + i + 1 + frequencyRatio - curPhase) % frequencyRatio
+      rdDataPhase := (rdDataPhase + i + 1 + frequencyRatio - curPhase).resize(log2Up(frequencyRatio)).resized
     }
   }
   val rdDataFifos = for (i <- 0 until (frequencyRatio)) yield new Area {
