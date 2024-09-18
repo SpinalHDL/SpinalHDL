@@ -26,12 +26,12 @@ case class DfiControlInterface(config: DfiConfig) extends Bundle with IMasterSla
 case class DfiWr(config: DfiConfig) extends Bundle {
   val wrdataEn = Bool()
   val wrdata = Bits(config.dataWidth bits)
-  val wrdataMask = Bits(config.dataWidth/8 bits)
+  val wrdataMask = Bits(config.dataWidth / 8 bits)
   // config.dramDataSlice must >= 8, or else config.dataWidth / 8 / config.dataEnableWidth < 1
   val wrdataCsN = config.useWrdataCsN generate Bits(config.chipSelectNumber bits)
 }
 
-case class DfiWriteInterface(config: DfiConfig) extends Bundle with  IMasterSlave {
+case class DfiWriteInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val wr = Vec(DfiWr(config), config.frequencyRatio)
   override def asMaster(): Unit = {
     out(wr)
@@ -46,16 +46,16 @@ case class DfiRd(config: DfiConfig) extends Bundle {
   val rddataDnv = config.useRddataDnv generate Bits(config.dataWidth / 8 bits)
 }
 
-case class DfiRdCs(config:DfiConfig) extends Bundle {
+case class DfiRdCs(config: DfiConfig) extends Bundle {
   val rddataCsN = config.useRddataCsN generate Bits(config.chipSelectNumber bits)
 }
 
 case class DfiReadInterface(config: DfiConfig) extends Bundle with IMasterSlave {
-  val rden = Vec(Bool(),config.frequencyRatio)
+  val rden = Vec(Bool(), config.frequencyRatio)
   val rdCs = Vec(DfiRdCs(config), config.frequencyRatio)
   val rd = Vec(DfiRd(config), config.frequencyRatio)
   override def asMaster(): Unit = {
-    out(rdCs,rden)
+    out(rdCs, rden)
     in(rd)
   }
 }
@@ -75,7 +75,7 @@ case class DfiUpdateInterface(config: DfiConfig) extends Bundle with IMasterSlav
 case class DfiStatusInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val alertN = config.useAlertN generate Bits(config.alertWidth * config.frequencyRatio bits)
   val dataByteDisable = config.useDataByteDisable generate Bits(config.dataWidth / 8 bits)
-  val dramClkDisable = config.ddr.kind.useStatusSignals generate  Bits(config.chipSelectNumber bits)
+  val dramClkDisable = config.ddr.kind.useStatusSignals generate Bits(config.chipSelectNumber bits)
   val freqRatio = config.useFreqRatio generate Bits(2 bits)
   val initComplete = Bool()
   val initStart = config.useInitStart generate Bool()
@@ -92,7 +92,8 @@ case class DfiReadTrainingInterface(config: DfiConfig) extends Bundle with IMast
   val rdlvlEn = config.useRdlvlEn generate Bits(config.readLevelingMCIFWidth bits)
   val rdlvlResp = config.useRdlvlResp generate Bits(config.readLevelingResponseWidth bits)
   val rdlvlGateReq = config.useRdlvlGateReq generate Bits(config.readLevelingPhyIFWidth bits)
-  val phyRdlvlGateCsN = config.usePhyRdlvlGateCsN generate Bits(config.readTrainingPhyIFWidth * config.chipSelectNumber bits)
+  val phyRdlvlGateCsN =
+    config.usePhyRdlvlGateCsN generate Bits(config.readTrainingPhyIFWidth * config.chipSelectNumber bits)
   val rdlvlGateEn = config.useRdlvlGateEn generate Bits(config.readLevelingMCIFWidth bits)
   override def asMaster(): Unit = {
     out(rdlvlEn, rdlvlGateEn)
@@ -145,8 +146,8 @@ case class DfiPhyRequesetedTrainingInterface(config: DfiConfig) extends Bundle w
 case class DfiLowPowerControlInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val lpCtrlReq = config.useLpCtrlReq generate Bool()
   val lpDataReq = config.useLpDataReq generate Bool()
-  val lpWakeUp  = config.useLpWakeUp generate  Bits(4 bits)
-  val lpAck     = config.useLpAck generate Bool()
+  val lpWakeUp = config.useLpWakeUp generate Bits(4 bits)
+  val lpAck = config.useLpAck generate Bool()
   override def asMaster(): Unit = {
     out(lpCtrlReq, lpDataReq, lpWakeUp)
     in(lpAck)
@@ -175,9 +176,19 @@ case class Dfi(config: DfiConfig) extends Bundle with IMasterSlave {
   val lowPowerControl = DfiLowPowerControlInterface(config)
   val error = DfiErrorInterface(config)
   override def asMaster(): Unit = {
-    master(control, read, status, write,updata,
-      rdTraining, wrTraining, caTraining, levelingTraing,
-      phyRequesetedTraining, lowPowerControl,
-      error)
+    master(
+      control,
+      read,
+      status,
+      write,
+      updata,
+      rdTraining,
+      wrTraining,
+      caTraining,
+      levelingTraing,
+      phyRequesetedTraining,
+      lowPowerControl,
+      error
+    )
   }
 }

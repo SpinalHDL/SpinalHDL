@@ -10,31 +10,18 @@ case class TaskTimingConfig(tpa: TaskParameterAggregate) extends Bundle {
   val sdram = tpa.pl.sdram
 
   def RAS = time(sdram.tRAS)
-
   def RP = time(sdram.tRP)
-
   def WR = time(sdram.tWR)
-
-  def time(tcyc: Int, phase: Int = config.frequencyRatio) = (tcyc + phase - 1) / phase
-
   def RCD = time(sdram.tRCD)
-
+  def time(tcyc: Int, phase: Int = config.frequencyRatio) = (tcyc + phase - 1) / phase
   def WTR = time(sdram.tWTR)
-
   def RTP = time(sdram.tRTP)
-
   def RRD = time(sdram.tRRD)
-
   def RTW = time(sdram.tRTW)
-
   def RFC = time(sdram.tRFC)
-
   def ODT = 0
-
   def FAW = time(sdram.tFAW)
-
   def REF = time(sdram.tREF)
-
   def autoRefresh = True
 }
 
@@ -53,29 +40,24 @@ case class BusAddress(l: SdramConfig, config: DfiConfig) extends Bundle {
   val cs = UInt(log2Up(config.chipSelectNumber) bits)
 }
 
-case class TaskParameter(bytePerTaskMax: Int = 64,
-                         timingWidth: Int,
-                         refWidth: Int) {
+case class TaskParameter(bytePerTaskMax: Int = 64, timingWidth: Int, refWidth: Int) {
   assert(isPow2(bytePerTaskMax))
 }
 
-case class TaskPortParameter(contextWidth: Int,
-                             writeTokenInterfaceWidth: Int,
-                             writeTokenBufferSize: Int,
-                             canRead: Boolean,
-                             canWrite: Boolean)
+case class TaskPortParameter(
+    contextWidth: Int,
+    writeTokenInterfaceWidth: Int,
+    writeTokenBufferSize: Int,
+    canRead: Boolean,
+    canWrite: Boolean
+)
 
 case class TaskParameterAggregate(tp: TaskParameter, pl: PhyConfig, tpp: TaskPortParameter, config: DfiConfig) {
   def contextWidth = tpp.contextWidth
-
   def generation = pl.sdram.generation
-
   def stationLengthWidth = log2Up(stationLengthMax)
-
   def stationLengthMax = tp.bytePerTaskMax / pl.bytePerBurst
-
   def addressWidth = pl.sdram.byteAddressWidth + chipSelectWidth
-
   def chipSelectWidth = log2Up(config.chipSelectNumber)
 }
 
@@ -121,11 +103,11 @@ case class OpTasks(tpa: TaskParameterAggregate) extends Bundle with IMasterSlave
 
   import tpa._
 
-  val read, write, active, precharge = Bool() //OH encoded
+  val read, write, active, precharge = Bool() // OH encoded
   val last = Bool()
   val address = BusAddress(pl.sdram, config)
   val context = Bits(contextWidth bits)
-  val prechargeAll, refresh = Bool() //OH encoded
+  val prechargeAll, refresh = Bool() // OH encoded
 
   def init(): OpTasks = {
     val ret = RegNext(this).setCompositeName(this, "init", true)
@@ -153,28 +135,24 @@ case class TaskPort(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
   }
 }
 
-case class PhyConfig(sdram: SdramConfig,
-                     phaseCount: Int, //How many DRAM clock per core clock
-                     dataRate: Int, //(SDR=1, DDR=2, QDR=4)
-                     outputLatency: Int, //Max delay for a command on the phy to arrive on the sdram
-                     readDelay: Int, //Max delay between readEnable and readValid
-                     writeDelay: Int, //Delay between writeEnable and data/dm
-                     cmdToDqDelayDelta: Int, //How many cycle extra the DQ need to be on the pin compared to CAS/RAS
-                     transferPerBurst: Int) { //How many transfer per burst
+case class PhyConfig(
+    sdram: SdramConfig,
+    phaseCount: Int, // How many DRAM clock per core clock
+    dataRate: Int, // (SDR=1, DDR=2, QDR=4)
+    outputLatency: Int, // Max delay for a command on the phy to arrive on the sdram
+    readDelay: Int, // Max delay between readEnable and readValid
+    writeDelay: Int, // Delay between writeEnable and data/dm
+    cmdToDqDelayDelta: Int, // How many cycle extra the DQ need to be on the pin compared to CAS/RAS
+    transferPerBurst: Int
+) { // How many transfer per burst
 
   import sdram._
 
   def phyIoWidth = dataRate * dataWidth
-
   def beatCount = transferPerBurst / phaseCount / dataRate
-
   def bytePerDq = dataWidth / 8
-
   def bytePerBurst = burstWidth / 8
-
   def burstWidth = dataWidth * transferPerBurst
-
   def bytePerBeat = beatWidth / 8
-
   def beatWidth = phaseCount * dataRate * dataWidth
 }
