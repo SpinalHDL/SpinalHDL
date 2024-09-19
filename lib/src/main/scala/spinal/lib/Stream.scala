@@ -359,12 +359,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def stage() : Stream[T] = this.m2sPipe()
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false): Stream[T] = new Composite(this) {
+  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false, dataTags: Seq[SpinalTag] = Seq()): Stream[T] = new Composite(this) {
     val m2sPipe = Stream(payloadType)
 
     val rValid = RegNextWhen(self.valid, self.ready) init(False)
     val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready)
-
+    dataTags.foreach(rData.addTag)
     if (crossClockData) {
       rData.addTag(crossClockDomain)
       rData.addTag(crossClockMaxDelay(1, useTargetClock = true))
@@ -1742,12 +1742,14 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   }
 
   val outHitSignal = Bool()
+  // Make sure Quartus does not optimize the registers to make 
+  val regAttribute = new AttributeString("altera_attribute", "-name ADV_NETLIST_OPT_ALLOWED NEVER_ALLOW")
 
   val pushArea = inputClock on new Area {
-    val hit = BufferCC(outHitSignal, False)
+    val hit = BufferCC(outHitSignal, False, inputAttributes = Seq(crossClockFalsePath()))
     val accept = Bool()
     val target = RegInit(False) toggleWhen(accept)
-    val data = RegNextWhen(io.input.payload, accept)
+    val data = RegNextWhen(io.input.payload, accept) addAttribute(regAttribute)
 
     if (!withInputWait) {
       accept := io.input.fire
@@ -1763,14 +1765,14 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   val popArea = finalOutputClock on new Area {
     val stream = cloneOf(io.input)
 
-    val target = BufferCC(pushArea.target, False)
+    val target = BufferCC(pushArea.target, False, inputAttributes = Seq(crossClockFalsePath()))
     val hit = RegNextWhen(target, stream.fire) init(False)
     outHitSignal := hit
 
     stream.valid := (target =/= hit)
     stream.payload := pushArea.data
 
-    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true, crossClockData = true) else stream)
+    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true, crossClockData = true, dataTags = Seq(regAttribute)) else stream)
   }
 }
 
