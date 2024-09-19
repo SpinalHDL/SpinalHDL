@@ -1017,7 +1017,7 @@ object StreamFork2 {
   def takes[T <: Data](input: Stream[T],take0 : Bool, take1 : Bool, synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2") {
     val forks = (cloneOf(input), cloneOf(input))
     val logic = new StreamForkArea(input, List(forks._1, forks._2), synchronous)
-    val outputs = (forks._1.takeWhen(take0), forks._1.takeWhen(take1))
+    val outputs = (forks._1.takeWhen(take0), forks._2.takeWhen(take1))
   }.outputs
 }
 
