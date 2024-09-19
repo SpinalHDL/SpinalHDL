@@ -1742,7 +1742,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   }
 
   val outHitSignal = Bool()
-  // Make sure Quartus does not optimize the registers to make 
+  // Make sure Quartus does not optimize the registers to make the timing constraints valid
   val regAttribute = new AttributeString("altera_attribute", "-name ADV_NETLIST_OPT_ALLOWED NEVER_ALLOW")
 
   val pushArea = inputClock on new Area {
