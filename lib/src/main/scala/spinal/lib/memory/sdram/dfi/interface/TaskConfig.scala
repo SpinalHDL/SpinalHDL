@@ -8,7 +8,7 @@ case class TaskTimingConfig(tpa: TaskParameterAggregate) extends Bundle {
 
   import tpa._
 
-  val sdram = tpa.pl.sdram
+  val sdram = tpa.config.sdram
 
   def RAS = time(sdram.tRAS)
   def RP = time(sdram.tRP)
@@ -62,12 +62,12 @@ case class TaskPortParameter(
     canWrite: Boolean
 )
 
-case class TaskParameterAggregate(tp: TaskParameter, pl: PhyConfig, tpp: TaskPortParameter, config: DfiConfig) {
+case class TaskParameterAggregate(tp: TaskParameter, tpp: TaskPortParameter, config: DfiConfig) {
   def contextWidth = tpp.contextWidth
-  def generation = pl.sdram.generation
+  def generation = config.sdram.generation
   def stationLengthWidth = log2Up(stationLengthMax)
-  def stationLengthMax = tp.bytePerTaskMax / pl.bytePerBurst
-  def addressWidth = pl.sdram.byteAddressWidth + chipSelectWidth
+  def stationLengthMax = tp.bytePerTaskMax / config.bytePerBurst
+  def addressWidth = config.sdram.byteAddressWidth + chipSelectWidth
   def chipSelectWidth = log2Up(config.chipSelectNumber)
 }
 
@@ -86,12 +86,12 @@ case class TaskWriteData(tpp: TaskPortParameter, tpa: TaskParameterAggregate) ex
 
   import tpa._
 
-  val data = Bits(pl.beatWidth bits)
-  val mask = Bits(pl.beatWidth / 8 bits)
+  val data = Bits(config.beatWidth bits)
+  val mask = Bits(config.beatWidth / 8 bits)
 }
 
 case class TaskRsp(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends Bundle {
-  val data = tpp.canRead generate Bits(tpa.pl.beatWidth bits)
+  val data = tpp.canRead generate Bits(tpa.config.beatWidth bits)
   val context = Bits(tpp.contextWidth bits)
 }
 
@@ -115,7 +115,7 @@ case class OpTasks(tpa: TaskParameterAggregate) extends Bundle with IMasterSlave
 
   val read, write, active, precharge = Bool() // OH encoded
   val last = Bool()
-  val address = BusAddress(pl.sdram, config)
+  val address = BusAddress(config.sdram, config)
   val context = Bits(contextWidth bits)
   val prechargeAll, refresh = Bool() // OH encoded
 
@@ -147,22 +147,23 @@ case class TaskPort(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
 
 case class PhyConfig(
     sdram: SdramConfig,
-    phaseCount: Int, // How many DRAM clock per core clock
-    dataRate: Int, // (SDR=1, DDR=2, QDR=4)
-    outputLatency: Int, // Max delay for a command on the phy to arrive on the sdram
-    readDelay: Int, // Max delay between readEnable and readValid
-    writeDelay: Int, // Delay between writeEnable and data/dm
-    cmdToDqDelayDelta: Int, // How many cycle extra the DQ need to be on the pin compared to CAS/RAS
+    frequencyRatio: Int, // How many cycle extra the DQ need to be on the pin compared to CAS/RAS
     transferPerBurst: Int
 ) { // How many transfer per burst
 
-  import sdram._
+  def phyIoWidth = dataRate * sdram.dataWidth
 
-  def phyIoWidth = dataRate * dataWidth
-  def beatCount = transferPerBurst / phaseCount / dataRate
-  def bytePerDq = dataWidth / 8
+  def beatCount = transferPerBurst / frequencyRatio / dataRate
+
+  def dataRate = sdram.generation.dataRate
+
+  def bytePerDq = sdram.dataWidth / 8
+
   def bytePerBurst = burstWidth / 8
-  def burstWidth = dataWidth * transferPerBurst
+
+  def burstWidth = sdram.dataWidth * transferPerBurst
+
   def bytePerBeat = beatWidth / 8
-  def beatWidth = phaseCount * dataRate * dataWidth
+
+  def beatWidth = frequencyRatio * dataRate * sdram.dataWidth
 }

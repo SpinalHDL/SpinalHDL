@@ -22,7 +22,7 @@ case class CmdTxd(tpa: TaskParameterAggregate) extends Component {
 
   def AUTO_PRECHARGE_BIT = 10 // Disable auto precharge (auto close of row)
   def ALL_BANKS_BIT = 10 // Precharge all banks
-  def COULMNRang = 0 until (tpa.pl.sdram.columnWidth)
+  def COULMNRang = 0 until (config.sdram.columnWidth)
   def BANK: Bits = io.task.address.bank.asBits
   def ROW: Bits = io.task.address.row.asBits
   def COLUMN: Bits = io.task.address.column.asBits
@@ -97,7 +97,7 @@ case class RdDataRxd(tpa: TaskParameterAggregate) extends Component {
     val input = Flow(Fragment(Context()))
     assert(timeConfig.tPhyRdlat + timeConfig.tRddataEn >= 1)
     val cmd = input.toStream.queueLowLatency(
-      1 << log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + pl.beatCount - 1) / pl.beatCount + 1),
+      1 << log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + config.beatCount - 1) / config.beatCount + 1),
       latency = 1
     )
 
@@ -105,7 +105,7 @@ case class RdDataRxd(tpa: TaskParameterAggregate) extends Component {
     rdensHistory.foreach(_ := History(input.valid, 0 to (cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 1))
     rdensHistory.foreach(_.tail.foreach(_ init (False)))
 
-    val beatCounter = Counter(pl.beatCount, io.idfiRdData.map(_.valid).orR)
+    val beatCounter = Counter(config.beatCount, io.idfiRdData.map(_.valid).orR)
 
     val delay = DelayCyc(config, timeConfig)
     val delayCyc = delay.mcdelaycyc(cmdPhase, timeConfig.tRddataEn)
@@ -113,9 +113,9 @@ case class RdDataRxd(tpa: TaskParameterAggregate) extends Component {
 
     for (i <- 0 until (frequencyRatio)) {
       if (i >= nextPhase) {
-        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc), 0 until (timeConfig.dfiRWLength)).orR
+        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc), 0 until (config.beatCount)).orR
       } else {
-        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc + 1), 0 until (timeConfig.dfiRWLength)).orR
+        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc + 1), 0 until (config.beatCount)).orR
       }
     }
 
@@ -138,7 +138,7 @@ case class RdDataRxd(tpa: TaskParameterAggregate) extends Component {
   rspPipeline.input.context := io.task.context
 
   case class PipelineRsp() extends Bundle {
-    val data = Bits(pl.beatWidth bits)
+    val data = Bits(config.beatWidth bits)
     val context = Bits(contextWidth bits)
   }
   io.taskRdData.valid := rspPop.valid
@@ -171,7 +171,7 @@ case class WrDataTxd(tpa: TaskParameterAggregate) extends Component {
   val delay = DelayCyc(config, timeConfig)
   val delayCyc = delay.mcdelaycyc(cmdPhase, timeConfig.tPhyWrLat)
   val nextPhase = delay.sp2np(cmdPhase, timeConfig.tPhyWrLat)
-  val writeHistory = History(io.write, 0 until timeConfig.dfiRWLength)
+  val writeHistory = History(io.write, 0 until config.beatCount)
   val write = writeHistory.orR
   val wrens = Vec(Bool(), frequencyRatio)
   val wrensHistory = Vec(Vec(Bool(), (cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)

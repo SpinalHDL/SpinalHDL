@@ -41,51 +41,40 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           ddrRdLat = 4,
           sdramtime = sdramtime
         )
-        val pl: PhyConfig = PhyConfig(
-          sdram = sdram,
-          phaseCount = 4,
-          dataRate = SdramGeneration.MYDDR.dataRate,
-          outputLatency = 0,
-          readDelay = 0,
-          writeDelay = 0,
-          cmdToDqDelayDelta = 0,
-          transferPerBurst = 8
-        )
         val timeConfig = DfiTimeConfig(
-          tPhyWrLat = pl.sdram.tPhyWrlat,
+          tPhyWrLat = sdram.tPhyWrlat,
           tPhyWrData = 0,
           tPhyWrCsGap = 3,
-          dramBurst = pl.transferPerBurst,
-          frequencyRatio = pl.phaseCount,
-          tRddataEn = pl.sdram.tRddataEn,
+          tRddataEn = sdram.tRddataEn,
           tPhyRdlat = 4,
           tPhyRdCsGap = 3,
           tPhyRdCslat = 0,
           tPhyWrCsLat = 0
         )
         val config: DfiConfig = DfiConfig(
-          frequencyRatio = pl.phaseCount,
-          dramAddrWidth = Math.max(pl.sdram.columnWidth, pl.sdram.rowWidth),
-          dramDataWidth = pl.phyIoWidth,
-          dramChipselectNumber = 2,
-          dramBankWidth = pl.sdram.bankWidth,
-          dramBgWidth = 0,
-          dramCidWidth = 0,
-          dramDataSlice = 1,
+          frequencyRatio = 4,
+          transferPerBurst = 8,
+          addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
+          chipSelectNumber = 2,
+          bankWidth = sdram.bankWidth,
+          bgWidth = 0,
+          cidWidth = 0,
+          dataSlice = 1,
           cmdPhase = 0,
-          ddr = new DDR(),
-          timeConfig = timeConfig
+          signalConfig = new DDRSignalConfig(),
+          timeConfig = timeConfig,
+          sdram = sdram
         )
         val bmbp: BmbParameter = BmbParameter(
-          addressWidth = pl.sdram.byteAddressWidth + log2Up(config.chipSelectNumber),
-          dataWidth = pl.beatWidth,
+          addressWidth = sdram.byteAddressWidth + log2Up(config.chipSelectNumber),
+          dataWidth = config.beatWidth,
           sourceWidth = 1,
           contextWidth = 2,
           lengthWidth = 6,
           alignment = BmbParameter.BurstAlignement.WORD
         )
         val ctp: CtrlParameter = CtrlParameter(task, bmbp)
-        val dut = DfiController(ctp, pl, config)
+        val dut = DfiController(ctp, config)
         dut.bmbBridge.bmbAdapter.io.output.rsp.payload.last.simPublic()
         dut
       }
@@ -103,7 +92,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
         ) = {
 
           io.bmb.cmd.address #= address
-          io.bmb.cmd.length #= array.length * dut.pl.bytePerBeat - 1
+          io.bmb.cmd.length #= array.length * dut.config.bytePerBeat - 1
           io.bmb.cmd.opcode #= 1
           io.bmb.cmd.valid #= true
 
@@ -132,7 +121,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             )
         ): Unit = {
           io.bmb.cmd.address #= address
-          io.bmb.cmd.length #= beatCount * dut.pl.bytePerBeat - 1
+          io.bmb.cmd.length #= beatCount * dut.config.bytePerBeat - 1
           io.bmb.cmd.opcode #= 0
           io.bmb.cmd.valid #= true
           io.bmb.cmd.last #= true
@@ -156,7 +145,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
                 .map(_.rddata.toBigInt)
                 .reverse
                 .zipWithIndex
-                .reduceLeft((a, b) => (a._1 + (b._1 << (b._2 * pl.phyIoWidth)), 0))
+                .reduceLeft((a, b) => (a._1 + (b._1 << (b._2 * config.phyIoWidth)), 0))
                 ._1
             )
           }
@@ -166,7 +155,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           io.bmb.rsp.ready #= false
         }
 
-        val bmbDatas = new Array[Int]((1 << dut.ctp.bmbp.access.lengthWidth) / dut.pl.bytePerBeat)
+        val bmbDatas = new Array[Int]((1 << dut.ctp.bmbp.access.lengthWidth) / dut.config.bytePerBeat)
         for (i <- 0 until (bmbDatas.length)) {
           bmbDatas(i) = i
         }
@@ -189,7 +178,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             clockDomain.waitSampling()
             for (wr <- io.dfi.write.wr) {
               if (wr.wrdataEn.toBoolean) {
-                writeDataBigInt += wr.wrdata.toBigInt << (config.frequencyRatio - writeSlicesCount - 1) * pl.phyIoWidth
+                writeDataBigInt += wr.wrdata.toBigInt << (config.frequencyRatio - writeSlicesCount - 1) * config.phyIoWidth
                 writeSlicesCount += 1
                 if (writeSlicesCount == config.frequencyRatio) {
                   writeSlicesCount = 0
@@ -241,7 +230,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           read(beatCount = bmbDatas.size)
           clockDomain.waitSampling(
             2
-          ) // The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + pl.beatCount-1)/pl.beatCount + 1)
+          ) // The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + config.beatCount-1)/config.beatCount + 1)
           readdata(bmbDatas.size)
           clockDomain.waitSampling(5)
           read(beatCount = bmbDatas.size)

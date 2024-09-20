@@ -13,25 +13,29 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
     val writeDataToken = slave(Stream(Event))
     val output = master(OpTasks(tpa))
   }
-  val config = TaskTimingConfig(tpa)
+  val timeConfig = TaskTimingConfig(tpa)
   val readyForRefresh = True
 
-  val banksRow = Mem(UInt(pl.sdram.rowWidth bits), pl.sdram.bankCount)
+  val banksRow = Mem(UInt(config.sdram.rowWidth bits), config.sdram.bankCount)
   val CCD =
-    (pl.beatCount > 1) generate Timing(io.output.read || io.output.write, pl.beatCount - 2, log2Up(pl.beatCount))
-  val RFC = Timing(io.output.refresh, config.RFC, tp.timingWidth + 3)
-  val RRD = Timing(io.output.active, config.RRD)
-  val WTR = Timing(io.output.write, config.WTR)
-  val RTW = Timing(io.output.read, config.RTW)
-  val RP = Timing(io.output.prechargeAll, config.RP + 1)
+    (config.beatCount > 1) generate Timing(
+      io.output.read || io.output.write,
+      config.beatCount - 2,
+      log2Up(config.beatCount)
+    )
+  val RFC = Timing(io.output.refresh, timeConfig.RFC, tp.timingWidth + 3)
+  val RRD = Timing(io.output.active, timeConfig.RRD)
+  val WTR = Timing(io.output.write, timeConfig.WTR)
+  val RTW = Timing(io.output.read, timeConfig.RTW)
+  val RP = Timing(io.output.prechargeAll, timeConfig.RP + 1)
   val FAW = generation.FAW generate new Area { // Can be optimized
     val trigger = io.output.active
     val ptr = RegInit(U"00")
-    val slots = (0 to 3).map(i => Timing(ptr === i && trigger, config.FAW))
+    val slots = (0 to 3).map(i => Timing(ptr === i && trigger, timeConfig.FAW))
     val busyNext = Vec(slots.map(_.busy)).read(ptr + 1)
     ptr := ptr + U(trigger)
   }
-  val banks = for (bankId <- 0 until pl.sdram.bankCount) yield new Area {
+  val banks = for (bankId <- 0 until config.sdram.bankCount) yield new Area {
     val hits = io.output.address.bank === bankId
     def gate(task: Bool) = hits & task
 
@@ -46,11 +50,11 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
       }
     }
 
-    val WR = Timing(gate(io.output.write), config.WR)
-    val RAS = Timing(gate(io.output.active), config.RAS)
-    val RP = Timing(gate(io.output.precharge), config.RP)
-    val RCD = Timing(gate(io.output.active), config.RCD)
-    val RTP = Timing(gate(io.output.read), config.RTP)
+    val WR = Timing(gate(io.output.write), timeConfig.WR)
+    val RAS = Timing(gate(io.output.active), timeConfig.RAS)
+    val RP = Timing(gate(io.output.precharge), timeConfig.RP)
+    val RCD = Timing(gate(io.output.active), timeConfig.RCD)
+    val RTP = Timing(gate(io.output.read), timeConfig.RTP)
 
     val allowPrecharge = !WR.busy && !RAS.busy && !RTP.busy
     val allowActive = !RP.busy
@@ -60,7 +64,7 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
   val allowPrechargeAll = banks.map(_.allowPrecharge).andR
   val taskConstructor = new Area {
     val input = io.cmd.stage()
-    val address = input.address.as(BusAddress(pl.sdram, tpa.config))
+    val address = input.address.as(BusAddress(config.sdram, tpa.config))
     val status = Status()
     status.allowPrecharge := True
     status.allowActive := !RRD.busy && (if (generation.FAW) !FAW.busyNext else True)
@@ -71,14 +75,14 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
     status.employ(address)
     readyForRefresh clearWhen (input.valid)
   }
-  val columnBurstShift = log2Up(pl.transferPerBurst)
+  val columnBurstShift = log2Up(config.transferPerBurst)
 
   readyForRefresh clearWhen (io.cmd.valid)
-  val columnBurstMask = (pl.sdram.columnSize - 1) - (tpa.stationLengthMax - 1 << columnBurstShift)
+  val columnBurstMask = (config.sdram.columnSize - 1) - (tpa.stationLengthMax - 1 << columnBurstShift)
   val stations = new Area {
     val valid = RegInit(False)
     val status = Reg(Status())
-    val address = Reg(BusAddress(tpa.pl.sdram, tpa.config))
+    val address = Reg(BusAddress(tpa.config.sdram, tpa.config))
     val write = Reg(Bool())
     val context = Reg(Bits(contextWidth bits))
     val offset, offsetLast = Reg(UInt(tpa.stationLengthWidth bits))

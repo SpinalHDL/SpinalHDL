@@ -80,7 +80,8 @@ case class RdAlignment(config: DfiConfig) extends Component {
 
   for (i <- 0 until (frequencyRatio)) {
     when(rdDataTemp(i).fire) {
-      rdDataTemp(i).rdData := (i + curPhase + frequencyRatio - rdDataPhase).resize(log2Up(frequencyRatio))
+      rdDataTemp(i).rdData := (i + curPhase + frequencyRatio - rdDataPhase)
+        .resize(log2Up(frequencyRatio))
         .muxListDc(io.dfiRd.zipWithIndex.map(t => (t._2, t._1)))
         .rddata
       curPhase := (i + 1) % frequencyRatio
@@ -88,7 +89,7 @@ case class RdAlignment(config: DfiConfig) extends Component {
     }
   }
   val rdDataFifos = for (i <- 0 until (frequencyRatio)) yield new Area {
-    val rdDataFifo = new StreamFifo(Fragment(DfiRdData(config)), timeConfig.dfiRWLength + 2)
+    val rdDataFifo = new StreamFifo(Fragment(DfiRdData(config)), config.beatCount + 2)
     rdDataFifo.io.flush.clear()
     rdDataFifo.io.flush.setWhen(io.phaseClear)
   }

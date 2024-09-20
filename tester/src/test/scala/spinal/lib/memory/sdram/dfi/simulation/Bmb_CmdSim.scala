@@ -32,44 +32,33 @@ object Bmb_CmdSim {
       ddrRdLat = 4,
       sdramtime = sdramtime
     )
-    val pl: PhyConfig = PhyConfig(
-      sdram = sdram,
-      phaseCount = 1,
-      dataRate = SdramGeneration.MYDDR.dataRate,
-      outputLatency = 0,
-      readDelay = 0,
-      writeDelay = 0,
-      cmdToDqDelayDelta = 0,
-      transferPerBurst = 8
-    )
     val timeConfig = DfiTimeConfig(
-      tPhyWrLat = pl.sdram.tPhyWrlat,
+      tPhyWrLat = sdram.tPhyWrlat,
       tPhyWrData = 0,
       tPhyWrCsGap = 3,
-      dramBurst = pl.transferPerBurst,
-      frequencyRatio = pl.phaseCount,
-      tRddataEn = pl.sdram.tRddataEn,
+      tRddataEn = sdram.tRddataEn,
       tPhyRdlat = 4,
       tPhyRdCsGap = 3,
       tPhyRdCslat = 0,
       tPhyWrCsLat = 0
     )
     val config: DfiConfig = DfiConfig(
-      frequencyRatio = pl.phaseCount,
-      dramAddrWidth = Math.max(pl.sdram.columnWidth, pl.sdram.rowWidth),
-      dramDataWidth = pl.phyIoWidth,
-      dramChipselectNumber = 1,
-      dramBankWidth = pl.sdram.bankWidth,
-      dramBgWidth = 0,
-      dramCidWidth = 0,
-      dramDataSlice = 1,
+      frequencyRatio = 2,
+      transferPerBurst = 8,
+      addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
+      chipSelectNumber = 2,
+      bankWidth = sdram.bankWidth,
+      bgWidth = 0,
+      cidWidth = 0,
+      dataSlice = 1,
       cmdPhase = 0,
-      ddr = new DDR(),
-      timeConfig = timeConfig
+      signalConfig = new DDRSignalConfig(),
+      timeConfig = timeConfig,
+      sdram = sdram
     )
     val bmbp: BmbParameter = BmbParameter(
-      addressWidth = pl.sdram.byteAddressWidth + log2Up(config.chipSelectNumber),
-      dataWidth = pl.beatWidth,
+      addressWidth = sdram.byteAddressWidth + log2Up(config.chipSelectNumber),
+      dataWidth = config.beatWidth,
       sourceWidth = 1,
       contextWidth = 2,
       lengthWidth = 6,
@@ -77,7 +66,7 @@ object Bmb_CmdSim {
     )
     SimConfig.withWave
       .compile {
-        val dut = Bmb_Cmd(bmbp, pl)
+        val dut = Bmb_Cmd(bmbp, config)
         dut
       }
       .doSimUntilVoid { dut =>

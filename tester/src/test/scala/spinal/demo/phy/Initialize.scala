@@ -5,7 +5,7 @@ import spinal.lib._
 import spinal.lib.memory.sdram.dfi.interface.TaskParameterAggregate
 case class Initialize(tpa: TaskParameterAggregate) extends Component {
   import tpa._
-  import tpa.pl._
+  import tpa.config._
   val io = new Bundle {
     val cmd = master(Flow {
       new Bundle {

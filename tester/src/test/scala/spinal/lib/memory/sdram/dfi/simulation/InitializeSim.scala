@@ -35,22 +35,10 @@ case class InitializeSim() extends Component {
     ddrRdLat = 4,
     sdramtime = sdramtime
   )
-  val pl: PhyConfig = PhyConfig(
-    sdram = sdram,
-    phaseCount = 1,
-    dataRate = SdramGeneration.MYDDR.dataRate,
-    outputLatency = 0,
-    readDelay = 0,
-    writeDelay = 0,
-    cmdToDqDelayDelta = 0,
-    transferPerBurst = 8
-  )
   val timeConfig = DfiTimeConfig(
     tPhyWrLat = 1,
     tPhyWrData = 2,
     tPhyWrCsGap = 3,
-    dramBurst = pl.transferPerBurst,
-    frequencyRatio = pl.phaseCount,
     tRddataEn = 1,
     tPhyRdlat = 4,
     tPhyRdCsGap = 3,
@@ -58,28 +46,29 @@ case class InitializeSim() extends Component {
     tPhyWrCsLat = 0
   )
   val config: DfiConfig = DfiConfig(
-    frequencyRatio = pl.phaseCount,
-    dramAddrWidth = Math.max(pl.sdram.columnWidth, pl.sdram.rowWidth),
-    dramDataWidth = pl.phyIoWidth,
-    dramChipselectNumber = 2,
-    dramBankWidth = pl.sdram.bankWidth,
-    dramBgWidth = 0,
-    dramCidWidth = 0,
-    dramDataSlice = 1,
+    frequencyRatio = 1,
+    transferPerBurst = 8,
+    addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
+    chipSelectNumber = 2,
+    bankWidth = sdram.bankWidth,
+    bgWidth = 0,
+    cidWidth = 0,
+    dataSlice = 1,
     cmdPhase = 0,
-    ddr = new DDR(),
-    timeConfig = timeConfig
+    signalConfig = new DDRSignalConfig(),
+    timeConfig = timeConfig,
+    sdram = sdram
   )
   val bmbp: BmbParameter = BmbParameter(
-    addressWidth = pl.sdram.byteAddressWidth + log2Up(config.chipSelectNumber),
-    dataWidth = pl.beatWidth,
+    addressWidth = sdram.byteAddressWidth + log2Up(config.chipSelectNumber),
+    dataWidth = config.beatWidth,
     sourceWidth = 1,
     contextWidth = 2,
     lengthWidth = 6,
     alignment = BmbParameter.BurstAlignement.WORD
   )
   val ctp: CtrlParameter = CtrlParameter(task, bmbp)
-  val tpa = TaskParameterAggregate(task, pl, BmbAdapter.taskPortParameter(ctp.bmbp, pl, task), config)
+  val tpa = TaskParameterAggregate(task, BmbAdapter.taskPortParameter(ctp.bmbp, config, task), config)
   val io = new Bundle {
     val cmd = master(Flow {
       new Bundle {
