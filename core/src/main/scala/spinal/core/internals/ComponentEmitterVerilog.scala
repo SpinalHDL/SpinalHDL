@@ -1116,6 +1116,7 @@ class ComponentEmitterVerilog(
                   SpinalError(s"Can't resolve the literal value of $that")
                 }
               }
+              case that => SpinalError(s"Can't resolve the literal value of $signal init")
             }
 
             initExpression = s match {
