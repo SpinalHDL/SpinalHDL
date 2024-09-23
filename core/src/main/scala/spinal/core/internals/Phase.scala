@@ -259,8 +259,27 @@ class PhaseDeviceSpecifics(pc : PhaseContext) extends PhaseNetlist{
 //        if(hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid ganbling workaround Synth 8-6430
 //      case _ =>
 //    }
+    def seekRegDriver(that : BaseType): Iterable[BaseType] ={
+      var buffer = ArrayBuffer[BaseType]()
+        that.foreachStatements{ s =>
+          def forExp(e : Expression) : Unit = e match {
+            case s : Statement => s match {
+              case s : BaseType if !s.isReg => {buffer ++= seekRegDriver(s) }
+              case s : BaseType if s.isReg => buffer += s
+              case s =>
+            }
+            case e: MemReadSync =>
+            case e: MemReadWrite =>
+            case e : Expression => e.foreachDrivingExpression(forExp)
+          }
+          s.walkParentTreeStatementsUntilRootScope{sParent =>
+            sParent.foreachDrivingExpression(forExp)
+          }
+          s.foreachDrivingExpression(forExp)
+        }
+        buffer
+      }
     walkComponentsExceptBlackbox{component =>
-      import spinal.lib.AnalysisUtils
       var statements = ArrayBuffer[DataAssignmentStatement]()
       component.dslBody.walkStatements {
         case da: DataAssignmentStatement if da.target.isInstanceOf[SpinalTagReady] && da.target
@@ -270,14 +289,12 @@ class PhaseDeviceSpecifics(pc : PhaseContext) extends PhaseNetlist{
         case _ =>
       }
       for (statement <- statements) {
-        var source = statement.source.asInstanceOf[BaseType]
-        AnalysisUtils.seekNonCombDrivers(source) { case b: BaseType =>
-          source = b
-        }
+        val sources = seekRegDriver(statement.source.asInstanceOf[BaseType])
+          
         val target = statement.target.asInstanceOf[BaseType]
         val regAttribute = new AttributeString("altera_attribute", "-name ADV_NETLIST_OPT_ALLOWED NEVER_ALLOW")
 
-        source.addAttribute(regAttribute)
+        sources.foreach(_.addAttribute(regAttribute))
         target.addAttribute(regAttribute)
       }
     }
