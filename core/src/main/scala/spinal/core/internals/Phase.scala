@@ -259,6 +259,28 @@ class PhaseDeviceSpecifics(pc : PhaseContext) extends PhaseNetlist{
 //        if(hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid ganbling workaround Synth 8-6430
 //      case _ =>
 //    }
+    walkComponentsExceptBlackbox{component =>
+      import spinal.lib.AnalysisUtils
+      var statements = ArrayBuffer[DataAssignmentStatement]()
+      component.dslBody.walkStatements {
+        case da: DataAssignmentStatement if da.target.isInstanceOf[SpinalTagReady] && da.target
+          .asInstanceOf[SpinalTagReady]
+          .hasTag(classOf[crossClockMaxDelay]) =>
+          statements += da
+        case _ =>
+      }
+      for (statement <- statements) {
+        var source = statement.source.asInstanceOf[BaseType]
+        AnalysisUtils.seekNonCombDrivers(source) { case b: BaseType =>
+          source = b
+        }
+        val target = statement.target.asInstanceOf[BaseType]
+        val regAttribute = new AttributeString("altera_attribute", "-name ADV_NETLIST_OPT_ALLOWED NEVER_ALLOW")
+
+        source.addAttribute(regAttribute)
+        target.addAttribute(regAttribute)
+      }
+    }
   }
 }
 
@@ -3057,4 +3079,3 @@ object SpinalVerilogBoot{
     report
   }
 }
-
