@@ -39,7 +39,6 @@ case class DfiWriteInterface(config: DfiConfig) extends Bundle with IMasterSlave
 }
 
 case class DfiRd(config: DfiConfig) extends Bundle {
-//  val rden = Bool()
   val rddataValid = Bool()
   val rddata = Bits(config.dataWidth bits)
   val rddataDbiN = config.useRddataDbiN generate Bits(config.dbiWidth bits)

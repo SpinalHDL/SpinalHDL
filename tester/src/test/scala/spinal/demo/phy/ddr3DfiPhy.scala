@@ -2,46 +2,7 @@ package spinal.demo.phy
 
 import spinal.core.{BlackBox, _}
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi.interface.TaskParameterAggregate
-
-class dfi_IO extends Bundle with IMasterSlave {
-  val address_i = Bits(15 bits)
-  val bank_i = Bits(3 bits)
-  val cas_n_i = Bool()
-  val cke_i = Bool()
-  val cs_n_i = Bool()
-  val odt_i = Bool()
-  val ras_n_i = Bool()
-  val reset_n_i = Bool()
-  val we_n_i = Bool()
-  val wrdata_i = Bits(32 bits)
-  val wrdata_en_i = Bool()
-  val wrdata_mask_i = Bits(4 bits)
-  val rddata_en_i = Bool()
-
-  val rddata_o = Bits(32 bits)
-  val rddata_valid_o = Bool()
-  val rddata_dnv_o = Bits(2 bits)
-
-  override def asMaster(): Unit = {
-    in(
-      address_i,
-      bank_i,
-      cas_n_i,
-      cke_i,
-      cs_n_i,
-      odt_i,
-      ras_n_i,
-      reset_n_i,
-      we_n_i,
-      wrdata_i,
-      wrdata_en_i,
-      wrdata_mask_i,
-      rddata_en_i
-    )
-    out(rddata_o, rddata_valid_o, rddata_dnv_o)
-  }
-}
+import spinal.lib.memory.sdram.dfi.interface.{Dfi, DfiConfig, TaskParameterAggregate}
 
 class ddr3_IO extends Bundle {
   val ck_p_o = out Bool ()
@@ -61,7 +22,7 @@ class ddr3_IO extends Bundle {
   val dq_io = inout(Analog(Bits(16 bits)))
 }
 
-case class ddr3_dfi_phy() extends BlackBox {
+case class ddr3_dfi_phy(config: DfiConfig) extends BlackBox {
   val io = new Bundle {
     val clk = new Bundle {
       val i = in Bool ()
@@ -74,7 +35,7 @@ case class ddr3_dfi_phy() extends BlackBox {
       val valid_i = in Bool ()
       val i = in Bits (32 bits)
     }
-    val dfi = master(new dfi_IO)
+    val dfi = slave(Dfi(config))
     val ddr3 = new ddr3_IO
   }
   addGeneric("REFCLK_FREQUENCY", 200)
@@ -84,11 +45,25 @@ case class ddr3_dfi_phy() extends BlackBox {
   addGeneric("TPHY_WRLAT", 3)
   addGeneric("TPHY_WRDATA", 0)
   noIoPrefix()
-
-  addRTLPath("tester/src/test/scala/spinal/lib/memory/sdram/Dfi/PHY/ddr3_dfi_phy.v")
+  private def renameIO(): Unit = {
+    io.flatten.foreach(bt => {
+      if (bt.getName().contains("dfi")) {
+        if (bt.getName().contains("control")) bt.setName(bt.getName().replace("control_", "").replace("N", "_n") + "_i")
+        if (bt.getName().contains("write"))
+          bt.setName(bt.getName().replace("write_wr_0_", "").replace("En", "_en").replace("Mask", "_mask") + "_i")
+        if (bt.getName().contains("rddata"))
+          bt.setName(bt.getName().replace("read_", "").replace("Valid", "_valid").replace("Dnv", "_dnv") + "_o")
+        if (bt.getName().contains("rden"))
+          bt.setName(bt.getName().replace("read_", "").replace("rden_", "rddata_en_").replace("_0", "") + "_i")
+      }
+    })
+  }
+  addPrePopTask(() => renameIO())
+  addRTLPath("tester/src/test/scala/spinal/demo/phy/ddr3_dfi_phy.v")
 }
 
 case class dfi_phy_ddr3(tpa: TaskParameterAggregate) extends Component {
+  import tpa._
   val io = new Bundle {
     val clk = new Bundle {
       val i = in Bool ()
@@ -98,35 +73,24 @@ case class dfi_phy_ddr3(tpa: TaskParameterAggregate) extends Component {
     }
     val rst_i = in Bool ()
     val initDone = out Bool ()
-    val dfi = master(new dfi_IO)
+    val dfi = slave(Dfi(config))
     val ddr3 = new ddr3_IO
   }
   val init = Initialize(tpa)
   init.io.initDone <> io.initDone
 
-  val initDfi = slave(new dfi_IO)
-  initDfi.address_i <> init.io.address.address
-  initDfi.bank_i <> init.io.address.bank
-  initDfi.cas_n_i <> init.io.cmd.casN
-  initDfi.cke_i <> init.io.cke
-  initDfi.cs_n_i <> init.io.cmd.csN
-  initDfi.odt_i <> False
-  initDfi.ras_n_i <> init.io.cmd.rasN
-  initDfi.reset_n_i <> True
-  initDfi.we_n_i <> init.io.cmd.weN
-  initDfi.wrdata_i <> B(0, 32 bits)
-  initDfi.wrdata_en_i <> False
-  initDfi.wrdata_mask_i <> B(0, 4 bits)
-  initDfi.rddata_en_i <> False
+  val initDfi = cloneOf(io.dfi)
+  initDfi.control <> init.io.control
+  initDfi.write.wr.clearAll()
+  initDfi.read.rden.clearAll()
 
-  val ddr3Phy = ddr3_dfi_phy()
+  val ddr3Phy = ddr3_dfi_phy(tpa.config)
   ddr3Phy.io.clk <> io.clk
   ddr3Phy.io.rst_i <> io.rst_i
   ddr3Phy.io.ddr3 <> io.ddr3
   ddr3Phy.io.cfg.valid_i.clear()
   ddr3Phy.io.cfg.i.clearAll()
   ddr3Phy.io.dfi <> Mux(init.io.initDone, io.dfi, initDfi)
-  io.dfi.rddata_valid_o <> ddr3Phy.io.dfi.rddata_valid_o
-  io.dfi.rddata_o <> ddr3Phy.io.dfi.rddata_o
+  io.dfi.read.rd <> ddr3Phy.io.dfi.read.rd
 
 }

@@ -49,13 +49,20 @@ case class InitializeSim() extends Component {
     frequencyRatio = 1,
     transferPerBurst = 8,
     addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
-    chipSelectNumber = 2,
+    chipSelectNumber = 1,
     bankWidth = sdram.bankWidth,
     bgWidth = 0,
     cidWidth = 0,
     dataSlice = 1,
     cmdPhase = 0,
-    signalConfig = new DDRSignalConfig(),
+    signalConfig = {
+      val signalConfig = new DDRSignalConfig() {
+        override def useOdt: Boolean = true
+        override def useResetN: Boolean = true
+        override def useRddataDnv = true
+      }
+      signalConfig
+    },
     timeConfig = timeConfig,
     sdram = sdram
   )
@@ -69,26 +76,11 @@ case class InitializeSim() extends Component {
   )
   val tpa = TaskParameterAggregate(task, BmbAdapter.taskPortParameter(bmbp, config, task), config)
   val io = new Bundle {
-    val cmd = master(Flow {
-      new Bundle {
-        val weN = out Bool ()
-        val casN = out Bool ()
-        val rasN = out Bool ()
-        val csN = out Bool ()
-      }
-    })
-    val address = master(Flow(new Bundle {
-      val address = Bits(sdram.rowWidth bits)
-      val bank = Bits(sdram.bankWidth bits)
-    }))
-    val cke = out Bool ()
+    val control = master(DfiControlInterface(config))
     val initDone = out Bool ()
   }
   val init = Initialize(tpa)
-  io.cmd := init.io.cmd
-  io.address := init.io.address
-  io.cke := init.io.cke
-  io.initDone := init.io.initDone
+  io.assignUnassignedByName(init.io)
 }
 
 object InitializeSim {

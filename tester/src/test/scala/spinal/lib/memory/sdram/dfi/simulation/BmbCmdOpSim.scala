@@ -2,11 +2,11 @@ package spinal.lib.memory.sdram.dfi.simulation
 
 import spinal.core._
 import spinal.core.sim._
-import spinal.demo.phy.Bmb_Cmd
+import spinal.demo.phy.BmbCmdOp
 import spinal.lib.bus.bmb.BmbParameter
 import spinal.lib.memory.sdram.dfi.interface._
 
-object Bmb_CmdSim {
+object BmbCmdOpSim {
   def main(args: Array[String]): Unit = {
     val sdramtime = SdramTiming(
       generation = 3,
@@ -66,7 +66,7 @@ object Bmb_CmdSim {
     )
     SimConfig.withWave
       .compile {
-        val dut = Bmb_Cmd(bmbp, config)
+        val dut = BmbCmdOp(bmbp, config)
         dut
       }
       .doSimUntilVoid { dut =>
