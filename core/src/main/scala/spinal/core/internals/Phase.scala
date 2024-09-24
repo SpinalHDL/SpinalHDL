@@ -1226,6 +1226,39 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     walkComponents(c => PhasePullClockDomains.single(c))
+    if(pc.config.normalizeComponentClockDomainName) walkComponents{c =>
+      val cd = c.clockDomain.get
+      if(cd != null){
+        if(cd.clock.component != c){
+          c.pulledDataCache.get(cd.clock).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("clk")
+            }
+          }
+        }
+        if(cd.reset != null && cd.reset.component != c){
+          c.pulledDataCache.get(cd.reset).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("reset" + (cd.config.resetActiveLevel == HIGH).mux("","n"))
+            }
+          }
+        }
+        if(cd.softReset != null && cd.softReset.component != c){
+          c.pulledDataCache.get(cd.softReset).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("soft_reset" + (cd.config.softResetActiveLevel == HIGH).mux("","n"))
+            }
+          }
+        }
+        if(cd.clockEnable != null && cd.clockEnable.component != c){
+          c.pulledDataCache.get(cd.clockEnable).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("clkEn" + (cd.config.softResetActiveLevel == HIGH).mux("","n"))
+            }
+          }
+        }
+      }
+    }
   }
 }
 
