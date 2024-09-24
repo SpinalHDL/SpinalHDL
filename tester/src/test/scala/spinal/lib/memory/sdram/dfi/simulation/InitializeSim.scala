@@ -67,8 +67,7 @@ case class InitializeSim() extends Component {
     lengthWidth = 6,
     alignment = BmbParameter.BurstAlignement.WORD
   )
-  val ctp: CtrlParameter = CtrlParameter(task, bmbp)
-  val tpa = TaskParameterAggregate(task, BmbAdapter.taskPortParameter(ctp.bmbp, config, task), config)
+  val tpa = TaskParameterAggregate(task, BmbAdapter.taskPortParameter(bmbp, config, task), config)
   val io = new Bundle {
     val cmd = master(Flow {
       new Bundle {

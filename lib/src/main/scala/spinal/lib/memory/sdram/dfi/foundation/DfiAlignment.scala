@@ -136,42 +136,23 @@ case class WrAlignment(config: DfiConfig) extends Component {
     io.dfiWr.wr(i).wrdataMask.assignDontCare()
   }
 
-  for (k <- 0 until (frequencyRatio)) {
-    if (k < timeConfig.tPhyWrData % frequencyRatio) {
-      io.dfiWr.wr(k).wrdata := (delay + 1)
-        .muxListDc(
-          wrdatahistary
-            .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(k)
-            .zipWithIndex
-            .map(t => (t._2, t._1))
-        )
-        .wrData
-      io.dfiWr.wr(k).wrdataMask := (delay + 1)
-        .muxListDc(
-          wrdatahistary
-            .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(k)
-            .zipWithIndex
-            .map(t => (t._2, t._1))
-        )
-        .wrDataMask
-    } else {
-      io.dfiWr.wr(k).wrdata := (delay)
-        .muxListDc(
-          wrdatahistary
-            .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(k)
-            .zipWithIndex
-            .map(t => (t._2, t._1))
-        )
-        .wrData
-      io.dfiWr.wr(k).wrdataMask := (delay)
-        .muxListDc(
-          wrdatahistary
-            .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(k)
-            .zipWithIndex
-            .map(t => (t._2, t._1))
-        )
-        .wrDataMask
-    }
+  for (phase <- 0 until (frequencyRatio)) {
+    io.dfiWr.wr(phase).wrdata := (if (phase < timeConfig.tPhyWrData % frequencyRatio) delay + 1 else delay)
+      .muxListDc(
+        wrdatahistary
+          .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(phase)
+          .zipWithIndex
+          .map(t => (t._2, t._1))
+      )
+      .wrData
+    io.dfiWr.wr(phase).wrdataMask := (if (phase < timeConfig.tPhyWrData % frequencyRatio) delay + 1 else delay)
+      .muxListDc(
+        wrdatahistary
+          .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(phase)
+          .zipWithIndex
+          .map(t => (t._2, t._1))
+      )
+      .wrDataMask
   }
 
   if (useWrdataCsN) {

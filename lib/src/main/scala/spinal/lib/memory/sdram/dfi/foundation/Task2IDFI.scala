@@ -107,9 +107,8 @@ case class RdDataRxd(tpa: TaskParameterAggregate) extends Component {
 
     val beatCounter = Counter(config.beatCount, io.idfiRdData.map(_.valid).orR)
 
-    val delay = DelayCyc(config, timeConfig)
-    val delayCyc = delay.mcdelaycyc(cmdPhase, timeConfig.tRddataEn)
-    val nextPhase = delay.sp2np(cmdPhase, timeConfig.tRddataEn)
+    val delayCyc = timeConfig.tRddataEn / config.frequencyRatio
+    val nextPhase = (cmdPhase + timeConfig.tRddataEn) % config.frequencyRatio
 
     for (i <- 0 until (frequencyRatio)) {
       if (i >= nextPhase) {
@@ -168,9 +167,8 @@ case class WrDataTxd(tpa: TaskParameterAggregate) extends Component {
     val taskWrData = slave(Stream(TaskWriteData(tpp, tpa)))
     val idfiWrData = Vec(master(Flow(DfiWrData(config))), config.frequencyRatio)
   }
-  val delay = DelayCyc(config, timeConfig)
-  val delayCyc = delay.mcdelaycyc(cmdPhase, timeConfig.tPhyWrLat)
-  val nextPhase = delay.sp2np(cmdPhase, timeConfig.tPhyWrLat)
+  val delayCyc = timeConfig.tPhyWrLat / config.frequencyRatio
+  val nextPhase = (cmdPhase + timeConfig.tPhyWrLat) % config.frequencyRatio
   val writeHistory = History(io.write, 0 until config.beatCount)
   val write = writeHistory.orR
   val wrens = Vec(Bool(), frequencyRatio)

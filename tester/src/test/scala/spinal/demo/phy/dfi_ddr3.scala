@@ -51,11 +51,10 @@ case class bmb_dfi_ddr3(config: DfiConfig) extends Component {
     val ddr3 = new DDR3IO(config)
     val initDone = out Bool ()
   }
-  val ctp = CtrlParameter(tp, bmbp)
   val tpa = TaskParameterAggregate(tp, BmbAdapter.taskPortParameter(bmbp, config, tp), config)
 
   val clockArea = new ClockingArea(ClockDomain.current) {
-    val bmb2dfi = DfiController(ctp, config)
+    val bmb2dfi = DfiController(tp, bmbp, config)
     bmb2dfi.io.bmb <> io.bmb
   }
 

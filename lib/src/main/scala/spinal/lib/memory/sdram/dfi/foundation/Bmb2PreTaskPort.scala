@@ -74,7 +74,7 @@ case class BmbAdapter(bmbp: BmbParameter, tpa: TaskParameterAggregate) extends C
   assert(config.beatCount <= tp.dataBufferSize, s"SDRAM dataBufferSize should be at least ${config.beatCount}")
 
   val io = new Bundle {
-    val refresh = in Bool ()
+    val bmbHalt = in Bool ()
     val input = slave(Bmb(bmbp))
     val output = master(PreTaskPort(tpp, tpa))
   }
@@ -120,6 +120,6 @@ case class BmbAdapter(bmbp: BmbParameter, tpa: TaskParameterAggregate) extends C
 
   io.output.cmd << cmdAddress
     .m2sPipe()
-    .haltWhen(RegNext(io.refresh)) // No pipelining after the halt please, else refresh incoherency
+    .haltWhen(RegNext(io.bmbHalt)) // No pipelining after the halt please, else refresh incoherency
   assert(!io.output.rsp.isStall, "SDRAM rsp buffer stalled !")
 }

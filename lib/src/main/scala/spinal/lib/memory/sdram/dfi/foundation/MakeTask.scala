@@ -9,7 +9,7 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
   import tpa._
   val io = new Bundle {
     val cmd = slave(Stream(TaskWrRdCmd(tpp, tpa)))
-    val refresh = slave(Event)
+    val bmbHalt = out Bool ()
     val writeDataToken = slave(Stream(Event))
     val output = master(OpTasks(tpa))
   }
@@ -149,6 +149,12 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
     }
     readyForRefresh clearWhen (valid)
   }
+
+  val refreshStream = Event
+  val refresher = Refresher(tpa)
+  refresher.io.refresh.valid <> io.bmbHalt
+  refresher.io.refresh <> refreshStream
+
   val selectedAddress = io.output.address
   val loader = new Area {
     taskConstructor.input.ready := !stations.valid
@@ -167,7 +173,7 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
       stations.offsetLast := offsetLast
     }
   }
-  val askRefresh = io.refresh.valid && readyForRefresh
+  val askRefresh = refreshStream.valid && readyForRefresh
   when(stations.doSomething) {
     banksRow.write(selectedAddress.bank, selectedAddress.row)
   }
@@ -183,7 +189,7 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
 
     prechargeAllCmd.onExit(io.output.prechargeAll := True)
     refreshCmd.onExit(io.output.refresh := True)
-    refreshReady.onExit(io.refresh.ready := True)
+    refreshReady.onExit(refreshStream.ready := True)
   }
 
   def Timing(loadValid: Bool, loadValue: UInt, timingWidth: Int = tp.timingWidth) = new Area {
@@ -195,7 +201,7 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
       value := 0
     }
   }
-  io.refresh.ready := False
+  refreshStream.ready := False
   io.output.prechargeAll := False
   io.output.refresh := False
 

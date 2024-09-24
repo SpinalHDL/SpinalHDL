@@ -2,7 +2,6 @@ package spinal.lib.memory.sdram.dfi.interface
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.bmb.BmbParameter
 
 case class TaskTimingConfig(tpa: TaskParameterAggregate) extends Bundle {
 
@@ -11,18 +10,31 @@ case class TaskTimingConfig(tpa: TaskParameterAggregate) extends Bundle {
   val sdram = tpa.config.sdram
 
   def RAS = time(sdram.tRAS)
+
   def RP = time(sdram.tRP)
+
   def WR = time(sdram.tWR)
+
   def RCD = time(sdram.tRCD)
-  def time(tcyc: Int, phase: Int = config.frequencyRatio) = (tcyc + phase - 1) / phase
+
   def WTR = time(sdram.tWTR)
+
   def RTP = time(sdram.tRTP)
+
+  def time(tcyc: Int, phase: Int = config.frequencyRatio) = (tcyc + phase - 1) / phase
+
   def RRD = time(sdram.tRRD)
+
   def RTW = time(sdram.tRTW)
+
   def RFC = time(sdram.tRFC)
+
   def ODT = 0
+
   def FAW = time(sdram.tFAW)
+
   def REF = time(sdram.tREF)
+
   def autoRefresh = True
 }
 
@@ -51,8 +63,6 @@ case class TaskParameter(
 ) {
   assert(isPow2(bytePerTaskMax))
 }
-
-case class CtrlParameter(task: TaskParameter, bmbp: BmbParameter)
 
 case class TaskPortParameter(
     contextWidth: Int,
@@ -152,18 +162,11 @@ case class PhyConfig(
 ) { // How many transfer per burst
 
   def phyIoWidth = dataRate * sdram.dataWidth
-
   def beatCount = transferPerBurst / frequencyRatio / dataRate
-
   def dataRate = sdram.generation.dataRate
-
   def bytePerDq = sdram.dataWidth / 8
-
   def bytePerBurst = burstWidth / 8
-
   def burstWidth = sdram.dataWidth * transferPerBurst
-
   def bytePerBeat = beatWidth / 8
-
   def beatWidth = frequencyRatio * dataRate * sdram.dataWidth
 }

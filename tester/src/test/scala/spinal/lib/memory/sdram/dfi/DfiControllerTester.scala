@@ -15,7 +15,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   test("DfiControllerTester") {
     SimConfig
       .compile {
-        val task: TaskParameter =
+        val tp: TaskParameter =
           TaskParameter(timingWidth = 5, refWidth = 23, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
         val sdramtime = SdramTiming(
           generation = 3,
@@ -73,8 +73,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           lengthWidth = 6,
           alignment = BmbParameter.BurstAlignement.WORD
         )
-        val ctp: CtrlParameter = CtrlParameter(task, bmbp)
-        val dut = DfiController(ctp, config)
+        val dut = DfiController(tp, bmbp, config)
         dut.bmbBridge.bmbAdapter.io.output.rsp.payload.last.simPublic()
         dut
       }
@@ -86,7 +85,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
 
         def write(
             array: Array[Int],
-            address: BigInt = BigInt(ctp.bmbp.access.addressWidth - log2Up(tpa.tp.bytePerTaskMax), simRandom) << log2Up(
+            address: BigInt = BigInt(bmbp.access.addressWidth - log2Up(tpa.tp.bytePerTaskMax), simRandom) << log2Up(
               tpa.tp.bytePerTaskMax
             )
         ) = {
@@ -116,7 +115,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
 
         def read(
             beatCount: Int,
-            address: BigInt = BigInt(ctp.bmbp.access.addressWidth - log2Up(tpa.tp.bytePerTaskMax), simRandom) << log2Up(
+            address: BigInt = BigInt(bmbp.access.addressWidth - log2Up(tpa.tp.bytePerTaskMax), simRandom) << log2Up(
               tpa.tp.bytePerTaskMax
             )
         ): Unit = {
@@ -155,7 +154,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           io.bmb.rsp.ready #= false
         }
 
-        val bmbDatas = new Array[Int]((1 << dut.ctp.bmbp.access.lengthWidth) / dut.config.bytePerBeat)
+        val bmbDatas = new Array[Int]((1 << bmbp.access.lengthWidth) / dut.config.bytePerBeat)
         for (i <- 0 until (bmbDatas.length)) {
           bmbDatas(i) = i
         }

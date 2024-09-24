@@ -12,7 +12,7 @@ import scala.collection.mutable
 
 case class Bmb2DfiSim(x: Int) extends Component {
 
-  val task: TaskParameter =
+  val tp: TaskParameter =
     TaskParameter(timingWidth = 5, refWidth = 23, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
   val sdramtime = SdramTiming(
     generation = 3,
@@ -70,13 +70,12 @@ case class Bmb2DfiSim(x: Int) extends Component {
     lengthWidth = 6,
     alignment = BmbParameter.BurstAlignement.WORD
   )
-  val ctp: CtrlParameter = CtrlParameter(task, bmbp)
-  val tpa = TaskParameterAggregate(ctp.task, BmbAdapter.taskPortParameter(ctp.bmbp, config, task), config)
+  val tpa = TaskParameterAggregate(tp, BmbAdapter.taskPortParameter(bmbp, config, tp), config)
   val io = new Bundle {
-    val bmb = slave(Bmb(ctp.bmbp))
+    val bmb = slave(Bmb(bmbp))
     val dfi = master(Dfi(config))
   }
-  val bmb2dfi = DfiController(ctp, config)
+  val bmb2dfi = DfiController(tp, bmbp, config)
   bmb2dfi.io.bmb <> io.bmb
   bmb2dfi.io.dfi <> io.dfi
 }
@@ -109,7 +108,7 @@ object Bmb2DfiSim {
 
         val writeQueue = mutable.Queue[BigInt]()
         val readQueue = mutable.Queue[BigInt]()
-        val bmbDatas = new Array[Int]((1 << dut.ctp.bmbp.access.lengthWidth) / dut.config.bytePerBeat)
+        val bmbDatas = new Array[Int]((1 << dut.bmbp.access.lengthWidth) / dut.config.bytePerBeat)
         for (i <- 0 until (bmbDatas.length)) {
           bmbDatas(i) = i
         }

@@ -22,8 +22,5 @@ case class BmbBridge(bmbp: BmbParameter, tpa: TaskParameterAggregate) extends Co
   maketask.io.cmd << bmbAdapter.io.output.cmd
   maketask.io.writeDataToken <> bmbAdapter.io.output.writeDataToken
   maketask.io.output <> io.taskPort.tasks
-
-  val refresher = Refresher(tpa)
-  refresher.io.refresh.valid <> bmbAdapter.io.refresh
-  refresher.io.refresh <> maketask.io.refresh
+  maketask.io.bmbHalt <> bmbAdapter.io.bmbHalt
 }
