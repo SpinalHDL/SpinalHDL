@@ -77,7 +77,7 @@ class WidthAdapter(ip : BusParameter,
           buffer.data(sel) := src.data
           buffer.mask(sel) := src.maskNull
         } else {
-          if(src.size.maxValue > log2Up(src.p.dataBytes)) {
+          if(src.p.sizeBytes > src.p.dataBytes) {
             val maskRange = log2Up(src.p.dataBytes)+1 to log2Up(dst.p.dataBytes).min(src.size.maxValue.toInt)
             val mask = maskRange.map(src.size >= _).asBits().asUInt
             for(i <- 0 until ratio){
