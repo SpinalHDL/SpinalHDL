@@ -11,24 +11,24 @@ class DDR3IO(config: DfiConfig) extends Bundle {
 
   import config._
 
-  val ck_p_o = out Bits (chipSelectNumber bits)
-  val ck_n_o = out Bits (chipSelectNumber bits)
-  val cke_o = out Bits (chipSelectNumber bits)
-  val reset_n_o = out Bits (chipSelectNumber bits)
-  val ras_n_o = out Bits (chipSelectNumber bits)
-  val cas_n_o = out Bits (chipSelectNumber bits)
-  val we_n_o = out Bits (chipSelectNumber bits)
-  val cs_n_o = out Bits (chipSelectNumber bits)
-  val ba_o = out Bits (bankWidth * chipSelectNumber bits)
-  val addr_o = out Bits (addressWidth * chipSelectNumber bits)
-  val odt_o = out Bits (chipSelectNumber bits)
-  val dm_o = out Bits (config.sdram.bytePerWord * chipSelectNumber bits)
-  val dqs_p_io = inout(Analog(Bits(2 * chipSelectNumber bits)))
-  val dqs_n_io = inout(Analog(Bits(2 * chipSelectNumber bits)))
-  val dq_io = inout(Analog(Bits(config.sdram.dataWidth * chipSelectNumber bits)))
+  val ckP = out Bits (chipSelectNumber bits)
+  val ckN = out Bits (chipSelectNumber bits)
+  val cke = out Bits (chipSelectNumber bits)
+  val resetN = out Bits (chipSelectNumber bits)
+  val rasN = out Bits (chipSelectNumber bits)
+  val casN = out Bits (chipSelectNumber bits)
+  val weN = out Bits (chipSelectNumber bits)
+  val csN = out Bits (chipSelectNumber bits)
+  val ba = out Bits (bankWidth * chipSelectNumber bits)
+  val addr = out Bits (addressWidth * chipSelectNumber bits)
+  val odt = out Bits (chipSelectNumber bits)
+  val dm = out Bits (config.sdram.bytePerWord * chipSelectNumber bits)
+  val dqsP = inout(Analog(Bits(2 * chipSelectNumber bits)))
+  val dqsN = inout(Analog(Bits(2 * chipSelectNumber bits)))
+  val dq = inout(Analog(Bits(config.sdram.dataWidth * chipSelectNumber bits)))
 }
 
-case class bmb_dfi_ddr3(config: DfiConfig, configDfi: DfiConfig) extends Component {
+case class BmbDfiDdr3(config: DfiConfig, dfiConfig: DfiConfig) extends Component {
   val tp: TaskParameter =
     TaskParameter(timingWidth = 5, refWidth = 23, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
   val bmbp: BmbParameter = BmbParameter(
@@ -53,14 +53,14 @@ case class bmb_dfi_ddr3(config: DfiConfig, configDfi: DfiConfig) extends Compone
   }
   val tpa = TaskParameterAggregate(tp, BmbAdapter.taskPortParameter(bmbp, config, tp), config)
   val clockArea = new ClockingArea(ClockDomain.current) {
-    val dfiController = DfiController(tp, bmbp, configDfi)
+    val dfiController = DfiController(tp, bmbp, dfiConfig)
     dfiController.io.bmb <> io.bmb
   }
 
   if (config.frequencyRatio == 1) {
     val ddr3Chips = for (i <- 0 until (chipSelectNumber)) yield new Area {
       val sel = i
-      val phy = dfi_phy_ddr3(tpa)
+      val phy = DfiPhyDdr3(tpa)
     }
 
     ddr3Chips.map(_.phy.io.dfi.read.rd(0).rddataValid).orR <> clockArea.dfiController.io.dfi.read.rd(0).rddataValid
@@ -70,11 +70,11 @@ case class bmb_dfi_ddr3(config: DfiConfig, configDfi: DfiConfig) extends Compone
 
     val rst = ~ClockDomain.readResetWire
     val adapter = for (ddr3Chip <- ddr3Chips) yield new Area {
-      ddr3Chip.phy.io.clk.i <> io.clk1
-      ddr3Chip.phy.io.clk.ddr_i <> io.clk2
-      ddr3Chip.phy.io.clk.ddr90_i <> io.clk3
-      ddr3Chip.phy.io.clk.ref_i <> io.clk4
-      ddr3Chip.phy.io.rst_i := rst
+      ddr3Chip.phy.io.clk.work <> io.clk1
+      ddr3Chip.phy.io.clk.ddr <> io.clk2
+      ddr3Chip.phy.io.clk.ddr90 <> io.clk3
+      ddr3Chip.phy.io.clk.ref <> io.clk4
+      ddr3Chip.phy.io.rst := rst
 
       ddr3Chip.phy.io.dfi.control.cke(0) <> clockArea.dfiController.io.dfi.control.cke(ddr3Chip.sel)
       ddr3Chip.phy.io.dfi.control.odt.clearAll()
@@ -86,21 +86,21 @@ case class bmb_dfi_ddr3(config: DfiConfig, configDfi: DfiConfig) extends Compone
 
       ddr3Chip.phy.io.dfi.read.rden <> clockArea.dfiController.io.dfi.read.rden
 
-      ddr3Chip.phy.io.ddr3.ck_p_o <> io.ddr3.ck_p_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.ck_n_o <> io.ddr3.ck_n_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.cke_o <> io.ddr3.cke_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.reset_n_o <> io.ddr3.reset_n_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.ras_n_o <> io.ddr3.ras_n_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.cas_n_o <> io.ddr3.cas_n_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.we_n_o <> io.ddr3.we_n_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.cs_n_o <> io.ddr3.cs_n_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.ba_o <> io.ddr3.ba_o(bankWidth * ddr3Chip.sel, bankWidth bits)
-      ddr3Chip.phy.io.ddr3.addr_o <> io.ddr3.addr_o(addressWidth * ddr3Chip.sel, addressWidth bits)
-      ddr3Chip.phy.io.ddr3.odt_o <> io.ddr3.odt_o(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.dm_o <> io.ddr3.dm_o(config.sdram.bytePerWord * ddr3Chip.sel, config.sdram.bytePerWord bits)
-      ddr3Chip.phy.io.ddr3.dqs_p_io <> io.ddr3.dqs_p_io(2 * ddr3Chip.sel, 2 bits)
-      ddr3Chip.phy.io.ddr3.dqs_n_io <> io.ddr3.dqs_n_io(2 * ddr3Chip.sel, 2 bits)
-      ddr3Chip.phy.io.ddr3.dq_io <> io.ddr3.dq_io(config.sdram.dataWidth * ddr3Chip.sel, config.sdram.dataWidth bits)
+      ddr3Chip.phy.io.ddr3.ckP.asBool <> io.ddr3.ckP(ddr3Chip.sel)
+      ddr3Chip.phy.io.ddr3.ckN.asBool <> io.ddr3.ckN(ddr3Chip.sel)
+      ddr3Chip.phy.io.ddr3.cke.asBool <> io.ddr3.cke(ddr3Chip.sel)
+      ddr3Chip.phy.io.ddr3.resetN.asBool <> io.ddr3.resetN(ddr3Chip.sel)
+      ddr3Chip.phy.io.ddr3.rasN.asBool <> io.ddr3.rasN(ddr3Chip.sel)
+      ddr3Chip.phy.io.ddr3.casN.asBool <> io.ddr3.casN(ddr3Chip.sel)
+      ddr3Chip.phy.io.ddr3.weN.asBool <> io.ddr3.weN(ddr3Chip.sel)
+      ddr3Chip.phy.io.ddr3.csN.asBool <> io.ddr3.csN(ddr3Chip.sel)
+      ddr3Chip.phy.io.ddr3.ba <> io.ddr3.ba(bankWidth * ddr3Chip.sel, bankWidth bits)
+      ddr3Chip.phy.io.ddr3.addr <> io.ddr3.addr(addressWidth * ddr3Chip.sel, addressWidth bits)
+      ddr3Chip.phy.io.ddr3.odt.asBool <> io.ddr3.odt(ddr3Chip.sel)
+      ddr3Chip.phy.io.ddr3.dm <> io.ddr3.dm(config.sdram.bytePerWord * ddr3Chip.sel, config.sdram.bytePerWord bits)
+      ddr3Chip.phy.io.ddr3.dqsP <> io.ddr3.dqsP(2 * ddr3Chip.sel, 2 bits)
+      ddr3Chip.phy.io.ddr3.dqsN <> io.ddr3.dqsN(2 * ddr3Chip.sel, 2 bits)
+      ddr3Chip.phy.io.ddr3.dq <> io.ddr3.dq(config.sdram.dataWidth * ddr3Chip.sel, config.sdram.dataWidth bits)
       ddr3Chip.phy.io.initDone <> io.initDone
     }
   }
@@ -183,7 +183,7 @@ case class BmbCmdOp(bmbp: BmbParameter, config: DfiConfig) extends Component {
 
 }
 
-case class dfi_ddr3() extends Component {
+case class DfiDdr3() extends Component {
   val sdramtime = SdramTiming(
     generation = 3,
     RFC = 260,
@@ -218,7 +218,7 @@ case class dfi_ddr3() extends Component {
     tPhyRdCslat = 0,
     tPhyWrCsLat = 0
   )
-  val configDfi: DfiConfig = DfiConfig(
+  val dfiConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
     transferPerBurst = 8,
     addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
@@ -232,7 +232,7 @@ case class dfi_ddr3() extends Component {
     timeConfig = timeConfig,
     sdram = sdram
   )
-  val config: DfiConfig = DfiConfig(
+  val phyConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
     transferPerBurst = 8,
     addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
@@ -254,45 +254,45 @@ case class dfi_ddr3() extends Component {
     sdram = sdram
   )
   val bmbp: BmbParameter = BmbParameter(
-    addressWidth = sdram.byteAddressWidth + log2Up(config.chipSelectNumber),
-    dataWidth = config.beatWidth,
+    addressWidth = sdram.byteAddressWidth + log2Up(phyConfig.chipSelectNumber),
+    dataWidth = phyConfig.beatWidth,
     sourceWidth = 1,
     contextWidth = 2,
     lengthWidth = 6,
     alignment = BmbParameter.BurstAlignement.WORD
-  )
+    )
 
   val io = new Bundle {
     val clk = in Bool ()
-    val rst_n = in Bool ()
-    val ddr3 = new DDR3IO(config)
+    val rstN = in Bool ()
+    val ddr3 = new DDR3IO(phyConfig)
   }
   noIoPrefix()
   val bmbClockDomainCfg = ClockDomainConfig(resetActiveLevel = LOW)
   val myClockDomain = ClockDomain.internal("work", bmbClockDomainCfg)
 
-  val pll = pllClk()
+  val pll = PllClk()
   pll.io.clk.in1 <> io.clk
-  pll.io.reset <> ~io.rst_n
-  val rst_n = io.rst_n & pll.io.locked
+  pll.io.reset <> ~io.rstN
+  val rstN = io.rstN & pll.io.locked
   myClockDomain.clock := pll.io.clk.out1
-  myClockDomain.reset := rst_n
+  myClockDomain.reset := rstN
 
   val topClockingArea = new ClockingArea(myClockDomain) {
-    val bmb_cmd = BmbCmdOp(bmbp, config)
+    val bmbCmdOp = BmbCmdOp(bmbp, phyConfig)
 
-    val bmbddr = bmb_dfi_ddr3(config, configDfi)
+    val bmbddr = BmbDfiDdr3(phyConfig, dfiConfig)
     bmbddr.io.clk1 <> pll.io.clk.out1
     bmbddr.io.clk2 <> pll.io.clk.out2
     bmbddr.io.clk3 <> pll.io.clk.out3
     bmbddr.io.clk4 <> pll.io.clk.out4
-    bmbddr.io.bmb <> bmb_cmd.io.bmb
+    bmbddr.io.bmb <> bmbCmdOp.io.bmb
     bmbddr.io.ddr3 <> io.ddr3
-    bmbddr.io.initDone <> bmb_cmd.io.initDone
+    bmbddr.io.initDone <> bmbCmdOp.io.initDone
   }
 }
 
-object bmb_dfi_ddr3 extends App {
+object BmbDfiDdr3 extends App {
   val sdramtime = SdramTiming(
     generation = 3,
     RFC = 260,
@@ -327,7 +327,7 @@ object bmb_dfi_ddr3 extends App {
     tPhyRdCslat = 0,
     tPhyWrCsLat = 0
   )
-  val configDfi: DfiConfig = DfiConfig(
+  val dfiConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
     transferPerBurst = 8,
     addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
@@ -341,7 +341,7 @@ object bmb_dfi_ddr3 extends App {
     timeConfig = timeConfig,
     sdram = sdram
   )
-  val config: DfiConfig = DfiConfig(
+  val phyConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
     transferPerBurst = 8,
     addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
@@ -362,7 +362,7 @@ object bmb_dfi_ddr3 extends App {
     timeConfig = timeConfig,
     sdram = sdram
   )
-  val ver = SpinalConfig().generateVerilog(bmb_dfi_ddr3(config, configDfi))
+  val ver = SpinalConfig().generateVerilog(BmbDfiDdr3(phyConfig, dfiConfig))
   ver.mergeRTLSource("ddr3_dfi_phy")
 }
 
@@ -429,7 +429,7 @@ object BmbCmdOp extends App {
 
 }
 
-object dfi_ddr3 extends App {
-  val ver = SpinalConfig().generateVerilog(dfi_ddr3())
+object DfiDdr3 extends App {
+  val ver = SpinalConfig().generateVerilog(DfiDdr3())
   ver.mergeRTLSource("ddr3_dfi_phy")
 }

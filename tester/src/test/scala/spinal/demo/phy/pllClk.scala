@@ -1,7 +1,7 @@
 package spinal.demo.phy
 
 import spinal.core._
-case class pllClk() extends BlackBox {
+case class PllClk() extends BlackBox {
   val io = new Bundle {
     val reset = in Bool ()
     val locked = out Bool ()

@@ -76,7 +76,7 @@ case class DfiStatusInterface(config: DfiConfig) extends Bundle with IMasterSlav
   val dataByteDisable = config.useDataByteDisable generate Bits(config.dataWidth / 8 bits)
   val dramClkDisable = config.signalConfig.ddris.useStatusSignals generate Bits(config.chipSelectNumber bits)
   val freqRatio = config.useFreqRatio generate Bits(2 bits)
-  val initComplete = Bool()
+  val initComplete = config.useInitStart generate Bool()
   val initStart = config.useInitStart generate Bool()
   val parityIn = config.useParityIn generate Bits(config.frequencyRatio bits)
   override def asMaster(): Unit = {
