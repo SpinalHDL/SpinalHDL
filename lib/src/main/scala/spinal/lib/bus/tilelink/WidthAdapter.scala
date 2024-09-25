@@ -41,9 +41,9 @@ class WidthAdapter(ip : BusParameter,
       val valid   = RegInit(False)
       val first   = RegInit(True)
       val args    = Reg(ChannelA(ip.copy(withDataA = false)))
-      val data    = Vec.fill(ratio)(Reg(src.data))
+      val data    = src.withData generate Vec.fill(ratio)(Reg(src.data))
       val mask    = src.withMask generate Vec.fill(ratio)(Reg(src.maskNull))
-      val corrupt = Reg(Bool())
+      val corrupt = src.withData generate Reg(Bool())
       val denied  = src.withDenied generate Reg(Bool())
       val sink  = src.withSink generate Reg(op.sink)
     }
@@ -51,8 +51,10 @@ class WidthAdapter(ip : BusParameter,
     dst.valid := buffer.valid
     dst.payload.assignSomeByName(buffer.args)
     if(dst.withMask) dst.maskNull := Cat(buffer.mask)
-    dst.data    := Cat(buffer.data)
-    dst.corrupt := buffer.corrupt
+    if(dst.withData) {
+      dst.data := Cat(buffer.data)
+      dst.corrupt := buffer.corrupt
+    }
     if(src.withDenied) dst.deniedNull := buffer.denied
     if(src.withSink) dst.sinkNull := buffer.sink
 
@@ -64,25 +66,31 @@ class WidthAdapter(ip : BusParameter,
       buffer.first := wordLast
       when(buffer.first) {
         buffer.args.assignSomeByName(src.payload)
-        buffer.corrupt := False
+        if(src.withData) buffer.corrupt := False
         if(src.withDenied) buffer.denied := False
         if(src.withMask) buffer.mask.foreach(_ := 0)
         if(src.withSink) buffer.sink := src.sinkNull
       }
 
-      if(src.withMask) {
-        buffer.data(sel) := src.data
-        buffer.mask(sel) := src.maskNull
-      } else {
-        val maskRange = log2Up(src.p.dataBytes)+1 to log2Up(dst.p.dataBytes)
-        val mask = maskRange.map(src.size >= _).asBits().asUInt
-        for(i <- 0 until ratio){
-          when(((sel ^ i) & mask) === 0){
-            buffer.data(i) := src.data
+      if(src.withData) {
+        if(src.withMask) {
+          buffer.data(sel) := src.data
+          buffer.mask(sel) := src.maskNull
+        } else {
+          if(src.p.sizeBytes > src.p.dataBytes) {
+            val maskRange = log2Up(src.p.dataBytes)+1 to log2Up(dst.p.dataBytes).min(src.size.maxValue.toInt)
+            val mask = maskRange.map(src.size >= _).asBits().asUInt
+            for(i <- 0 until ratio){
+              when(((sel ^ i) & mask) === 0){
+                buffer.data(i) := src.data
+              }
+            }
+          } else {
+            buffer.data.foreach(_ := src.data)
           }
         }
+        buffer.corrupt setWhen(src.corrupt)
       }
-      buffer.corrupt setWhen(src.corrupt)
       if(src.withDenied) buffer.denied setWhen(src.deniedNull)
     }
   }

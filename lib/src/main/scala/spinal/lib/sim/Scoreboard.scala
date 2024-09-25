@@ -6,7 +6,8 @@ import spinal.core.sim._
 import scala.collection.mutable
 
 //
-//object ScoreboardInOrder{
+object ScoreboardInOrder{
+  def apply[T]() : ScoreboardInOrder[T] = new ScoreboardInOrder[T]()
 //  implicit class ScoreboardInOrderPimper(pimped : ScoreboardInOrder[SimData]){
 //
 //    def pushDut(that : Data) : Unit = {
@@ -18,9 +19,9 @@ import scala.collection.mutable
 //    }
 //
 //  }
-//}
+}
 
-case class ScoreboardInOrder[T]() {
+class ScoreboardInOrder[T]() {
   val dut,ref = mutable.Queue[T]()
   var matches = 0
 

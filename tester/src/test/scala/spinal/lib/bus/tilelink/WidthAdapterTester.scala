@@ -17,10 +17,10 @@ import scala.collection.mutable.ArrayBuffer
 
 
 class WidthAdapterTester extends AnyFunSuite{
-  def bp(dataWidth : Int)={
+  def bp(dataWidth : Int, bytesMax : Int)={
     NodeParameters(
       m = M2sParameters(
-        addressWidth = 10,
+        addressWidth = 13,
         dataWidth = dataWidth,
         masters = List(
           M2sAgent(
@@ -29,11 +29,11 @@ class WidthAdapterTester extends AnyFunSuite{
               M2sSource(
                 id = SizeMapping(0, 16),
                 emits = M2sTransfers(
-                  get = SizeRange.upTo(256),
-                  putFull = SizeRange.upTo(256),
-                  putPartial = SizeRange(256),
-                  acquireT = SizeRange(64),
-                  acquireB = SizeRange(64)
+                  get = SizeRange.upTo(4096 min bytesMax),
+                  putFull = SizeRange.upTo(4096 min bytesMax),
+                  putPartial = SizeRange.upTo(4096 min bytesMax),
+                  acquireT = SizeRange(64 min bytesMax),
+                  acquireB = SizeRange(64 min bytesMax)
                 )
               )
             )
@@ -46,7 +46,7 @@ class WidthAdapterTester extends AnyFunSuite{
             name = null,
             sinkId = SizeMapping(0, 16),
             emits = S2mTransfers(
-              probe = SizeRange(64)
+              probe = SizeRange(64 min bytesMax)
             )
           )
         )
@@ -54,12 +54,12 @@ class WidthAdapterTester extends AnyFunSuite{
     ).toBusParameter()
   }
 
-  def testOn(inputWidth : Int, outputWidth : Int): Unit ={
-    test(s"$inputWidth-$outputWidth"){
+  def testOn(inputWidth : Int, outputWidth : Int, bytesMax : Int): Unit ={
+    test(s"$inputWidth-$outputWidth-$bytesMax"){
       tilelink.DebugId.setup(16)
       SimConfig.compile(new WidthAdapter(
-        ip = bp(inputWidth),
-        op = bp(outputWidth),
+        ip = bp(inputWidth, bytesMax),
+        op = bp(outputWidth, bytesMax),
         ctxBuffer = ContextAsyncBufferFull
       )).doSim(s"$inputWidth->$outputWidth", 42){dut =>
         new BridgeTestbench(
@@ -75,11 +75,12 @@ class WidthAdapterTester extends AnyFunSuite{
   for(
     iw <- List(16, 32, 64);
     ow <- List(16, 32, 64);
-    if !(iw == ow && iw != 32)
+    sb <- List(2, 256)
   ){
-    testOn(iw, ow)
+    testOn(iw, ow, sb)
   }
-
-  testOn(64, 1024)
-  testOn(1024, 64)
+//  testOn(32, 16, 2)
+//  testOn(16, 32, 2)
+  testOn(64, 1024, 4096)
+  testOn(1024, 64, 4096)
 }
