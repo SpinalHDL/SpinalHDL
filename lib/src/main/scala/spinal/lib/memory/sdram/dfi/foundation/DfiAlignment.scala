@@ -38,14 +38,13 @@ case class CAAlignment(config: DfiConfig) extends Component {
 
   for (i <- 0 until (frequencyRatio)) {
     when(io.cmd(i).valid) {
-      if (useAckN) io.output.actN(i) := io.cmd(i).actN
-      if (useCid) io.output.cid(i * chipIdWidth, chipIdWidth bits) := io.cmd(i).cid
-      io.output.csN(i * chipSelectNumber, chipSelectNumber bits) := io.cmd(i).csN
-      io.output.assignUnassignedByName(io.cmd(i))
+      if (useAckN) io.output.actN.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).actN.asBits
+      if (useCid) io.output.cid.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).cid.asBits
+      io.output.csN.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).csN.asBits
+      io.output.casN.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).casN.asBits
+      io.output.rasN.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).rasN.asBits
+      io.output.weN.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).weN.asBits
     }
-  }
-
-  for (i <- 0 until (frequencyRatio)) {
     when(io.address(i).valid) {
       if (config.useBg) io.output.bg(i * bankGroupWidth, bankGroupWidth bits) := io.address(i).bg
       io.output.bank(i * bankWidth, bankWidth bits) := io.address(i).bank

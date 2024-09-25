@@ -361,6 +361,8 @@ case class DfiConfig(
   val bankGroupWidth = bgWidth
   val chipIdWidth = cidWidth
   val dataEnableWidth = dataWidth / dataSlice
+  val chipSelectWidth = log2Up(chipSelectNumber)
+  val taskAddressWidth = sdram.byteAddressWidth + chipSelectWidth
   // For PHYs with an 8-bit slice, this is generally 1/16th of the DFI Data Width to provide a single enable bit per
   // memory data slice, but may be 1/4, 1/8, 1/32, or any other ratio.
   val dbiWidth = dataWidth / 8

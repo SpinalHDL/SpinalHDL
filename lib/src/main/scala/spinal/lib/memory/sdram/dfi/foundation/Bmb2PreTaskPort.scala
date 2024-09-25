@@ -5,17 +5,18 @@ import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.memory.sdram.dfi.interface._
 
-case class BmbToPreTaskPort(ip: BmbParameter, tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends Component {
-  import tpa._
+case class BmbToPreTaskPort(ip: BmbParameter, tc: TaskConfig, dc: DfiConfig) extends Component {
+  import dc._
+  import tc._
   val io = new Bundle {
     val input = slave(Bmb(ip))
     val inputBurstLast = in Bool ()
-    val output = master(PreTaskPort(tpp, tpa))
+    val output = master(PreTaskPort(tc, dc))
   }
-  val cmdToRspCount = io.output.cmd.write ? U(0) | (io.output.cmd.length +^ 1) << log2Up(tpa.config.beatCount)
-  val rspPendingCounter = Reg(UInt(log2Up(tp.rspBufferSize + 1) bits)) init (0)
+  val cmdToRspCount = io.output.cmd.write ? U(0) | (io.output.cmd.length +^ 1) << log2Up(beatCount)
+  val rspPendingCounter = Reg(UInt(log2Up(taskParameter.rspBufferSize + 1) bits)) init (0)
   val toManyRsp =
-    (U"0" @@ rspPendingCounter) + cmdToRspCount > tp.rspBufferSize // pp.rspBufferSize - pp.beatPerBurst*tpa.config.beatCount //Pessimistic
+    (U"0" @@ rspPendingCounter) + cmdToRspCount > taskParameter.rspBufferSize // taskParameter.rspBufferSize - taskParameter.beatPerBurst*dc.beatCount //Pessimistic
   rspPendingCounter := rspPendingCounter + (io.input.cmd.lastFire ? cmdToRspCount | U(0)) - U(io.output.rsp.fire)
   val cmdContext = PackContext()
 
@@ -28,8 +29,8 @@ case class BmbToPreTaskPort(ip: BmbParameter, tpp: TaskPortParameter, tpa: TaskP
   io.output.cmd.valid := io.input.cmd.firstFire
   io.output.cmd.write := io.input.cmd.isWrite
   io.output.cmd.address := io.input.cmd.address
-  assert(widthOf(io.output.cmd.length) >= widthOf(io.input.cmd.length) - log2Up(tpa.config.bytePerBurst))
-  io.output.cmd.length := (io.input.cmd.length >> log2Up(tpa.config.bytePerBurst)).resized
+  assert(widthOf(io.output.cmd.length) >= widthOf(io.input.cmd.length) - log2Up(bytePerBurst))
+  io.output.cmd.length := (io.input.cmd.length >> log2Up(bytePerBurst)).resized
   io.output.cmd.context := B(cmdContext)
   io.output.cmd.burstLast := io.inputBurstLast
 
@@ -52,11 +53,12 @@ case class BmbToPreTaskPort(ip: BmbParameter, tpp: TaskPortParameter, tpa: TaskP
 }
 
 object BmbAdapter {
-  def taskPortParameter(bmbp: BmbParameter, config: DfiConfig, tp: TaskParameter) = TaskPortParameter(
+  def taskConfig(bmbp: BmbParameter, dc: DfiConfig, tp: TaskParameter) = TaskConfig(
+    taskParameter = tp,
     contextWidth = {
       val converterBmb = BmbLengthFixer.outputParameter(
-        BmbAligner.outputParameter(bmbp.access, log2Up(config.burstWidth / 8)),
-        log2Up(config.burstWidth / 8)
+        BmbAligner.outputParameter(bmbp.access, log2Up(dc.burstWidth / 8)),
+        log2Up(dc.burstWidth / 8)
       )
       converterBmb.contextWidth + converterBmb.sourceWidth
     },
@@ -67,54 +69,54 @@ object BmbAdapter {
   )
 }
 
-case class BmbAdapter(bmbp: BmbParameter, tpa: TaskParameterAggregate) extends Component {
-  import tpa._
-  val tpp = BmbAdapter.taskPortParameter(bmbp, tpa.config, tp)
-  assert(config.beatCount * 4 <= tp.rspBufferSize, s"SDRAM rspBufferSize should be at least ${config.beatCount * 4}")
-  assert(config.beatCount <= tp.dataBufferSize, s"SDRAM dataBufferSize should be at least ${config.beatCount}")
+case class BmbAdapter(bmbp: BmbParameter, tc: TaskConfig, dc: DfiConfig) extends Component {
+  import dc._
+  import tc._
+  assert(dc.beatCount * 4 <= taskParameter.rspBufferSize, s"SDRAM rspBufferSize should be at least ${dc.beatCount * 4}")
+  assert(dc.beatCount <= taskParameter.dataBufferSize, s"SDRAM dataBufferSize should be at least ${dc.beatCount}")
 
   val io = new Bundle {
     val bmbHalt = in Bool ()
     val input = slave(Bmb(bmbp))
-    val output = master(PreTaskPort(tpp, tpa))
+    val output = master(PreTaskPort(tc, dc))
   }
 
   val inputLogic = new Area {
-    val aligner = BmbAligner(bmbp, log2Up(config.burstWidth / 8))
+    val aligner = BmbAligner(bmbp, log2Up(burstWidth / 8))
     aligner.io.input << io.input
 
-    val splitLength = Math.min(tpa.tp.bytePerTaskMax, 1 << bmbp.access.lengthWidth)
-    assert(tp.rspBufferSize * tpa.config.bytePerBeat >= splitLength)
+    val splitLength = Math.min(taskParameter.bytePerTaskMax, 1 << bmbp.access.lengthWidth)
+    assert(taskParameter.rspBufferSize * bytePerBeat >= splitLength)
 
     val spliter = BmbAlignedSpliter(aligner.io.output.p, splitLength)
     spliter.io.input << aligner.io.output
 
-    val converter = BmbToPreTaskPort(spliter.io.output.p, io.output.tpp, tpa)
+    val converter = BmbToPreTaskPort(spliter.io.output.p, tc, dc)
     converter.io.input << spliter.io.output.pipelined(cmdValid = true)
     converter.io.inputBurstLast := spliter.io.outputBurstLast
   }
 
-  val cmdAddress = Stream(TaskWrRdCmd(tpp, tpa))
-  val writeDataToken = UInt(tpp.writeTokenInterfaceWidth bits)
+  val cmdAddress = Stream(TaskWrRdCmd(tc, dc))
+  val writeDataToken = UInt(tc.writeTokenInterfaceWidth bits)
   val syncBuffer = new Area {
-    cmdAddress << inputLogic.converter.io.output.cmd.queueLowLatency(tp.cmdBufferSize, 1)
-    inputLogic.converter.io.output.rsp << io.output.rsp.queueLowLatency(tp.rspBufferSize, 1)
+    cmdAddress << inputLogic.converter.io.output.cmd.queueLowLatency(taskParameter.cmdBufferSize, 1)
+    inputLogic.converter.io.output.rsp << io.output.rsp.queueLowLatency(taskParameter.rspBufferSize, 1)
 
     if (bmbp.access.canWrite) {
-      io.output.writeData << inputLogic.converter.io.output.writeData.queueLowLatency(tp.dataBufferSize, 1)
+      io.output.writeData << inputLogic.converter.io.output.writeData.queueLowLatency(taskParameter.dataBufferSize, 1)
       writeDataToken := RegNext(U(inputLogic.converter.io.output.writeData.fire)) init (0)
     }
   }
 
   val writeTokens = new Area {
-    val canWrite = tpp.canWrite
+    val canWrite = tc.canWrite
     val consume = io.output.writeDataToken.ready
-    val counter = canWrite generate Reg(UInt(log2Up(tpp.writeTokenBufferSize + 1) bits)).init(0)
+    val counter = canWrite generate Reg(UInt(log2Up(tc.writeTokenBufferSize + 1) bits)).init(0)
     if (canWrite) {
-      counter := counter + writeDataToken - (U(consume) << log2Up(config.beatCount))
+      counter := counter + writeDataToken - (U(consume) << log2Up(beatCount))
       io.output.writeDataToken.valid := RegInit(
         False
-      ) setWhen (counter >= config.beatCount) clearWhen (consume && counter < config.beatCount * 2)
+      ) setWhen (counter >= beatCount) clearWhen (consume && counter < beatCount * 2)
     }
   }
 

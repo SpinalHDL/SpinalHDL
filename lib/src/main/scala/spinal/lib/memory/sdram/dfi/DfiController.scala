@@ -6,22 +6,21 @@ import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 import spinal.lib.memory.sdram.dfi.foundation._
 import spinal.lib.memory.sdram.dfi.interface._
 
-case class DfiController(task: TaskParameter, bmbp: BmbParameter, config: DfiConfig) extends Component {
+case class DfiController(bmbp: BmbParameter, task: TaskParameter, dc: DfiConfig) extends Component {
   val io = new Bundle {
     val bmb = slave(Bmb(bmbp))
-    val dfi = master(Dfi(config))
+    val dfi = master(Dfi(dc))
   }
 
-  val tpa =
-    TaskParameterAggregate(task, BmbAdapter.taskPortParameter(bmbp, config: DfiConfig, task), config)
+  val tc = BmbAdapter.taskConfig(bmbp, dc, task)
 
-  val bmbBridge = BmbBridge(bmbp, tpa)
+  val bmbBridge = BmbBridge(bmbp, tc, dc)
   bmbBridge.io.bmb <> io.bmb
 
-  val control = Control(tpa)
+  val control = Control(tc, dc)
   control.io.inport <> bmbBridge.io.taskPort
 
-  val alignment = Alignment(tpa.config)
+  val alignment = Alignment(dc)
   alignment.io.inIdfiport <> control.io.outport
   alignment.io.outDfiport <> io.dfi
 }

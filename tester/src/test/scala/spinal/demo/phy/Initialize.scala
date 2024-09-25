@@ -2,15 +2,15 @@ package spinal.demo.phy
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi.interface.{DfiControlInterface, TaskParameterAggregate}
-case class Initialize(tpa: TaskParameterAggregate) extends Component {
-  import tpa._
-  import tpa.config._
+import spinal.lib.memory.sdram.dfi.interface.{DfiConfig, DfiControlInterface, TaskConfig}
+case class Initialize(tc: TaskConfig, dc: DfiConfig) extends Component {
+  import dc._
+  import tc._
   val io = new Bundle {
-    val control = master(DfiControlInterface(config))
+    val control = master(DfiControlInterface(dc))
     val initDone = out Bool ()
   }
-  val refreshTimer = Reg(UInt(tp.refWidth bits)).init(sdram.ddrStartdelay)
+  val refreshTimer = Reg(UInt(taskParameter.refWidth bits)).init(sdram.ddrStartdelay)
   val cmd = new Bundle {
     val weN = cloneOf(io.control.weN)
     val casN = cloneOf(io.control.casN)

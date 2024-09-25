@@ -3,28 +3,27 @@ package spinal.lib.memory.sdram.dfi
 import spinal.core._
 import spinal.lib._
 import spinal.lib.memory.sdram.dfi.foundation._
-import spinal.lib.memory.sdram.dfi.interface.{IDFI, TaskParameterAggregate, TaskPort}
+import spinal.lib.memory.sdram.dfi.interface.{DfiConfig, IDFI, TaskConfig, TaskPort}
 
-case class Control(tpa: TaskParameterAggregate) extends Component {
-  import tpa._
+case class Control(tc: TaskConfig, dc: DfiConfig) extends Component {
   val io = new Bundle {
-    val inport = slave(TaskPort(tpp, tpa))
-    val outport = master(IDFI(config))
+    val inport = slave(TaskPort(tc, dc))
+    val outport = master(IDFI(dc))
   }
 
   val cmd = new Area {
-    val cmdtxd = CmdTxd(tpa)
+    val cmdtxd = CmdTxd(tc, dc)
     cmdtxd.io.task <> io.inport.tasks.init()
   }
 
   val wrdata = new Area {
-    val wrdatatxd = WrDataTxd(tpa)
+    val wrdatatxd = WrDataTxd(tc, dc)
     wrdatatxd.io.write <> RegNext(io.inport.tasks.write).init(False)
     wrdatatxd.io.taskWrData << io.inport.writeData
   }
 
   val radata = new Area {
-    val rddatarxd = RdDataRxd(tpa)
+    val rddatarxd = RdDataRxd(tc, dc)
     rddatarxd.io.task <> io.inport.tasks.init()
     rddatarxd.io.taskRdData.toStream >> io.inport.rsp
   }

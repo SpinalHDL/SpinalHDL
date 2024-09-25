@@ -5,37 +5,39 @@ import spinal.lib._
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 import spinal.lib.memory.sdram.dfi.interface._
 
-case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends Component {
-  import tpa._
+case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
+  import dc._
+  import tc._
+  import tc.taskParameter._
   val io = new Bundle {
-    val cmd = slave(Stream(TaskWrRdCmd(tpp, tpa)))
+    val cmd = slave(Stream(TaskWrRdCmd(tc, dc)))
     val bmbHalt = out Bool ()
     val writeDataToken = slave(Stream(Event))
-    val output = master(OpTasks(tpa))
+    val output = master(OpTasks(tc, dc))
   }
-  val timeConfig = TaskTimingConfig(tpa)
+  val timeConfig = TaskTimingConfig(dc)
   val readyForRefresh = True
 
-  val banksRow = Mem(UInt(config.sdram.rowWidth bits), config.sdram.bankCount)
+  val banksRow = Mem(UInt(sdram.rowWidth bits), sdram.bankCount)
   val CCD =
-    (config.beatCount > 1) generate Timing(
+    (beatCount > 1) generate Timing(
       io.output.read || io.output.write,
-      config.beatCount - 2,
-      log2Up(config.beatCount)
+      beatCount - 2,
+      log2Up(beatCount)
     )
-  val RFC = Timing(io.output.refresh, timeConfig.RFC, tp.timingWidth + 3)
+  val RFC = Timing(io.output.refresh, timeConfig.RFC, timingWidth + 3)
   val RRD = Timing(io.output.active, timeConfig.RRD)
   val WTR = Timing(io.output.write, timeConfig.WTR)
   val RTW = Timing(io.output.read, timeConfig.RTW)
   val RP = Timing(io.output.prechargeAll, timeConfig.RP + 1)
-  val FAW = generation.FAW generate new Area { // Can be optimized
+  val FAW = sdram.generation.FAW generate new Area { // Can be optimized
     val trigger = io.output.active
     val ptr = RegInit(U"00")
     val slots = (0 to 3).map(i => Timing(ptr === i && trigger, timeConfig.FAW))
     val busyNext = Vec(slots.map(_.busy)).read(ptr + 1)
     ptr := ptr + U(trigger)
   }
-  val banks = for (bankId <- 0 until config.sdram.bankCount) yield new Area {
+  val banks = for (bankId <- 0 until sdram.bankCount) yield new Area {
     val hits = io.output.address.bank === bankId
     def gate(task: Bool) = hits & task
 
@@ -64,10 +66,10 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
   val allowPrechargeAll = banks.map(_.allowPrecharge).andR
   val taskConstructor = new Area {
     val input = io.cmd.stage()
-    val address = input.address.as(BusAddress(config.sdram, tpa.config))
+    val address = input.address.as(BusAddress(dc))
     val status = Status()
     status.allowPrecharge := True
-    status.allowActive := !RRD.busy && (if (generation.FAW) !FAW.busyNext else True)
+    status.allowActive := !RRD.busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
     status.allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True)
     status.allowRead := !WTR.busy && (if (CCD != null) !CCD.busy else True)
     status.bankHit := banksRow.readAsync(address.bank) === address.row
@@ -75,21 +77,21 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
     status.employ(address)
     readyForRefresh clearWhen (input.valid)
   }
-  val columnBurstShift = log2Up(config.transferPerBurst)
+  val columnBurstShift = log2Up(transferPerBurst)
 
   readyForRefresh clearWhen (io.cmd.valid)
-  val columnBurstMask = (config.sdram.columnSize - 1) - (tpa.stationLengthMax - 1 << columnBurstShift)
+  val columnBurstMask = (sdram.columnSize - 1) - (io.cmd.stationLengthMax - 1 << columnBurstShift)
   val stations = new Area {
     val valid = RegInit(False)
     val status = Reg(Status())
-    val address = Reg(BusAddress(tpa.config.sdram, tpa.config))
+    val address = Reg(BusAddress(dc))
     val write = Reg(Bool())
     val context = Reg(Bits(contextWidth bits))
-    val offset, offsetLast = Reg(UInt(tpa.stationLengthWidth bits))
+    val offset, offsetLast = Reg(UInt(io.cmd.stationLengthWidth bits))
 
     import status._
     allowPrecharge := True
-    allowActive := !RRD.busy && (if (generation.FAW) !FAW.busyNext else True)
+    allowActive := !RRD.busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
     allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True)
     allowRead := !WTR.busy && (if (CCD != null) !CCD.busy else True)
     bankHit.init(False)
@@ -151,14 +153,14 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
   }
 
   val refreshStream = Event
-  val refresher = Refresher(tpa)
+  val refresher = Refresher(tc, dc)
   refresher.io.refresh.valid <> io.bmbHalt
   refresher.io.refresh <> refreshStream
 
   val selectedAddress = io.output.address
   val loader = new Area {
     taskConstructor.input.ready := !stations.valid
-    val offset = taskConstructor.address.column(columnBurstShift, tpa.stationLengthWidth bits)
+    val offset = taskConstructor.address.column(columnBurstShift, io.cmd.stationLengthWidth bits)
     val offsetLast = offset + taskConstructor.input.length
     val canSpawn = !stations.valid
     // Insert taskConstructor into one free station
@@ -192,7 +194,7 @@ case class MakeTask(tpp: TaskPortParameter, tpa: TaskParameterAggregate) extends
     refreshReady.onExit(refreshStream.ready := True)
   }
 
-  def Timing(loadValid: Bool, loadValue: UInt, timingWidth: Int = tp.timingWidth) = new Area {
+  def Timing(loadValid: Bool, loadValue: UInt, timingWidth: Int = taskParameter.timingWidth) = new Area {
     val value = Reg(UInt(timingWidth bits)) randBoot ()
     val increment = value =/= loadValue.resized
     val busy = CombInit(increment)

@@ -45,7 +45,7 @@ case class InitializeSim() extends Component {
     tPhyRdCslat = 0,
     tPhyWrCsLat = 0
   )
-  val config: DfiConfig = DfiConfig(
+  val dc: DfiConfig = DfiConfig(
     frequencyRatio = 1,
     transferPerBurst = 8,
     addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
@@ -67,19 +67,19 @@ case class InitializeSim() extends Component {
     sdram = sdram
   )
   val bmbp: BmbParameter = BmbParameter(
-    addressWidth = sdram.byteAddressWidth + log2Up(config.chipSelectNumber),
-    dataWidth = config.beatWidth,
+    addressWidth = sdram.byteAddressWidth + log2Up(dc.chipSelectNumber),
+    dataWidth = dc.beatWidth,
     sourceWidth = 1,
     contextWidth = 2,
     lengthWidth = 6,
     alignment = BmbParameter.BurstAlignement.WORD
   )
-  val tpa = TaskParameterAggregate(task, BmbAdapter.taskPortParameter(bmbp, config, task), config)
   val io = new Bundle {
-    val control = master(DfiControlInterface(config))
+    val control = master(DfiControlInterface(dc))
     val initDone = out Bool ()
   }
-  val init = Initialize(tpa)
+  val tc = BmbAdapter.taskConfig(bmbp, dc, task)
+  val init = Initialize(tc,dc)
   io.assignUnassignedByName(init.io)
 }
 
