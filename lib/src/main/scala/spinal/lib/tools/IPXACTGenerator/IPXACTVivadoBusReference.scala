@@ -111,26 +111,27 @@ object IPXACTVivadoBusReference {
     val busChildren = bus.flatten
     val busDirectionRecord = createDirectionRecord(bus)
     val (portSeqMap, vivadoDefinitionName) = bus match {
-      case _: Axi4 =>
+      case axi4: Axi4 =>
         referenceAxi4(busChildren)
-      case _: AxiLite4 =>
+      case axiLite4: AxiLite4 =>
         referenceAxiLite4(busChildren)
-      case _: Vga =>
+      case vga: Vga =>
         referenceVga(busChildren)
-      case _: AvalonMM =>
+      case avalonMM: AvalonMM =>
         referenceAvalonMM(busChildren)
-      case _: AhbLite3 =>
+      case ahbLite3: AhbLite3 =>
         referenceAhbLite3(busChildren, busDirectionRecord)
-      case _: Apb3 =>
+      case apb3: Apb3 =>
         referenceApb3(busChildren)
-      case _: Apb4 =>
+      case apb4: Apb4 =>
         referenceApb4(busChildren)
-      case _: Uart =>
+      case uart: Uart =>
         referenceUART(busChildren)
-      case _: BRAM =>
+      case bram: BRAM =>
         referenceBRAM(busChildren)
       case _ =>
-        (Seq(), "")
+        val portSeqMap: Seq[PortMap] = Seq()
+        (portSeqMap, "")
     }
     val portMaps = PortMaps(portSeqMap)
     val busType = createLibraryRefType(vivadoDefinitionName)
