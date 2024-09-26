@@ -259,6 +259,13 @@ case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
   def withMask : Boolean = p.withDataA
   def withDenied : Boolean = false
 
+  def compliantMask(): Bits = {
+    val spec = for(i <- 0 until 1 << p.sizeWidth) yield i -> B((BigInt(1) << (1 << i))-1 & ((BigInt(1) << p.dataBytes)-1), p.dataBytes bits)
+    val fromSize = size.muxList(spec)
+    val shifted = fromSize |<< address(0, p.dataBytesLog2Up bits)
+    shifted & this.mask.orMask(!Opcode.A.isPut(opcode))
+  }
+
   def weakAssignFrom(m : ChannelA): Unit ={
     def s = this
     s.opcode := m.opcode
