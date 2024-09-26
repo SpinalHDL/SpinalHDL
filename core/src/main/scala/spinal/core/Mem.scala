@@ -700,7 +700,7 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
   var writeEnable : Expression  = null
   var clockDomain : ClockDomain = null
 
-  def getSymbolWidth = if(mask != null) width / mask.getWidth
+  def getSymbolWidth = if(mask != null) width / mask.getWidth else 1
   def getWordsCount = mem.wordCount*mem.width/getWidth
   def getAddressWidth = log2Up(getWordsCount)
 
@@ -804,7 +804,7 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
   var readUnderWrite : ReadUnderWritePolicy = null
   var duringWrite : DuringWritePolicy = null
 
-  def getSymbolWidth = if (mask != null) width / mask.getWidth
+  def getSymbolWidth = if (mask != null) width / mask.getWidth else 1
   def getWordsCount = mem.wordCount*mem.width/getWidth
   def getAddressWidth = log2Up(getWordsCount)
 
