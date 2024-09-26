@@ -664,12 +664,18 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
+  override def <<(shift: UInt): AFix = ???
+  override def >>(shift: UInt): AFix = this >> AFix(shift)
+
   def unary_-(): AFix = negate(True)
 
   def negate(): AFix = negate(True)
   def negate(enable : Bool, plusOneEnable : Bool = null): AFix = {
     val ret = new AFix(-this.minRaw max this.maxRaw, -this.maxRaw min this.minRaw, this.exp)
-    ret.raw := U(this.raw).twoComplement(enable, plusOneEnable).asBits
+    if(this.minRaw >= 0)
+      ret.raw := U(this.raw).twoComplement(enable, plusOneEnable).asBits
+    else
+      ret.raw := S(this.raw).twoComplement(enable, plusOneEnable).asBits
     ret
   }
 
@@ -1263,7 +1269,7 @@ object AF {
     ret.raw.assignFromBits(tmp.raw)
     ret
   }
-  
+
   def apply(value: BigDecimal, Q: QFormat): AFix = {
     val ret = AFix(Q)
     val tmp = cloneOf(ret)
