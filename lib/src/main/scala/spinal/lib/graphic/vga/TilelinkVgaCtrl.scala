@@ -274,7 +274,7 @@ case class TilelinkVgaCtrlSpec(name : String,
 object TilelinkVgaCtrlSpec{
   def addOption(parser: scopt.OptionParser[Unit], vga: ArrayBuffer[TilelinkVgaCtrlSpec]): Unit = {
     import parser._
-    opt[Map[String, String]]("video") unbounded() action { (v, c) =>
+    opt[Map[String, String]]("video").unbounded().action { (v, c) =>
       vga += TilelinkVgaCtrlSpec(
         name = v("name"),
         param = TilelinkVgaCtrlParam(

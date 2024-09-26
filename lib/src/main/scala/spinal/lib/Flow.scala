@@ -2,6 +2,7 @@ package spinal.lib
 
 import spinal.core._
 
+import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
 

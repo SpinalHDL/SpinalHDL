@@ -11,7 +11,7 @@ import scala.collection.mutable.ArrayBuffer
 object I2cSpec{
   def addOption(parser: scopt.OptionParser[Unit], i2c: ArrayBuffer[I2cSpec]): Unit = {
     import parser._
-    opt[Map[String, String]]("i2c") unbounded() action { (v, c) =>
+    opt[Map[String, String]]("i2c").unbounded().action { (v, c) =>
       i2c += I2cSpec(
         address = v("address").toBigInt,
         name = v("name"),
