@@ -78,7 +78,7 @@ object TilelinkVideoDma {
 
 case class TilelinkVideoDma(param : TilelinkVideoDmaParam,
                             memParam: BusParameter,
-                            vgaCd : ClockDomain,
+                            vgaCd : ClockDomain
                             ) extends Component {
   import param._
   val io = new Bundle{
@@ -119,7 +119,7 @@ case class TilelinkVideoDma(param : TilelinkVideoDmaParam,
     val offsetNext = offset + accessSize
     val cmdLast = offsetNext === io.size
 
-    val slots = new SlotPool(pendingSize)(
+    val slots = new SlotPool(pendingSize, true)(
       new Slot {
         val target = Reg(TARGET)
         val last = Reg(Bool())
