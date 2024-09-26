@@ -1226,6 +1226,39 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     walkComponents(c => PhasePullClockDomains.single(c))
+    if(pc.config.normalizeComponentClockDomainName) walkComponents{c =>
+      val cd = c.clockDomain.get
+      if(cd != null){
+        if(cd.clock.component != c){
+          c.pulledDataCache.get(cd.clock).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("clk")
+            }
+          }
+        }
+        if(cd.reset != null && cd.reset.component != c){
+          c.pulledDataCache.get(cd.reset).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("reset" + (cd.config.resetActiveLevel == HIGH).mux("","n"))
+            }
+          }
+        }
+        if(cd.softReset != null && cd.softReset.component != c){
+          c.pulledDataCache.get(cd.softReset).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("soft_reset" + (cd.config.softResetActiveLevel == HIGH).mux("","n"))
+            }
+          }
+        }
+        if(cd.clockEnable != null && cd.clockEnable.component != c){
+          c.pulledDataCache.get(cd.clockEnable).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("clkEn" + (cd.config.softResetActiveLevel == HIGH).mux("","n"))
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -1357,46 +1390,71 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
   }
 }
 
+trait PhaseDeviceHandler{
+  // Some synthesis tools will mess things trying to infer async mem read into sync block ram
+  def onMemReadAsync(config : SpinalConfig, mem : Mem[_]) : Unit = {}
+  def onMemDontCareOrdering(config : SpinalConfig, mem : Mem[_]) : Unit = {}
+  def onCrossClockBuffer(config : SpinalConfig, that : BaseType) : Unit = {} // To help inferring low metastability
+}
+
+object PhaseDeviceDefault extends PhaseDeviceDefault
+class PhaseDeviceDefault extends PhaseDeviceHandler{
+  override def onMemReadAsync(config : SpinalConfig, mem: Mem[_]) = {
+    if(config.device.isVendorDefault || config.device.vendor == Device.XILINX.vendor) {
+      val alreadyTagged = mem.getTags().exists {
+        case a: AttributeString if a.getName == "ram_style" => true
+        case _ => false
+      }
+      if (!alreadyTagged) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+    }
+  }
+
+  override def onCrossClockBuffer(config : SpinalConfig, bt: BaseType) = {
+    if(config.device.isVendorDefault || config.device.vendor == Device.XILINX.vendor) {
+      bt.addAttribute("async_reg", "true")
+    }
+  }
+
+  override def onMemDontCareOrdering(config : SpinalConfig, mem: Mem[_]) = {
+    if(config.device.vendor == Device.ALTERA.vendor){
+      mem.addAttribute("ramstyle", "no_rw_check")
+    }
+  }
+}
+
 class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
   override def impl(pc: PhaseContext): Unit = {
-    if(pc.config.device.isVendorDefault || pc.config.device.vendor == Device.XILINX.vendor) {
-      pc.walkDeclarations {
-        case mem: Mem[_] => {
-          var hit, withWrite = false
-          mem.foreachStatements {
-            case port: MemReadAsync => hit = true
-            case port: MemWrite => withWrite = true
-            case port: MemReadWrite => withWrite = true
-            case port: MemReadSync =>
-          }
-          val alreadyTagged = mem.getTags().exists{
-            case a : AttributeString if a.getName == "ram_style" => true
-            case _ => false
-          }
-          if (hit && withWrite && !alreadyTagged) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+    val cb = pc.config.devicePhaseHandler
+    pc.walkDeclarations {
+      case mem: Mem[_] => {
+        var hit, withWrite = false
+        mem.foreachStatements {
+          case port: MemReadAsync => hit = true
+          case port: MemWrite => withWrite = true
+          case port: MemReadWrite => withWrite = true
+          case port: MemReadSync =>
         }
-        case bt: BaseType => {
-          if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
-            bt.addAttribute("async_reg", "true")
-          }
+        val alreadyTagged = mem.getTags().exists{
+          case a : AttributeString if a.getName == "ram_style" => true
+          case _ => false
         }
-        case _ =>
+        if (hit && withWrite) cb.onMemReadAsync(pc.config, mem)
+
+        var onlyDontCare = true
+        mem.dlcForeach(e => e match {
+          case port: MemWrite      =>
+          case port: MemReadWrite  => onlyDontCare &= port.readUnderWrite == dontCare
+          case port: MemReadSync   => onlyDontCare &= port.readUnderWrite == dontCare
+          case port: MemReadAsync  => onlyDontCare &= port.readUnderWrite == dontCare
+        })
+        if(onlyDontCare) cb.onMemDontCareOrdering(pc.config, mem)
       }
-    }
-    if(pc.config.device.vendor == Device.ALTERA.vendor){
-      pc.walkDeclarations {
-        case mem : Mem[_] => {
-          var onlyDontCare = true
-          mem.dlcForeach(e => e match {
-            case port: MemWrite      =>
-            case port: MemReadWrite  => onlyDontCare &= port.readUnderWrite == dontCare
-            case port: MemReadSync   => onlyDontCare &= port.readUnderWrite == dontCare
-            case port: MemReadAsync  => onlyDontCare &= port.readUnderWrite == dontCare
-          })
-          if(onlyDontCare) mem.addAttribute("ramstyle", "no_rw_check")
+      case bt: BaseType => {
+        if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
+          cb.onCrossClockBuffer(pc.config, bt)
         }
-        case _ =>
       }
+      case _ =>
     }
   }
 }
