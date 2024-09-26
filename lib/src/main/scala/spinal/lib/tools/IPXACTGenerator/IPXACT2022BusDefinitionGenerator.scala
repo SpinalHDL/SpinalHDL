@@ -8,7 +8,7 @@ import java.nio.file.{Files, Paths}
 import scala.language.implicitConversions
 import scala.xml._
 
-class IPXACT2022BusDefinitionGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", bus: IMasterSlave) {
+class IPXACT2022BusDefinitionGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", bus: IMasterSlave,generatePath:String="./") {
   private val busDefinitionName = bus match {
     case stream: Stream[_] =>
       s"Stream_${stream.payload.getClass.getSimpleName}"
@@ -30,7 +30,7 @@ class IPXACT2022BusDefinitionGenerator(toplevelVendor: String = "SpinalHDL", top
     val BusType = BusDefinition(vlnv, directConnection = true, isAddressable = true, broadcast = Some(true))
 
     val xml: NodeSeq = toXML[BusDefinition](BusType, "ipxact:busDefinition", defaultScope)
-    val fileDirectory = s"./$toplevelVendor/$toplevelName/$busDefinitionName/$version/"
+    val fileDirectory = s"$generatePath/$toplevelVendor/$toplevelName/$busDefinitionName/$version/"
     val filePath = s"$fileDirectory$busDefinitionName.$version.xml"
     Files.createDirectories(Paths.get(fileDirectory))
     //    val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
@@ -45,8 +45,9 @@ object IPXACT2022BusDefinitionGenerator {
   def generate(toplevelVendor: String = "SpinalHDL",
                toplevelName: String,
                version: String = "1.0",
-               bus: IMasterSlave): Unit = {
-    val generator = new IPXACT2022BusDefinitionGenerator(toplevelVendor, toplevelName, version, bus)
+               bus: IMasterSlave,
+               generatePath:String="./"): Unit = {
+    val generator = new IPXACT2022BusDefinitionGenerator(toplevelVendor, toplevelName, version, bus,generatePath = generatePath)
     generator.beginGenerate()
   }
 }

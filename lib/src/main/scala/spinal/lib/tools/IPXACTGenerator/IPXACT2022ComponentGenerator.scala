@@ -11,27 +11,27 @@ import scala.language.implicitConversions
 import scala.util.control.Breaks.{break, breakable}
 import scala.xml._
 
-class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", module: Component) {
+class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", module: Component, generateDesign: Boolean = false, generatePath: String = "./") {
 
   private val moduleDefinitionName = module.definitionName
   private var busTypeStringSet: Set[String] = Set()
-  private var busStringSet: Set[String] = Set()
   private val moduleAnalyzer = new ModuleAnalyzer(module)
   private val inPorts = moduleAnalyzer.getInputs(_ => true)
   private val outPorts = moduleAnalyzer.getOutputs(_ => true)
   private val allPorts = inPorts ++ outPorts
 
-  private def createConfigurableLibraryRefType(name:String):ConfigurableLibraryRefType={
+  private def createConfigurableLibraryRefType(name: String): ConfigurableLibraryRefType = {
     val busAbstractionTypeVendorRecord = DataRecord(Some(""), Some("vendor"), toplevelVendor)
     val busAbstractionTypeLibraryRecord = DataRecord(Some(""), Some("library"), toplevelName)
-    val busAbstractionTypeNameRecord = DataRecord(Some(""), Some("name"),name)
+    val busAbstractionTypeNameRecord = DataRecord(Some(""), Some("name"), name)
     val busAbstractionTypeVersionRecord = DataRecord(Some(""), Some("version"), version)
-    val busAbstractionAttributes = Map("vendor" -> busAbstractionTypeVendorRecord, "library" -> busAbstractionTypeLibraryRecord, "name" -> busAbstractionTypeNameRecord , "version" ->busAbstractionTypeVersionRecord)
+    val busAbstractionAttributes = Map("vendor" -> busAbstractionTypeVendorRecord, "library" -> busAbstractionTypeLibraryRecord, "name" -> busAbstractionTypeNameRecord, "version" -> busAbstractionTypeVersionRecord)
     val configurableLibraryRefType = ConfigurableLibraryRefType(attributes = busAbstractionAttributes)
     configurableLibraryRefType
   }
 
   private def getBusInterfaces: BusInterfaces = {
+    var busStringSet: Set[String] = Set()
     var busInterfacesSeq: Seq[BusInterfaceType] = Seq()
     for (port <- allPorts) {
       val portParentChain = port.getRefOwnersChain()
@@ -55,8 +55,8 @@ class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", topleve
                 "ipxact:target"
               }
               if (!busTypeStringSet.contains(busDefinitionName)) {
-                IPXACT2022AbstractionDefinitionGenerator.generate(toplevelName = toplevelName, bus = iMasterSlaveParent,version=version)
-                IPXACT2022BusDefinitionGenerator.generate(toplevelName = toplevelName, bus = iMasterSlaveParent,version = version)
+                IPXACT2022AbstractionDefinitionGenerator.generate(toplevelName = toplevelName, bus = iMasterSlaveParent, version = version, generatePath = generatePath)
+                IPXACT2022BusDefinitionGenerator.generate(toplevelName = toplevelName, bus = iMasterSlaveParent, version = version, generatePath = generatePath)
                 busTypeStringSet = busTypeStringSet + busDefinitionName
               }
               if (!busStringSet.contains(busName)) {
@@ -76,8 +76,8 @@ class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", topleve
                   }
                 }
                 val portMaps = PortMaps(portMapSeq)
-                val abstractionRef=createConfigurableLibraryRefType(busDefinitionName + ".absDef")
-                val busType=createConfigurableLibraryRefType(busDefinitionName)
+                val abstractionRef = createConfigurableLibraryRefType(busDefinitionName + ".absDef")
+                val busType = createConfigurableLibraryRefType(busDefinitionName)
                 val busAbstractionType = AbstractionType(abstractionRef = abstractionRef, portMaps = Some(portMaps))
                 val busAbstractionTypes = AbstractionTypes(Seq(busAbstractionType))
                 val interfaceModeOptionRecord = DataRecord(Some(""), Some(busInterfaceMode), "")
@@ -99,25 +99,25 @@ class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", topleve
 
   private def getPorts: Option[Ports] = {
     var portsSeq: Seq[Port2] = Seq()
-    for (port <- inPorts ++ outPorts) {
+    for (pin <- inPorts ++ outPorts) {
       val inOutValue =
-        if (port.isInput) {
+        if (pin.isInput) {
           InValue
-        } else if (port.isOutput) {
+        } else if (pin.isOutput) {
           OutValue
         } else {
           InoutValue
         }
-      val leftUnsignedIntExpression = UnsignedIntExpression((port.getBitsWidth - 1).toString)
+      val leftUnsignedIntExpression = UnsignedIntExpression((pin.getBitsWidth - 1).toString)
       val rightUnsignedIntExpression = UnsignedIntExpression("0")
-      val vector1 = Vector4(left = leftUnsignedIntExpression, right = rightUnsignedIntExpression)
-      val vectorSeq: Seq[IPXACT2022ScalaCases.Vector4] = Seq(vector1)
+      val vector = Vector4(left = leftUnsignedIntExpression, right = rightUnsignedIntExpression)
+      val vectorSeq: Seq[IPXACT2022ScalaCases.Vector4] = Seq(vector)
       val portVectors = ExtendedVectorsType(vectorSeq)
       val abstractorPortWireType = PortWireType(direction = inOutValue, vectors = Some(portVectors))
       val wireRecord = DataRecord(Some(""), Some("ipxact:wire"), abstractorPortWireType)
-      val nameGroupPortSequence = NameGroupPortSequence(port.name)
-      val port2 = Port2(nameGroupPortSequence, wireRecord)
-      portsSeq = portsSeq :+ port2
+      val nameGroupPortSequence = NameGroupPortSequence(pin.name)
+      val port = Port2(nameGroupPortSequence, wireRecord)
+      portsSeq = portsSeq :+ port
     }
 
     val ports: Option[Ports] = if (portsSeq.nonEmpty) Some(Ports(portsSeq)) else None
@@ -131,12 +131,12 @@ class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", topleve
     val componentViewComponentInstantiationRef = Some("verilog_implementation")
     val componentView = View(componentViewNameGroupNMTOKEN, envIdentifier = componentViewEnvIdentifier, componentInstantiationRef = componentViewComponentInstantiationRef)
     viewSep = viewSep :+ componentView
-    //    if (module.children.nonEmpty) {
-    //      val designConfigRefName = moduleDefinitionName + ".designcfg_1.0"
-    //      val designConfigurationViewNameGroupNMTOKEN = NameGroupNMTOKENSequence("designConfigurationView")
-    //      val designConfigurationView = View(designConfigurationViewNameGroupNMTOKEN, designConfigurationInstantiationRef = Some(designConfigRefName))
-    //      viewSep = viewSep :+ designConfigurationView
-    //    }
+    if (generateDesign && module.children.nonEmpty) {
+      val designConfigRefName = moduleDefinitionName + s".designcfg_$version"
+      val designConfigurationViewNameGroupNMTOKEN = NameGroupNMTOKENSequence("designConfigurationView")
+      val designConfigurationView = View(designConfigurationViewNameGroupNMTOKEN, designConfigurationInstantiationRef = Some(designConfigRefName))
+      viewSep = viewSep :+ designConfigurationView
+    }
     val views: Option[Views] = Some(Views(viewSep))
     views
   }
@@ -150,18 +150,18 @@ class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", topleve
     val componentInstantiation = ComponentInstantiationType(componentNameGroupNMTOKENSequence, language = Some(componentInstantiationLanguage), moduleName = componentInstantiationModuleName, fileSetRef = Seq(componentInstantiationFileSetRef))
     val componentInstantiationRecord = DataRecord(Some(""), Some("ipxact:componentInstantiation"), componentInstantiation)
     instantiationsSeq = instantiationsSeq :+ componentInstantiationRecord
-    //    if (module.children.nonEmpty) {
-    //      val designConfigurationRecord1 = DataRecord(Some("namespace1"), Some("vendor"), toplevelVendor)
-    //      val designConfigurationRecord2 = DataRecord(Some("namespace2"), Some("library"), toplevelName)
-    //      val designConfigurationRecord3 = DataRecord(Some("namespace3"), Some("name"), moduleDefinitionName + ".designcfg")
-    //      val designConfigurationRecord4 = DataRecord(Some("namespace4"), Some("version"), "1.0")
-    //      val designConfigurationBusAbstractionAttributes = Map("key1" -> designConfigurationRecord1, "key2" -> designConfigurationRecord2, "key3" -> designConfigurationRecord3, "key4" -> designConfigurationRecord4)
-    //      val donfigurableLibraryRefType = ConfigurableLibraryRefType(attributes = designConfigurationBusAbstractionAttributes)
-    //      val designConfigurationnameGroupNMTOKENSequence = NameGroupNMTOKENSequence(moduleDefinitionName + ".designcfg_1.0")
-    //      val designConfigurationInstantiation = DesignConfigurationInstantiationType(designConfigurationnameGroupNMTOKENSequence , designConfigurationRef = donfigurableLibraryRefType)
-    //      val designConfigurationInstantiationRecord = DataRecord(Some("namespace1"), Some("ipxact:designConfigurationInstantiation"), designConfigurationInstantiation)
-    //      instantiationsSeq=instantiationsSeq:+designConfigurationInstantiationRecord
-    //    }
+    if (generateDesign && module.children.nonEmpty) {
+      val designConfigurationVendorRecord = DataRecord(Some(""), Some("vendor"), toplevelVendor)
+      val designConfigurationLibraryRecord = DataRecord(Some(""), Some("library"), toplevelName)
+      val designConfigurationNameRecord = DataRecord(Some(""), Some("name"), moduleDefinitionName + ".designcfg")
+      val designConfigurationVersionRecord = DataRecord(Some(""), Some("version"), version)
+      val designConfigurationBusAbstractionAttributes = Map("vendor" -> designConfigurationVendorRecord, "library" -> designConfigurationLibraryRecord, "name" -> designConfigurationNameRecord, "version" -> designConfigurationVersionRecord)
+      val designConfigurableLibraryRefType = ConfigurableLibraryRefType(attributes = designConfigurationBusAbstractionAttributes)
+      val designConfigurationNameGroupNMTOKENSequence = NameGroupNMTOKENSequence(moduleDefinitionName + s".designcfg_$version")
+      val designConfigurationInstantiation = DesignConfigurationInstantiationType(designConfigurationNameGroupNMTOKENSequence, designConfigurationRef = designConfigurableLibraryRefType)
+      val designConfigurationInstantiationRecord = DataRecord(Some(""), Some("ipxact:designConfigurationInstantiation"), designConfigurationInstantiation)
+      instantiationsSeq = instantiationsSeq :+ designConfigurationInstantiationRecord
+    }
     val instantiations: Option[Instantiations] = Some(Instantiations(instantiationsSeq))
     instantiations
   }
@@ -194,15 +194,27 @@ class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", topleve
 
   def beginGenerate(): Unit = {
 
-    val fileDirectory = s"./$toplevelVendor/$toplevelName/$moduleDefinitionName/1.0/"
-    val filePath = s"$fileDirectory$moduleDefinitionName.1.0.xml"
+    if (generateDesign) {
+      for (children <- module.children) {
+        if (children.children.nonEmpty) {
+          IPXACT2022ComponentGenerator.generate(toplevelVendor = toplevelVendor, toplevelName = toplevelName, module = children, version = version, generateDesign = true, generatePath = generatePath)
+        }
+        else {
+          IPXACT2022ComponentGenerator.generate(toplevelVendor = toplevelVendor, toplevelName = toplevelName, module = children, version = version, generatePath = generatePath)
+        }
+      }
+      IPXACT2022DesignConfigXMLGenerator.generate(Vendor = toplevelVendor, toplevelName = toplevelName, module = module, version = version, generatePath = generatePath)
+      IPXACT2022DesignXMLGenerator.generate(Vendor = toplevelVendor, toplevelName = toplevelName, module = module, version = version, generatePath = generatePath)
+    }
+    val fileDirectory = s"$generatePath/$toplevelVendor/$toplevelName/$moduleDefinitionName/$version/"
+    val filePath = s"$fileDirectory$moduleDefinitionName.$version.xml"
     Files.createDirectories(Paths.get(fileDirectory))
-
-    val inputFilePath = s"./$toplevelName.v"
-    val sourcePath = Paths.get(inputFilePath)
+    val verilogFilePath = s"$generatePath/${module.definitionName}.v"
+    val sourcePath = Paths.get(verilogFilePath)
     val targetPath = Paths.get(fileDirectory + sourcePath.getFileName)
-    Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING)
-
+    if (Files.exists(sourcePath)) {
+      Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING)
+    }
     val documentNameGroup = getVLNV
     val model = getModel
     val fileSets = getFileSets
@@ -215,18 +227,21 @@ class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", topleve
     )
     val xml: NodeSeq = toXML[ComponentType](component, "ipxact:component", defaultScope)
 //    val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
-//    val formattedXml: String = prettyPrinter.format(xml.head)
-//    println(formattedXml)
+    //    val formattedXml: String = prettyPrinter.format(xml.head)
+    //    println(formattedXml)
     XML.save(filePath, xml.head, "UTF-8", xmlDecl = true, doctype = null)
   }
 }
 
 object IPXACT2022ComponentGenerator {
+
   def generate(toplevelVendor: String = "SpinalHDL",
                toplevelName: String,
                version: String = "1.0",
-               module: Component): Unit = {
-    val generator = new IPXACT2022ComponentGenerator(toplevelVendor, toplevelName, version, module)
+               module: Component,
+               generateDesign: Boolean = false,
+               generatePath: String): Unit = {
+    val generator = new IPXACT2022ComponentGenerator(toplevelVendor, toplevelName, version, module, generateDesign, generatePath = generatePath)
     generator.beginGenerate()
   }
 }

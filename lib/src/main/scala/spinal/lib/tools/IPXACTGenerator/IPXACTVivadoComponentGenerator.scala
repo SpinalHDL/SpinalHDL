@@ -22,7 +22,7 @@ import scala.language.implicitConversions
 import scala.util.control.Breaks._
 import scala.xml._
 
-class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", module: Component) {
+class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", module: Component, generatePath: String) {
   private val moduleDefinitionName = module.definitionName
   private var busStringSet: Set[String] = Set()
   private val moduleAnalyzer = new ModuleAnalyzer(module)
@@ -32,7 +32,7 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
   private val allPorts = inPorts ++ outPorts
   private val versionSuffix = version.split("\\.").mkString("_")
 
-  private def appendBusElement[T <: Data](bus: T): Unit = {
+  private def appendBusElement[T <: IMasterSlave with Data](bus: T): Unit = {
     busStringSet = busStringSet + bus.name
     busClockMap = busClockMap + (bus.name -> bus.flatten.head.clockDomain.clock.name)
   }
@@ -92,58 +92,19 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
             //                  }
             //                case _ =>
             //              }
-            case busAxi4: Axi4 =>
-              if (!busStringSet.contains(busAxi4.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceAxi4(busAxi4)
-                appendBusElement(busAxi4)
-                break
-              }
-            case axiLite4: AxiLite4 =>
-              if (!busStringSet.contains(axiLite4.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceAxiLite4(axiLite4)
-                appendBusElement(axiLite4)
-                break
-              }
-            case bram: BRAM =>
-              if (!busStringSet.contains(bram.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceBRAM(bram)
-                appendBusElement(bram)
-                break
-              }
-            case vga: Vga =>
-              if (!busStringSet.contains(vga.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceVga(vga)
-                appendBusElement(vga)
-                break
-              }
-            case uart: Uart =>
-              if (!busStringSet.contains(uart.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceUART(uart)
-                appendBusElement(uart)
-                break
-              }
-            case busApb3: Apb3 =>
-              if (!busStringSet.contains(busApb3.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceApb3(busApb3)
-                appendBusElement(busApb3)
-                break
-              }
-            case busApb4: Apb4 =>
-              if (!busStringSet.contains(busApb4.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceApb4(busApb4)
-                appendBusElement(busApb4)
-                break
-              }
-            case ahbLite3: AhbLite3 =>
-              if (!busStringSet.contains(ahbLite3.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceAhbLite3(ahbLite3)
-                appendBusElement(ahbLite3)
-                break
-              }
-            case avalonMM: AvalonMM =>
-              if (!busStringSet.contains(avalonMM.name)) {
-                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceAvalonMM(avalonMM)
-                appendBusElement(avalonMM)
+            case bus: IMasterSlave with Data
+              if bus.isInstanceOf[Axi4] ||
+                bus.isInstanceOf[AxiLite4] ||
+                bus.isInstanceOf[BRAM] ||
+                bus.isInstanceOf[Vga] ||
+                bus.isInstanceOf[Uart] ||
+                bus.isInstanceOf[Apb3] ||
+                bus.isInstanceOf[Apb4] ||
+                bus.isInstanceOf[AhbLite3] ||
+                bus.isInstanceOf[AvalonMM] =>
+              if (!busStringSet.contains(bus.name)) {
+                busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceMatchedBus(bus)
+                appendBusElement(bus)
                 break
               }
             case _ =>
@@ -343,12 +304,12 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
   }
 
   def beginGenerate(): Unit = {
-    val fileDirectory = s"./VivadoIpFolder/$toplevelName/"
+    val fileDirectory = s"$generatePath/GeneratedVivadoIpFolder/$toplevelName/"
     // 确保目录存在
     generateTcl(fileDirectory)
     val filePath = s"${fileDirectory}component.xml"
-    val verilogSourcePath = s"./$toplevelName.v"
-    val verilogTargetPath = fileDirectory + verilogSourcePath
+    val verilogSourcePath = s"$generatePath/$toplevelName.v"
+    val verilogTargetPath = s"$fileDirectory$toplevelName.v"
     Files.createDirectories(Paths.get(fileDirectory))
 
     Files.copy(
@@ -378,20 +339,20 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
         newElem.copy(child = newElem.child ++ vivadoExtensions)
       case _ => xml.head
     }
-//    val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
-//    val formattedXml: String = prettyPrinter.format(updatedXml.head)
-//    println(formattedXml)
+    //    val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
+    //    val formattedXml: String = prettyPrinter.format(updatedXml.head)
+    //    println(formattedXml)
     XML.save(filePath, updatedXml.head, "UTF-8", xmlDecl = true, doctype = null)
   }
 }
-
 
 object IPXACTVivadoComponentGenerator {
   def generate(toplevelVendor: String = "SpinalHDL",
                toplevelName: String,
                version: String = "1.0",
-               module: Component): Unit = {
-    val generator = new IPXACTVivadoComponentGenerator(toplevelVendor, toplevelName, version, module)
+               module: Component,
+               generatePath: String): Unit = {
+    val generator = new IPXACTVivadoComponentGenerator(toplevelVendor, toplevelName, version, module, generatePath: String)
     generator.beginGenerate()
   }
 }
