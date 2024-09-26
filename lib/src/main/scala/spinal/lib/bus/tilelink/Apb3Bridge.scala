@@ -19,7 +19,7 @@ object Apb3Bridge{
   def getSupported(proposed : M2sSupport) = {
     proposed intersect M2sTransfers(
       get = SizeRange(1, 4096),
-      putFull = SizeRange(proposed.dataWidth/8, 4096),
+      putFull = SizeRange(proposed.dataWidth/8, 4096)
     )
   }
 }

@@ -55,7 +55,7 @@ object VgaTimingsScala{
         colorStart = 34,
         colorEnd = 514,
         polarity = false
-      ),
+      )
     )
   }
 
