@@ -1496,14 +1496,12 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
         case _ =>
       }
       for (statement <- statements) {
-        val sources = seekRegDriver(statement.source.asInstanceOf[BaseType])
-
-        val target = statement.target.asInstanceOf[BaseType]
-        val regAttribute = new AttributeString("altera_attribute", "-name ADV_NETLIST_OPT_ALLOWED NEVER_ALLOW")
-
-        sources.foreach(_.addAttribute(regAttribute))
-        target.addAttribute(regAttribute)
-        cb.onCrossClockMaxDelay(pc.config, sources, target)
+        (statement.source, statement.target) match {
+          case (source: BaseType, target: BaseType) =>
+            val sources = seekRegDriver(source)
+            cb.onCrossClockMaxDelay(pc.config, sources, target)
+            case _ =>
+        }
       }
     }
   }

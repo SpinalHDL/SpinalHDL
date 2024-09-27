@@ -7,7 +7,7 @@ import scala.util.matching.Regex
 
 class PhaseDeviceSpecificsTester extends SpinalAnyFunSuite {
   test("Test ") {
-    val report = SpinalVerilog(new Component {
+    val report = SpinalVerilog(SpinalConfig(device=Device.ALTERA))(new Component {
       val io = new Bundle {
         val i = slave port Stream(Bits(8 bit))
         val o = master port Stream(Bits(8 bit))
