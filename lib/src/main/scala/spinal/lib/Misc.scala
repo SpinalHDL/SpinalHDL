@@ -188,11 +188,14 @@ class FlowCmdRsp[T <: Data, T2 <: Data](cmdType : HardType[T], rspType : HardTyp
  */
 object DataCc{
   def apply[T <: BaseType](to : T, from : T): Unit = {
-    ClockDomain.areSynchronous(to.clockDomain, from.clockDomain) match {
-      case true => to := from
+    apply(to, from, to.clockDomain, from.clockDomain)
+  }
+  def apply[T <: BaseType](from : T, fromCd : ClockDomain, toCd : ClockDomain) : T = {
+    ClockDomain.areSynchronous(toCd, fromCd) match {
+      case true => from
       case false => {
-        to := signalCache((from, to.clockDomain, "DataCc")) {
-          val cc = new StreamCCByToggle(to, from.clockDomain, to.clockDomain).setCompositeName(to, "cc_driver")
+        signalCache((from, fromCd, toCd, "DataCc")) {
+          val cc = new StreamCCByToggle(from, fromCd, toCd).setCompositeName(from, "cc_driver")
           cc.io.input.valid := True
           cc.io.input.payload := from
           cc.io.output.ready := True
@@ -200,5 +203,8 @@ object DataCc{
         }
       }
     }
+  }
+  def apply[T <: BaseType](to : T, from : T, toCd : ClockDomain, fromCd : ClockDomain): Unit = {
+    to := apply(from, fromCd, toCd)
   }
 }
