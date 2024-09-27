@@ -1423,7 +1423,7 @@ class PhaseDeviceDefault extends PhaseDeviceHandler{
     }
   }
   override def onCrossClockMaxDelay(config: SpinalConfig, sources: Iterable[BaseType], target: BaseType) = {
-    if(config.device.vendor == Device.ALTERA.vendor){
+    if(config.device.isVendorDefault || config.device.vendor == Device.ALTERA.vendor){
       val regAttribute = new AttributeString("altera_attribute", "-name ADV_NETLIST_OPT_ALLOWED NEVER_ALLOW")
 
         sources.foreach(_.addAttribute(regAttribute))
