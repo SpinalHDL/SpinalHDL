@@ -11,7 +11,7 @@ case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
   import tc.taskParameter._
   val io = new Bundle {
     val cmd = slave(Stream(TaskWrRdCmd(tc, dc)))
-    val bmbHalt = out Bool ()
+    val halt = out Bool ()
     val writeDataToken = slave(Stream(Event))
     val output = master(OpTasks(tc, dc))
   }
@@ -20,20 +20,20 @@ case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
 
   val banksRow = Mem(UInt(sdram.rowWidth bits), sdram.bankCount)
   val CCD =
-    (beatCount > 1) generate Timing(
+    (beatCount > 1) generate timing(
       io.output.read || io.output.write,
       beatCount - 2,
       log2Up(beatCount)
     )
-  val RFC = Timing(io.output.refresh, timeConfig.RFC, timingWidth + 3)
-  val RRD = Timing(io.output.active, timeConfig.RRD)
-  val WTR = Timing(io.output.write, timeConfig.WTR)
-  val RTW = Timing(io.output.read, timeConfig.RTW)
-  val RP = Timing(io.output.prechargeAll, timeConfig.RP + 1)
+  val RFC = timing(io.output.refresh, timeConfig.RFC, timingWidth + 3)
+  val RRD = timing(io.output.active, timeConfig.RRD)
+  val WTR = timing(io.output.write, timeConfig.WTR)
+  val RTW = timing(io.output.read, timeConfig.RTW)
+  val RP = timing(io.output.prechargeAll, timeConfig.RP + 1)
   val FAW = sdram.generation.FAW generate new Area { // Can be optimized
     val trigger = io.output.active
     val ptr = RegInit(U"00")
-    val slots = (0 to 3).map(i => Timing(ptr === i && trigger, timeConfig.FAW))
+    val slots = (0 to 3).map(i => timing(ptr === i && trigger, timeConfig.FAW))
     val busyNext = Vec(slots.map(_.busy)).read(ptr + 1)
     ptr := ptr + U(trigger)
   }
@@ -52,11 +52,11 @@ case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
       }
     }
 
-    val WR = Timing(gate(io.output.write), timeConfig.WR)
-    val RAS = Timing(gate(io.output.active), timeConfig.RAS)
-    val RP = Timing(gate(io.output.precharge), timeConfig.RP)
-    val RCD = Timing(gate(io.output.active), timeConfig.RCD)
-    val RTP = Timing(gate(io.output.read), timeConfig.RTP)
+    val WR = timing(gate(io.output.write), timeConfig.WR)
+    val RAS = timing(gate(io.output.active), timeConfig.RAS)
+    val RP = timing(gate(io.output.precharge), timeConfig.RP)
+    val RCD = timing(gate(io.output.active), timeConfig.RCD)
+    val RTP = timing(gate(io.output.read), timeConfig.RTP)
 
     val allowPrecharge = !WR.busy && !RAS.busy && !RTP.busy
     val allowActive = !RP.busy
@@ -81,7 +81,7 @@ case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
 
   readyForRefresh clearWhen (io.cmd.valid)
   val columnBurstMask = (sdram.columnSize - 1) - (io.cmd.stationLengthMax - 1 << columnBurstShift)
-  val stations = new Area {
+  val station = new Area {
     val valid = RegInit(False)
     val status = Reg(Status())
     val address = Reg(BusAddress(dc))
@@ -154,29 +154,29 @@ case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
 
   val refreshStream = Event
   val refresher = Refresher(tc, dc)
-  refresher.io.refresh.valid <> io.bmbHalt
+  refresher.io.refresh.valid <> io.halt
   refresher.io.refresh <> refreshStream
 
   val selectedAddress = io.output.address
   val loader = new Area {
-    taskConstructor.input.ready := !stations.valid
+    taskConstructor.input.ready := !station.valid
     val offset = taskConstructor.address.column(columnBurstShift, io.cmd.stationLengthWidth bits)
     val offsetLast = offset + taskConstructor.input.length
-    val canSpawn = !stations.valid
+    val canSpawn = !station.valid
     // Insert taskConstructor into one free station
     when(taskConstructor.input.valid && canSpawn) {
-      stations.valid := True
-      stations.status := taskConstructor.status
-      stations.address.column := taskConstructor.address.column & columnBurstMask
-      stations.address.assignUnassignedByName(taskConstructor.address)
-      stations.write := taskConstructor.input.write
-      stations.context := taskConstructor.input.context
-      stations.offset := offset
-      stations.offsetLast := offsetLast
+      station.valid := True
+      station.status := taskConstructor.status
+      station.address.column := taskConstructor.address.column & columnBurstMask
+      station.address.assignUnassignedByName(taskConstructor.address)
+      station.write := taskConstructor.input.write
+      station.context := taskConstructor.input.context
+      station.offset := offset
+      station.offsetLast := offsetLast
     }
   }
   val askRefresh = refreshStream.valid && readyForRefresh
-  when(stations.doSomething) {
+  when(station.doSomething) {
     banksRow.write(selectedAddress.bank, selectedAddress.row)
   }
   val fsm = new StateMachine {
@@ -194,7 +194,7 @@ case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
     refreshReady.onExit(refreshStream.ready := True)
   }
 
-  def Timing(loadValid: Bool, loadValue: UInt, timingWidth: Int = taskParameter.timingWidth) = new Area {
+  def timing(loadValid: Bool, loadValue: UInt, timingWidth: Int = taskParameter.timingWidth) = new Area {
     val value = Reg(UInt(timingWidth bits)) randBoot ()
     val increment = value =/= loadValue.resized
     val busy = CombInit(increment)

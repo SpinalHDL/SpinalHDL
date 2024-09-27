@@ -22,5 +22,5 @@ case class BmbBridge(bmbp: BmbParameter, tc: TaskConfig, dc: DfiConfig) extends 
   maketask.io.cmd << bmbAdapter.io.output.cmd
   maketask.io.writeDataToken <> bmbAdapter.io.output.writeDataToken
   maketask.io.output <> io.taskPort.tasks
-  maketask.io.bmbHalt <> bmbAdapter.io.bmbHalt
+  maketask.io.halt <> bmbAdapter.io.halt
 }
