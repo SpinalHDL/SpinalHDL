@@ -1226,7 +1226,7 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     walkComponents(c => PhasePullClockDomains.single(c))
-    if(pc.config.normalizeComponentClockDomainName) walkComponents{c =>
+    if(pc.config.normalizeComponentClockDomainName) walkComponentsExceptBlackbox{c =>
       val cd = c.clockDomain.get
       if(cd != null){
         if(cd.clock.component != c){
