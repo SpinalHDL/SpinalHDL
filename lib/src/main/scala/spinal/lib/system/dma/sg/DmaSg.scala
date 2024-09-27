@@ -1282,14 +1282,16 @@ object DmaSg{
 
         when(rsp.fire) {
           for ((channel, e) <- (channels, oh.asBools).zipped; if channel.cp.linkedListFromSg) when(e) {
+            when(!channel.ll.readDone) {
+              if (channel.cp.canRead) channel.push.m2b.address := rsp.srcAddress
+              if (channel.cp.canWrite) channel.pop.b2m.address := rsp.dstAddress
+              channel.bytes := rsp.bytes
+              channel.ll.controlNoCompletion := False
+              if (channel.cp.canOutput) channel.pop.b2s.last := rsp.last
+              channel.ll.gotDescriptorStall := rsp.stall
+            }
             channel.ll.readDone := True
             channel.ll.writeDone := True
-            if (channel.cp.canRead) channel.push.m2b.address := rsp.srcAddress
-            if (channel.cp.canWrite) channel.pop.b2m.address := rsp.dstAddress
-            channel.bytes := rsp.bytes
-            channel.ll.controlNoCompletion := False
-            if(channel.cp.canOutput) channel.pop.b2s.last := rsp.last
-            channel.ll.gotDescriptorStall := rsp.stall
           }
         }
       }

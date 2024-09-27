@@ -1233,7 +1233,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       (that * BigDecimal(BigInt(1) << shift)).toBigInt
     else
       (that / BigDecimal(BigInt(1) << -shift)).toBigInt
-    this.raw := value
+    this.raw := (if(value >= 0) value else (BigInt(1) << bitWidth) + value)
   }
 
   def init(that: BigDecimal): this.type = {
