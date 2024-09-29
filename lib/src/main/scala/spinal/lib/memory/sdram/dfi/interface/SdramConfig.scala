@@ -65,6 +65,7 @@ case class SdramConfig(
 
   import sdramtime._
 
+  def burstLength = generation.burstLength
   def wordAddressWidth = bankWidth + columnWidth + rowWidth
   def chipAddressWidth = Math.max(columnWidth, rowWidth)
   def bankCount = 1 << bankWidth
@@ -80,14 +81,22 @@ case class SdramConfig(
   def tRP = timeCycle(RP, cycleTime_ns)
   def tRFC = timeCycle(RFC, cycleTime_ns)
   def tWTR = math.max(timeCycle(WTR, cycleTime_ns), ddrWrLat + generation.burstLength / generation.dataRate + tWR)
-  def tWR = 5 + 1
+
   def tRTW = ddrRdLat + generation.burstLength / generation.dataRate + tWR
+
+  def tWR = 5 + 1
+
   def tRAS = timeCycle(RAS, cycleTime_ns)
   def tRTP = math.max(timeCycle(RTP, cycleTime_ns), generation.burstLength / generation.dataRate)
-  def timeCycle(time: Int, cycTime: Int) = (time + cycTime - 1) / cycTime
-  def cycleTime_ns = 1000 / ddrMHZ
+
   def tRRD = math.max(timeCycle(RRD, cycleTime_ns), generation.burstLength / generation.dataRate)
+
   def tFAW = timeCycle(FAW, cycleTime_ns)
+
+  def timeCycle(time: Int, cycTime: Int) = (time + cycTime - 1) / cycTime
+
+  def cycleTime_ns = 1000 / ddrMHZ
+
   def tPhyWrlat = ddrWrLat - 1
   def tRddataEn = ddrRdLat - 1
 }

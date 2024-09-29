@@ -276,10 +276,7 @@ class DDRSignalConfig(
 }
 case class DfiConfig(
     frequencyRatio: Int, // PHY:MC
-    transferPerBurst: Int,
-    addressWidth: Int,
     chipSelectNumber: Int,
-    bankWidth: Int,
     bgWidth: Int,
     cidWidth: Int,
     dataSlice: Int,
@@ -348,6 +345,7 @@ case class DfiConfig(
   val useCrcMode = signalConfig.useCrcMode & useAlertN
 
   val dataRate = sdram.generation.dataRate
+  val transferPerBurst = sdram.burstLength
   val phyIoWidth = dataRate * sdram.dataWidth
   val beatCount = transferPerBurst / frequencyRatio / dataRate
   val bytePerDq = sdram.dataWidth / 8
@@ -356,6 +354,8 @@ case class DfiConfig(
   val beatWidth = frequencyRatio * dataRate * sdram.dataWidth
   val bytePerBeat = beatWidth / 8
   val dataWidth = phyIoWidth
+  val addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth)
+  val bankWidth = sdram.bankWidth
 
   val controlWidth = 1
   val bankGroupWidth = bgWidth

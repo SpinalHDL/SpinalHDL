@@ -53,10 +53,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
         )
         val dc: DfiConfig = DfiConfig(
           frequencyRatio = 4,
-          transferPerBurst = 8,
-          addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
           chipSelectNumber = 2,
-          bankWidth = sdram.bankWidth,
           bgWidth = 0,
           cidWidth = 0,
           dataSlice = 1,

@@ -60,7 +60,7 @@ case class BmbDfiDdr3(dc: DfiConfig, dfiConfig: DfiConfig) extends Component {
   if (frequencyRatio == 1) {
     val ddr3Chips = for (i <- 0 until (chipSelectNumber)) yield new Area {
       val sel = i
-      val phy = DfiPhyDdr3(tc,dc)
+      val phy = DfiPhyDdr3(tc, dc)
     }
 
     ddr3Chips.map(_.phy.io.dfi.read.rd(0).rddataValid).orR <> clockArea.dfiController.io.dfi.read.rd(0).rddataValid
@@ -220,10 +220,7 @@ case class DfiDdr3() extends Component {
   )
   val dfiConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
-    transferPerBurst = 8,
-    addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
     chipSelectNumber = 1,
-    bankWidth = sdram.bankWidth,
     bgWidth = 0,
     cidWidth = 0,
     dataSlice = 1,
@@ -234,10 +231,7 @@ case class DfiDdr3() extends Component {
   )
   val phyConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
-    transferPerBurst = 8,
-    addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
     chipSelectNumber = 1,
-    bankWidth = sdram.bankWidth,
     bgWidth = 0,
     cidWidth = 0,
     dataSlice = 1,
@@ -329,10 +323,7 @@ object BmbDfiDdr3 extends App {
   )
   val dfiConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
-    transferPerBurst = 8,
-    addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
     chipSelectNumber = 1,
-    bankWidth = sdram.bankWidth,
     bgWidth = 0,
     cidWidth = 0,
     dataSlice = 1,
@@ -343,10 +334,7 @@ object BmbDfiDdr3 extends App {
   )
   val phyConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
-    transferPerBurst = 8,
-    addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
     chipSelectNumber = 1,
-    bankWidth = sdram.bankWidth,
     bgWidth = 0,
     cidWidth = 0,
     dataSlice = 1,
@@ -403,10 +391,7 @@ object BmbCmdOp extends App {
   )
   val dc: DfiConfig = DfiConfig(
     frequencyRatio = 1,
-    transferPerBurst = 8,
-    addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
     chipSelectNumber = 1,
-    bankWidth = sdram.bankWidth,
     bgWidth = 0,
     cidWidth = 0,
     dataSlice = 1,

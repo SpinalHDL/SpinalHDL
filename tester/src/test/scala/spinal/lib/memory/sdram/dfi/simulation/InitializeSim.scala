@@ -47,10 +47,7 @@ case class InitializeSim() extends Component {
   )
   val dc: DfiConfig = DfiConfig(
     frequencyRatio = 1,
-    transferPerBurst = 8,
-    addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
     chipSelectNumber = 1,
-    bankWidth = sdram.bankWidth,
     bgWidth = 0,
     cidWidth = 0,
     dataSlice = 1,
@@ -79,7 +76,7 @@ case class InitializeSim() extends Component {
     val initDone = out Bool ()
   }
   val tc = BmbAdapter.taskConfig(bmbp, dc, task)
-  val init = Initialize(tc,dc)
+  val init = Initialize(tc, dc)
   io.assignUnassignedByName(init.io)
 }
 

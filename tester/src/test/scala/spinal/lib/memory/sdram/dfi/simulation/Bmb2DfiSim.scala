@@ -49,10 +49,7 @@ case class Bmb2DfiSim(x: Int) extends Component {
   )
   val dc: DfiConfig = DfiConfig(
     frequencyRatio = 2,
-    transferPerBurst = 8,
-    addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth),
     chipSelectNumber = 2,
-    bankWidth = sdram.bankWidth,
     bgWidth = 0,
     cidWidth = 0,
     dataSlice = 1,
