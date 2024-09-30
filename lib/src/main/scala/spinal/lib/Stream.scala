@@ -1744,7 +1744,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   val outHitSignal = Bool()
 
   val pushArea = inputClock on new Area {
-    val hit = BufferCC(outHitSignal, False)
+    val hit = BufferCC(outHitSignal, False, inputAttributes = Seq(crossClockMaxDelay(1, useTargetClock = true)))
     val accept = Bool()
     val target = RegInit(False) toggleWhen(accept)
     val data = RegNextWhen(io.input.payload, accept)
@@ -1763,7 +1763,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   val popArea = finalOutputClock on new Area {
     val stream = cloneOf(io.input)
 
-    val target = BufferCC(pushArea.target, False)
+    val target = BufferCC(pushArea.target, False, inputAttributes = Seq(crossClockMaxDelay(1, useTargetClock = true)))
     val hit = RegNextWhen(target, stream.fire) init(False)
     outHitSignal := hit
 
