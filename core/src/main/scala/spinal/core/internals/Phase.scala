@@ -1463,6 +1463,21 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
         if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
           cb.onCrossClockBuffer(pc.config, bt)
         }
+        if(bt.hasTag(classOf[crossClockMaxDelay])){
+          bt.dlcForeach ( statement =>
+            statement match {
+              case statement: DataAssignmentStatement => {
+                (statement.source, statement.target) match {
+                  case (source: BaseType, target: BaseType) =>
+                    val sources = seekRegDriver(source)
+                    cb.onCrossClockMaxDelay(pc.config, sources, target)
+                  case _ =>
+                }
+              }
+              case _ =>
+            }
+          )
+        }
       }
       case _ =>
     }
@@ -1485,24 +1500,6 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
         s.foreachDrivingExpression(forExp)
       }
       buffer
-    }
-    pc.walkComponentsExceptBlackbox{component =>
-      var statements = ArrayBuffer[DataAssignmentStatement]()
-      component.dslBody.walkStatements {
-        case da: DataAssignmentStatement if da.target.isInstanceOf[SpinalTagReady] && da.target
-          .asInstanceOf[SpinalTagReady]
-          .hasTag(classOf[crossClockMaxDelay]) =>
-          statements += da
-        case _ =>
-      }
-      for (statement <- statements) {
-        (statement.source, statement.target) match {
-          case (source: BaseType, target: BaseType) =>
-            val sources = seekRegDriver(source)
-            cb.onCrossClockMaxDelay(pc.config, sources, target)
-            case _ =>
-        }
-      }
     }
   }
 }
