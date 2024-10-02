@@ -7,8 +7,8 @@ import spinal.lib.bus.tilelink.sim.{MasterAgent, MemoryAgent}
 import java.nio.ByteBuffer
 
 class SimCtrl(ctrl : MasterAgent, offset : Long) {
-  def getReg(address : Int) = ctrl.getInt(0, address)
-  def putReg(address : Int, data : Int) = ctrl.putInt(0, address, data)
+  def getReg(address : Int) = ctrl.getInt(0, address + offset)
+  def putReg(address : Int, data : Int) = ctrl.putInt(0, address + offset, data)
 
   def start(): Unit = {
     putReg(0x0, 1)
