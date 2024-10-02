@@ -611,7 +611,9 @@ object ScalaLocated {
 
   def short(scalaTrace: Throwable): String = {
     if(scalaTrace == null) return "???"
-    filterStackTrace(scalaTrace.getStackTrace)(0).toString
+    val trace = filterStackTrace(scalaTrace.getStackTrace)
+    if(trace.isEmpty) return "???"
+    trace(0).toString
   }
 
   def filter(that: String): Boolean = {
