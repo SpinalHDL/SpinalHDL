@@ -233,6 +233,7 @@ case class M2sParameters(addressWidth : Int,
   )
 
   def toNodeParameters() = NodeParameters(this)
+  def toBusParameter() = toNodeParameters().toBusParameter()
 }
 
 
