@@ -278,10 +278,10 @@ case class MacTxAligner(dataWidth : Int) extends Component{
 }
 
 
-case class MacTxHeader(dataWidth : Int) extends Component{
+case class MacTxHeader(dataWidth : Int, withError : Boolean = false) extends Component{
   val io = new Bundle{
-    val input = slave(Stream(Fragment(PhyTx(dataWidth))))
-    val output = master(Stream(Fragment(PhyTx(dataWidth))))
+    val input = slave(Stream(Fragment(PhyTx(dataWidth, withError))))
+    val output = master(Stream(Fragment(PhyTx(dataWidth, withError))))
   }
 
 //  val header = B"x555555555555555D"
@@ -289,6 +289,7 @@ case class MacTxHeader(dataWidth : Int) extends Component{
   val state = Reg(UInt(log2Up(headerWords + 1) bits)) init(0)
   io.output.valid := io.input.valid
   io.output.last := False
+  if(withError) io.output.error := io.input.error
   io.input.ready := False
   when(state === headerWords){
     io.input.ready := io.output.ready
@@ -307,13 +308,14 @@ case class MacTxHeader(dataWidth : Int) extends Component{
   }
 }
 
-case class MacTxPadder(dataWidth : Int) extends Component{
+case class MacTxPadder(dataWidth : Int, carrierExtension : Boolean = false) extends Component{
+  val ce = carrierExtension
   val io = new Bundle{
     val input = slave(Stream(Fragment(PhyTx(dataWidth))))
-    val output = master(Stream(Fragment(PhyTx(dataWidth))))
+    val output = master(Stream(Fragment(PhyTx(dataWidth, carrierExtension))))
   }
 
-  val byteCount = 64-4
+  val byteCount = ce.mux(512, 64-4)
   val cycles = (byteCount*8 + dataWidth-1)/dataWidth
   val counter = Reg(UInt(log2Up(cycles) bits)) init(0)
   val ok = counter === cycles-1
@@ -325,21 +327,30 @@ case class MacTxPadder(dataWidth : Int) extends Component{
   when(io.output.lastFire){
     counter := 0
   }
-  io.output << io.input.haltWhen(fill)
+  val halted = io.input.haltWhen(fill)
+  io.output.arbitrationFrom(halted)
+  io.output.data := io.input.data
+  io.output.last := io.input.last
+  if(ce) io.output.error := False
   when(!ok){
     io.output.last := False
   }
   when(fill){
     io.output.valid := True
-    io.output.data := 0
+    if(!ce) {
+      io.output.data := 0
+    } else {
+      io.output.data := 0x0F
+      io.output.error := True
+    }
     io.output.last := ok
   }
 }
 
-case class MacTxInterFrame(dataWidth : Int) extends Component{
+case class MacTxInterFrame(dataWidth : Int, withError : Boolean = false) extends Component{
   val io = new Bundle{
-    val input = slave(Stream(Fragment(PhyTx(dataWidth))))
-    val output = master(Flow(Fragment(PhyTx(dataWidth))))
+    val input = slave(Stream(Fragment(PhyTx(dataWidth, withError))))
+    val output = master(Flow(Fragment(PhyTx(dataWidth, withError))))
   }
 
   val byteCount = 12
