@@ -27,7 +27,7 @@ class SpinalSimDmaSg2Tester extends SpinalAnyFunSuite{
     val ctrlParam = p.getCtrlParam()
 
     val compiled = SimConfig.compile(
-      new DmaSgReadOnly(p, ctrlParam, ClockDomain.external("push"), ClockDomain.external("pop"))
+      new DmaSgReadOnlyComp(p, ctrlParam, ClockDomain.external("push"), ClockDomain.external("pop"))
     )
     compiled.doSim(seed = 42){dut =>
       SimTimeout(10000000*10)

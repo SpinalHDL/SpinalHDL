@@ -9,15 +9,10 @@ import spinal.tester.SpinalAnyFunSuite
 import scala.collection.mutable
 import scala.util.Random
 
-class SpinalSimMacTester extends SpinalAnyFunSuite{
-  def hexStringToFrame(str : String) = {
-    val spaceLess = str.replace(" ","")
-    Seq.tabulate[Int](spaceLess.size/2)(i => Integer.parseInt(spaceLess.substring(i*2, i*2+2), 16))
-  }
-  val frameCorrectA = hexStringToFrame("33330000 0002000A CD2C1594 86DD600B DD410008 3AFFFE80 00000000 0000FC3B 9A3CE0E2 3955FF02 00000000 00000000 00000000 00028500 CC860000 00005901 A328")
-  val frameCorrectB = hexStringToFrame("33330000 00FB000A CD2C1594 86DD600C 36DF0091 11FFFE80 00000000 0000FC3B 9A3CE0E2 3955FF02 00000000 00000000 00000000 00FB14E9 14E90091 C6390000 84000000 00020000 00000135 01350139 01330132 01650130 01650163 01330161 01390162 01330163 01660130 01300130 01300130 01300130 01300130 01300130 01300130 01380165 01660369 70360461 72706100 000C8001 00000078 000D0572 61777272 056C6F63 616C00C0 60001C80 01000000 780010FE 80000000 000000FC 3B9A3CE0 E239550D 5BA667")
+object SpinalSimMacTester{
+  def calcCrc32(that : Seq[Int]): Int = calcCrc32Byte(that.map(_.toByte))
 
-  def calcCrc32(that : Seq[Int]): Int ={
+  def calcCrc32Byte(that : Seq[Byte]): Int ={
     def getBit(id : Int) = (that(id/8) >> ((id % 8))) & 1
     var crc = -1
     for(bitId <- 0 until that.size*8){
@@ -27,6 +22,21 @@ class SpinalSimMacTester extends SpinalAnyFunSuite{
     val crcReversed = (0 until 32).map(i => ((crc >> i) & 1) << (31-i)).reduce(_ | _)
     ~crcReversed
   }
+
+  def dataToFrameByte(data : Seq[Byte])= {
+    val padded = data.map(_.toInt) ++ List.fill(Math.max(60 - data.size, 0))(0)
+    val crc = SpinalSimMacTester.calcCrc32(padded)
+    ((List.fill(7)(0x55) :+ 0xD5) ++ padded ++ List.tabulate(4)(i => ((crc >> i * 8) & 0xFF))).map(_.toByte)
+  }
+}
+
+class SpinalSimMacTester extends SpinalAnyFunSuite{
+  def hexStringToFrame(str : String) = {
+    val spaceLess = str.replace(" ","")
+    Seq.tabulate[Int](spaceLess.size/2)(i => Integer.parseInt(spaceLess.substring(i*2, i*2+2), 16))
+  }
+  val frameCorrectA = hexStringToFrame("33330000 0002000A CD2C1594 86DD600B DD410008 3AFFFE80 00000000 0000FC3B 9A3CE0E2 3955FF02 00000000 00000000 00000000 00028500 CC860000 00005901 A328")
+  val frameCorrectB = hexStringToFrame("33330000 00FB000A CD2C1594 86DD600C 36DF0091 11FFFE80 00000000 0000FC3B 9A3CE0E2 3955FF02 00000000 00000000 00000000 00FB14E9 14E90091 C6390000 84000000 00020000 00000135 01350139 01330132 01650130 01650163 01330161 01390162 01330163 01660130 01300130 01300130 01300130 01300130 01300130 01300130 01380165 01660369 70360461 72706100 000C8001 00000078 000D0572 61777272 056C6F63 616C00C0 60001C80 01000000 780010FE 80000000 000000FC 3B9A3CE0 E239550D 5BA667")
 
   test("Crc32"){
 //    println(frameCorrectA.map(v => f"0x$v%02X").mkString(","))
@@ -259,7 +269,7 @@ class SpinalSimMacTester extends SpinalAnyFunSuite{
 
           val padded = that ++ List.fill(Math.max(60 - that.size, 0))(0)
           //        println(padded.map(v => f"$v%02X").mkString(""))
-          val crc = calcCrc32(padded)
+          val crc = SpinalSimMacTester.calcCrc32(padded)
           for (byte <- (List.fill(7)(0x55) :+ 0xD5) ++ padded ++ List.tabulate(4)(i => (crc >> i * 8) & 0xFF)) {
             popQueue += byte & 0xF
             popQueue += (byte >> 4) & 0xF
@@ -330,7 +340,7 @@ class SpinalSimMacTester extends SpinalAnyFunSuite{
         drive(frameCorrectB)
         for (i <- 0 until 1000) {
           val frame = Seq.fill(Random.nextInt(256 + 1) + 1)(Random.nextInt(256))
-          val crc = calcCrc32(frame) ^ (if(Random.nextFloat() < 0.8) 0x0 else Random.nextInt())
+          val crc = SpinalSimMacTester.calcCrc32(frame) ^ (if(Random.nextFloat() < 0.8) 0x0 else Random.nextInt())
           drive(frame ++ List.tabulate(4)(i => (crc >> i * 8) & 0xFF))
         }
         waitUntil(phyRxQueue.isEmpty)

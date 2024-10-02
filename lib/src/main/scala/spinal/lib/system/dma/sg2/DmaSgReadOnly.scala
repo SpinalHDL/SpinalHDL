@@ -3,7 +3,7 @@ package spinal.lib.system.dma.sg2
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bsb.{Bsb, BsbParameter}
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc.{BusSlaveFactory, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.fsm._
 import spinal.lib.misc.pipeline.StagePipeline
@@ -27,11 +27,11 @@ object DmaSgReadOnly{
   val fromAt = 16
 }
 
-case class DmaSgReadOnlyParam(addressWidth : Int,
-                              dataWidth : Int,
-                              blockSize : Int,
-                              bufferBytes : Int,
-                              pendingSlots : Int,
+case class DmaSgReadOnlyParam(var addressWidth : Int,
+                              var dataWidth : Int,
+                              var blockSize : Int,
+                              var bufferBytes : Int,
+                              var pendingSlots : Int,
                               var descriptorQueueSize : Int = 4,
                               var descriptorBytes : Int = 32
                              ){
@@ -91,10 +91,36 @@ case class PopDescriptor(p : DmaSgReadOnlyParam) extends Bundle{
   val last = Reg(Bool())
 }
 
+class DmaSgReadOnlyComp(val p: DmaSgReadOnlyParam,
+                        val ctrlParam: BusParameter,
+                        val pushCd: ClockDomain,
+                        val popCd: ClockDomain) extends Component {
+  val io = new Bundle{
+    val ctrl = slave(Bus(ctrlParam))
+    val mem = master(Bus(p.getM2sParameter(DmaSgReadOnlyComp.this)))
+    val bsb = master(Bsb(p.getBsbParameter()))
+    val interrupt = out Bool()
+  }
+
+  val ctrl = pushCd(new SlaveFactory(io.ctrl, false))
+
+  val logic = new DmaSgReadOnly(
+    p = p,
+    bsb = io.bsb,
+    mem = io.mem,
+    ctrl = ctrl,
+    pushCd = pushCd,
+    popCd = popCd,
+  )
+  io.interrupt := logic.onCtrl.irq.interrupt
+}
+
 class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
-                    val ctrlParam : BusParameter,
+                    val bsb : Bsb,
+                    val mem : Bus,
+                    val ctrl : BusSlaveFactory,
                     val pushCd : ClockDomain,
-                    val popCd : ClockDomain) extends Component {
+                    val popCd : ClockDomain) extends Area {
   import DmaSgReadOnly._
   assert(isPow2(p.descriptorBytes))
   assert(p.blockSize >= p.descriptorBytes)
@@ -103,15 +129,8 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
   val beatRange = log2Up(p.blockSize)-1 downto log2Up(p.dataBytes)
   val dataRange = log2Up(p.dataBytes)-1 downto 0
 
-  val io = new Bundle{
-    val ctrl = slave(Bus(ctrlParam))
-    val mem = master(Bus(p.getM2sParameter(DmaSgReadOnly.this)))
-    val bsb = master(Bsb(p.getBsbParameter()))
-    val interrupt = out Bool()
-  }
-
   assert(isPow2(p.bufferWords))
-  val ram = Mem.fill(p.bufferWords)(io.mem.p.data)
+  val ram = Mem.fill(p.bufferWords)(mem.p.data)
   val ptrWidth = log2Up(p.blocks) + 1
   val PTR = HardType(UInt(ptrWidth bits))
 
@@ -169,21 +188,21 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
       }
     )
 
-    io.mem.a.valid := False
-    io.mem.a.payload.assignDontCare()
-    io.mem.d.ready := True
+    mem.a.valid := False
+    mem.a.payload.assignDontCare()
+    mem.d.ready := True
 
     val onD = new Area {
       val toBuffer = RegInit(False)
 
-      val reader = pendings.slots.reader(io.mem.d.source)
+      val reader = pendings.slots.reader(mem.d.source)
       onRam.write.valid := False
-      onRam.write.address := reader(_.target).resize(log2Up(p.blocks)) @@ io.mem.d.beatCounter()
-      onRam.write.data := io.mem.d.data
-      when(toBuffer && io.mem.d.fire) {
+      onRam.write.address := reader(_.target).resize(log2Up(p.blocks)) @@ mem.d.beatCounter()
+      onRam.write.data := mem.d.data
+      when(toBuffer && mem.d.fire) {
         onRam.write.valid := True
-        when(io.mem.d.isLast()) {
-          pendings.free(io.mem.d.source)
+        when(mem.d.isLast()) {
+          pendings.free(mem.d.source)
         }
       }
     }
@@ -203,24 +222,24 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
 
       NEXT_CMD.whenIsActive {
         descriptor.error := False
-        io.mem.a.valid := True
-        io.mem.a.opcode := Opcode.A.GET
-        io.mem.a.param := 0
-        io.mem.a.source := 0
-        io.mem.a.address := descriptor.next
-        io.mem.a.size := log2Up(p.descriptorBytes)
-        when(io.mem.a.ready) {
+        mem.a.valid := True
+        mem.a.opcode := Opcode.A.GET
+        mem.a.param := 0
+        mem.a.source := 0
+        mem.a.address := descriptor.next
+        mem.a.size := log2Up(p.descriptorBytes)
+        when(mem.a.ready) {
           goto(NEXT_RSP)
         }
         when(stop){
-          io.mem.a.valid := False
+          mem.a.valid := False
           stop := False
           goto(IDLE)
         }
       }
 
 
-      def beatHit(offset: Int) = offset / p.dataBytes === io.mem.d.beatCounter()
+      def beatHit(offset: Int) = offset / p.dataBytes === mem.d.beatCounter()
 
       def map[T <: Data](target: T, byte: Int, bit: Int) {
         val targetWidth = widthOf(target)
@@ -228,8 +247,8 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
         var sourcePtr = byte * 8 + bit
         while (targetPtr != targetWidth) {
           val w = Math.min(targetWidth - targetPtr, p.dataWidth - sourcePtr % p.dataWidth)
-          when(sourcePtr / p.dataWidth === io.mem.d.beatCounter()) {
-            target.assignFromBits(io.mem.d.data(sourcePtr % p.dataWidth, w bits), targetPtr, w bits)
+          when(sourcePtr / p.dataWidth === mem.d.beatCounter()) {
+            target.assignFromBits(mem.d.data(sourcePtr % p.dataWidth, w bits), targetPtr, w bits)
           }
           targetPtr += w
           sourcePtr += w
@@ -237,14 +256,14 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
       }
 
       NEXT_RSP.whenIsActive {
-        when(io.mem.d.fire) {
+        when(mem.d.fire) {
           map(descriptor.next, nextAt, 0)
           map(descriptor.from, fromAt, 0)
           map(descriptor.control.bytes, controlAt, 0)
           map(descriptor.control.last, controlAt, controlLastAt)
           map(descriptor.status.completed, statusAt, statusCompletedAt)
-          descriptor.error := descriptor.error || io.mem.d.denied || io.mem.d.corrupt
-          when(io.mem.d.isLast()) {
+          descriptor.error := descriptor.error || mem.d.denied || mem.d.corrupt
+          when(mem.d.isLast()) {
             descriptor.firstBlock := True
             descriptor.toPop.ready := False
             descriptor.toPop.done := False
@@ -266,14 +285,14 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
       }
 
       READ_CMD.whenIsActive {
-        io.mem.a.opcode := Opcode.A.GET
-        io.mem.a.param := 0
-        io.mem.a.source := pendings.allocate.id
-        io.mem.a.address := descriptor.from.clearedLow(log2Up(p.blockSize)) + (descriptor.blockCounter << log2Up(p.blockSize))
-        io.mem.a.size := log2Up(p.blockSize)
+        mem.a.opcode := Opcode.A.GET
+        mem.a.param := 0
+        mem.a.source := pendings.allocate.id
+        mem.a.address := descriptor.from.clearedLow(log2Up(p.blockSize)) + (descriptor.blockCounter << log2Up(p.blockSize))
+        mem.a.size := log2Up(p.blockSize)
         when(!onRam.full && !pendings.allocate.full) {
-          io.mem.a.valid := True
-          when(io.mem.a.ready) {
+          mem.a.valid := True
+          when(mem.a.ready) {
             descriptor.blockCounter := descriptor.blockCounter + 1
             descriptor.firstBlock := False
             pendings.allocate { s =>
@@ -293,23 +312,23 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
         when(pendings.isEmpty) {
           descriptor.toPop.ready := True
           onD.toBuffer := False
-          io.mem.a.valid := True
-          io.mem.a.opcode := Opcode.A.PUT_FULL_DATA
-          io.mem.a.param := 0
-          io.mem.a.source := 0
-          io.mem.a.address := descriptor.self
-          io.mem.a.size := 2
-          io.mem.a.data := 0
-          io.mem.a.data(statusCompletedAt) := True
-          io.mem.a.mask := 0xF
-          when(io.mem.a.ready) {
+          mem.a.valid := True
+          mem.a.opcode := Opcode.A.PUT_FULL_DATA
+          mem.a.param := 0
+          mem.a.source := 0
+          mem.a.address := descriptor.self
+          mem.a.size := 2
+          mem.a.data := 0
+          mem.a.data(statusCompletedAt) := True
+          mem.a.mask := 0xF
+          when(mem.a.ready) {
             goto(STATUS_RSP)
           }
         }
       }
 
       STATUS_RSP.whenIsActive {
-        when(io.mem.d.fire) {
+        when(mem.d.fire) {
           goto(FINALIZE)
         }
       }
@@ -373,25 +392,24 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
     val onReadRsp = new pip.Area(1){
       val DATA = insert(onRam.read.rsp)
     }
-
     val onIo = new pip.Area(1){
-      arbitrateTo(io.bsb)
-      io.bsb.data := onReadRsp.DATA
-      io.bsb.mask := onInsert.MASK
-      io.bsb.last := onInsert.LAST
+      arbitrateTo(bsb)
+      bsb.data := onReadRsp.DATA
+      bsb.mask := onInsert.MASK
+      bsb.last := onInsert.LAST
     }
   }
   popCd(onPop.pip.build())
 
   val onCtrl = pushCd on new Area{
-    val bus = new SlaveFactory(io.ctrl, false)
+    def bus = ctrl
     bus.setOnSet(onPush.start, 0, 0)
     bus.read(onPush.fsm.isBusy,0, 0)
     bus.readAndSetOnSet(onPush.stop, 0, 1)
 
     val irq = new Area{
       val idleEnable = bus.createWriteOnly(Bool(), 4, 0) init(False)
-      io.interrupt := idleEnable && !onPush.fsm.isBusy
+      val interrupt = idleEnable && !onPush.fsm.isBusy
     }
 
     bus.writeMultiWord(onPush.descriptor.next, 0x10)
