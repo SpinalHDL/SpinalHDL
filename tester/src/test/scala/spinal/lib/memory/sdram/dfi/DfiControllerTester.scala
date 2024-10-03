@@ -67,7 +67,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           dataWidth = dc.beatWidth,
           sourceWidth = 1,
           contextWidth = 2,
-          lengthWidth = 6,
+          lengthWidth = 7,
           alignment = BmbParameter.BurstAlignement.WORD
         )
         val dut = DfiController(bmbp, tp, dc)
@@ -126,12 +126,10 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           io.bmb.cmd.last #= false
           io.bmb.cmd.valid #= false
           io.bmb.cmd.opcode #= 1
-          clockDomain.waitSamplingWhere(dut.io.dfi.read.rden(0).toBoolean)
-
-          io.bmb.rsp.ready #= true
         }
-
         def readdata(beatCount: Int): Unit = {
+          clockDomain.waitSamplingWhere(dut.io.dfi.read.rden(0).toBoolean)
+          io.bmb.rsp.ready #= true
           for (i <- 0 until beatCount) {
             dut.io.dfi.read.rd.foreach(_.rddataValid #= true)
             dut.io.dfi.read.rd.foreach(_.rddata.randomize())
@@ -225,15 +223,16 @@ class DfiControllerTester extends SpinalAnyFunSuite {
 
           read(beatCount = bmbDatas.size)
           clockDomain.waitSampling(
-            2
           ) // The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + dc.beatCount-1)/dc.beatCount + 1)
-          readdata(bmbDatas.size)
-          clockDomain.waitSampling(5)
+          for (i <- 0 until (1 << bmbp.access.lengthWidth) / task.bytePerTaskMax) {
+            readdata(task.bytePerTaskMax / dc.bytePerBeat)
+          }
           read(beatCount = bmbDatas.size)
           clockDomain.waitSampling()
-          readdata(bmbDatas.size)
+          for (i <- 0 until (1 << bmbp.access.lengthWidth) / task.bytePerTaskMax) {
+            readdata(task.bytePerTaskMax / dc.bytePerBeat)
+          }
           clockDomain.waitSampling(5)
-
           write(array = bmbDatas)
           clockDomain.waitSampling(5)
           write(array = bmbDatas)

@@ -100,7 +100,7 @@ case class BmbAdapter(bmbp: BmbParameter, tc: TaskConfig, dc: DfiConfig) extends
   val writeDataToken = UInt(tc.writeTokenInterfaceWidth bits)
   val syncBuffer = new Area {
     cmdAddress << inputLogic.converter.io.output.cmd.queueLowLatency(taskParameter.cmdBufferSize, 1)
-    inputLogic.converter.io.output.rsp << io.output.rsp.queueLowLatency(taskParameter.rspBufferSize, 1)
+    inputLogic.converter.io.output.rsp << io.output.rsp.queueLowLatency(taskParameter.rspBufferSize)
 
     if (bmbp.access.canWrite) {
       io.output.writeData << inputLogic.converter.io.output.writeData.queueLowLatency(taskParameter.dataBufferSize, 1)

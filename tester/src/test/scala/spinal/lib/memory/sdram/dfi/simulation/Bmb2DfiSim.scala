@@ -63,7 +63,7 @@ case class Bmb2DfiSim(x: Int) extends Component {
     dataWidth = dc.beatWidth,
     sourceWidth = 1,
     contextWidth = 2,
-    lengthWidth = 6,
+    lengthWidth = 7,
     alignment = BmbParameter.BurstAlignement.WORD
   )
   val io = new Bundle {
@@ -196,12 +196,11 @@ object Bmb2DfiSim {
             io.bmb.cmd.last #= false
             io.bmb.cmd.valid #= false
             io.bmb.cmd.opcode #= 1
-            clockDomain.waitSamplingWhere(dut.io.dfi.read.rden(0).toBoolean)
-
-            io.bmb.rsp.ready #= true
             println("read command")
           }
           def readdata(beatCount: Int): Unit = {
+            clockDomain.waitSamplingWhere(dut.io.dfi.read.rden(0).toBoolean)
+            io.bmb.rsp.ready #= true
             for (i <- 0 until beatCount) {
               dut.io.dfi.read.rd.foreach(_.rddataValid #= true)
               dut.io.dfi.read.rd.foreach(_.rddata.randomize())
@@ -217,7 +216,6 @@ object Bmb2DfiSim {
             }
             dut.io.dfi.read.rd.foreach(_.rddataValid #= false)
             clockDomain.waitSamplingWhere(dut.bmb2dfi.bmbBridge.bmbAdapter.io.output.rsp.payload.last.toBoolean)
-            clockDomain.waitSampling()
             io.bmb.rsp.ready #= false
           }
 
@@ -246,15 +244,18 @@ object Bmb2DfiSim {
           clockDomain.waitSampling(30)
           read(beatCount = bmbDatas.size)
           clockDomain.waitSampling(
-            2
           ) // The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + dc.beatCount-1)/dc.beatCount + 1)
-          readdata(bmbDatas.size)
+          for (i <- 0 until (1 << bmbp.access.lengthWidth) / tp.bytePerTaskMax) {
+            readdata(tp.bytePerTaskMax / dc.bytePerBeat)
+          }
           println("reading is OK")
 
-          clockDomain.waitSampling(5)
+          clockDomain.waitSampling(20)
           read(beatCount = bmbDatas.size)
           clockDomain.waitSampling()
-          readdata(bmbDatas.size)
+          for (i <- 0 until (1 << bmbp.access.lengthWidth) / tp.bytePerTaskMax) {
+            readdata(tp.bytePerTaskMax / dc.bytePerBeat)
+          }
           println("reading is OK")
 
           clockDomain.waitSampling(5)
