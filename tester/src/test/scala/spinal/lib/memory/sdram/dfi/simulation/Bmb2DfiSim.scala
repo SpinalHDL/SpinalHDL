@@ -166,9 +166,14 @@ object Bmb2DfiSim {
                 clockDomain.waitSampling()
               }
               io.bmb.cmd.valid #= true
-              io.bmb.cmd.data.randomize()
               writeQueue.enqueue(io.bmb.cmd.data.toBigInt)
-              if (arr == array.last) io.bmb.cmd.last #= true
+              if (arr == array.last) {
+                io.bmb.cmd.valid #= false
+                clockDomain.waitSampling(5)
+                io.bmb.cmd.valid #= true
+                io.bmb.cmd.last #= true
+                io.bmb.cmd.data.randomize()
+              } else io.bmb.cmd.data.randomize()
               clockDomain.waitSampling()
             }
             io.bmb.cmd.last #= false
