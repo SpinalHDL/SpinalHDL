@@ -190,16 +190,16 @@ object DataCc{
   def apply[T <: BaseType](to : T, from : T): Unit = {
     apply(to, from, to.clockDomain, from.clockDomain)
   }
-  def apply[T <: BaseType](from : T, fromCd : ClockDomain, toCd : ClockDomain) : T = {
+  def apply[T <: BaseType](from : T, fromCd : ClockDomain, toCd : ClockDomain, initValue : => T = null.asInstanceOf[T]) : T = {
     ClockDomain.areSynchronous(toCd, fromCd) match {
       case true => from
       case false => {
         signalCache((from, fromCd, toCd, "DataCc")) {
-          val cc = new StreamCCByToggle(from, fromCd, toCd).setCompositeName(from, "cc_driver")
+          val cc = new StreamCCByToggle(from, fromCd, toCd, initPayload = initValue).setCompositeName(from, "cc_driver")
           cc.io.input.valid := True
           cc.io.input.payload := from
           cc.io.output.ready := True
-          cc.io.output.payload
+          CombInit(cc.io.output.payload)
         }
       }
     }
