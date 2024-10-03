@@ -376,11 +376,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def stage() : Stream[T] = this.m2sPipe()
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false, keep : Boolean = false): Stream[T] = new Composite(this) {
+  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false, keep : Boolean = false, initPayload : => T = null.asInstanceOf[T]): Stream[T] = new Composite(this) {
     val m2sPipe = Stream(payloadType)
 
     val rValid = RegNextWhen(self.valid, self.ready) init(False)
-    val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready)
+    val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready) initNull(initPayload)
     if (keep) KeepAttribute.apply(rValid, rData)
 
     if (crossClockData) {
@@ -1756,7 +1756,8 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
                                   outputClock: ClockDomain, 
                                   withOutputBuffer : Boolean = true,
                                   withInputWait : Boolean = false,
-                                  withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get) extends Component {
+                                  withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
+                                  initPayload : => T = null.asInstanceOf[T]) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType())
     val output = master Stream (dataType())
@@ -1791,7 +1792,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
     stream.valid := (target =/= hit)
     stream.payload := pushArea.data
 
-    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true, crossClockData = true) else stream)
+    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true, crossClockData = true, initPayload = initPayload) else stream)
   }
 }
 
