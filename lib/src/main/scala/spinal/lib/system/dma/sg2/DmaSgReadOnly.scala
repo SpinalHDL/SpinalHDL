@@ -32,13 +32,11 @@ case class DmaSgReadOnlyParam(var addressWidth : Int,
                               var blockSize : Int,
                               var bufferBytes : Int,
                               var pendingSlots : Int,
-                              var descriptorQueueSize : Int = 4,
                               var descriptorBytes : Int = 32
                              ){
   def dataBytes = dataWidth/8
   def transferBytesWidth = 27
   def bufferWords = bufferBytes/dataBytes
-  def blocks = bufferBytes / blockSize
 
 
   def getM2sSupport() = M2sSupport(
@@ -130,8 +128,13 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
   val dataRange = log2Up(p.dataBytes)-1 downto 0
 
   assert(isPow2(p.bufferWords))
-  val ram = Mem.fill(p.bufferWords)(mem.p.data)
-  val ptrWidth = log2Up(p.blocks) + 1
+  case class Word() extends Bundle{
+    val data = Bits(p.dataWidth bits)
+    val mask = Bits(p.dataBytes bits)
+    val last = Bool()
+  }
+  val ram = Mem.fill(p.bufferWords)(Word())
+  val ptrWidth = log2Up(p.bufferWords) + 1
   val PTR = HardType(UInt(ptrWidth bits))
 
   val cc = new Area{
@@ -151,15 +154,15 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
         val completed = RegInit(False)
       }
 
-      //    val fromPlusOne = KeepAttribute(from.clearedLow(log2Up(p.blockSize)) + p.blockSize)
       val error = RegInit(False)
       val firstBlock = Reg(Bool())
-      val fromLast = from(burstRange) +^ control.bytes
-      val blocks = RegNext(fromLast >> log2Up(p.blockSize))
+      val fromLast = from(burstRange) +^ control.bytes - 1
       val headOffset = from(burstRange)
       val lastOffset = RegNext(fromLast(burstRange))
+      val blocks = RegNext(fromLast >> log2Up(p.blockSize))
       val blockCounter = Reg(cloneOf(blocks))
       val lastBlock = blockCounter === blocks
+      val blockBeats = lastOffset(beatRange).orMask(!lastBlock) - headOffset(beatRange).andMask(firstBlock) +^ 1
 
       val toPop = new Area {
         val ready, done = RegInit(False)
@@ -170,14 +173,15 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
         stream.endAt := lastOffset
         stream.blocks := blocks
         stream.last := control.last
+        stream.ready := True
       }
     }
 
     val onRam = new Area {
       val write = ram.writePort()
       val cmdPtr = Reg(PTR) init (0)
-      val popPtr = DataCc(cc.popPtr, popCd, pushCd)
-      val full = (cmdPtr ^ popPtr ^ (p.blocks)) === 0
+      val popPtr = DataCc(cc.popPtr, popCd, pushCd, initValue = U(0, ptrWidth bits))
+      val full = cmdPtr - popPtr > p.bufferWords - descriptor.blockBeats
     }
 
 
@@ -185,8 +189,20 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
       new Slot {
         val target = Reg(PTR)
         val first, last = Reg(Bool())
+        val ptr = Reg(PTR())
       }
     )
+
+    val pushPtr = new Area{
+      val counter = Reg(PTR) init(0)
+      val fromD = RegInit(False)
+      val force = False
+
+      when(onRam.cmdPtr =/= counter && pendings.slots.map(s => s.valid && s.ptr === counter).norR){  //force || !fromD &&
+        counter := counter + 1
+      }
+      cc.pushPtr := counter
+    }
 
     mem.a.valid := False
     mem.a.payload.assignDontCare()
@@ -196,13 +212,43 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
       val toBuffer = RegInit(False)
 
       val reader = pendings.slots.reader(mem.d.source)
+      val blockFirst = reader(_.first)
+      val blockLast = reader(_.last)
+
+      val wordFirst = mem.d.beatCounter() === descriptor.headOffset(beatRange) && blockFirst
+      val wordLast = mem.d.beatCounter() === descriptor.lastOffset(beatRange) && blockLast
+      val hit0 =  mem.d.beatCounter() >= descriptor.headOffset(beatRange) || !blockFirst
+      val hit1 =  mem.d.beatCounter() <= descriptor.lastOffset(beatRange) || !blockLast
+      val hit = hit0 && hit1
+
+      val maskStart = (0 until p.dataBytes).map(byteId => byteId >= descriptor.headOffset(dataRange)).asBits
+      val maskEnd = (0 until p.dataBytes).map(byteId => byteId <= descriptor.lastOffset(dataRange)).asBits
+      val mask = maskStart.orMask(!(wordFirst)) & maskEnd.orMask(!(wordLast))
+
+      val counter = Reg(UInt(beatRange.size bits)) init(0)
+      val ptr = reader(_.ptr) + counter
       onRam.write.valid := False
-      onRam.write.address := reader(_.target).resize(log2Up(p.blocks)) @@ mem.d.beatCounter()
-      onRam.write.data := mem.d.data
+      onRam.write.address := ptr.resized
+      onRam.write.data.data := mem.d.data
+      onRam.write.data.mask := mask
+      onRam.write.data.last := wordLast && descriptor.control.last
+
+      val pushHit = pushPtr.fromD || ptr === pushPtr.counter
       when(toBuffer && mem.d.fire) {
-        onRam.write.valid := True
+        when(pushHit) {
+          pushPtr.fromD := True
+        }
+        when(hit) {
+          onRam.write.valid := True
+          counter := counter + 1
+          when(pushHit) {
+            pushPtr.force := True
+          }
+        }
         when(mem.d.isLast()) {
           pendings.free(mem.d.source)
+          counter := 0
+          pushPtr.fromD := False
         }
       }
     }
@@ -265,7 +311,6 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
           descriptor.error := descriptor.error || mem.d.denied || mem.d.corrupt
           when(mem.d.isLast()) {
             descriptor.firstBlock := True
-            descriptor.toPop.ready := False
             descriptor.toPop.done := False
             descriptor.blockCounter := 0
             goto(DESCRIPTOR_CALC)
@@ -279,6 +324,7 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
         } elsewhen (descriptor.status.completed) {
           goto(IDLE) //TODO
         } otherwise {
+          descriptor.toPop.ready := True
           onD.toBuffer := True
           goto(READ_CMD)
         }
@@ -299,8 +345,9 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
               s.target := onRam.cmdPtr
               s.first := descriptor.firstBlock
               s.last := descriptor.lastBlock
+              s.ptr := onRam.cmdPtr
             }
-            onRam.cmdPtr := onRam.cmdPtr + 1
+            onRam.cmdPtr := onRam.cmdPtr + descriptor.blockBeats
             when(descriptor.lastBlock) {
               goto(STATUS_CMD)
             }
@@ -310,7 +357,6 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
 
       STATUS_CMD.whenIsActive {
         when(pendings.isEmpty) {
-          descriptor.toPop.ready := True
           onD.toBuffer := False
           mem.a.valid := True
           mem.a.opcode := Opcode.A.PUT_FULL_DATA
@@ -341,62 +387,36 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
     }
   }
 
-
   val onPop = popCd on new Area{
-    val descriptorCc = onPush.descriptor.toPop.stream.queue(p.descriptorQueueSize, pushCd, popCd)
-    val descriptor = descriptorCc.stage()
+    val pushPtr = DataCc(cc.pushPtr, pushCd, popCd, initValue=cc.pushPtr.getZero)
+    val popPtr = Reg(PTR()) init(0)
+    val empty = popPtr === pushPtr
+    cc.popPtr := popPtr
 
     val pip = new StagePipeline()
     val onRam = new Area {
       val read = ram.readSyncPort(clockCrossing = true)
-      val popPtr = Reg(PTR()) init(0)
-      cc.popPtr := popPtr
     }
 
     val onInsert = new pip.Area(0){
-      valid := descriptor.valid
-      val blockCounter = Reg(descriptor.blocks) init(0)
-      val blockFirst = RegInit(True)
-      val blockLast = blockCounter === descriptor.blocks
-
-      val wordCounter = Reg(UInt(log2Up(p.blockSize/p.dataBytes) bits)) init(0)
-      val wordFirst = wordCounter === 0
-      val wordId = wordCounter + descriptor.startAt(beatRange).andMask(blockFirst)
-      val wordLast = wordId === descriptor.endAt(beatRange).orMask(!blockLast)
-      val maskStart = (0 until p.dataBytes).map(byteId => byteId >= descriptor.startAt(dataRange)).asBits
-      val maskEnd = (0 until p.dataBytes).map(byteId => byteId <= descriptor.endAt(dataRange)).asBits
-      val MASK = insert(maskStart.orMask(!(blockFirst && wordFirst)) & maskEnd.orMask(!(blockLast && wordLast)))
-      val LAST = insert(descriptor.last && wordLast && blockLast)
-
+      valid := !empty
       onRam.read.cmd.valid := False
-      onRam.read.cmd.payload := onRam.popPtr.resize(log2Up(p.blocks)) @@ wordId
-
-      descriptor.ready := False
-      when(isValid && isReady){
+      onRam.read.cmd.payload := popPtr.resized
+      when(isFiring){
         onRam.read.cmd.valid := True
-        wordCounter := wordCounter + 1
-        when(wordLast){
-          wordCounter := 0
-          blockFirst := False
-          onRam.popPtr := onRam.popPtr + 1
-          blockCounter := blockCounter + 1
-          when(blockLast){
-            blockCounter := 0
-            descriptor.ready := True
-            blockFirst := True
-          }
-        }
+        popPtr := popPtr + 1
       }
     }
 
     val onReadRsp = new pip.Area(1){
-      val DATA = insert(onRam.read.rsp)
+      val WORD = insert(onRam.read.rsp)
     }
+
     val onIo = new pip.Area(1){
       arbitrateTo(bsb)
-      bsb.data := onReadRsp.DATA
-      bsb.mask := onInsert.MASK
-      bsb.last := onInsert.LAST
+      bsb.data := onReadRsp.WORD.data
+      bsb.mask := onReadRsp.WORD.mask
+      bsb.last := onReadRsp.WORD.last
     }
   }
   popCd(onPop.pip.build())

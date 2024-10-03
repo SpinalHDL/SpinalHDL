@@ -4,7 +4,7 @@ import spinal.core.ClockDomain
 import spinal.core.sim._
 import spinal.lib.bus.tilelink
 import spinal.lib.com.eth.{PhyParameter, SpinalSimMacTester}
-import spinal.lib.com.eth.sg.MacSg
+import spinal.lib.com.eth.sg.{MacSg, MacSgParam}
 import spinal.lib.sim.{MemoryRegionAllocator, StreamMonitor, StreamReadyRandomizer}
 import spinal.lib.system.dma.sg2
 import spinal.lib.system.dma.sg2._
@@ -29,10 +29,13 @@ class SpinalSimMacSgTester extends SpinalAnyFunSuite{
     val ctrlParam = MacSg.getCtrlParam()
     val compiled = SimConfig.withFstWave.compile(
       new MacSg(
-        phyParam   = phyParam,
+        p = new MacSgParam(
+          phyParam   = phyParam,
+          txDmaParam = txDmaParam,
+          txBufferBytes = 2000
+        ),
         ctrlParam  = ctrlParam,
         txMemParam = txDmaParam.getM2sParameter(null).toBusParameter(),
-        txDmaParam = txDmaParam,
         ctrlCd     = ClockDomain.external("ctrl"),
         txCd       = ClockDomain.external("tx"),
         rxCd       = ClockDomain.external("rx")
@@ -92,7 +95,7 @@ class SpinalSimMacSgTester extends SpinalAnyFunSuite{
           left -= size
           val buffer = allocator.allocate(size)
           d.from = buffer.base.toLong
-          d.controlBytes = size-1
+          d.controlBytes = size
           d.controlLast = left == 0
           val data = Array.fill[Byte](size)(simRandom.nextInt().toByte)
           mem.mem.write(d.from, data)

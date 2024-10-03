@@ -79,9 +79,9 @@ class SpinalSimDmaSg2Tester extends SpinalAnyFunSuite{
           val d = new SimDescriptor(allocator.allocateAligned(32, 32).base.toLong)
           val buffer = allocator.allocate(simRandom.nextInt(256)+1)
           d.from = buffer.base.toLong
-          d.controlBytes = buffer.size.toInt-1
+          d.controlBytes = buffer.size.toInt
           d.controlLast = simRandom.nextBoolean()
-          val data = Array.fill[Byte](d.controlBytes+1)(simRandom.nextInt().toByte)
+          val data = Array.fill[Byte](d.controlBytes)(simRandom.nextInt().toByte)
           mem.mem.write(d.from, data)
           val task = new Task(d, data, d.controlLast)
           tasks += task
@@ -109,8 +109,9 @@ class SpinalSimDmaSg2Tester extends SpinalAnyFunSuite{
           allocator.free(d.physicalAddress)
           if(d != chain.last) allocator.free(d.from)
         }
-//        dut.pushCd.waitSampling(10000)
+//        dut.pushCd.waitSampling(1000)
       }
+      println(simTime())
       dut.pushCd.waitSampling(10000)
       while(tasks.nonEmpty){
         dut.pushCd.waitSampling(100)

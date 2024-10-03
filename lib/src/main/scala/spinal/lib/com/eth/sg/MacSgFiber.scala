@@ -45,8 +45,7 @@ object MacSgFiberSpec{
   }
 }
 
-case class MacSgFiber(val phyParam: PhyParameter,
-                      val txDmaParam : sg2.DmaSgReadOnlyParam,
+case class MacSgFiber(val p: MacSgParam,
                       val txCd : ClockDomain,
                       val rxCd : ClockDomain) extends Area{
   val ctrl = tilelink.fabric.Node.slave()
@@ -54,15 +53,14 @@ case class MacSgFiber(val phyParam: PhyParameter,
   val txInterrupt = InterruptNode.master()
 
   val logic = Fiber build new Area{
-    txMem.m2s.forceParameters(txDmaParam.getM2sParameter(txMem))
+    txMem.m2s.forceParameters(p.txDmaParam.getM2sParameter(txMem))
     txMem.s2m.unsupported()
 
     ctrl.m2s.supported.load(MacSg.getCtrlSupport(ctrl.m2s.proposed))
     ctrl.s2m.none()
 
     val core = new MacSg(
-      phyParam = phyParam,
-      txDmaParam = txDmaParam,
+      p = p,
       ctrlParam = ctrl.bus.p,
       txMemParam = txMem.bus.p,
       ctrlCd = ClockDomain.current,
