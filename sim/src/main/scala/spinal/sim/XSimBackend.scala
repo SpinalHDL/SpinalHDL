@@ -239,7 +239,8 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     outFile.flush()
     outFile.close()
 
-    val vivadoScriptPath = scriptPath.replace("\\", "/")
+    var vivadoScriptPath = scriptPath.replace("\\", "/")
+    if (isWindows) vivadoScriptPath = s""""$vivadoScriptPath""""
     val command =  s""" vivado -mode batch -source $vivadoScriptPath """.trim
     doCmdVivado(command,
       new File(workPath),
