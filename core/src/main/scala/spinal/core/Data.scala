@@ -96,6 +96,12 @@ trait DataPrimitives[T <: Data]{
     _data
   }
 
+  def initNull(that: T): T = {
+    if(that != null) init(that)
+    _data
+  }
+
+
   /** Set a default value to a data */
   def default(that: => T): T = {
     assert(_data.dir != inout)
