@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.dfi.foundation
+package spinal.lib.memory.sdram.dfi.function
 
 import spinal.core._
 import spinal.lib._
@@ -114,9 +114,11 @@ case class BmbAligner(ip: BmbParameter, alignmentWidth: Int) extends Component {
       io.input.rsp.opcode := io.output.rsp.opcode
       io.input.rsp.context := context.input
       io.input.rsp.source := context.source
+
       val forWrite = ip.access.canWrite generate new Area {
         io.input.rsp.last clearWhen (context.write)
       }
+
       val forRead = ip.access.canRead generate new Area {
         val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init (0)
         when(io.output.rsp.fire) {
@@ -171,7 +173,8 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
   val splitRange = log2Up(lengthMax) - 1 downto 0
   val addressRange = ip.access.addressWidth - 1 downto splitRange.high + 1
   val cmdLogic = new Area {
-    val beatCounter = Reg(UInt(log2Up(beatCountMax) bits)) init (0)
+    val wrBeatCounter = Reg(UInt(log2Up(beatCountMax) bits)) init (0)
+    val rdBeatCounter = Reg(UInt(log2Up(beatCountMax) bits)) init (0)
     val splitCounter = Reg(UInt(log2Up(splitCountMax) bits)) init (0)
 
     val headLenghtMax = lengthMax - 1 - io.input.cmd.address(splitRange)
@@ -187,9 +190,9 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
     val addressBase = CombInit(io.input.cmd.address)
     when(!firstSplit) { addressBase(splitRange) := 0 }
 
-    val beatsInSplit = U(lengthMax / ip.access.byteCount) - (firstSplit ? io.input.cmd.address(
+    val beatsInSplit = U(lengthMax / ip.access.byteCount) - (~firstSplit ? U(0) | io.input.cmd.address(
       splitRange.high downto log2Up(ip.access.byteCount)
-    ) | U(0))
+    ))
 
     val context = Context()
     context.input := io.input.cmd.context
@@ -197,12 +200,12 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
     context.write := io.input.cmd.isWrite
     context.source := io.input.cmd.source
 
-    io.output.cmd.valid := io.input.cmd.valid | (io.output.rsp.lastFire & usedSplit)
-    io.output.cmd.last := io.input.cmd.last || (beatCounter === beatsInSplit - 1) || (io.output.rsp.last & io.output.rsp.valid & usedSplit)
+    io.output.cmd.valid := io.input.cmd.valid | ((rdBeatCounter === beatsInSplit - 1) & usedSplit)
+    io.output.cmd.last := io.input.cmd.last || ((wrBeatCounter === beatsInSplit - 1) & io.input.cmd.fire) || ((rdBeatCounter === beatsInSplit - 1) & usedSplit)
     io.output.cmd.address := Bmb.addToAddress(addressBase, splitCounter << addressRange.low, ip)
     io.output.cmd.context := B(context)
     io.output.cmd.source := 0
-    io.output.cmd.opcode := io.input.cmd.opcode & (~(io.output.rsp.lastFire & usedSplit).asBits)
+    io.output.cmd.opcode := io.input.cmd.opcode & (~((rdBeatCounter === beatsInSplit - 1) & usedSplit).asBits)
     io.output.cmd.length := (firstSplit ## lastSplit) mux (
       B"10" -> headLenghtMax,
       B"00" -> U(lengthMax - 1),
@@ -217,12 +220,21 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
     io.input.cmd.ready := io.output.cmd.ready && (io.input.cmd.isWrite || context.last)
 
     when(io.output.cmd.fire) {
-      beatCounter := beatCounter + U(io.input.cmd.isWrite).resized
+      wrBeatCounter := wrBeatCounter + U(io.input.cmd.isWrite).resized
       when(io.output.cmd.last) {
         splitCounter := splitCounter + U(1).resized
-        beatCounter := 0
+        wrBeatCounter := 0
       }
     }
+    val rdStart = Reg(Bool()).init(False).setWhen(io.input.cmd.valid & !io.input.cmd.opcode.asBool).clearWhen(io.input.rsp.lastFire)
+    when(rdStart){
+      rdBeatCounter := rdBeatCounter + 1
+      when(io.output.cmd.lastFire){
+        rdBeatCounter := 0
+      }
+    }
+
+
     when(io.input.cmd.lastFire | (io.input.rsp.lastFire)) {
       splitCounter := 0
       firstSplit := True

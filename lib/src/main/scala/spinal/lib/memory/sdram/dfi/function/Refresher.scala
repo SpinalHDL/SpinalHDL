@@ -1,14 +1,14 @@
-package spinal.lib.memory.sdram.dfi.foundation
+package spinal.lib.memory.sdram.dfi.function
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.memory.sdram.dfi.interface._
-case class Refresher(tc: TaskConfig, dc: DfiConfig) extends Component {
-  import tc._
+case class Refresher(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
+  import taskConfig._
   val io = new Bundle {
     val refresh = master(Event)
   }
-  val timeConfig = TaskTimingConfig(dc)
+  val timeConfig = TaskTimingConfig(dfiConfig)
   val value = Reg(UInt(taskParameter.refWidth bits)) init (0)
   val hit = value === 0
   value := value - 1

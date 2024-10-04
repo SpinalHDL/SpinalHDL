@@ -11,8 +11,8 @@ import scala.collection.mutable
 
 case class Bmb2DfiSim(x: Int) extends Component {
 
-  val tp: TaskParameter =
-    TaskParameter(timingWidth = 5, refWidth = 23, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
+  val task: TaskParameter =
+    TaskParameter(timingWidth = 5, refWidth = 23, cmdBufferSize = 64, dataBufferSize = 256, rspBufferSize = 256)
   val sdramtime = SdramTiming(
     generation = 3,
     RFC = 260,
@@ -47,8 +47,8 @@ case class Bmb2DfiSim(x: Int) extends Component {
     tPhyRdCslat = 0,
     tPhyWrCsLat = 0
   )
-  val dc: DfiConfig = DfiConfig(
-    frequencyRatio = 2,
+  val dfiConfig: DfiConfig = DfiConfig(
+    frequencyRatio = 1,
     chipSelectNumber = 2,
     bgWidth = 0,
     cidWidth = 0,
@@ -59,18 +59,18 @@ case class Bmb2DfiSim(x: Int) extends Component {
     sdram = sdram
   )
   val bmbp: BmbParameter = BmbParameter(
-    addressWidth = sdram.byteAddressWidth + log2Up(dc.chipSelectNumber),
-    dataWidth = dc.beatWidth,
-    sourceWidth = 1,
+    addressWidth = sdram.byteAddressWidth + log2Up(dfiConfig.chipSelectNumber),
+    dataWidth = dfiConfig.beatWidth,
+    sourceWidth = 0,
     contextWidth = 2,
-    lengthWidth = 7,
+    lengthWidth = 10,
     alignment = BmbParameter.BurstAlignement.WORD
   )
   val io = new Bundle {
     val bmb = slave(Bmb(bmbp))
-    val dfi = master(Dfi(dc))
+    val dfi = master(Dfi(dfiConfig))
   }
-  val bmb2dfi = DfiController(bmbp, tp, dc)
+  val bmb2dfi = DfiController(bmbp, task, dfiConfig)
   bmb2dfi.io.bmb <> io.bmb
   bmb2dfi.io.dfi <> io.dfi
 }
@@ -103,7 +103,7 @@ object Bmb2DfiSim {
 
         val writeQueue = mutable.Queue[BigInt]()
         val readQueue = mutable.Queue[BigInt]()
-        val bmbDatas = new Array[Int]((1 << dut.bmbp.access.lengthWidth) / dut.dc.bytePerBeat)
+        val bmbDatas = new Array[Int]((1 << dut.bmbp.access.lengthWidth) / dut.dfiConfig.bytePerBeat)
         for (i <- 0 until (bmbDatas.length)) {
           bmbDatas(i) = i
         }
@@ -116,9 +116,9 @@ object Bmb2DfiSim {
             clockDomain.waitSampling()
             for (wr <- io.dfi.write.wr) {
               if (wr.wrdataEn.toBoolean) {
-                writeDataBigInt += wr.wrdata.toBigInt << (dc.frequencyRatio - writeSlicesCount - 1) * dc.phyIoWidth
+                writeDataBigInt += wr.wrdata.toBigInt << (dfiConfig.frequencyRatio - writeSlicesCount - 1) * dfiConfig.phyIoWidth
                 writeSlicesCount += 1
-                if (writeSlicesCount == dc.frequencyRatio) {
+                if (writeSlicesCount == dfiConfig.frequencyRatio) {
                   writeSlicesCount = 0
                   writeDataTemp = writeQueue.dequeue()
                   assert(
@@ -148,13 +148,13 @@ object Bmb2DfiSim {
         fork {
           def write(
               array: Array[Int],
-              address: BigInt = BigInt(dut.bmbp.access.addressWidth - log2Up(tp.bytePerTaskMax), simRandom) << log2Up(
-                tp.bytePerTaskMax
+              address: BigInt = BigInt(dut.bmbp.access.addressWidth - log2Up(task.bytePerTaskMax), simRandom) << log2Up(
+                task.bytePerTaskMax
               )
           ) = {
 
             io.bmb.cmd.address #= address
-            io.bmb.cmd.length #= array.length * dut.dc.bytePerBeat - 1
+            io.bmb.cmd.length #= array.length * dut.dfiConfig.bytePerBeat - 1
             io.bmb.cmd.opcode #= 1
             io.bmb.cmd.valid #= true
             io.bmb.cmd.data.randomize()
@@ -166,6 +166,7 @@ object Bmb2DfiSim {
                 clockDomain.waitSampling()
               }
               io.bmb.cmd.valid #= true
+              io.bmb.cmd.data.randomize()
               writeQueue.enqueue(io.bmb.cmd.data.toBigInt)
               if (arr == array.last) {
                 io.bmb.cmd.valid #= false
@@ -182,12 +183,12 @@ object Bmb2DfiSim {
           }
           def read(
               beatCount: Int,
-              address: BigInt = BigInt(dut.bmbp.access.addressWidth - log2Up(tp.bytePerTaskMax), simRandom) << log2Up(
-                tp.bytePerTaskMax
+              address: BigInt = BigInt(dut.bmbp.access.addressWidth - log2Up(task.bytePerTaskMax), simRandom) << log2Up(
+                task.bytePerTaskMax
               )
           ): Unit = {
             io.bmb.cmd.address #= address
-            io.bmb.cmd.length #= beatCount * dut.dc.bytePerBeat - 1
+            io.bmb.cmd.length #= beatCount * dut.dfiConfig.bytePerBeat - 1
             io.bmb.cmd.opcode #= 0
             io.bmb.cmd.valid #= true
             io.bmb.cmd.last #= true
@@ -197,10 +198,22 @@ object Bmb2DfiSim {
             io.bmb.cmd.valid #= false
             io.bmb.cmd.opcode #= 1
             println("read command")
+            clockDomain.waitSampling( dfiConfig.timeConfig.tPhyRdlat / dfiConfig.frequencyRatio
+                                      ) // The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + dfiConfig.beatCount-1)/dfiConfig.beatCount + 1)
+            for (i <- 0 until (1 << bmbp.access.lengthWidth) / task.bytePerTaskMax) {
+              readdata(task.bytePerTaskMax / dfiConfig.bytePerBeat)
+            }
+            clockDomain.waitSamplingWhere(dut.io.bmb.rsp.payload.last.toBoolean)
+            io.bmb.rsp.ready #= false
+            println("reading is OK")
           }
           def readdata(beatCount: Int): Unit = {
-            clockDomain.waitSamplingWhere(dut.io.dfi.read.rden(0).toBoolean)
-            io.bmb.rsp.ready #= true
+            if(io.dfi.read.rden(dfiConfig.frequencyRatio-1).toBoolean) {
+              io.bmb.rsp.ready #= true
+            }else{
+              clockDomain.waitSamplingWhere(dut.io.dfi.read.rden(dfiConfig.frequencyRatio-1).toBoolean)
+              io.bmb.rsp.ready #= true
+            }
             for (i <- 0 until beatCount) {
               dut.io.dfi.read.rd.foreach(_.rddataValid #= true)
               dut.io.dfi.read.rd.foreach(_.rddata.randomize())
@@ -210,13 +223,11 @@ object Bmb2DfiSim {
                   .map(_.rddata.toBigInt)
                   .reverse
                   .zipWithIndex
-                  .reduceLeft((a, b) => (a._1 + (b._1 << (b._2 * dc.phyIoWidth)), 0))
+                  .reduceLeft((a, b) => (a._1 + (b._1 << (b._2 * dfiConfig.phyIoWidth)), 0))
                   ._1
               )
             }
             dut.io.dfi.read.rd.foreach(_.rddataValid #= false)
-            clockDomain.waitSamplingWhere(dut.bmb2dfi.bmbBridge.bmbAdapter.io.output.rsp.payload.last.toBoolean)
-            io.bmb.rsp.ready #= false
           }
 
           io.dfi.read.rd.foreach(_.rddataValid #= false)
@@ -240,31 +251,19 @@ object Bmb2DfiSim {
           clockDomain.waitSampling(10)
           write(array = bmbDatas)
           println("writing is OK")
+          clockDomain.waitSampling(50)
 
-          clockDomain.waitSampling(30)
           read(beatCount = bmbDatas.size)
-          clockDomain.waitSampling(
-          ) // The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + dc.beatCount-1)/dc.beatCount + 1)
-          for (i <- 0 until (1 << bmbp.access.lengthWidth) / tp.bytePerTaskMax) {
-            readdata(tp.bytePerTaskMax / dc.bytePerBeat)
-          }
-          println("reading is OK")
-
-          clockDomain.waitSampling(20)
+          clockDomain.waitSampling(10)
           read(beatCount = bmbDatas.size)
-          clockDomain.waitSampling()
-          for (i <- 0 until (1 << bmbp.access.lengthWidth) / tp.bytePerTaskMax) {
-            readdata(tp.bytePerTaskMax / dc.bytePerBeat)
-          }
-          println("reading is OK")
+          clockDomain.waitSampling(50)
 
-          clockDomain.waitSampling(5)
           write(array = bmbDatas)
           println("writing is OK")
-
           clockDomain.waitSampling(10)
           write(array = bmbDatas)
           println("writing is OK")
+
           clockDomain.waitSampling(100)
 
           simSuccess()

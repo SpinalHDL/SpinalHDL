@@ -42,7 +42,7 @@ object BmbCmdOpSim {
       tPhyRdCslat = 0,
       tPhyWrCsLat = 0
     )
-    val dc: DfiConfig = DfiConfig(
+    val dfiConfig: DfiConfig = DfiConfig(
       frequencyRatio = 2,
       chipSelectNumber = 2,
       bgWidth = 0,
@@ -54,8 +54,8 @@ object BmbCmdOpSim {
       sdram = sdram
     )
     val bmbp: BmbParameter = BmbParameter(
-      addressWidth = sdram.byteAddressWidth + log2Up(dc.chipSelectNumber),
-      dataWidth = dc.beatWidth,
+      addressWidth = sdram.byteAddressWidth + log2Up(dfiConfig.chipSelectNumber),
+      dataWidth = dfiConfig.beatWidth,
       sourceWidth = 1,
       contextWidth = 2,
       lengthWidth = 6,
@@ -63,7 +63,7 @@ object BmbCmdOpSim {
     )
     SimConfig.withWave
       .compile {
-        val dut = BmbCmdOp(bmbp, dc)
+        val dut = BmbCmdOp(bmbp, dfiConfig)
         dut
       }
       .doSimUntilVoid { dut =>

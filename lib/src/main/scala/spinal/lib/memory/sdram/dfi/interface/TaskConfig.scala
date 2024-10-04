@@ -3,9 +3,9 @@ package spinal.lib.memory.sdram.dfi.interface
 import spinal.core._
 import spinal.lib._
 
-case class TaskTimingConfig(dc: DfiConfig) extends Bundle {
+case class TaskTimingConfig(dfiConfig: DfiConfig) extends Bundle {
 
-  import dc._
+  import dfiConfig._
 
   def RAS = time(sdram.tRAS)
 
@@ -17,7 +17,7 @@ case class TaskTimingConfig(dc: DfiConfig) extends Bundle {
 
   def WTR = time(sdram.tWTR)
 
-  def time(tcyc: Int, phase: Int = dc.frequencyRatio) = (tcyc + phase - 1) / phase
+  def time(tcyc: Int, phase: Int = dfiConfig.frequencyRatio) = (tcyc + phase - 1) / phase
 
   def RTP = time(sdram.tRTP)
 
@@ -43,13 +43,13 @@ case class SdramAddress(l: SdramConfig) extends Bundle {
   val row = UInt(l.rowWidth bits)
 }
 
-case class BusAddress(dc: DfiConfig) extends Bundle {
-  import dc.sdram._
+case class BusAddress(dfiConfig: DfiConfig) extends Bundle {
+  import dfiConfig.sdram._
   val byte = UInt(log2Up(bytePerWord) bits)
   val column = UInt(columnWidth bits)
   val bank = UInt(bankWidth bits)
   val row = UInt(rowWidth bits)
-  val cs = UInt(log2Up(dc.chipSelectNumber) bits)
+  val cs = UInt(log2Up(dfiConfig.chipSelectNumber) bits)
 }
 
 case class TaskParameter(
@@ -72,10 +72,10 @@ case class TaskConfig(
     canWrite: Boolean
 ) {}
 
-case class TaskWrRdCmd(tc: TaskConfig, dc: DfiConfig) extends Bundle {
+case class TaskWrRdCmd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle {
 
-  import dc._
-  import tc._
+  import dfiConfig._
+  import taskConfig._
   val write = Bool()
   val address = UInt(taskAddressWidth bits)
   val context = Bits(contextWidth bits)
@@ -84,27 +84,27 @@ case class TaskWrRdCmd(tc: TaskConfig, dc: DfiConfig) extends Bundle {
 
   def stationLengthWidth = log2Up(stationLengthMax)
 
-  def stationLengthMax = taskParameter.bytePerTaskMax / dc.bytePerBurst
+  def stationLengthMax = taskParameter.bytePerTaskMax / dfiConfig.bytePerBurst
 }
 
-case class TaskWriteData(dc: DfiConfig) extends Bundle {
+case class TaskWriteData(dfiConfig: DfiConfig) extends Bundle {
 
-  import dc._
+  import dfiConfig._
 
   val data = Bits(beatWidth bits)
   val mask = Bits(beatWidth / 8 bits)
 }
 
-case class TaskRsp(tc: TaskConfig, dc: DfiConfig) extends Bundle {
-  val data = tc.canRead generate Bits(dc.beatWidth bits)
-  val context = Bits(tc.contextWidth bits)
+case class TaskRsp(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle {
+  val data = taskConfig.canRead generate Bits(dfiConfig.beatWidth bits)
+  val context = Bits(taskConfig.contextWidth bits)
 }
 
-case class PreTaskPort(tc: TaskConfig, dc: DfiConfig) extends Bundle with IMasterSlave {
-  val cmd = Stream(TaskWrRdCmd(tc, dc))
-  val writeData = tc.canWrite generate Stream(TaskWriteData(dc))
-  val writeDataToken = tc.canWrite generate Stream(Event)
-  val rsp = Stream(Fragment(TaskRsp(tc, dc)))
+case class PreTaskPort(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle with IMasterSlave {
+  val cmd = Stream(TaskWrRdCmd(taskConfig, dfiConfig))
+  val writeData = taskConfig.canWrite generate Stream(TaskWriteData(dfiConfig))
+  val writeDataToken = taskConfig.canWrite generate Stream(Event)
+  val rsp = Stream(Fragment(TaskRsp(taskConfig, dfiConfig)))
 
   override def asMaster(): Unit = {
     master(cmd, writeDataToken)
@@ -114,13 +114,13 @@ case class PreTaskPort(tc: TaskConfig, dc: DfiConfig) extends Bundle with IMaste
   }
 }
 
-case class OpTasks(tc: TaskConfig, dc: DfiConfig) extends Bundle with IMasterSlave {
+case class OpTasks(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle with IMasterSlave {
 
-  import tc._
+  import taskConfig._
 
   val read, write, active, precharge = Bool() // OH encoded
   val last = Bool()
-  val address = BusAddress(dc)
+  val address = BusAddress(dfiConfig)
   val context = Bits(contextWidth bits)
   val prechargeAll, refresh = Bool() // OH encoded
 
@@ -138,10 +138,10 @@ case class OpTasks(tc: TaskConfig, dc: DfiConfig) extends Bundle with IMasterSla
   override def asMaster(): Unit = out(this)
 }
 
-case class TaskPort(tc: TaskConfig, dc: DfiConfig) extends Bundle with IMasterSlave {
-  val tasks = OpTasks(tc, dc)
-  val writeData = tc.canWrite generate Stream(TaskWriteData(dc))
-  val rsp = Stream(Fragment(TaskRsp(tc, dc)))
+case class TaskPort(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle with IMasterSlave {
+  val tasks = OpTasks(taskConfig, dfiConfig)
+  val writeData = taskConfig.canWrite generate Stream(TaskWriteData(dfiConfig))
+  val rsp = Stream(Fragment(TaskRsp(taskConfig, dfiConfig)))
 
   override def asMaster(): Unit = {
     masterWithNull(writeData)

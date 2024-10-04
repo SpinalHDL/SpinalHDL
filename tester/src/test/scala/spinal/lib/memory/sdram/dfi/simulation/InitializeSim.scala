@@ -5,7 +5,7 @@ import spinal.core.sim._
 import spinal.demo.phy.Initialize
 import spinal.lib._
 import spinal.lib.bus.bmb.BmbParameter
-import spinal.lib.memory.sdram.dfi.foundation.BmbAdapter
+import spinal.lib.memory.sdram.dfi.function.BmbAdapter
 import spinal.lib.memory.sdram.dfi.interface._
 
 case class InitializeSim() extends Component {
@@ -45,7 +45,7 @@ case class InitializeSim() extends Component {
     tPhyRdCslat = 0,
     tPhyWrCsLat = 0
   )
-  val dc: DfiConfig = DfiConfig(
+  val dfiConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
     chipSelectNumber = 1,
     bgWidth = 0,
@@ -64,19 +64,19 @@ case class InitializeSim() extends Component {
     sdram = sdram
   )
   val bmbp: BmbParameter = BmbParameter(
-    addressWidth = sdram.byteAddressWidth + log2Up(dc.chipSelectNumber),
-    dataWidth = dc.beatWidth,
+    addressWidth = sdram.byteAddressWidth + log2Up(dfiConfig.chipSelectNumber),
+    dataWidth = dfiConfig.beatWidth,
     sourceWidth = 1,
     contextWidth = 2,
     lengthWidth = 6,
     alignment = BmbParameter.BurstAlignement.WORD
   )
   val io = new Bundle {
-    val control = master(DfiControlInterface(dc))
+    val control = master(DfiControlInterface(dfiConfig))
     val initDone = out Bool ()
   }
-  val tc = BmbAdapter.taskConfig(bmbp, dc, task)
-  val init = Initialize(tc, dc)
+  val taskConfig = BmbAdapter.taskConfig(bmbp, dfiConfig, task)
+  val init = Initialize(taskConfig, dfiConfig)
   io.assignUnassignedByName(init.io)
 }
 

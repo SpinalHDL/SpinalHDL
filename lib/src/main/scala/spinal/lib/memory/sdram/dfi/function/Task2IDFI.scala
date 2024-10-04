@@ -1,15 +1,15 @@
-package spinal.lib.memory.sdram.dfi.foundation
+package spinal.lib.memory.sdram.dfi.function
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.memory.sdram.dfi.interface._
 
-case class CmdTxd(tc: TaskConfig, dc: DfiConfig) extends Component {
-  import dc._
+case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
+  import dfiConfig._
   val io = new Bundle {
-    val task = slave(OpTasks(tc, dc))
-    val cmd = Vec(master(Flow(DfiCmd(dc))), frequencyRatio)
-    val address = Vec(master(Flow(DfiAddr(dc))), frequencyRatio)
+    val task = slave(OpTasks(taskConfig, dfiConfig))
+    val cmd = Vec(master(Flow(DfiCmd(dfiConfig))), frequencyRatio)
+    val address = Vec(master(Flow(DfiAddr(dfiConfig))), frequencyRatio)
   }
   def cmdphase(i: Int) = io.cmd(i)
   def addrphase(i: Int) = io.address(i)
@@ -84,14 +84,14 @@ case class CmdTxd(tc: TaskConfig, dc: DfiConfig) extends Component {
   }
 }
 
-case class RdDataRxd(tc: TaskConfig, dc: DfiConfig) extends Component {
-  import dc._
-  import tc._
+case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
+  import dfiConfig._
+  import taskConfig._
   val io = new Bundle {
-    val task = slave(OpTasks(tc, dc))
-    val idfiRdData = Vec(slave(Stream(Fragment(DfiRdData(dc)))), frequencyRatio)
+    val task = slave(OpTasks(taskConfig, dfiConfig))
+    val idfiRdData = Vec(slave(Stream(Fragment(DfiRdData(dfiConfig)))), frequencyRatio)
     val rden = out Vec (Bool(), frequencyRatio)
-    val taskRdData = master(Flow(Fragment(TaskRsp(tc, dc))))
+    val taskRdData = master(Flow(Fragment(TaskRsp(taskConfig, dfiConfig))))
   }
   val rspPipeline = new Area {
     val input = Flow(Fragment(Context()))
@@ -142,7 +142,7 @@ case class RdDataRxd(tc: TaskConfig, dc: DfiConfig) extends Component {
   }
   io.taskRdData.valid := rspPop.valid
   io.taskRdData.last := rspPop.last
-  if (io.taskRdData.tc.canRead) io.taskRdData.data := rspPop.data
+  if (io.taskRdData.taskConfig.canRead) io.taskRdData.data := rspPop.data
   io.taskRdData.context := rspPop.context.resized
 
   rspPipeline.input.valid.setWhen(io.task.read)
@@ -159,12 +159,12 @@ case class RdDataRxd(tc: TaskConfig, dc: DfiConfig) extends Component {
   }
 }
 
-case class WrDataTxd(tc: TaskConfig, dc: DfiConfig) extends Component {
-  import dc._
+case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
+  import dfiConfig._
   val io = new Bundle {
     val write = in Bool ()
-    val taskWrData = slave(Stream(TaskWriteData(dc)))
-    val idfiWrData = Vec(master(Flow(DfiWrData(dc))), frequencyRatio)
+    val taskWrData = slave(Stream(TaskWriteData(dfiConfig)))
+    val idfiWrData = Vec(master(Flow(DfiWrData(dfiConfig))), frequencyRatio)
   }
   val delayCyc = timeConfig.tPhyWrLat / frequencyRatio
   val nextPhase = (cmdPhase + timeConfig.tPhyWrLat) % frequencyRatio

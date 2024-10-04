@@ -1,21 +1,21 @@
-package spinal.lib.memory.sdram.dfi.foundation
+package spinal.lib.memory.sdram.dfi.function
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 import spinal.lib.memory.sdram.dfi.interface._
 
-case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
-  import dc._
-  import tc._
-  import tc.taskParameter._
+case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
+  import dfiConfig._
+  import taskConfig._
+  import taskConfig.taskParameter._
   val io = new Bundle {
-    val cmd = slave(Stream(TaskWrRdCmd(tc, dc)))
+    val cmd = slave(Stream(TaskWrRdCmd(taskConfig, dfiConfig)))
     val halt = out Bool ()
     val writeDataToken = slave(Stream(Event))
-    val output = master(OpTasks(tc, dc))
+    val output = master(OpTasks(taskConfig, dfiConfig))
   }
-  val timeConfig = TaskTimingConfig(dc)
+  val timeConfig = TaskTimingConfig(dfiConfig)
   val readyForRefresh = True
 
   val banksRow = Mem(UInt(sdram.rowWidth bits), sdram.bankCount)
@@ -66,7 +66,7 @@ case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
   val allowPrechargeAll = banks.map(_.allowPrecharge).andR
   val taskConstructor = new Area {
     val input = io.cmd.stage()
-    val address = input.address.as(BusAddress(dc))
+    val address = input.address.as(BusAddress(dfiConfig))
     val status = Status()
     status.allowPrecharge := True
     status.allowActive := !RRD.busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
@@ -84,7 +84,7 @@ case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
   val station = new Area {
     val valid = RegInit(False)
     val status = Reg(Status())
-    val address = Reg(BusAddress(dc))
+    val address = Reg(BusAddress(dfiConfig))
     val write = Reg(Bool())
     val context = Reg(Bits(contextWidth bits))
     val offset, offsetLast = Reg(UInt(io.cmd.stationLengthWidth bits))
@@ -153,7 +153,7 @@ case class MakeTask(tc: TaskConfig, dc: DfiConfig) extends Component {
   }
 
   val refreshStream = Event
-  val refresher = Refresher(tc, dc)
+  val refresher = Refresher(taskConfig, dfiConfig)
   refresher.io.refresh.valid <> io.halt
   refresher.io.refresh <> refreshStream
 

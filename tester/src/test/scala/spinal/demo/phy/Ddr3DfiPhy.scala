@@ -4,7 +4,7 @@ import spinal.core.{BlackBox, _}
 import spinal.lib._
 import spinal.lib.memory.sdram.dfi.interface.{Dfi, DfiConfig, TaskConfig}
 
-case class Ddr3DfiPhy(dc: DfiConfig) extends BlackBox {
+case class Ddr3DfiPhy(ddrIoDfiConfig: DfiConfig) extends BlackBox {
   val io = new Bundle {
     val clk = new Bundle {
       val work = in Bool ()
@@ -17,8 +17,8 @@ case class Ddr3DfiPhy(dc: DfiConfig) extends BlackBox {
       val valid = in Bool ()
       val value = in Bits (32 bits)
     }
-    val dfi = slave(Dfi(dc))
-    val ddr3 = new DDR3IO(dc)
+    val dfi = slave(Dfi(ddrIoDfiConfig))
+    val ddr3 = new DDR3IO(ddrIoDfiConfig)
   }
   addGeneric("REFCLK_FREQUENCY", 200)
   addGeneric("DQS_TAP_DELAY_INIT", 27)
@@ -51,7 +51,7 @@ case class Ddr3DfiPhy(dc: DfiConfig) extends BlackBox {
   addRTLPath("tester/src/test/scala/spinal/demo/phy/ddr3_dfi_phy.v")
 }
 
-case class DfiPhyDdr3(tc: TaskConfig, dc: DfiConfig) extends Component {
+case class DfiPhyDdr3(taskConfig: TaskConfig, ddrIoDfiConfig: DfiConfig) extends Component {
   val io = new Bundle {
     val clk = new Bundle {
       val work = in Bool ()
@@ -61,10 +61,10 @@ case class DfiPhyDdr3(tc: TaskConfig, dc: DfiConfig) extends Component {
     }
     val rst = in Bool ()
     val initDone = out Bool ()
-    val dfi = slave(Dfi(dc))
-    val ddr3 = new DDR3IO(dc)
+    val dfi = slave(Dfi(ddrIoDfiConfig))
+    val ddr3 = new DDR3IO(ddrIoDfiConfig)
   }
-  val init = Initialize(tc, dc)
+  val init = Initialize(taskConfig, ddrIoDfiConfig)
   init.io.initDone <> io.initDone
 
   val initDfi = cloneOf(io.dfi)
@@ -72,7 +72,7 @@ case class DfiPhyDdr3(tc: TaskConfig, dc: DfiConfig) extends Component {
   initDfi.write.wr.clearAll()
   initDfi.read.rden.clearAll()
 
-  val ddr3Phy = Ddr3DfiPhy(dc)
+  val ddr3Phy = Ddr3DfiPhy(ddrIoDfiConfig)
   ddr3Phy.io.clk <> io.clk
   ddr3Phy.io.rst <> io.rst
   ddr3Phy.io.ddr3 <> io.ddr3
