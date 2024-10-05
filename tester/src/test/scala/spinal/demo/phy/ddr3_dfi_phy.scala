@@ -4,7 +4,7 @@ import spinal.core.{BlackBox, _}
 import spinal.lib._
 import spinal.lib.memory.sdram.dfi.interface.{Dfi, DfiConfig, TaskConfig}
 
-case class Ddr3DfiPhy(ddrIoDfiConfig: DfiConfig) extends BlackBox {
+case class ddr3_dfi_phy(ddrIoDfiConfig: DfiConfig) extends BlackBox {
   val io = new Bundle {
     val clk = new Bundle {
       val work = in Bool ()
@@ -72,7 +72,7 @@ case class DfiPhyDdr3(taskConfig: TaskConfig, ddrIoDfiConfig: DfiConfig) extends
   initDfi.write.wr.clearAll()
   initDfi.read.rden.clearAll()
 
-  val ddr3Phy = Ddr3DfiPhy(ddrIoDfiConfig)
+  val ddr3Phy = ddr3_dfi_phy(ddrIoDfiConfig)
   ddr3Phy.io.clk <> io.clk
   ddr3Phy.io.rst <> io.rst
   ddr3Phy.io.ddr3 <> io.ddr3

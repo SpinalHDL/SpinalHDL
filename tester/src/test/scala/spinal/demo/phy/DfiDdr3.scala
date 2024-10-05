@@ -60,7 +60,7 @@ case class BmbDfiDdr3(ddrIoDfiConfig: DfiConfig, dfiConfig: DfiConfig) extends C
   if (frequencyRatio == 1) {
     val ddr3Chips = for (i <- 0 until (chipSelectNumber)) yield new Area {
       val sel = i
-      val phy = DfiPhyDdr3(taskConfig, ddrIoDfiConfig)
+      val phy = DfiPhyDdr3(taskConfig, ddrIoDfiConfig).setName(s"ddr3_dfi_phy_${i}")
     }
 
     ddr3Chips.map(_.phy.io.dfi.read.rd(0).rddataValid).orR <> clockArea.dfiController.io.dfi.read.rd(0).rddataValid
@@ -265,7 +265,7 @@ case class DfiDdr3() extends Component {
   val bmbClockDomainCfg = ClockDomainConfig(resetActiveLevel = LOW)
   val myClockDomain = ClockDomain.internal("work", bmbClockDomainCfg)
 
-  val pll = PllClk()
+  val pll = pll_clk()
   pll.io.clk.in1 <> io.clk
   pll.io.reset <> ~io.rstN
   val rstN = io.rstN & pll.io.locked
