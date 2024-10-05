@@ -32,8 +32,8 @@ case class ddr3_dfi_phy(ddrIoDfiConfig: DfiConfig) extends BlackBox {
       if (bt.getName().contains("clk")) bt.setName(bt.getName().replace("_work", "") + "_i")
       if (bt.getName().contains("rst")) bt.setName(bt.getName() + "_i")
       if (bt.getName().contains("ddr3")) {
-        bt.setName(bt.getName().replace("P", "_p").replace("N", "_n") + "_i")
-        if (bt.getName().contains("dq")) bt.setName(bt.getName().replace("_i", "_io"))
+        bt.setName(bt.getName().replace("P", "_p").replace("N", "_n") + "_o")
+        if (bt.getName().contains("dq")) bt.setName(bt.getName().replace("_o", "_io"))
       }
       if (bt.getName().contains("dfi")) {
         if (bt.getName().contains("control")) bt.setName(bt.getName().replace("control_", "").replace("N", "_n") + "_i")

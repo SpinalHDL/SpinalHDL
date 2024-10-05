@@ -130,7 +130,7 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
       io.bmb.cmd.opcode := True.asBits
     }
 
-    io.bmb.cmd.data := initdata.asBits.rotateLeft((U(length) - counter) >> 2).resized
+    io.bmb.cmd.data := initdata.asBits.rotateLeft((U(length) - counter<<3)(log2Up(length)-1 downto(0))).resized
     when(counter === 1) {
       io.bmb.cmd.last.set()
     }
@@ -154,7 +154,7 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
   io.bmb.cmd.data.clearAll()
   io.bmb.cmd.mask.clearAll()
   io.bmb.cmd.context.clearAll()
-  io.bmb.rsp.ready := RegInit(False).setWhen(io.bmb.cmd.valid && io.bmb.cmd.opcode === 0).clearWhen(io.bmb.rsp.last)
+  io.bmb.rsp.ready := RegInit(False).clearWhen(io.bmb.rsp.lastFire).setWhen(io.bmb.cmd.valid && io.bmb.cmd.opcode === 0)
 
   when(idleTimer =/= 0) {
     idleTimer := idleTimer - 1
@@ -170,10 +170,10 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
   when(start) {
     switch(opcodeCount) {
       is(0) {
-        write(U"32'h9FD24589", 32, 128)
+        write(U"32'h11223344", 32, 128)
       }
       is(1) {
-        write(U"32'h75BC2457", 32, 1024)
+        write(U"32'h55667788", 32, 1024)
       }
       is(2) {
         read(32, 128)

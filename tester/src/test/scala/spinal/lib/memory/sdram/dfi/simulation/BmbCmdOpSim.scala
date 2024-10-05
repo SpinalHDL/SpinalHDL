@@ -43,8 +43,8 @@ object BmbCmdOpSim {
       tPhyWrCsLat = 0
     )
     val dfiConfig: DfiConfig = DfiConfig(
-      frequencyRatio = 2,
-      chipSelectNumber = 2,
+      frequencyRatio = 1,
+      chipSelectNumber = 1,
       bgWidth = 0,
       cidWidth = 0,
       dataSlice = 1,
@@ -68,9 +68,18 @@ object BmbCmdOpSim {
       }
       .doSimUntilVoid { dut =>
         dut.clockDomain.forkStimulus(10)
+        dut.io.bmb.rsp.valid #= false
+        dut.io.bmb.rsp.last #= false
         dut.io.initDone #= false
         dut.clockDomain.waitSampling(10)
         dut.io.initDone #= true
+        dut.clockDomain.waitSamplingWhere(dut.io.bmb.rsp.ready.toBoolean)
+        dut.io.bmb.rsp.valid #= true
+        dut.clockDomain.waitSampling(31)
+        dut.io.bmb.rsp.last #= true
+        dut.clockDomain.waitSampling()
+        dut.io.bmb.rsp.valid #= false
+        dut.io.bmb.rsp.last #= false
         dut.clockDomain.waitSampling(100)
         simSuccess()
 
