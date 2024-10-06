@@ -166,6 +166,35 @@ package object sim {
     manager.setBigInt(signal, value)
   }
 
+  def addInputsAssignmentWatch(mod: Module) {
+    import spinal.core.tools.ModuleAnalyzer
+
+    val analyzer = new ModuleAnalyzer(mod)
+    addWatchedSignals(analyzer.getInputs.toSeq)
+  }
+
+  def checkInputsAssignmentAfterReset(cd: ClockDomain, stopOnFail: Boolean = false) {
+    cd.onSamplingWhile{
+      val ret = checkWatchedSignalAssigned()
+      if(!ret.isEmpty){
+        ret.map(x => SpinalWarning(s"$x is not initialized!"))
+        if(stopOnFail) simFailure(s"Input signals are not assigned.")
+      }
+      false
+    }
+  }
+
+  def addWatchedSignals(signals : Seq[BaseType]){
+    val manager = SimManagerContext.current.manager
+    val simSignals = signals.map{ btToSignal(manager, _) }
+    manager.addWatchedSignals(simSignals)
+  }
+
+  def checkWatchedSignalAssigned(): Seq[String] = {
+    val manager = SimManagerContext.current.manager
+    manager.checkWatchedSignalAssigned()
+  }
+
   def simCompiled : SimCompiled[_ <: Component] = sm.asInstanceOf[CoreSimManager].compiled
   def currentTestName(): String = sm.testName
   def currentTestPath(): String = simCompiled.simConfig._testPath.replace("$TEST", currentTestName())
