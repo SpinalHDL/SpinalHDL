@@ -187,7 +187,7 @@ package object sim {
   def addWatchedSignals(signals : Seq[BaseType]){
     val manager = SimManagerContext.current.manager
     val simSignals = signals.map{ btToSignal(manager, _) }
-    manager.addWatchedSignals(simSignals)
+    manager.addWatchedSignals(simSignals.toSeq)
   }
 
   def checkWatchedSignalAssigned(): Seq[String] = {
