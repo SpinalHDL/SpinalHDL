@@ -170,13 +170,13 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
   when(start) {
     switch(opcodeCount) {
       is(0) {
-        write(U"32'h11223344", 32, 128)
+        write(U"32'h11223344", 16, 128)
       }
       is(1) {
-        write(U"32'h55667788", 32, 1024)
+        write(U"32'h55667788", 16, 1024)
       }
       is(2) {
-        read(32, 128)
+        read(16, 128)
       }
     }
   }
@@ -260,6 +260,7 @@ case class DfiDdr3() extends Component {
     val clk = in Bool ()
     val rstN = in Bool ()
     val ddr3 = new DDR3IO(phyConfig)
+    val key = in Bool()
   }
   noIoPrefix()
   val bmbClockDomainCfg = ClockDomainConfig(resetActiveLevel = LOW)
@@ -273,6 +274,7 @@ case class DfiDdr3() extends Component {
   myClockDomain.reset := rstN
 
   val topClockingArea = new ClockingArea(myClockDomain) {
+    val start = RegInit(False).setWhen(!io.key)
     val bmbCmdOp = BmbCmdOp(bmbp, phyConfig)
 
     val bmbddr = BmbDfiDdr3(phyConfig, dfiConfig)
@@ -282,7 +284,9 @@ case class DfiDdr3() extends Component {
     bmbddr.io.clk4 <> pll.io.clk.out4
     bmbddr.io.bmb <> bmbCmdOp.io.bmb
     bmbddr.io.ddr3 <> io.ddr3
-    bmbddr.io.initDone <> bmbCmdOp.io.initDone
+
+    val initDone = bmbddr.io.initDone & start
+    bmbCmdOp.io.initDone := initDone
   }
 }
 
