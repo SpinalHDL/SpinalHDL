@@ -84,7 +84,7 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
     val d2 = UInt(log2Up(portCount) bit)
     d2 := (d1 + 1) % portCount
 
-    val cntSeqCheck = changed(select) && (select === d2)
+    val cntSeqCheck = pastValidAfterReset && changed(select) && (select === d2)
     cover(cntSeqCheck)
     when(cntSeqCheck) {
       assert(past(select) === d1)

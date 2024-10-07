@@ -4,6 +4,7 @@ import spinal.core.internals.Operator
 
 package object formal {
   def FormalConfig: SpinalFormalConfig = new SpinalFormalConfig()
+  implicit val className: String = ""
 
   //that.formalPast(delay) replacement
   def past[T <: Data](that : T, delay : Int) : T = {

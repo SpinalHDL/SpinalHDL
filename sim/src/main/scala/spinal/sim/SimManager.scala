@@ -344,7 +344,7 @@ class SimManager(val raw : SimRaw, val random: Random = Random, val testName : S
         raw.sleep(1)
         val str = e.getStackTrace.head.toString
         if(str.contains("spinal.core.") && !str.contains("sim")){
-          System.err.println("It seems like you used some SpinalHDL hardware elaboration API in the simulation. If you did, you shouldn't.")
+          System.err.println(s"It seems like you used some SpinalHDL hardware elaboration API in the simulation. If you did, you shouldn't. From : \n${e.getStackTrace.mkString("\n")}")
         }
         throw e
       }
@@ -355,8 +355,8 @@ class SimManager(val raw : SimRaw, val random: Random = Random, val testName : S
       for(t <- (jvmIdleThreads ++ jvmBusyThreads)){
         while(t.isAlive()){Thread.sleep(0)}
       }
-      raw.end()
       onEndListeners.foreach(_())
+      raw.end()
       SimManagerContext.threadLocal.set(null)
     }
   }

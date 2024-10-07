@@ -21,11 +21,35 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
       check(4095,0,-4)(AFix.UQ(8 bits, 4 bits)) //Q8.4
 //      check(4095,0,-4)(AFix.U(255, -4 exp)) //Q8.4
 //      check(4095,2048,-4)(AFix.U(255, 128, -4 exp)) //Q8.4
+      check(4095, 0, 0)(AFix(QFormat(12, 0, false))) // 12 bits wide, 12 integral bits, 0 fractional bits, 0 sign bit
+      check(4095, 0, -4)(AFix(QFormat(12, 4, false))) // 12 bits wide, 8 integral bits, 4 fractional bits, 0 sign bit
       check(2047,-2048,0)(AFix.S(12 bits)) //Q11.0 + sign bit
       check(2047,-2048,-4)(AFix.S(7 exp, 12 bits)) //Q7.4  + sign bit
       check(2047,-2048,-4)(AFix.S(7 exp, -4 exp)) //Q7.4  + sign bit
       check(2047,-2048,-4)(AFix.SQ(7 bits, 4 bits)) //Q8.4 + sign bit
 //      check(2047,-2048,-4)(AFix.S(127, -128, -4 exp)) //Q7.4 + sign bit
+      check(2047, -2048, 0)(AFix(QFormat(12, 0, true))) // 12 bits wide, 11 integral bits, 0 fractional bits, 1 sign bit
+      check(2047, -2048, -4)(AFix(QFormat(12, 4, true))) // 12 bits wide, 7 integral bits, 4 fractional bits, 1 sign bit
+    })
+  }
+
+  test("q_format") {
+    SpinalVerilog(new Component{
+      for(intVal <- 1 to 32) {
+        for(fracVal <- 0 to intVal) {
+          val qf_s = QFormat(intVal, fracVal, true)
+          val qf_u = QFormat(intVal, fracVal, false)
+          val af_qf_s = AFix(qf_s)
+          val af_qf_u = AFix(qf_u)
+          val af_sq = AFix.SQ((intVal - fracVal - 1) bits, fracVal bits)
+          val af_uq = AFix.UQ((intVal - fracVal) bits, fracVal bits)
+
+          assert(af_qf_s.Q == qf_s)
+          assert(af_sq.Q == qf_s)
+          assert(af_qf_u.Q == qf_u)
+          assert(af_uq.Q == qf_u)
+        }
+      }
     })
   }
 
@@ -82,6 +106,30 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
           }
         }
       }
+    }
+  }
+
+  test("arithmetic_shift") {
+    // there is nothing special to the values used for testing here; i just picked some
+    SimConfig.compile(new Component {
+      val shiftConst: Int = 1
+      val io = new Bundle {
+        val inFix = in(AFix.S(7 exp, 0 exp))
+        val shiftVariable = in(AFix.U(3 bits))
+        val outFixKeepLsbVariable = out(AFix.S(7 exp, -7 exp))
+        val outFixLoseLsbVariable = out(AFix.S(7 exp, 0 exp))
+        val outFixLoseLsbConst = out(AFix.S(6 exp, 0 exp))
+      }
+      io.outFixKeepLsbVariable := io.inFix >> io.shiftVariable
+      io.outFixLoseLsbVariable := io.inFix >>| io.shiftVariable
+      io.outFixLoseLsbConst := io.inFix >>| shiftConst
+    }).doSim(seed = 0) { dut =>
+      dut.io.inFix #= -22.0
+      dut.io.shiftVariable #= 1.0
+      sleep(1)
+      assert(dut.io.outFixKeepLsbVariable.toDouble == -11.0)
+      assert(dut.io.outFixLoseLsbVariable.toDouble == -11.0)
+      assert(dut.io.outFixLoseLsbConst.toDouble == -11.0)
     }
   }
 

@@ -1,64 +1,120 @@
 package spinal.core.fiber
 
-import spinal.core.GlobalData
+import spinal.core.{Area, GlobalData, OnCreateStack}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.reflect.{ClassTag, classTag}
+import scala.reflect.runtime.universe._
 
 object ElabOrderId{
   val INIT  = -1000000
   val SETUP = 0
   val BUILD = 1000000
+  val PATCH = 1500000
   val CHECK = 2000000
+
+  def getName(that : Int) = that match {
+    case INIT  => "init"
+    case SETUP => "setup"
+    case BUILD => "build"
+    case PATCH => "patch"
+    case CHECK => "check"
+  }
 }
 
 object Fiber {
-  def apply[T](orderId : Int)(body : => T) : Handle[T] = {
+  def apply[T: ClassTag](orderId : Int)(body : => T) : Handle[T] = {
     GlobalData.get.elab.addTask(orderId)(body)
   }
-  def setup[T](body : => T) : Handle[T] = apply(ElabOrderId.SETUP)(body)
-  def build[T](body : => T) : Handle[T] = apply(ElabOrderId.BUILD)(body)
-  def check[T](body : => T) : Handle[T] = apply(ElabOrderId.CHECK)(body)
+  def setup[T: ClassTag](body : => T) : Handle[T] = apply(ElabOrderId.SETUP)(body)
+  def build[T: ClassTag](body : => T) : Handle[T] = apply(ElabOrderId.BUILD)(body)
+  def check[T: ClassTag](body : => T) : Handle[T] = apply(ElabOrderId.CHECK)(body)
+
+  def callback(orderId: Int)(body: => Unit): Unit = {
+    GlobalData.get.elab.addCallback(orderId)(body)
+  }
+
+  def setupCallback(body: => Unit): Unit = callback(ElabOrderId.SETUP)(body)
+  def buildCallback(body: => Unit): Unit = callback(ElabOrderId.BUILD)(body)
+
+  def await(id : Int): Unit = {
+    GlobalData.get.elab.await(id)
+  }
+
+  def awaitSetup() = await(ElabOrderId.SETUP)
+  def awaitBuild() = await(ElabOrderId.BUILD)
+  def awaitPatch() = await(ElabOrderId.PATCH)
+  def awaitCheck() = await(ElabOrderId.CHECK)
 }
 
-class Fiber {
+class Fiber extends Area{
   var currentOrderId = ElabOrderId.INIT
-  def addTask[T](orderId : Int)(body : => T) : Handle[T] = {
-    val lock = Lock().retain()
-    assert(currentOrderId <= orderId)
-    if(currentOrderId == orderId) lock.release()
-    val (h, t) = hardForkRaw(withDep = false){
-      lock.await()
-      body
+
+  val spawnLock = Lock()
+  val startLock = mutable.LinkedHashMap[Int, Lock]()
+  val doneRetainer = mutable.LinkedHashMap[Int, Retainer]()
+  val taskRetainer = mutable.LinkedHashMap[AsyncThread, RetainerHold]()
+  val callbacks = new mutable.LinkedHashMap[Int, mutable.Queue[() => Unit]]()
+
+  var syncThread : AsyncThread = null
+
+  def addTask[T: ClassTag](body: => T): Handle[T] = {
+    addTask(ElabOrderId.INIT)(body)
+  }
+  def addTask[T: ClassTag](orderId : Int)(body : => T) : Handle[T] = {
+    spawnLock.retain()
+    val (h, t) = hardForkRawHandle(withDep = true) { h : Handle[T] =>
+      spawnLock.release()
+      Fiber.await(orderId)
+      if(classOf[Area].isAssignableFrom(classTag[T].runtimeClass)) {
+        OnCreateStack.set(a => a.setCompositeName(h))
+      }
+      val ret = body
+      taskRetainer.get(AsyncThread.current).foreach(_.release())
+      ret
     }
-    lock.setCompositeName(h, "lock")
-    tasks.getOrElseUpdate(orderId, mutable.Queue[(Lock, Handle[_], AsyncThread)]()) += Tuple3(lock, h, t)
+    t.setCompositeName(h)
     h
   }
-  val tasks = new mutable.LinkedHashMap[Int, mutable.Queue[(Lock, Handle[_], AsyncThread)]]()
+
+  def await(id : Int) = {
+    taskRetainer.get(AsyncThread.current).foreach(_.release())
+    val newRetainer = doneRetainer.getOrElseUpdate(id,new Retainer().setCompositeName(this, s"${ElabOrderId.getName(id)}_doneRetainer"))
+    taskRetainer(AsyncThread.current) = newRetainer().setCompositeName(AsyncThread.current, "fiber_completion")
+
+    startLock.getOrElseUpdate(id, {
+      val r = new Lock().setCompositeName(this, s"${ElabOrderId.getName(id)}_start").retain()
+      if(syncThread != null) {
+        r.willBeLoadedBy = syncThread
+        syncThread.addSoonHandle(r)
+      }
+      r
+    }).await()
+  }
+
+  def addCallback(orderId : Int)(body : => Unit): Unit = {
+    callbacks.getOrElseUpdate(orderId, mutable.Queue[() => Unit]()).enqueue(() => body)
+  }
+
 
   def runSync(): Unit ={
     val e = Engine.get
+    syncThread = AsyncThread.current
+    spawnLock.await()
 
-    //Link locks to current thread
-    tasks.foreach(_._2.foreach{ e =>
-      e._1.willBeLoadedBy = AsyncThread.current
-      AsyncThread.current.addSoonHandle(e._1)
-    })
-    while(tasks.nonEmpty){
-      val orderId = tasks.keys.min
-      currentOrderId = orderId
-      val queue = tasks(orderId)
-      val locks = ArrayBuffer[Handle[_]]()
-      while(queue.nonEmpty){
-        val (l, h, t) = queue.dequeue()
-        h.willBeLoadedBy = t
-        t.addSoonHandle(h)
-        l.release()
-        locks += h
-      }
-      locks.foreach(_.await())
-      tasks.remove(orderId)
+    for(sl <- startLock.values){
+      sl.willBeLoadedBy = AsyncThread.current
+      AsyncThread.current.addSoonHandle(sl)
+    }
+
+    while(startLock.nonEmpty){
+      val phaseId = startLock.keys.min
+      callbacks.get(phaseId).foreach(_.foreach(_.apply()))
+      callbacks.remove(phaseId)
+      startLock(phaseId).release()
+      startLock.remove(phaseId)
+      doneRetainer(phaseId).await()
     }
   }
 }

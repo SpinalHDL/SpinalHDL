@@ -21,20 +21,20 @@ package object lib  {
   def NoData() = new NoData
 
   def sexport[T](named : Handle[T], value :  => Any) = {
-    Engine.get.onCompletion += {() => Component.current.addTag(new Export(named.getName(), value)) }
+    Engine.get.onCompletion += {() => Component.toplevel.addTag(new Export(named.getName(), value)) }
   }
 
   def sexport[T](h : Handle[T]) = {
-    Engine.get.onCompletion += {() => Component.current.addTag(new Export(h.getName(), h.get)) }
+    Engine.get.onCompletion += {() => Component.toplevel.addTag(new Export(h.getName(), h.get)) }
     h
   }
 
   def sexport[T](name : String, value : Any) = {
-    Engine.get.onCompletion += {() => Component.current.addTag(new Export(name, value)) }
+    Engine.get.onCompletion += {() => Component.toplevel.addTag(new Export(name, value)) }
   }
 
   def sexport[T <: SpinalTag](h : T) = {
-    Engine.get.onCompletion += {() => Component.current.addTag(h) }
+    Engine.get.onCompletion += {() => Component.toplevel.addTag(h) }
     h
   }
 
@@ -72,6 +72,7 @@ package object lib  {
   }
 
   implicit def easyFragment[T <: Data](that: Fragment[T]) : T = that.fragment
+  implicit def fragmentFixer[T <: Data](_data: Fragment[T]) = new DataPimper(_data)
 
   def StreamArbiterFactory() = new StreamArbiterFactory()
   type ScalaStream[T] = collection.immutable.Stream[T]
@@ -119,6 +120,8 @@ package object lib  {
     def toBinInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(toBigInt, num)
     def toDecInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(toBigInt, num)
     def toOctInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(toBigInt, num)
+
+    def toBytes: List[Byte] = binarySystem.LiteralToBytes.bigIntToBytes(toBigInt)
   }
 
   implicit class BigIntRicher(value: BigInt) extends LiteralRicher {
@@ -139,6 +142,11 @@ package object lib  {
     override val defaultAlignBit: Int = 8
   }
 
+  implicit class BytesRicher(lb: List[Byte]) {
+    def bytesToHex: String = binarySystem.BytesToLiteral.bytesToHexString(lb)
+    def bytesToBigInt: BigInt = binarySystem.BytesToLiteral.bytesToBigInt(lb)
+  }
+
   implicit class BinIntsRicher(li: List[Int]){
     def binIntsToOctAlignHigh: String  = binarySystem.BinIntsToLiteral.binIntsToOctString(li, true)
     def binIntsToHexAlignHigh: String  = binarySystem.BinIntsToLiteral.binIntsToHexString(li, true)
@@ -148,7 +156,7 @@ package object lib  {
     def binIntsToInt: Int       = binIntsToBigInt.toInt
     def binIntsToLong: Long     = binIntsToBigInt.toLong
   }
-  
-  
+
+
   val OHMux = new MuxOHImpl
 }

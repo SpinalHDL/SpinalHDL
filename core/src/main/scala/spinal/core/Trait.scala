@@ -88,6 +88,12 @@ object SwitchStack extends ScopeProperty[SwitchContext]{
   override def default = null
 }
 
+object OnCreateStack extends ScopeProperty[Nameable => Unit]{
+  storeAsMutable = false
+  override def default = null
+}
+
+
 
 /**
   * Global data
@@ -96,6 +102,7 @@ class GlobalData(val config : SpinalConfig) {
 
   private var algoIncrementale = 1
   var toplevel : Component = null
+  var report : SpinalReport[Component] = null
 
   def allocateAlgoIncrementale(): Int = {
     assert(algoIncrementale != Integer.MAX_VALUE)
@@ -119,6 +126,8 @@ class GlobalData(val config : SpinalConfig) {
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
   val scalaLocateds = mutable.HashSet[ScalaLocated]()
   val elab = new Fiber()
+  elab.setName("spinal_elab")
+//  elab.inflightLock.globalData = this
 
   def applyScalaLocated(): Unit ={
     try {
@@ -191,7 +200,7 @@ class GlobalData(val config : SpinalConfig) {
 
 /** Get a link to the globalData */
 trait GlobalDataUser {
-  val globalData = GlobalData.get
+  var globalData = GlobalData.get
 }
 
 
@@ -219,23 +228,29 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
       down = down.tail
       up = up.tail
     }
-    if(common != null)
+    val fullPath = if(common != null)
       (down.reverse :+ common) ++ up
     else
       down.reverse ++ up
+
+    // drop toplevel head for more consistent signal naming
+    fullPath match {
+      case h :: xs if h == globalData.toplevel => xs
+      case xs => xs
+    }
   }
 
   override def getName(default: String): String = {
 
     (getMode, nameableRef) match{
-      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        val path = getPath(this.component, other.component) :+ nameableRef
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
+        val path = getPath(this.component, other.component).tail :+ nameableRef
         if(path.forall(_.isNamed))
           path.map(_.getName()).mkString("_") + "_" + name
         else
           default
-      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        val path = getPath(this.component, other.component) :+ nameableRef
+      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
+        val path = getPath(this.component, other.component).tail :+ nameableRef
         if(path.forall(_.isNamed))
           path.map(_.getName()).mkString("_")
         else
@@ -247,10 +262,10 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
 
   override def isNamed: Boolean = {
     (getMode, nameableRef) match{
-      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
-      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != other.component =>
-        nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
+        nameableRef.isNamed && getPath(this.component, other.component).tail.forall(_.isNamed)
+      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
+        nameableRef.isNamed && getPath(this.component, other.component).tail.forall(_.isNamed)
       case _ => super.isNamed
     }
   }
@@ -591,7 +606,7 @@ object ScalaLocated {
 
   def filterStackTrace(that: Array[StackTraceElement]) = that.filter(trace => {
     val className = trace.getClassName
-    !(className.startsWith("scala.") || className.startsWith("spinal.core") || !filter(trace.toString)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+    !(className.startsWith("scala.") || className.startsWith("spinal.core")  || className.startsWith("spinal.sim") || !filter(trace.toString)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
   })
 
   def short(scalaTrace: Throwable): String = {
@@ -648,6 +663,12 @@ trait SpinalTagReady {
 
   def addTags[T <: SpinalTag](tags: Iterable[T]): this.type = {
     for (tag <- tags) addTag(tag)
+    this
+  }
+
+  def addTags(h : SpinalTag, tail : SpinalTag*): this.type = {
+    addTag(h)
+    for (tag <- tail) addTag(tag)
     this
   }
 
@@ -807,6 +828,16 @@ object noLatchCheck                  extends SpinalTag
 object noBackendCombMerge            extends SpinalTag
 object crossClockDomain              extends SpinalTag{ override def moveToSyncNode = true }
 object crossClockBuffer              extends SpinalTag{ override def moveToSyncNode = true }
+
+sealed trait TimingEndpointType
+object TimingEndpointType {
+  case object DATA extends TimingEndpointType
+  case object RESET extends TimingEndpointType
+  case object CLOCK_EN extends TimingEndpointType
+}
+
+case class crossClockFalsePath(source: Option[BaseType] = None, destType: TimingEndpointType = TimingEndpointType.DATA) extends SpinalTag { override def allowMultipleInstance: Boolean = false }
+case class crossClockMaxDelay(cycles: Int, useTargetClock: Boolean) extends SpinalTag { override def allowMultipleInstance: Boolean = false }
 object randomBoot                    extends SpinalTag{ override def moveToSyncNode = true }
 object tagAutoResize                 extends SpinalTag{ override def duplicative = true }
 object tagTruncated                  extends SpinalTag{
@@ -887,10 +918,14 @@ trait Num[T <: Data] {
   /** Is equal or greater than right */
   def >= (right: T): Bool
 
-  /** Logical left shift (w(T) = w(this) + shift)*/
+  /** Arithmetic left shift (w(T) = w(this) + shift)*/
   def << (shift: Int): T
-  /** Logical right shift (w(T) = w(this) - shift)*/
+  /** Arithmetic right shift (w(T) = w(this) - shift)*/
   def >> (shift: Int): T
+  /** Arithmetic left shift (w(T) = w(this) + (1 << shift)-1*/
+  def << (shift: UInt): T
+  /** Arithmetic right shift (w(T) = w(this)*/
+  def >> (shift: UInt): T
 
   /** Return the minimum value between this and right  */
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
@@ -934,13 +969,13 @@ trait Num[T <: Data] {
   */
 trait BitwiseOp[T <: Data]{
 
-  /** Logical AND operator */
+  /** Bitwise AND operator */
   def &(right: T): T
 
-  /** Logical OR operator */
+  /** Bitwise OR operator */
   def |(right: T): T
 
-  /** Logical XOR operator */
+  /** Bitwise XOR operator */
   def ^(right: T): T
 
   /** Inverse bitwise operator */

@@ -7,7 +7,7 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink
 import spinal.lib.logic.{Masked, Symplify}
-import spinal.lib.system.tag.{MappedNode, MappedTransfers, MemoryConnection, MemoryTransferTag, MemoryTransfers}
+import spinal.lib.system.tag.{MappedNode, MappedTransfers, MemoryConnection, MemoryEndpoint, MemoryTransferTag, MemoryTransfers}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -21,23 +21,22 @@ class TransferFilter() extends Area {
       override def get = M2sTransfers()
     })
     addTag(TransferFilterTag)
+    addTag(new MemoryEndpoint {
+      override def mapping = SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth)
+    })
   }
 
   new MemoryConnection {
-    override def m = up
-    override def s = down
+    override def up = TransferFilter.this.up
+    override def down = TransferFilter.this.down
     override def transformers = Nil
-    override def mapping = SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth)
-    override def sToM(downs: MemoryTransfers, args: MappedNode) = downs
     populate()
   }
 
   new MemoryConnection {
-    override def m = up
-    override def s = deadEnd
+    override def up = TransferFilter.this.up
+    override def down = TransferFilter.this.deadEnd
     override def transformers = Nil
-    override def mapping = SizeMapping(0, BigInt(1) << up.m2s.parameters.addressWidth)
-    override def sToM(downs: MemoryTransfers, args: MappedNode) = downs
     populate()
   }
 

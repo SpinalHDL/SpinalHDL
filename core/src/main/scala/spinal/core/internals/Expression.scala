@@ -134,10 +134,10 @@ abstract class Resize extends Expression with WidthProvider {
   override def getWidth: Int = size
 
   override def simplifyNode: Expression = {
-    if(input.getWidth == 0){
-      getLiteralFactory(0,size)
-    } else {
-      this
+    input.getWidth match {
+      case 0 => getLiteralFactory(0, size)
+      case s if s == size => input //Useless resize
+      case _ => this
     }
   }
 
@@ -417,7 +417,7 @@ object Operator {
 
     class Changed extends UnaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "!$stable(...)"
+      override def opName: String = "$changed(...)"
     }
 
 
@@ -468,6 +468,12 @@ object Operator {
     class NotEqual extends BinaryOperator {
       override def getTypeObject = TypeBool
       override def opName: String = "Bool =/= Bool"
+    }
+
+    class Repeat(val count : Int) extends UnaryOperator with Widthable {
+      override def getTypeObject = TypeBits
+      override def opName: String = "Bool #* Int"
+      override def calcWidth: Int = count
     }
   }
 
@@ -583,6 +589,10 @@ object Operator {
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
     }
 
+    abstract class Repeat(val count : Int) extends UnaryOperatorWidthableInputs {
+      override def calcWidth: Int = source.getWidth*count
+    }
+
     trait ShiftOperator
 
     abstract class ShiftRightByInt(val shift: Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator {
@@ -660,6 +670,12 @@ object Operator {
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
+
+    class IsUnknown extends UnaryOperator {
+      override def opName: String = "$isunknown(Bits)"
+
+      override def getTypeObject: Any = TypeBool
+    }
   }
 
 
@@ -717,6 +733,11 @@ object Operator {
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, new ResizeBits, left, this)
       }
       override def opName: String = "Bits =/= Bits"
+    }
+
+    class Repeat(count: Int) extends BitVector.Repeat(count) {
+      override def getTypeObject = TypeBits
+      override def opName: String = "Bits #* Int"
     }
 
     class ShiftRightByInt(shift: Int) extends BitVector.ShiftRightByInt(shift){
@@ -857,6 +878,11 @@ object Operator {
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
+    }
+
+    class Repeat(count: Int) extends BitVector.Repeat(count) {
+      override def getTypeObject = TypeUInt
+      override def opName: String = "UInt #* Int"
     }
 
     class ShiftRightByInt(shift: Int) extends BitVector.ShiftRightByInt(shift) {
@@ -1003,6 +1029,11 @@ object Operator {
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }
+    }
+
+    class Repeat(count: Int) extends BitVector.Repeat(count) {
+      override def getTypeObject = TypeSInt
+      override def opName: String = "SInt #* Int"
     }
 
     class ShiftRightByInt(shift: Int) extends BitVector.ShiftRightByInt(shift) {
@@ -1654,19 +1685,19 @@ abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
 /** Bits range access with a fix range */
 class BitsRangedAccessFixed extends BitVectorRangedAccessFixed {
   override def getTypeObject  = TypeBits
-  override def opName: String = "Bits(Int downto Int)"
+  override def opName: String = s"Bits($hi downto $lo)"
 }
 
 /** UInt range access with a fix range */
 class UIntRangedAccessFixed extends BitVectorRangedAccessFixed {
   override def getTypeObject  = TypeUInt
-  override def opName: String = "UInt(Int downto Int)"
+  override def opName: String = s"UInt($hi downto $lo)"
 }
 
 /** SInt range access with a fix range */
 class SIntRangedAccessFixed extends BitVectorRangedAccessFixed {
   override def getTypeObject  = TypeSInt
-  override def opName: String = "SInt(Int downto Int)"
+  override def opName: String = s"SInt($hi downto $lo)"
 }
 
 
@@ -2304,7 +2335,9 @@ object BitsLiteral {
     val minimalWidth   = Math.max(poisonBitCount,valueBitCount)
     var bitCount       = specifiedBitCount
 
-    if (value < 0) throw new Exception("literal value is negative and cannot be represented")
+    if (value < 0) {
+      throw new Exception("literal value is negative and cannot be represented")
+    }
 
     if (bitCount != -1) {
       if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in Bits($specifiedBitCount bits)")
@@ -2456,10 +2489,14 @@ abstract class BitVectorLiteral() extends Literal with WidthProvider {
   }
 
   def hexString(bitCount: Int, aligin: Boolean = false):String = {
-    val hexCount = scala.math.ceil(bitCount/4.0).toInt
-    val alignCount = if (aligin) (hexCount * 4) else bitCount
-    val unsignedValue = if(value >= 0) value else ((BigInt(1) << alignCount) + value)
-    s"%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
+    if(value == 0){
+      "0"
+    } else {
+      val hexCount = scala.math.ceil(bitCount/4.0).toInt
+      val alignCount = if (aligin) (hexCount * 4) else bitCount
+      val unsignedValue = if(value >= 0) value else ((BigInt(1) << alignCount) + value)
+      s"%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
+    }
   }
 
 

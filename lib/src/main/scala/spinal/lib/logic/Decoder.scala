@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.{BaseType, Bits, Component, EnumLiteral, False, HardType, RegInit, RegNext, SpinalEnumCraft, out}
 import spinal.lib.KeepAttribute
 
+import scala.collection.Seq
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 

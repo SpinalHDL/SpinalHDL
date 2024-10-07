@@ -13,7 +13,7 @@ class DebugModuleFiber() extends Area{
     harts += cpu
   }
 
-  def ndmreset = thread.logic.io.ndmreset
+  val ndmreset = Bool()
 
   val thread = Fiber build new Area{
     val p = DebugTransportModuleParameter(
@@ -35,6 +35,8 @@ class DebugModuleFiber() extends Area{
         ))
       )
     )
+
+    ndmreset := logic.io.ndmreset
 
     for(i <- harts.indices){
       val from = logic.io.harts(i)

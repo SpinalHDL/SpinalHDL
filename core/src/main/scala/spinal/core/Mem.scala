@@ -122,6 +122,7 @@ trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainer
 class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady with InComponent{
   if(parentScope != null) parentScope.append(this)
 
+  var preventMemToBlackboxTranslation = false
   var forceMemToBlackboxTranslation = false
   val _widths = wordType().flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
   val width   = _widths.sum
@@ -150,6 +151,10 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     this
   }
 
+  def preventAsBlackBox(): this.type = {
+    preventMemToBlackboxTranslation = true
+    this
+  }
 
   override def getComponent(): Component = parentScope.component
 
@@ -669,6 +674,7 @@ class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagRe
   def aspectRatio = mem.getWidth/getWidth
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
+  override def remapClockDomain(func: ClockDomain => ClockDomain) = clockDomain = func(clockDomain)
 }
 
 
@@ -764,6 +770,7 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
   }
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
+  override def remapClockDomain(func: ClockDomain => ClockDomain) = clockDomain = func(clockDomain)
 }
 
 
@@ -866,6 +873,7 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
   def aspectRatio = mem.getWidth / getWidth
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
+  override def remapClockDomain(func: ClockDomain => ClockDomain) = clockDomain = func(clockDomain)
 }
 
 case class MemSymbolesMapping(name : String, range: Range){

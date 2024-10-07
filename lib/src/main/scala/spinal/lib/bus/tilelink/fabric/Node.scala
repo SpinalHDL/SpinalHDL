@@ -44,6 +44,7 @@ class Node() extends NodeUpDown{
                       d: StreamPipe = StreamPipe.NONE,
                       e: StreamPipe = StreamPipe.NONE) : Unit = {
     setUpConnection(_.connectFrom(_)(a, b, c, d, e))
+    assert(withUps)
   }
 
   def setDownConnection(a: StreamPipe = StreamPipe.NONE,
@@ -52,16 +53,24 @@ class Node() extends NodeUpDown{
                         d: StreamPipe = StreamPipe.NONE,
                         e: StreamPipe = StreamPipe.NONE) : Unit  = {
     setDownConnection(_.connectFrom(_)(a, b, c, d, e))
+    assert(withDowns)
+  }
+
+  def setEndpoint(): Unit = {
+    addTag(new MemoryEndpoint {
+      override def mapping = SizeMapping(0, BigInt(1) << m2s.parameters.addressWidth)
+    })
   }
 
 
-  def forceDataWidth(dataWidth : Int): Unit ={
+  def forceDataWidth(dataWidth : Int): this.type ={
     m2s.proposedModifiers += { s =>
       s.copy(dataWidth = dataWidth)
     }
     m2s.supportedModifiers += { s =>
       s.copy(dataWidth = dataWidth)
     }
+    this
   }
 
   //Will negociate the m2s/s2m handles, then generate the arbiter / decoder required to connect the ups / downs connections
@@ -181,7 +190,14 @@ class Node() extends NodeUpDown{
     }
 
     val decoder = (withDowns && downs.size > 1) generate new Area {
-      val core = Decoder(bus.p.node, downs.map(_.s.m2s.supported), downs.map(_.up.s2m.parameters), downs.map(_.getMapping()), downs.map(_.tag.transformers))
+      val downSpecs = downs.map{c =>
+        DecoderDownSpec(
+          MemoryConnection.getMemoryTransfers(Node.this, List(c.tag)),
+          c.tag.transformers,
+          NodeParameters(c.up.m2s.parameters, c.up.s2m.parameters)
+        )
+      }
+      val core = Decoder(bus.p.node, downSpecs)
       for((down, decoded) <- (downs, core.io.downs).zipped){
         down.up.bus.load(decoded.combStage())
       }

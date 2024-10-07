@@ -166,6 +166,23 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
     }
   }
 
+  /**
+    * for interface find modport
+    */
+  def checkDir(that: Bundle): Boolean = {
+    var ret= true
+    for ((name, element) <- elements) {
+      val other = that.find(name)
+      if (other == null)
+        LocatedPendingError(s"Bundle assignment is not complete. Missing $name")
+      else element match {
+        case b: Bundle => ret = b.checkDir(other.asInstanceOf[Bundle]) && ret
+        case b         => ret = (b.dir == other.dir) && ret
+      }
+    }
+    ret
+  }
+
   var elementsCache = ArrayBuffer[(String, Data)]()
 
   override def valCallbackRec(ref: Any, name: String): Unit = ref match {

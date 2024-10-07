@@ -29,7 +29,7 @@ class PackedBundle extends Bundle {
     * Does not check for overlap of elements.
     */
   private class MappingBuilder {
-    var lastPos = 0
+    var nextPos = 0
     var highBit = 0
     val mapping = ArrayBuffer[(Range, Data)]()
 
@@ -55,9 +55,9 @@ class PackedBundle extends Bundle {
 
         case None =>
           // Assume the full range of the data with the MSB as the highest bit
-          (lastPos + d.getBitsWidth - 1) downto (lastPos)
+          (nextPos + d.getBitsWidth - 1) downto (nextPos)
       }
-      lastPos = r.high
+      nextPos = r.high + 1
 
       // Update the bit width
       highBit = highBit.max(r.high)
@@ -77,20 +77,20 @@ class PackedBundle extends Bundle {
 
   def packed: Bits = {
     val maxWidth = mappings.map(_._1.high).max + 1
-    val packed = B(0, maxWidth bit)
+    val packed = B(0, maxWidth bit).allowOverride()
     for ((range, data) <- mappings) {
       if (range.step > 0) {
         // "Little endian" -- ascending range
         val subBits = data match {
           case subPacked: PackedBundle => subPacked.packed
-          case _ => data.asBits
+          case _                       => data.asBits
         }
         packed(range) := subBits.takeLow(range.size.min(data.getBitsWidth)).resize(range.size)
       } else {
         // "Big endian" -- descending range
         val subBits = data match {
           case subPacked: PackedBundle => subPacked.packed
-          case _ => data.asBits
+          case _                       => data.asBits
         }
         packed(range) := subBits.takeHigh(range.size.min(data.getBitsWidth)).resizeLeft(range.size)
       }
@@ -111,21 +111,21 @@ class PackedBundle extends Bundle {
           val subBits = bits(elRange).resize(el.getBitsWidth)
           el match {
             case subPacked: PackedBundle => subPacked.unpack(subBits)
-            case _ => el.assignFromBits(subBits)
+            case _                       => el.assignFromBits(subBits)
           }
         } else {
           // "Big endian" -- descending range
           val subBits = bits(elRange).resizeLeft(el.getBitsWidth)
           el match {
             case subPacked: PackedBundle => subPacked.unpack(subBits)
-            case _ => el.assignFromBits(subBits)
+            case _                       => el.assignFromBits(subBits)
           }
         }
       }
     }
   }
 
-  def getPackedWidth: Int = mappings.map(_._1.high).max+1
+  def getPackedWidth: Int = mappings.map(_._1.high).max + 1
 
   implicit class DataPositionEnrich[T <: Data](t: T) {
 
@@ -166,6 +166,15 @@ class PackedBundle extends Bundle {
     def packTo(pos: Int): T = {
       t.pack(pos downto pos - t.getBitsWidth + 1)
     }
+  }
+
+  /**
+    * Skips over the specified number of bits. The next unspecified field will be placed starting `count` number
+    * of bits after the last placed field.
+    * @param count Number of bits to skip over
+    */
+  protected def skipOver(count: BitCount): Unit = {
+    this.mapBuilder.nextPos += count.value
   }
 
   override def valCallbackRec(ref: Any, name: String): Unit = {

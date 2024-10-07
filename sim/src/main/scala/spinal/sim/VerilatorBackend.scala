@@ -263,14 +263,16 @@ public:
     string name;
     int32_t time_precision;
 
-    Wrapper_${uniqueId}(const char * name, int seed){
+    Wrapper_${uniqueId}(const char * name, const char * wavePath, int seed){
       //contextp = new VerilatedContext;
       Verilated::randReset(2);
       Verilated::randSeed(seed);
-      top = new V${config.toplevelName}();
-
+      // Verilator v5.026+ calls time() inside Vtop::Vtop()
+      // initialize the simHandle before we call Vtop
       simHandle${uniqueId} = this;
       time = 0;
+      top = new V${config.toplevelName}();
+
       timeCheck = 0;
       lastFlushAt = high_resolution_clock::now();
       waveEnabled = true;
@@ -281,7 +283,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       else if(signal.dataType.width <= 64) "QData"
       else "WData"
       val enforcedCast = if(signal.dataType.width > 64) "(WData*)" else ""
-      val signalReference = s"top->${signal.path.map(_.replace("$", "__024")).mkString("->")}"
+      val signalReference = s"top->${signal.path.map(_.replace("$", "__024").replace("__", "___05F")).mkString("->")}"
       val memPatch = if(signal.dataType.isMem) "[0]" else ""
 
       s"      signalAccess[$id] = new ${typePrefix}SignalAccess($enforcedCast $signalReference$memPatch ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
@@ -293,7 +295,8 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top->trace(&tfp, 99);
-      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${format.ext}").c_str());
+      tfp.set_time_resolution(${if (useTimePrecision) "Verilated::threadContextp()->timeprecisionString()" else "VL_TIME_PRECISION_STR" });
+      tfp.open((std::string(wavePath) + "wave" + ".${format.ext}").c_str());
       #endif
       this->name = name;
       this->time_precision = ${if (useTimePrecision) "Verilated::timeprecision()" else "VL_TIME_PRECISION" };
@@ -325,6 +328,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
 };
 
 double sc_time_stamp () {
+  if(simHandle${uniqueId} == NULL) return 0.0;
   return simHandle${uniqueId}->time;
 }
 
@@ -353,15 +357,17 @@ extern "C" {
 
 
 JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
-  (JNIEnv * env, jobject obj, jstring name, jint seedValue){
+  (JNIEnv * env, jobject obj, jstring name, jstring wavePath, jint seedValue){
     #if defined(_WIN32) && !defined(__CYGWIN__)
     srand(seedValue);
     #else
     srand48(seedValue);
     #endif
     const char* ch = env->GetStringUTFChars(name, 0);
-    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch, seedValue);
+    const char* wavePathCh = env->GetStringUTFChars(wavePath, 0);
+    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch, wavePathCh, seedValue);
     env->ReleaseStringUTFChars(name, ch);
+    env->ReleaseStringUTFChars(wavePath, wavePathCh);
     return handle;
 }
 
@@ -564,7 +570,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
     val verilatorVersionProcess = Process(Seq(verilatorBinFilename, "--version"), new File(workspacePath))
     val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n") // blocks and throws an exception if exit status != 0
-    val verilatorVersionDeci = BigDecimal(verilatorVersion.split(" ")(1))
+    val verilatorVersionDeci = BigDecimal("([0-9]+\\.[0-9]+)".r.findFirstIn(verilatorVersion).get)
 
     if (cacheEnabled) {
       // calculate hash of verilator version+options and source file contents
@@ -588,6 +594,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       md.update(config.simulatorFlags.mkString(" ").getBytes())
       md.update(0.toByte)
       md.update(verilatorVersion.getBytes())
+
 
       def hashFile(md: MessageDigest, file: File) = {
         val bis = new BufferedInputStream(new FileInputStream(file))
@@ -614,9 +621,11 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
         md.update(0.toByte)
       }
 
-      val hash = md.digest().map(x => (x & 0xFF).toHexString.padTo(2, '0')).mkString("")
+      val digest = md.digest()
+      val hash = digest.map(x => (x & 0xFF).toHexString.padTo(2, '0')).mkString("")
       workspaceCacheDir = new File(s"${cachePath}/${hash}/${workspaceName}")
       hashCacheDir = new File(s"${cachePath}/${hash}")
+      uniqueId = BigInt(digest).toLong.abs
 
       cacheGlobalSynchronized {
         // remove old cache entries
@@ -669,26 +678,20 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       verilatorScriptFile.close
 
       // invoke verilator or copy cached files depending on whether cache is not used or used
+      val libExt = if(isWindows) "dll" else (if(isMac) "dylib" else "so")
       if (!useCache) {
         val shCommand = if(isWindows) "sh.exe" else "sh"
         val logger = new Logger()
         assert(Process(Seq(shCommand, "verilatorScript.sh"),
                        new File(workspacePath)).! (logger) == 0, "Verilator invocation failed\n" + logger.outStr.toString())
+        val threadCount = SimManager.cpuCount
+        genWrapperCpp(verilatorVersionDeci >= BigDecimal("4.034"))
+        assert(s"${SpinalEnv.makeCmd} -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
+        FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${libExt}"))
       } else {
         FileUtils.copyDirectory(workspaceCacheDir, workspaceDir)
       }
 
-      genWrapperCpp(verilatorVersionDeci >= BigDecimal("4.034"))
-      val threadCount = SimManager.cpuCount
-      val logger = new Logger
-      if (!useCache) {
-        assert(s"${SpinalEnv.makeCmd} -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
-      } else {
-        // do not remake Vtoplevel__ALL.a
-        assert(s"${SpinalEnv.makeCmd} -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk -o V${config.toplevelName}__ALL.a V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (logger) == 0, "Verilator C++ model compilation failed\n" + logger.outStr.toString())
-      }
-
-      FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
 
       if (cacheEnabled) {
         // update cache
@@ -698,7 +701,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
           // copy only needed files to save disk space
           FileUtils.copyDirectory(workspaceDir, workspaceCacheDir, new FileFilter() {
-            def accept(file: File): Boolean = file.getName() == s"V${config.toplevelName}__ALL.a" || file.getName().endsWith(".mk") || file.getName().endsWith(".h")
+            def accept(file: File): Boolean = file.getName().endsWith("." + libExt)
           })
         }
 
@@ -713,7 +716,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |import spinal.sim.IVerilatorNative;
          |
          |public class VerilatorNative implements IVerilatorNative {
-         |    public long newHandle(String name, int seed) { return newHandle_${uniqueId}(name, seed);}
+         |    public long newHandle(String name, String wavePath, int seed) { return newHandle_${uniqueId}(name, wavePath, seed);}
          |    public boolean eval(long handle) { return eval_${uniqueId}(handle);}
          |    public int get_time_precision(long handle) { return getTimePrecision_${uniqueId}(handle);}
          |    public void sleep(long handle, long cycles) { sleep_${uniqueId}(handle, cycles);}
@@ -730,7 +733,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |    public void disableWave(long handle) { disableWave_${uniqueId}(handle);}
          |
          |
-         |    public native long newHandle_${uniqueId}(String name, int seed);
+         |    public native long newHandle_${uniqueId}(String name, String wavePath, int seed);
          |    public native boolean eval_${uniqueId}(long handle);
          |    public native int getTimePrecision_${uniqueId}(long handle);
          |    public native void sleep_${uniqueId}(long handle, long cycles);
@@ -773,7 +776,11 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
   val nativeInstance: IVerilatorNative = nativeImpl.getConstructor().newInstance().asInstanceOf[IVerilatorNative]
 
   def instanciate(name: String, seed: Int) = nativeInstance.synchronized{ //synchronized is used as a Verilator isn't thread safe on construction (bug ?)
-    nativeInstance.newHandle(name, seed)
+    val patchedPath = new File(config.vcdPath.replace("$TEST", name)).getAbsolutePath.replace("\\", "/")
+    val patchedPrefix = if(config.vcdPrefix == null) "" else config.vcdPrefix.replace("$TEST", name) + "_"
+    val wavePath = patchedPath + "/" + patchedPrefix
+    FileUtils.forceMkdirParent(new File(patchedPath, "."))
+    nativeInstance.newHandle(name, wavePath, seed)
   }
 
   override def isBufferedWrite: Boolean = false

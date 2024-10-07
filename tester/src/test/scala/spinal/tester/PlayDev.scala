@@ -1414,8 +1414,6 @@ object PlayOneHotSynthesisBench extends App{
     })
   }
 
-
-
   val rtls = List(2,3,4,5,6,7,8,16).map(width => new BenchFpga(width))
 
   val targets = XilinxStdTargets(
@@ -1427,6 +1425,24 @@ object PlayOneHotSynthesisBench extends App{
 
 
   Bench(rtls, targets, "/eda/tmp/")
+}
+
+
+object PlayPriorityMux extends App{
+  class BenchFpga(width : Int, highPreced: Boolean) extends Rtl{
+    val order = if(highPreced) "H" else "L"
+    override def getName(): String = "PriorityMux" + order + width
+    override def getRtlPath(): String = getName() + ".v"
+    SpinalVerilog(new Component{
+      val sel = in Bits(width bits)
+      val inputs = in Vec(Bits(8 bits), width)
+      val output = out(RegNext(PriorityMux(sel, inputs, highPreced)))
+      setDefinitionName(BenchFpga.this.getName())
+    })
+  }
+
+  val rtls = List(2,3,4,5,6,7,8,16).map(width => new BenchFpga(width, false))
+  val Rrtls = List(2,3,4,5,6,7,8,16).map(width => new BenchFpga(width, true))
 }
 
 

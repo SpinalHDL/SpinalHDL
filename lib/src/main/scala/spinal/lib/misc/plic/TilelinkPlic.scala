@@ -9,7 +9,7 @@ import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.misc.InterruptNode
 
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.Seq
+import scala.collection.{Seq, mutable}
 
 class MappedPlic[T <: spinal.core.Data with IMasterSlave](sourceIds : Seq[Int],
                                                           targetIds : Seq[Int],
@@ -69,11 +69,27 @@ class TilelinkPlic(p : bus.tilelink.BusParameter,
   new bus.tilelink.SlaveFactory(_, false)
 )
 
-trait InterruptCtrlFiber {
+trait InterruptCtrlFiber extends Nameable{
   val lock = Lock()
 
   def createInterruptMaster(id: Int): InterruptNode
   def createInterruptSlave(id: Int): InterruptNode
+
+  val mappedInterrupts = mutable.LinkedHashMap[InterruptNode, InterruptNode]()
+
+  def mapUpInterrupt(id: Int, node: InterruptNode): Unit = {
+    val local = createInterruptSlave(id)
+    local.setLambdaName(node.isNamed && this.isNamed)(s"${this.getName()}_from_${node.getName}")
+    local << node
+    mappedInterrupts(node) = local
+  }
+
+  def mapDownInterrupt(id: Int, node: InterruptNode): Unit = {
+    val local = createInterruptMaster(id)
+    local.setLambdaName(node.isNamed && this.isNamed)(s"${this.getName()}_to_${node.getName}")
+    node << local
+    mappedInterrupts(node) = local
+  }
 
   def retain() = lock.retain()
   def release() = lock.release()

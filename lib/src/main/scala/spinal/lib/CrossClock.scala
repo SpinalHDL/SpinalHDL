@@ -1,11 +1,17 @@
 package spinal.lib
 
 import spinal.core._
+import spinal.core.fiber._
+import spinal.core.sim.SimDataPimper
+
+import scala.collection.Seq
+import scala.collection.mutable.ArrayBuffer
 
 object BufferCC {
-  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Option[Int] = None, randBoot : Boolean = false): T = {
-    val c = new BufferCC(input, init, bufferDepth, randBoot)
+  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Option[Int] = None, randBoot : Boolean = false, inputAttributes: Seq[SpinalTag] = List(), allBufAttributes: Seq[SpinalTag] = List()): T = {
+    val c = new BufferCC(input, init, bufferDepth, randBoot, inputAttributes, allBufAttributes)
     c.setCompositeName(input, "buffercc", true)
+    // keep hierarchy for timing constraint generation
     c.io.dataIn := input
 
     val ret = cloneOf(c.io.dataOut)
@@ -46,7 +52,7 @@ object BufferCC {
   }
 }
 
-class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option[Int], val  randBoot : Boolean = false) extends Component {
+class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option[Int], val  randBoot : Boolean = false, inputAttributes: Seq[SpinalTag] = List(), allBufAttributes: Seq[SpinalTag] = List()) extends Component {
   def getInit() : T = init
   val finalBufferDepth = BufferCC.defaultDepthOptioned(ClockDomain.current, bufferDepth)
   assert(finalBufferDepth >= 1)
@@ -61,12 +67,16 @@ class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option
 
   buffers(0) := io.dataIn
   buffers(0).addTag(crossClockDomain)
+  inputAttributes.foreach(buffers(0).addTag)
   for (i <- 1 until finalBufferDepth) {
     buffers(i) := buffers(i - 1)
     buffers(i).addTag(crossClockBuffer)
   }
+  buffers.map(b => allBufAttributes.foreach(b.addTag))
 
   io.dataOut := buffers.last
+
+  addAttribute("keep_hierarchy", "TRUE")
 }
 
 
@@ -94,7 +104,7 @@ class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain, withOutputBuf
 
   val finalOutputClock = clockOut.withOptionalBufferedResetFrom(withOutputBufferedReset)(clockIn)
   val outArea = finalOutputClock on new Area {
-    val target = BufferCC(inArea.target, False)
+    val target = BufferCC(inArea.target, False, inputAttributes = List(crossClockFalsePath()))
 
     io.pulseOut := target.edge(False)
   }
@@ -110,7 +120,7 @@ object ResetCtrl{
    * @param outputPolarity (HIGH/LOW)
    * @param bufferDepth Number of register stages used to avoid metastability (default=2)
    * @param inputSync Active high, will set reset high in a sync way
-   * @return Filtred Bool which is asynchronously asserted synchronously deaserted
+   * @return Filtered Bool which is asynchronously asserted synchronously deasserted
    */
   def asyncAssertSyncDeassert(input : Bool,
                               clockDomain : ClockDomain,
@@ -127,10 +137,12 @@ object ResetCtrl{
     )
 
     val solvedOutputPolarity = if(outputPolarity == null) clockDomain.config.resetActiveLevel else outputPolarity
+    val falsePathAttrs = List(crossClockFalsePath(Some(input), destType = TimingEndpointType.RESET))
     samplerCD(BufferCC(
-      input       = (if(solvedOutputPolarity == HIGH) False else True) ^ inputSync,
-      init        = (if(solvedOutputPolarity == HIGH) True  else False),
-      bufferDepth = bufferDepth)
+      input       = ((if(solvedOutputPolarity == HIGH) False else True) ^ inputSync).setCompositeName(input, "asyncAssertSyncDeassert", true),
+      init        = if(solvedOutputPolarity == HIGH) True  else False,
+      bufferDepth = bufferDepth,
+      allBufAttributes = falsePathAttrs)
     )
   }
 
@@ -161,7 +173,150 @@ object ResetCtrl{
         inputPolarity = resetCd.config.resetActiveLevel,
         outputPolarity = clockCd.config.resetActiveLevel,
         bufferDepth = bufferDepth
-      ).setCompositeName(resetCd.reset, "syncronized", true)
+      ).setCompositeName(resetCd.reset, "synchronized", true)
     )
+  }
+}
+
+
+case class ResetAggregatorSource(pin: Bool, sync: Boolean, pol: Polarity)
+class ResetAggregator(sources: Seq[ResetAggregatorSource], pol: Polarity) extends Area {
+  def asyncBuffer(s : ResetAggregatorSource) : BufferCC[Bool] = {
+    val samplerCd = ClockDomain.current.copy(
+      reset = s.pin,
+      config = ClockDomain.current.config.copy(
+        resetKind = ASYNC,
+        resetActiveLevel = s.pol
+      )
+    )
+
+    val cc = samplerCd on new BufferCC(
+      dataType = Bool(),
+      init = pol.assertedBool,
+      bufferDepth = None
+    )
+    cc.io.dataIn := pol.deassertedBool
+    cc
+  }
+
+  val asyncBuffers = for (s <- sources if !s.sync) yield asyncBuffer(s)
+  val syncBuffers = for (s <- sources if s.sync) yield (if (s.pol == pol) s.pin else !s.pin)
+  val resets = asyncBuffers.map(_.io.dataOut) ++ syncBuffers
+  val reset = if (pol == HIGH) resets.orR else resets.norR
+}
+
+class ResetHolder(cycles: Int, pol: Polarity) extends Area {
+  val counter = Reg(UInt(log2Up(cycles + 1) bits)) init (0)
+  val reset = (counter =/= cycles) ^ pol.deassertedBool
+  when(reset === pol.assertedBool) {
+    counter := counter + 1
+  }
+
+  def doSyncReset(): Unit = {
+    counter := 0
+  }
+}
+
+class ResetCtrlFiber(val config: ClockDomainConfig = ClockDomain.defaultConfig) extends Area {
+  val lock = spinal.core.fiber.Lock()
+
+  val reset = Bool().simPublic()
+  val cd = ClockDomain.current.copy(reset = reset, config = config)
+  var holdCycles = 64
+  var withBootReset = false
+
+  val resets = ArrayBuffer[ResetAggregatorSource]()
+  val syncRelaxedResets = ArrayBuffer[ResetAggregatorSource]()
+
+  def addAsyncReset(pin: Bool, pol: Polarity): this.type = {
+    resets += ResetAggregatorSource(pin, false, pol)
+    this
+  }
+
+  def addSyncReset(pin: Bool, pol: Polarity): this.type = {
+    resets += ResetAggregatorSource(pin, true, pol)
+    this
+  }
+
+  def addSyncRelaxedReset(pin: Bool, pol: Polarity): this.type = {
+    syncRelaxedResets += ResetAggregatorSource(pin, true, pol)
+    this
+  }
+
+  def addAsyncReset(ctrl: ResetCtrlFiber): this.type = {
+    addAsyncReset(ctrl.reset, ctrl.config.resetActiveLevel)
+    this
+  }
+  def addReset(ctrl: ResetCtrlFiber): this.type = {
+    addAsyncReset(ctrl.reset, ctrl.config.resetActiveLevel)
+    this
+  }
+
+  def enableBootReset(): this.type = {
+    withBootReset = true
+    this
+  }
+
+  def createAsyncReset(pol: Polarity): Bool = {
+    val pin = Bool()
+    addAsyncReset(pin, pol)
+    pin
+  }
+
+  def createSyncReset(pol: Polarity): Bool = {
+    val pin = Bool()
+    addSyncReset(pin, pol)
+    pin
+  }
+
+  def createSyncRelaxedReset(pol: Polarity): Bool = {
+    val pin = Bool()
+    addSyncRelaxedReset(pin, pol)
+    pin
+  }
+
+  val fiber = Fiber build new Area {
+    lock.await()
+    val ccd = ClockDomain.current
+
+    val bootReset = withBootReset generate new Area {
+      val cd = ccd.withBootReset()
+      val reg = cd(RegNext(True) init (False))
+      addSyncReset(reg, LOW)
+    }
+
+    val aggregator = new ResetAggregator(resets, config.resetActiveLevel)
+
+    val holderCd = ClockDomain(
+      clock = ccd.clock,
+      reset = aggregator.reset,
+      config = ccd.config.copy(
+        resetKind = ASYNC,
+        resetActiveLevel = config.resetActiveLevel
+      )
+    )
+    val holder = holderCd on new ResetHolder(holdCycles, config.resetActiveLevel)
+    if (syncRelaxedResets.nonEmpty) holderCd on {
+      when(syncRelaxedResets.map(e => e.pin === e.pol.assertedBool).orR) {
+        holder.doSyncReset()
+      }
+    }
+
+    val bufferCd = ClockDomain(
+      clock = ccd.clock,
+      reset = holder.reset,
+      config = ccd.config.copy(
+        resetKind = ASYNC,
+        resetActiveLevel = config.resetActiveLevel
+      )
+    )
+    val buffer = bufferCd on new BufferCC(
+      dataType = Bool(),
+      init = config.resetActiveLevel.assertedBool,
+      bufferDepth = None
+    )
+    buffer.io.dataIn := config.resetActiveLevel.deassertedBool
+
+    reset := buffer.io.dataOut
   }
 }

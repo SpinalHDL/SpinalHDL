@@ -8,7 +8,8 @@ import spinal.idslplugin.Location
 
 object SpinalFormal extends Tag("spinal.tester.formal")
 
-class SpinalFormalFunSuite extends AnyFunSuite{  
+class SpinalFormalFunSuite extends AnyFunSuite{
+  implicit val className: String = getClass.getSimpleName()
   def assert(assertion: Bool)(implicit loc: Location) = {
     spinal.core.assert(assertion)
   }

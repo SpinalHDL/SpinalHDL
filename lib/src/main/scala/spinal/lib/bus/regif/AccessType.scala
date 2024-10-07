@@ -29,10 +29,13 @@ object AccessType {
   case object W1    extends AccessType  //- W: first one after ~HARD~ reset is as-is, other W have no effects, R: no effect
   case object WO1   extends AccessType  //- W: first one after ~HARD~ reset is as-is, other W have no effects, R: error
   case object NA    extends AccessType  // -W: reserved, R: reserved
-  case object W1P   extends AccessType  // -W: 1/0 pulse/no effect on matching bit, R: no effect
+  case object W1P   extends AccessType  // -W: 1/0 pulse/no effect on matching bit, R: no effect, pulse regNextOut after writehit
+  case object W1I   extends AccessType  // -W: 1/0 pulse/no effect on matching bit, R: no effect, impulse combination out at writehit
   case object W0P   extends AccessType  // -W: 0/1 pulse/no effect on matching bit, R: no effect
-  case object HSRW  extends AccessType  // HarddWare Set then SoftWare RW, HW high priority than SW
-  case object RWHS  extends AccessType  // SoftWare RW then HarddWare Set, SW high priority than HW
+  case object HSRW  extends AccessType  // HardWare Set then SoftWare RW, HW high priority than SW
+  case object RWHS  extends AccessType  // SoftWare RW then HardWare Set, SW high priority than HW
+  case object W1CHS extends AccessType  // SoftWare Write 1 Clear then HardWare Set, SW high priority than HW
+  case object W1SHS extends AccessType  // SoftWare Write 1 Set  then HardWare Set, SW high priority than HW
   case object ROV   extends AccessType  // ReadOnly Value, used for constant
   case class  CSTM(name: String) extends AccessType {
     override def toString: String = if(name.isEmpty) "CSTM" else name.toUpperCase

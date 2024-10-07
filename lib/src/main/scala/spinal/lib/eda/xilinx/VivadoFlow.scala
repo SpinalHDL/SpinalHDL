@@ -39,14 +39,26 @@ object VivadoFlow {
     // generate tcl script
     val tcl = new java.io.FileWriter(Paths.get(workspacePath, "doit.tcl").toFile)
     tcl.write(
-s"""${readRtl}
-read_xdc doit.xdc
+s"""
+create_project -force project_bft_batch ./project_bft_batch -part $device
 
-synth_design -mode out_of_context -part $device -top ${rtl.getTopModuleName()}
-opt_design
-place_design
-route_design
+add_files {${rtl.getRtlPaths().mkString(" ")}}
+add_files -fileset constrs_1 ./doit.xdc
 
+import_files -force
+
+set_property -name {STEPS.SYNTH_DESIGN.ARGS.MORE OPTIONS} -value {-mode out_of_context} -objects [get_runs synth_1]
+launch_runs synth_1
+wait_on_run synth_1
+open_run synth_1 -name netlist_1
+
+report_timing_summary -delay_type max -report_unconstrained -check_timing_verbose -max_paths 10 -input_pins -file syn_timing.rpt
+report_power -file syn_power.rpt
+
+launch_runs impl_1
+wait_on_run impl_1
+
+open_run impl_1
 report_utilization
 report_timing_summary -warn_on_violation
 report_pulse_width -warn_on_violation -all_violators
@@ -95,12 +107,21 @@ report_design_analysis -logic_level_distribution
         }       
         return lowest_pulse_slack 
       }
+
+      private def findFirst2StageInReport(regex1st: String, regex2nd: String): String = {
+        try{
+          regex1st.r.findFirstIn(regex2nd.r.findFirstIn(report).get).get
+        } catch {
+          case e : Exception => "???"
+        }
+      }
+
       override def getFMax(): Double = {
-        val intFind = "-?(\\d+\\.?)+".r
+        val intFind = "-?(\\d+\\.?)+"
         var slack = try {
           (family match {
             case "Artix 7" | "Kintex 7" | "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
-              intFind.findFirstIn("-?(\\d+.?)+ns  \\(required time - arrival time\\)".r.findFirstIn(report).get).get
+              findFirst2StageInReport(intFind, "-?(\\d+.?)+ns  \\(required time - arrival time\\)")
           }).toDouble
         } catch {
           case e : Exception => -100000.0
@@ -111,21 +132,22 @@ report_design_analysis -logic_level_distribution
         }
         return 1.0 / (targetPeriod.toDouble - slack * 1e-9)
       }
+      
       override def getArea(): String =  {
         // 0, 30, 0.5, 15,5
-        val intFind = "(\\d+,?\\.?\\d*)".r
+        val intFind = "(\\d+,?\\.?\\d*)"
         val leArea = try {
           family match {
             case "Artix 7" | "Kintex 7" =>
-              intFind.findFirstIn("Slice LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
-              intFind.findFirstIn("Slice Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
+              findFirst2StageInReport(intFind, "Slice LUTs[ ]*\\|[ ]*(\\d+,?)+") + " LUT " +
+              findFirst2StageInReport(intFind, "Slice Registers[ ]*\\|[ ]*(\\d+,?)+") + " FF "
             // Assume the the resources table is the only one with 5 columns (this is the case in Vivado 2021.2)
             // (Not very version-proof, we should actually first look at the right table header first...)
             case "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
-              intFind.findFirstIn("\\| CLB LUTs[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " LUT " +
-              intFind.findFirstIn("\\| CLB Registers[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " FF " +
-              intFind.findFirstIn("\\| Block RAM Tile[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " BRAM " + 
-              intFind.findFirstIn("\\| URAM[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " URAM "
+              findFirst2StageInReport(intFind, "\\| CLB LUTs[ ]*\\|([ ]*\\S+\\s+\\|){5}") + " LUT " +
+              findFirst2StageInReport(intFind, "\\| CLB Registers[ ]*\\|([ ]*\\S+\\s+\\|){5}") + " FF " +
+              findFirst2StageInReport(intFind, "\\| Block RAM Tile[ ]*\\|([ ]*\\S+\\s+\\|){5}") + " BRAM " + 
+              findFirst2StageInReport(intFind, "\\| URAM[ ]*\\|([ ]*\\S+\\s+\\|){5}") + " URAM "
           }
         } catch {
           case e : Exception => "???"

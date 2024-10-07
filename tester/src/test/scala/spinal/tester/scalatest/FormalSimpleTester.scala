@@ -3,10 +3,10 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.lib._
 import spinal.lib.formal._
+import spinal.core.formal._
+import spinal.core.GenerationFlags._
 
 class FormalSimpleTester extends SpinalFormalFunSuite {
-  import spinal.core.formal._
-  import spinal.core.GenerationFlags._
 
   def startDoneTest(maxDelay : Int): Unit ={
     class StartDoneDut() extends Component {
@@ -30,7 +30,7 @@ class FormalSimpleTester extends SpinalFormalFunSuite {
     }
 
     FormalConfig.withProve(25).doVerify(new Component {
-      val dut = new StartDoneDut()
+      val dut = FormalDut(new StartDoneDut())
       assumeInitial(ClockDomain.current.isResetActive)
 
       val busy = RegInit(False) setWhen (dut.start) clearWhen (dut.done)

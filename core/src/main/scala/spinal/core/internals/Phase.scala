@@ -21,17 +21,16 @@
 package spinal.core.internals
 
 import java.io.{BufferedWriter, File, FileWriter}
-
 import scala.collection.mutable.ListBuffer
 import spinal.core._
-import spinal.core.fiber.Engine
+import spinal.core.fiber.{AsyncThread, Engine}
 import spinal.core.internals.Operator.BitVector
 
 import scala.collection.{immutable, mutable}
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
-import java.util
 
+import java.util
 import scala.io.Source
 import scala.util.Random
 
@@ -114,6 +113,8 @@ class PhaseContext(val config: SpinalConfig) {
   }
 
   def sortedComponents = components().sortWith(_.level > _.level)
+
+  val svInterface = mutable.LinkedHashMap[String, StringBuilder]()
 
   def walkAll(func: Any => Unit): Unit = {
     GraphUtils.walkAllComponents(topLevel, c => {
@@ -258,6 +259,7 @@ class PhaseDeviceSpecifics(pc : PhaseContext) extends PhaseNetlist{
 //        if(hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid ganbling workaround Synth 8-6430
 //      case _ =>
 //    }
+
   }
 }
 
@@ -386,38 +388,42 @@ class PhaseAnalog extends PhaseNetlist{
       //Process the islands to generate seeds from component analog inouts, and build the group list for connections without inout analog
       islands.foreach(island => {
         val filtred = island.elements.map(_.bt).toSet
-        val count = filtred.count(e => e.isInOut && e.component == c)
-        count match {
-          case 0 => { //No analog inout, will need to create a connection seed later on
-            val groups = island.elements.map(b => anlogToGroup.get(b.bt)).filter(_.nonEmpty).map(_.get).toArray.distinct
-            val finalGroup = groups.length match {
-              case 0 => {
-                val group = new Group()
-                analogGroups += group
-                group
-              }
-              case 1 => groups.head
-              case _ =>{
-                val ghead = groups.head
-                for(group <- groups.tail){
-                  groups.head.islands ++= group.islands
-                  analogGroups -= group
-                  for(i <- group.islands){
-                    for(b <- i.elements){
-                      anlogToGroup(b.bt) = ghead
-                    }
+        val count = filtred.count(e => e.isAnalog && e.component == c)
+        val ioCount = filtred.count(e => e.isInOut && e.component == c)
+        if(ioCount == 1) {
+          seeds += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt //Got a analog inout to host the connection
+        } else if(count == 1) {
+          seeds += island.elements.find(e => e.bt.isAnalog && e.bt.component == c).get.bt
+        } else if(count == 0){
+          //No analog, will need to create a connection seed later on
+          val groups = island.elements.map(b => anlogToGroup.get(b.bt)).filter(_.nonEmpty).map(_.get).toArray.distinct
+          val finalGroup = groups.length match {
+            case 0 => {
+              val group = new Group()
+              analogGroups += group
+              group
+            }
+            case 1 => groups.head
+            case _ =>{
+              val ghead = groups.head
+              for(group <- groups.tail){
+                groups.head.islands ++= group.islands
+                analogGroups -= group
+                for(i <- group.islands){
+                  for(b <- i.elements){
+                    anlogToGroup(b.bt) = ghead
                   }
                 }
-                ghead
               }
-            }
-            finalGroup.islands += island
-            for(b <- island.elements){
-              anlogToGroup(b.bt) = finalGroup
+              ghead
             }
           }
-          case 1 => seeds += island.elements.find(e => e.bt.isInOut && e.bt.component == c).get.bt //Got a analog inout to host the connection
-          case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
+          finalGroup.islands += island
+          for(b <- island.elements){
+            anlogToGroup(b.bt) = finalGroup
+          }
+        } else {
+          PendingError("MULTIPLE INOUT interconnected in the same component")
         }
       })
 
@@ -724,7 +730,7 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
     val mems      = mutable.LinkedHashSet[Mem[_]]()
 
     walkBaseNodes{
-      case mem: Mem[_] => mems += mem
+      case mem: Mem[_] if !mem.preventMemToBlackboxTranslation => mems += mem
       case ec: ExpressionContainer =>
         ec.foreachExpression{
           case port: MemPortStatement => consumers.getOrElseUpdate(port, ArrayBuffer[ExpressionContainer]()) += ec
@@ -733,8 +739,9 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
       case _ =>
     }
     mems.foreach(mem => {
+      val topo = new MemTopology(mem, consumers)
       if(mem.addressWidth != 0 && mem.width != 0) {
-        doBlackboxing(pc, new MemTopology(mem, consumers))
+        doBlackboxing(pc, topo)
       } else if(mem.width != 0){
         def wrapConsumers(oldSource: Expression, newSource: Expression): Unit ={
           consumers.get(oldSource) match {
@@ -746,6 +753,10 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
               }
             })
           }
+        }
+
+        if(!(topo.writes.nonEmpty || topo.readWriteSync.nonEmpty || topo.writeReadSameAddressSync.nonEmpty || mem.initialContent != null)) {
+          SpinalError(s"MEM-WITHOUT-DRIVER. $mem has no write ports nor initial content. Defined at :\n${mem.getScalaLocationLong}")
         }
 
         mem.component.rework{
@@ -1216,6 +1227,39 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     walkComponents(c => PhasePullClockDomains.single(c))
+    if(pc.config.normalizeComponentClockDomainName) walkComponentsExceptBlackbox{c =>
+      val cd = c.clockDomain.get
+      if(cd != null){
+        if(cd.clock.component != c){
+          c.pulledDataCache.get(cd.clock).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("clk")
+            }
+          }
+        }
+        if(cd.reset != null && cd.reset.component != c){
+          c.pulledDataCache.get(cd.reset).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("reset" + (cd.config.resetActiveLevel == HIGH).mux("","n"))
+            }
+          }
+        }
+        if(cd.softReset != null && cd.softReset.component != c){
+          c.pulledDataCache.get(cd.softReset).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("soft_reset" + (cd.config.softResetActiveLevel == HIGH).mux("","n"))
+            }
+          }
+        }
+        if(cd.clockEnable != null && cd.clockEnable.component != c){
+          c.pulledDataCache.get(cd.clockEnable).foreach{pin =>
+            if(pin.component == c){
+              pin.setName("clkEn" + (cd.config.softResetActiveLevel == HIGH).mux("","n"))
+            }
+          }
+        }
+      }
+    }
   }
 }
 
@@ -1347,46 +1391,115 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
   }
 }
 
+trait PhaseDeviceHandler{
+  // Some synthesis tools will mess things trying to infer async mem read into sync block ram
+  def onMemReadAsync(config : SpinalConfig, mem : Mem[_]) : Unit = {}
+  def onMemDontCareOrdering(config : SpinalConfig, mem : Mem[_]) : Unit = {}
+  def onCrossClockBuffer(config : SpinalConfig, that : BaseType) : Unit = {} // To help inferring low metastability
+  def onCrossClockMaxDelay(config: SpinalConfig, sources: Iterable[BaseType], target: BaseType) : Unit = {}
+}
+
+object PhaseDeviceDefault extends PhaseDeviceDefault
+class PhaseDeviceDefault extends PhaseDeviceHandler{
+  override def onMemReadAsync(config : SpinalConfig, mem: Mem[_]) = {
+    if(config.device.isVendorDefault || config.device.vendor == Device.XILINX.vendor) {
+      val alreadyTagged = mem.getTags().exists {
+        case a: AttributeString if a.getName == "ram_style" => true
+        case _ => false
+      }
+      if (!alreadyTagged) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+    }
+  }
+
+  override def onCrossClockBuffer(config : SpinalConfig, bt: BaseType) = {
+    if(config.device.isVendorDefault || config.device.vendor == Device.XILINX.vendor) {
+      bt.addAttribute("async_reg", "true")
+    }
+  }
+
+  override def onMemDontCareOrdering(config : SpinalConfig, mem: Mem[_]) = {
+    if(config.device.vendor == Device.ALTERA.vendor){
+      mem.addAttribute("ramstyle", "no_rw_check")
+    }
+  }
+  override def onCrossClockMaxDelay(config: SpinalConfig, sources: Iterable[BaseType], target: BaseType) = {
+    if(config.device.isVendorDefault || config.device.vendor == Device.ALTERA.vendor){
+      val regAttribute = new AttributeString("altera_attribute", "-name ADV_NETLIST_OPT_ALLOWED NEVER_ALLOW")
+
+        sources.foreach(_.addAttribute(regAttribute))
+        target.addAttribute(regAttribute)
+    }
+  }
+}
+
 class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
   override def impl(pc: PhaseContext): Unit = {
-    if(pc.config.device.isVendorDefault || pc.config.device.vendor == Device.XILINX.vendor) {
-      pc.walkDeclarations {
-        case mem: Mem[_] => {
-          var hit, withWrite = false
-          mem.foreachStatements {
-            case port: MemReadAsync => hit = true
-            case port: MemWrite => withWrite = true
-            case port: MemReadWrite => withWrite = true
-            case port: MemReadSync =>
-          }
-          val alreadyTagged = mem.getTags().exists{
-            case a : AttributeString if a.getName == "ram_style" => true
-            case _ => false
-          }
-          if (hit && withWrite && !alreadyTagged) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+    val cb = pc.config.devicePhaseHandler
+    pc.walkDeclarations {
+      case mem: Mem[_] => {
+        var hit, withWrite = false
+        mem.foreachStatements {
+          case port: MemReadAsync => hit = true
+          case port: MemWrite => withWrite = true
+          case port: MemReadWrite => withWrite = true
+          case port: MemReadSync =>
         }
-        case bt: BaseType => {
-          if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
-            bt.addAttribute("async_reg", "true")
-          }
+        val alreadyTagged = mem.getTags().exists{
+          case a : AttributeString if a.getName == "ram_style" => true
+          case _ => false
         }
-        case _ =>
+        if (hit && withWrite) cb.onMemReadAsync(pc.config, mem)
+
+        var onlyDontCare = true
+        mem.dlcForeach(e => e match {
+          case port: MemWrite      =>
+          case port: MemReadWrite  => onlyDontCare &= port.readUnderWrite == dontCare
+          case port: MemReadSync   => onlyDontCare &= port.readUnderWrite == dontCare
+          case port: MemReadAsync  => onlyDontCare &= port.readUnderWrite == dontCare
+        })
+        if(onlyDontCare) cb.onMemDontCareOrdering(pc.config, mem)
       }
+      case bt: BaseType => {
+        if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
+          cb.onCrossClockBuffer(pc.config, bt)
+        }
+        if(bt.hasTag(classOf[crossClockMaxDelay])){
+          bt.dlcForeach ( statement =>
+            statement match {
+              case statement: DataAssignmentStatement => {
+                (statement.source, statement.target) match {
+                  case (source: BaseType, target: BaseType) =>
+                    val sources = seekRegDriver(source)
+                    cb.onCrossClockMaxDelay(pc.config, sources, target)
+                  case _ =>
+                }
+              }
+              case _ =>
+            }
+          )
+        }
+      }
+      case _ =>
     }
-    if(pc.config.device.vendor == Device.ALTERA.vendor){
-      pc.walkDeclarations {
-        case mem : Mem[_] => {
-          var onlyDontCare = true
-          mem.dlcForeach(e => e match {
-            case port: MemWrite      =>
-            case port: MemReadWrite  => onlyDontCare &= port.readUnderWrite == dontCare
-            case port: MemReadSync   => onlyDontCare &= port.readUnderWrite == dontCare
-            case port: MemReadAsync  => onlyDontCare &= port.readUnderWrite == dontCare
-          })
-          if(onlyDontCare) mem.addAttribute("ramstyle", "no_rw_check")
+    def seekRegDriver(that : BaseType): Iterable[BaseType] = {
+      var buffer = ArrayBuffer[BaseType]()
+      that.foreachStatements{ s =>
+        def forExp(e : Expression) : Unit = e match {
+          case s: Statement => s match {
+            case s: BaseType if !s.isReg => {buffer ++= seekRegDriver(s) }
+            case s: BaseType if s.isReg => buffer += s
+            case s =>
+          }
+          case e: MemReadSync =>
+          case e: MemReadWrite =>
+          case e: Expression => e.foreachDrivingExpression(forExp)
         }
-        case _ =>
+        s.walkParentTreeStatementsUntilRootScope{sParent =>
+          sParent.foreachDrivingExpression(forExp)
+        }
+        s.foreachDrivingExpression(forExp)
       }
+      buffer
     }
   }
 }
@@ -2031,7 +2144,7 @@ class PhaseCheckIoBundle extends PhaseCheck{
   }
 }
 
-class PhaseCheckHiearchy extends PhaseCheck{
+class PhaseCheckHierarchy extends PhaseCheck{
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -2464,7 +2577,15 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
       else if (!c.definitionNameNoMerge)
         c.definitionName = globalScope.allocateName(c.definitionName)
     }
-    for (parent <- sortedComponents.reverse) {
+
+    val componentsReversed = ArrayBuffer[Component]()
+    def walk(c: Component): Unit = {
+      c.children.foreach(walk(_))
+      componentsReversed += c
+    }
+    walk(topLevel)
+
+    for (parent <- componentsReversed) {
       for(c <- parent.children) {
         allocate(c)
       }
@@ -2473,9 +2594,43 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 
     globalScope.lockScope()
 
-    for (c <- sortedComponents.reverse) {
+    for (c <- componentsReversed) {
       c.allocateNames(pc.globalScope)
     }
+
+    val invalidVhdlIdentifier = List (
+      ("[^\\w]".r, "contains non-alphanumeric characters"),
+      ("_$".r, "ends with an underscore"),
+      ("__".r, "contains a double underscore"),
+      ("^[^a-zA-Z]".r, "doesn't start with a letter")
+    )
+    val invalidVerilogIdentifier = List (
+      ("[^\\w$]".r, "contains non-alphanumeric or dollar characters"),
+      ("^[^a-zA-Z_]".r, "doesn't start with a letter or underscore")
+    )
+    def checkName(namedObj: Nameable): Unit = {
+      var name = namedObj.getName()
+      if (!name.startsWith(pc.globalData.anonymSignalPrefix)) {
+        for ((regex, reason) <- invalidVhdlIdentifier) {
+          if (regex.findFirstIn(name).exists(_ => true)) {
+            val msg = s"Name of $namedObj is invalid in VHDL because it $reason."
+            if (pc.config.mode == VHDL) SpinalError(msg)
+            else SpinalWarning(msg)
+          }
+        }
+        for ((regex, reason) <- invalidVerilogIdentifier) {
+          if (regex.findFirstIn(name).exists(_ => true)) {
+            val msg = s"Name of $namedObj is invalid in (System)Verilog bacause it $reason."
+            if (pc.config.mode != VHDL) SpinalError(msg)
+            else SpinalWarning(msg)
+          }
+        }
+      }
+    }
+    pc.walkComponents( c => {
+      checkName(c)
+      c.dslBody.walkDeclarations( d => checkName(d) )
+    })
   }
 }
 
@@ -2554,7 +2709,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
       binarySequential
       binaryOneHot
       val top = gen
-      fiber.hardFork(ctx.globalData.elab.runSync())
+      fiber.hardFork{AsyncThread.current.setName("spinal_elab"); ctx.globalData.elab.runSync()}.setName("spinal_elab")
       if(top.isInBlackBoxTree){
         SpinalError(s"The toplevel can't be a BlackBox (${top.getClass.getSimpleName})")
       }
@@ -2757,7 +2912,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCollectAndNameEnum(pc)
 
     phases += new PhaseCheckIoBundle()
-    phases += new PhaseCheckHiearchy()
+    phases += new PhaseCheckHierarchy()
     phases += new PhaseAnalog()
     phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
@@ -2787,7 +2942,7 @@ object SpinalVhdlBoot{
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
     report.globalData = pc.globalData
-    phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
+    phases += new PhaseDummy(SpinalProgress(s"Generate VHDL to ${config.targetDirectory}"))
     phases += new PhaseVhdl(pc, report)
 
     for(inserter <-config.phasesInserters){
@@ -2843,6 +2998,7 @@ object SpinalVerilogBoot{
         System.out.flush()
         throw e
       case e: Throwable => {
+        println(e.getStackTrace.mkString("\n"))
         println("\n**********************************************************************************************")
         val errCnt = SpinalError.getErrorCount()
         SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
@@ -2882,7 +3038,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCollectAndNameEnum(pc)
 
     phases += new PhaseCheckIoBundle()
-    phases += new PhaseCheckHiearchy()
+    phases += new PhaseCheckHierarchy()
     phases += new PhaseAnalog()
     phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
@@ -2909,9 +3065,13 @@ object SpinalVerilogBoot{
     phases += new PhaseAllocateNames(pc)
     phases += new PhaseDevice(pc)
 
+    if(config.mode == SystemVerilog && config.svInterface) {
+      phases += new PhaseInterface(pc)
+    }
+
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
 
-    phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
+    phases += new PhaseDummy(SpinalProgress(s"Generate Verilog to ${config.targetDirectory}"))
 
     val report = new SpinalReport[T]()
     report.globalData = pc.globalData
@@ -2942,4 +3102,3 @@ object SpinalVerilogBoot{
     report
   }
 }
-

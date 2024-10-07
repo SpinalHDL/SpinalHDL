@@ -12,13 +12,20 @@ import scala.collection.mutable
 class MemoryAgent(bus: Bus,
                   cd: ClockDomain,
                   seed : Long = simRandom.nextInt(),
-                  blockSize : Int = 64,
                   var randomProberFactor : Float = 0.0f,
-                  var randomProberDelayMax : Int = 1000
+                  var randomProberDelayMax : Int = 1000,
+                  memArg : Option[SparseMemory] = None
                  )(implicit idCallback : IdCallback) extends MonitorSubscriber{
   implicit val _ = sm
 
-  val mem = SparseMemory(seed)
+  val mem = memArg.getOrElse(SparseMemory(seed))
+
+  var blockSize = 64
+  try{
+    blockSize = bus.p.node.s.emits.probe.getSingleSize().get
+  }catch{
+    case e : Throwable =>
+  }
 
   val monitor = new Monitor(bus, cd).add(this)
   val driver = new SlaveDriver(bus, cd)
@@ -61,6 +68,12 @@ class MemoryAgent(bus: Bus,
       capMap(m2s)(address) = cap
   }
 
+  def delayOnA(a : TransactionA): Unit = {
+    val r = simRandom.nextFloat()
+    cd.waitSampling((r * r * 20).toInt) //Will enable out of order handeling
+  }
+  def checkAddress(address : Long) = true
+
   override def onA(a: TransactionA) = {
     if(bus.p.withBCE && simRandom.nextFloat() < randomProberFactor) fork {
       cd.waitSampling(simRandom.nextInt(randomProberDelayMax))
@@ -77,28 +90,32 @@ class MemoryAgent(bus: Bus,
     }
 
     fork{
-      val r = simRandom.nextFloat()
-      cd.waitSampling((r*r*20).toInt) //Will enable out of order handeling
+      delayOnA(a)
       val blockAddress = a.address.toLong & ~(blockSize-1)
       reserve(blockAddress)
+      val ok = checkAddress(a.address.toLong)
       a.opcode match {
         case Opcode.A.GET => {
           handleCoherency(a, Param.Cap.toN)
           if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
           val d = TransactionD(a)
           d.opcode = Opcode.D.ACCESS_ACK_DATA
-          d.data = mem.readBytes(a.address.toLong, a.bytes)
+          d.denied = !ok
+          if(ok) d.data = mem.readBytes(a.address.toLong, a.bytes)
+          if(!ok)  d.data = Array.fill(a.bytes)(simRandom.nextInt().toByte)
           driver.scheduleD(d)
         }
         case Opcode.A.PUT_PARTIAL_DATA | Opcode.A.PUT_FULL_DATA => { //TODO probePerm not tested
           handleCoherency(a, Param.Cap.toN, a.bytes == blockSize && a.opcode == Opcode.A.PUT_FULL_DATA)
           if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
-          mem.write(a.address.toLong, a.data, a.mask)
+          if(ok) mem.write(a.address.toLong, a.data, a.mask)
           val d = TransactionD(a)
           d.opcode = Opcode.D.ACCESS_ACK
+          d.denied = !ok
           driver.scheduleD(d)
         }
         case Opcode.A.ACQUIRE_BLOCK => {
+          assert(ok)
           val probe = handleCoherency(a, Param.Grow.getCap(a.param))
           if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
 
@@ -122,6 +139,7 @@ class MemoryAgent(bus: Bus,
 
         }
         case Opcode.A.ACQUIRE_PERM => {
+          assert(ok)
           val probe = handleCoherency(a, Param.Grow.getCap(a.param))
           if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
           assert(probe.unique)

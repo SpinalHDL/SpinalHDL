@@ -44,7 +44,7 @@ class Generic {
 }
 
 case class GenericValue(e : Expression) extends SpinalTag
-
+case class VerilogValues(v: String)
 
 class BlackBoxImpl{
 //  def getRtl(mode : SpinalMode): Unit = {
@@ -106,8 +106,13 @@ abstract class BlackBox extends Component{
     isSpinalSimWb = true
   }
 
+  def setIoCd(cd : ClockDomain = this.clockDomain): Unit = {
+    getAllIo.foreach(ClockDomainTag(cd)(_))
+  }
+
   def addGeneric(name : String, that : Any) : Unit = that match {
     case bt: BaseType => genericElements += Tuple2(name, bt.addTag(GenericValue(bt.head.source)))
+    case vv: VerilogValues => genericElements += Tuple2(name, vv)
     case s: String    => genericElements += Tuple2(name, s)
     case i: Int       => genericElements += Tuple2(name, i)
     case i: BigInt if i <= Integer.MAX_VALUE && i >= Integer.MIN_VALUE => genericElements += Tuple2(name, i.toInt)

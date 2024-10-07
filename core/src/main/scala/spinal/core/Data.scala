@@ -22,7 +22,7 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
-import spinal.idslplugin.Location
+import spinal.idslplugin.{Location, PostInitCallback}
 
 import scala.collection.Seq
 
@@ -294,6 +294,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   private[core] def isSuffix = parent != null && parent.isInstanceOf[Suffixable]
 
   var parent: Data = null
+  def IFparent: Data = parent//TODO:Vec elem do not have parent
   def getRootParent: Data = if(parent == null) this else parent.getRootParent
 
   /** Set a data as input */
@@ -318,6 +319,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   /** set a data as inout */
   def asInOut(): this.type = {
+    assert(this.isAnalog, "inout can only be used on Analog signal")
     if(this.component != Component.current) {
       LocatedPendingError(s"You should not set $this as output outside its own component." )
     }else {
@@ -346,6 +348,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   /** Set baseType to reg */
   def setAsReg(): this.type
+  /** Recursively set baseType to reg only for output */
+  def setOutputAsReg(): this.type = {
+    flatten.filter(_.dir == out).foreach(_.setAsReg())
+    this
+  }
   /** Set baseType to Combinatorial */
   def setAsComb(): this.type
 
@@ -640,13 +647,19 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       val constructor      = clazz.getConstructors.head
       val constrParamCount = constructor.getParameterTypes.length
 
-      //No param =>
-      if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
       def cleanCopy[T <: Data](that: T): T = {
+        that match {
+          case pcb : PostInitCallback => pcb.postInitCallback()
+          case _ => 
+        }
         that.purify()
         that
       }
+
+      //No param =>
+      if (constrParamCount == 0) return cleanCopy(constructor.newInstance().asInstanceOf[this.type])
+
 
       def constructorParamsAreVal: this.type = {
         val outer         = clazz.getFields.find(_.getName == "$outer")
@@ -754,6 +767,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     comb.asInstanceOf[this.type]
   }
 
+  /** For a register, get the value it will have at the next clock, as a combinational signal. */
   def getAheadValue() : this.type = {
     assert(this.isReg, "Next value is only for regs")
 
@@ -777,7 +791,31 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def toMuxInput[T <: Data](muxOutput : T) : T = this.asInstanceOf[T]
 
   // Cat this count times
-  def #* (count : Int) =  Cat(List.fill(count)(this))
+  def #* (count : Int) : Bits =  this.asBits #* count
+
+  /**
+    * root interface
+    */
+  def rootIF(): Interface = {
+    rootIFrec(this, Nil).head
+  }
+
+  def rootIFList(): List[Interface] = {
+    rootIFrec(this, Nil)
+  }
+
+  def rootIFrec(now: Data, lastRoot: List[Interface]): List[Interface] = {
+    if(now.IFparent == null) {
+      lastRoot
+    } else if(now.IFparent.isInstanceOf[Interface]) {
+      now.IFparent match {
+        case x: Interface if x.thisIsNotSVIF => rootIFrec(now.IFparent, lastRoot)
+        case _ => rootIFrec(now.IFparent, now.IFparent.asInstanceOf[Interface] :: lastRoot)
+      }
+    } else {
+      rootIFrec(now.IFparent, lastRoot)
+    }
+  }
 }
 
 trait DataWrapper extends Data{

@@ -63,6 +63,8 @@ object Device{
   val ACTEL = Device(vendor = "actel")
   val ASIC = Device(vendor = "asic", supportBootResetKind = false)
   val NONE = Device(vendor = "none")
+
+  def get = GlobalData.get.config.device
 }
 
 
@@ -145,6 +147,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         anonymSignalPrefix             : String = null,
                         device                         : Device = Device(),
                         inlineRom                      : Boolean = false,
+                        caseRom                        : Boolean = false,
                         romReuse                       : Boolean = false,
                         genVhdlPkg                     : Boolean = true,
                         verbose                        : Boolean = false,
@@ -163,6 +166,8 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         removePruned                   : Boolean = false,
                         allowOutOfRangeLiterals        : Boolean = false,
                         dontCareGenAsZero              : Boolean = false,
+                        var normalizeComponentClockDomainName : Boolean = false,
+                        var devicePhaseHandler         : PhaseDeviceHandler = PhaseDeviceDefault,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
@@ -171,7 +176,14 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         private [core] var _withEnumString : Boolean = true,
                         var enumPrefixEnable           : Boolean = true,
                         var enumGlobalEnable           : Boolean = false,
-                        bitVectorWidthMax              : Int = 4096
+                        bitVectorWidthMax              : Int = 4096,
+                        var singleTopLevel             : Boolean = true,
+                        var noAssertAtTimeZero         : Boolean = false,
+                        var cutLongExpressions         : Boolean = true,
+                        var withTimescale              : Boolean = true,
+                        var printFilelist              : Boolean = true,
+                        var emitFullComponentBindings  : Boolean = true,
+                        var svInterface                : Boolean = false
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)

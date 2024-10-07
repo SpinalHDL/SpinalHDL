@@ -25,10 +25,13 @@ import spinal.core.sim.{SimBaseTypePimper, SpinalSimConfig}
 import spinal.sim._
 
 import java.math.BigInteger
+import java.util.concurrent.atomic.AtomicLong
 import scala.collection.generic.Shrinkable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
+import scala.util.Random
+import scala.util.control.Breaks._
 
 /**
   * Simulation package
@@ -38,6 +41,12 @@ package object sim {
 
   def simRandom(implicit simManager: SimManager = sm) = simManager.random
   def sm = SimManagerContext.current.manager
+
+  def getForbiddenRandom() = {
+    val x = Random.self.getClass.getDeclaredField("seed")
+    x.setAccessible(true)
+    x.get(Random.self).asInstanceOf[AtomicLong]
+  }
 
   @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")
   def SimConfig[T <: Component](rtl: => T): SimConfigLegacy[T] = {
@@ -157,7 +166,9 @@ package object sim {
     manager.setBigInt(signal, value)
   }
 
-  def currentTestName() : String = sm.testName
+  def simCompiled : SimCompiled[_ <: Component] = sm.asInstanceOf[CoreSimManager].compiled
+  def currentTestName(): String = sm.testName
+  def currentTestPath(): String = simCompiled.simConfig._testPath.replace("$TEST", currentTestName())
 
   /** Return the current simulation time */
   def simTime(): Long = SimManagerContext.current.manager.time
@@ -171,15 +182,23 @@ package object sim {
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
   def sleep(cycles: Double): Unit = SimManagerContext.current.thread.sleep(cycles.toLong)
-  def sleep(time: TimeNumber): Unit =
-    sleep((time.toBigDecimal / SimManagerContext.current.manager.timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong)
+  def sleep(time: TimeNumber): Unit = {
+    sleep((time.toBigDecimal / timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong)
+  }
   def waitUntil(cond: => Boolean): Unit = {
     SimManagerContext.current.thread.waitUntil(cond)
   }
 
   def timeToLong(time : TimeNumber) : Long = {
-    (time.toBigDecimal / SimManagerContext.current.manager.timePrecision).toLong
+    (time.toBigDecimal / timePrecision).toLong
   }
+
+  def hzToLong(hz: HertzNumber): Long = {
+    (1 / hz.toBigDecimal / timePrecision).toLong
+  }
+
+
+  def timePrecision = SimManagerContext.current.manager.timePrecision
 
   /** Fork */
   def fork(body: => Unit): SimThread = SimManagerContext.current.manager.newThread(body)
@@ -282,7 +301,7 @@ package object sim {
 
 
   implicit class SimSeqPimper[T](pimped: Seq[T]){
-    def randomPick(): T = pimped(simRandom.nextInt(pimped.length))
+    def randomPick(rand : Random = simRandom): T = pimped(rand.nextInt(pimped.length))
     def randomPickWithIndex(): (T, Int) = {
       val index = simRandom.nextInt(pimped.length)
       (pimped(index), index)
@@ -415,6 +434,68 @@ package object sim {
         if(value(i)) acc = acc.setBit(i)
       }
       setBigInt(bt, acc)
+    }
+  }
+
+  object SimUnionElementPimper {
+    type PendingAssign = mutable.HashMap[Range, BigInt]
+    val pendingAssignMap = mutable.HashMap[UnionElement[_], PendingAssign]()
+  }
+  implicit class SimUnionElementPimper[T <: Data](ue: UnionElement[T]) {
+    val dummyData = ue.t()
+    val pendingAssign = SimUnionElementPimper.pendingAssignMap.getOrElseUpdate(
+      ue,
+      new SimUnionElementPimper.PendingAssign())
+
+    class SimProxy[E <: Data](rawBits: Bits, e: E) {
+      var offset = 0
+      breakable {
+        for (ee <- dummyData.flatten) {
+          if (ee == e) break()
+          offset += ee.getBitsWidth
+        }
+      }
+      val range = offset + e.getBitsWidth - 1 downto offset
+      val alwaysZero = e.getBitsWidth == 0
+      val manager = SimManagerContext.current.manager
+      val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](rawBits.algoInt)
+
+      def toBigInt = if (alwaysZero) BigInt(0) else {
+        (manager.getBigInt(signal) & range.mask) >> offset
+      }
+
+      def #=(value: BigInt): Unit = {
+        if (alwaysZero) {
+          assert(value == 0)
+          return
+        }
+        pendingAssign += range -> value
+      }
+      def toInt = {
+        assert(e.getBitsWidth <= 32)
+        toBigInt.toInt
+      }
+      def toBoolean = {
+        assert(e.getBitsWidth == 1)
+        toBigInt != 0
+      }
+      def #=(value: Boolean): Unit = {
+        assert(e.getBitsWidth == 1)
+        #=(value.toInt)
+      }
+    }
+
+    def simGet[E <: Data](locator: T => E) = new SimProxy(ue.host.raw, locator(dummyData))
+    def commit(): Unit = {
+      val manager = SimManagerContext.current.manager
+      val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](ue.host.raw.algoInt)
+      val orig = manager.getBigInt(signal)
+      val filteredOrig = pendingAssign.map(_._1.mask).foldLeft(orig)(_ &~ _)
+      val newVal = pendingAssign.map { case (range, value) =>
+        (value << range.low) & range.mask
+      }.fold(filteredOrig)(_ | _)
+      manager.setBigInt(signal, newVal)
+      pendingAssign.clear()
     }
   }
 
@@ -623,7 +704,7 @@ package object sim {
       }
     }
   }
-  
+
   /**
     * Add implicit function to BigInt
     */
@@ -657,7 +738,7 @@ package object sim {
 
     private def getBool(manager: SimManager, who: Bool): Bool = {
       val component = who.component
-      if((who.isInput || who.isOutput) && component != null && component.parent == null){
+      if((who.isInput || who.isOutput) && component != null && component.parent == null || who.hasTag(SimPublic)){
         who
       }else {
         manager.userData.asInstanceOf[Component].pulledDataCache.getOrElse(who, null).asInstanceOf[Bool]
@@ -848,7 +929,7 @@ package object sim {
       }
     }
 
-    def doStimulus(period: Long): Unit = {
+    def doStimulus(period: Long, resetCycles : Int = 16): Unit = {
       assert(period >= 2)
 
       if(cd.hasClockEnableSignalSim) assertClockEnable()
@@ -866,7 +947,7 @@ package object sim {
               case LOW => true
             })
             sleep(0)
-            DoReset(resetSim, period*16, cd.config.resetActiveLevel)
+            DoReset(resetSim, period*resetCycles, cd.config.resetActiveLevel)
           }
           sleep(period)
           DoClock(clockSim, period)
@@ -875,7 +956,7 @@ package object sim {
           cd.assertReset()
           val clk = clockSim
           var value = clk.toBoolean
-          for(repeat <- 0 to 31){
+          for(repeat <- 0 to resetCycles*2){
             value = !value
             clk #= value
             sleep(period >> 1)
@@ -889,10 +970,18 @@ package object sim {
       } else {
         throw new Exception("???")
       }
-
     }
 
-    def forkStimulus(period: Long, sleepDuration : Int = 0) : Unit = {
+    def forkStimulus() : Unit = {
+      val hz = cd.frequency match {
+        case ClockDomain.FixedFrequency(value) => value.toBigDecimal
+        case _ => throw new Exception(s"Can't forkStimulus() w/o explicit frequency since frequency of ClockDomain $cd is not known")
+      }
+      val period = (1 / hz / timePrecision).setScale(0, BigDecimal.RoundingMode.UP).toLong
+      forkStimulus(period, 0)
+    }
+    def forkStimulus(period: Long) : Unit = forkStimulus(period, 0)
+    def forkStimulus(period: Long, sleepDuration : Int = 0, resetCycles : Int = 16) : Unit = {
       cd.config.clockEdge match {
         case RISING  => fallingEdge()
         case FALLING => risingEdge()
@@ -900,7 +989,7 @@ package object sim {
       if(cd.hasResetSignalSim) cd.deassertReset()
       if(cd.hasSoftResetSignalSim) cd.deassertSoftReset()
       if(cd.hasClockEnableSignalSim) cd.deassertClockEnable()
-      fork(doStimulus(period))
+      fork(doStimulus(period, resetCycles))
       if(sleepDuration >= 0) sleep(sleepDuration) //This allows the doStimulus to give initial value to clock/reset before going further
     }
 

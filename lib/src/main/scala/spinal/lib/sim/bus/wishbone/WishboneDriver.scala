@@ -59,7 +59,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
         counter = counter + 1
       }
     }
-    transactions.foreach(sendAsMaster(_, true))
+    transactions.foreach(sendAsMaster(_, we))
     bus.STB #= false
     ackCounter.join()
     bus.CYC #= false

@@ -1,0 +1,180 @@
+package spinal.lib.bus.regif
+
+import java.{util => ju}
+
+object HtmlTemplate {
+  object cssThemes {
+    val Default =
+      """
+        |      .theme-default {
+        |          border: 3px solid #000;
+        |          border-collapse: collapse;
+        |      }
+        |      .theme-default td,
+        |      .theme-default th{
+        |          border: 1px solid #000;
+        |          border-top: 1px dashed #555;
+        |          border-bottom: 1px dashed #555;
+        |          padding: 3px;
+        |      }
+        |      .theme-default th{
+        |          background: #bbb;
+        |      }
+        |      .theme-default tbody td.reserved{
+        |          color: #bbb;
+        |          font-weight:200;
+        |          background : #eee;
+        |          /* text-decoration:line-through; */
+        |          text-decoration-color:#888;
+        |      }
+        |      .theme-default tr.blk, .theme-default tr.grp{
+        |          border-top: 2px solid #000;
+        |      }
+        |      .theme-default tr.reg, .theme-default tr.ram, .theme-default tr.fifo{
+        |          border-top: 1px solid #000;
+        |      }
+        |      td.fifo{
+        |          background :
+        |               linear-gradient(to right, #ddd 1px, transparent 1px);
+        |          background-size: 6px 6px;
+        |      }
+        |      td.ram{
+        |          background:
+        |               linear-gradient(to right,  #ddd 1px, transparent 1px),
+        |               linear-gradient(to bottom, #ddd 1px, transparent 1px);
+        |          background-size: 6px 6px;
+        |      }
+        |""".stripMargin
+
+    val Spring =
+      """
+        |      .theme-spring{
+        |          border-collapse: collapse;
+        |          font-size: 1.0em;
+        |          min-width: 800px;
+        |          border-radius: 5px 5px 0 0 ;
+        |          overflow: hidden;
+        |          box-shadow: 0 -10px 20px rgba(0,0,0,0.15);
+        |      }
+        |      .theme-spring th,
+        |      .theme-spring td {
+        |          padding:5px 10px;
+        |      }
+        |      .theme-spring thead tr {
+        |          background-color: #009879;
+        |          color: #ffffff;
+        |          text-align:center;
+        |          font-weight: bold;
+        |      }
+        |      .theme-spring tbody tr{
+        |          border-bottom: 1px solid #ddd;
+        |      }
+        |      .theme-spring tbody td{
+        |          border: 1px solid #ddd;
+        |      }
+        |      .theme-spring tbody tr:last-of-type{
+        |          border-bottom: 3px solid #009879;
+        |      }
+        |      .theme-spring tbody tr.active-row {
+        |          font-weight: bold;
+        |          color: #009879;
+        |      }
+        |      .theme-spring tbody td.reserved{
+        |          color: #aaa;
+        |          background : #fffff0;
+        |          /* font-style:italic; */
+        |          font-weight:200;
+        |          font-size:1.0em;
+        |      }
+        |      .theme-spring tbody tr.green{
+        |          background :#fffff0 ;
+        |      }
+        |""".stripMargin
+  }
+
+  val commonCSS =
+    """
+      |      body{ font-size: 0.8em; }
+      |      p.regif-title{
+      |          font-weight:800;
+      |          font-size:1.2em;
+      |      }
+      |      td{
+      |          white-space:pre-line; word-wrap: break-word; word-break: break-all;
+      |      }
+      |      td.fixWidth{
+      |          min-width:50px;
+      |          max-width:300px;
+      |      }
+      |      td.fixWidth2{
+      |          min-width:50px;
+      |          max-width:400px;
+      |      }
+      |      footer div p.info{
+      |          font-weight:300;
+      |          font-size:0.7em;
+      |      }
+      |      a {
+      |        color:black;text-decoration:none;
+      |      }
+      |      a:hover {
+      |          color:#09f;
+      |      }
+      |""".stripMargin
+  def tableHead(hasBlock: Boolean = true) =
+    s"""
+      |      <thead>
+      |        <tr align="center" >${if(hasBlock)"\n          <th>ReUseBlock</th>" else ""}
+      |          <th>Group</th>
+      |          <th>AddressOffset</th>
+      |          <th>Type</th>
+      |          <th>RegName</th>
+      |          <th>Description</th>
+      |          <th>Width</th>
+      |          <th>Section</th>
+      |          <th>FieldName</th>
+      |          <th>R/W</th>
+      |          <th>Reset value</th>
+      |          <th>Field-Description</th>
+      |        </tr>
+      |      </thead>
+      |""".stripMargin
+
+  def getHTML(moduleName: String, tbody: String, hasBlock: Boolean = false): String = s"""
+       |<!DOCTYPE html>
+       |<html>
+       |  <head>
+       |  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+       |    <title>
+       |      ${moduleName}
+       |    </title>
+       |    <style>
+       |      div{
+       |          text-align: center;
+       |      }
+       |${commonCSS}
+       |${cssThemes.Default}
+       |${cssThemes.Spring}
+       |    </style>
+       |  </head>
+       |  <body>
+       |  <header align="center">
+       |  <p class="regif-title"> ${moduleName} register interface </p>
+       |  </header>
+       |  <div class="table">
+       |  <table  align="center" class="theme-default">
+       |      <br/>
+       |${tableHead(hasBlock)}
+       |      <tbody>
+       |${tbody}
+       |      </tbody>
+       |  </table>
+       |  </div>
+       |  <footer align="center">
+       |  <div> <p class="info">Powered by <a href="https://spinalhdl.github.io/SpinalDoc-RTD/"> SpinalHDL </a> </p> </div>
+       |  <div> <p class="info"> ${ju.Calendar.getInstance().getTime()} </p> </div>
+       |  </footer>
+       |  </body>
+       |</html>
+       |""".stripMargin
+}

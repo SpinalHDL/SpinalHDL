@@ -117,6 +117,8 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     this(thatMod - 1 downto 0) ## this(this.high downto thatMod)
   }
 
+  override def #*(count: Int): Bits = wrapUnaryOperator(new Operator.Bits.Repeat(count))
+
   /**
     * Assign a range value to a Bits
     * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
@@ -245,7 +247,8 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
    * @return The alias
    */
   def aliasAs[T <: Data](t : HardType[T]) : T = {
-    val wrap = this.as(t)
+    val wrap = t()
+    wrap.assignFromBits(this.asBits.resized)
     var offsetCounter = 0
     for (e <- wrap.flatten) {
       val eWidth = e.getBitsWidth

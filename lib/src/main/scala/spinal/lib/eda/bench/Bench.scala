@@ -7,6 +7,7 @@ import java.util.concurrent.ForkJoinPool
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.collection.Seq
+import scala.util.Random
 
 /**
  * Created by PIC32F_USER on 16/07/2017.
@@ -71,7 +72,7 @@ object Bench {
   def apply(rtls : Seq[Rtl], targets : Seq[Target], workspacesRoot : String = sys.env.getOrElse("SPINAL_BENCH_WORKSPACE", null)): Unit ={
     import scala.concurrent.ExecutionContext
     implicit val ec = ExecutionContext.fromExecutorService(
-      new ForkJoinPool(Math.max(1, SimManager.cpuCount / 2), ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
+      new ForkJoinPool(Math.max(1, sys.env.getOrElse("SPINAL_BENCH_THREAD_COUNT", SimManager.cpuCount/4 toString).toInt), ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
     )
 
     val results = (for (rtl <- rtls) yield {
@@ -83,7 +84,7 @@ object Bench {
     }).toMap
 
     for (rtl <- rtls) {
-      for (target <- targets) {
+      for (target <- Random.shuffle(targets)) {
         Await.ready(results(rtl)(target), Duration.Inf)
       }
     }

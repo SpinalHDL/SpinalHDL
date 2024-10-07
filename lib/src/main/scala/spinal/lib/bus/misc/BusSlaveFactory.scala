@@ -406,12 +406,16 @@ trait BusSlaveFactory extends Area{
 
   /**
     * Create a writable Flow register of type dataType at address and placed at bitOffset in the word
+    *
+    * @param checkByteEnable do not trigger flow if byte enable is all zero.  See [[https://github.com/SpinalHDL/SpinalHDL/issues/1265]]
+    *                        for the discussion about this behaviour.
     */
-  def createAndDriveFlow[T <: Data](dataType  : T,
-                                    address   : BigInt,
-                                    bitOffset : Int = 0): Flow[T] = {
+  def createAndDriveFlow[T <: Data](dataType       : T,
+                                    address        : BigInt,
+                                    bitOffset      : Int = 0,
+                                    checkByteEnable: Boolean = false): Flow[T] = {
     val flow = Flow(dataType)
-    driveFlow(flow, address, bitOffset)
+    driveFlow(flow, address, bitOffset, checkByteEnable)
     flow
   }
 
@@ -502,26 +506,54 @@ trait BusSlaveFactory extends Area{
 
   /**
     * Emit on that a transaction when a write happen at address by using data placed at bitOffset in the word
+    *
+    * @param checkByteEnable do not trigger flow if byte enable is all zero.  See [[https://github.com/SpinalHDL/SpinalHDL/issues/1265]]
+   *                        for the discussion about this behaviour.
     */
-  def driveFlow[T <: Data](that      : Flow[T],
-                           address   : BigInt,
-                           bitOffset : Int = 0): Unit = {
+  def driveFlow[T <: Data](that           : Flow[T],
+                           address        : BigInt,
+                           bitOffset      : Int = 0,
+                           checkByteEnable: Boolean = false): Unit = {
 
     val wordCount = (bitOffset + widthOf(that.payload) - 1 ) / busDataWidth + 1
+    val byteEnable = writeByteEnable()
+    def assignValidNext(valid: Bool): Unit = {
+      if (byteEnable != null && checkByteEnable) {
+        when(byteEnable =/= 0) { valid := True }
+      } else {
+        valid := True
+      }
+    }
 
     if (wordCount == 1){
       that.valid := False
-      onWrite(address){ that.valid := True }
+      onWrite(address){ assignValidNext(that.valid) }
       nonStopWrite(that.payload, bitOffset)
     }else{
 
       assert(bitOffset == 0, "BusSlaveFactory ERROR [driveFlow] : BitOffset must be equal to 0 if the payload of the Flow is bigger than the data bus width")
 
       val regValid = RegNext(False) init(False)
-      onWrite(address + ((wordCount - 1) * wordAddressInc)){ regValid := True }
+      onWrite(address + ((wordCount - 1) * wordAddressInc)){ assignValidNext(regValid) }
       driveMultiWord(that.payload, address)
       that.valid := regValid
     }
+  }
+
+  /**
+   * Emit on that a transaction when a write happen at address, by using data placed at bitOffset in the word.
+   * Block the write transaction until the transaction succeeds (stream becomes ready).
+   */
+  def driveStream[T <: Data](that: Stream[T], address: BigInt, bitOffset: Int = 0): Unit = {
+    val wordCount = (bitOffset + widthOf(that.payload) - 1) / busDataWidth + 1
+    onWritePrimitive(SizeMapping(address, wordCount * wordAddressInc), haltSensitive = false, null) {
+      when(!that.ready) {
+        writeHalt()
+      }
+    }
+    val flow = Flow(that.payloadType())
+    driveFlow(flow, address, bitOffset, checkByteEnable = true)
+    that << flow.toStream
   }
 
   /**
@@ -559,6 +591,44 @@ trait BusSlaveFactory extends Area{
     }
   }
 
+  /**
+   * Same as {@link readStreamNonBlocking}, but block the bus for at most `blockCycles` before returning the NACK.
+   * @param that data to read over bus
+   * @param address address to map at
+   * @param blockCycles cycles to block read transaction before returning NACK
+   * @param timeout whether the read transaction timed out (returned NACK)
+   * @tparam T type of stream payload
+   */
+  def readStreamBlockCycles[T <: Data](that: Stream[T], address: BigInt, blockCycles: UInt, timeout: Bool = null): Unit = new Composite(that, "readBlockCycles") {
+    val counter = Counter(blockCycles.getWidth bits)
+    val wordCount = (1 + that.payload.getBitsWidth - 1) / busDataWidth + 1
+    val counterWillOverflow = counter === blockCycles
+    val readIssued = False
+    val respReady = RegNextWhen(True, readIssued && (counterWillOverflow || (!counterWillOverflow && that.valid))) init False
+    val counterOverflowed = RegNextWhen(True, counterWillOverflow) init False
+    // we only halt the first beat, since if we got a stream payload we got it all
+    onReadPrimitive(SingleMapping(address), haltSensitive = false, null) {
+      readIssued := True
+      when(!respReady) {
+        counter.increment()
+        readHalt()
+      } otherwise {
+        counter.clear()
+      }
+    }
+
+    // report timeout after transaction has completed (last beat)
+    timeout != null generate { timeout := False }
+    onReadPrimitive(SingleMapping(address + (wordCount - 1) * wordAddressInc), haltSensitive = true, null) {
+      timeout != null generate {
+        timeout := counterOverflowed
+        counterOverflowed := False
+      }
+      respReady := False
+    }
+
+    readStreamNonBlocking(that, address)
+  }
 
   /**
     * Read that and consume the transaction when a read happen at address.
@@ -617,9 +687,10 @@ trait BusSlaveFactory extends Area{
 
   def readSyncMemWordAligned[T <: Data](mem           : Mem[T],
                                         addressOffset : BigInt,
-                                        bitOffset     : Int = 0) : Mem[T] = {
+                                        bitOffset     : Int = 0,
+                                        memOffset     : UInt = U(0).resized) : Mem[T] = {
     val mapping = SizeMapping(addressOffset,mem.wordCount << log2Up(busDataWidth/8))
-    val memAddress = readAddress(mapping) >> log2Up(busDataWidth/8)
+    val memAddress = (readAddress(mapping) >> log2Up(busDataWidth/8)) + memOffset
     val readData = mem.readSync(memAddress)
     multiCycleRead(mapping,2)
     readPrimitive(readData, mapping, bitOffset, null)
@@ -630,9 +701,10 @@ trait BusSlaveFactory extends Area{
     * Memory map a Mem to bus for reading. Elements can be larger than bus data width in bits.
     */
   def readSyncMemMultiWord[T <: Data](mem: Mem[T],
-                                      addressOffset: BigInt): Mem[T] = {
+                                      addressOffset: BigInt,
+                                      memOffset    : UInt = U(0).resized): Mem[T] = {
     val mapping = SizeMapping(addressOffset, mem.wordCount << log2Up(mem.width / 8))
-    val memAddress = readAddress(mapping) >> log2Up(mem.width / 8)
+    val memAddress = (readAddress(mapping) >> log2Up(mem.width / 8)) + memOffset
     val readData = mem.readSync(memAddress).asBits
     val offset = readAddress(mapping)(log2Up(mem.width / 8) - 1 downto log2Up(busDataWidth / 8))
     val partialRead = readData(offset << log2Up(busDataWidth), busDataWidth bits)
@@ -643,9 +715,10 @@ trait BusSlaveFactory extends Area{
 
   def writeMemWordAligned[T <: Data](mem           : Mem[T],
                                      addressOffset : BigInt,
-                                     bitOffset     : Int = 0) : Mem[T] = {
+                                     bitOffset     : Int = 0,
+                                     memOffset     : UInt = U(0).resized) : Mem[T] = {
     val mapping    = SizeMapping(addressOffset,mem.wordCount << log2Up(busDataWidth / 8))
-    val memAddress = writeAddress(mapping) >> log2Up(busDataWidth / 8)
+    val memAddress = (writeAddress(mapping) >> log2Up(busDataWidth / 8)) + memOffset
 
     // handle masking
     if (writeByteEnable != null) {

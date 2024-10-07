@@ -116,11 +116,11 @@ class MyTopLevelX extends Component {
 
 //This is the main of the project. It create a instance of MyTopLevel and
 //call the SpinalHDL library to flush it into a VHDL file.
-object MyMain {
-  def main(args: Array[String]) {
-    SpinalVhdl(new MyTopLevelX)
-  }
-}
+//object MyMain {
+//  def main(args: Array[String]) {
+//    SpinalVhdl(new MyTopLevelX)
+//  }
+//}
 
 
 

@@ -130,6 +130,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     println("Wave format " + config.waveFormat + " not supported by VCS for now")
     WaveFormat.NONE
   }
+  val fullWaveName = Some(config.wavePrefix).map(_ + "_").getOrElse("") + toplevelName
 
   val vpiModuleName = "vpi_vcs.so"
   val vpiModulePath = pluginsPath + "/" + vpiModuleName
@@ -213,7 +214,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     }
 
     val dump = waveFormat match {
-      case WaveFormat.VCD => List(s"+vcs+dumpvars+$toplevelName.vcd")
+      case WaveFormat.VCD => List(s"+vcs+dumpvars+$fullWaveName.vcd")
       case WaveFormat.VPD => List(s"+vcs+vcdpluson")
       case WaveFormat.FSDB =>
         List(s"-P ${verdi_home}/share/PLI/VCS/LINUX64/novas.tab", s"$verdi_home/share/PLI/VCS/LINUX64/pli.a")
@@ -262,7 +263,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
          |`timescale $timeScale
          |module __simulation_def;
          |initial begin
-         |  $$fsdbDumpfile("$toplevelName.fsdb");
+         |  $$fsdbDumpfile("$fullWaveName.fsdb");
          |  $$fsdbDumpvars(${config.waveDepth}, $toplevelName);
          |  $$fsdbDumpflush;
          |end

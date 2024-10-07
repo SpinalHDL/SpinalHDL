@@ -30,13 +30,9 @@ class HubFiber() extends Area{
 
   val mappingLock = Lock().retain()
   new MemoryConnection{
-    override def m = up
-    override def s = down
+    override def up = HubFiber.this.up
+    override def down = HubFiber.this.down
     override def transformers = Nil
-    override def mapping = {
-      mappingLock.get //Ensure that the parameter is final
-      SizeMapping(0, BigInt(1) << parameter.addressWidth)
-    }
     override def sToM(down: MemoryTransfers, args: MappedNode) = {
       down match{
         case t : M2sTransfers => {
