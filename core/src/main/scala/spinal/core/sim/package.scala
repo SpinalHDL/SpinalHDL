@@ -929,6 +929,23 @@ package object sim {
       }
     }
 
+    def waitInactiveEdge(): Unit = waitInactiveEdge(1)
+    def waitInactiveEdge(count: Int = 1): Unit = {
+      if (cd.config.clockEdge == spinal.core.RISING) {
+        waitFallingEdge(count)
+      }else{
+        waitRisingEdge(count)
+      }
+    }
+
+    def waitInactiveEdgeWhere(condAnd: => Boolean): Unit = {
+      if(cd.config.clockEdge == spinal.core.RISING) {
+        waitFallingEdgeWhere(condAnd)
+      }else {
+        waitRisingEdgeWhere(condAnd)
+      }
+    }
+
     def doStimulus(period: Long, resetCycles : Int = 16): Unit = {
       assert(period >= 2)
 
