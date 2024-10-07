@@ -1,0 +1,140 @@
+name: Run mill tests
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+env:
+  SCALA_VERSION: "2.11.12"
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Get submodules
+      shell: bash
+      run: git submodule update --init --recursive
+    - run: mill __.compile
+    - uses: actions/cache/save@v3
+      with:
+        path: |
+          **/
+        key: ${{ runner.os }}-compiled-${{ github.sha }}
+
+  idslplugin-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: mill idslplugin[$SCALA_VERSION].test
+
+  idslpayload-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: mill idslpayload[$SCALA_VERSION].test
+
+  core-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: mill core[$SCALA_VERSION].test
+
+  # core-formal:
+  #   needs: compile
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 90
+  #   container:
+  #     image: ghcr.io/spinalhdl/docker:latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - uses: ./.github/actions/get-compiled
+  #   - run: sbt 'tester/testOnly spinal.core.* -- -n spinal.tester.formal'
+
+  sim-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: mill sim[$SCALA_VERSION].test
+
+  tester-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: mill tester[$SCALA_VERSION].test
+
+  # tester-formal:
+  #   needs: compile
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 90
+  #   container:
+  #     image: ghcr.io/spinalhdl/docker:latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - uses: ./.github/actions/get-compiled
+  #   - run: sbt 'tester/testOnly spinal.tester.* -- -n spinal.tester.formal'
+
+  lib-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: mill lib[$SCALA_VERSION].test
+
+  # lib-formal:
+  #   needs: compile
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 90
+  #   container:
+  #     image: ghcr.io/spinalhdl/docker:latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - uses: ./.github/actions/get-compiled
+  #   - run: sbt 'tester/testOnly spinal.lib.* -- -n spinal.tester.formal'
+
+  # scaladoc:
+  #   needs: compile
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   container:
+  #     image: ghcr.io/spinalhdl/docker:latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - uses: ./.github/actions/get-compiled
+  #   - run: sbt unidoc
