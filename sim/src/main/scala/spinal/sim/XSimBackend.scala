@@ -249,11 +249,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
 
   def getScriptCommand(cmd: String) = {
     if (isWindows) {
-      if (isMsys){
-        s"${simulatePath}\\${cmd}.bat"  
-      } else {
-        s"${cmd}.bat"
-      }
+      s"${simulatePath}\\${cmd}.bat"
     } else {
       s"${simulatePath}/${cmd}.sh"
     }
