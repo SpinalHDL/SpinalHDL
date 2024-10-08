@@ -33,8 +33,8 @@ case class Bmb2DfiSim(x: Int) extends Component {
     rowWidth = 15,
     dataWidth = 16,
     ddrMHZ = 100,
-    ddrWrLat = 4,
-    ddrRdLat = 4,
+    ddrWrLat = 6,
+    ddrRdLat = 6,
     sdramtime = sdramtime
   )
   val timeConfig = DfiTimeConfig(
@@ -42,7 +42,7 @@ case class Bmb2DfiSim(x: Int) extends Component {
     tPhyWrData = 0,
     tPhyWrCsGap = 3,
     tRddataEn = sdram.tRddataEn,
-    tPhyRdlat = 4,
+    tPhyRdlat = 5,
     tPhyRdCsGap = 3,
     tPhyRdCslat = 0,
     tPhyWrCsLat = 0
@@ -204,6 +204,7 @@ object Bmb2DfiSim {
               readdata(task.bytePerTaskMax / dfiConfig.bytePerBeat)
             }
             clockDomain.waitSamplingWhere(dut.io.bmb.rsp.payload.last.toBoolean)
+//            clockDomain.waitSampling(5)
             io.bmb.rsp.ready #= false
             println("reading is OK")
           }
@@ -212,6 +213,7 @@ object Bmb2DfiSim {
               io.bmb.rsp.ready #= true
             }else{
               clockDomain.waitSamplingWhere(dut.io.dfi.read.rden(dfiConfig.frequencyRatio-1).toBoolean)
+//              clockDomain.waitSampling(4)
               io.bmb.rsp.ready #= true
             }
             for (i <- 0 until beatCount) {

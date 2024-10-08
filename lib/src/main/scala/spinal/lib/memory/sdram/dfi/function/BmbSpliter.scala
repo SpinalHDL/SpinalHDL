@@ -177,9 +177,11 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
     val rdBeatCounter = Reg(UInt(log2Up(beatCountMax) bits)) init (0)
     val splitCounter = Reg(UInt(log2Up(splitCountMax) bits)) init (0)
 
+    val length = Reg(cloneOf(io.input.cmd.length)).init(lengthMax-1)
+    when(io.input.cmd.fire) { length := io.input.cmd.length }
     val headLenghtMax = lengthMax - 1 - io.input.cmd.address(splitRange)
     val bodyLength = lengthMax - 1
-    val lastAddress = io.input.cmd.address(splitRange) + (U"0" @@ io.input.cmd.length)
+    val lastAddress = io.input.cmd.address(splitRange) + (U"0" @@ length)
     val tailLength = lastAddress(splitRange)
     val splitCount = (lastAddress >> splitRange.size)
 
@@ -201,7 +203,7 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
     context.source := io.input.cmd.source
 
     io.output.cmd.valid := io.input.cmd.valid | ((rdBeatCounter === beatsInSplit - 1) & usedSplit)
-    io.output.cmd.last := io.input.cmd.last || ((wrBeatCounter === beatsInSplit - 1) & io.input.cmd.fire) || ((rdBeatCounter === beatsInSplit - 1) & usedSplit)
+    io.output.cmd.last := io.input.cmd.last || ((wrBeatCounter === beatsInSplit - 1) & io.input.cmd.fire & io.input.cmd.isWrite) || ((rdBeatCounter === beatsInSplit - 1) & usedSplit)
     io.output.cmd.address := Bmb.addToAddress(addressBase, splitCounter << addressRange.low, ip)
     io.output.cmd.context := B(context)
     io.output.cmd.source := 0
@@ -210,32 +212,34 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
       B"10" -> headLenghtMax,
       B"00" -> U(lengthMax - 1),
       B"01" -> tailLength,
-      B"11" -> io.input.cmd.length.resize(op.lengthWidth)
+      B"11" -> length.resize(op.lengthWidth)
     )
     if (ip.access.canWrite) {
       io.output.cmd.data := io.input.cmd.data
       io.output.cmd.mask := io.input.cmd.mask
     }
     io.outputBurstLast := context.last
-    io.input.cmd.ready := io.output.cmd.ready && (io.input.cmd.isWrite || context.last)
+    io.input.cmd.ready := io.output.cmd.ready
 
     when(io.output.cmd.fire) {
-      wrBeatCounter := wrBeatCounter + U(io.input.cmd.isWrite).resized
+      when(io.input.cmd.isWrite) {
+        wrBeatCounter := wrBeatCounter + U(io.input.cmd.isWrite).resized
+      }
       when(io.output.cmd.last) {
         splitCounter := splitCounter + U(1).resized
         wrBeatCounter := 0
       }
     }
-    val rdStart = Reg(Bool()).init(False).setWhen(io.input.cmd.valid & !io.input.cmd.opcode.asBool).clearWhen(io.input.rsp.lastFire)
-    when(rdStart){
+    val rdStart =
+      Reg(Bool()).init(False).setWhen(io.input.cmd.valid & io.input.cmd.isRead).clearWhen(io.input.rsp.lastFire)
+    when(rdStart) {
       rdBeatCounter := rdBeatCounter + 1
-      when(io.output.cmd.lastFire){
+      when(io.output.cmd.lastFire) {
         rdBeatCounter := 0
       }
     }
 
-
-    when(io.input.cmd.lastFire | (io.input.rsp.lastFire)) {
+    when((io.input.cmd.lastFire & io.input.cmd.isWrite) | (io.input.rsp.lastFire)) {
       splitCounter := 0
       firstSplit := True
     }
