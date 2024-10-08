@@ -304,7 +304,7 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
   }
 
   def beginGenerate(): Unit = {
-    val fileDirectory = s"$generatePath/GeneratedVivadoIpFolder/$toplevelName/"
+    val fileDirectory = s"$generatePath/IPXACT/GeneratedVivadoIpFolder/$toplevelName/"
     // 确保目录存在
     generateTcl(fileDirectory)
     val filePath = s"${fileDirectory}component.xml"

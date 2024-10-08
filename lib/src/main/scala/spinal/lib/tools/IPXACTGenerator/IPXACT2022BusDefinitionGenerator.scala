@@ -30,7 +30,7 @@ class IPXACT2022BusDefinitionGenerator(toplevelVendor: String = "SpinalHDL", top
     val BusType = BusDefinition(vlnv, directConnection = true, isAddressable = true, broadcast = Some(true))
 
     val xml: NodeSeq = toXML[BusDefinition](BusType, "ipxact:busDefinition", defaultScope)
-    val fileDirectory = s"$generatePath/$toplevelVendor/$toplevelName/$busDefinitionName/$version/"
+    val fileDirectory = s"$generatePath/IPXACT/$toplevelVendor/$toplevelName/$busDefinitionName/$version/"
     val filePath = s"$fileDirectory$busDefinitionName.$version.xml"
     Files.createDirectories(Paths.get(fileDirectory))
     //    val prettyPrinter = new PrettyPrinter(width = 80, step = 2)

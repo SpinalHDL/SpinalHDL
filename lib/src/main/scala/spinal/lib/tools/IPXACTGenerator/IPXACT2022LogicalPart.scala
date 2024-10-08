@@ -181,7 +181,7 @@ class IPXACT2022LogicalPart {
                               version: String = "1.0",
                               module:Component,
                               generatePath:String): Unit = {
-    val fileDirectory = s"$generatePath/$toplevelVendor/$toplevelName/$name/$version/"
+    val fileDirectory = s"$generatePath/IPXACT/$toplevelVendor/$toplevelName/$name/$version/"
     val filePath = s"$fileDirectory$name.$version.xml"
     Files.createDirectories(Paths.get(fileDirectory))
     val versionedIdentifierSequence11 = VersionedIdentifierSequence(toplevelVendor, toplevelName, name, version)

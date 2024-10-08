@@ -206,7 +206,7 @@ class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", topleve
       IPXACT2022DesignConfigXMLGenerator.generate(Vendor = toplevelVendor, toplevelName = toplevelName, module = module, version = version, generatePath = generatePath)
       IPXACT2022DesignXMLGenerator.generate(Vendor = toplevelVendor, toplevelName = toplevelName, module = module, version = version, generatePath = generatePath)
     }
-    val fileDirectory = s"$generatePath/$toplevelVendor/$toplevelName/$moduleDefinitionName/$version/"
+    val fileDirectory = s"$generatePath/IPXACT/$toplevelVendor/$toplevelName/$moduleDefinitionName/$version/"
     val filePath = s"$fileDirectory$moduleDefinitionName.$version.xml"
     Files.createDirectories(Paths.get(fileDirectory))
     val verilogFilePath = s"$generatePath/${module.definitionName}.v"

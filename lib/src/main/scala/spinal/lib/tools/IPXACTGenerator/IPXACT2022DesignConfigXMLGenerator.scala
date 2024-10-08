@@ -26,7 +26,7 @@ class IPXACT2022DesignConfigXMLGenerator(toplevelVendor: String = "SpinalHDL", t
   }
 
   def beginGenerate = {
-    val fileDirectory = s"$generatePath/$toplevelVendor/$toplevelName/$moduleDefinitionName/$version/"
+    val fileDirectory = s"$generatePath/IPXACT/$toplevelVendor/$toplevelName/$moduleDefinitionName/$version/"
     val filePath = s"$fileDirectory${moduleDefinitionName}.designcfg.$version.xml"
     if (module.children.nonEmpty) {
       Files.createDirectories(Paths.get(fileDirectory))

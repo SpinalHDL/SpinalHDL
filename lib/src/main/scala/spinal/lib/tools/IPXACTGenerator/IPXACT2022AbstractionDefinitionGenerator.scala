@@ -84,7 +84,7 @@ class IPXACT2022AbstractionDefinitionGenerator(toplevelVendor: String = "SpinalH
         val ports = createPorts(isMaster)
         val abstractionDefinition = AbstractionDefinition(vlnv, abstractionBusType, ports = ports)
         val xml: NodeSeq = toXML[AbstractionDefinition](abstractionDefinition, "ipxact:abstractionDefinition", defaultScope)
-        val fileDirectory = s"$generatePath/$toplevelVendor/$toplevelName/$busDefinitionName/$version/"
+        val fileDirectory = s"$generatePath/IPXACT/$toplevelVendor/$toplevelName/$busDefinitionName/$version/"
         val filePath = s"$fileDirectory$busDefinitionName.absDef.$version.xml"
         Files.createDirectories(Paths.get(fileDirectory))
         //        val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
