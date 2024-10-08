@@ -32,7 +32,6 @@ module ddr3_dfi_phy
     ,parameter DQ_TAP_DELAY_INIT = 1
     ,parameter TPHY_RDLAT       = 4
     ,parameter TPHY_WRLAT       = 3
-    ,parameter TPHY_WRDATA      = 0
 )
 //-----------------------------------------------------------------
 // Ports

@@ -23,9 +23,8 @@ case class ddr3_dfi_phy(ddrIoDfiConfig: DfiConfig) extends BlackBox {
   addGeneric("REFCLK_FREQUENCY", 200)
   addGeneric("DQS_TAP_DELAY_INIT", 27)
   addGeneric("DQ_TAP_DELAY_INIT", 0)
-  addGeneric("TPHY_RDLAT", 3)
-  addGeneric("TPHY_WRLAT", 3)
-  addGeneric("TPHY_WRDATA", 0)
+  addGeneric("TPHY_RDLAT", 5)
+  addGeneric("TPHY_WRLAT", 5)
   noIoPrefix()
   private def renameIO(): Unit = {
     io.flatten.foreach(bt => {

@@ -97,8 +97,8 @@ case class SdramConfig(
 
   def cycleTime_ns = 1000 / ddrMHZ
 
-  def tPhyWrlat = ddrWrLat - 1
-  def tRddataEn = ddrRdLat - 1
+  def tPhyWrlat = ddrWrLat - 2
+  def tRddataEn = ddrRdLat - 2
 }
 
 case class SdramTiming(

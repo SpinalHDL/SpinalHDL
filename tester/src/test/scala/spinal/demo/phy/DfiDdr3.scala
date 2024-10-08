@@ -3,6 +3,7 @@ package spinal.demo.phy
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.fsm._
 import spinal.lib.memory.sdram.dfi._
 import spinal.lib.memory.sdram.dfi.function.BmbAdapter
 import spinal.lib.memory.sdram.dfi.interface._
@@ -97,10 +98,12 @@ case class BmbDfiDdr3(ddrIoDfiConfig: DfiConfig, dfiConfig: DfiConfig) extends C
       ddr3Chip.phy.io.ddr3.ba <> io.ddr3.ba(bankWidth * ddr3Chip.sel, bankWidth bits)
       ddr3Chip.phy.io.ddr3.addr <> io.ddr3.addr(addressWidth * ddr3Chip.sel, addressWidth bits)
       ddr3Chip.phy.io.ddr3.odt.asBool <> io.ddr3.odt(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.dm <> io.ddr3.dm(ddrIoDfiConfig.sdram.bytePerWord * ddr3Chip.sel, ddrIoDfiConfig.sdram.bytePerWord bits)
+      ddr3Chip.phy.io.ddr3.dm <> io.ddr3
+        .dm(ddrIoDfiConfig.sdram.bytePerWord * ddr3Chip.sel, ddrIoDfiConfig.sdram.bytePerWord bits)
       ddr3Chip.phy.io.ddr3.dqsP <> io.ddr3.dqsP(2 * ddr3Chip.sel, 2 bits)
       ddr3Chip.phy.io.ddr3.dqsN <> io.ddr3.dqsN(2 * ddr3Chip.sel, 2 bits)
-      ddr3Chip.phy.io.ddr3.dq <> io.ddr3.dq(ddrIoDfiConfig.sdram.dataWidth * ddr3Chip.sel, ddrIoDfiConfig.sdram.dataWidth bits)
+      ddr3Chip.phy.io.ddr3.dq <> io.ddr3
+        .dq(ddrIoDfiConfig.sdram.dataWidth * ddr3Chip.sel, ddrIoDfiConfig.sdram.dataWidth bits)
       ddr3Chip.phy.io.initDone <> io.initDone
     }
   }
@@ -115,35 +118,10 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
   }
   val counter = Reg(UInt(io.bmb.cmd.length.getWidth + 1 bits)).init(0)
   val opcodeCount = RegInit(U(0, 2 bits))
-  val idleTimer = RegInit(U(0, 4 bits))
+  val idleTimer = RegInit(U(0, 6 bits))
   val start = RegInit(False).setWhen(io.initDone)
-
-  def write(initdata: UInt, length: Int, address: Int) = {
-    when(idleTimer === 0) {
-      counter := U(length, log2Up(length) + 1 bits).resized
-    }
-    when(counter =/= 0) {
-      counter := counter - 1
-      io.bmb.cmd.valid.set()
-      io.bmb.cmd.address := address
-      io.bmb.cmd.length := U(length * ddrIoDfiConfig.bytePerBeat - 1).resized
-      io.bmb.cmd.opcode := True.asBits
-    }
-
-    io.bmb.cmd.data := initdata.asBits.rotateLeft((U(length) - counter<<3)(log2Up(length)-1 downto(0))).resized
-    when(counter === 1) {
-      io.bmb.cmd.last.set()
-    }
-    println("write command")
-  }
-
-  def read(length: Int, address: Int): Unit = {
-    io.bmb.cmd.address := address
-    io.bmb.cmd.length := U(length * ddrIoDfiConfig.bytePerBeat - 1).resized
-    io.bmb.cmd.opcode := False.asBits
-    io.bmb.cmd.last.set()
-    io.bmb.cmd.valid.set()
-  } //  val start = True
+  val writeData = Reg(cloneOf(io.bmb.cmd.data)).init(0)
+  writeData := writeData.rotateLeft(2)
 
   io.bmb.cmd.valid.clear()
   io.bmb.cmd.last.clear()
@@ -156,28 +134,74 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
   io.bmb.cmd.context.clearAll()
   io.bmb.rsp.ready := RegInit(False).clearWhen(io.bmb.rsp.lastFire).setWhen(io.bmb.cmd.valid && io.bmb.cmd.opcode === 0)
 
-  when(idleTimer =/= 0) {
-    idleTimer := idleTimer - 1
-  }
-  when(idleTimer === 1 || io.bmb.cmd.opcode === 0) {
-    when(opcodeCount < opcodeCount.maxValue) {
-      opcodeCount := opcodeCount + 1
+  when(io.bmb.cmd.last) {
+    idleTimer := 20
+  } otherwise {
+    when(idleTimer =/= 0) {
+      idleTimer := idleTimer - 1
     }
   }
-  when(io.bmb.cmd.last) {
-    idleTimer := 10
-  }
+
   when(start) {
-    switch(opcodeCount) {
-      is(0) {
-        write(U"32'h11223344", 16, 128)
+    val fsm = new StateMachine {
+      def write(state: State, nextState: State, initdata: Bits, length: Int, address: Int) = {
+        state.whenIsActive {
+          when(idleTimer === 1) {
+            goto(nextState)
+          }
+          when(counter =/= 0) {
+            counter := counter - 1
+            io.bmb.cmd.valid.set()
+            io.bmb.cmd.address := address
+            io.bmb.cmd.length := U(length * ddrIoDfiConfig.bytePerBeat - 1).resized
+            io.bmb.cmd.opcode := True.asBits
+          }
+          io.bmb.cmd.data := writeData
+          when(counter === 1) {
+            io.bmb.cmd.last.set()
+          }
+          println("write command")
+        }
+        state.onEntry {
+          counter := U(length, log2Up(length) + 1 bits).resized
+          writeData := initdata
+        }
       }
-      is(1) {
-        write(U"32'h55667788", 16, 1024)
+
+      def read(state: State, nextState: State, length: Int, address: Int): Unit = {
+        state.whenIsActive {
+          when(idleTimer === 1) {
+            goto(nextState)
+          }
+          state.onEntry {
+            io.bmb.cmd.address := address
+            io.bmb.cmd.length := U(length * ddrIoDfiConfig.bytePerBeat - 1).resized
+            io.bmb.cmd.opcode := False.asBits
+            io.bmb.cmd.last.set()
+            io.bmb.cmd.valid.set()
+          }
+        }
       }
-      is(2) {
-        read(16, 128)
-      }
+      val idle = new State with EntryPoint
+      val task1 = new State
+      val task2 = new State
+      val task3 = new State
+      val task4 = new State
+      val task5 = new State
+      val task6 = new State
+      val task7 = new State
+      val task8 = new State
+      val end = new State
+
+      idle.whenIsActive(when(start) { goto(task1) })
+      write(task1, task2, B"32'h11223344", 32, 128)
+      write(task2, task3, B"32'h55667788", 32, 131584)
+      read(task3, task4, 32, 128)
+      read(task4, task5, 32, 131584)
+      write(task5, task6, B"32'h11223344", 32, 1024)
+      write(task6, task7, B"32'h55667788", 32, 29174144)
+      read(task7, task8, 32, 1024)
+      read(task8, end, 32, 29174144)
     }
   }
 
@@ -204,8 +228,8 @@ case class DfiDdr3() extends Component {
     rowWidth = 15,
     dataWidth = 16,
     ddrMHZ = 100,
-    ddrWrLat = 4,
-    ddrRdLat = 4,
+    ddrWrLat = 6,
+    ddrRdLat = 6,
     sdramtime = sdramtime
   )
   val timeConfig = DfiTimeConfig(
@@ -213,7 +237,7 @@ case class DfiDdr3() extends Component {
     tPhyWrData = 0,
     tPhyWrCsGap = 3,
     tRddataEn = sdram.tRddataEn,
-    tPhyRdlat = 4,
+    tPhyRdlat = 5,
     tPhyRdCsGap = 3,
     tPhyRdCslat = 0,
     tPhyWrCsLat = 0
@@ -260,7 +284,7 @@ case class DfiDdr3() extends Component {
     val clk = in Bool ()
     val rstN = in Bool ()
     val ddr3 = new DDR3IO(phyConfig)
-    val key = in Bool()
+    val key = in Bool ()
   }
   noIoPrefix()
   val bmbClockDomainCfg = ClockDomainConfig(resetActiveLevel = LOW)
