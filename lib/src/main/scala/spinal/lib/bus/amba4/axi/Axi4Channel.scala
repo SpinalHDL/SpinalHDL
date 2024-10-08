@@ -13,10 +13,10 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int, readOnly : Boolean) ext
   val addr   = UInt(config.addressWidth bits)
   val id     = if(config.useId)     UInt(config.idWidth bits)   else null
   val region = if(config.useRegion) Bits(4 bits)                else null
-  val len    = if(config.useLen)    UInt(8 bits)                else null
-  val size   = if(config.useSize)   UInt(3 bits)                else null
+  val len    = if(config.useLen)    UInt(config.lenWidth bits) else null
+  val size   = if(config.useSize)   UInt(config.sizeWidth bits)                else null
   val burst  = if(config.useBurst)  Bits(2 bits)                else null
-  val lock   = if(config.useLock)   Bits(1 bits)                else null
+  val lock   = if(config.useLock)   Bits(config.lockWidth bits)                else null
   val cache  = if(config.useCache)  Bits(4 bits)                else null
   val qos    = if(config.useQos)    Bits(4 bits)                else null
   val user   = if(userWidth >= 0)   Bits(userWidth bits)        else null
@@ -178,6 +178,7 @@ case class Axi4W(config: Axi4Config) extends Bundle {
   val strb = if(config.useStrb)  Bits(config.bytePerWord bits) else null
   val user = if(config.useWUser) Bits(config.wUserWidth bits)  else null
   val last = if(config.useLast)  Bool()                        else null
+  val id   = if(config.useWid)   UInt(config.idWidth bits)     else null
 
   def setStrb() : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
   def setStrb(bytesLane : Bits) : Unit = if(config.useStrb) strb := bytesLane
@@ -440,6 +441,7 @@ object Axi4W{
       Axi4Priv.driveWeak(stream,sink,stream.strb,sink.strb,() => B(sink.strb.range -> true),false,false)
       Axi4Priv.driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),false,true)
       Axi4Priv.driveWeak(stream,sink,stream.last,sink.last,null,false,true)
+      Axi4Priv.driveWeak(stream,sink,stream.id,sink.id,null,true,true)
     }
   }
 }

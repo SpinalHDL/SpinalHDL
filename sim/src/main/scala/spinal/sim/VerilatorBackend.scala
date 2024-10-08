@@ -243,7 +243,7 @@ public:
 };
 
 class Wrapper_${uniqueId};
-thread_local Wrapper_${uniqueId} *simHandle${uniqueId};
+thread_local Wrapper_${uniqueId} *simHandle${uniqueId} = NULL;
 
 #include <chrono>
 using namespace std::chrono;
@@ -254,6 +254,7 @@ public:
     high_resolution_clock::time_point lastFlushAt;
     uint32_t timeCheck;
     bool waveEnabled;
+    bool gotFinish;
     //VerilatedContext* contextp; //Buggy in multi threaded spinalsim
     V${config.toplevelName} *top;
     ISignalAccess *signalAccess[${config.signals.length}];
@@ -271,8 +272,9 @@ public:
       // initialize the simHandle before we call Vtop
       simHandle${uniqueId} = this;
       time = 0;
+      gotFinish = false;
       top = new V${config.toplevelName}();
-
+      
       timeCheck = 0;
       lastFlushAt = high_resolution_clock::now();
       waveEnabled = true;
@@ -319,7 +321,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       // Verilated::runFlushCallbacks();
       // Verilated::runExitCallbacks();
 
-      //contextp->gotFinish(true);
+      //contextp->threadContextp()->gotFinish(true);
       top->final();
       delete top;
       //delete contextp;
@@ -344,7 +346,7 @@ void vl_finish(const char* filename, int linenum, const char* hier) VL_MT_UNSAFE
         Verilated::runExitCallbacks();
         std::exit(0);
     }*/
-    Verilated::threadContextp()->gotFinish(true);
+    simHandle${uniqueId}->gotFinish = true;
 }
 
 #ifdef __cplusplus
@@ -358,6 +360,7 @@ extern "C" {
 
 JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
   (JNIEnv * env, jobject obj, jstring name, jstring wavePath, jint seedValue){
+    simHandle${uniqueId} = NULL;
     #if defined(_WIN32) && !defined(__CYGWIN__)
     srand(seedValue);
     #else
@@ -373,8 +376,10 @@ JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
 
 JNIEXPORT jboolean API JNICALL ${jniPrefix}eval_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle){
+   if(simHandle${uniqueId}->gotFinish) printf("XXX eval on already finished !!!\\n");
    handle->top->eval();
-   return Verilated::gotFinish();
+   if(simHandle${uniqueId}->gotFinish) printf("XXX eval finished\\n");
+   return simHandle${uniqueId}->gotFinish;
 }
 
 JNIEXPORT jint API JNICALL ${jniPrefix}getTimePrecision_1${uniqueId}

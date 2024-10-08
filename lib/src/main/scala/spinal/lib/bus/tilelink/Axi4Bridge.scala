@@ -6,7 +6,7 @@ import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.misc.SizeMapping
 
 object Axi4Bridge{
-  def getAxi4Config(p : NodeParameters): Axi4Config ={
+  def getAxi4Config(p : NodeParameters, withAxi3 : Boolean): Axi4Config ={
     assert(!p.withBCE)
     assert(p.m.emits.isOnlyGetPut())
     Axi4Config(
@@ -18,7 +18,8 @@ object Axi4Bridge{
       useQos       = false,
       useProt      = false,
       useRegion    = false,
-      useAllStrb   = true
+      useAllStrb   = true,
+      withAxi3     = withAxi3
     )
   }
 
@@ -27,8 +28,8 @@ object Axi4Bridge{
   )
 }
 
-class Axi4Bridge(p : NodeParameters) extends Component{
-  val axiConfig = Axi4Bridge.getAxi4Config(p)
+class Axi4Bridge(p : NodeParameters, withAxi3 : Boolean = false) extends Component{
+  val axiConfig = Axi4Bridge.getAxi4Config(p, withAxi3)
   val io = new Bundle{
     val up = slave port Bus(p)
     val down = master port Axi4(axiConfig)
@@ -52,9 +53,9 @@ class Axi4Bridge(p : NodeParameters) extends Component{
       io.down.ar.valid := buffered.valid &&  isGet
       buffered.ready := isGet.mux(io.down.ar.ready, io.down.aw.ready)
 
-      val len = buffered.sizeToBeatMinusOne().resize(8 bits)
+      val len = buffered.sizeToBeatMinusOne().resize(axiConfig.lenWidth bits)
       val sizeMapping = (0 to log2Up(p.m.sizeBytes)).map(_ min log2Up(p.m.dataBytes))
-      val sizePerBeat = sizeMapping.map(U(_, 3 bits)).read(buffered.size)
+      val sizePerBeat = sizeMapping.map(U(_, axiConfig.sizeWidth bits)).read(buffered.size)
       for (ax <- List(io.down.aw, io.down.ar)) {
         ax.addr := buffered.address
         ax.id := buffered.source
@@ -63,7 +64,7 @@ class Axi4Bridge(p : NodeParameters) extends Component{
         ax.setBurstINCR()
       }
 
-      io.down.aw.allStrb := buffered.opcode === Opcode.A.PUT_PARTIAL_DATA
+      io.down.aw.allStrb := buffered.opcode === Opcode.A.PUT_FULL_DATA
     }
     val data = new Area{
       val filtred = dataFork.takeWhen(dataFork.opcode === Opcode.A.PUT_FULL_DATA || dataFork.opcode === Opcode.A.PUT_PARTIAL_DATA)
@@ -72,6 +73,7 @@ class Axi4Bridge(p : NodeParameters) extends Component{
       io.down.w.data := buffer.data
       io.down.w.strb := buffer.mask
       io.down.w.last := buffer.isLast()
+      if(withAxi3) io.down.w.id   := buffer.source
     }
   }
 
