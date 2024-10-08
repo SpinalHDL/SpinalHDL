@@ -9,13 +9,13 @@ import spinal.core.sim._
 import spinal.lib.bus.tilelink.DebugId
 import spinal.lib.bus.tilelink.sim.IdAllocator
 import spinal.lib.sim.{MemoryRegionAllocator, StreamMonitor, StreamReadyRandomizer}
-import spinal.lib.system.dma.sg2.sim.{SimCtrl, SimDescriptor}
+import spinal.lib.system.dma.sg2.sim.{SimCtrl, SimReadOnlyDescriptor}
 
 import java.nio.ByteBuffer
 import scala.collection.mutable.Queue
 import scala.collection.mutable.ArrayBuffer
 
-class SpinalSimDmaSg2Tester extends SpinalAnyFunSuite{
+class SpinalSimDmaSg2ReadOnlyTester extends SpinalAnyFunSuite{
   test("default"){
     val p = DmaSgReadOnlyParam(
       addressWidth = 32,
@@ -38,7 +38,7 @@ class SpinalSimDmaSg2Tester extends SpinalAnyFunSuite{
       val ctrlAgent = new tilelink.sim.MasterAgent(dut.io.ctrl, dut.pushCd)(null)
       val ctrl = new SimCtrl(ctrlAgent, 0x0)
 
-      case class Task(descriptor : SimDescriptor, data : Array[Byte], last : Boolean){
+      case class Task(descriptor : SimReadOnlyDescriptor, data : Array[Byte], last : Boolean){
         var ptr = 0
         def popData(): Byte = {
           ptr += 1
@@ -74,9 +74,9 @@ class SpinalSimDmaSg2Tester extends SpinalAnyFunSuite{
 
       val allocator = new MemoryRegionAllocator(0, 0x10000)
       for(_ <- 0 until 100) {
-        val chain = ArrayBuffer[sg2.sim.SimDescriptor]()
+        val chain = ArrayBuffer[sg2.sim.SimReadOnlyDescriptor]()
         for (i <- 0 until simRandom.nextInt(10)) {
-          val d = new SimDescriptor(allocator.allocateAligned(32, 32).base.toLong)
+          val d = new SimReadOnlyDescriptor(allocator.allocateAligned(32, 32).base.toLong)
           val buffer = allocator.allocate(simRandom.nextInt(256)+1)
           d.from = buffer.base.toLong
           d.controlBytes = buffer.size.toInt
@@ -88,7 +88,7 @@ class SpinalSimDmaSg2Tester extends SpinalAnyFunSuite{
           chain += d
         }
 
-        val tail = new SimDescriptor(allocator.allocateAligned(32, 32).base.toLong)
+        val tail = new SimReadOnlyDescriptor(allocator.allocateAligned(32, 32).base.toLong)
         chain += tail
 
         for ((self, next) <- (chain, chain.tail).zipped) {
@@ -106,6 +106,8 @@ class SpinalSimDmaSg2Tester extends SpinalAnyFunSuite{
 
         while (ctrl.busy()) {}
         for(d <- chain){
+          d.read(mem.mem)
+          assert(d.statusCompleted)
           allocator.free(d.physicalAddress)
           if(d != chain.last) allocator.free(d.from)
         }

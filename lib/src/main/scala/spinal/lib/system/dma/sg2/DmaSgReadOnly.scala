@@ -1,10 +1,12 @@
 package spinal.lib.system.dma.sg2
 
 import spinal.core._
+import spinal.core.sim.SimConfig
 import spinal.lib._
 import spinal.lib.bus.bsb.{Bsb, BsbParameter}
 import spinal.lib.bus.misc.{BusSlaveFactory, SizeMapping}
 import spinal.lib.bus.tilelink._
+import spinal.lib.eda.bench.{Bench, EfinixStdTargets, Rtl}
 import spinal.lib.fsm._
 import spinal.lib.misc.pipeline.StagePipeline
 import spinal.lib.misc.slot.{Slot, SlotPool}
@@ -275,17 +277,10 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
         mem.a.address := descriptor.next
         mem.a.size := log2Up(p.descriptorBytes)
         when(mem.a.ready) {
+          descriptor.self := descriptor.next
           goto(NEXT_RSP)
         }
-        when(stop){
-          mem.a.valid := False
-          stop := False
-          goto(IDLE)
-        }
       }
-
-
-      def beatHit(offset: Int) = offset / p.dataBytes === mem.d.beatCounter()
 
       def map[T <: Data](target: T, byte: Int, bit: Int) {
         val targetWidth = widthOf(target)
@@ -434,4 +429,25 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
 
     bus.writeMultiWord(onPush.descriptor.next, 0x10)
   }
+}
+
+
+object DmaSgReadOnlySynt extends App{
+  val p = DmaSgReadOnlyParam(
+    addressWidth = 32,
+    dataWidth = 64,
+    blockSize = 64,
+    bufferBytes = 512,
+    pendingSlots = 4
+  )
+  val ctrlParam = p.getCtrlParam()
+
+  val rtls = List(Rtl(SpinalVerilog(Rtl.xorOutputs(Rtl.ffIo(new DmaSgReadOnlyComp(p, ctrlParam, ClockDomain.current, ClockDomain.current))))))
+  val targets = EfinixStdTargets().drop(2)
+  Bench(rtls, targets)
+  System.exit(0)
+
+  val compiled = SimConfig.compile(
+    new DmaSgReadOnlyComp(p, ctrlParam, ClockDomain.external("push"), ClockDomain.external("pop"))
+  )
 }

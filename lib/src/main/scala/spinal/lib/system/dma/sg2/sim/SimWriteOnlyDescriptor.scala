@@ -1,30 +1,32 @@
 package spinal.lib.system.dma.sg2.sim
 
-import spinal.lib.system.dma.sg2.DmaSgReadOnly
 import spinal.core._
 import spinal.lib.sim.SparseMemory
+import spinal.lib.system.dma.sg2.DmaSgWriteOnly
 
 import java.nio.{ByteBuffer, ByteOrder}
 
-class SimDescriptor(var physicalAddress : Long = 0l) {
-  var next, from = 0l
+class SimWriteOnlyDescriptor(var physicalAddress : Long = 0l) {
+  var next, to = 0l
   var controlBytes = 0
   var statusCompleted = false
-  var controlLast = false
+  var statusLast = false
+  var statusBytes = 0
 
 
   def read(mem : SparseMemory) : Unit = read(mem.readBytes(physicalAddress, 32))
   def read(array : Array[Byte]): Unit = {
-    import DmaSgReadOnly._
+    import DmaSgWriteOnly._
     val wrapped = ByteBuffer.wrap(array)
     wrapped.order(ByteOrder.LITTLE_ENDIAN);
     val status = wrapped.getInt(statusAt)
     val control = wrapped.getInt(controlAt)
     statusCompleted = (status & (1 << statusCompletedAt)) != 0
-    controlLast = (control & (1 << controlLastAt)) != 0
-    controlBytes = control & 0x7FFFFFFF
+    statusBytes = (status >> statusBytesAt) & 0x7FFFFFF
+    statusLast = (status & (1 << statusLastAt)) != 0
+    controlBytes = control & 0x7FFFFFF
     next = wrapped.getLong(nextAt)
-    from = wrapped.getLong(fromAt)
+    to = wrapped.getLong(toAt)
   }
 
   def write(mem : SparseMemory): Unit = {
@@ -33,14 +35,15 @@ class SimDescriptor(var physicalAddress : Long = 0l) {
     mem.write(physicalAddress, array)
   }
   def write(array : Array[Byte]): Unit = {
-    import DmaSgReadOnly._
+    import DmaSgWriteOnly._
     val wrapped = ByteBuffer.wrap(array)
     wrapped.order(ByteOrder.LITTLE_ENDIAN);
-    val status = statusCompleted.toInt << statusCompletedAt
-    val control = (controlLast.toInt << controlLastAt) | controlBytes.toInt
+    val status = (statusLast.toInt << statusLastAt) |  (statusBytes << statusBytesAt) | (statusCompleted.toInt << statusCompletedAt)
+    val control = controlBytes.toInt
     wrapped.putInt(statusAt, status)
     wrapped.putInt(controlAt, control)
     wrapped.putLong(nextAt, next)
-    wrapped.putLong(fromAt, from)
+    wrapped.putLong(toAt, to)
   }
 }
+

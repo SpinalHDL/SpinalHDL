@@ -8,7 +8,7 @@ import spinal.lib.com.eth.sg.{MacSg, MacSgParam}
 import spinal.lib.sim.{MemoryRegionAllocator, StreamMonitor, StreamReadyRandomizer}
 import spinal.lib.system.dma.sg2
 import spinal.lib.system.dma.sg2._
-import spinal.lib.system.dma.sg2.sim.{SimCtrl, SimDescriptor}
+import spinal.lib.system.dma.sg2.sim.{SimCtrl, SimReadOnlyDescriptor}
 import spinal.tester.code.SpinalAnyFunSuite
 
 import scala.collection.mutable.{ArrayBuffer, Queue}
@@ -84,13 +84,13 @@ class SpinalSimMacSgTester extends SpinalAnyFunSuite{
 
       val allocator = new MemoryRegionAllocator(0, 0x10000)
       for(_ <- 0 until 10) {
-        val chain = ArrayBuffer[sg2.sim.SimDescriptor]()
+        val chain = ArrayBuffer[sg2.sim.SimReadOnlyDescriptor]()
         val descriptorSizeMax = 1500
         val packetSize = simRandom.nextInt(1000)+1
         var left = packetSize
         val dataBuffer = ArrayBuffer[Byte]()
         while(left != 0){
-          val d = new SimDescriptor(allocator.allocateAligned(32, 32).base.toLong)
+          val d = new SimReadOnlyDescriptor(allocator.allocateAligned(32, 32).base.toLong)
           val size = (simRandom.nextInt(descriptorSizeMax) + 1) min left
           left -= size
           val buffer = allocator.allocate(size)
@@ -106,7 +106,7 @@ class SpinalSimMacSgTester extends SpinalAnyFunSuite{
         val task = new TxPacket(dataBuffer.toArray)
         tasks += task
 
-        val tail = new SimDescriptor(allocator.allocateAligned(32, 32).base.toLong)
+        val tail = new SimReadOnlyDescriptor(allocator.allocateAligned(32, 32).base.toLong)
         chain += tail
 
         for ((self, next) <- (chain, chain.tail).zipped) {
