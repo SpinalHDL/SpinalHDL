@@ -187,10 +187,10 @@ class FlowCmdRsp[T <: Data, T2 <: Data](cmdType : HardType[T], rspType : HardTyp
  * Will use the BaseType.clockDomain to figure out how to connect 2 signals together (allowed use StreamCCByToggle)
  */
 object DataCc{
-  def apply[T <: BaseType](to : T, from : T): Unit = {
-    apply(to, from, to.clockDomain, from.clockDomain)
+  def apply[T <: BaseType](to : T, from : T)(initValue : => T): Unit = {
+    apply(to, from, to.clockDomain, from.clockDomain)(initValue)
   }
-  def apply[T <: BaseType](from : T, fromCd : ClockDomain, toCd : ClockDomain, initValue : => T = null.asInstanceOf[T]) : T = {
+  def apply[T <: BaseType](from : T, fromCd : ClockDomain, toCd : ClockDomain)(initValue : => T) : T = {
     ClockDomain.areSynchronous(toCd, fromCd) match {
       case true => from
       case false => {
@@ -204,7 +204,7 @@ object DataCc{
       }
     }
   }
-  def apply[T <: BaseType](to : T, from : T, toCd : ClockDomain, fromCd : ClockDomain): Unit = {
-    to := apply(from, fromCd, toCd)
+  def apply[T <: BaseType](to : T, from : T, toCd : ClockDomain, fromCd : ClockDomain)(initValue : => T): Unit = {
+    to := apply(from, fromCd, toCd)(initValue)
   }
 }
