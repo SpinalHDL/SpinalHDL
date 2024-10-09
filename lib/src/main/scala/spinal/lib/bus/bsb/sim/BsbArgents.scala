@@ -26,7 +26,7 @@ abstract class BsbMonitor(bsb : Bsb, cd : ClockDomain) extends StreamMonitor(bsb
   def onLast(source : Int, sink : Int): Unit
 }
 
-case class BsbPacket(source : Int, sink : Int, data : Seq[Byte])
+case class BsbPacket(source : Int, sink : Int, data : Seq[Byte], last : Boolean = true)
 
 case class BsbDriver(bsb : Bsb, cd : ClockDomain) {
   val sources = Array.fill(1 << bsb.p.sourceWidth)(mutable.Queue[BsbPacket]())
@@ -54,7 +54,7 @@ case class BsbDriver(bsb : Bsb, cd : ClockDomain) {
       p.source #= packet.source
       p.sink #= packet.sink
       if (sourcesHeadEmpty(packet.source)  && simRandom.nextBoolean()) {
-        p.last #= true
+        p.last #= packet.last
         progresses(packet.source) = 0
         packets.dequeue()
       } else {
