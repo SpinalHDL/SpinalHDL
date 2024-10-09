@@ -3,7 +3,7 @@ package spinal.lib.com.eth.sg
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
-import spinal.lib.com.eth.{MacTxCrc, MacTxHeader, MacTxPadder, PhyIo, PhyParameter, PhyTx}
+import spinal.lib.com.eth.{MacRxAligner, MacRxChecker, MacRxDropper, MacRxPreamble, MacTxCrc, MacTxHeader, MacTxPadder, PhyIo, PhyParameter, PhyRx, PhyTx}
 
 
 
@@ -57,9 +57,11 @@ case class MacEthSgCtrl(p : MacBackendParam) extends Bundle{
 
 case class MacEthPackets(p : PhyParameter) extends Bundle with IMasterSlave {
   val tx = Stream(Fragment(PhyTx(p.txDataWidth)))
+  val rx = Stream(Fragment(PhyRx(p.txDataWidth)))
 
   override def asMaster(): Unit = {
     master(tx)
+    slave(rx)
   }
 }
 
@@ -73,37 +75,17 @@ case class MacBackend(phyParam: PhyParameter,
 
   val ctrlClockDomain = this.clockDomain
 
-  io.phy.rx.ready := False
-//  val rxFrontend = rxClockDomain on new Area{
-//    val preamble = MacRxPreamble(dataWidth = phyParam.rxDataWidth)
-//    preamble.io.input << io.phy.rx
-//
-//    val checker = MacRxChecker(dataWidth = phyParam.rxDataWidth)
-//    checker.io.input << preamble.io.output
-//
-//    val aligner = MacRxAligner(dataWidth = phyParam.rxDataWidth)
-//    aligner.io.input << checker.io.output
-//    aligner.io.enable := BufferCC(io.ctrl.rx.alignerEnable)
-//
-//    val buffer = MacRxBuffer(
-//      pushCd = rxClockDomain,
-//      popCd = ctrlClockDomain.copy(softReset = io.ctrl.rx.flush),
-//      pushWidth = phyParam.rxDataWidth,
-//      popWidth = p.rxDataWidth,
-//      byteSize = p.rxBufferByteSize
-//    )
-//    buffer.io.push.stream << aligner.io.output
-//    buffer.io.push.drop <> io.sim.drop
-//    buffer.io.push.commit <> io.sim.commit
-//    buffer.io.push.error <> io.sim.error
-//  }
-//
-//  val rxBackend = new Area{
-//    rxFrontend.buffer.io.pop.stream >> io.ctrl.rx.stream
-//    io.ctrl.rx.stats.clear <> rxFrontend.buffer.io.pop.stats.clear
-//    io.ctrl.rx.stats.errors <> rxFrontend.buffer.io.pop.stats.errors
-//    io.ctrl.rx.stats.drops <> rxFrontend.buffer.io.pop.stats.drops
-//  }
+  val rxFrontend = rxCd on new Area{
+    val preamble = MacRxPreamble(dataWidth = phyParam.rxDataWidth)
+    preamble.io.input << io.phy.rx
+
+    val checker = MacRxChecker(dataWidth = phyParam.rxDataWidth)
+    checker.io.input << preamble.io.output
+
+    val dropper = MacRxDropper(dataWidth = phyParam.rxDataWidth)
+    dropper.io.input << checker.io.output
+    io.packets.rx << dropper.io.output
+  }
 
 
   val onTx = txCd on new Area{

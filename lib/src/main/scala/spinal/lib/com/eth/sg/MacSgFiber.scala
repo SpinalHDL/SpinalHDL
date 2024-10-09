@@ -9,7 +9,7 @@ import spinal.lib.bus.tilelink.BusParameter
 import spinal.lib.com.eth.{Gmii, PhyParameter}
 import spinal.lib.stringPimped
 import spinal.lib.system.dma.sg2
-import spinal.lib.system.dma.sg2.{DmaSgReadOnly, DmaSgReadOnlyParam}
+import spinal.lib.system.dma.sg2.{DmaSgReadOnly, DmaSgReadOnlyParam, DmaSgWriteOnlyParam}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -18,7 +18,8 @@ case class MacSgFiberSpec(name : String,
                           txInterruptId : Int,
                           rxInterruptId : Int,
                           phyParam: PhyParameter,
-                          txDmaParam : sg2.DmaSgReadOnlyParam)
+                          txDmaParam : sg2.DmaSgReadOnlyParam,
+                          rxDmaParam : sg2.DmaSgWriteOnlyParam)
 
 object MacSgFiberSpec{
   def addOption(parser: scopt.OptionParser[Unit], specs: ArrayBuffer[MacSgFiberSpec]): Unit = {
@@ -39,6 +40,14 @@ object MacSgFiberSpec{
           blockSize = 64,
           bufferBytes = 4096,
           pendingSlots = 2
+        ),
+        rxDmaParam = DmaSgWriteOnlyParam(
+          addressWidth = 32,
+          dataWidth = 0,
+          blockSize = 64,
+          bufferBytes = 4096,
+          pendingSlots = 2,
+          bsbDataBytes = 2
         )
       )
     } text (s"")
@@ -50,11 +59,16 @@ case class MacSgFiber(val p: MacSgParam,
                       val rxCd : ClockDomain) extends Area{
   val ctrl = tilelink.fabric.Node.slave()
   val txMem = tilelink.fabric.Node.master()
+  val rxMem = tilelink.fabric.Node.master()
   val txInterrupt = InterruptNode.master()
+  val rxInterrupt = InterruptNode.master()
 
   val logic = Fiber build new Area{
     txMem.m2s.forceParameters(p.txDmaParam.getM2sParameter(txMem))
     txMem.s2m.unsupported()
+
+    rxMem.m2s.forceParameters(p.rxDmaParam.getM2sParameter(rxMem))
+    rxMem.s2m.unsupported()
 
     ctrl.m2s.supported.load(MacSg.getCtrlSupport(ctrl.m2s.proposed))
     ctrl.s2m.none()
@@ -63,6 +77,7 @@ case class MacSgFiber(val p: MacSgParam,
       p = p,
       ctrlParam = ctrl.bus.p,
       txMemParam = txMem.bus.p,
+      rxMemParam = rxMem.bus.p,
       ctrlCd = ClockDomain.current,
       txCd = txCd,
       rxCd = rxCd
@@ -70,10 +85,13 @@ case class MacSgFiber(val p: MacSgParam,
 
     core.io.ctrl <> ctrl.bus
     core.io.txMem <> txMem.bus
-    txInterrupt.flag := core.io.interrupt
+    core.io.rxMem <> rxMem.bus
+    txInterrupt.flag := core.io.txIrq
+    rxInterrupt.flag := core.io.rxIrq
 
     val phy = master(Gmii())
-    val phyTxFeed = txCd on phy.tx.fromTxStream()
+    val phyTxFeed = txCd(phy.tx.fromTxStream())
     phyTxFeed.input << core.io.phy.tx
+    rxCd(phy.rx.toRxFlow().toStream >> core.io.phy.rx)
   }
 }

@@ -166,6 +166,26 @@ case class MacRxAligner(dataWidth : Int) extends Component{
   }
 }
 
+case class MacRxDropper(dataWidth : Int) extends Component {
+  val io = new Bundle {
+    val input = slave(Stream(Fragment(PhyRx(dataWidth))))
+    val output = master(Stream(Fragment(PhyRx(dataWidth))))
+  }
+
+  io.output.valid := io.input.valid && io.output.first === io.input.first
+  io.output.last := io.input.last
+  io.output.data := io.input.data
+  io.output.error := io.input.error
+  io.input.ready := True
+
+  val drop = RegInit(False) setWhen(io.output.isStall) clearWhen(io.output.fire && io.output.last)
+  when(drop){
+    io.output.valid := True
+    io.output.last := True
+    io.output.error := True
+  }
+}
+
 
 case class MacRxBuffer(pushCd : ClockDomain,
                        popCd : ClockDomain,

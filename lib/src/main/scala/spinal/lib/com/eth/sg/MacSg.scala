@@ -1,9 +1,9 @@
 package spinal.lib.com.eth.sg
 
 import spinal.core._
-import spinal.lib.bus.bsb.{Bsb, BsbDownSizerDense, BsbDownSizerSparse, BsbPacketBuffer}
+import spinal.lib.bus.bsb.{Bsb, BsbDownSizerDense, BsbDownSizerSparse, BsbPacketBuffer, BsbParameter, BsbUpSizerDense, BsbUpSizerSparse}
 import spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper
-import spinal.lib.com.eth.{PhyIo, PhyParameter}
+import spinal.lib.com.eth.{PhyIo, PhyParameter, PhyTx}
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink.BusParameter
 import spinal.lib._
@@ -29,20 +29,26 @@ object MacSg{
 
 case class MacSgParam(val phyParam: PhyParameter,
                       val txDmaParam : sg2.DmaSgReadOnlyParam,
-                      val txBufferBytes : Int)
+                      val txBufferBytes : Int,
+                      val rxDmaParam : sg2.DmaSgWriteOnlyParam,
+                      val rxBufferBytes : Int,
+                      val rxUpsizedBytes : Int)
 
 
 class MacSg(val p : MacSgParam,
             val ctrlParam : BusParameter,
             val txMemParam : BusParameter,
+            val rxMemParam : BusParameter,
             val ctrlCd : ClockDomain,
             val txCd : ClockDomain,
             val rxCd : ClockDomain) extends Component {
   val io = new Bundle {
     val ctrl = slave(tilelink.Bus(ctrlParam))
     val txMem = master(tilelink.Bus(txMemParam))
+    val rxMem = master(tilelink.Bus(rxMemParam))
     val phy = master(PhyIo(p.phyParam))
-    val interrupt = out Bool()
+    val txIrq = out Bool()
+    val rxIrq = out Bool()
   }
 
 
@@ -76,5 +82,36 @@ class MacSg(val p : MacSgParam,
     pushCd = ctrlCd,
     popCd = txCd
   )
-  io.interrupt := txDma.onCtrl.irq.interrupt
+
+  val onRx = new ClockingArea(rxCd){
+    val fromBackend =  Bsb(BsbParameter(p.phyParam.rxDataWidth/8, 0, 0, withError = true))
+    fromBackend.arbitrationFrom(backend.io.packets.rx)
+    fromBackend.data := backend.io.packets.rx.data
+    fromBackend.error := backend.io.packets.rx.error
+    fromBackend.last := backend.io.packets.rx.last
+    fromBackend.mask := 1
+
+    val upSizer = new BsbUpSizerDense(fromBackend.p, p.rxUpsizedBytes)
+    upSizer.io.input << fromBackend
+  }
+
+  val rxBuffer = StreamFifoCC(
+    dataType = onRx.upSizer.io.output.payloadType,
+    depth = p.rxBufferBytes,
+    pushClock = rxCd,
+    popClock = ctrlCd
+  )
+  rxBuffer.io.push << onRx.upSizer.io.output
+
+  val onRxCtrl = new ClockingArea(ctrlCd) {
+    val rxDma = new sg2.DmaSgWriteOnly(
+      p = p.rxDmaParam,
+      bsb = rxBuffer.io.pop,
+      mem = io.rxMem,
+      ctrl = new BusSlaveFactoryAddressWrapper(onCtrl.bus, 0x200)
+    )
+  }
+
+  io.txIrq := txDma.onCtrl.irq.interrupt
+  io.rxIrq := onRxCtrl.rxDma.onCtrl.irq.interrupt
 }
