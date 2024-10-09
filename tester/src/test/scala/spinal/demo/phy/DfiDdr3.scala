@@ -109,11 +109,10 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
     val initDone = in Bool ()
   }
   val counter = Reg(UInt(io.bmb.cmd.length.getWidth + 1 bits)).init(0)
-  val opcodeCount = RegInit(U(0, 2 bits))
-  val idleTimer = RegInit(U(0, 6 bits))
+  val idleTimer = RegInit(U(0, 9 bits))
   val start = RegInit(False).setWhen(io.initDone)
-  val writeData = Reg(cloneOf(io.bmb.cmd.data)).init(0)
-  writeData := writeData.rotateLeft(2)
+  val writeData = Reg(cloneOf(io.bmb.cmd.data).asUInt).init(0)
+  writeData := writeData + 1
 
   io.bmb.cmd.valid.clear()
   io.bmb.cmd.last.clear()
@@ -127,7 +126,7 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
   io.bmb.rsp.ready := RegInit(False).clearWhen(io.bmb.rsp.lastFire).setWhen(io.bmb.cmd.valid && io.bmb.cmd.opcode === 0)
 
   when(io.bmb.cmd.last) {
-    idleTimer := 20
+    idleTimer := 50
   } otherwise {
     when(idleTimer =/= 0) {
       idleTimer := idleTimer - 1
@@ -148,7 +147,7 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
             io.bmb.cmd.length := U(length * ddrIoDfiConfig.bytePerBeat - 1).resized
             io.bmb.cmd.opcode := True.asBits
           }
-          io.bmb.cmd.data := writeData
+          io.bmb.cmd.data := writeData.asBits
           when(counter === 1) {
             io.bmb.cmd.last.set()
           }
@@ -156,7 +155,7 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
         }
         state.onEntry {
           counter := U(length, log2Up(length) + 1 bits).resized
-          writeData := initdata
+          writeData := initdata.asUInt
         }
       }
 
@@ -186,14 +185,14 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
       val end = new State
 
       idle.whenIsActive(when(start) { goto(task1) })
-      write(task1, task2, B"32'h11223344", 32, 128)
-      write(task2, task3, B"32'h55667788", 32, 131584)
-      read(task3, end, 32, 128)
-      read(task4, task5, 32, 131584)
-      write(task5, task6, B"32'h11223344", 32, 1024)
-      write(task6, task7, B"32'h55667788", 32, 29174144)
-      read(task7, task8, 32, 1024)
-      read(task8, end, 32, 29174144)
+      write(task1, task2, B"32'h00000001", 64, 128)
+      write(task2, task3, B"32'h00100001", 64, 131584)
+      read(task3, task4, 64, 128)
+      read(task4, task5, 64, 131584)
+      write(task5, task6, B"32'h00000001", 64, 1024)
+      write(task6, task7, B"32'h00100001", 64, 29174144)
+      read(task7, task8, 64, 1024)
+      read(task8, end, 64, 29174144)
     }
   }
 
@@ -268,7 +267,7 @@ case class DfiDdr3() extends Component {
     dataWidth = ddrIoDfiConfig.beatWidth,
     sourceWidth = 1,
     contextWidth = 2,
-    lengthWidth = 7,
+    lengthWidth = 10,
     alignment = BmbParameter.BurstAlignement.WORD
     )
 

@@ -177,11 +177,16 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
     val rdBeatCounter = Reg(UInt(log2Up(beatCountMax) bits)) init (0)
     val splitCounter = Reg(UInt(log2Up(splitCountMax) bits)) init (0)
 
-    val length = Reg(cloneOf(io.input.cmd.length)).init(lengthMax-1)
-    when(io.input.cmd.fire) { length := io.input.cmd.length }
-    val headLenghtMax = lengthMax - 1 - io.input.cmd.address(splitRange)
+    val lengthReg = RegNextWhen(io.input.cmd.length, io.input.cmd.fire, U(lengthMax - 1))
+    val addressReg = RegNextWhen(io.input.cmd.address, io.input.cmd.fire, U(0))
+    val length = cloneOf(io.input.cmd.length)
+    val address = cloneOf(io.input.cmd.address)
+    length := io.input.cmd.fire ? io.input.cmd.length | lengthReg
+    address := io.input.cmd.fire ? io.input.cmd.address | addressReg
+
+    val headLenghtMax = lengthMax - 1 - address(splitRange)
     val bodyLength = lengthMax - 1
-    val lastAddress = io.input.cmd.address(splitRange) + (U"0" @@ length)
+    val lastAddress = address(splitRange) + (U"0" @@ length)
     val tailLength = lastAddress(splitRange)
     val splitCount = (lastAddress >> splitRange.size)
 
@@ -189,10 +194,10 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
     val lastSplit = splitCounter === splitCount
     val usedSplit = (splitCounter <= splitCount) && (splitCounter =/= 0)
 
-    val addressBase = CombInit(io.input.cmd.address)
+    val addressBase = CombInit(address)
     when(!firstSplit) { addressBase(splitRange) := 0 }
 
-    val beatsInSplit = U(lengthMax / ip.access.byteCount) - (~firstSplit ? U(0) | io.input.cmd.address(
+    val beatsInSplit = U(lengthMax / ip.access.byteCount) - (~firstSplit ? U(0) | address(
       splitRange.high downto log2Up(ip.access.byteCount)
     ))
 

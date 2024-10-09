@@ -255,7 +255,7 @@ object Bmb2DfiSim {
           println("writing is OK")
           clockDomain.waitSampling(50)
 
-          read(beatCount = bmbDatas.size)
+          read(address=64,beatCount = bmbDatas.size)
           clockDomain.waitSampling(10)
           read(beatCount = bmbDatas.size)
           clockDomain.waitSampling(50)
