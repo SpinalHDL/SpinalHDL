@@ -182,7 +182,7 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
     val onRam = new Area {
       val write = ram.writePort()
       val cmdPtr = Reg(PTR) init (0)
-      val popPtr = DataCc(cc.popPtr, popCd, pushCd, initValue = U(0, ptrWidth bits))
+      val popPtr = DataCc(cc.popPtr, popCd, pushCd)(U(0, ptrWidth bits))
       val full = cmdPtr - popPtr > p.bufferWords - descriptor.blockBeats
     }
 
@@ -383,7 +383,7 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
   }
 
   val onPop = popCd on new Area{
-    val pushPtr = DataCc(cc.pushPtr, pushCd, popCd, initValue=cc.pushPtr.getZero)
+    val pushPtr = DataCc(cc.pushPtr, pushCd, popCd)(cc.pushPtr.getZero)
     val popPtr = Reg(PTR()) init(0)
     val empty = popPtr === pushPtr
     cc.popPtr := popPtr

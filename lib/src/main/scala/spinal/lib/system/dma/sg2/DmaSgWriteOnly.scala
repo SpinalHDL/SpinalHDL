@@ -20,6 +20,7 @@ Descriptor mapping :
 
 object DmaSgWriteOnly{
   val statusAt = 0
+  val statusErrorAt = 29
   val statusLastAt = 30
   val statusCompletedAt = 31
   val statusBytesAt = 0
@@ -160,10 +161,15 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
 //      frontendLastWord := ???
     }
 
+    val config = new Area{
+      val bsbNoSyncOnStart = RegInit(False)
+    }
+
     val fsmState = new Area{
       val hit, target = Reg(UInt(p.transferBytesWidth + 1 bits))
-      val packetLast = Reg(Bool())
+      val packetLast, packetError = Reg(Bool())
       val bsbToBuffer = RegInit(False)
+      val bsbSynced = Reg(False)
       val bsbDone = Reg(Bool())
       val bytesLeft = Reg(UInt(p.transferBytesWidth bits))
 
@@ -194,6 +200,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
         val DATA = insert(bsb.data)
         val MASK = insert(bsb.mask)
         val LAST = insert(bsb.last)
+        val ERROR = insert(bsb.error)
       }
       val computer = new pip.Area(1){
         val off = CountOneOnEach(inserter.MASK)
@@ -222,6 +229,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
 
         val upReady = True
         val bufferFill = bytesAvailable =/= 0
+        val bsbFirst = RegNextWhen[Bool](inserter.LAST, isFiring) init(True)
 
         bufferFill clearWhen(!valid)
         upReady clearWhen(!fragmentFullyConsumed)
@@ -234,6 +242,9 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
           upReady := False
           fsmState.bsbToBuffer := False
         }
+        when(valid && fsmState.bsbToBuffer && (fsmState.bsbSynced || bsbFirst) && inserter.ERROR){
+          fsmState.packetError := True
+        }
 
         when(bufferFill){
           consumed := consumed + byteUsageCount.resized
@@ -242,7 +253,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
         }
         when(upReady){
           consumed := 0
-          when(fsmState.bsbToBuffer && valid && packetAskDescriptorCompletion){
+          when((fsmState.bsbSynced || bsbFirst) && fsmState.bsbToBuffer && valid && packetAskDescriptorCompletion){
             fsmState.bsbToBuffer := False
             fsmState.packetLast := True
           }
@@ -259,7 +270,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
 
         val buffer = new Area {
           val data = Reg(Bits(p.dataBytes*8 bits))
-          val mask = Reg(Bits(8 bits)) init (0)
+          val mask = Reg(Bits(p.dataBytes bits)) init (0)
           val write = mask.msb || mask =/= 0 && !fsmState.bsbToBuffer
 
           onRam.write.valid := write
@@ -276,11 +287,12 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
             bufferFill := False
             upReady := False
           }
-          when(!fsmState.isBusy){
+          when(!fsmState.isBusy || !fsmState.bsbSynced && !bsbFirst){
             bufferFill := False
             upReady := True
             mask := 0
           }
+          fsmState.bsbSynced setWhen(isFiring && bsbFirst)
 
 
           when(!fsmState.bsbToBuffer && mask === 0){
@@ -296,7 +308,8 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
             val selected = reader(_.valid)
             val sel = reader(_.sel)
             val byte = datas.subdivideIn(8 bits)(sel)
-            val chunkId = from(log2Up(p.dataBytes)-1 downto log2Up(p.bsbDataBytes))
+            val chunkTmp = globalOffset(dataRange) + p.bsbDataBytes - 1 - lane
+            val chunkId = chunkTmp(log2Up(p.dataBytes)-1 downto log2Up(p.bsbDataBytes))
             when(bufferFill && selected){
               maskGroups(chunkId)(lane) := True
               dataGroups(chunkId)(lane*8, 8 bits) := byte
@@ -398,6 +411,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
       IDLE.whenIsActive(
         when(start) {
           descriptor.self := descriptor.next
+          fsmState.bsbSynced := config.bsbNoSyncOnStart
           goto(NEXT_CMD)
         }
       )
@@ -455,6 +469,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
           fsmState.target := descriptor.to(burstRange).resized
           fsmState.hit := descriptor.to(burstRange).resized
           fsmState.packetLast := False
+          fsmState.packetError := False
           fsmState.bsbDone := False
           fsmState.bsbToBuffer := True
           fsmState.bytesLeft := descriptor.control.bytes
@@ -491,9 +506,10 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
           mem.a.source := 0
           mem.a.address := descriptor.self
           mem.a.size := 2
-          mem.a.data := (descriptor.control.bytes - fsmState.bytesLeft).asBits.resized
+          mem.a.data(0, p.transferBytesWidth bits) := (descriptor.control.bytes - fsmState.bytesLeft).asBits.resized
           mem.a.data(statusCompletedAt) := True
           mem.a.data(statusLastAt) := fsmState.packetLast
+          mem.a.data(statusErrorAt) := fsmState.packetError
           mem.a.mask := 0xF
           when(mem.a.ready) {
             goto(STATUS_RSP)
@@ -516,6 +532,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
     bus.setOnSet(onPush.start, 0, 0)
     bus.read(onPush.fsmState.isBusy,0, 0)
     bus.readAndSetOnSet(onPush.stop, 0, 1)
+    bus.write(onPush.config.bsbNoSyncOnStart, 8, 0)
 
     val irq = new Area{
       val idleEnable = bus.createWriteOnly(Bool(), 4, 0) init(False)
