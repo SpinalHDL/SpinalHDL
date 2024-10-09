@@ -41,13 +41,28 @@ case class GmiiTx() extends Bundle with IMasterSlave {
 }
 
 case class GmiiRx() extends Bundle with IMasterSlave {
-//  val D = Bits(8 bits)
-//  val CRS_DV = Bool()
-//  val ER = p.withEr generate Bool()
-//
+  val d = Bits(8 bits)
+  val ctl = Bits(2 bits)
+
   override def asMaster(): Unit = {
-//    out(D, CRS_DV)
-//    outWithNull(ER)
+    out(d, ctl)
+  }
+
+  def toRxFlow() = {
+    val EN = ctl(0)
+    val ER = ctl(0) ^ ctl(1)
+
+    val unbuffered = Flow(PhyRx(8))
+    unbuffered.valid := EN
+    unbuffered.data := d
+    unbuffered.error := ER
+
+    val buffered = unbuffered.stage()
+    val ret = Flow(Fragment(PhyRx(8)))
+    ret.valid := buffered.valid
+    ret.fragment := buffered.payload
+    ret.last := !unbuffered.valid
+    ret
   }
 //
 //  def toRxFlow() = {
