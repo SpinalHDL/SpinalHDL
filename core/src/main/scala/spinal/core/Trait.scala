@@ -386,7 +386,7 @@ trait Nameable extends OwnableRef with ContextUser{
     case OWNER_PREFIXED        => refOwner == null || refOwner.asInstanceOf[Nameable].isUnnamed
   }
 
-  def isNamed: Boolean = !isUnnamed
+  final def isNamed: Boolean = !isUnnamed
 
   def getName(): String = getName("")
   def getPartialName() : String = name
