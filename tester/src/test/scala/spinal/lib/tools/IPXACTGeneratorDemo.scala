@@ -89,23 +89,21 @@ class IPXACTGeneratorTestComponent extends Component {
 
 }
 
-class IPXACTGeneratorTest extends SpinalAnyFunSuite {
-  test("test IPXACTGeneratorTestComponent") {
-    import IPXACTGenerator.IPXACTGenerator
-    val componentRTL = SpinalConfig(
-      mode = Verilog,
-      oneFilePerComponent = false
-    ).generate(new IPXACTGeneratorTestComponent)
-    val componentGenerator = new IPXACTGenerator(componentRTL)
-    //    componentGenerator.generateIPXACT2022Component()
-    componentGenerator.generateIPXACTVivadoComponent()
+object IPXACTGeneratorDemo extends App {
+  import IPXACTGenerator.IPXACTGenerator
+  val componentRTL = SpinalConfig(
+    mode = Verilog,
+    oneFilePerComponent = false
+  ).generate(new IPXACTGeneratorTestComponent)
+  val componentGenerator = new IPXACTGenerator(componentRTL)
+  //    componentGenerator.generateIPXACT2022Component()
+  componentGenerator.generateIPXACTVivadoComponent()
 
-    val designRTL = SpinalConfig(
-      mode = Verilog,
-      oneFilePerComponent = true
-    ).generate(new IPXACTGeneratorTestComponent)
-    val designGenerator = new IPXACTGenerator(designRTL)
-    designGenerator.generateDesignView()
-  }
+  val designRTL = SpinalConfig(
+    mode = Verilog,
+    oneFilePerComponent = true
+  ).generate(new IPXACTGeneratorTestComponent)
+  val designGenerator = new IPXACTGenerator(designRTL)
+  designGenerator.generateDesignView()
 }
 

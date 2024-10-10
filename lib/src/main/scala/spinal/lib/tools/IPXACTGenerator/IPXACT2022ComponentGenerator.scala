@@ -206,7 +206,8 @@ class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", topleve
       IPXACT2022DesignConfigXMLGenerator.generate(Vendor = toplevelVendor, toplevelName = toplevelName, module = module, version = version, generatePath = generatePath)
       IPXACT2022DesignXMLGenerator.generate(Vendor = toplevelVendor, toplevelName = toplevelName, module = module, version = version, generatePath = generatePath)
     }
-    val fileDirectory = s"$generatePath/IPXACT/$toplevelVendor/$toplevelName/$moduleDefinitionName/$version/"
+    val ipxactPath = s"$generatePath/IPXACT/"
+    val fileDirectory = s"$ipxactPath$toplevelVendor/$toplevelName/$moduleDefinitionName/$version/"
     val filePath = s"$fileDirectory$moduleDefinitionName.$version.xml"
     Files.createDirectories(Paths.get(fileDirectory))
     val verilogFilePath = s"$generatePath/${module.definitionName}.v"
@@ -226,10 +227,13 @@ class IPXACT2022ComponentGenerator(toplevelVendor: String = "SpinalHDL", topleve
       fileSets = Some(fileSets)
     )
     val xml: NodeSeq = toXML[ComponentType](component, "ipxact:component", defaultScope)
-//    val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
+    //    val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
     //    val formattedXml: String = prettyPrinter.format(xml.head)
     //    println(formattedXml)
     XML.save(filePath, xml.head, "UTF-8", xmlDecl = true, doctype = null)
+    if(module.definitionName==toplevelName){
+      println(s"Generate 2022 IPXACT at $ipxactPath")
+    }
   }
 }
 

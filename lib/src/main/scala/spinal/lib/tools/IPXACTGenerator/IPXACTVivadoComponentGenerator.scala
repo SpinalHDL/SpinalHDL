@@ -34,7 +34,7 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
 
   private def appendBusElement[T <: IMasterSlave with Data](bus: T): Unit = {
     busStringSet = busStringSet + bus.name
-    busClockMap = busClockMap + (bus.name -> bus.flatten.head.clockDomain.clock.name)
+    busClockMap = busClockMap + (bus.getClass.getSimpleName + "_" + bus.name-> bus.flatten.head.clockDomain.clock.name)
   }
 
   private def createBusInterfaces: Option[BusInterfaces] = {
@@ -62,18 +62,18 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
                     appendBusElement(busStream)
                     break
                   }
-                //                case normalType if normalType.isInstanceOf[Bool]
-                //                  || normalType.isInstanceOf[UInt] ||
-                //                  normalType.isInstanceOf[SInt] ||
-                //                  normalType.isInstanceOf[Bits] ||
-                //                  normalType.isInstanceOf[UFix] ||
-                //                  normalType.isInstanceOf[SFix] ||
-                //                  normalType.isInstanceOf[AFix] =>
-                //                  if (!busStringSet.contains(busStream.name)) {
-                //                    busInterfacesSeq = busInterfacesSeq :+ VivadoBusReference.referenceNormalStream(busStream)
-                //                    appendBusElement(busStream)
-                //                    break
-                //                  }
+                case normalType if normalType.isInstanceOf[Bool]
+                  || normalType.isInstanceOf[UInt] ||
+                  normalType.isInstanceOf[SInt] ||
+                  normalType.isInstanceOf[Bits] ||
+                  normalType.isInstanceOf[UFix] ||
+                  normalType.isInstanceOf[SFix] ||
+                  normalType.isInstanceOf[AFix] =>
+                  if (!busStringSet.contains(busStream.name)) {
+                    busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceNormalStream(busStream)
+                    appendBusElement(busStream)
+                    break
+                  }
                 case _ =>
               }
             //            case busFlow: Flow[_] =>
@@ -112,16 +112,10 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
         }
       }
     }
-    for (port <- allPorts) {
-      if (clockNameSet.contains(port.name)) {
-        for (clk <- clockSet) {
-          if (clk.clock.name == port.name) {
-            busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceClock(clk, busClockMap)
-            if (clk.reset != null) {
-              busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceReset(clk.reset)
-            }
-          }
-        }
+    for (clk <- clockSet) {
+      busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceClock(clk, busClockMap)
+      if (clk.reset != null) {
+        busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceReset(clk.reset)
       }
     }
     val componentBusInterfaces: Option[BusInterfaces] = if (busInterfacesSeq.nonEmpty) Some(BusInterfaces(busInterfacesSeq)) else None
@@ -304,8 +298,8 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
   }
 
   def beginGenerate(): Unit = {
-    val fileDirectory = s"$generatePath/IPXACT/GeneratedVivadoIpFolder/$toplevelName/"
-    // 确保目录存在
+    val ipxactPath=s"$generatePath/Vivado/"
+    val fileDirectory = s"$ipxactPath$toplevelName/"
     generateTcl(fileDirectory)
     val filePath = s"${fileDirectory}component.xml"
     val verilogSourcePath = s"$generatePath/$toplevelName.v"
@@ -339,10 +333,13 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
         newElem.copy(child = newElem.child ++ vivadoExtensions)
       case _ => xml.head
     }
-    //    val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
-    //    val formattedXml: String = prettyPrinter.format(updatedXml.head)
-    //    println(formattedXml)
+//        val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
+//        val formattedXml: String = prettyPrinter.format(updatedXml.head)
+//        println(formattedXml)
     XML.save(filePath, updatedXml.head, "UTF-8", xmlDecl = true, doctype = null)
+    if(module.definitionName==toplevelName){
+      println(s"Generate Vivado IPXACT  at $ipxactPath")
+    }
   }
 }
 
