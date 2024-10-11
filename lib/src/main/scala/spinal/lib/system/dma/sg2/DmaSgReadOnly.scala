@@ -25,6 +25,7 @@ object DmaSgReadOnly{
   val statusCompletedAt = 31
   val controlAt = 4
   val controlLastAt = 30
+  val controlIrqAt = 31
   val nextAt = 8
   val fromAt = 16
 }
@@ -34,7 +35,9 @@ case class DmaSgReadOnlyParam(var addressWidth : Int,
                               var blockSize : Int,
                               var bufferBytes : Int,
                               var pendingSlots : Int,
-                              var descriptorBytes : Int = 32
+                              var descriptorBytes : Int = 32,
+                              var irqDelayWidth : Int = 8,
+                              var irqCounterWidth : Int = 8
                              ){
   def dataBytes = dataWidth/8
   def transferBytesWidth = 27
@@ -151,10 +154,13 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
       val control = new Area {
         val bytes = Reg(UInt(p.transferBytesWidth bits))
         val last = Reg(Bool())
+        val irq = Reg(Bool())
       }
       val status = new Area {
         val completed = RegInit(False)
       }
+
+      val irqEvent = False
 
       val error = RegInit(False)
       val firstBlock = Reg(Bool())
@@ -268,6 +274,9 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
       )
 
 
+      val isGoingIdleValid = !(isActive(NEXT_CMD) || isActive(NEXT_RSP) || isActive(DESCRIPTOR_CALC))
+      val isGoingIdle = !isBusy || descriptor.status.completed
+
       NEXT_CMD.whenIsActive {
         descriptor.error := False
         mem.a.valid := True
@@ -302,6 +311,7 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
           map(descriptor.from, fromAt, 0)
           map(descriptor.control.bytes, controlAt, 0)
           map(descriptor.control.last, controlAt, controlLastAt)
+          map(descriptor.control.irq, controlAt, controlIrqAt)
           map(descriptor.status.completed, statusAt, statusCompletedAt)
           descriptor.error := descriptor.error || mem.d.denied || mem.d.corrupt
           when(mem.d.isLast()) {
@@ -370,6 +380,7 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
 
       STATUS_RSP.whenIsActive {
         when(mem.d.fire) {
+          descriptor.irqEvent setWhen(descriptor.control.irq)
           goto(FINALIZE)
         }
       }
@@ -422,9 +433,46 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
     bus.read(onPush.fsm.isBusy,0, 0)
     bus.readAndSetOnSet(onPush.stop, 0, 1)
 
+    val idleTester = new Area{
+      val busy = RegInit(False) clearWhen(onPush.fsm.isGoingIdleValid)
+      val value = RegNextWhen(onPush.fsm.isGoingIdle, busy) init(False)
+      bus.readAndSetOnSet(busy, 0, 4)
+      bus.read(value, 0, 5)
+    }
+
+    val timeRef = CounterFreeRun(1023)
+    val tick = timeRef.willOverflowIfInc
+
     val irq = new Area{
-      val idleEnable = bus.createWriteOnly(Bool(), 4, 0) init(False)
-      val interrupt = idleEnable && !onPush.fsm.isBusy
+      val idle = new Area{
+        val enable = bus.createWriteOnly(Bool(), 4, 0) init(False)
+        val irq = enable && !onPush.fsm.isBusy
+      }
+      val delay = new Area{
+        val enable = bus.createWriteOnly(Bool(), 4, 1) init(False)
+        val target = bus.createWriteOnly(UInt(p.irqDelayWidth bits), 4, 16) init(0)
+        val hit = Reg(UInt(p.irqDelayWidth bits))
+        val done = hit === target
+        val clear = bus.isWriting(4) || onPush.descriptor.irqEvent
+        val counting = RegInit(False) clearWhen(clear) setWhen(onPush.descriptor.irqEvent)
+        when(tick && counting && !done){
+          hit := hit + 1
+        }
+        when(clear){
+          hit := 0
+        }
+        val irq = enable && done
+      }
+      val counter = new Area{
+        val enable = bus.createWriteOnly(Bool(), 4, 2) init(False)
+        val counter = bus.createWriteOnly(UInt(p.irqCounterWidth bits), 4, 24) init(0)
+        val done = counter === 0
+        when(onPush.descriptor.irqEvent && !done){
+          counter := counter - 1
+        }
+        val irq = enable && done
+      }
+      val interrupt = idle.irq || delay.irq || counter.irq
     }
 
     bus.writeMultiWord(onPush.descriptor.next, 0x10)

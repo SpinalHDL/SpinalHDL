@@ -9,6 +9,8 @@ import java.nio.{ByteBuffer, ByteOrder}
 class SimWriteOnlyDescriptor(var physicalAddress : Long = 0l) {
   var next, to = 0l
   var controlBytes = 0
+  var controlIrqAll = false
+  var controlIrqLast = false
   var statusCompleted = false
   var statusLast = false
   var statusBytes = 0
@@ -25,6 +27,8 @@ class SimWriteOnlyDescriptor(var physicalAddress : Long = 0l) {
     statusBytes = (status >> statusBytesAt) & 0x7FFFFFF
     statusLast = (status & (1 << statusLastAt)) != 0
     controlBytes = control & 0x7FFFFFF
+    controlIrqLast = (control & (1 << controlIrqLastAt)) != 0
+    controlIrqAll = (control & (1 << controlIrqAllAt)) != 0
     next = wrapped.getLong(nextAt)
     to = wrapped.getLong(toAt)
   }
@@ -39,7 +43,7 @@ class SimWriteOnlyDescriptor(var physicalAddress : Long = 0l) {
     val wrapped = ByteBuffer.wrap(array)
     wrapped.order(ByteOrder.LITTLE_ENDIAN);
     val status = (statusLast.toInt << statusLastAt) |  (statusBytes << statusBytesAt) | (statusCompleted.toInt << statusCompletedAt)
-    val control = controlBytes.toInt
+    val control = controlBytes.toInt | (controlIrqAll.toInt << controlIrqAllAt) | (controlIrqLast.toInt << controlIrqLastAt)
     wrapped.putInt(statusAt, status)
     wrapped.putInt(controlAt, control)
     wrapped.putLong(nextAt, next)

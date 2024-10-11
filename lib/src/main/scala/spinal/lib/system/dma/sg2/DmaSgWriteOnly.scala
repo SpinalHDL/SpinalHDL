@@ -25,6 +25,8 @@ object DmaSgWriteOnly{
   val statusCompletedAt = 31
   val statusBytesAt = 0
   val controlAt = 4
+  val controlIrqAllAt = 31
+  val controlIrqLastAt = 30
   val nextAt = 8
   val toAt = 16
 }
@@ -35,7 +37,9 @@ case class DmaSgWriteOnlyParam(var addressWidth : Int,
                                var bufferBytes : Int,
                                var pendingSlots : Int,
                                var bsbDataBytes : Int,
-                               var descriptorBytes : Int = 32
+                               var descriptorBytes : Int = 32,
+                               var irqDelayWidth : Int = 8,
+                               var irqCounterWidth : Int = 8
                              ){
   def dataBytes = dataWidth/8
   def bsbDataWidth = bsbDataBytes*8
@@ -72,7 +76,8 @@ case class DmaSgWriteOnlyParam(var addressWidth : Int,
     byteCount = bsbDataBytes,
     sourceWidth = 0,
     sinkWidth = 0,
-    withMask = true
+    withMask = true,
+    withError = true
   )
   def getCtrlSupport(proposed: bus.tilelink.M2sSupport) = bus.tilelink.SlaveFactory.getSupported(
     addressWidth = ctrlAddressWidth,
@@ -138,11 +143,14 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
       val self, next, to = Reg(UInt(p.addressWidth bits))
       val control = new Area {
         val bytes = Reg(UInt(p.transferBytesWidth bits))
+        val irqAll, irqLast = Reg(Bool())
       }
       val status = new Area {
         val completed = RegInit(False)
         val last = Reg(Bool())
       }
+
+      val irqEvent = False
 
       val error = RegInit(False)
       val toEnd = to(burstRange) +^ control.bytes
@@ -449,6 +457,8 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
           map(descriptor.next, nextAt, 0)
           map(descriptor.to, toAt, 0)
           map(descriptor.control.bytes, controlAt, 0)
+          map(descriptor.control.irqAll, controlAt, controlIrqAllAt)
+          map(descriptor.control.irqLast, controlAt, controlIrqLastAt)
           map(descriptor.status.last, statusAt, statusLastAt)
           map(descriptor.status.completed, statusAt, statusCompletedAt)
           descriptor.error := descriptor.error || mem.d.denied || mem.d.corrupt
@@ -506,7 +516,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
           mem.a.source := 0
           mem.a.address := descriptor.self
           mem.a.size := 2
-          mem.a.data(0, p.transferBytesWidth bits) := (descriptor.control.bytes - fsmState.bytesLeft).asBits.resized
+          mem.a.data(31 downto 0) := (descriptor.control.bytes - fsmState.bytesLeft).asBits.resized
           mem.a.data(statusCompletedAt) := True
           mem.a.data(statusLastAt) := fsmState.packetLast
           mem.a.data(statusErrorAt) := fsmState.packetError
@@ -519,6 +529,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
 
       STATUS_RSP.whenIsActive {
         when(mem.d.fire) {
+          descriptor.irqEvent setWhen(descriptor.control.irqAll || descriptor.control.irqLast && fsmState.packetLast)
           goto(NEXT_CMD)
         }
       }
@@ -534,9 +545,40 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
     bus.readAndSetOnSet(onPush.stop, 0, 1)
     bus.write(onPush.config.bsbNoSyncOnStart, 8, 0)
 
+
+    val timeRef = CounterFreeRun(1023)
+    val tick = timeRef.willOverflowIfInc
+
     val irq = new Area{
-      val idleEnable = bus.createWriteOnly(Bool(), 4, 0) init(False)
-      val interrupt = idleEnable && !onPush.fsmState.isBusy
+      val idle = new Area{
+        val enable = bus.createWriteOnly(Bool(), 4, 0) init(False)
+        val irq = enable && !onPush.fsmState.isBusy
+      }
+      val delay = new Area{
+        val enable = bus.createWriteOnly(Bool(), 4, 1) init(False)
+        val target = bus.createWriteOnly(UInt(p.irqDelayWidth bits), 4, 16) init(0)
+        val hit = Reg(UInt(p.irqDelayWidth bits))
+        val done = hit === target
+        val clear = bus.isWriting(4) || onPush.descriptor.irqEvent
+        val counting = RegInit(False) clearWhen(clear) setWhen(onPush.descriptor.irqEvent)
+        when(tick && counting && !done){
+          hit := hit + 1
+        }
+        when(clear){
+          hit := 0
+        }
+        val irq = enable && done
+      }
+      val counter = new Area{
+        val enable = bus.createWriteOnly(Bool(), 4, 2) init(False)
+        val counter = bus.createWriteOnly(UInt(p.irqCounterWidth bits), 4, 24) init(0)
+        val done = counter === 0
+        when(onPush.descriptor.irqEvent && !done){
+          counter := counter - 1
+        }
+        val irq = enable && done
+      }
+      val interrupt = idle.irq || delay.irq || counter.irq
     }
 
     bus.writeMultiWord(onPush.descriptor.next, 0x10)

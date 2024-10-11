@@ -48,6 +48,14 @@ case class GmiiRx() extends Bundle with IMasterSlave {
     out(d, ctl)
   }
 
+  def ddrResynced() = {
+    val ret = GmiiRx()
+    ret.d(3 downto 0) := RegNext(d(3 downto 0))
+    ret.d(7 downto 4) := d(7 downto 4)
+    ret.ctl(0) := RegNext(ctl(0))
+    ret.ctl(1) := ctl(1)
+    ret
+  }
   def toRxFlow() = {
     val EN = ctl(0)
     val ER = ctl(0) ^ ctl(1)

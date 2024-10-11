@@ -26,7 +26,7 @@ class SpinalSimDmaSg2ReadOnlyTester extends SpinalAnyFunSuite{
     )
     val ctrlParam = p.getCtrlParam()
 
-    val compiled = SimConfig.compile(
+    val compiled = SimConfig.withFstWave.compile(
       new DmaSgReadOnlyComp(p, ctrlParam, ClockDomain.external("push"), ClockDomain.external("pop"))
     )
     compiled.doSim(seed = 42){dut =>
@@ -37,6 +37,7 @@ class SpinalSimDmaSg2ReadOnlyTester extends SpinalAnyFunSuite{
       val mem = new tilelink.sim.MemoryAgent(bus = dut.io.mem, dut.pushCd)(null)
       val ctrlAgent = new tilelink.sim.MasterAgent(dut.io.ctrl, dut.pushCd)(null)
       val ctrl = new SimCtrl(ctrlAgent, 0x0)
+      ctrl.setIrq(idle = true)
 
       case class Task(descriptor : SimReadOnlyDescriptor, data : Array[Byte], last : Boolean){
         var ptr = 0
@@ -81,6 +82,7 @@ class SpinalSimDmaSg2ReadOnlyTester extends SpinalAnyFunSuite{
           d.from = buffer.base.toLong
           d.controlBytes = buffer.size.toInt
           d.controlLast = simRandom.nextBoolean()
+          d.controlIrq = simRandom.nextBoolean()
           val data = Array.fill[Byte](d.controlBytes)(simRandom.nextInt().toByte)
           mem.mem.write(d.from, data)
           val task = new Task(d, data, d.controlLast)
@@ -105,6 +107,9 @@ class SpinalSimDmaSg2ReadOnlyTester extends SpinalAnyFunSuite{
         ctrl.start()
 
         while (ctrl.busy()) {}
+        if(dut.io.interrupt.toBoolean){
+          ctrl.setIrq(delay = Some(1))
+        }
         for(d <- chain){
           d.read(mem.mem)
           assert(d.statusCompleted)

@@ -38,14 +38,14 @@ object MacSgFiberSpec{
           addressWidth = 32,
           dataWidth = 0,
           blockSize = 64,
-          bufferBytes = 4096,
+          bufferBytes = 4096, //TODO
           pendingSlots = 2
         ),
         rxDmaParam = DmaSgWriteOnlyParam(
           addressWidth = 32,
           dataWidth = 0,
           blockSize = 64,
-          bufferBytes = 4096,
+          bufferBytes = 4096, //TODO
           pendingSlots = 2,
           bsbDataBytes = 2
         )
@@ -92,6 +92,6 @@ case class MacSgFiber(val p: MacSgParam,
     val phy = master(Gmii())
     val phyTxFeed = txCd(phy.tx.fromTxStream())
     phyTxFeed.input << core.io.phy.tx
-    rxCd(phy.rx.toRxFlow().toStream >> core.io.phy.rx)
+    rxCd(phy.rx.ddrResynced().toRxFlow().toStream >> core.io.phy.rx)
   }
 }

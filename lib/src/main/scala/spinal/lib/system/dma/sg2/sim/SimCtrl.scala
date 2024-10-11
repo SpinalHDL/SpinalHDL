@@ -1,6 +1,6 @@
 package spinal.lib.system.dma.sg2.sim
 
-import spinal.core.IntPimped
+import spinal.core.{BooleanPimped, IntPimped}
 import spinal.lib._
 import spinal.lib.bus.tilelink.sim.{MasterAgent, MemoryAgent}
 
@@ -18,4 +18,12 @@ class SimCtrl(ctrl : MasterAgent, offset : Long) {
     putReg(0x14, next >> 32 toInt)
   }
   def busy(): Boolean = (getReg(0) & 1).toBoolean
+
+  def setIrq(idle : Boolean = false, delay : Option[Int] = Option.empty[Int], counter : Option[Int] = Option.empty[Int]): Unit = {
+    var v = 0
+    v |= idle.toInt
+    delay.foreach(d => v |= 2 | (d << 16))
+    counter.foreach(d => v |= 4 | (d << 24))
+    putReg(0x4, v)
+  }
 }
