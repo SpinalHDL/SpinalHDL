@@ -199,6 +199,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     stateNext.setPartialName("stateNext")
     if (transitionCond != null)
       stateNextCand.setPartialName("stateNextCand")
+    cacheGet(StateMachineSharableUIntKey).map(_.asInstanceOf[StateMachineSharableRegUInt].value.setPartialName(this,"cyclesRemain"))
 
     for(state <- states){
       checkState(state)

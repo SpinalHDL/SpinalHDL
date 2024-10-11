@@ -229,8 +229,6 @@ class StateDelay(cyclesCount: BigInt)(implicit stateMachineAccessor: StateMachin
   val cache = stateMachineAccessor.cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt).asInstanceOf[StateMachineSharableRegUInt]
   cache.addMinWidth(log2Up(cyclesCount + 1))
 
-  cache.value.setWeakName("cyclesRemain")
-
   onEntry {
     cache.value := cyclesCount
   }
