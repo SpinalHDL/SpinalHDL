@@ -22,7 +22,7 @@ import scala.language.implicitConversions
 import scala.util.control.Breaks._
 import scala.xml._
 
-class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", module: Component, generatePath: String) {
+class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", module: Component, generatePath: String,fileType:String) {
   private val moduleDefinitionName = module.definitionName
   private var busStringSet: Set[String] = Set()
   private val moduleAnalyzer = new ModuleAnalyzer(module)
@@ -33,7 +33,7 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
   private val versionSuffix = version.split("\\.").mkString("_")
 
   private def appendBusElement[T <: IMasterSlave with Data](bus: T): Unit = {
-    busStringSet = busStringSet + bus.name
+    busStringSet = busStringSet + bus.getName()
     busClockMap = busClockMap + (bus.getClass.getSimpleName + "_" + bus.name-> bus.flatten.head.clockDomain.clock.name)
   }
 
@@ -102,7 +102,7 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
                 bus.isInstanceOf[Apb4] ||
                 bus.isInstanceOf[AhbLite3] ||
                 bus.isInstanceOf[AvalonMM] =>
-              if (!busStringSet.contains(bus.name)) {
+              if (!busStringSet.contains(bus.getName())) {
                 busInterfacesSeq = busInterfacesSeq :+ IPXACTVivadoBusReference.referenceMatchedBus(bus)
                 appendBusElement(bus)
                 break
@@ -177,7 +177,11 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
 
     val simulationComponentViewNameGroupNMTOKEN = NameGroupNMTOKENSequence("xilinx_anylanguagebehavioralsimulation")
     val simulationComponentViewEnvIdentifier = Seq(":vivado.xilinx.com:simulation")
-    val simulationLanguage = IPXACT2009ScalaCases.Language("Verilog")
+    val simulationLanguage = if(fileType=="VHDL"){
+      IPXACT2009ScalaCases.Language("VHDL")
+    }else{
+      IPXACT2009ScalaCases.Language("Verilog")
+    }
     val simulationModuleName = moduleDefinitionName
     val simulationComponentViewFileSetRefRecord = DataRecord(Some(""), Some("spirit:localName"), "xilinx_anylanguagebehavioralsimulation_view_fileset")
     val simulationFileSetRef = FileSetRef(simulationComponentViewFileSetRefRecord)
@@ -188,7 +192,7 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
 
     val synthesisComponentViewNameGroupNMTOKEN = NameGroupNMTOKENSequence("xilinx_anylanguagesynthesis")
     val synthesisComponentViewEnvIdentifier = Seq(":vivado.xilinx.com:synthesis")
-    val synthesisLanguage = IPXACT2009ScalaCases.Language("Verilog")
+    val synthesisLanguage = simulationLanguage
     val synthesisModuleName = moduleDefinitionName
     val synthesisComponentViewFileSetRefRecord = DataRecord(Some(""), Some("spirit:localName"), "xilinx_anylanguagesynthesis_view_fileset")
     val synthesisFileSetRef = FileSetRef(synthesisComponentViewFileSetRefRecord)
@@ -197,12 +201,6 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
     val synthesisComponentView = ViewType(synthesisComponentViewNameGroupNMTOKEN, envIdentifier = synthesisComponentViewEnvIdentifier, viewtypeoption = synthesisViewTypeSequenceRecord)
     viewSep = viewSep :+ synthesisComponentView
 
-    //    if (module.children.nonEmpty) {
-    //      val designConfigRefName = moduleDefinitionName + ".designcfg_1.0"
-    //      val designConfigurationViewNameGroupNMTOKEN = NameGroupNMTOKENSequence("designConfigurationView")
-    //      val designConfigurationView = View(designConfigurationViewNameGroupNMTOKEN, designConfigurationInstantiationRef = Some(designConfigRefName))
-    //      viewSep = viewSep :+ designConfigurationView
-    //    }
     val views: Option[Views] = Some(Views(viewSep))
     views
   }
@@ -229,15 +227,19 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
     val xpguiFileSetNameGroupSequence = NameGroupSequence("xilinx_xpgui_view_fileset")
     val xpguiFileSet = FileSetType(xpguiFileSetNameGroupSequence, file = Seq(xpguiFileSetFile))
 
-    val simulationFileName = Name(module.definitionName + ".v")
-    val simulationFileTypeRecord = DataRecord(Some(""), Some("spirit:fileType"), "verilogSource")
+    val (simulationFileName,simulationFileTypeRecord) = if(fileType=="VHDL"){
+      (Name(module.definitionName + ".vhd"),DataRecord(Some(""), Some("spirit:fileType"), "vhdlSource"))
+    }else{
+      (Name(module.definitionName + ".v"),DataRecord(Some(""), Some("spirit:fileType"), "verilogSource"))
+    }
+
     val simulationFileSequence = FileSequence1(simulationFileTypeRecord)
     val simulationFileSetFile = IPXACT2009ScalaCases.File(name = simulationFileName, filesequence1 = simulationFileSequence)
     val simulationFileSetNameGroupSequence = NameGroupSequence("xilinx_anylanguagebehavioralsimulation_view_fileset")
     val simulationFileSet = FileSetType(simulationFileSetNameGroupSequence, file = Seq(simulationFileSetFile))
 
-    val synthesisFileName = Name(module.definitionName + ".v")
-    val synthesisFileTypeRecord = DataRecord(Some(""), Some("spirit:fileType"), "verilogSource")
+    val synthesisFileName = simulationFileName
+    val synthesisFileTypeRecord = simulationFileTypeRecord
     val synthesisFileSequence = FileSequence1(synthesisFileTypeRecord)
     val synthesisFileSetFile = IPXACT2009ScalaCases.File(name = synthesisFileName, filesequence1 = synthesisFileSequence)
     val synthesisFileSetNameGroupSequence = NameGroupSequence("xilinx_anylanguagesynthesis_view_fileset")
@@ -302,13 +304,15 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
     val fileDirectory = s"$ipxactPath$toplevelName/"
     generateTcl(fileDirectory)
     val filePath = s"${fileDirectory}component.xml"
-    val verilogSourcePath = s"$generatePath/$toplevelName.v"
-    val verilogTargetPath = s"$fileDirectory$toplevelName.v"
+    val (sourceFilePath,targetFilePath)=if(fileType=="VHDL"){
+      (s"$generatePath/$toplevelName.vhd",s"$fileDirectory$toplevelName.vhd")
+    }else{
+      (s"$generatePath/$toplevelName.v",s"$fileDirectory$toplevelName.v")
+    }
     Files.createDirectories(Paths.get(fileDirectory))
-
     Files.copy(
-      Paths.get(verilogSourcePath),
-      Paths.get(verilogTargetPath),
+      Paths.get(sourceFilePath),
+      Paths.get(targetFilePath),
       StandardCopyOption.REPLACE_EXISTING
     )
     val fileSets = createFileSets
@@ -348,8 +352,9 @@ object IPXACTVivadoComponentGenerator {
                toplevelName: String,
                version: String = "1.0",
                module: Component,
-               generatePath: String): Unit = {
-    val generator = new IPXACTVivadoComponentGenerator(toplevelVendor, toplevelName, version, module, generatePath: String)
+               generatePath: String,
+               fileType:String): Unit = {
+    val generator = new IPXACTVivadoComponentGenerator(toplevelVendor, toplevelName, version, module, generatePath,fileType)
     generator.beginGenerate()
   }
 }

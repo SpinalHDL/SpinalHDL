@@ -31,16 +31,23 @@ object IPXACTVivadoBusReference {
     busLibraryRefType
   }
 
-  private def createDirectionRecord(iMasterSlaveBus: IMasterSlave): IPXACT2009scalaxb.DataRecord[InterfaceModeOption] = {
+  private def createDirectionRecord(iMasterSlaveBus: IMasterSlave with Data): IPXACT2009scalaxb.DataRecord[InterfaceModeOption] = {
     if (iMasterSlaveBus.isMasterInterface) {
       DataRecord(Some(""), Some("spirit:master"), Master())
-    } else {
+    } else if(iMasterSlaveBus.isSlaveInterface){
       DataRecord(Some(""), Some("spirit:slave"), Slave())
+    }else{
+      val busParent=iMasterSlaveBus.parent.asInstanceOf[IMasterSlave]
+      if(busParent.isMasterInterface){
+        DataRecord(Some(""), Some("spirit:master"), Master())
+      }else{
+        DataRecord(Some(""), Some("spirit:slave"), Slave())
+      }
     }
   }
 
   def referenceReset(resetSignal: BaseType): BusInterfaceType = {
-    val busName = resetSignal.name
+    val busName = resetSignal.getName()
     val busDirectionRecord = if (resetSignal.isOutput) {
       DataRecord(Some(""), Some("spirit:master"), Master())
     } else {
@@ -93,7 +100,7 @@ object IPXACTVivadoBusReference {
       DataRecord(Some(""), Some("spirit:slave"), Slave())
     }
     var portSeqMap: Seq[PortMap] = Seq()
-    val signalPhysicalName = clockSignal.name
+    val signalPhysicalName = clockSignal.getName()
     val signalLogicalName = "CLK"
     val physicalPort = PhysicalPort(signalPhysicalName)
     val logicalPort = LogicalPort(signalLogicalName)
@@ -107,7 +114,7 @@ object IPXACTVivadoBusReference {
   }
 
   def referenceMatchedBus[T <: IMasterSlave with Data](bus: T): BusInterfaceType = {
-    val busName = bus.getClass.getSimpleName + "_" + bus.name
+    val busName = bus.getClass.getSimpleName + "_" + bus.getName()
     val busDirectionRecord = createDirectionRecord(bus)
     val (portSeqMap, vivadoDefinitionName) = bus match {
       case axi4: Axi4 =>
@@ -350,12 +357,12 @@ object IPXACTVivadoBusReference {
   //  }
   //
     def referenceNormalStream(streamSignal: Stream[_]): BusInterfaceType = {
-      val busName = s"Stream_${streamSignal.name}"
+      val busName = s"Stream_${streamSignal.getName()}"
       val busChildren = streamSignal.flatten
       val busDirectionRecord = createDirectionRecord(streamSignal)
       var portSeqMap: Seq[PortMap] = Seq()
       for (signal <- busChildren) {
-        val signalPhysicalName = signal.name
+        val signalPhysicalName = signal.getName()
         val physicalPort = PhysicalPort(signalPhysicalName)
         val lastWord = signalPhysicalName.split("_").last
         val signalLogicalName = if (lastWord == "payload") {
@@ -377,7 +384,7 @@ object IPXACTVivadoBusReference {
     }
 
   def referenceAxis4(axi4StreamBundle: Stream[Axi4StreamBundle]): BusInterfaceType = {
-    val busName = "Axis4" + "_" + axi4StreamBundle.name
+    val busName = "Axis4" + "_" + axi4StreamBundle.getName()
     val busChildren = axi4StreamBundle.flatten
     val busDirectionRecord = createDirectionRecord(axi4StreamBundle)
     var portSeqMap: Seq[PortMap] = Seq()

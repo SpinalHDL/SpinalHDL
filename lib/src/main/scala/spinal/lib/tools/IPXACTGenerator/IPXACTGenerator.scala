@@ -10,12 +10,17 @@ class IPXACTGenerator[T <: Component](rtl: SpinalReport[T]) {
   private val sourcesPaths = rtl.generatedSourcesPaths
   private val filePath = Paths.get(rtl.generatedSourcesPaths.head)
   private val parentPath = filePath.getParent.toString
-
+  private val fileName = filePath.getFileName.toString
+  private val fileType = if (fileName.endsWith(".vhd")) {
+    "VHDL"
+  } else  {
+    "Verilog"
+  }
   def generateIPXACT2022Component(vendor: String = "SpinalHDL", version: String = "1.0"): Unit = {
     if (sourcesPaths.size > 1) {
       println("Warning: Avoid using the 'oneFilePerComponent' option in SpinalConfig.")
     } else {
-      IPXACT2022ComponentGenerator.generate(toplevelVendor = vendor, toplevelName = toplevelName, module = toplevelModule, version = version, generatePath = parentPath)
+      IPXACT2022ComponentGenerator.generate(toplevelVendor = vendor, toplevelName = toplevelName, module = toplevelModule, version = version, generatePath = parentPath,fileType = fileType)
     }
   }
 
@@ -23,7 +28,7 @@ class IPXACTGenerator[T <: Component](rtl: SpinalReport[T]) {
     if (sourcesPaths.size > 1) {
       println("Warning: Avoid using the 'oneFilePerComponent' option in SpinalConfig.")
     } else {
-      IPXACTVivadoComponentGenerator.generate(toplevelVendor = vendor, toplevelName = toplevelName, module = toplevelModule, version = version, generatePath = parentPath)
+      IPXACTVivadoComponentGenerator.generate(toplevelVendor = vendor, toplevelName = toplevelName, module = toplevelModule, version = version, generatePath = parentPath,fileType = fileType)
     }
   }
 
@@ -31,7 +36,7 @@ class IPXACTGenerator[T <: Component](rtl: SpinalReport[T]) {
     if (sourcesPaths.size <= 1) {
       println("Warning: You must use the 'oneFilePerComponent' option in SpinalConfig.")
     } else {
-      IPXACT2022ComponentGenerator.generate(toplevelVendor = vendor, toplevelName = toplevelName, module = toplevelModule, version = version, generateDesign = true, generatePath = parentPath)
+      IPXACT2022ComponentGenerator.generate(toplevelVendor = vendor, toplevelName = toplevelName, module = toplevelModule, version = version, generateDesign = true, generatePath = parentPath,fileType = fileType)
     }
   }
 }
