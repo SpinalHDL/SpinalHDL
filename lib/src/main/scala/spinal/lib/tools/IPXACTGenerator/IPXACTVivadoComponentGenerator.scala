@@ -22,7 +22,7 @@ import scala.language.implicitConversions
 import scala.util.control.Breaks._
 import scala.xml._
 
-class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", module: Component, generatePath: String,fileType:String) {
+class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", module: Component, generatePath: String, fileType: String) {
   private val moduleDefinitionName = module.definitionName
   private var busStringSet: Set[String] = Set()
   private val moduleAnalyzer = new ModuleAnalyzer(module)
@@ -34,7 +34,7 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
 
   private def appendBusElement[T <: IMasterSlave with Data](bus: T): Unit = {
     busStringSet = busStringSet + bus.getName()
-    busClockMap = busClockMap + (bus.getClass.getSimpleName + "_" + bus.name-> bus.flatten.head.clockDomain.clock.name)
+    busClockMap = busClockMap + (bus.getClass.getSimpleName + "_" + bus.name -> bus.flatten.head.clockDomain.clock.name)
   }
 
   private def createBusInterfaces: Option[BusInterfaces] = {
@@ -177,9 +177,9 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
 
     val simulationComponentViewNameGroupNMTOKEN = NameGroupNMTOKENSequence("xilinx_anylanguagebehavioralsimulation")
     val simulationComponentViewEnvIdentifier = Seq(":vivado.xilinx.com:simulation")
-    val simulationLanguage = if(fileType=="VHDL"){
+    val simulationLanguage = if (fileType == "VHDL") {
       IPXACT2009ScalaCases.Language("VHDL")
-    }else{
+    } else {
       IPXACT2009ScalaCases.Language("Verilog")
     }
     val simulationModuleName = moduleDefinitionName
@@ -227,10 +227,10 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
     val xpguiFileSetNameGroupSequence = NameGroupSequence("xilinx_xpgui_view_fileset")
     val xpguiFileSet = FileSetType(xpguiFileSetNameGroupSequence, file = Seq(xpguiFileSetFile))
 
-    val (simulationFileName,simulationFileTypeRecord) = if(fileType=="VHDL"){
-      (Name(module.definitionName + ".vhd"),DataRecord(Some(""), Some("spirit:fileType"), "vhdlSource"))
-    }else{
-      (Name(module.definitionName + ".v"),DataRecord(Some(""), Some("spirit:fileType"), "verilogSource"))
+    val (simulationFileName, simulationFileTypeRecord) = if (fileType == "VHDL") {
+      (Name(module.definitionName + ".vhd"), DataRecord(Some(""), Some("spirit:fileType"), "vhdlSource"))
+    } else {
+      (Name(module.definitionName + ".v"), DataRecord(Some(""), Some("spirit:fileType"), "verilogSource"))
     }
 
     val simulationFileSequence = FileSequence1(simulationFileTypeRecord)
@@ -300,14 +300,14 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
   }
 
   def beginGenerate(): Unit = {
-    val ipxactPath=s"$generatePath/Vivado/"
+    val ipxactPath = s"$generatePath/Vivado/"
     val fileDirectory = s"$ipxactPath$toplevelName/"
     generateTcl(fileDirectory)
     val filePath = s"${fileDirectory}component.xml"
-    val (sourceFilePath,targetFilePath)=if(fileType=="VHDL"){
-      (s"$generatePath/$toplevelName.vhd",s"$fileDirectory$toplevelName.vhd")
-    }else{
-      (s"$generatePath/$toplevelName.v",s"$fileDirectory$toplevelName.v")
+    val (sourceFilePath, targetFilePath) = if (fileType == "VHDL") {
+      (s"$generatePath/$toplevelName.vhd", s"$fileDirectory$toplevelName.vhd")
+    } else {
+      (s"$generatePath/$toplevelName.v", s"$fileDirectory$toplevelName.v")
     }
     Files.createDirectories(Paths.get(fileDirectory))
     Files.copy(
@@ -337,11 +337,11 @@ class IPXACTVivadoComponentGenerator(toplevelVendor: String = "SpinalHDL", tople
         newElem.copy(child = newElem.child ++ vivadoExtensions)
       case _ => xml.head
     }
-//        val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
-//        val formattedXml: String = prettyPrinter.format(updatedXml.head)
-//        println(formattedXml)
+    //        val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
+    //        val formattedXml: String = prettyPrinter.format(updatedXml.head)
+    //        println(formattedXml)
     XML.save(filePath, updatedXml.head, "UTF-8", xmlDecl = true, doctype = null)
-    if(module.definitionName==toplevelName){
+    if (module.definitionName == toplevelName) {
       println(s"Generate Vivado IPXACT  at $ipxactPath")
     }
   }
@@ -353,8 +353,8 @@ object IPXACTVivadoComponentGenerator {
                version: String = "1.0",
                module: Component,
                generatePath: String,
-               fileType:String): Unit = {
-    val generator = new IPXACTVivadoComponentGenerator(toplevelVendor, toplevelName, version, module, generatePath,fileType)
+               fileType: String): Unit = {
+    val generator = new IPXACTVivadoComponentGenerator(toplevelVendor, toplevelName, version, module, generatePath, fileType)
     generator.beginGenerate()
   }
 }

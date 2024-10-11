@@ -34,8 +34,8 @@ class IPXACT2022DesignConfigXMLGenerator(toplevelVendor: String = "SpinalHDL", t
       val designConfiguration = createDesignConfigData
       val xml: NodeSeq = toXML[DesignConfiguration](designConfiguration, "ipxact:designConfiguration", defaultScope)
 
-//      val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
-//      val formattedXml: String = prettyPrinter.format(xml.head)
+      //      val prettyPrinter = new PrettyPrinter(width = 80, step = 2)
+      //      val formattedXml: String = prettyPrinter.format(xml.head)
       //      println(formattedXml)
       //    Files.write(Paths.get(filePath), formattedXml.getBytes("UTF-8"))
       XML.save(filePath, xml.head, "UTF-8", xmlDecl = true, doctype = null)

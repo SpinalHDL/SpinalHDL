@@ -34,13 +34,13 @@ object IPXACTVivadoBusReference {
   private def createDirectionRecord(iMasterSlaveBus: IMasterSlave with Data): IPXACT2009scalaxb.DataRecord[InterfaceModeOption] = {
     if (iMasterSlaveBus.isMasterInterface) {
       DataRecord(Some(""), Some("spirit:master"), Master())
-    } else if(iMasterSlaveBus.isSlaveInterface){
+    } else if (iMasterSlaveBus.isSlaveInterface) {
       DataRecord(Some(""), Some("spirit:slave"), Slave())
-    }else{
-      val busParent=iMasterSlaveBus.parent.asInstanceOf[IMasterSlave]
-      if(busParent.isMasterInterface){
+    } else {
+      val busParent = iMasterSlaveBus.parent.asInstanceOf[IMasterSlave]
+      if (busParent.isMasterInterface) {
         DataRecord(Some(""), Some("spirit:master"), Master())
-      }else{
+      } else {
         DataRecord(Some(""), Some("spirit:slave"), Slave())
       }
     }
@@ -148,7 +148,7 @@ object IPXACTVivadoBusReference {
 
 
   private def referenceAvalonMM(avalonMM: AvalonMM): (Seq[PortMap], String) = {
-    val busChildren=avalonMM.flatten
+    val busChildren = avalonMM.flatten
     var portSeqMap: Seq[PortMap] = Seq()
     for (signal <- busChildren) {
       val signalPhysicalName = signal.name
@@ -173,7 +173,7 @@ object IPXACTVivadoBusReference {
   }
 
   private def referenceAhbLite3(ahbLite3: AhbLite3): (Seq[PortMap], String) = {
-    val busChildren=ahbLite3.flatten
+    val busChildren = ahbLite3.flatten
     val busDirectionRecord = createDirectionRecord(ahbLite3)
     var portSeqMap: Seq[PortMap] = Seq()
     for (signal <- busChildren) {
@@ -204,7 +204,7 @@ object IPXACTVivadoBusReference {
 
 
   private def referenceApb3(apb3: Apb3): (Seq[PortMap], String) = {
-    val busChildren=apb3.flatten
+    val busChildren = apb3.flatten
     var portSeqMap: Seq[PortMap] = Seq()
     for (signal <- busChildren) {
       val signalPhysicalName = signal.name
@@ -223,7 +223,7 @@ object IPXACTVivadoBusReference {
   }
 
   private def referenceApb4(apb4: Apb4): (Seq[PortMap], String) = {
-    val busChildren=apb4.flatten
+    val busChildren = apb4.flatten
     var portSeqMap: Seq[PortMap] = Seq()
     for (signal <- busChildren) {
       val signalPhysicalName = signal.name
@@ -238,7 +238,7 @@ object IPXACTVivadoBusReference {
   }
 
   private def referenceVga(vga: Vga): (Seq[PortMap], String) = {
-    val busChildren=vga.flatten
+    val busChildren = vga.flatten
     var portSeqMap: Seq[PortMap] = Seq()
     for (signal <- busChildren) {
       val signalPhysicalName = signal.name
@@ -263,7 +263,7 @@ object IPXACTVivadoBusReference {
   }
 
   private def referenceUART(uart: Uart): (Seq[PortMap], String) = {
-    val busChildren=uart.flatten
+    val busChildren = uart.flatten
     var portSeqMap: Seq[PortMap] = Seq()
     for (signal <- busChildren) {
       val signalPhysicalName = signal.name
@@ -288,7 +288,7 @@ object IPXACTVivadoBusReference {
   }
 
   private def referenceAxi4(axi4: Axi4): (Seq[PortMap], String) = {
-    val busChildren=axi4.flatten
+    val busChildren = axi4.flatten
     var portSeqMap: Seq[PortMap] = Seq()
     for (signal <- busChildren) {
       val signalPhysicalName = signal.name
@@ -310,7 +310,7 @@ object IPXACTVivadoBusReference {
   }
 
   private def referenceAxiLite4(axiLite4: AxiLite4): (Seq[PortMap], String) = {
-    val busChildren=axiLite4.flatten
+    val busChildren = axiLite4.flatten
     var portSeqMap: Seq[PortMap] = Seq()
     for (signal <- busChildren) {
       val signalPhysicalName = signal.name
@@ -356,32 +356,32 @@ object IPXACTVivadoBusReference {
   //    BusInterfaceType(busNameGroupSequence, busType, Some(abstractionType), busDirectionRecord, portMaps = Some(portMaps))
   //  }
   //
-    def referenceNormalStream(streamSignal: Stream[_]): BusInterfaceType = {
-      val busName = s"Stream_${streamSignal.getName()}"
-      val busChildren = streamSignal.flatten
-      val busDirectionRecord = createDirectionRecord(streamSignal)
-      var portSeqMap: Seq[PortMap] = Seq()
-      for (signal <- busChildren) {
-        val signalPhysicalName = signal.getName()
-        val physicalPort = PhysicalPort(signalPhysicalName)
-        val lastWord = signalPhysicalName.split("_").last
-        val signalLogicalName = if (lastWord == "payload") {
-          "WR_DATA"
-        } else if(lastWord == "valid"){
-          "WR_EN"
-        } else{
-          "FULL_N"
-        }
-        val logicalPort = LogicalPort(signalLogicalName)
-        val portMap = PortMap(logicalPort, physicalPort)
-        portSeqMap = portSeqMap :+ portMap
+  def referenceNormalStream(streamSignal: Stream[_]): BusInterfaceType = {
+    val busName = s"Stream_${streamSignal.getName()}"
+    val busChildren = streamSignal.flatten
+    val busDirectionRecord = createDirectionRecord(streamSignal)
+    var portSeqMap: Seq[PortMap] = Seq()
+    for (signal <- busChildren) {
+      val signalPhysicalName = signal.getName()
+      val physicalPort = PhysicalPort(signalPhysicalName)
+      val lastWord = signalPhysicalName.split("_").last
+      val signalLogicalName = if (lastWord == "payload") {
+        "WR_DATA"
+      } else if (lastWord == "valid") {
+        "WR_EN"
+      } else {
+        "FULL_N"
       }
-      val portMaps = PortMaps(portSeqMap)
-      val busType = createLibraryRefType("acc_fifo_read")
-      val abstractionType = createLibraryRefType("acc_fifo_read_rtl")
-      val busNameGroupSequence = NameGroupSequence(busName)
-      BusInterfaceType(busNameGroupSequence, busType, Some(abstractionType), busDirectionRecord, portMaps = Some(portMaps))
+      val logicalPort = LogicalPort(signalLogicalName)
+      val portMap = PortMap(logicalPort, physicalPort)
+      portSeqMap = portSeqMap :+ portMap
     }
+    val portMaps = PortMaps(portSeqMap)
+    val busType = createLibraryRefType("acc_fifo_read")
+    val abstractionType = createLibraryRefType("acc_fifo_read_rtl")
+    val busNameGroupSequence = NameGroupSequence(busName)
+    BusInterfaceType(busNameGroupSequence, busType, Some(abstractionType), busDirectionRecord, portMaps = Some(portMaps))
+  }
 
   def referenceAxis4(axi4StreamBundle: Stream[Axi4StreamBundle]): BusInterfaceType = {
     val busName = "Axis4" + "_" + axi4StreamBundle.getName()
@@ -404,7 +404,7 @@ object IPXACTVivadoBusReference {
   }
 
   private def referenceBRAM(bram: BRAM): (Seq[PortMap], String) = {
-    val busChildren=bram.flatten
+    val busChildren = bram.flatten
     var portSeqMap: Seq[PortMap] = Seq()
     for (signal <- busChildren) {
       val signalPhysicalName = signal.name

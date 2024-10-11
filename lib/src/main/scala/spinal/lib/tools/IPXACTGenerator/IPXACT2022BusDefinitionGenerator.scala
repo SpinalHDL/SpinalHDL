@@ -8,7 +8,7 @@ import java.nio.file.{Files, Paths}
 import scala.language.implicitConversions
 import scala.xml._
 
-class IPXACT2022BusDefinitionGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", bus: IMasterSlave,generatePath:String="./") {
+class IPXACT2022BusDefinitionGenerator(toplevelVendor: String = "SpinalHDL", toplevelName: String, version: String = "1.0", bus: IMasterSlave, generatePath: String = "./") {
   private val busDefinitionName = bus match {
     case stream: Stream[_] =>
       s"Stream_${stream.payload.getClass.getSimpleName}"
@@ -46,8 +46,8 @@ object IPXACT2022BusDefinitionGenerator {
                toplevelName: String,
                version: String = "1.0",
                bus: IMasterSlave,
-               generatePath:String="./"): Unit = {
-    val generator = new IPXACT2022BusDefinitionGenerator(toplevelVendor, toplevelName, version, bus,generatePath = generatePath)
+               generatePath: String = "./"): Unit = {
+    val generator = new IPXACT2022BusDefinitionGenerator(toplevelVendor, toplevelName, version, bus, generatePath = generatePath)
     generator.beginGenerate()
   }
 }
