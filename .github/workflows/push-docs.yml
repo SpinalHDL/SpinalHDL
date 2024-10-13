@@ -21,6 +21,7 @@ jobs:
       with:
         distribution: temurin
         java-version: 8
+        cache: sbt
     - name: Build scaladoc
       run: sbt clean '++ 2.12.13' unidoc
     - name: Deploy 🚀
