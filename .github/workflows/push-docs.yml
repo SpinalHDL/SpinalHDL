@@ -13,9 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+
     steps:
     - uses: actions/checkout@v3
-    - uses: ./.github/actions/sbt
     - name: Build scaladoc
       run: sbt clean '++ 2.12.13' unidoc
     - name: Deploy 🚀
