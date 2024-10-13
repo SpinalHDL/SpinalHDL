@@ -8,17 +8,122 @@ import spinal.lib.eda.altera.QSysify
 import spinal.lib.graphic.{RgbConfig, Rgb}
 
 
+object VgaTimingsHvScala{
+  def craft(sync: Int, front: Int, pix: Int, post: Int) = new VgaTimingsHvScala(
+    syncStart = sync - 1,
+    colorStart = sync + front - 1,
+    colorEnd = sync + front + pix - 1,
+    syncEnd = sync + front + pix + post - 1,
+    polarity = false
+  )
+
+  def timing(pixels: Int,
+             sync: Int,
+             front: Int,
+             back: Int,
+             polarity: Boolean) = new VgaTimingsHvScala(
+    syncStart = sync - 1,
+    colorStart = sync + back - 1,
+    colorEnd = sync + back + pixels - 1,
+    syncEnd = sync + back + pixels + front - 1,
+    polarity = polarity
+  )
+}
+
+class VgaTimingsHvScala(val syncStart: Int,
+                        val syncEnd: Int,
+                        val colorStart: Int,
+                        val colorEnd: Int,
+                        val polarity: Boolean)
+
+class VgaTimingsScala(val h : VgaTimingsHvScala,
+                      val v : VgaTimingsHvScala)
+
+object VgaTimingsScala{
+  def h640_v480_r60 = {
+    new VgaTimingsScala(
+      h = new VgaTimingsHvScala(
+        syncStart = 95,
+        syncEnd = 799,
+        colorStart = 143,
+        colorEnd = 783,
+        polarity = false
+      ),
+      v = new VgaTimingsHvScala(
+        syncStart = 1,
+        syncEnd = 524,
+        colorStart = 34,
+        colorEnd = 514,
+        polarity = false
+      )
+    )
+  }
+
+  def h800_v600_r60 = new VgaTimingsScala(
+    h = VgaTimingsHvScala.timing(
+      pixels = 800,
+      sync = 128,
+      front = 40,
+      back = 88,
+      polarity = true
+    ),
+    v = VgaTimingsHvScala.timing(
+      pixels = 600,
+      sync = 4,
+      front = 1,
+      back = 23,
+      polarity = true
+    )
+  )
+
+  def h128_v128_r60 = new VgaTimingsScala(
+    h = VgaTimingsHvScala.craft(10,15,128,5),
+    v = VgaTimingsHvScala.craft(5,2,128,2)
+  )
+
+  def h64_v64_r60 = new VgaTimingsScala(
+    h = VgaTimingsHvScala.craft(10, 15, 64, 5),
+    v = VgaTimingsHvScala.craft(5, 2, 64, 2)
+  )
+}
+
+//class VgaTimingsHvScala(){
+//  var syncStart = 0
+//  var syncEnd = 0
+//  var colorStart = 0
+//  var colorEnd = 0
+//  var polarity = 0
+//}
+//class VgaTimingsScala(){
+//  var h = new VgaTimingsHvScala()
+//  var v = new VgaTimingsHvScala()
+//}
+
+
 case class VgaTimingsHV(timingsWidth: Int) extends Bundle {
   val syncStart = UInt(timingsWidth bit)
   val syncEnd = UInt(timingsWidth bit)
   val colorStart = UInt(timingsWidth bit)
   val colorEnd = UInt(timingsWidth bit)
   val polarity = Bool()
+
+  def assign(t : VgaTimingsHvScala): Unit = {
+    syncStart := t.syncStart
+    syncEnd := t.syncEnd
+    colorStart := t.colorStart
+    colorEnd := t.colorEnd
+    polarity := Bool(t.polarity)
+  }
 }
 
 case class VgaTimings(timingsWidth: Int) extends Bundle {
   val h = VgaTimingsHV(timingsWidth)
   val v = VgaTimingsHV(timingsWidth)
+
+  def assign(t: VgaTimingsScala): Unit = {
+    h.assign(t.h)
+    v.assign(t.v)
+  }
 
   def setAs_h640_v480_r60: Unit = {
     h.syncStart := 95
@@ -200,7 +305,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
   val h = HVArea(io.timings.h, True)
   val v = HVArea(io.timings.v, h.syncEnd) // h.colorEnd
   val colorEn = h.colorEn && v.colorEn
-  io.pixels.ready := colorEn
+  io.pixels.ready := colorEn || io.softReset
   io.error := colorEn && !io.pixels.valid
 
   io.frameStart := v.syncStart && h.syncStart
@@ -212,12 +317,12 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
 
 
   //Can be called by parent component to make the VgaCtrl autonom by using a Stream of fragment to feed it.
-  def feedWith(that : Stream[Fragment[Rgb]], resync : Bool = False): Unit ={
+  def feedWith(that : Stream[Fragment[Rgb]], resync : Bool = False) = new Area{
     val error = RegInit(False)
     val waitStartOfFrame = RegInit(False)
     val firstPixel = Reg(Bool()) setWhen(io.frameStart) clearWhen(that.firstFire)
 
-    io.pixels << that.toStreamOfFragment.throwWhen(error).haltWhen(waitStartOfFrame)
+    io.pixels << that.toStreamOfFragment.haltWhen(waitStartOfFrame && !error)
 
     when(io.frameStart){
       waitStartOfFrame := False

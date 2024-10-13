@@ -221,6 +221,28 @@ class SpinalSimMiscTester extends SpinalAnyFunSuite {
       }
     }
 
+    test(prefix + "testInputWatch") {
+      compiled.doSim(dut => {
+        addInputsAssignmentWatch(dut)
+        dut.clockDomain.forkStimulus(10)
+
+        checkInputsAssignmentAfterReset(dut.clockDomain)
+        var counterModel = 0
+        var counter = 0
+        while (true) {
+          // dut.io.enable.randomize()
+          dut.clockDomain.waitSampling();
+          sleep(0)
+          if (dut.io.enable.toBoolean) {
+            counterModel = (counterModel + 1) & 0xFF
+          }
+          // assert(dut.io.value.toInt == counterModel)
+          counter += 1
+          if (counter == 1000) simSuccess()
+        }
+      })
+    }
+
     test(prefix + "testRecompile1") {
       SimConfig.doSim(new SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
         dut.clockDomain.forkStimulus(10)
