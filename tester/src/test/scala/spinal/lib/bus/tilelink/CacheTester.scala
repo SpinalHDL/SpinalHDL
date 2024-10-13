@@ -46,7 +46,7 @@ class CacheTester extends AnyFunSuite{
         val directory = new CacheFiber()
         directory.parameter.cacheWays = 4
         directory.parameter.cacheBytes = 4096
-        directory.parameter.allocateOnMiss = (op, src, addr, size) => addr(6)
+        directory.parameter.allocateOnMiss = (op, src, addr, size, param) => addr(6)
         directory.parameter.selfFlush = SelfFLush(0x80, 0x1000, 1000)
         directory.up << m0.node
 

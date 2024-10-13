@@ -259,6 +259,7 @@ class PhaseDeviceSpecifics(pc : PhaseContext) extends PhaseNetlist{
 //        if(hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid ganbling workaround Synth 8-6430
 //      case _ =>
 //    }
+
   }
 }
 
@@ -1395,6 +1396,7 @@ trait PhaseDeviceHandler{
   def onMemReadAsync(config : SpinalConfig, mem : Mem[_]) : Unit = {}
   def onMemDontCareOrdering(config : SpinalConfig, mem : Mem[_]) : Unit = {}
   def onCrossClockBuffer(config : SpinalConfig, that : BaseType) : Unit = {} // To help inferring low metastability
+  def onCrossClockMaxDelay(config: SpinalConfig, sources: Iterable[BaseType], target: BaseType) : Unit = {}
 }
 
 object PhaseDeviceDefault extends PhaseDeviceDefault
@@ -1418,6 +1420,14 @@ class PhaseDeviceDefault extends PhaseDeviceHandler{
   override def onMemDontCareOrdering(config : SpinalConfig, mem: Mem[_]) = {
     if(config.device.vendor == Device.ALTERA.vendor){
       mem.addAttribute("ramstyle", "no_rw_check")
+    }
+  }
+  override def onCrossClockMaxDelay(config: SpinalConfig, sources: Iterable[BaseType], target: BaseType) = {
+    if(config.device.isVendorDefault || config.device.vendor == Device.ALTERA.vendor){
+      val regAttribute = new AttributeString("altera_attribute", "-name ADV_NETLIST_OPT_ALLOWED NEVER_ALLOW")
+
+        sources.foreach(_.addAttribute(regAttribute))
+        target.addAttribute(regAttribute)
     }
   }
 }
@@ -1453,8 +1463,43 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
         if (bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))) {
           cb.onCrossClockBuffer(pc.config, bt)
         }
+        if(bt.hasTag(classOf[crossClockMaxDelay])){
+          bt.dlcForeach ( statement =>
+            statement match {
+              case statement: DataAssignmentStatement => {
+                (statement.source, statement.target) match {
+                  case (source: BaseType, target: BaseType) =>
+                    val sources = seekRegDriver(source)
+                    cb.onCrossClockMaxDelay(pc.config, sources, target)
+                  case _ =>
+                }
+              }
+              case _ =>
+            }
+          )
+        }
       }
       case _ =>
+    }
+    def seekRegDriver(that : BaseType): Iterable[BaseType] = {
+      var buffer = ArrayBuffer[BaseType]()
+      that.foreachStatements{ s =>
+        def forExp(e : Expression) : Unit = e match {
+          case s: Statement => s match {
+            case s: BaseType if !s.isReg => {buffer ++= seekRegDriver(s) }
+            case s: BaseType if s.isReg => buffer += s
+            case s =>
+          }
+          case e: MemReadSync =>
+          case e: MemReadWrite =>
+          case e: Expression => e.foreachDrivingExpression(forExp)
+        }
+        s.walkParentTreeStatementsUntilRootScope{sParent =>
+          sParent.foreachDrivingExpression(forExp)
+        }
+        s.foreachDrivingExpression(forExp)
+      }
+      buffer
     }
   }
 }
@@ -3057,4 +3102,3 @@ object SpinalVerilogBoot{
     report
   }
 }
-

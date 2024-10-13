@@ -260,13 +260,13 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
   }
 
 
-  override def isNamed: Boolean = {
+  override def isUnnamed: Boolean = {
     (getMode, nameableRef) match{
       case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
-        nameableRef.isNamed && getPath(this.component, other.component).tail.forall(_.isNamed)
+        nameableRef.isUnnamed || getPath(this.component, other.component).tail.exists(_.isUnnamed)
       case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
-        nameableRef.isNamed && getPath(this.component, other.component).tail.forall(_.isNamed)
-      case _ => super.isNamed
+        nameableRef.isUnnamed || getPath(this.component, other.component).tail.exists(_.isUnnamed)
+      case _ => super.isUnnamed
     }
   }
 
@@ -386,7 +386,7 @@ trait Nameable extends OwnableRef with ContextUser{
     case OWNER_PREFIXED        => refOwner == null || refOwner.asInstanceOf[Nameable].isUnnamed
   }
 
-  def isNamed: Boolean = !isUnnamed
+  final def isNamed: Boolean = !isUnnamed
 
   def getName(): String = getName("")
   def getPartialName() : String = name

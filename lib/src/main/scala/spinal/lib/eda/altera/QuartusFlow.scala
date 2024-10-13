@@ -24,7 +24,7 @@ object QuartusFlow {
         case 0 => {
           fmaxLineCounter = -1
           val nums = fMaxReg.findAllIn(line)
-          val lineFMax = nums.map(_.toDouble).reduce(Math.min(_, _))
+          val lineFMax = nums.map(_.toDouble).take(2).reduce(Math.min(_, _))
           fMax = Math.min(fMax, lineFMax)
         }
         case _ => fmaxLineCounter -= 1
@@ -60,14 +60,50 @@ object QuartusFlow {
     workspacePathFile.mkdir()
     FileUtils.copyFileToDirectory(new File(toplevelPath), workspacePathFile)
 
-    doCmd(s"""${Paths.get(quartusPath,"quartus_map")} ${Paths.get(workspacePath,projectName)} --family="$family" --part=$device --source=${Paths.get(workspacePath,toplevelPath)}""")
-    doCmd(s"""${Paths.get(quartusPath,"quartus_fit")} ${Paths.get(workspacePath,projectName)} --parallel=$processorCount""") // --fmax=${(if(frequencyTarget != null) frequencyTarget else 400 MHz).toBigDecimal*1e-6}mhz
-    doCmd(s"${Paths.get(quartusPath,"quartus_sta")} ${Paths.get(workspacePath,projectName)}")
+    family match {
+      case "Agilex V" => {
+        val tcl = new java.io.FileWriter(Paths.get(workspacePath, "setup_proj.tcl").toFile)
+        val toplevelName = new File(toplevelPath).getName.split("\\.").head
+        tcl.write(
+          s"""
+             |project_new $projectName -overwrite
+             |# Assign family, device, and top-level file
+             |set_global_assignment -name FAMILY "$family"
+             |set_global_assignment -name DEVICE $device
+             |set_global_assignment -name VERILOG_FILE ${new File(toplevelPath).getName}
+             |set_global_assignment -name TOP_LEVEL_ENTITY ${toplevelName}
+             |
+             |project_close
+             |""".stripMargin
+        )
+        tcl.flush();
+        tcl.close();
 
-    new Report{
-      override def getFMax(): Double =  (QuartusFlow.getFMax(s"${Paths.get(workspacePath,s"$projectName.sta.rpt")}"))
-      override def getArea(): String =  (QuartusFlow.getArea(s"${Paths.get(workspacePath,s"$projectName.flow.rpt")}"))
+        val wps = workspacePathFile.getAbsolutePath
+        doCmd(s"""${Paths.get(quartusPath, "quartus_sh")} -t setup_proj.tcl""", wps)
+        doCmd(s"""${Paths.get(quartusPath, "quartus_syn")} $projectName""", wps)
+        doCmd(s"""${Paths.get(quartusPath, "quartus_fit")} $projectName""", wps)
+        doCmd(s"""${Paths.get(quartusPath, "quartus_asm")} $projectName""", wps)
+        doCmd(s"""${Paths.get(quartusPath, "quartus_sta")} $projectName""", wps)
+
+        new Report{
+          override def getFMax(): Double =  (QuartusFlow.getFMax(s"${Paths.get(workspacePath,s"$projectName.sta.rpt")}"))
+          override def getArea(): String =  (QuartusFlow.getArea(s"${Paths.get(workspacePath,s"$projectName.flow.rpt")}"))
+        }
+      }
+      case _ => {
+        doCmd(s"""${Paths.get(quartusPath, "quartus_map")} ${Paths.get(workspacePath, projectName)} --family="$family" --part=$device --source=${Paths.get(workspacePath, toplevelPath)}""")
+        doCmd(s"""${Paths.get(quartusPath,"quartus_fit")} ${Paths.get(workspacePath,projectName)} --parallel=$processorCount""") // --fmax=${(if(frequencyTarget != null) frequencyTarget else 400 MHz).toBigDecimal*1e-6}mhz
+        doCmd(s"${Paths.get(quartusPath,"quartus_sta")} ${Paths.get(workspacePath,projectName)}")
+
+        new Report{
+          override def getFMax(): Double =  (QuartusFlow.getFMax(s"${Paths.get(workspacePath,s"$projectName.sta.rpt")}"))
+          override def getArea(): String =  (QuartusFlow.getArea(s"${Paths.get(workspacePath,s"$projectName.flow.rpt")}"))
+        }
+      }
     }
+
+
   }
 
   def main(args: Array[String]) {

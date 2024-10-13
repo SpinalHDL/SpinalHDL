@@ -1,6 +1,6 @@
 package spinal.lib.misc.pipeline
 
-import spinal.core.Nameable
+import spinal.core._
 
 import scala.collection.{Seq, mutable}
 import scala.collection.mutable.ArrayBuffer
@@ -58,7 +58,7 @@ object Builder {
   }
 }
 
-class NodesBuilder() extends Nameable {
+class NodesBuilder() extends Area {
   val nodes = ArrayBuffer[Node]()
   val connectors = ArrayBuffer[Link]()
 
@@ -74,7 +74,7 @@ class NodesBuilder() extends Nameable {
   }
 }
 
-class StagePipeline() extends Nameable {
+class StagePipeline() extends Area {
   val nodes = mutable.LinkedHashMap[Int, Node]()
   val links = mutable.ArrayBuffer[StageLink]()
 
@@ -92,7 +92,7 @@ class StagePipeline() extends Nameable {
   }
 }
 
-class StageCtrlPipeline() extends Nameable {
+class StageCtrlPipeline() extends Area {
   val ctrls = mutable.LinkedHashMap[Int, CtrlLink]()
   val links = mutable.ArrayBuffer[StageLink]()
 

@@ -9,7 +9,7 @@ import spinal.lib.bus.tilelink.{Axi4Bridge, S2mSupport}
 import spinal.lib.system.tag.{MappedNode, MemoryConnection, MemoryTransferTag, MemoryTransfers}
 
 
-class Axi4Bridge() extends Area{
+class Axi4Bridge(var withAxi3 : Boolean = false) extends Area{
   val up = Node.slave()
   val down = new Handle[Axi4] with SpinalTagReady
 
@@ -29,7 +29,7 @@ class Axi4Bridge() extends Area{
     up.m2s.supported load tilelink.Axi4Bridge.getSupported(up.m2s.proposed)
     up.s2m.none()
 
-    val bridge = new tilelink.Axi4Bridge(up.bus.p.node)
+    val bridge = new tilelink.Axi4Bridge(up.bus.p.node, withAxi3)
     bridge.io.up << up.bus
     down.load(cloneOf(bridge.io.down))
     bridge.io.down >> down
