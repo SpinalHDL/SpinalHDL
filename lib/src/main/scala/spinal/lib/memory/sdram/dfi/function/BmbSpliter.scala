@@ -97,11 +97,28 @@ case class BmbAligner(ip: BmbParameter, alignmentWidth: Int) extends Component {
         io.output.cmd.mask := (!(prePadding || postPadding) ? io.input.cmd.mask | 0)
         inputReadyOk setWhen (!prePadding && !(io.input.cmd.last && beatCounter =/= beatCount - 1))
       }
+      val lengthReg = RegNextWhen(io.input.cmd.length, io.input.cmd.fire, U((1 << ip.access.lengthWidth) - 1))
+      val addressReg = RegNextWhen(io.input.cmd.address, io.input.cmd.fire, U(0))
+      val length = cloneOf(io.input.cmd.length)
+      val address = cloneOf(io.input.cmd.address)
+      length := io.input.cmd.fire ? io.input.cmd.length | lengthReg
+      address := io.input.cmd.fire ? io.input.cmd.address | addressReg
+      def transferBeatCountMinusOne : UInt = {
+        if(!ip.access.alignment.allowByte){
+          if(ip.access.lengthWidth < log2Up(ip.access.byteCount)){
+            U""
+          } else {
+            length(length.high downto log2Up(ip.access.byteCount))
+          }
+        } else {
+          ((U"0" @@ length) + address(ip.access.wordRange))(length.high + 1 downto log2Up(ip.access.byteCount))
+        }
+      }
       val forRead = ip.access.canRead generate new Area {
         io.output.cmd.last setWhen (io.input.cmd.isRead)
         inputReadyOk setWhen (io.input.cmd.isRead)
         context.paddings := paddings
-        context.transfers := io.input.cmd.transferBeatCountMinusOne
+        context.transfers := transferBeatCountMinusOne
       }
     }
 
