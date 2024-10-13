@@ -20,7 +20,7 @@ jobs:
       uses: actions/setup-java@v3
       with:
         distribution: temurin
-        java-version: 8
+        java-version: 17
         cache: sbt
     - name: Build scaladoc
       run: sbt clean '++ 2.12.13' unidoc
