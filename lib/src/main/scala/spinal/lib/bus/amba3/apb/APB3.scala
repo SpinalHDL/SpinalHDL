@@ -34,7 +34,9 @@ case class Apb3Config(
   dataWidth     : Int,
   selWidth      : Int = 1,
   useSlaveError : Boolean = true
-)
+){
+  def dataBytes = dataWidth/8
+}
 
 
 object Apb3{
