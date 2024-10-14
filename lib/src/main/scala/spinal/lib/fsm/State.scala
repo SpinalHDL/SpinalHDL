@@ -219,45 +219,43 @@ class StateMachineSharableRegUInt {
   * }}}
   *
   */
-class StateDelay(cyclesCount: AnyRef)(implicit stateMachineAccessor: StateMachineAccessor)
+class StateDelay(cyclesCount: AnyRef, minWidth: Int)(implicit stateMachineAccessor: StateMachineAccessor)
     extends State
     with StateCompletionTrait {
 
+  def this(cycles: BigInt)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(cycles, log2Up(cycles + 1))
+  }
   def this(cycles: Int)(implicit stateMachineAccessor: StateMachineAccessor) {
     this(BigInt(cycles))
+  }
+  /** Create a StateDelay with a TimeNumber */
+  def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this((time * ClockDomain.current.frequency.getValue).toBigInt)
+  }
+  def this(cycles: CyclesCount)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(cycles.value)
+  }
+  def this(value: UInt)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(value, value.getWidth)
   }
   val cache = stateMachineAccessor
     .cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt)
     .asInstanceOf[StateMachineSharableRegUInt]
+
+  cache.addMinWidth(minWidth)
   cyclesCount match {
     case x: UInt => {
-      cache.addMinWidth(x.getWidth)
       onEntry {
         cache.value := x.resized
       }
     }
     case x: BigInt => {
-      if (x<0) SpinalError(s"StateDelay: ($cyclesCount) is negative")
-      cache.addMinWidth(log2Up(x + 1))
+      if (x < 0) SpinalError(s"StateDelay: ($cyclesCount) is negative")
       onEntry {
         cache.value := x
       }
     }
-    /** Create a StateDelay with a TimeNumber */
-    case x: TimeNumber => {
-      val cycles = (x * ClockDomain.current.frequency.getValue).toBigInt
-      cache.addMinWidth(log2Up(cycles + 1))
-      onEntry {
-        cache.value := cycles
-      }
-    }
-    case x: CyclesCount =>{
-      cache.addMinWidth(log2Up(x.value + 1))
-      onEntry {
-        cache.value := x.value
-      }
-    }
-    case _ => SpinalError(s"StateDelay: $cyclesCount is not Int, UInt, CyclesCount or TimeNumber")
   }
 
   whenIsActiveWithPriority(1) {
