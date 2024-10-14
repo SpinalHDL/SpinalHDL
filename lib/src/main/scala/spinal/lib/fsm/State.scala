@@ -224,15 +224,9 @@ class StateDelay(cyclesCount: AnyRef)(implicit stateMachineAccessor: StateMachin
     extends State
     with StateCompletionTrait {
 
-  /** Create a StateDelay with an TimeNumber */
-  def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor) {
-    this((time * ClockDomain.current.frequency.getValue).toBigInt)
-  }
-
   def this(cycles: Int)(implicit stateMachineAccessor: StateMachineAccessor) {
     this(cycles.toBigInt)
   }
-
   val cache = stateMachineAccessor
     .cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt)
     .asInstanceOf[StateMachineSharableRegUInt]
@@ -250,7 +244,21 @@ class StateDelay(cyclesCount: AnyRef)(implicit stateMachineAccessor: StateMachin
         cache.value := x
       }
     }
-    case _ => SpinalError(s"StateDelay: $cyclesCount is not Int, UInt or TimeNumber")
+    /** Create a StateDelay with a TimeNumber */
+    case x: TimeNumber => {
+      val cycles=x * ClockDomain.current.frequency.getValue
+      cache.addMinWidth(log2Up(cycles.toInt + 1))
+      onEntry {
+        cache.value := cycles.toInt
+      }
+    }
+    case x: CyclesCount =>{
+      cache.addMinWidth(log2Up(x.value.toInt + 1))
+      onEntry {
+        cache.value := x.value
+      }
+    }
+    case _ => SpinalError(s"StateDelay: $cyclesCount is not Int, UInt, CyclesCount or TimeNumber")
   }
 
   whenIsActiveWithPriority(1) {
