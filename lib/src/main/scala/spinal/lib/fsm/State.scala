@@ -28,7 +28,6 @@ package spinal.lib.fsm
 import spinal.core._
 
 import scala.collection.mutable.ArrayBuffer
-import spinal.lib.IntRicher
 
 /**
   * This trait indicate the entry point of the state machine
@@ -225,7 +224,7 @@ class StateDelay(cyclesCount: AnyRef)(implicit stateMachineAccessor: StateMachin
     with StateCompletionTrait {
 
   def this(cycles: Int)(implicit stateMachineAccessor: StateMachineAccessor) {
-    this(cycles.toBigInt)
+    this(BigInt(cycles))
   }
   val cache = stateMachineAccessor
     .cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt)
@@ -246,14 +245,14 @@ class StateDelay(cyclesCount: AnyRef)(implicit stateMachineAccessor: StateMachin
     }
     /** Create a StateDelay with a TimeNumber */
     case x: TimeNumber => {
-      val cycles=x * ClockDomain.current.frequency.getValue
-      cache.addMinWidth(log2Up(cycles.toInt + 1))
+      val cycles = (x * ClockDomain.current.frequency.getValue).toBigInt
+      cache.addMinWidth(log2Up(cycles + 1))
       onEntry {
-        cache.value := cycles.toInt
+        cache.value := cycles
       }
     }
     case x: CyclesCount =>{
-      cache.addMinWidth(log2Up(x.value.toInt + 1))
+      cache.addMinWidth(log2Up(x.value + 1))
       onEntry {
         cache.value := x.value
       }
