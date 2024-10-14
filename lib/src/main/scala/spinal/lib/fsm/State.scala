@@ -219,7 +219,7 @@ class StateMachineSharableRegUInt {
   * }}}
   *
   */
-class StateDelay(cyclesCount: BigInt)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+class StateDelay(cyclesCount: UInt)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
 
   /** Create a StateDelay with an TimeNumber */
   def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor){
@@ -227,10 +227,10 @@ class StateDelay(cyclesCount: BigInt)(implicit stateMachineAccessor: StateMachin
   }
 
   val cache = stateMachineAccessor.cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt).asInstanceOf[StateMachineSharableRegUInt]
-  cache.addMinWidth(log2Up(cyclesCount + 1))
+  cache.addMinWidth(cyclesCount.getWidth)
 
-  onEntry {
-    cache.value := cyclesCount
+  onEntry{
+    cache.value := cyclesCount.resized
   }
 
   whenIsActiveWithPriority(1){
