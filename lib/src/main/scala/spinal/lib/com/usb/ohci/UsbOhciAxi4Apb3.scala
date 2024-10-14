@@ -50,24 +50,6 @@ object UsbOhciAxi4Apb3 extends App{
       ClockDomain.external("phy", frequency = FixedFrequency(phyFrequency Hz))
     ).setDefinitionName(netlistName)
   )
-
-  import spinal.core.sim._
-  SimConfig.withFstWave.compile(UsbOhciAxi4Apb3(
-    p,
-    ClockDomain.external("ctrl"),
-    ClockDomain.external("phy", frequency = FixedFrequency(phyFrequency Hz))
-  )).doSim{dut =>
-    dut.frontCd.forkStimulus(10)
-    dut.backCd.forkStimulus(22)
-
-    val driver = Apb3Driver(dut.io.ctrl, dut.frontCd)
-    dut.frontCd.waitSampling(10)
-    println(f"${driver.read(0)}%x")
-    dut.frontCd.waitSampling(10)
-    println(f"${driver.read(0x34)}%x")
-    driver.write(0x34,0x1234)
-    println(f"${driver.read(0x34)}%x")
-  }
 }
 
 case class UsbOhciAxi4Apb3(p : UsbOhciParameter, frontCd : ClockDomain, backCd : ClockDomain) extends Component {
@@ -111,3 +93,24 @@ case class UsbOhciAxi4Apb3(p : UsbOhciParameter, frontCd : ClockDomain, backCd :
   cc.input <> front.ohci.io.phy
   cc.output <> back.phy.io.ctrl
 }
+
+
+/*
+  import spinal.core.sim._
+  SimConfig.withFstWave.compile(UsbOhciAxi4Apb3(
+    p,
+    ClockDomain.external("ctrl"),
+    ClockDomain.external("phy", frequency = FixedFrequency(phyFrequency Hz))
+  )).doSim{dut =>
+    dut.frontCd.forkStimulus(10)
+    dut.backCd.forkStimulus(22)
+
+    val driver = Apb3Driver(dut.io.ctrl, dut.frontCd)
+    dut.frontCd.waitSampling(10)
+    println(f"${driver.read(0)}%x")
+    dut.frontCd.waitSampling(10)
+    println(f"${driver.read(0x34)}%x")
+    driver.write(0x34,0x1234)
+    println(f"${driver.read(0x34)}%x")
+  }
+ */
