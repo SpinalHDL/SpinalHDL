@@ -601,7 +601,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   object BIG    extends Endianness
 
   implicit class PhysicalNumberPimper(val sc: StringContext) extends AnyVal {
-    def fp(args: Any*): String = {
+    def sf(args: Any*): String = {
       val strings = sc.parts.iterator
       val expressions = args.iterator
 

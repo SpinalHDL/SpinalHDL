@@ -35,12 +35,12 @@ class PhysicalNumbers extends AnyFunSuite {
   }
 
   test("formatting") {
-    assert(fp"${HertzNumber(5123000)}" == "5.123 MHz")
-    assert(fp"${HertzNumber(5123000)}%s" == "5.123 MHz")
-    assert(fp"${HertzNumber(5123000)}%S" == "5.123MHz")
-    assert(fp"${HertzNumber(5123000)}%#s" == "5.123")
-    assert(fp"${HertzNumber(5123000)}%.5s" == "5.12300 MHz")
-    assert(fp"${HertzNumber(5123000)}%15.5s" == "    5.12300 MHz")
-    assert(fp"${HertzNumber(5123000)}%-15.5s" == "5.12300 MHz    ")
+    assert(sf"${HertzNumber(5123000)}" == "5.123 MHz")
+    assert(sf"${HertzNumber(5123000)}%s" == "5.123 MHz")
+    assert(sf"${HertzNumber(5123000)}%S" == "5.123MHz")
+    assert(sf"${HertzNumber(5123000)}%#s" == "5.123")
+    assert(sf"${HertzNumber(5123000)}%.5s" == "5.12300 MHz")
+    assert(sf"${HertzNumber(5123000)}%15.5s" == "    5.12300 MHz")
+    assert(sf"${HertzNumber(5123000)}%-15.5s" == "5.12300 MHz    ")
   }
 }
