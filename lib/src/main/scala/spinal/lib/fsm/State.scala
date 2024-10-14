@@ -28,6 +28,7 @@ package spinal.lib.fsm
 import spinal.core._
 
 import scala.collection.mutable.ArrayBuffer
+import spinal.lib.IntRicher
 
 /**
   * This trait indicate the entry point of the state machine
@@ -219,23 +220,42 @@ class StateMachineSharableRegUInt {
   * }}}
   *
   */
-class StateDelay(cyclesCount: UInt)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+class StateDelay(cyclesCount: AnyRef)(implicit stateMachineAccessor: StateMachineAccessor)
+    extends State
+    with StateCompletionTrait {
 
   /** Create a StateDelay with an TimeNumber */
-  def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor){
+  def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor) {
     this((time * ClockDomain.current.frequency.getValue).toBigInt)
   }
 
-  val cache = stateMachineAccessor.cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt).asInstanceOf[StateMachineSharableRegUInt]
-  cache.addMinWidth(cyclesCount.getWidth)
-
-  onEntry{
-    cache.value := cyclesCount.resized
+  def this(cycles: Int)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(cycles.toBigInt)
   }
 
-  whenIsActiveWithPriority(1){
+  val cache = stateMachineAccessor
+    .cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt)
+    .asInstanceOf[StateMachineSharableRegUInt]
+  cyclesCount match {
+    case x: UInt => {
+      cache.addMinWidth(x.getWidth)
+      onEntry {
+        cache.value := x.resized
+      }
+    }
+    case x: BigInt => {
+      if (x<0) SpinalError(s"StateDelay: ($cyclesCount) is negative")
+      cache.addMinWidth(log2Up(x + 1))
+      onEntry {
+        cache.value := x
+      }
+    }
+    case _ => SpinalError(s"StateDelay: $cyclesCount is not Int, UInt or TimeNumber")
+  }
+
+  whenIsActiveWithPriority(1) {
     cache.value := cache.value - 1
-    when(cache.value <= 1){
+    when(cache.value <= 1) {
       doWhenCompletedTasks()
     }
   }
