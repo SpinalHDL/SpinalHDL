@@ -36,14 +36,19 @@ case class CAAlignment(config: DfiConfig) extends Component {
   io.output.bank := Bits(widthOf(io.output.bank) bits).clearAll()
   io.output.address := Bits(widthOf(io.output.address) bits).clearAll()
 
+  def csN = io.output.csN.subdivideIn(frequencyRatio slices)
+  def casN = io.output.casN.subdivideIn(frequencyRatio slices)
+  def rasN = io.output.rasN.subdivideIn(frequencyRatio slices)
+  def weN = io.output.weN.subdivideIn(frequencyRatio slices)
+
   for (i <- 0 until (frequencyRatio)) {
     when(io.cmd(i).valid) {
       if (useAckN) io.output.actN.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).actN.asBits
       if (useCid) io.output.cid.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).cid.asBits
-      io.output.csN.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).csN.asBits
-      io.output.casN.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).casN.asBits
-      io.output.rasN.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).rasN.asBits
-      io.output.weN.subdivideIn(frequencyRatio slices)(i) := io.cmd(i).weN.asBits
+      csN(i) := io.cmd(i).csN.asBits
+      casN(i) := io.cmd(i).casN.asBits
+      rasN(i) := io.cmd(i).rasN.asBits
+      weN(i) := io.cmd(i).weN.asBits
     }
     when(io.address(i).valid) {
       if (config.useBg) io.output.bg(i * bankGroupWidth, bankGroupWidth bits) := io.address(i).bg

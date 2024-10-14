@@ -247,7 +247,7 @@ case class DfiDdr3() extends Component {
   )
   val dfiConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
-    chipSelectNumber = 1,
+    chipSelectNumber = 2,
     bgWidth = 0,
     cidWidth = 0,
     dataSlice = 1,

@@ -275,6 +275,7 @@ class DDRSignalConfig(
   def useErrorInfo = kind.useErrorInfo & useErrorSignals
 }
 case class DfiConfig(
+    addrMapMethod: String = "R-B-C",
     frequencyRatio: Int, // PHY:MC
     chipSelectNumber: Int,
     bgWidth: Int,
