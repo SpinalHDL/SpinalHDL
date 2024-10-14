@@ -223,21 +223,21 @@ class StateDelay(cyclesCount: AnyRef, minWidth: Int)(implicit stateMachineAccess
     extends State
     with StateCompletionTrait {
 
-  def this(cycles: BigInt)(implicit stateMachineAccessor: StateMachineAccessor) {
-    this(cycles, log2Up(cycles + 1))
+  def this(cyclesCount: BigInt)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(cyclesCount, log2Up(cyclesCount + 1))
   }
-  def this(cycles: Int)(implicit stateMachineAccessor: StateMachineAccessor) {
-    this(BigInt(cycles))
+  def this(cyclesCount: Int)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(BigInt(cyclesCount))
   }
   /** Create a StateDelay with a TimeNumber */
   def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor) {
     this((time * ClockDomain.current.frequency.getValue).toBigInt)
   }
-  def this(cycles: CyclesCount)(implicit stateMachineAccessor: StateMachineAccessor) {
-    this(cycles.value)
+  def this(cyclesCount: CyclesCount)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(cyclesCount.value)
   }
-  def this(value: UInt)(implicit stateMachineAccessor: StateMachineAccessor) {
-    this(value, value.getWidth)
+  def this(cyclesCount: UInt)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(cyclesCount, cyclesCount.getWidth)
   }
   val cache = stateMachineAccessor
     .cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt)
