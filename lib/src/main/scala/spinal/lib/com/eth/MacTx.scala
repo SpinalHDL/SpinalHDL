@@ -2,6 +2,7 @@ package spinal.lib.com.eth
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.fsm.{State, StateMachine}
 
 
 
@@ -360,4 +361,185 @@ case class MacTxInterFrame(dataWidth : Int, withError : Boolean = false) extends
     counter.increment()
   }
   io.output << io.input.haltWhen(counter =/= 0).toFlow
+}
+
+
+
+case class MacTxLso(bufferBytes : Int, packetsMax : Int = 15) extends Component{
+
+  val io = new Bundle{
+    val input = slave(Stream(Fragment(PhyTx(8))))
+    val output = master(Stream(Fragment(PhyTx(8))))
+  }
+
+  val buffer = new Area {
+    assert(isPow2(bufferBytes))
+    val ram = Mem.fill(bufferBytes)(Fragment(PhyTx(8)))
+    val pushAt, popAt = Reg(UInt(log2Up(bufferBytes) + 1 bits)) init (0)
+    val write = ram.writePort()
+    val readCmd = Stream(ram.addressType)
+    val readRsp = ram.streamReadSync(readCmd)
+    val packets = CounterUpDown(packetsMax + 1)
+    val full = (pushAt ^ popAt ^ bufferBytes) === 0
+    val empty = pushAt === popAt
+  }
+
+  val backend = new Area{
+    buffer.readCmd.valid := !buffer.empty
+    buffer.readCmd.payload := buffer.popAt.resized
+    when(buffer.readCmd.fire){
+      buffer.popAt := buffer.popAt + 1
+    }
+    when(buffer.readRsp.fire && buffer.readRsp.last){
+      buffer.packets.decrement()
+    }
+    io.output <-< buffer.readRsp.haltWhen(buffer.packets.value === 0)
+  }
+
+  val frontend = new StateMachine{
+    val ETH, DONE, IPV4, TCP, UDP, CRC_WRITE_0, CRC_WRITE_1 = new State()
+    setEntry(ETH)
+
+    val lastFired = RegInit(False) setWhen(io.input.fire && io.input.last)
+    val history = History(io.input.data, 0 to 1, when = io.input.fire)
+    val counter = Reg(UInt(16 bits))
+    when(io.input.fire){
+      counter := counter + 1
+    }
+
+    io.input.ready := !buffer.full && !lastFired
+    buffer.write.valid := io.input.fire
+    buffer.write.address := buffer.pushAt.resized
+    buffer.write.data := io.input.payload
+    when(io.input.fire){
+      buffer.pushAt := buffer.pushAt + 1
+    }
+
+    val checksum = new Area{
+      val clear = False
+      val accumulator = Reg(UInt(16 bits))
+//      val counter = Reg(UInt(1 bits))
+      val push = False
+      val input = counter.lsb.mux(B"x00" ## io.input.data, io.input.data ## B"x00").asUInt
+      val s0 = accumulator +^ input
+      val s1 = s0(15 downto 0) + s0.msb.asUInt
+
+      when(push){
+        accumulator := s1
+      }
+      when(clear){
+        accumulator := 0
+      }
+
+      val result = ~accumulator
+    }
+
+    ETH.onEntry{
+      lastFired := False
+      counter := 0
+    }
+    ETH.whenIsActive{
+      checksum.clear := True
+      when(io.input.fire){
+        when(counter === 13){
+          goto(DONE)
+          when(history(0) === 0 && history(1) === 0x08){
+            counter := 0
+            goto(IPV4)
+          }
+        }
+        when(io.input.last){
+          goto(DONE)
+        }
+      }
+    }
+
+    DONE.whenIsActive{
+      when(lastFired){
+        buffer.packets.increment()
+        goto(ETH)
+      }
+    }
+
+
+
+    val IHL = Reg(UInt(4 bits))
+    val protocol = Reg(Bits(8 bits))
+    val crcAt = Reg(buffer.ram.addressType)
+    IPV4.whenIsActive{
+      when(io.input.fire) {
+        checksum.push := counter >= 12 && counter <= 19
+        when(counter === 9){
+          protocol := io.input.data
+          checksum.push := True
+        }
+        when(counter === 3){
+          checksum.push := True
+          checksum.input := (history(1) ## history(0)).asUInt - (IHL << 2)
+        }
+        when(counter === 0) {
+          IHL := io.input.data(3 downto 0).asUInt
+          when(io.input.data(7 downto 4) =/= 4 || io.input.data(3 downto 0).asUInt < 5) {
+            goto(DONE)
+          }
+        } elsewhen (counter === (IHL << 2) - 1) {
+          goto(DONE)
+          counter := 0
+          switch(protocol){
+            is(0x06) { goto(TCP) }
+            is(0x11) { goto(UDP) }
+          }
+        }
+        when(io.input.last){
+          goto(DONE)
+        }
+      }
+    }
+
+    TCP.whenIsActive{
+      when(io.input.fire) {
+        checksum.push := counter =/= 16 && counter =/= 17
+        when(counter === 16){
+          crcAt := buffer.pushAt.resized
+        }
+        when(io.input.last){
+          goto(CRC_WRITE_0)
+          when(counter < 18 ){
+            goto(DONE)
+          }
+        }
+      }
+    }
+
+    UDP.whenIsActive{
+      when(io.input.fire) {
+        checksum.push := counter =/= 6 && counter =/= 7
+        when(counter === 6){
+          crcAt := buffer.pushAt.resized
+        }
+        when(io.input.last){
+          goto(CRC_WRITE_0)
+          when(counter < 8 ){
+            goto(DONE)
+          }
+        }
+      }
+    }
+
+
+    CRC_WRITE_0 whenIsActive{
+      buffer.write.valid := True
+      buffer.write.address := crcAt
+      buffer.write.data.fragment.data := checksum.result(15 downto 8).asBits
+      buffer.write.data.last := False
+      goto(CRC_WRITE_1)
+    }
+    CRC_WRITE_1 whenIsActive{
+      buffer.write.valid := True
+      buffer.write.address := crcAt+1
+      buffer.write.data.fragment.data := checksum.result(7 downto 0).asBits
+      buffer.write.data.last := crcAt+2 === buffer.pushAt
+      goto(DONE)
+    }
+  }
 }

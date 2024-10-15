@@ -3,7 +3,7 @@ package spinal.lib.com.eth.sg
 import spinal.core._
 import spinal.lib.bus.bsb.{Bsb, BsbDownSizerDense, BsbDownSizerSparse, BsbPacketBuffer, BsbParameter, BsbUpSizerDense, BsbUpSizerSparse}
 import spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper
-import spinal.lib.com.eth.{PhyIo, PhyParameter, PhyTx}
+import spinal.lib.com.eth.{MacTxLso, PhyIo, PhyParameter, PhyTx}
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink.BusParameter
 import spinal.lib._
@@ -65,13 +65,17 @@ class MacSg(val p : MacSgParam,
     val serializer = new BsbDownSizerDense(dma.p, p.phyParam.txDataWidth/8)
     serializer.io.input << dma
 
-    val buffer = new BsbPacketBuffer(serializer.io.output.p, p.txBufferBytes, 15)
-    buffer.io.input << serializer.io.output
+    val lso = new MacTxLso(p.txBufferBytes)
+    lso.io.input.arbitrationFrom(serializer.io.output)
+    lso.io.input.data := serializer.io.output.data
+    lso.io.input.last := serializer.io.output.last
+    val buffered = lso.io.output.stage()
 
-    val buffered = buffer.io.output.stage()
-    backend.io.packets.tx.arbitrationFrom(buffered)
-    backend.io.packets.tx.data := buffered.data
-    backend.io.packets.tx.last := buffered.last
+//    val buffer = new BsbPacketBuffer(serializer.io.output.p, p.txBufferBytes, 15)
+//    buffer.io.input << serializer.io.output
+//    val buffered = buffer.io.output.stage()
+
+    backend.io.packets.tx << buffered
   }
 
   val txDma = new sg2.DmaSgReadOnly(
