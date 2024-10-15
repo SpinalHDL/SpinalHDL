@@ -1,12 +1,8 @@
 name: Run scala 2.13 tests
 
 on:
-  push:
-    branches:
-      - dev
-  pull_request:
-    branches:
-      - dev
+  schedule:
+    - cron: '0 0 * * 0'
 
 env:
   SCALA_VERSION: "2.13.12"
