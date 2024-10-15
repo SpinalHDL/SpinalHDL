@@ -1,7 +1,7 @@
 package spinal.lib.bus.regif
 
 import AccessType._
-
+import spinal.core
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb._
@@ -9,7 +9,7 @@ import spinal.lib.bus.amba4.apb._
 
 class RegIfExample extends Component {
   val io = new Bundle{
-    val apb = slave(Apb3(Apb3Config(16,32)))
+    val apb = slave(Apb4(Apb4Config(16,32)))
     val a, b, c, d, e = in Bool()
   }
 
@@ -122,13 +122,15 @@ class RegIfExample extends Component {
 
   (0 to 10).foreach{i =>
     busif.newBlockTag(s"r${i}")("Turbo")
-    val Reg = busif.newReg("reg0")(SymbolName(s"RegA"))
-    val Rtype = Reg.field(Bits(2 bits), RW, 0, doc = "inter Row number\n0:5,1:10,2:20,3:20other")(SymbolName("rta")).asOutput()
-    val CPtype = Reg.field(Bits(2 bits), RW, 0, doc = "CP relation\n0: C=P-1\n1: C=p\n2: C=p+1")(SymbolName("rtb")).asOutput()
-    val KeqRxC = Reg.field(Bool(), RW, 0, doc = "1:K=R*C else 0")(SymbolName("rtc")).asOutput()
-    val Reg2 = busif.newReg(doc = "Turbo CRC Poly")(SymbolName(s"RegB_$i"))
-    val crc_mode = Reg2.field(Bool(), RW, 1, doc = "0: CRC24; 1: CRC16")(SymbolName(s"crca_${i}")).asOutput()
-    val crc_poly = Reg2.field(Bits(24 bit), RW, 0x864cfb, doc = "(D24+D23+D18+D17+D14+D11+D10+D7+D6+D5+D4+D3+D+1)")(SymbolName(s"crcb_${i}")).asOutput()
+    new Area{
+      val Reg = busif.newReg("reg0")(SymbolName(s"RegA"))
+      val Rtype = Reg.field(Bits(2 bits), RW, 0, doc = "inter Row number\n0:5,1:10,2:20,3:20other")(SymbolName("rta")).asOutput()
+      val CPtype = Reg.field(Bits(2 bits), RW, 0, doc = "CP relation\n0: C=P-1\n1: C=p\n2: C=p+1")(SymbolName("rtb")).asOutput()
+      val KeqRxC = Reg.field(Bool(), RW, 0, doc = "1:K=R*C else 0")(SymbolName("rtc")).asOutput()
+      val Reg2 = busif.newReg(doc = "Turbo CRC Poly")(SymbolName(s"RegB_$i"))
+      val crc_mode = Reg2.field(Bool(), RW, 1, doc = "0: CRC24; 1: CRC16")(SymbolName(s"crca_${i}")).asOutput()
+      val crc_poly = Reg2.field(Bits(24 bit), RW, 0x864cfb, doc = "(D24+D23+D18+D17+D14+D11+D10+D7+D6+D5+D4+D3+D+1)")(SymbolName(s"crcb_${i}")).asOutput()
+    }.setName(s"tr${i}")
     busif.resetBlockTag()
   }
 
@@ -257,4 +259,5 @@ object playregif extends App{
   sp.generateVerilog(new RegIfExample)
   sp.generateVerilog(new RegIfBasicAccessTest("apb3"))
   sp.generateVerilog(new RegIfBasicAccessTest("apb4"))
+  sp.generateVerilog(new RegIfReuseBlock)
 }

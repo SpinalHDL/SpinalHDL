@@ -15,6 +15,7 @@ trait BusIf extends BusIfBase {
   private val SliceInsts   = ListBuffer[RegSlice]()
   private var regPtr: BigInt = 0
   protected var readDefaultValue: BigInt = 0
+  protected var secFailReadValue: BigInt = null
 
   protected var grpId: Int = 1
   protected def grpIdInc(): Unit = (grpId += 1)
@@ -26,7 +27,7 @@ trait BusIf extends BusIfBase {
   }
 
   def regSlicesNotReuse: List[RegSlice] = slices.filter(_.reuseTag.id == 0)
-  def reuseGroups: Map[String, List[RegSlice]] = slices.filter(_.reuseTag.id != 0).groupBy(_.reuseTag.partName)
+  def reuseGroups: Map[String, List[RegSlice]] = slices.filter(_.reuseTag.id != 0).groupBy(_.reuseTag.blockName)
   def reuseGroupsById: Map[String, Map[Int, List[RegSlice]]] = reuseGroups.map {case(name, slices) => (name, slices.groupBy(_.reuseTag.id)) }
 
   def repeatGroupsHead: Map[String, List[RegSlice]] = reuseGroupsById.map(t => t._1 -> t._2.head._2)
@@ -57,6 +58,13 @@ trait BusIf extends BusIfBase {
     ret
   }
 
+  def newBlockTagAt(addr: BigInt, instName: String)(partName: String) = {
+    val ret = ReuseTag(blockId, partName, addr, instName)
+    this.blockIdInc()
+    currentBlockTag = ret
+    ret
+  }
+
   def RegAndFifos = SliceInsts.filter(!_.isInstanceOf[RamInst]).toList
   def RegInsts = SliceInsts.filter(_.isInstanceOf[RegInst]).map(_.asInstanceOf[RegInst])
   def RamInsts = SliceInsts.filter(_.isInstanceOf[RamInst]).map(_.asInstanceOf[RamInst])
@@ -66,7 +74,12 @@ trait BusIf extends BusIfBase {
   def getModuleName: String
   def setReservedAddressReadValue(value: BigInt) = readDefaultValue = value
   def getReservedAddressReadValue = readDefaultValue
-  def defualtReadBits = B(readDefaultValue, busDataWidth bits)
+
+  def setSecFailReadValue(value: BigInt) = secFailReadValue = value
+  def getSecFailReadValue = secFailReadValue
+
+  def defaultReadBits = B(readDefaultValue, busDataWidth bits)
+  def secFailDefaultBits = B(Option(secFailReadValue).getOrElse(readDefaultValue), busDataWidth bits)
   def slices= SliceInsts.toList
   def hasBlock = SliceInsts.filter(_.reuseTag.id != 0).nonEmpty
 
@@ -144,14 +157,14 @@ trait BusIf extends BusIfBase {
 
 
   def newRegAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
+    addrAlignCheck(address)
     val reg = createReg(symbol.name, address, doc, sec, grp)
     regPtr = address + wordAddressInc
     reg
   }
 
   def newReg(doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    val res = createReg(symbol.name.toLowerCase(), regPtr, doc, sec, grp)
+    val res = createReg(symbol.name, regPtr, doc, sec, grp)
     regPtr += wordAddressInc
     res
   }
@@ -167,13 +180,13 @@ trait BusIf extends BusIfBase {
   }
 
   def newRAM(size: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    val res = createRAM(symbol.name.toLowerCase(), regPtr, size, doc, sec, grp)
+    val res = createRAM(symbol.name, regPtr, size, doc, sec, grp)
     regPtr += scala.math.ceil(size.toDouble/wordAddressInc).toLong * wordAddressInc
     res
   }
 
   def newRAMAt(address: BigInt, size: BigInt, doc: String, sec: Secure = null,  grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
+    addrAlignCheck(address)
     val res = createRAM(symbol.name, address, size, doc, sec, grp)
     regPtr = address + scala.math.ceil(size.toDouble/wordAddressInc).toLong * wordAddressInc
     res
@@ -187,14 +200,14 @@ trait BusIf extends BusIfBase {
   }
 
   def newWrFifo(doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName): WrFifoInst = {
-    val res = createWrFifo(symbol.name.toLowerCase(), regPtr, doc, sec, grp)
+    val res = createWrFifo(symbol.name, regPtr, doc, sec, grp)
     regPtr += wordAddressInc
     res
   }
 
   def newWrFifoAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    val res = createWrFifo(symbol.name.toLowerCase(), address, doc, sec, grp)
+    addrAlignCheck(address)
+    val res = createWrFifo(symbol.name, address, doc, sec, grp)
     regPtr = address + wordAddressInc
     res
   }
@@ -214,14 +227,14 @@ trait BusIf extends BusIfBase {
   }
 
   def newRdFifo(doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName): RdFifoInst = {
-    val res = createRdFifo(symbol.name.toLowerCase(), regPtr, doc, sec, grp)
+    val res = createRdFifo(symbol.name, regPtr, doc, sec, grp)
     regPtr += wordAddressInc
     res
   }
 
   def newRdFifoAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName): RdFifoInst = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
-    val res = createRdFifo(symbol.name.toLowerCase(), address, doc, sec, grp)
+    addrAlignCheck(address)
+    val res = createRdFifo(symbol.name, address, doc, sec, grp)
     regPtr = address + wordAddressInc
     res
   }
@@ -248,6 +261,10 @@ trait BusIf extends BusIfBase {
   def gen(doc: BusIfDoc) = {
     preCheck()
     doc.generate(this)
+  }
+
+  def addrAlignCheck(address: BigInt) = {
+    if (_addrAlignCheck) assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
   }
 
   def genBaseDocs(docname: String, prefix: String = "") = {
@@ -291,20 +308,29 @@ trait BusIf extends BusIfBase {
     val mux = WhenBuilder()
     RamInsts.foreach{ ram =>
       mux.when(ram.ram_rdvalid) {
-//        bus_rderr := False
         bus_rdata := ram.readBits
       }
     }
     mux.otherwise {
-//      bus_rderr := reg_rderr
       bus_rdata := reg_rdata
     }
   }
 
   private def writeErrorGenerator(): Unit = {
-    reg_wrerr := False
-    SliceInsts.foreach{ x =>
-      x.wrErrorGenerator()
+    when(askWrite){
+      switch(writeAddress()) {
+        RegAndFifos.foreach { slice =>
+          slice.wrErrorGenerator()
+        }
+        default {
+          reg_wrerr := False
+        }
+      }
+      RamInsts.foreach { ram =>
+        ram.wrErrorGenerator()
+      }
+    }.otherwise{
+      reg_wrerr := False
     }
   }
 }

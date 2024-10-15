@@ -409,7 +409,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     this.dslBody.foreachStatements{
       case bt : BaseType if bt.isOutput | bt.isInOut =>
         bt.removeAssignments()
-        bt := bt.getZero
+        bt.clearAll() // := bt.getZero
       case s =>
     }
     this

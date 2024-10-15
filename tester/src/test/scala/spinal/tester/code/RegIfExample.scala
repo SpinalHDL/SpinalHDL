@@ -59,6 +59,9 @@ class RegIfExample extends Component {
   M_TEST.registerAtOnlyReadLogic(10, reg, RW, 0x32, "onlyregister not generate WriteLogic but have readLogic")
   val txx = Reg(UInt(6 bit)) init 0
   M_TEST.registerInWithWriteLogic(txx, RW, 0x332, "register with writeLogic")
+
+  val M_IMPULSE = busif.newReg(doc = "Turbo Start register")
+  val istart = M_IMPULSE.field(Bool(), W1I, 0, doc = "impulse start pulse").asOutput()
 }
 
 class RegIfExample2 extends Component {

@@ -102,6 +102,7 @@ class GlobalData(val config : SpinalConfig) {
 
   private var algoIncrementale = 1
   var toplevel : Component = null
+  var report : SpinalReport[Component] = null
 
   def allocateAlgoIncrementale(): Int = {
     assert(algoIncrementale != Integer.MAX_VALUE)
@@ -227,23 +228,29 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
       down = down.tail
       up = up.tail
     }
-    if(common != null)
+    val fullPath = if(common != null)
       (down.reverse :+ common) ++ up
     else
       down.reverse ++ up
+
+    // drop toplevel head for more consistent signal naming
+    fullPath match {
+      case h :: xs if h == globalData.toplevel => xs
+      case xs => xs
+    }
   }
 
   override def getName(default: String): String = {
 
     (getMode, nameableRef) match{
-      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        val path = getPath(this.component, other.component) :+ nameableRef
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
+        val path = getPath(this.component, other.component).tail :+ nameableRef
         if(path.forall(_.isNamed))
           path.map(_.getName()).mkString("_") + "_" + name
         else
           default
-      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        val path = getPath(this.component, other.component) :+ nameableRef
+      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
+        val path = getPath(this.component, other.component).tail :+ nameableRef
         if(path.forall(_.isNamed))
           path.map(_.getName()).mkString("_")
         else
@@ -253,13 +260,13 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
   }
 
 
-  override def isNamed: Boolean = {
+  override def isUnnamed: Boolean = {
     (getMode, nameableRef) match{
-      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
-        nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
-      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != other.component =>
-        nameableRef.isNamed && getPath(this.component, other.component).forall(_.isNamed)
-      case _ => super.isNamed
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
+        nameableRef.isUnnamed || getPath(this.component, other.component).tail.exists(_.isUnnamed)
+      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != null && this.component != other.component =>
+        nameableRef.isUnnamed || getPath(this.component, other.component).tail.exists(_.isUnnamed)
+      case _ => super.isUnnamed
     }
   }
 
@@ -379,7 +386,7 @@ trait Nameable extends OwnableRef with ContextUser{
     case OWNER_PREFIXED        => refOwner == null || refOwner.asInstanceOf[Nameable].isUnnamed
   }
 
-  def isNamed: Boolean = !isUnnamed
+  final def isNamed: Boolean = !isUnnamed
 
   def getName(): String = getName("")
   def getPartialName() : String = name
@@ -911,10 +918,14 @@ trait Num[T <: Data] {
   /** Is equal or greater than right */
   def >= (right: T): Bool
 
-  /** Logical left shift (w(T) = w(this) + shift)*/
+  /** Arithmetic left shift (w(T) = w(this) + shift)*/
   def << (shift: Int): T
-  /** Logical right shift (w(T) = w(this) - shift)*/
+  /** Arithmetic right shift (w(T) = w(this) - shift)*/
   def >> (shift: Int): T
+  /** Arithmetic left shift (w(T) = w(this) + (1 << shift)-1*/
+  def << (shift: UInt): T
+  /** Arithmetic right shift (w(T) = w(this)*/
+  def >> (shift: UInt): T
 
   /** Return the minimum value between this and right  */
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)

@@ -54,7 +54,7 @@ object Rtl {
     c
   }
 
-  def xorOutputs[T <: Component](c : T): T ={
+  def xorOutputs[T <: Component](c : T, cd : ClockDomain = ClockDomain.current): T ={
     def buf1[T <: Data](that : T) = KeepAttribute(RegNext(that)).addAttribute("DONT_TOUCH")
     def buf[T <: Data](that : T) = buf1(buf1(buf1(that)))
     c.rework{
@@ -63,6 +63,23 @@ object Rtl {
       outputs.foreach(_.setAsDirectionLess())
 
       val agreg = out(B(bools).xorR)
+    }
+    c
+  }
+
+  def compactInputs[T <: Component](c: T, cd : ClockDomain = ClockDomain.current) : T = {
+    def buf1[T <: Data](that: T) = KeepAttribute(RegNext(that)).addAttribute("DONT_TOUCH")
+    def buf[T <: Data](that: T) = buf1(buf1(buf1(that)))
+    c.rework {
+      cd {
+        val inputs = c.getAllIo.toList.filter(_.isInput).filter(_.getBitsWidth > 1)
+        inputs.foreach(_.setAsDirectionLess())
+        var ptr = in(Bits(1 bits))
+        for (pin <- inputs; bitId <- 0 until widthOf(pin)) {
+          ptr = buf(ptr)
+          pin.assignFromBits(ptr, bitId, 1 bits)
+        }
+      }
     }
     c
   }
@@ -89,12 +106,14 @@ object Bench {
       }
     }
 
+    val targetNameLengthMax = targets.map(_.getFamilyName().size).max
     for (rtl <- rtls) {
       println(s"${rtl.getName()} ->")
       for (target <- targets) {
         try{
           val report = results(rtl)(target).value.get.get
-          println(s"${target.getFamilyName()} -> ${(report.getFMax / 1e6).toInt} Mhz ${report.getArea()}")
+          val name = target.getFamilyName()
+          println(s"- ${name}${" " * (targetNameLengthMax-name.size)} -> ${(report.getFMax / 1e6).toInt} Mhz ${report.getArea()}")
         } catch {
           case t : Throwable =>  println(s"${target.getFamilyName()} -> FAILED")
         }

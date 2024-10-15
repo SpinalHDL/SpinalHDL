@@ -107,12 +107,21 @@ report_design_analysis -logic_level_distribution
         }       
         return lowest_pulse_slack 
       }
+
+      private def findFirst2StageInReport(regex1st: String, regex2nd: String): String = {
+        try{
+          regex1st.r.findFirstIn(regex2nd.r.findFirstIn(report).get).get
+        } catch {
+          case e : Exception => "???"
+        }
+      }
+
       override def getFMax(): Double = {
-        val intFind = "-?(\\d+\\.?)+".r
+        val intFind = "-?(\\d+\\.?)+"
         var slack = try {
           (family match {
             case "Artix 7" | "Kintex 7" | "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
-              intFind.findFirstIn("-?(\\d+.?)+ns  \\(required time - arrival time\\)".r.findFirstIn(report).get).get
+              findFirst2StageInReport(intFind, "-?(\\d+.?)+ns  \\(required time - arrival time\\)")
           }).toDouble
         } catch {
           case e : Exception => -100000.0
@@ -123,21 +132,22 @@ report_design_analysis -logic_level_distribution
         }
         return 1.0 / (targetPeriod.toDouble - slack * 1e-9)
       }
+      
       override def getArea(): String =  {
         // 0, 30, 0.5, 15,5
-        val intFind = "(\\d+,?\\.?\\d*)".r
+        val intFind = "(\\d+,?\\.?\\d*)"
         val leArea = try {
           family match {
             case "Artix 7" | "Kintex 7" =>
-              intFind.findFirstIn("Slice LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
-              intFind.findFirstIn("Slice Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
+              findFirst2StageInReport(intFind, "Slice LUTs[ ]*\\|[ ]*(\\d+,?)+") + " LUT " +
+              findFirst2StageInReport(intFind, "Slice Registers[ ]*\\|[ ]*(\\d+,?)+") + " FF "
             // Assume the the resources table is the only one with 5 columns (this is the case in Vivado 2021.2)
             // (Not very version-proof, we should actually first look at the right table header first...)
             case "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
-              intFind.findFirstIn("\\| CLB LUTs[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " LUT " +
-              intFind.findFirstIn("\\| CLB Registers[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " FF " +
-              intFind.findFirstIn("\\| Block RAM Tile[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " BRAM " + 
-              intFind.findFirstIn("\\| URAM[ ]*\\|([ ]*\\S+\\s+\\|){5}".r.findFirstIn(report).get).get + " URAM "
+              findFirst2StageInReport(intFind, "\\| CLB LUTs[ ]*\\|([ ]*\\S+\\s+\\|){5}") + " LUT " +
+              findFirst2StageInReport(intFind, "\\| CLB Registers[ ]*\\|([ ]*\\S+\\s+\\|){5}") + " FF " +
+              findFirst2StageInReport(intFind, "\\| Block RAM Tile[ ]*\\|([ ]*\\S+\\s+\\|){5}") + " BRAM " + 
+              findFirst2StageInReport(intFind, "\\| URAM[ ]*\\|([ ]*\\S+\\s+\\|){5}") + " URAM "
           }
         } catch {
           case e : Exception => "???"

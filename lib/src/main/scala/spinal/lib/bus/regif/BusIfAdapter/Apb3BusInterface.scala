@@ -11,7 +11,7 @@ case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, regPre: String = ""
   lazy val reg_wrerr: Bool = Reg(Bool(), init = False)
   val bus_rdata: Bits  = Bits(busDataWidth bits)
   val reg_rderr: Bool = Reg(Bool(), init = False)
-  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
+  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defaultReadBits)
 
   override val withStrb: Boolean = false
   val wstrb: Bits = withStrb generate(Bits(strbWidth bit))
@@ -25,9 +25,11 @@ case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, regPre: String = ""
   bus.PRDATA := bus_rdata
 
   val askWrite  = (bus.PSEL(0) && bus.PWRITE).allowPruning()
-  val askRead   = (bus.PSEL(0) && !bus.PWRITE).allowPruning()
+//  val askRead   = (bus.PSEL(0) && !bus.PWRITE).allowPruning()
+  val askRead   = (bus.PSEL(0) && !bus.PWRITE && !bus.PENABLE).allowPruning()
   val doWrite   = (askWrite && bus.PENABLE && bus.PREADY).allowPruning()
-  val doRead    = (askRead  && bus.PENABLE && bus.PREADY).allowPruning()
+//  val doRead    = (askRead  && bus.PENABLE && bus.PREADY).allowPruning()
+  val doRead    = (bus.PSEL(0) && !bus.PWRITE && bus.PENABLE && bus.PREADY).allowPruning()
   val writeData = bus.PWDATA
   override lazy val cg_en: Bool = bus.PSEL(0) || RegNext(bus.PSEL(0), init = False) //why delay 1 cycle is used for W1P clear back after write
   override lazy val bus_nsbit: Bool = False

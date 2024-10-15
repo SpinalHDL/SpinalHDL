@@ -141,6 +141,7 @@ case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
 
 
 case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area with InterruptCtrlGeneratorI{
+  val clockDomain = ClockDomain.currentHandle
   @dontName val gateways = ArrayBuffer[Handle[PlicGateway]]()
   val ctrl = Handle(logic.bmb)
 
@@ -163,19 +164,21 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
   }
 
   override def addInterrupt(source : => Handle[Bool], id : Int) = {
+    val intCd = ClockDomain.currentHandle
     lock.retain()
-    Handle{
+    Handle(clockDomain{
       val src = source
       soon(lock)
+      val cc = !ClockDomain.areSynchronous(clockDomain, intCd)
       gateways += PlicGatewayActiveHigh(
-        source = src,
+        source = cc.mux(BufferCC(src), src),
         id = id,
         priorityWidth = priorityWidth
       ).setCompositeName(src, "plic_gateway")
 
       Component.current.addTag (new Export(BmbPlicGenerator.this.getName() + "_" + src.getName, id))
       lock.release()
-    }
+    })
   }
 
   override def getBus(): Handle[Nameable] = ctrl

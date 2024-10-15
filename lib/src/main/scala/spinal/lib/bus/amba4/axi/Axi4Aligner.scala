@@ -9,7 +9,7 @@ object Axi4WriteOnlyAligner{
 }
 // split bursts in bytesMax chunk, aligned on their size, may expend the head / last burst a bit to stay aligned
 // Assume only one pending burst per ID
-// Assume multi beat burst always have size to its max
+// Assume multi beat burst always have size to its max (need a Axi4WriteOnlyCompactor ahead)
 // INCR only
 class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int) extends Component {
   assert(isPow2(bytesMax))

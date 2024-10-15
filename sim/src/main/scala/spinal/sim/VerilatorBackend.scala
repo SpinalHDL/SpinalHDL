@@ -243,7 +243,7 @@ public:
 };
 
 class Wrapper_${uniqueId};
-thread_local Wrapper_${uniqueId} *simHandle${uniqueId};
+thread_local Wrapper_${uniqueId} *simHandle${uniqueId} = NULL;
 
 #include <chrono>
 using namespace std::chrono;
@@ -254,6 +254,7 @@ public:
     high_resolution_clock::time_point lastFlushAt;
     uint32_t timeCheck;
     bool waveEnabled;
+    bool gotFinish;
     //VerilatedContext* contextp; //Buggy in multi threaded spinalsim
     V${config.toplevelName} *top;
     ISignalAccess *signalAccess[${config.signals.length}];
@@ -267,10 +268,13 @@ public:
       //contextp = new VerilatedContext;
       Verilated::randReset(2);
       Verilated::randSeed(seed);
-      top = new V${config.toplevelName}();
-
+      // Verilator v5.026+ calls time() inside Vtop::Vtop()
+      // initialize the simHandle before we call Vtop
       simHandle${uniqueId} = this;
       time = 0;
+      gotFinish = false;
+      top = new V${config.toplevelName}();
+      
       timeCheck = 0;
       lastFlushAt = high_resolution_clock::now();
       waveEnabled = true;
@@ -281,7 +285,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       else if(signal.dataType.width <= 64) "QData"
       else "WData"
       val enforcedCast = if(signal.dataType.width > 64) "(WData*)" else ""
-      val signalReference = s"top->${signal.path.map(_.replace("$", "__024")).mkString("->")}"
+      val signalReference = s"top->${signal.path.map(_.replace("$", "__024").replace("__", "___05F")).mkString("->")}"
       val memPatch = if(signal.dataType.isMem) "[0]" else ""
 
       s"      signalAccess[$id] = new ${typePrefix}SignalAccess($enforcedCast $signalReference$memPatch ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
@@ -293,6 +297,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top->trace(&tfp, 99);
+      tfp.set_time_resolution(${if (useTimePrecision) "Verilated::threadContextp()->timeprecisionString()" else "VL_TIME_PRECISION_STR" });
       tfp.open((std::string(wavePath) + "wave" + ".${format.ext}").c_str());
       #endif
       this->name = name;
@@ -316,7 +321,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       // Verilated::runFlushCallbacks();
       // Verilated::runExitCallbacks();
 
-      //contextp->gotFinish(true);
+      //contextp->threadContextp()->gotFinish(true);
       top->final();
       delete top;
       //delete contextp;
@@ -341,7 +346,7 @@ void vl_finish(const char* filename, int linenum, const char* hier) VL_MT_UNSAFE
         Verilated::runExitCallbacks();
         std::exit(0);
     }*/
-    Verilated::threadContextp()->gotFinish(true);
+    simHandle${uniqueId}->gotFinish = true;
 }
 
 #ifdef __cplusplus
@@ -355,6 +360,7 @@ extern "C" {
 
 JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
   (JNIEnv * env, jobject obj, jstring name, jstring wavePath, jint seedValue){
+    simHandle${uniqueId} = NULL;
     #if defined(_WIN32) && !defined(__CYGWIN__)
     srand(seedValue);
     #else
@@ -370,8 +376,10 @@ JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
 
 JNIEXPORT jboolean API JNICALL ${jniPrefix}eval_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle){
+   if(simHandle${uniqueId}->gotFinish) printf("XXX eval on already finished !!!\\n");
    handle->top->eval();
-   return Verilated::gotFinish();
+   if(simHandle${uniqueId}->gotFinish) printf("XXX eval finished\\n");
+   return simHandle${uniqueId}->gotFinish;
 }
 
 JNIEXPORT jint API JNICALL ${jniPrefix}getTimePrecision_1${uniqueId}

@@ -21,7 +21,7 @@ final case class DocSystemRdl(name: String) extends BusIfDoc {
   implicit class RegSliceExtend(reg: RegSlice) {
     def toSystemRdl: String = {
       s"""   reg {
-        |          name = "${reg.getName()}";
+        |          name = "${reg.upperName()}";
         |          desc = "${clean(reg.getDoc())}";
         |${reg.getFields().map(_.toSystemRdl).mkString("\n")}
         |   } ${reg.getName()} @ 0x${reg.getAddr()}%X;
@@ -69,7 +69,8 @@ final case class DocSystemRdl(name: String) extends BusIfDoc {
       case W1    => "sw = rw;\nonwrite = wuser;  // First one after HARD reset is as-is, other W have no effect."
       case WO1   => "sw = w;\nonwrite = wuser;  // First one after HARD reset is as-is, other W have no effect."
       case NA    => "sw = na;"
-      case W1P   => "sw = rw;\nsinglepulse;  // On 1 pulse on matching bit."
+      case W1P   => "sw = rw;\nsinglepulse;  // On 1 pulse on matching bit. Pulse reg out"
+      case W1I   => "sw = rw;\nsinglepulse;  // On 1 pulse on matching bit. ImPulse combination out"
       case W0P   => "sw = rw;\nonwrite = wuser;  // On 0 write pulse on matching bit."
       case _     => "// Unknown access type. Report an issue on SpinalHDL's GitHub."
     }

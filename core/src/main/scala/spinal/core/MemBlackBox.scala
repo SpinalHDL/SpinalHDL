@@ -21,9 +21,39 @@
 package spinal.core
 
 
-/**
-  * Ram 1w 1ra
-  */
+object Ram_1w_1ra{
+  val efinix = """module Ram_1w_1ra #(
+                 |        parameter integer wordCount = 0,
+                 |        parameter integer wordWidth = 0,
+                 |        parameter technology = "auto",
+                 |        parameter readUnderWrite = "dontCare",
+                 |        parameter integer wrAddressWidth = 0,
+                 |        parameter integer wrDataWidth = 0,
+                 |        parameter integer wrMaskWidth = 0,
+                 |        parameter wrMaskEnable = 1'b0,
+                 |        parameter integer rdAddressWidth = 0,
+                 |        parameter integer rdDataWidth  = 0
+                 |    )(
+                 |        input wire clk,
+                 |        input wire wr_en,
+                 |        input wire [wrMaskWidth-1:0] wr_mask,
+                 |        input wire [wrAddressWidth-1:0] wr_addr,
+                 |        input wire [wrDataWidth-1:0] wr_data,
+                 |        input wire [rdAddressWidth-1:0] rd_addr,
+                 |        output wire [rdDataWidth-1:0] rd_data
+                 |    );
+                 |
+                 |    reg [wrDataWidth-1:0] ram_block [(2**wrAddressWidth)-1:0];
+                 |    always @ (posedge clk) begin
+                 |        if(wr_en) begin
+                 |           ram_block[wr_addr] <= wr_data;
+                 |        end
+                 |    end
+                 |
+                 |    assign rd_data = ram_block[rd_addr];
+                 |endmodule""".stripMargin
+}
+
 class Ram_1w_1ra(
   val wordWidth      : Int,
   val wordCount      : Int,
@@ -75,9 +105,55 @@ class Ram_1w_1ra(
 }
 
 
-/**
-  * Ram 1w 1rs
-  */
+
+object Ram_1w_1rs{
+  val efinix = """module Ram_1w_1rs #(
+                 |        parameter integer wordCount = 0,
+                 |        parameter integer wordWidth = 0,
+                 |        parameter clockCrossing = 1'b0,
+                 |        parameter technology = "auto",
+                 |        parameter readUnderWrite = "dontCare",
+                 |        parameter integer wrAddressWidth = 0,
+                 |        parameter integer wrDataWidth = 0,
+                 |        parameter integer wrMaskWidth = 0,
+                 |        parameter wrMaskEnable = 1'b0,
+                 |        parameter integer rdAddressWidth = 0,
+                 |        parameter integer rdDataWidth  = 0
+                 |    )(
+                 |        input wr_clk,
+                 |        input wr_en,
+                 |        input [wrMaskWidth-1:0] wr_mask,
+                 |        input [wrAddressWidth-1:0] wr_addr,
+                 |        input [wrDataWidth-1:0] wr_data,
+                 |        input rd_clk,
+                 |        input rd_en,
+                 |        input [rdAddressWidth-1:0] rd_addr,
+                 |        output [rdDataWidth-1:0] rd_data
+                 |    );
+                 |
+                 |    reg [wrDataWidth-1:0] ram_block [(2**wrAddressWidth)-1:0];
+                 |    integer i;
+                 |    localparam COL_WIDTH = wrDataWidth/wrMaskWidth;
+                 |    always @ (posedge wr_clk) begin
+                 |        if(wr_en) begin
+                 |            for(i=0;i<wrMaskWidth;i=i+1) begin
+                 |                if(wr_mask[i]) begin // byte-enable
+                 |                    ram_block[wr_addr][i*COL_WIDTH +: COL_WIDTH] <= wr_data[i*COL_WIDTH +:COL_WIDTH];
+                 |                end
+                 |            end
+                 |        end
+                 |    end
+                 |    reg [rdDataWidth-1:0] ram_rd_data;
+                 |    always @ (posedge rd_clk) begin
+                 |        if(rd_en) begin
+                 |            ram_rd_data <= ram_block[rd_addr];
+                 |        end
+                 |    end
+                 |    assign rd_data = ram_rd_data;
+                 |
+                 |endmodule""".stripMargin
+}
+
 class Ram_1w_1rs(
   val wordWidth      : Int,
   val wordCount      : Int,
@@ -133,9 +209,6 @@ class Ram_1w_1rs(
 }
 
 
-/**
-  * Ram 2c 1w 1rs
-  */
 class Ram_2c_1w_1rs(
   val wordWidth      : Int,
   val wordCount      : Int,
@@ -180,9 +253,6 @@ class Ram_2c_1w_1rs(
 }
 
 
-/**
-  * Ram 1wors
-  */
 class Ram_1wors(val wordWidth: Int,
                 val wordCount: Int,
                 val readUnderWrite: ReadUnderWritePolicy = dontCare) extends BlackBox {
@@ -222,9 +292,6 @@ class Ram_1wors(val wordWidth: Int,
 }
 
 
-/**
-  * Ram 1wrs
-  */
 class Ram_1wrs(
   val wordWidth      : Int,
   val wordCount      : Int,
@@ -260,9 +327,6 @@ class Ram_1wrs(
 }
 
 
-/**
-  * Ram 2wrs
-  */
 class Ram_2wrs(
   val wordWidth            : Int,
   val wordCount            : Int,

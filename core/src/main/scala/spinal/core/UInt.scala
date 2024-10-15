@@ -136,6 +136,9 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   /**highest m bits Discard */
   def trim(m: Int): UInt = this(getWidth-m-1 downto 0)
 
+  def invertedMsb = !this.msb ## this.dropHigh(1)
+  def clearedLow(n : Int) : UInt = (this >> n) << n
+
   /**Round Api*/
 
   /** UInt ceil
@@ -356,6 +359,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     val thatMod = that % width
     this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
   }
+
+  def @*(count: Int): UInt = wrapUnaryOperator(new Operator.UInt.Repeat(count))
 
   /**
     * 2'Complement

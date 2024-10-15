@@ -4,6 +4,8 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.pipeline._
 
+// Will transform burst of size < max into size = max (compacting bursts)
+// Mostly implement via a data buffer on the W channel
 class Axi4WriteOnlyCompactor(config: Axi4Config) extends Component {
   val io = new Bundle {
     val up = slave port Axi4WriteOnly(config)
@@ -99,9 +101,9 @@ object Axi4WriteOnlyCompactorGen extends App{
 }
 
 
-
-//Assume no interleaving
-//Assume not more than one pending transaction per ID
+// Will transform burst of size < max into size = max (compacting bursts)
+// Assume no interleaving
+// Assume not more than one pending transaction per ID
 class Axi4ReadOnlyCompactor(config: Axi4Config) extends Component {
   val io = new Bundle {
     val up = slave port Axi4ReadOnly(config)

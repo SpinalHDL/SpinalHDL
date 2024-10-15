@@ -31,7 +31,12 @@ object KeepAttribute{
   }
   object keep extends AttributeFlag("keep")
 
-  def apply[T <: Data](that : T) = that.addAttribute(keep).addAttribute(syn_keep_verilog).addAttribute(syn_keep_vhdl)
+  def apply[T <: Data](that : T) : T = that.addAttribute(keep).addAttribute(syn_keep_verilog).addAttribute(syn_keep_vhdl)
+
+  def apply[T <: Data](that: T, tail : T*) : Unit = {
+    apply(that)
+    tail.foreach(apply)
+  }
   val all = List(keep, syn_keep_verilog ,syn_keep_vhdl)
 }
 
@@ -140,7 +145,7 @@ object DoCmd {
 
 
 object Repeat{
-  def apply[T <: Data](value : T, times : Int) = Cat(List.fill(times)(value))
+  def apply[T <: Data](value : T, times : Int) = value #* times
 }
 
 
@@ -186,11 +191,13 @@ object DataCc{
     ClockDomain.areSynchronous(to.clockDomain, from.clockDomain) match {
       case true => to := from
       case false => {
-        val cc = new StreamCCByToggle(to, from.clockDomain, to.clockDomain).setCompositeName(to, "cc_driver")
-        cc.io.input.valid := True
-        cc.io.input.payload := from
-        cc.io.output.ready := True
-        to := cc.io.output.payload
+        to := signalCache((from, to.clockDomain, "DataCc")) {
+          val cc = new StreamCCByToggle(to, from.clockDomain, to.clockDomain).setCompositeName(to, "cc_driver")
+          cc.io.input.valid := True
+          cc.io.input.payload := from
+          cc.io.output.ready := True
+          cc.io.output.payload
+        }
       }
     }
   }
