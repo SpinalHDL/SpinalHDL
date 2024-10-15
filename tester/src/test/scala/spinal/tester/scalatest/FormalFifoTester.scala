@@ -11,11 +11,12 @@ class FormalFifoTester extends SpinalFormalFunSuite {
   // @TODO Passes induction Prove only for forFMax=true, fix for forFMax=false
   // this requires assertions to establish pop/push relationship with counters for all cases
   // @TODO Stream.formalCheckRam() should check Vec on useVec
-  def formalTestStreamFifo(depth: Int,
-                     withAsyncRead: Boolean,
-                     withBypass: Boolean,
-                     forFMax : Boolean,
-                     allowExtraMsb : Boolean): Unit = test(s"StreamFifo_depth.$depth-withAsyncRead.$withAsyncRead-withBypass.$withBypass-forFMax.$forFMax-allowExtraMsb.$allowExtraMsb") {
+  def formalTestStreamFifo(backend: FormalBackend,
+                           depth: Int,
+                           withAsyncRead: Boolean,
+                           withBypass: Boolean,
+                           forFMax : Boolean,
+                           allowExtraMsb : Boolean): Unit = test(s"StreamFifo_depth.$depth-withAsyncRead.$withAsyncRead-withBypass.$withBypass-forFMax.$forFMax-allowExtraMsb.$allowExtraMsb-backend.$backend") {
 
     // it's not really testing much logic, so not used as argument
     val useVec = false
@@ -41,7 +42,10 @@ class FormalFifoTester extends SpinalFormalFunSuite {
     val dataWidth = 7
 
     // @TODO Passes BMC and Cover test for isPow2(depth >= 4) StreamFifo configurations
-    var formalCfg = FormalConfig.withBMC(coverCycles + 2).withCover(coverCycles)
+    var formalCfg = FormalConfig
+      .withBackend(backend)
+      .withBMC(coverCycles + 2)
+      .withCover(coverCycles)
     // @TODO Passes Prove only for forFMax=true, TODO forFMax=false cases
     if (forFMax==true) formalCfg.withProve(coverCycles)
     formalCfg
@@ -163,14 +167,16 @@ class FormalFifoTester extends SpinalFormalFunSuite {
 
   // @NOTE depth < 2 will fail due to the formal test assuming FIFO RAM
   // @TODO useVec is not yet supported in formal, should be easy to add
-  for (depth <- List(3, 4, 7);
+  for (backend <- List(SymbiYosysFormalBackend, GhdlFormalBackend);
+    depth <- List(3, 4, 7);
     withAsyncRead <- List(false, true);
     withBypass <- List(false, true);
     forFMax <- List(false, true);
     allowExtraMsb <- List(false, true);
 
   if !(!withAsyncRead && withBypass)) {
-    formalTestStreamFifo(depth = depth,
+    formalTestStreamFifo(backend,
+      depth = depth,
       withAsyncRead = withAsyncRead,
       withBypass = withBypass,
       forFMax = forFMax,

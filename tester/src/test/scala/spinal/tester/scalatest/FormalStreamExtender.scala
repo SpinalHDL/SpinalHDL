@@ -6,9 +6,10 @@ import spinal.lib._
 import spinal.lib.formal._
 
 class FormalStreamExtender extends SpinalFormalFunSuite {
-  def counterTester() {
+  def counterTester(backend: FormalBackend) {
     FormalConfig
-      // .withBMC(10)
+      .withBackend(backend)
+      .withBMC(10)
       .withProve(10)
       .withCover(10)
       .doVerify(new Component {
@@ -53,9 +54,10 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
       })
   }
 
-  def counterNoDelayTester() {
+  def counterNoDelayTester(backend: FormalBackend) {
     FormalConfig
-      // .withBMC(10)
+      .withBackend(backend)
+      .withBMC(10)
       .withProve(10)
       .withCover(10)
       .doVerify(new Component {
@@ -100,9 +102,10 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
       })
   }
 
-  def extenderTester() {
+  def extenderTester(backend: FormalBackend) {
     FormalConfig
-      // .withBMC(10)
+      .withBackend(backend)
+      .withBMC(10)
       .withProve(10)
       .withCover(10)
       .doVerify(new Component {
@@ -138,9 +141,10 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
       })
   }
 
-  def extenderNoDelayTester() {
+  def extenderNoDelayTester(backend: FormalBackend) {
     FormalConfig
-      // .withBMC(10)
+      .withBackend(backend)
+      .withBMC(10)
       .withProve(10)
       .withCover(10)
       .doVerify(new Component {
@@ -182,19 +186,31 @@ class FormalStreamExtender extends SpinalFormalFunSuite {
       })
   }
 
-  test("transaction counter") {
-    counterTester()
+  test("transaction counter - symbiyosys") {
+    counterTester(SymbiYosysFormalBackend)
+  }
+  test("transaction counter - ghdl") {
+    counterTester(GhdlFormalBackend)
   }
 
-  test("transaction counter without delay") {
-    counterNoDelayTester()
+  test("transaction counter without delay - symbiyosys") {
+    counterNoDelayTester(SymbiYosysFormalBackend)
+  }
+  test("transaction counter without delay - ghdl") {
+    counterNoDelayTester(GhdlFormalBackend)
   }
 
-  test("transaction extender") {
-    extenderTester()
+  test("transaction extender - symbiyosys") {
+    extenderTester(SymbiYosysFormalBackend)
+  }
+  test("transaction extender - ghdl") {
+    extenderTester(GhdlFormalBackend)
   }
 
-  test("transaction extender without delay") {
-    extenderNoDelayTester()
+  test("transaction extender without delay - symbiyosys") {
+    extenderNoDelayTester(SymbiYosysFormalBackend)
+  }
+  test("transaction extender without delay - ghdl") {
+    extenderNoDelayTester(GhdlFormalBackend)
   }
 }

@@ -1,6 +1,6 @@
 package spinal.core
 
-import spinal.core.formal.{FormalConfig, SpinalFormalConfig, FormalDut}
+import spinal.core.formal.{FormalConfig, FormalDut, FormalBackend, SymbiYosysFormalBackend, GhdlFormalBackend}
 import spinal.lib.formal.SpinalFormalFunSuite
 import spinal.tester.SpinalAnyFunSuite
 
@@ -58,9 +58,10 @@ class SubdivideInTest extends SpinalFormalFunSuite {
       assert(i === o)
     }
   }
-  
-  test("mix of slicing operations") {
-    SpinalFormalConfig(_keepDebugInfo = true)
+
+  def testMain(backend: FormalBackend) {
+    FormalConfig
+      .withBackend(backend)
       .withBMC(5)
       .withProve(5)
       .doVerify(new Component {
@@ -79,5 +80,12 @@ class SubdivideInTest extends SpinalFormalFunSuite {
         val dut_9_4slices = FormalDut(SliceDutSlices(9, 4 slices)) // odd width
         dut_9_4slices.formalAsserts()
       }.setDefinitionName("BitVectorTests_SubdivideInTest"))
+  }
+
+  test("mix of slicing operations - symbiyosys") {
+    testMain(SymbiYosysFormalBackend)
+  }
+  test("mix of slicing operations - ghdl") {
+    testMain(GhdlFormalBackend)
   }
 }

@@ -6,8 +6,9 @@ import spinal.lib._
 import spinal.lib.formal._
 
 class FormalMuxTester extends SpinalFormalFunSuite {
-  def formalmux(selWithCtrl: Boolean = false) = {
+  def formalmux(backend: FormalBackend, selWithCtrl: Boolean = false) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -63,15 +64,22 @@ class FormalMuxTester extends SpinalFormalFunSuite {
         }
       })
   }
-  test("mux_sel_with_control") {
-    formalmux(true)
+  test("mux_sel_with_control_symbiyosys") {
+    formalmux(SymbiYosysFormalBackend, true)
   }
-  test("mux_sel_without_control") {
-    shouldFail(formalmux(false))
+  test("mux_sel_with_control_ghdl") {
+    formalmux(GhdlFormalBackend, true)
+  }
+  test("mux_sel_without_control_symbiyosys") {
+    shouldFail(formalmux(SymbiYosysFormalBackend, false))
+  }
+  test("mux_sel_without_control_ghdl") {
+    shouldFail(formalmux(GhdlFormalBackend, false))
   }
 
-  test("mux_sync_sel") {
+  def formalmuxSyncSel(backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withProve(20)
       .withCover(20)
       .doVerify(new Component {
@@ -125,9 +133,15 @@ class FormalMuxTester extends SpinalFormalFunSuite {
         }
         setDefinitionName("mux_sync_sel")
       })
-
   }
-  test("mux_with_selector") {
+  test("mux_sync_sel_symbiyosys") {
+    formalmuxSyncSel(SymbiYosysFormalBackend)
+  }
+  test("mux_sync_sel_ghdl") {
+    formalmuxSyncSel(GhdlFormalBackend)
+  }
+
+  def formalmuxSelector(backend: FormalBackend) = {
     FormalConfig
       .withProve(20)
       .withCover(20)
@@ -177,6 +191,11 @@ class FormalMuxTester extends SpinalFormalFunSuite {
         setDefinitionName("mux_with_selector")
 
       })
-
+  }
+  test("mux_with_selector_symbiyosys") {
+    formalmuxSelector(SymbiYosysFormalBackend)
+  }
+  test("mux_with_selector_ghdl") {
+    formalmuxSelector(GhdlFormalBackend)
   }
 }
