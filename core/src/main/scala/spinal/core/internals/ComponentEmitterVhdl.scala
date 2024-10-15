@@ -645,7 +645,7 @@ class ComponentEmitterVhdl(
                 case m: SpinalEnumCraft[_] =>
                   require(
                     m.getEncoding == native,
-                    s"VHDL emitter can format only natively encoded enums! Located at:\n${statement.getScalaLocationLong}",
+                    s"VHDL emitter can format only natively encoded enums! Located at:\n${statement.getScalaLocationLong}"
                   )
                   s"${emitEnumType(m)}'image(${emitExpression(m)})"
                 case m @ (_: Bits | _: UInt | _: SInt) =>
