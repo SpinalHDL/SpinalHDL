@@ -380,7 +380,7 @@ case class MacTxLso(bufferBytes : Int, packetsMax : Int = 15) extends Component{
     val readCmd = Stream(ram.addressType)
     val readRsp = ram.streamReadSync(readCmd)
     val packets = CounterUpDown(packetsMax + 1)
-    val full = (pushAt ^ popAt ^ bufferBytes) === 0
+    val full = (pushAt ^ popAt ^ bufferBytes) === 0 || packets === packetsMax
     val empty = pushAt === popAt
   }
 
