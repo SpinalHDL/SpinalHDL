@@ -90,9 +90,10 @@ object Dev extends App{
     }
 
     override def getArea() = {
-      val luts = "EFX_LUT4        : \t([0-9]+)".r.findAllMatchIn(log).next().group(1)
+      val luts = "EFX_LUT4        : \t([0-9]+)".r.findAllMatchIn(log).next().group(1).toInt
+      val add = "EFX_ADD         : \t([0-9]+)".r.findAllMatchIn(log).next().group(1).toInt
       val ff = "EFX_FF          : \t([0-9]+)".r.findAllMatchIn(log).next().group(1)
-      s"LUT $luts   FF $ff"
+      s"LUT ${luts+add}   FF $ff"
     }
   }
   println(x.getFMax())

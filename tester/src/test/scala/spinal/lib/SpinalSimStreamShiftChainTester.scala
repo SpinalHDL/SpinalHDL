@@ -8,7 +8,7 @@ import spinal.lib.sim._
 import spinal.core.sim._
 import spinal.tester.SpinalSimFunSuite
 
-class SpinalSimStreamShiftChainTester extends SpinalSimFunSuite {
+class SpinalSimStreamShiftChainTester() extends SpinalSimFunSuite {
     def prepare(
         dut: StreamShiftChain[UInt],
         alwaysInput: Boolean = false,

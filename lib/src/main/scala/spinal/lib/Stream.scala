@@ -15,6 +15,7 @@ object StreamPipe {
   val NONE = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.combStage()
   }
+
   val M2S = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.m2sPipe()
   }
@@ -26,6 +27,22 @@ object StreamPipe {
   }
   val HALF = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.halfPipe()
+  }
+
+  val M2S_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.m2sPipe(keep=true)
+  }
+  val S2M_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.s2mPipe(keep=true)
+  }
+  val FULL_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.s2mPipe(keep=true).m2sPipe(keep=true)
+  }
+  val HALF_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.halfPipe(keep=true)
+  }
+  val HALF_X2_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.halfPipe(keep = true).halfPipe(keep = true)
   }
 }
 
@@ -359,11 +376,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def stage() : Stream[T] = this.m2sPipe()
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false): Stream[T] = new Composite(this) {
+  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false, keep : Boolean = false): Stream[T] = new Composite(this) {
     val m2sPipe = Stream(payloadType)
 
     val rValid = RegNextWhen(self.valid, self.ready) init(False)
     val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready)
+    if (keep) KeepAttribute.apply(rValid, rData)
 
     if (crossClockData) {
       rData.addTag(crossClockDomain)
@@ -378,11 +396,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     m2sPipe.payload := rData
   }.m2sPipe
 
-  def s2mPipe(flush : Bool = null): Stream[T] = new Composite(this) {
+  def s2mPipe(flush : Bool = null, keep : Boolean = false): Stream[T] = new Composite(this) {
     val s2mPipe = Stream(payloadType)
 
     val rValidN = RegInit(True) clearWhen(self.valid) setWhen(s2mPipe.ready)
     val rData = RegNextWhen(self.payload, self.ready)
+    if (keep) KeepAttribute.apply(rValidN, rData)
 
     self.ready := rValidN
 
@@ -399,10 +418,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
-  def validPipe() : Stream[T] = new Composite(this) {
+  def validPipe(keep : Boolean = false) : Stream[T] = new Composite(this) {
     val validPipe = Stream(payloadType)
 
     val rValid = RegInit(False) setWhen(self.valid) clearWhen(validPipe.fire)
+    if (keep) KeepAttribute.apply(rValid)
 
     self.ready := validPipe.fire
 
@@ -412,11 +432,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
-  def halfPipe(flush : Bool = null): Stream[T] = new Composite(this) {
+  def halfPipe(flush : Bool = null, keep : Boolean = false): Stream[T] = new Composite(this) {
     val halfPipe = Stream(payloadType)
 
     val rValid = RegInit(False) setWhen(self.valid) clearWhen(halfPipe.fire)
     val rData = RegNextWhen(self.payload, self.ready)
+    if (keep) KeepAttribute.apply(rValid, rData)
 
     self.ready := !rValid
 
@@ -1744,7 +1765,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   val outHitSignal = Bool()
 
   val pushArea = inputClock on new Area {
-    val hit = BufferCC(outHitSignal, False)
+    val hit = BufferCC(outHitSignal, False, inputAttributes = Seq(crossClockMaxDelay(1, useTargetClock = true)))
     val accept = Bool()
     val target = RegInit(False) toggleWhen(accept)
     val data = RegNextWhen(io.input.payload, accept)
@@ -1763,7 +1784,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   val popArea = finalOutputClock on new Area {
     val stream = cloneOf(io.input)
 
-    val target = BufferCC(pushArea.target, False)
+    val target = BufferCC(pushArea.target, False, inputAttributes = Seq(crossClockMaxDelay(1, useTargetClock = true)))
     val hit = RegNextWhen(target, stream.fire) init(False)
     outHitSignal := hit
 

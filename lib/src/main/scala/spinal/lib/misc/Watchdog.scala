@@ -1,10 +1,11 @@
 package spinal.lib.misc
 
 import spinal.core._
-import spinal.core.fiber.{Handle, Unset}
+import spinal.core.fiber.{Fiber, Handle, Unset}
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbImplicitPeripheralDecoder, BmbInterconnectGenerator, BmbParameter, BmbSlaveFactory}
 import spinal.lib.bus.misc.{BusSlaveFactory, SizeMapping}
+import spinal.lib.bus.tilelink.fabric
 import spinal.lib.generator.InterruptCtrlGeneratorI
 
 class WatchdogParam(
@@ -111,5 +112,46 @@ case class BmbWatchdogGenerator(apbOffset : Handle[BigInt] = Unset)
     }
   }
 }
+
+import spinal.lib.bus.tilelink
+
+object TilelinkWatchdog{
+  def getSupported(proposed: tilelink.M2sSupport) = tilelink.SlaveFactory.getSupported(
+    addressWidth = addressWidth,
+    dataWidth = 32,
+    allowBurst = false,
+    proposed = proposed
+  )
+  def addressWidth = 8
+}
+
+
+case class TilelinkWatchdog(p : WatchdogParam, tlParam: tilelink.BusParameter) extends Component{
+  val io = new Bundle{
+    val bus =  slave(tilelink.Bus(tlParam))
+    val panics = out Bits(p.counters bits)
+    val heartBeat = in Bool() default(False)
+  }
+  val wd = new Watchdog(p)
+  val busCtrl = new tilelink.SlaveFactory(io.bus, false)
+  wd.driveFrom(busCtrl, 0)
+  wd.api.heartbeat setWhen(io.heartBeat)
+  io.panics <> wd.api.panics
+}
+
+case class TilelinkWatchdogFiber(p : WatchdogParam) extends Area{
+  val ctrl = fabric.Node.up()
+  val interrupts = List.fill(p.counters)(InterruptNode.master())
+
+  val logic = Fiber build new Area{
+    ctrl.m2s.supported.load(TilelinkWatchdog.getSupported(ctrl.m2s.proposed))
+    ctrl.s2m.none()
+
+    val core = TilelinkWatchdog(p, ctrl.bus.p)
+    core.io.bus <> ctrl.bus
+    for(i <- 0 until p.counters) interrupts(i).flag := core.io.panics(i)
+  }
+}
+
 
 

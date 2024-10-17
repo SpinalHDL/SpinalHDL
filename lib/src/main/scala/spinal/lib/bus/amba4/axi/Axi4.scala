@@ -38,6 +38,7 @@ case class Axi4Config(addressWidth : Int,
                       dataWidth    : Int,
                       idWidth      : Int = -1,
                       useId        : Boolean = true,
+                      withAxi3     : Boolean = false, //Very limited support
                       useRegion    : Boolean = true,
                       useBurst     : Boolean = true,
                       useLock      : Boolean = true,
@@ -61,7 +62,7 @@ case class Axi4Config(addressWidth : Int,
                       combinedIssuingCapability : Int = -1,
                       readDataReorderingDepth   : Int = -1) {
 
-
+  def useWid = withAxi3
   def useArUser = arUserWidth >= 0
   def useAwUser = awUserWidth >= 0
   def useRUser = rUserWidth >= 0
@@ -69,6 +70,9 @@ case class Axi4Config(addressWidth : Int,
   def useBUser = bUserWidth >= 0
   def useArwUser = arwUserWidth >= 0 //Shared AR/AW channel
   def arwUserWidth = Math.max(arUserWidth, awUserWidth)
+  def sizeWidth = withAxi3.mux(4, 3)
+  def lenWidth = withAxi3.mux(4, 8)
+  def lockWidth = withAxi3.mux(2, 1)
 
   if(useId)
     require(idWidth >= 0,"You need to set idWidth")
@@ -184,6 +188,13 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
       this.readCmd.setBlocked()
       this.readRsp.setIdle()
     }
+    ret
+  }
+
+  def expendId(idWidth: Int): Axi4 = {
+    assert(config.idWidth <= idWidth)
+    val ret = Axi4(config.copy(idWidth = idWidth))
+    ret << this
     ret
   }
 
