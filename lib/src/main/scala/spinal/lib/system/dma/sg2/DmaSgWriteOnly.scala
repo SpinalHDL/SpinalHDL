@@ -550,6 +550,10 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
     val tick = timeRef.willOverflowIfInc
 
     val irq = new Area{
+      val globalEnable = RegInit(False)
+      bus.setOnSet(globalEnable, 0, 8)
+      bus.clearOnSet(globalEnable, 0, 9)
+
       val idle = new Area{
         val enable = bus.createWriteOnly(Bool(), 4, 0) init(False)
         val irq = enable && !onPush.fsmState.isBusy
@@ -578,7 +582,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
         }
         val irq = enable && done
       }
-      val interrupt = idle.irq || delay.irq || counter.irq
+      val interrupt = globalEnable && (idle.irq || delay.irq || counter.irq)
     }
 
     bus.writeMultiWord(onPush.descriptor.next, 0x10)
