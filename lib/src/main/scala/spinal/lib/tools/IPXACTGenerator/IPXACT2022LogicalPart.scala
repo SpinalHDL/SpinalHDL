@@ -48,16 +48,18 @@ class IPXACT2022LogicalPart {
         for (parent <- parentChain) {
           parent match {
             case iMasterSlaveParent: IMasterSlave with Data =>
-              busSet -= iMasterSlaveParent
-              val signalSeq = iMasterSlaveParent.flatten
-              for (signal <- signalSeq) {
-                if (signal.isInput) {
-                  inputSet -= signal
-                } else {
-                  outputSet -= signal
+              if (busSet.contains(iMasterSlaveParent)) {
+                busSet -= iMasterSlaveParent
+                val signalSeq = iMasterSlaveParent.flatten
+                for (signal <- signalSeq) {
+                  if (signal.isInput) {
+                    inputSet -= signal
+                  } else {
+                    outputSet -= signal
+                  }
                 }
+                return
               }
-              return
             case _ =>
           }
         }
@@ -143,7 +145,6 @@ class IPXACT2022LogicalPart {
     val componentBusInterfaces = BusInterfaces(busInterfacesSeq)
     componentBusInterfaces
   }
-
 
   private def getPorts(module: Component): Option[Ports] = {
     var portsSeq: Seq[Port2] = Seq()

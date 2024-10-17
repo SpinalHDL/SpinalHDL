@@ -17,6 +17,7 @@ class IPXACT2022DesignXMLGenerator(toplevelVendor: String = "SpinalHDL", topleve
   private val moduleDefinitionName = module.definitionName
   private var busConnectionStringSet: Set[String] = Set()
   private var logicalPartSet: Set[IPXACT2022LogicalPart] = Set()
+  val directionConnection = new IPXACT2022LogicalPart
 
   //return (isBus,isInitiator,name,busDefinitionName)
   private def getPinInformation(pin: BaseType): (Boolean, Boolean, String, String) = {
@@ -120,7 +121,7 @@ class IPXACT2022DesignXMLGenerator(toplevelVendor: String = "SpinalHDL", topleve
     currentLogicalPart
   }
 
-  private def createLogicalPart: Set[IPXACT2022LogicalPart] = {
+  private def createLogicalPart(): Unit = {
     val moduleAnalyzer = new ModuleAnalyzer(module)
     val childrenComponent = module.children
     val allInputs = moduleAnalyzer.getInputs
@@ -130,7 +131,6 @@ class IPXACT2022DesignXMLGenerator(toplevelVendor: String = "SpinalHDL", topleve
     for (pin <- allInputs ++ allInnerOutputs) {
       val pinComponent = pin.getComponent()
       val pinAnalyzer = new DataAnalyzer(pin)
-      //      val validFanOuts = pinAnalyzer.getFanOut(otherComponentPin => otherComponentPin.getComponent() != pinComponent && allPins.contains(otherComponentPin) && allComponent.contains(otherComponentPin.getComponent()))
       val fanOuts = pinAnalyzer.getFanOut(fanOut => fanOut.getComponent() == pinComponent && !allPins.contains(fanOut))
       if (fanOuts.nonEmpty) {
         var logicalPart = new IPXACT2022LogicalPart()
@@ -146,7 +146,27 @@ class IPXACT2022DesignXMLGenerator(toplevelVendor: String = "SpinalHDL", topleve
       logicalPart.createBus()
       index += 1
     }
-    logicalPartSet
+  }
+
+  private def createDirectConnection(): Unit = {
+    val moduleAnalyzer = new ModuleAnalyzer(module)
+    val inputs = moduleAnalyzer.getInputs
+    val outputs = moduleAnalyzer.getOutputs
+    directionConnection.name = moduleDefinitionName + "_DirectConnection"
+    for (input <- inputs) {
+      val signalAnalyzer = new DataAnalyzer(input)
+      val fanOuts = signalAnalyzer.getFanOut
+      for (fanOut <- fanOuts) {
+        if (outputs.contains(fanOut)) {
+          directionConnection.inputSet += input
+          directionConnection.outputSet += fanOut
+        }
+      }
+    }
+    directionConnection.createBus()
+    if (directionConnection.inputSet.nonEmpty) {
+      logicalPartSet += directionConnection
+    }
   }
 
   private def mergeLogicalPartTogether(newLogicalPart: IPXACT2022LogicalPart, otherLogicalPart: IPXACT2022LogicalPart): IPXACT2022LogicalPart = {
@@ -202,6 +222,21 @@ class IPXACT2022DesignXMLGenerator(toplevelVendor: String = "SpinalHDL", topleve
     newLogicalPartSet
   }
 
+  private def getExternalPortReference(pinName: String): ExternalPortReference = {
+    val portRefRecord = DataRecord(Some(""), Some("portRef"), pinName)
+    val externalPortReferenceAttributes = Map("portRef" -> portRefRecord)
+    val externalPortReference = ExternalPortReference(attributes = externalPortReferenceAttributes)
+    externalPortReference
+  }
+
+  private def getInternalPortReference(pinName: String, pinComponentName: String): InternalPortReference = {
+    val componentInstanceRefRecord = DataRecord(Some(""), Some("componentInstanceRef"), pinComponentName)
+    val portRefRecord = DataRecord(Some(""), Some("portRef"), pinName)
+    val internalPortReferenceAttributes = Map("componentInstanceRef" -> componentInstanceRefRecord, "portRef" -> portRefRecord)
+    val internalPortReference = InternalPortReference(attributes = internalPortReferenceAttributes)
+    internalPortReference
+  }
+
   private def createConnections: (AdHocConnections, Interconnections) = {
     //adHocConnections
     val moduleAnalyzer = new ModuleAnalyzer(module)
@@ -219,7 +254,6 @@ class IPXACT2022DesignXMLGenerator(toplevelVendor: String = "SpinalHDL", topleve
       val (pinIsBus, pinIsInitiator, pinName, pinBusDefinitionName) = getPinInformation(pin)
       val validFanOuts = pinAnalyzer.getFanOut(otherComponentPin => otherComponentPin.getComponent() != pinComponent && allPins.contains(otherComponentPin) && allComponent.contains(otherComponentPin.getComponent()))
       for (fanOut <- validFanOuts) {
-
         val fanOutComponent = fanOut.getComponent()
         val (fanOutIsBus, fanOutIsInitiator, fanOutName, fanOutBusDefinitionName) = getPinInformation(fanOut)
 
@@ -257,34 +291,19 @@ class IPXACT2022DesignXMLGenerator(toplevelVendor: String = "SpinalHDL", topleve
             val interconnectionRecord = DataRecord(Some(""), Some("ipxact:interconnection"), interconnection)
             InterconnectionSeq :+= interconnectionRecord
           }
-        } else if ((!pinIsBus) && (!fanOutIsBus) && (pinIsInitiator ^ fanOutIsInitiator)) {
+        }
+        else if ((!pinIsBus) && (!fanOutIsBus) && (pinIsInitiator ^ fanOutIsInitiator)) {
           var internalPortReferenceSeq: Seq[InternalPortReference] = Seq()
           var externalPortReferenceSeq: Seq[ExternalPortReference] = Seq()
           if (module != pinComponent) {
-            val componentInstanceRefRecord = DataRecord(Some(""), Some("componentInstanceRef"), pinComponentName)
-            val portRefRecord = DataRecord(Some(""), Some("portRef"), pin.getName())
-            val internalPortReferenceAttributes = Map("componentInstanceRef" -> componentInstanceRefRecord, "portRef" -> portRefRecord)
-            val internalPortReference = InternalPortReference(attributes = internalPortReferenceAttributes)
-            internalPortReferenceSeq = internalPortReferenceSeq :+ internalPortReference
-          }
-          else {
-            val portRefRecord = DataRecord(Some(""), Some("portRef"), pin.getName())
-            val externalPortReferenceAttributes = Map("portRef" -> portRefRecord)
-            val externalPortReference = ExternalPortReference(attributes = externalPortReferenceAttributes)
-            externalPortReferenceSeq = externalPortReferenceSeq :+ externalPortReference
+            internalPortReferenceSeq = internalPortReferenceSeq :+ getInternalPortReference(pinName, pinComponentName)
+          } else {
+            externalPortReferenceSeq = externalPortReferenceSeq :+ getExternalPortReference(pinName)
           }
           if (fanOutComponent != module) {
-            val componentInstanceRefRecord = DataRecord(Some(""), Some("componentInstanceRef"), fanOut.getComponent().getName())
-            val portRefRecord = DataRecord(Some(""), Some("portRef"), fanOut.getName())
-            val internalPortReferenceAttributes = Map("componentInstanceRef" -> componentInstanceRefRecord, "portRef" -> portRefRecord)
-            val internalPortReference = InternalPortReference(attributes = internalPortReferenceAttributes)
-            internalPortReferenceSeq = internalPortReferenceSeq :+ internalPortReference
-          }
-          else {
-            val portRefRecord = DataRecord(Some(""), Some("portRef"), fanOut.getName())
-            val externalPortReferenceAttributes = Map("portRef" -> portRefRecord)
-            val externalPortReference = ExternalPortReference(attributes = externalPortReferenceAttributes)
-            externalPortReferenceSeq = externalPortReferenceSeq :+ externalPortReference
+            internalPortReferenceSeq = internalPortReferenceSeq :+ getInternalPortReference(fanOutName, fanOut.getComponent().getName())
+          } else {
+            externalPortReferenceSeq = externalPortReferenceSeq :+ getExternalPortReference(fanOutName)
           }
           val portReferencesSequence = PortReferencesSequence1(internalPortReference = internalPortReferenceSeq, externalPortReference = externalPortReferenceSeq)
           val portReferencesSequenceRecord = DataRecord(Some(""), Some(""), portReferencesSequence)
@@ -331,23 +350,12 @@ class IPXACT2022DesignXMLGenerator(toplevelVendor: String = "SpinalHDL", topleve
           var internalPortReferenceSeq: Seq[InternalPortReference] = Seq()
           var externalPortReferenceSeq: Seq[ExternalPortReference] = Seq()
           if (module != pinComponent) {
-            val componentInstanceRefRecord = DataRecord(Some(""), Some("componentInstanceRef"), pin.getComponent().getName())
-            val portRefRecord = DataRecord(Some(""), Some("portRef"), pin.getName())
-            val internalPortReferenceAttributes = Map("componentInstanceRef" -> componentInstanceRefRecord, "portRef" -> portRefRecord)
-            val internalPortReference = InternalPortReference(attributes = internalPortReferenceAttributes)
-            internalPortReferenceSeq = internalPortReferenceSeq :+ internalPortReference
+            internalPortReferenceSeq = internalPortReferenceSeq :+ getInternalPortReference(pin.getName(), pin.getComponent().getName())
           }
           else {
-            val portRefRecord = DataRecord(Some(""), Some("portRef"), pin.getName())
-            val externalPortReferenceAttributes = Map("portRef" -> portRefRecord)
-            val externalPortReference = ExternalPortReference(attributes = externalPortReferenceAttributes)
-            externalPortReferenceSeq = externalPortReferenceSeq :+ externalPortReference
+            externalPortReferenceSeq = externalPortReferenceSeq :+ getExternalPortReference(pin.getName())
           }
-          val componentInstanceRefRecord = DataRecord(Some(""), Some("componentInstanceRef"), logicalPart.name)
-          val portRefRecord = DataRecord(Some(""), Some("portRef"), pin.getComponent().name + "_" + pin.getName())
-          val internalPortReferenceAttributes = Map("componentInstanceRef" -> componentInstanceRefRecord, "portRef" -> portRefRecord)
-          val internalPortReference = InternalPortReference(attributes = internalPortReferenceAttributes)
-          internalPortReferenceSeq = internalPortReferenceSeq :+ internalPortReference
+          internalPortReferenceSeq = internalPortReferenceSeq :+ getInternalPortReference(pin.getComponent().name + "_" + pin.getName(), logicalPart.name)
 
           val portReferencesSequence = PortReferencesSequence1(internalPortReference = internalPortReferenceSeq, externalPortReference = externalPortReferenceSeq)
           val portReferencesSequenceRecord = DataRecord(Some(""), Some(""), portReferencesSequence)
@@ -374,7 +382,8 @@ class IPXACT2022DesignXMLGenerator(toplevelVendor: String = "SpinalHDL", topleve
   }
 
   private def createDesign: Design = {
-    logicalPartSet = createLogicalPart
+    createLogicalPart()
+    createDirectConnection()
     val (designAdHocConnections, designInterconnections) = createConnections
     createLogicalPartComponent()
     val designVersionedIdentifierSequence = VersionedIdentifierSequence(toplevelVendor, toplevelName, moduleDefinitionName + ".design", version)

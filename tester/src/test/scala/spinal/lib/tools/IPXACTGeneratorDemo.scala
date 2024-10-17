@@ -75,7 +75,10 @@ class IPXACTGeneratorTestComponent extends Component {
     val vga_in = slave(Vga(vgaConfig))
     val tri = slave(TriState(Bits(16 bits)))
     val analog = inout(Analog(Bits(16 bits)))
+    val bits_input = in Bits ((8 bits))
+    val bits_output = out Bits (8 bits)
   }
+  io.bits_output := io.bits_input
   io.tri.read := io.analog
   when(io.tri.writeEnable) {
     io.analog := io.tri.write
@@ -90,9 +93,11 @@ class IPXACTGeneratorTestComponent extends Component {
 }
 
 object IPXACTGeneratorDemo extends App {
+
   import IPXACTGenerator.IPXACTGenerator
+
   val componentRTL = SpinalConfig(
-    mode = Verilog,
+    mode = VHDL,
     oneFilePerComponent = false
   ).generate(new IPXACTGeneratorTestComponent)
   val componentGenerator = new IPXACTGenerator(componentRTL)
@@ -100,7 +105,7 @@ object IPXACTGeneratorDemo extends App {
   componentGenerator.generateIPXACTVivadoComponent()
 
   val designRTL = SpinalConfig(
-    mode = Verilog,
+    mode = VHDL,
     oneFilePerComponent = true
   ).generate(new IPXACTGeneratorTestComponent)
   val designGenerator = new IPXACTGenerator(designRTL)
