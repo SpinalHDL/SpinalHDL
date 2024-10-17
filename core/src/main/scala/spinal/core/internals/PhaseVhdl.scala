@@ -425,6 +425,10 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned; w : integer) return signed;\n"
     ret ++= "\n"
     ret ++= "  function pkg_rotateLeft (that : std_logic_vector; size : unsigned) return std_logic_vector;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_toString (that : std_logic_vector) return string;\n"
+    ret ++= "  function pkg_toString (that : unsigned) return string;\n"
+    ret ++= "  function pkg_toString (that : signed) return string;\n"
     ret ++= s"end  $packageName;\n"
     ret ++= "\n"
     ret ++= s"package body $packageName is\n"
@@ -648,6 +652,44 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
         |    return ret;
         |  end pkg_resize;
         |""".stripMargin
+    ret ++= "\n"
+    ret ++= """|  function pkg_toString (that : std_logic_vector) return string is
+               |    variable ret : string((that'length-1)/4 downto 0);
+               |    constant chars : string := "0123456789abcdef";
+               |    variable left : natural;
+               |  begin
+               |    for i in ret'range loop
+               |      left := i*4+3;
+               |      if left > that'left then
+               |        left := that'left;
+               |      end if;
+               |      ret(i) := chars(to_integer(unsigned(that(left downto i*4)))+1);
+               |    end loop;
+               |    return "x" & '"' & ret & '"';
+               |  end pkg_toString;
+               |""".stripMargin
+    ret ++= """|  function pkg_toString (that : unsigned) return string is
+               |    constant chars : string := "0123456789";
+               |  begin
+               |    if that > 0 then
+               |      return pkg_toString(that / 10) & integer'image(to_integer(that mod 10));
+               |    else
+               |      return "";
+               |    end if;
+               |  end pkg_toString;
+               |""".stripMargin
+    ret ++= """|  function pkg_toString (that : signed) return string is
+               |    constant chars : string := "0123456789";
+               |  begin
+               |    if that < 0 then
+               |      return "-" & pkg_toString(0 - that);
+               |    elsif that > 0 then
+               |      return pkg_toString(that / 10) & integer'image(to_integer(that mod 10));
+               |    else
+               |      return "";
+               |    end if;
+               |  end pkg_toString;
+               |""".stripMargin
     ret ++= s"end $packageName;\n"
     ret ++= "\n"
     ret ++= "\n"
