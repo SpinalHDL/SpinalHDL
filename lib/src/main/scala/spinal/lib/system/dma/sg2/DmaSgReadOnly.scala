@@ -337,7 +337,7 @@ class DmaSgReadOnly(val p : DmaSgReadOnlyParam,
 
       READ_CMD.whenIsActive {
         mem.a.opcode := Opcode.A.GET
-        mem.a.param := 0
+        mem.a.param := Param.Hint.NO_ALLOCATE_ON_MISS
         mem.a.source := pendings.allocate.id
         mem.a.address := descriptor.from.clearedLow(log2Up(p.blockSize)) + (descriptor.blockCounter << log2Up(p.blockSize))
         mem.a.size := log2Up(p.blockSize)

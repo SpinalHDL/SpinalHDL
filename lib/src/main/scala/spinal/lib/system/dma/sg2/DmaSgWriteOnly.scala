@@ -397,7 +397,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
         when(isValid){
           mem.a.valid := True
           mem.a.opcode := isFull.mux(Opcode.A.PUT_FULL_DATA, Opcode.A.PUT_PARTIAL_DATA)
-          mem.a.param := 0
+          mem.a.param := Param.Hint.NO_ALLOCATE_ON_MISS
           mem.a.source := inserter.CMD.slotId
           mem.a.address := descriptor.to.clearedLow(log2Up(p.blockSize)) + (inserter.CMD.blockId << log2Up(p.blockSize))
           mem.a.address(beatRange) := counter

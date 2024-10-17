@@ -65,7 +65,7 @@ class MacSg(val p : MacSgParam,
     val serializer = new BsbDownSizerDense(dma.p, p.phyParam.txDataWidth/8)
     serializer.io.input << dma
 
-    val lso = new MacTxLso(p.txBufferBytes)
+    val lso = new MacTxLso(p.txBufferBytes, mtuMax = 1500+14)
     lso.io.input.arbitrationFrom(serializer.io.output)
     lso.io.input.data := serializer.io.output.data
     lso.io.input.last := serializer.io.output.last
