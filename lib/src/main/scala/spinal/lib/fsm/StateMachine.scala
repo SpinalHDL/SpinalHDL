@@ -235,7 +235,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
       when(!stateRegOneHotMap(state)){
         state.whenInactiveTasks.foreach(_())
       }
-      when(stateRegOneHotMap(state) && !stateNextOneHotMap(state)){
+      val exit = Bool().setCompositeName(this, "onExit_" + enumOf(state).getName, weak=true)
+      exit := isExiting(state)
+      when(exit){
         state.onExitTasks.foreach(_())
       }
     }
@@ -252,7 +254,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
     for(state <- states){
       val entry = Bool().setCompositeName(this, "onEntry_" + enumOf(state).getName, weak=true)
-      entry := !stateRegOneHotMap(state) && stateNextOneHotMap(state)
+      entry := isEntering(state) 
       when(entry) {
         state.onEntryTasks.foreach(_())
       }
