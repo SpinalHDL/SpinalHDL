@@ -1,6 +1,7 @@
 package spinal.lib.memory.sdram.dfi.interface
 
 import spinal.core._
+
 case class DfiTimeConfig(
     tPhyWrLat: Int,
     //  the number of cycles between when the write command is driven on the DFI to
@@ -274,8 +275,55 @@ class DDRSignalConfig(
   def useError = kind.useError & useErrorSignals
   def useErrorInfo = kind.useErrorInfo & useErrorSignals
 }
+
+class AddrMapMethod(
+    val sdram: SdramConfig
+) {
+  val address = new Bundle {
+    val column = UInt(sdram.columnWidth bits)
+    val bank = UInt(sdram.bankWidth bits)
+    val row = UInt(sdram.rowWidth bits)
+  }
+  def mapMethod(addrMap: AddrMap, burstWidth: Int)(addr: UInt) = addrMap match {
+    case RowBankColumn => AddrMapMethod.rowBankColumnMap(sdram: SdramConfig, addr: UInt)
+    case BankRowColumn => AddrMapMethod.bankRowColumnMap(sdram: SdramConfig, addr: UInt)
+    case RowColumnBank => AddrMapMethod.rowColumnBankMap(sdram: SdramConfig, addr: UInt)(burstWidth)
+  }
+}
+object AddrMapMethod {
+  def rowBankColumnMap(sdram: SdramConfig, addr: UInt) = {
+    val addrMapMethod = new AddrMapMethod(sdram)
+    addrMapMethod.address.column := addr(0, sdram.columnWidth bits)
+    addrMapMethod.address.bank := addr(sdram.columnWidth, sdram.bankWidth bits)
+    addrMapMethod.address.row := addr(sdram.columnWidth + sdram.bankWidth, sdram.rowWidth bits)
+    addrMapMethod
+  }
+  def bankRowColumnMap(sdram: SdramConfig, addr: UInt) = {
+    val addrMapMethod = new AddrMapMethod(sdram)
+    addrMapMethod.address.column := addr(0, sdram.columnWidth bits)
+    addrMapMethod.address.row := addr(sdram.columnWidth, sdram.rowWidth bits)
+    addrMapMethod.address.bank := addr(sdram.columnWidth + sdram.rowWidth, sdram.bankWidth bits)
+    addrMapMethod
+  }
+  def rowColumnBankMap(sdram: SdramConfig, addr: UInt)(burstWidth: Int) = {
+    assert(sdram.columnWidth >= burstWidth)
+    val addrMapMethod = new AddrMapMethod(sdram)
+    addrMapMethod.address.column := (addr(burstWidth + sdram.bankWidth, sdram.columnWidth - burstWidth bits) ## addr(
+      0,
+      burstWidth bits
+    )).asUInt
+    addrMapMethod.address.bank := addr(burstWidth, sdram.bankWidth bits)
+    addrMapMethod.address.row := addr(sdram.columnWidth + sdram.bankWidth, sdram.rowWidth bits)
+    addrMapMethod
+  }
+}
+class AddrMap {}
+object RowBankColumn extends AddrMap
+object BankRowColumn extends AddrMap
+object RowColumnBank extends AddrMap
+
 case class DfiConfig(
-    addrMapMethod: String = "R-B-C",
+    addrMap: AddrMap = RowBankColumn,
     frequencyRatio: Int, // PHY:MC
     chipSelectNumber: Int,
     bgWidth: Int,
@@ -382,4 +430,8 @@ case class DfiConfig(
   val levelingPhyIFWidth = dataSlice
   val rankWidth = chipSelectNumber
   val errorNumber = dataSlice + 1
+
+  val addrMapMethod = new AddrMapMethod(sdram)
+  def addressMap(addr: UInt) = addrMapMethod.mapMethod(addrMap, log2Up(transferPerBurst))(addr)
+
 }

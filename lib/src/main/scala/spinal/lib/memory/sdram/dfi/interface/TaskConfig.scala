@@ -9,6 +9,8 @@ case class TaskTimingConfig(dfiConfig: DfiConfig) extends Bundle {
 
   def RAS = time(sdram.tRAS)
 
+  def time(tcyc: Int, phase: Int = dfiConfig.frequencyRatio) = (tcyc + phase - 1) / phase
+
   def RP = time(sdram.tRP)
 
   def WR = time(sdram.tWR)
@@ -16,8 +18,6 @@ case class TaskTimingConfig(dfiConfig: DfiConfig) extends Bundle {
   def RCD = time(sdram.tRCD)
 
   def WTR = time(sdram.tWTR)
-
-  def time(tcyc: Int, phase: Int = dfiConfig.frequencyRatio) = (tcyc + phase - 1) / phase
 
   def RTP = time(sdram.tRTP)
 
@@ -50,6 +50,10 @@ case class BusAddress(dfiConfig: DfiConfig) extends Bundle {
   val bank = UInt(bankWidth bits)
   val row = UInt(rowWidth bits)
   val cs = UInt(log2Up(dfiConfig.chipSelectNumber) bits)
+  def getRBCAddress(addr: UInt) = addr(log2Up(bytePerWord), columnWidth + bankWidth + rowWidth bits)
+  def getButeAddress(addr: UInt) = addr(0, log2Up(bytePerWord) bits)
+  def getCsAddress(addr: UInt) =
+    addr(log2Up(bytePerWord) + columnWidth + bankWidth + rowWidth, log2Up(dfiConfig.chipSelectNumber) bits)
 }
 
 case class TaskParameter(

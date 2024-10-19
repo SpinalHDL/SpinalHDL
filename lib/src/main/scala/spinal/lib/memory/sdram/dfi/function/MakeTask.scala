@@ -68,25 +68,11 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compon
     val input = io.cmd.stage()
     val address = BusAddress(dfiConfig)
     val addrMapping = new Area {
-      val order = dfiConfig.addrMapMethod.split('-').reverse
-      val TaskAddress = input.address.asBits
-      var offset: Int = 0
-      address.byte.assignFromBits(TaskAddress(offset, widthOf(address.byte) bits))
-      offset = offset + widthOf(address.byte)
-      for (addr <- order) {
-        addr match {
-          case "R" =>
-            address.row.assignFromBits(TaskAddress(offset, widthOf(address.row) bits))
-            offset = offset + widthOf(address.row)
-          case "B" =>
-            address.bank.assignFromBits(TaskAddress(offset, widthOf(address.bank) bits))
-            offset = offset + widthOf(address.bank)
-          case "C" =>
-            address.column.assignFromBits(TaskAddress(offset, widthOf(address.column) bits))
-            offset = offset + widthOf(address.column)
-        }
-      }
-      address.cs.assignFromBits(TaskAddress(offset, widthOf(address.cs) bits))
+      val rbcAddress = address.getRBCAddress(input.address)
+      val TaskAddress = dfiConfig.addressMap(rbcAddress)
+      address.byte.assignFromBits(address.getButeAddress(input.address).asBits)
+      address.cs.assignFromBits(address.getCsAddress(input.address).asBits)
+      address.assignUnassignedByName(TaskAddress.address)
     }
     val status = Status()
     status.allowPrecharge := True
