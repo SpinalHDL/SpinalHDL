@@ -163,7 +163,7 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
           when(counter === 1) {
             io.bmb.cmd.last.set()
           }
-          println("write command")
+//          println("write command")
         }
         state.onEntry {
           counter := U(length, log2Up(length) + 1 bits).resized

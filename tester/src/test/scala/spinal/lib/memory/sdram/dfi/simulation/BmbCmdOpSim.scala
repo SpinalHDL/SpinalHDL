@@ -73,7 +73,6 @@ object BmbCmdOpSim {
         dut.io.initDone #= false
         dut.clockDomain.waitSampling(10)
         dut.io.initDone #= true
-        dut.clockDomain.waitSamplingWhere(dut.io.bmb.rsp.ready.toBoolean)
         dut.io.bmb.rsp.valid #= true
         dut.clockDomain.waitSampling(31)
         dut.io.bmb.rsp.last #= true

@@ -69,7 +69,8 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compon
     val address = BusAddress(dfiConfig)
     val addrMapping = new Area {
       val rbcAddress = address.getRBCAddress(input.address)
-      val TaskAddress = dfiConfig.addressMap(rbcAddress)
+      val addrMap = AddrMapMethod(dfiConfig)
+      val TaskAddress = addrMap.addressMap(rbcAddress)
       address.byte.assignFromBits(address.getButeAddress(input.address).asBits)
       address.cs.assignFromBits(address.getCsAddress(input.address).asBits)
       address.assignUnassignedByName(TaskAddress.address)
