@@ -6,6 +6,7 @@ import scala.collection.mutable.ListBuffer
 
 package object regif {
   def formatResetValue(value: BigInt, bitCount: Int): String = {
+    if (bitCount < 0) return "-"
     val hexCount = scala.math.ceil(bitCount / 4.0).toInt
     val unsignedValue = if (value >= 0) value else ((BigInt(1) << bitCount) + value)
     s"${bitCount}'h%${hexCount}s".format(unsignedValue.toString(16)).replace(' ', '0')

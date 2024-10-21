@@ -599,4 +599,19 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   object LITTLE extends Endianness
   /** Big-Endian */
   object BIG    extends Endianness
+
+  implicit class PhysicalNumberPimper(val sc: StringContext) extends AnyVal {
+    def sf(args: Any*): String = {
+      val strings = sc.parts.iterator
+      val expressions = args.iterator
+
+      var formatted = Seq(strings.next())
+      formatted ++= strings.map { part =>
+        val fmt = if (part.length == 0) "%s" else part
+        val obj = expressions.next()
+        String.format(fmt, obj.asInstanceOf[AnyRef])
+      }
+      formatted.mkString
+    }
+  }
 }
