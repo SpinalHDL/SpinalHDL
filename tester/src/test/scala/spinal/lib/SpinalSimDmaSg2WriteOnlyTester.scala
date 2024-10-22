@@ -156,8 +156,12 @@ class SpinalSimDmaSg2WriteOnlyTester extends SpinalAnyFunSuite{
         packets.foreach(bsbDriver.push)
 
 
+//        dut.clockDomain.waitSampling(200)
+//        ctrl.stop()
+//        println("Stop done")
+//        dut.clockDomain.waitSampling(100)
+//        simSuccess()
 
-        while (ctrl.busy()) {}
         if(dut.io.interrupt.toBoolean){
           ctrl.setIrq(counter = Some(10))
         }

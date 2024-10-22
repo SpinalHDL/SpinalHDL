@@ -239,6 +239,10 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
         val bufferFill = bytesAvailable =/= 0
         val bsbFirst = RegNextWhen[Bool](inserter.LAST, isFiring) init(True)
 
+        when(stop && fsmState.bsbToBuffer && (!isValid || isReady)){
+          fsmState.bsbToBuffer := False
+        }
+
         bufferFill clearWhen(!valid)
         upReady clearWhen(!fragmentFullyConsumed)
         when(!fsmState.bsbToBuffer){
@@ -531,6 +535,9 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
         when(mem.d.fire) {
           descriptor.irqEvent setWhen(descriptor.control.irqAll || descriptor.control.irqLast && fsmState.packetLast)
           goto(NEXT_CMD)
+          when (stop) {
+            goto(IDLE)
+          }
         }
       }
     }
@@ -544,6 +551,7 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
     bus.read(onPush.fsmState.isBusy,0, 0)
     bus.readAndSetOnSet(onPush.stop, 0, 1)
     bus.write(onPush.config.bsbNoSyncOnStart, 8, 0)
+    onPush.stop clearWhen(!onPush.fsmState.isBusy)
 
 
     val timeRef = CounterFreeRun(1023)

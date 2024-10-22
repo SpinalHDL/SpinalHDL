@@ -18,6 +18,10 @@ class SimCtrl(ctrl : MasterAgent, offset : Long) {
     putReg(0x14, next >> 32 toInt)
   }
   def busy(): Boolean = (getReg(0) & 1).toBoolean
+  def stop(): Unit = {
+    putReg(0, 2)
+    while(busy()){}
+  }
 
   def setIrq(idle : Boolean = false, delay : Option[Int] = Option.empty[Int], counter : Option[Int] = Option.empty[Int]): Unit = {
     var v = 0
