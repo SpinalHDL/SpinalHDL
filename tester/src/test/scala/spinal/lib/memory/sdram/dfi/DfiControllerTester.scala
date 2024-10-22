@@ -36,7 +36,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           columnWidth = 10,
           rowWidth = 15,
           dataWidth = 16,
-          ddrMHZ = 100,
+          ddrMHZ = 200,
           ddrWrLat = 4,
           ddrRdLat = 4,
           sdramtime = sdramtime

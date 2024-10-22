@@ -58,7 +58,7 @@ case class BmbDfiDdr3(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig, dfiConfig: 
   val taskConfig = BmbAdapter.taskConfig(bmbp, ddrIoDfiConfig, task)
   val clockArea = new ClockingArea(ClockDomain.current) {
     val dfiController = DfiController(bmbp, task, dfiConfig)
-    dfiController.io.bmb <> io.bmb
+    dfiController.io.bmb <> io.bmb.pipelined(cmdValid = true, rspValid = true, cmdReady = true, rspReady = true)
   }
 
   if (frequencyRatio == 1) {
@@ -124,8 +124,9 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
   val idleTimer = RegInit(U(0, 9 bits))
   val start = RegInit(False).setWhen(io.initDone)
   val writeData = Reg(cloneOf(io.bmb.cmd.data).asUInt).init(0)
-  writeData := writeData + 1
-
+  when(io.bmb.cmd.fire) {
+    writeData := writeData + 1
+  }
   io.bmb.cmd.valid.clear()
   io.bmb.cmd.last.clear()
   io.bmb.cmd.source.clearAll()
@@ -153,11 +154,15 @@ case class BmbCmdOp(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig) extends Compo
             goto(nextState)
           }
           when(counter =/= 0) {
-            counter := counter - 1
-            io.bmb.cmd.valid.set()
-            io.bmb.cmd.address := address
-            io.bmb.cmd.length := U(length * ddrIoDfiConfig.bytePerBeat - 1).resized
-            io.bmb.cmd.opcode := True.asBits
+            when(io.bmb.cmd.ready){
+              counter := counter - 1
+              io.bmb.cmd.valid.set()
+              io.bmb.cmd.address := address
+              io.bmb.cmd.length := U(length * ddrIoDfiConfig.bytePerBeat - 1).resized
+              io.bmb.cmd.opcode := True.asBits
+            }otherwise{
+              io.bmb.cmd.valid.clear()
+            }
           }
           io.bmb.cmd.data := writeData.asBits
           when(counter === 1) {
@@ -230,7 +235,7 @@ case class DfiDdr3() extends Component {
     columnWidth = 10,
     rowWidth = 15,
     dataWidth = 16,
-    ddrMHZ = 100,
+    ddrMHZ = 200,
     ddrWrLat = 6,
     ddrRdLat = 6,
     sdramtime = sdramtime
@@ -247,7 +252,7 @@ case class DfiDdr3() extends Component {
   )
   val dfiConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
-    chipSelectNumber = 2,
+    chipSelectNumber = 1,
     bgWidth = 0,
     cidWidth = 0,
     dataSlice = 1,
@@ -295,7 +300,7 @@ case class DfiDdr3() extends Component {
 
   val pll = pll_clk()
   pll.io.clk.in1 <> io.clk
-  pll.io.reset <> ~io.rstN
+  pll.io.resetn <> io.rstN
   val rstN = io.rstN & pll.io.locked
   myClockDomain.clock := pll.io.clk.out1
   myClockDomain.reset := rstN

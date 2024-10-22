@@ -66,8 +66,9 @@ case class DfiPhyDdr3(taskConfig: TaskConfig, ddrIoDfiConfig: DfiConfig) extends
   val init = Initialize(taskConfig, ddrIoDfiConfig)
   init.io.initDone <> io.initDone
 
+  val initCtrlReg = RegNext(init.io.control)
   val initDfi = cloneOf(io.dfi)
-  initDfi.control <> init.io.control
+  initDfi.control := initCtrlReg
   initDfi.write.wr.clearAll()
   initDfi.read.rden.clearAll()
 

@@ -15,12 +15,12 @@ case class BmbBridge(bmbp: BmbParameter, taskConfig: TaskConfig, dfiConfig: DfiC
 
   val bmbAdapter = BmbAdapter(bmbp, taskConfig, dfiConfig)
   bmbAdapter.io.input <> io.bmb
-  bmbAdapter.io.output.writeData <> io.taskPort.writeData
-  bmbAdapter.io.output.rsp <> io.taskPort.rsp
+  bmbAdapter.io.output.writeData >-> io.taskPort.writeData
+  bmbAdapter.io.output.rsp <-< io.taskPort.rsp
 
   val maketask = MakeTask(taskConfig, dfiConfig)
-  maketask.io.cmd << bmbAdapter.io.output.cmd
-  maketask.io.writeDataToken <> bmbAdapter.io.output.writeDataToken
+  maketask.io.cmd <-< bmbAdapter.io.output.cmd
+  maketask.io.writeDataToken <-< bmbAdapter.io.output.writeDataToken
   maketask.io.output <> io.taskPort.tasks
-  maketask.io.halt <> bmbAdapter.io.halt
+  RegNext(maketask.io.halt) <> bmbAdapter.io.halt
 }

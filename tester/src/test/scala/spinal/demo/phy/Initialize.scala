@@ -11,12 +11,14 @@ case class Initialize(taskConfig: TaskConfig, ddrIoDfiConfig: DfiConfig) extends
     val initDone = out Bool ()
   }
   val refreshTimer = Reg(UInt(taskParameter.refWidth bits)).init(sdram.ddrStartdelay)
+//  val refreshTimer = Reg(UInt(taskParameter.refWidth bits)).init(0)
   val cmd = new Bundle {
     val weN = cloneOf(io.control.weN)
     val casN = cloneOf(io.control.casN)
     val rasN = cloneOf(io.control.rasN)
     val csN = cloneOf(io.control.csN)
   }
+  val control = cloneOf(io.control)
   cmd.setAll()
   def cmdphase = cmd
   def NOP: Bits = B"b0111"
@@ -32,19 +34,19 @@ case class Initialize(taskConfig: TaskConfig, ddrIoDfiConfig: DfiConfig) extends
   // - CL=6
   // - AL=0
   // - CWL=6
-  def MR0_REG: Bits = B"h0120".resize(sdram.rowWidth)
-  def MR1_REG: Bits = B"h0001".resize(sdram.rowWidth)
-  def MR2_REG: Bits = B"h0008".resize(sdram.rowWidth)
-  def MR3_REG: Bits = B"h0000".resize(sdram.rowWidth)
+  def MR0_REG: Int = 0x0120
+  def MR1_REG: Int = 0x0001
+  def MR2_REG: Int = 0x0008
+  def MR3_REG: Int = 0x0000
   def ALL_BANKS_BIT = 10 // Precharge all banks
   def ZQCL_BIT = 10 // Precharge all banks
 
   io.initDone.clear()
-  io.control.cke.setAll()
-  io.control.odt.clearAll()
-  io.control.resetN.setAll()
-  io.control.address.clearAll()
-  io.control.bank.clearAll()
+  control.cke.setAll()
+  control.odt.clearAll()
+  control.resetN.setAll()
+  control.address.clearAll()
+  control.bank.clearAll()
 
   when(refreshTimer === 0) {
     refreshTimer.clearAll()
@@ -54,36 +56,37 @@ case class Initialize(taskConfig: TaskConfig, ddrIoDfiConfig: DfiConfig) extends
   }
 
   when(refreshTimer >= 50000 / (1000 / sdram.ddrMHZ)) {
-    io.control.cke.clearAll()
+    control.cke.clearAll()
   }
   when(refreshTimer === 48000 / (1000 / sdram.ddrMHZ)) {
     cmdphase.assignFromBits(LOAD_MODE.setName("LOAD_MODE2"))
-    io.control.bank := 2
-    io.control.address := MR2_REG.resized
+    control.bank := 2
+    control.address := MR2_REG
   }
   when(refreshTimer === 46000 / (1000 / sdram.ddrMHZ)) {
     cmdphase.assignFromBits(LOAD_MODE.setName("LOAD_MODE3"))
-    io.control.bank := 3
-    io.control.address := MR3_REG.resized
+    control.bank := 3
+    control.address := MR3_REG
   }
   when(refreshTimer === 44000 / (1000 / sdram.ddrMHZ)) {
     cmdphase.assignFromBits(LOAD_MODE.setName("LOAD_MODE1"))
-    io.control.bank := 1
-    io.control.address := MR1_REG.resized
+    control.bank := 1
+    control.address := MR1_REG
   }
   when(refreshTimer === 42000 / (1000 / sdram.ddrMHZ)) {
     cmdphase.assignFromBits(LOAD_MODE.setName("LOAD_MODE0"))
-    io.control.bank := 0
-    io.control.address := MR0_REG.resized
+    control.bank := 0
+    control.address := MR0_REG
   }
   when(refreshTimer === 40000 / (1000 / sdram.ddrMHZ)) {
     cmdphase.assignFromBits(ZQCL)
-    io.control.address(ZQCL_BIT).set()
+    control.address(ZQCL_BIT).set()
   }
   when(refreshTimer === 200 / (1000 / sdram.ddrMHZ)) {
     cmdphase.assignFromBits(PRECHARGE)
-    io.control.address(ALL_BANKS_BIT).set()
+    control.address(ALL_BANKS_BIT).set()
   }
-  io.control.assignUnassignedByName(cmd)
+  control.assignUnassignedByName(cmd)
+  io.control := RegNext(control)
 
 }
