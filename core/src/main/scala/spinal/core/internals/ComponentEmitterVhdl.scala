@@ -639,8 +639,8 @@ class ComponentEmitterVhdl(
               .map {
                 case m: String =>
                   "\"" +
-                    m.replace("\n", "\\n")
-                      .replace("\"", "\\\"") +
+                    m .replace("\"", "\"\"")
+                  .replace("\n", "\" & LF & \"")+
                   "\""
                 case m: SpinalEnumCraft[_] =>
                   require(
@@ -651,8 +651,8 @@ class ComponentEmitterVhdl(
                 case m @ (_: Bits | _: UInt | _: SInt) =>
                   s"pkg_toString(${emitExpression(m.asInstanceOf[Expression])})"
                 case m: Bool => s"std_logic'image(${emitExpression(m)})"
-                case m: Expression => s""""<Unknown Expression `$m`>""""
                 case `REPORT_TIME` => "time'image(now)"
+                case m: Data => s""""<Unknown Datatype `$m`>""""
                 case x =>
                   SpinalError(
                     s"""L\"\" can't manage the parameter '${x}' type for VHDL. Located at:\n${statement.getScalaLocationLong}"""
