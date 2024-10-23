@@ -33,6 +33,7 @@ class VhdlAssertTester extends SpinalAnyFunSuite {
             ("BITS", L"${B(0x123, 14 bits)}", """x"0123""""),
             ("UINT", L"${U(123, 14 bits)}", "123"),
             ("SINT", L"${S(-123, 14 bits)}", "-123"),
+            ("SINT", L"${S(-128, 8 bits)}", "-128"),
             ("ENUM", L"${TestEnum.First()} ${TestEnum.Third()}", "first third"),
             ("EXPRESSION", L"$testValue", "<Unknown Datatype `toplevel/testValue : TestBundle`>")
           )

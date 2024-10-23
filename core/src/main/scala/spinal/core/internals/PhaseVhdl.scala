@@ -669,7 +669,6 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
                |  end pkg_toString;
                |""".stripMargin
     ret ++= """|  function pkg_toString (that : unsigned) return string is
-               |    constant chars : string := "0123456789";
                |  begin
                |    if that > 0 then
                |      return pkg_toString(that / 10) & integer'image(to_integer(that mod 10));
@@ -679,10 +678,9 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
                |  end pkg_toString;
                |""".stripMargin
     ret ++= """|  function pkg_toString (that : signed) return string is
-               |    constant chars : string := "0123456789";
                |  begin
                |    if that < 0 then
-               |      return "-" & pkg_toString(0 - that);
+               |      return "-" & pkg_toString(0 - pkg_resize(that, that'length + 1));
                |    elsif that > 0 then
                |      return pkg_toString(that / 10) & integer'image(to_integer(that mod 10));
                |    else
