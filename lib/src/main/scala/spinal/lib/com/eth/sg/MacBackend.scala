@@ -3,7 +3,7 @@ package spinal.lib.com.eth.sg
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
-import spinal.lib.com.eth.{MacRxAligner, MacRxChecker, MacRxDropper, MacRxPreamble, MacTxCrc, MacTxHeader, MacTxPadder, PhyIo, PhyParameter, PhyRx, PhyTx}
+import spinal.lib.com.eth.{MacRxAligner, MacRxCheckSumChecker, MacRxChecker, MacRxDropper, MacRxPreamble, MacTxCrc, MacTxHeader, MacTxPadder, PhyIo, PhyParameter, PhyRx, PhyTx}
 
 
 
@@ -84,7 +84,11 @@ case class MacBackend(phyParam: PhyParameter,
 
     val dropper = MacRxDropper(dataWidth = phyParam.rxDataWidth)
     dropper.io.input << checker.io.output
-    io.packets.rx << dropper.io.output
+
+    val checksum = MacRxCheckSumChecker()
+    checksum.io.input << dropper.io.output
+
+    io.packets.rx << checksum.io.output
   }
 
 

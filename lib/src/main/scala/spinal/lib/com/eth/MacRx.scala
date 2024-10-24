@@ -3,6 +3,7 @@ package spinal.lib.com.eth
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.fsm.{State, StateMachine}
 
 
 case class MacRxPreamble(dataWidth : Int) extends Component{
@@ -348,4 +349,144 @@ case class MacRxBuffer(pushCd : ClockDomain,
   }
 }
 
+case class MacRxCheckSumChecker() extends Component {
+  val io = new Bundle {
+    val input = slave(Stream(Fragment(PhyRx(8))))
+    val output = master(Stream(Fragment(PhyRx(8))))
+  }
 
+  val frontend = new StateMachine{
+    val ETH, IPV4, TRANSPORT, COMPLETION, UNKNOWN = new State()
+    setEntry(ETH)
+
+    val lastFired = RegInit(False) setWhen(io.input.fire && io.input.last)
+    val history = History(io.input.data, 0 to 1, when = io.input.fire)
+    val counter = Reg(UInt(16 bits))
+    when(io.input.fire){
+      counter := counter + 1
+    }
+
+    io.input.ready := io.output.ready
+    io.output.valid := io.input.fire
+    io.output.data := io.input.data
+    io.output.error := io.input.error
+    io.output.last := False
+
+    case class CheckSum() extends Area {
+      val clear = False
+      val accumulator = Reg(UInt(16 bits))
+      val push = False
+      val inputLsb = CombInit(counter.lsb)
+      val inputData = CombInit(io.input.data)
+      val input = inputLsb.mux(B"x00" ## inputData, inputData ## B"x00").asUInt
+      val s0 = accumulator +^ input
+      val s1 = s0(15 downto 0) + s0.msb.asUInt
+      when(push){
+        accumulator := s1
+      }
+      when(clear){
+        accumulator := 0
+      }
+      val result = ~accumulator.asBits
+    }
+
+    val csIp, csTransport = new CheckSum()
+
+    ETH.onEntry{
+      counter := 0
+      lastFired := False
+    }
+    ETH.whenIsActive{
+      csIp.clear := True
+      csTransport.clear := True
+      when(io.input.fire){
+        when(counter === 13){
+          goto(UNKNOWN)
+          when(history(0) === 0 && history(1) === 0x08){
+            counter := 0
+            goto(IPV4)
+          }
+        }
+        when(io.input.last){
+          goto(UNKNOWN)
+        }
+      }
+    }
+
+    val IHL = Reg(UInt(4 bits))
+    val protocol = Reg(Bits(8 bits))
+    val totalLength = Reg(UInt(16 bits))
+    val inIp4 = counter < totalLength
+    val udpZeroChecksum = Reg(Bool())
+    IPV4.whenIsActive{
+      when(io.input.fire) {
+        csTransport.push := counter >= 12 && counter <= 19
+        csIp.push := True
+        when(counter === 9){
+          protocol := io.input.data
+          csTransport.push := True
+        }
+        when(counter === 3){
+          csTransport.push := True
+          csTransport.input := (history(1) ## history(0)).asUInt - (IHL << 2)
+          totalLength := (history(1) ## history(0)).asUInt
+        }
+        when(counter === 0) {
+          IHL := io.input.data(3 downto 0).asUInt
+          when(io.input.data(7 downto 4) =/= 4 || io.input.data(3 downto 0).asUInt < 5) {
+            goto(UNKNOWN)
+          }
+        } elsewhen (counter === (IHL << 2) - 1) {
+          goto(UNKNOWN)
+          udpZeroChecksum := True
+          switch(protocol){
+            is(0x01) { goto(TRANSPORT); csTransport.clear := True } //ICMP
+            is(0x06) { goto(TRANSPORT) } //TCP
+            is(0x11) { goto(TRANSPORT) } //UDP
+          }
+        }
+        when(io.input.last){
+          goto(UNKNOWN)
+        }
+      }
+    }
+
+    TRANSPORT.whenIsActive{
+      when(io.input.fire) {
+        udpZeroChecksum clearWhen(io.input.data =/= 0 && counter >> 1 === ((IHL << 2) +^ 6) >> 1)
+        csTransport.push.setWhen(inIp4)
+        when(io.input.last){
+          goto(COMPLETION)
+        }
+      }
+    }
+
+    UNKNOWN.whenIsActive{
+      when(lastFired){
+        io.input.ready := False
+        io.output.valid := True
+        io.output.data := 0
+        io.output.last := True
+        io.output.error := False
+        when(io.output.ready) {
+          goto(ETH)
+        }
+      }
+    }
+
+    val checksumOk = csIp.result === 0 && (csTransport.result === 0 || protocol === 0x11 && udpZeroChecksum)
+    COMPLETION.whenIsActive{
+      when(lastFired){
+        io.input.ready := False
+        io.output.valid := True
+        io.output.data := 0
+        io.output.data(0) := checksumOk
+        io.output.last := True
+        io.output.error := False
+        when(io.output.ready) {
+          goto(ETH)
+        }
+      }
+    }
+  }
+}

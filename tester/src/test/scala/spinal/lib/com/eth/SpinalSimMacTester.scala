@@ -10,6 +10,236 @@ import java.nio.{ByteBuffer, ByteOrder}
 import scala.collection.mutable
 import scala.util.Random
 
+class Eth{
+  val destination, source = new Array[Byte](6)
+  var ethType : Int = 0
+
+  def to(bb : ByteBuffer): Unit = {
+    bb.put(destination)
+    bb.put(source)
+    bb.putShort(ethType toShort)
+  }
+  def randomize(): Unit = {
+    simRandom.nextBytes(destination)
+    simRandom.nextBytes(source)
+    ethType = simRandom.nextInt(1 << 16)
+  }
+}
+class Ip4{
+  var IHL, DSCP, ECN, totalLength = 0
+  var identification, flags, fragmentOffset = 0
+  var ttl, protocol, headerChecksum = 0
+  var sourceAddress, destinationAddress = new Array[Byte](4)
+  var options = new Array[Int](0)
+
+  def headerSize = IHL*4
+
+  def to(bb : ByteBuffer): Unit = {
+    bb.put(0x40 | IHL toByte)
+    bb.put((DSCP << 2) | (ECN) toByte)
+    bb.putShort(totalLength toShort)
+    bb.putShort(identification toShort)
+    bb.putShort((flags << 13) | fragmentOffset toShort)
+    bb.put(ttl.toByte); bb.put(protocol.toByte); bb.putShort(headerChecksum toShort)
+    bb.put(sourceAddress)
+    bb.put(destinationAddress)
+    options.foreach(o => bb.putInt(o))
+  }
+
+  def toArray() = {
+    val array = new Array[Byte](IHL*4)
+    val buffer = ByteBuffer.wrap(array);
+    to(buffer)
+    array
+  }
+
+  def randomize(): Unit = {
+    val ip4Options = simRandom.nextInt(16-5)
+    IHL = 5+ip4Options
+    DSCP = simRandom.nextInt(1 << 6)
+    ECN = simRandom.nextInt(1 << 2)
+    totalLength = simRandom.nextInt(1 << 16)
+    identification = simRandom.nextInt(1 << 16)
+    flags = simRandom.nextInt(1 << 3)
+    fragmentOffset = simRandom.nextInt(1 << 13)
+    ttl = simRandom.nextInt(1 << 8)
+    protocol = simRandom.nextInt(1 << 8)
+    headerChecksum = simRandom.nextInt(1 << 16)
+    simRandom.nextBytes(sourceAddress)
+    simRandom.nextBytes(destinationAddress)
+    options = Array.fill(ip4Options)(simRandom.nextInt)
+  }
+
+  def updateChecksum(): Unit = {
+    headerChecksum = 0
+    val cs = new Checksummer
+    cs.push(toArray())
+    headerChecksum = cs.result()
+  }
+}
+class Tcp{
+  var sourcePort, destinationPort = 0
+  var sequenceNumber, acknowledgementNumber = 0
+  var dataOffset = 0
+  var FIN, SYN, RST, PSH, ACK, URG, ECE, CWR = false
+  var window = 0
+  var checksum = 0
+  var urgentPointer = 0
+  var options = new Array[Int](0)
+
+  def headerSize = dataOffset*4
+
+  def to(bb : ByteBuffer): Unit = {
+    bb.putShort(sourcePort toShort)
+    bb.putShort(destinationPort toShort)
+    bb.putInt(sequenceNumber)
+    bb.putInt(acknowledgementNumber)
+    val flags = (FIN.toInt << 0) | (SYN .toInt << 1) | (RST .toInt << 2) | (PSH .toInt << 3) | (ACK .toInt << 4) | (URG .toInt << 5) | (ECE .toInt << 6) | (CWR.toInt << 7)
+    bb.putShort((dataOffset << 12) | flags toShort)
+    bb.putShort(window toShort)
+    bb.putShort(checksum toShort)
+    bb.putShort(urgentPointer toShort)
+    options.foreach(o => bb.putInt(o))
+  }
+
+  def toArray() = {
+    val array = new Array[Byte](dataOffset*4)
+    val buffer = ByteBuffer.wrap(array);
+    to(buffer)
+    array
+  }
+
+  def randomize() = {
+    val tcpOptions = simRandom.nextInt(16-5)
+    sourcePort = simRandom.nextInt & 0xFFFF
+    destinationPort = simRandom.nextInt & 0xFFFF
+    sequenceNumber = simRandom.nextInt
+    acknowledgementNumber = simRandom.nextInt
+    dataOffset = 5+tcpOptions
+    FIN = simRandom.nextBoolean()
+    SYN = simRandom.nextBoolean()
+    RST = simRandom.nextBoolean()
+    PSH = simRandom.nextBoolean()
+    ACK = simRandom.nextBoolean()
+    URG = simRandom.nextBoolean()
+    ECE = simRandom.nextBoolean()
+    CWR = simRandom.nextBoolean()
+    window = simRandom.nextInt(1 << 16)
+    checksum = simRandom.nextInt(1 << 16)
+    urgentPointer = simRandom.nextInt(1 << 16)
+    options = Array.fill(tcpOptions)(simRandom.nextInt)
+  }
+
+  def updateChecksum(ip4 : Ip4, data : Array[Byte]): Unit = {
+    checksum = 0
+    val cs = new Checksummer
+    cs.push(ip4.sourceAddress)
+    cs.push(ip4.destinationAddress)
+    cs.pushShort(ip4.protocol)
+    cs.pushShort(ip4.totalLength - ip4.IHL*4)
+    cs.push(this.toArray())
+    cs.push(data)
+    checksum = cs.result()
+  }
+}
+
+class Udp{
+  var sourcePort, destinationPort = 0
+  var length, checksum = 0
+
+  def headerSize = 8
+
+  def to(bb : ByteBuffer): Unit = {
+    bb.putShort(sourcePort toShort)
+    bb.putShort(destinationPort toShort)
+    bb.putShort(length toShort)
+    bb.putShort(checksum toShort)
+  }
+
+  def toArray() = {
+    val array = new Array[Byte](8)
+    val buffer = ByteBuffer.wrap(array);
+    to(buffer)
+    array
+  }
+
+  def randomize() = {
+    val tcpOptions = simRandom.nextInt(16-5)
+    sourcePort = simRandom.nextInt(1 << 16)
+    destinationPort = simRandom.nextInt(1 << 16)
+    length = simRandom.nextInt(1 << 16)
+    checksum = simRandom.nextInt(1 << 16)
+  }
+
+  def updateChecksum(ip4 : Ip4, data : Array[Byte]): Unit = {
+    checksum = 0
+    val cs = new Checksummer
+    cs.push(ip4.sourceAddress)
+    cs.push(ip4.destinationAddress)
+    cs.pushShort(ip4.protocol)
+    cs.pushShort(ip4.totalLength - ip4.IHL*4)
+    cs.push(this.toArray())
+    cs.push(data)
+    checksum = cs.result()
+  }
+}
+
+
+class Icmp{
+  var typ, code, checksum = 0
+  var rest = 0
+
+  def headerSize = 8
+
+  def to(bb : ByteBuffer): Unit = {
+    bb.put(typ toByte)
+    bb.put(code toByte)
+    bb.putShort(checksum toShort)
+    bb.putInt(rest)
+  }
+
+  def toArray() = {
+    val array = new Array[Byte](8)
+    val buffer = ByteBuffer.wrap(array);
+    to(buffer)
+    array
+  }
+
+  def randomize() = {
+    val tcpOptions = simRandom.nextInt(16-5)
+    typ = simRandom.nextInt(1 << 8)
+    code = simRandom.nextInt(1 << 8)
+    checksum = simRandom.nextInt(1 << 16)
+    rest = simRandom.nextInt()
+  }
+
+  def updateChecksum(data : Array[Byte]): Unit = {
+    checksum = 0
+    val cs = new Checksummer
+    cs.push(this.toArray())
+    cs.push(data)
+    checksum = cs.result()
+  }
+}
+
+class Checksummer{
+  var accumulator = 0
+  def pushShort(that : Int): Unit = {
+    accumulator += that
+    accumulator += accumulator >> 16
+    accumulator &= 0xFFFF
+  }
+  def push(that : Array[Byte]): Unit = {
+    val range = 0 until (that.length & -2) by 2
+    for(i <- 0 until (that.length & -2) by 2){
+      pushShort(((that(i).toInt & 0xFF) << 8) | (that(i+1).toInt & 0xFF))
+    }
+    if((that.length & 1) != 0) pushShort((that.last.toInt & 0xFF) << 8)
+  }
+  def result() = (~accumulator) & 0xFFFF
+  def clear() = accumulator = 0
+}
+
 object SpinalSimMacTester{
   def calcCrc32(that : Seq[Int]): Int = calcCrc32Byte(that.map(_.toByte))
 
@@ -472,91 +702,6 @@ class SpinalSimMacTester extends SpinalAnyFunSuite{
 
 
       for(i <- 0 until 1){
-        class Eth{
-          val destination, source = new Array[Byte](6)
-          var ethType : Short = 0
-
-          def to(bb : ByteBuffer): Unit = {
-            bb.put(destination)
-            bb.put(source)
-            bb.putShort(ethType)
-          }
-        }
-        class Ip4{
-          var IHL, DSCP, ECN, totalLength = 0
-          var identification, flags, fragmentOffset = 0
-          var ttl, protocol, headerChecksum = 0
-          var sourceAddress, destinationAddress = new Array[Byte](4)
-          var options = new Array[Int](0)
-
-          def to(bb : ByteBuffer): Unit = {
-            bb.put(0x40 | IHL toByte)
-            bb.put((DSCP << 2) | (ECN) toByte)
-            bb.putShort(totalLength toShort)
-            bb.putShort(identification toShort)
-            bb.putShort((flags << 13) | fragmentOffset toShort)
-            bb.put(ttl.toByte); bb.put(protocol.toByte); bb.putShort(headerChecksum toShort)
-            bb.put(sourceAddress)
-            bb.put(destinationAddress)
-            options.foreach(o => bb.putInt(o))
-          }
-
-          def toArray() = {
-            val array = new Array[Byte](IHL*4)
-            val buffer = ByteBuffer.wrap(array);
-            to(buffer)
-            array
-          }
-        }
-        class Tcp{
-          var sourcePort, destinationPort = 0
-          var sequenceNumber, acknowledgementNumber = 0
-          var dataOffset = 0
-          var FIN, SYN, RST, PSH, ACK, URG, ECE, CWR = false
-          var window = 0
-          var checksum = 0
-          var urgentPointer = 0
-          var options = new Array[Int](0)
-
-          def to(bb : ByteBuffer): Unit = {
-            bb.putShort(sourcePort toShort)
-            bb.putShort(destinationPort toShort)
-            bb.putInt(sequenceNumber)
-            bb.putInt(acknowledgementNumber)
-            val flags = (FIN.toInt << 0) | (SYN .toInt << 1) | (RST .toInt << 2) | (PSH .toInt << 3) | (ACK .toInt << 4) | (URG .toInt << 5) | (ECE .toInt << 6) | (CWR.toInt << 7)
-            bb.putShort((dataOffset << 12) | flags toShort)
-            bb.putShort(window toShort)
-            bb.putShort(checksum toShort)
-            bb.putShort(urgentPointer toShort)
-            options.foreach(o => bb.putInt(o))
-          }
-
-          def toArray() = {
-            val array = new Array[Byte](dataOffset*4)
-            val buffer = ByteBuffer.wrap(array);
-            to(buffer)
-            array
-          }
-        }
-
-        class Checksummer{
-          var accumulator = 0
-          def pushShort(that : Int): Unit = {
-            accumulator += that
-            accumulator += accumulator >> 16
-            accumulator &= 0xFFFF
-          }
-          def push(that : Array[Byte]): Unit = {
-            val range = 0 until (that.length & -2) by 2
-            for(i <- 0 until (that.length & -2) by 2){
-              pushShort(((that(i).toInt & 0xFF) << 8) | (that(i+1).toInt & 0xFF))
-            }
-            if((that.length & 1) != 0) pushShort((that.last.toInt & 0xFF) << 8)
-          }
-          def result() = (~accumulator) & 0xFFFF
-          def clear() = accumulator = 0
-        }
-
         val ip4Options = simRandom.nextInt(16-5)
         val tcpOptions = simRandom.nextInt(16-5)
         val headerSize = 14+(5+ip4Options)*4+(5+tcpOptions)*4
@@ -682,6 +827,190 @@ class SpinalSimMacTester extends SpinalAnyFunSuite{
 
       }
     }
+  }
 
+
+
+
+
+  test("MacRxChecksumChecker") {
+    SimConfig.compile(MacRxCheckSumChecker()).doSim(seed = Random.nextInt) { dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      val (inputDriver, inputQueue) = StreamDriver.queue(dut.io.input, dut.clockDomain)
+      val outputReady = StreamReadyRandomizer(dut.io.output, dut.clockDomain)
+
+      val ref = mutable.Queue[(Byte, Boolean, Boolean)]()
+      val outputMonitor = StreamMonitor(dut.io.output, dut.clockDomain){ p =>
+        val head = ref.dequeue()
+        assert(p.data.toInt.toByte == head._1)
+        assert(p.last.toBoolean == head._2)
+        assert(p.error.toBoolean == head._3)
+      }
+
+      for(i <- 0 until 100) {
+        def serialize(array : Array[Byte], code : Int): Unit = {
+          for (i <- array.indices) {
+            val last = i == array.size - 1
+            inputQueue.enqueue { p =>
+              p.data #= array(i).toInt & 0xFF
+              p.error #= false
+              p.last #= last
+            }
+            ref.enqueue((array(i).toByte, false, false))
+          }
+          ref.enqueue((code.toByte, true, false))
+        }
+        simRandom.nextInt(5) match {
+          case 0 => {
+            val eth = new Eth()
+            val ip4 = new Ip4
+            val tcp = new Tcp
+
+            eth.randomize()
+            ip4.randomize()
+            tcp.randomize()
+            val transportData = Array.fill(simRandom.nextInt(200) + 1)(simRandom.nextInt(256) toByte)
+
+            eth.ethType = 0x800
+            ip4.protocol = 0x06
+            ip4.totalLength = ip4.headerSize + tcp.headerSize + transportData.size
+            ip4.updateChecksum()
+            tcp.updateChecksum(ip4, transportData)
+
+            val ok = simRandom.nextBoolean()
+            if(!ok) simRandom.nextInt(3) match {
+              case 0 => ip4.headerChecksum += 1
+              case 1 => tcp.checksum += 1
+              case 2 => ip4.headerChecksum += 1; tcp.checksum += 1
+            }
+
+            val inputArray = new Array[Byte](14 + ip4.totalLength)
+            val inputBuffer = ByteBuffer.wrap(inputArray);
+            eth.to(inputBuffer)
+            ip4.to(inputBuffer)
+            tcp.to(inputBuffer)
+            inputBuffer.put(transportData)
+
+            serialize(inputArray, ok.toInt)
+          }
+          case 1 => {
+            val eth = new Eth()
+            val ip4 = new Ip4()
+            val udp = new Udp()
+
+            eth.randomize()
+            ip4.randomize()
+            udp.randomize()
+            val transportData = Array.fill(simRandom.nextInt(200) + 1)(simRandom.nextInt(256) toByte)
+
+            eth.ethType = 0x800
+            ip4.protocol = 0x11
+            ip4.totalLength = ip4.headerSize + udp.headerSize + transportData.size
+            ip4.updateChecksum()
+            udp.updateChecksum(ip4, transportData)
+
+            val ok = simRandom.nextBoolean()
+            if(!ok) {
+              simRandom.nextInt(3) match {
+                case 0 => ip4.headerChecksum += 1
+                case 1 => udp.checksum += 1
+                case 2 => ip4.headerChecksum += 1; udp.checksum += 1
+              }
+              if(udp.checksum == 0) udp.checksum += 0x1234
+            } else {
+              if(simRandom.nextBoolean()) udp.checksum = 0
+            }
+
+            val inputArray = new Array[Byte](14 + ip4.totalLength)
+            val inputBuffer = ByteBuffer.wrap(inputArray);
+            eth.to(inputBuffer)
+            ip4.to(inputBuffer)
+            udp.to(inputBuffer)
+            inputBuffer.put(transportData)
+
+            serialize(inputArray, ok.toInt)
+          }
+          case 2 => {
+            val eth = new Eth()
+            val ip4 = new Ip4()
+            val icmp = new Icmp()
+
+            eth.randomize()
+            ip4.randomize()
+            icmp.randomize()
+            val transportData = Array.fill(simRandom.nextInt(200) + 1)(simRandom.nextInt(256) toByte)
+
+            eth.ethType = 0x800
+            ip4.protocol = 0x01
+            ip4.totalLength = ip4.headerSize + icmp.headerSize + transportData.size
+            ip4.updateChecksum()
+            icmp.updateChecksum(transportData)
+
+            val ok = simRandom.nextBoolean()
+            if(!ok) {
+              simRandom.nextInt(3) match {
+                case 0 => ip4.headerChecksum += 1
+                case 1 => icmp.checksum += 1
+                case 2 => ip4.headerChecksum += 1; icmp.checksum += 1
+              }
+            }
+
+            val inputArray = new Array[Byte](14 + ip4.totalLength)
+            val inputBuffer = ByteBuffer.wrap(inputArray);
+            eth.to(inputBuffer)
+            ip4.to(inputBuffer)
+            icmp.to(inputBuffer)
+            inputBuffer.put(transportData)
+
+            serialize(inputArray, ok.toInt)
+          }
+          case 3 => {
+            val eth = new Eth()
+
+            eth.randomize()
+            val transportData = Array.fill(simRandom.nextInt(200) + 1)(simRandom.nextInt(256) toByte)
+
+            eth.ethType = 0x3938
+
+            val inputArray = new Array[Byte](14 + transportData.size)
+            val inputBuffer = ByteBuffer.wrap(inputArray);
+            eth.to(inputBuffer)
+            inputBuffer.put(transportData)
+
+            serialize(inputArray, 0)
+          }
+          case 4 => {
+            val eth = new Eth()
+            val ip4 = new Ip4()
+
+            eth.randomize()
+            ip4.randomize()
+            val transportData = Array.fill(simRandom.nextInt(200) + 1)(simRandom.nextInt(256) toByte)
+
+            eth.ethType = 0x800
+            ip4.protocol = 0x87
+            ip4.totalLength = ip4.headerSize + transportData.size
+            ip4.updateChecksum()
+
+            val ok = simRandom.nextBoolean()
+            if(!ok) {
+              ip4.headerChecksum += 1
+            }
+
+            val inputArray = new Array[Byte](14 + ip4.totalLength)
+            val inputBuffer = ByteBuffer.wrap(inputArray);
+            eth.to(inputBuffer)
+            ip4.to(inputBuffer)
+            inputBuffer.put(transportData)
+
+            serialize(inputArray, 0)
+          }
+        }
+      }
+
+      dut.clockDomain.waitSamplingWhere(ref.isEmpty)
+      dut.clockDomain.waitSampling(100)
+    }
   }
 }
