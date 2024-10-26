@@ -56,6 +56,8 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
 
   def toStreamOfFragment : Stream[T] = pimped.translateWith(pimped.fragment)
 
+  def replaceFragmentLast(last: Bool) : Stream[Fragment[T]] = toStreamOfFragment.addFragmentLast(last)
+
 /**
  * Stepwise reduction of all fragments into a single value. With this, you can calculate
  * the (check)sum of every n elements or parity bits.
