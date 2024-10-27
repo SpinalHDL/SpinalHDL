@@ -58,7 +58,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - run: sbt 'tester/testOnly spinal.core.* -- -l spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.core.* -- -l spinal.tester.formal -l spinal.tester.psl'
 
   core-formal:
     needs: compile
@@ -70,6 +70,17 @@ jobs:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
     - run: sbt 'tester/testOnly spinal.core.* -- -n spinal.tester.formal'
+
+  core-psl:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt 'tester/testOnly spinal.core.* -- -n spinal.tester.psl'
 
   sim-test:
     needs: compile
@@ -91,7 +102,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - run: sbt 'tester/testOnly spinal.tester.* -- -l spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.tester.* -- -l spinal.tester.formal -l spinal.tester.psl'
 
   tester-formal:
     needs: compile
@@ -104,6 +115,17 @@ jobs:
     - uses: ./.github/actions/get-compiled
     - run: sbt 'tester/testOnly spinal.tester.* -- -n spinal.tester.formal'
 
+  tester-psl:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt 'tester/testOnly spinal.tester.* -- -n spinal.tester.psl'
+
   lib-test:
     needs: compile
     runs-on: ubuntu-latest
@@ -113,7 +135,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - run: sbt 'tester/testOnly spinal.lib.* -- -l spinal.tester.formal'
+    - run: sbt 'tester/testOnly spinal.lib.* -- -l spinal.tester.formal -l spinal.tester.psl'
 
   lib-formal:
     needs: compile
@@ -125,6 +147,17 @@ jobs:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
     - run: sbt 'tester/testOnly spinal.lib.* -- -n spinal.tester.formal'
+
+  lib-psl:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt 'tester/testOnly spinal.lib.* -- -n spinal.tester.psl'
 
   scaladoc:
     needs: compile
