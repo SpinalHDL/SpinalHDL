@@ -30,4 +30,14 @@ class SpinalFormalFunSuite extends AnyFunSuite{
   } catch {
     case e : Throwable => println(e); true
   })
+
+  def shouldFailWithOutput(output: String)(testFun: => Unit): Unit = {
+    import java.io.ByteArrayOutputStream
+    val stdoutCapture = new java.io.ByteArrayOutputStream
+    Console.withOut(stdoutCapture) {
+      shouldFail(testFun)
+    }
+    println(stdoutCapture)
+    assert(stdoutCapture.toString.contains(output))
+  }
 }
