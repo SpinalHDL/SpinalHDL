@@ -219,23 +219,48 @@ class StateMachineSharableRegUInt {
   * }}}
   *
   */
-class StateDelay(cyclesCount: UInt)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+class StateDelay(cyclesCount: AnyRef, minWidth: Int)(implicit stateMachineAccessor: StateMachineAccessor)
+    extends State
+    with StateCompletionTrait {
 
-  /** Create a StateDelay with an TimeNumber */
-  def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor){
+  def this(cyclesCount: BigInt)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(cyclesCount, log2Up(cyclesCount + 1))
+  }
+  def this(cyclesCount: Int)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(BigInt(cyclesCount))
+  }
+  /** Create a StateDelay with a TimeNumber */
+  def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor) {
     this((time * ClockDomain.current.frequency.getValue).toBigInt)
   }
+  def this(cyclesCount: CyclesCount)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(cyclesCount.value)
+  }
+  def this(cyclesCount: UInt)(implicit stateMachineAccessor: StateMachineAccessor) {
+    this(cyclesCount, cyclesCount.getWidth)
+  }
+  val cache = stateMachineAccessor
+    .cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt)
+    .asInstanceOf[StateMachineSharableRegUInt]
 
-  val cache = stateMachineAccessor.cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt).asInstanceOf[StateMachineSharableRegUInt]
-  cache.addMinWidth(cyclesCount.getWidth)
-
-  onEntry{
-    cache.value := cyclesCount.resized
+  cache.addMinWidth(minWidth)
+  cyclesCount match {
+    case x: UInt => {
+      onEntry {
+        cache.value := x.resized
+      }
+    }
+    case x: BigInt => {
+      if (x < 0) SpinalError(s"StateDelay: ($cyclesCount) is negative")
+      onEntry {
+        cache.value := x
+      }
+    }
   }
 
-  whenIsActiveWithPriority(1){
+  whenIsActiveWithPriority(1) {
     cache.value := cache.value - 1
-    when(cache.value <= 1){
+    when(cache.value <= 1) {
       doWhenCompletedTasks()
     }
   }
