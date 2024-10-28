@@ -745,7 +745,6 @@ class ComponentEmitterVhdl(
             if (!spinalConfig.formalAsserts) {
               val cond = emitExpression(assertStatement.cond)
 
-              require(assertStatement.message.isEmpty || (assertStatement.message.size == 1 && assertStatement.message.head.isInstanceOf[String]))
               val message = assertStatement.message
                 .map {
                   case m: String =>
