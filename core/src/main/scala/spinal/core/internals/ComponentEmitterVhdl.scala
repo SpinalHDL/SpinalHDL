@@ -745,18 +745,39 @@ class ComponentEmitterVhdl(
             if (!spinalConfig.formalAsserts) {
               val cond = emitExpression(assertStatement.cond)
 
-              require(assertStatement.message.isEmpty || (assertStatement.message.size == 1 && assertStatement.message.head.isInstanceOf[String]))
-
-              val message = if(assertStatement.message.size == 1) s"""report "${assertStatement.message(0)}" """ else ""
-
+              val message = assertStatement.message
+                .map {
+                  case m: String =>
+                    "\"" +
+                      m .replace("\"", "\"\"")
+                    .replace("\n", "\" & LF & \"")+
+                    "\""
+                  case m: SpinalEnumCraft[_] =>
+                    require(
+                      m.getEncoding == native,
+                      s"VHDL emitter can format only natively encoded enums! Located at:\n${statement.getScalaLocationLong}"
+                    )
+                    s"${emitEnumType(m)}'image(${emitExpression(m)})"
+                  case m @ (_: Bits | _: UInt | _: SInt) =>
+                    s"pkg_toString(${emitExpression(m.asInstanceOf[Expression])})"
+                  case m: Bool => s"std_logic'image(${emitExpression(m)})"
+                  case `REPORT_TIME` => "time'image(now)"
+                  case m: Data => s""""<Unknown Datatype `$m`>""""
+                  case x =>
+                    SpinalError(
+                      s"""L\"\" can't manage the parameter '${x}' type for VHDL. Located at:\n${statement.getScalaLocationLong}"""
+                    )
+                }
+                .mkString(" & ")
+  
               val severity = "severity " +  (assertStatement.severity match{
                 case `NOTE`     => "NOTE"
                 case `WARNING`  => "WARNING"
                 case `ERROR`    => "ERROR"
                 case `FAILURE`  => "FAILURE"
               })
-              b ++= s"${tab}assert $cond = '1' $message $severity;\n"
-            }
+              b ++= s"""${tab}assert $cond = '1' report ($message) $severity;\n"""
+           }
         }
 
         statementIndex += 1
