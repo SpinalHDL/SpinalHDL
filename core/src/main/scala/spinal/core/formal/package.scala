@@ -17,7 +17,7 @@ package object formal {
     ptr
   }
   def past[T <: Data](that : T) : T = past(that, 1)
-  def pastValid() : Bool = signalCache(ClockDomain.current -> "formal.pastValid")(RegNext(True) initial(False)  setWeakName("formal_with_past"))
+  def pastValid() : Bool = signalCache(ClockDomain.current -> "formal.pastValid")(RegNext(True) init(False) setWeakName("formal_with_past"))
   def pastValidAfterReset() : Bool = signalCache(ClockDomain.current -> "formal.pastValidAfterReset")(past(!ClockDomain.current.isResetActive) init(False) setWeakName("formal_with_past_after_reset"))
 
   def rose(that : Bool) : Bool = that.rise(True)
@@ -29,6 +29,12 @@ package object formal {
     ret.assignFrom(new Operator.Formal.InitState)
     ret
   }
+
+  def formalPast[T <: Data](that : T, delay : Int) : T = that.formalPast(delay)
+  def formalRose(that : Bool) : Bool = that.wrapUnaryOperator(new Operator.Formal.Rose)
+  def formalFell(that : Bool) : Bool = that.wrapUnaryOperator(new Operator.Formal.Fell)
+  def formalChanged(that : Bool) : Bool = that.wrapUnaryOperator(new Operator.Formal.Changed)
+  def formalStable(that : Bool) : Bool = that.wrapUnaryOperator(new Operator.Formal.Stable)
 
   def anyseq[T <: Data](that : T) : T = {
     that.assignFormalRandom(Operator.Formal.RANDOM_ANY_SEQ)

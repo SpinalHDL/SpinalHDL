@@ -199,6 +199,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     stateNext.setPartialName("stateNext")
     if (transitionCond != null)
       stateNextCand.setPartialName("stateNextCand")
+    cacheGet(StateMachineSharableUIntKey).map(_.asInstanceOf[StateMachineSharableRegUInt].value.setPartialName(this,"cyclesRemain"))
 
     for(state <- states){
       checkState(state)
@@ -211,8 +212,6 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     stateReg init(enumOf(this.stateBoot))
     stateReg := stateNext
 
-    val stateRegOneHotMap  = states.map(state => (state -> (stateReg === enumOf(state)))).toMap
-    val stateNextOneHotMap = states.map(state => (state -> (stateNext === enumOf(state)))).toMap
     if(transitionCond == null) {
       stateNext := stateReg
     } else {
@@ -231,10 +230,12 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     }
 
     for(state <- states){
-      when(!stateRegOneHotMap(state)){
+      when(!isActive(state)){
         state.whenInactiveTasks.foreach(_())
       }
-      when(stateRegOneHotMap(state) && !stateNextOneHotMap(state)){
+      val exit = Bool().setLambdaName(this.isNamed && state.isNamed)(this.getName +  "_onExit_" + enumOf(state).getName)
+      exit := isExiting(state)
+      when(exit){
         state.onExitTasks.foreach(_())
       }
     }
@@ -250,7 +251,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     }
 
     for(state <- states){
-      when(!stateRegOneHotMap(state) && stateNextOneHotMap(state)){
+      val entry = Bool().setLambdaName(this.isNamed && state.isNamed)(this.getName + "_onEntry_" + enumOf(state).getName)
+      entry := isEntering(state) 
+      when(entry) {
         state.onEntryTasks.foreach(_())
       }
     }
@@ -280,7 +283,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
         }
       }
       for(state <- states){
-        when(!stateRegOneHotMap(state) && stateNextOneHotMap(state)){
+        val entry = Bool().setLambdaName(this.isNamed && state.isNamed)(this.getName + "onEntry_" + enumOf(state).getName)
+        entry := isEntering(state)
+        when(entry) {
           state.onEntryTasks.foreach(_())
         }
       }

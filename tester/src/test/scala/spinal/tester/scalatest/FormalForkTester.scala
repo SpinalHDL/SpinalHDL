@@ -6,8 +6,9 @@ import spinal.lib._
 import spinal.lib.formal._
 
 class FormalForkTester extends SpinalFormalFunSuite {
-  def formalfork (synchronous: Boolean = false, back2BackCheck: Boolean = false ) = {
+  def formalfork (synchronous: Boolean = false, back2BackCheck: Boolean = false, backend: FormalBackend) = {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -87,19 +88,28 @@ class FormalForkTester extends SpinalFormalFunSuite {
             assert(out0FireLast) 
             assert(!outputs(1).valid)
           }
-        }       
+        }
       })
   }
 
-  test("fork-verify sync") {
-    formalfork(true,false)
+  test("fork-verify sync - symbiyosys") {
+    formalfork(true, false, SymbiYosysFormalBackend)
+  }
+  test("fork-verify sync - ghdl") {
+    formalfork(true, false, GhdlFormalBackend)
   }
 
-  test("fork-verify sync back2Back fail") {
-    shouldFail(formalfork(true,true))
+  test("fork-verify sync back2Back fail - symbiyosys") {
+    shouldFail(formalfork(true, true, SymbiYosysFormalBackend))
   }
-  
-  test("fork-verify async") {
-    formalfork(false,true)
+  test("fork-verify sync back2Back fail - ghdl") {
+    shouldFail(formalfork(true, true, GhdlFormalBackend))
+  }
+
+  test("fork-verify async - symbiyosys") {
+    formalfork(false, true, SymbiYosysFormalBackend)
+  }
+  test("fork-verify async - ghdl") {
+    formalfork(false, true, GhdlFormalBackend)
   }
 }

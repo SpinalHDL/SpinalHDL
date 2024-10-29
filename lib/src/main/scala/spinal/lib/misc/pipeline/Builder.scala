@@ -20,7 +20,7 @@ object Builder {
           e.propagateDown()
           for (d <- e.downs) {
             solved += d
-            if (d.down != null && d.down.ups.forall(u => solved.contains(u))) {
+            if (d.down != null && d.down.ups.forall(u => solved.contains(u) || u.up == null)) {
               seeds += d.down
             }
           }
@@ -40,7 +40,7 @@ object Builder {
           e.propagateUp()
           for (d <- e.ups) {
             solved += d
-            if (d.up != null && d.up.downs.forall(u => solved.contains(u))) {
+            if (d.up != null && d.up.downs.forall(u => solved.contains(u) || u.down == null)) {
               seeds += d.up
             }
           }
