@@ -29,7 +29,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           RRD = 6,
           REF = 64000,
           FAW = 35
-        )
+          )
         val sdram = SdramConfig(
           SdramGeneration.MYDDR,
           bankWidth = 3,
@@ -40,7 +40,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           ddrWrLat = 4,
           ddrRdLat = 4,
           sdramtime = sdramtime
-        )
+          )
         val timeConfig = DfiTimeConfig(
           tPhyWrLat = sdram.tPhyWrlat,
           tPhyWrData = 0,
@@ -50,7 +50,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           tPhyRdCsGap = 3,
           tPhyRdCslat = 0,
           tPhyWrCsLat = 0
-        )
+          )
         val dfiConfig: DfiConfig = DfiConfig(
           frequencyRatio = 2,
           chipSelectNumber = 2,
@@ -61,7 +61,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           signalConfig = new DDRSignalConfig(),
           timeConfig = timeConfig,
           sdram = sdram
-        )
+          )
         val bmbp: BmbParameter = BmbParameter(
           addressWidth = sdram.byteAddressWidth + log2Up(dfiConfig.chipSelectNumber),
           dataWidth = dfiConfig.beatWidth,
@@ -69,7 +69,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           contextWidth = 2,
           lengthWidth = 10,
           alignment = BmbParameter.BurstAlignement.WORD
-        )
+          )
         val dut = DfiController(bmbp, task, dfiConfig)
         dut
       }
@@ -80,11 +80,11 @@ class DfiControllerTester extends SpinalAnyFunSuite {
         val readQueue = mutable.Queue[BigInt]()
 
         def write(
-            array: Array[Int],
-            address: BigInt = BigInt(bmbp.access.addressWidth - log2Up(task.bytePerTaskMax), simRandom) << log2Up(
-              task.bytePerTaskMax
-            )
-        ) = {
+                   array: Array[Int],
+                   address: BigInt = BigInt(bmbp.access.addressWidth - log2Up(task.bytePerTaskMax), simRandom) << log2Up(
+                     task.bytePerTaskMax
+                     )
+                 ) = {
 
           io.bmb.cmd.address #= address
           io.bmb.cmd.length #= array.length * dut.dfiConfig.bytePerBeat - 1
@@ -100,7 +100,13 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             io.bmb.cmd.valid #= true
             io.bmb.cmd.data.randomize()
             writeQueue.enqueue(io.bmb.cmd.data.toBigInt)
-            if (arr == array.last) io.bmb.cmd.last #= true
+            if (arr == array.last) {
+              io.bmb.cmd.valid #= false
+              clockDomain.waitSampling(5)
+              io.bmb.cmd.valid #= true
+              io.bmb.cmd.last #= true
+              io.bmb.cmd.data.randomize()
+            } else io.bmb.cmd.data.randomize()
             clockDomain.waitSampling()
           }
           io.bmb.cmd.last #= false
@@ -109,11 +115,11 @@ class DfiControllerTester extends SpinalAnyFunSuite {
         }
 
         def read(
-            beatCount: Int,
-            address: BigInt = BigInt(bmbp.access.addressWidth - log2Up(task.bytePerTaskMax), simRandom) << log2Up(
-              task.bytePerTaskMax
-            )
-        ): Unit = {
+                  beatCount: Int,
+                  address: BigInt = BigInt(bmbp.access.addressWidth - log2Up(task.bytePerTaskMax), simRandom) << log2Up(
+                    task.bytePerTaskMax
+                    )
+                ): Unit = {
           io.bmb.cmd.address #= address
           io.bmb.cmd.length #= beatCount * dut.dfiConfig.bytePerBeat - 1
           io.bmb.cmd.opcode #= 0
@@ -126,7 +132,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           io.bmb.cmd.opcode #= 1
           clockDomain.waitSampling(
             dfiConfig.timeConfig.tPhyRdlat / dfiConfig.frequencyRatio
-          ) // The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + dfiConfig.beatCount-1)/dfiConfig.beatCount + 1)
+            ) // The time interval is less than or equal to log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + dfiConfig.beatCount-1)/dfiConfig.beatCount + 1)
           for (i <- 0 until (1 << bmbp.access.lengthWidth) / task.bytePerTaskMax) {
             readdata(task.bytePerTaskMax / dfiConfig.bytePerBeat)
           }
@@ -146,12 +152,12 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             clockDomain.waitSampling()
             readQueue.enqueue(
               dut.io.dfi.read.rd
-                .map(_.rddata.toBigInt)
-                .reverse
-                .zipWithIndex
-                .reduceLeft((a, b) => (a._1 + (b._1 << (b._2 * dfiConfig.phyIoWidth)), 0))
-                ._1
-            )
+                 .map(_.rddata.toBigInt)
+                 .reverse
+                 .zipWithIndex
+                 .reduceLeft((a, b) => (a._1 + (b._1 << (b._2 * dfiConfig.phyIoWidth)), 0))
+                 ._1
+              )
           }
           dut.io.dfi.read.rd.foreach(_.rddataValid #= false)
         }
@@ -187,7 +193,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
                   assert(
                     writeDataTemp == writeDataBigInt,
                     s"writeQueue.dequeue'${writeDataTemp.hexString()}' =/= writeDataBigInt'${writeDataBigInt.hexString()}'"
-                  )
+                    )
                   writeDataBigInt = 0
                 }
               }
@@ -203,7 +209,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
               assert(
                 readDataTemp == io.bmb.rsp.data.toBigInt,
                 s"writeQueue.dequeue'${readDataTemp.hexString()}' =/= writeDataBigInt'${io.bmb.rsp.data.toBigInt.hexString()}'"
-              )
+                )
             }
           }
         }
