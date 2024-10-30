@@ -305,13 +305,13 @@ package object core extends BaseTypeFactory with BaseTypeCast {
         this
       }
     }
-    def L(args: Any*): LList ={
+    def L(args: Any*): Seq[Any] ={
       val ret = new LList()
       for((s,i) <- sc.parts.zipWithIndex){
         ret += s
         if(args.size > i) ret += args(i)
       }
-      ret
+      ret.toSeq
     }
 
     def Bits(args: Any*): Bits = B(args)
