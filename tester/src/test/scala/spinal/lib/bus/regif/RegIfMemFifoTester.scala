@@ -36,6 +36,13 @@ class RegifFifoMem extends Component{
   RAM1.field(8, doc = "field 1")("param1")
   RAM1.field(16, doc = "field 2")("param2")
   RAM1.bus >> io.ram
+
+  bif.accept(DocCHeader("header", "AP"))
+  bif.accept(DocHtml("regif"))
+  bif.accept(DocJson("regif"))
+  bif.accept(DocRalf("regif"))
+  bif.accept(DocPlay("regif"))
+  bif.accept(DocSVHeader("regif"))
 }
 
 class RegIfMemFIfoTB extends RegifFifoMem{

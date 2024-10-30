@@ -11,7 +11,12 @@ abstract class FifoInst(name: String, addr: BigInt, doc: String, sec: Secure = n
 
   def field(bit: Int, doc: String = "")(name: String) = {
     val section: Range = fieldPtr + bit -1 downto fieldPtr
-    fields   += Field(name, Bits(bit bits), section, AccessType.WO, 0, Rerror, doc)
+    val acctype = regType match {
+      case "rFIFO" => AccessType.RO
+      case "wFIFO" => AccessType.WO
+      case _       => AccessType.WO
+    }
+    fields   += Field(name, Bits(bit bits), section, acctype, 0, Rerror, doc)
     fieldPtr += bit
   }
 
