@@ -13,7 +13,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   import scala.collection.mutable
 
   test("DfiControllerTester") {
-    SimConfig
+    SimConfig.withWave
       .compile {
         val task: TaskParameter =
           TaskParameter(timingWidth = 5, refWidth = 23, cmdBufferSize = 1024, dataBufferSize = 1024, rspBufferSize = 1024)
@@ -101,9 +101,9 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             io.bmb.cmd.data.randomize()
             writeQueue.enqueue(io.bmb.cmd.data.toBigInt)
             if (arr == array.last) {
-              io.bmb.cmd.valid #= false
-              clockDomain.waitSampling(5)
-              io.bmb.cmd.valid #= true
+//              io.bmb.cmd.valid #= false
+//              clockDomain.waitSampling(5)
+//              io.bmb.cmd.valid #= true
               io.bmb.cmd.last #= true
               io.bmb.cmd.data.randomize()
             } else io.bmb.cmd.data.randomize()
