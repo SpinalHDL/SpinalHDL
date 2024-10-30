@@ -409,7 +409,7 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
 
   val ports = for((usb, ctrl, management) <- (io.usb, io.ctrl.ports, io.management).zipped) yield new Area{
 //    val connected = Reg(Bool()) init(False) //TODO
-    val portLowSpeed = Reg(Bool())
+    val portLowSpeed = Reg(Bool()) init(False)
 //    val enable = Reg(Bool())
 
 //    ctrl.connected := connected
@@ -646,6 +646,9 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
         when(timer.DISCONNECTED_EOI){
           ctrl.connect := True
           goto(DISABLED)
+        }
+        when(!ctrl.reset.valid && filter.io.filtred.dm =/= filter.io.filtred.dp) {
+          portLowSpeed := !filter.io.filtred.d
         }
       }
 
