@@ -1,4 +1,5 @@
 // build.sc
+package build
 import mill._, scalalib._, publish._
 import mill.define.ModuleRef
 import $file.project.Version
@@ -130,7 +131,6 @@ object tester extends Cross[Tester](Version.SpinalVersion.compilers){
   def defaultCrossSegments = Seq(Version.SpinalVersion.compilers.head)
 }
 trait Tester extends SpinalModule with SpinalPublishModule {
-  override def millSourcePath = os.pwd / "tester"
   def mainClass = Some("spinal.tester")
   def moduleDeps = Seq(coreMod(), simMod(), libMod())
   def scalacOptions = super.scalacOptions() ++ idslpluginMod().pluginOptions()
