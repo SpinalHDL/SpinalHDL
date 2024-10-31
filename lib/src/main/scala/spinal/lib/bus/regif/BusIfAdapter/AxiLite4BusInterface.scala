@@ -13,7 +13,7 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   lazy val reg_wrerr: Bool = Reg(Bool(), init = False)
   val bus_rdata: Bits  = Bits(busDataWidth bits)
   val reg_rderr: Bool = Reg(Bool(), init = False)
-  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
+  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defaultReadBits)
 
   val wstrb: Bits = withStrb generate (Bits(strbWidth bit))
   val wmask: Bits = withStrb generate (Bits(busDataWidth bit))
@@ -51,7 +51,7 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
   bus.r << axiR
   bus.b << axiB
 
-  val askWrite  = axiAw.valid && axiW.valid 
+  val askWrite  = axiAw.valid && axiW.valid
   val askRead   = axiAr.valid || (axiR.valid && !axiR.ready)
   val doWrite   = askWrite && (!axiB.valid || axiB.ready)    //Assume one stage between xw and B
   val doRead    = axiAr.valid && (!axiR.valid || axiR.ready) //Assume one stage between Ar and R
@@ -61,8 +61,8 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: Str
 
   axiRValid clearWhen(axiR.ready) setWhen(doRead)
   axiAr.ready := doRead
-  
-  axiBValid clearWhen(axiB.ready) setWhen(doWrite) 
+
+  axiBValid clearWhen(axiB.ready) setWhen(doWrite)
   axiAw.ready := doWrite
   axiW.ready  := doWrite
 

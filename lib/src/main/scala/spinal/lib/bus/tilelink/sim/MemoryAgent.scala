@@ -12,7 +12,6 @@ import scala.collection.mutable
 class MemoryAgent(bus: Bus,
                   cd: ClockDomain,
                   seed : Long = simRandom.nextInt(),
-                  blockSize : Int = 64,
                   var randomProberFactor : Float = 0.0f,
                   var randomProberDelayMax : Int = 1000,
                   memArg : Option[SparseMemory] = None
@@ -20,6 +19,13 @@ class MemoryAgent(bus: Bus,
   implicit val _ = sm
 
   val mem = memArg.getOrElse(SparseMemory(seed))
+
+  var blockSize = 64
+  try{
+    blockSize = bus.p.node.s.emits.probe.getSingleSize().get
+  }catch{
+    case e : Throwable =>
+  }
 
   val monitor = new Monitor(bus, cd).add(this)
   val driver = new SlaveDriver(bus, cd)

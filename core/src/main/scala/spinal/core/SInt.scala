@@ -454,6 +454,11 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     */
   def unary_- : SInt = wrapUnaryOperator(new Operator.SInt.Minus)
 
+  def twoComplement(enable: Bool, plusOneEnable : Bool = null): SInt = {
+    val expended = this.msb ## this
+    ((Mux(enable, ~expended, expended)).asUInt + U(if(plusOneEnable == null) enable else enable && plusOneEnable)).asSInt
+  }
+
   /**
     * Logical shift Right (output width == input width)
     * @example{{{ val result = mySInt >> myUIntShift }}}

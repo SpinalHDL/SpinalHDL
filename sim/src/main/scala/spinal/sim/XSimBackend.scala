@@ -239,8 +239,9 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     outFile.flush()
     outFile.close()
 
-    val vivadoScriptPath = scriptPath.replace("\\", "/")
-    val command =  s""" vivado -mode batch -source "$vivadoScriptPath" """.trim
+    var vivadoScriptPath = scriptPath.replace("\\", "/")
+    if (isWindows) vivadoScriptPath = s""""$vivadoScriptPath""""
+    val command =  s""" vivado -mode batch -source $vivadoScriptPath """.trim
     doCmdVivado(command,
       new File(workPath),
       "Generation of vivado script failed")
@@ -248,13 +249,9 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
 
   def getScriptCommand(cmd: String) = {
     if (isWindows) {
-      if (isMsys){
-        s"${simulatePath}\\${cmd}.bat"  
-      } else {
-        s"${cmd}.bat"
-      }
+      s"${simulatePath}\\${cmd}.bat"
     } else {
-      s"${cmd}.sh"
+      s"${simulatePath}/${cmd}.sh"
     }
   }
 
