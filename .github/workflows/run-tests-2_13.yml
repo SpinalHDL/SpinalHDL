@@ -63,18 +63,29 @@ jobs:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
     - run: mill core[$SCALA_VERSION].test
-    - run: mill tester[$SCALA_VERSION].testOnly spinal.core.*
+    - run: mill tester[$SCALA_VERSION].testOnly spinal.core.* -- -l spinal.tester.formal -l spinal.tester.psl
 
-  # core-formal:
-  #   needs: compile
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 90
-  #   container:
-  #     image: ghcr.io/spinalhdl/docker:latest
-  #   steps:
-  #   - uses: actions/checkout@v3
-  #   - uses: ./.github/actions/get-compiled
-  #   - run: sbt 'tester/testOnly spinal.core.* -- -n spinal.tester.formal'
+  core-formal:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: mill tester[$SCALA_VERSION].testOnly spinal.core.* -- -n spinal.tester.formal
+
+  core-psl:
+      needs: compile
+      runs-on: ubuntu-latest
+      timeout-minutes: 90
+      container:
+        image: ghcr.io/spinalhdl/docker:latest
+      steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/get-compiled
+      - run: mill tester[$SCALA_VERSION].testOnly spinal.core.* -- -n spinal.tester.psl
 
   sim-test:
     needs: compile
@@ -97,18 +108,29 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    - run: mill tester[$SCALA_VERSION].testOnly spinal.tester.*
+    - run: mill tester[$SCALA_VERSION].testOnly spinal.tester.* -- -l spinal.tester.formal -l spinal.tester.psl
 
-  # tester-formal:
-  #   needs: compile
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 90
-  #   container:
-  #     image: ghcr.io/spinalhdl/docker:latest
-  #   steps:
-  #   - uses: actions/checkout@v3
-  #   - uses: ./.github/actions/get-compiled
-  #   - run: sbt 'tester/testOnly spinal.tester.* -- -n spinal.tester.formal'
+  tester-formal:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: mill tester[$SCALA_VERSION].testOnly spinal.tester.* -- -n spinal.tester.formal
+
+  tester-psl:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: mill tester[$SCALA_VERSION].testOnly spinal.tester.* -- -n spinal.tester.psl
 
   lib-test:
     needs: compile
@@ -120,19 +142,31 @@ jobs:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
     - run: mill lib[$SCALA_VERSION].test
-    - run: mill tester[$SCALA_VERSION].testOnly spinal.lib.*
+    - run: mill tester[$SCALA_VERSION].testOnly spinal.lib.* -- -l spinal.tester.formal -l spinal.tester.psl
 
-  # lib-formal:
-  #   needs: compile
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 90
-  #   container:
-  #     image: ghcr.io/spinalhdl/docker:latest
-  #   steps:
-  #   - uses: actions/checkout@v3
-  #   - uses: ./.github/actions/get-compiled
-  #   - run: sbt 'tester/testOnly spinal.lib.* -- -n spinal.tester.formal'
+  lib-formal:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: mill tester[$SCALA_VERSION].testOnly spinal.lib.* -- -n spinal.tester.formal
 
+
+  lib-psl:
+      needs: compile
+      runs-on: ubuntu-latest
+      timeout-minutes: 90
+      container:
+        image: ghcr.io/spinalhdl/docker:latest
+      steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/get-compiled
+      - run: mill tester[$SCALA_VERSION].testOnly spinal.lib.* -- -n spinal.tester.psl
+      
   # scaladoc:
   #   needs: compile
   #   runs-on: ubuntu-latest
