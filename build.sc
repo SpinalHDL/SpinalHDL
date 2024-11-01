@@ -86,7 +86,7 @@ trait Lib extends SpinalModule with SpinalPublishModule {
   def moduleDeps = Seq(coreMod(), simMod())
   def scalacOptions = super.scalacOptions() ++ idslpluginMod().pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"commons-io:commons-io:2.11.0", ivy"org.scalatest::scalatest:${scalatestVersion}",
-    ivy"io.github.zhaokunhu::ipxactscalacases:0.0.2")
+    ivy"io.github.zhaokunhu::ipxactscalacases:0.0.3")
   def publishVersion = Version.SpinalVersion.lib
 }
 
