@@ -139,10 +139,11 @@ trait Tester extends SpinalModule with SpinalPublishModule {
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:${scalatestVersion}")
   def publishVersion = Version.SpinalVersion.tester
 
-  def copyPythonResources(dest: os.Path) = {
-    val sourcePath = millSourcePath / "src" / "test" / "python"
-    val destPath = dest / "sandbox" / "tester" / "src" / "test" / "python"
-    os.copy.over(sourcePath, destPath, createFolders = true)
+  def copyResources(dest: os.Path) = {
+    val sourcePath = millSourcePath / "src" / "test"
+    val destPath = dest / "sandbox" / "tester" / "src" / "test"
+    os.copy.over(sourcePath / "python", destPath / "python", createFolders = true)
+    os.copy.over(sourcePath / "resources", destPath / "resources", createFolders = true)
   }
 
   def test = new TestDef {
@@ -154,7 +155,7 @@ trait Tester extends SpinalModule with SpinalPublishModule {
           (s, t.tail)
       }
       Task.Command {
-        testTask(Task.Anon { copyPythonResources(T.dest); testArgs }, Task.Anon { selector })()
+        testTask(Task.Anon { copyResources(T.dest); testArgs }, Task.Anon { selector })()
       }
     }
   }
