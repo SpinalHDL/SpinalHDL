@@ -28,13 +28,13 @@ class RegSC(val name: String, offset: BigInt, doc: String, bi: BusIf, sec: Secur
   val CLR  = this.newReg("SCR clear register")(SymbolName(s"${name}_CLR"))
 
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], resetValue:BigInt , doc: String)(implicit symbol: SymbolName): T = {
-    val reg = SET.fieldAt(pos, hardType,    AccessType.W1S, resetValue = resetValue, doc = s"doc, write 1 set")(symbol)
+    val reg = SET.fieldAt(pos, hardType,    AccessType.W1S, resetValue = resetValue, doc = s"${doc}, write 1 set")(symbol)
               CLR.parasiteFieldAt(pos, reg, AccessType.W1C, resetValue = resetValue, doc = s"${doc}, write 1 clear")
     reg
   }
 
   def field[T <: BaseType](hardType: HardType[T], resetValue: Int, doc: String)(implicit symbol: SymbolName) = {
-    val reg = SET.field(hardType, AccessType.W1S, resetValue = resetValue, doc = s"doc, write 1 set")(symbol)
+    val reg = SET.field(hardType, AccessType.W1S, resetValue = resetValue, doc = s"${doc}, write 1 set")(symbol)
               CLR.parasiteField(reg, AccessType.W1C, resetValue = resetValue, doc = s"${doc}, write 1 clear")
     reg
   }

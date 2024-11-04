@@ -31,14 +31,14 @@ class RegSCR(val name: String, offset: BigInt, doc: String, bi: BusIf, sec: Secu
   val READ = this.newReg("SCR read register")(SymbolName(s"${name}_READ"))
 
   def fieldAt[T <: BaseType](pos: Int, hardType: HardType[T], resetValue:BigInt , doc: String)(implicit symbol: SymbolName): T = {
-    val reg = SET.fieldAt(pos, hardType,    AccessType.W1S, resetValue = resetValue, doc = s"doc, write 1 set")(symbol)
+    val reg = SET.fieldAt(pos, hardType,    AccessType.W1S, resetValue = resetValue, doc = s"${doc}, write 1 set")(symbol)
          CLR.parasiteFieldAt(pos, reg, AccessType.W1C, resetValue = resetValue, doc = s"${doc}, write 1 clear")
          READ.parasiteFieldAt(pos, reg, AccessType.RO,  resetValue = resetValue, doc = s"${doc}, read addr")
     reg
   }
 
   def field[T <: BaseType](hardType: HardType[T], resetValue: Int, doc: String)(implicit symbol: SymbolName) = {
-    val reg = SET.field(hardType, AccessType.W1S, resetValue = resetValue, doc = s"doc, write 1 set")(symbol)
+    val reg = SET.field(hardType, AccessType.W1S, resetValue = resetValue, doc = s"${doc}, write 1 set")(symbol)
          CLR.parasiteField(reg, AccessType.W1C, resetValue = resetValue, doc = s"${doc}, write 1 clear")
          READ.parasiteField(reg, AccessType.RO, resetValue = resetValue, doc = s"${doc}, read addr")
     reg
