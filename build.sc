@@ -136,4 +136,15 @@ trait Tester extends SpinalModule with SpinalPublishModule {
   def scalacOptions = super.scalacOptions() ++ idslpluginMod().pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:${scalatestVersion}")
   def publishVersion = Version.SpinalVersion.tester
+
+  def copyPythonResources = T {
+    val sourcePath = millSourcePath / "src" / "test" / "python"
+    val destPath = T.dest / "tester" / "src" / "test" / "python"
+    os.copy.over(sourcePath, destPath, createFolders = true)
+  }
+
+  def testOnly(args: String*) = T.command {
+    copyPythonResources()
+    super.testOnly(args: _*)
+  }
 }
