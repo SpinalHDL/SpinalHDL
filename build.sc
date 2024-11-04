@@ -19,7 +19,7 @@ trait SpinalModule extends SbtModule with CrossSbtModule { outer =>
     ivy"org.scala-lang.modules::scala-xml:1.3.0"
   )
 
-  abstract class TestDef extends CrossSbtModuleTests with TestModule.ScalaTest {
+  abstract class TestDef extends CrossSbtTests with TestModule.ScalaTest {
     def ivyDeps = Agg(ivy"org.scalatest::scalatest::${scalatestVersion}")
   }
   def test = new TestDef {}
