@@ -12,7 +12,7 @@ on:
 
 jobs:  
   run-test:
-    uses: ./.github/workflows/mill-tests.yml
+    uses: ./.github/workflows/sbt-tests.yml
     with:
       scala_version: '2.11.12'
       runner_os: 'Linux'
