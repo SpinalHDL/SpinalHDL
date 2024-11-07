@@ -185,14 +185,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def ~[T2 <: Data](that: T2): Stream[T2] = translateWith(that)
   def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = map(translate)
   def map[T2 <: Data](translate: (T) => T2): Stream[T2] = {
-    (this ~ translate(this.payload)).setCompositeName(v, "map", true)
+    (this ~ translate(this.payload)).setCompositeName(this, "map", true)
   }
 
 /** Ignore the payload */
   def toEvent() : Event = {
     val ret = Event
     ret.arbitrationFrom(this)
-    ret.setCompositeName(v, "toEvent", true)
+    ret.setCompositeName(this, "toEvent", true)
   }
 
 /** Connect this to a fifo and return its pop stream
@@ -454,7 +454,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next.valid := this.valid && cond
     this.ready := next.ready && cond
     next.payload := this.payload
-    next.setCompositeName(v, "continueWhen", true)
+    next.setCompositeName(this, "continueWhen", true)
   }
 
 /** Drop transactions of this when cond is True. Return the resulting stream
@@ -467,7 +467,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       next.valid := False
       this.ready := True
     }
-    next.setCompositeName(v, "throwWhen", true)
+    next.setCompositeName(this, "throwWhen", true)
   }
 
   def clearValidWhen(cond : Bool): Stream[T] = {
