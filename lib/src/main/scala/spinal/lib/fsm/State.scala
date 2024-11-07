@@ -231,7 +231,8 @@ class StateDelay(cyclesCount: AnyRef, minWidth: Int)(implicit stateMachineAccess
   }
   /** Create a StateDelay with a TimeNumber */
   def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor) {
-    this((time * ClockDomain.current.frequency.getValue).toBigInt)
+    this(((time.toBigDecimal * ClockDomain.current.frequency.getValue.toBigDecimal)
+      .setScale(0, BigDecimal.RoundingMode.UP)).toBigInt)
   }
   def this(cyclesCount: CyclesCount)(implicit stateMachineAccessor: StateMachineAccessor) {
     this(cyclesCount.value)
