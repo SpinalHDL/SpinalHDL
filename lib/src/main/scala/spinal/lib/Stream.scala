@@ -95,21 +95,21 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val ret = Flow(payloadType)
     ret.valid := this.valid
     ret.payload := this.payload
-    ret
+    ret.setCompositeName(this, "toFlow", true)
   }
 
   def toFlowFire: Flow[T] = {
     val ret = Flow(payloadType)
     ret.valid := this.fire
     ret.payload := this.payload
-    ret
+    ret.setCompositeName(this, "toFlowFire", true)
   }
 
   def asFlow: Flow[T] = {
     val ret = Flow(payloadType)
     ret.valid := this.valid
     ret.payload := this.payload
-    ret
+    ret.setCompositeName(this, "asFlow", true)
   }
 
   /** Connect that to this
@@ -175,7 +175,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       case (false,true,false) =>  StreamPipe.S2M(this)
       case (true,true,false) =>   StreamPipe.FULL(this)
       case (false,false,true) =>  StreamPipe.HALF(this)
-      case _ => { report(s"Parameters ($m2s, $s2m, $halfRate) are not valid for pipelined function.") 
+      case _ => { report(s"Parameters ($m2s, $s2m, $halfRate) are not valid for pipelined function.")
         null.asInstanceOf[Stream[T]]
       }
     }
@@ -185,20 +185,20 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def ~[T2 <: Data](that: T2): Stream[T2] = translateWith(that)
   def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = map(translate)
   def map[T2 <: Data](translate: (T) => T2): Stream[T2] = {
-    (this ~ translate(this.payload))
+    (this ~ translate(this.payload)).setCompositeName(v, "map", true)
   }
 
 /** Ignore the payload */
   def toEvent() : Event = {
     val ret = Event
     ret.arbitrationFrom(this)
-    ret
+    ret.setCompositeName(v, "toEvent", true)
   }
 
 /** Connect this to a fifo and return its pop stream
   */
   def queue(size: Int, latency : Int = 2, forFMax : Boolean = false): Stream[T] = new Composite(this){
-    val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax)
+    val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax).setCompositeName(this,"queue", true)
     fifo.io.push << self
   }.fifo.io.pop
 
@@ -236,7 +236,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   /** Connect this to a zero latency fifo and return its pop stream
     */
   def queueLowLatency(size: Int, latency : Int = 0): Stream[T] = {
-    val fifo = new StreamFifoLowLatency(payloadType, size, latency)
+    val fifo = new StreamFifoLowLatency(payloadType, size, latency).setCompositeName(this,"queueLowLatency", true)
     fifo.setPartialName(this, "fifo", true)
     fifo.io.push << this
     fifo.io.pop
@@ -266,9 +266,9 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.valid := this.valid
     ret.payload := this.payload
     this.ready := ret.ready && counter.willOverflowIfInc
-    (ret, counter)
+    (ret.setCompositeName(this,"repeat", true), counter)
   }
-  
+
   /**
    * Connect this to a new stream whose payload is n times as wide, but that only fires every n cycles.
    * It introduces 0 to factor-1 cycles of latency. Mapping a stream into memory and mapping a slowed
@@ -292,7 +292,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       this.ready := True
       next.valid := False
     }
-    next
+    next.setCompositeName(this,"slowdown", true)
   }
 
 /** Return True when a transaction is present on the bus but the ready signal is low
@@ -310,7 +310,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Return True when the bus isn't stuck with a transaction (!isStall)
   */
   def isFree: Bool = signalCache(this ->"isFree")((!valid || ready).setCompositeName(this, "isFree", true))
-  
+
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
     that.ready := this.ready
@@ -373,7 +373,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   /** Connect this to a valid/payload register stage and return its output stream
   */
-  def stage() : Stream[T] = this.m2sPipe()
+  def stage() : Stream[T] = this.m2sPipe().setCompositeName(this, "stage", true)
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
   def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false, keep : Boolean = false): Stream[T] = new Composite(this) {
@@ -454,7 +454,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next.valid := this.valid && cond
     this.ready := next.ready && cond
     next.payload := this.payload
-    return next
+    next.setCompositeName(v, "continueWhen", true)
   }
 
 /** Drop transactions of this when cond is True. Return the resulting stream
@@ -467,7 +467,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       next.valid := False
       this.ready := True
     }
-    next
+    next.setCompositeName(v, "throwWhen", true)
   }
 
   def clearValidWhen(cond : Bool): Stream[T] = {
@@ -480,11 +480,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   /** Stop transactions on this when cond is True. Return the resulting stream
     */
-  def haltWhen(cond: Bool): Stream[T] = continueWhen(!cond)
+  def haltWhen(cond: Bool): Stream[T] = continueWhen(!cond).setCompositeName(this, "haltWhen", true)
 
 /** Drop transaction of this when cond is False. Return the resulting stream
   */
-  def takeWhen(cond: Bool): Stream[T] = throwWhen(!cond)
+  def takeWhen(cond: Bool): Stream[T] = throwWhen(!cond).setCompositeName(this, "takeWhen", true)
 
 
   def fragmentTransaction(bitsWidth: Int): Stream[Fragment[Bits]] = {
@@ -503,7 +503,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.arbitrationFrom(this)
     ret.last := last
     ret.fragment := this.payload
-    return ret
+    ret.setCompositeName(this, "addFragmentLast", true)
   }
   
   /** 
