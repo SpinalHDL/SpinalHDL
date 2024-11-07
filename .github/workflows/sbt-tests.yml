@@ -1,0 +1,164 @@
+name: Run sbt tests
+on:
+  workflow_call:
+    inputs:
+      scala_version:
+        required: true
+        type: string
+      runner_os:
+        required: true
+        type: string
+      github_sha:
+        required: true
+        type: string
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Get submodules
+      shell: bash
+      run: git submodule update --init --recursive
+    - run: sbt ++${{ inputs.scala_version }} compile
+    - run: sbt ++${{ inputs.scala_version }} Test/compile
+    - uses: actions/cache/save@v3
+      with:
+        path: |
+          **/
+        key: ${{ inputs.runner_os }}-compiled-${{ inputs.github_sha }}
+
+  idslplugin-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} idslplugin/test
+
+  idslpayload-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} idslpayload/test
+
+  core-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.core.* -- -l spinal.tester.formal -l spinal.tester.psl'
+
+  core-formal:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.core.* -- -n spinal.tester.formal'
+
+  core-psl:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.core.* -- -n spinal.tester.psl'
+
+  sim-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} sim/test
+
+  tester-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.tester.* -- -l spinal.tester.formal -l spinal.tester.psl'
+
+  tester-formal:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.tester.* -- -n spinal.tester.formal'
+
+  tester-psl:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.tester.* -- -n spinal.tester.psl'
+
+  lib-test:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.lib.* -- -l spinal.tester.formal -l spinal.tester.psl'
+
+  lib-formal:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.lib.* -- -n spinal.tester.formal'
+
+  lib-psl:
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: ghcr.io/spinalhdl/docker:latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/get-compiled
+    - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.lib.* -- -n spinal.tester.psl'
