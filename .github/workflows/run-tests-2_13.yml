@@ -1,8 +1,12 @@
 name: Run scala 2.13 tests
 
 on:
-  schedule:
-    - cron: '0 0 * * 0'
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
   workflow_dispatch:
     inputs:
       logLevel:
