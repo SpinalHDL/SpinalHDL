@@ -141,7 +141,8 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   @dontName val postBuildTasks = ArrayBuffer[() => Unit]()
 
   val cache = mutable.HashMap[Any,Any]()
-  val enumDef = new StateMachineEnum
+  val enumDef = new StateMachineEnum()
+  enumDef.name = ""
   var stateReg  : enumDef.C = null
   var stateNext : enumDef.C = null
   /* Candidate for next state */
