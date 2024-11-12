@@ -37,7 +37,7 @@ case class TilelinkSpiXdrMasterCtrl(p : SpiXdrMasterCtrl.MemoryMappingParameters
 }
 
 
-case class TilelinkSpiXdrMasterFiber(param : SpiXdrMasterCtrl.MemoryMappingParameters) extends Area{
+class TilelinkSpiXdrMasterFiber(param : SpiXdrMasterCtrl.MemoryMappingParameters) extends Area{
   val ctrl = fabric.Node.up()
   val interrupt = InterruptNode.master()
   val xip = param.withXip generate fabric.Node.up()
