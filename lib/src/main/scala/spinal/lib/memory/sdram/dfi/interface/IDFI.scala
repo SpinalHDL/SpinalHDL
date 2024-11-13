@@ -4,13 +4,12 @@ import spinal.core._
 import spinal.lib._
 
 case class DfiCmd(config: DfiConfig) extends Bundle {
-  import config._
-  val cid = useCid generate Bits(chipIdWidth bits)
-  val actN = useAckN generate Bool()
-  val weN = useWeN generate Bool()
-  val casN = useCasN generate Bool()
-  val rasN = useRasN generate Bool()
-  val csN = Bits(chipSelectNumber bits)
+  val cid = config.useCid generate Bits(config.chipIdWidth bits)
+  val actN = config.useAckN generate Bool()
+  val weN = config.useWeN generate Bool()
+  val casN = config.useCasN generate Bool()
+  val rasN = config.useRasN generate Bool()
+  val csN = Bits(config.chipSelectNumber bits)
 }
 
 case class DfiOdt(config: DfiConfig) extends Bundle {
@@ -18,10 +17,9 @@ case class DfiOdt(config: DfiConfig) extends Bundle {
 }
 
 case class DfiAddr(config: DfiConfig) extends Bundle {
-  import config._
-  val bg = useBg generate Bits(bankGroupWidth bits)
-  val bank = useBank generate Bits(bankWidth bits)
-  val address = Bits(addressWidth bits)
+  val bg = config.useBg generate Bits(config.bankGroupWidth bits)
+  val bank = config.useBank generate Bits(config.bankWidth bits)
+  val address = Bits(config.addressWidth bits)
 }
 
 case class DfiWrData(config: DfiConfig) extends Bundle {
@@ -34,10 +32,9 @@ case class DfiWrCs(config: DfiConfig) extends Bundle {
 }
 
 case class DfiRdData(config: DfiConfig) extends Bundle {
-  import config._
-  val rdData = Bits(dataWidth bits)
-  val rdDataDbiN = useRddataDbiN generate Bits(dbiWidth bits)
-  val rdDataDnv = useRddataDnv generate Bits(dataWidth / 8 bits)
+  val rdData = Bits(config.dataWidth bits)
+  val rdDataDbiN = config.useRddataDbiN generate Bits(config.dbiWidth bits)
+  val rdDataDnv = config.useRddataDnv generate Bits(config.dataWidth / 8 bits)
 }
 
 case class DfiReadCs(config: DfiConfig) extends Bundle {
@@ -51,9 +48,8 @@ case class DfiPhyUp(config: DfiConfig) extends Bundle {
 }
 
 case class DfiInit(config: DfiConfig) extends Bundle {
-  import config._
-  val dataByteDisable = useDataByteDisable generate Bits(dataWidth / 8 bits)
-  val freqRatio = useFreqRatio generate Bits(2 bits)
+  val dataByteDisable = config.useDataByteDisable generate Bits(config.dataWidth / 8 bits)
+  val freqRatio = config.useFreqRatio generate Bits(2 bits)
 }
 
 case class DfiRdLvlCs(config: DfiConfig) extends Bundle {
@@ -98,9 +94,12 @@ case class DfiError(config: DfiConfig) extends Bundle {
 }
 
 case class IDFI(config: DfiConfig) extends Bundle with IMasterSlave {
-  import config._
+  val frequencyRatio = config.frequencyRatio
+  val chipSelectNumber = config.chipSelectNumber
+  val dataSlice = config.dataSlice
+
   val cke = Vec(Bits(chipSelectNumber bits), frequencyRatio)
-  val rstN = useResetN generate Vec(Bits(chipSelectNumber bits), frequencyRatio)
+  val rstN = config.useResetN generate Vec(Bits(chipSelectNumber bits), frequencyRatio)
   val cmd = Vec(master(Flow(DfiCmd(config))), frequencyRatio)
   val odt = Vec(master(Flow(DfiOdt(config))), frequencyRatio)
   val address = Vec(master(Flow(DfiAddr(config))), frequencyRatio)
@@ -109,22 +108,22 @@ case class IDFI(config: DfiConfig) extends Bundle with IMasterSlave {
   val rdEn = Vec(Bool(), frequencyRatio)
   val rdData = Vec(slave(Stream(Fragment(DfiRdData(config)))), frequencyRatio)
   val rdCs = Vec(master(Flow(DfiReadCs(config))), frequencyRatio)
-  val ctrlUp = useCtrlupd generate Stream(Event)
-  val phyUp = usePhyupd generate Stream(DfiPhyUp(config))
+  val ctrlUp = config.useCtrlupd generate Stream(Event)
+  val phyUp = config.usePhyupd generate Stream(DfiPhyUp(config))
   val clkDisable = master(Flow(Bits(chipSelectNumber bits)))
-  val init = useInitStart generate Stream(DfiInit(config))
-  val parity = useParity generate Vec(master(Stream(Event)), frequencyRatio)
-  val crc = useCrcMode generate Vec(master(Stream(Event)), frequencyRatio)
-  val rdLvlCs = useRdlvlReq & useRdlvlEn generate Vec(slave(Stream(DfiRdLvlCs(config))), dataSlice)
-  val rdLvl = useRdlvlResp & useRdlvlEn generate Vec(master(Stream(DfiRdLvl(config))), dataSlice)
-  val rdGataCs = useRdlvlGateReq & useRdlvlGateEn generate Vec(slave(Stream(DfiRdGateCs(config))), dataSlice)
-  val rdGate = useRdlvlResp & useRdlvlGateEn generate Vec(master(Stream(DfiRdGate(config))), dataSlice)
-  val wrLvlCs = useWrlvlReq & useWrlvlEn generate Vec(slave(Stream(DfiWrLvlCs(config))), dataSlice)
-  val wrLvl = useWrlvlResp & useWrlvlEn generate Vec(master(Stream(DfiWrLvl(config))), dataSlice)
-  val phyLvl = usePhylvl generate Vec(slave(Stream(Event)), chipSelectNumber)
+  val init = config.useInitStart generate Stream(DfiInit(config))
+  val parity = config.useParity generate Vec(master(Stream(Event)), frequencyRatio)
+  val crc = config.useCrcMode generate Vec(master(Stream(Event)), frequencyRatio)
+  val rdLvlCs = config.useRdlvlReq & config.useRdlvlEn generate Vec(slave(Stream(DfiRdLvlCs(config))), dataSlice)
+  val rdLvl = config.useRdlvlResp & config.useRdlvlEn generate Vec(master(Stream(DfiRdLvl(config))), dataSlice)
+  val rdGataCs = config.useRdlvlGateReq & config.useRdlvlGateEn generate Vec(slave(Stream(DfiRdGateCs(config))), dataSlice)
+  val rdGate = config.useRdlvlResp & config.useRdlvlGateEn generate Vec(master(Stream(DfiRdGate(config))), dataSlice)
+  val wrLvlCs = config.useWrlvlReq & config.useWrlvlEn generate Vec(slave(Stream(DfiWrLvlCs(config))), dataSlice)
+  val wrLvl = config.useWrlvlResp & config.useWrlvlEn generate Vec(master(Stream(DfiWrLvl(config))), dataSlice)
+  val phyLvl = config.usePhylvl generate Vec(slave(Stream(Event)), chipSelectNumber)
   val lpCtrlReq = Flow(DfiLpCtrl(config))
-  val lowPower = useLpData generate Stream(DfiLp(config))
-  val error = useError generate Vec(master(Flow(DfiError(config))), errorNumber)
+  val lowPower = config.useLpData generate Stream(DfiLp(config))
+  val error = config.useError generate Vec(master(Flow(DfiError(config))), config.errorNumber)
 
   override def asMaster(): Unit = {
     master(ctrlUp, clkDisable, init, lpCtrlReq, lowPower)
