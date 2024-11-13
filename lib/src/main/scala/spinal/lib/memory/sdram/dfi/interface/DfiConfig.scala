@@ -41,6 +41,13 @@ case class DDRSignalsGroupConfig(
     useErrorSignals: Boolean = false
 )
 
+object DDRSignalConfig {
+  def DDR1(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean = false): DDR1SignalConfig = new DDR1SignalConfig(groupConfig, useCrc)
+  def DDR2(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean = false): DDR2SignalConfig = new DDR2SignalConfig(groupConfig, useCrc)
+  def DDR3(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean = false): DDR3SignalConfig = new DDR3SignalConfig(groupConfig, useCrc)
+  def DDR4(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean = false): DDR4SignalConfig = new DDR4SignalConfig(groupConfig, useCrc)
+}
+
 class DDRSignalConfig (groupConfig: DDRSignalsGroupConfig, useCrc: Boolean = false) {
   val useBank: Boolean = false
   val useAckN: Boolean = false
@@ -114,12 +121,6 @@ class DDRSignalConfig (groupConfig: DDRSignalsGroupConfig, useCrc: Boolean = fal
   def useCrcMode = useCrc & useAlertN
 }
 
-
-object DDR1SignalConfig {
-  def apply(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean = false): DDR1SignalConfig =
-    new DDR1SignalConfig(groupConfig, useCrc)
-}
-
 class DDR1SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean) extends DDRSignalConfig(groupConfig, useCrc) {
   override val useBank = groupConfig.useCtrlSignals
   override val useRasN = groupConfig.useCtrlSignals
@@ -153,18 +154,8 @@ class DDR1SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean) exte
   override val useErrorInfo = groupConfig.useErrorSignals
 }
 
-object DDR2SignalConfig {
-  def apply(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean = false): DDR2SignalConfig =
-    new DDR2SignalConfig(groupConfig, useCrc)
-}
-
 class DDR2SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean) extends DDR1SignalConfig(groupConfig, useCrc) {
   override val useOdt = groupConfig.useCtrlSignals
-}
-
-object DDR3SignalConfig {
-  def apply(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean = false): DDR3SignalConfig =
-    new DDR3SignalConfig(groupConfig, useCrc)
 }
 
 class DDR3SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean) extends DDR2SignalConfig(groupConfig, useCrc) {
@@ -182,11 +173,6 @@ class DDR3SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean) exte
   override val useWrlvlEn = groupConfig.useTrainingSignals
   override val useWrlvlStrobe = groupConfig.useTrainingSignals
   override val useWrlvlResp = groupConfig.useTrainingSignals
-}
-
-object DDR4SignalConfig {
-  def apply(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean = false): DDR4SignalConfig =
-    new DDR4SignalConfig(groupConfig, useCrc)
 }
 
 class DDR4SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean) extends DDR3SignalConfig(groupConfig, useCrc) {
