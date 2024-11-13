@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.demo.phy.BmbCmdOp
 import spinal.lib.bus.bmb.BmbParameter
-import spinal.lib.memory.sdram.dfi.interface._
+import spinal.lib.memory.sdram.dfi._
 
 object BmbCmdOpSim {
   def main(args: Array[String]): Unit = {

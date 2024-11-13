@@ -4,8 +4,6 @@ import spinal.core._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 import spinal.lib.fsm._
 import spinal.lib.memory.sdram.dfi._
-import spinal.lib.memory.sdram.dfi.function.BmbAdapter
-import spinal.lib.memory.sdram.dfi.interface._
 import spinal.lib.{MuxOH, _}
 
 class DDR3IO(ddrIoDfiConfig: DfiConfig) extends Bundle {

@@ -2,7 +2,7 @@ package spinal.demo.phy
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi.interface.{DfiConfig, DfiControlInterface, TaskConfig}
+import spinal.lib.memory.sdram.dfi._
 case class Initialize(taskConfig: TaskConfig, ddrIoDfiConfig: DfiConfig) extends Component {
   import ddrIoDfiConfig._
   import taskConfig._

@@ -5,7 +5,6 @@ import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 import spinal.lib.memory.sdram.dfi._
-import spinal.lib.memory.sdram.dfi.interface._
 
 import scala.collection.mutable
 
