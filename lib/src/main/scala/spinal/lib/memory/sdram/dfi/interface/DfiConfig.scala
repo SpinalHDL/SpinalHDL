@@ -29,6 +29,7 @@ case class DfiTimeConfig(
     // specify the additional delay it
     // requires between two consecutive commands that are targeting different chip selects.
 ) {}
+
 case class DDRInterfaceSignals(
     useCtrlSignals: Boolean = true,
     useWrDataSignals: Boolean = true,
@@ -39,248 +40,175 @@ case class DDRInterfaceSignals(
     useLowPowerSignals: Boolean = false,
     useErrorSignals: Boolean = false
 )
-object DDRSignalConfig {
-  abstract class SignalConfig {
-    def useBank: Boolean
-    def useAckN: Boolean
-    def useRasN: Boolean
-    def useCasN: Boolean
-    def useWeN: Boolean
-    def useBg: Boolean
-    def useCid: Boolean
-    def useOdt: Boolean
-    def useResetN: Boolean
 
-    def useWrdataCsN: Boolean
+class DDRSignalConfig (groupConfig: DDRInterfaceSignals, useCrc: Boolean = false) {
+  val useBank: Boolean = false
+  val useAckN: Boolean = false
+  val useRasN: Boolean = false
+  val useCasN: Boolean = false
+  val useWeN: Boolean = false
+  val useBg: Boolean = false
+  val useCid: Boolean = false
+  val useOdt: Boolean = false
+  val useResetN: Boolean = false
 
-    def useRddataDbiN: Boolean
-    def useRddataCsN: Boolean
-    def useRddataDnv: Boolean
+  val useWrdataCsN: Boolean = false
 
-    def useCtrlupdReq: Boolean
-    def useCtrlupdAck: Boolean
-    def usePhyupdReq: Boolean
-    def usePhyupdAck: Boolean
-    def usePhyupdType: Boolean
+  val useRddataDbiN: Boolean = false
+  val useRddataCsN: Boolean = false
+  val useRddataDnv: Boolean = false
 
-    def useDataByteDisable: Boolean
-    def useFreqRatio: Boolean
-    def useInitStart: Boolean
-    def useParityIn: Boolean
-    def useAlertN: Boolean
+  val useCtrlupdReq: Boolean = false
+  val useCtrlupdAck: Boolean = false
 
-    def useRdlvlReq: Boolean
-    def usePhyRdlvlCsN: Boolean
-    def useRdlvlEn: Boolean
-    def useRdlvlResp: Boolean
-    def useRdlvlGateReq: Boolean
-    def usePhyRdlvlGateCsN: Boolean
-    def useRdlvlGateEn: Boolean
-    def useWrlvlReq: Boolean
-    def usePhyWrlvlCsN: Boolean
-    def useWrlvlEn: Boolean
-    def useWrlvlStrobe: Boolean
-    def useWrlvlResp: Boolean
-    def useCalvlReq: Boolean
-    def usePhyCalvlCsN: Boolean
-    def useCalvlEn: Boolean
-    def useCalvlCapture: Boolean
-    def useCalvlResp: Boolean
-    def useLvlPattern: Boolean
-    def useLvlPeriodic: Boolean
-    def usePhylvlReqCsN: Boolean
-    def usePhylvlAckCsN: Boolean
+  val usePhyupdReq: Boolean = false
+  val usePhyupdAck: Boolean = false
+  val usePhyupdType: Boolean = false
 
-    def useLpCtrlReq: Boolean
-    def useLpDataReq: Boolean
-    def useLpWakeUp: Boolean
-    def useLpAck: Boolean
+  val useDataByteDisable: Boolean = false
+  val useFreqRatio: Boolean = false
+  val useInitStart: Boolean = false
+  val useParityIn: Boolean = false
+  val useAlertN: Boolean = false
 
-    def useError: Boolean
-    def useErrorInfo: Boolean
-  }
-  abstract class DDR1SignalConfig extends SignalConfig {
-    override def useBank = true
-    override def useAckN = false
-    override def useRasN = true
-    override def useCasN = true
-    override def useWeN = true
-    override def useBg = false
-    override def useCid = false
-    override def useOdt = false
-    override def useResetN = false
+  val useRdlvlReq: Boolean = false
+  val usePhyRdlvlCsN: Boolean = false
+  val useRdlvlEn: Boolean = false
+  val useRdlvlResp: Boolean = false
+  val useRdlvlGateReq: Boolean = false
+  val usePhyRdlvlGateCsN: Boolean = false
+  val useRdlvlGateEn: Boolean = false
 
-    override def useWrdataCsN = true
+  val useWrlvlReq: Boolean = false
+  val usePhyWrlvlCsN: Boolean = false
+  val useWrlvlEn: Boolean = false
+  val useWrlvlStrobe: Boolean = false
+  val useWrlvlResp: Boolean = false
+  
+  val useCalvlReq: Boolean = false
+  val usePhyCalvlCsN: Boolean = false
+  val useCalvlEn: Boolean = false
+  val useCalvlCapture: Boolean = false
+  val useCalvlResp: Boolean = false
 
-    override def useRddataDbiN = false
-    override def useRddataCsN = true
-    override def useRddataDnv = false
+  val useLvlPattern: Boolean = false
+  val useLvlPeriodic: Boolean = false
+  val usePhylvlReqCsN: Boolean = false
+  val usePhylvlAckCsN: Boolean = false
 
-    override def useCtrlupdReq = true
-    override def useCtrlupdAck = true
-    override def usePhyupdReq = true
-    override def usePhyupdAck = true
-    override def usePhyupdType = true
+  val useLpCtrlReq: Boolean = false
+  val useLpDataReq: Boolean = false
+  val useLpWakeUp: Boolean = false
+  val useLpAck: Boolean = false
 
-    override def useDataByteDisable = true
-    override def useFreqRatio = true
-    override def useInitStart = true
-    override def useParityIn = true
-    override def useAlertN = true
+  val useError: Boolean = false
+  val useErrorInfo: Boolean = false
 
-    override def useRdlvlReq = false
-    override def usePhyRdlvlCsN = false
-    override def useRdlvlEn = false
-    override def useRdlvlResp = false
-    override def useRdlvlGateReq = false
-    override def usePhyRdlvlGateCsN = false
-    override def useRdlvlGateEn = false
-    override def useWrlvlReq = false
-    override def usePhyWrlvlCsN = false
-    override def useWrlvlEn = false
-    override def useWrlvlStrobe = false
-    override def useWrlvlResp = false
-    override def useCalvlReq = false
-    override def usePhyCalvlCsN = false
-    override def useCalvlEn = false
-    override def useCalvlCapture = false
-    override def useCalvlResp = false
-    override def useLvlPattern = false
-    override def useLvlPeriodic = true
-    override def usePhylvlReqCsN = false
-    override def usePhylvlAckCsN = false
+  val useStatusSignals = groupConfig.useStatusSignals
 
-    override def useLpCtrlReq = true
-    override def useLpDataReq = true
-    override def useLpWakeUp = true
-    override def useLpAck = true
-
-    override def useError = true
-    override def useErrorInfo = true
-  }
-
-  abstract class DDR2SignalConfig extends DDR1SignalConfig {
-    override def useOdt = true
-  }
-
-  abstract class DDR3SignalConfig extends DDR2SignalConfig {
-    override def useResetN = true
-    override def useRdlvlReq = true
-    override def usePhyRdlvlCsN = true
-    override def useRdlvlEn = true
-    override def useRdlvlResp = true
-    override def useRdlvlGateReq = true
-    override def usePhyRdlvlGateCsN = true
-    override def useRdlvlGateEn = true
-    override def useWrlvlReq = true
-    override def usePhyWrlvlCsN = true
-    override def useWrlvlEn = true
-    override def useWrlvlStrobe = true
-    override def useWrlvlResp = true
-  }
-
-  abstract class DDR4SignalConfig extends DDR3SignalConfig {
-    override def useAckN = true
-    override def useBg = true
-    override def useCid = true
-
-    override def useRddataDbiN = true
-    override def useLvlPattern = true
-    override def usePhylvlReqCsN = true
-    override def usePhylvlAckCsN = true
-  }
-  object DDR1SC extends DDR1SignalConfig
-  object DDR2SC extends DDR2SignalConfig
-  object DDR3SC extends DDR3SignalConfig
-  object DDR4SC extends DDR4SignalConfig
-  object MYDDRSC extends DDR3SignalConfig {
-    override def useOdt: Boolean = false
-    override def useResetN: Boolean = false
-    override def useWrdataCsN: Boolean = false
-    override def useRddataCsN: Boolean = false
-  }
+  def useCtrlupd = useCtrlupdReq & useCtrlupdAck
+  def usePhyupd = usePhyupdReq & usePhyupdAck
+  def useParity = useParityIn & useAlertN
+  def usePhylvl = usePhylvlReqCsN & usePhylvlAckCsN
+  def useLpData = useLpDataReq & useLpAck
+  def useCrcMode = useCrc & useAlertN
 }
 
-class DDRSignalConfig(
-    generation: Int = 0,
-    val isPLDDR: Boolean = false,
-    val ddris: DDRInterfaceSignals = DDRInterfaceSignals(),
-    val useCrcMode: Boolean = false
-) {
-  import ddris._
-  val kind = !isPLDDR generate
-    generation match {
-    case 1 => DDRSignalConfig.DDR1SC
-    case 2 => DDRSignalConfig.DDR2SC
-    case 3 => DDRSignalConfig.DDR3SC
-    case 4 => DDRSignalConfig.DDR4SC
-    case _ => DDRSignalConfig.MYDDRSC
-  }
-  assert(kind != null)
-  def useBank = kind.useBank & useCtrlSignals
-  def useAckN = kind.useAckN & useCtrlSignals
-  def useRasN = kind.useRasN & useCtrlSignals
-  def useCasN = kind.useCasN & useCtrlSignals
-  def useWeN = kind.useWeN & useCtrlSignals
-  def useBg = kind.useBg & useCtrlSignals
-  def useCid = kind.useCid & useCtrlSignals
-  def useOdt = kind.useOdt & useCtrlSignals
-  def useResetN = kind.useResetN & useCtrlSignals
 
-  def useWrdataCsN = kind.useWrdataCsN & useWrDataSignals
-
-  def useRddataDbiN = kind.useRddataDbiN & useRdDataSignals
-  def useRddataCsN = kind.useRddataCsN & useRdDataSignals
-  def useRddataDnv = kind.useRddataDnv & useRdDataSignals
-
-  def useCtrlupdReq = kind.useCtrlupdReq & useUpdateSignals
-  def useCtrlupdAck = kind.useCtrlupdAck & useUpdateSignals
-  def usePhyupdReq = kind.usePhyupdReq & useUpdateSignals
-  def usePhyupdAck = kind.usePhyupdAck & useUpdateSignals
-  def usePhyupdType = kind.usePhyupdType & useUpdateSignals
-
-  def useDataByteDisable = kind.useDataByteDisable & useStatusSignals
-  def useFreqRatio = kind.useFreqRatio & useStatusSignals
-  def useInitStart = kind.useInitStart & useStatusSignals
-  def useParityIn = kind.useParityIn & useStatusSignals
-  def useAlertN = kind.useAlertN & useStatusSignals
-
-  def useRdlvlReq = kind.useRdlvlReq & useTrainingSignals
-  def usePhyRdlvlCsN = kind.usePhyRdlvlCsN & useTrainingSignals
-  def useRdlvlEn = kind.useRdlvlEn & useTrainingSignals
-  def useRdlvlResp = kind.useRdlvlResp & useTrainingSignals
-  def useRdlvlGateReq = kind.useRdlvlGateReq & useTrainingSignals
-  def usePhyRdlvlGateCsN = kind.usePhyRdlvlGateCsN & useTrainingSignals
-  def useRdlvlGateEn = kind.useRdlvlGateEn & useTrainingSignals
-  def useWrlvlReq = kind.useWrlvlReq & useTrainingSignals
-  def usePhyWrlvlCsN = kind.usePhyWrlvlCsN & useTrainingSignals
-  def useWrlvlEn = kind.useWrlvlEn & useTrainingSignals
-  def useWrlvlStrobe = kind.useWrlvlStrobe & useTrainingSignals
-  def useWrlvlResp = kind.useWrlvlResp & useTrainingSignals
-  def useCalvlReq = kind.useCalvlReq & useTrainingSignals
-  def usePhyCalvlCsN = kind.usePhyCalvlCsN & useTrainingSignals
-  def useCalvlEn = kind.useCalvlEn & useTrainingSignals
-  def useCalvlCapture = kind.useCalvlCapture & useTrainingSignals
-  def useCalvlResp = kind.useCalvlResp & useTrainingSignals
-  def useLvlPattern = kind.useLvlPattern & useTrainingSignals
-  def useLvlPeriodic = kind.useLvlPeriodic & useTrainingSignals
-  def usePhylvlReqCsN = kind.usePhylvlReqCsN & useTrainingSignals
-  def usePhylvlAckCsN = kind.usePhylvlAckCsN & useTrainingSignals
-
-  def useLpCtrlReq = kind.useLpCtrlReq & useLowPowerSignals
-  def useLpDataReq = kind.useLpDataReq & useLowPowerSignals
-  def useLpWakeUp = kind.useLpWakeUp & useLowPowerSignals
-  def useLpAck = kind.useLpAck & useLowPowerSignals
-
-  def useError = kind.useError & useErrorSignals
-  def useErrorInfo = kind.useErrorInfo & useErrorSignals
+object DDR1SignalConfig {
+  def apply(groupConfig: DDRInterfaceSignals, useCrc: Boolean = false): DDR1SignalConfig =
+    new DDR1SignalConfig(groupConfig, useCrc)
 }
 
+class DDR1SignalConfig(groupConfig: DDRInterfaceSignals, useCrc: Boolean) extends DDRSignalConfig(groupConfig, useCrc) {
+  override val useBank = groupConfig.useCtrlSignals
+  override val useRasN = groupConfig.useCtrlSignals
+  override val useCasN = groupConfig.useCtrlSignals
+  override val useWeN = groupConfig.useCtrlSignals
+
+  override val useWrdataCsN = groupConfig.useWrDataSignals
+
+  override val useRddataCsN = groupConfig.useRdDataSignals
+
+  override val useCtrlupdReq = groupConfig.useUpdateSignals
+  override val useCtrlupdAck = groupConfig.useUpdateSignals
+  override val usePhyupdReq = groupConfig.useUpdateSignals
+  override val usePhyupdAck = groupConfig.useUpdateSignals
+  override val usePhyupdType = groupConfig.useUpdateSignals
+
+  override val useDataByteDisable = groupConfig.useStatusSignals
+  override val useFreqRatio = groupConfig.useStatusSignals
+  override val useInitStart = groupConfig.useStatusSignals
+  override val useParityIn = groupConfig.useStatusSignals
+  override val useAlertN = groupConfig.useStatusSignals
+
+  override val useLvlPeriodic = groupConfig.useTrainingSignals
+
+  override val useLpCtrlReq = groupConfig.useLowPowerSignals
+  override val useLpDataReq = groupConfig.useLowPowerSignals
+  override val useLpWakeUp = groupConfig.useLowPowerSignals
+  override val useLpAck = groupConfig.useLowPowerSignals
+
+  override val useError = groupConfig.useErrorSignals
+  override val useErrorInfo = groupConfig.useErrorSignals
+}
+
+object DDR2SignalConfig {
+  def apply(groupConfig: DDRInterfaceSignals, useCrc: Boolean = false): DDR2SignalConfig =
+    new DDR2SignalConfig(groupConfig, useCrc)
+}
+
+class DDR2SignalConfig(groupConfig: DDRInterfaceSignals, useCrc: Boolean) extends DDR1SignalConfig(groupConfig, useCrc) {
+  override val useOdt = groupConfig.useCtrlSignals
+}
+
+object DDR3SignalConfig {
+  def apply(groupConfig: DDRInterfaceSignals, useCrc: Boolean = false): DDR3SignalConfig =
+    new DDR3SignalConfig(groupConfig, useCrc)
+}
+
+class DDR3SignalConfig(groupConfig: DDRInterfaceSignals, useCrc: Boolean) extends DDR2SignalConfig(groupConfig, useCrc) {
+  override val useResetN = groupConfig.useCtrlSignals
+
+  override val useRdlvlReq = groupConfig.useTrainingSignals
+  override val usePhyRdlvlCsN = groupConfig.useTrainingSignals
+  override val useRdlvlEn = groupConfig.useTrainingSignals
+  override val useRdlvlResp = groupConfig.useTrainingSignals
+  override val useRdlvlGateReq = groupConfig.useTrainingSignals
+  override val usePhyRdlvlGateCsN = groupConfig.useTrainingSignals
+  override val useRdlvlGateEn = groupConfig.useTrainingSignals
+  override val useWrlvlReq = groupConfig.useTrainingSignals
+  override val usePhyWrlvlCsN = groupConfig.useTrainingSignals
+  override val useWrlvlEn = groupConfig.useTrainingSignals
+  override val useWrlvlStrobe = groupConfig.useTrainingSignals
+  override val useWrlvlResp = groupConfig.useTrainingSignals
+}
+
+object DDR4SignalConfig {
+  def apply(groupConfig: DDRInterfaceSignals, useCrc: Boolean = false): DDR4SignalConfig =
+    new DDR4SignalConfig(groupConfig, useCrc)
+}
+
+class DDR4SignalConfig(groupConfig: DDRInterfaceSignals, useCrc: Boolean) extends DDR3SignalConfig(groupConfig, useCrc) {
+    override val useAckN = groupConfig.useCtrlSignals
+    override val useBg = groupConfig.useCtrlSignals
+    override val useCid = groupConfig.useCtrlSignals
+
+    override val useRddataDbiN = groupConfig.useRdDataSignals
+
+    override val useLvlPattern = groupConfig.useTrainingSignals
+    override val usePhylvlReqCsN = groupConfig.useTrainingSignals
+    override val usePhylvlAckCsN = groupConfig.useTrainingSignals
+}
 
 class AddrMap {}
 object RowBankColumn extends AddrMap
 object BankRowColumn extends AddrMap
 object RowColumnBank extends AddrMap
+
+object DfiConfig{  
+  implicit def toSignalConfig(that: DfiConfig): DDRSignalConfig = that.signalConfig  
+}
 
 case class DfiConfig(
     addrMap: AddrMap = RowBankColumn,
@@ -294,64 +222,6 @@ case class DfiConfig(
     timeConfig: DfiTimeConfig,
     sdram: SdramConfig
 ) {
-  assert(signalConfig.isPLDDR == false)
-  val useBank = signalConfig.useBank
-  val useAckN = signalConfig.useAckN
-  val useRasN = signalConfig.useRasN
-  val useCasN = signalConfig.useCasN
-  val useWeN = signalConfig.useWeN
-  val useBg = signalConfig.useBg
-  val useCid = signalConfig.useCid
-  val useOdt = signalConfig.useOdt
-  val useResetN = signalConfig.useResetN
-  val useWrdataCsN = signalConfig.useWrdataCsN
-  val useRddataDbiN = signalConfig.useRddataDbiN
-  val useRddataCsN = signalConfig.useRddataCsN
-  val useRddataDnv = signalConfig.useRddataDnv
-  val useCtrlupdReq = signalConfig.useCtrlupdReq
-  val useCtrlupdAck = signalConfig.useCtrlupdAck
-  val usePhyupdReq = signalConfig.usePhyupdReq
-  val usePhyupdAck = signalConfig.usePhyupdAck
-  val usePhyupdType = signalConfig.usePhyupdType
-  val useDataByteDisable = signalConfig.useDataByteDisable
-  val useFreqRatio = signalConfig.useFreqRatio
-  val useInitStart = signalConfig.useInitStart
-  val useParityIn = signalConfig.useParityIn
-  val useAlertN = signalConfig.useAlertN
-  val useRdlvlReq = signalConfig.useRdlvlGateReq
-  val usePhyRdlvlCsN = signalConfig.usePhyRdlvlCsN
-  val useRdlvlEn = signalConfig.useRdlvlEn
-  val useRdlvlResp = signalConfig.useRdlvlResp
-  val useRdlvlGateReq = signalConfig.useRdlvlGateReq
-  val usePhyRdlvlGateCsN = signalConfig.usePhyRdlvlGateCsN
-  val useRdlvlGateEn = signalConfig.useRdlvlGateEn
-  val useWrlvlReq = signalConfig.useWrlvlReq
-  val usePhyWrlvlCsN = signalConfig.usePhyWrlvlCsN
-  val useWrlvlEn = signalConfig.useWrlvlEn
-  val useWrlvlStrobe = signalConfig.useWrlvlStrobe
-  val useWrlvlResp = signalConfig.useWrlvlResp
-  val useCalvlReq = signalConfig.useCalvlReq
-  val usePhyCalvlCsN = signalConfig.usePhyCalvlCsN
-  val useCalvlEn = signalConfig.useCalvlEn
-  val useCalvlCapture = signalConfig.useCalvlCapture
-  val useCalvlResp = signalConfig.useCalvlResp
-  val useLvlPattern = signalConfig.useLvlPattern
-  val useLvlPeriodic = signalConfig.useLvlPeriodic
-  val usePhylvlReqCsN = signalConfig.usePhylvlReqCsN
-  val usePhylvlAckCsN = signalConfig.usePhylvlAckCsN
-  val useLpCtrlReq = signalConfig.useLpCtrlReq
-  val useLpDataReq = signalConfig.useLpDataReq
-  val useLpWakeUp = signalConfig.useLpWakeUp
-  val useLpAck = signalConfig.useLpAck
-  val useError = signalConfig.useError
-  val useErrorInfo = signalConfig.useErrorInfo
-
-  val useCtrlupd = useCtrlupdReq & useCtrlupdAck
-  val usePhyupd = usePhyupdReq & usePhyupdAck
-  val useParity = useParityIn & useAlertN
-  val usePhylvl = usePhylvlReqCsN & usePhylvlAckCsN
-  val useLpData = useLpDataReq & useLpAck
-  val useCrcMode = signalConfig.useCrcMode & useAlertN
 
   val dataRate = sdram.generation.dataRate
   val transferPerBurst = sdram.burstLength
