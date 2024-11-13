@@ -1,9 +1,8 @@
-package spinal.lib.memory.sdram.dfi.function
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
-import spinal.lib.memory.sdram.dfi.interface._
 
 case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
   import dfiConfig._

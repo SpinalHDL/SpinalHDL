@@ -1,8 +1,7 @@
-package spinal.lib.memory.sdram.dfi.function
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi.interface._
 
 case class CAAlignment(config: DfiConfig) extends Component {
   import config._

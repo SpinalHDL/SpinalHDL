@@ -3,8 +3,6 @@ package spinal.lib.memory.sdram.dfi
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
-import spinal.lib.memory.sdram.dfi.function._
-import spinal.lib.memory.sdram.dfi.interface._
 
 case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: DfiConfig) extends Component {
   val io = new Bundle {
