@@ -1,5 +1,7 @@
 // build.sc
+package build
 import mill._, scalalib._, publish._
+import mill.testrunner.TestResult
 import mill.define.ModuleRef
 import $file.project.Version
 
@@ -17,10 +19,11 @@ trait SpinalModule extends SbtModule with CrossSbtModule { outer =>
     ivy"org.scala-lang.modules::scala-xml:1.3.0"
   )
 
-  object test extends CrossSbtModuleTests with TestModule.ScalaTest {
+  abstract class TestDef extends CrossSbtTests with TestModule.ScalaTest {
     def ivyDeps = Agg(ivy"org.scalatest::scalatest::${scalatestVersion}")
   }
-  def testOnly(args: String*) = T.command { test.testOnly(args: _*) }
+  def test = new TestDef {}
+  def testOnly(args: String*) = T.command { test.testOnly(args: _*)() }
 
   // Default definitions for moduleDeps.  For projects that consume us as a
   // foreign module (with a git submodule), override these to avoid building
@@ -130,10 +133,30 @@ object tester extends Cross[Tester](Version.SpinalVersion.compilers){
   def defaultCrossSegments = Seq(Version.SpinalVersion.compilers.head)
 }
 trait Tester extends SpinalModule with SpinalPublishModule {
-  override def millSourcePath = os.pwd / "tester"
   def mainClass = Some("spinal.tester")
   def moduleDeps = Seq(coreMod(), simMod(), libMod())
   def scalacOptions = super.scalacOptions() ++ idslpluginMod().pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:${scalatestVersion}")
   def publishVersion = Version.SpinalVersion.tester
+
+  def copyResources(dest: os.Path) = {
+    val sourcePath = millSourcePath / "src" / "test"
+    val destPath = dest / "sandbox" / "tester" / "src" / "test"
+    os.copy.over(sourcePath / "python", destPath / "python", createFolders = true)
+    os.copy.over(sourcePath / "resources", destPath / "resources", createFolders = true)
+  }
+
+  def test = new TestDef {
+    override def testOnly(args: String*): Command[(String, Seq[TestResult])] = {
+      val (selector, testArgs) = args.indexOf("--") match {
+        case -1 => (args, Seq.empty)
+        case pos =>
+          val (s, t) = args.splitAt(pos)
+          (s, t.tail)
+      }
+      Task.Command {
+        testTask(Task.Anon { copyResources(T.dest); testArgs }, Task.Anon { selector })()
+      }
+    }
+  }
 }
