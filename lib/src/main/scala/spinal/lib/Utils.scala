@@ -796,7 +796,11 @@ class AnalysisUtils{
     for((fromName, toName) <- fromTo) {
       val from = AnalysisUtils.getBaseType(fromName, top)
       val to = AnalysisUtils.getBaseType(toName, top)
-      println(PathTracer.impl(from, to).report())
+      val path = PathTracer.impl(from, to)
+      println("##### Paths #####")
+      println(path.reportPaths())
+      println("##### Nodes #####")
+      println(path.reportNodes())
     }
   }
 }

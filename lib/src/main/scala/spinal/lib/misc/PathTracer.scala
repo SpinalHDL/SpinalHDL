@@ -1,5 +1,6 @@
 package spinal.lib.misc
 
+import spinal.core
 import spinal.core._
 import spinal.core.internals.{BaseNode, Expression}
 
@@ -9,6 +10,7 @@ object PathTracer {
   case class Node(node : BaseNode){
     var hits = 0
     val ups = mutable.LinkedHashSet[Node]()
+    val downs = mutable.LinkedHashSet[Node]()
 
     def report() : String = {
       val str = new StringBuilder()
@@ -23,36 +25,87 @@ object PathTracer {
       rec(this, "- ")
       str.toString()
     }
-  }
-  def impl(from: Expression, to: Expression): Node = {
-    val walkedId = GlobalData.get.allocateAlgoIncrementale()
 
-    val root = new Node(null)
-    rec(to, root)
-
-    def rec(that : BaseNode, tree : Node): Boolean = {
-      val node = new Node(that)
-      tree.ups += node
-      if(that == from){
-        node.hits += 1
-        return true
-      }
-      foreach(that){ (input, latency) =>
-        if(latency == 0 || that == to){
-          if(rec(input, node)){
-            node.hits += 1
+    def reportPaths() : String = {
+      val str = new StringBuilder()
+      def rec(node : Node, stack : List[Node]): Unit = {
+        if(node.ups.nonEmpty) {
+          for(up <- node.ups; if up.hits != 0) {
+            rec(up, up :: stack)
+          }
+        } else {
+          str ++= "######\n"
+          for(e <- stack){
+            str ++= ("- " + e.node + "\n")
           }
         }
       }
-      node.hits != 0
+      rec(this, List(this))
+      str.toString()
+    }
+
+    def reportNodes() : String = {
+      val set = mutable.LinkedHashSet[Node]()
+      val str = new StringBuilder()
+      def rec(node : Node, stack : List[Node]): Unit = {
+        set += node
+        if(node.ups.nonEmpty) {
+          for(up <- node.ups; if up.hits != 0) {
+            rec(up, up :: stack)
+          }
+        }
+      }
+      rec(this, List(this))
+      val strings = set.toArray.filter(_.node.isInstanceOf[core.Nameable]).map(e => s"- ${e.node}\n")
+      val sorted = strings.sorted
+      sorted.foreach(str ++= _)
+      str.toString()
+    }
+  }
+  def impl(from: Expression, to: Expression): Node = {
+    val walkedId = GlobalData.get.allocateAlgoIncrementale()
+    val keyToNode = mutable.LinkedHashMap[BaseNode, Node]()
+
+    val toNode = new Node(to)
+    var fromNode : Node = null
+    rec(toNode)
+    if(fromNode != null){
+      flag(fromNode)
+      def flag(that : Node): Unit = {
+        that.hits += 1
+        that.downs.foreach(flag)
+      }
+    }
+
+
+    def rec(tree : Node) : Unit = {
+      if(tree.node == from) return
+      foreach(tree.node){ (input, latency) =>
+        if(latency == 0){
+          val node = keyToNode.get(input) match {
+            case Some(value) => value
+            case None => {
+              val n = new Node(input)
+              keyToNode(input) = n
+              rec(n)
+              n
+            }
+          }
+          node.downs += tree
+          tree.ups += node
+          if(input == from){
+            fromNode = node
+          }
+        }
+      }
     }
 
     def foreach(that: BaseNode)(onUp : (BaseNode, Int) => Unit): Unit = {
-      if(that.algoIncrementale == walkedId)
-        return
-      that.algoIncrementale = walkedId
-      if(that == from)
-        return
+//      if(that.algoIncrementale == walkedId)
+//        return
+//      that.algoIncrementale = walkedId
+//      if(that == from)
+//        return
 
       that match{
         case that : Mem[_] => {
@@ -110,7 +163,7 @@ object PathTracer {
         }
       }
     }
-    root.ups.head
+    toNode
   }
 }
 
@@ -128,5 +181,7 @@ object PathTracerDemo extends App{
 
     val path = PathTracer.impl(a, z)
     println(path.report())
+    println(path.reportPaths())
+    println(path.reportNodes())
   })
 }
