@@ -41,7 +41,7 @@ case class DDRSignalsGroupConfig(
     useErrorSignals: Boolean = false
 )
 
-object DDRSignalConfig {
+object DfiSignalConfig {
   val DDR1:DDR1SignalConfig = DDR1()
   def DDR1(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false): DDR1SignalConfig =
     new DDR1SignalConfig(groupConfig, useCrc)
@@ -56,7 +56,7 @@ object DDRSignalConfig {
     new DDR4SignalConfig(groupConfig, useCrc)
 }
 
-class DDRSignalConfig(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false) {
+class DfiSignalConfig(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false) {
   val useBank: Boolean = false
   val useAckN: Boolean = false
   val useRasN: Boolean = false
@@ -130,7 +130,7 @@ class DDRSignalConfig(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig
 }
 
 class DDR1SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean)
-    extends DDRSignalConfig(groupConfig, useCrc) {
+    extends DfiSignalConfig(groupConfig, useCrc) {
   override val useBank = groupConfig.useCtrlSignals
   override val useRasN = groupConfig.useCtrlSignals
   override val useCasN = groupConfig.useCtrlSignals
@@ -205,7 +205,7 @@ object BankRowColumn extends AddrMap
 object RowColumnBank extends AddrMap
 
 object DfiConfig {
-  implicit def toSignalConfig(that: DfiConfig): DDRSignalConfig = that.signalConfig
+  implicit def toSignalConfig(that: DfiConfig): DfiSignalConfig = that.signalConfig
 }
 
 case class DfiConfig(
@@ -216,7 +216,7 @@ case class DfiConfig(
     cidWidth: Int,
     dataSlice: Int,
     cmdPhase: Int,
-    signalConfig: DDRSignalConfig,
+    signalConfig: DfiSignalConfig,
     timeConfig: DfiTimeConfig,
     sdram: SdramConfig
 ) {

@@ -58,7 +58,7 @@
 //          cidWidth = 0,
 //          dataSlice = 1,
 //          cmdPhase = 0,
-//          signalConfig = new DDRSignalConfig(),
+//          signalConfig = new DfiSignalConfig(),
 //          timeConfig = timeConfig,
 //          sdram = sdram
 //        )

@@ -255,7 +255,7 @@ case class DfiDdr3() extends Component {
     cidWidth = 0,
     dataSlice = 1,
     cmdPhase = 0,
-    signalConfig = new DDRSignalConfig(),
+    signalConfig = new DfiSignalConfig(),
     timeConfig = timeConfig,
     sdram = sdram
   )
@@ -267,7 +267,7 @@ case class DfiDdr3() extends Component {
     dataSlice = dfiConfig.dataSlice,
     cmdPhase = dfiConfig.cmdPhase,
     signalConfig = {
-      val signalConfig = new DDRSignalConfig() {
+      val signalConfig = new DfiSignalConfig() {
         override val useOdt: Boolean = true
         override val useResetN: Boolean = true
         override val useRddataDnv = true
@@ -362,7 +362,7 @@ object BmbDfiDdr3 extends App {
     cidWidth = 0,
     dataSlice = 1,
     cmdPhase = 0,
-    signalConfig = new DDRSignalConfig(),
+    signalConfig = new DfiSignalConfig(),
     timeConfig = timeConfig,
     sdram = sdram
   )
@@ -374,7 +374,7 @@ object BmbDfiDdr3 extends App {
     dataSlice = dfiConfig.dataSlice,
     cmdPhase = dfiConfig.cmdPhase,
     signalConfig = {
-      val signalConfig = new DDRSignalConfig() {
+      val signalConfig = new DfiSignalConfig() {
         override val useOdt: Boolean = true
         override val useResetN: Boolean = true
         override val useRddataDnv = true
@@ -438,7 +438,7 @@ object BmbCmdOp extends App {
     cidWidth = 0,
     dataSlice = 1,
     cmdPhase = 0,
-    signalConfig = new DDRSignalConfig(),
+    signalConfig = new DfiSignalConfig(),
     timeConfig = timeConfig,
     sdram = sdram
   )

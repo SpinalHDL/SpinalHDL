@@ -51,7 +51,7 @@ case class InitializeSim() extends Component {
     cidWidth = 0,
     dataSlice = 1,
     cmdPhase = 0,
-    signalConfig = new DDRSignalConfig() {
+    signalConfig = new DfiSignalConfig() {
         override val useOdt: Boolean = true
         override val useResetN: Boolean = true
         override val useRddataDnv = true

@@ -49,7 +49,7 @@ object BmbCmdOpSim {
       cidWidth = 0,
       dataSlice = 1,
       cmdPhase = 0,
-      signalConfig = DDRSignalConfig.DDR3,
+      signalConfig = DfiSignalConfig.DDR3,
       timeConfig = timeConfig,
       sdram = sdram
     )
