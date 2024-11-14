@@ -51,14 +51,11 @@ case class InitializeSim() extends Component {
     cidWidth = 0,
     dataSlice = 1,
     cmdPhase = 0,
-    signalConfig = {
-      val signalConfig = new DDRSignalConfig() {
-        override def useOdt: Boolean = true
-        override def useResetN: Boolean = true
-        override def useRddataDnv = true
-      }
-      signalConfig
-    },
+    signalConfig = new DDRSignalConfig() {
+        override val useOdt: Boolean = true
+        override val useResetN: Boolean = true
+        override val useRddataDnv = true
+      },
     timeConfig = timeConfig,
     sdram = sdram
   )

@@ -268,9 +268,9 @@ case class DfiDdr3() extends Component {
     cmdPhase = dfiConfig.cmdPhase,
     signalConfig = {
       val signalConfig = new DDRSignalConfig() {
-        override def useOdt: Boolean = true
-        override def useResetN: Boolean = true
-        override def useRddataDnv = true
+        override val useOdt: Boolean = true
+        override val useResetN: Boolean = true
+        override val useRddataDnv = true
       }
       signalConfig
     },
@@ -375,9 +375,9 @@ object BmbDfiDdr3 extends App {
     cmdPhase = dfiConfig.cmdPhase,
     signalConfig = {
       val signalConfig = new DDRSignalConfig() {
-        override def useOdt: Boolean = true
-        override def useResetN: Boolean = true
-        override def useRddataDnv = true
+        override val useOdt: Boolean = true
+        override val useResetN: Boolean = true
+        override val useRddataDnv = true
       }
       signalConfig
     },

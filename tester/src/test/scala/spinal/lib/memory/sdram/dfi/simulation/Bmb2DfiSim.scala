@@ -53,7 +53,7 @@ case class Bmb2DfiSim(x: Int) extends Component {
     cidWidth = 0,
     dataSlice = 1,
     cmdPhase = 0,
-    signalConfig = new DDRSignalConfig(),
+    signalConfig = DDRSignalConfig.DDR3,
     timeConfig = timeConfig,
     sdram = sdram
   )
