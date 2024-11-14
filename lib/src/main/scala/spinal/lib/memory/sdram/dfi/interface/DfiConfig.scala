@@ -42,16 +42,16 @@ case class DDRSignalsGroupConfig(
 )
 
 object DfiSignalConfig {
-  val DDR1:DDR1SignalConfig = DDR1()
+  val DDR1: DDR1SignalConfig = DDR1()
   def DDR1(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false): DDR1SignalConfig =
     new DDR1SignalConfig(groupConfig, useCrc)
-  val DDR2:DDR2SignalConfig = DDR2()
+  val DDR2: DDR2SignalConfig = DDR2()
   def DDR2(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false): DDR2SignalConfig =
     new DDR2SignalConfig(groupConfig, useCrc)
-  val DDR3:DDR3SignalConfig = DDR3()
+  val DDR3: DDR3SignalConfig = DDR3()
   def DDR3(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false): DDR3SignalConfig =
     new DDR3SignalConfig(groupConfig, useCrc)
-  val DDR4:DDR4SignalConfig = DDR4()
+  val DDR4: DDR4SignalConfig = DDR4()
   def DDR4(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false): DDR4SignalConfig =
     new DDR4SignalConfig(groupConfig, useCrc)
 }
