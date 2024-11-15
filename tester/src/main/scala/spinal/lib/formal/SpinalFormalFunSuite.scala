@@ -7,6 +7,7 @@ import spinal.core.formal._
 import spinal.idslplugin.Location
 
 object SpinalFormal extends Tag("spinal.tester.formal")
+object SpinalFormalPSL extends Tag("spinal.tester.psl")
 
 class SpinalFormalFunSuite extends AnyFunSuite{
   implicit val className: String = getClass.getSimpleName()
@@ -19,8 +20,14 @@ class SpinalFormalFunSuite extends AnyFunSuite{
   }
 
   def test(testName: String)(testFun: => Unit): Unit = {
-    super.test("formal_" + testName, SpinalFormal) {
-      testFun
+    if (testName.contains("ghdl")) {
+      super.test("formalpsl_" + testName, SpinalFormalPSL) {
+        testFun
+      }
+    } else {
+      super.test("formal_" + testName, SpinalFormal) {
+        testFun
+      }
     }
   }
 
@@ -30,4 +37,14 @@ class SpinalFormalFunSuite extends AnyFunSuite{
   } catch {
     case e : Throwable => println(e); true
   })
+
+  def shouldFailWithOutput(output: String)(testFun: => Unit): Unit = {
+    import java.io.ByteArrayOutputStream
+    val stdoutCapture = new java.io.ByteArrayOutputStream
+    Console.withOut(stdoutCapture) {
+      shouldFail(testFun)
+    }
+    println(stdoutCapture)
+    assert(stdoutCapture.toString.contains(output))
+  }
 }

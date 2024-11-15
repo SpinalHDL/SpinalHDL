@@ -38,10 +38,22 @@ class SimXSim(backend: XSimBackend) extends SimRaw {
     instance.write64(id, value)
   }
 
+
+  def SignExtendByte(byte: Byte, width : Int) : Byte =  {
+    val bitOffset = (width -1) % 8
+    val signMask = 1 << bitOffset
+    ((byte ^ signMask) - signMask).toByte
+  }
+
   override def getBigInt(signal: Signal) = {
     val id = getSignalId(signal)
     val value = instance.read(id, signal.width)
-    if(!signal.dataType.isInstanceOf[SIntDataType]) value.add(0, zeroByte)
+    if(signal.dataType.isInstanceOf[SIntDataType]) {
+      val extended = SignExtendByte(value.get(0), signal.width)
+      value.set(0, extended)
+    } else {
+      value.add(0, zeroByte)
+    }
     BigInt(value.asScala.toArray.map{x => x.toByte})
   }
 

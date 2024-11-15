@@ -130,7 +130,11 @@ int64_t XSIIface::read64(int32_t handle) {
 
 std::vector<int8_t> XSIIface::read(int32_t handle, int32_t width) {
     std::vector<int8_t> vec_bytes = read_vlog(handle);
-    vec_bytes.resize(width, 0);
+    int32_t byteCount = width / 8;
+    if(width % 8){
+        byteCount++;
+    }
+    vec_bytes.resize(byteCount, 0);
     std::reverse(vec_bytes.begin(), vec_bytes.end());
     return vec_bytes;
 }

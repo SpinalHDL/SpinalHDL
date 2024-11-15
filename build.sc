@@ -1,5 +1,6 @@
 // build.sc
 import mill._, scalalib._, publish._
+import mill.define.ModuleRef
 import $file.project.Version
 
 trait SpinalModule extends SbtModule with CrossSbtModule { outer =>
@@ -20,6 +21,15 @@ trait SpinalModule extends SbtModule with CrossSbtModule { outer =>
     def ivyDeps = Agg(ivy"org.scalatest::scalatest::${scalatestVersion}")
   }
   def testOnly(args: String*) = T.command { test.testOnly(args: _*) }
+
+  // Default definitions for moduleDeps.  For projects that consume us as a
+  // foreign module (with a git submodule), override these to avoid building
+  // these modules multiple times
+  def coreMod = ModuleRef(core(crossScalaVersion))
+  def libMod = ModuleRef(lib(crossScalaVersion))
+  def simMod = ModuleRef(sim(crossScalaVersion))
+  def idslpayloadMod = ModuleRef(idslpayload(crossScalaVersion))
+  def idslpluginMod = ModuleRef(idslplugin(crossScalaVersion))
 }
 
 trait SpinalPublishModule extends PublishModule {
@@ -39,17 +49,17 @@ trait SpinalPublishModule extends PublishModule {
 }
 
 object idslpayload extends Cross[IdslPayload](Version.SpinalVersion.compilers)
-trait IdslPayload extends SpinalModule with SpinalPublishModule with CrossSbtModule {
+trait IdslPayload extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.idslpayload")
   override def artifactName = "spinalhdl-idsl-payload"
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scala-lang:scala-reflect:${scalaVersion}")
 }
 
 object idslplugin extends Cross[IdslPlugin](Version.SpinalVersion.compilers)
-trait IdslPlugin extends SpinalModule with SpinalPublishModule with CrossSbtModule {
+trait IdslPlugin extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.idslplugin")
   override def artifactName = "spinalhdl-idsl-plugin"
-  def moduleDeps = Seq(idslpayload(crossScalaVersion))
+  def moduleDeps = Seq(idslpayloadMod())
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scala-lang:scala-compiler:${scalaVersion}")
   def pluginOptions = T { Seq(s"-Xplugin:${assembly().path}") }
 }
@@ -57,7 +67,7 @@ trait IdslPlugin extends SpinalModule with SpinalPublishModule with CrossSbtModu
 object sim extends Cross[Sim](Version.SpinalVersion.compilers){
   def defaultCrossSegments = Seq(Version.SpinalVersion.compilers.head)
 }
-trait Sim extends SpinalModule with SpinalPublishModule with CrossSbtModule {
+trait Sim extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.sim")
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"commons-io:commons-io:2.11.0",
@@ -71,11 +81,12 @@ trait Sim extends SpinalModule with SpinalPublishModule with CrossSbtModule {
 object lib extends Cross[Lib](Version.SpinalVersion.compilers){
   def defaultCrossSegments = Seq(Version.SpinalVersion.compilers.head)
 }
-trait Lib extends SpinalModule with SpinalPublishModule with CrossSbtModule {
+trait Lib extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.lib")
-  def moduleDeps = Seq(core(crossScalaVersion), sim(crossScalaVersion))
-  def scalacOptions = super.scalacOptions() ++ idslplugin(crossScalaVersion).pluginOptions()
-  def ivyDeps = super.ivyDeps() ++ Agg(ivy"commons-io:commons-io:2.11.0", ivy"org.scalatest::scalatest:${scalatestVersion}")
+  def moduleDeps = Seq(coreMod(), simMod())
+  def scalacOptions = super.scalacOptions() ++ idslpluginMod().pluginOptions()
+  def ivyDeps = super.ivyDeps() ++ Agg(ivy"commons-io:commons-io:2.11.0", ivy"org.scalatest::scalatest:${scalatestVersion}",
+    ivy"io.github.zhaokunhu::ipxactscalacases:0.0.3")
   def publishVersion = Version.SpinalVersion.lib
 }
 
@@ -89,11 +100,11 @@ def gitHash(dir: os.Path) = (try {
 object core extends Cross[Core](Version.SpinalVersion.compilers){
   def defaultCrossSegments = Seq(Version.SpinalVersion.compilers.head)
 }
-trait Core extends SpinalModule with SpinalPublishModule with CrossSbtModule {
+trait Core extends SpinalModule with SpinalPublishModule {
   def mainClass = Some("spinal.core")
-  def moduleDeps = Seq(idslplugin(crossScalaVersion), sim(crossScalaVersion))
+  def moduleDeps = Seq(idslpluginMod(), simMod())
 
-  def scalacOptions = super.scalacOptions() ++ idslplugin(crossScalaVersion).pluginOptions()
+  def scalacOptions = super.scalacOptions() ++ idslpluginMod().pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(
     ivy"org.scala-lang:scala-reflect:${scalaVersion}",
     ivy"com.github.scopt::scopt:4.1.0",
@@ -118,11 +129,11 @@ trait Core extends SpinalModule with SpinalPublishModule with CrossSbtModule {
 object tester extends Cross[Tester](Version.SpinalVersion.compilers){
   def defaultCrossSegments = Seq(Version.SpinalVersion.compilers.head)
 }
-trait Tester extends SpinalModule with SpinalPublishModule with CrossSbtModule {
+trait Tester extends SpinalModule with SpinalPublishModule {
   override def millSourcePath = os.pwd / "tester"
   def mainClass = Some("spinal.tester")
-  def moduleDeps = Seq(core(crossScalaVersion), sim(crossScalaVersion), lib(crossScalaVersion))
-  def scalacOptions = super.scalacOptions() ++ idslplugin(crossScalaVersion).pluginOptions()
+  def moduleDeps = Seq(coreMod(), simMod(), libMod())
+  def scalacOptions = super.scalacOptions() ++ idslpluginMod().pluginOptions()
   def ivyDeps = super.ivyDeps() ++ Agg(ivy"org.scalatest::scalatest:${scalatestVersion}")
   def publishVersion = Version.SpinalVersion.tester
 }

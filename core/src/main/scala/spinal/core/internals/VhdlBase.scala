@@ -45,7 +45,7 @@ trait VhdlBase extends VhdlVerilogBase{
         case RISING  => "rising_edge"
         case FALLING => "falling_edge"
       }
-    }($clock) then\n"
+    }($clock)"
   }
 
   def emitType(e: Expression): String = e.getTypeObject match {
