@@ -90,7 +90,7 @@ import sys.process._
 def gitHash(dir: File) = (try {
   s"git -C ${dir.toString} rev-parse HEAD".!!
 } catch{
-  case e : java.io.IOException => "???"
+  case e : Throwable => "???"
 }).linesIterator.next()
 
 
