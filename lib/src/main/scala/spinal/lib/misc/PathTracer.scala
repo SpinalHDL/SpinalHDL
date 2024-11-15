@@ -7,7 +7,9 @@ import spinal.core.internals.{BaseNode, Expression}
 import scala.collection.mutable
 
 object PathTracer {
-  case class Node(node : BaseNode){
+  class Node(val node : BaseNode){
+    override def toString = node.toString
+
     var hits = 0
     val ups = mutable.LinkedHashSet[Node]()
     val downs = mutable.LinkedHashSet[Node]()
@@ -79,9 +81,9 @@ object PathTracer {
 
 
     def rec(tree : Node) : Unit = {
-      if(tree.node == from) return
+      if(tree.node == from && tree != toNode) return
       foreach(tree.node){ (input, latency) =>
-        if(latency == 0){
+        if(latency == 0 || tree == toNode){
           val node = keyToNode.get(input) match {
             case Some(value) => value
             case None => {
@@ -179,7 +181,13 @@ object PathTracerDemo extends App{
     val y = !x
     val z = CombInit(y)
 
-    val path = PathTracer.impl(a, z)
+    val l = Bool()
+    val m = CombInit(l)
+    val n = CombInit(m)
+    val o = RegNext(n)
+    l := o
+
+    val path = PathTracer.impl(o, o)
     println(path.report())
     println(path.reportPaths())
     println(path.reportNodes())

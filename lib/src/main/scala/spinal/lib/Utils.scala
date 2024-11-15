@@ -820,7 +820,7 @@ object AnalysisUtils{
     }
     ptr.reflectBaseType(splits.last) match {
       case bt : BaseType => bt
-      case null => SpinalError(s"Can't find signal named ${ptr.reflectBaseType(splits.last)}")
+      case null => SpinalError(s"Can't find signal named ${splits.last}")
     }
   }
   def seekNonCombDrivers(that : BaseType)(body : Any => Unit): Unit ={

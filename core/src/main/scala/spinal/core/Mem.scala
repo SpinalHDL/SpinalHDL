@@ -545,7 +545,7 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
   def getWordsCount = mem.wordCount*mem.width/getWidth
   def getAddressWidth = log2Up(getWordsCount)
 
-  override def opName = "Mem.readAsync(x)"
+  override def opName = s"$mem.readAsync(x)"
 
   override def getTypeObject = TypeBits
 
