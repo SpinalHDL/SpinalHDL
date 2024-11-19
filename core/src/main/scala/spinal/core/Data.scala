@@ -101,6 +101,10 @@ trait DataPrimitives[T <: Data]{
     _data
   }
 
+  def initZero() : T = {
+    _data.init(_data.getZero)
+    _data
+  }
 
   /** Set a default value to a data */
   def default(that: => T): T = {
