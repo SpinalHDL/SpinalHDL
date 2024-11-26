@@ -32,7 +32,7 @@ import scala.collection.mutable.ArrayBuffer
   * @param spinalEnum parent of the element (SpinalEnum)
   * @param position position of the element
   */
-class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) extends Nameable {
+class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) extends Nameable with SpinalTagReady {
 
   def getSignature() : Any = List(position, getName(""))
 
@@ -58,6 +58,16 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
   }
 
   def asBits: Bits = craft().asBits
+  def next: SpinalEnumElement[T] = {
+    val id = position + 1
+    if(id >= spinalEnum.elements.size) return null
+    spinalEnum.elements(id)
+  }
+  def prev: SpinalEnumElement[T] = {
+    val id = position + -
+    if(id < 0) return null
+    spinalEnum.elements(id)
+  }
 }
 
 
