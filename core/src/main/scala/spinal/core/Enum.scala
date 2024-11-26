@@ -64,7 +64,7 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
     spinalEnum.elements(id)
   }
   def prev: SpinalEnumElement[T] = {
-    val id = position + -
+    val id = position -1
     if(id < 0) return null
     spinalEnum.elements(id)
   }
