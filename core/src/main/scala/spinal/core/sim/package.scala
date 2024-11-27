@@ -394,6 +394,7 @@ package object sim {
     }
 
     def toBoolean = getLong(bt) != 0
+    def toInt = getLong(bt)
 
     def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
 
