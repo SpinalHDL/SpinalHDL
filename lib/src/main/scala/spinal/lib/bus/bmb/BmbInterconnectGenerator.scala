@@ -229,10 +229,7 @@ class BmbInterconnectGenerator() extends Area{
     accessSource.loadAsync {
       lock.get
       val mAccessRequirements = connectionsSorted.map(_.m.accessRequirements)
-      val addressWidths = for(c <- connections) yield c.mapping.get match {
-        case m : SizeMapping => log2Up(m.size)
-        case _ => c.m.accessRequirements.addressWidth
-      }
+      val addressWidths = for(c <- connections) yield c.m.accessRequirements.addressWidth
       val sourcesRemaped = mutable.LinkedHashMap[Int, BmbSourceParameter]()
       val sourceShift = log2Up(mAccessRequirements.size)
       for((master, masterId) <- mAccessRequirements.zipWithIndex; (sourceId, source) <- master.sources){
