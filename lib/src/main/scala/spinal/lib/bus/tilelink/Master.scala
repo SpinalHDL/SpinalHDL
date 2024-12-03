@@ -156,6 +156,11 @@ object M2sTransfers {
     putFull    = SizeRange(1, 4096),
     putPartial = SizeRange(1, 4096)
   )
+  def allGetPut(range : SizeRange) = M2sTransfers(
+    get        = range,
+    putFull    = range,
+    putPartial = range
+  )
 
   def intersect(values : Seq[M2sTransfers]) : M2sTransfers = values.reduce(_ intersect _)
   def mincover(values : Seq[M2sTransfers]) : M2sTransfers = values.reduce(_ mincover _)
