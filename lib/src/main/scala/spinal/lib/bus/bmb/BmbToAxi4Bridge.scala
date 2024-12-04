@@ -19,7 +19,7 @@ object BmbToAxi4SharedBridge{
     useCache = true,
     useQos = false,
     useRegion = false,
-    useBurst = false,
+    useBurst = true,
     useLock = false
   )
 }
@@ -72,6 +72,7 @@ case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 31
   val readRspInfo = readCmdInfo.queue(size = 1 << log2Up(pendingMax)).halfPipe()
 
   io.output.arw.arbitrationFrom(cmdStage.haltWhen(!writeCmdInfo.ready || !readCmdInfo.ready))
+  io.output.arw.setBurstINCR()
   io.output.arw.write  := io.input.cmd.isWrite
   io.output.arw.addr   := io.input.cmd.address
   io.output.arw.len    := io.input.cmd.transferBeatCountMinusOne.resized
