@@ -251,6 +251,17 @@ package object sim {
 
   def simThread = SimManagerContext.current.thread
 
+
+  /** Represents the relationship where a SpinalHDL type can be converted
+    * to a certain Scala type during simulation and vice-versa.
+    */
+  trait SimEquiv {
+    type SimEquivT
+
+    def #=(v: SimEquivT)
+    def getSim(): SimEquivT
+  }
+
   /**
     * Add implicit function to BaseType for simulation
     */
@@ -331,7 +342,7 @@ package object sim {
   /**
     * Add implicit function to Bool
     */
-  implicit class SimBoolPimper(bt: Bool) {
+  implicit class SimBoolPimper(bt: Bool) extends SimEquiv {
     def simProxy() = new SimProxy(bt)
     class SimProxy(bt : Bool){
       val manager = SimManagerContext.current.manager
@@ -343,14 +354,62 @@ package object sim {
       }
     }
 
-    def toBoolean = getLong(bt) != 0
-
-    def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
-
     def randomize(): Boolean = {
       val b = simRandom.nextBoolean()
       bt #= b
       b
+    }
+
+    // SimEquiv implementation
+    type SimEquivT = Boolean
+    def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
+    def getSim(): SimEquivT = getLong(bt) != 0
+
+    def toBoolean = getSim()
+  }
+
+
+  // Several SimEquiv implementations needed since BitVector can correspond to several types
+  implicit class SimEquivBitVectorLongPimper(bt: BitVector) extends SimEquiv {
+    type SimEquivT = Long
+    def #=(value: Long)    = setLong(bt, value)
+    def getSim(): Long = getLong(bt)
+  }
+
+  implicit class SimEquivBitVectorBigIntPimper(bt: BitVector) extends SimEquiv {
+    type SimEquivT = BigInt
+    def #=(value: BigInt)    = setBigInt(bt, value)
+    def getSim(): BigInt = getBigInt(bt)
+  }
+
+  implicit class SimEquivBitVectorBytesPimper(bt: BitVector) extends SimEquiv {
+    type SimEquivT = Array[Byte]
+    def #=(value: Array[Byte])    = {
+      var acc = BigInt(0)
+      for(i <- value.size-1 downto 0){
+        acc = acc << 8
+        acc |= value(i).toInt & 0xFF
+      }
+      setBigInt(bt, acc)
+    }
+    def getSim(): Array[Byte] = getBigInt(bt).toBytes(bt.getBitsWidth)
+  }
+
+  implicit class SimEquivBitVectorBooleansPimper(bt: BitVector) extends SimEquiv {
+    type SimEquivT = Array[Boolean]
+    def #=(value: Array[Boolean])    = {
+      var acc = BigInt(0)
+      for(i <- value.size-1 downto 0){
+        if(value(i)) acc = acc.setBit(i)
+      }
+      setBigInt(bt, acc)
+    }
+    def getSim(): Array[Boolean] = {
+      val width = bt.getBitsWidth
+      val ret = new Array[Boolean](width)
+      val bi = bt.toBigInt
+      for(i <- 0 until width) ret(i) = bi.testBit(i)
+      ret
     }
   }
 
@@ -390,36 +449,11 @@ package object sim {
       }
     }
 
-    def toInt    = getInt(bt)
-    def toLong(implicit manager: SimManager = SimManagerContext.current.manager)   = getLong(bt)(manager)
-    def toBigInt = getBigInt(bt)
-    def toBytes: Array[Byte] = toBigInt.toBytes(bt.getBitsWidth)
-    def toBooleans : Array[Boolean] = {
-      val width = bt.getBitsWidth
-      val ret = new Array[Boolean](width)
-      val bi = toBigInt
-      for(i <- 0 until width) ret(i) = bi.testBit(i)
-      ret
-    }
-
-    def #=(value: Int)    = setLong(bt, value)
-    def #=(value: Long)   = setLong(bt, value)
-    def #=(value: BigInt) = setBigInt(bt, value)
-    def #=(value: Array[Byte]) = { //TODO improve perf
-      var acc = BigInt(0)
-      for(i <- value.size-1 downto 0){
-        acc = acc << 8
-        acc |= value(i).toInt & 0xFF
-      }
-      setBigInt(bt, acc)
-    }
-    def #=(value: Array[Boolean]) = { //TODO improve perf
-      var acc = BigInt(0)
-      for(i <- value.size-1 downto 0){
-        if(value(i)) acc = acc.setBit(i)
-      }
-      setBigInt(bt, acc)
-    }
+    def toInt: Int = getInt(bt)
+    def toLong: Long = getLong(bt)
+    def toBigInt: BigInt = getBigInt(bt)
+    def toBytes: Array[Byte] = SimEquivBitVectorBytesPimper(bt).getSim
+    def toBooleans : Array[Boolean] = SimEquivBitVectorBooleansPimper(bt).getSim
   }
 
   object SimUnionElementPimper {
@@ -545,17 +579,21 @@ package object sim {
   /**
     * Add implicit function to Enum
     */
-  implicit class SimEnumPimper[T <: SpinalEnum](bt: SpinalEnumCraft[T]) {
+  implicit class SimEnumPimper[T <: SpinalEnum](bt: SpinalEnumCraft[T]) extends SimEquiv {
 
-    def toEnum = bt.encoding.getElement(getBigInt(bt), bt.spinalEnum).asInstanceOf[SpinalEnumElement[T]]
-
-    def #=(value: SpinalEnumElement[T]) = setBigInt(bt, bt.encoding.getValue(value))
 
     def randomize(): SpinalEnumElement[T] = {
       val e = bt.spinalEnum.elements(simRandom.nextInt(bt.spinalEnum.elements.length))
       setBigInt(bt, bt.encoding.getValue(e))
       e.asInstanceOf[SpinalEnumElement[T]]
     }
+
+    // SimEquiv implementation
+    type SimEquivT = SpinalEnumElement[T]
+    def #=(value: SpinalEnumElement[T]) = setBigInt(bt, bt.encoding.getValue(value))
+    def getSim = bt.encoding.getElement(getBigInt(bt), bt.spinalEnum).asInstanceOf[SpinalEnumElement[T]]
+
+    def toEnum = getSim
   }
 
   /**
@@ -688,6 +726,12 @@ package object sim {
         BigDecimal(raw) / factor
       }
     }
+  }
+
+  implicit class SimEquivVecSeqPimper[T <: Data, E](s: Vec[T])(implicit ev: T => SimEquiv { type SimEquivT = E }) extends SimEquiv {
+    type SimEquivT = Seq[E]
+    def #=(v: SimEquivT) = s.zip(v).foreach(p => p._1 #= p._2)
+    def getSim(): SimEquivT = s.map(_.getSim()).toSeq
   }
 
   /**
