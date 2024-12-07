@@ -2850,8 +2850,8 @@ class PhaseCheckAsyncResetsSources() extends PhaseCheck {
 class PhaseObfuscate() extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     var id = 0
-    def newName(): String = {
-      val name = "oo_" + id
+    def newName(prefix : String = pc.config.obfuscateNamesPrefix): String = {
+      val name = prefix + id
       id += 1
       name
     }
@@ -2861,7 +2861,7 @@ class PhaseObfuscate() extends PhaseNetlist{
     def rename(that : Nameable) : Unit = {
      that.setName(newName)
     }
-    if(pc.config.obfuscateNames){
+    if(pc.config.obfuscateNamesPrefix != null){ 
       pc.walkComponentsExceptBlackbox { c =>
         if (c != pc.topLevel) {
           renameT(c)
