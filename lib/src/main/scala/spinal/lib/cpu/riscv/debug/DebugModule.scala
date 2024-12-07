@@ -12,7 +12,8 @@ case class DebugModuleParameter(version : Int,
                                 harts : Int,
                                 progBufSize : Int,
                                 datacount : Int,
-                                hartsConfig : Seq[DebugModuleCpuConfig])
+                                hartsConfig : Seq[DebugModuleCpuConfig],
+                                withSysBus: Boolean = false)
 
 
 object DebugDmToHartOp extends SpinalEnum{
@@ -54,6 +55,33 @@ object DebugModuleCmdErr extends SpinalEnum(binarySequential){
   val NONE, BUSY, NOT_SUPPORTED, EXCEPTION, HALT_RESUME, BUS, OTHER = newElement()
 }
 
+case class DebugSysBusCmd() extends Bundle{
+  val wr = Bool
+  val address = UInt(32 bits)
+  val data = Bits(32 bit)
+  val size = UInt(2 bit)
+}
+
+case class DebugSysBusRsp() extends Bundle with IMasterSlave{
+  val ready = Bool
+  val error = Bool
+  val data = Bits(32 bit)
+
+  override def asMaster(): Unit = {
+    out(ready,error,data)
+  }
+}
+
+case class DebugSysBus() extends Bundle with IMasterSlave{
+  val cmd = Stream(DebugSysBusCmd())
+  val rsp = DebugSysBusRsp()
+
+  override def asMaster(): Unit = {
+    master(cmd)
+    slave(rsp)
+  }
+}
+
 object DebugModule{
   val CSR_DATA = 0x7B4
   def csrr(dataId : Int, regId : UInt) = B(0x00002073 | (CSR_DATA + dataId << 20), 32 bits) | (regId.asBits << 7).resized
@@ -67,6 +95,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
     val ctrl = slave(DebugBus(7))
     val ndmreset = out Bool()
     val harts = Vec.fill(p.harts)(master(DebugHartBus()))
+    val sysBus = p.withSysBus generate master(DebugSysBus())
   }
 
   val factory = new DebugBusSlaveFactory(io.ctrl)
@@ -178,9 +207,118 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val nscratch   = factory.read(U(0, 4 bits), 0x12, 20)
     }
 
-    val sbcs = new Area{
-      val sbversion  = factory.read(U(1, 3 bits), 0x38, 29)
-      val sbaccess   = factory.read(U(2, 3 bits), 0x38, 17)
+    val sbcs =  new Area{
+      val sbversion = factory.read(U(1, 3 bits), 0x38, 29)
+
+      val sbaccess = if (p.withSysBus) {
+        factory.read(U(2, 3 bits), 0x38, 17)
+      } else {
+        p.withSysBus generate factory.createReadAndWrite(UInt(3 bits), 0x38, 17) init(2)
+      }
+
+      val sbbusyerror = p.withSysBus generate factory.createReadAndClearOnSet(Bool(), 0x38, 22) init(False)
+      val sbbusy = p.withSysBus generate factory.read(Bool(), 0x38, 21)
+      val sbreadonaddr = p.withSysBus generate factory.createReadAndWrite(Bool(), 0x38, 20) init(False)
+      val sbautoincrement = p.withSysBus generate factory.createReadAndWrite(Bool(), 0x38, 16) init(False)
+      val sbreadondata = p.withSysBus generate factory.createReadAndWrite(Bool(), 0x38, 15) init(False)
+      val sberror = p.withSysBus generate factory.createReadAndClearOnSet(UInt(3 bits), 0x38, 12) init(0)
+      val sbasize = p.withSysBus generate factory.read(U(32, 7 bits), 0x38, 5)
+
+      // 128 and 64 bit not supported yet
+      val sbaccess128 = p.withSysBus generate factory.read(False, 0x38, 4)
+      val sbaccess64 = p.withSysBus generate factory.read(False, 0x38, 3)
+      // 32 bit access IS supported
+      val sbaccess32 = p.withSysBus generate factory.read(True, 0x38, 2)
+      // 16 and 8 bit not supported yet
+      val sbaccess16 = p.withSysBus generate factory.read(False, 0x38, 1)
+      val sbaccess8 = p.withSysBus generate factory.read(False, 0x38, 0)
+    }
+
+    val sbaddress0 = p.withSysBus generate factory.createReadOnly(UInt(32 bits), 0x39) init(0)
+    val sbdata0 = p.withSysBus generate factory.createReadOnly(Bits(32 bits), 0x3c) init(0)
+
+    val sysBusX = p.withSysBus generate new Area {
+      val sysBusCmdValid = RegInit(False)
+      val sysBusWrite = RegInit(False)
+      val sysBusBusy = RegInit(False)
+      val sysBusReady = !sbcs.sbbusy && !sbcs.sbbusyerror && (sbcs.sberror === 0)
+
+      sbcs.sbbusy := sysBusBusy
+
+      io.sysBus.cmd.valid := sysBusCmdValid
+      io.sysBus.cmd.payload.wr := sysBusWrite
+      io.sysBus.cmd.payload.address := sbaddress0
+      io.sysBus.cmd.payload.data := sbdata0
+      io.sysBus.cmd.payload.size := 3
+
+      when(sysBusBusy && io.sysBus.cmd.fire) {
+        sysBusCmdValid := False
+        when(sysBusWrite) {
+          sysBusBusy := False
+        }
+      }
+
+      // bus response
+      when(io.sysBus.rsp.ready) {
+        sbdata0 := io.sysBus.rsp.data
+        when (io.sysBus.rsp.error) {
+          sbcs.sberror := 7
+        }
+        sysBusBusy := False
+      }
+
+      // sbaddress0 write
+      factory.onWrite(0x39) {
+        when(sbcs.sbbusy) {
+          sbcs.sbbusyerror := True
+        } elsewhen(sysBusReady) {
+          sbaddress0 := io.ctrl.cmd.payload.data.asUInt
+          when(sbcs.sbreadonaddr) {
+            when(sbcs.sbaccess =/= 2) {
+              // 32 bit accesses only
+              sbcs.sberror := 4
+            } otherwise {
+              sysBusBusy := True
+              sysBusWrite := False
+              sysBusCmdValid := True
+            }
+          }
+        }
+      }
+
+      // sbdata0 write
+      factory.onWrite(0x3c) {
+        when(sbcs.sbbusy) {
+          sbcs.sbbusyerror := True
+        } elsewhen(sysBusReady) {
+          when(sbcs.sbaccess =/= 2) {
+            // 32 bit accesses only
+            sbcs.sberror := 4
+          } otherwise {
+            sbdata0 := io.ctrl.cmd.payload.data
+            sysBusBusy := True
+            sysBusWrite := True
+            sysBusCmdValid := True
+          }
+        }
+      }
+
+      // sbdata0 read
+      factory.onRead(0x3c) {
+        when(sysBusReady && sbcs.sbreadondata) {
+          when(sbcs.sbaccess =/= 2) {
+            // 32 bit accesses only
+            sbcs.sberror := 4
+          } otherwise {
+            sysBusBusy := True
+            sysBusWrite := False
+            sysBusCmdValid := True
+            when(sbcs.sbautoincrement) {
+              sbaddress0 := sbaddress0 + 4
+            }
+          }
+        }
+      }
     }
 
     val progbufX = new Area{
