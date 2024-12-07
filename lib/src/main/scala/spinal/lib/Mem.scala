@@ -48,9 +48,6 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     val retValid = RegInit(False)
     val retData = mem.readSync(cmd.payload, cmd.fire, clockCrossing = crossClock)
 
-    when(ret.ready) {
-      retValid := Bool(false)
-    }
     when(cmd.ready) {
       retValid := cmd.valid
     }
