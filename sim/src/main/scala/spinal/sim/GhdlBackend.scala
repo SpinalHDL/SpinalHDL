@@ -97,7 +97,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
     )
   }
 
-  def runSimulation(sharedMemIface: SharedMemIface): Thread = {
+  def runSimulation(sharedMemIface: SharedMemIface, testName: String): Thread = {
     val vpiModulePath =
       if (!isWindows) pluginsPath + "/" + vpiModuleName
       else (pluginsPath + "/" + vpiModuleName).replaceAll("/C", raw"C:").replaceAll(raw"/", raw"\\")
