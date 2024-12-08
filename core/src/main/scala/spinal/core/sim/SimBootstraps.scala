@@ -295,6 +295,7 @@ object SpinalGhdlBackend {
     }
     vconfig.runFlags = config.runFlags.mkString(" ")
     vconfig.logSimProcess = config.enableLogging
+    vconfig.testPath = config.testPath
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
 
