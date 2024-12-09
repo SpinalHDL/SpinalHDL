@@ -349,6 +349,11 @@ case class MacRxBuffer(pushCd : ClockDomain,
   }
 }
 
+
+object MacRxCheckSumChecker extends App{
+  SpinalConfig(privateNamespace = true).generateVerilog(new MacRxCheckSumChecker())
+}
+
 case class MacRxCheckSumChecker() extends Component {
   val io = new Bundle {
     val input = slave(Stream(Fragment(PhyRx(8))))

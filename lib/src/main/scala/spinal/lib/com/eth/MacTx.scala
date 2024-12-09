@@ -364,6 +364,9 @@ case class MacTxInterFrame(dataWidth : Int, withError : Boolean = false) extends
 }
 
 
+object MacTxLso extends App{
+  SpinalConfig(privateNamespace = true).generateVerilog(new MacTxLso(2048, 1500+14))
+}
 
 case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) extends Component{
 
