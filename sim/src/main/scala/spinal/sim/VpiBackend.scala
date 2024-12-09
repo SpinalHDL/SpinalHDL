@@ -33,7 +33,7 @@ case class VpiBackendConfig(
   var useCache: Boolean      = false,
   var logSimProcess: Boolean = false,
   var timePrecision: String  = null,
-  var testPath: String       = null,
+  var testPath: String       = null
 )
 
 abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
