@@ -825,6 +825,85 @@ class SpinalSimMacTester extends SpinalAnyFunSuite{
 
         dut.clockDomain.waitSamplingWhere(ref.isEmpty)
 
+
+      }
+
+      for(i <- 0 until 4){
+        val ip4Options = simRandom.nextInt(16-5)
+        val tcpOptions = simRandom.nextInt(16-5)
+        val headerSize = 14+(5+ip4Options)*4+(5+tcpOptions)*4
+        val dataSize = 612
+
+        val eth = new Eth()
+        simRandom.nextBytes(eth.destination)
+        simRandom.nextBytes(eth.source)
+        eth.ethType = 0x800
+        val ip4 = new Ip4
+        ip4.IHL = 5+ip4Options
+        ip4.DSCP = simRandom.nextInt(1 << 6)
+        ip4.ECN = simRandom.nextInt(1 << 2)
+        ip4.totalLength = headerSize + dataSize - 14
+        ip4.identification = simRandom.nextInt(1 << 16)
+        ip4.flags = simRandom.nextInt(1 << 3)
+        ip4.fragmentOffset = simRandom.nextInt(1 << 13)
+        ip4.ttl = simRandom.nextInt(1 << 8)
+        ip4.protocol = 0x42
+        ip4.headerChecksum = simRandom.nextInt(1 << 16)
+        simRandom.nextBytes(ip4.sourceAddress)
+        simRandom.nextBytes(ip4.destinationAddress)
+        ip4.options = Array.fill(ip4Options)(simRandom.nextInt)
+
+        val inputData = new Array[Byte](dataSize)
+        simRandom.nextBytes(inputData)
+
+        val inputArray = new Array[Byte](headerSize+dataSize)
+        val inputBuffer = ByteBuffer.wrap(inputArray);
+        eth.to(inputBuffer)
+        ip4.to(inputBuffer)
+        inputBuffer.put(inputData)
+
+        for(i <- inputArray.indices){
+          val last = i == inputArray.size-1
+          inputQueue.enqueue{ p =>
+            p.data #= inputArray(i).toInt & 0xFF
+            p.last #= last
+          }
+        }
+
+        {
+          val segmentDataSize = dataSize
+          val segmentArray = new Array[Byte](headerSize + segmentDataSize)
+          val segmentBuffer = ByteBuffer.wrap(segmentArray);
+          val segmentData = inputData
+
+          ip4.headerChecksum = 0
+          ip4.totalLength = segmentArray.length-14
+
+          val cs = new Checksummer()
+          cs.push(ip4.toArray())
+          ip4.headerChecksum = cs.result()
+
+          cs.clear()
+          cs.push(ip4.sourceAddress)
+          cs.push(ip4.destinationAddress)
+          cs.pushShort(ip4.protocol)
+          cs.pushShort(ip4.totalLength - ip4.IHL*4)
+          cs.push(segmentData)
+
+          eth.to(segmentBuffer)
+          ip4.to(segmentBuffer)
+          segmentBuffer.put(segmentData)
+
+          for(i <- segmentArray.indices){
+            val last = i == segmentArray.length-1
+            ref.enqueue(segmentArray(i) -> last)
+          }
+        }
+
+
+        dut.clockDomain.waitSamplingWhere(ref.isEmpty)
+
+
       }
     }
   }

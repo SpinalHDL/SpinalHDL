@@ -449,7 +449,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
   }
 
   val frontend = new StateMachine{
-    val ETH, DONE, IPV4, TCP, UDP, CS_WRITE_0, CS_WRITE_1 = new State()
+    val ETH, DONE, IPV4, IPV4_UNKNOWN, TCP, UDP, CS_WRITE_0, CS_WRITE_1, IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1 = new State()
     val TSO_DATA = new State()
     setEntry(ETH)
 
@@ -541,6 +541,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
     val IHL = Reg(UInt(4 bits))
     val protocol = Reg(Bits(8 bits))
     val csAt = Reg(buffer.ram.addressType)
+    val ip4Length = Reg(Bits(16 bits))
     IPV4.whenIsActive{
       when(io.input.fire) {
         checksum.push := counter >= 12 && counter <= 19
@@ -554,6 +555,10 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
         when(counter === 3){
           checksum.push := True
           checksum.input := (history(1) ## history(0)).asUInt - (IHL << 2)
+          ip4Length := history(1) ## history(0)
+        }
+        when(io.input.last){
+          goto(DONE)
         }
         when(counter === 0) {
           IHL := io.input.data(3 downto 0).asUInt
@@ -561,16 +566,15 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
             goto(DONE)
           }
         } elsewhen (counter === (IHL << 2) - 1) {
-          goto(DONE)
+          goto(IPV4_UNKNOWN)
           checksumIp.save := True
           counter := 0
-          switch(protocol){
-            is(0x06) { goto(TCP) }
-            is(0x11) { goto(UDP) }
+          when(!io.input.last){
+            switch(protocol){
+              is(0x06) { goto(TCP) }
+              is(0x11) { goto(UDP) }
+            }
           }
-        }
-        when(io.input.last){
-          goto(DONE)
         }
       }
     }
@@ -806,6 +810,25 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
       }
     }
 
+    IPV4_UNKNOWN.whenIsActive{
+      when(io.input.fire && io.input.last || lastFired) {
+        goto(IP4_LENGTH_0)
+      }
+    }
+
+    sequence(IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1, DONE)
+    IP4_LENGTH_0 whenIsActive{
+      checksumIp.push := True
+      checksumIp.inputLsb := False
+      checksumIp.inputData := ip4Length(15 downto 8)
+    }
+    IP4_LENGTH_1 whenIsActive{
+      checksumIp.push := True
+      checksumIp.inputLsb := True
+      checksumIp.inputData := ip4Length(7 downto 0)
+    }
+    bufferWrite(IP4_CS_0)(buffer.packetAt + 0x18, checksumIp.result(8, 8 bits))
+    bufferWrite(IP4_CS_1)(buffer.packetAt + 0x19, checksumIp.result(0, 8 bits))
 
     CS_WRITE_0 whenIsActive{
       buffer.write.valid := True
