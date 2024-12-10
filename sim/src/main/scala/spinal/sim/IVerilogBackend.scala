@@ -4,7 +4,7 @@ import org.apache.commons.io.FileUtils
 import spinal.sim.vpi.SharedMemIface
 
 import java.io.{File, PrintWriter}
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths}
 import scala.sys.process.Process
 
 
@@ -105,9 +105,12 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                                |`timescale $timeScale
                                |
                                |module __simulation_def;
+                               |reg [255*8:0] wavefile;  // "255 bytes are enough for every path"
+                               |reg ign_res;             // ignored result of $$value$$plusargs
                                |initial
                                | begin
-                               |  ${if (hasWave) "$dumpfile(\"" + wavePath + "\");" else ""}
+                               |  ign_res = $$value$$plusargs("wavefile=%s", wavefile);   // read wave file name from +wavefile=xxx.ext parameter passed at simulation runtime
+                               |  ${if (hasWave) "$dumpfile(wavefile);" else ""}
                                |  ${if (hasWave) "$dumpvars(0," + toplevelName + ");" else ""}
                                |  $$readmempath("./rtl/");
                                | end
@@ -146,18 +149,23 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
     )
   }
 
-  def runSimulation(sharedMemIface: SharedMemIface): Thread = {
+  def runSimulation(sharedMemIface: SharedMemIface, testName: String): Thread = {
     val vpiModulePath =
       if (!isWindows) pluginsPath + "/" + vpiModuleName
       else (pluginsPath + "/" + vpiModuleName).replaceAll("/C", raw"C:").replaceAll(raw"/", raw"\\")
 
     val pathStr = if (!isWindows) sys.env("PATH")
+    val waveFilePath = Paths.get(System.getProperty("user.dir"), config.testPath.replace("$TEST",testName)).toAbsolutePath.normalize()
 
     val thread = new Thread(new Runnable {
       val iface = sharedMemIface
       def run(): Unit = {
+        val wavefilePathFlag = (if (config.waveFormat != WaveFormat.NONE) f"+wavefile=${waveFilePath}/wave.${config.waveFormat.ext}" else "")
+        if (wavefilePathFlag != "") {
+          FileUtils.forceMkdirParent(new File(waveFilePath.toString, "."))
+        }
         val retCode = Process(
-          Seq(vvpPath, "-M.", s"-m${pwd + "/" + vpiModulePath}", toplevelName + ".vvp", runFlags).mkString(" "),
+          Seq(vvpPath, "-M.", s"-m${pwd + "/" + vpiModulePath}", toplevelName + ".vvp", wavefilePathFlag, runFlags).mkString(" "),
           new File(workspacePath)
         ).!(new LoggerPrint())
         if (retCode != 0) {

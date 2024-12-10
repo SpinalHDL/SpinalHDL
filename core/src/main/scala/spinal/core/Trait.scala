@@ -821,6 +821,7 @@ object allowOutOfRangeLiterals               extends SpinalTag{
   }
 }
 
+object dontObfuscate                 extends SpinalTag
 object noInit                        extends SpinalTag
 object unusedTag                     extends SpinalTag
 object noCombinatorialLoopCheck      extends SpinalTag
