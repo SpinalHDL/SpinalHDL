@@ -31,7 +31,7 @@ sealed trait EdgeKind
 object RISING  extends EdgeKind
 object FALLING extends EdgeKind
 
-sealed trait ResetKind
+sealed trait ResetKind extends AreaObject
 object ASYNC extends ResetKind
 object SYNC  extends ResetKind
 object BOOT  extends ResetKind

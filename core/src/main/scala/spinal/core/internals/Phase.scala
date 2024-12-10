@@ -1063,6 +1063,22 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
   }
 }
 
+class PhaseMemBlackBoxingGeneric(policy: MemBlackboxingPolicy) extends PhaseMemBlackBoxingWithPolicy(policy){
+  def doBlackboxing(topo: MemTopology): String = {
+    if (topo.mem.initialContent != null) {
+      return "Can't blackbox ROM"
+    }
+
+    topo.mem.component.rework {
+      val bb = new Ram_Generic(topo, PhaseMemBlackBoxingGeneric.this)
+      removeMem(topo.mem)
+    }
+
+    return null
+  }
+}
+
+
 object classNameOf{
   def apply(that : Any): String = {
     val name = that.getClass.getSimpleName.replace("$",".").split("\\.").head
