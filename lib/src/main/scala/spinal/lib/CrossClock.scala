@@ -2,6 +2,7 @@ package spinal.lib
 
 import spinal.core._
 import spinal.core.fiber._
+import spinal.core.internals.{Literal, PhaseContext, PhaseNetlist, UIntLiteral}
 import spinal.core.sim.SimDataPimper
 
 import scala.collection.Seq
@@ -52,7 +53,12 @@ object BufferCC {
   }
 }
 
-class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option[Int], val  randBoot : Boolean = false, inputAttributes: Seq[SpinalTag] = List(), allBufAttributes: Seq[SpinalTag] = List()) extends Component {
+class BufferCC[T <: Data](val dataType: T,
+                          init :  => T,
+                          val bufferDepth: Option[Int],
+                          val randBoot : Boolean = false,
+                          val inputAttributes: Seq[SpinalTag] = List(),
+                          val allBufAttributes: Seq[SpinalTag] = List()) extends Component {
   def getInit() : T = init
   val finalBufferDepth = BufferCC.defaultDepthOptioned(ClockDomain.current, bufferDepth)
   assert(finalBufferDepth >= 1)
@@ -78,6 +84,102 @@ class BufferCC[T <: Data](val dataType: T, init :  => T, val bufferDepth: Option
 
   addAttribute("keep_hierarchy", "TRUE")
 }
+
+class BufferCCBlackBox(width : Int,
+                       init : BigInt,
+                       depth : Int) extends BlackBox {
+  val io = new Bundle {
+    val clk = in Bool()
+    val reset = in Bool()
+    val dataIn = in(Bits(width bits))
+    val dataOut = out(Bits(width bits))
+  }
+  addGenerics(
+    "WIDTH" -> width,
+    "DEPTH" -> depth
+  )
+  val withInit = init != null
+  addGeneric("INIT_ENABLE", withInit)
+  addGeneric("INIT_VALUE", B((withInit).mux(init, BigInt(0)), width bits))
+  addGeneric("INIT_KIND", clockDomain.config.resetKind.getName())
+  addGeneric("INIT_POLARITY", clockDomain.config.resetActiveLevel.getName())
+
+  val cd = withInit.mux(clockDomain.get, parent.rework(clockDomain.get.copy(reset = False)))
+  cd.on {
+    mapCurrentClockDomain(
+      io.clk,
+      io.reset
+    )
+  }
+}
+
+
+class PhaseBufferCCBB extends PhaseNetlist{
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkComponents {
+      case c: BufferCC[Data] => {
+        c.buffers.foreach(_.flattenForeach { s =>
+          s.removeAssignments()
+          s.removeStatement()
+        })
+        c.io.dataOut.removeAssignments()
+        c.rework {
+          val cd = ClockDomain.current
+          val initBt = c.getInit()
+          val initValue = (initBt != null).mux(Literal(initBt), BigInt(0))
+          val bb = new BufferCCBlackBox(
+            width = c.io.dataIn.getBitsWidth,
+            init = initValue,
+            depth = c.finalBufferDepth
+          )
+          bb.setName("cc")
+          bb.io.dataIn := c.io.dataIn.asBits
+          c.io.dataOut := bb.io.dataOut.as(c.io.dataOut)
+        }
+      }
+      case _ =>
+    }
+  }
+}
+
+//SamplerCC works mostly like a BufferCC but integrate an additional Flow input with a register on the push clock domain
+class SamplerCC[T <: Data](val dataType : HardType[T],
+                           init : => T,
+                           val depth : Int,
+                           val pushCd : ClockDomain,
+                           val popCd : ClockDomain,
+                           val bufferDepth: Option[Int],
+                           val randBoot : Boolean = false,
+                           val inputAttributes: Seq[SpinalTag] = List(),
+                           val allBufAttributes: Seq[SpinalTag] = List()) extends BlackBox {
+  val io = new Bundle {
+    val push = slave Flow(dataType)
+    val pushReg = out(dataType)
+    val popReg = out(dataType)
+  }
+
+  val cc = popCd on new BufferCC(
+    dataType = dataType(),
+    init = init,
+    bufferDepth = bufferDepth,
+    randBoot = randBoot,
+    inputAttributes = inputAttributes,
+    allBufAttributes = allBufAttributes,
+  )
+
+  val push = new ClockingArea(pushCd){
+    val reg = Reg(dataType)
+    when(io.push.valid){
+      reg := io.push.payload
+    }
+
+    cc.io.dataIn := reg
+  }
+
+  io.popReg := cc.io.dataOut
+}
+
+
 
 
 object PulseCCByToggle {

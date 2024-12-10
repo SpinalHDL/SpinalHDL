@@ -27,7 +27,7 @@ import scala.collection.mutable
 import scala.collection.immutable
 import scala.collection.mutable.ArrayBuffer
 
-sealed trait EdgeKind
+sealed trait EdgeKind extends AreaObject
 object RISING  extends EdgeKind
 object FALLING extends EdgeKind
 
@@ -36,7 +36,7 @@ object ASYNC extends ResetKind
 object SYNC  extends ResetKind
 object BOOT  extends ResetKind
 
-sealed trait Polarity{
+sealed trait Polarity extends AreaObject{
   def assertedBool : Bool
   def deassertedBool : Bool
 }
