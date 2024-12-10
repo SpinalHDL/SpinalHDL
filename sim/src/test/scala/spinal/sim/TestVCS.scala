@@ -26,7 +26,7 @@ object TestVCS1 extends App{
 //  config.vcsCC = Some("gcc-4.4")
 //  config.vcsLd = Some("g++-4.4")
 
-  val (vcsBackend, _) = new VCSBackend(config).instanciate()
+  val (vcsBackend, _) = new VCSBackend(config).instanciate("test")
   println(vcsBackend.print_signals())
   val nibble1 = vcsBackend.get_signal_handle("adder.nibble1")
   val nibble2 = vcsBackend.get_signal_handle("adder.nibble2")
