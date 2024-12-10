@@ -21,7 +21,7 @@ object TestGhdl1 extends App{
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val (ghdlbackend, _) = new GhdlBackend(config).instanciate()
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate("test")
   println(ghdlbackend.print_signals())
   val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
   val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
@@ -59,7 +59,7 @@ object TestGhdl2 extends App{
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val (ghdlbackend, _) = new GhdlBackend(config).instanciate()
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate("test")
 
   for(i <- 0l to 2000000000l){
     ghdlbackend.eval
@@ -102,7 +102,7 @@ object TestGhdl3 extends App{
   config.waveFormat = WaveFormat.VCD
 
   val r = new Random()
-  val (ghdlbackend, _) = new GhdlBackend(config).instanciate()
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate("test")
   val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
   val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
   val sum = ghdlbackend.get_signal_handle("adder.sum")
@@ -145,7 +145,7 @@ object TestGhdl4 extends App{
   config.waveFormat = WaveFormat.VCD
 
   val r = new Random()
-  val (ghdlbackend, _) = new GhdlBackend(config).instanciate()
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate("test")
   val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
   val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
   val sum = ghdlbackend.get_signal_handle("adder.sum")
@@ -174,7 +174,7 @@ object TestGhdl5 extends App {
   config.waveFormat = WaveFormat.VCD
 
   val r = new Random()
-  val (ghdlbackend, _) = new GhdlBackend(config).instanciate()
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate("test")
   try {
     val sum = ghdlbackend.get_signal_handle("adder.yolo")
     println(ghdlbackend.read(sum))
@@ -199,7 +199,7 @@ object TestGhdl6 extends App{
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val simVpi = new SimVpi(new GhdlBackend(config))
+  val simVpi = new SimVpi(new GhdlBackend(config), "test")
   val nibble1 = new Signal(Seq("adder","nibble1"), new UIntDataType(4))
   val nibble2 = new Signal(Seq("adder","nibble2"), new UIntDataType(4))
   val sum = new Signal(Seq("adder","sum"), new UIntDataType(4))
@@ -230,7 +230,7 @@ object TestGhdl7 extends App{
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val simVpi = new SimVpi(new GhdlBackend(config))
+  val simVpi = new SimVpi(new GhdlBackend(config), "test")
   val nibble1 = new Signal(Seq("adder","nibble1"), new UIntDataType(4))
   val nibble2 = new Signal(Seq("adder","nibble2"), new UIntDataType(4))
   val sum = new Signal(Seq("adder","sum"), new UIntDataType(4))
@@ -260,7 +260,7 @@ object TestGhdl8 extends App{
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val (ghdlbackend, _) = new GhdlBackend(config).instanciate()
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate("test")
   println(ghdlbackend.print_signals())
   ghdlbackend.eval
   ghdlbackend.close
@@ -277,7 +277,7 @@ object TestGhdl9 extends App{
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val (ghdlbackend, _) = new GhdlBackend(config).instanciate()
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate("test")
   val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
   val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
   val sum = ghdlbackend.get_signal_handle("adder.sum")
@@ -302,7 +302,7 @@ object TestGhdl10 extends App {
   config.workspaceName = "yolo"
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.NONE
-  val (ghdlbackend, _) = new GhdlBackend(config).instanciate()
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate("test")
   val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
   val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
   val sum = ghdlbackend.get_signal_handle("adder.sum")
@@ -329,7 +329,7 @@ object TestGhdl11 extends App {
   config.waveFormat = WaveFormat.VCD
   config.useCache = true
 
-  val (ghdlbackend, _) = GhdlBackend.getGCC(config).instanciate()
+  val (ghdlbackend, _) = GhdlBackend.getGCC(config).instanciate("test")
    for(i <- 0l to 1000000l){
     ghdlbackend.randomize(i)
     ghdlbackend.sleep(1)
@@ -349,7 +349,7 @@ object TestGhdl12 extends App {
   config.waveFormat = WaveFormat.VCD
   config.useCache = true
 
-  val (ghdlbackend, _) = GhdlBackend.getLLVM(config).instanciate()
+  val (ghdlbackend, _) = GhdlBackend.getLLVM(config).instanciate("test")
    for(i <- 0l to 1000000l){
     ghdlbackend.randomize(i)
     ghdlbackend.sleep(1)
@@ -370,7 +370,7 @@ object TestGhdl13 extends App {
   config.waveFormat = WaveFormat.VCD
   config.useCache = true
 
-  val (ghdlbackend, _) = GhdlBackend.getMCODE(config).instanciate()
+  val (ghdlbackend, _) = GhdlBackend.getMCODE(config).instanciate("test")
    for(i <- 0l to 1000000l){
     ghdlbackend.randomize(i)
     ghdlbackend.sleep(1)
@@ -390,7 +390,7 @@ object TestGhdl14 extends App{
   config.waveFormat = WaveFormat.VCD
 
   val backendFactory = new GhdlBackend(config)
-  var (ghdlbackend, _) = backendFactory.instanciate()
+  var (ghdlbackend, _) = backendFactory.instanciate("test")
   var nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
   var nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
   var sum = ghdlbackend.get_signal_handle("adder.sum")
@@ -401,7 +401,7 @@ object TestGhdl14 extends App{
   ghdlbackend.close
 
   config.wavePath = "test2.vcd"
-  val (ghdlbackend2, _) = backendFactory.instanciate()
+  val (ghdlbackend2, _) = backendFactory.instanciate("test")
   nibble1 = ghdlbackend2.get_signal_handle("adder.nibble1")
   nibble2 = ghdlbackend2.get_signal_handle("adder.nibble2")
   sum = ghdlbackend2.get_signal_handle("adder.sum")
@@ -412,7 +412,7 @@ object TestGhdl14 extends App{
   ghdlbackend2.close
 
   config.wavePath = "test3.vcd"
-  val (ghdlbackend3, _) = backendFactory.instanciate()
+  val (ghdlbackend3, _) = backendFactory.instanciate("test")
   nibble1 = ghdlbackend3.get_signal_handle("adder.nibble1")
   nibble2 = ghdlbackend3.get_signal_handle("adder.nibble2")
   sum = ghdlbackend3.get_signal_handle("adder.sum")
@@ -439,7 +439,7 @@ object TestGhdl15 extends App{
   val backendFactory = new GhdlBackend(config)
   val runningSims = (0 to 7).map { i =>
     Future {
-    val (ghdlbackend, _) = backendFactory.instanciate()
+    val (ghdlbackend, _) = backendFactory.instanciate("test")
       val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
       val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
       val sum = ghdlbackend.get_signal_handle("adder.sum")
@@ -474,7 +474,7 @@ object TestGhdl16 extends App{
   val backendFactory = new GhdlBackend(config)
  
   val ghdlbackends = (0 to 7).map { i =>
-    val (ghdlbend, _) = backendFactory.instanciate()
+    val (ghdlbend, _) = backendFactory.instanciate("test")
     ghdlbend
   }.toArray
 
@@ -524,7 +524,7 @@ object TestGhdl17 extends App{
   val backendFactory = new GhdlBackend(config)
 
   val ghdlbackends = (0 to 7).map { i =>
-    val (ghdlbend, _) = backendFactory.instanciate()
+    val (ghdlbend, _) = backendFactory.instanciate("test")
     ghdlbend
   }.toArray
  
@@ -569,7 +569,7 @@ object TestGhdl18 extends App{
   config.wavePath = "test3.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val (ghdlbackend, _) = new GhdlBackend(config).instanciate()
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate("test")
   val native_in = ghdlbackend.get_signal_handle("SpinalSimVerilatorIoTestTop.nativeEncoding_stateInput")
   val native_out = ghdlbackend.get_signal_handle("SpinalSimVerilatorIoTestTop.nativeEncoding_stateOutput")
   val native_decoded = ghdlbackend.get_signal_handle("SpinalSimVerilatorIoTestTop.nativeEncoding_stateDecoded")
