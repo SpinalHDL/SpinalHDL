@@ -67,6 +67,19 @@ object StreamDriver{
     }
     (driver, cmdQueue)
   }
+
+  def fromIterable[T <: Data, E](flow: Stream[T], clockDomain: ClockDomain, els: Iterable[E])
+    (implicit ev: T => SimEquiv { type SimEquivT = E }): StreamDriver[T] = {
+    val iter = els.iterator
+    StreamDriver(flow, clockDomain) { payload =>
+      if (!iter.isEmpty) {
+        payload #= iter.next
+        true
+      } else {
+        false
+      }
+    }
+  }
 }
 
 class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var driver : (T) => Boolean){
