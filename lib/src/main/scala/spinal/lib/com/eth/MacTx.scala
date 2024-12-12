@@ -571,7 +571,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
           counter := 0
           when(!io.input.last){
             switch(protocol){
-              is(0x01) { goto(ICMP) }
+              is(0x01) { goto(ICMP); checksum.clear := True }
               is(0x06) { goto(TCP) }
               is(0x11) { goto(UDP) }
             }

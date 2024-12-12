@@ -687,7 +687,7 @@ class SpinalSimMacTester extends SpinalAnyFunSuite{
 
 
   test("MacTxLso") {
-    val compiled = SimConfig.compile(new MacTxLso(bufferBytes = 2048, mtuMax = 200))
+    val compiled = SimConfig.withFstWave.compile(new MacTxLso(bufferBytes = 2048, mtuMax = 200))
     compiled.doSim(seed = 52){dut =>
       dut.clockDomain.forkStimulus(10)
       val (inputDriver, inputQueue) = StreamDriver.queue(dut.io.input, dut.clockDomain)
@@ -698,6 +698,27 @@ class SpinalSimMacTester extends SpinalAnyFunSuite{
         val head = ref.dequeue()
         assert(p.data.toInt.toByte == head._1)
         assert(p.last.toBoolean == head._2)
+      }
+
+      for(i <- 0 until 10){
+        val segmentArray = NetworkRef.icmpRef
+        val inputArray = segmentArray.clone()
+//        inputArray(0x24) = 0x54
+//        inputArray(0x25) = 0x66
+        for(i <- inputArray.indices){
+          val last = i == inputArray.size-1
+          inputQueue.enqueue{ p =>
+            p.data #= inputArray(i).toInt & 0xFF
+            p.last #= last
+          }
+        }
+
+        for(i <- segmentArray.indices){
+          val last = i == segmentArray.length-1
+          ref.enqueue(segmentArray(i) -> last)
+        }
+
+        dut.clockDomain.waitSamplingWhere(ref.isEmpty)
       }
 
       for(i <- 0 until 10){
@@ -761,10 +782,6 @@ class SpinalSimMacTester extends SpinalAnyFunSuite{
         ip4.headerChecksum = cs.result()
 
         cs.clear()
-        cs.push(ip4.sourceAddress)
-        cs.push(ip4.destinationAddress)
-        cs.pushShort(ip4.protocol)
-        cs.pushShort(ip4.totalLength - ip4.IHL*4)
         cs.push(icmp.toArray())
         cs.push(segmentData)
         icmp.checksum = cs.result()
