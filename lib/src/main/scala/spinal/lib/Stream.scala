@@ -492,7 +492,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     converter.io.input << this
     return converter.io.output
   }
-  
+
   /**
    * Convert this stream to a fragmented stream by adding a last bit. To view it from
    * another perspective, bundle together successive events as fragments of a larger whole.
@@ -505,8 +505,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.fragment := this.payload
     ret.setCompositeName(this, "addFragmentLast", true)
   }
-  
-  /** 
+
+  /**
    *  Like addFragmentLast(Bool), but instead of manually telling which values go together,
    *  let a counter do the job. The counter will increment for each passing element. Last
    *  will be set high at the end of each revolution.
@@ -519,13 +519,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val last = counter.willOverflowIfInc
     return addFragmentLast(last)
   }
-  
+
   def setIdle(): this.type = {
     this.valid := False
     this.payload.assignDontCare()
     this
   }
-  
+
   def setBlocked(): this.type = {
     this.ready := False
     this
@@ -592,7 +592,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
     cover(aheadOut)
     cover(behindOut)
-    
+
     val out = (aheadOut, behindOut)
   }.out
 
@@ -605,7 +605,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     // once subject entered, prevent duplicate payloads from entering the StreamFifo
     when(aheadIn) { assume(payload =/= dataAhead) }
     when(behindIn) { assume(payload =/= dataBehind) }
-    
+
     // make sure our two subjects are distinguishable (different)
     assume(dataAhead =/= dataBehind)
     // assume our subjects go inside the StreamFifo in correct order
@@ -942,7 +942,7 @@ class StreamMux[T <: Data](dataType: T, portCount: Int) extends Component {
 }
 
 //TODOTEST
-/** 
+/**
  *  Demultiplex one stream into multiple output streams, always selecting only one at a time.
  */
 object StreamDemux{
@@ -977,6 +977,10 @@ object StreamDemux{
 
   def two[T <: Data](input: Stream[T], select : UInt) : (Stream[T], Stream[T]) = {
     val demux = apply(input, select, 2)
+    (demux(0).combStage(), demux(1).combStage())
+  }
+  def two[T <: Data](input: Stream[T], select : Stream[UInt]) : (Stream[T], Stream[T]) = {
+    val demux = joinSel(input, select, 2)
     (demux(0).combStage(), demux(1).combStage())
   }
   def two[T <: Data](input: Stream[T], select : Bool) : (Stream[T], Stream[T]) = two(input, select.asUInt)
@@ -1051,11 +1055,11 @@ object StreamFork3 {
 
 /**
  * A StreamFork will clone each incoming data to all its output streams. If synchronous is true,
- *  all output streams will always fire together, which means that the stream will halt until all 
+ *  all output streams will always fire together, which means that the stream will halt until all
  *  output streams are ready. If synchronous is false, output streams may be ready one at a time,
  *  at the cost of an additional flip flop (1 bit per output). The input stream will block until
  *  all output streams have processed each item regardlessly.
- *  
+ *
  *  Note that this means that when synchronous is true, the valid signal of the outputs depends on
  *  their inputs, which may lead to dead locks when used in combination with systems that have it the
  *  other way around. It also violates the handshake of the AXI specification (section A3.3.1).
@@ -1118,7 +1122,7 @@ case class EventEmitter(on : Event){
 
 /** Join multiple streams into one. The resulting stream will only fire if all of them fire, so you may want to buffer the inputs. */
 object StreamJoin {
-  
+
   /**
    * Convert a tuple of streams into a stream of tuples
    */
@@ -1146,7 +1150,7 @@ object StreamJoin {
     sources.foreach(_.ready := combined.fire)
     combined
   }
-  
+
   def arg(sources : Stream[_]*) : Event = apply(sources.seq)
 
   /** Join streams, but ignore the payload of the input streams. */
@@ -1157,7 +1161,7 @@ object StreamJoin {
     sources.foreach(_.ready := eventFire)
     event
   }
-  
+
   /**
    * Join streams, but ignore the payload and replace it with a custom one.
    * @param payload The payload of the resulting stream
@@ -1680,7 +1684,7 @@ class StreamAccessibleFifo[T <: Data](dataType: HardType[T], length: Int) extend
 
   val pushToFirst = (1 until length).map(io.states(_).valid).andR
   val pushToLast = (1 until length).map(~io.states(_).valid).andR
-  val pushToPos = pushToLast ## (1 until length - 1).map(i => 
+  val pushToPos = pushToLast ## (1 until length - 1).map(i =>
     (i+1 until length).map(io.states(_).valid).andR & ~io.states(i).valid).asBits ## pushToFirst
   val pushToPosBits = CombInit(pushToPos)
   when(io.pop.fire) {
@@ -1700,7 +1704,7 @@ class StreamAccessibleFifo[T <: Data](dataType: HardType[T], length: Int) extend
     }
   }
   val connections = Vec(builder(pushStreams(0), length))
-  
+
   io.pop << connections.last
   (io.states, connections).zipped.foreach((x, y) => {
     x.valid := y.valid
@@ -1751,9 +1755,9 @@ object StreamCCByToggle {
   }
 }
 
-class StreamCCByToggle[T <: Data](dataType: HardType[T], 
-                                  inputClock: ClockDomain, 
-                                  outputClock: ClockDomain, 
+class StreamCCByToggle[T <: Data](dataType: HardType[T],
+                                  inputClock: ClockDomain,
+                                  outputClock: ClockDomain,
                                   withOutputBuffer : Boolean = true,
                                   withInputWait : Boolean = false,
                                   withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get) extends Component {
@@ -2301,7 +2305,7 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     io.done := counter.io.done
     io.first := (counter.io.value === 0) && counter.io.working
     io.working := counter.io.working
-    
+
     def formalAsserts() = counter.formalAsserts()
 }
 
