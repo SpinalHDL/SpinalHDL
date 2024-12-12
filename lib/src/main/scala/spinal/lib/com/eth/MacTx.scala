@@ -449,7 +449,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
   }
 
   val frontend = new StateMachine{
-    val ETH, DONE, IPV4, IPV4_UNKNOWN, TCP, UDP, CS_WRITE_0, CS_WRITE_1, IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1 = new State()
+    val ETH, DONE, IPV4, IPV4_UNKNOWN, TCP, UDP, ICMP, CS_WRITE_0, CS_WRITE_1, IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1 = new State()
     val TSO_DATA = new State()
     setEntry(ETH)
 
@@ -571,6 +571,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
           counter := 0
           when(!io.input.last){
             switch(protocol){
+              is(0x01) { goto(ICMP) }
               is(0x06) { goto(TCP) }
               is(0x11) { goto(UDP) }
             }
@@ -739,62 +740,6 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
     }
 
 
-
-//    TSO_IP4_LENGTH_0 whenIsActive{
-//      buffer.write.valid := True
-//      buffer.write.address := ???
-//      buffer.write.data.fragment.data := ???(15 downto 8).asBits
-//      buffer.write.data.last := False
-//      goto(TSO_IP4_LENGTH_1)
-//    }
-
-//    TSO_IP4_LENGTH_1 whenIsActive{
-//      buffer.write.valid := True
-//      buffer.write.address := ???
-//      buffer.write.data.fragment.data := ???(7 downto 0).asBits
-//      buffer.write.data.last := False
-//      goto(TSO_CS_WRITE_0)
-//    }
-//
-//    TSO_IP4_CS_0 whenIsActive{
-//      buffer.write.valid := True
-//      buffer.write.address := ???
-//      buffer.write.data.fragment.data := ???(15 downto 8).asBits
-//      buffer.write.data.last := False
-//      goto(TSO_IP4_CS_1)
-//    }
-//
-//    TSO_IP4_CS_1 whenIsActive{
-//      buffer.write.valid := True
-//      buffer.write.address := ???
-//      buffer.write.data.fragment.data := ???(7 downto 0).asBits
-//      buffer.write.data.last := False
-//      goto(TSO_CS_WRITE_0)
-//    }
-//
-//    TSO_IP4_CS_1 whenIsActive{
-//      buffer.write.valid := True
-//      buffer.write.address := ???
-//      buffer.write.data.fragment.data := ???(7 downto 0).asBits
-//      buffer.write.data.last := False
-//      goto(TSO_CS_WRITE_0)
-//    }
-//
-//    TSO_CS_0 whenIsActive{
-//      buffer.write.valid := True
-//      buffer.write.address := csAt
-//      buffer.write.data.fragment.data := checksum.result(15 downto 8).asBits
-//      buffer.write.data.last := False
-//      goto(TSO_CS_1)
-//    }
-//    TSO_CS_1 whenIsActive{
-//      buffer.write.valid := True
-//      buffer.write.address := csAt+1
-//      buffer.write.data.fragment.data := checksum.result(7 downto 0).asBits
-//      buffer.write.data.last := False
-//      goto(???)
-//    }
-
     UDP.whenIsActive{
       when(io.input.fire) {
         checksum.push := counter =/= 6 && counter =/= 7
@@ -802,8 +747,23 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
           csAt := buffer.pushAt.resized
         }
         when(io.input.last){
-          goto(CS_WRITE_0)
+          goto(IP4_LENGTH_0)
           when(counter < 8 ){
+            goto(DONE)
+          }
+        }
+      }
+    }
+
+    ICMP.whenIsActive{
+      when(io.input.fire) {
+        checksum.push := counter =/= 2 && counter =/= 3
+        when(counter === 2){
+          csAt := buffer.pushAt.resized
+        }
+        when(io.input.last){
+          goto(IP4_LENGTH_0)
+          when(counter < 4 ){
             goto(DONE)
           }
         }
@@ -816,7 +776,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
       }
     }
 
-    sequence(IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1, DONE)
+    sequence(IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1, CS_WRITE_0, CS_WRITE_1, DONE)
     IP4_LENGTH_0 whenIsActive{
       checksumIp.push := True
       checksumIp.inputLsb := False
@@ -829,20 +789,26 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
     }
     bufferWrite(IP4_CS_0)(buffer.packetAt + 0x18, checksumIp.result(8, 8 bits))
     bufferWrite(IP4_CS_1)(buffer.packetAt + 0x19, checksumIp.result(0, 8 bits))
+    IP4_CS_1.whenIsActive{
+      switch(protocol){
+        is(0x01) { }
+        is(0x06) { }
+        is(0x11) { }
+        default{ goto(DONE)}
+      }
+    }
 
     CS_WRITE_0 whenIsActive{
       buffer.write.valid := True
       buffer.write.address := csAt
       buffer.write.data.fragment.data := checksum.result(15 downto 8)
       buffer.write.data.last := False
-      goto(CS_WRITE_1)
     }
     CS_WRITE_1 whenIsActive{
       buffer.write.valid := True
       buffer.write.address := csAt+1
       buffer.write.data.fragment.data := checksum.result(7 downto 0)
       buffer.write.data.last := csAt+2 === buffer.pushAt
-      goto(DONE)
     }
   }
 }
