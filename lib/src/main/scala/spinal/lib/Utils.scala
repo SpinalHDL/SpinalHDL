@@ -785,21 +785,22 @@ object CounterMultiRequest {
 object AnalysisUtils{
   def seekNonCombDrivers(that : BaseType)(body : Any => Unit): Unit ={
     that.foreachStatements{ s =>
-      def forExp(e : Expression) : Unit = e match {
-        case s : Statement => s match {
-          case s : BaseType if s.isComb => {seekNonCombDrivers(s)(body) }
-          case s : BaseType if !s.isComb => body(s)
-          case s =>
-        }
-        case e: MemReadSync =>
-        case e: MemReadWrite =>
-        case e : Expression => e.foreachDrivingExpression(forExp)
-      }
       s.walkParentTreeStatementsUntilRootScope{sParent =>
-        sParent.foreachDrivingExpression(forExp)
+        sParent.foreachDrivingExpression(seekNonCombDriversFromSelf(_)(body))
       }
-      s.foreachDrivingExpression(forExp)
+      s.foreachDrivingExpression(seekNonCombDriversFromSelf(_)(body))
     }
+  }
+
+  def seekNonCombDriversFromSelf(that : Expression)(body : Any => Unit): Unit = that match {
+    case s : Statement => s match {
+      case s : BaseType if s.isComb => {seekNonCombDrivers(s)(body) }
+      case s : BaseType if s.isReg => body(s)
+      case s =>
+    }
+    case e: MemReadSync => body(e)
+    case e: MemReadWrite =>  body(e)
+    case e : Expression => e.foreachDrivingExpression(seekNonCombDriversFromSelf(_)(body))
   }
 
   def foreachToplevelIoCd(top : Component)(body : (BaseType, Seq[ClockDomain]) => Unit): Unit ={
