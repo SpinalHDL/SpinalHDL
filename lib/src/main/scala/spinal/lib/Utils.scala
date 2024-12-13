@@ -791,12 +791,16 @@ object AnalysisUtils{
       s.foreachDrivingExpression(seekNonCombDriversFromSelf(_)(body))
     }
   }
+  def seekNonCombDrivers(that : MemReadSync)(body : Any => Unit): Unit ={
+    that.foreachDrivingExpression(seekNonCombDriversFromSelf(_)(body))
+    seekNonCombDriversFromSelf(that.mem)(body)
+  }
 
-  def seekNonCombDriversFromSelf(that : Expression)(body : Any => Unit): Unit = that match {
+  def seekNonCombDriversFromSelf(that : Any)(body : Any => Unit): Unit = that match {
     case s : Statement => s match {
       case s : BaseType if s.isComb => {seekNonCombDrivers(s)(body) }
       case s : BaseType if s.isReg => body(s)
-      case s =>
+      case s : Mem[_] => body(s)
     }
     case e: MemReadSync => body(e)
     case e: MemReadWrite =>  body(e)
