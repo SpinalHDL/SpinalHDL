@@ -25,31 +25,40 @@ object TimingExtractor {
     top.walkComponents(cc => cc.dslBody.walkStatements{
       case s: SpinalTagReady => s.foreachTag{
         case tag: crossClockFalsePath =>
-          writeFalsePath(s, tag, listener)
+          crossClockFalsePath(s, tag, listener)
         case tag: crossClockMaxDelay =>
-          writeMaxDelay(s, tag, listener)
+          crossClockMaxDelay(s, tag, listener)
         case _ =>
       }
       case _ =>
     })
   }
 
-  def writeMaxDelay(target: Statement, tag: crossClockMaxDelay, listener : TimingExtractorListener): Unit = {
+  def clockDomainOf(that : Any) : ClockDomain = that match{
+    case bt : BaseType if bt.isReg => bt.clockDomain
+    case p : MemReadSync => p.clockDomain
+    case _ => null
+  }
+
+  def isCrossClock(target : Statement, source : Any): Boolean = {
+    val cdTarget = clockDomainOf(target)
+    val cdSource = clockDomainOf(source)
+    if(cdTarget == null || cdSource == null) return true
+    !ClockDomain.areSynchronous(cdTarget, cdSource)
+  }
+
+  def crossClockMaxDelay(target: Statement, tag: crossClockMaxDelay, listener : TimingExtractorListener): Unit = {
     var sources = mutable.LinkedHashSet[Any]()
     target match {
       case target : BaseType => AnalysisUtils.seekNonCombDrivers (target) (sources.add)
-      case target : MemReadSync => {
-        AnalysisUtils.seekNonCombDrivers (target) (sources.add)
-//        target.foreachDrivingExpression( e => AnalysisUtils.seekNonCombDriversFromSelf (e) (sources.add) )
-//        target.mem.foreachDrivingExpression()
-      }
+      case target : MemReadSync => AnalysisUtils.seekNonCombDrivers (target) (sources.add)
     }
 
     if (sources.isEmpty) println(s"??? no source found for $target while writeMaxDelay")
-    for(source <- sources) listener.writeMaxDelay(target, source, tag)
+    for(source <- sources; if isCrossClock(target, source)) listener.writeMaxDelay(target, source, tag)
   }
 
-  def writeFalsePath(target: Statement, falsePathTag: crossClockFalsePath, listener : TimingExtractorListener): Unit = {
+  def crossClockFalsePath(target: Statement, falsePathTag: crossClockFalsePath, listener : TimingExtractorListener): Unit = {
     val resetIsDriver = falsePathTag.destType == TimingEndpointType.RESET
 
     var sources = mutable.LinkedHashSet[Any]()
@@ -69,7 +78,7 @@ object TimingExtractor {
     }
 
     if(sources.isEmpty) println(s"??? no source found for $target while writeFalsePath")
-    for(source <- sources) listener.writeFalsePath(target, source, falsePathTag)
+    for(source <- sources; if isCrossClock(target, source)) listener.writeFalsePath(target, source, falsePathTag)
   }
 }
 
