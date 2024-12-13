@@ -307,7 +307,10 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
 
     val readPort = MemReadSync(this, address, data.getBitsWidth, if(enable != null) enable else True, readUnderWrite, ClockDomain.current)
     if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
-    if(clockCrossing) readPort.addTag(crossClockDomain)
+    if(clockCrossing) {
+      readPort.addTag(crossClockDomain)
+      readPort.addTag(new crossClockMaxDelay(1, true))
+    }
 
     this.parentScope.append(readPort)
     this.dlcAppend(readPort)
@@ -412,7 +415,10 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
 
     if(allowMixedWidth) readWritePort.addTag(AllowMixedWidth)
-    if(clockCrossing) readWritePort.addTag(crossClockDomain)
+    if(clockCrossing) {
+      readWritePort.addTag(crossClockDomain)
+      readWritePort.addTag(new crossClockMaxDelay(1, true))
+    }
 
     readBits.assignFrom(readWritePort)
     readWord.assignFromBits(readBits)
