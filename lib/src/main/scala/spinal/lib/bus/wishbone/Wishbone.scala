@@ -329,6 +329,27 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     ADR << log2Up((config.dataWidth / 8) / config.wordAddressInc(addressGranularityIfUnspecified))
   }
 
+  def wordAddress(addressGranularityIfUnspecified : AddressGranularity.AddressGranularity = AddressGranularity.UNSPECIFIED) : UInt = {
+    config.wordAddressInc(addressGranularityIfUnspecified) match {
+      case 1 => ADR
+      case x : Int => (ADR >> log2Up(x))
+    }
+  }
+  def assignWordAddress(wordAddress : UInt, addressGranularityIfUnspecified : AddressGranularity.AddressGranularity = AddressGranularity.WORD, allowAddressResize : Boolean = false): Unit = {
+    config.wordAddressInc(addressGranularityIfUnspecified) match {
+      case 1 => {
+        assert(allowAddressResize || ADR.getBitsWidth == wordAddress.getWidth,
+          s"allowAddressResize must be true to assign from an unlike address space for ${this} and ${wordAddress}")
+        ADR := wordAddress
+      }
+      case x : Int => {
+        val byteAddress =  wordAddress << log2Up(x)
+        assert(allowAddressResize || ADR.getBitsWidth == byteAddress.getWidth || ADR.getBitsWidth == wordAddress.getWidth,
+          s"allowAddressResize must be true to assign from an unlike address space for ${this} and ${wordAddress}")
+        ADR := byteAddress.resized
+      }
+    }
+  }
   def assignByteAddress(byteAddress : UInt, addressGranularityIfUnspecified : AddressGranularity.AddressGranularity = AddressGranularity.WORD, allowAddressResize : Boolean = false): Unit = {
     val wordAddressSize = config.addressWidth + log2Up(config.wordAddressInc(addressGranularityIfUnspecified))
     val busGranularAddress = byteAddress >> log2Up((config.dataWidth / 8) / config.wordAddressInc(addressGranularityIfUnspecified))
