@@ -980,6 +980,10 @@ object StreamDemux{
     (demux(0).combStage(), demux(1).combStage())
   }
   def two[T <: Data](input: Stream[T], select : Bool) : (Stream[T], Stream[T]) = two(input, select.asUInt)
+  def two[T <: Data](input: Stream[T], select : Stream[UInt]) : (Stream[T], Stream[T]) = {
+    val demux = joinSel(input, select, 2)
+    (demux(0).combStage(), demux(1).combStage())
+  }
 }
 
 class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
