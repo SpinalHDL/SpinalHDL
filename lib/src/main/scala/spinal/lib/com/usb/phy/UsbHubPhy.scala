@@ -20,7 +20,7 @@ case class UsbPhyFsNativeIo() extends Bundle with IMasterSlave {
     def doIt(inside : TriState[Bool], outside : TriState[Bool]): Unit = {
       outside.write := Delay(inside.write, 2)
       outside.writeEnable := Delay(inside.writeEnable, 2)
-      inside.read := BufferCC(outside.read)
+      inside.read := BufferCC(outside.read, inputAttributes = List(new crossClockMaxDelay(1, true)))
     }
     doIt(dp, ret.dp)
     doIt(dm, ret.dm)

@@ -99,7 +99,8 @@ class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
 
     jtagLogic.dmiRsp << bus.rsp.ccToggle(
       pushClock = debugCd,
-      popClock = jtagCd
+      popClock = jtagCd,
+      withOutputBufferedReset = true
     )
   }
 }
