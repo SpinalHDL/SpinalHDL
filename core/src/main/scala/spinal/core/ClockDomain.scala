@@ -51,7 +51,7 @@ object LOW  extends Polarity{
 
 case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag{
   override def toString = s"ClockDomainTag($clockDomain)"
-  override def allowMultipleInstance = false
+  override def allowMultipleInstance = true
 }
 
 case class ClockDomainReportTag(clockDomain: ClockDomain) extends SpinalTag{
