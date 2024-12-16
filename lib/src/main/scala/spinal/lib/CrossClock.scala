@@ -29,7 +29,10 @@ object BufferCC {
   def apply[T <: Data](input: T, bufferDepth: Int): T =
     apply(input, null.asInstanceOf[T], Some(bufferDepth))
 
-
+  def withTag[T <: Data](input: T): T =
+    apply(input, null.asInstanceOf[T], inputAttributes = List(crossClockMaxDelay(1, true)))
+  def withTag[T <: Data](input: T, init: => T): T =
+    apply(input, init, inputAttributes = List(crossClockMaxDelay(1, true)))
 
   val defaultDepth = ScopeProperty(2)
   def defaultDepthOptioned(cd : ClockDomain, option : Option[Int]) : Int = {
@@ -86,21 +89,25 @@ class BufferCC[T <: Data](val dataType: T,
 }
 
 class BufferCCBlackBox(width : Int,
-                       init : BigInt,
-                       depth : Int) extends BlackBox {
+                       initValue : BigInt,
+                       depth : Int,
+                       val randBoot : Boolean,
+                       val inputAttributes: Seq[SpinalTag],
+                       val allBufAttributes: Seq[SpinalTag]) extends BlackBox {
   val io = new Bundle {
     val clk = in Bool()
     val reset = in Bool()
     val dataIn = in(Bits(width bits))
     val dataOut = out(Bits(width bits))
   }
+
   addGenerics(
     "WIDTH" -> width,
     "DEPTH" -> depth
   )
-  val withInit = init != null
+  val withInit = initValue != null
   addGeneric("INIT_ENABLE", withInit)
-  addGeneric("INIT_VALUE", B((withInit).mux(init, BigInt(0)), width bits))
+  addGeneric("INIT_VALUE", B((withInit).mux(initValue, BigInt(0)), width bits))
   addGeneric("INIT_KIND", clockDomain.config.resetKind.getName())
   addGeneric("INIT_POLARITY", clockDomain.config.resetActiveLevel.getName())
 
@@ -111,6 +118,21 @@ class BufferCCBlackBox(width : Int,
       io.reset
     )
   }
+
+  //Model
+  val buffers = Vec(Reg(Bits(width bits), B(initValue)), depth)
+  if(randBoot) buffers.foreach(_.randBoot())
+
+  buffers(0) := io.dataIn
+  buffers(0).addTag(crossClockDomain)
+  inputAttributes.foreach(buffers(0).addTag)
+  for (i <- 1 until depth) {
+    buffers(i) := buffers(i - 1)
+    buffers(i).addTag(crossClockBuffer)
+  }
+  buffers.map(b => allBufAttributes.foreach(b.addTag))
+
+  io.dataOut := buffers.last
 }
 
 
@@ -129,8 +151,11 @@ class PhaseBufferCCBB extends PhaseNetlist{
           val initValue = (initBt != null).mux(Literal(initBt), BigInt(0))
           val bb = new BufferCCBlackBox(
             width = c.io.dataIn.getBitsWidth,
-            init = initValue,
-            depth = c.finalBufferDepth
+            initValue = initValue,
+            depth = c.finalBufferDepth,
+            randBoot = c.randBoot,
+            inputAttributes = c.inputAttributes,
+            allBufAttributes = c.allBufAttributes
           )
           bb.setName("cc")
           bb.io.dataIn := c.io.dataIn.asBits
@@ -186,7 +211,7 @@ object PulseCCByToggle {
   def apply(input: Bool,
             clockIn: ClockDomain,
             clockOut: ClockDomain): Bool = {
-    val c = new PulseCCByToggle(clockIn,clockOut)
+    val c = new PulseCCByToggle(clockIn,clockOut).setCompositeName(input, "pulseCCByToggle")
     c.io.pulseIn := input
     return c.io.pulseOut
   }
@@ -206,7 +231,7 @@ class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain, withOutputBuf
 
   val finalOutputClock = clockOut.withOptionalBufferedResetFrom(withOutputBufferedReset)(clockIn)
   val outArea = finalOutputClock on new Area {
-    val target = BufferCC(inArea.target, False, inputAttributes = List(crossClockFalsePath()))
+    val target = BufferCC.withTag(inArea.target, False)
 
     io.pulseOut := target.edge(False)
   }
@@ -295,7 +320,8 @@ class ResetAggregator(sources: Seq[ResetAggregatorSource], pol: Polarity) extend
     val cc = samplerCd on new BufferCC(
       dataType = Bool(),
       init = pol.assertedBool,
-      bufferDepth = None
+      bufferDepth = None,
+      inputAttributes = List(crossClockFalsePath(Some(s.pin), destType = TimingEndpointType.RESET))
     )
     cc.io.dataIn := pol.deassertedBool
     cc
@@ -415,7 +441,8 @@ class ResetCtrlFiber(val config: ClockDomainConfig = ClockDomain.defaultConfig) 
     val buffer = bufferCd on new BufferCC(
       dataType = Bool(),
       init = config.resetActiveLevel.assertedBool,
-      bufferDepth = None
+      bufferDepth = None,
+      inputAttributes = List(crossClockFalsePath(Some(holder.reset), destType = TimingEndpointType.RESET))
     )
     buffer.io.dataIn := config.resetActiveLevel.deassertedBool
 
