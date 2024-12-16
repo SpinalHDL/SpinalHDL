@@ -189,7 +189,7 @@ class SamplerCC[T <: Data](val dataType : HardType[T],
     bufferDepth = bufferDepth,
     randBoot = randBoot,
     inputAttributes = inputAttributes,
-    allBufAttributes = allBufAttributes,
+    allBufAttributes = allBufAttributes
   )
 
   val push = new ClockingArea(pushCd){

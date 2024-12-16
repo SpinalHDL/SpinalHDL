@@ -6,6 +6,7 @@ import spinal.lib.sim.{StreamDriver, StreamMonitor}
 import spinal.core.sim._
 
 import scala.collection.mutable
+import scala.collection.Seq
 
 
 

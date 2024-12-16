@@ -70,7 +70,7 @@ case class DmaSgWriteOnlyParam(var addressWidth : Int,
           )
         )
       )
-    ),
+    )
   )
   def getBsbParameter() = BsbParameter(
     byteCount = bsbDataBytes,

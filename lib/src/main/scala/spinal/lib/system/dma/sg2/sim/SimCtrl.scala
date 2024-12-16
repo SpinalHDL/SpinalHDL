@@ -15,7 +15,7 @@ class SimCtrl(ctrl : MasterAgent, offset : Long) {
   }
   def setNext(next : Long): Unit = {
     putReg(0x10, next.toInt)
-    putReg(0x14, next >> 32 toInt)
+    putReg(0x14, (next >> 32).toInt)
   }
   def busy(): Boolean = (getReg(0) & 1).toBoolean
   def stop(): Unit = {

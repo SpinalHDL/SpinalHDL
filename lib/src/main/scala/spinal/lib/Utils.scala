@@ -789,7 +789,7 @@ class AnalysisUtils{
   val fromTo = ArrayBuffer[(String, String)]()
   def addOption(parser: scopt.OptionParser[Unit]): Unit = {
     import parser._
-    opt[Map[String, String]]("analyse-path") unbounded() action { (v, c) =>
+    opt[Map[String, String]]("analyse-path").unbounded().action { (v, c) =>
       fromTo += v("from") -> v("to")
     } text ("Print logic paths. ex : --analyse-paths from=myComponent/mySourceSignal,to=myComponent/myDestinationSignal")
   }

@@ -11,7 +11,7 @@ import spinal.lib.system.dma.sg2
 import spinal.lib.system.dma.sg2._
 import spinal.lib.system.dma.sg2.sim.{SimCtrl, SimReadOnlyDescriptor, SimWriteOnlyDescriptor}
 import spinal.tester.code.SpinalAnyFunSuite
-
+import scala.collection.Seq
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Queue}
 
@@ -123,7 +123,7 @@ class SpinalSimDmaSg2WriteOnlyTester extends SpinalAnyFunSuite{
             for (i <- 0 to 3) allowedWrites += d.physicalAddress + DmaSgWriteOnly.statusAt + i
             if (size == 0) {
               //Needed to ensure we do not merge zero byte packets
-              packets += new BsbPacket(0, 0, packetData.toArray, false)
+              packets += new BsbPacket(0, 0, packetData.clone(), false)
               packetData.clear()
             }
             packetData ++= data
@@ -132,7 +132,7 @@ class SpinalSimDmaSg2WriteOnlyTester extends SpinalAnyFunSuite{
             log(data.size + " -> ")
             if (isLast) {
               log("last\n")
-              packets += new BsbPacket(0, 0, packetData.toArray, isLast)
+              packets += new BsbPacket(0, 0, packetData.clone(), isLast)
               packetData.clear()
             }
           }

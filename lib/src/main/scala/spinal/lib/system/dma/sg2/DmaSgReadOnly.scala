@@ -66,7 +66,7 @@ case class DmaSgReadOnlyParam(var addressWidth : Int,
           )
         )
       )
-    ),
+    )
   )
   def getBsbParameter() = BsbParameter(
     byteCount = dataBytes,
@@ -113,7 +113,7 @@ class DmaSgReadOnlyComp(val p: DmaSgReadOnlyParam,
     mem = io.mem,
     ctrl = ctrl,
     pushCd = pushCd,
-    popCd = popCd,
+    popCd = popCd
   )
   io.interrupt := logic.onCtrl.irq.interrupt
 }
