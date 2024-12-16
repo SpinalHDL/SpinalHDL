@@ -2897,6 +2897,42 @@ class PhaseCheckAsyncResetsSources() extends PhaseCheck {
   }
 }
 
+class PhaseObfuscate() extends PhaseNetlist{
+  override def impl(pc: PhaseContext): Unit = {
+    var id = 0
+    def newName(): String = {
+      val name = "oo_" + id
+      id += 1
+      name
+    }
+    def renameT(that : Nameable with SpinalTagReady) : Unit = {
+      if(!that.hasTag(dontObfuscate)) that.setName(newName)
+    }
+    def rename(that : Nameable) : Unit = {
+     that.setName(newName)
+    }
+    if(pc.config.obfuscateNames){
+      pc.walkComponentsExceptBlackbox { c =>
+        if (c != pc.topLevel) {
+          renameT(c)
+          if(!c.definition.hasTag(dontObfuscate)) c.setDefinitionName(newName)
+        }
+        c.dslBody.walkDeclarations {
+          case io: BaseType if io.component == pc.topLevel && !io.isDirectionLess =>
+          case n: Nameable with SpinalTagReady => renameT(n)
+          case n: Nameable => rename(n)
+        }
+        for ((enu, enc) <- pc.enums) {
+          rename(enu)
+          for (e <- enu.elements) {
+            renameT(e)
+          }
+        }
+      }
+    }
+  }
+}
+
 object SpinalVhdlBoot{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
     if(config.debugComponents.nonEmpty){
@@ -2986,6 +3022,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckCrossClock()
 
     phases += new PhasePropagateNames(pc)
+    phases += new PhaseObfuscate()
     phases += new PhaseAllocateNames(pc)
     phases += new PhaseDevice(pc)
 
@@ -3112,6 +3149,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckCrossClock()
 
     phases += new PhasePropagateNames(pc)
+    phases += new PhaseObfuscate()
     phases += new PhaseAllocateNames(pc)
     phases += new PhaseDevice(pc)
 
