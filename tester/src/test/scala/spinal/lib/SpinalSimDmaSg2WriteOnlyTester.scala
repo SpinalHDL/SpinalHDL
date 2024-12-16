@@ -27,7 +27,7 @@ class SpinalSimDmaSg2WriteOnlyTester extends SpinalAnyFunSuite{
     )
     val ctrlParam = p.getCtrlParam()
 
-    val compiled = SimConfig.withFstWave.compile(
+    val compiled = SimConfig.compile(
       new DmaSgWriteOnlyComp(p, ctrlParam)
     )
     compiled.doSim(seed = 42){dut =>
@@ -35,10 +35,11 @@ class SpinalSimDmaSg2WriteOnlyTester extends SpinalAnyFunSuite{
       val cd = dut.clockDomain
       cd.forkStimulus(10)
 
-      def log(that : String) = {} //print(that)
+      def log(that : String) = print(that)
       val mem = new tilelink.sim.MemoryAgent(bus = dut.io.mem, cd)(null)
       val ctrlAgent = new tilelink.sim.MasterAgent(dut.io.ctrl, cd)(null)
       val ctrl = new SimCtrl(ctrlAgent, 0x0)
+      ctrl.enableIrq()
       ctrl.setIrq(idle = true)
 
       val expectedWrites = mutable.LinkedHashMap[Long, Byte]()
@@ -162,9 +163,10 @@ class SpinalSimDmaSg2WriteOnlyTester extends SpinalAnyFunSuite{
 //        dut.clockDomain.waitSampling(100)
 //        simSuccess()
 
-        if(dut.io.interrupt.toBoolean){
-          ctrl.setIrq(counter = Some(10))
-        }
+        cd.waitSamplingWhere(dut.io.interrupt.toBoolean)
+//        if(dut.io.interrupt.toBoolean){
+        ctrl.setIrq(idle=true)
+//        }
         log("Got :\n")
         for(d <- chain.dropRight(1)){
           d.read(mem.mem)

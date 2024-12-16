@@ -112,7 +112,7 @@ class SpinalSimMacSgTester extends SpinalAnyFunSuite{
           chain += d
         }
 
-        send(NetworkRef.tcpRef21k)
+        send(NetworkRef.icmpPayload)
 
 
 
