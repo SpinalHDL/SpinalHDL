@@ -243,19 +243,19 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   def ccToggle(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val cc = new StreamCCByToggle(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, initPayload = null.asInstanceOf[T]).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
     cc.io.output
   }
 
   def ccToggleWithoutBuffer(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withOutputBuffer=false, withInputWait=true).setCompositeName(this,"ccToggle", true)
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withOutputBuffer=false, withInputWait=true, initPayload = null.asInstanceOf[T]).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
     cc.io.output
   }
 
   def ccToggleInputWait(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withInputWait=true).setCompositeName(this,"ccToggle", true)
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withInputWait=true, initPayload = null.asInstanceOf[T]).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
     cc.io.output
   }
