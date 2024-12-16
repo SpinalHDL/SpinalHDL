@@ -254,6 +254,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     cc.io.output
   }
 
+  def ccToggleInputWait(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withInputWait=true).setCompositeName(this,"ccToggle", true)
+    cc.io.input << this
+    cc.io.output
+  }
+
 
   /**
    * Connect this to a new stream that only advances every n elements, thus repeating the input several times.
@@ -1787,7 +1793,13 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
 
     val target = BufferCC(pushArea.target, False, inputAttributes = Seq(crossClockMaxDelay(1, useTargetClock = true)))
     val hit = RegNextWhen(target, stream.fire) init(False)
-    outHitSignal := hit
+
+    val withCcHit = withInputWait && withOutputBuffer
+    if(!withCcHit) outHitSignal := hit
+    val wiw = withCcHit generate new Area {
+      val ccHit = RegNextWhen(target, io.output.fire) init(False)
+      outHitSignal := ccHit
+    }
 
     stream.valid := (target =/= hit)
     stream.payload := pushArea.data

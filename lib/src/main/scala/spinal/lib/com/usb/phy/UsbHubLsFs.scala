@@ -97,10 +97,10 @@ object UsbHubLsFs{
       pi.disconnect := PulseCCByToggle(po.disconnect, cdOutput, cdInput)
       pi.remoteResume := PulseCCByToggle(po.remoteResume, cdOutput, cdInput)
 
-      po.reset << pi.reset.ccToggle(cdInput, cdOutput)
-      po.suspend << pi.suspend.ccToggle(cdInput, cdOutput)
-      po.resume << pi.resume.ccToggle(cdInput, cdOutput)
-      po.disable << pi.disable.ccToggle(cdInput, cdOutput)
+      po.reset << pi.reset.ccToggleInputWait(cdInput, cdOutput)
+      po.suspend << pi.suspend.ccToggleInputWait(cdInput, cdOutput)
+      po.resume << pi.resume.ccToggleInputWait(cdInput, cdOutput)
+      po.disable << pi.disable.ccToggleInputWait(cdInput, cdOutput)
     }
   }
 }
