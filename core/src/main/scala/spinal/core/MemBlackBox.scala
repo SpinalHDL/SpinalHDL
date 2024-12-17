@@ -412,6 +412,7 @@ class Ram_Generic(val topo : MemTopology, utils : PhaseMemBlackBoxingWithPolicy)
     utils.wrapConsumers(topo, oldSource, newSource)
   }
 
+  setCompositeName(topo.mem)
   addTag(new MemBlackboxOf(topo.mem.asInstanceOf[Mem[Data]]))
 
   val w = for(p <- topo.writes) yield new Area{
