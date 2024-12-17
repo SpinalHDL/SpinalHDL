@@ -1,11 +1,20 @@
-object SpinalVersion {
-  val compilers = List("2.12.18", "2.11.12", "2.13.12")
-  val compilerIsRC = false
+import com.typesafe.config._
+import sourcecode.File
+import sbt.io.Path
+import scala.collection.JavaConverters._
 
-  val isDev = false
-  val isSnapshot = false
+object SpinalVersion {  
+  val currentFile = new java.io.File(sourcecode.File())
+  val configFilePath = currentFile.getParent + Path.sep + "version.conf"
+  val conf = ConfigFactory.parseFile(new java.io.File(configFilePath)).resolve()
+
+  val compilers = conf.getStringList("compilers").asScala.toList
+  val compilerIsRC = conf.getBoolean("compilerIsRC")
+
+  val isDev = conf.getBoolean("isDev")
+  val isSnapshot = conf.getBoolean("isSnapshot")
   private def snapshot = if (isSnapshot) "-SNAPSHOT" else ""
-  private val major = "1.10.2a"
+  private val major = "1.11.0"
   val all         = if(isDev) "dev" else s"$major$snapshot"
   val sim         = all
   val core        = all

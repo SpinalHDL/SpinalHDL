@@ -11,10 +11,10 @@ case class MinBusInterface(bus: MinBus, sizeMap: SizeMapping, regPre: String = "
   override val withStrb: Boolean = bus.c.withStrb
   override def getModuleName = moduleName.name
 
-  val bus_rderr: Bool = Bool()
+  lazy val reg_wrerr: Bool = Reg(Bool(), init = False)
   val bus_rdata: Bits  = Bits(busDataWidth bits)
   val reg_rderr: Bool = Reg(Bool(), init = False)
-  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defualtReadBits)
+  val reg_rdata: Bits = Reg(Bits(busDataWidth bits), init = defaultReadBits)
 
   val wstrb: Bits  = withStrb generate(Bits(strbWidth bit))
   val wmask: Bits  = withStrb generate(Bits(busDataWidth bit))

@@ -6,8 +6,9 @@ import spinal.lib._
 import spinal.lib.formal._
 
 class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
-  test("pop_any") {
+  def testMain(backend: FormalBackend) {
     FormalConfig
+      .withBackend(backend)
       .withBMC(10)
       .withProve(10)
       .withCover(10)
@@ -88,5 +89,13 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         results.map(x => cover(x.fire))
         cover(results(0).fire && results(2).fire)
       })
+  }
+
+  test("pop_any_symbiyosys") {
+    testMain(SymbiYosysFormalBackend)
+  }
+
+  test("pop_any_ghdl") {
+    testMain(GhdlFormalBackend)
   }
 }

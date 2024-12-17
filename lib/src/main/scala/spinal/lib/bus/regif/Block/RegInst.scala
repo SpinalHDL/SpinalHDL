@@ -81,7 +81,7 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, sec: Secure
       case AccessType.ROV => {
         B(resetValue, hardType().getBitsWidth bit).asInstanceOf[T]
       }
-      case AccessType.RO => {
+      case AccessType.RO | AccessType.W1I => {
         hardType()
       }
       case _ => {
@@ -228,7 +228,7 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, sec: Secure
 
   protected def creatWriteLogic[T <: BaseType](reg: T, acc: AccessType, section: Range): Unit = {
     acc match {
-      case AccessType.RO|AccessType.ROV|AccessType.NA =>
+      case AccessType.RO|AccessType.ROV|AccessType.NA|AccessType.W1I =>
       case _ => if(!reg.isRegOnAssign){
         SpinalError(s"$reg need be a register, not wire, check please")
       }
@@ -263,6 +263,7 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, sec: Secure
       case AccessType.NA    => NA(reg.getBitsWidth bit)            // -W: reserved, R: reserved
       case AccessType.W1P   => _WBP(reg, section, AccessType.W1P)  //- W: 1/0 pulse/no effect on matching bit, R: no effect
       case AccessType.W0P   => _WBP(reg, section, AccessType.W0P)  //- W: 0/1 pulse/no effect on matching bit, R: no effect
+      case AccessType.W1I   => _W1I(reg, section)                  //- W: 1/0 pulse/no effect on matching bit, R: no effect, W1 generate impulse at current stage
       case AccessType.HSRW  => _W( reg, section)                   // HardWare Set then SoftWare RW
       case AccessType.RWHS  => _W( reg, section)                   // SoftWare RW then HardWare Set
       case AccessType.W1CHS => _WB(reg, section, AccessType.W1C )   //- W: 1 clears/no effect on matching bit, R: no effect
@@ -391,7 +392,7 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, sec: Secure
   override def readGenerator() = {
     is(addr) {
       bi.reg_rdata := rdSecurePassage(this.rdata())
-      bi.reg_rderr := Bool(this.haveWO)
+      bi.reg_rderr := rdSecureError(Bool(this.haveWO))
     }
   }
 }

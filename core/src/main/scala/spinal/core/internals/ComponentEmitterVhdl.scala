@@ -44,12 +44,13 @@ class ComponentEmitterVhdl(
   override def component = c
 
   val portMaps     = ArrayBuffer[String]()
+  val portAttributes = ArrayBuffer[String]()
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
 
   override def readedOutputWrapEnable = true
 
-  def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps)
+  def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps ++ portAttributes)
 
 
   def emitLibrary(ret: StringBuilder): Unit = {
@@ -91,6 +92,9 @@ class ComponentEmitterVhdl(
       ret ++= "\n  );\n"
     }
 
+    for(e <- portAttributes){
+      ret ++= e
+    }
     ret ++= s"end ${c.definitionName};\n"
     ret ++= s"\n"
 
@@ -104,10 +108,15 @@ class ComponentEmitterVhdl(
   }
 
   def emitEntity(): Unit = {
+    val attributeBuilder = new StringBuilder()
+    emitAttributesDef(attributeBuilder, true)
     component.getOrdredNodeIo.foreach(baseType =>
-      if (!baseType.isSuffix)
+      if (!baseType.isSuffix) {
         portMaps += s"${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
+        emitAttributes(baseType, baseType.instanceAttributes(Language.VHDL), "signal", attributeBuilder)
+      }
     )
+    portAttributes += attributeBuilder.toString
   }
   def emitLocation(that : AssignmentStatement) : String = if(that.locationString != null) " --" + that.locationString else ""
 
@@ -234,12 +243,13 @@ class ComponentEmitterVhdl(
 
     //Flush all that mess out ^^
     emitBlackBoxComponents()
-    emitAttributesDef()
+    emitAttributesDef(declarations, false)
     emitSignals()
     emitMems(mems)
     emitSubComponents(openSubIo)
     emitAnalogs()
     emitMuxes()
+    emitFormals()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty) {
@@ -452,10 +462,10 @@ class ComponentEmitterVhdl(
       inc
       b ++= initialStatlementsGeneration
       dec
-      b ++= s"${tabStr}elsif ${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)}"
+      b ++= s"${tabStr}elsif ${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)} then\n"
       inc
     } else {
-      b ++= s"${tabStr}if ${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)}"
+      b ++= s"${tabStr}if ${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)} then\n"
       inc
     }
 
@@ -547,6 +557,114 @@ class ComponentEmitterVhdl(
     referenceSetStop()
   }
 
+  def emitFormals(): Unit = {
+    val usedLabels = ArrayBuffer[String]()
+
+    def getTrigger(component: Component, clockDomain: ClockDomain): String = {
+      val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
+      s"${emitClockEdge(emitReference(clock, false), clockDomain.config.clockEdge)}"
+    }
+
+    def getAbort(component: Component, clockDomain: ClockDomain): String = {
+      val reset = component.pulledDataCache.get(clockDomain.reset) match {
+        case Some(x) => x.asInstanceOf[Bool]
+        case None    => return ""
+      }
+      val abortCond = clockDomain.config.resetActiveLevel match {
+        case HIGH => emitReference(reset, false)
+        case LOW  => s"(not ${emitReference(reset, false)})"
+      }
+      val abortKind = clockDomain.config.resetKind match {
+        case ASYNC       => "async_abort"
+        case SYNC | BOOT =>  "sync_abort"
+      }
+      s" $abortKind $abortCond"
+    }
+
+    def getScopeConditional(statement: LeafStatement): String = {
+      def walkScopeConditionals(scope: ScopeStatement, conditions: List[String]): List[String] = {
+        if (scope.parentStatement == null) {
+          conditions // Reached root scope, back out.
+        } else if (scope.parentStatement.isInstanceOf[WhenStatement]) {
+          val w = scope.parentStatement.asInstanceOf[WhenStatement]
+          val cond = scope match {
+            case w.whenTrue  => s"${emitExpression(w.cond)} = '1'"
+            case w.whenFalse => s"${emitExpression(w.cond)} = '0'"
+            case _           => ""
+          }
+          cond :: walkScopeConditionals(scope.parentStatement.parentScope, conditions)
+        } else if (scope.parentStatement.isInstanceOf[SwitchStatement]) {
+          val s = scope.parentStatement.asInstanceOf[SwitchStatement]
+          if (scope == s.defaultScope) SpinalError(s"Formal statement $statement is not supported in default switch case with VHDL/GHDL.")
+          val cond = s.elements.find(scope == _.scopeStatement).get.keys.map(
+            ex => s"${emitExpression(s.value)} = ${emitExpression(ex)}"
+          ).mkString(" or ")
+          cond :: walkScopeConditionals(scope.parentStatement.parentScope, conditions)
+        } else {
+          walkScopeConditionals(scope.parentStatement.parentScope, conditions)
+        }
+      }
+      walkScopeConditionals(statement.parentScope, Nil).mkString(" and ")
+    }
+
+    def getLabel(statement: AssertStatement): String = {
+      val basicLabel = s"${statement.loc.file}_L${statement.loc.line}"
+      var label: String = null
+      if (!usedLabels.contains(basicLabel)) {
+        label = basicLabel
+      } else {
+        var count = 2
+        do {
+          label = s"${basicLabel}_$count"
+          count = count + 1
+        } while (usedLabels.contains(label))
+      }
+      usedLabels += label
+      label
+    }
+
+    // VHDL formal assertions are special and can't exist in clocked processes.
+    // They have either their own clocked attribute or a common global clock.
+    if (spinalConfig.formalAsserts) {
+      val multiclock = syncGroups.size == 0 || syncGroups.map(_._1._1).toSeq.length > 1
+      if (!multiclock) {
+        val group = syncGroups.valuesIterator.next()
+        declarations ++= s"  default clock is ${getTrigger(component, group.clockDomain)};\n"
+      }
+
+      syncGroups.valuesIterator.foreach { group =>
+        for (statement <- group.dataStatements) {
+          statement match {
+            case assertStatement: AssertStatement =>
+              val scopeCond = getScopeConditional(assertStatement)
+              val concatOperator = if (assertStatement.kind == AssertStatementKind.COVER) ":" else "->"
+              val preCond = if (scopeCond.length > 0) s"$scopeCond $concatOperator " else ""
+              val cond = emitExpression(assertStatement.cond)
+              val trigger = if (multiclock) " @" + getTrigger(component, group.clockDomain) else ""
+              val abort = getAbort(component, group.clockDomain)
+              val statement = assertStatement.kind match {
+                case AssertStatementKind.ASSERT => s"assert (always $preCond$cond$abort)$trigger"
+                case AssertStatementKind.ASSUME => s"assume (always $preCond$cond)$trigger"
+                case AssertStatementKind.COVER  => s"cover {$preCond$cond}$trigger"
+              }
+              val label = getLabel(assertStatement)
+              logics ++= s"  $label: $statement; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
+            case _ =>
+          }
+        }
+      }
+      initials.foreach {
+        case assertStatement: AssertStatement =>
+          require(assertStatement.kind == AssertStatementKind.ASSUME)
+          val cond = emitExpression(assertStatement.cond)
+          val trigger = if (multiclock) " @" + getTrigger(component, assertStatement.clockDomain) else ""
+          val label = getLabel(assertStatement)
+          logics ++= s"  $label: assume ($cond = '1')$trigger; -- ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
+        case _ =>
+      }
+    }
+  }
+
   def emitAsynchronous(process: AsyncProcess): Unit = {
     process match {
       case _ if process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement => process.leafStatements.head match {
@@ -624,19 +742,42 @@ class ComponentEmitterVhdl(
         statement match {
           case assignment: AssignmentStatement  => b ++= emitAssignment(assignment,tab, assignmentKind)
           case assertStatement: AssertStatement =>
-            val cond = emitExpression(assertStatement.cond)
+            if (!spinalConfig.formalAsserts) {
+              val cond = emitExpression(assertStatement.cond)
 
-            require(assertStatement.message.isEmpty || (assertStatement.message.size == 1 && assertStatement.message.head.isInstanceOf[String]))
-
-            val message = if(assertStatement.message.size == 1) s"""report "${assertStatement.message(0)}" """ else ""
-
-            val severity = "severity " +  (assertStatement.severity match{
-              case `NOTE`     => "NOTE"
-              case `WARNING`  => "WARNING"
-              case `ERROR`    => "ERROR"
-              case `FAILURE`  => "FAILURE"
-            })
-            b ++= s"${tab}assert $cond = '1' $message $severity;\n"
+              val message = assertStatement.message
+                .map {
+                  case m: String =>
+                    "\"" +
+                      m .replace("\"", "\"\"")
+                    .replace("\n", "\" & LF & \"")+
+                    "\""
+                  case m: SpinalEnumCraft[_] =>
+                    require(
+                      m.getEncoding == native,
+                      s"VHDL emitter can format only natively encoded enums! Located at:\n${statement.getScalaLocationLong}"
+                    )
+                    s"${emitEnumType(m)}'image(${emitExpression(m)})"
+                  case m @ (_: Bits | _: UInt | _: SInt) =>
+                    s"pkg_toString(${emitExpression(m.asInstanceOf[Expression])})"
+                  case m: Bool => s"std_logic'image(${emitExpression(m)})"
+                  case `REPORT_TIME` => "time'image(now)"
+                  case m: Data => s""""<Unknown Datatype `$m`>""""
+                  case x =>
+                    SpinalError(
+                      s"""L\"\" can't manage the parameter '${x}' type for VHDL. Located at:\n${statement.getScalaLocationLong}"""
+                    )
+                }
+                .mkString(" & ")
+  
+              val severity = "severity " +  (assertStatement.severity match{
+                case `NOTE`     => "NOTE"
+                case `WARNING`  => "WARNING"
+                case `ERROR`    => "ERROR"
+                case `FAILURE`  => "FAILURE"
+              })
+              b ++= s"""${tab}assert $cond = '1' report ($message) $severity;\n"""
+           }
         }
 
         statementIndex += 1
@@ -761,6 +902,7 @@ class ComponentEmitterVhdl(
 
   def emitAssignment(assignment: AssignmentStatement, tab: String, assignmentKind: String): String = {
     assignment match {
+      case r if r.source.isInstanceOf[Operator.Formal.RandomExp] => "" // handled via attributes
       case _ =>
         if (!assignment.target.isInstanceOf[SpinalStruct])
           s"$tab${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};${emitLocation(assignment)}\n"
@@ -835,19 +977,31 @@ class ComponentEmitterVhdl(
     dispatchExpression(that)
   }
 
-  def emitAttributesDef(): Unit = {
+  val attributeDefSet = mutable.LinkedHashSet[String]()
+  def emitAttributesDef(into : StringBuilder, io : Boolean): Unit = {
     val map = mutable.Map[String, Attribute]()
 
-    def walk(that : Any) = that match{
+    def walk(that : Any) : Unit = that match{
       case s: SpinalTagReady =>
         for (attribute <- s.instanceAttributes(Language.VHDL)) {
-          val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
-          if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${component}})")
+          val key = attribute.getName
+          if(!attributeDefSet.contains(key)){
+            attributeDefSet += attribute.getName
+            val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
+            if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${component}})")
+          }
         }
       case s =>
     }
 
-    component.dslBody.walkStatements(walk)
+    if(io){
+      component.getAllIo.foreach(walk)
+    } else {
+      component.dslBody.walkStatements{
+        case bt: BaseType if !bt.isDirectionLess => 
+        case s => walk(s)
+      }
+    }
     component.children.foreach(walk)
 
     for (attribute <- map.values) {
@@ -857,10 +1011,10 @@ class ComponentEmitterVhdl(
         case _: AttributeFlag    => "boolean"
       }
 
-      declarations ++= s"  attribute ${attribute.getName} : $typeString;\n"
+      into ++= s"  attribute ${attribute.getName} : $typeString;\n"
     }
 
-    declarations ++= "\n"
+    into ++= "\n"
   }
 
 
@@ -926,7 +1080,7 @@ class ComponentEmitterVhdl(
         if (!signal.isIo && !signal.isSuffix) {
           declarations ++= s"  signal ${emitReference(signal, false)} : ${emitDataType(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
         }
-        emitAttributes(signal, signal.instanceAttributes(Language.VHDL), "signal", declarations)
+        if(signal.isDirectionLess) emitAttributes(signal, signal.instanceAttributes(Language.VHDL), "signal", declarations)
       case mem: Mem[_] =>
     }
   }
@@ -1506,6 +1660,11 @@ class ComponentEmitterVhdl(
     case  e: ResizeUInt                              => resizeFunction("pkg_unsigned")(e)
     case  e: ResizeBits                              => resizeFunction("pkg_stdLogicVector")(e)
 
+    case e: Operator.Bool.Repeat => s"pkg_stdLogicVector(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+    case e: Operator.Bits.Repeat => s"pkg_stdLogicVector(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+    case e: Operator.UInt.Repeat => s"pkg_unsigned(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+    case e: Operator.SInt.Repeat => s"pkg_signed(${Array.fill(e.count)(emitExpression(e.source)).mkString(" & ")})"
+
     case  e: BinaryMultiplexer                       => muxImplAsFunction("pkg_mux")(e)
 
     case  e: BitVectorBitAccessFixed                 => accessBoolFixed(e)
@@ -1517,6 +1676,13 @@ class ComponentEmitterVhdl(
       SpinalWarning(s"IsUnknown is always false in vhdl")
       "pkg_toStdLogic(false)"
     }
+
+    case  e: Operator.Formal.Past                    => s"prev(${emitExpression(e.source)}, ${e.delay})"
+    case  e: Operator.Formal.Rose                    => s"pkg_toStdLogic(rose(${emitExpression(e.source)}))"
+    case  e: Operator.Formal.Fell                    => s"pkg_toStdLogic(fell(${emitExpression(e.source)}))"
+    case  e: Operator.Formal.Changed                 => s"pkg_toStdLogic(not stable(${emitExpression(e.source)}))"
+    case  e: Operator.Formal.Stable                  => s"pkg_toStdLogic(stable(${emitExpression(e.source)}))"
+    // Operator.Formal.InitState --> manually implemented in FormalPhase
   }
 
   elaborate()

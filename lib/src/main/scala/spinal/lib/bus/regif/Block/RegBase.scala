@@ -337,6 +337,18 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, se
     reg
   }
 
+  protected def _W1I[T <: BaseType](wire: T, section: Range) = {
+    section.reverse.map(_ - section.min).foreach { i =>
+      val wirebit = wire match {
+        case t: Bool => require(section.size == 1); t
+        case t: BitVector => t(i)
+      }
+      val x = i + section.min
+      wirebit := Mux(hitDoWrite, busif.writeData(x), False)  // Combinational ImPulse Out, combinational not support strb write
+    }
+    wire
+  }
+
   protected def WBP(section: Range, resetValue: BigInt, accType: AccessType): Bits ={
     val resetValues = B(resetValue)
     val ret = Reg(Bits(section.size bits)) init resetValues

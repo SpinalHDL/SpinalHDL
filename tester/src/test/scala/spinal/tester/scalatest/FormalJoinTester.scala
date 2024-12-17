@@ -19,8 +19,9 @@ class StreamJoin[T1 <: Data, T2 <: Data](dataType_0: T1, dataType_1: T2) extends
 }
 
 class FormalJoinTester extends SpinalFormalFunSuite {
-  test("StreamJoinTester-verify") {
+  def testMain(backend: FormalBackend) {
     FormalConfig
+      .withBackend(backend)
       .withBMC(20)
       .withProve(20)
       .withCover(20)
@@ -65,5 +66,13 @@ class FormalJoinTester extends SpinalFormalFunSuite {
         assert(output.payload._1 === inputs_0.payload)
         assert(output.payload._2 === inputs_1.payload)
       })
+  }
+
+  test("StreamJoinTester-verify-symbiyosys") {
+    testMain(SymbiYosysFormalBackend)
+  }
+
+  test("StreamJoinTester-verify-ghdl") {
+    testMain(GhdlFormalBackend)
   }
 }

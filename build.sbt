@@ -2,6 +2,8 @@ import sbt.Keys._
 import sbt._
 import sbt.Tests._
 
+def parallelTest = scala.sys.env.getOrElse("SBT_TEST_PARALLEL", "1") == "1"
+
 val scalatestVersion = "3.2.14"
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
   organization := "com.github.spinalhdl",
@@ -17,7 +19,8 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   scalafmtPrintDiff := true,
 
   //Enable parallel tests
-  Test / testForkedParallel := true,
+  Test / parallelExecution := parallelTest,
+  Test / testForkedParallel := parallelTest,
   Test / testGrouping := (Test / testGrouping).value.flatMap { group =>
 //    for(i <- 0 until 4) yield {
 //      Group("g" + i,  group.tests.zipWithIndex.filter(_._2 % 4 == i).map(_._1), SubProcess(ForkOptions()))
@@ -29,11 +32,9 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
   libraryDependencies += "org.scalatest" %% "scalatest" % scalatestVersion % "test",
   libraryDependencies += "org.scalactic" %% "scalactic" % "3.2.10", //Ensure that scalatic version 3.2.5 is avoided
-
   dependencyOverrides += "net.java.dev.jna" % "jna" % "5.12.1",
   dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.12.1",
   dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.5",
-  dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.3.0",
 
   //set SBT_OPTS="-Xmx2G"
   //sbt +clean +reload +publishSigned
@@ -87,7 +88,7 @@ import sys.process._
 def gitHash(dir: File) = (try {
   s"git -C ${dir.toString} rev-parse HEAD".!!
 } catch{
-  case e : java.io.IOException => "???"
+  case e : Throwable => "???"
 }).linesIterator.next()
 
 

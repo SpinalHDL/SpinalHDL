@@ -18,15 +18,17 @@ trait BusIfBase extends Area{
   lazy val cg_en: Bool = True
   lazy val bus_nsbit: Bool = False //NS-bit(Non-Secure Access flag bit)
 
-  val bus_rderr: Bool
-  val bus_rdata: Bits
+  val reg_wrerr: Bool
   val reg_rderr: Bool
   val reg_rdata: Bits
+
+  val bus_rdata: Bits
+  def bus_slverr: Bool = if(withSecFireWall)  (reg_wrerr || reg_rderr) else reg_rderr
 
   @deprecated("readData rename to bus_rdata", "2024.12.30")
   lazy val readData: Bits = bus_rdata
   @deprecated("readError rename to bus_rderr", "2024.12.30")
-  lazy val readError: Bool = bus_rderr
+  lazy val readError: Bool = bus_slverr
 
   val writeData: Bits
   val readSync: Boolean = true
@@ -38,6 +40,8 @@ trait BusIfBase extends Area{
   val wmaskn: Bits //= withstrb generate(Bits(busDataWidth bit))
 
   private var version = s"SpinalHDL-${Spinal.version}"
+  protected var _addrAlignCheck = true
+  def setAlignCheck(value: Boolean = false) = _addrAlignCheck = value
   def setVersion(ver: String): Unit = version = ver
   def getVersion: String = version
 
@@ -122,4 +126,3 @@ trait BusIfBase extends Area{
     }
   }
 }
-

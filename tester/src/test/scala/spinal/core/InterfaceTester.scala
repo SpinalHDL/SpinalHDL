@@ -79,13 +79,13 @@ case class StreamIF[T <: Data](payloadType :  HardType[T]) extends Interface wit
 
   override def asMaster = mst
   @modport
-  def mst = {
+  def mst: Unit = {
     out(valid, payload)
     in(ready)
   }
 
   @modport
-  def slv = {
+  def slv: Unit = {
     in(valid, payload)
     out(ready)
   }

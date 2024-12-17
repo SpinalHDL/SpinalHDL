@@ -15,13 +15,13 @@ final case class DocPlay(name : String) extends BusIfDoc {
       }
     }
 
-    val fundefins = bi.slices.filter(_.reuseTag.id != 0)
-      .groupBy(_.reuseTag.partName)
-      .map{ t =>
-        val ret = t._2.groupBy(_.reuseTag.id)
-        val bases = t._2.map(t => t.reuseTag.baseAddr -> t.reuseTag.id)
-        Part(t._1, ret.head._2, bases)
-      }
+//    val fundefins = bi.slices.filter(_.reuseTag.id != 0)
+//      .groupBy(_.reuseTag.partName)
+//      .map{ t =>
+//        val ret = t._2.groupBy(_.reuseTag.id)
+//        val bases = t._2.map(t => t.reuseTag.baseAddr -> t.reuseTag.id)
+//        Part(t._1, ret.head._2, bases)
+//      }
 
     s"""{
       |  "system"     : "${name}",
@@ -36,7 +36,7 @@ final case class DocPlay(name : String) extends BusIfDoc {
       |  ],
       |  "defines" : [
       |     ${bi.repeatGroupsHead.map(_._2.map(_.define).mkString(",\n     ")).mkString(",\n     ")}
-      |     ${bi.repeatGroupsBase.map(t => t._2.map(v => s"#define ${t._1}_base_${v.reuseTag.instName}  0x${v.reuseTag.baseAddr.hexString()}").mkString(",\n     ")).mkString(",\n     ")}
+      |     ${bi.repeatGroupsBase.map(t => t._2.map(v => s"#define ${t._1}_base_${v.reuseTag.instName}  0x${v.addr.hexString()}").mkString(",\n     ")).mkString(",\n     ")}
       |  ]
       |}""".stripMargin
   }

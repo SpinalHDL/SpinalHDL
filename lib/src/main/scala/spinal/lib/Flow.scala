@@ -2,6 +2,9 @@ package spinal.lib
 
 import spinal.core._
 
+import scala.collection.Seq
+import scala.collection.mutable.ArrayBuffer
+
 
 class FlowFactory extends MSFactory{
   object Fragment extends FlowFragmentFactory
@@ -122,7 +125,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
 
   def ~[T2 <: Data](that: T2): Flow[T2] = translateWith(that)
   def ~~[T2 <: Data](translate: (T) => T2): Flow[T2] = map(translate)
-  def map[T2 <: Data](translate: (T) => T2): Flow[T2] = (this ~ translate(this.payload))
+  def map[T2 <: Data](translate: (T) => T2): Flow[T2] = (this ~ translate(this.payload)).setCompositeName(this, "map", true)
 
   def m2sPipe : Flow[T] = m2sPipe()
   def m2sPipe(holdPayload : Boolean = false, flush : Bool = null, crossClockData : Boolean = false): Flow[T] = {
@@ -145,7 +148,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     }.setCompositeName(this, "m2sPipe", true)
   }
 
-  def stage() : Flow[T] = this.m2sPipe()
+  def stage() : Flow[T] = this.m2sPipe().setCompositeName(this, "stage", true)
 
   def push(that : T): Unit ={
     valid := True
@@ -277,4 +280,18 @@ class FlowCCUnsafeByToggle[T <: Data](dataType: HardType[T],
     inputArea.target.randBoot()
     outputArea.hit.randBoot()
   }
+}
+
+object FlowArbiter{
+  def apply[T <: Data](inputs : Seq[Flow[T]], output : Flow[T]) = {
+    assert(OH.isLegal(inputs.map(_.valid).asBits))
+    output.valid := inputs.map(_.valid).orR
+    output.payload := OHMux.or(inputs.map(_.valid).toIndexedSeq, inputs.map(_.payload), true)
+  }
+}
+
+class FlowArbiterBuilder[T <: Data](output : Flow[T]){
+  val inputs = ArrayBuffer[Flow[T]]()
+  def create() = inputs.addRet(cloneOf(output))
+  def build() = FlowArbiter(inputs, output)
 }

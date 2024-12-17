@@ -205,6 +205,13 @@ object Napot{
   def apply(that: Bits, firstOrder: Int = LutInputs.get): Bits = SetFromFirstOne(~that, firstOrder) << 1
 }
 
+object OH{
+  def isLegal(that : Bits): Bool = {
+    val oneHots = (0 until widthOf(that)).map(e => that === (BigInt(1) << e))
+    (oneHots :+ (that === 0)).orR
+  }
+}
+
 object OHMasking{
 
   /** returns an one hot encoded vector with only LSB of the word present */
@@ -642,7 +649,10 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
 object Timeout {
   def apply(cycles: BigInt): Timeout = new Timeout(cycles)
 
-  def apply(time: TimeNumber): Timeout = new Timeout((time * ClockDomain.current.frequency.getValue).toBigInt)
+  def apply(time: TimeNumber): Timeout = new Timeout(
+    ((time.toBigDecimal * ClockDomain.current.frequency.getValue.toBigDecimal)
+      .setScale(0, BigDecimal.RoundingMode.UP)).toBigInt
+  )
 
   def apply(frequency: HertzNumber): Timeout = Timeout(frequency.toTime)
 }
@@ -1335,6 +1345,12 @@ object ClearCount{
 class StringPimped(pimped : String){
   def toVecOfByte(encoding : String = "UTF-8") : Vec[Bits] = {
     Vec(pimped.getBytes(Charset.forName(encoding)).map(b => B(b.toInt, 8 bit)))
+  }
+  def toBigInt = {
+    if(pimped.contains("0x"))
+      BigInt(pimped.replace("0x",""), 16)
+    else
+      BigInt(pimped, 10)
   }
 }
 

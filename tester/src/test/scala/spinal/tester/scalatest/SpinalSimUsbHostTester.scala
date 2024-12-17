@@ -15,10 +15,11 @@ import spinal.lib.sim._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
+//import scala.util.simRandom
 
 class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
   val seed = 59
+  scala.util.Random.setSeed(seed)
   /*for(seed <- 55 until 88) */ test("host" + seed){
     val p = UsbOhciParameter(
       noPowerSwitching = true,
@@ -33,6 +34,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
     SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = cdCfg, defaultClockDomainFrequency = FixedFrequency(100 MHz))).compile(new UsbOhciTbTop(p)).doSim(seed = seed){dut =>
       val utils = new TesterUtils(dut)
       import utils._
+      disableSimWave()
 
       val m = memory.memory
 
@@ -40,13 +42,19 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
 
       dut.clockDomain.forkSimSpeedPrinter()
       dut.clockDomain.waitSampling(2)
-      forkSimSporadicWave(
-        captures = Seq(
-//          0e-3 -> 30e-3,
-//          0e-3 -> 160e-3
-//            400e-3 -> 750e-3
-        )
-      )
+
+      dut.clockDomain.onSamplings{
+        if(dut.dma.cmd.valid.toBoolean) {
+          assert(isPow2(dut.dma.cmd.length.toInt+1))
+        }
+      }
+//      forkSimSporadicWave(
+//        captures = Seq(
+////          0e-3 -> 30e-3,
+////          0e-3 -> 160e-3
+////            400e-3 -> 750e-3
+//        )
+//      )
 
 
       val hcca = HCCA(malloc)
@@ -209,6 +217,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
         isochonousEd += ed
       }
 
+      enableSimWave()
       def currentFrameNumber = dut.ohci.reg.hcFmNumber.FN.toInt
       var totalBytes = 0
       val edCount = 10 //XXX
@@ -220,21 +229,21 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
         val ISOCHRONOUS = 3
         var edKind = List(CONTROL, BULK, INTERRUPT, ISOCHRONOUS).randomPick()
         //        var edKind = List(CONTROL, BULK, ISOCHRONOUS).randomPick()  //XXX
-//        edKind = ISOCHRONOUS //XXX
+//        edKind = ISOCHRONOUS //XXX V2
         def isIso = edKind == ISOCHRONOUS
         val ed0 = ED(malloc)
         do {
           ed0.F = isIso
-          ed0.S = edKind != BULK && edKind != ISOCHRONOUS && Random.nextDouble() < 0.4
+          ed0.S = edKind != BULK && edKind != ISOCHRONOUS && simRandom.nextDouble() < 0.4
           //          ed0.S = true //XXX
-          ed0.D = if(isIso) 1 + Random.nextInt(2) else 0
+          ed0.D = if(isIso) 1 + simRandom.nextInt(2) else 0
           //          ed0.D = if(isIso) 1  else 0 //XXX
-//          ed0.D = 2 //XXX
-          ed0.FA = Random.nextInt(128)
-          ed0.EN = Random.nextInt(16)
+//          ed0.D = 0 //XXX V2
+          ed0.FA = simRandom.nextInt(128)
+          ed0.EN = simRandom.nextInt(16)
           ed0.MPS = ed0.S match {
-            case false => 16 + Random.nextInt(if(isIso) 8 else 48+1)
-            case true =>  1  + Random.nextInt(if(isIso) 4 else 8)
+            case false => 16 + simRandom.nextInt(if(isIso) 8 else 48+1)
+            case true =>  1  + simRandom.nextInt(if(isIso) 4 else 8)
           }
         } while(edTargetConcflicting(ed0))
         def isIsoOut : Boolean = ed0.D == 1
@@ -264,7 +273,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
           ed.H = false
           ed.save(m)
           fork{
-            sleep(Random.nextInt(5)*1e9)
+            sleep(simRandom.nextInt(5)*1e9)
             dut.clockDomain.waitSampling()
             listRefilled()
           }
@@ -276,17 +285,17 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
         fork {
           var busyUntilFrame = currentFrameNumber + 1
           for (tdId <- 0 until transfersPerEndpoint) { //XXX
-            var size = if (edKind != INTERRUPT && Random.nextDouble() < 0.1) {
-              Random.nextInt(8192 + 1)
-            } else if (Random.nextDouble() < 0.05) {
+            var size = if (edKind != INTERRUPT && simRandom.nextDouble() < 0.1) {
+              simRandom.nextInt(8192 + 1)
+            } else if (simRandom.nextDouble() < 0.05) {
               0
-            } else if (edKind != INTERRUPT && Random.nextDouble() < 0.05) {
+            } else if (edKind != INTERRUPT && simRandom.nextDouble() < 0.05) {
               8192
             } else {
               if(edKind != INTERRUPT) {
-                Random.nextInt(256 + 1)
+                simRandom.nextInt(256 + 1)
               } else {
-                Random.nextInt(ed0.MPS*4 + 1)
+                simRandom.nextInt(ed0.MPS*4 + 1)
               }
             }
             if(ed0.S) size /= 8
@@ -298,9 +307,9 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
             var success = false
             while (!success) {
               success = true
-              p0 = Random.nextInt(128 * 1024) * 4096
-              p1 = Random.nextInt(128 * 1024) * 4096
-              p0Offset = Random.nextInt((8192 - size + 1).min(4096))
+              p0 = simRandom.nextInt(128 * 1024) * 4096
+              p1 = simRandom.nextInt(128 * 1024) * 4096
+              p0Offset = simRandom.nextInt((8192 - size + 1).min(4096))
               //          p0Offset = 0 //XXX
               p0Used = (4096 - p0Offset).min(size)
               p1Used = size - p0Used
@@ -320,11 +329,11 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
               val td = newTdi(ed0)
               td.CC = UsbOhci.CC.notAccessed
               td.DI = 3
-              td.SF = (busyUntilFrame + Random.nextInt(3)) & 0xFFFF
+              td.SF = (busyUntilFrame + simRandom.nextInt(3)) & 0xFFFF
               td.currentBuffer = p0 + p0Offset
               td.bufferEnd = if (p1Used != 0) p1 + p1Used - 1 else p0 + p0Offset + p0Used - 1
               do {
-                td.FC = Random.nextInt(8) max((size+1022)/1023-1)
+                td.FC = simRandom.nextInt(8) max((size+1022)/1023-1)
                 var offset = p0Offset
                 var byteId = 0
                 for (i <- 0 to td.FC) {
@@ -333,7 +342,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                   val averageSize = (bytesLeft + transferLeft - 1) / transferLeft
                   val minimalSize = (bytesLeft - (transferLeft - 1) * 1023) max (0)
                   val maximalSize = bytesLeft min 1023
-                  val tSize = (minimalSize + Random.nextInt((averageSize - minimalSize) * 2 + 1)) min maximalSize
+                  val tSize = (minimalSize + simRandom.nextInt((averageSize - minimalSize) * 2 + 1)) min maximalSize
 
                   td.offsets(i) = offset
                   groups += (byteId until byteId + tSize)
@@ -351,7 +360,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                   //                  println(isoOccupancy(frameId) + groups(i).size)
                   interruptsOccupancy(frameId & 0x1F) +  isoOccupancy(frameId) + groups(i).size + isoOverhead> 1023+64+64+64+64+64
                 }
-                if(scheduleOverrun) td.SF = (td.SF + 1 + Random.nextInt(2)) & 0xFFFF
+                if(scheduleOverrun) td.SF = (td.SF + 1 + simRandom.nextInt(2)) & 0xFFFF
               } while(scheduleOverrun)
 
               td.save(ram)
@@ -370,7 +379,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
 
               val reportName = f"${td.address}%08x => ${groups.map(_.size).mkString(", ")}"
               println(reportName)
-              val stimWaitCompletion = Random.nextDouble() < 0.3
+              val stimWaitCompletion = simRandom.nextDouble() < 0.3
               val completionMutex = SimMutex()
               var pendingCompletion = 0
 
@@ -389,14 +398,14 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                   isoOccupancy(frameId) -= groups(i).size + isoOverhead
                 }
                 if (stimWaitCompletion) {
-                  delayed(Random.nextDouble() * 2e9 toInt) {
+                  delayed(simRandom.nextDouble() * 2e9 toInt) {
                     completionMutex.unlock()
                     println("unlock at " + simTime())
                   }
                 }
               }
 
-              val refData = Array.fill(size)(Random.nextInt(256))
+              val refData = Array.fill(size)(simRandom.nextInt(256))
               if (isIsoOut) for (i <- 0 until size) {
                 val address = byteToAddress(i)
                 ram.write(address, refData(i).toByte)
@@ -405,9 +414,9 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
               val refPsw = groups.map(_.size)
               val refCheckData = Array.fill(groups.size)(true)
 
-              var doTransmitionError = Random.nextDouble() < 0.4
-              var doUnderflow = Random.nextDouble() < 0.4
-              var doOverflow = Random.nextDouble() < 0.4
+              var doTransmitionError = simRandom.nextDouble() < 0.4
+              var doUnderflow = simRandom.nextDouble() < 0.4
+              var doOverflow = simRandom.nextDouble() < 0.4
 
 //              doTransmitionError = true //XXX
 //              doUnderflow = true //XXX
@@ -477,11 +486,11 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                       }
                     }
                   }
-                  if(doTransmitionError && Random.nextDouble() < 0.5){//XXX
+                  if(doTransmitionError && simRandom.nextDouble() < 0.5){//XXX
                     push {
-//                      val errorAt = Random.nextInt(group.size)
+//                      val errorAt = simRandom.nextInt(group.size)
 
-                      val (expectedCc, expectedBytes, checkData)  = Random.nextInt(7) match {
+                      val (expectedCc, expectedBytes, checkData)  = simRandom.nextInt(7) match {
 //                      val (expectedCc, expectedBytes, checkData) = 5 match { //XXX
                         case 0 => (UsbOhci.CC.deviceNotResponding, 0, false)
                         case 1 => deviceDelayed { agent.emitBytes(12 +: group.map(refData), true, false, ls=ed0.S) }; (UsbOhci.CC.pidCheckFailure, group.size, true)
@@ -496,17 +505,17 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                       refCheckData(groupId) = checkData
                       lastCheck()
                     }
-                  } else if(doOverflow && Random.nextDouble() < 0.4) { //XXX
+                  } else if(doOverflow && simRandom.nextDouble() < 0.4) { //XXX
                     push {
                       deviceDelayed {
-                        agent.emitBytes(UsbPid.DATA0, group.map(refData) :+ Random.nextInt(256), true, false, ls=ed0.S)
+                        agent.emitBytes(UsbPid.DATA0, group.map(refData) :+ simRandom.nextInt(256), true, false, ls=ed0.S)
                         lastCheck()
                       }
                       refCc(groupId) = UsbOhci.CC.dataOverrun
                     }
-                  } else if(doUnderflow && group.size != 0 && Random.nextDouble() < 0.4) { //XXX
+                  } else if(doUnderflow && group.size != 0 && simRandom.nextDouble() < 0.4) { //XXX
                     push {
-                      val byteCount = Random.nextInt(group.size)
+                      val byteCount = simRandom.nextInt(group.size)
                       deviceDelayed {
                         agent.emitBytes(UsbPid.DATA0, group.map(refData).take(byteCount), true, false, ls=ed0.S)
                         lastCheck()
@@ -517,7 +526,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                   } else {
                     push {
                       deviceDelayed {
-                        agent.emitBytes(if(Random.nextBoolean()) UsbPid.DATA0 else UsbPid.DATA1, group.map(refData), true, false, ls=ed0.S)
+                        agent.emitBytes(if(simRandom.nextBoolean()) UsbPid.DATA0 else UsbPid.DATA1, group.map(refData), true, false, ls=ed0.S)
                         lastCheck()
                       }
                     }
@@ -532,21 +541,21 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
             } else {
               val td0 = newTd(ed0)
 
-              td0.DP = Random.nextInt(4).min(2)
-              //              td0.DP = UsbOhci.DP.IN //XXX
+              td0.DP = simRandom.nextInt(4).min(2)
+//              td0.DP = UsbOhci.DP.IN //XXX V2
               td0.DI = 5
               td0.T = 0
-              if (Random.nextDouble() < 0.5) {
-                dataPhase = Random.nextInt(2)
+              if (simRandom.nextDouble() < 0.5) {
+                dataPhase = simRandom.nextInt(2)
                 td0.T = 2 | dataPhase
               }
-              td0.R = Random.nextBoolean()
+              td0.R = simRandom.nextBoolean()
               td0.currentBuffer = if (size == 0) 0 else p0 + p0Offset
               td0.bufferEnd = if (p1Used != 0) p1 + p1Used - 1 else p0 + p0Offset + p0Used - 1
               td0.CC = UsbOhci.CC.notAccessed
               td0.save(ram)
 
-              val stimWaitCompletion = Random.nextDouble() < 0.3
+              val stimWaitCompletion = simRandom.nextDouble() < 0.3
               val completionMutex = SimMutex()
 
               if (stimWaitCompletion) completionMutex.lock()
@@ -563,17 +572,17 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                 malloc.free(td0.address)
                 println("DONNNNE")
                 if (stimWaitCompletion) {
-                  delayed(Random.nextDouble() * 2e9 toInt) {
+                  delayed(simRandom.nextDouble() * 2e9 toInt) {
                     completionMutex.unlock()
                     println("unlock at " + simTime())
                   }
                 }
               }
 
-              var doOverflow = td0.DP == UsbOhci.DP.IN && Random.nextDouble() < 0.05
-              var doUnderflow = td0.DP == UsbOhci.DP.IN && !doOverflow && size != 0 && Random.nextDouble() < 0.10
-              var doStall = Random.nextDouble() < 0.05
-              var doTransmissionError = Random.nextDouble() < 0.05
+              var doOverflow = td0.DP == UsbOhci.DP.IN && simRandom.nextDouble() < 0.05
+              var doUnderflow = td0.DP == UsbOhci.DP.IN && !doOverflow && size != 0 && simRandom.nextDouble() < 0.10
+              var doStall = simRandom.nextDouble() < 0.05
+              var doTransmissionError = simRandom.nextDouble() < 0.05
 
 //                            doOverflow = false //XXX
 //                            doUnderflow = false //XXX
@@ -581,7 +590,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
 //                            doTransmissionError = false //XXX
 
               //        val refData = (0 until size) //XXX
-              val refData = Array.fill(size)(Random.nextInt(256))
+              val refData = Array.fill(size)(simRandom.nextInt(256))
               if (td0.DP != UsbOhci.DP.IN) for (i <- 0 until size) {
                 val address = byteToAddress(i)
                 ram.write(address, refData(i).toByte)
@@ -589,7 +598,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
 
               var groups: Seq[Seq[Int]] = (0 until size).grouped(ed0.MPS).toSeq
               if (groups.isEmpty) groups = List(Nil)
-              val disruptAt = Random.nextInt(groups.size)
+              val disruptAt = simRandom.nextInt(groups.size)
 
               var errorCounter = 0
               var groupIdCounter = 0
@@ -631,25 +640,25 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                       }
                     }
 
-                    if (Random.nextDouble() < 0.05) { //doNack
+                    if (simRandom.nextDouble() < 0.05) { //doNack
                       push {
                         agent.emitBytes(HANDSHAKE_NACK, List(), false, true, ls=ed0.S)
                       }
                       errorCounter = errorCount
-                    } else if (doTransmissionError && Random.nextDouble() < 0.5) { //XXX
+                    } else if (doTransmissionError && simRandom.nextDouble() < 0.5) { //XXX
                       errorCounter = errorCount + 1
                       val retire = errorCounter == 3
 
                       push {
                         //                  val expectedCc = 6 match {
-                        val expectedCc = Random.nextInt(7) match { //XXX
+                        val expectedCc = simRandom.nextInt(7) match { //XXX
                           case 0 => UsbOhci.CC.deviceNotResponding
                           case 1 => agent.emitBytes(List(HANDSHAKE_ACK), false, true, ls=ed0.S); UsbOhci.CC.pidCheckFailure
                           case 2 => agent.emitBytes(HANDSHAKE_NACK, List(42), false, true, ls=ed0.S); UsbOhci.CC.pidCheckFailure
                           case 3 => agent.emitBytes(List(), false, true, ls=ed0.S); UsbOhci.CC.pidCheckFailure
                           case 4 => agent.emitBytes(DATA0, List(), false, true, ls=ed0.S); UsbOhci.CC.unexpectedPid
-                          case 5 => agent.emitBytes(List(Random.nextInt(256)), false, true, ls=ed0.S, stuffingError = true); UsbOhci.CC.bitStuffing
-                          case 6 => agent.emitBytes(List(Random.nextInt(256)), false, true, ls=ed0.S, eopError = true); UsbOhci.CC.bitStuffing
+                          case 5 => agent.emitBytes(List(simRandom.nextInt(256)), false, true, ls=ed0.S, stuffingError = true); UsbOhci.CC.bitStuffing
+                          case 6 => agent.emitBytes(List(simRandom.nextInt(256)), false, true, ls=ed0.S, eopError = true); UsbOhci.CC.bitStuffing
                         }
                         if (retire) {
                           doneChecks(td0.address) = { td =>
@@ -712,18 +721,18 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                       }
                     }
 
-                    if (Random.nextDouble() < 0.05) { //doNak
+                    if (simRandom.nextDouble() < 0.05) { //doNak
                       push(false) {
                         deviceDelayed {
                           agent.emitBytes(UsbPid.NAK, Nil, false, false, ls=ed0.S)
                         }
                       }
                       errorCounter = errorCount
-                    } else if (doTransmissionError && Random.nextDouble() < 0.5) { //XXX
+                    } else if (doTransmissionError && simRandom.nextDouble() < 0.5) { //XXX
                       errorCounter = errorCount + 1
                       val retire = errorCounter == 3
 
-                      val errorKind = Random.nextInt(8)
+                      val errorKind = simRandom.nextInt(8)
                       //                      val errorKind = 7
                       push(errorKind == 7) {
                         val expectedCc = errorKind match {
@@ -768,7 +777,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                     } else if (doOverflow && groupId == disruptAt) {
                       push(true) {
                         deviceDelayed {
-                          agent.emitBytes(dataPhasePid, group.map(refData) ++ List.fill(Random.nextInt(4) + 1)(Random.nextInt(256)), true, false, ls=ed0.S)
+                          agent.emitBytes(dataPhasePid, group.map(refData) ++ List.fill(simRandom.nextInt(4) + 1)(simRandom.nextInt(256)), true, false, ls=ed0.S)
                           doneChecks(td0.address) = { td =>
                             ed0.load(m)
                             assert(td.CC == UsbOhci.CC.dataOverrun)
@@ -788,7 +797,7 @@ class SpinalSimUsbHostTester extends SpinalAnyFunSuite{
                     } else if (doUnderflow && groupId == disruptAt) {
                       push(true) {
                         deviceDelayed {
-                          val finalTransferSize = Random.nextInt(group.size)
+                          val finalTransferSize = simRandom.nextInt(group.size)
                           agent.emitBytes(dataPhasePid, group.map(refData).take(finalTransferSize), true, false, ls=ed0.S)
                           doneChecks(td0.address) = { td =>
                             ed0.load(m)

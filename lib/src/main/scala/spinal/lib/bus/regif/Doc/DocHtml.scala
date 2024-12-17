@@ -49,15 +49,16 @@ case class HtmlRegSliceBlock(instName: String, blockName: String,  children: Lis
   def toGrps = SlicesToHtmlSliceGrp(children)
   def name = if(instName.isEmpty && blockName.isEmpty) "" else s"${instName}\n[${blockName}]"
   def body = toGrps.map(_.tbody).mkString("\n")
+  def isEmpty = children.isEmpty
 }
 
 object SlicesToHtmlSliceBlock {
   def apply(slices: List[RegSlice]): List[HtmlRegSliceBlock] = {
     val fakeBlocks = HtmlRegSliceBlock("", "", children =  slices.filter(_.reuseTag.id == 0))
-    val realBlocks = slices.filter(_.reuseTag.id != 0).groupBy(t => (t.reuseTag.instName , t.reuseTag.partName)).map{ case (names, slices) =>
+    val realBlocks = slices.filter(_.reuseTag.id != 0).groupBy(t => (t.reuseTag.instName , t.reuseTag.blockName)).map{ case (names, slices) =>
       HtmlRegSliceBlock(names._1, names._2, slices)
     }.toList
-    val ret = fakeBlocks :: realBlocks
+    val ret = if(fakeBlocks.isEmpty) realBlocks else fakeBlocks :: realBlocks
     ret.sortBy(_.children.head.addr)
   }
 }

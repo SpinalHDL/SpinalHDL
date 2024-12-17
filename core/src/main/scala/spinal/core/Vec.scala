@@ -44,24 +44,27 @@ trait VecFactory {
 
   def Vec[T <: Data](gen: => T, size: Int): Vec[T] = Vec.fill(size)(gen)
   def Vec[T <: Data](gen: HardType[T], size: Int): Vec[T] = Vec.fill(size)(gen())
-
-//  def Vec[T <: Data](gen: Vec[T], size: Int): Vec[Vec[T]] = fill(size)(cloneOf(gen))
-
-//  def Vec[T <: Data](gen: (Int) => T, size: Int): Vec[T] = tabulate(size)(gen)
-
-  //def apply[T <: Data](gen : => Vec[T],size : Int) : Vec[Vec[T]] = fill(size)(gen)
-
-
   def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
 
   class VecBuilder{
     def tabulate[T <: Data](size: Int)(gen: (Int) => T): Vec[T] = {
-      Vec((0 until size).map(gen(_)))
+      Vec((0 until size).map(gen(_))).setElementsParents()
     }
 
     def fill[T <: Data](size: Int)(dataType: => T): Vec[T] = {
-      Vec((0 until size).map(_ => dataType), HardType(dataType))
+      Vec((0 until size).map(_ => dataType), HardType(dataType)).setElementsParents()
     }
+    def fill[T <: Data](n1: Int, n2: Int)(elem: => T): Vec[Vec[T]] =
+      tabulate(n1)(_ => fill(n2)(elem))
+
+    def fill[T <: Data](n1: Int, n2: Int, n3: Int)(elem: => T): Vec[Vec[Vec[T]]] =
+      tabulate(n1)(_ => fill(n2, n3)(elem))
+
+    def fill[T <: Data](n1: Int, n2: Int, n3: Int, n4: Int)(elem: => T): Vec[Vec[Vec[Vec[T]]]] =
+      tabulate(n1)(_ => fill(n2, n3, n4)(elem))
+
+    def fill[T <: Data](n1: Int, n2: Int, n3: Int, n4: Int, n5: Int)(elem: => T): Vec[Vec[Vec[Vec[Vec[T]]]]] =
+      tabulate(n1)(_ => fill(n2, n3, n4, n5)(elem))
   }
   val Vec = new VecBuilder()
 }
@@ -99,6 +102,11 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Ve
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Vector Vec Documentation]]
   */
 class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
+
+  def setElementsParents(): this.type = {
+    vec.foreach(_.parent = this)
+    this
+  }
 
   def dataType = {
     if(_dataType == null){

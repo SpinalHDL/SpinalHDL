@@ -15,6 +15,7 @@ object StreamPipe {
   val NONE = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.combStage()
   }
+
   val M2S = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.m2sPipe()
   }
@@ -26,6 +27,22 @@ object StreamPipe {
   }
   val HALF = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.halfPipe()
+  }
+
+  val M2S_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.m2sPipe(keep=true)
+  }
+  val S2M_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.s2mPipe(keep=true)
+  }
+  val FULL_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.s2mPipe(keep=true).m2sPipe(keep=true)
+  }
+  val HALF_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.halfPipe(keep=true)
+  }
+  val HALF_X2_KEEP = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.halfPipe(keep = true).halfPipe(keep = true)
   }
 }
 
@@ -78,21 +95,21 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val ret = Flow(payloadType)
     ret.valid := this.valid
     ret.payload := this.payload
-    ret
+    ret.setCompositeName(this, "toFlow", true)
   }
 
   def toFlowFire: Flow[T] = {
     val ret = Flow(payloadType)
     ret.valid := this.fire
     ret.payload := this.payload
-    ret
+    ret.setCompositeName(this, "toFlowFire", true)
   }
 
   def asFlow: Flow[T] = {
     val ret = Flow(payloadType)
     ret.valid := this.valid
     ret.payload := this.payload
-    ret
+    ret.setCompositeName(this, "asFlow", true)
   }
 
   /** Connect that to this
@@ -158,7 +175,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       case (false,true,false) =>  StreamPipe.S2M(this)
       case (true,true,false) =>   StreamPipe.FULL(this)
       case (false,false,true) =>  StreamPipe.HALF(this)
-      case _ => { report(s"Parameters ($m2s, $s2m, $halfRate) are not valid for pipelined function.") 
+      case _ => { report(s"Parameters ($m2s, $s2m, $halfRate) are not valid for pipelined function.")
         null.asInstanceOf[Stream[T]]
       }
     }
@@ -168,20 +185,20 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def ~[T2 <: Data](that: T2): Stream[T2] = translateWith(that)
   def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = map(translate)
   def map[T2 <: Data](translate: (T) => T2): Stream[T2] = {
-    (this ~ translate(this.payload))
+    (this ~ translate(this.payload)).setCompositeName(this, "map", true)
   }
 
 /** Ignore the payload */
   def toEvent() : Event = {
     val ret = Event
     ret.arbitrationFrom(this)
-    ret
+    ret.setCompositeName(this, "toEvent", true)
   }
 
 /** Connect this to a fifo and return its pop stream
   */
   def queue(size: Int, latency : Int = 2, forFMax : Boolean = false): Stream[T] = new Composite(this){
-    val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax)
+    val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax).setCompositeName(this,"queue", true)
     fifo.io.push << self
   }.fifo.io.pop
 
@@ -219,7 +236,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   /** Connect this to a zero latency fifo and return its pop stream
     */
   def queueLowLatency(size: Int, latency : Int = 0): Stream[T] = {
-    val fifo = new StreamFifoLowLatency(payloadType, size, latency)
+    val fifo = new StreamFifoLowLatency(payloadType, size, latency).setCompositeName(this,"queueLowLatency", true)
     fifo.setPartialName(this, "fifo", true)
     fifo.io.push << this
     fifo.io.pop
@@ -249,9 +266,9 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.valid := this.valid
     ret.payload := this.payload
     this.ready := ret.ready && counter.willOverflowIfInc
-    (ret, counter)
+    (ret.setCompositeName(this,"repeat", true), counter)
   }
-  
+
   /**
    * Connect this to a new stream whose payload is n times as wide, but that only fires every n cycles.
    * It introduces 0 to factor-1 cycles of latency. Mapping a stream into memory and mapping a slowed
@@ -275,7 +292,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       this.ready := True
       next.valid := False
     }
-    next
+    next.setCompositeName(this,"slowdown", true)
   }
 
 /** Return True when a transaction is present on the bus but the ready signal is low
@@ -293,7 +310,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Return True when the bus isn't stuck with a transaction (!isStall)
   */
   def isFree: Bool = signalCache(this ->"isFree")((!valid || ready).setCompositeName(this, "isFree", true))
-  
+
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
     that.ready := this.ready
@@ -356,14 +373,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   /** Connect this to a valid/payload register stage and return its output stream
   */
-  def stage() : Stream[T] = this.m2sPipe()
+  def stage() : Stream[T] = this.m2sPipe().setCompositeName(this, "stage", true)
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false): Stream[T] = new Composite(this) {
+  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false, keep : Boolean = false): Stream[T] = new Composite(this) {
     val m2sPipe = Stream(payloadType)
 
     val rValid = RegNextWhen(self.valid, self.ready) init(False)
     val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready)
+    if (keep) KeepAttribute.apply(rValid, rData)
 
     if (crossClockData) {
       rData.addTag(crossClockDomain)
@@ -378,11 +396,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     m2sPipe.payload := rData
   }.m2sPipe
 
-  def s2mPipe(flush : Bool = null): Stream[T] = new Composite(this) {
+  def s2mPipe(flush : Bool = null, keep : Boolean = false): Stream[T] = new Composite(this) {
     val s2mPipe = Stream(payloadType)
 
     val rValidN = RegInit(True) clearWhen(self.valid) setWhen(s2mPipe.ready)
     val rData = RegNextWhen(self.payload, self.ready)
+    if (keep) KeepAttribute.apply(rValidN, rData)
 
     self.ready := rValidN
 
@@ -399,10 +418,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
-  def validPipe() : Stream[T] = new Composite(this) {
+  def validPipe(keep : Boolean = false) : Stream[T] = new Composite(this) {
     val validPipe = Stream(payloadType)
 
     val rValid = RegInit(False) setWhen(self.valid) clearWhen(validPipe.fire)
+    if (keep) KeepAttribute.apply(rValid)
 
     self.ready := validPipe.fire
 
@@ -412,11 +432,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
-  def halfPipe(flush : Bool = null): Stream[T] = new Composite(this) {
+  def halfPipe(flush : Bool = null, keep : Boolean = false): Stream[T] = new Composite(this) {
     val halfPipe = Stream(payloadType)
 
     val rValid = RegInit(False) setWhen(self.valid) clearWhen(halfPipe.fire)
     val rData = RegNextWhen(self.payload, self.ready)
+    if (keep) KeepAttribute.apply(rValid, rData)
 
     self.ready := !rValid
 
@@ -433,7 +454,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next.valid := this.valid && cond
     this.ready := next.ready && cond
     next.payload := this.payload
-    return next
+    next.setCompositeName(this, "continueWhen", true)
   }
 
 /** Drop transactions of this when cond is True. Return the resulting stream
@@ -446,7 +467,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       next.valid := False
       this.ready := True
     }
-    next
+    next.setCompositeName(this, "throwWhen", true)
   }
 
   def clearValidWhen(cond : Bool): Stream[T] = {
@@ -459,11 +480,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   /** Stop transactions on this when cond is True. Return the resulting stream
     */
-  def haltWhen(cond: Bool): Stream[T] = continueWhen(!cond)
+  def haltWhen(cond: Bool): Stream[T] = continueWhen(!cond).setCompositeName(this, "haltWhen", true)
 
 /** Drop transaction of this when cond is False. Return the resulting stream
   */
-  def takeWhen(cond: Bool): Stream[T] = throwWhen(!cond)
+  def takeWhen(cond: Bool): Stream[T] = throwWhen(!cond).setCompositeName(this, "takeWhen", true)
 
 
   def fragmentTransaction(bitsWidth: Int): Stream[Fragment[Bits]] = {
@@ -482,7 +503,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.arbitrationFrom(this)
     ret.last := last
     ret.fragment := this.payload
-    return ret
+    ret.setCompositeName(this, "addFragmentLast", true)
   }
   
   /** 
@@ -959,6 +980,10 @@ object StreamDemux{
     (demux(0).combStage(), demux(1).combStage())
   }
   def two[T <: Data](input: Stream[T], select : Bool) : (Stream[T], Stream[T]) = two(input, select.asUInt)
+  def two[T <: Data](input: Stream[T], select : Stream[UInt]) : (Stream[T], Stream[T]) = {
+    val demux = joinSel(input, select, 2)
+    (demux(0).combStage(), demux(1).combStage())
+  }
 }
 
 class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
@@ -1017,7 +1042,7 @@ object StreamFork2 {
   def takes[T <: Data](input: Stream[T],take0 : Bool, take1 : Bool, synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2") {
     val forks = (cloneOf(input), cloneOf(input))
     val logic = new StreamForkArea(input, List(forks._1, forks._2), synchronous)
-    val outputs = (forks._1.takeWhen(take0), forks._1.takeWhen(take1))
+    val outputs = (forks._1.takeWhen(take0), forks._2.takeWhen(take1))
   }.outputs
 }
 
@@ -1744,7 +1769,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   val outHitSignal = Bool()
 
   val pushArea = inputClock on new Area {
-    val hit = BufferCC(outHitSignal, False)
+    val hit = BufferCC(outHitSignal, False, inputAttributes = Seq(crossClockMaxDelay(1, useTargetClock = true)))
     val accept = Bool()
     val target = RegInit(False) toggleWhen(accept)
     val data = RegNextWhen(io.input.payload, accept)
@@ -1763,7 +1788,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   val popArea = finalOutputClock on new Area {
     val stream = cloneOf(io.input)
 
-    val target = BufferCC(pushArea.target, False)
+    val target = BufferCC(pushArea.target, False, inputAttributes = Seq(crossClockMaxDelay(1, useTargetClock = true)))
     val hit = RegNextWhen(target, stream.fire) init(False)
     outHitSignal := hit
 

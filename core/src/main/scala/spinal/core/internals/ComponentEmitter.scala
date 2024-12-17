@@ -60,7 +60,7 @@ abstract class ComponentEmitter {
   val referencesOverrides     = mutable.HashMap[Nameable,Any]()
   var algoIdIncrementalOffset = 0
 
-  val syncGroups = mutable.LinkedHashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
+  val syncGroups = mutable.LinkedHashMap[(ClockDomain, ScopeStatement, Boolean, Any), SyncGroup]()
   val processes  = mutable.LinkedHashSet[AsyncProcess]()
   val initials  = mutable.ArrayBuffer[LeafStatement]()
   val analogs    = ArrayBuffer[BaseType]()
@@ -199,7 +199,7 @@ abstract class ComponentEmitter {
         s.finalTarget match {
           case target: BaseType if target.isComb => asyncStatement += s
           case target: BaseType if target.isReg  =>
-            val group = syncGroups.getOrElseUpdate((target.clockDomain, s.rootScopeStatement, target.hasInit), new SyncGroup(target.clockDomain, s.rootScopeStatement, target.hasInit, syncGroupInstanceCounter))
+            val group = syncGroups.getOrElseUpdate((target.clockDomain, s.rootScopeStatement, target.hasInit, if(spinalConfig.mergeSyncProcess) null else target), new SyncGroup(target.clockDomain, s.rootScopeStatement, target.hasInit, syncGroupInstanceCounter))
             syncGroupInstanceCounter += 1
             s match {
               case s: InitAssignmentStatement => group.initStatements += s
@@ -209,7 +209,7 @@ abstract class ComponentEmitter {
         }
       case assertStatement: AssertStatement => assertStatement.trigger match {
         case AssertStatementTrigger.CLOCKED => {
-          val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, true), new SyncGroup(assertStatement.clockDomain, assertStatement.rootScopeStatement, true, syncGroupInstanceCounter))
+          val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, true, null), new SyncGroup(assertStatement.clockDomain, assertStatement.rootScopeStatement, true, syncGroupInstanceCounter))
           syncGroupInstanceCounter += 1
           group.dataStatements += assertStatement
         }

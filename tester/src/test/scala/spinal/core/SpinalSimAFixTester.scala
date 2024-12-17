@@ -109,6 +109,30 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
     }
   }
 
+  test("arithmetic_shift") {
+    // there is nothing special to the values used for testing here; i just picked some
+    SimConfig.compile(new Component {
+      val shiftConst: Int = 1
+      val io = new Bundle {
+        val inFix = in(AFix.S(7 exp, 0 exp))
+        val shiftVariable = in(AFix.U(3 bits))
+        val outFixKeepLsbVariable = out(AFix.S(7 exp, -7 exp))
+        val outFixLoseLsbVariable = out(AFix.S(7 exp, 0 exp))
+        val outFixLoseLsbConst = out(AFix.S(6 exp, 0 exp))
+      }
+      io.outFixKeepLsbVariable := io.inFix >> io.shiftVariable
+      io.outFixLoseLsbVariable := io.inFix >>| io.shiftVariable
+      io.outFixLoseLsbConst := io.inFix >>| shiftConst
+    }).doSim(seed = 0) { dut =>
+      dut.io.inFix #= -22.0
+      dut.io.shiftVariable #= 1.0
+      sleep(1)
+      assert(dut.io.outFixKeepLsbVariable.toDouble == -11.0)
+      assert(dut.io.outFixLoseLsbVariable.toDouble == -11.0)
+      assert(dut.io.outFixLoseLsbConst.toDouble == -11.0)
+    }
+  }
+
   def dutStateString(dut: AFixTester): String = {
     val model = AFixTesterModel(dut)
 

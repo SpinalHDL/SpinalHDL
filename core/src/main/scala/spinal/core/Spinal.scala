@@ -137,9 +137,9 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         defaultConfigForClockDomains   : ClockDomainConfig = ClockDomainConfig(),
                         onlyStdLogicVectorAtTopLevelIo : Boolean = false,
                         defaultClockDomainFrequency    : IClockDomainFrequency = UnknownFrequency(),
-                        targetDirectory                : String = SpinalConfig.defaultTargetDirectory,
+                        var targetDirectory            : String = SpinalConfig.defaultTargetDirectory,
                         oneFilePerComponent            : Boolean = false,
-                        netlistFileName                : String = null,
+                        var netlistFileName            : String = null,
                         dumpWave                       : DumpWaveConfig = null,
                         globalPrefix                   : String = "",
                         var privateNamespace           : Boolean = false,
@@ -147,10 +147,12 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         anonymSignalPrefix             : String = null,
                         device                         : Device = Device(),
                         inlineRom                      : Boolean = false,
+                        caseRom                        : Boolean = false,
                         romReuse                       : Boolean = false,
                         genVhdlPkg                     : Boolean = true,
                         verbose                        : Boolean = false,
                         mergeAsyncProcess              : Boolean = false,
+                        mergeSyncProcess               : Boolean = true,
                         asyncResetCombSensitivity      : Boolean = false,
                         anonymSignalUniqueness         : Boolean = false,
                         inlineConditionalExpression    : Boolean = false,
@@ -165,6 +167,9 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         removePruned                   : Boolean = false,
                         allowOutOfRangeLiterals        : Boolean = false,
                         dontCareGenAsZero              : Boolean = false,
+                        obfuscateNames                 : Boolean = false,
+                        var normalizeComponentClockDomainName : Boolean = false,
+                        var devicePhaseHandler         : PhaseDeviceHandler = PhaseDeviceDefault,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
@@ -178,6 +183,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var noAssertAtTimeZero         : Boolean = false,
                         var cutLongExpressions         : Boolean = true,
                         var withTimescale              : Boolean = true,
+                        var printFilelist              : Boolean = true,
                         var emitFullComponentBindings  : Boolean = true,
                         var svInterface                : Boolean = false
 ){
@@ -248,6 +254,10 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     genLineComments = true
     this
   }
+  def addOptions(parser: scopt.OptionParser[Unit]): Unit = {
+    import parser._
+    opt[String]("target-directory") action { (v, c) => targetDirectory = v }
+  }
 }
 class GenerationFlags {
   def isEnabled = GlobalData.get.config.flags.contains(this)
@@ -274,6 +284,10 @@ object SpinalConfig{
       case Some(config) => config
       case None         => ???
     }
+  }
+
+  def addOptions(): Unit = {
+
   }
 
   var defaultTargetDirectory: String = System.getenv().getOrDefault("SPINAL_TARGET_DIR", ".")

@@ -41,14 +41,19 @@ case class Probe(source : Int, param : Int, address : Long, size : Int, perm : B
 
 }
 
-class MasterAgent (val bus : Bus, val cd : ClockDomain, val blockSize : Int = 64)(implicit idAllocator: IdAllocator) extends MonitorSubscriber{
+class MasterAgent (val bus : Bus, val cd : ClockDomain)(implicit idAllocator: IdAllocator) extends MonitorSubscriber{
   var debug = false
 
   val driver = new MasterDriver(bus, cd)
   val monitor = new Monitor(bus, cd).add(this)
   val callbackOnAtoD, callbackOnCtoD = Array.fill[TransactionD => Unit](1 << bus.p.sourceWidth)(null)
 
-
+  var blockSize = 64
+  try{
+    blockSize = bus.p.node.s.emits.probe.getSingleSize().get
+  }catch{
+    case e : Throwable =>
+  }
   val releaseIds = Array.fill(1 << bus.p.sourceWidth) (SimMutex())
 
   def waitAtoD(source : Int) : TransactionD = {
