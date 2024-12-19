@@ -2605,3 +2605,33 @@ class StreamPacker[T <: Data](
   stream.valid := outValid
   io.done := outDone
 }
+
+
+
+class StreamDelay[T <: Data](val payloadType : HardType[T], val delay: Int, val timestampWidth : Int = 16) extends Component{
+  val io = new Bundle{
+    val push = slave Stream(payloadType())
+    val pop = master Stream(payloadType())
+  }
+  case class StreamDelayWord() extends Bundle{
+    val data = payloadType()
+    val timestamp = UInt(timestampWidth bits)
+  }
+  val bypass = (delay == 0) generate {
+    io.push >> io.pop
+  }
+  val staged = (delay == 1) generate {
+    io.push >-> io.pop
+  }
+  val withFifo = (delay >= 2) generate {
+    val time = CounterFreeRun(BigInt(1) << timestampWidth)
+    val fifo = StreamFifo(StreamDelayWord(), 1 << log2Up(delay), latency = Math.min(delay, 2))
+    fifo.io.push.arbitrationFrom(io.push)
+    fifo.io.push.data := io.push.payload
+    fifo.io.push.timestamp := time.value + delay
+
+    val halt = (time - fifo.io.pop.timestamp).msb
+    val halted = fifo.io.pop.translateWith(fifo.io.pop.data).haltWhen(halt)
+    halted >> io.pop
+  }
+}
