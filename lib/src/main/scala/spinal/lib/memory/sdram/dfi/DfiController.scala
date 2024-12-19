@@ -3,8 +3,10 @@ package spinal.lib.memory.sdram.dfi
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.memory.sdram.dfi.function._
+import spinal.lib.memory.sdram.dfi.interface._
 
-case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: DfiConfig) extends Component {
+case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: DfiConfig, addrMap: AddrMap) extends Component {
   val io = new Bundle {
     val bmb = slave(Bmb(bmbp))
     val dfi = master(Dfi(dfiConfig))
@@ -12,7 +14,7 @@ case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: Dfi
 
   val taskConfig = BmbAdapter.taskConfig(bmbp, dfiConfig, task)
 
-  val bmbBridge = BmbBridge(bmbp, taskConfig, dfiConfig)
+  val bmbBridge = BmbBridge(bmbp, taskConfig, dfiConfig, addrMap)
   bmbBridge.io.bmb <> io.bmb
 
   val control = Control(taskConfig, dfiConfig)

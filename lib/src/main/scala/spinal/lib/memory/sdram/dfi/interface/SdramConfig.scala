@@ -1,51 +1,26 @@
-package spinal.lib.memory.sdram.dfi
+package spinal.lib.memory.sdram.dfi.interface
 
 import spinal.core._
 
 class SdramGeneration(
-    val RESETn: Boolean,
-    val ODT: Boolean,
-    val DQS: Boolean,
-    val FAW: Boolean,
-    val CCD: Int,
+    val useFAW: Boolean,
     val burstLength: Int,
     val dataRate: Int
 )
 
 object SdramGeneration {
   val SDR = new SdramGeneration(
-    RESETn = false,
-    ODT = false,
-    DQS = false,
-    FAW = false,
-    CCD = 1,
+    useFAW = false,
     burstLength = 1,
     dataRate = 1
   )
   val DDR2 = new SdramGeneration(
-    RESETn = false,
-    ODT = true,
-    DQS = true,
-    FAW = true,
-    CCD = 2,
+    useFAW = true,
     burstLength = 4,
     dataRate = 2
   )
   val DDR3 = new SdramGeneration(
-    RESETn = true,
-    ODT = true,
-    DQS = true,
-    FAW = true,
-    CCD = 4,
-    burstLength = 8,
-    dataRate = 2
-  )
-  val MYDDR = new SdramGeneration(
-    RESETn = true,
-    ODT = true,
-    DQS = true,
-    FAW = true,
-    CCD = 4,
+    useFAW = true,
     burstLength = 8,
     dataRate = 2
   )
@@ -53,6 +28,8 @@ object SdramGeneration {
 
 case class SdramConfig(
     generation: SdramGeneration,
+    bgWidth: Int,
+    cidWidth: Int,
     bankWidth: Int,
     columnWidth: Int,
     rowWidth: Int,
@@ -60,10 +37,10 @@ case class SdramConfig(
     ddrMHZ: Int,
     ddrWrLat: Int,
     ddrRdLat: Int,
-    sdramtime: SdramTiming
+    sdramTime: SdramTiming
 ) {
 
-  import sdramtime._
+  import sdramTime._
 
   def burstLength = generation.burstLength
   def wordAddressWidth = bankWidth + columnWidth + rowWidth
@@ -87,15 +64,16 @@ case class SdramConfig(
   def tWR = 5 + 1
 
   def tRAS = timeCycle(RAS, cycleTime_ns)
+
   def tRTP = math.max(timeCycle(RTP, cycleTime_ns), generation.burstLength / generation.dataRate)
-
-  def tRRD = math.max(timeCycle(RRD, cycleTime_ns), generation.burstLength / generation.dataRate)
-
-  def tFAW = timeCycle(FAW, cycleTime_ns)
 
   def timeCycle(time: Int, cycTime: Int) = (time + cycTime - 1) / cycTime
 
   def cycleTime_ns = 1000 / ddrMHZ
+
+  def tRRD = math.max(timeCycle(RRD, cycleTime_ns), generation.burstLength / generation.dataRate)
+
+  def tFAW = timeCycle(FAW, cycleTime_ns)
 
   def tPhyWrlat = ddrWrLat - 2
   def tRddataEn = ddrRdLat - 2
@@ -112,5 +90,5 @@ case class SdramTiming(
     RTP: Int, // ns// READ to PRE
     RRD: Int, // ns// ACT to ACT cross bank
     REF: Int, // us // Refresh Cycle Time (single row)
-    FAW: Int
+    FAW: Int,
 ) //ns // Four ACTIVATE windows

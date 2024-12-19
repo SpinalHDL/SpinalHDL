@@ -2,7 +2,7 @@ package spinal.demo.phy
 
 import spinal.core.{BlackBox, _}
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi._
+import spinal.lib.memory.sdram.dfi.interface.{Dfi, DfiConfig, TaskConfig}
 
 case class ddr3_dfi_phy(ddrIoDfiConfig: DfiConfig) extends BlackBox {
   val io = new Bundle {

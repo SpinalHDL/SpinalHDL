@@ -3,8 +3,10 @@ package spinal.lib.memory.sdram.dfi
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.memory.sdram.dfi.function._
+import spinal.lib.memory.sdram.dfi.interface._
 
-case class BmbBridge(bmbp: BmbParameter, taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
+case class BmbBridge(bmbp: BmbParameter, taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrMap) extends Component {
 
   val io = new Bundle {
     val bmb = slave(Bmb(bmbp))
@@ -16,7 +18,7 @@ case class BmbBridge(bmbp: BmbParameter, taskConfig: TaskConfig, dfiConfig: DfiC
   bmbAdapter.io.output.writeData >-> io.taskPort.writeData
   bmbAdapter.io.output.rsp <-< io.taskPort.rsp
 
-  val maketask = MakeTask(taskConfig, dfiConfig)
+  val maketask = MakeTask(taskConfig, dfiConfig, addrMap)
   maketask.io.cmd <-< bmbAdapter.io.output.cmd
   maketask.io.writeDataToken <-< bmbAdapter.io.output.writeDataToken
   maketask.io.output <> io.taskPort.tasks

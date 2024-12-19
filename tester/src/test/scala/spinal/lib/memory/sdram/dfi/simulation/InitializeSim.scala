@@ -5,7 +5,7 @@ import spinal.core.sim._
 import spinal.demo.phy.Initialize
 import spinal.lib._
 import spinal.lib.bus.bmb.BmbParameter
-import spinal.lib.memory.sdram.dfi._
+import spinal.lib.memory.sdram.dfi.interface._
 
 case class InitializeSim() extends Component {
   val task: TaskParameter =
@@ -24,7 +24,9 @@ case class InitializeSim() extends Component {
     FAW = 35
   )
   val sdram = SdramConfig(
-    SdramGeneration.MYDDR,
+    SdramGeneration.DDR3,
+    bgWidth = 0,
+    cidWidth = 0,
     bankWidth = 3,
     columnWidth = 10,
     rowWidth = 15,
@@ -32,8 +34,8 @@ case class InitializeSim() extends Component {
     ddrMHZ = 100,
     ddrWrLat = 4,
     ddrRdLat = 4,
-    sdramtime = sdramtime
-  )
+    sdramTime = sdramtime
+    )
   val timeConfig = DfiTimeConfig(
     tPhyWrLat = 1,
     tPhyWrData = 2,
@@ -47,15 +49,16 @@ case class InitializeSim() extends Component {
   val dfiConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
     chipSelectNumber = 1,
-    bgWidth = 0,
-    cidWidth = 0,
     dataSlice = 1,
     cmdPhase = 0,
-    signalConfig = new DfiSignalConfig() {
-        override val useOdt: Boolean = true
-        override val useResetN: Boolean = true
-        override val useRddataDnv = true
-      },
+    signalConfig = {
+      val signalConfig = new DDRSignalConfig() {
+        override def useOdt: Boolean = true
+        override def useResetN: Boolean = true
+        override def useRddataDnv = true
+      }
+      signalConfig
+    },
     timeConfig = timeConfig,
     sdram = sdram
   )
