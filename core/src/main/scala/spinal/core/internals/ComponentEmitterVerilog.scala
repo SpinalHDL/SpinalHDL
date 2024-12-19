@@ -92,13 +92,23 @@ class ComponentEmitterVerilog(
           declaredInterface += rootIF
           val intName = rootIF.definitionName
           //TODO:check more than one modport has same `in` `out` direction
-          val modport = if(rootIF.checkModport().isEmpty) {
-            LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
+          val tempModportCheck = (spinalConfig.svInterfaceIncludeModport && !rootIF.thisIsNotSVModport)
+          val modport = if(tempModportCheck) (
+            if(rootIF.checkModport().isEmpty) {
+              LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
+              ""
+            } else {
+              rootIF.checkModport().head
+            }
+          ) else (
             ""
+          )
+          val tempModport = if(tempModportCheck) {
+            s".${modport}"
           } else {
-            rootIF.checkModport().head
+            s""
           }
-          val intMod = s"${intName}.${modport}"
+          val intMod = s"${intName}${tempModport}"
           portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
         }
       } else {

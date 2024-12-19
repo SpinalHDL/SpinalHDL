@@ -5,6 +5,18 @@ import scala.collection.mutable.ArrayBuffer
 
 object IsInterface extends SpinalTag {}
 
+object Interface {
+  def mkNewName(name: String, count: Int) = (
+    name + (
+      if (count == 0) (
+        ""
+      ) else (
+        "_" + count
+      )
+    )
+  )
+}
+
 /** system verilog interface
   * 
   * ==Example==
@@ -33,6 +45,13 @@ object IsInterface extends SpinalTag {}
   */
 class Interface extends Bundle {
   var definitionName: String = this.getClass.getSimpleName
+  var origDefinitionName: String = null//this.getClass.getSimpleName
+  //var newDefinitionName: String = this.getClass.getSimpleName
+  //var definitionNameCount: Int = 0
+  //var definitionNameCountArr = ArrayBuffer[Int]()
+  //var definitionNameCountArrIdx = -1
+  //var origDefinitionName: String = this.getClass.getSimpleName
+  var thisIsNotSVModport = false
   var thisIsNotSVIF = false
   /** Set the definition name of the component */
   def setDefinitionName(name: String): this.type = {
@@ -65,6 +84,30 @@ class Interface extends Bundle {
   }
 
   override def valCallbackRec(ref: Any, name: String): Unit = {
+    def checkForBundleWithIntfElem(elem: Data, name: String): Unit = {
+      elem match {
+        case intf: Interface => {
+          LocatedPendingError(s"sv interface is still under develop. by now Interface cannot be contained inside Bundle that is contained inside Interface")
+          return
+        }
+        case bndl: Bundle => {
+          if (bndl.elementsCache != null) {
+            for ((name, elem) <- bndl.elementsCache) {
+              checkForBundleWithIntfElem(elem=elem, name=name)
+            }
+          }
+        }
+        case vec: Vec[_] => {
+          for ((elem, idx) <- vec.zipWithIndex) {
+            checkForBundleWithIntfElem(
+              elem=elem,
+              name=s"${elem}_${idx}"
+            )
+          }
+        }
+        case _ =>
+      }
+    }
     ref match {
       case ref : Data => {
         ref match {
@@ -91,6 +134,7 @@ class Interface extends Bundle {
           case b: Bundle => {
             b.flattenForeach(x => x.addTag(IsInterface))
             super.valCallbackRec(ref, name)
+            checkForBundleWithIntfElem(elem=b, name=name)
           }
           case ref: Vec[_] => {
             if(OwnableRef.proposal(ref, this)) ref.setPartialName(name, Nameable.DATAMODEL_WEAK)
@@ -170,5 +214,21 @@ class Interface extends Bundle {
       case _ =>
     }}
     this.thisIsNotSVIF = true
+  }
+  def notSVModport(): Unit = {
+    //this.flattenForeach(x => x.removeTag(IsInterface))
+    this.elementsCache.foreach{
+      case (name, x: Interface) => x.notSVModport()
+      case _ =>
+    }
+    this.thisIsNotSVModport = true
+  }
+
+  def notSVModportthisLevel(): Unit = {
+    //this.elementsCache.foreach{case (name, x) => x match {
+    //  case s: BaseType => s.removeTag(IsInterface)
+    //  case _ =>
+    //}}
+    this.thisIsNotSVModport = true
   }
 }

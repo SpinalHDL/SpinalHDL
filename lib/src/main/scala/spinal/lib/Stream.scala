@@ -68,17 +68,25 @@ class EventFactory extends MSFactory {
   }
 }
 
-class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T] {
+class Stream[T <: Data](val payloadType :  HardType[T]) extends Interface with IMasterSlave with DataCarrier[T] {
   val valid   = Bool()
   val ready   = Bool()
   val payload = payloadType()
 
   override def clone: Stream[T] =  Stream(payloadType)
 
-  override def asMaster(): Unit = {
+  override def asMaster(): Unit = mst
+  @modport
+  def mst = {
     out(valid)
     in(ready)
     out(payload)
+  }
+  @modport
+  def slv = {
+    in(valid)
+    out(ready)
+    in(payload)
   }
 
 

@@ -20,14 +20,22 @@ class FlowFactory extends MSFactory{
 
 object Flow extends FlowFactory
 
-class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T]{
+class Flow[T <: Data](val payloadType: HardType[T]) extends Interface with IMasterSlave with DataCarrier[T]{
   val valid = Bool()
   val payload : T = payloadType()
 
   override def clone: Flow[T] = Flow(payloadType).asInstanceOf[this.type]
 
-  override def asMaster(): Unit = out(this)
-  override def asSlave() : Unit  = in(this)
+  override def asMaster(): Unit = mst
+  @modport
+  def mst = {
+    out(this)
+  }
+  override def asSlave() : Unit = slv
+  @modport
+  def slv = {
+    in(this)
+  }
 
 
   override def freeRun(): this.type = this

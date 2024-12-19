@@ -807,15 +807,32 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def rootIFrec(now: Data, lastRoot: List[Interface]): List[Interface] = {
     if(now.IFparent == null) {
       lastRoot
-    } else if(now.IFparent.isInstanceOf[Interface]) {
+    } else /*if(now.IFparent.isInstanceOf[Bundle])*/ {
       now.IFparent match {
         case x: Interface if x.thisIsNotSVIF => rootIFrec(now.IFparent, lastRoot)
-        case _ => rootIFrec(now.IFparent, now.IFparent.asInstanceOf[Interface] :: lastRoot)
+        case y: Interface if !y.thisIsNotSVIF => {
+          rootIFrec(now.IFparent, now.IFparent.asInstanceOf[Interface] :: lastRoot)
+        }
+        case b: Bundle => rootIFrec(now.IFparent, lastRoot)
+        case _ => rootIFrec(now.IFparent, lastRoot)
       }
-    } else {
-      rootIFrec(now.IFparent, lastRoot)
-    }
+    } 
+    //else {
+    //  rootIFrec(now.IFparent, lastRoot)
+    //}
   }
+  //def rootIFrec(now: Data, lastRoot: List[Interface]): List[Interface] = {
+  //  if(now.IFparent == null) {
+  //    lastRoot
+  //  } else if(now.IFparent.isInstanceOf[Interface]) {
+  //    now.IFparent match {
+  //      case x: Interface if x.thisIsNotSVIF => rootIFrec(now.IFparent, lastRoot)
+  //      case _ => rootIFrec(now.IFparent, now.IFparent.asInstanceOf[Interface] :: lastRoot)
+  //    }
+  //  } else {
+  //    rootIFrec(now.IFparent, lastRoot)
+  //  }
+  //}
 }
 
 trait DataWrapper extends Data{
