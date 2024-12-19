@@ -25,6 +25,37 @@ object SlaveFactory{
       }
     )
   )
+
+  def getParameter(addressWidth: Int,
+                   dataWidth: Int,
+                   allowBurst: Boolean,
+                   sourceWidth: Int = 0) = {
+    assert(!allowBurst)
+    BusParameter(
+      addressWidth = addressWidth,
+      dataWidth = dataWidth,
+      sizeBytes = dataWidth/8,
+      sourceWidth = sourceWidth,
+      sinkWidth = 0,
+      withBCE = false,
+      withDataA = true,
+      withDataB = true,
+      withDataC = true,
+      withDataD = true,
+      node = NodeParameters(
+        m = M2sParameters(
+          getSupported(addressWidth, dataWidth, allowBurst,
+            M2sSupport(
+              M2sTransfers.all,
+              addressWidth,
+              dataWidth
+            )
+          ),
+          4
+        )
+      )
+    )
+  }
 }
 
 class SlaveFactory(bus: Bus, allowBurst : Boolean) extends BusSlaveFactoryDelayed{

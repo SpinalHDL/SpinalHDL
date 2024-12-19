@@ -243,13 +243,19 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   def ccToggle(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val cc = new StreamCCByToggle(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, initPayload = null.asInstanceOf[T]).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
     cc.io.output
   }
 
   def ccToggleWithoutBuffer(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withOutputBuffer=false, withInputWait=true).setCompositeName(this,"ccToggle", true)
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withOutputBuffer=false, withInputWait=true, initPayload = null.asInstanceOf[T]).setCompositeName(this,"ccToggle", true)
+    cc.io.input << this
+    cc.io.output
+  }
+
+  def ccToggleInputWait(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withInputWait=true, initPayload = null.asInstanceOf[T]).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
     cc.io.output
   }
@@ -376,11 +382,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def stage() : Stream[T] = this.m2sPipe().setCompositeName(this, "stage", true)
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false, keep : Boolean = false): Stream[T] = new Composite(this) {
+  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false, keep : Boolean = false, initPayload : => T = null.asInstanceOf[T]): Stream[T] = new Composite(this) {
     val m2sPipe = Stream(payloadType)
 
     val rValid = RegNextWhen(self.valid, self.ready) init(False)
-    val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready)
+    val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready) initNull(initPayload)
     if (keep) KeepAttribute.apply(rValid, rData)
 
     if (crossClockData) {
@@ -1760,7 +1766,8 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
                                   outputClock: ClockDomain, 
                                   withOutputBuffer : Boolean = true,
                                   withInputWait : Boolean = false,
-                                  withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get) extends Component {
+                                  withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
+                                  initPayload : => T = null.asInstanceOf[T]) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType())
     val output = master Stream (dataType())
@@ -1790,12 +1797,18 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
 
     val target = BufferCC(pushArea.target, False, inputAttributes = Seq(crossClockMaxDelay(1, useTargetClock = true)))
     val hit = RegNextWhen(target, stream.fire) init(False)
-    outHitSignal := hit
+
+    val withCcHit = withInputWait && withOutputBuffer
+    if(!withCcHit) outHitSignal := hit
+    val wiw = withCcHit generate new Area {
+      val ccHit = RegNextWhen(target, io.output.fire) init(False)
+      outHitSignal := ccHit
+    }
 
     stream.valid := (target =/= hit)
     stream.payload := pushArea.data
 
-    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true, crossClockData = true) else stream)
+    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true, crossClockData = true, initPayload = initPayload) else stream)
   }
 }
 
@@ -2595,4 +2608,34 @@ class StreamPacker[T <: Data](
   stream.payload := nextWord
   stream.valid := outValid
   io.done := outDone
+}
+
+
+
+class StreamDelay[T <: Data](val payloadType : HardType[T], val delay: Int, val timestampWidth : Int = 16) extends Component{
+  val io = new Bundle{
+    val push = slave Stream(payloadType())
+    val pop = master Stream(payloadType())
+  }
+  case class StreamDelayWord() extends Bundle{
+    val data = payloadType()
+    val timestamp = UInt(timestampWidth bits)
+  }
+  val bypass = (delay == 0) generate {
+    io.push >> io.pop
+  }
+  val staged = (delay == 1) generate {
+    io.push >-> io.pop
+  }
+  val withFifo = (delay >= 2) generate {
+    val time = CounterFreeRun(BigInt(1) << timestampWidth)
+    val fifo = StreamFifo(StreamDelayWord(), 1 << log2Up(delay), latency = Math.min(delay, 2))
+    fifo.io.push.arbitrationFrom(io.push)
+    fifo.io.push.data := io.push.payload
+    fifo.io.push.timestamp := time.value + delay
+
+    val halt = (time - fifo.io.pop.timestamp).msb
+    val halted = fifo.io.pop.translateWith(fifo.io.pop.data).haltWhen(halt)
+    halted >> io.pop
+  }
 }

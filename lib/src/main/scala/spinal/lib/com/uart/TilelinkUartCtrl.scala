@@ -10,7 +10,7 @@ object TilelinkUartCtrl{
   def getTilelinkSupport(proposed: bus.tilelink.M2sSupport) = bus.tilelink.SlaveFactory.getSupported(
     addressWidth = addressWidth,
     dataWidth = 32,
-    allowBurst = true,
+    allowBurst = false,
     proposed
   )
   def addressWidth = 6

@@ -2323,6 +2323,17 @@ trait Literal extends Expression {
   //  override def addAttribute(attribute: Attribute): Literal.this.type = addTag(attribute)
 }
 
+object Literal{
+  def apply(that : Data) : BigInt = {
+    that match{
+      case bt : BaseType if bt.isComb && bt.dlcHasOnlyOne && bt.dlcHead.parentScope == bt.parentScope => bt.dlcHead match {
+        case das : DataAssignmentStatement if das.target == bt => das.source match {
+          case lit: Literal if !lit.hasPoison() => lit.getValue()
+        }
+      }
+    }
+  }
+}
 
 /**
   * Bits literal

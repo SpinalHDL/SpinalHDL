@@ -24,6 +24,7 @@ import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 import spinal.core._
 import spinal.lib.bus.misc.AddressTransformer
+import spinal.lib.misc.PathTracer
 
 import scala.collection.{Seq, TraversableOnce, mutable}
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer}
@@ -782,7 +783,46 @@ object CounterMultiRequest {
   }
 }
 
+
+
+class AnalysisUtils{
+  val fromTo = ArrayBuffer[(String, String)]()
+  def addOption(parser: scopt.OptionParser[Unit]): Unit = {
+    import parser._
+    opt[Map[String, String]]("analyse-path").unbounded().action { (v, c) =>
+      fromTo += v("from") -> v("to")
+    } text ("Print logic paths. ex : --analyse-paths from=myComponent/mySourceSignal,to=myComponent/myDestinationSignal")
+  }
+
+  def report[T <: Component](r : SpinalReport[T]) :Unit  = report(r.toplevel)
+  def report(top : Component): Unit = {
+    for((fromName, toName) <- fromTo) {
+      val from = AnalysisUtils.getBaseType(fromName, top)
+      val to = AnalysisUtils.getBaseType(toName, top)
+      val path = PathTracer.impl(from, to)
+      println("##### Paths #####")
+      println(path.reportPaths())
+      println("##### Nodes #####")
+      println(path.reportNodes())
+    }
+  }
+}
+
 object AnalysisUtils{
+  def getBaseType(path : String, c : Component) : BaseType = {
+    val splits = path.split("/")
+    var ptr = c
+    for(name <- splits.dropRight(1)) {
+      c.children.find(_.getName == name) match {
+        case Some(value) => ptr = value
+        case None => SpinalError(s"Can't find component named $name")
+      }
+    }
+    ptr.reflectBaseType(splits.last) match {
+      case bt : BaseType => bt
+      case null => SpinalError(s"Can't find signal named ${splits.last}")
+    }
+  }
   def seekNonCombDrivers(that : BaseType)(body : Any => Unit): Unit ={
     that.foreachStatements{ s =>
       def forExp(e : Expression) : Unit = e match {
