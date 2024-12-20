@@ -1764,7 +1764,7 @@ class PhaseCheckCrossClock() extends PhaseCheck{
 
       if(!that.isReg){
         that.foreachStatements(walk)
-        for(cd <- cds) that.addTag(new ClockDomainTag(cd))
+        for(cd <- cds) that.addTag(new ClockDomainReportTag(cd))
       }
     }
 
