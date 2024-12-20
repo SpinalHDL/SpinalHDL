@@ -51,7 +51,10 @@ case class BmbDecoder(p : BmbParameter,
     input.ready := (hitsS1, io.outputs).zipped.map(_ && _.cmd.ready).orR || noHitS1
 
     val rspPendingCounter = Reg(UInt(log2Up(pendingMax + 1) bits)) init(0)
-    rspPendingCounter := rspPendingCounter + U(input.lastFire) - U(io.input.rsp.lastFire)
+    if (p.access.canSync)
+      rspPendingCounter := rspPendingCounter + U(input.lastFire) * 2 - U(io.input.rsp.lastFire) - U(io.input.sync.valid)
+    else
+      rspPendingCounter := rspPendingCounter + U(input.lastFire) - U(io.input.rsp.lastFire)
     val cmdWait = Bool()
     val rspHits = RegNextWhen(hitsS1, input.valid && !cmdWait)
     val rspPending = rspPendingCounter =/= 0
@@ -63,9 +66,38 @@ case class BmbDecoder(p : BmbParameter,
       val context = RegNextWhen(input.context, input.fire)
       val counter = p.access.canRead generate RegNextWhen(input.transferBeatCountMinusOne, input.fire)
     }
+    val hitIndex = OHToUInt(rspHits)
 
     io.input.rsp.valid := io.outputs.map(_.rsp.valid).orR || (rspPending && rspNoHitValid)
-    io.input.rsp.payload := io.outputs.map(_.rsp.payload).read(OHToUInt(rspHits))
+    io.input.rsp.payload := io.outputs.map(_.rsp.payload).read(hitIndex)
+
+    if(p.access.canInvalidate) {
+      val outputInv = io.outputs.map(_.inv).read(hitIndex)
+      val outputAck = io.outputs.map(_.ack).read(hitIndex)
+
+      io.input.inv.weakAssignFrom(outputInv)
+      io.input.inv.valid := outputInv.valid
+
+      outputAck.weakAssignFrom(io.input.ack)
+      io.input.ack.ready := outputAck.ready
+
+      for ((output, index) <- io.outputs.zipWithIndex) {
+        output.inv.ready := io.input.inv.ready && hitIndex === index
+        output.ack.valid := io.input.ack.valid && hitIndex === index
+      }
+    }
+
+    if(p.access.canSync) {
+      val outputSync = io.outputs.map(_.sync).read(hitIndex)
+
+      io.input.sync.weakAssignFrom(outputSync)
+      io.input.sync.valid := outputSync.valid
+
+      for ((output, index) <- io.outputs.zipWithIndex) {
+        output.sync.ready := io.input.sync.ready && hitIndex === index
+      }
+    }
+
     if(!hasDefault) when(rspNoHit.doIt) {
       io.input.rsp.valid := True
       io.input.rsp.setError()
