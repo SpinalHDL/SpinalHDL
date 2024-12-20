@@ -838,13 +838,30 @@ object AnalysisUtils{
 
   def seekNonCombDriversFromSelf(that : Any)(body : Any => Unit): Unit = that match {
     case s : Statement => s match {
-      case s : BaseType if s.isComb => {seekNonCombDrivers(s)(body) }
+      case s : BaseType if s.isComb => {
+        if(s.hasTag(classOf[ClockDomainTag])){
+          body(s)
+        } else {
+          seekNonCombDrivers(s)(body)
+        }
+      }
       case s : BaseType if s.isReg => body(s)
       case s : Mem[_] => body(s)
     }
     case e: MemReadSync => body(e)
     case e: MemReadWrite =>  body(e)
     case e : Expression => e.foreachDrivingExpression(seekNonCombDriversFromSelf(_)(body))
+  }
+
+  def solveCombDriver[T <: BaseType](that : T): T = {
+    if(!that.isComb) return that
+    if(!that.hasOnlyOneStatement) return that
+    that.dlcHead match{
+      case s : DataAssignmentStatement => s.source match{
+        case bt : T => solveCombDriver(bt)
+        case _ => return that
+      }
+    }
   }
 
   def foreachToplevelIoCd(top : Component)(body : (BaseType, Seq[ClockDomain]) => Unit): Unit ={

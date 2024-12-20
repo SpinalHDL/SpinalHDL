@@ -327,7 +327,7 @@ case class ClockDomain(clock       : Bool,
                        softReset   : Bool = null,
                        clockEnable : Bool = null,
                        config      : ClockDomainConfig = GlobalData.get.commonClockConfig,
-                       frequency   : ClockDomain.ClockFrequency = UnknownFrequency(),
+                       var frequency   : ClockDomain.ClockFrequency = UnknownFrequency(),
                        clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) extends SpinalTagReady {
 
   assert(!(reset != null && config.resetKind == BOOT), "A reset pin was given to a clock domain where the config.resetKind is 'BOOT'")
