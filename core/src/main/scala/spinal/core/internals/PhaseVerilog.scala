@@ -294,8 +294,8 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           //}
           case otherIntf: Interface => {
             if (
-              emitInterface(nodeIntf).result()
-              == emitInterface(otherIntf).result()
+              emitInterface(nodeIntf, false).result()
+              == emitInterface(otherIntf, false).result()
             ) {
               if (nodeIntf.elementsCache != null && otherIntf.elementsCache != null) {
                 if (nodeIntf.elementsCache.size == otherIntf.elementsCache.size) {
@@ -388,7 +388,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     assert(false)
     return null
   }
-  def emitInterface(interface: Interface): StringBuilder = {
+  def emitInterface(interface: Interface, convertIntfVec: Boolean=true): StringBuilder = {
     import pc._
     var ret = new StringBuilder()
     val theme = new Tab2 //TODO add into SpinalConfig
@@ -428,7 +428,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         case x => {
           genSig(
             ret,
-            if (subIntfVecSize == 0) (
+            if (subIntfVecSize == 0 || !convertIntfVec) (
               s"${name}_${name1}"
             ) else (
               s"${name}[${subIntfVecSize}]"
@@ -478,16 +478,24 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           }
         }
         case nodes: Vec[_] => {
-          var haveAllSameIntf: Boolean = true
-          for (idx <- 0 until nodes.size) {
-            if (idx > 0) {
-              if (
+          var haveAllSameIntf: Boolean = convertIntfVec
+          if (haveAllSameIntf) {
+            for (idx <- 0 until nodes.size) {
+              println(
+                s"checking this one: "
+                + s"nodes(${idx}) ${nodes(idx).getName()}"
+              )
+              if (idx > 0) {
                 doCompare(
                   nodeData=nodes(idx),
                   otherNodeData=nodes(idx - 1),
-                ) != CmpResultKind.Same
-              ) {
-                haveAllSameIntf = false
+                ) match {  //!= CmpResultKind.Same
+                  case CmpResultKind.Same => {
+                  }
+                  case _ => {
+                    haveAllSameIntf = false
+                  }
+                }
               }
             }
           }
@@ -954,7 +962,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         }
       } else if (mode == 1) {
         svInterface += (
-          graph.anyIntf.definitionName -> emitInterface(graph.anyIntf)
+          graph.anyIntf.definitionName -> emitInterface(graph.anyIntf, true)
         )
       }
       if (
