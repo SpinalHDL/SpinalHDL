@@ -6,7 +6,8 @@ import spinal.lib.com.jtag.{Jtag, JtagTapFactory, JtagTapFunctions, JtagTapInstr
 
 case class DebugTransportModuleParameter(addressWidth : Int,
                                          version : Int,
-                                         idle : Int)
+                                         idle : Int,
+                                         var probeWidth : Int = 0)
 
 class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
                                tap : JtagTapFunctions,
@@ -20,6 +21,11 @@ class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
 
     val dtmcs = tap.readAndWriteWithEvents(Bits(32 bits), Bits(32 bits))(0x10)
     val dmi   = tap.readAndWriteWithEvents(DebugCapture(addressWidth), DebugUpdate(addressWidth))(0x11)
+    val probe = p.probeWidth != 0 generate new Area{
+      val input = Bits(p.probeWidth bits)
+      val cc = DataCc(input,debugCd, jtagCd)(null)
+      tap.read(cc, light = false)(0x17)
+    }
 
     val dmiStat = new Area{
       val value = Reg(DebugCaptureOp())
@@ -93,7 +99,8 @@ class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
 
     jtagLogic.dmiRsp << bus.rsp.ccToggle(
       pushClock = debugCd,
-      popClock = jtagCd
+      popClock = jtagCd,
+      withOutputBufferedReset = true
     )
   }
 }

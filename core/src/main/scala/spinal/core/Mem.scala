@@ -551,7 +551,7 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
   def getWordsCount = mem.wordCount*mem.width/getWidth
   def getAddressWidth = log2Up(getWordsCount)
 
-  override def opName = "Mem.readAsync(x)"
+  override def opName = s"$mem.readAsync(x)"
 
   override def getTypeObject = TypeBits
 
@@ -706,6 +706,7 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
   var writeEnable : Expression  = null
   var clockDomain : ClockDomain = null
 
+  def getMaskWidth(default : Int = 1) = if(mask != null) mask.getWidth else default
   def getSymbolWidth = if(mask != null) width / mask.getWidth else 1
   def getWordsCount = mem.wordCount*mem.width/getWidth
   def getAddressWidth = log2Up(getWordsCount)
@@ -810,6 +811,7 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
   var readUnderWrite : ReadUnderWritePolicy = null
   var duringWrite : DuringWritePolicy = null
 
+  def getMaskWidth(default : Int = 1) = if(mask != null) mask.getWidth else default
   def getSymbolWidth = if (mask != null) width / mask.getWidth else 1
   def getWordsCount = mem.wordCount*mem.width/getWidth
   def getAddressWidth = log2Up(getWordsCount)

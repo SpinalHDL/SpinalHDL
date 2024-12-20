@@ -13,6 +13,7 @@ import spinal.lib.com.eth.Mdio
 import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind, SpiMaster}
 import spinal.lib.fsm.{State, StateMachine}
 import spinal.lib.io.TriState
+import spinal.lib.bus.tilelink
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -375,7 +376,9 @@ object SpiXdrMasterCtrl {
                                      xipDummyCountInit : Int = 0,
                                      xipDummyDataInit : Int = 0xFF,
                                      xipSsId : Int = 0,
-                                     xip : XipBusParameters = null)
+                                     xip : XipBusParameters = null){
+    def withXip = xip != null
+  }
 
   case class XipBusParameters(addressWidth : Int,
                               lengthWidth : Int)
@@ -431,6 +434,25 @@ object SpiXdrMasterCtrl {
       rsp.ready := bmb.rsp.ready
 
       bmb
+    }
+
+    def fromTilelink(p : tilelink.BusParameter) = {
+      val bus = tilelink.Bus(p)
+      cmd.valid := bus.a.valid
+      cmd.address := bus.a.address
+      cmd.length := bus.a.sizeToBeatMinusOne().resized
+      bus.a.ready := cmd.ready
+
+      bus.d.valid := rsp.valid
+      bus.d.data := rsp.fragment
+      bus.d.source  := RegNextWhen(bus.a.source,  bus.a.fire)
+      bus.d.size := RegNextWhen(bus.a.size, bus.a.fire)
+      bus.d.denied := False
+      bus.d.corrupt := False
+      bus.d.opcode := tilelink.Opcode.D.ACCESS_ACK_DATA
+      rsp.ready := bus.d.ready
+
+      bus
     }
   }
 
