@@ -4,12 +4,13 @@ import spinal.core._
 import spinal.core.internals.{BaseNode, Statement}
 import spinal.lib.{AnalysisUtils, FlowCCUnsafeByToggle, StreamCCByToggle, StreamFifoCC}
 
-import java.io.Writer
+import java.io.{File, PrintWriter, Writer}
 import scala.collection.mutable
 
 trait TimingExtractorListener{
   def writeFalsePath(target: Any, source : Any, falsePathTag: crossClockFalsePath) : Unit
   def writeMaxDelay(target: Any, source : Any, tag: crossClockMaxDelay): Unit
+  def close(): Unit
 }
 
 object TimingExtractorPrinter extends TimingExtractorListener{
@@ -17,6 +18,41 @@ object TimingExtractorPrinter extends TimingExtractorListener{
     println(s"$tag : $source -> $target")
   def writeMaxDelay(target: Any, source : Any, tag: crossClockMaxDelay): Unit =
     println(s"$tag : $source -> $target")
+  def close(): Unit = {}
+}
+
+class TimingExtractorSdc(path : File, marginFactor : Double) extends TimingExtractorListener{
+  val o = new PrintWriter(path)
+  def freqToTimeSingle(cd : ClockDomain) = (cd.frequency match {
+    case f : FixedFrequency => f.getValue.toTime.toBigDecimal * 1e9
+    case _ => SpinalError("Unknown frequancy for " + cd.clock)
+  })*marginFactor
+
+  def writeFalsePath(target: Any, source : Any, tag: crossClockFalsePath) : Unit = {
+    def pathOf(that : Any) : String = that match{
+      case bt : BaseType => bt.getRtlPath()
+    }
+    val sourceStr = pathOf(source)
+    val targeteStr = pathOf(target)
+    o.println(f"set_false_path -from $sourceStr -to $targeteStr")
+  }
+  def writeMaxDelay(target: Any, source : Any, tag: crossClockMaxDelay): Unit = {
+    val timeAny = tag.useTargetClock.mux(target, source)
+    val cd = TimingExtractor.clockDomainOf(timeAny)
+    val time = freqToTimeSingle(cd)
+    assert(time > 0)
+    def pathOf(that : Any) : String = that match{
+      case bt : BaseType => bt.getRtlPath()
+    }
+    val sourceStr = pathOf(source)
+    val targeteStr = pathOf(target)
+    o.println(f"set_max_delay $time%5.3f -from $sourceStr -to $targeteStr")
+  }
+
+  def close(): Unit = {
+    o.flush()
+    o.close()
+  }
 }
 
 object TimingExtractor {
@@ -32,6 +68,7 @@ object TimingExtractor {
       }
       case _ =>
     })
+    listener.close()
   }
 
   def clockDomainOf(that : Any) : ClockDomain = that match{
