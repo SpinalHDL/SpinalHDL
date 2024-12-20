@@ -403,7 +403,7 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
     def s = this
     WeakConnector(m, s, m.source,  s.source,  defaultValue = null, allowUpSize = true , allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.opcode,  s.opcode,  defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
-    WeakConnector(m, s, m.address, s.address, defaultValue = null, allowUpSize = false, allowDownSize = true , allowDrop = false)
+    WeakConnector(m, s, m.address, s.address, defaultValue = null, allowUpSize = true, allowDownSize = true , allowDrop = false)
     WeakConnector(m, s, m.length,  s.length,  defaultValue = null, allowUpSize = true, allowDownSize = false , allowDrop = false)
     WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.access.dataWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true )
     WeakConnector(m, s, m.mask,    s.mask,    defaultValue = () => Bits(m.p.access.maskWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true)
@@ -456,7 +456,7 @@ case class BmbInv(p: BmbParameter) extends Bundle{
   def weakAssignFrom(m : BmbInv): Unit ={
     def s = this
     WeakConnector(m, s, m.source , s.source , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
-    WeakConnector(m, s, m.address, s.address, defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.address, s.address, defaultValue = null, allowUpSize = true, allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.length , s.length , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.all    , s.all    , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
   }
