@@ -275,6 +275,119 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 }
 
 class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
+  sealed trait CmpResultKind
+  object CmpResultKind {
+    case object Same extends CmpResultKind
+    case object Diff extends CmpResultKind
+    case object Other extends CmpResultKind
+  }
+  def doCompare(
+    nodeData: Data,
+    otherNodeData: Data,
+  ): CmpResultKind = {
+    //--------
+    nodeData match {
+      case nodeIntf: Interface => {
+        otherNodeData match {
+          //case otherBt: BaseType => {
+          //  return false
+          //}
+          case otherIntf: Interface => {
+            if (
+              emitInterface(nodeIntf).result()
+              == emitInterface(otherIntf).result()
+            ) {
+              if (nodeIntf.elementsCache != null && otherIntf.elementsCache != null) {
+                if (nodeIntf.elementsCache.size == otherIntf.elementsCache.size) {
+                  for ((nodeElemName, nodeElem) <- nodeIntf.elementsCache.view) {
+                    otherIntf.elementsCache.find{otherElem => {
+                      otherElem._1 == nodeElemName
+                    }} match {
+                      case Some((otherElemName, otherElem)) => {
+                        if (doCompare(
+                          nodeData=nodeElem,
+                          otherNodeData=otherElem,
+                        ) == CmpResultKind.Diff) {
+                          return CmpResultKind.Diff
+                        }
+                      }
+                      case None => {
+                        println(
+                          s"eek! couldn't find this nodeElemName:${nodeElemName}"
+                        )
+                        assert(false)
+                        //return CmpKind.Other
+                        return null
+                        //return false
+                      }
+                    }
+                  }
+                  return CmpResultKind.Same
+                  //return true
+                } else {
+                  //return false
+                  return CmpResultKind.Diff
+                }
+              } else {
+                //return true
+                return CmpResultKind.Same
+              }
+            } else {
+              //return false
+              return CmpResultKind.Diff
+            }
+          }
+          case _ => {
+            //return false
+            //return CmpResultKind.Other
+            return CmpResultKind.Diff
+          }
+        }
+      }
+      // TODO: support non-`Interface` `Bundle`s
+      //case nodeBndl: Bundle => {
+      //  otherNodeData match {
+      //    case otherBndl: Bundle => {
+      //    }
+      //    case _ => {
+      //    }
+      //  }
+      //}
+      case nodeVec: Vec[_] => {
+        otherNodeData match {
+          case otherVec: Vec[_] => {
+            if (nodeVec.size == otherVec.size) {
+              for (vecIdx <- 0 until nodeVec.size) {
+                val cmpResult = doCompare(
+                  nodeData=nodeVec(vecIdx),
+                  otherNodeData=otherVec(vecIdx),
+                  //atTop=false,
+                  //parentsAreVecs=true,
+                )
+                if (cmpResult != CmpResultKind.Same) {
+                  //return false
+                  return CmpResultKind.Diff
+                }
+              }
+              //return true
+              return CmpResultKind.Same
+            } else {
+              //return false
+              return CmpResultKind.Diff
+            }
+          }
+          case _ => {
+            return CmpResultKind.Diff
+          }
+        }
+      }
+      case _ => {
+        return CmpResultKind.Other
+      }
+    }
+    assert(false)
+    return null
+  }
   def emitInterface(interface: Interface): StringBuilder = {
     import pc._
     var ret = new StringBuilder()
@@ -289,7 +402,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         }.reduce(_ + _).stripSuffix(",\n") + "\n) "
     ret ++= s"interface ${interface.definitionName} ${generic}() ;\n\n"
     val sizeZero = mutable.HashSet[String]()
-    def genBase[T <: Data](ret: StringBuilder, name: String, name1: String, elem: T): Unit = {
+    def genBase[T <: Data](ret: StringBuilder, name: String, name1: String, elem: T, subIntfVecSize: Int): Unit = {
       elem match {
         case _: Bool => {
           val size = ""
@@ -312,7 +425,17 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           else
             sizeZero.add(name)
         }
-        case x => genSig(ret, s"${name}_${name1}", x)
+        case x => {
+          genSig(
+            ret,
+            if (subIntfVecSize == 0) (
+              s"${name}_${name1}"
+            ) else (
+              s"${name}[${subIntfVecSize}]"
+            ),
+            x,
+          )
+        }
       }
     }
     def genSig[T <: Data](ret: StringBuilder, name: String, elem: T): Unit = {
@@ -351,12 +474,29 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         }
         case nodes: Bundle => {
           for ((name1, node) <- nodes.elementsCache) {
-            genBase(ret, name, name1, node)
+            genBase(ret, name, name1, node, 0)
           }
         }
         case nodes: Vec[_] => {
-          for ((node, idx) <- nodes.zipWithIndex) {
-            genBase(ret, name, idx.toString, node)
+          var haveAllSameIntf: Boolean = true
+          for (idx <- 0 until nodes.size) {
+            if (idx > 0) {
+              if (
+                doCompare(
+                  nodeData=nodes(idx),
+                  otherNodeData=nodes(idx - 1),
+                ) != CmpResultKind.Same
+              ) {
+                haveAllSameIntf = false
+              }
+            }
+          }
+          if (haveAllSameIntf) {
+            genBase(ret, name, "0", nodes(0), nodes.size)
+          } else {
+            for ((node, idx) <- nodes.zipWithIndex) {
+              genBase(ret, name, idx.toString, node, 0)
+            }
           }
         }
         case _ => {
@@ -594,6 +734,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
       case _ =>
     }
     //--------
+    //--------
     walkDeclarations {
       case node: BaseType if (node.hasTag(IsInterface)) => {
         //last match {
@@ -612,10 +753,14 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           allocated += rootIF
         }
         val IFlist = node.rootIFList()
-        def getElemName(cache: ArrayBuffer[(String, Data)], name: String): Option[(String, Data)] = {
+        def getElemName(
+          cache: ArrayBuffer[(String, Data)], name: String
+        ): Option[(String, Data)] = {
           cache.flatMap{
             case (a, x: Bundle) => getElemName(x.elementsCache, s"${name}_${a}").map(x => (x._1.stripPrefix("_"), x._2))
-            case (a, x: Vec[_]) => getElemName(x.elements, s"${name}_${a}").map(x => (x._1.stripPrefix("_"), x._2))
+            case (a, x: Vec[_]) => {
+              getElemName(x.elements, s"${name}_${a}").map(x => (x._1.stripPrefix("_"), x._2))
+            }
             case (a, x) => if(x == node) Some((s"${name}_${a}".stripPrefix("_"), x)) else None
           }.headOption
         }
@@ -728,119 +873,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
       nodeGraph: SvifGraph,
       //nodeIntfSet: mutable.HashSet[Interface],
     ): Unit = {
-      sealed trait CmpResultKind
-      object CmpResultKind {
-        case object Same extends CmpResultKind
-        case object Diff extends CmpResultKind
-        case object Other extends CmpResultKind
-      }
-      def doCompare(
-        nodeData: Data,
-        otherNodeData: Data,
-      ): CmpResultKind = {
-        //--------
-        nodeData match {
-          case nodeIntf: Interface => {
-            otherNodeData match {
-              //case otherBt: BaseType => {
-              //  return false
-              //}
-              case otherIntf: Interface => {
-                if (
-                  emitInterface(nodeIntf).result()
-                  == emitInterface(otherIntf).result()
-                ) {
-                  if (nodeIntf.elementsCache != null && otherIntf.elementsCache != null) {
-                    if (nodeIntf.elementsCache.size == otherIntf.elementsCache.size) {
-                      for ((nodeElemName, nodeElem) <- nodeIntf.elementsCache.view) {
-                        otherIntf.elementsCache.find{otherElem => {
-                          otherElem._1 == nodeElemName
-                        }} match {
-                          case Some((otherElemName, otherElem)) => {
-                            if (doCompare(
-                              nodeData=nodeElem,
-                              otherNodeData=otherElem,
-                            ) == CmpResultKind.Diff) {
-                              return CmpResultKind.Diff
-                            }
-                          }
-                          case None => {
-                            println(
-                              s"eek! couldn't find this nodeElemName:${nodeElemName}"
-                            )
-                            assert(false)
-                            //return CmpKind.Other
-                            return null
-                            //return false
-                          }
-                        }
-                      }
-                      return CmpResultKind.Same
-                      //return true
-                    } else {
-                      //return false
-                      return CmpResultKind.Diff
-                    }
-                  } else {
-                    //return true
-                    return CmpResultKind.Same
-                  }
-                } else {
-                  //return false
-                  return CmpResultKind.Diff
-                }
-              }
-              case _ => {
-                //return false
-                //return CmpResultKind.Other
-                return CmpResultKind.Diff
-              }
-            }
-          }
-          // TODO: support non-`Interface` `Bundle`s
-          //case nodeBndl: Bundle => {
-          //  otherNodeData match {
-          //    case otherBndl: Bundle => {
-          //    }
-          //    case _ => {
-          //    }
-          //  }
-          //}
-          case nodeVec: Vec[_] => {
-            otherNodeData match {
-              case otherVec: Vec[_] => {
-                if (nodeVec.size == otherVec.size) {
-                  for (vecIdx <- 0 until nodeVec.size) {
-                    val cmpResult = doCompare(
-                      nodeData=nodeVec(vecIdx),
-                      otherNodeData=otherVec(vecIdx),
-                      //atTop=false,
-                      //parentsAreVecs=true,
-                    )
-                    if (cmpResult != CmpResultKind.Same) {
-                      //return false
-                      return CmpResultKind.Diff
-                    }
-                  }
-                  //return true
-                  return CmpResultKind.Same
-                } else {
-                  //return false
-                  return CmpResultKind.Diff
-                }
-              }
-              case _ => {
-                return CmpResultKind.Diff
-              }
-            }
-          }
-          case _ => {
-            return CmpResultKind.Other
-          }
-        }
-        assert(false)
-        return null
-      }
       def innerUpdate(
         nodeIntf: Interface,
         otherNodeIntf: Interface,

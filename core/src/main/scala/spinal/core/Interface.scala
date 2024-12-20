@@ -46,11 +46,6 @@ object Interface {
 class Interface extends Bundle {
   var definitionName: String = this.getClass.getSimpleName
   var origDefinitionName: String = null//this.getClass.getSimpleName
-  //var newDefinitionName: String = this.getClass.getSimpleName
-  //var definitionNameCount: Int = 0
-  //var definitionNameCountArr = ArrayBuffer[Int]()
-  //var definitionNameCountArrIdx = -1
-  //var origDefinitionName: String = this.getClass.getSimpleName
   var thisIsNotSVModport = false
   var thisIsNotSVIF = false
   /** Set the definition name of the component */
