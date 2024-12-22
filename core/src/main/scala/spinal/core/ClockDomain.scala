@@ -27,16 +27,16 @@ import scala.collection.mutable
 import scala.collection.immutable
 import scala.collection.mutable.ArrayBuffer
 
-sealed trait EdgeKind
+sealed trait EdgeKind extends AreaObject
 object RISING  extends EdgeKind
 object FALLING extends EdgeKind
 
-sealed trait ResetKind
+sealed trait ResetKind extends AreaObject
 object ASYNC extends ResetKind
 object SYNC  extends ResetKind
 object BOOT  extends ResetKind
 
-sealed trait Polarity{
+sealed trait Polarity extends AreaObject{
   def assertedBool : Bool
   def deassertedBool : Bool
 }
@@ -51,7 +51,7 @@ object LOW  extends Polarity{
 
 case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag{
   override def toString = s"ClockDomainTag($clockDomain)"
-  override def allowMultipleInstance = false
+  override def allowMultipleInstance = true
 }
 
 case class ClockDomainReportTag(clockDomain: ClockDomain) extends SpinalTag{

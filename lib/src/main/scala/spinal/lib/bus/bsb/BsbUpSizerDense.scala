@@ -17,6 +17,7 @@ class BsbUpSizerDense(p : BsbParameter, outputBytes : Int) extends Component{
   val buffer = Reg(BsbTransaction(p.copy(byteCount = outputBytes)))
   buffer.last.init(False)
   buffer.mask.init(0)
+  if(p.withError) buffer.error.init(False)
 
   val full = counter === 0 || buffer.last
   val canAggregate = valid && !buffer.last && !full && buffer.source === io.input.source && buffer.sink === io.input.sink
@@ -26,6 +27,7 @@ class BsbUpSizerDense(p : BsbParameter, outputBytes : Int) extends Component{
   when(io.output.fire){
     valid := False
     buffer.mask := 0
+    if(p.withError) buffer.error := False
   }
   when(io.input.fire){
     valid := True
@@ -35,6 +37,7 @@ class BsbUpSizerDense(p : BsbParameter, outputBytes : Int) extends Component{
     buffer.mask.subdivideIn(ratio slices)(counterSample) := io.input.mask
     buffer.last := io.input.last
     counter := counterSample + 1
+    if(p.withError) buffer.error setWhen(io.input.error)
   }
 
   io.output.valid   := valid && (valid && full || io.input.valid && !canAggregate)

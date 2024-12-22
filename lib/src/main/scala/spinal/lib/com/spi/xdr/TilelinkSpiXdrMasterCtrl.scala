@@ -37,17 +37,34 @@ case class TilelinkSpiXdrMasterCtrl(p : SpiXdrMasterCtrl.MemoryMappingParameters
 }
 
 
-case class TilelinkSpiXdrMasterFiber(param : SpiXdrMasterCtrl.MemoryMappingParameters) extends Area{
+class TilelinkSpiXdrMasterFiber(param : SpiXdrMasterCtrl.MemoryMappingParameters) extends Area{
   val ctrl = fabric.Node.up()
   val interrupt = InterruptNode.master()
+  val xip = param.withXip generate fabric.Node.up()
 
   val logic = Fiber build new Area{
+    if(param.withXip){
+      xip.m2s.supported.load(
+        new M2sSupport(
+          addressWidth = param.xip.addressWidth,
+          dataWidth = 8,
+          transfers = xip.m2s.proposed.transfers.intersect(
+            M2sTransfers(
+              get = SizeRange(1, 1 << param.xip.lengthWidth)
+            )
+          )
+        )
+      )
+      xip.s2m.none()
+    }
+
     ctrl.m2s.supported.load(TilelinkSpiXdrMasterCtrl.getSupported(ctrl.m2s.proposed))
     ctrl.s2m.none()
 
     val core = TilelinkSpiXdrMasterCtrl(param, ctrl.bus.p)
     core.io.ctrl <> ctrl.bus
     core.io.interrupt <> interrupt.flag
+    if(param.withXip) core.io.xip.fromTilelink(xip.bus.p) << xip.bus
     val spi = core.io.spi.toIo
   }
 }
