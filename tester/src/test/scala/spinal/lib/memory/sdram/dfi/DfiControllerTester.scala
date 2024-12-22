@@ -90,35 +90,98 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           sleep(20)
           dut.clockDomain.deassertReset()
         }
+        dut.io.dfi.read.rd.foreach(_.rddataValid #= false)
+        dut.clockDomain.waitSampling(100)
         val memorySize = 1 << dut.io.bmb.p.access.addressWidth
         val allowedWrites = mutable.HashMap[Long, Byte]()
+        val allowedWritesStandby = mutable.HashMap[Long, Byte]()
         val addrMap = dut.addrMap
+        def rearrangeBits(value: Long, segmentLengths: Array[Int], order: Seq[Int]): Long = {
+          require(
+            segmentLengths.length == order.length,
+            "The length of the segment length array and the order array must be the same"
+          )
+          require(segmentLengths.sum == 64, "The sum of all segment lengths must be equal to 64")
+          require(order.distinct.length == order.length, "The elements in a order array must be unique")
+
+          val binaryString = value.toBinaryString.reverse.padTo(64, '0').reverse
+          val segments = Array.fill[String](segmentLengths.length)("")
+          var offset = 0
+          for (i <- segmentLengths.indices) {
+            val segment = binaryString.substring(offset, offset + segmentLengths(i))
+            segments(i) = segment
+            offset += segmentLengths(i)
+          }
+          val rearrangedBinaryString = order.map(segments).mkString("")
+          java.lang.Long.parseLong(rearrangedBinaryString, 2)
+        }
+        def addressTranslation(bmbAddr: Long): Long = {
+          val segmentLengths = Array.fill[Int](6)(0)
+          segmentLengths(0) = 64 - dut.dfiConfig.sdram.byteAddressWidth
+          segmentLengths(1) = dut.dfiConfig.sdram.bankWidth
+          segmentLengths(2) = dut.dfiConfig.sdram.rowWidth
+          segmentLengths(3) = dut.dfiConfig.sdram.columnWidth - log2Up(dut.dfiConfig.transferPerBurst)
+          segmentLengths(4) = log2Up(dut.dfiConfig.transferPerBurst)
+          segmentLengths(5) = log2Up(dut.dfiConfig.sdram.bytePerWord)
+          val maping = segmentLengths.zipWithIndex
+          var temp = maping(0)
+          addrMap match {
+            case RowBankColumn => {
+              temp = maping(1)
+              maping(1) = maping(2)
+              maping(2) = temp
+            }
+            case BankRowColumn => {}
+            case RowColumnBank => {
+              temp = maping(1)
+              maping(1) = maping(2)
+              maping(2) = maping(3)
+              maping(3) = maping(1)
+            }
+          }
+          val dfiAddr = rearrangeBits(bmbAddr, maping.map(_._1), maping.map(_._2).toSeq)
+          dfiAddr
+        }
+
+        val bmbq = mutable.Queue[(String, Byte)]()
+        val dfiq = mutable.Queue[(String, Byte)]()
+
         val dfiMemoryAgent = new DfiMemoryAgent(dut.io.dfi, dut.clockDomain) {
           override def setByte(address: Long, value: Byte): Unit = {
             val option = allowedWrites.get(address)
-//                   assert(option.isDefined)
-//                   assert(option.get == value)
+            assert(option.isDefined)
+            assert(option.get == value, s"$address is address, \n$allowedWrites\n$allowedWritesStandby")
             super.setByte(address, value)
+            dfiq.enqueue((address.toBinaryString, value))
             allowedWrites.remove(address)
+            if (allowedWritesStandby.contains(address)) {
+              allowedWrites(address) = allowedWritesStandby(address)
+              allowedWritesStandby.remove(address)
+            }
           }
         }
 
         val regions = BmbRegionAllocator(alignmentMinWidth = 6)
         val bmbAgent = new BmbMasterAgent(dut.io.bmb, dut.clockDomain) {
           override def onRspRead(address: BigInt, data: Seq[Byte]): Unit = {
-            val ref = (0 until data.length).map(i => dfiMemoryAgent.getByte(address.toLong + i))
-//                   if (ref != data) {
-//                     simFailure(s"Read mismatch on $master\n  REF=$ref\n  DUT=$data")
-//                   }
+            val ref = (0 until data.length).map(i => dfiMemoryAgent.getByte(addressTranslation(address.toLong + i)))
+            if (ref != data) {
+              val master = dut.io.bmb
+              simFailure(s"Read mismatch on $master\n  REF=$ref\n  DUT=$data")
+            }
           }
-
           override def getCmd(): () => Unit =
-            if (cmdQueue.nonEmpty | rspQueue.map(_.isEmpty).reduce(_ & _)) super.getCmd() else null
-
+            if ((!rspQueue.exists(_.nonEmpty)) | (cmdQueue.nonEmpty)) super.getCmd() else null
+          override def maskRandom() = true
           override def onCmdWrite(address: BigInt, data: Byte): Unit = {
-            val addressLong = address.toLong
-//                   assert(!allowedWrites.contains(addressLong))
-            allowedWrites(addressLong) = data
+            val addressLong = addressTranslation(address.toLong)
+            bmbq.enqueue((addressLong.toBinaryString, data))
+            if (allowedWrites.contains(addressLong)) {
+              allowedWritesStandby(addressLong) = data
+            } else {
+              assert(!allowedWrites.contains(addressLong), s"address is $address")
+              allowedWrites(addressLong) = data
+            }
           }
           override def regionAllocate(sizeMax: Int): SizeMapping = regions.allocate(
             Random.nextInt(memorySize) & ~((1 << regions.alignmentMinWidth) - 1),

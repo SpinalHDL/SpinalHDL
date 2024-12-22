@@ -36,14 +36,18 @@ object AddrMapMethod {
     addrMapMethod
   }
   def rowColumnBankMap(dfiConfig: DfiConfig, addr: UInt) = {
-    assert(dfiConfig.sdram.columnWidth >= dfiConfig.burstWidth)
-    val addrMapMethod = new AddrMapMethod(dfiConfig)
     import dfiConfig._
-    addrMapMethod.address.column := (addr(burstWidth + sdram.bankWidth, sdram.columnWidth - burstWidth bits) ## addr(
+    val burstNumberWidth = log2Up(transferPerBurst)
+    assert(dfiConfig.sdram.columnWidth >= burstNumberWidth)
+    val addrMapMethod = new AddrMapMethod(dfiConfig)
+    addrMapMethod.address.column := (addr(
+      burstNumberWidth + sdram.bankWidth,
+      sdram.columnWidth - burstNumberWidth bits
+    ) ## addr(
       0,
-      burstWidth bits
+      burstNumberWidth bits
     )).asUInt
-    addrMapMethod.address.bank := addr(burstWidth, sdram.bankWidth bits)
+    addrMapMethod.address.bank := addr(burstNumberWidth, sdram.bankWidth bits)
     addrMapMethod.address.row := addr(sdram.columnWidth + sdram.bankWidth, sdram.rowWidth bits)
     addrMapMethod
   }

@@ -5,6 +5,7 @@ import spinal.core.sim._
 import spinal.demo.phy.Initialize
 import spinal.lib._
 import spinal.lib.bus.bmb.BmbParameter
+import spinal.lib.memory.sdram.dfi.function.BmbAdapter
 import spinal.lib.memory.sdram.dfi.interface._
 
 case class InitializeSim() extends Component {

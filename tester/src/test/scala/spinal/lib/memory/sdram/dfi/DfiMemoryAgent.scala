@@ -31,7 +31,6 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val rdAddrQueue = mutable.Queue[Long]()
   val rdEnQueue = mutable.Queue[(Boolean, Int)]()
   val rdDataQueue = mutable.Queue[BigInt]()
-  val wProcess = mutable.Queue[() => Unit]()
   val rProcess = Array.fill(phaseCount)(mutable.Queue[(BigInt) => Unit]())
   val ckeProxy = ctrl.cke.simProxy()
   val csNProxy = ctrl.csN.simProxy()
@@ -41,9 +40,16 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val wrEnProxy = wr.wr.map(_.wrdataEn.simProxy())
   val wrDataProxy = wr.wr.map(_.wrdata.simProxy())
   val rdEnProxy = rd.rden.map(_.simProxy())
-  var awQueueDepth = 8
-  var bQueueDepth = 4
-  var qPending = 0
+  var rowAddr: Long = 0
+  var columnAddr: Long = 0
+  var bank: Long = 0
+  var byteAddr: Long = 0
+  var writeVaild: Boolean = false
+  var oneTakeDataCounter: Int = 0
+  var rdDataByte: Int = 0
+  var rdData: BigInt = 0
+  var rdByteAddress: Long = 0
+  var rdVaildPhase: Int = 0
 
   def this(bus: Dfi, clockDomain: ClockDomain) {
     this(bus.control, bus.write, bus.read, clockDomain);
@@ -75,27 +81,9 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     val wrEn = wrEnProxy.map(_.toBoolean)
     val wrData = wrDataProxy.map(_.toLong)
     val rdEn = rdEnProxy.map(_.toBoolean)
-    var rowAddr: Long = 0
-    var columnAddr: Long = 0
-    var bank: Long = 0
-    var byteAddr: Long = 0
 
-    // cmd and address
-    if (rowAddrQueue.nonEmpty) {
-      rowAddr = rowAddrQueue.dequeue()
-    }
-    if (bankQueue.nonEmpty) {
-      bank = bankQueue.dequeue()
-    }
-    var writeVaild: Boolean = false
-    var oneTakeDataCounter: Int = 0
-
-    var rdDataByte: Int = 0
-    var rdData: BigInt = 0
-    var rdByteAddress: Long = 0
-    var rdVaildPhase: Int = 0
-    rd.rd.foreach(_.rddataValid #= false)
     for (cs <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
+      // cmd and address
       val active = cs._1 & !ras & cas & weN
       val write = cs._1 & ras & !cas & !weN
       val read = cs._1 & ras & !cas & weN
@@ -104,7 +92,12 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
         bankQueue.enqueue(ctrl.bank.toLong)
         idQueue.enqueue(cs._2)
       }
-
+      if (rowAddrQueue.nonEmpty) {
+        rowAddr = rowAddrQueue.dequeue()
+      }
+      if (bankQueue.nonEmpty) {
+        bank = bankQueue.dequeue()
+      }
       // write cmd
       if (write) {
         columnAddr = ctrl.address.toLong & (1 << columnWidth) - 1
@@ -112,14 +105,10 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
           ((cs._2 << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
             busConfig.sdram.bytePerWord
           )
-        for (i <- (0 until (oneTaskByteNumber)).reverse) {
-          wrAddrQueue.enqueue(byteAddr + i)
-        }
-        wProcess.enqueue { () =>
-          for (i <- 0 until (busConfig.transferPerBurst)) {
-            setByte(wrAddrQueue.dequeue(), wrByteQueue.dequeue())
+        for (beat <- 0 until (busConfig.beatCount)) {
+          for (i <- (0 until (busConfig.bytePerBeat)).reverse) {
+            wrAddrQueue.enqueue(byteAddr + beat * busConfig.bytePerBeat + i)
           }
-          oneTakeDataCounter = 0
         }
       }
 
@@ -130,14 +119,16 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
           ((cs._2 << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
             busConfig.sdram.bytePerWord
           )
-        for (i <- (0 until (oneTaskDataNumber))) {
-          for (j <- 0 until (busConfig.phyIoWidth / 8)) {
-            rdByteAddress = byteAddr + i * busConfig.phyIoWidth / 8 + j
-            rdDataByte = getByteAsInt(rdByteAddress)
-            rdData |= (BigInt(rdDataByte) << ((busConfig.phyIoWidth / 8 - 1 - j) * 8))
+        for (beat <- (0 until (busConfig.beatCount))) {
+          for (phase <- 0.until(phaseCount).reverse) {
+            for (j <- 0 until (busConfig.phyIoWidth / 8)) {
+              rdByteAddress = byteAddr + beat * busConfig.bytePerBeat + phase * busConfig.phyIoWidth / 8 + j
+              rdDataByte = getByteAsInt(rdByteAddress)
+              rdData |= BigInt(rdDataByte) << (j * 8)
+            }
+            rdDataQueue.enqueue(rdData)
+            rdData = 0
           }
-          rdDataQueue.enqueue(rdData)
-          rdData = 0
         }
       }
     }
@@ -149,11 +140,14 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
         writeVaild = wrEnQueue.dequeue()
       }
       if (writeVaild) {
-        for (j <- 0.until(busConfig.bytePerDq).reverse) {
+        for (j <- 0.until(busConfig.phyIoWidth / 8).reverse) {
           wrByteQueue.enqueue((wrData(i) >> j * 8).toByte)
         }
         if (oneTakeDataCounter == oneTaskDataNumber) {
-          if (wProcess.nonEmpty) wProcess.dequeue() else null
+          for (i <- 0 until (busConfig.bytePerBurst)) {
+            setByte(wrAddrQueue.dequeue(), wrByteQueue.dequeue())
+          }
+          oneTakeDataCounter = 0
         } else {
           oneTakeDataCounter = oneTakeDataCounter + 1
         }
@@ -161,6 +155,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     }
 
     // read opcode
+    rd.rd.foreach(_.rddataValid #= false)
     for (phase <- 0 until (phaseCount)) {
       if (rProcess(phase).nonEmpty & rdDataQueue.nonEmpty) {
         rdEnQueue.dequeue()
