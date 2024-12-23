@@ -4,7 +4,7 @@ import spinal.core._
 import scala.collection.{immutable, mutable}
 
 class SvifGraph(
-  val intfSet: mutable.LinkedHashSet[Interface], 
+  val intfSet: mutable.HashSet[Interface], 
 ) {
   var child: SvifGraph = null
 
@@ -28,10 +28,26 @@ class SvifGraph(
   }
   //--------
   def addChild(newChild: SvifGraph): Unit = {
-    //newChild.parent = this
-    newChild.count = this.count + 1
     child = newChild
+    //child.parent = this
+    child.count = this.count + 1
   }
   //--------
+  def findChildInterface(interface: Interface): Option[SvifGraph] = {
+    if (intfSet.contains(interface)) {
+      return Some(this)
+    } else if (child != null) {
+      return child.findChildInterface(interface=interface)
+    } else {
+      return None
+    }
+  }
+  //def getBottom(): SvifGraph = {
+  //  if (child == null) {
+  //    this
+  //  } else {
+  //    child.getBottom()
+  //  }
+  //}
 
 }

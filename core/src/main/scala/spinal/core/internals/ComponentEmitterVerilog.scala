@@ -86,30 +86,39 @@ class ComponentEmitterVerilog(
       val comma      = ","
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
-      if(baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog && spinalConfig.svInterface) {
+      if(
+        baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog
+        && spinalConfig.svInterface 
+      ) {
         val rootIF = baseType.rootIF()
         if(!declaredInterface.contains(rootIF)) {
           declaredInterface += rootIF
           val intName = rootIF.definitionName
           //TODO:check more than one modport has same `in` `out` direction
-          val tempModportCheck = (spinalConfig.svInterfaceIncludeModport && !rootIF.thisIsNotSVModport)
-          val modport = if(tempModportCheck) (
-            if(rootIF.checkModport().isEmpty) {
-              LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
-              ""
+          val tempModportCheck = spinalConfig.svInterfaceIncludeModport && !rootIF.thisIsNotSVModport
+          //if (tempModportCheck) {
+            val modport = if (tempModportCheck) {
+              if(rootIF.checkModport().isEmpty) {
+                LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
+                ""
+              } else {
+                rootIF.checkModport().head
+              }
             } else {
-              rootIF.checkModport().head
+              ""
             }
-          ) else (
-            ""
-          )
-          val tempModport = if(tempModportCheck) {
-            s".${modport}"
-          } else {
-            s""
+            val tempModport = if(tempModportCheck) {
+              s".${modport}"
+            } else {
+              s""
+            }
+            val intMod = s"${intName}${tempModport}"
+            portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
+          //}
+          if (!tempModportCheck && rootIF.thisIsSVstruct) {
+            assert(!tempModportCheck)
+            portMaps += f"${syntax}${dir}%-20s ${rootIF.definitionName} ${rootIF.getName()}${EDAcomment}${comma}"
           }
-          val intMod = s"${intName}${tempModport}"
-          portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
         }
       } else {
         if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -222,7 +231,9 @@ class ComponentEmitterVerilog(
             case s: Nameable => "_" + s.getName()
             case _ => ""
           }
-          val name = component.localNamingScope.allocateName((anonymSignalPrefix + sName).replace('.', '_'))
+          val name = component.localNamingScope.allocateName((
+            anonymSignalPrefix + VerilogInterfaceNameGen(sName)
+          ))
           declarations ++= emitExpressionWrap(e, name)
           wrappedExpressionToName(e) = name
         }
@@ -730,7 +741,7 @@ class ComponentEmitterVerilog(
               declarations ++= s"    end\n"
               declarations ++= s"  endfunction\n"
 
-              val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+              val name = VerilogInterfaceNameGen(component.localNamingScope.allocateName(anonymSignalPrefix))
               declarations ++= s"  wire ${emitType(node)} $name;\n"
               logics ++= s"  assign $name = ${funcName}(1'b0);\n"
 //              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
@@ -1094,7 +1105,11 @@ class ComponentEmitterVerilog(
         |  )""".stripMargin
     } else f"${data.definitionName}%-19s"
     val  cl = if(genericFlat.nonEmpty) "\n" else ""
-    f"${theme.maintab}${t} ${name}();\n${cl}"
+    if (!data.thisIsSVstruct) (
+      f"${theme.maintab}${t} ${name}();\n${cl}"
+    ) else (
+      f"${theme.maintab}${t} ${name};\n${cl}"
+    )
   }
 
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
@@ -1389,7 +1404,8 @@ end
 //            b ++= s"$tab${emitExpression(target)}[$upLim:$downLim] <= ${emitReference(mem,false)}_symbol$i[${emitExpression(address)}];\n"
 //          }
           val symboleReadDataNames = for(i <- 0 until symbolCount) yield {
-            val symboleReadDataName = component.localNamingScope.allocateName(anonymSignalPrefix + "_" + mem.getName() + "symbol_read")
+            val symboleReadDataName =
+            component.localNamingScope.allocateName(anonymSignalPrefix + "_" + VerilogInterfaceNameGen(mem.getName()) + "symbol_read")
             declarations ++= s"  reg [${mem.getMemSymbolWidth()-1}:0] $symboleReadDataName;\n"
             b ++= s"$tab$symboleReadDataName <= ${emitReference(mem,false)}_symbol$i[${emitExpression(address)}];\n"
             symboleReadDataName
@@ -1941,4 +1957,11 @@ end
   emitEntity()
   emitArchitecture()
 
+}
+object VerilogInterfaceNameGen {
+  def apply(
+    baseName: String
+  ): String = {
+    baseName.replace('.', '_').replace('[', '_').replace("]", "")
+  }
 }

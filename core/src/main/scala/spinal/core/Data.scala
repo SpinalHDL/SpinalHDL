@@ -294,6 +294,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   private[core] def isSuffix = parent != null && parent.isInstanceOf[Suffixable]
 
   var parent: Data = null
+  var IFvecParent: Data = null
+  var IFvecNamePrefix: String = null
   def IFparent: Data = parent//TODO:Vec elem do not have parent
   def getRootParent: Data = if(parent == null) this else parent.getRootParent
 
@@ -803,23 +805,51 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def rootIFList(): List[Interface] = {
     rootIFrec(this, Nil)
   }
+  def rootIFParent()= {
+    rootIFrec(this, Nil, true)(0)
+  }
 
-  def rootIFrec(now: Data, lastRoot: List[Interface]): List[Interface] = {
+  def rootIFrec(now: Data, lastRoot: List[Interface], justFirst: Boolean=false): List[Interface] = {
     if(now.IFparent == null) {
       lastRoot
     } else /*if(now.IFparent.isInstanceOf[Bundle])*/ {
       now.IFparent match {
-        case x: Interface if x.thisIsNotSVIF => rootIFrec(now.IFparent, lastRoot)
+        case x: Interface if x.thisIsNotSVIF => rootIFrec(now.IFparent, lastRoot, justFirst)
         case y: Interface if !y.thisIsNotSVIF => {
-          rootIFrec(now.IFparent, now.IFparent.asInstanceOf[Interface] :: lastRoot)
+          if (justFirst) {
+            (now.IFparent.asInstanceOf[Interface] :: lastRoot)
+          } else {
+            rootIFrec(now.IFparent, now.IFparent.asInstanceOf[Interface] :: lastRoot)
+          }
         }
-        case b: Bundle => rootIFrec(now.IFparent, lastRoot)
-        case _ => rootIFrec(now.IFparent, lastRoot)
+        //case b: Bundle => rootIFrec(now.IFparent, lastRoot, justFirst)
+        case _ => rootIFrec(now.IFparent, lastRoot, justFirst)
       }
-    } 
+    }
     //else {
     //  rootIFrec(now.IFparent, lastRoot)
     //}
+  }
+  def rootBndlList(): List[(Boolean, Bundle)] = {
+    rootBndlRec(this, Nil)
+  }
+  def rootBndlRec(now: Data, lastRoot: List[(Boolean, Bundle)]): List[(Boolean, Bundle)] = {
+    if (now.IFparent == null) {
+      lastRoot
+    } else {
+      now.IFparent match {
+        case x: Interface if x.thisIsNotSVIF => {
+          rootBndlRec(now.IFparent, (false, now.IFparent.asInstanceOf[Bundle]) :: lastRoot)
+        }
+        case x: Interface if !x.thisIsNotSVIF => {
+          rootBndlRec(now.IFparent, (true, now.IFparent.asInstanceOf[Interface]) :: lastRoot)
+        }
+        case b: Bundle => {
+          rootBndlRec(now.IFparent, (false, now.IFparent.asInstanceOf[Bundle]) :: lastRoot)
+        }
+        case _ => rootBndlRec(now.IFparent, lastRoot)
+      }
+    }
   }
   //def rootIFrec(now: Data, lastRoot: List[Interface]): List[Interface] = {
   //  if(now.IFparent == null) {
