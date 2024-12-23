@@ -66,3 +66,35 @@ case class BsbDownSizerAlignedMultiWidth(val p : BsbParameter, outputBytes : Lis
     }
   }
 }
+
+class BsbDownSizerDense(val p : BsbParameter, outputBytes : Int) extends Component{
+  assert(outputBytes == 1)
+
+  val io = new Bundle{
+    val input = slave(Bsb(p))
+    val output = master(Bsb(p.copy(byteCount = outputBytes)))
+  }
+
+  assert(p.byteCount >= outputBytes)
+  val ratio = p.byteCount/outputBytes
+  val used = Reg(Bits(p.byteCount bits)) init(0)
+  val masked = io.input.mask & ~used
+  val oh = OHMasking.firstV2(masked)
+  val some = masked.orR
+  val last = (masked & ~oh) === 0
+
+  when(io.output.fire){
+    used := used | oh
+    when(last){
+      used := 0
+    }
+  }
+
+  io.input.ready := io.output.ready && last
+  io.output.valid := io.input.valid
+  io.output.last := io.input.last && last
+  io.output.data   := OhMux(oh, io.input.data.subdivideIn(8 bits))
+  io.output.mask(0) := some
+  io.output.source := io.input.source
+  io.output.sink   := io.input.sink
+}

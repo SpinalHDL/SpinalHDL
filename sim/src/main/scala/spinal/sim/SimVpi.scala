@@ -8,11 +8,11 @@ import scala.sys._
 
 class VpiException(message: String) extends Exception(message)
 
-class SimVpi(backend: VpiBackend) extends SimRaw {
+class SimVpi(backend: VpiBackend, name: String) extends SimRaw {
 
   val filledByte = 255.toByte
   val zeroByte = 0.toByte
-  val (nativeIface, thread) = backend.instanciate()
+  val (nativeIface, thread) = backend.instanciate(name)
   val handleMap: HashMap[Int, Long] = new HashMap()
   val vectorInt8 = new VectorInt8()
 

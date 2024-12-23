@@ -85,6 +85,10 @@ abstract class BitVector extends BaseType with Widthable {
     }
   }
 
+  def norR : Bool = !orR
+  def nandR : Bool = !andR
+  def nxorR : Bool = !xorR
+
   /**
     * Compare a BitVector with a MaskedLiteral (M"110--0")
     * @example {{{ val myBool = myBits === M"0-1" }}}

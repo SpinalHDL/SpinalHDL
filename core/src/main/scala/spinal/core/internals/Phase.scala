@@ -1065,6 +1065,22 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
   }
 }
 
+class PhaseMemBlackBoxingGeneric(policy: MemBlackboxingPolicy) extends PhaseMemBlackBoxingWithPolicy(policy){
+  def doBlackboxing(topo: MemTopology): String = {
+    if (topo.mem.initialContent != null) {
+      return "Can't blackbox ROM"
+    }
+
+    topo.mem.component.rework {
+      val bb = new Ram_Generic(topo, PhaseMemBlackBoxingGeneric.this)
+      removeMem(topo.mem)
+    }
+
+    return null
+  }
+}
+
+
 object classNameOf{
   def apply(that : Any): String = {
     val name = that.getClass.getSimpleName.replace("$",".").split("\\.").head
@@ -1726,6 +1742,40 @@ class PhaseCheckCrossClock() extends PhaseCheck{
     }
 
 
+    def populateCdTag(that : BaseType): Unit = {
+      val cds = mutable.LinkedHashSet[ClockDomain]()
+      def walk(n : BaseNode): Unit = n match {
+        case node: SpinalTagReady if node.hasTag(classOf[ClockDomainTag]) =>
+          cds += node.getTag(classOf[ClockDomainTag]).get.clockDomain
+        case node: BaseType =>
+          if (node.isReg) {
+            cds += node.clockDomain
+          } else {
+            node.foreachStatements(s => walk(s))
+          }
+        case node: AssignmentStatement =>
+          node.foreachDrivingExpression(e => walk(e))
+          node.walkParentTreeStatementsUntilRootScope(s => walk(s))
+        case node: TreeStatement => node.foreachDrivingExpression(e => walk(e))
+        case node: Mem[_] => ???
+        case node: MemReadAsync => node.foreachDrivingExpression(e => walk(e))
+        case node: MemReadSync => cds += node.clockDomain
+        case node: MemReadWrite => cds += node.clockDomain
+        case node: Expression => node.foreachDrivingExpression(e => walk(e))
+      }
+
+      if(!that.isReg){
+        that.foreachStatements(walk)
+        for(cd <- cds) that.addTag(new ClockDomainTag(cd))
+      }
+    }
+
+    pc.topLevel.getAllIo.filter(_.isOutput).foreach(populateCdTag)
+    pc.walkComponents{
+      case bb : BlackBox if bb.isBlackBox => bb.getAllIo.filter(_.isInput).foreach(populateCdTag)
+      case _ =>
+    }
+
 
     walkStatements(s => {
       var walked = 0
@@ -1780,7 +1830,7 @@ class PhaseCheckCrossClock() extends PhaseCheck{
 
         //Add tag to the toplevel inputs and blackbox inputs as a report
         node match {
-          case bt : BaseType if bt.component == topLevel || bt.component.isInBlackBoxTree && !bt.isDirectionLess=> bt.addTag(ClockDomainReportTag(clockDomain))
+          case bt : BaseType if (bt.component == topLevel || bt.component.isInBlackBoxTree) && !bt.isDirectionLess => bt.addTag(ClockDomainReportTag(clockDomain))
           case _ =>
         }
 

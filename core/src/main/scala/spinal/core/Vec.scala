@@ -54,6 +54,17 @@ trait VecFactory {
     def fill[T <: Data](size: Int)(dataType: => T): Vec[T] = {
       Vec((0 until size).map(_ => dataType), HardType(dataType)).setElementsParents()
     }
+    def fill[T <: Data](n1: Int, n2: Int)(elem: => T): Vec[Vec[T]] =
+      tabulate(n1)(_ => fill(n2)(elem))
+
+    def fill[T <: Data](n1: Int, n2: Int, n3: Int)(elem: => T): Vec[Vec[Vec[T]]] =
+      tabulate(n1)(_ => fill(n2, n3)(elem))
+
+    def fill[T <: Data](n1: Int, n2: Int, n3: Int, n4: Int)(elem: => T): Vec[Vec[Vec[Vec[T]]]] =
+      tabulate(n1)(_ => fill(n2, n3, n4)(elem))
+
+    def fill[T <: Data](n1: Int, n2: Int, n3: Int, n4: Int, n5: Int)(elem: => T): Vec[Vec[Vec[Vec[Vec[T]]]]] =
+      tabulate(n1)(_ => fill(n2, n3, n4, n5)(elem))
   }
   val Vec = new VecBuilder()
 }

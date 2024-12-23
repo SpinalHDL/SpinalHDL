@@ -187,18 +187,24 @@ class FlowCmdRsp[T <: Data, T2 <: Data](cmdType : HardType[T], rspType : HardTyp
  * Will use the BaseType.clockDomain to figure out how to connect 2 signals together (allowed use StreamCCByToggle)
  */
 object DataCc{
-  def apply[T <: BaseType](to : T, from : T): Unit = {
-    ClockDomain.areSynchronous(to.clockDomain, from.clockDomain) match {
-      case true => to := from
+  def apply[T <: BaseType](to : T, from : T)(initValue : => T): Unit = {
+    apply(to, from, to.clockDomain, from.clockDomain)(initValue)
+  }
+  def apply[T <: BaseType](from : T, fromCd : ClockDomain, toCd : ClockDomain)(initValue : => T) : T = {
+    ClockDomain.areSynchronous(toCd, fromCd) match {
+      case true => from
       case false => {
-        to := signalCache((from, to.clockDomain, "DataCc")) {
-          val cc = new StreamCCByToggle(to, from.clockDomain, to.clockDomain).setCompositeName(to, "cc_driver")
+        signalCache((from, fromCd, toCd, "DataCc")) {
+          val cc = new StreamCCByToggle(from, fromCd, toCd, initPayload = initValue).setCompositeName(from, "cc_driver")
           cc.io.input.valid := True
           cc.io.input.payload := from
           cc.io.output.ready := True
-          cc.io.output.payload
+          CombInit(cc.io.output.payload)
         }
       }
     }
+  }
+  def apply[T <: BaseType](to : T, from : T, toCd : ClockDomain, fromCd : ClockDomain)(initValue : => T): Unit = {
+    to := apply(from, fromCd, toCd)(initValue)
   }
 }
