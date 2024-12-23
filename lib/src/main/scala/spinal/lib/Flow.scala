@@ -26,16 +26,8 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Interface with IMast
 
   override def clone: Flow[T] = Flow(payloadType).asInstanceOf[this.type]
 
-  override def asMaster(): Unit = mst
-  @modport
-  def mst = {
-    out(this)
-  }
-  override def asSlave() : Unit = slv
-  @modport
-  def slv = {
-    in(this)
-  }
+  override def asMaster(): Unit = out(this)
+  override def asSlave() : Unit = in(this)
 
 
   override def freeRun(): this.type = this
