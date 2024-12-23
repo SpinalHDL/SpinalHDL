@@ -49,9 +49,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       if(!svInterface.isEmpty) {
         outFile.write("\n")
         for ((name, interface) <- svInterface) {
-          //for (interfaceString <- interface) {
-            outFile.write(interface.result())
-          //}
+          outFile.write(interface.result())
         }
       }
 
@@ -101,9 +99,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
           val ifFileName = pc.config.targetDirectory + "/" + name + (if(pc.config.isSystemVerilog) ".sv" else ".v")
           val ifFile = new java.io.FileWriter(ifFileName)
           ifFile.write("\n")
-          //for (interfaceString <- interface.interfaceStringSet) {
-            ifFile.write(interface.result())
-          //}
+          ifFile.write(interface.result())
           ifFile.flush()
           ifFile.close()
           fileList += ifFileName
@@ -344,9 +340,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                         }
                       }
                       case None => {
-                        println(
-                          s"eek! couldn't find this nodeElemName:${nodeElemName}"
-                        )
+                        println(s"eek! couldn't find this nodeElemName:${nodeElemName}")
                         assert(false)
                         return null
                       }
@@ -357,10 +351,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                     && nodeIntf.IFvecParent != null
                     && otherIntf.IFvecParent != null
                   ) {
-                    if (
-                      //vecChainArr.size > 0 && vecChainArr.last(0) != nodeIntf.IFvecParent
-                      vecChainArr.size == 0
-                    ) {
+                    if (vecChainArr.size == 0) {
                       nodeIntf.IFvecParent match {
                         case vecParent: Vec[_] => {
                           vecChainArr.find(_ == vecParent) match {
@@ -375,8 +366,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                         case _ =>
                       }
                     }
-                    //else {
-                    //}
                   }
                   return CmpResultKind.Same
                 } else {
@@ -390,12 +379,10 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             }
           }
           case _ => {
-            //return CmpResultKind.Other
             return CmpResultKind.Diff
           }
         }
       }
-      // TODO: support non-`Interface` `Bundle`s
       case nodeBndl: Bundle => {
         otherNodeData match {
           case otherBndl: Bundle => {
@@ -415,11 +402,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                       }
                     }
                     case None => {
-                      //println(
-                      //  s"eek! couldn't find this nodeElemName:${nodeElemName}"
-                      //)
-                      //assert(false)
-                      //return null
                       return CmpResultKind.Diff
                     }
                   }
@@ -430,8 +412,11 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
               }
             } else {
               return (
-                CmpResultKind.Same
-                //CmpResultKind.Diff
+                if (nodeBndl.elementsCache == null && otherBndl.elementsCache == null) (
+                  CmpResultKind.Same
+                ) else (
+                  CmpResultKind.Diff
+                )
               )
             }
           }
@@ -455,17 +440,13 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                       null
                     )
                   ),
-                  //atTop=false,
-                  //parentsAreVecs=true,
                 )
                 if (cmpResult != CmpResultKind.Same) {
-                  //return false
                   return CmpResultKind.Diff
                 }
               }
               if (
                 vecChainArr != null) {
-                //vecSizeArr += nodeVec.size
                 vecChainArr.find(_ == nodeVec) match {
                   case Some(_) => {
                     if (vecChainArr.size > 1) {
@@ -477,10 +458,8 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                   }
                 }
               }
-              //return true
               return CmpResultKind.Same
             } else {
-              //return false
               return CmpResultKind.Diff
             }
           }
@@ -498,7 +477,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
   }
   def getParentVec(
     someNode: Data,
-    //lastRoot: Data,
     svInterfaceVecFound: mutable.HashSet[Data],
     shouldStopFunc: (Data) => Boolean,
   ): Data = {
@@ -514,7 +492,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             if (!svInterfaceVecFound.contains(elem)) {
               svInterfaceVecFound += elem
               if (elem == someNode) {
-                //svInterfaceVecFound += elem
                 found = true
               }
             }
@@ -538,11 +515,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
       } else {
         Some((s"${name}_${a}".stripPrefix("_"), x))
       }
-      case (a, x: Vec[_]) => //if(x != node) {
-        getElemName(node, x.elements, s"${name}_${a}").map(x => (x._1.stripPrefix("_"), x._2))
-      //} else {
-      //  Some((s"${name}_${a}".stripPrefix("_"), x))
-      //}
+      case (a, x: Vec[_]) => getElemName(node, x.elements, s"${name}_${a}").map(x => (x._1.stripPrefix("_"), x._2))
       case (a, x) => if(x == node) Some((s"${name}_${a}".stripPrefix("_"), x)) else None
     }.headOption
   }
@@ -597,25 +570,14 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             sizeZero.add(name)
         }
         case x => {
-          genSig(
-            ret,
-            //if (subIntfVecSize == 0) (
-              s"${name}_${name1}",
-            //) else (
-            //  s"${name}[${subIntfVecSize}]"
-            //),
-            x,
-          )
+          genSig(ret, s"${name}_${name1}", x)
         }
       }
     }
     def genSig[T <: Data](ret: StringBuilder, name: String, elem: T, doConvertIntfVec: Boolean=false): Unit = {
       elem match {
         case node: Interface if (!node.thisIsNotSVIF) => {
-          @inline def myGetParentVec(
-            someNode: Data,
-            //lastRoot: Data,
-          ): Data = (
+          @inline def myGetParentVec(someNode: Data): Data = (
             getParentVec(
               someNode=someNode,
               svInterfaceVecFound=svInterfaceVecFound,
@@ -695,9 +657,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                     svInterfaceVecFound += vecElem
                   }
                   case _ => {
-                    println(
-                      s"eek! chainVec:(${chainVec.getName()} ${chainVec.size}) ${vecElemIdx}"
-                    )
+                    println(s"eek! chainVec:(${chainVec.getName()} ${chainVec.size}) ${vecElemIdx}")
                     assert(false)
                   }
                 }
@@ -751,7 +711,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
       }
     }
     ret ++= "\n"
-    if(pc.config.svInterfaceIncludeModport && !interface.thisIsNotSVModport) {
+    if(pc.config.svInterfaceIncludeModport && !interface.thisIsNotSVmodport) {
       if (interface.thisIsSVstruct) {
         LocatedPendingError(s"sv struct cannot contain sv modport")
       } else {
@@ -783,9 +743,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                   modportString ++= f"${theme.porttab}${theme.porttab}${dir}%-15s ${name},\n"
                 }
                 case elem: Interface if !elem.thisIsNotSVIF => {
-                  //if (elem.thisIsSVstruct) {
-                  //  LocatedPendingError(s"sv struct cannot contain sv modport")
-                  //}
                   //TODO:check more than one modport has same `in` `out` direction
                   val modport = if(elem.checkModport().isEmpty) {
                     LocatedPendingError(s"no suitable modport found for ${elem}")
@@ -824,8 +781,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           }
       }
     }
-    //else {
-    //}
     ret ++= (
       if (!interface.thisIsSVstruct) {
         "endinterface\n\n"
@@ -860,25 +815,16 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             interface.IFparent == null
             || rootIFList.size == 0
           ) {
-            //interface.setName(interface.component.localNamingScope.allocateName(
-            //  s"zzz_Interface_${someName}"
-            //))
-            //(interface.component.localNamingScope.haveName(newName)._1, newName)
-
             // I believe this will be handled with the `rootIF()` stuff below... right?
-            //None
             val myHaveName = node.component.localNamingScope.haveName(newName)
             if (myHaveName._1) {
               doAllocateName(
                 interface=interface,
                 rootIFList=rootIFList,
                 someName=someName,
-                //doFinal=doFinal,
-                //firstIter=false,
                 count=count + 1
               )
             } else {
-              //None
               Some(newName)
             }
           } else {
@@ -887,9 +833,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                 assert(
                   parentIntf != interface
                 )
-                //println(
-                //  s"parentIntf == interface? ${parentIntf == interface}"
-                //)
                 parentIntf.elementsCache.find{elem => (
                   (
                     elem._1 == newName 
@@ -899,20 +842,14 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                   )
                 )} match {
                   case Some(_) => {
-                    //println(
-                    //  s"already had this newName: ${newName}"
-                    //)
                     doAllocateName(
                       interface=interface,
                       rootIFList=rootIFList,
                       someName=someName,
-                      //doFinal=doFinal,
-                      //firstIter=false,
                       count=count + 1
                     )
                   }
                   case None => {
-                    //intfParent.setName(newName)
                     Some(newName)
                   }
                 }
@@ -920,14 +857,10 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
               case _ => {
                 interface match {
                   case interface: Interface => {
-                    println(
-                      s"eek! (${interface.definitionName})"
-                    )
+                    println(s"eek! (${interface.definitionName})")
                   }
                   case _ => {
-                    println(
-                      "eek! (unknown `interface.definitionName`)"
-                    )
+                    println("eek! (unknown `interface.definitionName`)")
                   }
                 }
                 None //null
@@ -951,17 +884,9 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                   count=0,
                 ) match {
                   case Some(newName) => {
-                    //println(
-                    //  s"setName: "
-                    //  + s"${interface.definitionName} ${newName}"
-                    //)
                     interface.setName(newName)
                   }
-                  case None => {
-                    //println(
-                    //  s"no set name? ${interface.definitionName}"
-                    //)
-                  }
+                  case None =>
                 }
                 outerDoAllocateName(
                   interface=interface.IFparent
@@ -983,8 +908,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
       case _ =>
     }
     //--------
-    //--------
-    //val svIntfRoot = mutable.LinkedHashSet[Interface]()
     def mkNewGraph(
       interface: Interface,
     ): SvifGraph = {
@@ -997,10 +920,9 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
       )
     }
     val svIntfWalkDataMap = mutable.HashMap[String, mutable.HashSet[Interface]]()
-    println(
-      s"creating nodeWalkDataMap etc." 
-    )
-    //var maxRootIFListSize: Int = 0
+    //println(
+    //  s"creating nodeWalkDataMap etc." 
+    //)
     def updateWalkData(
       nodeData: Data
     ): Unit = {
@@ -1056,7 +978,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
       nodeOdn: String,
       nodeIntf: Interface,
       nodeGraph: SvifGraph,
-      //nodeIntfSet: mutable.HashSet[Interface],
     ): Unit = {
       def innerUpdate(
         nodeIntf: Interface,
@@ -1079,7 +1000,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           }
         }
       }
-      //assert(!nodeGraph.intfSet.contains(nodeIntf))
       if (innerUpdate(
         nodeIntf=nodeIntf,
         otherNodeIntf=nodeGraph.anyIntf,
@@ -1106,7 +1026,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
               nodeOdn=nodeOdn,
               nodeIntf=nodeIntf,
               nodeGraph=graphRoot
-              //nodeIntfSet=nodeIntfSet,
             )
           }
           case None => {
@@ -1114,7 +1033,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
             svIntfGraphMap += (
               nodeOdn -> newGraph
             )
-            //svIntfGraphArr.prepend((nodeOdn, newGraph))
           }
         }
       }
@@ -1122,81 +1040,27 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     //--------
     walkDeclarations {
       case node: BaseType if (node.hasTag(IsInterface)) => {
-        //last match {
-        //  case interface: Interface => {
-        //    insertIFmap(
-        //      interface=interface,
-        //      //firstIter=true,
-        //      count=0
-        //    )
-        //  }
-        //  case _ =>
-        //}
         val rootIF = node.rootIF()
         if(!allocated.contains(rootIF)) {
           rootIF.setName(node.component.localNamingScope.allocateName(rootIF.getName()))
           allocated += rootIF
         }
-        //val IFlist = node.rootIFList()
         def innerFunc(
           someNode: Data,
-          //IFlist: List[Interface],
         ): Unit = {
-          //@inline def myGetElemName(
-          //  cache: ArrayBuffer[(String, Data)], name: String
-          //): Option[(String, Data)] = {
-          //  getElemName(someNode, cache, name)
-          //}
           val IFlist = someNode.rootIFList().reverse
 
           var newName: String = ""
-          //(
-          //  getElemName(someNode, IFlist(0).elementsCache, "").getOrElse("no_name", null)._1
-          //)
-          //var tempName: String = ""
-          //var (prevIntfIsInterface, prevIntf) = IFlist(0)
           var prevIntf = IFlist(0)
-          var prevName: String = (
-            getElemName(someNode, prevIntf.elementsCache, "").getOrElse("no_name", null)._1
-          )
+          var prevName: String = getElemName(someNode, prevIntf.elementsCache, "").getOrElse("no_name", null)._1
           newName = prevName
-          //newName = prevName
-          for ((/*(intfIsInterface,*/ intf/*)*/, intfIdx) <- IFlist.view.zipWithIndex) {
-            //val tempNode: Data = (
-            //  if (intfIdx == IFlist.view.size - 1) (
-            //    someNode
-            //  ) else (
-            //    IFlist.view(intfIdx + 1)
-            //  )
-            //)
+          for ((intf, intfIdx) <- IFlist.view.zipWithIndex) {
             if (intfIdx > 0) {
-              //val myFound = intf.elementsCache.find{
-              //  current => {
-              //    //current._1 == prevName
-              //    current._2 == (
-              //      prevIntf
-              //    )
-              //  }
-              //} match { //.getOrElse("no_name", null)
-              //  case Some((name, elem)) => {
-              //    (name, elem)
-              //  }
-              //  case None => {
-              //    ("no_name", null)
-              //  }
-              //}
               val myFound = getElemName(
-                node=prevIntf, cache=intf.elementsCache, name="" //prevName
+                node=prevIntf, cache=intf.elementsCache, name=""
               ).getOrElse("no_name", null)
-              //println(
-              //  s"debug: "
-              //  + s"${myFound._1}; "
-              //  + s"${prevName} ${prevIntf.getName()}; "
-              //  + s"${intf.getName()}; "
-              //  + s"${intfIdx}"
-              //)
               prevName = myFound._1
-              var tempName: String = prevName //+ ""
+              var tempName: String = prevName
 
               val tempSvInterfaceVecFound = mutable.HashSet[Data]()
               val myParentVec: Data = getParentVec(
@@ -1247,51 +1111,25 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                     assert(false)
                   }
                 }
-                //val temp = (s"${name}[${a}]", x)
-                //println(
-                //  s"testificate: ${temp}"
-                //)
-                //if(x == node) Some(temp) else None
               }
               newName = (
                 tempName
-                //+ (if (intfIdx != 0) "." else "")
-                //+ (if (prevIntfIsInterface) "." else "_")
                 + "."
                 + newName
-                //+ {
-                //  tempName = getElemName(
-                //    tempNode, intf.elementsCache, tempName
-                //  ).getOrElse("no_name", null)._1
-                //  tempName
-                //}
               )
             }
-            //prevIntfIsInterface = intfIsInterface
             prevIntf = intf
             if (intfIdx == IFlist.view.size - 1) {
               newName = (
                 intf.getName()
-                //+ (if (prevIntfIsInterface) "." else "_")
                 + "."
                 + newName
               )
             }
           }
           someNode.name = newName
-          //innerFunc(
-          //  someNode=IFlist.last,
-          //)
         }
-        innerFunc(
-          someNode=node,
-          //IFlist=node.rootIFList(),
-        )
-        //def outerFunc(
-        //  //someNode: Data
-        //): Unit = {
-        //  val IFlist = someNode.rootIFList()
-        //}
+        innerFunc(someNode=node)
       }
       case _ =>
     }
@@ -1301,15 +1139,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         globalScope.lock = false
         val newName = globalScope.allocateName(mkNewName(graph.origDefinitionName, graph.count))
         globalScope.lock = true
-        def func(interface: Interface) {
-          //if (interface.origDefinitionName != graph.origDefinitionName) {
-          //  println(
-          //    s"eek! origDefinitionName not same: "
-          //    + s"interface:${interface.origDefinitionName} "
-          //    + s"graph:${graph.origDefinitionName}"
-          //  )
-          //}
-          //assert(interface.origDefinitionName == graph.origDefinitionName)
+        def func(interface: Interface) = {
           interface.setDefinitionName(name=newName)
         }
         for (interface <- graph.intfSet.view) {
@@ -1328,7 +1158,6 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
       }
       if (mode == 0 || mode == 2) {
         if (graph.child != null) {
-          // have to iterate backwards
           lastPasses(
             graph=graph.child,
             mode=mode
@@ -1336,13 +1165,10 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         }
       }
     }
-    //for ((name, graph) <- svIntfGraphMap) {
-    //  svIntfGraphArr.prepend((name, graph))
-    //}
     for (mode <- 0 to 2) {
-      println(
-        s"now on mode ${mode}"
-      )
+      //println(
+      //  s"now on mode ${mode}"
+      //)
       if (mode == 0 || mode == 2) {
         for ((name, graph) <- svIntfGraphMap) {
           lastPasses(graph=graph, mode=mode)
@@ -1365,18 +1191,13 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                       lastPasses(graph=graph, mode=mode)
                     }
                     case None => {
-                      println(
-                        s"eek! (inner) ${intf.getName()} ${intf.origDefinitionName}"
-                      )
+                      println(s"eek! (inner) ${intf.getName()} ${intf.origDefinitionName}")
                       assert(false)
                     }
                   }
                 }
                 case None => {
-                  println(
-                    s"eek! (outer) ${intf.getName()} ${intf.origDefinitionName}"
-                    //s"Found `Bundle`? (outer) ${intf.getName()} ${intf.origDefinitionName}"
-                  )
+                  println(s"eek! (outer) ${intf.getName()} ${intf.origDefinitionName}")
                   assert(false)
                 }
               }
@@ -1389,12 +1210,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           case _ =>
         }
       }
-      //for ((name, graph) <- svIntfGraphArr) {
-      //  //lastPasses(graph=graph, mode=mode)
-      //}
     }
-
-    //println("lastPass phase done" )
     //--------
   }
 }

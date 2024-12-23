@@ -114,59 +114,9 @@ class PhaseContext(val config: SpinalConfig) {
 
   def sortedComponents = components().sortWith(_.level > _.level)
 
-  case class TempSvifArrElem(
-    val interface: Interface,
-    var interfaceString: StringBuilder,
-  ) {
-  }
-  //case class TempSVIF(
-  //  ////var interface: Interface,
-  //  ////var strBuilder: StringBuilder,
-  //  //var interfaceString: StringBuilder,
-  //  //var nameCount: Int,
-  //  // `intfSet` needs to not be changed to `mutable.HashSet[Interface]` since we use `.zipWithIndex`
-  //  //val intfArr: mutable.LinkedHashSet[Interface], 
-  //  val interfaceStringSet: mutable.LinkedHashSet[StringBuilder],
-  //  val intfArr: mutable.ArrayBuffer[TempSvifArrElem],
-  //) {
-  //  //def getNewName(): String = {
-  //  //  var ret: String = ""
-  //  //  for ((intf, idx) <- intfArr.zipWithIndex) {
-  //  //    if (idx == 0) {
-  //  //      ret = Interface.mkNewName(intf.origDefinitionName, intf.definitionNameCount)
-  //  //      //assert(
-  //  //      //  interface == intf
-  //  //      //)
-  //  //      //return ret
-  //  //    } else {
-  //  //      val nextNewName = Interface.mkNewName(intf.origDefinitionName, intf.definitionNameCount)
-  //  //      if (ret != nextNewName) {
-  //  //        println(
-  //  //          s"TempSVIF eek! ret:${ret} nextNewName:${nextNewName}"
-  //  //        )
-  //  //      }
-  //  //      assert(ret == nextNewName)
-  //  //    }
-  //  //  }
-  //  //  return ret
-  //  //}
-  //}
-  //case class TempSVIF1(
-  //  var interface: Interface,
-  //  var interfaceString: StringBuilder,
-  //) {
-  //}
   val svIntfGraphMap = mutable.HashMap[String, SvifGraph]()
-  //val svIntfGraphArr = mutable.ArrayBuffer[(String, SvifGraph)]()
-  var svInterface = (
-    //mutable.ArrayBuffer[(String, StringBuilder)]()
-    mutable.LinkedHashMap[String, StringBuilder]()
-  )
-  //var svInterfaceFound = mutable.LinkedHashSet[TempInterface]()
-  val svRootIntfFound = (
-    mutable.HashSet[Interface]() //mutable.LinkedHashMap[String, mutable.ArrayBuffer[TempInterface]]()
-    //mutable.HashSet[Interface]()
-  )
+  var svInterface = mutable.LinkedHashMap[String, StringBuilder]()
+  val svRootIntfFound = mutable.HashSet[Interface]()
 
   def walkAll(func: Any => Unit): Unit = {
     GraphUtils.walkAllComponents(topLevel, c => {

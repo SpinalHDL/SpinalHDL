@@ -95,7 +95,7 @@ class ComponentEmitterVerilog(
           declaredInterface += rootIF
           val intName = rootIF.definitionName
           //TODO:check more than one modport has same `in` `out` direction
-          val tempModportCheck = spinalConfig.svInterfaceIncludeModport && !rootIF.thisIsNotSVModport
+          val tempModportCheck = spinalConfig.svInterfaceIncludeModport && !rootIF.thisIsNotSVmodport
           //if (tempModportCheck) {
             val modport = if (tempModportCheck) {
               if(rootIF.checkModport().isEmpty) {

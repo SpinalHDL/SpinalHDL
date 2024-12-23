@@ -46,7 +46,7 @@ object Interface {
 class Interface extends Bundle {
   var definitionName: String = this.getClass.getSimpleName
   var origDefinitionName: String = null//this.getClass.getSimpleName
-  var thisIsNotSVModport = false
+  var thisIsNotSVmodport = false
   var thisIsNotSVIF = false
   var thisIsSVstruct = false
   var noConvertSVIFvec = false
@@ -81,39 +81,11 @@ class Interface extends Bundle {
   }
 
   override def valCallbackRec(ref: Any, name: String): Unit = {
-    //def checkForBundleWithIntfElem(elem: Data, name: String): Unit = {
-    //  elem match {
-    //    case intf: Interface => {
-    //      LocatedPendingError(s"sv interface is still under develop. by now Interface cannot be contained inside Bundle that is contained inside Interface")
-    //      return
-    //    }
-    //    case bndl: Bundle => {
-    //      if (bndl.elementsCache != null) {
-    //        for ((name, elem) <- bndl.elementsCache) {
-    //          checkForBundleWithIntfElem(elem=elem, name=name)
-    //        }
-    //      }
-    //    }
-    //    case vec: Vec[_] => {
-    //      for ((elem, idx) <- vec.zipWithIndex) {
-    //        checkForBundleWithIntfElem(
-    //          elem=elem,
-    //          name=s"${elem}_${idx}"
-    //        )
-    //      }
-    //    }
-    //    case _ =>
-    //  }
-    //}
     def checkForErrors(
       elem: Data, name: String, foundStruct: Boolean=false, foundBundle: Boolean=false
     ): Unit = {
       elem match {
         case intf: Interface => {
-          //if (foundBundle) {
-          //  LocatedPendingError(s"sv interface is still under develop. by now Interface cannot be contained inside Bundle that is contained inside Interface")
-          //  return
-          //}
           if (!intf.thisIsSVstruct && foundStruct) {
             LocatedPendingError(s"sv interface cannot be contained inside sv struct")
             return
@@ -186,9 +158,7 @@ class Interface extends Bundle {
           }
           case b: Bundle => {
             b.flattenForeach(x => x.addTag(IsInterface))
-            //b.parent = this
             super.valCallbackRec(ref, name)
-            //checkForBundleWithIntfElem(elem=b, name=name)
             checkForErrors(
               elem=b,
               name=name,
@@ -275,7 +245,6 @@ class Interface extends Bundle {
     }
     this.thisIsNotSVIF = true
   }
-
   def notSVIFthisLevel(): Unit = {
     this.elementsCache.foreach{case (name, x) => x match {
       case s: BaseType => s.removeTag(IsInterface)
@@ -283,19 +252,20 @@ class Interface extends Bundle {
     }}
     this.thisIsNotSVIF = true
   }
-  def notSVModport(): this.type = {
+
+  def notSVmodport(): this.type = {
     this.elementsCache.foreach{
-      case (name, x: Interface) => x.notSVModport()
+      case (name, x: Interface) => x.notSVmodport()
       case _ =>
     }
-    this.thisIsNotSVModport = true
+    this.thisIsNotSVmodport = true
+    this
+  }
+  def notSVmodportThisLevel(): this.type = {
+    this.thisIsNotSVmodport = true
     this
   }
 
-  def notSVModportthisLevel(): this.type = {
-    this.thisIsNotSVModport = true
-    this
-  }
   def dontConvertSVIFvec(): this.type = {
     this.elementsCache.foreach{
       case (name, x: Interface) => x.dontConvertSVIFvec()
@@ -308,15 +278,18 @@ class Interface extends Bundle {
     this.noConvertSVIFvec = true
     this
   }
+
   def setAsSVstruct(): this.type = {
     this.elementsCache.foreach{
       case (name, x: Interface) => x.setAsSVstruct()
       case _ =>
     }
+    this.thisIsNotSVmodport = true
     this.thisIsSVstruct = true
     this
   }
   def setAsSVstructThisLevel(): this.type = {
+    this.thisIsNotSVmodport = true
     this.thisIsSVstruct = true
     this
   }
