@@ -185,7 +185,8 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var withTimescale              : Boolean = true,
                         var printFilelist              : Boolean = true,
                         var emitFullComponentBindings  : Boolean = true,
-                        var svInterface                : Boolean = false
+                        var svInterface                : Boolean = false,
+                        var svInterfaceIncludeModport  : Boolean = true
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
