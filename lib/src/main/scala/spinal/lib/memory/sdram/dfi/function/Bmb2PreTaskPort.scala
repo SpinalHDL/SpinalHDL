@@ -12,7 +12,7 @@ case class BmbToPreTaskPort(ip: BmbParameter, taskConfig: TaskConfig, dfiConfig:
     val inputBurstLast = in Bool ()
     val output = master(PreTaskPort(taskConfig, dfiConfig))
   }
-  val cmdToRspCount = io.output.cmd.write ? U(0) | (io.output.cmd.length +^ 1) << log2Up(beatCount)
+  val cmdToRspCount = io.output.cmd.write ? U(1) | (io.output.cmd.length +^ 1) << log2Up(beatCount)
   val rspPendingCounter = Reg(UInt(log2Up(taskParameter.rspBufferSize + 1) bits)) init (0)
   val toManyRsp =
     (U"0" @@ rspPendingCounter) + cmdToRspCount > taskParameter.rspBufferSize // taskParameter.rspBufferSize - taskParameter.beatPerBurst*dfiConfig.beatCount //Pessimistic
@@ -25,7 +25,7 @@ case class BmbToPreTaskPort(ip: BmbParameter, taskConfig: TaskConfig, dfiConfig:
   cmdContext.context := io.input.cmd.context
   cmdContext.source := io.input.cmd.source
 
-  io.output.cmd.valid := io.input.cmd.firstFire
+  io.output.cmd.valid := io.input.cmd.lastFire
   io.output.cmd.write := io.input.cmd.isWrite
   io.output.cmd.address := io.input.cmd.address
   assert(widthOf(io.output.cmd.length) >= widthOf(io.input.cmd.length) - log2Up(bytePerBurst))
@@ -88,7 +88,7 @@ case class BmbAdapter(bmbp: BmbParameter, taskConfig: TaskConfig, dfiConfig: Dfi
     assert(taskParameter.rspBufferSize * bytePerBeat >= splitLength)
 
     val spliter = BmbAlignedSpliter(aligner.io.output.p, splitLength)
-    spliter.io.input << aligner.io.output
+    spliter.io.input << aligner.io.output.pipelined(cmdValid = true, cmdReady = true)
 
     val converter = BmbToPreTaskPort(spliter.io.output.p, taskConfig, dfiConfig)
     converter.io.input << spliter.io.output.pipelined(cmdValid = true)

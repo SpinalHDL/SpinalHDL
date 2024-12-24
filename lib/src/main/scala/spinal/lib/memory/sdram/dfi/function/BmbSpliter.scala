@@ -133,7 +133,7 @@ case class BmbAligner(ip: BmbParameter, alignmentWidth: Int) extends Component {
       io.input.rsp.source := context.source
 
       val forWrite = ip.access.canWrite generate new Area {
-        io.input.rsp.last clearWhen (context.write)
+        io.input.rsp.last.clearWhen(context.write).setWhen(io.output.rsp.lastFire)
       }
 
       val forRead = ip.access.canRead generate new Area {
@@ -154,7 +154,7 @@ case class BmbAligner(ip: BmbParameter, alignmentWidth: Int) extends Component {
           context.paddings.range
         ) < context.paddings || transferCounter > context.transfers))
 
-        io.input.rsp.last setWhen (transferCounter === context.transfers)
+        io.input.rsp.last setWhen (transferCounter === context.transfers & (transferCounter =/= 0))
         io.input.rsp.data := io.output.rsp.data
       }
 
@@ -219,9 +219,9 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
     ))
 
     val context = Context()
-    context.input := io.input.cmd.context
+    context.input := io.input.cmd.fire ? io.input.cmd.context | RegNextWhen(io.input.cmd.context, io.input.cmd.fire)
     context.last := lastSplit
-    context.write := io.input.cmd.isWrite
+    context.write := io.output.cmd.isWrite
     context.source := io.input.cmd.source
 
     io.output.cmd.valid := io.input.cmd.valid | ((rdBeatCounter === beatsInSplit - 1) & usedSplit)
@@ -259,16 +259,19 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
       when(io.output.cmd.lastFire) {
         rdBeatCounter := 0
       }
-    }
+    }otherwise(rdBeatCounter.clearAll())
 
-    when((io.input.cmd.lastFire & io.input.cmd.isWrite) | (io.input.rsp.lastFire)) {
-      splitCounter := 0
+    when((io.input.cmd.lastFire & io.input.cmd.isWrite)) {
       firstSplit := True
+    }
+    when(io.output.cmd.lastFire & lastSplit){
+      splitCounter := 0
     }
   }
   val rspLogic = new Area {
     val context = io.output.rsp.context.as(Context())
-    io.input.rsp.arbitrationFrom(io.output.rsp)
+    io.input.rsp.valid := io.output.rsp.valid & (context.write ? context.last | True)
+    io.output.rsp.ready := io.input.rsp.ready
     io.input.rsp.last := io.output.rsp.last && context.last
     io.input.rsp.source := context.source
     io.input.rsp.opcode := io.output.rsp.opcode
