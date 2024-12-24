@@ -45,28 +45,28 @@ object Interface {
           vecElem match {
             case intf: Interface if intf.thisIsNotSVmodport => {
               if (!innerCheckDir(self=intf, that=otherVecElem.asInstanceOf[Bundle])) {
-                println(
-                  s"debug ("
-                    + s"innerCheckDir("
-                      + s"self=intf, that=otherVecElem.asInstanceOf[Bundle]"
-                    + s") == false"
-                  + s"): "
-                  + s"intf:(${intf.getName()} ${intf.origDefinitionName} ${idx})"
-                  + s"someVec:(${someVec.getName()} ${someVec.size})"
-                  + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
-                )
+                //println(
+                //  s"debug ("
+                //    + s"innerCheckDir("
+                //      + s"self=intf, that=otherVecElem.asInstanceOf[Bundle]"
+                //    + s") == false"
+                //  + s"): "
+                //  + s"intf:(${intf.getName()} ${intf.origDefinitionName} ${idx})"
+                //  + s"someVec:(${someVec.getName()} ${someVec.size})"
+                //  + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
+                //)
                 return false
               }
-              println(
-                s"debug ("
-                  + s"innerCheckDir("
-                    + s"self=intf, that=otherVecElem.asInstanceOf[Bundle]"
-                  + s") == true"
-                + s"): "
-                + s"intf:(${intf.getName()} ${intf.origDefinitionName} ${idx})"
-                + s"someVec:(${someVec.getName()} ${someVec.size})"
-                + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
-              )
+              //println(
+              //  s"debug ("
+              //    + s"innerCheckDir("
+              //      + s"self=intf, that=otherVecElem.asInstanceOf[Bundle]"
+              //    + s") == true"
+              //  + s"): "
+              //  + s"intf:(${intf.getName()} ${intf.origDefinitionName} ${idx})"
+              //  + s"someVec:(${someVec.getName()} ${someVec.size})"
+              //  + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
+              //)
               //return true
               //otherVecElem match {
               //  case otherIntf: Interface if !otherIntf.thisIsNotSVmodport => {
@@ -82,28 +82,28 @@ object Interface {
             }
             case bndl: Bundle => {
               if (!innerCheckDir(self=bndl, that=otherVecElem.asInstanceOf[Bundle])) {
-                println(
-                  s"debug ("
-                    + s"innerCheckDir("
-                      + s"self=bndl, that=otherVecElem.asInstanceOf[Bundle]"
-                    + s") == false"
-                  + s"): "
-                  + s"bndl:(${bndl.getName()} ${idx})"
-                  + s"someVec:(${someVec.getName()} ${someVec.size})"
-                  + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
-                )
+                //println(
+                //  s"debug ("
+                //    + s"innerCheckDir("
+                //      + s"self=bndl, that=otherVecElem.asInstanceOf[Bundle]"
+                //    + s") == false"
+                //  + s"): "
+                //  + s"bndl:(${bndl.getName()} ${idx})"
+                //  + s"someVec:(${someVec.getName()} ${someVec.size})"
+                //  + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
+                //)
                 return false
               }
-              println(
-                s"debug ("
-                  + s"innerCheckDir("
-                    + s"self=bndl, that=otherVecElem.asInstanceOf[Bundle]"
-                  + s") == true"
-                + s"): "
-                + s"bndl:(${bndl.getName()} ${idx})"
-                + s"someVec:(${someVec.getName()} ${someVec.size})"
-                + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
-              )
+              //println(
+              //  s"debug ("
+              //    + s"innerCheckDir("
+              //      + s"self=bndl, that=otherVecElem.asInstanceOf[Bundle]"
+              //    + s") == true"
+              //  + s"): "
+              //  + s"bndl:(${bndl.getName()} ${idx})"
+              //  + s"someVec:(${someVec.getName()} ${someVec.size})"
+              //  + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
+              //)
               //otherVecElem match {
               //  //case otherIntf: Interface => {
               //  //  return false
@@ -120,29 +120,29 @@ object Interface {
               otherVecElem match {
                 case otherVec: Vec[_] => {
                   if (!myVecFunc(someVec=vec, otherVec=otherVec)) {
-                    println(
-                      s"debug (myVecFunc(...) == false): "
-                      + s"someVec:(${someVec.getName()} ${someVec.size})"
-                      + s"vecElem:(${vec.getName()} ${vec.size} ${idx})"
-                      + s"otherVecElem:(${otherVec.getName()} ${otherVec.size})"
-                    )
+                    //println(
+                    //  s"debug (myVecFunc(...) == false): "
+                    //  + s"someVec:(${someVec.getName()} ${someVec.size})"
+                    //  + s"vecElem:(${vec.getName()} ${vec.size} ${idx})"
+                    //  + s"otherVecElem:(${otherVec.getName()} ${otherVec.size})"
+                    //)
                     return false
                   }
-                  println(
-                    s"debug (myVecFunc(...) == true): "
-                    + s"someVec:(${someVec.getName()} ${someVec.size})"
-                    + s"vecElem:(${vec.getName()} ${vec.size} ${idx})"
-                    + s"otherVecElem:(${otherVec.getName()} ${otherVec.size})"
-                  )
+                  //println(
+                  //  s"debug (myVecFunc(...) == true): "
+                  //  + s"someVec:(${someVec.getName()} ${someVec.size})"
+                  //  + s"vecElem:(${vec.getName()} ${vec.size} ${idx})"
+                  //  + s"otherVecElem:(${otherVec.getName()} ${otherVec.size})"
+                  //)
                   //return true
                 }
                 case _ => {
-                  println(
-                    s"debug (otherVecElem not a `Vec[_]`): "
-                    + s"someVec:(${someVec.getName()} ${someVec.size})"
-                    + s"vecElem:(${vec.getName()} ${vec.size} ${idx})"
-                    + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
-                  )
+                  //println(
+                  //  s"debug (otherVecElem not a `Vec[_]`): "
+                  //  + s"someVec:(${someVec.getName()} ${someVec.size})"
+                  //  + s"vecElem:(${vec.getName()} ${vec.size} ${idx})"
+                  //  + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
+                  //)
                   return false
                 }
               }
@@ -151,30 +151,30 @@ object Interface {
               otherVecElem match {
                 case otherB: Bool => {
                   if (b.dir != otherB.dir) {
-                    println(
-                      s"debug Bool (b.dir != otherB.dir): "
-                      + s"someVec:(${someVec.getName()} ${someVec.size}) "
-                      + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
-                      + s"b:(${b.getName()} ${b.dir} ${idx}) "
-                      + s"otherB:(${otherB.getName()} ${otherB.dir} ${idx})"
-                    )
+                    //println(
+                    //  s"debug Bool (b.dir != otherB.dir): "
+                    //  + s"someVec:(${someVec.getName()} ${someVec.size}) "
+                    //  + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
+                    //  + s"b:(${b.getName()} ${b.dir} ${idx}) "
+                    //  + s"otherB:(${otherB.getName()} ${otherB.dir} ${idx})"
+                    //)
                     return false
                   }
-                  println(
-                    s"debug Bool (b.dir == otherB.dir): "
-                    + s"someVec:(${someVec.getName()} ${someVec.size}) "
-                    + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
-                    + s"b:(${b.getName()} ${b.dir} ${idx}) "
-                    + s"otherB:(${otherB.getName()} ${otherB.dir} ${idx})"
-                  )
+                  //println(
+                  //  s"debug Bool (b.dir == otherB.dir): "
+                  //  + s"someVec:(${someVec.getName()} ${someVec.size}) "
+                  //  + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
+                  //  + s"b:(${b.getName()} ${b.dir} ${idx}) "
+                  //  + s"otherB:(${otherB.getName()} ${otherB.dir} ${idx})"
+                  //)
                 }
                 case _ => {
-                  println(
-                    s"debug Bool (otherVecElem different type): "
-                    + s"someVec:(${someVec.getName()} ${someVec.size}) "
-                    + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
-                    + s"b:(${b.getName()} ${b.dir} ${idx}) "
-                  )
+                  //println(
+                  //  s"debug Bool (otherVecElem different type): "
+                  //  + s"someVec:(${someVec.getName()} ${someVec.size}) "
+                  //  + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
+                  //  + s"b:(${b.getName()} ${b.dir} ${idx}) "
+                  //)
                   return false
                 }
               }
@@ -183,13 +183,13 @@ object Interface {
               otherVecElem match {
                 case otherBv: BitVector => {
                   if (bv.dir != otherBv.dir) {
-                    println(
-                      s"debug BitVector (bv.dir != otherBv.dir): "
-                      + s"someVec:(${someVec.getName()} ${someVec.size}) "
-                      + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
-                      + s"bv:(${bv.getName()} ${bv.dir} ${idx}) "
-                      + s"otherBv:(${otherBv.getName()} ${otherBv.dir} ${idx})"
-                    )
+                    //println(
+                    //  s"debug BitVector (bv.dir != otherBv.dir): "
+                    //  + s"someVec:(${someVec.getName()} ${someVec.size}) "
+                    //  + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
+                    //  + s"bv:(${bv.getName()} ${bv.dir} ${idx}) "
+                    //  + s"otherBv:(${otherBv.getName()} ${otherBv.dir} ${idx})"
+                    //)
                     return false
                   }
                 }
@@ -199,12 +199,12 @@ object Interface {
               }
             )
             case bd: Data => {
-              println(
-                s"debug: other `Data` type: "
-                + s"bd:${bd.getName()} someVec:(${someVec.getName()} ${someVec.size}); "
-                + s"this element:(index=${idx}) "
-                + s"of this Vec: name=${someVec.getName()} size=${someVec.size}"
-              )
+              //println(
+              //  s"debug: other `Data` type: "
+              //  + s"bd:${bd.getName()} someVec:(${someVec.getName()} ${someVec.size}); "
+              //  + s"this element:(index=${idx}) "
+              //  + s"of this Vec: name=${someVec.getName()} size=${someVec.size}"
+              //)
               return false
             }
             case _ => {
@@ -219,11 +219,11 @@ object Interface {
         }
         return true
       } else {
-        println(
-          s"eek! debug (sizes don't match): "
-          + s"someVec:(${someVec.getName()} ${someVec.size}) "
-          + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
-        )
+        //println(
+        //  s"eek! debug (sizes don't match): "
+        //  + s"someVec:(${someVec.getName()} ${someVec.size}) "
+        //  + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
+        //)
         return false
       }
     }
@@ -241,18 +241,18 @@ object Interface {
             case i: Interface if i.thisIsNotSVmodport => {
               val temp = (innerCheckDir(self=i, that=other.asInstanceOf[Bundle]) && ret)
               //return ret //true //Interface.checkDir(self=i, x=None) && ret
-              println(
-                s"debug (innerCheckDir(self=i, that=other.asInstanceOf[Bundle]) == ${temp}): "
-                + s"i:(${i.getName()} ${i.origDefinitionName})"
-              )
+              //println(
+              //  s"debug (innerCheckDir(self=i, that=other.asInstanceOf[Bundle]) == ${temp}): "
+              //  + s"i:(${i.getName()} ${i.origDefinitionName})"
+              //)
               ret = temp
             }
             case b: Bundle => {
               val temp = innerCheckDir(self=b, that=other.asInstanceOf[Bundle]) && ret
-              println(
-                s"debug (innerCheckDir(self=b, that=other.asInstanceOf[Bundle]) == ${temp}): "
-                + s"b:(${b.getName()})"
-              )
+              //println(
+              //  s"debug (innerCheckDir(self=b, that=other.asInstanceOf[Bundle]) == ${temp}): "
+              //  + s"b:(${b.getName()})"
+              //)
               ret = temp
             }
             case v: Vec[_] => {
