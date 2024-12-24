@@ -11,8 +11,6 @@ class AddrMapMethod(
     val row = UInt(dfiConfig.sdram.rowWidth bits)
   }
 
-  def addressMap(addr: UInt) = mapMethod(dfiConfig.addrMap)(addr)
-
   def mapMethod(addrMap: AddrMap)(addr: UInt) = addrMap match {
     case RowBankColumn => AddrMapMethod.rowBankColumnMap(dfiConfig: DfiConfig, addr: UInt)
     case BankRowColumn => AddrMapMethod.bankRowColumnMap(dfiConfig: DfiConfig, addr: UInt)

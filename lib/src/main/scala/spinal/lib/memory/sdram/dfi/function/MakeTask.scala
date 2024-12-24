@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 
-case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
+case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrMap) extends Component {
   import dfiConfig._
   import taskConfig._
   import taskConfig.taskParameter._
