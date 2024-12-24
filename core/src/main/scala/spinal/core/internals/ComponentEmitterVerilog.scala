@@ -125,24 +125,13 @@ class ComponentEmitterVerilog(
             //haveAnySVstruct._1 
             rootIF.thisIsSVstruct
           ) {
-            //rootIF.checkDir(None)
             if (rootIF.dir == null) {
               LocatedPendingError(s"sv structs as ports must each have IO Direction")
             }
-            //if (!rootIF._2.checkDir(
-            //    x=None, checkStruct=true, rootIODir=rootIF._2.dir
-            //)) {
-            //  LocatedPendingError(s"sv structs as ports and all their fields must have the same IO direction")
-            //}
-            //assert(!tempModportCheck)
-            //if (!tempModportCheck) {
-              portMaps += f"${syntax}${dir}%6s ${rootIF.definitionName} ${rootIF.getName()}${EDAcomment}${comma}"
-            //}
+            portMaps += f"${syntax}${dir}%6s ${rootIF.definitionName} ${rootIF.getName()}${EDAcomment}${comma}"
           } else {
-            //if (tempModportCheck) {
-              val intMod = s"${intName}${tempModport}"
-              portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
-            //}
+            val intMod = s"${intName}${tempModport}"
+            portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
           }
         }
       } else {
@@ -472,8 +461,12 @@ class ComponentEmitterVerilog(
             val portAlign = s"%-${maxNameLength}s".format(rootIF.getNameElseThrow)
             val wireAlign = s"${netsWithSection(data)}".split('.')(0)
             val comma = if (rootIF.flatten.contains(ios.last)) " " else ","
-            val modport = rootIF.checkModport
-            val dirtag = if(modport.isEmpty) "" else rootIF.definitionName + "." + modport.head
+            val dirtag = if (spinalConfig.svInterfaceIncludeModport && !rootIF.thisIsNotSVmodport) {
+              val modport = rootIF.checkModport
+              (if(modport.isEmpty) "" else rootIF.definitionName + "." + modport.head)
+            } else {
+              rootIF.definitionName
+            }
             Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
           } else {
             None
