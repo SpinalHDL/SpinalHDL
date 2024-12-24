@@ -29,7 +29,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   val WTR = timing(io.output.write, timeConfig.WTR)
   val RTW = timing(io.output.read, timeConfig.RTW)
   val RP = timing(io.output.prechargeAll, timeConfig.RP + 1)
-  val FAW = sdram.generation.FAW generate new Area { // Can be optimized
+  val FAW = sdram.generation.useFAW generate new Area { // Can be optimized
     val trigger = io.output.active
     val ptr = RegInit(U"00")
     val slots = (0 to 3).map(i => timing(ptr === i && trigger, timeConfig.FAW))
@@ -68,15 +68,15 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     val address = BusAddress(dfiConfig)
     val addrMapping = new Area {
       val rbcAddress = address.getRBCAddress(input.address)
-      val addrMap = AddrMapMethod(dfiConfig)
-      val TaskAddress = addrMap.addressMap(rbcAddress)
+      val addrMapMethod = AddrMapMethod(dfiConfig)
+      val TaskAddress = addrMapMethod.mapMethod(addrMap)(rbcAddress)
       address.byte.assignFromBits(address.getButeAddress(input.address).asBits)
       address.cs.assignFromBits(address.getCsAddress(input.address).asBits)
       address.assignUnassignedByName(TaskAddress.address)
     }
     val status = Status()
     status.allowPrecharge := True
-    status.allowActive := !RRD.busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
+    status.allowActive := !RRD.busy && (if (sdram.generation.useFAW) !FAW.busyNext else True)
     status.allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True)
     status.allowRead := !WTR.busy && (if (CCD != null) !CCD.busy else True)
     status.bankHit := banksRow.readAsync(address.bank) === address.row
@@ -98,7 +98,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
 
     import status._
     allowPrecharge := True
-    allowActive := !RRD.busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
+    allowActive := !RRD.busy && (if (sdram.generation.useFAW) !FAW.busyNext else True)
     allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True)
     allowRead := !WTR.busy && (if (CCD != null) !CCD.busy else True)
     bankHit.init(False)
@@ -171,7 +171,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     val offsetLast = offset + taskConstructor.input.length
     val canSpawn = !station.valid
     // Insert taskConstructor into one free station
-    when(taskConstructor.input.valid && canSpawn) {
+    when(taskConstructor.input.fire && canSpawn) {
       station.valid := True
       station.status := taskConstructor.status
       station.address.column := taskConstructor.address.column & columnBurstMask
