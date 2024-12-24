@@ -90,7 +90,8 @@ class ComponentEmitterVerilog(
         baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog
         && spinalConfig.svInterface 
       ) {
-        val rootIF = baseType.rootIF()
+        val rootIFList = baseType.rootIFList()
+        val rootIF = rootIFList(0)
         if(!declaredInterface.contains(rootIF)) {
           declaredInterface += rootIF
           val intName = rootIF.definitionName
@@ -111,11 +112,37 @@ class ComponentEmitterVerilog(
           } else {
             s""
           }
-          val intMod = s"${intName}${tempModport}"
-          portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
-          if (!tempModportCheck && rootIF.thisIsSVstruct) {
-            assert(!tempModportCheck)
-            portMaps += f"${syntax}${dir}%-20s ${rootIF.definitionName} ${rootIF.getName()}${EDAcomment}${comma}"
+          def getHaveAnyStruct(): (Boolean, Interface) = {
+            for (intf <- rootIFList) {
+              if (intf.thisIsSVstruct) {
+                return (true, intf)
+              }
+            }
+            return (false, null)
+          }
+          val haveAnySVstruct: (Boolean, Interface) = getHaveAnyStruct()
+          if (
+            //haveAnySVstruct._1 
+            rootIF.thisIsSVstruct
+          ) {
+            //rootIF.checkDir(None)
+            if (rootIF.dir == null) {
+              LocatedPendingError(s"sv structs as ports must each have IO Direction")
+            }
+            //if (!rootIF._2.checkDir(
+            //    x=None, checkStruct=true, rootIODir=rootIF._2.dir
+            //)) {
+            //  LocatedPendingError(s"sv structs as ports and all their fields must have the same IO direction")
+            //}
+            //assert(!tempModportCheck)
+            //if (!tempModportCheck) {
+              portMaps += f"${syntax}${dir}%6s ${rootIF.definitionName} ${rootIF.getName()}${EDAcomment}${comma}"
+            //}
+          } else {
+            //if (tempModportCheck) {
+              val intMod = s"${intName}${tempModport}"
+              portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
+            //}
           }
         }
       } else {

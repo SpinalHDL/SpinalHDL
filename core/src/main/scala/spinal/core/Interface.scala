@@ -15,6 +15,293 @@ object Interface {
       )
     )
   )
+  def checkDir(self: Bundle, x: Option[String]/*, checkStruct: Boolean=false, rootIODir: IODirection=null*/): Boolean = {
+    val t = self
+    val toplevel = self.globalData.toplevel
+    val phase = self.globalData.phaseContext.topLevel
+    self.globalData.toplevel = null
+    self.globalData.phaseContext.topLevel = null
+    val c = new Component {
+      val y = t.clone().asInstanceOf[t.type]
+      x match {
+        case Some(myX) => {
+          y match {
+            case yIntf: Interface => {
+              yIntf.callModPort(myX)
+            }
+            case _ =>
+          }
+        }
+        case None =>
+      }
+    }
+    self.globalData.toplevel = toplevel
+    self.globalData.phaseContext.topLevel = phase
+    def myVecFunc(someVec: Vec[_], otherVec: Vec[_]): Boolean = {
+      if (someVec.size == otherVec.size) {
+        for (idx <- 0 until someVec.size) {
+          val vecElem = someVec(idx)
+          val otherVecElem = otherVec(idx)
+          vecElem match {
+            case intf: Interface if intf.thisIsNotSVmodport => {
+              if (!innerCheckDir(self=intf, that=otherVecElem.asInstanceOf[Bundle])) {
+                println(
+                  s"debug ("
+                    + s"innerCheckDir("
+                      + s"self=intf, that=otherVecElem.asInstanceOf[Bundle]"
+                    + s") == false"
+                  + s"): "
+                  + s"intf:(${intf.getName()} ${intf.origDefinitionName} ${idx})"
+                  + s"someVec:(${someVec.getName()} ${someVec.size})"
+                  + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
+                )
+                return false
+              }
+              println(
+                s"debug ("
+                  + s"innerCheckDir("
+                    + s"self=intf, that=otherVecElem.asInstanceOf[Bundle]"
+                  + s") == true"
+                + s"): "
+                + s"intf:(${intf.getName()} ${intf.origDefinitionName} ${idx})"
+                + s"someVec:(${someVec.getName()} ${someVec.size})"
+                + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
+              )
+              //return true
+              //otherVecElem match {
+              //  case otherIntf: Interface if !otherIntf.thisIsNotSVmodport => {
+              //    return intf.checkDir(x=None)
+              //  }
+              //  case otherBndl: Bundle => {
+              //    return false
+              //  }
+              //  case _ => {
+              //    return false
+              //  }
+              //}
+            }
+            case bndl: Bundle => {
+              if (!innerCheckDir(self=bndl, that=otherVecElem.asInstanceOf[Bundle])) {
+                println(
+                  s"debug ("
+                    + s"innerCheckDir("
+                      + s"self=bndl, that=otherVecElem.asInstanceOf[Bundle]"
+                    + s") == false"
+                  + s"): "
+                  + s"bndl:(${bndl.getName()} ${idx})"
+                  + s"someVec:(${someVec.getName()} ${someVec.size})"
+                  + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
+                )
+                return false
+              }
+              println(
+                s"debug ("
+                  + s"innerCheckDir("
+                    + s"self=bndl, that=otherVecElem.asInstanceOf[Bundle]"
+                  + s") == true"
+                + s"): "
+                + s"bndl:(${bndl.getName()} ${idx})"
+                + s"someVec:(${someVec.getName()} ${someVec.size})"
+                + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
+              )
+              //otherVecElem match {
+              //  //case otherIntf: Interface => {
+              //  //  return false
+              //  //}
+              //  case otherBndl: Bundle => {
+              //    return bndl.asInstanceOf[Interface].checkDir(x=None)
+              //  }
+              //  case _ => {
+              //    return false
+              //  }
+              //}
+            }
+            case vec: Vec[_] => {
+              otherVecElem match {
+                case otherVec: Vec[_] => {
+                  if (!myVecFunc(someVec=vec, otherVec=otherVec)) {
+                    println(
+                      s"debug (myVecFunc(...) == false): "
+                      + s"someVec:(${someVec.getName()} ${someVec.size})"
+                      + s"vecElem:(${vec.getName()} ${vec.size} ${idx})"
+                      + s"otherVecElem:(${otherVec.getName()} ${otherVec.size})"
+                    )
+                    return false
+                  }
+                  println(
+                    s"debug (myVecFunc(...) == true): "
+                    + s"someVec:(${someVec.getName()} ${someVec.size})"
+                    + s"vecElem:(${vec.getName()} ${vec.size} ${idx})"
+                    + s"otherVecElem:(${otherVec.getName()} ${otherVec.size})"
+                  )
+                  //return true
+                }
+                case _ => {
+                  println(
+                    s"debug (otherVecElem not a `Vec[_]`): "
+                    + s"someVec:(${someVec.getName()} ${someVec.size})"
+                    + s"vecElem:(${vec.getName()} ${vec.size} ${idx})"
+                    + s"otherVec:(${otherVec.getName()} ${otherVec.size})"
+                  )
+                  return false
+                }
+              }
+            }
+            case b: Bool => {
+              otherVecElem match {
+                case otherB: Bool => {
+                  if (b.dir != otherB.dir) {
+                    println(
+                      s"debug Bool (b.dir != otherB.dir): "
+                      + s"someVec:(${someVec.getName()} ${someVec.size}) "
+                      + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
+                      + s"b:(${b.getName()} ${b.dir} ${idx}) "
+                      + s"otherB:(${otherB.getName()} ${otherB.dir} ${idx})"
+                    )
+                    return false
+                  }
+                  println(
+                    s"debug Bool (b.dir == otherB.dir): "
+                    + s"someVec:(${someVec.getName()} ${someVec.size}) "
+                    + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
+                    + s"b:(${b.getName()} ${b.dir} ${idx}) "
+                    + s"otherB:(${otherB.getName()} ${otherB.dir} ${idx})"
+                  )
+                }
+                case _ => {
+                  println(
+                    s"debug Bool (otherVecElem different type): "
+                    + s"someVec:(${someVec.getName()} ${someVec.size}) "
+                    + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
+                    + s"b:(${b.getName()} ${b.dir} ${idx}) "
+                  )
+                  return false
+                }
+              }
+            }
+            case bv: BitVector => (
+              otherVecElem match {
+                case otherBv: BitVector => {
+                  if (bv.dir != otherBv.dir) {
+                    println(
+                      s"debug BitVector (bv.dir != otherBv.dir): "
+                      + s"someVec:(${someVec.getName()} ${someVec.size}) "
+                      + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
+                      + s"bv:(${bv.getName()} ${bv.dir} ${idx}) "
+                      + s"otherBv:(${otherBv.getName()} ${otherBv.dir} ${idx})"
+                    )
+                    return false
+                  }
+                }
+                case _ => {
+                  return false
+                }
+              }
+            )
+            case bd: Data => {
+              println(
+                s"debug: other `Data` type: "
+                + s"bd:${bd.getName()} someVec:(${someVec.getName()} ${someVec.size}); "
+                + s"this element:(index=${idx}) "
+                + s"of this Vec: name=${someVec.getName()} size=${someVec.size}"
+              )
+              return false
+            }
+            case _ => {
+              LocatedPendingError(
+                s"unknown type for "
+                + s"this element:(index=${idx}) "
+                + s"of this Vec: name=${someVec.getName()} size=${someVec.size}"
+              )
+              return false
+            }
+          }
+        }
+        return true
+      } else {
+        println(
+          s"eek! debug (sizes don't match): "
+          + s"someVec:(${someVec.getName()} ${someVec.size}) "
+          + s"otherVec:(${otherVec.getName()} ${otherVec.size}) "
+        )
+        return false
+      }
+    }
+
+    def innerCheckDir(
+      self: Bundle, that: Bundle
+    ): Boolean = {
+      var ret = true
+      for ((name, element) <- self.elements) {
+        val other = that.find(name)
+        if (other == null) {
+          LocatedPendingError(s"Bundle assignment is not complete. Missing $name")
+        } else {
+          element match {
+            case i: Interface if i.thisIsNotSVmodport => {
+              val temp = (innerCheckDir(self=i, that=other.asInstanceOf[Bundle]) && ret)
+              //return ret //true //Interface.checkDir(self=i, x=None) && ret
+              println(
+                s"debug (innerCheckDir(self=i, that=other.asInstanceOf[Bundle]) == ${temp}): "
+                + s"i:(${i.getName()} ${i.origDefinitionName})"
+              )
+              ret = temp
+            }
+            case b: Bundle => {
+              val temp = innerCheckDir(self=b, that=other.asInstanceOf[Bundle]) && ret
+              println(
+                s"debug (innerCheckDir(self=b, that=other.asInstanceOf[Bundle]) == ${temp}): "
+                + s"b:(${b.getName()})"
+              )
+              ret = temp
+            }
+            case v: Vec[_] => {
+              other match {
+                case otherVec: Vec[_] => {
+                  ret = myVecFunc(someVec=v, otherVec=otherVec) && ret
+                }
+                case _ => {
+                  ret = false
+                }
+              }
+            }
+            case b  => {
+              ret = (b.dir == other.dir) && ret
+            }
+          }
+        }
+      }
+      ret
+    }
+
+    return c.y.elements.foldLeft(true) {case (dirSame, (name, element)) =>
+      val other = self.find(name)
+      if (other == null) {
+        LocatedPendingError(s"Bundle assignment is not complete. Missing $name")
+        false
+      } else {
+        element match {
+          case elemBndl: Bundle => (
+            (
+              other match {
+                case that: Bundle => innerCheckDir(self=elemBndl, that=that)
+                case _ => false
+              }
+            ) && dirSame
+          )
+          case elemVec: Vec[_] => (
+            (
+              other match {
+                case otherVec: Vec[_] => myVecFunc(someVec=elemVec, otherVec=otherVec)
+                case _ => false
+              }
+            ) && dirSame
+          )
+          case b => ((b.dir == other.dir) && dirSame)
+        }
+      }
+    }
+  }
 }
 
 /** system verilog interface
@@ -200,40 +487,16 @@ class Interface extends Bundle {
   }
   def checkModport() = {
     allModPort
-      .filter(x => checkIODir(x=Some(x)))
-  }
-  def checkIODir(x: Option[String]): Boolean = {
-    val t = this
-    val toplevel = globalData.toplevel
-    val phase = globalData.phaseContext.topLevel
-    globalData.toplevel = null
-    globalData.phaseContext.topLevel = null
-    val c = new Component {
-      val y = t.clone().asInstanceOf[t.type]
-      x match {
-        case Some(myX) => {
-          y.callModPort(myX)
-        }
-        case None =>
-      }
-    }
-    globalData.toplevel = toplevel
-    globalData.phaseContext.topLevel = phase
-
-    c.y.elements.foldLeft(true) {case (dirSame, (name, element)) =>
-      val other = this.find(name)
-      if (other == null) {
-        LocatedPendingError(s"Bundle assignment is not complete. Missing $name")
-        false
-      } else element match {
-        case b: Bundle => b.checkDir(other.asInstanceOf[Bundle]) && dirSame
-        case b         => (b.dir == other.dir) && dirSame
-      }
-    }
+      .filter(x => Interface.checkDir(this, Some(x)))
   }
   override def clone() = {
     val ret = super.clone().asInstanceOf[this.type]
     ret.setDefinitionName(this.definitionName)
+    ret.origDefinitionName = this.origDefinitionName
+    //ret.thisIsNotSVIF = this.thisIsNotSVIF
+    ret.thisIsNotSVmodport = this.thisIsNotSVmodport
+    ret.thisIsSVstruct = this.thisIsSVstruct
+    ret.noConvertSVIFvec = this.noConvertSVIFvec
     ret
   }
 
