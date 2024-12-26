@@ -5,8 +5,7 @@ import spinal.core.sim._
 import spinal.demo.phy.Initialize
 import spinal.lib._
 import spinal.lib.bus.bmb.BmbParameter
-import spinal.lib.memory.sdram.dfi.function.BmbAdapter
-import spinal.lib.memory.sdram.dfi.interface._
+import spinal.lib.memory.sdram.dfi._
 
 case class InitializeSim() extends Component {
   val task: TaskParameter =
@@ -23,11 +22,9 @@ case class InitializeSim() extends Component {
     RRD = 6,
     REF = 64000,
     FAW = 35
-  )
+    )
   val sdram = SdramConfig(
-    SdramGeneration.DDR3,
-    bgWidth = 0,
-    cidWidth = 0,
+    SdramGeneration.MYDDR,
     bankWidth = 3,
     columnWidth = 10,
     rowWidth = 15,
@@ -35,7 +32,7 @@ case class InitializeSim() extends Component {
     ddrMHZ = 100,
     ddrWrLat = 4,
     ddrRdLat = 4,
-    sdramTime = sdramtime
+    sdramtime = sdramtime
     )
   val timeConfig = DfiTimeConfig(
     tPhyWrLat = 1,
@@ -46,23 +43,22 @@ case class InitializeSim() extends Component {
     tPhyRdCsGap = 3,
     tPhyRdCslat = 0,
     tPhyWrCsLat = 0
-  )
+    )
   val dfiConfig: DfiConfig = DfiConfig(
     frequencyRatio = 1,
     chipSelectNumber = 1,
+    bgWidth = 0,
+    cidWidth = 0,
     dataSlice = 1,
     cmdPhase = 0,
-    signalConfig = {
-      val signalConfig = new DDRSignalConfig() {
-        override def useOdt: Boolean = true
-        override def useResetN: Boolean = true
-        override def useRddataDnv = true
-      }
-      signalConfig
+    signalConfig = new DfiSignalConfig() {
+      override val useOdt: Boolean = true
+      override val useResetN: Boolean = true
+      override val useRddataDnv = true
     },
     timeConfig = timeConfig,
     sdram = sdram
-  )
+    )
   val bmbp: BmbParameter = BmbParameter(
     addressWidth = sdram.byteAddressWidth + log2Up(dfiConfig.chipSelectNumber),
     dataWidth = dfiConfig.beatWidth,
@@ -70,7 +66,7 @@ case class InitializeSim() extends Component {
     contextWidth = 2,
     lengthWidth = 6,
     alignment = BmbParameter.BurstAlignement.WORD
-  )
+    )
   val io = new Bundle {
     val control = master(DfiControlInterface(dfiConfig))
     val initDone = out Bool ()
