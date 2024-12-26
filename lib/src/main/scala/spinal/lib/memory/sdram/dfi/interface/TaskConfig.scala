@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.dfi.interface
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.lib._
@@ -57,24 +57,24 @@ case class BusAddress(dfiConfig: DfiConfig) extends Bundle {
 }
 
 case class TaskParameter(
-    bytePerTaskMax: Int = 64,
-    timingWidth: Int,
-    refWidth: Int,
-    cmdBufferSize: Int,
-    dataBufferSize: Int,
-    rspBufferSize: Int
-) {
+                          bytePerTaskMax: Int = 64,
+                          timingWidth: Int,
+                          refWidth: Int,
+                          cmdBufferSize: Int,
+                          dataBufferSize: Int,
+                          rspBufferSize: Int
+                        ) {
   assert(isPow2(bytePerTaskMax))
 }
 
 case class TaskConfig(
-    taskParameter: TaskParameter,
-    contextWidth: Int,
-    writeTokenInterfaceWidth: Int,
-    writeTokenBufferSize: Int,
-    canRead: Boolean,
-    canWrite: Boolean
-) {}
+                       taskParameter: TaskParameter,
+                       contextWidth: Int,
+                       writeTokenInterfaceWidth: Int,
+                       writeTokenBufferSize: Int,
+                       canRead: Boolean,
+                       canWrite: Boolean
+                     ) {}
 
 case class TaskWrRdCmd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle {
 
