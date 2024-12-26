@@ -1,8 +1,9 @@
 //package spinal.lib.memory
-package spinal.lib.memory.sdram.dfi.interface
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.lib._
+
 
 case class DfiControlInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val address = Bits(config.addressWidth * config.frequencyRatio bits)
@@ -74,7 +75,7 @@ case class DfiUpdateInterface(config: DfiConfig) extends Bundle with IMasterSlav
 case class DfiStatusInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val alertN = config.useAlertN generate Bits(config.alertWidth * config.frequencyRatio bits)
   val dataByteDisable = config.useDataByteDisable generate Bits(config.dataWidth / 8 bits)
-  val dramClkDisable = config.signalConfig.ddris.useStatusSignals generate Bits(config.chipSelectNumber bits)
+  val dramClkDisable = config.useStatusSignals generate Bits(config.chipSelectNumber bits)
   val freqRatio = config.useFreqRatio generate Bits(2 bits)
   val initComplete = config.useInitStart generate Bool()
   val initStart = config.useInitStart generate Bool()
