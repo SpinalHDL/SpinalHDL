@@ -156,13 +156,11 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
 
     // read opcode
     rd.rd.foreach(_.rddataValid #= false)
-    for (phase <- 0 until (phaseCount)) {
+    for ((en, phase) <- rdEn.zipWithIndex) {
       if (rProcess(phase).nonEmpty & rdDataQueue.nonEmpty) {
         rdEnQueue.dequeue()
         rProcess(phase).dequeue().apply(rdDataQueue.dequeue())
       }
-    }
-    for ((en, phase) <- rdEn.zipWithIndex) {
       if (en) {
         rdEnQueue.enqueue((true, phase))
         for ((process, i) <- rProcess.zipWithIndex) {
