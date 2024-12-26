@@ -1,7 +1,6 @@
-package spinal.lib.memory.sdram.dfi.function
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
-import spinal.lib.memory.sdram.dfi.interface._
 
 class AddrMapMethod(
     val dfiConfig: DfiConfig
@@ -11,6 +10,8 @@ class AddrMapMethod(
     val bank = UInt(dfiConfig.sdram.bankWidth bits)
     val row = UInt(dfiConfig.sdram.rowWidth bits)
   }
+
+  def addressMap(addr: UInt) = mapMethod(dfiConfig.addrMap)(addr)
 
   def mapMethod(addrMap: AddrMap)(addr: UInt) = addrMap match {
     case RowBankColumn => AddrMapMethod.rowBankColumnMap(dfiConfig: DfiConfig, addr: UInt)
