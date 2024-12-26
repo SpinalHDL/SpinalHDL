@@ -2,7 +2,6 @@ package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.memory.sdram.dfi.interface.{Dfi, DfiControlInterface, DfiReadInterface, DfiWriteInterface}
 import spinal.lib.sim.SparseMemory
 
 import scala.collection.mutable
