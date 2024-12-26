@@ -1,8 +1,8 @@
-package spinal.lib.memory.sdram.dfi.function
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter}
+import spinal.lib.bus.bmb._
 
 //Because the BmbAlignedSpliter module in lib can't shard read data as well, some changes were made here.
 object BmbAligner {
