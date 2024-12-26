@@ -1,9 +1,8 @@
-package spinal.lib.memory.sdram.dfi.function
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb._
-import spinal.lib.memory.sdram.dfi.interface._
 
 case class BmbToPreTaskPort(ip: BmbParameter, taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
   import dfiConfig._
