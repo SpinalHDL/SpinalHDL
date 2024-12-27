@@ -86,7 +86,9 @@ case class RdAlignment(config: DfiConfig) extends Component {
         .muxListDc(io.dfiRd.zipWithIndex.map(t => (t._2, t._1)))
         .rddata
       curPhase := (i + 1) % config.frequencyRatio
-      rdDataPhase := (rdDataPhase + i + 1 + config.frequencyRatio - curPhase).resize(log2Up(config.frequencyRatio)).resized
+      rdDataPhase := (rdDataPhase + i + 1 + config.frequencyRatio - curPhase)
+        .resize(log2Up(config.frequencyRatio))
+        .resized
     }
   }
   val rdDataFifos = for (i <- 0 until (config.frequencyRatio)) yield new Area {
@@ -146,7 +148,7 @@ case class WrAlignment(config: DfiConfig) extends Component {
           .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(phase)
           .zipWithIndex
           .map(t => (t._2, t._1))
-        )
+      )
       .wrData
     io.dfiWr.wr(phase).wrdataMask := (if (phase < timeConfig.tPhyWrData % frequencyRatio) delay + 1 else delay)
       .muxListDc(
@@ -154,7 +156,7 @@ case class WrAlignment(config: DfiConfig) extends Component {
           .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(phase)
           .zipWithIndex
           .map(t => (t._2, t._1))
-        )
+      )
       .wrDataMask
   }
 

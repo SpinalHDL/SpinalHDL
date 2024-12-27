@@ -66,7 +66,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           frequencyRatio = 2,
           chipSelectNumber = 2,
           dataSlice = 1,
-          signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false){
+          signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false) {
             override val useWrdataCsN = false
             override val useRddataCsN = false
           },

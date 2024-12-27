@@ -63,8 +63,6 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
 
   def getByte(address: Long) = memory.read(address)
 
-  def setByte(address: Long, value: Byte) = memory.write(address, value)
-
   def writeNotification(address: Long, value: Byte) = {} // memory.write(address, value)
 
   def selectBit(bigInt: BigInt, partIndex: Int, bitNumber: Int) = {
@@ -76,6 +74,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     val SelectedBit = BigInt(parts(partIndex), 2)
     Array[Boolean](SelectedBit.testBit(0), SelectedBit.testBit(1))
   }
+
   def writeDataRxd(wrEn: IndexedSeq[Boolean], wrData: IndexedSeq[Long]) = {
     for (i <- 0 until phaseCount) {
       wrEnQueue.enqueue(wrEn(i))
@@ -98,6 +97,9 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
       }
     }
   }
+
+  def setByte(address: Long, value: Byte) = memory.write(address, value)
+
   def readDataTxd(rdEn: IndexedSeq[Boolean]) = {
     rd.rd.foreach(_.rddataValid #= false)
     for ((en, phase) <- rdEn.zipWithIndex) {
@@ -120,7 +122,6 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     }
   }
 
-
   clockDomain.onSamplings {
     val cke = selectBit(ckeProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
     val csN = selectBit(csNProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
@@ -131,7 +132,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     val wrData = wrDataProxy.map(_.toLong)
     val rdEn = rdEnProxy.map(_.toBoolean)
 
-    for ((enPerChip,idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
+    for ((enPerChip, idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
       // cmd and address
       val active = enPerChip & !ras & cas & weN
       val write = enPerChip & ras & !cas & !weN

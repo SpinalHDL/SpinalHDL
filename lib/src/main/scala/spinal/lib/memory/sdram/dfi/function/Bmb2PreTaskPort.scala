@@ -71,8 +71,14 @@ object BmbAdapter {
 case class BmbAdapter(bmbp: BmbParameter, taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
   import dfiConfig._
   import taskConfig._
-  assert(dfiConfig.beatCount * 4 <= taskParameter.rspBufferSize, s"SDRAM rspBufferSize should be at least ${dfiConfig.beatCount * 4}")
-  assert(dfiConfig.beatCount <= taskParameter.dataBufferSize, s"SDRAM dataBufferSize should be at least ${dfiConfig.beatCount}")
+  assert(
+    dfiConfig.beatCount * 4 <= taskParameter.rspBufferSize,
+    s"SDRAM rspBufferSize should be at least ${dfiConfig.beatCount * 4}"
+  )
+  assert(
+    dfiConfig.beatCount <= taskParameter.dataBufferSize,
+    s"SDRAM dataBufferSize should be at least ${dfiConfig.beatCount}"
+  )
 
   val io = new Bundle {
     val halt = in Bool ()

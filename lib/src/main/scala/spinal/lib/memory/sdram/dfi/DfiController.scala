@@ -4,7 +4,8 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 
-case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: DfiConfig, addrMap: AddrMap) extends Component {
+case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: DfiConfig, addrMap: AddrMap)
+    extends Component {
   val io = new Bundle {
     val bmb = slave(Bmb(bmbp))
     val dfi = master(Dfi(dfiConfig))

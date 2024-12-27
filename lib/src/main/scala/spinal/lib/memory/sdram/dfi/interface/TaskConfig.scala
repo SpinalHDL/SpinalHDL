@@ -9,8 +9,6 @@ case class TaskTimingConfig(dfiConfig: DfiConfig) extends Bundle {
 
   def RP = time(dfiConfig.sdram.tRP)
 
-  def time(tcyc: Int, phase: Int = dfiConfig.frequencyRatio) = (tcyc + phase - 1) / phase
-
   def WR = time(dfiConfig.sdram.tWR)
 
   def RCD = time(dfiConfig.sdram.tRCD)
@@ -28,6 +26,8 @@ case class TaskTimingConfig(dfiConfig: DfiConfig) extends Bundle {
   def ODT = 0
 
   def FAW = time(dfiConfig.sdram.tFAW)
+
+  def time(tcyc: Int, phase: Int = dfiConfig.frequencyRatio) = (tcyc + phase - 1) / phase
 
   def REF = time(dfiConfig.sdram.tREF)
 

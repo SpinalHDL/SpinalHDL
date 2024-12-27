@@ -103,9 +103,9 @@ case class BmbAligner(ip: BmbParameter, alignmentWidth: Int) extends Component {
       val address = cloneOf(io.input.cmd.address)
       length := io.input.cmd.fire ? io.input.cmd.length | lengthReg
       address := io.input.cmd.fire ? io.input.cmd.address | addressReg
-      def transferBeatCountMinusOne : UInt = {
-        if(!ip.access.alignment.allowByte){
-          if(ip.access.lengthWidth < log2Up(ip.access.byteCount)){
+      def transferBeatCountMinusOne: UInt = {
+        if (!ip.access.alignment.allowByte) {
+          if (ip.access.lengthWidth < log2Up(ip.access.byteCount)) {
             U""
           } else {
             length(length.high downto log2Up(ip.access.byteCount))
@@ -259,12 +259,12 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
       when(io.output.cmd.lastFire) {
         rdBeatCounter := 0
       }
-    }otherwise(rdBeatCounter.clearAll())
+    } otherwise (rdBeatCounter.clearAll())
 
     when((io.input.cmd.lastFire & io.input.cmd.isWrite)) {
       firstSplit := True
     }
-    when(io.output.cmd.lastFire & lastSplit){
+    when(io.output.cmd.lastFire & lastSplit) {
       splitCounter := 0
     }
   }

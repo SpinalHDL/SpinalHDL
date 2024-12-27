@@ -83,21 +83,21 @@ case class SdramConfig(
   def tWTR =
     math.max(timeCycle(sdramtime.WTR, cycleTime_ns), ddrWrLat + generation.burstLength / generation.dataRate + tWR)
 
-  def tWR = 5 + 1
-
   def tRTW = ddrRdLat + generation.burstLength / generation.dataRate + tWR
 
+  def tWR = 5 + 1
+
   def tRAS = timeCycle(sdramtime.RAS, cycleTime_ns)
-
-  def timeCycle(time: Int, cycTime: Int) = (time + cycTime - 1) / cycTime
-
-  def cycleTime_ns = 1000 / ddrMHZ
 
   def tRTP = math.max(timeCycle(sdramtime.RTP, cycleTime_ns), generation.burstLength / generation.dataRate)
 
   def tRRD = math.max(timeCycle(sdramtime.RRD, cycleTime_ns), generation.burstLength / generation.dataRate)
 
   def tFAW = timeCycle(sdramtime.FAW, cycleTime_ns)
+
+  def timeCycle(time: Int, cycTime: Int) = (time + cycTime - 1) / cycTime
+
+  def cycleTime_ns = 1000 / ddrMHZ
 
   def tPhyWrlat = ddrWrLat - 2
   def tRddataEn = ddrRdLat - 2

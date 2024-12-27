@@ -100,8 +100,11 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
       latency = 1
     )
     val rden = input.valid & ~input.write
-    val rdensHistory = Vec(Vec(Bool(), (dfiConfig.timeConfig.cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 2), frequencyRatio)
-    rdensHistory.foreach(_ := History(rden, 0 to (dfiConfig.timeConfig.cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 1, init = False))
+    val rdensHistory =
+      Vec(Vec(Bool(), (dfiConfig.timeConfig.cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 2), frequencyRatio)
+    rdensHistory.foreach(
+      _ := History(rden, 0 to (dfiConfig.timeConfig.cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 1, init = False)
+    )
 
     val beatCounter = Counter(dfiConfig.beatCount, io.idfiRdData.map(_.valid).orR)
 
@@ -174,11 +177,16 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   val writeHistory = History(io.write, 0 until dfiConfig.beatCount, init = False)
   val write = writeHistory.orR
   val wrens = Vec(Bool(), frequencyRatio)
-  val wrensHistory = Vec(Vec(Bool(), (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)
+  val wrensHistory =
+    Vec(Vec(Bool(), (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)
 
   def wrdataPhase(i: Int) = io.idfiWrData(i)
   for (i <- 0 until (frequencyRatio)) {
-    wrensHistory(i) := History(wrens(i), 0 to (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 1, init = False)
+    wrensHistory(i) := History(
+      wrens(i),
+      0 to (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 1,
+      init = False
+    )
   }
   wrens.foreach(_.clear())
   wrens.foreach(_.setWhen(write))

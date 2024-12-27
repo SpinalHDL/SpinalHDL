@@ -4,7 +4,6 @@ package spinal.lib.memory.sdram.dfi
 import spinal.core._
 import spinal.lib._
 
-
 case class DfiControlInterface(config: DfiConfig) extends Bundle with IMasterSlave {
   val address = Bits(config.addressWidth * config.frequencyRatio bits)
   val bank = config.useBank generate Bits(config.bankWidth * config.frequencyRatio bits)
