@@ -91,62 +91,48 @@ class DfiControllerTester extends SpinalAnyFunSuite {
         val allowedWrites = mutable.HashMap[Long, Byte]()
         val allowedWritesStandby = mutable.HashMap[Long, Byte]()
         val addrMap = dut.addrMap
-        def rearrangeBits(value: Long, segmentLengths: Array[Int], order: Seq[Int]): Long = {
-          require(
-            segmentLengths.length == order.length,
-            "The length of the segment length array and the order array must be the same"
-          )
-          require(segmentLengths.sum == 64, "The sum of all segment lengths must be equal to 64")
-          require(order.distinct.length == order.length, "The elements in a order array must be unique")
 
+        def rearrangeBits(value: Long, segmentLengths: Array[(Int, Int)]): Long = {
+          val segmentWidth = segmentLengths.map(_._1)
+          val segmentOrder = segmentLengths.map(_._2)
+          require(segmentWidth.sum == 64, "The sum of all segment lengths must be equal to 64")
           val binaryString = value.toBinaryString.reverse.padTo(64, '0').reverse
-          val segments = Array.fill[String](segmentLengths.length)("")
+          val segments = Array.fill[String](segmentWidth.length)("")
           var offset = 0
-          for (i <- segmentLengths.indices) {
-            val segment = binaryString.substring(offset, offset + segmentLengths(i))
+          for (i <- segmentWidth.indices) {
+            val segment = binaryString.substring(offset, offset + segmentWidth(i))
             segments(i) = segment
-            offset += segmentLengths(i)
+            offset += segmentWidth(i)
           }
-          val rearrangedBinaryString = order.map(segments).mkString("")
+          val rearrangedBinaryString = segmentOrder.map(segments).mkString("")
           java.lang.Long.parseLong(rearrangedBinaryString, 2)
         }
         def addressTranslation(bmbAddr: Long): Long = {
-          val segmentLengths = Array.fill[Int](6)(0)
-          segmentLengths(0) = 64 - dut.dfiConfig.sdram.byteAddressWidth
-          segmentLengths(1) = dut.dfiConfig.sdram.bankWidth
-          segmentLengths(2) = dut.dfiConfig.sdram.rowWidth
-          segmentLengths(3) = dut.dfiConfig.sdram.columnWidth - log2Up(dut.dfiConfig.transferPerBurst)
-          segmentLengths(4) = log2Up(dut.dfiConfig.transferPerBurst)
-          segmentLengths(5) = log2Up(dut.dfiConfig.sdram.bytePerWord)
-          val maping = segmentLengths.zipWithIndex
-          var temp = maping(0)
-          addrMap match {
-            case RowBankColumn => {
-              temp = maping(1)
-              maping(1) = maping(2)
-              maping(2) = temp
-            }
-            case BankRowColumn => {}
-            case RowColumnBank => {
-              temp = maping(1)
-              maping(1) = maping(2)
-              maping(2) = maping(3)
-              maping(3) = maping(1)
-            }
+          //addressWidth = (Width, Order)
+          val reservedBitsWidth = (64 - dut.dfiConfig.sdram.byteAddressWidth, 0)
+          val bankWidth = (dut.dfiConfig.sdram.bankWidth, 1)
+          val rowWidth = (dut.dfiConfig.sdram.rowWidth, 2)
+          val colAddrHiWidth = (dut.dfiConfig.sdram.columnWidth - log2Up(dut.dfiConfig.transferPerBurst), 3)
+          val colAddrLoWidth = (log2Up(dut.dfiConfig.transferPerBurst), 4)
+          val byteWidth = (log2Up(dut.dfiConfig.sdram.bytePerWord), 5)
+
+          val segmentLengths = addrMap match {
+            case RowBankColumn =>
+              Array[(Int, Int)](reservedBitsWidth, rowWidth, bankWidth, colAddrHiWidth, colAddrLoWidth, byteWidth)
+            case BankRowColumn =>
+              Array[(Int, Int)](reservedBitsWidth, bankWidth, rowWidth, colAddrHiWidth, colAddrLoWidth, byteWidth)
+            case RowColumnBank =>
+              Array[(Int, Int)](reservedBitsWidth, rowWidth, colAddrHiWidth, bankWidth, colAddrLoWidth, byteWidth)
           }
-          val dfiAddr = rearrangeBits(bmbAddr, maping.map(_._1), maping.map(_._2).toSeq)
+          val dfiAddr = rearrangeBits(bmbAddr, segmentLengths)
           dfiAddr
         }
-
-        val bmbq = mutable.Queue[(String, Byte)]()
-        val dfiq = mutable.Queue[(String, Byte)]()
 
         val dfiMemoryAgent = new DfiMemoryAgent(dut.io.dfi, dut.clockDomain) {
           override def writeNotification(address: Long, value: Byte): Unit = {
             val option = allowedWrites.get(address)
             assert(option.isDefined)
             assert(option.get == value, s"Write mismatch")
-            dfiq.enqueue((address.toBinaryString, value))
             allowedWrites.remove(address)
             if (allowedWritesStandby.contains(address)) {
               allowedWrites(address) = allowedWritesStandby(address)
@@ -169,7 +155,6 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           override def maskRandom() = true
           override def onCmdWrite(address: BigInt, data: Byte): Unit = {
             val addressLong = addressTranslation(address.toLong)
-            bmbq.enqueue((addressLong.toBinaryString, data))
             if (allowedWrites.contains(addressLong)) {
               allowedWritesStandby(addressLong) = data
             } else {
