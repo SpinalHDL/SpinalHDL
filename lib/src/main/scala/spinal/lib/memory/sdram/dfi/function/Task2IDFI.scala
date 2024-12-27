@@ -101,8 +101,7 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
     )
     val rden = input.valid & ~input.write
     val rdensHistory = Vec(Vec(Bool(), (cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 2), frequencyRatio)
-    rdensHistory.foreach(_ := History(rden, 0 to (cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 1))
-    rdensHistory.foreach(_.tail.foreach(_ init (False)))
+    rdensHistory.foreach(_ := History(rden, 0 to (cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 1, init = False))
 
     val beatCounter = Counter(beatCount, io.idfiRdData.map(_.valid).orR)
 
@@ -111,9 +110,9 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
 
     for (i <- 0 until (frequencyRatio)) {
       if (i >= nextPhase) {
-        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc), 0 until (beatCount)).orR
+        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc), 0 until (beatCount), init = False).orR
       } else {
-        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc + 1), 0 until (beatCount)).orR
+        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc + 1), 0 until (beatCount), init = False).orR
       }
     }
 
@@ -170,15 +169,14 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   }
   val delayCyc = timeConfig.tPhyWrLat / frequencyRatio
   val nextPhase = (cmdPhase + timeConfig.tPhyWrLat) % frequencyRatio
-  val writeHistory = History(io.write, 0 until beatCount)
+  val writeHistory = History(io.write, 0 until beatCount, init = False)
   val write = writeHistory.orR
   val wrens = Vec(Bool(), frequencyRatio)
   val wrensHistory = Vec(Vec(Bool(), (cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)
 
   def wrdataPhase(i: Int) = io.idfiWrData(i)
   for (i <- 0 until (frequencyRatio)) {
-    wrensHistory(i) := History(wrens(i), 0 to (cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 1)
-    wrensHistory(i).tail.foreach(_.init(False))
+    wrensHistory(i) := History(wrens(i), 0 to (cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 1, init = False)
   }
   wrens.foreach(_.clear())
   wrens.foreach(_.setWhen(write))
