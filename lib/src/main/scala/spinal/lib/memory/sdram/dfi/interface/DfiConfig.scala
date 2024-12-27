@@ -3,6 +3,7 @@ package spinal.lib.memory.sdram.dfi
 import spinal.core._
 
 case class DfiTimeConfig(
+                          cmdPhase: Int,
                           tPhyWrLat: Int,
                           //  the number of cycles between when the write command is driven on the DFI to
                           // assertion of the dfi_wrdata_en signal
@@ -30,7 +31,7 @@ case class DfiTimeConfig(
                           // requires between two consecutive commands that are targeting different chip selects.
                         ) {}
 
-case class DDRSignalsGroupConfig(
+case class DfiFunctionConfig(
                                   useCtrlSignals: Boolean = true,
                                   useWrDataSignals: Boolean = true,
                                   useRdDataSignals: Boolean = true,
@@ -43,20 +44,20 @@ case class DDRSignalsGroupConfig(
 
 object DfiSignalConfig {
   val DDR1: DDR1SignalConfig = DDR1()
-  def DDR1(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false): DDR1SignalConfig =
+  def DDR1(groupConfig: DfiFunctionConfig = DfiFunctionConfig(), useCrc: Boolean = false): DDR1SignalConfig =
     new DDR1SignalConfig(groupConfig, useCrc)
   val DDR2: DDR2SignalConfig = DDR2()
-  def DDR2(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false): DDR2SignalConfig =
+  def DDR2(groupConfig: DfiFunctionConfig = DfiFunctionConfig(), useCrc: Boolean = false): DDR2SignalConfig =
     new DDR2SignalConfig(groupConfig, useCrc)
   val DDR3: DDR3SignalConfig = DDR3()
-  def DDR3(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false): DDR3SignalConfig =
+  def DDR3(groupConfig: DfiFunctionConfig = DfiFunctionConfig(), useCrc: Boolean = false): DDR3SignalConfig =
     new DDR3SignalConfig(groupConfig, useCrc)
   val DDR4: DDR4SignalConfig = DDR4()
-  def DDR4(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false): DDR4SignalConfig =
+  def DDR4(groupConfig: DfiFunctionConfig = DfiFunctionConfig(), useCrc: Boolean = false): DDR4SignalConfig =
     new DDR4SignalConfig(groupConfig, useCrc)
 }
 
-class DfiSignalConfig(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig(), useCrc: Boolean = false) {
+class DfiSignalConfig(groupConfig: DfiFunctionConfig = DfiFunctionConfig(), useCrc: Boolean = false) {
   val useBank: Boolean = false
   val useAckN: Boolean = false
   val useRasN: Boolean = false
@@ -129,7 +130,7 @@ class DfiSignalConfig(groupConfig: DDRSignalsGroupConfig = DDRSignalsGroupConfig
   def useCrcMode = useCrc & useAlertN
 }
 
-class DDR1SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean)
+class DDR1SignalConfig(groupConfig: DfiFunctionConfig, useCrc: Boolean)
   extends DfiSignalConfig(groupConfig, useCrc) {
   override val useBank = groupConfig.useCtrlSignals
   override val useRasN = groupConfig.useCtrlSignals
@@ -163,12 +164,12 @@ class DDR1SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean)
   override val useErrorInfo = groupConfig.useErrorSignals
 }
 
-class DDR2SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean)
+class DDR2SignalConfig(groupConfig: DfiFunctionConfig, useCrc: Boolean)
   extends DDR1SignalConfig(groupConfig, useCrc) {
   override val useOdt = groupConfig.useCtrlSignals
 }
 
-class DDR3SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean)
+class DDR3SignalConfig(groupConfig: DfiFunctionConfig, useCrc: Boolean)
   extends DDR2SignalConfig(groupConfig, useCrc) {
   override val useResetN = groupConfig.useCtrlSignals
 
@@ -186,7 +187,7 @@ class DDR3SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean)
   override val useWrlvlResp = groupConfig.useTrainingSignals
 }
 
-class DDR4SignalConfig(groupConfig: DDRSignalsGroupConfig, useCrc: Boolean)
+class DDR4SignalConfig(groupConfig: DfiFunctionConfig, useCrc: Boolean)
   extends DDR3SignalConfig(groupConfig, useCrc) {
   override val useAckN = groupConfig.useCtrlSignals
   override val useBg = groupConfig.useCtrlSignals
@@ -212,10 +213,7 @@ case class DfiConfig(
                       addrMap: AddrMap = RowBankColumn,
                       frequencyRatio: Int, // PHY:MC
                       chipSelectNumber: Int,
-                      bgWidth: Int,
-                      cidWidth: Int,
                       dataSlice: Int,
-                      cmdPhase: Int,
                       signalConfig: DfiSignalConfig,
                       timeConfig: DfiTimeConfig,
                       sdram: SdramConfig
@@ -235,8 +233,8 @@ case class DfiConfig(
   val bankWidth = sdram.bankWidth
 
   val controlWidth = 1
-  val bankGroupWidth = bgWidth
-  val chipIdWidth = cidWidth
+  val bankGroupWidth = sdram.bgWidth
+  val chipIdWidth = sdram.cidWidth
   val dataEnableWidth = dataWidth / dataSlice
   val chipSelectWidth = log2Up(chipSelectNumber)
   val taskAddressWidth = sdram.byteAddressWidth + chipSelectWidth
