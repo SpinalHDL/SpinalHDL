@@ -8,15 +8,16 @@ import scala.collection.mutable
 class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiReadInterface, clockDomain: ClockDomain) {
   val memory = SparseMemory()
   val busConfig = ctrl.config
+
+  assert(
+    ctrl.config == wr.config & rd.config == wr.config,
+    "The config is different."
+  )
   val csCount = busConfig.chipSelectNumber
   val phaseCount = busConfig.frequencyRatio
   val cmdPhase = busConfig.cmdPhase
   val oneTaskDataNumber = busConfig.transferPerBurst / busConfig.dataRate
   val oneTaskByteNumber = busConfig.bytePerBurst
-  assert(
-    ctrl.config == wr.config & rd.config == wr.config,
-    "The config of DfiControlInterface is different from DfiWriteInterface."
-  )
   val bankWidth = busConfig.sdram.bankWidth
   val rowWidth = busConfig.sdram.rowWidth
   val columnWidth = busConfig.sdram.columnWidth
@@ -62,18 +63,19 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
 
   def writeNotification(address: Long, value: Byte) = {} // memory.write(address, value)
 
-  def selectBit(bigInt: BigInt, partIndex: Int) = {
+  def selectBit(bigInt: BigInt, partIndex: Int, bitNumber: Int) = {
     assert(isPow2(bigInt.bitLength))
+    assert(isPow2(bitNumber))
     val bigIntStr = bigInt.toString(2)
-    val parts = bigIntStr.grouped(2).toList.reverse
+    val parts = bigIntStr.grouped(bitNumber).toList.reverse
     assert(partIndex >= 0 && partIndex < parts.size)
     val SelectedBit = BigInt(parts(partIndex), 2)
     Array[Boolean](SelectedBit.testBit(0), SelectedBit.testBit(1))
   }
 
   clockDomain.onSamplings {
-    val cke = selectBit(ckeProxy.toBigInt.asInstanceOf[BigInt], cmdPhase)
-    val csN = selectBit(csNProxy.toBigInt.asInstanceOf[BigInt], cmdPhase)
+    val cke = selectBit(ckeProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
+    val csN = selectBit(csNProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
     val ras = rasNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
     val cas = casNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
     val weN = weNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
