@@ -96,3 +96,15 @@ class DebugModuleFiber() extends Area{
     }
   }
 }
+
+
+class DebugModuleSocFiber(withJtagTap : Boolean, withJtagInstruction : Boolean) extends Area{
+  val dm = new DebugModuleFiber()
+  val tck = withJtagInstruction generate in(Bool())
+  val tap = withJtagTap generate dm.withJtagTap()
+  val instruction = withJtagInstruction generate ClockDomain(tck)(dm.withJtagInstruction())
+
+  def bindHart(cpu: RiscvHart) = {
+    dm.bindHart(cpu)
+  }
+}

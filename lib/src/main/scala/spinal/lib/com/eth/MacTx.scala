@@ -2,6 +2,7 @@ package spinal.lib.com.eth
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.fsm.{State, StateMachine}
 
 
 
@@ -278,10 +279,10 @@ case class MacTxAligner(dataWidth : Int) extends Component{
 }
 
 
-case class MacTxHeader(dataWidth : Int) extends Component{
+case class MacTxHeader(dataWidth : Int, withError : Boolean = false) extends Component{
   val io = new Bundle{
-    val input = slave(Stream(Fragment(PhyTx(dataWidth))))
-    val output = master(Stream(Fragment(PhyTx(dataWidth))))
+    val input = slave(Stream(Fragment(PhyTx(dataWidth, withError))))
+    val output = master(Stream(Fragment(PhyTx(dataWidth, withError))))
   }
 
 //  val header = B"x555555555555555D"
@@ -289,6 +290,7 @@ case class MacTxHeader(dataWidth : Int) extends Component{
   val state = Reg(UInt(log2Up(headerWords + 1) bits)) init(0)
   io.output.valid := io.input.valid
   io.output.last := False
+  if(withError) io.output.error := io.input.error
   io.input.ready := False
   when(state === headerWords){
     io.input.ready := io.output.ready
@@ -307,13 +309,14 @@ case class MacTxHeader(dataWidth : Int) extends Component{
   }
 }
 
-case class MacTxPadder(dataWidth : Int) extends Component{
+case class MacTxPadder(dataWidth : Int, carrierExtension : Boolean = false) extends Component{
+  val ce = carrierExtension
   val io = new Bundle{
     val input = slave(Stream(Fragment(PhyTx(dataWidth))))
-    val output = master(Stream(Fragment(PhyTx(dataWidth))))
+    val output = master(Stream(Fragment(PhyTx(dataWidth, carrierExtension))))
   }
 
-  val byteCount = 64-4
+  val byteCount = ce.mux(512, 64-4)
   val cycles = (byteCount*8 + dataWidth-1)/dataWidth
   val counter = Reg(UInt(log2Up(cycles) bits)) init(0)
   val ok = counter === cycles-1
@@ -325,21 +328,30 @@ case class MacTxPadder(dataWidth : Int) extends Component{
   when(io.output.lastFire){
     counter := 0
   }
-  io.output << io.input.haltWhen(fill)
+  val halted = io.input.haltWhen(fill)
+  io.output.arbitrationFrom(halted)
+  io.output.data := io.input.data
+  io.output.last := io.input.last
+  if(ce) io.output.error := False
   when(!ok){
     io.output.last := False
   }
   when(fill){
     io.output.valid := True
-    io.output.data := 0
+    if(!ce) {
+      io.output.data := 0
+    } else {
+      io.output.data := 0x0F
+      io.output.error := True
+    }
     io.output.last := ok
   }
 }
 
-case class MacTxInterFrame(dataWidth : Int) extends Component{
+case class MacTxInterFrame(dataWidth : Int, withError : Boolean = false) extends Component{
   val io = new Bundle{
-    val input = slave(Stream(Fragment(PhyTx(dataWidth))))
-    val output = master(Flow(Fragment(PhyTx(dataWidth))))
+    val input = slave(Stream(Fragment(PhyTx(dataWidth, withError))))
+    val output = master(Flow(Fragment(PhyTx(dataWidth, withError))))
   }
 
   val byteCount = 12
@@ -349,4 +361,454 @@ case class MacTxInterFrame(dataWidth : Int) extends Component{
     counter.increment()
   }
   io.output << io.input.haltWhen(counter =/= 0).toFlow
+}
+
+
+object MacTxLso extends App{
+  SpinalConfig(privateNamespace = true).generateVerilog(new MacTxLso(2048, 1500+14))
+}
+
+case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) extends Component{
+
+  val io = new Bundle{
+    val input = slave(Stream(Fragment(PhyTx(8))))
+    val output = master(Stream(Fragment(PhyTx(8))))
+  }
+
+  val buffer = new Area {
+    assert(isPow2(bufferBytes))
+    val ram = Mem.fill(bufferBytes)(Fragment(PhyTx(8)))
+    val pushAt, popAt = Reg(UInt(log2Up(bufferBytes) + 1 bits)) init (0)
+    val write = ram.writePort()
+    val readCmd = Stream(ram.addressType)
+    val readRsp = ram.streamReadSync(readCmd)
+    val packets = CounterUpDown(packetsMax + 1)
+    val full = (pushAt ^ popAt ^ bufferBytes) === 0 || packets === packetsMax
+    val empty = pushAt === popAt
+    val packetAt = Reg(UInt(log2Up(bufferBytes) + 1 bits))
+
+    val push = False
+    when(push){
+      pushAt := pushAt + 1
+    }
+  }
+
+  val header = new Area {
+    val headerBytesMax = 14+60+60+1
+    val capture = Reg(Bool())
+    val ram = Mem.fill(headerBytesMax)(Bits(8 bits))
+    val write = ram.writePort()
+    val writePtr = Reg(ram.addressType)
+
+    write.valid := False
+    write.address := writePtr
+    write.data := io.input.data
+    when(capture && io.input.fire){
+      write.valid := True
+      writePtr := writePtr + 1
+    }
+
+    val readCmd = Stream(ram.addressType)
+    val readRsp = ram.streamReadSync(readCmd)
+    val readBusy = RegInit(False)
+    val readPtr = Reg(ram.addressType)
+    val readEnd = readPtr === writePtr
+    readCmd.valid := False
+    readCmd.payload := readPtr
+    when(!readBusy){
+      readPtr := 0
+    } otherwise {
+      when(readEnd){
+        readBusy := False
+      } otherwise {
+        readCmd.valid := True
+        readPtr := readPtr + 1
+      }
+    }
+    readRsp.ready := True
+
+
+    val clear = False
+    when(clear){
+      capture := True
+      writePtr := 0
+    }
+  }
+
+
+  val backend = new Area{
+    buffer.readCmd.valid := !buffer.empty
+    buffer.readCmd.payload := buffer.popAt.resized
+    when(buffer.readCmd.fire){
+      buffer.popAt := buffer.popAt + 1
+    }
+    when(buffer.readRsp.fire && buffer.readRsp.last){
+      buffer.packets.decrement()
+    }
+    io.output <-< buffer.readRsp.haltWhen(buffer.packets.value === 0)
+  }
+
+  val frontend = new StateMachine{
+    val ETH, DONE, IPV4, IPV4_UNKNOWN, TCP, UDP, ICMP, CS_WRITE_0, CS_WRITE_1, IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1 = new State()
+    val TSO_DATA = new State()
+    setEntry(ETH)
+
+    val firstSegment = Reg(Bool())
+    val lastFired = RegInit(False) setWhen(io.input.fire && io.input.last)
+    val halted = RegInit(False)
+    val history = History(io.input.data, 0 to 1, when = io.input.fire)
+    val counter = Reg(UInt(16 bits))
+    when(io.input.fire){
+      counter := counter + 1
+    }
+
+    val packetBytesMax = mtuMax
+    val packetBytes = Reg(UInt(log2Up(mtuMax + 1) bits))
+    when(io.input.fire){
+      packetBytes := packetBytes + 1
+    }
+
+    io.input.ready := !buffer.full && !lastFired && !halted
+    buffer.write.valid := io.input.fire
+    buffer.write.address := buffer.pushAt.resized
+    buffer.write.data := io.input.payload
+    when(io.input.fire){
+      buffer.push := True
+    }
+
+    case class CheckSum() extends Area {
+      val clear = False
+      val accumulator = Reg(UInt(16 bits))
+      val push = False
+      val inputLsb = CombInit(counter.lsb)
+      val inputData = CombInit(io.input.data)
+      val input = inputLsb.mux(B"x00" ## inputData, inputData ## B"x00").asUInt
+      val s0 = accumulator +^ input
+      val s1 = s0(15 downto 0) + s0.msb.asUInt
+      when(push){
+        accumulator := s1
+      }
+      when(clear){
+        accumulator := 0
+      }
+      val result = ~accumulator.asBits
+    }
+
+    val checksum = new CheckSum()
+    val checksumTso, checksumIp = new CheckSum() {
+      val checkpoint = Reg(UInt(16 bits))
+      val save, restore = False
+      when(save){ checkpoint := s1}
+      when(restore){ accumulator := checkpoint}
+    }
+
+    ETH.onEntry{
+      lastFired := False
+      counter := 0
+      packetBytes := 0
+      halted := False
+      header.clear := True
+      buffer.packetAt := buffer.pushAt
+      firstSegment := True
+    }
+    ETH.whenIsActive{
+      checksum.clear := True
+      checksumTso.clear := True
+      checksumIp.clear := True
+      when(io.input.fire){
+        when(counter === 13){
+          goto(DONE)
+          when(history(0) === 0 && history(1) === 0x08){
+            counter := 0
+            goto(IPV4)
+          }
+        }
+        when(io.input.last){
+          goto(DONE)
+        }
+      }
+    }
+
+    DONE.whenIsActive{
+      when(lastFired){
+        buffer.packets.increment()
+        goto(ETH)
+      }
+    }
+
+
+
+    val IHL = Reg(UInt(4 bits))
+    val protocol = Reg(Bits(8 bits))
+    val csAt = Reg(buffer.ram.addressType)
+    val ip4Length = Reg(Bits(16 bits))
+    IPV4.whenIsActive{
+      when(io.input.fire) {
+        checksum.push := counter >= 12 && counter <= 19
+        checksumTso.push := counter >= 12 && counter <= 19
+        checksumIp.push := counter =/= 2 && counter =/= 3 && counter =/= 10 && counter =/= 11
+        when(counter === 9){
+          protocol := io.input.data
+          checksum.push := True
+          checksumTso.push := True
+        }
+        when(counter === 3){
+          checksum.push := True
+          checksum.input := (history(1) ## history(0)).asUInt - (IHL << 2)
+          ip4Length := history(1) ## history(0)
+        }
+        when(io.input.last){
+          goto(DONE)
+        }
+        when(counter === 0) {
+          IHL := io.input.data(3 downto 0).asUInt
+          when(io.input.data(7 downto 4) =/= 4 || io.input.data(3 downto 0).asUInt < 5) {
+            goto(DONE)
+          }
+        } elsewhen (counter === (IHL << 2) - 1) {
+          goto(IPV4_UNKNOWN)
+          checksumIp.save := True
+          counter := 0
+          when(!io.input.last){
+            switch(protocol){
+              is(0x01) { goto(ICMP); checksum.clear := True }
+              is(0x06) { goto(TCP) }
+              is(0x11) { goto(UDP) }
+            }
+          }
+        }
+      }
+    }
+
+    case class TcpFlags() extends Bundle {
+      val FIN = Bool()
+      val SYN = Bool()
+      val RST = Bool()
+      val PSH = Bool()
+      val ACK = Bool()
+      val URG = Bool()
+      val ECE = Bool()
+      val CWR = Bool()
+    }
+    val tcpCtx = new Area{
+      val flags = Reg(TcpFlags())
+      val dataOffset = Reg(UInt(4 bits))
+      val sequenceNumber = Reg(UInt(32 bits))
+      val urgentPointer = Reg(UInt(16 bits))
+    }
+
+    def sample[T <: Data](that : T, at : Int): Unit = {
+      val width = widthOf(that)
+      val bytes = (width+7)/8
+      for(i <- 0 until bytes) when(counter === at + bytes - 1 - i){
+        that.assignFromBits(io.input.data.resized, (i * 8 + 7) min (width - 1), i * 8)
+      }
+    }
+
+    TCP.whenIsActive{
+      when(io.input.fire) {
+        sample(tcpCtx.sequenceNumber, 4)
+        sample(tcpCtx.flags, 13)
+        sample(tcpCtx.urgentPointer, 18)
+        when(counter === 12) { tcpCtx.dataOffset := io.input.data(7 downto 4).asUInt }
+        when(counter === 4){
+          csAt := buffer.pushAt.resized
+        }
+        checksum.push := counter =/= 16 && counter =/= 17
+        checksumTso.push := ((4 to 7) ++ (13 to 13) ++ (16 to 17)).map(_ =/= counter).andR //TODO urgent
+        when(counter === 16){
+          csAt := buffer.pushAt.resized
+        }
+        when(counter === (tcpCtx.dataOffset << 2) - 1) {
+          header.capture := False
+          checksumTso.save := True
+          goto(TSO_DATA)
+        }
+        when(io.input.last){
+          goto(CS_WRITE_0)
+          when(counter < 18 ){
+            goto(DONE)
+          }
+        }
+      }
+    }
+
+    val TSO_IP4_LENGTH_0, TSO_IP4_LENGTH_1, TSO_IP4_CS_0, TSO_IP4_CS_1, TSO_SN_0, TSO_SN_1, TSO_SN_2, TSO_SN_3, TSO_FLAG, TSO_CS_0, TSO_CS_1, TSO_SPLIT_END, TSO_HEADER_CPY = new State()
+    TSO_HEADER_CPY whenIsActive{
+      firstSegment := False
+      when(header.readRsp.valid){
+        buffer.write.valid := True
+        buffer.write.address := buffer.pushAt.resized
+        buffer.write.data.fragment.data := header.readRsp.payload
+        buffer.write.data.last := False
+        buffer.push := True
+      }
+      when(!header.readBusy){
+        checksumTso.restore := True
+        checksumIp.restore := True
+        halted := False
+        goto(TSO_DATA)
+      }
+    }
+
+
+    val tsoPacketLast = packetBytes + 1 === packetBytesMax
+    TSO_DATA whenIsActive{
+      buffer.write.data.last setWhen(tsoPacketLast)
+      when(io.input.fire) {
+        checksumTso.push := True
+        when(tsoPacketLast || io.input.last) {
+          halted := True
+          goto(TSO_IP4_LENGTH_0)
+        }
+      }
+    }
+
+    def sequence(states : State*): Unit = {
+      for((from, to) <- (states, states.tail).zipped) from.whenIsActive(goto(to))
+    }
+
+    def bufferWrite(state : State)(address : UInt, data : Bits): Unit = state whenIsActive {
+      buffer.write.valid := True
+      buffer.write.address := address.resized
+      buffer.write.data.fragment.data := data
+      buffer.write.data.last := False
+    }
+
+    def bufferWriteCs(state : State)(address : UInt, data : Bits, lsb : Int): Unit = state whenIsActive {
+      buffer.write.valid := True
+      buffer.write.address := address.resized
+      buffer.write.data.fragment.data := data
+      buffer.write.data.last := False
+      checksumTso.push := True
+      checksumTso.inputLsb := Bool(lsb % 2 == 1)
+      checksumTso.inputData := data
+    }
+
+    def bufferWriteCs2(state : State)(address : UInt, data : Bits, lsb : Int): Unit = state whenIsActive {
+      buffer.write.valid := True
+      buffer.write.address := address.resized
+      buffer.write.data.fragment.data := data
+      buffer.write.data.last := False
+      checksumIp.push := True
+      checksumIp.inputLsb := Bool(lsb % 2 == 1)
+      checksumIp.inputData := data
+    }
+
+    val tcpAt = buffer.packetAt + 14 + (IHL << 2)
+    val tsoIp4Length = packetBytes - 14
+    val tsoHeaderLength = U(14, 8 bits) + (IHL << 2) + (tcpCtx.dataOffset << 2)
+    sequence(TSO_IP4_LENGTH_0, TSO_IP4_LENGTH_1, TSO_IP4_CS_0, TSO_IP4_CS_1, TSO_SN_0, TSO_SN_1, TSO_SN_2, TSO_SN_3, TSO_FLAG, TSO_CS_0, TSO_CS_1, TSO_SPLIT_END)
+    bufferWriteCs2(TSO_IP4_LENGTH_0)(buffer.packetAt + 0x10, (tsoIp4Length.asBits >> 8).resized, 0)
+    bufferWriteCs2(TSO_IP4_LENGTH_1)(buffer.packetAt + 0x11, tsoIp4Length(0, 8 bits).asBits, 1)
+    TSO_IP4_LENGTH_1 whenIsActive {
+      checksumTso.push := True
+      checksumTso.input := (tsoIp4Length - (IHL << 2)).resized
+    }
+
+    val lastSegment = CombInit(lastFired)
+    val fp = TcpFlags()
+    fp.FIN := tcpCtx.flags.FIN & lastSegment
+    fp.SYN := tcpCtx.flags.SYN & firstSegment
+    fp.RST := tcpCtx.flags.RST & firstSegment
+    fp.PSH := tcpCtx.flags.PSH & lastSegment
+    fp.ACK := tcpCtx.flags.ACK
+    fp.URG := tcpCtx.flags.URG & False
+    fp.ECE := tcpCtx.flags.ECE & firstSegment
+    fp.CWR := tcpCtx.flags.CWR & firstSegment
+
+    bufferWrite(TSO_IP4_CS_0)(buffer.packetAt + 0x18, checksumIp.result(8, 8 bits))
+    bufferWrite(TSO_IP4_CS_1)(buffer.packetAt + 0x19, checksumIp.result(0, 8 bits))
+    bufferWriteCs(TSO_SN_0)(tcpAt + 0x04, tcpCtx.sequenceNumber(24, 8 bits).asBits, 0)
+    bufferWriteCs(TSO_SN_1)(tcpAt + 0x05, tcpCtx.sequenceNumber(16, 8 bits).asBits, 1)
+    bufferWriteCs(TSO_SN_2)(tcpAt + 0x06, tcpCtx.sequenceNumber( 8, 8 bits).asBits, 2)
+    bufferWriteCs(TSO_SN_3)(tcpAt + 0x07, tcpCtx.sequenceNumber( 0, 8 bits).asBits, 3)
+    bufferWriteCs(TSO_FLAG)(tcpAt + 0x0D, fp.asBits, 1) //TODO
+    bufferWrite(TSO_CS_0)(tcpAt + 0x10, checksumTso.result(8, 8 bits))
+    bufferWrite(TSO_CS_1)(tcpAt + 0x11, checksumTso.result(0, 8 bits))
+
+    TSO_SPLIT_END.whenIsActive{
+      buffer.packets.increment()
+      buffer.packetAt := buffer.pushAt
+      packetBytes := tsoHeaderLength.resized
+      tcpCtx.sequenceNumber := tcpCtx.sequenceNumber + (packetBytes - tsoHeaderLength)
+      header.readBusy := True
+      goto(TSO_HEADER_CPY)
+      when(lastFired){
+        goto(ETH)
+      }
+    }
+
+
+    UDP.whenIsActive{
+      when(io.input.fire) {
+        checksum.push := counter =/= 6 && counter =/= 7
+        when(counter === 6){
+          csAt := buffer.pushAt.resized
+        }
+        when(io.input.last){
+          goto(IP4_LENGTH_0)
+          when(counter < 8 ){
+            goto(DONE)
+          }
+        }
+      }
+    }
+
+    ICMP.whenIsActive{
+      when(io.input.fire) {
+        checksum.push := counter =/= 2 && counter =/= 3
+        when(counter === 2){
+          csAt := buffer.pushAt.resized
+        }
+        when(io.input.last){
+          goto(IP4_LENGTH_0)
+          when(counter < 4 ){
+            goto(DONE)
+          }
+        }
+      }
+    }
+
+    IPV4_UNKNOWN.whenIsActive{
+      when(io.input.fire && io.input.last || lastFired) {
+        goto(IP4_LENGTH_0)
+      }
+    }
+
+    sequence(IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1, CS_WRITE_0, CS_WRITE_1, DONE)
+    IP4_LENGTH_0 whenIsActive{
+      checksumIp.push := True
+      checksumIp.inputLsb := False
+      checksumIp.inputData := ip4Length(15 downto 8)
+    }
+    IP4_LENGTH_1 whenIsActive{
+      checksumIp.push := True
+      checksumIp.inputLsb := True
+      checksumIp.inputData := ip4Length(7 downto 0)
+    }
+    bufferWrite(IP4_CS_0)(buffer.packetAt + 0x18, checksumIp.result(8, 8 bits))
+    bufferWrite(IP4_CS_1)(buffer.packetAt + 0x19, checksumIp.result(0, 8 bits))
+    IP4_CS_1.whenIsActive{
+      switch(protocol){
+        is(0x01) { }
+        is(0x06) { }
+        is(0x11) { }
+        default{ goto(DONE)}
+      }
+    }
+
+    CS_WRITE_0 whenIsActive{
+      buffer.write.valid := True
+      buffer.write.address := csAt
+      buffer.write.data.fragment.data := checksum.result(15 downto 8)
+      buffer.write.data.last := False
+    }
+    CS_WRITE_1 whenIsActive{
+      buffer.write.valid := True
+      buffer.write.address := csAt+1
+      buffer.write.data.fragment.data := checksum.result(7 downto 0)
+      buffer.write.data.last := csAt+2 === buffer.pushAt
+    }
+  }
 }

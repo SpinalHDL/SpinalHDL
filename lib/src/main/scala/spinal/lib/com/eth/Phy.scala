@@ -11,30 +11,43 @@ case class PhyRx(dataWidth : Int) extends Bundle {
 }
 
 
-case class PhyTx(dataWidth : Int) extends Bundle {
+case class PhyTx(dataWidth : Int, withError : Boolean = false) extends Bundle {
   val data = Bits(dataWidth bits)
+  val error = withError generate Bool()
 }
 
 case class MiiTxParameter(dataWidth : Int,
-                          withEr : Boolean)
+                          withEr : Boolean,
+                          withClk : Boolean = true)
 
 case class MiiTx(p : MiiTxParameter) extends Bundle with IMasterSlave {
-  val CLK = Bool()
+  val CLK = p.withClk generate Bool()
   val D = Bits(p.dataWidth bits)
   val EN = Bool()
   val ER = p.withEr generate Bool()
 
   override def asMaster(): Unit = {
     in(CLK)
-    out(D, EN)
-    outWithNull(ER)
+    out(D, EN, ER)
+  }
+
+  def fromTxStream() = new Area {
+    val interframe = MacTxInterFrame(p.dataWidth)
+    val o = interframe.io.output
+    val EN = RegNext(o.valid && !o.error)
+    val ER = RegNext(o.valid && o.error)
+    val data = RegNext(o.error.mux[Bits](B"x0F", o.data))
+    D := data
+    EN := EN
+    ER := ER
   }
 }
 
-case class MiiRxParameter(dataWidth : Int)
+case class MiiRxParameter(dataWidth : Int,
+                          withClk : Boolean = true)
 
 case class MiiRx(p : MiiRxParameter) extends Bundle with IMasterSlave {
-  val CLK = Bool()
+  val CLK = p.withClk generate Bool()
   val D = Bits(p.dataWidth bits)
   val DV = Bool()
   val ER = Bool()

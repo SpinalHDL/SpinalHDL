@@ -22,7 +22,12 @@ class MemoryAgent(bus: Bus,
 
   var blockSize = 64
   try{
-    blockSize = bus.p.node.s.emits.probe.getSingleSize().get
+    blockSize = bus.p.node.m.emits.acquireB.getSingleSize().get
+  }catch{
+    case e : Throwable =>
+  }
+  try{
+    blockSize = bus.p.node.m.emits.acquireT.getSingleSize().get
   }catch{
     case e : Throwable =>
   }
