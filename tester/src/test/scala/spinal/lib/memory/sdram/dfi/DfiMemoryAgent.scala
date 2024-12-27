@@ -7,12 +7,13 @@ import spinal.lib.sim.SparseMemory
 import scala.collection.mutable
 class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiReadInterface, clockDomain: ClockDomain) {
   val memory = SparseMemory()
-  val busConfig = ctrl.config
 
   assert(
     ctrl.config == wr.config & rd.config == wr.config,
-    "The config is different."
+    "The config of DfiMemoryAgent is different."
   )
+
+  val busConfig = ctrl.config
   val csCount = busConfig.chipSelectNumber
   val phaseCount = busConfig.frequencyRatio
   val cmdPhase = busConfig.cmdPhase
@@ -21,7 +22,17 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val bankWidth = busConfig.sdram.bankWidth
   val rowWidth = busConfig.sdram.rowWidth
   val columnWidth = busConfig.sdram.columnWidth
-  val idQueue = mutable.Queue[Int]()
+
+  val ckeProxy = ctrl.cke.simProxy()
+  val csNProxy = ctrl.csN.simProxy()
+  val rasNProxy = ctrl.rasN.simProxy()
+  val casNProxy = ctrl.casN.simProxy()
+  val weNProxy = ctrl.weN.simProxy()
+
+  val wrEnProxy = wr.wr.map(_.wrdataEn.simProxy())
+  val wrDataProxy = wr.wr.map(_.wrdata.simProxy())
+  val rdEnProxy = rd.rden.map(_.simProxy())
+
   val rowAddrQueue = mutable.Queue[Long]()
   val columnAddrQueue = mutable.Queue[Long]()
   val bankQueue = mutable.Queue[Long]()
@@ -32,14 +43,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val rdEnQueue = mutable.Queue[(Boolean, Int)]()
   val rdDataQueue = mutable.Queue[BigInt]()
   val rProcess = Array.fill(phaseCount)(mutable.Queue[(BigInt) => Unit]())
-  val ckeProxy = ctrl.cke.simProxy()
-  val csNProxy = ctrl.csN.simProxy()
-  val rasNProxy = ctrl.rasN.simProxy()
-  val casNProxy = ctrl.casN.simProxy()
-  val weNProxy = ctrl.weN.simProxy()
-  val wrEnProxy = wr.wr.map(_.wrdataEn.simProxy())
-  val wrDataProxy = wr.wr.map(_.wrdata.simProxy())
-  val rdEnProxy = rd.rden.map(_.simProxy())
+
   var rowAddr: Long = 0
   var columnAddr: Long = 0
   var bank: Long = 0
@@ -72,68 +76,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     val SelectedBit = BigInt(parts(partIndex), 2)
     Array[Boolean](SelectedBit.testBit(0), SelectedBit.testBit(1))
   }
-
-  clockDomain.onSamplings {
-    val cke = selectBit(ckeProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
-    val csN = selectBit(csNProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
-    val ras = rasNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
-    val cas = casNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
-    val weN = weNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
-    val wrEn = wrEnProxy.map(_.toBoolean)
-    val wrData = wrDataProxy.map(_.toLong)
-    val rdEn = rdEnProxy.map(_.toBoolean)
-
-    for (cs <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
-      // cmd and address
-      val active = cs._1 & !ras & cas & weN
-      val write = cs._1 & ras & !cas & !weN
-      val read = cs._1 & ras & !cas & weN
-      if (active) {
-        rowAddrQueue.enqueue(ctrl.address.toLong)
-        bankQueue.enqueue(ctrl.bank.toLong)
-        idQueue.enqueue(cs._2)
-      }
-      if (rowAddrQueue.nonEmpty) {
-        rowAddr = rowAddrQueue.dequeue()
-      }
-      if (bankQueue.nonEmpty) {
-        bank = bankQueue.dequeue()
-      }
-      // write cmd
-      if (write) {
-        columnAddr = ctrl.address.toLong & (1 << columnWidth) - 1
-        byteAddr =
-          ((cs._2 << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
-            busConfig.sdram.bytePerWord
-          )
-        for (beat <- 0 until (busConfig.beatCount)) {
-          for (i <- (0 until (busConfig.bytePerBeat)).reverse) {
-            wrAddrQueue.enqueue(byteAddr + beat * busConfig.bytePerBeat + i)
-          }
-        }
-      }
-
-      // read cmd
-      if (read) {
-        columnAddr = ctrl.address.toLong & (1 << columnWidth) - 1
-        byteAddr =
-          ((cs._2 << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
-            busConfig.sdram.bytePerWord
-          )
-        for (beat <- (0 until (busConfig.beatCount))) {
-          for (phase <- 0.until(phaseCount).reverse) {
-            for (j <- 0 until (busConfig.phyIoWidth / 8)) {
-              rdByteAddress = byteAddr + beat * busConfig.bytePerBeat + phase * busConfig.phyIoWidth / 8 + j
-              rdDataByte = getByteAsInt(rdByteAddress)
-              rdData |= BigInt(rdDataByte) << (j * 8)
-            }
-            rdDataQueue.enqueue(rdData)
-            rdData = 0
-          }
-        }
-      }
-    }
-    // write opcode
+  def writeDataRxd(wrEn: IndexedSeq[Boolean], wrData: IndexedSeq[Long]) = {
     for (i <- 0 until phaseCount) {
       wrEnQueue.enqueue(wrEn(i))
 
@@ -154,8 +97,8 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
         }
       }
     }
-
-    // read opcode
+  }
+  def readDataTxd(rdEn: IndexedSeq[Boolean]) = {
     rd.rd.foreach(_.rddataValid #= false)
     for ((en, phase) <- rdEn.zipWithIndex) {
       if (rProcess(phase).nonEmpty & rdDataQueue.nonEmpty) {
@@ -175,5 +118,69 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
         rdVaildPhase = (rdVaildPhase + 1) % phaseCount
       }
     }
+  }
+
+
+  clockDomain.onSamplings {
+    val cke = selectBit(ckeProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
+    val csN = selectBit(csNProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
+    val ras = rasNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
+    val cas = casNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
+    val weN = weNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
+    val wrEn = wrEnProxy.map(_.toBoolean)
+    val wrData = wrDataProxy.map(_.toLong)
+    val rdEn = rdEnProxy.map(_.toBoolean)
+
+    for ((enPerChip,idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
+      // cmd and address
+      val active = enPerChip & !ras & cas & weN
+      val write = enPerChip & ras & !cas & !weN
+      val read = enPerChip & ras & !cas & weN
+      if (active) {
+        rowAddrQueue.enqueue(ctrl.address.toLong)
+        bankQueue.enqueue(ctrl.bank.toLong)
+      }
+      if (rowAddrQueue.nonEmpty) {
+        rowAddr = rowAddrQueue.dequeue()
+      }
+      if (bankQueue.nonEmpty) {
+        bank = bankQueue.dequeue()
+      }
+      // write cmd
+      if (write) {
+        columnAddr = ctrl.address.toLong & (1 << columnWidth) - 1
+        byteAddr =
+          ((idPerChip << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
+            busConfig.sdram.bytePerWord
+          )
+        for (beat <- 0 until (busConfig.beatCount)) {
+          for (i <- (0 until (busConfig.bytePerBeat)).reverse) {
+            wrAddrQueue.enqueue(byteAddr + beat * busConfig.bytePerBeat + i)
+          }
+        }
+      }
+
+      // read cmd
+      if (read) {
+        columnAddr = ctrl.address.toLong & (1 << columnWidth) - 1
+        byteAddr =
+          ((idPerChip << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
+            busConfig.sdram.bytePerWord
+          )
+        for (beat <- (0 until (busConfig.beatCount))) {
+          for (phase <- 0.until(phaseCount).reverse) {
+            for (j <- 0 until (busConfig.phyIoWidth / 8)) {
+              rdByteAddress = byteAddr + beat * busConfig.bytePerBeat + phase * busConfig.phyIoWidth / 8 + j
+              rdDataByte = getByteAsInt(rdByteAddress)
+              rdData |= BigInt(rdDataByte) << (j * 8)
+            }
+            rdDataQueue.enqueue(rdData)
+            rdData = 0
+          }
+        }
+      }
+    }
+    writeDataRxd(wrEn, wrData)
+    readDataTxd(rdEn)
   }
 }
