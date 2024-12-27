@@ -40,6 +40,8 @@ class DfiControllerTester extends SpinalAnyFunSuite {
         )
         val sdram = SdramConfig(
           SdramGeneration.DDR3,
+          bgWidth = 0,
+          cidWidth = 0,
           bankWidth = 3,
           columnWidth = 10,
           rowWidth = 15,
@@ -50,6 +52,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           sdramtime = sdramtime
         )
         val timeConfig = DfiTimeConfig(
+          cmdPhase = 0,
           tPhyWrLat = sdram.tPhyWrlat,
           tPhyWrData = 0,
           tPhyWrCsGap = 3,
@@ -62,11 +65,8 @@ class DfiControllerTester extends SpinalAnyFunSuite {
         val dfiConfig: DfiConfig = DfiConfig(
           frequencyRatio = 2,
           chipSelectNumber = 2,
-          bgWidth = 0,
-          cidWidth = 0,
           dataSlice = 1,
-          cmdPhase = 0,
-          signalConfig = new DDR3SignalConfig(DDRSignalsGroupConfig(), false){
+          signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false){
             override val useWrdataCsN = false
             override val useRddataCsN = false
           },

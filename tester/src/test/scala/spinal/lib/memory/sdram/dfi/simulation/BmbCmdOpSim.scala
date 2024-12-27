@@ -20,9 +20,11 @@ object BmbCmdOpSim {
       RRD = 6,
       REF = 64000,
       FAW = 35
-      )
+    )
     val sdram = SdramConfig(
-      SdramGeneration.MYDDR,
+      SdramGeneration.DDR3,
+      bgWidth = 0,
+      cidWidth = 0,
       bankWidth = 3,
       columnWidth = 10,
       rowWidth = 15,
@@ -31,8 +33,9 @@ object BmbCmdOpSim {
       ddrWrLat = 4,
       ddrRdLat = 4,
       sdramtime = sdramtime
-      )
+    )
     val timeConfig = DfiTimeConfig(
+      cmdPhase = 0,
       tPhyWrLat = sdram.tPhyWrlat,
       tPhyWrData = 0,
       tPhyWrCsGap = 3,
@@ -41,18 +44,15 @@ object BmbCmdOpSim {
       tPhyRdCsGap = 3,
       tPhyRdCslat = 0,
       tPhyWrCsLat = 0
-      )
+    )
     val dfiConfig: DfiConfig = DfiConfig(
       frequencyRatio = 1,
       chipSelectNumber = 1,
-      bgWidth = 0,
-      cidWidth = 0,
       dataSlice = 1,
-      cmdPhase = 0,
       signalConfig = DfiSignalConfig.DDR3,
       timeConfig = timeConfig,
       sdram = sdram
-      )
+    )
     val bmbp: BmbParameter = BmbParameter(
       addressWidth = sdram.byteAddressWidth + log2Up(dfiConfig.chipSelectNumber),
       dataWidth = dfiConfig.beatWidth,
@@ -60,28 +60,28 @@ object BmbCmdOpSim {
       contextWidth = 2,
       lengthWidth = 6,
       alignment = BmbParameter.BurstAlignement.WORD
-      )
+    )
     SimConfig.withWave
-             .compile {
-               val dut = BmbCmdOp(bmbp, dfiConfig)
-               dut
-             }
-             .doSimUntilVoid { dut =>
-               dut.clockDomain.forkStimulus(10)
-               dut.io.bmb.rsp.valid #= false
-               dut.io.bmb.rsp.last #= false
-               dut.io.initDone #= false
-               dut.clockDomain.waitSampling(10)
-               dut.io.initDone #= true
-               dut.io.bmb.rsp.valid #= true
-               dut.clockDomain.waitSampling(31)
-               dut.io.bmb.rsp.last #= true
-               dut.clockDomain.waitSampling()
-               dut.io.bmb.rsp.valid #= false
-               dut.io.bmb.rsp.last #= false
-               dut.clockDomain.waitSampling(100)
-               simSuccess()
+      .compile {
+        val dut = BmbCmdOp(bmbp, dfiConfig)
+        dut
+      }
+      .doSimUntilVoid { dut =>
+        dut.clockDomain.forkStimulus(10)
+        dut.io.bmb.rsp.valid #= false
+        dut.io.bmb.rsp.last #= false
+        dut.io.initDone #= false
+        dut.clockDomain.waitSampling(10)
+        dut.io.initDone #= true
+        dut.io.bmb.rsp.valid #= true
+        dut.clockDomain.waitSampling(31)
+        dut.io.bmb.rsp.last #= true
+        dut.clockDomain.waitSampling()
+        dut.io.bmb.rsp.valid #= false
+        dut.io.bmb.rsp.last #= false
+        dut.clockDomain.waitSampling(100)
+        simSuccess()
 
-             }
+      }
   }
 }

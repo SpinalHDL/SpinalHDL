@@ -16,7 +16,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val busConfig = ctrl.config
   val csCount = busConfig.chipSelectNumber
   val phaseCount = busConfig.frequencyRatio
-  val cmdPhase = busConfig.cmdPhase
+  val cmdPhase = busConfig.timeConfig.cmdPhase
   val oneTaskDataNumber = busConfig.transferPerBurst / busConfig.dataRate
   val oneTaskByteNumber = busConfig.bytePerBurst
   val bankWidth = busConfig.sdram.bankWidth

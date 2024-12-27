@@ -4,24 +4,23 @@ import spinal.core._
 import spinal.lib._
 
 case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
-  import dfiConfig._
   val io = new Bundle {
     val task = slave(OpTasks(taskConfig, dfiConfig))
-    val cmd = Vec(master(Flow(DfiCmd(dfiConfig))), frequencyRatio)
-    val address = Vec(master(Flow(DfiAddr(dfiConfig))), frequencyRatio)
+    val cmd = Vec(master(Flow(DfiCmd(dfiConfig))), dfiConfig.frequencyRatio)
+    val address = Vec(master(Flow(DfiAddr(dfiConfig))), dfiConfig.frequencyRatio)
   }
   def cmdphase(i: Int) = io.cmd(i)
   def addrphase(i: Int) = io.address(i)
 
-  def ACTIVE: Bits = (~(B(1) << io.task.address.cs).resize(chipSelectNumber) ## B"b011").setName("ACTIVE")
-  def WRITE: Bits = (~(B(1) << io.task.address.cs).resize(chipSelectNumber) ## B"b100").setName("WRITE")
-  def READ: Bits = (~(B(1) << io.task.address.cs).resize(chipSelectNumber) ## B"b101").setName("READ")
-  def PRECHARGE: Bits = (~(B(1) << io.task.address.cs).resize(chipSelectNumber) ## B"b010")
-  def REFRESH: Bits = (~(B(1) << io.task.address.cs).resize(chipSelectNumber) ## B"b001").setName("REFRESH")
+  def ACTIVE: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b011").setName("ACTIVE")
+  def WRITE: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b100").setName("WRITE")
+  def READ: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b101").setName("READ")
+  def PRECHARGE: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b010")
+  def REFRESH: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b001").setName("REFRESH")
 
   def AUTO_PRECHARGE_BIT = 10 // Disable auto precharge (auto close of row)
   def ALL_BANKS_BIT = 10 // Precharge all banks
-  def COULMNRang = 0 until (sdram.columnWidth)
+  def COULMNRang = 0 until (dfiConfig.sdram.columnWidth)
   def BANK: Bits = io.task.address.bank.asBits
   def ROW: Bits = io.task.address.row.asBits
   def COLUMN: Bits = io.task.address.column.asBits
@@ -40,52 +39,53 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
   io.address.foreach(_.bank.clearAll())
 
   when(active) {
-    cmdphase(cmdPhase).valid.set()
-    cmdphase(cmdPhase).payload.assignFromBits(ACTIVE)
-    addrphase(cmdPhase).valid.set()
-    addrphase(cmdPhase).bank := BANK.resized
-    addrphase(cmdPhase).address := ROW.resized
+    cmdphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(ACTIVE)
+    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+    addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
+    addrphase(dfiConfig.timeConfig.cmdPhase).address := ROW.resized
   }
   when(write) {
-    cmdphase(cmdPhase).valid := True
-    cmdphase(cmdPhase).payload.assignFromBits(WRITE)
-    addrphase(cmdPhase).valid.set()
-    addrphase(cmdPhase).bank := BANK.resized
-    addrphase(cmdPhase).address(COULMNRang) := COLUMN
-    addrphase(cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
+    cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(WRITE)
+    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+    addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
+    addrphase(dfiConfig.timeConfig.cmdPhase).address(COULMNRang) := COLUMN
+    addrphase(dfiConfig.timeConfig.cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
   }
   when(read) {
-    cmdphase(cmdPhase).valid := True
-    cmdphase(cmdPhase).payload.assignFromBits(READ)
-    addrphase(cmdPhase).valid.set()
-    addrphase(cmdPhase).bank := BANK.resized
-    addrphase(cmdPhase).address(COULMNRang) := COLUMN
-    addrphase(cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
+    cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(READ)
+    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+    addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
+    addrphase(dfiConfig.timeConfig.cmdPhase).address(COULMNRang) := COLUMN
+    addrphase(dfiConfig.timeConfig.cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
   }
   when(precharge) {
-    cmdphase(cmdPhase).valid := True
-    cmdphase(cmdPhase).payload.assignFromBits(PRECHARGE.setName("PRECHARGE"))
-    addrphase(cmdPhase).valid.set()
-    addrphase(cmdPhase).bank := BANK.resized
-    addrphase(cmdPhase).address(ALL_BANKS_BIT).clear()
+    cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(PRECHARGE.setName("PRECHARGE"))
+    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+    addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
+    addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).clear()
   }
   when(prechargeAll) {
-    cmdphase(cmdPhase).valid := True
-    cmdphase(cmdPhase).payload.assignFromBits(PRECHARGE.setName("PRECHARGEALL"))
-    addrphase(cmdPhase).valid.set()
-    addrphase(cmdPhase).address(ALL_BANKS_BIT).set()
+    cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(PRECHARGE.setName("PRECHARGEALL"))
+    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+    addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).set()
 
   }
   when(refresh) {
-    cmdphase(cmdPhase).valid := True
-    cmdphase(cmdPhase).payload.assignFromBits(REFRESH)
-    addrphase(cmdPhase).valid.set()
+    cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(REFRESH)
+    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
   }
 }
 
 case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
-  import dfiConfig._
-  import taskConfig._
+
+  val frequencyRatio = dfiConfig.frequencyRatio
+  val timeConfig = dfiConfig.timeConfig
   val io = new Bundle {
     val task = slave(OpTasks(taskConfig, dfiConfig))
     val idfiRdData = Vec(slave(Stream(Fragment(DfiRdData(dfiConfig)))), frequencyRatio)
@@ -96,23 +96,23 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
     val input = Flow(Fragment(Context()))
     assert(timeConfig.tPhyRdlat + timeConfig.tRddataEn >= 1)
     val cmd = input.toStream.queueLowLatency(
-      1 << log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + beatCount - 1) / beatCount + 1),
+      1 << log2Up((timeConfig.tPhyRdlat + timeConfig.tRddataEn + dfiConfig.beatCount - 1) / dfiConfig.beatCount + 1),
       latency = 1
     )
     val rden = input.valid & ~input.write
-    val rdensHistory = Vec(Vec(Bool(), (cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 2), frequencyRatio)
-    rdensHistory.foreach(_ := History(rden, 0 to (cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 1, init = False))
+    val rdensHistory = Vec(Vec(Bool(), (dfiConfig.timeConfig.cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 2), frequencyRatio)
+    rdensHistory.foreach(_ := History(rden, 0 to (dfiConfig.timeConfig.cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 1, init = False))
 
-    val beatCounter = Counter(beatCount, io.idfiRdData.map(_.valid).orR)
+    val beatCounter = Counter(dfiConfig.beatCount, io.idfiRdData.map(_.valid).orR)
 
     val delayCyc = timeConfig.tRddataEn / frequencyRatio
-    val nextPhase = (cmdPhase + timeConfig.tRddataEn) % frequencyRatio
+    val nextPhase = (dfiConfig.timeConfig.cmdPhase + timeConfig.tRddataEn) % frequencyRatio
 
     for (i <- 0 until (frequencyRatio)) {
       if (i >= nextPhase) {
-        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc), 0 until (beatCount), init = False).orR
+        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc), 0 until (dfiConfig.beatCount), init = False).orR
       } else {
-        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc + 1), 0 until (beatCount), init = False).orR
+        io.rden(i) := History(rdensHistory(nextPhase)(delayCyc + 1), 0 until (dfiConfig.beatCount), init = False).orR
       }
     }
 
@@ -136,8 +136,8 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   rspPipeline.input.context := io.task.context
 
   case class PipelineRsp() extends Bundle {
-    val data = Bits(beatWidth bits)
-    val context = Bits(contextWidth bits)
+    val data = Bits(dfiConfig.beatWidth bits)
+    val context = Bits(taskConfig.contextWidth bits)
   }
   io.taskRdData.valid := rspPop.valid
   io.taskRdData.last := rspPop.last
@@ -148,7 +148,7 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   rspPipeline.input.write.setWhen(io.task.write).clearWhen(io.task.read)
 
   case class Context() extends Bundle {
-    val context = Bits(contextWidth bits)
+    val context = Bits(taskConfig.contextWidth bits)
     val write = Bool()
   }
   ready.foreach(_.init(False))
@@ -161,22 +161,24 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
 }
 
 case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
-  import dfiConfig._
+
+  val frequencyRatio = dfiConfig.frequencyRatio
+  val timeConfig = dfiConfig.timeConfig
   val io = new Bundle {
     val write = in Bool ()
     val taskWrData = slave(Stream(TaskWriteData(dfiConfig)))
     val idfiWrData = Vec(master(Flow(DfiWrData(dfiConfig))), frequencyRatio)
   }
   val delayCyc = timeConfig.tPhyWrLat / frequencyRatio
-  val nextPhase = (cmdPhase + timeConfig.tPhyWrLat) % frequencyRatio
-  val writeHistory = History(io.write, 0 until beatCount, init = False)
+  val nextPhase = (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) % frequencyRatio
+  val writeHistory = History(io.write, 0 until dfiConfig.beatCount, init = False)
   val write = writeHistory.orR
   val wrens = Vec(Bool(), frequencyRatio)
-  val wrensHistory = Vec(Vec(Bool(), (cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)
+  val wrensHistory = Vec(Vec(Bool(), (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)
 
   def wrdataPhase(i: Int) = io.idfiWrData(i)
   for (i <- 0 until (frequencyRatio)) {
-    wrensHistory(i) := History(wrens(i), 0 to (cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 1, init = False)
+    wrensHistory(i) := History(wrens(i), 0 to (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 1, init = False)
   }
   wrens.foreach(_.clear())
   wrens.foreach(_.setWhen(write))
