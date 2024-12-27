@@ -63,8 +63,6 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
 
   def getByte(address: Long) = memory.read(address)
 
-  def writeNotification(address: Long, value: Byte) = {} // memory.write(address, value)
-
   def selectBit(bigInt: BigInt, partIndex: Int, bitNumber: Int) = {
     assert(isPow2(bigInt.bitLength))
     assert(isPow2(bitNumber))
@@ -88,7 +86,10 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
         }
         if (oneTakeDataCounter == oneTaskDataNumber) {
           for (i <- 0 until (busConfig.bytePerBurst)) {
-            setByte(wrAddrQueue.dequeue(), wrByteQueue.dequeue())
+            val wrAddr = wrAddrQueue.dequeue()
+            val wrByte = wrByteQueue.dequeue()
+            writeNotification(wrAddr, wrByte)
+            setByte(wrAddr, wrByte)
           }
           oneTakeDataCounter = 0
         } else {
@@ -97,6 +98,8 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
       }
     }
   }
+
+  def writeNotification(address: Long, value: Byte) = {} // memory.write(address, value)
 
   def setByte(address: Long, value: Byte) = memory.write(address, value)
 

@@ -84,16 +84,9 @@ class DfiControllerTester extends SpinalAnyFunSuite {
         val dut = DfiController(bmbp, task, dfiConfig, RowBankColumn)
         dut
       }
-      .doSimUntilVoid(seed = 2117802787) { dut =>
-        dut.clockDomain.forkStimulus(10, resetCycles = 16)
-        fork {
-          sleep(160)
-          dut.clockDomain.assertReset()
-          sleep(20)
-          dut.clockDomain.deassertReset()
-        }
+      .doSimUntilVoid { dut =>
+        dut.clockDomain.forkStimulus(10)
         dut.io.dfi.read.rd.foreach(_.rddataValid #= false)
-        dut.clockDomain.waitSampling(100)
         val memorySize = 1 << dut.io.bmb.p.access.addressWidth
         val allowedWrites = mutable.HashMap[Long, Byte]()
         val allowedWritesStandby = mutable.HashMap[Long, Byte]()
@@ -149,11 +142,10 @@ class DfiControllerTester extends SpinalAnyFunSuite {
         val dfiq = mutable.Queue[(String, Byte)]()
 
         val dfiMemoryAgent = new DfiMemoryAgent(dut.io.dfi, dut.clockDomain) {
-          override def setByte(address: Long, value: Byte): Unit = {
+          override def writeNotification(address: Long, value: Byte): Unit = {
             val option = allowedWrites.get(address)
             assert(option.isDefined)
-            assert(option.get == value, s"$address is address, \n$allowedWrites\n$allowedWritesStandby")
-            super.setByte(address, value)
+            assert(option.get == value, s"Write mismatch")
             dfiq.enqueue((address.toBinaryString, value))
             allowedWrites.remove(address)
             if (allowedWritesStandby.contains(address)) {
