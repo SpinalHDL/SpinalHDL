@@ -6,26 +6,25 @@ import spinal.lib._
 case class Alignment(config: DfiConfig) extends Component {
 
   val io = new Bundle {
-    val inIdfiport = slave(IDFI(config))
-    val outDfiport = master(Dfi(config))
+    val input = slave(IDFI(config))
+    val output = master(Dfi(config))
   }
 
   val caAlignment = CAAlignment(config)
   caAlignment.io.cke.setAll()
-  caAlignment.io.cmd <> io.inIdfiport.cmd
-  caAlignment.io.address <> io.inIdfiport.address
-  caAlignment.io.output <> io.outDfiport.control
+  caAlignment.io.cmd <> io.input.cmd
+  caAlignment.io.address <> io.input.address
+  caAlignment.io.output <> io.output.control
 
   val wrAlignment = WrAlignment(config)
-  wrAlignment.io.idfiWrData <> io.inIdfiport.wrData
-  if (config.useWrdataCsN) wrAlignment.io.idfiWrCs <> io.inIdfiport.wrCs
-  wrAlignment.io.dfiWr <> io.outDfiport.write
+  wrAlignment.io.input <> io.input.wrData
+  if (config.useWrdataCsN) wrAlignment.io.inputCs <> io.input.wrCs
+  wrAlignment.io.output <> io.output.write
 
   val rdAlignment = RdAlignment(config)
-  rdAlignment.io.idfiRd <> io.inIdfiport.rdData
-  if (config.useRddataCsN) rdAlignment.io.idfiRdCs <> io.inIdfiport.rdCs
-  rdAlignment.io.dfiRd <> io.outDfiport.read.rd
-  if (config.useRddataCsN) rdAlignment.io.dfiRdCs <> io.outDfiport.read.rdCs
-  io.inIdfiport.rdEn <> io.outDfiport.read.rden
+  rdAlignment.io.input <> io.input.rdData
+  if (config.useRddataCsN) rdAlignment.io.inputCs <> io.input.rdCs
+  rdAlignment.io.inputEn <> io.input.rdEn
+  rdAlignment.io.output <> io.output.read
   rdAlignment.io.phaseClear := False
 }

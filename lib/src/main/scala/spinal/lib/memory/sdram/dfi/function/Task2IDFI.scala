@@ -88,9 +88,9 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   val timeConfig = dfiConfig.timeConfig
   val io = new Bundle {
     val task = slave(OpTasks(taskConfig, dfiConfig))
-    val idfiRdData = Vec(slave(Stream(Fragment(DfiRdData(dfiConfig)))), frequencyRatio)
+    val input = Vec(slave(Stream(Fragment(DfiRdData(dfiConfig)))), frequencyRatio)
     val rden = out Vec (Bool(), frequencyRatio)
-    val taskRdData = master(Flow(Fragment(TaskRsp(taskConfig, dfiConfig))))
+    val output = master(Flow(Fragment(TaskRsp(taskConfig, dfiConfig))))
   }
   val rspPipeline = new Area {
     val input = Flow(Fragment(Context()))
@@ -106,7 +106,7 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
       _ := History(rden, 0 to (dfiConfig.timeConfig.cmdPhase + timeConfig.tRddataEn) / frequencyRatio + 1, init = False)
     )
 
-    val beatCounter = Counter(dfiConfig.beatCount, io.idfiRdData.map(_.valid).orR)
+    val beatCounter = Counter(dfiConfig.beatCount, io.input.map(_.valid).orR)
 
     val delayCyc = timeConfig.tRddataEn / frequencyRatio
     val nextPhase = (dfiConfig.timeConfig.cmdPhase + timeConfig.tRddataEn) % frequencyRatio
@@ -121,12 +121,12 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
 
     val output = Flow(Fragment(PipelineRsp()))
     output.valid.clear()
-    output.valid.setWhen(cmd.valid && cmd.write && cmd.last || io.idfiRdData.map(_.valid).orR)
+    output.valid.setWhen(cmd.valid && cmd.write && cmd.last || io.input.map(_.valid).orR)
     output.context := cmd.context
     output.last := cmd.write || beatCounter.willOverflowIfInc && cmd.last
     cmd.ready := cmd.write || beatCounter.willOverflow
 
-    for ((outputData, phase) <- (output.data.subdivideIn(frequencyRatio slices).reverse, io.idfiRdData).zipped) {
+    for ((outputData, phase) <- (output.data.subdivideIn(frequencyRatio slices).reverse, io.input).zipped) {
       outputData := B(phase.rdData)
     }
   }
@@ -142,10 +142,10 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
     val data = Bits(dfiConfig.beatWidth bits)
     val context = Bits(taskConfig.contextWidth bits)
   }
-  io.taskRdData.valid := rspPop.valid
-  io.taskRdData.last := rspPop.last
-  if (io.taskRdData.taskConfig.canRead) io.taskRdData.data := rspPop.data
-  io.taskRdData.context := rspPop.context.resized
+  io.output.valid := rspPop.valid
+  io.output.last := rspPop.last
+  if (io.output.taskConfig.canRead) io.output.data := rspPop.data
+  io.output.context := rspPop.context.resized
 
   rspPipeline.input.valid.setWhen(io.task.read | io.task.write)
   rspPipeline.input.write.setWhen(io.task.write).clearWhen(io.task.read)
@@ -158,7 +158,7 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   for (i <- 0 until (frequencyRatio)) {
     ready(i).setWhen(io.task.read).clearWhen(io.task.write)
   }
-  for ((outport, iready) <- (io.idfiRdData, ready).zipped) {
+  for ((outport, iready) <- (io.input, ready).zipped) {
     outport.ready := iready
   }
 }
@@ -169,8 +169,8 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   val timeConfig = dfiConfig.timeConfig
   val io = new Bundle {
     val write = in Bool ()
-    val taskWrData = slave(Stream(TaskWriteData(dfiConfig)))
-    val idfiWrData = Vec(master(Flow(DfiWrData(dfiConfig))), frequencyRatio)
+    val input = slave(Stream(TaskWriteData(dfiConfig)))
+    val output = Vec(master(Flow(DfiWrData(dfiConfig))), frequencyRatio)
   }
   val delayCyc = timeConfig.tPhyWrLat / frequencyRatio
   val nextPhase = (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) % frequencyRatio
@@ -180,7 +180,7 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   val wrensHistory =
     Vec(Vec(Bool(), (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)
 
-  def wrdataPhase(i: Int) = io.idfiWrData(i)
+  def wrdataPhase(i: Int) = io.output(i)
   for (i <- 0 until (frequencyRatio)) {
     wrensHistory(i) := History(
       wrens(i),
@@ -190,27 +190,27 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   }
   wrens.foreach(_.clear())
   wrens.foreach(_.setWhen(write))
-  io.taskWrData.ready.clear()
-  io.taskWrData.ready.setWhen(wrensHistory(nextPhase)(delayCyc))
-  assert(!(!io.taskWrData.valid && io.taskWrData.ready), "SDRAM write data stream starved !", ERROR)
+  io.input.ready.clear()
+  io.input.ready.setWhen(wrensHistory(nextPhase)(delayCyc))
+  assert(!(!io.input.valid && io.input.ready), "SDRAM write data stream starved !", ERROR)
   for (i <- 0 until (frequencyRatio)) {
     if (i >= nextPhase) {
       wrdataPhase(i).valid := wrensHistory(nextPhase)(delayCyc)
-      wrdataPhase(i).wrData := Vec(io.taskWrData.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
+      wrdataPhase(i).wrData := Vec(io.input.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
         (t + nextPhase) % frequencyRatio
       )(i)
-      wrdataPhase(i).wrDataMask := Vec(io.taskWrData.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(
-        t => (t + nextPhase) % frequencyRatio
+      wrdataPhase(i).wrDataMask := Vec(io.input.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
+        (t + nextPhase) % frequencyRatio
       )(i)
     } else {
       wrdataPhase(i).valid := wrensHistory(nextPhase)(delayCyc + 1)
       wrdataPhase(i).wrData := RegNext(
-        Vec(io.taskWrData.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
+        Vec(io.input.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
           (t + nextPhase) % frequencyRatio
         )(i)
       )
       wrdataPhase(i).wrDataMask := RegNext(
-        Vec(io.taskWrData.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
+        Vec(io.input.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
           (t + nextPhase) % frequencyRatio
         )(i)
       )

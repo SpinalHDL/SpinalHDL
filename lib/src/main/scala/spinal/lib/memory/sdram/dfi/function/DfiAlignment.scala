@@ -59,16 +59,21 @@ case class CAAlignment(config: DfiConfig) extends Component {
 case class RdAlignment(config: DfiConfig) extends Component {
   val io = new Bundle {
     val phaseClear = in Bool ()
-    val dfiRd = in Vec (DfiRd(config), config.frequencyRatio)
-    val dfiRdCs = config.useRddataCsN generate Vec(out(DfiRdCs(config)), config.frequencyRatio)
-    val idfiRd = Vec(master(Stream(Fragment(DfiRdData(config)))), config.frequencyRatio)
-    val idfiRdCs = config.useRddataCsN generate Vec(slave(Flow(DfiReadCs(config))), config.frequencyRatio)
+    val inputEn = in Vec (Bool(), config.frequencyRatio)
+    val input = Vec(master(Stream(Fragment(DfiRdData(config)))), config.frequencyRatio)
+    val inputCs = config.useRddataCsN generate Vec(slave(Flow(DfiReadCs(config))), config.frequencyRatio)
+    val output = master(DfiReadInterface(config))
   }
+  val dfiRdCs = config.useRddataCsN generate Vec(out(DfiRdCs(config)), config.frequencyRatio)
+  val dfiRd = Vec(DfiRd(config), config.frequencyRatio)
+  io.output.rden := io.inputEn
+  if (config.useRddataCsN) io.output.rdCs := dfiRdCs
+  dfiRd := io.output.rd
 
   val rdDataTemp = Vec(Stream(Fragment(DfiRdData(config))), config.frequencyRatio)
   rdDataTemp.foreach(_.last.clear())
   for (i <- 0 until (config.frequencyRatio)) {
-    rdDataTemp(i).valid := io.dfiRd(i).rddataValid
+    rdDataTemp(i).valid := dfiRd(i).rddataValid
     rdDataTemp(i).rdData.assignDontCare()
   }
 
@@ -83,7 +88,7 @@ case class RdAlignment(config: DfiConfig) extends Component {
     when(rdDataTemp(i).fire) {
       rdDataTemp(i).rdData := (i + curPhase + config.frequencyRatio - rdDataPhase)
         .resize(log2Up(config.frequencyRatio))
-        .muxListDc(io.dfiRd.zipWithIndex.map(t => (t._2, t._1)))
+        .muxListDc(dfiRd.zipWithIndex.map(t => (t._2, t._1)))
         .rddata
       curPhase := (i + 1) % config.frequencyRatio
       rdDataPhase := (rdDataPhase + i + 1 + config.frequencyRatio - curPhase)
@@ -96,20 +101,20 @@ case class RdAlignment(config: DfiConfig) extends Component {
     rdDataFifo.io.flush.clear()
     rdDataFifo.io.flush.setWhen(io.phaseClear)
   }
-  val readyForPop = Mux(rdDataFifos.map(_.rdDataFifo.io.occupancy =/= 0).andR, io.idfiRd.map(_.ready).orR, False)
+  val readyForPop = Mux(rdDataFifos.map(_.rdDataFifo.io.occupancy =/= 0).andR, io.input.map(_.ready).orR, False)
 
   for (i <- 0 until (config.frequencyRatio)) {
     rdDataFifos(i).rdDataFifo.io.push << rdDataTemp(i)
-    io.idfiRd(i).valid := rdDataFifos.map(_.rdDataFifo.io.pop.valid).andR
-    io.idfiRd(i).payload := rdDataFifos(i).rdDataFifo.io.pop.payload
+    io.input(i).valid := rdDataFifos.map(_.rdDataFifo.io.pop.valid).andR
+    io.input(i).payload := rdDataFifos(i).rdDataFifo.io.pop.payload
     rdDataFifos(i).rdDataFifo.io.pop.ready := RegNext(readyForPop)
   }
 
   if (config.useRddataCsN) {
     for (i <- 0 until (config.frequencyRatio)) {
-      io.dfiRdCs(i).rddataCsN.setAll()
-      when(io.idfiRdCs(i).valid) {
-        io.dfiRdCs(i).rddataCsN := io.idfiRdCs(i).rdCs
+      dfiRdCs(i).rddataCsN.setAll()
+      when(io.inputCs(i).valid) {
+        dfiRdCs(i).rddataCsN := io.inputCs(i).rdCs
       }
     }
   }
@@ -117,32 +122,32 @@ case class RdAlignment(config: DfiConfig) extends Component {
 
 case class WrAlignment(config: DfiConfig) extends Component {
   val io = new Bundle {
-    val idfiWrCs = config.useWrdataCsN generate Vec(slave(Flow(DfiWrCs(config))), config.frequencyRatio)
-    val idfiWrData = Vec(slave(Flow(DfiWrData(config))), config.frequencyRatio)
-    val dfiWr = master(DfiWriteInterface(config))
+    val inputCs = Vec(slave(Flow(DfiWrCs(config))), config.frequencyRatio)
+    val input = Vec(slave(Flow(DfiWrData(config))), config.frequencyRatio)
+    val output = master(DfiWriteInterface(config))
   }
   val frequencyRatio = config.frequencyRatio
   val timeConfig = config.timeConfig
 
   for (i <- 0 until (frequencyRatio)) {
-    io.dfiWr.wr(i).wrdataEn := io.idfiWrData(i).valid
+    io.output.wr(i).wrdataEn := io.input(i).valid
   }
 
   val delay = Reg(U(timeConfig.tPhyWrData / frequencyRatio) << 1).init(0)
 
-  when(io.idfiWrData.map(_.valid).orR.rise()) {
+  when(io.input.map(_.valid).orR.rise()) {
     delay := timeConfig.tPhyWrData / frequencyRatio
   }
 
   val wrdatahistary = Vec(Vec(DfiWrData(config), timeConfig.tPhyWrData / frequencyRatio + 2), frequencyRatio)
   for (i <- 0 until (frequencyRatio)) {
-    wrdatahistary(i) := History(io.idfiWrData(i).payload, 0 to timeConfig.tPhyWrData / frequencyRatio + 1)
-    io.dfiWr.wr(i).wrdata.assignDontCare()
-    io.dfiWr.wr(i).wrdataMask.assignDontCare()
+    wrdatahistary(i) := History(io.input(i).payload, 0 to timeConfig.tPhyWrData / frequencyRatio + 1)
+    io.output.wr(i).wrdata.assignDontCare()
+    io.output.wr(i).wrdataMask.assignDontCare()
   }
 
   for (phase <- 0 until (frequencyRatio)) {
-    io.dfiWr.wr(phase).wrdata := (if (phase < timeConfig.tPhyWrData % frequencyRatio) delay + 1 else delay)
+    io.output.wr(phase).wrdata := (if (phase < timeConfig.tPhyWrData % frequencyRatio) delay + 1 else delay)
       .muxListDc(
         wrdatahistary
           .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(phase)
@@ -150,7 +155,7 @@ case class WrAlignment(config: DfiConfig) extends Component {
           .map(t => (t._2, t._1))
       )
       .wrData
-    io.dfiWr.wr(phase).wrdataMask := (if (phase < timeConfig.tPhyWrData % frequencyRatio) delay + 1 else delay)
+    io.output.wr(phase).wrdataMask := (if (phase < timeConfig.tPhyWrData % frequencyRatio) delay + 1 else delay)
       .muxListDc(
         wrdatahistary
           .shuffle(t => (t + timeConfig.tPhyWrData % frequencyRatio) % frequencyRatio)(phase)
@@ -162,9 +167,9 @@ case class WrAlignment(config: DfiConfig) extends Component {
 
   if (config.useWrdataCsN) {
     for (i <- 0 until (frequencyRatio)) {
-      io.dfiWr.wr(i).wrdataCsN.setAll()
-      when(io.idfiWrCs(i).valid) {
-        io.dfiWr.wr(i).wrdataCsN := io.idfiWrCs(i).wrCs
+      io.output.wr(i).wrdataCsN.setAll()
+      when(io.inputCs(i).valid) {
+        io.output.wr(i).wrdataCsN := io.inputCs(i).wrCs
       }
     }
   }
