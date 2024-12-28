@@ -39,10 +39,12 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val wrEnQueue = mutable.Queue[Boolean]()
   val wrAddrQueue = mutable.Queue[Long]()
   val wrByteQueue = mutable.Queue[Byte]()
+  val wrLatQuenes = mutable.Queue[Int]()
   val rdAddrQueue = mutable.Queue[Long]()
   val rdEnQueue = mutable.Queue[(Boolean, Int)]()
   val rdDataQueue = mutable.Queue[BigInt]()
   val rProcess = Array.fill(phaseCount)(mutable.Queue[(BigInt) => Unit]())
+  val rdLatQuenes = mutable.Queue[Int]()
 
   var rowAddr: Long = 0
   var columnAddr: Long = 0
@@ -74,15 +76,14 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   }
 
   def writeDataRxd(wrEn: IndexedSeq[Boolean], wrData: IndexedSeq[Long]) = {
-    for (i <- 0 until phaseCount) {
-      wrEnQueue.enqueue(wrEn(i))
-
+    for (phase <- 0 until phaseCount) {
+      wrEnQueue.enqueue(wrEn(phase))
       if (wrEnQueue.length == busConfig.timeConfig.tPhyWrData + 1) {
         writeVaild = wrEnQueue.dequeue()
       }
       if (writeVaild) {
         for (j <- 0.until(busConfig.phyIoWidth / 8).reverse) {
-          wrByteQueue.enqueue((wrData(i) >> j * 8).toByte)
+          wrByteQueue.enqueue((wrData(phase) >> j * 8).toByte)
         }
         if (oneTakeDataCounter == oneTaskDataNumber) {
           for (i <- 0 until (busConfig.bytePerBurst)) {
@@ -94,6 +95,16 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
           oneTakeDataCounter = 0
         } else {
           oneTakeDataCounter = oneTakeDataCounter + 1
+        }
+      }
+      if(wrLatQuenes.nonEmpty) {
+        for(i <- 0 until(wrLatQuenes.length)){
+          val wrLat = wrLatQuenes.dequeue()
+          if(wrLat == 0){
+            assert(wrEn(phase), "The parameter tPhyWrLat is not satisfied ")
+          }else{
+            wrLatQuenes.enqueue(wrLat - 1)
+          }
         }
       }
     }
@@ -121,6 +132,16 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
           }
         }
         rdVaildPhase = (rdVaildPhase + 1) % phaseCount
+      }
+      if(rdLatQuenes.nonEmpty) {
+        for(i <- 0 until(rdLatQuenes.length)){
+          val rdLat = rdLatQuenes.dequeue()
+          if(rdLat == 0){
+            assert(en, "The parameter tRddataEn is not satisfied ")
+          }else{
+            rdLatQuenes.enqueue(rdLat - 1)
+          }
+        }
       }
     }
   }
@@ -162,6 +183,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
             wrAddrQueue.enqueue(byteAddr + beat * busConfig.bytePerBeat + i)
           }
         }
+        wrLatQuenes.enqueue(busConfig.timeConfig.tPhyWrLat)
       }
 
       // read cmd
@@ -182,6 +204,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
             rdData = 0
           }
         }
+        rdLatQuenes.enqueue(busConfig.timeConfig.tRddataEn)
       }
     }
     writeDataRxd(wrEn, wrData)
