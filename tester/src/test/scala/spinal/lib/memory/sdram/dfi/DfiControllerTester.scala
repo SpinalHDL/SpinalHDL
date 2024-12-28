@@ -96,6 +96,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           val segmentWidth = segmentLengths.map(_._1)
           val segmentOrder = segmentLengths.map(_._2)
           require(segmentWidth.sum == 64, "The sum of all segment lengths must be equal to 64")
+          require(segmentOrder.distinct.length == segmentOrder.length, "The elements in a order array must be unique")
           val binaryString = value.toBinaryString.reverse.padTo(64, '0').reverse
           val segments = Array.fill[String](segmentWidth.length)("")
           var offset = 0
