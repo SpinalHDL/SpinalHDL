@@ -4,13 +4,12 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.memory.sdram.dfi._
 case class Initialize(taskConfig: TaskConfig, ddrIoDfiConfig: DfiConfig) extends Component {
-  import ddrIoDfiConfig._
-  import taskConfig._
   val io = new Bundle {
     val control = master(DfiControlInterface(ddrIoDfiConfig))
     val initDone = out Bool ()
   }
-  val refreshTimer = Reg(UInt(taskParameter.refWidth bits)).init(sdram.ddrStartdelay)
+  val sdram = ddrIoDfiConfig.sdram
+  val refreshTimer = Reg(UInt(taskConfig.taskParameter.refWidth bits)).init(sdram.ddrStartdelay)
   //  val refreshTimer = Reg(UInt(taskParameter.refWidth bits)).init(0)
   val cmd = new Bundle {
     val weN = cloneOf(io.control.weN)

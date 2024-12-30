@@ -49,7 +49,10 @@ object BmbCmdOpSim {
     val dfiConfig: DfiConfig = DfiConfig(
       chipSelectNumber = 1,
       dataSlice = 1,
-      signalConfig = DfiSignalConfig.DDR3,
+      signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false) {
+        override val useWrdataCsN = false
+        override val useRddataCsN = false
+      },
       timeConfig = timeConfig,
       sdram = sdram
     )

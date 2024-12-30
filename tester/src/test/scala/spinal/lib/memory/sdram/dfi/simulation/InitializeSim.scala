@@ -51,7 +51,9 @@ case class InitializeSim() extends Component {
   val dfiConfig: DfiConfig = DfiConfig(
     chipSelectNumber = 1,
     dataSlice = 1,
-    signalConfig = new DfiSignalConfig() {
+    signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false) {
+      override val useWrdataCsN = false
+      override val useRddataCsN = false
       override val useOdt: Boolean = true
       override val useResetN: Boolean = true
       override val useRddataDnv = true

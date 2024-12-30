@@ -31,7 +31,6 @@ case class BmbDfiDdr3(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig, dfiConfig: 
   val task: TaskParameter =
     TaskParameter(timingWidth = 5, refWidth = 23, cmdBufferSize = 64, dataBufferSize = 64, rspBufferSize = 64)
 
-  import ddrIoDfiConfig._
   val phyDfiConfig: DfiConfig = DfiConfig(
     chipSelectNumber = 1,
     dataSlice = ddrIoDfiConfig.dataSlice,
@@ -55,8 +54,8 @@ case class BmbDfiDdr3(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig, dfiConfig: 
     dfiController.io.bmb <> io.bmb.pipelined(cmdValid = true, rspValid = true, cmdReady = true, rspReady = true)
   }
 
-  if (frequencyRatio == 1) {
-    val ddr3Chips = for (i <- 0 until (chipSelectNumber)) yield new Area {
+  if (ddrIoDfiConfig.frequencyRatio == 1) {
+    val ddr3Chips = for (i <- 0 until (ddrIoDfiConfig.chipSelectNumber)) yield new Area {
       val sel = i
       val phy = DfiPhyDdr3(taskConfig, phyDfiConfig).setName(s"ddr3_dfi_phy_${i}")
     }
@@ -94,8 +93,8 @@ case class BmbDfiDdr3(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig, dfiConfig: 
       ddr3Chip.phy.io.ddr3.casN.asBool <> io.ddr3.casN(ddr3Chip.sel)
       ddr3Chip.phy.io.ddr3.weN.asBool <> io.ddr3.weN(ddr3Chip.sel)
       ddr3Chip.phy.io.ddr3.csN.asBool <> io.ddr3.csN(ddr3Chip.sel)
-      ddr3Chip.phy.io.ddr3.ba <> io.ddr3.ba(bankWidth * ddr3Chip.sel, bankWidth bits)
-      ddr3Chip.phy.io.ddr3.addr <> io.ddr3.addr(addressWidth * ddr3Chip.sel, addressWidth bits)
+      ddr3Chip.phy.io.ddr3.ba <> io.ddr3.ba(ddrIoDfiConfig.bankWidth * ddr3Chip.sel, ddrIoDfiConfig.bankWidth bits)
+      ddr3Chip.phy.io.ddr3.addr <> io.ddr3.addr(ddrIoDfiConfig.addressWidth * ddr3Chip.sel, ddrIoDfiConfig.addressWidth bits)
       ddr3Chip.phy.io.ddr3.odt.asBool <> io.ddr3.odt(ddr3Chip.sel)
       ddr3Chip.phy.io.ddr3.dm <> io.ddr3
         .dm(ddrIoDfiConfig.sdram.bytePerWord * ddr3Chip.sel, ddrIoDfiConfig.sdram.bytePerWord bits)
@@ -251,7 +250,10 @@ case class DfiDdr3() extends Component {
   val dfiConfig: DfiConfig = DfiConfig(
     chipSelectNumber = 1,
     dataSlice = 1,
-    signalConfig = new DfiSignalConfig(),
+    signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false) {
+      override val useWrdataCsN = false
+      override val useRddataCsN = false
+    },
     timeConfig = timeConfig,
     sdram = sdram
   )
@@ -259,7 +261,9 @@ case class DfiDdr3() extends Component {
     chipSelectNumber = dfiConfig.chipSelectNumber,
     dataSlice = dfiConfig.dataSlice,
     signalConfig = {
-      val signalConfig = new DfiSignalConfig() {
+      val signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false) {
+        override val useWrdataCsN = false
+        override val useRddataCsN = false
         override val useOdt: Boolean = true
         override val useResetN: Boolean = true
         override val useRddataDnv = true
@@ -354,7 +358,10 @@ object BmbDfiDdr3 extends App {
   val dfiConfig: DfiConfig = DfiConfig(
     chipSelectNumber = 1,
     dataSlice = 1,
-    signalConfig = new DfiSignalConfig(),
+    signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false) {
+      override val useWrdataCsN = false
+      override val useRddataCsN = false
+    },
     timeConfig = timeConfig,
     sdram = sdram
   )
@@ -362,7 +369,9 @@ object BmbDfiDdr3 extends App {
     chipSelectNumber = dfiConfig.chipSelectNumber,
     dataSlice = dfiConfig.dataSlice,
     signalConfig = {
-      val signalConfig = new DfiSignalConfig() {
+      val signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false) {
+        override val useWrdataCsN = false
+        override val useRddataCsN = false
         override val useOdt: Boolean = true
         override val useResetN: Boolean = true
         override val useRddataDnv = true
@@ -426,7 +435,10 @@ object BmbCmdOp extends App {
   val ddrIoDfiConfig: DfiConfig = DfiConfig(
     chipSelectNumber = 1,
     dataSlice = 1,
-    signalConfig = new DfiSignalConfig(),
+    signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false) {
+      override val useWrdataCsN = false
+      override val useRddataCsN = false
+    },
     timeConfig = timeConfig,
     sdram = sdram
   )
