@@ -37,6 +37,7 @@ case class InitializeSim() extends Component {
     sdramtime = sdramtime
   )
   val timeConfig = DfiTimeConfig(
+    frequencyRatio = 1,
     cmdPhase = 0,
     tPhyWrLat = 1,
     tPhyWrData = 2,
@@ -48,7 +49,6 @@ case class InitializeSim() extends Component {
     tPhyWrCsLat = 0
   )
   val dfiConfig: DfiConfig = DfiConfig(
-    frequencyRatio = 1,
     chipSelectNumber = 1,
     dataSlice = 1,
     signalConfig = new DfiSignalConfig() {

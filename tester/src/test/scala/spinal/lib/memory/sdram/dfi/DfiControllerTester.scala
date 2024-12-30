@@ -52,6 +52,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           sdramtime = sdramtime
         )
         val timeConfig = DfiTimeConfig(
+          frequencyRatio = 2,
           cmdPhase = 0,
           tPhyWrLat = sdram.tPhyWrlat,
           tPhyWrData = 0,
@@ -63,7 +64,6 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           tPhyWrCsLat = 0
         )
         val dfiConfig: DfiConfig = DfiConfig(
-          frequencyRatio = 2,
           chipSelectNumber = 2,
           dataSlice = 1,
           signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false) {

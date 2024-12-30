@@ -33,7 +33,6 @@ case class BmbDfiDdr3(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig, dfiConfig: 
 
   import ddrIoDfiConfig._
   val phyDfiConfig: DfiConfig = DfiConfig(
-    frequencyRatio = 1,
     chipSelectNumber = 1,
     dataSlice = ddrIoDfiConfig.dataSlice,
     signalConfig = ddrIoDfiConfig.signalConfig,
@@ -238,6 +237,7 @@ case class DfiDdr3() extends Component {
     sdramtime = sdramtime
   )
   val timeConfig = DfiTimeConfig(
+    frequencyRatio = 1,
     cmdPhase = 0,
     tPhyWrLat = sdram.tPhyWrlat,
     tPhyWrData = 0,
@@ -249,7 +249,6 @@ case class DfiDdr3() extends Component {
     tPhyWrCsLat = 0
   )
   val dfiConfig: DfiConfig = DfiConfig(
-    frequencyRatio = 1,
     chipSelectNumber = 1,
     dataSlice = 1,
     signalConfig = new DfiSignalConfig(),
@@ -257,7 +256,6 @@ case class DfiDdr3() extends Component {
     sdram = sdram
   )
   val ddrIoDfiConfig: DfiConfig = DfiConfig(
-    frequencyRatio = dfiConfig.frequencyRatio,
     chipSelectNumber = dfiConfig.chipSelectNumber,
     dataSlice = dfiConfig.dataSlice,
     signalConfig = {
@@ -342,6 +340,7 @@ object BmbDfiDdr3 extends App {
     sdramtime = sdramtime
   )
   val timeConfig = DfiTimeConfig(
+    frequencyRatio = 1,
     cmdPhase = 0,
     tPhyWrLat = sdram.tPhyWrlat,
     tPhyWrData = 0,
@@ -353,7 +352,6 @@ object BmbDfiDdr3 extends App {
     tPhyWrCsLat = 0
   )
   val dfiConfig: DfiConfig = DfiConfig(
-    frequencyRatio = 1,
     chipSelectNumber = 1,
     dataSlice = 1,
     signalConfig = new DfiSignalConfig(),
@@ -361,7 +359,6 @@ object BmbDfiDdr3 extends App {
     sdram = sdram
   )
   val ddrIoDfiConfig: DfiConfig = DfiConfig(
-    frequencyRatio = dfiConfig.frequencyRatio,
     chipSelectNumber = dfiConfig.chipSelectNumber,
     dataSlice = dfiConfig.dataSlice,
     signalConfig = {
@@ -415,6 +412,7 @@ object BmbCmdOp extends App {
     sdramtime = sdramtime
   )
   val timeConfig = DfiTimeConfig(
+    frequencyRatio = 1,
     cmdPhase = 0,
     tPhyWrLat = sdram.tPhyWrlat,
     tPhyWrData = 0,
@@ -426,7 +424,6 @@ object BmbCmdOp extends App {
     tPhyWrCsLat = 0
   )
   val ddrIoDfiConfig: DfiConfig = DfiConfig(
-    frequencyRatio = 1,
     chipSelectNumber = 1,
     dataSlice = 1,
     signalConfig = new DfiSignalConfig(),

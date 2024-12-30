@@ -3,6 +3,7 @@ package spinal.lib.memory.sdram.dfi
 import spinal.core._
 
 case class DfiTimeConfig(
+    frequencyRatio: Int, // PHY:MC
     cmdPhase: Int,
     tPhyWrLat: Int,
     //  the number of cycles between when the write command is driven on the DFI to
@@ -210,14 +211,13 @@ object DfiConfig {
 }
 
 case class DfiConfig(
-    frequencyRatio: Int, // PHY:MC
     chipSelectNumber: Int,
     dataSlice: Int,
     signalConfig: DfiSignalConfig,
     timeConfig: DfiTimeConfig,
     sdram: SdramConfig
 ) {
-
+  val frequencyRatio = timeConfig.frequencyRatio
   val dataRate = sdram.generation.dataRate
   val transferPerBurst = sdram.burstLength
   val phyIoWidth = dataRate * sdram.dataWidth

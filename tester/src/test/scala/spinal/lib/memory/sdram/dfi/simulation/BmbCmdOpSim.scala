@@ -35,6 +35,7 @@ object BmbCmdOpSim {
       sdramtime = sdramtime
     )
     val timeConfig = DfiTimeConfig(
+      frequencyRatio = 1,
       cmdPhase = 0,
       tPhyWrLat = sdram.tPhyWrlat,
       tPhyWrData = 0,
@@ -46,7 +47,6 @@ object BmbCmdOpSim {
       tPhyWrCsLat = 0
     )
     val dfiConfig: DfiConfig = DfiConfig(
-      frequencyRatio = 1,
       chipSelectNumber = 1,
       dataSlice = 1,
       signalConfig = DfiSignalConfig.DDR3,

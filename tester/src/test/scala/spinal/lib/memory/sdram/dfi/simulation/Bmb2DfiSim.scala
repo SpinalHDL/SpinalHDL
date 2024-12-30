@@ -39,6 +39,7 @@ case class Bmb2DfiSim(x: Int) extends Component {
     sdramtime = sdramtime
   )
   val timeConfig = DfiTimeConfig(
+    frequencyRatio = 1,
     cmdPhase = 0,
     tPhyWrLat = sdram.tPhyWrlat,
     tPhyWrData = 0,
@@ -50,7 +51,6 @@ case class Bmb2DfiSim(x: Int) extends Component {
     tPhyWrCsLat = 0
   )
   val dfiConfig: DfiConfig = DfiConfig(
-    frequencyRatio = 1,
     chipSelectNumber = 2,
     dataSlice = 1,
     signalConfig = DfiSignalConfig.DDR3,
