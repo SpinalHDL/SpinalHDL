@@ -210,7 +210,6 @@ object DfiConfig {
 }
 
 case class DfiConfig(
-    addrMap: AddrMap = RowBankColumn,
     frequencyRatio: Int, // PHY:MC
     chipSelectNumber: Int,
     dataSlice: Int,
