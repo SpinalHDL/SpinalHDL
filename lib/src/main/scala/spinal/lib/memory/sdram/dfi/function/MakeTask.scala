@@ -5,9 +5,6 @@ import spinal.lib._
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 
 case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrMap) extends Component {
-  import dfiConfig._
-  import taskConfig._
-  import taskConfig.taskParameter._
   val io = new Bundle {
     val cmd = slave(Stream(TaskWrRdCmd(taskConfig, dfiConfig)))
     val halt = out Bool ()
@@ -16,15 +13,15 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   }
   val timeConfig = TaskTimingConfig(dfiConfig)
   val readyForRefresh = True
-
-  val banksRow = Mem(UInt(sdram.rowWidth bits), sdram.bankCount)
+  val sdram = dfiConfig.sdram
+  val banksRow = Mem(UInt(dfiConfig.sdram.rowWidth bits), sdram.bankCount)
   val CCD =
-    (beatCount > 1) generate timing(
+    (dfiConfig.beatCount > 1) generate timing(
       io.output.read || io.output.write,
-      beatCount - 2,
-      log2Up(beatCount)
+      dfiConfig.beatCount - 2,
+      log2Up(dfiConfig.beatCount)
     )
-  val RFC = timing(io.output.refresh, timeConfig.RFC, timingWidth + 3)
+  val RFC = timing(io.output.refresh, timeConfig.RFC, taskConfig.taskParameter.timingWidth + 3)
   val RRD = timing(io.output.active, timeConfig.RRD)
   val WTR = timing(io.output.write, timeConfig.WTR)
   val RTW = timing(io.output.read, timeConfig.RTW)
@@ -84,7 +81,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     status.employ(address)
     readyForRefresh clearWhen (input.valid)
   }
-  val columnBurstShift = log2Up(transferPerBurst)
+  val columnBurstShift = log2Up(dfiConfig.transferPerBurst)
 
   readyForRefresh clearWhen (io.cmd.valid)
   val columnBurstMask = (sdram.columnSize - 1) - (io.cmd.stationLengthMax - 1 << columnBurstShift)
@@ -93,7 +90,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     val status = Reg(Status())
     val address = Reg(BusAddress(dfiConfig))
     val write = Reg(Bool())
-    val context = Reg(Bits(contextWidth bits))
+    val context = Reg(Bits(taskConfig.contextWidth bits))
     val offset, offsetLast = Reg(UInt(io.cmd.stationLengthWidth bits))
 
     import status._
@@ -201,7 +198,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     refreshReady.onExit(refreshStream.ready := True)
   }
 
-  def timing(loadValid: Bool, loadValue: UInt, timingWidth: Int = taskParameter.timingWidth) = new Area {
+  def timing(loadValid: Bool, loadValue: UInt, timingWidth: Int = taskConfig.taskParameter.timingWidth) = new Area {
     val value = Reg(UInt(timingWidth bits)) randBoot ()
     val increment = value =/= loadValue.resized
     val busy = CombInit(increment)
