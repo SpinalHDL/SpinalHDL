@@ -18,6 +18,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val phaseCount = busConfig.frequencyRatio
   val cmdPhase = busConfig.timeConfig.cmdPhase
   val oneTaskDataNumber = busConfig.transferPerBurst / busConfig.dataRate
+  val oneTaskByteNumber = busConfig.bytePerBurst
   val bankWidth = busConfig.sdram.bankWidth
   val rowWidth = busConfig.sdram.rowWidth
   val columnWidth = busConfig.sdram.columnWidth
@@ -33,11 +34,14 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val rdEnProxy = rd.rden.map(_.simProxy())
 
   val rowAddrQueue = mutable.Queue[Long]()
+  val columnAddrQueue = mutable.Queue[Long]()
   val bankQueue = mutable.Queue[Long]()
   val wrEnQueue = mutable.Queue[Boolean]()
   val wrAddrQueue = mutable.Queue[Long]()
   val wrByteQueue = mutable.Queue[Byte]()
   val wrLatQuenes = mutable.Queue[Int]()
+  val rdAddrQueue = mutable.Queue[Long]()
+  val rdEnQueue = mutable.Queue[(Boolean, Int)]()
   val rdDataQueue = mutable.Queue[BigInt]()
   val rProcess = Array.fill(phaseCount)(mutable.Queue[(BigInt) => Unit]())
   val rdLatQuenes = mutable.Queue[Int]()
@@ -93,12 +97,12 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
           oneTakeDataCounter = oneTakeDataCounter + 1
         }
       }
-      if (wrLatQuenes.nonEmpty) {
-        for (i <- 0 until (wrLatQuenes.length)) {
+      if(wrLatQuenes.nonEmpty) {
+        for(i <- 0 until(wrLatQuenes.length)){
           val wrLat = wrLatQuenes.dequeue()
-          if (wrLat == 0) {
+          if(wrLat == 0){
             assert(wrEn(phase), "The parameter tPhyWrLat is not satisfied ")
-          } else {
+          }else{
             wrLatQuenes.enqueue(wrLat - 1)
           }
         }
@@ -114,9 +118,11 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     rd.rd.foreach(_.rddataValid #= false)
     for ((en, phase) <- rdEn.zipWithIndex) {
       if (rProcess(phase).nonEmpty & rdDataQueue.nonEmpty) {
+        rdEnQueue.dequeue()
         rProcess(phase).dequeue().apply(rdDataQueue.dequeue())
       }
       if (en) {
+        rdEnQueue.enqueue((true, phase))
         for ((process, i) <- rProcess.zipWithIndex) {
           if (i == rdVaildPhase) {
             process.enqueue { (bigInt: BigInt) =>
@@ -127,12 +133,12 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
         }
         rdVaildPhase = (rdVaildPhase + 1) % phaseCount
       }
-      if (rdLatQuenes.nonEmpty) {
-        for (i <- 0 until (rdLatQuenes.length)) {
+      if(rdLatQuenes.nonEmpty) {
+        for(i <- 0 until(rdLatQuenes.length)){
           val rdLat = rdLatQuenes.dequeue()
-          if (rdLat == 0) {
+          if(rdLat == 0){
             assert(en, "The parameter tRddataEn is not satisfied ")
-          } else {
+          }else{
             rdLatQuenes.enqueue(rdLat - 1)
           }
         }
