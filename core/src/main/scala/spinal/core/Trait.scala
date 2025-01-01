@@ -808,7 +808,8 @@ class DefaultTag(val that: BaseType) extends SpinalTag
 object allowDirectionLessIoTag       extends SpinalTag
 object unsetRegIfNoAssignementTag    extends SpinalTag
 object allowAssignmentOverride       extends SpinalTag
-object allowOutOfRangeLiterals               extends SpinalTag{
+object allowFloating                 extends SpinalTag
+object allowOutOfRangeLiterals       extends SpinalTag{
   def apply(that : Bool) = doIt(that)
   def doIt(that : Bool) = {
     assert(that.dlcHasOnlyOne)
