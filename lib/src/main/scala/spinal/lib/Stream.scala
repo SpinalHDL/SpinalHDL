@@ -675,6 +675,7 @@ object StreamArbiter {
       for(bitId  <- maskLocked.range){
         maskLocked(bitId) init(Bool(bitId == maskLocked.length-1))
       }
+      assert(CountOne(maskLocked) <= 1)
       //maskProposal := maskLocked
       maskProposal := OHMasking.roundRobin(Vec(io.inputs.map(_.valid)),Vec(maskLocked.last +: maskLocked.take(maskLocked.length-1)))
     }
@@ -730,6 +731,7 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
   val maskLocked = Reg(Vec(Bool(),portCount))
   val maskRouted = Mux(locked, maskLocked, maskProposal)
 
+  assert(CountOne(maskRouted) <= 1)
 
   when(io.output.valid) {
     maskLocked := maskRouted
