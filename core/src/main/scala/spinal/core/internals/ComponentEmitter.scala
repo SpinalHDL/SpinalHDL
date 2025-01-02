@@ -124,6 +124,12 @@ abstract class ComponentEmitter {
   }
 
   def elaborate() = {
+    for(child <- component.children){
+      for(io <- child.getAllIo if io.isInput && io.dlcIsEmpty) {
+        openSubIo += io
+      }
+    }
+
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
     //check interface assign
@@ -417,7 +423,7 @@ abstract class ComponentEmitter {
             referencesOverrides(io) = subInputBinded
             subComponentInputToNotBufferize += io
           }else {
-            wrapSubInput(io)
+            if(!openSubIo.contains(io)) wrapSubInput(io)
           }
         }
       }
@@ -470,7 +476,6 @@ abstract class ComponentEmitter {
       check(cd.softReset)
       check(cd.clockEnable)
     })
-
   }
 
   def cutLongExpressions(): Unit ={
