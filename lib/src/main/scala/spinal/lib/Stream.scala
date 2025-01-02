@@ -1,6 +1,7 @@
 package spinal.lib
 
 import spinal.core._
+import spinal.core.formal.WithFormalAsserts
 import spinal.idslplugin.Location
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, EfinixStdTargets, Rtl, XilinxStdTargets}
 
@@ -717,7 +718,7 @@ object StreamArbiter {
  *  A StreamArbiter is like a StreamMux, but with built-in complex selection logic that can arbitrate input
  *  streams based on a schedule or handle fragmented streams. Use a StreamArbiterFactory to create instances of this class.
  */
-class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area, val lockFactory: (StreamArbiter[T]) => Area) extends Component {
+class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area, val lockFactory: (StreamArbiter[T]) => Area) extends Component with WithFormalAsserts {
   val io = new Bundle {
     val inputs = Vec(slave Stream (dataType),portCount)
     val output = master Stream (dataType)
@@ -730,10 +731,6 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
   val maskProposal = Vec(Bool(),portCount)
   val maskLocked = Reg(Vec(Bool(),portCount))
   val maskRouted = Mux(locked, maskLocked, maskProposal)
-
-  if(globalData.config.formalAsserts) {
-    assert(CountOne(maskRouted) <= 1)
-  }
 
   when(io.output.valid) {
     maskLocked := maskRouted
@@ -748,6 +745,10 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
 
   io.chosenOH := maskRouted.asBits
   io.chosen := OHToUInt(io.chosenOH)
+
+  override def formalAsserts(implicit useAssumes: Boolean) = new Area {
+    assertOrAssume(CountOne(maskRouted) <= 1)
+  }
 }
 
 class StreamArbiterFactory {
@@ -1224,7 +1225,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
                             val withBypass : Boolean = false,
                             val allowExtraMsb : Boolean = true,
                             val forFMax : Boolean = false,
-                            val useVec : Boolean = false) extends Component {
+                            val useVec : Boolean = false) extends Component with WithFormalAsserts {
   require(depth >= 0)
 
   if(withBypass) require(withAsyncRead)
@@ -1410,9 +1411,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
 
-  val asserts = globalData.config.formalAsserts generate formalAsserts()
-
-  def formalAsserts() = new Area {
+  override def formalAsserts(implicit useAssumes : Boolean = false) = new Area {
     val push_pop_occupancy: UInt = {
       if (logic != null) {
         if (withExtraMsb) {
@@ -1453,30 +1452,30 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
       // Fifo depth of 1 is just a staged stream; so it can't be in an invalid state
     } else if (depth > 1) {
 
-      assert(calculate_occupancy === io.occupancy)
-      assert(io.availability === depth -^ io.occupancy)
+      assertOrAssume(calculate_occupancy === io.occupancy)
+      assertOrAssume(io.availability === depth -^ io.occupancy)
 
       when(io.occupancy === 0) {
-        assert(io.pop.valid === (io.push.fire && Bool(withBypass)), "Occupancy check didn't result in right pop valid")
+        assertOrAssume(io.pop.valid === (io.push.fire && Bool(withBypass)), "Occupancy check didn't result in right pop valid")
       }
 
       if (logic != null) {
         when(logic.ptr.pop === 0 && Bool(!isPow2(depth))) {
-          assert(logic.ptr.popOnIo === ((depth - extraOccupancy) % depth))
+          assertOrAssume(logic.ptr.popOnIo === ((depth - extraOccupancy) % depth))
         } otherwise {
-          assert(logic.ptr.popOnIo === (logic.ptr.pop - extraOccupancy))
+          assertOrAssume(logic.ptr.popOnIo === (logic.ptr.pop - extraOccupancy))
         }
 
         when(io.availability === 0) {
-          assert(io.push.ready === False)
+          assertOrAssume(io.push.ready === False)
         }
 
         if (!withExtraMsb) {
-          assert(logic.ptr.pop <= (depth - 1))
-          assert(logic.ptr.push <= (depth - 1))
+          assertOrAssume(logic.ptr.pop <= (depth - 1))
+          assertOrAssume(logic.ptr.push <= (depth - 1))
         } else {
-          assert(logic.ptr.pop <= ((depth << 1) - 1))
-          assert(logic.ptr.push <= ((depth << 1) - 1))
+          assertOrAssume(logic.ptr.pop <= ((depth << 1) - 1))
+          assertOrAssume(logic.ptr.push <= ((depth << 1) - 1))
         }
 
         if (forFMax) {
@@ -1484,8 +1483,8 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
           val emptyStart = 1 << (counterWidth - 1)
           val fullStart = (1 << (counterWidth - 1)) - depth
 
-          assert(logic.ptr.arb.fmax.fullTracker.value === (fullStart +^ io.occupancy))
-          assert(logic.ptr.arb.fmax.emptyTracker.value === (emptyStart -^ push_pop_occupancy))
+          assertOrAssume(logic.ptr.arb.fmax.fullTracker.value === (fullStart +^ io.occupancy))
+          assertOrAssume(logic.ptr.arb.fmax.emptyTracker.value === (emptyStart -^ push_pop_occupancy))
         }
       }
 

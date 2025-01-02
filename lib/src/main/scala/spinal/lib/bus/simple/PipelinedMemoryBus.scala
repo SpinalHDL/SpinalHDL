@@ -1,12 +1,13 @@
 package spinal.lib.bus.simple
 
 import spinal.core._
+import spinal.core.formal.WithFormalAsserts
 import spinal.lib.bus.misc._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.bus.bmb.BmbParameter
-import scala.collection.Seq
 
+import scala.collection.Seq
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -135,7 +136,7 @@ object PipelinedMemoryBusArbiter{
   }
 }
 
-case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryBusConfig, portCount : Int, pendingRspMax : Int, rspRouteQueue : Boolean, transactionLock : Boolean = true) extends Component{
+case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryBusConfig, portCount : Int, pendingRspMax : Int, rspRouteQueue : Boolean, transactionLock : Boolean = true) extends Component with WithFormalAsserts {
   val io = new Bundle{
     val inputs = Vec(slave(PipelinedMemoryBus(pipelinedMemoryBusConfig)), portCount)
     val output = master(PipelinedMemoryBus(pipelinedMemoryBusConfig))
@@ -153,7 +154,7 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
 
     val rspRouteOh = Bits(portCount bits)
 
-    val rsp = if(!rspRouteQueue) new Area{
+    val rspSingle = !rspRouteQueue generate new Area{
       assert(pendingRspMax == 1)
       val pending = RegInit(False) clearWhen(io.output.rsp.valid)
       val target = Reg(Bits(portCount bits))
@@ -163,8 +164,36 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
         pending := True
       }
       io.output.cmd << arbiter.io.output.haltWhen(pending && !io.output.rsp.valid)
+    }
 
-      val formalAsserts = if(globalData.config.formalAsserts) new Area {
+    val rspQueue = rspRouteQueue generate new Area {
+      val (outputCmdFork, routeCmdFork) = StreamFork2(arbiter.io.output)
+      io.output.cmd << outputCmdFork
+
+      val rspNeeded = routeCmdFork.translateWith(arbiter.io.chosenOH).throwWhen(routeCmdFork.write)
+
+      val rspRouteFifo = StreamFifo(rspNeeded.payload, pendingRspMax, latency = 1)
+      rspRouteFifo.io.push <> rspNeeded
+      val rspRoute = rspRouteFifo.io.pop
+      rspRoute.ready := io.output.rsp.valid
+      rspRouteOh := rspRoute.payload
+    }
+
+    for ((input, id) <- io.inputs.zipWithIndex) {
+      input.rsp.valid := io.output.rsp.valid && rspRouteOh(id)
+      input.rsp.payload := io.output.rsp.payload
+    }
+  }
+
+  override def formalAsserts(implicit useAssumes: Boolean) = new Area {
+    withAutoPull()
+
+    if(logic != null) {
+      import logic._
+      arbiter.formalAssumes()
+
+      if(logic.rspSingle != null) {
+        import logic.rspSingle._
         val outstandingReads = io.inputs.map(_.formalContract.outstandingReads.value)
         for ((count, idx) <- outstandingReads.zipWithIndex) {
           assert(count === Mux(target(idx), pending.asUInt, U(0)))
@@ -172,26 +201,17 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
         assert(!pending || target =/= 0)
         assert(io.output.formalContract.outstandingReads === pending.asUInt)
       }
-    } else new Area{
-      val (outputCmdFork, routeCmdFork) = StreamFork2(arbiter.io.output)
-      io.output.cmd << outputCmdFork
 
-      val rspNeeded = routeCmdFork.translateWith(arbiter.io.chosenOH).throwWhen(routeCmdFork.write)
+      if(logic.rspQueue != null) {
+        import logic.rspQueue._
+        rspRouteFifo.formalAssumes()//rspRouteFifo.formalAssumes()
 
-      val rspRouteQueue = StreamFifo(rspNeeded.payload, pendingRspMax, latency = 1)
-      rspRouteQueue.io.push <> rspNeeded
-      val rspRoute = rspRouteQueue.io.pop
-      rspRoute.ready := io.output.rsp.valid
-      rspRouteOh := rspRoute.payload
-
-      val formalAsserts = if(globalData.config.formalAsserts) new Area {
-        withAutoPull()
-        assert(rspRouteQueue.formalCheckRam(CountOne(_) =/= 1).orR === False)
+        assert(rspRouteFifo.formalCheckRam(CountOne(_) =/= 1).orR === False)
 
         val outstandingReads = io.inputs.map(_.formalContract.outstandingReads.value.intoSInt)
-        val rspInRouter = outstandingReads.indices.map(idx => rspRouteQueue.formalCount(_(idx)))
+        val rspInRouter = outstandingReads.indices.map(idx => rspRouteFifo.formalCount(_(idx)))
 
-        // In general, the number of items in the rspRouteQueue fifo should match the outstanding read count on the
+        // In general, the number of items in the rspRouteFifo fifo should match the outstanding read count on the
         // output, and the count from rspInRouter should match the inputs. But we also have to handle the case
         // where the item has been accepted into the queue from the fork, but not accepted on the bus -- or vice
         // versa
@@ -201,7 +221,7 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
         val outputOneAhead = RegNext(!outputCmdFork.isStall && routeCmdFork.isStall && !routeCmdFork.write, init = False).asUInt.intoSInt
         val queueOffset = outputOneAhead -^ queueOneAhead
 
-        assert(io.output.formalContract.outstandingReads.intoSInt === (rspRouteQueue.io.occupancy.intoSInt +^ queueOffset))
+        assert(io.output.formalContract.outstandingReads.intoSInt === (rspRouteFifo.io.occupancy.intoSInt +^ queueOffset))
 
         // For the input busses, we look at the stall status of the arbiter output and routeCmdFork
         val queueOneAheadInput = RegNext(arbiter.io.output.isStall && !routeCmdFork.isStall && !routeCmdFork.write, init = False).asUInt.intoSInt
@@ -211,8 +231,8 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
         when(queueOneAheadInput =/= 0) {
           // Make sure that if the counts are off because the route was pushed to the queue that the last pushed
           // item in the queue is the current OH
-          assert(rspRouteQueue.io.occupancy > 0)
-          assert(rspRouteQueue.formalCheckLastPush(_ === arbiter.io.chosenOH))
+          assert(rspRouteFifo.io.occupancy > 0)
+          assert(rspRouteFifo.formalCheckLastPush(_ === arbiter.io.chosenOH))
         }
 
         for ((count, idx) <- outstandingReads.zipWithIndex) {
@@ -224,10 +244,6 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
       }
     }
 
-    for ((input, id) <- io.inputs.zipWithIndex) {
-      input.rsp.valid := io.output.rsp.valid && rspRouteOh(id)
-      input.rsp.payload := io.output.rsp.payload
-    }
   }
 }
 
