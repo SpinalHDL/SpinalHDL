@@ -114,9 +114,8 @@ object FormalPipelinedMemoryBus {
   def runFormalTest(dut : => Component): Unit = {
     val config = FormalConfig._spinalConfig.copy(defaultConfigForClockDomains = ClockDomainConfig(
       resetActiveLevel = HIGH,
-      resetKind = SYNC,
-    ),
-      mergeAsyncProcess = true,
+      resetKind = SYNC),
+      mergeAsyncProcess = true
     )
 
     FormalConfig.withDebug.withConfig(config).withProve(15).withCover(15).
