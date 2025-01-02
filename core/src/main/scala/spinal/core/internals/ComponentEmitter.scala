@@ -124,12 +124,6 @@ abstract class ComponentEmitter {
   }
 
   def elaborate() = {
-    for(child <- component.children){
-      for(io <- child.getAllIo if io.isInput && io.dlcIsEmpty) {
-        openSubIo += io
-      }
-    }
-
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
     //check interface assign

@@ -1685,6 +1685,11 @@ class ComponentEmitterVhdl(
     // Operator.Formal.InitState --> manually implemented in FormalPhase
   }
 
+  for(child <- component.children){
+    for(io <- child.getAllIo if io.isInput && io.dlcIsEmpty) {
+      openSubIo += io
+    }
+  }
   elaborate()
   emitEntity()
   emitArchitecture()
