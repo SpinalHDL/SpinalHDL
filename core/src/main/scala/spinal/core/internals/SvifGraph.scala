@@ -4,7 +4,7 @@ import spinal.core._
 import scala.collection.{immutable, mutable}
 
 class SvifGraph(
-  val intfSet: mutable.HashSet[Interface], 
+  val intfSet: mutable.HashSet[Interface]
 ) {
   var child: SvifGraph = null
 
@@ -42,12 +42,4 @@ class SvifGraph(
       return None
     }
   }
-  //def getBottom(): SvifGraph = {
-  //  if (child == null) {
-  //    this
-  //  } else {
-  //    child.getBottom()
-  //  }
-  //}
-
 }

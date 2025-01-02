@@ -129,7 +129,7 @@ class Interface extends Bundle {
                 elem=elem,
                 name=name,
                 foundStruct=foundStruct,
-                foundBundle=true,
+                foundBundle=true
               )
             }
           }
@@ -140,7 +140,7 @@ class Interface extends Bundle {
               elem=elem,
               name=s"${elem}_${idx}",
               foundStruct=foundStruct,
-              foundBundle=foundBundle,
+              foundBundle=foundBundle
             )
           }
         }
@@ -170,22 +170,12 @@ class Interface extends Bundle {
               if(elementsCache.find(_._1 == name).isDefined)
                 LocatedPendingError(s"name conflict: ${name} has been used")
             super.valCallbackRec(ref, name)
-            checkForErrors(
-              elem=ref,
-              name=name,
-              foundStruct=intf.thisIsSVstruct,
-              foundBundle=false,
-            )
+            checkForErrors(elem=ref, name=name, foundStruct=intf.thisIsSVstruct, foundBundle=false)
           }
           case b: Bundle => {
             b.flattenForeach(x => x.addTag(IsInterface))
             super.valCallbackRec(ref, name)
-            checkForErrors(
-              elem=b,
-              name=name,
-              foundStruct=false,
-              foundBundle=true,
-            )
+            checkForErrors(elem=b, name=name, foundStruct=false, foundBundle=true)
           }
           case ref: Vec[_] => {
             if(OwnableRef.proposal(ref, this)) ref.setPartialName(name, Nameable.DATAMODEL_WEAK)
@@ -458,12 +448,6 @@ class Interface extends Bundle {
 
 object Interface {
   def mkNewName(name: String, count: Int) = (
-    name + (
-      if (count == 0) (
-        ""
-      ) else (
-        "_" + count
-      )
-    )
+    name + (if (count == 0) ("") else ("_" + count))
   )
 }

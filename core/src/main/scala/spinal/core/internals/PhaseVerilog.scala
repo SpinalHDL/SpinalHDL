@@ -280,7 +280,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
   ](
     nodes: Vec[T],
     vecChainArr: mutable.ArrayBuffer[Vec[_]],
-    doConvertIntfVec: Boolean,
+    doConvertIntfVec: Boolean
   ): Boolean = {
     var ret: Boolean = doConvertIntfVec
     if (ret) {
@@ -296,7 +296,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                 ) else (
                   null
                 )
-              ),
+              )
             ) match {  //!= CmpResultKind.Same
               case CmpResultKind.Same => 
               case _ => {
@@ -314,7 +314,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
   def doCompare(
     nodeData: Data,
     otherNodeData: Data,
-    vecChainArr: mutable.ArrayBuffer[Vec[_]]=null,
+    vecChainArr: mutable.ArrayBuffer[Vec[_]]=null
   ): CmpResultKind = {
     //--------
     nodeData match {
@@ -334,7 +334,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                       case Some((otherElemName, otherElem)) => {
                         if (doCompare(
                           nodeData=nodeElem,
-                          otherNodeData=otherElem,
+                          otherNodeData=otherElem
                         ) == CmpResultKind.Diff) {
                           return CmpResultKind.Diff
                         }
@@ -396,7 +396,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                       if (doCompare(
                         nodeData=nodeElem,
                         otherNodeData=otherElem,
-                        vecChainArr=vecChainArr,
+                        vecChainArr=vecChainArr
                       ) == CmpResultKind.Diff) {
                         return CmpResultKind.Diff
                       }
@@ -439,7 +439,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                     ) else (
                       null
                     )
-                  ),
+                  )
                 )
                 if (cmpResult != CmpResultKind.Same) {
                   return CmpResultKind.Diff
@@ -478,7 +478,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
   def getParentVec(
     someNode: Data,
     svInterfaceVecFound: mutable.HashSet[Data],
-    shouldStopFunc: (Data) => Boolean,
+    shouldStopFunc: (Data) => Boolean
   ): Data = {
     if (!(
       shouldStopFunc(someNode)
@@ -596,7 +596,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
               ret=ret,
               name=name,
               elem=myParentVec,
-              doConvertIntfVec=true,
+              doConvertIntfVec=true
             )
           } else {
             val genericFlat = node.genericElements
@@ -646,7 +646,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           val haveAllSameIntf = outerDoCompareVec(
             nodes=nodes,
             vecChainArr=vecChainArr,
-            doConvertIntfVec=doConvertIntfVec,
+            doConvertIntfVec=doConvertIntfVec
           )
 
           if (haveAllSameIntf && vecChainArr.size > 0) {
@@ -806,7 +806,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           interface: Data,
           rootIFList: List[Interface],
           someName: String,
-          count: Int,
+          count: Int
         ): Option[String] = {
           val newName = (
             mkNewName(s"zzz_Interface_${someName}", count)
@@ -869,7 +869,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           }
         }
         def outerDoAllocateName(
-          interface: Data,
+          interface: Data
         ): Unit = {
           if (interface == null) {
             return
@@ -881,7 +881,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                   interface=interface,
                   rootIFList=interface.rootIFList(),
                   someName=interface.definitionName,
-                  count=0,
+                  count=0
                 ) match {
                   case Some(newName) => {
                     interface.setName(newName)
@@ -909,14 +909,14 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     }
     //--------
     def mkNewGraph(
-      interface: Interface,
+      interface: Interface
     ): SvifGraph = {
       return new SvifGraph(
         intfSet={
           val intfSet = mutable.HashSet[Interface]()
           intfSet += interface
           intfSet
-        },
+        }
       )
     }
     val svIntfWalkDataMap = mutable.HashMap[String, mutable.HashSet[Interface]]()
@@ -977,15 +977,15 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
     def doUpdateSvifGraph(
       nodeOdn: String,
       nodeIntf: Interface,
-      nodeGraph: SvifGraph,
+      nodeGraph: SvifGraph
     ): Unit = {
       def innerUpdate(
         nodeIntf: Interface,
-        otherNodeIntf: Interface,
+        otherNodeIntf: Interface
       ): Boolean = {
         val cmpResult = doCompare(
           nodeData=nodeIntf,
-          otherNodeData=otherNodeIntf,
+          otherNodeData=otherNodeIntf
         )
         cmpResult match {
           case CmpResultKind.Same => {
@@ -1002,7 +1002,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
       }
       if (innerUpdate(
         nodeIntf=nodeIntf,
-        otherNodeIntf=nodeGraph.anyIntf,
+        otherNodeIntf=nodeGraph.anyIntf
       )) {
         nodeGraph.intfSet += nodeIntf
         return
@@ -1010,7 +1010,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
         doUpdateSvifGraph(
           nodeOdn=nodeOdn,
           nodeIntf=nodeIntf,
-          nodeGraph=nodeGraph.child,
+          nodeGraph=nodeGraph.child
         )
       } else {
         nodeGraph.addChild(
@@ -1046,7 +1046,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
           allocated += rootIF
         }
         def innerFunc(
-          someNode: Data,
+          someNode: Data
         ): Unit = {
           val IFlist = someNode.rootIFList().reverse
 
@@ -1082,7 +1082,7 @@ class PhaseInterface(pc: PhaseContext) extends PhaseNetlist{
                     val haveAllSameIntf = outerDoCompareVec(
                       nodes=parentVec,
                       vecChainArr=vecChainArr,
-                      doConvertIntfVec=true,
+                      doConvertIntfVec=true
                     )
                     if (haveAllSameIntf && vecChainArr.size > 0) {
                       var didFind: Boolean = false

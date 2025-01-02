@@ -360,7 +360,7 @@ class NamingScope(val duplicationPostfix : String, parent: NamingScope = null) {
     val lowerCase = name.toLowerCase
     (
       !(!map.contains(lowerCase) && (parent == null || !parent.map.contains(lowerCase))),
-      lowerCase,
+      lowerCase
     )
   }
 
