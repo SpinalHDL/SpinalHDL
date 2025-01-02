@@ -675,7 +675,7 @@ object StreamArbiter {
       for(bitId  <- maskLocked.range){
         maskLocked(bitId) init(Bool(bitId == maskLocked.length-1))
       }
-      assert(CountOne(maskLocked) <= 1)
+      assert(CountOne(maskLocked) <= 1, "Mask locked must be a proper one hot vector")
       //maskProposal := maskLocked
       maskProposal := OHMasking.roundRobin(Vec(io.inputs.map(_.valid)),Vec(maskLocked.last +: maskLocked.take(maskLocked.length-1)))
     }
@@ -731,7 +731,9 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
   val maskLocked = Reg(Vec(Bool(),portCount))
   val maskRouted = Mux(locked, maskLocked, maskProposal)
 
-  assert(CountOne(maskRouted) <= 1)
+  if(globalData.config.formalAsserts) {
+    assert(CountOne(maskRouted) <= 1)
+  }
 
   when(io.output.valid) {
     maskLocked := maskRouted
@@ -1095,6 +1097,9 @@ class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], syn
     for (i <- 0 until portCount) {
       when(!outputs(i).ready && linkEnable(i)) {
         input.ready := False
+      }
+      when(input.valid === False) {
+        assert(linkEnable(i), "Link enable must be true when input is invalid. This assert mostly just helps for formal testing")
       }
     }
 
