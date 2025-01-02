@@ -74,7 +74,8 @@ object isPow2 {
     if (that < 0) return false
     that.bitCount == 1
   }
-  def apply(that : Int) : Boolean = apply(BigInt(that))
+  def apply(that : Int*) : Boolean = that.forall(n => apply(BigInt(n)))
+  def apply(that : Iterable[Int]) : Boolean = that.forall(n => apply(BigInt(n)))
 }
 
 
