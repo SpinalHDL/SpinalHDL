@@ -1926,6 +1926,11 @@ end
     outputWrap contains sig
   }
 
+  for(child <- component.children){
+    for(io <- child.getAllIo if io.isInput && io.dlcIsEmpty) {
+      openSubIo += io
+    }
+  }
   elaborate()
   fillExpressionToWrap()
   emitEntity()
