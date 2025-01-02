@@ -474,7 +474,7 @@ class ComponentEmitterVerilog(
           }
         }
       }
-      val maxNameLengthConNew = if(prepareInstports.isEmpty) 0 else prepareInstports.map(_._2.length()).max
+      val maxNameLengthConNew = if(prepareInstports.isEmpty) 0 else Math.max(1, prepareInstports.map(_._2.length()).max)
       val prepareInstportsLen = prepareInstports
         .map(x => (x._1, s"%-${maxNameLengthConNew}s".format(x._2), x._3))
         .map(x => s"${x._1}${x._2}${x._3}")
@@ -1926,6 +1926,11 @@ end
     outputWrap contains sig
   }
 
+  for(child <- component.children){
+    for(io <- child.getAllIo if io.isInput && io.dlcIsEmpty) {
+      openSubIo += io
+    }
+  }
   elaborate()
   fillExpressionToWrap()
   emitEntity()
