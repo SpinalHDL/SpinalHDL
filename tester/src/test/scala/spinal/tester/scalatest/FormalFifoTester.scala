@@ -101,39 +101,6 @@ class FormalFifoTester extends SpinalFormalFunSuite {
         // cover the case that FIFO first goes to full, then to empty
         dut.formalFullToEmpty()
 
-        if (dut.withExtraMsb) {
-          assert(dut.logic.ptr.pop <= ((depth << 1) - 1))
-          assert(dut.logic.ptr.push <= ((depth << 1) - 1))
-        } else {
-          assert(dut.logic.ptr.pop <= (depth-1))
-          assert(dut.logic.ptr.push <= (depth-1))
-        }
-
-        // TODO for .withProve() induction prove to pass, relationship between push/pop distance and some fill rate
-        // must be asserted. Currently only withFMax=true use cases are supported.
-        if (forFMax & (!isPow2(depth) || !dut.withExtraMsb) & withAsyncRead) {
-          // initially (1 << log2Up(depth)), minus what is inside the StreamFifo
-          assert(dut.logic.ptr.arb.fmax.emptyTracker.value === ((1 << log2Up(depth)) - ((depth +^ dut.logic.ptr.push - dut.logic.ptr.pop) % depth) - U(dut.logic.ptr.full & (dut.logic.ptr.push === dut.logic.ptr.pop)) * depth))
-          // initially (1 << log2Up(depth)) - depth, plus what is inside the StreamFifo and the optional output stage
-          assert(dut.logic.ptr.arb.fmax.fullTracker.value ===  ((1 << log2Up(depth)) - depth +^ ((depth  +^ dut.logic.ptr.push - dut.logic.ptr.pop) % depth)) +^ (U(dut.logic.ptr.full & (dut.logic.ptr.push === dut.logic.ptr.pop)) * depth) +^ U(dut.io.pop.valid & !Bool(withAsyncRead)))
-        } else if (forFMax & (!isPow2(depth) || !dut.withExtraMsb) && !withAsyncRead) {
-          // initially (1 << log2Up(depth)), minus what is inside the StreamFifo
-          assert(dut.logic.ptr.arb.fmax.emptyTracker.value === ((1 << log2Up(depth)) - ((depth +^ dut.logic.ptr.push - dut.logic.ptr.pop) % depth)))
-          // initially (1 << log2Up(depth)) - depth, plus what is inside the StreamFifo and the optional output stage
-          assert(dut.logic.ptr.arb.fmax.fullTracker.value ===  ((1 << log2Up(depth)) - depth +^ ((depth  +^ dut.logic.ptr.push - dut.logic.ptr.pop) % depth)) +^ U(dut.io.pop.valid & !Bool(withAsyncRead)))
-        // depth is power of two, and we use modulo (depth*2) arithmetic
-        } else if (forFMax & dut.withExtraMsb) {
-          // initially (1 << log2Up(depth)), minus what is inside the StreamFifo
-          assert(dut.logic.ptr.arb.fmax.emptyTracker.value === ((1 << log2Up(depth)) - ((depth*2 +^ dut.logic.ptr.push - dut.logic.ptr.pop) % (depth*2))))
-          // initially (1 << log2Up(depth)) - depth, plus what is inside the StreamFifo and the optional output stage
-          assert(dut.logic.ptr.arb.fmax.fullTracker.value ===  ((1 << log2Up(depth)) - depth +^ ((depth*2 +^ dut.logic.ptr.push - dut.logic.ptr.pop) % (depth*2)) +^ U(dut.io.pop.valid & !Bool(withAsyncRead))))
-        // TODO broken?
-        } else if (dut.withExtraMsb) {
-          //assert(false)
-          assert(dut.logic.ptr.occupancy === (dut.logic.ptr.push - dut.logic.ptr.popOnIo))
-          assert(dut.logic.ptr.full === ((dut.logic.ptr.push ^ dut.logic.ptr.popOnIo ^ depth) === 0))
-          assert(dut.logic.ptr.empty === (dut.logic.ptr.push === dut.logic.ptr.pop))
-        }
         // get order index of x
         // x with lowest index leaves StreamFifo first
         def getCompId(x: UInt): UInt = {
@@ -182,5 +149,53 @@ class FormalFifoTester extends SpinalFormalFunSuite {
       forFMax = forFMax,
       allowExtraMsb = allowExtraMsb
     )
+  }
+}
+
+class StreamFifoFormal[T <: Data](val dataType: HardType[T],
+                                  val depth: Int,
+                                  val withAsyncRead : Boolean = false,
+                                  val withBypass : Boolean = false,
+                                  val allowExtraMsb : Boolean = true,
+                                  val forFMax : Boolean = false,
+                                  val useVec : Boolean = false) extends Component {
+  val dut = FormalDut(new StreamFifo(dataType, depth, withAsyncRead, withBypass, allowExtraMsb, forFMax, useVec))
+  assumeInitial(ClockDomain.current.isResetActive)
+
+  dut.io.pop.formalAssertsMaster()
+  dut.io.push.formalAssumesSlave()
+
+  anyseq(dut.io.push.valid)
+  anyseq(dut.io.push.payload)
+
+  dut.io.flush := False
+  anyseq(dut.io.pop.ready)
+}
+
+class StreamFifoFormalProveTest extends SpinalFormalFunSuite {
+  val configs = {for(
+    // Don't bother testing 0 and 1 here; they have no meaningful asserts
+    depth <- Seq(2, 6, 8);
+    withAsynRead <- Seq(true, false);
+    withBypass <- Seq(true, false);
+    allowExtraMsb <- Seq(true, false);
+    forFMax <- Seq(true, false);
+    useVec <- Seq(true, false)
+  ) yield {
+    if(!withAsynRead && (useVec || withBypass)) {
+      null
+    } else {
+      (s"fifo_prove_${depth}_withAsynRead${withAsynRead}_withBypass${withBypass}_allowExtraMsb${allowExtraMsb}_forFMax${forFMax}_useVec${useVec}", () => new StreamFifoFormal(UInt(2 bits), depth, withAsynRead, withBypass, allowExtraMsb, forFMax, useVec))
+    }
+  }}.filter(_ != null)
+
+
+  for((name, dut_ctor) <- configs) {
+    test(name) {
+      FormalConfig
+        .withProve(20)
+        //.withDebug
+        .doVerify(dut_ctor().setDefinitionName(name))
+    }
   }
 }
