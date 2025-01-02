@@ -1096,6 +1096,9 @@ class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], syn
       when(!outputs(i).ready && linkEnable(i)) {
         input.ready := False
       }
+      when(input.valid === False) {
+        assert(linkEnable(i))
+      }
     }
 
     /* Outputs are valid if the input is valid and they haven't taken their value yet.
