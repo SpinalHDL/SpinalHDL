@@ -48,7 +48,7 @@ case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle 
     if(globalData.config.formalAsserts) {
       assume(!outstandingReads.willOverflow) // This is required for the inductive formal methods to work
     }
-    val willUnderflow = outstandingReads.mayUnderflow && outstandingReads.decrementIt
+    val willUnderflow = outstandingReads.willUnderflow
     assert(!willUnderflow, "There should never be more responses than read requests")
 
     cmd.formalAssertsMaster()
