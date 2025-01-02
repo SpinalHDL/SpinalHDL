@@ -12,6 +12,7 @@ object FormalDut{
 
     dut match {
       case withAsserts: WithFormalAsserts => withAsserts.formalAsserts()
+      case _ => {}
     }
 
     dut.asFormalDut()
