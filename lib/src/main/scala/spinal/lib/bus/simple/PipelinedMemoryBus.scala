@@ -51,7 +51,15 @@ case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle 
     val willUnderflow = outstandingReads.willUnderflow
     assert(!willUnderflow, "There should never be more responses than read requests")
 
-    cmd.formalAssertsMaster()
+    val invariantCmd = cmd.clone
+    invariantCmd.valid := cmd.valid
+    invariantCmd.write := cmd.write
+    invariantCmd.address := cmd.address
+    invariantCmd.data := Mux(cmd.write, cmd.data, B(0))
+    invariantCmd.mask := Mux(cmd.write, cmd.mask, B(0))
+    invariantCmd.ready := cmd.ready
+
+    invariantCmd.formalAssertsMaster()
   }
   def formalAssumesSlave(payloadInvariance : Boolean = true) = new Composite(this, "assumes") {
     cmd.formalAssumesSlave(payloadInvariance)
