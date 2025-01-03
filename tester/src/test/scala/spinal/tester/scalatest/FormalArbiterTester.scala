@@ -429,4 +429,40 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
   test("Arbiter-roundrobin-fragment-verify-ghdl") {
     testRoundrobinFragment(GhdlFormalBackend)
   }
+  test("Arbiter-stream-contracts") {
+    for((lockFactoryName, lockFactory) <- Map[String, StreamArbiter[_] => Area](
+      "none" -> StreamArbiter.Lock.none,
+      "transaction" -> StreamArbiter.Lock.transactionLock,
+      "fragment" -> StreamArbiter.Lock.fragmentLock);
+        (arbitrationFactoryName, arbitrationFactory) <- Map[String, StreamArbiter[_ <: Data] => Area](
+          "roundRobin" -> StreamArbiter.Arbitration.roundRobin,
+          "lowerFirst" -> StreamArbiter.Arbitration.lowerFirst,
+          "sequentialOrder" -> StreamArbiter.Arbitration.sequentialOrder)) {
+      FormalConfig
+        .withBMC(20)
+        .withProve(20)
+        //.withDebug
+        .doVerify(new Component {
+          val dut = FormalDut(
+            new StreamArbiter(Fragment(UInt(8 bits)), 5)(
+              lockFactory,
+              arbitrationFactory
+            )
+          )
+          assumeInitial(ClockDomain.current.isResetActive)
+
+          val payloadInvariance = lockFactoryName != "none"
+          println(s"Payload invariance ${payloadInvariance}")
+          dut.io.inputs.foreach(stream => {
+            stream.formalAssumesSlave()
+            anyseq(stream.payload)
+            anyseq(stream.valid)
+          })
+
+          anyseq(dut.io.output.ready)
+          dut.io.output.formalAssertsMaster(payloadInvariance)
+
+        }.setDefinitionName(s"ArbiterStreamContracts_${lockFactoryName}_${arbitrationFactoryName}"))
+    }
+  }
 }
