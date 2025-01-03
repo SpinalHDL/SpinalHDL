@@ -1084,7 +1084,7 @@ class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: 
   val logic = new StreamForkArea(io.input, io.outputs, synchronous)
 }
 
-class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], synchronous: Boolean = false) extends Area {
+class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], synchronous: Boolean = false) extends Area with WithFormalAsserts {
   val portCount = outputs.size
   /*Used for async, Store if an output stream already has taken its value or not */
   val linkEnable = if(!synchronous)Vec(RegInit(True),portCount)else null
@@ -1098,9 +1098,6 @@ class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], syn
     for (i <- 0 until portCount) {
       when(!outputs(i).ready && linkEnable(i)) {
         input.ready := False
-      }
-      when(input.valid === False) {
-        assert(linkEnable(i), "Link enable must be true when input is invalid. This assert mostly just helps for formal testing")
       }
     }
 
@@ -1117,6 +1114,14 @@ class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], syn
     /* Reset the storage for each new value */
     when(input.ready) {
       linkEnable.foreach(_ := True)
+    }
+
+    formalAsserts(true)
+  }
+
+  override def formalAsserts(implicit useAssumes: Boolean) = new Area {
+    if(linkEnable != null) {
+        assert(input.valid || linkEnable.asBits.andR, "Link enable must be true when input is invalid. This assert mostly just helps for formal testing")
     }
   }
 }
