@@ -74,6 +74,7 @@ class FormalFifoCCTester extends SpinalFormalFunSuite {
       .withProve(maxPeriod * proveCycles)
       .withCover(maxPeriod * coverCycles)
       .withAsync
+      .withAsyncReset
       .doVerify(new Component {
         val context = formalContext(pushPeriod, popPeriod, seperateReset)
       })
