@@ -712,8 +712,9 @@ object MajorityVote {
 
 object CounterUpDown {
   def apply(stateCount: BigInt): CounterUpDown = new CounterUpDown(stateCount)
-  def apply(stateCount: BigInt, incWhen: Bool,decWhen : Bool): CounterUpDown = {
-    val counter = CounterUpDown(stateCount)
+  def apply(stateCount: BigInt, incWhen: Bool,decWhen : Bool): CounterUpDown = apply(stateCount, incWhen, decWhen, handleOverflow = true)
+  def apply(stateCount: BigInt, incWhen: Bool,decWhen : Bool, handleOverflow : Boolean): CounterUpDown = {
+    val counter = new CounterUpDown(stateCount, handleOverflow = handleOverflow)
     when(incWhen) {
       counter.increment()
     }
@@ -739,8 +740,14 @@ class CounterUpDown(val stateCount: BigInt, val handleOverflow : Boolean = true)
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext) init(0)
   val mayOverflow = value === stateCount - 1
+
+  val mayUnderflow = value === 0
+
   val willOverflowIfInc = mayOverflow && !decrementIt
   val willOverflow = willOverflowIfInc && incrementIt
+
+  val willUnderflowIfDec = mayUnderflow && !incrementIt
+  val willUnderflow = willUnderflowIfDec && decrementIt
 
   val finalIncrement = UInt(log2Up(stateCount) bit)
   when(incrementIt && !decrementIt){
