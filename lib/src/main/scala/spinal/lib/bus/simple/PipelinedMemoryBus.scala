@@ -43,6 +43,8 @@ case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle 
   val cmd = Stream(PipelinedMemoryBusCmd(config))
   val rsp = Flow(PipelinedMemoryBusRsp(config))
 
+  override def clone = PipelinedMemoryBus(config)
+
   def readRequestFire = cmd.fire && !cmd.write
   lazy val formalContract = new Composite(this, "formalContract") {
     val outstandingReads = CounterUpDown(0x100000000L, incWhen = readRequestFire, decWhen = rsp.valid)
