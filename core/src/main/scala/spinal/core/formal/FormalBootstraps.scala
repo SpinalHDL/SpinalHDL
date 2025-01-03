@@ -22,10 +22,9 @@ package spinal.core.formal
 
 import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
-import spinal.core.internals.{PhaseContext, PhaseNetlist, DataAssignmentStatement, Operator}
+import spinal.core.internals.{DataAssignmentStatement, Operator, PhaseContext, PhaseNetlist}
 import spinal.core.sim.SimWorkspace
-import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, SpinalWarning, ClockDomain, ASYNC}
-import spinal.core.{Reg, Bool, True, False}
+import spinal.core.{ASYNC, BlackBox, Bool, ClockDomain, ClockDomainConfig, Component, False, GlobalData, HIGH, Reg, SYNC, SpinalConfig, SpinalReport, SpinalWarning, True}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -124,7 +123,10 @@ class FormalPhase(backend: FormalBackend) extends PhaseNetlist {
 case class SpinalFormalConfig(
     var _workspacePath: String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE", "./simWorkspace"),
     var _workspaceName: String = null,
-    var _spinalConfig: SpinalConfig = SpinalConfig().includeFormal,
+    var _spinalConfig: SpinalConfig = SpinalConfig().includeFormal.copy(defaultConfigForClockDomains = ClockDomainConfig(
+      resetActiveLevel = HIGH,
+      resetKind = SYNC,
+    )),
     var _additionalRtlPath: ArrayBuffer[String] = ArrayBuffer[String](),
     var _additionalIncludeDir: ArrayBuffer[String] = ArrayBuffer[String](),
     var _modesWithDepths: LinkedHashMap[String, Int] = LinkedHashMap[String, Int](),
@@ -137,6 +139,11 @@ case class SpinalFormalConfig(
 ) {
   def withSymbiYosys: this.type = {
     _backend = SymbiYosysFormalBackend
+    this
+  }
+
+  def withAsyncReset: this.type = {
+    _spinalConfig = _spinalConfig.copy(defaultConfigForClockDomains = _spinalConfig.defaultConfigForClockDomains.copy(resetKind = ASYNC))
     this
   }
 
