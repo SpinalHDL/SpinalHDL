@@ -125,7 +125,7 @@ case class SpinalFormalConfig(
     var _workspaceName: String = null,
     var _spinalConfig: SpinalConfig = SpinalConfig().includeFormal.copy(defaultConfigForClockDomains = ClockDomainConfig(
       resetActiveLevel = HIGH,
-      resetKind = SYNC,
+      resetKind = SYNC
     )),
     var _additionalRtlPath: ArrayBuffer[String] = ArrayBuffer[String](),
     var _additionalIncludeDir: ArrayBuffer[String] = ArrayBuffer[String](),
