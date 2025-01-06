@@ -1494,6 +1494,9 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
         }
       }
     }
+
+    // Output should always be valid
+    io.pop.formalAsserts()
   }
 
   def formalCheckLastPush(cond: T => Bool) : Bool = new Composite(this) {
