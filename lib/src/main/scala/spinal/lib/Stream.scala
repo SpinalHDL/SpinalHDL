@@ -1,7 +1,7 @@
 package spinal.lib
 
 import spinal.core._
-import spinal.core.formal.WithFormalAsserts
+import spinal.core.formal.HasFormalAsserts
 import spinal.idslplugin.Location
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, EfinixStdTargets, Rtl, XilinxStdTargets}
 
@@ -556,6 +556,17 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
+  def formalAsserts(payloadInvariance : Boolean = true)(implicit loc : Location, useAssumes : Boolean = false) = new Composite(this, if(useAssumes) "assumes" else "asserts") {
+    import spinal.core.formal._
+    import spinal.core.formal.FormalDut._
+
+    val stack = ScalaLocated.long
+    when(past(isStall) init(False)) {
+      assertOrAssume(valid,  "Stream transaction disappeared:\n" + stack)
+      if(payloadInvariance) assertOrAssume(stable(payload), "Stream transaction payload changed:\n" + stack)
+    }
+  }
+
   /**
    * Assert that this stream conforms to the stream semantics:
    * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
@@ -563,22 +574,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
    *
    * @param payloadInvariance Check that the payload does not change when valid is high and ready is low.
    */
-  def formalAssertsMaster(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this, "asserts") {
-    import spinal.core.formal._
-    val stack = ScalaLocated.long
-    when(past(isStall) init(False)) {
-      assert(valid,  "Stream transaction disappeared:\n" + stack)
-      if(payloadInvariance) assert(stable(payload), "Stream transaction payload changed:\n" + stack)
-    }
-  }
+  def formalAssertsMaster(payloadInvariance : Boolean = true)(implicit loc : Location) =
+    formalAsserts(payloadInvariance)(loc = loc, useAssumes = false)
 
-  def formalAssumesSlave(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this, "assumes") {
-    import spinal.core.formal._
-    when(past(isStall) init (False)) {
-      assume(valid)
-      if(payloadInvariance) assume(stable(payload))
-    }
-  }
+  def formalAssumesSlave(payloadInvariance : Boolean = true)(implicit loc : Location) =
+    formalAsserts(payloadInvariance)(loc = loc, useAssumes = true)
+
 
   def formalCovers(back2BackCycles: Int = 1) = new Composite(this, "covers") {
     import spinal.core.formal._
@@ -676,7 +677,7 @@ object StreamArbiter {
       for(bitId  <- maskLocked.range){
         maskLocked(bitId) init(Bool(bitId == maskLocked.length-1))
       }
-      assert(CountOne(maskLocked) <= 1, "Mask locked must be a proper one hot vector")
+      assume(CountOne(maskLocked) <= 1)
       //maskProposal := maskLocked
       maskProposal := OHMasking.roundRobin(Vec(io.inputs.map(_.valid)),Vec(maskLocked.last +: maskLocked.take(maskLocked.length-1)))
     }
@@ -718,7 +719,7 @@ object StreamArbiter {
  *  A StreamArbiter is like a StreamMux, but with built-in complex selection logic that can arbitrate input
  *  streams based on a schedule or handle fragmented streams. Use a StreamArbiterFactory to create instances of this class.
  */
-class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area, val lockFactory: (StreamArbiter[T]) => Area) extends Component with WithFormalAsserts {
+class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area, val lockFactory: (StreamArbiter[T]) => Area) extends Component with HasFormalAsserts {
   val io = new Bundle {
     val inputs = Vec(slave Stream (dataType),portCount)
     val output = master Stream (dataType)
@@ -748,6 +749,10 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
 
   override def formalAsserts(implicit useAssumes: Boolean) = new Area {
     assertOrAssume(CountOne(maskRouted) <= 1)
+  }
+
+  override def formalAssertInputs(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
+    io.inputs.foreach(_.formalAsserts())
   }
 }
 
@@ -1047,12 +1052,12 @@ object StreamFork {
 object StreamFork2 {
   def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2"){
     val outputs = (cloneOf(input), cloneOf(input))
-    val logic = new StreamForkArea(input, List(outputs._1, outputs._2), synchronous)
+    val logic = new StreamForkArea(input, List(outputs._1, outputs._2), synchronous).withFormalAssumes()
   }.outputs
 
   def takes[T <: Data](input: Stream[T],take0 : Bool, take1 : Bool, synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2") {
     val forks = (cloneOf(input), cloneOf(input))
-    val logic = new StreamForkArea(input, List(forks._1, forks._2), synchronous)
+    val logic = new StreamForkArea(input, List(forks._1, forks._2), synchronous).withFormalAssumes()
     val outputs = (forks._1.takeWhen(take0), forks._2.takeWhen(take1))
   }.outputs
 }
@@ -1060,7 +1065,7 @@ object StreamFork2 {
 object StreamFork3 {
   def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T], Stream[T]) = new Composite(input, "fork3"){
     val outputs = (cloneOf(input), cloneOf(input), cloneOf(input))
-    val logic = new StreamForkArea(input, List(outputs._1, outputs._2, outputs._3), synchronous)
+    val logic = new StreamForkArea(input, List(outputs._1, outputs._2, outputs._3), synchronous).withFormalAssumes()
   }.outputs
 }
 
@@ -1076,15 +1081,18 @@ object StreamFork3 {
  *  other way around. It also violates the handshake of the AXI specification (section A3.3.1).
  */
 //TODOTEST
-class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: Boolean = false) extends Component {
+class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: Boolean = false) extends Component with HasFormalAsserts {
   val io = new Bundle {
     val input = slave Stream (dataType)
     val outputs = Vec(master Stream (dataType), portCount)
   }
   val logic = new StreamForkArea(io.input, io.outputs, synchronous)
+
+  override def formalAssertInputs(implicit useAssumes: Boolean) = logic.formalAssertInputs
+  override def formalAsserts(implicit useAssumes: Boolean) = logic.formalAsserts
 }
 
-class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], synchronous: Boolean = false) extends Area with WithFormalAsserts {
+class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], synchronous: Boolean = false) extends Area with HasFormalAsserts {
   val portCount = outputs.size
   /*Used for async, Store if an output stream already has taken its value or not */
   val linkEnable = if(!synchronous)Vec(RegInit(True),portCount)else null
@@ -1115,14 +1123,17 @@ class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], syn
     when(input.ready) {
       linkEnable.foreach(_ := True)
     }
-
-    formalAsserts(true)
   }
 
   override def formalAsserts(implicit useAssumes: Boolean) = new Area {
     if(linkEnable != null) {
-        assert(input.valid || linkEnable.asBits.andR, "Link enable must be true when input is invalid. This assert mostly just helps for formal testing")
+        assertOrAssume(input.valid || linkEnable.asBits.andR, "Link enable must be true when input is invalid.")
     }
+    outputs.foreach(_.formalAsserts())
+  }
+
+  override def formalAssertInputs(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
+    input.formalAsserts()
   }
 }
 
@@ -1230,7 +1241,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
                             val withBypass : Boolean = false,
                             val allowExtraMsb : Boolean = true,
                             val forFMax : Boolean = false,
-                            val useVec : Boolean = false) extends Component with WithFormalAsserts {
+                            val useVec : Boolean = false) extends Component with HasFormalAsserts {
   require(depth >= 0)
 
   if(withBypass) require(withAsyncRead)
@@ -1416,6 +1427,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
 
+  override def formalAssertInputs(implicit useAssumes: Boolean) = io.push.formalAsserts()
 
   override def formalAsserts(implicit useAssumes : Boolean = false) = new Composite(this, "formalAsserts") {
     val logic_option = Option(logic)

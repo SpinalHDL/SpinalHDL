@@ -127,8 +127,8 @@ class Pinsec(config: PinsecConfig) extends Component{
     }
 
     //Create all reset used later in the design
-    val axiReset  = RegNext(axiResetUnbuffered) init(True)
-    val coreReset = RegNext(coreResetUnbuffered) init(True)
+    val axiReset  = RegNext(axiResetUnbuffered)
+    val coreReset = RegNext(coreResetUnbuffered)
     val vgaReset  = BufferCC(axiResetUnbuffered)
   }
 

@@ -1,7 +1,8 @@
 package spinal.lib.bus.simple
 
 import spinal.core._
-import spinal.core.formal.WithFormalAsserts
+import spinal.core.formal.HasFormalAsserts
+import spinal.idslplugin.Location
 import spinal.lib.bus.misc._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
@@ -64,6 +65,15 @@ case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle 
 
     invariantCmd.formalAssertsMaster()
   }
+
+  def formalAsserts(payloadInvariance : Boolean = true)(implicit loc : Location, useAssumes : Boolean = false) = new Composite(this, if(useAssumes) "assumes" else "asserts") {
+    if(useAssumes) {
+      formalAssumesMaster()
+    } else {
+      formalContract
+    }
+  }
+
   def formalAssumesSlave(payloadInvariance : Boolean = true) = new Composite(this, "assumes") {
     cmd.formalAssumesSlave(payloadInvariance)
   }
@@ -138,7 +148,7 @@ object PipelinedMemoryBusArbiter{
   }
 }
 
-case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryBusConfig, portCount : Int, pendingRspMax : Int, rspRouteQueue : Boolean, transactionLock : Boolean = true) extends Component with WithFormalAsserts {
+case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryBusConfig, portCount : Int, pendingRspMax : Int, rspRouteQueue : Boolean, transactionLock : Boolean = true) extends Component with HasFormalAsserts {
   val io = new Bundle{
     val inputs = Vec(slave(PipelinedMemoryBus(pipelinedMemoryBusConfig)), portCount)
     val output = master(PipelinedMemoryBus(pipelinedMemoryBusConfig))
@@ -187,14 +197,18 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
     }
   }
 
-  override def formalAsserts(implicit useAssumes: Boolean) = new Area {
+  override def formalAssertInputs(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
+    val inputContracts = io.inputs.map(_.formalContract)
+  }
+
+  override def formalAsserts(implicit useAssumes: Boolean) = new Composite(this, "formalAsserts") {
     withAutoPull()
 
-    if(logic != null) {
+    val logicAsserts = if(logic != null) new Area {
       import logic._
       arbiter.formalAssumes()
 
-      if(logic.rspSingle != null) {
+      val rspSingleAsserts = if(logic.rspSingle != null) new Area {
         import logic.rspSingle._
         val outstandingReads = io.inputs.map(_.formalContract.outstandingReads.value)
         for ((count, idx) <- outstandingReads.zipWithIndex) {
@@ -204,7 +218,7 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
         assert(io.output.formalContract.outstandingReads === pending.asUInt)
       }
 
-      if(logic.rspQueue != null) {
+      val rspQueueArea = if(logic.rspQueue != null) new Area {
         import logic.rspQueue._
         rspRouteFifo.formalAssumes()//rspRouteFifo.formalAssumes()
 

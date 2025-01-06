@@ -23,7 +23,7 @@ import spinal.core.internals._
 import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 import spinal.core._
-import spinal.core.formal.WithFormalAsserts
+import spinal.core.formal.HasFormalAsserts
 import spinal.lib.bus.misc.AddressTransformer
 import spinal.lib.misc.PathTracer
 
@@ -598,7 +598,7 @@ object Counter {
 }
 
 // start and end inclusive, up counter
-class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] with WithFormalAsserts {
+class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] with HasFormalAsserts {
   require(start <= end)
   val willIncrement = False.allowOverride
   val willClear = False.allowOverride
@@ -733,7 +733,7 @@ object CounterUpDown {
   //  implicit def implicitValue(c: Counter) = c.value
 }
 
-class CounterUpDown(val stateCount: BigInt, val handleOverflow : Boolean = true) extends ImplicitArea[UInt] with WithFormalAsserts {
+class CounterUpDown(val stateCount: BigInt, val handleOverflow : Boolean = true) extends ImplicitArea[UInt] with HasFormalAsserts {
   val incrementIt = False
   val decrementIt = False
 

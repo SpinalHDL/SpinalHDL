@@ -162,14 +162,17 @@ class StreamFifoFormal[T <: Data](val dataType: HardType[T],
   val dut = FormalDut(new StreamFifo(dataType, depth, withAsyncRead, withBypass, allowExtraMsb, forFMax, useVec))
   assumeInitial(ClockDomain.current.isResetActive)
 
+  dut.formalAssumeInputs()
   dut.io.pop.formalAssertsMaster()
-  dut.io.push.formalAssumesSlave()
 
   anyseq(dut.io.push.valid)
   anyseq(dut.io.push.payload)
 
-  dut.io.flush := False
+  anyseq(dut.io.flush)
   anyseq(dut.io.pop.ready)
+  when(dut.io.flush) {
+    assume(dut.io.pop.ready)
+  }
 }
 
 class StreamFifoFormalProveTest extends SpinalFormalFunSuite {
@@ -194,8 +197,8 @@ class StreamFifoFormalProveTest extends SpinalFormalFunSuite {
     test(name) {
       FormalConfig
         .withProve(20)
-        //.withDebug
         .doVerify(dut_ctor().setDefinitionName(name))
     }
   }
+
 }

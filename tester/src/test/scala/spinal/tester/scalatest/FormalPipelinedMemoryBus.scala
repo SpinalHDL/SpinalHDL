@@ -73,7 +73,7 @@ class PipelinedMemoryBusDecoderFormal(mappings: Seq[AddressMapping], pendingRspM
   }
 }
 
-class PipelinedMemoryBusInterconnectComponent(mappings: Seq[AddressMapping], pendingRspMax : Int, portCount : Int, rspRouteQueue : Boolean) extends Component with WithFormalAsserts {
+class PipelinedMemoryBusInterconnectComponent(mappings: Seq[AddressMapping], pendingRspMax : Int, portCount : Int, rspRouteQueue : Boolean) extends Component with HasFormalAsserts {
   val config = PipelinedMemoryBusConfig(32, 32)
 
   val io = new Bundle {
@@ -94,7 +94,7 @@ class PipelinedMemoryBusInterconnectComponent(mappings: Seq[AddressMapping], pen
 
 
   override def formalAsserts(implicit useAssumes: Boolean) = {
-    WithFormalAsserts.formalAssertsChildren(this, useAssumes)
+    HasFormalAsserts.formalAssertsChildren(this, useAssumes)
     new Area {}
   }
 }
