@@ -38,7 +38,7 @@ object BusInterface {
 
   def apply(bus: AxiLite4, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap)(moduleName)
   def apply(bus: AxiLite4, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap, regPre)(moduleName)
-  def apply(bus: AxiLite4, sizeMap: SizeMapping, regPre: String, withSecFireWall: Boolean)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap, regPre)(moduleName)
+  def apply(bus: AxiLite4, sizeMap: SizeMapping, regPre: String, withSecFireWall: Boolean)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap, regPre, withSecFireWall)(moduleName)
 
   def apply(bus: BRAM, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = BRAMBusInterface(bus, sizeMap)(moduleName)
   def apply(bus: BRAM, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = BRAMBusInterface(bus, sizeMap, regPre)(moduleName)
