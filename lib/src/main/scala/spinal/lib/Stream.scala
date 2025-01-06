@@ -558,7 +558,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   def formalAsserts(payloadInvariance : Boolean = true)(implicit loc : Location, useAssumes : Boolean = false) = new Composite(this, if(useAssumes) "assumes" else "asserts") {
     import spinal.core.formal._
-    import spinal.core.formal.FormalDut._
+    import spinal.core.formal.HasFormalAsserts._
 
     val stack = ScalaLocated.long
     when(past(isStall) init(False)) {
@@ -747,11 +747,11 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
   io.chosenOH := maskRouted.asBits
   io.chosen := OHToUInt(io.chosenOH)
 
-  override def formalAsserts(implicit useAssumes: Boolean) = new Area {
+  override def formalAsserts()(implicit useAssumes: Boolean) = new Area {
     assertOrAssume(CountOne(maskRouted) <= 1)
   }
 
-  override def formalAssertInputs(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
+  override def formalAssertInputs()(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
     io.inputs.foreach(_.formalAsserts())
   }
 }
@@ -1088,8 +1088,8 @@ class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: 
   }
   val logic = new StreamForkArea(io.input, io.outputs, synchronous)
 
-  override def formalAssertInputs(implicit useAssumes: Boolean) = logic.formalAssertInputs
-  override def formalAsserts(implicit useAssumes: Boolean) = logic.formalAsserts
+  override def formalAssertInputs()(implicit useAssumes: Boolean) = logic.formalAssertInputs
+  override def formalAsserts()(implicit useAssumes: Boolean) = logic.formalAsserts()
 }
 
 class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], synchronous: Boolean = false) extends Area with HasFormalAsserts {
@@ -1125,14 +1125,14 @@ class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], syn
     }
   }
 
-  override def formalAsserts(implicit useAssumes: Boolean) = new Area {
+  override def formalAsserts()(implicit useAssumes: Boolean) = new Area {
     if(linkEnable != null) {
         assertOrAssume(input.valid || linkEnable.asBits.andR, "Link enable must be true when input is invalid.")
     }
     outputs.foreach(_.formalAsserts())
   }
 
-  override def formalAssertInputs(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
+  override def formalAssertInputs()(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
     input.formalAsserts()
   }
 }
@@ -1427,9 +1427,9 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
 
-  override def formalAssertInputs(implicit useAssumes: Boolean) = io.push.formalAsserts()
+  override def formalAssertInputs()(implicit useAssumes: Boolean) = io.push.formalAsserts()
 
-  override def formalAsserts(implicit useAssumes : Boolean = false) = new Composite(this, "formalAsserts") {
+  override def formalAsserts()(implicit useAssumes : Boolean = false) = new Composite(this, "formalAsserts") {
     val logic_option = Option(logic)
 
     // Occupancy as dictated soley by push/pop pointers

@@ -66,7 +66,7 @@ case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle 
     invariantCmd.formalAssertsMaster()
   }
 
-  def formalAsserts(payloadInvariance : Boolean = true)(implicit loc : Location, useAssumes : Boolean = false) = new Composite(this, if(useAssumes) "assumes" else "asserts") {
+  def formalAsserts()(payloadInvariance : Boolean = true)(implicit loc : Location, useAssumes : Boolean = false) = new Composite(this, if(useAssumes) "assumes" else "asserts") {
     if(useAssumes) {
       formalAssumesMaster()
     } else {
@@ -197,11 +197,11 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
     }
   }
 
-  override def formalAssertInputs(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
+  override def formalAssertInputs()(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
     val inputContracts = io.inputs.map(_.formalContract)
   }
 
-  override def formalAsserts(implicit useAssumes: Boolean) = new Composite(this, "formalAsserts") {
+  override def formalAsserts()(implicit useAssumes: Boolean) = new Composite(this, "formalAsserts") {
     withAutoPull()
 
     val logicAsserts = if(logic != null) new Area {
@@ -220,7 +220,7 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
 
       val rspQueueArea = if(logic.rspQueue != null) new Area {
         import logic.rspQueue._
-        rspRouteFifo.formalAssumes()//rspRouteFifo.formalAssumes()
+        rspRouteFifo.formalAsserts()
 
         assert(rspRouteFifo.formalCheckRam(CountOne(_) =/= 1).orR === False)
 

@@ -19,20 +19,6 @@ object FormalDut{
 
     dut.asFormalDut()
   }
-
-  /**
-   * Helper function; uses the implicit useAssumes variable to either emit an assert or assume
-   * @param cond Condition to assert or assume
-   * @param msg Some backends with asserts will print out a message when an assert fails. Ignored for assumes
-   * @param useAssumes True to emit an assume
-   */
-  def assertOrAssume(cond : Bool, msg : Any*)(implicit useAssumes : Boolean): Unit = {
-    if(useAssumes) {
-      assume(cond)
-    } else {
-      assert(cond, Seq(msg:_*))
-    }
-  }
 }
 
 trait HasFormalAsserts {
@@ -44,8 +30,8 @@ trait HasFormalAsserts {
    * which will test that the inputs to the already validated dut object adhere to whatever contract is in place for
    * it's inputs.
    */
-  def formalAssertInputs(implicit useAssumes : Boolean = false): Area = null
-  def formalAssumeInputs() = formalAssertInputs(true)
+  def formalAssertInputs()(implicit useAssumes : Boolean = false): Area = null
+  def formalAssumeInputs() = formalAssertInputs()(useAssumes = true)
 
   /**
    * Set o formal assertions required for testing and validating the component completely.
@@ -53,9 +39,9 @@ trait HasFormalAsserts {
    *                   provers which states are acceptable.
    * @return An area (typically a composite) which may contain signals useful for collectign during a simulation
    */
-  def formalAsserts(implicit useAssumes : Boolean = false): Area
+  def formalAsserts()(implicit useAssumes : Boolean = false) : Area
 
-  def formalAssumes(): Unit = formalAsserts(true)
+  def formalAssumes() = formalAsserts()(useAssumes = true)
 
   /**
    * Helper function; uses the implicit useAssumes variable to either emit an assert or assume
@@ -64,7 +50,7 @@ trait HasFormalAsserts {
    * @param useAssumes True to emit an assume
    */
   def assertOrAssume(cond : Bool, msg : Any*)(implicit useAssumes : Boolean): Unit =
-    FormalDut.assertOrAssume(cond, msg:_*)(useAssumes)
+    HasFormalAsserts.assertOrAssume(cond, msg:_*)(useAssumes)
 
   def withFormalAsserts() : this.type = {
     formalAsserts()
@@ -84,7 +70,7 @@ object HasFormalAsserts {
         walkSet += c
         c match {
           case c: HasFormalAsserts => {
-            c.formalAsserts(useAssumes)
+            c.formalAsserts()(useAssumes)
           }
           case _ => c.walkComponents(apply(_, walkSet))
         }
@@ -96,5 +82,19 @@ object HasFormalAsserts {
       walkSet += c
       c.walkComponents(apply(_, walkSet))
     })
+  }
+
+  /**
+   * Helper function; uses the implicit useAssumes variable to either emit an assert or assume
+   * @param cond Condition to assert or assume
+   * @param msg Some backends with asserts will print out a message when an assert fails. Ignored for assumes
+   * @param useAssumes True to emit an assume
+   */
+  def assertOrAssume(cond : Bool, msg : Any*)(implicit useAssumes : Boolean): Unit = {
+    if(useAssumes) {
+      assume(cond)
+    } else {
+      assert(cond, Seq(msg:_*))
+    }
   }
 }

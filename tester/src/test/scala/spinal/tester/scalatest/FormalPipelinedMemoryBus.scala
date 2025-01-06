@@ -93,7 +93,7 @@ class PipelinedMemoryBusInterconnectComponent(mappings: Seq[AddressMapping], pen
   })
 
 
-  override def formalAsserts(implicit useAssumes: Boolean) = {
+  override def formalAsserts()(implicit useAssumes: Boolean) = {
     HasFormalAsserts.formalAssertsChildren(this, useAssumes)
     new Area {}
   }
