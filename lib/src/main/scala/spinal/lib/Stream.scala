@@ -1416,47 +1416,36 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
 
-  override def formalAsserts(implicit useAssumes : Boolean = false) = new Area {
-    val push_pop_occupancy: UInt = {
-      if (logic != null) {
-        if (withExtraMsb) {
+
+  override def formalAsserts(implicit useAssumes : Boolean = false) = new Composite(this, "formalAsserts") {
+    val logic_option = Option(logic)
+
+    // Occupancy as dictated soley by push/pop pointers
+    val push_pop_occupancy =
+      logic_option.map(logic => {
+        val push_sub_pop = logic.ptr.push -^ logic.ptr.pop
+        if (withExtraMsb)
           Mux(logic.ptr.push >= logic.ptr.pop,
-            logic.ptr.push -^ logic.ptr.pop,
-            (depth << 1) -^ logic.ptr.pop +^ logic.ptr.push)
-        } else {
+            push_sub_pop,
+            (depth << 1) -^ logic.ptr.pop +^ logic.ptr.push
+          )
+        else
           Mux(logic.ptr.push === logic.ptr.pop,
-            Mux(logic.ptr.wentUp, depth, 0),
-            Mux(logic.ptr.push > logic.ptr.pop, logic.ptr.push -^ logic.ptr.pop,
-              if (!withExtraMsb) {
-                depth -^ logic.ptr.pop +^ logic.ptr.push
-              } else {
-                depth -^ logic.ptr.pop.dropHigh(1).asUInt +^ logic.ptr.push.dropHigh(1).asUInt
-              }
+            Mux(logic.ptr.wentUp, U(depth), U(0)),
+            Mux(logic.ptr.push > logic.ptr.pop,
+              push_sub_pop,
+              depth -^ logic.ptr.pop +^ logic.ptr.push
             )
           )
-        }
-      } else {
-        0
-      }
-    }
+      }).getOrElse(U(0))
 
-    val extraOccupancy: UInt = {
-      if (logic != null && logic.pop.sync != null) {
-        logic.pop.sync.readArbitation.valid.asUInt
-      } else {
-        0
-      }
-    }
+    val extraOccupancy = logic_option.flatMap(logic => Option(logic.pop.sync)).map(_.readArbitation.valid.asUInt).getOrElse(U(0))
 
-    val calculate_occupancy = {
-      push_pop_occupancy +^ extraOccupancy
-    }
+    val calculate_occupancy = push_pop_occupancy +^ extraOccupancy
 
-    if (depth <= 1) {
-      // Fifo depth of 0 is just a direct connect
-      // Fifo depth of 1 is just a staged stream; so it can't be in an invalid state
-    } else if (depth > 1) {
-
+    // Fifo depth of 0 is just a direct connect
+    // Fifo depth of 1 is just a staged stream; so it can't be in an invalid state
+    if (depth > 1) {
       assertOrAssume(calculate_occupancy === io.occupancy)
       assertOrAssume(io.availability === depth -^ io.occupancy)
 
@@ -1492,10 +1481,9 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
           assertOrAssume(logic.ptr.arb.fmax.emptyTracker.value === (emptyStart -^ push_pop_occupancy))
         }
       }
-
-      //assume(io.occupancy < past(io.occupancy) || ((past(io.occupancy) - io.occupancy) <= 1))
     }
   }
+
   def formalCheckLastPush(cond: T => Bool) : Bool = new Composite(this) {
     val lastPush = if(logic != null) {
       val condition = (0 until depth).map(x => cond(if (useVec) logic.vec(x) else logic.ram(x)))
