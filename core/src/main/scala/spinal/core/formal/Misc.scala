@@ -1,6 +1,6 @@
 package spinal.core.formal
 
-import spinal.core.{Area, Bool, Component, assert, assume}
+import spinal.core.{Area, Bool, Component, ImplicitArea, True, assert, assume, when}
 
 import scala.collection.mutable
 
@@ -22,6 +22,7 @@ object FormalDut{
 }
 
 trait HasFormalAsserts {
+  lazy val formalValidInputs : Bool = True
   /**
    * Configure asserts around the input signals to the given object. This is kept seperate so that you can run
    * dut.formalAssertInputs()
@@ -30,8 +31,8 @@ trait HasFormalAsserts {
    * which will test that the inputs to the already validated dut object adhere to whatever contract is in place for
    * it's inputs.
    */
-  def formalAssertInputs()(implicit useAssumes : Boolean = false): Area = null
-  def formalAssumeInputs() = formalAssertInputs()(useAssumes = true)
+  final def formalAssertInputs()(implicit useAssumes : Boolean = false): Area = new Area { assertOrAssume( formalValidInputs )}
+  final def formalAssumeInputs() = formalAssertInputs()(useAssumes = true)
 
   /**
    * Set o formal assertions required for testing and validating the component completely.
@@ -41,7 +42,13 @@ trait HasFormalAsserts {
    */
   def formalAsserts()(implicit useAssumes : Boolean = false) : Area
 
-  def formalAssumes() = formalAsserts()(useAssumes = true)
+  def formalAssumes() = {
+    var area : Area = null
+    when(formalValidInputs) {
+      area = formalAsserts()(useAssumes = true)
+    }
+    area
+  }
 
   /**
    * Helper function; uses the implicit useAssumes variable to either emit an assert or assume

@@ -556,6 +556,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
+  def formalIsValid(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this, "formalIsValid") {
+    import spinal.core.formal._
+    val wasStall = past(isStall) init(False)
+    val checkValidHandshake = Mux(wasStall, valid, True)
+    val checkValidPayloadInvariance = Mux(wasStall || !Bool(payloadInvariance), stable(payload), True)
+
+    val isValid = checkValidHandshake && checkValidPayloadInvariance
+  }.isValid
+
   def formalAsserts(payloadInvariance : Boolean = true)(implicit loc : Location, useAssumes : Boolean = false) = new Composite(this, if(useAssumes) "assumes" else "asserts") {
     import spinal.core.formal._
     import spinal.core.formal.HasFormalAsserts._
@@ -751,9 +760,8 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
     assertOrAssume(CountOne(maskRouted) <= 1)
   }
 
-  override def formalAssertInputs()(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
-    io.inputs.foreach(_.formalAsserts())
-  }
+  override lazy val formalValidInputs = io.inputs.map(_.formalIsValid()).andR
+
 }
 
 class StreamArbiterFactory {
@@ -1088,7 +1096,7 @@ class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: 
   }
   val logic = new StreamForkArea(io.input, io.outputs, synchronous)
 
-  override def formalAssertInputs()(implicit useAssumes: Boolean) = logic.formalAssertInputs
+  override lazy val formalValidInputs = logic.formalValidInputs
   override def formalAsserts()(implicit useAssumes: Boolean) = logic.formalAsserts()
 }
 
@@ -1132,9 +1140,7 @@ class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], syn
     outputs.foreach(_.formalAsserts())
   }
 
-  override def formalAssertInputs()(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
-    input.formalAsserts()
-  }
+  override lazy val formalValidInputs = input.formalIsValid()
 }
 
 
@@ -1427,7 +1433,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
 
-  override def formalAssertInputs()(implicit useAssumes: Boolean) = io.push.formalAsserts()
+  override lazy val formalValidInputs = io.push.formalIsValid()
 
   override def formalAsserts()(implicit useAssumes : Boolean = false) = new Composite(this, "formalAsserts") {
     val logic_option = Option(logic)

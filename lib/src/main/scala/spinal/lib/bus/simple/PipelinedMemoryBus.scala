@@ -66,7 +66,10 @@ case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle 
     invariantCmd.formalAssertsMaster()
   }
 
-  def formalAsserts()(payloadInvariance : Boolean = true)(implicit loc : Location, useAssumes : Boolean = false) = new Composite(this, if(useAssumes) "assumes" else "asserts") {
+  def formalIsProducerValid(payloadInvariance : Boolean = true) : Bool = cmd.formalIsValid(payloadInvariance)
+  def formalIsConsumerValid() : Bool = ~formalContract.willUnderflow
+
+  def formalAsserts(payloadInvariance : Boolean = true)(implicit loc : Location, useAssumes : Boolean = false) = new Composite(this, if(useAssumes) "assumes" else "asserts") {
     if(useAssumes) {
       formalAssumesMaster()
     } else {
@@ -197,9 +200,9 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
     }
   }
 
-  override def formalAssertInputs()(implicit useAssumes: Boolean) = new Composite(this, "formalAssertInputs") {
-    val inputContracts = io.inputs.map(_.formalContract)
-  }
+  override lazy val formalValidInputs =
+    io.inputs.map(_.formalIsProducerValid()).andR &&
+      io.output.formalIsConsumerValid
 
   override def formalAsserts()(implicit useAssumes: Boolean) = new Composite(this, "formalAsserts") {
     withAutoPull()
