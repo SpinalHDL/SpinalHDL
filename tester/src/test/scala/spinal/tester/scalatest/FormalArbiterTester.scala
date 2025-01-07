@@ -450,18 +450,17 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
             )
           )
           assumeInitial(ClockDomain.current.isResetActive)
+          dut.formalAssumeInputs()
+          dut.formalAsserts()
 
           val payloadInvariance = lockFactoryName != "none"
           println(s"Payload invariance ${payloadInvariance}")
           dut.io.inputs.foreach(stream => {
-            stream.formalAssumesSlave()
             anyseq(stream.payload)
             anyseq(stream.valid)
           })
 
           anyseq(dut.io.output.ready)
-          dut.io.output.formalAssertsMaster(payloadInvariance)
-
         }.setDefinitionName(s"ArbiterStreamContracts_${lockFactoryName}_${arbitrationFactoryName}"))
     }
   }

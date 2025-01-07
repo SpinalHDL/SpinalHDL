@@ -10,6 +10,7 @@ class StreamForkFormal[T <: Data](dataType: HardType[T], portCount: Int, synchro
   assumeInitial(ClockDomain.current.isResetActive)
 
   dut.formalAssumeInputs()
+
   anyseq(dut.io.input.payload)
   anyseq(dut.io.input.valid)
 

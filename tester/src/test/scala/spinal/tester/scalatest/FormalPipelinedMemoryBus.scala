@@ -41,24 +41,27 @@ class PipelinedMemoryBusArbiterFormal(portCount : Int, pendingRspMax : Int, rspR
   val dut = FormalDut(new PipelinedMemoryBusArbiter(PipelinedMemoryBusConfig(32,32), portCount, pendingRspMax, rspRouteQueue, transactionLock))
   assumeInitial(ClockDomain.current.isResetActive)
 
+  dut.formalAssumeInputs()
+  dut.formalAsserts()
+
   dut.io.inputs.foreach(bus => {
     anyseq(bus.cmd.payload)
     anyseq(bus.cmd.valid)
-    bus.formalAssumesSlave()
   })
 
   anyseq(dut.io.output.rsp)
   anyseq(dut.io.output.cmd.ready)
-  dut.io.output.formalAssumesMaster()
 }
 
 class PipelinedMemoryBusDecoderFormal(mappings: Seq[AddressMapping], pendingRspMax : Int) extends Component {
-  val dut = FormalDut(new PipelinedMemoryBusDecoder(PipelinedMemoryBusConfig(32,32), mappings, pendingRspMax))
+  val dut = FormalDut(new PipelinedMemoryBusDecoder(PipelinedMemoryBusConfig(32, 32), mappings, pendingRspMax))
   assumeInitial(ClockDomain.current.isResetActive)
+
+  dut.formalAsserts()
+  dut.formalAssumeInputs()
 
   anyseq(dut.io.input.cmd.payload)
   anyseq(dut.io.input.cmd.valid)
-  dut.io.input.cmd.formalAssumesSlave()
 
   if(!dut.hasDefault && mappings.size > 1) {
     cover(dut.logic.noHit)
@@ -69,7 +72,6 @@ class PipelinedMemoryBusDecoderFormal(mappings: Seq[AddressMapping], pendingRspM
   for(bus <- dut.io.outputs) {
     anyseq(bus.rsp)
     anyseq(bus.cmd.ready)
-    bus.formalAssumesMaster()
   }
 }
 
@@ -92,9 +94,11 @@ class PipelinedMemoryBusInterconnectComponent(mappings: Seq[AddressMapping], pen
     interconnect.addMaster(master, io.slaves)
   })
 
+  override lazy val formalValidInputs = Vec(io.masters.map(_.formalIsProducerValid())).andR &&
+    Vec(io.slaves.map(_.formalIsConsumerValid())).andR
 
   override def formalAsserts()(implicit useAssumes: Boolean) = {
-    HasFormalAsserts.formalAssertsChildren(this, useAssumes)
+    HasFormalAsserts.formalAssertsChildren(this, assumesInputValid = false, useAssumes = true)
     new Area {}
   }
 }
@@ -152,11 +156,11 @@ class FormalPipelinedMemoryBusDecoder extends SpinalFormalFunSuite {
     "Single" -> Seq(SizeMapping(0, 0xabc)),
     "Multi" -> Seq(SizeMapping(0, 0xabc), SizeMapping(0x1000, 0x1123), SizeMapping(0x30000, 1)),
     "Default" -> Seq(DefaultMapping),
-    "Multi Default" -> Seq(SizeMapping(0, 1), DefaultMapping));
+    "MultiDefault" -> Seq(SizeMapping(0, 1), DefaultMapping));
       pendingRsp <- 1 until 5
       ) {
     test(s"Test decoder ${mappingName} p${pendingRsp}") {
-      FormalPipelinedMemoryBus.runFormalTest(new PipelinedMemoryBusDecoderFormal(mapping, pendingRsp))
+      FormalPipelinedMemoryBus.runFormalTest(new PipelinedMemoryBusDecoderFormal(mapping, pendingRsp).setDefinitionName(s"PipelinedMemoryBusDecoderFormal_${mappingName}_${pendingRsp}"))
     }
   }
 }

@@ -556,11 +556,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
-  def formalIsValid(payloadInvariance : Boolean = true)(implicit loc : Location) = new Composite(this, "formalIsValid") {
+  def formalIsValid(payloadInvariance : Boolean = true) = new Composite(this, "formalIsValid") {
     import spinal.core.formal._
     val wasStall = past(isStall) init(False)
     val checkValidHandshake = Mux(wasStall, valid, True)
-    val checkValidPayloadInvariance = Mux(wasStall || !Bool(payloadInvariance), stable(payload), True)
+
+    val priorValidPayload = RegNextWhen(payload, valid)
+    val checkValidPayloadInvariance = Mux(wasStall && Bool(payloadInvariance),
+      priorValidPayload === payload,
+      True)
 
     val isValid = checkValidHandshake && checkValidPayloadInvariance
   }.isValid
@@ -572,7 +576,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val stack = ScalaLocated.long
     when(past(isStall) init(False)) {
       assertOrAssume(valid,  "Stream transaction disappeared:\n" + stack)
-      if(payloadInvariance) assertOrAssume(stable(payload), "Stream transaction payload changed:\n" + stack)
+      if(payloadInvariance) assertOrAssume( RegNextWhen(payload, valid) === payload, "Stream transaction payload changed:\n" + stack)
     }
   }
 
@@ -758,6 +762,7 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
 
   override def formalAsserts()(implicit useAssumes: Boolean) = new Area {
     assertOrAssume(CountOne(maskRouted) <= 1)
+    io.output.formalAsserts(payloadInvariance = !locked.dlcHasOnlyOne)
   }
 
   override lazy val formalValidInputs = io.inputs.map(_.formalIsValid()).andR
