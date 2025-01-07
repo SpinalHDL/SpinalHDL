@@ -85,7 +85,7 @@ class Axi4WriteOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Compon
     if (config.useAllStrb) when(io.up.aw.allStrb) {
       io.down.a.opcode := tilelink.Opcode.A.PUT_FULL_DATA
     }
-    io.down.a.param := 0
+    io.down.a.param := B(tilelink.Param.Hint.NO_ALLOCATE_ON_MISS, 3 bits).andMask(io.up.aw.cache =/= 0xF)
     io.down.a.source := io.up.aw.id
     io.down.a.address := io.up.aw.addr
     io.down.a.address(counterRange) := io.up.aw.addr(counterRange) + counter
@@ -117,7 +117,7 @@ class Axi4ReadOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Compone
 
     val lenToSize = OHToUInt(OHMasking.last(io.up.ar.len) ## False)
     io.down.a.opcode := tilelink.Opcode.A.GET
-    io.down.a.param := 0
+    io.down.a.param := B(tilelink.Param.Hint.NO_ALLOCATE_ON_MISS, 3 bits).andMask(io.up.aw.cache =/= 0xF)
     io.down.a.source := io.up.ar.id
     io.down.a.address := io.up.ar.addr
     io.down.a.size := (lenToSize + io.up.ar.size).resized
