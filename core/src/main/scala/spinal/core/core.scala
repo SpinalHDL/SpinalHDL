@@ -262,12 +262,12 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   }
 
 
-  /**
-    * True / False definition
-    */
+  /** SpinalHDL true value
+   */
   def True(implicit loc: Location)  = Bool(true)
+  /** SpinalHDL false value  
+   */  
   def False(implicit loc: Location) = Bool(false)
-
 
   /**
     * Implicit conversion from Int/BigInt/String to UInt/SInt/Bits

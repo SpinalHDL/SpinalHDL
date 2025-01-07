@@ -24,20 +24,20 @@ import spinal.core.internals.Operator.Formal
 import spinal.core.internals._
 import spinal.idslplugin.Location
 
-/** Bool factory used for instance by the IODirection to create a in/out Bool() */
+/** `Bool` factory used for instance by the IODirection to create a in/out Bool() */
 trait BoolFactory {
   @deprecated("Use `Bool()` (with braces) instead")
   def Bool: Bool = Bool()
 
-  /** Create a new Bool */
+  /** Create a new `Bool` */
   def Bool(u: Unit = ()): Bool = new Bool
 
-  /** Create a new Bool with a value */
+  /** Create a new `Bool` with a value */
   def Bool(value: Boolean)(implicit loc: Location): Bool = BoolLiteral(value, Bool().setAsTypeNode())
 }
 
 /**
-  * The Bool type corresponds to a boolean value (True or False)
+  * The `Bool` type corresponds to a SpinalHDL boolean value (`True` or `False`)
   *
   * @example {{{
   *     val myBool = Bool()
@@ -45,7 +45,7 @@ trait BoolFactory {
   *     myBool := Bool(false)
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bool Bool Documentation]]
+  * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bool.html Bool Documentation]]
   */
 class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[Bool]  with BitwiseOp[Bool]{
 
@@ -58,7 +58,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   private[spinal] override def _data: Bool = this
 
   /**
-    * Logical AND
+    * SpinalHDL logical AND
     * @example{{{ val result = myBool1 && myBool2 }}}
     * @return a Bool assign with the AND result
     */
@@ -66,7 +66,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   override def &(b: Bool): Bool = this && b
 
   /**
-    * Logical OR
+    * SpinalHDL logical OR
     * @example{{{ val result = myBool1 || myBool2 }}}
     * @return a Bool assign with the OR result
     */
@@ -76,7 +76,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   override def ^(b: Bool): Bool  = wrapLogicalOperator(b, new Operator.Bool.Xor)
 
   /**
-    * Logical NOT
+    * SpinalHDL logical NOT
     * @example{{{ val result = !myBool1 }}}
     * @return a Bool assign with the NOT result
     */
@@ -95,9 +95,9 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     result
   }
 
-  /** this is assigned to True */
+  /** this is assigned to `True` */
   def set(): Unit = this := True
-  /** this is assigned to False */
+  /** this is assigned to `False` */
   def clear(): Unit = this := False
 
   /** Set to True.

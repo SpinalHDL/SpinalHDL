@@ -36,8 +36,7 @@ trait UIntFactory{
 }
 
 
-/**
-  * The UInt type corresponds to a vector of bits that can be used for unsigned integer arithmetic.
+/** The `UInt` type corresponds to a vector of bits that can be used for unsigned integer arithmetic.
   *
   * @example {{{
   *    val myUInt = UInt(8 bits)
@@ -47,7 +46,7 @@ trait UIntFactory{
   *     myUInt := U"h1A"
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html `UInt`/`SInt` Documentation]]
   */
 class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BaseTypePrimitives[UInt] with BitwiseOp[UInt]{
   override def tag(q: QFormat): UInt = {
@@ -117,33 +116,32 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
   private def _sat(m: Int): UInt = {
     val ret = UInt(getWidth-m bit)
-    when(this(getWidth-1 downto getWidth-m).asBits.orR){
+    when(this(getWidth-1 downto getWidth-m).asBits.orR) {
       ret.setAll()
-    }.otherwise{
+    }.otherwise {
       ret := this(getWidth-m-1 downto 0)
     }
     ret
   }
   private def _satAsSInt2UInt(): UInt = {
     val ret = UInt(getWidth-1 bit)
-    when(this.msb){
+    when(this.msb) {
       ret.clearAll()
-    }.otherwise{
+    }.otherwise {
       ret := this(getWidth-2 downto 0)
     }
     ret
   }
-  /**highest m bits Discard */
+  /** highest `m` bits Discard */
   def trim(m: Int): UInt = this(getWidth-m-1 downto 0)
 
   def invertedMsb = !this.msb ## this.dropHigh(1)
   def clearedLow(n : Int) : UInt = (this >> n) << n
 
-  /**Round Api*/
+  /** Round Api */
 
-  /** UInt ceil
-    * floor(x)
-    * return w(this)-n bits
+  /** `UInt` floor
+    * @return `w(this)-n` bits
     * */
   override def floor(n: Int): UInt = {
     require(getWidth > n, s"floor bit width $n must be less than data bit width $getWidth")
@@ -155,10 +153,10 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
   private def _floor(n: Int): UInt = this >> n
 
-  /** UInt ceil
-    * ceil(x)
-    * return if(align) w(this)-n bits else w(this)-n+1 bits
-    * */
+  /** `UInt` ceil
+    * 
+    * @return `w(this)-n` bits if(`align`) else `w(this)-n+1` bits
+    */
   override def ceil(n: Int, align: Boolean = true): UInt = {
     require(getWidth > n, s"ceil bit width $n must be less than data bit width $getWidth")
     n match {
@@ -167,7 +165,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case _          => this << -n
     }
   }
-  /**return w(this)-n + 1 bit*/
+  /** return w(this)-n + 1 bit */
   private[core] def _ceil(n: Int): UInt = {
     val ret = UInt(getWidth-n+1 bits)
     when(this(n-1 downto 0).asBits.orR){
@@ -182,10 +180,11 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def ceilToInf(n: Int, align: Boolean = true): UInt   = ceil(n, align)
   override def roundToZero(n: Int, align: Boolean = true): UInt = roundDown(n, align)
   override def roundToInf(n: Int, align: Boolean = true): UInt  = roundUp(n, align)
-  /**
-    * UInt roundUp
+  /** `UInt` roundUp
+    * 
     * floor(x + 0.5)
-    * return if(align) w(this)-n bits else w(this)-n+1 bits
+    * 
+    * @return `w(this)-n` bits if(`align`) else `w(this)-n+1` bits
     */
   override def roundUp(n: Int, align: Boolean = true): UInt = {
     require(getWidth > n, s"RoundUp bit width $n must be less than data bit width $getWidth")
@@ -195,7 +194,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case _          => this << -n
     }
   }
-  /**return w(this)-n + 1 bit*/
+  /** return `w(this)-n+1` bit */
   private def _roundUp(n: Int): UInt = {
     val ret = UInt(getWidth-n+1 bits)
     val positive0p5: UInt = (Bits(getWidth-n bits).clearAll ## True).asUInt //0.5
@@ -203,10 +202,12 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     ret
   }
 
-  /** UInt roundDown
+  /** `UInt` roundDown
+    * 
     * ceil(x - 0.5)
-    * return w(this)-n bits
-    * */
+    * 
+    * @return `w(this)-n` bits
+    */
   override def roundDown(n: Int, align: Boolean): UInt = {
     require(getWidth > n, s"RoundDown bit width $n must be less than data bit width $getWidth")
     n match {
@@ -215,7 +216,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case _ => this << -n
     }
   }
-  /**return w(this)-n bit*/
+  /** return `w(this)-n` bit */
   private def _roundDown(n: Int): UInt = {
     require( n > 0, s"RoundDown bit width $n must be less than data bit width $getWidth")
     val ret = UInt(getWidth-n+1 bits)
@@ -265,10 +266,10 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     ret
   }
 
-  //SpinalHDL chose roundToInf as default round
+  /** SpinalHDL choose `roundToInf` as default round */
   override def round(n: Int, align: Boolean = true): UInt = roundToInf(n, align)
 
-  protected def _fixEntry(roundN: Int, roundType: RoundType, satN: Int): UInt ={
+  protected def _fixEntry(roundN: Int, roundType: RoundType, satN: Int): UInt = {
     roundType match{
       case RoundType.CEIL          => this.ceil(roundN, false).sat(satN + 1)
       case RoundType.FLOOR         => this.floor(roundN).sat(satN)
@@ -283,7 +284,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     }
   }
 
-  /**Factory fixTo Function*/
+  /** Factory `fixTo` Function */
   private def fixToWrap(section: Range.Inclusive, roundType: RoundType): UInt = {
     val w: Int = this.getWidth
     val wl: Int = w - 1
@@ -387,13 +388,14 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def assignFromBits(bits: Bits, hi : Int, lo : Int): Unit = this(hi downto lo).assignFromBits(bits)
 
   /**
-    * Cast an UInt to a SInt
+    * Cast an `UInt` to a `SInt`
     * @example {{{ mySInt := myUInt.asSInt }}}
-    * @return a SInt data
+    * @return a `SInt` data
     */
   def asSInt: SInt = wrapCast(SInt(), new CastUIntToSInt)
-  /*UInt toSInt add 1 bit 0 at hsb for sign bit*/
+  /** `UInt` `intoSInt` add 1 bit 0 at MSB for sign bit */
   def intoSInt: SInt = this.expand.asSInt
+  /** Add 1 bit 0 at MSB */
   def expand: UInt = (False ## this.asBits).asUInt
 
   override def asBits: Bits = wrapCast(Bits(), new CastUIntToBits)
@@ -493,7 +495,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
 
 /**
-  * Define an UInt 2D point
+  * Define an `UInt` 2D point
   * @example{{{ val positionOnScreen = Reg(UInt2D(log2Up(p.screenResX) bits, log2Up(p.screenResY) bits)) }}}
   * @param xBitCount width of the x point
   * @param yBitCount width of the y point
@@ -504,12 +506,12 @@ case class UInt2D(xBitCount: BitCount, yBitCount: BitCount) extends Bundle {
 }
 
 
-object UInt2D{
+object UInt2D {
 
   /**
-    * Construct a UInt2D with x and y of the same width
+    * Construct a `UInt2D` with x and y of the same width
     * @param commonBitCount the width of the x and y
-    * @return an UInt2 with x and y of the same width
+    * @return an `UInt2D` with x and y of the same width
     */
   def apply(commonBitCount: BitCount) : UInt2D = UInt2D(commonBitCount, commonBitCount)
 }

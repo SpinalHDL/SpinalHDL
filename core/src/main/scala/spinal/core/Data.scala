@@ -33,15 +33,16 @@ class VarAssignementTag(val from : Data) extends SpinalTag{
   var id = 0
 }
 
-trait DataPrimitives[T <: Data]{
+trait DataPrimitives[T <: Data] {
 
   private[spinal] def _data : T
 
-  /** Comparison between two data */
+  /** `isEqualTo` comparison between two SpinalHDL data. */
   def ===(that: T): Bool = _data isEqualTo that
+  /** `isNotEqualTo` comparison between two SpinalHDL data. */
   def =/=(that: T): Bool = _data isNotEqualTo that
 
-  /** Assign a data to this */
+  /** Standard SpinalHDL assignment, equivalent to `<=` in VHDL/Verilog. */
   def := (that: T)(implicit loc: Location): Unit = _data assignFrom that
 
   /** Use as \= to have the same behavioral as VHDL variable */
@@ -87,7 +88,10 @@ trait DataPrimitives[T <: Data]{
     _data.copyDirectionOfImpl(that)
   }
 
-  /** Auto connection between two data */
+  /** Automatic connection between two SpinalHDL signals or two bundles of the same type.
+   * 
+   * Direction is inferred by using signal direction (`in`/`out`). (Similar behavior to `:=`) 
+   */
   def <>(that: T)(implicit loc: Location): Unit = _data autoConnect that
 
   /** Set initial value to a data */
@@ -479,7 +483,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   private[core] def isEqualTo(that: Any): Bool
   private[core] def isNotEqualTo(that: Any): Bool
 
-  /** Resized data regarding target */
+  /** Allow SpinalHDL assignment with the size inferred from the assigned data.
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/assignments.html#width-checking Width checking Documentation]]
+    */
   def resized: this.type = {
     val ret = cloneOf(this)
     ret.assignFrom(this)
@@ -487,17 +493,17 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     return ret.asInstanceOf[this.type]
   }
 
-  /** Allow a Data to be overriden
+  /** Allow a Data to be overridden.
     *
-    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/assignment_overlap.html
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/assignment_overlap.html Assignment overlap Error Documentation]]
     */
   def allowOverride(): this.type = {
     addTag(allowAssignmentOverride)
   }
 
-  /** Allow a Data of an io Bundle to be directionless
+  /** Allow a Data of an io `Bundle` to be directionless.
     *
-    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/iobundle.html
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/iobundle.html IO Bundle Error Documentation]]
     */
   def allowDirectionLessIo(): this.type = {
     addTag(allowDirectionLessIoTag)
@@ -510,7 +516,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   /** Allow a register to have only an init (no assignments)
     *
-    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/unassigned_register.html#register-with-only-init
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/unassigned_register.html#register-with-only-init "Register with only init" Error Documentation ]]
     */
   def allowUnsetRegToAvoidLatch(): this.type = {
     addTag(unsetRegIfNoAssignementTag)
@@ -518,7 +524,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   /** Disable combinatorial loop checking for this Data
     *
-    * See https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/combinatorial_loop.html
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/combinatorial_loop.html Combinatorial loop Error Documentation]]
     */
   def noCombLoopCheck(): this.type = {
     addTag(spinal.core.noCombinatorialLoopCheck)

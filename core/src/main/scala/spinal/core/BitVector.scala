@@ -26,14 +26,13 @@ import spinal.idslplugin.Location
 import scala.collection.mutable.ArrayBuffer
 
 
-/**
-  * BitVector is a family of types for storing multiple bits of information in a single value.
-  * This type has three subtypes that can be used to model different behaviours:
-  *     - Bits
-  *     - UInt (unsigned integer)
-  *     - SInt (signed integer)
+/** `BitVector` is a family of types for storing multiple bits of information in a single value.
+  * This type has three subtypes that can be used to model different behaviors:
+  *     - `Bits`
+  *     - `UInt` (unsigned integer)
+  *     - `SInt` (signed integer)
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/TypeIntroduction BitVector Documentation]]
+  * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Developers%20area/types.html#the-bitvector-family-bits-uint-sint `BitVector` family Documentation]]
   */
 abstract class BitVector extends BaseType with Widthable {
 
@@ -230,7 +229,7 @@ abstract class BitVector extends BaseType with Widthable {
   }
 
   /**
-    * Take lowerst n bits
+    * Take lowest n bits
     * @example {{{ val res = data10bits.take(4) }}}
     * @return data10bits(3 downto 0)
     */
@@ -242,7 +241,7 @@ abstract class BitVector extends BaseType with Widthable {
   def takeLow(n: Int): Bits = take(n)
 
   /**
-    * Drop lowerst n bits
+    * Drop lowest n bits
     * @example {{{ val res = data10bits.drop(4) }}}
     * @return data10bits(9 downto 4)
     */

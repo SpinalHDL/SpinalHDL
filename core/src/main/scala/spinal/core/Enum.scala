@@ -71,22 +71,20 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
 }
 
 
-/**
- * Base class for creating enumeration
- *
- * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum Enumeration Documentation]]
- *
- * @example {{{
- *         object MyEnum extends SpinalEnum(binarySequential){
- *           val s1, s2, s3, s4 = newElement()
- *         }
- *         }}}
- *
- * SpinalEnum contains a list of SpinalEnumElement that is the definition of an element. SpinalEnumCraft is the
- * hardware representation of the the element.
- *
- * @param defaultEncoding encoding of the senum
- */
+/** Base class for creating enumeration
+  *
+  * @example {{{
+  *         object MyEnum extends SpinalEnum(binarySequential){
+  *           val s1, s2, s3, s4 = newElement()
+  *         }
+  *         }}}
+  *
+  * `SpinalEnum` contains a list of `SpinalEnumElement` that is the definition of an element. `SpinalEnumCraft` is the
+  * hardware representation of the the element.
+  *
+  * @param defaultEncoding encoding of the enum
+  * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/enum.html Enumeration Documentation]]
+  */
 class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable with ScalaLocated {
 
   assert(defaultEncoding != inferred, "Enum definition should not have 'inferred' as default encoding")

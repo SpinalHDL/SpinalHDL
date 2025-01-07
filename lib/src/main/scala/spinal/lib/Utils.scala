@@ -1491,11 +1491,15 @@ object whenIndexed{
   }
 }
 
-case class WhenBuilder(){
+/** Allow for example to add `when` programmatically in loops.
+  *
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#whenbuilder `WhenBuilder` Documentation]]
+  */
+case class WhenBuilder() {
     var ctx:WhenContext = null
 
     def when(cond : Bool)(body : => Unit): this.type = {
-        if(ctx == null){
+        if(ctx == null) {
             ctx = spinal.core.when(cond){body}
         }
         else{
@@ -1515,7 +1519,7 @@ case class WhenBuilder(){
     }
 
     def otherwise(body : => Unit): Unit = {
-        if(ctx == null){
+        if(ctx == null) {
             body
         }
         else{
@@ -1527,7 +1531,7 @@ case class WhenBuilder(){
 }
 
 
-class ClockDomainPimped(cd : ClockDomain){
+class ClockDomainPimped(cd : ClockDomain) {
   def withBufferedResetFrom(resetCd : ClockDomain, bufferDepth : Option[Int] = None) : ClockDomain = {
     val key = Tuple3(cd, resetCd,  bufferDepth)
     if(resetCd.config.resetKind == BOOT){
