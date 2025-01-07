@@ -67,6 +67,13 @@ trait Area extends NameableByComponent with ContextUser with OwnableRef with Sca
     oldContext.restore()
     b
   }
+
+  /** Get the parent component (null if there is no parent)*/
+  private[core] def parentComponent: Component = if(parentScope != null) parentScope.component else null
+  if (parentComponent != null) {
+    parentComponent.areas += this
+  }
+
   override private[core] def getComponent() = component
 
   override def valCallbackRec(obj: Any, name: String): Unit = {
