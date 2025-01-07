@@ -117,7 +117,7 @@ class Axi4ReadOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Compone
 
     val lenToSize = OHToUInt(OHMasking.last(io.up.ar.len) ## False)
     io.down.a.opcode := tilelink.Opcode.A.GET
-    io.down.a.param := B(tilelink.Param.Hint.NO_ALLOCATE_ON_MISS, 3 bits).andMask(io.up.aw.cache =/= 0xF)
+    io.down.a.param := B(tilelink.Param.Hint.NO_ALLOCATE_ON_MISS, 3 bits).andMask(io.up.ar.cache =/= 0xF)
     io.down.a.source := io.up.ar.id
     io.down.a.address := io.up.ar.addr
     io.down.a.size := (lenToSize + io.up.ar.size).resized
