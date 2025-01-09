@@ -8,7 +8,7 @@ import tilelink.fabric.sim._
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.Component
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.bus.tilelink.coherent.{CacheFiber, SelfFLush}
+import spinal.lib.bus.tilelink.coherent.{CacheFiber, CacheParam, SelfFLush}
 import spinal.lib.bus.tilelink.fabric.{MasterBus, SlaveBus}
 import spinal.lib.bus.tilelink.sim.MasterTester
 import spinal.lib.system.tag.PMA
@@ -19,9 +19,9 @@ import scala.collection.mutable.ArrayBuffer
 class CacheTester extends AnyFunSuite{
 
 
-  test("directed"){
+  def doTest(cp : CacheParam => Unit): Unit = {
     val tester = new TilelinkTester(
-      simConfig = SimConfig.withFstWave,
+      simConfig = SimConfig,
       cGen = new Component {
         val m0 = new MasterBus(
           M2sParameters(
@@ -48,6 +48,7 @@ class CacheTester extends AnyFunSuite{
         directory.parameter.cacheBytes = 4096
         directory.parameter.allocateOnMiss = (op, src, addr, size, param) => addr(6)
         directory.parameter.selfFlush = SelfFLush(0x80, 0x1000, 1000)
+        cp(directory.parameter)
         directory.up << m0.node
 
         val s0 = new SlaveBus(
@@ -73,7 +74,7 @@ class CacheTester extends AnyFunSuite{
       }
     )
 
-//    tester.noStall = true //for test only
+    //    tester.noStall = true //for test only
 
 
     tester.doSim("manual") { tb =>
@@ -84,9 +85,9 @@ class CacheTester extends AnyFunSuite{
         tb.slavesStuff.foreach(_.model.driver.driver.randomizeStallRate())
       }
 
-//      delayed(2147898761l-1000000)(enableSimWave())
+      //      delayed(2147898761l-1000000)(enableSimWave())
       val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
-//      val globalLock = Some(SimMutex()) //for test only
+      //      val globalLock = Some(SimMutex()) //for test only
       val globalLock = Option.empty[SimMutex]
       testers.foreach(_.startPerSource(10000, globalLock))
       testers.foreach(_.join())
@@ -94,38 +95,38 @@ class CacheTester extends AnyFunSuite{
       tb.assertCoverage()
     }
 
-//    tester.doSim("manual") { tb =>
-//      val agent = tb.mastersStuff(0).agent
-//      agent.
-//      for(i <- 64 until 4096 by 128) {
-//        agent.putFullData(0, 0x10000, Array.fill(16)(simRandom.nextInt.toByte))
-//      }
-//      tb.waitCheckers()
-//      tb.assertCoverage()
-//    }
+    //    tester.doSim("manual") { tb =>
+    //      val agent = tb.mastersStuff(0).agent
+    //      agent.
+    //      for(i <- 64 until 4096 by 128) {
+    //        agent.putFullData(0, 0x10000, Array.fill(16)(simRandom.nextInt.toByte))
+    //      }
+    //      tb.waitCheckers()
+    //      tb.assertCoverage()
+    //    }
 
-//    tester.doSimDirected("manual"){tb =>
-//      tb.coverAcquirePerm(32)
-//    }
-//
-//    tester.doSim("manual2"){tb =>
-//      val agent = tb.mastersStuff.head.agent
-//      val threads = ArrayBuffer[SimThread]()
-//      def doFork(body : => Unit) = threads += fork(body)
-//      def doJoin() = threads.foreach(_.join())
-//      def doBlock(name : String)(body : => Unit): Unit = { println(s"test $name"); body; doJoin(); agent.cd.waitSampling(20) }
-//
-//      for(address <- List(0x10000, 0x10040)) {
-//        doBlock("multiGet") {
-//          for (i <- 0 to 7) doFork(agent.get(i, address, 16))
-//        }
-//        doBlock("multiGetPut") {
-//          for (i <- 0 to 3) doFork(agent.get(i, address, 16))
-//          for (i <- 4 to 8) doFork(agent.putPartialData(i, address, Array.fill(16)(simRandom.nextInt.toByte), Array.fill(16)(simRandom.nextBoolean())))
-//        }
-//      }
-//    }
-//
+    //    tester.doSimDirected("manual"){tb =>
+    //      tb.coverAcquirePerm(32)
+    //    }
+    //
+    //    tester.doSim("manual2"){tb =>
+    //      val agent = tb.mastersStuff.head.agent
+    //      val threads = ArrayBuffer[SimThread]()
+    //      def doFork(body : => Unit) = threads += fork(body)
+    //      def doJoin() = threads.foreach(_.join())
+    //      def doBlock(name : String)(body : => Unit): Unit = { println(s"test $name"); body; doJoin(); agent.cd.waitSampling(20) }
+    //
+    //      for(address <- List(0x10000, 0x10040)) {
+    //        doBlock("multiGet") {
+    //          for (i <- 0 to 7) doFork(agent.get(i, address, 16))
+    //        }
+    //        doBlock("multiGetPut") {
+    //          for (i <- 0 to 3) doFork(agent.get(i, address, 16))
+    //          for (i <- 4 to 8) doFork(agent.putPartialData(i, address, Array.fill(16)(simRandom.nextInt.toByte), Array.fill(16)(simRandom.nextBoolean())))
+    //        }
+    //      }
+    //    }
+    //
     tester.doSimDirected("get"){_.coverGet(32)}
     tester.doSimDirected("putFull") {_.coverPutFullData(32)}
     tester.doSimDirected("putPartial") {_.coverPutPartialData(32)}
@@ -142,5 +143,21 @@ class CacheTester extends AnyFunSuite{
 
 
     tester.checkErrors()
+  }
+
+  test("dp 1bank"){
+    doTest{p => }
+  }
+  test("dp 2bank"){
+    doTest{p => p.cacheBanks = 2}
+  }
+  test("sp 1bank"){
+    doTest{p => p.withDualPortRam = false}
+  }
+  test("sp 2bank"){
+    doTest{p => p.withDualPortRam = false; p.cacheBanks = 2}
+  }
+  test("sp 4bank"){
+    doTest{p => p.withDualPortRam = false; p.cacheBanks = 4}
   }
 }
