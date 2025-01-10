@@ -138,6 +138,10 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
   val areas = ArrayBuffer[Area]()
+  def walkAreas(body : Area => Unit) : Unit = {
+    areas.foreach(_.walkAreas(body))
+    children.foreach(_.walkAreas(body))
+  }
 
   var traceEnabled = true
 

@@ -24,6 +24,9 @@ import spinal.core.Nameable.DATAMODEL_WEAK
 import spinal.core.internals.Misc
 import spinal.idslplugin.PostInitCallback
 
+import scala.collection.mutable.ArrayBuffer
+import scala.ref.WeakReference
+
 
 
 
@@ -50,7 +53,7 @@ class Composite[T <: Nameable](val self : T, postfix : String = null, weak : Boo
   }
 }
 
-trait Area extends NameableByComponent with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec with OverridedEqualsHashCode  {
+trait Area extends NameableByComponent with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec with OverridedEqualsHashCode with PostInitCallback {
   if(OnCreateStack.nonEmpty){
     OnCreateStack.get match {
       case null =>
@@ -58,6 +61,7 @@ trait Area extends NameableByComponent with ContextUser with OwnableRef with Sca
     }
     OnCreateStack.clear()
   }
+
   def childNamePriority = DATAMODEL_WEAK
   val _context = ScopeProperty.capture() //TODO not as heavy
   def rework[T](body : => T): T = {
@@ -68,13 +72,12 @@ trait Area extends NameableByComponent with ContextUser with OwnableRef with Sca
     b
   }
 
-  /** Get the parent component (null if there is no parent)*/
-  private[core] def parentComponent: Component = if(parentScope != null) parentScope.component else null
-  if (parentComponent != null) {
-    parentComponent.areas += this
-  }
-
   override private[core] def getComponent() = component
+
+  def walkAreas(body : Area => Unit) : Unit = {
+    body(this)
+    areas.foreach(_.walkAreas(body))
+  }
 
   override def valCallbackRec(obj: Any, name: String): Unit = {
     obj match {
@@ -100,9 +103,31 @@ trait Area extends NameableByComponent with ContextUser with OwnableRef with Sca
   }
 
   override def toString: String = (if(component != null)component.getPath() + "/"  else "") + super.toString()
+
+  private val parentArea = WeakReference(Area.current)
+
+  val areas = ArrayBuffer[Area]()
+  // Area.current can be non null if an area has a component in it that has an area. In this case we want to make sure
+  // to attach the area to the component
+  if(Area.current == null || (Area.current.component != component)) {
+    if (component != null) {
+      component.areas += this
+    }
+  } else {
+    Area.current.areas += this
+  }
+
+  Area.current = this
+
+  def postInitCallback(): this.type = {
+    Area.current = parentArea.apply()
+    this
+  }
 }
 
-
+object Area {
+  private var current : Area = null
+}
 
 
 /**
