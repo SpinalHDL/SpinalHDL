@@ -120,7 +120,8 @@ object Ram_1w_1rs{
                  |        parameter integer wrMaskWidth = 0,
                  |        parameter wrMaskEnable = 1'b0,
                  |        parameter integer rdAddressWidth = 0,
-                 |        parameter integer rdDataWidth  = 0
+                 |        parameter integer rdDataWidth  = 0,
+                 |        parameter integer rdLatency = 1
                  |    )(
                  |        input wr_clk,
                  |        input wr_en,
@@ -129,6 +130,7 @@ object Ram_1w_1rs{
                  |        input [wrDataWidth-1:0] wr_data,
                  |        input rd_clk,
                  |        input rd_en,
+                 |        input rd_dataEn,
                  |        input [rdAddressWidth-1:0] rd_addr,
                  |        output [rdDataWidth-1:0] rd_data
                  |    );
