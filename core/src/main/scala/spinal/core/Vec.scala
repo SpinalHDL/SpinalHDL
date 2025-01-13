@@ -51,6 +51,18 @@ trait VecFactory {
       Vec((0 until size).map(gen(_))).setElementsParents()
     }
 
+    def tabulate[T <: Data](n1: Int, n2: Int)(f: (Int, Int) => T): Vec[Vec[T]] =
+      tabulate(n1)(i => tabulate(n2)(f(i, _)))
+
+    def tabulate[T <: Data](n1: Int, n2: Int, n3: Int)(f: (Int, Int, Int) => T): Vec[Vec[Vec[T]]] =
+      tabulate(n1)(i => tabulate(n2, n3)(f(i, _, _)))
+
+    def tabulate[T <: Data](n1: Int, n2: Int, n3: Int, n4: Int)(f: (Int, Int, Int, Int) => T): Vec[Vec[Vec[Vec[T]]]] =
+      tabulate(n1)(i => tabulate(n2, n3, n4)(f(i, _, _, _)))
+
+    def tabulate[T <: Data](n1: Int, n2: Int, n3: Int, n4: Int, n5: Int)(f: (Int, Int, Int, Int, Int) => T): Vec[Vec[Vec[Vec[Vec[T]]]]] =
+      tabulate(n1)(i => tabulate(n2, n3, n4, n5)(f(i, _, _, _, _)))
+
     def fill[T <: Data](size: Int)(dataType: => T): Vec[T] = {
       Vec((0 until size).map(_ => dataType), HardType(dataType)).setElementsParents()
     }

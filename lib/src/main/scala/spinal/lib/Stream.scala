@@ -207,7 +207,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def queue(size: Int, pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
     val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock).setCompositeName(this,"queue", true)
     fifo.io.push << this
-    return fifo.io.pop
+    fifo.io.pop
   }
 
 /** Connect this to a fifo and return its pop stream and its occupancy
@@ -215,13 +215,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def queueWithOccupancy(size: Int, latency : Int = 2, forFMax : Boolean = false): (Stream[T], UInt) = {
     val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax).setCompositeName(this,"queueWithOccupancy", true)
     fifo.io.push << this
-    return (fifo.io.pop, fifo.io.occupancy)
+    (fifo.io.pop, fifo.io.occupancy)
   }
 
   def queueWithAvailability(size: Int, latency : Int = 2, forFMax : Boolean = false): (Stream[T], UInt) = {
     val fifo = StreamFifo(payloadType, size, latency = latency, forFMax = forFMax).setCompositeName(this,"queueWithAvailability", true)
     fifo.io.push << this
-    return (fifo.io.pop, fifo.io.availability)
+    (fifo.io.pop, fifo.io.availability)
   }
 
 /** Connect this to a cross clock domain fifo and return its pop stream and its push side occupancy
@@ -229,7 +229,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def queueWithPushOccupancy(size: Int, pushClock: ClockDomain, popClock: ClockDomain): (Stream[T], UInt) = {
     val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock).setCompositeName(this,"queueWithPushOccupancy", true)
     fifo.io.push << this
-    return (fifo.io.pop, fifo.io.pushOccupancy)
+    (fifo.io.pop, fifo.io.pushOccupancy)
   }
 
 
@@ -496,7 +496,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def fragmentTransaction(bitsWidth: Int): Stream[Fragment[Bits]] = {
     val converter = new StreamToStreamFragmentBits(payload, bitsWidth)
     converter.io.input << this
-    return converter.io.output
+    converter.io.output
   }
   
   /**
@@ -523,7 +523,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       counter.increment()
     }
     val last = counter.willOverflowIfInc
-    return addFragmentLast(last)
+    addFragmentLast(last)
   }
   
   def setIdle(): this.type = {
@@ -986,6 +986,10 @@ object StreamDemux{
     (demux(0).combStage(), demux(1).combStage())
   }
   def two[T <: Data](input: Stream[T], select : Bool) : (Stream[T], Stream[T]) = two(input, select.asUInt)
+  def two[T <: Data](input: Stream[T], select : Stream[UInt]) : (Stream[T], Stream[T]) = {
+    val demux = joinSel(input, select, 2)
+    (demux(0).combStage(), demux(1).combStage())
+  }
 }
 
 class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
@@ -1031,7 +1035,7 @@ object StreamFork {
   def apply[T <: Data](input: Stream[T], portCount: Int, synchronous: Boolean = false): Vec[Stream[T]] = {
     val fork = new StreamFork(input.payloadType, portCount, synchronous).setCompositeName(input, "fork", true)
     fork.io.input << input
-    return fork.io.outputs
+    fork.io.outputs
   }
 }
 
@@ -1749,7 +1753,7 @@ object StreamCCByToggle {
   def apply[T <: Data](input: Stream[T], inputClock: ClockDomain, outputClock: ClockDomain): Stream[T] = {
     val c = new StreamCCByToggle[T](input.payload, inputClock, outputClock)
     c.io.input << input
-    return c.io.output
+    c.io.output
   }
 
   def apply[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain): StreamCCByToggle[T] = {
