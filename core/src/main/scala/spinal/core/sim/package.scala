@@ -299,6 +299,10 @@ package object sim {
     }
   }
 
+  def periodicaly(delay : TimeNumber)(body : => Unit) : Unit = {
+    periodicaly(timeToLong(delay))(body)
+  }
+
   def simThread = SimManagerContext.current.thread
 
 

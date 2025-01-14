@@ -474,7 +474,7 @@ class ComponentEmitterVerilog(
           }
         }
       }
-      val maxNameLengthConNew = if(prepareInstports.isEmpty) 0 else prepareInstports.map(_._2.length()).max
+      val maxNameLengthConNew = if(prepareInstports.isEmpty) 0 else Math.max(1, prepareInstports.map(_._2.length()).max)
       val prepareInstportsLen = prepareInstports
         .map(x => (x._1, s"%-${maxNameLengthConNew}s".format(x._2), x._3))
         .map(x => s"${x._1}${x._2}${x._3}")
@@ -1311,16 +1311,13 @@ end
     def emitWrite(b: StringBuilder, mem: Mem[_], writeEnable: String, address: Expression, data: Expression, mask: Expression with WidthProvider, symbolCount: Int, bitPerSymbole: Int, tab: String): Unit = {
 
       if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
-        val ramAssign = s"$tab${emitReference(mem, false)}[${emitExpression(address)}] <= ${emitExpression(data)};\n"
-
-        if (writeEnable != null) {
-          b ++= s"${tab}if(${writeEnable}) begin\n  "
-          b ++= ramAssign
-          b ++= s"${tab}end\n"
-        } else {
-          b ++= ramAssign
-        }
-
+        val ramAssign = s"$tab  ${emitReference(mem, false)}[${emitExpression(address)}] <= ${emitExpression(data)};\n"
+        var conds = if(writeEnable != null) List(writeEnable) else Nil
+        if(mask != null)
+          conds =  s"${emitExpression(mask)}[0]" :: conds
+        if(conds.nonEmpty) b ++= s"${tab}if(${conds.mkString(" && ")}) begin\n"
+        b ++= ramAssign
+        if(conds.nonEmpty) b ++= s"${tab}end\n"
       } else {
 
         def maskCount = mask.getWidth
@@ -1926,6 +1923,11 @@ end
     outputWrap contains sig
   }
 
+  for(child <- component.children){
+    for(io <- child.getAllIo if io.isInput && io.dlcIsEmpty) {
+      openSubIo += io
+    }
+  }
   elaborate()
   fillExpressionToWrap()
   emitEntity()

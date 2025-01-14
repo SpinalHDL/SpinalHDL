@@ -120,7 +120,8 @@ object Ram_1w_1rs{
                  |        parameter integer wrMaskWidth = 0,
                  |        parameter wrMaskEnable = 1'b0,
                  |        parameter integer rdAddressWidth = 0,
-                 |        parameter integer rdDataWidth  = 0
+                 |        parameter integer rdDataWidth  = 0,
+                 |        parameter integer rdLatency = 1
                  |    )(
                  |        input wr_clk,
                  |        input wr_en,
@@ -129,6 +130,7 @@ object Ram_1w_1rs{
                  |        input [wrDataWidth-1:0] wr_data,
                  |        input rd_clk,
                  |        input rd_en,
+                 |        input rd_dataEn,
                  |        input [rdAddressWidth-1:0] rd_addr,
                  |        output [rdDataWidth-1:0] rd_data
                  |    );
@@ -170,7 +172,8 @@ class Ram_1w_1rs(
 
   val rdClock        : ClockDomain,
   val rdAddressWidth : Int,
-  val rdDataWidth    : Int
+  val rdDataWidth    : Int,
+  val rdLatency      : Int = 1
 ) extends BlackBox {
 
   addGenerics(
@@ -184,7 +187,8 @@ class Ram_1w_1rs(
     "wrMaskWidth"    -> Ram_1w_1rs.this.wrMaskWidth,
     "wrMaskEnable"   -> Ram_1w_1rs.this.wrMaskEnable,
     "rdAddressWidth" -> Ram_1w_1rs.this.rdAddressWidth,
-    "rdDataWidth"    -> Ram_1w_1rs.this.rdDataWidth
+    "rdDataWidth"    -> Ram_1w_1rs.this.rdDataWidth,
+    "rdLatency"      -> Ram_1w_1rs.this.rdLatency
   )
 
 
@@ -198,10 +202,11 @@ class Ram_1w_1rs(
     }
 
     val rd = new Bundle {
-      val clk  = in Bool()
-      val en   = in Bool()
-      val addr = in  UInt(rdAddressWidth bit)
-      val data = out Bits(rdDataWidth bit)
+      val clk    = in Bool()
+      val en     = in Bool()
+      val addr   = in  UInt(rdAddressWidth bit)
+      val dataEn = in Bool() default(True) //Only used if rdLatency > 1
+      val data   = out Bits(rdDataWidth bit)
     }
   }
 
