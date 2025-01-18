@@ -647,8 +647,7 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] with
     this
   }
 
-  formalAssumes()
-  override def formalAsserts()(implicit useAssumes: Boolean) = new Area {
+  override def formalChecks()(implicit useAssumes: Boolean) = {
     assertOrAssume(value >= start)
     assertOrAssume(value <= end)
   }
@@ -780,9 +779,7 @@ class CounterUpDown(val stateCount: BigInt, val handleOverflow : Boolean = true)
   
   override def implicitValue: UInt = this.value
 
-  formalAssumes()
-
-  override def formalAsserts()(implicit useAssumes: Boolean) = new Area {
+  override def formalChecks()(implicit useAssumes: Boolean) = {
     assertOrAssume(value <= stateCount - 1)
   }
 }

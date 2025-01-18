@@ -1,10 +1,11 @@
 package spinal.core.formal
 
-import spinal.core.formal.HasFormalAsserts._alwaysAssert
-import spinal.core.{Area, Bool, Component, ImplicitArea, True, assert, assume, when}
+import spinal.core.{Bool, Component, Composite, SpinalTag, True, assert, assume, when}
 import spinal.idslplugin.Location
 
 import scala.collection.mutable
+import scala.ref.WeakReference
+import scala.util.Try
 
 object FormalDut{
   def apply[T <: Component](dut : T) = {
@@ -15,7 +16,7 @@ object FormalDut{
     }
 
     dut match {
-      case withAsserts: HasFormalAsserts => withAsserts.formalAsserts()
+      case withAsserts: HasFormalAsserts => withAsserts.formalConfigureForTest()
       case _ => {}
     }
 
@@ -23,7 +24,27 @@ object FormalDut{
   }
 }
 
+object AssertionLevel extends Enumeration {
+  type Level = Value
+  val None, Assertion, Assumption = Value
+}
+
 trait HasFormalAsserts {
+  if(!this.isInstanceOf[Component]) {
+    Component.current.addTag(new HasFormalAssertsTag(this))
+  }
+
+  private val OwningComponent = WeakReference(Component.current)
+
+  private var CurrentAssertionLevel = AssertionLevel.None
+  private var CurrentInputsAssertionLevel = AssertionLevel.None
+
+  def formalConfigureForTest(): this.type = {
+    formalAssumeInputs()
+    formalAsserts()
+    this
+  }
+
   lazy val formalValidInputs : Bool = True
   /**
    * Configure asserts around the input signals to the given object. This is kept seperate so that you can run
@@ -33,8 +54,15 @@ trait HasFormalAsserts {
    * which will test that the inputs to the already validated dut object adhere to whatever contract is in place for
    * it's inputs.
    */
-  final def formalAssertInputs()(implicit loc: Location, useAssumes : Boolean = false): Area = new Area { assertOrAssume( formalValidInputs )}
-  final def formalAssumeInputs()(implicit loc: Location) = formalAssertInputs()(loc = loc, useAssumes = true)
+  final def formalAssertInputs()(implicit useAssumes : Boolean = false): Unit = {
+    val newLevel = if(useAssumes) AssertionLevel.Assumption else AssertionLevel.Assertion
+    if(newLevel > CurrentInputsAssertionLevel) {
+      val validInputs = new Composite(OwningComponent(), "formalValidInputs") { val validInputs = formalValidInputs }.validInputs
+      assertOrAssume(validInputs)
+      CurrentInputsAssertionLevel = newLevel
+    }
+  }
+  final def formalAssumeInputs() : Unit = formalAssertInputs()(useAssumes = true)
 
   /**
    * Set o formal assertions required for testing and validating the component completely.
@@ -42,17 +70,51 @@ trait HasFormalAsserts {
    *                   provers which states are acceptable.
    * @return An area (typically a composite) which may contain signals useful for collectign during a simulation
    */
-  def formalAsserts()(implicit useAssumes : Boolean = false) : Area
+  protected def formalChecks()(implicit useAssumes : Boolean = false) : Unit = {}
 
-  def formalAssumes() = {
-    if(_alwaysAssert) {
+  def FormalCompositeName(implicit useAssumes : Boolean = false) = if(useAssumes) "formalAssumes" else "formalAsserts"
+
+  private def formalAssertsChildren(assumesInputValid : Boolean , useAssumes : Boolean = false): Unit = {
+    HasFormalAsserts.formalAssertsChildren(Try { this.asInstanceOf[Component] }.getOrElse(null), assumesInputValid, useAssumes)
+  }
+
+  private def formalAssertsChildren()(implicit useAssumes : Boolean): Unit = {
+    formalAssertsChildren(useAssumes, useAssumes)
+  }
+
+  def formalAssertOrAssume()(implicit useAssumes : Boolean = false): Unit = {
+    if(useAssumes) {
+      formalAssumes()
+    } else {
+      formalAsserts()
+    }
+  }
+
+  final def formalAsserts(): Unit = {
+    if(CurrentAssertionLevel >= AssertionLevel.Assertion)
+      return
+
+    CurrentAssertionLevel = AssertionLevel.Assertion
+
+    formalAssertsChildren()(useAssumes = false)
+    formalChecks()(useAssumes = false)
+  }
+
+  def formalAssumes(): Unit  = {
+    if(CurrentAssertionLevel == AssertionLevel.Assumption)
+      return
+
+    formalAssumeInputs()
+
+    import spinal.core.formal.HasFormalAsserts.alwaysAssert
+    if(alwaysAssert) {
       formalAsserts()
     } else {
-      var area: Area = null
+      CurrentAssertionLevel = AssertionLevel.Assumption
       when(formalValidInputs) {
-        area = formalAsserts()(useAssumes = true)
+        formalAssertsChildren()(useAssumes = true)
+        formalChecks()(useAssumes = true)
       }
-      area
     }
   }
 
@@ -65,32 +127,35 @@ trait HasFormalAsserts {
   def assertOrAssume(cond : Bool, msg : Any*)(implicit loc: Location, useAssumes : Boolean): Unit =
     HasFormalAsserts.assertOrAssume(cond, msg:_*)
 
-  def withFormalAsserts() : this.type = {
-    formalAsserts()
-    this
-  }
-  def withFormalAssumes() : this.type = {
-    formalAssumes()
-    this
-  }
 }
 
-object HasFormalAsserts {
-  def _alwaysAssert : Boolean = sys.env.contains("SPINAL_FORMAL_NEVER_ASSUME")
+class HasFormalAssertsTag(val formalAsserts : HasFormalAsserts) extends SpinalTag
 
-  def formalAssertsChildren(c: Component, assumesInputValid : Boolean , useAssumes : Boolean = false)(implicit loc: Location): Unit = {
+object HasFormalAsserts {
+  private def alwaysAssert : Boolean = sys.env.contains("SPINAL_FORMAL_NEVER_ASSUME")
+
+  private def formalAssertTags(c: Component, assumesInputValid : Boolean, useAssumes : Boolean = false): Unit = {
+    val direct_asserts = c.getTagsOf[HasFormalAssertsTag]().map(_.formalAsserts)
+
+    direct_asserts.foreach(a => {
+      a.formalAssertInputs()(useAssumes = assumesInputValid)
+      a.formalAssertOrAssume()(useAssumes)
+    })
+  }
+
+  def formalAssertsChildren(c: Component, assumesInputValid : Boolean , useAssumes : Boolean = false): Unit = {
+    if(c == null) {
+      return
+    }
     def apply(c : Component, walkSet : mutable.HashSet[Component]) : Unit = {
       if (!walkSet.contains(c)) {
+        formalAssertTags(c, assumesInputValid, useAssumes)
 
         walkSet += c
         c match {
           case c: HasFormalAsserts => {
-            c.formalAssertInputs()(loc = loc, useAssumes = assumesInputValid)
-            if(useAssumes) {
-              c.formalAssumes()
-            } else {
-              c.formalAsserts()
-            }
+            c.formalAssertInputs()(useAssumes = assumesInputValid)
+            c.formalAssertOrAssume()
           }
           case _ => c.walkComponents(apply(_, walkSet))
         }
@@ -98,6 +163,8 @@ object HasFormalAsserts {
     }
 
     c.addPrePopTask(() => {
+      formalAssertTags(c, assumesInputValid, useAssumes)
+
       val walkSet = new mutable.HashSet[Component]()
       walkSet += c
       c.walkComponents(apply(_, walkSet))

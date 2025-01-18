@@ -17,16 +17,13 @@ class ChildComponent extends Component with HasFormalAsserts {
 
   override lazy val formalValidInputs = io.input =/= 0xdeadbeefL
 
-  override def formalAsserts()(implicit useAssumes: Boolean) = new Composite(this, "formalAsserts") {
+  override def formalChecks()(implicit useAssumes: Boolean): Unit =
     assertOrAssume(io.never_true === False)
-  }
 }
 
 class FormalChildComponent extends Component {
   val dut = FormalDut(new ChildComponent())
   assumeInitial(ClockDomain.current.isResetActive)
-
-  dut.formalAssumeInputs()
 
   anyseq(dut.io.input)
 }
@@ -41,24 +38,16 @@ class ParentComponent extends Component with HasFormalAsserts {
   child.io <> io
 
   override lazy val formalValidInputs = child.formalValidInputs
-
-  /**
-   * Set o formal assertions required for testing and validating the component completely.
-   *
-   * @param useAssumes indicates that we want to assume all the predicates are always true; which informs inductive
-   *                   provers which states are acceptable.
-   * @return An area (typically a composite) which may contain signals useful for collectign during a simulation
-   */
-  override def formalAsserts()(implicit useAssumes: Boolean) = new Composite(this, "formalAsserts") {
-    child.formalAssertInputs()
-    child.formalAssumes()
-  }
 }
 
 class FormalParentComponent(assumeInputs : Boolean = true) extends Component {
-  val dut = FormalDut(new ParentComponent())
+  withAutoPull()
+  setFormalTester()
+
+  val dut = new ParentComponent()
   assumeInitial(ClockDomain.current.isResetActive)
 
+  dut.formalAsserts()
   if(assumeInputs) {
     dut.formalAssumeInputs()
   }

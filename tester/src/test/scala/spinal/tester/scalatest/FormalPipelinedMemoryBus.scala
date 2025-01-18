@@ -41,9 +41,6 @@ class PipelinedMemoryBusArbiterFormal(portCount : Int, pendingRspMax : Int, rspR
   val dut = FormalDut(new PipelinedMemoryBusArbiter(PipelinedMemoryBusConfig(32,32), portCount, pendingRspMax, rspRouteQueue, transactionLock))
   assumeInitial(ClockDomain.current.isResetActive)
 
-  dut.formalAssumeInputs()
-  dut.formalAsserts()
-
   dut.io.inputs.foreach(bus => {
     anyseq(bus.cmd.payload)
     anyseq(bus.cmd.valid)
@@ -57,7 +54,7 @@ class PipelinedMemoryBusDecoderFormal(mappings: Seq[AddressMapping], pendingRspM
   val dut = FormalDut(new PipelinedMemoryBusDecoder(PipelinedMemoryBusConfig(32, 32), mappings, pendingRspMax))
   assumeInitial(ClockDomain.current.isResetActive)
 
-  dut.formalAsserts()
+  dut.formalChecks()
   dut.formalAssumeInputs()
 
   anyseq(dut.io.input.cmd.payload)
@@ -97,10 +94,8 @@ class PipelinedMemoryBusInterconnectComponent(mappings: Seq[AddressMapping], pen
   override lazy val formalValidInputs = Vec(io.masters.map(_.formalIsProducerValid())).andR &&
     Vec(io.slaves.map(_.formalIsConsumerValid())).andR
 
-  override def formalAsserts()(implicit useAssumes: Boolean) = {
-    HasFormalAsserts.formalAssertsChildren(this, assumesInputValid = false, useAssumes = true)
-    new Area {}
-  }
+  override def formalChecks()(implicit useAssumes: Boolean) =
+    assertOrAssume(Vec(io.slaves.map(_.formalIsProducerValid())).andR)
 }
 
 class PipelinedMemoryBusInterconnectFormal(mappings: Seq[AddressMapping], pendingRspMax : Int, portCount : Int, rspRouteQueue : Boolean) extends Component {

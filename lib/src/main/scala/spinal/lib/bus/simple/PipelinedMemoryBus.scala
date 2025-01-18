@@ -207,7 +207,7 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
     io.inputs.map(_.formalIsProducerValid()).andR &&
       io.output.formalIsConsumerValid()
 
-  override def formalAsserts()(implicit useAssumes: Boolean) = new Composite(this, "formalAsserts") {
+  override def formalChecks()(implicit useAssumes: Boolean) = new Composite(this, FormalCompositeName) {
     withAutoPull()
 
     val logicAsserts = if(logic != null) new Area {
@@ -229,7 +229,7 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
 
       val rspQueueArea = if(logic.rspQueue != null) new Area {
         import logic.rspQueue._
-        rspRouteFifo.formalAsserts()
+        rspRouteFifo.formalChecks()
 
         assertOrAssume(rspRouteFifo.formalCheckRam(CountOne(_) =/= 1).orR === False)
 
@@ -368,11 +368,12 @@ case class PipelinedMemoryBusDecoder(busConfig : PipelinedMemoryBusConfig, mappi
 
   override lazy val formalValidInputs = io.input.formalIsProducerValid() && io.outputs.map(_.formalIsConsumerValid()).andR
 
-  override def formalAsserts()(implicit useAssumes: Boolean) = new Composite(this, "formalAsserts") {
+  override def formalChecks()(implicit useAssumes: Boolean) = new Composite(this, FormalCompositeName) {
+    val outstandingReads = io.outputs.map(_.formalContract.outstandingReads.value)
+    val inputOutstandingReads = io.input.formalContract.outstandingReads.value
+
     Option(logic).foreach(logic => {
       assertOrAssume(!logic.rspPendingCounter.willUnderflow)
-      val outstandingReads = io.outputs.map(_.formalContract.outstandingReads.value)
-      val inputOutstandingReads = io.input.formalContract.outstandingReads.value
       val totalOutstandingReads = outstandingReads.fold(U(0))(_ +^ _) +^ (logic.rspPending && logic.rspNoHit).asUInt
       for ((outstandingReads, idx) <- outstandingReads.zipWithIndex) {
         assertOrAssume(outstandingReads === Mux(logic.rspHits(idx), logic.rspPendingCounter.value, U(0)))

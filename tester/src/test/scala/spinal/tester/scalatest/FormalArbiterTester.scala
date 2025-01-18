@@ -450,8 +450,6 @@ class FormalArbiterTester extends SpinalFormalFunSuite {
             )
           )
           assumeInitial(ClockDomain.current.isResetActive)
-          dut.formalAssumeInputs()
-          dut.formalAsserts()
 
           val payloadInvariance = lockFactoryName != "none"
           println(s"Payload invariance ${payloadInvariance}")

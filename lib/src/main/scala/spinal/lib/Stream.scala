@@ -685,14 +685,16 @@ object StreamArbiter {
       maskProposal(counter) := True
     }
 
-    def roundRobin(core: StreamArbiter[_ <: Data]) = new Area {
+    def roundRobin(core: StreamArbiter[_ <: Data]) = new Area with HasFormalAsserts {
       import core._
       for(bitId  <- maskLocked.range){
         maskLocked(bitId) init(Bool(bitId == maskLocked.length-1))
       }
-      assume(CountOne(maskLocked) <= 1)
+
       //maskProposal := maskLocked
       maskProposal := OHMasking.roundRobin(Vec(io.inputs.map(_.valid)),Vec(maskLocked.last +: maskLocked.take(maskLocked.length-1)))
+
+      override def formalChecks()(implicit useAssumes: Boolean) = assertOrAssume(CountOne(maskLocked) <= 1)
     }
   }
 
@@ -760,7 +762,7 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
   io.chosenOH := maskRouted.asBits
   io.chosen := OHToUInt(io.chosenOH)
 
-  override def formalAsserts()(implicit useAssumes: Boolean) = new Area {
+  override def formalChecks()(implicit useAssumes: Boolean) = {
     assertOrAssume(CountOne(maskRouted) <= 1)
     io.output.formalAsserts(payloadInvariance = !locked.dlcHasOnlyOne)
   }
@@ -1065,12 +1067,12 @@ object StreamFork {
 object StreamFork2 {
   def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2"){
     val outputs = (cloneOf(input), cloneOf(input))
-    val logic = new StreamForkArea(input, List(outputs._1, outputs._2), synchronous).withFormalAssumes()
+    val logic = new StreamForkArea(input, List(outputs._1, outputs._2), synchronous)
   }.outputs
 
   def takes[T <: Data](input: Stream[T],take0 : Bool, take1 : Bool, synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2") {
     val forks = (cloneOf(input), cloneOf(input))
-    val logic = new StreamForkArea(input, List(forks._1, forks._2), synchronous).withFormalAssumes()
+    val logic = new StreamForkArea(input, List(forks._1, forks._2), synchronous)
     val outputs = (forks._1.takeWhen(take0), forks._2.takeWhen(take1))
   }.outputs
 }
@@ -1078,7 +1080,7 @@ object StreamFork2 {
 object StreamFork3 {
   def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T], Stream[T]) = new Composite(input, "fork3"){
     val outputs = (cloneOf(input), cloneOf(input), cloneOf(input))
-    val logic = new StreamForkArea(input, List(outputs._1, outputs._2, outputs._3), synchronous).withFormalAssumes()
+    val logic = new StreamForkArea(input, List(outputs._1, outputs._2, outputs._3), synchronous)
   }.outputs
 }
 
@@ -1102,7 +1104,7 @@ class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: 
   val logic = new StreamForkArea(io.input, io.outputs, synchronous)
 
   override lazy val formalValidInputs = logic.formalValidInputs
-  override def formalAsserts()(implicit useAssumes: Boolean) = logic.formalAsserts()
+  override def formalChecks()(implicit useAssumes: Boolean) = logic.formalChecks()
 }
 
 class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], synchronous: Boolean = false) extends Area with HasFormalAsserts {
@@ -1138,7 +1140,7 @@ class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], syn
     }
   }
 
-  override def formalAsserts()(implicit useAssumes: Boolean) = new Area {
+  override def formalChecks()(implicit useAssumes: Boolean) = new Area {
     if(linkEnable != null) {
         assertOrAssume(input.valid || linkEnable.asBits.andR, "Link enable must be true when input is invalid.")
     }
@@ -1440,7 +1442,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
 
   override lazy val formalValidInputs = io.push.formalIsValid()
 
-  override def formalAsserts()(implicit useAssumes : Boolean = false) = new Composite(this, "formalAsserts") {
+  override def formalChecks()(implicit useAssumes : Boolean = false) = new Composite(this, FormalCompositeName) {
     val logic_option = Option(logic)
 
     // Occupancy as dictated soley by push/pop pointers
