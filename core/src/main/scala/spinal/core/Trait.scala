@@ -714,6 +714,10 @@ trait SpinalTagReady {
     else
       _spinalTags
   }
+  def getTagsOf[T <: SpinalTag]() : Set[T] = {
+    getTags().filter(_.isInstanceOf[T]).map(_.asInstanceOf[T]).toSet
+  }
+
   def foreachTag(body : SpinalTag => Unit) : Unit = {
     if(_spinalTags == null) return
     _spinalTags.foreach(body)
