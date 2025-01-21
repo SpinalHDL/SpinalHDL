@@ -470,6 +470,11 @@ object Operator {
       override def opName: String = "Bool =/= Bool"
     }
 
+    class EqualSim extends BinaryOperator {
+      override def getTypeObject = TypeBool
+      override def opName: String = "Bool =sim= Bool"
+    }
+
     class Repeat(val count : Int) extends UnaryOperator with Widthable {
       override def getTypeObject = TypeBits
       override def opName: String = "Bool #* Int"
@@ -587,6 +592,12 @@ object Operator {
       override def getTypeObject = TypeBool
       override def normalizeInputs: Unit
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
+    }
+
+    abstract class EqualSim extends BinaryOperatorWidthableInputs with ScalaLocated with SpinalTagReady {
+      override def getTypeObject = TypeBool
+      override def normalizeInputs: Unit
+      override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
     }
 
     abstract class Repeat(val count : Int) extends UnaryOperatorWidthableInputs {
@@ -735,6 +746,16 @@ object Operator {
       override def opName: String = "Bits =/= Bits"
     }
 
+    class EqualSim extends BitVector.Equal {
+      override def normalizeInputs: Unit = {
+        val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
+        left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, new ResizeBits, right, this)
+        right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, new ResizeBits, left, this)
+      }
+      override def opName: String = "Bits =sim= Bits"
+    }
+
     class Repeat(count: Int) extends BitVector.Repeat(count) {
       override def getTypeObject = TypeBits
       override def opName: String = "Bits #* Int"
@@ -879,6 +900,17 @@ object Operator {
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
     }
+
+    class EqualSim extends BitVector.Equal {
+      override def opName: String = "UInt =sim= UInt"
+      override def normalizeInputs: Unit = {
+        val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
+        left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
+        right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
+      }
+    }
+
 
     class Repeat(count: Int) extends BitVector.Repeat(count) {
       override def getTypeObject = TypeUInt
@@ -1031,6 +1063,16 @@ object Operator {
       }
     }
 
+    class EqualSim extends BitVector.EqualSim {
+      override def opName: String = "SInt =sim= SInt"
+      override def normalizeInputs: Unit = {
+        val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(true)
+        left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
+        right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
+      }
+    }
+
     class Repeat(count: Int) extends BitVector.Repeat(count) {
       override def getTypeObject = TypeSInt
       override def opName: String = "SInt #* Int"
@@ -1116,6 +1158,26 @@ object Operator {
           this
       }
     }
+
+    class EqualSim(var enumDef: SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl {
+      override def getTypeObject: Any = TypeBool
+
+      override def opName: String = "Enum =sim= Enum"
+      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
+
+      override type T = Expression with EnumEncoded
+      override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+      override def getDefinition: SpinalEnum = enumDef
+      override def swapEnum(e: SpinalEnum) = enumDef = e
+
+      override def simplifyNode: Expression = {
+        if (left.getDefinition.elements.size < 2)
+          new BoolLiteral(true)
+        else
+          this
+      }
+    }
+
   }
 }
 

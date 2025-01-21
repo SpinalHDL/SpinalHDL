@@ -1647,19 +1647,20 @@ end
     emitEnumLiteral(e.senum, e.encoding)
   }
 
-  def enumEgualsImpl(eguals: Boolean)(e: BinaryOperator with EnumEncoded): String = {
+  def enumEgualsImpl(eguals: Boolean, sim : Boolean)(e: BinaryOperator with EnumEncoded): String = {
     val enumDef  = e.getDefinition
     val encoding = e.getEncoding
 
+    def cmpEqu = if(sim) "===" else "=="
     encoding match {
       case `binaryOneHot` => {
         (e.left, e.right) match {
           case (sig : SpinalEnumCraft[_], lit : EnumLiteral[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${emitEnumLiteral(lit.senum, lit.encoding)}_OH_ID])"
           case (lit : EnumLiteral[_], sig : SpinalEnumCraft[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${emitEnumLiteral(lit.senum, lit.encoding)}_OH_ID])"
-          case _ => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} ${encoding.getWidth(enumDef)}'b${"0" * encoding.getWidth(enumDef)})"
+          case _ => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else cmpEqu} ${encoding.getWidth(enumDef)}'b${"0" * encoding.getWidth(enumDef)})"
         }
       }
-      case _              => s"(${emitExpression(e.left)} ${if (eguals) "==" else "!="} ${emitExpression(e.right)})"
+      case _              => s"(${emitExpression(e.left)} ${if (eguals) cmpEqu else "!="} ${emitExpression(e.right)})"
     }
   }
 
@@ -1715,6 +1716,7 @@ end
     case  e: Operator.UInt.Xor                        => operatorImplAsBinaryOperator("^")(e)
     case  e: Operator.UInt.Not                        =>  operatorImplAsUnaryOperator("~")(e)
 
+    case  e: Operator.UInt.EqualSim                   => operatorImplAsBinaryOperator("===")(e)
     case  e: Operator.UInt.Equal                      => operatorImplAsBinaryOperator("==")(e)
     case  e: Operator.UInt.NotEqual                   => operatorImplAsBinaryOperator("!=")(e)
     case  e: Operator.UInt.Smaller                    => operatorImplAsBinaryOperator("<")(e)
@@ -1741,6 +1743,7 @@ end
     case  e: Operator.SInt.Not                        =>  operatorImplAsUnaryOperator("~")(e)
     case  e: Operator.SInt.Minus                      => operatorImplAsUnaryOperator("-")(e)
 
+    case  e: Operator.SInt.EqualSim                   => operatorImplAsBinaryOperatorSigned("===")(e)
     case  e: Operator.SInt.Equal                      => operatorImplAsBinaryOperatorSigned("==")(e)
     case  e: Operator.SInt.NotEqual                   => operatorImplAsBinaryOperatorSigned("!=")(e)
     case  e: Operator.SInt.Smaller                    =>  operatorImplAsBinaryOperatorSigned("<")(e)
@@ -1760,6 +1763,7 @@ end
     case  e: Operator.Bits.And                        => operatorImplAsBinaryOperator("&")(e)
     case  e: Operator.Bits.Xor                        => operatorImplAsBinaryOperator("^")(e)
     case  e: Operator.Bits.Not                        =>  operatorImplAsUnaryOperator("~")(e)
+    case  e: Operator.Bits.EqualSim                   => operatorImplAsBinaryOperator("===")(e)
     case  e: Operator.Bits.Equal                      => operatorImplAsBinaryOperator("==")(e)
     case  e: Operator.Bits.NotEqual                   => operatorImplAsBinaryOperator("!=")(e)
 
@@ -1772,6 +1776,7 @@ end
     case  e: Operator.Bits.ShiftLeftByUIntFixedWidth  => operatorImplAsBinaryOperator("<<<")(e)
 
     //bool
+    case  e: Operator.Bool.EqualSim                      => operatorImplAsBinaryOperator("===")(e)
     case  e: Operator.Bool.Equal                      => operatorImplAsBinaryOperator("==")(e)
     case  e: Operator.Bool.NotEqual                   => operatorImplAsBinaryOperator("!=")(e)
 
@@ -1781,8 +1786,9 @@ end
     case  e: Operator.Bool.Xor                        => operatorImplAsBinaryOperator("^")(e)
 
     //senum
-    case  e: Operator.Enum.Equal                      => enumEgualsImpl(true)(e)
-    case  e: Operator.Enum.NotEqual                   => enumEgualsImpl(false)(e)
+    case  e: Operator.Enum.EqualSim                   => enumEgualsImpl(true, true)(e)
+    case  e: Operator.Enum.Equal                      => enumEgualsImpl(true, false)(e)
+    case  e: Operator.Enum.NotEqual                   => enumEgualsImpl(false, false)(e)
 
     //cast
     case  e: CastSIntToBits                           => operatorImplAsNoTransformation(e)
