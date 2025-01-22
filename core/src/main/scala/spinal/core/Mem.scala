@@ -103,6 +103,12 @@ object Mem {
   def apply[T <: Data](wordType: HardType[T], initialContent: Seq[T]) = new Mem(wordType, initialContent.length) init(initialContent)
   def apply[T <: Data](initialContent: Seq[T]) = new Mem(initialContent(0), initialContent.length) init(initialContent)
   def fill[T <: Data](wordCount: Int)(wordType: HardType[T])  = new Mem(wordType, wordCount)
+
+  def apply(wordType: AFix, initialContent: Seq[BigDecimal]) = {
+    val initSeq: Seq[BigInt] = initialContent.map(datum => BigInt((datum / wordType.Q.resolution).toLong))
+    val anyNegative: Boolean = initialContent.foldLeft(false)(_ || _ < 0.0)
+    new Mem(wordType, initSeq.length) initBigInt(initSeq, anyNegative)
+  }
 }
 
 
