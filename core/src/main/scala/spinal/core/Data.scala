@@ -40,7 +40,7 @@ trait DataPrimitives[T <: Data]{
   /** Comparison between two data */
   def ===(that: T): Bool = _data isEqualTo that
   def =/=(that: T): Bool = _data isNotEqualTo that
-  def simEquals(that: T): Bool = _data isEqualToSim that
+  def =::=(that: T): Bool = _data isEqualToSim that
 
   /** Assign a data to this */
   def := (that: T)(implicit loc: Location): Unit = _data assignFrom that
