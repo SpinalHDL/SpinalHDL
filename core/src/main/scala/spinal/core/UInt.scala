@@ -412,6 +412,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     case _                    => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
+  private[core] override def isEqualToSim(that: Any): Bool = that match {
+    case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.EqualSim)
+    case that: Int            => this isEqualToSim that
+    case that: BigInt         => this isEqualToSim that
+    case _                    => SpinalError(s"Don't know how to compare $this with $that"); null
+  }
+
   private[core] override def newMultiplexerExpression() = new MultiplexerUInt
   private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerUInt
 

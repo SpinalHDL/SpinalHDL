@@ -185,6 +185,13 @@ class SpinalEnumCraft[T <: SpinalEnum](var spinalEnum: SpinalEnum) extends BaseT
       case _                                                            => SpinalError("Incompatible test")
     }
   }
+  override def isEqualToSim(that: Any): Bool = {
+    that match{
+      case that: SpinalEnumCraft[_] if that.spinalEnum == spinalEnum    => wrapLogicalOperator(that, new Operator.Enum.EqualSim(spinalEnum));
+      case that: SpinalEnumElement[_] if that.spinalEnum == spinalEnum  => wrapLogicalOperator(that(), new Operator.Enum.EqualSim(spinalEnum));
+      case _                                                            => SpinalError("Incompatible test")
+    }
+  }
 
   private[core] override def newMultiplexerExpression() = new MultiplexerEnum(spinalEnum)
   private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerEnum(spinalEnum)

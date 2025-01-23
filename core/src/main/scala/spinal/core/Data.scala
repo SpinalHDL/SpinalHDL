@@ -40,6 +40,7 @@ trait DataPrimitives[T <: Data]{
   /** Comparison between two data */
   def ===(that: T): Bool = _data isEqualTo that
   def =/=(that: T): Bool = _data isNotEqualTo that
+  def =::=(that: T): Bool = _data isEqualToSim that
 
   /** Assign a data to this */
   def := (that: T)(implicit loc: Location): Unit = _data assignFrom that
@@ -478,6 +479,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   private[core] def isEqualTo(that: Any): Bool
   private[core] def isNotEqualTo(that: Any): Bool
+  private[core] def isEqualToSim(that: Any): Bool
 
   /** Resized data regarding target */
   def resized: this.type = {
@@ -833,6 +835,7 @@ trait DataWrapper extends Data{
   override def flatten: Seq[BaseType] = ???
   override def getBitsWidth: Int = ???
   override private[core] def isEqualTo(that: Any): Bool = ???
+  override private[core] def isEqualToSim(that: Any): Bool = ???
   override private[core] def autoConnect(that: Data)(implicit loc: Location): Unit = ???
   override def assignFromBits(bits: Bits): Unit = ???
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = ???
