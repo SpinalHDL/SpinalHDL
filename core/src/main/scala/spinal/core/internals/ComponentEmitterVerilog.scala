@@ -86,20 +86,53 @@ class ComponentEmitterVerilog(
       val comma      = ","
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
-      if(baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog && spinalConfig.svInterface) {
-        val rootIF = baseType.rootIF()
+      if(
+        baseType.hasTag(IsInterface) && spinalConfig.mode == SystemVerilog
+        && spinalConfig.svInterface 
+      ) {
+        val rootIFList = baseType.rootIFList()
+        val rootIF = rootIFList(0)
         if(!declaredInterface.contains(rootIF)) {
           declaredInterface += rootIF
           val intName = rootIF.definitionName
           //TODO:check more than one modport has same `in` `out` direction
-          val modport = if(rootIF.checkModport().isEmpty) {
-            LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
-            ""
+          val tempModportCheck = spinalConfig.svInterfaceIncludeModport && !rootIF.thisIsNotSVmodport
+          val modport = if (tempModportCheck) {
+            if(rootIF.checkModport().isEmpty) {
+              LocatedPendingError(s"no suitable modport found for ${baseType.parent}")
+              ""
+            } else {
+              rootIF.checkModport().head
+            }
           } else {
-            rootIF.checkModport().head
+            ""
           }
-          val intMod = s"${intName}.${modport}"
-          portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
+          val tempModport = if(tempModportCheck) {
+            s".${modport}"
+          } else {
+            s""
+          }
+          def getHaveAnyStruct(): (Boolean, Interface) = {
+            for (intf <- rootIFList) {
+              if (intf.thisIsSVstruct) {
+                return (true, intf)
+              }
+            }
+            return (false, null)
+          }
+          val haveAnySVstruct: (Boolean, Interface) = getHaveAnyStruct()
+          if (
+            //haveAnySVstruct._1 
+            rootIF.thisIsSVstruct
+          ) {
+            if (rootIF.dir == null) {
+              LocatedPendingError(s"sv structs as ports must each have IO Direction")
+            }
+            portMaps += f"${syntax}${dir}%6s ${rootIF.definitionName} ${rootIF.getName()}${EDAcomment}${comma}"
+          } else {
+            val intMod = s"${intName}${tempModport}"
+            portMaps += f"${intMod}%-20s ${rootIF.getName()}${EDAcomment}${comma}"
+          }
         }
       } else {
         if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -212,7 +245,9 @@ class ComponentEmitterVerilog(
             case s: Nameable => "_" + s.getName()
             case _ => ""
           }
-          val name = component.localNamingScope.allocateName((anonymSignalPrefix + sName).replace('.', '_'))
+          val name = component.localNamingScope.allocateName((
+            anonymSignalPrefix + VerilogInterfaceNameGen(sName)
+          ))
           declarations ++= emitExpressionWrap(e, name)
           wrappedExpressionToName(e) = name
         }
@@ -426,8 +461,12 @@ class ComponentEmitterVerilog(
             val portAlign = s"%-${maxNameLength}s".format(rootIF.getNameElseThrow)
             val wireAlign = s"${netsWithSection(data)}".split('.')(0)
             val comma = if (rootIF.flatten.contains(ios.last)) " " else ","
-            val modport = rootIF.checkModport
-            val dirtag = if(modport.isEmpty) "" else rootIF.definitionName + "." + modport.head
+            val dirtag = if (spinalConfig.svInterfaceIncludeModport && !rootIF.thisIsNotSVmodport) {
+              val modport = rootIF.checkModport
+              (if(modport.isEmpty) "" else rootIF.definitionName + "." + modport.head)
+            } else {
+              rootIF.definitionName
+            }
             Some((s"    .${portAlign} (", s"${wireAlign}", s")${comma} //${dirtag}\n"))
           } else {
             None
@@ -720,7 +759,7 @@ class ComponentEmitterVerilog(
               declarations ++= s"    end\n"
               declarations ++= s"  endfunction\n"
 
-              val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+              val name = VerilogInterfaceNameGen(component.localNamingScope.allocateName(anonymSignalPrefix))
               declarations ++= s"  wire ${emitType(node)} $name;\n"
               logics ++= s"  assign $name = ${funcName}(1'b0);\n"
 //              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
@@ -1084,7 +1123,11 @@ class ComponentEmitterVerilog(
         |  )""".stripMargin
     } else f"${data.definitionName}%-19s"
     val  cl = if(genericFlat.nonEmpty) "\n" else ""
-    f"${theme.maintab}${t} ${name}();\n${cl}"
+    if (!data.thisIsSVstruct) (
+      f"${theme.maintab}${t} ${name}();\n${cl}"
+    ) else (
+      f"${theme.maintab}${t} ${name};\n${cl}"
+    )
   }
 
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
@@ -1376,7 +1419,8 @@ end
 //            b ++= s"$tab${emitExpression(target)}[$upLim:$downLim] <= ${emitReference(mem,false)}_symbol$i[${emitExpression(address)}];\n"
 //          }
           val symboleReadDataNames = for(i <- 0 until symbolCount) yield {
-            val symboleReadDataName = component.localNamingScope.allocateName(anonymSignalPrefix + "_" + mem.getName() + "symbol_read")
+            val symboleReadDataName =
+            component.localNamingScope.allocateName(anonymSignalPrefix + "_" + VerilogInterfaceNameGen(mem.getName()) + "symbol_read")
             declarations ++= s"  reg [${mem.getMemSymbolWidth()-1}:0] $symboleReadDataName;\n"
             b ++= s"$tab$symboleReadDataName <= ${emitReference(mem,false)}_symbol$i[${emitExpression(address)}];\n"
             symboleReadDataName
@@ -1939,4 +1983,11 @@ end
   emitEntity()
   emitArchitecture()
 
+}
+object VerilogInterfaceNameGen {
+  def apply(
+    baseName: String
+  ): String = {
+    baseName.replace('.', '_').replace('[', '_').replace("]", "")
+  }
 }

@@ -356,10 +356,19 @@ class NamingScope(val duplicationPostfix : String, parent: NamingScope = null) {
 
   assert(duplicationPostfix.isEmpty)
 
+  def haveName(name: String): (Boolean, String) = {
+    val lowerCase = name.toLowerCase
+    (
+      !(!map.contains(lowerCase) && (parent == null || !parent.map.contains(lowerCase))),
+      lowerCase
+    )
+  }
+
   def allocateName(name: String): String = {
     assert(!lock)
-    val lowerCase = name.toLowerCase
-    if(!map.contains(lowerCase) &&  (parent == null || !parent.map.contains(lowerCase))) {
+    val myHaveName = haveName(name)
+    val lowerCase = myHaveName._2 //name.toLowerCase
+    if(!myHaveName._1) {
       map += lowerCase
       return name
     }
