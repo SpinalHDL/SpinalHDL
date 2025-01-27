@@ -1850,7 +1850,6 @@ class PhaseCheckCrossClock() extends PhaseCheck{
 
   override def impl(pc : PhaseContext): Unit = {
     import pc._
-
     val solved = mutable.HashMap[Bool, immutable.Set[Bool]]()
     def areSynchronous(a : ClockDomain, b : ClockDomain): Boolean ={
       ClockDomain.areSynchronous(a,b,solved)
@@ -1859,26 +1858,31 @@ class PhaseCheckCrossClock() extends PhaseCheck{
 
     def populateCdTag(that : BaseType): Unit = {
       val cds = mutable.LinkedHashSet[ClockDomain]()
-      def walk(n : BaseNode): Unit = n match {
-        case node: SpinalTagReady if node.hasTag(classOf[ClockDomainTag]) =>
-          cds += node.getTag(classOf[ClockDomainTag]).get.clockDomain
-        case node: BaseType =>
-          if (node.isReg) {
-            cds += node.clockDomain
-          } else {
-            node.foreachStatements(s => walk(s))
-          }
-        case node: AssignmentStatement =>
-          node.foreachDrivingExpression(e => walk(e))
-          node.walkParentTreeStatementsUntilRootScope(s => walk(s))
-        case node: TreeStatement => node.foreachDrivingExpression(e => walk(e))
-        case node: Mem[_] => ???
-        case node: MemReadAsync => node.foreachDrivingExpression(e => walk(e))
-        case node: MemReadSync => cds += node.clockDomain
-        case node: MemReadWrite => cds += node.clockDomain
-        case node: Expression => node.foreachDrivingExpression(e => walk(e))
+      val walkedId = pc.globalData.allocateAlgoIncrementale
+      def walk(n : BaseNode): Unit = {
+        if(n.algoIncrementale == walkedId) return
+        n.algoIncrementale = walkedId
+        n match {
+          case node: SpinalTagReady if node.hasTag(classOf[ClockDomainTag]) =>
+            cds += node.getTag(classOf[ClockDomainTag]).get.clockDomain
+          case node: BaseType =>
+            if (node.isReg) {
+              cds += node.clockDomain
+            } else {
+              node.foreachStatements(s => walk(s))
+            }
+          case node: AssignmentStatement =>
+            node.foreachDrivingExpression(e => walk(e))
+            node.walkParentTreeStatementsUntilRootScope(s => walk(s))
+          case node: TreeStatement => node.foreachDrivingExpression(e => walk(e))
+          case node: Mem[_] => ???
+          case node: MemReadAsync => node.foreachDrivingExpression(e => walk(e))
+          case node: MemReadSync => cds += node.clockDomain
+          case node: MemReadWrite => cds += node.clockDomain
+          case node: Expression => node.foreachDrivingExpression(e => walk(e))
+        }
       }
-
+      println(that)
       if(!that.isReg){
         that.foreachStatements(walk)
         for(cd <- cds) that.addTag(new ClockDomainReportTag(cd))
@@ -1890,7 +1894,6 @@ class PhaseCheckCrossClock() extends PhaseCheck{
       case bb : BlackBox if bb.isBlackBox => bb.getAllIo.filter(_.isInput).foreach(populateCdTag)
       case _ =>
     }
-
 
     walkStatements(s => {
       var walked = 0
