@@ -28,6 +28,7 @@ import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
 import spinal.idslplugin.Location
+import scala.reflect.ClassTag
 
 trait DummyTrait
 object DummyObject extends DummyTrait
@@ -714,8 +715,8 @@ trait SpinalTagReady {
     else
       _spinalTags
   }
-  def getTagsOf[T <: SpinalTag]() : Set[T] = {
-    getTags().filter(_.isInstanceOf[T]).map(_.asInstanceOf[T]).toSet
+  def getTagsOf[T <: SpinalTag]()(implicit tag: ClassTag[T]) : Set[T] = {
+    getTags().filter(tag.runtimeClass.isInstance(_)).map(_.asInstanceOf[T]).toSet
   }
 
   def foreachTag(body : SpinalTag => Unit) : Unit = {
