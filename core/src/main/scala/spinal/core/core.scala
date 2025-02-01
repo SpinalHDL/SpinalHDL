@@ -292,9 +292,53 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def BU(args: Any*): BigInt = intStringParser(getString(args), false)._1
     def BS(args: Any*): BigInt = intStringParser(getString(args), true)._1
 
+    /** Create a `Bits` hardware literal.
+      * @example{{{
+      * val myBits1 = B"8'xFF"   // Base could be x,h (base 16)
+      *                          //               d   (base 10)
+      *                          //               o   (base 8)
+      *                          //               b   (base 2)
+      * val myBits2 = B"1001_0011"  // _ can be used for readability}}}
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
+      */
     def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args), signed = false)
+    
+    /** Create a `UInt` hardware literal.
+      * @example{{{
+      * myUInt := U"0000_0101"  // Base per default is binary => 5
+      * myUInt := U"h1A"        // Base could be x (base 16)
+      *                         //               h (base 16)
+      *                         //               d (base 10)
+      *                         //               o (base 8)
+      *                         //               b (base 2)
+      * myUInt := U"8'h1A"}}}  
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
+      */
     def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
+    
+    /** Create a `SInt` hardware literal.
+      * @example{{{
+      * mySInt := S"0000_0101"  // Base per default is binary => 5
+      * mySInt := S"h1A"        // Base could be x (base 16)
+      *                         //               h (base 16)
+      *                         //               d (base 10)
+      *                         //               o (base 8)
+      *                         //               b (base 2)
+      * mySInt := S"8'h1A"}}}  
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
+      */
     def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
+
+    /** Create a mask hardware literal.
+      *  
+      * Useful for don't care comparisons.
+      * @example{{{
+      * val myBits = B"1101"    
+      * val test1 = myBits === M"1-01" // True
+      * val test2 = myBits === M"0---" // False
+      * val test3 = myBits === M"1--1" // True}}}
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#maskedliteral `MaskedLiteral` documentation]]
+      */
     def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
     class LList extends ArrayBuffer[Any]{
       def stripMargin = {

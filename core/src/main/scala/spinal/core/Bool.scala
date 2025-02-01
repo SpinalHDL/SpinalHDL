@@ -37,7 +37,7 @@ trait BoolFactory {
 }
 
 /**
-  * The `Bool` type corresponds to a SpinalHDL boolean value (`True` or `False`)
+  * The `Bool` type corresponds to a hardware boolean value (`True` or `False`)
   *
   * @example {{{
   *     val myBool = Bool()
@@ -58,25 +58,32 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   private[spinal] override def _data: Bool = this
 
   /**
-    * SpinalHDL logical AND
+    * Hardware logical AND
     * @example{{{ val result = myBool1 && myBool2 }}}
     * @return a Bool assign with the AND result
     */
   def &&(b: Bool): Bool = wrapLogicalOperator(b, new Operator.Bool.And)
   override def &(b: Bool): Bool = this && b
 
-  /**
-    * SpinalHDL logical OR
+  /** Hardware logical OR
     * @example{{{ val result = myBool1 || myBool2 }}}
     * @return a Bool assign with the OR result
     */
   def ||(b: Bool): Bool = wrapLogicalOperator(b, new Operator.Bool.Or)
+
+  /** Hardware alternative to logical OR
+    * @example{{{ val result = myBool1 | myBool2 }}}
+    * @return a Bool assign with the OR result
+    */
   override def |(b: Bool): Bool = this || b
 
+  /** Hardware logical XOR
+    * @example{{{ val result = myBool1 ^ myBool2 }}}
+    * @return a Bool assign with the XOR result
+    */
   override def ^(b: Bool): Bool  = wrapLogicalOperator(b, new Operator.Bool.Xor)
 
-  /**
-    * SpinalHDL logical NOT
+  /** Hardware logical NOT
     * @example{{{ val result = !myBool1 }}}
     * @return a Bool assign with the NOT result
     */
@@ -84,8 +91,17 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
 
   def isUnknown: Bool = wrapUnaryOperator(new Operator.BitVector.IsUnknown)
 
+  /** Hardware alternative to logical NOT
+    * @example{{{ val result = ~myBool1 }}}
+    * @return a Bool assign with the NOT result
+    */
   override def unary_~ : Bool = ! this
 
+  /** Hardware repeat `count` time a `Bool`
+    * 
+    * @param count
+    * @return `Bits(count bits)`
+    */
   override def #* (count : Int) : Bits = {
     val node = new Operator.Bool.Repeat(count)
     node.source = this.asInstanceOf[node.T]

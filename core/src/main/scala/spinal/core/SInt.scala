@@ -75,6 +75,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   def @@(that: Bool): SInt = S(this ## that)
 
   /* Implement Num operators */
+
   override def + (right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Add)
   override def - (right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Sub)
   override def * (right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Mul)
@@ -536,6 +537,11 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   private[core] override def newMultiplexerExpression() = new MultiplexerSInt
   private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerSInt
 
+
+  /** Return a resized copy of x.
+    * 
+    * If enlarged, it is extended with the sign at MSB as necessary.
+    */
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node   = new ResizeSInt
     node.input = this
@@ -543,6 +549,10 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     node
   })
 
+  /** Return a resized copy of x.
+    * 
+    * If enlarged, it is extended with the sign at MSB as necessary.
+    */
   override def resize(width: BitCount) : SInt = resize(width.value)
 
   override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))

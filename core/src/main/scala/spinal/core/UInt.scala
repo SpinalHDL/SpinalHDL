@@ -417,6 +417,10 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   private[core] override def newMultiplexerExpression() = new MultiplexerUInt
   private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerUInt
 
+  /** Return a resized representation of x.
+   * 
+   *  If enlarged, it is extended with zero padding at MSB as necessary.
+   */
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node   = new ResizeUInt
     node.input = this
@@ -424,13 +428,16 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     node
   })
 
+  /** Return a resized representation of x.
+   * 
+   *  If enlarged, it is extended with zero padding at MSB as necessary.
+   */
   override def resize(width: BitCount) : this.type = resize(width.value)
 
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
-  /**
-    * Assign a mask to the output signal
+  /** Assign a mask to the output signal.
     * @example {{{ output4 assignMask M"1111 }}}
     * @param maskedLiteral masked literal value
     */

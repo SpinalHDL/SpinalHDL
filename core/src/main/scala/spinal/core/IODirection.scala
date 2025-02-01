@@ -28,7 +28,7 @@ package spinal.core
   *   - `SInt`
   *   - `Vec`
   *
-  * The "spaceful" syntax is generic and beatiful, but more verbose.
+  * The "spaceful" syntax is generic and beautiful, but more verbose.
   *
   * The "variadic" syntax can be used with any number of ports, but can be used
   * only if the ports types are already declared.

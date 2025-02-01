@@ -187,6 +187,10 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     0 to (1 << getWidth)-1
   }
 
+  /** Return a resized representation of x.
+   * 
+   *  If enlarged, it is extended with zero padding at MSB as necessary.
+   */
   override def resize(width: Int): Bits = wrapWithWeakClone({
     val node   = new ResizeBits
     node.input = this
@@ -194,6 +198,10 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     node
   })
 
+  /** Return a resized representation of x.
+   * 
+   *  If enlarged, it is extended with zero padding at MSB as necessary.
+   */
   override def resize(width: BitCount) : Bits = resize(width.value)
 
   override def resizeFactory: Resize = new ResizeBits

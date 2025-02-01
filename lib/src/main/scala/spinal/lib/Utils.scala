@@ -102,7 +102,7 @@ object OHToUInt {
   }
 }
 
-//Will be target dependent
+// Will be target dependent
 class MuxOHImpl {
   def apply[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = apply(oneHot.asBools,inputs)
   def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
@@ -116,16 +116,16 @@ class MuxOHImpl {
     }
   }
 
-  def mux[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = apply(oneHot.asBools,inputs)
+  def mux[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = apply(oneHot.asBools, inputs)
   def mux[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
 
-  def mux[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
+  def mux[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools, inputs)
   def mux[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = apply(oneHot, inputs)
 
 
-  def or[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = or(oneHot.asBools,inputs)
+  def or[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = or(oneHot.asBools, inputs)
   def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  or(oneHot,Vec(inputs))
-  def or[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = or(oneHot.asBools,inputs)
+  def or[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = or(oneHot.asBools, inputs)
   def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = or(oneHot, inputs, false)
   
   def or[T <: Data](oneHot : BitVector,inputs : Seq[T], bypassIfSingle : Boolean): T = or(oneHot.asBools,inputs, bypassIfSingle)
@@ -141,7 +141,6 @@ class MuxOHImpl {
 
 object MuxOH extends MuxOHImpl
 object OhMux extends MuxOHImpl
-
 
 object Min {
     def apply[T <: Data with Num[T]](nums: T*) = list(nums)
@@ -194,7 +193,7 @@ object SetFromFirstOne{
     tmp.as(that)
   }
 }
-object Napot{
+object Napot {
   /**
    * @return Bits(widthOf(that + 1 bits) which work as a mask which will bet set after the lowest index in which that contains a bit 0
    *         Ex : that = 1111 => 00000
@@ -206,7 +205,7 @@ object Napot{
   def apply(that: Bits, firstOrder: Int = LutInputs.get): Bits = SetFromFirstOne(~that, firstOrder) << 1
 }
 
-object OH{
+object OH {
   def isLegal(that : Bits): Bool = {
     val oneHots = (0 until widthOf(that)).map(e => that === (BigInt(1) << e))
     (oneHots :+ (that === 0)).orR
@@ -246,14 +245,14 @@ object OHMasking{
         cache(offset to target) = inputs.orR.setCompositeName(that, s"range_${offset}_to_${target}")
       }
 
-      if(offset != 0){
+      if(offset != 0) {
         cache(offset to target) || build(offset-1, nextOrder)
       } else {
         cache(offset to target)
       }
     }
 
-    for(i <- 0 until size){
+    for(i <- 0 until size) {
       cache(i to i) = input(i)
       tmp(i) := input(i) && !build(i-1, 1)
     }
@@ -262,13 +261,13 @@ object OHMasking{
   }
 
 
-  //Avoid combinatorial loop on the first
+  // Avoid combinatorial loop on the first
   def first(that : Vec[Bool]) : Vec[Bool] = {
     val bitsFirst = first(that.asBits)
     Vec(that.head +: bitsFirst.asBools.tail)
   }
 
-  //Avoid combinatorial loop on the first
+  // Avoid combinatorial loop on the first
   def first(that : Seq[Bool]) : Vec[Bool] = first(Vec(that))
 
   /** returns an one hot encoded vector with only MSB of the word present */
@@ -279,7 +278,6 @@ object OHMasking{
     ret.assignFromBits(Reverse(masked.asBits))
     ret
   }
-
 
   def roundRobin[T <: Data](requests : T,ohPriority : T) : T = {
     val width = requests.getBitsWidth
@@ -306,7 +304,7 @@ object OHMasking{
   // 0000000 -> 1111111 -> 1111110 -> .. -> 1000000 -> 0000000
   // Ex of priority shift
   //   priority := priority |<< 1
-  //   when(priority === 0){
+  //   when(priority === 0) {
   //     priority := (default -> true)
   //   }
   def roundRobinMasked[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
@@ -320,7 +318,7 @@ object OHMasking{
     val selOh = (pHigh << 1) | pLow
   }.selOh
 
-  //Based on the same principal than roundRobinMasked, but with inverted priorities
+  // Based on the same principal than roundRobinMasked, but with inverted priorities
   def roundRobinMaskedInvert[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
     val input = B(requests).reversed
     val priorityBits = ~B(priority).reversed
@@ -1401,8 +1399,7 @@ class StringPimped(pimped : String){
   }
 }
 
-
-object PriorityMux{
+object PriorityMux {
   def apply[T <: Data](in: Seq[(Bool, T)], msbFirst: Boolean = false): T = {
     if (in.size == 1) {
       in.head._2
@@ -1418,12 +1415,10 @@ object PriorityMux{
   def apply[T <: Data](sel: Bits, in: Seq[T], msbFirst: Boolean): T = apply(sel.asBools.zip(in), msbFirst)
 }
 
-
-
-object WrapWithReg{
+object WrapWithReg {
   def on(c : Component): Unit = {
     for(e <- c.getOrdredNodeIo){
-      if(e.isInput){
+      if(e.isInput) {
         e := RegNext(RegNext(in(cloneOf(e).setName(e.getName))))
       }else{
         out(cloneOf(e).setName(e.getName)) := RegNext(RegNext(e))
@@ -1437,9 +1432,7 @@ object WrapWithReg{
   }
 }
 
-
-
-object Callable{
+object Callable {
   def apply(doIt : => Unit) = new Area{
     val isCalled = False
     when(isCalled){doIt}
@@ -1448,24 +1441,24 @@ object Callable{
   }
 }
 
-case class DataOr[T <: Data](dataType : HardType[T]) extends Area{
+case class DataOr[T <: Data](dataType : HardType[T]) extends Area {
   val value = dataType()
   val values = ArrayBuffer[T]()
-  Component.current.afterElaboration{
+  Component.current.afterElaboration {
     values.size match {
       case 0 => value := value.getZero
       case _ => value.assignFromBits(values.map(_.asBits).reduceBalancedTree(_ | _))
     }
   }
-  def newPort(): T ={
+  def newPort(): T = {
     val port = dataType()
     values += port
     port
   }
 }
 
-object whenMasked{
-  def apply[T](things : TraversableOnce[T], conds : TraversableOnce[Bool])(body : T => Unit): Unit ={
+object whenMasked {
+  def apply[T](things : TraversableOnce[T], conds : TraversableOnce[Bool])(body : T => Unit): Unit = {
     val thingsList = things.toList
     val condsList = conds.toList
     assert(thingsList.size == condsList.size, s"number of things to mask (${things.size}) must match width of conditions (${condsList.size})")
@@ -1477,7 +1470,7 @@ object whenMasked{
   }
 }
 
-object whenIndexed{
+object whenIndexed {
   def apply[T](things : TraversableOnce[T], index : UInt, relaxedWidth : Boolean = false)(body : T => Unit): Unit ={
     val thingsList = things.toList
     var indexPatched = index
@@ -1530,7 +1523,6 @@ case class WhenBuilder() {
     }
 }
 
-
 class ClockDomainPimped(cd : ClockDomain) {
   def withBufferedResetFrom(resetCd : ClockDomain, bufferDepth : Option[Int] = None) : ClockDomain = {
     val key = Tuple3(cd, resetCd,  bufferDepth)
@@ -1546,8 +1538,8 @@ class ClockDomainPimped(cd : ClockDomain) {
   }
 }
 
-object Shift{
-  //Accumulate shifted out bits into the lsb of the result
+object Shift {
+  /** Accumulate shifted out bits into the lsb of the result */
   def rightWithScrap(that : Bits, by : UInt) : Bits = {
     var logic = that
     val scrap = False

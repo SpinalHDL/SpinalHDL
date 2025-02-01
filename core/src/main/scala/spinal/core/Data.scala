@@ -29,7 +29,7 @@ import scala.collection.Seq
 object DataAssign
 object InitAssign
 object InitialAssign
-class VarAssignementTag(val from : Data) extends SpinalTag{
+class VarAssignementTag(val from : Data) extends SpinalTag {
   var id = 0
 }
 
@@ -37,15 +37,15 @@ trait DataPrimitives[T <: Data] {
 
   private[spinal] def _data : T
 
-  /** `isEqualTo` comparison between two SpinalHDL data. */
+  /** `isEqualTo` comparison between two SpinalHDL data */
   def ===(that: T): Bool = _data isEqualTo that
-  /** `isNotEqualTo` comparison between two SpinalHDL data. */
+  /** `isNotEqualTo` comparison between two SpinalHDL data */
   def =/=(that: T): Bool = _data isNotEqualTo that
 
-  /** Standard SpinalHDL assignment, equivalent to `<=` in VHDL/Verilog. */
+  /** Standard hardware assignment, equivalent to `<=` in VHDL/Verilog */
   def := (that: T)(implicit loc: Location): Unit = _data assignFrom that
 
-  /** Use as \= to have the same behavioral as VHDL variable */
+  /** Use as `\=` to have the same behavioral as VHDL variable */
   def \(that: T): T = {
     if(!this._data.isComb) {
       SpinalWarning(s"\\= used on a non-combinatorial signals (${this._data}). This will generate a combinatorial value and the register will not be updated.")
@@ -84,22 +84,22 @@ trait DataPrimitives[T <: Data] {
     ret
   }
 
-  def copyDirectionOf(that : T): Unit ={
+  def copyDirectionOf(that : T): Unit = {
     _data.copyDirectionOfImpl(that)
   }
 
-  /** Automatic connection between two SpinalHDL signals or two bundles of the same type.
-   * 
-   * Direction is inferred by using signal direction (`in`/`out`). (Similar behavior to `:=`) 
-   */
+  /** Automatic connection between two hardware signals or two bundles of the same type.
+    * 
+    * Direction is inferred by using signal direction (`in`/`out`). (Similar behavior to `:=`) 
+    */
   def <>(that: T)(implicit loc: Location): Unit = _data autoConnect that
 
-  /** Set initial value to a data */
+  /** Set initial value of the signal */
   def init(that: T): T = {
     _data.initFrom(that)
     _data
   }
-
+  
   def initNull(that: T): T = {
     if(that != null) init(that)
     _data
@@ -110,7 +110,9 @@ trait DataPrimitives[T <: Data] {
     _data
   }
 
-  /** Set a default value to a data */
+  /** Set a default value to a signal.
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration example of usage for `Bits`]]
+    */
   def default(that: => T): T = {
     assert(_data.dir != inout)
 
@@ -153,8 +155,7 @@ trait BaseTypePrimitives[T <: BaseType] {
 }
 
 
-/**
-  * Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
+/** Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
   */
 class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
 
@@ -192,10 +193,10 @@ object Data {
       return srcData
     }
 
-    //Find commonComponent and fill the risePath
+    // Find commonComponent and fill the risePath
     val risePath = ArrayBuffer[Component]()
 
-    //Find the first common parent component between finalComponent and srcData.component
+    // Find the first common parent component between finalComponent and srcData.component
     val commonComponent = {
       var srcPtr = srcData.component
       var dstPtr = finalComponent
@@ -308,7 +309,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   private[core] def isSuffix = parent != null && parent.isInstanceOf[Suffixable]
 
   var parent: Data = null
-  def IFparent: Data = parent//TODO:Vec elem do not have parent
+  def IFparent: Data = parent // TODO:Vec elem do not have parent
   def getRootParent: Data = if(parent == null) this else parent.getRootParent
 
   /** Set a data as input */
@@ -331,7 +332,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  /** set a data as inout */
+  /** Set a signal as `inout` */
   def asInOut(): this.type = {
     assert(this.isAnalog, "inout can only be used on Analog signal")
     if(this.component != Component.current) {
@@ -342,7 +343,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  def copyDirectionOfImpl(that : Data): this.type ={
+  def copyDirectionOfImpl(that : Data): this.type = {
     if(this.component != Component.current) {
       LocatedPendingError(s"You should not set $this as output outside its own component." )
     }else {
@@ -351,7 +352,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  /** remove the direction (in,out,inout) to a data*/
+  /** Remove the direction (`in`, `out`, `inout`) to a signal */
   def setAsDirectionLess(): this.type = {
     dir = null
     this
@@ -395,7 +396,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def isInputOrInOut:  Boolean = dir ==  in || dir == inout
   def isDirectionLess: Boolean = dir == null
 
-  /** flip the direction of the data */
+  /** Flip the direction of the signal.
+    * 
+    * `in` and `out` are swapped, `inout` stay the same. 
+    */
   def flip(): this.type  = {
     dir match {
       case `in`    => dir = out
@@ -426,7 +430,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def asData = this.asInstanceOf[Data]
 
-  /** Create a data set to 0*/
+  /** Create a signal set to 0 */
   def getZero: this.type
 
   def flatten: Seq[BaseType]
@@ -436,10 +440,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def pull(): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = false)
   def pull(propagateName : Boolean): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = propagateName)
 
-  /** Concatenation between two data */
+  /** Concatenation between two signals */
   def ##(right: Data): Bits = this.asBits ## right.asBits
 
-  /** Cast data to Bits */
+  /** Cast signal to Bits */
   def asBits: Bits
 
   def assignFromBits(bits: Bits): Unit
@@ -483,7 +487,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   private[core] def isEqualTo(that: Any): Bool
   private[core] def isNotEqualTo(that: Any): Bool
 
-  /** Allow SpinalHDL assignment with the size inferred from the assigned data.
+  /** Return a version of the signal which is allowed to be automatically resized where needed.
+    *  
+   * The resize operation is deferred until the point of assignment later. 
+   * The resize may widen or truncate, retaining the LSB.
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/assignments.html#width-checking Width checking Documentation]]
     */
   def resized: this.type = {
@@ -493,7 +500,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     return ret.asInstanceOf[this.type]
   }
 
-  /** Allow a Data to be overridden.
+  /** Allow a signal to be overridden.
     *
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/assignment_overlap.html Assignment overlap Error Documentation]]
     */
@@ -501,7 +508,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     addTag(allowAssignmentOverride)
   }
 
-  /** Allow a Data of an io `Bundle` to be directionless.
+  /** Allow a signal of an io `Bundle` to be directionless.
     *
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/iobundle.html IO Bundle Error Documentation]]
     */
@@ -673,7 +680,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         that
       }
 
-      //No param =>
+      // No param =>
       if (constrParamCount == 0) return cleanCopy(constructor.newInstance().asInstanceOf[this.type])
 
 
@@ -703,12 +710,12 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         }
       }
 
-      //Case class =>
+      // Case class =>
       if (ScalaUniverse.isCaseClass(this)) {
         return cleanCopy(constructorParamsAreVal)
       }
 
-      //Inner class with no user parameters
+      // Inner class with no user parameters
       if (constrParamCount == 1) {
         var outerField = clazz.getFields.find(_.getName == "$outer")
 
@@ -834,7 +841,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   }
 }
 
-trait DataWrapper extends Data{
+trait DataWrapper extends Data {
   override def asBits: Bits = ???
   override def flatten: Seq[BaseType] = ???
   override def getBitsWidth: Int = ???
