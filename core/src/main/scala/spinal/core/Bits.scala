@@ -179,6 +179,12 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
+  private[core] override def isEqualToSim(that: Any): Bool = that match {
+    case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.EqualSim)
+    case that: MaskedLiteral => that === this
+    case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
+  }
+
   private[core] override def newMultiplexerExpression() = new MultiplexerBits
   private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerBits
 

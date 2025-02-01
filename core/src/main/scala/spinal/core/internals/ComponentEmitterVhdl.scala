@@ -1153,15 +1153,12 @@ class ComponentEmitterVhdl(
     def emitWrite(b: StringBuilder, mem: Mem[_], writeEnable: String, address: Expression, data: Expression, mask: Expression with WidthProvider, symbolCount: Int, bitPerSymbole: Int, tab: String): Unit = {
       if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
         val ramAssign = s"$tab${emitReference(mem, false)}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)};\n"
-
-        if (writeEnable != null) {
-          b ++= s"${tab}if ${writeEnable} then\n  "
-          b ++= ramAssign
-          b ++= s"${tab}end if;\n"
-        } else {
-          b ++= ramAssign
-        }
-
+        var conds = if(writeEnable != null) List(writeEnable) else Nil
+        if(mask != null)
+          conds =  s"${emitExpression(mask)}(0) = '1'" :: conds
+        if(conds.nonEmpty) b ++= s"${tab}if ${conds.mkString(" and ")} then\n"
+        b ++= ramAssign
+        if(conds.nonEmpty) b ++= s"${tab}end if;\n"
       } else {
 
         def maskCount = mask.getWidth

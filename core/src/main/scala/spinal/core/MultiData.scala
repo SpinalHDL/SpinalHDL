@@ -185,6 +185,17 @@ abstract class MultiData extends Data {
     }
   }
 
+  private[core] def isEqualToSim(that: Any): Bool = {
+    that match {
+      case that: MultiData => {
+        val checks = zippedMap(that, _ isEqualToSim _)
+        if(checks.nonEmpty) checks.reduce(_ && _) else True
+      }
+      case _               => SpinalError(s"Function isEquals is not implemented between $this and $that")
+    }
+  }
+
+
   private[core] override def autoConnect(that: Data)(implicit loc: Location): Unit = {
     that match {
       case that: MultiData => zippedMap(that, _ autoConnect _)

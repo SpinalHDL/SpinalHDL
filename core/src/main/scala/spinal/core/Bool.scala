@@ -286,6 +286,13 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     }
   }
 
+  private[core] override def isEqualToSim(that: Any): Bool = {
+    that match {
+      case that: Bool => wrapLogicalOperator(that,new Operator.Bool.EqualSim);
+      case _          => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+  }
+
   private[core] override def newMultiplexerExpression() = new MultiplexerBool
   private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerBool
 
