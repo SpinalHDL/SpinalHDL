@@ -1,12 +1,12 @@
 package spinal.lib.bus.simple
 
 import spinal.core._
-import spinal.core.formal.HasFormalAsserts
 import spinal.idslplugin.Location
 import spinal.lib.bus.misc._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.bus.bmb.BmbParameter
+import spinal.lib.formal.{ComponentWithFormalAsserts, FormalMasterSlave, HasFormalAsserts}
 
 import scala.collection.Seq
 import scala.collection.mutable
@@ -51,7 +51,7 @@ case class PipelinedMemoryBusRsp(config : PipelinedMemoryBusConfig) extends Bund
 object PipelinedMemoryBus{
   def apply(addressWidth : Int, dataWidth : Int) = new PipelinedMemoryBus(PipelinedMemoryBusConfig(addressWidth, dataWidth))
 }
-case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle with IMasterSlave {
+case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle with FormalMasterSlave {
   val cmd = Stream(PipelinedMemoryBusCmd(config))
   val rsp = Flow(PipelinedMemoryBusRsp(config))
 
@@ -70,7 +70,8 @@ case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle 
   }
 
   def formalIsProducerValid(payloadInvariance : Boolean = true) : Bool = cmd.formalIsValid(payloadInvariance)
-  def formalIsConsumerValid() : Bool = ~formalContract.willUnderflow
+  override def formalIsProducerValid() : Bool = formalIsProducerValid(true)
+  override def formalIsConsumerValid() : Bool = ~formalContract.willUnderflow
 
   def formalAsserts()(implicit loc : Location, useAssumes : Boolean = false) = new Composite(this, if(useAssumes) "assumes" else "asserts") {
     if(useAssumes) {
@@ -154,7 +155,7 @@ object PipelinedMemoryBusArbiter{
   }
 }
 
-case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryBusConfig, portCount : Int, pendingRspMax : Int, rspRouteQueue : Boolean, transactionLock : Boolean = true) extends Component with HasFormalAsserts {
+case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryBusConfig, portCount : Int, pendingRspMax : Int, rspRouteQueue : Boolean, transactionLock : Boolean = true) extends ComponentWithFormalAsserts {
   val io = new Bundle{
     val inputs = Vec(slave(PipelinedMemoryBus(pipelinedMemoryBusConfig)), portCount)
     val output = master(PipelinedMemoryBus(pipelinedMemoryBusConfig))
@@ -203,10 +204,6 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
     }
   }
 
-  override lazy val formalValidInputs =
-    io.inputs.map(_.formalIsProducerValid()).andR &&
-      io.output.formalIsConsumerValid()
-
   override def formalChecks()(implicit useAssumes: Boolean) = new Composite(this, FormalCompositeName) {
     withAutoPull()
 
@@ -231,10 +228,11 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
         import logic.rspQueue._
         rspRouteFifo.formalChecks()
 
-        assertOrAssume(rspRouteFifo.formalCheckRam(CountOne(_) =/= 1).orR === False)
+        if(this.globalData.config.formalAsserts) {
+          assertOrAssume(rspRouteFifo.formalCheckRam(CountOne(_) =/= 1).orR === False)
+        }
 
         val outstandingReads = io.inputs.map(_.formalContract.outstandingReads.value.intoSInt)
-        val rspInRouter = outstandingReads.indices.map(idx => rspRouteFifo.formalCount(_(idx)))
 
         // In general, the number of items in the rspRouteFifo fifo should match the outstanding read count on the
         // output, and the count from rspInRouter should match the inputs. But we also have to handle the case
@@ -253,18 +251,21 @@ case class PipelinedMemoryBusArbiter(pipelinedMemoryBusConfig : PipelinedMemoryB
         val outputOneAheadInput = RegNext(!arbiter.io.output.isStall && routeCmdFork.isStall && !routeCmdFork.write, init = False).asUInt.intoSInt
         val queueOffsetInput = outputOneAheadInput -^ queueOneAheadInput
 
-        when(queueOneAheadInput =/= 0) {
-          // Make sure that if the counts are off because the route was pushed to the queue that the last pushed
+        if(globalData.config.formalAsserts) {
+          when(queueOneAheadInput =/= 0) {
+            // Make sure that if the counts are off because the route was pushed to the queue that the last pushed
           // item in the queue is the current OH
-          assertOrAssume(rspRouteFifo.io.occupancy > 0)
-          assertOrAssume(rspRouteFifo.formalCheckLastPush(_ === arbiter.io.chosenOH))
-        }
+            assertOrAssume(rspRouteFifo.io.occupancy > 0)
+            assertOrAssume(rspRouteFifo.formalCheckLastPush(_ === arbiter.io.chosenOH))
+          }
 
-        for ((count, idx) <- outstandingReads.zipWithIndex) {
-          val rspInQueue = rspInRouter(idx)
-          // This ONLY applies to the OH/bus on deck
-          val inFlightOffset = Mux(arbiter.io.chosenOH(idx), queueOffsetInput, S(0))
-          assertOrAssume(count === (rspInQueue.intoSInt +^ inFlightOffset))
+          val rspInRouter = outstandingReads.indices.map(idx => rspRouteFifo.formalCount(_(idx)))
+          for ((count, idx) <- outstandingReads.zipWithIndex) {
+            val rspInQueue = rspInRouter(idx)
+            // This ONLY applies to the OH/bus on deck
+            val inFlightOffset = Mux(arbiter.io.chosenOH(idx), queueOffsetInput, S(0))
+            assertOrAssume(count === (rspInQueue.intoSInt +^ inFlightOffset))
+          }
         }
       }
     }
@@ -327,7 +328,7 @@ class PipelinedMemoryBusSlaveFactory(bus: PipelinedMemoryBus) extends BusSlaveFa
   override def wordAddressInc: Int = busDataWidth / 8
 }
 
-case class PipelinedMemoryBusDecoder(busConfig : PipelinedMemoryBusConfig, mappings : Seq[AddressMapping], pendingMax : Int = 3) extends Component with HasFormalAsserts {
+case class PipelinedMemoryBusDecoder(busConfig : PipelinedMemoryBusConfig, mappings : Seq[AddressMapping], pendingMax : Int = 3) extends ComponentWithFormalAsserts {
   val io = new Bundle {
     val input = slave(PipelinedMemoryBus(busConfig))
     val outputs = Vec(master(PipelinedMemoryBus(busConfig)), mappings.size)
@@ -366,8 +367,6 @@ case class PipelinedMemoryBusDecoder(busConfig : PipelinedMemoryBusConfig, mappi
     }
   }
 
-  override lazy val formalValidInputs = io.input.formalIsProducerValid() && io.outputs.map(_.formalIsConsumerValid()).andR
-
   override def formalChecks()(implicit useAssumes: Boolean) = new Composite(this, FormalCompositeName) {
     val outstandingReads = io.outputs.map(_.formalContract.outstandingReads.value)
     val inputOutstandingReads = io.input.formalContract.outstandingReads.value
@@ -382,6 +381,8 @@ case class PipelinedMemoryBusDecoder(busConfig : PipelinedMemoryBusConfig, mappi
       assertOrAssume(logic.rspPendingCounter.value === totalOutstandingReads)
       assertOrAssume(inputOutstandingReads === logic.rspPendingCounter)
     })
+
+    self.formalCheckOutputs()
   }
 }
 

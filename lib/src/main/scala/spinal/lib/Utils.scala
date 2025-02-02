@@ -23,8 +23,8 @@ import spinal.core.internals._
 import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 import spinal.core._
-import spinal.core.formal.HasFormalAsserts
 import spinal.lib.bus.misc.AddressTransformer
+import spinal.lib.formal.HasFormalAsserts
 import spinal.lib.misc.PathTracer
 
 import scala.collection.{Seq, TraversableOnce, mutable}

@@ -1,9 +1,10 @@
 package spinal.lib
 
 import spinal.core._
-import spinal.core.formal.HasFormalAsserts
+import spinal.core.formal.past
 import spinal.idslplugin.Location
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, EfinixStdTargets, Rtl, XilinxStdTargets}
+import spinal.lib.formal.{ComponentWithFormalAsserts, FormalMasterSlave, HasFormalAsserts}
 
 import scala.collection.Seq
 import scala.collection.mutable
@@ -69,7 +70,7 @@ class EventFactory extends MSFactory {
   }
 }
 
-class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T] {
+class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with FormalMasterSlave with DataCarrier[T] {
   val valid   = Bool()
   val ready   = Bool()
   val payload = payloadType()
@@ -569,9 +570,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val isValid = checkValidHandshake && checkValidPayloadInvariance
   }.isValid
 
+  override def formalIsProducerValid() = formalIsValid(true)
+
   def formalAsserts(payloadInvariance : Boolean = true)(implicit loc : Location, useAssumes : Boolean = false) = new Composite(this, if(useAssumes) "assumes" else "asserts") {
-    import spinal.core.formal._
-    import spinal.core.formal.HasFormalAsserts._
+    import spinal.lib.formal._
+    import spinal.lib.formal.HasFormalAsserts._
 
     val stack = ScalaLocated.long
     when(past(isStall) init(False)) {
@@ -734,7 +737,7 @@ object StreamArbiter {
  *  A StreamArbiter is like a StreamMux, but with built-in complex selection logic that can arbitrate input
  *  streams based on a schedule or handle fragmented streams. Use a StreamArbiterFactory to create instances of this class.
  */
-class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area, val lockFactory: (StreamArbiter[T]) => Area) extends Component with HasFormalAsserts {
+class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area, val lockFactory: (StreamArbiter[T]) => Area) extends ComponentWithFormalAsserts {
   val io = new Bundle {
     val inputs = Vec(slave Stream (dataType),portCount)
     val output = master Stream (dataType)
@@ -762,12 +765,10 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
   io.chosenOH := maskRouted.asBits
   io.chosen := OHToUInt(io.chosenOH)
 
-  override def formalChecks()(implicit useAssumes: Boolean) = {
+  override def formalChecks()(implicit useAssumes: Boolean): Unit = {
     assertOrAssume(CountOne(maskRouted) <= 1)
     io.output.formalAsserts(payloadInvariance = !locked.dlcHasOnlyOne)
   }
-
-  override lazy val formalValidInputs = io.inputs.map(_.formalIsValid()).andR
 
 }
 
@@ -1096,15 +1097,12 @@ object StreamFork3 {
  *  other way around. It also violates the handshake of the AXI specification (section A3.3.1).
  */
 //TODOTEST
-class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: Boolean = false) extends Component with HasFormalAsserts {
+class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: Boolean = false) extends ComponentWithFormalAsserts {
   val io = new Bundle {
     val input = slave Stream (dataType)
     val outputs = Vec(master Stream (dataType), portCount)
   }
   val logic = new StreamForkArea(io.input, io.outputs, synchronous)
-
-  override lazy val formalValidInputs = logic.formalValidInputs
-  override def formalChecks()(implicit useAssumes: Boolean) = logic.formalChecks()
 }
 
 class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], synchronous: Boolean = false) extends Area with HasFormalAsserts {
@@ -1140,7 +1138,7 @@ class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], syn
     }
   }
 
-  override def formalChecks()(implicit useAssumes: Boolean) = new Area {
+  override def formalChecks()(implicit useAssumes: Boolean): Unit = new Area {
     if(linkEnable != null) {
         assertOrAssume(input.valid || linkEnable.asBits.andR, "Link enable must be true when input is invalid.")
     }
@@ -1254,7 +1252,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
                             val withBypass : Boolean = false,
                             val allowExtraMsb : Boolean = true,
                             val forFMax : Boolean = false,
-                            val useVec : Boolean = false) extends Component with HasFormalAsserts {
+                            val useVec : Boolean = false) extends ComponentWithFormalAsserts {
   require(depth >= 0)
 
   if(withBypass) require(withAsyncRead)
@@ -1440,8 +1438,6 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
 
-  override lazy val formalValidInputs = io.push.formalIsValid()
-
   override def formalChecks()(implicit useAssumes : Boolean = false) = new Composite(this, FormalCompositeName) {
     val logic_option = Option(logic)
 
@@ -1509,7 +1505,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
 
     // Output should always be valid
-    io.pop.formalAsserts()
+    self.formalCheckOutputs()
   }
 
   def formalCheckLastPush(cond: T => Bool) : Bool = new Composite(this) {

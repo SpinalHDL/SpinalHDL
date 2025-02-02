@@ -2,7 +2,8 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
-import spinal.core.formal.{FormalConfig, FormalDut, HasFormalAsserts, anyseq}
+import spinal.core.formal.{FormalConfig, FormalDut, anyseq}
+import spinal.lib.formal.HasFormalAsserts
 import spinal.tester.SpinalFormalFunSuite
 
 import scala.language.postfixOps
