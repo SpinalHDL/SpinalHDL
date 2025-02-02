@@ -2,6 +2,7 @@ package spinal.lib.bus.wishbone
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.formal.FormalMasterSlave
 
 object AddressGranularity extends Enumeration {
   type AddressGranularity = Value
@@ -84,7 +85,7 @@ case class WishboneConfig(
 /** This class rappresent a Wishbone bus
   * @param config an istance of WishboneConfig, it will be used to configurate the Wishbone Bus
   */
-case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
+case class Wishbone(config: WishboneConfig) extends Bundle with FormalMasterSlave {
   /////////////////////
   // MINIMAL SIGNALS //
   /////////////////////
@@ -271,6 +272,70 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   def byteAddress(addressGranularityIfUnspecified : AddressGranularity.AddressGranularity = AddressGranularity.UNSPECIFIED) : UInt = {
     ADR << log2Up((config.dataWidth / 8) / config.wordAddressInc(addressGranularityIfUnspecified))
   }
+
+  override def formalIsProducerValid(): Bool = new Composite(this, "isProducerValid") {
+    import spinal.core.formal._
+
+    private val slaveRequestAck = if (config.isPipelined) !STALL else ACK
+
+    private val masterHasRequest = isCycle && STB
+    private val isRequestStalled = masterHasRequest && !slaveRequestAck
+
+    private val wasStalledRequest = past(isRequestStalled) init (False)
+    private val invalidRequestDrop = wasStalledRequest && !masterHasRequest
+
+    private val dataChanged = Bool()
+    dataChanged := False
+    when(wasStalledRequest) {
+      dataChanged := Seq(DAT_MOSI, ADR, WE, SEL)
+        .filter(_ != null)
+        .map(x => stable(x))
+        .fold(True)((a, b) => a & b)
+    }
+
+
+    // From here, https://github.com/ZipCPU/zipcpu/blob/master/rtl/ex/fwb_master.v#L220, the author assumes that an
+    // ERR should force CYC to drop for the next cycle. I couldn't quite be sure this was a real constraint though --
+    //
+//    val dropsOnError = if(ERR != null) {
+//      pastValid() && (!past(ERR) || !CYC)
+//    } else True
+
+    val isValid: Bool = !dataChanged && !invalidRequestDrop
+  }.isValid
+
+  lazy val formalConsumerContract = new Composite(this, "isConsumerValid") {
+    if(config.useSTALL) {
+      ???
+    }
+    // Slaves are allowed to keep ACK high forever; rule 3.55. We track this and allow exemptions to other rules for it.
+    val alwaysAck = RegInit(True) clearWhen(!ACK)
+
+    val masterHasRequest = isCycle && STB
+    val ackStateIsValid = ACK === False || masterHasRequest || alwaysAck
+
+    val errorStateIsValid = if(ERR == null) True else {
+      val isValid = Bool()
+      isValid := True
+      when(ERR) {
+        isValid := !ACK && masterHasRequest
+      }
+      isValid
+    }
+
+    val cycleTerminationSignals = ACK ##
+      (if(ERR != null) ERR else False) ##
+      (if(RTY != null) RTY else False)
+
+    val rule_315 = masterHasRequest || !cycleTerminationSignals.orR || alwaysAck
+    val rule_345 = CountOne(cycleTerminationSignals) <= 1
+
+    val valid = ackStateIsValid && errorStateIsValid && rule_315 && rule_345
+  }
+
+  override type Self = Wishbone
+  override def formalAssertEquivalence(that : Wishbone): Unit = assert(formalConsumerContract.alwaysAck === that.formalConsumerContract.alwaysAck)
+  override def formalIsConsumerValid() = formalConsumerContract.valid
 }
 
 object Wishbone{

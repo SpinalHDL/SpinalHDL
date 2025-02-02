@@ -2,6 +2,8 @@ package spinal.lib.bus.wishbone
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.formal.ComponentWithFormalAsserts
+
 import scala.collection.Seq
 
 /** Factory for [[spinal.lib.bus.wishbone.WishboneArbiter]] instances. */
@@ -34,15 +36,16 @@ object WishboneArbiter{
   * @param config it will use for configuring all the input/output wishbone port
   * @param inputCount the number of master interface
   */
-class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Component{
+class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends ComponentWithFormalAsserts {
   val io = new Bundle{
     val inputs = Vec(slave(Wishbone(config)), inputCount)
     val output = master(Wishbone(config))
   }
 
-  if(inputCount == 1) {
+  val logic = if(inputCount == 1) {
     io.inputs(0) <> io.output
-  } else {
+    null
+  } else new Area {
     //Permanently connect DAT_MISO and TGD_MISO (if used) for save on logic usage
     io.inputs.map{ in =>
       in.DAT_MISO := io.output.DAT_MISO
@@ -67,7 +70,10 @@ class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Compone
 
     //Implement the selector for the output slave signals
     //This is ok becouse the signal is assumed as oneHotEncoded
-                        (io.inputs.map(_.ACK),   selector).zipped.foreach(_ := _ && io.output.ACK)
+    // Note that ACK is a special case -- there is a special exception that allows ACK to be held high, but if it isn't,
+    // then it must only be asserted with STB and CYC
+    val validAckWindow = if(config.useSTALL) io.output.CYC else io.output.STB && io.output.CYC
+                        (io.inputs.map(_.ACK),   selector).zipped.foreach(_ := _ && io.output.ACK && validAckWindow)
     if(config.useSTALL) (io.inputs.map(_.STALL), selector).zipped.foreach(_ := _ && io.output.STALL)
     if(config.useERR)   (io.inputs.map(_.ERR),   selector).zipped.foreach(_ := _ && io.output.ERR)
     if(config.useRTY)   (io.inputs.map(_.RTY),   selector).zipped.foreach(_ := _ && io.output.RTY)
@@ -86,6 +92,14 @@ class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Compone
     if(config.useTGA)   io.output.TGA       := MuxOH(selector, Vec(io.inputs.map(_.TGA)))
     if(config.useTGC)   io.output.TGC       := MuxOH(selector, Vec(io.inputs.map(_.TGC)))
     if(config.useBTE)   io.output.BTE       := MuxOH(selector, Vec(io.inputs.map(_.BTE)))
+  }
 
+  override protected def formalChecks()(implicit useAssumes: Boolean): Unit = {
+    super.formalChecks()
+    if(logic != null) {
+      assertOrAssume(CountOne(logic.selector) <= 1)
+    } else {
+      io.inputs.head.formalAssertEquivalence(io.output)
+    }
   }
 }

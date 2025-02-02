@@ -90,10 +90,7 @@ case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle 
     }
   }
   def assertBusEquivalence(that : PipelinedMemoryBus): Unit = {
-    if(globalData.config.formalAsserts) {
-      Component.current.withAutoPull()
-      assert(formalContract.outstandingReads.value === that.formalContract.outstandingReads.value)
-    }
+    assert(formalContract.outstandingReads.value === that.formalContract.outstandingReads.value)
   }
 
   override def asMaster(): Unit = {

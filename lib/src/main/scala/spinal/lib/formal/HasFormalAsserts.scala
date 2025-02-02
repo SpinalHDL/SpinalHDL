@@ -1,6 +1,7 @@
 package spinal.lib.formal
 
-import spinal.core.{Bool, Component, Composite, Data, MultiData, SpinalTag, True, Vec, assert, assume, when}
+import spinal.core.formal.anyseq
+import spinal.core.{Bool, Component, Composite, Data, MultiData, SpinalTag, True, Vec, assert, assume, cover, when}
 import spinal.idslplugin.Location
 import spinal.lib.IMasterSlave
 
@@ -195,6 +196,10 @@ class ComponentWithFormalAsserts extends Component with HasFormalAsserts {
       case _ => Seq(io)
     }
     getGroupedIO(true).flatMap(recursiveWalk)
+  }
+
+  def anyseq_inputs(): Unit = {
+    getAllIo.filter(_.isInput).foreach(anyseq)
   }
 
   override lazy val formalValidInputs: Bool =
