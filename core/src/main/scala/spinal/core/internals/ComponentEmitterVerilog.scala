@@ -633,10 +633,10 @@ class ComponentEmitterVerilog(
     }
   }
 
-  def emitEnumDebugLogic(): Unit ={
+  def emitEnumDebugLogic(): Unit = {
     if(enumDebugStringList.nonEmpty) {
       logics ++= "  `ifndef SYNTHESIS\n"
-      for((signal, name, charCount) <- enumDebugStringList){
+      for((signal, name, charCount) <- enumDebugStringList) {
         def normalizeString(that : String) = that + " " * (charCount - that.length)
         logics ++= s"  always @(*) begin\n"
         logics ++= s"    case(${emitReference(signal, false)})\n"

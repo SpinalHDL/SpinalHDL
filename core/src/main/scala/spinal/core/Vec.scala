@@ -104,14 +104,13 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Ve
 }
 
 
-/**
-  * The Vec is a composite type that defines a group of indexed signals (of any SpinalHDL basic type) under a single name
+/** A `Vec` is a composite type that defines a group of indexed signals (of any SpinalHDL basic type) under a single name
   *
   * @example {{{
   *     val myVecOfSInt = Vec(SInt(8 bits), 2)
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Vector Vec Documentation]]
+  * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Vec.html `Vec` Documentation]]
   */
 class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
 
@@ -171,13 +170,13 @@ class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends Mu
     vecTransposedCache
   }
 
-  /** Access an element of the vector by an Int index */
+  /** Access an element of the vector by an `Int` index */
   override def apply(idx: Int): T = {
     if (idx < 0 || idx >= vec.size) SpinalError(s"Static Vec($idx) is outside the range (${vec.size - 1} downto 0) of ${this}")
     vec(idx)
   }
 
-  /** Access an element of the vector by an UInt index */
+  /** Access an element of the vector by an `UInt` index */
   def apply(address: UInt): T = access(address)
 
   private def readEmu(address : UInt): T = {
@@ -203,7 +202,7 @@ class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends Mu
 
 
     val ret = dataType()
-    def rec(ret : Data, elements : Traversable[Data]): Unit ={
+    def rec(ret : Data, elements : Traversable[Data]): Unit = {
       ret match {
         case ret : MultiData =>{
           val iRet = ret.elements.iterator
@@ -227,8 +226,8 @@ class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends Mu
     ret
   }
 
-  private def fixAddress(address : UInt) : UInt = if(widthOf(address) != log2Up(length)){
-    if(address.hasTag(tagAutoResize)){
+  private def fixAddress(address : UInt) : UInt = if(widthOf(address) != log2Up(length)) {
+    if(address.hasTag(tagAutoResize)) {
       address.resize(log2Up(length))
     }else{
       LocatedPendingError(s"Vec address width mismatch.\n- Vec : $this\n- Address width : ${widthOf(address)}\n")
@@ -265,7 +264,7 @@ class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends Mu
   }
 
   //TODO sub element composite assignment, as well for indexed access (std)
-  /** Access an element of the vector by a oneHot value */
+  /** Access an element of the vector by a `oneHot` value */
   def oneHotAccess(oneHot: Bits): T = {
 
     if(elements.size != oneHot.getWidth){
@@ -331,7 +330,7 @@ class VecBitwisePimper[T <: Data with BitwiseOp[T]](pimped : Vec[T]) extends Bit
 
   private def map2with(f: (T, T) => T)(other: Vec[T]): Vec[T] = {
     if (pimped.length != other.length)
-      SpinalError(s"Cannot apply a bitwize opration on vectors with different size (${pimped.length} vs ${other.length})")
+      SpinalError(s"Cannot apply a bitwise operation on vectors with different sizes (${pimped.length} vs ${other.length})")
     Vec((pimped, other).zipped.map(f))
   }
 }

@@ -347,22 +347,42 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   /** Create a new instance of the same datatype without any configuration (width, direction) */
   private[core] def weakClone: this.type
 
+  /** Use a `scala.Seq` of SpinalHDL data as mux inputs.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#bitwise-selection Bitwise selection Documentation]]
+    */
   def muxList[T2 <: Data](mappings: Seq[(Any, T2)]): T2 = {
     SpinalMap.list(this,mappings)
   }
 
+  /** Use a `scala.Seq` of SpinalHDL data as mux inputs.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#bitwise-selection Bitwise selection Documentation]]
+    */
   def muxList[T2 <: Data](defaultValue: T2, mappings: Seq[(Any, T2)]): T2 = {
     SpinalMap.list(this, mappings :+ (spinal.core.default , defaultValue) )
   }
 
+  /** Version of SpinalHDL `muxList` that allows Don't Care.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#bitwise-selection Bitwise selection Documentation]]
+    */
   def muxListDc[T2 <: Data](mappings: Seq[(Any, T2)]): T2 = {
     SpinalMap.listDc(this, mappings)
   }
 
+  /** Use a SpinalHDL data as a selector for a mux.
+   * 
+   * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#bitwise-selection Bitwise selection Documentation]]
+   */  
   def mux[T2 <: Data](mappings: (Any, T2)*): T2 = {
     SpinalMap.list(this,mappings)
   }
 
+  /** Version of SpinalHDL `mux` that allows Don't Care.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#bitwise-selection Bitwise selection Documentation]]
+    */
   def muxDc[T2 <: Data](mappings: (Any, T2)*): T2 = {
     SpinalMap.listDc(this,mappings)
   }

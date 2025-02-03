@@ -44,12 +44,12 @@ object MaskedLiteral{
   *
   */
 
-class MaskedBoolean(value : Boolean, careAbout : Boolean){
+class MaskedBoolean(value : Boolean, careAbout : Boolean) {
   def ===(that : Bool) : Bool = if(careAbout) that === Bool(value) else True
   def =/=(that : Bool) : Bool = if(careAbout) that =/= Bool(value) else False
 }
 
-class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
+class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int) {
   override def hashCode() = value.hashCode() + careAbout.hashCode() + width
   override def equals(o: scala.Any) = o match {
     case o : MaskedLiteral => this.value == o.value && this.careAbout == o.careAbout && this.width == o.width
@@ -59,7 +59,7 @@ class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
   def withDontCare = careAbout != (BigInt(1) << width)-1
 
   def getWidth() = width
-  def apply(index : Int): MaskedBoolean ={
+  def apply(index : Int): MaskedBoolean = {
     if(index >= width){
       SpinalError(s"Accessing MaskedLiteral at $index is outside its range ($width bits)")
     }

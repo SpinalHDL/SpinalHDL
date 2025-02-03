@@ -362,7 +362,7 @@ object Nameable{
 }
 
 
-trait Nameable extends OwnableRef with ContextUser{
+trait Nameable extends OwnableRef with ContextUser {
   import Nameable._
 
   var name: String = null
@@ -894,46 +894,46 @@ trait Num[T <: Data] {
     hpos downto lpos
   }
 
-  /** Addition */
+  /** Hardware addition */
   def + (right: T): T
-  /** Safe Addition with 1 bit expand */
+  /** Hardware safe addition with 1 bit expand */
   def +^(right: T): T
-  /** Safe Addition with saturation */
+  /** Hardware safe addition with saturation */
   def +| (right: T): T
-  /** Substraction */
+  /** Hardware subtraction */
   def - (right: T): T
-  /** Safe Substraction with 1 bit expand*/
+  /** Hardware safe subtraction with 1 bit expand */
   def -^ (right: T): T
-  /** Safe Substraction with saturation*/
+  /** Hardware safe subtraction with saturation */
   def -| (right: T): T
-  /** Multiplication */
+  /** Hardware multiplication */
   def * (right: T): T
-  /** Division */
+  /** Hardware division */
   def / (right: T): T
-  /** Modulo */
+  /** Hardware modulo */
   def % (right: T): T
 
-  /** Is less than right */
+  /** Hardware "is less than right" */
   def <  (right: T): Bool
-  /** Is equal or less than right */
+  /** Hardware  "is equal or less than right" */
   def <= (right: T): Bool
-  /** Is greater than right */
+  /** Hardware "is greater than right" */
   def >  (right: T): Bool
-  /** Is equal or greater than right */
+  /** Hardware "is equal or greater than right" */
   def >= (right: T): Bool
 
-  /** Arithmetic left shift (w(T) = w(this) + shift)*/
+  /** Hardware arithmetic left shift (`w(T) = w(this) + shift`) */
   def << (shift: Int): T
-  /** Arithmetic right shift (w(T) = w(this) - shift)*/
+  /** Hardware arithmetic right shift (`w(T) = w(this) - shift`) */
   def >> (shift: Int): T
-  /** Arithmetic left shift (w(T) = w(this) + (1 << shift)-1*/
+  /** Hardware arithmetic left shift (`w(T) = w(this) + (1 << shift)-1`) */
   def << (shift: UInt): T
-  /** Arithmetic right shift (w(T) = w(this)*/
+  /** Hardware arithmetic right shift (`w(T) = w(this)`)*/
   def >> (shift: UInt): T
 
-  /** Return the minimum value between this and right  */
+  /** Return the hardware minimum value between this and right  */
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
-  /** Return the maximum value between this and right  */
+  /** Return the hardware maximum value between this and right  */
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
 
   /** highest m bits Saturation Operation*/

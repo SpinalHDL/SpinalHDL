@@ -35,7 +35,7 @@ trait BitsFactory {
 
 
 /**
-  * The Bits type corresponds to a vector of bits that does not convey any arithmetic meaning.
+  * The `Bits` type corresponds to a vector of bits that does not convey any arithmetic meaning.
   *
   * @example {{{
   *     val myBits1 = Bits(32 bits)
@@ -44,7 +44,7 @@ trait BitsFactory {
   *     val myBits4 = B"1001_0011
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits Bits Documentation]]
+  * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html `Bits` Documentation]]
   */
 class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[Bits] with BitwiseOp[Bits]{
 
@@ -193,6 +193,10 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     0 to (1 << getWidth)-1
   }
 
+  /** Return a resized representation of x.
+   * 
+   *  If enlarged, it is extended with zero padding at MSB as necessary.
+   */
   override def resize(width: Int): Bits = wrapWithWeakClone({
     val node   = new ResizeBits
     node.input = this
@@ -200,6 +204,10 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     node
   })
 
+  /** Return a resized representation of x.
+   * 
+   *  If enlarged, it is extended with zero padding at MSB as necessary.
+   */
   override def resize(width: BitCount) : Bits = resize(width.value)
 
   override def resizeFactory: Resize = new ResizeBits

@@ -313,13 +313,13 @@ object Clock{
   }
 }
 
-/**
-  * clock and reset signals can be combined to create a clock domain.
+/** Clock and reset signals can be combined to create a clock domain.
+  * 
   * Clock domains could be applied to some area of the design and then all synchronous elements instantiated into this
   * area will then implicitly use this clock domain.
   * Clock domain application work like a stack, which mean, if you are in a given clock domain, you can still apply another clock domain locally
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/clock_domain ClockDomain Documentation]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html clock domains documentation]]
   */
 case class ClockDomain(clock       : Bool,
                        reset       : Bool = null,

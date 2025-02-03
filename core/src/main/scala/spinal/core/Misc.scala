@@ -196,9 +196,12 @@ object Cat {
 }
 
 
-/**
- * Mux operation 
- */
+/** SpinalHDL standalone mux with `Bool` selector
+  * 
+  * Types like `Enum`/`Bool`/`Bits`/`UInt`/`SInt` can also be used as selector with the method
+  * `mux()` of their parent `BaseType`.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#mux `Mux` documentation]]
+  */
 object Mux {
   def apply[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
     Multiplex.complexData(sel, whenTrue, whenFalse)
@@ -558,10 +561,11 @@ object AnnotationUtils{
 }
 
 
-/**
- * Create a new signal, assigned by the given parameter.
- * Useful to provide a "copy" of something that you can then modify with more conditional assignments.
- */
+/** Create a new signal, assigned by the given parameter.
+  * 
+  * Useful to provide a "copy" of something that you can then modify with more conditional assignments.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/assignments.html#combinit `CombInit` Documentation]]
+  */
 object CombInit {
   def apply[T <: Data](init: T): T = {
     val ret = cloneOf(init)
