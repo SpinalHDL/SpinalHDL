@@ -85,7 +85,7 @@ trait HasFormalAsserts {
     }
   }
 
-  final def formalAsserts(): Unit = {
+  def formalAsserts(): Unit = {
     if (CurrentAssertionLevel >= AssertionLevel.Assertion)
       return
 
@@ -199,7 +199,7 @@ class ComponentWithFormalAsserts extends Component with HasFormalAsserts {
   }
 
   def anyseq_inputs(): Unit = {
-    getAllIo.filter(_.isInput).foreach(anyseq)
+    getAllIo.filter(_.isInput).filter(_.dlcIsEmpty).foreach(anyseq)
   }
 
   override lazy val formalValidInputs: Bool =
@@ -229,5 +229,15 @@ class ComponentWithFormalAsserts extends Component with HasFormalAsserts {
   override protected def formalChecks()(implicit useAssumes: Boolean = false): Unit = {
     HasFormalAsserts.formalAssertsChildren(this, assumesInputValid = false, useAssumes = true)
     formalCheckOutputs()
+  }
+
+  override def formalAssumes(): Unit = {
+    withAutoPull()
+    super.formalAssumes()
+  }
+
+  override def formalAsserts(): Unit = {
+    withAutoPull()
+    super.formalAsserts()
   }
 }
