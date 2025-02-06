@@ -133,6 +133,71 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
     }
   }
 
+  test("bitwise_ops") {
+    // testing some obvious properties of bitwise ops with handpicked arbitrary examples
+    SimConfig.compile(new Component {
+      val io = new Bundle {
+        val op = in UInt(2 bits)
+        val a = in(AFix.S(2 exp, -2 exp))
+        val b = in(AFix.S(1 exp, -4 exp))
+        val o = out(AFix.S(2 exp, -4 exp))
+        o.assignDontCare()
+        switch (op) {
+          is(0) {
+            o := a & b
+          }
+          is (1) {
+            o := a | b
+          }
+          is (2) {
+            o := a ^ b
+          }
+          default {
+            o.assignDontCare()
+          }
+        }
+      }
+    }).doSim(seed = 0) { dut =>
+        dut.io.op #= 0
+        dut.io.a #= 0.25
+        dut.io.b #= 0.125
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.0)
+
+        dut.io.a #= 0.75
+        dut.io.b #= 0.375
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.25)
+
+        dut.io.op #= 1
+        dut.io.a #= 0.25
+        dut.io.b #= 0.125
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.375)
+
+        dut.io.a #= 0.75
+        dut.io.b #= 0.375
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.875)
+
+        dut.io.op #= 2
+        dut.io.a #= 0.25
+        dut.io.b #= 0.125
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.375)
+
+        dut.io.a #= 0.75
+        dut.io.b #= 0.375
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.625)
+
+        dut.io.a #= 0.25
+        dut.io.b #= 0.25
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.0)
+    }
+  }
+
   def dutStateString(dut: AFixTester): String = {
     val model = AFixTesterModel(dut)
 
