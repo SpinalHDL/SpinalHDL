@@ -57,6 +57,13 @@ class ParentComponent() extends Component with HasFormalAsserts {
   child.io <> io
 
   override lazy val formalValidInputs = child.formalValidInputs
+
+  override protected def formalChecks()(implicit useAssumes: Boolean): Unit = {
+    // The child component is tested independently; assume it is valid
+    child.formalAssumes()
+
+    super.formalChecks()
+  }
 }
 
 class FormalParentComponent(assumeInputs : Boolean = true) extends Component {
