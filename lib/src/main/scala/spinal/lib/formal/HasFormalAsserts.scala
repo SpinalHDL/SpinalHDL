@@ -128,7 +128,12 @@ trait HasFormalAsserts {
   }
 
   /**
-   * Helper function; uses the implicit useAssumes variable to either emit an assert or assume
+   * Helper function; uses the implicit useAssumes variable to either emit an assert or assume.
+   *
+   * This is used to declare something that should be considered a formal invariant of the design. Depending on context,
+   * we can assume this property rather than assert it. If the formal property given is true, using assert or assume
+   * on it has the same final results on any given test however assumptions allow formal validation to run much faster
+   * since it does not have to also reprove the valididty of trusted components.
    *
    * @param cond       Condition to assert or assume
    * @param msg        Some backends with asserts will print out a message when an assert fails. Ignored for assumes
@@ -194,6 +199,11 @@ object HasFormalAsserts {
 
   /**
    * Helper function; uses the implicit useAssumes variable to either emit an assert or assume
+   *
+   * This is used to declare something that should be considered a formal invariant of the design. Depending on context,
+   * we can assume this property rather than assert it. If the formal property given is true, using assert or assume
+   * on it has the same final results on any given test however assumptions allow formal validation to run much faster
+   * since it does not have to also reprove the valididty of trusted components.
    *
    * @param cond       Condition to assert or assume
    * @param msg        Some backends with asserts will print out a message when an assert fails. Ignored for assumes
