@@ -3,36 +3,42 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.lib._
 import spinal.core.formal.{FormalConfig, FormalDut, anyseq}
-import spinal.lib.formal.{ComponentWithFormalAsserts, HasFormalAsserts}
+import spinal.lib.formal.{ComponentWithFormalAsserts, FormalMasterSlave, HasFormalAsserts}
 import spinal.tester.SpinalFormalFunSuite
 
 import scala.language.postfixOps
 
-class ChildComponent extends ComponentWithFormalAsserts {
-  val io = new Bundle {
-    val input = in(Bits(32 bits))
-    val never_true = out(Bool())
+case class TestBundle() extends Bundle with IMasterSlave with FormalMasterSlave {
+  val input = Bits(32 bits)
+  val never_true = Bool()
+
+  override def asMaster(): Unit = {
+    out(input)
+    in(never_true)
   }
 
-  io.never_true := io.input === 0xdeadbeefL
+  override def formalIsProducerValid(): Bool = input =/= 0xdeadbeefL
+  override def formalIsConsumerValid() = never_true === False
+}
 
-  override lazy val formalValidInputs = io.input =/= 0xdeadbeefL
+class ChildComponent extends ComponentWithFormalAsserts {
+  val io = new Bundle {
+    val contract = slave(TestBundle())
+  }
 
-  override def formalChecks()(implicit useAssumes: Boolean): Unit =
-    assertOrAssume(io.never_true === False)
+  io.contract.never_true := io.contract.input === 0xdeadbeefL
 }
 
 class FormalChildComponent extends Component {
   val dut = FormalDut(new ChildComponent())
   assumeInitial(ClockDomain.current.isResetActive)
 
-  anyseq(dut.io.input)
+  dut.anyseq_inputs()
 }
 
 class ParentComponent extends Component with HasFormalAsserts {
   val io = new Bundle {
-    val input = in(Bits(32 bits))
-    val never_true = out(Bool())
+    val contract = slave(TestBundle())
   }
 
   val child = new ChildComponent()
@@ -50,7 +56,7 @@ class FormalParentComponent(assumeInputs : Boolean = true) extends Component {
     dut.formalAssumeInputs()
   }
 
-  anyseq(dut.io.input)
+  anyseq(dut.io.contract.input)
 }
 
 class FormalHasFormalTester extends SpinalFormalFunSuite {
