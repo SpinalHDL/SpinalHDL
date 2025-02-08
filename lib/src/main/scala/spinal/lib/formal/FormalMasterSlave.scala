@@ -36,7 +36,7 @@ trait FormalBundle {
  * For bundles which implement IMasterSlave, this can be used to add logic which informs on if the master or slave of
  * that bundle are using it correctly.
  */
-trait FormalMasterSlave extends IMasterSlave with FormalBundle {
+trait FormalMasterSlave extends FormalBundle { self: IMasterSlave =>
   /**
    * @return True if and only if the driving signals are valid
    */
@@ -47,4 +47,6 @@ trait FormalMasterSlave extends IMasterSlave with FormalBundle {
   def formalIsConsumerValid() : Bool = True
 
   override def formalIsValid() : Bool = formalIsConsumerValid() && formalIsProducerValid()
+
+  def asIMasterSlave = self
 }

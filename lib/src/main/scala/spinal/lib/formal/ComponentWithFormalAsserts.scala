@@ -40,8 +40,8 @@ class ComponentWithFormalAsserts extends Component with HasFormalAsserts {
     // valid.
     Vec(flattenIO().map({
       case io: FormalMasterSlave =>
-        if (io.isMasterInterface) io.formalIsConsumerValid()
-        else if (io.isSlaveInterface) io.formalIsProducerValid()
+        if (io.asIMasterSlave.isMasterInterface) io.formalIsConsumerValid()
+        else if (io.asIMasterSlave.isSlaveInterface) io.formalIsProducerValid()
         else if (io.isInput) io.formalIsValid()
         else {
           assert(false)
@@ -59,7 +59,7 @@ class ComponentWithFormalAsserts extends Component with HasFormalAsserts {
   protected def formalCheckOutputs()(implicit useAssumes: Boolean = false): Unit = {
     flattenIO().foreach({
       case io: FormalMasterSlave =>
-        if (io.isMasterInterface) assertOrAssume(io.formalIsProducerValid())
+        if (io.asIMasterSlave.isMasterInterface) assertOrAssume(io.formalIsProducerValid())
         else assertOrAssume(io.formalIsConsumerValid())
       case io: FormalBundle => if (io.isOutput) assertOrAssume(io.formalIsValid())
       case _ => True
