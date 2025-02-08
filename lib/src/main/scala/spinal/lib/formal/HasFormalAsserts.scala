@@ -115,7 +115,7 @@ trait HasFormalAsserts {
     if (CurrentAssertionLevel == AssertionLevel.Assumption)
       return
 
-    formalAssumeInputs()
+    formalAssertInputs()
     if (HasFormalAsserts.alwaysAssert) {
       formalAsserts()
     } else {
