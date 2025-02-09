@@ -32,7 +32,7 @@ import scala.collection.mutable.ArrayBuffer
   * @param spinalEnum parent of the element (SpinalEnum)
   * @param position position of the element
   */
-class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) extends Nameable {
+class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) extends Nameable with SpinalTagReady {
 
   def getSignature() : Any = List(position, getName(""))
 
@@ -58,25 +58,33 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
   }
 
   def asBits: Bits = craft().asBits
+  def next: SpinalEnumElement[T] = {
+    val id = position + 1
+    if(id >= spinalEnum.elements.size) return null
+    spinalEnum.elements(id)
+  }
+  def prev: SpinalEnumElement[T] = {
+    val id = position -1
+    if(id < 0) return null
+    spinalEnum.elements(id)
+  }
 }
 
 
-/**
- * Base class for creating enumeration
- *
- * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum Enumeration Documentation]]
- *
- * @example {{{
- *         object MyEnum extends SpinalEnum(binarySequential){
- *           val s1, s2, s3, s4 = newElement()
- *         }
- *         }}}
- *
- * SpinalEnum contains a list of SpinalEnumElement that is the definition of an element. SpinalEnumCraft is the
- * hardware representation of the the element.
- *
- * @param defaultEncoding encoding of the senum
- */
+/** Base class for creating enumeration
+  *
+  * @example {{{
+  *         object MyEnum extends SpinalEnum(binarySequential){
+  *           val s1, s2, s3, s4 = newElement()
+  *         }
+  *         }}}
+  *
+  * `SpinalEnum` contains a list of `SpinalEnumElement` that is the definition of an element. `SpinalEnumCraft` is the
+  * hardware representation of the the element.
+  *
+  * @param defaultEncoding encoding of the enum
+  * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/enum.html Enumeration Documentation]]
+  */
 class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable with ScalaLocated {
 
   assert(defaultEncoding != inferred, "Enum definition should not have 'inferred' as default encoding")
@@ -172,6 +180,13 @@ class SpinalEnumCraft[T <: SpinalEnum](var spinalEnum: SpinalEnum) extends BaseT
     that match{
       case that: SpinalEnumCraft[_] if that.spinalEnum == spinalEnum    => wrapLogicalOperator(that, new Operator.Enum.NotEqual(spinalEnum));
       case that: SpinalEnumElement[_] if that.spinalEnum == spinalEnum  => wrapLogicalOperator(that(), new Operator.Enum.NotEqual(spinalEnum));
+      case _                                                            => SpinalError("Incompatible test")
+    }
+  }
+  override def isEqualToSim(that: Any): Bool = {
+    that match{
+      case that: SpinalEnumCraft[_] if that.spinalEnum == spinalEnum    => wrapLogicalOperator(that, new Operator.Enum.EqualSim(spinalEnum));
+      case that: SpinalEnumElement[_] if that.spinalEnum == spinalEnum  => wrapLogicalOperator(that(), new Operator.Enum.EqualSim(spinalEnum));
       case _                                                            => SpinalError("Incompatible test")
     }
   }

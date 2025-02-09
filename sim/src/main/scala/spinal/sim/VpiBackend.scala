@@ -32,7 +32,8 @@ case class VpiBackendConfig(
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
   var logSimProcess: Boolean = false,
-  var timePrecision: String  = null
+  var timePrecision: String  = null,
+  var testPath: String       = null
 )
 
 abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
@@ -169,9 +170,9 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
 
   def compileVPI() : Unit   // Return the plugin name
   def analyzeRTL() : Unit
-  def runSimulation(sharedMemIface: SharedMemIface) : Thread
+  def runSimulation(sharedMemIface: SharedMemIface, testName: String) : Thread
 
-  def instanciate_() : (SharedMemIface, Thread) = {
+  def instanciate_(name: String) : (SharedMemIface, Thread) = {
     delayed_compilation
     val shmemKey = Seq("SpinalHDL",
       runIface.toString,
@@ -187,19 +188,19 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
     var shmemFile = new PrintWriter(new File(workspacePath + "/shmem_name"))
     shmemFile.write(shmemKey) 
     shmemFile.close
-    val thread = runSimulation(sharedMemIface)
+    val thread = runSimulation(sharedMemIface, name)
     sharedMemIface.check_ready 
     (sharedMemIface, thread)
   }
 
-  def instanciate(seed : Long) : (SharedMemIface, Thread) = {
+  def instanciate(name: String, seed : Long) : (SharedMemIface, Thread) = {
     val ret = if(useCache) {
       VpiBackend.synchronized {
-        instanciate_()
+        instanciate_(name)
       }
     } else {
       this.synchronized {
-        instanciate_()
+        instanciate_(name)
       }
     }
     ret._1.set_seed(seed)
@@ -207,7 +208,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
     ret
   }
 
-  def instanciate() : (SharedMemIface, Thread) = instanciate(0x5EED5EED)
+  def instanciate(name: String) : (SharedMemIface, Thread) = instanciate(name, 0x5EED5EED)
 }
 
 object VpiBackend {}

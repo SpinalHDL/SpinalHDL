@@ -103,6 +103,12 @@ object Mem {
   def apply[T <: Data](wordType: HardType[T], initialContent: Seq[T]) = new Mem(wordType, initialContent.length) init(initialContent)
   def apply[T <: Data](initialContent: Seq[T]) = new Mem(initialContent(0), initialContent.length) init(initialContent)
   def fill[T <: Data](wordCount: Int)(wordType: HardType[T])  = new Mem(wordType, wordCount)
+
+  def apply(wordType: AFix, initialContent: Seq[BigDecimal]) = {
+    val initSeq: Seq[BigInt] = initialContent.map(datum => BigInt((datum / wordType.Q.resolution).toLong))
+    val anyNegative: Boolean = initialContent.foldLeft(false)(_ || _ < 0.0)
+    new Mem(wordType, initSeq.length) initBigInt(initSeq, anyNegative)
+  }
 }
 
 
@@ -113,7 +119,7 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
 
 object AllowPartialyAssignedTag extends SpinalTag
 object AllowMixedWidth extends SpinalTag
-trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement] with Nameable {
+trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement] with Nameable with SpinalTagReady {
   var isVital = false
   var mem: Mem[_] = null
 }
@@ -533,7 +539,7 @@ object MemReadAsync{
 }
 
 
-class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagReady with ContextUser with Expression{
+class MemReadAsync extends MemPortStatement with WidthProvider  with ContextUser with Expression{
 
   override def getWidth: Int = width
 
@@ -545,7 +551,7 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
   def getWordsCount = mem.wordCount*mem.width/getWidth
   def getAddressWidth = log2Up(getWordsCount)
 
-  override def opName = "Mem.readAsync(x)"
+  override def opName = s"$mem.readAsync(x)"
 
   override def getTypeObject = TypeBits
 
@@ -606,7 +612,7 @@ object MemReadSync{
 }
 
 
-class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagReady with ContextUser with Expression {
+class MemReadSync() extends MemPortStatement with WidthProvider with ContextUser with Expression {
 
   var width          : Int = -1
   var address        : Expression with WidthProvider = null
@@ -692,7 +698,7 @@ object MemWrite{
   }
 }
 
-class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady {
+class MemWrite() extends MemPortStatement with WidthProvider{
   var width       : Int = -1
   var address     : Expression with WidthProvider = null
   var data        : Expression with WidthProvider = null
@@ -700,6 +706,7 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
   var writeEnable : Expression  = null
   var clockDomain : ClockDomain = null
 
+  def getMaskWidth(default : Int = 1) = if(mask != null) mask.getWidth else default
   def getSymbolWidth = if(mask != null) width / mask.getWidth else 1
   def getWordsCount = mem.wordCount*mem.width/getWidth
   def getAddressWidth = log2Up(getWordsCount)
@@ -793,7 +800,7 @@ object MemReadWrite {
 }
 
 
-class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagReady  with ContextUser with Expression{
+class MemReadWrite() extends MemPortStatement with WidthProvider with ContextUser with Expression{
   var width        : Int = -1
   var address      : Expression with WidthProvider = null
   var data         : Expression with WidthProvider = null
@@ -804,6 +811,7 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
   var readUnderWrite : ReadUnderWritePolicy = null
   var duringWrite : DuringWritePolicy = null
 
+  def getMaskWidth(default : Int = 1) = if(mask != null) mask.getWidth else default
   def getSymbolWidth = if (mask != null) width / mask.getWidth else 1
   def getWordsCount = mem.wordCount*mem.width/getWidth
   def getAddressWidth = log2Up(getWordsCount)

@@ -43,10 +43,14 @@ object JtagRemote {
     onSimEnd (server.socket.close())
     server.start()
 
+    var pullPeriod = 10
     while (true) {
-      sleep(jtagClkPeriod * 200)
+      sleep(jtagClkPeriod*pullPeriod)
+      pullPeriod += 5
+      if(pullPeriod > 200) pullPeriod = 200
       while (inputStream != null && inputStream.available() != 0) {
         var c = inputStream.read()
+        pullPeriod = 10
 
         if ((c >= '0') && (c <= '7')) {
           c -= '0'
