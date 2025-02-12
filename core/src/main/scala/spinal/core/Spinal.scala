@@ -314,17 +314,17 @@ class SpinalReport[T <: Component]() {
 
 
   def printUnused() : this.type = {
-    unusedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+    unusedSignals.foreach(bt => SpinalWarning(s"Unused signal detected : $bt"))
     this
   }
 
   def printPruned() : this.type = {
-    prunedSignals.foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
+    prunedSignals.foreach(bt => SpinalWarning(s"Pruned signal detected : $bt"))
     this
   }
 
   def printPrunedIo() : this.type = {
-    prunedSignals.filter(_.dir != null).foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
+    prunedSignals.filter(_.dir != null).foreach(bt => SpinalWarning(s"Pruned signal detected : $bt"))
     this
   }
 
