@@ -11,7 +11,8 @@ import spinal.lib.bus.misc.BusSlaveFactory
 
 case class SpiMasterCtrlGenerics( ssWidth : Int,
                                   timerWidth : Int,
-                                  dataWidth : Int = 8){
+                                  dataWidth : Int = 8,
+                                  sampleReset : Boolean = false){
   def ssGen = ssWidth != 0
 }
 
@@ -24,6 +25,8 @@ case class SpiMasterCtrlConfig(generics : SpiMasterCtrlGenerics) extends Bundle{
     val hold    = UInt(generics.timerWidth bits)
     val disable = UInt(generics.timerWidth bits)
   } else null
+  // If sampleReset is set, samplePos should be between 1 and sclkToggle.
+  val samplePos = if (generics.sampleReset) UInt(generics.timerWidth bits) else null
 }
 
 object SpiMasterCtrlCmdMode extends SpinalEnum(binarySequential){
@@ -100,6 +103,7 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
      * ssSetup -> W 0x10 time between chip select enable and the next byte
      * ssHold -> W 0x14 time between the last byte transmission and the chip select disable
      * ssDisable -> W 0x18 time between chip select disable and chip select enable
+     * samplePos -> W 0x1c sample postion after edge trigger
      */
 
     def driveFrom(bus : BusSlaveFactory, baseAddress : Int = 0)(generics : SpiMasterCtrlMemoryMappedConfig) = new Area {
@@ -165,6 +169,8 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
         bus.drive(config.ss.hold,    address = baseAddress + 20)
         bus.drive(config.ss.disable, address = baseAddress + 24)
       } else null
+      if (sampleReset)
+        bus.drive(config.samplePos, address = baseAddress + 28)
     }
   }
 
@@ -176,6 +182,7 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
       val holdHit     = counter === io.config.ss.hold
       val disableHit  = counter === io.config.ss.disable
     } else null
+    val sampleHit = if(sampleReset) counter === io.config.samplePos else null
     val sclkToggleHit = counter === io.config.sclkToggle
 
     counter := counter + 1
@@ -192,12 +199,25 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
     io.cmd.ready := False
     when(io.cmd.valid){
       when(io.cmd.isData) {
-        when(timer.sclkToggleHit) {
-          counter.increment()
-          timer.reset := True
-          io.cmd.ready := counter.willOverflowIfInc
-          when(counter.lsb) {
-            buffer := (buffer ## io.spi.miso).resized
+        if (sampleReset) {
+          when(timer.sampleHit) {
+            when(counter.lsb) {
+              buffer := (buffer ## io.spi.miso).resized
+            }
+          }
+          when(timer.sclkToggleHit) {
+            counter.increment()
+            timer.reset := True
+            io.cmd.ready := counter.willOverflowIfInc
+          }
+        } else {
+          when(timer.sclkToggleHit) {
+            counter.increment()
+            timer.reset := True
+            io.cmd.ready := counter.willOverflowIfInc
+            when(counter.lsb) {
+              buffer := (buffer ## io.spi.miso).resized
+            }
           }
         }
       } otherwise{
