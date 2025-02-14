@@ -927,6 +927,15 @@ object StreamMux {
     select >> c.io.createStreamRegSelect()
     c.io.output
   }
+  /**
+   * Directly merge multiple streams into a single one, only one stream is valid at a time.
+   */
+  def merge[T <: Data](inputs: Seq[Stream[T]]): Stream[T] = {
+    val c = new StreamMux(inputs(0).payload, inputs.length)
+    (c.io.inputs, inputs).zipped.foreach(_ << _)
+    c.io.select := OHToUInt(inputs.map(_.valid))
+    c.io.output
+  }
 }
 
 class StreamMux[T <: Data](dataType: T, portCount: Int) extends Component {
