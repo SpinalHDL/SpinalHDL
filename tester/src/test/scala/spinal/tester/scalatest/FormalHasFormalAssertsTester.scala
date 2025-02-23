@@ -3,7 +3,8 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.lib._
 import spinal.core.formal.{FormalConfig, FormalDut, anyseq}
-import spinal.lib.formal.{ComponentWithFormalAsserts, FormalMasterSlave, HasFormalAsserts}
+import spinal.core.internals.AssertStatementKind
+import spinal.lib.formal.{ComponentWithFormalProperties, FormalMasterSlave, FormalProperties, FormalProperty, HasFormalProperties}
 import spinal.tester.SpinalFormalFunSuite
 
 import scala.language.postfixOps
@@ -17,11 +18,11 @@ case class TestBundle() extends Bundle with IMasterSlave with FormalMasterSlave 
     in(never_true)
   }
 
-  override def formalIsProducerValid(): Bool = input =/= 0xdeadbeefL
+  override def formalIsProducerValid() = input =/= 0xdeadbeefL
   override def formalIsConsumerValid() = never_true === False
 }
 
-class ChildComponent(val addHelperAssertion : Boolean = true) extends ComponentWithFormalAsserts {
+class ChildComponent(val addHelperAssertion : Boolean = true) extends ComponentWithFormalProperties {
   val io = new Bundle {
     val contract = slave(TestBundle())
   }
@@ -30,15 +31,13 @@ class ChildComponent(val addHelperAssertion : Boolean = true) extends ComponentW
   shifter := (shifter << 1).resize(15 bits) ## (io.contract.input === 0xdeadbeefL)
   io.contract.never_true := shifter.msb
 
-  override protected def formalChecks()(implicit useAssumes: Boolean): Unit = {
+  override def formalProperties() = new FormalProperties {
     if(addHelperAssertion) {
       // When doing formal induction with less than shifter.getBitsWidth states, we need to help the solver out --
       // the current state of sby isn't able to resolve this property on it's own.
-      assertOrAssume(shifter === 0)
+      addFormalProperty(shifter === 0)
     }
-
-    super.formalChecks()
-  }
+  }.implicitValue ++ super.formalProperties()
 }
 
 class FormalChildComponent(val addHelperAssertion : Boolean = false) extends Component {
@@ -48,34 +47,24 @@ class FormalChildComponent(val addHelperAssertion : Boolean = false) extends Com
   dut.anyseq_inputs()
 }
 
-class ParentComponent() extends Component with HasFormalAsserts {
+class ParentComponent() extends ComponentWithFormalProperties {
   val io = new Bundle {
     val contract = slave(TestBundle())
   }
 
   val child = new ChildComponent()
   child.io <> io
-
-  override lazy val formalValidInputs = child.formalValidInputs
-
-  override protected def formalChecks()(implicit useAssumes: Boolean): Unit = {
-    // The child component is tested independently; assume it is valid
-    child.formalAssumes()
-
-    super.formalChecks()
-  }
 }
 
 class FormalParentComponent(assumeInputs : Boolean = true) extends Component {
   val dut = FormalDut(new ParentComponent())
   assumeInitial(ClockDomain.current.isResetActive)
 
-  dut.formalAsserts()
-  if(assumeInputs) {
-    dut.formalAssumeInputs()
+  if(!assumeInputs) {
+    dut.CurrentInputsAssertionKind = AssertStatementKind.ASSERT
   }
 
-  anyseq(dut.io.contract.input)
+  dut.anyseq_inputs()
 }
 
 class FormalHasFormalTester extends SpinalFormalFunSuite {
@@ -103,7 +92,12 @@ class FormalHasFormalTester extends SpinalFormalFunSuite {
 
   test("Check Parent - no input assumes") {
     // Shows that if we don't assume proper inputs into the parent, that the assumptions in the child class are correctly
-    // predicated on the inputs being correct
+    // predicated on the inputs being correct. Our expectations here are that the emitted verilog does have assumptions
+    // from the child class, but they are in if blocks and the solver correctly identifies the 0xdeadbeef input as
+    // breaking the design.
+    //
+    // If the predicates aren't there correctly, the inner assume is applied all the time and the solver effectively
+    // ignores inputs that fail the test.
     shouldFail(
       FormalConfig.withProve(15).doVerify(new FormalParentComponent(assumeInputs = false))
     )
