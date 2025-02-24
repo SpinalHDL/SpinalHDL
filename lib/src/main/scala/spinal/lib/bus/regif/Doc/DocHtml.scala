@@ -97,7 +97,7 @@ object TableTreeNodeImplicits{
   }
 
   implicit class RegSliceExtend(reg: RegSlice) extends TableTreeNode {
-    override val name: String = reg.name
+    override val name: String = reg.getName
     override val children: List[TableTreeNode] = reg.getFields.reverse.map(new FieldExtend(_))
     val regType= reg.regType.toLowerCase
     override def tr_begin = s"""<tr align="left" class="${regType}">""".stripMargin
