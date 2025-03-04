@@ -396,7 +396,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
     onReadStart(addr, size, len)
-    delayed(baseLatency) {
+    def body =  {
       for(beat <- 0 to len) {
         val beatAddress = burst match {
           case 0 => addr
@@ -423,6 +423,8 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
       }
       if(!withArReordering) arIdQueue += id
     }
+
+    if(baseLatency != 0) delayed(baseLatency)(body) else body
     arQueue.enqueue(id)
   }
 
