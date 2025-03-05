@@ -43,17 +43,21 @@ class ScoreboardInOrder[T]() {
 
   def compare(ref : T, dut : T) = !(ref != dut)
 
+  def onMismatch(ref: T, dut: T) = {
+    println("Transaction mismatch :")
+    println("REF :")
+    println(ref)
+    println("DUT :")
+    println(dut)
+    simFailure()
+  }
+
   def check(): Unit ={
     if(ref.nonEmpty && dut.nonEmpty){
       val dutHead = dut.dequeue()
       val refHead = ref.dequeue()
       if(!compare(refHead, dutHead)){
-        println("Transaction mismatch :")
-        println("REF :")
-        println(refHead)
-        println("DUT :")
-        println(dutHead)
-        simFailure()
+        onMismatch(refHead, dutHead)
       }
       matches += 1
     }
