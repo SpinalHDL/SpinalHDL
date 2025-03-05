@@ -313,10 +313,10 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
     }
   }
 
+
   val awMonitor = StreamMonitor(aw, clockDomain){aw =>
     val id = if(busConfig.useId) aw.id.toInt else 0
     awQueue += id
-
     val len = if(busConfig.useLen) aw.len.toInt else 0
     for(beat <- 0 to len) {
       wProcess += { (last : Boolean) =>
@@ -384,8 +384,9 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
   val arIdQueue = !withArReordering generate mutable.Queue[Int]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val rQueue = Array.fill(idCount)(mutable.Queue[(Boolean, () => Unit)]())
-  def readByte(address : BigInt) : Byte = simRandom.nextInt().toByte
-  def onReadStart(address : BigInt, size : Int, length : Int) : Unit = {}
+  def readByte(address : BigInt, id : Int) : Byte = simRandom.nextInt().toByte
+  def onReadStart(address : BigInt, size : Int, length : Int, cache : Int, id : Int) : Unit = {}
+  def onReadLast(id : Int) : Unit = { }
 
   val arMonitor = StreamMonitor(ar, clockDomain){ar =>
     val size = if(busConfig.useSize) ar.size.toInt else log2Up(busConfig.dataWidth / 8)
@@ -393,9 +394,10 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
     val id = if(busConfig.useId) ar.id.toInt else 0
     val burst = if(busConfig.useBurst) ar.burst.toInt else 1
     val addr = ar.addr.toBigInt
+    val cache = if(busConfig.useCache) ar.cache.toInt else 0
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
-    onReadStart(addr, size, len)
+    onReadStart(addr, size, len, cache, id)
     def body =  {
       for(beat <- 0 to len) {
         val beatAddress = burst match {
@@ -413,12 +415,13 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
           if (busConfig.useLast) r.last #= (beat == len)
           var data = BigInt(0)
           for (i <- 0 until busConfig.bytePerWord) {
-            data = data | (BigInt(readByte(beatAddress + i).toInt & 0xFF)) << i * 8
+            data = data | (BigInt(readByte(beatAddress + i, id).toInt & 0xFF)) << i * 8
           }
           r.data #= data
           if (beat == len) {
             arQueue.dequeue()
           }
+          if(beat == len) onReadLast(id)
         }
       }
       if(!withArReordering) arIdQueue += id
@@ -473,9 +476,10 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
       + "determine the burst length of transcation by last signal should not work.")
   }
 
-  def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {}
+  def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int, cache : Int): Unit = {}
   def onWriteByteAlways(address: BigInt, data: Byte, strobe: Boolean, id: Int): Unit = {}
   def onWriteByte(address : BigInt, data : Byte, id: Int) : Unit = {}
+  def onWriteLast(id : Int) : Unit = {}
   @deprecated("Use onWriteByte with ID argument")
   def onWriteByte(address : BigInt, data : Byte) : Unit = {} // Legacy, use onWriteByte for more ID information
   def onResponse(id: Int, resp: Byte): Unit = {}
@@ -503,12 +507,13 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
     val len = if(busConfig.useLen) aw.len.toInt else 0
     val burst = if(busConfig.useBurst) aw.burst.toInt else 1
     val id = if (busConfig.useId) aw.id.toInt.toByte else 0
+    val cache = if (busConfig.useCache) aw.cache.toInt.toByte else 0
     val addr = aw.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
     val bytePerBus = 1 << log2Up(busConfig.dataWidth / 8)
 
-    onWriteStart(addr, id, size, len, burst)
+    onWriteStart(addr, id, size, len, burst, cache)
 
     for(beat <- 0 to len) {
       val beatAddress = burst match {
@@ -536,6 +541,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
             onWriteByte(accessAddress + i, _byte, id)
           }
         }
+        if(beat == len) onWriteLast(id)
       }
     }
     awCounter += 1

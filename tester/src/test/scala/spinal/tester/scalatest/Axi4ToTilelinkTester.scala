@@ -61,7 +61,7 @@ class Axi4ToTilelinkTester extends SpinalAnyFunSuite{
       }
 
       val upMonitor = new Axi4WriteOnlyMonitor (dut.io.up, cd) {
-        override def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {
+        override def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int, cache : Int): Unit = {
           inflightIds(id) += 1
         }
         override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {

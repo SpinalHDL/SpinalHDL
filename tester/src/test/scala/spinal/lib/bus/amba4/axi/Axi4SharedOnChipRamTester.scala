@@ -95,7 +95,7 @@ class Axi4SharedOnChipRamMultiPortTester extends SpinalAnyFunSuite {
             override def mappingFree(mapping: SizeMapping): Unit = regions.remove(mapping)
         }
         val writeMonitor = new Axi4WriteOnlyMonitor(port, clockDomain) {
-            override def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {}
+            override def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int, cache : Int): Unit = {}
 
             override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
                 memory(address) = data
