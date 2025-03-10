@@ -202,6 +202,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     fifo.io.push << self
   }.fifo.io.pop
 
+  /** Connect this to a register constructed fifo and return its pop stream
+   */
+  def queueOfReg(size: Int, latency : Int = 1, forFMax : Boolean = false, initPayload : => T = null.asInstanceOf[T]): Stream[T] = new Composite(this){
+    val fifo = new StreamFifo(payloadType, size, withBypass = latency == 0, withAsyncRead = true, useVec = true, forFMax = forFMax, initPayload = initPayload).setCompositeName(this,"queue", true)
+    fifo.io.push << self
+  }.fifo.io.pop
+
 /** Connect this to an clock crossing fifo and return its pop stream
   */
   def queue(size: Int, pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
@@ -927,6 +934,15 @@ object StreamMux {
     select >> c.io.createStreamRegSelect()
     c.io.output
   }
+  /**
+   * Directly merge multiple streams into a single one, only one stream is valid at a time.
+   */
+  def merge[T <: Data](inputs: Seq[Stream[T]]): Stream[T] = {
+    val c = new StreamMux(inputs(0).payload, inputs.length)
+    (c.io.inputs, inputs).zipped.foreach(_ << _)
+    c.io.select := OHToUInt(inputs.map(_.valid))
+    c.io.output
+  }
 }
 
 class StreamMux[T <: Data](dataType: T, portCount: Int) extends Component {
@@ -1210,6 +1226,7 @@ object StreamFifo{
   * @param forFMax Tune the design to get the maximal clock frequency
   * @param useVec Use an Vec of register instead of a Mem to store the content
   *               Only available if withAsyncRead == true
+  * @param initPayload Initialize the Vec of register with the initial value
   */
 class StreamFifo[T <: Data](val dataType: HardType[T],
                             val depth: Int,
@@ -1217,7 +1234,8 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
                             val withBypass : Boolean = false,
                             val allowExtraMsb : Boolean = true,
                             val forFMax : Boolean = false,
-                            val useVec : Boolean = false) extends Component {
+                            val useVec : Boolean = false,
+                            initPayload : => T = null.asInstanceOf[T]) extends Component {
   require(depth >= 0)
 
   if(withBypass) require(withAsyncRead)
@@ -1252,7 +1270,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
   }
   val oneStage = (depth == 1) generate new Area {
     val doFlush = CombInit(io.flush)
-    val buffer = io.push.m2sPipe(flush = doFlush)
+    val buffer = io.push.m2sPipe(flush = doFlush, initPayload = initPayload)
     io.pop << buffer
     io.occupancy := U(buffer.valid)
     io.availability := U(!buffer.valid)
@@ -1266,7 +1284,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
   val logic = (depth > 1) generate new Area {
-    val vec = useVec generate Vec(Reg(dataType), depth)
+    val vec = useVec generate Vec(Reg(dataType) initNull(initPayload), depth)
     val ram = !useVec generate Mem(dataType, depth)
 
     val ptr = new Area{
@@ -1480,7 +1498,7 @@ object StreamFifoLowLatency{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoLowLatency(dataType,depth)
 }
 
-class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0, useVec : Boolean = false) extends Component {
+class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0, useVec : Boolean = false, initPayload : => T = null.asInstanceOf[T]) extends Component {
   assert(latency == 0 || latency == 1)
 
   val io = new Bundle with StreamFifoInterface[T]{
@@ -1498,7 +1516,8 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
     depth = depth,
     withAsyncRead = true,
     withBypass = latency == 0,
-    useVec = useVec
+    useVec = useVec,
+    initPayload = initPayload
   )
 
   io.push <> fifo.io.push
