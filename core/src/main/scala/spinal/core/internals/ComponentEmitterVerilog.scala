@@ -40,6 +40,7 @@ class ComponentEmitterVerilog(
   nativeRom                          : Boolean,
   nativeRomFilePrefix                : String,
   caseRom                            : Boolean,
+  blackBoxRom                        : Boolean,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
   emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
   pc                                 : PhaseContext,
@@ -370,8 +371,20 @@ class ComponentEmitterVerilog(
     for (child <- component.children) {
       val isBB             = child.isInstanceOf[BlackBox] && child.asInstanceOf[BlackBox].isBlackBox
       val isBBUsingULogic  = isBB && child.asInstanceOf[BlackBox].isUsingULogic
-      val definitionString =  if (isBB) child.definitionName else getOrDefault(emitedComponentRef, child, child).definitionName
+      val definitionString =  if (isBB)
+        {
+          if (child.definitionName == "Rom_1rs") {
+            // each ROM blackbox needs a unique name since it contains the ROM data
+            s"${child.name}_${child.definitionName}"
+          } else {
+            child.definitionName
+          }
+        } else getOrDefault(emitedComponentRef, child, child).definitionName
 
+      if (child.isInstanceOf[Rom_1rs] && !blackBoxRom) {
+        // abort blackboxing if blackboxing not selected for ROM
+        return
+      }
       val instanceAttributes = emitSyntaxAttributes(child.instanceAttributes)
 
       val istracingOff = child.hasTag(TracingOff)
@@ -1253,7 +1266,6 @@ class ComponentEmitterVerilog(
           }
         } else {
 
-
           val withSymbols = memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1
           for (i <- 0 until symbolCount) {
             val symbolPostfix = if (withSymbols) s"_symbol$i" else ""
@@ -1283,7 +1295,9 @@ class ComponentEmitterVerilog(
               case Some(x) => x
             }
 
-            logics ++= s"""    $$readmemb("${relativePath}",${emitReference(mem, false)}${symbolPostfix});\n"""
+            if (!blackBoxRom) {
+              logics ++= s"""    $$readmemb("${relativePath}",${emitReference(mem, false)}${symbolPostfix});\n"""
+            }
           }
         }
 
