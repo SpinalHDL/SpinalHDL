@@ -100,7 +100,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /**
    * Use anyseq on any input signals to this component which do not have existing assignments.
    */
-  def anyseq_inputs(): Unit = {
+  def makeInputsAnyseq(): Unit = {
     getAllIo.filter(_.isInput).filter(_.dlcIsEmpty).foreach(anyseq)
   }
 
