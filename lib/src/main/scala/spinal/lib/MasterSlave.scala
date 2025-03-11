@@ -1,6 +1,7 @@
 package spinal.lib
 
-import spinal.core.{Data, HardType, IConnectable}
+import spinal.core.{Data, HardType, IConnectable, IODirection}
+import scala.collection.mutable.ArrayBuffer
 
 /** An interface that a `Bundle` can implement if it obeys to a master/slave topology.
   * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bundle.html#master-slave Bundle documentation]]
@@ -170,4 +171,36 @@ object slaveWithNull extends MS {
 @deprecated("Use apply or port instead: 'val b = master(maybeNull)' or 'val rgb = master port maybeNull'")
 object masterWithNull extends MS {
   override def applyIt[T <: IMasterSlave](that: T): T = if (that != null) master(that) else that
+}
+trait IMasterSlaveDirDeclare extends IMasterSlave {
+  /** Define the direction of ports during declaration. asMaster does not need to be manually derived.
+    * For example:
+    * ```scala
+    * case class TestInterface() extends Bundle with IMasterSlaveEasy {
+    *    val testOut = out masterPort Bool()
+    *    val testIn = in masterPort Bool()
+    *    val testMaster = master masterPort Stream(Bool())
+    *    val testSlave = slave masterPort Stream(Bool())
+    *  }
+    *  ```
+    *
+    * @return
+    */
+  var directions = ArrayBuffer.empty[() => Unit]
+
+  implicit class DirectionAddMasterPort(dir: IODirection) {
+    def masterPort[T <: Data](port: T) = {
+      directions += (() => dir(port))
+      port
+    }
+  }
+
+  implicit class MSAddMasterPort(dir: MS) {
+    def masterPort[T <: IMasterSlave](port: T) = {
+      directions += (() => dir(port))
+      port
+    }
+  }
+
+  override final def asMaster(): Unit = directions.foreach(_())
 }
