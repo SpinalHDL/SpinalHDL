@@ -24,9 +24,9 @@ import spinal.core.internals._
 import spinal.idslplugin.Location
 
 /**
-  * SInt factory used for instance by the IODirection to create a in/out SInt
+  * `SInt` factory used for instance by the `IODirection` to create a in/out `SInt`
   */
-trait SIntFactory{
+trait SIntFactory {
   /** Create a new SInt */
   def SInt(u: Unit = ()) = new SInt()
   /** Create a new SInt of a given width */
@@ -34,8 +34,7 @@ trait SIntFactory{
 }
 
 
-/**
-  * The SInt type corresponds to a vector of bits that can be used for signed integer arithmetic.
+/** The `SInt` type corresponds to a vector of bits that can be used for signed integer arithmetic.
   *
   * @example{{{
   *     val mySInt = SInt(8 bits)
@@ -43,7 +42,7 @@ trait SIntFactory{
   *     mySInt    := S(4) - S"h1A"
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html `UInt/`SInt` Documentation]]
   */
 class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BaseTypePrimitives[SInt]  with BitwiseOp[SInt] {
   override def tag(q: QFormat): SInt = {
@@ -64,18 +63,19 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   private[spinal] override  def _data: SInt = this
 
   /**
-    * Concatenation between two SInt
+    * Concatenation between two `SInt`
     * @example{{{ val mySInt = sInt1 @@ sInt2 }}}
     * @param that an SInt to append
-    * @return a new SInt of width (width(this) + width(right))
+    * @return a new `SInt` of width (width(this) + width(right))
     */
   def @@(that: SInt): SInt = S(this ## that)
-  /** Concatenation between a SInt and UInt */
+  /** Concatenation between a `SInt` and `UInt` */
   def @@(that: UInt): SInt = S(this ## that)
-  /** Concatenation between a SInt and a Bool */
+  /** Concatenation between a `SInt` and a `Bool` */
   def @@(that: Bool): SInt = S(this ## that)
 
   /* Implement Num operators */
+
   override def + (right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Add)
   override def - (right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Sub)
   override def * (right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Mul)
@@ -106,9 +106,9 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   /* Implement fixPoint operators */
   def sign: Bool = this.msb
   /**
-    * SInt symmetric
+    * `SInt` symmetric
     * @example{{{ val symmetrySInt = mySInt.symmetry }}}
-    * @return return a SInt which minValue equal -maxValue
+    * @return return a `SInt` which minValue equal -maxValue
     */
   def symmetry: SInt = {
     val ret = cloneOf(this)
@@ -116,7 +116,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     ret
   }
 
-  /**Saturation highest m bits*/
+  /** Saturation highest m bits */
   override def sat(m: Int): SInt = {
     require(getWidth > m, s"Saturation bit width $m must be less than data bit width $getWidth")
     m match {
@@ -128,14 +128,14 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   private def _sat(m: Int): SInt ={
     val ret = SInt(getWidth-m bit)
-    when(this.sign){//negative process
-      when(!this(getWidth-1 downto getWidth-m-1).asBits.andR){
+    when(this.sign) { // negative process
+      when(!this(getWidth-1 downto getWidth-m-1).asBits.andR) {
         ret := ret.minValue
       }.otherwise{
         ret := this(getWidth-m-1 downto 0)
       }
-    }.otherwise{//positive process
-      when(this(getWidth-2 downto getWidth-m-1).asBits.orR){
+    }.otherwise { // positive process
+      when(this(getWidth-2 downto getWidth-m-1).asBits.orR) {
         ret := ret.maxValue
       }.otherwise {
         ret := this(getWidth-m- 1 downto 0)
@@ -146,12 +146,12 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   def satWithSym(m: Int): SInt = sat(m).symmetry
 
-  /**highest m bits Discard */
+  /** Discard the highest `m` bits */
   override def trim(m: Int): SInt = this(getWidth-m-1 downto 0)
 
-  /**Round Api*/
+  /** Round Api */
 
-  /**return w(this)-n bits*/
+  /** return `w(this)-n` bits */
   override def floor(n: Int): SInt = {
     require(getWidth > n, s"floor bit width $n must be less than data bit width $getWidth")
     n match {
@@ -163,7 +163,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   private def _floor(n: Int): SInt = this >> n
 
   /**
-    * SInt ceil
+    * `SInt` ceil
     * @example{{{ val mySInt = SInt(w bits).ceil }}}
     * @param  n : ceil lowerest n bit
     * @return a new SInt of width (w - n + 1)
@@ -534,9 +534,21 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     case _                   => SpinalError(s"Don't know how compare $this with $that"); null
   }
 
+  private[core] override def isEqualToSim(that: Any): Bool = that match {
+    case that: SInt           => wrapLogicalOperator(that, new Operator.SInt.EqualSim)
+    case that: MaskedLiteral  => that === this
+    case _                    => SpinalError(s"Don't know how compare $this with $that"); null
+  }
+
+
   private[core] override def newMultiplexerExpression() = new MultiplexerSInt
   private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerSInt
 
+
+  /** Return a resized copy of x.
+    * 
+    * If enlarged, it is extended with the sign at MSB as necessary.
+    */
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node   = new ResizeSInt
     node.input = this
@@ -544,6 +556,10 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     node
   })
 
+  /** Return a resized copy of x.
+    * 
+    * If enlarged, it is extended with the sign at MSB as necessary.
+    */
   override def resize(width: BitCount) : SInt = resize(width.value)
 
   override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))

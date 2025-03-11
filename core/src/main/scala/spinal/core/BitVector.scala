@@ -26,14 +26,13 @@ import spinal.idslplugin.Location
 import scala.collection.mutable.ArrayBuffer
 
 
-/**
-  * BitVector is a family of types for storing multiple bits of information in a single value.
-  * This type has three subtypes that can be used to model different behaviours:
-  *     - Bits
-  *     - UInt (unsigned integer)
-  *     - SInt (signed integer)
+/** `BitVector` is a family of types for storing multiple bits of information in a single value.
+  * This type has three subtypes that can be used to model different behaviors:
+  *     - `Bits`
+  *     - `UInt` (unsigned integer)
+  *     - `SInt` (signed integer)
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/TypeIntroduction BitVector Documentation]]
+  * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Developers%20area/types.html#the-bitvector-family-bits-uint-sint `BitVector` family Documentation]]
   */
 abstract class BitVector extends BaseType with Widthable {
 
@@ -57,8 +56,10 @@ abstract class BitVector extends BaseType with Widthable {
 
   def reversed : this.type
 
-  /** Logical OR of all bits */
-//  def orR: Bool = this.asBits =/= 0
+  /** Hardware logical OR of all bits
+    * 
+    * Equivalent to `this.asBits =/= 0`.
+    */
   def orR: Bool = {
     if(GlobalData.get.config.mode == VHDL) {
       this.asBits =/= 0
@@ -66,8 +67,11 @@ abstract class BitVector extends BaseType with Widthable {
       wrapUnaryWithBool(new Operator.BitVector.orR)
     }
   }
-  /** Logical AND of all bits */
-//  def andR: Bool = this.asBits === ((BigInt(1) << getWidth) - 1)
+
+  /** Hardware logical AND of all bits
+    * 
+    * Equivalent to `this.asBits === ((BigInt(1) << getWidth) - 1)`.
+    */  
   def andR: Bool = {
     if(GlobalData.get.config.mode == VHDL) {
       this.asBits === ((BigInt(1) << getWidth) - 1)
@@ -75,8 +79,11 @@ abstract class BitVector extends BaseType with Widthable {
       wrapUnaryWithBool(new Operator.BitVector.andR)
     }
   }
-  /** Logical XOR of all bits */
-//  def xorR: Bool = this.asBools.reduce(_ ^ _)
+ 
+  /** Hardware logical XOR of all bits    
+    * 
+    * Equivalent to `this.asBools.reduce(_ ^ _)`.
+    */   
   def xorR: Bool = {
     if(GlobalData.get.config.mode == VHDL) {
       this.asBools.reduce(_ ^ _)
@@ -85,8 +92,13 @@ abstract class BitVector extends BaseType with Widthable {
     }
   }
 
+  /** Hardware logical NOR of all bits */
   def norR : Bool = !orR
+  
+  /** Hardware logical NAND of all bits */
   def nandR : Bool = !andR
+
+  /** Hardware logical NXOR of all bits */
   def nxorR : Bool = !xorR
 
   /**
@@ -203,9 +215,7 @@ abstract class BitVector extends BaseType with Widthable {
     w
   }
 
-  /**
-    * Cast the BitVector into a Vector of Bool
-    * @return a vector of Bool
+  /** Cast the `BitVector` into a vector of `Bool`
     */
   def asBools: Vec[Bool] = signalCache(this, "asBools") {
     val vec = ArrayBuffer[Bool]()
@@ -215,6 +225,7 @@ abstract class BitVector extends BaseType with Widthable {
     Vec(vec)
   }
 
+  /** Return `this.lsb` */
   def asBool : Bool = {
     val ret = Bool()
     ret := lsb
@@ -229,8 +240,7 @@ abstract class BitVector extends BaseType with Widthable {
     }
   }
 
-  /**
-    * Take lowerst n bits
+  /** Take lowest n bits
     * @example {{{ val res = data10bits.take(4) }}}
     * @return data10bits(3 downto 0)
     */
@@ -242,7 +252,7 @@ abstract class BitVector extends BaseType with Widthable {
   def takeLow(n: Int): Bits = take(n)
 
   /**
-    * Drop lowerst n bits
+    * Drop lowest n bits
     * @example {{{ val res = data10bits.drop(4) }}}
     * @return data10bits(9 downto 4)
     */

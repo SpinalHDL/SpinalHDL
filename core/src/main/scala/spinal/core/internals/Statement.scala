@@ -61,10 +61,11 @@ class ScopeStatement(var parentStatement: TreeStatement) {
 
   def push() = DslScopeStack.set(this)
 
-  def on(body : => Unit): Unit = {
+  def on[T](body : => T): T = {
     val ctx = push()
-    body
+    val ret = body
     ctx.restore()
+    ret
   }
 
   //Execute body on the head of the ScopeStatement list
