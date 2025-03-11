@@ -1261,7 +1261,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
   }
   val oneStage = (depth == 1) generate new Area {
     val doFlush = CombInit(io.flush)
-    val buffer = io.push.m2sPipe(flush = doFlush, initPayload = initPayload)
+    val buffer = io.push.m2sPipe(flush = doFlush, initPayload = initPayload.asInstanceOf[T])
     io.pop << buffer
     io.occupancy := U(buffer.valid)
     io.availability := U(!buffer.valid)
