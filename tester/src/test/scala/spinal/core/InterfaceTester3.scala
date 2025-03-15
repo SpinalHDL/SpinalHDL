@@ -143,6 +143,9 @@ class IMasterSlaveDirDeclareTest extends SpinalAnyFunSuite {
       val testSlave = slave port Stream(Bool())
     }
     SimConfig.compile(new Component {
+      val withoutDir = TestInterface()
+      withoutDir.assignDontCareToUnasigned()
+      println(withoutDir.testOut.getDirection)
       val masterInterface = master port TestInterface()
       val slaveInterface = slave port TestInterface()
       assert(masterInterface.testOut.getDirection == out)
