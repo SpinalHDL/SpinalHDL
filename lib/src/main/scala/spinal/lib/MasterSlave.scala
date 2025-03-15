@@ -175,33 +175,47 @@ trait IMasterSlaveDirDeclare extends IMasterSlave {
   /** Define the direction of ports during declaration. asMaster does not need to be manually derived.
     * For example:
     * ```scala
-    * case class TestInterface() extends Bundle with IMasterSlaveEasy {
-    *    val testOut = out masterPort Bool()
-    *    val testIn = in masterPort Bool()
-    *    val testMaster = master masterPort Stream(Bool())
-    *    val testSlave = slave masterPort Stream(Bool())
+    * case class TestInterface() extends Bundle with IMasterSlaveDirDeclare {
+    *    val testOut = out port Bool()
+    *    val testIn = in port Bool()
+    *    val testMaster = master port Stream(Bool())
+    *    val testSlave = slave port Stream(Bool())
     *  }
     *  ```
     *
     * @return
     */
-  // var directions = ArrayBuffer.empty[() => Unit]
-  // def out = new {
-  //   def port[T <: Data](port: T) = {
-  //     directions += (() => spinal.core.out(port))
-  //     port
-  //   }
-  // }
-  // implicit class DirectionAddMasterPort(dir: IODirection) {
-  // }
+  var directions = ArrayBuffer.empty[() => Unit]
+  def out = new {
+    def port[T <: Data](port: T) = {
+      directions += (() => spinal.core.out(port))
+      port
+    }
+  }
+  def in = new {
+    def port[T <: Data](port: T) = {
+      directions += (() => spinal.core.in(port))
+      port
+    }
+  }
+  def inout = new {
+    def port[T <: Data](port: T) = {
+      directions += (() => spinal.core.inout(port))
+      port
+    }
+  }
+  def slave = new {
+    def port[T <: IMasterSlave](port: T) = {
+      directions += (() => spinal.lib.slave(port))
+      port
+    }
+  }
+  def master = new {
+    def port[T <: IMasterSlave](port: T) = {
+      directions += (() => spinal.lib.master(port))
+      port
+    }
+  }
 
-  // implicit class MSAddMasterPort(dir: MS) {
-  //   def masterPort[T <: IMasterSlave](port: T) = {
-  //     directions += (() => dir(port))
-  //     port
-  //   }
-  // }
-
-  // override final def asMaster(): Unit = directions.foreach(_())
-  override final def asMaster(): Unit = {}
+  override final def asMaster(): Unit = directions.foreach(_())
 }
