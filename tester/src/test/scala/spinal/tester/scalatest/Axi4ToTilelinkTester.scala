@@ -20,7 +20,7 @@ class Axi4ToTilelinkTester extends SpinalAnyFunSuite{
         useRegion = false,
         useBurst = false,
         useLock = false,
-        useCache = false,
+        useCache = true,
         useQos = false,
         useProt = false
       ),
@@ -57,7 +57,7 @@ class Axi4ToTilelinkTester extends SpinalAnyFunSuite{
           regions += mapping
           true
         }
-        override def mappingFree(mapping: SizeMapping): Unit = regions.remove(mapping)
+        override def mappingFree(mapping: SizeMapping): Unit = delayed(10000)(regions.remove(mapping))
       }
 
       val upMonitor = new Axi4WriteOnlyMonitor (dut.io.up, cd) {
@@ -92,9 +92,9 @@ class Axi4ToTilelinkTester extends SpinalAnyFunSuite{
       val writeChecker = downAgent.monitor.add(new MonitorSubscriber{
         override def onA(a: TransactionA) = {
           val addr = a.address.toInt
-          for((value, i) <- a.data.zipWithIndex){
+          for ((value, i) <- a.data.zipWithIndex) {
             val local = addr + i
-            if(a.mask(i)) writesInflights.get(local) match {
+            if (a.mask(i)) writesInflights.get(local) match {
               case Some(x) => assert(x == value)
               case None => simFailure(f"Spawned a write out of nothing on $local%x")
             }
@@ -114,7 +114,7 @@ class Axi4ToTilelinkTester extends SpinalAnyFunSuite{
         useRegion = false,
         useBurst = false,
         useLock = false,
-        useCache = false,
+        useCache = true,
         useQos = false,
         useProt = false
       ),
