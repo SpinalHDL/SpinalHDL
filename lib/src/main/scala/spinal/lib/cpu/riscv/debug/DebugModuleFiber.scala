@@ -71,12 +71,13 @@ class DebugModuleFiber() extends Area{
     }
   }
 
-  def withJtagTap() = {
+  def withJtagTap(jtagFrequency : ClockDomain.ClockFrequency = UnknownFrequency()) = {
     val db = DebugBus(p.addressWidth); debugBuses += db
     Fiber build new Area {
       val logic = DebugTransportModuleJtagTap(
         p,
-        debugCd = cmCd
+        debugCd = cmCd,
+        jtagFrequency = jtagFrequency
       )
       db <> logic.io.bus
       val jtag = logic.io.jtag.toIo

@@ -56,7 +56,7 @@ object ScopeProperty {
       it.set(context.clone())
     }
 
-    def get[T](sp: ScopeProperty[T]) : T = context.get(sp.asInstanceOf[ScopeProperty[Any]]).asInstanceOf[T]
+    def get[T](sp: ScopeProperty[T]) : T = context.get(sp.asInstanceOf[ScopeProperty[Any]]).get.asInstanceOf[T]
   }
 
   def capture(): Capture ={

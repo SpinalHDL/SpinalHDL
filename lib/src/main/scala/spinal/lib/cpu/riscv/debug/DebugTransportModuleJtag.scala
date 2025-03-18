@@ -107,13 +107,14 @@ class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
 
 case class DebugTransportModuleJtagTap(p : DebugTransportModuleParameter,
                                        debugCd : ClockDomain,
-                                       jtagId : Int = 0x10002FFF) extends Component{
+                                       jtagId : Int = 0x10002FFF,
+                                       jtagFrequency : ClockDomain.ClockFrequency = ClockDomain.UnknownFrequency()) extends Component{
   val io = new Bundle {
     val jtag = slave(Jtag())
     val bus = master(DebugBus(p.addressWidth))
   }
 
-  val jtagCd = ClockDomain(io.jtag.tck)
+  val jtagCd = ClockDomain(io.jtag.tck, frequency = jtagFrequency)
 
   val tap = jtagCd on JtagTapFactory(io.jtag, instructionWidth = 5)
   val idcodeArea = jtagCd on tap.idcode(B(jtagId, 32 bits))(1)
