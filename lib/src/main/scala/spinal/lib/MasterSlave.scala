@@ -172,6 +172,7 @@ object masterWithNull extends MS {
   override def applyIt[T <: IMasterSlave](that: T): T = if (that != null) master(that) else that
 }
 trait IMasterSlaveDirDeclare extends IMasterSlave {
+
   /** Define the direction of ports during declaration. asMaster does not need to be manually derived.
     * For example:
     * ```scala
@@ -186,35 +187,42 @@ trait IMasterSlaveDirDeclare extends IMasterSlave {
     * @return
     */
   var directions = ArrayBuffer.empty[() => Unit]
-  def out = new {
+  trait PortRedirect[Base] {
+    def port[T <: Base](port: T): T
+    def apply[T <: Base](t: T) = port(t)
+  }
+  def out = new PortRedirect[Data] {
     def port[T <: Data](port: T) = {
       directions += (() => spinal.core.out(port))
       port
     }
   }
-  def in = new {
+  def in = new PortRedirect[Data] {
     def port[T <: Data](port: T) = {
       directions += (() => spinal.core.in(port))
       port
     }
   }
-  def inout = new {
+  def inout = new PortRedirect[Data] {
     def port[T <: Data](port: T) = {
       directions += (() => spinal.core.inout(port))
       port
     }
+
   }
-  def slave = new {
+  def slave = new PortRedirect[IMasterSlave] {
     def port[T <: IMasterSlave](port: T) = {
       directions += (() => spinal.lib.slave(port))
       port
     }
+
   }
-  def master = new {
+  def master = new PortRedirect[IMasterSlave] {
     def port[T <: IMasterSlave](port: T) = {
       directions += (() => spinal.lib.master(port))
       port
     }
+
   }
 
   override final def asMaster(): Unit = directions.foreach(_())
