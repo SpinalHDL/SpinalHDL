@@ -463,6 +463,20 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next.setCompositeName(this, "continueWhen", true)
   }
 
+  /**
+   * Discard transactions when cond is true.
+   *
+   * This is the same as throwWhen() but with a semantically clearer function name.
+   * Prefer discardWhen() over throwWhen() for new designs.
+   *
+   * @param cond Condition
+   *
+   * @return The resulting Stream
+   */
+  def discardWhen(cond: Bool): Stream[T] = {
+    this throwWhen(cond)
+  }
+
 /** Drop transactions of this when cond is True. Return the resulting stream
   */
   def throwWhen(cond: Bool): Stream[T] = {
