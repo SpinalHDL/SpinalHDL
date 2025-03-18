@@ -679,7 +679,7 @@ object StreamArbiter {
       maskProposal := OHMasking.roundRobin(Vec(io.inputs.map(_.valid)),Vec(maskLocked.last +: maskLocked.take(maskLocked.length-1)))
     }
     /** This arbiter requires that only one input is valid at any given time. */
-    def exclusive(core: StreamArbiter[_ <: Data]) = new Area {
+    def assumeOhInput(core: StreamArbiter[_ <: Data]) = new Area {
       import core._
       exclusiveInputs = true
       (maskProposal, io.inputs).zipped.map(_ := _.valid)
@@ -792,8 +792,8 @@ class StreamArbiterFactory {
     arbitrationLogic = StreamArbiter.Arbitration.sequentialOrder
     this
   }
-  def exclusive: this.type = {
-    arbitrationLogic = StreamArbiter.Arbitration.exclusive
+  def assumeOhInput: this.type = {
+    arbitrationLogic = StreamArbiter.Arbitration.assumeOhInput
     this
   }
 
