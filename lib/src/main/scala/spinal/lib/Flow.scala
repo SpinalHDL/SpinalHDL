@@ -106,6 +106,20 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     return next
   }
 
+  /**
+   * Discard transactions when cond is true.
+   *
+   * This is the same as throwWhen() but with a semantically clearer function name.
+   * Prefer discardWhen() over throwWhen() for new designs.
+   *
+   * @param cond Condition
+   *
+   * @return The resulting Flow
+   */
+  def discardWhen(cond: Bool): Flow[T] = {
+    this throwWhen(cond)
+  }
+
   def throwWhen(cond: Bool): Flow[T] = {
     this takeWhen (!cond)
   }
