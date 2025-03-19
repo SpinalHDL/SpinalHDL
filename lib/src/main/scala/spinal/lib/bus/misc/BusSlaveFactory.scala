@@ -413,9 +413,10 @@ trait BusSlaveFactory extends Area{
   def createAndDriveFlow[T <: Data](dataType       : T,
                                     address        : BigInt,
                                     bitOffset      : Int = 0,
-                                    checkByteEnable: Boolean = false): Flow[T] = {
+                                    checkByteEnable: Boolean = false,
+                                    documentation: String = null): Flow[T] = {
     val flow = Flow(dataType)
-    driveFlow(flow, address, bitOffset, checkByteEnable)
+    driveFlow(flow, address, bitOffset, checkByteEnable, documentation)
     flow
   }
 
@@ -456,7 +457,7 @@ trait BusSlaveFactory extends Area{
                        address       : BigInt,
                        bitOffset     : Int = 0,
                        documentation : String = null): T = {
-    val reg = Reg(that)
+    val reg = Reg(that).setCompositeName(that, "driver", true)
     write(reg, address, bitOffset, documentation)
     that := reg
     reg
@@ -513,7 +514,8 @@ trait BusSlaveFactory extends Area{
   def driveFlow[T <: Data](that           : Flow[T],
                            address        : BigInt,
                            bitOffset      : Int = 0,
-                           checkByteEnable: Boolean = false): Unit = {
+                           checkByteEnable: Boolean = false,
+                           documentation: String = null): Unit = {
 
     val wordCount = (bitOffset + widthOf(that.payload) - 1 ) / busDataWidth + 1
     val byteEnable = writeByteEnable()
@@ -527,15 +529,15 @@ trait BusSlaveFactory extends Area{
 
     if (wordCount == 1){
       that.valid := False
-      onWrite(address){ assignValidNext(that.valid) }
-      nonStopWrite(that.payload, bitOffset)
+      onWrite(address, documentation){ assignValidNext(that.valid) }
+      nonStopWrite(that.payload, bitOffset, documentation)
     }else{
 
       assert(bitOffset == 0, "BusSlaveFactory ERROR [driveFlow] : BitOffset must be equal to 0 if the payload of the Flow is bigger than the data bus width")
 
       val regValid = RegNext(False) init(False)
-      onWrite(address + ((wordCount - 1) * wordAddressInc)){ assignValidNext(regValid) }
-      driveMultiWord(that.payload, address)
+      onWrite(address + ((wordCount - 1) * wordAddressInc), documentation){ assignValidNext(regValid) }
+      driveMultiWord(that.payload, address, documentation)
       that.valid := regValid
     }
   }

@@ -27,16 +27,16 @@ import scala.collection.mutable
 import scala.collection.immutable
 import scala.collection.mutable.ArrayBuffer
 
-sealed trait EdgeKind
+sealed trait EdgeKind extends AreaObject
 object RISING  extends EdgeKind
 object FALLING extends EdgeKind
 
-sealed trait ResetKind
+sealed trait ResetKind extends AreaObject
 object ASYNC extends ResetKind
 object SYNC  extends ResetKind
 object BOOT  extends ResetKind
 
-sealed trait Polarity{
+sealed trait Polarity extends AreaObject{
   def assertedBool : Bool
   def deassertedBool : Bool
 }
@@ -51,7 +51,7 @@ object LOW  extends Polarity{
 
 case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag{
   override def toString = s"ClockDomainTag($clockDomain)"
-  override def allowMultipleInstance = false
+  override def allowMultipleInstance = true
 }
 
 case class ClockDomainReportTag(clockDomain: ClockDomain) extends SpinalTag{
@@ -313,13 +313,13 @@ object Clock{
   }
 }
 
-/**
-  * clock and reset signals can be combined to create a clock domain.
+/** Clock and reset signals can be combined to create a clock domain.
+  * 
   * Clock domains could be applied to some area of the design and then all synchronous elements instantiated into this
   * area will then implicitly use this clock domain.
   * Clock domain application work like a stack, which mean, if you are in a given clock domain, you can still apply another clock domain locally
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/clock_domain ClockDomain Documentation]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html clock domains documentation]]
   */
 case class ClockDomain(clock       : Bool,
                        reset       : Bool = null,
@@ -327,7 +327,7 @@ case class ClockDomain(clock       : Bool,
                        softReset   : Bool = null,
                        clockEnable : Bool = null,
                        config      : ClockDomainConfig = GlobalData.get.commonClockConfig,
-                       frequency   : ClockDomain.ClockFrequency = UnknownFrequency(),
+                       var frequency   : ClockDomain.ClockFrequency = UnknownFrequency(),
                        clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) extends SpinalTagReady {
 
   assert(!(reset != null && config.resetKind == BOOT), "A reset pin was given to a clock domain where the config.resetKind is 'BOOT'")

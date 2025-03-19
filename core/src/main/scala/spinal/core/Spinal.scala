@@ -145,7 +145,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var privateNamespace           : Boolean = false,
                         var formalAsserts              : Boolean = false,
                         anonymSignalPrefix             : String = null,
-                        device                         : Device = Device(),
+                        var device                     : Device = Device(),
                         inlineRom                      : Boolean = false,
                         caseRom                        : Boolean = false,
                         romReuse                       : Boolean = false,
@@ -166,8 +166,8 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         headerWithRepoHash             : Boolean = true,
                         removePruned                   : Boolean = false,
                         allowOutOfRangeLiterals        : Boolean = false,
-                        dontCareGenAsZero              : Boolean = false,
-                        obfuscateNames                 : Boolean = false,
+                        var dontCareGenAsZero          : Boolean = false,
+                        var obfuscateNames             : Boolean = false,
                         var normalizeComponentClockDomainName : Boolean = false,
                         var devicePhaseHandler         : PhaseDeviceHandler = PhaseDeviceDefault,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
@@ -314,17 +314,17 @@ class SpinalReport[T <: Component]() {
 
 
   def printUnused() : this.type = {
-    unusedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+    unusedSignals.foreach(bt => SpinalWarning(s"Unused signal detected : $bt"))
     this
   }
 
   def printPruned() : this.type = {
-    prunedSignals.foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
+    prunedSignals.foreach(bt => SpinalWarning(s"Pruned signal detected : $bt"))
     this
   }
 
   def printPrunedIo() : this.type = {
-    prunedSignals.filter(_.dir != null).foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
+    prunedSignals.filter(_.dir != null).foreach(bt => SpinalWarning(s"Pruned signal detected : $bt"))
     this
   }
 

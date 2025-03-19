@@ -39,6 +39,12 @@ import scala.util.control.Breaks._
 package object sim {
   def SimConfig: SpinalSimConfig = new SpinalSimConfig()
 
+  def killRandom(): Unit = {
+    val r = scala.util.Random.self
+    val field = r.getClass.getDeclaredField("seed")
+    field.setAccessible(true)
+    field.set(r, null)
+  }
   def simRandom(implicit simManager: SimManager = sm) = simManager.random
   def sm = SimManagerContext.current.manager
 
@@ -293,6 +299,10 @@ package object sim {
     }
   }
 
+  def periodicaly(delay : TimeNumber)(body : => Unit) : Unit = {
+    periodicaly(timeToLong(delay))(body)
+  }
+
   def simThread = SimManagerContext.current.thread
 
 
@@ -410,6 +420,7 @@ package object sim {
     def getSim(): SimEquivT = getLong(bt) != 0
 
     def toBoolean = getSim()
+    def toInt = getLong(bt)
   }
 
 

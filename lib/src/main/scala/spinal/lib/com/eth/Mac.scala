@@ -59,11 +59,12 @@ case class MacEthCtrl(p : MacEthParameter) extends Bundle{
 }
 
 case class PhyParameter(txDataWidth : Int,
-                        rxDataWidth : Int)
+                        rxDataWidth : Int,
+                        withTxError : Boolean = false)
 
 case class PhyIo(p : PhyParameter) extends Bundle with IMasterSlave {
   val rx = Stream(Fragment(PhyRx(p.rxDataWidth)))
-  val tx = Stream(Fragment(PhyTx(p.txDataWidth)))
+  val tx = Stream(Fragment(PhyTx(p.txDataWidth, p.withTxError)))
   val colision = Bool()
   val busy = Bool()
 

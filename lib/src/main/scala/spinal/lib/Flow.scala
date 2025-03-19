@@ -86,7 +86,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
 
   def ccToggle(pushClock: ClockDomain,
                popClock: ClockDomain,
-               withOutputBufferedReset : Boolean = true,
+               withOutputBufferedReset : Boolean = ClockDomain.crossClockBufferPushToPopResetGen.get,
                withOutputM2sPipe : Boolean = true) : Flow[T] = {
     val cc = new FlowCCByToggle(payloadType, pushClock, popClock, withOutputBufferedReset=withOutputBufferedReset, withOutputM2sPipe=withOutputM2sPipe).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
@@ -104,6 +104,20 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     next.valid := this.valid && cond
     next.payload := this.payload
     return next
+  }
+
+  /**
+   * Discard transactions when cond is true.
+   *
+   * This is the same as throwWhen() but with a semantically clearer function name.
+   * Prefer discardWhen() over throwWhen() for new designs.
+   *
+   * @param cond Condition
+   *
+   * @return The resulting Flow
+   */
+  def discardWhen(cond: Bool): Flow[T] = {
+    this throwWhen(cond)
   }
 
   def throwWhen(cond: Bool): Flow[T] = {
@@ -128,12 +142,17 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   def map[T2 <: Data](translate: (T) => T2): Flow[T2] = (this ~ translate(this.payload)).setCompositeName(this, "map", true)
 
   def m2sPipe : Flow[T] = m2sPipe()
-  def m2sPipe(holdPayload : Boolean = false, flush : Bool = null, crossClockData : Boolean = false): Flow[T] = {
+  def m2sPipe(holdPayload : Boolean = false,
+              flush : Bool = null,
+              crossClockData : Boolean = false): Flow[T] = {
     if(!holdPayload) {
       val ret = RegNext(this)
       ret.valid.init(False)
       if(flush != null) when(flush){ ret.valid := False }
-      if(crossClockData) ret.payload.addTag(crossClockDomain)
+      if(crossClockData) {
+        ret.payload.addTag(crossClockDomain)
+        ret.addTag(crossClockMaxDelay(1, useTargetClock = true))
+      }
       ret
     } else {
       val ret = Reg(this)
@@ -143,7 +162,10 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
         ret.payload := this.payload
       }
       if(flush != null) when(flush){ ret.valid := False }
-      if(crossClockData) ret.payload.addTag(crossClockDomain)
+      if(crossClockData) {
+        ret.payload.addTag(crossClockDomain)
+        ret.addTag(crossClockMaxDelay(1, useTargetClock = true))
+      }
       ret
     }.setCompositeName(this, "m2sPipe", true)
   }
@@ -262,7 +284,7 @@ class FlowCCUnsafeByToggle[T <: Data](dataType: HardType[T],
   }
 
   val outputArea = new ClockingArea(finalOutputClock) {
-    val target = BufferCC(inputArea.target, doInit generate False, randBoot = !doInit)
+    val target = BufferCC(inputArea.target, doInit generate False, randBoot = !doInit, inputAttributes = Seq(crossClockMaxDelay(1, useTargetClock = true)))
     val hit = RegNext(target).addTag(noInit)
 
     val flow = cloneOf(io.input)

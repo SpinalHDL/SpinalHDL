@@ -18,6 +18,7 @@ case class CacheParam(var unp : NodeParameters,
                       var cacheBytes: Int,
                       var blockSize : Int,
                       var cnp : NodeParameters = null,
+                      var withDualPortRam : Boolean = true,
                       var cacheBanks : Int = 1,
                       var probeCount : Int = 8,
                       var aBufferCount: Int = 4,
@@ -203,25 +204,49 @@ class Cache(val p : CacheParam) extends Component {
       val upWrite, downWrite = Stream(MemWriteCmd(Bits(p.dataWidth bits), cacheAddressWidth, p.dataBytes))
       val upWriteDemux = StreamDemux(upWrite, upWrite.address.resize(log2Up(cacheBanks)), cacheBanks)
       val downWriteDemux = StreamDemux(downWrite, downWrite.address.resize(log2Up(cacheBanks)), cacheBanks)
-      val read = Stream(UInt(cacheAddressWidth bits))
+      val upRead = Stream(UInt(cacheAddressWidth bits))
+      val upReadDemux = StreamDemux(upRead, upRead.payload.resize(log2Up(cacheBanks)), cacheBanks)
 
       val banks = for(i <- 0 until cacheBanks) yield new Area{
         val ram = Mem.fill(cacheBytes/p.dataBytes/cacheBanks)(Bits(p.dataWidth bits))
         val readed = Bits(p.dataWidth bits)
         val writeArbiter = StreamArbiterFactory().noLock.lowerFirst.buildOn(downWriteDemux(i), upWriteDemux(i))
         val write = writeArbiter.io.output.combStage()
+        val read = upReadDemux(i).combStage()
       }
 
-      val fpgaImpl = new Area{
+      val dpImpl = withDualPortRam generate new Area{
         // Use simple dual port memories
-        read.ready := True
         val b =  for((bank, i) <- banks.zipWithIndex) yield new Area{
           import bank._
           write.ready := True
-          ram.write(write.address >> log2Up(cacheBanks), write.data, write.valid, write.mask)
+          read.ready := True
 
-          val readSel =  read.valid && read.payload.resize(log2Up(cacheBanks)) === i
-          readed := ram.readSync(read.payload >> log2Up(cacheBanks), readSel)
+          ram.write(write.address >> log2Up(cacheBanks), write.data, write.valid, write.mask)
+          readed := ram.readSync(read.payload >> log2Up(cacheBanks), read.valid)
+        }
+      }
+
+      val spImpl = !withDualPortRam generate new Area{
+        // Use single port memories
+        val b =  for((bank, i) <- banks.zipWithIndex) yield new Area{
+          import bank._
+          val readWin = CombInit(read.valid)
+
+          read.ready := readWin
+          write.ready := !readWin
+
+          val port = ram.readWriteSync(
+            readWin.mux(read.payload, write.address) >> log2Up(cacheBanks),
+            write.data,
+            write.valid || read.valid,
+            !readWin,
+            write.mask
+          )
+
+          val bufferLoad = RegNext(read.valid && readWin) init(False)
+          val buffer = RegNextWhen(port, bufferLoad)
+          readed := bufferLoad.mux(port, buffer)
         }
       }
     }
@@ -1278,8 +1303,8 @@ class Cache(val p : CacheParam) extends Component {
     val fetcher = new Area {
       import fetchStage._
 
-      cache.data.read.valid := isFireing
-      cache.data.read.payload := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
+      cache.data.upRead.valid := isFireing
+      cache.data.upRead.payload := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
 
       when(isFireing && CMD.toVictim && inserter.FIRST) {
         gs.slots.onSel(CMD.gsId) { s =>

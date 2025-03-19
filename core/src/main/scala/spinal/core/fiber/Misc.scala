@@ -58,6 +58,8 @@ case class Retainer() extends Area{
       return;
     }
 
+    if(retainers.isEmpty) return;
+
     busy = true
     locker.retain()
     locker.willBeLoadedBy = AsyncThread.current

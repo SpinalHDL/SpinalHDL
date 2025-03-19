@@ -883,6 +883,90 @@ abstract class PhaseMemBlackBoxingWithPolicy(policy: MemBlackboxingPolicy) exten
   def doBlackboxing(memTopology: MemTopology) : String
 }
 
+case class MemReadBufferTag(reg: BaseType, rs: MemPortStatement, through: List[BaseNode]) extends SpinalTag{
+  val enableScope = reg.head.parentScope
+  def enableCraft = {
+    reg.head.parentScope.on{
+      ConditionalContext.isTrue(reg.parentScope)
+    }
+  }
+}
+
+class MemReadBufferPhase extends PhaseNetlist {
+  override def impl(pc: PhaseContext): Unit = {
+    val algo = pc.globalData.allocateAlgoIncrementale()
+    val portsHits = ArrayBuffer[MemPortStatement]()
+    pc.walkDeclarations {
+      case reg: BaseType if reg.isReg && !reg.hasInit && reg.hasOnlyOneStatement => {
+        def walkStm(s: LeafStatement, through: List[BaseNode]): Unit = s match {
+          case s: DataAssignmentStatement if s.target.isInstanceOf[BaseType] =>
+            val target = s.target.asInstanceOf[BaseType]
+            if (through == Nil || s.parentScope == target.parentScope) {
+              walkExp(s.source, s :: through)
+            }
+          case _ =>
+        }
+
+        def walkExp(e: Expression, through: List[BaseNode]): Unit = e match {
+          case e: Cast => walkExp(e.input, e :: through)
+          case e: BitsRangedAccessFixed => walkExp(e.source, e :: through)
+          case bt: BaseType if bt.isComb && bt.hasOnlyOneStatement => walkStm(bt.head, bt :: through)
+          case rs: MemReadSync if reg.component == rs.component && reg.clockDomain == rs.clockDomain => {
+//            println(s"hit $rs through ${through.map(e => "- " + e).mkString("\n")}")
+            val hitId = portsHits.size
+            portsHits += rs
+            rs.addTag(new MemReadBufferTag(reg, rs, through))
+            through.foreach { bn =>
+              bn.algoIncrementale = algo
+              bn.algoInt = hitId
+            }
+          }
+          case _ =>
+        }
+
+        walkStm(reg.head.asInstanceOf[DataAssignmentStatement], Nil)
+      }
+      case _ =>
+    }
+
+    def clean(port: MemPortStatement): Unit = {
+      port.removeTags(port.getTags().filter(_.isInstanceOf[MemReadBufferTag]))
+    }
+
+    pc.walkStatements { s =>
+      if (s.algoIncrementale != algo) {
+        s.walkDrivingExpressions { e =>
+          if (e.algoIncrementale == algo) {
+//            println("Remove it")
+            val port = portsHits(e.algoInt)
+            clean(port)
+          }
+        }
+      }
+      s match {
+        case port: MemPortStatement => {
+          val tags = port.getTags().collect { case e: MemReadBufferTag => e }
+          if (tags.nonEmpty) {
+            val enableScope = tags.head.enableScope
+            val ok = tags.forall { self =>
+              if(self.enableScope == enableScope) true
+              else (enableScope.parentStatement, self.enableScope.parentStatement) match {
+                case (refWhen : WhenStatement, selfWhen : WhenStatement) =>
+                  refWhen.cond == selfWhen.cond
+                case _ => false
+              }
+            }
+            if (!ok) {
+              clean(port)
+            }
+          }
+        }
+        case _ =>
+      }
+    }
+  }
+}
+
 class MemBlackboxOf(val mem : Mem[Data]) extends SpinalTag
 class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemBlackBoxingWithPolicy(policy){
   def doBlackboxing(topo: MemTopology): String = {
@@ -945,6 +1029,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
         }
 
         for (rd <- topo.readsSync) {
+          val twoLatTags = rd.getTags().collect{case e : MemReadBufferTag => e }
           val ram = new Ram_1w_1rs(
             wordWidth = mem.getWidth,
             wordCount = mem.wordCount,
@@ -954,6 +1039,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
             wrDataWidth = wr.data.getWidth,
             rdAddressWidth = rd.getAddressWidth,
             rdDataWidth = rd.getWidth,
+            rdLatency = twoLatTags.nonEmpty.mux(2, 1),
             wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
             wrMaskEnable = wr.mask != null,
             readUnderWrite = rd.readUnderWrite,
@@ -972,7 +1058,38 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
 
           ram.io.rd.en := wrapBool(rd.readEnable) && rd.clockDomain.isClockEnableActive
           ram.io.rd.addr.assignFrom(rd.address)
-          wrapConsumers(rd, ram.io.rd.data)
+          if(twoLatTags.isEmpty) {
+            wrapConsumers(rd, ram.io.rd.data)
+          } else {
+            ram.io.rd.dataEn := twoLatTags.head.enableCraft
+            for(t <- twoLatTags){
+              t.through.foreach{
+                case bt: BaseType if bt.parentScope != null => {
+                  bt.removeAssignments()
+                  bt.removeStatement()
+                }
+                case _ =>
+              }
+              t.reg.removeAssignments()
+              t.reg.setAsComb()
+//              t.reg.clearAll()
+              var ptrOld : Expression = rd
+              var ptrNew : Expression  = ram.io.rd.data
+              t.through.foreach{
+                case e : BaseType => ptrOld = e
+                case e : Expression => {
+                  e.remapDrivingExpressions{
+                    case x if x == ptrOld => ptrNew
+                    case x => x
+                  }
+                  ptrOld = e
+                  ptrNew = e
+                }
+                case _ =>
+              }
+              t.reg.assignFrom(ptrNew)
+            }
+          }
 
           ram.setName(mem.getName())
         }
@@ -1062,6 +1179,22 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
     return null
   }
 }
+
+class PhaseMemBlackBoxingGeneric(policy: MemBlackboxingPolicy) extends PhaseMemBlackBoxingWithPolicy(policy){
+  def doBlackboxing(topo: MemTopology): String = {
+    if (topo.mem.initialContent != null) {
+      return "Can't blackbox ROM"
+    }
+
+    topo.mem.component.rework {
+      val bb = new Ram_Generic(topo, PhaseMemBlackBoxingGeneric.this)
+      removeMem(topo.mem)
+    }
+
+    return null
+  }
+}
+
 
 object classNameOf{
   def apply(that : Any): String = {
@@ -1717,13 +1850,50 @@ class PhaseCheckCrossClock() extends PhaseCheck{
 
   override def impl(pc : PhaseContext): Unit = {
     import pc._
-
     val solved = mutable.HashMap[Bool, immutable.Set[Bool]]()
     def areSynchronous(a : ClockDomain, b : ClockDomain): Boolean ={
       ClockDomain.areSynchronous(a,b,solved)
     }
 
 
+    def populateCdTag(that : BaseType): Unit = {
+      val cds = mutable.LinkedHashSet[ClockDomain]()
+      val walkedId = pc.globalData.allocateAlgoIncrementale
+      def walk(n : BaseNode): Unit = {
+        if(n.algoIncrementale == walkedId) return
+        n.algoIncrementale = walkedId
+        n match {
+          case node: SpinalTagReady if node.hasTag(classOf[ClockDomainTag]) =>
+            cds += node.getTag(classOf[ClockDomainTag]).get.clockDomain
+          case node: BaseType =>
+            if (node.isReg) {
+              cds += node.clockDomain
+            } else {
+              node.foreachStatements(s => walk(s))
+            }
+          case node: AssignmentStatement =>
+            node.foreachDrivingExpression(e => walk(e))
+            node.walkParentTreeStatementsUntilRootScope(s => walk(s))
+          case node: TreeStatement => node.foreachDrivingExpression(e => walk(e))
+          case node: Mem[_] => ???
+          case node: MemReadAsync => node.foreachDrivingExpression(e => walk(e))
+          case node: MemReadSync => cds += node.clockDomain
+          case node: MemReadWrite => cds += node.clockDomain
+          case node: Expression => node.foreachDrivingExpression(e => walk(e))
+        }
+      }
+      println(that)
+      if(!that.isReg){
+        that.foreachStatements(walk)
+        for(cd <- cds) that.addTag(new ClockDomainReportTag(cd))
+      }
+    }
+
+    pc.topLevel.getAllIo.filter(_.isOutput).foreach(populateCdTag)
+    pc.walkComponents{
+      case bb : BlackBox if bb.isBlackBox => bb.getAllIo.filter(_.isInput).foreach(populateCdTag)
+      case _ =>
+    }
 
     walkStatements(s => {
       var walked = 0
@@ -1778,7 +1948,7 @@ class PhaseCheckCrossClock() extends PhaseCheck{
 
         //Add tag to the toplevel inputs and blackbox inputs as a report
         node match {
-          case bt : BaseType if bt.component == topLevel || bt.component.isInBlackBoxTree && !bt.isDirectionLess=> bt.addTag(ClockDomainReportTag(clockDomain))
+          case bt : BaseType if (bt.component == topLevel || bt.component.isInBlackBoxTree) && !bt.isDirectionLess => bt.addTag(ClockDomainReportTag(clockDomain))
           case _ =>
         }
 
@@ -2435,9 +2605,11 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
               unassignedBits.remove(assignedBits)
 
               if (!unassignedBits.isEmpty) {
-                if (bt.dlcIsEmpty)
-                  PendingError(s"NO DRIVER ON $bt, defined at\n${bt.getScalaLocationLong}")
-                else if (!bt.hasTag(noLatchCheck)) {
+                if (bt.dlcIsEmpty) {
+                  if(!bt.hasTag(allowFloating)) {
+                    PendingError(s"NO DRIVER ON $bt, defined at\n${bt.getScalaLocationLong}")
+                  }
+                } else if (!bt.hasTag(noLatchCheck)) {
                   if (unassignedBits.isFull)
                     PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
                   else

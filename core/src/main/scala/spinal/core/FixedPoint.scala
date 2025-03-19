@@ -305,10 +305,9 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
 }
 
 //TODO Fix autoconnect
-/**
-  * Signed fix point
+/** Signed fix point
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Fix SFix Documentation]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Fix.html `UFix`/`SFix` Documentation]]
   */
 class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount) {
   override def rawFactory(maxExp: Int, bitCount: Int): SInt = SInt(bitCount bit)
@@ -453,10 +452,10 @@ class SFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
   override def clone: this.type = new SFix2D(maxExp, bitCount).asInstanceOf[this.type]
 }
 
-/**
-  * Unsigned fix point
+
+/** Unsigned fix point
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Fix UFix Documentation]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Fix.html `UFix`/`SFix` Documentation]]
   */
 class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount) {
 
@@ -528,7 +527,7 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
     this
   }
 
-  //Rounded down
+  // Rounded down
   def toUInt: UInt = {
     if (maxExp < 0)
       U(0)
@@ -579,7 +578,7 @@ class UFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
 
 
 /**
-  * Two-dimensional SFix
+  * Two-dimensional `SFix`
   */
 object SFix2D {
   def apply(maxExp: ExpNumber, bitCount: BitCount): SFix2D = new SFix2D(maxExp.value, bitCount.value)
@@ -589,7 +588,7 @@ object SFix2D {
 
 
 /**
-  * Two-dimensional UFix
+  * Two-dimensional `UFix`
   */
 object UFix2D {
   def apply(maxExp: ExpNumber, bitCount: BitCount): UFix2D = new UFix2D(maxExp.value, bitCount.value)

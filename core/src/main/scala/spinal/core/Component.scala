@@ -26,6 +26,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
 import spinal.idslplugin.PostInitCallback
+import spinal.core.formal.anyseq
 
 
 object Component {
@@ -55,7 +56,7 @@ object Component {
 
 
 /**
-  * Abstract class used to create a new Component
+  * Abstract class used to create a new `Component`
   *
   * @example {{{
   *         class MyAndGate extends Component {
@@ -67,7 +68,7 @@ object Component {
   *         }
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
+  * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/components_hierarchy.html Component Documentation]]
   */
 abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode with ValCallbackRec {
   if(parentScope == null) {
@@ -96,6 +97,12 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     this
   }
 
+  /**
+   * Use anyseq on any input signals to this component which do not have existing assignments.
+   */
+  def makeInputsAnyseq(): Unit = {
+    getAllIo.filter(_.isInput).filter(_.dlcIsEmpty).foreach(anyseq)
+  }
 
   var withHierarchyAutoPull = false
   def withAutoPull(): Unit ={
