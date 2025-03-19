@@ -692,6 +692,12 @@ object StreamArbiter {
       //maskProposal := maskLocked
       maskProposal := OHMasking.roundRobin(Vec(io.inputs.map(_.valid)),Vec(maskLocked.last +: maskLocked.take(maskLocked.length-1)))
     }
+    /** This arbiter requires that only one input is valid at any given time. */
+    def assumeOhInput(core: StreamArbiter[_ <: Data]) = new Area {
+      import core._
+      exclusiveInputs = true
+      (maskProposal, io.inputs).zipped.map(_ := _.valid)
+    }
   }
 
   /** When a lock activates, the currently chosen input won't change until it is released. */
@@ -739,6 +745,7 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
   }
 
   val locked = RegInit(False).allowUnsetRegToAvoidLatch
+  var exclusiveInputs = false
 
   val maskProposal = Vec(Bool(),portCount)
   val maskLocked = Reg(Vec(Bool(),portCount))
@@ -754,7 +761,7 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
 
   io.output.valid := (io.inputs, maskRouted).zipped.map(_.valid & _).reduce(_ | _)
   io.output.payload := MuxOH(maskRouted,Vec(io.inputs.map(_.payload)))
-  (io.inputs, maskRouted).zipped.foreach(_.ready := _ & io.output.ready)
+  (io.inputs, maskRouted).zipped.foreach { case(input, mask) => input.ready := (Bool(exclusiveInputs) | mask) & io.output.ready }
 
   io.chosenOH := maskRouted.asBits
   io.chosen := OHToUInt(io.chosenOH)
@@ -797,6 +804,10 @@ class StreamArbiterFactory {
   }
   def sequentialOrder: this.type = {
     arbitrationLogic = StreamArbiter.Arbitration.sequentialOrder
+    this
+  }
+  def assumeOhInput: this.type = {
+    arbitrationLogic = StreamArbiter.Arbitration.assumeOhInput
     this
   }
 
