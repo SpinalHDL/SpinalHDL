@@ -406,7 +406,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val s2mPipe = Stream(payloadType)
 
     val rValidN = RegInit(True) clearWhen(self.valid) setWhen(s2mPipe.ready)
-    val rData = RegNextWhen(self.payload, self.ready)
+    val rData = RegNextWhen(self.payload, !s2mPipe.ready)
     if (keep) KeepAttribute.apply(rValidN, rData)
 
     self.ready := rValidN
