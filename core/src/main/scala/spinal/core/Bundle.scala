@@ -25,6 +25,7 @@ import spinal.core.internals._
 import spinal.idslplugin.{Location, ValCallback}
 
 import scala.collection.mutable
+import scala.collection.Seq
 
 
 /**
