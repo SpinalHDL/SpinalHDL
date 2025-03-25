@@ -204,7 +204,7 @@ trait GlobalDataUser {
 }
 
 
-trait ContextUser extends GlobalDataUser with ScalaLocated{
+trait ContextUser extends GlobalDataUser with ScalaLocated {
   var parentScope : ScopeStatement = if(globalData != null) DslScopeStack.get else null
 
   def component: Component = if(parentScope != null) parentScope.component else null

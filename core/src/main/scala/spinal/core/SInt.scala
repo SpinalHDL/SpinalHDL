@@ -381,13 +381,14 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     ret
   }
 
-  //SpinalHDL chose roundToInf as default round
+  // SpinalHDL chose roundToInf as default round
   override def round(n: Int, align: Boolean = true): SInt = roundToInf(n, align)
 
+  /** Return ``getWidth + 1 bits`` with sign expand */
   def expand: SInt = (this.sign ## this.asBits).asSInt
 
   protected def _fixEntry(roundN: Int, roundType: RoundType, satN: Int): SInt = {
-    roundType match{
+    roundType match {
       case RoundType.CEIL          => this.ceil(roundN, false).sat(satN + 1)
       case RoundType.FLOOR         => this.floor(roundN).sat(satN)
       case RoundType.FLOORTOZERO   => this.floorToZero(roundN).sat(satN)

@@ -12,7 +12,7 @@ import spinal.lib.system.tag._
 import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
-object Node{
+object Node {
   def apply() : Node = new Node()
   def slave() : Node = apply().setSlaveOnly()
   def master() : Node = apply().setMasterOnly()
@@ -28,9 +28,9 @@ object Node{
 
 
 /**
- * Implement the elaboration thread to handle the negociation and hardware generation of a NodeUpDown
+ * Implement the elaboration thread to handle the negotiation and hardware generation of a NodeUpDown
  */
-class Node() extends NodeUpDown{
+class Node() extends NodeUpDown {
   var arbiterConnector : (Bus, Bus) => Any = (s, m) => s << m
   var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
 
@@ -63,7 +63,7 @@ class Node() extends NodeUpDown{
   }
 
 
-  def forceDataWidth(dataWidth : Int): this.type ={
+  def forceDataWidth(dataWidth : Int): this.type = {
     m2s.proposedModifiers += { s =>
       s.copy(dataWidth = dataWidth)
     }

@@ -261,11 +261,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AF(d, integerWidth, fractionWidth, signed = false)
   }
 
-
-  /** SpinalHDL true value
+  /** Hardware true value
    */
   def True(implicit loc: Location)  = Bool(true)
-  /** SpinalHDL false value  
+
+  /** Hardware false value  
    */  
   def False(implicit loc: Location) = Bool(false)
 
