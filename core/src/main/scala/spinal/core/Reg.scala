@@ -23,8 +23,11 @@ package spinal.core
 import spinal.idslplugin.Location
 
 
-/**
-  * Create a register
+/** Declare a register with a signal type.
+  * @example {{{
+  * val reg1 = Reg(UInt(4 bits))
+  * }}}
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/registers.html#instantiation Register documentation]]
   */
 object Reg {
 
@@ -44,16 +47,22 @@ object Reg {
 }
 
 
-/**
-  * Register a signal of one clock
+/** Register a signal by one clock.
+  * 
+  * @example {{{
+  * val reg1 = Reg(UInt(4 bits))
+  * // Register that updates itself every cycle with a sample of reg1 incremented by 1
+  *  val reg2 = RegNext(reg1 + 1)
+  * }}}
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/registers.html#instantiation Register documentation]]
   */
 object RegNext {
   def apply[T <: Data](next: T, init: T = null.asInstanceOf[T]): T = Reg(next, init,next).setCompositeName(next, "regNext", true)
 }
 
 
-/**
-  * Register a signal when a condition is true
+/** Register a signal when a condition is true.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/registers.html#instantiation Register documentation]]
   */
 object RegNextWhen {
   def apply[T <: Data](next: T, cond: Bool, init: T = null.asInstanceOf[T])(implicit loc: Location): T = {
@@ -66,8 +75,13 @@ object RegNextWhen {
 }
 
 
-/**
-  * Declare a register with an initialize value
+/** Declare a register with an initialize value.
+  * 
+  * @example {{{
+  * // UInt register of 4 bits initialized with 0 when the reset occurs
+  * val reg = RegInit(U"0000")
+  * }}}
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/registers.html#instantiation Register documentation]]
   */
 object RegInit {
 
