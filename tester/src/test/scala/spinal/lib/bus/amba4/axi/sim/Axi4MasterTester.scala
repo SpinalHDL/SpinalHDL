@@ -15,6 +15,7 @@ class Axi4MasterTester extends SpinalAnyFunSuite {
   val wordCount = byteCount / axiConfig.bytePerWord
   Seq(0, 1, 31, 255).foreach { len =>
     test(f"full write + readback len=$len") {
+      // regression test for #1692
       Random.setSeed(seed)
       SimConfig.withFstWave
         .compile(new Component {
