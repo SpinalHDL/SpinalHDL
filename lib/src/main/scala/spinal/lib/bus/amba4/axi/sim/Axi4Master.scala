@@ -298,7 +298,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
           } else beat match {
             case 0 => (BigInt(1) << (bytePerBeat - padFront)) - 1
             case `len` => ~((BigInt(1) << padBack) - 1)
-            case _ => BigInt(1) << busConfig.bytePerWord
+            case _ => (BigInt(1) << bytePerBeat) - 1
           }
           if (busConfig.useStrb) w.strb #= strb
           if (busConfig.useLast) w.last #= beat == len
