@@ -78,7 +78,7 @@ object UsbHubLsFs{
     output.lowSpeed := cdOutput(BufferCC.withTag(input.lowSpeed))
     output.usbReset := cdOutput(BufferCC.withTag(input.usbReset))
     output.usbResume := cdOutput(BufferCC.withTag(input.usbResume))
-    input.overcurrent := cdInput(BufferCC.withTag(output.overcurrent))
+    input.overcurrent := cdInput(BufferCC(output.overcurrent))
 
     output.tx << cdOutput(input.tx.ccToggle(cdInput, cdOutput).stage())
     input.txEop := PulseCCByToggle(output.txEop, cdOutput, cdInput)
@@ -91,7 +91,7 @@ object UsbHubLsFs{
       po.removable := cdOutput(BufferCC.withTag(pi.removable))
       po.power := cdOutput(BufferCC.withTag(pi.power))
       pi.lowSpeed := cdInput(BufferCC.withTag(po.lowSpeed))
-      pi.overcurrent := cdInput(BufferCC.withTag(po.overcurrent))
+      pi.overcurrent := cdInput(BufferCC(po.overcurrent))
 
       pi.connect := PulseCCByToggle(po.connect, cdOutput, cdInput)
       pi.disconnect := PulseCCByToggle(po.disconnect, cdOutput, cdInput)
