@@ -210,7 +210,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   /** Connect this to a register constructed fifo and return its pop stream
    */
-  def queueOfReg(size: Int, latency : Int = 1, forFMax : Boolean = false, initPayload : => T = null.asInstanceOf[T]): Stream[T] = new Composite(this){
+  def queueOfReg(size: Int, latency : Int = 1, forFMax : Boolean = false, initPayload : Option[T] = None): Stream[T] = new Composite(this){
     val fifo = new StreamFifo(payloadType, size, withBypass = latency == 0, withAsyncRead = true, useVec = true, forFMax = forFMax, initPayload = initPayload).setCompositeName(this,"queue", true)
     fifo.io.push << self
   }.fifo.io.pop
@@ -1299,7 +1299,7 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
                             val allowExtraMsb : Boolean = true,
                             val forFMax : Boolean = false,
                             val useVec : Boolean = false,
-                            initPayload : => T = null.asInstanceOf[T]) extends Component {
+                            val initPayload : Option[T] = None) extends Component {
   require(depth >= 0)
 
   if(withBypass) require(withAsyncRead)
@@ -1334,7 +1334,10 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
   }
   val oneStage = (depth == 1) generate new Area {
     val doFlush = CombInit(io.flush)
-    val buffer = io.push.m2sPipe(flush = doFlush, initPayload = initPayload.asInstanceOf[T])
+    val buffer = initPayload match {
+      case Some(initValue) => io.push.m2sPipe(flush = doFlush, initPayload = initValue)
+      case _ => io.push.m2sPipe(flush = doFlush)
+    }
     io.pop << buffer
     io.occupancy := U(buffer.valid)
     io.availability := U(!buffer.valid)
@@ -1348,7 +1351,10 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
   val logic = (depth > 1) generate new Area {
-    val vec = useVec generate Vec(Reg(dataType) initNull(initPayload), depth)
+    val vec = useVec generate  initPayload match {
+      case Some(initValue) => Vec(Reg(dataType) init (initValue), depth)
+      case _ => Vec(Reg(dataType), depth)
+    }
     val ram = !useVec generate Mem(dataType, depth)
 
     val ptr = new Area{
@@ -1562,7 +1568,7 @@ object StreamFifoLowLatency{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoLowLatency(dataType,depth)
 }
 
-class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0, useVec : Boolean = false, initPayload : => T = null.asInstanceOf[T]) extends Component {
+class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0, useVec : Boolean = false, initPayload : Option[T] = None) extends Component {
   assert(latency == 0 || latency == 1)
 
   val io = new Bundle with StreamFifoInterface[T]{
