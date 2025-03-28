@@ -23,25 +23,24 @@ object Axi4Resps extends Enumeration {
 import Axi4Bursts._
 import Axi4Resps._
 
-/**
- * Simulation master for the Axi4 bus protocol [[spinal.lib.bus.amba4.axi.Axi4]].
- *
- * @constructor create a new simulation master with the given bus instance and clock domain.
- * @param axi bus master to drive
- * @param clockDomain clock domain to sample data on
- * @example
- * {{{
- *   SimConfig.compile(new Component {
- *     val io = new Bundle {
- *       val axiSlave = slave(Axi4(Axi4Config(32, 32)))
- *     }
- *     io.axiSlave.assignDontCare
- *   }).doSim("sample") { dut =>
- *     val master = Axi4Master(dut.io.axiSlave, dut.clockDomain)
- *     val data = master.read(0x1000, 4)
- *   }
- * }}}
- */
+/** Simulation master for the Axi4 bus protocol [[spinal.lib.bus.amba4.axi.Axi4]].
+  *
+  * @constructor create a new simulation master with the given bus instance and clock domain.
+  * @param axi bus master to drive
+  * @param clockDomain clock domain to sample data on
+  * @example
+  * {{{
+  *   SimConfig.compile(new Component {
+  *     val io = new Bundle {
+  *       val axiSlave = slave(Axi4(Axi4Config(32, 32)))
+  *     }
+  *     io.axiSlave.assignDontCare
+  *   }).doSim("sample") { dut =>
+  *     val master = Axi4Master(dut.io.axiSlave, dut.clockDomain)
+  *     val data = master.read(0x1000, 4)
+  *   }
+  * }}}
+  */
 case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnamed") {
   private val busConfig = axi.config
 
@@ -68,19 +67,25 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
     println(s"Axi4Master ($name) [$chan]\t: $msg")
   }
 
-  /**
-   * Read synchronously multiple bytes from the specified address.
-   *
-   * @param address address to read from; does not need to be aligned (data will be truncated automatically)
-   * @param totalBytes total number of bytes in the result;
-   *                   if longer than a single transaction (as specified by `burst`, `len`, and `size`),
-   *                   the bus master will issue multiple transactions
-   * @param id AxID to use in the request; xID in the response will be checked against this (cf. AXI specification)
-   * @param burst burst mode to issue (cf. AXI specification)
-   * @param len number of beats in a single transaction minus one (cf. AXI specification)
-   * @param size number of bytes in one beat, log encoded (cf. AXI specification)
-   */
-  def read(address: BigInt, totalBytes: BigInt, id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize) = {
+  /** Read synchronously multiple bytes from the specified address.
+    *
+    * @param address address to read from; does not need to be aligned (data will be truncated automatically)
+    * @param totalBytes total number of bytes in the result;
+    *                   if longer than a single transaction (as specified by `burst`, `len`, and `size`),
+    *                   the bus master will issue multiple transactions
+    * @param id AxID to use in the request; xID in the response will be checked against this (cf. AXI specification)
+    * @param burst burst mode to issue (cf. AXI specification)
+    * @param len number of beats in a single transaction minus one (cf. AXI specification)
+    * @param size number of bytes in one beat, log encoded (cf. AXI specification)
+    */
+  def read(
+      address: BigInt,
+      totalBytes: BigInt,
+      id: Int = 0,
+      burst: Axi4Burst = Incr,
+      len: Int = 0,
+      size: Int = maxSize
+  ) = {
     var result: List[Byte] = null
     val mtx = SimMutex().lock()
     readCB(address, totalBytes, id, burst, len, size) { data =>
@@ -92,19 +97,26 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
   }
 
   /** Read asynchronously; same as {@link read}, but result is delivered in a callback
-   *
-   * @param callback callback function on finish
-   */
-  def readCB(address: BigInt, totalBytes: BigInt, id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: List[Byte] => Unit): Unit = {
+    *
+    * @param callback callback function on finish
+    */
+  def readCB(
+      address: BigInt,
+      totalBytes: BigInt,
+      id: Int = 0,
+      burst: Axi4Burst = Incr,
+      len: Int = 0,
+      size: Int = maxSize
+  )(callback: List[Byte] => Unit): Unit = {
     val bytePerBeat = 1 << size
     val bytes = (len + 1) * bytePerBeat // FIXME: 4K limitation?
     val numTransactions = (totalBytes.toDouble / bytes).ceil.toInt
     val builder = new mutable.ArrayBuilder.ofByte
 
     numTransactions match {
-      case 0 => callback(List()); return
+      case 0          => callback(List()); return
       case x if x > 1 => log("..", f"read $address%#x in $x transactions")
-      case _ =>
+      case _          =>
     }
 
     def run(addr: BigInt, totBytes: Int, numTransactions: Int) = {
@@ -126,7 +138,14 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
   }
 
   /** Read asynchronously with only one transaction */
-  def readSingle(address: BigInt, totalBytes: Int, id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: List[Byte] => Unit): Unit = {
+  def readSingle(
+      address: BigInt,
+      totalBytes: Int,
+      id: Int = 0,
+      burst: Axi4Burst = Incr,
+      len: Int = 0,
+      size: Int = maxSize
+  )(callback: List[Byte] => Unit): Unit = {
     assert(size <= maxSize, s"requested beat size too big: $size vs $maxSize")
     if (burst != Incr) {
       assert(len <= 15, s"max fixed/wrap burst in one transaction is 16")
@@ -157,7 +176,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
           val data = r.data.toBigInt
           val beatAddress = burst match {
             case Fixed => address
-            case Incr => address + bytePerBeat * beat
+            case Incr  => address + bytePerBeat * beat
             case Wrap =>
               val base = address & ~BigInt(bytes - 1)
               base + ((address + bytePerBeat * beat) & BigInt(bytes - 1))
@@ -167,7 +186,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
           val start = ((beatAddress & ~BigInt(bytePerBeat - 1)) - accessAddress).toInt
           val end = start + bytePerBeat
           for (i <- 0 until bytePerBus) {
-            val _byte = ((data >> (8 * i)).toInt & 0xFF).toByte
+            val _byte = ((data >> (8 * i)).toInt & 0xff).toByte
             if (start <= i && i < end) {
               builder += _byte
             }
@@ -183,7 +202,8 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
   }
 
   private val arDriver = StreamDriver(axi.ar, clockDomain) { ar =>
-    if (arQueue.isEmpty) false else {
+    if (arQueue.isEmpty) false
+    else {
       arQueue.dequeue()(ar)
       true
     }
@@ -207,19 +227,25 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
     (roundedAddress, padFront, padBack, paddedData)
   }
 
-  /**
-   * Write synchronously multiple bytes to the specified address.
-   *
-   * @param address address to write to; does not need to be aligned (data will be truncated automatically)
-   * @param data list of bytes to write to address;
-   *             if longer than a single transaction (as specified by `burst`, `len`, and `size`),
-   *             the bus master will issue multiple transactions
-   * @param id AxID to use in the request; xID in the response will be checked against this (cf. AXI specification)
-   * @param burst burst mode to issue (cf. AXI specification)
-   * @param len number of beats in a single transaction minus one (cf. AXI specification)
-   * @param size number of bytes in one beat, log encoded (cf. AXI specification)
-   */
-  def write(address: BigInt, data: List[Byte], id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize): Unit = {
+  /** Write synchronously multiple bytes to the specified address.
+    *
+    * @param address address to write to; does not need to be aligned (data will be truncated automatically)
+    * @param data list of bytes to write to address;
+    *             if longer than a single transaction (as specified by `burst`, `len`, and `size`),
+    *             the bus master will issue multiple transactions
+    * @param id AxID to use in the request; xID in the response will be checked against this (cf. AXI specification)
+    * @param burst burst mode to issue (cf. AXI specification)
+    * @param len number of beats in a single transaction minus one (cf. AXI specification)
+    * @param size number of bytes in one beat, log encoded (cf. AXI specification)
+    */
+  def write(
+      address: BigInt,
+      data: List[Byte],
+      id: Int = 0,
+      burst: Axi4Burst = Incr,
+      len: Int = 0,
+      size: Int = maxSize
+  ): Unit = {
     val mtx = SimMutex().lock()
     writeCB(address, data, id, burst, len, size) {
       mtx.unlock()
@@ -228,25 +254,32 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
   }
 
   /** Write asynchronously; same as {@link write}, but completion is delivered in a callback
-   *
-   * @param callback callback function on finish
-   */
-  def writeCB(address: BigInt, data: List[Byte], id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: => Unit): Unit = {
+    *
+    * @param callback callback function on finish
+    */
+  def writeCB(
+      address: BigInt,
+      data: List[Byte],
+      id: Int = 0,
+      burst: Axi4Burst = Incr,
+      len: Int = 0,
+      size: Int = maxSize
+  )(callback: => Unit): Unit = {
     val bytePerBeat = 1 << size
     val bytes = (len + 1) * bytePerBeat
 
     val (_, padFront, _, paddedData) = padData(address, data)
 
-    val numTransactions = paddedData.length / bytes
+    val numTransactions = (paddedData.length / bytes.toFloat).ceil.toInt
     if (numTransactions > 1) {
       log("..", f"write $address%#x in $numTransactions transactions")
     }
 
     def run(addr: BigInt, data: List[Byte], transactionId: Int): Unit = {
       val slice = transactionId match {
-        case 0 => data.take(bytes - padFront)
+        case 0                                 => data.take(bytes - padFront)
         case tid if tid == numTransactions - 1 => data
-        case _ => data.take(bytes)
+        case _                                 => data.take(bytes)
       }
       val remaining = data.drop(slice.length)
       writeSingle(addr, slice, id, burst, len, size)(handleTransaction(addr, transactionId, remaining))
@@ -262,47 +295,59 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
         run(addr + addrInc, remaining, transactionId + 1)
       }
     }
-
     run(address, data, 0)
   }
 
   /** Write asynchronously with only one transaction */
-  def writeSingle(address: BigInt, data: List[Byte], id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: => Unit): Unit = {
+  def writeSingle(
+      address: BigInt,
+      data: List[Byte],
+      id: Int = 0,
+      burst: Axi4Burst = Incr,
+      len: Int = 0,
+      size: Int = maxSize
+  )(callback: => Unit): Unit = {
     assert(size <= maxSize, s"requested beat size too big: $size vs $maxSize")
     if (burst != Incr) {
       assert(len <= 15, s"max fixed/wrap burst in one transaction is 16")
     }
     assert(len <= 255, s"max burst in one transaction is 256")
     val bytePerBeat = 1 << size
-    val bytes = (len + 1) * bytePerBeat
+    val actualLen = ((data.length / bytePerBeat.toFloat).ceil.toInt - 1) min len
+    println(f"writeSingle $address ${data.bytesToHex}, $actualLen $size")
+    val bytes = (actualLen + 1) * bytePerBeat
     val bytePerBus = 1 << log2Up(busConfig.dataWidth / 8)
 
     val (roundedAddress, padFront, padBack, paddedData) = padData(address, data)
-    val realLen = data.length
-    assert(paddedData.length <= bytes, s"requested length ${data.length} (${paddedData.length} with padding) could not be completed in one transaction")
+    assert(
+      paddedData.length <= bytes,
+      s"requested length ${data.length} (${paddedData.length} with padding) could not be completed in one transaction"
+    )
 
     awQueue += { aw =>
       aw.addr #= roundedAddress
       if (busConfig.useId) aw.id #= id
-      if (busConfig.useLen) aw.len #= len
+      if (busConfig.useLen) aw.len #= actualLen
       if (busConfig.useSize) aw.size #= size
       if (busConfig.useBurst) aw.burst #= burst.id
-      log("AW", f"addr $roundedAddress%#x size $size len $len burst $burst")
+      log("AW", f"addr $roundedAddress%#x size $size len $actualLen burst $burst")
 
-      for (beat <- 0 to len) {
+      for (beat <- 0 to actualLen) {
         wQueue += { w =>
           val data = paddedData.slice(beat * bytePerBeat, (beat + 1) * bytePerBeat)
           w.data #= data.toArray
-          val strb = if (len == 0) {
-            ((BigInt(1) << realLen) - 1) << padFront
-          } else beat match {
-            case 0 => (BigInt(1) << (bytePerBeat - padFront)) - 1
-            case `len` => (~((BigInt(1) << padBack) - 1)) & ((BigInt(1) << bytePerBeat) - 1)
-            case _ => (BigInt(1) << bytePerBeat) - 1
-          }
+          val fullStrb = (BigInt(1) << bytePerBeat) - 1
+          val strb = (if (actualLen == 0) {
+                        ((BigInt(1) << data.length) - 1) << padFront
+                      } else
+                        beat match {
+                          case 0           => fullStrb << padFront
+                          case `actualLen` => fullStrb >> padBack
+                          case _           => fullStrb
+                        }) & fullStrb
           if (busConfig.useStrb) w.strb #= strb
-          if (busConfig.useLast) w.last #= beat == len
-          log("W", f"data ${data.bytesToHex} strb $strb%#x last ${beat == len}")
+          if (busConfig.useLast) w.last #= beat == actualLen
+          log("W", f"data ${data.reverse.bytesToHex} strb $strb%#x last ${beat == actualLen}")
         }
       }
 
@@ -315,14 +360,16 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
   }
 
   private val awDriver = StreamDriver(axi.aw, clockDomain) { aw =>
-    if (awQueue.isEmpty) false else {
+    if (awQueue.isEmpty) false
+    else {
       awQueue.dequeue()(aw)
       true
     }
   }
 
   private val wDriver = StreamDriver(axi.w, clockDomain) { w =>
-    if (wQueue.isEmpty) false else {
+    if (wQueue.isEmpty) false
+    else {
       wQueue.dequeue()(w)
       true
     }
