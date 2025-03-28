@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - streamArb
   pull_request:
     branches:
       - dev
