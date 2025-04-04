@@ -33,10 +33,7 @@ class Fifo:
         while True:
             yield RisingEdge(dut.clk)
             if int(dut.io_slave0_valid) == 1 and int(dut.io_slave0_ready) == 1:
-                queuePushPacket = FifoPacket(int(dut.io_slave0_payload_a), int(dut.io_slave0_payload_b)) 
-                queue.put(queuePushPacket)
-                print("push_to_queue: ", queuePushPacket.a, queuePushPacket.b)
-                print("push_to_dut: ", int(dut.io_slave0_payload_a), int(dut.io_slave0_payload_b))
+                queue.put(FifoPacket(int(dut.io_slave0_payload_a), int(dut.io_slave0_payload_b)))
             dut.io_slave0_valid <= validRandomizer.get()
             randSignal(dut.io_slave0_payload_a)
             randSignal(dut.io_slave0_payload_b)
@@ -54,8 +51,6 @@ class Fifo:
                 if int(dut.io_master0_valid) == 1 and int(dut.io_master0_ready) == 1:
                     break
             pop = queue.get()
-            print("pop_from_queue: ", pop.a, pop.b)
-            print("pop_from_dut: ", int(dut.io_master0_payload_a), int(dut.io_master0_payload_b))
             assertEquals(pop.a, dut.io_master0_payload_a,"io_master0_payload_a")
             assertEquals(pop.b, dut.io_master0_payload_b, "io_master0_payload_b")
 
