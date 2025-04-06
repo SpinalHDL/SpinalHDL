@@ -1882,7 +1882,7 @@ class PhaseCheckCrossClock() extends PhaseCheck{
           case node: Expression => node.foreachDrivingExpression(e => walk(e))
         }
       }
-      println(that)
+
       if(!that.isReg){
         that.foreachStatements(walk)
         for(cd <- cds) that.addTag(new ClockDomainReportTag(cd))
