@@ -21,12 +21,14 @@ class BoolPimped(pimped: Bool){
   }
 }
 
-object KeepAttribute{
-  object syn_keep_verilog extends AttributeFlag("synthesis syn_keep = 1", COMMENT_ATTRIBUTE){
+/** Attribute used to instruct the synthesis tool it should not optimize out some signals
+  */
+object KeepAttribute {
+  object syn_keep_verilog extends AttributeFlag("synthesis syn_keep = 1", COMMENT_ATTRIBUTE) {
     override def isLanguageReady(language: Language) : Boolean = language == Language.VERILOG || language == Language.SYSTEM_VERILOG
   }
 
-  object syn_keep_vhdl extends AttributeFlag("syn_keep"){
+  object syn_keep_vhdl extends AttributeFlag("syn_keep") {
     override def isLanguageReady(language: Language) : Boolean = language == Language.VHDL
   }
   object keep extends AttributeFlag("keep")
@@ -41,7 +43,7 @@ object KeepAttribute{
 }
 
 
-object CheckSocketPort{
+object CheckSocketPort {
   val reserved = mutable.LinkedHashSet[Int]()
   def reserve(port : Int): Unit = {
     while(true) {

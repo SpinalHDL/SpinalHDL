@@ -11,20 +11,26 @@ trait StreamPipe {
   def apply[T <: Data](m: Stream[T]): Stream[T]
 }
 
+/** Allows to define what kind of registering (if any) is inserted in a stream connection */
 object StreamPipe {
+  /** Connect directly */
   val NONE = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.combStage()
   }
 
+  /** Insert a stage that cut the ``valid`` and ``payload`` signals through registers */
   val M2S = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.m2sPipe()
   }
+  /** Insert a stage that cut the ``ready`` path through a register */
   val S2M = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.s2mPipe()
   }
+  /** Insert a stage that cut the ``valid``, ``ready`` and ``payload`` signals through registers */
   val FULL = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.s2mPipe().m2sPipe()
   }
+  /** Insert a stage that cut all path, but divide the bandwidth by 2. */
   val HALF = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.halfPipe()
   }
@@ -377,11 +383,35 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret
   }
 
-  /** Connect this to a valid/payload register stage and return its output stream
-  */
+  /** Connect this to a valid/payload register stage and return its output stream.
+    * 
+    * The cost is ``(payload width + 1)`` flip-flops and the latency is 1.
+    * 
+    * Equivalent to [[m2sPipe()]] but with "stage" name in the generated HDL.
+    * @see [[file:///home/marc/electrotec/spinalhdl/SpinalDoc-RTD/docs/html/SpinalHDL/Libraries/stream.html#functions stream documentation]]
+    */
   def stage() : Stream[T] = this.m2sPipe().setCompositeName(this, "stage", true)
 
-  //! if collapsBubble is enable then ready is not "don't care" during valid low !
+  // ! if collapsBubble is enable then ready is not "don't care" during valid low !
+  /** Return a stream that cut the ``valid`` and ``payload`` signals through registers.
+    * 
+    * The cost is ``(payload width + 1)`` flip-flops and the latency is 1.
+    * 
+    * The name "m2s" comes from from the fact that the signals that flow
+    * from Master-to-Slave are pipelined  (namely ``ready`` and ``payload``).
+    * 
+    * @param collapsBubble When ``true``(the default), add the logic to allow to store an incoming payload when there is 
+    *                      no stored payload and the slave is not ready.
+    * @param crossClockData If ``false``(the default), do not add tags on the payload signal for clock domain crossing.
+    * @param flush An optional signal to set the ``valid`` register to 0.
+    * @param holdPayload When ``false``(the default), do not add the logic to keep the slave side payload constant after the one cycle
+    *                    when the slave consumed the payload.
+    * @param keep If ``false``(the default), do not add an attribute to avoid optimization of the slave side valid and payload.
+    * @param initPayload If not ``null``, a value to initialize the payload registers.
+    * 
+    * @see [[stage()]]
+    * @see [[file:///home/marc/electrotec/spinalhdl/SpinalDoc-RTD/docs/html/SpinalHDL/Libraries/stream.html#functions stream documentation]]
+    */
   def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false, keep : Boolean = false, initPayload : => T = null.asInstanceOf[T]): Stream[T] = new Composite(this) {
     val m2sPipe = Stream(payloadType)
 
@@ -402,6 +432,21 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     m2sPipe.payload := rData
   }.m2sPipe
 
+  /** Return a stream that cut the ``ready`` path through a register.
+    * 
+    * As long as the slave is ready, the ``valid`` and ``payload`` signal are passed without registering.
+    * When the slave ``ready`` goes to low, the payload is stored and will be consumed later at the 
+    * first cycle of ``ready`` to high.
+    * 
+    * The cost is ``payload width + 1`` flip-flops and ``payload width`` mux2. The latency is 0.
+    *     
+    * The name "s2m" comes from from the fact that the signal that flows
+    * from Slave-to-Master is pipelined (namely ``valid``).
+    * 
+    * @param flush An optional signal to set the ``valid`` register to 0.
+    * @param keep If ``false``(the default), do not add an attribute to avoid optimization of the slave side valid and payload signals. 
+    * @see [[file:///home/marc/electrotec/spinalhdl/SpinalDoc-RTD/docs/html/SpinalHDL/Libraries/stream.html#functions stream documentation]]
+    */
   def s2mPipe(flush : Bool = null, keep : Boolean = false): Stream[T] = new Composite(this) {
     val s2mPipe = Stream(payloadType)
 
@@ -436,8 +481,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     validPipe.payload := self.payload
   }.validPipe
 
-/** cut all path, but divide the bandwidth by 2, 1 cycle latency
-  */
+  /** Return a stream that cut all path, but divide the bandwidth by 2.
+    * 
+    * The cost is ``(payload width + 2)`` flip-flops and the latency is 1.
+    */
   def halfPipe(flush : Bool = null, keep : Boolean = false): Stream[T] = new Composite(this) {
     val halfPipe = Stream(payloadType)
 
@@ -502,8 +549,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     */
   def haltWhen(cond: Bool): Stream[T] = continueWhen(!cond).setCompositeName(this, "haltWhen", true)
 
-/** Drop transaction of this when cond is False. Return the resulting stream
-  */
+  /** Drop transaction of this when cond is False. Return the resulting stream
+    */
   def takeWhen(cond: Bool): Stream[T] = throwWhen(!cond).setCompositeName(this, "takeWhen", true)
 
 
@@ -513,11 +560,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     converter.io.output
   }
   
-  /**
-   * Convert this stream to a fragmented stream by adding a last bit. To view it from
-   * another perspective, bundle together successive events as fragments of a larger whole.
-   * You can then use enhanced operations on fragmented streams, like reducing of elements.
-   */
+  /** Convert this stream to a fragmented stream by adding a last bit. 
+    * 
+    * To view it from another perspective, bundle together successive events as fragments of a larger whole.
+    * You can then use enhanced operations on fragmented streams, like reducing of elements.
+    */
   def addFragmentLast(last : Bool) : Stream[Fragment[T]] = {
     val ret = Stream(Fragment(payloadType))
     ret.arbitrationFrom(this)
@@ -526,12 +573,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.setCompositeName(this, "addFragmentLast", true)
   }
   
-  /** 
-   *  Like addFragmentLast(Bool), but instead of manually telling which values go together,
-   *  let a counter do the job. The counter will increment for each passing element. Last
-   *  will be set high at the end of each revolution.
-	 * @example {{{ outStream = inStream.addFragmentLast(new Counter(5)) }}}
-   */
+  /** Like addFragmentLast(Bool), but instead of manually telling which values go together,
+    * let a counter do the job. 
+    * 
+    * The counter will increment for each passing element. Last
+    * will be set high at the end of each revolution.
+	  * @example {{{ outStream = inStream.addFragmentLast(new Counter(5)) }}}
+    */
   def addFragmentLast(counter: Counter) : Stream[Fragment[T]] = {
     when (this.fire) {
       counter.increment()

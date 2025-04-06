@@ -571,31 +571,46 @@ object CounterFreeRun {
   * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
   */
 object Counter {
-  def apply(start: BigInt,end: BigInt) : Counter  = new Counter(start = start, end = end)
+
+  /** Create a counter on `[start, end]` */ 
+  def apply(start: BigInt, end: BigInt) : Counter  = new Counter(start = start, end = end)
+  
+  /** Create a counter on `[range.low, range.high]` */
   def apply(range : Range) : Counter = {
     require(range.step == 1)
     Counter(start = range.low, end = range.high)
   }
+
+  /** Create a counter on `[0, stateCount-1]` */ 
   def apply(stateCount: BigInt): Counter = new Counter(start = 0, end = stateCount-1)
+
+  /** Create a counter on `[0, 2^bitCount-1]` */ 
   def apply(bitCount: BitCount): Counter = new Counter(start = 0, end = (BigInt(1)<<bitCount.value)-1)
 
-  def apply(start: BigInt,end: BigInt, inc: Bool) : Counter  = {
-    val counter = Counter(start,end)
+  /** Create a counter on `[start, end]` with `inc` signal as increment enable */ 
+  def apply(start: BigInt, end: BigInt, inc: Bool) : Counter  = {
+    val counter = Counter(start, end)
     when(inc) {
       counter.increment()
     }
     counter
   }
+
+  /** Create a counter on `[range.low, range.high]` with `inc` signal as increment enable */ 
   def apply(range : Range, inc: Bool) : Counter  = {
     require(range.step == 1)
-    Counter(start = range.low, end = range.high,inc = inc)
+    Counter(start = range.low, end = range.high, inc = inc)
   }
-  def apply(stateCount: BigInt, inc: Bool): Counter = Counter(start = 0, end = stateCount-1,inc = inc)
-  def apply(bitCount: BitCount, inc: Bool): Counter = Counter(start = 0, end = (BigInt(1)<<bitCount.value)-1,inc = inc)
+  
+  /** Create a counter on `[0, stateCount-1]` with `inc` signal as increment enable */ 
+  def apply(stateCount: BigInt, inc: Bool): Counter = Counter(start = 0, end = stateCount-1, inc = inc)
+
+  /** Create a counter on `[0, 2^bitCount-1]` with `inc` signal as increment enable */ 
+  def apply(bitCount: BitCount, inc: Bool): Counter = Counter(start = 0, end = (BigInt(1)<<bitCount.value)-1, inc = inc)
 }
 
 // start and end inclusive, up counter
-class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
+class Counter(val start: BigInt, val end: BigInt) extends ImplicitArea[UInt] {
   require(start <= end)
   val willIncrement = False.allowOverride
   val willClear = False.allowOverride
@@ -608,11 +623,11 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
   val willOverflowIfInc = value === end
   val willOverflow = willOverflowIfInc && willIncrement
 
-  if (isPow2(end + 1) && start == 0) {   //Check if using overflow follow the spec
+  if (isPow2(end + 1) && start == 0) {   // Check if using overflow follow the spec
     valueNext := (value + U(willIncrement)).resized
   }
   else {
-    when(willOverflow){
+    when(willOverflow) {
       valueNext := U(start)
     } otherwise {
       valueNext := (value + U(willIncrement)).resized
@@ -1089,7 +1104,7 @@ class GrowableAnyPimped[T <: Any](pimped: Growable[T]) {
 }
 
 class AnyPimped[T <: Any](pimped: T) {
-  def ifMap(cond : Boolean)(body : T => T): T ={
+  def ifMap(cond : Boolean)(body : T => T): T = {
     if(cond) body(pimped) else pimped
   }
 
@@ -1107,13 +1122,13 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     }
   }
 
-  def onMask(conds : TraversableOnce[Bool])(body : T => Unit): Unit ={
+  def onMask(conds : TraversableOnce[Bool])(body : T => Unit): Unit = {
     whenMasked[T](pimped, conds)(body)
   }
-  def onMask(conds : Bits)(body : T => Unit): Unit ={
+  def onMask(conds : Bits)(body : T => Unit): Unit = {
     whenMasked[T](pimped, conds)(body)
   }
-  def onSel(sel : UInt, relaxedWidth : Boolean = false)(body : T => Unit): Unit ={
+  def onSel(sel : UInt, relaxedWidth : Boolean = false)(body : T => Unit): Unit = {
     whenIndexed[T](pimped, sel, relaxedWidth)(body)
   }
 
