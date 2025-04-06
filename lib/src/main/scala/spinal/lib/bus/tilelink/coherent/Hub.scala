@@ -99,7 +99,7 @@ A transaction will always :
 - [Fetch tags]
 - [Probe stuff]
 - [wait probe completion]
-- aquire:
+- acquire:
   - [writeback/fill cache cmd]
   - [Read data from $]/[GrandData down D to up D]/[grant] + [update tags]
   - wait up.E grant ack [and writeback] completion
@@ -114,11 +114,11 @@ C : release data
 
 
 down.D may trigger:
-- up.D redirection (on up get/put/aquireBlock with data/releaseData), need source context
+- up.D redirection (on up get/put/acquireBlock with data/releaseData), need source context
 - conflict release (on up get/put), need sets context
 - probe bypass (on ProbeData), need probeId context
 
-up.E will do a conflict release (aquireAck)
+up.E will do a conflict release (acquireAck)
 
 
 $ =>
@@ -402,7 +402,7 @@ class Hub(p : HubParameters) extends Component{
     val ctxWrite = ctxMem.writePort()
 
     val cmd = new Area{
-      val sloted = RegInit(False)
+      val slotted = RegInit(False)
       val full = slots.map(_.valid).andR
       val freeMask = OHMasking.firstV2(B(slots.map(!_.valid)))
       val freeId = OHToUInt(freeMask)
@@ -412,7 +412,7 @@ class Hub(p : HubParameters) extends Component{
       ctxWrite.valid := False
       ctxWrite.address := freeId
       ctxWrite.data := push.ctx
-      when(push.valid && !sloted && !full){
+      when(push.valid && !slotted && !full){
         slots.onMask(freeMask){s =>
           s.valid := True
           s.set := push.ctx.address(setsRange)
@@ -423,11 +423,11 @@ class Hub(p : HubParameters) extends Component{
           s.selfId := selfId
         }
         ctxWrite.valid := True
-        sloted := True
+        slotted := True
       }
 
       val bus = io.up.b
-      val halted = push.haltWhen(!sloted && full)
+      val halted = push.haltWhen(!slotted && full)
       val fired = Reg(Bits(coherentMasterCount bits)) init(0)
       val isPut = Opcode.A.isPut(halted.ctx.opcode)
       val isAcquire = Opcode.A.isAcquire(halted.ctx.opcode)
@@ -443,13 +443,13 @@ class Hub(p : HubParameters) extends Component{
       bus.size    := log2Up(p.blockSize)
       halted.ready := requests === 0
 
-      when(bus.fire){
+      when(bus.fire) {
         fired.asBools.onMask(masterOh)(_ := True)
       }
 
-      when(halted.ready){
+      when(halted.ready) {
         fired := 0
-        sloted := False
+        slotted := False
       }
     }
 
@@ -798,12 +798,12 @@ class Hub(p : HubParameters) extends Component{
   }
 
   val upD = new Area{
-    val arbitred = StreamArbiterFactory().lowerFirst.lambdaLock[ChannelD](_.isLast()).onArgs(
+    val arbitered = StreamArbiterFactory().lowerFirst.lambdaLock[ChannelD](_.isLast()).onArgs(
       downD.toUp.upD,
       probe.rsp.toUpD.stage(),
       probe.wake.toUpD.stage()
     )
-    io.up.d << arbitred
+    io.up.d << arbitered
   }
 
   val upE = new Area{
@@ -894,200 +894,200 @@ object HubSyntLight extends App{
   Bench(rtls, targets)
   /*
 
-Artix 7 -> 180 Mhz 336 LUT 381 FF
-Artix 7 -> 315 Mhz 404 LUT 381 FF
+Artix 7 -> 180 MHz 336 LUT 381 FF
+Artix 7 -> 315 MHz 404 LUT 381 FF
 Cyclone V -> FAILED
-Cyclone IV -> 152 Mhz 488 LUT 524 FF
+Cyclone IV -> 152 MHz 488 LUT 524 FF
 
    */
 }
 
 /*
 Hub16 ->
-Artix 7 -> 163 Mhz 164 LUT 215 FF
-Artix 7 -> 268 Mhz 180 LUT 215 FF
+Artix 7 -> 163 MHz 164 LUT 215 FF
+Artix 7 -> 268 MHz 180 LUT 215 FF
 Cyclone V -> FAILED
-Cyclone IV -> 181 Mhz 217 LUT 214 FF
+Cyclone IV -> 181 MHz 217 LUT 214 FF
 
 Hub16 ->
-Artix 7 -> 165 Mhz 160 LUT 215 FF
-Artix 7 -> 269 Mhz 174 LUT 215 FF
+Artix 7 -> 165 MHz 160 LUT 215 FF
+Artix 7 -> 269 MHz 174 LUT 215 FF
 Cyclone V -> FAILED
-Cyclone IV -> 181 Mhz 217 LUT 214 FF
+Cyclone IV -> 181 MHz 217 LUT 214 FF
 
 Hub16 ->
-Artix 7 -> 198 Mhz 218 LUT 182 FF
-Artix 7 -> 280 Mhz 250 LUT 182 FF
-Cyclone V -> 192 Mhz 155 ALMs
-Cyclone IV -> 169 Mhz 300 LUT 215 FF
+Artix 7 -> 198 MHz 218 LUT 182 FF
+Artix 7 -> 280 MHz 250 LUT 182 FF
+Cyclone V -> 192 MHz 155 ALMs
+Cyclone IV -> 169 MHz 300 LUT 215 FF
 
-Artix 7 -> 145 Mhz 251 LUT 206 FF
-Artix 7 -> 253 Mhz 281 LUT 206 FF
-Cyclone V -> 183 Mhz 180 ALMs
-Cyclone IV -> 162 Mhz 341 LUT 239 FF
+Artix 7 -> 145 MHz 251 LUT 206 FF
+Artix 7 -> 253 MHz 281 LUT 206 FF
+Cyclone V -> 183 MHz 180 ALMs
+Cyclone IV -> 162 MHz 341 LUT 239 FF
 
 
 
 
 Hub2 ->
-Artix 7 -> 212 Mhz 167 LUT 237 FF
-Artix 7 -> 357 Mhz 179 LUT 237 FF
-Cyclone V -> 214 Mhz 109 ALMs
-Cyclone IV -> 180 Mhz 224 LUT 307 FF
+Artix 7 -> 212 MHz 167 LUT 237 FF
+Artix 7 -> 357 MHz 179 LUT 237 FF
+Cyclone V -> 214 MHz 109 ALMs
+Cyclone IV -> 180 MHz 224 LUT 307 FF
 Hub8 ->
-Artix 7 -> 151 Mhz 296 LUT 333 FF
-Artix 7 -> 234 Mhz 326 LUT 333 FF
-Cyclone V -> 193 Mhz 201 ALMs
-Cyclone IV -> 147 Mhz 550 LUT 625 FF
+Artix 7 -> 151 MHz 296 LUT 333 FF
+Artix 7 -> 234 MHz 326 LUT 333 FF
+Cyclone V -> 193 MHz 201 ALMs
+Cyclone IV -> 147 MHz 550 LUT 625 FF
 Hub16 ->
-Artix 7 -> 117 Mhz 476 LUT 461 FF
-Artix 7 -> 205 Mhz 540 LUT 461 FF
+Artix 7 -> 117 MHz 476 LUT 461 FF
+Artix 7 -> 205 MHz 540 LUT 461 FF
 Cyclone V -> FAILED
-Cyclone IV -> 135 Mhz 569 LUT 420 FF
+Cyclone IV -> 135 MHz 569 LUT 420 FF
 
 
 Hub2 ->
-Artix 7 -> 178 Mhz 225 LUT 327 FF
-Artix 7 -> 327 Mhz 247 LUT 327 FF
+Artix 7 -> 178 MHz 225 LUT 327 FF
+Artix 7 -> 327 MHz 247 LUT 327 FF
 Cyclone V -> FAILED
-Cyclone IV -> 176 Mhz 319 LUT 351 FF
+Cyclone IV -> 176 MHz 319 LUT 351 FF
 Hub8 ->
-Artix 7 -> 162 Mhz 351 LUT 423 FF
-Artix 7 -> 241 Mhz 385 LUT 423 FF
+Artix 7 -> 162 MHz 351 LUT 423 FF
+Artix 7 -> 241 MHz 385 LUT 423 FF
 Cyclone V -> FAILED
-Cyclone IV -> 152 Mhz 641 LUT 681 FF
+Cyclone IV -> 152 MHz 641 LUT 681 FF
 Hub16 ->
-Artix 7 -> 103 Mhz 526 LUT 551 FF
-Artix 7 -> 191 Mhz 607 LUT 551 FF
+Artix 7 -> 103 MHz 526 LUT 551 FF
+Artix 7 -> 191 MHz 607 LUT 551 FF
 Cyclone V -> FAILED
-Cyclone IV -> 138 Mhz 654 LUT 458 FF
+Cyclone IV -> 138 MHz 654 LUT 458 FF
 
 Hub2 ->
-Artix 7 -> 216 Mhz 238 LUT 327 FF
-Artix 7 -> 363 Mhz 255 LUT 327 FF
+Artix 7 -> 216 MHz 238 LUT 327 FF
+Artix 7 -> 363 MHz 255 LUT 327 FF
 Cyclone V -> FAILED
-Cyclone IV -> 184 Mhz 315 LUT 349 FF
+Cyclone IV -> 184 MHz 315 LUT 349 FF
 Hub8 ->
-Artix 7 -> 144 Mhz 345 LUT 423 FF
-Artix 7 -> 250 Mhz 386 LUT 423 FF
+Artix 7 -> 144 MHz 345 LUT 423 FF
+Artix 7 -> 250 MHz 386 LUT 423 FF
 Cyclone V -> FAILED
-Cyclone IV -> 151 Mhz 650 LUT 673 FF
+Cyclone IV -> 151 MHz 650 LUT 673 FF
 Hub16 ->
-Artix 7 -> 124 Mhz 598 LUT 551 FF
-Artix 7 -> 188 Mhz 698 LUT 551 FF
+Artix 7 -> 124 MHz 598 LUT 551 FF
+Artix 7 -> 188 MHz 698 LUT 551 FF
 Cyclone V -> FAILED
-Cyclone IV -> 133 Mhz 674 LUT 459 FF
+Cyclone IV -> 133 MHz 674 LUT 459 FF
 
 
 Hub2 ->
-Artix 7 -> 153 Mhz 276 LUT 338 FF
-Artix 7 -> 339 Mhz 313 LUT 338 FF
+Artix 7 -> 153 MHz 276 LUT 338 FF
+Artix 7 -> 339 MHz 313 LUT 338 FF
 Cyclone V -> FAILED
-Cyclone IV -> 147 Mhz 351 LUT 389 FF
+Cyclone IV -> 147 MHz 351 LUT 389 FF
 Hub8 ->
-Artix 7 -> 103 Mhz 392 LUT 436 FF
-Artix 7 -> 228 Mhz 448 LUT 436 FF
+Artix 7 -> 103 MHz 392 LUT 436 FF
+Artix 7 -> 228 MHz 448 LUT 436 FF
 Cyclone V -> FAILED
-Cyclone IV -> 123 Mhz 689 LUT 721 FF
+Cyclone IV -> 123 MHz 689 LUT 721 FF
 Hub16 ->
-Artix 7 -> 119 Mhz 635 LUT 565 FF
-Artix 7 -> 188 Mhz 738 LUT 565 FF
+Artix 7 -> 119 MHz 635 LUT 565 FF
+Artix 7 -> 188 MHz 738 LUT 565 FF
 Cyclone V -> FAILED
-Cyclone IV -> 115 Mhz 707 LUT 499 FF
+Cyclone IV -> 115 MHz 707 LUT 499 FF
 
 Process finished with exit code 0
 
 Hub2 ->
-Artix 7 -> 116 Mhz 284 LUT 359 FF
-Artix 7 -> 309 Mhz 324 LUT 359 FF
+Artix 7 -> 116 MHz 284 LUT 359 FF
+Artix 7 -> 309 MHz 324 LUT 359 FF
 Cyclone V -> FAILED
-Cyclone IV -> 134 Mhz 372 LUT 412 FF
+Cyclone IV -> 134 MHz 372 LUT 412 FF
 Hub8 ->
-Artix 7 -> 153 Mhz 395 LUT 457 FF
-Artix 7 -> 243 Mhz 444 LUT 457 FF
+Artix 7 -> 153 MHz 395 LUT 457 FF
+Artix 7 -> 243 MHz 444 LUT 457 FF
 Cyclone V -> FAILED
-Cyclone IV -> 117 Mhz 726 LUT 768 FF
+Cyclone IV -> 117 MHz 726 LUT 768 FF
 Hub16 ->
-Artix 7 -> 118 Mhz 572 LUT 586 FF
-Artix 7 -> 194 Mhz 661 LUT 586 FF
+Artix 7 -> 118 MHz 572 LUT 586 FF
+Artix 7 -> 194 MHz 661 LUT 586 FF
 Cyclone V -> FAILED
-Cyclone IV -> 115 Mhz 726 LUT 510 FF
+Cyclone IV -> 115 MHz 726 LUT 510 FF
 
 Process finished with exit code 0
 
 INFO: [Common 17-206] Exiting Vivado at Thu Jun 15 08:31:51 2023...
 Hub2 ->
-Artix 7 -> 101 Mhz 319 LUT 371 FF
-Artix 7 -> 305 Mhz 381 LUT 371 FF
+Artix 7 -> 101 MHz 319 LUT 371 FF
+Artix 7 -> 305 MHz 381 LUT 371 FF
 Cyclone V -> FAILED
-Cyclone IV -> 148 Mhz 396 LUT 427 FF
+Cyclone IV -> 148 MHz 396 LUT 427 FF
 Hub8 ->
-Artix 7 -> 97 Mhz 428 LUT 468 FF
-Artix 7 -> 233 Mhz 493 LUT 468 FF
+Artix 7 -> 97 MHz 428 LUT 468 FF
+Artix 7 -> 233 MHz 493 LUT 468 FF
 Cyclone V -> FAILED
-Cyclone IV -> 121 Mhz 754 LUT 795 FF
+Cyclone IV -> 121 MHz 754 LUT 795 FF
 Hub16 ->
-Artix 7 -> 122 Mhz 656 LUT 597 FF
-Artix 7 -> 189 Mhz 792 LUT 597 FF
+Artix 7 -> 122 MHz 656 LUT 597 FF
+Artix 7 -> 189 MHz 792 LUT 597 FF
 Cyclone V -> FAILED
-Cyclone IV -> 117 Mhz 745 LUT 519 FF
+Cyclone IV -> 117 MHz 745 LUT 519 FF
 
 Process finished with exit code 0
 
 INFO: [Common 17-206] Exiting Vivado at Thu Jun 15 09:27:01 2023...
 Hub2 ->
-Artix 7 -> 160 Mhz 316 LUT 379 FF
-Artix 7 -> 312 Mhz 382 LUT 379 FF
+Artix 7 -> 160 MHz 316 LUT 379 FF
+Artix 7 -> 312 MHz 382 LUT 379 FF
 Cyclone V -> FAILED
-Cyclone IV -> 132 Mhz 413 LUT 435 FF
+Cyclone IV -> 132 MHz 413 LUT 435 FF
 Hub8 ->
-Artix 7 -> 154 Mhz 433 LUT 477 FF
-Artix 7 -> 248 Mhz 498 LUT 477 FF
+Artix 7 -> 154 MHz 433 LUT 477 FF
+Artix 7 -> 248 MHz 498 LUT 477 FF
 Cyclone V -> FAILED
-Cyclone IV -> 125 Mhz 773 LUT 803 FF
+Cyclone IV -> 125 MHz 773 LUT 803 FF
 Hub16 ->
-Artix 7 -> 118 Mhz 667 LUT 606 FF
-Artix 7 -> 184 Mhz 820 LUT 606 FF
+Artix 7 -> 118 MHz 667 LUT 606 FF
+Artix 7 -> 184 MHz 820 LUT 606 FF
 Cyclone V -> FAILED
-Cyclone IV -> 118 Mhz 765 LUT 527 FF
+Cyclone IV -> 118 MHz 765 LUT 527 FF
 
 Process finished with exit code 0
 
 INFO: [Common 17-206] Exiting Vivado at Thu Jun 15 12:24:32 2023...
 Hub2 ->
-Artix 7 -> 180 Mhz 377 LUT 406 FF
-Artix 7 -> 311 Mhz 446 LUT 406 FF
+Artix 7 -> 180 MHz 377 LUT 406 FF
+Artix 7 -> 311 MHz 446 LUT 406 FF
 Cyclone V -> FAILED
-Cyclone IV -> 121 Mhz 512 LUT 475 FF
+Cyclone IV -> 121 MHz 512 LUT 475 FF
 Hub8 ->
-Artix 7 -> 136 Mhz 508 LUT 510 FF
-Artix 7 -> 238 Mhz 588 LUT 510 FF
+Artix 7 -> 136 MHz 508 LUT 510 FF
+Artix 7 -> 238 MHz 588 LUT 510 FF
 Cyclone V -> FAILED
-Cyclone IV -> 115 Mhz 893 LUT 855 FF
+Cyclone IV -> 115 MHz 893 LUT 855 FF
 Hub16 ->
-Artix 7 -> 119 Mhz 734 LUT 647 FF
-Artix 7 -> 199 Mhz 835 LUT 647 FF
+Artix 7 -> 119 MHz 734 LUT 647 FF
+Artix 7 -> 199 MHz 835 LUT 647 FF
 Cyclone V -> FAILED
-Cyclone IV -> 119 Mhz 879 LUT 578 FF
+Cyclone IV -> 119 MHz 879 LUT 578 FF
 
 Process finished with exit code 0
 
 
 Hub2 ->
-Artix 7 -> 126 Mhz 387 LUT 412 FF
-Artix 7 -> 292 Mhz 461 LUT 412 FF
+Artix 7 -> 126 MHz 387 LUT 412 FF
+Artix 7 -> 292 MHz 461 LUT 412 FF
 Cyclone V -> FAILED
-Cyclone IV -> 123 Mhz 529 LUT 481 FF
+Cyclone IV -> 123 MHz 529 LUT 481 FF
 Hub8 ->
-Artix 7 -> 160 Mhz 515 LUT 514 FF
-Artix 7 -> 230 Mhz 598 LUT 514 FF
+Artix 7 -> 160 MHz 515 LUT 514 FF
+Artix 7 -> 230 MHz 598 LUT 514 FF
 Cyclone V -> FAILED
-Cyclone IV -> 113 Mhz 907 LUT 859 FF
+Cyclone IV -> 113 MHz 907 LUT 859 FF
 Hub16 ->
-Artix 7 -> 116 Mhz 737 LUT 650 FF
-Artix 7 -> 193 Mhz 852 LUT 650 FF
+Artix 7 -> 116 MHz 737 LUT 650 FF
+Artix 7 -> 193 MHz 852 LUT 650 FF
 Cyclone V -> FAILED
-Cyclone IV -> 114 Mhz 898 LUT 581 FF
+Cyclone IV -> 114 MHz 898 LUT 581 FF
 
 Process finished with exit code 0
 

@@ -51,8 +51,8 @@ class ChannelDataBuffer(entries: Int,
     val withBeats = up.withBeats
     val hazard = withBeats && full
     val dataLess = up.translateWith(up.asNoData())
-    val filtred = dataLess.throwWhen(!hazard && !up.isLast())
-    val down = filtred.haltWhen(hazard)
+    val filtered = dataLess.throwWhen(!hazard && !up.isLast())
+    val down = filtered.haltWhen(hazard)
     val locked = RegInit(False) setWhen (write.valid)
     val lockedValue = RegNextWhen(firstFree, !locked)
     val bufferId = locked ? lockedValue | firstFree

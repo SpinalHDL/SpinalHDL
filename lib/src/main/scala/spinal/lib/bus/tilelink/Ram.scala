@@ -7,15 +7,15 @@ import spinal.lib.pipeline._
 
 class Ram (p : NodeParameters,
            bytes : Int) extends Component {
-  val io = new Bundle{
+  val io = new Bundle {
     val up = slave port Bus(p)
   }
 
   val mem = Mem.fill(bytes/p.m.dataBytes)(Bits(p.m.dataWidth bits))
   val port = mem.readWriteSyncPort(p.m.dataBytes)
 
-  val pipeline = new Pipeline{
-    val cmd = new Stage{
+  val pipeline = new Pipeline {
+    val cmd = new Stage {
       val IS_GET = insert(Opcode.A.isGet(io.up.a.opcode))
       val SIZE = insert(io.up.a.size)
       val SOURCE = insert(io.up.a.source)
@@ -51,7 +51,7 @@ class Ram (p : NodeParameters,
           address := addressShifted
         }
 
-        LAST clearWhen(counter =/= sizeToBeatMinusOne(io.up.p,SIZE))
+        LAST clearWhen(counter =/= sizeToBeatMinusOne(io.up.p, SIZE))
         when(busy){
           SIZE := size
           SOURCE := source
@@ -68,7 +68,7 @@ class Ram (p : NodeParameters,
 
     }
 
-    val rsp = new Stage(Connection.M2S()){
+    val rsp = new Stage(Connection.M2S()) {
       val takeIt = cmd.LAST || cmd.IS_GET
       haltWhen(!io.up.d.ready && takeIt)
       io.up.d.valid := valid && takeIt
