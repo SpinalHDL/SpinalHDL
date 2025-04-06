@@ -447,11 +447,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     * @param keep If ``false``(the default), do not add an attribute to avoid optimization of the slave side valid and payload signals. 
     * @see [[file:///home/marc/electrotec/spinalhdl/SpinalDoc-RTD/docs/html/SpinalHDL/Libraries/stream.html#functions stream documentation]]
     */
-  def s2mPipe(flush : Bool = null, keep : Boolean = false): Stream[T] = new Composite(this) {
+  def s2mPipe(flush : Bool = null, keep : Boolean = false, savePower: Boolean = false): Stream[T] = new Composite(this) {
     val s2mPipe = Stream(payloadType)
 
     val rValidN = RegInit(True) clearWhen(self.valid) setWhen(s2mPipe.ready)
-    val rData = RegNextWhen(self.payload, self.fire && !s2mPipe.ready)
+    val rData = RegNextWhen(self.payload, if(savePower) self.fire && !s2mPipe.ready else self.ready)
     if (keep) KeepAttribute.apply(rValidN, rData)
 
     self.ready := rValidN
