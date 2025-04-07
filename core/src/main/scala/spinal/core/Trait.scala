@@ -721,8 +721,8 @@ trait SpinalTagReady {
     _spinalTags.filter(cond)
   }
 
-  def getTagsOf[T <: SpinalTag]()(implicit tag: ClassTag[T]) : Set[T] = {
-    getTags().filter(tag.runtimeClass.isInstance(_)).map(_.asInstanceOf[T]).toSet
+  def getTagsOf[T <: SpinalTag]()(implicit tag: ClassTag[T]) : Iterable[T] = {
+    getTags().filter(tag.runtimeClass.isInstance(_)).map(_.asInstanceOf[T])
   }
 
   def addAttribute(attribute: Attribute): this.type = addTag(attribute)
