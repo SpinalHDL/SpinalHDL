@@ -128,8 +128,10 @@ object blackboxByteEnables extends MemBlackboxingPolicy{
 
 
 /**
- * Spinal configuration for the generation of the RTL 
- */
+  * Spinal configuration for the generation of the RTL
+  *
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
+  */
 case class SpinalConfig(mode                           : SpinalMode = null,
                         flags                          : mutable.HashSet[Any] = mutable.HashSet[Any](),
                         debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
@@ -402,7 +404,7 @@ class SpinalReport[T <: Component]() {
 }
 
 
-object Spinal{
+object Spinal {
   val version = (if(Character.isDigit(spinal.core.Info.version(0))) "v" else "") + spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
@@ -443,13 +445,37 @@ object Spinal{
 
 
 object SpinalVhdl {
+  /** Generate VHDL from a ``SpinalConfig``
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
+  */
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = Spinal(config.copy(mode = VHDL))(gen)
+
+  /** Generate VHDL from a function that return a component
+  * 
+  * Multiple instances of the component class may be needed, therefore the first argument is not
+  * a Component reference, but a function that returns a new component.
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
+  */
   def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = VHDL).generate(gen)
 }
 
 
 object SpinalVerilog {
+/** Generate Verilog from a ``SpinalConfig``
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
+  */
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = Spinal(config.copy(mode = Verilog))(gen)
+
+/** Generate Verilog from a function that return a component
+  * 
+  * Multiple instances of the component class may be needed, therefore the first argument is not
+  * a Component reference, but a function that returns a new component.
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
+  */
   def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = Verilog).generate(gen)
 }
 
