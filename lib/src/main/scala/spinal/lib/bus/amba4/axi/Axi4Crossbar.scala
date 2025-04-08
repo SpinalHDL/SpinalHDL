@@ -22,7 +22,7 @@ object Axi4CrossbarFactory{
 
 case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus) => Axi4Bus = Axi4CrossbarFactory.defaultDecoderToArbiterConnection*/){
   val slavesConfigs = mutable.LinkedHashMap[Axi4Bus,Axi4CrossbarSlaveConfig]()
-  val axi4SlaveToReadWriteOnly = mutable.HashMap[Axi4,Seq[Axi4Bus]]()
+  val axi4ToReadWriteOnly = mutable.HashMap[Axi4,Seq[Axi4Bus]]()
   val sharedBridger = mutable.HashMap[Axi4Shared,(Axi4Shared,Axi4Shared) => Unit]()
   val readOnlyBridger = mutable.HashMap[Axi4ReadOnly,(Axi4ReadOnly,Axi4ReadOnly) => Unit]()
   val writeOnlyBridger = mutable.HashMap[Axi4WriteOnly,(Axi4WriteOnly,Axi4WriteOnly) => Unit]()
@@ -41,7 +41,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         val writeOnly = Axi4WriteOnly(axi.config).setCompositeName(axi, "writeOnly", true)
         readOnly >> axi
         writeOnly >> axi
-        axi4SlaveToReadWriteOnly(axi) = readOnly :: writeOnly :: Nil
+        axi4ToReadWriteOnly(axi) = readOnly :: writeOnly :: Nil
         addSlave(readOnly,mapping)
         addSlave(writeOnly,mapping)
       }
@@ -59,13 +59,16 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
 
   def addConnection(axi: Axi4Bus,slaves: Seq[Axi4Bus]) : this.type = {
     val translatedSlaves = slaves.map(_ match{
-      case that : Axi4 => axi4SlaveToReadWriteOnly(that)
+      case that : Axi4 => axi4ToReadWriteOnly(that)
       case that : Axi4Bus => that :: Nil
     }).flatten
     axi match {
       case axi : Axi4 => {
-        addConnection(axi.toReadOnly().setCompositeName(axi, "readOnly", true),translatedSlaves.filter(!_.isInstanceOf[Axi4WriteOnly]))
-        addConnection(axi.toWriteOnly().setCompositeName(axi, "writeOnly", true),translatedSlaves.filter(!_.isInstanceOf[Axi4ReadOnly]))
+        val readOnly = axi.toReadOnly().setCompositeName(axi, "readOnly", true)
+        val writeOnly = axi.toWriteOnly().setCompositeName(axi, "writeOnly", true)
+        axi4ToReadWriteOnly(axi) = readOnly :: writeOnly :: Nil
+        addConnection(readOnly,translatedSlaves.filter(!_.isInstanceOf[Axi4WriteOnly]))
+        addConnection(writeOnly,translatedSlaves.filter(!_.isInstanceOf[Axi4ReadOnly]))
       }
       case axi : Axi4WriteOnly => {
         translatedSlaves.filter(!_.isInstanceOf[Axi4ReadOnly]).foreach(slavesConfigs(_).connections += Axi4CrossbarSlaveConnection(axi))
@@ -105,7 +108,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
   }
 
   def addPipelining(axi : Axi4)(ro : (Axi4ReadOnly,Axi4ReadOnly) => Unit)(wo : (Axi4WriteOnly,Axi4WriteOnly) => Unit): this.type ={
-    val b = axi4SlaveToReadWriteOnly(axi)
+    val b = axi4ToReadWriteOnly(axi)
     val rAxi = b(0).asInstanceOf[Axi4ReadOnly]
     val wAxi = b(1).asInstanceOf[Axi4WriteOnly]
     addPipelining(rAxi)(ro)

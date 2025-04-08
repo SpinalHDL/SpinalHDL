@@ -17,7 +17,7 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping
   val pendingCmdCounter = CounterUpDown(
     stateCount = pendingMax+1,
     incWhen = io.input.readCmd.fire,
-    decWhen = io.input.readRsp.fire && io.input.readRsp.last
+    decWhen = io.input.readRsp.fire && (if(axiConfig.useLast) io.input.readRsp.last else True)
   )
   val decodedCmdSels = decodings.map(_.hit(io.input.readCmd.addr) && io.input.readCmd.valid).asBits
   val decodedCmdError = decodedCmdSels === 0
@@ -77,7 +77,7 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
   val pendingDataCounter = CounterUpDown(
     stateCount = pendingMax+1,
     incWhen = cmdAllowedStart,
-    decWhen = io.input.writeData.fire && io.input.writeData.last
+    decWhen = io.input.writeData.fire && (if(axiConfig.useLast) io.input.writeData.last else True)
   )
 
   val decodedCmdSels = decodings.map(_.hit(io.input.writeCmd.addr) && io.input.writeCmd.valid).asBits
@@ -159,7 +159,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
   val pendingDataCounter = CounterUpDown(
     stateCount = pendingMax+1,
     incWhen = cmdAllowedStart && io.input.sharedCmd.write,
-    decWhen = io.input.writeData.fire && io.input.writeData.last
+    decWhen = io.input.writeData.fire && (if(axiConfig.useLast) io.input.writeData.last else True)
   )
 
   val decodings = readDecodings ++ writeDecodings ++ sharedDecodings

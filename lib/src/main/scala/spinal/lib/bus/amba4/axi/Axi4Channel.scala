@@ -293,7 +293,7 @@ object Axi4AxUnburstified{
         val address     = Axi4.incr(
           address = transaction.addr,
           burst   = if(stream.config.useBurst) transaction.burst else Axi4.burst.INCR,
-          len     = len,
+          len     = if(stream.config.useLen) len else U(0, 8 bits),
           size    = if(stream.config.useSize) transaction.size else U(log2Up(stream.config.bytePerWord)),
           bytePerWord = stream.config.bytePerWord
         )

@@ -628,13 +628,15 @@ object ScalaLocated {
   def long(scalaTrace: Throwable, tab: String = "    "): String = {
     if(scalaTrace == null) return "???"
 
-    filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
+    filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).
+      map(tab + "at " + _ ).mkString("\n") + "\n\n"
   }
 
   def long2(trace: Array[StackTraceElement], tab: String = "    "): String = {
     if(trace == null) return "???"
 
-    filterStackTrace(trace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
+    filterStackTrace(trace).map(_.toString).filter(filter).
+      map(tab + "at " + _ ).mkString("\n") + "\n\n"
   }
 
   def short: String = short(new Throwable())

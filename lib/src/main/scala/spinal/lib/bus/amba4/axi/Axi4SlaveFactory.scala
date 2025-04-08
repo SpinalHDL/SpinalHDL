@@ -17,7 +17,8 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
   val writeJoinEvent = StreamJoin.arg(writeCmd, bus.writeData)
   val writeRsp = Stream(Axi4B(bus.config))
   bus.writeRsp << writeRsp.stage()
-  when(bus.writeData.last) {
+  val writeDataLast = if(bus.writeData.last != null) bus.writeData.last else True
+  when(writeDataLast) {
     // backpressure in last beat
     writeJoinEvent.ready := writeRsp.ready && !writeHaltRequest
     writeRsp.valid := writeJoinEvent.fire
@@ -49,7 +50,10 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
     }
   }
   readRsp.data := 0
-  readRsp.last := readDataStage.last
+
+  if(readRsp.last != null) {
+    readRsp.last := readDataStage.last
+  }
   if(bus.config.useId) readRsp.id := readDataStage.id
 
   val writeOccur = writeJoinEvent.fire
