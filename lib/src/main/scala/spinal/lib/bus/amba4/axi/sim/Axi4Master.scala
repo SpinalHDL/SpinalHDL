@@ -167,7 +167,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
           val start = ((beatAddress & ~BigInt(bytePerBeat - 1)) - accessAddress).toInt
           val end = start + bytePerBeat
           for (i <- 0 until bytePerBus) {
-            val _byte = ((data >> (8 * i)).toInt & 0xFF).toByte
+            val _byte = ((data >> (8 * i)).toInt & 0xff).toByte
             if (start <= i && i < end) {
               builder += _byte
             }
@@ -237,7 +237,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
 
     val (_, padFront, _, paddedData) = padData(address, data)
 
-    val numTransactions = paddedData.length / bytes
+    val numTransactions = (paddedData.length / bytes.toFloat).ceil.toInt
     if (numTransactions > 1) {
       log("..", f"write $address%#x in $numTransactions transactions")
     }
@@ -262,7 +262,6 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
         run(addr + addrInc, remaining, transactionId + 1)
       }
     }
-
     run(address, data, 0)
   }
 
@@ -274,35 +273,40 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
     }
     assert(len <= 255, s"max burst in one transaction is 256")
     val bytePerBeat = 1 << size
-    val bytes = (len + 1) * bytePerBeat
+    val actualLen = ((data.length / bytePerBeat.toFloat).ceil.toInt - 1) min len
+    val bytes = (actualLen + 1) * bytePerBeat
     val bytePerBus = 1 << log2Up(busConfig.dataWidth / 8)
 
     val (roundedAddress, padFront, padBack, paddedData) = padData(address, data)
-    val realLen = data.length
-    assert(paddedData.length <= bytes, s"requested length ${data.length} (${paddedData.length} with padding) could not be completed in one transaction")
+    assert(
+      paddedData.length <= bytes,
+      s"requested length ${data.length} (${paddedData.length} with padding) could not be completed in one transaction"
+    )
 
     awQueue += { aw =>
       aw.addr #= roundedAddress
       if (busConfig.useId) aw.id #= id
-      if (busConfig.useLen) aw.len #= len
+      if (busConfig.useLen) aw.len #= actualLen
       if (busConfig.useSize) aw.size #= size
       if (busConfig.useBurst) aw.burst #= burst.id
-      log("AW", f"addr $roundedAddress%#x size $size len $len burst $burst")
+      log("AW", f"addr $roundedAddress%#x size $size len $actualLen burst $burst")
 
-      for (beat <- 0 to len) {
+      for (beat <- 0 to actualLen) {
         wQueue += { w =>
           val data = paddedData.slice(beat * bytePerBeat, (beat + 1) * bytePerBeat)
           w.data #= data.toArray
-          val strb = if (len == 0) {
-            ((BigInt(1) << realLen) - 1) << padFront
-          } else beat match {
-            case 0 => (BigInt(1) << (bytePerBeat - padFront)) - 1
-            case `len` => ~((BigInt(1) << padBack) - 1)
-            case _ => BigInt(1) << busConfig.bytePerWord
-          }
+          val fullStrb = (BigInt(1) << bytePerBeat) - 1
+          val strb = (if (actualLen == 0) {
+                        ((BigInt(1) << data.length) - 1) << padFront
+                      } else
+                        beat match {
+                          case 0           => fullStrb << padFront
+                          case `actualLen` => fullStrb >> padBack
+                          case _           => fullStrb
+                        }) & fullStrb
           if (busConfig.useStrb) w.strb #= strb
-          if (busConfig.useLast) w.last #= beat == len
-          log("W", f"data ${data.bytesToHex} strb $strb%#x last ${beat == len}")
+          if (busConfig.useLast) w.last #= beat == actualLen
+          log("W", f"data ${data.reverse.bytesToHex} strb $strb%#x last ${beat == actualLen}")
         }
       }
 
