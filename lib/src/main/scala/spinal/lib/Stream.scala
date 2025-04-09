@@ -1351,9 +1351,11 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
   val logic = (depth > 1) generate new Area {
-    val vec = useVec generate  initPayload match {
-      case Some(initValue) => Vec(Reg(dataType) init (initValue), depth)
-      case None => Vec(Reg(dataType), depth)
+    val vec = useVec generate {
+      initPayload match {
+        case Some(initValue) => Vec(Reg(dataType) init (initValue), depth)
+        case None => Vec(Reg(dataType), depth)
+      }
     }
     val ram = !useVec generate Mem(dataType, depth)
 
