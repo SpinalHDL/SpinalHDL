@@ -2467,7 +2467,7 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
   }
 }
 
-class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck { // Renamed class for clarity
+class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck {
   case class AssignmentInfo(bits: AssignedBits, lastLocation: Option[String])
 
   override def impl(pc : PhaseContext): Unit = {
@@ -2591,7 +2591,6 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck { // Ren
                 }
             }
 
-          // --- Conditional Assignment: Switch ---
           case s: SwitchStatement =>
             val location = s.getScalaLocationLong
             val branchBodies = s.elements.map(_.scopeStatement) ++ Option(s.defaultScope)
@@ -2609,10 +2608,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck { // Ren
                   val relevantBranches = if (s.isFullyCoveredWithoutDefault || s.defaultScope != null) {
                       branchAssignedsList
                   } else {
-                      // If not fully covered, intersection is only possible if *all* branches that *do* exist assign it.
-                      // However, a true intersection requires assignment in *all* possible paths.
-                      // For simplicity and safety, we won't calculate an intersection if not fully covered.
-                      Seq.empty // Effectively prevents calculating intersection
+                      Seq.empty
                   }
 
                   if (relevantBranches.nonEmpty) {
@@ -2634,7 +2630,6 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck { // Ren
                   }
 
                   intersectionForBt.foreach { finalBits =>
-                    // *** FIX: Call processAssignment with isFullAssignmentCheck = false for merge result ***
                     processAssignment(bt, finalBits, isFullAssignmentCheck = false, location)
                   }
               }
@@ -2651,7 +2646,6 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck { // Ren
 
         // --- Final Checks (Latch/No-Driver) --- performed only on the second pass (!checkOverlap)
         def finalCheck(bt : BaseType): Unit ={
-          // (Content of finalCheck remains the same as your refined version)
           // Hold off until suffix parent is processed
           if (bt.isSuffix)
             return
@@ -2688,7 +2682,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck { // Ren
               }
             }
           }
-        } // End finalCheck
+        }
 
 
         if(!checkOverlap) {
@@ -2699,20 +2693,15 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck { // Ren
           subInputsPerScope.get(body).foreach(_.foreach(finalCheck))
         }
 
-        assigneds // Return the assignment map for this scope
-      } // End walkBody
+        assigneds
+      }
 
-      // --- Run the two passes ---
       walkBody(c.dslBody, checkOverlap = true)
       walkBody(c.dslBody, checkOverlap = false)
 
-    }) // End walkComponentsExceptBlackbox
-  } // End impl
+    })
+  }
 }
-// ===============================================
-// End Fixed Code
-// ===============================================
-
 
 class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int], blackboxesSourcesPaths: mutable.LinkedHashSet[String])(pc: PhaseContext) extends PhaseCheck {
 
