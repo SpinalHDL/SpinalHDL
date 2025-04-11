@@ -1266,14 +1266,16 @@ object StreamFifo{
   def apply[T <: Data](dataType: HardType[T],
                        depth: Int,
                        latency: Int = 2,
-                       forFMax: Boolean = false): StreamFifo[T] = {
+                       forFMax: Boolean = false,
+                       initPayload: => Option[T] = None): StreamFifo[T] = {
     assert(latency >= 0 && latency <= 2)
     new StreamFifo(
       dataType,
       depth,
       withAsyncRead = latency < 2,
       withBypass = latency == 0,
-      forFMax = forFMax
+      forFMax = forFMax,
+      initPayload = initPayload
     )
   }
 }
