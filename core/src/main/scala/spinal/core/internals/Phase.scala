@@ -2467,7 +2467,8 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
   }
 }
 
-class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
+class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck {
+  case class AssignmentInfo(bits: AssignedBits, lastLocation: Option[String])
 
   override def impl(pc : PhaseContext): Unit = {
     import pc._
@@ -2476,144 +2477,206 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
       val subInputsPerScope = mutable.HashMap[ScopeStatement, ArrayBuffer[BaseType]]()
       c.children.foreach(_.getAllIo.withFilter(_.isInput).foreach(input => subInputsPerScope.getOrElseUpdate(input.rootScopeStatement, ArrayBuffer[BaseType]()) += input))
 
-      def walkBody(body: ScopeStatement, checkOverlap : Boolean): mutable.HashMap[BaseType, AssignedBits] = {
-        val assigneds = mutable.HashMap[BaseType, AssignedBits]()
+      def walkBody(body: ScopeStatement, checkOverlap: Boolean): mutable.HashMap[BaseType, AssignmentInfo] = {
+        val assigneds = mutable.HashMap[BaseType, AssignmentInfo]()
 
-        def getOrEmpty(bt: BaseType) = assigneds.getOrElseUpdate(bt, new AssignedBits(bt.getBitsWidth))
+        // --- Helper Function for Updating Assignments and Checking Overlap ---
 
-        def getOrEmptyAdd(bt: BaseType, src: AssignedBits): Boolean = {
-          var dst : AssignedBits = null
-          var wasExisting = true
-          assigneds.get(bt) match {
-            case None => {
-              dst = new AssignedBits(bt.getBitsWidth)
-              assigneds(bt) = dst
-              wasExisting = false
-            }
-            case Some(x) => dst = x
+        /**
+         * Processes an assignment attempt for a BaseType.
+         * Updates the `assigneds` map for the current scope.
+         * Checks for full assignment overlaps during the `checkOverlap` phase.
+         *
+         * @param bt The BaseType being assigned.
+         * @param srcBits The bits being assigned in this operation.
+         * @param isFullAssignmentCheck Indicates if this operation *originates* from a statement that intends
+         *                              to be a full assignment (e.g., `a := ...`). This is used to decide
+         *                              if an overlap check should be triggered against prior assignments.
+         *                              Set to `false` when merging conditional results.
+         * @param currentLocation The source code location of the current assignment/statement.
+         */
+        def processAssignment(bt: BaseType, srcBits: AssignedBits, isFullAssignmentCheck: Boolean, currentLocation: String): Unit = {
+          val existingInfoOpt = assigneds.get(bt)
+          val wasExisting = existingInfoOpt.isDefined // Was there *any* prior assignment info in this scope?
+          val previousLocation = existingInfoOpt.flatMap(_.lastLocation) // Get location of the *last* modification
+
+          // Determine if an overlap error condition exists *before* modifying the bits.
+          // Overlap occurs if:
+          // 1. This is the overlap checking phase.
+          // 2. The current operation *originates* from a full assignment statement (isFullAssignmentCheck = true).
+          // 3. The source bits actually cover the entire width.
+          // 4. The signal was already assigned previously *within this scope*.
+          // 5. Overriding is not explicitly allowed via tag.
+          // *** NOTE: Merge results (isFullAssignmentCheck = false) do not trigger this check ***
+          val overlapDetected = checkOverlap &&
+                                isFullAssignmentCheck && // <<< Check relies on the origin of the operation
+                                srcBits.isFull &&
+                                wasExisting &&
+                                !bt.hasTag(allowAssignmentOverride)
+
+          // Report error if overlap detected
+          if (overlapDetected) {
+            PendingError(
+              s"ASSIGNMENT OVERLAP: Signal $bt assigned at\n" +
+              s"${currentLocation}\n" +
+              s"completely overlaps the previous assignment made at\n" + // Provide context of the conflicting assignment
+              s"${previousLocation.getOrElse("Unknown location or earlier scope")}" // Fallback if location is missing (should be rare)
+            )
           }
-          val ret = src.isFull && wasExisting &&  !bt.hasTag(allowAssignmentOverride)
-          dst.add(src)
-          ret
+
+          // Get the bits to modify:
+          // CRITICAL: Clone existing bits if they exist, because AssignedBits.add modifies in place.
+          // Otherwise, create new AssignedBits.
+          val dstBits = existingInfoOpt.map(_.bits.clone()).getOrElse(new AssignedBits(bt.getBitsWidth))
+
+          // Perform the 'add' operation (modifies the cloned or new dstBits in place)
+          dstBits.add(srcBits)
+
+          // Update the map with the modified bits and the *current* location as the new 'lastLocation'.
+          assigneds(bt) = AssignmentInfo(dstBits, Some(currentLocation))
         }
 
-        def getOrEmptyAdd3(bt: BaseType, hi: Int, lo: Int): Boolean = {
-          var dst : AssignedBits = null
-          var wasExisting = true
-          assigneds.get(bt) match {
-            case None => {
-              dst = new AssignedBits(bt.getBitsWidth)
-              assigneds(bt) = dst
-              wasExisting = false
-            }
-            case Some(x) => dst = x
-          }
-          val ret = hi == dst.width-1 && lo == 0 && wasExisting && !bt.hasTag(allowAssignmentOverride)
-          dst.add(hi, lo)
-          ret
-        }
+        // --- Statement Processing ---
 
-        def getOrEmptyAdd2(bt: BaseType, src: AssignedRange): Boolean = getOrEmptyAdd3(bt, src.hi, src.lo)
-        def noPoison(that : AssignmentStatement) = !checkOverlap || (that.source match {
-          case lit : Literal if lit.hasPoison() => false
+        // Helper to skip checks for assignments involving 'poison' literals during overlap check
+        def noPoison(that: AssignmentStatement): Boolean = !checkOverlap || (that.source match {
+          case lit: Literal if lit.hasPoison() => false
           case _ => true
         })
+
         body.foreachStatements {
-          case s: DataAssignmentStatement =>  //Omit InitAssignmentStatement
-            if(!s.finalTarget.isAnalog && noPoison(s)) {
+          case s: DataAssignmentStatement =>
+            if (!s.finalTarget.isAnalog && noPoison(s)) {
+              val location = s.getScalaLocationLong
               s.target match {
-                case bt: BaseType => if (getOrEmptyAdd3(bt, bt.getBitsWidth - 1, 0) && checkOverlap) {
-                  PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
-                }
+                case bt: BaseType =>
+                  val fullRangeBits = new AssignedBits(bt.getBitsWidth)
+                  fullRangeBits.add(bt.getBitsWidth - 1, 0)
+                  processAssignment(bt, fullRangeBits, isFullAssignmentCheck = true, location)
+
                 case e: BitVectorAssignmentExpression =>
                   val bt = e.finalTarget
-                  if (getOrEmptyAdd2(bt, e.getMinAssignedBits) && checkOverlap) {
-                    PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
-                  }
+                  val assignedRange = e.getMinAssignedBits
+                  val rangeBits = new AssignedBits(bt.getBitsWidth)
+                  rangeBits.add(assignedRange)
+                  val isEffectivelyFull = (assignedRange.hi == bt.getBitsWidth - 1) && (assignedRange.lo == 0)
+                  // Process, noting if it's effectively a full assignment, but crucially,
+                  // the *origin* is still a full assignment if isEffectivelyFull is true.
+                  processAssignment(bt, rangeBits, isEffectivelyFull, location)
               }
             }
+
           case s: WhenStatement =>
-            val whenTrue  = walkBody(s.whenTrue, checkOverlap)
-            val whenFalse = walkBody(s.whenFalse, checkOverlap)
+            val location = s.getScalaLocationLong
+            val whenTrueAssigneds = walkBody(s.whenTrue, checkOverlap)
+            val whenFalseAssigneds = walkBody(s.whenFalse, checkOverlap)
+            val keysUnion = whenTrueAssigneds.keySet ++ whenFalseAssigneds.keySet
 
-            for ((bt, assigned) <- whenTrue) {
-              whenFalse.get(bt) match {
-                case Some(otherBt) => getOrEmptyAdd(bt, otherBt.intersect(assigned))
-                case None => getOrEmpty(bt)
-              }
+            // Calculate the definite assignments (intersection)
+            for (bt <- keysUnion) {
+               (whenTrueAssigneds.get(bt), whenFalseAssigneds.get(bt)) match {
+                 case (Some(infoTrue), Some(infoFalse)) =>
+                   val intersectionBits = infoTrue.bits.clone().intersect(infoFalse.bits)
+                   if (!intersectionBits.isEmpty) {
+                     processAssignment(bt, intersectionBits, isFullAssignmentCheck = false, location)
+                   }
+                 case _ =>
+               }
             }
-            whenFalse.foreach(p => getOrEmpty(p._1))
+            // Ensure all signals touched within the branches are registered in the parent scope
+            // (important for latch detection pass), using the 'when' location if creating new.
+            keysUnion.foreach { bt =>
+                if (!assigneds.contains(bt)) {
+                   assigneds(bt) = AssignmentInfo(new AssignedBits(bt.getBitsWidth), Some(location))
+                }
+            }
+
           case s: SwitchStatement =>
-            val stuffs = if(s.isFullyCoveredWithoutDefault){
-              s.elements.map(e => walkBody(e.scopeStatement, checkOverlap))
-            } else if(s.defaultScope != null){
-              s.elements.map(e => walkBody(e.scopeStatement, checkOverlap)) += walkBody(s.defaultScope, checkOverlap)
-            } else {
-              s.elements.foreach(e => walkBody(e.scopeStatement, checkOverlap).foreach(e => getOrEmpty(e._1)))
-              null
-            }
+            val location = s.getScalaLocationLong
+            val branchBodies = s.elements.map(_.scopeStatement) ++ Option(s.defaultScope)
+            val branchAssignedsList = branchBodies.map(b => walkBody(b, checkOverlap))
 
-            if(stuffs != null) {
-              val mix = mutable.HashMap[BaseType, AssignedBits]()
-              for (stuff <- stuffs) {
-                for ((bt, assigned) <- stuff) {
-                  mix.update(bt, assigned)
-                }
-              }
+            if (branchAssignedsList.nonEmpty) {
+              val allTouchedSignals = mutable.HashSet[BaseType]()
+              branchAssignedsList.foreach(_.keys.foreach(allTouchedSignals += _))
 
-              for((bt, assigned) <- mix){
-                var continue = true
-                val iterator = stuffs.iterator
-                while(iterator.hasNext && continue){
-                  iterator.next().get(bt) match {
-                    case None => {
-                      assigned.clear()
-                      continue = false
-                    }
-                    case Some(branch) =>{
-                      assigned.intersect(branch)
-                    }
+              for (bt <- allTouchedSignals) {
+                  var intersectionForBt: Option[AssignedBits] = None
+                  var firstBranchBitsCloned: Option[AssignedBits] = None
+                  var possibleIntersection = true
+
+                  val relevantBranches = if (s.isFullyCoveredWithoutDefault || s.defaultScope != null) {
+                      branchAssignedsList
+                  } else {
+                      Seq.empty
                   }
-                }
+
+                  if (relevantBranches.nonEmpty) {
+                      val iterator = relevantBranches.iterator
+                      while(iterator.hasNext && possibleIntersection){
+                         val branchMap = iterator.next()
+                         branchMap.get(bt) match {
+                           case None =>
+                              possibleIntersection = false
+                           case Some(branchInfo) =>
+                              if (firstBranchBitsCloned.isEmpty) {
+                                 firstBranchBitsCloned = Some(branchInfo.bits.clone())
+                              } else {
+                                 firstBranchBitsCloned.get.intersect(branchInfo.bits)
+                              }
+                         }
+                      }
+                      intersectionForBt = firstBranchBitsCloned.filter(bits => possibleIntersection && !bits.isEmpty)
+                  }
+
+                  intersectionForBt.foreach { finalBits =>
+                    processAssignment(bt, finalBits, isFullAssignmentCheck = false, location)
+                  }
               }
 
-              for ((bt, assigned) <- mix) {
-                if(getOrEmptyAdd(bt,assigned) && checkOverlap){
-                  PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n ${s.getScalaLocationLong}")
-                }
+              allTouchedSignals.foreach { bt =>
+                  if (!assigneds.contains(bt)) {
+                      assigneds(bt) = AssignmentInfo(new AssignedBits(bt.getBitsWidth), Some(location))
+                  }
               }
             }
           case s =>
         }
 
 
+        // --- Final Checks (Latch/No-Driver) --- performed only on the second pass (!checkOverlap)
         def finalCheck(bt : BaseType): Unit ={
           // Hold off until suffix parent is processed
           if (bt.isSuffix)
             return
           if (bt.isInstanceOf[Suffixable]) {
-            if (bt.dlcIsEmpty)
-              return bt.asInstanceOf[Suffixable].elements.filter(_._2.isInstanceOf[BaseType]).foreach(e => finalCheck(e._2.asInstanceOf[BaseType]))
+            if (bt.dlcIsEmpty) {
+              bt.asInstanceOf[Suffixable].elements
+                .filter(_._2.isInstanceOf[BaseType])
+                .foreach(e => finalCheck(e._2.asInstanceOf[BaseType]))
+              return
+            }
           }
 
-          val assignedBits = getOrEmpty(bt)
+          val assignmentInfo = assigneds.getOrElse(bt, AssignmentInfo(new AssignedBits(bt.getBitsWidth), None))
+          val assignedBits = assignmentInfo.bits
+
           if ((bt.isVital || !bt.dlcIsEmpty) && bt.rootScopeStatement == body && !assignedBits.isFull){
             if(bt.isComb) {
               val unassignedBits = new AssignedBits(bt.getBitsWidth)
-
               unassignedBits.add(bt.getBitsWidth - 1, 0)
               unassignedBits.remove(assignedBits)
 
               if (!unassignedBits.isEmpty) {
                 if (bt.dlcIsEmpty) {
                   if(!bt.hasTag(allowFloating)) {
-                    PendingError(s"NO DRIVER ON $bt, defined at\n${bt.getScalaLocationLong}")
+                    PendingError(s"NO DRIVER ON $bt (combinatorial signal with no logic connection), defined at\n${bt.getScalaLocationLong}")
                   }
                 } else if (!bt.hasTag(noLatchCheck)) {
                   if (unassignedBits.isFull)
-                    PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
+                    PendingError(s"LATCH DETECTED for the combinatorial signal $bt (no bits assigned), defined at\n${bt.getScalaLocationLong}")
                   else
-                    PendingError(s"LATCH DETECTED from the combinatorial signal $bt, unassigned bit mask " +
+                    PendingError(s"LATCH DETECTED for the combinatorial signal $bt, unassigned bit mask " +
                       s"is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
                 }
               }
@@ -2621,7 +2684,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
           }
         }
 
-        //Final checks usages
+
         if(!checkOverlap) {
           body.foreachDeclarations {
             case bt: BaseType => finalCheck(bt)
@@ -2632,13 +2695,13 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
         assigneds
       }
-      walkBody(c.dslBody, true)
-      walkBody(c.dslBody, false)
+
+      walkBody(c.dslBody, checkOverlap = true)
+      walkBody(c.dslBody, checkOverlap = false)
+
     })
   }
 }
-
-
 
 class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int], blackboxesSourcesPaths: mutable.LinkedHashSet[String])(pc: PhaseContext) extends PhaseCheck {
 
