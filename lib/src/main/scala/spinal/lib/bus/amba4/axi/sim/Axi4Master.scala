@@ -167,7 +167,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
           val start = ((beatAddress & ~BigInt(bytePerBeat - 1)) - accessAddress).toInt
           val end = start + bytePerBeat
           for (i <- 0 until bytePerBus) {
-            val _byte = ((data >> (8 * i)).toInt & 0xff).toByte
+            val _byte = ((data >> (8 * i)).toInt & 0xFF).toByte
             if (start <= i && i < end) {
               builder += _byte
             }
@@ -299,14 +299,11 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
           val data = paddedData.slice(beat * bytePerBeat, (beat + 1) * bytePerBeat)
           w.data #= data.toArray
           val fullStrb = (BigInt(1) << bytePerBeat) - 1
-          val strb = (if (len == 0) {
-                        ((BigInt(1) << data.length) - 1) << padFront
-                      } else
-                        beat match {
-                          case 0     => fullStrb << padFront
-                          case `len` => fullStrb >> padBack
-                          case _     => fullStrb
-                        }) & fullStrb
+          val strb = (beat match {
+            case 0     => fullStrb << padFront
+            case `len` => fullStrb >> padBack
+            case _     => fullStrb
+          }) & fullStrb
           if (busConfig.useStrb) w.strb #= strb
           if (busConfig.useLast) w.last #= beat == len
           log("W", f"data ${data.reverse.bytesToHex} strb $strb%#x last ${beat == len}")
