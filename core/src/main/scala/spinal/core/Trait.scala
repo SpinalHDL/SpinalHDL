@@ -29,6 +29,8 @@ import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
 import spinal.idslplugin.Location
 
+import scala.reflect.ClassTag
+
 trait DummyTrait
 object DummyObject extends DummyTrait
 
@@ -739,6 +741,10 @@ trait SpinalTagReady {
   def filterTag(cond: (SpinalTag) => Boolean): Iterable[SpinalTag] = {
     if(_spinalTags == null) return Nil
     _spinalTags.filter(cond)
+  }
+
+  def getTagsOf[T <: SpinalTag]()(implicit tag: ClassTag[T]) : Iterable[T] = {
+    getTags().filter(tag.runtimeClass.isInstance(_)).map(_.asInstanceOf[T])
   }
 
   def addAttribute(attribute: Attribute): this.type = addTag(attribute)
