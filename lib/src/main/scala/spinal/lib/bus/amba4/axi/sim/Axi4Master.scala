@@ -249,7 +249,12 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
         case _ => data.take(bytes)
       }
       val remaining = data.drop(slice.length)
-      writeSingle(addr, slice, id, burst, len, size)(handleTransaction(addr, transactionId, remaining))
+      val thisLen = if (remaining.length == 0) {
+        ((slice.length / bytePerBeat.toFloat).ceil.toInt - 1) min len
+      } else {
+        len
+      }
+      writeSingle(addr, slice, id, burst, thisLen, size)(handleTransaction(addr, transactionId, remaining))
     }
 
     def handleTransaction(addr: BigInt, transactionId: Int, remaining: List[Byte])() = {
@@ -273,40 +278,38 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
     }
     assert(len <= 255, s"max burst in one transaction is 256")
     val bytePerBeat = 1 << size
-    val actualLen = ((data.length / bytePerBeat.toFloat).ceil.toInt - 1) min len
-    val bytes = (actualLen + 1) * bytePerBeat
+    val bytes = (len + 1) * bytePerBeat
     val bytePerBus = 1 << log2Up(busConfig.dataWidth / 8)
 
     val (roundedAddress, padFront, padBack, paddedData) = padData(address, data)
-    assert(
-      paddedData.length <= bytes,
-      s"requested length ${data.length} (${paddedData.length} with padding) could not be completed in one transaction"
-    )
+    assert(data.length <= (len + 1) * bytePerBeat, "data is too long and cannot be sent in one transaction")
+    assert(data.length >= len * bytePerBeat, f"data is too short (${data.length}) for len=$len (would result in erroneous zero transfers)")
+    assert(paddedData.length <= bytes, s"requested length ${data.length} (${paddedData.length} with padding) could not be completed in one transaction")
 
     awQueue += { aw =>
       aw.addr #= roundedAddress
       if (busConfig.useId) aw.id #= id
-      if (busConfig.useLen) aw.len #= actualLen
+      if (busConfig.useLen) aw.len #= len
       if (busConfig.useSize) aw.size #= size
       if (busConfig.useBurst) aw.burst #= burst.id
-      log("AW", f"addr $roundedAddress%#x size $size len $actualLen burst $burst")
+      log("AW", f"addr $roundedAddress%#x size $size len $len burst $burst")
 
-      for (beat <- 0 to actualLen) {
+      for (beat <- 0 to len) {
         wQueue += { w =>
           val data = paddedData.slice(beat * bytePerBeat, (beat + 1) * bytePerBeat)
           w.data #= data.toArray
           val fullStrb = (BigInt(1) << bytePerBeat) - 1
-          val strb = (if (actualLen == 0) {
+          val strb = (if (len == 0) {
                         ((BigInt(1) << data.length) - 1) << padFront
                       } else
                         beat match {
-                          case 0           => fullStrb << padFront
-                          case `actualLen` => fullStrb >> padBack
-                          case _           => fullStrb
+                          case 0     => fullStrb << padFront
+                          case `len` => fullStrb >> padBack
+                          case _     => fullStrb
                         }) & fullStrb
           if (busConfig.useStrb) w.strb #= strb
-          if (busConfig.useLast) w.last #= beat == actualLen
-          log("W", f"data ${data.reverse.bytesToHex} strb $strb%#x last ${beat == actualLen}")
+          if (busConfig.useLast) w.last #= beat == len
+          log("W", f"data ${data.reverse.bytesToHex} strb $strb%#x last ${beat == len}")
         }
       }
 
