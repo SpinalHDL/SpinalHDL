@@ -209,21 +209,26 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
         val width   = _widths(elementId)
         val mask    = widthsMasks(elementId)
 
-        def walk(that: BaseType): Unit = that.head match {
-          case AssignmentStatement(_, literal: Literal) if element.hasOnlyOneStatement =>
-            val value = (((literal match {
-              case literal: EnumLiteral[_]   => elements(elementId).asInstanceOf[SpinalEnumCraft[_]].encoding.getValue(literal.senum)
-              case literal: BitVectorLiteral => {
-                if(literal.minimalValueBitWidth > width)
-                  SpinalError(s"MEM_INIT error, literal at intex $elementId is too big. 0x${literal.getValue().toString(16).toUpperCase()} => ${literal.minimalValueBitWidth} bits (more than $width bits)")
-                literal.getValue()
-              }
-              case literal: Literal          => literal.getValue()
-            }) & mask) << offset)
+        def walk(that: BaseType): Unit = 
+          if (that == null || that.head == null) {
+            SpinalError(s"Null value encountered in {$word}")
+          } else {
+            that.head match {
+            case AssignmentStatement(_, literal: Literal) if element.hasOnlyOneStatement =>
+              val value = (((literal match {
+                case literal: EnumLiteral[_]   => elements(elementId).asInstanceOf[SpinalEnumCraft[_]].encoding.getValue(literal.senum)
+                case literal: BitVectorLiteral => {
+                  if(literal.minimalValueBitWidth > width)
+                    SpinalError(s"MEM_INIT error, literal at intex $elementId is too big. 0x${literal.getValue().toString(16).toUpperCase()} => ${literal.minimalValueBitWidth} bits (more than $width bits)")
+                  literal.getValue()
+                }
+                case literal: Literal          => literal.getValue()
+              }) & mask) << offset)
 
-            builder += value
-          case AssignmentStatement(_, input : BaseType) if element.hasOnlyOneStatement  => walk(input)
-          case _ => SpinalError("ROM initial value should be provided from full literals value")
+              builder += value
+            case AssignmentStatement(_, input : BaseType) if element.hasOnlyOneStatement  => walk(input)
+            case other => SpinalError(s"ROM initial value should be provided from full literals value, got $other")
+          }
         }
         walk(element)
       }
