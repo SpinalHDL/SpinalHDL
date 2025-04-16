@@ -617,6 +617,7 @@ class Counter(val start: BigInt, val end: BigInt) extends ImplicitArea[UInt] {
 
   def clear(): Unit = willClear := True
   def increment(): Unit = willIncrement := True
+  def load(value: UInt): Unit = valueNext := value
 
   val valueNext = UInt(log2Up(end + 1) bit)
   val value = RegNext(valueNext) init(start)
