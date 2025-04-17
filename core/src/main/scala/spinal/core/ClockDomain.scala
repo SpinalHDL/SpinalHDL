@@ -70,7 +70,7 @@ case class ClockEnableTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
 
 // Default configuration of clock domain is :
 // Rising edge clock with optional asynchronous reset active high and optional active high clockEnable
-case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveLevel: Polarity = HIGH, softResetActiveLevel: Polarity = HIGH, clockEnableActiveLevel: Polarity = HIGH) {
+case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveLevel: Polarity = HIGH, softResetActiveLevel: Polarity = HIGH, clockEnableActiveLevel: Polarity = HIGH, resetName: String = null) {
   val useResetPin = resetKind match{
     case `ASYNC` | `SYNC` => true
     case _                => false
@@ -106,7 +106,10 @@ object ClockDomain {
     var reset: Bool = null
     if (withReset && config.resetKind != BOOT) {
       reset = Bool()
-      reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveLevel == HIGH) "" else "n"))
+      if(config.resetName != null)
+        reset.setName(config.resetName)
+      else
+        reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveLevel == HIGH) "" else "n"))
     }
 
     var softReset: Bool = null
