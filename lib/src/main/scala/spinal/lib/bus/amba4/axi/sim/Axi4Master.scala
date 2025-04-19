@@ -237,7 +237,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
 
     val (_, padFront, _, paddedData) = padData(address, data)
 
-    val numTransactions = paddedData.length / bytes
+    val numTransactions = (paddedData.length / bytes.toFloat).ceil.toInt
     if (numTransactions > 1) {
       log("..", f"write $address%#x in $numTransactions transactions")
     }
@@ -249,7 +249,12 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
         case _ => data.take(bytes)
       }
       val remaining = data.drop(slice.length)
-      writeSingle(addr, slice, id, burst, len, size)(handleTransaction(addr, transactionId, remaining))
+      val thisLen = if (remaining.length == 0) {
+        ((slice.length / bytePerBeat.toFloat).ceil.toInt - 1) min len
+      } else {
+        len
+      }
+      writeSingle(addr, slice, id, burst, thisLen, size)(handleTransaction(addr, transactionId, remaining))
     }
 
     def handleTransaction(addr: BigInt, transactionId: Int, remaining: List[Byte])() = {
@@ -262,7 +267,6 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
         run(addr + addrInc, remaining, transactionId + 1)
       }
     }
-
     run(address, data, 0)
   }
 
@@ -278,7 +282,8 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
     val bytePerBus = 1 << log2Up(busConfig.dataWidth / 8)
 
     val (roundedAddress, padFront, padBack, paddedData) = padData(address, data)
-    val realLen = data.length
+    assert(data.length <= (len + 1) * bytePerBeat, "data is too long and cannot be sent in one transaction")
+    assert(data.length >= len * bytePerBeat, f"data is too short (${data.length}) for len=$len (would result in erroneous zero transfers)")
     assert(paddedData.length <= bytes, s"requested length ${data.length} (${paddedData.length} with padding) could not be completed in one transaction")
 
     awQueue += { aw =>
@@ -293,16 +298,15 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
         wQueue += { w =>
           val data = paddedData.slice(beat * bytePerBeat, (beat + 1) * bytePerBeat)
           w.data #= data.toArray
-          val strb = if (len == 0) {
-            ((BigInt(1) << realLen) - 1) << padFront
-          } else beat match {
-            case 0 => (BigInt(1) << (bytePerBeat - padFront)) - 1
-            case `len` => ~((BigInt(1) << padBack) - 1)
-            case _ => BigInt(1) << busConfig.bytePerWord
-          }
+          val fullStrb = (BigInt(1) << bytePerBeat) - 1
+          val strb = (beat match {
+            case 0     => fullStrb << padFront
+            case `len` => fullStrb >> padBack
+            case _     => fullStrb
+          }) & fullStrb
           if (busConfig.useStrb) w.strb #= strb
           if (busConfig.useLast) w.last #= beat == len
-          log("W", f"data ${data.bytesToHex} strb $strb%#x last ${beat == len}")
+          log("W", f"data ${data.reverse.bytesToHex} strb $strb%#x last ${beat == len}")
         }
       }
 
