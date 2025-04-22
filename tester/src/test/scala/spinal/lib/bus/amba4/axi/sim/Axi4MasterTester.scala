@@ -89,4 +89,30 @@ class Axi4MasterTester extends SpinalAnyFunSuite {
       }
     }
   }
+  (1 until axiConfig.bytePerWord).foreach { offset =>
+    test(f"single_transfer_unaligned_${offset}") {
+      Random.setSeed(seed)
+      SimConfig.withFstWave
+        .compile(new TestBench())
+        .doSim("test", 42) { dut =>
+          val clk = dut.clockDomain
+          val mem = AxiMemorySim(dut.io.axiM, clk, AxiMemorySimConfig())
+          mem.start()
+          clk.forkStimulus(10)
+          val master = Axi4Master(dut.io.axiS, clk, "named")
+          for (i <- 0 until axiConfig.bytePerWord) {
+            mem.memory.write(i, 0)
+          }
+          val data = new Array[Byte](axiConfig.bytePerWord - offset)
+          Random.nextBytes(data)
+          master.write(offset, data.toList)
+          for ((expected, i) <- data zipWithIndex) {
+            assert(mem.memory.read(i + offset) == expected, f"data in memory ${i + offset}")
+          }
+          for (i <- 0 until offset) {
+            assert(mem.memory.read(i) == 0, f"expected 0x00 in ${i}")
+          }
+        }
+    }
+  }
 }
