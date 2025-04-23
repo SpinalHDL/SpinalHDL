@@ -399,6 +399,18 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     */
   def stage() : Stream[T] = this.m2sPipe().setCompositeName(this, "stage", true)
 
+  /**
+   * Delay the stream by a given number of cycles.
+   * @param cycleCount Number of cycles to delay the stream
+   * @return Delayed stream
+   */
+  def delay(cycleCount: Int): Stream[T] = {
+    cycleCount match {
+      case 0 => this
+      case _ => this.stage().delay(cycleCount - 1)
+    }
+  }
+
   // ! if collapsBubble is enable then ready is not "don't care" during valid low !
   /** Return a stream that cut the ``valid`` and ``payload`` signals through registers.
     * 
