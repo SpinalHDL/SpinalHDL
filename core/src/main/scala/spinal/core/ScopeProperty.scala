@@ -76,6 +76,7 @@ object ScopeProperty {
 }
 
 class ToBitsPimper(scopeProperty: ScopeProperty[Int]) {
+  /** SpinalHDL "marker" to transform an [[Int]] into a [[BitCount]] */
   def bits = BitCount(scopeProperty.get)
 }
 

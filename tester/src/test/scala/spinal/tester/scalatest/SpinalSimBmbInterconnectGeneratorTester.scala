@@ -119,7 +119,7 @@ object SpinalSimBmbInterconnectGeneratorTester {
         alignment = BmbParameter.BurstAlignement.LENGTH
       ))
 
-      // write only
+      // Write-only
       val sC = addSlave(0x80000, BmbAccessCapabilities(
         addressWidth = 16,
         dataWidth = 32,
@@ -129,7 +129,7 @@ object SpinalSimBmbInterconnectGeneratorTester {
         alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
-      //read only
+      // Read-only
       val sD = addSlave(0x90000, BmbAccessCapabilities(
         addressWidth = 16,
         dataWidth = 32,
@@ -138,7 +138,7 @@ object SpinalSimBmbInterconnectGeneratorTester {
         alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
-      //Read only and write only mapped at the same address
+      // Read-only and write-only mapped at the same address
       val sE = addSlave(0xA0000, BmbAccessCapabilities(
         addressWidth = 17,
         dataWidth = 32,
@@ -155,7 +155,7 @@ object SpinalSimBmbInterconnectGeneratorTester {
         alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
-      // down sizer
+      // Down sizer
       val sF = addSlave(0xC0000, BmbAccessCapabilities(
         addressWidth = 17,
         dataWidth = 16,
