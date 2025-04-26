@@ -18,15 +18,15 @@ object StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.combStage()
   }
 
-  /** Insert a stage that cut the ``valid`` and ``payload`` signals through registers */
+  /** Insert a stage that cut the `valid` and `payload` signals through registers */
   val M2S = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.m2sPipe()
   }
-  /** Insert a stage that cut the ``ready`` path through a register */
+  /** Insert a stage that cut the `ready` path through a register */
   val S2M = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.s2mPipe()
   }
-  /** Insert a stage that cut the ``valid``, ``ready`` and ``payload`` signals through registers */
+  /** Insert a stage that cut the `valid`, `ready` and `payload` signals through registers */
   val FULL = new StreamPipe {
     override def apply[T <: Data](m: Stream[T]) = m.s2mPipe().m2sPipe()
   }
@@ -74,9 +74,30 @@ class EventFactory extends MSFactory {
   }
 }
 
+/** A simple interface with master payload `valid`, slave `ready` handshake.
+  * 
+  * When manually reading/driving the signals of a [[Stream]] keep in mind that:
+  *
+  *  - After being asserted, `valid` may only be deasserted once the current payload was
+  *    acknowledged. This means `valid` can only toggle to 0 the cycle after a the slave did
+  *    a read by asserting ready.
+  *  - In contrast to that `ready` may change at any time.
+  *  - A transfer is only done on cycles where both `valid` and `ready` are asserted.
+  *  - `valid` of a [[Stream]] must not depend on `ready` in a combinatorial way and any path
+  *    between the two must be registered.
+  *
+  * It is recommended that `valid` does not depend on `ready` at all.
+  *  
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/stream.html#stream Stream documentation]]
+  */
 class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T] {
+  /** Signal driven by the master, indicating `payload` present on the interface. */
   val valid   = Bool()
+
+  /** Signal driven by the slave, indicating consumption of the `payload`,  don't care when `valid` is 0. */
   val ready   = Bool()
+
+  /** Content of the transaction driven by the master, don't care when `valid` is 0. */
   val payload = payloadType()
 
   override def clone: Stream[T] =  Stream(payloadType)
@@ -94,7 +115,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this
   }
 
-/** @return Return a flow drived by this stream. Ready of ths stream is always high
+/** @return Return a flow driven by this stream. Ready of ths stream is always high
   */
   def toFlow: Flow[T] = {
     freeRun()
@@ -118,54 +139,46 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.setCompositeName(this, "asFlow", true)
   }
 
-  /** Connect that to this
-  */
+  /** Connect `slaveStream << masterStream` without any registering.*/
   def <<(that: Stream[T]): Stream[T] = connectFrom(that)
 
-/** Connect this to that
-  */
+ /** Connect `masterStream >> slaveStream` without any registering.*/
   def >>(into: Stream[T]): Stream[T] = {
     into << this
     into
   }
 
-/** Connect that to this. The valid/payload path are cut by an register stage
-  */
+  /** Connect `slaveStream <-< masterStream`. The `valid`/`payload` path are cut by an register stage. */
   def <-<(that: Stream[T]): Stream[T] = {
     this << that.stage()
     that
   }
 
-/** Connect this to that. The valid/payload path are cut by an register stage
-  */
+  /** Connect `masterStream >-> slaveStream`. The `valid`/`payload` path are cut by an register stage. */
   def >->(into: Stream[T]): Stream[T] = {
     into <-< this
     into
   }
 
-/** Connect that to this. The ready path is cut by an register stage
-  */
+  /** Connect `slaveStream </< masterStream`. The `ready` path is cut by an register stage. */
   def </<(that: Stream[T]): Stream[T] = {
     this << that.s2mPipe()
     that
   }
 
-/** Connect this to that. The ready path is cut by an register stage
-  */
+  /** Connect `masterStream >/> slaveStream`. The `ready` path is cut by an register stage. */
   def >/>(that: Stream[T]): Stream[T] = {
     that </< this
     that
   }
 
-/** Connect that to this. The valid/payload/ready path are cut by an register stage
-  */
+  /** Connect `slaveStream <-/< masterStream`. The `valid`/`payload`/`ready` path are cut by an register stage. */
   def <-/<(that: Stream[T]): Stream[T] = {
     this << that.s2mPipe().m2sPipe()
     that
   }
 
-/** Connect that to this. The valid/payload/ready path are cut by an register stage
-  */
+  /** Connect `masterStream >/-> slaveStream`. The `valid`/`payload`/`ready` path are cut by an register stage. */
   def >/->(into: Stream[T]): Stream[T] = {
     into <-/< this;
     into
@@ -190,11 +203,17 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def &(cond: Bool): Stream[T] = continueWhen(cond)
   def ~[T2 <: Data](that: T2): Stream[T2] = translateWith(that)
   def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = map(translate)
+  
+ /** Return a [[Stream]] with payload calculated by a translate function.
+   * 
+   * Modify the payload of the x stream, while preserving the valid and ready signals
+   */
+
   def map[T2 <: Data](translate: (T) => T2): Stream[T2] = {
     (this ~ translate(this.payload)).setCompositeName(this, "map", true)
   }
 
-/** Ignore the payload */
+  /** Ignore the payload */
   def toEvent() : Event = {
     val ret = Event
     ret.arbitrationFrom(this)
@@ -314,22 +333,23 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next.setCompositeName(this,"slowdown", true)
   }
 
-/** Return True when a transaction is present on the bus but the ready signal is low
+/** Return `True` when a transaction is present on the bus but the `ready` signal is low
     */
   def isStall : Bool = signalCache(this ->"isStall")((valid && !ready).setCompositeName(this, "isStall", true))
 
-  /** Return True when a transaction has appeared (first cycle)
+  /** Return `True` when a transaction has appeared (first cycle)
     */
   def isNew : Bool = signalCache(this ->"isNew")((valid && !(RegNext(isStall) init(False))).setCompositeName(this, "isNew", true))
 
-  /** Return True when a transaction occurs on the bus (valid && ready)
+  /** Return `True` when a transaction occurs on the bus (`valid && ready`)
   */
   override def fire: Bool = signalCache(this ->"fire")((valid & ready).setCompositeName(this, "fire", true))
 
-/** Return True when the bus isn't stuck with a transaction (!isStall)
+/** Return `True` when the bus isn't stuck with a transaction (`!isStall`)
   */
   def isFree: Bool = signalCache(this ->"isFree")((!valid || ready).setCompositeName(this, "isFree", true))
 
+  /** Connect this slave [[Stream]] to `that` master [[Stream]] */
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
     that.ready := this.ready
@@ -392,10 +412,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   /** Connect this to a valid/payload register stage and return its output stream.
     * 
-    * The cost is ``(payload width + 1)`` flip-flops and the latency is 1.
+    * The cost is `(payload width + 1)` flip-flops and the latency is 1.
     * 
     * Equivalent to [[m2sPipe()]] but with "stage" name in the generated HDL.
-    * @see [[file:///home/marc/electrotec/spinalhdl/SpinalDoc-RTD/docs/html/SpinalHDL/Libraries/stream.html#functions stream documentation]]
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/stream.html#functions stream documentation]]
     */
   def stage() : Stream[T] = this.m2sPipe().setCompositeName(this, "stage", true)
 
@@ -412,24 +432,24 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   // ! if collapsBubble is enable then ready is not "don't care" during valid low !
-  /** Return a stream that cut the ``valid`` and ``payload`` signals through registers.
+  /** Return a stream that cut the `valid` and `payload` signals through registers.
     * 
-    * The cost is ``(payload width + 1)`` flip-flops and the latency is 1.
+    * The cost is `(payload width + 1)` flip-flops and the latency is 1.
     * 
     * The name "m2s" comes from from the fact that the signals that flow
-    * from Master-to-Slave are pipelined  (namely ``ready`` and ``payload``).
+    * from Master-to-Slave are pipelined  (namely `ready` and `payload`).
     * 
-    * @param collapsBubble When ``true``(the default), add the logic to allow to store an incoming payload when there is 
+    * @param collapsBubble When `true`(the default), add the logic to allow to store an incoming payload when there is 
     *                      no stored payload and the slave is not ready.
-    * @param crossClockData If ``false``(the default), do not add tags on the payload signal for clock domain crossing.
-    * @param flush An optional signal to set the ``valid`` register to 0.
-    * @param holdPayload When ``false``(the default), do not add the logic to keep the slave side payload constant after the one cycle
+    * @param crossClockData If `false`(the default), do not add tags on the payload signal for clock domain crossing.
+    * @param flush An optional signal to set the `valid` register to 0.
+    * @param holdPayload When `false`(the default), do not add the logic to keep the slave side payload constant after the one cycle
     *                    when the slave consumed the payload.
-    * @param keep If ``false``(the default), do not add an attribute to avoid optimization of the slave side valid and payload.
-    * @param initPayload If not ``null``, a value to initialize the payload registers.
+    * @param keep If `false`(the default), do not add an attribute to avoid optimization of the slave side valid and payload.
+    * @param initPayload If not `null`, a value to initialize the payload registers.
     * 
     * @see [[stage()]]
-    * @see [[file:///home/marc/electrotec/spinalhdl/SpinalDoc-RTD/docs/html/SpinalHDL/Libraries/stream.html#functions stream documentation]]
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/stream.html#functions stream documentation]]
     */
   def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false, keep : Boolean = false, initPayload : => T = null.asInstanceOf[T]): Stream[T] = new Composite(this) {
     val m2sPipe = Stream(payloadType)
@@ -451,20 +471,20 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     m2sPipe.payload := rData
   }.m2sPipe
 
-  /** Return a stream that cut the ``ready`` path through a register.
+  /** Return a stream that cut the `ready` path through a register.
     * 
-    * As long as the slave is ready, the ``valid`` and ``payload`` signal are passed without registering.
-    * When the slave ``ready`` goes to low, the payload is stored and will be consumed later at the 
-    * first cycle of ``ready`` to high.
+    * As long as the slave is ready, the `valid` and `payload` signal are passed without registering.
+    * When the slave `ready` goes to low, the payload is stored and will be consumed later at the 
+    * first cycle of `ready` to high.
     * 
-    * The cost is ``payload width + 1`` flip-flops and ``payload width`` mux2. The latency is 0.
+    * The cost is `payload width + 1` flip-flops and `payload width` mux2. The latency is 0.
     *     
     * The name "s2m" comes from from the fact that the signal that flows
-    * from Slave-to-Master is pipelined (namely ``valid``).
+    * from Slave-to-Master is pipelined (namely `valid`).
     * 
-    * @param flush An optional signal to set the ``valid`` register to 0.
-    * @param keep If ``false``(the default), do not add an attribute to avoid optimization of the slave side valid and payload signals. 
-    * @see [[file:///home/marc/electrotec/spinalhdl/SpinalDoc-RTD/docs/html/SpinalHDL/Libraries/stream.html#functions stream documentation]]
+    * @param flush An optional signal to set the `valid` register to 0.
+    * @param keep If `false`(the default), do not add an attribute to avoid optimization of the slave side valid and payload signals. 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/stream.html#functions stream documentation]]
     */
   def s2mPipe(flush : Bool = null, keep : Boolean = false, savePower: Boolean = false): Stream[T] = new Composite(this) {
     val s2mPipe = Stream(payloadType)
@@ -500,9 +520,9 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     validPipe.payload := self.payload
   }.validPipe
 
-  /** Return a stream that cut all path, but divide the bandwidth by 2.
+  /** Return a [[Stream]] that cut all path, but divide the bandwidth by 2.
     * 
-    * The cost is ``(payload width + 2)`` flip-flops and the latency is 1.
+    * The cost is `(payload width + 2)` flip-flops and the latency is 1.
     */
   def halfPipe(flush : Bool = null, keep : Boolean = false): Stream[T] = new Composite(this) {
     val halfPipe = Stream(payloadType)
@@ -519,7 +539,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     if(flush != null) rValid clearWhen(flush)
   }.halfPipe
 
-/** Block this when cond is False. Return the resulting stream
+/** Block this when cond is `False`. Return the resulting [[Stream]]
   */
   def continueWhen(cond: Bool): Stream[T] = {
     val next = new Stream(payloadType)
@@ -530,10 +550,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   /**
-   * Discard transactions when cond is true.
+   * Discard transactions when cond is `True`.
    *
-   * This is the same as throwWhen() but with a semantically clearer function name.
-   * Prefer discardWhen() over throwWhen() for new designs.
+   * This is the same as [[throwWhen()]] but with a semantically clearer function name.
+   * Prefer [[discardWhen()]] over [[throwWhen()]] for new designs.
    *
    * @param cond Condition
    *
@@ -543,7 +563,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this throwWhen(cond)
   }
 
-/** Drop transactions of this when cond is True. Return the resulting stream
+/** Drop transactions of this when cond is `True` and return the resulting [[Stream]].
   */
   def throwWhen(cond: Bool): Stream[T] = {
     val next = Stream(payloadType).setCompositeName(this, "thrown", true)
@@ -564,12 +584,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
-  /** Stop transactions on this when cond is True. Return the resulting stream
-    */
+  /** Stop transactions on this when cond is `True` and return the resulting [[Stream]]. */
   def haltWhen(cond: Bool): Stream[T] = continueWhen(!cond).setCompositeName(this, "haltWhen", true)
 
-  /** Drop transaction of this when cond is False. Return the resulting stream
-    */
+  /** Drop transaction of this when cond is `False` and return the resulting [[Stream]]. */
   def takeWhen(cond: Bool): Stream[T] = throwWhen(!cond).setCompositeName(this, "takeWhen", true)
 
 
@@ -579,7 +597,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     converter.io.output
   }
   
-  /** Convert this stream to a fragmented stream by adding a last bit. 
+  /** Convert this [[Stream]] to a fragmented [[Stream]] by adding a last bit. 
     * 
     * To view it from another perspective, bundle together successive events as fragments of a larger whole.
     * You can then use enhanced operations on fragmented streams, like reducing of elements.
@@ -639,7 +657,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   /**
    * Assert that this stream conforms to the stream semantics:
    * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
-   * - After being asserted, valid may only be deasserted once the current payload was acknowleged.
+   * - After being asserted, valid may only be deasserted once the current payload was acknowledged.
    *
    * @param payloadInvariance Check that the payload does not change when valid is high and ready is low.
    */
@@ -735,7 +753,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 object StreamArbiter {
   /** An Arbitration will choose which input stream to take at any moment. */
-  object Arbitration{
+  object Arbitration {
     def lowerFirst(core: StreamArbiter[_ <: Data]) = new Area {
       import core._
       maskProposal := OHMasking.first(Vec(io.inputs.map(_.valid)))
@@ -799,9 +817,13 @@ object StreamArbiter {
   }
 }
 
-/**
- *  A StreamArbiter is like a StreamMux, but with built-in complex selection logic that can arbitrate input
- *  streams based on a schedule or handle fragmented streams. Use a StreamArbiterFactory to create instances of this class.
+/** Arbitrate from several [[Stream]] to one with various algorithms.
+ * 
+ * A [[StreamArbiter]] is like a [[StreamMux]], but with built-in complex selection logic that can
+ * arbitrate input streams based on a schedule or handle fragmented streams. 
+ * 
+ * Use a [[StreamArbiterFactory]] to create instances of this class.
+ * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/stream.html#streamarbiter Stream documentation]]
  */
 class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area, val lockFactory: (StreamArbiter[T]) => Area) extends Component {
   val io = new Bundle {
@@ -834,6 +856,18 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
   io.chosen := OHToUInt(io.chosenOH)
 }
 
+/** Build a [[StreamArbiter]] from a list of [[Stream]].
+  * 
+  * example:
+  * {{{
+  *   val streamA, streamB, streamC = Stream(Bits(8 bits))
+  *   val arbiteredABC = StreamArbiterFactory.roundRobin.onArgs(streamA, streamB, streamC)
+  *   val streamD, streamE, streamF = Stream(Bits(8 bits))
+  *   val arbiteredDEF = StreamArbiterFactory.lowerFirst.noLock.onArgs(streamD, streamE, streamF)
+  * }}}   
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/stream.html#streamarbiter Stream documentation]]
+  */
 class StreamArbiterFactory {
   var arbitrationLogic: (StreamArbiter[_ <: Data]) => Area = StreamArbiter.Arbitration.lowerFirst
   var lockLogic: (StreamArbiter[_ <: Data]) => Area = StreamArbiter.Lock.transactionLock
@@ -852,7 +886,10 @@ class StreamArbiterFactory {
     buildOn(first :: others.toList)
   }
 
+  /** Build the arbitered [[Stream]] from a variable number [[Stream]] as arguments */
   def onArgs[T <: Data](inputs: Stream[T]*): Stream[T] = on(inputs.seq)
+
+  /** Build the arbitered [[Stream]] from a `Seq` of [[Stream]] */
   def on[T <: Data](inputs: Seq[Stream[T]]): Stream[T] = {
     val arbiter = build(inputs(0).payloadType, inputs.size)
     (arbiter.io.inputs, inputs).zipped.foreach(_ << _)
@@ -861,14 +898,22 @@ class StreamArbiterFactory {
     ret
   }
 
+  /** Configure the builder so lower ports have priority over higher ports */
   def lowerFirst: this.type = {
     arbitrationLogic = StreamArbiter.Arbitration.lowerFirst
     this
   }
+
+  /** Configure the builder for fair round robin arbitration */
   def roundRobin: this.type = {
     arbitrationLogic = StreamArbiter.Arbitration.roundRobin
     this
   }
+
+  /** Configure the build to retrieve transaction in a sequential order.
+    * 
+    * First transaction should come from port zero, then from port one, ...
+    */
   def sequentialOrder: this.type = {
     arbitrationLogic = StreamArbiter.Arbitration.sequentialOrder
     this
@@ -882,8 +927,21 @@ class StreamArbiterFactory {
     lockLogic = body
     this
   }
+
+  /** Configure the builder so the port selection could change every cycle,
+    * even if the transaction on the selected port is not consumed.
+    */
   def noLock: this.type = setLock(StreamArbiter.Lock.none)
+  
+  /** Configure the builder so The port selection is locked until the transaction
+    * on the selected port is consumed.
+    */
   def fragmentLock: this.type = setLock(StreamArbiter.Lock.fragmentLock)
+
+  /** Configure the builder so the port selection is locked until the selected port finish is burst (last=True).
+    *
+    * Could be used to arbitrate `Stream[Flow[T]]`.
+    */
   def transactionLock: this.type = setLock(StreamArbiter.Lock.transactionLock)
   def lambdaLock[T <: Data](unlock: Stream[T] => Bool) : this.type = setLock{
     case c : StreamArbiter[T] => new Area {
@@ -1292,19 +1350,24 @@ object StreamFifo{
   }
 }
 
-/**
-  * Fully redesigned in release 1.8.2 allowing improved timing closure.
+/** First-In-First-Out queue with a `push` and `pop` [[Stream]]
+  *   
   * - latency of 0, 1, 2 cycles
   *
+  * Fully redesigned in release 1.8.2 allowing improved timing closure.
   * @param dataType
-  * @param depth Number of element stored in the fifo, Note that if withAsyncRead==false, then one extra transaction can be stored
-  * @param withAsyncRead Read the memory using asyncronous read port (ex distributed ram). If false, add 1 cycle latency
-  * @param withBypass Bypass the push port to the pop port when the fifo is empty. If false, add 1 cycle latency
-  *                   Only available if withAsyncRead == true
-  * @param forFMax Tune the design to get the maximal clock frequency
+  * @param depth Number of element stored in the fifo, Note that if `withAsyncRead==false`,
+  *              then one extra transaction can be stored.
+  * @param withAsyncRead Read the memory using asynchronous read port (ex distributed ram).
+  *                      If false, add 1 cycle latency.
+  * @param withBypass Bypass the push port to the pop port when the fifo is empty.If false, add 
+  *                   1 cycle latency. Only available if `withAsyncRead == true`.
+  * @param forFMax Tune the design to get the maximal clock frequency.
   * @param useVec Use an Vec of register instead of a Mem to store the content
-  *               Only available if withAsyncRead == true
-  * @param initPayload Initialize the Vec of register with the initial value
+  *               Only available if `withAsyncRead == true`.
+  * @param initPayload Initialize the `Vec` of register with the initial value.
+  * 
+  * @see [[StreamFifoCC]] and [[StreamCCByToggle]] for cross clock domain FIFOs
   */
 class StreamFifo[T <: Data](val dataType: HardType[T],
                             val depth: Int,
@@ -2665,7 +2728,7 @@ object StreamPacker {
   *
   * `io.done` indicates when the last word has been packed.
   *
-  * Use the companion object `StreamPapcker` to create an instance.
+  * Use the companion object `StreamPacker` to create an instance.
   */
 class StreamPacker[T <: Data](
     stream: Stream[T],
