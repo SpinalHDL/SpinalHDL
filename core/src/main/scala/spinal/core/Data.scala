@@ -37,9 +37,10 @@ trait DataPrimitives[T <: Data] {
 
   private[spinal] def _data : T
 
-  /** `isEqualTo` comparison between two SpinalHDL data */
+  /** `isEqualTo` comparison between two hardware signals */
   def ===(that: T): Bool = _data isEqualTo that
-  /** `isNotEqualTo` comparison between two SpinalHDL data */
+  
+  /** `isNotEqualTo` comparison between two hardware signals */
   def =/=(that: T): Bool = _data isNotEqualTo that
   def =::=(that: T): Bool = _data isEqualToSim that
 
@@ -101,11 +102,13 @@ trait DataPrimitives[T <: Data] {
     _data
   }
   
+  /** Set initial value only if ``that`` is not ``null`` */
   def initNull(that: T): T = {
     if(that != null) init(that)
     _data
   }
 
+  /** Set initial value as 0 */
   def initZero() : T = {
     _data.init(_data.getZero)
     _data
@@ -451,10 +454,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def assignFromBits(bits: Bits, hi: Int, low: Int): Unit
   def assignFromBits(bits: Bits, offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits, offset + bitCount.value - 1, offset)
 
+  /** Clear all bits to ``False`` and return itself */
   def clearAll(): this.type = {
     assignFromBits(Bits(asBits.getBitsWidth bits).clearAll())
     this
   }
+
+  /** Set all bits to ``True`` and return itself */
   def setAll(): this.type = {
     assignFromBits(Bits(asBits.getBitsWidth bits).setAll())
     this
@@ -466,6 +472,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret
   }
 
+  /** Assign the default 'x' value to all signals composing this type.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/index.html#data-types Data type documentation]] 
+    * @see [[https://en.wikipedia.org/wiki/Don't-care_term#X_value "Don't care term" wikipedia article]]
+    */
   def assignDontCare(): this.type = {
     flatten.foreach(_.assignDontCare())
     this
@@ -815,7 +826,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def getMuxType[T <: Data](list : TraversableOnce[T]) : HardType[T] = HardType(cloneOf(this).asInstanceOf[T])
   def toMuxInput[T <: Data](muxOutput : T) : T = this.asInstanceOf[T]
 
-  // Cat this count times
+  /** Return the `count` time concatenation of the signal.
+    */
   def #* (count : Int) : Bits =  this.asBits #* count
 
   /**
