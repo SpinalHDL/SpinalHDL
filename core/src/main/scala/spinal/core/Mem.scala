@@ -286,9 +286,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     readAsyncImpl(address,readWord,readUnderWrite,false)
     readWord
   }
-//
-//  def readAsyncMixedWidth(address: UInt, data : Data, readUnderWrite: ReadUnderWritePolicy = dontCare): Unit =  readAsyncImpl(address,data,readUnderWrite,true)
-//
+
   def readAsyncImpl(address: UInt, data: Data,readUnderWrite: ReadUnderWritePolicy = dontCare, allowMixedWidth: Boolean): Unit = {
     val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
 
