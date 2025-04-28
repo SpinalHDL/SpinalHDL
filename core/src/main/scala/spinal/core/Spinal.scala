@@ -68,6 +68,9 @@ object Device{
 }
 
 
+/** Policy for memory blackbox replacement. 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
 trait MemBlackboxingPolicy {
   def translationInterest(topology: MemTopology): Boolean
 
@@ -78,21 +81,32 @@ trait MemBlackboxingPolicy {
   }
 }
 
-
+/** Blackbox every memory that is replaceable.
+  *
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
 object blackboxAllWhatsYouCan extends MemBlackboxingPolicy {
   override def translationInterest(topology: MemTopology): Boolean = true
 
   override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = {}
 }
 
-
+/** Blackbox all memory.
+  *
+  * Throw an error on unblackboxable memory.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
 object blackboxAll extends MemBlackboxingPolicy {
   override def translationInterest(topology: MemTopology): Boolean = true
 
   override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = generateUnblackboxableError(topology, who, message)
 }
 
-
+/** Blackbox memory specified by the user and memory that is known to be uninferable (mixed-width, …).
+  * 
+  * Throw an error on unblackboxable memory.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
 object blackboxRequestedAndUninferable extends MemBlackboxingPolicy {
 
   override def translationInterest(topology: MemTopology): Boolean = {
@@ -107,8 +121,12 @@ object blackboxRequestedAndUninferable extends MemBlackboxingPolicy {
   override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = generateUnblackboxableError(topology, who, message)
 }
 
-
-object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
+/** Blackbox memory specified by the user.
+  * 
+  * Throw an error on unblackboxable memory.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
+object blackboxOnlyIfRequested extends MemBlackboxingPolicy {
   override def translationInterest(topology: MemTopology): Boolean = {
     topology.mem.forceMemToBlackboxTranslation
   }
@@ -116,7 +134,13 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
   override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = generateUnblackboxableError(topology, who, message)
 }
 
-object blackboxByteEnables extends MemBlackboxingPolicy{
+/** Blackbox every memory which use write port with byte mask.
+  * 
+  * Useful because synthesis tool don't support an unified way to infer byte mask in verilog/VHDL.
+  * Throw an error on unblackboxable memory.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
+object blackboxByteEnables extends MemBlackboxingPolicy {
   override def translationInterest(topology: MemTopology): Boolean = {
     if(topology.writes.exists(_.mask != null) && topology.mem.initialContent == null) return true
     if(topology.readWriteSync.exists(_.mask != null) && topology.mem.initialContent == null) return true
