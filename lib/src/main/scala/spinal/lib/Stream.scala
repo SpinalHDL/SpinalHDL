@@ -399,6 +399,18 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     */
   def stage() : Stream[T] = this.m2sPipe().setCompositeName(this, "stage", true)
 
+  /**
+   * Delay the stream by a given number of cycles.
+   * @param cycleCount Number of cycles to delay the stream
+   * @return Delayed stream
+   */
+  def delay(cycleCount: Int): Stream[T] = {
+    cycleCount match {
+      case 0 => this
+      case _ => this.stage().delay(cycleCount - 1)
+    }
+  }
+
   // ! if collapsBubble is enable then ready is not "don't care" during valid low !
   /** Return a stream that cut the ``valid`` and ``payload`` signals through registers.
     * 
@@ -1495,45 +1507,61 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
     }
   }
 
-
+  def formalCheckLastPush(cond: T => Bool) : Bool = new Composite(this) {
+    val lastPush = if(logic != null) {
+      val condition = (0 until depth).map(x => cond(if (useVec) logic.vec(x) else logic.ram(x)))
+      val lastPushIdx = (logic.ptr.push +^ depth -^ 1) % depth
+      condition(lastPushIdx.resized)
+    } else if (oneStage != null) {
+      cond(oneStage.buffer.payload)
+    } else {
+      cond(io.push.payload)
+    }
+  }.lastPush
 
   // check a condition against all valid payloads in the FIFO RAM
   def formalCheckRam(cond: T => Bool): Vec[Bool] = new Composite(this){
-    val condition = (0 until depth).map(x => cond(if (useVec) logic.vec(x) else logic.ram(x)))
-    // create mask for all valid payloads in FIFO RAM
-    // inclusive [popd_idx, push_idx) exclusive
-    // assume FIFO RAM is full with valid payloads
-    //           [ ...  push_idx ... ]
-    //           [ ...  pop_idx  ... ]
-    // mask      [ 1 1 1 1 1 1 1 1 1 ]
-    val mask = Vec(True, depth)
-    val push_idx = logic.ptr.push.resize(log2Up(depth))
-    val pop_idx = logic.ptr.pop.resize(log2Up(depth))
-    // pushMask(i)==0 indicates location i was popped
-    val popMask = (~((U(1) << pop_idx) - 1)).asBits
-    // pushMask(i)==1 indicates location i was pushed
-    val pushMask = ((U(1) << push_idx) - 1).asBits
-    // no wrap   [ ... popd_idx ... push_idx ... ]
-    // popMask   [ 0 0 1 1 1 1  1 1 1 1 1 1 1 1 1]
-    // pushpMask [ 1 1 1 1 1 1  1 1 0 0 0 0 0 0 0] &
-    // mask      [ 0 0 1 1 1 1  1 1 0 0 0 0 0 0 0]
-    when(pop_idx < push_idx) {
-      mask.assignFromBits(pushMask & popMask)
-      // wrapped   [ ... push_idx ... popd_idx ... ]
-      // popMask   [ 0 0 0 0 0 0  0 0 1 1 1 1 1 1 1]
-      // pushpMask [ 1 1 0 0 0 0  0 0 0 0 0 0 0 0 0] |
-      // mask      [ 1 1 0 0 0 0  0 0 1 1 1 1 1 1 1]
-    }.elsewhen(pop_idx > push_idx) {
-      mask.assignFromBits(pushMask | popMask)
-      // empty?
+    val vec = if(logic != null) {
+      val condition = (0 until depth).map(x => cond(if (useVec) logic.vec(x) else logic.ram(x)))
+      // create mask for all valid payloads in FIFO RAM
+      // inclusive [popd_idx, push_idx) exclusive
+      // assume FIFO RAM is full with valid payloads
       //           [ ...  push_idx ... ]
       //           [ ...  pop_idx  ... ]
-      // mask      [ 0 0 0 0 0 0 0 0 0 ]
-    }.elsewhen(logic.ptr.empty) {
-      mask := mask.getZero
+      // mask      [ 1 1 1 1 1 1 1 1 1 ]
+      val mask = Vec(True, depth)
+      val push_idx = logic.ptr.push.resize(log2Up(depth))
+      val pop_idx = logic.ptr.pop.resize(log2Up(depth))
+      // pushMask(i)==0 indicates location i was popped
+      val popMask = (~((U(1) << pop_idx) - 1)).asBits
+      // pushMask(i)==1 indicates location i was pushed
+      val pushMask = ((U(1) << push_idx) - 1).asBits
+      // no wrap   [ ... popd_idx ... push_idx ... ]
+      // popMask   [ 0 0 1 1 1 1  1 1 1 1 1 1 1 1 1]
+      // pushpMask [ 1 1 1 1 1 1  1 1 0 0 0 0 0 0 0] &
+      // mask      [ 0 0 1 1 1 1  1 1 0 0 0 0 0 0 0]
+      when(pop_idx < push_idx) {
+        mask.assignFromBits(pushMask & popMask)
+        // wrapped   [ ... push_idx ... popd_idx ... ]
+        // popMask   [ 0 0 0 0 0 0  0 0 1 1 1 1 1 1 1]
+        // pushpMask [ 1 1 0 0 0 0  0 0 0 0 0 0 0 0 0] |
+        // mask      [ 1 1 0 0 0 0  0 0 1 1 1 1 1 1 1]
+      }.elsewhen(pop_idx > push_idx) {
+        mask.assignFromBits(pushMask | popMask)
+        // empty?
+        //           [ ...  push_idx ... ]
+        //           [ ...  pop_idx  ... ]
+        // mask      [ 0 0 0 0 0 0 0 0 0 ]
+      }.elsewhen(logic.ptr.empty) {
+        mask := mask.getZero
+      }
+      val check = mask.zipWithIndex.map { case (x, id) => x & condition(id) }
+      Vec(check)
+    } else if (oneStage != null) {
+      Vec(oneStage.buffer.valid & cond(oneStage.buffer.payload))
+    } else {
+      Vec[Bool](Seq())
     }
-    val check = mask.zipWithIndex.map{case (x, id) => x & condition(id)}
-    val vec = Vec(check)
   }.vec
 
   def formalCheckOutputStage(cond: T => Bool): Bool = {
