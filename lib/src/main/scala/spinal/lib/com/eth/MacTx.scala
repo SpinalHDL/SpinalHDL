@@ -461,6 +461,8 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
   }
 
   val frontend = new StateMachine{
+    setEncoding(binaryOneHot)
+
     val ETH, DONE, IPV4, IPV4_UNKNOWN, TCP, UDP, ICMP, CS_WRITE_0, CS_WRITE_1, IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1 = new State()
     val TSO_DATA = new State()
     setEntry(ETH)
