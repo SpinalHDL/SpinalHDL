@@ -367,6 +367,18 @@ case class MacTxInterFrame(dataWidth : Int, withError : Boolean = false) extends
 object MacTxLso extends App{
   SpinalConfig(privateNamespace = true).generateVerilog(new MacTxLso(2048, 1500+14))
 }
+object MacTxLsoBuffered extends App{
+  SpinalConfig(privateNamespace = true).generateVerilog(new Component{
+    setDefinitionName("MacTxLso")
+    val io = new Bundle{
+      val input = slave(Stream(Fragment(PhyTx(8))))
+      val output = master(Stream(Fragment(PhyTx(8))))
+    }
+    val lso = new MacTxLso(2048, 1500+14)
+    lso.io.input <-/< io.input
+    lso.io.output >/-> io.output
+  })
+}
 
 case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) extends Component{
 
