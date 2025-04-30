@@ -497,10 +497,11 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
       val inputLsb = CombInit(counter.lsb)
       val inputData = CombInit(io.input.data)
       val input = inputLsb.mux(B"x00" ## inputData, inputData ## B"x00").asUInt
-      val s0 = accumulator +^ input
-      val s1 = s0(15 downto 0) + s0.msb.asUInt
+      val sNoOverflow = accumulator +^ input
+      val sOverflow = accumulator +^ input + 1
+      val sMuxed = sNoOverflow.msb.mux(sOverflow, sNoOverflow)(15 downto 0)
       when(push){
-        accumulator := s1
+        accumulator := sMuxed
       }
       when(clear){
         accumulator := 0
@@ -512,7 +513,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
     val checksumTso, checksumIp = new CheckSum() {
       val checkpoint = Reg(UInt(16 bits))
       val save, restore = False
-      when(save){ checkpoint := s1}
+      when(save){ checkpoint := sMuxed }
       when(restore){ accumulator := checkpoint}
     }
 
