@@ -95,7 +95,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
 
 
   /**
-    * Create a write port of memory.
+    * Create a write port in form of a `Flow`.
     */
   def writePort() : Flow[MemWriteCmd[T]] = {
     val ret = Flow(MemWriteCmd(mem))
@@ -133,6 +133,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret
   }
 
+  /** Return a master/slave interface to the [[Mem]] */
   def readWriteSyncPort(
     maskWidth     : Int = -1,
     readUnderWrite: ReadUnderWritePolicy = dontCare,
@@ -158,7 +159,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
 }
 
 
-object MemWriteCmd{
+object MemWriteCmd {
   def apply[T <: Data](mem : Mem[T]) : MemWriteCmd[T] = {
     MemWriteCmd(mem.wordType, mem.addressWidth, -1)
   }
@@ -241,10 +242,13 @@ case class MemReadPortAsync[T <: Data](dataType : T,addressWidth : Int) extends 
   }
 }
 
+/** Master/slave interface to a [[Mem].
+  * @see [[Mem.readWriteSyncPort()]]
+  */
 case class MemReadWritePort[T <: Data](
   dataType : T,
   addressWidth : Int,
-  maskWidth     : Int = -1) extends Bundle with IMasterSlave{
+  maskWidth     : Int = -1) extends Bundle with IMasterSlave {
   def useMask = maskWidth >= 0
   val address = UInt(addressWidth bit)
   val rdata   = cloneOf(dataType)

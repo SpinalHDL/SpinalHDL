@@ -8,6 +8,7 @@ import scala.collection.Seq
 import scala.collection.mutable
 
 trait StreamPipe {
+  /** Return a pipelined version of the provided [[Stream]] based on this [[StreamPipe]] kind. */
   def apply[T <: Data](m: Stream[T]): Stream[T]
 }
 
@@ -184,7 +185,16 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     into
   }
 
+  /** Return a pipelined version of this [[Stream]] based on the provided StreamPipe spec. */
   def pipelined(pipe: StreamPipe) = pipe(this)
+
+  /** Return a pipelined version of this [[Stream]] based on the provided arguments.
+   * 
+   * @param m2s cut [[valid]] and [[payload]] with registers if `true`
+   * @param s2m cut [[ready]] with a register if `true`
+   * @param halfRate Cut [[valid]]/[[ready]]/[[payload]] with some registers. Bandwidth divided by 2.
+   *                 Can be `true` only when `m2s` and `s2m` are false.
+   */
   def pipelined(m2s : Boolean = false,
                 s2m : Boolean = false,
                 halfRate : Boolean = false) : Stream[T] = {
@@ -357,8 +367,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     that
   }
 
-  /** Drive arbitration signals of this from that
-    */
+  /** Drive arbitration signals of this [[Stream]] from the provided [[Stream]] */
   def arbitrationFrom[T2 <: Data](that : Stream[T2]) : Unit = {
     this.valid := that.valid
     that.ready := this.ready
