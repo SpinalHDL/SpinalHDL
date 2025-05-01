@@ -58,7 +58,7 @@ object ConditionalContext {
 
 
 /**
-  * Allow to express SpinalHDL conditional statements based on a `Bool` expression like an `if`.
+  * Allow to express hardware conditional statements based on a `Bool` expression like an `if`.
   *
   * @example {{{
   *     when(cond1) {
@@ -186,7 +186,7 @@ object is {
       if(value.getClass == switchValue.getClass){
         switchElement.keys += value
       }else{
-        SpinalError("is(xxx) doesn't match switch(yyy) type")
+        SpinalError(s"is(xxx) doesn't match switch(yyy) type (${value.getClass.getName} != ${switchValue.getClass.getName})")
       }
     }
 
@@ -202,7 +202,7 @@ object is {
           case switchValue: Bits => onBaseType(B(key))
           case switchValue: UInt => onBaseType(U(key))
           case switchValue: SInt => onBaseType(S(key))
-          case _                 => SpinalError("The switch is not a Bits, UInt or SInt")
+          case _                 => SpinalError(s"The switch is not a Bits, UInt or SInt (${switchValue.getClass().getName()})")
         }
       case key: Long       =>
         switchValue match {

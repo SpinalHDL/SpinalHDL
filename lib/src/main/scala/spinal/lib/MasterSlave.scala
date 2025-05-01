@@ -2,7 +2,9 @@ package spinal.lib
 
 import spinal.core.{Data, HardType, IConnectable}
 
-/** Master/slave interface */
+/** An interface that a `Bundle` can implement if it obeys to a master/slave topology.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bundle.html#master-slave Bundle documentation]]
+  */
 trait IMasterSlave {
 
   /** Are port directions set for a Master interface? */

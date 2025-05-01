@@ -7,19 +7,19 @@ import spinal.lib.bus.tilelink.{M2sParameters, M2sSupport, S2mAgent, S2mParamete
 import spinal.lib.system.tag.{MemoryEndpoint, MemoryTransfers}
 import spinal.lib.{master, slave}
 
-//Will create a interconnect master as an io of the toplevel
-class MasterBus(p : M2sParameters) extends Area{
+// Will create a interconnect master as an io of the toplevel
+class MasterBus(p : M2sParameters) extends Area {
   val node = Node.master()
-  val logic = Fiber build new Area{
+  val logic = Fiber build new Area {
     node.m2s.parameters.load(p)
-    node.m2s.setProposedFromParameters() //Here, we just ignore the negotiation phase
+    node.m2s.setProposedFromParameters() // Here, we just ignore the negotiation phase
     node.s2m.supported.load(node.s2m.proposed)
     slave(node.bus)
   }
 }
 
-//Will create a interconnect slave as an io of the toplevel
-class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParameters.none) extends Area{
+// Will create a interconnect slave as an io of the toplevel
+class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParameters.none) extends Area {
   val node = Node.slave()
   node.addTag(new MemoryEndpoint {
     override def mapping = SizeMapping(0, BigInt(1) << node.m2s.parameters.addressWidth)
@@ -32,7 +32,7 @@ class SlaveBus(m2sSupport : M2sSupport, s2mParameters: S2mParameters = S2mParame
   }
 }
 
-//Will create a interconnect slave as an io of the toplevel
+// Will create a interconnect slave as an io of the toplevel
 class SlaveBusAny(sinkCount : Int = 8) extends Area{
   val node = Node.slave()
   val logic = Fiber build new Area {

@@ -25,6 +25,9 @@ import spinal.idslplugin.Location
 
 import scala.collection.Seq
 
+/** Policy of a [[Mem]] when read under write.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#read-under-write-policy RAM/ROM documentation]] 
+  */
 trait ReadUnderWritePolicy {
   def readUnderWriteString: String
 }
@@ -34,12 +37,12 @@ trait DuringWritePolicy {
 }
 
 
-trait MemTechnologyKind{
+trait MemTechnologyKind {
   def technologyKind: String
 }
 
-
-object dontCare extends ReadUnderWritePolicy with DuringWritePolicy{
+/** Don’t care about the read value when the case occurs */
+object dontCare extends ReadUnderWritePolicy with DuringWritePolicy {
   override def readUnderWriteString: String = "dontCare"
   override def duringWriteString: String = "dontCare"
 }
@@ -49,31 +52,29 @@ object eitherFirst extends ReadUnderWritePolicy with DuringWritePolicy{
   override def duringWriteString: String = "eitherFirst"
 }
 
+/** The read will get the new value (provided by the write) */
 object writeFirst extends ReadUnderWritePolicy {
   override def readUnderWriteString: String = "writeFirst"
 }
 
-
+/** The read will get the old value (before the write) */
 object readFirst extends ReadUnderWritePolicy {
   override def readUnderWriteString: String = "readFirst"
 }
 
-object dontRead extends DuringWritePolicy{
+object dontRead extends DuringWritePolicy {
   override def duringWriteString: String = "dontRead"
 }
 
-object doRead extends DuringWritePolicy{
+object doRead extends DuringWritePolicy {
   override def duringWriteString: String = "doRead"
 }
-
-
-
 
 //object noChange extends ReadUnderWritePolicy {
 //  override def readUnderWriteString: String = "noChange"
 //}
 
-object auto extends  MemTechnologyKind{
+object auto extends  MemTechnologyKind {
   override def technologyKind: String = "auto"
 }
 
@@ -94,14 +95,47 @@ object registerFile extends MemTechnologyKind {
 
 
 object Mem {
+
+  /** Create a RAM
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html RAM/ROM documentation]]
+    */
   def apply[T <: Data](wordType: HardType[T], wordCount: Int) = new Mem(wordType, wordCount)
+  
+  /** Create a RAM
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html RAM/ROM documentation]]
+    */
   def apply[T <: Data](wordType: HardType[T], wordCount: BigInt) = {
     assert(wordCount <= Integer.MAX_VALUE)
     new Mem(wordType, wordCount.toInt)
   }
 
+  /** Create a ROM.
+    * 
+    * If your target is an FPGA, because the memory can be inferred as a block ram, you can still
+    * create write ports on it.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html RAM/ROM documentation]]
+    */
   def apply[T <: Data](wordType: HardType[T], initialContent: Seq[T]) = new Mem(wordType, initialContent.length) init(initialContent)
+  
+  /** Create a ROM 
+    * 
+    * If your target is an FPGA, because the memory can be inferred as a block ram, you can still
+    * create write ports on it.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html RAM/ROM documentation]]
+    */
   def apply[T <: Data](initialContent: Seq[T]) = new Mem(initialContent(0), initialContent.length) init(initialContent)
+
+  /** Create a RAM using the Scala `fill` syntax.
+   * 
+   * This is equivalent to `Mem(wordType, wordCount)` and do not initialize the
+   * mem.
+   *
+   * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html RAM/ROM documentation]]
+   */
   def fill[T <: Data](wordCount: Int)(wordType: HardType[T])  = new Mem(wordType, wordCount)
 
   def apply(wordType: AFix, initialContent: Seq[BigDecimal]) = {
@@ -125,6 +159,11 @@ trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainer
 }
 
 
+/**
+  * An hardware memory.
+  *
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html RAM/ROM Memory documentation]]
+  */
 class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady with InComponent{
   if(parentScope != null) parentScope.append(this)
 
@@ -286,9 +325,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     readAsyncImpl(address,readWord,readUnderWrite,false)
     readWord
   }
-//
-//  def readAsyncMixedWidth(address: UInt, data : Data, readUnderWrite: ReadUnderWritePolicy = dontCare): Unit =  readAsyncImpl(address,data,readUnderWrite,true)
-//
+
   def readAsyncImpl(address: UInt, data: Data,readUnderWrite: ReadUnderWritePolicy = dontCare, allowMixedWidth: Boolean): Unit = {
     val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
 
@@ -309,6 +346,11 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     readWord
   }
 
+  /** Similar to `mem.readSync`, but in place of returning the read value, it drives
+    * the signal/object given as the data argument.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#read-under-write-policy readUnderWrite policy documentation]]
+    */
   def readSyncMixedWidth(address: UInt, data: Data, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false): Unit ={
     readSyncImpl(address, data, enable, readUnderWrite, clockCrossing, true)
   }
@@ -336,6 +378,12 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
   }
 
   def writeMixedWidth(address: UInt, data: Data, enable : Bool = null, mask: Bits = null): Unit = writeImpl(address, data, enable, mask, allowMixedWidth = true)
+
+  /** Write synchronously with an optional mask.
+    * 
+    * If no `enable` is specified, it’s automatically inferred from the conditional 
+    * scope where this function is called.
+    */
   def write(address: UInt, data: T,enable : Bool = null, mask: Bits = null) : Unit = writeImpl(address, data, enable, mask, allowMixedWidth = false)
 
   def writeImpl(address: UInt, data: Data, enable: Bool = null, mask: Bits = null, allowMixedWidth: Boolean = false): Unit = {
@@ -385,6 +433,13 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
   }
 //
   // Single port ram
+  /** Infer a read/write port.
+    *
+    * `data` is written when `enable && write`.
+    *  
+    * @return the read data, the read occurs when enable is true
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#read-under-write-policy readUnderWrite policy documentation]]
+    */
   def readWriteSync(address       : UInt,
                     data          : T,
                     enable        : Bool,
@@ -534,7 +589,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
 }
 
 
-object MemReadAsync{
+object MemReadAsync {
   def apply(mem           : Mem[_],
             address       : Expression with WidthProvider,
             width         : Int,
@@ -811,7 +866,7 @@ object MemReadWrite {
 }
 
 
-class MemReadWrite() extends MemPortStatement with WidthProvider with ContextUser with Expression{
+class MemReadWrite() extends MemPortStatement with WidthProvider with ContextUser with Expression {
   var width        : Int = -1
   var address      : Expression with WidthProvider = null
   var data         : Expression with WidthProvider = null

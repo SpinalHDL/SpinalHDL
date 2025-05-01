@@ -838,7 +838,12 @@ object unusedTag                     extends SpinalTag
 object noCombinatorialLoopCheck      extends SpinalTag
 object noLatchCheck                  extends SpinalTag
 object noBackendCombMerge            extends SpinalTag
+
+/** Tag for clock crossing signals
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html#clock-domain-crossing Clock domain crossing documentation]]
+  */
 object crossClockDomain              extends SpinalTag{ override def moveToSyncNode = true }
+
 object crossClockBuffer              extends SpinalTag{ override def moveToSyncNode = true }
 
 sealed trait TimingEndpointType

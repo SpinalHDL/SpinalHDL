@@ -80,8 +80,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
     def downto(start: Int): Range.Inclusive = Range.inclusive(i, start, -1)
 
+    /** SpinalHDL "marker" to transform an [[Int]] into a [[BitCount]] */
     def bit    = new BitCount(i)
+    /** SpinalHDL "marker" to transform an [[Int]] into a [[BitCount]] */
     def bits   = new BitCount(i)
+
     def exp    = new ExpNumber(i)
     def pos    = new PosCount(i)
     def slices = new SlicesCount(i)

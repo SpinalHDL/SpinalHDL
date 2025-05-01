@@ -36,7 +36,7 @@ trait UIntFactory{
 }
 
 
-/** The `UInt` type corresponds to a vector of bits that can be used for unsigned integer arithmetic.
+/** The hardware `UInt` type corresponds to a vector of bits usable for unsigned integer arithmetic.
   *
   * @example {{{
   *    val myUInt = UInt(8 bits)
@@ -63,10 +63,10 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def _data: UInt = this
 
   /**
-    * Concatenation between two UInt
-    * @example{{{ val myUInt = uInt1 @@ uInt2 }}}
-    * @param that an UInt to append
-    * @return a new UInt of width (w(this) + w(right))
+    * Concatenation between two [[UInt]]
+    * @example {{{ val myUInt = uInt1 @@ uInt2 }}}
+    * @param that an [[UInt]] to append
+    * @return a new [[UInt]] of width `w(this) + w(right)`
     */
   def @@(that: UInt): UInt = U(this ## that)
   /** Concatenation between a UInt and a Bool */
