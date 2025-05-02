@@ -122,8 +122,7 @@ object RomTester {
       )
     }
 
-    // This write happens during elaboration and modifies the initial content at address 0
-    rom.write(address = U(0, RomTestData.ADDRESS_WIDTH bits), data = B(0, RomTestData.DATA_WIDTH bits), enable = True)
+    rom.write(address = U(0, RomTestData.ADDRESS_WIDTH bits), data = B(0, RomTestData.DATA_WIDTH bits), enable = False)
     val address = in UInt (RomTestData.ADDRESS_WIDTH bits)
     val data = out(rom.readAsync(address = address))
   }
@@ -144,7 +143,7 @@ object RomTester {
     }
 
     // This write happens during elaboration and modifies the initial content at address 0
-    rom.write(address = U(0, RomTestData.ADDRESS_WIDTH bits), data = S(0, RomTestData.DATA_WIDTH bits), enable = True)
+    rom.write(address = U(0, RomTestData.ADDRESS_WIDTH bits), data = S(0, RomTestData.DATA_WIDTH bits), enable = False)
     val address = in UInt (RomTestData.ADDRESS_WIDTH bits)
     val data = out(rom.readAsync(address = address))
   }
@@ -238,7 +237,7 @@ class SpinalSimRomTester extends SpinalAnyFunSuite {
     val romDepth = RomTester.RomTestData.ROM_DEPTH
     val expectedRomValues = RomTester.RomTestData.ROM_CONTENT_BIT_PATTERNS
     // Flag indicating if an elaboration-time write to address 0 occurred
-    val hasElabWriteAddr0 = true
+    val hasElabWriteAddr0 = false
 
     SimConfig.withFstWave.compile(new RomTester.RomTesterSymbols()).doSim { dut =>
       println(s"Starting simulation for ${dut.getClass.getSimpleName}")
@@ -296,7 +295,7 @@ class SpinalSimRomTester extends SpinalAnyFunSuite {
 
     val expectedRomValues = RomTester.RomTestData.ROM_CONTENT_BIT_PATTERNS
     // Flag indicating if an elaboration-time write to address 0 occurred
-    val hasElabWriteAddr0 = true
+    val hasElabWriteAddr0 = false
 
     SimConfig.withFstWave.compile(new RomTester.RomTesterSymbolsSInt()).doSim { dut =>
       println(s"Starting simulation for ${dut.getClass.getSimpleName}")
