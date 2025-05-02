@@ -104,7 +104,7 @@ object RomTester {
 
     val rom = Mem(new DataStruct, initValues)
     val address = in UInt (RomTestData.ADDRESS_WIDTH bits)
-    val data = out(rom.readSync(address = address))
+    val data = out(rom.readAsync(address = address))
   }
 
   class RomTesterSymbols extends Component {
@@ -124,7 +124,7 @@ object RomTester {
 
     rom.write(address = U(0, RomTestData.ADDRESS_WIDTH bits), data = B(0, RomTestData.DATA_WIDTH bits), enable = False)
     val address = in UInt (RomTestData.ADDRESS_WIDTH bits)
-    val data = out(rom.readSync(address = address))
+    val data = out(rom.readAsync(address = address))
   }
 
   class RomTesterSymbolsSInt extends Component {
@@ -145,7 +145,7 @@ object RomTester {
     // This write happens during elaboration and modifies the initial content at address 0
     rom.write(address = U(0, RomTestData.ADDRESS_WIDTH bits), data = S(0, RomTestData.DATA_WIDTH bits), enable = False)
     val address = in UInt (RomTestData.ADDRESS_WIDTH bits)
-    val data = out(rom.readSync(address = address))
+    val data = out(rom.readAsync(address = address))
   }
 }
 
