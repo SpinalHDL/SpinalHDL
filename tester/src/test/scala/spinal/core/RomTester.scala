@@ -104,7 +104,7 @@ object RomTester {
 
     val rom = Mem(new DataStruct, initValues)
     val address = in UInt (RomTestData.ADDRESS_WIDTH bits)
-    val data = out(rom.readAsync(address = address))
+    val data = out(rom.readSync(address = address))
   }
 
   class RomTesterSymbols extends Component {
@@ -124,7 +124,7 @@ object RomTester {
 
     rom.write(address = U(0, RomTestData.ADDRESS_WIDTH bits), data = B(0, RomTestData.DATA_WIDTH bits), enable = False)
     val address = in UInt (RomTestData.ADDRESS_WIDTH bits)
-    val data = out(rom.readAsync(address = address))
+    val data = out(rom.readSync(address = address))
   }
 
   class RomTesterSymbolsSInt extends Component {
@@ -145,7 +145,7 @@ object RomTester {
     // This write happens during elaboration and modifies the initial content at address 0
     rom.write(address = U(0, RomTestData.ADDRESS_WIDTH bits), data = S(0, RomTestData.DATA_WIDTH bits), enable = False)
     val address = in UInt (RomTestData.ADDRESS_WIDTH bits)
-    val data = out(rom.readAsync(address = address))
+    val data = out(rom.readSync(address = address))
   }
 }
 
@@ -206,19 +206,16 @@ class RomTesterCocotbBoot3 extends SpinalTesterCocotbBase {
     try {
       Files.createDirectories(targetDir)
 
-      for (i <- 0 to 3) { // Assuming up to 4 symbol files might be generated
-        val source = Paths.get(s"$workspaceRoot/${getName}.v_toplevel_rom_symbol$i.bin")
-        val target = targetDir.resolve(s"${getName}.v_toplevel_rom_symbol$i.bin")
-        Files.deleteIfExists(target)
-        if (Files.exists(source)) {
-          Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
-          println(s"Copied ROM symbol file from $source to $target")
-        } else {
-          if (i == 0)
-            println(
-              s"Warning: Main source ROM symbol file not found: $source"
-            ) // Warn only for the first symbol if not found
-        }
+      val source = Paths.get(s"$workspaceRoot/${getName}.v_toplevel_rom.bin")
+      val target = targetDir.resolve(s"${getName}.v_toplevel_rom.bin")
+      Files.deleteIfExists(target)
+      if (Files.exists(source)) {
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+        println(s"Copied ROM symbol file from $source to $target")
+      } else {
+        println(
+          s"Warning: Main source ROM symbol file not found: $source"
+        )
       }
     } catch {
       case e: Exception => println(s"Error copying ROM symbol files for $getName: ${e.getMessage}")
