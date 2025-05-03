@@ -386,7 +386,7 @@ class Cache(val p : CacheParam) extends Component {
     val fsm = new StateMachine {
       val IDLE, CMD, INFLIGHT, GS = new State()
       setEntry(IDLE)
-      val inflight = CounterUpDown(generalSlotCount + ctrlLoopbackDepth + 4)
+      val inflight = CounterUpDown(1 << log2Up(generalSlotCount + ctrlLoopbackDepth + 4))
       val gsMask = Reg(Bits(generalSlotCount bits))
 
       IDLE.whenIsActive(when(start)(goto(CMD)))
