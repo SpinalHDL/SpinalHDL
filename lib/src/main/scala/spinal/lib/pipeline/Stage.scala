@@ -39,7 +39,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     stage.haltIt(doHalt)
 
     val fired = !syncronous generate new Area {
-      val done = RegInit(False) setWhen(isFireing) clearWhen(isChanging)
+      val done = RegInit(False) setWhen(isFiring) clearWhen(isChanging)
       when(done){
         doHalt := False
         isValid := False
@@ -171,7 +171,12 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   def flushNext(cond : Bool) : Unit =  internals.request.flushNext += cond
   def removeIt(): Unit = ???
   def isValid: Bool = internals.input.valid
-  def isFireing: Bool = signalCache(this -> "isFireing")(isValid && isReady).setCompositeName(this, "isFireing")
+
+  @deprecated("Use isFiring instead", "")
+  def isFireing: Bool = isFiring
+
+  def isFiring: Bool = signalCache(this -> "isFiring")(isValid && isReady).setCompositeName(this, "isFiring")
+
   def isFirstCycle: Bool = {
     val wait = RegInit(False) setWhen(isValid) clearWhen(isReady || isFlushed)
     val ret = isValid && !wait

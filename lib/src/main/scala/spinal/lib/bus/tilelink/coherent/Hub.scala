@@ -273,7 +273,7 @@ class Hub(p : HubParameters) extends Component{
         buffer.write.valid := valid && withBeats && !hazard
         buffer.write.address := BUFFER_ID @@ io.up.a.payload.address(wordRange)
         buffer.write.data := PAYLOAD
-        when(isFireing && LAST && withBeats){
+        when(isFiring && LAST && withBeats){
           buffer.set(BUFFER_ID) := True
           buffer.source.onSel(BUFFER_ID)(_ := io.up.a.payload.source)
           locked := False
@@ -311,7 +311,7 @@ class Hub(p : HubParameters) extends Component{
       haltIt(hazard)
 
       when(initializer.done) {
-        setsBusy.target.write.valid := isFireing
+        setsBusy.target.write.valid := isFiring
         setsBusy.target.write.address := spawn.CMD.address(setsRange)
         setsBusy.target.write.data := !target
       }
@@ -520,10 +520,10 @@ class Hub(p : HubParameters) extends Component{
 
         val hits = slots.map(_.done).asBits
         valid := hits.orR
-        val hitOh = OHMasking.roundRobinNext(hits, isFireing)
+        val hitOh = OHMasking.roundRobinNext(hits, isFiring)
         val hitId = OHToUInt(hitOh)
         PROBE_ID := hitId
-        when(isFireing){
+        when(isFiring){
           slots.onMask(hitOh){ s =>
             s.fire := True
           }
@@ -578,14 +578,14 @@ class Hub(p : HubParameters) extends Component{
       val cProbeId = probe.rsp.toBackendProbeId
       val a = probe.wake.toBackend
 
-      val lockValid = RegInit(False) setWhen(valid) clearWhen(isFireing && LAST)
+      val lockValid = RegInit(False) setWhen(valid) clearWhen(isFiring && LAST)
       val lockSel = Reg(Bool())
       val selC = lockValid ? lockSel | c.valid
       lockSel := selC
 
 
       val counter = Reg(UInt(wordRange.size bits)) init(0)
-      when(isFireing){
+      when(isFiring){
         counter := counter + 1
         when(LAST){
           counter := 0
@@ -622,7 +622,7 @@ class Hub(p : HubParameters) extends Component{
       PAYLOAD_C.data := c.data
       PAYLOAD_C.mask.setAll()
 
-      val first = RegNextWhen[Bool](LAST, isFireing) init(True)
+      val first = RegNextWhen[Bool](LAST, isFiring) init(True)
       FIRST := first
 
       val A_GET_PUT  = insert(Opcode.A.isGetPut(a.opcode))
@@ -633,7 +633,7 @@ class Hub(p : HubParameters) extends Component{
       TO_DOWN := WRITE_DATA | READ_DATA
       SLOT_ALLOCATE := TO_DOWN
 
-      io.backendOrdering.valid := isFireing && !FROM_C
+      io.backendOrdering.valid := isFiring && !FROM_C
       io.backendOrdering.debugId := a.debugId
       io.backendOrdering.bytes := (U(1) << a.size).resized
     }
@@ -648,7 +648,7 @@ class Hub(p : HubParameters) extends Component{
         when(!s1(FROM_C)){
           s1(PAYLOAD) := frontendA.buffer.ram.readSync(wordAddress, !s1.isStuck)
         }
-        when(s1.isFireing && s1(LAST) && !s1(FROM_C) && s1(WRITE_DATA)){
+        when(s1.isFiring && s1(LAST) && !s1(FROM_C) && s1(WRITE_DATA)){
           frontendA.buffer.clear(s1(BUFFER_ID)) := True
         }
       }
@@ -658,7 +658,7 @@ class Hub(p : HubParameters) extends Component{
       val stage = stages(0)
       import stage._
 
-      val slotLock = RegNextWhen(!LAST, isFireing) init(False)
+      val slotLock = RegNextWhen(!LAST, isFiring) init(False)
       val slotReg = RegNextWhen(slots.freeId, !slotLock)
       SLOT_ID := slotLock ? slotReg | slots.freeId
       haltWhen(SLOT_ALLOCATE && slots.full)
@@ -675,8 +675,8 @@ class Hub(p : HubParameters) extends Component{
       c.isProbeData := insertion.C_IS_PROBE_DATA
       c.probeId     := PROBE_ID
 
-      slots.allocate := isFireing && SLOT_ALLOCATE && FIRST
-      slots.ctxWrite.valid := isFireing && SLOT_ALLOCATE
+      slots.allocate := isFiring && SLOT_ALLOCATE && FIRST
+      slots.ctxWrite.valid := isFiring && SLOT_ALLOCATE
       slots.ctxWrite.address := SLOT_ID
       slots.ctxWrite.data.assignDontCare()
       slots.ctxWrite.data(0) := FROM_C

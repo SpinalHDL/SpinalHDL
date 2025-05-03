@@ -41,7 +41,7 @@ class ChannelDataBuffer(entries: Int,
     write.valid := valid && withBeats && !hazard
     write.address := BUFFER_ID @@ CMD.address(log2Up(blockSize)-1 downto log2Up(dataBytes))
     write.data := PAYLOAD
-    when(isFireing && LAST && withBeats) {
+    when(isFiring && LAST && withBeats) {
       set(BUFFER_ID) := True
       locked := False
     }
