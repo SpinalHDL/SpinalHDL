@@ -174,7 +174,7 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
           }
           if (beat == len) {
             val response = builder.result().slice(dropFront, dropFront + totalBytes).toList
-            log("R", f"got data ${response.bytesToHex}")
+            log("R", f"got data ${response.reverse.bytesToHex}")
             callback(response)
           }
         }
@@ -216,12 +216,14 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
    *             the bus master will issue multiple transactions
    * @param id AxID to use in the request; xID in the response will be checked against this (cf. AXI specification)
    * @param burst burst mode to issue (cf. AXI specification)
-   * @param len number of beats in a single transaction minus one (cf. AXI specification)
+   * @param maxLen number of beats in a single transaction minus one (cf. AXI specification).
+   *              The len will be used for all but the last transaction where the len might be adjusted to fit the
+   *              data length and not write unwanted zeros
    * @param size number of bytes in one beat, log encoded (cf. AXI specification)
    */
-  def write(address: BigInt, data: List[Byte], id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize): Unit = {
+  def write(address: BigInt, data: List[Byte], id: Int = 0, burst: Axi4Burst = Incr, maxLen: Int = 0, size: Int = maxSize): Unit = {
     val mtx = SimMutex().lock()
-    writeCB(address, data, id, burst, len, size) {
+    writeCB(address, data, id, burst, maxLen, size) {
       mtx.unlock()
     }
     mtx.await()
@@ -230,10 +232,11 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
   /** Write asynchronously; same as {@link write}, but completion is delivered in a callback
    *
    * @param callback callback function on finish
+   * @param maxLen the len will be used for all but the last transaction where the len might be adjusted to fit the data length and not write unwanted zeros
    */
-  def writeCB(address: BigInt, data: List[Byte], id: Int = 0, burst: Axi4Burst = Incr, len: Int = 0, size: Int = maxSize)(callback: => Unit): Unit = {
+  def writeCB(address: BigInt, data: List[Byte], id: Int = 0, burst: Axi4Burst = Incr, maxLen: Int = 0, size: Int = maxSize)(callback: => Unit): Unit = {
     val bytePerBeat = 1 << size
-    val bytes = (len + 1) * bytePerBeat
+    val bytes = (maxLen + 1) * bytePerBeat
 
     val (_, padFront, _, paddedData) = padData(address, data)
 
@@ -250,9 +253,9 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
       }
       val remaining = data.drop(slice.length)
       val thisLen = if (remaining.length == 0) {
-        ((slice.length / bytePerBeat.toFloat).ceil.toInt - 1) min len
+        ((slice.length / bytePerBeat.toFloat).ceil.toInt - 1) min maxLen
       } else {
-        len
+        maxLen
       }
       writeSingle(addr, slice, id, burst, thisLen, size)(handleTransaction(addr, transactionId, remaining))
     }
@@ -283,7 +286,6 @@ case class Axi4Master(axi: Axi4, clockDomain: ClockDomain, name: String = "unnam
 
     val (roundedAddress, padFront, padBack, paddedData) = padData(address, data)
     assert(data.length <= (len + 1) * bytePerBeat, "data is too long and cannot be sent in one transaction")
-    assert(data.length >= len * bytePerBeat, f"data is too short (${data.length}) for len=$len (would result in erroneous zero transfers)")
     assert(paddedData.length <= bytes, s"requested length ${data.length} (${paddedData.length} with padding) could not be completed in one transaction")
 
     awQueue += { aw =>

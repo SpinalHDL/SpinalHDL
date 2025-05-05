@@ -8,7 +8,7 @@ import spinal.lib.bus.amba4.axi._
 import scala.util.Random
 
 class Axi4MasterTester extends SpinalAnyFunSuite {
-  // regression test for #1692
+  // regression tests for #1692
   val seed = sys.env.get("SEED").map(_.toInt).getOrElse(Random.nextInt(Int.MaxValue))
   val axiConfig = Axi4Config(30, 64, 2)
   class TestBench extends Component {
@@ -21,8 +21,8 @@ class Axi4MasterTester extends SpinalAnyFunSuite {
 
   val byteCount = 4096
   val wordCount = byteCount / axiConfig.bytePerWord
-  Seq(0, 1, 31, 255).foreach { len =>
-    test(f"full write + readback len=$len") {
+  Seq(0, 1, 31, 255).foreach { maxLen =>
+    test(f"full write + readback maxLen=$maxLen") {
       Random.setSeed(seed)
       SimConfig.withFstWave
         .compile(new TestBench())
@@ -35,8 +35,8 @@ class Axi4MasterTester extends SpinalAnyFunSuite {
           val master = Axi4Master(dut.io.axiS, clk, "named")
           val data = new Array[Byte](byteCount)
           Random.nextBytes(data)
-          master.write(0, data.toList, len = len)
-          val readBack = master.read(0, data.length, len = len)
+          master.write(0, data.toList, maxLen = maxLen)
+          val readBack = master.read(0, data.length, len = maxLen)
           for (((expected, actual), i) <- data.toList zip readBack zipWithIndex) {
             assert(mem.memory.read(i) == expected, f"data in memory $i")
             assert(expected == actual, f"readback data byte $i")
@@ -44,7 +44,7 @@ class Axi4MasterTester extends SpinalAnyFunSuite {
         }
     }
     (1 to axiConfig.bytePerWord).foreach { offset =>
-      test(f"unaligned start len=$len,offset=$offset") {
+      test(f"unaligned start maxLen=$maxLen,offset=$offset") {
         Random.setSeed(seed)
         SimConfig.withFstWave
           .compile(new TestBench())
@@ -57,8 +57,8 @@ class Axi4MasterTester extends SpinalAnyFunSuite {
             mem.memory.writeArray(0, Seq.fill(byteCount)(0xff.toByte).toArray)
             val data = new Array[Byte]((2 * axiConfig.bytePerWord) - offset)
             Random.nextBytes(data)
-            master.write(offset, data.toList, len = len)
-            val readBack = master.read(offset, data.length, len = len)
+            master.write(offset, data.toList, maxLen = maxLen)
+            val readBack = master.read(offset, data.length, len = maxLen)
             for (((expected, actual), i) <- data.toList zip readBack zipWithIndex) {
               assert(mem.memory.read(offset + i) == expected, f"data in memory ${i + offset}")
               assert(expected == actual, f"readback data byte ${i + offset}")
@@ -66,7 +66,7 @@ class Axi4MasterTester extends SpinalAnyFunSuite {
             assert(mem.memory.read(offset + data.length) == 0xff.toByte, "wrote after the burst")
           }
       }
-      test(f"unaligned_end,len=$len,offset=$offset") {
+      test(f"unaligned_end,maxLen=$maxLen,offset=$offset") {
         Random.setSeed(seed)
         SimConfig.withFstWave
           .compile(new TestBench())
@@ -79,8 +79,8 @@ class Axi4MasterTester extends SpinalAnyFunSuite {
             mem.memory.writeBigInt(0, 0, byteCount)
             val data = new Array[Byte]((2 * axiConfig.bytePerWord) - offset)
             Random.nextBytes(data)
-            master.write(0, data.toList, len = len)
-            val readBack = master.read(0, data.length, len = len)
+            master.write(0, data.toList, maxLen = maxLen)
+            val readBack = master.read(0, data.length, len = maxLen)
             for (((expected, actual), i) <- data.toList zip readBack zipWithIndex) {
               assert(mem.memory.read(i) == expected, f"data in memory ${i}")
               assert(expected == actual, f"readback data byte ${i}")
