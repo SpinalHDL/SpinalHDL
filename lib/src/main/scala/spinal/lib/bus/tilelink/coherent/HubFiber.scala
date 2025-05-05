@@ -11,17 +11,17 @@ import spinal.lib._
 import scala.collection.mutable.ArrayBuffer
 
 
-//TODO remove probe on IO regions
-class HubFiber() extends Area{
+// TODO remove probe on IO regions
+class HubFiber() extends Area {
   val up = Node.slave()
   val down = Node.master()
 
   var parameter = HubParameters(
-    unp = null, //Unknown yet
+    unp = null, // Unknown yet
     downPendingMax = 4,
     sets = 256,
     wayCount = 1,
-    blockSize = -1, //Unknown yet
+    blockSize = -1, // Unknown yet
     probeCount = 4,
     aBufferCount = 4,
     probeRegion = null
@@ -29,7 +29,7 @@ class HubFiber() extends Area{
 
 
   val mappingLock = Lock().retain()
-  new MemoryConnection{
+  new MemoryConnection {
     override def up = HubFiber.this.up
     override def down = HubFiber.this.down
     override def transformers = Nil
@@ -105,7 +105,7 @@ class HubFiber() extends Area{
 
     parameter.probeRegion = { addr =>
       AddressMapping.decode(addr.asBits, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
-//      equivalent to probeSpec.map(_.where.mapping.hit(addr)).orR
+      // equivalent to probeSpec.map(_.where.mapping.hit(addr)).orR
     }
     val hub = new Hub(parameter)
     hub.io.up << up.bus

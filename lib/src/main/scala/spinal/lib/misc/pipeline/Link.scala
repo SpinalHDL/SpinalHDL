@@ -3,7 +3,7 @@ package spinal.lib.misc.pipeline
 import spinal.core._
 import scala.collection.Seq
 
-object Link{
+object Link {
   def connectDatas(up: Node, down: Node): Unit = {
     val matches = down.fromUp.payload.intersect(up.fromDown.payload)
     for (m <- matches) down(m) := up(m)
@@ -16,7 +16,8 @@ object Link{
   }
 }
 
-trait Link extends Area{
+/** Hardware that allows to connect [[Node]] in a pipeline to each other. */
+trait Link extends Area {
   def ups : Seq[Node]
   def downs : Seq[Node]
 

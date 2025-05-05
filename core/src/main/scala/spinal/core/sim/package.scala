@@ -429,7 +429,7 @@ package object sim {
     
     /** Assign a hardware ``Bool`` from an Scala ``Boolean``
       *
-      * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
       */
     def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
     
@@ -446,7 +446,7 @@ package object sim {
     
     /** Assign a hardware ``BitVector`` from an Scala ``Long``
       *
-      * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
       */
     def #=(value: Long) = setLong(bt, value)
 
@@ -464,7 +464,7 @@ package object sim {
     
     /** Assign a hardware ``BitVector`` from an Scala ``Array[Byte]``
       *
-      * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
       */
     def #=(value: Array[Byte])    = {
       var acc = BigInt(0)
@@ -483,7 +483,7 @@ package object sim {
 
     /** Assign a hardware ``BitVector`` from an Scala ``Array[Boolean]``
       *
-      * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
       */
     def #=(value: Array[Boolean]) = {
       var acc = BigInt(0)
@@ -517,7 +517,7 @@ package object sim {
 
       /** Assign a hardware ``BitVector`` from an Scala ``Int``
         *
-        * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+        * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
         */
       def #=(value: Int) : Unit  = {
         if(alwaysZero) {
@@ -529,7 +529,7 @@ package object sim {
 
       /** Assign a hardware ``BitVector`` from an Scala ``Long``
         *
-        * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+        * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
         */      
       def #=(value: Long) : Unit  = {
         if(alwaysZero) {

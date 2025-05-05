@@ -118,7 +118,7 @@ class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf, sec: Secure
   * val reg32bit = REG0.field(Bits(32 bit), RW , 0xffff, "clock enable reg RW")
   *                REG1.parasiteField(reg32bit,     W1S, 0xffff, "clock enable reg write 1 set ")
   *                REG2.parasiteField(reg32bit,     W1C, 0xffff, "clock enable reg write 1 clear")
-  * val regwire  = REG3.field(Bits(32 bit), RO , 0xffff, "clock enable read only")
+  * val regwire  = REG3.field(Bits(32 bit), RO , 0xffff, "clock enable read-only")
   * regwire := reg32bit
   * */
   def parasiteField[T <: BaseType](reg: T, acc: AccessType, resetValue: BigInt, doc: String): Unit = {

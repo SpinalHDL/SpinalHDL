@@ -7,9 +7,14 @@ import spinal.lib._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-object DirectLink{
+object DirectLink {
   def apply(up : Node, down : Node) : DirectLink = new DirectLink(up, down)
 }
+
+/** A very simple [[Link]] that connects two nodes with signals only.
+  * 
+  * It as an [[up]] and a down [[down]] nodes.
+  */ 
 class DirectLink(val up : Node, val down : Node) extends Link {
   down.up = this
   up.down = this

@@ -53,7 +53,7 @@ case class CacheParam(var unp : NodeParameters,
   def setsRange = lineRange
   def cacheAddressWidth = log2Up(cacheBytes/dataBytes)
 
-  def addressCheckRange = setsRange.high downto log2Up(lineSize) //For now, it also avoid way clash (gsHits)
+  def addressCheckRange = setsRange.high downto log2Up(lineSize) // For now, it also avoid way clash (gsHits)
   def addressCheckWidth = addressCheckRange.size
 //  def lockSetsRange = log2Up(lineSize*lockSets)-1 downto log2Up(lineSize)
 }
@@ -386,7 +386,7 @@ class Cache(val p : CacheParam) extends Component {
     val fsm = new StateMachine {
       val IDLE, CMD, INFLIGHT, GS = new State()
       setEntry(IDLE)
-      val inflight = CounterUpDown(generalSlotCount + ctrlLoopbackDepth + 4)
+      val inflight = CounterUpDown(1 << log2Up(generalSlotCount + ctrlLoopbackDepth + 4))
       val gsMask = Reg(Bits(generalSlotCount bits))
 
       IDLE.whenIsActive(when(start)(goto(CMD)))
@@ -510,8 +510,8 @@ class Cache(val p : CacheParam) extends Component {
     val dataPop = data.queue(upCBufferDepth).m2sPipe()
   }
 
-  class ProberSlot extends Slot{
-    val address = Reg(UInt(blockRange.size bits)) //We realy need the full address range, as we need to catch RELEASE_DATA while proving, to update the dirtyness of the data
+  class ProberSlot extends Slot {
+    val address = Reg(UInt(blockRange.size bits)) // We really need the full address range, as we need to catch RELEASE_DATA while proving, to update the dirtyness of the data
     val pending = Reg(UInt(log2Up(coherentMasterCount + 1) bits))
     val probeAckDataCompleted = Reg(Bool())
     val unique = Reg(Bool())
@@ -519,7 +519,7 @@ class Cache(val p : CacheParam) extends Component {
     val evictClean = Reg(Bool())
   }
 
-  //Currently we ignore the cache owners tracking of PROBE_ACK_DATA TtoN (will behave like a TtoB)
+  // Currently we ignore the cache owners tracking of PROBE_ACK_DATA TtoN (will behave like a TtoB)
   val prober = new SlotPool(probeCount)(new ProberSlot){
     val ctx = new Area{
       val ram = Mem.fill(probeCount)(new CtrlCmd())
@@ -593,7 +593,7 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
 
-      val filtred = input.throwWhen(upCSplit.cmd.opcode === Opcode.C.PROBE_ACK)
+      val filtered = input.throwWhen(upCSplit.cmd.opcode === Opcode.C.PROBE_ACK)
       class UpCCmd extends Bundle{
         val hitId = UInt(log2Up(probeCount) bits)
         val opcode = Opcode.C()
@@ -601,7 +601,7 @@ class Cache(val p : CacheParam) extends Component {
         val source  = ubp.source()
         val toNone = Bool()
       }
-      val down = filtred.swapPayload(new UpCCmd)
+      val down = filtered.swapPayload(new UpCCmd)
       down.hitId   := hitId
       down.opcode  := input.opcode
       down.address := input.address
@@ -624,7 +624,7 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
 
-      //fromUpC does not come for PROBE_ACK
+      // fromUpC does not come for PROBE_ACK
       fromUpC.ready := merged.ready
       fromProbe.ready := merged.ready && !fromUpC.valid
       merged.valid := fromUpC.valid || fromProbe.valid
@@ -658,7 +658,7 @@ class Cache(val p : CacheParam) extends Component {
     }
   }
 
-  //TODO check older way is allocated
+  // TODO check older way is allocated
   val ctrl = new Pipeline{
     val stages = newChained(3, Connection.M2S())
     val inserterStage = stages(0)
@@ -671,7 +671,7 @@ class Cache(val p : CacheParam) extends Component {
     import CtrlOpcode._
 
 
-    val loopback = new Area{
+    val loopback = new Area {
       val occupancy = new CounterUpDown(ctrlLoopbackDepth, handleOverflow = false)
       val allowUpA = !occupancy.mayOverflow
       val fifo = StreamFifo(new CtrlCmd, ctrlLoopbackDepth, forFMax = true)
@@ -753,13 +753,13 @@ class Cache(val p : CacheParam) extends Component {
       val GS_HIT = insert(GS_HITS.orR)
       val GS_OH = insert(UIntToOh(CTRL_CMD.gsId, generalSlotCount))
 
-      //For as long as the cache is inclusive
-      when(ACQUIRE){
+      // For as long as the cache is inclusive
+      when(ACQUIRE) {
         ALLOCATE_ON_MISS := True
       }
     }
 
-    val process = new Area{
+    val process = new Area {
       import processStage._
 
 
@@ -767,7 +767,7 @@ class Cache(val p : CacheParam) extends Component {
       assert(!(isValid && redoUpA && !preCtrl.FROM_A))
       throwIt(redoUpA)
 
-      redoUpA.setWhen(preCtrl.FROM_A && !CTRL_CMD.probed && preCtrl.GS_HIT) //TODO could be less pessimistic
+      redoUpA.setWhen(preCtrl.FROM_A && !CTRL_CMD.probed && preCtrl.GS_HIT) // TODO could be less pessimistic
 
 
       val stallIt = False
@@ -779,7 +779,7 @@ class Cache(val p : CacheParam) extends Component {
       val gsHitVictim = CTRL_CMD.opcode === RELEASE_DATA && (preCtrl.GS_HITS & B(gs.slots.map(_.pending.victimWrite))).orR
       stallIt setWhen(gsHitVictim)
 
-      val askAllocate = False //Will handle victim
+      val askAllocate = False // Will handle victim
       val askProbe = False
       val askReadDown = False
       val askReadBackend = False
@@ -984,7 +984,7 @@ class Cache(val p : CacheParam) extends Component {
       toOrdering.bytes := (U(1) << CTRL_CMD.size).resized
       toOrdering >> io.ordering.ctrlProcess
 
-      //Generate a victim
+      // Generate a victim
       when(askAllocate && olderWay.tags.loaded){
         when(olderWay.tags.owners.orR) {
           askProbe := True
@@ -994,7 +994,7 @@ class Cache(val p : CacheParam) extends Component {
         }
 
         when(olderWay.tags.dirty || olderWay.tags.trunk) {
-          askReadBackend := True //TODO Seems like it would not be necessary if only olderWay.tags.trunk is set, only on dirty
+          askReadBackend := True // TODO Seems like it would not be necessary if only olderWay.tags.trunk is set, only on dirty
           gsPendingVictim := True
           gsPendingVictimReadWrite := True
         }
@@ -1011,7 +1011,7 @@ class Cache(val p : CacheParam) extends Component {
         prober.cmd.evictClean := !olderWay.tags.dirty
 
         when(!olderWay.unlocked){
-          //Assume it come from A (inclusive)
+          // Assume it come from A (inclusive)
           assert(!isValid || preCtrl.FROM_A)
           redoUpA := True
         }
@@ -1054,14 +1054,14 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
 
-      //May not CACHE_HIT
+      // May not CACHE_HIT
       when(preCtrl.FROM_C_RELEASE){
-        //Update tags
+        // Update tags
         owners.remove setWhen (CTRL_CMD.toNone)
         cache.tags.write.valid := True
         cache.tags.write.data.trunk := False
 
-        //Write to backend
+        // Write to backend
         when(preCtrl.WRITE_DATA){
           askGs := True
           askWriteBackend := True
@@ -1098,7 +1098,7 @@ class Cache(val p : CacheParam) extends Component {
         owners.clean setWhen(preCtrl.IS_PUT)
         cache.tags.write.data.trunk := False
 
-        //Ensure that the cache.others is cleared on PUT
+        // Ensure that the cache.others is cleared on PUT
         when(CACHE_HIT){
           cache.tags.write.valid := True
         }
@@ -1107,7 +1107,7 @@ class Cache(val p : CacheParam) extends Component {
           askProbe := True
           prober.cmd.mask := CACHE_LINE.owners
           prober.cmd.probeToN := !preCtrl.IS_GET
-          //TODO ensure that once the probe is done, the initial request isn't overtaken by another one (ex acquire)
+          // TODO ensure that once the probe is done, the initial request isn't overtaken by another one (ex acquire)
         } otherwise {
           when(CACHE_HIT) {
             events.getPut.hit setWhen(doIt)
@@ -1157,8 +1157,8 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
 
-      val aquireToB = !CTRL_CMD.toTrunk && OTHER
-      val acquireParam = aquireToB.mux[Bits](Param.Cap.toB, Param.Cap.toT)
+      val acquireToB = !CTRL_CMD.toTrunk && OTHER
+      val acquireParam = acquireToB.mux[Bits](Param.Cap.toB, Param.Cap.toT)
 
 
       when(preCtrl.ACQUIRE){
@@ -1170,8 +1170,8 @@ class Cache(val p : CacheParam) extends Component {
           askAllocate := True
           ctxDownD.data.toUpD := True
           ctxDownD.data.toCache := True
-          ctxDownD.data.toT := !aquireToB
-          cache.tags.write.data.trunk := !aquireToB
+          ctxDownD.data.toT := !acquireToB
+          cache.tags.write.data.trunk := !acquireToB
           when(CTRL_CMD.opcode === CtrlOpcode.ACQUIRE_BLOCK) {
             askReadDown := True
             gsRefill := True
@@ -1188,15 +1188,15 @@ class Cache(val p : CacheParam) extends Component {
             prober.cmd.probeToN := CTRL_CMD.toTrunk
           } otherwise {
             events.acquire.hit setWhen (doIt)
-            when(aquireToB) {
+            when(acquireToB) {
               ctxDownD.data.toT := False
             } otherwise {
               owners.clean := True
             }
             owners.add := True
-            cache.tags.write.data.trunk := !aquireToB
+            cache.tags.write.data.trunk := !acquireToB
 
-            //TODO warning gs may will complet before writebackend is done !
+            // TODO warning gs may will complete before writebackend is done !
             when(CTRL_CMD.withDataUpC) {
               askWriteBackend := True
               cache.tags.write.data.dirty := True
@@ -1207,7 +1207,7 @@ class Cache(val p : CacheParam) extends Component {
               toReadBackend.upD.opcode := Opcode.D.GRANT_DATA
               toReadBackend.upD.param := acquireParam.resized
 
-              toWriteBackend.toT := !aquireToB
+              toWriteBackend.toT := !acquireToB
               toWriteBackend.toUpD := Cache.ToUpDOpcode.GRANT_DATA()
 
               when(!CTRL_CMD.withDataUpC){
@@ -1769,5 +1769,5 @@ object DirectoryGen extends App{
 tricky cases :
 - release while a probe is going on
 - release data just before victim probe logic is enabled => think data are still in the victim buffer, while is already written to memory by release data
-- acquire T then release data before the victim of the acquire got time to read the $ and get overriden by release data
+- acquire T then release data before the victim of the acquire got time to read the $ and get overridden by release data
  */

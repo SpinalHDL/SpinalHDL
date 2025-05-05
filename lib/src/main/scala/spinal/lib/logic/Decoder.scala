@@ -9,7 +9,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-class DecodingSpec[T <: BaseType](key : HardType[T]){
+class DecodingSpec[T <: BaseType](keyType : HardType[T]){
   var default : Option[Masked] = None
   val needs = mutable.LinkedHashMap[Masked, Masked]() //key, value
 
@@ -42,11 +42,11 @@ class DecodingSpec[T <: BaseType](key : HardType[T]){
       case None => Nil
     }
     val finalSpec = needs ++ defaultNeeds
-    Symplify(sel, finalSpec, key.getBitsWidth).as(key)
+    Symplify(sel, finalSpec, keyType.getBitsWidth).as(keyType)
   }
 }
 
-object DecodingSpecExample extends App{
+object DecodingSpecExample extends App {
   SpinalVerilog(new Component{
     val spec = new DecodingSpec(HardType(UInt(4 bits)))
     

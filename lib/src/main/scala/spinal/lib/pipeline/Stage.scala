@@ -7,16 +7,22 @@ import spinal.idslplugin.Location
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
+
+/** A stage from a deprecated API.
+  * 
+  * The new ``spinal.lib.misc.pipeline`` API should be used instead.
+  * Its documentation: [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/Pipeline/introduction.html]]
+  */
 class Stage(implicit _pip: Pipeline = null)  extends Area {
   if(_pip != null) {
     _pip.addStage(this)
   }
 
-  def chainConnect(connection: ConnectionLogic): Unit ={
+  def chainConnect(connection: ConnectionLogic): Unit = {
     _pip.connect(_pip.stagesSet.takeWhile(_ != this).last, this)(connection)
   }
 
-  def this(connection: ConnectionLogic)(implicit _pip: Pipeline)  {
+  def this(connection: ConnectionLogic)(implicit _pip: Pipeline) {
     this()
     chainConnect(connection)
   }
@@ -32,7 +38,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     val doHalt = isValid && cond && !isReady
     stage.haltIt(doHalt)
 
-    val fired = !syncronous generate new Area{
+    val fired = !syncronous generate new Area {
       val done = RegInit(False) setWhen(isFireing) clearWhen(isChanging)
       when(done){
         doHalt := False
@@ -40,7 +46,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
       }
     }
 
-    for(value <- values){
+    for(value <- values) {
       self(value).assignFrom(stage(value))
     }
   }

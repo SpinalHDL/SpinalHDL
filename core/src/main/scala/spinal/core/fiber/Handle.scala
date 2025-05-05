@@ -9,7 +9,7 @@ object Unset extends Unset
 
 
 
-object Handle{
+object Handle {
   def apply[T]() = new Handle[T]
   def apply[T](value : => T) = hardFork(value)
   def sync[T](value : T) = {
@@ -32,6 +32,14 @@ object Handle{
   var loadHandleAsync = false
 }
 
+/** Fiber synchronization primitive that can be used later to store a value of type `T`.
+  *
+  * It can be created with:
+  *   - a type: `val a = Handle[Int]`) 
+  *   - a lambda executed in a new task: `val a = Handle{otherHandle.get + 1}`
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/fiber.html#handle-t Fiber documentation]] 
+  */
 class Handle[T] extends Nameable with OverridedEqualsHashCode {
   @dontName private var loaded = false
   @dontName private var value : T = null.asInstanceOf[T]
@@ -40,11 +48,16 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
 
 
   def await() = this.get
+
+/** Specify in advance that the task creating this [[Handle]]'s value will use the provided handle(s)
+  *
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/fiber.html#soon-handle Fiber documentation]]
+  */
   def soon(that : Handle[_]*) : Unit = {
     if(willBeLoadedBy != null) {
       that.foreach(willBeLoadedBy.addSoonHandle)
     } else {
-      Handle{  //TODO maybe can avoid that fork
+      Handle {  //TODO maybe can avoid that fork
         that.foreach(spinal.core.fiber.soon(_))
         this.await()
       }.setCompositeName(this, "soon")
@@ -52,6 +65,8 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
   }
 
   def isLoaded = loaded
+
+  /** Return the [[Handle]]'s value (will block the task if that handle isn't loaded yet) */
   def get : T = {
     if(loaded) return value
     val t = AsyncThread.current
@@ -64,6 +79,7 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
   }
   def waitLoad : Unit = get
 
+  /** Set the value of the [[Handle]] (will reschedule all tasks waiting on it) */
   def load(value : T) = {
     applyName(value)
     loaded = true
@@ -75,7 +91,8 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
     this
   }
 
-  def load(value : Handle[T]): Unit ={ //TODO optimise if value is loaded already
+  /** Set the value of the [[Handle]] (will reschedule all tasks waiting on it) */
+  def load(value : Handle[T]): Unit = { // TODO optimize if value is loaded already
     Handle.loadHandleAsync match{
       case false =>  load(value.get)
       case true => loadAsync(value.get)
@@ -113,6 +130,9 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
   def map[T2](body : (T) => T2) = hardFork(body(get))
 
   //TODO legacy API ?
+  /** Generate a new [[Handle]] when this one is loaded
+   * @see [[derivate()]]
+   */
   def produce[T](body : => T) = hardFork(body)
 
 //  def merge(that : Handle[T]): Unit ={
@@ -130,5 +150,11 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
 //  }
 
   def derivatedFrom[T2](that : Handle[T2])(body : T2 => T) : Unit = hardFork{soon(this); load(body(that.get))}
+
+  /** Generate a new [[Handle]] when this one is loaded
+   * 
+   * The provided lambda take the loaded value as argument and return the derivate
+   * [[Handle]] value.
+   */
   def derivate[T2](body : (T) => T2) = hardFork{body(get)}
 }
