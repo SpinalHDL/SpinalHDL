@@ -153,6 +153,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   val wantStart = False
   val wantKill = False
   var autoStart = true
+  var defaultToBootState = false
 
 
   @dontName var parentStateMachine: StateMachineAccessor = null
@@ -222,7 +223,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
     switch(stateReg){
       for(state <- states){
-        if(state == stateBoot) default {
+        if(defaultToBootState && state == stateBoot) default {
           state.whenActiveTasks.sortBy(_.priority).foreach(_.body())
         } else is(enumOf(state)) {
           state.whenActiveTasks.sortBy(_.priority).foreach(_.body())
@@ -243,7 +244,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
     switch(stateNext){
       for(state <- states){
-        if(state == stateBoot) default {
+        if(defaultToBootState && state == stateBoot) default {
           state.whenIsNextTasks.foreach(_())
         } else is(enumOf(state)) {
           state.whenIsNextTasks.foreach(_())
