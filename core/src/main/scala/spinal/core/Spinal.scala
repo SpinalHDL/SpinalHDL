@@ -45,6 +45,13 @@ object SystemVerilog extends SpinalMode
 
 case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
 
+case class ObfuscateConfig (
+                             keepDefinitionNames: Boolean = false,
+                             keepInstanceNames: Boolean = false,
+                             keepClkResetNames: Boolean = false,
+                             prefix: String = "oo_",
+                             hierarchyKeepLevel: Int = 0
+                           )
 
 
 /**
@@ -168,6 +175,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         allowOutOfRangeLiterals        : Boolean = false,
                         var dontCareGenAsZero          : Boolean = false,
                         var obfuscateNames             : Boolean = false,
+                        obfuscate                      : ObfuscateConfig = ObfuscateConfig(),
                         var normalizeComponentClockDomainName : Boolean = false,
                         var devicePhaseHandler         : PhaseDeviceHandler = PhaseDeviceDefault,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),

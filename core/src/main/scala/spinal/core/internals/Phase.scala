@@ -3084,9 +3084,9 @@ class PhaseCheckAsyncResetsSources() extends PhaseCheck {
 
 class PhaseObfuscate() extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
-    var id = 0
+    var id: Long = 0
     def newName(): String = {
-      val name = "oo_" + id
+      val name = pc.config.obfuscate.prefix + id
       id += 1
       name
     }
@@ -3096,21 +3096,54 @@ class PhaseObfuscate() extends PhaseNetlist{
     def rename(that : Nameable) : Unit = {
      that.setName(newName)
     }
-    if(pc.config.obfuscateNames){
+    if(pc.config.obfuscateNames) {
       pc.walkComponentsExceptBlackbox { c =>
-        if (c != pc.topLevel) {
-          renameT(c)
-          if(!c.definition.hasTag(dontObfuscate)) c.setDefinitionName(newName)
+        val cd = c.clockDomain.get
+        if(cd != null && pc.config.obfuscate.keepClkResetNames) {
+          if(cd.clock.component != c) {
+            c.pulledDataCache.get(cd.clock).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.reset != null && cd.reset.component != c) {
+            c.pulledDataCache.get(cd.reset).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.softReset != null && cd.softReset.component != c) {
+            c.pulledDataCache.get(cd.softReset).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.clockEnable != null && cd.clockEnable.component != c) {
+            c.pulledDataCache.get(cd.clockEnable).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
         }
-        c.dslBody.walkDeclarations {
-          case io: BaseType if io.component == pc.topLevel && !io.isDirectionLess =>
-          case n: Nameable with SpinalTagReady => renameT(n)
-          case n: Nameable => rename(n)
-        }
-        for ((enu, enc) <- pc.enums) {
-          rename(enu)
-          for (e <- enu.elements) {
-            renameT(e)
+        if(c.level >= pc.config.obfuscate.hierarchyKeepLevel) {
+          if (c != pc.topLevel) {
+            if(!c.hasTag(dontObfuscate) && !pc.config.obfuscate.keepInstanceNames) renameT(c)
+            if(!c.definition.hasTag(dontObfuscate) && !pc.config.obfuscate.keepDefinitionNames) c.setDefinitionName(newName)
+          }
+          c.dslBody.walkDeclarations {
+            case io: BaseType if io.component == pc.topLevel && !io.isDirectionLess =>
+            case n: Nameable with SpinalTagReady => renameT(n)
+            case n: Nameable => rename(n)
+          }
+          for ((enu, enc) <- pc.enums) {
+            rename(enu)
+            for (e <- enu.elements) {
+              renameT(e)
+            }
           }
         }
       }
