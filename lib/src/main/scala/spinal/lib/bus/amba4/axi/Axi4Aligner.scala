@@ -108,7 +108,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       context.write.address := ptr.cmd.resized
       context.write.data.last := LAST
       context.write.data.id := AW.id
-      when(isFireing) {
+      when(isFiring) {
         context.write.valid := True
         slots.onSel(ptr.cmd.resized) { slot =>
           slot.done := False
@@ -194,7 +194,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       valid := ptr.cmd =/= ptr.fetch
       context.read.cmd.valid := False
       context.read.cmd.payload := ptr.fetch.resized
-      when(isFireing){
+      when(isFiring){
         context.read.cmd.valid := True
         ptr.fetch := ptr.fetch + 1
       }
@@ -204,7 +204,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       val reader = slots.reader(ptr.rsp.resized)
       val done = reader(_.done)
       val error = reader(_.error)
-      val errorAcc = RegInit(False) setWhen(isFireing && error)
+      val errorAcc = RegInit(False) setWhen(isFiring && error)
 
       io.up.b.valid := False
       io.up.b.id := CTX.id
@@ -212,7 +212,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       when(error || errorAcc){ io.up.b.setSLVERR() }
       haltWhen(!done)
       haltWhen(io.up.b.isStall)
-      when(isFireing){
+      when(isFiring){
         ptr.rsp := ptr.rsp + 1
       }
       when(valid && done) {
@@ -347,7 +347,7 @@ class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int
       context.write.data.id := AR.id
       context.write.data.header := (AR.addr.resized - CHUNK_START)(blockWordRange).andMask(FIRST)
       context.write.data.ups := split.spliter.CHUNKS_WORDS
-      when(isFireing) {
+      when(isFiring) {
         context.write.valid := True
         slots.onSel(ptr.cmd.resized) { slot =>
           slot.done := False
@@ -397,7 +397,7 @@ class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int
       valid := ptr.cmd =/= ptr.fetch
       context.read.cmd.valid := False
       context.read.cmd.payload := ptr.fetch.resized
-      when(isFireing){
+      when(isFiring){
         context.read.cmd.valid := True
         ptr.fetch := ptr.fetch + 1
       }
@@ -408,7 +408,7 @@ class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int
       val reader = slots.reader(ptr.rsp.resized)
       val done = reader(_.done)
       val error = reader(_.error)
-      val errorAcc = RegInit(False) setWhen (isFireing && error)
+      val errorAcc = RegInit(False) setWhen (isFiring && error)
       val counter = Reg(UInt(blockWordRange.size bits)) init (0)
       val CHUNK_LAST = counter === CTX.ups
       val ERRORED = insert(error || errorAcc)
