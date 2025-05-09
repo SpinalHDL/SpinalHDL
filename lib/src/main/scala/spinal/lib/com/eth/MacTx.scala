@@ -395,7 +395,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
     val readCmd = Stream(ram.addressType)
     val readRsp = ram.streamReadSync(readCmd)
     val packets = CounterUpDown(packetsMax + 1)
-    val full = (pushAt ^ popAt ^ bufferBytes) === 0 || packets === packetsMax
+    val full = RegNext(pushAt - popAt >= bufferBytes - 1 || packets >= packetsMax-1) init(False)
     val empty = pushAt === popAt
     val packetAt = Reg(UInt(log2Up(bufferBytes) + 1 bits))
 
@@ -463,9 +463,9 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
   val frontend = new StateMachine{
     setEncoding(binaryOneHot)
 
-    val ETH, DONE, IPV4, IPV4_UNKNOWN, TCP, UDP, ICMP, CS_WRITE_0, CS_WRITE_1, IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1 = new State()
+    val INIT, ETH, DONE, IPV4, IPV4_UNKNOWN, TCP, UDP, ICMP, CS_WRITE_0, CS_WRITE_1, IP4_LENGTH_0, IP4_LENGTH_1, IP4_CS_0, IP4_CS_1 = new State()
     val TSO_DATA = new State()
-    setEntry(ETH)
+    setEntry(INIT)
 
     val firstSegment = Reg(Bool())
     val lastFired = RegInit(False) setWhen(io.input.fire && io.input.last)
@@ -497,8 +497,8 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
       val inputLsb = CombInit(counter.lsb)
       val inputData = CombInit(io.input.data)
       val input = inputLsb.mux(B"x00" ## inputData, inputData ## B"x00").asUInt
-      val sNoOverflow = accumulator +^ input
-      val sOverflow = accumulator +^ input + 1
+      val sNoOverflow = KeepAttribute(accumulator +^ input)
+      val sOverflow = KeepAttribute(accumulator +^ input + 1)
       val sMuxed = sNoOverflow.msb.mux(sOverflow, sNoOverflow)(15 downto 0)
       when(push){
         accumulator := sMuxed
@@ -517,7 +517,8 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
       when(restore){ accumulator := checkpoint}
     }
 
-    ETH.onEntry{
+    def gotoEth(): Unit = {
+      goto(ETH)
       lastFired := False
       counter := 0
       packetBytes := 0
@@ -525,6 +526,10 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
       header.clear := True
       buffer.packetAt := buffer.pushAt
       firstSegment := True
+    }
+
+    INIT.whenIsActive{
+      gotoEth()
     }
     ETH.whenIsActive{
       checksum.clear := True
@@ -547,7 +552,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
     DONE.whenIsActive{
       when(lastFired){
         buffer.packets.increment()
-        goto(ETH)
+        gotoEth();
       }
     }
 
@@ -558,6 +563,9 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
     val csAt = Reg(buffer.ram.addressType)
     val ip4Length = Reg(Bits(16 bits))
     IPV4.whenIsActive{
+      when(counter === 3){
+        checksum.input := (history(1) ## history(0)).asUInt - (IHL << 2)
+      }
       when(io.input.fire) {
         checksum.push := counter >= 12 && counter <= 19
         checksumTso.push := counter >= 12 && counter <= 19
@@ -569,7 +577,6 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
         }
         when(counter === 3){
           checksum.push := True
-          checksum.input := (history(1) ## history(0)).asUInt - (IHL << 2)
           ip4Length := history(1) ## history(0)
         }
         when(io.input.last){
@@ -586,7 +593,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
           counter := 0
           when(!io.input.last){
             switch(protocol){
-              is(0x01) { goto(ICMP); checksum.clear := True }
+//              is(0x01) { goto(ICMP); checksum.clear := True }
               is(0x06) { goto(TCP) }
               is(0x11) { goto(UDP) }
             }
@@ -710,7 +717,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
       checksumIp.inputData := data
     }
 
-    val tcpAt = buffer.packetAt + 14 + (IHL << 2)
+    val tcpAt = RegNext(buffer.packetAt + 14 + (IHL << 2))
     val tsoIp4Length = packetBytes - 14
     val tsoHeaderLength = U(14, 8 bits) + (IHL << 2) + (tcpCtx.dataOffset << 2)
     sequence(TSO_IP4_LENGTH_0, TSO_IP4_LENGTH_1, TSO_IP4_CS_0, TSO_IP4_CS_1, TSO_SN_0, TSO_SN_1, TSO_SN_2, TSO_SN_3, TSO_FLAG, TSO_CS_0, TSO_CS_1, TSO_SPLIT_END)
@@ -750,7 +757,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
       header.readBusy := True
       goto(TSO_HEADER_CPY)
       when(lastFired){
-        goto(ETH)
+        gotoEth();
       }
     }
 
@@ -806,7 +813,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
     bufferWrite(IP4_CS_1)(buffer.packetAt + 0x19, checksumIp.result(0, 8 bits))
     IP4_CS_1.whenIsActive{
       switch(protocol){
-        is(0x01) { }
+//        is(0x01) { }
         is(0x06) { }
         is(0x11) { }
         default{ goto(DONE)}
