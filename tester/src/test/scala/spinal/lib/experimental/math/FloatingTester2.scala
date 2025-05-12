@@ -25,6 +25,13 @@ class FloatingTester2 extends Component {
     val rf_neg_two_sign = out Bool()
     val rf_neg_two_exp = out Bits(9 bits)
     val rf_neg_two_mant = out Bits(23 bits)
+
+    
+    // Test Case: BigDecimal("0.125") (1/8)
+    val f_one_eighth_bits = out Bits(32 bits)
+    val rf_one_eighth_sign = out Bool()
+    val rf_one_eighth_exp = out Bits(9 bits)
+    val rf_one_eighth_mant = out Bits(23 bits)
   }
 
   // Test Case: BigDecimal("0.0")
@@ -59,6 +66,17 @@ class FloatingTester2 extends Component {
   io.rf_neg_two_sign := rf_neg_two.sign
   io.rf_neg_two_exp := rf_neg_two.exponent
   io.rf_neg_two_mant := rf_neg_two.mantissa
+
+  // Test Case: BigDecimal("0.125")
+  val f_one_eighth = Floating32()
+  f_one_eighth := BigDecimal("0.125")
+  io.f_one_eighth_bits := f_one_eighth.asBits
+
+  val rf_one_eighth = RecFloating32()
+  rf_one_eighth := BigDecimal("0.125")
+  io.rf_one_eighth_sign := rf_one_eighth.sign
+  io.rf_one_eighth_exp := rf_one_eighth.exponent
+  io.rf_one_eighth_mant := rf_one_eighth.mantissa
 
 }
 
