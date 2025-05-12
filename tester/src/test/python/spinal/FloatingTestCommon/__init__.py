@@ -1,7 +1,7 @@
 
 import math
 import struct
-from decimal import Decimal, getcontext
+from decimal import Decimal
 
 # IEEE 754 SP Consts
 IEEE_EXP_BITS = 8
