@@ -6,13 +6,13 @@ from spinal.FloatingTestCommon import f32_to_bits, get_recfloat_fields
 
 async def check_conversion(dut, bd_str, py_float_val, f_bits_signal_name, rf_sign_signal_name, rf_exp_signal_name, rf_mant_signal_name):
     bd_val = Decimal(bd_str)
-
+    prefix = "io_"
     expected_f_bits = f32_to_bits(py_float_val)
     try:
-        actual_f_bits_signal = getattr(dut, f_bits_signal_name)
+        actual_f_bits_signal = getattr(dut, prefix + f_bits_signal_name)
         actual_f_bits = actual_f_bits_signal.value.integer
     except AttributeError:
-        assert False, f"DUT signal dut.{f_bits_signal_name} not found!"
+        assert False, f"DUT signal dut.{prefix + f_bits_signal_name} not found!"
 
     assert actual_f_bits == expected_f_bits, \
         f"Floating['{bd_str}']: Expected 0x{expected_f_bits:08X}, Got 0x{actual_f_bits:08X}"
@@ -23,9 +23,9 @@ async def check_conversion(dut, bd_str, py_float_val, f_bits_signal_name, rf_sig
         f"Could not calculate expected RecFloat fields for {bd_str}"
 
     try:
-        actual_rf_sign_signal = getattr(dut, rf_sign_signal_name)
-        actual_rf_exp_signal  = getattr(dut, rf_exp_signal_name)
-        actual_rf_mant_signal = getattr(dut, rf_mant_signal_name)
+        actual_rf_sign_signal = getattr(dut, prefix + rf_sign_signal_name)
+        actual_rf_exp_signal  = getattr(dut, prefix + rf_exp_signal_name)
+        actual_rf_mant_signal = getattr(dut, prefix + rf_mant_signal_name)
 
         actual_rf_sign = actual_rf_sign_signal.value.integer
         actual_rf_exp  = actual_rf_exp_signal.value.integer
