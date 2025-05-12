@@ -15,23 +15,29 @@ class FloatingTester2 extends Component {
     val rf_zero_mant = out Bits (23 bits)
 
     // Test Case: BigDecimal("1.5")
-    val f_one_point_five_bits = out Bits(32 bits)
-    val rf_one_point_five_sign = out Bool()
-    val rf_one_point_five_exp = out Bits(9 bits)
-    val rf_one_point_five_mant = out Bits(23 bits)
+    val f_one_point_five_bits = out Bits (32 bits)
+    val rf_one_point_five_sign = out Bool ()
+    val rf_one_point_five_exp = out Bits (9 bits)
+    val rf_one_point_five_mant = out Bits (23 bits)
 
     // Test Case: BigDecimal("-2.0")
-    val f_neg_two_bits = out Bits(32 bits)
-    val rf_neg_two_sign = out Bool()
-    val rf_neg_two_exp = out Bits(9 bits)
-    val rf_neg_two_mant = out Bits(23 bits)
+    val f_neg_two_bits = out Bits (32 bits)
+    val rf_neg_two_sign = out Bool ()
+    val rf_neg_two_exp = out Bits (9 bits)
+    val rf_neg_two_mant = out Bits (23 bits)
 
-    
     // Test Case: BigDecimal("0.125") (1/8)
-    val f_one_eighth_bits = out Bits(32 bits)
-    val rf_one_eighth_sign = out Bool()
-    val rf_one_eighth_exp = out Bits(9 bits)
-    val rf_one_eighth_mant = out Bits(23 bits)
+    val f_one_eighth_bits = out Bits (32 bits)
+    val rf_one_eighth_sign = out Bool ()
+    val rf_one_eighth_exp = out Bits (9 bits)
+    val rf_one_eighth_mant = out Bits (23 bits)
+
+    // Test Case: A value that might stress the current normalization loop
+    val small_val_num = BigDecimal("0.0009765625")
+    val f_small_val_bits = out Bits (32 bits)
+    val rf_small_val_sign = out Bool ()
+    val rf_small_val_exp = out Bits (9 bits)
+    val rf_small_val_mant = out Bits (23 bits)
   }
 
   // Test Case: BigDecimal("0.0")
@@ -78,6 +84,16 @@ class FloatingTester2 extends Component {
   io.rf_one_eighth_exp := rf_one_eighth.exponent
   io.rf_one_eighth_mant := rf_one_eighth.mantissa
 
+  // Test Case: BigDecimal from io.small_val_num
+  val f_small_val = Floating32()
+  f_small_val := io.small_val_num
+  io.f_small_val_bits := f_small_val.asBits
+
+  val rf_small_val = RecFloating32()
+  rf_small_val := io.small_val_num
+  io.rf_small_val_sign := rf_small_val.sign
+  io.rf_small_val_exp := rf_small_val.exponent
+  io.rf_small_val_mant := rf_small_val.mantissa
 }
 
 class FloatingTester2Cocotb extends SpinalTesterCocotbBase {
