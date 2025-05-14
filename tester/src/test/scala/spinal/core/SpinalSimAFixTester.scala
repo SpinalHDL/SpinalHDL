@@ -215,6 +215,17 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
     }
   }
 
+  test("negate_width") {
+    // make sure `negate()` elaborates in some edge cases
+    SimConfig.compile(new Component {
+      val io = new Bundle {
+        val a = in(AFix.S(5 bits))
+        val o = out(AFix.S(6 bits))
+        o := a.negate().negate()
+      }
+    })
+  }
+
   def dutStateString(dut: AFixTester): String = {
     val model = AFixTesterModel(dut)
 

@@ -662,7 +662,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     if(this.minRaw >= 0)
       ret.raw := U(this.raw).twoComplement(enable, plusOneEnable).asBits
     else
-      ret.raw := S(this.raw).twoComplement(enable, plusOneEnable).asBits
+      ret.raw := S(this.raw).twoComplement(enable, plusOneEnable).asBits.resized
     ret
   }
 
