@@ -572,7 +572,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   // Shift bits and decimal point left, adding padding bits right
   def <<|(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
-    val ret = new AFix(this.maxRaw * shiftBig, this.minRaw * shiftBig, (this.exp + shift))
+    val ret = new AFix(this.maxRaw * shiftBig, this.minRaw * shiftBig, this.exp)
 
     ret.raw := this.raw << shift
 
