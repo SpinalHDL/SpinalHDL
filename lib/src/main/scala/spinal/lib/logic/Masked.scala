@@ -3,7 +3,7 @@ package spinal.lib.logic
 import spinal.core._
 import spinal.core.internals.Literal
 
-object Masked{
+object Masked {
   def apply(ml : MaskedLiteral) : Masked = Masked(ml.value, ml.careAbout)
   def apply(lit : Any) : Masked = lit match {
     case e: SpinalEnumElement[_] => Masked(e.spinalEnum.defaultEncoding.getValue(e), (BigInt(1) << e.spinalEnum.defaultEncoding.getWidth(e.spinalEnum))-1)
@@ -15,7 +15,7 @@ object Masked{
   def zero = Masked(0,1)
 }
 
-case class Masked(value : BigInt,care : BigInt){
+case class Masked(value : BigInt, care : BigInt) {
   assert((value & ~care) == 0)
   var isPrime = true
 

@@ -150,7 +150,7 @@ class Axi4ReadOnlyCompactor(config: Axi4Config) extends Component {
     val fetch = new Stage{
       driveFrom(io.down.r)
       val R = insert(io.down.r.payload)
-      context.read.cmd.valid := isFireing
+      context.read.cmd.valid := isFiring
       context.read.cmd.payload := io.down.r.id
     }
 

@@ -16,7 +16,7 @@ class EngineContext {
   var currentAsyncThread : AsyncThread = null
   val cpuAffinity = SimManager.newCpuAffinity()
 
-  //Manage the JvmThread poll
+  // Manage the JvmThread poll
   val jvmBusyThreads = mutable.ArrayBuffer[JvmThread]()
   val jvmIdleThreads = mutable.Stack[JvmThread]()
   def newJvmThread(body : => Unit) : JvmThread = {
@@ -57,7 +57,7 @@ class EngineContext {
     var hadException = true
     val initialAffinity = Affinity.getAffinity
     try {
-      spinal.affinity.Affinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
+      spinal.affinity.Affinity(cpuAffinity) // Boost context switching by 2 on host OS, by 10 on VM.
       while (pending.nonEmpty) {
         val t = pending.dequeue()
         t.context.restore()
@@ -66,7 +66,8 @@ class EngineContext {
 //        if(t.isDone) println(s"Done   $t")
         t.context = ScopeProperty.capture()
       }
-      //Ensure there is no prepop tasks remaining, as things can be quite aggresively context switched since the fiber update
+      // Ensure there is no prepop tasks remaining, as things can be quite aggressively context
+      // switched since the fiber update.
       var hadPrePop = true
       while(hadPrePop) {
         hadPrePop = false

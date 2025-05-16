@@ -248,15 +248,14 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     this
   }
 
-
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBits(delay))
   def reversed = B(asBools.reverse).asInstanceOf[this.type]
 
   override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpBits(kind, widthOf(this)))
 
   /**
-   * Return a instance of the paramter which alias this.Bits in both read and assignments accesses.
-   * Usefull for union like data structures.
+   * Return a instance of the parameter which alias this.Bits in both read and assignments accesses.
+   * Useful for union like data structures.
    * @param t The type in which the alias will be
    * @return The alias
    */

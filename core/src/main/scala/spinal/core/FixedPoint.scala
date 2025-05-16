@@ -28,7 +28,7 @@ import scala.collection.mutable.ArrayBuffer
 
 sealed trait RoundType
 
-object RoundType{
+object RoundType {
   case object CEIL           extends RoundType ;// Wikipedia name: RoundUp
   case object FLOOR          extends RoundType ;// Wikipedia name: RoundDown
   case object FLOORTOZERO    extends RoundType ;// Wikipedia name: RoundToZero
@@ -43,7 +43,7 @@ object RoundType{
 }
 
 case class FixPointConfig(roundType: RoundType,
-                          symmetric: Boolean){
+                          symmetric: Boolean) {
   def on[B](body : => B) = {
     FixPointProperty(this) on {
       body
@@ -55,7 +55,7 @@ case class FixPointConfig(roundType: RoundType,
 
 
 
-object FixPointProperty extends ScopeProperty[FixPointConfig]{
+object FixPointProperty extends ScopeProperty[FixPointConfig] {
   override def default = DefaultFixPointConfig
 }
 

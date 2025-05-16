@@ -231,7 +231,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
   def readBytes(address : Long, size : Int, dst : Array[Byte], dstOffset : Int = 0) : Unit = {
     var ptr = address
     var offset = 0
-    while(offset != size){
+    while(offset != size) {
       val mem = getElseAlocate((ptr >> 20))
       do{
         dst(offset + dstOffset) = mem(ptr.toInt & 0xFFFFF)
