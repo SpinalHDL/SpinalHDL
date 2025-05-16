@@ -3162,7 +3162,7 @@ object PlaRamMux{
     // Generate a list holding the lowest memory block (holding the instructions to be executed)
     val lowMem = Mem(Bits(cfg.wordSize bits),1 << 16)
 
-    // Create the instruction port (read only) for the instruction memory
+    // Create the instruction port (read-only) for the instruction memory
     io.memInstr := lowMem.readSync(address = io.memInstrAdr, readUnderWrite = readFirst)
 
     // Calculate the number of needed rams

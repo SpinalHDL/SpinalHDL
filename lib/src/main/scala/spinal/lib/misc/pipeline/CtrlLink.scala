@@ -30,13 +30,26 @@ trait CtrlApi {
   def isValid = up.isValid
   def isReady = down.isReady
 
+  /** Same as `Link.down(Payload)` */
   def apply[T <: Data](that: Payload[T]): T = down(that, defaultKey)
+
+  /** Same as `Link.down(Payload, subKey)` */
   def apply[T <: Data](that: Payload[T], subKey: Any): T = down(that, subKey)
   def apply(subKeys: Seq[Any]) : Node.OffsetApi = down(subKeys)
 
+  /** Same as `Link.down.insert(Data)` */
   def insert[T <: Data](that: T): Payload[T] = down.insert(that)
 
+  /** Allows to conditionally override a [[Payload]] value between `link.up` -> `link.down`.
+   * 
+   * This can be used to fix data hazard in CPU pipelines for instance.
+   */
   def bypass[T <: Data](that: Payload[T]): T =  bypass(that, defaultKey)
+
+  /** Allows to conditionally override a ([[Payload]], subKey) value between `link.up` -> `link.down`.
+   * 
+   * This can be used to fix data hazard in CPU pipelines for instance.
+   */
   def bypass[T <: Data](that: Payload[T], subKey : Any): T =  bypass(NamedTypeKey(that.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
   def bypass[T <: Data](that: NamedTypeKey): Data = {
     val preserve = DslScopeStack.get != getCtrl.parentScope
@@ -49,11 +62,25 @@ trait CtrlApi {
     })
   }
 
+  /** Block the current transaction when `True` (clear `up.ready` and `down.valid`) */
   def haltWhen(cond: Bool)      (implicit loc: Location): Bool = requests.halts addRet nameFromLocation(CombInit(cond), "haltRequest")
+
+  /** Duplicate the current transaction when `True` (clear `up.ready`) */
   def duplicateWhen(cond: Bool) (implicit loc: Location): Bool = requests.duplicates addRet nameFromLocation(CombInit(cond), "duplicateRequest")
+
+  /** Hide the current transaction from downstream when `True` (clear `down.valid`) */
   def terminateWhen(cond: Bool) (implicit loc: Location): Bool = requests.terminates addRet nameFromLocation(CombInit(cond), "terminateRequest")
+
+  /** Request the upstream to forget its current transaction  when `True`(but doesn’t clear the `down.valid`) */
   def forgetOneWhen(cond: Bool)(implicit loc: Location): Bool = requests.forgetsOne addRet nameFromLocation(CombInit(cond), "forgetsSingleRequest")
+
+  /** Ignore the downstream ready when `True` (set `up.ready`) */
   def ignoreReadyWhen(cond: Bool)(implicit loc: Location): Bool = requests.ignoresReady addRet nameFromLocation(CombInit(cond), "ignoreReadyRequest")
+  
+  /** Cancel the current transaction from the pipeline when `True`.
+   * 
+   * It clear `down.valid` and make the transaction driver forget its current state.
+   */
   def throwWhen(cond : Bool, usingReady : Boolean = false)    (implicit loc: Location) : Unit = {
     val flag = nameFromLocation(CombInit(cond), "throwWhen")
     requests.terminates += flag
@@ -64,11 +91,17 @@ trait CtrlApi {
     }
   }
 
+  /** Same as [[haltWhen()]] but for use in `when` block */
   def haltIt()      (implicit loc: Location) : Unit = haltWhen(ConditionalContext.isTrue)
+  /** Same as [[duplicateWhen()]] but for use in `when` block */
   def duplicateIt() (implicit loc: Location) : Unit = duplicateWhen(ConditionalContext.isTrue)
+  /** Same as [[terminateWhen()]] but for use in `when` block */
   def terminateIt() (implicit loc: Location) : Unit = terminateWhen(ConditionalContext.isTrue)
+  /** Same as [[throwWhen()]] but for use in `when` block */
   def throwIt(usingReady : Boolean = false)(implicit loc: Location): Unit = throwWhen(ConditionalContext.isTrue, usingReady = usingReady)
+  /** Same as [[forgetOneWhen()]] but for use in `when` block */
   def forgetOneNow()(implicit loc: Location): Unit = forgetOneWhen(ConditionalContext.isTrue)
+  /** Same as [[ignoreReadyWhen()]] but for use in `when` block */
   def ignoreReadyNow()(implicit loc: Location): Unit = ignoreReadyWhen(ConditionalContext.isTrue)
 
   def forkStream[T <: Data](forceSpawn : Option[Bool] = Option.empty[Bool]): Stream[NoData] = {
@@ -94,6 +127,14 @@ trait CtrlApi {
   implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new BundlePimper[T](this (stageable))
 }
 
+/** A kind of special [[Link]] that connects two nodes with optional flow control / bypass logic.
+  * 
+  * Its API should be flexible enough to implement a CPU stage with it.
+  * 
+  * It as an [[up]] and a [[down]] node.
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/Pipeline/introduction.html#ctrllink CtrlLink documentation]]
+  */
 class CtrlLink(override val up : Node, override val down : Node) extends Link with CtrlApi {
   down.up = this
   up.down = this
@@ -147,14 +188,14 @@ class CtrlLink(override val up : Node, override val down : Node) extends Link wi
     if(up.ctrl.ready.nonEmpty) {
       up.ready := down.isReady
     }
-    if(requests.halts.nonEmpty) when(requests.halts.orR){
+    if(requests.halts.nonEmpty) when(requests.halts.orR) {
       down.valid := False
       up.ready := False
     }
-    if(requests.duplicates.nonEmpty) when(requests.duplicates.orR){
+    if(requests.duplicates.nonEmpty) when(requests.duplicates.orR) {
       up.ready := False
     }
-    if(requests.terminates.nonEmpty) when(requests.terminates.orR){
+    if(requests.terminates.nonEmpty) when(requests.terminates.orR) {
       down.valid := False
     }
     if (up.ctrl.ready.nonEmpty) {

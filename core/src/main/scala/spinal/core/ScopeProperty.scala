@@ -56,7 +56,7 @@ object ScopeProperty {
       it.set(context.clone())
     }
 
-    def get[T](sp: ScopeProperty[T]) : T = context.get(sp.asInstanceOf[ScopeProperty[Any]]).asInstanceOf[T]
+    def get[T](sp: ScopeProperty[T]) : T = context.get(sp.asInstanceOf[ScopeProperty[Any]]).get.asInstanceOf[T]
   }
 
   def capture(): Capture ={
@@ -76,6 +76,7 @@ object ScopeProperty {
 }
 
 class ToBitsPimper(scopeProperty: ScopeProperty[Int]) {
+  /** SpinalHDL "marker" to transform an [[Int]] into a [[BitCount]] */
   def bits = BitCount(scopeProperty.get)
 }
 

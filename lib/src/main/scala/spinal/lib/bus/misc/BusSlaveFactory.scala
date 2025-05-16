@@ -280,7 +280,7 @@ trait BusSlaveFactory extends Area{
 
 
   /**
-    * Create a write only register of type dataType at address and placed at bitOffset in the word
+    * Create a write-only register of type dataType at address and placed at bitOffset in the word
     */
   def createWriteOnly[T <: Data](dataType      : T,
                                  address       : BigInt,
@@ -293,7 +293,7 @@ trait BusSlaveFactory extends Area{
 
 
   /**
-    * Create a read only register of type dataType at address and placed at bitOffset in the word
+    * Create a read-only register of type dataType at address and placed at bitOffset in the word
     */
   def createReadOnly[T <: Data](dataType      : T,
                                 address       : BigInt,
@@ -305,7 +305,7 @@ trait BusSlaveFactory extends Area{
   }
 
   /**
-    * Create a read write register of type dataType at address and placed at bitOffset in the word
+    * Create a read-write register of type dataType at address and placed at bitOffset in the word
     */
   def createReadAndWrite[T <: Data](dataType      : T,
                                     address       : BigInt,
@@ -457,7 +457,7 @@ trait BusSlaveFactory extends Area{
                        address       : BigInt,
                        bitOffset     : Int = 0,
                        documentation : String = null): T = {
-    val reg = Reg(that)
+    val reg = Reg(that).setCompositeName(that, "driver", true)
     write(reg, address, bitOffset, documentation)
     that := reg
     reg

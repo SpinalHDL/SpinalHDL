@@ -157,7 +157,7 @@ class HardType[T <: Data](t : => T) extends OverridedEqualsHashCode{
 }
 
 
-object NamedType{
+object NamedType {
   def apply[T <: Data](gen : => T) = new NamedType(gen)
   def apply[T <: Data](gen : HardType[T]) = new NamedType(gen.craft())
 }

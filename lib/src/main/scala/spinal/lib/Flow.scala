@@ -106,6 +106,20 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     return next
   }
 
+  /**
+   * Discard transactions when cond is true.
+   *
+   * This is the same as throwWhen() but with a semantically clearer function name.
+   * Prefer discardWhen() over throwWhen() for new designs.
+   *
+   * @param cond Condition
+   *
+   * @return The resulting Flow
+   */
+  def discardWhen(cond: Bool): Flow[T] = {
+    this throwWhen(cond)
+  }
+
   def throwWhen(cond: Bool): Flow[T] = {
     this takeWhen (!cond)
   }
@@ -157,6 +171,18 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   }
 
   def stage() : Flow[T] = this.m2sPipe().setCompositeName(this, "stage", true)
+
+  /**
+   * Delay the flow by a given number of cycles
+   * @param cycleCount Number of cycles to delay the flow
+   * @return Delayed flow
+   */
+  def delay(cycleCount : Int) : Flow[T] = {
+    cycleCount match {
+      case 0 => this
+      case _ => this.stage().delay(cycleCount - 1)
+    }
+  }
 
   def push(that : T): Unit ={
     valid := True

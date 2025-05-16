@@ -36,8 +36,8 @@ class Connection(m : NodeUpDown, s : NodeUpDown) extends ConnectionRaw(m, s) {
     setDownConnection(_.connectFrom(_)(a, b, c, d, e))
   }
 
-  //Will negociate the parameters and then connect the ends through the required adapters
-  val thread = Fiber build new Area{
+  // Will negotiate the parameters and then connect the ends through the required adapters.
+  val thread = Fiber build new Area {
     soon(down.m2s.parameters)
     soon(up.s2m.parameters)
 
@@ -51,7 +51,7 @@ class Connection(m : NodeUpDown, s : NodeUpDown) extends ConnectionRaw(m, s) {
       ptr = bus
       bus
     }
-    for(adapter <- adapters){
+    for(adapter <- adapters) {
       if(adapter.isRequired(Connection.this)){
         ptr = adapter.build(Connection.this)(ptr)
       }
@@ -96,7 +96,7 @@ trait InterconnectAdapter {
   def build(c : Connection)(m : Bus) : Bus
 }
 
-class InterconnectAdapterCc extends InterconnectAdapter{
+class InterconnectAdapterCc extends InterconnectAdapter {
   var aDepth = 8
   var bDepth = 8
   var cDepth = 8

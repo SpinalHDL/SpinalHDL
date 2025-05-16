@@ -572,7 +572,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   // Shift bits and decimal point left, adding padding bits right
   def <<|(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
-    val ret = new AFix(this.maxRaw * shiftBig, this.minRaw * shiftBig, (this.exp + shift))
+    val ret = new AFix(this.maxRaw * shiftBig, this.minRaw * shiftBig, this.exp)
 
     ret.raw := this.raw << shift
 
@@ -662,7 +662,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     if(this.minRaw >= 0)
       ret.raw := U(this.raw).twoComplement(enable, plusOneEnable).asBits
     else
-      ret.raw := S(this.raw).twoComplement(enable, plusOneEnable).asBits
+      ret.raw := S(this.raw).twoComplement(enable, plusOneEnable).asBits.resized
     ret
   }
 

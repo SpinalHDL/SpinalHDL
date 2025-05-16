@@ -33,6 +33,8 @@ object BufferCC {
     apply(input, null.asInstanceOf[T], inputAttributes = List(crossClockMaxDelay(1, true)))
   def withTag[T <: Data](input: T, init: => T): T =
     apply(input, init, inputAttributes = List(crossClockMaxDelay(1, true)))
+  def falsePath[T <: Data](input: T): T =
+    apply(input, null.asInstanceOf[T], inputAttributes = List(crossClockFalsePath()))
 
   val defaultDepth = ScopeProperty(2)
   def defaultDepthOptioned(cd : ClockDomain, option : Option[Int]) : Int = {
