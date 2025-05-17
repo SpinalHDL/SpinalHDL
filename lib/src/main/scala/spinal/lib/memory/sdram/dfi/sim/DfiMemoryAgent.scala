@@ -29,18 +29,12 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val casNProxy = ctrl.casN.simProxy()
   val weNProxy = ctrl.weN.simProxy()
 
-  val wrEnProxy = wr.wr.map(_.wrdataEn.simProxy())
-  val wrDataProxy = wr.wr.map(_.wrdata.simProxy())
-  val rdEnProxy = rd.rden.map(_.simProxy())
-
   val rowAddrQueue = mutable.Queue[Long]()
-  val columnAddrQueue = mutable.Queue[Long]()
   val bankQueue = mutable.Queue[Long]()
   val wrEnQueue = mutable.Queue[Boolean]()
   val wrAddrQueue = mutable.Queue[Long]()
   val wrByteQueue = mutable.Queue[Byte]()
   val wrLatQuenes = mutable.Queue[Int]()
-  val rdAddrQueue = mutable.Queue[Long]()
   val rdEnQueue = mutable.Queue[(Boolean, Int)]()
   val rdDataQueue = mutable.Queue[BigInt]()
   val rProcess = Array.fill(phaseCount)(mutable.Queue[(BigInt) => Unit]())
@@ -75,7 +69,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     Array[Boolean](SelectedBit.testBit(0), SelectedBit.testBit(1))
   }
 
-  def writeDataRxd(wrEn: IndexedSeq[Boolean], wrData: IndexedSeq[Long]) = {
+  def writeDataRxd(wrEn: IndexedSeq[SimBoolPimper#SimEquivT], wrData: IndexedSeq[Long]) = {
     for (phase <- 0 until phaseCount) {
       wrEnQueue.enqueue(wrEn(phase))
       if (wrEnQueue.length == busConfig.timeConfig.tPhyWrData + 1) {
@@ -114,7 +108,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
 
   def setByte(address: Long, value: Byte) = memory.write(address, value)
 
-  def readDataTxd(rdEn: IndexedSeq[Boolean]) = {
+  def readDataTxd(rdEn: IndexedSeq[SimBoolPimper#SimEquivT]) = {
     rd.rd.foreach(_.rddataValid #= false)
     for ((en, phase) <- rdEn.zipWithIndex) {
       if (rProcess(phase).nonEmpty & rdDataQueue.nonEmpty) {
@@ -152,9 +146,9 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     val ras = rasNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
     val cas = casNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
     val weN = weNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
-    val wrEn = wrEnProxy.map(_.toBoolean)
-    val wrData = wrDataProxy.map(_.toLong)
-    val rdEn = rdEnProxy.map(_.toBoolean)
+    val wrEn = wr.wr.map(_.wrdataEn.toBoolean)
+    val wrData = wr.wr.map(_.wrdata.toLong)
+    val rdEn = rd.rden.map(_.toBoolean)
 
     for ((enPerChip, idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
       // cmd and address
