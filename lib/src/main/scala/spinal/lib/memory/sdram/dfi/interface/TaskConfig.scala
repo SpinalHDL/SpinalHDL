@@ -1,37 +1,35 @@
-package spinal.lib.memory.sdram.dfi.interface
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.lib._
 
 case class TaskTimingConfig(dfiConfig: DfiConfig) extends Bundle {
 
-  import dfiConfig._
+  def RAS = time(dfiConfig.sdram.tRAS)
 
-  def RAS = time(sdram.tRAS)
+  def RP = time(dfiConfig.sdram.tRP)
 
-  def time(tcyc: Int, phase: Int = dfiConfig.frequencyRatio) = (tcyc + phase - 1) / phase
+  def WR = time(dfiConfig.sdram.tWR)
 
-  def RP = time(sdram.tRP)
+  def RCD = time(dfiConfig.sdram.tRCD)
 
-  def WR = time(sdram.tWR)
+  def WTR = time(dfiConfig.sdram.tWTR)
 
-  def RCD = time(sdram.tRCD)
+  def RTP = time(dfiConfig.sdram.tRTP)
 
-  def WTR = time(sdram.tWTR)
+  def RRD = time(dfiConfig.sdram.tRRD)
 
-  def RTP = time(sdram.tRTP)
+  def RTW = time(dfiConfig.sdram.tRTW)
 
-  def RRD = time(sdram.tRRD)
-
-  def RTW = time(sdram.tRTW)
-
-  def RFC = time(sdram.tRFC)
+  def RFC = time(dfiConfig.sdram.tRFC)
 
   def ODT = 0
 
-  def FAW = time(sdram.tFAW)
+  def FAW = time(dfiConfig.sdram.tFAW)
 
-  def REF = time(sdram.tREF)
+  def time(tcyc: Int, phase: Int = dfiConfig.frequencyRatio) = (tcyc + phase - 1) / phase
+
+  def REF = time(dfiConfig.sdram.tREF)
 
   def autoRefresh = True
 }
@@ -44,16 +42,15 @@ case class SdramAddress(l: SdramConfig) extends Bundle {
 }
 
 case class BusAddress(dfiConfig: DfiConfig) extends Bundle {
-  import dfiConfig.sdram._
-  val byte = UInt(log2Up(bytePerWord) bits)
-  val column = UInt(columnWidth bits)
-  val bank = UInt(bankWidth bits)
-  val row = UInt(rowWidth bits)
+  val byte = UInt(log2Up(dfiConfig.sdram.bytePerWord) bits)
+  val column = UInt(dfiConfig.sdram.columnWidth bits)
+  val bank = UInt(dfiConfig.sdram.bankWidth bits)
+  val row = UInt(dfiConfig.sdram.rowWidth bits)
   val cs = UInt(log2Up(dfiConfig.chipSelectNumber) bits)
-  def getRBCAddress(addr: UInt) = addr(log2Up(bytePerWord), columnWidth + bankWidth + rowWidth bits)
-  def getButeAddress(addr: UInt) = addr(0, log2Up(bytePerWord) bits)
+  def getRBCAddress(addr: UInt) = addr(log2Up(dfiConfig.sdram.bytePerWord), dfiConfig.sdram.wordAddressWidth bits)
+  def getButeAddress(addr: UInt) = addr(0, log2Up(dfiConfig.sdram.bytePerWord) bits)
   def getCsAddress(addr: UInt) =
-    addr(log2Up(bytePerWord) + columnWidth + bankWidth + rowWidth, log2Up(dfiConfig.chipSelectNumber) bits)
+    addr(dfiConfig.sdram.byteAddressWidth, log2Up(dfiConfig.chipSelectNumber) bits)
 }
 
 case class TaskParameter(
@@ -77,26 +74,20 @@ case class TaskConfig(
 ) {}
 
 case class TaskWrRdCmd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle {
-
-  import dfiConfig._
-  import taskConfig._
   val write = Bool()
-  val address = UInt(taskAddressWidth bits)
-  val context = Bits(contextWidth bits)
+  val address = UInt(dfiConfig.taskAddressWidth bits)
+  val context = Bits(taskConfig.contextWidth bits)
   val burstLast = Bool()
   val length = UInt(stationLengthWidth bits)
 
   def stationLengthWidth = log2Up(stationLengthMax)
 
-  def stationLengthMax = taskParameter.bytePerTaskMax / dfiConfig.bytePerBurst
+  def stationLengthMax = taskConfig.taskParameter.bytePerTaskMax / dfiConfig.bytePerBurst
 }
 
 case class TaskWriteData(dfiConfig: DfiConfig) extends Bundle {
-
-  import dfiConfig._
-
-  val data = Bits(beatWidth bits)
-  val mask = Bits(beatWidth / 8 bits)
+  val data = Bits(dfiConfig.beatWidth bits)
+  val mask = Bits(dfiConfig.beatWidth / 8 bits)
 }
 
 case class TaskRsp(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle {
@@ -120,12 +111,10 @@ case class PreTaskPort(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bun
 
 case class OpTasks(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle with IMasterSlave {
 
-  import taskConfig._
-
   val read, write, active, precharge = Bool() // OH encoded
   val last = Bool()
   val address = BusAddress(dfiConfig)
-  val context = Bits(contextWidth bits)
+  val context = Bits(taskConfig.contextWidth bits)
   val prechargeAll, refresh = Bool() // OH encoded
 
   def init(): OpTasks = {
