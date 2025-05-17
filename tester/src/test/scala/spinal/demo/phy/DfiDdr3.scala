@@ -93,55 +93,6 @@ case class BmbDfiDdr3(bmbp: BmbParameter, ddrIoDfiConfig: DfiConfig, dfiConfig: 
     phy.io.ddr3.dqsN <> io.ddr3.dqsN
     phy.io.ddr3.dq <> io.ddr3.dq
 
-//    val ddr3Chips = for (i <- 0 until (ddrIoDfiConfig.chipSelectNumber)) yield new Area {
-//      val sel = i
-//      val phy = DfiPhyDdr3(taskConfig, phyDfiConfig).setName(s"ddr3_dfi_phy_${i}")
-//    }
-//
-//    ddr3Chips.map(_.phy.io.dfi.read.rd(0).rddataValid).orR <> clockArea.dfiController.io.dfi.read.rd(0).rddataValid
-//    MuxOH(
-//      ddr3Chips.map(_.phy.io.dfi.read.rd(0).rddataValid),
-//      ddr3Chips.map(_.phy.io.dfi.read.rd(0).rddata)
-//    ) <> clockArea.dfiController.io.dfi.read.rd(0).rddata
-//    ddr3Chips.map(_.phy.io.initDone).andR <> io.initDone
-//
-//    val rst = ~ClockDomain.readResetWire
-//    val adapter = for (ddr3Chip <- ddr3Chips) yield new Area {
-//      ddr3Chip.phy.io.clk.work <> io.clk1
-//      ddr3Chip.phy.io.clk.ddr <> io.clk2
-//      ddr3Chip.phy.io.clk.ddr90 <> io.clk3
-//      ddr3Chip.phy.io.clk.ref <> io.clk4
-//      ddr3Chip.phy.io.rst := rst
-//
-//      ddr3Chip.phy.io.dfi.control.cke(0) <> clockArea.dfiController.io.dfi.control.cke(ddr3Chip.sel)
-//      ddr3Chip.phy.io.dfi.control.odt.clearAll()
-//      ddr3Chip.phy.io.dfi.control.resetN.setAll()
-//      ddr3Chip.phy.io.dfi.control.csN(0) <> clockArea.dfiController.io.dfi.control.csN(ddr3Chip.sel)
-//      ddr3Chip.phy.io.dfi.control.assignUnassignedByName(clockArea.dfiController.io.dfi.control)
-//
-//      ddr3Chip.phy.io.dfi.write.wr.assignUnassignedByName(clockArea.dfiController.io.dfi.write.wr)
-//
-//      ddr3Chip.phy.io.dfi.read.rden <> clockArea.dfiController.io.dfi.read.rden
-//
-//      ddr3Chip.phy.io.ddr3.ckP.asBool <> io.ddr3.ckP(ddr3Chip.sel)
-//      ddr3Chip.phy.io.ddr3.ckN.asBool <> io.ddr3.ckN(ddr3Chip.sel)
-//      ddr3Chip.phy.io.ddr3.cke.asBool <> io.ddr3.cke(ddr3Chip.sel)
-//      ddr3Chip.phy.io.ddr3.resetN.asBool <> io.ddr3.resetN(ddr3Chip.sel)
-//      ddr3Chip.phy.io.ddr3.rasN.asBool <> io.ddr3.rasN(ddr3Chip.sel)
-//      ddr3Chip.phy.io.ddr3.casN.asBool <> io.ddr3.casN(ddr3Chip.sel)
-//      ddr3Chip.phy.io.ddr3.weN.asBool <> io.ddr3.weN(ddr3Chip.sel)
-//      ddr3Chip.phy.io.ddr3.csN.asBool <> io.ddr3.csN(ddr3Chip.sel)
-//      ddr3Chip.phy.io.ddr3.ba <> io.ddr3.ba(ddrIoDfiConfig.bankWidth * ddr3Chip.sel, ddrIoDfiConfig.bankWidth bits)
-//      ddr3Chip.phy.io.ddr3.addr <> io.ddr3.addr(ddrIoDfiConfig.addressWidth * ddr3Chip.sel, ddrIoDfiConfig.addressWidth bits)
-//      ddr3Chip.phy.io.ddr3.odt.asBool <> io.ddr3.odt(ddr3Chip.sel)
-//      ddr3Chip.phy.io.ddr3.dm <> io.ddr3
-//        .dm(ddrIoDfiConfig.sdram.bytePerWord * ddr3Chip.sel, ddrIoDfiConfig.sdram.bytePerWord bits)
-//      ddr3Chip.phy.io.ddr3.dqsP <> io.ddr3.dqsP(2 * ddr3Chip.sel, 2 bits)
-//      ddr3Chip.phy.io.ddr3.dqsN <> io.ddr3.dqsN(2 * ddr3Chip.sel, 2 bits)
-//      ddr3Chip.phy.io.ddr3.dq <> io.ddr3
-//        .dq(ddrIoDfiConfig.sdram.dataWidth * ddr3Chip.sel, ddrIoDfiConfig.sdram.dataWidth bits)
-//    }
-
   }
 
 }
