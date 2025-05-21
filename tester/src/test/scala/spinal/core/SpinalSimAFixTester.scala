@@ -133,6 +133,23 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
     }
   }
 
+  test("expanding_left_shift") {
+    // there is nothing special to the values used for testing here; i just picked some
+    SimConfig.compile(new Component {
+      val shift: Int = 4
+      val inputSize: Int = 6
+      val io = new Bundle {
+        val input = in(AFix.S(inputSize exp, 0 exp))
+        val output = out(AFix.S(inputSize + shift exp, 0 exp))
+      }
+      io.output := io.input <<| shift
+    }).doSim(seed = 0) { dut =>
+      dut.io.input #= 42.0
+      sleep(1)
+      assert(dut.io.output.toDouble == 672.0)
+    }
+  }
+
   test("bitwise_ops") {
     // testing some obvious properties of bitwise ops with handpicked arbitrary examples
     SimConfig.compile(new Component {
@@ -196,6 +213,17 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
         sleep(1)
         assert(dut.io.o.toDouble == 0.0)
     }
+  }
+
+  test("negate_width") {
+    // make sure `negate()` elaborates in some edge cases
+    SimConfig.compile(new Component {
+      val io = new Bundle {
+        val a = in(AFix.S(5 bits))
+        val o = out(AFix.S(6 bits))
+        o := a.negate().negate()
+      }
+    })
   }
 
   def dutStateString(dut: AFixTester): String = {

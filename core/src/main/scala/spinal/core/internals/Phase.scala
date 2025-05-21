@@ -2084,80 +2084,128 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
 
     val okId = globalData.allocateAlgoIncrementale()
 
-    def propagate(root: Statement, vital: Boolean): Unit = {
-      if(root.algoIncrementale == okId) return
+    def getComponentOrThrowForPulledDataCache(s: Statement, operation: String): Component = {
+      val comp = s.component
+      if (comp == null) {
+        var statementInfo = s"Type: ${s.getClass.getSimpleName}, Content: ${s.toString}"
+        s match {
+          case named: Nameable if named.isNamed => statementInfo += s" (Name: ${named.getName()})"
+          case _ =>
+        }
+        val location = s.getScalaLocationLong
+        throw new NullPointerException(
+          s"Attempted to access '${operation}' on a null component for Statement: [$statementInfo] at $location"
+        )
+      }
+      comp
+    }
 
+
+    def propagate(root: Statement, vital: Boolean): Unit = {
+      if (root == null) {
+        SpinalWarning("propagate called with null root statement.")
+        return
+      }
+      if (root.algoIncrementale == okId) return
       root.algoIncrementale = okId
 
       val pending = mutable.ArrayStack[Statement](root)
 
-      def propagate(s: Statement) = {
-        if(s.algoIncrementale != okId) {
+      def propagateInner(s: Statement): Unit = {
+        if (s == null) {
+            SpinalWarning("propagateInner called with null statement in pending queue.")
+            return
+        }
+        if (s.algoIncrementale != okId) {
           s.algoIncrementale = okId
           pending.push(s)
         }
       }
 
-      while(pending.nonEmpty){
+      while (pending.nonEmpty) {
         val s = pending.pop()
-        if(postClockPulling) {
+
+        if (postClockPulling) {
           s.foreachClockDomain(cd => {
-            propagate(s.component.pulledDataCache(cd.clock).asInstanceOf[Bool])
-            if(cd.hasResetSignal) propagate(s.component.pulledDataCache(cd.reset).asInstanceOf[Bool])
-            if(cd.hasSoftResetSignal) propagate(s.component.pulledDataCache(cd.softReset).asInstanceOf[Bool])
-            if(cd.hasClockEnableSignal) propagate(s.component.pulledDataCache(cd.clockEnable).asInstanceOf[Bool])
+            val component = getComponentOrThrowForPulledDataCache(s, "pulledDataCache(cd.clock)")
+
+            propagateInner(component.pulledDataCache(cd.clock).asInstanceOf[Statement]) 
+            if (cd.hasResetSignal) {
+                propagateInner(component.pulledDataCache(cd.reset).asInstanceOf[Statement])
+            }
+
+            if (cd.hasSoftResetSignal) {
+                propagateInner(component.pulledDataCache(cd.softReset).asInstanceOf[Statement])
+            }
+
+            if (cd.hasClockEnableSignal) {
+                propagateInner(component.pulledDataCache(cd.clockEnable).asInstanceOf[Statement])
+            }
           })
         } else {
           s.foreachClockDomain(cd => {
-            propagate(cd.clock)
-            def propCached(that : BaseType): Unit ={
-              s.component.pulledDataCache.get(that) match {
-                case Some(x) => propagate(x.asInstanceOf[BaseType])
-                case None =>    propagate(that)
+            if (cd.clock != null) propagateInner(cd.clock)
+            else SpinalWarning(s"Clock domain on statement [$s] has a null clock signal.")
+
+            def propCached(that: BaseType): Unit = {
+              if (that == null) {
+                  SpinalWarning(s"propCached called with null BaseType for statement [$s].")
+                  return
+              }
+              // Check s.component BEFORE accessing pulledDataCache
+              val component = getComponentOrThrowForPulledDataCache(s, s"pulledDataCache.get($that)")
+              component.pulledDataCache.get(that) match {
+                case Some(x) =>
+                  if (x == null) SpinalWarning(s"pulledDataCache returned null for key [$that] on component [$component]")
+                  else propagateInner(x.asInstanceOf[Statement])
+                case None => propagateInner(that)
               }
             }
-            if(cd.hasResetSignal) propCached(cd.reset)
-            if(cd.hasSoftResetSignal) propCached(cd.softReset)
-            if(cd.hasClockEnableSignal) propCached(cd.clockEnable)
+            if (cd.hasResetSignal) propCached(cd.reset)
+            if (cd.hasSoftResetSignal) propCached(cd.softReset)
+            if (cd.hasClockEnableSignal) propCached(cd.clockEnable)
           })
         }
 
         s match {
-          case s: BaseType =>
-            if(vital)
-              s.setAsVital()
-            s.foreachStatements(propagate)
-          case s: AssignmentStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-            s.walkParentTreeStatements(propagate) //Could be walkParentTreeStatementsUntilRootScope but then should symplify removed TreeStatements
-          case s: WhenStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: SwitchStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: AssertStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-            s.walkParentTreeStatements(propagate)
-          case s: Mem[_] => s.foreachStatements{
-            case p: MemWrite     => propagate(p)
-            case p: MemReadWrite => propagate(p)
-            case p: MemReadSync  =>
-            case p: MemReadAsync =>
+          case sbt: BaseType =>
+            if (vital) sbt.setAsVital()
+            sbt.foreachStatements(propagateInner)
+          case sas: AssignmentStatement =>
+            sas.walkExpression { case e: Statement => propagateInner(e); case _ => }
+            sas.walkParentTreeStatements(propagateInner)
+          case sws: WhenStatement =>
+            sws.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case sss: SwitchStatement =>
+            sss.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case sast: AssertStatement =>
+            sast.walkExpression { case e: Statement => propagateInner(e); case _ => }
+            sast.walkParentTreeStatements(propagateInner)
+          case smem: Mem[_] => smem.foreachStatements {
+            case p: MemWrite => propagateInner(p)
+            case p: MemReadWrite => propagateInner(p)
+            case p: MemReadSync if p.isInstanceOf[Statement] => propagateInner(p.asInstanceOf[Statement])
+            case p: MemReadAsync if p.isInstanceOf[Statement] => propagateInner(p.asInstanceOf[Statement])
+            case _ =>
           }
-          case s: MemWrite =>
-            s.isVital |= vital
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: MemReadWrite =>
-            s.isVital |= vital
-            propagate(s.mem)
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: MemReadSync =>
-            s.isVital |= vital
-            propagate(s.mem)
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: MemReadAsync =>
-            s.isVital |= vital
-            propagate(s.mem)
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
+          case smw: MemWrite =>
+            smw.isVital |= vital
+            smw.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case smrw: MemReadWrite =>
+            smrw.isVital |= vital
+            if (smrw.mem != null) propagateInner(smrw.mem) else SpinalWarning(s"MemReadWrite statement [$smrw] has null mem reference.")
+            smrw.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case smrs: MemReadSync =>
+            smrs.isVital |= vital
+            if (smrs.mem != null) propagateInner(smrs.mem) else SpinalWarning(s"MemReadSync statement [$smrs] has null mem reference.")
+            smrs.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case smra: MemReadAsync =>
+            smra.isVital |= vital
+            if (smra.mem != null) propagateInner(smra.mem) else SpinalWarning(s"MemReadAsync statement [$smra] has null mem reference.")
+            smra.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case otherStmt: Statement if otherStmt.isInstanceOf[TreeStatement] => // Handle other TreeStatements
+            otherStmt.asInstanceOf[TreeStatement].foreachStatements(propagateInner)
+          case _ => // Other statement types that don't need specific handling here
         }
       }
     }
@@ -3084,9 +3132,9 @@ class PhaseCheckAsyncResetsSources() extends PhaseCheck {
 
 class PhaseObfuscate() extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
-    var id = 0
+    var id: Long = 0
     def newName(): String = {
-      val name = "oo_" + id
+      val name = pc.config.obfuscate.prefix + id
       id += 1
       name
     }
@@ -3096,21 +3144,54 @@ class PhaseObfuscate() extends PhaseNetlist{
     def rename(that : Nameable) : Unit = {
      that.setName(newName)
     }
-    if(pc.config.obfuscateNames){
+    if(pc.config.obfuscateNames) {
       pc.walkComponentsExceptBlackbox { c =>
-        if (c != pc.topLevel) {
-          renameT(c)
-          if(!c.definition.hasTag(dontObfuscate)) c.setDefinitionName(newName)
+        val cd = c.clockDomain.get
+        if(cd != null && pc.config.obfuscate.keepClkResetNames) {
+          if(cd.clock.component != c) {
+            c.pulledDataCache.get(cd.clock).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.reset != null && cd.reset.component != c) {
+            c.pulledDataCache.get(cd.reset).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.softReset != null && cd.softReset.component != c) {
+            c.pulledDataCache.get(cd.softReset).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.clockEnable != null && cd.clockEnable.component != c) {
+            c.pulledDataCache.get(cd.clockEnable).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
         }
-        c.dslBody.walkDeclarations {
-          case io: BaseType if io.component == pc.topLevel && !io.isDirectionLess =>
-          case n: Nameable with SpinalTagReady => renameT(n)
-          case n: Nameable => rename(n)
-        }
-        for ((enu, enc) <- pc.enums) {
-          rename(enu)
-          for (e <- enu.elements) {
-            renameT(e)
+        if(c.level >= pc.config.obfuscate.hierarchyKeepLevel) {
+          if (c != pc.topLevel) {
+            if(!c.hasTag(dontObfuscate) && !pc.config.obfuscate.keepInstanceNames) renameT(c)
+            if(!c.definition.hasTag(dontObfuscate) && !pc.config.obfuscate.keepDefinitionNames) c.setDefinitionName(newName)
+          }
+          c.dslBody.walkDeclarations {
+            case io: BaseType if io.component == pc.topLevel && !io.isDirectionLess =>
+            case n: Nameable with SpinalTagReady => renameT(n)
+            case n: Nameable => rename(n)
+          }
+          for ((enu, enc) <- pc.enums) {
+            rename(enu)
+            for (e <- enu.elements) {
+              renameT(e)
+            }
           }
         }
       }

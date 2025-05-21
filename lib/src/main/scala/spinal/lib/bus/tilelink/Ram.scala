@@ -25,7 +25,7 @@ class Ram (p : NodeParameters,
       io.up.a.ready := isReady
 
       val addressShifted = (io.up.a.address >> log2Up(p.m.dataBytes))
-      port.enable := isFireing
+      port.enable := isFiring
       port.write := !IS_GET
       port.wdata := io.up.a.data
       port.mask := io.up.a.mask
@@ -57,7 +57,7 @@ class Ram (p : NodeParameters,
           SOURCE := source
           IS_GET := isGet
         }
-        when(isFireing) {
+        when(isFiring) {
           counter := counter + 1
           when(LAST) {
             counter := 0
