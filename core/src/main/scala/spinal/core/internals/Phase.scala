@@ -2397,9 +2397,32 @@ class PhaseCheckHierarchy extends PhaseCheck{
           case s: AssignmentStatement =>
             val bt = s.finalTarget
 
-            if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
-              val identifier = if(c == null) "toplevel" else s"$c component"
-              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $identifier.\n${s.getScalaLocationLong}")
+            val condIsDirectionLessInC = bt.isDirectionLess && bt.component == c
+            val condIsOutputOrInOutInC = bt.isOutputOrInOut && bt.component == c
+            val condIsInputOrInOutInChildOfC = bt.isInputOrInOut && bt.component != null && bt.component.parent == c
+
+            if (!(condIsDirectionLessInC || condIsOutputOrInOutInC || condIsInputOrInOutInChildOfC)) {
+              val currentComponentInfo = if (c != null) getComponentDesc(c) else "toplevel"
+              val targetSignalDesc = s"Signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName})"
+              val targetSignalContext = s"defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}'"
+
+              val detailedMessage = new StringBuilder()
+              detailedMessage ++= s"HIERARCHY VIOLATION (Assignment): $targetSignalDesc, $targetSignalContext,\n"
+              detailedMessage ++= s"  is assigned by expression '${s.source.toString()}', but is not assignable from $currentComponentInfo.\n"
+              detailedMessage ++= s"To be assignable from $currentComponentInfo, signal '${bt.toString()}' must satisfy one of the following:\n"
+              detailedMessage ++= s"  1. Be a directionless signal defined directly within $currentComponentInfo (Actual: $condIsDirectionLessInC).\n"
+              detailedMessage ++= s"  2. Be an 'out' or 'inout' port of $currentComponentInfo (Actual: $condIsOutputOrInOutInC).\n"
+              detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentInfo (Actual: $condIsInputOrInOutInChildOfC).\n"
+              detailedMessage ++= s"Contextual Details:\n"
+              detailedMessage ++= s"  - Target Signal ('${bt.toString()}'):\n"
+              detailedMessage ++= s"    - Full Hierarchical Name: ${getComponentPath(bt.component)}\n" // BaseType has getName for full path
+              detailedMessage ++= s"    - Defining Component: ${getComponentDesc(bt.component)}\n"
+              detailedMessage ++= s"    - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
+              detailedMessage ++= s"  - Current Component (where assignment occurs):\n"
+              detailedMessage ++= s"    - ${if (c != null) getComponentDesc(c) else "Toplevel (c is null)"}\n"
+              detailedMessage ++= s"Location of assignment: ${s.getScalaLocationLong}"
+
+              PendingError(detailedMessage.toString())
               error = true
             }
 
