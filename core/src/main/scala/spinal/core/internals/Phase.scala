@@ -2367,6 +2367,25 @@ class PhaseCheckHierarchy extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
+    def getSignalDirectionString(bt: BaseType): String = {
+      if (bt.isInput) "input"
+      else if (bt.isOutput) "output"
+      else if (bt.isInOut) "inout"
+      else if (bt.isDirectionLess) "directionless"
+      else "unknown"
+    }
+
+    def getComponentPath(comp: Component): String = {
+      if (comp == null) "<null_component_ref>" else comp.getName()
+    }
+
+    def getComponentDesc(comp: Component): String = {
+      if (comp == null) return "<null_component_ref>"
+      val parentName = if (comp.parent != null) getComponentPath(comp.parent) else "None"
+      s"component '${getComponentPath(comp)}' (parent: '$parentName')"
+    }
+
+
     //Check hierarchy read/write violation
     walkComponents(c => {
       val autoPullOn = mutable.LinkedHashSet[Expression]()
