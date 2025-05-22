@@ -2376,12 +2376,12 @@ class PhaseCheckHierarchy extends PhaseCheck {
     }
 
     def getComponentPath(comp: Component): String = {
-      if (comp == null) "<null_component_ref>" else comp.getName()
+      if (comp != null) comp.getPath() else "<None>"
     }
 
     def getComponentDesc(comp: Component): String = {
       if (comp == null) return "<null_component_ref>"
-      val parentName = if (comp.parent != null) comp.parent.getName() else "None"
+      val parentName = if (comp.parent != null) comp.parent.getName() else "<None>"
       s"component '${comp.getName()}' (parent: '$parentName')"
     }
 
@@ -2487,7 +2487,6 @@ class PhaseCheckHierarchy extends PhaseCheck {
                   detailedMessage ++= s"  2. Be an 'in', 'out', or 'inout' port of a direct child component of $currentComponentInfo (Actual: $condIsSignalInOutOrInoutOfChild).\n"
                   detailedMessage ++= s"Contextual Details:\n"
                   detailedMessage ++= s"  - Read Signal ('${bt.toString()}'):\n"
-                  detailedMessage ++= s"    - Full Hierarchical Name: ${getComponentPath(bt.component)}\n"
                   detailedMessage ++= s"    - Defining Component: ${getComponentDesc(bt.component)}\n"
                   detailedMessage ++= s"    - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
                   detailedMessage ++= s"  - Current Component (where read occurs):\n"
