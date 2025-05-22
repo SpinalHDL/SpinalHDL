@@ -2448,9 +2448,29 @@ class PhaseCheckHierarchy extends PhaseCheck{
 
         if(!error) s.walkDrivingExpressions {
           case bt: BaseType =>
-            if (!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)) {
-              if(bt.component == null || bt.getComponents().head != pc.topLevel){
-                PendingError(s"OLD NETLIST RE-USED : $bt is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+            val condIsSignalInC = bt.component == c
+            val condIsSignalInOutOrInoutOfChild = (bt.isInput || bt.isOutput || bt.isInOut) && bt.component != null && bt.component.parent == c
+
+            if (!(condIsSignalInC || condIsSignalInOutOrInoutOfChild)) {
+              val signalToplevelOpt = bt.getComponents().headOption
+              if (bt.component == null || signalToplevelOpt.isEmpty || signalToplevelOpt.get != pc.topLevel) {
+                val signalInfo = s"Signal '${bt.toString()}' (instance of ${bt.getClass.getSimpleName})"
+                val contextInfo = s"used to drive statement '${s.toString()}'"
+                val problem = "appears to be defined in another netlist or is a dangling reference."
+                val advice = "Ensure hardware constants are not defined as 'val' in global Scala objects, and all signals originate from the current elaboration context."
+                val signalComponentInfo = getComponentDesc(bt.component)
+                val signalNetlistHeadInfo = signalToplevelOpt.map(h => s"'${getComponentPath(h)}'").getOrElse("N/A (signal's component list is empty or its component is null)")
+                val currentNetlistHeadInfo = if (pc.topLevel != null) s"'${getComponentPath(pc.topLevel)}'" else "N/A (current toplevel is null)"
+
+                val detailedOldNetlistMessage = new StringBuilder()
+                detailedOldNetlistMessage ++= s"OLD NETLIST RE-USED / DANGLING REFERENCE: $signalInfo $contextInfo, but $problem\n"
+                detailedOldNetlistMessage ++= s"Details:\n"
+                detailedOldNetlistMessage ++= s"  - Signal's defining component: $signalComponentInfo\n"
+                detailedOldNetlistMessage ++= s"  - Signal's inferred toplevel: $signalNetlistHeadInfo\n"
+                detailedOldNetlistMessage ++= s"  - Current elaboration toplevel: $currentNetlistHeadInfo\n"
+                detailedOldNetlistMessage ++= s"Advice: $advice\n"
+                detailedOldNetlistMessage ++= s"Location of read: ${s.getScalaLocationLong}"
+                PendingError(detailedOldNetlistMessage.toString())
               } else {
                 if(c.withHierarchyAutoPull){
                   autoPullOn += bt
