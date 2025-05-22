@@ -2362,7 +2362,7 @@ class PhaseCheckIoBundle extends PhaseCheck{
   }
 }
 
-class PhaseCheckHierarchy extends PhaseCheck{
+class PhaseCheckHierarchy extends PhaseCheck {
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -2393,7 +2393,7 @@ class PhaseCheckHierarchy extends PhaseCheck{
         var error = false
 
         s match {
-          case s : InitialAssignmentStatement =>
+          case s: InitialAssignmentStatement =>
           case s: AssignmentStatement =>
             val bt = s.finalTarget
 
@@ -2426,27 +2426,27 @@ class PhaseCheckHierarchy extends PhaseCheck{
               error = true
             }
 
-            if(!error && !bt.isInOut){
+            if (!error && !bt.isInOut) {
               val rootScope = s.rootScopeStatement
-              var ptr       = s.parentScope
+              var ptr = s.parentScope
 
-              while(ptr.parentStatement != null && ptr != rootScope){
+              while (ptr.parentStatement != null && ptr != rootScope) {
                 ptr = ptr.parentStatement.parentScope
               }
 
-              if(ptr != rootScope){
+              if (ptr != rootScope) {
                 PendingError(s"SCOPE VIOLATION : $bt is assigned outside its declaration scope at \n${s.getScalaLocationLong}")
               }
             }
-          case s : MemPortStatement => {
-            if(s.mem.component != s.component){
+          case s: MemPortStatement => {
+            if (s.mem.component != s.component) {
               PendingError(s"SCOPE VIOLATION : memory port $s was created in another component than its memory ${s.mem} \n${s.getScalaLocationLong}")
             }
           }
           case _ =>
         }
 
-        if(!error) s.walkDrivingExpressions {
+        if (!error) s.walkDrivingExpressions {
           case bt: BaseType =>
             val condIsSignalInC = bt.component == c
             val condIsSignalInOutOrInoutOfChild = (bt.isInput || bt.isOutput || bt.isInOut) && bt.component != null && bt.component.parent == c
@@ -2472,7 +2472,7 @@ class PhaseCheckHierarchy extends PhaseCheck{
                 detailedOldNetlistMessage ++= s"Location of read: ${s.getScalaLocationLong}"
                 PendingError(detailedOldNetlistMessage.toString())
               } else {
-                if(c.withHierarchyAutoPull){
+                if (c != null && c.withHierarchyAutoPull) {
                   autoPullOn += bt
                 } else {
                   val currentComponentInfo = if (c != null) getComponentDesc(c) else "toplevel"
@@ -2498,19 +2498,19 @@ class PhaseCheckHierarchy extends PhaseCheck{
                 }
               }
             }
-          case s : MemPortStatement =>{
-            if(s.mem.component != c){
-              PendingError(s"OLD NETLIST RE-USED : Memory port $s of memory ${s.mem} is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+          case s_expr: MemPortStatement => {
+            if (s_expr.mem.component != c) {
+              PendingError(s"HIERARCHY/SCOPE VIOLATION : OLD NETLIST RE-USED: Memory port '${s_expr.toString()}' of memory '${s_expr.mem.toString()}' (defined in ${getComponentDesc(s_expr.mem.component)}) is used in statement '${s.toString()}' within ${getComponentDesc(c)}, but memory port access should typically occur within the memory's own component scope.\nLocation: ${s.getScalaLocationLong}")
             }
           }
           case _ =>
         }
       })
 
-      if(autoPullOn.nonEmpty) c.rework{
+      if (autoPullOn.nonEmpty) c.rework {
         c.dslBody.walkStatements(s =>
           s.walkRemapDrivingExpressions(e =>
-            if(autoPullOn.contains(e)){
+            if (autoPullOn.contains(e)) {
               e.asInstanceOf[BaseType].pull()
             } else {
               e
@@ -2520,8 +2520,8 @@ class PhaseCheckHierarchy extends PhaseCheck{
       }
 
       //Check register defined as component inputs
-      c.getAllIo.foreach(bt => if(bt.isInput && bt.isReg){
-        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT : $bt is defined as a registered input of the $c component, but isn't allowed.\n${bt.getScalaLocationLong}")
+      c.getAllIo.foreach(bt => if (bt.isInput && bt.isReg) {
+        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT : Signal '$bt' is defined as a registered input of the ${getComponentDesc(c)}, which is not allowed.\n${bt.getScalaLocationLong}")
       })
     })
   }
