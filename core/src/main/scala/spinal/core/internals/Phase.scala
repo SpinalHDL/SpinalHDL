@@ -2381,8 +2381,8 @@ class PhaseCheckHierarchy extends PhaseCheck {
 
     def getComponentDesc(comp: Component): String = {
       if (comp == null) return "<null_component_ref>"
-      val parentName = if (comp.parent != null) getComponentPath(comp.parent) else "None"
-      s"component '${getComponentPath(comp)}' (parent: '$parentName')"
+      val parentName = if (comp.parent != null) comp.parent.getName() else "None"
+      s"component '${comp.getName()}' (parent: '$parentName')"
     }
 
 
@@ -2410,9 +2410,9 @@ class PhaseCheckHierarchy extends PhaseCheck {
               detailedMessage ++= s"HIERARCHY VIOLATION (Assignment): $targetSignalDesc, $targetSignalContext,\n"
               detailedMessage ++= s"  is assigned by expression '${s.source.toString()}', but is not assignable from $currentComponentInfo.\n"
               detailedMessage ++= s"To be assignable from $currentComponentInfo, signal '${bt.toString()}' must satisfy one of the following:\n"
-              detailedMessage ++= s"  1. Be a directionless signal defined directly within $currentComponentInfo (Actual: $condIsDirectionLessInC).\n"
-              detailedMessage ++= s"  2. Be an 'out' or 'inout' port of $currentComponentInfo (Actual: $condIsOutputOrInOutInC).\n"
-              detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentInfo (Actual: $condIsInputOrInOutInChildOfC).\n"
+              detailedMessage ++= s"  1. Be a directionless signal defined directly within $currentComponentInfo (Actual: False).\n"
+              detailedMessage ++= s"  2. Be an 'out' or 'inout' port of $currentComponentInfo (Actual: False).\n"
+              detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentInfo (Actual: False).\n"
               detailedMessage ++= s"Contextual Details:\n"
               detailedMessage ++= s"  - Target Signal ('${bt.toString()}'):\n"
               detailedMessage ++= s"    - Defining Component: ${getComponentDesc(bt.component)}\n"
