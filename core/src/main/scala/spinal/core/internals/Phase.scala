@@ -2415,7 +2415,6 @@ class PhaseCheckHierarchy extends PhaseCheck {
               detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentInfo (Actual: $condIsInputOrInOutInChildOfC).\n"
               detailedMessage ++= s"Contextual Details:\n"
               detailedMessage ++= s"  - Target Signal ('${bt.toString()}'):\n"
-              detailedMessage ++= s"    - Full Hierarchical Name: ${getComponentPath(bt.component)}\n" // BaseType has getName for full path
               detailedMessage ++= s"    - Defining Component: ${getComponentDesc(bt.component)}\n"
               detailedMessage ++= s"    - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
               detailedMessage ++= s"  - Current Component (where assignment occurs):\n"
