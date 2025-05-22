@@ -2475,7 +2475,26 @@ class PhaseCheckHierarchy extends PhaseCheck{
                 if(c.withHierarchyAutoPull){
                   autoPullOn += bt
                 } else {
-                  PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+                  val currentComponentInfo = if (c != null) getComponentDesc(c) else "toplevel"
+                  val readSignalDesc = s"Signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName})"
+                  val readSignalContext = s"defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}'"
+
+
+                  val detailedMessage = new StringBuilder()
+                  detailedMessage ++= s"HIERARCHY VIOLATION (Read Access): $readSignalDesc, $readSignalContext,\n"
+                  detailedMessage ++= s"  is read by statement '${s.toString()}', but is not readable from $currentComponentInfo.\n"
+                  detailedMessage ++= s"To be readable from $currentComponentInfo, signal '${bt.toString()}' must satisfy one of the following:\n"
+                  detailedMessage ++= s"  1. Be any signal (directionless, in, out, or inout) defined directly within $currentComponentInfo (Actual: $condIsSignalInC).\n"
+                  detailedMessage ++= s"  2. Be an 'in', 'out', or 'inout' port of a direct child component of $currentComponentInfo (Actual: $condIsSignalInOutOrInoutOfChild).\n"
+                  detailedMessage ++= s"Contextual Details:\n"
+                  detailedMessage ++= s"  - Read Signal ('${bt.toString()}'):\n"
+                  detailedMessage ++= s"    - Full Hierarchical Name: ${getComponentPath(bt.component)}\n"
+                  detailedMessage ++= s"    - Defining Component: ${getComponentDesc(bt.component)}\n"
+                  detailedMessage ++= s"    - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
+                  detailedMessage ++= s"  - Current Component (where read occurs):\n"
+                  detailedMessage ++= s"    - ${if (c != null) getComponentDesc(c) else "Toplevel (c is null)"}\n"
+                  detailedMessage ++= s"Location of read: ${s.getScalaLocationLong}"
+                  PendingError(detailedMessage.toString())
                 }
               }
             }
