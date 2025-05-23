@@ -2407,16 +2407,17 @@ class PhaseCheckHierarchy extends PhaseCheck {
               val targetSignalContextDescription = s"defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}'"
 
               val detailedMessage = new StringBuilder()
-              detailedMessage ++= s"HIERARCHY VIOLATION (assignment): $targetSignalDescription (an instance of ${bt.getClass.getSimpleName}), $targetSignalContextDescription,\n"
-              detailedMessage ++= s"  is assigned by expression '${s.source.toString()}', but is not assignable from $currentComponentDesc.\n"
+              detailedMessage ++= s"HIERARCHY VIOLATION (assignment): Attempted to assign to $targetSignalDescription, which is not assignable from $currentComponentDesc.\n"
+              detailedMessage ++= s"  (Assigned by expression: '${s.source.toString()}')\n"
               detailedMessage ++= s"To be assignable from $currentComponentDesc, this signal must satisfy one of the following:\n"
               detailedMessage ++= s"  1. Be a directionless signal defined directly within $currentComponentDesc.\n"
               detailedMessage ++= s"  2. Be an 'out' or 'inout' port of $currentComponentDesc.\n"
               detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentDesc.\n"
               detailedMessage ++= s"Contextual details for this target signal:\n"
               detailedMessage ++= s"  - Its full name: '${bt.toString()}'\n"
+              detailedMessage ++= s"  - Instance type: ${bt.getClass.getSimpleName}\n"
               detailedMessage ++= s"  - Defining component: ${getComponentDesc(bt.component)}\n"
-              detailedMessage ++= s"  - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
+              detailedMessage ++= s"  - Declared direction: '${getSignalDirectionString(bt)}'\n"
               detailedMessage ++= s"  - Current component (where assignment occurs): $currentComponentDesc\n"
               detailedMessage ++= s"Location of assignment:\n${s.getScalaLocationLong}"
               PendingError(detailedMessage.toString())
