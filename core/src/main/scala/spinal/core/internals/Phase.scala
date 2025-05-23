@@ -2402,25 +2402,23 @@ class PhaseCheckHierarchy extends PhaseCheck {
             val condIsInputOrInOutInChildOfC = bt.isInputOrInOut && bt.component != null && bt.component.parent == c
 
             if (!(condIsDirectionLessInC || condIsOutputOrInOutInC || condIsInputOrInOutInChildOfC)) {
-              val currentComponentInfo = if (c != null) getComponentDesc(c) else "toplevel"
-              val targetSignalDesc = s"Signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName})"
-              val targetSignalContext = s"defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}'"
+              val currentComponentDesc = if (c != null) getComponentDesc(c) else "toplevel"
+              val targetSignalDescription = s"signal '${bt.toString()}'"
+              val targetSignalContextDescription = s"defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}'"
 
               val detailedMessage = new StringBuilder()
-              detailedMessage ++= s"HIERARCHY VIOLATION (Assignment): $targetSignalDesc, $targetSignalContext,\n"
-              detailedMessage ++= s"  is assigned by expression '${s.source.toString()}', but is not assignable from $currentComponentInfo.\n"
-              detailedMessage ++= s"To be assignable from $currentComponentInfo, signal '${bt.toString()}' must satisfy one of the following:\n"
-              detailedMessage ++= s"  1. Be a directionless signal defined directly within $currentComponentInfo (Actual: False).\n"
-              detailedMessage ++= s"  2. Be an 'out' or 'inout' port of $currentComponentInfo (Actual: False).\n"
-              detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentInfo (Actual: False).\n"
-              detailedMessage ++= s"Contextual Details:\n"
-              detailedMessage ++= s"  - Target Signal ('${bt.toString()}'):\n"
-              detailedMessage ++= s"    - Defining Component: ${getComponentDesc(bt.component)}\n"
-              detailedMessage ++= s"    - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
-              detailedMessage ++= s"  - Current Component (where assignment occurs):\n"
-              detailedMessage ++= s"    - ${if (c != null) getComponentDesc(c) else "Toplevel (c is null)"}\n"
-              detailedMessage ++= s"Location of assignment: ${s.getScalaLocationLong}"
-
+              detailedMessage ++= s"HIERARCHY VIOLATION (assignment): $targetSignalDescription (an instance of ${bt.getClass.getSimpleName}), $targetSignalContextDescription,\n"
+              detailedMessage ++= s"  is assigned by expression '${s.source.toString()}', but is not assignable from $currentComponentDesc.\n"
+              detailedMessage ++= s"To be assignable from $currentComponentDesc, this signal must satisfy one of the following:\n"
+              detailedMessage ++= s"  1. Be a directionless signal defined directly within $currentComponentDesc.\n"
+              detailedMessage ++= s"  2. Be an 'out' or 'inout' port of $currentComponentDesc.\n"
+              detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentDesc.\n"
+              detailedMessage ++= s"Contextual details for this target signal:\n"
+              detailedMessage ++= s"  - Its full name: '${bt.toString()}'\n"
+              detailedMessage ++= s"  - Defining component: ${getComponentDesc(bt.component)}\n"
+              detailedMessage ++= s"  - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
+              detailedMessage ++= s"  - Current component (where assignment occurs): $currentComponentDesc\n"
+              detailedMessage ++= s"Location of assignment:\n${s.getScalaLocationLong}"
               PendingError(detailedMessage.toString())
               error = true
             }
@@ -2434,12 +2432,14 @@ class PhaseCheckHierarchy extends PhaseCheck {
               }
 
               if (ptr != rootScope) {
-                PendingError(s"SCOPE VIOLATION : $bt is assigned outside its declaration scope at \n${s.getScalaLocationLong}")
+                PendingError(s"SCOPE VIOLATION: Signal '$bt' is assigned outside its declaration scope.\nLocation:\n${s.getScalaLocationLong}")
               }
             }
           case s: MemPortStatement => {
             if (s.mem.component != s.component) {
-              PendingError(s"SCOPE VIOLATION : memory port $s was created in another component than its memory ${s.mem} \n${s.getScalaLocationLong}")
+              PendingError(s"SCOPE VIOLATION: Memory port '$s' was created in a different component than its memory '${s.mem}'.\n" +
+                           s"Memory component: ${getComponentDesc(s.mem.component)}, Port component: ${getComponentDesc(s.component)}\n" +
+                           s"Location:\n${s.getScalaLocationLong}")
             }
           }
           case _ =>
@@ -2453,7 +2453,7 @@ class PhaseCheckHierarchy extends PhaseCheck {
             if (!(condIsSignalInC || condIsSignalInOutOrInoutOfChild)) {
               val signalToplevelOpt = bt.getComponents().headOption
               if (bt.component == null || signalToplevelOpt.isEmpty || signalToplevelOpt.get != pc.topLevel) {
-                val signalInfo = s"Signal '${bt.toString()}' (instance of ${bt.getClass.getSimpleName})"
+                val signalInfo = s"signal '${bt.toString()}' (instance of ${bt.getClass.getSimpleName})"
                 val contextInfo = s"used to drive statement '${s.toString()}'"
                 val problem = "appears to be defined in another netlist or is a dangling reference."
                 val advice = "Ensure hardware constants are not defined as 'val' in global Scala objects, and all signals originate from the current elaboration context."
@@ -2462,43 +2462,46 @@ class PhaseCheckHierarchy extends PhaseCheck {
                 val currentNetlistHeadInfo = if (pc.topLevel != null) s"'${getComponentPath(pc.topLevel)}'" else "N/A (current toplevel is null)"
 
                 val detailedOldNetlistMessage = new StringBuilder()
-                detailedOldNetlistMessage ++= s"OLD NETLIST RE-USED / DANGLING REFERENCE: $signalInfo $contextInfo, but $problem\n"
-                detailedOldNetlistMessage ++= s"Details:\n"
-                detailedOldNetlistMessage ++= s"  - Signal's defining component: $signalComponentInfo\n"
-                detailedOldNetlistMessage ++= s"  - Signal's inferred toplevel: $signalNetlistHeadInfo\n"
+                detailedOldNetlistMessage ++= s"OLD NETLIST RE-USED / DANGLING REFERENCE: $signalInfo, $contextInfo, but $problem\n"
+                detailedOldNetlistMessage ++= s"Details for this signal:\n"
+                detailedOldNetlistMessage ++= s"  - Defining component: $signalComponentInfo\n"
+                detailedOldNetlistMessage ++= s"  - Inferred toplevel: $signalNetlistHeadInfo\n"
                 detailedOldNetlistMessage ++= s"  - Current elaboration toplevel: $currentNetlistHeadInfo\n"
                 detailedOldNetlistMessage ++= s"Advice: $advice\n"
-                detailedOldNetlistMessage ++= s"Location of read: ${s.getScalaLocationLong}"
+                detailedOldNetlistMessage ++= s"Location of read:\n${s.getScalaLocationLong}"
                 PendingError(detailedOldNetlistMessage.toString())
               } else {
                 if (c != null && c.withHierarchyAutoPull) {
                   autoPullOn += bt
                 } else {
-                  val currentComponentInfo = if (c != null) getComponentDesc(c) else "toplevel"
-                  val readSignalDesc = s"Signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName})"
-                  val readSignalContext = s"defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}'"
+                  val currentComponentDesc = if (c != null) getComponentDesc(c) else "toplevel"
+                  val readSignalDescription = s"signal '${bt.toString()}'"
+                  val readSignalContextDescription = s"defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}'"
 
 
                   val detailedMessage = new StringBuilder()
-                  detailedMessage ++= s"HIERARCHY VIOLATION (Read Access): $readSignalDesc, $readSignalContext,\n"
-                  detailedMessage ++= s"  is read by statement '${s.toString()}', but is not readable from $currentComponentInfo.\n"
-                  detailedMessage ++= s"To be readable from $currentComponentInfo, signal '${bt.toString()}' must satisfy one of the following:\n"
-                  detailedMessage ++= s"  1. Be any signal (directionless, in, out, or inout) defined directly within $currentComponentInfo (Actual: $condIsSignalInC).\n"
-                  detailedMessage ++= s"  2. Be an 'in', 'out', or 'inout' port of a direct child component of $currentComponentInfo (Actual: $condIsSignalInOutOrInoutOfChild).\n"
-                  detailedMessage ++= s"Contextual Details:\n"
-                  detailedMessage ++= s"  - Read Signal ('${bt.toString()}'):\n"
-                  detailedMessage ++= s"    - Defining Component: ${getComponentDesc(bt.component)}\n"
-                  detailedMessage ++= s"    - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
-                  detailedMessage ++= s"  - Current Component (where read occurs):\n"
-                  detailedMessage ++= s"    - ${if (c != null) getComponentDesc(c) else "Toplevel (c is null)"}\n"
-                  detailedMessage ++= s"Location of read: ${s.getScalaLocationLong}"
+                  detailedMessage ++= s"HIERARCHY VIOLATION (read access): $readSignalDescription (an instance of ${bt.getClass.getSimpleName}), $readSignalContextDescription,\n"
+                  detailedMessage ++= s"  is read by statement '${s.toString()}', but is not readable from $currentComponentDesc.\n"
+                  detailedMessage ++= s"To be readable from $currentComponentDesc, this signal must satisfy one of the following:\n"
+                  detailedMessage ++= s"  1. Be any signal (directionless, in, out, or inout) defined directly within $currentComponentDesc.\n"
+                  detailedMessage ++= s"  2. Be an 'in', 'out', or 'inout' port of a direct child component of $currentComponentDesc.\n"
+                  detailedMessage ++= s"Contextual details for this read signal:\n"
+                  detailedMessage ++= s"  - Its full name: '${bt.toString()}'\n"
+                  detailedMessage ++= s"  - Defining component: ${getComponentDesc(bt.component)}\n"
+                  detailedMessage ++= s"  - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
+                  detailedMessage ++= s"  - Current component (where read occurs): $currentComponentDesc\n"
+                  detailedMessage ++= s"Location of read:\n${s.getScalaLocationLong}"
                   PendingError(detailedMessage.toString())
                 }
               }
             }
           case s_expr: MemPortStatement => {
             if (s_expr.mem.component != c) {
-              PendingError(s"HIERARCHY/SCOPE VIOLATION : OLD NETLIST RE-USED: Memory port '${s_expr.toString()}' of memory '${s_expr.mem.toString()}' (defined in ${getComponentDesc(s_expr.mem.component)}) is used in statement '${s.toString()}' within ${getComponentDesc(c)}, but memory port access should typically occur within the memory's own component scope.\nLocation: ${s.getScalaLocationLong}")
+              PendingError(s"HIERARCHY/SCOPE VIOLATION (OLD NETLIST RE-USED): Memory port '${s_expr.toString()}' " +
+                           s"of memory '${s_expr.mem.toString()}' (defined in ${getComponentDesc(s_expr.mem.component)}) " +
+                           s"is used in statement '${s.toString()}' within ${getComponentDesc(c)}.\n" +
+                           s"Memory port access should typically occur within the memory's own component scope (${getComponentDesc(s_expr.mem.component)}).\n" +
+                           s"Location:\n${s.getScalaLocationLong}")
             }
           }
           case _ =>
@@ -2519,7 +2522,9 @@ class PhaseCheckHierarchy extends PhaseCheck {
 
       //Check register defined as component inputs
       c.getAllIo.foreach(bt => if (bt.isInput && bt.isReg) {
-        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT : Signal '$bt' is defined as a registered input of the ${getComponentDesc(c)}, which is not allowed.\n${bt.getScalaLocationLong}")
+        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT: Signal '$bt' is defined as a registered input " +
+                     s"of the ${getComponentDesc(c)}, which is not allowed.\n" +
+                     s"Location:\n${bt.getScalaLocationLong}")
       })
     })
   }
