@@ -2501,11 +2501,13 @@ class PhaseCheckHierarchy extends PhaseCheck {
             }
           case s_expr: MemPortStatement => {
             if (s_expr.mem.component != c) {
-              PendingError(s"HIERARCHY/SCOPE VIOLATION (OLD NETLIST RE-USED): Memory port '${s_expr.toString()}' " +
-                           s"of memory '${s_expr.mem.toString()}' (defined in ${getComponentDesc(s_expr.mem.component)}) " +
-                           s"is used in statement '${s.toString()}' within ${getComponentDesc(c)}.\n" +
-                           s"Memory port access should typically occur within the memory's own component scope (${getComponentDesc(s_expr.mem.component)}).\n" +
-                           s"Location:\n${s.getScalaLocationLong}")
+              val detailedMemPortMessage = new StringBuilder()
+              detailedMemPortMessage ++= s"HIERARCHY/SCOPE VIOLATION (OLD NETLIST RE-USED): Memory port '${s_expr.toString()}'\n"
+              detailedMemPortMessage ++= s"  of memory '${s_expr.mem.toString()}' (defined in ${getComponentDesc(s_expr.mem.component)}) "
+              detailedMemPortMessage ++= s"is used in statement '${s.toString()}' within ${getComponentDesc(c)}.\n"
+              detailedMemPortMessage ++= s"  Memory port access should typically occur within the memory's own component scope (${getComponentDesc(s_expr.mem.component)}).\n"
+              detailedMemPortMessage ++= s"Location:\n${s.getScalaLocationLong}"
+              PendingError(detailedMemPortMessage.toString())
             }
           }
           case _ =>
