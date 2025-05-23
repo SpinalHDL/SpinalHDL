@@ -2379,14 +2379,16 @@ class PhaseCheckHierarchy extends PhaseCheck {
       if (comp != null) comp.getPath() else "<None>"
     }
 
+    // 优化后的 getComponentDesc，处理 toplevel 组件
     def getComponentDesc(comp: Component): String = {
-      if (comp == null) return "<None>"
-      if (comp == pc.topLevel) {
+      if (comp == null) return "<null_component_ref>"
+      if (comp == pc.topLevel) { // 如果是顶层组件，省略 (parent: '<None>')
         s"component '${comp.getName()}'"
       } else {
         val parentName = if (comp.parent != null) comp.parent.getName() else "<None>"
         s"component '${comp.getName()}' (parent: '$parentName')"
       }
+    }
 
 
     //Check hierarchy read/write violation
@@ -2405,23 +2407,18 @@ class PhaseCheckHierarchy extends PhaseCheck {
             val condIsInputOrInOutInChildOfC = bt.isInputOrInOut && bt.component != null && bt.component.parent == c
 
             if (!(condIsDirectionLessInC || condIsOutputOrInOutInC || condIsInputOrInOutInChildOfC)) {
-              val currentComponentDesc = if (c != null) getComponentDesc(c) else "toplevel"
-              val targetSignalDescription = s"signal '${bt.toString()}'"
-              val targetSignalContextDescription = s"defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}'"
+              val currentComponentDesc = if (c == null) "toplevel" else getComponentDesc(c)
 
               val detailedMessage = new StringBuilder()
-              detailedMessage ++= s"HIERARCHY VIOLATION (assignment): Attempted to assign to $targetSignalDescription, which is not assignable from $currentComponentDesc.\n"
+              detailedMessage ++= s"HIERARCHY VIOLATION (assignment):\n"
+              detailedMessage ++= s"  Attempted to assign to signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName}),\n"
+              detailedMessage ++= s"  which is defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}',\n"
+              detailedMessage ++= s"  but is not assignable from $currentComponentDesc.\n"
               detailedMessage ++= s"  (Assigned by expression: '${s.source.toString()}')\n"
               detailedMessage ++= s"To be assignable from $currentComponentDesc, this signal must satisfy one of the following:\n"
               detailedMessage ++= s"  1. Be a directionless signal defined directly within $currentComponentDesc.\n"
               detailedMessage ++= s"  2. Be an 'out' or 'inout' port of $currentComponentDesc.\n"
               detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentDesc.\n"
-              detailedMessage ++= s"Contextual details for this target signal:\n"
-              detailedMessage ++= s"  - Its full name: '${bt.toString()}'\n"
-              detailedMessage ++= s"  - Instance type: ${bt.getClass.getSimpleName}\n"
-              detailedMessage ++= s"  - Defining component: ${getComponentDesc(bt.component)}\n"
-              detailedMessage ++= s"  - Declared direction: '${getSignalDirectionString(bt)}'\n"
-              detailedMessage ++= s"  - Current component (where assignment occurs): $currentComponentDesc\n"
               detailedMessage ++= s"Location of assignment:\n${s.getScalaLocationLong}"
               PendingError(detailedMessage.toString())
               error = true
@@ -2441,9 +2438,11 @@ class PhaseCheckHierarchy extends PhaseCheck {
             }
           case s: MemPortStatement => {
             if (s.mem.component != s.component) {
-              PendingError(s"SCOPE VIOLATION: Memory port '$s' was created in a different component than its memory '${s.mem}'.\n" +
-                           s"Memory component: ${getComponentDesc(s.mem.component)}, Port component: ${getComponentDesc(s.component)}\n" +
-                           s"Location:\n${s.getScalaLocationLong}")
+              val detailedMemPortMessage = new StringBuilder()
+              detailedMemPortMessage ++= s"SCOPE VIOLATION: Memory port '$s' was created in a different component than its memory '${s.mem}'.\n"
+              detailedMemPortMessage ++= s"  Memory component: ${getComponentDesc(s.mem.component)}, Port component: ${getComponentDesc(s.component)}\n"
+              detailedMemPortMessage ++= s"Location:\n${s.getScalaLocationLong}"
+              PendingError(detailedMemPortMessage.toString())
             }
           }
           case _ =>
@@ -2466,10 +2465,10 @@ class PhaseCheckHierarchy extends PhaseCheck {
                 val currentNetlistHeadInfo = if (pc.topLevel != null) s"'${getComponentPath(pc.topLevel)}'" else "N/A (current toplevel is null)"
 
                 val detailedOldNetlistMessage = new StringBuilder()
-                detailedOldNetlistMessage ++= s"OLD NETLIST RE-USED / DANGLING REFERENCE: Signal $signalInfo $problem.\n"
+                detailedOldNetlistMessage ++= s"OLD NETLIST RE-USED / DANGLING REFERENCE:\n"
+                detailedOldNetlistMessage ++= s"  Signal $signalInfo $problem.\n"
                 detailedOldNetlistMessage ++= s"  It was $contextInfo.\n"
                 detailedOldNetlistMessage ++= s"Details for this signal:\n"
-                detailedOldNetlistMessage ++= s"  - Defining component: $signalComponentInfo\n"
                 detailedOldNetlistMessage ++= s"  - Inferred toplevel: $signalNetlistHeadInfo\n"
                 detailedOldNetlistMessage ++= s"  - Current elaboration toplevel: $currentNetlistHeadInfo\n"
                 detailedOldNetlistMessage ++= s"Advice: $advice\n"
@@ -2479,24 +2478,17 @@ class PhaseCheckHierarchy extends PhaseCheck {
                 if (c != null && c.withHierarchyAutoPull) {
                   autoPullOn += bt
                 } else {
-                  val currentComponentDesc = if (c != null) getComponentDesc(c) else "toplevel"
-                  val readSignalDescription = s"signal '${bt.toString()}'"
-                  val readSignalContextDescription = s"defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}'"
-
-
+                  val currentComponentDesc = if (c == null) "toplevel" else getComponentDesc(c)
+                  
                   val detailedMessage = new StringBuilder()
-                  detailedMessage ++= s"HIERARCHY VIOLATION (read access): Attempted to read $readSignalDescription, which is not readable from $currentComponentDesc.\n"
-                  detailedMessage ++= s"  (Accessed by statement: '${s.toString()}')\n" // 更明确地指出语句
+                  detailedMessage ++= s"HIERARCHY VIOLATION (read access):\n"
+                  detailedMessage ++= s"  Attempted to read signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName}),\n"
+                  detailedMessage ++= s"  which is defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}',\n"
+                  detailedMessage ++= s"  but is not readable from $currentComponentDesc.\n"
+                  detailedMessage ++= s"  (Accessed by statement: '${s.toString()}')\n"
                   detailedMessage ++= s"To be readable from $currentComponentDesc, this signal must satisfy one of the following:\n"
                   detailedMessage ++= s"  1. Be any signal (directionless, in, out, or inout) defined directly within $currentComponentDesc.\n"
                   detailedMessage ++= s"  2. Be an 'in', 'out', or 'inout' port of a direct child component of $currentComponentDesc.\n"
-                  detailedMessage ++= s"Contextual details for this read signal:\n"
-                  detailedMessage ++= s"  - Its full name: '${bt.toString()}'\n"
-                  detailedMessage ++= s"  - Instance type: ${bt.getClass.getSimpleName}\n" // 移到此处
-                  detailedMessage ++= s"  - Defining component: ${getComponentDesc(bt.component)}\n"
-                  detailedMessage ++= s"  - Declared direction: '${getSignalDirectionString(bt)}'\n" // 移到此处
-                  detailedMessage ++= s"  - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
-                  detailedMessage ++= s"  - Current component (where read occurs): $currentComponentDesc\n"
                   detailedMessage ++= s"Location of read:\n${s.getScalaLocationLong}"
                   PendingError(detailedMessage.toString())
                 }
