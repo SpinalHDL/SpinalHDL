@@ -1,10 +1,10 @@
-package spinal.lib.memory.sdram.dfi.function
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
-import spinal.lib.memory.sdram.dfi.interface._
 
 class AddrMapMethod(
-    val dfiConfig: DfiConfig
+    val dfiConfig: DfiConfig,
+    val addrMap: AddrMap
 ) {
   val address = new Bundle {
     val column = UInt(dfiConfig.sdram.columnWidth bits)
@@ -12,7 +12,7 @@ class AddrMapMethod(
     val row = UInt(dfiConfig.sdram.rowWidth bits)
   }
 
-  def addressMap(addr: UInt) = mapMethod(dfiConfig.addrMap)(addr)
+  def addressMap(addr: UInt) = mapMethod(addrMap)(addr)
 
   def mapMethod(addrMap: AddrMap)(addr: UInt) = addrMap match {
     case RowBankColumn => AddrMapMethod.rowBankColumnMap(dfiConfig: DfiConfig, addr: UInt)
@@ -22,32 +22,42 @@ class AddrMapMethod(
 }
 object AddrMapMethod {
   def rowBankColumnMap(dfiConfig: DfiConfig, addr: UInt) = {
-    val addrMapMethod = new AddrMapMethod(dfiConfig)
-    import dfiConfig._
-    addrMapMethod.address.column := addr(0, sdram.columnWidth bits)
-    addrMapMethod.address.bank := addr(sdram.columnWidth, sdram.bankWidth bits)
-    addrMapMethod.address.row := addr(sdram.columnWidth + sdram.bankWidth, sdram.rowWidth bits)
+    val addrMapMethod = new AddrMapMethod(dfiConfig, RowBankColumn)
+    addrMapMethod.address.column := addr(0, dfiConfig.sdram.columnWidth bits)
+    addrMapMethod.address.bank := addr(dfiConfig.sdram.columnWidth, dfiConfig.sdram.bankWidth bits)
+    addrMapMethod.address.row := addr(
+      dfiConfig.sdram.columnWidth + dfiConfig.sdram.bankWidth,
+      dfiConfig.sdram.rowWidth bits
+    )
     addrMapMethod
   }
   def bankRowColumnMap(dfiConfig: DfiConfig, addr: UInt) = {
-    val addrMapMethod = new AddrMapMethod(dfiConfig)
-    import dfiConfig._
-    addrMapMethod.address.column := addr(0, sdram.columnWidth bits)
-    addrMapMethod.address.row := addr(sdram.columnWidth, sdram.rowWidth bits)
-    addrMapMethod.address.bank := addr(sdram.columnWidth + sdram.rowWidth, sdram.bankWidth bits)
+    val addrMapMethod = new AddrMapMethod(dfiConfig, BankRowColumn)
+    addrMapMethod.address.column := addr(0, dfiConfig.sdram.columnWidth bits)
+    addrMapMethod.address.row := addr(dfiConfig.sdram.columnWidth, dfiConfig.sdram.rowWidth bits)
+    addrMapMethod.address.bank := addr(
+      dfiConfig.sdram.columnWidth + dfiConfig.sdram.rowWidth,
+      dfiConfig.sdram.bankWidth bits
+    )
     addrMapMethod
   }
   def rowColumnBankMap(dfiConfig: DfiConfig, addr: UInt) = {
-    assert(dfiConfig.sdram.columnWidth >= dfiConfig.burstWidth)
-    val addrMapMethod = new AddrMapMethod(dfiConfig)
-    import dfiConfig._
-    addrMapMethod.address.column := (addr(burstWidth + sdram.bankWidth, sdram.columnWidth - burstWidth bits) ## addr(
+    val burstNumberWidth = log2Up(dfiConfig.transferPerBurst)
+    assert(dfiConfig.sdram.columnWidth >= burstNumberWidth)
+    val addrMapMethod = new AddrMapMethod(dfiConfig, RowColumnBank)
+    addrMapMethod.address.column := (addr(
+      burstNumberWidth + dfiConfig.sdram.bankWidth,
+      dfiConfig.sdram.columnWidth - burstNumberWidth bits
+    ) ## addr(
       0,
-      burstWidth bits
+      burstNumberWidth bits
     )).asUInt
-    addrMapMethod.address.bank := addr(burstWidth, sdram.bankWidth bits)
-    addrMapMethod.address.row := addr(sdram.columnWidth + sdram.bankWidth, sdram.rowWidth bits)
+    addrMapMethod.address.bank := addr(burstNumberWidth, dfiConfig.sdram.bankWidth bits)
+    addrMapMethod.address.row := addr(
+      dfiConfig.sdram.columnWidth + dfiConfig.sdram.bankWidth,
+      dfiConfig.sdram.rowWidth bits
+    )
     addrMapMethod
   }
-  def apply(dfiConfig: DfiConfig) = new AddrMapMethod(dfiConfig)
+  def apply(dfiConfig: DfiConfig, addrMap: AddrMap) = new AddrMapMethod(dfiConfig, addrMap)
 }
