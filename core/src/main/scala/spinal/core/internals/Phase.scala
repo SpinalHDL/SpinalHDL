@@ -1516,7 +1516,10 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
 
         for((key,elements) <- reserveds){
           if(elements.length != 1){
-            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${senum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
+            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with key '$key' and following elements:.\n" +
+                         s"${elements.mkString(", ")}\n" +
+                         s"Enumeration defined at:\n${senum.getScalaLocationLong}" +
+                         s"Encoding defined at:\n${encoding.getScalaLocationLong}")
           }
         }
       }
