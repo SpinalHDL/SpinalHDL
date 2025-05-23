@@ -341,7 +341,7 @@ class PhaseAnalog extends PhaseNetlist{
               case _ => SpinalError(s"Unsupported statement $s")
             }
             if(targetRange.size != sourceRange.size)
-              SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT $s\n${s.getScalaLocationLong}")
+              SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT: $s.\nLocation:\n${s.getScalaLocationLong}")
 
             if(targetRange.size > 0) {
               if (sourceBt == null) SpinalError(":(")
@@ -756,7 +756,7 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
         }
 
         if(!(topo.writes.nonEmpty || topo.readWriteSync.nonEmpty || topo.writeReadSameAddressSync.nonEmpty || mem.initialContent != null)) {
-          SpinalError(s"MEM-WITHOUT-DRIVER. $mem has no write ports nor initial content. Defined at :\n${mem.getScalaLocationLong}")
+          SpinalError(s"MEM-WITHOUT-DRIVER: Memory '$mem' has no write ports nor initial content.\nDefined at:\n${mem.getScalaLocationLong}")
         }
 
         mem.component.rework{
@@ -1516,7 +1516,10 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
 
         for((key,elements) <- reserveds){
           if(elements.length != 1){
-            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${senum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
+            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with key '$key' and following elements:.\n" +
+                         s"${elements.mkString(", ")}\n" +
+                         s"Enumeration defined at:\n${senum.getScalaLocationLong}" +
+                         s"Encoding defined at:\n${encoding.getScalaLocationLong}")
           }
         }
       }
@@ -2362,10 +2365,34 @@ class PhaseCheckIoBundle extends PhaseCheck{
   }
 }
 
-class PhaseCheckHierarchy extends PhaseCheck{
+class PhaseCheckHierarchy extends PhaseCheck {
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
+
+    def getSignalDirectionString(bt: BaseType): String = {
+      if (bt.isInput) "input"
+      else if (bt.isOutput) "output"
+      else if (bt.isInOut) "inout"
+      else if (bt.isDirectionLess) "directionless"
+      else "unknown"
+    }
+
+    def getComponentPath(comp: Component): String = {
+      if (comp != null) comp.getPath() else "<None>"
+    }
+
+    // 优化后的 getComponentDesc，处理 toplevel 组件
+    def getComponentDesc(comp: Component): String = {
+      if (comp == null) return "<null_component_ref>"
+      if (comp == pc.topLevel) { // 如果是顶层组件，省略 (parent: '<None>')
+        s"component '${comp.getName()}'"
+      } else {
+        val parentName = if (comp.parent != null) comp.parent.getName() else "<None>"
+        s"component '${comp.getName()}' (parent: '$parentName')"
+      }
+    }
+
 
     //Check hierarchy read/write violation
     walkComponents(c => {
@@ -2374,62 +2401,121 @@ class PhaseCheckHierarchy extends PhaseCheck{
         var error = false
 
         s match {
-          case s : InitialAssignmentStatement =>
+          case s: InitialAssignmentStatement =>
           case s: AssignmentStatement =>
             val bt = s.finalTarget
 
-            if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
-              val identifier = if(c == null) "toplevel" else s"$c component"
-              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $identifier.\n${s.getScalaLocationLong}")
+            val condIsDirectionLessInC = bt.isDirectionLess && bt.component == c
+            val condIsOutputOrInOutInC = bt.isOutputOrInOut && bt.component == c
+            val condIsInputOrInOutInChildOfC = bt.isInputOrInOut && bt.component != null && bt.component.parent == c
+
+            if (!(condIsDirectionLessInC || condIsOutputOrInOutInC || condIsInputOrInOutInChildOfC)) {
+              val currentComponentDesc = if (c == null) "toplevel" else getComponentDesc(c)
+
+              val detailedMessage = new StringBuilder()
+              detailedMessage ++= s"HIERARCHY VIOLATION (assignment):\n"
+              detailedMessage ++= s"  Attempted to assign to signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName}),\n"
+              detailedMessage ++= s"  which is defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}',\n"
+              detailedMessage ++= s"  but is not assignable from $currentComponentDesc.\n"
+              detailedMessage ++= s"  (Assigned by expression: '${s.source.toString()}')\n"
+              detailedMessage ++= s"To be assignable from $currentComponentDesc, this signal must satisfy one of the following:\n"
+              detailedMessage ++= s"  1. Be a directionless signal defined directly within $currentComponentDesc.\n"
+              detailedMessage ++= s"  2. Be an 'out' or 'inout' port of $currentComponentDesc.\n"
+              detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentDesc.\n"
+              detailedMessage ++= s"Location of assignment:\n${s.getScalaLocationLong}"
+              PendingError(detailedMessage.toString())
               error = true
             }
 
-            if(!error && !bt.isInOut){
+            if (!error && !bt.isInOut) {
               val rootScope = s.rootScopeStatement
-              var ptr       = s.parentScope
+              var ptr = s.parentScope
 
-              while(ptr.parentStatement != null && ptr != rootScope){
+              while (ptr.parentStatement != null && ptr != rootScope) {
                 ptr = ptr.parentStatement.parentScope
               }
 
-              if(ptr != rootScope){
-                PendingError(s"SCOPE VIOLATION : $bt is assigned outside its declaration scope at \n${s.getScalaLocationLong}")
+              if (ptr != rootScope) {
+                PendingError(s"SCOPE VIOLATION: Signal '$bt' is assigned outside its declaration scope.\nLocation:\n${s.getScalaLocationLong}")
               }
             }
-          case s : MemPortStatement => {
-            if(s.mem.component != s.component){
-              PendingError(s"SCOPE VIOLATION : memory port $s was created in another component than its memory ${s.mem} \n${s.getScalaLocationLong}")
+          case s: MemPortStatement => {
+            if (s.mem.component != s.component) {
+              val detailedMemPortMessage = new StringBuilder()
+              detailedMemPortMessage ++= s"SCOPE VIOLATION: Memory port '$s' was created in a different component than its memory '${s.mem}'.\n"
+              detailedMemPortMessage ++= s"  Memory component: ${getComponentDesc(s.mem.component)}, Port component: ${getComponentDesc(s.component)}\n"
+              detailedMemPortMessage ++= s"Location:\n${s.getScalaLocationLong}"
+              PendingError(detailedMemPortMessage.toString())
             }
           }
           case _ =>
         }
 
-        if(!error) s.walkDrivingExpressions {
+        if (!error) s.walkDrivingExpressions {
           case bt: BaseType =>
-            if (!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)) {
-              if(bt.component == null || bt.getComponents().head != pc.topLevel){
-                PendingError(s"OLD NETLIST RE-USED : $bt is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+            val condIsSignalInC = bt.component == c
+            val condIsSignalInOutOrInoutOfChild = (bt.isInput || bt.isOutput || bt.isInOut) && bt.component != null && bt.component.parent == c
+
+            if (!(condIsSignalInC || condIsSignalInOutOrInoutOfChild)) {
+              val signalToplevelOpt = bt.getComponents().headOption
+              if (bt.component == null || signalToplevelOpt.isEmpty || signalToplevelOpt.get != pc.topLevel) {
+                val signalInfo = s"signal '${bt.toString()}' (instance of ${bt.getClass.getSimpleName})"
+                val contextInfo = s"used to drive statement '${s.toString()}'"
+                val problem = "appears to be defined in another netlist or is a dangling reference."
+                val advice = "Ensure hardware constants are not defined as 'val' in global Scala objects, and all signals originate from the current elaboration context."
+                val signalComponentInfo = getComponentDesc(bt.component)
+                val signalNetlistHeadInfo = signalToplevelOpt.map(h => s"'${getComponentPath(h)}'").getOrElse("N/A (signal's component list is empty or its component is null)")
+                val currentNetlistHeadInfo = if (pc.topLevel != null) s"'${getComponentPath(pc.topLevel)}'" else "N/A (current toplevel is null)"
+
+                val detailedOldNetlistMessage = new StringBuilder()
+                detailedOldNetlistMessage ++= s"OLD NETLIST RE-USED / DANGLING REFERENCE:\n"
+                detailedOldNetlistMessage ++= s"  Signal $signalInfo $problem.\n"
+                detailedOldNetlistMessage ++= s"  It was $contextInfo.\n"
+                detailedOldNetlistMessage ++= s"Details for this signal:\n"
+                detailedOldNetlistMessage ++= s"  - Inferred toplevel: $signalNetlistHeadInfo\n"
+                detailedOldNetlistMessage ++= s"  - Current elaboration toplevel: $currentNetlistHeadInfo\n"
+                detailedOldNetlistMessage ++= s"Advice: $advice\n"
+                detailedOldNetlistMessage ++= s"Location of read:\n${s.getScalaLocationLong}"
+                PendingError(detailedOldNetlistMessage.toString())
               } else {
-                if(c.withHierarchyAutoPull){
+                if (c != null && c.withHierarchyAutoPull) {
                   autoPullOn += bt
                 } else {
-                  PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+                  val currentComponentDesc = if (c == null) "toplevel" else getComponentDesc(c)
+                  
+                  val detailedMessage = new StringBuilder()
+                  detailedMessage ++= s"HIERARCHY VIOLATION (read access):\n"
+                  detailedMessage ++= s"  Attempted to read signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName}),\n"
+                  detailedMessage ++= s"  which is defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}',\n"
+                  detailedMessage ++= s"  but is not readable from $currentComponentDesc.\n"
+                  detailedMessage ++= s"  (Accessed by statement: '${s.toString()}')\n"
+                  detailedMessage ++= s"To be readable from $currentComponentDesc, this signal must satisfy one of the following:\n"
+                  detailedMessage ++= s"  1. Be any signal (directionless, in, out, or inout) defined directly within $currentComponentDesc.\n"
+                  detailedMessage ++= s"  2. Be an 'in', 'out', or 'inout' port of a direct child component of $currentComponentDesc.\n"
+                  detailedMessage ++= s"Location of read:\n${s.getScalaLocationLong}"
+                  PendingError(detailedMessage.toString())
                 }
               }
             }
-          case s : MemPortStatement =>{
-            if(s.mem.component != c){
-              PendingError(s"OLD NETLIST RE-USED : Memory port $s of memory ${s.mem} is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+          case s_expr: MemPortStatement => {
+            if (s_expr.mem.component != c) {
+              val detailedMemPortMessage = new StringBuilder()
+              detailedMemPortMessage ++= s"HIERARCHY/SCOPE VIOLATION (OLD NETLIST RE-USED): Memory port '${s_expr.toString()}'\n"
+              detailedMemPortMessage ++= s"  of memory '${s_expr.mem.toString()}' (defined in ${getComponentDesc(s_expr.mem.component)}) "
+              detailedMemPortMessage ++= s"is used in statement '${s.toString()}' within ${getComponentDesc(c)}.\n"
+              detailedMemPortMessage ++= s"  Memory port access should typically occur within the memory's own component scope (${getComponentDesc(s_expr.mem.component)}).\n"
+              detailedMemPortMessage ++= s"Location:\n${s.getScalaLocationLong}"
+              PendingError(detailedMemPortMessage.toString())
             }
           }
           case _ =>
         }
       })
 
-      if(autoPullOn.nonEmpty) c.rework{
+      if (autoPullOn.nonEmpty) c.rework {
         c.dslBody.walkStatements(s =>
           s.walkRemapDrivingExpressions(e =>
-            if(autoPullOn.contains(e)){
+            if (autoPullOn.contains(e)) {
               e.asInstanceOf[BaseType].pull()
             } else {
               e
@@ -2439,8 +2525,10 @@ class PhaseCheckHierarchy extends PhaseCheck{
       }
 
       //Check register defined as component inputs
-      c.getAllIo.foreach(bt => if(bt.isInput && bt.isReg){
-        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT : $bt is defined as a registered input of the $c component, but isn't allowed.\n${bt.getScalaLocationLong}")
+      c.getAllIo.foreach(bt => if (bt.isInput && bt.isReg) {
+        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT: Signal '$bt' is defined as a registered input " +
+                     s"of the ${getComponentDesc(c)}, which is not allowed.\n" +
+                     s"Location:\n${bt.getScalaLocationLong}")
       })
     })
   }
