@@ -2482,14 +2482,16 @@ class PhaseCheckHierarchy extends PhaseCheck {
 
 
                   val detailedMessage = new StringBuilder()
-                  detailedMessage ++= s"HIERARCHY VIOLATION (read access): $readSignalDescription (an instance of ${bt.getClass.getSimpleName}), $readSignalContextDescription,\n"
-                  detailedMessage ++= s"  is read by statement '${s.toString()}', but is not readable from $currentComponentDesc.\n"
+                  detailedMessage ++= s"HIERARCHY VIOLATION (read access): Attempted to read $readSignalDescription, which is not readable from $currentComponentDesc.\n"
+                  detailedMessage ++= s"  (Accessed by statement: '${s.toString()}')\n" // 更明确地指出语句
                   detailedMessage ++= s"To be readable from $currentComponentDesc, this signal must satisfy one of the following:\n"
                   detailedMessage ++= s"  1. Be any signal (directionless, in, out, or inout) defined directly within $currentComponentDesc.\n"
                   detailedMessage ++= s"  2. Be an 'in', 'out', or 'inout' port of a direct child component of $currentComponentDesc.\n"
                   detailedMessage ++= s"Contextual details for this read signal:\n"
                   detailedMessage ++= s"  - Its full name: '${bt.toString()}'\n"
+                  detailedMessage ++= s"  - Instance type: ${bt.getClass.getSimpleName}\n" // 移到此处
                   detailedMessage ++= s"  - Defining component: ${getComponentDesc(bt.component)}\n"
+                  detailedMessage ++= s"  - Declared direction: '${getSignalDirectionString(bt)}'\n" // 移到此处
                   detailedMessage ++= s"  - isDirectionLess: ${bt.isDirectionLess}, isInput: ${bt.isInput}, isOutput: ${bt.isOutput}, isInOut: ${bt.isInOut}\n"
                   detailedMessage ++= s"  - Current component (where read occurs): $currentComponentDesc\n"
                   detailedMessage ++= s"Location of read:\n${s.getScalaLocationLong}"
