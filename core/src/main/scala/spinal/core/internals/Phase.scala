@@ -2380,10 +2380,13 @@ class PhaseCheckHierarchy extends PhaseCheck {
     }
 
     def getComponentDesc(comp: Component): String = {
-      if (comp == null) return "<null_component_ref>"
-      val parentName = if (comp.parent != null) comp.parent.getName() else "<None>"
-      s"component '${comp.getName()}' (parent: '$parentName')"
-    }
+      if (comp == null) return "<None>"
+      if (comp == pc.topLevel) {
+        s"component '${comp.getName()}'"
+      } else {
+        val parentName = if (comp.parent != null) comp.parent.getName() else "<None>"
+        s"component '${comp.getName()}' (parent: '$parentName')"
+      }
 
 
     //Check hierarchy read/write violation
