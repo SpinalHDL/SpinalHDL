@@ -2463,7 +2463,8 @@ class PhaseCheckHierarchy extends PhaseCheck {
                 val currentNetlistHeadInfo = if (pc.topLevel != null) s"'${getComponentPath(pc.topLevel)}'" else "N/A (current toplevel is null)"
 
                 val detailedOldNetlistMessage = new StringBuilder()
-                detailedOldNetlistMessage ++= s"OLD NETLIST RE-USED / DANGLING REFERENCE: $signalInfo, $contextInfo, but $problem\n"
+                detailedOldNetlistMessage ++= s"OLD NETLIST RE-USED / DANGLING REFERENCE: Signal $signalInfo $problem.\n"
+                detailedOldNetlistMessage ++= s"  It was $contextInfo.\n"
                 detailedOldNetlistMessage ++= s"Details for this signal:\n"
                 detailedOldNetlistMessage ++= s"  - Defining component: $signalComponentInfo\n"
                 detailedOldNetlistMessage ++= s"  - Inferred toplevel: $signalNetlistHeadInfo\n"
