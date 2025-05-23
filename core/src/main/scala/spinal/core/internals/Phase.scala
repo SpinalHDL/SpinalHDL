@@ -756,7 +756,7 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
         }
 
         if(!(topo.writes.nonEmpty || topo.readWriteSync.nonEmpty || topo.writeReadSameAddressSync.nonEmpty || mem.initialContent != null)) {
-          SpinalError(s"MEM-WITHOUT-DRIVER. $mem has no write ports nor initial content. Defined at :\n${mem.getScalaLocationLong}")
+          SpinalError(s"MEM-WITHOUT-DRIVER: Memory '$mem' has no write ports nor initial content.\nDefined at:\n${mem.getScalaLocationLong}")
         }
 
         mem.component.rework{
