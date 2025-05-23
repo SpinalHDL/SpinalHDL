@@ -341,7 +341,7 @@ class PhaseAnalog extends PhaseNetlist{
               case _ => SpinalError(s"Unsupported statement $s")
             }
             if(targetRange.size != sourceRange.size)
-              SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT $s\n${s.getScalaLocationLong}")
+              SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT: $s.\nLocation:\n${s.getScalaLocationLong}")
 
             if(targetRange.size > 0) {
               if (sourceBt == null) SpinalError(":(")
