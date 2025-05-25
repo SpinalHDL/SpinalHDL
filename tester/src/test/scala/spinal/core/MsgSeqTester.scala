@@ -106,6 +106,18 @@ class MsgSeqTester() extends Component {
     io.processedValue := 0
     io.isValid := False
   }
+
+  // Test print scala primitive types
+  report(L"${Byte.MinValue}")
+  report(L"${Short.MaxValue}")
+  report(L"${123}") // Int
+  report(L"${123L}") // Long
+  report(L"${3.14f}") // Float
+  report(L"${3.1415926535}") // Double
+  report(L"${'A'}") // Char
+  report(L"${true}") // Boolean
+  report(L"${BigInt(0x12)}")
+  report(L"${BigDecimal("123.456")}")
 }
 
 class MsgSeqTesterSim extends SpinalSimFunSuite {
