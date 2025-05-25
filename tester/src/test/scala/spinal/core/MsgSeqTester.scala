@@ -101,7 +101,7 @@ class MsgSeqTester() extends Component {
     }
 
     // Test print nested Seq[Any]
-    report(io.format)
+    report(io.format.toSeq)
   } otherwise {
     io.processedValue := 0
     io.isValid := False
