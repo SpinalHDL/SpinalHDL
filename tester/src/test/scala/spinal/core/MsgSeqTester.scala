@@ -108,6 +108,7 @@ class MsgSeqTester() extends Component {
   }
 
   // Test print scala primitive types
+  report(L"${null}") // null
   report(L"${Byte.MinValue}")
   report(L"${Short.MaxValue}")
   report(L"${123}") // Int
