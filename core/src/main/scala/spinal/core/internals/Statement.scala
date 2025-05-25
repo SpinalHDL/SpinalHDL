@@ -601,6 +601,7 @@ object AssertStatementHelper {
     def process(item: Any): Unit = {
       item match {
         case nestedSeq: Seq[_] =>
+          nestedSeq.foreach(process)
         case m @ (_: Byte | _: Short | _: Int | _: Long | _: Float | _: Double | _: Char | _: Boolean) => builder += m.toString
         case m: BigInt => builder += m.toString
         case m: BigDecimal => builder += m.toString
