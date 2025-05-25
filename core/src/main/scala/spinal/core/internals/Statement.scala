@@ -599,6 +599,10 @@ object AssertStatementHelper {
     val builder = Seq.newBuilder[Any]
 
     def process(item: Any): Unit = {
+      if (item == null) {
+        builder += "<null>"
+        return
+      }
       item match {
         case nestedSeq: Seq[_] =>
           nestedSeq.foreach(process)
