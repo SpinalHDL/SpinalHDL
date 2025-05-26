@@ -425,8 +425,8 @@ class Ram_Generic(val topo : MemTopology, utils : PhaseMemBlackBoxingWithPolicy)
     val clk  = in Bool()
     val en   = in Bool()
     val mask = in Bits(maskWidth bits)
-    val addr = in UInt(p.address.getWidth bits)
-    val data = in Bits(p.data.getWidth bits)
+    val addr = in UInt(p.getAddressWidth bits)
+    val data = in Bits(p.getWidth bits)
     mapClockDomain(p.clockDomain, clk)
 
     parent.rework{
@@ -440,7 +440,7 @@ class Ram_Generic(val topo : MemTopology, utils : PhaseMemBlackBoxingWithPolicy)
   val rs = for(p <- topo.readsSync) yield new Area{
     val clk  = in Bool()
     val en   = in Bool()
-    val addr = in UInt(p.address.getWidth bits)
+    val addr = in UInt(p.getAddressWidth bits)
     val data = out Bits(p.getWidth bits)
     mapClockDomain(p.clockDomain, clk)
     parent.rework{
@@ -451,7 +451,7 @@ class Ram_Generic(val topo : MemTopology, utils : PhaseMemBlackBoxingWithPolicy)
   }
 
   val ra = for(p <- topo.readsAsync) yield new Area{
-    val addr = in UInt(p.address.getWidth bits)
+    val addr = in UInt(p.getAddressWidth bits)
     val data = out Bits(p.getWidth bits)
     parent.rework {
       addr.assignFrom(p.address)
@@ -465,8 +465,8 @@ class Ram_Generic(val topo : MemTopology, utils : PhaseMemBlackBoxingWithPolicy)
     val en   = in Bool()
     val wr   = in Bool()
     val mask = in Bits(maskWidth bits)
-    val addr = in UInt(p.address.getWidth bits)
-    val wrData = in Bits(p.data.getWidth bits)
+    val addr = in UInt(p.getAddressWidth bits)
+    val wrData = in Bits(p.getWidth bits)
     val rdData = out Bits(p.getWidth bits)
     mapClockDomain(p.clockDomain, clk)
     parent.rework {
