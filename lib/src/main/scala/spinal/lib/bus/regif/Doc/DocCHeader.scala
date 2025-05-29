@@ -47,7 +47,8 @@ final case class DocCHeader(name : String,
 
     lst.map{ t =>
       val partName = t._1
-      val decPart: List[RegSlice]  = t._2.head._2
+//      val decPart: List[RegSlice]  = t._2.head._2
+      val decPart: List[RegSlice]  = t._2.toList.sortBy(_._1).head._2
       val heads : List[RegSlice] = t._2.map(_._2.head).toList.sortBy(_.reuseTag.id)
 
       val instNameMaxLens = heads.map(_.reuseTag.instName.size).max
