@@ -439,11 +439,12 @@ trait Nameable extends OwnableRef with ContextUser {
 
   private[core] def getNameElseThrow: String = {
     getName(null) match {
-      case null =>
+      case null => {
         val errorMessage =
           s"Signal $this has no name but is used in a context where a name is required. " +
-          s"Location of the signal: \n${getScalaLocationLong}. " +
+          s"Location of the signal: \n${getScalaLocationLong}. "
         SpinalError(errorMessage)
+      }
       case name => name
     }
   }
