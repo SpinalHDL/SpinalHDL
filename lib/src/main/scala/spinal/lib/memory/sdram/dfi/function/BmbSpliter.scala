@@ -259,7 +259,7 @@ case class BmbAlignedSpliter(ip: BmbParameter, lengthMax: Int) extends Component
       when(io.output.cmd.lastFire) {
         rdBeatCounter := 0
       }
-    }
+    }otherwise(rdBeatCounter.clearAll())
 
     when((io.input.cmd.lastFire & io.input.cmd.isWrite) | (io.input.rsp.lastFire)) {
       splitCounter := 0
