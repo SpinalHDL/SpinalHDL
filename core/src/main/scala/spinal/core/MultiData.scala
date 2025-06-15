@@ -246,6 +246,21 @@ abstract class MultiData extends Data {
     }
   }
 
+  def assignUnassignedFromBits(bits: Bits): Unit = {
+    var offset = 0
+    for ((_, e) <- elements) {
+      e match {
+        case b : MultiData => b.assignUnassignedFromBits(bits(offset, e.getBitsWidth bit))
+        case bt: BaseType =>
+        if(!bt.hasDataAssignment && (bt.isDirectionLess || bt.isOutput && bt.component == Component.current || bt.isInput && bt.component.parent == Component.current)) {
+          val width = bt.getBitsWidth
+          bt.assignFromBits(bits(offset, width bit))
+          offset = offset + width
+        }
+      }
+    }
+  }
+
   def zipByName(that: MultiData, rec : ArrayBuffer[(BaseType, BaseType)] = ArrayBuffer()): ArrayBuffer[(BaseType, BaseType)] = {
     for ((name, element) <- elements) {
       val other = that.find(name)
