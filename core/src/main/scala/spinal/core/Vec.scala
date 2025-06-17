@@ -176,6 +176,10 @@ class Vec[T <: Data](var _dataType : HardType[T], val vec: Vector[T]) extends Mu
     vec(idx)
   }
 
+  def apply(range: Range): Vec[T] = {
+    Vec(range.map(vec(_)))
+  }
+
   /** Access an element of the vector by an `UInt` index */
   def apply(address: UInt): T = access(address)
 
