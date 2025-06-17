@@ -568,18 +568,17 @@ object Operator {
     abstract class Mul extends BinaryOperatorWidthableInputs with Widthable {
       def getLiteralFactory: (BigInt, Int) => Expression
       override def calcWidth: Int = {
-        val isPowerOfTwoLiteral = right match {
-          case lit: UIntLiteral => 
-            val v = lit.value
-            (v > 0) && ((v & (v - 1)) == 0)
-          case _ => false
+        val rightSignBit = right match {
+          case lit: SIntLiteral => -1
+          case _ => 0
+        }
+        val extraBit = right match {
+          case lit: UIntLiteral => if(isPow2(lit.value)) -1 else 0
+          case lit: SIntLiteral => if(isPow2(lit.value)) -1 else 0
+          case _ => 0
         }
         
-        if (isPowerOfTwoLiteral) {
-          left.getWidth + right.getWidth - 1
-        } else {
-          left.getWidth + right.getWidth
-        }
+        left.getWidth + right.getWidth + rightSignBit + extraBit
       }
       override def simplifyNode: Expression = {SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory)(this)}
       override def toString() = s"(${super.toString()})[$getWidth bits]"
