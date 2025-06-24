@@ -1,14 +1,10 @@
-package spinal.lib.memory.sdram.dfi.function
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
-import spinal.lib.memory.sdram.dfi.interface._
 
-case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Component {
-  import dfiConfig._
-  import taskConfig._
-  import taskConfig.taskParameter._
+case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrMap) extends Component {
   val io = new Bundle {
     val cmd = slave(Stream(TaskWrRdCmd(taskConfig, dfiConfig)))
     val halt = out Bool ()
@@ -17,15 +13,15 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compon
   }
   val timeConfig = TaskTimingConfig(dfiConfig)
   val readyForRefresh = True
-
-  val banksRow = Mem(UInt(sdram.rowWidth bits), sdram.bankCount)
+  val sdram = dfiConfig.sdram
+  val banksRow = Mem(UInt(dfiConfig.sdram.rowWidth bits), sdram.bankCount)
   val CCD =
-    (beatCount > 1) generate timing(
+    (dfiConfig.beatCount > 1) generate timing(
       io.output.read || io.output.write,
-      beatCount - 2,
-      log2Up(beatCount)
+      dfiConfig.beatCount - 2,
+      log2Up(dfiConfig.beatCount)
     )
-  val RFC = timing(io.output.refresh, timeConfig.RFC, timingWidth + 3)
+  val RFC = timing(io.output.refresh, timeConfig.RFC, taskConfig.taskParameter.timingWidth + 3)
   val RRD = timing(io.output.active, timeConfig.RRD)
   val WTR = timing(io.output.write, timeConfig.WTR)
   val RTW = timing(io.output.read, timeConfig.RTW)
@@ -69,8 +65,8 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compon
     val address = BusAddress(dfiConfig)
     val addrMapping = new Area {
       val rbcAddress = address.getRBCAddress(input.address)
-      val addrMap = AddrMapMethod(dfiConfig)
-      val TaskAddress = addrMap.addressMap(rbcAddress)
+      val addrMapMethod = AddrMapMethod(dfiConfig, addrMap)
+      val TaskAddress = addrMapMethod.addressMap(rbcAddress)
       address.byte.assignFromBits(address.getButeAddress(input.address).asBits)
       address.cs.assignFromBits(address.getCsAddress(input.address).asBits)
       address.assignUnassignedByName(TaskAddress.address)
@@ -85,7 +81,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compon
     status.employ(address)
     readyForRefresh clearWhen (input.valid)
   }
-  val columnBurstShift = log2Up(transferPerBurst)
+  val columnBurstShift = log2Up(dfiConfig.transferPerBurst)
 
   readyForRefresh clearWhen (io.cmd.valid)
   val columnBurstMask = (sdram.columnSize - 1) - (io.cmd.stationLengthMax - 1 << columnBurstShift)
@@ -94,7 +90,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compon
     val status = Reg(Status())
     val address = Reg(BusAddress(dfiConfig))
     val write = Reg(Bool())
-    val context = Reg(Bits(contextWidth bits))
+    val context = Reg(Bits(taskConfig.contextWidth bits))
     val offset, offsetLast = Reg(UInt(io.cmd.stationLengthWidth bits))
 
     import status._
@@ -172,7 +168,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compon
     val offsetLast = offset + taskConstructor.input.length
     val canSpawn = !station.valid
     // Insert taskConstructor into one free station
-    when(taskConstructor.input.valid && canSpawn) {
+    when(taskConstructor.input.fire && canSpawn) {
       station.valid := True
       station.status := taskConstructor.status
       station.address.column := taskConstructor.address.column & columnBurstMask
@@ -202,7 +198,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compon
     refreshReady.onExit(refreshStream.ready := True)
   }
 
-  def timing(loadValid: Bool, loadValue: UInt, timingWidth: Int = taskParameter.timingWidth) = new Area {
+  def timing(loadValid: Bool, loadValue: UInt, timingWidth: Int = taskConfig.taskParameter.timingWidth) = new Area {
     val value = Reg(UInt(timingWidth bits)) randBoot ()
     val increment = value =/= loadValue.resized
     val busy = CombInit(increment)
