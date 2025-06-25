@@ -22,13 +22,13 @@ package spinal.core
   * The "short" syntax is short, but it is formatted with a space between the
   * type and its parameters, and it can be used only with:
   *
-  *   - `Bool`
-  *   - `Bits`
-  *   - `UInt`
-  *   - `SInt`
-  *   - `Vec`
+  *   - [[Bool]]
+  *   - [[Bits]]
+  *   - [[UInt]]
+  *   - [[SInt]]
+  *   - [[Vec]]
   *
-  * The "spaceful" syntax is generic and beatiful, but more verbose.
+  * The "spaceful" syntax is generic and beautiful, but more verbose.
   *
   * The "variadic" syntax can be used with any number of ports, but can be used
   * only if the ports types are already declared.

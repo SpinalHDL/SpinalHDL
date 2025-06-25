@@ -133,6 +133,99 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
     }
   }
 
+  test("expanding_left_shift") {
+    // there is nothing special to the values used for testing here; i just picked some
+    SimConfig.compile(new Component {
+      val shift: Int = 4
+      val inputSize: Int = 6
+      val io = new Bundle {
+        val input = in(AFix.S(inputSize exp, 0 exp))
+        val output = out(AFix.S(inputSize + shift exp, 0 exp))
+      }
+      io.output := io.input <<| shift
+    }).doSim(seed = 0) { dut =>
+      dut.io.input #= 42.0
+      sleep(1)
+      assert(dut.io.output.toDouble == 672.0)
+    }
+  }
+
+  test("bitwise_ops") {
+    // testing some obvious properties of bitwise ops with handpicked arbitrary examples
+    SimConfig.compile(new Component {
+      val io = new Bundle {
+        val op = in UInt(2 bits)
+        val a = in(AFix.S(2 exp, -2 exp))
+        val b = in(AFix.S(1 exp, -4 exp))
+        val o = out(AFix.S(2 exp, -4 exp))
+        o.assignDontCare()
+        switch (op) {
+          is(0) {
+            o := a & b
+          }
+          is (1) {
+            o := a | b
+          }
+          is (2) {
+            o := a ^ b
+          }
+          default {
+            o.assignDontCare()
+          }
+        }
+      }
+    }).doSim(seed = 0) { dut =>
+        dut.io.op #= 0
+        dut.io.a #= 0.25
+        dut.io.b #= 0.125
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.0)
+
+        dut.io.a #= 0.75
+        dut.io.b #= 0.375
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.25)
+
+        dut.io.op #= 1
+        dut.io.a #= 0.25
+        dut.io.b #= 0.125
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.375)
+
+        dut.io.a #= 0.75
+        dut.io.b #= 0.375
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.875)
+
+        dut.io.op #= 2
+        dut.io.a #= 0.25
+        dut.io.b #= 0.125
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.375)
+
+        dut.io.a #= 0.75
+        dut.io.b #= 0.375
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.625)
+
+        dut.io.a #= 0.25
+        dut.io.b #= 0.25
+        sleep(1)
+        assert(dut.io.o.toDouble == 0.0)
+    }
+  }
+
+  test("negate_width") {
+    // make sure `negate()` elaborates in some edge cases
+    SimConfig.compile(new Component {
+      val io = new Bundle {
+        val a = in(AFix.S(5 bits))
+        val o = out(AFix.S(6 bits))
+        o := a.negate().negate()
+      }
+    })
+  }
+
   def dutStateString(dut: AFixTester): String = {
     val model = AFixTesterModel(dut)
 

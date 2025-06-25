@@ -68,9 +68,20 @@ case class ClockEnableTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
 
 
 
-// Default configuration of clock domain is :
-// Rising edge clock with optional asynchronous reset active high and optional active high clockEnable
-case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveLevel: Polarity = HIGH, softResetActiveLevel: Polarity = HIGH, clockEnableActiveLevel: Polarity = HIGH) {
+/** The caracteristic (rising, async, high, e.g.) of the control signals of a [[ClockDomain]] 
+  * @param clockEdge can be [[RISING]] (default) or [[FALLING]]
+  * @param resetKind can be [[ASYNC]] (default), [[SYNC]] or [[BOOT]] which is supported by some FPGAs
+  *                  (where FF values are loaded by the bitstream)
+  * @param resetActiveLevel can be [[HIGH]] (default), or [[LOW]]
+  * @param softResetActiveLevel can be [[HIGH]] (default), or [[LOW]]
+  * @param clockEnableActiveLevel can be [[HIGH]] (default), or [[LOW]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html#configuration Clock domain documentation]]
+  */
+case class ClockDomainConfig( clockEdge: EdgeKind = RISING,
+                              resetKind: ResetKind = ASYNC, 
+                              resetActiveLevel: Polarity = HIGH, 
+                              softResetActiveLevel: Polarity = HIGH, 
+                              clockEnableActiveLevel: Polarity = HIGH) {
   val useResetPin = resetKind match{
     case `ASYNC` | `SYNC` => true
     case _                => false
@@ -89,8 +100,11 @@ object ClockDomain {
     override def default: Boolean = true
   }
 
-  /**
-    *  Create a local clock domain with `name` as prefix. clock, reset, clockEnable signals should be assigned by your care.
+  /** Create a local clock domain with `name` as prefix. 
+    * 
+    * clock, reset, clockEnable signals should be assigned by your care.
+    *  
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html#internal-clock Internal clock documentation]]
     */
   def internal(name            : String,
                config          : ClockDomainConfig = GlobalData.get.commonClockConfig,
@@ -128,9 +142,11 @@ object ClockDomain {
 
   def defaultConfig = GlobalData.get.commonClockConfig
 
-  /**
-    * To use when you want to define a new ClockDomain that thank signals outside the toplevel.
-    * (it create input clock, reset, clockenable in the toplevel)
+  /** To use when you want to define a new ClockDomain that thank signals outside the toplevel.
+    *
+    * It create input clock, reset, clockenable in the toplevel.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html#external-clock External clock documentation]]
     */
   def external(name            : String,
                config          : ClockDomainConfig = GlobalData.get.commonClockConfig,
@@ -290,22 +306,22 @@ object ClockDomain {
 
 
 
-case class ClockSyncTag(a : Bool, b : Bool) extends SpinalTag{
+case class ClockSyncTag(a : Bool, b : Bool) extends SpinalTag {
   override def canSymplifyHost: Boolean = false
 }
-case class ClockDrivedTag(driver : Bool) extends SpinalTag{
+case class ClockDrivedTag(driver : Bool) extends SpinalTag {
   override def canSymplifyHost: Boolean = false
 }
-case class ClockDriverTag(drived : Bool) extends SpinalTag{
+case class ClockDriverTag(drived : Bool) extends SpinalTag {
   override def canSymplifyHost: Boolean = false
 }
 
-object Clock{
-  def syncDrive(source : Bool, sink : Bool): Unit ={
+object Clock {
+  def syncDrive(source : Bool, sink : Bool): Unit = {
     source.addTag(ClockDriverTag(sink))
     sink.addTag(ClockDrivedTag(source))
   }
-  def sync(a : Bool, b : Bool): this.type ={
+  def sync(a : Bool, b : Bool): this.type = {
     val tag = new ClockSyncTag(a, b)
     a.addTag(tag)
     b.addTag(tag)
@@ -313,13 +329,24 @@ object Clock{
   }
 }
 
-/**
-  * clock and reset signals can be combined to create a clock domain.
-  * Clock domains could be applied to some area of the design and then all synchronous elements instantiated into this
-  * area will then implicitly use this clock domain.
-  * Clock domain application work like a stack, which mean, if you are in a given clock domain, you can still apply another clock domain locally
+/** Represents the combined clock and reset signals for an hardware domain.
+  * 
+  * Clock domains could be applied to some area of the design and then all synchronous
+  * elements instantiated into this area will then implicitly use this clock domain.
+  * Clock domain application work like a stack, which mean, if you are in a given
+  * clock domain, you can still apply another clock domain locally.
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/clock_domain ClockDomain Documentation]]
+  * @param clock Clock signal that defines the domain
+  * @param reset Reset signal. If a register exists which needs a reset and the 
+  *              clock domain doesn’t provide one, an error message will be displayed.
+  * @param softReset Reset which infers an additional synchronous reset
+  * @param clockEnable Disable the clock on the whole clock domain without having 
+  *                    to manually implement that on each synchronous element.
+  * @param frequency Allows you to specify the frequency of the given clock domain
+  *                  and later read it in your design. This parameter does not generate
+  *                  a PLL or more hardware to control the frequency.
+  * @param config Specify the polarity of signals and the nature of the reset.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html clock domains documentation]]
   */
 case class ClockDomain(clock       : Bool,
                        reset       : Bool = null,

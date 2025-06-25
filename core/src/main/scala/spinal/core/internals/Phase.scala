@@ -341,7 +341,7 @@ class PhaseAnalog extends PhaseNetlist{
               case _ => SpinalError(s"Unsupported statement $s")
             }
             if(targetRange.size != sourceRange.size)
-              SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT $s\n${s.getScalaLocationLong}")
+              SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT: $s.\nLocation:\n${s.getScalaLocationLong}")
 
             if(targetRange.size > 0) {
               if (sourceBt == null) SpinalError(":(")
@@ -756,7 +756,7 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
         }
 
         if(!(topo.writes.nonEmpty || topo.readWriteSync.nonEmpty || topo.writeReadSameAddressSync.nonEmpty || mem.initialContent != null)) {
-          SpinalError(s"MEM-WITHOUT-DRIVER. $mem has no write ports nor initial content. Defined at :\n${mem.getScalaLocationLong}")
+          SpinalError(s"MEM-WITHOUT-DRIVER: Memory '$mem' has no write ports nor initial content.\nDefined at:\n${mem.getScalaLocationLong}")
         }
 
         mem.component.rework{
@@ -1516,7 +1516,10 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
 
         for((key,elements) <- reserveds){
           if(elements.length != 1){
-            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${senum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
+            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with key '$key' and following elements:.\n" +
+                         s"${elements.mkString(", ")}\n" +
+                         s"Enumeration defined at:\n${senum.getScalaLocationLong}" +
+                         s"Encoding defined at:\n${encoding.getScalaLocationLong}")
           }
         }
       }
@@ -1882,7 +1885,7 @@ class PhaseCheckCrossClock() extends PhaseCheck{
           case node: Expression => node.foreachDrivingExpression(e => walk(e))
         }
       }
-      println(that)
+
       if(!that.isReg){
         that.foreachStatements(walk)
         for(cd <- cds) that.addTag(new ClockDomainReportTag(cd))
@@ -2084,80 +2087,128 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
 
     val okId = globalData.allocateAlgoIncrementale()
 
-    def propagate(root: Statement, vital: Boolean): Unit = {
-      if(root.algoIncrementale == okId) return
+    def getComponentOrThrowForPulledDataCache(s: Statement, operation: String): Component = {
+      val comp = s.component
+      if (comp == null) {
+        var statementInfo = s"Type: ${s.getClass.getSimpleName}, Content: ${s.toString}"
+        s match {
+          case named: Nameable if named.isNamed => statementInfo += s" (Name: ${named.getName()})"
+          case _ =>
+        }
+        val location = s.getScalaLocationLong
+        throw new NullPointerException(
+          s"Attempted to access '${operation}' on a null component for Statement: [$statementInfo] at $location"
+        )
+      }
+      comp
+    }
 
+
+    def propagate(root: Statement, vital: Boolean): Unit = {
+      if (root == null) {
+        SpinalWarning("propagate called with null root statement.")
+        return
+      }
+      if (root.algoIncrementale == okId) return
       root.algoIncrementale = okId
 
       val pending = mutable.ArrayStack[Statement](root)
 
-      def propagate(s: Statement) = {
-        if(s.algoIncrementale != okId) {
+      def propagateInner(s: Statement): Unit = {
+        if (s == null) {
+            SpinalWarning("propagateInner called with null statement in pending queue.")
+            return
+        }
+        if (s.algoIncrementale != okId) {
           s.algoIncrementale = okId
           pending.push(s)
         }
       }
 
-      while(pending.nonEmpty){
+      while (pending.nonEmpty) {
         val s = pending.pop()
-        if(postClockPulling) {
+
+        if (postClockPulling) {
           s.foreachClockDomain(cd => {
-            propagate(s.component.pulledDataCache(cd.clock).asInstanceOf[Bool])
-            if(cd.hasResetSignal) propagate(s.component.pulledDataCache(cd.reset).asInstanceOf[Bool])
-            if(cd.hasSoftResetSignal) propagate(s.component.pulledDataCache(cd.softReset).asInstanceOf[Bool])
-            if(cd.hasClockEnableSignal) propagate(s.component.pulledDataCache(cd.clockEnable).asInstanceOf[Bool])
+            val component = getComponentOrThrowForPulledDataCache(s, "pulledDataCache(cd.clock)")
+
+            propagateInner(component.pulledDataCache(cd.clock).asInstanceOf[Statement]) 
+            if (cd.hasResetSignal) {
+                propagateInner(component.pulledDataCache(cd.reset).asInstanceOf[Statement])
+            }
+
+            if (cd.hasSoftResetSignal) {
+                propagateInner(component.pulledDataCache(cd.softReset).asInstanceOf[Statement])
+            }
+
+            if (cd.hasClockEnableSignal) {
+                propagateInner(component.pulledDataCache(cd.clockEnable).asInstanceOf[Statement])
+            }
           })
         } else {
           s.foreachClockDomain(cd => {
-            propagate(cd.clock)
-            def propCached(that : BaseType): Unit ={
-              s.component.pulledDataCache.get(that) match {
-                case Some(x) => propagate(x.asInstanceOf[BaseType])
-                case None =>    propagate(that)
+            if (cd.clock != null) propagateInner(cd.clock)
+            else SpinalWarning(s"Clock domain on statement [$s] has a null clock signal.")
+
+            def propCached(that: BaseType): Unit = {
+              if (that == null) {
+                  SpinalWarning(s"propCached called with null BaseType for statement [$s].")
+                  return
+              }
+              // Check s.component BEFORE accessing pulledDataCache
+              val component = getComponentOrThrowForPulledDataCache(s, s"pulledDataCache.get($that)")
+              component.pulledDataCache.get(that) match {
+                case Some(x) =>
+                  if (x == null) SpinalWarning(s"pulledDataCache returned null for key [$that] on component [$component]")
+                  else propagateInner(x.asInstanceOf[Statement])
+                case None => propagateInner(that)
               }
             }
-            if(cd.hasResetSignal) propCached(cd.reset)
-            if(cd.hasSoftResetSignal) propCached(cd.softReset)
-            if(cd.hasClockEnableSignal) propCached(cd.clockEnable)
+            if (cd.hasResetSignal) propCached(cd.reset)
+            if (cd.hasSoftResetSignal) propCached(cd.softReset)
+            if (cd.hasClockEnableSignal) propCached(cd.clockEnable)
           })
         }
 
         s match {
-          case s: BaseType =>
-            if(vital)
-              s.setAsVital()
-            s.foreachStatements(propagate)
-          case s: AssignmentStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-            s.walkParentTreeStatements(propagate) //Could be walkParentTreeStatementsUntilRootScope but then should symplify removed TreeStatements
-          case s: WhenStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: SwitchStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: AssertStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-            s.walkParentTreeStatements(propagate)
-          case s: Mem[_] => s.foreachStatements{
-            case p: MemWrite     => propagate(p)
-            case p: MemReadWrite => propagate(p)
-            case p: MemReadSync  =>
-            case p: MemReadAsync =>
+          case sbt: BaseType =>
+            if (vital) sbt.setAsVital()
+            sbt.foreachStatements(propagateInner)
+          case sas: AssignmentStatement =>
+            sas.walkExpression { case e: Statement => propagateInner(e); case _ => }
+            sas.walkParentTreeStatements(propagateInner)
+          case sws: WhenStatement =>
+            sws.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case sss: SwitchStatement =>
+            sss.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case sast: AssertStatement =>
+            sast.walkExpression { case e: Statement => propagateInner(e); case _ => }
+            sast.walkParentTreeStatements(propagateInner)
+          case smem: Mem[_] => smem.foreachStatements {
+            case p: MemWrite => propagateInner(p)
+            case p: MemReadWrite => propagateInner(p)
+            case p: MemReadSync if p.isInstanceOf[Statement] => propagateInner(p.asInstanceOf[Statement])
+            case p: MemReadAsync if p.isInstanceOf[Statement] => propagateInner(p.asInstanceOf[Statement])
+            case _ =>
           }
-          case s: MemWrite =>
-            s.isVital |= vital
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: MemReadWrite =>
-            s.isVital |= vital
-            propagate(s.mem)
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: MemReadSync =>
-            s.isVital |= vital
-            propagate(s.mem)
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: MemReadAsync =>
-            s.isVital |= vital
-            propagate(s.mem)
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
+          case smw: MemWrite =>
+            smw.isVital |= vital
+            smw.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case smrw: MemReadWrite =>
+            smrw.isVital |= vital
+            if (smrw.mem != null) propagateInner(smrw.mem) else SpinalWarning(s"MemReadWrite statement [$smrw] has null mem reference.")
+            smrw.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case smrs: MemReadSync =>
+            smrs.isVital |= vital
+            if (smrs.mem != null) propagateInner(smrs.mem) else SpinalWarning(s"MemReadSync statement [$smrs] has null mem reference.")
+            smrs.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case smra: MemReadAsync =>
+            smra.isVital |= vital
+            if (smra.mem != null) propagateInner(smra.mem) else SpinalWarning(s"MemReadAsync statement [$smra] has null mem reference.")
+            smra.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case otherStmt: Statement if otherStmt.isInstanceOf[TreeStatement] => // Handle other TreeStatements
+            otherStmt.asInstanceOf[TreeStatement].foreachStatements(propagateInner)
+          case _ => // Other statement types that don't need specific handling here
         }
       }
     }
@@ -2314,10 +2365,34 @@ class PhaseCheckIoBundle extends PhaseCheck{
   }
 }
 
-class PhaseCheckHierarchy extends PhaseCheck{
+class PhaseCheckHierarchy extends PhaseCheck {
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
+
+    def getSignalDirectionString(bt: BaseType): String = {
+      if (bt.isInput) "input"
+      else if (bt.isOutput) "output"
+      else if (bt.isInOut) "inout"
+      else if (bt.isDirectionLess) "directionless"
+      else "unknown"
+    }
+
+    def getComponentPath(comp: Component): String = {
+      if (comp != null) comp.getPath() else "<None>"
+    }
+
+    // 优化后的 getComponentDesc，处理 toplevel 组件
+    def getComponentDesc(comp: Component): String = {
+      if (comp == null) return "<null_component_ref>"
+      if (comp == pc.topLevel) { // 如果是顶层组件，省略 (parent: '<None>')
+        s"component '${comp.getName()}'"
+      } else {
+        val parentName = if (comp.parent != null) comp.parent.getName() else "<None>"
+        s"component '${comp.getName()}' (parent: '$parentName')"
+      }
+    }
+
 
     //Check hierarchy read/write violation
     walkComponents(c => {
@@ -2326,62 +2401,121 @@ class PhaseCheckHierarchy extends PhaseCheck{
         var error = false
 
         s match {
-          case s : InitialAssignmentStatement =>
+          case s: InitialAssignmentStatement =>
           case s: AssignmentStatement =>
             val bt = s.finalTarget
 
-            if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
-              val identifier = if(c == null) "toplevel" else s"$c component"
-              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $identifier.\n${s.getScalaLocationLong}")
+            val condIsDirectionLessInC = bt.isDirectionLess && bt.component == c
+            val condIsOutputOrInOutInC = bt.isOutputOrInOut && bt.component == c
+            val condIsInputOrInOutInChildOfC = bt.isInputOrInOut && bt.component != null && bt.component.parent == c
+
+            if (!(condIsDirectionLessInC || condIsOutputOrInOutInC || condIsInputOrInOutInChildOfC)) {
+              val currentComponentDesc = if (c == null) "toplevel" else getComponentDesc(c)
+
+              val detailedMessage = new StringBuilder()
+              detailedMessage ++= s"HIERARCHY VIOLATION (assignment):\n"
+              detailedMessage ++= s"  Attempted to assign to signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName}),\n"
+              detailedMessage ++= s"  which is defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}',\n"
+              detailedMessage ++= s"  but is not assignable from $currentComponentDesc.\n"
+              detailedMessage ++= s"  (Assigned by expression: '${s.source.toString()}')\n"
+              detailedMessage ++= s"To be assignable from $currentComponentDesc, this signal must satisfy one of the following:\n"
+              detailedMessage ++= s"  1. Be a directionless signal defined directly within $currentComponentDesc.\n"
+              detailedMessage ++= s"  2. Be an 'out' or 'inout' port of $currentComponentDesc.\n"
+              detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentDesc.\n"
+              detailedMessage ++= s"Location of assignment:\n${s.getScalaLocationLong}"
+              PendingError(detailedMessage.toString())
               error = true
             }
 
-            if(!error && !bt.isInOut){
+            if (!error && !bt.isInOut) {
               val rootScope = s.rootScopeStatement
-              var ptr       = s.parentScope
+              var ptr = s.parentScope
 
-              while(ptr.parentStatement != null && ptr != rootScope){
+              while (ptr.parentStatement != null && ptr != rootScope) {
                 ptr = ptr.parentStatement.parentScope
               }
 
-              if(ptr != rootScope){
-                PendingError(s"SCOPE VIOLATION : $bt is assigned outside its declaration scope at \n${s.getScalaLocationLong}")
+              if (ptr != rootScope) {
+                PendingError(s"SCOPE VIOLATION: Signal '$bt' is assigned outside its declaration scope.\nLocation:\n${s.getScalaLocationLong}")
               }
             }
-          case s : MemPortStatement => {
-            if(s.mem.component != s.component){
-              PendingError(s"SCOPE VIOLATION : memory port $s was created in another component than its memory ${s.mem} \n${s.getScalaLocationLong}")
+          case s: MemPortStatement => {
+            if (s.mem.component != s.component) {
+              val detailedMemPortMessage = new StringBuilder()
+              detailedMemPortMessage ++= s"SCOPE VIOLATION: Memory port '$s' was created in a different component than its memory '${s.mem}'.\n"
+              detailedMemPortMessage ++= s"  Memory component: ${getComponentDesc(s.mem.component)}, Port component: ${getComponentDesc(s.component)}\n"
+              detailedMemPortMessage ++= s"Location:\n${s.getScalaLocationLong}"
+              PendingError(detailedMemPortMessage.toString())
             }
           }
           case _ =>
         }
 
-        if(!error) s.walkDrivingExpressions {
+        if (!error) s.walkDrivingExpressions {
           case bt: BaseType =>
-            if (!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)) {
-              if(bt.component == null || bt.getComponents().head != pc.topLevel){
-                PendingError(s"OLD NETLIST RE-USED : $bt is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+            val condIsSignalInC = bt.component == c
+            val condIsSignalInOutOrInoutOfChild = (bt.isInput || bt.isOutput || bt.isInOut) && bt.component != null && bt.component.parent == c
+
+            if (!(condIsSignalInC || condIsSignalInOutOrInoutOfChild)) {
+              val signalToplevelOpt = bt.getComponents().headOption
+              if (bt.component == null || signalToplevelOpt.isEmpty || signalToplevelOpt.get != pc.topLevel) {
+                val signalInfo = s"signal '${bt.toString()}' (instance of ${bt.getClass.getSimpleName})"
+                val contextInfo = s"used to drive statement '${s.toString()}'"
+                val problem = "appears to be defined in another netlist or is a dangling reference."
+                val advice = "Ensure hardware constants are not defined as 'val' in global Scala objects, and all signals originate from the current elaboration context."
+                val signalComponentInfo = getComponentDesc(bt.component)
+                val signalNetlistHeadInfo = signalToplevelOpt.map(h => s"'${getComponentPath(h)}'").getOrElse("N/A (signal's component list is empty or its component is null)")
+                val currentNetlistHeadInfo = if (pc.topLevel != null) s"'${getComponentPath(pc.topLevel)}'" else "N/A (current toplevel is null)"
+
+                val detailedOldNetlistMessage = new StringBuilder()
+                detailedOldNetlistMessage ++= s"OLD NETLIST RE-USED / DANGLING REFERENCE:\n"
+                detailedOldNetlistMessage ++= s"  Signal $signalInfo $problem.\n"
+                detailedOldNetlistMessage ++= s"  It was $contextInfo.\n"
+                detailedOldNetlistMessage ++= s"Details for this signal:\n"
+                detailedOldNetlistMessage ++= s"  - Inferred toplevel: $signalNetlistHeadInfo\n"
+                detailedOldNetlistMessage ++= s"  - Current elaboration toplevel: $currentNetlistHeadInfo\n"
+                detailedOldNetlistMessage ++= s"Advice: $advice\n"
+                detailedOldNetlistMessage ++= s"Location of read:\n${s.getScalaLocationLong}"
+                PendingError(detailedOldNetlistMessage.toString())
               } else {
-                if(c.withHierarchyAutoPull){
+                if (c != null && c.withHierarchyAutoPull) {
                   autoPullOn += bt
                 } else {
-                  PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+                  val currentComponentDesc = if (c == null) "toplevel" else getComponentDesc(c)
+                  
+                  val detailedMessage = new StringBuilder()
+                  detailedMessage ++= s"HIERARCHY VIOLATION (read access):\n"
+                  detailedMessage ++= s"  Attempted to read signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName}),\n"
+                  detailedMessage ++= s"  which is defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}',\n"
+                  detailedMessage ++= s"  but is not readable from $currentComponentDesc.\n"
+                  detailedMessage ++= s"  (Accessed by statement: '${s.toString()}')\n"
+                  detailedMessage ++= s"To be readable from $currentComponentDesc, this signal must satisfy one of the following:\n"
+                  detailedMessage ++= s"  1. Be any signal (directionless, in, out, or inout) defined directly within $currentComponentDesc.\n"
+                  detailedMessage ++= s"  2. Be an 'in', 'out', or 'inout' port of a direct child component of $currentComponentDesc.\n"
+                  detailedMessage ++= s"Location of read:\n${s.getScalaLocationLong}"
+                  PendingError(detailedMessage.toString())
                 }
               }
             }
-          case s : MemPortStatement =>{
-            if(s.mem.component != c){
-              PendingError(s"OLD NETLIST RE-USED : Memory port $s of memory ${s.mem} is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+          case s_expr: MemPortStatement => {
+            if (s_expr.mem.component != c) {
+              val detailedMemPortMessage = new StringBuilder()
+              detailedMemPortMessage ++= s"HIERARCHY/SCOPE VIOLATION (OLD NETLIST RE-USED): Memory port '${s_expr.toString()}'\n"
+              detailedMemPortMessage ++= s"  of memory '${s_expr.mem.toString()}' (defined in ${getComponentDesc(s_expr.mem.component)}) "
+              detailedMemPortMessage ++= s"is used in statement '${s.toString()}' within ${getComponentDesc(c)}.\n"
+              detailedMemPortMessage ++= s"  Memory port access should typically occur within the memory's own component scope (${getComponentDesc(s_expr.mem.component)}).\n"
+              detailedMemPortMessage ++= s"Location:\n${s.getScalaLocationLong}"
+              PendingError(detailedMemPortMessage.toString())
             }
           }
           case _ =>
         }
       })
 
-      if(autoPullOn.nonEmpty) c.rework{
+      if (autoPullOn.nonEmpty) c.rework {
         c.dslBody.walkStatements(s =>
           s.walkRemapDrivingExpressions(e =>
-            if(autoPullOn.contains(e)){
+            if (autoPullOn.contains(e)) {
               e.asInstanceOf[BaseType].pull()
             } else {
               e
@@ -2391,8 +2525,10 @@ class PhaseCheckHierarchy extends PhaseCheck{
       }
 
       //Check register defined as component inputs
-      c.getAllIo.foreach(bt => if(bt.isInput && bt.isReg){
-        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT : $bt is defined as a registered input of the $c component, but isn't allowed.\n${bt.getScalaLocationLong}")
+      c.getAllIo.foreach(bt => if (bt.isInput && bt.isReg) {
+        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT: Signal '$bt' is defined as a registered input " +
+                     s"of the ${getComponentDesc(c)}, which is not allowed.\n" +
+                     s"Location:\n${bt.getScalaLocationLong}")
       })
     })
   }
@@ -2467,7 +2603,8 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
   }
 }
 
-class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
+class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck {
+  case class AssignmentInfo(bits: AssignedBits, lastLocation: Option[String])
 
   override def impl(pc : PhaseContext): Unit = {
     import pc._
@@ -2476,144 +2613,206 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
       val subInputsPerScope = mutable.HashMap[ScopeStatement, ArrayBuffer[BaseType]]()
       c.children.foreach(_.getAllIo.withFilter(_.isInput).foreach(input => subInputsPerScope.getOrElseUpdate(input.rootScopeStatement, ArrayBuffer[BaseType]()) += input))
 
-      def walkBody(body: ScopeStatement, checkOverlap : Boolean): mutable.HashMap[BaseType, AssignedBits] = {
-        val assigneds = mutable.HashMap[BaseType, AssignedBits]()
+      def walkBody(body: ScopeStatement, checkOverlap: Boolean): mutable.HashMap[BaseType, AssignmentInfo] = {
+        val assigneds = mutable.HashMap[BaseType, AssignmentInfo]()
 
-        def getOrEmpty(bt: BaseType) = assigneds.getOrElseUpdate(bt, new AssignedBits(bt.getBitsWidth))
+        // --- Helper Function for Updating Assignments and Checking Overlap ---
 
-        def getOrEmptyAdd(bt: BaseType, src: AssignedBits): Boolean = {
-          var dst : AssignedBits = null
-          var wasExisting = true
-          assigneds.get(bt) match {
-            case None => {
-              dst = new AssignedBits(bt.getBitsWidth)
-              assigneds(bt) = dst
-              wasExisting = false
-            }
-            case Some(x) => dst = x
+        /**
+         * Processes an assignment attempt for a BaseType.
+         * Updates the `assigneds` map for the current scope.
+         * Checks for full assignment overlaps during the `checkOverlap` phase.
+         *
+         * @param bt The BaseType being assigned.
+         * @param srcBits The bits being assigned in this operation.
+         * @param isFullAssignmentCheck Indicates if this operation *originates* from a statement that intends
+         *                              to be a full assignment (e.g., `a := ...`). This is used to decide
+         *                              if an overlap check should be triggered against prior assignments.
+         *                              Set to `false` when merging conditional results.
+         * @param currentLocation The source code location of the current assignment/statement.
+         */
+        def processAssignment(bt: BaseType, srcBits: AssignedBits, isFullAssignmentCheck: Boolean, currentLocation: String): Unit = {
+          val existingInfoOpt = assigneds.get(bt)
+          val wasExisting = existingInfoOpt.isDefined // Was there *any* prior assignment info in this scope?
+          val previousLocation = existingInfoOpt.flatMap(_.lastLocation) // Get location of the *last* modification
+
+          // Determine if an overlap error condition exists *before* modifying the bits.
+          // Overlap occurs if:
+          // 1. This is the overlap checking phase.
+          // 2. The current operation *originates* from a full assignment statement (isFullAssignmentCheck = true).
+          // 3. The source bits actually cover the entire width.
+          // 4. The signal was already assigned previously *within this scope*.
+          // 5. Overriding is not explicitly allowed via tag.
+          // *** NOTE: Merge results (isFullAssignmentCheck = false) do not trigger this check ***
+          val overlapDetected = checkOverlap &&
+                                isFullAssignmentCheck && // <<< Check relies on the origin of the operation
+                                srcBits.isFull &&
+                                wasExisting &&
+                                !bt.hasTag(allowAssignmentOverride)
+
+          // Report error if overlap detected
+          if (overlapDetected) {
+            PendingError(
+              s"ASSIGNMENT OVERLAP: Signal $bt assigned at\n" +
+              s"${currentLocation}\n" +
+              s"completely overlaps the previous assignment made at\n" + // Provide context of the conflicting assignment
+              s"${previousLocation.getOrElse("Unknown location or earlier scope")}" // Fallback if location is missing (should be rare)
+            )
           }
-          val ret = src.isFull && wasExisting &&  !bt.hasTag(allowAssignmentOverride)
-          dst.add(src)
-          ret
+
+          // Get the bits to modify:
+          // CRITICAL: Clone existing bits if they exist, because AssignedBits.add modifies in place.
+          // Otherwise, create new AssignedBits.
+          val dstBits = existingInfoOpt.map(_.bits.clone()).getOrElse(new AssignedBits(bt.getBitsWidth))
+
+          // Perform the 'add' operation (modifies the cloned or new dstBits in place)
+          dstBits.add(srcBits)
+
+          // Update the map with the modified bits and the *current* location as the new 'lastLocation'.
+          assigneds(bt) = AssignmentInfo(dstBits, Some(currentLocation))
         }
 
-        def getOrEmptyAdd3(bt: BaseType, hi: Int, lo: Int): Boolean = {
-          var dst : AssignedBits = null
-          var wasExisting = true
-          assigneds.get(bt) match {
-            case None => {
-              dst = new AssignedBits(bt.getBitsWidth)
-              assigneds(bt) = dst
-              wasExisting = false
-            }
-            case Some(x) => dst = x
-          }
-          val ret = hi == dst.width-1 && lo == 0 && wasExisting && !bt.hasTag(allowAssignmentOverride)
-          dst.add(hi, lo)
-          ret
-        }
+        // --- Statement Processing ---
 
-        def getOrEmptyAdd2(bt: BaseType, src: AssignedRange): Boolean = getOrEmptyAdd3(bt, src.hi, src.lo)
-        def noPoison(that : AssignmentStatement) = !checkOverlap || (that.source match {
-          case lit : Literal if lit.hasPoison() => false
+        // Helper to skip checks for assignments involving 'poison' literals during overlap check
+        def noPoison(that: AssignmentStatement): Boolean = !checkOverlap || (that.source match {
+          case lit: Literal if lit.hasPoison() => false
           case _ => true
         })
+
         body.foreachStatements {
-          case s: DataAssignmentStatement =>  //Omit InitAssignmentStatement
-            if(!s.finalTarget.isAnalog && noPoison(s)) {
+          case s: DataAssignmentStatement =>
+            if (!s.finalTarget.isAnalog && noPoison(s)) {
+              val location = s.getScalaLocationLong
               s.target match {
-                case bt: BaseType => if (getOrEmptyAdd3(bt, bt.getBitsWidth - 1, 0) && checkOverlap) {
-                  PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
-                }
+                case bt: BaseType =>
+                  val fullRangeBits = new AssignedBits(bt.getBitsWidth)
+                  fullRangeBits.add(bt.getBitsWidth - 1, 0)
+                  processAssignment(bt, fullRangeBits, isFullAssignmentCheck = true, location)
+
                 case e: BitVectorAssignmentExpression =>
                   val bt = e.finalTarget
-                  if (getOrEmptyAdd2(bt, e.getMinAssignedBits) && checkOverlap) {
-                    PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
-                  }
+                  val assignedRange = e.getMinAssignedBits
+                  val rangeBits = new AssignedBits(bt.getBitsWidth)
+                  rangeBits.add(assignedRange)
+                  val isEffectivelyFull = (assignedRange.hi == bt.getBitsWidth - 1) && (assignedRange.lo == 0)
+                  // Process, noting if it's effectively a full assignment, but crucially,
+                  // the *origin* is still a full assignment if isEffectivelyFull is true.
+                  processAssignment(bt, rangeBits, isEffectivelyFull, location)
               }
             }
+
           case s: WhenStatement =>
-            val whenTrue  = walkBody(s.whenTrue, checkOverlap)
-            val whenFalse = walkBody(s.whenFalse, checkOverlap)
+            val location = s.getScalaLocationLong
+            val whenTrueAssigneds = walkBody(s.whenTrue, checkOverlap)
+            val whenFalseAssigneds = walkBody(s.whenFalse, checkOverlap)
+            val keysUnion = whenTrueAssigneds.keySet ++ whenFalseAssigneds.keySet
 
-            for ((bt, assigned) <- whenTrue) {
-              whenFalse.get(bt) match {
-                case Some(otherBt) => getOrEmptyAdd(bt, otherBt.intersect(assigned))
-                case None => getOrEmpty(bt)
-              }
+            // Calculate the definite assignments (intersection)
+            for (bt <- keysUnion) {
+               (whenTrueAssigneds.get(bt), whenFalseAssigneds.get(bt)) match {
+                 case (Some(infoTrue), Some(infoFalse)) =>
+                   val intersectionBits = infoTrue.bits.clone().intersect(infoFalse.bits)
+                   if (!intersectionBits.isEmpty) {
+                     processAssignment(bt, intersectionBits, isFullAssignmentCheck = false, location)
+                   }
+                 case _ =>
+               }
             }
-            whenFalse.foreach(p => getOrEmpty(p._1))
+            // Ensure all signals touched within the branches are registered in the parent scope
+            // (important for latch detection pass), using the 'when' location if creating new.
+            keysUnion.foreach { bt =>
+                if (!assigneds.contains(bt)) {
+                   assigneds(bt) = AssignmentInfo(new AssignedBits(bt.getBitsWidth), Some(location))
+                }
+            }
+
           case s: SwitchStatement =>
-            val stuffs = if(s.isFullyCoveredWithoutDefault){
-              s.elements.map(e => walkBody(e.scopeStatement, checkOverlap))
-            } else if(s.defaultScope != null){
-              s.elements.map(e => walkBody(e.scopeStatement, checkOverlap)) += walkBody(s.defaultScope, checkOverlap)
-            } else {
-              s.elements.foreach(e => walkBody(e.scopeStatement, checkOverlap).foreach(e => getOrEmpty(e._1)))
-              null
-            }
+            val location = s.getScalaLocationLong
+            val branchBodies = s.elements.map(_.scopeStatement) ++ Option(s.defaultScope)
+            val branchAssignedsList = branchBodies.map(b => walkBody(b, checkOverlap))
 
-            if(stuffs != null) {
-              val mix = mutable.HashMap[BaseType, AssignedBits]()
-              for (stuff <- stuffs) {
-                for ((bt, assigned) <- stuff) {
-                  mix.update(bt, assigned)
-                }
-              }
+            if (branchAssignedsList.nonEmpty) {
+              val allTouchedSignals = mutable.HashSet[BaseType]()
+              branchAssignedsList.foreach(_.keys.foreach(allTouchedSignals += _))
 
-              for((bt, assigned) <- mix){
-                var continue = true
-                val iterator = stuffs.iterator
-                while(iterator.hasNext && continue){
-                  iterator.next().get(bt) match {
-                    case None => {
-                      assigned.clear()
-                      continue = false
-                    }
-                    case Some(branch) =>{
-                      assigned.intersect(branch)
-                    }
+              for (bt <- allTouchedSignals) {
+                  var intersectionForBt: Option[AssignedBits] = None
+                  var firstBranchBitsCloned: Option[AssignedBits] = None
+                  var possibleIntersection = true
+
+                  val relevantBranches = if (s.isFullyCoveredWithoutDefault || s.defaultScope != null) {
+                      branchAssignedsList
+                  } else {
+                      Seq.empty
                   }
-                }
+
+                  if (relevantBranches.nonEmpty) {
+                      val iterator = relevantBranches.iterator
+                      while(iterator.hasNext && possibleIntersection){
+                         val branchMap = iterator.next()
+                         branchMap.get(bt) match {
+                           case None =>
+                              possibleIntersection = false
+                           case Some(branchInfo) =>
+                              if (firstBranchBitsCloned.isEmpty) {
+                                 firstBranchBitsCloned = Some(branchInfo.bits.clone())
+                              } else {
+                                 firstBranchBitsCloned.get.intersect(branchInfo.bits)
+                              }
+                         }
+                      }
+                      intersectionForBt = firstBranchBitsCloned.filter(bits => possibleIntersection && !bits.isEmpty)
+                  }
+
+                  intersectionForBt.foreach { finalBits =>
+                    processAssignment(bt, finalBits, isFullAssignmentCheck = false, location)
+                  }
               }
 
-              for ((bt, assigned) <- mix) {
-                if(getOrEmptyAdd(bt,assigned) && checkOverlap){
-                  PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n ${s.getScalaLocationLong}")
-                }
+              allTouchedSignals.foreach { bt =>
+                  if (!assigneds.contains(bt)) {
+                      assigneds(bt) = AssignmentInfo(new AssignedBits(bt.getBitsWidth), Some(location))
+                  }
               }
             }
           case s =>
         }
 
 
+        // --- Final Checks (Latch/No-Driver) --- performed only on the second pass (!checkOverlap)
         def finalCheck(bt : BaseType): Unit ={
           // Hold off until suffix parent is processed
           if (bt.isSuffix)
             return
           if (bt.isInstanceOf[Suffixable]) {
-            if (bt.dlcIsEmpty)
-              return bt.asInstanceOf[Suffixable].elements.filter(_._2.isInstanceOf[BaseType]).foreach(e => finalCheck(e._2.asInstanceOf[BaseType]))
+            if (bt.dlcIsEmpty) {
+              bt.asInstanceOf[Suffixable].elements
+                .filter(_._2.isInstanceOf[BaseType])
+                .foreach(e => finalCheck(e._2.asInstanceOf[BaseType]))
+              return
+            }
           }
 
-          val assignedBits = getOrEmpty(bt)
+          val assignmentInfo = assigneds.getOrElse(bt, AssignmentInfo(new AssignedBits(bt.getBitsWidth), None))
+          val assignedBits = assignmentInfo.bits
+
           if ((bt.isVital || !bt.dlcIsEmpty) && bt.rootScopeStatement == body && !assignedBits.isFull){
             if(bt.isComb) {
               val unassignedBits = new AssignedBits(bt.getBitsWidth)
-
               unassignedBits.add(bt.getBitsWidth - 1, 0)
               unassignedBits.remove(assignedBits)
 
               if (!unassignedBits.isEmpty) {
                 if (bt.dlcIsEmpty) {
                   if(!bt.hasTag(allowFloating)) {
-                    PendingError(s"NO DRIVER ON $bt, defined at\n${bt.getScalaLocationLong}")
+                    PendingError(s"NO DRIVER ON $bt (combinatorial signal with no logic connection), defined at\n${bt.getScalaLocationLong}")
                   }
                 } else if (!bt.hasTag(noLatchCheck)) {
                   if (unassignedBits.isFull)
-                    PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
+                    PendingError(s"LATCH DETECTED for the combinatorial signal $bt (no bits assigned), defined at\n${bt.getScalaLocationLong}")
                   else
-                    PendingError(s"LATCH DETECTED from the combinatorial signal $bt, unassigned bit mask " +
+                    PendingError(s"LATCH DETECTED for the combinatorial signal $bt, unassigned bit mask " +
                       s"is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
                 }
               }
@@ -2621,7 +2820,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
           }
         }
 
-        //Final checks usages
+
         if(!checkOverlap) {
           body.foreachDeclarations {
             case bt: BaseType => finalCheck(bt)
@@ -2632,13 +2831,13 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
         assigneds
       }
-      walkBody(c.dslBody, true)
-      walkBody(c.dslBody, false)
+
+      walkBody(c.dslBody, checkOverlap = true)
+      walkBody(c.dslBody, checkOverlap = false)
+
     })
   }
 }
-
-
 
 class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int], blackboxesSourcesPaths: mutable.LinkedHashSet[String])(pc: PhaseContext) extends PhaseCheck {
 
@@ -3021,9 +3220,9 @@ class PhaseCheckAsyncResetsSources() extends PhaseCheck {
 
 class PhaseObfuscate() extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
-    var id = 0
+    var id: Long = 0
     def newName(): String = {
-      val name = "oo_" + id
+      val name = pc.config.obfuscate.prefix + id
       id += 1
       name
     }
@@ -3033,21 +3232,54 @@ class PhaseObfuscate() extends PhaseNetlist{
     def rename(that : Nameable) : Unit = {
      that.setName(newName)
     }
-    if(pc.config.obfuscateNames){
+    if(pc.config.obfuscateNames) {
       pc.walkComponentsExceptBlackbox { c =>
-        if (c != pc.topLevel) {
-          renameT(c)
-          if(!c.definition.hasTag(dontObfuscate)) c.setDefinitionName(newName)
+        val cd = c.clockDomain.get
+        if(cd != null && pc.config.obfuscate.keepClkResetNames) {
+          if(cd.clock.component != c) {
+            c.pulledDataCache.get(cd.clock).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.reset != null && cd.reset.component != c) {
+            c.pulledDataCache.get(cd.reset).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.softReset != null && cd.softReset.component != c) {
+            c.pulledDataCache.get(cd.softReset).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.clockEnable != null && cd.clockEnable.component != c) {
+            c.pulledDataCache.get(cd.clockEnable).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
         }
-        c.dslBody.walkDeclarations {
-          case io: BaseType if io.component == pc.topLevel && !io.isDirectionLess =>
-          case n: Nameable with SpinalTagReady => renameT(n)
-          case n: Nameable => rename(n)
-        }
-        for ((enu, enc) <- pc.enums) {
-          rename(enu)
-          for (e <- enu.elements) {
-            renameT(e)
+        if(c.level >= pc.config.obfuscate.hierarchyKeepLevel) {
+          if (c != pc.topLevel) {
+            if(!c.hasTag(dontObfuscate) && !pc.config.obfuscate.keepInstanceNames) renameT(c)
+            if(!c.definition.hasTag(dontObfuscate) && !pc.config.obfuscate.keepDefinitionNames) c.setDefinitionName(newName)
+          }
+          c.dslBody.walkDeclarations {
+            case io: BaseType if io.component == pc.topLevel && !io.isDirectionLess =>
+            case n: Nameable with SpinalTagReady => renameT(n)
+            case n: Nameable => rename(n)
+          }
+          for ((enu, enc) <- pc.enums) {
+            rename(enu)
+            for (e <- enu.elements) {
+              renameT(e)
+            }
           }
         }
       }

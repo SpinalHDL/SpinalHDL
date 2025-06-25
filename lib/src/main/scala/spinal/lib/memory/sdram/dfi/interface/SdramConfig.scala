@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram.dfi.interface
+package spinal.lib.memory.sdram.dfi
 
 import spinal.core._
 
@@ -53,6 +53,8 @@ object SdramGeneration {
 
 case class SdramConfig(
     generation: SdramGeneration,
+    bgWidth: Int,
+    cidWidth: Int,
     bankWidth: Int,
     columnWidth: Int,
     rowWidth: Int,
@@ -62,8 +64,6 @@ case class SdramConfig(
     ddrRdLat: Int,
     sdramtime: SdramTiming
 ) {
-
-  import sdramtime._
 
   def burstLength = generation.burstLength
   def wordAddressWidth = bankWidth + columnWidth + rowWidth
@@ -75,23 +75,25 @@ case class SdramConfig(
   def columnSize = 1 << columnWidth
   def ddrStartdelay = 600000 / (1000 / ddrMHZ) // 600uS
 
-  def tREF = (REF * ddrMHZ) / rowSize
+  def tREF = (sdramtime.REF * ddrMHZ) / rowSize
   def rowSize = 1 << rowWidth
-  def tRCD = timeCycle(RCD, cycleTime_ns)
-  def tRP = timeCycle(RP, cycleTime_ns)
-  def tRFC = timeCycle(RFC, cycleTime_ns)
-  def tWTR = math.max(timeCycle(WTR, cycleTime_ns), ddrWrLat + generation.burstLength / generation.dataRate + tWR)
+  def tRCD = timeCycle(sdramtime.RCD, cycleTime_ns)
+  def tRP = timeCycle(sdramtime.RP, cycleTime_ns)
+  def tRFC = timeCycle(sdramtime.RFC, cycleTime_ns)
+  def tWTR =
+    math.max(timeCycle(sdramtime.WTR, cycleTime_ns), ddrWrLat + generation.burstLength / generation.dataRate + tWR)
 
   def tRTW = ddrRdLat + generation.burstLength / generation.dataRate + tWR
 
   def tWR = 5 + 1
 
-  def tRAS = timeCycle(RAS, cycleTime_ns)
-  def tRTP = math.max(timeCycle(RTP, cycleTime_ns), generation.burstLength / generation.dataRate)
+  def tRAS = timeCycle(sdramtime.RAS, cycleTime_ns)
 
-  def tRRD = math.max(timeCycle(RRD, cycleTime_ns), generation.burstLength / generation.dataRate)
+  def tRTP = math.max(timeCycle(sdramtime.RTP, cycleTime_ns), generation.burstLength / generation.dataRate)
 
-  def tFAW = timeCycle(FAW, cycleTime_ns)
+  def tRRD = math.max(timeCycle(sdramtime.RRD, cycleTime_ns), generation.burstLength / generation.dataRate)
+
+  def tFAW = timeCycle(sdramtime.FAW, cycleTime_ns)
 
   def timeCycle(time: Int, cycTime: Int) = (time + cycTime - 1) / cycTime
 

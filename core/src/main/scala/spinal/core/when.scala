@@ -58,19 +58,19 @@ object ConditionalContext {
 
 
 /**
-  * If statement
+  * Allow to express hardware conditional statements based on a `Bool` expression like an `if`.
   *
   * @example {{{
-  *     when(cond1){
+  *     when(cond1) {
   *       myCnt := 0
-  *     }elsewhen(cond2){
+  *     }elsewhen(cond2) {
   *       myCnt := myCnt + 1
-  *     }otherwise{
+  *     }otherwise {
   *       myCnt := myCnt - 1
   *     }
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/when_switch/ when Documentation]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#when `when` Documentation]]
   */
 object when {
 
@@ -100,10 +100,7 @@ class ElseWhenClause(val cond : Bool, _block: => Unit){
 }
 
 
-/**
-  * else / else if  statement
-  *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/when_switch/ when Documentation]]
+/** Used by SpinalHDL `when`/`elsewhen`/`otherwise` and `WhenBuilder` to keep track of the structure.
   */
 class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with ScalaLocated {
 
@@ -113,9 +110,17 @@ class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with 
     ctx.restore()
   }
 
+  /** Allows to express conditional SpinalHDL statements in a `when` structure.
+   * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#when `when` Documentation]]
+   */
   def elsewhen(clause : ElseWhenClause)(implicit loc: Location) : WhenContext = protElsewhen(clause.cond)(clause.block)(loc)
-//  @deprecated("Use `elsewhen` instead of `.elsewhen` (without the prefix `.`)", "1.1.2")
+
+  // @deprecated("Use `elsewhen` instead of `.elsewhen` (without the prefix `.`)", "1.1.2")
+  /** Allows to express conditional SpinalHDL statements in a `when` structure.
+   * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#when `when` Documentation]]
+   */
   def elsewhen(cond: Bool)(block: => Unit)(implicit loc: Location): WhenContext = protElsewhen(cond)(block)(loc)
+
   protected def protElsewhen(cond: Bool)(block: => Unit)(loc: Location): WhenContext = {
     var newWhenContext: WhenContext = null
     otherwise {
@@ -125,27 +130,23 @@ class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with 
   }
 }
 
-
-
-
-/**
-  * case/switch statement
+/** `case`/`switch` SpinalHDL statement
   *
   * @example {{{
-  *     switch(x){
-  *         is(value1){
-  *             //execute when x === value1
+  *     switch(x) {
+  *         is(value1) {
+  *             // execute when x === value1
   *         }
-  *         is(value2){
-  *             //execute when x === value2
+  *         is(value2) {
+  *             // execute when x === value2
   *         }
-  *         default{
-  *            //execute if none of precedent condition meet
+  *         default {
+  *            // execute if none of precedent conditions are meet
   *         }
   *      }
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/when_switch/ switch Documentation]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#switch `switch` Documentation]]
   */
 object switch {
 
@@ -166,10 +167,9 @@ object switch {
 }
 
 
-/**
-  * is statement of a switch case
+/** `is` statement of a SpinalHDL `switch`/ `case`
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/when_switch/ switch Documentation]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#switch `switch` Documentation]]  
   */
 object is {
 
@@ -182,15 +182,13 @@ object is {
     val switchElement = new SwitchStatementElement(ArrayBuffer[Expression](), new ScopeStatement(switchContext.statement))
     val switchValue   = switchContext.statement.value
 
-    def onBaseType(value : BaseType): Unit ={
+    def onBaseType(value : BaseType): Unit = {
       if(value.getClass == switchValue.getClass){
         switchElement.keys += value
       }else{
-        SpinalError("is(xxx) doesn't match switch(yyy) type")
+        SpinalError(s"is(xxx) doesn't match switch(yyy) type (${value.getClass.getName} != ${switchValue.getClass.getName})")
       }
     }
-
-
 
     values.foreach {
       case value: BaseType => onBaseType(value)
@@ -204,7 +202,7 @@ object is {
           case switchValue: Bits => onBaseType(B(key))
           case switchValue: UInt => onBaseType(U(key))
           case switchValue: SInt => onBaseType(S(key))
-          case _                 => SpinalError("The switch is not a Bits, UInt or SInt")
+          case _                 => SpinalError(s"The switch is not a Bits, UInt or SInt (${switchValue.getClass().getName()})")
         }
       case key: Long       =>
         switchValue match {
@@ -232,7 +230,6 @@ object is {
 //      case key: Seq[Data] => switchElement.keys += SwitchStatementKeyBool(key.map(d => (switchValue.asInstanceOf[Data] === d)).reduce(_ || _))
     }
 
-
     switchContext.statement.elements += switchElement
     val ctx = switchElement.scopeStatement.push()
     block
@@ -241,10 +238,9 @@ object is {
 }
 
 
-/**
-  * default statement of a switch case
+/** `default` statement of a SpinalHDL `switch`/ `case`
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/when_switch/ switch Documentation]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Semantic/when_switch.html#switch `switch` Documentation]]  
   */
 object default {
 

@@ -30,12 +30,55 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
 
   def apply(): T
 
+  /** Create an hardware literal from a Scala `Int`
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
+    */
   def apply(value: Int): T = this(BigInt(value))
+  
+  /** Create an hardware literal from a Scala `Int` with a given `width`
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
+    */
   def apply(value: Int, width: BitCount): T = this(BigInt(value),width)
+  
+  /** Create an hardware literal from a Scala `Long`
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
+    */
   def apply(value: Long): T = this(BigInt(value))
+  
+  /** Create an hardware literal from a Scala `Long` with a given `width`
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
+    */
   def apply(value: Long, width: BitCount): T = this(BigInt(value),width)
+  
+  /** Create an hardware literal from a Scala `BigInt`
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
+    */
   def apply(value: BigInt): T = getFactory(value, -1, this().setAsTypeNode())
+  
+  /** Create an hardware literal from a Scala `BigInt` with a given `width`
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
+    */
   def apply(value: BigInt, width: BitCount): T = getFactory(value, width.value, this().setWidth(width.value).setAsTypeNode())
+  
+  /** Create an hardware literal from string literal definition.
+    *  @example{{{
+    *  myUInt := U"0000_0101"  // Base per default is binary => 5
+    *  myUInt := U"h1A"        // Base could be x (base 16)
+    *                          //               h (base 16)
+    *                          //               d (base 10)
+    *                          //               o (base 8)
+    *                          //               b (base 2)
+    *  myUInt := U"8'h1A"
+    * }}} 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/Int.html#declaration `UInt`/`SInt` declaration]]
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
+    */
   def apply(value: String): T = bitVectorStringParser(this, value,  isSigned)
 
   def apply(bitCount: BitCount, rangesValue: (Any, Any), _rangesValues: (Any, Any)*): T = this.aggregate(bitCount, rangesValue +: _rangesValues)
@@ -103,18 +146,26 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
   }
 }
 
-
 /**
   * Used to create a new Bits or cast to Bits
   */
 object B extends BitVectorLiteralFactory[Bits] {
-  def apply(): Bits = new Bits()
+  /** Create an `Bits` hardware literal.
+    *
+    *  Bit count is inferred from the widest assignment statement after construction.
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
+    */
+  def apply(): Bits = new Bits()  
   def apply(that: Data): Bits = that.asBits
   def apply(that: Data, width : BitCount): Bits = that.asBits.resize(width)
   def apply(head: Data, tail: Data*) : Bits = Cat((head +: tail).reverse)
   def apply(value: Data, times: Int) : Bits = value #* times
   def apply(value : Seq[Data]) : Bits = Cat(value)
   def apply[T <: Data](value : Vec[T]) : Bits = B(value.asInstanceOf[Data])
+
+  /** Create a `Bits` hardware literal, from a string de
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html#declaration `Bits` declaration]]
+    */
   def apply(value : MaskedLiteral, filling : Boolean = false): Bits = value.asBits(filling)
 
   override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)

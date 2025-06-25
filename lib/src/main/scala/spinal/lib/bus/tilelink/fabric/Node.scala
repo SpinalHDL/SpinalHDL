@@ -12,7 +12,7 @@ import spinal.lib.system.tag._
 import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
-object Node{
+object Node {
   def apply() : Node = new Node()
   def slave() : Node = apply().setSlaveOnly()
   def master() : Node = apply().setMasterOnly()
@@ -28,9 +28,9 @@ object Node{
 
 
 /**
- * Implement the elaboration thread to handle the negociation and hardware generation of a NodeUpDown
+ * Implement the elaboration thread to handle the negotiation and hardware generation of a NodeUpDown
  */
-class Node() extends NodeUpDown{
+class Node() extends NodeUpDown {
   var arbiterConnector : (Bus, Bus) => Any = (s, m) => s << m
   var decoderConnector : (Bus, Bus) => Any = (s, m) => s << m
 
@@ -63,7 +63,7 @@ class Node() extends NodeUpDown{
   }
 
 
-  def forceDataWidth(dataWidth : Int): this.type ={
+  def forceDataWidth(dataWidth : Int): this.type = {
     m2s.proposedModifiers += { s =>
       s.copy(dataWidth = dataWidth)
     }
@@ -73,9 +73,11 @@ class Node() extends NodeUpDown{
     this
   }
 
-  //Will negociate the m2s/s2m handles, then generate the arbiter / decoder required to connect the ups / downs connections
+  // Will negotiate the m2s/s2m handles, then generate the arbiter / decoder required to connect
+  // the ups / downs connections.
   val thread = Fiber build new Composite(this, weak = false) {
-    // Specify which Handle will be loaded by the current thread, as this help provide automated error messages
+    // Specify which Handle will be loaded by the current thread, as this help provide automated
+    // error messages.
     soon(ups.map(_.down.bus))
     soon(downs.map(_.up.bus))
     soon(downs.map(_.up.m2s.parameters))
@@ -87,7 +89,7 @@ class Node() extends NodeUpDown{
     await()
     assertUpDown()
 
-    // Start of the m2s negociation
+    // Start of the m2s negotiation.
     // m2s.proposed <- ups.m2s.proposed
     if(withUps) {
       val fromUps = ups.map(_.m.m2s.proposed).reduce(_ mincover _)
@@ -117,15 +119,15 @@ class Node() extends NodeUpDown{
       m2s.parameters load modified
     }
 
-    //down.decoder.m2s.parameters <- m2s.parameters + down.s.m2s.supported
+    // down.decoder.m2s.parameters <- m2s.parameters + down.s.m2s.supported
     for (down <- downs) {
       down.up.m2s.parameters.load(Decoder.downMastersFrom(m2s.parameters, down.s.m2s.supported))
     }
 
-    //Generate final connections mapping
+    // Generate final connections mapping.
     generateMapping(_.up.m2s.parameters.addressWidth)
 
-    //Start of the s2m negociation
+    // Start of the s2m negotiation.
     m2s.parameters.withBCE match {
       case true =>{
         // s2m.proposed <- downs.s2m.proposed
@@ -149,7 +151,7 @@ class Node() extends NodeUpDown{
           s2m.parameters.load(p)
         }
 
-        //ups.arbiter.s2m.parameters <- s2m.parameters
+        // ups.arbiter.s2m.parameters <- s2m.parameters
         for(up <- ups){
           up.down.s2m.parameters.load(Arbiter.upSlaveFrom(s2m.parameters, up.m.s2m.supported))
         }
@@ -162,8 +164,8 @@ class Node() extends NodeUpDown{
       }
     }
 
-    // Start hardware generation from that point
-    // Generate the node bus
+    // Start hardware generation from that point.
+    // Generate the node bus.
     val p = NodeParameters(m2s.parameters, s2m.parameters).toBusParameter()
     bus.load(Bus(p))
 
@@ -178,8 +180,8 @@ class Node() extends NodeUpDown{
           s2m.parameters
         )
       )
-      for((up, arbitred) <- (ups, core.io.ups).zipped){
-        up.down.bus.load(arbitred.fromCombStage())
+      for((up, arbitered) <- (ups, core.io.ups).zipped){
+        up.down.bus.load(arbitered.fromCombStage())
       }
       val connection = arbiterConnector(bus, core.io.down)
     }

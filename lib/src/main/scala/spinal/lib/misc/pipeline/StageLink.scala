@@ -8,10 +8,14 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-object StageLink{
+object StageLink {
   def apply(up : Node, down : Node) = new StageLink(up, down)
 }
 
+
+/** Connect an [[up]] and [[down]] nodes using registers on the `data`/`valid`
+  * signals and some arbitration on the `ready`. 
+  */
 class StageLink(val up : Node, val down : Node) extends Link {
   down.up = this
   up.down = this

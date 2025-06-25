@@ -25,22 +25,6 @@ import spinal.core.internals.Misc
 import spinal.idslplugin.PostInitCallback
 
 
-
-
-
-/**
-  * Sometime, creating a Component to define some logic is overkill.
-  * For this kind of cases you can use Area to define a group of signals/logic.
-  *
-  * @example {{{
-  *     val tickConter = new Area{
-  *       val tick = Reg(UInt(8 bits) init(0)
-  *       tick := tick + 1
-  *     }
-  * }}}
-  *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/area/ Area Documentation]]
-  */
-
 class Composite[T <: Nameable](val self : T, postfix : String = null, weak : Boolean = true) extends Area{
   override def childNamePriority = Nameable.USER_WEAK
   if(postfix == null) {
@@ -50,6 +34,18 @@ class Composite[T <: Nameable](val self : T, postfix : String = null, weak : Boo
   }
 }
 
+
+/** Sometime, creating a `Component` to define some logic is overkill.
+  * For this kind of cases you can use `Area` to define a group of signals/logic.
+  *
+  * @example {{{
+  *     val tickConter = new Area{
+  *       val tick = Reg(UInt(8 bits) init(0)
+  *       tick := tick + 1
+  *     }
+  * }}}
+  *  @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/area.html `Area` Documentation]]
+  */
 trait Area extends NameableByComponent with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec with OverridedEqualsHashCode  {
   if(OnCreateStack.nonEmpty){
     OnCreateStack.get match {
@@ -120,11 +116,10 @@ object ImplicitArea{
 }
 
 
-/**
-  * Clock domains could be applied to some area of the design and then all synchronous elements instantiated into
+/** Clock domains could be applied to some area of the design and then all synchronous elements instantiated into
   * this area will then implicitly use this clock domain.
   *
-  *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/clock_domain/ ClockDomain Documentation]]
+  *  @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html Clock domains documentation]]
   */
 class ClockingArea(val clockDomain: ClockDomain) extends Area with PostInitCallback {
   val ctx = ClockDomainStack.set(clockDomain)
@@ -136,8 +131,8 @@ class ClockingArea(val clockDomain: ClockDomain) extends Area with PostInitCallb
 }
 
 
-/**
-  * Clock Area with a special clock enable
+/** Clock Area with a special clock enable.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html#clockenablearea `ClockEnableArea` documentation]]
   */
 class ClockEnableArea(clockEnable: Bool) extends Area with PostInitCallback {
 
@@ -158,8 +153,8 @@ class ClockEnableArea(clockEnable: Bool) extends Area with PostInitCallback {
 }
 
 
-/**
-  * Define a clock domain which is x time slower than the current clock
+/** Define a clock domain which is x time slower than the current clock.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html#slow-area `SlowArea` documentation]]
   */
 class SlowArea(val factor: BigInt, allowRounding : Boolean) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
   def this(factor: BigInt) = {
@@ -181,8 +176,8 @@ class SlowArea(val factor: BigInt, allowRounding : Boolean) extends ClockingArea
 }
 
 
-/**
-  * ResetArea allow to reset an area with a special reset combining with the current reset (cumulative)
+/** `ResetArea` allow to reset an area with a special reset combining with the current reset (cumulative).
+  *  @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html#resetarea `ResetArea` documentation]]
   */
 class ResetArea(reset: Bool, cumulative: Boolean) extends Area with PostInitCallback {
 
@@ -202,10 +197,10 @@ class ResetArea(reset: Bool, cumulative: Boolean) extends Area with PostInitCall
 }
 
 
-trait AreaObject extends Area{
+trait AreaObject extends Area {
   setName(this.getClass.getSimpleName.replace("$",""))
 }
 
-trait AreaRoot extends Area{
+trait AreaRoot extends Area {
   setName("")
 }

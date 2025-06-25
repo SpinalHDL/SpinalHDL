@@ -280,7 +280,7 @@ trait BusSlaveFactory extends Area{
 
 
   /**
-    * Create a write only register of type dataType at address and placed at bitOffset in the word
+    * Create a write-only register of type dataType at address and placed at bitOffset in the word
     */
   def createWriteOnly[T <: Data](dataType      : T,
                                  address       : BigInt,
@@ -293,7 +293,7 @@ trait BusSlaveFactory extends Area{
 
 
   /**
-    * Create a read only register of type dataType at address and placed at bitOffset in the word
+    * Create a read-only register of type dataType at address and placed at bitOffset in the word
     */
   def createReadOnly[T <: Data](dataType      : T,
                                 address       : BigInt,
@@ -305,7 +305,7 @@ trait BusSlaveFactory extends Area{
   }
 
   /**
-    * Create a read write register of type dataType at address and placed at bitOffset in the word
+    * Create a read-write register of type dataType at address and placed at bitOffset in the word
     */
   def createReadAndWrite[T <: Data](dataType      : T,
                                     address       : BigInt,
@@ -413,9 +413,10 @@ trait BusSlaveFactory extends Area{
   def createAndDriveFlow[T <: Data](dataType       : T,
                                     address        : BigInt,
                                     bitOffset      : Int = 0,
-                                    checkByteEnable: Boolean = false): Flow[T] = {
+                                    checkByteEnable: Boolean = false,
+                                    documentation: String = null): Flow[T] = {
     val flow = Flow(dataType)
-    driveFlow(flow, address, bitOffset, checkByteEnable)
+    driveFlow(flow, address, bitOffset, checkByteEnable, documentation)
     flow
   }
 
@@ -513,7 +514,8 @@ trait BusSlaveFactory extends Area{
   def driveFlow[T <: Data](that           : Flow[T],
                            address        : BigInt,
                            bitOffset      : Int = 0,
-                           checkByteEnable: Boolean = false): Unit = {
+                           checkByteEnable: Boolean = false,
+                           documentation: String = null): Unit = {
 
     val wordCount = (bitOffset + widthOf(that.payload) - 1 ) / busDataWidth + 1
     val byteEnable = writeByteEnable()
@@ -527,15 +529,15 @@ trait BusSlaveFactory extends Area{
 
     if (wordCount == 1){
       that.valid := False
-      onWrite(address){ assignValidNext(that.valid) }
-      nonStopWrite(that.payload, bitOffset)
+      onWrite(address, documentation){ assignValidNext(that.valid) }
+      nonStopWrite(that.payload, bitOffset, documentation)
     }else{
 
       assert(bitOffset == 0, "BusSlaveFactory ERROR [driveFlow] : BitOffset must be equal to 0 if the payload of the Flow is bigger than the data bus width")
 
       val regValid = RegNext(False) init(False)
-      onWrite(address + ((wordCount - 1) * wordAddressInc)){ assignValidNext(regValid) }
-      driveMultiWord(that.payload, address)
+      onWrite(address + ((wordCount - 1) * wordAddressInc), documentation){ assignValidNext(regValid) }
+      driveMultiWord(that.payload, address, documentation)
       that.valid := regValid
     }
   }

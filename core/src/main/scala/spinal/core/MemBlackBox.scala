@@ -204,7 +204,7 @@ class Ram_1w_1rs(
     val rd = new Bundle {
       val clk    = in Bool()
       val en     = in Bool()
-      val addr   = in  UInt(rdAddressWidth bit)
+      val addr   = in UInt(rdAddressWidth bit)
       val dataEn = in Bool() default(True) //Only used if rdLatency > 1
       val data   = out Bits(rdDataWidth bit)
     }

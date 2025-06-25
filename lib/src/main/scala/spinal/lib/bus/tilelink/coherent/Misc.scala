@@ -41,7 +41,7 @@ class ChannelDataBuffer(entries: Int,
     write.valid := valid && withBeats && !hazard
     write.address := BUFFER_ID @@ CMD.address(log2Up(blockSize)-1 downto log2Up(dataBytes))
     write.data := PAYLOAD
-    when(isFireing && LAST && withBeats) {
+    when(isFiring && LAST && withBeats) {
       set(BUFFER_ID) := True
       locked := False
     }
@@ -51,8 +51,8 @@ class ChannelDataBuffer(entries: Int,
     val withBeats = up.withBeats
     val hazard = withBeats && full
     val dataLess = up.translateWith(up.asNoData())
-    val filtred = dataLess.throwWhen(!hazard && !up.isLast())
-    val down = filtred.haltWhen(hazard)
+    val filtered = dataLess.throwWhen(!hazard && !up.isLast())
+    val down = filtered.haltWhen(hazard)
     val locked = RegInit(False) setWhen (write.valid)
     val lockedValue = RegNextWhen(firstFree, !locked)
     val bufferId = locked ? lockedValue | firstFree

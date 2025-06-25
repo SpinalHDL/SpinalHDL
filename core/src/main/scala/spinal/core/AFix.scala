@@ -156,11 +156,15 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   /** Number of bits to represent the numeric value, no sign */
   val numWidth = bitWidth - signWidth
 
+  /** The exponent of the smallest power of 2 bounding the range of the AFix. */
+  val maxExp = exp + numWidth
+  val leftExp = exp + bitWidth
+
   val raw: Bits = Bits(bitWidth bit)
 
   // Representable range, range which could be represented by the backing bit vector
-  private val maxRepr = BigInt(2).pow(numWidth)
-  private val minRepr = BigInt(2).pow(numWidth)+1
+  private val maxRepr: BigInt = BigInt(2).pow(numWidth) - 1
+  private val minRepr: BigInt = if (signed) -BigInt(2).pow(numWidth) else 0
 
   raw.setRefOwner(this)
   raw.setPartialName("", weak = true)
@@ -192,23 +196,6 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
        r.minRaw*BigInt(2).pow(-expDiff))
     } else {
       (l.maxRaw, l.minRaw, r.maxRaw, r.minRaw)
-    }
-  }
-
-  /** Aligns representable ranges of two AFix numbers */
-  private def alignRangesRepr(l: AFix, r: AFix): (BigInt, BigInt, BigInt, BigInt) = {
-    val expDiff = l.exp - r.exp
-    // Scale left or right ranges if there's a difference in precision
-    if (expDiff > 0) {
-      (l.maxRepr*BigInt(2).pow(expDiff),
-        l.minRepr*BigInt(2).pow(expDiff),
-        r.maxRepr, r.minRepr)
-    } else if (expDiff < 0) {
-      (l.maxRepr, l.minRaw,
-        r.maxRepr*BigInt(2).pow(-expDiff),
-        r.minRepr*BigInt(2).pow(-expDiff))
-    } else {
-      (l.maxRepr, l.minRepr, r.maxRepr, r.minRepr)
     }
   }
 
@@ -585,7 +572,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   // Shift bits and decimal point left, adding padding bits right
   def <<|(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
-    val ret = new AFix(this.maxRaw * shiftBig, this.minRaw * shiftBig, (this.exp + shift))
+    val ret = new AFix(this.maxRaw * shiftBig, this.minRaw * shiftBig, this.exp)
 
     ret.raw := this.raw << shift
 
@@ -675,7 +662,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     if(this.minRaw >= 0)
       ret.raw := U(this.raw).twoComplement(enable, plusOneEnable).asBits
     else
-      ret.raw := S(this.raw).twoComplement(enable, plusOneEnable).asBits
+      ret.raw := S(this.raw).twoComplement(enable, plusOneEnable).asBits.resized
     ret
   }
 
@@ -710,30 +697,21 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
+  def bitwiseOp(right: AFix, op: (Bits, Bits) => Bits): AFix = {
+    val ret = AFix(Math.max(maxExp, right.maxExp) exp, Math.min(exp, right.exp) exp, signed || right.signed)
+    val (lraw, rraw) = alignLR(this, right)
+    val lpad = if (signed) lraw.asSInt.resize(ret.bitWidth).asBits else lraw.resize(ret.bitWidth)
+    val rpad = if (right.signed) rraw.asSInt.resize(ret.bitWidth).asBits else rraw.resize(ret.bitWidth)
+    ret.raw := op(lpad, rpad)
+    ret
+  }
 
   /** Logical AND operator */
-  override def &(right: AFix): AFix = {
-    val (lMax, lMin, rMax, rMin) = alignRangesRepr(this, right)
-    val ret = new AFix(lMax.max(rMin), lMin.min(rMax), Math.min(this.exp, right.exp))
-    ret.raw := this.raw & right.raw
-    ret
-  }
-
+  override def &(right: AFix): AFix = bitwiseOp(right, _ & _)
   /** Logical OR operator */
-  override def |(right: AFix): AFix = {
-    val (lMax, lMin, rMax, rMin) = alignRangesRepr(this, right)
-    val ret = new AFix(lMax.max(rMin), lMin.min(rMax), Math.min(this.exp, right.exp))
-    ret.raw := this.raw | right.raw
-    ret
-  }
-
+  override def |(right: AFix): AFix = bitwiseOp(right, _ | _)
   /** Logical XOR operator */
-  override def ^(right: AFix): AFix = {
-    val (lMax, lMin, rMax, rMin) = alignRangesRepr(this, right)
-    val ret = new AFix(lMax.max(rMin), lMin.min(rMax), Math.min(this.exp, right.exp))
-    ret.raw := this.raw ^ right.raw
-    ret
-  }
+  override def ^(right: AFix): AFix = bitwiseOp(right, _ ^ _)
 
   /** Inverse bitwise operator */
   override def unary_~ : AFix = {

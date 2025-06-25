@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.demo.phy.BmbCmdOp
 import spinal.lib.bus.bmb.BmbParameter
-import spinal.lib.memory.sdram.dfi.interface._
+import spinal.lib.memory.sdram.dfi._
 
 object BmbCmdOpSim {
   def main(args: Array[String]): Unit = {
@@ -22,7 +22,9 @@ object BmbCmdOpSim {
       FAW = 35
     )
     val sdram = SdramConfig(
-      SdramGeneration.MYDDR,
+      SdramGeneration.DDR3,
+      bgWidth = 0,
+      cidWidth = 0,
       bankWidth = 3,
       columnWidth = 10,
       rowWidth = 15,
@@ -33,6 +35,8 @@ object BmbCmdOpSim {
       sdramtime = sdramtime
     )
     val timeConfig = DfiTimeConfig(
+      frequencyRatio = 1,
+      cmdPhase = 0,
       tPhyWrLat = sdram.tPhyWrlat,
       tPhyWrData = 0,
       tPhyWrCsGap = 3,
@@ -43,13 +47,12 @@ object BmbCmdOpSim {
       tPhyWrCsLat = 0
     )
     val dfiConfig: DfiConfig = DfiConfig(
-      frequencyRatio = 1,
       chipSelectNumber = 1,
-      bgWidth = 0,
-      cidWidth = 0,
       dataSlice = 1,
-      cmdPhase = 0,
-      signalConfig = new DDRSignalConfig(),
+      signalConfig = new DDR3SignalConfig(DfiFunctionConfig(), false) {
+        override val useWrdataCsN = false
+        override val useRddataCsN = false
+      },
       timeConfig = timeConfig,
       sdram = sdram
     )

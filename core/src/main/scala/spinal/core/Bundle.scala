@@ -28,24 +28,7 @@ import scala.collection.mutable
 import scala.collection.Seq
 
 
-/**
-  * The Bundle is a composite type that defines a group of named signals (of any SpinalHDL basic type) under a single name.
-  * The Bundle can be used to model data structures, buses and interfaces.
-  *
-  * @example {{{
-  *     val cmd = new Bundle{
-  *       val init   = in Bool()
-  *       val start  = in Bool()
-  *       val result = out Bits(32 bits)
-  *     }
-  * }}}
-  *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bundle Bundle Documentation]]
-  */
-
-
-
-trait ValCallbackRec extends ValCallback{
+trait ValCallbackRec extends ValCallback {
 
 //  final override def valCallback(fieldRef: Any, name: String): Unit = {
 //    val refs = mutable.Set[Any]()
@@ -106,6 +89,21 @@ trait ValCallbackRec extends ValCallback{
   }
 }
 
+
+/**
+  * A `Bundle` is a composite type that defines a group of named signals (of any SpinalHDL basic type) under a single name.
+  * A `Bundle` can be used to model data structures, buses and interfaces.
+  *
+  * @example {{{
+  *     val cmd = new Bundle{
+  *       val init   = in Bool()
+  *       val start  = in Bool()
+  *       val result = out Bits(32 bits)
+  *     }
+  * }}}
+  *
+  * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bundle.html `Bundle` Documentation]]
+  */
 class Bundle extends MultiData with Nameable with ValCallbackRec {
 
   var hardtype: HardType[_] = null

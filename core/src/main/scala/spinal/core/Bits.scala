@@ -35,7 +35,7 @@ trait BitsFactory {
 
 
 /**
-  * The Bits type corresponds to a vector of bits that does not convey any arithmetic meaning.
+  * The `Bits` type corresponds to a vector of bits that does not convey any arithmetic meaning.
   *
   * @example {{{
   *     val myBits1 = Bits(32 bits)
@@ -44,7 +44,7 @@ trait BitsFactory {
   *     val myBits4 = B"1001_0011
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits Bits Documentation]]
+  * @see  [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bits.html `Bits` Documentation]]
   */
 class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[Bits] with BitwiseOp[Bits]{
 
@@ -179,6 +179,12 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
+  private[core] override def isEqualToSim(that: Any): Bool = that match {
+    case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.EqualSim)
+    case that: MaskedLiteral => that === this
+    case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
+  }
+
   private[core] override def newMultiplexerExpression() = new MultiplexerBits
   private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerBits
 
@@ -187,6 +193,10 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     0 to (1 << getWidth)-1
   }
 
+  /** Return a resized representation of x.
+   * 
+   *  If enlarged, it is extended with zero padding at MSB as necessary.
+   */
   override def resize(width: Int): Bits = wrapWithWeakClone({
     val node   = new ResizeBits
     node.input = this
@@ -194,6 +204,10 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     node
   })
 
+  /** Return a resized representation of x.
+   * 
+   *  If enlarged, it is extended with zero padding at MSB as necessary.
+   */
   override def resize(width: BitCount) : Bits = resize(width.value)
 
   override def resizeFactory: Resize = new ResizeBits
@@ -234,15 +248,14 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     this
   }
 
-
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBits(delay))
   def reversed = B(asBools.reverse).asInstanceOf[this.type]
 
   override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpBits(kind, widthOf(this)))
 
   /**
-   * Return a instance of the paramter which alias this.Bits in both read and assignments accesses.
-   * Usefull for union like data structures.
+   * Return a instance of the parameter which alias this.Bits in both read and assignments accesses.
+   * Useful for union like data structures.
    * @param t The type in which the alias will be
    * @return The alias
    */

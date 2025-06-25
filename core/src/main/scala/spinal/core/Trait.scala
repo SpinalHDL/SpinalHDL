@@ -29,6 +29,8 @@ import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
 import spinal.idslplugin.Location
 
+import scala.reflect.ClassTag
+
 trait DummyTrait
 object DummyObject extends DummyTrait
 
@@ -204,7 +206,7 @@ trait GlobalDataUser {
 }
 
 
-trait ContextUser extends GlobalDataUser with ScalaLocated{
+trait ContextUser extends GlobalDataUser with ScalaLocated {
   var parentScope : ScopeStatement = if(globalData != null) DslScopeStack.get else null
 
   def component: Component = if(parentScope != null) parentScope.component else null
@@ -362,7 +364,7 @@ object Nameable{
 }
 
 
-trait Nameable extends OwnableRef with ContextUser{
+trait Nameable extends OwnableRef with ContextUser {
   import Nameable._
 
   var name: String = null
@@ -437,8 +439,13 @@ trait Nameable extends OwnableRef with ContextUser{
 
   private[core] def getNameElseThrow: String = {
     getName(null) match {
-      case null =>  throw new Exception("Internal error")
-      case name =>  name
+      case null => {
+        val errorMessage =
+          s"Signal $this has no name but is used in a context where a name is required. " +
+          s"Location of the signal: \n${getScalaLocationLong}. "
+        SpinalError(errorMessage)
+      }
+      case name => name
     }
   }
 
@@ -628,13 +635,15 @@ object ScalaLocated {
   def long(scalaTrace: Throwable, tab: String = "    "): String = {
     if(scalaTrace == null) return "???"
 
-    filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
+    filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).
+      map(tab + "at " + _ ).mkString("\n") + "\n\n"
   }
 
   def long2(trace: Array[StackTraceElement], tab: String = "    "): String = {
     if(trace == null) return "???"
 
-    filterStackTrace(trace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
+    filterStackTrace(trace).map(_.toString).filter(filter).
+      map(tab + "at " + _ ).mkString("\n") + "\n\n"
   }
 
   def short: String = short(new Throwable())
@@ -739,6 +748,10 @@ trait SpinalTagReady {
     _spinalTags.filter(cond)
   }
 
+  def getTagsOf[T <: SpinalTag]()(implicit tag: ClassTag[T]) : Iterable[T] = {
+    getTags().filter(tag.runtimeClass.isInstance(_)).map(_.asInstanceOf[T])
+  }
+
   def addAttribute(attribute: Attribute): this.type = addTag(attribute)
   def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
   def addAttribute(name: String, value: String): this.type = addAttribute(new AttributeString(name, value))
@@ -830,7 +843,12 @@ object unusedTag                     extends SpinalTag
 object noCombinatorialLoopCheck      extends SpinalTag
 object noLatchCheck                  extends SpinalTag
 object noBackendCombMerge            extends SpinalTag
+
+/** Tag for clock crossing signals
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html#clock-domain-crossing Clock domain crossing documentation]]
+  */
 object crossClockDomain              extends SpinalTag{ override def moveToSyncNode = true }
+
 object crossClockBuffer              extends SpinalTag{ override def moveToSyncNode = true }
 
 sealed trait TimingEndpointType
@@ -894,46 +912,46 @@ trait Num[T <: Data] {
     hpos downto lpos
   }
 
-  /** Addition */
+  /** Hardware addition */
   def + (right: T): T
-  /** Safe Addition with 1 bit expand */
+  /** Hardware safe addition with 1 bit expand */
   def +^(right: T): T
-  /** Safe Addition with saturation */
+  /** Hardware safe addition with saturation */
   def +| (right: T): T
-  /** Substraction */
+  /** Hardware subtraction */
   def - (right: T): T
-  /** Safe Substraction with 1 bit expand*/
+  /** Hardware safe subtraction with 1 bit expand */
   def -^ (right: T): T
-  /** Safe Substraction with saturation*/
+  /** Hardware safe subtraction with saturation */
   def -| (right: T): T
-  /** Multiplication */
+  /** Hardware multiplication */
   def * (right: T): T
-  /** Division */
+  /** Hardware division */
   def / (right: T): T
-  /** Modulo */
+  /** Hardware modulo */
   def % (right: T): T
 
-  /** Is less than right */
+  /** Hardware "is less than right" */
   def <  (right: T): Bool
-  /** Is equal or less than right */
+  /** Hardware  "is equal or less than right" */
   def <= (right: T): Bool
-  /** Is greater than right */
+  /** Hardware "is greater than right" */
   def >  (right: T): Bool
-  /** Is equal or greater than right */
+  /** Hardware "is equal or greater than right" */
   def >= (right: T): Bool
 
-  /** Arithmetic left shift (w(T) = w(this) + shift)*/
+  /** Hardware arithmetic left shift (`w(T) = w(this) + shift`) */
   def << (shift: Int): T
-  /** Arithmetic right shift (w(T) = w(this) - shift)*/
+  /** Hardware arithmetic right shift (`w(T) = w(this) - shift`) */
   def >> (shift: Int): T
-  /** Arithmetic left shift (w(T) = w(this) + (1 << shift)-1*/
+  /** Hardware arithmetic left shift (`w(T) = w(this) + (1 << shift)-1`) */
   def << (shift: UInt): T
-  /** Arithmetic right shift (w(T) = w(this)*/
+  /** Hardware arithmetic right shift (`w(T) = w(this)`)*/
   def >> (shift: UInt): T
 
-  /** Return the minimum value between this and right  */
+  /** Return the hardware minimum value between this and right  */
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
-  /** Return the maximum value between this and right  */
+  /** Return the hardware maximum value between this and right  */
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
 
   /** highest m bits Saturation Operation*/
