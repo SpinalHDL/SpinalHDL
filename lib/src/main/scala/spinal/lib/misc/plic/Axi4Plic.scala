@@ -46,7 +46,7 @@ object Axi4Plic extends App{
     useLock = false,
     useCache = false,
     useQos = false,
-    useProt = false,
+    useProt = false
   )
   var sourceCount = 31
   var targetCount = 1
