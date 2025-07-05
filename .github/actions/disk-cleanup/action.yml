@@ -1,0 +1,116 @@
+name: 'Disk Space Optimization for Verilator CI'
+description: 'Monitor disk usage and clean intermediate files during SpinalHDL CI tests'
+
+inputs:
+  cleanup_interval:
+    description: 'Cleanup interval in seconds'
+    required: false
+    default: '180'  # 3 minutes
+
+runs:
+  using: "composite"
+  steps:
+    # Check initial disk space and set environment variables
+    - name: Setup disk optimization environment
+      shell: bash
+      run: |
+        echo "=== Initial Disk Space Check ==="
+        df -h /
+        
+        # Set monitor parameters
+        echo "CLEANUP_INTERVAL=${{ inputs.cleanup_interval }}" >> $GITHUB_ENV
+        echo "DISK_CRITICAL_THRESHOLD=90" >> $GITHUB_ENV
+        
+    # Start background disk monitor and cleanup process
+    - name: Start background disk monitor
+      shell: bash
+      run: |
+        cat > /tmp/spinal_disk_monitor.sh << 'EOF'
+        #!/bin/bash
+        
+        LOG_FILE="/tmp/disk_monitor.log"
+        PID_FILE="/tmp/disk_monitor.pid"
+        echo $$ > $PID_FILE
+        
+        log_with_time() {
+            echo "[$(date '+%H:%M:%S')] $1" | tee -a $LOG_FILE
+        }
+          
+        cleanup_spinal_files() {
+            # Clean up Verilator generated temporary files
+            log_with_time "Cleaning Verilator generated files"
+            find . -name "V*__ALL.cpp" -mmin +2 -delete 2>/dev/null || true
+            find . -name "V*__Trace*.cpp" -mmin +2 -delete 2>/dev/null || true
+            find . -name "*.gch" -mmin +2 -delete 2>/dev/null || true
+            find . -name "*.o" -mmin +2 -delete 2>/dev/null || true
+            find . -name "*.d" -mmin +2 -delete 2>/dev/null || true
+            
+            # Clean up Verilator files in temporary directory
+            find /tmp -name "V*.h" -mmin +2 -delete 2>/dev/null || true
+            find /tmp -name "*.vcd" -mmin +2 -delete 2>/dev/null || true
+            
+            return $cleaned
+        }
+        
+        log_with_time "SpinalHDL Disk Monitor started (PID: $$)"
+        log_with_time "Cleanup interval: ${CLEANUP_INTERVAL}s"
+        log_with_time "Critical threshold: ${DISK_CRITICAL_THRESHOLD}%"
+        
+        while true; do
+            # Get disk usage
+            DISK_USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
+            
+            if [ $DISK_USAGE -ge $DISK_CRITICAL_THRESHOLD ]; then
+                log_with_time "CRITICAL: Disk usage ${DISK_USAGE}% - Emergency cleanup!"
+            fi
+
+            log_with_time "Disk usage: ${DISK_USAGE}%"
+            cleanup_spinal_files
+            sleep $CLEANUP_INTERVAL
+        done
+        EOF
+        
+        chmod +x /tmp/spinal_disk_monitor.sh
+        nohup /tmp/spinal_disk_monitor.sh > /tmp/disk_monitor_output.log 2>&1 &
+        
+        echo "Background disk monitor started (PID: $!)"
+        
+    # Optimize system settings
+    - name: System optimization for SpinalHDL tests
+      shell: bash  
+      run: |
+        # Clean up system cache to free space
+        echo "Cleaning system to free space..."
+        sudo apt-get clean || true
+        sudo rm -rf /var/lib/apt/lists/* || true
+        sudo rm -rf /tmp/apt-* || true
+        
+        # Verilator 5.x system optimization
+        echo "Applying Verilator 5.x system optimizations..."
+        # Disable coredump to save space
+        ulimit -c 0
+        # Set a smaller Java heap to save memory and reduce GC temporary files
+        export _JAVA_OPTIONS="-Xmx3g -XX:+UseG1GC -XX:+DisableExplicitGC"
+        echo "_JAVA_OPTIONS=${_JAVA_OPTIONS}" >> $GITHUB_ENV
+        
+        echo "Available space after optimization:"
+        df -h /
+        
+    # Start monitoring but do not stop here - let the monitor run continuously during the workflow
+    - name: Verify monitor is running
+      shell: bash
+      run: |
+        sleep 5  # Wait for monitor to start
+        if [ -f /tmp/disk_monitor.pid ]; then
+          PID=$(cat /tmp/disk_monitor.pid)
+          if ps -p $PID > /dev/null; then
+            echo "Disk monitor confirmed running (PID: $PID)"
+            echo "Monitor will continue during test execution"
+          else
+            echo "Monitor failed to start properly"
+            exit 1
+          fi
+        else
+          echo "Monitor PID file not found"
+          exit 1
+        fi 
