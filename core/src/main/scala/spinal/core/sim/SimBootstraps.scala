@@ -1076,10 +1076,32 @@ case class SpinalSimConfig(
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
         println(f"[Progress] Verilator compilation done in $deltaTime%1.3f ms")
         new SimCompiled(report, compiledPath, this){
+          private val handles = mutable.ArrayBuffer[Long]()
+
           override def newSimRaw(name: String, seed: Int): SimRaw = {
-            val raw = new SimVerilator(backend, backend.instanciate(name, seed))
+            val handle = backend.instanciate(name, seed)
+            handles.synchronized {
+              handles += handle
+            }
+            val raw = new SimVerilator(backend, handle, doEnd=false)
             raw.userData = backend.config.signals
             raw
+          }
+
+          override def finalize(): Unit = {
+            try {
+              handles.synchronized {
+                if(handles.nonEmpty){
+                  //println(s"Finalizing ${_workspaceName}, cleaning up ${handles.size} C++ handles.")
+                  for(handle <- handles){
+                    backend.nativeInstance.deleteHandle(handle)
+                  }
+                  handles.clear()
+                }
+              }
+            } finally {
+              super.finalize()
+            }
           }
         }
 
