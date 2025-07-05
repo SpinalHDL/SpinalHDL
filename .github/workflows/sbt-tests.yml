@@ -11,13 +11,17 @@ on:
       github_sha:
         required: true
         type: string
+      docker_image_version:
+        required: true
+        type: string
+        description: Specify the Docker image version tag to use for all jobs
 
 jobs:
   compile:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - name: Get submodules
@@ -36,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -47,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -58,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -69,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -80,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -91,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -102,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -113,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -124,7 +128,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -135,7 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -146,7 +150,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -157,7 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     container:
-      image: ghcr.io/spinalhdl/docker:latest
+      image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
