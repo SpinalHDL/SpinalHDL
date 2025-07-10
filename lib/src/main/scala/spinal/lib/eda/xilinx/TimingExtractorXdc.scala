@@ -29,9 +29,9 @@ class TimingExtractorXdc extends TimingExtractorListener {
        |set $destVar [get_cells -of_objects $$source_pins]
        |""".stripMargin
 
-  def findClockPeriod(clock: Bool, destVar: String = "clk_period"): String = {
-    s"""set clk_net [get_nets -hier -filter {NAME =~ "*/${clock.getName()}"}]
-       |set clk [get_clocks -include_generated_clocks -of $$clk_net]
+  def findClockPeriod(signal: Any, destVar: String = "clk_period"): String = {
+    s"""set clk_pin [get_pins -hier -filter {NAME =~ "*/${pathOf(signal)}_reg*/C"}]
+       |set clk [get_clocks -include_generated_clocks -of $$clk_pin]
        |set $destVar [get_property -min PERIOD $$clk]""".stripMargin
   }
 
@@ -67,17 +67,18 @@ $sourceLocator|set_false_path$quiet$sourceOption -to [get_pins -hier -regexp -fi
   // see https://docs.xilinx.com/r/en-US/ug835-vivado-tcl-commands/set_max_delay
   // and https://docs.xilinx.com/r/en-US/ug835-vivado-tcl-commands/set_bus_skew
   def writeMaxDelay(target: Any, source: Any, tag: crossClockMaxDelay): Unit = {
-    val sourceCD = TimingExtractor.clockDomainOf(source)
-    val targetCD = TimingExtractor.clockDomainOf(target)
+    // XXX: we cannot rely on the clock domain names since the toplevel does not have keep_hierarchy;
+    //      must locate the clocks from the clock pins (*_reg/C) of the nets
     val maxDelay = f"expr {${tag.cycles} * $$${if (tag.useTargetClock) "dst_clk_period" else "src_clk_period"}}"
     writer.write(
       s"""
          |# Max delay path: $source -> $target
-         |${findClockPeriod(sourceCD.clock, "src_clk_period")}
-         |${findClockPeriod(targetCD.clock, "dst_clk_period")}
-         |set source [get_cells -hier -filter {NAME =~ "*/${pathOf(source)}_reg*"}]
-         |set_max_delay -from $$source -to [get_pins -hier -filter {NAME =~ "*/${pathOf(target)}_reg*/D"}] [$maxDelay] -datapath_only
-         |set_bus_skew -from $$source -to [get_pins -hier -filter {NAME =~ "*/${pathOf(target)}_reg*/D"}] $$dst_clk_period
+         |${findClockPeriod(source, "src_clk_period")}
+         |${findClockPeriod(target, "dst_clk_period")}
+         |set src  [get_cells -hier -filter {NAME =~ "*/${pathOf(source)}_reg*"}]
+         |set dest [get_pins  -hier -filter {NAME =~ "*/${pathOf(target)}_reg*/D"}]
+         |set_max_delay -from $$src -to $$dest [$maxDelay] -datapath_only
+         |set_bus_skew  -from $$src -to $$dest $$dst_clk_period
          |""".stripMargin)
   }
 
