@@ -304,11 +304,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       this->time_precision = ${if (useTimePrecision) "Verilated::timeprecision()" else "VL_TIME_PRECISION" };
     }
 
-    virtual ~Wrapper_${uniqueId}(){
-      for(int idx = 0;idx < ${config.signals.length};idx++){
-          delete signalAccess[idx];
-      }
-
+    void close(){
       #ifdef TRACE
       if(waveEnabled) tfp.dump((vluint64_t)time);
       tfp.flush();
@@ -317,6 +313,12 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       #ifdef COVERAGE
       VerilatedCov::write((("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".dat").c_str());
       #endif
+    }
+
+    virtual ~Wrapper_${uniqueId}(){
+      for(int idx = 0;idx < ${config.signals.length};idx++){
+          delete signalAccess[idx];
+      }
 
       // Verilated::runFlushCallbacks();
       // Verilated::runExitCallbacks();
@@ -430,6 +432,11 @@ JNIEXPORT void API JNICALL ${jniPrefix}setU64mem_1${uniqueId}
 JNIEXPORT void API JNICALL ${jniPrefix}deleteHandle_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} * handle){
   delete handle;
+}
+
+JNIEXPORT void API JNICALL ${jniPrefix}close_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} * handle){
+  handle->close();
 }
 
 JNIEXPORT void API JNICALL ${jniPrefix}getAU8_1${uniqueId}
@@ -734,6 +741,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |    public void setAU8(long handle, int id, byte[] value, int length) { setAU8_${uniqueId}(handle, id, value, length);}
          |    public void setAU8_mem(long handle, int id, byte[] value, int length, long index) { setAU8mem_${uniqueId}(handle, id, value, length, index);}
          |    public void deleteHandle(long handle) { deleteHandle_${uniqueId}(handle);}
+         |    public void close(long handle) { close_${uniqueId}(handle);}
          |    public void enableWave(long handle) { enableWave_${uniqueId}(handle);}
          |    public void disableWave(long handle) { disableWave_${uniqueId}(handle);}
          |
@@ -751,6 +759,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |    public native void setAU8_${uniqueId}(long handle, int id, byte[] value, int length);
          |    public native void setAU8mem_${uniqueId}(long handle, int id, byte[] value, int length, long index);
          |    public native void deleteHandle_${uniqueId}(long handle);
+         |    public native void close_${uniqueId}(long handle);
          |    public native void enableWave_${uniqueId}(long handle);
          |    public native void disableWave_${uniqueId}(long handle);
          |
