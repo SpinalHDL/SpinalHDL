@@ -14,6 +14,7 @@ public interface IVerilatorNative {
     public void getAU8_mem(long handle, int id, byte[] value, long index);
     public void setAU8_mem(long handle, int id, byte[] value, int length, long index);
     public void deleteHandle(long handle);
+    public void close(long handle);
     public void enableWave(long handle);
     public void disableWave(long handle);
 }
