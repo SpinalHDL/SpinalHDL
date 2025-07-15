@@ -128,6 +128,10 @@ object TimingExtractor {
       case _ =>
     })
     top.getAllIo.foreach {
+      // TODO: need a separate tag (ClockInputDelayTag?):
+      //  - find tag on any wire
+      //  - verify that it comes directly from input port
+      //  - write input delay for the input port with this tag
       case bt if bt.isInput => listener.writeInputDelay(bt)
       case bt if bt.isOutput => listener.writeOutputDelay(bt)
     }
@@ -166,13 +170,18 @@ object TimingExtractor {
   }
 
   def crossClockMaxDelay(target: Statement, tag: crossClockMaxDelay, listener : TimingExtractorListener): Unit = {
-    var sources = mutable.LinkedHashSet[Any]()
+    val sources = mutable.LinkedHashSet[Any]()
     target match {
       case target : BaseType => AnalysisUtils.seekNonCombDrivers (target) (sources.add)
       case target : MemReadSync => AnalysisUtils.seekNonCombDrivers (target) (sources.add)
     }
 
-    if (sources.isEmpty) println(s"??? no source found for $target while writeMaxDelay")
+    if (sources.isEmpty) println(
+      s"""
+        |!!! No valid source found for $target
+        |    while writing a max delay constraint, skipping.  If the target does not have
+        |    a non-combinatorial driver in the netlist (register or memory), you need to
+        |    mark the driver with a ClockDomainTag.""".stripMargin)
     for(source <- sources; if isCrossClock(target, source)) listener.writeMaxDelay(target, source, tag)
   }
 
