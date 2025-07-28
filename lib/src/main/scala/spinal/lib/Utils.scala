@@ -859,7 +859,7 @@ object AnalysisUtils{
 
   def seekNonCombDriversFromSelf(that : Any)(body : Any => Unit): Unit = that match {
     case s : Statement => s match {
-      case s : BaseType if s.isComb => {
+      case s : BaseType if s.isComb || s.isAnalog => {
         if(s.hasTag(classOf[ClockDomainTag])){
           body(s)
         } else {
@@ -902,6 +902,15 @@ object AnalysisUtils{
         body(o, cds.toList)
 //        val clocks = cds.map(_.clock).distinctLinked
 //        println(s"${o.getName()} clocked by ${clocks.map(_.getName()).mkString(",")}")
+      }
+      case io if io.isInOut => {
+        val iCds = io.getTags().collect{ case t : ClockDomainReportTag => t.clockDomain}
+        val oCds = mutable.LinkedHashSet[ClockDomain]()
+        seekNonCombDrivers(io){
+          case bt : BaseType if bt.isReg => oCds += bt.clockDomain
+          case _ => println("???")
+        }
+        body(io, iCds.toList ++ oCds.toList)
       }
     }
   }
