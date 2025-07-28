@@ -103,6 +103,8 @@ jobs:
     timeout-minutes: 90
     container:
       image: ghcr.io/spinalhdl/docker:latest
+    env:
+      VM_DEFAULT_RULES: "0"  # 禁用预编译头文件
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
@@ -136,6 +138,8 @@ jobs:
     timeout-minutes: 90
     container:
       image: ghcr.io/spinalhdl/docker:latest
+    env:
+      VM_DEFAULT_RULES: "0"  # 禁用预编译头文件
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
