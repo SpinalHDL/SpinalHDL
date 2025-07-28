@@ -62,19 +62,14 @@ case class DebugSysBusCmd() extends Bundle{
   val size = UInt(2 bit)
 }
 
-case class DebugSysBusRsp() extends Bundle with IMasterSlave{
-  val ready = Bool
+case class DebugSysBusRsp() extends Bundle{
   val error = Bool
   val data = Bits(32 bit)
-
-  override def asMaster(): Unit = {
-    out(ready,error,data)
-  }
 }
 
 case class DebugSysBus() extends Bundle with IMasterSlave{
   val cmd = Stream(DebugSysBusCmd())
-  val rsp = DebugSysBusRsp()
+  val rsp = Flow(DebugSysBusRsp())
 
   override def asMaster(): Unit = {
     master(cmd)
@@ -256,9 +251,9 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         }
 
         // bus response
-        when(io.sysBus.rsp.ready) {
+        when(io.sysBus.rsp.fire) {
           sbdata0 := io.sysBus.rsp.data
-          when (io.sysBus.rsp.error) {
+          when(io.sysBus.rsp.error) {
             sbcs.sberror := 7
           }
           sysBusBusy := False
