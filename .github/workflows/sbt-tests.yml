@@ -107,57 +107,12 @@ jobs:
     timeout-minutes: 90
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
+    env:
+      VM_DEFAULT_RULES: "0"  # Disable precompiled header files
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    # Check Verilator version from image, enable disk cleaning optimization only for version 5.x
-    - name: Check Verilator version and setup disk optimization
-      shell: bash
-      run: |
-        VERILATOR_VERSION=$(verilator --version 2>/dev/null | head -1 | awk '{print $2}' || echo "unknown")
-        echo "Detected Verilator version: $VERILATOR_VERSION"
-        
-        if [[ "$VERILATOR_VERSION" == *"5."* ]]; then
-          echo "NEED_DISK_CLEANUP=true" >> $GITHUB_ENV
-          echo "Verilator 5.x detected - disk optimization will be enabled"
-        else
-          echo "NEED_DISK_CLEANUP=false" >> $GITHUB_ENV
-          echo "Verilator 4.x or lower - no disk optimization needed"
-        fi
-    # Add disk space optimization - only enable for Verilator 5.x
-    - name: Setup disk optimization for tester tests
-      if: env.NEED_DISK_CLEANUP == 'true'
-      uses: ./.github/actions/disk-cleanup
-      with:
-        cleanup_interval: '180'  # 3 minutes cleanup interval
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.tester.* -- -l spinal.tester.formal -l spinal.tester.psl'
-    # Stop disk monitor and generate report - only for cases where cleanup is enabled
-    - name: Stop disk monitor and report
-      shell: bash
-      if: always() && env.NEED_DISK_CLEANUP == 'true'
-      run: |
-        echo "Stopping disk monitor..."
-        if [ -f /tmp/disk_monitor.pid ]; then
-          PID=$(cat /tmp/disk_monitor.pid)
-          kill $PID 2>/dev/null || true
-          echo "Monitor stopped (PID: $PID)"
-        fi
-        
-        if [ -f /tmp/disk_monitor.log ]; then
-          echo "Disk monitor activity report:"
-          echo "================================"
-          tail -20 /tmp/disk_monitor.log
-          echo "================================"
-        fi
-        
-        echo "Final cleanup of SpinalHDL test artifacts..."
-        find . -name "simWorkspace" -type d -exec rm -rf {} + 2>/dev/null || true
-        find . -name "V*__ALL.cpp" -delete 2>/dev/null || true
-        find . -name "*.gch" -delete 2>/dev/null || true
-        find . -name "*.vcd" -mmin +0 -delete 2>/dev/null || true
-        
-        echo "Final disk usage report:"
-        df -h /
 
   tester-formal:
     needs: compile
@@ -187,58 +142,12 @@ jobs:
     timeout-minutes: 90
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
+    env:
+      VM_DEFAULT_RULES: "0"  # Disable precompiled header files
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/get-compiled
-    # Check Verilator version from image, enable disk cleaning optimization only for version 5.x
-    - name: Check Verilator version and setup disk optimization
-      shell: bash
-      run: |
-        VERILATOR_VERSION=$(verilator --version 2>/dev/null | head -1 | awk '{print $2}' || echo "unknown")
-        echo "Detected Verilator version: $VERILATOR_VERSION"
-        
-        if [[ "$VERILATOR_VERSION" == *"5."* ]]; then
-          echo "NEED_DISK_CLEANUP=true" >> $GITHUB_ENV
-          echo "Verilator 5.x detected - disk optimization will be enabled"
-        else
-          echo "NEED_DISK_CLEANUP=false" >> $GITHUB_ENV
-          echo "Verilator 4.x or lower - no disk optimization needed"
-        fi
-    # Add disk space optimization - only enable for Verilator 5.x
-    - name: Setup disk optimization for lib tests
-      if: env.NEED_DISK_CLEANUP == 'true'
-      uses: ./.github/actions/disk-cleanup
-      with:
-        cleanup_interval: '180'  # 3 minutes cleanup interval
-    # Run tests for the lib module, including various bus protocols, IP cores, etc.
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.lib.* -- -l spinal.tester.formal -l spinal.tester.psl'
-    # Stop disk monitor and generate report - only for cases where cleanup is enabled
-    - name: Stop disk monitor and report
-      shell: bash
-      if: always() && env.NEED_DISK_CLEANUP == 'true'
-      run: |
-        echo "Stopping disk monitor..."
-        if [ -f /tmp/disk_monitor.pid ]; then
-          PID=$(cat /tmp/disk_monitor.pid)
-          kill $PID 2>/dev/null || true
-          echo "Monitor stopped (PID: $PID)"
-        fi
-        
-        if [ -f /tmp/disk_monitor.log ]; then
-          echo "Disk monitor activity report:"
-          echo "================================"
-          tail -20 /tmp/disk_monitor.log
-          echo "================================"
-        fi
-        
-        echo "Final cleanup of SpinalHDL test artifacts..."
-        find . -name "simWorkspace" -type d -exec rm -rf {} + 2>/dev/null || true
-        find . -name "V*__ALL.cpp" -delete 2>/dev/null || true
-        find . -name "*.gch" -delete 2>/dev/null || true
-        find . -name "*.vcd" -mmin +0 -delete 2>/dev/null || true
-        
-        echo "Final disk usage report:"
-        df -h /
 
   lib-formal:
     needs: compile
