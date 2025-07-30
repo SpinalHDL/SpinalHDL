@@ -61,7 +61,7 @@ class WidthAdapterTester extends AnyFunSuite{
         ip = bp(inputWidth, bytesMax),
         op = bp(outputWidth, bytesMax),
         ctxBuffer = ContextAsyncBufferFull
-      )).doSim(s"$inputWidth->$outputWidth", 42){dut =>
+      )).doSim(s"$inputWidth-$outputWidth", 42){dut =>
         new BridgeTestbench(
           dut.io.up,
           dut.io.down,

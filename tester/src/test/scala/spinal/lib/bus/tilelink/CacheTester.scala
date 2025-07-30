@@ -148,6 +148,9 @@ class CacheTester extends AnyFunSuite{
   test("dp 1bank"){
     doTest{p => }
   }
+  test("dp 1bank non-pow2"){
+    doTest{p => p.generalSlotCount = 9}
+  }
   test("dp 2bank"){
     doTest{p => p.cacheBanks = 2}
   }

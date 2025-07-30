@@ -667,7 +667,7 @@ case class MacTxLso(bufferBytes : Int, mtuMax : Int, packetsMax : Int = 15) exte
     }
 
 
-    val tsoPacketLast = packetBytes + 1 === packetBytesMax
+    val tsoPacketLast = packetBytes === packetBytesMax-1
     TSO_DATA whenIsActive{
       buffer.write.data.last setWhen(tsoPacketLast)
       when(io.input.fire) {

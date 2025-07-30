@@ -1,4 +1,4 @@
-name: Run scala 2.11 tests
+name: Run scala tests on Verilator 5.
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
   run-test:
     uses: ./.github/workflows/sbt-tests.yml
     with:
-      scala_version: '2.11.12'
+      scala_version: '2.12.18'
       runner_os: 'Linux'
       github_sha: ${{ github.sha }}
-      docker_image_version: 'v1.2.0'
+      docker_image_version: 'v1.3.0'
