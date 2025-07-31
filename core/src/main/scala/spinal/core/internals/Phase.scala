@@ -2336,8 +2336,8 @@ class PhaseCompletSwitchCases extends PhaseNetlist{
           if (s.defaultScope != null && !s.defaultScope.isEmpty) {
             PendingError(s"UNREACHABLE DEFAULT STATEMENT on \n" + s.getScalaLocationLong)
           }
-          s.defaultScope = s.elements.last.scopeStatement
-          s.elements.remove(s.elements.length - 1)
+//          s.defaultScope = s.elements.last.scopeStatement
+//          s.elements.remove(s.elements.length - 1)
         }
       case _ =>
     }
