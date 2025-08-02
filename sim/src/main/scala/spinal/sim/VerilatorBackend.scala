@@ -255,7 +255,7 @@ public:
     uint32_t timeCheck;
     bool waveEnabled;
     bool gotFinish;
-    //VerilatedContext* contextp; //Buggy in multi threaded spinalsim
+    VerilatedContext* contextp;  // Restore context support
     V${config.toplevelName} *top;
     ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
@@ -265,9 +265,10 @@ public:
     int32_t time_precision;
 
     Wrapper_${uniqueId}(const char * name, const char * wavePath, int seed){
-      //contextp = new VerilatedContext;
-      Verilated::randReset(2);
-      Verilated::randSeed(seed);
+      contextp = new VerilatedContext;
+      contextp->randReset(2);
+      contextp->randSeed(seed);
+      
       // Verilator v5.026+ calls time() inside Vtop::Vtop()
       // initialize the simHandle before we call Vtop
       simHandle${uniqueId} = this;
