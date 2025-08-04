@@ -389,7 +389,13 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
   def writeImpl(address: UInt, data: Data, enable: Bool = null, mask: Bits = null, allowMixedWidth: Boolean = false): Unit = {
 
     val whenCond =  if(enable == null) ConditionalContext.isTrue() else enable
-    val writePort = MemWrite(this, address, data.asBits, mask, whenCond, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current)
+    val whenGuarded =
+      if (GenerationFlags.simulation) {
+        val dummy = RegInit(B(True, 256))
+        dummy.setAll()
+        dummy.andR && whenCond
+      } else whenCond
+    val writePort = MemWrite(this, address, data.asBits, mask, whenGuarded, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current)
     this.parentScope.append(writePort)
     this.dlcAppend(writePort)
 
@@ -471,8 +477,13 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
                                    clockCrossing   : Boolean = false,
                                    allowMixedWidth : Boolean = false,
                                    duringWrite : DuringWritePolicy = dontCare): U = {
-
-    val readWritePort = MemReadWrite(this, address, data.asBits, mask,enable, write, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current, readUnderWrite, duringWrite)
+    val enableGuarded =
+      if (GenerationFlags.simulation) {
+        val dummy = RegInit(B(True, 256))
+        dummy.setAll()
+        dummy.andR && enable
+      } else enable
+    val readWritePort = MemReadWrite(this, address, data.asBits, mask, enableGuarded, write, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current, readUnderWrite, duringWrite)
 
     this.parentScope.append(readWritePort)
     this.dlcAppend(readWritePort)
