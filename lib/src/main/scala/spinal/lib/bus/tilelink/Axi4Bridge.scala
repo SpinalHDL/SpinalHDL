@@ -122,7 +122,7 @@ object Axi4BridgeGen extends App{
     opt[Int]("size-width") action { (v, c) => sizeWidth = v }
   }.parse(args, ()).isDefined)
 
-  val sizeMax = 1<<(1<<(sizeWidth-1))
+  val sizeMax = 1<<((1<<sizeWidth)-1)
   SpinalVerilog(new Axi4Bridge(
     new M2sParameters(
       addressWidth = addressWidth,
