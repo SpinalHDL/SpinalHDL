@@ -408,6 +408,16 @@ case class Bus(p : BusParameter) extends Bundle with IMasterSlave{
   val d = Stream(ChannelD(p))
   val e = p.withBCE generate Stream(ChannelE(p))
 
+  override def assignDontCare(): this.type = {
+    if(isMasterInterface){
+      a.valid := False
+      if(p.withBCE){
+        b.valid := False
+      }
+    }
+    super.assignDontCare()
+  }
+
   override def asMaster() = {
     master(a, c, e)
     slave(b, d)
