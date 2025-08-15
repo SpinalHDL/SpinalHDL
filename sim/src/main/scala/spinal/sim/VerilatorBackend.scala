@@ -327,7 +327,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       //contextp->threadContextp()->gotFinish(true);
       top->final();
       delete top;
-      //delete contextp;
+      delete contextp;
     }
 
 };
