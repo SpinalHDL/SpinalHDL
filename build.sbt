@@ -4,6 +4,8 @@ import sbt.Tests._
 
 def parallelTest = scala.sys.env.getOrElse("SBT_TEST_PARALLEL", "1") == "1"
 
+version := SpinalVersion.all
+
 val scalatestVersion = "3.2.14"
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
   organization := "com.github.spinalhdl",
@@ -37,8 +39,10 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.5",
 
   //set SBT_OPTS="-Xmx2G"
-  //sbt +clean +reload +publishSigned
+  //rm -rf target/sonatype-staging/0.1.0-SNAPSHOT-bundle
+  //sbt +clean +reload +publishSigned sonatypeCentralUpload
   //https://oss.sonatype.org
+  //https://central.sonatype.com/publishing
   publishMavenStyle := true,
   Test / publishArtifact := false,
   pomIncludeRepository := (_ => false),
@@ -64,11 +68,9 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
       </developers>
   },
 
-  publishTo := {
-    val v = version.value
-    val nexus = "https://oss.sonatype.org/"
-    Some("releases" at nexus + "service/local/staging/deploy/maven2")
-  }
+  publishTo := sonatypePublishToBundle.value,
+  sbtPluginPublishLegacyMavenStyle := false,
+  sonatypeCredentialHost := xerial.sbt.Sonatype.sonatypeCentralHost,
  )
 
 lazy val all = (project in file("."))
@@ -138,7 +140,7 @@ lazy val core = (project in file("core"))
     libraryDependencies += "com.github.scopt" %% "scopt" % "4.1.0",
     libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.3.0",
 
-    resolvers += Resolver.sonatypeRepo("public"),
+    resolvers ++= Resolver.sonatypeOssRepos("public"),
     version := SpinalVersion.core,
     Compile / sourceGenerators += Def.task {
       val dir = (Compile / sourceManaged).value

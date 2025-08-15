@@ -593,10 +593,34 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
 }
 
 
-object AssertStatementHelper{
+object AssertStatementHelper {
+
+  private def flattenMessage(input: Seq[Any]): Seq[Any] = {
+    val builder = Seq.newBuilder[Any]
+
+    def process(item: Any): Unit = {
+      if (item == null) {
+        builder += "<null>"
+        return
+      }
+      item match {
+        case nestedSeq: Seq[_] =>
+          nestedSeq.foreach(process)
+        case m @ (_: Byte | _: Short | _: Int | _: Long | _: Float | _: Double | _: Char | _: Boolean) => builder += m.toString
+        case m: BigInt => builder += m.toString
+        case m: BigDecimal => builder += m.toString
+        case other =>
+          builder += other
+      }
+    }
+
+    input.foreach(process)
+    builder.result()
+  }
 
   def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind: AssertStatementKind, trigger : AssertStatementTrigger, loc: Location): AssertStatement = {
-    val node = AssertStatement(cond, message, severity, kind, trigger, loc)
+    val flattenedMessage = flattenMessage(message)
+    val node = AssertStatement(cond, flattenedMessage, severity, kind, trigger, loc)
 
     if(!GlobalData.get.phaseContext.config.noAssert){
       DslScopeStack.get.append(node)
@@ -605,7 +629,7 @@ object AssertStatementHelper{
     node
   }
 
-  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger, loc: Location): AssertStatement ={
+  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger, loc: Location): AssertStatement = {
     AssertStatementHelper(cond, List(message), severity, kind, trigger, loc)
   }
 }

@@ -341,7 +341,7 @@ class PhaseAnalog extends PhaseNetlist{
               case _ => SpinalError(s"Unsupported statement $s")
             }
             if(targetRange.size != sourceRange.size)
-              SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT $s\n${s.getScalaLocationLong}")
+              SpinalError(s"WIDTH MISMATCH IN ANALOG ASSIGNMENT: $s.\nLocation:\n${s.getScalaLocationLong}")
 
             if(targetRange.size > 0) {
               if (sourceBt == null) SpinalError(":(")
@@ -756,7 +756,7 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
         }
 
         if(!(topo.writes.nonEmpty || topo.readWriteSync.nonEmpty || topo.writeReadSameAddressSync.nonEmpty || mem.initialContent != null)) {
-          SpinalError(s"MEM-WITHOUT-DRIVER. $mem has no write ports nor initial content. Defined at :\n${mem.getScalaLocationLong}")
+          SpinalError(s"MEM-WITHOUT-DRIVER: Memory '$mem' has no write ports nor initial content.\nDefined at:\n${mem.getScalaLocationLong}")
         }
 
         mem.component.rework{
@@ -1516,7 +1516,10 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
 
         for((key,elements) <- reserveds){
           if(elements.length != 1){
-            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${senum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
+            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with key '$key' and following elements:.\n" +
+                         s"${elements.mkString(", ")}\n" +
+                         s"Enumeration defined at:\n${senum.getScalaLocationLong}" +
+                         s"Encoding defined at:\n${encoding.getScalaLocationLong}")
           }
         }
       }
@@ -2084,80 +2087,128 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
 
     val okId = globalData.allocateAlgoIncrementale()
 
-    def propagate(root: Statement, vital: Boolean): Unit = {
-      if(root.algoIncrementale == okId) return
+    def getComponentOrThrowForPulledDataCache(s: Statement, operation: String): Component = {
+      val comp = s.component
+      if (comp == null) {
+        var statementInfo = s"Type: ${s.getClass.getSimpleName}, Content: ${s.toString}"
+        s match {
+          case named: Nameable if named.isNamed => statementInfo += s" (Name: ${named.getName()})"
+          case _ =>
+        }
+        val location = s.getScalaLocationLong
+        throw new NullPointerException(
+          s"Attempted to access '${operation}' on a null component for Statement: [$statementInfo] at $location"
+        )
+      }
+      comp
+    }
 
+
+    def propagate(root: Statement, vital: Boolean): Unit = {
+      if (root == null) {
+        SpinalWarning("propagate called with null root statement.")
+        return
+      }
+      if (root.algoIncrementale == okId) return
       root.algoIncrementale = okId
 
       val pending = mutable.ArrayStack[Statement](root)
 
-      def propagate(s: Statement) = {
-        if(s.algoIncrementale != okId) {
+      def propagateInner(s: Statement): Unit = {
+        if (s == null) {
+            SpinalWarning("propagateInner called with null statement in pending queue.")
+            return
+        }
+        if (s.algoIncrementale != okId) {
           s.algoIncrementale = okId
           pending.push(s)
         }
       }
 
-      while(pending.nonEmpty){
+      while (pending.nonEmpty) {
         val s = pending.pop()
-        if(postClockPulling) {
+
+        if (postClockPulling) {
           s.foreachClockDomain(cd => {
-            propagate(s.component.pulledDataCache(cd.clock).asInstanceOf[Bool])
-            if(cd.hasResetSignal) propagate(s.component.pulledDataCache(cd.reset).asInstanceOf[Bool])
-            if(cd.hasSoftResetSignal) propagate(s.component.pulledDataCache(cd.softReset).asInstanceOf[Bool])
-            if(cd.hasClockEnableSignal) propagate(s.component.pulledDataCache(cd.clockEnable).asInstanceOf[Bool])
+            val component = getComponentOrThrowForPulledDataCache(s, "pulledDataCache(cd.clock)")
+
+            propagateInner(component.pulledDataCache(cd.clock).asInstanceOf[Statement]) 
+            if (cd.hasResetSignal) {
+                propagateInner(component.pulledDataCache(cd.reset).asInstanceOf[Statement])
+            }
+
+            if (cd.hasSoftResetSignal) {
+                propagateInner(component.pulledDataCache(cd.softReset).asInstanceOf[Statement])
+            }
+
+            if (cd.hasClockEnableSignal) {
+                propagateInner(component.pulledDataCache(cd.clockEnable).asInstanceOf[Statement])
+            }
           })
         } else {
           s.foreachClockDomain(cd => {
-            propagate(cd.clock)
-            def propCached(that : BaseType): Unit ={
-              s.component.pulledDataCache.get(that) match {
-                case Some(x) => propagate(x.asInstanceOf[BaseType])
-                case None =>    propagate(that)
+            if (cd.clock != null) propagateInner(cd.clock)
+            else SpinalWarning(s"Clock domain on statement [$s] has a null clock signal.")
+
+            def propCached(that: BaseType): Unit = {
+              if (that == null) {
+                  SpinalWarning(s"propCached called with null BaseType for statement [$s].")
+                  return
+              }
+              // Check s.component BEFORE accessing pulledDataCache
+              val component = getComponentOrThrowForPulledDataCache(s, s"pulledDataCache.get($that)")
+              component.pulledDataCache.get(that) match {
+                case Some(x) =>
+                  if (x == null) SpinalWarning(s"pulledDataCache returned null for key [$that] on component [$component]")
+                  else propagateInner(x.asInstanceOf[Statement])
+                case None => propagateInner(that)
               }
             }
-            if(cd.hasResetSignal) propCached(cd.reset)
-            if(cd.hasSoftResetSignal) propCached(cd.softReset)
-            if(cd.hasClockEnableSignal) propCached(cd.clockEnable)
+            if (cd.hasResetSignal) propCached(cd.reset)
+            if (cd.hasSoftResetSignal) propCached(cd.softReset)
+            if (cd.hasClockEnableSignal) propCached(cd.clockEnable)
           })
         }
 
         s match {
-          case s: BaseType =>
-            if(vital)
-              s.setAsVital()
-            s.foreachStatements(propagate)
-          case s: AssignmentStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-            s.walkParentTreeStatements(propagate) //Could be walkParentTreeStatementsUntilRootScope but then should symplify removed TreeStatements
-          case s: WhenStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: SwitchStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: AssertStatement =>
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-            s.walkParentTreeStatements(propagate)
-          case s: Mem[_] => s.foreachStatements{
-            case p: MemWrite     => propagate(p)
-            case p: MemReadWrite => propagate(p)
-            case p: MemReadSync  =>
-            case p: MemReadAsync =>
+          case sbt: BaseType =>
+            if (vital) sbt.setAsVital()
+            sbt.foreachStatements(propagateInner)
+          case sas: AssignmentStatement =>
+            sas.walkExpression { case e: Statement => propagateInner(e); case _ => }
+            sas.walkParentTreeStatements(propagateInner)
+          case sws: WhenStatement =>
+            sws.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case sss: SwitchStatement =>
+            sss.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case sast: AssertStatement =>
+            sast.walkExpression { case e: Statement => propagateInner(e); case _ => }
+            sast.walkParentTreeStatements(propagateInner)
+          case smem: Mem[_] => smem.foreachStatements {
+            case p: MemWrite => propagateInner(p)
+            case p: MemReadWrite => propagateInner(p)
+            case p: MemReadSync if p.isInstanceOf[Statement] => propagateInner(p.asInstanceOf[Statement])
+            case p: MemReadAsync if p.isInstanceOf[Statement] => propagateInner(p.asInstanceOf[Statement])
+            case _ =>
           }
-          case s: MemWrite =>
-            s.isVital |= vital
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: MemReadWrite =>
-            s.isVital |= vital
-            propagate(s.mem)
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: MemReadSync =>
-            s.isVital |= vital
-            propagate(s.mem)
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
-          case s: MemReadAsync =>
-            s.isVital |= vital
-            propagate(s.mem)
-            s.walkExpression{ case e: Statement => propagate(e) case _ => }
+          case smw: MemWrite =>
+            smw.isVital |= vital
+            smw.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case smrw: MemReadWrite =>
+            smrw.isVital |= vital
+            if (smrw.mem != null) propagateInner(smrw.mem) else SpinalWarning(s"MemReadWrite statement [$smrw] has null mem reference.")
+            smrw.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case smrs: MemReadSync =>
+            smrs.isVital |= vital
+            if (smrs.mem != null) propagateInner(smrs.mem) else SpinalWarning(s"MemReadSync statement [$smrs] has null mem reference.")
+            smrs.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case smra: MemReadAsync =>
+            smra.isVital |= vital
+            if (smra.mem != null) propagateInner(smra.mem) else SpinalWarning(s"MemReadAsync statement [$smra] has null mem reference.")
+            smra.walkExpression { case e: Statement => propagateInner(e); case _ => }
+          case otherStmt: Statement if otherStmt.isInstanceOf[TreeStatement] => // Handle other TreeStatements
+            otherStmt.asInstanceOf[TreeStatement].foreachStatements(propagateInner)
+          case _ => // Other statement types that don't need specific handling here
         }
       }
     }
@@ -2314,10 +2365,34 @@ class PhaseCheckIoBundle extends PhaseCheck{
   }
 }
 
-class PhaseCheckHierarchy extends PhaseCheck{
+class PhaseCheckHierarchy extends PhaseCheck {
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
+
+    def getSignalDirectionString(bt: BaseType): String = {
+      if (bt.isInput) "input"
+      else if (bt.isOutput) "output"
+      else if (bt.isInOut) "inout"
+      else if (bt.isDirectionLess) "directionless"
+      else "unknown"
+    }
+
+    def getComponentPath(comp: Component): String = {
+      if (comp != null) comp.getPath() else "<None>"
+    }
+
+    // 优化后的 getComponentDesc，处理 toplevel 组件
+    def getComponentDesc(comp: Component): String = {
+      if (comp == null) return "<null_component_ref>"
+      if (comp == pc.topLevel) { // 如果是顶层组件，省略 (parent: '<None>')
+        s"component '${comp.getName()}'"
+      } else {
+        val parentName = if (comp.parent != null) comp.parent.getName() else "<None>"
+        s"component '${comp.getName()}' (parent: '$parentName')"
+      }
+    }
+
 
     //Check hierarchy read/write violation
     walkComponents(c => {
@@ -2326,62 +2401,121 @@ class PhaseCheckHierarchy extends PhaseCheck{
         var error = false
 
         s match {
-          case s : InitialAssignmentStatement =>
+          case s: InitialAssignmentStatement =>
           case s: AssignmentStatement =>
             val bt = s.finalTarget
 
-            if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
-              val identifier = if(c == null) "toplevel" else s"$c component"
-              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $identifier.\n${s.getScalaLocationLong}")
+            val condIsDirectionLessInC = bt.isDirectionLess && bt.component == c
+            val condIsOutputOrInOutInC = bt.isOutputOrInOut && bt.component == c
+            val condIsInputOrInOutInChildOfC = bt.isInputOrInOut && bt.component != null && bt.component.parent == c
+
+            if (!(condIsDirectionLessInC || condIsOutputOrInOutInC || condIsInputOrInOutInChildOfC)) {
+              val currentComponentDesc = if (c == null) "toplevel" else getComponentDesc(c)
+
+              val detailedMessage = new StringBuilder()
+              detailedMessage ++= s"HIERARCHY VIOLATION (assignment):\n"
+              detailedMessage ++= s"  Attempted to assign to signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName}),\n"
+              detailedMessage ++= s"  which is defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}',\n"
+              detailedMessage ++= s"  but is not assignable from $currentComponentDesc.\n"
+              detailedMessage ++= s"  (Assigned by expression: '${s.source.toString()}')\n"
+              detailedMessage ++= s"To be assignable from $currentComponentDesc, this signal must satisfy one of the following:\n"
+              detailedMessage ++= s"  1. Be a directionless signal defined directly within $currentComponentDesc.\n"
+              detailedMessage ++= s"  2. Be an 'out' or 'inout' port of $currentComponentDesc.\n"
+              detailedMessage ++= s"  3. Be an 'in' or 'inout' port of a direct child component of $currentComponentDesc.\n"
+              detailedMessage ++= s"Location of assignment:\n${s.getScalaLocationLong}"
+              PendingError(detailedMessage.toString())
               error = true
             }
 
-            if(!error && !bt.isInOut){
+            if (!error && !bt.isInOut) {
               val rootScope = s.rootScopeStatement
-              var ptr       = s.parentScope
+              var ptr = s.parentScope
 
-              while(ptr.parentStatement != null && ptr != rootScope){
+              while (ptr.parentStatement != null && ptr != rootScope) {
                 ptr = ptr.parentStatement.parentScope
               }
 
-              if(ptr != rootScope){
-                PendingError(s"SCOPE VIOLATION : $bt is assigned outside its declaration scope at \n${s.getScalaLocationLong}")
+              if (ptr != rootScope) {
+                PendingError(s"SCOPE VIOLATION: Signal '$bt' is assigned outside its declaration scope.\nLocation:\n${s.getScalaLocationLong}")
               }
             }
-          case s : MemPortStatement => {
-            if(s.mem.component != s.component){
-              PendingError(s"SCOPE VIOLATION : memory port $s was created in another component than its memory ${s.mem} \n${s.getScalaLocationLong}")
+          case s: MemPortStatement => {
+            if (s.mem.component != s.component) {
+              val detailedMemPortMessage = new StringBuilder()
+              detailedMemPortMessage ++= s"SCOPE VIOLATION: Memory port '$s' was created in a different component than its memory '${s.mem}'.\n"
+              detailedMemPortMessage ++= s"  Memory component: ${getComponentDesc(s.mem.component)}, Port component: ${getComponentDesc(s.component)}\n"
+              detailedMemPortMessage ++= s"Location:\n${s.getScalaLocationLong}"
+              PendingError(detailedMemPortMessage.toString())
             }
           }
           case _ =>
         }
 
-        if(!error) s.walkDrivingExpressions {
+        if (!error) s.walkDrivingExpressions {
           case bt: BaseType =>
-            if (!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)) {
-              if(bt.component == null || bt.getComponents().head != pc.topLevel){
-                PendingError(s"OLD NETLIST RE-USED : $bt is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+            val condIsSignalInC = bt.component == c
+            val condIsSignalInOutOrInoutOfChild = (bt.isInput || bt.isOutput || bt.isInOut) && bt.component != null && bt.component.parent == c
+
+            if (!(condIsSignalInC || condIsSignalInOutOrInoutOfChild)) {
+              val signalToplevelOpt = bt.getComponents().headOption
+              if (bt.component == null || signalToplevelOpt.isEmpty || signalToplevelOpt.get != pc.topLevel) {
+                val signalInfo = s"signal '${bt.toString()}' (instance of ${bt.getClass.getSimpleName})"
+                val contextInfo = s"used to drive statement '${s.toString()}'"
+                val problem = "appears to be defined in another netlist or is a dangling reference."
+                val advice = "Ensure hardware constants are not defined as 'val' in global Scala objects, and all signals originate from the current elaboration context."
+                val signalComponentInfo = getComponentDesc(bt.component)
+                val signalNetlistHeadInfo = signalToplevelOpt.map(h => s"'${getComponentPath(h)}'").getOrElse("N/A (signal's component list is empty or its component is null)")
+                val currentNetlistHeadInfo = if (pc.topLevel != null) s"'${getComponentPath(pc.topLevel)}'" else "N/A (current toplevel is null)"
+
+                val detailedOldNetlistMessage = new StringBuilder()
+                detailedOldNetlistMessage ++= s"OLD NETLIST RE-USED / DANGLING REFERENCE:\n"
+                detailedOldNetlistMessage ++= s"  Signal $signalInfo $problem.\n"
+                detailedOldNetlistMessage ++= s"  It was $contextInfo.\n"
+                detailedOldNetlistMessage ++= s"Details for this signal:\n"
+                detailedOldNetlistMessage ++= s"  - Inferred toplevel: $signalNetlistHeadInfo\n"
+                detailedOldNetlistMessage ++= s"  - Current elaboration toplevel: $currentNetlistHeadInfo\n"
+                detailedOldNetlistMessage ++= s"Advice: $advice\n"
+                detailedOldNetlistMessage ++= s"Location of read:\n${s.getScalaLocationLong}"
+                PendingError(detailedOldNetlistMessage.toString())
               } else {
-                if(c.withHierarchyAutoPull){
+                if (c != null && c.withHierarchyAutoPull) {
                   autoPullOn += bt
                 } else {
-                  PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+                  val currentComponentDesc = if (c == null) "toplevel" else getComponentDesc(c)
+                  
+                  val detailedMessage = new StringBuilder()
+                  detailedMessage ++= s"HIERARCHY VIOLATION (read access):\n"
+                  detailedMessage ++= s"  Attempted to read signal '${bt.toString()}' (an instance of ${bt.getClass.getSimpleName}),\n"
+                  detailedMessage ++= s"  which is defined in ${getComponentDesc(bt.component)} with direction '${getSignalDirectionString(bt)}',\n"
+                  detailedMessage ++= s"  but is not readable from $currentComponentDesc.\n"
+                  detailedMessage ++= s"  (Accessed by statement: '${s.toString()}')\n"
+                  detailedMessage ++= s"To be readable from $currentComponentDesc, this signal must satisfy one of the following:\n"
+                  detailedMessage ++= s"  1. Be any signal (directionless, in, out, or inout) defined directly within $currentComponentDesc.\n"
+                  detailedMessage ++= s"  2. Be an 'in', 'out', or 'inout' port of a direct child component of $currentComponentDesc.\n"
+                  detailedMessage ++= s"Location of read:\n${s.getScalaLocationLong}"
+                  PendingError(detailedMessage.toString())
                 }
               }
             }
-          case s : MemPortStatement =>{
-            if(s.mem.component != c){
-              PendingError(s"OLD NETLIST RE-USED : Memory port $s of memory ${s.mem} is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+          case s_expr: MemPortStatement => {
+            if (s_expr.mem.component != c) {
+              val detailedMemPortMessage = new StringBuilder()
+              detailedMemPortMessage ++= s"HIERARCHY/SCOPE VIOLATION (OLD NETLIST RE-USED): Memory port '${s_expr.toString()}'\n"
+              detailedMemPortMessage ++= s"  of memory '${s_expr.mem.toString()}' (defined in ${getComponentDesc(s_expr.mem.component)}) "
+              detailedMemPortMessage ++= s"is used in statement '${s.toString()}' within ${getComponentDesc(c)}.\n"
+              detailedMemPortMessage ++= s"  Memory port access should typically occur within the memory's own component scope (${getComponentDesc(s_expr.mem.component)}).\n"
+              detailedMemPortMessage ++= s"Location:\n${s.getScalaLocationLong}"
+              PendingError(detailedMemPortMessage.toString())
             }
           }
           case _ =>
         }
       })
 
-      if(autoPullOn.nonEmpty) c.rework{
+      if (autoPullOn.nonEmpty) c.rework {
         c.dslBody.walkStatements(s =>
           s.walkRemapDrivingExpressions(e =>
-            if(autoPullOn.contains(e)){
+            if (autoPullOn.contains(e)) {
               e.asInstanceOf[BaseType].pull()
             } else {
               e
@@ -2391,8 +2525,10 @@ class PhaseCheckHierarchy extends PhaseCheck{
       }
 
       //Check register defined as component inputs
-      c.getAllIo.foreach(bt => if(bt.isInput && bt.isReg){
-        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT : $bt is defined as a registered input of the $c component, but isn't allowed.\n${bt.getScalaLocationLong}")
+      c.getAllIo.foreach(bt => if (bt.isInput && bt.isReg) {
+        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT: Signal '$bt' is defined as a registered input " +
+                     s"of the ${getComponentDesc(c)}, which is not allowed.\n" +
+                     s"Location:\n${bt.getScalaLocationLong}")
       })
     })
   }
@@ -3084,9 +3220,9 @@ class PhaseCheckAsyncResetsSources() extends PhaseCheck {
 
 class PhaseObfuscate() extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
-    var id = 0
+    var id: Long = 0
     def newName(): String = {
-      val name = "oo_" + id
+      val name = pc.config.obfuscate.prefix + id
       id += 1
       name
     }
@@ -3096,21 +3232,54 @@ class PhaseObfuscate() extends PhaseNetlist{
     def rename(that : Nameable) : Unit = {
      that.setName(newName)
     }
-    if(pc.config.obfuscateNames){
+    if(pc.config.obfuscateNames) {
       pc.walkComponentsExceptBlackbox { c =>
-        if (c != pc.topLevel) {
-          renameT(c)
-          if(!c.definition.hasTag(dontObfuscate)) c.setDefinitionName(newName)
+        val cd = c.clockDomain.get
+        if(cd != null && pc.config.obfuscate.keepClkResetNames) {
+          if(cd.clock.component != c) {
+            c.pulledDataCache.get(cd.clock).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.reset != null && cd.reset.component != c) {
+            c.pulledDataCache.get(cd.reset).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.softReset != null && cd.softReset.component != c) {
+            c.pulledDataCache.get(cd.softReset).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
+          if(cd.clockEnable != null && cd.clockEnable.component != c) {
+            c.pulledDataCache.get(cd.clockEnable).foreach{ pin =>
+              if(pin.component == c) {
+                pin.addTag(dontObfuscate)
+              }
+            }
+          }
         }
-        c.dslBody.walkDeclarations {
-          case io: BaseType if io.component == pc.topLevel && !io.isDirectionLess =>
-          case n: Nameable with SpinalTagReady => renameT(n)
-          case n: Nameable => rename(n)
-        }
-        for ((enu, enc) <- pc.enums) {
-          rename(enu)
-          for (e <- enu.elements) {
-            renameT(e)
+        if(c.level >= pc.config.obfuscate.hierarchyKeepLevel) {
+          if (c != pc.topLevel) {
+            if(!c.hasTag(dontObfuscate) && !pc.config.obfuscate.keepInstanceNames) renameT(c)
+            if(!c.definition.hasTag(dontObfuscate) && !pc.config.obfuscate.keepDefinitionNames) c.setDefinitionName(newName)
+          }
+          c.dslBody.walkDeclarations {
+            case io: BaseType if io.component == pc.topLevel && !io.isDirectionLess =>
+            case n: Nameable with SpinalTagReady => renameT(n)
+            case n: Nameable => rename(n)
+          }
+          for ((enu, enc) <- pc.enums) {
+            rename(enu)
+            for (e <- enu.elements) {
+              renameT(e)
+            }
           }
         }
       }

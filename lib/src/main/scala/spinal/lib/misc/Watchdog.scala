@@ -38,15 +38,33 @@ class Watchdog(p : WatchdogParam) extends Area{
 
 
   def driveFrom(busCtrl: BusSlaveFactory, baseAddress: Int) = new Area {
-    api.heartbeat := busCtrl.isWriting(baseAddress) && busCtrl.nonStopWrite(Bits(32 bits)) === 0xAD68E70Dl
-    api.enables.setAsReg().init(0)
-    busCtrl.setOnSet(api.enables, baseAddress + 0x04, 0)
+    def checkKey(key : Long) : Bool = busCtrl.isWriting(baseAddress) && busCtrl.nonStopWrite(Bits(32 bits)) === key
+    val unlocked = RegInit(True)
+    unlocked setWhen(checkKey(0x3C21B925L))
+    unlocked clearWhen(checkKey(0x3C21B924L))
 
-    def lockedDrive[T <: Data](that : T, allowed : Bool, address : Int): T = {
+    api.heartbeat := checkKey(0xAD68E70Dl)
+
+    {// Drive enables
+      api.enables.setAsReg().init(0)
+      val bitSets = busCtrl.nonStopWrite(Bits(widthOf(api.enables) bits), 0)
+      when(busCtrl.isWriting(baseAddress + 0x04) && unlocked) {
+        for (i <- 0 until p.counters) {
+          api.enables(i).setWhen(bitSets(i))
+        }
+      }
+      when(busCtrl.isWriting(baseAddress + 0x08) && unlocked) {
+        for (i <- 0 until p.counters) {
+          api.enables(i).clearWhen(bitSets(i))
+        }
+      }
+    }
+
+    def lockedDrive[T <: Data](that : T, address : Int): T = {
       val reg = Reg(that)
       val driver = busCtrl.nonStopWrite(cloneOf(that))
       busCtrl.onWrite(address) {
-        when(allowed) {
+        when(unlocked) {
           reg := driver
         }
       }
@@ -54,9 +72,9 @@ class Watchdog(p : WatchdogParam) extends Area{
       reg
     }
 
-    lockedDrive(prescaler.io.limit, api.enables === 0, baseAddress + 0x40) init(0)
+    lockedDrive(prescaler.io.limit, baseAddress + 0x40) init(0)
     for(i <- 0 until p.counters){
-      lockedDrive(counters(i).timer.io.limit, !api.enables(i), baseAddress + 0x80 + i*4) init(0)
+      lockedDrive(counters(i).timer.io.limit, baseAddress + 0x80 + i*4) init(0)
       busCtrl.read(counters(i).timer.io.value, baseAddress + 0xC0 + i*4)
     }
   }
@@ -80,7 +98,7 @@ case class BmbWatchdog(p : WatchdogParam, bmbParameter: BmbParameter) extends Co
   }
   val wd = new Watchdog(p)
   val busCtrl = BmbSlaveFactory(io.bus)
-  wd.driveFrom(busCtrl, 0)
+  val driver = wd.driveFrom(busCtrl, 0)
   wd.api.heartbeat setWhen(io.heartBeat)
   io.panics <> wd.api.panics
 }

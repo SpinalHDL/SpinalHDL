@@ -26,7 +26,8 @@ import spinal.idslplugin.Location
 
 /** `Bool` factory used for instance by the IODirection to create a in/out Bool() */
 trait BoolFactory {
-  @deprecated("Use `Bool()` (with braces) instead")
+  /** Deprecated, use [[Bool()]] (with braces) instead */
+  @deprecated("Use `Bool()` (with braces) instead")  
   def Bool: Bool = Bool()
 
   /** Create a new `Bool` */

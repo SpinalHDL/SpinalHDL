@@ -68,4 +68,6 @@ class HardMap extends MultiData {
       case _ => throw new Exception("Undefined assignment")
     }
   }
+
+  override def clone: Data = HardMap(storage.keys.toList).asInstanceOf[Data]
 }

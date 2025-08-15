@@ -409,6 +409,7 @@ package object sim {
   implicit class SimBoolPimper(bt: Bool) extends SimEquiv {
     def simProxy() = new SimProxy(bt)
     class SimProxy(bt : Bool){
+      assert(bt.isNamed)
       val manager = SimManagerContext.current.manager
       val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
       def toBoolean = manager.getLong(signal) != 0
@@ -429,7 +430,7 @@ package object sim {
     
     /** Assign a hardware ``Bool`` from an Scala ``Boolean``
       *
-      * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
       */
     def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
     
@@ -446,7 +447,7 @@ package object sim {
     
     /** Assign a hardware ``BitVector`` from an Scala ``Long``
       *
-      * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
       */
     def #=(value: Long) = setLong(bt, value)
 
@@ -464,7 +465,7 @@ package object sim {
     
     /** Assign a hardware ``BitVector`` from an Scala ``Array[Byte]``
       *
-      * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
       */
     def #=(value: Array[Byte])    = {
       var acc = BigInt(0)
@@ -483,7 +484,7 @@ package object sim {
 
     /** Assign a hardware ``BitVector`` from an Scala ``Array[Boolean]``
       *
-      * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+      * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
       */
     def #=(value: Array[Boolean]) = {
       var acc = BigInt(0)
@@ -508,16 +509,17 @@ package object sim {
   implicit class SimBitVectorPimper(bt: BitVector) {
     def simProxy() = new SimProxy(bt)
     class SimProxy(bt : BitVector){
+      val alwaysZero = bt.getBitsWidth <= 0
+      assert(bt.isNamed)
       val manager = SimManagerContext.current.manager
       val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
-      val alwaysZero = bt.getBitsWidth == 0
       def toInt = if(alwaysZero) 0 else manager.getInt(signal)
       def toLong = if(alwaysZero) 0 else manager.getLong(signal)
       def toBigInt = if(alwaysZero) 0 else manager.getBigInt(signal)
 
       /** Assign a hardware ``BitVector`` from an Scala ``Int``
         *
-        * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+        * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
         */
       def #=(value: Int) : Unit  = {
         if(alwaysZero) {
@@ -529,7 +531,7 @@ package object sim {
 
       /** Assign a hardware ``BitVector`` from an Scala ``Long``
         *
-        * [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
+        * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
         */      
       def #=(value: Long) : Unit  = {
         if(alwaysZero) {
@@ -565,6 +567,7 @@ package object sim {
       new SimUnionElementPimper.PendingAssign())
 
     class SimProxy[E <: Data](rawBits: Bits, e: E) {
+      assert(rawBits.parentScope != null)
       var offset = 0
       breakable {
         for (ee <- dummyData.flatten) {

@@ -45,6 +45,13 @@ object SystemVerilog extends SpinalMode
 
 case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
 
+case class ObfuscateConfig (
+                             keepDefinitionNames: Boolean = false,
+                             keepInstanceNames: Boolean = false,
+                             keepClkResetNames: Boolean = false,
+                             prefix: String = "oo_",
+                             hierarchyKeepLevel: Int = 0
+                           )
 
 
 /**
@@ -68,6 +75,9 @@ object Device{
 }
 
 
+/** Policy for memory blackbox replacement. 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
 trait MemBlackboxingPolicy {
   def translationInterest(topology: MemTopology): Boolean
 
@@ -78,21 +88,32 @@ trait MemBlackboxingPolicy {
   }
 }
 
-
+/** Blackbox every memory that is replaceable.
+  *
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
 object blackboxAllWhatsYouCan extends MemBlackboxingPolicy {
   override def translationInterest(topology: MemTopology): Boolean = true
 
   override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = {}
 }
 
-
+/** Blackbox all memory.
+  *
+  * Throw an error on unblackboxable memory.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
 object blackboxAll extends MemBlackboxingPolicy {
   override def translationInterest(topology: MemTopology): Boolean = true
 
   override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = generateUnblackboxableError(topology, who, message)
 }
 
-
+/** Blackbox memory specified by the user and memory that is known to be uninferable (mixed-width, …).
+  * 
+  * Throw an error on unblackboxable memory.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
 object blackboxRequestedAndUninferable extends MemBlackboxingPolicy {
 
   override def translationInterest(topology: MemTopology): Boolean = {
@@ -107,8 +128,12 @@ object blackboxRequestedAndUninferable extends MemBlackboxingPolicy {
   override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = generateUnblackboxableError(topology, who, message)
 }
 
-
-object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
+/** Blackbox memory specified by the user.
+  * 
+  * Throw an error on unblackboxable memory.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
+object blackboxOnlyIfRequested extends MemBlackboxingPolicy {
   override def translationInterest(topology: MemTopology): Boolean = {
     topology.mem.forceMemToBlackboxTranslation
   }
@@ -116,7 +141,13 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
   override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = generateUnblackboxableError(topology, who, message)
 }
 
-object blackboxByteEnables extends MemBlackboxingPolicy{
+/** Blackbox every memory which use write port with byte mask.
+  * 
+  * Useful because synthesis tool don't support an unified way to infer byte mask in verilog/VHDL.
+  * Throw an error on unblackboxable memory.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+  */
+object blackboxByteEnables extends MemBlackboxingPolicy {
   override def translationInterest(topology: MemTopology): Boolean = {
     if(topology.writes.exists(_.mask != null) && topology.mem.initialContent == null) return true
     if(topology.readWriteSync.exists(_.mask != null) && topology.mem.initialContent == null) return true
@@ -128,8 +159,10 @@ object blackboxByteEnables extends MemBlackboxingPolicy{
 
 
 /**
- * Spinal configuration for the generation of the RTL 
- */
+  * Spinal configuration for the generation of the RTL
+  *
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
+  */
 case class SpinalConfig(mode                           : SpinalMode = null,
                         flags                          : mutable.HashSet[Any] = mutable.HashSet[Any](),
                         debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
@@ -168,6 +201,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         allowOutOfRangeLiterals        : Boolean = false,
                         var dontCareGenAsZero          : Boolean = false,
                         var obfuscateNames             : Boolean = false,
+                        obfuscate                      : ObfuscateConfig = ObfuscateConfig(),
                         var normalizeComponentClockDomainName : Boolean = false,
                         var devicePhaseHandler         : PhaseDeviceHandler = PhaseDeviceDefault,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
@@ -402,7 +436,7 @@ class SpinalReport[T <: Component]() {
 }
 
 
-object Spinal{
+object Spinal {
   val version = (if(Character.isDigit(spinal.core.Info.version(0))) "v" else "") + spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
@@ -443,13 +477,37 @@ object Spinal{
 
 
 object SpinalVhdl {
+  /** Generate VHDL from a ``SpinalConfig``
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
+  */
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = Spinal(config.copy(mode = VHDL))(gen)
+
+  /** Generate VHDL from a function that return a component
+  * 
+  * Multiple instances of the component class may be needed, therefore the first argument is not
+  * a Component reference, but a function that returns a new component.
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
+  */
   def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = VHDL).generate(gen)
 }
 
 
 object SpinalVerilog {
+/** Generate Verilog from a ``SpinalConfig``
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
+  */
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = Spinal(config.copy(mode = Verilog))(gen)
+
+/** Generate Verilog from a function that return a component
+  * 
+  * Multiple instances of the component class may be needed, therefore the first argument is not
+  * a Component reference, but a function that returns a new component.
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
+  */
   def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = Verilog).generate(gen)
 }
 

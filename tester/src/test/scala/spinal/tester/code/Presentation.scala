@@ -782,16 +782,16 @@ object t8_a {
   //      val bus = slave(new Apb3(apbConfig))
   //      val uart = master(Uart())
   //    }
-  //    val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
+  //    val busCtrl = new Apb3SlaveController(io.bus) // This is a APB3 slave controller builder tool
   //
-  //    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10) //Create a write only configuration register at address 0x10
+  //    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10) // Create a write-only configuration register at address 0x10
   //    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
   //    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
   //
   //    val uartCtrl = new UartCtrl()
   //    uartCtrl.io.config := config
-  //    uartCtrl.io.write <-< writeStream //Pipelined connection
-  //    uartCtrl.io.read.toStream.queue(16) >> readStream  //Queued connection
+  //    uartCtrl.io.write <-< writeStream // Pipelined connection
+  //    uartCtrl.io.read.toStream.queue(16) >> readStream  // Queued connection
   //    uartCtrl.io.uart <> io.uart
   //  }
 }
@@ -1868,25 +1868,25 @@ object SementicAD{
 }
 
 
-object PlayAxiLiteFactory{
-  //Create a new AxiLite4 bus
+object PlayAxiLiteFactory {
+  // Create a new AxiLite4 bus
   val axiLiteConfig = AxiLite4Config(
     addressWidth =  12,
     dataWidth = 32
   )
   val bus = AxiLite4(axiLiteConfig)
 
-  //Create the factory which is able to create some bridging logic between the bus and some hardware
+  // Create the factory which is able to create some bridging logic between the bus and some hardware
   val factory = new AxiLite4SlaveFactory(bus)
 
-  //Create 'a' and 'b' as write only register
+  // Create 'a' and 'b' as write-only register
   val a = factory.createWriteOnly(UInt(32 bits), address = 0)
   val b = factory.createWriteOnly(UInt(32 bits), address = 4)
 
-  //Do some calculation
+  // Do some calculation
   val result = a * b
 
-  //Make 'result' readable by the bus
+  // Make 'result' readable by the bus
   factory.read(result(31 downto 0), address = 8)
 }
 

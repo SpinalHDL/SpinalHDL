@@ -2,7 +2,7 @@ package spinal.demo.phy
 
 import spinal.core.{BlackBox, _}
 import spinal.lib._
-import spinal.lib.memory.sdram.dfi.interface.{Dfi, DfiConfig, TaskConfig}
+import spinal.lib.memory.sdram.dfi._
 
 case class ddr3_dfi_phy(ddrIoDfiConfig: DfiConfig) extends BlackBox {
   val io = new Bundle {
@@ -20,10 +20,10 @@ case class ddr3_dfi_phy(ddrIoDfiConfig: DfiConfig) extends BlackBox {
     val dfi = slave(Dfi(ddrIoDfiConfig))
     val ddr3 = new DDR3IO(ddrIoDfiConfig)
   }
-  addGeneric("REFCLK_FREQUENCY", 200)
+  addGeneric("REFCLK_FREQUENCY", 2 * ddrIoDfiConfig.sdram.ddrMHZ)
   addGeneric("DQS_TAP_DELAY_INIT", 27)
   addGeneric("DQ_TAP_DELAY_INIT", 0)
-  addGeneric("TPHY_RDLAT", 5)
+  addGeneric("TPHY_RDLAT", 4)
   addGeneric("TPHY_WRLAT", 5)
   noIoPrefix()
   private def renameIO(): Unit = {

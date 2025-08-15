@@ -439,8 +439,13 @@ trait Nameable extends OwnableRef with ContextUser {
 
   private[core] def getNameElseThrow: String = {
     getName(null) match {
-      case null =>  throw new Exception("Internal error")
-      case name =>  name
+      case null => {
+        val errorMessage =
+          s"Signal $this has no name but is used in a context where a name is required. " +
+          s"Location of the signal: \n${getScalaLocationLong}. "
+        SpinalError(errorMessage)
+      }
+      case name => name
     }
   }
 
@@ -838,7 +843,12 @@ object unusedTag                     extends SpinalTag
 object noCombinatorialLoopCheck      extends SpinalTag
 object noLatchCheck                  extends SpinalTag
 object noBackendCombMerge            extends SpinalTag
+
+/** Tag for clock crossing signals
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html#clock-domain-crossing Clock domain crossing documentation]]
+  */
 object crossClockDomain              extends SpinalTag{ override def moveToSyncNode = true }
+
 object crossClockBuffer              extends SpinalTag{ override def moveToSyncNode = true }
 
 sealed trait TimingEndpointType

@@ -53,7 +53,10 @@ class FiberPlugin extends Area with Hostable {
 
   override def setHost(h: PluginHost): Unit = {
     h.addService(this)
-    subservices.foreach(h.addService)
+    subservices.foreach {
+      case s: Hostable => s.setHost(h)
+      case s => h.addService(s)
+    }
     host = h
     if(!isNamed){
       this.setName(ClassName(this))
