@@ -13,6 +13,7 @@ class FloatingTester extends Component {
     val snan = out Bool()
     val positive = out Bool()
     val infinite = out Bool()
+    val abs = out(Floating32())
     val recoded_sign = out Bool()
     val recoded_exp = out Bits(9 bits)
     val recoded_mantissa = out Bits(23 bits)
@@ -48,6 +49,7 @@ class FloatingTester extends Component {
   io.snan := rec.isSNaN
   io.positive := rec.isPositive
   io.infinite := rec.isInfinite
+  io.abs := io.inp.abs
 
   // FP to recoded
   io.recoded_sign := rec.sign

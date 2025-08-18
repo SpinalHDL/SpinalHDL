@@ -13,6 +13,8 @@ object FloatingAbs {
     */
   def apply(that: Floating): Floating = {
     val x = cloneOf(that)
+    x.mantissa := that.mantissa
+    x.exponent := that.exponent
     x.sign := False
     x
   }
@@ -24,6 +26,8 @@ object FloatingAbs {
     */
   def apply(that: RecFloating): RecFloating = {
     val x = cloneOf(that)
+    x.mantissa := that.mantissa
+    x.exponent := that.exponent
     x.sign := False
     x
   }
