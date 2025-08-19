@@ -333,6 +333,32 @@ class Ram_1wrs(
   noIoPrefix()
 }
 
+/**
+ * Rom 1rs
+ */
+class Rom_1rs(
+                val wordWidth      : Int,
+                val wordCount      : Int,
+                val technology     : MemTechnologyKind
+              ) extends BlackBox {
+
+  addGenerics(
+    "wordCount"      -> Rom_1rs.this.wordCount,
+    "wordWidth"      -> Rom_1rs.this.wordWidth,
+    "technology"     -> Rom_1rs.this.technology.technologyKind
+  )
+
+  val io = new Bundle {
+    val clk    =  in Bool()
+    val en     =  in Bool()
+    val addr   =  in UInt(log2Up(wordCount) bit)
+    val data   = out Bits(wordWidth bit)
+  }
+
+  mapCurrentClockDomain(io.clk)
+  noIoPrefix()
+}
+
 
 class Ram_2wrs(
   val wordWidth            : Int,

@@ -988,7 +988,28 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
     }
 
     if (mem.initialContent != null) {
-      return "Can't blackbox ROM"  //TODO
+      if (topo.portCount == 1 && topo.readsSync.size == 1 && topo.readWriteSync.isEmpty) {
+        mem.component.rework {
+          val port = topo.readsSync.head
+
+          val rom = new Rom_1rs(
+            wordWidth = port.width,
+            wordCount = mem.wordCount*mem.width/port.width,
+            technology = mem.technology
+          )
+
+          rom.io.addr.assignFrom(port.address)
+          rom.io.en.assignFrom(port.clockDomain.isClockEnableActive && port.readEnable.asInstanceOf[Bool])
+
+          wrapConsumers(port, rom.io.data)
+
+          rom.setName(mem.getName())
+          rom.addTag(new MemBlackboxOf(topo.mem.asInstanceOf[Mem[Data]]))
+          removeMem()
+        }
+      } else {
+        return "Can't blackbox ROM" // TODO
+      }
       //      } else if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.portCount == 2) {
     } else if (topo.writes.size == 1 && (topo.readsAsync.nonEmpty || topo.readsSync.nonEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.isEmpty) {
       mem.component.rework {
@@ -3383,6 +3404,7 @@ object SpinalVhdlBoot{
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
     report.globalData = pc.globalData
+    pc.globalData.report = report.asInstanceOf[SpinalReport[Component]]
     phases += new PhaseDummy(SpinalProgress(s"Generate VHDL to ${config.targetDirectory}"))
     phases += new PhaseVhdl(pc, report)
 
@@ -3517,6 +3539,7 @@ object SpinalVerilogBoot{
 
     val report = new SpinalReport[T]()
     report.globalData = pc.globalData
+    pc.globalData.report = report.asInstanceOf[SpinalReport[Component]]
     phases += new PhaseVerilog(pc, report)
 
     for(inserter <-config.phasesInserters){
