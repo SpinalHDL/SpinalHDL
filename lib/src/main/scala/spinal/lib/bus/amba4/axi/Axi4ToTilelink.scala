@@ -74,7 +74,7 @@ class Axi4WriteOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Compon
     val counterRange = log2Up(bytesMax)-1 downto log2Up(config.bytePerWord)
     val counter = Reg(io.down.p.beat) init(0)
     when(io.up.w.fire){
-      counter := counter + 1
+      counter := (counter + 1).resized
       when(io.up.w.last){
         counter := 0
       }
