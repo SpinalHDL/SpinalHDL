@@ -16,6 +16,9 @@ import scala.collection.mutable.ArrayBuffer
 class Connection(m : NodeUpDown, s : NodeUpDown) extends ConnectionRaw(m, s) {
   var upConnection: (Bus, Bus) => Any = null
   var downConnection: (Bus, Bus) => Any = null
+  var frequencyRatio = 1.0
+  var forceWidthAdapterUp = false
+  var forceWidthAdapterDown = false
 
   def setUpConnection(body: (Bus, Bus) => Any): Unit = upConnection = body
   def setDownConnection(body: (Bus, Bus) => Any): Unit = downConnection = body
@@ -44,6 +47,11 @@ class Connection(m : NodeUpDown, s : NodeUpDown) extends ConnectionRaw(m, s) {
     down.m2s.parameters.load(s.m2s.supported join up.m2s.parameters)
     up.s2m.parameters.load(m.s2m.supported join down.s2m.parameters)
 
+    if(m.clockDomain.frequency.isInstanceOf[FixedFrequency] && s.clockDomain.frequency.isInstanceOf[FixedFrequency]){
+      frequencyRatio = (m.clockDomain.frequency.getValue / s.clockDomain.frequency.getValue).toDouble
+    }
+    assert(!(forceWidthAdapterUp && forceWidthAdapterDown))
+
     var ptr = up.bus.get
     val upCon = (upConnection != null) generate {
       val bus = cloneOf(ptr)
@@ -67,17 +75,36 @@ class Connection(m : NodeUpDown, s : NodeUpDown) extends ConnectionRaw(m, s) {
 
   
   val adapters = ArrayBuffer[InterconnectAdapter]()
+  adapters += new InterconnectAdapterWidth(m)
   adapters += new InterconnectAdapterCc()
-  adapters += new InterconnectAdapterWidth()
-
+  adapters += new InterconnectAdapterWidth(s)
 }
 
 
-class InterconnectAdapterWidth extends InterconnectAdapter{
+class InterconnectAdapterWidth(sideNode : NodeUpDown) extends InterconnectAdapter{
   var adapter = Option.empty[tilelink.WidthAdapter]
 
-  override def isRequired(c : Connection) = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
-  override def build(c : Connection)(m: Bus) : Bus = c.s.clockDomain{
+  override def isRequired(c : Connection) : Boolean = {
+    val widthMissmatch = c.m.m2s.parameters.dataWidth != c.s.m2s.parameters.dataWidth
+    if(!widthMissmatch) return false
+    if(c.forceWidthAdapterUp) return sideNode == c.m
+    if(c.forceWidthAdapterDown) return sideNode == c.s
+
+    val mw = c.m.m2s.parameters.dataWidth
+    val sw = c.s.m2s.parameters.dataWidth
+    val maxBw = Math.min(mw * c.frequencyRatio, sw / c.frequencyRatio)*0.99 //Maximal bandwidth (without adapater)
+
+    // Bandwidth if implemented on the given side.
+    val mbw = sw * c.frequencyRatio
+    val sbw = mw / c.frequencyRatio
+
+    // If both implementation side bandwidth is big enough
+    if(sbw > maxBw && mbw > maxBw) return sideNode == (mw > sw).mux(c.m, c.s)
+
+    // Implement on the side which provide the most bandwidth
+    return sideNode == (mbw > sbw).mux(c.m, c.s)
+  }
+  override def build(c : Connection)(m: Bus) : Bus = sideNode.clockDomain{
     val adapter = new tilelink.WidthAdapter(
       ip = m.p,
       op = m.p.copy(dataWidth = c.s.m2s.parameters.dataWidth),
