@@ -347,6 +347,7 @@ class Cache(val p : CacheParam) extends Component {
   // acquire_block => [lock], [victim]
   class GeneralSlot extends Slot{
     val address = Reg(UInt(addressCheckWidth bits))
+    val allowGet = Reg(Bool())
 //    val way = Reg(UInt(log2Up(cacheWays) bits))
     val pending = new Area{
       val victim, primary, acquire, victimRead, victimWrite = Reg(Bool())
@@ -749,7 +750,7 @@ class Cache(val p : CacheParam) extends Component {
       val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === CtrlOpcode.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
       val WRITE_DATA = insert(List(PUT_PARTIAL_DATA(), PUT_FULL_DATA(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
       val GS_NEED = insert(List(ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, GET, FLUSH).map(_.craft()).sContains(CTRL_CMD.opcode))
-      val GS_HITS = insert(gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address).asBits)
+      val GS_HITS = insert(gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address && (!GET_PUT || !s.allowGet)).asBits)
       val GS_HIT = insert(GS_HITS.orR)
       val GS_OH = insert(UIntToOh(CTRL_CMD.gsId, generalSlotCount))
 
@@ -834,6 +835,7 @@ class Cache(val p : CacheParam) extends Component {
       val gsPendingVictim = False
       val gsPendingVictimReadWrite = False
       val gsPendingPrimary = True
+      val gsAllowGet = False
 
       //TODO don't forget to ensure that a victim get out of the cache before downD/upA erase it
 
@@ -915,6 +917,7 @@ class Cache(val p : CacheParam) extends Component {
         gotGs := True
         gs.slots.onMask(gsOh) { s =>
           s.address := gsAddress
+          s.allowGet := gsAllowGet
           when(firstCycle) {
             s.pending.victim := gsPendingVictim
             s.pending.victimRead := gsPendingVictimReadWrite
@@ -1119,6 +1122,7 @@ class Cache(val p : CacheParam) extends Component {
               askReadBackend := preCtrl.IS_GET
               toReadBackend.toUpD := True
               toReadBackend.upD.opcode := Opcode.D.ACCESS_ACK_DATA
+              gsAllowGet := preCtrl.IS_GET
               when(preCtrl.IS_PUT) {
                 askWriteBackend := True
                 cache.tags.write.data.dirty := True
