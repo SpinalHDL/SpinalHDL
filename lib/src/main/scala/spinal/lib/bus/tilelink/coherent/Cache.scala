@@ -350,8 +350,8 @@ class Cache(val p : CacheParam) extends Component {
     val allowGet = Reg(Bool())
 //    val way = Reg(UInt(log2Up(cacheWays) bits))
     val pending = new Area{
-      val victim, primary, acquire, victimRead, victimWrite = Reg(Bool())
-      fire setWhen(List(victim, acquire, primary, victimWrite).norR)
+      val victim, primary, acquire, victimRead, victimWrite, cacheWrite = Reg(Bool())
+      fire setWhen(List(victim, acquire, primary, victimWrite, cacheWrite).norR)
     }
   }
 
@@ -834,6 +834,7 @@ class Cache(val p : CacheParam) extends Component {
       val gsWay = CombInit(backendWayId)
       val gsPendingVictim = False
       val gsPendingVictimReadWrite = False
+      val gsPendingCacheWrite = False
       val gsPendingPrimary = True
       val gsAllowGet = False
 
@@ -922,6 +923,7 @@ class Cache(val p : CacheParam) extends Component {
             s.pending.victim := gsPendingVictim
             s.pending.victimRead := gsPendingVictimReadWrite
             s.pending.victimWrite := gsPendingVictimReadWrite
+            s.pending.cacheWrite := gsPendingCacheWrite
             s.pending.primary := gsPendingPrimary
             s.pending.acquire := preCtrl.ACQUIRE
           }
@@ -1142,6 +1144,7 @@ class Cache(val p : CacheParam) extends Component {
               toWriteBackend.toUpD := Cache.ToUpDOpcode.ACCESS_ACK
             } otherwise {
               askReadDown := True
+              gsPendingCacheWrite := True
             }
             gsRefill := True
             when(preCtrl.IS_GET) {
@@ -1178,6 +1181,7 @@ class Cache(val p : CacheParam) extends Component {
           cache.tags.write.data.trunk := !acquireToB
           when(CTRL_CMD.opcode === CtrlOpcode.ACQUIRE_BLOCK) {
             askReadDown := True
+            gsPendingCacheWrite := True
             gsRefill := True
           } otherwise {
             askUpD := True
@@ -1522,7 +1526,7 @@ class Cache(val p : CacheParam) extends Component {
         GRANT_DATA      -> True
       )
       val toUpDFork = forkStream(needForkToUpD)
-      val toUpD = toUpDFork.haltWhen(victimHazard || hazardUpC).swapPayload(io.up.d.payloadType)
+      val toUpD = toUpDFork.haltWhen(victimHazard || hazardUpC || CMD.toUpD === RELEASE_ACK && toCacheFork.isStall).swapPayload(io.up.d.payloadType)
       toUpD.opcode  := CMD.toUpD.muxDc(
         ACCESS_ACK      -> Opcode.D.ACCESS_ACK(),
         ACCESS_ACK_DATA -> Opcode.D.ACCESS_ACK_DATA(),
@@ -1537,6 +1541,8 @@ class Cache(val p : CacheParam) extends Component {
       toUpD.denied  := False
       toUpD.data    := upCSplit.dataPop.payload //as it never come from a upA put
       toUpD.corrupt := False
+
+      val toUpDBuffered = toUpD.stage() //Necessary to ensure release data is written to memory before notifying up D  (haltWhen (!isReady))
 
       when(isFiring && inserter.LAST) {
         when(CMD.toUpD =/= NONE) {
@@ -1601,10 +1607,17 @@ class Cache(val p : CacheParam) extends Component {
 
       val isVictim = CMD.source.msb
 
-      val toCache = forkStream(!isVictim && CTX.toCache).swapPayload(cache.data.downWrite.payloadType)
-      toCache.address := CTX.wayId @@ CTX.setId @@ BEAT
-      toCache.data := CMD.data
-      toCache.mask.setAll()
+      case class ToCache() extends Bundle{
+        val cmd = cache.data.downWrite.payloadType()
+        val gsId = UInt(log2Up(generalSlotCount) bits)
+        val last = Bool()
+      }
+      val toCache = forkStream(!isVictim && CTX.toCache).swapPayload(ToCache())
+      toCache.cmd.address := CTX.wayId @@ CTX.setId @@ BEAT
+      toCache.cmd.data := CMD.data
+      toCache.cmd.mask.setAll()
+      toCache.gsId := CMD.source.resized
+      toCache.last := LAST
 
       val gsId = CMD.source.resize(log2Up(gs.slots.size))
       val vh = readBackend.fetchStage
@@ -1612,7 +1625,13 @@ class Cache(val p : CacheParam) extends Component {
       val victimOnGoing = vh.valid && vh(readBackend.CMD).toVictim && readBackend.victimAddress(vh) === (gsId @@ BEAT)
       val victimHazard = victimRead || victimOnGoing
 
-      toCache.haltWhen(victimHazard) >-> cache.data.downWrite
+      val toCacheBuffered = toCache.haltWhen(victimHazard).stage()
+      cache.data.downWrite.arbitrationFrom(toCacheBuffered)
+      cache.data.downWrite.payload := toCacheBuffered.cmd
+
+      when(toCacheBuffered.fire && toCacheBuffered.last){
+        gs.slots.onSel(toCacheBuffered.gsId)(_.pending.cacheWrite := False)
+      }
 
 
       //TODO handle refill while partial get to upD
@@ -1670,7 +1689,7 @@ class Cache(val p : CacheParam) extends Component {
     arbiter.io.inputs(0) << fromDownD.process.toUpD//.m2sPipe()
     arbiter.io.inputs(1) << ctrl.process.toUpD.m2sPipe()
     arbiter.io.inputs(2) << readBackend.process.toUpD.s2mPipe()
-    arbiter.io.inputs(3) << writeBackend.process.toUpD
+    arbiter.io.inputs(3) << writeBackend.process.toUpDBuffered
 
     io.up.d << arbiter.io.output
   }
