@@ -29,6 +29,7 @@ case class CacheParam(var unp : NodeParameters,
                       var upCBufferDepth : Int = 8,
                       var readProcessAt : Int = 2,
                       var coherentRegion : UInt => Bool,
+                      var flushCompletionsCount : Int = 4,
                       var selfFlush : SelfFLush = null,
                       var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt, Bits) => Bool = null // opcode, source, address, size
                          ) {
@@ -128,6 +129,7 @@ class Cache(val p : CacheParam) extends Component {
       val ctrlProcess, writeBackend = master(Flow(OrderingCmd(up.p.sizeBytes)))
       def all = List(ctrlProcess, writeBackend)
     }
+    val interrupt = withCtrl generate (out Bool())
   }
 
   this.addTags(io.ordering.all.map(OrderingTag(_)))
@@ -346,7 +348,7 @@ class Cache(val p : CacheParam) extends Component {
   // put => write, [lock], [victim]
   // acquire_block => [lock], [victim]
   class GeneralSlot extends Slot{
-    val address = Reg(UInt(addressCheckWidth bits))
+    val address = Reg(UInt(p.addressWidth bits))
     val allowGet = Reg(Bool())
 //    val way = Reg(UInt(log2Up(cacheWays) bits))
     val pending = new Area{
@@ -383,6 +385,10 @@ class Cache(val p : CacheParam) extends Component {
     val address, upTo = Reg(ubp.address())
     val start = False
 
+    val completions = Reg(Bits(flushCompletionsCount bits)) init(0)
+    val completionsOn = Reg(UInt(log2Up(flushCompletionsCount) bits)) init(0)
+    val completionsEnable = RegInit(True)
+
     val cmd = Stream(new CtrlCmd())
     val fsm = new StateMachine {
       val IDLE, CMD, INFLIGHT, GS = new State()
@@ -412,6 +418,9 @@ class Cache(val p : CacheParam) extends Component {
       GS whenIsActive {
         when(gsMask === 0) {
           reserved := False
+          when(completionsEnable){
+            completions(completionsOn) := True
+          }
           goto(IDLE)
         }
       }
@@ -441,6 +450,7 @@ class Cache(val p : CacheParam) extends Component {
 
     CMD.whenIsActive{
       when(!flush.reserved){
+        flush.completionsEnable := False
         flush.reserved := True
         flush.start := True
         flush.address := selfFlush.from
@@ -453,9 +463,18 @@ class Cache(val p : CacheParam) extends Component {
 
   val ctrlLogic = withCtrl generate new Area {
     val mapper = new SlaveFactory(io.ctrl, allowBurst = true)
+    mapper.read(flush.completions, 0x00, 0)
+    mapper.clearOnSet(flush.completions, 0x00, 0)
+
+    val intFreeEnable = mapper.createReadAndWrite(Bool(), 0x38, 0) init(False)
+    io.interrupt := !flush.reserved && intFreeEnable
+
+    mapper.setOnSet(flush.completionsEnable, 0x08, 1)
     mapper.setOnSet(flush.start, 0x08, 1)
+    mapper.write(flush.completionsOn, 0x08, 8)
     flush.reserved setWhen (!flush.reserved && mapper.isReading(0x08))
     mapper.read(flush.reserved || withSelfFlush.mux(selfFlusher.isActive(selfFlusher.CMD), False), 0x08)
+
     mapper.writeMultiWord(flush.address, 0x10)
     mapper.writeMultiWord(flush.upTo, 0x18)
   }
@@ -750,7 +769,7 @@ class Cache(val p : CacheParam) extends Component {
       val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === CtrlOpcode.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
       val WRITE_DATA = insert(List(PUT_PARTIAL_DATA(), PUT_FULL_DATA(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
       val GS_NEED = insert(List(ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, GET, FLUSH).map(_.craft()).sContains(CTRL_CMD.opcode))
-      val GS_HITS = insert(gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address && (!IS_GET || !s.allowGet)).asBits)
+      val GS_HITS = insert(gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address(addressCheckRange)).asBits)
       val GS_HIT = insert(GS_HITS.orR)
       val GS_OH = insert(UIntToOh(CTRL_CMD.gsId, generalSlotCount))
 
@@ -828,7 +847,7 @@ class Cache(val p : CacheParam) extends Component {
       }
 
       val gsId = OHToUInt(gsOh)
-      val gsAddress = CombInit(CTRL_CMD.address(addressCheckRange))
+      val gsAddress = CombInit(CTRL_CMD.address)
       val gsRefill = False
       val gsWrite = preCtrl.WRITE_DATA || CTRL_CMD.withDataUpC
       val gsWay = CombInit(backendWayId)

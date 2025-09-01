@@ -6,12 +6,14 @@ import spinal.lib._
 import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.fabric._
+import spinal.lib.misc.InterruptNode
 import spinal.lib.system.tag._
 
 
 // TODO remove probe on IO regions
 class CacheFiber(withCtrl : Boolean = false) extends Area{
   val ctrl = withCtrl generate fabric.Node.up()
+  val interrupt = withCtrl generate InterruptNode.master().setAllowNoSlave()
   val up = Node.slave()
   val down = Node.master()
 
@@ -118,7 +120,10 @@ class CacheFiber(withCtrl : Boolean = false) extends Area{
     val cache = new Cache(parameter)
     // TODO probeRegion
 
-    if (withCtrl) cache.io.ctrl << ctrl.bus
+    if (withCtrl) {
+      cache.io.ctrl << ctrl.bus
+      interrupt.flag := cache.io.interrupt
+    }
     cache.io.up << up.bus
     cache.io.down >> down.bus
   }

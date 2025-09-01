@@ -22,14 +22,14 @@ import scala.compat.Platform.EOL
 import scala.util.{Failure, Success, Try}
 import scala.collection.Seq
 
-
-class TilelinkTester(cGen: => Component, simConfig : SpinalSimConfig = SimConfig){
+object tilelinkTesterExcluded extends SpinalTag
+class TilelinkTester[T <: Component](cGen: => T, simConfig : SpinalSimConfig = SimConfig){
   tilelink.DebugId.setup(16)
-  val c = simConfig.compile(cGen)
+  val c = simConfig.withFstWave.compile(cGen)
   val nodes = ArrayBuffer[Node]()
   val orderings = ArrayBuffer[OrderingTag]()
   c.report.toplevel.walkComponents(_.foreachTag {
-    case t: Node => nodes += t
+    case t: Node if !t.hasTag(tilelinkTesterExcluded) => nodes += t
     case t: OrderingTag => orderings += t
     case _ =>
   })
@@ -38,13 +38,13 @@ class TilelinkTester(cGen: => Component, simConfig : SpinalSimConfig = SimConfig
   val errors = new StringBuilder()
   var noStall = false
 
-  def doSim(name: String)(body: TilelinkTestbenchBase => Unit): Unit = {
+  def doSim(name: String)(body: TilelinkTestbenchBase[T] => Unit): Unit = {
     Try {
       c.doSim(name, 42) { dut =>
         implicit val idAllocator = new IdAllocator(DebugId.width)
         implicit val idCallback = new IdCallback
         for (i <- 0 until DebugId.space.reserved) idAllocator.allocate(i)
-        val tb = new TilelinkTestbenchBase(nodes, orderings)
+        val tb = new TilelinkTestbenchBase[T](nodes, orderings, c.dut)
         val cds = nodes.map(_.clockDomain).distinct
         cds.foreach(_.forkStimulus(simRandom.nextInt(40) + 10))
         var timeout = 0
@@ -112,7 +112,7 @@ class TilelinkTester(cGen: => Component, simConfig : SpinalSimConfig = SimConfig
   }
 }
 
-class TilelinkTestbenchBase(nodes: Seq[Node], orderings: Seq[OrderingTag])(implicit idAllocator: IdAllocator, idCallback: IdCallback) extends Area {
+class TilelinkTestbenchBase[T <: Component](nodes: Seq[Node], orderings: Seq[OrderingTag], val dut : T)(implicit val idAllocator: IdAllocator, idCallback: IdCallback) extends Area {
   val nodeToModel = mutable.LinkedHashMap[Node, SparseMemory]()
   val slaveNodes = nodes.filter(_.bus.isMasterInterface)
   val masterNodes = nodes.filter(_.bus.isSlaveInterface)

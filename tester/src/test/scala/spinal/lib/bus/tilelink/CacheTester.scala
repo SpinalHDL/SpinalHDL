@@ -10,7 +10,7 @@ import spinal.core.Component
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink.coherent.{CacheFiber, CacheParam, SelfFLush}
 import spinal.lib.bus.tilelink.fabric.{MasterBus, SlaveBus}
-import spinal.lib.bus.tilelink.sim.MasterTester
+import spinal.lib.bus.tilelink.sim.{MasterAgent, MasterTester}
 import spinal.lib.system.tag.PMA
 import spinal.sim.SimThread
 
@@ -43,13 +43,36 @@ class CacheTester extends AnyFunSuite{
           )
         )
 
-        val directory = new CacheFiber()
+
+        val ctrl = new MasterBus(
+          M2sParameters(
+            addressWidth = 32,
+            dataWidth = 32,
+            masters = List.tabulate(4)(mid => M2sAgent(
+              name = null,
+              mapping = List(M2sSource(
+                id = SizeMapping(mid, 1),
+                emits = M2sTransfers(
+                  get = SizeRange(4),
+                  putFull = SizeRange(4),
+                )
+              ))
+            ))
+          )
+        )
+        ctrl.node.addTag(tilelinkTesterExcluded)
+
+        val directory = new CacheFiber(withCtrl = true)
         directory.parameter.cacheWays = 4
         directory.parameter.cacheBytes = 4096
         directory.parameter.allocateOnMiss = (op, src, addr, size, param) => addr(6)
-        directory.parameter.selfFlush = SelfFLush(0x80, 0x1000, 1000)
+        directory.parameter.selfFlush = SelfFLush(0x10000, 0x10000+0x400, 2000)
         cp(directory.parameter)
         directory.up << m0.node
+        directory.ctrl at (0x00, 0x100) of ctrl.node
+
+        val ctrlInterrupt = out Bool()
+        ctrlInterrupt := directory.interrupt.flag
 
         val s0 = new SlaveBus(
           M2sSupport(
@@ -77,19 +100,53 @@ class CacheTester extends AnyFunSuite{
     //    tester.noStall = true //for test only
 
 
+    def doFlush(ctrl : MasterAgent, sourceId : Int, base : Int, size : Int, interrupt : Bool = null): Unit = {
+      while(ctrl.getInt(sourceId, 0x08) != 0){ } // Reserve the flush hardware
+      if(interrupt != null) ctrl.putInt(sourceId, 0x38, 1);
+      ctrl.putInt(sourceId, 0x10, base);
+      ctrl.putInt(sourceId, 0x18, base + size);
+      ctrl.putInt(sourceId, 0x08, 2 | (sourceId << 8)); // Start the flush with completion ID = sourceId
+      if(interrupt != null){
+        ctrl.cd.waitSamplingWhere(interrupt.toBoolean)
+      } else {
+        while ((ctrl.getInt(sourceId, 0x00) & (1 << sourceId)) == 0) { // Wait until the sourceId completion register is high
+          ctrl.cd.waitSampling(simRandom.nextInt(50))
+        }
+      }
+
+      ctrl.putInt(sourceId, 0x00, 1 << sourceId) // Clear sourceId completion flag
+      assert((ctrl.getInt(sourceId, 0x00) & (1 << sourceId)) == 0);
+      if(interrupt != null) ctrl.putInt(sourceId, 0x38, 0);
+    }
+
     tester.doSim("manual") { tb =>
       disableSimWave()
 
-      periodicaly(10000){
+      periodicaly(10000) {
         tb.mastersStuff.foreach(_.agent.driver.driver.randomizeStallRate())
         tb.slavesStuff.foreach(_.model.driver.driver.randomizeStallRate())
       }
+
+
+      val ctrl = new MasterAgent(tb.dut.ctrl.node.bus, tb.dut.ctrl.node.clockDomain)(tb.idAllocator)
+      ctrl.bus.p.node.m.masters.indices.foreach(sourceId =>  fork {
+        val cd = tb.dut.ctrl.node.clockDomain
+        while(true) {
+          cd.waitSampling(simRandom.nextInt(2000))
+          val (base, size) = simRandom.nextInt(3) match{
+            case 0 => (simRandom.nextInt(1000), simRandom.nextInt(1024))
+            case 1 => (0x10000 + simRandom.nextInt(8192), simRandom.nextInt(1024))
+            case 2 => (0x20000 + simRandom.nextInt(1024), simRandom.nextInt(1024))
+          }
+          doFlush(ctrl, sourceId, base, size)
+        }
+      })
 
       //      delayed(2147898761l-1000000)(enableSimWave())
       val testers = (tb.masterSpecs, tb.mastersStuff).zipped.map((s, t) => new MasterTester(s, t.agent))
       //      val globalLock = Some(SimMutex()) //for test only
       val globalLock = Option.empty[SimMutex]
-      testers.foreach(_.startPerSource(10000, globalLock))
+      testers.foreach(_.startPerSource(200000, globalLock))
       testers.foreach(_.join())
       tb.waitCheckers()
       tb.assertCoverage()
@@ -127,6 +184,28 @@ class CacheTester extends AnyFunSuite{
     //      }
     //    }
     //
+
+
+    tester.doSim("flush") { tb =>
+      val ctrl = new MasterAgent(tb.dut.ctrl.node.bus, tb.dut.ctrl.node.clockDomain)(tb.idAllocator)
+      val m0 = tb.mastersStuff(0).agent
+      for(address <- List(0x10000, 0x10040)) {
+        val offset = address - 0x10000
+        m0.putInt(0, address, 0x1)
+        assert(tb.slavesStuff(0).model.mem.readInt(offset) != 0x1)
+        doFlush(ctrl, 0, address, 0x40)
+        assert(tb.slavesStuff(0).model.mem.readInt(offset) == 0x1)
+
+        val block = m0.acquireBlock(0, Param.Grow.NtoT, address, 0x40)
+        block.data(0) = 0x02
+        block.dirty = true
+        doFlush(ctrl, 0, address, 0x40, tb.dut.ctrlInterrupt)
+        assert(tb.slavesStuff(0).model.mem.readInt(offset) == 0x2)
+
+        assert(m0.getInt(0, address) == 0x2)
+      }
+    }
+
     tester.doSimDirected("get"){_.coverGet(32)}
     tester.doSimDirected("putFull") {_.coverPutFullData(32)}
     tester.doSimDirected("putPartial") {_.coverPutPartialData(32)}
