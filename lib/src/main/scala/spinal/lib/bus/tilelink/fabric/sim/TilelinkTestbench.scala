@@ -25,7 +25,7 @@ import scala.collection.Seq
 object tilelinkTesterExcluded extends SpinalTag
 class TilelinkTester[T <: Component](cGen: => T, simConfig : SpinalSimConfig = SimConfig){
   tilelink.DebugId.setup(16)
-  val c = simConfig.withFstWave.compile(cGen)
+  val c = simConfig.compile(cGen)
   val nodes = ArrayBuffer[Node]()
   val orderings = ArrayBuffer[OrderingTag]()
   c.report.toplevel.walkComponents(_.foreachTag {
