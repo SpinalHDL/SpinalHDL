@@ -10,7 +10,7 @@ import spinal.core.Component
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink.coherent.{CacheFiber, CacheParam, SelfFLush}
 import spinal.lib.bus.tilelink.fabric.{MasterBus, SlaveBus}
-import spinal.lib.bus.tilelink.sim.{MasterAgent, MasterTester}
+import spinal.lib.bus.tilelink.sim.{Block, MasterAgent, MasterTester}
 import spinal.lib.system.tag.PMA
 import spinal.sim.SimThread
 
@@ -67,6 +67,7 @@ class CacheTester extends AnyFunSuite{
         directory.parameter.cacheBytes = 4096
         directory.parameter.allocateOnMiss = (op, src, addr, size, param) => addr(6)
         directory.parameter.selfFlush = SelfFLush(0x10000, 0x10000+0x400, 2000)
+        directory.parameter.flushCompletionsCount = 4
         cp(directory.parameter)
         directory.up << m0.node
         directory.ctrl at (0x00, 0x100) of ctrl.node
@@ -104,8 +105,8 @@ class CacheTester extends AnyFunSuite{
       while(ctrl.getInt(sourceId, 0x08) != 0){ } // Reserve the flush hardware
       if(interrupt != null) ctrl.putInt(sourceId, 0x38, 1);
       ctrl.putInt(sourceId, 0x10, base);
-      ctrl.putInt(sourceId, 0x18, base + size);
-      ctrl.putInt(sourceId, 0x08, 2 | (sourceId << 8)); // Start the flush with completion ID = sourceId
+      ctrl.putInt(sourceId, 0x18, base + size - 1);
+      ctrl.putInt(sourceId, 0x08, 3 | (sourceId << 8)); // Start the flush with completion ID = sourceId
       if(interrupt != null){
         ctrl.cd.waitSamplingWhere(interrupt.toBoolean)
       } else {
@@ -113,14 +114,11 @@ class CacheTester extends AnyFunSuite{
           ctrl.cd.waitSampling(simRandom.nextInt(50))
         }
       }
-
-      ctrl.putInt(sourceId, 0x00, 1 << sourceId) // Clear sourceId completion flag
-      assert((ctrl.getInt(sourceId, 0x00) & (1 << sourceId)) == 0);
       if(interrupt != null) ctrl.putInt(sourceId, 0x38, 0);
     }
 
     tester.doSim("manual") { tb =>
-      disableSimWave()
+//      disableSimWave()
 
       periodicaly(10000) {
         tb.mastersStuff.foreach(_.agent.driver.driver.randomizeStallRate())
@@ -191,16 +189,38 @@ class CacheTester extends AnyFunSuite{
       val m0 = tb.mastersStuff(0).agent
       for(address <- List(0x10000, 0x10040)) {
         val offset = address - 0x10000
+        var block : Block = null
+
+        // Dirty
         m0.putInt(0, address, 0x1)
         assert(tb.slavesStuff(0).model.mem.readInt(offset) != 0x1)
         doFlush(ctrl, 0, address, 0x40)
         assert(tb.slavesStuff(0).model.mem.readInt(offset) == 0x1)
 
-        val block = m0.acquireBlock(0, Param.Grow.NtoT, address, 0x40)
+        // Clean
+        m0.getInt(0, address)
+        assert(tb.slavesStuff(0).model.mem.readInt(offset) == 0x1)
+        doFlush(ctrl, 0, address, 0x40)
+        assert(tb.slavesStuff(0).model.mem.readInt(offset) == 0x1)
+
+        // Clean probe
+        block = m0.acquireBlock(0, Param.Grow.NtoT, address, 0x40)
+        doFlush(ctrl, 0, address, 0x40, tb.dut.ctrlInterrupt)
+        assert(tb.slavesStuff(0).model.mem.readInt(offset) == 0x1)
+
+        // Clean probe2
+        block = m0.acquireBlock(0, Param.Grow.NtoT, address, 0x40)
+        m0.release(0, Param.Cap.toB, block)
+        doFlush(ctrl, 0, address, 0x40, tb.dut.ctrlInterrupt)
+        assert(tb.slavesStuff(0).model.mem.readInt(offset) == 0x1)
+
+        // Dirty probe
+        block = m0.acquireBlock(0, Param.Grow.NtoT, address, 0x40)
         block.data(0) = 0x02
         block.dirty = true
         doFlush(ctrl, 0, address, 0x40, tb.dut.ctrlInterrupt)
         assert(tb.slavesStuff(0).model.mem.readInt(offset) == 0x2)
+
 
         assert(m0.getInt(0, address) == 0x2)
       }

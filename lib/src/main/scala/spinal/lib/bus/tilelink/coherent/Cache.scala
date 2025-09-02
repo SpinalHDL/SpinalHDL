@@ -29,7 +29,7 @@ case class CacheParam(var unp : NodeParameters,
                       var upCBufferDepth : Int = 8,
                       var readProcessAt : Int = 2,
                       var coherentRegion : UInt => Bool,
-                      var flushCompletionsCount : Int = 4,
+                      var flushCompletionsCount : Int = 1,
                       var selfFlush : SelfFLush = null,
                       var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt, Bits) => Bool = null // opcode, source, address, size
                          ) {
@@ -384,10 +384,12 @@ class Cache(val p : CacheParam) extends Component {
     val reserved = RegInit(False)
     val address, upTo = Reg(ubp.address())
     val start = False
+    val completionsOnComb = UInt(log2Up(flushCompletionsCount) bits)
+    val completionsEnableComb = True
 
     val completions = Reg(Bits(flushCompletionsCount bits)) init(0)
-    val completionsOn = Reg(UInt(log2Up(flushCompletionsCount) bits)) init(0)
-    val completionsEnable = RegInit(True)
+    val completionsOnReg = Reg(UInt(log2Up(flushCompletionsCount) bits)) init(0)
+    val completionsEnableReg = RegInit(True)
 
     val cmd = Stream(new CtrlCmd())
     val fsm = new StateMachine {
@@ -396,7 +398,16 @@ class Cache(val p : CacheParam) extends Component {
       val inflight = CounterUpDown(1 << log2Up(generalSlotCount + ctrlLoopbackDepth + 4))
       val gsMask = Reg(Bits(generalSlotCount bits))
 
-      IDLE.whenIsActive(when(start)(goto(CMD)))
+      IDLE.whenIsActive{
+        when(start){
+          when(completionsEnableComb){
+            completions(completionsOnComb) := False
+          }
+          completionsOnReg := completionsOnComb
+          completionsEnableReg := completionsEnableComb
+          goto(CMD)
+        }
+      }
 
       CMD whenIsActive {
         when(cmd.fire) {
@@ -418,8 +429,8 @@ class Cache(val p : CacheParam) extends Component {
       GS whenIsActive {
         when(gsMask === 0) {
           reserved := False
-          when(completionsEnable){
-            completions(completionsOn) := True
+          when(completionsEnableReg){
+            completions(completionsOnReg) := True
           }
           goto(IDLE)
         }
@@ -450,7 +461,7 @@ class Cache(val p : CacheParam) extends Component {
 
     CMD.whenIsActive{
       when(!flush.reserved){
-        flush.completionsEnable := False
+        flush.completionsEnableComb := False
         flush.reserved := True
         flush.start := True
         flush.address := selfFlush.from
@@ -469,9 +480,9 @@ class Cache(val p : CacheParam) extends Component {
     val intFreeEnable = mapper.createReadAndWrite(Bool(), 0x38, 0) init(False)
     io.interrupt := !flush.reserved && intFreeEnable
 
-    mapper.setOnSet(flush.completionsEnable, 0x08, 1)
+    mapper.clearOnClear(flush.completionsEnableComb, 0x08, 0)
     mapper.setOnSet(flush.start, 0x08, 1)
-    mapper.write(flush.completionsOn, 0x08, 8)
+    mapper.nonStopWrite(flush.completionsOnComb, 8)
     flush.reserved setWhen (!flush.reserved && mapper.isReading(0x08))
     mapper.read(flush.reserved || withSelfFlush.mux(selfFlusher.isActive(selfFlusher.CMD), False), 0x08)
 
