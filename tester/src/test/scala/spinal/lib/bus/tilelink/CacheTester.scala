@@ -103,18 +103,18 @@ class CacheTester extends AnyFunSuite{
 
     def doFlush(ctrl : MasterAgent, sourceId : Int, base : Int, size : Int, interrupt : Bool = null): Unit = {
       while(ctrl.getInt(sourceId, 0x08) != 0){ } // Reserve the flush hardware
-      if(interrupt != null) ctrl.putInt(sourceId, 0x38, 1);
       ctrl.putInt(sourceId, 0x10, base);
       ctrl.putInt(sourceId, 0x18, base + size - 1);
       ctrl.putInt(sourceId, 0x08, 3 | (sourceId << 8)); // Start the flush with completion ID = sourceId
       if(interrupt != null){
-        ctrl.cd.waitSamplingWhere(interrupt.toBoolean)
+        ctrl.putInt(sourceId, 0x38, 1); //enable the flush idle interrupt
+        ctrl.cd.waitSamplingWhere(interrupt.toBoolean) // Wait for the interrupt
+        ctrl.putInt(sourceId, 0x38, 0);
       } else {
         while ((ctrl.getInt(sourceId, 0x00) & (1 << sourceId)) == 0) { // Wait until the sourceId completion register is high
           ctrl.cd.waitSampling(simRandom.nextInt(50))
         }
       }
-      if(interrupt != null) ctrl.putInt(sourceId, 0x38, 0);
     }
 
     tester.doSim("manual") { tb =>

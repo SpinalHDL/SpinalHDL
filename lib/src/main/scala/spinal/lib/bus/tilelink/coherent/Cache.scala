@@ -31,12 +31,15 @@ case class CacheParam(var unp : NodeParameters,
                       var coherentRegion : UInt => Bool,
                       var flushCompletionsCount : Int = 1,
                       var selfFlush : SelfFLush = null,
+                      var flushBusParam : FlushParam = null,
                       var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt, Bits) => Bool = null // opcode, source, address, size
                          ) {
   assert(isPow2(cacheBytes))
 
   def withSelfFlush = selfFlush != null
-  def withFlush = withCtrl || withSelfFlush
+  def withFlush = withCtrl || withSelfFlush || flushBusParam != null
+  def withFlushFsm = withCtrl || withSelfFlush
+  def withFlushBus = flushBusParam != null
   def withCtrl = cnp != null
   def lockSets = cacheSets //TODO min trackedSets !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   def cacheLines = cacheBytes / blockSize
@@ -58,6 +61,54 @@ case class CacheParam(var unp : NodeParameters,
   def addressCheckWidth = addressCheckRange.size
 //  def lockSetsRange = log2Up(lineSize*lockSets)-1 downto log2Up(lineSize)
 }
+
+case class FlushParam(addressWidth : Int, sourceWidth : Int)
+
+case class FlushBus(p : FlushParam) extends Bundle with IMasterSlave{
+  val cmd = Stream(FlushCmd(p))
+  val rsp = Stream(FlushRsp(p))
+
+  override def asMaster(): Unit = {
+    master(cmd)
+    slave(rsp)
+  }
+}
+
+case class FlushCmd(p : FlushParam) extends Bundle {
+  val address = UInt(p.addressWidth bits)
+  val source = UInt(p.sourceWidth bits)
+}
+
+case class FlushRsp(p : FlushParam) extends Bundle {
+  val source = UInt(p.sourceWidth bits)
+}
+
+case class FlushArbiter(op : FlushParam, ports : Int) extends Component{
+  val ip = op.copy(sourceWidth = op.sourceWidth - log2Up(ports))
+  val io = new Bundle{
+    val inputs = Vec.fill(ports)(slave(FlushBus(ip)))
+    val output = master(FlushBus(op))
+  }
+
+  val onCmd = new Area{
+    val arbiter = StreamArbiterFactory().roundRobin.transactionLock.build(FlushCmd(ip), ports)
+    for(i <- 0 until ports; to = arbiter.io.inputs(i); from = io.inputs(i).cmd){
+      to.arbitrationFrom(from)
+      to.address := from.address
+      to.source := U(i, log2Up(ports) bits) @@ from.source
+    }
+    io.output.cmd << arbiter.io.output
+  }
+
+  val onRsp = new Area{
+    val demux = new StreamDemux(FlushRsp(ip), ports)
+    demux.io.select := U(io.output.rsp.source.takeHigh(log2Up(ports)))
+    demux.io.input.arbitrationFrom(io.output.rsp)
+    demux.io.input.source := io.output.rsp.source.resized
+    (io.inputs, demux.io.outputs).zipped.foreach(_.rsp << _)
+  }
+}
+
 
 
 object Cache extends AreaObject{
@@ -130,6 +181,7 @@ class Cache(val p : CacheParam) extends Component {
       def all = List(ctrlProcess, writeBackend)
     }
     val interrupt = withCtrl generate (out Bool())
+    val flush = withFlushBus generate slave(FlushBus(p.flushBusParam))
   }
 
   this.addTags(io.ordering.all.map(OrderingTag(_)))
@@ -350,10 +402,15 @@ class Cache(val p : CacheParam) extends Component {
   class GeneralSlot extends Slot{
     val address = Reg(UInt(p.addressWidth bits))
     val allowGet = Reg(Bool())
-//    val way = Reg(UInt(log2Up(cacheWays) bits))
+    val sourceId = Reg(io.up.p.source())
+
     val pending = new Area{
       val victim, primary, acquire, victimRead, victimWrite, cacheWrite = Reg(Bool())
-      fire setWhen(List(victim, acquire, primary, victimWrite, cacheWrite).norR)
+      val flushBus = withFlushBus generate Reg(Bool())
+
+      val flags = ArrayBuffer[Bool](victim, acquire, primary, victimWrite, cacheWrite)
+      if(withFlushBus) flags += flushBus
+      fire setWhen(flags.norR)
     }
   }
 
@@ -379,8 +436,26 @@ class Cache(val p : CacheParam) extends Component {
     val fullUpA = slots.dropRight(p.generalSlotCountUpCOnly).map(_.valid).andR
   }
 
+  val fromFlushBus = withFlushBus generate new Area {
+    val cmd = Stream(new CtrlCmd())
+    cmd.arbitrationFrom(io.flush.cmd)
+    cmd.opcode := CtrlOpcode.FLUSH // CtrlOpcode()
+    cmd.args := 0 // Bits(1 bits)
+    cmd.address := io.flush.cmd.address(blockRange) << blockRange.low
+    cmd.size := log2Up(p.lineSize) // ubp.size()
+    cmd.source := io.flush.cmd.source.resized
+    assert(p.flushBusParam.sourceWidth <= p.unp.m.sourceWidth)
+    cmd.bufferAId := 0 // BUFFER_A_ID()
+    cmd.probed := False // Bool()
+    cmd.probedUnique := False // Bool()
+    cmd.gsId := 0 // GS_ID() //Only valid when probed
+    cmd.debugId := 0 // DebugId()
+    cmd.withDataUpC := False // Bool()
+    cmd.evictWay := 0 // UInt(log2Up(cacheWays) bits)
+    cmd.upParam := 1
+  }
 
-  val flush = withFlush generate new Area {
+  val flushFsm = withFlushFsm generate new Area {
     val reserved = RegInit(False)
     val address, upTo = Reg(ubp.address())
     val start = False
@@ -460,12 +535,12 @@ class Cache(val p : CacheParam) extends Component {
     setEntry(WAIT)
 
     CMD.whenIsActive{
-      when(!flush.reserved){
-        flush.completionsEnableComb := False
-        flush.reserved := True
-        flush.start := True
-        flush.address := selfFlush.from
-        flush.upTo := selfFlush.upTo
+      when(!flushFsm.reserved){
+        flushFsm.completionsEnableComb := False
+        flushFsm.reserved := True
+        flushFsm.start := True
+        flushFsm.address := selfFlush.from
+        flushFsm.upTo := selfFlush.upTo
         goto(WAIT)
       }
     }
@@ -474,20 +549,20 @@ class Cache(val p : CacheParam) extends Component {
 
   val ctrlLogic = withCtrl generate new Area {
     val mapper = new SlaveFactory(io.ctrl, allowBurst = true)
-    mapper.read(flush.completions, 0x00, 0)
-    mapper.clearOnSet(flush.completions, 0x00, 0)
+    mapper.read(flushFsm.completions, 0x00, 0)
+    mapper.clearOnSet(flushFsm.completions, 0x00, 0)
 
     val intFreeEnable = mapper.createReadAndWrite(Bool(), 0x38, 0) init(False)
-    io.interrupt := !flush.reserved && intFreeEnable
+    io.interrupt := !flushFsm.reserved && intFreeEnable
 
-    mapper.clearOnClear(flush.completionsEnableComb, 0x08, 0)
-    mapper.setOnSet(flush.start, 0x08, 1)
-    mapper.nonStopWrite(flush.completionsOnComb, 8)
-    flush.reserved setWhen (!flush.reserved && mapper.isReading(0x08))
-    mapper.read(flush.reserved || withSelfFlush.mux(selfFlusher.isActive(selfFlusher.CMD), False), 0x08)
+    mapper.clearOnClear(flushFsm.completionsEnableComb, 0x08, 0)
+    mapper.setOnSet(flushFsm.start, 0x08, 1)
+    mapper.nonStopWrite(flushFsm.completionsOnComb, 8)
+    flushFsm.reserved setWhen (!flushFsm.reserved && mapper.isReading(0x08))
+    mapper.read(flushFsm.reserved || withSelfFlush.mux(selfFlusher.isActive(selfFlusher.CMD), False), 0x08)
 
-    mapper.writeMultiWord(flush.address, 0x10)
-    mapper.writeMultiWord(flush.upTo, 0x18)
+    mapper.writeMultiWord(flushFsm.address, 0x10)
+    mapper.writeMultiWord(flushFsm.upTo, 0x18)
   }
 
   val fromUpA = new Area{
@@ -722,23 +797,39 @@ class Cache(val p : CacheParam) extends Component {
       cmds += prober.schedule.toCtrl.pipelined(m2s = true, s2m = true)
       cmds += loopback.fifo.io.pop.halfPipe()
       cmds += fromUpA.toCtrl.continueWhen(loopback.allowUpA && !upAHold)
-      val fromFlush = withFlush generate new Area{
+
+      val onFlushBus = withFlushBus generate new Area{
         val regulator = Reg(UInt(2 bits)) init(0)
-        when(flush.cmd.valid){
+        when(fromFlushBus.cmd.valid){
           when(fromUpA.toCtrl.fire) {
             regulator := regulator + 1
           }
-          when(flush.cmd.ready) {
+          when(fromFlushBus.cmd.ready) {
+            regulator := 0
+          }
+          upAHold setWhen(regulator.andR)
+        }
+        cmds += fromFlushBus.cmd.continueWhen(loopback.allowUpA)
+      }
+
+      val onFlushFsm = withFlushFsm generate new Area{
+        val regulator = Reg(UInt(2 bits)) init(0)
+        when(flushFsm.cmd.valid){
+          when(fromUpA.toCtrl.fire) {
+            regulator := regulator + 1
+          }
+          when(flushFsm.cmd.ready) {
             regulator := 0
           }
           upAHold setWhen(regulator.andR)
         }
 
-        cmds += flush.cmd.continueWhen(loopback.allowUpA)
+        cmds += flushFsm.cmd.continueWhen(loopback.allowUpA)
       }
+
       val arbiter = StreamArbiterFactory().lowerFirst.noLock.buildOn(cmds)
 
-      when(fromUpA.toCtrl.fire || withFlush.mux(flush.cmd.fire, False)) {
+      when(fromUpA.toCtrl.fire || withFlushFsm.mux(flushFsm.cmd.fire, False) || withFlushBus.mux(fromFlushBus.cmd.fire, False)) {
         loopback.occupancy.increment()
       }
 
@@ -866,6 +957,7 @@ class Cache(val p : CacheParam) extends Component {
       val gsPendingVictimReadWrite = False
       val gsPendingCacheWrite = False
       val gsPendingPrimary = True
+      val gsFlushBus = False
       val gsAllowGet = False
 
       //TODO don't forget to ensure that a victim get out of the cache before downD/upA erase it
@@ -956,6 +1048,8 @@ class Cache(val p : CacheParam) extends Component {
             s.pending.cacheWrite := gsPendingCacheWrite
             s.pending.primary := gsPendingPrimary
             s.pending.acquire := preCtrl.ACQUIRE
+            s.sourceId := CTRL_CMD.source
+            if(withFlushBus) s.pending.flushBus := gsFlushBus
           }
           when(isReady) {
             s.valid := True
@@ -1065,6 +1159,7 @@ class Cache(val p : CacheParam) extends Component {
       if(withFlush) when(preCtrl.IS_FLUSH){
         gsPendingPrimary := False
         cache.tags.write.data.loaded := False
+        gsFlushBus := CTRL_CMD.upParam(0)
         when(CACHE_HIT) {
           when(CACHE_LINE.owners.orR) {
             askProbe := True
@@ -1085,7 +1180,9 @@ class Cache(val p : CacheParam) extends Component {
           prober.cmd.evictClean := !CACHE_LINE.dirty
         }
         when(doIt){
-          flush.fsm.inflight.decrementIt := True
+          if(withFlushFsm) when(!CTRL_CMD.upParam(0)){
+            flushFsm.fsm.inflight.decrementIt := True
+          }
         }
       }
 
@@ -1729,6 +1826,24 @@ class Cache(val p : CacheParam) extends Component {
     when(io.up.e.fire){
       gs.slots.onSel(io.up.e.sink)(_.pending.acquire := False)
     }
+  }
+
+  val toFlushBus = withFlushBus generate new Area{
+    val rsp = cloneOf(io.flush.rsp)
+
+    val hits = gs.slots.map(s => s.valid && s.pending.flushBus && !s.pending.victim)
+    val hit = hits.orR
+    val oh = OHMasking.roundRobinNext(B(hits), rsp.fire)
+
+    rsp.valid := hit
+    rsp.source := gs.slots.reader(oh)(_.sourceId).resized
+    when(rsp.fire) {
+      gs.slots.onMask(oh) { s =>
+        s.pending.flushBus := False
+      }
+    }
+
+    io.flush.rsp <-< rsp //Ensure stable payload
   }
 
   ctrl.build()
