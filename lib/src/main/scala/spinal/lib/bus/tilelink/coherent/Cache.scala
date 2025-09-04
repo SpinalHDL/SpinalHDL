@@ -91,7 +91,7 @@ case class FlushArbiter(op : FlushParam, ports : Int) extends Component{
   }
 
   val onCmd = new Area{
-    val arbiter = StreamArbiterFactory().roundRobin.transactionLock.build(FlushCmd(ip), ports)
+    val arbiter = StreamArbiterFactory().roundRobin.transactionLock.build(FlushCmd(op), ports)
     for(i <- 0 until ports; to = arbiter.io.inputs(i); from = io.inputs(i).cmd){
       to.arbitrationFrom(from)
       to.address := from.address
