@@ -1563,6 +1563,7 @@ class Cache(val p : CacheParam) extends Component {
       inserterStage(CMD) := cmd.payload
       val addressBase = cmd.address(refillRange) @@ cmd.address(refillRange.low-1 downto 0).andMask(!CMD.fromUpC)
       CMD.address.removeAssignments() := addressBase | (counter << log2Up(p.dataBytes)).resized
+      val tlWord = insert(addressBase(wordRange))
 
       when(isFiring) {
         counter := counter + 1
@@ -1636,6 +1637,7 @@ class Cache(val p : CacheParam) extends Component {
       toDownA.param := 0
       toDownA.source := U(CMD.evict) @@ CMD.gsId
       toDownA.address := CMD.address
+      toDownA.address(wordRange) := inserter.tlWord
       toDownA.size := CMD.fromUpC.mux(U(log2Up(blockSize)), CMD.size)
       toDownA.data := UP_DATA
       toDownA.mask := UP_MASK
