@@ -192,7 +192,7 @@ object DataCc{
   def apply[T <: BaseType](to : T, from : T)(initValue : => T): Unit = {
     apply(to, from, to.clockDomain, from.clockDomain)(initValue)
   }
-  def apply[T <: BaseType](from : T, fromCd : ClockDomain, toCd : ClockDomain)(initValue : => T) : T = {
+  def apply[T <: Data](from : T, fromCd : ClockDomain, toCd : ClockDomain)(initValue : => T) : T = {
     ClockDomain.areSynchronous(toCd, fromCd) match {
       case true => from
       case false => {
@@ -206,7 +206,7 @@ object DataCc{
       }
     }
   }
-  def apply[T <: BaseType](to : T, from : T, toCd : ClockDomain, fromCd : ClockDomain)(initValue : => T): Unit = {
+  def apply[T <: Data](to : T, from : T, toCd : ClockDomain, fromCd : ClockDomain)(initValue : => T): Unit = {
     to := apply(from, fromCd, toCd)(initValue)
   }
 }
