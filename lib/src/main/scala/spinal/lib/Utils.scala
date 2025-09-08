@@ -572,22 +572,22 @@ object CounterFreeRun {
   */
 object Counter {
 
-  /** Create a counter on `[start, end]` */ 
+  /** Create a counter on `[start, end]` */
   def apply(start: BigInt, end: BigInt) : Counter  = new Counter(start = start, end = end)
-  
+
   /** Create a counter on `[range.low, range.high]` */
   def apply(range : Range) : Counter = {
     require(range.step == 1)
     Counter(start = range.low, end = range.high)
   }
 
-  /** Create a counter on `[0, stateCount-1]` */ 
+  /** Create a counter on `[0, stateCount-1]` */
   def apply(stateCount: BigInt): Counter = new Counter(start = 0, end = stateCount-1)
 
-  /** Create a counter on `[0, 2^bitCount-1]` */ 
+  /** Create a counter on `[0, 2^bitCount-1]` */
   def apply(bitCount: BitCount): Counter = new Counter(start = 0, end = (BigInt(1)<<bitCount.value)-1)
 
-  /** Create a counter on `[start, end]` with `inc` signal as increment enable */ 
+  /** Create a counter on `[start, end]` with `inc` signal as increment enable */
   def apply(start: BigInt, end: BigInt, inc: Bool) : Counter  = {
     val counter = Counter(start, end)
     when(inc) {
@@ -596,17 +596,30 @@ object Counter {
     counter
   }
 
-  /** Create a counter on `[range.low, range.high]` with `inc` signal as increment enable */ 
+  /** Create a counter on `[range.low, range.high]` with `inc` signal as increment enable */
   def apply(range : Range, inc: Bool) : Counter  = {
     require(range.step == 1)
     Counter(start = range.low, end = range.high, inc = inc)
   }
-  
-  /** Create a counter on `[0, stateCount-1]` with `inc` signal as increment enable */ 
+
+  /** Create a counter on `[0, stateCount-1]` with `inc` signal as increment enable */
   def apply(stateCount: BigInt, inc: Bool): Counter = Counter(start = 0, end = stateCount-1, inc = inc)
 
-  /** Create a counter on `[0, 2^bitCount-1]` with `inc` signal as increment enable */ 
+  /** Create a counter on `[0, 2^bitCount-1]` with `inc` signal as increment enable */
   def apply(bitCount: BitCount, inc: Bool): Counter = Counter(start = 0, end = (BigInt(1)<<bitCount.value)-1, inc = inc)
+
+  /** Create a counter on `[0, Clocks for given Time]` */
+  def apply(time: TimeNumber): Counter = Counter(
+    stateCount = ((time.toBigDecimal * ClockDomain.current.frequency.getValue.toBigDecimal)
+          .setScale(0, BigDecimal.RoundingMode.UP)).toBigInt
+  )
+
+  /** Create a counter on `[0, Clocks for given Time]` with `inc` signal as increment enable */
+  def apply(time: TimeNumber, inc: Bool): Counter = Counter(
+    stateCount = ((time.toBigDecimal * ClockDomain.current.frequency.getValue.toBigDecimal)
+          .setScale(0, BigDecimal.RoundingMode.UP)).toBigInt,
+    inc = inc
+  )
 }
 
 // start and end inclusive, up counter
