@@ -155,7 +155,7 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
       else (pluginsPath + "/" + vpiModuleName).replaceAll("/C", raw"C:").replaceAll(raw"/", raw"\\")
 
     val pathStr = if (!isWindows) sys.env("PATH")
-    val waveFilePath = Paths.get(System.getProperty("user.dir"), config.testPath.replace("$TEST",testName)).toAbsolutePath.normalize()
+    val waveFilePath = Paths.get(config.testPath.replace("$TEST",testName)).toAbsolutePath.normalize()
 
     val thread = new Thread(new Runnable {
       val iface = sharedMemIface
