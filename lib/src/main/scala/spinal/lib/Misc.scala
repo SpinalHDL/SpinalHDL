@@ -210,3 +210,10 @@ object DataCc{
     to := apply(from, fromCd, toCd)(initValue)
   }
 }
+
+
+object ClockGating{
+  def apply(enable : Bool, cd : ClockDomain = ClockDomain.current) = {
+    cd.copy(clock = (cd.readClockWire & enable).setLambdaName(cd.clock.isNamed && enable.isNamed)(s"${cd.clock.getName()}_gated_${enable.getName()}"))
+  }
+}
