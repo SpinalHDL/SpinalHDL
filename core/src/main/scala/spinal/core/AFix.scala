@@ -85,7 +85,7 @@ object AFix {
   def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AFix(integerWidth.value exp, -fractionWidth.value exp, signed = false)
   def U(amplitude: ExpNumber, width: BitCount): AFix = AFix(amplitude, (amplitude.value - width.value) exp, false)
   def U(amplitude: ExpNumber, resolution: ExpNumber): AFix = AFix(amplitude, resolution, false)
-//  def U(wholeBits: BitCount, exp: ExpNumber): AFix = AFix(wholeBits, -exp bit, false)
+  def U(width: BitCount, resolution: ExpNumber): AFix = AFix((resolution.value + width.value) exp, resolution, signed = false)
 //  def U(maximum: BigInt, resolution: ExpNumber): AFix = {
 //    assert(maximum >= 0, s"AFix.U maxRaw must be non-negative! (${maximum} is not >= 0)")
 //    new AFix(maximum*BigInt(2).pow(-resolution.value)+(BigInt(2).pow(-resolution.value)-1), 0, resolution)
@@ -102,7 +102,7 @@ object AFix {
   def SQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AFix(integerWidth.value exp, -fractionWidth.value exp, signed = true)
   def S(amplitude: ExpNumber, width: BitCount): AFix = AFix(amplitude, (amplitude.value - width.value + 1) exp, true)
   def S(amplitude: ExpNumber, resolution: ExpNumber): AFix = AFix(amplitude, resolution, signed = true)
-//  def S(wholeBits: BitCount, exp: ExpNumber): AFix = AFix(wholeBits+(1 bit), -exp bit, signed = true)
+  def S(width: BitCount, resolution: ExpNumber): AFix = AFix((resolution.value + width.value - 1) exp, resolution, signed = true)
 //  def S(maximum: BigInt, resolution: ExpNumber): AFix =
 //    new AFix(maximum.max(0)*BigInt(2).pow(-resolution.value)+(BigInt(2).pow(-resolution.value)*maximum.signum-maximum.signum),
 //      maximum.min(0)*BigInt(2).pow(-resolution.value)+(BigInt(2).pow(-resolution.value)*maximum.signum-maximum.signum), resolution)
