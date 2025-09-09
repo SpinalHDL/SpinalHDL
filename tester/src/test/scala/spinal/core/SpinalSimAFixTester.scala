@@ -422,9 +422,13 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
           (false, 3, -4, 2, RoundType.CEIL, 2, 2),
         )
         for ((ignoreExpand, maxRaw, minRaw, roundBits, roundType, resultBits, resultExp) <- EXAMPLES) {
-          val rounded = new AFix(maxRaw, minRaw, 0).round(roundBits bits, roundType, ignoreExpand)
+          val original = new AFix(maxRaw, minRaw, 0)
+          val rounded = original.round(roundBits bits, roundType, ignoreExpand)
           assert(rounded.getBitsWidth == resultBits)
           assert(rounded.exp == resultExp)
+          val roundedOff = original.roundOffBits(original.getBitsWidth - roundBits bits, roundType, ignoreExpand)
+          assert(roundedOff.getBitsWidth == resultBits)
+          assert(roundedOff.exp == resultExp)
         }
       }
     })
