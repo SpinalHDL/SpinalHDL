@@ -109,6 +109,17 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
     }
   }
 
+  test("resize_no_op") {
+    SimConfig.compile(new Component {
+      val original = AFix.U(3 exp, 0 exp)
+      val resized = original.resize(0 exp)
+      assert(original.getBitsWidth == resized.getBitsWidth)
+      assert(original.exp == resized.exp)
+      assert(original.maxRaw == resized.maxRaw)
+      assert(original.minRaw == resized.minRaw)
+    })
+  }
+
   test("arithmetic_shift") {
     // there is nothing special to the values used for testing here; i just picked some
     SimConfig.compile(new Component {

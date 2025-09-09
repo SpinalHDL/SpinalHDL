@@ -666,8 +666,12 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
     ret
   }
 
+  /** Changes the resolution of the AFix without changing its represented value, by adding low bits. */
   def resize(newExp : ExpNumber): AFix ={
-    assert(newExp.value < exp, s"AFix resize loses precision -- use a rounding function instead") //for now
+    assert(newExp.value <= exp, s"AFix resize loses precision -- use a rounding function instead") //for now
+    if (newExp.value == exp) {  // no-op
+        return CombInit(this)
+    }
     val dif = exp - newExp.value
     val ret = new AFix(
       this.maxRaw * (BigInt(1) << dif),
