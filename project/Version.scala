@@ -14,7 +14,7 @@ object SpinalVersion {
   val isDev = conf.getBoolean("isDev")
   val isSnapshot = conf.getBoolean("isSnapshot")
   private def snapshot = if (isSnapshot) "-SNAPSHOT" else ""
-  private val major = "1.12.3"
+  private val major = "1.13.0"
   val all         = if(isDev) "dev" else s"$major$snapshot"
   val sim         = all
   val core        = all

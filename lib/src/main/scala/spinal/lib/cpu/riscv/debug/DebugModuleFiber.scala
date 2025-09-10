@@ -47,7 +47,7 @@ class DebugModuleFiber() extends Area{
 
       from.halted := RegNext(to.halted) init(False)
       from.running := RegNext(to.running) init(False)
-      from.unavailable := RegNext(to.unavailable) init(False)
+      from.unavailable := RegNext(to.unavailable) init(True)
       from.haveReset := RegNext(to.haveReset) init(False)
       from.exception := RegNext(to.exception) init(False)
       from.commit := RegNext(to.commit) init(False)

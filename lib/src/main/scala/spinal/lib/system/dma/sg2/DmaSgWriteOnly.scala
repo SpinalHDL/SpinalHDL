@@ -404,7 +404,6 @@ class DmaSgWriteOnly(val p : DmaSgWriteOnlyParam,
           mem.a.param := Param.Hint.NO_ALLOCATE_ON_MISS
           mem.a.source := inserter.CMD.slotId
           mem.a.address := descriptor.to.clearedLow(log2Up(p.blockSize)) + (inserter.CMD.blockId << log2Up(p.blockSize))
-          mem.a.address(beatRange) := counter
           mem.a.size := log2Up(p.blockSize)
           mem.a.data := onReadRsp.WORD.data
           mem.a.mask := onReadRsp.MASK

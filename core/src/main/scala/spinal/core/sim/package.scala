@@ -67,7 +67,7 @@ package object sim {
 
   private def btToSignal(manager: SimManager, bt: BaseNode) = {
     if(bt.algoIncrementale != -1){
-      SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation.\n- To fix it, call simPublic() on it during the elaboration.")
+      SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation.\n- To fix it, call simPublic() on it during the elaboration.\nIf that doesn't resolve the issue, ensure that the signal has a name. (you can force a name via : mySignal.setName(...) durring the hardware elaboration)")
     }
 
     manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)

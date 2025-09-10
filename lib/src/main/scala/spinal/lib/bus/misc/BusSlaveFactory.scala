@@ -384,6 +384,21 @@ trait BusSlaveFactory extends Area{
     that
   }
 
+
+  def clearOnClear[T <: Data](that      : T,
+                          address   : BigInt,
+                          bitOffset : Int = 0): T = {
+    val bitSets = nonStopWrite(Bits(widthOf(that) bits), bitOffset)
+    when(isWriting(address)){
+      for(i <- 0 until widthOf(that)){
+        when(!bitSets(i)){
+          that.assignFromBits(B"0", i, 1 bits)
+        }
+      }
+    }
+    that
+  }
+
   def setOnClear[T <: Data](that      : T,
                           address   : BigInt,
                           bitOffset : Int = 0): T = {

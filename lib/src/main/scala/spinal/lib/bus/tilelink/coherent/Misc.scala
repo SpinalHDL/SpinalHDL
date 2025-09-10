@@ -22,30 +22,30 @@ class ChannelDataBuffer(entries: Int,
   val write = ram.writePort()
   allocated := (allocated | set) & ~clear
 
-  def push(stage : Stage,
-           CMD : Stageable[ChannelA],
-           PAYLOAD : Stageable[DataPayload],
-           LAST : Stageable[Bool]) = new Area {
-    import stage._
-    val withBeats = CMD.withBeats
-    val hazard = withBeats && full
-    haltIt(hazard)
-    throwIt(!hazard && !LAST)
-
-
-    for (i <- log2Up(dataBytes) until log2Up(blockSize)) CMD.addressNull(i) clearWhen (i < CMD.size)
-
-    val locked = RegInit(False) setWhen (write.valid)
-    val lockedValue = RegNextWhen(firstFree, !locked)
-    val BUFFER_ID = insert(locked ? lockedValue | firstFree)
-    write.valid := valid && withBeats && !hazard
-    write.address := BUFFER_ID @@ CMD.address(log2Up(blockSize)-1 downto log2Up(dataBytes))
-    write.data := PAYLOAD
-    when(isFiring && LAST && withBeats) {
-      set(BUFFER_ID) := True
-      locked := False
-    }
-  }
+//  def push(stage : Stage,
+//           CMD : Stageable[ChannelA],
+//           PAYLOAD : Stageable[DataPayload],
+//           LAST : Stageable[Bool]) = new Area {
+//    import stage._
+//    val withBeats = CMD.withBeats
+//    val hazard = withBeats && full
+//    haltIt(hazard)
+//    throwIt(!hazard && !LAST)
+//
+//
+//    for (i <- log2Up(dataBytes) until log2Up(blockSize)) CMD.addressNull(i) clearWhen (i < CMD.size)
+//
+//    val locked = RegInit(False) setWhen (write.valid)
+//    val lockedValue = RegNextWhen(firstFree, !locked)
+//    val BUFFER_ID = insert(locked ? lockedValue | firstFree)
+//    write.valid := valid && withBeats && !hazard
+//    write.address := BUFFER_ID @@ CMD.address(log2Up(blockSize)-1 downto log2Up(dataBytes))   <----- bad address, need beat address
+//    write.data := PAYLOAD
+//    when(isFiring && LAST && withBeats) {
+//      set(BUFFER_ID) := True
+//      locked := False
+//    }
+//  }
 
   def push[T <: BusFragment](up : Stream[T]) = new Area {
     val withBeats = up.withBeats
@@ -60,7 +60,7 @@ class ChannelDataBuffer(entries: Int,
     for(i <- log2Up(dataBytes) until log2Up(blockSize)) down.addressNull(i) clearWhen(i < down.size)
 
     write.valid := up.valid && withBeats && !hazard
-    write.address := bufferId @@ up.addressNull(log2Up(blockSize) - 1 downto log2Up(dataBytes))
+    write.address := bufferId @@ up.beatAddress(log2Up(blockSize) - 1 downto log2Up(dataBytes))
     write.data.mask := up.maskNull
     write.data.data := up.data
     when(down.fire && up.isLast() && withBeats) {

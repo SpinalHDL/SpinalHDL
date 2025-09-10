@@ -41,12 +41,26 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int, readOnly : Boolean) ext
 
   override def clone: this.type = new Axi4Ax(config,userWidth, readOnly).asInstanceOf[this.type]
 
-  def getLenOnDataWidth(dataWidth : Int ): UInt ={
+  def getLenOnDataWidth(dataWidth : Int): UInt ={
     assert(dataWidth > config.dataWidth)
     val byteCount = (len << size).resize(8+log2Up(config.bytePerWord) bits)
     val incrLen = ((U"0" @@ byteCount) + addr(log2Up(dataWidth/8)-1 downto 0))(byteCount.high + 1 downto log2Up(dataWidth/8))
     incrLen
   }
+
+  def getAddrSizeMaskedLow(): UInt = {
+    val width = log2Up(config.bytePerWord)
+    return addr.resize(width bits) & ((U(1) << size)-1).resize(width bits)
+  }
+
+  def getFirstBeatBytesMinusOne(): UInt = {
+    return ((U(1) << size) - 1 - getAddrSizeMaskedLow()).resize(log2Up(config.bytePerWord))
+  }
+
+  def getBurstBytesMinusOne(boundaryWidth : Int = Axi4.boundaryWidth): UInt = {
+    return (len << size).resize(boundaryWidth) + getFirstBeatBytesMinusOne()
+  }
+
   def getLenAlignedAddr() : UInt = {
     addr & size.muxList(
       (default -> U(config.addressWidth bits, default -> true)) ::

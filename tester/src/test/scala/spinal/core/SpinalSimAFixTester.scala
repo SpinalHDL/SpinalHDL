@@ -382,6 +382,55 @@ class SpinalSimAFixTester extends SpinalAnyFunSuite {
         if (-c % 2 < 1) c.setScale(0, RoundingMode.HALF_UP) else c.setScale(0, RoundingMode.HALF_DOWN)
     }
   }
+
+  test("round_bits") {
+    SimConfig.compile(new Component {
+      // tuples: ignore expansion?, maxRaw, minRaw, round bits, round type, expected bits, expected resolution
+      val EXAMPLES = List(
+        (true, 6, 0, 3, RoundType.FLOOR, 3, 0),
+        (true, 6, 0, 3, RoundType.CEIL, 3, 0),
+        (true, 7, 0, 3, RoundType.FLOOR, 3, 0),
+        (true, 7, 0, 3, RoundType.CEIL, 3, 0),
+        (true, 6, 0, 2, RoundType.FLOOR, 2, 1),
+        (true, 6, 0, 2, RoundType.CEIL, 2, 1),
+        (true, 7, 0, 2, RoundType.FLOOR, 2, 1),
+        (true, 7, 0, 2, RoundType.CEIL, 3, 1),
+        (true, 2, -4, 3, RoundType.FLOOR, 3, 0),
+        (true, 2, -4, 3, RoundType.CEIL, 3, 0),
+        (true, 3, -4, 3, RoundType.FLOOR, 3, 0),
+        (true, 3, -4, 3, RoundType.CEIL, 3, 0),
+        (true, 2, -4, 2, RoundType.FLOOR, 2, 1),
+        (true, 2, -4, 2, RoundType.CEIL, 2, 1),
+        (true, 3, -4, 2, RoundType.FLOOR, 2, 1),
+        (true, 3, -4, 2, RoundType.CEIL, 3, 1),
+        (false, 6, 0, 3, RoundType.FLOOR, 3, 0),
+        (false, 6, 0, 3, RoundType.CEIL, 3, 0),
+        (false, 7, 0, 3, RoundType.FLOOR, 3, 0),
+        (false, 7, 0, 3, RoundType.CEIL, 3, 0),
+        (false, 6, 0, 2, RoundType.FLOOR, 2, 1),
+        (false, 6, 0, 2, RoundType.CEIL, 2, 1),
+        (false, 7, 0, 2, RoundType.FLOOR, 2, 1),
+        (false, 7, 0, 2, RoundType.CEIL, 2, 2),
+        (false, 2, -4, 3, RoundType.FLOOR, 3, 0),
+        (false, 2, -4, 3, RoundType.CEIL, 3, 0),
+        (false, 3, -4, 3, RoundType.FLOOR, 3, 0),
+        (false, 3, -4, 3, RoundType.CEIL, 3, 0),
+        (false, 2, -4, 2, RoundType.FLOOR, 2, 1),
+        (false, 2, -4, 2, RoundType.CEIL, 2, 1),
+        (false, 3, -4, 2, RoundType.FLOOR, 2, 1),
+        (false, 3, -4, 2, RoundType.CEIL, 2, 2)
+      )
+      for ((ignoreExpand, maxRaw, minRaw, roundBits, roundType, resultBits, resultExp) <- EXAMPLES) {
+        val original = new AFix(maxRaw, minRaw, 0)
+        val rounded = original.round(roundBits bits, roundType, ignoreExpand)
+        assert(rounded.getBitsWidth == resultBits)
+        assert(rounded.exp == resultExp)
+        val roundedOff = original.roundOffBits(original.getBitsWidth - roundBits bits, roundType, ignoreExpand)
+        assert(roundedOff.getBitsWidth == resultBits)
+        assert(roundedOff.exp == resultExp)
+      }
+    })
+  }
 }
 
 class AFixTester extends Component {

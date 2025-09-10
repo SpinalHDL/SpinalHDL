@@ -271,7 +271,7 @@ class Hub(p : HubParameters) extends Component{
         val lockedValue = RegNextWhen(buffer.firstFree, !locked)
         BUFFER_ID := locked ? lockedValue | buffer.firstFree
         buffer.write.valid := valid && withBeats && !hazard
-        buffer.write.address := BUFFER_ID @@ io.up.a.payload.address(wordRange)
+        buffer.write.address := BUFFER_ID @@ io.up.a.beatAddress(wordRange)
         buffer.write.data := PAYLOAD
         when(isFiring && LAST && withBeats){
           buffer.set(BUFFER_ID) := True
@@ -703,6 +703,12 @@ class Hub(p : HubParameters) extends Component{
       io.down.a.mask := PAYLOAD.mask
       io.down.a.corrupt := False
       io.down.a.debugId := DebugId.withPostfix(io.down.a.source)
+
+      val first = RegNextWhen[Bool](LAST, isFiring) init(True)
+      val base = RegNextWhen(ADDRESS(wordRange), isFiring && first)
+      when(!first){
+        io.down.a.address(wordRange) := base
+      }
     }
   }
 

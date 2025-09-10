@@ -74,7 +74,7 @@ class Axi4WriteOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Compon
     val counterRange = log2Up(bytesMax)-1 downto log2Up(config.bytePerWord)
     val counter = Reg(io.down.p.beat) init(0)
     when(io.up.w.fire){
-      counter := counter + 1
+      counter := (counter + 1).resized
       when(io.up.w.last){
         counter := 0
       }
@@ -88,7 +88,6 @@ class Axi4WriteOnlyToTilelink(config: Axi4Config, bytesMax : Int) extends Compon
     io.down.a.param := B(tilelink.Param.Hint.NO_ALLOCATE_ON_MISS, 3 bits).andMask(io.up.aw.cache =/= 0xF)
     io.down.a.source := io.up.aw.id
     io.down.a.address := io.up.aw.addr
-    io.down.a.address(counterRange) := io.up.aw.addr(counterRange) + counter
     io.down.a.size := (lenToSize + io.up.aw.size).resized
     io.down.a.mask := io.up.w.strb
     io.down.a.data := io.up.w.data

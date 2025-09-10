@@ -186,8 +186,9 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
     //D will finish before C
     if (checkMapping) {
       import Opcode.C._
-      val (endpoint, chunk) = getMapping(c.address, c.opcode)
-      val localAddress = chunk.globalToLocal(c.address).toLong
+      val address = c.address + c.beat * (if(c.data == null) 0 else c.data.size)
+      val (endpoint, chunk) = getMapping(address, c.opcode)
+      val localAddress = chunk.globalToLocal(address).toLong
       endpoint.model match {
         case mem: SparseMemory => c.opcode match {
           case PROBE_ACK_DATA | RELEASE_DATA => mem.write(localAddress, c.data)
