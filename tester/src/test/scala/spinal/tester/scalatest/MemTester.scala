@@ -62,3 +62,47 @@ object MemTester extends App{
 //  override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
 //  override def noVhdl = true
 //}
+
+class MemTester extends SpinalAnyFunSuite {
+  import spinal.core.sim._
+  import spinal.lib.sim._
+  val ramLength = 8
+  test("ram init test") {
+    for (i <- 0 to 10)
+      SimConfig.withWave
+        .compile(
+          new Component {
+
+            val mem = Mem(UInt(8 bits), initialContent = Seq.tabulate(ramLength)(U(_, 8 bit)))
+            val addr = in port UInt(log2Up(ramLength) bits)
+            val cond = in port Bool()
+            val value = in port UInt(8 bits)
+            mem.readWriteSync(addr, value, True, cond)
+            val readAddrStream = slave port Stream(UInt(log2Up(ramLength) bits))
+            val readData = master port (mem.streamReadSync(readAddrStream))
+          }
+        )
+        .doSim { (dut) =>
+          val clk = dut.clockDomain
+          clk.forkStimulus(100)
+          dut.cond #= false
+          dut.readData.ready #= false
+          dut.readAddrStream.valid #= false
+          clk.waitSampling()
+          var cyclesLeft = 1000
+
+          clk.onSamplings {
+            assert(cyclesLeft > 0)
+            cyclesLeft -= 1
+          }
+          StreamDriver.fromIterable(dut.readAddrStream, clk, (0 until ramLength).map(BigInt(_)))
+          val rxIt = (0 until ramLength).toSeq.iterator
+          StreamReadyRandomizer(dut.readData, clk)
+          StreamMonitor(dut.readData, clk) { (res) =>
+            val ref = rxIt.next()
+            assert(res.toInt == ref)
+          }
+          clk.waitSamplingWhere(!rxIt.hasNext)
+        }
+  }
+}
