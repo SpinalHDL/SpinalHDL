@@ -118,11 +118,14 @@ class CoreMiscTester extends SpinalAnyFunSuite{
     SimConfig.compile(new Component{
       val smaller, bigger, eq_smaller, eq_bigger = out(Bool())
       val x, y = in(UInt(width bits))
+      val min, max = out(UInt(width bits))
 
       smaller := x.wrap < y
       bigger := x.wrap > y
       eq_smaller := x.wrap <= y
       eq_bigger := x.wrap >= y
+      min := x.wrap.min(y)
+      max := x.wrap.max(y)
     }).doSim(seed = 42){dut =>      
       val quarter = 1<<(width - 2)
       for(i <- 0 until 2000){
@@ -141,6 +144,8 @@ class CoreMiscTester extends SpinalAnyFunSuite{
         assert(dut.bigger.toBoolean == (if(needReverse) x < y else x > y))
         assert(dut.eq_smaller.toBoolean == (if(needReverse) x >= y else x <= y))
         assert(dut.eq_bigger.toBoolean == (if(needReverse) x <= y else x >= y))
+        assert(dut.min.toInt == (if(needReverse ^ x < y) x else y))
+        assert(dut.max.toInt == (if(needReverse ^ x < y) y else x))
         sleep(1)
       }
     }
