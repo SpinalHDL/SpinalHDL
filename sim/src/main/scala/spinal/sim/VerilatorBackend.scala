@@ -34,6 +34,9 @@ class VerilatorBackendConfig{
   var simulatorFlags         = ArrayBuffer[String]()
   var withCoverage           = false
   var timePrecision: String  = null
+  var autoInitialReset: Boolean = true           
+  var resetSignalMap: Map[String, (String, Boolean, Boolean)] = Map.empty
+  var clockSignalMap: Map[String, Boolean] = Map.empty
 }
 
 
@@ -303,6 +306,111 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       #endif
       this->name = name;
       this->time_precision = ${if (useTimePrecision) "Verilated::timeprecision()" else "VL_TIME_PRECISION" };
+
+      if (${config.autoInitialReset}) {
+          performAutoInitialReset();
+      }
+    }
+
+    void performAutoInitialReset() {
+        ${
+          import scala.collection.mutable
+
+          val resetSignals = config.signals.filter { signal =>
+            config.resetSignalMap.contains(signal.path.last)
+          }
+
+          if (resetSignals.nonEmpty) {
+            val codeBuilder = new StringBuilder()
+
+            case class ResetInfo(signal: Signal, resetName: String) {
+              // Get reset information from RTL analysis results
+              val (polarityDesc, isAsync, isActiveLow) = config.resetSignalMap(signal.path.last)
+
+              def assertValue = if (isActiveLow) 0 else 1
+              def deassertValue = if (isActiveLow) 1 else 0
+              def resetTypeDesc = if (isAsync) "ASYNC" else "SYNC"
+            }
+
+            val resetInfos = resetSignals.map { signal =>
+              val resetName = signal.path.map(_.replace("$", "__024").replace("__", "___05F")).mkString("->")
+              ResetInfo(signal, resetName)
+            }
+
+            codeBuilder.append(s"""
+        // Found ${resetInfos.length} reset signals based on RTL analysis
+        // Set all reset signals to non-active state (ensure initial state)""")
+
+            resetInfos.foreach { resetInfo =>
+              codeBuilder.append(s"""
+        top->${resetInfo.resetName} = ${resetInfo.deassertValue};  // Non-active: ${resetInfo.signal.path.mkString("/")} (${resetInfo.polarityDesc} active, ${resetInfo.resetTypeDesc})""")
+            }
+
+            codeBuilder.append("""
+        top->eval();
+        // Activate all asynchronous reset signals""")
+        
+            resetInfos.foreach { resetInfo =>
+              codeBuilder.append(s"""
+        top->${resetInfo.resetName} = ${resetInfo.assertValue};   // Activate reset: ${resetInfo.signal.path.mkString("/")}""")
+            }
+
+            codeBuilder.append("""
+        top->eval();
+        // Generate clock edges based on RTL analysis to propagate synchronous reset signals""")
+
+            val discoveredClocks = config.clockSignalMap.filter { case (clockName, _) =>
+              config.signals.exists(_.path.last == clockName)
+            }
+
+            if (discoveredClocks.nonEmpty) {
+              codeBuilder.append(s"""
+        // Found ${discoveredClocks.size} clocks based on RTL analysis
+        for(int cycle = 0; cycle < 3; cycle++) {""")
+
+              discoveredClocks.foreach { case (clockName, isRisingEdge) =>
+                val clockPath = config.signals.find(_.path.last == clockName).get.path.map(_.replace("$", "__024").replace("__", "___05F")).mkString("->")
+
+                if (isRisingEdge) {
+                  codeBuilder.append(s"""
+            top->${clockPath} = 0;
+            top->eval();
+            top->${clockPath} = 1;
+            top->eval();""")
+                } else {
+                  codeBuilder.append(s"""
+            top->${clockPath} = 1;
+            top->eval();
+            top->${clockPath} = 0;
+            top->eval();""")
+                }
+              }
+
+              codeBuilder.append("""
+        }""") 
+            } else {
+              codeBuilder.append("""
+        // No clocks found, skipping clock edge generation""")
+            }
+
+            resetInfos.foreach { resetInfo =>
+              codeBuilder.append(s"""
+        top->${resetInfo.resetName} = ${resetInfo.deassertValue}; // Release reset: ${resetInfo.signal.path.mkString("/")}""")
+            }
+
+            val discoveredClocksCount = discoveredClocks.size
+
+            codeBuilder.append(s"""
+        top->eval();
+
+        // Reset sequence: Non-active -> eval -> Activate -> eval -> RTL analysis clock edges -> Release -> eval
+        // Processed ${resetInfos.length} reset signals: from RTL analysis
+        // Processed ${discoveredClocksCount} clocks: from RTL analysis, supports rising/falling edge auto-recognition
+        // Supports asynchronous/synchronous reset, multiple polarities, multiple clock edges, highest generality""")
+
+            codeBuilder.toString()
+          } 
+        }
     }
 
     void close(){
@@ -556,7 +664,6 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | --output-split-ctrace 500
        | -Wno-WIDTH -Wno-UNOPTFLAT -Wno-CMPCONST -Wno-UNSIGNED
        | --x-assign unique
-       | --x-initial-edge
        | --trace-depth ${config.waveDepth}
        | -O3
        | -CFLAGS -O${config.optimisationLevel}
