@@ -535,7 +535,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     val rtlIncludeDirsArgs = config.rtlIncludeDirs.map(e => s"-I${new File(e).getAbsolutePath}")
       .map('"' + _.replace("\\","/") + '"').mkString(" ")
 
-    val verilatorBinFilename = if(isWindows) "verilator_bin.exe" else "verilator"
+    val verilatorBinFilename = "verilator"
 
     // allow a user to overwrite/add verilator flags, e.g. C++ version
     // if the default is too old (see e.g. #278)
@@ -580,8 +580,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
     var workspaceCacheDir: File = null
     var hashCacheDir: File = null
-
-    val verilatorVersionProcess = Process(Seq(verilatorBinFilename, "--version"), new File(workspacePath))
+    val shCommand = if(isWindows) "sh.exe" else "sh"
+    val verilatorVersionProcess = Process(Seq(shCommand,"-c",s"${verilatorBinFilename} --version"), new File(workspacePath))
     val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n") // blocks and throws an exception if exit status != 0
     val verilatorVersionDeci = BigDecimal("([0-9]+\\.[0-9]+)".r.findFirstIn(verilatorVersion).get)
 
