@@ -23,7 +23,7 @@ package spinal.core.sim
 import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, ScopeProperty, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, TimeNumber, UInt, Verilator, noLatchCheck}
+import spinal.core.{ASYNC, BaseType, Bits, BlackBox, Bool, Component, GlobalData, HIGH, InComponent, LOW, Mem, MemSymbolesMapping, MemSymbolesTag, RISING, SInt, ScopeProperty, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, SYNC, TimeNumber, UInt, Verilator, noLatchCheck}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -47,11 +47,56 @@ case class SpinalVerilatorBackendConfig[T <: Component](
                                                          simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
                                                          withCoverage      : Boolean,
                                                          timePrecision     : TimeNumber = null,
-                                                         testPath          : String
+                                                         testPath          : String,
+                                                         enableRtlAutoReset: Boolean = true
 )
 
 
 object SpinalVerilatorBackend {
+
+  /**
+   * This method traverses the entire SpinalHDL design, analyzes the clock domain configurations of all registers
+   * and extracts accurate information about the reset and clock signals, including polarity, type, etc.
+   */
+  private def analyzeResetAndClockSignals(toplevel: Component): (Map[String, (String, Boolean, Boolean)], Map[String, Boolean]) = {
+    import scala.collection.mutable
+
+    val resetSignalMap = mutable.Map[String, (String, Boolean, Boolean)]()
+    val clockSignalMap = mutable.Map[String, Boolean]()
+
+    // Traverse the entire RTL design, collect clock domain information
+    GraphUtils.walkAllComponents(toplevel, component => {
+      component.dslBody.walkStatements { statement =>
+        statement match {
+          // 识别需要复位的寄存器
+          case bt: BaseType if bt.isReg =>
+            val cd = bt.clockDomain
+
+            // Collect clock signal information
+            val clockSignal = cd.clock
+            val clockName = clockSignal.getName()
+            val isRisingEdge = cd.config.clockEdge == RISING
+            clockSignalMap(clockName) = isRisingEdge
+
+            // If the clock domain has a reset signal, record it
+            if (cd.hasResetSignal) {
+              val resetSignal = cd.reset
+              val resetName = resetSignal.getName()
+              val isAsync = cd.config.resetKind == ASYNC
+              val isActiveLow = cd.config.resetActiveLevel == LOW
+              val polarityDesc = if (isActiveLow) "LOW" else "HIGH"
+
+              // Record reset signal information: (polarity description, whether asynchronous, whether low level valid)
+              resetSignalMap(resetName) = (polarityDesc, isAsync, isActiveLow)
+            }
+
+          case _ =>
+        }
+      }
+    })
+
+    (resetSignalMap.toMap, clockSignalMap.toMap)
+  }
 
   def apply[T <: Component](config: SpinalVerilatorBackendConfig[T]) = {
 
@@ -75,6 +120,12 @@ object SpinalVerilatorBackend {
     vconfig.optimisationLevel = optimisationLevel
     vconfig.simulatorFlags        = simulatorFlags
     vconfig.withCoverage  = withCoverage
+    vconfig.autoInitialReset  = enableRtlAutoReset
+
+    val (resetSignalAnalysis, clockSignalAnalysis) = analyzeResetAndClockSignals(rtl.toplevel)
+    vconfig.resetSignalMap = resetSignalAnalysis            // Transmit reset signal analysis results
+    vconfig.clockSignalMap = clockSignalAnalysis            // Transmit clock signal analysis results
+
     vconfig.timePrecision = config.timePrecision match {
       case null => null
       case v => v.decomposeString
@@ -701,7 +752,8 @@ case class SpinalSimConfig(
                             var _timeScale         : TimeNumber = null,
                             var _testPath          : String = "$WORKSPACE/$COMPILED/$TEST",
                             var _waveFilePrefix    : String = null,
-                            var _ghdlFlags: GhdlFlags = GhdlFlags()
+                            var _ghdlFlags: GhdlFlags = GhdlFlags(),
+                            var _enableRtlAutoReset: Boolean = true  // RTL analysis auto reset function, default enabled
   ){
 
 
@@ -926,6 +978,11 @@ case class SpinalSimConfig(
     this
   }
 
+  def disableRtlAutoReset: this.type = {
+    _enableRtlAutoReset = false
+    this
+  }
+
   def addOptions(parser: scopt.OptionParser[Unit]): Unit = {
     import parser._
     opt[Unit]("trace-fst") action { (v, c) => this.withFstWave }
@@ -1072,7 +1129,8 @@ case class SpinalSimConfig(
           simulatorFlags = _simulatorFlags,
           withCoverage = _withCoverage,
           timePrecision = _timePrecision,
-          testPath = _testPath
+          testPath = _testPath,
+          enableRtlAutoReset = _enableRtlAutoReset
         )
         val backend = SpinalVerilatorBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
