@@ -493,6 +493,17 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   def reversed = U(B(this.asBools.reverse)).asInstanceOf[this.type]
 
+  /** Use on the left operand of a comparison to get a "wrapping" comparison, as in:
+    *
+    * {{{
+    * x.wrap < y
+    * x.wrap > y
+    * x.wrap <= y
+    * x.wrap >= y
+    * x.wrap.min(y)
+    * x.wrap.max(y)
+    * }}}
+    */
   def wrap = new {
     private def checkBits(that: UInt) = {
       assert(that.getBitsWidth == _data.getBitsWidth, "wrap only works on UInt with same width.")
@@ -501,6 +512,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     def >=(that: UInt): Bool = { checkBits(that); !(<(that)) }
     def <=(that: UInt): Bool = { checkBits(that); val result = _data - that; result === 0 || result.msb }
     def >(that: UInt): Bool = { checkBits(that); !(<=(that)) }
+    def min(that: UInt): UInt = { checkBits(that); Mux(<(that), _data, that) }
+    def max(that: UInt): UInt = { checkBits(that); Mux(<(that), that, _data) }
   }
 
 
