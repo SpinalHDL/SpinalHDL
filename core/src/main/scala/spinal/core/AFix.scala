@@ -329,6 +329,11 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
             _roundFixedBigInt(i, exp, ROUNDUP)
           }
         }
+      case NONE => {
+        assert(exp <= 0, "RoundType is NONE but rounding requires losing precision")
+        i
+      }
+
     }
   }
 
@@ -1115,7 +1120,11 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
       case RoundType.ROUNDTOINF  => this.roundToInf(exp, align)
       case RoundType.ROUNDTOEVEN => this.roundToEven(exp, align)
       case RoundType.ROUNDTOODD  => this.roundToOdd(exp, align)
-      case RoundType.SCRAP        => this.scrap(exp)
+      case RoundType.SCRAP       => this.scrap(exp)
+      case RoundType.NONE        => {
+        assert(exp <= this.exp, "RoundType is NONE but rounding requires losing precision")
+        CombInit(this)
+      }
     }
   }
 
