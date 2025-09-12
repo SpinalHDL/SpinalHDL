@@ -779,7 +779,7 @@ class ComponentEmitterVhdl(
               if (message.length > 0) {
                 b ++= s"""${tab}assert $cond = '1' report ($message) $severity;\n"""
               } else {
-                 b ++= s"""${tab}assert $cond = '1' $severity;\n"""
+                b ++= s"""${tab}assert $cond = '1' $severity;\n"""
               }
            }
         }
