@@ -776,7 +776,11 @@ class ComponentEmitterVhdl(
                 case `ERROR`    => "ERROR"
                 case `FAILURE`  => "FAILURE"
               })
-              b ++= s"""${tab}assert $cond = '1' report ($message) $severity;\n"""
+              if (message.length > 0) {
+                b ++= s"""${tab}assert $cond = '1' report ($message) $severity;\n"""
+              } else {
+                 b ++= s"""${tab}assert $cond = '1' $severity;\n"""
+              }
            }
         }
 
