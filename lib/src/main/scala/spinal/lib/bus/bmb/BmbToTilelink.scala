@@ -44,7 +44,7 @@ case class BmbToTilelink(p : BmbParameter) extends Component{
   io.down.a.opcode  := halted.isWrite.mux(tilelink.Opcode.A.PUT_PARTIAL_DATA, tilelink.Opcode.A.GET)
   io.down.a.param   := 0
   io.down.a.source  := 0
-  io.down.a.address := halted.address | (io.down.a.beatCounter() << log2Up(p.access.dataWidth/8)).resized
+  io.down.a.address := halted.address
   io.down.a.mask    := halted.mask
   io.down.a.data    := halted.data
   io.down.a.corrupt := False
@@ -57,9 +57,6 @@ case class BmbToTilelink(p : BmbParameter) extends Component{
   io.up.rsp.opcode(0)  := io.down.d.denied
   io.up.rsp.data       := io.down.d.data
   io.up.rsp.last       := io.down.d.isLast()
-//  io.up.rsp.source     :=
-//  io.up.rsp.context    :=
-
 }
 
 

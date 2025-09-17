@@ -21,12 +21,14 @@ class BoolPimped(pimped: Bool){
   }
 }
 
-object KeepAttribute{
-  object syn_keep_verilog extends AttributeFlag("synthesis syn_keep = 1", COMMENT_ATTRIBUTE){
+/** Attribute used to instruct the synthesis tool it should not optimize out some signals
+  */
+object KeepAttribute {
+  object syn_keep_verilog extends AttributeFlag("synthesis syn_keep = 1", COMMENT_ATTRIBUTE) {
     override def isLanguageReady(language: Language) : Boolean = language == Language.VERILOG || language == Language.SYSTEM_VERILOG
   }
 
-  object syn_keep_vhdl extends AttributeFlag("syn_keep"){
+  object syn_keep_vhdl extends AttributeFlag("syn_keep") {
     override def isLanguageReady(language: Language) : Boolean = language == Language.VHDL
   }
   object keep extends AttributeFlag("keep")
@@ -41,7 +43,7 @@ object KeepAttribute{
 }
 
 
-object CheckSocketPort{
+object CheckSocketPort {
   val reserved = mutable.LinkedHashSet[Int]()
   def reserve(port : Int): Unit = {
     while(true) {
@@ -187,18 +189,31 @@ class FlowCmdRsp[T <: Data, T2 <: Data](cmdType : HardType[T], rspType : HardTyp
  * Will use the BaseType.clockDomain to figure out how to connect 2 signals together (allowed use StreamCCByToggle)
  */
 object DataCc{
-  def apply[T <: BaseType](to : T, from : T): Unit = {
-    ClockDomain.areSynchronous(to.clockDomain, from.clockDomain) match {
-      case true => to := from
+  def apply[T <: BaseType](to : T, from : T)(initValue : => T): Unit = {
+    apply(to, from, to.clockDomain, from.clockDomain)(initValue)
+  }
+  def apply[T <: Data](from : T, fromCd : ClockDomain, toCd : ClockDomain)(initValue : => T) : T = {
+    ClockDomain.areSynchronous(toCd, fromCd) match {
+      case true => from
       case false => {
-        to := signalCache((from, to.clockDomain, "DataCc")) {
-          val cc = new StreamCCByToggle(to, from.clockDomain, to.clockDomain).setCompositeName(to, "cc_driver")
+        signalCache((from, fromCd, toCd, "DataCc")) {
+          val cc = new StreamCCByToggle(from, fromCd, toCd, initPayload = initValue).setCompositeName(from, "cc_driver")
           cc.io.input.valid := True
           cc.io.input.payload := from
           cc.io.output.ready := True
-          cc.io.output.payload
+          CombInit(cc.io.output.payload)
         }
       }
     }
+  }
+  def apply[T <: Data](to : T, from : T, toCd : ClockDomain, fromCd : ClockDomain)(initValue : => T): Unit = {
+    to := apply(from, fromCd, toCd)(initValue)
+  }
+}
+
+
+object ClockGating{
+  def apply(enable : Bool, cd : ClockDomain = ClockDomain.current) = {
+    cd.copy(clock = (cd.readClockWire & enable).setLambdaName(cd.clock.isNamed && enable.isNamed)(s"${cd.clock.getName()}_gated_${enable.getName()}"))
   }
 }

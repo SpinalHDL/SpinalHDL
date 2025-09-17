@@ -30,4 +30,5 @@ class RegIfGenRtl extends SpinalAnyFunSuite{
   test("gen_regifgrptester"){RegIfGrpTesterMain.main(Array())}
   test("gen_regifsecure")   {playregifsec.main(Array())}
   test("gen_regifreuse")    {RegIfReuseBlockTesterMain.main(Array())}
+  test("gen_regifdefaulterr"){playregifDefaultError.main(Array())}
 }

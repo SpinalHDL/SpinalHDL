@@ -5,7 +5,8 @@ import spinal.lib._
 case class BsbParameter(byteCount : Int,
                         sourceWidth : Int,
                         sinkWidth : Int,
-                        withMask : Boolean = true){
+                        withMask : Boolean = true,
+                        withError : Boolean = false){
 
 }
 
@@ -15,6 +16,7 @@ case class BsbTransaction(p : BsbParameter) extends Bundle{
   val source = UInt(p.sourceWidth bits)
   val sink = UInt(p.sinkWidth bits)
   val last = Bool()
+  val error = p.withError generate Bool()
 }
 
 object Bsb{

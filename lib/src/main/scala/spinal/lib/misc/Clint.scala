@@ -210,11 +210,10 @@ case class TilelinkClintFiber() extends Area{
     val core = TilelinkClint(specs.map(_.hardId), node.bus.p)
     core.io.bus <> node.bus
 
-    core.io.stop := False
+    core.io.stop := specs.map(_.stoptime).andR
     for(id <- specs.indices){
       specs(id).mti.flag := core.io.timerInterrupt(id)
       specs(id).msi.flag := core.io.softwareInterrupt(id)
-      core.io.stop setWhen(specs(id).stoptime)
     }
 
     time := core.io.time

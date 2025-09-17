@@ -84,16 +84,15 @@ case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
     }
   }
 
-  // !! no tested !!
   def m2sPipe(): Apb3 ={
     val that = Apb3(config)
-    that.PADDR    := RegNext(this.PADDR  )
-    that.PWRITE   := RegNext(this.PWRITE )
-    that.PWDATA   := RegNext(this.PWDATA )
-    that.PSEL     := RegNext(this.PREADY ? B(0) | this.PSEL)
-    that.PENABLE  := RegNext(this.PENABLE && !this.PREADY)
+    that.PADDR    := RegNext(this.PADDR)
+    that.PWRITE   := RegNext(this.PWRITE)
+    that.PWDATA   := RegNext(this.PWDATA)
+    that.PSEL     := RegNext(this.PSEL.andMask(!this.PREADY)).init(0)
+    that.PENABLE  := RegNext(this.PENABLE)
     this.PRDATA   := that.PRDATA
-    this.PREADY   := that.PREADY && that.PENABLE
+    this.PREADY   := that.PREADY && that.PENABLE && that.PSEL.orR
     if(PSLVERROR != null) { this.PSLVERROR := that.PSLVERROR }
     that
   }

@@ -4,8 +4,8 @@ import spinal.core._
 
 // SBL bus is a simple memory bus definition definition
 // master Stream(SblCmd(cfg))
-// master Stream(SblWriteCmd(cfg))    for write only
-// master Stream(SblReadCmd(cfg))     for read only
+// master Stream(SblWriteCmd(cfg))    for write-only
+// master Stream(SblReadCmd(cfg))     for read-only
 // slave Flow(SblReadRet(cfg))
 
 case class SblConfig(addressWidth : Int,dataWidth : Int)

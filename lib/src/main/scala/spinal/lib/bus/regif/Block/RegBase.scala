@@ -23,7 +23,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, se
   def haveWO = fields.filter(_.isWriteOnly).size != 0
   def readBits: Bits = {
     this.checkLast
-    //when field is WriteOnly, need mask data as 0 for security consider
+    // when field is WriteOnly, need mask data as 0 for security consider
     fields.map(t => if(t.isWriteOnly) B(0, t.getWidth bit) else t.hardbit)
       .reverse
       .foldRight(B(0, 0 bit))(_ ## _)
@@ -45,7 +45,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, se
 
   protected def RO(bc: BitCount): Bits = Bits(bc)
 
-  protected def _W1[T <: BaseType](reg: T, section: Range): T ={
+  protected def _W1[T <: BaseType](reg: T, section: Range): T = {
     val hardRestFirstFlag = Reg(Bool()) init True
     hardRestFirstFlag.setName(s"${reg.getName}_w1lock_flag", weak = true)
     when(hitDoWrite && hardRestFirstFlag){
@@ -55,7 +55,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, se
     reg
   }
 
-  protected def W1(bc: BitCount, section: Range, resetValue: BigInt): Bits ={
+  protected def W1(bc: BitCount, section: Range, resetValue: BigInt): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     val hardRestFirstFlag = Reg(Bool()) init True
     hardRestFirstFlag.setName(s"wlock_flag", weak = true)
@@ -66,14 +66,14 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, se
     ret
   }
 
-  protected def _W[T <: BaseType](reg: T, section: Range): T ={
+  protected def _W[T <: BaseType](reg: T, section: Range): T = {
     when(hitDoWrite){
       reg.assignFromBits(busif.wdata(reg, section))
     }
     reg
   }
 
-  protected def W(bc: BitCount, section: Range, resetValue: BigInt ): Bits ={
+  protected def W(bc: BitCount, section: Range, resetValue: BigInt ): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.wdata(ret, section)
@@ -258,7 +258,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, se
     ret
   }
 
-  protected def _WBR[T <: BaseType](reg: T, section: Range, accType: AccessType): T ={
+  protected def _WBR[T <: BaseType](reg: T, section: Range, accType: AccessType): T = {
     section.reverse.map(_ - section.min).foreach { i =>
       val regbit = reg match {
         case t: Bool => require(section.size == 1); t
@@ -267,7 +267,7 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf, se
       val x = i + section.min
       accType match {
         case AccessType.W1SRC => {
-          when(hitDoWrite && busif.mwdata(x)) {regbit := busif.wdata(regbit, x, "set" )  }//regbit.set()}
+          when(hitDoWrite && busif.mwdata(x)) {regbit := busif.wdata(regbit, x, "set" )  } //regbit.set()}
             .elsewhen(hitDoRead)              {regbit.clear()} //regbit := busif.wdata(regbit, x, "clear" )
         }
         case AccessType.W1CRS => {

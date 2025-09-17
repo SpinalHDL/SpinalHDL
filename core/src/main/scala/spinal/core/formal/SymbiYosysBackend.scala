@@ -174,9 +174,12 @@ class SymbiYosysFormalBackendImpl(val config: SymbiYosysFormalBackendConfig) ext
   def doVerify(name: String): Unit = {
     println(f"[Progress] Start ${config.toplevelName} formal verification with $name.")
     val isWindows = System.getProperty("os.name").toLowerCase.contains("windows")
-    val command = if (isWindows) "sby.exe" else "sby"
-    val yosysCmd = if (config.withGhdl) "yosys -m ghdl" else "yosys"
-    val success = Process(Seq(command, "--yosys", yosysCmd, "-f", sbyFilePath.toString()), workspacePath.toFile()).!(new Logger()) == 0
+    var command = if (isWindows) Seq("sby.exe") else Seq("sby")
+    if (config.withGhdl && !isWindows) {
+      command ++= Seq("--yosys", "yosys -m ghdl")
+    }
+    command ++= Seq("-f", sbyFilePath.toString())
+    val success = Process(command, workspacePath.toFile()).!(new Logger()) == 0
 
     if (!success) {
       var assertedLines = ArrayBuffer[String]()

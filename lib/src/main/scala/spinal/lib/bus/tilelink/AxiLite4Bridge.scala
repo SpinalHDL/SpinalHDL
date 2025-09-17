@@ -58,7 +58,7 @@ class AxiLite4Bridge(p : NodeParameters) extends Component{
       io.down.ar.valid := forked.valid &&  isGet
       forked.ready := isGet.mux(io.down.ar.ready, io.down.aw.ready)
 
-      val address = forked.address | (counter << log2Up(p.m.dataBytes)).resized
+      val address = forked.address | ((counter | cmdFork.beatCounter()) << log2Up(p.m.dataBytes)).resized
 
       for (ax <- List(io.down.aw, io.down.ar)) {
         ax.addr := address

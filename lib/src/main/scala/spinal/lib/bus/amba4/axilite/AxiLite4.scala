@@ -32,9 +32,9 @@ object AxiLite4 {
   ))
 
   /**
-    * Read Write response
+    * Read-write response
     */
-  object resp{
+  object resp {
     def apply() = Bits(2 bits)
     def OKAY   = B"00" // Normal access success
     def EXOKAY = B"01" // Exclusive access okay

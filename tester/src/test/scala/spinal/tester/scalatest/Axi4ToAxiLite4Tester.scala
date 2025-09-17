@@ -134,7 +134,7 @@ class Axi4ToAxiLite4Tester extends SpinalAnyFunSuite {
 
       var activeWriteId: Int = -1
 
-      override def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int): Unit = {
+      override def onWriteStart(address: BigInt, id: Int, size: Int, len: Int, burst: Int, cache : Int): Unit = {
         assert(activeWriteId == -1)
         activeWriteId = id
         writeUnburstBlanks.clear()

@@ -15,6 +15,7 @@ abstract class TransactionABCD {
   var mask: Array[Boolean] = null
   var data: Array[Byte] = null
   var corrupt = false
+  var beat = 0 //Not fully implemented, warning
 
   def bytes = 1 << size
   def withData : Boolean
@@ -26,7 +27,7 @@ abstract class TransactionABCD {
   def assertBeatOf(that: TransactionABCD, offset: Int): Unit = {
     def check(cond : Boolean) = assert(cond, s"Bad burst on :\n$that$this")
     check(this.corrupt == that.corrupt)
-    check(this.address - offset == that.address)
+    check(this.address == that.address)
     check(this.param == that.param)
     check(this.source == that.source)
     check(this.size == that.size)
@@ -54,10 +55,9 @@ abstract class TransactionABCD {
     val bytesInBeat = bytesPerBeat min bytes
     val ret = Array.fill(beats)(copyNoData())
     for((beat, beatId) <- ret.zipWithIndex){
-      beat.address += beatId*bytesInBeat
       val withMask = this.withMask
       if(withData){
-        val address = beat.address.toInt
+        val address = beat.address.toInt + beatId*bytesInBeat
         var accessOffset = address & (bytes - 1)
         val beatOffset = address & (bytesPerBeat - 1)
         beat.data = new Array[Byte](bytesPerBeat)
@@ -437,8 +437,9 @@ class TransactionAggregator[T <: TransactionABCD](bytesPerBeat : Int)(callback :
     }
 
     if(access.withData) {
-      val accessOffset = f.address.toInt & (bytes - 1)
-      val beatOffset = f.address.toInt & (bytesPerBeat - 1)
+      val address = f.address.toInt + beat * bytesPerBeat
+      val accessOffset = address & (bytes - 1)
+      val beatOffset = address & (bytesPerBeat - 1)
       val withMask = access.withMask
       for (i <- 0 until bytesInBeat) {
         val from = beatOffset + i

@@ -6,27 +6,29 @@ import spinal.lib._
 import spinal.lib.bus.misc.{AddressMapping, SizeMapping}
 import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.fabric._
+import spinal.lib.misc.InterruptNode
 import spinal.lib.system.tag._
 
 
-//TODO remove probe on IO regions
+// TODO remove probe on IO regions
 class CacheFiber(withCtrl : Boolean = false) extends Area{
   val ctrl = withCtrl generate fabric.Node.up()
+  val interrupt = withCtrl generate InterruptNode.master().setAllowNoSlave()
   val up = Node.slave()
   val down = Node.master()
 
   var parameter = CacheParam(
-    unp = null, //Unknown yet
+    unp = null, // Unknown yet
     downPendingMax = 4,
     cacheWays = 4,
     cacheBytes = 4096,
-    blockSize = -1, //Unknown yet
+    blockSize = -1, // Unknown yet
     probeCount = 4,
     aBufferCount = 4,
     coherentRegion = null
   )
 
-  new MemoryConnection{
+  new MemoryConnection {
     override def up = CacheFiber.this.up
     override def down = CacheFiber.this.down
     override def transformers = Nil
@@ -109,16 +111,19 @@ class CacheFiber(withCtrl : Boolean = false) extends Area{
       AddressMapping.decode(addr.asBits, probeSpec.map(_.mapping), ioSpec.map(_.mapping))
     }
 
-//    parameter.allocateOnMiss =  (op, src, addr, size, upParam) => parameter.coherentRegion(addr)
+    // parameter.allocateOnMiss =  (op, src, addr, size, upParam) => parameter.coherentRegion(addr)
     parameter.allocateOnMiss = { (op, src, addr, size, upParam) =>
       parameter.coherentRegion(addr) && !(
         List(Cache.CtrlOpcode.PUT_PARTIAL_DATA(), Cache.CtrlOpcode.PUT_FULL_DATA(), Cache.CtrlOpcode.GET()).map(e => e === op).orR && upParam === Param.Hint.NO_ALLOCATE_ON_MISS
       )
     }
     val cache = new Cache(parameter)
-    //TODO probeRegion
+    // TODO probeRegion
 
-    if (withCtrl) cache.io.ctrl << ctrl.bus
+    if (withCtrl) {
+      cache.io.ctrl << ctrl.bus
+      interrupt.flag := cache.io.interrupt
+    }
     cache.io.up << up.bus
     cache.io.down >> down.bus
   }

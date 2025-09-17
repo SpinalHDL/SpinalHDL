@@ -24,18 +24,33 @@ trait NodeBaseApi {
   def isReady : Bool
   def isCancel : Bool
 
-  def isFiring : Bool   // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
-  def isMoving : Bool   // True when it is the last cycle that the current transaction is present on this node. Useful to "reset" some states
-  def isCanceling: Bool // True when the current node is being cleaned up
+  /** `True` when the current transaction is successfully moving forward (`isReady && !isRemoved`). Useful to validate state changes. */
+  def isFiring : Bool
+  /** `True` when it is the last cycle that the current transaction is present on this node. Useful to "reset" some states. */
+  def isMoving : Bool
+  /** `True` when the current node is being cleaned up. */
+  def isCanceling: Bool
 
 
 
   def apply(key: NamedTypeKey): Data
+
+  /** Return the hardware signal for this [[Payload]] key at the point of this [[Node]] in the pipeline.*/
   def apply[T <: Data](key: Payload[T]): T
+  
+  /** Return the hardware signal for this ([[Payload]], subKey) key at the point of this [[Node]] in the pipeline.
+    * 
+    * This eases the construction of multi-lane hardware. For instance, when you have a 
+    * multi-issue CPU pipeline, you can use the lane `Int` id as secondary key.
+    */
   def apply[T <: Data](key: Payload[T], subKey: Any): T = {
     apply(NamedTypeKey(key.asInstanceOf[Payload[Data]], subKey)).asInstanceOf[T]
   }
-  def apply(subKey: Seq[Any]) : Node.OffsetApi  //Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE)
+
+  /** Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE) */
+  def apply(subKey: Seq[Any]) : Node.OffsetApi
+  
+  /** Return a new [[Payload]] which is connected to the given `Data` hardware signal starting from this Node in the pipeline. */
   def insert[T <: Data](that: T): Payload[T] = {
     val s = Payload(cloneOf(that))
     this (s) := that
@@ -44,7 +59,7 @@ trait NodeBaseApi {
 
   implicit def stageablePiped2[T <: Data](stageable: Payload[T]) : T = this(stageable)
 
-  class BundlePimper[T <: Bundle](pimped : T){
+  class BundlePimper[T <: Bundle](pimped : T) {
     def :=(that: T): Unit = pimped := that
   }
   implicit def bundlePimper[T <: Bundle](stageable: Payload[T]) = new  BundlePimper[T](this(stageable))
@@ -57,38 +72,82 @@ trait NodeApi extends NodeBaseApi {
 
   def defaultKey : Any = null
 
+  /** The signal which specifies if a transaction is present on the node.
+    * 
+    * It is driven by the upstream. Once asserted, it must only be de-asserted the cycle after which
+    * either both [[valid]] and [[ready]] or [[cancel]] are high. [[valid]] must not depend on [[ready]].
+    * 
+    * Created on demand, thus it's important to use [[isValid]] to get the signal value.
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/Pipeline/introduction.html#node Node documentation]]
+    */
   def valid : Bool = getNode.valid
+
+  /** The signal which specifies if the node’s transaction can proceed downstream.
+    *
+    * It is driven by the downstream to create backpressure. The signal has no meaning when there
+    * is no transaction ([[valid]] being deasserted).
+    * 
+    * Created on demand, thus it's important to use [[isReady]] to get the signal value.
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/Pipeline/introduction.html#node Node documentation]]
+    */
   def ready : Bool = getNode.ready
+
+  /** The signal which specifies if the node’s transaction in being canceled from the pipeline.
+    * 
+    * It is driven by the downstream. The signal has no meaning when there is no transaction
+    * ([[valid]] being deasserted).
+    * 
+    * Created on demand, thus it's important to use [[isReady]] to get the signal value.
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/Pipeline/introduction.html#node Node documentation]]
+    */
   def cancel : Bool = getNode.cancel
 
+  /** Read-only accessor of [[valid]] */
   def isValid: Bool = {
     if (status.isValid.isEmpty) status.isValid = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isValid")))
     status.isValid.get
   }
 
+  /** Read-only accessor of [[ready]] */
   def isReady: Bool = {
     if (status.isReady.isEmpty) status.isReady = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isReady")))
     status.isReady.get
   }
 
-  // True when the current transaction is successfuly moving forward (isReady && !isRemoved). Useful to validate state changes
+  /** `True` when the current transaction is successfully moving forward (`isReady && !isRemoved`).
+    * 
+    * Useful to validate state changes.
+    */ 
   def isFiring : Bool = {
     if (status.isFiring.isEmpty) status.isFiring = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isFiring")))
     status.isFiring.get
   }
 
-  // True when it is the last cycle that the current transaction is present on this node. Useful to "reset" some states
+  /** True when it is the last cycle that the current transaction is present on this node. 
+    * 
+    * More precisely, `True` when the node transaction will not be present anymore on the node 
+    * (starting from the next cycle), either because downstream is ready to take the transaction, or 
+    * because the transaction is canceled from the pipeline. (`valid && (ready || cancel)`).
+    * 
+    * Useful to “reset” states.
+    */
   def isMoving : Bool = {
     if (status.isMoving.isEmpty) status.isMoving = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isMoving")))
     status.isMoving.get
   }
 
-  // True when the current node is being cleaned up
+  /**
+    * `True` when the node transaction is being cleaned up.
+    * 
+    * Meaning that it will not appear anywhere in the pipeline in future cycles.
+    * It is equivalent to `isValid && isCancel`.
+    */
   def isCanceling: Bool = {
     if (status.isCanceling.isEmpty) status.isCanceling = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isCanceling")))
     status.isCanceling.get
   }
 
+  /** Read-only accessor of [[cancel]] */
   def isCancel: Bool = {
     if (status.isCancel.isEmpty) status.isCancel = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isCancel")))
     status.isCancel.get
@@ -99,7 +158,7 @@ trait NodeApi extends NodeBaseApi {
       case Some(x) => x
       case None => {
         val made = ContextSwapper.outsideCondScopeData(key.tpe())
-        //So, that's a bit complicated, because it need to survive a Fiber blocking key.tpe()
+        // So, that's a bit complicated, because it need to survive a Fiber blocking key.tpe()
         keyToData.get(key) match {
           case Some(x) => x
           case None => {
@@ -172,7 +231,7 @@ trait NodeApi extends NodeBaseApi {
   }
 }
 
-class Node() extends Area with NodeApi{
+class Node() extends Area with NodeApi {
   override def getNode: Node = this
 
   override def valid = {
@@ -216,7 +275,7 @@ class Node() extends Area with NodeApi{
   }
 
   def build(): Unit = {
-    if(!ctrl.forgetOneSupported && ctrl.forgetOne.nonEmpty){
+    if(!ctrl.forgetOneSupported && ctrl.forgetOne.nonEmpty) {
       SpinalError(s"${this.getName()} doesn't support ctrl.forgetOne")
     }
 
@@ -225,7 +284,7 @@ class Node() extends Area with NodeApi{
         status.isFiring.foreach(_ := isValid && isReady && !isCancel)
         status.isMoving.foreach(_ := isValid && (isReady || isCancel))
       }
-      case None => { //To avoid hasCancelRequest usages
+      case None => { // To avoid hasCancelRequest usages
         status.isFiring.foreach(_ := isValid && isReady)
         status.isMoving.foreach(_ := isValid && isReady)
       }

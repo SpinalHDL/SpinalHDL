@@ -6,7 +6,10 @@ import spinal.lib._
 import spinal.lib.bus.tilelink
 import spinal.lib.bus.tilelink.{M2sParameters, S2mSupport}
 
-class Axi4ToTilelinkFiber(blockSize : Int, slotsCount : Int) extends Area {
+class Axi4ToTilelinkFiber(blockSize : Int,
+                          slotsCount : Int,
+                          axiIdRemap : Option[Axi4OnePerIdRemapParam] = Option.empty[Axi4OnePerIdRemapParam],
+                          boundaryWidth : Int = Axi4.boundaryWidth) extends Area {
   val up = Handle[Axi4]
   val downRead, downWrite = tilelink.fabric.Node.master()
   val down = tilelink.fabric.Node()
@@ -36,7 +39,9 @@ class Axi4ToTilelinkFiber(blockSize : Int, slotsCount : Int) extends Area {
     val bridge = new Axi4ReadOnlyToTilelinkFull(
       up.config,
       bytesMax = range.max,
-      slotsCount = slotsCount
+      slotsCount = slotsCount,
+      axiIdRemap = axiIdRemap,
+      boundaryWidth = boundaryWidth
     )
     bridge.io.up << up.toReadOnly()
     bridge.io.down >> downRead.bus
@@ -68,7 +73,9 @@ class Axi4ToTilelinkFiber(blockSize : Int, slotsCount : Int) extends Area {
     val bridge = new Axi4WriteOnlyToTilelinkFull(
       up.config,
       bytesMax = writeRange.max,
-      slotsCount = slotsCount
+      slotsCount = slotsCount,
+      axiIdRemap = axiIdRemap,
+      boundaryWidth = boundaryWidth
     )
     bridge.io.up << up.toWriteOnly()
     bridge.io.down >> downWrite.bus

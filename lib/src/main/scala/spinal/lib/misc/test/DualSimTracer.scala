@@ -28,7 +28,7 @@ object DualSimTracer {
     var explorerFailed = false
 
     implicit val ec = ExecutionContext.global
-
+    sim.killRandom()
     val explorer = new AsyncJob(toStdout = true, logsPath = new File(compiled.compiledPath, "explorer")) ({
       try {
         compiled.doSimUntilVoid(name = s"explorer", seed = seed) { dut =>

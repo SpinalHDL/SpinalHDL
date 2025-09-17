@@ -12,17 +12,17 @@ import spinal.lib.system.tag._
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * Specify the software interface of nodes. Mostly negociation Handles
+ * Specify the software interface of nodes. Mostly negotiation Handles
  * Threadless so far
  */
 abstract class NodeRaw extends bus.fabric.Node {
   val bus = Handle[Bus]()
 
-  //Negociation handles
+  // Negotiation handles
   val m2s = new NodeM2s()
   val s2m = new NodeS2m()
 
-  //Document the memory transfer capabilities of the current node
+  // Document the memory transfer capabilities of the current node
   this.addTag(new MemoryTransferTag {
     override def get = m2s.parameters.emits
   })

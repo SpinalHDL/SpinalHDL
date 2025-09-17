@@ -930,6 +930,8 @@ case class SpinalSimConfig(
     import parser._
     opt[Unit]("trace-fst") action { (v, c) => this.withFstWave }
     opt[Unit]("trace-vcd") action { (v, c) => this.withVcdWave }
+    opt[Unit]("iverilog") action { (v, c) => this.withIVerilog }
+    opt[Unit]("no-wave") action { (v, c) => this._waveFormat = WaveFormat.NONE}
   }
 
   def doSim[T <: Component](report: SpinalReport[T])(body: T => Unit): Unit = compile(report).doSim(body)

@@ -7,8 +7,12 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
 
-
-class Pipeline extends Area{
+/** A pipeline from a deprecated API.
+  * 
+  * The new ``spinal.lib.misc.pipeline`` API should be used instead.
+  * Its documentation: [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/Pipeline/introduction.html]]
+  */
+class Pipeline extends Area {
   @dontName implicit val _implicitPip : Pipeline = this
 
   case class ConnectionModel() extends Nameable {
@@ -231,7 +235,7 @@ class Pipeline extends Area{
       if(s.internals.arbitration.isFlushingRoot != null)s.internals.arbitration.isFlushingRoot := s.internals.request.flushRoot.orR
     }
 
-    //Name stuff
+    // Name stuff
     for(s <- stagesSet){
       import s.internals._
       s.internals.output.valid.setCompositeName(s, "valid_output", true)
@@ -283,7 +287,7 @@ class Pipeline extends Area{
       if(s.request.forks.nonEmpty){
         val doFork = s.request.forks.orR
         when(doFork){
-          s.input.ready := False //Maybe to reconsiderate
+          s.input.ready := False // Maybe to reconsider
         }
       }
 
@@ -293,7 +297,7 @@ class Pipeline extends Area{
       }
     }
 
-    //Interconnect stages
+    // Interconnect stages
     for(c <- connections){
       val stageables = (c.m.stageableToData.keys).filter(key => c.s.stageableToData.contains(key) && !c.m.stageableTerminal.contains(key))
       var m = ConnectionPoint(c.m.output.valid, c.m.output.ready, stageables.map(c.m.outputOf(_)).toList)
@@ -314,7 +318,7 @@ class Pipeline extends Area{
 
     }
 
-    //Name stuff
+    // Name stuff
     for(stage <- stagesSet){
       def nameThat(target: Nameable, key : StageableKey, postfix: String): Unit = {
         target.setLambdaName(stage.isNamed && key.stageable.isNamed){
@@ -355,5 +359,5 @@ class Pipeline extends Area{
     }
   }
 
-  //  Component.current.afterElaboration(build)
+  // Component.current.afterElaboration(build)
 }

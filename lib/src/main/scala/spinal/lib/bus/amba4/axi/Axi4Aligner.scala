@@ -11,7 +11,8 @@ object Axi4WriteOnlyAligner{
 // Assume only one pending burst per ID
 // Assume multi beat burst always have size to its max (need a Axi4WriteOnlyCompactor ahead)
 // INCR only
-class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int) extends Component {
+// ! Will always provide b in the same order as ar, even across IDs ! (ptr impl)
+class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int, boundaryWidth : Int = Axi4.boundaryWidth) extends Component {
   assert(isPow2(bytesMax))
   assert(isPow2(slotsCount))
 
@@ -64,13 +65,13 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
 
     val split = new Stage(Connection.M2S()) {
       val spliter = new Area {
-        val boundedStart = AW.addr.resize(Axi4.boundaryWidth)
-        val boundedEnd = (AW.addr + (AW.len << log2Up(upConfig.bytePerWord))).resize(Axi4.boundaryWidth)
+        val boundedStart = AW.addr.resize(boundaryWidth)
+        val boundedEnd = (AW.addr + (AW.len << log2Up(upConfig.bytePerWord))).resize(boundaryWidth)
         val blockStart = boundedStart >> log2Up(bytesMax)
         val blockEnd = boundedEnd >> log2Up(bytesMax)
         val blockCount = blockEnd-blockStart
 
-        val blockCounter = Reg(UInt(Axi4.boundaryWidth - log2Up(bytesMax) bits)) init(0)
+        val blockCounter = Reg(UInt(boundaryWidth - log2Up(bytesMax) bits)) init(0)
         val LAST = insert(blockCounter === blockCount)
         val FIRST = insert(blockCounter === 0)
 
@@ -108,7 +109,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       context.write.address := ptr.cmd.resized
       context.write.data.last := LAST
       context.write.data.id := AW.id
-      when(isFireing) {
+      when(isFiring) {
         context.write.valid := True
         slots.onSel(ptr.cmd.resized) { slot =>
           slot.done := False
@@ -121,7 +122,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       io.down.aw.valid := valid && !ptr.full
       io.down.aw.payload := AW
       io.down.aw.addr(blockRange) := CHUNK_START
-      io.down.aw.addr(Axi4.boundaryWidth-1 downto blockRange.high + 1) := BOUNDED_BLOCK
+      io.down.aw.addr(boundaryWidth-1 downto blockRange.high + 1) := BOUNDED_BLOCK
       io.down.aw.len.removeAssignments() := LEN.resized
       io.down.aw.id.removeAssignments() := ptr.cmd.resized
 
@@ -159,10 +160,10 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
     when(cmd.valid){
       when(!headerDone){
         io.down.w.valid := True
-        header := header + io.down.w.ready.asUInt
+        header := (header + io.down.w.ready.asUInt).resized
       } elsewhen (!upsDone) {
         io.down.w.arbitrationFrom(io.up.w)
-        ups := ups + io.down.w.ready.asUInt
+        ups := (ups + io.down.w.ready.asUInt).resized
         upsDone setWhen(ups === cmd.ups && io.down.w.ready)
       } otherwise {
         io.down.w.valid := True
@@ -170,7 +171,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
     }
 
     when(io.down.w.fire) {
-      len := len + 1
+      len := (len + 1).resized
       when(last) {
         List(header, ups, len).foreach(_ := 0)
         cmd.ready := True
@@ -194,7 +195,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       valid := ptr.cmd =/= ptr.fetch
       context.read.cmd.valid := False
       context.read.cmd.payload := ptr.fetch.resized
-      when(isFireing){
+      when(isFiring){
         context.read.cmd.valid := True
         ptr.fetch := ptr.fetch + 1
       }
@@ -204,7 +205,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       val reader = slots.reader(ptr.rsp.resized)
       val done = reader(_.done)
       val error = reader(_.error)
-      val errorAcc = RegInit(False) setWhen(isFireing && error)
+      val errorAcc = RegInit(False) setWhen(isFiring && error)
 
       io.up.b.valid := False
       io.up.b.id := CTX.id
@@ -212,7 +213,7 @@ class Axi4WriteOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : In
       when(error || errorAcc){ io.up.b.setSLVERR() }
       haltWhen(!done)
       haltWhen(io.up.b.isStall)
-      when(isFireing){
+      when(isFiring){
         ptr.rsp := ptr.rsp + 1
       }
       when(valid && done) {
@@ -246,7 +247,8 @@ object Axi4ReadOnlyAligner{
 // Assume multi beat burst always have size to its max
 // INCR only
 // Assume no R beat interleaving
-class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int) extends Component {
+// ! Will always provide r in the same order as ar, even across IDs ! (ptr impl)
+class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int, boundaryWidth : Int = Axi4.boundaryWidth) extends Component {
   assert(isPow2(bytesMax))
   assert(isPow2(slotsCount))
 
@@ -301,13 +303,13 @@ class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int
 
     val split = new Stage(Connection.M2S()) {
       val spliter = new Area {
-        val boundedStart = AR.addr.resize(Axi4.boundaryWidth)
-        val boundedEnd = (AR.addr + (AR.len << log2Up(upConfig.bytePerWord))).resize(Axi4.boundaryWidth)
+        val boundedStart = AR.addr.resize(boundaryWidth)
+        val boundedEnd = (AR.addr + (AR.len << log2Up(upConfig.bytePerWord))).resize(boundaryWidth)
         val blockStart = boundedStart >> log2Up(bytesMax)
         val blockEnd = boundedEnd >> log2Up(bytesMax)
         val blockCount = blockEnd-blockStart
 
-        val blockCounter = Reg(UInt(Axi4.boundaryWidth - log2Up(bytesMax) bits)) init(0)
+        val blockCounter = Reg(UInt(boundaryWidth - log2Up(bytesMax) bits)) init(0)
         val LAST = insert(blockCounter === blockCount)
         val FIRST = insert(blockCounter === 0)
 
@@ -347,7 +349,7 @@ class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int
       context.write.data.id := AR.id
       context.write.data.header := (AR.addr.resized - CHUNK_START)(blockWordRange).andMask(FIRST)
       context.write.data.ups := split.spliter.CHUNKS_WORDS
-      when(isFireing) {
+      when(isFiring) {
         context.write.valid := True
         slots.onSel(ptr.cmd.resized) { slot =>
           slot.done := False
@@ -360,7 +362,7 @@ class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int
       io.down.ar.valid := valid && !ptr.full
       io.down.ar.payload := AR
       io.down.ar.addr(blockRange) := CHUNK_START
-      io.down.ar.addr(Axi4.boundaryWidth-1 downto blockRange.high + 1) := BOUNDED_BLOCK
+      io.down.ar.addr(boundaryWidth-1 downto blockRange.high + 1) := BOUNDED_BLOCK
       io.down.ar.len.removeAssignments() := LEN.resized
       io.down.ar.id.removeAssignments() := ptr.cmd.resized
       val bytes = CHUNK_END - CHUNK_START
@@ -381,7 +383,7 @@ class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int
     rData.write.data := io.down.r.data
     when(io.down.r.fire) {
       rData.write.valid := True
-      counter := counter + 1
+      counter := (counter + 1).resized
       when(io.down.r.last) {
         counter := 0
         slots.onSel(io.down.r.id) { slot =>
@@ -397,7 +399,7 @@ class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int
       valid := ptr.cmd =/= ptr.fetch
       context.read.cmd.valid := False
       context.read.cmd.payload := ptr.fetch.resized
-      when(isFireing){
+      when(isFiring){
         context.read.cmd.valid := True
         ptr.fetch := ptr.fetch + 1
       }
@@ -408,7 +410,7 @@ class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int
       val reader = slots.reader(ptr.rsp.resized)
       val done = reader(_.done)
       val error = reader(_.error)
-      val errorAcc = RegInit(False) setWhen (isFireing && error)
+      val errorAcc = RegInit(False) setWhen (isFiring && error)
       val counter = Reg(UInt(blockWordRange.size bits)) init (0)
       val CHUNK_LAST = counter === CTX.ups
       val ERRORED = insert(error || errorAcc)
@@ -423,7 +425,7 @@ class Axi4ReadOnlyAligner(upConfig: Axi4Config, bytesMax : Int, slotsCount : Int
         }
         when(isForked) {
           rData.read.cmd.valid := True
-          counter := counter + 1
+          counter := (counter + 1).resized
           when(CHUNK_LAST) {
             counter := 0
             errorAcc := False

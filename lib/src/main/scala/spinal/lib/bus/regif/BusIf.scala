@@ -2,19 +2,18 @@ package spinal.lib.bus.regif
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.localbus.{MemBus, MinBus}
 import spinal.lib.bus.misc.SizeMapping
 
-import scala.collection.mutable.HashMap
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{HashMap, ListBuffer}
 
 trait BusIf extends BusIfBase {
   val bus: Bundle
 
   type B <: this.type
-  private val SliceInsts   = ListBuffer[RegSlice]()
+  private val SliceInsts = ListBuffer[RegSlice]()
   private var regPtr: BigInt = 0
   protected var readDefaultValue: BigInt = 0
+  protected var accessDefaultError: Boolean = false
   protected var secFailReadValue: BigInt = null
 
   protected var grpId: Int = 1
@@ -28,10 +27,13 @@ trait BusIf extends BusIfBase {
 
   def regSlicesNotReuse: List[RegSlice] = slices.filter(_.reuseTag.id == 0)
   def reuseGroups: Map[String, List[RegSlice]] = slices.filter(_.reuseTag.id != 0).groupBy(_.reuseTag.blockName)
-  def reuseGroupsById: Map[String, Map[Int, List[RegSlice]]] = reuseGroups.map {case(name, slices) => (name, slices.groupBy(_.reuseTag.id)) }
+  def reuseGroupsById: Map[String, Map[Int, List[RegSlice]]] = reuseGroups.map { case (name, slices) =>
+    (name, slices.groupBy(_.reuseTag.id))
+  }
 
   def repeatGroupsHead: Map[String, List[RegSlice]] = reuseGroupsById.map(t => t._1 -> t._2.head._2)
-  def repeatGroupsBase: Map[String, List[RegSlice]] = reuseGroupsById.map(t => t._1 -> t._2.map(_._2.head).toList.sortBy(_.reuseTag.id))
+  def repeatGroupsBase: Map[String, List[RegSlice]] =
+    reuseGroupsById.map(t => t._1 -> t._2.map(_._2.head).toList.sortBy(_.reuseTag.id))
 
   def busName = bus.getClass.getSimpleName
   def newGrpTag(name: String) = {
@@ -75,12 +77,15 @@ trait BusIf extends BusIfBase {
   def setReservedAddressReadValue(value: BigInt) = readDefaultValue = value
   def getReservedAddressReadValue = readDefaultValue
 
+  def setReservedAddressErrorState(state: Boolean) = accessDefaultError = state
+  def getReservedAddressErrorState = accessDefaultError
+
   def setSecFailReadValue(value: BigInt) = secFailReadValue = value
   def getSecFailReadValue = secFailReadValue
 
   def defaultReadBits = B(readDefaultValue, busDataWidth bits)
   def secFailDefaultBits = B(Option(secFailReadValue).getOrElse(readDefaultValue), busDataWidth bits)
-  def slices= SliceInsts.toList
+  def slices = SliceInsts.toList
   def hasBlock = SliceInsts.filter(_.reuseTag.id != 0).nonEmpty
 
   def docPath: String = GlobalData.get.phaseContext.config.targetDirectory
@@ -88,15 +93,15 @@ trait BusIf extends BusIfBase {
   val regPre: String
 
   private val regAddressHistory = ListBuffer[BigInt]()
-  private val regAddressMap     = ListBuffer[SizeMapping]()
+  private val regAddressMap = ListBuffer[SizeMapping]()
   def addressUsed(addr: BigInt) = regAddressHistory.contains(addr)
-  def getAddrMap = regAddressHistory.toList.map("0x"+_.hexString()) ++ regAddressMap.map(_.toString)
+  def getAddrMap = regAddressHistory.toList.map("0x" + _.hexString()) ++ regAddressMap.map(_.toString)
 
   private def attachAddr(addr: BigInt) = {
     val ret = regAddressMap.filter(t => (addr <= t.end) && (addr >= t.base))
-    if(regAddressHistory.contains(addr)){
+    if (regAddressHistory.contains(addr)) {
       SpinalError(s"Address: ${regPtr.hexString(16)} already used before, check please!")
-    } else if(!ret.isEmpty){
+    } else if (!ret.isEmpty) {
       SpinalError(s"${ret.head} overlap with 0x${addr.hexString()}")
     } else {
       regAddressHistory.append(addr)
@@ -105,10 +110,10 @@ trait BusIf extends BusIfBase {
 
   private def attachAddr(sizemap: SizeMapping) = {
     val ret = regAddressMap.filter(_.overlap(sizemap))
-    val t = regAddressHistory.filter(t => (t <= sizemap.end) &&  (t >= sizemap.base))
-    if(!ret.isEmpty){
+    val t = regAddressHistory.filter(t => (t <= sizemap.end) && (t >= sizemap.base))
+    if (!ret.isEmpty) {
       SpinalError(s"${ret.head} overlap with ${sizemap}")
-    } else if(!t.isEmpty){
+    } else if (!t.isEmpty) {
       SpinalError(s"0x${t.head.hexString()} overlap with ${sizemap}")
     } else {
       regAddressMap.append(sizemap)
@@ -119,24 +124,24 @@ trait BusIf extends BusIfBase {
 
   /*Attention: Should user make address no conflict them selves*/
   def regPtrReAnchorAt(pos: BigInt) = {
-    require(pos % (busDataWidth/8) ==0, s"Address Postion need allign datawidth ${busDataWidth/8} byte")
+    require(pos % (busDataWidth / 8) == 0, s"Address Postion need allign datawidth ${busDataWidth / 8} byte")
     regPtr = pos
   }
 
   private def checkLastNA(): Unit = SliceInsts.foreach(_.checkLast)
   private def regNameUpdate(): Unit = {
     val words = "\\w*".r
-    val pre = regPre match{
-      case "" => ""
+    val pre = regPre match {
+      case ""        => ""
       case words(_*) => regPre + "_"
-      case _ => SpinalError(s"${regPre} should be Valid naming : '[A-Za-z0-9_]+'")
+      case _         => SpinalError(s"${regPre} should be Valid naming : '[A-Za-z0-9_]+'")
     }
     RegInsts.foreach(t => t.setName(s"${pre}${t.getName()}"))
   }
 
   private var isChecked: Boolean = false
   def preCheck(): Unit = {
-    if(!isChecked){
+    if (!isChecked) {
       checkLastNA()
       regNameUpdate()
       isChecked = true
@@ -145,16 +150,14 @@ trait BusIf extends BusIfBase {
 
   component.addPrePopTask(() => {
     this.readGenerator()
-    if(withSecFireWall) this.writeErrorGenerator()
+    if (withSecFireWall) this.writeErrorGenerator()
   })
 
-
-  def regPart(name: String)(block : => Unit) = {
+  def regPart(name: String)(block: => Unit) = {
     this.newBlockTag(name)(name)
     block
     this.resetBlockTag()
   }
-
 
   def newRegAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     addrAlignCheck(address)
@@ -170,7 +173,8 @@ trait BusIf extends BusIfBase {
   }
 
   @deprecated("type error fix", "2024.06.03")
-  def creatReg(name: String, addr: BigInt, doc: String, sec: Secure = null,  grp: GrpTag = null) = createReg(name, addr, doc, sec, grp)
+  def creatReg(name: String, addr: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null) =
+    createReg(name, addr, doc, sec, grp)
 
   def createReg(name: String, addr: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null) = {
     val ret = new RegInst(name, addr, doc, this, sec, grp)
@@ -181,14 +185,16 @@ trait BusIf extends BusIfBase {
 
   def newRAM(size: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName) = {
     val res = createRAM(symbol.name, regPtr, size, doc, sec, grp)
-    regPtr += scala.math.ceil(size.toDouble/wordAddressInc).toLong * wordAddressInc
+    regPtr += scala.math.ceil(size.toDouble / wordAddressInc).toLong * wordAddressInc
     res
   }
 
-  def newRAMAt(address: BigInt, size: BigInt, doc: String, sec: Secure = null,  grp: GrpTag = null)(implicit symbol: SymbolName) = {
+  def newRAMAt(address: BigInt, size: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit
+      symbol: SymbolName
+  ) = {
     addrAlignCheck(address)
     val res = createRAM(symbol.name, address, size, doc, sec, grp)
-    regPtr = address + scala.math.ceil(size.toDouble/wordAddressInc).toLong * wordAddressInc
+    regPtr = address + scala.math.ceil(size.toDouble / wordAddressInc).toLong * wordAddressInc
     res
   }
 
@@ -213,7 +219,7 @@ trait BusIf extends BusIfBase {
   }
 
   def createWrFifo(name: String, addr: BigInt, Doc: String, sec: Secure = null, grp: GrpTag = null) = {
-    val ret = new WrFifoInst(name, addr, Doc, sec, grp)( this)
+    val ret = new WrFifoInst(name, addr, Doc, sec, grp)(this)
     SliceInsts += ret
     attachAddr(addr)
     ret
@@ -232,18 +238,20 @@ trait BusIf extends BusIfBase {
     res
   }
 
-  def newRdFifoAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit symbol: SymbolName): RdFifoInst = {
+  def newRdFifoAt(address: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null)(implicit
+      symbol: SymbolName
+  ): RdFifoInst = {
     addrAlignCheck(address)
     val res = createRdFifo(symbol.name, address, doc, sec, grp)
     regPtr = address + wordAddressInc
     res
   }
 
-  def newGrp(maxSize: BigInt, doc: String, sec: Secure = null)(implicit  symbol: SymbolName) = {
+  def newGrp(maxSize: BigInt, doc: String, sec: Secure = null)(implicit symbol: SymbolName) = {
     createGrp(symbol.name, regPtr, maxSize, doc, sec)
   }
 
-  def newGrpAt(address: BigInt, maxSize: BigInt, doc: String, sec: Secure = null)(implicit  symbol: SymbolName) = {
+  def newGrpAt(address: BigInt, maxSize: BigInt, doc: String, sec: Secure = null)(implicit symbol: SymbolName) = {
     createGrp(symbol.name, address, maxSize, doc, sec)
   }
 
@@ -264,7 +272,8 @@ trait BusIf extends BusIfBase {
   }
 
   def addrAlignCheck(address: BigInt) = {
-    if (_addrAlignCheck) assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
+    if (_addrAlignCheck)
+      assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
   }
 
   def genBaseDocs(docname: String, prefix: String = "") = {
@@ -277,27 +286,30 @@ trait BusIf extends BusIfBase {
 
   private def regReadPart() = {
     switch(readAddress()) {
-      RegAndFifos.foreach{ (x: RegSlice) =>
-        if(!x.allIsNA) x.readGenerator()
+      RegAndFifos.foreach { (x: RegSlice) =>
+        if (!x.allIsNA) x.readGenerator()
       }
       default {
         reg_rdata := readDefaultValue
-        //Reserved Address Set False, True is too much strict for software
-        if (withStrb) {
-          reg_rderr := False
+        if(accessDefaultError){
+          reg_rderr := True
         } else {
-          val alignreadhit = readAddress.take(log2Up(wordAddressInc)).orR
-          reg_rderr := Mux(alignreadhit, True, False)
+          if (withStrb) {
+            reg_rderr := False
+          } else {
+            val alignreadhit = readAddress.take(log2Up(wordAddressInc)).orR
+            reg_rderr := Mux(alignreadhit, True, False)
+          }
         }
       }
     }
   }
 
   private def regReadGenerator() = {
-    when(askRead){
+    when(askRead) {
       regReadPart()
-    }.otherwise{
-      //do not keep readData after read for the reason of security risk
+    }.otherwise {
+      // do not keep readData after read for the reason of security risk
       reg_rdata := readDefaultValue
       reg_rderr := False
     }
@@ -306,7 +318,7 @@ trait BusIf extends BusIfBase {
   private def readGenerator(): Unit = {
     this.regReadGenerator()
     val mux = WhenBuilder()
-    RamInsts.foreach{ ram =>
+    RamInsts.foreach { ram =>
       mux.when(ram.ram_rdvalid) {
         bus_rdata := ram.readBits
       }
@@ -317,19 +329,19 @@ trait BusIf extends BusIfBase {
   }
 
   private def writeErrorGenerator(): Unit = {
-    when(askWrite){
+    when(askWrite) {
       switch(writeAddress()) {
         RegAndFifos.foreach { slice =>
           slice.wrErrorGenerator()
         }
         default {
-          reg_wrerr := False
+          reg_wrerr := Bool(accessDefaultError)
         }
       }
       RamInsts.foreach { ram =>
         ram.wrErrorGenerator()
       }
-    }.otherwise{
+    }.otherwise {
       reg_wrerr := False
     }
   }

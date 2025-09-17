@@ -59,7 +59,7 @@ final case class DocRalf(name : String, backdoor: Boolean = true) extends BusIfD
         } else ""
       }
 
-      val forhdlpath = if(backdoor) s"(${rename(fd.getName())})" else ""
+      val forhdlpath = if(backdoor && !(fd.getAccessType() == AccessType.NA)) s"(${rename(fd.getName())})" else ""
       s"""    field ${rename(fd.getName())} $forhdlpath @${fd.getSection().end} {
          |      bits ${fd.getWidth()};
          |      access ${access};

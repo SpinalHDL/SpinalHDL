@@ -6,7 +6,7 @@ import spinal.lib.sim.{StreamDriver, StreamMonitor}
 import spinal.core.sim._
 
 import scala.collection.mutable
-import scala.util.Random
+import scala.collection.Seq
 
 
 
@@ -27,7 +27,7 @@ abstract class BsbMonitor(bsb : Bsb, cd : ClockDomain) extends StreamMonitor(bsb
   def onLast(source : Int, sink : Int): Unit
 }
 
-case class BsbPacket(source : Int, sink : Int, data : Seq[Byte])
+case class BsbPacket(source : Int, sink : Int, data : Seq[Byte], last : Boolean = true)
 
 case class BsbDriver(bsb : Bsb, cd : ClockDomain) {
   val sources = Array.fill(1 << bsb.p.sourceWidth)(mutable.Queue[BsbPacket]())
@@ -45,7 +45,7 @@ case class BsbDriver(bsb : Bsb, cd : ClockDomain) {
       val packet = packets.head
       var data = BigInt(0)
       var mask = BigInt(0)
-      for (byteId <- 0 until bsb.p.byteCount) if (!sourcesHeadEmpty(packet.source) && Random.nextBoolean()) {
+      for (byteId <- 0 until bsb.p.byteCount) if (!sourcesHeadEmpty(packet.source) && simRandom.nextBoolean()) {
         data |= BigInt(packet.data(progresses(packet.source)).toInt & 0xFF) << byteId * 8
         mask |= 1 << byteId
         progresses(packet.source) = progresses(packet.source) + 1
@@ -54,8 +54,8 @@ case class BsbDriver(bsb : Bsb, cd : ClockDomain) {
       p.mask #= mask
       p.source #= packet.source
       p.sink #= packet.sink
-      if (sourcesHeadEmpty(packet.source)  && Random.nextBoolean()) {
-        p.last #= true
+      if (sourcesHeadEmpty(packet.source)  && simRandom.nextBoolean()) {
+        p.last #= packet.last
         progresses(packet.source) = 0
         packets.dequeue()
       } else {

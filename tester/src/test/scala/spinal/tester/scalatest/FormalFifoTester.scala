@@ -7,6 +7,31 @@ import spinal.lib.formal._
 
 class FormalFifoTester extends SpinalFormalFunSuite {
 
+  def formalTestEdgeCases(depth: Int,
+                          withBypass: Boolean
+                         ): Unit = test(s"StreamFifoEdgeCases_depth.$depth-withBypass.$withBypass") {
+    var formalCfg = FormalConfig
+      .withBMC(10)
+
+    formalCfg
+      // .withDebug
+      .doVerify(new Component {
+        val dut = FormalDut(new StreamFifo(UInt(8 bits), depth, withBypass=withBypass, withAsyncRead=withBypass))
+        dut.io.push.valid := True
+        dut.io.push.payload := anyseq(UInt(8 bits))
+        dut.io.pop.ready := anyseq(Bool())
+
+        assume(dut.io.push.payload.lsb === False)
+
+        assert(dut.formalCheckRam(_.lsb).asBits.orR === False)
+
+        when(dut.io.pop.valid) {
+          assume(dut.io.pop.payload.lsb === False)
+        }
+
+      })
+  }
+
   // @NOTE Passes BMC and Cover test for all StreamFifo configurations
   // @TODO Passes induction Prove only for forFMax=true, fix for forFMax=false
   // this requires assertions to establish pop/push relationship with counters for all cases
@@ -183,4 +208,11 @@ class FormalFifoTester extends SpinalFormalFunSuite {
       allowExtraMsb = allowExtraMsb
     )
   }
+
+
+  for (depth <- List(0, 1);
+       withBypass <- List(false, true))
+
+    formalTestEdgeCases(depth, withBypass)
+
 }

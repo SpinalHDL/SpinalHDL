@@ -417,7 +417,7 @@ abstract class ComponentEmitter {
             referencesOverrides(io) = subInputBinded
             subComponentInputToNotBufferize += io
           }else {
-            wrapSubInput(io)
+            if(!openSubIo.contains(io)) wrapSubInput(io)
           }
         }
       }
@@ -470,7 +470,6 @@ abstract class ComponentEmitter {
       check(cd.softReset)
       check(cd.clockEnable)
     })
-
   }
 
   def cutLongExpressions(): Unit ={

@@ -38,12 +38,13 @@ final case class DocSVHeader(name : String,
     def base(name: String, t: RegSlice, max: Int) = {
       val alignName = s"%-${max}s".format(t.reuseTag.instName)
       val defineName = s"${name}_base_${alignName}".toUpperCase()
-      s"`define ${defineName}  'h${t.addr.hexString()}"
+      s"`define ${defineName}  'h${t.reuseTag.baseAddr.hexString()}"
     }
 
     lst.map{ t =>
       val partName = t._1
-      val decPart: List[RegSlice]  = t._2.head._2
+//      val decPart: List[RegSlice]  = t._2.head._2
+      val decPart: List[RegSlice]  = t._2.toList.sortBy(_._1).head._2
       val heads : List[RegSlice] = t._2.map(_._2.head).toList.sortBy(_.reuseTag.id)
 
       val instNameMaxLens = heads.map(_.reuseTag.instName.size).max

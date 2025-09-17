@@ -23,6 +23,11 @@ package object tilelink {
       }
     })
 
+    def beatAddress : UInt = signalCache(ch -> "beatAddress") (
+      (ch.addressNull | (ch.beatCounter() << ch.p.dataBytesLog2Up).resized).setCompositeName(ch, "beatAddress")
+    )
+
+
     def isLast() : Bool = {
       ch.withData match {
         case false => True

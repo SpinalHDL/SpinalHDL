@@ -36,7 +36,12 @@ object Axi4ReadOnlyToTilelinkFull{
 }
 
 //Assume burst aligned and not more than 1 burst per id inflight
-class Axi4WriteOnlyToTilelinkFull(val config: Axi4Config, bytesMax : Int, slotsCount : Int, upPipe : StreamPipe = StreamPipe.NONE) extends Component{
+class Axi4WriteOnlyToTilelinkFull(val config: Axi4Config,
+                                  val bytesMax : Int,
+                                  val slotsCount : Int,
+                                  val upPipe : StreamPipe = StreamPipe.NONE,
+                                  val axiIdRemap : Option[Axi4OnePerIdRemapParam] = Option.empty[Axi4OnePerIdRemapParam],
+                                  val boundaryWidth : Int = Axi4.boundaryWidth) extends Component{
   val ac = Axi4WriteOnlyAligner.getDownConfig(config, slotsCount)
   val dp = Axi4WriteOnlyToTilelinkFull.getTilelinkProposal(ac, bytesMax)
   val io = new Bundle {
@@ -44,13 +49,23 @@ class Axi4WriteOnlyToTilelinkFull(val config: Axi4Config, bytesMax : Int, slotsC
     val down = master port tilelink.Bus(M2sParameters(dp, slotsCount))
   }
 
-  val onePerId = new Axi4WriteOnlyOnePerId(config)
-  onePerId.io.up << io.up.pipelined(aw = upPipe)
+  var onPerIdDown : Axi4WriteOnly = null
+  val onPerId = axiIdRemap.isEmpty generate new Area{
+    val bridge = new Axi4WriteOnlyOnePerId(config)
+    bridge.io.up << io.up.pipelined(aw = upPipe)
+    onPerIdDown = bridge.io.down
+  }
 
-  val compactor = new Axi4WriteOnlyCompactor(config)
-  compactor.io.up << onePerId.io.down
+  val onPerIdRemap = axiIdRemap.nonEmpty generate new Area{
+    val bridge = new Axi4WriteOnlyOnePerIdRemap(config, axiIdRemap.get, boundaryWidth)
+    bridge.io.up << io.up.pipelined(aw = upPipe)
+    onPerIdDown = bridge.io.down
+  }
 
-  val aligner = new Axi4WriteOnlyAligner(config, bytesMax, slotsCount)
+  val compactor = new Axi4WriteOnlyCompactor(onPerIdDown.config)
+  compactor.io.up << onPerIdDown
+
+  val aligner = new Axi4WriteOnlyAligner(onPerIdDown.config, bytesMax, slotsCount, boundaryWidth = boundaryWidth)
   aligner.io.up << compactor.io.down
 
   val toTileink = new Axi4WriteOnlyToTilelink(ac, bytesMax)
@@ -71,7 +86,12 @@ object Axi4WriteOnlyToTilelinkFullGen extends App{
 
 
 //Assume burst aligned and not more than 1 burst per id inflight
-class Axi4ReadOnlyToTilelinkFull(val config: Axi4Config, bytesMax : Int, slotsCount : Int, upPipe : StreamPipe = StreamPipe.NONE) extends Component{
+class Axi4ReadOnlyToTilelinkFull(val config: Axi4Config,
+                                 val bytesMax : Int,
+                                 val slotsCount : Int,
+                                 val upPipe : StreamPipe = StreamPipe.NONE,
+                                 val axiIdRemap : Option[Axi4OnePerIdRemapParam] = Option.empty[Axi4OnePerIdRemapParam],
+                                 val boundaryWidth : Int = Axi4.boundaryWidth) extends Component{
   val ac = Axi4ReadOnlyAligner.getDownConfig(config, slotsCount)
   val dp = Axi4ReadOnlyToTilelinkFull.getTilelinkProposal(ac, bytesMax)
   val io = new Bundle {
@@ -79,13 +99,23 @@ class Axi4ReadOnlyToTilelinkFull(val config: Axi4Config, bytesMax : Int, slotsCo
     val down = master port tilelink.Bus(M2sParameters(dp, slotsCount))
   }
 
-  val onePerId = new Axi4ReadOnlyOnePerId(config)
-  onePerId.io.up << io.up.pipelined(ar = upPipe)
+  var onPerIdDown : Axi4ReadOnly = null
+  val onPerId = axiIdRemap.isEmpty generate new Area{
+    val bridge = new Axi4ReadOnlyOnePerId(config)
+    bridge.io.up << io.up.pipelined(ar = upPipe)
+    onPerIdDown = bridge.io.down
+  }
 
-  val compactor = new Axi4ReadOnlyCompactor(config)
-  compactor.io.up << onePerId.io.down
+  val onPerIdRemap = axiIdRemap.nonEmpty generate new Area{
+    val bridge = new Axi4ReadOnlyOnePerIdRemap(config, axiIdRemap.get, boundaryWidth = boundaryWidth)
+    bridge.io.up << io.up.pipelined(ar = upPipe)
+    onPerIdDown = bridge.io.down
+  }
 
-  val aligner = new Axi4ReadOnlyAligner(config, bytesMax, slotsCount)
+  val compactor = new Axi4ReadOnlyCompactor(onPerIdDown.config)
+  compactor.io.up << onPerIdDown
+
+  val aligner = new Axi4ReadOnlyAligner(onPerIdDown.config, bytesMax, slotsCount, boundaryWidth = boundaryWidth)
   aligner.io.up << compactor.io.down
 
   val toTileink = new Axi4ReadOnlyToTilelink(ac, bytesMax)

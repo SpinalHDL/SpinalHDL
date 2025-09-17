@@ -19,7 +19,7 @@ SpinalHDL is:
  - Chinese documentation          <br> https://spinalhdl.github.io/SpinalDoc-RTD/zh_CN/
  - Chinese documentation (v1.7.2 from thuCGRA) <br> https://thucgra.github.io/SpinalHDL_Chinese_Doc/
  - API reference                  <br> https://spinalhdl.github.io/SpinalHDL/dev/spinal/index.html
- - Presentation of the language   <br> https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Getting%20Started/presentation.html
+ - Presentation of the language   <br> https://github.com/SpinalHDL/SpinalDoc/blob/master/presentation/en/presentation.pdf
  - SBT base project               <br> https://github.com/SpinalHDL/SpinalTemplateSbt
  - Gradle base project            <br> https://github.com/SpinalHDL/SpinalTemplateGradle
  - Jupyter bootcamp               <br> https://github.com/SpinalHDL/Spinal-bootcamp

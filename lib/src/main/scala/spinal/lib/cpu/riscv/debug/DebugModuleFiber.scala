@@ -47,7 +47,7 @@ class DebugModuleFiber() extends Area{
 
       from.halted := RegNext(to.halted) init(False)
       from.running := RegNext(to.running) init(False)
-      from.unavailable := RegNext(to.unavailable) init(False)
+      from.unavailable := RegNext(to.unavailable) init(True)
       from.haveReset := RegNext(to.haveReset) init(False)
       from.exception := RegNext(to.exception) init(False)
       from.commit := RegNext(to.commit) init(False)
@@ -71,12 +71,13 @@ class DebugModuleFiber() extends Area{
     }
   }
 
-  def withJtagTap() = {
+  def withJtagTap(jtagFrequency : ClockDomain.ClockFrequency = UnknownFrequency()) = {
     val db = DebugBus(p.addressWidth); debugBuses += db
     Fiber build new Area {
       val logic = DebugTransportModuleJtagTap(
         p,
-        debugCd = cmCd
+        debugCd = cmCd,
+        jtagFrequency = jtagFrequency
       )
       db <> logic.io.bus
       val jtag = logic.io.jtag.toIo
@@ -94,5 +95,17 @@ class DebugModuleFiber() extends Area{
       db <> logic.io.bus
       val instruction = logic.io.instruction.toIo
     }
+  }
+}
+
+
+class DebugModuleSocFiber(withJtagTap : Boolean, withJtagInstruction : Boolean) extends Area{
+  val dm = new DebugModuleFiber()
+  val tck = withJtagInstruction generate in(Bool())
+  val tap = withJtagTap generate dm.withJtagTap()
+  val instruction = withJtagInstruction generate ClockDomain(tck)(dm.withJtagInstruction())
+
+  def bindHart(cpu: RiscvHart) = {
+    dm.bindHart(cpu)
   }
 }

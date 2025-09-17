@@ -21,3 +21,4 @@ jobs:
       scala_version: '2.11.12'
       runner_os: 'Linux'
       github_sha: ${{ github.sha }}
+      docker_image_version: 'v1.2.0'

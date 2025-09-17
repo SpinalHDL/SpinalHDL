@@ -9,19 +9,18 @@ import scala.collection.mutable
 import scala.math.BigInt
 
 
-object Symplify{
-  def getCache(addr : Bits) = signalCache(addr)(mutable.LinkedHashMap[Masked,Bool]())
+object Symplify {
+  def getCache(addr : Bits) = signalCache(addr)(mutable.LinkedHashMap[Masked, Bool]())
 
-  //Generate terms logic for the given input
-  def logicOf(input : Bits,terms : Seq[Masked]) : Bool = terms.map(t => getCache(input).getOrElseUpdate(t,t === input)).asBits.orR
+  // Generate terms logic for the given input
+  def logicOf(input : Bits, terms : Seq[Masked]) : Bool = terms.map(t => getCache(input).getOrElseUpdate(t, t === input)).asBits.orR
 
-  //Decode 'input' by using an mapping[key, decoding] specification
-
+  // Decode 'input' by using an mapping[key, decoding] specification
   def apply(input: Bits, mapping: Iterable[(Masked, Masked)], resultWidth : Int) : Bits = {
     val addrWidth = widthOf(input)
-    (for(bitId <- 0 until resultWidth) yield{
-      val trueTerm = mapping.filter { case (k,t) => (t.care.testBit(bitId) && t.value.testBit(bitId))}.map(_._1)
-      val falseTerm = mapping.filter { case (k,t) => (t.care.testBit(bitId) &&  !t.value.testBit(bitId))}.map(_._1)
+    (for(bitId <- 0 until resultWidth) yield {
+      val trueTerm = mapping.filter { case (k, t) => (t.care.testBit(bitId) && t.value.testBit(bitId))}.map(_._1)
+      val falseTerm = mapping.filter { case (k, t) => (t.care.testBit(bitId) && !t.value.testBit(bitId))}.map(_._1)
       val symplifiedTerms = SymplifyBit.getPrimeImplicantsByTrueAndFalse(trueTerm.toSeq, falseTerm.toSeq, addrWidth)
       logicOf(input, symplifiedTerms)
     }).asBits
@@ -33,7 +32,7 @@ object Symplify{
     logicOf(input, symplifiedTerms)
   }
 
-  //Default is zero
+  // Default is zero
   def apply(input : Bits, trueTerms : Iterable[Masked]) : Bool = {
     Symplify.logicOf(input, SymplifyBit.getPrimeImplicantsByTrueAndDontCare(trueTerms.toSeq, Nil, widthOf(input)))
   }
@@ -43,9 +42,8 @@ object Symplify{
   }
 }
 
-object SymplifyBit{
-
-  //Return a new term with only one bit difference with 'term' and not included in falseTerms. above => 0 to 1 dif, else 1 to 0 diff
+object SymplifyBit {
+  // Return a new term with only one bit difference with 'term' and not included in falseTerms. above => 0 to 1 dif, else 1 to 0 diff
   def genImplicitDontCare(falseTerms: Seq[Masked], term: Masked, bits: Int, above: Boolean): Masked = {
     for (i <- 0 until bits; if term.care.testBit(i)) {
       var t: Masked = null
@@ -64,7 +62,7 @@ object SymplifyBit{
     null
   }
 
-  //Return primes implicants for the trueTerms, falseTerms spec. Default value is don't care
+  // Return primes implicants for the trueTerms, falseTerms spec. Default value is don't care
   def getPrimeImplicantsByTrueAndFalse(trueTerms: Seq[Masked], falseTerms: Seq[Masked], inputWidth : Int): Seq[Masked] = {
     val primes = mutable.LinkedHashSet[Masked]()
     trueTerms.foreach(_.isPrime = true)
@@ -73,13 +71,13 @@ object SymplifyBit{
     //table[Vector[HashSet[Masked]]](careCount)(bitSetCount)
     val table = trueTermByCareCount.map(c => (0 to inputWidth).map(b => collection.mutable.Set(c.filter(b == _.value.bitCount): _*)))
     for (i <- 0 to inputWidth) {
-      //Expends explicit terms
+      // Expends explicit terms
       for (j <- 0 until inputWidth - i){
         for(term <- table(i)(j)){
           table(i+1)(j) ++= table(i)(j+1).withFilter(_.isSimilarOneBitDifSmaller(term)).map(_.mergeOneBitDifSmaller(term))
         }
       }
-      //Expends implicit don't care terms
+      // Expends implicit don't care terms
       for (j <- 0 until inputWidth-i) {
         for (prime <- table(i)(j).withFilter(_.isPrime)) {
           val dc = genImplicitDontCare(falseTerms, prime, inputWidth, true)
@@ -120,7 +118,7 @@ object SymplifyBit{
     primes.toSeq
   }
 
-  //Verify that the 'terms' doesn't violate the trueTerms ++ falseTerms spec
+  // Verify that the 'terms' doesn't violate the trueTerms ++ falseTerms spec
   def verifyTrueFalse(terms : Iterable[Masked], trueTerms : Seq[Masked], falseTerms : Seq[Masked]): Boolean ={
     return (trueTerms.forall(trueTerm => terms.exists(_ covers trueTerm))) && (falseTerms.forall(falseTerm => !terms.exists(_ covers falseTerm)))
   }

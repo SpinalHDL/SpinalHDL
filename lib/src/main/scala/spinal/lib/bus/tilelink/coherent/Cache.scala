@@ -18,6 +18,7 @@ case class CacheParam(var unp : NodeParameters,
                       var cacheBytes: Int,
                       var blockSize : Int,
                       var cnp : NodeParameters = null,
+                      var withDualPortRam : Boolean = true,
                       var cacheBanks : Int = 1,
                       var probeCount : Int = 8,
                       var aBufferCount: Int = 4,
@@ -28,13 +29,17 @@ case class CacheParam(var unp : NodeParameters,
                       var upCBufferDepth : Int = 8,
                       var readProcessAt : Int = 2,
                       var coherentRegion : UInt => Bool,
+                      var flushCompletionsCount : Int = 1,
                       var selfFlush : SelfFLush = null,
+                      var flushBusParam : FlushParam = null,
                       var allocateOnMiss : (Cache.CtrlOpcode.C, UInt, UInt, UInt, Bits) => Bool = null // opcode, source, address, size
                          ) {
   assert(isPow2(cacheBytes))
 
   def withSelfFlush = selfFlush != null
-  def withFlush = withCtrl || withSelfFlush
+  def withFlush = withCtrl || withSelfFlush || flushBusParam != null
+  def withFlushFsm = withCtrl || withSelfFlush
+  def withFlushBus = flushBusParam != null
   def withCtrl = cnp != null
   def lockSets = cacheSets //TODO min trackedSets !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   def cacheLines = cacheBytes / blockSize
@@ -52,10 +57,58 @@ case class CacheParam(var unp : NodeParameters,
   def setsRange = lineRange
   def cacheAddressWidth = log2Up(cacheBytes/dataBytes)
 
-  def addressCheckRange = setsRange.high downto log2Up(lineSize) //For now, it also avoid way clash (gsHits)
+  def addressCheckRange = setsRange.high downto log2Up(lineSize) // For now, it also avoid way clash (gsHits)
   def addressCheckWidth = addressCheckRange.size
 //  def lockSetsRange = log2Up(lineSize*lockSets)-1 downto log2Up(lineSize)
 }
+
+case class FlushParam(addressWidth : Int, sourceWidth : Int)
+
+case class FlushBus(p : FlushParam) extends Bundle with IMasterSlave{
+  val cmd = Stream(FlushCmd(p))
+  val rsp = Stream(FlushRsp(p))
+
+  override def asMaster(): Unit = {
+    master(cmd)
+    slave(rsp)
+  }
+}
+
+case class FlushCmd(p : FlushParam) extends Bundle {
+  val address = UInt(p.addressWidth bits)
+  val source = UInt(p.sourceWidth bits)
+}
+
+case class FlushRsp(p : FlushParam) extends Bundle {
+  val source = UInt(p.sourceWidth bits)
+}
+
+case class FlushArbiter(op : FlushParam, ports : Int) extends Component{
+  val ip = op.copy(sourceWidth = op.sourceWidth - log2Up(ports))
+  val io = new Bundle{
+    val inputs = Vec.fill(ports)(slave(FlushBus(ip)))
+    val output = master(FlushBus(op))
+  }
+
+  val onCmd = new Area{
+    val arbiter = StreamArbiterFactory().roundRobin.transactionLock.build(FlushCmd(op), ports)
+    for(i <- 0 until ports; to = arbiter.io.inputs(i); from = io.inputs(i).cmd){
+      to.arbitrationFrom(from)
+      to.address := from.address
+      to.source := U(i, log2Up(ports) bits) @@ from.source
+    }
+    io.output.cmd << arbiter.io.output
+  }
+
+  val onRsp = new Area{
+    val demux = new StreamDemux(FlushRsp(ip), ports)
+    demux.io.select := U(io.output.rsp.source.takeHigh(log2Up(ports)))
+    demux.io.input.arbitrationFrom(io.output.rsp)
+    demux.io.input.source := io.output.rsp.source.resized
+    (io.inputs, demux.io.outputs).zipped.foreach(_.rsp << _)
+  }
+}
+
 
 
 object Cache extends AreaObject{
@@ -127,6 +180,8 @@ class Cache(val p : CacheParam) extends Component {
       val ctrlProcess, writeBackend = master(Flow(OrderingCmd(up.p.sizeBytes)))
       def all = List(ctrlProcess, writeBackend)
     }
+    val interrupt = withCtrl generate (out Bool())
+    val flush = withFlushBus generate slave(FlushBus(p.flushBusParam))
   }
 
   this.addTags(io.ordering.all.map(OrderingTag(_)))
@@ -203,25 +258,49 @@ class Cache(val p : CacheParam) extends Component {
       val upWrite, downWrite = Stream(MemWriteCmd(Bits(p.dataWidth bits), cacheAddressWidth, p.dataBytes))
       val upWriteDemux = StreamDemux(upWrite, upWrite.address.resize(log2Up(cacheBanks)), cacheBanks)
       val downWriteDemux = StreamDemux(downWrite, downWrite.address.resize(log2Up(cacheBanks)), cacheBanks)
-      val read = Stream(UInt(cacheAddressWidth bits))
+      val upRead = Stream(UInt(cacheAddressWidth bits))
+      val upReadDemux = StreamDemux(upRead, upRead.payload.resize(log2Up(cacheBanks)), cacheBanks)
 
       val banks = for(i <- 0 until cacheBanks) yield new Area{
         val ram = Mem.fill(cacheBytes/p.dataBytes/cacheBanks)(Bits(p.dataWidth bits))
         val readed = Bits(p.dataWidth bits)
         val writeArbiter = StreamArbiterFactory().noLock.lowerFirst.buildOn(downWriteDemux(i), upWriteDemux(i))
         val write = writeArbiter.io.output.combStage()
+        val read = upReadDemux(i).combStage()
       }
 
-      val fpgaImpl = new Area{
+      val dpImpl = withDualPortRam generate new Area{
         // Use simple dual port memories
-        read.ready := True
         val b =  for((bank, i) <- banks.zipWithIndex) yield new Area{
           import bank._
           write.ready := True
-          ram.write(write.address >> log2Up(cacheBanks), write.data, write.valid, write.mask)
+          read.ready := True
 
-          val readSel =  read.valid && read.payload.resize(log2Up(cacheBanks)) === i
-          readed := ram.readSync(read.payload >> log2Up(cacheBanks), readSel)
+          ram.write(write.address >> log2Up(cacheBanks), write.data, write.valid, write.mask)
+          readed := ram.readSync(read.payload >> log2Up(cacheBanks), read.valid)
+        }
+      }
+
+      val spImpl = !withDualPortRam generate new Area{
+        // Use single port memories
+        val b =  for((bank, i) <- banks.zipWithIndex) yield new Area{
+          import bank._
+          val readWin = CombInit(read.valid)
+
+          read.ready := readWin
+          write.ready := !readWin
+
+          val port = ram.readWriteSync(
+            readWin.mux(read.payload, write.address) >> log2Up(cacheBanks),
+            write.data,
+            write.valid || read.valid,
+            !readWin,
+            write.mask
+          )
+
+          val bufferLoad = RegNext(read.valid && readWin) init(False)
+          val buffer = RegNextWhen(port, bufferLoad)
+          readed := bufferLoad.mux(port, buffer)
         }
       }
     }
@@ -321,11 +400,17 @@ class Cache(val p : CacheParam) extends Component {
   // put => write, [lock], [victim]
   // acquire_block => [lock], [victim]
   class GeneralSlot extends Slot{
-    val address = Reg(UInt(addressCheckWidth bits))
-//    val way = Reg(UInt(log2Up(cacheWays) bits))
+    val address = Reg(UInt(p.addressWidth bits))
+    val allowGet = Reg(Bool())
+    val sourceId = Reg(io.up.p.source())
+
     val pending = new Area{
-      val victim, primary, acquire, victimRead, victimWrite = Reg(Bool())
-      fire setWhen(List(victim, acquire, primary, victimWrite).norR)
+      val victim, primary, acquire, victimRead, victimWrite, cacheWrite = Reg(Bool())
+      val flushBus = withFlushBus generate Reg(Bool())
+
+      val flags = ArrayBuffer[Bool](victim, acquire, primary, victimWrite, cacheWrite)
+      if(withFlushBus) flags += flushBus
+      fire setWhen(flags.norR)
     }
   }
 
@@ -351,20 +436,53 @@ class Cache(val p : CacheParam) extends Component {
     val fullUpA = slots.dropRight(p.generalSlotCountUpCOnly).map(_.valid).andR
   }
 
+  val fromFlushBus = withFlushBus generate new Area {
+    val cmd = Stream(new CtrlCmd())
+    cmd.arbitrationFrom(io.flush.cmd)
+    cmd.opcode := CtrlOpcode.FLUSH // CtrlOpcode()
+    cmd.args := 0 // Bits(1 bits)
+    cmd.address := io.flush.cmd.address(blockRange) << blockRange.low
+    cmd.size := log2Up(p.lineSize) // ubp.size()
+    cmd.source := io.flush.cmd.source.resized
+    assert(p.flushBusParam.sourceWidth <= p.unp.m.sourceWidth)
+    cmd.bufferAId := 0 // BUFFER_A_ID()
+    cmd.probed := False // Bool()
+    cmd.probedUnique := False // Bool()
+    cmd.gsId := 0 // GS_ID() //Only valid when probed
+    cmd.debugId := 0 // DebugId()
+    cmd.withDataUpC := False // Bool()
+    cmd.evictWay := 0 // UInt(log2Up(cacheWays) bits)
+    cmd.upParam := 1
+  }
 
-  val flush = withFlush generate new Area {
+  val flushFsm = withFlushFsm generate new Area {
     val reserved = RegInit(False)
     val address, upTo = Reg(ubp.address())
     val start = False
+    val completionsOnComb = UInt(log2Up(flushCompletionsCount) bits)
+    val completionsEnableComb = True
+
+    val completions = Reg(Bits(flushCompletionsCount bits)) init(0)
+    val completionsOnReg = Reg(UInt(log2Up(flushCompletionsCount) bits)) init(0)
+    val completionsEnableReg = RegInit(True)
 
     val cmd = Stream(new CtrlCmd())
     val fsm = new StateMachine {
       val IDLE, CMD, INFLIGHT, GS = new State()
       setEntry(IDLE)
-      val inflight = CounterUpDown(generalSlotCount + ctrlLoopbackDepth + 4)
+      val inflight = CounterUpDown(1 << log2Up(generalSlotCount + ctrlLoopbackDepth + 4))
       val gsMask = Reg(Bits(generalSlotCount bits))
 
-      IDLE.whenIsActive(when(start)(goto(CMD)))
+      IDLE.whenIsActive{
+        when(start){
+          when(completionsEnableComb){
+            completions(completionsOnComb) := False
+          }
+          completionsOnReg := completionsOnComb
+          completionsEnableReg := completionsEnableComb
+          goto(CMD)
+        }
+      }
 
       CMD whenIsActive {
         when(cmd.fire) {
@@ -386,6 +504,9 @@ class Cache(val p : CacheParam) extends Component {
       GS whenIsActive {
         when(gsMask === 0) {
           reserved := False
+          when(completionsEnableReg){
+            completions(completionsOnReg) := True
+          }
           goto(IDLE)
         }
       }
@@ -414,11 +535,12 @@ class Cache(val p : CacheParam) extends Component {
     setEntry(WAIT)
 
     CMD.whenIsActive{
-      when(!flush.reserved){
-        flush.reserved := True
-        flush.start := True
-        flush.address := selfFlush.from
-        flush.upTo := selfFlush.upTo
+      when(!flushFsm.reserved){
+        flushFsm.completionsEnableComb := False
+        flushFsm.reserved := True
+        flushFsm.start := True
+        flushFsm.address := selfFlush.from
+        flushFsm.upTo := selfFlush.upTo
         goto(WAIT)
       }
     }
@@ -427,11 +549,20 @@ class Cache(val p : CacheParam) extends Component {
 
   val ctrlLogic = withCtrl generate new Area {
     val mapper = new SlaveFactory(io.ctrl, allowBurst = true)
-    mapper.setOnSet(flush.start, 0x08, 1)
-    flush.reserved setWhen (!flush.reserved && mapper.isReading(0x08))
-    mapper.read(flush.reserved || withSelfFlush.mux(selfFlusher.isActive(selfFlusher.CMD), False), 0x08)
-    mapper.writeMultiWord(flush.address, 0x10)
-    mapper.writeMultiWord(flush.upTo, 0x18)
+    mapper.read(flushFsm.completions, 0x00, 0)
+    mapper.clearOnSet(flushFsm.completions, 0x00, 0)
+
+    val intFreeEnable = mapper.createReadAndWrite(Bool(), 0x38, 0) init(False)
+    io.interrupt := !flushFsm.reserved && intFreeEnable
+
+    mapper.clearOnClear(flushFsm.completionsEnableComb, 0x08, 0)
+    mapper.setOnSet(flushFsm.start, 0x08, 1)
+    mapper.nonStopWrite(flushFsm.completionsOnComb, 8)
+    flushFsm.reserved setWhen (!flushFsm.reserved && mapper.isReading(0x08))
+    mapper.read(flushFsm.reserved || withSelfFlush.mux(selfFlusher.isActive(selfFlusher.CMD), False), 0x08)
+
+    mapper.writeMultiWord(flushFsm.address, 0x10)
+    mapper.writeMultiWord(flushFsm.upTo, 0x18)
   }
 
   val fromUpA = new Area{
@@ -485,8 +616,8 @@ class Cache(val p : CacheParam) extends Component {
     val dataPop = data.queue(upCBufferDepth).m2sPipe()
   }
 
-  class ProberSlot extends Slot{
-    val address = Reg(UInt(blockRange.size bits)) //We realy need the full address range, as we need to catch RELEASE_DATA while proving, to update the dirtyness of the data
+  class ProberSlot extends Slot {
+    val address = Reg(UInt(blockRange.size bits)) // We really need the full address range, as we need to catch RELEASE_DATA while proving, to update the dirtyness of the data
     val pending = Reg(UInt(log2Up(coherentMasterCount + 1) bits))
     val probeAckDataCompleted = Reg(Bool())
     val unique = Reg(Bool())
@@ -494,7 +625,7 @@ class Cache(val p : CacheParam) extends Component {
     val evictClean = Reg(Bool())
   }
 
-  //Currently we ignore the cache owners tracking of PROBE_ACK_DATA TtoN (will behave like a TtoB)
+  // Currently we ignore the cache owners tracking of PROBE_ACK_DATA TtoN (will behave like a TtoB)
   val prober = new SlotPool(probeCount)(new ProberSlot){
     val ctx = new Area{
       val ram = Mem.fill(probeCount)(new CtrlCmd())
@@ -568,7 +699,7 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
 
-      val filtred = input.throwWhen(upCSplit.cmd.opcode === Opcode.C.PROBE_ACK)
+      val filtered = input.throwWhen(upCSplit.cmd.opcode === Opcode.C.PROBE_ACK)
       class UpCCmd extends Bundle{
         val hitId = UInt(log2Up(probeCount) bits)
         val opcode = Opcode.C()
@@ -576,7 +707,7 @@ class Cache(val p : CacheParam) extends Component {
         val source  = ubp.source()
         val toNone = Bool()
       }
-      val down = filtred.swapPayload(new UpCCmd)
+      val down = filtered.swapPayload(new UpCCmd)
       down.hitId   := hitId
       down.opcode  := input.opcode
       down.address := input.address
@@ -599,7 +730,7 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
 
-      //fromUpC does not come for PROBE_ACK
+      // fromUpC does not come for PROBE_ACK
       fromUpC.ready := merged.ready
       fromProbe.ready := merged.ready && !fromUpC.valid
       merged.valid := fromUpC.valid || fromProbe.valid
@@ -633,7 +764,7 @@ class Cache(val p : CacheParam) extends Component {
     }
   }
 
-  //TODO check older way is allocated
+  // TODO check older way is allocated
   val ctrl = new Pipeline{
     val stages = newChained(3, Connection.M2S())
     val inserterStage = stages(0)
@@ -646,7 +777,7 @@ class Cache(val p : CacheParam) extends Component {
     import CtrlOpcode._
 
 
-    val loopback = new Area{
+    val loopback = new Area {
       val occupancy = new CounterUpDown(ctrlLoopbackDepth, handleOverflow = false)
       val allowUpA = !occupancy.mayOverflow
       val fifo = StreamFifo(new CtrlCmd, ctrlLoopbackDepth, forFMax = true)
@@ -666,23 +797,39 @@ class Cache(val p : CacheParam) extends Component {
       cmds += prober.schedule.toCtrl.pipelined(m2s = true, s2m = true)
       cmds += loopback.fifo.io.pop.halfPipe()
       cmds += fromUpA.toCtrl.continueWhen(loopback.allowUpA && !upAHold)
-      val fromFlush = withFlush generate new Area{
+
+      val onFlushBus = withFlushBus generate new Area{
         val regulator = Reg(UInt(2 bits)) init(0)
-        when(flush.cmd.valid){
+        when(fromFlushBus.cmd.valid){
           when(fromUpA.toCtrl.fire) {
             regulator := regulator + 1
           }
-          when(flush.cmd.ready) {
+          when(fromFlushBus.cmd.ready) {
+            regulator := 0
+          }
+          upAHold setWhen(regulator.andR)
+        }
+        cmds += fromFlushBus.cmd.continueWhen(loopback.allowUpA)
+      }
+
+      val onFlushFsm = withFlushFsm generate new Area{
+        val regulator = Reg(UInt(2 bits)) init(0)
+        when(flushFsm.cmd.valid){
+          when(fromUpA.toCtrl.fire) {
+            regulator := regulator + 1
+          }
+          when(flushFsm.cmd.ready) {
             regulator := 0
           }
           upAHold setWhen(regulator.andR)
         }
 
-        cmds += flush.cmd.continueWhen(loopback.allowUpA)
+        cmds += flushFsm.cmd.continueWhen(loopback.allowUpA)
       }
+
       val arbiter = StreamArbiterFactory().lowerFirst.noLock.buildOn(cmds)
 
-      when(fromUpA.toCtrl.fire || withFlush.mux(flush.cmd.fire, False)) {
+      when(fromUpA.toCtrl.fire || withFlushFsm.mux(flushFsm.cmd.fire, False) || withFlushBus.mux(fromFlushBus.cmd.fire, False)) {
         loopback.occupancy.increment()
       }
 
@@ -692,11 +839,11 @@ class Cache(val p : CacheParam) extends Component {
       val SOURCE_OH = insert(B(coherentMasters.map(_.sourceHit(CTRL_CMD.source))))
     }
 
-    cache.tags.read.cmd.valid := addressStage.isFireing
+    cache.tags.read.cmd.valid := addressStage.isFiring
     cache.tags.read.cmd.payload := addressStage(CTRL_CMD).address(lineRange)
     val CACHE_TAGS = dataStage.insert(cache.tags.read.rsp)
 
-    cache.plru.read.cmd.valid := addressStage.isFireing
+    cache.plru.read.cmd.valid := addressStage.isFiring
     cache.plru.read.cmd.payload := addressStage(CTRL_CMD).address(setsRange)
     val CACHE_PLRU = dataStage.insert(cache.plru.read.rsp)
 
@@ -724,17 +871,17 @@ class Cache(val p : CacheParam) extends Component {
       val IS_PUT_FULL_BLOCK = insert(CTRL_CMD.opcode === CtrlOpcode.PUT_FULL_DATA && CTRL_CMD.size === log2Up(blockSize))
       val WRITE_DATA = insert(List(PUT_PARTIAL_DATA(), PUT_FULL_DATA(), RELEASE_DATA()).sContains(CTRL_CMD.opcode))
       val GS_NEED = insert(List(ACQUIRE_BLOCK, ACQUIRE_PERM, RELEASE_DATA, PUT_PARTIAL_DATA, PUT_FULL_DATA, GET, FLUSH).map(_.craft()).sContains(CTRL_CMD.opcode))
-      val GS_HITS = insert(gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address).asBits)
+      val GS_HITS = insert(gs.slots.map(s => s.valid && CTRL_CMD.address(addressCheckRange) === s.address(addressCheckRange)).asBits)
       val GS_HIT = insert(GS_HITS.orR)
       val GS_OH = insert(UIntToOh(CTRL_CMD.gsId, generalSlotCount))
 
-      //For as long as the cache is inclusive
-      when(ACQUIRE){
+      // For as long as the cache is inclusive
+      when(ACQUIRE) {
         ALLOCATE_ON_MISS := True
       }
     }
 
-    val process = new Area{
+    val process = new Area {
       import processStage._
 
 
@@ -742,7 +889,7 @@ class Cache(val p : CacheParam) extends Component {
       assert(!(isValid && redoUpA && !preCtrl.FROM_A))
       throwIt(redoUpA)
 
-      redoUpA.setWhen(preCtrl.FROM_A && !CTRL_CMD.probed && preCtrl.GS_HIT) //TODO could be less pessimistic
+      redoUpA.setWhen(preCtrl.FROM_A && !CTRL_CMD.probed && preCtrl.GS_HIT) // TODO could be less pessimistic
 
 
       val stallIt = False
@@ -754,7 +901,7 @@ class Cache(val p : CacheParam) extends Component {
       val gsHitVictim = CTRL_CMD.opcode === RELEASE_DATA && (preCtrl.GS_HITS & B(gs.slots.map(_.pending.victimWrite))).orR
       stallIt setWhen(gsHitVictim)
 
-      val askAllocate = False //Will handle victim
+      val askAllocate = False // Will handle victim
       val askProbe = False
       val askReadDown = False
       val askReadBackend = False
@@ -772,7 +919,7 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
 
-      when(isFireing && preCtrl.FROM_A && askGs && !redoUpA){
+      when(isFiring && preCtrl.FROM_A && askGs && !redoUpA){
         loopback.occupancy.decrement()
       }
 
@@ -802,13 +949,16 @@ class Cache(val p : CacheParam) extends Component {
       }
 
       val gsId = OHToUInt(gsOh)
-      val gsAddress = CombInit(CTRL_CMD.address(addressCheckRange))
+      val gsAddress = CombInit(CTRL_CMD.address)
       val gsRefill = False
       val gsWrite = preCtrl.WRITE_DATA || CTRL_CMD.withDataUpC
       val gsWay = CombInit(backendWayId)
       val gsPendingVictim = False
       val gsPendingVictimReadWrite = False
+      val gsPendingCacheWrite = False
       val gsPendingPrimary = True
+      val gsFlushBus = False
+      val gsAllowGet = False
 
       //TODO don't forget to ensure that a victim get out of the cache before downD/upA erase it
 
@@ -823,7 +973,7 @@ class Cache(val p : CacheParam) extends Component {
 
 
       val clearPrimary = False
-      val oldClearPrimary = RegNext(clearPrimary && isFireing && !isRemoved) init(False)
+      val oldClearPrimary = RegNext(clearPrimary && isFiring && !isRemoved) init(False)
       val oldGsId = RegNext(gsId)
       when(oldClearPrimary) {
         gs.slots.onSel(oldGsId)(_.pending.primary := False)
@@ -843,7 +993,7 @@ class Cache(val p : CacheParam) extends Component {
       redoUpA setWhen(!CTRL_CMD.probed && preCtrl.FROM_A && !prober.cmd.ready && firstCycle)
       assert(!(isValid && redoUpA && !loopback.fifo.io.push.ready))
 
-      val doIt = isFireing && !isRemoved
+      val doIt = isFiring && !isRemoved
 
       val olderWay = new Area{
         val plru = new Plru(cacheWays, false)
@@ -857,7 +1007,7 @@ class Cache(val p : CacheParam) extends Component {
           plru.io.update.id := plru.io.evict.id
         }
 
-        cache.plru.write.valid clearWhen (!isFireing)
+        cache.plru.write.valid clearWhen (!isFiring)
         cache.plru.write.address := CTRL_CMD.address(setsRange)
         cache.plru.write.data := plru.io.update.state
 
@@ -890,19 +1040,23 @@ class Cache(val p : CacheParam) extends Component {
         gotGs := True
         gs.slots.onMask(gsOh) { s =>
           s.address := gsAddress
+          s.allowGet := gsAllowGet
           when(firstCycle) {
             s.pending.victim := gsPendingVictim
             s.pending.victimRead := gsPendingVictimReadWrite
             s.pending.victimWrite := gsPendingVictimReadWrite
+            s.pending.cacheWrite := gsPendingCacheWrite
             s.pending.primary := gsPendingPrimary
             s.pending.acquire := preCtrl.ACQUIRE
+            s.sourceId := CTRL_CMD.source
+            if(withFlushBus) s.pending.flushBus := gsFlushBus
           }
           when(isReady) {
             s.valid := True
           }
         }
       }
-      gotGs clearWhen (isFireing)
+      gotGs clearWhen (isFiring)
 
       toReadBackend.address := CTRL_CMD.address
       toReadBackend.size := CTRL_CMD.size
@@ -937,7 +1091,7 @@ class Cache(val p : CacheParam) extends Component {
         toReadDown.size := log2Up(blockSize)
       }
 
-      val ctxDownDWritten = RegInit(False) setWhen (gs.ctxDownD.write.valid) clearWhen (isFireing)
+      val ctxDownDWritten = RegInit(False) setWhen (gs.ctxDownD.write.valid) clearWhen (isFiring)
       val ctxDownD = gs.ctxDownD.write
       ctxDownD.valid := isValid && askGs && !redoUpA && !stallIt && !ctxDownDWritten
       ctxDownD.address            := gsId
@@ -959,7 +1113,7 @@ class Cache(val p : CacheParam) extends Component {
       toOrdering.bytes := (U(1) << CTRL_CMD.size).resized
       toOrdering >> io.ordering.ctrlProcess
 
-      //Generate a victim
+      // Generate a victim
       when(askAllocate && olderWay.tags.loaded){
         when(olderWay.tags.owners.orR) {
           askProbe := True
@@ -969,7 +1123,7 @@ class Cache(val p : CacheParam) extends Component {
         }
 
         when(olderWay.tags.dirty || olderWay.tags.trunk) {
-          askReadBackend := True //TODO Seems like it would not be necessary if only olderWay.tags.trunk is set, only on dirty
+          askReadBackend := True // TODO Seems like it would not be necessary if only olderWay.tags.trunk is set, only on dirty
           gsPendingVictim := True
           gsPendingVictimReadWrite := True
         }
@@ -986,7 +1140,7 @@ class Cache(val p : CacheParam) extends Component {
         prober.cmd.evictClean := !olderWay.tags.dirty
 
         when(!olderWay.unlocked){
-          //Assume it come from A (inclusive)
+          // Assume it come from A (inclusive)
           assert(!isValid || preCtrl.FROM_A)
           redoUpA := True
         }
@@ -1005,6 +1159,7 @@ class Cache(val p : CacheParam) extends Component {
       if(withFlush) when(preCtrl.IS_FLUSH){
         gsPendingPrimary := False
         cache.tags.write.data.loaded := False
+        gsFlushBus := CTRL_CMD.upParam(0)
         when(CACHE_HIT) {
           when(CACHE_LINE.owners.orR) {
             askProbe := True
@@ -1025,18 +1180,20 @@ class Cache(val p : CacheParam) extends Component {
           prober.cmd.evictClean := !CACHE_LINE.dirty
         }
         when(doIt){
-          flush.fsm.inflight.decrementIt := True
+          if(withFlushFsm) when(!CTRL_CMD.upParam(0)){
+            flushFsm.fsm.inflight.decrementIt := True
+          }
         }
       }
 
-      //May not CACHE_HIT
+      // May not CACHE_HIT
       when(preCtrl.FROM_C_RELEASE){
-        //Update tags
+        // Update tags
         owners.remove setWhen (CTRL_CMD.toNone)
         cache.tags.write.valid := True
         cache.tags.write.data.trunk := False
 
-        //Write to backend
+        // Write to backend
         when(preCtrl.WRITE_DATA){
           askGs := True
           askWriteBackend := True
@@ -1056,7 +1213,7 @@ class Cache(val p : CacheParam) extends Component {
       }
 
       when(preCtrl.IS_RELEASE){
-        when(isFireing){
+        when(isFiring){
           for(s <- prober.slots){
             when(s.address === CTRL_CMD.address(blockRange)){
               when(preCtrl.WRITE_DATA) {
@@ -1073,7 +1230,7 @@ class Cache(val p : CacheParam) extends Component {
         owners.clean setWhen(preCtrl.IS_PUT)
         cache.tags.write.data.trunk := False
 
-        //Ensure that the cache.others is cleared on PUT
+        // Ensure that the cache.others is cleared on PUT
         when(CACHE_HIT){
           cache.tags.write.valid := True
         }
@@ -1082,7 +1239,7 @@ class Cache(val p : CacheParam) extends Component {
           askProbe := True
           prober.cmd.mask := CACHE_LINE.owners
           prober.cmd.probeToN := !preCtrl.IS_GET
-          //TODO ensure that once the probe is done, the initial request isn't overtaken by another one (ex acquire)
+          // TODO ensure that once the probe is done, the initial request isn't overtaken by another one (ex acquire)
         } otherwise {
           when(CACHE_HIT) {
             events.getPut.hit setWhen(doIt)
@@ -1094,6 +1251,7 @@ class Cache(val p : CacheParam) extends Component {
               askReadBackend := preCtrl.IS_GET
               toReadBackend.toUpD := True
               toReadBackend.upD.opcode := Opcode.D.ACCESS_ACK_DATA
+              gsAllowGet := preCtrl.IS_GET
               when(preCtrl.IS_PUT) {
                 askWriteBackend := True
                 cache.tags.write.data.dirty := True
@@ -1113,6 +1271,7 @@ class Cache(val p : CacheParam) extends Component {
               toWriteBackend.toUpD := Cache.ToUpDOpcode.ACCESS_ACK
             } otherwise {
               askReadDown := True
+              gsPendingCacheWrite := True
             }
             gsRefill := True
             when(preCtrl.IS_GET) {
@@ -1132,8 +1291,8 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
 
-      val aquireToB = !CTRL_CMD.toTrunk && OTHER
-      val acquireParam = aquireToB.mux[Bits](Param.Cap.toB, Param.Cap.toT)
+      val acquireToB = !CTRL_CMD.toTrunk && OTHER
+      val acquireParam = acquireToB.mux[Bits](Param.Cap.toB, Param.Cap.toT)
 
 
       when(preCtrl.ACQUIRE){
@@ -1145,10 +1304,11 @@ class Cache(val p : CacheParam) extends Component {
           askAllocate := True
           ctxDownD.data.toUpD := True
           ctxDownD.data.toCache := True
-          ctxDownD.data.toT := !aquireToB
-          cache.tags.write.data.trunk := !aquireToB
+          ctxDownD.data.toT := !acquireToB
+          cache.tags.write.data.trunk := !acquireToB
           when(CTRL_CMD.opcode === CtrlOpcode.ACQUIRE_BLOCK) {
             askReadDown := True
+            gsPendingCacheWrite := True
             gsRefill := True
           } otherwise {
             askUpD := True
@@ -1163,15 +1323,15 @@ class Cache(val p : CacheParam) extends Component {
             prober.cmd.probeToN := CTRL_CMD.toTrunk
           } otherwise {
             events.acquire.hit setWhen (doIt)
-            when(aquireToB) {
+            when(acquireToB) {
               ctxDownD.data.toT := False
             } otherwise {
               owners.clean := True
             }
             owners.add := True
-            cache.tags.write.data.trunk := !aquireToB
+            cache.tags.write.data.trunk := !acquireToB
 
-            //TODO warning gs may will complet before writebackend is done !
+            // TODO warning gs may will complete before writebackend is done !
             when(CTRL_CMD.withDataUpC) {
               askWriteBackend := True
               cache.tags.write.data.dirty := True
@@ -1182,7 +1342,7 @@ class Cache(val p : CacheParam) extends Component {
               toReadBackend.upD.opcode := Opcode.D.GRANT_DATA
               toReadBackend.upD.param := acquireParam.resized
 
-              toWriteBackend.toT := !aquireToB
+              toWriteBackend.toT := !acquireToB
               toWriteBackend.toUpD := Cache.ToUpDOpcode.GRANT_DATA()
 
               when(!CTRL_CMD.withDataUpC){
@@ -1267,7 +1427,7 @@ class Cache(val p : CacheParam) extends Component {
       inserterStage(CMD) := cmd.payload
       CMD.address.removeAssignments() := cmd.address | (counter << log2Up(p.dataBytes)).resized
 
-      when(isFireing) {
+      when(isFiring) {
         counter := counter + 1
         when(LAST) {
           counter := 0
@@ -1278,10 +1438,10 @@ class Cache(val p : CacheParam) extends Component {
     val fetcher = new Area {
       import fetchStage._
 
-      cache.data.read.valid := isFireing
-      cache.data.read.payload := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
+      cache.data.upRead.valid := isFiring
+      cache.data.upRead.payload := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
 
-      when(isFireing && CMD.toVictim && inserter.FIRST) {
+      when(isFiring && CMD.toVictim && inserter.FIRST) {
         gs.slots.onSel(CMD.gsId) { s =>
           s.pending.victimRead := False
         }
@@ -1314,13 +1474,13 @@ class Cache(val p : CacheParam) extends Component {
 
       val gsOh = UIntToOh(CMD.gsId, generalSlotCount)
 
-      when(isFireing && CMD.toVictim && inserter.FIRST) {
+      when(isFiring && CMD.toVictim && inserter.FIRST) {
         gs.slots.onMask(gsOh) { s =>
           s.pending.victimWrite := False
         }
       }
 
-      when(isFireing && inserter.LAST) {
+      when(isFiring && inserter.LAST) {
         when(CMD.toUpD) {
           gs.slots.onMask(gsOh)(_.pending.primary := False)
         }
@@ -1403,8 +1563,9 @@ class Cache(val p : CacheParam) extends Component {
       inserterStage(CMD) := cmd.payload
       val addressBase = cmd.address(refillRange) @@ cmd.address(refillRange.low-1 downto 0).andMask(!CMD.fromUpC)
       CMD.address.removeAssignments() := addressBase | (counter << log2Up(p.dataBytes)).resized
+      val tlWord = insert(addressBase(wordRange))
 
-      when(isFireing) {
+      when(isFiring) {
         counter := counter + 1
         when(LAST) {
           counter := 0
@@ -1417,14 +1578,14 @@ class Cache(val p : CacheParam) extends Component {
       import fetchStage._
 
       if(ubp.withDataA) {
-        fromUpA.buffer.read.cmd.valid := fetchStage.isFireing
+        fromUpA.buffer.read.cmd.valid := fetchStage.isFiring
         fromUpA.buffer.read.cmd.payload := fetchStage(CMD).bufferAId @@ fetchStage(CMD).address(wordRange)
-        when(isFireing && inserter.LAST && CMD.fromUpA) {
+        when(isFiring && inserter.LAST && CMD.fromUpA) {
           fromUpA.buffer.clear(fetchStage(CMD).bufferAId) := True
         }
       }
 
-      victimBuffer.read.cmd.valid := fetchStage.isFireing
+      victimBuffer.read.cmd.valid := fetchStage.isFiring
       victimBuffer.read.cmd.payload := fetchStage(CMD).gsId @@ fetchStage(CMD).address(wordRange)
 
       val vh = readBackend.processStage
@@ -1454,7 +1615,7 @@ class Cache(val p : CacheParam) extends Component {
         UP_MASK := BUFFER_A.mask
       }
       val hazardUpC = CMD.fromUpC && !upCSplit.dataPop.valid
-      upCSplit.dataPop.ready := CMD.fromUpC && isFireing
+      upCSplit.dataPop.ready := CMD.fromUpC && isFiring
 
 
       val vh = readBackend.fetchStage
@@ -1476,6 +1637,7 @@ class Cache(val p : CacheParam) extends Component {
       toDownA.param := 0
       toDownA.source := U(CMD.evict) @@ CMD.gsId
       toDownA.address := CMD.address
+      toDownA.address(wordRange) := inserter.tlWord
       toDownA.size := CMD.fromUpC.mux(U(log2Up(blockSize)), CMD.size)
       toDownA.data := UP_DATA
       toDownA.mask := UP_MASK
@@ -1493,7 +1655,7 @@ class Cache(val p : CacheParam) extends Component {
         GRANT_DATA      -> True
       )
       val toUpDFork = forkStream(needForkToUpD)
-      val toUpD = toUpDFork.haltWhen(victimHazard || hazardUpC).swapPayload(io.up.d.payloadType)
+      val toUpD = toUpDFork.haltWhen(victimHazard || hazardUpC || CMD.toUpD === RELEASE_ACK && toCacheFork.isStall).swapPayload(io.up.d.payloadType)
       toUpD.opcode  := CMD.toUpD.muxDc(
         ACCESS_ACK      -> Opcode.D.ACCESS_ACK(),
         ACCESS_ACK_DATA -> Opcode.D.ACCESS_ACK_DATA(),
@@ -1509,7 +1671,9 @@ class Cache(val p : CacheParam) extends Component {
       toUpD.data    := upCSplit.dataPop.payload //as it never come from a upA put
       toUpD.corrupt := False
 
-      when(isFireing && inserter.LAST) {
+      val toUpDBuffered = toUpD.stage() //Necessary to ensure release data is written to memory before notifying up D  (haltWhen (!isReady))
+
+      when(isFiring && inserter.LAST) {
         when(CMD.toUpD =/= NONE) {
           gs.slots.onSel(CMD.gsId) { s =>
             s.pending.primary := False
@@ -1555,7 +1719,7 @@ class Cache(val p : CacheParam) extends Component {
     import inserter._
 
     val readPort = gs.ctxDownD.ram.readSyncPort()
-    readPort.cmd.valid := fetchStage.isFireing
+    readPort.cmd.valid := fetchStage.isFiring
     readPort.cmd.payload := fetchStage(CMD).source.resized
     readStage(CTX) := readPort.rsp
 
@@ -1572,10 +1736,17 @@ class Cache(val p : CacheParam) extends Component {
 
       val isVictim = CMD.source.msb
 
-      val toCache = forkStream(!isVictim && CTX.toCache).swapPayload(cache.data.downWrite.payloadType)
-      toCache.address := CTX.wayId @@ CTX.setId @@ BEAT
-      toCache.data := CMD.data
-      toCache.mask.setAll()
+      case class ToCache() extends Bundle{
+        val cmd = cache.data.downWrite.payloadType()
+        val gsId = UInt(log2Up(generalSlotCount) bits)
+        val last = Bool()
+      }
+      val toCache = forkStream(!isVictim && CTX.toCache).swapPayload(ToCache())
+      toCache.cmd.address := CTX.wayId @@ CTX.setId @@ BEAT
+      toCache.cmd.data := CMD.data
+      toCache.cmd.mask.setAll()
+      toCache.gsId := CMD.source.resized
+      toCache.last := LAST
 
       val gsId = CMD.source.resize(log2Up(gs.slots.size))
       val vh = readBackend.fetchStage
@@ -1583,7 +1754,13 @@ class Cache(val p : CacheParam) extends Component {
       val victimOnGoing = vh.valid && vh(readBackend.CMD).toVictim && readBackend.victimAddress(vh) === (gsId @@ BEAT)
       val victimHazard = victimRead || victimOnGoing
 
-      toCache.haltWhen(victimHazard) >-> cache.data.downWrite
+      val toCacheBuffered = toCache.haltWhen(victimHazard).stage()
+      cache.data.downWrite.arbitrationFrom(toCacheBuffered)
+      cache.data.downWrite.payload := toCacheBuffered.cmd
+
+      when(toCacheBuffered.fire && toCacheBuffered.last){
+        gs.slots.onSel(toCacheBuffered.gsId)(_.pending.cacheWrite := False)
+      }
 
 
       //TODO handle refill while partial get to upD
@@ -1622,7 +1799,7 @@ class Cache(val p : CacheParam) extends Component {
         assert(!writeBackend.putMerges.push.isStall)
       }
 
-      when(isFireing && LAST) {
+      when(isFiring && LAST) {
         when(isVictim) {
           gs.slots.onSel(CMD.source.resized)(_.pending.victim := False)
         } otherwise {
@@ -1641,7 +1818,7 @@ class Cache(val p : CacheParam) extends Component {
     arbiter.io.inputs(0) << fromDownD.process.toUpD//.m2sPipe()
     arbiter.io.inputs(1) << ctrl.process.toUpD.m2sPipe()
     arbiter.io.inputs(2) << readBackend.process.toUpD.s2mPipe()
-    arbiter.io.inputs(3) << writeBackend.process.toUpD
+    arbiter.io.inputs(3) << writeBackend.process.toUpDBuffered
 
     io.up.d << arbiter.io.output
   }
@@ -1651,6 +1828,24 @@ class Cache(val p : CacheParam) extends Component {
     when(io.up.e.fire){
       gs.slots.onSel(io.up.e.sink)(_.pending.acquire := False)
     }
+  }
+
+  val toFlushBus = withFlushBus generate new Area{
+    val rsp = cloneOf(io.flush.rsp)
+
+    val hits = gs.slots.map(s => s.valid && s.pending.flushBus && !s.pending.victim)
+    val hit = hits.orR
+    val oh = OHMasking.roundRobinNext(B(hits), rsp.fire)
+
+    rsp.valid := hit
+    rsp.source := gs.slots.reader(oh)(_.sourceId).resized
+    when(rsp.fire) {
+      gs.slots.onMask(oh) { s =>
+        s.pending.flushBus := False
+      }
+    }
+
+    io.flush.rsp <-< rsp //Ensure stable payload
   }
 
   ctrl.build()
@@ -1744,5 +1939,5 @@ object DirectoryGen extends App{
 tricky cases :
 - release while a probe is going on
 - release data just before victim probe logic is enabled => think data are still in the victim buffer, while is already written to memory by release data
-- acquire T then release data before the victim of the acquire got time to read the $ and get overriden by release data
+- acquire T then release data before the victim of the acquire got time to read the $ and get overridden by release data
  */

@@ -24,7 +24,7 @@ import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{PhaseContext, PhaseNetlist, DataAssignmentStatement, Operator}
 import spinal.core.sim.SimWorkspace
-import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, SpinalWarning, ClockDomain, ASYNC}
+import spinal.core.{BlackBox, Component, GlobalData, SpinalConfig, SpinalReport, SpinalWarning, ClockDomain, ASYNC, SYNC}
 import spinal.core.{Reg, Bool, True, False}
 import spinal.sim._
 
@@ -205,6 +205,12 @@ case class SpinalFormalConfig(
 
   def withConfig(config: SpinalConfig): this.type = {
     _spinalConfig = config
+    this
+  }
+
+  def withSyncResetDefault: this.type = {
+    val syncConfig = _spinalConfig.defaultConfigForClockDomains.copy(resetKind = SYNC)
+    _spinalConfig = _spinalConfig.copy(defaultConfigForClockDomains = syncConfig)
     this
   }
 

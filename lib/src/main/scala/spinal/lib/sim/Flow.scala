@@ -38,8 +38,26 @@ object FlowDriver {
     }
     (driver, cmdQueue)
   }
+
+  def fromIterable[T <: Data, E](flow: Flow[T], clockDomain: ClockDomain, els: Iterable[E])
+    (implicit ev: T => SimEquiv { type SimEquivT = E }): FlowDriver[T] = {
+    val iter = els.iterator
+    FlowDriver(flow, clockDomain) { payload =>
+      if (!iter.isEmpty) {
+        payload #= iter.next
+        true
+      } else {
+        false
+      }
+    }
+  }
 }
 
+/** Testbench master side, drives values by calling function to apply value (if available). 
+  * 
+  * Function must return if value was available. Supports random delays.
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/flow.html#simulation-support Simulation support documentation]]
+  */
 class FlowDriver[T <: Data](flow: Flow[T], clockDomain: ClockDomain, var driver: (T) => Boolean) {
   var transactionDelay: () => Int = () => {
     val x = simRandom.nextDouble()

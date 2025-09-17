@@ -8,10 +8,14 @@ import spinal.core.sim._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-object StreamMonitor{
+object StreamMonitor {
   def apply[T <: Data](stream : Stream[T], clockDomain: ClockDomain)(callback : (T) => Unit) = new StreamMonitor(stream,clockDomain).addCallback(callback)
 }
 
+/** Used for both master and slave sides, calls function with payload if Stream fires.
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/stream.html#simulation-support Simulation support documentation]]
+  */
 class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
   val callbacks = ArrayBuffer[(T) => Unit]()
 
@@ -66,6 +70,19 @@ object StreamDriver{
       }
     }
     (driver, cmdQueue)
+  }
+
+  def fromIterable[T <: Data, E](flow: Stream[T], clockDomain: ClockDomain, els: Iterable[E])
+    (implicit ev: T => SimEquiv { type SimEquivT = E }): StreamDriver[T] = {
+    val iter = els.iterator
+    StreamDriver(flow, clockDomain) { payload =>
+      if (!iter.isEmpty) {
+        payload #= iter.next
+        true
+      } else {
+        false
+      }
+    }
   }
 }
 
@@ -147,6 +164,10 @@ object StreamReadyRandomizer {
   def apply[T <: Data](stream: Stream[T], clockDomain: ClockDomain) = new StreamReadyRandomizer(stream, clockDomain, () => true)
 }
 
+/** Randomizes ready for reception of data, testbench is the slave side.
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/stream.html#simulation-support Simulation support documentation]]
+  */
 case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain,var condition: () => Boolean){
   var factor = 0.5f
   def setFactor(value : Float) = factor = value

@@ -6,7 +6,8 @@ import spinal.lib.com.jtag.{Jtag, JtagTapFactory, JtagTapFunctions, JtagTapInstr
 
 case class DebugTransportModuleParameter(addressWidth : Int,
                                          version : Int,
-                                         idle : Int)
+                                         idle : Int,
+                                         var probeWidth : Int = 0)
 
 class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
                                tap : JtagTapFunctions,
@@ -20,6 +21,11 @@ class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
 
     val dtmcs = tap.readAndWriteWithEvents(Bits(32 bits), Bits(32 bits))(0x10)
     val dmi   = tap.readAndWriteWithEvents(DebugCapture(addressWidth), DebugUpdate(addressWidth))(0x11)
+    val probe = p.probeWidth != 0 generate new Area{
+      val input = Bits(p.probeWidth bits)
+      val cc = DataCc(input,debugCd, jtagCd)(null)
+      tap.read(cc, light = false)(0x17)
+    }
 
     val dmiStat = new Area{
       val value = Reg(DebugCaptureOp())
@@ -93,20 +99,22 @@ class DebugTransportModuleJtag(p : DebugTransportModuleParameter,
 
     jtagLogic.dmiRsp << bus.rsp.ccToggle(
       pushClock = debugCd,
-      popClock = jtagCd
+      popClock = jtagCd,
+      withOutputBufferedReset = true
     )
   }
 }
 
 case class DebugTransportModuleJtagTap(p : DebugTransportModuleParameter,
                                        debugCd : ClockDomain,
-                                       jtagId : Int = 0x10002FFF) extends Component{
+                                       jtagId : Int = 0x10002FFF,
+                                       jtagFrequency : ClockDomain.ClockFrequency = ClockDomain.UnknownFrequency()) extends Component{
   val io = new Bundle {
     val jtag = slave(Jtag())
     val bus = master(DebugBus(p.addressWidth))
   }
 
-  val jtagCd = ClockDomain(io.jtag.tck)
+  val jtagCd = ClockDomain(io.jtag.tck, frequency = jtagFrequency)
 
   val tap = jtagCd on JtagTapFactory(io.jtag, instructionWidth = 5)
   val idcodeArea = jtagCd on tap.idcode(B(jtagId, 32 bits))(1)

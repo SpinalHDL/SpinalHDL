@@ -157,6 +157,8 @@ package object lib  {
     def binIntsToLong: Long     = binIntsToBigInt.toLong
   }
 
-
+  /** One-Hot multiplexer
+    * @see [[https://en.wikipedia.org/wiki/One-hot one-hot encoding]]
+    */
   val OHMux = new MuxOHImpl
 }

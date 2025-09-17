@@ -41,19 +41,19 @@ object I2cCtrl {
   }
 
   /*
-   * To create an I2c controller which is master/slave ready, you basicaly only need an low level I2C bus driver (I2cSlave) and add on the top
+   * To create an I2c controller which is master/slave ready, you basically only need an low level I2C bus driver (I2cSlave) and add on the top
    * of it some clock generation logic/status/buffers. This is what driveI2cSlaveIo do.
    *
-   * This controller logic can be instanciated as an I2C slave controller only, or as an I2C master/Slave controller.
+   * This controller logic can be instantiated as an I2C slave controller only, or as an I2C master/Slave controller.
    * There are a list of features :
    * - Slave only / Master Slave
    * - Slave address filtering (7/10 bits)
    * - Multimaster
    * - Timeout
    *
-   * Master initialisation :
+   * Master initialization :
    * 1) Configure samplingClockDivider/timeout/tsuDat at x28/x2C/x30
-   * 2) Configure tLow/tHigh/tBuf at address x50/x54/x58 (WO).   tBuf is the idle time after a STOP transmition
+   * 2) Configure tLow/tHigh/tBuf at address x50/x54/x58 (WO).   tBuf is the idle time after a STOP transition
    *
    * Master write:
    * 1) Do a START by setting the start bit of the masterStatus register
@@ -66,7 +66,7 @@ object I2cCtrl {
    * 4) Do a STOP by setting the stop bit of the masterStatus register
    *
    * Master read :
-   *   Note : (multimaster operations and ack checking are the thame than the onf of 'master write')
+   *   Note : (multimaster operations and ack checking are the same than the one of 'master write')
    * 1) Do a START by setting the start bit of the masterStatus register
    * 2) Provide the address by feeding the txData/txAck register, then wait the txAck emptiness
    *   Multimaster => Same as master write
@@ -74,7 +74,7 @@ object I2cCtrl {
    * 4) Do a STOP by setting the stop bit of the masterStatus register
    *
    *
-   * Slave initialisation :
+   * Slave initialization :
    * 1) Configure samplingClockDivider/timeout/tsuDat at x28/x2C/x30
    *
    * Slave write without hardware address filtering :
@@ -95,7 +95,7 @@ object I2cCtrl {
    * 4) set the txData, set the rxAck to disable
    *
    * Slave address filtering
-   * 1) Set the address filtring registers
+   * 1) Set the address filtering registers
    * 2) wait for a txAck interrupt, then check for the hits flags into the filteringStatus register to identify which filter had hit
    * 3) Continue has the 3) address OK of Slave read/write without hardware address filtering. You can get the RW i2c frame bit in the hitContext register
    *
@@ -163,9 +163,9 @@ object I2cCtrl {
    * - stop -> RW[5] , set on set, order a stop
    * - drop -> RW[6] , set on set, order a drop
    * - recover -> RW[7] , set on set, order a drop
-   * - startDropped -> RW[9]  clear on set, indicate if timeout came durring start
-   * - stopDropped  -> RW[10] clear on set, indicate if timeout came durring stop
-   * - recoverDropped  -> RW[10] clear on set, indicate if timeout came durring recover
+   * - startDropped -> RW[9]  clear on set, indicate if timeout came during start
+   * - stopDropped  -> RW[10] clear on set, indicate if timeout came during stop
+   * - recoverDropped  -> RW[10] clear on set, indicate if timeout came during recover
    *
    * tLow -> W 0x50
    * tHigh -> W 0x54

@@ -20,7 +20,7 @@ class SpinalFormalFunSuite extends AnyFunSuite{
   }
 
   def test(testName: String)(testFun: => Unit): Unit = {
-    if (testName.contains("ghdl")) {
+    if (testName.toLowerCase.contains("ghdl")) {
       super.test("formalpsl_" + testName, SpinalFormalPSL) {
         testFun
       }

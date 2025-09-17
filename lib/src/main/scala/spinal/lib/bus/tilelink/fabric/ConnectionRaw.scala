@@ -11,10 +11,10 @@ import spinal.lib.system.tag._
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * provide some software interface to connect 2 NodeBase
+ * Provide some software interface to connect 2 NodeBase
  */
 class ConnectionRaw(m : NodeUpDown, s : NodeUpDown) extends bus.fabric.MappedConnection(m, s) {
-  //Handles used for negociation
+  // Handles used for negotiation
   val up, down = new Area{
     val bus = Handle[Bus]()
     val m2s = new Area{

@@ -535,7 +535,7 @@ class RepeatabilityTester extends SpinalAnyFunSuite{
 
   test("Apb3I2cCtrlGraph"){
     val dut = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz)).generateVerilog(new Apb3I2cCtrl(configI2C)).toplevel
-    assert(GraphUtils.countNames(dut) == 275)
+    assert(GraphUtils.countNames(dut) == 278)
   }
 
   test("UartGraph"){
@@ -667,7 +667,7 @@ class RepeatabilityTester extends SpinalAnyFunSuite{
         alignment = BmbParameter.BurstAlignement.LENGTH
       ))
 
-      // write only
+      // Write-only
       val sC = addSlave(0x80000, BmbAccessCapabilities(
         addressWidth = 16,
         dataWidth = 32,
@@ -677,7 +677,7 @@ class RepeatabilityTester extends SpinalAnyFunSuite{
         alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
-      //read only
+      // Read-only
       val sD = addSlave(0x90000, BmbAccessCapabilities(
         addressWidth = 16,
         dataWidth = 32,
@@ -686,7 +686,7 @@ class RepeatabilityTester extends SpinalAnyFunSuite{
         alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
-      //Read only and write only mapped at the same address
+      // Read-only and write-only mapped at the same address
       val sE = addSlave(0xA0000, BmbAccessCapabilities(
         addressWidth = 17,
         dataWidth = 32,

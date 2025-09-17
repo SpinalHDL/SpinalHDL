@@ -137,8 +137,10 @@ class SpinalSimBmbExclusiveMonitorTester extends SpinalAnyFunSuite{
             memory = v
           }
           dut.io.output.rsp.opcode #= Bmb.Rsp.Opcode.SUCCESS
-          dut.io.output.rsp.context #= transaction.context.asInstanceOf[BigInt]
-          dut.io.output.rsp.source #= transaction.source.asInstanceOf[BigInt]
+          val context = transaction.context.asInstanceOf[BigInt]
+          dut.io.output.rsp.context #= context
+          val source = transaction.source.asInstanceOf[BigInt]
+          dut.io.output.rsp.source #= source
           if (!write) dut.io.output.rsp.data #= memory
           dut.io.output.rsp.last #= true
         })

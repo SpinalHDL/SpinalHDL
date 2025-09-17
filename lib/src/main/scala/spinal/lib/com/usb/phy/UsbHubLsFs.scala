@@ -75,32 +75,32 @@ object UsbHubLsFs{
     val input = slave(Ctrl(portCount))
     val output = master(Ctrl(portCount))
 
-    output.lowSpeed := cdOutput(BufferCC(input.lowSpeed))
-    output.usbReset := cdOutput(BufferCC(input.usbReset))
-    output.usbResume := cdOutput(BufferCC(input.usbResume))
+    output.lowSpeed := cdOutput(BufferCC.withTag(input.lowSpeed))
+    output.usbReset := cdOutput(BufferCC.withTag(input.usbReset))
+    output.usbResume := cdOutput(BufferCC.withTag(input.usbResume))
     input.overcurrent := cdInput(BufferCC(output.overcurrent))
 
     output.tx << cdOutput(input.tx.ccToggle(cdInput, cdOutput).stage())
     input.txEop := PulseCCByToggle(output.txEop, cdOutput, cdInput)
 
     input.rx.flow << output.rx.flow.ccToggle(cdOutput, cdInput)
-    input.rx.active := cdInput(BufferCC(output.rx.active))
+    input.rx.active := cdInput(BufferCC.withTag(output.rx.active))
     input.tick := PulseCCByToggle(output.tick, cdOutput, cdInput)
 
     for((pi, po) <- (input.ports, output.ports).zipped){
-      po.removable := cdOutput(BufferCC(pi.removable))
-      po.power := cdOutput(BufferCC(pi.power))
-      pi.lowSpeed := cdInput(BufferCC(po.lowSpeed))
+      po.removable := cdOutput(BufferCC.withTag(pi.removable))
+      po.power := cdOutput(BufferCC.withTag(pi.power))
+      pi.lowSpeed := cdInput(BufferCC.withTag(po.lowSpeed))
       pi.overcurrent := cdInput(BufferCC(po.overcurrent))
 
       pi.connect := PulseCCByToggle(po.connect, cdOutput, cdInput)
       pi.disconnect := PulseCCByToggle(po.disconnect, cdOutput, cdInput)
       pi.remoteResume := PulseCCByToggle(po.remoteResume, cdOutput, cdInput)
 
-      po.reset << pi.reset.ccToggleWithoutBuffer(cdInput, cdOutput)
-      po.suspend << pi.suspend.ccToggleWithoutBuffer(cdInput, cdOutput)
-      po.resume << pi.resume.ccToggleWithoutBuffer(cdInput, cdOutput)
-      po.disable << pi.disable.ccToggleWithoutBuffer(cdInput, cdOutput)
+      po.reset << pi.reset.ccToggleInputWait(cdInput, cdOutput)
+      po.suspend << pi.suspend.ccToggleInputWait(cdInput, cdOutput)
+      po.resume << pi.resume.ccToggleInputWait(cdInput, cdOutput)
+      po.disable << pi.disable.ccToggleInputWait(cdInput, cdOutput)
     }
   }
 }

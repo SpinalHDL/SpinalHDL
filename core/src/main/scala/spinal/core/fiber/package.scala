@@ -37,11 +37,19 @@ package object fiber {
     (ret, t)
   }
 
+  /** Specify in advance that the current task will use a [[Handle]]
+    *
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/fiber.html#soon-handle Fiber documentation]]
+    */
   def soon(that : Seq[Handle[_]])  : Unit = {
     val t = Engine.get.currentAsyncThread
     that.foreach(t.addSoonHandle(_))
   }
 
+  /** Specify in advance that the current task will use a [[Handle]]
+    *
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/fiber.html#soon-handle Fiber documentation]]
+    */
   def soon(that : Handle[_], others : Handle[_]*)  : Unit = {
     val t = Engine.get.currentAsyncThread
     t.addSoonHandle(that)

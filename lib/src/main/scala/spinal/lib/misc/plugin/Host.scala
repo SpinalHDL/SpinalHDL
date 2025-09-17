@@ -32,7 +32,13 @@ class PluginHost {
     b
   }
 
-  def addService(that: Any): Unit = services += that
+  def addService(that: Any): Unit = {
+    that match{
+      case cu : ContextUser => cu.parentScope = _context.get(DslScopeStack)
+      case _ =>
+    }
+    services += that
+  }
   def asHostOf(hostables: Seq[Hostable]) : Unit = hostables.foreach(_.setHost(this))
   def asHostOf(head : Hostable, tail: Hostable*) : Unit = asHostOf(head +: tail)
 

@@ -30,7 +30,7 @@ class S2MLink(val up : Node, val down : Node) extends Link {
     val matches = down.fromUp.payload.intersect(up.fromDown.payload)
 
     val rValid = RegInit(False) setWhen (up.isValid) clearWhen (down.ready) setCompositeName(this, "rValid")
-    val rData = matches.map(e => RegNextWhen(up(e), up.ready).setCompositeName(this, "s2mBuffer"))
+    val rData = matches.map(e => RegNextWhen(up(e), up.ready).setCompositeName(up(e), "s2mBuffer"))
 
     up.ready := !rValid
 

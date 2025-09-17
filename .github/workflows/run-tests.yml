@@ -21,6 +21,7 @@ jobs:
       scala_version: '2.12.18'
       runner_os: 'Linux'
       github_sha: ${{ github.sha }}
+      docker_image_version: 'v1.2.0'
 
   scaladoc:
     needs: run-test

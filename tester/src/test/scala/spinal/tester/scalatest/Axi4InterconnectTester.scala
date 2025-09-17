@@ -26,6 +26,7 @@ object Axi4CrossbarTester{
         axiMasters(1) -> List(axiSlaves(0),axiSlaves(2),axiSlaves(3)),
         axiMasters(2) -> List(axiSlaves(0),axiSlaves(1),axiSlaves(3))
       )
+      .addPipelining(axiMasters(0)) { _ >> _ } { _ >> _ }
 
     val readCrossbar = crossbarFactory.build()
   }
