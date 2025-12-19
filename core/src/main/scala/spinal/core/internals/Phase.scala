@@ -2906,26 +2906,46 @@ class PhaseVivadoIpTcl(report: SpinalReport[_]) extends Phase {
     }
 
     if (blackBoxes.isEmpty) {
-      // Avoid stale scripts from previous runs confusing downstream tooling.
-      // Clean up both consolidated and separate TCL files.
-      val consolidatedFile = new File(targetDir, s"${topName}_ips.tcl")
-      if (consolidatedFile.exists()) {
-        val deleted = consolidatedFile.delete()
-        if (!deleted) {
-          System.err.println(s"Warning: Failed to delete stale Vivado IP TCL file '${consolidatedFile.getAbsolutePath}'")
-        }
-      }
+      /**
+       * When no Vivado IPs are present in the current design, stale TCL scripts from previous runs 
+       * should theoretically be cleaned up to ensure build consistency.
+       * 
+       * Rationale for cleanup:
+       * 1. Prevent downstream tool confusion: If downstream build systems (e.g., Makefiles or Vivado batch scripts) 
+       *    use wildcards like `source *.tcl`, leftover scripts might cause Vivado to attempt generating IPs 
+       *    that are no longer part of the design, leading to build errors or resource waste.
+       * 2. Environment Purity: Ensures the output directory accurately reflects the current netlist state.
+       * 
+       * Why it is currently disabled:
+       * SpinalHDL generates a `SpinalReport` which serves as the "Source of Truth". This report explicitly 
+       * lists the generated TCL paths in `report.ipTclSourcesPaths`. Downstream tools are encouraged to 
+       * parse this report instead of relying on filesystem globbing. This approach is safer for incremental 
+       * builds and avoids accidental deletion of user-defined scripts that might reside in the same directory.
+       */
+
+      // // Avoid stale scripts from previous runs confusing downstream tooling.
+      // // Clean up both consolidated and separate TCL files.
+      // val consolidatedFile = new File(targetDir, s"${topName}_ips.tcl")
+      // if (consolidatedFile.exists()) {
+      //   val deleted = consolidatedFile.delete()
+      //   if (!deleted) {
+      //     System.err.println(s"Warning: Failed to delete stale Vivado IP TCL file '${consolidatedFile.getAbsolutePath}'")
+      //   }
+      // }
       
-      // Also clean up potential separate IP TCL files from previous runs
-      val targetDirFile = new File(targetDir)
-      if (targetDirFile.exists() && targetDirFile.isDirectory) {
-        targetDirFile.listFiles().filter(_.getName.endsWith(".tcl")).foreach { file =>
-          val deleted = file.delete()
-          if (!deleted && file.exists()) {
-            System.err.println(s"Warning: Failed to delete stale Vivado IP TCL file '${file.getAbsolutePath}'")
-          }
-        }
-      }
+      // // Also clean up potential separate IP TCL files from previous runs
+      // val targetDirFile = new File(targetDir)
+      // if (targetDirFile.exists() && targetDirFile.isDirectory) {
+      //   targetDirFile.listFiles().filter(_.getName.endsWith(".tcl")).foreach { file =>
+      //     val deleted = file.delete()
+      //     if (!deleted && file.exists()) {
+      //       System.err.println(s"Warning: Failed to delete stale Vivado IP TCL file '${file.getAbsolutePath}'")
+      //     }
+      //   }
+      // }
+      
+      // The RTL report provides the exact list of TCL scripts to be used by SimBackend or EDA tools.
+      // Physical cleanup is skipped here to avoid side effects on user-managed files.
       return
     }
 
