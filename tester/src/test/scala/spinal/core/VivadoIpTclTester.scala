@@ -132,7 +132,7 @@ class VivadoIpTclTester extends AnyFunSuite {
         .withXSim
         .compile(TopLevel())
 
-      val xsimTcl = new File(new File(new File(simDir, "TopLevel"), "xsim"), "spinal_xsim.tcl")
+      val xsimTcl = new File(simDir, "TopLevel/xsim/spinal_xsim.tcl")
       assert(xsimTcl.exists())
       val content = Source.fromFile(xsimTcl).mkString
       assert(content.contains("source"), "spinal_xsim.tcl should contain source command for IP TCL")
