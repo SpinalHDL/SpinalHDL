@@ -2883,7 +2883,7 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
  * Phase that collects all BlackBoxes mixing in VivadoIpTcl and generates Vivado IP TCL scripts,
  * either as a single consolidated script or as separate per-IP scripts depending on configuration.
  */
-case class PhaseVivadoIpTcl(report: SpinalReport[_]) extends Phase {
+class PhaseVivadoIpTcl(report: SpinalReport[_]) extends Phase {
   override def hasNetlistImpact = false
   override def impl(pc: PhaseContext): Unit = {
     val blackBoxes = mutable.LinkedHashSet[BlackBox with VivadoIpTcl]()
