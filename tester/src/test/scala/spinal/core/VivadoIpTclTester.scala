@@ -97,10 +97,12 @@ class VivadoIpTclTester extends AnyFunSuite {
     assert(content.contains("FpAddBb_8_23_5"), "Should contain FpAddBb_8_23_5")
 
     // Check that it only contains one create_ip for FpAddBb_8_23_3 despite 2 instances
-    val occurrences = "IP: FpAddBb_8_23_3".r.findAllIn(content).length
-    // It appears in create_ip and set_property, so at least 2 times per definition.
-    // If it was duplicated per instance, it would be 4 times.
-    assert(occurrences == 1, s"Should only define FpAddBb_8_23_3 once, found $occurrences occurrences")
+    val createIpOccurrences = "create_ip.*FpAddBb_8_23_3".r.findAllIn(content).length
+    assert(createIpOccurrences == 1, s"Should only have one create_ip command for FpAddBb_8_23_3, found $createIpOccurrences occurrences")
+    
+    // Verify that the actual set_property command exists and is not duplicated
+    val setPropertyOccurrences = "set_property.*FpAddBb_8_23_3".r.findAllIn(content).length
+    assert(setPropertyOccurrences == 1, s"Should only have one set_property command for FpAddBb_8_23_3, found $setPropertyOccurrences occurrences")
 
     assert(report.ipTclSourcesPaths.exists(_.endsWith("TopLevel_ips.tcl")), "Report should contain TCL path")
   }
@@ -130,7 +132,7 @@ class VivadoIpTclTester extends AnyFunSuite {
         .withXSim
         .compile(TopLevel())
 
-      val xsimTcl = new File(simDir + "/TopLevel/xsim/spinal_xsim.tcl")
+      val xsimTcl = new File(new File(new File(simDir, "TopLevel"), "xsim"), "spinal_xsim.tcl")
       assert(xsimTcl.exists())
       val content = Source.fromFile(xsimTcl).mkString
       assert(content.contains("source"), "spinal_xsim.tcl should contain source command for IP TCL")
