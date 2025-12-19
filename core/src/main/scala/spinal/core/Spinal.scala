@@ -171,6 +171,8 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         onlyStdLogicVectorAtTopLevelIo : Boolean = false,
                         defaultClockDomainFrequency    : IClockDomainFrequency = UnknownFrequency(),
                         var targetDirectory            : String = SpinalConfig.defaultTargetDirectory,
+                        var ipTclTargetDirectory       : Option[String] = None,
+                        var separateIpTcl              : Boolean = false,
                         oneFilePerComponent            : Boolean = false,
                         var netlistFileName            : String = null,
                         dumpWave                       : DumpWaveConfig = null,
@@ -343,6 +345,7 @@ class SpinalReport[T <: Component]() {
   val generatedSourcesPaths  = mutable.LinkedHashSet[String]()
   val blackboxesSourcesPaths = mutable.LinkedHashSet[String]()
   val blackboxesIncludeDir = mutable.LinkedHashSet[String]()
+  val ipTclSourcesPaths = mutable.LinkedHashSet[String]()
   def rtlSourcesPaths        = generatedSourcesPaths ++ blackboxesSourcesPaths
   def rtlIncludeDirs        = blackboxesIncludeDir
 
