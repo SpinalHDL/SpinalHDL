@@ -101,7 +101,7 @@ class VivadoIpTclTester extends AnyFunSuite {
     assert(createIpOccurrences == 1, s"Should only have one create_ip command for FpAddBb_8_23_3, found $createIpOccurrences occurrences")
     
     // Verify that the actual set_property command exists and is not duplicated
-    val setPropertyOccurrences = "set_property.*FpAddBb_8_23_3".r.findAllIn(content).length
+    val setPropertyOccurrences = "(?s)set_property.*?FpAddBb_8_23_3".r.findAllIn(content).length
     assert(setPropertyOccurrences == 1, s"Should only have one set_property command for FpAddBb_8_23_3, found $setPropertyOccurrences occurrences")
 
     assert(report.ipTclSourcesPaths.exists(_.endsWith("TopLevel_ips.tcl")), "Report should contain TCL path")
