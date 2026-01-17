@@ -1315,7 +1315,7 @@ abstract class Multiplexer extends Modifier {
 }
 
 /**
-  * Widtable multiplexer
+  * Widthable multiplexer
   */
 abstract class MultiplexerWidthable extends Multiplexer with Widthable {
   override type T = Expression with WidthProvider
@@ -1430,7 +1430,7 @@ abstract class BinaryMultiplexer extends Modifier {
 }
 
 /**
-  * Widtable Binary multiplexer
+  * Widthable Binary multiplexer
   */
 abstract class BinaryMultiplexerWidthable extends BinaryMultiplexer with Widthable {
   override type T = Expression with WidthProvider
@@ -1546,7 +1546,7 @@ abstract class SubAccess extends Modifier {
 
 
 /**
-  * Base class fot accessing a bit in a bitvector with a fix index
+  * Base class fot accessing a bit in a BitVector with a fix index
   */
 abstract class BitVectorBitAccessFixed extends SubAccess with ScalaLocated {
   var source: Expression with WidthProvider = null

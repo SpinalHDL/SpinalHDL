@@ -197,7 +197,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   def edge(): Bool = this ^ RegNext(this)
 
   /**
-    * Detect all edges (falling, rising, toogling)
+    * Detect all edges (falling, rising, toggling)
     * @example{{{
     *         val res = myBool.edges()
     *         when(res.fall){...}
@@ -218,7 +218,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     ret
   }
 
-  /** Edge detection without intial value */
+  /** Edge detection without initial value */
   def edges(): BoolEdges = {
     val ret = BoolEdges()
     val old = RegNext(this)

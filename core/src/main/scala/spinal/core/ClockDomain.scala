@@ -144,7 +144,7 @@ object ClockDomain {
 
   /** To use when you want to define a new ClockDomain that thank signals outside the toplevel.
     *
-    * It create input clock, reset, clockenable in the toplevel.
+    * It create input clock, reset, clockEnable in the toplevel.
     * 
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Structuring/clock_domain.html#external-clock External clock documentation]]
     */
@@ -173,7 +173,7 @@ object ClockDomain {
     clockDomain
   }
 
-  /** Push a clockdomain on the stack */
+  /** Push a clock domain on the stack */
   def push(c: Handle[ClockDomain]) = ClockDomainStack.set(c)
   def push(c: ClockDomain) = ClockDomainStack.set(Handle.sync(c))
 
@@ -273,7 +273,7 @@ object ClockDomain {
       case None => {
         var sync = scala.collection.immutable.Set[Bool]()
 
-        //Collect all the directly syncronous Bool
+        // Collect all the directly synchronous Bool
         sync += that
         that.foreachTag {
           case tag: ClockSyncTag => sync += tag.a; sync += tag.b
@@ -471,7 +471,7 @@ case class ClockDomain(clock       : Bool,
   def newSlowedClockDomain(freq: HertzNumber): ClockDomain = {
     val currentFreq = frequency.getValue.toBigDecimal
     freq match {
-      case x if x.toBigDecimal > currentFreq => SpinalError("To high frequancy")
+      case x if x.toBigDecimal > currentFreq => SpinalError("To high frequency")
       case x                                 => newClockDomainSlowedBy((currentFreq/freq.toBigDecimal).toBigInt)
     }
   }
