@@ -80,9 +80,9 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
   def getLocationShort() : String = {
     done match {
       case true => {
-        val filtred = filterStackTrace(terminatedStackTrace)
-        if(filtred.isEmpty) return terminatedStackTrace(0).toString
-        filtred(0).toString
+        val filtered = filterStackTrace(terminatedStackTrace)
+        if(filtered.isEmpty) return terminatedStackTrace(0).toString
+        filtered(0).toString
       }
     }
   }

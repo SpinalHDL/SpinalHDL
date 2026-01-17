@@ -388,11 +388,11 @@ class ComponentEmitterVerilog(
 
       val instanceAttributes = emitSyntaxAttributes(child.instanceAttributes)
 
-      val istracingOff = child.hasTag(TracingOff)
+      val isTracingOff = child.hasTag(TracingOff)
 
       logics ++= commentTagsToString(child, "  //")
 
-      if(istracingOff){
+      if(isTracingOff) {
         logics ++= s" ${emitCommentAttributes(List(Verilator.tracing_off))} \n"
       }
 
