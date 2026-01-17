@@ -284,23 +284,51 @@ package object sim {
     }
   }
 
+  /**
+    * Register the `body` code to be called at a simulation time `delay` steps
+    * after the current timestep.
+    */
   def delayed(delay : Long)(body : => Unit) = {
     SimManagerContext.current.manager.schedule(delay)(body)
   }
 
+  /**
+    * Register the `body` code to be called at a simulation duration `delay`
+    * after the current timestep.
+    */
   def delayed(delay: TimeNumber)(body: => Unit) = {
     SimManagerContext.current.manager.schedule(timeToLong(delay))(body)
   }
 
-  def periodicaly(delay : Long)(body : => Unit) : Unit = {
+  /**
+    * Register `body` for call periodically each `delay` simulation step from
+    * current timestep.
+    */
+  def periodically(delay : Long)(body : => Unit) : Unit = {
     SimManagerContext.current.manager.schedule(delay){
       body
-      periodicaly(delay)(body)
+      periodically(delay)(body)
     }
   }
 
-  def periodicaly(delay : TimeNumber)(body : => Unit) : Unit = {
-    periodicaly(timeToLong(delay))(body)
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.14.0")
+  def periodicaly(delay: Long)(body: => Unit): Unit = {
+    periodically(delay)(body)
+  }
+
+  /**
+    * Register `body` for call periodically each `delay` simulation duration from
+    * current timestep.
+    */
+  def periodically(delay : TimeNumber)(body : => Unit) : Unit = {
+    periodically(timeToLong(delay))(body)
+  }
+
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.14.0")
+  def periodicaly(delay : TimeNumber)(body: => Unit): Unit = {
+    periodically(delay)(body)
   }
 
   def simThread = SimManagerContext.current.thread

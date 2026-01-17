@@ -1694,7 +1694,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     val reservedSink = mutable.HashSet[Int]()
   }
 
-  periodicaly(10*1000){
+  periodically(10*1000){
     outputs.foreach(_.readyDriver.factor = simRandom.nextFloat)
   }
 

@@ -73,7 +73,7 @@ class SpinalSimDmaSg2WriteOnlyTester extends SpinalAnyFunSuite{
 
       val tasks = Queue[Task]()
       val bsbDriver = new BsbDriver(dut.io.bsb, cd)
-      periodicaly(10000){
+      periodically(10000) {
         bsbDriver.sd.setFactor(simRandom.nextFloat())
         mem.driver.driver.randomizeStallRate()
       }

@@ -66,7 +66,7 @@ class FlowDriver[T <: Data](flow: Flow[T], clockDomain: ClockDomain, var driver:
 
   var factor = Option.empty[Float]
   def setFactor(value: Float) = factor = Some(value)
-  def setFactorPeriodically(period: Long) = periodicaly(period)(setFactor(simRandom.nextFloat()))
+  def setFactorPeriodically(period: Long) = periodically(period)(setFactor(simRandom.nextFloat()))
 
 
   var state = 0
