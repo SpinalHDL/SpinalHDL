@@ -92,13 +92,25 @@ abstract class ComponentEmitter {
     val dataStatements = ArrayBuffer[LeafStatement]()
   }
 
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'allocateAlgoIncremental' instead", since = "1.14.0")
   def allocateAlgoIncrementale(): Int = {
+    allocateAlgoIncremental()
+  }
+
+  def allocateAlgoIncremental(): Int = {
     val ret = algoIdIncrementalBase + algoIdIncrementalOffset
     algoIdIncrementalOffset += 1
     ret
   }
 
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'isSubComponentInputBound' instead", since = "1.14.0")
   def isSubComponentInputBinded(data: BaseType) = {
+    isSubComponentInputBound(data)
+  }
+
+  def isSubComponentInputBound(data: BaseType) = {
     var hasOtherUse = false
     if(data.isInput && data.isComb && Statement.isFullToFullStatementOrLit(data)) {
       data.component.parent.dslBody.foreachStatements{
@@ -332,9 +344,9 @@ abstract class ComponentEmitter {
 
             val treeStatement = scopePtr.parentStatement
 
-            if(treeStatement.algoIncrementale != algoId) {
+            if(treeStatement.algoIncremental != algoId) {
 
-              treeStatement.algoIncrementale = algoId
+              treeStatement.algoIncremental = algoId
 
               treeStatement match {
                 case w: WhenStatement =>
@@ -360,12 +372,12 @@ abstract class ComponentEmitter {
       }
 
       for (process <- processes) {
-        walker(process.leafStatements, 0, process.scope, allocateAlgoIncrementale())
+        walker(process.leafStatements, 0, process.scope, allocateAlgoIncremental())
       }
 
       syncGroups.valuesIterator.foreach(group => {
-        walker(group.initStatements, 0, group.scope, allocateAlgoIncrementale())
-        walker(group.dataStatements, 0, group.scope, allocateAlgoIncrementale())
+        walker(group.initStatements, 0, group.scope, allocateAlgoIncremental())
+        walker(group.dataStatements, 0, group.scope, allocateAlgoIncremental())
       })
 
       if(!spinalConfig.inlineConditionalExpression) {
@@ -411,10 +423,10 @@ abstract class ComponentEmitter {
             }
           }
         } else if(io.isInput) {
-          var subInputBinded = isSubComponentInputBinded(io)
+          var subInputBound = isSubComponentInputBound(io)
 
-          if(subInputBinded != null) {
-            referencesOverrides(io) = subInputBinded
+          if(subInputBound != null) {
+            referencesOverrides(io) = subInputBound
             subComponentInputToNotBufferize += io
           }else {
             if(!openSubIo.contains(io)) wrapSubInput(io)

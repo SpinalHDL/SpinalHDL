@@ -145,14 +145,14 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     }
   }
 
-  val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
+  val allocateAlgoIncrementalBase = globalData.allocateAlgoIncremental()
   val usedDefinitionNames = mutable.HashSet[String]()
 
   def compile(component: Component): String = {
     val componentBuilderVhdl = new ComponentEmitterVhdl(
       c                         = component,
       vhdlBase                  = this,
-      algoIdIncrementalBase     = allocateAlgoIncrementaleBase,
+      algoIdIncrementalBase     = allocateAlgoIncrementalBase,
       mergeAsyncProcess         = config.mergeAsyncProcess,
       asyncResetCombSensitivity = config.asyncResetCombSensitivity,
       anonymSignalPrefix        = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,

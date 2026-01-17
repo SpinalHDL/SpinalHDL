@@ -153,7 +153,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     }
   }
 
-  val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
+  val allocateAlgoIncrementalBase = globalData.allocateAlgoIncremental()
   val usedDefinitionNames = mutable.HashSet[String]()
 
 
@@ -163,7 +163,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       c                           = component,
       systemVerilog               = pc.config.isSystemVerilog,
       verilogBase                 = this,
-      algoIdIncrementalBase       = allocateAlgoIncrementaleBase,
+      algoIdIncrementalBase       = allocateAlgoIncrementalBase,
       mergeAsyncProcess           = config.mergeAsyncProcess,
       asyncResetCombSensitivity   = config.asyncResetCombSensitivity,
       anonymSignalPrefix          = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,

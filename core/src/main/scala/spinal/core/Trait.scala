@@ -108,14 +108,21 @@ object OnCreateStack extends ScopeProperty[Nameable => Unit]{
   */
 class GlobalData(val config : SpinalConfig) {
 
-  private var algoIncrementale = 1
+  private var algoIncremental = 1
   var toplevel : Component = null
   var report : SpinalReport[Component] = null
 
+
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'allocateAlgoIncremental' instead", since = "1.14.0")
   def allocateAlgoIncrementale(): Int = {
-    assert(algoIncrementale != Integer.MAX_VALUE)
-    algoIncrementale += 1
-    return algoIncrementale - 1
+    allocateAlgoIncremental()
+  }
+
+  def allocateAlgoIncremental(): Int = {
+    assert(algoIncremental != Integer.MAX_VALUE)
+    algoIncremental += 1
+    return algoIncremental - 1
   }
 
   var anonymSignalPrefix: String = null
