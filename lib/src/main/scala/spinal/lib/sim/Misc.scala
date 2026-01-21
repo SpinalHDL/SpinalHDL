@@ -130,7 +130,11 @@ class RandomGen(var state : Long = simRandom.nextLong()){
 case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset : Long = 0l){
   val content = mutable.HashMap[Long, Array[Byte]]()
 
-  def getElseAlocate(idx : Long) = {
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'getElseAllocate' instead", since = "1.14.0")
+  def getElseAlocate(idx : Long) = getElseAllocate(idx)
+
+  def getElseAllocate(idx : Long) = {
     content.get(idx) match {
       case Some(value) => value
       case None => val rand = new RandomGen(seed ^ ((idx << 20) + randOffset))
@@ -210,7 +214,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
   }
 
   def read(address : Long) : Byte = {
-    getElseAlocate((address >> 20))(address.toInt & 0xFFFFF)
+    getElseAllocate((address >> 20))(address.toInt & 0xFFFFF)
   }
 
   def readBytes(address : Long, size : Int) : Array[Byte] = {
