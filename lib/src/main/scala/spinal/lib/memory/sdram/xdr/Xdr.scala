@@ -228,10 +228,10 @@ case class SdramTiming(generation : Int,
 
 //object SoftConfig{
 //  def apply(timing : SdramTiming,
-//            frequancy : HertzNumber,
+//            frequency : HertzNumber,
 //            cpa : CoreParameterAggregate,
 //            phyClockRatio : Int): SoftConfig = {
-//    implicit def toCycle(spec : (TimeNumber, Int)) = Math.max(0, Math.max((spec._1 * frequancy).toDouble.ceil.toInt, (spec._2+phyClockRatio-1)/phyClockRatio))
+//    implicit def toCycle(spec : (TimeNumber, Int)) = Math.max(0, Math.max((spec._1 * frequency).toDouble.ceil.toInt, (spec._2+phyClockRatio-1)/phyClockRatio))
 //    SoftConfig(
 //      RFC = timing.RFC,
 //      RAS = timing.RAS,

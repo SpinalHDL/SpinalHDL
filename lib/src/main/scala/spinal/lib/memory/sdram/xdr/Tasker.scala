@@ -235,7 +235,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val doRead = inputRead && allowRead
     val doSomething = valid && (doActive || doPrecharge || doWrite || doRead) && !inibated
 
-    val blockedByWriteTocken = inputWrite && allowWrite && !writeTockens.map(_.ready).read(portId) //For debug visualisation
+    val blockedByWriteTocken = inputWrite && allowWrite && !writeTockens.map(_.ready).read(portId) // For debug visualization
 
     val sel = Bool() //Arbitration allow you to do your stuff
     val fire = False //It is the last cycle for this station

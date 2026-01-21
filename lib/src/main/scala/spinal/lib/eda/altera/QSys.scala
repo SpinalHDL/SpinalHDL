@@ -26,7 +26,7 @@ object QSysify{
 }
 
 trait QSysifyInterfaceEmiter{
-  //Check the 'i' interface, if it reconize something, should return true and complette the TCL `builder` with corresponding things.
+  //Check the 'i' interface, if it recognize something, should return true and complete the TCL `builder` with corresponding things.
   def emit(i : Data,builder : StringBuilder) : Boolean
 }
 
@@ -159,7 +159,7 @@ class AvalonEmitter extends QSysifyInterfaceEmiter{
       val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
       val name = e.getName()
       val clockDomainTag = e.getTag(classOf[ClockDomainTag])
-      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
+      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You should apply the ClockDomainTag to the interface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
       val clockName = clockDomainTag.get.clockDomain.clock.getName()
       val resetName = clockDomainTag.get.clockDomain.reset.getName()
       builder ++= s"""
@@ -331,7 +331,7 @@ class ApbEmitter extends QSysifyInterfaceEmiter{
       val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
       val name = e.getName()
       val clockDomainTag = e.getTag(classOf[ClockDomainTag])
-      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
+      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You should apply the ClockDomainTag to the interface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
       val clockName = clockDomainTag.get.clockDomain.clock.getName()
       val resetName = clockDomainTag.get.clockDomain.reset.getName()
       builder ++=
@@ -373,7 +373,7 @@ add_interface_port $name ${e.PREADY.getName()} pready ${slavePinDir} 1
 //      val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
 //      val name = e.getName()
 //      val clockDomainTag = e.getTag(classOf[ClockDomainTag])
-//      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
+//      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You should apply the ClockDomainTag to the interface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
 //      val clockName = clockDomainTag.get.clockDomain.clock.getName()
 //      val resetName = clockDomainTag.get.clockDomain.reset.getName()
 //      builder ++= s"""
@@ -458,7 +458,7 @@ class Axi4Emitter extends QSysifyInterfaceEmiter{
       val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
       val name = e.getName()
       val clockDomainTag = e.getTag(classOf[ClockDomainTag])
-      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
+      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You should apply the ClockDomainTag to the interface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
       val clockName = clockDomainTag.get.clockDomain.clock.getName()
       val resetName = clockDomainTag.get.clockDomain.reset.getName()
       builder ++= s"""
@@ -575,7 +575,7 @@ class AxiLite4Emitter extends QSysifyInterfaceEmiter{
       val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
       val name = e.getName()
       val clockDomainTag = e.getTag(classOf[ClockDomainTag])
-      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
+      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You should apply the ClockDomainTag to the interface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
       val clockName = clockDomainTag.get.clockDomain.clock.getName()
       val resetName = clockDomainTag.get.clockDomain.reset.getName()
       builder ++= s"""

@@ -49,10 +49,10 @@ class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Compone
       Wishbone.driveWeak(io.output.TGD_MISO, in.TGD_MISO, null, false, false)
     }
 
-    //Implement a round robin algorithm.
-    //The channel will remain selected is either LOCK or CYC are equals to true
-    //and pass to the next channel after the master clears CYC and LOCK
-    //this output a One Hot encoded vector/bit array
+    // Implement a round robin algorithm.
+    // The channel will remain selected is either LOCK or CYC are equals to true
+    // and pass to the next channel after the master clears CYC and LOCK
+    // this output a One Hot encoded vector/bit array.
     val requests =  if(config.useLOCK)  Vec(io.inputs.map(func => func.CYC && !func.LOCK))
                     else                Vec(io.inputs.map(func => func.CYC))
 
@@ -65,14 +65,14 @@ class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Compone
       maskLock := roundRobin
     }
 
-    //Implement the selector for the output slave signals
-    //This is ok becouse the signal is assumed as oneHotEncoded
+    // Implement the selector for the output slave signals.
+    // This is ok because the signal is assumed as oneHotEncoded.
                         (io.inputs.map(_.ACK),   selector).zipped.foreach(_ := _ && io.output.ACK)
     if(config.useSTALL) (io.inputs.map(_.STALL), selector).zipped.foreach(_ := _ && io.output.STALL)
     if(config.useERR)   (io.inputs.map(_.ERR),   selector).zipped.foreach(_ := _ && io.output.ERR)
     if(config.useRTY)   (io.inputs.map(_.RTY),   selector).zipped.foreach(_ := _ && io.output.RTY)
 
-    //Implement the selector for the input slave signals
+    // Implement the selector for the input slave signals
     io.output.CYC       := MuxOH(selector, Vec(io.inputs.map(_.CYC)))
     io.output.STB       := MuxOH(selector, Vec(io.inputs.map(_.STB)))
     io.output.WE        := MuxOH(selector, Vec(io.inputs.map(_.WE)))

@@ -270,7 +270,7 @@ class MasterAgent (val bus : Bus, val cd : ClockDomain)(implicit idAllocator: Id
         if(debug) println(f"acquireBlock src=$source%02x addr=$address%x 1 -> 0 time=${simTime()}")
         onGrant(source, address, param)
       }
-      case Opcode.D.GRANT_DATA => { //TODO on naxriscv, may sent a aquire BtoT but may have been probed out meanwhile => test
+      case Opcode.D.GRANT_DATA => { // TODO on NaxRiscv, may sent a acquire BtoT but may have been probed out meanwhile => test
         assert(!block.contains(source, address))
         onGrant(source, address, param)
         b = new Block(source, address, d.param, bytes, false, d.data){

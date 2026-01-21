@@ -3,9 +3,8 @@ package spinal.lib.misc
 import spinal.core._
 import spinal.lib._
 
-/**
-  * Pseudo least recently used combinatorial logic
-  * io.context.state need to be handled externaly.
+/** Pseudo least recently used combinatorial logic
+  * io.context.state need to be handled externally.
   * When you want to specify a access to a entry, you can use the io.update interface
   * to get the new state value.
   */
@@ -17,7 +16,7 @@ case class Plru(entries : Int, withEntriesValid : Boolean) extends Area{
   val io = new Bundle{
     val context = new Bundle{
       val state = Plru.State(entries)
-      val valids = withEntriesValid generate Bits(entries bits) //Allow to specify prefered entries to remove
+      val valids = withEntriesValid generate Bits(entries bits) // Allow to specify preferred entries to remove
     }
     val evict = new Bundle{
       val id =  UInt(log2Up(entries) bits)

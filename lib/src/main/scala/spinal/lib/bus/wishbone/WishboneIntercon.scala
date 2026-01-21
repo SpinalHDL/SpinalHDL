@@ -30,7 +30,7 @@ case class WishboneInterconFactory(){
   }
 
   /** Modify a connection
-    * @param m the master where the conenction start
+    * @param m the master where the connection start
     * @param s the slave that is connected to the master
     * @example{{{
     * interconnect.setConnector(dBus, slowBus){(m,s) =>
@@ -133,11 +133,11 @@ case class WishboneInterconFactory(){
         connection.connector(m, s)
       }else{
         val tmp = cloneOf(s)
-        m >> tmp //Adapte the bus kind.
+        m >> tmp // Adapt the bus kind.
         connection.connector(tmp,s)
       }
     }
   }
-  //Will make SpinalHDL calling the build function at the end of the current component elaboration
+  // Will make SpinalHDL calling the build function at the end of the current component elaboration.
   Component.current.addPrePopTask(build)
 }
