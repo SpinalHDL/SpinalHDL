@@ -679,6 +679,129 @@ class Counter(val start: BigInt, val end: BigInt) extends ImplicitArea[UInt] {
   }
 }
 
+/** Creates a one-hot encoded counter */
+object CounterOH {
+  /** Create a one-hot counter with `stateCount` states */
+  def apply(stateCount: BigInt): CounterOH = new CounterOH(stateCount)
+
+  /** Create a one-hot counter with `bitCount` states */
+  def apply(bitCount: BitCount): CounterOH = new CounterOH(bitCount.value)
+
+  /** Create a one-hot counter with `stateCount` states and `inc` signal as increment enable */
+  def apply(stateCount: BigInt, inc: Bool): CounterOH = {
+    val counter = CounterOH(stateCount)
+    when(inc) {
+      counter.increment()
+    }
+    counter
+  }
+
+  /** Create a one-hot counter with `2^bitCount` states and `inc` signal as increment enable */
+  def apply(bitCount: BitCount, inc: Bool): CounterOH = {
+    CounterOH(BigInt(1) << bitCount.value, inc)
+  }
+}
+
+// One-hot encoded counter with stateCount states
+class CounterOH(val stateCount: BigInt, val initialValue: BigInt = 0) extends ImplicitArea[Bits] {
+  require(stateCount > 0)
+  require(initialValue >= 0 && initialValue < stateCount)
+
+  private val resetValue = Bits(stateCount bits)
+  resetValue := B(BigInt(1) << initialValue.toInt, stateCount bits)
+
+  val willIncrement = False.allowOverride
+  val willDecrement = False.allowOverride
+  val willClear = False.allowOverride
+
+  def increment(): Unit = willIncrement := True
+  def decrement(): Unit = willDecrement := True
+  def clear(): Unit = willClear := True
+  def load(bits: Bits): Unit = valueNext := bits
+  def load(index: Int): Unit = valueNext := B(BigInt(1) << index, stateCount bits)
+  def load(index: UInt): Unit = valueNext := UIntToOh(index, stateCount.toInt)
+
+  val valueNext = Bits(stateCount bits)
+  val value = RegNext(valueNext) init(resetValue)
+
+  val willOverflowIfInc = value.msb && !willDecrement
+  val willOverflow = willOverflowIfInc && willIncrement
+
+  val willUnderflowIfDec = value.lsb && !willIncrement
+  val willUnderflow = willUnderflowIfDec && willDecrement
+
+  valueNext := value
+  when(willIncrement && !willDecrement) {
+    valueNext := value.rotateLeft(1)
+  }
+  when(willDecrement && !willIncrement) {
+    valueNext := value.rotateRight(1)
+  }
+  when(willClear) {
+    valueNext := resetValue
+  }
+
+  willOverflowIfInc.allowPruning()
+  willOverflow.allowPruning()
+  willUnderflowIfDec.allowPruning()
+  willUnderflow.allowPruning()
+
+  def ===(that: Bits): Bool = value === that
+  def =/=(that: Bits): Bool = value =/= that
+  def !==(that: Bits): Bool = value =/= that
+
+  def ===(that: Int): Bool = value(that)
+  def ===(that: BigInt): Bool = value(that.toInt)
+  def ===(that: UInt): Bool = value === UIntToOh(that, stateCount.toInt)
+  def =/=(that: Int): Bool = !value(that)
+  def =/=(that: BigInt): Bool = !value(that.toInt)
+  def =/=(that: UInt): Bool = value =/= UIntToOh(that, stateCount.toInt)
+  def !==(that: Int): Bool = !value(that)
+  def !==(that: BigInt): Bool = !value(that.toInt)
+  def !==(that: UInt): Bool = value =/= UIntToOh(that, stateCount.toInt)
+
+  override def implicitValue: Bits = this.value
+
+  def freeRun(): this.type = {
+    willIncrement.removeAssignments()
+    increment()
+    this
+  }
+
+  def toFlow(): Flow[Bits] = {
+    val flow = Flow(Bits(stateCount bits))
+    flow.payload := value
+    flow.valid := willIncrement || willDecrement
+    flow
+  }
+
+  def init(initValue: Int): this.type = {
+    resetValue.removeAssignments()
+    resetValue := B(BigInt(1) << initValue, stateCount bits)
+    value.removeInitAssignments()
+    value.init(resetValue)
+    this
+  }
+
+  def init(initValue: BigInt): this.type = init(initValue.toInt)
+
+  def init(initValue: Bits): this.type = {
+    resetValue.removeAssignments()
+    resetValue := initValue
+    value.removeInitAssignments()
+    value.init(resetValue)
+    this
+  }
+
+  def init(initValue: UInt): this.type = {
+    resetValue.removeAssignments()
+    resetValue := UIntToOh(initValue, stateCount.toInt)
+    value.removeInitAssignments()
+    value.init(resetValue)
+    this
+  }
+}
+
 object Timeout {
   def apply(cycles: BigInt): Timeout = new Timeout(cycles)
 
