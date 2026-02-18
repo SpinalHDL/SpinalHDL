@@ -321,9 +321,13 @@ class ComponentEmitterVerilog(
       logics ++= "  `endif\n"
     }
 
-    for((bt, str) <- withSimInit){
-      val name = emitReference(bt, false)
-      logics ++= s"${theme.maintab + theme.maintab}${name}${str};\n"
+    if(withSimInit.nonEmpty) {
+      logics ++= "  `ifndef SYNTHESIS\n"
+      for((bt, str) <- withSimInit){
+        val name = emitReference(bt, false)
+        logics ++= s"${theme.maintab + theme.maintab}${name}${str};\n"
+      }
+      logics ++= "  `endif\n"
     }
 
     for((bt, str) <- withInitBoot){
