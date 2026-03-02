@@ -10,7 +10,7 @@ import spinal.lib.bus.tilelink._
 import spinal.lib.bus.tilelink.sim._
 import spinal.lib._
 import spinal.lib.bus.tilelink
-import spinal.lib.bus.tilelink.coherent.HubFiber
+import spinal.lib.bus.tilelink.coherent.{HubFiber, OrderingCmd}
 import spinal.lib.bus.tilelink.fabric._
 import spinal.lib.sim.SparseMemory
 import spinal.lib.system.tag.{MemoryConnection, PMA}
@@ -112,6 +112,8 @@ class TilelinkTester[T <: Component](cGen: => T, simConfig : SpinalSimConfig = S
   }
 }
 
+object NodeRamModelTag extends SpinalTag
+
 class TilelinkTestbenchBase[T <: Component](nodes: Seq[Node], orderings: Seq[OrderingTag], val dut : T)(implicit val idAllocator: IdAllocator, val idCallback: IdCallback) extends Area {
   val nodeToModel = mutable.LinkedHashMap[Node, SparseMemory]()
   val slaveNodes = nodes.filter(_.bus.isMasterInterface)
@@ -128,9 +130,8 @@ class TilelinkTestbenchBase[T <: Component](nodes: Seq[Node], orderings: Seq[Ord
   }
 
   for (node <- nodes) {
-    node.refOwner match {
-      case r: RamFiber => nodeToModel(node) = SparseMemory(42)
-      case _ =>
+    if(node.hasTag(NodeRamModelTag)){
+      nodeToModel(node) = SparseMemory(42)
     }
   }
 
