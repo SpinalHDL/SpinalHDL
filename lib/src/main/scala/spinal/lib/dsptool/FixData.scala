@@ -89,10 +89,14 @@ case class FixData(raw: Double,
   }
 
 //  def asInt: Int          = this.value / q.resolution toInt
-//  def asIntPostive: Int   = if(rawIsNegative) q.capcity.toInt + this.asInt else this.asInt
+//  def asIntPositive: Int   = if(rawIsNegative) q.capcity.toInt + this.asInt else this.asInt
 
   def asLong: Long        = this.value / q.resolution toLong
-  def asLongPostive: Long = if(value < 0) q.capcity.toLong + this.asLong else this.asLong
+  def asLongPositive: Long = if(value < 0) q.capcity.toLong + this.asLong else this.asLong
+
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'hasAssignment' instead", since = "1.14.0")
+  def asLongPostive: Long = asLongPositive
 
   def hex: String = s"%${q.alignHex}s".format(this.asLongPostive.toHexString).replace(' ','0')
   def bin: String = s"%${q.width}s".format(this.asLongPostive.toBinaryString).replace(' ','0')
