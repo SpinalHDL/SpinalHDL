@@ -131,7 +131,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
   val content = mutable.HashMap[Long, Array[Byte]]()
 
   // TODO enable deprecation
-  //@deprecated("Use correctly spelled 'getElseAllocate' instead", since = "1.14.0")
+  //@deprecated("Use correctly spelled 'getElseAllocate' instead", since = "1.15.0")
   def getElseAlocate(idx : Long) = getElseAllocate(idx)
 
   def getElseAllocate(idx : Long) = {

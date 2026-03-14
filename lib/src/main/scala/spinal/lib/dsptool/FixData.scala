@@ -95,7 +95,7 @@ case class FixData(raw: Double,
   def asLongPositive: Long = if(value < 0) q.capcity.toLong + this.asLong else this.asLong
 
   // TODO enable deprecation
-  //@deprecated("Use correctly spelled 'hasAssignment' instead", since = "1.14.0")
+  //@deprecated("Use correctly spelled 'hasAssignment' instead", since = "1.15.0")
   def asLongPostive: Long = asLongPositive
 
   def hex: String = s"%${q.alignHex}s".format(this.asLongPostive.toHexString).replace(' ','0')

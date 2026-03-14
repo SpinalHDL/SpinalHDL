@@ -93,7 +93,7 @@ abstract class ComponentEmitter {
   }
 
   // TODO enable deprecation
-  //@deprecated("Use correctly spelled 'allocateAlgoIncremental' instead", since = "1.14.0")
+  //@deprecated("Use correctly spelled 'allocateAlgoIncremental' instead", since = "1.15.0")
   def allocateAlgoIncrementale(): Int = {
     allocateAlgoIncremental()
   }
@@ -105,7 +105,7 @@ abstract class ComponentEmitter {
   }
 
   // TODO enable deprecation
-  //@deprecated("Use correctly spelled 'isSubComponentInputBound' instead", since = "1.14.0")
+  //@deprecated("Use correctly spelled 'isSubComponentInputBound' instead", since = "1.15.0")
   def isSubComponentInputBinded(data: BaseType) = {
     isSubComponentInputBound(data)
   }

@@ -60,7 +60,7 @@ class ScoreboardInOrder[T]() {
   }
 
   // TODO enable deprecation
-  //@deprecated("Use correctly spelled 'checkEmptiness' instead", since = "1.14.0")
+  //@deprecated("Use correctly spelled 'checkEmptiness' instead", since = "1.15.0")
   def checkEmptyness(): Unit = checkEmptiness
 
   def checkEmptiness(): Unit ={

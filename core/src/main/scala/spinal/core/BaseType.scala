@@ -131,7 +131,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   }
 
   // TODO enable deprecation
-  //@deprecated("Use correctly spelled 'hasAssignment' instead", since = "1.14.0")
+  //@deprecated("Use correctly spelled 'hasAssignment' instead", since = "1.15.0")
   def hasAssignement : Boolean = hasAssignment
 
   def hasAssignment : Boolean = !this.dlcIsEmpty

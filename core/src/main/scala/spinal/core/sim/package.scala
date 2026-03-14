@@ -312,7 +312,7 @@ package object sim {
   }
 
   // TODO enable deprecation
-  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.14.0")
+  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.15.0")
   def periodicaly(delay: Long)(body: => Unit): Unit = {
     periodically(delay)(body)
   }
@@ -326,7 +326,7 @@ package object sim {
   }
 
   // TODO enable deprecation
-  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.14.0")
+  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.15.0")
   def periodicaly(delay : TimeNumber)(body: => Unit): Unit = {
     periodically(delay)(body)
   }
