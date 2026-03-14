@@ -356,17 +356,17 @@ class GeneratorCompiler {
         generator.generateIt()
         progressed = true
       }
-      if(!progressed){
+      if(!progressed) {
         val unelaborateds = generatorsAll.filter(!_.elaborated)
-        val missingDepedancies = unelaborateds.flatMap(_.dependencies).toSet.filter(!_.isDone)
-        val missingHandle = missingDepedancies.filter(_.isInstanceOf[Handle[_]]).map(_.asInstanceOf[Handle[Any]])
+        val missingDependencies = unelaborateds.flatMap(_.dependencies).toSet.filter(!_.isDone)
+        val missingHandle = missingDependencies.filter(_.isInstanceOf[Handle[_]]).map(_.asInstanceOf[Handle[Any]])
         val producatable = unelaborateds.flatMap(_.products).map(_.core).toSet
         val withoutSources = missingHandle.filter(e => !producatable.contains(e.core))
         SpinalError(
-          s"Composable hang, remaings generators are :\n" +
+          s"Composable hang, reaming generators are :\n" +
           s"${unelaborateds.map(p => s"- ${p} depend on ${p.dependencies.filter(d => !d.isDone).mkString(", ")}\n").mkString}" +
           s"\nDependable not completed :\n" +
-          s"${missingDepedancies.map(d => "- " + d + "\n").mkString}" +
+          s"${missingDependencies.map(d => "- " + d + "\n").mkString}" +
           s"\nHandles without potential sources :\n" +
           s"${withoutSources.toSeq.sortBy(_.getName()).map(d => "- " + d + "\n").mkString}"
         )

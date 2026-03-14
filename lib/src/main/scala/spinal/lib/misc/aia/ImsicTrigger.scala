@@ -53,7 +53,7 @@ case class ImsicTriggerMapper(sourceIds: Seq[Int], hartId: Int, guestId: Int) ex
 /**
  * ImsicMapping: IMSIC interrupt file mapping info
  *
- * Each interrupt file address should be calcuated as below:
+ * Each interrupt file address should be calculated as below:
  * g * 2^E + B + h * 2^D
  *
  * g is the IMSIC group id and the h is the hart id in the group
@@ -70,8 +70,8 @@ case class ImsicTriggerMapper(sourceIds: Seq[Int], hartId: Int, guestId: Int) ex
  *   2^E in the address formula.
  *
  * For convenient, all the arguments could be set to zero for auto
- * calcuation. But when `interruptFileHartOffset` is not zero,
- * `interruptFileGroupSize` must be set non-zero, or the calcuation
+ * calculation. But when `interruptFileHartOffset` is not zero,
+ * `interruptFileGroupSize` must be set non-zero, or the calculation
  * will fail.
  *
  */
@@ -89,7 +89,7 @@ object ImsicTrigger {
 
     require(interruptFileHartSize == 0 || isPow2(interruptFileHartSize), "interruptFileHartSize should be power of 2")
     require(interruptFileGroupSize == 0 || isPow2(interruptFileGroupSize), "interruptFileGroupSize should be power of 2")
-    require(!(interruptFileHartOffset != 0 && interruptFileGroupSize == 0), "Can not auto calcuate interruptFileGroupSize when interruptFileHartOffset != 0")
+    require(!(interruptFileHartOffset != 0 && interruptFileGroupSize == 0), "Can not auto calculate interruptFileGroupSize when interruptFileHartOffset != 0")
 
     require(maxGuestId < 16, "Per hart can only have max 15 guest interrupt files.")
 

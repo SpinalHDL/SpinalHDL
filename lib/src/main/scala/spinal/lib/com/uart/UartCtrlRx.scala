@@ -26,8 +26,8 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
   // Implement the rxd sampling with a majority vote over samplingSize bits
   // Provide a new sampler.value each time sampler.tick is high
   val sampler = new Area {
-    val synchroniser = BufferCC.withTag(io.rxd,init=False)
-    val samples      = History(that=synchroniser,length=samplingSize,when=io.samplingTick,init=True)
+    val synchronizer = BufferCC.withTag(io.rxd,init=False)
+    val samples      = History(that=synchronizer,length=samplingSize,when=io.samplingTick,init=True)
     val value        = RegNext(MajorityVote(samples)) init(True)
     val tick         = RegNext(io.samplingTick) init(False)
   }

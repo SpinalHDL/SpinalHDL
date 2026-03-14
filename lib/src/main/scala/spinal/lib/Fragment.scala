@@ -152,11 +152,11 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
   }
 
   def toFragmentBits(bitsWidth: Int): Stream[Fragment[Bits]] = {
-    val pimpedWidhoutLast = (Stream(pimped.fragment)).translateFrom(pimped)((to, from) => {
+    val pimpedWithoutLast = (Stream(pimped.fragment)).translateFrom(pimped)((to, from) => {
       to := from.fragment
     })
 
-    val fragmented = pimpedWidhoutLast.fragmentTransaction(bitsWidth)
+    val fragmented = pimpedWithoutLast.fragmentTransaction(bitsWidth)
 
     return (Stream Fragment (Bits(bitsWidth bit))).translateFrom(fragmented)((to, from) => {
       to.last := from.last && pimped.last

@@ -68,10 +68,10 @@ class PluginHost {
 
   def find[T: ClassTag](filter: T => Boolean) = findOption(filter).get
   def findOption[T: ClassTag](filter: T => Boolean) = {
-    val flitred = list[T].filter(filter)
-    flitred.size match {
+    val filtered = list[T].filter(filter)
+    filtered.size match {
       case 0 => None
-      case 1 => Some(flitred.head)
+      case 1 => Some(filtered.head)
     }
 
   }

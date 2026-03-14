@@ -498,7 +498,7 @@ class ComponentEmitterVerilog(
       logics ++= s"  );"
       logics ++= s"\n"
 
-      if(istracingOff){
+      if(isTracingOff){
         logics ++= s" ${emitCommentAttributes(List(Verilator.tracing_on))} \n"
       }
     }

@@ -215,7 +215,7 @@ case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundl
     }
   }
 
-  def gotReadDuringWrite(write: Flow[MemWriteCmd[T]]): Bool = new Composite(this, "gotReadDurringWrite", true) {
+  def gotReadDuringWrite(write: Flow[MemWriteCmd[T]]): Bool = new Composite(this, "gotReadDuringWrite", true) {
     val hit = cmd.valid && write.valid && cmd.payload === write.address
     val buffer = RegNextWhen(hit, cmd.valid) init(False)
   }.buffer

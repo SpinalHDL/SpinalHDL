@@ -165,9 +165,9 @@ case class MacTxBuffer(pushCd : ClockDomain,
     val lengthMinusOne = length-1
     val wordCounter = Reg(UInt(wordCountWidth bits))
     val wordCountEndAt = lengthMinusOne >> log2Up(pushWidth)
-    val spliterEndAt = lengthMinusOne(log2Up(pushWidth)-1 downto log2Up(popWidth))
+    val splitterEndAt = lengthMinusOne(log2Up(pushWidth)-1 downto log2Up(popWidth))
     val ratio = pushWidth/popWidth
-    val spliter = Reg(UInt(log2Up(ratio) bits))
+    val splitter = Reg(UInt(log2Up(ratio) bits))
 
 
     fifo.io.pop.commit := io.pop.commit
@@ -176,12 +176,12 @@ case class MacTxBuffer(pushCd : ClockDomain,
 
     io.pop.stream.valid := False
     io.pop.stream.last := False
-    io.pop.stream.data := fifo.io.pop.stream.payload.subdivideIn(popWidth bits).read(spliter)
+    io.pop.stream.data := fifo.io.pop.stream.payload.subdivideIn(popWidth bits).read(splitter)
 
     switch(state){
       is(State.LENGTH){
         wordCounter := 0
-        spliter := 0
+        splitter := 0
         when(fifo.io.pop.stream.valid){
           state := State.DATA
           length := fifo.io.pop.stream.payload.asUInt.resized
@@ -191,13 +191,13 @@ case class MacTxBuffer(pushCd : ClockDomain,
       is(State.DATA) {
         io.pop.stream.valid := True
         when(io.pop.stream.ready) {
-          spliter := spliter + 1
-          when(wordCounter === wordCountEndAt && spliter === spliterEndAt) {
+          splitter := splitter + 1
+          when(wordCounter === wordCountEndAt && splitter === splitterEndAt) {
             state := State.WAIT
             fifo.io.pop.stream.ready := True
             io.pop.stream.last := True
           }
-          when(spliter === spliter.maxValue) {
+          when(splitter === splitter.maxValue) {
             wordCounter := wordCounter + 1
             fifo.io.pop.stream.ready := True
           }

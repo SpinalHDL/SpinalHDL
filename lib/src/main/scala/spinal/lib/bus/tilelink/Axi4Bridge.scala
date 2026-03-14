@@ -46,8 +46,8 @@ class Axi4Bridge(p : NodeParameters, withAxi3 : Boolean = false, forceAxi4Len : 
 
     val (cmdFork, dataFork) = StreamFork2(halted)
     val cmd = new Area {
-      val filtred = cmdFork.takeWhen(cmdFork.isFirst())
-      val buffered = filtred.pipelined(halfRate = true)
+      val filtered = cmdFork.takeWhen(cmdFork.isFirst())
+      val buffered = filtered.pipelined(halfRate = true)
       val isGet = buffered.opcode === Opcode.A.GET
 
       io.down.aw.valid := buffered.valid && !isGet
@@ -68,8 +68,8 @@ class Axi4Bridge(p : NodeParameters, withAxi3 : Boolean = false, forceAxi4Len : 
       io.down.aw.allStrb := buffered.opcode === Opcode.A.PUT_FULL_DATA
     }
     val data = new Area{
-      val filtred = dataFork.takeWhen(dataFork.opcode === Opcode.A.PUT_FULL_DATA || dataFork.opcode === Opcode.A.PUT_PARTIAL_DATA)
-      val buffer = filtred.pipelined(m2s = true)
+      val filtered = dataFork.takeWhen(dataFork.opcode === Opcode.A.PUT_FULL_DATA || dataFork.opcode === Opcode.A.PUT_PARTIAL_DATA)
+      val buffer = filtered.pipelined(m2s = true)
       io.down.w.arbitrationFrom(buffer)
       io.down.w.data := buffer.data
       io.down.w.strb := buffer.mask
