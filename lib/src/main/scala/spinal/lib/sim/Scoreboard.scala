@@ -27,7 +27,7 @@ class ScoreboardInOrder[T]() {
 
   if(Phase.isUsed){
     Phase.check{
-      checkEmptyness()
+      checkEmptiness()
     }
   }
 
@@ -59,7 +59,11 @@ class ScoreboardInOrder[T]() {
     }
   }
 
-  def checkEmptyness(): Unit ={
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'checkEmptiness' instead", since = "1.14.0")
+  def checkEmptyness(): Unit = checkEmptiness
+
+  def checkEmptiness(): Unit ={
     if(dut.nonEmpty || ref.nonEmpty){
       if(dut.nonEmpty){
         println("Unmatched DUT transaction : \n")
