@@ -973,8 +973,8 @@ object PlayPatch{
 
   case class PipelinedMemoryBus(addressWidth : Int, dataWidth : Int) extends Bundle with IMasterSlave {
     // Check the generic parameters
-    val enable     = Bool // Bus can be used when 'enable' is high
-    val writeMode  = Bool // High to write data, low to read data
+    val enable     = Bool() // Bus can be used when 'enable' is high
+    val writeMode  = Bool() // High to write data, low to read data
     val address    = UInt(addressWidth bits) // Address (byte-aligned)
     val writeData  = Bits(dataWidth bits)
     val readData   = Bits(dataWidth bits)

@@ -999,8 +999,8 @@ object Foo32 extends App{
 
 
   class TestIO(a: Boolean = false) extends Bundle {
-    val z = Bool
-    val more = if (a) Some(Bool) else None
+    val z = Bool()
+    val more = if (a) Some(Bool()) else None
   }
 
   class Test extends Component {

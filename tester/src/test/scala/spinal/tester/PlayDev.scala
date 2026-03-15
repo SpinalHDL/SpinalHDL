@@ -87,7 +87,7 @@ object PlayDevPullCkock{
     val subsub = new SubSub
   }
   class TopLevel extends Component {
-    val cd = ClockDomain(Bool, Bool)
+    val cd = ClockDomain(Bool(), Bool())
     val sub = cd(new Sub)
   }
 
@@ -245,7 +245,7 @@ object PlayDevCrossClock{
 
     val areaA = new ClockingArea(ClockDomain(clockA)){
       val reg = Reg(Bool())
-      reg := in(Bool)
+      reg := in(Bool())
       val wire = Bool()
       wire := reg
       val wire2 = Bool()
@@ -587,10 +587,10 @@ object PlayDevBugx{
 
 object PlayDevAnalog{
   class TopLevel extends Component {
-    val cmd = slave(TriState(Bool))
-    val gpio = inout(Analog(Bool))
+    val cmd = slave(TriState(Bool()))
+    val gpio = inout(Analog(Bool()))
 
-    val tmp = Analog(Bool)
+    val tmp = Analog(Bool())
     when(cmd.writeEnable){
       tmp := cmd.write
     }
@@ -612,12 +612,12 @@ object PlayWithBug {
 
   class I2C extends Component {
     val io = new Bundle {
-      val SDA = inout(Analog(Bool))
+      val SDA = inout(Analog(Bool()))
     }
   }
   class Test extends Component {
     val io = new Bundle{
-      val SDAs = Vec(inout(Analog(Bool)), 4)
+      val SDAs = Vec(inout(Analog(Bool())), 4)
     }
     for(j <- io.SDAs.range){
       val i2c = new I2C();
@@ -633,10 +633,10 @@ object PlayWithBug {
 
 object PlayDevAnalog2{
   class Sub extends Component{
-    val cmd2 = slave(TriState(Bool))
-    val gpio2 = inout(Analog(Bool))
+    val cmd2 = slave(TriState(Bool()))
+    val gpio2 = inout(Analog(Bool()))
 
-    val tmp2 = Analog(Bool)
+    val tmp2 = Analog(Bool())
     when(cmd2.writeEnable){
       tmp2 := cmd2.write
     }
@@ -646,11 +646,11 @@ object PlayDevAnalog2{
   }
 
   class TopLevel extends Component {
-    val cmd = slave(TriState(Bool))
-    val cmd2 = slave(TriState(Bool))
-    val gpio = inout(Analog(Bool))
+    val cmd = slave(TriState(Bool()))
+    val cmd2 = slave(TriState(Bool()))
+    val gpio = inout(Analog(Bool()))
 
-    val tmp = Analog(Bool)
+    val tmp = Analog(Bool())
     when(cmd.writeEnable){
       tmp := cmd.write
     }
@@ -691,7 +691,7 @@ object PlayDevNoMerge{
   class TopLevel extends Component {
     val x,y, z = False
     z.noBackendCombMerge
-    when(in(Bool)){
+    when(in(Bool())){
       x := True
       y := True
     } otherwise {
@@ -994,7 +994,7 @@ object PlayWithIndex extends App {
 object PlayTriStateArrayToTriState extends App {
   class TopLevel extends Component{
     val gpio = slave(TriStateArray(8 bits))
-    val led = master(TriState(Bool))
+    val led = master(TriState(Bool()))
 
     gpio.read.assignDontCare()
     led <> gpio(2)
@@ -1369,7 +1369,7 @@ object DebBugFormal extends App{
   case class rle[T <: Data](val dataType: HardType[T], val depth: Int) extends Component{
     val io = new Bundle{
       val input = in(dataType())
-      val enable = in(Bool)
+      val enable = in(Bool())
       val output = master(Flow(rleBus(dataType,depth)))
     }
 

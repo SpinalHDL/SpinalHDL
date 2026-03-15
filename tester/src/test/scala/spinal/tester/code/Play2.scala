@@ -54,7 +54,7 @@ object Play74 {
 
   class TopLevel extends Component {
 
-    when(in(Bool)) {
+    when(in(Bool())) {
       assert(
         assertion = True,
         message = "Address read doesn't match the address of the device ",
@@ -104,7 +104,7 @@ object PlayB5 {
     val myClockDomain = ClockDomain(myClock, True)
 
     val area = new ClockingArea(myClockDomain) {
-      val result = out(RegNext(in(Bool)) init (True))
+      val result = out(RegNext(in(Bool())) init (True))
     }
 
   }
