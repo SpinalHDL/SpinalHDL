@@ -204,7 +204,7 @@ class InstructionCache(implicit p : InstructionCacheConfig) extends Component{
     }
 
     val readyDelay = Reg(UInt(1 bit))
-    when(loadedWordsNext === B(loadedWordsNext.range -> true)){
+    when(loadedWordsNext === B(loadedWordsNext.bitsRange -> true)) {
       readyDelay := readyDelay + 1
     }
     request.ready := readyDelay === 1

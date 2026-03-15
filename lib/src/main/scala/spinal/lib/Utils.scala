@@ -91,7 +91,7 @@ object OHToUInt {
     if (mapping.size == 1) {
       ret := mapping.head
     } else {
-      for (bitId <- ret.range) {
+      for (bitId <- ret.bitsRange) {
         val triggersId = mapping.zipWithIndex.filter(e => ((e._1 >> bitId) & 1) != 0).map(_._2)
         val triggers = triggersId.map(oh(_))
         ret(bitId) := triggers.orR
@@ -491,7 +491,7 @@ object EndiannessSwap{
 object Reverse{
   def apply[T <: BitVector](that : T) : T = {
     val ret = cloneOf(that)
-    for(i <- that.range){
+    for(i <- that.bitsRange) {
       ret(i) := that(that.getWidth-1-i)
     }
     ret
@@ -1732,7 +1732,7 @@ object Shift {
   def rightWithScrap(that : Bits, by : UInt) : Bits = {
     var logic = that
     val scrap = False
-    for(i <- by.range){
+    for(i <- by.bitsRange) {
       scrap setWhen(by(i) && logic(0, 1 << i bits) =/= 0)
       logic \= by(i) ? (logic |>> (BigInt(1) << i)) | logic
     }

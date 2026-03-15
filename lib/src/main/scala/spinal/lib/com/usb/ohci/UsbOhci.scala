@@ -765,7 +765,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       val isoRelativeFrameNumber = reg.hcFmNumber.FN - SF
       val tooEarly = isoRelativeFrameNumber.msb
-      val isoFrameNumber = isoRelativeFrameNumber(FC.range)
+      val isoFrameNumber = isoRelativeFrameNumber(FC.bitsRange)
       val isoOverrun = !tooEarly && isoRelativeFrameNumber > FC
       val isoOverrunReg = RegNext(isoOverrun)
       val isoLast = !isoOverrun && !tooEarly && isoFrameNumber === FC

@@ -78,7 +78,7 @@ object PlayB6 {
   val myBits = Bits()
   val myBool = Bool()
   val yolo =  myBits.asBools.map(_ ^ myBool).asBits()
-  val yolo2 = myBits ^ B(myBits.range -> myBool)
+  val yolo2 = myBits ^ B(myBits.bitsRange -> myBool)
   class TopLevel extends Component {
     val notUsed = False
 
@@ -711,7 +711,7 @@ object PlayVerilog1 {
     y := a + b
     y(0) := False
 
-    z(z.range) := U"0110"
+    z(z.bitsRange) := U"0110"
 
     val l,m = UInt(4 bits).dontSimplifyIt()
     l := a & b

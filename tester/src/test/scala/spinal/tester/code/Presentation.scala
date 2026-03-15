@@ -1955,7 +1955,7 @@ object PlayAdder2{
     uint8 := uint12.resize(8)
     uint8 := uint12.resized
     uint8 := uint12(7 downto 0)
-    uint8 := uint12(uint8.range)
+    uint8 := uint12(uint8.bitsRange)
 
     val bits4 = Bits(4 bits)
     uint8 := bits4.asUInt.resized

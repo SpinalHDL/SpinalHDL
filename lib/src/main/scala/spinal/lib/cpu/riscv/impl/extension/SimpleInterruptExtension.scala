@@ -14,7 +14,7 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
     this
   }
   def addIrq(id : Int,pins : Bits,irqUsage: IrqUsage,name : String): this.type = {
-    for(i <- pins.range){
+    for(i <- pins.bitsRange) {
       interruptUsage(i + id) = Tuple3(pins(i),name + "_" + i, irqUsage)
     }
     this

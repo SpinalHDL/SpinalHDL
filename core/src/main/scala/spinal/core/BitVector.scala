@@ -124,7 +124,7 @@ abstract class BitVector extends BaseType with Widthable {
 
     var result = cloneOf(this).asInstanceOf[T]
     result := this.asInstanceOf[T]
-    for(i <- that.range){
+    for(i <- that.bitsRange) {
       result \= (that(i) ? result.rotateLeft(1 << i).asInstanceOf[T] | result)
     }
     result
@@ -139,7 +139,7 @@ abstract class BitVector extends BaseType with Widthable {
 
     var result = cloneOf(this).asInstanceOf[T]
     result := this.asInstanceOf[T]
-    for(i <- that.range){
+    for(i <- that.bitsRange) {
       result \= (that(i) ? result.rotateRight(1 << i).asInstanceOf[T] | result)
     }
     result

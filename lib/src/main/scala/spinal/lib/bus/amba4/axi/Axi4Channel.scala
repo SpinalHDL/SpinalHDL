@@ -389,15 +389,15 @@ object Axi4Priv{
     assert(stream.config.addressWidth >= sink.config.addressWidth, s"Expect $stream addressWidth=${stream.config.addressWidth} >= $sink addressWidth=${sink.config.addressWidth}")
 
     sink.addr := stream.addr.resized
-    driveWeak(stream,sink,stream.id,sink.id,() => U(sink.id.range -> false),true,false)
-    driveWeak(stream,sink,stream.region,sink.region,() => B(sink.region.range -> false),false,true)
-    driveWeak(stream,sink,stream.len,sink.len,() => U(sink.len.range -> false),false,false)
+    driveWeak(stream,sink,stream.id,sink.id,() => U(sink.id.bitsRange -> false),true,false)
+    driveWeak(stream,sink,stream.region,sink.region,() => B(sink.region.bitsRange -> false),false,true)
+    driveWeak(stream,sink,stream.len,sink.len,() => U(sink.len.bitsRange -> false),false,false)
     driveWeak(stream,sink,stream.size,sink.size,() => U(log2Up(sink.config.dataWidth/8)),false,false)
     driveWeak(stream,sink,stream.burst,sink.burst,() => Axi4.burst.INCR,false,false)
     driveWeak(stream,sink,stream.lock,sink.lock,() => Axi4.lock.NORMAL,false,true)
     driveWeak(stream,sink,stream.cache,sink.cache,() => B"0000",false,true)
     driveWeak(stream,sink,stream.qos,sink.qos,() => B"0000",false,true)
-    driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),true,true)
+    driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.bitsRange -> false),true,true)
     driveWeak(stream,sink,stream.prot,sink.prot,() => B"010",false,true)
     driveWeak(stream,sink,stream.allStrb,sink.allStrb,() => False,false,true)
   }
@@ -452,8 +452,8 @@ object Axi4W{
     def drive(sink: Stream[Axi4W]): Unit = {
       sink.arbitrationFrom(stream)
       sink.data := stream.data
-      Axi4Priv.driveWeak(stream,sink,stream.strb,sink.strb,() => B(sink.strb.range -> true),false,false)
-      Axi4Priv.driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),false,true)
+      Axi4Priv.driveWeak(stream,sink,stream.strb,sink.strb,() => B(sink.strb.bitsRange -> true),false,false)
+      Axi4Priv.driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.bitsRange -> false),false,true)
       Axi4Priv.driveWeak(stream,sink,stream.last,sink.last,null,false,true)
       Axi4Priv.driveWeak(stream,sink,stream.id,sink.id,null,true,true)
     }
@@ -469,7 +469,7 @@ object Axi4B{
 
       Axi4Priv.driveWeak(stream,sink,stream.id,sink.id,null,true,true)
       Axi4Priv.driveWeak(stream,sink,stream.resp,sink.resp,() => Axi4.resp.OKAY,false,true)
-      Axi4Priv.driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),false,true)
+      Axi4Priv.driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.bitsRange -> false),false,true)
     }
   }
 }
@@ -484,7 +484,7 @@ object Axi4R{
       Axi4Priv.driveWeak(stream,sink,stream.last,sink.last,null,false,true)
       Axi4Priv.driveWeak(stream,sink,stream.id,sink.id,null,true,true)
       Axi4Priv.driveWeak(stream,sink,stream.resp,sink.resp,() => Axi4.resp.OKAY,false,true)
-      Axi4Priv.driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),false,true)
+      Axi4Priv.driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.bitsRange -> false),false,true)
     }
   }
 }

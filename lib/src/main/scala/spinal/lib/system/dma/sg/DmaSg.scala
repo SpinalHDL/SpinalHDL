@@ -852,7 +852,7 @@ object DmaSg{
 
         val first = io.read.rsp.first
         val last = io.read.rsp.last
-        for (byteId <- memory.ports.m2b.cmd.mask.range) {
+        for (byteId <- memory.ports.m2b.cmd.mask.bitsRange) {
           val toLow = first && byteId < context.start
           val toHigh = last && byteId > context.stop
           memory.ports.m2b.cmd.mask(byteId) := !toLow && !toHigh
