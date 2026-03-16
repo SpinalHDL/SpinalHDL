@@ -22,18 +22,18 @@ object AddressGranularity extends Enumeration {
 }
 
 
-/** This class is used for configuring the Wishbone class
+/** This class is used for configuring the Wishbone class.
   * @param addressWidth size in bits of the address line
   * @param dataWidth size in bits of the data line
-  * @param selWidth size in bits of the selection line, deafult to 0 (disabled)
+  * @param selWidth size in bits of the selection line, default to 0 (disabled)
   * @param useSTALL activate the stall line, default to false (disabled)
   * @param useLOCK activate the lock line, default to false (disabled)
   * @param useERR activate the error line, default to false (disabled)
   * @param useRTY activate the retry line, default to false (disabled)
-  * @param useCTI activate the CTI line, deafult to 0 (disabled)
-  * @param tgaWidth size in bits of the tag address linie, deafult to 0 (disabled)
-  * @param tgcWidth size in bits of the tag cycle line, deafult to 0 (disabled)
-  * @param tgdWidth size in bits of the tag data line, deafult to 0 (disabled)
+  * @param useCTI activate the CTI line, default to 0 (disabled)
+  * @param tgaWidth size in bits of the tag address line, default to 0 (disabled)
+  * @param tgcWidth size in bits of the tag cycle line, default to 0 (disabled)
+  * @param tgdWidth size in bits of the tag data line, default to 0 (disabled)
   * @param useBTE activate the Burst Type Extension, default to false (disabled)
   * @param addressGranularity This specifies the address granularity for the bus.
   * @example {{{
@@ -81,8 +81,8 @@ case class WishboneConfig(
   def withBurstType              : WishboneConfig = this.copy(useCTI = true, useBTE = true)
 }
 
-/** This class rappresent a Wishbone bus
-  * @param config an istance of WishboneConfig, it will be used to configurate the Wishbone Bus
+/** This class represents a Wishbone bus.
+  * @param config an instance of WishboneConfig, it will be used to configure the Wishbone Bus
   */
 case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   /////////////////////
@@ -96,9 +96,9 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   val DAT_MISO  = Bits(config.dataWidth bits)
   val DAT_MOSI  = Bits(config.dataWidth bits)
 
-  ///////////////////////////
-  // OPTIONAL FLOW CONTROS //
-  ///////////////////////////
+  ////////////////////////////
+  // OPTIONAL FLOW CONTROLS //
+  ////////////////////////////
   val SEL       = if(config.useSEL)   Bits(config.selWidth bits) else null
   val STALL     = if(config.useSTALL) Bool()                     else null
   val ERR       = if(config.useERR)   Bool()                     else null
@@ -138,7 +138,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     */
   override def clearAll() : this.type = {
     /////////////////////
-    // MINIMAl SIGLALS //
+    // MINIMAL SIGNALS //
     /////////////////////
     if( isMasterInterface) this.CYC.clear()
     if( isMasterInterface) this.ADR.clearAll()
@@ -148,9 +148,9 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     if( isMasterInterface) this.WE.clear()
     if(!isMasterInterface) this.ACK.clear()
 
-    ///////////////////////////
-    // OPTIONAL FLOW CONTROS //
-    ///////////////////////////
+    ////////////////////////////
+    // OPTIONAL FLOW CONTROLS //
+    ////////////////////////////
     if(this.config.useSTALL && !isMasterInterface) this.STALL.clear()
     if(this.config.useERR   && !isMasterInterface) this.ERR.clear()
     if(this.config.useLOCK  &&  isMasterInterface) this.LOCK.clear()
@@ -170,9 +170,9 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     this
   }
 
-  /** Connect common Wishbone signals
-    * this fuction will auto resize the slave address line
-    * only if slave.addressWidth <= master.addressWidth
+  /** Connect common Wishbone signals.
+    * This function will auto resize the slave address line
+    * only if [[slave.addressWidth <= master.addressWidth]]. 
     * @example{{{wishboneMaster >> wishboneSlave}}}
     */
   def >> (that : Wishbone) : Unit = {
@@ -189,9 +189,9 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     that.WE       := this.WE
     this.ACK      := that.ACK
 
-    ///////////////////////////
-    // OPTIONAL FLOW CONTROS //
-    ///////////////////////////
+    ////////////////////////////
+    // OPTIONAL FLOW CONTROLS //
+    ////////////////////////////
     Wishbone.driveWeak(that.STALL,this.STALL,null,false,true)
     Wishbone.driveWeak(that.ERR,this.ERR,null,false,true)
     Wishbone.driveWeak(this.LOCK,that.LOCK,null,false,true)
@@ -210,7 +210,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     Wishbone.driveWeak(this.TGD_MOSI,that.TGD_MOSI,null,false,true)
   }
 
-  /** Connect common Wishbone signals
+  /** Connect common Wishbone signals.
     * @example{{{wishboneSlave << wishboneMaster }}}
     */
   def << (that : Wishbone) : Unit = that >> this
@@ -218,9 +218,9 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   /** Connect to a wishbone bus with optional resize.
     * This will drop all the signals that are not in common
     * @param that the wishbone bus that i want to connect, must be a wishbone slave
-    * @param allowDataResize allow the resize of the data lines, deafult to false
-    * @param allowAddressResize allow the resize of the address line, deafult to false
-    * @param allowTagResize allow the resize of the tag lines, deafult to false
+    * @param allowDataResize allow the resize of the data lines, default to false
+    * @param allowAddressResize allow the resize of the address line, default to false
+    * @param allowTagResize allow the resize of the tag lines, default to false
     */
   def connectTo(that : Wishbone, allowDataResize : Boolean = false, allowAddressResize : Boolean = false, allowTagResize : Boolean = false) : Unit = {
     /////////////////////
@@ -235,9 +235,9 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     Wishbone.driveWeak(this.DAT_MOSI,that.DAT_MOSI,null,allowDataResize,false)
     Wishbone.driveWeak(that.DAT_MISO,this.DAT_MISO,null,allowDataResize,false)
 
-    ///////////////////////////
-    // OPTIONAL FLOW CONTROS //
-    ///////////////////////////
+    ////////////////////////////
+    // OPTIONAL FLOW CONTROLS //
+    ////////////////////////////
     Wishbone.driveWeak(that.STALL,this.STALL,null,false,true)
     Wishbone.driveWeak(that.ERR,this.ERR,null,false,true)
     Wishbone.driveWeak(this.LOCK,that.LOCK,null,false,true)
@@ -276,13 +276,13 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
 object Wishbone{
   def apply(addressWidth : Int, dataWidth : Int) : Wishbone = Wishbone(WishboneConfig(addressWidth, dataWidth))
 
-  /** Connect to signal with some check
-    * This will ceck if the two signal are null, and if one of them are, connect with some condition
+  /** Connect to signal with some check.
+    * This will check if the two signal are null, and if one of them are, connect with some condition.
     * @param from must be an input
     * @param to must be an output
     * @param defaultValue if "from" is null, drive "to" with this value
     * @param allowResize allow resize allow the resize of the "from" signal
-    * @param allowDrop allow to not connect if one of the two siglar are null
+    * @param allowDrop allow to not connect if one of the two signals are null
     */
   def driveWeak[T <: Data](from: T, to: T, defaultValue: () => T, allowResize : Boolean, allowDrop: Boolean){
     (from != null, to != null) match{

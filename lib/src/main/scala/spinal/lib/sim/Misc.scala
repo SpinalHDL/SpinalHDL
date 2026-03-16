@@ -130,7 +130,11 @@ class RandomGen(var state : Long = simRandom.nextLong()){
 case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset : Long = 0l){
   val content = mutable.HashMap[Long, Array[Byte]]()
 
-  def getElseAlocate(idx : Long) = {
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'getElseAllocate' instead", since = "1.15.0")
+  def getElseAlocate(idx : Long) = getElseAllocate(idx)
+
+  def getElseAllocate(idx : Long) = {
     content.get(idx) match {
       case Some(value) => value
       case None => val rand = new RandomGen(seed ^ ((idx << 20) + randOffset))
@@ -142,18 +146,18 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
   def write(address : Long, data : Int) : Unit = {
     for(i <- 0 to 3) {
       val a = address + i
-      getElseAlocate((a >> 20))(a.toInt & 0xFFFFF) = (data >> (i*8)).toByte
+      getElseAllocate((a >> 20))(a.toInt & 0xFFFFF) = (data >> (i*8)).toByte
     }
   }
   def write(address : Long, data : Long) : Unit = {
     for(i <- 0 to 7) {
       val a = address + i
-      getElseAlocate((a >> 20))(a.toInt & 0xFFFFF) = (data >> (i*8)).toByte
+      getElseAllocate((a >> 20))(a.toInt & 0xFFFFF) = (data >> (i*8)).toByte
     }
   }
 
   def write(address : Long, data : Byte) : Unit = {
-    getElseAlocate((address >> 20))(address.toInt & 0xFFFFF) = data
+    getElseAllocate((address >> 20))(address.toInt & 0xFFFFF) = data
   }
 
   def write(address : Long, data : Array[Byte]) : Unit = {
@@ -161,7 +165,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
     var ptr = address
     var offset = 0
     while(offset != size){
-      val mem = getElseAlocate((ptr >> 20))
+      val mem = getElseAllocate((ptr >> 20))
       do{
         mem(ptr.toInt & 0xFFFFF) = data(offset)
         ptr += 1
@@ -174,7 +178,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
     var ptr = address
     var offset = 0
     while(offset != size){
-      val mem = getElseAlocate((ptr >> 20))
+      val mem = getElseAllocate((ptr >> 20))
       do{
         if((mask(offset >> 3) & (1 << (offset & 7))) != 0) mem(ptr.toInt & 0xFFFFF) = data(offset)
         ptr += 1
@@ -187,7 +191,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
     var ptr = address
     var offset = 0
     while(offset != size){
-      val mem = getElseAlocate((ptr >> 20))
+      val mem = getElseAllocate((ptr >> 20))
       do{
         if(mask(offset)) mem(ptr.toInt & 0xFFFFF) = data(offset)
         ptr += 1
@@ -200,7 +204,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
     var ptr = address
     var offset = 0
     while(offset != size){
-      val mem = getElseAlocate((ptr >> 20))
+      val mem = getElseAllocate((ptr >> 20))
       do{
         if(mask(offset+dataSkip)) mem(ptr.toInt & 0xFFFFF) = data(offset+dataSkip)
         ptr += 1
@@ -210,7 +214,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
   }
 
   def read(address : Long) : Byte = {
-    getElseAlocate((address >> 20))(address.toInt & 0xFFFFF)
+    getElseAllocate((address >> 20))(address.toInt & 0xFFFFF)
   }
 
   def readBytes(address : Long, size : Int) : Array[Byte] = {
@@ -218,7 +222,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
     var ptr = address
     var offset = 0
     while(offset != size){
-      val mem = getElseAlocate((ptr >> 20))
+      val mem = getElseAllocate((ptr >> 20))
       do{
         data(offset) = mem(ptr.toInt & 0xFFFFF)
         ptr += 1
@@ -232,7 +236,7 @@ case class SparseMemory(val seed : Long = simRandom.nextLong(), var randOffset :
     var ptr = address
     var offset = 0
     while(offset != size) {
-      val mem = getElseAlocate((ptr >> 20))
+      val mem = getElseAllocate((ptr >> 20))
       do{
         dst(offset + dstOffset) = mem(ptr.toInt & 0xFFFFF)
         ptr += 1

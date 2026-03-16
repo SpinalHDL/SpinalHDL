@@ -265,7 +265,7 @@ class ComponentEmitterVhdl(
     syncGroups.valuesIterator.foreach(emitSynchronous(component, _))
 
     component.dslBody.walkStatements{
-      case s: TreeStatement => s.algoIncrementale = algoIdIncrementalBase
+      case s: TreeStatement => s.algoIncremental = algoIdIncrementalBase
       case s                =>
     }
   }

@@ -57,7 +57,7 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10*wordInc, 200), WishboneTransaction(0, 2)), we = true)
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(10*wordInc), WishboneTransaction(0)), we = false)
 
-      scoreboard.checkEmptyness()
+      scoreboard.checkEmptiness()
 //
 //      for(repeat <- 0 until 100){
 //        driver.drive(for(x <- 1 to 10) yield WishboneTransaction(address=10).randomizeData(dut.io.bus.config.dataWidth), we = true)

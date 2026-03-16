@@ -7,7 +7,7 @@ import scala.collection.Seq
 
 
 case class PlicTarget(id : Int, gateways : Seq[PlicGateway], priorityWidth : Int) extends Area{
-  assert(gateways.map(_.id).distinct.length == gateways.length, "PLIC gatways have duplicated ID")
+  assert(gateways.map(_.id).distinct.length == gateways.length, "PLIC gateways have duplicated ID")
   val ie = Vec.fill(gateways.length)(Bool())
   val threshold = UInt(priorityWidth bits)
   val idWidth = log2Up((gateways.map(_.id) ++ Seq(0)).max + 1)

@@ -66,7 +66,7 @@ package object sim {
 
 
   private def btToSignal(manager: SimManager, bt: BaseNode) = {
-    if(bt.algoIncrementale != -1){
+    if(bt.algoIncremental != -1){
       SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation.\n- To fix it, call simPublic() on it during the elaboration.\nIf that doesn't resolve the issue, ensure that the signal has a name. (you can force a name via : mySignal.setName(...) durring the hardware elaboration)")
     }
 
@@ -88,7 +88,7 @@ package object sim {
       }
       case Some(tag) => {
         for(i <- 0 until tag.mapping.size; mapping = tag.mapping(i)){
-          if(mem.algoIncrementale != -1){
+          if(mem.algoIncremental != -1){
             SimError(s"UNACCESSIBLE SIGNAL : $mem isn't accessible during the simulation.\n- To fix it, call simPublic() on it during the elaboration.")
           }
           val symbol = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](mem.algoInt + i)
@@ -114,7 +114,7 @@ package object sim {
       case Some(tag) => {
         var data = BigInt(0)
         for(i <- 0 until tag.mapping.size; mapping = tag.mapping(i)){
-          if(mem.algoIncrementale != -1){
+          if(mem.algoIncremental != -1){
             SimError(s"UNACCESSIBLE SIGNAL : $mem isn't accessible during the simulation.\n- To fix it, call simPublic() on it during the elaboration.")
           }
           val symbol = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](mem.algoInt + i)
@@ -284,23 +284,51 @@ package object sim {
     }
   }
 
+  /**
+    * Register the `body` code to be called at a simulation time `delay` steps
+    * after the current timestep.
+    */
   def delayed(delay : Long)(body : => Unit) = {
     SimManagerContext.current.manager.schedule(delay)(body)
   }
 
+  /**
+    * Register the `body` code to be called at a simulation duration `delay`
+    * after the current timestep.
+    */
   def delayed(delay: TimeNumber)(body: => Unit) = {
     SimManagerContext.current.manager.schedule(timeToLong(delay))(body)
   }
 
-  def periodicaly(delay : Long)(body : => Unit) : Unit = {
+  /**
+    * Register `body` for call periodically each `delay` simulation step from
+    * current timestep.
+    */
+  def periodically(delay : Long)(body : => Unit) : Unit = {
     SimManagerContext.current.manager.schedule(delay){
       body
-      periodicaly(delay)(body)
+      periodically(delay)(body)
     }
   }
 
-  def periodicaly(delay : TimeNumber)(body : => Unit) : Unit = {
-    periodicaly(timeToLong(delay))(body)
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.15.0")
+  def periodicaly(delay: Long)(body: => Unit): Unit = {
+    periodically(delay)(body)
+  }
+
+  /**
+    * Register `body` for call periodically each `delay` simulation duration from
+    * current timestep.
+    */
+  def periodically(delay : TimeNumber)(body : => Unit) : Unit = {
+    periodically(timeToLong(delay))(body)
+  }
+
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.15.0")
+  def periodicaly(delay : TimeNumber)(body: => Unit): Unit = {
+    periodically(delay)(body)
   }
 
   def simThread = SimManagerContext.current.thread

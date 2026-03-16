@@ -33,7 +33,7 @@ object ScalaUniverse {
 
 
 trait BaseNode extends ScalaLocated{
-  var algoInt, algoIncrementale = 0
+  var algoInt, algoIncremental = 0
 
   private[core] def getClassIdentifier: String = this.getClass.getName.split('.').last.replace("$","")
 

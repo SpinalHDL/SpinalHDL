@@ -65,7 +65,7 @@ class SpinalSimWishboneBusInterfaceTester extends SpinalAnyFunSuite{
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(0, 100), WishboneTransaction(1 * wordInc, 2)), we = true)
       dri.drive(scala.collection.immutable.Seq(WishboneTransaction(0), WishboneTransaction(1 * wordInc)), we = false)
 
-      sco.checkEmptyness()
+      sco.checkEmptiness()
     }
   }
 

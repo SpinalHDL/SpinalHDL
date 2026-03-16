@@ -332,7 +332,7 @@ case class PipelinedMemoryBusInterconnect(){
         connection.connector(m, s)
       }else{
         val tmp = cloneOf(s)
-        m >> tmp //Adapte the bus kind.
+        m >> tmp // Adapt the bus kind.
         connection.connector(tmp,s)
       }
     }

@@ -84,7 +84,7 @@ object PlicMapper{
     
     // for each gateway, generate priority register & pending bit as needed
     val gatewayMapping = for(gateway <- gateways) yield new Area{
-      if(gatewayPriorityWriteGen && !gateway.priority.hasAssignement) bus.drive(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift), documentation = s"Driving priority for gateway ${gateway.getName()}. Inits to 0 (interrupt is disabled)" ) init(0)
+      if(gatewayPriorityWriteGen && !gateway.priority.hasAssignment) bus.drive(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift), documentation = s"Driving priority for gateway ${gateway.getName()}. Inits to 0 (interrupt is disabled)" ) init(0)
       if(gatewayPriorityReadGen) bus.read(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift), documentation = s"Read priority for gateway ${gateway.getName()}")
       if(gatewayPendingReadGen) bus.read(gateway.ip, address = gatewayPendingOffset + (gateway.id/bus.busDataWidth)*bus.busDataWidth/8, bitOffset = gateway.id % bus.busDataWidth, documentation = s"Read Pending bit for gateway " + gateway.getName())
     }
@@ -134,7 +134,7 @@ object PlicMapper{
     val targetMapping = for(target <- targets) yield new Area {
       val thresholdOffset = targetThresholdOffset + (target.id << targetThresholdShift)
       val claimOffset = targetClaimOffset + (target.id << targetClaimShift)
-      if(targetThresholdWriteGen && !target.threshold.hasAssignement) bus.drive(target.threshold, address = thresholdOffset, documentation = s"Drive target threshold for target ${target.id}. inits to 0") init (0)
+      if(targetThresholdWriteGen && !target.threshold.hasAssignment) bus.drive(target.threshold, address = thresholdOffset, documentation = s"Drive target threshold for target ${target.id}. inits to 0") init (0)
       if(targetThresholdReadGen) bus.read(target.threshold, address = thresholdOffset, documentation = s"Read target threshold for target ${target.id}")
       bus.read(target.claim, address = claimOffset, documentation = s"Read target claim for target ${target.id} ")
       bus.onRead(claimOffset) {
@@ -154,7 +154,7 @@ object PlicMapper{
       for ((gateway, gatewayIndex) <- gateways.zipWithIndex) {
         val address = targetEnableOffset + (target.id << targetEnableShift) + bus.busDataWidth/8 * (gateway.id / bus.busDataWidth)
         val bitOffset = gateway.id % bus.busDataWidth
-        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignement) bus.drive(target.ie(gatewayIndex), address, bitOffset, documentation = s"Drive target enable for gateway ${gatewayIndex} for target ${target.id}. inits to 0b0") init(False)
+        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignment) bus.drive(target.ie(gatewayIndex), address, bitOffset, documentation = s"Drive target enable for gateway ${gatewayIndex} for target ${target.id}. inits to 0b0") init(False)
         if(targetEnableReadGen)  bus.read(target.ie(gatewayIndex),  address, bitOffset, documentation = s"Read target enable for gateway ${gatewayIndex} for target ${target.id}.")
       }
     }

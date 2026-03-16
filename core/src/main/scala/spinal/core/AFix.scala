@@ -425,7 +425,7 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   }
 
   /**
-   * Mutiplies `this` by the right hand side AFix value expanding ranges as necessary
+   * Multiplies `this` by the right hand side AFix value expanding ranges as necessary
    * @param right Value to multiply `this` by
    * @return Product
    */

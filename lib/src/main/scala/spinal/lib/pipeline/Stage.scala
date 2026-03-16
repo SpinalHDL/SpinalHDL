@@ -163,7 +163,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
   def forkIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.forks += nameFromLocation(CombInit(cond), "forkRequest")
   def spawnIt(cond : Bool)(implicit loc: Location) : Unit = internals.request.spawns += nameFromLocation(CombInit(cond), "spawnRequest")
 
-  //Not being root will not clear the output valid of the stage, which can be quite usefull
+  // Not being root will not clear the output valid of the stage, which can be quite useful.
   def flushIt(cond : Bool, root : Boolean = true) : Unit = {
     internals.request.flush += cond
     if(root) internals.request.flushRoot += cond
@@ -195,7 +195,7 @@ class Stage(implicit _pip: Pipeline = null)  extends Area {
     if(internals.arbitration.isFlushed == null) internals.arbitration.isFlushed = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isFlushed
   }
-  //So, not realy well named, as it just check if a transaction is moving to the next stage (output.valid && output.ready)
+  // So, not really well named, as it just check if a transaction is moving to the next stage (output.valid && output.ready).
   def isForked : Bool = {
     if(internals.arbitration.isForked == null) internals.arbitration.isForked = ContextSwapper.outsideCondScopeData(Bool())
     internals.arbitration.isForked

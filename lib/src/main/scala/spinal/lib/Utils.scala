@@ -1072,13 +1072,13 @@ object LatencyAnalysis {
 
   //TODO mather about clock and reset wire
   def impl(from: Expression, to: Expression): Integer = {
-    val walkedId = GlobalData.get.allocateAlgoIncrementale()
+    val walkedId = GlobalData.get.allocateAlgoIncremental()
     val pendingQueues = new Array[mutable.ArrayBuffer[BaseNode]](3)
     for(i <- 0 until pendingQueues.length) pendingQueues(i) = new ArrayBuffer[BaseNode]
     def walk(that: BaseNode): Boolean = {
-      if(that.algoIncrementale == walkedId)
+      if(that.algoIncremental == walkedId)
         return false
-      that.algoIncrementale = walkedId
+      that.algoIncremental = walkedId
       if(that == from)
         return true
 

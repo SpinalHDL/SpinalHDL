@@ -37,7 +37,7 @@ class TimingExtractorSdc(path : File, marginFactor : Double) extends TimingExtra
 
   def freqToTimeSingle(cd : ClockDomain) = (cd.frequency match {
     case f : FixedFrequency => f.getValue.toTime.toBigDecimal * 1e9
-    case _ => SpinalError("Unknown frequancy for " + cd.clock)
+    case _ => SpinalError("Unknown frequency for " + cd.clock)
   })*marginFactor
 
   def writeFalsePath(target: Any, tag: crossClockFalsePath) : Unit = {
@@ -111,8 +111,8 @@ object TimingExtractor {
       val frequencies = mutable.LinkedHashSet[ClockDomain.ClockFrequency]()
       frequencies ++= cds.map(_.frequency)
       if(frequencies.size > 1) {
-        val filtred = frequencies.filter(!_.isInstanceOf[ClockDomain.UnknownFrequency])
-        frequencies.clear(); frequencies ++= filtred
+        val filtered = frequencies.filter(!_.isInstanceOf[ClockDomain.UnknownFrequency])
+        frequencies.clear(); frequencies ++= filtered
       }
       assert(frequencies.size == 1)
       listener.writeClock(clock, frequencies.head)

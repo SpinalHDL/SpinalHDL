@@ -120,7 +120,7 @@ class CacheTester extends AnyFunSuite{
     tester.doSim("manual") { tb =>
 //      disableSimWave()
 
-      periodicaly(10000) {
+      periodically(10000) {
         tb.mastersStuff.foreach(_.agent.driver.driver.randomizeStallRate())
         tb.slavesStuff.foreach(_.model.driver.driver.randomizeStallRate())
       }

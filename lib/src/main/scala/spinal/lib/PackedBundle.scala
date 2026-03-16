@@ -217,7 +217,7 @@ class PackedBundle extends Bundle {
 
 /** An enhanced form of PackedBundle with Word-centric packing.
   * Offers all the same implicit packing assignment functions, but applies packing to an assigned word.
-  * - inWord(WordIndex) - Indicates which word to pack into. Must be used after a pack assigment. If no pack range was given then the entire data length will be assumed. Ranges that exceed the word will wrap into subsequent words.
+  * - inWord(WordIndex) - Indicates which word to pack into. Must be used after a pack assignment. If no pack range was given then the entire data length will be assumed. Ranges that exceed the word will wrap into subsequent words.
   *
   * Like PackedBundle, providing no pack or word assignments will place data immediately after the last.
   *

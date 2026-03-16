@@ -170,8 +170,8 @@ object DmaSg{
     def canOutput = outputsPorts.nonEmpty
 
     assert(linkedListCapable || directCtrlCapable, "A DMA channel should be at least controllable via a linked list or direct access")
-    assert(!(!directCtrlCapable && selfRestartCapable), "Channel self restart is only available if direct controle is enabled")
-    assert(memoryToMemory || inputsPorts.nonEmpty || outputsPorts.nonEmpty, "A DMA channel require at least one opperation (m->m, m->s, s->m)")
+    assert(!(!directCtrlCapable && selfRestartCapable), "Channel self restart is only available if direct control is enabled")
+    assert(memoryToMemory || inputsPorts.nonEmpty || outputsPorts.nonEmpty, "A DMA channel require at least one operation (m->m, m->s, s->m)")
     val withProgressCounter = progressProbes || halfCompletionInterrupt || linkedListCapable && canInput
     val withProgressCounterM2s = progressProbes || halfCompletionInterrupt
 
@@ -273,7 +273,7 @@ object DmaSg{
       val priority = Reg(UInt(p.memory.priorityWidth bits)) init(0)
       val weight = Reg(UInt(p.weightWidth bits)) init(0)
       val selfRestart = cp.selfRestartCapable generate Reg(Bool())
-      val readyToStop = True //todo Check s2b b2s transiants
+      val readyToStop = True //todo Check s2b b2s transients
 
 
 
@@ -1134,8 +1134,8 @@ object DmaSg{
         val oh = OHMasking.first(requests)
         val sel = OHMasking.first(requests)
         def channel[T <: Data](f: ChannelLogic => T, keep : ChannelLogic => Boolean = _ => true) = {
-          val (ohFiltred, channelsFiltred) = (oh.toSeq, channels).zipped.filter((a,b) => keep(b))
-          MuxOH(B(ohFiltred), channelsFiltred.map(f))
+          val (ohFiltered, channelsFiltered) = (oh.toSeq, channels).zipped.filter((a,b) => keep(b))
+          MuxOH(B(ohFiltered), channelsFiltered.map(f))
         }
         val head = channel(_.ll.head)
         val isJustASink = channel(_.descriptorValid)
@@ -1694,7 +1694,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     val reservedSink = mutable.HashSet[Int]()
   }
 
-  periodicaly(10*1000){
+  periodically(10*1000){
     outputs.foreach(_.readyDriver.factor = simRandom.nextFloat)
   }
 

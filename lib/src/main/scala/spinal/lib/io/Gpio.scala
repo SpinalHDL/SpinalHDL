@@ -15,7 +15,7 @@ object Gpio {
                        var input : Seq[Int] = null,   //List of pin id which can be inputs (null mean all)
                        var output : Seq[Int]  = null, //List of pin id which can be outputs (null mean all)
                        interrupt : Seq[Int]  = Nil,   //List of pin id which can be used as interrupt source
-                       readBufferLength : Int = 2)    //Number of syncronisation stages
+                       readBufferLength : Int = 2)    //Number of synchronization stages
 
   abstract class Ctrl[T <: spinal.core.Data with IMasterSlave](p: Gpio.Parameter,
                                                                 busType: HardType[T],
@@ -32,12 +32,12 @@ object Gpio {
     }
 
     val mapper = factory(io.bus)
-    val syncronized = Delay(io.gpio.read, p.readBufferLength)
-    val last = RegNext(syncronized)
+    val isSynchronized = Delay(io.gpio.read, p.readBufferLength)
+    val last = RegNext(isSynchronized)
 
 
     for(i <- 0 until p.width){
-      if(p.input.contains(i)) mapper.read(syncronized(i), 0x00, i)
+      if(p.input.contains(i)) mapper.read(isSynchronized(i), 0x00, i)
       if(p.output.contains(i)) mapper.driveAndRead(io.gpio.write(i), 0x04, i) else io.gpio.write(i) := False
       if(p.output.contains(i) && p.input.contains(i)) mapper.driveAndRead(io.gpio.writeEnable(i), 0x08, i) init(False) else io.gpio.writeEnable(i) := Bool(p.output.contains(i))
     }
@@ -47,10 +47,10 @@ object Gpio {
         val high, low, rise, fall = Bits(p.width bits)
       }
 
-      val valid = ((enable.high & syncronized)
-                | (enable.low & ~syncronized)
-                | (enable.rise & (syncronized & ~last))
-                | (enable.fall & (~syncronized & last)))
+      val valid = ((enable.high & isSynchronized)
+                | (enable.low & ~isSynchronized)
+                | (enable.rise & (isSynchronized & ~last))
+                | (enable.fall & (~isSynchronized & last)))
 
       for(i <- 0 until p.width){
         if(p.interrupt.contains(i)){

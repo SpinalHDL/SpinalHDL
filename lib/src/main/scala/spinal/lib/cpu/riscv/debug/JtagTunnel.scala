@@ -35,8 +35,8 @@ class JtagTunnel(ctrl : JtagTapInstructionCtrl, instructionWidth : Int) extends 
     }
   }
 
-  //Basicaly, with JTAG, especialy if you are in a chain, the only reference you have in a dr-scan is when it finish,
-  //as you may have some extra dr-scan cycle at the beggining to propagate through the chaine
+  // Basically, with JTAG, especially if you are in a chain, the only reference you have in a dr-scan is when it finish,
+  // as you may have some extra dr-scan cycle at the beginning to propagate through the chain.
   val tdiBuffer = Delay(ctrl.tdi, 1+7+1)
   val tdoBuffer = False
   val tdoShifter = Delay(tdoBuffer, 4)

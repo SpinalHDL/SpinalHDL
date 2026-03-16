@@ -28,7 +28,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
   }
 
   /** Drive the wishbone bus as master.
-    * @param transactions a sequence of transactions that compouse the wishbone cycle
+    * @param transactions a sequence of transactions that compose the wishbone cycle
     */
   def sendBlockAsMaster(transactions: Seq[WishboneTransaction], we: Boolean): Unit = {
     bus.CYC #= true
@@ -47,7 +47,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
   }
 
   /** Drive the wishbone bus as master in a pipelined way.
-    * @param transactions a sequence of transactions that compouse the wishbone cycle
+    * @param transactions a sequence of transactions that compose the wishbone cycle
     */
   def sendPipelinedBlockAsMaster(transactions: Seq[WishboneTransaction], we: Boolean): Unit = {
     bus.CYC #= true
@@ -65,7 +65,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     bus.CYC #= false
   }
 
-  /** Drive the wishbone bus as slave with a transaction, and acknoledge the master.
+  /** Drive the wishbone bus as slave with a transaction, and acknowledge the master.
     * @param transaction The transaction to send.
     */
   def sendAsSlave(transaction : WishboneTransaction): Unit = {
@@ -78,7 +78,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
 
   /** Drive the wishbone bus as a slave.
     * this function can hang if the master require more transactions than specified
-    * @param transactions a sequence of transactions that compouse the wishbone cycle
+    * @param transactions a sequence of transactions that compose the wishbone cycle
     */
   def sendBlockAsSlave(transactions: Seq[WishboneTransaction]): Unit = {
     transactions.foreach{ transaction =>
@@ -88,7 +88,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
 
   /** Drive the wishbone bus as a slave in a pipelined way.
     * this function can hang if the master require more transactions than specified
-    * @param transactions a sequence of transactions that compouse the wishbone cycle
+    * @param transactions a sequence of transactions that compose the wishbone cycle
     */
   def sendPipelinedBlockAsSlave(transactions: Seq[WishboneTransaction]): Unit = {
     bus.ACK #= true
@@ -101,8 +101,8 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
   }
 
   /** Drive the wishbone bus.
-    * This will utomatically selects the wright function to use
-    * @param transactions a sequence of transactions that compouse the wishbone cycle
+    * This will automatically selects the right function to use.
+    * @param transactions a sequence of transactions that compose the wishbone cycle
     */
   def drive(transactions: Seq[WishboneTransaction], we: Boolean= true): Unit = {
     (bus.isMasterInterface,bus.config.isPipelined) match {
@@ -113,7 +113,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     }
   }
 
-  /** Dumb slave acknoledge.
+  /** Dumb slave acknowledgment.
     */
   def slaveAckResponse(): Unit = {
     clockdomain.waitSamplingWhere(busStatus.isTransfer)
@@ -122,7 +122,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     bus.ACK #= false
   }
 
-  /** Dumb acknoledge, as a pipelined slave.
+  /** Dumb acknowledgment, as a pipelined slave.
     */
   def slaveAckPipelinedResponse(): Unit = {
     clockdomain.waitSamplingWhere(busStatus.isCycle)
@@ -142,8 +142,8 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     cycle.join()
   }
 
-  /** Dumb slave acknoledge.
-    * This will utomatically selects the wright function to use
+  /** Dumb slave acknowledgment.
+    * This will automatically selects the right function to use.
     */
   def slaveSink(): Unit = {
     val dummy = fork{

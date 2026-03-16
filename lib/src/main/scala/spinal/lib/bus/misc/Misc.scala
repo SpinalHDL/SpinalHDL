@@ -84,10 +84,10 @@ object AddressMapping{
 
 
 /*
-- Provide offset address for decoder substraction
+- Provide offset address for decoder subtraction
 - Provide a inverted mapping (default mapping)
-- Get maximal sequencial size
-- Calculate a random address from the mapping of a given sequencial size
+- Get maximal sequential size
+- Calculate a random address from the mapping of a given sequential size
 -  //Shift things ?????
  */
 trait AddressMapping{
@@ -169,11 +169,11 @@ case class OrMapping(conds : Seq[AddressMapping]) extends AddressMapping{
   override def randomPick() : BigInt = conds.randomPick().randomPick()
   override def withOffset(addressOffset: BigInt): AddressMapping = OrMapping(conds.map(_.withOffset(addressOffset)))
   override def intersectImpl(that : AddressMapping, path : List[AddressMapping] = Nil) : AddressMapping = {
-    val filtred = conds.map(_.intersectImpl(that, this :: path)).filter(_ != NeverMapping)
-    filtred.size match {
+    val filtered = conds.map(_.intersectImpl(that, this :: path)).filter(_ != NeverMapping)
+    filtered.size match {
       case 0 => NeverMapping
-      case 1 => filtred.head
-      case _ => OrMapping(filtred)
+      case 1 => filtered.head
+      case _ => OrMapping(filtered)
     }
   }
   override def maxSequentialSize : BigInt = conds.map(_.maxSequentialSize).min
@@ -424,10 +424,10 @@ case class SizeMappingInterleaved(base: BigInt, size: BigInt, blockSize : Int, p
 }
 
 
-/**
- * Model a transformation on a address, typicaly, an address decoder may apply an offset to each of its outputs
- */
-trait AddressTransformer{
+/** Model a transformation on a address, typically, an address decoder may apply
+  * an offset to each of its outputs
+  */
+trait AddressTransformer {
   def apply(address : BigInt) : BigInt
   def apply(address : UInt) : UInt
   def invert(address : BigInt) : BigInt

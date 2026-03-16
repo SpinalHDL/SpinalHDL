@@ -65,7 +65,7 @@ object PathTracer {
     }
   }
   def impl(from: Expression, to: Expression): Node = {
-    val walkedId = GlobalData.get.allocateAlgoIncrementale()
+    val walkedId = GlobalData.get.allocateAlgoIncremental()
     val keyToNode = mutable.LinkedHashMap[BaseNode, Node]()
 
     val toNode = new Node(to)
@@ -103,9 +103,9 @@ object PathTracer {
     }
 
     def foreach(that: BaseNode)(onUp : (BaseNode, Int) => Unit): Unit = {
-//      if(that.algoIncrementale == walkedId)
+//      if(that.algoIncremental == walkedId)
 //        return
-//      that.algoIncrementale = walkedId
+//      that.algoIncremental = walkedId
 //      if(that == from)
 //        return
 

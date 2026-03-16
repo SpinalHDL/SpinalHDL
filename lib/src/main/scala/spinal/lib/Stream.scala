@@ -1642,12 +1642,12 @@ class StreamFifo[T <: Data](val dataType: HardType[T],
 
       val sync = !withAsyncRead generate new Area{
         assert(!useVec)
-        val readArbitation = addressGen.m2sPipe(flush = io.flush)
+        val readArbitration = addressGen.m2sPipe(flush = io.flush)
         val readPort = ram.readSyncPort
         readPort.cmd := addressGen.toFlowFire
-        io.pop << readArbitation.translateWith(readPort.rsp)
+        io.pop << readArbitration.translateWith(readPort.rsp)
 
-        val popReg = RegNextWhen(ptr.pop, readArbitation.fire) init(0)
+        val popReg = RegNextWhen(ptr.pop, readArbitration.fire) init(0)
         ptr.popOnIo := popReg
         when(io.flush){ popReg := 0 }
       }
@@ -1925,13 +1925,13 @@ class StreamFifoCC[T <: Data](val dataType: HardType[T],
       popPtr := popPtrPlus
     }
 
-    val readArbitation = addressGen.m2sPipe()
+    val readArbitration = addressGen.m2sPipe()
     val readPort = ram.readSyncPort(clockCrossing = true)
     readPort.cmd := addressGen.toFlowFire
-    io.pop << readArbitation.translateWith(readPort.rsp)
+    io.pop << readArbitration.translateWith(readPort.rsp)
 
-    val ptrToPush = RegNextWhen(popPtrGray, readArbitation.fire) init(0)
-    val ptrToOccupancy = RegNextWhen(popPtr, readArbitation.fire) init(0)
+    val ptrToPush = RegNextWhen(popPtrGray, readArbitration.fire) init(0)
+    val ptrToOccupancy = RegNextWhen(popPtr, readArbitration.fire) init(0)
     io.popOccupancy := (fromGray(pushPtrGray) - ptrToOccupancy).resized
   }
 

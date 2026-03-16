@@ -27,9 +27,9 @@ class JoinLink(override val ups : Seq[Node], val down : Node) extends Link {
     down.valid := ups.map(_.isValid).andR
     ups.foreach(_.ready := down.isValid && down.isReady)
     for(key <- down.fromUp.payload){
-      val filtred = ups.filter(up => up.keyToData.contains(key) || up.fromUp.payload.contains(key))
-      filtred.size match {
-        case 1 => down(key) := filtred(0)(key)
+      val filtered = ups.filter(up => up.keyToData.contains(key) || up.fromUp.payload.contains(key))
+      filtered.size match {
+        case 1 => down(key) := filtered(0)(key)
       }
     }
   }

@@ -193,9 +193,9 @@ abstract class BitVector extends BaseType with Widthable {
   }
 
   /**
-    * Resize the bitVector to width
+    * Resize the BitVector to width
     * @example{{{ val res = myBits.resize(10) }}}
-    * @return a resized bitVector
+    * @return a resized BitVector
     */
   def resize(width: Int): BitVector
   def resize(width: BitCount): BitVector
