@@ -3,7 +3,7 @@ package spinal.lib.cpu.riscv.debug
 import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.bus.tilelink.{DebugId, M2sAgent, M2sParameters, M2sSource, M2sTransfers, Opcode, SizeRange}
+import spinal.lib.bus.tilelink.{DebugId, M2sAgent, M2sParameters, M2sSource, M2sTransfers, Opcode, SizeRange, fabric}
 import spinal.lib.cpu.riscv.RiscvHart
 import spinal.lib.cpu.riscv.debug._
 import spinal.lib.{OHMux, slave, traversableOnceBoolPimped}
@@ -111,9 +111,13 @@ class DebugModuleFiber() extends Area{
   }
 
   def makeSysbusTilelink() = new Area{
-    val node = spinal.lib.bus.tilelink.fabric.Node.master()
+    val dmNode = spinal.lib.bus.tilelink.fabric.Node.master()
+
+    val filter = new fabric.TransferFilter()
+    filter.up << dmNode
+
     val logic = Fiber build new Area {
-      node.m2s.parameters.load(M2sParameters(
+      dmNode.m2s.parameters.load(M2sParameters(
         addressWidth = 32,
         dataWidth = 32, //TODO
         masters = List(M2sAgent(
@@ -124,12 +128,14 @@ class DebugModuleFiber() extends Area{
           ))
         ))
       ))
-      node.m2s.setProposedFromParameters() // Here, we just ignore the negotiation phase
-      node.s2m.supported.load(node.s2m.proposed)
+      dmNode.m2s.setProposedFromParameters() // Here, we just ignore the negotiation phase
+      dmNode.s2m.supported.load(dmNode.s2m.proposed)
+
+      assert(harts.map(_.getXlen()).max == 32)
 
       val sb = thread.logic.io.sysBus
-      val a = node.bus.a
-      val d = node.bus.d
+      val a = dmNode.bus.a
+      val d = dmNode.bus.d
 
       a.arbitrationFrom(sb.cmd)
       a.opcode  := sb.cmd.wr.mux(Opcode.A.PUT_FULL_DATA, Opcode.A.GET)
