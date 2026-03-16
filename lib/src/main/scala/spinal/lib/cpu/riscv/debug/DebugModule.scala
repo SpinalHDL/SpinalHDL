@@ -8,12 +8,12 @@ case class DebugModuleCpuConfig(xlen : Int,
                                 flen : Int,
                                 withFpuRegAccess : Boolean)
 
-case class DebugModuleParameter(version : Int,
-                                harts : Int,
-                                progBufSize : Int,
-                                datacount : Int,
-                                hartsConfig : Seq[DebugModuleCpuConfig],
-                                withSysBus: Boolean = false)
+case class DebugModuleParameter(var version : Int,
+                                var harts : Int,
+                                var progBufSize : Int,
+                                var datacount : Int,
+                                var hartsConfig : Seq[DebugModuleCpuConfig],
+                                var withSysBus: Boolean = false)
 
 
 object DebugDmToHartOp extends SpinalEnum{
@@ -241,7 +241,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         io.sysBus.cmd.payload.wr := sysBusWrite
         io.sysBus.cmd.payload.address := sbaddress0
         io.sysBus.cmd.payload.data := sbdata0
-        io.sysBus.cmd.payload.size := 3
+        io.sysBus.cmd.payload.size := 3 //If you add capabilities here, please, update the debug module fiber makeSysbusTilelink
 
         when(sysBusBusy && io.sysBus.cmd.fire) {
           sysBusCmdValid := False

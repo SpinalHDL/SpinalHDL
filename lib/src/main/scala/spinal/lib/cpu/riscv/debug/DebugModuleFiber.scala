@@ -2,9 +2,11 @@ package spinal.lib.cpu.riscv.debug
 
 import spinal.core._
 import spinal.core.fiber._
+import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.tilelink.{DebugId, M2sAgent, M2sParameters, M2sSource, M2sTransfers, Opcode, SizeRange}
 import spinal.lib.cpu.riscv.RiscvHart
 import spinal.lib.cpu.riscv.debug._
-import spinal.lib.{OHMux, traversableOnceBoolPimped}
+import spinal.lib.{OHMux, slave, traversableOnceBoolPimped}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -14,28 +16,39 @@ class DebugModuleFiber() extends Area{
     harts += cpu
   }
 
+  def enableSysBus(): Unit = {
+    dmp.withSysBus = true;
+  }
+
   val ndmreset = Bool()
   val p = DebugTransportModuleParameter(
     addressWidth = 7,
     version = 1,
     idle = 7
   )
+
+  val dmp = DebugModuleParameter(
+    version = 0,
+    harts = 0,
+    progBufSize = 2,
+    datacount = 0,
+    hartsConfig = Nil,
+    withSysBus = false
+  )
+
   val cmCd = ClockDomain.current
   val debugBuses = ArrayBuffer[DebugBus]()
   val thread = Fiber build new Area{
-    val logic = DebugModule(
-      DebugModuleParameter(
-        version = p.version + 1,
-        harts = harts.size,
-        progBufSize = 2,
-        datacount = harts.map(_.getXlen()).max/32,
-        hartsConfig = List(DebugModuleCpuConfig(
-          xlen = harts.map(_.getXlen()).max,
-          flen = harts.map(_.getFlen()).max,
-          withFpuRegAccess = false
-        ))
-      )
-    )
+    dmp.version = p.version + 1;
+    dmp.harts = harts.size;
+    dmp.datacount = harts.map(_.getXlen()).max/32;
+    dmp.hartsConfig = List(DebugModuleCpuConfig(
+      xlen = harts.map(_.getXlen()).max,
+      flen = harts.map(_.getFlen()).max,
+      withFpuRegAccess = false
+    ))
+
+    val logic = DebugModule(dmp)
 
     ndmreset := logic.io.ndmreset
 
@@ -94,6 +107,45 @@ class DebugModuleFiber() extends Area{
       )
       db <> logic.io.bus
       val instruction = logic.io.instruction.toIo
+    }
+  }
+
+  def makeSysbusTilelink() = new Area{
+    val node = spinal.lib.bus.tilelink.fabric.Node.master()
+    val logic = Fiber build new Area {
+      node.m2s.parameters.load(M2sParameters(
+        addressWidth = 32,
+        dataWidth = 32, //TODO
+        masters = List(M2sAgent(
+          name = null,
+          mapping = List(M2sSource(
+            id = SizeMapping(0,1),
+            emits = M2sTransfers.allGetPut(SizeRange(1, 4))
+          ))
+        ))
+      ))
+      node.m2s.setProposedFromParameters() // Here, we just ignore the negotiation phase
+      node.s2m.supported.load(node.s2m.proposed)
+
+      val sb = thread.logic.io.sysBus
+      val a = node.bus.a
+      val d = node.bus.d
+
+      a.arbitrationFrom(sb.cmd)
+      a.opcode  := sb.cmd.wr.mux(Opcode.A.PUT_FULL_DATA, Opcode.A.GET)
+      a.param   := 0
+      a.source  := 0
+      a.address :=  sb.cmd.address
+      a.size := 2 //sb.cmd.size.muxListDc(())
+      a.mask.setAll() //((U(1) << sb.cmd.size) -1) << sb.cmd.address.take(log2Up(node.bus.p.sizeBytes))
+      a.data    := sb.cmd.data
+      a.corrupt := False
+      a.debugId := DebugId.withPostfix(a.source)
+
+      d.ready := True
+      sb.rsp.valid := d.valid
+      sb.rsp.data := d.data
+      sb.rsp.error := False
     }
   }
 }
