@@ -24,7 +24,7 @@ case class Lock() extends Handle[Int]{
 }
 
 
-trait Lockable extends Area{
+trait Lockable extends Area {
   val lock = spinal.core.fiber.Lock()
   def retain() = lock.retain()
   def release() = lock.release()
@@ -34,13 +34,13 @@ trait Lockable extends Area{
 class RetainerHold extends Handle[Unit] {
   def release() = {
     assert(!isLoaded, "Double retainer release :(")
-    load()
+    load(())
   }
-  def done() = load()
+  def done() = load(())
 }
 
 
-case class Retainer() extends Area{
+case class Retainer() extends Area {
   val retainers = mutable.Queue[RetainerHold]()
   def apply() : RetainerHold = {
     val rh = new RetainerHold()

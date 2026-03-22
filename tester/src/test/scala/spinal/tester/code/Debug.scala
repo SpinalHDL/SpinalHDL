@@ -2285,14 +2285,13 @@ object PlayComposablePlugin extends App{
 }
 
 
+object PlayLockV2 extends App {
 
-object PlayLockV2 extends App{
-
-  class Retainer extends Area{
+  class Retainer extends Area {
     val handle = Handle[Unit]
     def await() = handle.await()
     def release(): Unit = {
-      handle.load()
+      handle.load(())
     }
   }
   case class LockV2() {
@@ -2326,10 +2325,7 @@ object PlayLockV2 extends App{
 }
 
 
-
-
-object PlayLockV3 extends App{
-
+object PlayLockV3 extends App {
 
   case class LockV2() {
     val retainers = mutable.Queue[Retainer]()
@@ -2337,7 +2333,7 @@ object PlayLockV3 extends App{
     class Retainer extends Handle[Unit] {
       retainers += this
       def release(): Unit = {
-        load()
+        load(())
       }
     }
 
