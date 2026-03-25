@@ -53,7 +53,7 @@ class Stage1 extends Bundle with BundleA with BundleB with BundleD
 
 object Play1 {
   case class Sub() extends Component {
-    val io = inout(Analog(Bool))
+    val io = inout(Analog(Bool()))
 
     io := True
   }
@@ -364,7 +364,7 @@ object Play5 {
 
 object PlayFifo {
   class TopLevel extends Component{
-    val fifo = new StreamFifo(Bool,8)
+    val fifo = new StreamFifo(Bool(),8)
     fifo.io.clone.clone
   }
   def main(args: Array[String]): Unit = {
@@ -1489,7 +1489,7 @@ object PlayLoop {
     //    tmp(0) := tmp(1)
     //    tmp(1) := tmp(0)
     //    io.output := tmp
-    val myFlow = Flow(Bool)
+    val myFlow = Flow(Bool())
     val myStream = myFlow.toStream.stage
   }
 
@@ -1893,16 +1893,16 @@ object PlayBlink {
 object PlayDefault {
 
   class SubLevel extends Component {
-    val input = in(Bool) default (False)
-    val output = out(Bool)
-    val internal = Bool default (True)
+    val input = in(Bool()) default (False)
+    val output = out(Bool())
+    val internal = Bool() default (True)
     output := input && internal
   }
 
   class TopLevel extends Component {
     val sub = new SubLevel
 
-    val output = out(Bool)
+    val output = out(Bool())
     output := sub.output
   }
 
@@ -2763,7 +2763,7 @@ object PlayCase {
 object PlayMux2 {
 
   class TopLevel extends Component {
-    val output = out(Mux(in(Bool.setName("sel")),in(SInt(2 bit)),S(0)))
+    val output = out(Mux(in(Bool().setName("sel")),in(SInt(2 bit)),S(0)))
   }
 
   def main(args: Array[String]) {

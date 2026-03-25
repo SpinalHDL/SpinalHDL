@@ -141,10 +141,10 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
       } otherwise{
         when(io.bus.cmd.wr){
           core.writeBack.regFileWrite.valid := True
-          core.writeBack.regFileWrite.address := io.bus.cmd.address(core.writeBack.regFileWrite.address.range)
+          core.writeBack.regFileWrite.address := io.bus.cmd.address(core.writeBack.regFileWrite.address.bitsRange)
           core.writeBack.regFileWrite.data := io.bus.cmd.data
         } otherwise {
-          core.decode.regFileReadAddress0 := io.bus.cmd.address(core.writeBack.regFileWrite.address.range)
+          core.decode.regFileReadAddress0 := io.bus.cmd.address(core.writeBack.regFileWrite.address.bitsRange)
           core.c.regFileReadyKind match{
             case `async` => busReadDataReg := core.decode.src0
             case `sync` => readRegFileReg := True

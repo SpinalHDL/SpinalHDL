@@ -183,7 +183,7 @@ object InOutTester3 {
   class Sub extends Component{
     val bus2 = slave(Bus())
     val tmp2 = Analog(analogType)
-    for(i <- bus2.gpio.range) {
+    for(i <- bus2.gpio.bitsRange) {
       when(bus2.cmd.writeEnable(i)) {
         tmp2(i) := bus2.cmd.write(i)
       }

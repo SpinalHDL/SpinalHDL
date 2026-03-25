@@ -151,7 +151,7 @@ class Ram_1w_1r(_wordWidth: Int, _wordCount: Int) extends BlackBox {
 import spinal.lib._
 object TestStreamWithReg {
   val a = in UInt(3 bit)
-  val str = Stream(Bool)
+  val str = Stream(Bool())
   str <-/< str
 a.pull()
 }

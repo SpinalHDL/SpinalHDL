@@ -151,7 +151,7 @@ case class BmbAligner(ip: BmbParameter, alignmentWidth: Int) extends Component {
         }
 
         drop setWhen (!context.write && (io.input.rsp.first && beatCounter(
-          context.paddings.range
+          context.paddings.bitsRange
         ) < context.paddings || transferCounter > context.transfers))
 
         io.input.rsp.last setWhen (transferCounter === context.transfers & (transferCounter =/= 0))
