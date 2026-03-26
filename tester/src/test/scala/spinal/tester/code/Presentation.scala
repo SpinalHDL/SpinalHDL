@@ -2152,7 +2152,7 @@ object Summit extends App{
 
 object Ccc37A {
 
-  class Timer extends Component {
+  class MyTimer extends Component {
     val increment = in Bool()
     val counter = Reg(UInt(8 bits)) init(0)
     val full = counter === 255

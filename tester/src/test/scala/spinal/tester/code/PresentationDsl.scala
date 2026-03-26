@@ -1576,7 +1576,7 @@ object Date2024{
 
 import spinal.core._
 
-class Timer extends Component {
+class CustomTimer extends Component {
   val increment = in Bool()
   val counter = Reg(UInt(8 bits)) init(0)
   val full = out(counter === 255)
@@ -1586,7 +1586,7 @@ class Timer extends Component {
   }
 }
 object MyMain extends App{
-  SpinalVerilog(new Timer)
+  SpinalVerilog(new CustomTimer)
 }
 
 //class Toplevel(cdA : ClockDomain, cdB : ClockDomain) extends Component {
