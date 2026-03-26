@@ -56,14 +56,14 @@ object DebugModuleCmdErr extends SpinalEnum(binarySequential){
 }
 
 case class DebugSysBusCmd() extends Bundle{
-  val wr = Bool
+  val wr = Bool()
   val address = UInt(32 bits)
   val data = Bits(32 bit)
   val size = UInt(2 bit)
 }
 
 case class DebugSysBusRsp() extends Bundle{
-  val error = Bool
+  val error = Bool()
   val data = Bits(32 bit)
 }
 

@@ -4,11 +4,11 @@ import spinal.tester.SpinalAnyFunSuite
 
 
 class BBA(val cd : ClockDomain) extends BlackBox{
-  val i = in(Bool)
+  val i = in(Bool())
 }
 
 class BBB(val cd : ClockDomain) extends BlackBox{
-  val o = out(Bool)
+  val o = out(Bool())
 }
 
 class CrossClockCheckerTesterA extends Component{
@@ -172,8 +172,8 @@ class SyncronousCheckerTesterC(v : Int) extends Component{
   val input = in UInt(8 bits)
   val output = out UInt(8 bits)
 
-  val clk1Buf = List.fill(3)(Bool).foldLeft(clk1){(i,o) => o := i; o}
-  val clk2Buf = List.fill(3)(Bool).foldLeft(clk2){(i,o) => o := i; o}
+  val clk1Buf = List.fill(3)(Bool()).foldLeft(clk1){(i,o) => o := i; o}
+  val clk2Buf = List.fill(3)(Bool()).foldLeft(clk2){(i,o) => o := i; o}
 
   val cd1 = ClockDomain(clk1Buf, reset)
   val cd2 = ClockDomain(clk2Buf, reset)

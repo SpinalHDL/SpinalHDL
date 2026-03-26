@@ -40,10 +40,10 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
               val lit = Literal(const)
               val ident = Select(thiz, name)
               val appl = Apply(sel, List(ident, lit))
-              ident.tpe = definitions.AnyTpe
-              thiz.tpe = clazz.tpe
-              sel.tpe = MethodType(List(definitions.AnyTpe.termSymbol, definitions.StringTpe.termSymbol), definitions.UnitTpe)
-              appl.tpe = definitions.UnitTpe
+              ident.setType(definitions.AnyTpe)
+              thiz.setType(clazz.tpe)
+              sel.setType(MethodType(List(definitions.AnyTpe.termSymbol, definitions.StringTpe.termSymbol), definitions.UnitTpe))
+              appl.setType(definitions.UnitTpe)
               lit.setType(definitions.StringTpe)
               appl
             }
@@ -76,8 +76,8 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
                 val func = tpe.members.find(_.name.toString == "postInitCallback").get
                 val sel = Select(a, func.name)
                 val appl = Apply(sel, Nil)
-                sel.tpe = MethodType(Nil, a.tpe)
-                appl.tpe = a.tpe
+                sel.setType(MethodType(Nil, a.tpe))
+                appl.setType(a.tpe)
                 ret = appl
               }
             }

@@ -34,11 +34,21 @@ import scala.collection.mutable.ArrayBuffer
 
 trait StateMachineAccessor {
 
+  /**
+    * Defines a State as the entry point.
+    *
+    * @see [[EntryPoint]]
+    */
   def setEntry(state: State): Unit
   def getEntry(): State
 
+  /** Returns [[True]] when the state machine is in the given state */
   def isActive(state: State): Bool
+
+  /** Returns [[True]] when the state machine is entering the given state */
   def isEntering(state: State): Bool
+
+  /** Returns [[True]] when the state machine is exiting the given state */
   def isExiting(state: State): Bool
 
   def goto(state: State): Unit
@@ -90,26 +100,27 @@ class StateMachineEnum extends SpinalEnum
 
 
 /**
-  * State machine
-  *
+  * Defines a state machine with states and transitions.
+  * 
   * @example {{{
   *   val fsm = new StateMachine {
-  *     val sIdle: State = StateEntryPoint{
+  *     val idleState: State = StateEntryPoint{
   *       ...
   *     }
-  *     val sState1: State = new State {
-  *       whenIsActive{
-  *         goto(sIdle)
+  *     val firstState: State = new State {
+  *       whenIsActive {
+  *         goto(idleState)
   *       }
   *     }
-  *     ...
   *   }
   * }}}
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/fsm.html State machine library documentation]]
   */
 class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
   /**
-    * Set the condition for state transitions
+    * Set the condition for state transitions.
     *
     * goto() will only have an effect, if condition is True
     */
@@ -132,7 +143,31 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     corruptedState
   }
 
+  /**
+    * Sets the encoding for the state machine states.
+    *
+    * By default the FSM state vector will be encoded using the native encoding
+    * of the language/tools the RTL is generated for (Verilog or VHDL). This 
+    * default can be overridden by using the setEncoding(...) method which 
+    * either takes a [[SpinalEnumEncoding]] or varargs of type ([[State]], [[BigInt]]) 
+    * for a custom encoding. 
+    */
   def setEncoding(encoding: SpinalEnumEncoding): Unit = enumDef.defaultEncoding = encoding
+  
+  /**
+    * Sets a custom encoding for the state machine states.
+    *
+    * @param spec A mapping of states to their encoded values
+    * 
+    * @example {{{
+    *   val fsm = new StateMachine {
+    *     val stateA = new State with EntryPoint
+    *     val stateB = new State
+    *     ...
+    *     setEncoding((stateA -> 0x23), (stateB -> 0x22))
+    *   }
+    * }}}
+    */
   def setEncoding(spec: (State, BigInt)*): Unit = {
     val mapping = spec.map(e => states.indexOf(e._1) -> e._2).toMapLinked()
     enumDef.defaultEncoding = SpinalEnumEncoding(mapping.apply)
@@ -170,7 +205,17 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
   var stateBoot : State = new State()(this).setCompositeName(this, "BOOT", Nameable.DATAMODEL_WEAK)
 
-  def makeInstantEntry(): State ={
+  /**
+    * Returns the boot state, active directly after reset.
+    * 
+    * This allows to have the state machine directly booting into a user state.
+    *
+    * Note that the onEntry of that state will only be called when it transitions 
+    * from another state to this state and not during boot.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/fsm.html#notes-about-the-entry-state FSM library boot documentation]]
+    */
+  def makeInstantEntry(): State = {
     setEntry(stateBoot.unsetName())
     stateBoot
   }
@@ -326,6 +371,19 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     stateNext := enumOf(state)
   }
 
+  /**
+    * Allows to do define statement(s) after the elaboration fo the state machine.
+    * 
+    * This could be useful if access to `stateReg` is needed:     
+    * @example {{{
+    *   //  After or inside the fsm's definition.
+    *   fsm.postBuild {
+    *     io.status := fsm.stateReg.asBits // io.status is the signal user want to assigned to.
+    *   }
+    * }}}
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/fsm.html#notes-about-using-state-value FSM library doc about accessing state value]]
+    */
   def postBuild(body : => Unit){
     builded match {
       case false => postBuildTasks += (() => body)
@@ -405,7 +463,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   def isRunning = isStarted
 }
 
-
+// TODO document this
 class StateMachineSlave extends StateMachine{
   disableAutoStart()
 }

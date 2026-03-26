@@ -816,7 +816,7 @@ object SpiXdrMasterCtrl {
 
       //Generate SCLK
       val sclkWrite = B(0, p.spi.ioRate bits)
-      io.spi.sclk.write := sclkWrite ^ B(sclkWrite.range -> io.config.kind.cpol)
+      io.spi.sclk.write := sclkWrite ^ B(sclkWrite.bitsRange -> io.config.kind.cpol)
       when(io.cmd.valid && io.cmd.isData){
         switch(io.config.mod) {
           for (m <- p.mods) {

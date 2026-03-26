@@ -9,7 +9,7 @@ class LatchTester extends SpinalAnyFunSuite {
 
     try {
       SimConfig.compile(new Component {
-        val myCond = Bool
+        val myCond = Bool()
         val inVal = Bits(8 bits)
         val latchVal = Bits(8 bits)
 

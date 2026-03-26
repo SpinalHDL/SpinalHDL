@@ -185,7 +185,7 @@ class ChecksTester extends SpinalAnyFunSuite  {
 
       val areaA = new ClockingArea(ClockDomain(clockA)){
         val reg = Reg(Bool())
-        reg := in(Bool)
+        reg := in(Bool())
       }
 
       val areaB = new ClockingArea(ClockDomain(clockB)){
@@ -200,8 +200,8 @@ class ChecksTester extends SpinalAnyFunSuite  {
   test("checkClockCrossingCheckingCheckSourcesPaths") {
     generationShouldPass(new Component{
       val clock = in Bool()
-      val clockA =  Bool
-      val clockB =  Bool
+      val clockA =  Bool()
+      val clockB =  Bool()
 
       clockA := clock
       val sub = new Component{
@@ -217,7 +217,7 @@ class ChecksTester extends SpinalAnyFunSuite  {
       clockB := sub.cOut
       val areaA = new ClockingArea(ClockDomain(clockA)){
         val reg = Reg(Bool())
-        reg := in(Bool)
+        reg := in(Bool())
       }
 
       val areaB = new ClockingArea(ClockDomain(clockB)){
@@ -233,8 +233,8 @@ class ChecksTester extends SpinalAnyFunSuite  {
     generationShouldFail(new Component{
       val clock1 = in Bool()
       val clock2 = in Bool()
-      val clockA =  Bool
-      val clockB =  Bool
+      val clockA =  Bool()
+      val clockB =  Bool()
 
       clockA := clock1
       val sub = new Component{
@@ -250,7 +250,7 @@ class ChecksTester extends SpinalAnyFunSuite  {
       clockB := sub.cOut
       val areaA = new ClockingArea(ClockDomain(clockA)){
         val reg = Reg(Bool())
-        reg := in(Bool)
+        reg := in(Bool())
       }
 
       val areaB = new ClockingArea(ClockDomain(clockB)){
@@ -742,8 +742,8 @@ class NameingTester extends SpinalAnyFunSuite {
             val aaaa = Bool()
             val bbbb = Vec(Bool(),8)
             val cccc = Vec( Vec( Vec(Bool(),8),8),8)
-            val dddd = List.fill(4)(Bool)
-            val eeee = List.fill(4)(List.fill(4)(Bool))
+            val dddd = List.fill(4)(Bool())
+            val eeee = List.fill(4)(List.fill(4)(Bool()))
           },4)
         }
       }

@@ -117,7 +117,7 @@ case class BmbAligner(ip : BmbParameter, alignmentWidth : Int) extends Component
           transferCounter := 0
         }
 
-        drop setWhen(!context.write && (io.input.rsp.first && beatCounter(context.paddings.range) < context.paddings || transferCounter > context.transfers))
+        drop setWhen(!context.write && (io.input.rsp.first && beatCounter(context.paddings.bitsRange) < context.paddings || transferCounter > context.transfers))
 
         io.input.rsp.last setWhen(transferCounter === context.transfers)
         io.input.rsp.data := io.output.rsp.data
