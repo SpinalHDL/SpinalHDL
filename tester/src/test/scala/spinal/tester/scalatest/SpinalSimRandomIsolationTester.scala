@@ -2,7 +2,6 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.core.sim._
-import spinal.tester.SpinalAnyFunSuite
 
 import scala.collection.mutable
 import scala.concurrent.{Future, Await}

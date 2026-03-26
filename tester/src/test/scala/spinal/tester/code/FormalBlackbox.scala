@@ -2,7 +2,7 @@ package spinal.tester.code
 
 import spinal.core._
 import spinal.core.formal._
-import spinal.tester.SpinalAnyFunSuite
+
 /*
  * This test is for Issue #1256, to verify that SpinalHDL copies any
  * external rtl specified in blackboxes or added by
