@@ -780,8 +780,8 @@ object Main100 extends App{
     val apbDecoder = Apb3Decoder(
       master = commonBus,
       slaves = List(
-        gpioBus -> (0x2000, 4 kB),
-        uartBus -> (0x5000, 4 kB)
+        gpioBus -> (0x2000, 4 KiB),
+        uartBus -> (0x5000, 4 KiB)
       )
     )
   })
@@ -801,11 +801,11 @@ object Main101 extends App{
 
     val axiCrossbar = Axi4CrossbarFactory()
     axiCrossbar.addSlaves(
-      mainBus       -> (0x00000000,  4 GB),
-      ramBus        -> (0x40000000, 64 kB),
-      peripheralBus -> (0x10000000,  1 MB),
-      gpioBus       -> (    0x2000,  4 kB),
-      uartBus       -> (    0x5000,  4 kB)
+      mainBus       -> (0x00000000,  4 GiB),
+      ramBus        -> (0x40000000, 64 KiB),
+      peripheralBus -> (0x10000000,  1 MiB),
+      gpioBus       -> (    0x2000,  4 KiB),
+      uartBus       -> (    0x5000,  4 KiB)
     )
 
     axiCrossbar.addConnections(
