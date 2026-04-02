@@ -91,7 +91,7 @@ object ImsicTrigger {
     require(interruptFileGroupSize == 0 || isPow2(interruptFileGroupSize), "interruptFileGroupSize should be power of 2")
     require(!(interruptFileHartOffset != 0 && interruptFileGroupSize == 0), "Can not auto calculate interruptFileGroupSize when interruptFileHartOffset != 0")
 
-    require(maxGuestId < 16, "Per hart can only have max 15 guest interrupt files.")
+    require(maxGuestId < 63, "Per hart can only have max 63 guest interrupt files.")
 
     val intFileNumber = 1 << log2Up(maxGuestId + 1)
     val minIntFileHartSize = interruptFileSize * intFileNumber
@@ -114,6 +114,13 @@ object ImsicTrigger {
       interruptFileGroupSize  = realIntFileGroupSize
     )
   }
+  def mappingCalibrate(mapping: ImsicMapping, infos: Seq[ImsicFileInfo]): ImsicMapping = {
+    val maxGuestId = infos.map(_.guestId).max
+    val maxGroupHartId = infos.map(_.groupHartId).max
+    val maxGroupId = infos.map(_.groupId).max
+
+    mappingCalibrate(mapping, maxGuestId, maxGroupHartId, maxGroupId)
+  }
 
   def imsicOffset(mapping: ImsicMapping, groupId: Int, groupHartId: Int, guestId: Int) = {
     import mapping._
@@ -125,21 +132,43 @@ object ImsicTrigger {
 
     offset
   }
+  def imsicOffset(mapping: ImsicMapping, info: ImsicFileInfo): BigInt = imsicOffset(mapping, info.groupId, info.groupHartId, info.guestId)
+
+  def imsicGroupHartOffset(mapping: ImsicMapping, groupId: Int, groupHartId: Int): BigInt = {
+    import mapping._
+
+    val offset = groupId * interruptFileGroupSize +
+                 groupHartId * interruptFileHartSize +
+                 interruptFileHartOffset
+
+    offset
+  }
+
+  def imsicGroupHartOffset(mapping: ImsicMapping, info: ImsicFileInfo): BigInt = imsicGroupHartOffset(mapping, info.groupId, info.groupHartId)
 
   def apply(bus: BusSlaveFactory, mapping: ImsicMapping)(infos: Seq[ImsicFileInfo]) = new Area {
-    val maxGuestId = infos.map(_.guestId).max
-    val maxGroupHartId = infos.map(_.groupHartId).max
-    val maxGroupId = infos.map(_.groupId).max
-
-    val realMapping = mappingCalibrate(mapping, maxGuestId, maxGroupHartId, maxGroupId)
+    val realMapping = mappingCalibrate(mapping, infos)
 
     val mappers = for (info <- infos) yield new Area {
       val mapper = ImsicTriggerMapper(info.sourceIds, info.hartId, info.guestId)
-      val offset = imsicOffset(realMapping, info.groupId, info.groupHartId, info.guestId)
+      val offset = imsicOffset(realMapping, info)
 
       mapper.driveFrom(bus, offset)
 
       setName(f"trigger_g${info.groupId}h${info.groupHartId}v${info.guestId}")
+    }
+
+    val triggers = Vec(mappers.map(_.mapper.io.triggers))
+  }
+
+  def apply(bus: BusSlaveFactory)(infos: Seq[ImsicFileInfo]) = new Area {
+    val mappers = for (info <- infos) yield new Area {
+      val mapper = ImsicTriggerMapper(info.sourceIds, info.hartId, info.guestId)
+      val offset = info.guestId * interruptFileSize
+
+      mapper.driveFrom(bus, offset)
+
+      setName(f"trigger_v${info.guestId}")
     }
 
     val triggers = Vec(mappers.map(_.mapper.io.triggers))
