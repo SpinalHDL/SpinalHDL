@@ -103,8 +103,8 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
     val thread = new Thread(new Runnable {
       val iface = sharedMemIface
       def run(): Unit = {
-        val waveFileDir = Paths.get(System.getProperty("user.dir"), config.testPath.replace("$TEST",testName)).toAbsolutePath.normalize()
-        val waveFile = f"${waveFileDir}/wave.${config.waveFormat.ext}"
+        val waveFilePath = Paths.get(config.testPath.replace("$TEST",testName)).toAbsolutePath.normalize()
+        val waveFile = f"${waveFilePath}/wave.${config.waveFormat.ext}"
         var waveArgString = ""
         if (!(Array(WaveFormat.DEFAULT, WaveFormat.NONE) contains format)) {
           if (format == WaveFormat.GHW) {
@@ -114,7 +114,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
           }
         }
         if (waveArgString != "") {
-          FileUtils.forceMkdirParent(new File(waveFileDir.toString, "."))
+          FileUtils.forceMkdirParent(new File(waveFilePath.toString, "."))
         }
 
         val retCode = Process(
