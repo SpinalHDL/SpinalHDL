@@ -80,8 +80,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
       outFile.flush()
       outFile.close()
-    }
-    else {
+    } else {
       val fileList: mutable.LinkedHashSet[String] = new mutable.LinkedHashSet()
       // dump Enum define to define.v instead attach that on every .v file
       if(enums.nonEmpty){
