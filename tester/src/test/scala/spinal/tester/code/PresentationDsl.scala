@@ -780,8 +780,8 @@ object Main100 extends App{
     val apbDecoder = Apb3Decoder(
       master = commonBus,
       slaves = List(
-        gpioBus -> (0x2000, 4 kB),
-        uartBus -> (0x5000, 4 kB)
+        gpioBus -> (0x2000, 4 KiB),
+        uartBus -> (0x5000, 4 KiB)
       )
     )
   })
@@ -801,11 +801,11 @@ object Main101 extends App{
 
     val axiCrossbar = Axi4CrossbarFactory()
     axiCrossbar.addSlaves(
-      mainBus       -> (0x00000000,  4 GB),
-      ramBus        -> (0x40000000, 64 kB),
-      peripheralBus -> (0x10000000,  1 MB),
-      gpioBus       -> (    0x2000,  4 kB),
-      uartBus       -> (    0x5000,  4 kB)
+      mainBus       -> (0x00000000,  4 GiB),
+      ramBus        -> (0x40000000, 64 KiB),
+      peripheralBus -> (0x10000000,  1 MiB),
+      gpioBus       -> (    0x2000,  4 KiB),
+      uartBus       -> (    0x5000,  4 KiB)
     )
 
     axiCrossbar.addConnections(
@@ -1576,7 +1576,7 @@ object Date2024{
 
 import spinal.core._
 
-class Timer extends Component {
+class CustomTimer extends Component {
   val increment = in Bool()
   val counter = Reg(UInt(8 bits)) init(0)
   val full = out(counter === 255)
@@ -1586,7 +1586,7 @@ class Timer extends Component {
   }
 }
 object MyMain extends App{
-  SpinalVerilog(new Timer)
+  SpinalVerilog(new CustomTimer)
 }
 
 //class Toplevel(cdA : ClockDomain, cdB : ClockDomain) extends Component {

@@ -6,8 +6,6 @@ import spinal.core._
 import spinal.sim._
 import spinal.core.sim.{SpinalSimConfig, _}
 import spinal.lib.{BufferCC, OHMasking, SetFromFirstOne}
-import spinal.tester.SpinalAnyFunSuite
-import spinal.tester.scalatest
 
 import scala.concurrent.{Await, Future}
 import scala.util.Random

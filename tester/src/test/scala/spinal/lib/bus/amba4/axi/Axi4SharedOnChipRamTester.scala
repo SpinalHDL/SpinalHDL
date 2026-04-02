@@ -19,7 +19,6 @@ import spinal.sim._
 import spinal.core.sim._
 
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config, Axi4SharedOnChipRam}
 import spinal.lib.bus.amba4.axi.sim.{
     Axi4ReadOnlyMasterAgent,
     Axi4ReadOnlyMonitor,
