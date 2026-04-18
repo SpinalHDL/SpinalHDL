@@ -9,11 +9,22 @@ import spinal.lib.sim._
 
 import scala.language.postfixOps
 
-class WishboneSimpleSlave(config : WishboneConfig) extends Component{
+class WishboneSlaveWithCustomError(config: WishboneConfig) extends Component {
+  val io = new Bundle {
+    val bus  = slave(Wishbone(config))
+    val busy = in Bool()
+  }
+  val busCtrl = WishboneSlaveFactory(io.bus)
+  val reg0 = busCtrl.createReadAndWrite(Bits(config.dataWidth bits), 0)
+  reg0.init(0)
+  busCtrl.setError(io.busy)
+}
+
+class WishboneSimpleSlave(config : WishboneConfig, reg_feedback: Boolean = true, errorOnUnmapped: Boolean = true) extends Component{
   val io = new Bundle{
     val bus = slave(Wishbone(config))
   }
-  val busCtrl = WishboneSlaveFactory(io.bus)
+  val busCtrl = WishboneSlaveFactory(io.bus, reg_feedback=reg_feedback, errorOnUnmapped=errorOnUnmapped)
   val regA = busCtrl.createReadOnly(Bits(busCtrl.busDataWidth bits), 10 * config.dataWidth / 8)
   regA := 100
   val regB = busCtrl.createReadAndWrite(Bits(busCtrl.busDataWidth bits), 0)
@@ -94,4 +105,121 @@ class SpinalSimWishboneSlaveFactoryTester extends SpinalAnyFunSuite{
 //    val conf = WishboneConfig(8,8).pipelined
 //    testBus(conf,description="pipelined")
 //  }
+
+  def initBus(dut: WishboneSimpleSlave): Unit = {
+    dut.io.bus.CYC      #= false
+    dut.io.bus.STB      #= false
+    dut.io.bus.WE       #= false
+    dut.io.bus.ADR      #= 0
+    dut.io.bus.DAT_MOSI #= 0
+    if(dut.io.bus.config.useLOCK)     dut.io.bus.LOCK  #= false
+    if(dut.io.bus.config.isPipelined) dut.io.bus.STALL #= false
+  }
+
+  test("err_on_unmapped_address") {
+    val conf = WishboneConfig(32, 32, useERR = true)
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleSlave(conf))
+    fixture.doSim("err_on_unmapped_address") { dut =>
+      dut.clockDomain.forkStimulus(period = 10)
+      SimTimeout(1000 * 20 * 100)
+
+      initBus(dut)
+      dut.clockDomain.waitSampling()
+
+      // Access a mapped address: ACK expected, ERR must not fire
+      dut.io.bus.CYC #= true
+      dut.io.bus.STB #= true
+      dut.io.bus.WE  #= false
+      dut.io.bus.ADR #= 0  // regB lives at byte address 0, word address 0
+      dut.clockDomain.waitSamplingWhere(dut.io.bus.ACK.toBoolean || dut.io.bus.ERR.toBoolean)
+      assert(!dut.io.bus.ERR.toBoolean, "ERR should not be asserted for a mapped address")
+      assert( dut.io.bus.ACK.toBoolean, "ACK should be asserted for a mapped address")
+      dut.io.bus.STB #= false
+      dut.io.bus.CYC #= false
+      dut.clockDomain.waitSampling()
+
+      // Access an unmapped address: ERR expected, ACK must not fire
+      dut.io.bus.CYC #= true
+      dut.io.bus.STB #= true
+      dut.io.bus.WE  #= false
+      dut.io.bus.ADR #= 5  // no register mapped at this address
+      dut.clockDomain.waitSamplingWhere(dut.io.bus.ACK.toBoolean || dut.io.bus.ERR.toBoolean)
+      assert( dut.io.bus.ERR.toBoolean, "ERR should be asserted for an unmapped address")
+      assert(!dut.io.bus.ACK.toBoolean, "ACK must not be asserted when ERR fires")
+      dut.io.bus.STB #= false
+      dut.io.bus.CYC #= false
+      dut.clockDomain.waitSampling()
+    }
+  }
+
+  test("setError") {
+    val conf = WishboneConfig(32, 32, useERR = true)
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSlaveWithCustomError(conf))
+    fixture.doSim("setError") { dut =>
+      dut.clockDomain.forkStimulus(period = 10)
+      SimTimeout(1000 * 20 * 100)
+
+      dut.io.bus.CYC      #= false
+      dut.io.bus.STB      #= false
+      dut.io.bus.WE       #= false
+      dut.io.bus.ADR      #= 0
+      dut.io.bus.DAT_MOSI #= 0
+      dut.io.busy         #= false
+      if(dut.io.bus.config.useLOCK)     dut.io.bus.LOCK  #= false
+      if(dut.io.bus.config.isPipelined) dut.io.bus.STALL #= false
+      dut.clockDomain.waitSampling()
+
+      // Write while not busy: ACK expected, no ERR
+      dut.io.bus.CYC      #= true
+      dut.io.bus.STB      #= true
+      dut.io.bus.WE       #= true
+      dut.io.bus.ADR      #= 0
+      dut.io.bus.DAT_MOSI #= 0xFFFFFFFFL
+      dut.io.busy         #= false
+      dut.clockDomain.waitSamplingWhere(dut.io.bus.ACK.toBoolean || dut.io.bus.ERR.toBoolean)
+      assert(!dut.io.bus.ERR.toBoolean, "ERR should not fire when not busy")
+      assert( dut.io.bus.ACK.toBoolean, "ACK should be asserted when not busy")
+      dut.io.bus.STB #= false
+      dut.io.bus.CYC #= false
+      dut.clockDomain.waitSampling()
+
+      // Write while busy: ERR expected, no ACK
+      dut.io.bus.CYC      #= true
+      dut.io.bus.STB      #= true
+      dut.io.bus.WE       #= true
+      dut.io.bus.ADR      #= 0
+      dut.io.bus.DAT_MOSI #= 0xFFFFFFFFL
+      dut.io.busy         #= true
+      dut.clockDomain.waitSamplingWhere(dut.io.bus.ACK.toBoolean || dut.io.bus.ERR.toBoolean)
+      assert( dut.io.bus.ERR.toBoolean, "ERR should fire when busy")
+      assert(!dut.io.bus.ACK.toBoolean, "ACK should not be asserted when busy")
+      dut.io.bus.STB #= false
+      dut.io.bus.CYC #= false
+      dut.clockDomain.waitSampling()
+    }
+  }
+
+  test("no_err_on_unmapped_when_disabled") {
+    val conf = WishboneConfig(32, 32, useERR = true)
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleSlave(conf, errorOnUnmapped=false))
+    fixture.doSim("no_err_on_unmapped_when_disabled") { dut =>
+      dut.clockDomain.forkStimulus(period = 10)
+      SimTimeout(1000 * 20 * 100)
+
+      initBus(dut)
+      dut.clockDomain.waitSampling()
+
+      // Access an unmapped address with errorOnUnmapped disabled: ACK expected, no ERR
+      dut.io.bus.CYC #= true
+      dut.io.bus.STB #= true
+      dut.io.bus.WE  #= false
+      dut.io.bus.ADR #= 5  // no register mapped here
+      dut.clockDomain.waitSamplingWhere(dut.io.bus.ACK.toBoolean || dut.io.bus.ERR.toBoolean)
+      assert(!dut.io.bus.ERR.toBoolean, "ERR should not fire for unmapped address when errorOnUnmapped is disabled")
+      assert( dut.io.bus.ACK.toBoolean, "ACK should be asserted for unmapped address when errorOnUnmapped is disabled")
+      dut.io.bus.STB #= false
+      dut.io.bus.CYC #= false
+      dut.clockDomain.waitSampling()
+    }
+  }
 }
