@@ -802,6 +802,65 @@ class CounterOH(val stateCount: BigInt, val initialValue: BigInt = 0) extends Im
   }
 }
 
+/** Creates a Johnson counter (also known as a twisted-ring or Möbius counter):
+  * a shift register whose inverted MSB feeds back into the LSB, producing a `2*width`-state
+  * sequence with only one bit transition per cycle.
+  */
+object JohnsonCounter {
+  /** Create a Johnson counter of the given width */
+  def apply(width: BigInt): JohnsonCounter = new JohnsonCounter(width)
+
+  /** Create a Johnson counter of the given width with `inc` signal as increment enable */
+  def apply(width: BigInt, inc: Bool): JohnsonCounter = {
+    val c = JohnsonCounter(width)
+    when(inc) { c.increment() }
+    c
+  }
+}
+
+// Johnson (twisted-ring) counter with `2*width` legal states, self-recovering from illegal states
+case class JohnsonCounter(width: BigInt) extends ImplicitArea[Bits] {
+  require(width >= 2, "JohnsonCounter needs at least 2 bits for stuck-state recovery")
+  val willIncrement = False.allowOverride
+  val willClear = False.allowOverride
+
+  def increment(): Unit = willIncrement := True
+  def clear(): Unit = willClear := True
+
+  val value = Reg(Bits(width bits)).initZero()
+  // True on the end-of-cycle legal state 10..0 and on any illegal state whose top two bits are 10;
+  // both snap to 0 on increment. Remaining illegal states reach a detected state within a few shifts,
+  // so the counter is self-recovering but not necessarily in a single increment.
+  val willOverflowIfInc = value(width.toInt - 1) && !value(width.toInt - 2)
+  val willOverflow = willOverflowIfInc && willIncrement
+
+  when(willIncrement) {
+    value := willOverflowIfInc ? B(0, width bits) | (value(width.toInt - 2 downto 0) ## !value(width.toInt - 1))
+  }
+  when(willClear) {
+    value := 0
+  }
+
+  willOverflowIfInc.allowPruning()
+  willOverflow.allowPruning()
+
+  /** Make this counter free-running (increments every cycle) */
+  def freeRun(): this.type = {
+    willIncrement.removeAssignments()
+    increment()
+    this
+  }
+
+  /** A 50% duty-cycle signal running at 1/(2*width) of the clock.
+    * Every bit of the counter has the same 50%-duty / (2*width) waveform; they differ only in phase
+    * (each bit is one cycle later than the next-less-significant bit). The middle bit is chosen for
+    * symmetry — its first edge after reset sits roughly halfway through the period.
+    */
+  def clkDiv: Bool = value((width.toInt - 1) / 2)
+
+  override def implicitValue: Bits = value
+}
+
 object Timeout {
   def apply(cycles: BigInt): Timeout = new Timeout(cycles)
 
