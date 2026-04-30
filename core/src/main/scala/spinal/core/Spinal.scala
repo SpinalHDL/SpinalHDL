@@ -68,6 +68,7 @@ object Device{
   val XILINX = Device(vendor = "xilinx")
   val LATTICE = Device(vendor = "lattice")
   val ACTEL = Device(vendor = "actel")
+  val EFINIX = Device(vendor = "efinix")
   val ASIC = Device(vendor = "asic", supportBootResetKind = false)
   val NONE = Device(vendor = "none")
 
