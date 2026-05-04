@@ -1297,10 +1297,11 @@ object StreamFork {
 }
 
 object StreamFork2 {
-  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2"){
-    val outputs = (cloneOf(input), cloneOf(input))
-    val logic = new StreamForkArea(input, List(outputs._1, outputs._2), synchronous)
-  }.outputs
+  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = {
+    val fork = new StreamFork(input.payloadType, 2, synchronous).setCompositeName(input, "fork2", true)
+    fork.io.input << input
+    (fork.io.outputs(0), fork.io.outputs(1))
+  }
 
   def takes[T <: Data](input: Stream[T],take0 : Bool, take1 : Bool, synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2") {
     val forks = (cloneOf(input), cloneOf(input))
@@ -1310,10 +1311,11 @@ object StreamFork2 {
 }
 
 object StreamFork3 {
-  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T], Stream[T]) = new Composite(input, "fork3"){
-    val outputs = (cloneOf(input), cloneOf(input), cloneOf(input))
-    val logic = new StreamForkArea(input, List(outputs._1, outputs._2, outputs._3), synchronous)
-  }.outputs
+  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T], Stream[T]) = {
+    val fork = new StreamFork(input.payloadType, 3, synchronous).setCompositeName(input, "fork3", true)
+    fork.io.input << input
+    (fork.io.outputs(0), fork.io.outputs(1), fork.io.outputs(2))
+  }
 }
 
 /**
