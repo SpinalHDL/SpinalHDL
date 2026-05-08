@@ -1645,7 +1645,11 @@ end
   }
 
   def operatorImplAsCat(e: Operator.Bits.Cat): String = {
-    s"{${emitExpression(e.left)},${emitExpression(e.right)}}"
+    def collectOperands(e: Expression): List[String] = e match {
+      case cat: Operator.Bits.Cat => collectOperands(cat.left) ::: collectOperands(cat.right)
+      case other                  => List(emitExpression(other))
+    }
+    "{" + collectOperands(e).mkString(",") + "}"
   }
 
   def operatorImplAsNoTransformation(func: Cast): String = {
