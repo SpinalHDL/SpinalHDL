@@ -263,8 +263,11 @@ public:
 	  #endif
     string name;
     int32_t time_precision;
+    std::string wavePath;
 
     Wrapper_${uniqueId}(const char * name, const char * wavePath, int seed){
+      this->wavePath = wavePath;
+
       contextp = new VerilatedContext;
       contextp->randReset(2);
       contextp->randSeed(seed);
@@ -312,7 +315,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       tfp.close();
       #endif
       #ifdef COVERAGE
-      VerilatedCov::write((("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".dat").c_str());
+      VerilatedCov::write((wavePath + "/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}" + "coverage.dat").c_str());
       #endif
     }
 
