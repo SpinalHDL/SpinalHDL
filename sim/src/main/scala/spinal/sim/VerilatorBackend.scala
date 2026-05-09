@@ -315,7 +315,7 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       tfp.close();
       #endif
       #ifdef COVERAGE
-      VerilatedCov::write((wavePath + "/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}" + "coverage.dat").c_str());
+      VerilatedCov::write((wavePath + "${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}" + "coverage.dat").c_str());
       #endif
     }
 
