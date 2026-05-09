@@ -1548,7 +1548,7 @@ class PhaseDeviceDefault extends PhaseDeviceHandler{
   }
 
   override def onCrossClockBuffer(config : SpinalConfig, bt: BaseType) = {
-    if(config.device.isVendorDefault || config.device.vendor == Device.XILINX.vendor) {
+    if(config.device.isVendorDefault || config.device.vendor == Device.XILINX.vendor || config.device.vendor == Device.EFINIX.vendor) {
       bt.addAttribute("async_reg", "true")
     }
   }

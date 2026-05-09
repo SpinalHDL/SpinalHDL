@@ -51,7 +51,10 @@ case class BmbToWishbone(p : BmbParameter) extends Component{
   rsp.source  := inputCmd.source
   rsp.context := inputCmd.context
   rsp.last    := beatLast
-  rsp.setSuccess() //TODO
+  rsp.setSuccess()
+  when(io.output.ERR) {
+    rsp.setError()
+  }
 
   halt := !rsp.ready
 
