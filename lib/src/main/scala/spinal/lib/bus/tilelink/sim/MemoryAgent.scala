@@ -79,6 +79,45 @@ class MemoryAgent(bus: Bus,
   }
   def checkAddress(address : Long) = true
 
+  private def unsignedFromLittleEndian(bytes: Array[Byte]): BigInt = BigInt(1, bytes.reverse)
+  private def signedFromLittleEndian(bytes: Array[Byte]): BigInt = {
+    val unsigned = unsignedFromLittleEndian(bytes)
+    val bits = bytes.length*8
+    if(unsigned.testBit(bits-1)) unsigned - (BigInt(1) << bits) else unsigned
+  }
+  private def littleEndianFrom(value: BigInt, byteCount: Int): Array[Byte] = {
+    val mask = (BigInt(1) << (byteCount*8)) - 1
+    val clipped = value & mask
+    Array.tabulate(byteCount)(i => ((clipped >> (i*8)) & 0xFF).toByte)
+  }
+  private def atomicOperand(a: TransactionA): Array[Byte] = {
+    val offset = (a.address.toLong & (a.data.length-1)).toInt
+    Array.tabulate(a.bytes)(i => a.data(offset + i))
+  }
+  private def atomicResult(a: TransactionA, oldBytes: Array[Byte]): Array[Byte] = {
+    val operandBytes = atomicOperand(a)
+    val bits = a.bytes*8
+    val mask = (BigInt(1) << bits) - 1
+    val oldU = unsignedFromLittleEndian(oldBytes)
+    val rhsU = unsignedFromLittleEndian(operandBytes)
+    val next = a.opcode match {
+      case Opcode.A.ARITHMETIC_DATA => a.param match {
+        case Param.Arithmetic.MIN  => if(signedFromLittleEndian(oldBytes) < signedFromLittleEndian(operandBytes)) oldU else rhsU
+        case Param.Arithmetic.MAX  => if(signedFromLittleEndian(oldBytes) > signedFromLittleEndian(operandBytes)) oldU else rhsU
+        case Param.Arithmetic.MINU => oldU min rhsU
+        case Param.Arithmetic.MAXU => oldU max rhsU
+        case Param.Arithmetic.ADD  => oldU + rhsU
+      }
+      case Opcode.A.LOGICAL_DATA => a.param match {
+        case Param.Logical.XOR  => oldU ^ rhsU
+        case Param.Logical.OR   => oldU | rhsU
+        case Param.Logical.AND  => oldU & rhsU
+        case Param.Logical.SWAP => rhsU
+      }
+    }
+    littleEndianFrom(next & mask, a.bytes)
+  }
+
   override def onA(a: TransactionA) = {
     if(bus.p.withBCE && simRandom.nextFloat() < randomProberFactor) fork {
       cd.waitSampling(simRandom.nextInt(randomProberDelayMax))
@@ -117,6 +156,21 @@ class MemoryAgent(bus: Bus,
           val d = TransactionD(a)
           d.opcode = Opcode.D.ACCESS_ACK
           d.denied = !ok
+          driver.scheduleD(d)
+        }
+        case Opcode.A.ARITHMETIC_DATA | Opcode.A.LOGICAL_DATA => {
+          handleCoherency(a, Param.Cap.toN)
+          if(idCallback != null) idCallback.call(a.debugId)(new OrderingArgs(0, a.bytes))
+          val d = TransactionD(a)
+          d.opcode = Opcode.D.ACCESS_ACK_DATA
+          d.denied = !ok
+          if(ok) {
+            val old = mem.readBytes(a.address.toLong, a.bytes)
+            mem.write(a.address.toLong, atomicResult(a, old))
+            d.data = old
+          } else {
+            d.data = Array.fill(a.bytes)(simRandom.nextInt().toByte)
+          }
           driver.scheduleD(d)
         }
         case Opcode.A.ACQUIRE_BLOCK => {

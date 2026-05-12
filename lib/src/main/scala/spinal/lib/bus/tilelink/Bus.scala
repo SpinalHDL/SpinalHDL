@@ -14,18 +14,25 @@ import scala.collection.mutable.ArrayBuffer
 object Opcode extends AreaRoot{
   val A = new SpinalEnum{
     // If you extends that list, don't forget to update the tilelink Decoder
-    val PUT_FULL_DATA, PUT_PARTIAL_DATA, GET, ACQUIRE_BLOCK, ACQUIRE_PERM = newElement()
+    val PUT_FULL_DATA, PUT_PARTIAL_DATA, ARITHMETIC_DATA, LOGICAL_DATA, GET, ACQUIRE_BLOCK, ACQUIRE_PERM = newElement()
     defaultEncoding = SpinalEnumEncoding("enc")(
       GET -> 4,
       PUT_FULL_DATA -> 0,
       PUT_PARTIAL_DATA -> 1,
+      ARITHMETIC_DATA -> 2,
+      LOGICAL_DATA -> 3,
       ACQUIRE_BLOCK -> 6,
       ACQUIRE_PERM -> 7
     )
     def isGetPut(c : C) = List(GET, PUT_FULL_DATA, PUT_PARTIAL_DATA).map(c === _).orR
     def isPut(c : C) = List(PUT_FULL_DATA, PUT_PARTIAL_DATA).map(c === _).orR
     def isGet(c : C) = List(GET).map(c === _).orR
+    def isArithmetic(c : C) = c === ARITHMETIC_DATA
+    def isLogical(c : C) = c === LOGICAL_DATA
+    def isAtomic(c : C) = List(ARITHMETIC_DATA, LOGICAL_DATA).map(c === _).orR
     def isAcquire(c : C) = List(ACQUIRE_BLOCK, ACQUIRE_PERM).map(c === _).orR
+    def withData(c : C) = List(PUT_FULL_DATA, PUT_PARTIAL_DATA, ARITHMETIC_DATA, LOGICAL_DATA).map(c === _).orR
+    def returnsData(c : C) = List(GET, ARITHMETIC_DATA, LOGICAL_DATA, ACQUIRE_BLOCK).map(c === _).orR
   }
 
   val B = new SpinalEnum{
@@ -66,6 +73,21 @@ object Opcode extends AreaRoot{
 }
 
 object Param{
+  val Arithmetic = new Area {
+    val MIN  = 0
+    val MAX  = 1
+    val MINU = 2
+    val MAXU = 3
+    val ADD  = 4
+  }
+
+  val Logical = new Area {
+    val XOR  = 0
+    val OR   = 1
+    val AND  = 2
+    val SWAP = 3
+  }
+
   val Hint = new Area{
     val NONE = 0
     val NO_ALLOCATE_ON_MISS = 2
@@ -241,7 +263,7 @@ case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
   val corrupt = p.withDataA generate Bool()
   val debugId = DebugId()
 
-  override def withBeats = p.withDataA.mux(List(Opcode.A.PUT_FULL_DATA(), Opcode.A.PUT_PARTIAL_DATA()).sContains(opcode), False)
+  override def withBeats = p.withDataA.mux(Opcode.A.withData(opcode), False)
   def asNoData() : this.type = p.withDataA match {
     case false => CombInit(this)
     case true => {
@@ -263,7 +285,7 @@ case class ChannelA(override val p : BusParameter) extends BusFragment(p) {
     val spec = for(i <- 0 until 1 << p.sizeWidth) yield i -> B((BigInt(1) << (1 << i))-1 & ((BigInt(1) << p.dataBytes)-1), p.dataBytes bits)
     val fromSize = size.muxList(spec)
     val shifted = fromSize |<< address(0, p.dataBytesLog2Up bits)
-    shifted & this.mask.orMask(!Opcode.A.isPut(opcode))
+    shifted & this.mask.orMask(!Opcode.A.withData(opcode))
   }
 
   def weakAssignFrom(m : ChannelA): Unit ={
