@@ -35,16 +35,26 @@ case class ImsicFile(hartId: Int, guestId: Int, sourceNum: Int) extends Area {
 
   require(isPow2(sourceNum))
 
-  val triggers = Bits(sourceIds.size bits)
   val threshold = RegInit(U(0, idWidth bits))
 
   val interrupts = for ((sourceId, idx) <- sourceIds.zipWithIndex) yield new Area {
     val id = sourceId
-    val trigger = triggers(idx)
     val ie = RegInit(False)
-    val ip = RegInit(False) setWhen(trigger)
+    val ip = RegInit(False)
     val iep = ie & ip
   }
+
+  val trigger = Stream(UInt(ImsicTriggerMapper.registerWidth bits))
+  when(trigger.valid) {
+    switch (trigger.payload) {
+      for (interrupt <- interrupts) {
+        is (interrupt.id) {
+          interrupt.ip.set()
+        }
+      }
+    }
+  }
+  trigger.ready := True
 
   val ieps = interrupts.map{i => i.iep}.asBits ## False
   val result = CountTrailingZeroes(ieps)

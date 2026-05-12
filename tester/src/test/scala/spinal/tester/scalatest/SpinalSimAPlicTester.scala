@@ -67,7 +67,7 @@ case class APlicMSITestFiber(hartIds: Seq[Int], sourceIds: Seq[Int], guestIds: S
     })
     file.identity.simPublic()
     file.result.simPublic()
-    file.triggers.simPublic()
+    file.trigger.simPublic()
     file.threshold.simPublic().allowUnsetRegToAvoidLatch()
 
     file
@@ -109,7 +109,7 @@ case class APlicMSITestFiber(hartIds: Seq[Int], sourceIds: Seq[Int], guestIds: S
     for (hartFile <- files) {
       for (file <- hartFile) {
         val trigger = imsic.addImsicFileinfo(file.asImsicFileInfo())
-        file.triggers := trigger
+        file.trigger << trigger
       }
     }
 
