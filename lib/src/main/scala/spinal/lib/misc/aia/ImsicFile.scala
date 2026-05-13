@@ -29,8 +29,11 @@ object ImsicFileInfo {
   )
 }
 
-case class ImsicFile(hartId: Int, guestId: Int, sourceIds: Seq[Int]) extends Area {
-  val idWidth = log2Up((sourceIds ++ Seq(0)).max + 1)
+case class ImsicFile(hartId: Int, guestId: Int, sourceNum: Int) extends Area {
+  val sourceIds = 1 until sourceNum
+  val idWidth = log2Up(sourceNum)
+
+  require(isPow2(sourceNum))
 
   val triggers = Bits(sourceIds.size bits)
   val threshold = RegInit(U(0, idWidth bits))
@@ -40,26 +43,12 @@ case class ImsicFile(hartId: Int, guestId: Int, sourceIds: Seq[Int]) extends Are
     val trigger = triggers(idx)
     val ie = RegInit(False)
     val ip = RegInit(False) setWhen(trigger)
+    val iep = ie & ip
   }
 
-  case class ImsicRequest() extends Bundle {
-    val id = UInt(idWidth bits)
-    val iep = Bool()
-  }
-
-  val requests = interrupts.map{i =>
-    val request = ImsicRequest()
-    request.id := i.id
-    request.iep := i.ie && i.ip
-    request
-  }
-
-  val result = RegNext(requests.reduceBalancedTree((a, b) => {
-    val takeA = !b.iep || (a.iep && a.id < b.id)
-    takeA ? a | b
-  }))
-
-  val identity = (result.iep && (threshold === 0 || result.id < threshold)) ? result.id | U(0, idWidth bits)
+  val ieps = interrupts.map{i => i.iep}.asBits ## False
+  val result = CountTrailingZeroes(ieps)
+  val identity = result.resize(idWidth).andMask(threshold === 0 || result < threshold)
 
   def claim(id: UInt) = new Area {
     switch(id) {
@@ -81,7 +70,7 @@ case class ImsicFile(hartId: Int, guestId: Int, sourceIds: Seq[Int]) extends Are
 }
 
 object ImsicFile {
-  def apply(hartId: Int, sourceIds: Seq[Int]): ImsicFile = ImsicFile(hartId, 0, sourceIds)
+  def apply(hartId: Int, sourceNum: Int): ImsicFile = ImsicFile(hartId, 0, sourceNum)
 
   def currentFileStatus(files: Seq[ImsicFile], mux: UInt) = new Area {
     assert(files.map(_.sourceIds).toSet.size == 1, "All file should have the same source configuration")
