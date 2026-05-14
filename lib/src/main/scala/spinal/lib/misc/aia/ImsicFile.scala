@@ -158,8 +158,6 @@ case class ImsicFileRam(p: ImsicFileParameters) extends Component {
   val lineWidth = log2Up(lineNum)
   val idWidth = log2Up(sourceNum)
 
-  val threshold = RegInit(U(0, idWidth bits))
-  threshold.allowUnsetRegToAvoidLatch()
   val ie = Mem.fill(lineNum)(Bits(xlen bits)) initBigInt(Seq.fill(lineNum)(0))
   val ip = Mem.fill(lineNum)(Bits(xlen bits)) initBigInt(Seq.fill(lineNum)(0))
   val iepCache = Vec.fill(lineNum)(RegInit(False))
@@ -167,11 +165,9 @@ case class ImsicFileRam(p: ImsicFileParameters) extends Component {
 
   val io = new Bundle {
     val port = Vec.fill(portNum)(slave(ImsicAccess(lineWidth, xlen)))
-    val interrupt = out Bool()
     val identity = out UInt(idWidth bits)
   }
 
-  io.interrupt := identity.orR
   io.identity := identity
 
   val arbiter = StreamArbiterFactory().lowerFirst.transactionLock.buildOn(io.port.map(_.cmd))
@@ -262,7 +258,7 @@ case class ImsicFileRam(p: ImsicFileParameters) extends Component {
 
     UPDATE whenIsActive {
       val result = port.address @@ CountTrailingZeroes(port.read.ipData & port.read.ieData).resize(log2Up(xlen))
-      identity := result.resize(idWidth).andMask(threshold === 0 || result < threshold)
+      identity := result.resize(idWidth)
 
       io.port.onMask(portOhReg){port =>
         port.rsp.valid := True
