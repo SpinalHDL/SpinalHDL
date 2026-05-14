@@ -148,7 +148,7 @@ case class ImsicFileParameters(
   portNum: Int = 2
 )
 
-case class ImsicFileRam(p: ImsicFileParameters) extends Component {
+case class ImsicFileRamLogic(p: ImsicFileParameters) extends Component {
   import p._
 
   require(isPow2(sourceNum))
@@ -267,6 +267,17 @@ case class ImsicFileRam(p: ImsicFileParameters) extends Component {
       goto(IDLE)
     }
   }
+}
+
+case class ImsicFileRam(p: ImsicFileParameters) extends Area {
+  import p._
+  val logic = ImsicFileRamLogic(p)
+  val idWidth = logic.idWidth
+  val ports = logic.io.port
+  val threshold = RegInit(U(0, idWidth bits))
+  val result = logic.io.identity
+  val identity = result.andMask(threshold === 0 || result < threshold)
+  val interrupt = identity.orR
 
   def asImsicFileInfo(hartPerGroup: Int = 0): ImsicFileInfo = ImsicFileInfo(
     hartId      = hartId,
