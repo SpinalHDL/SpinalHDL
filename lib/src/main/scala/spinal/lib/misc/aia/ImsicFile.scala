@@ -120,7 +120,7 @@ object ImsicOp extends SpinalEnum {
 
 case class ImsicCmd(addressWidth: Int, xlen: Int) extends Bundle {
   val op = ImsicOp()
-  val iep = Bool()
+  val doIp = Bool()
   val address = UInt(addressWidth bits)
   val data = Bits(xlen bits)
   val mask = Bits(xlen bits)
@@ -176,16 +176,16 @@ case class ImsicFileRamLogic(p: ImsicFileParameters) extends Component {
   val port = new Area {
     val address = Reg(U(0, lineWidth bits))
 
-    val isIp = Reg(Bool())
+    val doIp = Reg(Bool())
 
     val dataMask = B(xlen bits, 0 -> address.orR, default -> True)
 
     val read = new Area {
       val ipData = ip.readAsync(address) & dataMask
       val ieData = ie.readAsync(address) & dataMask
-      val data = isIp.mux(ipData, ieData)
+      val data = doIp.mux(ipData, ieData)
 
-      val maskedData = isIp.mux(ieData, ipData)
+      val maskedData = doIp.mux(ieData, ipData)
     }
 
     val write = new Area {
@@ -195,8 +195,8 @@ case class ImsicFileRamLogic(p: ImsicFileParameters) extends Component {
 
       val writeData = ((read.data & ~mask) | data) & dataMask
 
-      ie.write(address, writeData, valid & !isIp)
-      ip.write(address, writeData, valid & isIp)
+      ie.write(address, writeData, valid & !doIp)
+      ip.write(address, writeData, valid & doIp)
     }
   }
 
@@ -221,7 +221,7 @@ case class ImsicFileRamLogic(p: ImsicFileParameters) extends Component {
         op := arbiter.io.output.payload.op
         port.write.data := arbiter.io.output.payload.data
         port.write.mask := arbiter.io.output.payload.mask
-        port.isIp := arbiter.io.output.payload.iep
+        port.doIp := arbiter.io.output.payload.doIp
         port.address := arbiter.io.output.payload.address
         arbiter.io.output.ready := True
 
