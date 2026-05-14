@@ -115,7 +115,7 @@ object ImsicFile {
 
 
 object ImsicOp extends SpinalEnum {
-  val READ, WRITE, QUERY = newElement()
+  val READ, WRITE = newElement()
 }
 
 case class ImsicCmd(addressWidth: Int, xlen: Int) extends Bundle {
@@ -163,13 +163,16 @@ case class ImsicFileRam(p: ImsicFileParameters) extends Component {
   val ie = Mem.fill(lineNum)(Bits(xlen bits)) initBigInt(Seq.fill(lineNum)(0))
   val ip = Mem.fill(lineNum)(Bits(xlen bits)) initBigInt(Seq.fill(lineNum)(0))
   val iepCache = Vec.fill(lineNum)(RegInit(False))
+  val identity = RegInit(U(0, idWidth bits))
 
   val io = new Bundle {
     val port = Vec.fill(portNum)(slave(ImsicAccess(lineWidth, xlen)))
     val interrupt = out Bool()
+    val identity = out UInt(idWidth bits)
   }
 
-  io.interrupt := iepCache.orR
+  io.interrupt := identity.orR
+  io.identity := identity
 
   val arbiter = StreamArbiterFactory().lowerFirst.transactionLock.buildOn(io.port.map(_.cmd))
   val portOhReg = Reg(Bits(io.port.size bits))
@@ -209,7 +212,7 @@ case class ImsicFileRam(p: ImsicFileParameters) extends Component {
   }
 
   val fsm = new StateMachine {
-    val IDLE, READ, WRITE, QUERY = new State
+    val IDLE, READ, WRITE, QUERY, UPDATE = new State
     setEntry(IDLE)
 
     val op = Reg(ImsicOp())
@@ -223,20 +226,15 @@ case class ImsicFileRam(p: ImsicFileParameters) extends Component {
         port.write.data := arbiter.io.output.payload.data
         port.write.mask := arbiter.io.output.payload.mask
         port.isIp := arbiter.io.output.payload.iep
+        port.address := arbiter.io.output.payload.address
         arbiter.io.output.ready := True
 
         switch (arbiter.io.output.payload.op) {
           is(ImsicOp.READ) {
-            port.address := arbiter.io.output.payload.address
             goto(READ)
           }
           is(ImsicOp.WRITE) {
-            port.address := arbiter.io.output.payload.address
             goto(WRITE)
-          }
-          is(ImsicOp.QUERY) {
-            port.address := CountTrailingZeroes(iepCache.asBits).resized
-            goto(QUERY)
           }
         }
       }
@@ -253,20 +251,21 @@ case class ImsicFileRam(p: ImsicFileParameters) extends Component {
     WRITE whenIsActive {
       port.write.valid := True
       iepCache(port.address) := (port.read.maskedData & port.write.writeData).orR
-      io.port.onMask(portOhReg){port =>
-        port.rsp.valid := True
-      }
 
-      goto(IDLE)
+      goto(QUERY)
     }
 
     QUERY whenIsActive {
+      port.address := CountTrailingZeroes(iepCache.asBits).resized
+      goto(UPDATE)
+    }
+
+    UPDATE whenIsActive {
       val result = port.address @@ CountTrailingZeroes(port.read.ipData & port.read.ieData).resize(log2Up(xlen))
-      val identity = result.resize(idWidth).andMask(threshold === 0 || result < threshold)
+      identity := result.resize(idWidth).andMask(threshold === 0 || result < threshold)
 
       io.port.onMask(portOhReg){port =>
         port.rsp.valid := True
-        port.rsp.data  := identity.asBits.resized
       }
 
       goto(IDLE)
