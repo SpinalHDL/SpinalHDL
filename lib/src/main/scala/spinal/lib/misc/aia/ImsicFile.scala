@@ -2,6 +2,7 @@ package spinal.lib.misc.aia
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.fsm._
 
 case class ImsicFileInfo(
   hartId        : Int,
@@ -110,4 +111,173 @@ object ImsicFile {
       }
     }
   }
+}
+
+
+object ImsicOp extends SpinalEnum {
+  val READ, WRITE, QUERY = newElement()
+}
+
+case class ImsicCmd(addressWidth: Int, xlen: Int) extends Bundle {
+  val op = ImsicOp()
+  val iep = Bool()
+  val address = UInt(addressWidth bits)
+  val data = Bits(xlen bits)
+  val mask = Bits(xlen bits)
+}
+
+case class ImsicRsp(xlen: Int) extends Bundle {
+  val data = Bits(xlen bits)
+}
+
+case class ImsicAccess(addressWidth: Int, xlen: Int) extends Bundle with IMasterSlave {
+  val cmd = Stream(ImsicCmd(addressWidth, xlen))
+  val rsp = Flow(ImsicRsp(xlen))
+
+  def asMaster() = {
+    master(cmd)
+    slave(rsp)
+  }
+}
+
+case class ImsicFileParameters(
+  hartId: Int,
+  guestId: Int,
+  sourceNum: Int,
+  xlen: Int,
+  portNum: Int = 2
+)
+
+case class ImsicFileRam(p: ImsicFileParameters) extends Component {
+  import p._
+
+  require(isPow2(sourceNum))
+  require(isPow2(xlen))
+
+  val lineNum = sourceNum / xlen
+  val lineWidth = log2Up(lineNum)
+  val idWidth = log2Up(sourceNum)
+
+  val threshold = RegInit(U(0, idWidth bits))
+  threshold.allowUnsetRegToAvoidLatch()
+  val ie = Mem.fill(lineNum)(Bits(xlen bits)) initBigInt(Seq.fill(lineNum)(0))
+  val ip = Mem.fill(lineNum)(Bits(xlen bits)) initBigInt(Seq.fill(lineNum)(0))
+  val iepCache = Vec.fill(lineNum)(RegInit(False))
+
+  val io = new Bundle {
+    val port = Vec.fill(portNum)(slave(ImsicAccess(lineWidth, xlen)))
+    val interrupt = out Bool()
+  }
+
+  io.interrupt := iepCache.orR
+
+  val arbiter = StreamArbiterFactory().lowerFirst.transactionLock.buildOn(io.port.map(_.cmd))
+  val portOhReg = Reg(Bits(io.port.size bits))
+
+  val port = new Area {
+    val address = Reg(U(0, lineWidth bits))
+
+    val isIp = Reg(Bool())
+
+    val dataMask = B(xlen bits, 0 -> address.orR, default -> True)
+
+    val read = new Area {
+      val ipData = ip.readAsync(address) & dataMask
+      val ieData = ie.readAsync(address) & dataMask
+      val data = isIp.mux(ipData, ieData)
+
+      val maskedData = isIp.mux(ieData, ipData)
+    }
+
+    val write = new Area {
+      val valid = False
+      val data = Reg(Bits(xlen bits))
+      val mask = Reg(Bits(xlen bits))
+
+      val writeData = ((read.data & ~mask) | data) & dataMask
+
+      ie.write(address, writeData, valid & !isIp)
+      ip.write(address, writeData, valid & isIp)
+    }
+  }
+
+  arbiter.io.output.ready := False
+
+  io.port.map(_.rsp).foreach { rsp =>
+    rsp.valid := False
+    rsp.data := port.read.data
+  }
+
+  val fsm = new StateMachine {
+    val IDLE, READ, WRITE, QUERY = new State
+    setEntry(IDLE)
+
+    val op = Reg(ImsicOp())
+    val mask = Reg(Bits(xlen bits))
+    val data = Reg(Bits(xlen bits))
+
+    IDLE whenIsActive {
+      when(arbiter.io.output.valid) {
+        portOhReg := arbiter.io.chosenOH
+        op := arbiter.io.output.payload.op
+        port.write.data := arbiter.io.output.payload.data
+        port.write.mask := arbiter.io.output.payload.mask
+        port.isIp := arbiter.io.output.payload.iep
+        arbiter.io.output.ready := True
+
+        switch (arbiter.io.output.payload.op) {
+          is(ImsicOp.READ) {
+            port.address := arbiter.io.output.payload.address
+            goto(READ)
+          }
+          is(ImsicOp.WRITE) {
+            port.address := arbiter.io.output.payload.address
+            goto(WRITE)
+          }
+          is(ImsicOp.QUERY) {
+            port.address := CountTrailingZeroes(iepCache.asBits).resized
+            goto(QUERY)
+          }
+        }
+      }
+    }
+
+    READ whenIsActive {
+      io.port.onMask(portOhReg){port =>
+        port.rsp.valid := True
+      }
+
+      goto(IDLE)
+    }
+
+    WRITE whenIsActive {
+      port.write.valid := True
+      iepCache(port.address) := (port.read.maskedData & port.write.writeData).orR
+      io.port.onMask(portOhReg){port =>
+        port.rsp.valid := True
+      }
+
+      goto(IDLE)
+    }
+
+    QUERY whenIsActive {
+      val result = port.address @@ CountTrailingZeroes(port.read.ipData & port.read.ieData).resize(log2Up(xlen))
+      val identity = result.resize(idWidth).andMask(threshold === 0 || result < threshold)
+
+      io.port.onMask(portOhReg){port =>
+        port.rsp.valid := True
+        port.rsp.data  := identity.asBits.resized
+      }
+
+      goto(IDLE)
+    }
+  }
+
+  def asImsicFileInfo(hartPerGroup: Int = 0): ImsicFileInfo = ImsicFileInfo(
+    hartId      = hartId,
+    guestId     = guestId,
+    sourceIds   = 1 until sourceNum,
+    groupId     = if (hartPerGroup == 0) 0 else (hartId / hartPerGroup),
+    groupHartId = if (hartPerGroup == 0) hartId else (hartId % hartPerGroup)
+  )
 }
