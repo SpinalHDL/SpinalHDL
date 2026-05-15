@@ -174,15 +174,18 @@ case class ImsicFileRamLogic(p: ImsicFileParameters) extends Component {
   val portOhReg = Reg(Bits(io.port.size bits))
 
   val port = new Area {
-    val address = Reg(U(0, lineWidth bits))
+    val fire = False
+    val address = UInt(lineWidth bits)
+    val addressOld = RegNextWhen(address, fire)
+    address := addressOld
 
     val doIp = Reg(Bool())
 
     val dataMask = B(xlen bits, 0 -> address.orR, default -> True)
 
     val read = new Area {
-      val ipData = ip.readAsync(address) & dataMask
-      val ieData = ie.readAsync(address) & dataMask
+      val ipData = ip.readSync(address, fire) & dataMask
+      val ieData = ie.readSync(address, fire) & dataMask
       val data = doIp.mux(ipData, ieData)
 
       val maskedData = doIp.mux(ieData, ipData)
@@ -223,6 +226,7 @@ case class ImsicFileRamLogic(p: ImsicFileParameters) extends Component {
         port.write.mask := arbiter.io.output.payload.mask
         port.doIp := arbiter.io.output.payload.doIp
         port.address := arbiter.io.output.payload.address
+        port.fire := True
         arbiter.io.output.ready := True
 
         switch (arbiter.io.output.payload.op) {
@@ -252,7 +256,9 @@ case class ImsicFileRamLogic(p: ImsicFileParameters) extends Component {
     }
 
     QUERY whenIsActive {
-      port.address := CountTrailingZeroes(iepCache.asBits).resized
+      val queryAddress = CountTrailingZeroes(iepCache.asBits).resized
+      port.address := queryAddress
+      port.fire := True
       goto(UPDATE)
     }
 
