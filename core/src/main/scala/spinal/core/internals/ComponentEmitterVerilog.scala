@@ -1526,7 +1526,6 @@ end
                   emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} && ${emitExpression(memReadWrite.writeEnable)} ", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(),tab)
                 }, null, tmpBuilder, memReadWrite.clockDomain, false)
               case `writeFirst` =>
-                assert(mem.cldCount == 1)
                 emitClockedProcess((tab, b) => {
                   val symbolCount = memReadWrite.mem.getMemSymbolCount()
                   b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
@@ -1539,7 +1538,6 @@ end
                   b ++= s"${tab}end\n"
                 }, null, tmpBuilder, memReadWrite.clockDomain, false)
               case `readFirst` =>
-                assert(mem.cldCount == 1)
                 emitClockedProcess((tab, b) => {
                   val symbolCount = memReadWrite.mem.getMemSymbolCount()
                   b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
