@@ -283,6 +283,8 @@ class Counter(
   when(willClear) { valueNext := U(initVal, w bits) }
 
   enableStandardPruning()
+  willOverflow.setCompositeName(this, "willOverflow", true)
+  willUnderflow.setCompositeName(this, "willUnderflow", true)
 
   def stateCount: BigInt = end - start + 1
 
