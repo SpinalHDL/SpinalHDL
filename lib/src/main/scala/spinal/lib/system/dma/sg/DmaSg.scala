@@ -82,6 +82,7 @@ object DmaSg{
                        weightWidth : Int,
                        withSgBus : Boolean = false,
                        writeFmaxOpt : Boolean = false,
+                       inputsToBufferRelaxation : Boolean = false,
                        pendingWritePerChannel : Int = 15,
                        pendingReadPerChannel : Int = 15){
 
@@ -654,7 +655,7 @@ object DmaSg{
 
       def mp = memory.ports.s2b(portId)
       val memoryPortCmd = cloneOf(memory.ports.s2b(portId).cmd)
-      mp.cmd << memoryPortCmd.pipelined(m2s = true, s2m = true)
+      mp.cmd << memoryPortCmd.pipelined(m2s = p.inputsToBufferRelaxation, s2m = p.inputsToBufferRelaxation)
 
       def sink = io.inputs(portId)
       val bankPerBeat = sink.p.byteCount * 8 / p.memory.bankWidth
@@ -2659,6 +2660,7 @@ object SgDmaTestsParameter{
       channels = channels,
       bytePerTransferWidth = 16,
       writeFmaxOpt = Random.nextBoolean(),
+      inputsToBufferRelaxation = Random.nextBoolean(),
       weightWidth = Random.nextInt(3)
     )
   }
