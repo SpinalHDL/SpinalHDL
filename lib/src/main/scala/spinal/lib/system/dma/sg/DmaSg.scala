@@ -365,12 +365,21 @@ object DmaSg{
           availableDecr := 0
 
           val ptr = Reg(ptrType)
+          val ptrWritten = Reg(ptrType) //Only for M2S, used to compensate for mem banks write delay / arbitration
           val ptrWithBase = (base & ~words) | (ptr & words)
           val ptrIncr = DataOr(ptrType)
           ptr := ptr + ptrIncr.value
 
+          val ptrWrittenIncr = False
+          if(cp.canRead) {
+            when(ptrWrittenIncr) {
+              ptrWritten := ptrWritten + U(io.read.p.access.dataWidth / p.memory.bankWidth)
+            }
+          }
+
           when(channelStart){
             ptr := 0
+            ptrWritten := 0
           }
         }
 
@@ -386,7 +395,7 @@ object DmaSg{
 
 
           val empty = ptr === push.ptr
-
+          val emptyOutput = ptr === push.ptrWritten
 
           val ptrIncr = DataOr(ptrType)
           ptr := ptr + ptrIncr.value
@@ -709,7 +718,7 @@ object DmaSg{
 
       val cmd = new Area{
         //TODO better arbitration
-        val channelsOh = B(OHMasking.first(channels.map(c => c.channelValid && !c.pop.memory && c.pop.b2s.portId === c.cp.outputsPorts.indexOf(portId) && !c.fifo.pop.empty)))
+        val channelsOh = B(OHMasking.first(channels.map(c => c.channelValid && !c.pop.memory && c.pop.b2s.portId === c.cp.outputsPorts.indexOf(portId) && !c.fifo.pop.emptyOutput)))
         val context = B2sReadContext(portId)
         val groupRange = log2Up(p.readDataWidth/p.memory.bankWidth) -1 downto log2Up(bankPerBeat)
         val addressRange = ptrWidth-1 downto log2Up(p.readDataWidth/p.memory.bankWidth)
@@ -904,6 +913,7 @@ object DmaSg{
         for ((channel, ohId) <- channels.zipWithIndex) {
           val fire = memory.ports.m2b.rsp.fire && context.channel === ohId
           channel.fifo.pop.bytesIncr.newPort := (fire ? (context.loadByteInNextBeat + 1) | U(0)).resized
+          channel.fifo.push.ptrWrittenIncr setWhen(fire)
 
           when(fire && context.lastOfBurst){
             channel.push.m2b.memPendingDecr := True
@@ -1886,6 +1896,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     if(cp.memoryToMemory)        tests += M2M
     if(cp.outputsPorts.nonEmpty) tests += M2S
     if(cp.inputsPorts.nonEmpty)  tests += S2M
+//    sleep(20000)
     for (r <- 0 until 400) {
 //      println(f"Channel $channelId")
       clockDomain.waitSampling(simRandom.nextInt(100))

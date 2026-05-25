@@ -72,7 +72,9 @@ case class DmaMemoryCore(p : DmaMemoryCoreParameter) extends Component{
   }
   val banks = for(bankId <- 0 until p.layout.bankCount) yield new Area{
     val ram = Mem(BankWord(), p.layout.bankWords) addAttribute("ram_style", "block")
-    val write = ram.writePort
+    val writeBuffered = ram.writePort
+    val write = cloneOf(writeBuffered)
+    writeBuffered << write.stage()
     val read = ram.readSyncPort
 
     val writeOr = DataOr(write)
@@ -143,8 +145,8 @@ case class DmaMemoryCore(p : DmaMemoryCoreParameter) extends Component{
         }
       }
       ports(self).cmd.ready := doIt
-      io.writes(self).rsp.valid := RegNext(doIt) init(False)
-      io.writes(self).rsp.context := RegNext(io.writes(self).cmd.context)
+      io.writes(self).rsp.valid := Delay(doIt, 2, init=False)
+      io.writes(self).rsp.context := Delay(io.writes(self).cmd.context, 2)
     }
   }
 
