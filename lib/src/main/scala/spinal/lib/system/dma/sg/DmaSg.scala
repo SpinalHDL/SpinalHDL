@@ -81,6 +81,7 @@ object DmaSg{
                        bytePerTransferWidth : Int,
                        weightWidth : Int,
                        withSgBus : Boolean = false,
+                       writeFmaxOpt : Boolean = false,
                        pendingWritePerChannel : Int = 15,
                        pendingReadPerChannel : Int = 15){
 
@@ -454,6 +455,9 @@ object DmaSg{
           val packetEvent = False
           val packetLock = Reg(Bool()) //Maybe this should be disable if not necessary
           val waitFirst = Reg(Bool())
+          val writePending = Reg(UInt(2 bits)) init(0)
+          val writeIncr, writeDecr = False
+          writePending := writePending + U(writeIncr) - U(writeDecr)
           fifo.pop.withOverride.load setWhen( packetEvent && completionOnLast)
 
           when(channelStart){
@@ -500,6 +504,7 @@ object DmaSg{
 
           val fire = False
           val waitFinalRsp = Reg(Bool())
+          val s1Fire = False
           val flush = Reg(Bool()) clearWhen(fire)  //Check flush
           val packetSync = False
           val packet = Reg(Bool()) clearWhen(channelStart || fire)
@@ -510,9 +515,12 @@ object DmaSg{
 
           // Trigger request when there is enough to do a burst, fifo occupancy > 50 %, flush
           val selfFlush = bytesLeft < fifo.pop.bytes
-          val request = descriptorValid && !channelStop && !waitFinalRsp && memory && (fifo.pop.bytes > bytePerBurst || (fifo.push.available < (fifo.words >> 1) || flush || selfFlush)) && fifo.pop.bytes =/= 0 && memPending =/= p.pendingWritePerChannel
-          val bytesToSkip = Reg(UInt(log2Up(p.writeByteCount) bits))
 
+          val requestOpt = descriptorValid && !channelStop && !waitFinalRsp && memory && (fifo.pop.bytes > bytePerBurst || (fifo.push.available < (fifo.words >> 1) || flush || selfFlush)) && fifo.pop.bytes =/= 0 && memPending =/= p.pendingWritePerChannel
+          val requestOptReg = RegNext(requestOpt && !s1Fire) init(False)
+          val request = if(p.writeFmaxOpt) descriptorValid && !channelStop && requestOptReg else requestOpt
+
+          val bytesToSkip = Reg(UInt(log2Up(p.writeByteCount) bits))
           val decrBytes = fifo.pop.bytesDecr.newPort()
 
           val memPendingInc = False
@@ -558,6 +566,7 @@ object DmaSg{
         }
       }
 
+      if(cp.canInput) readyToStop.clearWhen(push.s2b.writePending =/= 0)
 
       if(cp.canRead) readyToStop.clearWhen(push.m2b.memPending =/= 0)
       if(cp.canWrite) readyToStop.clearWhen(pop.b2m.memPending =/= 0)
@@ -634,7 +643,9 @@ object DmaSg{
       val ps = p.inputs(portId)
       val channels = Core.this.channels.filter(_.cp.inputsPorts.contains(portId))
 
-      def memoryPort = memory.ports.s2b(portId)
+      def mp = memory.ports.s2b(portId)
+      val memoryPortCmd = cloneOf(memory.ports.s2b(portId).cmd)
+      mp.cmd << memoryPortCmd.pipelined(m2s = true, s2m = true)
 
       def sink = io.inputs(portId)
       val bankPerBeat = sink.p.byteCount * 8 / p.memory.bankWidth
@@ -652,17 +663,18 @@ object DmaSg{
         context.bytes := byteCount
         context.flush := sink.last
         context.packet := sink.last
-        sinkHalted.ready     := memoryPort.cmd.ready
-        memoryPort.cmd.valid := sinkHalted.valid
-        memoryPort.cmd.address := MuxOH(channelsOh, channels.map(_.fifo.push.ptrWithBase)).resized
-        memoryPort.cmd.data := sinkHalted.data
-        memoryPort.cmd.mask := sinkHalted.mask
-        memoryPort.cmd.priority := MuxOH(channelsOh, channels.map(_.priority))
-        memoryPort.cmd.context := B(context)
+        sinkHalted.ready     := memoryPortCmd.ready
+        memoryPortCmd.valid := sinkHalted.valid
+        memoryPortCmd.address := MuxOH(channelsOh, channels.map(_.fifo.push.ptrWithBase)).resized
+        memoryPortCmd.data := sinkHalted.data
+        memoryPortCmd.mask := sinkHalted.mask
+        memoryPortCmd.priority := MuxOH(channelsOh, channels.map(_.priority))
+        memoryPortCmd.context := B(context)
         for ((channel, ohId) <- channels.zipWithIndex) {
-          val hit = channelsOh(ohId) && memoryPort.cmd.fire
-          channel.fifo.push.ptrIncr.newPort() := ((hit && memoryPort.cmd.mask.orR) ? U(bankPerBeat) | U(0)).resized
+          val hit = channelsOh(ohId) && memoryPortCmd.fire
+          channel.fifo.push.ptrIncr.newPort() := ((hit && memoryPortCmd.mask.orR) ? U(bankPerBeat) | U(0)).resized
           when(hit){
+            channel.push.s2b.writeIncr := True
             channel.push.s2b.waitFirst := False
             when(sink.last) {
               channel.push.s2b.packetLock := True
@@ -672,11 +684,14 @@ object DmaSg{
       }
 
       val rsp = new Area{
-        val context = memoryPort.rsp.context.as(InputContext(ps, portId))
+        val context = mp.rsp.context.as(InputContext(ps, portId))
         for ((channel, ohId) <- channels.zipWithIndex) {
-          val hit = memoryPort.rsp.fire && context.channel(ohId)
+          val hit = mp.rsp.fire && context.channel(ohId)
           channel.fifo.pop.bytesIncr.newPort := (hit ? context.bytes | U(0)).resized
           channel.push.s2b.packetEvent setWhen(hit && context.packet)
+          when(hit){
+            channel.push.s2b.writeDecr := True
+          }
           if(channel.cp.canWrite) {
             channel.pop.b2m.flush setWhen(hit && context.flush)
             channel.pop.b2m.packet setWhen(hit && context.packet)
@@ -998,6 +1013,7 @@ object DmaSg{
             channel.pop.b2m.address := addressNext
             channel.pop.b2m.bytesLeft := bytesLeftNext.resized
             channel.pop.b2m.waitFinalRsp setWhen(isFinalCmd)
+            channel.pop.b2m.s1Fire := True
             when(!fifoCompletion) {
               when(sel.flush) {
                 channel.pop.b2m.flush := True
@@ -1870,7 +1886,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     if(cp.memoryToMemory)        tests += M2M
     if(cp.outputsPorts.nonEmpty) tests += M2S
     if(cp.inputsPorts.nonEmpty)  tests += S2M
-    for (r <- 0 until 100) {
+    for (r <- 0 until 400) {
 //      println(f"Channel $channelId")
       clockDomain.waitSampling(simRandom.nextInt(100))
       tests.randomPick() match {
@@ -2631,6 +2647,7 @@ object SgDmaTestsParameter{
       inputs = inputs,
       channels = channels,
       bytePerTransferWidth = 16,
+      writeFmaxOpt = Random.nextBoolean(),
       weightWidth = Random.nextInt(3)
     )
   }
