@@ -172,7 +172,7 @@ class Tester:
 
             if int(dut.io_iCheck_valid) == 1 :
               if (int(dut.io_iCheck_payload_address) & 3) != 0:
-                raise TestFailure("iCmd bad allignement")
+                raise TestFailure("iCmd bad alignment")
               if int(dut.io_iCheck_payload_data) != 0x00000013 and int(dut.io_iCheck_payload_data) != 0x01c02023 and int(dut.io_iCheck_payload_data) != 0xffc02e23 :
                 for i in range(0,4):
                   if self.rom[int(dut.io_iCheck_payload_address)+i] != ((int(dut.io_iCheck_payload_data) >> (i*8)) & 0xFF):

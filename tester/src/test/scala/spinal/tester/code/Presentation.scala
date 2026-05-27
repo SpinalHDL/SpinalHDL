@@ -329,7 +329,7 @@ object C10_2 {
     val io = new Bundle {
       val cfgPort = slave Flow Fragment(Bits(8 bit))
     }
-    val waitTrigger = io.cfgPort filterHeader (0x01) toRegOf (Bool) init (False)
+    val waitTrigger = io.cfgPort filterHeader (0x01) toRegOf (Bool()) init (False)
     val userTrigger = io.cfgPort pulseOn (0x02)
     val configs = io.cfgPort filterHeader (0x0F) toRegOf (LogicAnalyserConfig())
   }
@@ -380,7 +380,7 @@ object C10_removed {
 
 
   //Memory of 1024 Bool
-  val mem = Mem(Bool, 1024)
+  val mem = Mem(Bool(), 1024)
 
   //Write it
   mem(5) := True
@@ -850,8 +850,8 @@ object t10 {
   val arrayOfUInt = Vec(UInt(5 bit), 16)
   val sumOfUInt = arrayOfUInt.fold(U(0, 9 bit))(_ + _)
 
-  val arrayOfStreamA = Vec(Stream(Bool), 10)
-  val arrayOfStreamB = Vec(Stream(Bool), 10)
+  val arrayOfStreamA = Vec(Stream(Bool()), 10)
+  val arrayOfStreamB = Vec(Stream(Bool()), 10)
   (arrayOfStreamA, arrayOfStreamB).zipped.foreach(_ >> _)
 
   for (i <- 0 to 10) {
@@ -1955,7 +1955,7 @@ object PlayAdder2{
     uint8 := uint12.resize(8)
     uint8 := uint12.resized
     uint8 := uint12(7 downto 0)
-    uint8 := uint12(uint8.range)
+    uint8 := uint12(uint8.bitsRange)
 
     val bits4 = Bits(4 bits)
     uint8 := bits4.asUInt.resized
@@ -2152,7 +2152,7 @@ object Summit extends App{
 
 object Ccc37A {
 
-  class Timer extends Component {
+  class MyTimer extends Component {
     val increment = in Bool()
     val counter = Reg(UInt(8 bits)) init(0)
     val full = counter === 255

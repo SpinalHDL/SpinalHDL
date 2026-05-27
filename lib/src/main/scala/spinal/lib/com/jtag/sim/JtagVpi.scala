@@ -61,7 +61,6 @@ object JtagVpi {
     }
 
     val server = new SocketThread
-    onSimEnd()
     server.start()
 
     // reconnect loop

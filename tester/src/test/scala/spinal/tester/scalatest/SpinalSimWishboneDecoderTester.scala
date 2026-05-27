@@ -18,7 +18,7 @@ class WishboneDecoderComponent(config : WishboneConfig,decodings : Seq[SizeMappi
   }
   val ff = Reg(Bool())
   val outs = io.busOUT zip decodings
-  val decoder = WishboneDecoder(io.busIN,outs)
+  val decoder = WishboneDecoder(io.busIN, outs, byteAddressedDecodings = true)
 }
 
 class SpinalSimWishboneDecoderTester extends SpinalAnyFunSuite{
@@ -41,8 +41,11 @@ class SpinalSimWishboneDecoderTester extends SpinalAnyFunSuite{
       val sco = ScoreboardInOrder[WishboneTransaction]()
       val dri = new WishboneDriver(dut.io.busIN, dut.clockDomain)
 
+      // Decodings are in byte addresses; convert to word addresses for the ADR signal.
+      val bytesPerWord = config.dataWidth / 8
+      val wordDecodings = decodings.map(s => SizeMapping(s.base / bytesPerWord, s.size / bytesPerWord))
       val seq = WishboneSequencer{
-        WishboneTransaction().randomAdressInRange(Random.shuffle(decodings).head).randomizeData(Math.pow(2,config.dataWidth).toInt-1)
+        WishboneTransaction().randomAdressInRange(Random.shuffle(wordDecodings).head).randomizeData(Math.pow(2,config.dataWidth).toInt-1)
       }
 
       val monIN = WishboneMonitor(dut.io.busIN, dut.clockDomain){ bus =>

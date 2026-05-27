@@ -8,12 +8,12 @@ case class DebugModuleCpuConfig(xlen : Int,
                                 flen : Int,
                                 withFpuRegAccess : Boolean)
 
-case class DebugModuleParameter(version : Int,
-                                harts : Int,
-                                progBufSize : Int,
-                                datacount : Int,
-                                hartsConfig : Seq[DebugModuleCpuConfig],
-                                withSysBus: Boolean = false)
+case class DebugModuleParameter(var version : Int,
+                                var harts : Int,
+                                var progBufSize : Int,
+                                var datacount : Int,
+                                var hartsConfig : Seq[DebugModuleCpuConfig],
+                                var withSysBus: Boolean = false)
 
 
 object DebugDmToHartOp extends SpinalEnum{
@@ -56,14 +56,14 @@ object DebugModuleCmdErr extends SpinalEnum(binarySequential){
 }
 
 case class DebugSysBusCmd() extends Bundle{
-  val wr = Bool
+  val wr = Bool()
   val address = UInt(32 bits)
   val data = Bits(32 bit)
   val size = UInt(2 bit)
 }
 
 case class DebugSysBusRsp() extends Bundle{
-  val error = Bool
+  val error = Bool()
   val data = Bits(32 bit)
 }
 
@@ -241,7 +241,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         io.sysBus.cmd.payload.wr := sysBusWrite
         io.sysBus.cmd.payload.address := sbaddress0
         io.sysBus.cmd.payload.data := sbdata0
-        io.sysBus.cmd.payload.size := 3
+        io.sysBus.cmd.payload.size := 3 //If you add capabilities here, please, update the debug module fiber makeSysbusTilelink
 
         when(sysBusBusy && io.sysBus.cmd.fire) {
           sysBusCmdValid := False

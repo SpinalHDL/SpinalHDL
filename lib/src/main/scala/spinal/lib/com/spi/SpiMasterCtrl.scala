@@ -103,7 +103,7 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
      * ssSetup -> W 0x10 time between chip select enable and the next byte
      * ssHold -> W 0x14 time between the last byte transmission and the chip select disable
      * ssDisable -> W 0x18 time between chip select disable and chip select enable
-     * samplePos -> W 0x1c sample postion after edge trigger
+     * samplePos -> W 0x1c sample position after edge trigger
      */
 
     def driveFrom(bus : BusSlaveFactory, baseAddress : Int = 0)(generics : SpiMasterCtrlMemoryMappedConfig) = new Area {

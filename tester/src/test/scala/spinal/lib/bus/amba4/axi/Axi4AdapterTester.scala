@@ -14,12 +14,8 @@ import scala.util.Random
 
 class Axi4UpsizerTester extends SpinalAnyFunSuite {
 
-  def writeTester(dut : Axi4WriteOnlyUpsizer): Unit ={
-    dut.clockDomain.forkStimulus(10)
-
-
-    val regions = mutable.Set[SizeMapping]()
-    val inputAgent = new Axi4WriteOnlyMasterAgent(dut.io.input, dut.clockDomain) {
+  def writeTesterAgent(input : Axi4WriteOnly, output : Axi4WriteOnly, cd : ClockDomain, regions : mutable.Set[SizeMapping]) = new Area{
+    val inputAgent = new Axi4WriteOnlyMasterAgent(input, cd) {
       override def genAddress(): BigInt = ((Random.nextInt(1 << 19)))// & 0xFFF00) | 6
 
       override val pageAlignBits = 16
@@ -36,10 +32,10 @@ class Axi4UpsizerTester extends SpinalAnyFunSuite {
 
       override def mappingFree(mapping: SizeMapping): Unit = regions.remove(mapping)
     }
-    val outputAgent = new Axi4WriteOnlySlaveAgent(dut.io.output, dut.clockDomain)
+    val outputAgent = new Axi4WriteOnlySlaveAgent(output, cd)
 
     val writes = mutable.HashMap[BigInt, Byte]()
-    val inputMonitor = new Axi4WriteOnlyMonitor(dut.io.input, dut.clockDomain) {
+    val inputMonitor = new Axi4WriteOnlyMonitor(input, cd) {
       override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
         //          println(s"I $address -> $data")
         assert(!writes.contains(address))
@@ -47,20 +43,29 @@ class Axi4UpsizerTester extends SpinalAnyFunSuite {
       }
     }
 
-    val outputMonitor = new Axi4WriteOnlyMonitor(dut.io.output, dut.clockDomain) {
+    val outputMonitor = new Axi4WriteOnlyMonitor(output, cd) {
       override def onWriteByte(address: BigInt, data: Byte, id: Int): Unit = {
         //          println(s"O $address -> $data")
         assert(writes(address) == data)
         writes.remove(address)
       }
     }
+  }
+
+  def writeTester(dut : Axi4WriteOnlyUpsizer): Unit ={
+    dut.clockDomain.forkStimulus(10)
 
 
-    dut.clockDomain.waitSamplingWhere(inputAgent.rspCounter > 10000)
-    inputAgent.allowGen = false
-    dut.clockDomain.waitSamplingWhere(!inputAgent.pending)
+    val regions = mutable.Set[SizeMapping]()
+
+    val writeAgent = writeTesterAgent(dut.io.input, dut.io.output, dut.clockDomain, regions)
+
+
+    dut.clockDomain.waitSamplingWhere(writeAgent.inputAgent.rspCounter > 10000)
+    writeAgent.inputAgent.allowGen = false
+    dut.clockDomain.waitSamplingWhere(!writeAgent.inputAgent.pending)
     dut.clockDomain.waitSampling(100)
-    assert(writes.isEmpty)
+    assert(writeAgent.writes.isEmpty)
     println("done")
   }
 
@@ -78,16 +83,12 @@ class Axi4UpsizerTester extends SpinalAnyFunSuite {
   }
 
 
-
-  def readTester(dut : Axi4ReadOnlyUpsizer): Unit ={
-    dut.clockDomain.forkStimulus(10)
-
-    val regions = mutable.Set[SizeMapping]()
-    val inputAgent = new Axi4ReadOnlyMasterAgent(dut.io.input, dut.clockDomain) {
+  def readTesterAgent(input : Axi4ReadOnly, output : Axi4ReadOnly, cd : ClockDomain, regions : mutable.Set[SizeMapping]) = new Area{
+    val inputAgent = new Axi4ReadOnlyMasterAgent(input, cd) {
       override def genAddress(): BigInt = Random.nextInt(1 << 19)
       override def bursts: List[Int] = List(1)
       override val pageAlignBits = 20
-//      override def lens   =  (0xf0 to 0xff).toList
+      //      override def lens   =  (0xf0 to 0xff).toList
       override def mappingAllocate(mapping: SizeMapping): Boolean = {
         if(regions.exists(_.overlap(mapping))) return false
         regions += mapping
@@ -97,18 +98,18 @@ class Axi4UpsizerTester extends SpinalAnyFunSuite {
       override def mappingFree(mapping: SizeMapping): Unit = regions.remove(mapping)
     }
 
-    val outputAgent = new Axi4ReadOnlySlaveAgent(dut.io.output, dut.clockDomain)
+    val outputAgent = new Axi4ReadOnlySlaveAgent(output, cd)
 
 
 
     val reads = mutable.HashMap[BigInt, Byte]()
-    val inputMonitor = new Axi4ReadOnlyMonitor(dut.io.input, dut.clockDomain) {
+    val inputMonitor = new Axi4ReadOnlyMonitor(input, cd) {
       override def onReadByte(address: BigInt, data: Byte, id : Int): Unit = {
         reads(address) = data
       }
     }
 
-    val outputMonitor = new Axi4ReadOnlyMonitor(dut.io.output, dut.clockDomain) {
+    val outputMonitor = new Axi4ReadOnlyMonitor(output, cd) {
       override def onReadByte(address: BigInt, data: Byte, id : Int): Unit = {
         if(reads.contains(address)) {
           assert(reads(address) == data)
@@ -118,14 +119,21 @@ class Axi4UpsizerTester extends SpinalAnyFunSuite {
 
       override def onResponse(address: BigInt, id: Int, last: Boolean, resp: Byte): Unit = if (last) assert(reads.isEmpty)
     }
+  }
+
+  def readTester(dut : Axi4ReadOnlyUpsizer): Unit ={
+    dut.clockDomain.forkStimulus(10)
+
+    val regions = mutable.Set[SizeMapping]()
+
+    val readAgent = readTesterAgent(dut.io.input, dut.io.output, dut.clockDomain, regions)
 
 
-
-    dut.clockDomain.waitSamplingWhere(inputAgent.rspCounter > 10000)
-    inputAgent.allowGen = false
-    dut.clockDomain.waitSamplingWhere(!inputAgent.pending)
+    dut.clockDomain.waitSamplingWhere(readAgent.inputAgent.rspCounter > 10000)
+    readAgent.inputAgent.allowGen = false
+    dut.clockDomain.waitSamplingWhere(!readAgent.inputAgent.pending)
     dut.clockDomain.waitSampling(100)
-    assert(reads.isEmpty)
+    assert(readAgent.reads.isEmpty)
     println("done")
   }
 
@@ -140,6 +148,64 @@ class Axi4UpsizerTester extends SpinalAnyFunSuite {
   }
   test("readOnly_256_512") {
     SimConfig.compile(Axi4ReadOnlyUpsizer(Axi4Config(20, 256, 4), Axi4Config(20, 512, 4),4)).doSim("test", 42)(readTester)
+  }
+
+  case class SharedTestedDut(inputConfig : Axi4Config,
+                             outputConfig : Axi4Config,
+                             readPendingQueueSize : Int) extends Component {
+    val dut = Axi4SharedUpsizer(inputConfig, outputConfig, readPendingQueueSize)
+
+    val input = new Area {
+      val ro = slave port Axi4ReadOnly(inputConfig)
+      val wo = slave port Axi4WriteOnly(inputConfig)
+      val rw = Axi4(inputConfig)
+      rw << ro
+      rw << wo
+      dut.io.input << rw.toShared()
+    }
+
+    val output = new Area {
+      val rw = dut.io.output.toAxi4()
+      val ro = master port Axi4ReadOnly(outputConfig)
+      val wo = master port Axi4WriteOnly(outputConfig)
+      ro << rw
+      wo << rw
+    }
+  }
+
+  def sharedTester(dut : SharedTestedDut): Unit ={
+    dut.clockDomain.forkStimulus(10)
+
+    val regions = mutable.Set[SizeMapping]()
+    val regions2 = mutable.Set[SizeMapping]()
+
+    val readAgent = readTesterAgent(dut.input.ro, dut.output.ro, dut.clockDomain, regions)
+    val writeAgent = writeTesterAgent(dut.input.wo, dut.output.wo, dut.clockDomain, regions2)
+
+    dut.clockDomain.waitSamplingWhere(readAgent.inputAgent.rspCounter > 10000)
+    dut.clockDomain.waitSamplingWhere(writeAgent.inputAgent.rspCounter > 10000)
+    writeAgent.inputAgent.allowGen = false
+    readAgent.inputAgent.allowGen = false
+
+    dut.clockDomain.waitSamplingWhere(!readAgent.inputAgent.pending)
+    dut.clockDomain.waitSamplingWhere(!writeAgent.inputAgent.pending)
+    dut.clockDomain.waitSampling(100)
+    assert(readAgent.reads.isEmpty)
+    assert(writeAgent.writes.isEmpty)
+    println("done")
+  }
+
+  test("shared_32_64") {
+    SimConfig.compile(SharedTestedDut(Axi4Config(20, 32, 4), Axi4Config(20, 64, 4),4)).doSim("test", 42)(sharedTester)
+  }
+  test("shared_16_64") {
+    SimConfig.compile(SharedTestedDut(Axi4Config(20, 16, 4), Axi4Config(20, 64, 4),4)).doSim("test", 42)(sharedTester)
+  }
+  test("shared_32_128") {
+    SimConfig.compile(SharedTestedDut(Axi4Config(20, 32, 4), Axi4Config(20, 128, 4),4)).doSim("test", 42)(sharedTester)
+  }
+  test("shared_256_512") {
+    SimConfig.compile(SharedTestedDut(Axi4Config(20, 256, 4), Axi4Config(20, 512, 4),4)).doSim("test", 42)(sharedTester)
   }
 }
 

@@ -130,7 +130,11 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     false
   }
 
-  def hasAssignement : Boolean = !this.dlcIsEmpty
+  // TODO enable deprecation
+  //@deprecated("Use correctly spelled 'hasAssignment' instead", since = "1.15.0")
+  def hasAssignement : Boolean = hasAssignment
+
+  def hasAssignment : Boolean = !this.dlcIsEmpty
 
   def initialFrom(that: AnyRef, target: AnyRef = this) = {
     compositAssignFrom(that,target,InitialAssign)

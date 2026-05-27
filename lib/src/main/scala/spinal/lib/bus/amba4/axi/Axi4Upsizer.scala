@@ -29,7 +29,7 @@ case class Axi4WriteOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Con
 
   val dataLogic = new Area{
     val byteCounter = Reg(UInt(log2Up(outputConfig.bytePerWord) bits))
-    val size = Reg(UInt(3 bits))
+    val size = Reg(UInt(outputConfig.sizeWidth bits))
     val outputValid = RegInit(False) clearWhen(io.output.writeData.ready)
     val outputLast = Reg(Bool())
     val busy = RegInit(False)
@@ -92,7 +92,7 @@ case class Axi4ReadOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Conf
 
   case class RspContext() extends Bundle{
     val startAt, endAt = Reg(UInt(log2Up(outputConfig.bytePerWord) bits))
-    val size = UInt(3 bits)
+    val size = UInt(inputConfig.sizeWidth bits)
     val id = UInt(inputConfig.idWidth bits)
   }
 
@@ -120,7 +120,7 @@ case class Axi4ReadOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Conf
 
     val cmdPop = cmdPush.queue(pendingQueueSize)
 
-    val size = Reg(UInt(3 bits))
+    val size = Reg(UInt(inputConfig.sizeWidth bits))
     val busy = RegInit(False)
     val id = Reg(UInt(inputConfig.idWidth bits))
     val byteCounter = Reg(UInt(log2Up(outputConfig.bytePerWord) bits))
@@ -175,6 +175,43 @@ case class Axi4Upsizer(inputConfig : Axi4Config,
   readOnly.io.output.ar <> io.output.ar
   readOnly.io.output.r <> io.output.r
   writeOnly.io.output.aw <> io.output.aw
+  writeOnly.io.output.w <> io.output.w
+  writeOnly.io.output.b <> io.output.b
+}
+
+
+case class Axi4SharedUpsizer(inputConfig : Axi4Config,
+                             outputConfig : Axi4Config,
+                             readPendingQueueSize : Int) extends Component{
+  val io = new Bundle {
+    val input = slave(Axi4Shared(inputConfig))
+    val output = master(Axi4Shared(outputConfig))
+  }
+
+  val readOnly = Axi4ReadOnlyUpsizer(inputConfig, outputConfig, readPendingQueueSize)
+  val writeOnly = Axi4WriteOnlyUpsizer(inputConfig, outputConfig)
+
+  // Handle input side, easy, just use to Axi4
+  val input = io.input.toAxi4()
+  readOnly.io.input.ar <> input.ar
+  readOnly.io.input.r <> input.r
+  writeOnly.io.input.aw <> input.aw
+  writeOnly.io.input.w <> input.w
+  writeOnly.io.input.b <> input.b
+
+  // Handle output, assumes Axi4ReadOnlyUpsizer/Axi4WriteOnlyUpsizer do not have any state in the ar/aw path between input output
+  when(io.input.arw.write){
+    io.output.arw.valid := writeOnly.io.output.aw.valid
+    io.output.arw.payload.assignSomeByName(writeOnly.io.output.aw.payload)
+  } otherwise {
+    io.output.arw.valid := readOnly.io.output.ar.valid
+    io.output.arw.payload.assignSomeByName(readOnly.io.output.ar.payload)
+  }
+  io.output.arw.write := io.input.arw.write
+  writeOnly.io.output.aw.ready := io.output.arw.ready
+  readOnly.io.output.ar.ready := io.output.arw.ready
+
+  readOnly.io.output.r <> io.output.r
   writeOnly.io.output.w <> io.output.w
   writeOnly.io.output.b <> io.output.b
 }

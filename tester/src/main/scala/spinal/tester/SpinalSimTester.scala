@@ -2,7 +2,6 @@ package spinal.tester
 
 import spinal.core._
 import spinal.core.sim.{SpinalSimConfig, _}
-import spinal.tester.SpinalAnyFunSuite
 
 abstract class SpinalSimTester{
   def SimConfig : SpinalSimConfig

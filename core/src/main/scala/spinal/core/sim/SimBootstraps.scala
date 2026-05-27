@@ -93,7 +93,7 @@ object SpinalVerilatorBackend {
       })
 
       bt.algoInt = signalId
-      bt.algoIncrementale = -1
+      bt.algoIncremental = -1
       signal.id = signalId
       vconfig.signals += signal
       signalId += 1
@@ -107,7 +107,7 @@ object SpinalVerilatorBackend {
         case mem : Mem[_] if mem.hasTag(Verilator.public) => {
           val tag = mem.getTag(classOf[MemSymbolesTag])
           mem.algoInt = signalId
-          mem.algoIncrementale = -1
+          mem.algoIncremental = -1
           tag match {
             case None => addSignal(mem)
             case Some(tag) => {
@@ -137,7 +137,7 @@ object SpinalVerilatorBackend {
       })
 
       bt.algoInt = signalId
-      bt.algoIncrementale = -1
+      bt.algoIncremental = -1
       signal.id = signalId
       vconfig.signals += signal
       signalId += 1
@@ -394,7 +394,7 @@ object SpinalVpiBackend {
       })
 
       bt.algoInt = signalId
-      bt.algoIncrementale = -1
+      bt.algoIncremental = -1
       signal.id = signalId
       signalsCollector += signal
       signalId += 1
@@ -408,7 +408,7 @@ object SpinalVpiBackend {
         case mem : Mem[_] if mem.hasTag(SimPublic) => {
           val tag = mem.getTag(classOf[MemSymbolesTag])
           mem.algoInt = signalId
-          mem.algoIncrementale = -1
+          mem.algoIncremental = -1
           tag match {
             case None => addSignal(mem)
             case Some(tag) => {
@@ -438,7 +438,7 @@ object SpinalVpiBackend {
       })
 
       bt.algoInt = signalId
-      bt.algoIncrementale = -1
+      bt.algoIncremental = -1
       signal.id = signalId
       signalsCollector += signal
       signalId += 1
@@ -497,7 +497,7 @@ object SpinalXSimBackend {
       })
 
       bt.algoInt = signalId
-      bt.algoIncrementale = -1
+      bt.algoIncremental = -1
       signal.id = signalId
       signalsCollector += signal
       signalId += 1

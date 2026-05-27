@@ -661,11 +661,16 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
+
+  // TODO enable deprecation
+  //@deprecated("use randBoot() instead", since = "1.15.0")
+  def randBoot(u : Unit): this.type = randBoot()
+  
   /**
     * Useful for register that doesn't need a reset value in RTL,
     * but need a random value for simulation (avoid x-propagation)
-    */
-  def randBoot(u : Unit): this.type = {
+    */  
+  def randBoot(): this.type = {
     if(!globalData.phaseContext.config.noRandBoot) flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }

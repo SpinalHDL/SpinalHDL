@@ -1,7 +1,6 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
-import spinal.lib.bus.regif.{AccessType, BusIf, RegSlice}
 
 import scala.collection.mutable.ListBuffer
 

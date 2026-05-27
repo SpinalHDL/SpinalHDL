@@ -68,9 +68,9 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
                 val sel = Select(thiz, func)
                 val appl = Apply(sel, List(vd.rhs, lit))
 
-                thiz.tpe = clazz.tpe
-                sel.tpe = func.tpe
-                appl.tpe = definitions.UnitTpe
+                thiz.setType(clazz.tpe)
+                sel.setType(func.tpe)
+                appl.setType(definitions.UnitTpe)
                 lit.setType(definitions.StringTpe)
                 treeCopy.ValDef(vd, vd.mods, vd.name, vd.tpt, appl)
               case e => e
@@ -99,8 +99,8 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
                 val func = tpe.members.find(_.name.toString == "postInitCallback").get
                 val sel = Select(a, func.name)
                 val appl = Apply(sel, Nil)
-                sel.tpe = MethodType(Nil, a.tpe)
-                appl.tpe = a.tpe
+                sel.setType(MethodType(Nil, a.tpe))
+                appl.setType(a.tpe)
                 ret = appl
               }
             }
@@ -124,9 +124,9 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
                 val sel = Select(thiz, func)
                 val appl = Apply(sel, List(vd.rhs, lit))
 
-                thiz.tpe = clazz.tpe
-                sel.tpe = func.tpe
-                appl.tpe = definitions.UnitTpe
+                thiz.setType(clazz.tpe)
+                sel.setType(func.tpe)
+                appl.setType(definitions.UnitTpe)
                 lit.setType(definitions.StringTpe)
                 treeCopy.ValDef(vd, vd.mods, vd.name, vd.tpt, appl)
               case e => e

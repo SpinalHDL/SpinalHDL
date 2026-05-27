@@ -1,6 +1,5 @@
 package spinal.tester.scalatest
 
-import spinal.tester.SpinalAnyFunSuite
 import spinal.core._
 
 class AttributeEmitTests extends SpinalAnyFunSuite {

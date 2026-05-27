@@ -228,11 +228,11 @@ class SymbiYosysFormalBackendImpl(val config: SymbiYosysFormalBackendConfig) ext
         for (e <- logFileName) analyseLog(workDir.resolve(Paths.get(s"${config.toplevelName}_${name}", "engine_0", e)).toFile())
       }
 
-      val assertedLinesFormated = assertedLines.map{l =>
+      val assertedLinesFormatted = assertedLines.map{l =>
         val splits = l.split(if (!config.withGhdl) "// " else "-- ")
         "(" + splits(1).replace(":L", ":") + ")  "
       }
-      val assertsReport = assertedLinesFormated.map(e => s"\tissue.triggered.from${e}\n").mkString("")
+      val assertsReport = assertedLinesFormatted.map(e => s"\tissue.triggered.from${e}\n").mkString("")
       val proofAt = "\tproof in " + workDir + s"/${config.toplevelName}_${config.modesWithDepths.head._1}/engine_0"
       throw new Exception("SymbiYosys failure\n" + assertsReport + proofAt)
     }

@@ -80,8 +80,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
       outFile.flush()
       outFile.close()
-    }
-    else {
+    } else {
       val fileList: mutable.LinkedHashSet[String] = new mutable.LinkedHashSet()
       // dump Enum define to define.v instead attach that on every .v file
       if(enums.nonEmpty){
@@ -153,7 +152,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     }
   }
 
-  val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
+  val allocateAlgoIncrementalBase = globalData.allocateAlgoIncremental()
   val usedDefinitionNames = mutable.HashSet[String]()
 
 
@@ -163,7 +162,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       c                           = component,
       systemVerilog               = pc.config.isSystemVerilog,
       verilogBase                 = this,
-      algoIdIncrementalBase       = allocateAlgoIncrementaleBase,
+      algoIdIncrementalBase       = allocateAlgoIncrementalBase,
       mergeAsyncProcess           = config.mergeAsyncProcess,
       asyncResetCombSensitivity   = config.asyncResetCombSensitivity,
       anonymSignalPrefix          = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,

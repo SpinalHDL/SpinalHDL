@@ -3,7 +3,7 @@ package spinal.lib
 //todo jijing 2020.1.17
 
 package object dsptool {
-//  fixSwitch implitation
+//  fixSwitch implementation
 //  implicit def DoubleToComplex(x: Double): Complex = {}
 //  implicit def IntToComplex(x: Int): Complex = {}
 //  implicit class DoubleWithFixFeature(x: Double) {}

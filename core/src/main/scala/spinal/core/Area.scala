@@ -39,7 +39,7 @@ class Composite[T <: Nameable](val self : T, postfix : String = null, weak : Boo
   * For this kind of cases you can use `Area` to define a group of signals/logic.
   *
   * @example {{{
-  *     val tickConter = new Area{
+  *     val tickCounter = new Area {
   *       val tick = Reg(UInt(8 bits) init(0)
   *       tick := tick + 1
   *     }

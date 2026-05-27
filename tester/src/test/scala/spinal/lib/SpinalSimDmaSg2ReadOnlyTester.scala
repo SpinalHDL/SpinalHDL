@@ -50,7 +50,7 @@ class SpinalSimDmaSg2ReadOnlyTester extends SpinalAnyFunSuite{
 
       val tasks = Queue[Task]()
       val bspReady = StreamReadyRandomizer(dut.io.bsb, dut.popCd)
-      periodicaly(10000){
+      periodically(10000) {
         bspReady.setFactor(simRandom.nextFloat())
       }
       val bsb = StreamMonitor(dut.io.bsb, dut.popCd){d =>

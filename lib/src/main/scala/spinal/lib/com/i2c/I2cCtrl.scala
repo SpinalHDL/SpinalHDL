@@ -359,8 +359,9 @@ object I2cCtrl {
           }
         }
 
+        // Allow to catch up a start sequence until SCL is low.
+        val inFrameLate = Reg(Bool()) setWhen(!internals.sclRead) clearWhen(!internals.inFrame)
 
-        val inFrameLate = Reg(Bool()) setWhen(!internals.sclRead) clearWhen(!internals.inFrame) //Allow to catch up a start sequance until SCL is low
         val outOfSync = !internals.inFrame && (!internals.sdaRead || !internals.sclRead)
         val IDLE: State = new State with EntryPoint {
           whenIsActive {

@@ -49,7 +49,7 @@ case class SystemDebuggerMemBus(c: SystemDebuggerConfig) extends Bundle with IMa
     mm.read := cmd.valid && !cmd.wr
     mm.write := cmd.valid && cmd.wr
     mm.address := cmd.address(cmd.address.high downto 2) @@ U"00"
-    mm.writeData := cmd.data //No allignment needed, done by remote
+    mm.writeData := cmd.data // No alignment needed, done by remote
     mm.byteEnable := (cmd.size.mux (
       U(0) -> B"0001",
       U(1) -> B"0011",
@@ -77,7 +77,7 @@ case class SystemDebuggerMemBus(c: SystemDebuggerConfig) extends Bundle with IMa
     mm.cmd.arbitrationFrom(cmd)
     mm.cmd.write := cmd.wr
     mm.cmd.address := cmd.address(cmd.address.high downto 2) @@ U"00"
-    mm.cmd.data := cmd.data //No allignment needed, done by remote
+    mm.cmd.data := cmd.data // No alignment needed, done by remote
     mm.cmd.mask := (cmd.size.mux (
       U(0) -> B"0001",
       U(1) -> B"0011",
@@ -102,7 +102,7 @@ case class SystemDebuggerMemBus(c: SystemDebuggerConfig) extends Bundle with IMa
     mm.sharedCmd.addr  := cmdFork.address
     mm.sharedCmd.size  := cmdFork.size.resized
     mm.writeData.valid := dataFork.valid
-    mm.writeData.data  := dataFork.data //No allignment needed, done by remote
+    mm.writeData.data  := dataFork.data // No alignment needed, done by remote
     mm.writeData.strb  := (dataFork.size.mux (
       U(0) -> B"0001",
       U(1) -> B"0011",

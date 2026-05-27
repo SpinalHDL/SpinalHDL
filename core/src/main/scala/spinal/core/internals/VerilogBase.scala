@@ -121,14 +121,14 @@ trait VerilogBase extends VhdlVerilogBase{
 
   def emitEnumLiteral[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
 //    prefix + senum.spinalEnum.getName() + "_" + encoding.getName() + "_" + senum.getName()
-    var prefix_fix = prefix;
+    var prefix_fix = prefix
     if(prefix=="`" && !senum.spinalEnum.isGlobalEnable) prefix_fix = ""
 
-    if(senum.spinalEnum.isPrefixEnable) {
-      val withEncoding = senum.spinalEnum.defaultEncoding != encoding && (senum.spinalEnum.defaultEncoding == native && encoding != binarySequential)
+    val withEncoding = senum.spinalEnum.defaultEncoding != encoding && (senum.spinalEnum.defaultEncoding == native && encoding != binarySequential)
+    if(senum.spinalEnum.isGlobalEnable) {
       prefix_fix + globalPrefix + senum.spinalEnum.getName() + (if(withEncoding) "_" + encoding.getName() else "") + "_" + senum.getName()
     } else {
-      prefix_fix + globalPrefix + senum.getName()
+      prefix_fix + senum.spinalEnum.getName() + (if(withEncoding) "_" + encoding.getName() else "") + "_" + senum.getName()
     }
   }
 

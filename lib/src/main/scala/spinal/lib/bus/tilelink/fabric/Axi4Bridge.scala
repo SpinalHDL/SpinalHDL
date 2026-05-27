@@ -5,7 +5,6 @@ import spinal.core.fiber._
 import spinal.lib.bus.amba4.axi.Axi4
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink
-import spinal.lib.bus.tilelink.{Axi4Bridge, S2mSupport}
 import spinal.lib.system.tag.{MappedNode, MemoryConnection, MemoryTransferTag, MemoryTransfers}
 
 

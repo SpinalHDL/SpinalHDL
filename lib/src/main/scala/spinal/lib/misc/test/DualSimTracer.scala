@@ -33,7 +33,7 @@ object DualSimTracer {
       try {
         compiled.doSimUntilVoid(name = s"explorer", seed = seed) { dut =>
           disableSimWave()
-          periodicaly(window) {
+          periodically(window) {
             mTime = simTime()
           }
           onSimEnd {

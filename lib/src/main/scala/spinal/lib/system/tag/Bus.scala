@@ -153,10 +153,10 @@ object MemoryConnection{
       val invertTransform = c.transformers.reverse
       val remapped = dmt.map { e =>
         val transformed = invertTransform.foldRight(e.mapping)((t, a) => a.withOffsetInvert(t))
-        val filtred = c.sToM(transformed)
+        val filtered = c.sToM(transformed)
         val where = new MappedNode(
           e.node,
-          filtred,
+          filtered,
           c.transformers ++ e.where.transformers
         )
         val transfers = c.sToM(e.transfers, e.where)
@@ -164,17 +164,17 @@ object MemoryConnection{
       }
 
       //Let's merge entries which target the same endpoint
-      val aggreged = mutable.LinkedHashMap[MappedNode, MemoryTransfers]()
+      val aggregated = mutable.LinkedHashMap[MappedNode, MemoryTransfers]()
       for (e <- remapped) {
-        aggreged.get(e.where) match {
-          case None => aggreged(e.where) = e.transfers
-          case Some(value) => aggreged(e.where) = {
+        aggregated.get(e.where) match {
+          case None => aggregated(e.where) = e.transfers
+          case Some(value) => aggregated(e.where) = {
             assert(e.transfers.intersect(value).isEmpty, "Same transfers can go to two different busses")
             e.transfers.mincover(value)
           }
         }
       }
-      ret ++= aggreged.map(e => new MappedTransfers(e._1, e._2))
+      ret ++= aggregated.map(e => new MappedTransfers(e._1, e._2))
     }
     ret
   }

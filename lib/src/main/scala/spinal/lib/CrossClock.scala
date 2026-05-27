@@ -244,7 +244,7 @@ object ResetCtrl{
   /**
    *
    * @param input Input reset signal
-   * @param clockDomain ClockDomain which will use the synchronised reset.
+   * @param clockDomain ClockDomain which will use the synchronized reset.
    * @param inputPolarity (HIGH/LOW)
    * @param outputPolarity (HIGH/LOW)
    * @param bufferDepth Number of register stages used to avoid metastability (default=2)
@@ -277,9 +277,7 @@ object ResetCtrl{
     ret
   }
 
-  /**
-   * As asyncAssertSyncDeassert but directly drive the clockDomain reset with the synchronised signal.
-   */
+  /** As asyncAssertSyncDeassert but directly drive the clockDomain reset with the synchronized signal. */
   def asyncAssertSyncDeassertDrive(input : Bool,
                                    clockDomain : ClockDomain,
                                    inputPolarity : Polarity = HIGH,
@@ -292,7 +290,7 @@ object ResetCtrl{
     bufferDepth = bufferDepth
   )
 
-  //Return a new clockdomain which use all the properties of clockCd but use as reset source a syncronized value from resetCd
+  /** Return a new ClockDomain which use all the properties of clockCd but use as reset source a synchronized value from resetCd */
   def asyncAssertSyncDeassertCreateCd(resetCd : ClockDomain,
                                       clockCd : ClockDomain = ClockDomain.current,
                                       bufferDepth : Option[Int] = None) : ClockDomain = {

@@ -228,9 +228,9 @@ class Node() extends NodeUpDown {
 
 
 /*
-    def negociate[S <: spinal.lib.bus.misc.LogicalOp[S],
+    def negotiate[S <: spinal.lib.bus.misc.LogicalOp[S],
                   P,
-                  NSP <: NegociateSP[S, P],
+                  NSP <: NegotiateSP[S, P],
                   N  <: spinal.lib.bus.fabric.Node ,
                   C <: spinal.lib.bus.fabric.MappedConnection[N]]
                   (ups : Seq[C], self : NSP, downs : Seq[C])
@@ -255,7 +255,7 @@ class Node() extends NodeUpDown {
     }
 
 
-    negociate[M2sSupport, M2sParameters, NodeM2s, NodeUpDown, ConnectionBase](
+    negotiate[M2sSupport, M2sParameters, NodeM2s, NodeUpDown, ConnectionBase](
       ups,
       m2s,
       downs

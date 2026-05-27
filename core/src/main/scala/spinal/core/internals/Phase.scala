@@ -894,7 +894,7 @@ case class MemReadBufferTag(reg: BaseType, rs: MemPortStatement, through: List[B
 
 class MemReadBufferPhase extends PhaseNetlist {
   override def impl(pc: PhaseContext): Unit = {
-    val algo = pc.globalData.allocateAlgoIncrementale()
+    val algo = pc.globalData.allocateAlgoIncremental()
     val portsHits = ArrayBuffer[MemPortStatement]()
     pc.walkDeclarations {
       case reg: BaseType if reg.isReg && !reg.hasInit && reg.hasOnlyOneStatement => {
@@ -917,7 +917,7 @@ class MemReadBufferPhase extends PhaseNetlist {
             portsHits += rs
             rs.addTag(new MemReadBufferTag(reg, rs, through))
             through.foreach { bn =>
-              bn.algoIncrementale = algo
+              bn.algoIncremental = algo
               bn.algoInt = hitId
             }
           }
@@ -934,9 +934,9 @@ class MemReadBufferPhase extends PhaseNetlist {
     }
 
     pc.walkStatements { s =>
-      if (s.algoIncrementale != algo) {
+      if (s.algoIncremental != algo) {
         s.walkDrivingExpressions { e =>
-          if (e.algoIncrementale == algo) {
+          if (e.algoIncremental == algo) {
 //            println("Remove it")
             val port = portsHits(e.algoInt)
             clean(port)
@@ -1407,11 +1407,11 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
     val nodes           = ArrayBuffer[Expression with EnumEncoded]()
     val nodesInferrable = ArrayBuffer[Expression with InferableEnumEncoding]()
     val consumers       = mutable.HashMap[Expression , ArrayBuffer[Expression]]()
-    var algo            = globalData.allocateAlgoIncrementale()
+    var algo            = globalData.allocateAlgoIncremental()
 
     def walkExpression(node: Expression): Unit ={
-      if(node.algoIncrementale != algo) {
-        node.algoIncrementale = algo
+      if(node.algoIncremental != algo) {
+        node.algoIncremental = algo
 
         if (node.isInstanceOf[EnumEncoded]) nodes += node.asInstanceOf[Expression with EnumEncoded]
 
@@ -1458,7 +1458,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
       senum.swapEncoding(encodingSwap(senum.getEncoding))
     })
 
-    algo = globalData.allocateAlgoIncrementale()
+    algo = globalData.allocateAlgoIncremental()
 
     nodes.foreach(senum => {
       if(senum.propagateEncoding){
@@ -1466,9 +1466,9 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
         def propagateOn(that : Expression): Unit = {
           that match {
             case that: InferableEnumEncoding =>
-              if(that.algoIncrementale == algo) return
+              if(that.algoIncremental == algo) return
 
-              that.algoIncrementale = algo
+              that.algoIncremental = algo
 
               if(that.encodingProposal(senum.getEncoding)) {
                 that match {
@@ -1548,7 +1548,7 @@ class PhaseDeviceDefault extends PhaseDeviceHandler{
   }
 
   override def onCrossClockBuffer(config : SpinalConfig, bt: BaseType) = {
-    if(config.device.isVendorDefault || config.device.vendor == Device.XILINX.vendor) {
+    if(config.device.isVendorDefault || config.device.vendor == Device.XILINX.vendor || config.device.vendor == Device.EFINIX.vendor) {
       bt.addAttribute("async_reg", "true")
     }
   }
@@ -1788,13 +1788,13 @@ class PhaseCheckCombinationalLoops() extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
-    val walkingId = GlobalData.get.allocateAlgoIncrementale()
-    val okId      = GlobalData.get.allocateAlgoIncrementale()
+    val walkingId = GlobalData.get.allocateAlgoIncremental()
+    val okId      = GlobalData.get.allocateAlgoIncremental()
 
     def walk(path : List[(BaseNode)], node: BaseNode): Unit = {
       val newPath = node :: path
 
-      if (node.algoIncrementale == walkingId) {
+      if (node.algoIncremental == walkingId) {
         val ordred  = newPath.reverseIterator
         val filtred = ordred.dropWhile((e) => (e != node)).drop(1).toArray
 
@@ -1810,22 +1810,22 @@ class PhaseCheckCombinationalLoops() extends PhaseCheck{
           PendingError(s"COMBINATORIAL LOOP :\n  Partial chain :\n${wellNameLoop}\n  Full chain :${multiLineLoop}")
         }
 
-      }else if (node.algoIncrementale != okId) {
-        node.algoIncrementale = walkingId
+      }else if (node.algoIncremental != okId) {
+        node.algoIncremental = walkingId
         node match {
           case node: BaseType =>
             if(node.isComb) {
-              node.algoIncrementale = walkingId
+              node.algoIncremental = walkingId
               node.foreachStatements(s => walk(newPath, s))
-              node.algoIncrementale = okId
+              node.algoIncremental = okId
             }
           case node: AssignmentStatement =>
             node.foreachDrivingExpression(e => walk(newPath, e))
             node.walkParentTreeStatementsUntilRootScope(s => walk(newPath, s))
           case node: TreeStatement =>
-            if (node.algoIncrementale != okId) {
+            if (node.algoIncremental != okId) {
               node.foreachDrivingExpression(e => walk(newPath, e))
-              node.algoIncrementale = okId
+              node.algoIncremental = okId
             }
           case node: Mem[_]       =>
           case node: MemReadSync  =>
@@ -1837,11 +1837,11 @@ class PhaseCheckCombinationalLoops() extends PhaseCheck{
             node.foreachDrivingExpression(e => walk(newPath, e))
         }
       }
-      node.algoIncrementale = okId
+      node.algoIncremental = okId
     }
 
     walkStatements(s => {
-      if (s.algoIncrementale != okId) {
+      if (s.algoIncremental != okId) {
         walk(s :: Nil, s)
       }
     })
@@ -1861,10 +1861,10 @@ class PhaseCheckCrossClock() extends PhaseCheck{
 
     def populateCdTag(that : BaseType): Unit = {
       val cds = mutable.LinkedHashSet[ClockDomain]()
-      val walkedId = pc.globalData.allocateAlgoIncrementale
+      val walkedId = pc.globalData.allocateAlgoIncremental
       def walk(n : BaseNode): Unit = {
-        if(n.algoIncrementale == walkedId) return
-        n.algoIncrementale = walkedId
+        if(n.algoIncremental == walkedId) return
+        n.algoIncremental = walkedId
         n match {
           case node: SpinalTagReady if node.hasTag(classOf[ClockDomainTag]) =>
             cds += node.getTag(classOf[ClockDomainTag]).get.clockDomain
@@ -1939,9 +1939,9 @@ class PhaseCheckCrossClock() extends PhaseCheck{
 
 
       def walk(node: BaseNode, path: List[(BaseNode)], clockDomain: ClockDomain): Unit = {
-        if(node.algoIncrementale == walked) return
+        if(node.algoIncremental == walked) return
 
-        node.algoIncrementale = walked
+        node.algoIncremental = walked
 
         val newPath = node :: path
 
@@ -2000,34 +2000,34 @@ class PhaseCheckCrossClock() extends PhaseCheck{
         case s: BaseType if s.hasTag(classOf[ClockDomainTag]) =>
           if (!s.isReg) {
             // if it not a reg, perform the check if the ClockDomainTag is present
-            walked = GlobalData.get.allocateAlgoIncrementale()
+            walked = GlobalData.get.allocateAlgoIncremental()
             s.foreachStatements(as => walk(as, as :: s :: Nil, s.getTag(classOf[ClockDomainTag]).get.clockDomain))
           }
           else {
             PendingError(s"Can't add ClockDomainTag to registers:\n" + s.getScalaLocationLong)
           }
         case s: BaseType if s.isReg && !s.hasTag(crossClockDomain) =>
-          walked = GlobalData.get.allocateAlgoIncrementale()
+          walked = GlobalData.get.allocateAlgoIncremental()
           s.foreachStatements(as => walk(as, as :: s :: Nil, s.clockDomain))
         case s: MemReadSync if !s.hasTag(crossClockDomain) =>
           if (s.hasTag(classOf[ClockDomainTag])) {
             PendingError(s"Can't add ClockDomainTag to memory ports:\n" + s.getScalaLocationLong)
           }
-          walked = GlobalData.get.allocateAlgoIncrementale()
+          walked = GlobalData.get.allocateAlgoIncremental()
           s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
           checkMem(s.mem, s :: Nil, s.clockDomain)
         case s: MemReadWrite if !s.hasTag(crossClockDomain) =>
           if (s.hasTag(classOf[ClockDomainTag])) {
             PendingError(s"Can't add ClockDomainTag to memory ports:\n" + s.getScalaLocationLong)
           }
-          walked = GlobalData.get.allocateAlgoIncrementale()
+          walked = GlobalData.get.allocateAlgoIncremental()
           s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
           checkMem(s.mem, s :: Nil, s.clockDomain)
         case s: MemWrite if !s.hasTag(crossClockDomain) =>
           if (s.hasTag(classOf[ClockDomainTag])) {
             PendingError(s"Can't add ClockDomainTag to memory ports:\n" + s.getScalaLocationLong)
           }
-          walked = GlobalData.get.allocateAlgoIncrementale()
+          walked = GlobalData.get.allocateAlgoIncremental()
           s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
         case _ =>
       }
@@ -2085,7 +2085,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
-    val okId = globalData.allocateAlgoIncrementale()
+    val okId = globalData.allocateAlgoIncremental()
 
     def getComponentOrThrowForPulledDataCache(s: Statement, operation: String): Component = {
       val comp = s.component
@@ -2109,8 +2109,8 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
         SpinalWarning("propagate called with null root statement.")
         return
       }
-      if (root.algoIncrementale == okId) return
-      root.algoIncrementale = okId
+      if (root.algoIncremental == okId) return
+      root.algoIncremental = okId
 
       val pending = mutable.ArrayStack[Statement](root)
 
@@ -2119,8 +2119,8 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
             SpinalWarning("propagateInner called with null statement in pending queue.")
             return
         }
-        if (s.algoIncrementale != okId) {
-          s.algoIncrementale = okId
+        if (s.algoIncremental != okId) {
+          s.algoIncremental = okId
           pending.push(s)
         }
       }
@@ -2235,7 +2235,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
     }
 
     walkStatements(s => {
-      if(s.algoIncrementale != okId){
+      if(s.algoIncremental != okId){
         s.removeStatement()
       }
     })
@@ -2260,7 +2260,7 @@ class PhaseRemoveIntermediateUnnameds(onlyTypeNode: Boolean) extends PhaseNetlis
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
-    val koId = globalData.allocateAlgoIncrementale()
+    val koId = globalData.allocateAlgoIncremental()
 
     walkDeclarations(e => e.algoInt = 0)
 
@@ -2271,15 +2271,15 @@ class PhaseRemoveIntermediateUnnameds(onlyTypeNode: Boolean) extends PhaseNetlis
       case _ =>
     }
 
-    walkStatements(s => if(s.algoIncrementale != koId){
+    walkStatements(s => if(s.algoIncremental != koId){
       s.walkRemapDrivingExpressions {
         case ref: BaseType =>
           if (ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && (!onlyTypeNode || ref.isTypeNode) && ref.canSymplifyIt && Statement.isSomethingToFullStatement(ref) /*&& ref != excepted*/ ) {
             //TODO IR keep it
             ref.algoInt = 0
             val head = ref.head
-            ref.algoIncrementale = koId
-            head.algoIncrementale = koId
+            ref.algoIncremental = koId
+            head.algoIncremental = koId
             head.source
           } else {
             ref
@@ -2289,7 +2289,7 @@ class PhaseRemoveIntermediateUnnameds(onlyTypeNode: Boolean) extends PhaseNetlis
     })
 
     walkStatements{
-      case s if s.algoIncrementale == koId =>
+      case s if s.algoIncremental == koId =>
         s.removeStatement()
       case s =>
     }
@@ -2859,20 +2859,20 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
       case _            =>
     }
 
-    val usedId = GlobalData.get.allocateAlgoIncrementale()
+    val usedId = GlobalData.get.allocateAlgoIncremental()
 
     walkStatements(s => {
-      s.walkDrivingExpressions(e => e.algoIncrementale = usedId)
+      s.walkDrivingExpressions(e => e.algoIncremental = usedId)
       s match {
-        case s: MemReadSync  => s.algoIncrementale = usedId
-        case s: MemReadAsync => s.algoIncrementale = usedId
-        case s: MemReadWrite => s.algoIncrementale = usedId
+        case s: MemReadSync  => s.algoIncremental = usedId
+        case s: MemReadAsync => s.algoIncremental = usedId
+        case s: MemReadWrite => s.algoIncremental = usedId
         case s =>
       }
     })
 
     prunedSignals.foreach(s => {
-      if(s.algoIncrementale != usedId) {
+      if(s.algoIncremental != usedId) {
         unusedSignals += s
       }
     })
@@ -2882,7 +2882,7 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
 class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
   override def impl(pc: PhaseContext) : Unit = {
     import pc._
-    val algoId = globalData.allocateAlgoIncrementale() //Allows to avoid chaining allocated names
+    val algoId = globalData.allocateAlgoIncremental() // Allows to avoid chaining allocated names
 
     // All unnamed signals are cleaned up to avoid composite / partial name side effects
     walkStatements{
@@ -2892,14 +2892,14 @@ class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
 
     // propagate all named signals names to their unnamed drivers
     walkStatements{
-      case dst : BaseType => if (dst.isNamed && dst.algoIncrementale != algoId) {
+      case dst : BaseType => if (dst.isNamed && dst.algoIncremental != algoId) {
         def explore(bt: BaseType, depth : Int): Unit = {
           bt.foreachStatements{s =>
             s.walkDrivingExpressions{
-              case src : BaseType => if(src.isUnnamed || (src.algoIncrementale == algoId && src.algoInt > depth)){
+              case src : BaseType => if(src.isUnnamed || (src.algoIncremental == algoId && src.algoInt > depth)){
                 src.unsetName()
                 src.setWeakName(globalData.anonymSignalPrefix + "_" + dst.getName())
-                src.algoIncrementale = algoId
+                src.algoIncremental = algoId
                 src.algoInt = depth
                 explore(src, depth + 1)
               }

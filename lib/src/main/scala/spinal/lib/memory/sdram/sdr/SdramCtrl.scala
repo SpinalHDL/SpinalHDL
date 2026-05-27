@@ -145,7 +145,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
     val done = RegInit(False)
     when(!done) {
       counter := counter + 1
-      when(counter === U(counter.range -> true)) {
+      when(counter === U(counter.bitsRange -> true)) {
         done := True
       }
     }
@@ -363,7 +363,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
       sdram.WEn  := True
       sdram.DQ.write := cmd.data
       sdram.DQ.writeEnable := 0
-      sdram.DQM := (sdram.DQM.range -> !readHistory(if(CAS == 3) 1 else 0))
+      sdram.DQM := (sdram.DQM.bitsRange -> !readHistory(if(CAS == 3) 1 else 0))
 
       when(cmd.valid) {
         switch(cmd.task) {

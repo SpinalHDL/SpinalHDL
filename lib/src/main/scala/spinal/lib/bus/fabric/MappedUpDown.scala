@@ -7,8 +7,8 @@ import spinal.lib._
 import scala.collection.mutable.ArrayBuffer
 
 
-trait UpDown[C] extends Nameable{
-  var withUps, withDowns = true //Used for assertion
+trait UpDown[C] extends Nameable {
+  var withUps, withDowns = true // Used for assertion
   val ups = ArrayBuffer[C]()
   val downs = ArrayBuffer[C]()
   var allowNoSlave = false

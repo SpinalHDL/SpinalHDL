@@ -91,7 +91,7 @@ object OHToUInt {
     if (mapping.size == 1) {
       ret := mapping.head
     } else {
-      for (bitId <- ret.range) {
+      for (bitId <- ret.bitsRange) {
         val triggersId = mapping.zipWithIndex.filter(e => ((e._1 >> bitId) & 1) != 0).map(_._2)
         val triggers = triggersId.map(oh(_))
         ret(bitId) := triggers.orR
@@ -446,26 +446,6 @@ object fromGray {
   }
 }
 
-object GrayCounter {
-  def apply(width: Int, enable: Bool): UInt = {
-    val gray = RegInit(U(0, width bit))
-    val even = RegInit(True)
-    val word = Cat(True, gray(width - 3 downto  0), even)
-    when(enable) {
-      var found = False
-      for (i <- 0 until width) {
-        when(word(i) && !found) {
-          gray(i) := !gray(i)
-          found \= True
-        }
-      }
-      even := !even
-    }
-    return gray
-  }
-}
-
-
 /******************************************************************************
   * Big-Endian <-> Little-Endian
   */
@@ -491,7 +471,7 @@ object EndiannessSwap{
 object Reverse{
   def apply[T <: BitVector](that : T) : T = {
     val ret = cloneOf(that)
-    for(i <- that.range){
+    for(i <- that.bitsRange) {
       ret(i) := that(that.getWidth-1-i)
     }
     ret
@@ -551,133 +531,6 @@ class BitAggregator {
 //  val value = False
 //  def set = value := True
 //}
-
-/** Creates an always running counter
-  *
-  * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
-  */
-object CounterFreeRun {
-  private def makeFreeRun(c: Counter): Counter = {
-    c.willIncrement.removeAssignments()
-    c.increment()
-    c
-  }
-  def apply(stateCount: BigInt): Counter = {
-    makeFreeRun(Counter(stateCount))
-  }
-
-  def apply(bitCount: BitCount): Counter = {
-    makeFreeRun(Counter(bitCount))
-  }
-}
-
-/** Creates a counter
-  *
-  * See [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/utils.html?highlight=counter#counter]]
-  */
-object Counter {
-
-  /** Create a counter on `[start, end]` */
-  def apply(start: BigInt, end: BigInt) : Counter  = new Counter(start = start, end = end)
-
-  /** Create a counter on `[range.low, range.high]` */
-  def apply(range : Range) : Counter = {
-    require(range.step == 1)
-    Counter(start = range.low, end = range.high)
-  }
-
-  /** Create a counter on `[0, stateCount-1]` */
-  def apply(stateCount: BigInt): Counter = new Counter(start = 0, end = stateCount-1)
-
-  /** Create a counter on `[0, 2^bitCount-1]` */
-  def apply(bitCount: BitCount): Counter = new Counter(start = 0, end = (BigInt(1)<<bitCount.value)-1)
-
-  /** Create a counter on `[start, end]` with `inc` signal as increment enable */
-  def apply(start: BigInt, end: BigInt, inc: Bool) : Counter  = {
-    val counter = Counter(start, end)
-    when(inc) {
-      counter.increment()
-    }
-    counter
-  }
-
-  /** Create a counter on `[range.low, range.high]` with `inc` signal as increment enable */
-  def apply(range : Range, inc: Bool) : Counter  = {
-    require(range.step == 1)
-    Counter(start = range.low, end = range.high, inc = inc)
-  }
-
-  /** Create a counter on `[0, stateCount-1]` with `inc` signal as increment enable */
-  def apply(stateCount: BigInt, inc: Bool): Counter = Counter(start = 0, end = stateCount-1, inc = inc)
-
-  /** Create a counter on `[0, 2^bitCount-1]` with `inc` signal as increment enable */
-  def apply(bitCount: BitCount, inc: Bool): Counter = Counter(start = 0, end = (BigInt(1)<<bitCount.value)-1, inc = inc)
-
-  /** Create a counter on `[0, Clocks for given Time]` */
-  def apply(time: TimeNumber): Counter = Counter(
-    stateCount = ((time.toBigDecimal * ClockDomain.current.frequency.getValue.toBigDecimal)
-          .setScale(0, BigDecimal.RoundingMode.UP)).toBigInt
-  )
-
-  /** Create a counter on `[0, Clocks for given Time]` with `inc` signal as increment enable */
-  def apply(time: TimeNumber, inc: Bool): Counter = Counter(
-    stateCount = ((time.toBigDecimal * ClockDomain.current.frequency.getValue.toBigDecimal)
-          .setScale(0, BigDecimal.RoundingMode.UP)).toBigInt,
-    inc = inc
-  )
-}
-
-// start and end inclusive, up counter
-class Counter(val start: BigInt, val end: BigInt) extends ImplicitArea[UInt] {
-  require(start <= end)
-  val willIncrement = False.allowOverride
-  val willClear = False.allowOverride
-
-  def clear(): Unit = willClear := True
-  def increment(): Unit = willIncrement := True
-  def load(value: UInt): Unit = valueNext := value
-
-  val valueNext = UInt(log2Up(end + 1) bit)
-  val value = RegNext(valueNext) init(start)
-  val willOverflowIfInc = value === end
-  val willOverflow = willOverflowIfInc && willIncrement
-
-  if (isPow2(end + 1) && start == 0) {   // Check if using overflow follow the spec
-    valueNext := (value + U(willIncrement)).resized
-  }
-  else {
-    when(willOverflow) {
-      valueNext := U(start)
-    } otherwise {
-      valueNext := (value + U(willIncrement)).resized
-    }
-  }
-  when(willClear) {
-    valueNext := start
-  }
-
-  willOverflowIfInc.allowPruning()
-  willOverflow.allowPruning()
-
-  override def implicitValue: UInt = this.value
-
-  /**
-   * Convert this stream to a flow. It will send each value only once. It is "start inclusive, end exclusive". 
-   * This means that the current value will only be sent if the counter increments.
-   */
-  def toFlow(): Flow[UInt] = {
-    val flow = Flow(value)
-    flow.payload := value
-    flow.valid := willIncrement
-    flow
-  }
-
-  def init(initValue : BigInt): this.type ={
-    value.removeInitAssignments()
-    value.init(initValue)
-    this
-  }
-}
 
 object Timeout {
   def apply(cycles: BigInt): Timeout = new Timeout(cycles)
@@ -740,88 +593,6 @@ object MajorityVote {
     globalOr
   }
 }
-
-
-object CounterUpDown {
-  def apply(stateCount: BigInt): CounterUpDown = new CounterUpDown(stateCount)
-  def apply(stateCount: BigInt, incWhen: Bool,decWhen : Bool): CounterUpDown = apply(stateCount, incWhen, decWhen, handleOverflow = true)
-  def apply(stateCount: BigInt, incWhen: Bool,decWhen : Bool, handleOverflow : Boolean): CounterUpDown = {
-    val counter = new CounterUpDown(stateCount, handleOverflow = handleOverflow)
-    when(incWhen) {
-      counter.increment()
-    }
-    when(decWhen) {
-      counter.decrement()
-    }
-    counter
-  }
-  //  implicit def implicitValue(c: Counter) = c.value
-}
-
-class CounterUpDown(val stateCount: BigInt, val handleOverflow : Boolean = true) extends ImplicitArea[UInt] {
-  val incrementIt = False
-  val decrementIt = False
-
-  def increment(): Unit = incrementIt := True
-  def decrement(): Unit = decrementIt := True
-
-  def ===(that: UInt): Bool = this.value === that
-  def !==(that: UInt): Bool = this.value =/= that
-  def =/=(that: UInt): Bool = this.value =/= that
-
-  val valueNext = UInt(log2Up(stateCount) bit)
-  val value = RegNext(valueNext) init(0)
-  val mayOverflow = value === stateCount - 1
-
-  val mayUnderflow = value === 0
-
-  val willOverflowIfInc = mayOverflow && !decrementIt
-  val willOverflow = willOverflowIfInc && incrementIt
-
-  val willUnderflowIfDec = mayUnderflow && !incrementIt
-  val willUnderflow = willUnderflowIfDec && decrementIt
-
-  val finalIncrement = UInt(log2Up(stateCount) bit)
-  when(incrementIt && !decrementIt){
-    finalIncrement := 1
-  }elsewhen(!incrementIt && decrementIt){
-    finalIncrement := finalIncrement.maxValue
-  }otherwise{
-    finalIncrement := 0
-  }
-
-  if (isPow2(stateCount) || !handleOverflow) {
-    valueNext := (value + finalIncrement).resized
-  }
-  else {
-    assert(false,"stateCount that is not 2**n is unimplemented when handleOverflow is enabled")
-  }
-
-  def init(initValue : BigInt): this.type ={
-    value.removeInitAssignments()
-    value.init(initValue)
-    this
-  }
-  
-  override def implicitValue: UInt = this.value
-}
-
-
-object CounterMultiRequest {
-  def apply(width: Int, requests : (Bool,(UInt) => UInt)*): UInt = {
-    val counter = Reg(UInt(width bit)) init(0)
-    var counterNext = cloneOf(counter)
-    counterNext := counter
-    for((cond,func) <- requests){
-      when(cond){
-        counterNext \= func(counterNext)
-      }
-    }
-    counter := counterNext
-    counter
-  }
-}
-
 
 
 class AnalysisUtils{
@@ -949,13 +720,13 @@ object LatencyAnalysis {
 
   //TODO mather about clock and reset wire
   def impl(from: Expression, to: Expression): Integer = {
-    val walkedId = GlobalData.get.allocateAlgoIncrementale()
+    val walkedId = GlobalData.get.allocateAlgoIncremental()
     val pendingQueues = new Array[mutable.ArrayBuffer[BaseNode]](3)
     for(i <- 0 until pendingQueues.length) pendingQueues(i) = new ArrayBuffer[BaseNode]
     def walk(that: BaseNode): Boolean = {
-      if(that.algoIncrementale == walkedId)
+      if(that.algoIncremental == walkedId)
         return false
-      that.algoIncrementale = walkedId
+      that.algoIncremental = walkedId
       if(that == from)
         return true
 
@@ -1609,7 +1380,7 @@ object Shift {
   def rightWithScrap(that : Bits, by : UInt) : Bits = {
     var logic = that
     val scrap = False
-    for(i <- by.range){
+    for(i <- by.bitsRange) {
       scrap setWhen(by(i) && logic(0, 1 << i bits) =/= 0)
       logic \= by(i) ? (logic |>> (BigInt(1) << i)) | logic
     }

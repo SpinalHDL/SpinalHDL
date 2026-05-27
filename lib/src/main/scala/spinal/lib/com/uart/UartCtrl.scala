@@ -125,13 +125,13 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     //manage RX
     val read = new Area {
       val (stream, fifoOccupancy) = io.read.queueWithOccupancy(config.rxFifoDepth)
-      val streamBreaked = stream.throwWhen(io.readBreak)
+      val streamBroken = stream.throwWhen(io.readBreak)
       busCtrl.busDataWidth match {
         case 16 =>
-          busCtrlWrapped.readStreamNonBlocking(streamBreaked, address = 0, validBitOffset = 15, payloadBitOffset = 0)
+          busCtrlWrapped.readStreamNonBlocking(streamBroken, address = 0, validBitOffset = 15, payloadBitOffset = 0)
           busCtrlWrapped.read(sat255(fifoOccupancy),address = 6, 8)
         case 32 =>
-          busCtrlWrapped.readStreamNonBlocking(streamBreaked, address = 0, validBitOffset = 16, payloadBitOffset = 0)
+          busCtrlWrapped.readStreamNonBlocking(streamBroken, address = 0, validBitOffset = 16, payloadBitOffset = 0)
           busCtrlWrapped.read(sat255(fifoOccupancy),address = 4, 24)
       }
       def genCTS(freeThreshold : Int) = RegNext(fifoOccupancy <= config.rxFifoDepth - freeThreshold) init(False)  // freeThreshold => how many remaining space should be in the fifo before allowing transfer
@@ -141,7 +141,7 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     val interruptCtrl = new Area {
       val writeIntEnable = busCtrlWrapped.createReadAndWrite(Bool(), address = 4, 0) init(False)
       val readIntEnable  = busCtrlWrapped.createReadAndWrite(Bool(), address = 4, 1) init(False)
-      val readInt   = readIntEnable  &  read.streamBreaked.valid
+      val readInt   = readIntEnable  &  read.streamBroken.valid
       val writeInt  = writeIntEnable & !write.stream.valid
       val interrupt = readInt || writeInt
       busCtrlWrapped.read(writeInt, address = 4, 8)

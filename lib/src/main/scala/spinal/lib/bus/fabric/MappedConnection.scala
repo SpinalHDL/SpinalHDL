@@ -7,19 +7,18 @@ import spinal.lib.system.tag._
 
 import scala.collection.mutable.ArrayBuffer
 
-/**
-  * provide some software interface to connect 2 NodeBase
+/** Provide some software interface to connect 2 NodeBase
   */
 abstract class MappedConnection[N <: Node](val m : N, val s : N) extends Area {
   setLambdaName(m.isNamed && s.isNamed)(s"${m.getName()}_to_${s.getName()}")
 
-  //Specify how the connection is memory mapped to the decoder
+  // Specify how the connection is memory mapped to the decoder.
   var userMapping = Option.empty[Any]
 
   def mEmits : MemoryTransfers
 
-  //Document the memory connection in a agnostic way for further usages
-  val tag = new MemoryConnection{
+  // Document the memory connection in a agnostic way for further usages.
+  val tag = new MemoryConnection {
     override def up = MappedConnection.this.m
     override def down = MappedConnection.this.s
     override def transformers = MappedConnection.this.userMapping match {

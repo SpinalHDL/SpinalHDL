@@ -13,7 +13,7 @@ class BsbUpSizerSparse(p : BsbParameter, outputBytes : Int) extends Component{
   val ratio = outputBytes/p.byteCount
   io.output.arbitrationFrom(io.input)
   io.output.data.assignDontCare()
-  io.output.data(io.input.data.range)   := io.input.data
+  io.output.data(io.input.data.bitsRange)   := io.input.data
   io.output.mask   := io.input.mask.resized
   io.output.source := io.input.source
   io.output.sink   := io.input.sink
