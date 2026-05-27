@@ -131,9 +131,6 @@ class UnsignedDivider[T <: Data](nWidth : Int, dWidth : Int,storeDenominator : B
     when(counter.willOverflowIfInc){
       done := True
       waitRsp := True
-      if(storeDenominator) {
-        io.cmd.ready := True
-      }
     }
   }
 
