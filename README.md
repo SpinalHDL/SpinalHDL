@@ -36,12 +36,12 @@ SpinalHDL is simply a set of Scala libraries. Include them into your project and
 ### SBT (Scala build tool)
 
 ```scala
-scalaVersion := "2.11.12"
+scalaVersion := "2.12.18"
 
 libraryDependencies ++= Seq(
-  "com.github.spinalhdl" % "spinalhdl-core_2.11" % "latest.release",
-  "com.github.spinalhdl" % "spinalhdl-lib_2.11" % "latest.release",
-  compilerPlugin("com.github.spinalhdl" % "spinalhdl-idsl-plugin_2.11" % "latest.release")
+  "com.github.spinalhdl" % "spinalhdl-core_2.12" % "latest.release",
+  "com.github.spinalhdl" % "spinalhdl-lib_2.12" % "latest.release",
+  compilerPlugin("com.github.spinalhdl" % "spinalhdl-idsl-plugin_2.12" % "latest.release")
 )
 ```
 
@@ -56,8 +56,8 @@ repositories {
 }
 
 dependencies {
-	compile group: 'com.github.spinalhdl', name: 'spinalhdl-core_2.11', version: '1.6.4'
-	compile group: 'com.github.spinalhdl', name: 'spinalhdl-lib_2.11', version: '1.6.4'
+	compile group: 'com.github.spinalhdl', name: 'spinalhdl-core_2.12', version: '1.14.2'
+	compile group: 'com.github.spinalhdl', name: 'spinalhdl-lib_2.12', version: '1.14.2'
 }
 ```
 
@@ -70,14 +70,14 @@ import mill._
 import mill.scalalib._
 
 object MySpinalModule extends ScalaModule {
-  def scalaVersion = "2.11.12"
+  def scalaVersion = "2.12.18"
 
   def ivyDeps = Agg(
-    ivy"com.github.spinalhdl::spinalhdl-core:1.6.4",
-    ivy"com.github.spinalhdl::spinalhdl-lib:1.6.4",
+    ivy"com.github.spinalhdl::spinalhdl-core:1.14.2",
+    ivy"com.github.spinalhdl::spinalhdl-lib:1.14.2",
   )
 
-  def scalacPluginIvyDeps = Agg(ivy"com.github.spinalhdl::spinalhdl-idsl-plugin:1.6.4")
+  def scalacPluginIvyDeps = Agg(ivy"com.github.spinalhdl::spinalhdl-idsl-plugin:1.14.2")
 }
 ```
 
@@ -90,7 +90,7 @@ import mill._
 import mill.scalalib._
 
 object MySpinalModule extends ScalaModule {
-  def scalaVersion = "2.11.12"
+  def scalaVersion = "2.12.18"
 
   override def mvnDeps = Seq(
     mvn"com.github.spinalhdl::spinalhdl-core:1.13.0",
@@ -103,8 +103,8 @@ object MySpinalModule extends ScalaModule {
 
 ### JAR
 
-    https://oss.sonatype.org/content/groups/public/com/github/spinalhdl/spinalhdl-core_2.11/
-    https://oss.sonatype.org/content/groups/public/com/github/spinalhdl/spinalhdl-lib_2.11/
+    https://oss.sonatype.org/content/groups/public/com/github/spinalhdl/spinalhdl-core_2.12/
+    https://oss.sonatype.org/content/groups/public/com/github/spinalhdl/spinalhdl-lib_2.12/
 
 The files are available [on Maven](https://mvnrepository.com/artifact/com.github.spinalhdl) as well.
 
