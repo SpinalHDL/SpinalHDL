@@ -878,7 +878,7 @@ object SpiXdrMasterCtrl {
       val mod = sync(io.config.mod)
       val readFill = sync(fsm.readFill, False)
       val readDone = sync(fsm.readDone, False)
-      val buffer = Reg(Bits(p.dataWidth - p.mods.map(_.bitrate).min bits))
+      val buffer = Reg(Bits(p.dataWidth bits))
       val bufferNext = Bits(p.dataWidth bits).assignDontCare().allowOverride
       val widthSel = mod.muxListDc(p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate), log2Up(widthMax + 1) bits)))
       val dataWrite, dataRead = Bits(maxBitRate bits)
@@ -912,7 +912,7 @@ object SpiXdrMasterCtrl {
       }
 
       io.rsp.valid := readDone
-      io.rsp.data := bufferNext
+      io.rsp.data := buffer
 
       switch(mod){
         for(mod <- p.mods){
