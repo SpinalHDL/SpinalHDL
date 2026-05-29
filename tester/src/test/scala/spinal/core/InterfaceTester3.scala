@@ -134,3 +134,87 @@ class BundleInIfTest2 extends SpinalAnyFunSuite{
     }
   }
 }
+class IMasterSlaveDirDeclareTest extends SpinalAnyFunSuite {
+  test("Test IMasterSlaveDirDeclare") {
+    case class TestInterface() extends Bundle with IMasterSlaveDirDeclare {
+      val testOut = out port Bool()
+      val testIn = in port Bool()
+      val testMaster = master port Stream(Bool())
+      val testSlave = slave port Stream(Bool())
+    }
+    SimConfig.compile(new Component {
+      val withoutDir = TestInterface()
+      withoutDir.assignDontCareToUnasigned()
+      println(withoutDir.testOut.getDirection)
+      val masterInterface = master port TestInterface()
+      val slaveInterface = slave port TestInterface()
+      assert(masterInterface.testOut.getDirection == out)
+      assert(masterInterface.testIn.getDirection == in)
+
+      assert(slaveInterface.testOut.getDirection == in)
+      assert(slaveInterface.testIn.getDirection == out)
+
+      assert(masterInterface.testMaster.valid.getDirection == out)
+      assert(masterInterface.testMaster.ready.getDirection == in)
+      assert(masterInterface.testMaster.payload.getDirection == out)
+
+      assert(masterInterface.testSlave.valid.getDirection == in)
+      assert(masterInterface.testSlave.ready.getDirection == out)
+      assert(masterInterface.testSlave.payload.getDirection == in)
+
+
+      assert(slaveInterface.testMaster.valid.getDirection == in)
+      assert(slaveInterface.testMaster.ready.getDirection == out)
+      assert(slaveInterface.testMaster.payload.getDirection == in)
+
+
+      assert(slaveInterface.testSlave.valid.getDirection == out)
+      assert(slaveInterface.testSlave.ready.getDirection == in)
+      assert(slaveInterface.testSlave.payload.getDirection == out)
+
+
+      slaveInterface <> masterInterface
+    })
+  }
+  test("Test IMasterSlaveDirDeclare apply") {
+    case class TestInterface() extends Bundle with IMasterSlaveDirDeclare {
+      val testOut = out(Bool())
+      val testIn = in(Bool())
+      val testMaster = master(Stream(Bool()))
+      val testSlave = slave(Stream(Bool()))
+    }
+    SimConfig.compile(new Component {
+      val withoutDir = TestInterface()
+      withoutDir.assignDontCareToUnasigned()
+      println(withoutDir.testOut.getDirection)
+      val masterInterface = master port TestInterface()
+      val slaveInterface = slave port TestInterface()
+      assert(masterInterface.testOut.getDirection == out)
+      assert(masterInterface.testIn.getDirection == in)
+
+      assert(slaveInterface.testOut.getDirection == in)
+      assert(slaveInterface.testIn.getDirection == out)
+
+      assert(masterInterface.testMaster.valid.getDirection == out)
+      assert(masterInterface.testMaster.ready.getDirection == in)
+      assert(masterInterface.testMaster.payload.getDirection == out)
+
+      assert(masterInterface.testSlave.valid.getDirection == in)
+      assert(masterInterface.testSlave.ready.getDirection == out)
+      assert(masterInterface.testSlave.payload.getDirection == in)
+
+
+      assert(slaveInterface.testMaster.valid.getDirection == in)
+      assert(slaveInterface.testMaster.ready.getDirection == out)
+      assert(slaveInterface.testMaster.payload.getDirection == in)
+
+
+      assert(slaveInterface.testSlave.valid.getDirection == out)
+      assert(slaveInterface.testSlave.ready.getDirection == in)
+      assert(slaveInterface.testSlave.payload.getDirection == out)
+
+
+      slaveInterface <> masterInterface
+    })
+  }
+}
