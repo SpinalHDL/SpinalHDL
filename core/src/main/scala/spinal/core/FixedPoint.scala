@@ -39,7 +39,8 @@ object RoundType {
   case object ROUNDTOINF     extends RoundType ;// Wikipedia name: RoundHalfToInf
   case object ROUNDTOEVEN    extends RoundType ;// Wikipedia name: RoundHalfToEven; Have not been implemented yet
   case object ROUNDTOODD     extends RoundType ;// Wikipedia name: RoundHalfToOdd ; Have not been implemented yet
-  case object SCRAP           extends RoundType ;// If any bitsthrown is set, then LSB will be set
+  case object SCRAP          extends RoundType ;// If any bitsthrown is set, then LSB will be set
+  case object NONE           extends RoundType ;// Only allow no-ops and right-padding; throw an error otherwise
 }
 
 case class FixPointConfig(roundType: RoundType,
