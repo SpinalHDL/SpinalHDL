@@ -377,7 +377,10 @@ object Axi4Priv{
   def driveWeak[T <: Data](source : Bundle,sink : Bundle, by : T,to : T,defaultValue : () => T,allowResize : Boolean,allowDrop : Boolean) : Unit = {
     (to != null,by != null) match {
       case (false,false) =>
-      case (true,false) => if(defaultValue != null) to := defaultValue() else LocatedPendingError(s"$source can't drive $to because this first doesn't has the corresponding pin")
+      case (true,false) => {
+        if(to != null && to.getBitsWidth == 0 && by == null) to.clearAll()
+        else if(defaultValue != null) to := defaultValue() else LocatedPendingError(s"$source can't drive $to because this first doesn't has the corresponding pin")
+      }
       case (false,true) => if(!allowDrop) LocatedPendingError(s"$by can't drive $sink because this last one doesn't has the corresponding pin")
       case (true,true) => to := (if(allowResize) by.resized else by)
     }
