@@ -408,13 +408,33 @@ object SpiXdrMasterCtrl {
 
     def fromPipelinedMemoryBus() = {
       val accessBus = new PipelinedMemoryBus(PipelinedMemoryBusConfig(24,32))
-      ???
-//      cmd.valid <> (accessBus.cmd.valid && !accessBus.cmd.write)
-//      cmd.ready <> accessBus.cmd.ready
-//      cmd.payload <> accessBus.cmd.address
-//
-//      rsp.valid <> accessBus.rsp.valid
-//      rsp.payload <> accessBus.rsp.data
+      cmd.valid <> (accessBus.cmd.valid && !accessBus.cmd.write)
+      cmd.address <> accessBus.cmd.address
+      accessBus.cmd.ready := cmd.ready
+
+      cmd.length := 3
+
+      val buffer  = Reg(Bits(32 bits)) init(0)
+      val counter = Reg(UInt(2 bits)) init(0)
+
+      accessBus.rsp.valid := False
+      accessBus.rsp.data := rsp.fragment ## buffer(23 downto 0)
+
+      rsp.ready := True
+
+      when(rsp.fire) {
+        counter := counter + 1
+
+        switch(counter) {
+          is(0) { buffer(7 downto 0)   := rsp.fragment }
+          is(1) { buffer(15 downto 8)  := rsp.fragment }
+          is(2) { buffer(23 downto 16) := rsp.fragment }
+          is(3) { buffer(31 downto 24) := rsp.fragment
+            accessBus.rsp.valid := True
+          }
+        }
+      }
+
       accessBus
     }
 
@@ -878,7 +898,7 @@ object SpiXdrMasterCtrl {
       val mod = sync(io.config.mod)
       val readFill = sync(fsm.readFill, False)
       val readDone = sync(fsm.readDone, False)
-      val buffer = Reg(Bits(p.dataWidth - p.mods.map(_.bitrate).min bits))
+      val buffer = Reg(Bits(p.dataWidth bits))
       val bufferNext = Bits(p.dataWidth bits).assignDontCare().allowOverride
       val widthSel = mod.muxListDc(p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate), log2Up(widthMax + 1) bits)))
       val dataWrite, dataRead = Bits(maxBitRate bits)
@@ -912,7 +932,7 @@ object SpiXdrMasterCtrl {
       }
 
       io.rsp.valid := readDone
-      io.rsp.data := bufferNext
+      io.rsp.data := buffer
 
       switch(mod){
         for(mod <- p.mods){
