@@ -32,9 +32,13 @@ import spinal.core._
 object VideoColorSpace {
   def apply(
       vcsp: VideoSpaceParameter,
-      SPACE_IN: Bits = null
+      SPACE_IN: Bits = null,
+      IE: Bits = Bits(3 bits),
+      OE: Bits = Bits(3 bits)
   ): VideoColorSpace = {
     val ret = VideoColorSpace(vcsp)
+    ret.io.IE := IE
+    ret.io.OE := OE
     ret.io.SPACE_IN := SPACE_IN
     ret
   }
@@ -69,6 +73,8 @@ case class VideoColorSpace(
     vcsp: VideoSpaceParameter
 ) extends Component {
   val io = new Bundle {
+    val IE = in Bits (3 bit)
+    val OE = in Bits (3 bit)
     val SPACE_IN = in Bits ((vcsp.bitsPerContent * 3) bits)
     val SPACE_OUT = out UInt ((vcsp.bitsPerContent * 3) bits)
   }
@@ -78,25 +84,64 @@ case class VideoColorSpace(
   if (vcsp.useRGB2YUV) {
     val rgb2yuv = VideoRGB2YUV(vcsp)
 
-    rgb2yuv.io.R := RegNext(io.SPACE_IN(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent))
-    rgb2yuv.io.G := RegNext(io.SPACE_IN(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent))
-    rgb2yuv.io.B := RegNext(io.SPACE_IN(1 * vcsp.bitsPerContent - 1 downto 0))
-    io.SPACE_OUT(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent) := rgb2yuv.io.Y
-    io.SPACE_OUT(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent) := rgb2yuv.io.U
-    io.SPACE_OUT(1 * vcsp.bitsPerContent - 1 downto 0) := rgb2yuv.io.V
+    rgb2yuv.io.R := RegNextWhen(
+      io.SPACE_IN(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent),
+      io.IE(2)
+    )
+    rgb2yuv.io.G := RegNextWhen(
+      io.SPACE_IN(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent),
+      io.IE(1)
+    )
+    rgb2yuv.io.B := RegNextWhen(
+      io.SPACE_IN(1 * vcsp.bitsPerContent - 1 downto 0),
+      io.IE(0)
+    )
+
+    val oe = Delay(io.OE, 3)
+    io.SPACE_OUT(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent) :=
+      RegNextWhen(rgb2yuv.io.Y, oe(2))
+    io.SPACE_OUT(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent) :=
+      RegNextWhen(rgb2yuv.io.U, oe(1))
+    io.SPACE_OUT(1 * vcsp.bitsPerContent - 1 downto 0) :=
+      RegNextWhen(rgb2yuv.io.V, oe(0))
     latency = 4
   } else if (vcsp.useYUV2RGB) {
     val rgb2yuv = VideoYUV2RGB(vcsp)
 
-    rgb2yuv.io.Y := RegNext(io.SPACE_IN(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent))
-    rgb2yuv.io.U := RegNext(io.SPACE_IN(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent))
-    rgb2yuv.io.V := RegNext(io.SPACE_IN(1 * vcsp.bitsPerContent - 1 downto 0))
-    io.SPACE_OUT(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent) := rgb2yuv.io.R
-    io.SPACE_OUT(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent) := rgb2yuv.io.G
-    io.SPACE_OUT(1 * vcsp.bitsPerContent - 1 downto 0) := rgb2yuv.io.B
+    rgb2yuv.io.Y := RegNextWhen(
+      io.SPACE_IN(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent),
+      io.IE(2)
+    )
+    rgb2yuv.io.U := RegNextWhen(
+      io.SPACE_IN(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent),
+      io.IE(1)
+    )
+    rgb2yuv.io.V := RegNextWhen(
+      io.SPACE_IN(1 * vcsp.bitsPerContent - 1 downto 0),
+      io.IE(0)
+    )
+
+    val oe = Delay(io.OE, 3)
+    io.SPACE_OUT(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent) :=
+      RegNextWhen(rgb2yuv.io.R, oe(2))
+    io.SPACE_OUT(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent) :=
+      RegNextWhen(rgb2yuv.io.G, oe(1))
+    io.SPACE_OUT(1 * vcsp.bitsPerContent - 1 downto 0) :=
+      RegNextWhen(rgb2yuv.io.B, oe(0))
     latency = 4
   } else {
-    io.SPACE_OUT := Delay(io.SPACE_IN.asUInt, 1)
+    io.SPACE_OUT(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent) := RegNextWhen(
+      io.SPACE_IN(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent),
+      io.IE(2) & io.OE(2)
+    ).asUInt
+    io.SPACE_OUT(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent) := RegNextWhen(
+      io.SPACE_IN(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent),
+      io.IE(1) & io.OE(1)
+    ).asUInt
+    io.SPACE_OUT(1 * vcsp.bitsPerContent - 1 downto 0) := RegNextWhen(
+      io.SPACE_IN(1 * vcsp.bitsPerContent - 1 downto 0),
+      io.IE(0) & io.OE(0)
+    ).asUInt
     latency = 1
   }
 }
@@ -206,18 +251,18 @@ case class VideoYUV2RGB(
   val r_y = RegNext(sumSfts(io.Y, BT_standard(0)(0)))
   val r_v = RegNext(sumSfts(io.V, BT_standard(0)(2)))
   val r_sum = RegNext((r_y + r_v) >> vcsp.bitsPerContent)
-  val r = RegNext(clip(r_sum.asSInt - S(r_offset)))
+  val r = clip(r_sum.asSInt - S(r_offset))
 
   val g_y = RegNext(sumSfts(io.Y, BT_standard(1)(0)))
   val g_u = RegNext(sumSfts(io.U, BT_standard(1)(1)))
   val g_v = RegNext(sumSfts(io.V, BT_standard(1)(2)))
   val g_sum = RegNext((g_y.asSInt - g_u.asSInt - g_v.asSInt) >> vcsp.bitsPerContent)
-  val g = RegNext(clip(g_sum + S(g_offset)))
+  val g = clip(g_sum + S(g_offset))
 
   val b_y = RegNext(sumSfts(io.Y, BT_standard(2)(0)))
   val b_u = RegNext(sumSfts(io.U, BT_standard(2)(1)))
   val b_sum = RegNext((b_y + b_u) >> vcsp.bitsPerContent)
-  val b = RegNext(clip(b_sum.asSInt - S(b_offset)))
+  val b = clip(b_sum.asSInt - S(b_offset))
 
   io.R := r
   io.G := g
@@ -325,13 +370,13 @@ case class VideoRGB2YUV(
 
   val y_offset = U(if (vcsp.stdBT601TV) (1 << (vcsp.bitsPerContent - 4)) else 0)
   val y_sum = RegNext((y_r + y_g + y_b) >> vcsp.bitsPerContent)
-  val y = RegNext((y_sum + y_offset).resize(vcsp.bitsPerContent bits))
+  val y = (y_sum + y_offset).resize(vcsp.bitsPerContent bits)
 
   val u_sum = RegNext((u_b.asSInt - u_r.asSInt - u_g.asSInt) >> vcsp.bitsPerContent)
-  val u = RegNext(clip(u_sum))
+  val u = clip(u_sum)
 
   val v_sum = RegNext((v_r.asSInt - v_g.asSInt - v_b.asSInt) >> vcsp.bitsPerContent)
-  val v = RegNext(clip(v_sum))
+  val v = clip(v_sum)
 
   io.Y := y
   io.U := u
