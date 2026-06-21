@@ -8,9 +8,9 @@
 // |____/ |_|   |_| \__,_||_| |_||____/  \__,_||_| |_| \___|
 //
 // =======================================================================
-// Revision: 0.9.0
+// File Revision: 0.9.0
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Trial Version
+// Verification Pending Version
 // Date: 2026/06
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // File: VideoTimingCtrl.scala
@@ -22,6 +22,8 @@ package spinal.lib.graphic
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper
 
 object VideoTimingCtrl {
   def apply(p: VideoTimingParameter, OE: Bool): VideoTimingCtrl = {
@@ -74,12 +76,42 @@ case class VideoTimingCtrl(val p: VideoTimingParameter) extends Component {
     val videoCfg = new VideoTimingIOs(p)
   }
 
-  def getDynamicParam(ioPort: Option[UInt], defaultValue: Int, target: UInt): UInt = {
-    ioPort.getOrElse(U(defaultValue, 16 bits)).resize(target.getWidth)
+  def driveFrom(busCtrl: BusSlaveFactory, config: VideoTimingParameter, baseAddress: Int = 0) = new Area {
+    require(busCtrl.busDataWidth == 32)
+    require(config.withDynamicSetup)
+    val busCtrlWrapped = new BusSlaveFactoryAddressWrapper(busCtrl, baseAddress)
+
+    val cfg_regs = Reg(new VideoTimingIOs(config))
+
+    io.videoCfg := cfg_regs
+
+    busCtrlWrapped.readAndWrite(cfg_regs.v_active.get, 0x00, 16, "v active")
+    busCtrlWrapped.readAndWrite(cfg_regs.h_active.get, 0x00, 0, "h active")
+
+    busCtrlWrapped.readAndWrite(cfg_regs.h_blank_polarity.get, 0x04, 31, "h blank polarity")
+    busCtrlWrapped.readAndWrite(cfg_regs.h_sync_polarity.get, 0x04, 30, "h sync polarity")
+    busCtrlWrapped.readAndWrite(cfg_regs.h_front_porch.get, 0x04, 20, "h front porach")
+    busCtrlWrapped.readAndWrite(cfg_regs.h_sync.get, 0x04, 10, "h sync")
+    busCtrlWrapped.readAndWrite(cfg_regs.h_back_porch.get, 0x04, 0, "h back porach")
+
+    busCtrlWrapped.readAndWrite(cfg_regs.v_blank_polarity.get, 0x08, 31, "v blank polarity")
+    busCtrlWrapped.readAndWrite(cfg_regs.v_sync_polarity.get, 0x08, 30, "v sync polarity")
+    busCtrlWrapped.readAndWrite(cfg_regs.v_front_porch.get, 0x08, 20, "v front porach")
+    busCtrlWrapped.readAndWrite(cfg_regs.v_sync.get, 0x08, 10, "v sync")
+    busCtrlWrapped.readAndWrite(cfg_regs.v_back_porch.get, 0x08, 0, "v back porach")
   }
 
-  val v_count = Reg(UInt(log2Up(v_total) bits)) init (0)
-  val h_count = Reg(UInt(log2Up(h_total) bits)) init (0)
+  def driveFrom32(busCtrl: BusSlaveFactory, config: VideoTimingParameter, baseAddress: Int = 0) = {
+    require(busCtrl.busDataWidth == 32)
+    driveFrom(busCtrl, config, baseAddress)
+  }
+
+  def getDynamicParam(ioPort: Option[UInt], defaultValue: Int, target: UInt): UInt = {
+    ioPort.map(p => RegNext(p, init = U(0))).getOrElse(U(defaultValue, 16 bits)).resize(target.getBitsWidth)
+  }
+
+  val v_count = Reg(UInt(U(v_total).getBitsWidth bits)) init (0)
+  val h_count = Reg(UInt(U(h_total).getBitsWidth bits)) init (0)
 
   val vActive = getDynamicParam(io.videoCfg.v_active, p.vActive, v_count)
   val hActive = getDynamicParam(io.videoCfg.h_active, p.hActive, h_count)
@@ -101,18 +133,12 @@ case class VideoTimingCtrl(val p: VideoTimingParameter) extends Component {
 
   val hcount_total =
     if (p.withDynamicSetup)
-      RegNext(hActive, init = U(0)) +
-        RegNext(hFrontPorch, init = U(0)) +
-        RegNext(hSync, init = U(0)) +
-        RegNext(hBackPorch, init = U(0))
+      hActive + hFrontPorch + hSync + hBackPorch
     else
       U(h_total_fix)
   val vcount_total =
     if (p.withDynamicSetup)
-      RegNext(vActive, init = U(0)) +
-        RegNext(vFrontPorch, init = U(0)) +
-        RegNext(vSync, init = U(0)) +
-        RegNext(vBackPorch, init = U(0))
+      vActive + vFrontPorch + vSync + vBackPorch
     else
       U(v_total_fix)
 
@@ -160,31 +186,48 @@ case class VideoTimingCtrl(val p: VideoTimingParameter) extends Component {
   vsync := (v_count < vSync) ^ vSyncPolarity
   io.videoIF.VSYNC := vsync
 
-  val hCountReg = Reg(UInt(h_count.getWidth bits)) init (0)
-  val vCountReg = Reg(UInt(v_count.getWidth bits)) init (0)
+  if (p.withCounterOutput) {
+    val hCountReg = Reg(UInt(h_count.getBitsWidth bits)) init (0)
+    val vCountReg = Reg(UInt(v_count.getBitsWidth bits)) init (0)
 
-  hCountReg := Mux(v_visible & h_visible, h_count - (hSync + hBackPorch), U(0))
-  vCountReg := Mux(v_visible, v_count - (vSync + vBackPorch), U(0))
+    hCountReg := Mux(v_visible & h_visible, h_count - (hSync + hBackPorch), U(0))
+    vCountReg := Mux(v_visible, v_count - (vSync + vBackPorch), U(0))
 
-  io.videoIF.HCOUNT.foreach(_ := hCountReg)
-  io.videoIF.VCOUNT.foreach(_ := vCountReg)
+    io.videoIF.HCOUNT.foreach(_ := hCountReg)
+    io.videoIF.VCOUNT.foreach(_ := vCountReg)
 
-  io.videoIF.VACTIVE := vActive.resize(log2Up(v_total) bits)
-  io.videoIF.HACTIVE := hActive.resize(log2Up(h_total) bits)
+    io.videoIF.VACTIVE.foreach(_ := vActive.resize(U(v_total).getBitsWidth bits))
+    io.videoIF.HACTIVE.foreach(_ := hActive.resize(U(h_total).getBitsWidth bits))
+  }
 }
 
 object GenerateVideoTimingCtrl {
   def main(args: Array[String]): Unit = {
 
-    val report = SpinalVerilog(
-      new VideoTimingCtrl(
-        VideoTimingParameter(
-          withCounterOutput = true
-          // withDynamicSetup = true
-        )
-      )
-    )
+    for (
+      with_counter <- List(true, false);
+      with_dynamic <- List(true, false)
+    ) {
 
-    report.printPruned()
+      val countStr = if (with_counter) "Count" else "NoCount"
+      val dynamicStr = if (with_dynamic) "Dynamic" else "Static"
+      val fileName = s"VideoTimingCtrl_${countStr}_${dynamicStr}"
+
+      val config = SpinalConfig(
+        targetDirectory = "videoTimingCtrl_RTL",
+        defaultConfigForClockDomains = ClockDomainConfig()
+      )
+
+      val report = config.generateVerilog(
+        new VideoTimingCtrl(
+          VideoTimingParameter(
+            withCounterOutput = with_counter,
+            withDynamicSetup = with_dynamic
+          )
+        ).setDefinitionName(fileName)
+      )
+
+      report.printPruned()
+    }
   }
 }

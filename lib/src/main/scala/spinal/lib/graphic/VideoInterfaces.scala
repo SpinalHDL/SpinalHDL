@@ -8,9 +8,9 @@
 // |____/ |_|   |_| \__,_||_| |_||____/  \__,_||_| |_| \___|
 //
 // =======================================================================
-// Revision: 0.9.0
+// File Revision: 0.9.0
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Trial Version
+// Verification Pending Version
 // Date: 2026/06
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // File: VideoTimingInterfaces.scala
@@ -40,7 +40,23 @@ trait VideoTimingInterface {
   def v_blank_polarity: Option[Bool]
 }
 
-class VideoIOs(p: VideoTimingParameter) extends Bundle {
+case class VideoColorRgb(bitsPerContent: Int = 8) extends Bundle {
+  val R = UInt (bitsPerContent bits)
+  val G = UInt (bitsPerContent bits)
+  val B = UInt (bitsPerContent bits)
+}
+
+case class VideoColorYuv(bitsPerContent: Int = 8) extends Bundle {
+  val Y = UInt (bitsPerContent bits)
+  val U = UInt (bitsPerContent bits)
+  val V = UInt (bitsPerContent bits)
+}
+
+case class VideoColorAlpha(bitsPerContent: Int = 8) extends Bundle {
+  val A = UInt (bitsPerContent bits)
+}
+
+case class VideoIOs(p: VideoTimingParameter) extends Bundle {
   // output enable must keep active
   // any deactivation will reset
   val OE = in Bool ()
@@ -50,6 +66,7 @@ class VideoIOs(p: VideoTimingParameter) extends Bundle {
   val HBLANK = out Bool ()
   val DE = out Bool ()
 
+  // 16 bit is defined by 16k resolution < 20,000
   val maxVal = (1 << 16) - 1
   val h_total_fix = p.hActive + p.hFrontPorch + p.hSync + p.hBackPorch
   val v_total_fix = p.vActive + p.vFrontPorch + p.vSync + p.vBackPorch
@@ -57,14 +74,14 @@ class VideoIOs(p: VideoTimingParameter) extends Bundle {
   val h_total = if (p.withDynamicSetup) maxVal else h_total_fix
   val v_total = if (p.withDynamicSetup) maxVal else v_total_fix
 
-  val VCOUNT = if (p.withCounterOutput) Some(out UInt (log2Up(v_total) bits)) else None
-  val HCOUNT = if (p.withCounterOutput) Some(out UInt (log2Up(h_total) bits)) else None
+  val VCOUNT = if (p.withCounterOutput) Some(out UInt (U(v_total).getWidth bits)) else None
+  val HCOUNT = if (p.withCounterOutput) Some(out UInt (U(h_total).getWidth bits)) else None
 
-  val VACTIVE = out UInt (log2Up(v_total) bits)
-  val HACTIVE = out UInt (log2Up(h_total) bits)
+  val VACTIVE = if (p.withCounterOutput) Some(out UInt (U(v_total).getWidth bits)) else None
+  val HACTIVE = if (p.withCounterOutput) Some(out UInt (U(h_total).getWidth bits)) else None
 }
 
-class VideoTimingIOs(p: VideoTimingParameter) extends Bundle with VideoTimingInterface {
+case class VideoTimingIOs(p: VideoTimingParameter) extends Bundle with VideoTimingInterface {
   
   def optIn[T <: Data](gen: => T): Option[T] =
     if (p.withDynamicSetup) Some(in(gen)) else None

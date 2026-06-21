@@ -8,12 +8,17 @@
 // |____/ |_|   |_| \__,_||_| |_||____/  \__,_||_| |_| \___|
 //                                                          
 // =======================================================================
-// Revision: 0.9.0
+// File Revision: 0.9.1
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Add in/out enable and map to 1 for testing
+// Change loop operation for different test case
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// File Revision: 0.9.0
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Trial Version
 // Date: 2026/06
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// File: SpinalSimVideoTestPattern.scala
+// File: SpinalSimVideoColorSpace.scala
 // Designed By: BrianSune
 // Contact: briansune@gmail.com
 // =======================================================================
@@ -93,6 +98,8 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
       
       dut.clockDomain.waitSampling()
       dut.clockDomain.waitSampling()
+      dut.io.IE #= 7
+      dut.io.OE #= 7
       
       def check(d0: Int, d1: Int, d2: Int): Unit = {
         val in0 = d0 & full
@@ -166,42 +173,24 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
     }
   }
 
+  val standards = List("470", "601F", "601TV")
+  val convert = List("RGB2YUV", "YUV2RGB")
+
   test("VideoColorSpace") {
 
-    runVideoSim(
-      VideoSpaceParameter(
-        // bitsPerContent = 10,
-        useRGB2YUV = true,
-        useYUV2RGB = false,
-        stdBT470 = true,
-        stdBT601Full = false,
-        stdBT601TV = false
-      ),
-      "Standard BT.470 YUV2RGB"
-    )
-
-    runVideoSim(
-      VideoSpaceParameter(
-        // bitsPerContent = 10,
-        useRGB2YUV = true,
-        useYUV2RGB = false,
-        stdBT470 = false,
-        stdBT601Full = true,
-        stdBT601TV = false
-      ),
-      "Standard BT.601-Full YUV2RGB"
-    )
-
-    runVideoSim(
-      VideoSpaceParameter(
-        // bitsPerContent = 10,
-        useRGB2YUV = true,
-        useYUV2RGB = false,
-        stdBT470 = false,
-        stdBT601Full = false,
-        stdBT601TV = true
-      ),
-      "Standard BT.601-TV YUV2RGB"
-    )
+    for (
+      RGBYUV <- List(false, true); stdBTxx <- 0 to 2; bw <- List(8)) {
+      runVideoSim(
+        VideoSpaceParameter(
+          bitsPerContent = bw,
+          useRGB2YUV = RGBYUV,
+          useYUV2RGB = !RGBYUV,
+          stdBT470 = (stdBTxx == 0),
+          stdBT601Full = (stdBTxx == 1),
+          stdBT601TV = (stdBTxx == 2)
+        ),
+        s"Standard BT-${standards(stdBTxx)} ${convert(RGBYUV.toInt)} BitWidth-$bw"
+      )
+    }
   }
 }
