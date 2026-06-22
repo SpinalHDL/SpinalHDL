@@ -13,7 +13,7 @@
 // Verification Pending Version
 // Date: 2026/06
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// File: VideoTimingCtrl.scala
+// File: Apb3VideoTimingCtrl.scala
 // Designed By: BrianSune
 // Contact: briansune@gmail.com
 // =======================================================================
@@ -50,7 +50,7 @@ case class Apb3VideoTimingCtrl(config: VideoTimingParameter) extends Component {
   vtc.io.videoIF.OE := soft_enable
 
   val busCtrl = Apb3SlaveFactory(io.apb)
-  val bridge = vtc.driveFrom32(busCtrl, config)
+  val bridge = VideoTimingCtrlBusMapping.driveFrom32(vtc.io, busCtrl, config)
 
   busCtrl.readAndWrite(soft_enable, 0x0c, 0, "soft enable")
 }
