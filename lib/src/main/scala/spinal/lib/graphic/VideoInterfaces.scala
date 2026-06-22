@@ -22,7 +22,8 @@ package spinal.lib.graphic
 
 import spinal.lib._
 import spinal.core._
-import spinal.lib.graphic.VideoTimingCtrl._
+import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper
 
 trait VideoTimingInterface {
   def h_active: Option[UInt]
@@ -38,6 +39,48 @@ trait VideoTimingInterface {
   def v_back_porch: Option[UInt]
   def v_sync_polarity: Option[Bool]
   def v_blank_polarity: Option[Bool]
+}
+
+object VideoTimingCtrlBusMapping {
+  def driveFrom(
+      io: Bundle { val videoCfg: VideoTimingIOs },
+      busCtrl: BusSlaveFactory,
+      config: VideoTimingParameter,
+      baseAddress: Int = 0
+  ) = new Area {
+    require(busCtrl.busDataWidth == 32)
+    require(config.withDynamicSetup)
+    val busCtrlWrapped = new BusSlaveFactoryAddressWrapper(busCtrl, baseAddress)
+
+    val cfg_regs = Reg(new VideoTimingIOs(config))
+
+    io.videoCfg := cfg_regs
+
+    busCtrlWrapped.readAndWrite(cfg_regs.v_active.get, 0x00, 16, "v active")
+    busCtrlWrapped.readAndWrite(cfg_regs.h_active.get, 0x00, 0, "h active")
+
+    busCtrlWrapped.readAndWrite(cfg_regs.h_blank_polarity.get, 0x04, 31, "h blank polarity")
+    busCtrlWrapped.readAndWrite(cfg_regs.h_sync_polarity.get, 0x04, 30, "h sync polarity")
+    busCtrlWrapped.readAndWrite(cfg_regs.h_front_porch.get, 0x04, 20, "h front porach")
+    busCtrlWrapped.readAndWrite(cfg_regs.h_sync.get, 0x04, 10, "h sync")
+    busCtrlWrapped.readAndWrite(cfg_regs.h_back_porch.get, 0x04, 0, "h back porach")
+
+    busCtrlWrapped.readAndWrite(cfg_regs.v_blank_polarity.get, 0x08, 31, "v blank polarity")
+    busCtrlWrapped.readAndWrite(cfg_regs.v_sync_polarity.get, 0x08, 30, "v sync polarity")
+    busCtrlWrapped.readAndWrite(cfg_regs.v_front_porch.get, 0x08, 20, "v front porach")
+    busCtrlWrapped.readAndWrite(cfg_regs.v_sync.get, 0x08, 10, "v sync")
+    busCtrlWrapped.readAndWrite(cfg_regs.v_back_porch.get, 0x08, 0, "v back porach")
+  }
+
+  def driveFrom32(
+      io: Bundle { val videoCfg: VideoTimingIOs },
+      busCtrl: BusSlaveFactory,
+      config: VideoTimingParameter,
+      baseAddress: Int = 0
+  ) = {
+    require(busCtrl.busDataWidth == 32)
+    driveFrom(io, busCtrl, config, baseAddress)
+  }
 }
 
 case class VideoColorRgb(bitsPerContent: Int = 8) extends Bundle {
@@ -82,10 +125,10 @@ case class VideoIOs(p: VideoTimingParameter) extends Bundle {
 }
 
 case class VideoTimingIOs(p: VideoTimingParameter) extends Bundle with VideoTimingInterface {
-  
+
   def optIn[T <: Data](gen: => T): Option[T] =
     if (p.withDynamicSetup) Some(in(gen)) else None
-  
+
   val v_front_porch = optIn(UInt(10 bits))
   val h_front_porch = optIn(UInt(10 bits))
   val v_back_porch = optIn(UInt(10 bits))
