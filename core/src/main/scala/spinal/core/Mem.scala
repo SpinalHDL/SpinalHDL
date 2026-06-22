@@ -545,6 +545,54 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
 //    readWord
   }
 
+  def readAsyncWrite(address       : UInt,
+                     data          : T,
+                     write         : Bool,
+                     mask          : Bits = null,
+                     readUnderWrite: ReadUnderWritePolicy = dontCare,
+                     clockCrossing : Boolean = false,
+                     duringWrite   : DuringWritePolicy = dontCare): T = {
+    readAsyncWriteImpl(address,data,write,mask,readUnderWrite,clockCrossing,false, duringWrite = duringWrite)
+  }
+
+  def readAsyncWriteMixedWidth[U <: Data](address       : UInt,
+                                          data          : U,
+                                          write         : Bool,
+                                          mask          : Bits = null,
+                                          readUnderWrite: ReadUnderWritePolicy = dontCare,
+                                          clockCrossing : Boolean = false,
+                                          duringWrite : DuringWritePolicy = dontCare): U = {
+    readAsyncWriteImpl(address, data, write, mask, readUnderWrite, clockCrossing, true, duringWrite = duringWrite)
+  }
+
+  def readAsyncWriteImpl[U <: Data](address         : UInt,
+                                    data            : U,
+                                    write           : Bool,
+                                    mask            : Bits = null,
+                                    readUnderWrite  : ReadUnderWritePolicy = dontCare,
+                                    clockCrossing   : Boolean = false,
+                                    allowMixedWidth : Boolean = false,
+                                    duringWrite : DuringWritePolicy = dontCare): U = {
+
+    val readWritePort = MemReadAsyncWrite(this, address, data.asBits, mask, write, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current, readUnderWrite, duringWrite)
+
+    this.parentScope.append(readWritePort)
+    this.dlcAppend(readWritePort)
+
+    val readWord = cloneOf(data)
+    val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
+
+    if(allowMixedWidth) readWritePort.addTag(AllowMixedWidth)
+    if(clockCrossing) {
+      readWritePort.addTag(crossClockDomain)
+      readWritePort.addTag(new crossClockMaxDelay(1, true))
+    }
+
+    readBits.assignFrom(readWritePort)
+    readWord.assignFromBits(readBits)
+    readWord
+  }
+
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   private[core] def getMemSymbolWidth(): Int = {
@@ -563,6 +611,16 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
           }
         }
       case port: MemReadWrite =>
+        if(port.mask != null){
+          val portSymbolWidth = getWidth/port.mask.getWidth
+          if(symbolWidthSet){
+            if(symbolWidth != portSymbolWidth) SpinalError(s"Mem with different aspect ratio at\n${this.getScalaLocationLong}")
+          }else{
+            symbolWidth = portSymbolWidth
+            symbolWidthSet = true
+          }
+        }
+      case port: MemReadAsyncWrite =>
         if(port.mask != null){
           val portSymbolWidth = getWidth/port.mask.getWidth
           if(symbolWidthSet){
@@ -951,6 +1009,108 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with ContextUse
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
   override def remapClockDomain(func: ClockDomain => ClockDomain) = clockDomain = func(clockDomain)
 }
+
+
+object MemReadAsyncWrite {
+  def apply(mem: Mem[_], address: UInt, data: Bits, mask: Bits, writeEnable: Bool, width: Int, clockDomain: ClockDomain, readUnderWrite: ReadUnderWritePolicy, duringWrite: DuringWritePolicy): MemReadAsyncWrite = {
+    val ret = new MemReadAsyncWrite
+    ret.mem         = mem
+    ret.address     = address
+    ret.mask        = mask
+    ret.writeEnable = writeEnable
+    ret.clockDomain = clockDomain
+    ret.width       = width
+    ret.data        = data
+    ret.readUnderWrite = readUnderWrite
+    ret.duringWrite = duringWrite
+    ret
+  }
+}
+
+
+class MemReadAsyncWrite() extends MemPortStatement with WidthProvider with ContextUser with Expression {
+  var width        : Int = -1
+  var address      : Expression with WidthProvider = null
+  var data         : Expression with WidthProvider = null
+  var mask         : Expression with WidthProvider = null
+  var writeEnable  : Expression  = null
+  var clockDomain  : ClockDomain = null
+  var readUnderWrite : ReadUnderWritePolicy = null
+  var duringWrite : DuringWritePolicy = null
+
+  def getMaskWidth(default : Int = 1) = if(mask != null) mask.getWidth else default
+  def getSymbolWidth = if (mask != null) width / mask.getWidth else 1
+  def getWordsCount = mem.wordCount*mem.width/getWidth
+  def getAddressWidth = log2Up(getWordsCount)
+
+  override def opName = "Mem.readAsyncWrite(x)"
+
+  override def getTypeObject = TypeBits
+
+  override def dlcParent = mem
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
+  override def getWidth = width
+
+  override def remapExpressions(func: Expression => Expression): Unit = {
+    address = stabilized(func, address).asInstanceOf[Expression with WidthProvider]
+    data = stabilized(func, data).asInstanceOf[Expression with WidthProvider]
+    if(mask != null) mask = stabilized(func, mask).asInstanceOf[Expression with WidthProvider]
+    writeEnable = stabilized(func, writeEnable)
+  }
+
+  override def foreachExpression(func: Expression => Unit): Unit = {
+    func(address)
+    func(data)
+    if(mask != null) func(mask)
+    func(writeEnable)
+  }
+
+
+  override def foreachDrivingExpression(func: Expression => Unit): Unit = {
+    func(address)
+    func(data)
+    if(mask != null) func(mask)
+    func(writeEnable)
+  }
+
+  override def normalizeInputs: Unit = {
+    if(getWidth == 0) return
+    val addressReq = mem.addressWidth + log2Up(aspectRatio)
+    address = InputNormalize.resizedOrUnfixedLit(address,addressReq,new ResizeUInt,address, this)
+
+    if (readUnderWrite == readFirst) PendingError(s"readFirst mode for asynchronous read is not allowed\n ${this.getScalaLocationLong}")
+
+    if(mem.getWidth != getWidth){
+      if(!hasTag(AllowMixedWidth)) {
+        PendingError(s"Write data width (${data.getWidth} bits) is not the same as the memory one ($mem) at\n${this.getScalaLocationLong}")
+        return
+      }
+      if(mem.getWidth / getWidth * getWidth != mem.getWidth) {
+        PendingError(s"The aspect ratio between written data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
+        return
+      }
+    }
+
+    if(mask != null && getWidth % mask.getWidth != 0) {
+      PendingError(s"Memory write_data_width % write_data_mask_width != 0 at\n${this.getScalaLocationLong}")
+      return
+    }
+
+
+    if(address.getWidth != addressReq) {
+      PendingError(s"Address used to write $mem doesn't match the required width, ${address.getWidth} bits in place of ${mem.addressWidth + log2Up(aspectRatio)} bits\n${this.getScalaLocationLong}")
+      return
+    }
+  }
+
+  def aspectRatio = mem.getWidth / getWidth
+
+  override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
+  override def remapClockDomain(func: ClockDomain => ClockDomain) = clockDomain = func(clockDomain)
+}
+
 
 case class MemSymbolesMapping(name : String, range: Range){
   val width = range.size
