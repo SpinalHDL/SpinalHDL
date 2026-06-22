@@ -91,6 +91,13 @@ case class VideoPatternParameter(
   val maxCh = (1 << bitsPerContent) - 1
   val minCh = 0
 
+  val haveYUV = List(
+    outputTypeYUV444,
+    outputTypeYUV422,
+    outputTypeYUV420,
+    outputTypeYUV411
+  ).count(_ == true) > 0
+
   val selectionCount = List(
     withColorBar,
     withFillRed,
@@ -243,16 +250,16 @@ case class VideoPatternColorChecker(
 
   // These latency is not critical once it is setup
   // It will not eventually static
-  val box_gap_sh = io.HACTIVE(io.HACTIVE.high downto 5)
-  val box_gap_lh = io.HACTIVE(io.HACTIVE.high downto 4)
-  val box_gap_sth = io.HACTIVE(io.HACTIVE.high downto 3) +^ box_gap_sh
-  val box_gap_lth = io.HACTIVE(io.HACTIVE.high downto 3)
+  val box_gap_sh = RegNext(io.HACTIVE(io.HACTIVE.high downto 5))
+  val box_gap_lh = RegNext(io.HACTIVE(io.HACTIVE.high downto 4))
+  val box_gap_sth = RegNext(io.HACTIVE(io.HACTIVE.high downto 3) +^ box_gap_sh)
+  val box_gap_lth = RegNext(io.HACTIVE(io.HACTIVE.high downto 3))
   val box_th = RegNext(io.HACTIVE - box_gap_sth - box_gap_lth)
 
-  val box_gap_sv = io.VACTIVE(io.VACTIVE.high downto 5)
-  val box_gap_lv = io.VACTIVE(io.VACTIVE.high downto 4)
-  val box_gap_stv = io.VACTIVE(io.VACTIVE.high downto 4) +^ box_gap_sv
-  val box_gap_ltv = io.VACTIVE(io.VACTIVE.high downto 3)
+  val box_gap_sv = RegNext(io.VACTIVE(io.VACTIVE.high downto 5))
+  val box_gap_lv = RegNext(io.VACTIVE(io.VACTIVE.high downto 4))
+  val box_gap_stv = RegNext(io.VACTIVE(io.VACTIVE.high downto 4) +^ box_gap_sv)
+  val box_gap_ltv = RegNext(io.VACTIVE(io.VACTIVE.high downto 3))
   val box_tv = RegNext(io.VACTIVE - box_gap_stv - box_gap_ltv)
 
   val box_h = RegNext(((box_th << 5) +^ (box_th << 3) +^ (box_th << 2)) >> 8)
@@ -314,11 +321,11 @@ case class VideoPatternColorChecker(
     ).map(processPatch) // Row 3
   )
 
-  val colStarts = Vec(UInt(io.HCOUNT.getWidth bits), 6)
-  val colEnds = Vec(UInt(io.HCOUNT.getWidth bits), 6)
+  val colStarts = Vec(Reg(UInt(io.HCOUNT.getWidth bits).allowUnsetRegToAvoidLatch), 6)
+  val colEnds = Vec(Reg(UInt(io.HCOUNT.getWidth bits).allowUnsetRegToAvoidLatch), 6)
 
-  val rowStarts = Vec(UInt(io.VCOUNT.getWidth bits), 4)
-  val rowEnds = Vec(UInt(io.VCOUNT.getWidth bits), 4)
+  val rowStarts = Vec(Reg(UInt(io.VCOUNT.getWidth bits).allowUnsetRegToAvoidLatch), 4)
+  val rowEnds = Vec(Reg(UInt(io.VCOUNT.getWidth bits).allowUnsetRegToAvoidLatch), 4)
 
   colStarts(0) := box_gap_lh.resize(io.HCOUNT.getWidth bits)
   colEnds(0) := colStarts(0) + box_h
@@ -371,7 +378,7 @@ case class VideoTestPattern(
       if (vtpp.selectionCount > 1) Some(in UInt (U(vtpp.selectionCount).getBitsWidth bits))
       else None
 
-    val APLHA =
+    val ALPHA =
       if (vtpp.outputWithAlpha) Some(out(new VideoColorAlpha(vtpp.bitsPerContent)))
       else None
 
@@ -380,11 +387,7 @@ case class VideoTestPattern(
       else None
 
     val YUV =
-      if (
-        vtpp.outputTypeYUV444 |
-          vtpp.outputTypeYUV422 | vtpp.outputTypeYUV420 |
-          vtpp.outputTypeYUV411
-      ) Some(out(new VideoColorYuv(vtpp.bitsPerContent)))
+      if (vtpp.haveYUV) Some(out(new VideoColorYuv(vtpp.bitsPerContent)))
       else None
   }
 
@@ -405,7 +408,9 @@ case class VideoTestPattern(
     }
   }
 
-  val colorBar = Bits(3 * vtpp.bitsPerContent bits)
+  val colorBar =
+    if (vtpp.withColorBar) Some(Bits(3 * vtpp.bitsPerContent bits))
+    else None
   if (vtpp.withColorBar) {
     val color_bar = new VideoPatternColorBar(
       vtpp.bitsPerContent,
@@ -414,10 +419,12 @@ case class VideoTestPattern(
     color_bar.io.DE := vtc.io.videoIF.DE
     color_bar.io.OE := io.videoIF.OE
     color_bar.io.HACTIVE := vtc.io.videoIF.HACTIVE.get
-    colorBar := color_bar.io.COLOR_BAR
+    colorBar.get := color_bar.io.COLOR_BAR
   }
 
-  val grayBar = Bits(3 * vtpp.bitsPerContent bits)
+  val grayBar =
+    if (vtpp.withGrayScale) Some(Bits(3 * vtpp.bitsPerContent bits))
+    else None
   if (vtpp.withGrayScale) {
     val gray_bar = new VideoPatternGrayBar(
       vtpp.bitsPerContent,
@@ -426,10 +433,12 @@ case class VideoTestPattern(
     gray_bar.io.DE := vtc.io.videoIF.DE
     gray_bar.io.OE := io.videoIF.OE
     gray_bar.io.HACTIVE := vtc.io.videoIF.HACTIVE.get
-    grayBar := gray_bar.io.GRAY_BAR
+    grayBar.get := gray_bar.io.GRAY_BAR
   }
 
-  val colorChecker = Bits(3 * vtpp.bitsPerContent bits)
+  val colorChecker =
+    if (vtpp.withColorChecker) Some(Bits(3 * vtpp.bitsPerContent bits))
+    else None
   if (vtpp.withColorChecker) {
     val color_checker = new VideoPatternColorChecker(
       vtpp.bitsPerContent,
@@ -444,7 +453,7 @@ case class VideoTestPattern(
     color_checker.io.VACTIVE := vtc.io.videoIF.VACTIVE.get
     color_checker.io.HCOUNT := vtc.io.videoIF.HCOUNT.get
     color_checker.io.VCOUNT := vtc.io.videoIF.VCOUNT.get
-    colorChecker := color_checker.io.CHECKER
+    colorChecker.get := color_checker.io.CHECKER
   }
 
   var latency = 2
@@ -456,12 +465,12 @@ case class VideoTestPattern(
   } else None
 
   val availablePatterns = List(
-    if (vtpp.withColorBar) Some(colorBar) else None,
+    if (vtpp.withColorBar) Some(colorBar.get) else None,
     if (vtpp.withFillRed) Some(maxCh ## minCh ## minCh) else None,
     if (vtpp.withFillGreen) Some(minCh ## maxCh ## minCh) else None,
     if (vtpp.withFillBlue) Some(minCh ## minCh ## maxCh) else None,
-    if (vtpp.withGrayScale) Some(grayBar) else None,
-    if (vtpp.withColorChecker) Some(colorChecker) else None,
+    if (vtpp.withGrayScale) Some(grayBar.get) else None,
+    if (vtpp.withColorChecker) Some(colorChecker.get) else None,
     if (vtpp.withColorStripRCy) Some((~flip_strip.get) ## (flip_strip.get #* 2)) else None,
     if (vtpp.withColorStripGM) Some(flip_strip.get ## (~flip_strip.get) ## flip_strip.get) else None,
     if (vtpp.withColorStripBY) Some((flip_strip.get #* 2) ## (~flip_strip.get)) else None
@@ -493,7 +502,7 @@ case class VideoTestPattern(
 
     if (vtpp.outputWithAlpha) {
       val syncAlpha = Delay(alphaCounter.get, latency)
-      io.APLHA.foreach(_.A := syncAlpha)
+      io.ALPHA.foreach(_.A := syncAlpha)
     }
 
     val rgb_value = colorSpace.io.SPACE_OUT
@@ -504,11 +513,7 @@ case class VideoTestPattern(
     }
   }
 
-  if (
-    vtpp.outputTypeYUV444 |
-      vtpp.outputTypeYUV422 | vtpp.outputTypeYUV420 |
-      vtpp.outputTypeYUV411
-  ) {
+  if (vtpp.haveYUV) {
 
     val vcsp = VideoSpaceParameter(
       bitsPerContent = vtpp.bitsPerContent,
@@ -537,7 +542,7 @@ case class VideoTestPattern(
 
     if (vtpp.outputWithAlpha) {
       val syncAlpha = Delay(alphaCounter.get, latency)
-      io.APLHA.foreach(_.A := syncAlpha)
+      io.ALPHA.foreach(_.A := syncAlpha)
     }
 
     val yuv_value = colorSpace.io.SPACE_OUT
