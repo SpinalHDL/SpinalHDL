@@ -87,12 +87,16 @@ case class VideoColorRgb(bitsPerContent: Int = 8) extends Bundle {
   val R = UInt (bitsPerContent bits)
   val G = UInt (bitsPerContent bits)
   val B = UInt (bitsPerContent bits)
+  // index 0 will be LS(channel)
+  def channels = Seq(B, G, R)
 }
 
 case class VideoColorYuv(bitsPerContent: Int = 8) extends Bundle {
   val Y = UInt (bitsPerContent bits)
   val U = UInt (bitsPerContent bits)
   val V = UInt (bitsPerContent bits)
+  // index 0 will be LS(channel)
+  def channels = Seq(V, U, Y)
 }
 
 case class VideoColorAlpha(bitsPerContent: Int = 8) extends Bundle {
