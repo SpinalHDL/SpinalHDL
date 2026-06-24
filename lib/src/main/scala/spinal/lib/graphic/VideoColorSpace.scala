@@ -54,6 +54,7 @@ object VideoColorSpace {
 
 case class VideoSpaceParameter(
     bitsPerContent: Int = 8,
+    useMixARGB: Boolean = false,
     useRGB2YUV: Boolean = true,
     useYUV2RGB: Boolean = false,
     stdBT470: Boolean = true,
@@ -75,83 +76,113 @@ case class VideoSpaceParameter(
       (!(useRGB2YUV & useYUV2RGB)),
     "You must select ONE standard only!"
   )
+
+  val total_in_no = if (useMixARGB) 4 * 2 else 3
+  val total_out_no = if (useMixARGB) 4 else 3
 }
 
 case class VideoColorSpace(
     vcsp: VideoSpaceParameter
 ) extends Component {
   val io = new Bundle {
-    val IE = in Bits (3 bit)
-    val OE = in Bits (3 bit)
-    val SPACE_IN = in UInt ((vcsp.bitsPerContent * 3) bits)
-    val SPACE_OUT = out UInt ((vcsp.bitsPerContent * 3) bits)
+    val IE = in Bits (vcsp.total_in_no bit)
+    val OE = in Bits (vcsp.total_out_no bit)
+    val SPACE_IN = in UInt (vcsp.total_in_no * vcsp.bitsPerContent bits)
+    val SPACE_OUT = out UInt (vcsp.total_out_no * vcsp.bitsPerContent bits)
   }
 
   var latency: Int = 1
+  val zeros = U(0, vcsp.bitsPerContent bits)
 
-  if (vcsp.useRGB2YUV) {
+  if (vcsp.useMixARGB) {
+    val mix_argb = VideoMixerRGB(vcsp)
+
+    val in_ch = io.SPACE_IN.subdivideIn(vcsp.bitsPerContent bits)
+    val in_chs = mix_argb.io.FORE_RGB.channels ++ Seq(mix_argb.io.FORE_A.A) ++
+      mix_argb.io.BACK_RGB.channels ++ Seq(mix_argb.io.BACK_A.A)
+    in_chs.zipWithIndex.foreach { case (ch, i) => ch := RegNextWhen(in_ch(i), io.IE(i), zeros) }
+
+    val oe = Delay(io.OE, 3, init = B(0, io.OE.getBitsWidth bits))
+    val out_chs = mix_argb.io.MIX_RGB.channels ++ Seq(mix_argb.io.MIX_A.A)
+    io.SPACE_OUT.subdivideIn(vcsp.bitsPerContent bits).zipWithIndex.foreach { case (ch, i) =>
+      ch := RegNextWhen(out_chs(i), oe(i), zeros)
+    }
+
+    latency = 4
+  } else if (vcsp.useRGB2YUV) {
     val rgb2yuv = VideoRGB2YUV(vcsp)
 
-    rgb2yuv.io.RGB.R := RegNextWhen(
-      io.SPACE_IN(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent),
-      io.IE(2)
-    )
-    rgb2yuv.io.RGB.G := RegNextWhen(
-      io.SPACE_IN(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent),
-      io.IE(1)
-    )
-    rgb2yuv.io.RGB.B := RegNextWhen(
-      io.SPACE_IN(1 * vcsp.bitsPerContent - 1 downto 0),
-      io.IE(0)
-    )
+    val in_ch = io.SPACE_IN.subdivideIn(vcsp.bitsPerContent bits)
+    rgb2yuv.io.RGB.channels.zipWithIndex.foreach { case (ch, i) =>
+      ch := RegNextWhen(in_ch(i), io.IE(i), zeros)
+    }
 
-    val oe = Delay(io.OE, 3)
-    io.SPACE_OUT(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent) :=
-      RegNextWhen(rgb2yuv.io.YUV.Y, oe(2))
-    io.SPACE_OUT(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent) :=
-      RegNextWhen(rgb2yuv.io.YUV.U, oe(1))
-    io.SPACE_OUT(1 * vcsp.bitsPerContent - 1 downto 0) :=
-      RegNextWhen(rgb2yuv.io.YUV.V, oe(0))
+    val oe = Delay(io.OE, 3, init = B(0, io.OE.getBitsWidth bits))
+    io.SPACE_OUT.subdivideIn(vcsp.bitsPerContent bits).zipWithIndex.foreach { case (ch, i) =>
+      ch := RegNextWhen(rgb2yuv.io.YUV.channels(i), oe(i), zeros)
+    }
+
     latency = 4
   } else if (vcsp.useYUV2RGB) {
     val rgb2yuv = VideoYUV2RGB(vcsp)
 
-    rgb2yuv.io.YUV.Y := RegNextWhen(
-      io.SPACE_IN(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent),
-      io.IE(2)
-    )
-    rgb2yuv.io.YUV.U := RegNextWhen(
-      io.SPACE_IN(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent),
-      io.IE(1)
-    )
-    rgb2yuv.io.YUV.V := RegNextWhen(
-      io.SPACE_IN(1 * vcsp.bitsPerContent - 1 downto 0),
-      io.IE(0)
-    )
+    val in_ch = io.SPACE_IN.subdivideIn(vcsp.bitsPerContent bits)
+    rgb2yuv.io.YUV.channels.zipWithIndex.foreach { case (ch, i) =>
+      ch := RegNextWhen(in_ch(i), io.IE(i), zeros)
+    }
 
-    val oe = Delay(io.OE, 3)
-    io.SPACE_OUT(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent) :=
-      RegNextWhen(rgb2yuv.io.RGB.R, oe(2))
-    io.SPACE_OUT(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent) :=
-      RegNextWhen(rgb2yuv.io.RGB.G, oe(1))
-    io.SPACE_OUT(1 * vcsp.bitsPerContent - 1 downto 0) :=
-      RegNextWhen(rgb2yuv.io.RGB.B, oe(0))
+    val oe = Delay(io.OE, 3, init = B(0, io.OE.getBitsWidth bits))
+    io.SPACE_OUT.subdivideIn(vcsp.bitsPerContent bits).zipWithIndex.foreach { case (ch, i) =>
+      ch := RegNextWhen(rgb2yuv.io.RGB.channels(i), oe(i), zeros)
+    }
+
     latency = 4
   } else {
-    io.SPACE_OUT(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent) := RegNextWhen(
-      io.SPACE_IN(3 * vcsp.bitsPerContent - 1 downto 2 * vcsp.bitsPerContent),
-      io.IE(2) & io.OE(2)
-    )
-    io.SPACE_OUT(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent) := RegNextWhen(
-      io.SPACE_IN(2 * vcsp.bitsPerContent - 1 downto vcsp.bitsPerContent),
-      io.IE(1) & io.OE(1)
-    )
-    io.SPACE_OUT(1 * vcsp.bitsPerContent - 1 downto 0) := RegNextWhen(
-      io.SPACE_IN(1 * vcsp.bitsPerContent - 1 downto 0),
-      io.IE(0) & io.OE(0)
-    )
+    io.SPACE_OUT.subdivideIn(vcsp.bitsPerContent bits).zipWithIndex.foreach { case (ch, i) =>
+      ch := RegNextWhen(
+        io.SPACE_IN.subdivideIn(vcsp.bitsPerContent bits)(i),
+        io.IE(i) & io.OE(i),
+        zeros
+      )
+    }
     latency = 1
   }
+}
+
+// Must use DSP multiplier
+// Reference: https://en.wikipedia.org/wiki/Alpha_compositing
+// Premultiplied Alpha
+case class VideoMixerRGB(
+    vcsp: VideoSpaceParameter
+) extends Component {
+  val io = new Bundle {
+    val FORE_RGB = in(new VideoColorRgb(vcsp.bitsPerContent))
+    val FORE_A = in(new VideoColorAlpha(vcsp.bitsPerContent))
+    val BACK_RGB = in(new VideoColorRgb(vcsp.bitsPerContent))
+    val BACK_A = in(new VideoColorAlpha(vcsp.bitsPerContent))
+    val MIX_RGB = out(new VideoColorRgb(vcsp.bitsPerContent))
+    val MIX_A = out(new VideoColorAlpha(vcsp.bitsPerContent))
+  }
+
+  val maxCh = U((1 << vcsp.bitsPerContent) - 1, vcsp.bitsPerContent bits)
+
+  def clip(value: UInt): UInt = {
+    Mux(value > maxCh, maxCh, value.resize(vcsp.bitsPerContent bits))
+  }
+
+  val fa = io.FORE_A.A
+  val ba = io.BACK_A.A
+  val fa_dly = RegNext(fa)
+  val bsa_a = RegNext((ba * (maxCh - fa)) >> vcsp.bitsPerContent)
+  val oa = fa_dly +^ bsa_a
+  val oa_r = RegNext(oa)
+  io.MIX_A.A := clip(oa_r)
+
+  val f_next = io.FORE_RGB.channels.map(ch => RegNext(ch))
+  val b_next = io.BACK_RGB.channels.map(ch => RegNext((ch * (maxCh - fa)) >> vcsp.bitsPerContent))
+  val o = Vec(f_next.zip(b_next).map { case (f, b) => f +^ b })
+  val o_r = o.map(ch => RegNext(ch))
+  io.MIX_RGB.channels.zip(o_r).foreach { case (res, src) => res := clip(src) }
 }
 
 case class VideoYUV2RGB(
@@ -390,6 +421,10 @@ object GenerateVideoColorSpace {
     val standards = List("BT470", "BT601Full", "BT601TV")
     val useRGB2YUV_modes = List(true, false)
 
+    val config = SpinalConfig(
+      targetDirectory = "videoColorSpace_RTL"
+    )
+
     for (
       std <- standards;
       useRGB2YUV <- useRGB2YUV_modes
@@ -397,10 +432,6 @@ object GenerateVideoColorSpace {
       val stdStr = std
       val modeStr = if (useRGB2YUV) "RGB2YUV" else "YUV2RGB"
       val fileName = s"VideoColorSpace_${modeStr}_${stdStr}"
-
-      val config = SpinalConfig(
-        targetDirectory = "videoColorSpace_RTL"
-      )
 
       val report = config.generateVerilog(
         new VideoColorSpace(
@@ -417,5 +448,30 @@ object GenerateVideoColorSpace {
 
       report.printPruned()
     }
+
+    val report = config.generateVerilog(
+      new VideoColorSpace(
+        VideoSpaceParameter(
+          bitsPerContent = 8,
+          useRGB2YUV = false,
+          useYUV2RGB = false
+        )
+      ).setDefinitionName("VideoColorSpace_Through")
+    )
+
+    report.printPruned()
+
+    val report2 = config.generateVerilog(
+      new VideoColorSpace(
+        VideoSpaceParameter(
+          bitsPerContent = 8,
+          useMixARGB = true,
+          useRGB2YUV = false,
+          useYUV2RGB = false
+        )
+      ).setDefinitionName("VideoColorSpace_RGB_Mixer")
+    )
+
+    report2.printPruned()
   }
 }

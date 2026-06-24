@@ -28,6 +28,7 @@ package spinal.lib.graphic
 import spinal.core._
 import spinal.core.sim._
 import spinal.tester.{SpinalAnyFunSuite, SpinalSimTester}
+import scala.collection.mutable.Queue
 
 
 class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
@@ -90,18 +91,52 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
       (clamp(r), clamp(g), clamp(b))
     }
 
+    def rgb_mixer(fa: Int, frgb: Int, ba: Int, brgb: Int): (Int, Int) = {
+      val fa_p = (255 - fa).toDouble / 256.toDouble
+      val ao = fa + (ba * fa_p).toInt
+      val bo = (frgb & 0xff) + ((brgb & 0xff) * fa_p).toInt
+      val go = ((frgb >> 8) & 0xff) + (((brgb >> 8) & 0xff) * fa_p).toInt
+      val ro = ((frgb >> 16) & 0xff) + (((brgb >> 16) & 0xff) * fa_p).toInt
+      (ao, (ro << 16) | (go << 8) | bo)
+    }
+
     // 2. Run the simulation
     compiled.doSim(name) { dut =>
       dut.clockDomain.forkStimulus(period = 10) // 100MHz clock
+      
+      dut.clockDomain.waitSampling()
+      dut.clockDomain.waitSampling()
 
-      val inputQueue = scala.collection.mutable.Queue[(Int, Int, Int)]()
+      def rgbMix_check (
+        fRgb: Int, fA: Int, bRgb: Int, bA: Int, inputQueue: Queue[(Int, Int, Int, Int)]
+      ) = {
+
+        inputQueue.enqueue((bA, bRgb, fA, fRgb))
+        val v: BigInt = (BigInt(bA)   & 0xFF) << 56 | 
+                (BigInt(bRgb) & 0xFFFFFF) << 32 | 
+                (BigInt(fA)   & 0xFF) << 24 | 
+                (BigInt(fRgb) & 0xFFFFFF)
+        dut.io.SPACE_IN #= v
+        
+        dut.clockDomain.waitRisingEdge()
+        
+        if (inputQueue.size > 4) {
+          val sim_o = dut.io.SPACE_OUT.toBigInt
+          val outRgb = (sim_o & 0xffffff)
+          val outA = (sim_o & 0xff000000) >> 24
+          val (qbA, qbRgb, qfA, qfRgb) = inputQueue.dequeue()
+          println(f"Input: F=$qfA $qfRgb%06X, B=$qbA $qbRgb%06X")
+          val (ao, rgbo) = rgb_mixer(qfA, qfRgb, qbA, qbRgb)
+          println(f"Expected Output: RGB=$rgbo%06X, A=$ao | DUT Output: RGB=$outRgb%06X, A=$outA")
+          assert(ao == outA, "Alpha mismatch.")
+          assert(rgbo == outRgb, "RGB mismatch.")
+        }
+      }
       
-      dut.clockDomain.waitSampling()
-      dut.clockDomain.waitSampling()
-      dut.io.IE #= 7
-      dut.io.OE #= 7
-      
-      def check(d0: Int, d1: Int, d2: Int): Unit = {
+      def check(
+        d0: Int, d1: Int, d2: Int, inputQueue: Queue[(Int, Int, Int)]
+      ): Unit = {
+
         val in0 = d0 & full
         val in1 = d1 & full
         val in2 = d2 & full
@@ -139,7 +174,25 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
         }
       }
 
-      if(vcsp.useRGB2YUV){
+      if(vcsp.useMixARGB){
+        val inputQueue = Queue[(Int, Int, Int, Int)]()
+        dut.io.IE #= 255
+        dut.io.OE #= 15
+        List(
+          (0xFFFFFF, 255, 0x000000, 0),
+          (0xFF0000, 128, 0x0000FF, 128),
+          (0x000000, 0,   0xFFFFFF, 255),
+          (0x000000, 0,   0xFFFFFF, 255),
+          (0x000000, 0,   0xFFFFFF, 255),
+          (0x000000, 0,   0xFFFFFF, 255),
+          (0x000000, 0,   0xFFFFFF, 255)
+        ).foreach{ case (fRgb, fA, bRgb, bA) =>
+          rgbMix_check(fRgb, fA, bRgb, bA, inputQueue)
+        }
+      }else if(vcsp.useRGB2YUV){
+        val inputQueue = Queue[(Int, Int, Int)]()
+        dut.io.IE #= 7
+        dut.io.OE #= 7
         List(
           (full, 0, 0),
           (0, full, 0),
@@ -153,8 +206,13 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
           (full, full, full),
           (full, full, full),
           (full, full, full),
-        ).foreach((check _).tupled)
+        ).foreach{ case (d0, d1, d2) =>
+          check(d0, d1, d2, inputQueue)
+        }
       }else if(vcsp.useYUV2RGB){
+        val inputQueue = Queue[(Int, Int, Int)]()
+        dut.io.IE #= 7
+        dut.io.OE #= 7
         List(
           (0x4C, 0x55, 0xFF), // Red
           (0x96, 0x2C, 0x15), // Green
@@ -168,7 +226,9 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
           (0xFF, 0x80, 0x80),
           (0xFF, 0x80, 0x80),
           (0xFF, 0x80, 0x80)
-        ).foreach((check _).tupled)
+        ).foreach{ case (d0, d1, d2) =>
+          check(d0, d1, d2, inputQueue)
+        }
       }
     }
   }
@@ -176,10 +236,24 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
   val standards = List("470", "601F", "601TV")
   val convert = List("RGB2YUV", "YUV2RGB")
 
-  test("VideoColorSpace") {
+  test("VideoColorSpaceMixer") {
+    runVideoSim(
+      VideoSpaceParameter(
+        bitsPerContent = 8,
+        useMixARGB = true,
+        useRGB2YUV = false,
+        useYUV2RGB = false,
+      ),
+      s"Video Color Space RGB Mixer"
+    )
+  }
 
-    for (
-      RGBYUV <- List(false, true); stdBTxx <- 0 to 2; bw <- List(8)) {
+  for (
+    RGBYUV <- List(false, true); stdBTxx <- 0 to 2; bw <- List(8)) {
+    
+    val name = s"Standard BT-${standards(stdBTxx)} ${convert(RGBYUV.toInt)} BitWidth-$bw"
+
+    test(name) {
       runVideoSim(
         VideoSpaceParameter(
           bitsPerContent = bw,
@@ -189,7 +263,7 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
           stdBT601Full = (stdBTxx == 1),
           stdBT601TV = (stdBTxx == 2)
         ),
-        s"Standard BT-${standards(stdBTxx)} ${convert(RGBYUV.toInt)} BitWidth-$bw"
+        name
       )
     }
   }
