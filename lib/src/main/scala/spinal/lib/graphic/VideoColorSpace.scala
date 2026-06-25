@@ -85,6 +85,7 @@ case class VideoColorSpace(
     vcsp: VideoSpaceParameter
 ) extends Component {
   val io = new Bundle {
+    val MIXER_OP = if (vcsp.useMixARGB) Some(in Bits (3 bits)) else None
     val IE = in Bits (vcsp.total_in_no bit)
     val OE = in Bits (vcsp.total_out_no bit)
     val SPACE_IN = in UInt (vcsp.total_in_no * vcsp.bitsPerContent bits)
@@ -96,6 +97,7 @@ case class VideoColorSpace(
 
   if (vcsp.useMixARGB) {
     val mix_argb = VideoMixerRGB(vcsp)
+    mix_argb.io.MIXER_OP := RegNext(io.MIXER_OP.get, init = B(0, 3 bits)).asUInt
 
     val in_ch = io.SPACE_IN.subdivideIn(vcsp.bitsPerContent bits)
     val in_chs = mix_argb.io.FORE_RGB.channels ++ Seq(mix_argb.io.FORE_A.A) ++
@@ -152,10 +154,12 @@ case class VideoColorSpace(
 // Must use DSP multiplier
 // Reference: https://en.wikipedia.org/wiki/Alpha_compositing
 // Premultiplied Alpha
+// For YUV please do space oversion to retain minimum bleed
 case class VideoMixerRGB(
     vcsp: VideoSpaceParameter
 ) extends Component {
   val io = new Bundle {
+    val MIXER_OP = in(UInt(3 bits))
     val FORE_RGB = in(new VideoColorRgb(vcsp.bitsPerContent))
     val FORE_A = in(new VideoColorAlpha(vcsp.bitsPerContent))
     val BACK_RGB = in(new VideoColorRgb(vcsp.bitsPerContent))
@@ -170,19 +174,47 @@ case class VideoMixerRGB(
     Mux(value > maxCh, maxCh, value.resize(vcsp.bitsPerContent bits))
   }
 
-  val fa = io.FORE_A.A
-  val ba = io.BACK_A.A
-  val fa_dly = RegNext(fa)
-  val bsa_a = RegNext((ba * (maxCh - fa)) >> vcsp.bitsPerContent)
-  val oa = fa_dly +^ bsa_a
-  val oa_r = RegNext(oa)
-  io.MIX_A.A := clip(oa_r)
+  // a over b
+  val fa = io.FORE_A.A.resize(vcsp.bitsPerContent + 1 bits)
+  val ba = io.BACK_A.A.resize(vcsp.bitsPerContent + 1 bits)
+  val fa_bar = (maxCh - fa).resize(vcsp.bitsPerContent + 1 bits)
+  val ba_bar = (maxCh - ba).resize(vcsp.bitsPerContent + 1 bits)
+  val ones = U((1 << vcsp.bitsPerContent), vcsp.bitsPerContent + 1 bits)
+  val zeros = U(0, vcsp.bitsPerContent + 1 bits)
 
-  val f_next = io.FORE_RGB.channels.map(ch => RegNext(ch))
-  val b_next = io.BACK_RGB.channels.map(ch => RegNext((ch * (maxCh - fa)) >> vcsp.bitsPerContent))
-  val o = Vec(f_next.zip(b_next).map { case (f, b) => f +^ b })
-  val o_r = o.map(ch => RegNext(ch))
-  io.MIX_RGB.channels.zip(o_r).foreach { case (res, src) => res := clip(src) }
+  // alpha operations
+  val alpha_lut = List(
+    Vec(ones, fa_bar), // over
+    Vec(ba, zeros), // in
+    Vec(ba_bar, zeros), // out
+    Vec(zeros, ones), // atop
+    Vec(ba_bar, fa_bar) // xor
+  )
+
+  val selectedPairAlpha = alpha_lut.read(io.MIXER_OP.min(alpha_lut.length - 1))
+
+  val fa_pre = RegNext((fa * selectedPairAlpha(0)) >> vcsp.bitsPerContent)
+  val ba_pre = RegNext((ba * selectedPairAlpha(1)) >> vcsp.bitsPerContent)
+  val oa_sum = fa_pre +^ ba_pre
+  val oa_sum_r = RegNext(oa_sum)
+  io.MIX_A.A := clip(oa_sum_r)
+
+  // color operations
+  val color_lut = List(
+    Vec(ones, fa_bar), // over
+    Vec(ba, zeros), // in
+    Vec(ba_bar, zeros), // out
+    Vec(ba, fa_bar), // atop
+    Vec(ba_bar, fa_bar) // xor
+  )
+
+  val selectedPairColor = color_lut.read(io.MIXER_OP.min(color_lut.length - 1))
+
+  val frgb_pre = io.FORE_RGB.channels.map(ch => RegNext((ch * selectedPairColor(0)) >> vcsp.bitsPerContent))
+  val brgb_pre = io.BACK_RGB.channels.map(ch => RegNext((ch * selectedPairColor(1)) >> vcsp.bitsPerContent))
+  val orgb_sum = Vec(frgb_pre.zip(brgb_pre).map { case (f, b) => f +^ b })
+  val orgb_sum_r = orgb_sum.map(ch => RegNext(ch))
+  io.MIX_RGB.channels.zip(orgb_sum_r).foreach { case (res, src) => res := clip(src) }
 }
 
 case class VideoYUV2RGB(
