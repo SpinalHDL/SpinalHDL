@@ -270,23 +270,23 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
     )
   }
 
-  // for (
-  //   RGBYUV <- List(false, true); stdBTxx <- 0 to 2; bw <- List(8)) {
+  for (
+    RGBYUV <- List(false, true); stdBTxx <- 0 to 2; bw <- List(8)) {
     
-  //   val name = s"Standard BT-${standards(stdBTxx)} ${convert(RGBYUV.toInt)} BitWidth-$bw"
+    val name = s"Standard BT-${standards(stdBTxx)} ${convert(RGBYUV.toInt)} BitWidth-$bw"
 
-  //   test(name) {
-  //     runVideoSim(
-  //       VideoSpaceParameter(
-  //         bitsPerContent = bw,
-  //         useRGB2YUV = RGBYUV,
-  //         useYUV2RGB = !RGBYUV,
-  //         stdBT470 = (stdBTxx == 0),
-  //         stdBT601Full = (stdBTxx == 1),
-  //         stdBT601TV = (stdBTxx == 2)
-  //       ),
-  //       name
-  //     )
-  //   }
-  // }
+    test(name) {
+      runVideoSim(
+        VideoSpaceParameter(
+          bitsPerContent = bw,
+          useRGB2YUV = RGBYUV,
+          useYUV2RGB = !RGBYUV,
+          stdBT470 = (stdBTxx == 0),
+          stdBT601Full = (stdBTxx == 1),
+          stdBT601TV = (stdBTxx == 2)
+        ),
+        name
+      )
+    }
+  }
 }

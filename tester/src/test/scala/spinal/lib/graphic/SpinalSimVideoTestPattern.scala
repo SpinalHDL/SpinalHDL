@@ -44,7 +44,8 @@ class SpinalSimVideoTestPattern extends SpinalAnyFunSuite {
       val timingConfig = VideoResolutions.timingLibrary("h1920_v1080_r60")
 
       if (vtcp.withDynamicSetup) {
-        timingConfig.applyTo(dut.io.videoCfg)
+        timingConfig.applyH(dut.io.videoH)
+        timingConfig.applyV(dut.io.videoV)
       }
 
       var i = 0

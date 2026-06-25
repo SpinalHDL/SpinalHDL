@@ -25,33 +25,31 @@ package spinal.lib.graphic
 import spinal.core._
 import spinal.core.sim._
 
-// Referenced from:
-// https://tomverbeure.github.io/video_timings_calculator
-
-/** Standardized Video Timing Parameters.
-  * Reference: CEA-861 / VESA DMT
-  * Polarity: true = Active High, false = Active Low
-  */
 object VideoResolutions {
 
   // Handy for simulation
   implicit class VideoTimingPimper(val p: VideoTimingParameter) {
-    def applyTo(io: VideoTimingInterface): Unit = {
-      io.h_active.foreach(port => port #= p.hActive)
-      io.h_front_porch.foreach(port => port #= p.hFrontPorch)
-      io.h_sync.foreach(port => port #= p.hSync)
-      io.h_back_porch.foreach(port => port #= p.hBackPorch)
-      io.h_sync_polarity.foreach(port => port #= p.hSyncPolarity)
-      io.h_blank_polarity.foreach(port => port #= p.hBlankPolarity)
+    def applyH(io: VideoTimingIOs): Unit = {
+      io.active.foreach(port => port #= p.hActive)
+      io.frontPorch.foreach(port => port #= p.hFrontPorch)
+      io.sync.foreach(port => port #= p.hSync)
+      io.backPorch.foreach(port => port #= p.hBackPorch)
+      io.syncPolarity.foreach(port => port #= p.hSyncPolarity)
+      io.blankPolarity.foreach(port => port #= p.hBlankPolarity)
+    }
 
-      io.v_active.foreach(port => port #= p.vActive)
-      io.v_front_porch.foreach(port => port #= p.vFrontPorch)
-      io.v_sync.foreach(port => port #= p.vSync)
-      io.v_back_porch.foreach(port => port #= p.vBackPorch)
-      io.v_sync_polarity.foreach(port => port #= p.vSyncPolarity)
-      io.v_blank_polarity.foreach(port => port #= p.vBlankPolarity)
+    def applyV(io: VideoTimingIOs): Unit = {
+      io.active.foreach(port => port #= p.vActive)
+      io.frontPorch.foreach(port => port #= p.vFrontPorch)
+      io.sync.foreach(port => port #= p.vSync)
+      io.backPorch.foreach(port => port #= p.vBackPorch)
+      io.syncPolarity.foreach(port => port #= p.vSyncPolarity)
+      io.blankPolarity.foreach(port => port #= p.vBlankPolarity)
     }
   }
+
+// Referenced from:
+// https://tomverbeure.github.io/video_timings_calculator
 
   val timingLibrary = Map(
     // 640x480 @ 60Hz (DMT)

@@ -67,16 +67,16 @@ case class VideoTimingParameter(
 
 case class VideoTimingCtrl(val p: VideoTimingParameter) extends Component {
 
-  val maxVal = (1 << 16) - 1
   val h_total_fix = p.hActive + p.hFrontPorch + p.hSync + p.hBackPorch
   val v_total_fix = p.vActive + p.vFrontPorch + p.vSync + p.vBackPorch
 
-  val h_total = if (p.withDynamicSetup) maxVal else h_total_fix
-  val v_total = if (p.withDynamicSetup) maxVal else v_total_fix
+  val h_bw = if (p.withDynamicSetup) 16 else U(h_total_fix).getBitsWidth
+  val v_bw = if (p.withDynamicSetup) 16 else U(v_total_fix).getBitsWidth
 
   val io = new Bundle {
     val videoIF = new VideoIOs(p)
-    val videoCfg = new VideoTimingIOs(p)
+    val videoH = in(new VideoTimingIOs(p))
+    val videoV = in(new VideoTimingIOs(p))
   }
 
   def getDynamicParam(ioPort: Option[UInt], defaultValue: Int, target: UInt): UInt = {
@@ -90,29 +90,29 @@ case class VideoTimingCtrl(val p: VideoTimingParameter) extends Component {
     ioPort.map(p => RegNext(p, init = True)).getOrElse(Bool(defaultValue))
   }
 
-  val v_count = Reg(UInt(U(v_total).getBitsWidth bits)) init (0)
-  val h_count = Reg(UInt(U(h_total).getBitsWidth bits)) init (0)
+  val v_count = Reg(UInt(v_bw bits)) init (0)
+  val h_count = Reg(UInt(h_bw bits)) init (0)
 
-  val vActive = getDynamicParam(io.videoCfg.v_active, p.vActive, v_count)
-  val hActive = getDynamicParam(io.videoCfg.h_active, p.hActive, h_count)
+  val vActive = getDynamicParam(io.videoV.active, p.vActive, v_count)
+  val hActive = getDynamicParam(io.videoH.active, p.hActive, h_count)
 
-  val vSync = getDynamicParam(io.videoCfg.v_sync, p.vSync, v_count)
-  val hSync = getDynamicParam(io.videoCfg.h_sync, p.hSync, h_count)
+  val vSync = getDynamicParam(io.videoV.sync, p.vSync, v_count)
+  val hSync = getDynamicParam(io.videoH.sync, p.hSync, h_count)
 
-  val vFrontPorch = getDynamicParam(io.videoCfg.v_front_porch, p.vFrontPorch, v_count)
-  val hFrontPorch = getDynamicParam(io.videoCfg.h_front_porch, p.hFrontPorch, h_count)
+  val vFrontPorch = getDynamicParam(io.videoV.frontPorch, p.vFrontPorch, v_count)
+  val hFrontPorch = getDynamicParam(io.videoH.frontPorch, p.hFrontPorch, h_count)
 
-  val vBackPorch = getDynamicParam(io.videoCfg.v_back_porch, p.vBackPorch, v_count)
-  val hBackPorch = getDynamicParam(io.videoCfg.h_back_porch, p.hBackPorch, h_count)
+  val vBackPorch = getDynamicParam(io.videoV.backPorch, p.vBackPorch, v_count)
+  val hBackPorch = getDynamicParam(io.videoH.backPorch, p.hBackPorch, h_count)
 
-  val vSyncPolarity = getDynamicBoolParam(io.videoCfg.v_sync_polarity, p.vSyncPolarity)
-  val hSyncPolarity = getDynamicBoolParam(io.videoCfg.h_sync_polarity, p.hSyncPolarity)
+  val vSyncPolarity = getDynamicBoolParam(io.videoV.syncPolarity, p.vSyncPolarity)
+  val hSyncPolarity = getDynamicBoolParam(io.videoH.syncPolarity, p.hSyncPolarity)
 
-  val vBlankPolarity = getDynamicBoolParam(io.videoCfg.v_blank_polarity, p.vBlankPolarity)
-  val hBlankPolarity = getDynamicBoolParam(io.videoCfg.h_blank_polarity, p.hBlankPolarity)
+  val vBlankPolarity = getDynamicBoolParam(io.videoV.blankPolarity, p.vBlankPolarity)
+  val hBlankPolarity = getDynamicBoolParam(io.videoH.blankPolarity, p.hBlankPolarity)
 
   val hS_Bp =
-    if (p.withDynamicSetup) RegNext(hSync + hBackPorch, init = U(0, (16) bits))
+    if (p.withDynamicSetup) RegNext(hSync + hBackPorch, init = U(0, 16 bits))
     else (hSync + hBackPorch)
 
   val vS_Bp =
@@ -128,10 +128,10 @@ case class VideoTimingCtrl(val p: VideoTimingParameter) extends Component {
 
   val hcount_total =
     if (p.withDynamicSetup) RegNext(hS_Bp_Ac + hFrontPorch, init = U(0, 16 bits))
-    else U(h_total_fix)
+    else (hS_Bp_Ac + hFrontPorch)
   val vcount_total =
     if (p.withDynamicSetup) RegNext(vS_Bp_Ac + vFrontPorch, init = U(0, 16 bits))
-    else U(v_total_fix)
+    else (vS_Bp_Ac + vFrontPorch)
 
   val counter_gate = if (p.withDynamicSetup) (hcount_total > 0) && (vcount_total > 0) else True
   val output_enable = RegNext(io.videoIF.OE, init = False)
@@ -183,8 +183,8 @@ case class VideoTimingCtrl(val p: VideoTimingParameter) extends Component {
     io.videoIF.HCOUNT.foreach(_ := hCountReg)
     io.videoIF.VCOUNT.foreach(_ := vCountReg)
 
-    io.videoIF.VACTIVE.foreach(_ := vActive.resize(U(v_total).getBitsWidth bits))
-    io.videoIF.HACTIVE.foreach(_ := hActive.resize(U(h_total).getBitsWidth bits))
+    io.videoIF.VACTIVE.foreach(_ := vActive.resize(v_bw bits))
+    io.videoIF.HACTIVE.foreach(_ := hActive.resize(h_bw bits))
   }
 }
 

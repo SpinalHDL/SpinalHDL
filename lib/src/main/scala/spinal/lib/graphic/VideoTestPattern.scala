@@ -372,7 +372,8 @@ case class VideoTestPattern(
   val io = new Bundle {
 
     val videoIF = new VideoIOs(vtcpi.copy(withCounterOutput = vtpp.withCounterOutput))
-    val videoCfg = new VideoTimingIOs(vtcpi)
+    val videoH = in(new VideoTimingIOs(vtcpi))
+    val videoV = in(new VideoTimingIOs(vtcpi))
 
     val PATTERN_SEL =
       if (vtpp.selectionCount > 1) Some(in UInt (U(vtpp.selectionCount).getBitsWidth bits))
@@ -565,7 +566,8 @@ case class VideoTestPattern(
   io.videoIF.VACTIVE.foreach(_ := vtc.io.videoIF.VACTIVE.get)
 
   if (vtcpi.withDynamicSetup) {
-    vtc.io.videoCfg := io.videoCfg
+    vtc.io.videoH := io.videoH
+    vtc.io.videoV := io.videoV
   }
 
   if (vtpp.withCounterOutput) {
