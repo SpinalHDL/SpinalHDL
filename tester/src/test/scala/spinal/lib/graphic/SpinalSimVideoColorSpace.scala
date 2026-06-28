@@ -58,7 +58,7 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
 
     def bt470_rev(y: Int, u: Int, v: Int): (Int, Int, Int) = {
       val r = (y + 1.13983 * (v-half)).toInt
-      val g = (y -0.39465 * (u-half) - 0.5806 * (v-half)).toInt
+      val g = (y - 0.39465 * (u-half) - 0.5806 * (v-half)).toInt
       val b = (y + 2.03211 * (u-half)).toInt
       (clamp(r), clamp(g), clamp(b))
     }
@@ -72,7 +72,7 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
 
     def bt601_full_rev(y: Int, u: Int, v: Int): (Int, Int, Int) = {
       val r = (y + 1.4075 * (v-half)).toInt
-      val g = (y -0.3455 * (u-half) - 0.7169 * (v-half)).toInt
+      val g = (y - 0.3455 * (u-half) - 0.7169 * (v-half)).toInt
       val b = (y + 1.799 * (u-half)).toInt
       (clamp(r), clamp(g), clamp(b))
     }
@@ -88,6 +88,62 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
       val r = (1.164 * (y - hex) + 1.596 * (v-half)).toInt
       val g = (1.164 * (y - hex) - 0.392 * (u-half) - 0.812 * (v-half)).toInt
       val b = (1.164 * (y - hex) + 2.016 * (u-half)).toInt
+      (clamp(r), clamp(g), clamp(b))
+    }
+
+    def bt709_full(r: Int, g: Int, b: Int): (Int, Int, Int) = {
+      val y = (0.2126 * r + 0.7154 * g + 0.072 * b).toInt
+      val u = (0.5 * b - 0.1145 * r - 0.3855 * g).toInt
+      val v = (0.5 * r - 0.4543 * g - 0.0457 * b).toInt
+      (y, clamp(u + half), clamp(v + half))
+    }
+
+    def bt709_full_rev(y: Int, u: Int, v: Int): (Int, Int, Int) = {
+      val r = (y + 1.5748 * (v-half)).toInt
+      val g = (y - 0.1868 * (u-half) - 0.468 * (v-half)).toInt
+      val b = (y + 1.856 * (u-half)).toInt
+      (clamp(r), clamp(g), clamp(b))
+    }
+
+    def bt709_tv(r: Int, g: Int, b: Int): (Int, Int, Int) = {
+      val y = (0.183 * r + 0.614 * g + 0.062 * b).toInt
+      val u = (0.439 * b - 0.101 * r - 0.339 * g).toInt
+      val v = (0.439 * r - 0.339 * g - 0.04 * b).toInt
+      (y + hex, clamp(u + half), clamp(v + half))
+    }
+
+    def bt709_tv_rev(y: Int, u: Int, v: Int): (Int, Int, Int) = {
+      val r = (1.164 * (y - hex) + 1.792 * (v-half)).toInt
+      val g = (1.164 * (y - hex) - 0.213 * (u-half) - 0.534 * (v-half)).toInt
+      val b = (1.164 * (y - hex) + 2.114 * (u-half)).toInt
+      (clamp(r), clamp(g), clamp(b))
+    }
+
+    def bt2020_full(r: Int, g: Int, b: Int): (Int, Int, Int) = {
+      val y = (0.2627 * r + 0.678 * g + 0.0593 * b).toInt
+      val u = (0.5 * b - 0.1396 * r - 0.3604 * g).toInt
+      val v = (0.5 * r - 0.4598 * g - 0.0402 * b).toInt
+      (y, clamp(u + half), clamp(v + half))
+    }
+
+    def bt2020_full_rev(y: Int, u: Int, v: Int): (Int, Int, Int) = {
+      val r = (y + 1.4746 * (v-half)).toInt
+      val g = (y - 0.1645 * (u-half) - 0.5713 * (v-half)).toInt
+      val b = (y + 1.8814 * (u-half)).toInt
+      (clamp(r), clamp(g), clamp(b))
+    }
+
+    def bt2020_tv(r: Int, g: Int, b: Int): (Int, Int, Int) = {
+      val y = (0.2256 * r + 0.5823 * g + 0.05093 * b).toInt
+      val u = (0.4375 * b - 0.1222 * r - 0.3154 * g).toInt
+      val v = (0.4375 * r - 0.4023 * g - 0.0352 * b).toInt
+      (y + hex, clamp(u + half), clamp(v + half))
+    }
+
+    def bt2020_tv_rev(y: Int, u: Int, v: Int): (Int, Int, Int) = {
+      val r = (1.164 * (y - hex) + 1.6853 * (v-half)).toInt
+      val g = (1.164 * (y - hex) - 0.1881 * (u-half) - 0.6529 * (v-half)).toInt
+      val b = (1.164 * (y - hex) + 2.1501 * (u-half)).toInt
       (clamp(r), clamp(g), clamp(b))
     }
 
@@ -173,15 +229,26 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
           val a1 = (sim_o >> (vcsp.bitsPerContent) & full);
           val a2 = (sim_o & full);
           
-          println(s"Input R:$c0 G:$c1 B:$c2")
+          if (vcsp.useRGB2YUV)
+            println(s"Input R:$c0 G:$c1 B:$c2")
+          else
+            println(s"Input Y:$c0 U:$c1 V:$c2")
           val (e0, e1, e2) = vcsp match {
-            case v if v.stdBT601Full & v.useRGB2YUV => bt601_full(c0, c1, c2)
-            case v if v.stdBT601TV & v.useRGB2YUV   => bt601_tv(c0, c1, c2)
-            case v if v.stdBT470 & v.useRGB2YUV     => bt470(c0, c1, c2)
-            case v if v.stdBT470 & v.useYUV2RGB     => bt470_rev(c0, c1, c2)
-            case v if v.stdBT601Full & v.useYUV2RGB => bt601_full_rev(c0, c1, c2)
-            case v if v.stdBT601TV & v.useYUV2RGB   => bt601_tv_rev(c0, c1, c2)
-            case _                                  => (c0, c1, c2)
+            case v if v.stdBT470 & v.useRGB2YUV      => bt470(c0, c1, c2)
+            case v if v.stdBT601Full & v.useRGB2YUV  => bt601_full(c0, c1, c2)
+            case v if v.stdBT601TV & v.useRGB2YUV    => bt601_tv(c0, c1, c2)
+            case v if v.stdBT709Full & v.useRGB2YUV  => bt709_full(c0, c1, c2)
+            case v if v.stdBT709TV & v.useRGB2YUV    => bt709_tv(c0, c1, c2)
+            case v if v.stdBT2020Full & v.useRGB2YUV => bt2020_full(c0, c1, c2)
+            case v if v.stdBT2020TV & v.useRGB2YUV   => bt2020_tv(c0, c1, c2)
+            case v if v.stdBT470 & v.useYUV2RGB      => bt470_rev(c0, c1, c2)
+            case v if v.stdBT601Full & v.useYUV2RGB  => bt601_full_rev(c0, c1, c2)
+            case v if v.stdBT601TV & v.useYUV2RGB    => bt601_tv_rev(c0, c1, c2)
+            case v if v.stdBT709Full & v.useYUV2RGB  => bt709_full_rev(c0, c1, c2)
+            case v if v.stdBT709TV & v.useYUV2RGB    => bt709_tv_rev(c0, c1, c2)
+            case v if v.stdBT2020Full & v.useYUV2RGB => bt2020_full_rev(c0, c1, c2)
+            case v if v.stdBT2020TV & v.useYUV2RGB   => bt2020_tv_rev(c0, c1, c2)
+            case _                                   => (c0, c1, c2)
           }
 
           println(s"Expected $e0\t|\tGot $a0")
@@ -255,9 +322,6 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
     }
   }
 
-  val standards = List("470", "601F", "601TV")
-  val convert = List("RGB2YUV", "YUV2RGB")
-
   test("VideoColorSpaceMixer") {
     runVideoSim(
       VideoSpaceParameter(
@@ -270,8 +334,11 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
     )
   }
 
+  val standards = List("470", "601FULL", "601TV", "709FULL", "709TV", "2020FULL", "2020TV")
+  val convert = List("YUV2RGB", "RGB2YUV")
+
   for (
-    RGBYUV <- List(false, true); stdBTxx <- 0 to 2; bw <- List(8)) {
+    RGBYUV <- List(false, true); stdBTxx <- 0 to 6; bw <- List(8)) {
     
     val name = s"Standard BT-${standards(stdBTxx)} ${convert(RGBYUV.toInt)} BitWidth-$bw"
 
@@ -283,7 +350,11 @@ class SpinalSimVideoColorSpace extends SpinalAnyFunSuite {
           useYUV2RGB = !RGBYUV,
           stdBT470 = (stdBTxx == 0),
           stdBT601Full = (stdBTxx == 1),
-          stdBT601TV = (stdBTxx == 2)
+          stdBT601TV = (stdBTxx == 2),
+          stdBT709Full = (stdBTxx == 3),
+          stdBT709TV = (stdBTxx == 4),
+          stdBT2020Full = (stdBTxx == 5),
+          stdBT2020TV = (stdBTxx == 6)
         ),
         name
       )

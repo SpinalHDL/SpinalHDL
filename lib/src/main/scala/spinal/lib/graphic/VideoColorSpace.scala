@@ -8,6 +8,12 @@
 // |____/ |_|   |_| \__,_||_| |_||____/  \__,_||_| |_| \___|
 //
 // =======================================================================
+// File Revision: 0.9.3
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Verification Pending Version
+//
+// Add BT.701, BT.2020
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // File Revision: 0.9.2
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Verification Pending Version
@@ -65,7 +71,11 @@ case class VideoSpaceParameter(
     useYUV2RGB: Boolean = false,
     stdBT470: Boolean = true,
     stdBT601Full: Boolean = false,
-    stdBT601TV: Boolean = false
+    stdBT601TV: Boolean = false,
+    stdBT709Full: Boolean = false,
+    stdBT709TV: Boolean = false,
+    stdBT2020Full: Boolean = false,
+    stdBT2020TV: Boolean = false
 ) {
   require(bitsPerContent > 0, "bitsPerContent must be greater than 0")
   require(
@@ -297,28 +307,96 @@ case class VideoYUV2RGB(
     List(List(vcsp.bitsPerContent, 5, 3, 1), List(vcsp.bitsPerContent + 1, 2), List())
   )
 
+  // BT.709_FULL
+  val BT_709_FULL = List(
+    // R:
+    // 1 * Y + 0 * U + 1.5748 * V
+    List(List(vcsp.bitsPerContent), List(), List(vcsp.bitsPerContent, 7, 4, 1)),
+    // G:
+    // 1 * Y - 0.1868 * U - 0.468 * V
+    List(List(vcsp.bitsPerContent), List(5, 4), List(7, -4, 3)),
+    // V:
+    // 1 * Y + 1.856 * U + 0 * V
+    List(List(vcsp.bitsPerContent), List(vcsp.bitsPerContent, 7, 6, 5), List())
+  )
+
+  // BT.709_TV
+  val BT_709_TV = List(
+    // R:
+    // 1.164 * Y + 0 * U + 1.792 * V
+    List(List(vcsp.bitsPerContent, 5, 3, 1), List(), List(vcsp.bitsPerContent, 7, 6, 3)),
+    // G:
+    // 1.164 * Y - 0.213 * U - 0.534 * V
+    List(List(vcsp.bitsPerContent, 5, 3, 1), List(6, -3, -1), List(7, 3, 0)),
+    // V:
+    // 1.164 * Y + 2.114 * U + 0 * V
+    List(List(vcsp.bitsPerContent, 5, 3, 1), List(vcsp.bitsPerContent + 1, 5, -2), List())
+  )
+
+  // BT.2020_FULL
+  val BT_2020_FULL = List(
+    // R:
+    // 1 * Y + 0 * U + 1.4746 * V
+    List(List(vcsp.bitsPerContent), List(), List(vcsp.bitsPerContent, 7, -3, 0)),
+    // G:
+    // 1 * Y - 0.1645 * U - 0.5713 * V
+    List(List(vcsp.bitsPerContent), List(5, 3, 1), List(7, 4, 1)),
+    // V:
+    // 1 * Y + 1.8814 * U + 0 * V
+    List(List(vcsp.bitsPerContent), List(vcsp.bitsPerContent, 7, 6, 5), List())
+  )
+
+  // BT.2020_TV
+  val BT_2020_TV = List(
+    // R:
+    // 1.164 * Y + 0 * U + 1.6853 * V
+    List(List(vcsp.bitsPerContent, 5, 3, 1), List(), List(vcsp.bitsPerContent, 7, 5, 4)),
+    // G:
+    // 1.164 * Y - 0.1881 * U - 0.6529 * V
+    List(List(vcsp.bitsPerContent, 5, 3, 1), List(5, 4), List(7, 5, 3)),
+    // V:
+    // 1.164 * Y + 2.1501 * U + 0 * V
+    List(List(vcsp.bitsPerContent, 5, 3, 1), List(vcsp.bitsPerContent + 1, 5, 2), List())
+  )
+
   val BT_standard = vcsp match {
-    case v if v.stdBT601Full => BT_601_FULL
-    case v if v.stdBT601TV   => BT_601_TV
-    case _                   => BT_470
+    case v if v.stdBT601Full  => BT_601_FULL
+    case v if v.stdBT601TV    => BT_601_TV
+    case v if v.stdBT709Full  => BT_709_FULL
+    case v if v.stdBT709TV    => BT_709_TV
+    case v if v.stdBT2020Full => BT_2020_FULL
+    case v if v.stdBT2020TV   => BT_2020_TV
+    case _                    => BT_470
   }
 
   val r_offset = ((vcsp match {
-    case v if v.stdBT601Full => 1.4075
-    case v if v.stdBT601TV   => List(1.164 / 8, 1.596).sum
-    case _                   => 1.13983
+    case v if v.stdBT601Full  => 1.4075
+    case v if v.stdBT601TV    => List(1.164 / 8, 1.596).sum
+    case v if v.stdBT709Full  => 1.5748
+    case v if v.stdBT709TV    => List(1.164 / 8, 1.792).sum
+    case v if v.stdBT2020Full => 1.4746
+    case v if v.stdBT2020TV   => List(1.164 / 8, 1.6853).sum
+    case _                    => 1.13983
   }) * (1 << (vcsp.bitsPerContent - 1))).toInt
 
   val g_offset = ((vcsp match {
-    case v if v.stdBT601Full => List(0.3455, 0.7169).sum
-    case v if v.stdBT601TV   => List(-1.164 / 8, 0.392, 0.812).sum
-    case _                   => List(0.39465, 0.5806).sum
+    case v if v.stdBT601Full  => List(0.3455, 0.7169).sum
+    case v if v.stdBT601TV    => List(-1.164 / 8, 0.392, 0.812).sum
+    case v if v.stdBT709Full  => List(0.1868, 0.468).sum
+    case v if v.stdBT709TV    => List(-1.164 / 8, 0.213, 0.534).sum
+    case v if v.stdBT2020Full => List(0.1645, 0.5713).sum
+    case v if v.stdBT2020TV   => List(-1.164 / 8, 0.1881, 0.6529).sum
+    case _                    => List(0.39465, 0.5806).sum
   }) * (1 << (vcsp.bitsPerContent - 1))).toInt
 
   val b_offset = ((vcsp match {
-    case v if v.stdBT601Full => 1.779
-    case v if v.stdBT601TV   => List(1.164 / 8, 2.016).sum
-    case _                   => 2.03211
+    case v if v.stdBT601Full  => 1.779
+    case v if v.stdBT601TV    => List(1.164 / 8, 2.016).sum
+    case v if v.stdBT709Full  => 1.856
+    case v if v.stdBT709TV    => List(1.164 / 8, 2.114).sum
+    case v if v.stdBT2020Full => 1.8814
+    case v if v.stdBT2020TV   => List(1.164 / 8, 2.1501).sum
+    case _                    => 2.03211
   }) * (1 << (vcsp.bitsPerContent - 1))).toInt
 
   val r_y = RegNext(sumSfts(io.YUV.Y, BT_standard(0)(0)))
@@ -419,10 +497,70 @@ case class VideoRGB2YUV(
     List(List(7, -4), List(6, 5, -1), List(4, 1))
   )
 
+  // Y∈ [0,1] U,V∈[-0.5,0.5]
+  // BT.709.full / [analog  + mid-point]
+  val BT_709_FULL = List(
+    // Y:
+    // 0.2126 * R + 0.7154 * G + 0.072 * B
+    List(List(6, -3, -1), List(7, 6, -3), List(4, 1)),
+    // U:
+    // -0.1145 * R - 0.3855 * G + 0.5 * B + (mid point)
+    List(List(5, -2, 0), List(6, 5, 1), List(7)),
+    // V:
+    // 0.5 * R - 0.4543 * G - 0.0457 * B + (mid point)
+    List(List(7), List(7, -4, 2), List(3, 2))
+  )
+
+  // Y∈[16,235] Cb∈[16-240] Cr∈[16-240]
+  // BT.709.tv
+  val BT_709_TV = List(
+    // Y:
+    // 0.183 * R + 0.614 * G + 0.062 * B + (full / 16)
+    List(List(5, 4, -1, 0), List(7, 5, -2, 1), List(4)),
+    // U/Cb:
+    // -0.101 * R - 0.339 * G + 0.439 * B + (mid point)
+    List(List(4, 3, 1), List(6, 4, 3, -1), List(7, -4)),
+    // V/Cr:
+    // 0.439 * R - 0.339 * G - 0.04 * B + (mid point)
+    List(List(7, -4), List(6, 4, 3, -1), List(3, 1))
+  )
+
+  // Y∈ [0,1] U,V∈[-0.5,0.5]
+  // BT.2020.full / [analog  + mid-point]
+  val BT_2020_FULL = List(
+    // Y:
+    // 0.2627 * R + 0.678 * G + 0.0593 * B
+    List(List(6, 1, 0), List(7, 6, -4, -1), List(3, 2, 1, 0)),
+    // U:
+    // -0.1396 * R - 0.3604 * G + 0.5 * B + (mid point)
+    List(List(5, 1, 0), List(6, 5, -2), List(7)),
+    // V:
+    // 0.5 * R - 0.4598 * G - 0.0402 * B + (mid point)
+    List(List(7), List(7, -4, 2, 1), List(3, 1))
+  )
+
+  // Y∈[16,235] Cb∈[16-240] Cr∈[16-240]
+  // BT.2020.tv
+  val BT_2020_TV = List(
+    // Y:
+    // 0.2256 * R + 0.5823 * G + 0.05093 * B + (full / 16)
+    List(List(6, -3, 1), List(7, 4, 2, 0), List(3, 2, 0)),
+    // U/Cb:
+    // -0.1222 * R - 0.3154 * G + 0.4375 * B + (mid point)
+    List(List(5), List(6, 4, 0), List(7, -4)),
+    // V/Cr:
+    // 0.4375 * R - 0.4023 * G - 0.0352 * B + (mid point)
+    List(List(7, -4), List(6, 5, 2, 1), List(3, 0))
+  )
+
   val BT_standard = vcsp match {
-    case v if v.stdBT601Full => BT_601_FULL
-    case v if v.stdBT601TV   => BT_601_TV
-    case _                   => BT_470
+    case v if v.stdBT601Full  => BT_601_FULL
+    case v if v.stdBT601TV    => BT_601_TV
+    case v if v.stdBT709Full  => BT_709_FULL
+    case v if v.stdBT709TV    => BT_709_TV
+    case v if v.stdBT2020Full => BT_2020_FULL
+    case v if v.stdBT2020TV   => BT_2020_TV
+    case _                    => BT_470
   }
 
   val y_r = RegNext(sumSfts(io.RGB.R, BT_standard(0)(0)))
@@ -437,7 +575,11 @@ case class VideoRGB2YUV(
   val v_g = RegNext(sumSfts(io.RGB.G, BT_standard(2)(1)))
   val v_b = RegNext(sumSfts(io.RGB.B, BT_standard(2)(2)))
 
-  val y_offset = U(if (vcsp.stdBT601TV) (1 << (vcsp.bitsPerContent - 4)) else 0)
+  val y_offset = U(
+    if (vcsp.stdBT601TV || vcsp.stdBT709TV || vcsp.stdBT2020TV)
+      (1 << (vcsp.bitsPerContent - 4))
+    else 0
+  )
   val y_sum = RegNext((y_r + y_g + y_b) >> vcsp.bitsPerContent)
   val y = (y_sum + y_offset).resize(vcsp.bitsPerContent bits)
 
