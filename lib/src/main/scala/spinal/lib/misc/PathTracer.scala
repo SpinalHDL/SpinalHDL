@@ -120,6 +120,10 @@ object PathTracer {
               port.foreachDrivingExpression(input => {
                 onUp(input, 1)
               })
+            case port : MemReadAsyncWrite =>
+              port.foreachDrivingExpression(input => {
+                onUp(input, 1)
+              })
             case port : MemReadSync =>
             case port : MemReadAsync =>
             //TODO other ports
@@ -153,6 +157,9 @@ object PathTracer {
             onUp(input, 1)
           }
           onUp(that.mem, 1)
+        case that : MemReadAsyncWrite =>
+          that.foreachDrivingExpression(input => onUp(input, 1))
+          onUp(that.mem, 0)
         case that : MemReadAsync =>
           that.foreachDrivingExpression(input => {
             onUp(input, 0)

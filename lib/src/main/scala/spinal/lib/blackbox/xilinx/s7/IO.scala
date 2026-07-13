@@ -136,7 +136,7 @@ case class IOBUF() extends BlackBox{
   val O = out Bool()
   val IO = inout(Analog(Bool()))
 
-  when(T){
+  when(!T){
     IO := I
   }
   O := IO

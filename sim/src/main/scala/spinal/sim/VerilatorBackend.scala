@@ -100,6 +100,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
 #include <memory>
 #include <jni.h>
 #include <iostream>
+#include <verilated.h>
 
 #include "V${config.toplevelName}.h"
 #ifdef TRACE
@@ -108,6 +109,10 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
 #include "V${config.toplevelName}__Syms.h"
 
 using namespace std;
+
+#if defined(VERILATOR_VERSION_INTEGER) && (VERILATOR_VERSION_INTEGER >= 5047000)
+using WData = EData;
+#endif
 
 class ISignalAccess{
 public:

@@ -660,6 +660,7 @@ object AnalysisUtils{
     }
     case e: MemReadSync => body(e)
     case e: MemReadWrite =>  body(e)
+    case e: MemReadAsyncWrite =>  body(e)
     case e : Expression => e.foreachDrivingExpression(seekNonCombDriversFromSelf(_)(body))
   }
 
@@ -741,6 +742,10 @@ object LatencyAnalysis {
               port.foreachDrivingExpression(input => {
                 pendingQueues(1) += input
               })
+            case port : MemReadAsyncWrite =>
+              port.foreachDrivingExpression(input => {
+                pendingQueues(1) += input
+              })
             case port : MemReadSync =>
             case port : MemReadAsync =>
               //TODO other ports
@@ -779,6 +784,14 @@ object LatencyAnalysis {
             pendingQueues(lat) += input
           }
           pendingQueues(1) += that.mem
+          return false
+        case that : MemReadAsyncWrite =>
+          that.foreachDrivingExpression(input => {
+            if(walk(input))
+              return true
+          })
+          if(walk(that.mem))
+            return true
           return false
         case that : MemReadAsync =>
           that.foreachDrivingExpression(input => {

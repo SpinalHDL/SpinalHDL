@@ -22,7 +22,7 @@ jobs:
 #    - &host
 #      language: scala
 #      # See 'project/Version.scala'
-#      scala: 2.11.12
+#      scala: 2.12.18
 #      jdk: openjdk9
 #      sbt_args: -Dsbt.supershell=false -no-colors -J-Xss2m
 #      script:
