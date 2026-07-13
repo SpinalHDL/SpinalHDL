@@ -162,6 +162,10 @@ class ComponentEmitterVerilog(
             val name = component.localNamingScope.allocateName(portName)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
+          case s: MemReadAsyncWrite =>
+            val name = component.localNamingScope.allocateName(portName)
+            declarations ++= emitExpressionWrap(s, name)
+            wrappedExpressionToName(s) = name
           case s: MemWrite    =>
         }
         portId += 1
@@ -1550,8 +1554,21 @@ end
               case _ => SpinalError(s"memReadWrite can only be emited as readFirst, writeFirst, noChange or dontCare into Verilog $memReadWrite")
             }
         }
+      case memReadAsyncWrite: MemReadAsyncWrite  =>
+        if(memReadAsyncWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadAsyncWrite.mem} because of its mixed width ports")
 
+        if (memReadAsyncWrite.readUnderWrite != writeFirst) SpinalWarning(s"mem.readAsyncWrite can only be write first into Verilog")
 
+        val symbolCount = memReadAsyncWrite.mem.getMemSymbolCount()
+        if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+          tmpBuilder ++= s"  assign ${emitExpression(memReadAsyncWrite)} = ${emitReference(memReadAsyncWrite.mem, false)}[${emitExpression(memReadAsyncWrite.address)}];\n"
+        else
+          (0 until symbolCount).foreach(i => tmpBuilder  ++= s"  assign ${emitExpression(memReadAsyncWrite)}[${(i + 1) * symbolWidth - 1} : ${i * symbolWidth}] = ${emitReference(memReadAsyncWrite.mem, false)}_symbol$i[${emitExpression(memReadAsyncWrite.address)}];\n")
+
+        emitClockedProcess((tab, b) => {
+          val symbolCount = memReadAsyncWrite.mem.getMemSymbolCount()
+          emitWrite(b, memReadAsyncWrite.mem, emitExpression(memReadAsyncWrite.writeEnable), memReadAsyncWrite.address, memReadAsyncWrite.data, memReadAsyncWrite.mask, memReadAsyncWrite.mem.getMemSymbolCount(), memReadAsyncWrite.mem.getMemSymbolWidth(),tab)
+        }, null, tmpBuilder, memReadAsyncWrite.clockDomain, false)
       case memReadSync: MemReadSync   =>
         if(memReadSync.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadSync.mem} because of its mixed width ports")
         if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"memReadSync with writeFirst is as dontCare into Verilog $memReadSync")

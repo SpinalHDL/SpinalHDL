@@ -308,7 +308,8 @@ class BmbBridgeGenerator(val mapping : Handle[AddressMapping] = DefaultMapping, 
 }
 
 
-case class BmbToApb3Generator(mapping : Handle[AddressMapping] = Unset)
+case class BmbToApb3Generator(mapping : Handle[AddressMapping] = Unset,
+                              pipelineBridge : Boolean = false)
                              (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area {
   val input = Handle(logic.io.input)
   val output = Handle(logic.io.output)
@@ -319,7 +320,7 @@ case class BmbToApb3Generator(mapping : Handle[AddressMapping] = Unset)
   val logic = Handle(BmbToApb3Bridge(
     apb3Config = apb3Config,
     bmbParameter = accessRequirements.toBmbParameter(),
-    pipelineBridge = false
+    pipelineBridge = pipelineBridge
   ))
 
   interconnect.addSlave(

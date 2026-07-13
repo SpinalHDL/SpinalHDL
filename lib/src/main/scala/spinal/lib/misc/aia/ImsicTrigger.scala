@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc._
 
-case class ImsicTriggerMapper(sourceIds: Seq[Int], hartId: Int, guestId: Int) extends Component {
+/*case class ImsicTriggerMapper(sourceIds: Seq[Int], hartId: Int, guestId: Int) extends Component {
   val registerWidth = 32
 
   val idWidth = log2Up((sourceIds ++ Seq(0)).max + 1)
@@ -47,6 +47,26 @@ case class ImsicTriggerMapper(sourceIds: Seq[Int], hartId: Int, guestId: Int) ex
     val targetDriveBE = busWithOffset.createAndDriveFlow(UInt(registerWidth bits), address = SETEIPNUM_BE_ADDR, documentation = "Set External Interrupt-Pending bit for %s of hart %d by Big-Endian Number".format(if (guestId == 0) "non-guest" else s"guest ${guestId}", hartId))
 
     io.drivers := Vec(targetDriveLE, targetDriveBE.map(EndiannessSwap(_)))
+  }
+}*/
+
+object ImsicTriggerMapper {
+  def registerWidth = 32
+
+  def driveFrom(bus: BusSlaveFactory, baseAddress: BigInt)(info: ImsicFileInfo)  = new Area {
+    val SETEIPNUM_LE_ADDR = 0x000
+    val SETEIPNUM_BE_ADDR = 0x004
+
+    val busWithOffset = new BusSlaveFactoryAddressWrapper(bus, baseAddress)
+    val targetDriveLE = busWithOffset.createAndDriveStream(UInt(registerWidth bits), address = SETEIPNUM_LE_ADDR, documentation = "Set External Interrupt-Pending bit for %s of hart %d by Little-Endian Number".format(if (info.guestId == 0) "non-guest" else s"guest ${info.guestId}", info.hartId))
+    val targetDriveLEBuffer = targetDriveLE.s2mPipe()
+
+    val targetDriveBE = busWithOffset.createAndDriveStream(UInt(registerWidth bits), address = SETEIPNUM_BE_ADDR, documentation = "Set External Interrupt-Pending bit for %s of hart %d by Big-Endian Number".format(if (info.guestId == 0) "non-guest" else s"guest ${info.guestId}", info.hartId)).map(EndiannessSwap(_))
+    val targetDriveBEBuffer = targetDriveBE.s2mPipe()
+
+    val arbiter = StreamArbiterFactory().roundRobin.transactionLock.buildOn(targetDriveLEBuffer, targetDriveBEBuffer)
+
+    val trigger = arbiter.io.output
   }
 }
 
@@ -150,28 +170,24 @@ object ImsicTrigger {
     val realMapping = mappingCalibrate(mapping, infos)
 
     val mappers = for (info <- infos) yield new Area {
-      val mapper = ImsicTriggerMapper(info.sourceIds, info.hartId, info.guestId)
       val offset = imsicOffset(realMapping, info)
-
-      mapper.driveFrom(bus, offset)
+      val mapper = ImsicTriggerMapper.driveFrom(bus, offset)(info)
 
       setName(f"trigger_g${info.groupId}h${info.groupHartId}v${info.guestId}")
     }
 
-    val triggers = Vec(mappers.map(_.mapper.io.triggers))
+    val triggers = Vec(mappers.map(_.mapper.trigger))
   }
 
   def apply(bus: BusSlaveFactory)(infos: Seq[ImsicFileInfo]) = new Area {
     val mappers = for (info <- infos) yield new Area {
-      val mapper = ImsicTriggerMapper(info.sourceIds, info.hartId, info.guestId)
       val offset = info.guestId * interruptFileSize
-
-      mapper.driveFrom(bus, offset)
+      val mapper = ImsicTriggerMapper.driveFrom(bus, offset)(info)
 
       setName(f"trigger_v${info.guestId}")
     }
 
-    val triggers = Vec(mappers.map(_.mapper.io.triggers))
+    val triggers = Vec(mappers.map(_.mapper.trigger))
   }
 
   def addressWidth(mapping: ImsicMapping, maxGuestId: Int, maxGroupHartId: Int, maxGroupId: Int): Int = {
