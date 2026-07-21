@@ -45,6 +45,17 @@ package object sim {
     field.setAccessible(true)
     field.set(r, null)
   }
+
+  /** Return the scala.util.Random for the current simulation
+    * 
+    * If only thread-less simulation API is used (`clockDomain.waitActiveEdge()`, 
+    * `cd.onActiveEdges{}`, `delayed(delay){}`, `forkSensitive{}`, etc.), the number returned
+    * should be deterministic, even with multiple concurrent simulations.
+    * 
+    * The seed is set as an argument of `doSim()`. The default value is to take
+    * `.toInt` from the `SPINAL_SIM_SEED` environment variable, and if not
+    * present to use a random value as seed each time.
+    */
   def simRandom(implicit simManager: SimManager = sm) = simManager.random
   def sm = SimManagerContext.current.manager
 
