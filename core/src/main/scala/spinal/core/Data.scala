@@ -454,13 +454,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def assignFromBits(bits: Bits, hi: Int, low: Int): Unit
   def assignFromBits(bits: Bits, offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits, offset + bitCount.value - 1, offset)
 
-  /** Clear all bits to ``False`` and return itself */
+  /** Hardware assignment of all bits to `False` and return itself */
   def clearAll(): this.type = {
     assignFromBits(Bits(asBits.getBitsWidth bits).clearAll())
     this
   }
 
-  /** Set all bits to ``True`` and return itself */
+  /** Hardware assignment of all bits to `True` and return itself */
   def setAll(): this.type = {
     assignFromBits(Bits(asBits.getBitsWidth bits).setAll())
     this
@@ -472,10 +472,14 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret
   }
 
-  /** Assign the default 'x' value to all signals composing this type.
+  /** Explicitly mark that this hardware signal can take any value in the current context.
+    * 
+    * This is analogous to Verilog `'x`  or VHDL `'-'` assignment or implicit
+    * non-assignment, but  unlike those it is explicit. If a signal is unassigned 
+    * (e.g., no "don't care" or value) in any control path, an error will be raised.
     * 
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/index.html#data-types Data type documentation]] 
-    * @see [[https://en.wikipedia.org/wiki/Don't-care_term#X_value "Don't care term" wikipedia article]]
+    * @see [[https://en.wikipedia.org/wiki/Don%27t-care_term#X_value "Don't care term" wikipedia article]]
     */
   def assignDontCare(): this.type = {
     flatten.foreach(_.assignDontCare())
