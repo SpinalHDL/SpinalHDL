@@ -159,9 +159,12 @@ object blackboxByteEnables extends MemBlackboxingPolicy {
 }
 
 
-/**
-  * Spinal configuration for the generation of the RTL
-  *
+/** Spinal configuration for the generation of the RTL.
+  * 
+  * @param memBlackBoxers list of phases that decide to blackbox memories, see
+  *        [[addStandardMemBlackboxing()]] doc on how to modify the default
+  *        [[blackboxOnlyIfRequested]] policy.
+  * 
   * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
   */
 case class SpinalConfig(mode                           : SpinalMode = null,
@@ -207,7 +210,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var devicePhaseHandler         : PhaseDeviceHandler = PhaseDeviceDefault,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
-                        memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
+                        memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         rtlHeader                      : String = null,
                         scopeProperties                : mutable.LinkedHashMap[ScopeProperty[_], Any] = mutable.LinkedHashMap[ScopeProperty[_], Any](),
                         private [core] var _withEnumString : Boolean = true,
@@ -253,6 +256,19 @@ case class SpinalConfig(mode                           : SpinalMode = null,
 
   def withPrivateNamespace : this.type = { privateNamespace = true; this }
 
+  /** Append a phase to flag memories for blackboxing based on a blackboxing policy.
+    *
+    * During elaboration, a list of blackboxing detection phases are applied sequentially.
+    * Each one decides whether to blackbox each memory, and if blackboxed,
+    * removes it from the memories for the next blackboxing phases. The remaining
+    * memories are inferred.
+    * 
+    * If no blackbox phases are defined (either with `memBlackBoxers` of 
+    * [[SpinalConfig]] constructor or by calling this method), 
+    * [[blackboxOnlyIfRequested]] is used.
+    * 
+    * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Sequential%20logic/memory.html#blackboxing-policy RAM/ROM Blackboxing policy documentation]]
+    */  
   def addStandardMemBlackboxing(policy: MemBlackboxingPolicy): this.type = {
     memBlackBoxers += new PhaseMemBlackBoxingDefault(policy)
     this
@@ -444,6 +460,7 @@ class SpinalReport[T <: Component]() {
 object Spinal {
   val version = (if(Character.isDigit(spinal.core.Info.version(0))) "v" else "") + spinal.core.Info.version
 
+  // Used internally both by simulation and generation to elaborate the RTL
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
 
     if(config.memBlackBoxers.isEmpty)
