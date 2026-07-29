@@ -238,7 +238,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
   override def getZero: this.type = B(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = B(0).asInstanceOf[this.type]
   override def getAllTrue: this.type = B((BigInt(1) << this.getWidth) - 1, this.getWidth bits).asInstanceOf[this.type]
-  
+
   /** Hardware assignment of all bits to `True` */
   override def setAll(): this.type = {
     this := (BigInt(1) << this.getWidth) - 1
@@ -246,11 +246,11 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
   }
 
   /** Explicitly mark that this hardware signal can take any value in the current context.
-    * 
+    *
     * This is analogous to Verilog `'x`  or VHDL `'-'` assignment or implicit
-    * non-assignment, but  unlike those it is explicit. If a signal is unassigned 
+    * non-assignment, but  unlike those it is explicit. If a signal is unassigned
     * (e.g., no "don't care" or value) in any control path, an error will be raised.
-    * 
+    *
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/index.html#data-types Data type documentation]] 
     * @see [[https://en.wikipedia.org/wiki/Don%27t-care_term#X_value "Don't care term" wikipedia article]]
     */

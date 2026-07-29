@@ -46,12 +46,12 @@ package object sim {
     field.set(r, null)
   }
 
-  /** Return the scala.util.Random for the current simulation
-    * 
-    * If only thread-less simulation API is used (`clockDomain.waitActiveEdge()`, 
+  /** Return the scala.util.Random for the current simulation.
+    *
+    * If only thread-less simulation API is used (`clockDomain.waitActiveEdge()`,
     * `cd.onActiveEdges{}`, `delayed(delay){}`, `forkSensitive{}`, etc.), the number returned
     * should be deterministic, even with multiple concurrent simulations.
-    * 
+    *
     * The seed is set as an argument of `doSim()`. The default value is to take
     * `.toInt` from the `SPINAL_SIM_SEED` environment variable, and if not
     * present to use a random value as seed each time.
@@ -1036,13 +1036,13 @@ package object sim {
       }
     }
 
-    /** Wait one rising edge on the clock
+    /** Wait one rising edge on the clock.
       * 
       * Note that the function is not sensitive to reset/softReset/clockEnable.
       */
     def waitRisingEdge(): Unit = waitRisingEdge(1)
 
-    /** Wait `count` rising edges on the clock
+    /** Wait `count` rising edges on the clock.
       * 
       * Note that count = 0 is legal, and the function is not sensitive to reset/softReset/clockEnable.
       */
@@ -1073,14 +1073,14 @@ package object sim {
       }
     }
 
-    /** Wait one falling edge on the clock
-      * 
+    /** Wait one falling edge on the clock.
+      *
       * Note that the function is not sensitive to reset/softReset/clockEnable.
       */
     def waitFallingEdge(): Unit = waitFallingEdge(1)
 
-    /** Wait `count` falling edges on the clock
-      * 
+    /** Wait `count` falling edges on the clock.
+      *
       * Note that count = 0 is legal, and the function is not sensitive to reset/softReset/clockEnable.
       */
     def waitFallingEdge(count: Int = 1): Unit = {
@@ -1111,16 +1111,16 @@ package object sim {
       }
     }
 
-    /** Wait one edge on the clock specified by the ClockDomainConfig
-      * 
+    /** Wait one edge on the clock specified by the ClockDomainConfig.
+      *
       * Note that the function is not sensitive to reset/softReset/clockEnable.
       */
     def waitActiveEdge(): Unit = waitActiveEdge(1)
 
-    /** Wait `count` edges on the clock specified by the ClockDomainConfig
-      * 
+    /** Wait `count` edges on the clock specified by the ClockDomainConfig.
+      *
       * Note that count = 0 is legal, and the function is not sensitive to reset/softReset/clockEnable.
-      */    
+      */
     def waitActiveEdge(count: Int = 1): Unit = {
       if (cd.config.clockEdge == spinal.core.RISING) {
         waitRisingEdge(count)
@@ -1197,7 +1197,7 @@ package object sim {
       }
     }
 
-    /* Fork a simulation process to generate the `ClockDomain` stimulus (clock, reset, softReset, clockEnable signals)
+    /* Fork a simulation process to generate the `ClockDomain` stimulus (clock, reset, softReset, clockEnable signals).
      * 
      * The reset duration is 16 clock periods. The period is computed from
      * `ClockDomain.frequency`. An odd period will be truncated by one to have
