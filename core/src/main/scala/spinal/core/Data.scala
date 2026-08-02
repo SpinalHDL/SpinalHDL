@@ -173,14 +173,17 @@ class BaseTypePimper[T <: BaseType](val _data: T) {
 
 object Data {
 
-  /** Creates a signal path through the component hierarchy to finalComponent to read the srcData signal
+  /** Internal API method to creates a signal path through the component hierarchy
+    * to `finalComponent` to read the `srcData` signal.
     *
-    * @param srcData Data that you want to read
-    * @param finalComponent Location where you want to read the srcData signal
-    * @param useCache If multiple doPull are done on the same signal, allow to reuse the previously created paths
-    * @param propagateName The signals created through the hierarchy will get the same name as srcData
-    * @tparam T Type of the srcData
-    * @return Readable signal in the finalComponent which is driven by srcData
+    * @param srcData [[Data]] that you want to read
+    * @param finalComponent Location where you want to read the `srcData` signal
+    * @param useCache If multiple `doPull` are done on the same signal, allow to reuse the previously created paths
+    * @param propagateName The signals created through the hierarchy will get the same name as `srcData`
+    * @tparam T Type of `srcData`
+    * @return Readable signal in the `finalComponent` which is driven by `srcData`
+    * 
+    * @see [[pull()]]
     */
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
 
@@ -440,14 +443,34 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def flatten: Seq[BaseType]
   def flattenLocalName: Seq[String]
   def flattenForeach(body : BaseType => Unit) : Unit = flatten.foreach(body(_))
-  /** Pull a signal to the top level (use for debugging) */
+
+  /** Make a signal accessible to the current component level (to be used for debugging).
+    * 
+    * Because of [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/hierarchy_violation.html hierarchy violation checks]],
+    * accesses to signal that break hierarchical abstraction generate errors.
+    * This method allows to bypass this check. It should be used with care as
+    * it violates the hierarchy abstraction paradigm. This is useful for debugging
+    * or temporary fixes, for example.
+    */
   def pull(): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = false)
+
+  /** Make a signal accessible to the current component level (to be used for debugging).
+    * 
+    * Because of [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/hierarchy_violation.html hierarchy violation checks]],
+    * accesses to signal that break hierarchical abstraction generate errors.
+    * This method allows to bypass this check. It should be used with care as
+    * it violates the hierarchy abstraction paradigm. This is useful for debugging
+    * or temporary fixes, for example.
+    * 
+    * @param propagateName If true, signals created through the hierarchy will get the same name as
+    *                      the pulled signal           
+    */
   def pull(propagateName : Boolean): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = propagateName)
 
   /** Concatenation between two signals */
   def ##(right: Data): Bits = this.asBits ## right.asBits
 
-  /** Cast signal to Bits */
+  /** Cast signal to [[Bits]] */
   def asBits: Bits
 
   def assignFromBits(bits: Bits): Unit
