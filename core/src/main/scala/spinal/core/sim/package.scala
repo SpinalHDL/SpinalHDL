@@ -46,7 +46,7 @@ package object sim {
     field.set(r, null)
   }
 
-  /** Return the scala.util.Random for the current simulation.
+  /** Return a dedicated instance scala.util.Random for the current simulation.
     *
     * If only thread-less simulation API is used (`clockDomain.waitActiveEdge()`,
     * `cd.onActiveEdges{}`, `delayed(delay){}`, `forkSensitive{}`, etc.), the number returned
