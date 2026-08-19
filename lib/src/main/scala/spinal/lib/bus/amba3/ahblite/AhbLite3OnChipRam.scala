@@ -61,7 +61,7 @@ case class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config, byteCount: BigInt) 
     pendingWrite.mask    := io.ahb.writeMask
   }
 
-  io.ahb.setOKEY
+  io.ahb.setOKAY
 
   // Avoid write to read hazards
   io.ahb.HREADYOUT := !(io.ahb.HSEL && io.ahb.HTRANS(1) && !io.ahb.HWRITE && pendingWrite.valid && io.ahb.HADDR(wordRange) === pendingWrite.address)
@@ -113,7 +113,7 @@ case class AhbLite3OnChipRamMultiPort(portCount : Int, AhbLite3Config: AhbLite3C
       pending.mask := ahb.writeMask
     }
 
-    ahb.setOKEY
+    ahb.setOKAY
 
     // Avoid write to read hazards
     ahb.HREADYOUT := !(ahb.HSEL && ahb.HTRANS(1) && !ahb.HWRITE && pending.valid && pending.write && ahb.HADDR(wordRange) === pending.address) && !(pending.valid && pending.readInvalid)

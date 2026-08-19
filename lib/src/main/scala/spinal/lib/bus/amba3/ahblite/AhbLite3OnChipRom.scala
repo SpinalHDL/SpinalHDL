@@ -44,7 +44,7 @@ class AhbLite3OnChipRom(AhbLite3Config: AhbLite3Config, content: => Seq[Bits]) e
 
   val wordRange = ram.addressWidth + log2Up(AhbLite3Config.bytePerWord)-1 downto log2Up(AhbLite3Config.bytePerWord)
 
-  io.ahb.setOKEY
+  io.ahb.setOKAY
 
   io.ahb.HREADYOUT := True
   io.ahb.HRDATA    := ram.readSync(
