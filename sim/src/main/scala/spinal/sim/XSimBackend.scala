@@ -18,6 +18,7 @@ import scala.util.Properties
 case class XSimBackendConfig(
                              val rtlIncludeDirs : ArrayBuffer[String] = ArrayBuffer[String](),
                              val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
+                             val ipTclSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var xciSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var bdSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var xilinxDevice:String = "xc7vx485tffg1157-1",
@@ -37,6 +38,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
   override def isBufferedWrite: Boolean = false
   val rtlIncludeDirs = config.rtlIncludeDirs
   val rtlSourcesPaths = config.rtlSourcesPaths
+  val ipTclSourcesPaths = config.ipTclSourcesPaths
   val xciSourcesPaths = config.xciSourcesPaths
   val bdSourcesPaths = config.bdSourcesPaths
   val CC = config.CC
@@ -66,6 +68,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     Paths.get(s).toAbsolutePath.toString.replace("\\", "/")
   }
   val rtlAbsoluteSourcesPaths = (rtlSourcesPaths ++ rtlIncludeDirs) map vivadoPath
+  val ipTclAbsoluteSourcesPaths = ipTclSourcesPaths map vivadoPath
   val xciAbsoluteSourcesPaths = xciSourcesPaths map vivadoPath
   val bdAbsoluteSourcesPaths = bdSourcesPaths map vivadoPath
 
@@ -195,6 +198,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     val importBd = bdAbsoluteSourcesPaths map { p =>
       s"import_files -force -quiet [findFiles $p *.bd]"
     }
+    val sourceIpTcl = ipTclAbsoluteSourcesPaths.map(p => s"source $p").mkString("\n")
 
     val moreOptions = mutable.ArrayBuffer[String]()
     if (config.xelabFlags != null) {
@@ -227,6 +231,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
 
     val script = Seq(findFiles,
       createProject,
+      sourceIpTcl,
       importRtl.mkString("\n"),
       importXsi.mkString("\n"),
       importBd.mkString("\n"),
