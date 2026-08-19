@@ -67,7 +67,7 @@ case class SdramModel(io : SdramInterface,
   }
   def report(msg : String) = println(simTime() + " " + msg)
   clockDomain.onSamplings{
-    if(!io.CSn.toBoolean && ckeLast){
+    if(!io.CSn(0).toBoolean && ckeLast){
       val code = (if(io.RASn.toBoolean) 0x4 else 0) | (if(io.CASn.toBoolean) 0x2 else 0) | (if(io.WEn.toBoolean) 0x1 else 0)
       val ba = io.BA.toInt
       val addr = io.ADDR.toInt
