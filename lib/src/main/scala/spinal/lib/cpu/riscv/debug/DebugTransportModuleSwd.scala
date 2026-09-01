@@ -50,11 +50,10 @@ case class SwdPhy() extends Component {
   io.swdio.o  := oData
   io.swdio.oe := oDrive
 
-  // Response capture: rsp may be presented combinationally off cmd (same cycle the
-  // turnaround starts) or held valid for one cycle; latch it for the rest of the frame.
-  val rspHold = Reg(SwdDpRsp())
-  when(io.dp.rsp.valid){ rspHold := io.dp.rsp.payload }
-  val ackNow   = Mux(io.dp.rsp.valid, io.dp.rsp.payload.ack,   rspHold.ack)
+  // Hold the last valid rsp for the rest of the frame. Bypass ACK combinationally:
+  // Flow.stage()/m2sPipe without a mux would delay ACK[0] by a cycle past the turnaround.
+  val rspHold = io.dp.rsp.m2sPipe(holdPayload = true)
+  val ackNow  = Mux(io.dp.rsp.valid, io.dp.rsp.payload.ack, rspHold.payload.ack)
 
   val cmdValid   = Reg(Bool()) init(False)
   val cmdPayload = Reg(SwdDpCmd())
@@ -71,13 +70,13 @@ case class SwdPhy() extends Component {
   // Line reset: 50+ SWCLK cycles with SWDIO high while the host owns the line
   // (ADIv6.0 B4.3.3). Recovers from any state, including protocol error.
   val lineReset = new Area {
-    val counter = Reg(UInt(6 bits)) init(0)
-    val hit = counter === 50
+    val counter = Counter(51) // [0, 50]
     when(oDrive || !dio) {
-      counter := 0
-    } elsewhen(!hit) {
-      counter := counter + 1
+      counter.clear()
+    } elsewhen(!counter.willOverflowIfInc) {
+      counter.increment()
     }
+    val hit = counter.willOverflowIfInc // value === 50
   }
 
   object EState extends SpinalEnum {
@@ -137,7 +136,7 @@ case class SwdPhy() extends Component {
     }
     is(EState.READ_DATA) {               // 32 data bits LSB first + even parity
       oDrive := True
-      oData  := Mux(cnt === 32, rspHold.rdata.xorR, rspHold.rdata(cnt(4 downto 0)))
+      oData  := Mux(cnt === 32, rspHold.payload.rdata.xorR, rspHold.payload.rdata(cnt(4 downto 0)))
       cnt := cnt + 1
       when(cnt === 32) {
         state := EState.RELEASE
@@ -457,6 +456,9 @@ class SwdDmiGateway(p : DebugTransportModuleParameter,
  * SWD-side logic runs on the probe-driven SWCLK (BOOT reset: no reset wire on the pins —
  * line reset is the protocol-level reset); the DebugBus side runs on debugCd.
  * Counterpart of DebugTransportModuleJtagTap for the SWD wire protocol.
+ *
+ * This is a RISC-V Debug Spec Ch. 6 custom DTM, not a ratified SWD chapter.
+ * The pin/AP map may change if the spec later defines one.
  */
 case class DebugTransportModuleSwd(p : DebugTransportModuleParameter,
                                    debugCd : ClockDomain,
