@@ -111,7 +111,7 @@ object ImsicTrigger {
     require(interruptFileGroupSize == 0 || isPow2(interruptFileGroupSize), "interruptFileGroupSize should be power of 2")
     require(!(interruptFileHartOffset != 0 && interruptFileGroupSize == 0), "Can not auto calculate interruptFileGroupSize when interruptFileHartOffset != 0")
 
-    require(maxGuestId < 63, "Per hart can only have max 63 guest interrupt files.")
+    require(maxGuestId <= 63, "Per hart can only have max 63 guest interrupt files.")
 
     val intFileNumber = 1 << log2Up(maxGuestId + 1)
     val minIntFileHartSize = interruptFileSize * intFileNumber

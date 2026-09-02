@@ -331,7 +331,7 @@ case class BmbToApb3Generator(mapping : Handle[AddressMapping] = Unset,
         dataWidth = apb3Config.dataWidth,
         lengthWidthMax = log2Up(apb3Config.dataWidth/8),
         alignment = BmbParameter.BurstAlignement.LENGTH,
-        canMask = false
+        canMask = apb3Config.useStrb
       )
     ),
     accessRequirements = accessRequirements,

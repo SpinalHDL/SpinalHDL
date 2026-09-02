@@ -49,14 +49,14 @@ case class TilelinkToBmb(p : tilelink.M2sParameters) extends Component{
   io.down.cmd.context   := io.up.a.size ## io.down.cmd.opcode
 
   io.up.d.arbitrationFrom(io.down.rsp)
-  io.up.d.opcode  := io.down.rsp.context(0).mux(tilelink.Opcode.D.ACCESS_ACK, tilelink.Opcode.D.ACCESS_ACK_DATA)
+  val ackOpcode = io.down.rsp.context(0).mux(tilelink.Opcode.D.ACCESS_ACK, tilelink.Opcode.D.ACCESS_ACK_DATA)
+  io.up.d.opcode  := ackOpcode
   io.up.d.param   := 0
   io.up.d.source  := io.down.rsp.source
   io.up.d.size    := io.down.rsp.context.dropLow(1).asUInt
   io.up.d.denied  := io.down.rsp.isError
   io.up.d.data    := io.down.rsp.data
-  io.up.d.corrupt := False
+  io.up.d.corrupt := io.down.rsp.isError && tilelink.Opcode.D.isData(ackOpcode)
 }
-
 
 

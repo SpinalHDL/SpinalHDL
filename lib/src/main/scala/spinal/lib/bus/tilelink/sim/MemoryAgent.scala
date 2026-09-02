@@ -108,6 +108,7 @@ class MemoryAgent(bus: Bus,
           d.denied = !ok
           if(ok) d.data = mem.readBytes(a.address.toLong, a.bytes)
           if(!ok)  d.data = Array.fill(a.bytes)(simRandom.nextInt().toByte)
+          d.corrupt = d.denied
           driver.scheduleD(d)
         }
         case Opcode.A.PUT_PARTIAL_DATA | Opcode.A.PUT_FULL_DATA => { //TODO probePerm not tested

@@ -54,7 +54,7 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
 
   val inflightA = Array.fill[InflightA](1 << p.sourceWidth)(null)
   val inflightB = mutable.LinkedHashMap[(Int, BigInt), TransactionB]()
-  val inflightC = mutable.LinkedHashMap[(Int, BigInt), TransactionC]()
+  val inflightC = mutable.LinkedHashMap[Int, TransactionC]()
   val inflightD = mutable.LinkedHashMap[BigInt, TransactionD]()
 
   case class Cap(var current : Int, var probed : Boolean)
@@ -161,8 +161,8 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
     import Opcode.C._
     c.opcode match {
       case RELEASE_DATA | RELEASE => {
-        val key = c.source -> c.address
-        assert(!inflightC.contains(key))
+        val key = c.source
+        assert(!inflightC.contains(key), s"C source $key already has an outstanding Release :\n${inflightC(key)}$c")
         inflightC(key) = c
       }
       case PROBE_ACK | PROBE_ACK_DATA => {
@@ -199,6 +199,9 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
   }
 
   override def onD(d: TransactionD) = {
+    if(d.withData) assert(!d.denied || d.corrupt, "Denied is also corrupt")
+    if(!d.withData) assert(!d.corrupt)
+
     d.opcode match{
       case Opcode.D.ACCESS_ACK | Opcode.D.ACCESS_ACK_DATA | Opcode.D.GRANT | Opcode.D.GRANT_DATA  =>  {
         val ctx = inflightA(d.source)
@@ -206,12 +209,11 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
         d.assertRspOf(ctx.a)
         if(checkMapping) {
           assert(ctx.isSet, s"No reference was provided for :\n${ctx.a}to compare with :\n$d")
-          if (d.withData && !ctx.denied) {
+          if (d.withData && !ctx.denied && !d.corrupt) {
             assert(ctx.ref != null, s"No reference data was provided for :\n${ctx.a}to compare with :\n$d")
             assert((ctx.ref, d.data).zipped.forall(_ == _), s"Missmatch for :\n${ctx.a}\n$d\n!=${ctx.ref.map(v => f"${v}%02x").mkString(" ")}")
           }
           assert(d.denied == ctx.denied)
-          assert(!d.corrupt)
         }
         if(d.opcode == Opcode.D.GRANT || d.opcode == Opcode.D.GRANT_DATA){
           doGrow(d.source, d.address, d.param)
@@ -220,8 +222,9 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
         if(checkMapping) idCallback.remove(ctx.a.debugId, ctx)
       }
       case Opcode.D.RELEASE_ACK => {
-        inflightC.remove(d.source -> d.address) match {
-          case Some(c) => doShrink(d.source, d.address, c.param)
+        inflightC.remove(d.source) match {
+          case Some(c) => doShrink(d.source, c.address, c.param)
+          case None => SimError(s"ReleaseAck without outstanding C source ${d.source}")
         }
       }
     }

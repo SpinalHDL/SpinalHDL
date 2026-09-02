@@ -169,7 +169,7 @@ object HtmlTemplate {
        |  </head>
        |  <body>
        |  <header>
-       |  <p class="regif-title"> ${moduleName} register interface </p>
+       |  <p class="regif-title"> ${moduleName}</p>
        |  </header>
        |  <div class="table">
        |  <table  align="center" class="theme-default">

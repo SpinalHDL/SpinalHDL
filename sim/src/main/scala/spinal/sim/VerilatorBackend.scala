@@ -100,6 +100,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
 #include <memory>
 #include <jni.h>
 #include <iostream>
+#include <verilated.h>
 
 #include "V${config.toplevelName}.h"
 #ifdef TRACE
@@ -108,6 +109,10 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
 #include "V${config.toplevelName}__Syms.h"
 
 using namespace std;
+
+#if defined(VERILATOR_VERSION_INTEGER) && (VERILATOR_VERSION_INTEGER >= 5047000)
+using WData = EData;
+#endif
 
 class ISignalAccess{
 public:
@@ -288,11 +293,11 @@ ${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
       else if(signal.dataType.width <= 32) "IData"
       else if(signal.dataType.width <= 64) "QData"
       else "WData"
-      val enforcedCast = if(signal.dataType.width > 64) "(WData*)" else ""
+      val enforcedCast = if(signal.dataType.width > 64) ".data()" else ""
       val signalReference = s"top->${signal.path.map(_.replace("$", "__024").replace("__", "___05F")).mkString("->")}"
       val memPatch = if(signal.dataType.isMem) "[0]" else ""
 
-      s"      signalAccess[$id] = new ${typePrefix}SignalAccess($enforcedCast $signalReference$memPatch ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
+      s"      signalAccess[$id] = new ${typePrefix}SignalAccess($signalReference$memPatch$enforcedCast ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
 
     }
 

@@ -192,6 +192,59 @@ class PipelineTester extends SpinalAnyFunSuite{
     }
   }
 
+  test("defaultKey") {
+    SimConfig.compile(new Component {
+      val pip = new StagePipeline("lane")
+      val IN = Payload(UInt(16 bits))
+      val OUT = Payload(UInt(16 bits))
+      val source = slave Stream(IN)
+      val sink = master Stream(OUT)
+      val inserter = new pip.Area(0) {
+        arbitrateFrom(source)
+        this(IN) := source.payload
+      }
+      val calc = new pip.Area(1) {
+        this(OUT) := this(IN) + 1
+      }
+      val output = new pip.Area(2) {
+        arbitrateTo(sink)
+        sink.payload := this(OUT)
+      }
+      pip.build()
+      def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, source, sink)(onPush)
+    }).doSimUntilVoid { dut =>
+      dut.testIt { (value, queue) =>
+        queue += (value + 1) & 0xFFFF
+      }
+    }
+  }
+
+  test("defaultKeyCtrl") {
+    SimConfig.compile(new Component {
+      val pip = new StageCtrlPipeline("lane")
+      val IN = Payload(UInt(16 bits))
+      val TMP = Payload(UInt(16 bits))
+      val OUT = Payload(UInt(16 bits))
+      val source = slave Stream(IN)
+      val sink = master Stream(OUT)
+      val inserter = new pip.Ctrl(0) {
+        up.driveFrom(source)((self, payload) => self(IN) := payload)
+      }
+      pip.ctrl(1)(TMP) := pip.ctrl(1)(IN) + 1
+      val calc = new pip.Ctrl(2) {
+        this(OUT) := this(TMP) + 1
+      }
+      val output = new pip.Ctrl(3) {
+        down.driveTo(sink)((payload, self) => payload := self(OUT))
+      }
+      pip.build()
+      def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, source, sink)(onPush)
+    }).doSimUntilVoid { dut =>
+      dut.testIt { (value, queue) =>
+        queue += (value + 2) & 0xFFFF
+      }
+    }
+  }
 
   // Remove C1 transactions which have the LSB set
   test("throw") {
@@ -374,6 +427,46 @@ class PipelineTester extends SpinalAnyFunSuite{
       when(c2.down.isFiring) {
         state := c2(IN)
       }
+    }).doSimUntilVoid { dut =>
+      var state = 0
+      dut.testIt { (value, queue) =>
+        queue += state
+        state = value
+      }
+    }
+  }
+
+
+  test("bypassDefaultKey") {
+    SimConfig.compile(new Component {
+      val pip = new StageCtrlPipeline("lane")
+      val IN = Payload(UInt(16 bits))
+      val OUT = Payload(UInt(16 bits))
+      val source = slave Stream(IN)
+      val sink = master Stream(OUT)
+      val state = Reg(UInt(16 bits)) init(0)
+      val inserter = new pip.Ctrl(0) {
+        up.driveFrom(source)((self, payload) => self(IN) := payload)
+        up(OUT) := state
+      }
+      val bypass0 = new pip.Ctrl(0) {
+        when(pip.ctrl(2).down.valid) {
+          bypass(OUT) := pip.ctrl(2).down(IN)
+        }
+      }
+      val bypass1 = new pip.Ctrl(1) {
+        when(pip.ctrl(2).down.valid) {
+          bypass(OUT) := pip.ctrl(2).down(IN)
+        }
+      }
+      val output = new pip.Ctrl(2) {
+        down.driveTo(sink)((payload, self) => payload := self(OUT))
+        when(down.isFiring) {
+          state := down(IN)
+        }
+      }
+      pip.build()
+      def testIt(onPush: (Int, mutable.Queue[Int]) => Unit): Unit = simpleTest(clockDomain, source, sink)(onPush)
     }).doSimUntilVoid { dut =>
       var state = 0
       dut.testIt { (value, queue) =>

@@ -161,6 +161,20 @@ object Clamp {
   def apply[T <: Data with Num[T]](nums: Seq[T], low: T, high: T): Seq[T] = nums.map(apply(_, low, high))
 }
 
+object Log2 {
+  def ceil(x: UInt): UInt = new Composite(x, "clog2") {
+    val symbol_oh = OHMasking.last(x)
+    val symbol_mask = (~symbol_oh) & x
+    val oh_ceil = (symbol_mask === 0) ? (U(0, 1 bits) @@ symbol_oh) | (symbol_oh << 1)
+    val result = OHToUInt(oh_ceil)
+  }.result
+
+  def floor(x: UInt): UInt = new Composite(x, "flog2") {
+    val symbol_oh = OHMasking.last(x)
+    val result = OHToUInt(symbol_oh)
+  }.result
+}
+
 object SetFromFirstOne{
   def apply[T <: Data](that : T, firstOrder: Int = LutInputs.get) : T = {
     val lutSize = firstOrder
@@ -660,6 +674,7 @@ object AnalysisUtils{
     }
     case e: MemReadSync => body(e)
     case e: MemReadWrite =>  body(e)
+    case e: MemReadAsyncWrite =>  body(e)
     case e : Expression => e.foreachDrivingExpression(seekNonCombDriversFromSelf(_)(body))
   }
 
@@ -741,6 +756,10 @@ object LatencyAnalysis {
               port.foreachDrivingExpression(input => {
                 pendingQueues(1) += input
               })
+            case port : MemReadAsyncWrite =>
+              port.foreachDrivingExpression(input => {
+                pendingQueues(1) += input
+              })
             case port : MemReadSync =>
             case port : MemReadAsync =>
               //TODO other ports
@@ -779,6 +798,14 @@ object LatencyAnalysis {
             pendingQueues(lat) += input
           }
           pendingQueues(1) += that.mem
+          return false
+        case that : MemReadAsyncWrite =>
+          that.foreachDrivingExpression(input => {
+            if(walk(input))
+              return true
+          })
+          if(walk(that.mem))
+            return true
           return false
         case that : MemReadAsync =>
           that.foreachDrivingExpression(input => {
