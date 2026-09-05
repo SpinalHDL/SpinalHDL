@@ -409,9 +409,9 @@ package object sim {
   implicit class SimDataPimper[T <: Data](bt: T) {
 
     def randomize(): Unit = bt.flattenForeach(_.randomize())
-    
+
     /** Set a signal inside the component’s hierarchy as accessible from the simulation.
-      * 
+      *
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#accessing-signals-inside-the-component-s-hierarchy section in simulation doc]]
       */
     def simPublic(): T = bt.addTag(SimPublic)
@@ -424,9 +424,9 @@ package object sim {
   implicit class SimMemPimper[T <: Data](mem: Mem[T]) {
     def setBigInt(address : Long, data : BigInt): Unit = sim.setBigInt(mem,address,data)
     def getBigInt(address : Long): BigInt = sim.getBigInt(mem,address)
-    
+
     /** Set a signal inside the component’s hierarchy as accessible from the simulation.
-      * 
+      *
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#accessing-signals-inside-the-component-s-hierarchy section in simulation doc]]
       */
     def simPublic(): Mem[T] = mem.addTag(SimPublic)
@@ -456,13 +456,13 @@ package object sim {
 
     // SimEquiv implementation
     type SimEquivT = Boolean
-    
+
     /** Assign a hardware ``Bool`` from an Scala ``Boolean``
       *
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
       */
     def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
-    
+
     def getSim(): SimEquivT = getLong(bt) != 0
 
     def toBoolean = getSim()
@@ -473,7 +473,7 @@ package object sim {
   // Several SimEquiv implementations needed since BitVector can correspond to several types
   implicit class SimEquivBitVectorLongPimper(bt: BitVector) extends SimEquiv {
     type SimEquivT = Long
-    
+
     /** Assign a hardware ``BitVector`` from an Scala ``Long``
       *
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
@@ -491,7 +491,7 @@ package object sim {
 
   implicit class SimEquivBitVectorBytesPimper(bt: BitVector) extends SimEquiv {
     type SimEquivT = Array[Byte]
-    
+
     /** Assign a hardware ``BitVector`` from an Scala ``Array[Byte]``
       *
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
@@ -544,7 +544,7 @@ package object sim {
       val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
       def toInt = if(alwaysZero) 0 else manager.getInt(signal)
       def toLong = if(alwaysZero) 0 else manager.getLong(signal)
-      def toBigInt = if(alwaysZero) 0 else manager.getBigInt(signal)
+      def toBigInt = if(alwaysZero) BigInt(0) else manager.getBigInt(signal)
 
       /** Assign a hardware ``BitVector`` from an Scala ``Int``
         *
@@ -561,7 +561,7 @@ package object sim {
       /** Assign a hardware ``BitVector`` from an Scala ``Long``
         *
         * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
-        */      
+        */
       def #=(value: Long) : Unit  = {
         if(alwaysZero) {
           assert(value == 0)
