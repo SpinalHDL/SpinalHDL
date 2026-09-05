@@ -18,7 +18,7 @@ jobs:
   run-test:
     uses: ./.github/workflows/sbt-tests.yml
     with:
-      scala_version: '2.12.18'
+      scala_version: '2.12.21'
       runner_os: 'Linux'
       github_sha: ${{ github.sha }}
       docker_image_version: 'v1.2.0'
