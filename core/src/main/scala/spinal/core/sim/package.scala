@@ -46,15 +46,23 @@ package object sim {
     field.set(r, null)
   }
 
-  /** Return a dedicated instance scala.util.Random for the current simulation.
+  /** Returns a dedicated instance of scala.util.Random for the current simulation.
     *
-    * If only thread-less simulation API is used (`clockDomain.waitActiveEdge()`,
-    * `cd.onActiveEdges{}`, `delayed(delay){}`, `forkSensitive{}`, etc.), the number returned
-    * should be deterministic, even with multiple concurrent simulations.
+    * There is one instance per simulation and its usage is deterministic with any 
+    * combination of sensitive, thread-full and thread-less API. 
+    * 
+    * This is because the simulation engine executes only one sim thread created
+    * by functions like [[sim.fork()]] at a time. The engine blocks/resumes them
+    * so there is never concurrent execution of test code.
+    * 
+    * Each simulation maintains its own `Random`, making it safe for concurrent
+    * simulations.
     *
     * The seed is set as an argument of `doSim()`. The default value is to take
     * `.toInt` from the `SPINAL_SIM_SEED` environment variable, and if not
     * present to use a random value as seed each time.
+    * 
+    * @see https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/engine.html
     */
   def simRandom(implicit simManager: SimManager = sm) = simManager.random
   def sm = SimManagerContext.current.manager
