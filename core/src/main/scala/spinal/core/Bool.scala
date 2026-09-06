@@ -322,11 +322,16 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   def ?[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T]) = MuxBuilderEnum(whenTrue)
 
   /** Explicitly mark that this hardware signal can take any value in the current context.
-    * 
+    *
     * This is analogous to Verilog `'x`  or VHDL `'-'` assignment or implicit
-    * non-assignment, but  unlike those it is explicit. If a signal is unassigned 
+    * non-assignment, but  unlike those it is explicit. If a signal is unassigned
     * (e.g., no "don't care" or value) in any control path, an error will be raised.
-    * 
+    *
+    * At generation, `'x` in Verilog and `'-'` in VHDL will be generated, unless
+    * SpinalConfig.dontCareGenAsZero is explicitly set as `true`. Note that some
+    * simulators like Verilator use only 0 and 1 for performance reason and will
+    * use random or fixed 0 and 1 values depending on their config.
+    *
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/index.html#data-types Data type documentation]] 
     * @see [[https://en.wikipedia.org/wiki/Don%27t-care_term#X_value "Don't care term" wikipedia article]]
     */
