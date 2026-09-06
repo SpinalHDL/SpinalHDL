@@ -663,7 +663,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
 
   // TODO enable deprecation
-  //@deprecated("use randBoot() instead", since = "1.15.0")
+  //@deprecated("use randBoot() instead", since = "1.16.0")
   def randBoot(u : Unit): this.type = randBoot()
   
   /**
