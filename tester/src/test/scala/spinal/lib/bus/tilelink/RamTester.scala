@@ -18,7 +18,7 @@ import spinal.sim.SimThread
 
 import scala.collection.mutable.ArrayBuffer
 
-class RamTester extends AnyFunSuite{
+class RamTester extends AnyFunSuite {
   def doTest(): Unit = {
     val tester = new TilelinkTester(
       simConfig = SimConfig,
@@ -41,9 +41,9 @@ class RamTester extends AnyFunSuite{
           )
         )
 
-        // Note that the testbench automaticaly use val ordering = Flow(OrderingCmd(p.sizeBytes))
-        // from the spinal.lib.bus.tilelink.Ram component to figure out the global memory ordering
-        // If you want to test your memory component, you also need to implement that val ordering thing
+        // Note that the testbench automatically use val ordering = Flow(OrderingCmd(p.sizeBytes))
+        // from the spinal.lib.bus.tilelink.Ram component to figure out the global memory ordering.
+        // If you want to test your memory component, you also need to implement that val ordering thing.
         val ram = new RamFiber(4096)
         ram.up at 0x0 of m0.node
         ram.up.setUpConnection(a = StreamPipe.FULL)
@@ -69,7 +69,7 @@ class RamTester extends AnyFunSuite{
     )
 
     tester.doSim("manual") { tb =>
-      periodicaly(1000) {
+      periodically(1000) {
         tb.mastersStuff.foreach(_.agent.driver.driver.randomizeStallRate())
         tb.slavesStuff.foreach(_.model.driver.driver.randomizeStallRate())
       }
@@ -89,10 +89,8 @@ class RamTester extends AnyFunSuite{
     tester.checkErrors()
   }
 
-
   test("default"){
     doTest()
   }
-
 
 }
