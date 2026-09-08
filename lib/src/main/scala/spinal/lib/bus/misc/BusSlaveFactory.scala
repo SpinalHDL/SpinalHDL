@@ -42,8 +42,9 @@ case class BusSlaveFactoryConfig(wordEndianness: Endianness = LITTLE){
 }
 
 
-/**
-  * Bus slave factory is a tool that provide an abstract and smooth way to define register bank
+/** Bus slave factory is a tool that provide an abstract and smooth way to define register bank
+  *
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/bus_slave_factory.html Bus Slave Factory documentation]] 
   */
 trait BusSlaveFactory extends Area{
 
@@ -58,10 +59,10 @@ trait BusSlaveFactory extends Area{
   /** Return the data width of the bus */
   def busDataWidth: Int
 
-  /** Address incrementation used by the read and write multi words registers */
+  /** Address increment used by the read and write multi words registers */
   def wordAddressInc: Int = busDataWidth / 8
 
-  /** Set the endianness during write/read multiword */
+  /** Set the endianness during write/read multi-word */
   def setWordEndianness(value : Endianness) = setConfig(getConfig.copy(wordEndianness = value))
 
   def withOffset(offset : BigInt) = new BusSlaveFactoryAddressWrapper(this, offset)

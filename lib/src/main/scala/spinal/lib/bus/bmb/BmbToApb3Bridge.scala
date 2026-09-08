@@ -38,8 +38,10 @@ case class BmbToApb3Bridge(apb3Config: Apb3Config,
   io.output.PSEL(0) := bmbBuffer.cmd.valid
   io.output.PENABLE := state
   io.output.PWRITE  := bmbBuffer.cmd.isWrite
-  io.output.PADDR   := bmbBuffer.cmd.address.resized
+  io.output.PADDR   := bmbBuffer.cmd.address.clearedLow(log2Up(apb3Config.dataBytes)).resized
   io.output.PWDATA  := bmbBuffer.cmd.data
+  if(apb3Config.useStrb) io.output.PSTRB := bmbBuffer.cmd.mask
+  if(apb3Config.useProt) io.output.PPROT := 0
 
   bmbBuffer.rsp.valid := False
   bmbBuffer.rsp.data  := io.output.PRDATA

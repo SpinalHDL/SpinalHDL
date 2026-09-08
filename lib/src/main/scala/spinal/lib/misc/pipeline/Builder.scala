@@ -74,13 +74,16 @@ class NodesBuilder() extends Area {
   }
 }
 
-class StagePipeline() extends Area {
+class StagePipeline(defaultKey: Any = null) extends Area {
   val nodes = mutable.LinkedHashMap[Int, Node]()
   val links = mutable.ArrayBuffer[StageLink]()
 
   def apply(i : Int) = node(i)
-  def node(i : Int) = nodes.getOrElseUpdate(i, new Node().setCompositeName(this, s"node_${i.toString}"))
+  def node(i : Int) = nodes.getOrElseUpdate(i, new Node(defaultKey).setCompositeName(this, s"node_${i.toString}"))
   class Area(i : Int) extends NodeMirror(node(i)) with spinal.core.Area
+
+  def first = node(nodes.keys.min)
+  def last = node(nodes.keys.max)
 
   def build(withoutCollapse : Boolean = false): Unit = {
     for(i <- nodes.keys.min until nodes.keys.max){
@@ -92,13 +95,26 @@ class StagePipeline() extends Area {
   }
 }
 
-class StageCtrlPipeline() extends Area {
+class StageCtrlPipeline(defaultKey: Any = null) extends Area {
   val ctrls = mutable.LinkedHashMap[Int, CtrlLink]()
   val links = mutable.ArrayBuffer[StageLink]()
 
-  def ctrl(i : Int) = ctrls.getOrElseUpdate(i, CtrlLink().setCompositeName(this, s"ctrl_${i.toString}"))
+  /* This can be simplified if defaultKey/useSingleDefaultKey is removed */
+  private def newCtrl() = {
+    val c = new CtrlLink(new Node(defaultKey), new Node(defaultKey)) {
+      override def defaultKey: Any = StageCtrlPipeline.this.defaultKey
+      override def useSingleDefaultKey: Boolean = false
+    }
+    c.up.setCompositeName(c, "up")
+    c.down.setCompositeName(c, "down")
+    c
+  }
+  def ctrl(i : Int) = ctrls.getOrElseUpdate(i, newCtrl().setCompositeName(this, s"ctrl_${i.toString}"))
   class Ctrl(i : Int) extends CtrlLinkMirror(ctrl(i))
   class InsertArea extends NodeMirror(ctrl(0).up) with spinal.core.Area
+
+  def first = ctrl(ctrls.keys.min)
+  def last = ctrl(ctrls.keys.max)
 
   def build(): Unit = {
     for(i <- ctrls.keys.min until ctrls.keys.max){
@@ -107,5 +123,4 @@ class StageCtrlPipeline() extends Area {
     Builder(links ++ ctrls.values)
   }
 }
-
 

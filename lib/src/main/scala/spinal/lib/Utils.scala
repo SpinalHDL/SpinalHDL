@@ -161,6 +161,20 @@ object Clamp {
   def apply[T <: Data with Num[T]](nums: Seq[T], low: T, high: T): Seq[T] = nums.map(apply(_, low, high))
 }
 
+object Log2 {
+  def ceil(x: UInt): UInt = new Composite(x, "clog2") {
+    val symbol_oh = OHMasking.last(x)
+    val symbol_mask = (~symbol_oh) & x
+    val oh_ceil = (symbol_mask === 0) ? (U(0, 1 bits) @@ symbol_oh) | (symbol_oh << 1)
+    val result = OHToUInt(oh_ceil)
+  }.result
+
+  def floor(x: UInt): UInt = new Composite(x, "flog2") {
+    val symbol_oh = OHMasking.last(x)
+    val result = OHToUInt(symbol_oh)
+  }.result
+}
+
 object SetFromFirstOne{
   def apply[T <: Data](that : T, firstOrder: Int = LutInputs.get) : T = {
     val lutSize = firstOrder

@@ -13,7 +13,6 @@ import spinal.lib.sim._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 import scala.collection.Seq
 
 class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
@@ -188,9 +187,9 @@ class TesterUtils(dut : UsbOhciTbTop) {
 
 
   def getCurrentConnectStatus(portId : Int) = (ctrl.read(hcRhPortStatus(portId)) & 1) != 0
-  def waitConnected(portId : Int) = while(!getCurrentConnectStatus(portId)){dut.clockDomain.waitSampling(Random.nextInt(10))}
+  def waitConnected(portId : Int) = while(!getCurrentConnectStatus(portId)){dut.clockDomain.waitSampling(simRandom.nextInt(10))}
   def setPortReset(portId : Int) = ctrl.write(1 << 4, hcRhPortStatus(portId))
-  def waitPortReset(portId : Int) = while((ctrl.read(hcRhPortStatus(portId)) & (1 << 4)) != 0) {dut.clockDomain.waitSampling(Random.nextInt(10))}
+  def waitPortReset(portId : Int) = while((ctrl.read(hcRhPortStatus(portId)) & (1 << 4)) != 0) {dut.clockDomain.waitSampling(simRandom.nextInt(10))}
   def setBulkListFilled() = ctrl.write(BLF, hcCommand)
   def setControlListFilled() = ctrl.write(CLF, hcCommand)
 

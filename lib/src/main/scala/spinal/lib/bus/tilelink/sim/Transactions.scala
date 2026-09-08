@@ -361,6 +361,7 @@ class TransactionD extends TransactionABCD{
     val ret = new TransactionD()
     ret.copyNoDataFrom(this)
     ret.opcode = opcode
+    ret.corrupt = corrupt
     ret.denied = denied
     ret.sink = sink
     ret.asInstanceOf[this.type]

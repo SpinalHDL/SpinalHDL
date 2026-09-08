@@ -446,7 +446,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     * The cost is `(payload width + 1)` flip-flops and the latency is 1.
     * 
     * The name "m2s" comes from from the fact that the signals that flow
-    * from Master-to-Slave are pipelined  (namely `ready` and `payload`).
+    * from Master-to-Slave are pipelined  (namely `valid` and `payload`).
     * 
     * @param collapsBubble When `true`(the default), add the logic to allow to store an incoming payload when there is 
     *                      no stored payload and the slave is not ready.
