@@ -110,6 +110,23 @@ class DebugModuleFiber() extends Area{
     }
   }
 
+  // SWD transport  — do not combine with withJtagTap()/withJtagInstruction().
+  // driving more than one DTM at a time is unsupported.
+  def withSwdTransport(dpidr : BigInt = BigInt("0BA11AAB", 16),
+                       apIdr : BigInt = BigInt("74726976", 16)) = {
+    val db = DebugBus(p.addressWidth); debugBuses += db
+    Fiber build new Area {
+      val logic = DebugTransportModuleSwd(
+        p = p,
+        debugCd = cmCd,
+        dpidr = dpidr,
+        apIdr = apIdr
+      )
+      db <> logic.io.bus
+      val swd = logic.io.swd.toIo
+    }
+  }
+
   def makeSysbusTilelink() = new Area{
     val dmNode = spinal.lib.bus.tilelink.fabric.Node.master()
 
