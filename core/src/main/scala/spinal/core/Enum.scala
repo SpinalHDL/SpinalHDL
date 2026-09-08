@@ -57,6 +57,10 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
     ret
   }
 
+  def toInt: Int = spinalEnum.defaultEncoding.getValue(this).toInt
+
+  def toBigInt: BigInt = spinalEnum.defaultEncoding.getValue(this)
+
   def asBits: Bits = craft().asBits
   def next: SpinalEnumElement[T] = {
     val id = position + 1
