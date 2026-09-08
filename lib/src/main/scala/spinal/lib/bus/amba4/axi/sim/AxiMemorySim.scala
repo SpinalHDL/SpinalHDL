@@ -32,9 +32,9 @@ class MemoryPage(size : Int) {
     def write(offset : Int, data : Byte) : Unit = {
         this.data(offset) = data
     }
-    
+
     /** Reads an array from this page.
-     * 
+     *
      * @param offset Offset into page
      * @return Byte array containing the read bytes. Reads may be limited by the page end.
      */
@@ -50,7 +50,7 @@ class MemoryPage(size : Int) {
     }
 
     /** Writes an array to this page.
-     * 
+     *
      * @param offset Offset into page.
      * @param data The byte array.
      * @return Number of bytes written. Writes may be limited by the page end.
@@ -120,7 +120,7 @@ case class SparseMemory() {
     val endPageIndex = getPageIndex(address + len - 1)
     var offset = getOffset(address)
     val buffer = new mutable.ArrayBuffer[Byte](0)
-    
+
     for(i <- startPageIndex to endPageIndex) {
       val page = getElseInvalidPage(i)
       val readArray = page.readArray(offset, len.toInt - buffer.length)
@@ -135,7 +135,7 @@ case class SparseMemory() {
     val startPageIndex = getPageIndex(address)
     val endPageIndex = getPageIndex(address + data.length - 1)
     var offset = getOffset(address)
-    
+
     List.tabulate(endPageIndex - startPageIndex + 1)(_ + startPageIndex).foldLeft(data){
       (writeData,pageIndex) => {
           val page = getElseAllocPage(pageIndex)
@@ -147,7 +147,7 @@ case class SparseMemory() {
   }
 
   /** Reads a BigInt value from the given address.
-   * 
+   *
    * @param address Read address.
    * @param width Length of the byte array to be read in bytes.
    * @return BigInt read from the given address.
@@ -166,7 +166,7 @@ case class SparseMemory() {
    * The BigInt will be resized to a byte Array of given width.
    * The data will be trimmed if it is bigger than the given width.
    * If it is smaller, the unused bytes will be filled with '0x00'.
-   * 
+   *
    * @param address Write address.
    * @param data Data to be written.
    * @param width Width of the byte Array the data is resized to (if necessary).
@@ -194,7 +194,7 @@ case class SparseMemory() {
         }
       }
     }
-    
+
     writeArray(address, result)
   }
 
@@ -234,7 +234,7 @@ case class AxiJob (
   id          : Long
 ) {
   val dataTransactionSize : Int  = (1 + burstLength) << burstSize
-  val lowerWrapBoundary   : Long = (address / dataTransactionSize) * dataTransactionSize 
+  val lowerWrapBoundary   : Long = (address / dataTransactionSize) * dataTransactionSize
   val upperWrapBoundary   : Long = lowerWrapBoundary + dataTransactionSize
   def incrAddress(i : Int): Long = ((address >> burstSize) + i) << burstSize
   def wrapAddress(i : Int): Long = {
@@ -274,14 +274,15 @@ case class AxiJob (
 case class AxiMemorySimConfig (
   maxOutstandingReads  : Int = 8,
   maxOutstandingWrites : Int = 8,
-  readResponseDelay    : Int = 0,
-  writeResponseDelay   : Int = 0,
+  readResponseDelay    : Int = 1,
+  writeResponseDelay   : Int = 1,
   interruptProbability : Int = 0,
   interruptMaxDelay    : Int = 0,
   defaultBurstType     : Int = 1,
   useAlteraBehavior    : Boolean = false
 ) {
-
+  require(readResponseDelay >= 1, "Read response delay can not be less than 1 cycle")
+  require(writeResponseDelay >= 1, "Write response delay can not be less than 1 cycle")
 }
 
 case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemorySimConfig) {
@@ -382,7 +383,7 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
       ar.ready #= true
       clockDomain.waitSamplingWhere(ar.valid.toBoolean)
       ar.ready #= false
-      
+
       pending_reads += newAxiJob(ar.payload)
 
       //println("AXI4 read cmd: addr=0x" + ar.payload.addr.toLong.toHexString + " count=" + (ar.payload.len.toBigInt+1))
@@ -406,6 +407,7 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
       if(pending_reads.nonEmpty) {
         var job = pending_reads.front
 
+        clockDomain.waitSampling(config.readResponseDelay - 1)
         r.valid #= true
 
         var i = 0
@@ -471,7 +473,7 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
       if(pending_writes.nonEmpty) {
         var job = pending_writes.front
         var count = job.burstLength
-       
+
         w.ready #= true
 
         for(i <- 0 to job.burstLength) {
