@@ -141,7 +141,7 @@ abstract class RegSlice(val name: String, val addr: BigInt, val doc: String, val
     val spareNumbers = if (fields.isEmpty) bi.busDataWidth else bi.busDataWidth - 1 - fields.last.tailBitPos
     spareNumbers match {
       case x if x > 0 => fieldNA(fieldPtr, x)
-      case x if x < 0 => SpinalError(s"Range ${Section(fields.last.section)} exceed Bus width ${bi.busDataWidth}")
+      case x if x < 0 => SpinalError(s"Field ${fields.last.getName()} range ${Section(fields.last.section)} out of $name bounds [${bi.busDataWidth-1}:0]\n${ScalaLocated.long(fields.last.createLocation)}")
       case _ =>
     }
   }
