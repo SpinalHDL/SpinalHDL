@@ -1,6 +1,8 @@
 package spinal.lib
 
-import spinal.core.{Data, HardType, IConnectable}
+import spinal.core.{Data, HardType, IConnectable, IODirection}
+import scala.collection.mutable.ArrayBuffer
+import spinal.core
 
 /** An interface that a `Bundle` can implement if it obeys to a master/slave topology.
   * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bundle.html#master-slave Bundle documentation]]
@@ -170,4 +172,60 @@ object slaveWithNull extends MS {
 @deprecated("Use apply or port instead: 'val b = master(maybeNull)' or 'val rgb = master port maybeNull'")
 object masterWithNull extends MS {
   override def applyIt[T <: IMasterSlave](that: T): T = if (that != null) master(that) else that
+}
+trait IMasterSlaveDirDeclare extends IMasterSlave {
+
+  /** Define the direction of ports during declaration. asMaster does not need to be manually derived.
+    * For example:
+    * ```scala
+    * case class TestInterface() extends Bundle with IMasterSlaveDirDeclare {
+    *    val testOut = out port Bool()
+    *    val testIn = in port Bool()
+    *    val testMaster = master port Stream(Bool())
+    *    val testSlave = slave port Stream(Bool())
+    *  }
+    *  ```
+    *
+    * @return
+    */
+  var directions = ArrayBuffer.empty[() => Unit]
+  trait PortRedirect[Base] {
+    def port[T <: Base](port: T): T
+    def apply[T <: Base](t: T) = port(t)
+  }
+  def out = new PortRedirect[Data] {
+    def port[T <: Data](port: T) = {
+      directions += (() => spinal.core.out(port))
+      port
+    }
+  }
+  def in = new PortRedirect[Data] {
+    def port[T <: Data](port: T) = {
+      directions += (() => spinal.core.in(port))
+      port
+    }
+  }
+  def inout = new PortRedirect[Data] {
+    def port[T <: Data](port: T) = {
+      directions += (() => spinal.core.inout(port))
+      port
+    }
+
+  }
+  def slave = new PortRedirect[IMasterSlave] {
+    def port[T <: IMasterSlave](port: T) = {
+      directions += (() => spinal.lib.slave(port))
+      port
+    }
+
+  }
+  def master = new PortRedirect[IMasterSlave] {
+    def port[T <: IMasterSlave](port: T) = {
+      directions += (() => spinal.lib.master(port))
+      port
+    }
+
+  }
+
+  override final def asMaster(): Unit = directions.foreach(_())
 }
