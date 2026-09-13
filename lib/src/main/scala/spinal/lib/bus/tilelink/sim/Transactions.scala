@@ -148,7 +148,7 @@ class TransactionA extends TransactionABCD{
   }
 
   override def withData = opcode match {
-    case Opcode.A.PUT_FULL_DATA | Opcode.A.PUT_PARTIAL_DATA => true
+    case Opcode.A.PUT_FULL_DATA | Opcode.A.PUT_PARTIAL_DATA | Opcode.A.ARITHMETIC_DATA | Opcode.A.LOGICAL_DATA => true
     case _ => false
   }
   override def withMask = withData
@@ -378,6 +378,9 @@ class TransactionD extends TransactionABCD{
           }
           case Opcode.A.PUT_FULL_DATA | Opcode.A.PUT_PARTIAL_DATA => {
             opcode == Opcode.D.ACCESS_ACK
+          }
+          case Opcode.A.ARITHMETIC_DATA | Opcode.A.LOGICAL_DATA => {
+            opcode == Opcode.D.ACCESS_ACK_DATA
           }
           case Opcode.A.ACQUIRE_BLOCK => {
             opcode == Opcode.D.GRANT || opcode == Opcode.D.GRANT_DATA
