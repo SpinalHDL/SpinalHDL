@@ -26,7 +26,7 @@ case class SdramInterface(g : SdramLayout) extends Bundle with IMasterSlave{
   val DQM   = Bits(g.bytePerWord bits)
   val CASn  = Bool()
   val CKE   = Bool()
-  val CSn   = Bool()
+  val CSn   = Bits(g.csWidth bits)
   val RASn  = Bool()
   val WEn   = Bool()
 
