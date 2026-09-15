@@ -58,6 +58,8 @@ case class Decoder(upNode : NodeParameters,
     op(_.get.some, 4)
     op(_.putFull.some, 0)
     op(_.putPartial.some, 1)
+    op(_.arithmetic.some, 2)
+    op(_.logical.some, 3)
     op(e => e.acquireB.some || e.acquireT.some, 6)
     op(e => e.acquireB.some || e.acquireT.some, 7)
     val terms = ArrayBuffer[Masked]()
