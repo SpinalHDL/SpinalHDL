@@ -128,6 +128,22 @@ object inout extends IODirection {
   override def applyIt[T <: Data](data: T): T = data.asInOut()
 }
 
+/** An [[IODirection]] which does not apply `direction` to the port immediately,
+  * but hands a closure doing so to `defer`.
+  *
+  * Exposes the full [[IODirection]] declaration API, so every port form
+  * (`port`, `apply`, variadic, `cloneOf`, `Bool()`/`UInt()`/`Vec(...)`,
+  * [[HardType]] and [[SpinalEnum]]) stays available.
+  *
+  * @see [[spinal.lib.IMasterSlaveDirDeclare]]
+  */
+class IODirectionDeferred(direction: IODirection, defer: (() => Unit) => Unit) extends IODirection {
+  override def applyIt[T <: Data](data: T): T = {
+    defer(() => direction.port(data))
+    data
+  }
+}
+
 @deprecated("Use apply or port instead: 'val b = in(maybeNull)' or 'val rgb = in port maybeNull'")
 object inWithNull extends IODirection {
   override def applyIt[T <: Data](data: T): T = if (data != null) data.asInput() else data
