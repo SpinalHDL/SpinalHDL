@@ -281,6 +281,10 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case RoundType.ROUNDTOINF    => this.roundToInf(roundN, false).sat(satN + 1)
       case RoundType.ROUNDTOEVEN   => this.roundToEven(roundN, false).sat(satN + 1)
       case RoundType.ROUNDTOODD    => this.roundToOdd(roundN, false).sat(satN + 1)
+      case RoundType.NONE          => {
+        assert(roundN <= 0, "RoundType is NONE but rounding requires losing precision")
+        this << -roundN
+      }.sat(satN)
     }
   }
 
