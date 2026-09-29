@@ -8,6 +8,7 @@ import scala.collection.mutable.{HashMap, ListBuffer}
 
 trait BusIf extends BusIfBase {
   val bus: Bundle
+  /** Address space of this interface. Registers, FIFOs and RAMs must fit in it. */
   val sizeMap: SizeMapping
 
   type B <: this.type
