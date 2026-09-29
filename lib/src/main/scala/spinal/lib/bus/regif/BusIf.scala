@@ -8,6 +8,7 @@ import scala.collection.mutable.{HashMap, ListBuffer}
 
 trait BusIf extends BusIfBase {
   val bus: Bundle
+  val sizeMap: SizeMapping
 
   type B <: this.type
   private val SliceInsts = ListBuffer[RegSlice]()
@@ -97,10 +98,17 @@ trait BusIf extends BusIfBase {
   def addressUsed(addr: BigInt) = regAddressHistory.contains(addr)
   def getAddrMap = regAddressHistory.toList.map("0x" + _.hexString()) ++ regAddressMap.map(_.toString)
 
+  private def checkInSizeMap(sizemap: SizeMapping): Unit = {
+    if (sizemap.base < sizeMap.base || sizemap.end > sizeMap.end) {
+      SpinalError(s"${sizemap} exceeds the bus interface address space ${sizeMap}")
+    }
+  }
+
   private def attachAddr(addr: BigInt) = {
+    checkInSizeMap(SizeMapping(addr, wordAddressInc))
     val ret = regAddressMap.filter(t => (addr <= t.end) && (addr >= t.base))
     if (regAddressHistory.contains(addr)) {
-      SpinalError(s"Address: ${regPtr.hexString(16)} already used before, check please!")
+      SpinalError(s"Address: ${addr.hexString(16)} already used before, check please!")
     } else if (!ret.isEmpty) {
       SpinalError(s"${ret.head} overlap with 0x${addr.hexString()}")
     } else {
@@ -109,6 +117,7 @@ trait BusIf extends BusIfBase {
   }
 
   private def attachAddr(sizemap: SizeMapping) = {
+    checkInSizeMap(sizemap)
     val ret = regAddressMap.filter(_.overlap(sizemap))
     val t = regAddressHistory.filter(t => (t <= sizemap.end) && (t >= sizemap.base))
     if (!ret.isEmpty) {
@@ -179,7 +188,7 @@ trait BusIf extends BusIfBase {
   def createReg(name: String, addr: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null) = {
     val ret = new RegInst(name, addr, doc, this, sec, grp)
     SliceInsts += ret
-    attachAddr(regPtr)
+    attachAddr(addr)
     ret
   }
 
