@@ -111,6 +111,7 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val hartSelLo = factory.createReadAndWrite(UInt(10 bits), 0x10, 16) init(0)
       val hartSelHi = factory.createReadAndWrite(UInt(10 bits), 0x10, 6) init(0)
       val hartSel = hartSelHi @@ hartSelLo
+      val hartSelExists = hartSel < p.harts
       val haltSet = factory.setOnSet(False, 0x10, 31)
       val haltClear = factory.setOnClear(False, 0x10, 31)
       val resumeReq = factory.setOnSet(False, 0x10, 30) clearWhen(haltSet)
@@ -404,7 +405,9 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       IDLE.whenIsActive{
         executionCounter := 0
         when(request && abstractcs.noError) {
-          when(!io.harts.map(_.halted).read(dmcontrol.hartSel.resized)){
+          // hartSel.resized aliases a nonexistent hart onto an existing one, while toHarts is only
+          // delivered to the hart matching the full hartSel, so the command would never complete.
+          when(!dmcontrol.hartSelExists || !io.harts.map(_.halted).read(dmcontrol.hartSel.resized)){
             abstractcs.cmdErr := DebugModuleCmdErr.HALT_RESUME
           } otherwise {
             selected.hart := dmcontrol.hartSel.resized
