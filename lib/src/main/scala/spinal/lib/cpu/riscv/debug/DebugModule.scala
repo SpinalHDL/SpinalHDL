@@ -180,17 +180,20 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       val authenticated = factory.read(True, 0x11, 7)
 
       val anyHalted  = factory.read(harts.map(h =>  h.sel && h.halted     ).orR , 0x11, 8)
-      val allHalted  = factory.read(harts.map(h => !h.sel || h.halted     ).andR, 0x11, 9)
+      // Without hasel exactly one hart is selected, so the all* flags must be 0 when it doesn't exist:
+      // a nonexistent hart is in the nonexistent state only, not also halted/running/unavailable.
+      def allOf(f : Bool) = dmcontrol.hartSelExists && f
+      val allHalted  = factory.read(allOf(harts.map(h => !h.sel || h.halted     ).andR), 0x11, 9)
       val anyRunning = factory.read(harts.map(h =>  h.sel && h.running    ).orR , 0x11, 10)
-      val allRunning = factory.read(harts.map(h => !h.sel || h.running    ).andR, 0x11, 11)
+      val allRunning = factory.read(allOf(harts.map(h => !h.sel || h.running    ).andR), 0x11, 11)
       val anyUnavail = factory.read(harts.map(h =>  h.sel && h.unavailable).orR , 0x11, 12)
-      val allUnavail = factory.read(harts.map(h => !h.sel || h.unavailable).andR, 0x11, 13)
+      val allUnavail = factory.read(allOf(harts.map(h => !h.sel || h.unavailable).andR), 0x11, 13)
       val anyNonExistent = factory.read(dmcontrol.hartSel >= p.harts, 0x11, 14)
       val allNonExistent = factory.read(anyNonExistent, 0x11, 15)
       val anyResumeAck = factory.read(harts.map(h =>  h.sel && h.resumeReady).orR, 0x11, 16)
-      val allResumeAck = factory.read(harts.map(h => !h.sel || h.resumeReady).andR, 0x11, 17)
+      val allResumeAck = factory.read(allOf(harts.map(h => !h.sel || h.resumeReady).andR), 0x11, 17)
       val anyHaveReset = factory.read(harts.map(h =>  h.sel && h.haveReset).orR, 0x11, 18)
-      val allHaveReset = factory.read(harts.map(h => !h.sel || h.haveReset).andR, 0x11, 19)
+      val allHaveReset = factory.read(allOf(harts.map(h => !h.sel || h.haveReset).andR), 0x11, 19)
 
 //      val hasresethaltreq = factory.read(True, 0x11, 5)
       val impebreak = factory.read(True, 0x11, 22)
