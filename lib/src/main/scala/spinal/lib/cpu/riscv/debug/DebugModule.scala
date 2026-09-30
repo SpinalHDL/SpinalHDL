@@ -147,7 +147,8 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
       def unavailable = bus.unavailable
       def haveReset = bus.haveReset
       bus.dmToHart << toHarts.throwWhen(toHarts.op =/= DebugDmToHartOp.DATA && !sel)
-      bus.ackReset := RegNext(sel && dmcontrol.ackhavereset)
+      // Like haltreq/resumereq, ackhavereset applies to the hartsel value written in the same access.
+      bus.ackReset := RegNext(dmcontrol.hartSelNew === hartId && dmcontrol.ackhavereset)
     }
 
     val selected = new Area{
