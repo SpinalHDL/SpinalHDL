@@ -32,14 +32,18 @@ class WishboneSlaveFactory(bus: Wishbone, reg_feedback: Boolean = true, errorOnU
   val doWrite = bus.doWrite.allowPruning()
   val doRead = bus.doRead.allowPruning()
 
+  // Classic: set the cycle after a request and cleared after one cycle, so every transfer gets exactly one wait
+  // state and the registered response always belongs to the current transfer.
+  val classicAck = (reg_feedback && !bus.config.isPipelined) generate (Reg(Bool()) init(False))
+
   if(!reg_feedback){
     bus.ACK := bus.STB && bus.CYC                 // Acknowledge as fast as possible.
   } else if(bus.config.isPipelined){
-    val pip_reg = RegNext(bus.STB) init(False)
+    val pip_reg = RegNext(bus.STB && bus.CYC) init(False)
     bus.ACK := pip_reg || (bus.STALL && bus.CYC)  // Pipelined: Acknowledge at the next clock cycle.
   } else {
-    val reg_reg = RegNext(bus.STB && bus.CYC) init(False)
-    bus.ACK := reg_reg && bus.STB                 // Classic: Acknowledge at the next clock cycle.
+    classicAck := bus.STB && bus.CYC && !classicAck
+    bus.ACK := classicAck && bus.STB && bus.CYC   // Classic: Acknowledge at the next clock cycle.
   }
 
   val byteAddress = bus.byteAddress(AddressGranularity.WORD)
@@ -108,14 +112,14 @@ class WishboneSlaveFactory(bus: Wishbone, reg_feedback: Boolean = true, errorOnU
           bus.ACK := False
         }
       } else if(bus.config.isPipelined) {
-        val pip_err = RegNext(bus.STB && errCondition) init(False)
+        val pip_err = RegNext(bus.STB && bus.CYC && errCondition) init(False)
         when(pip_err) {
           bus.ERR := True
           bus.ACK := False
         }
       } else {
-        val reg_err = RegNext(bus.STB && bus.CYC && errCondition) init(False)
-        when(reg_err && bus.STB) {
+        val reg_err = RegNext(bus.STB && bus.CYC && !classicAck && errCondition) init(False)
+        when(reg_err && bus.STB && bus.CYC) {
           bus.ERR := True
           bus.ACK := False
         }
