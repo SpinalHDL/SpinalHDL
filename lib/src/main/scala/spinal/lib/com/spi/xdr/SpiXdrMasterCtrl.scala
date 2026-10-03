@@ -16,6 +16,9 @@ import spinal.lib.io.TriState
 import spinal.lib.bus.tilelink
 
 import scala.collection.mutable.ArrayBuffer
+import spinal.lib.bus.amba4.axi.Axi4Shared
+import spinal.lib.bus.amba4.axi.Axi4Config
+import spinal.lib.bus.amba4.axi.Axi4.resp._
 
 case class XdrOutput(rate : Int) extends Bundle with IMasterSlave{
   val write = Bits(rate bits)
@@ -475,6 +478,60 @@ object SpiXdrMasterCtrl {
       rsp.ready := bus.d.ready
 
       bus
+    }
+
+    def fromAxi4Shared(p: Axi4Config) = {
+      val axi = Axi4Shared(p)
+
+      cmd.valid := axi.arw.valid && !axi.arw.write
+      cmd.address := axi.arw.addr
+      cmd.length := ((axi.arw.len + 1) << 2) - 1
+      axi.arw.ready := cmd.ready && !axi.arw.write
+
+      val buffer  = Reg(Bits(32 bits))
+      val counter = Reg(UInt(2 bits)) init(0)
+      val lenReg  = Reg(UInt(p.lenWidth bits))
+      val beatCnt = Reg(UInt(p.lenWidth bits)) init(0)
+      val rValidReg = Reg(Bool()) init(False)
+      val idReg = RegNextWhen(axi.arw.id, axi.arw.fire && !axi.arw.write)
+
+      when(axi.arw.fire && !axi.arw.write) {
+        lenReg  := axi.arw.len
+        beatCnt := 0
+      }
+
+      rsp.ready := !axi.r.valid || axi.r.ready
+      axi.r.valid := rValidReg
+      axi.r.data := buffer
+      if (p.useId) {
+        axi.r.id := idReg
+        axi.b.id := axi.arw.id
+      }
+      if (p.useResp) axi.r.resp := OKAY
+      if (p.useLast) axi.r.last := (beatCnt === lenReg)
+      axi.w.ready := False
+      axi.b.valid := False
+      if (p.useResp) axi.b.resp := SLVERR
+
+      when(rsp.fire) {
+        counter := counter + 1
+
+        switch(counter) {
+          is(0) { buffer(7 downto 0)   := rsp.fragment }
+          is(1) { buffer(15 downto 8)  := rsp.fragment }
+          is(2) { buffer(23 downto 16) := rsp.fragment }
+          is(3) { buffer(31 downto 24) := rsp.fragment
+            rValidReg := True
+          }
+        }
+      }
+
+      when(axi.r.fire) {
+        rValidReg := False
+        beatCnt := beatCnt + 1
+      }
+
+      axi
     }
   }
 
