@@ -447,22 +447,29 @@ class AFix(val maxRaw: BigInt, val minRaw: BigInt, val exp: Int) extends MultiDa
   }
 
   /**
-   * Divides `this` by the right hand side AFix value expanding ranges as necessary
+   * Divides `this` by the right hand side AFix value
+   *
+   * Does not give any additional fractional bits; it is recommended to pad the dividend with zero bits on the right before use.
+   *
    * @param right Value to divide `this` by
    * @return Quotient
    */
   def /(right: AFix): AFix = {
     SpinalWarning("Fixed-point division is not finalized and not recommended for use!\n" + ScalaLocated.long)
-    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    val ret = new AFix(lMax.max(rMax), lMin.min(rMin), this.exp + right.exp)
+    val (xMin, xMax) = if (right.signed) {
+      (minRaw.min(-maxRaw), maxRaw.max(-minRaw))
+    } else {
+      (minRaw, maxRaw)
+    }
+    val ret = new AFix(xMax, xMin, this.exp - right.exp)
 
-    val (_l, _r) = alignLR(this, right)
-    ret.raw := trim(((this.signed, right.signed) match {
+    val (_l, _r) = (this.raw, right.raw)
+    ret.raw := ((this.signed, right.signed) match {
       case (false, false) => (_l.asUInt          / _r.asUInt).resize(ret.bitWidth)
       case (false,  true) => (_l.asUInt.intoSInt / _r.asSInt).resize(ret.bitWidth)
       case ( true, false) => (_l.asSInt          / _r.asUInt.intoSInt).resize(ret.bitWidth)
       case ( true,  true) => (_l.asSInt          / _r.asSInt).resize(ret.bitWidth)
-    }).asBits, ret.bitWidth)
+    }).asBits
 
     ret
   }
