@@ -1,8 +1,6 @@
 import random
-from queue import Queue
 
 import cocotb
-from cocotb.result import TestFailure
 from cocotb.triggers import RisingEdge
 
 from cocotblib.misc import randSignal, assertEquals, truncUInt, ClockDomainAsyncReset
@@ -13,7 +11,8 @@ class UutModel:
         self.dut = dut
         self.regA = 44
         self.regB = 44
-        self.readAddresses = Queue()
+        self.readAddress = None
+        self.readResponse = None
         cocotb.fork(self.loop())
 
     @cocotb.coroutine
@@ -22,17 +21,34 @@ class UutModel:
         while True:
             yield RisingEdge(dut.clk)
             assertEquals(dut.io_nonStopWrited,truncUInt(int(dut.io_bus_w_payload_data) >> 4,dut.io_nonStopWrited),"io_nonStopWrited")
-            # when read to addr=2 and write to addr=7 happen at the same cycle
+            if int(dut.reset):
+                self.regA = 44
+                self.regB = 44
+                self.readAddress = None
+                self.readResponse = None
+                continue
+
+            responseValid = self.readResponse is not None
+            responseReady = int(dut.io_bus_r_ready) == 1
+            assertEquals(dut.io_bus_ar_ready,self.readAddress is None,"io_bus_ar_ready")
+            assertEquals(dut.io_bus_r_valid,responseValid,"io_bus_r_valid")
+            if responseValid:
+                assertEquals(dut.io_bus_r_payload_data,self.readResponse,"io_bus_r_payload_data")
+                assertEquals(dut.io_bus_r_payload_resp,0,"io_bus_r_payload_resp")
+                if responseReady:
+                    self.readResponse = None
+
+            # when read capture at addr=2 and write to addr=7 happen at the same cycle
             # the former takes precedence
             regBassigned = False
-            if int(dut.io_bus_r_valid) & int(dut.io_bus_r_ready) == 1:
-                if self.readAddresses.empty():
-                    raise TestFailure("FAIL readAddresses is empty")
-                addr = self.readAddresses.get()
+            if self.readAddress is not None and (not responseValid or responseReady):
+                addr = self.readAddress
+                self.readAddress = None
+                self.readResponse = 0
                 if addr == 9*4:
-                    assertEquals(dut.io_bus_r_payload_data,self.regA << 10,"io_bus_r_payload_data")
+                    self.readResponse = self.regA << 10
                 if addr == 7*4:
-                    assertEquals(dut.io_bus_r_payload_data,self.regB << 10,"io_bus_r_payload_data")
+                    self.readResponse = self.regB << 10
 
                 if addr == 2*4:
                     self.regB = 33
@@ -40,8 +56,7 @@ class UutModel:
 
 
             if int(dut.io_bus_ar_valid) & int(dut.io_bus_ar_ready) == 1:
-                addr = int(dut.io_bus_ar_payload_addr)
-                self.readAddresses.put(addr)
+                self.readAddress = int(dut.io_bus_ar_payload_addr)
 
             if (int(dut.io_bus_aw_valid) & int(dut.io_bus_aw_ready) & int(dut.io_bus_w_valid) & int(dut.io_bus_w_ready)) == 1:
                 addr = int(dut.io_bus_aw_payload_addr)
@@ -73,6 +88,16 @@ def test1(dut):
         randSignal(dut.io_bus_b_ready)
         randSignal(dut.io_bus_r_ready)
         yield RisingEdge(dut.clk)
+
+    dut.io_bus_aw_valid = 0
+    dut.io_bus_w_valid = 0
+    dut.io_bus_ar_valid = 0
+    dut.io_bus_b_ready = 1
+    dut.io_bus_r_ready = 1
+    for i in range(6):
+        yield RisingEdge(dut.clk)
+    assert uutModel.readAddress is None
+    assert uutModel.readResponse is None
 
 
 
