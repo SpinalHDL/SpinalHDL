@@ -40,7 +40,10 @@ class Axi4StreamSimpleWidthAdapter(inConfig: Axi4StreamConfig, outWidth: Int) ex
     io.axis_m.data := (B((0 until padBytes*8) -> False) ## io.axis_s.data)(counter*outWidth*8, outWidth*8 bit)
     inConfig.useKeep generate { io.axis_m.keep := (B((0 until padBytes) -> False) ## io.axis_s.keep)(counter*outWidth, outWidth bit) }
     inConfig.useStrb generate { io.axis_m.strb := (B((0 until padBytes) -> False) ## io.axis_s.strb)(counter*outWidth, outWidth bit) }
-    inConfig.useUser generate { io.axis_m.user := (B((0 until padBytes*inConfig.userWidth) -> False) ## io.axis_s.user)(counter*outWidth*inConfig.userWidth, outWidth*inConfig.userWidth bit) }
+    (inConfig.useUser && inConfig.isUserPerByte) generate {
+      io.axis_m.user := (B((0 until padBytes*inConfig.userWidth) -> False) ## io.axis_s.user)(counter*outWidth*inConfig.userWidth, outWidth*inConfig.userWidth bit)
+    }
+    (inConfig.useUser && !inConfig.isUserPerByte) generate { io.axis_m.user := io.axis_s.user }
     inConfig.useDest generate { io.axis_m.dest := io.axis_s.dest }
     inConfig.useId   generate { io.axis_m.id := io.axis_s.id }
     inConfig.useLast generate { io.axis_m.last := io.axis_s.last && counter.willOverflowIfInc }
@@ -76,7 +79,14 @@ class Axi4StreamSimpleWidthAdapter(inConfig: Axi4StreamConfig, outWidth: Int) ex
         buffer.data(counter*inWidth*8, inWidth*8 bit) := io.axis_s.data
         inConfig.useKeep generate { buffer.keep(counter*inWidth, inWidth bit) := io.axis_s.keep }
         inConfig.useStrb generate { buffer.strb(counter*inWidth, inWidth bit) := io.axis_s.strb }
-        inConfig.useUser generate { buffer.user(counter*inWidth*inConfig.userWidth, inWidth*inConfig.userWidth bit) := io.axis_s.user }
+        (inConfig.useUser && inConfig.isUserPerByte) generate {
+          buffer.user(counter*inWidth*inConfig.userWidth, inWidth*inConfig.userWidth bit) := io.axis_s.user
+        }
+        (inConfig.useUser && !inConfig.isUserPerByte) generate {
+          when(start) {
+            buffer.user := io.axis_s.user
+          }
+        }
       }
 
       inConfig.useLast generate {
