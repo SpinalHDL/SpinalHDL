@@ -68,7 +68,7 @@ class RegIfExample2 extends Component {
   val io = new Bundle {
     val apb = slave(Apb3(Apb3Config(16, 32)))
   }
-  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
+  val busif = Apb3BusInterface(io.apb, (0x000, 1 KiB))
   val M_REG0  = busif.newReg(doc="Word 0")
   val M_REG1  = busif.newReg(doc="Word 1")
   val M_REG2  = busif.newReg(doc="Word 2")
