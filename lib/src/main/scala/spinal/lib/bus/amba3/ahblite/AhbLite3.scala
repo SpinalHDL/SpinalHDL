@@ -123,7 +123,7 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
   val HREADYOUT = Bool()
   val HRESP     = Bool()
 
-  def setOKEY  = HRESP := False
+  def setOKAY  = HRESP := False
   def setERROR = HRESP := True
 
   override def asMaster(): Unit = {
@@ -131,7 +131,7 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
     in(HREADYOUT, HRESP, HRDATA)
   }
 
-  def OKEY   = !HRESP
+  def OKAY   = !HRESP
   def ERROR  = HRESP
   def isIdle = HTRANS === AhbLite3.IDLE
 

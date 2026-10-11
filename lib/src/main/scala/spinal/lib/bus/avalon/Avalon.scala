@@ -138,7 +138,7 @@ case class AvalonMM(config : AvalonMMConfig) extends Bundle with IMasterSlave{
   def isReady = (if(useWaitRequestn) waitRequestn else True)
   def fire = isValid && isReady
 
-  def setOKEY : Unit = response := AvalonMM.Response.OKAY
+  def setOKAY : Unit = response := AvalonMM.Response.OKAY
 
   def setSLVERR: Unit = response := AvalonMM.Response.SLAVEERROR
 

@@ -43,7 +43,7 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
     }elsewhen (readErrorFlag && doRead) {
       bus.setSLVERR
     }otherwise {
-      bus.setOKEY
+      bus.setOKAY
     }
   }
 
