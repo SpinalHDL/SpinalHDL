@@ -309,7 +309,9 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
 
         // sbdata0 read
         factory.onRead(0x3c) {
-          when(sysBusReady && sbcs.sbreadondata) {
+          when(sbcs.sbbusy) {
+            sbcs.sbbusyerror := True
+          } elsewhen(sysBusReady && sbcs.sbreadondata) {
             when(sbcs.sbaccess =/= 2) {
               // 32 bit accesses only
               sbcs.sberror := 4
