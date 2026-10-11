@@ -271,9 +271,9 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         factory.onWrite(0x39) {
           when(sbcs.sbbusy) {
             sbcs.sbbusyerror := True
-          } elsewhen(sysBusReady) {
+          } otherwise {
             sbaddress0 := io.ctrl.cmd.payload.data.asUInt
-            when(sbcs.sbreadonaddr) {
+            when(sysBusReady && sbcs.sbreadonaddr) {
               when(sbcs.sbaccess =/= 2) {
                 // 32 bit accesses only
                 sbcs.sberror := 4
