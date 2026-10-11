@@ -277,6 +277,8 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
               when(sbcs.sbaccess =/= 2) {
                 // 32 bit accesses only
                 sbcs.sberror := 4
+              } elsewhen(io.ctrl.cmd.payload.data(1 downto 0) =/= 0) {
+                sbcs.sberror := 3
               } otherwise {
                 sysBusBusy := True
                 sysBusWrite := False
@@ -294,6 +296,8 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
             when(sbcs.sbaccess =/= 2) {
               // 32 bit accesses only
               sbcs.sberror := 4
+            } elsewhen(sbaddress0(1 downto 0) =/= 0) {
+              sbcs.sberror := 3
             } otherwise {
               sbdata0 := io.ctrl.cmd.payload.data
               sysBusBusy := True
@@ -309,6 +313,8 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
             when(sbcs.sbaccess =/= 2) {
               // 32 bit accesses only
               sbcs.sberror := 4
+            } elsewhen(sbaddress0(1 downto 0) =/= 0) {
+              sbcs.sberror := 3
             } otherwise {
               sysBusBusy := True
               sysBusWrite := False
