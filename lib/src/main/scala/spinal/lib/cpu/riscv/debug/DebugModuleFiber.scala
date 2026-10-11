@@ -168,7 +168,7 @@ class DebugModuleFiber() extends Area{
       d.ready := True
       sb.rsp.valid := d.valid
       sb.rsp.data := d.data
-      sb.rsp.error := False
+      sb.rsp.error := d.denied || d.corrupt
     }
   }
 }
