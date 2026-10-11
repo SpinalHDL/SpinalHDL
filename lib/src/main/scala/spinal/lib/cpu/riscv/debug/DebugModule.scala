@@ -250,16 +250,16 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
 
         when(sysBusBusy && io.sysBus.cmd.fire) {
           sysBusCmdValid := False
-          when(sysBusWrite) {
-            sysBusBusy := False
-          }
         }
 
-        // bus response
-        when(io.sysBus.rsp.fire) {
-          sbdata0 := io.sysBus.rsp.data
+        // bus response, it completes writes as well as reads
+        when(sysBusBusy && io.sysBus.rsp.fire) {
           when(io.sysBus.rsp.error) {
             sbcs.sberror := 7
+          } otherwise {
+            when(!sysBusWrite) {
+              sbdata0 := io.sysBus.rsp.data
+            }
           }
           sysBusBusy := False
         }
