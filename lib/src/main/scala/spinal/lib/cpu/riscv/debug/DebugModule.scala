@@ -260,6 +260,9 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
             when(!sysBusWrite) {
               sbdata0 := io.sysBus.rsp.data
             }
+            when(sbcs.sbautoincrement) {
+              sbaddress0 := sbaddress0 + 4
+            }
           }
           sysBusBusy := False
         }
@@ -310,9 +313,6 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
               sysBusBusy := True
               sysBusWrite := False
               sysBusCmdValid := True
-              when(sbcs.sbautoincrement) {
-                sbaddress0 := sbaddress0 + 4
-              }
             }
           }
         }
