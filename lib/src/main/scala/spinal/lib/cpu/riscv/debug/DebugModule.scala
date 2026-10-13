@@ -250,16 +250,19 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
 
         when(sysBusBusy && io.sysBus.cmd.fire) {
           sysBusCmdValid := False
-          when(sysBusWrite) {
-            sysBusBusy := False
-          }
         }
 
-        // bus response
-        when(io.sysBus.rsp.fire) {
-          sbdata0 := io.sysBus.rsp.data
+        // bus response, it completes writes as well as reads
+        when(sysBusBusy && io.sysBus.rsp.fire) {
           when(io.sysBus.rsp.error) {
             sbcs.sberror := 7
+          } otherwise {
+            when(!sysBusWrite) {
+              sbdata0 := io.sysBus.rsp.data
+            }
+            when(sbcs.sbautoincrement) {
+              sbaddress0 := sbaddress0 + 4
+            }
           }
           sysBusBusy := False
         }
@@ -268,12 +271,14 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
         factory.onWrite(0x39) {
           when(sbcs.sbbusy) {
             sbcs.sbbusyerror := True
-          } elsewhen(sysBusReady) {
+          } otherwise {
             sbaddress0 := io.ctrl.cmd.payload.data.asUInt
-            when(sbcs.sbreadonaddr) {
+            when(sysBusReady && sbcs.sbreadonaddr) {
               when(sbcs.sbaccess =/= 2) {
                 // 32 bit accesses only
                 sbcs.sberror := 4
+              } elsewhen(io.ctrl.cmd.payload.data(1 downto 0) =/= 0) {
+                sbcs.sberror := 3
               } otherwise {
                 sysBusBusy := True
                 sysBusWrite := False
@@ -291,6 +296,8 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
             when(sbcs.sbaccess =/= 2) {
               // 32 bit accesses only
               sbcs.sberror := 4
+            } elsewhen(sbaddress0(1 downto 0) =/= 0) {
+              sbcs.sberror := 3
             } otherwise {
               sbdata0 := io.ctrl.cmd.payload.data
               sysBusBusy := True
@@ -302,17 +309,18 @@ case class DebugModule(p : DebugModuleParameter) extends Component{
 
         // sbdata0 read
         factory.onRead(0x3c) {
-          when(sysBusReady && sbcs.sbreadondata) {
+          when(sbcs.sbbusy) {
+            sbcs.sbbusyerror := True
+          } elsewhen(sysBusReady && sbcs.sbreadondata) {
             when(sbcs.sbaccess =/= 2) {
               // 32 bit accesses only
               sbcs.sberror := 4
+            } elsewhen(sbaddress0(1 downto 0) =/= 0) {
+              sbcs.sberror := 3
             } otherwise {
               sysBusBusy := True
               sysBusWrite := False
               sysBusCmdValid := True
-              when(sbcs.sbautoincrement) {
-                sbaddress0 := sbaddress0 + 4
-              }
             }
           }
         }
