@@ -8,6 +8,9 @@ object AxiLite4SlaveFactory {
   def apply(bus: AxiLite4) = new AxiLite4SlaveFactory(bus)
 }
 
+/** AXI-Lite slave factory with registered read responses.
+  * Read side effects occur when the response is captured, which may precede its acceptance by the master.
+  */
 class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) extends BusSlaveFactoryDelayed{
 
   val readHaltRequest = False
@@ -19,7 +22,8 @@ class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) ex
 
   val readDataStage = bus.readCmd.halfPipe()
   val readRsp = AxiLite4R(bus.config)
-  bus.readRsp << readDataStage.haltWhen(readHaltRequest).translateWith(readRsp)
+  val readResponse = readDataStage.haltWhen(readHaltRequest).translateWith(readRsp)
+  bus.readRsp << readResponse.stage()
 
   when(writeErrorFlag) {
     writeRsp.setSLVERR()
@@ -48,7 +52,8 @@ class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) ex
   override def writeHalt(): Unit = writeHaltRequest := True
 
   val writeOccur = writeJoinEvent.fire
-  val readOccur = bus.readRsp.fire
+  // Commit while the decoder still selects this request, when its response enters the register.
+  val readOccur = readResponse.fire
 
   override def build(): Unit = {
     super.doNonStopWrite(bus.writeData.data)
