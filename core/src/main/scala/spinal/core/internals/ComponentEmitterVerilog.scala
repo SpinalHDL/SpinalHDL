@@ -820,19 +820,29 @@ class ComponentEmitterVerilog(
               b ++= s"${tab}  `endif\n"
               b ++= s"${tab}`endif\n"
             } else {
-              val severity = assertStatement.severity match {
-                case `NOTE` => "$info"
-                case `WARNING` => "$warning"
-                case `ERROR` => "$error"
-                case `FAILURE` => "$fatal"
-              }
-              if (assertStatement.kind == AssertStatementKind.ASSERT && !spinalConfig.formalAsserts) {
-                val zeroTimeCond = if (spinalConfig.noAssertAtTimeZero) " || $realtime == 0" else ""
-                b ++= s"${tab}$keyword(${cond}${zeroTimeCond}) else begin\n"
-                val frontStringWithPrefix = if (includeLocation) s"$locationPrefix$frontString" else frontString
-                b ++= s"""${tab}  $severity("$frontStringWithPrefix"$backString); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"""
-                if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
-                b ++= s"${tab}end\n"
+              if (!spinalConfig.formalAsserts) {
+                b ++= s"${tab}`ifndef SYNTHESIS\n"
+                b ++= s"${tab}  `ifdef FORMAL\n"
+                /* Emit actual assume/assert/cover statements */
+                b ++= s"${tab}    $keyword($cond); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
+                b ++= s"${tab}  `else\n"
+                if (assertStatement.kind == AssertStatementKind.ASSERT) {
+                  /* Use SystemVerilog "severity tasks" */
+                  val severity = assertStatement.severity match {
+                    case `NOTE` => "$info"
+                    case `WARNING` => "$warning"
+                    case `ERROR` => "$error"
+                    case `FAILURE` => "$fatal"
+                  }
+                  val zeroTimeCond = if (spinalConfig.noAssertAtTimeZero) " || $realtime == 0" else ""
+                  b ++= s"${tab}    $keyword(${cond}${zeroTimeCond}) else begin\n"
+                  val frontStringWithPrefix = if (includeLocation) s"$locationPrefix$frontString" else frontString
+                  b ++= s"""${tab}      $severity("$frontStringWithPrefix"$backString); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"""
+                  if (assertStatement.severity == `FAILURE`) b ++= tab + "      $finish;\n"
+                  b ++= s"${tab}    end\n"
+                }
+                b ++= s"${tab}  `endif\n"
+                b ++= s"${tab}`endif\n"
               } else {
                 b ++= s"${tab}$keyword($cond); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
               }
