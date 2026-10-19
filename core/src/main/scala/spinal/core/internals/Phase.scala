@@ -1617,9 +1617,11 @@ class PhaseDeviceDefault extends PhaseDeviceHandler{
   }
 
   override def onMemDontCareOrdering(config : SpinalConfig, mem: Mem[_]) = {
-    if(config.device.vendor == Device.ALTERA.vendor){
+    if(config.device.vendor == Device.ALTERA.vendor) {
       mem.addAttribute("ramstyle", "no_rw_check")
-    }
+    } else if (config.device.vendor == Device.COLOGNE_CHIP.vendor) {
+      mem.addAttribute("no_rw_check")
+    }    
   }
   override def onCrossClockMaxDelay(config: SpinalConfig, sources: Iterable[BaseType], target: BaseType) = {
     if(config.device.isVendorDefault || config.device.vendor == Device.ALTERA.vendor){
