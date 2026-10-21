@@ -23,7 +23,7 @@ class Axi4StreamSparseCompactor(config: Axi4StreamConfig) extends Component {
   val invalidByte_data = B(0, 8 bit)
   val invalidByte_keep = False
   val invalidByte_strb = config.useStrb generate False
-  val invalidByte_user = config.useUser generate B(0, config.userWidth bit)
+  val invalidByte_user = (config.useUser && config.isUserPerByte) generate B(0, config.userWidth bit)
 
   val outStage = inStage.map(compactAxisBundle(_)).pipelined(m2s = true, s2m = true, halfRate = false)
 
@@ -86,13 +86,15 @@ class Axi4StreamSparseCompactor(config: Axi4StreamConfig) extends Component {
       val mux_data = invalidByte_data ## bundle.data
       val mux_keep = invalidByte_keep ## bundle.keep
       val mux_strb = bundle.config.useStrb generate { invalidByte_strb ## bundle.strb }
-      val mux_user = bundle.config.useUser generate { invalidByte_user ## bundle.user }
+      val mux_user = (bundle.config.useUser && bundle.config.isUserPerByte) generate { invalidByte_user ## bundle.user }
 
       outBundle.data.subdivideIn(dataWidth slices)(idx) := mux_data.subdivideIn(dataWidth+1 slices)(index)
       outBundle.keep.subdivideIn(dataWidth slices)(idx) := mux_keep.subdivideIn(dataWidth+1 slices)(index)
       bundle.config.useStrb generate { outBundle.strb.subdivideIn(dataWidth slices)(idx) := mux_strb.subdivideIn(dataWidth+1 slices)(index) }
-      bundle.config.useUser generate { outBundle.user.subdivideIn(dataWidth slices)(idx) := mux_user.subdivideIn(dataWidth+1 slices)(index) }
+      (bundle.config.useUser && bundle.config.isUserPerByte) generate { outBundle.user.subdivideIn(dataWidth slices)(idx) := mux_user.subdivideIn(dataWidth+1 slices)(index) }
     }
+
+    (bundle.config.useUser && !bundle.config.isUserPerByte) generate { outBundle.user := bundle.user }
 
     bundle.config.useId generate { outBundle.id := bundle.id }
     bundle.config.useDest generate { outBundle.dest := bundle.dest }
