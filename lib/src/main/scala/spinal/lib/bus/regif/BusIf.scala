@@ -100,7 +100,7 @@ trait BusIf extends BusIfBase {
   private def attachAddr(addr: BigInt) = {
     val ret = regAddressMap.filter(t => (addr <= t.end) && (addr >= t.base))
     if (regAddressHistory.contains(addr)) {
-      SpinalError(s"Address: ${regPtr.hexString(16)} already used before, check please!")
+      SpinalError(s"Address: ${addr.hexString(16)} already used before, check please!")
     } else if (!ret.isEmpty) {
       SpinalError(s"${ret.head} overlap with 0x${addr.hexString()}")
     } else {
@@ -179,7 +179,7 @@ trait BusIf extends BusIfBase {
   def createReg(name: String, addr: BigInt, doc: String, sec: Secure = null, grp: GrpTag = null) = {
     val ret = new RegInst(name, addr, doc, this, sec, grp)
     SliceInsts += ret
-    attachAddr(regPtr)
+    attachAddr(addr)
     ret
   }
 
