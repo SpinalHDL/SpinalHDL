@@ -23,13 +23,13 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - name: Get submodules
       shell: bash
       run: git submodule update --init --recursive
     - run: sbt ++${{ inputs.scala_version }} compile
     - run: sbt ++${{ inputs.scala_version }} Test/compile
-    - uses: actions/cache/save@v3
+    - uses: actions/cache/save@v6
       with:
         path: |
           **/
@@ -42,7 +42,7 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} idslplugin/test
 
@@ -53,7 +53,7 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} idslpayload/test
 
@@ -64,7 +64,7 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.core.* -- -l spinal.tester.formal -l spinal.tester.psl'
 
@@ -75,7 +75,7 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.core.* -- -n spinal.tester.formal'
 
@@ -86,7 +86,7 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.core.* -- -n spinal.tester.psl'
 
@@ -97,7 +97,7 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} sim/test
 
@@ -110,7 +110,7 @@ jobs:
     env:
       VM_DEFAULT_RULES: "0"  # Disable precompiled header files
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.tester.* -- -l spinal.tester.formal -l spinal.tester.psl'
 
@@ -121,7 +121,7 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.tester.* -- -n spinal.tester.formal'
 
@@ -132,7 +132,7 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.tester.* -- -n spinal.tester.psl'
 
@@ -145,7 +145,7 @@ jobs:
     env:
       VM_DEFAULT_RULES: "0"  # Disable precompiled header files
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.lib.* -- -l spinal.tester.formal -l spinal.tester.psl'
 
@@ -156,7 +156,7 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.lib.* -- -n spinal.tester.formal'
 
@@ -167,6 +167,6 @@ jobs:
     container:
       image: ghcr.io/spinalhdl/docker:${{ inputs.docker_image_version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
     - uses: ./.github/actions/get-compiled
     - run: sbt ++${{ inputs.scala_version }} 'tester/testOnly spinal.lib.* -- -n spinal.tester.psl'

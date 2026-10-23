@@ -9,7 +9,7 @@ runs:
       run: git submodule update --init --recursive
 
     - id: cache-tools
-      uses: actions/cache@v3
+      uses: actions/cache@v6
       with:
         path: |
           ~/tools
