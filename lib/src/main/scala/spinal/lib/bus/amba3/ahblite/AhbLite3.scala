@@ -158,12 +158,12 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
     val mask = Bits(config.bytePerWord bits)
     mask := B(0)
     
-    for (sizeExp <- 0 until log2Up(config.bytePerWord)) {
+    for (sizeExp <- 0 to log2Up(config.bytePerWord)) {
       when (HSIZE === sizeExp) {
         val size = 1 << sizeExp
         
         for (offset <- 0 until config.bytePerWord) {
-          mask(offset) := HADDR(config.symboleRange) === (offset & (size - 1))
+          mask(offset) := HADDR(config.symboleRange) === (offset & ~(size - 1))
         }
       }
     }
