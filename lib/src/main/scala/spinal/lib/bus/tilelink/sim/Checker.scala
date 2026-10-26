@@ -95,12 +95,51 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
     }
   }
 
+  private def unsignedFromLittleEndian(bytes: Array[Byte]): BigInt = BigInt(1, bytes.reverse)
+  private def signedFromLittleEndian(bytes: Array[Byte]): BigInt = {
+    val unsigned = unsignedFromLittleEndian(bytes)
+    val bits = bytes.length*8
+    if(unsigned.testBit(bits-1)) unsigned - (BigInt(1) << bits) else unsigned
+  }
+  private def littleEndianFrom(value: BigInt, byteCount: Int): Array[Byte] = {
+    val mask = (BigInt(1) << (byteCount*8)) - 1
+    val clipped = value & mask
+    Array.tabulate(byteCount)(i => ((clipped >> (i*8)) & 0xFF).toByte)
+  }
+  private def atomicOperand(a: TransactionA): Array[Byte] = {
+    val offset = (a.address.toLong & (a.data.length-1)).toInt
+    Array.tabulate(a.bytes)(i => a.data(offset + i))
+  }
+  private def atomicResult(a: TransactionA, oldBytes: Array[Byte]): Array[Byte] = {
+    val operandBytes = atomicOperand(a)
+    val bits = a.bytes*8
+    val mask = (BigInt(1) << bits) - 1
+    val oldU = unsignedFromLittleEndian(oldBytes)
+    val rhsU = unsignedFromLittleEndian(operandBytes)
+    val next = a.opcode match {
+      case Opcode.A.ARITHMETIC_DATA => a.param match {
+        case Param.Arithmetic.MIN  => if(signedFromLittleEndian(oldBytes) < signedFromLittleEndian(operandBytes)) oldU else rhsU
+        case Param.Arithmetic.MAX  => if(signedFromLittleEndian(oldBytes) > signedFromLittleEndian(operandBytes)) oldU else rhsU
+        case Param.Arithmetic.MINU => oldU min rhsU
+        case Param.Arithmetic.MAXU => oldU max rhsU
+        case Param.Arithmetic.ADD  => oldU + rhsU
+      }
+      case Opcode.A.LOGICAL_DATA => a.param match {
+        case Param.Logical.XOR  => oldU ^ rhsU
+        case Param.Logical.OR   => oldU | rhsU
+        case Param.Logical.AND  => oldU & rhsU
+        case Param.Logical.SWAP => rhsU
+      }
+    }
+    littleEndianFrom(next & mask, a.bytes)
+  }
+
   override def onA(a: TransactionA) = {
     assert(inflightA(a.source) == null)
     assert((a.address & (a.bytes-1)) == 0, "Unaligned address :(")
 
     a.opcode match {
-      case Opcode.A.PUT_FULL_DATA | Opcode.A.PUT_PARTIAL_DATA | Opcode.A.GET=>
+      case Opcode.A.PUT_FULL_DATA | Opcode.A.PUT_PARTIAL_DATA | Opcode.A.ARITHMETIC_DATA | Opcode.A.LOGICAL_DATA | Opcode.A.GET=>
       case Opcode.A.ACQUIRE_BLOCK | Opcode.A.ACQUIRE_PERM =>
     }
 
@@ -130,6 +169,10 @@ class Checker(p : BusParameter, mappings : Seq[Endpoint], checkMapping : Boolean
             case Opcode.A.PUT_FULL_DATA=> {
               assert(a.mask.forall(v => v))
               mem.write(address, a.data, a.mask)
+            }
+            case Opcode.A.ARITHMETIC_DATA | Opcode.A.LOGICAL_DATA => {
+              ctx.ref = mem.readBytes(address, o.bytes)
+              mem.write(address, atomicResult(a, ctx.ref))
             }
             case Opcode.A.ACQUIRE_BLOCK => {
               ctx.ref = mem.readBytes(address, o.bytes)

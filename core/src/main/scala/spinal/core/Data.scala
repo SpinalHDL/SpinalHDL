@@ -173,14 +173,17 @@ class BaseTypePimper[T <: BaseType](val _data: T) {
 
 object Data {
 
-  /** Creates a signal path through the component hierarchy to finalComponent to read the srcData signal
+  /** Internal API method to creates a signal path through the component hierarchy
+    * to `finalComponent` to read the `srcData` signal.
     *
-    * @param srcData Data that you want to read
-    * @param finalComponent Location where you want to read the srcData signal
-    * @param useCache If multiple doPull are done on the same signal, allow to reuse the previously created paths
-    * @param propagateName The signals created through the hierarchy will get the same name as srcData
-    * @tparam T Type of the srcData
-    * @return Readable signal in the finalComponent which is driven by srcData
+    * @param srcData [[Data]] that you want to read
+    * @param finalComponent Location where you want to read the `srcData` signal
+    * @param useCache If multiple `doPull` are done on the same signal, allow to reuse the previously created paths
+    * @param propagateName The signals created through the hierarchy will get the same name as `srcData`
+    * @tparam T Type of `srcData`
+    * @return Readable signal in the `finalComponent` which is driven by `srcData`
+    * 
+    * @see [[pull()]]
     */
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
 
@@ -440,27 +443,47 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def flatten: Seq[BaseType]
   def flattenLocalName: Seq[String]
   def flattenForeach(body : BaseType => Unit) : Unit = flatten.foreach(body(_))
-  /** Pull a signal to the top level (use for debugging) */
+
+  /** Make a signal accessible to the current component level (to be used for debugging).
+    * 
+    * Because of [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/hierarchy_violation.html hierarchy violation checks]],
+    * accesses to signal that break hierarchical abstraction generate errors.
+    * This method allows to bypass this check. It should be used with care as
+    * it violates the hierarchy abstraction paradigm. This is useful for debugging
+    * or temporary fixes, for example.
+    */
   def pull(): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = false)
+
+  /** Make a signal accessible to the current component level (to be used for debugging).
+    * 
+    * Because of [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Design%20errors/hierarchy_violation.html hierarchy violation checks]],
+    * accesses to signal that break hierarchical abstraction generate errors.
+    * This method allows to bypass this check. It should be used with care as
+    * it violates the hierarchy abstraction paradigm. This is useful for debugging
+    * or temporary fixes, for example.
+    * 
+    * @param propagateName If true, signals created through the hierarchy will get the same name as
+    *                      the pulled signal           
+    */
   def pull(propagateName : Boolean): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = propagateName)
 
   /** Concatenation between two signals */
   def ##(right: Data): Bits = this.asBits ## right.asBits
 
-  /** Cast signal to Bits */
+  /** Cast signal to [[Bits]] */
   def asBits: Bits
 
   def assignFromBits(bits: Bits): Unit
   def assignFromBits(bits: Bits, hi: Int, low: Int): Unit
   def assignFromBits(bits: Bits, offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits, offset + bitCount.value - 1, offset)
 
-  /** Clear all bits to ``False`` and return itself */
+  /** Hardware assignment of all bits to `False` and return itself */
   def clearAll(): this.type = {
     assignFromBits(Bits(asBits.getBitsWidth bits).clearAll())
     this
   }
 
-  /** Set all bits to ``True`` and return itself */
+  /** Hardware assignment of all bits to `True` and return itself */
   def setAll(): this.type = {
     assignFromBits(Bits(asBits.getBitsWidth bits).setAll())
     this
@@ -472,10 +495,19 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret
   }
 
-  /** Assign the default 'x' value to all signals composing this type.
-    * 
+  /** Explicitly mark that this hardware signal can take any value in the current context.
+    *
+    * This is analogous to Verilog `'x`  or VHDL `'-'` assignment or implicit
+    * non-assignment, but  unlike those it is explicit. If a signal is unassigned
+    * (e.g., no "don't care" or value) in any control path, an error will be raised.
+    *
+    * At generation, `'x` in Verilog and `'-'` in VHDL will be generated, unless
+    * SpinalConfig.dontCareGenAsZero is explicitly set as `true`. Note that some
+    * simulators like Verilator use only 0 and 1 for performance reason and will
+    * use random or fixed 0 and 1 values depending on their config.
+    *
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/index.html#data-types Data type documentation]] 
-    * @see [[https://en.wikipedia.org/wiki/Don't-care_term#X_value "Don't care term" wikipedia article]]
+    * @see [[https://en.wikipedia.org/wiki/Don%27t-care_term#X_value "Don't care term" wikipedia article]]
     */
   def assignDontCare(): this.type = {
     flatten.foreach(_.assignDontCare())
@@ -663,7 +695,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
 
   // TODO enable deprecation
-  //@deprecated("use randBoot() instead", since = "1.15.0")
+  //@deprecated("use randBoot() instead", since = "1.16.0")
   def randBoot(u : Unit): this.type = randBoot()
   
   /**

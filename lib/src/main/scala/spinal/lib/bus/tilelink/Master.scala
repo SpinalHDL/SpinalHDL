@@ -21,6 +21,8 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
   def allowA(opcode : Opcode.A.E)  : Boolean = opcode match {
     case Opcode.A.PUT_FULL_DATA => putFull.some
     case Opcode.A.PUT_PARTIAL_DATA => putPartial.some
+    case Opcode.A.ARITHMETIC_DATA => arithmetic.some
+    case Opcode.A.LOGICAL_DATA => logical.some
     case Opcode.A.GET => get.some
     case Opcode.A.ACQUIRE_BLOCK => withBCE
     case Opcode.A.ACQUIRE_PERM  => withBCE
@@ -29,6 +31,8 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
   def allow(opcode : Any) : Boolean = opcode match{
     case Opcode.A.PUT_FULL_DATA => putFull.some
     case Opcode.A.PUT_PARTIAL_DATA => putPartial.some
+    case Opcode.A.ARITHMETIC_DATA => arithmetic.some
+    case Opcode.A.LOGICAL_DATA => logical.some
     case Opcode.A.GET => get.some
     case Opcode.A.ACQUIRE_BLOCK => withBCE
     case Opcode.A.ACQUIRE_PERM  => withBCE
@@ -122,6 +126,8 @@ case class M2sTransfers(acquireT     : SizeRange = SizeRange.none,
       Opcode.A.GET              -> Bool(get.some),
       Opcode.A.PUT_FULL_DATA    -> Bool(putFull.some),
       Opcode.A.PUT_PARTIAL_DATA -> Bool(putPartial.some),
+      Opcode.A.ARITHMETIC_DATA  -> Bool(arithmetic.some),
+      Opcode.A.LOGICAL_DATA     -> Bool(logical.some),
       Opcode.A.ACQUIRE_BLOCK    -> Bool(acquireB.some || acquireT.some),
       Opcode.A.ACQUIRE_PERM     -> Bool(acquireB.some || acquireT.some)
     )
@@ -274,5 +280,4 @@ case class M2sSupport(transfers : M2sTransfers,
   def withAddressWidth(w: Int): M2sSupport = copy(addressWidth = w)
   def dataBytes = dataWidth/8
 }
-
 

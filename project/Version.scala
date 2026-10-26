@@ -3,6 +3,7 @@ import sourcecode.File
 import sbt.io.Path
 import scala.collection.JavaConverters._
 
+/** Version configuration for sbt builds.*/
 object SpinalVersion {  
   val currentFile = new java.io.File(sourcecode.File())
   val configFilePath = currentFile.getParent + Path.sep + "version.conf"
@@ -14,7 +15,7 @@ object SpinalVersion {
   val isDev = conf.getBoolean("isDev")
   val isSnapshot = conf.getBoolean("isSnapshot")
   private def snapshot = if (isSnapshot) "-SNAPSHOT" else ""
-  private val major = "1.15.0"
+  private val major = "1.15.1"
   val all         = if(isDev) "dev" else s"$major$snapshot"
   val sim         = all
   val core        = all
@@ -23,4 +24,7 @@ object SpinalVersion {
   val debugger    = all
   val demo        = all
   val tester      = all
+
+  assert(major != "1.16.0", "when releasing 1.16.0, uncomment all '//@deprecated'"+
+        " spelling deprecation and remove this test")
 }

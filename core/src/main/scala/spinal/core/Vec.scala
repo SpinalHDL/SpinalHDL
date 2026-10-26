@@ -46,11 +46,25 @@ trait VecFactory {
   def Vec[T <: Data](gen: HardType[T], size: Int): Vec[T] = Vec.fill(size)(gen())
   def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
 
-  class VecBuilder{
+  class VecBuilder {
+
+   /** Produces a Vec containing the `Data` of a given function over a range of integer values starting from 0.
+    *  @param  n   The number of elements in the `Vec`
+    *  @param  f   The function instantiating element values
+    *  @return A `Vec` consisting of elements `f(0), ..., f(n -1)`
+    */    
     def tabulate[T <: Data](size: Int)(gen: (Int) => T): Vec[T] = {
       Vec((0 until size).map(gen(_))).setElementsParents()
     }
 
+
+   /** Produces a Vec of Vec containing the `Data` of a given function over ranges of integer values starting from 0.
+    *  @param   n1  the number of elements in the 1st dimension
+    *  @param   n2  the number of elements in the 2nd dimension
+    *  @param   f   The function instantiating element values
+    *  @return A Vec of Vec consisting of elements `f(i1, i2)`
+    *          for `0 <= i1 < n1` and `0 <= i2 < n2`.
+    */
     def tabulate[T <: Data](n1: Int, n2: Int)(f: (Int, Int) => T): Vec[Vec[T]] =
       tabulate(n1)(i => tabulate(n2)(f(i, _)))
 

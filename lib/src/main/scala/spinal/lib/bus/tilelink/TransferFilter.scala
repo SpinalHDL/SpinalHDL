@@ -37,7 +37,7 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
     def acquire(param : Int, getter : M2sTransfers => SizeRange): Unit = acquireImpl(param, getter(ipEmits), getter(st))
 
     // TODO enable deprecation
-    //@deprecated("Use correctly spelled 'acquire' instead", since = "1.15.0")
+    //@deprecated("Use correctly spelled 'acquire' instead", since = "1.16.0")
     def aquire(param : Int, getter : M2sTransfers => SizeRange): Unit = acquire(param, getter)
 
     def acquireImpl(param : Int, is: SizeRange, os: SizeRange): Unit ={
@@ -49,7 +49,7 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
     }
 
     // TODO enable deprecation
-    //@deprecated("Use correctly spelled 'acquireImpl' instead", since = "1.15.0")
+    //@deprecated("Use correctly spelled 'acquireImpl' instead", since = "1.16.0")
     def aquireImpl(param : Int, is: SizeRange, os: SizeRange): Unit = acquireImpl(param, is, os)
 
     simple(0, _.putFull)
@@ -85,6 +85,8 @@ class TransferFilter(unp : NodeParameters, dnp : NodeParameters, spec : Seq[Mapp
     val ackOpcode = opcode.mux(
       Opcode.A.PUT_FULL_DATA -> Opcode.D.ACCESS_ACK(),
       Opcode.A.PUT_PARTIAL_DATA -> Opcode.D.ACCESS_ACK(),
+      Opcode.A.ARITHMETIC_DATA -> Opcode.D.ACCESS_ACK_DATA(),
+      Opcode.A.LOGICAL_DATA -> Opcode.D.ACCESS_ACK_DATA(),
       Opcode.A.GET -> Opcode.D.ACCESS_ACK_DATA(),
       Opcode.A.ACQUIRE_BLOCK -> Opcode.D.GRANT_DATA(),
       Opcode.A.ACQUIRE_PERM -> Opcode.D.GRANT()
