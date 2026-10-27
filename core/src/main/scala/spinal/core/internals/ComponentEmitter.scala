@@ -110,19 +110,34 @@ abstract class ComponentEmitter {
     isSubComponentInputBound(data)
   }
 
+  // BaseTypes read by an assignment source in a parent's body. Built once per parent
+  // instead of rescanning the whole body for every sub-component input, which was
+  // O(inputs x statements) and dominated emission time on designs with wide port bundles.
+  // Within Spinal, only queried from elaborate()'s sub-component IO loop. Nothing removes
+  // statements from the body after that point, so the set can't go stale.
+  private val readBySourceCache = mutable.HashMap[Component, java.util.Set[BaseType]]()
+  private def readBySource(parent: Component) = readBySourceCache.getOrElseUpdate(parent, {
+    val set = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap[BaseType, java.lang.Boolean]())
+    parent.dslBody.foreachStatements{
+      case x: AssignmentStatement => {
+        x.source match {
+          case b: BaseType => set.add(b)
+          case _ =>
+        }
+        x.source.walkExpression{
+          case b: BaseType => set.add(b)
+          case _ =>
+        }
+      }
+      case _ =>
+    }
+    set
+  })
+
   def isSubComponentInputBound(data: BaseType) = {
     var hasOtherUse = false
     if(data.isInput && data.isComb && Statement.isFullToFullStatementOrLit(data)) {
-      data.component.parent.dslBody.foreachStatements{
-        case x: AssignmentStatement => {
-          if(x.source == data) {hasOtherUse = true}
-          x.source.walkExpression{
-            case x: BaseType => if(x == data) {hasOtherUse = true}
-            case _ =>
-          }
-        }
-        case _ =>
-      }
+      hasOtherUse = readBySource(data.component.parent).contains(data)
     }
     if(data.isInput && data.isComb && (if(hasOtherUse) Statement.isFullToFullStatement(data) else Statement.isFullToFullStatementOrLit(data))/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
       data.head.source
