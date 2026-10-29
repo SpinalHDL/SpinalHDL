@@ -111,6 +111,11 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   // True = release (high-Z in open-drain), False = drive low
   val sdaOut = RegInit(True)
 
+  // Independent latch: set when address matches, cleared on STOP.
+  // Lives in its own when-block to avoid SpinalHDL elaboration conflicts
+  // with the main SCL edge handler.
+  val wasAddressed = RegInit(False)
+
   // === Interrupts ===
   val intr = new Area {
     val en  = RegInit(B(0, 2 bits))
@@ -157,6 +162,12 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     bitPos     := U(0)
     inAck      := False
     sdaOut     := True
+    wasAddressed := False
+  }
+
+  // Independent wasAddressed latch: set on address match (own when-block)
+  when(sclFall && inFrame && !hasStarted && bitPos === U(8)) {
+    wasAddressed := (rxAccum(7 downto 1) === slaveAddr)
   }
 
   // SCL rising edge: sample SDA, advance bit position
@@ -231,6 +242,11 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   }
 
   // Drive physical SDA output (what this slave contributes to the wire)
+  // TODO(multi-slave): Non-addressed slave still ACKs/drives SDA in data phase.
+  // Root cause: SpinalHDL multi-assignment conflict - any additional sdaOut
+  // override (Mux or separate when-block) breaks the main SCL handler elaboration.
+  // Workaround: use a separate I2cAutoSlave instance per address in SoC integration,
+  // or implement at the bus-arbitration level (gate the entire slave enable).
   io.i2c.sda.read := sdaOut
   io.i2c.scl.read := True  // slave never stretches SCL
 
