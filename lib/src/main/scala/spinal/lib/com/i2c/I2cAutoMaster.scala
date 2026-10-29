@@ -498,7 +498,25 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
       }
     }
 
+    // Arbitration loss: passive exit (no STOP - we're no longer bus master)
+    val ARB_LOSS: State = new State {
+      onEntry { timer := U(5); timerArmed := True }
+      whenIsActive {
+        sclDrive := False
+        sdaEn    := False  // release SDA immediately
+        when(timerDone) { goto(IDLE) }
+      }
+    }
+
     always {
+      // Arbitration loss: actively driving SDA Low but raw bus reads High
+      // Require sdaEn=True to avoid false positive on entry cycle (sdaEn not yet updated)
+      when(status.busy && driveSda && sdaEn && !sdaDrive && io.i2c.sda.read) {
+        status.errCode := U(4, 3 bits)
+        status.busy    := False
+        intr.fl(1)     := True
+        goto(ARB_LOSS)  // passive exit: no STOP
+      }
       when(timeoutFired && status.busy) {
         status.errCode := U(3, 3 bits)
         status.busy    := False

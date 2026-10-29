@@ -42,6 +42,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   val io = new Bundle {
     val i2c = slave(I2c())
     val irq = out Bool()
+    val sclStretch = out Bool()  // Active when slave is stretching SCL
   }
 
   val ramAddrW = log2Up(c.ramDepth)
@@ -248,7 +249,12 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   // Workaround: use a separate I2cAutoSlave instance per address in SoC integration,
   // or implement at the bus-arbitration level (gate the entire slave enable).
   io.i2c.sda.read := sdaOut
-  io.i2c.scl.read := True  // slave never stretches SCL
+  // SCL stretching: firmware can request to hold SCL Low
+  val stretchReq = RegInit(False)  // Set by firmware to stretch, cleared on STOP or manually
+  stretchReq.allowUnsetRegToAvoidLatch
+  when(sdaRiseWhileSclHigh) { stretchReq := False }  // auto-clear on STOP
+  io.i2c.scl.read := !stretchReq
+  io.sclStretch := stretchReq
 
   // === IRQ output ===
   io.irq := intr.irq
