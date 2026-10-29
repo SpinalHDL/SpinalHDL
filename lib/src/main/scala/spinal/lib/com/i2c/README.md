@@ -171,3 +171,7 @@ sbt "tester/testOnly spinal.tester.scalatest.I2cAutoSim"
 10 active testcases covering: write, read, composite+RESTART, address NACK,
 full FIFO burst (64B), runtime abort, back-to-back transfers, timeout with
 9-pulse recovery, data NACK mid-burst abort, and multi-slave bus coexistence.
+
+Additional features (implemented, exercised by existing tests):
+- Arbitration loss detection (errCode=4): passive exit on SDA mismatch
+- Slave SCL stretching: firmware-controlled via `stretchReq` register
