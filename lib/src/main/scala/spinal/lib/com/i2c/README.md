@@ -157,7 +157,6 @@ slave.io.i2c.sda.write := sdaWire
 
 | Item | Status |
 |------|--------|
-| Back-to-back transfers | Data corruption on 2nd transfer (VCD debug needed) |
 | 10-bit addresses | Parameter reserved, logic not implemented |
 | DMA interface | Deferred (manual FIFO push/pop only) |
 | SCL stretching (slave) | Not supported (slave never holds SCL Low) |
@@ -169,5 +168,5 @@ slave.io.i2c.sda.write := sdaWire
 sbt "tester/testOnly spinal.tester.scalatest.I2cAutoSim"
 ```
 
-6 active testcases covering: write, read, composite+RESTART, address NACK,
-full FIFO burst (64B), and runtime abort.
+7 active testcases covering: write, read, composite+RESTART, address NACK,
+full FIFO burst (64B), runtime abort, and back-to-back transfers.
