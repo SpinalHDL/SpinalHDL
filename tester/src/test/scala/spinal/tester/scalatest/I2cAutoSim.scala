@@ -1,0 +1,334 @@
+package spinal.tester.scalatest
+
+import spinal.core._
+import spinal.core.sim._
+import spinal.sim._
+import spinal.lib._
+import spinal.lib.com.i2c._
+import org.scalatest.funsuite.AnyFunSuite
+
+/**
+  * SpinalSim testbench for I2cAutoMaster + I2cAutoSlave.
+  *
+  * Connects master and slave via simulated open-drain interconnect
+  * on the internal i2cBuf signals.
+  */
+class I2cAutoSim extends AnyFunSuite {
+
+  case class TestTopCfg(
+    masterFifoDepth : Int = 64,
+    slaveRamDepth   : Int = 64
+  )
+
+  class TestTop(cfg: TestTopCfg = TestTopCfg()) extends Component {
+    val master = new I2cAutoMaster(I2cAutoMaster.Config(
+      fifoDepth = cfg.masterFifoDepth,
+      timerWidth = 12
+    ))
+    val slave  = new I2cAutoSlave(I2cAutoSlave.Config(
+      ramDepth = cfg.slaveRamDepth
+    ))
+
+    // Open-drain wire emulation via io.i2c ports:
+    // For master(I2c()): .write=out (parent reads), .read=in (parent assigns)
+    // For slave(I2c()):  .write=in (parent assigns), .read=out (parent reads)
+    //
+    // SCL: only master drives
+    master.io.i2c.scl.read := master.io.i2c.scl.write  // master sees own SCL
+    slave.io.i2c.scl.write := master.io.i2c.scl.write  // feed SCL to slave input
+
+    // SDA: open-drain AND of both contributions
+    val sdaAnd = master.io.i2c.sda.write && slave.io.i2c.sda.read
+    master.io.i2c.sda.read := sdaAnd  // master sees combined (in)
+    slave.io.i2c.sda.write := sdaAnd  // slave sees combined (in)
+
+    // Expose IRQs
+    val io = new Bundle {
+      val irqMaster = out Bool()
+      val irqSlave  = out Bool()
+    }
+    io.irqMaster := master.io.irq
+    io.irqSlave  := slave.io.irq
+  }
+
+  def runSim(body: TestTop => Unit): Unit = {
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new TestTop()).doSim { dut =>
+        val cd = dut.clockDomain
+        cd.forkStimulus(10 ns)
+        body(dut)
+      }
+  }
+
+  // Helper: write a byte to master TX FIFO
+  def pushTx(dut: TestTop, data: Int): Unit = {
+    val cd = dut.clockDomain
+    dut.master.txFifo.pushData #= data
+    dut.master.txFifo.pushValid #= true
+    cd.waitActiveEdge()
+    dut.master.txFifo.popValid #= false
+    cd.waitActiveEdge()
+  }
+
+  // Helper: wait until master is no longer busy
+  def waitForIdle(dut: TestTop, maxCycles: Int = 200000): Unit = {
+    val cd = dut.clockDomain
+    var cycles = 0
+    while (dut.master.status.busy.toBoolean && cycles < maxCycles) {
+      cd.waitActiveEdge()
+      cycles += 1
+    }
+    assert(cycles < maxCycles, s"Timed out after $maxCycles cycles")
+  }
+
+  test("I2cAuto: basic write 3 bytes") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      // Configure master timing
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+
+      // Configure slave
+      dut.slave.cfg.sampDiv   #= 1
+      dut.slave.slaveAddr     #= 0x28
+      dut.slave.addrMatchEn   #= true
+      dut.slave.dataPtr       #= 0
+
+      cd.waitActiveEdge(10)
+
+      // Fill master TX FIFO: 3 data bytes
+      pushTx(dut, 0xDE)
+      pushTx(dut, 0xAD)
+      pushTx(dut, 0xBE)
+
+      // Issue command: write 3 bytes to addr 0x28
+      dut.master.cmd.addr     #= 0x28
+      dut.master.cmd.rw       #= false
+      dut.master.cmd.phase2   #= false
+      dut.master.cmd.nackLast #= false
+      dut.master.cmd.len1     #= 3
+      dut.master.cmd.len2     #= 0
+      cd.waitActiveEdge()
+      dut.master.cmd.trigger  #= true
+      cd.waitActiveEdge(3)
+      dut.master.cmd.trigger  #= false
+
+      // Wait for completion
+      waitForIdle(dut)
+
+      // Verify slave RAM
+      cd.waitActiveEdge(5)
+      val ram0 = dut.slave.ram.getBigInt(0).toInt
+      val ram1 = dut.slave.ram.getBigInt(1).toInt
+      val ram2 = dut.slave.ram.getBigInt(2).toInt
+      assert(ram0 == 0xDE, f"RAM[0]=0x$ram0%02X, expected 0xDE")
+      assert(ram1 == 0xAD, f"RAM[1]=0x$ram1%02X, expected 0xAD")
+      assert(ram2 == 0xBE, f"RAM[2]=0x$ram2%02X, expected 0xBE")
+    }
+  }
+
+  test("I2cAuto: basic read 3 bytes") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      // Configure master timing
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+
+      // Configure slave
+      dut.slave.cfg.sampDiv   #= 1
+      dut.slave.slaveAddr     #= 0x28
+      dut.slave.addrMatchEn   #= true
+      dut.slave.dataPtr       #= 0
+
+      // Pre-load slave RAM
+      dut.slave.ram.setBigInt(0, 0x11)
+      dut.slave.ram.setBigInt(1, 0x22)
+      dut.slave.ram.setBigInt(2, 0x33)
+
+      cd.waitActiveEdge(10)
+
+      // Command: read 3 bytes from addr 0x28
+      dut.master.cmd.addr     #= 0x28
+      dut.master.cmd.rw       #= true   // read
+      dut.master.cmd.phase2   #= false
+      dut.master.cmd.nackLast #= true   // NACK last byte
+      dut.master.cmd.len1     #= 3
+      dut.master.cmd.len2     #= 0
+      cd.waitActiveEdge()
+      dut.master.cmd.trigger  #= true
+      cd.waitActiveEdge(3)
+      dut.master.cmd.trigger  #= false
+
+      // Wait for completion
+      waitForIdle(dut)
+
+      // Drain RX FIFO
+      cd.waitActiveEdge(5)
+      var rxValues = List.empty[Int]
+      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 3) {
+        rxValues ::= dut.master.rxFifo.head.toInt
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
+      assert(rxValues.reverse == List(0x11, 0x22, 0x33),
+        s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0x11, 0x22, 0x33)")
+    }
+  }
+
+  test("I2cAuto: composite write-then-read with RESTART") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      // Configure master timing
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+
+      // Configure slave
+      dut.slave.cfg.sampDiv   #= 1
+      dut.slave.slaveAddr     #= 0x28
+      dut.slave.addrMatchEn   #= true
+      dut.slave.dataPtr       #= 0
+
+      // Pre-load slave RAM
+      dut.slave.ram.setBigInt(0, 0xAA)
+      dut.slave.ram.setBigInt(1, 0xBB)
+      dut.slave.ram.setBigInt(2, 0xCC)
+
+      cd.waitActiveEdge(10)
+
+      // Phase 1: write 1 byte to slave (advances dataPtr to 1)
+      pushTx(dut, 0x00)
+
+      // Composite: write 1 byte, RESTART, read 2 bytes
+      dut.master.cmd.addr     #= 0x28
+      dut.master.cmd.rw       #= false   // phase 1 = write
+      dut.master.cmd.phase2   #= true    // enable composite
+      dut.master.cmd.nackLast #= true    // NACK last read byte
+      dut.master.cmd.len1     #= 1       // write 1 byte
+      dut.master.cmd.len2     #= 2       // read 2 bytes
+      cd.waitActiveEdge()
+      dut.master.cmd.trigger  #= true
+      cd.waitActiveEdge(3)
+      dut.master.cmd.trigger  #= false
+
+      // Wait for completion
+      waitForIdle(dut)
+
+      // Verify slave RAM: first byte was overwritten with 0x00
+      cd.waitActiveEdge(5)
+      val ram0 = dut.slave.ram.getBigInt(0).toInt
+      assert(ram0 == 0x00, f"RAM[0]=0x$ram0%02X, expected 0x00 after write phase")
+
+      // Drain RX FIFO: should have 2 read bytes (from RAM[1], RAM[2])
+      var rxValues = List.empty[Int]
+      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 3) {
+        rxValues ::= dut.master.rxFifo.head.toInt
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
+      assert(rxValues.reverse == List(0xBB, 0xCC),
+        s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0xBB, 0xCC)")
+    }
+  }
+
+  test("I2cAuto: address NACK causes abort") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      // Configure master timing
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+
+      // Configure slave with DIFFERENT address (won't match)
+      dut.slave.cfg.sampDiv   #= 1
+      dut.slave.slaveAddr     #= 0x30  // slave listens on 0x30
+      dut.slave.addrMatchEn   #= true
+      dut.slave.dataPtr       #= 0
+
+      cd.waitActiveEdge(10)
+
+      // Push a byte (will never be sent due to NACK)
+      pushTx(dut, 0x42)
+
+      // Send to address 0x28 (slave is at 0x30, so NACK)
+      dut.master.cmd.addr     #= 0x28
+      dut.master.cmd.rw       #= false
+      dut.master.cmd.phase2   #= false
+      dut.master.cmd.nackLast #= false
+      dut.master.cmd.len1     #= 1
+      dut.master.cmd.len2     #= 0
+      cd.waitActiveEdge()
+      dut.master.cmd.trigger  #= true
+      cd.waitActiveEdge(3)
+      dut.master.cmd.trigger  #= false
+
+      // Wait for completion (should abort quickly)
+      waitForIdle(dut)
+
+      // Verify error: any non-zero errCode means abort occurred
+      val err = dut.master.status.errCode.toInt
+      assert(err != 0, s"errCode=$err, expected non-zero (NACK abort)")
+    }
+  }
+
+  test("I2cAuto: write 64 bytes (full FIFO burst)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      // Configure master timing
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+
+      // Configure slave
+      dut.slave.cfg.sampDiv   #= 1
+      dut.slave.slaveAddr     #= 0x28
+      dut.slave.addrMatchEn   #= true
+      dut.slave.dataPtr       #= 0
+
+      cd.waitActiveEdge(10)
+
+      // Fill TX FIFO with 64 bytes: 0x00, 0x01, ..., 0x3F
+      for (i <- 0 until 64) {
+        pushTx(dut, i)
+      }
+
+      // Command: write 64 bytes
+      dut.master.cmd.addr     #= 0x28
+      dut.master.cmd.rw       #= false
+      dut.master.cmd.phase2   #= false
+      dut.master.cmd.nackLast #= false
+      dut.master.cmd.len1     #= 64
+      dut.master.cmd.len2     #= 0
+      cd.waitActiveEdge()
+      dut.master.cmd.trigger  #= true
+      cd.waitActiveEdge(3)
+      dut.master.cmd.trigger  #= false
+
+      // Wait for completion
+      waitForIdle(dut)
+
+      // Verify slave RAM: all 64 bytes
+      cd.waitActiveEdge(5)
+      for (i <- 0 until 64) {
+        val val_i = dut.slave.ram.getBigInt(i).toInt
+        assert(val_i == i, f"RAM[$i]=0x$val_i%02X, expected 0x${i}%02X")
+      }
+    }
+  }
+}
