@@ -104,7 +104,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val pushData  = RegInit(B(0, 8 bits))
     pushData.allowUnsetRegToAvoidLatch
     val popValid  = RegInit(False)
-    val head      = mem.readAsync(rPtr)
+    val head      = mem.readAsync(rPtr)  // TX: combinational read
     val notEmpty  = cnt =/= U(0)
 
     when(pushValid) {
@@ -128,7 +128,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val pushData  = RegInit(B(0, 8 bits))
     pushData.allowUnsetRegToAvoidLatch
     val popValid  = RegInit(False)
-    val head      = mem.readAsync(rPtr)
+    val head      = mem.readAsync(rPtr)  // RX: combinational read
     val notEmpty  = cnt =/= U(0)
 
     when(pushValid) {
