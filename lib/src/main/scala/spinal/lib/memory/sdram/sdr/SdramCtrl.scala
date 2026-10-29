@@ -110,6 +110,7 @@ case class SdramCtrlBackendCmd[T <: Data](c : SdramLayout,contextType : T) exten
   val data = Bits(c.dataWidth bits)
   val mask = Bits(c.bytePerWord bits)
   val context = cloneOf(contextType)
+  val cs = Bits(c.csWidth bits)
 }
 
 case class SdramCtrlBank(c : SdramLayout) extends Bundle{
@@ -153,13 +154,14 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
 
 
   val frontend = new Area{
-    val banks = Reg(Vec(SdramCtrlBank(l),l.bankCount))
-    banks.foreach(_.active init(False))
+    val banks = Reg(Vec(Vec(SdramCtrlBank(l),l.bankCount), l.csWidth))
+    banks.foreach(_.foreach(_.active init(False)))
 
     val address = new Bundle{
       val column = UInt(l.columnWidth bits)
       val bank   = UInt(l.bankWidth bits)
       val row    = UInt(l.rowWidth bits)
+      val chip   = UInt(l.csAddressWidth bits)
     }
     address.assignFromBits(io.bus.cmd.address.asBits)
 
@@ -171,6 +173,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
     rsp.data := io.bus.cmd.data
     rsp.mask := io.bus.cmd.mask
     rsp.context := io.bus.cmd.context
+    rsp.cs := ~(B(l.csWidth bits, 0 -> True, default -> False) |<< address.chip)
 
     io.bus.cmd.ready := False
 
@@ -207,10 +210,11 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
       default { //RUN
         when(refresh.pending){
           rsp.valid := True
-          when(banks.map(_.active).reduce(_ || _)){
+          // When any of the banks are active
+          when(banks.map(_.map(_.active).reduce(_ || _)).reduce(_ || _)){
             rsp.task := PRECHARGE_ALL
             when(rsp.ready){
-              banks.foreach(_.active := False)
+              banks.foreach(_.foreach(_.active := False))
             }
           } otherwise {
             rsp.task := REFRESH
@@ -220,15 +224,15 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
           }
         }elsewhen(io.bus.cmd.valid){
           rsp.valid := True
-          val bank = banks(address.bank)
+          val bank = banks(address.chip)(address.bank)
+          
           when(bank.active && bank.row =/= address.row){
             rsp.task := PRECHARGE_SINGLE
             when(rsp.ready){
-              banks(address.bank).active := False
+              bank.active := False
             }
-          } elsewhen (!banks(address.bank).active) {
+          } elsewhen (!bank.active) {
             rsp.task := ACTIVE
-            val bank = banks(address.bank)
             bank.row := address.row
             when(rsp.ready){
               bank.active := True
@@ -357,7 +361,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
 
     when(remoteCke){
       sdram.DQ.read := io.sdram.DQ.read
-      sdram.CSn  := False
+      sdram.CSn.clearAll()
       sdram.RASn := True
       sdram.CASn := True
       sdram.WEn  := True
@@ -369,13 +373,13 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
         switch(cmd.task) {
           is(PRECHARGE_ALL) {
             sdram.ADDR(10) := True
-            sdram.CSn := False
+            sdram.CSn.clearAll()
             sdram.RASn := False
             sdram.CASn := True
             sdram.WEn := False
           }
           is(REFRESH) {
-            sdram.CSn := False
+            sdram.CSn.clearAll()
             sdram.RASn := False
             sdram.CASn := False
             sdram.WEn := True
@@ -388,7 +392,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
             sdram.ADDR(8 downto 7) := 0
             sdram.ADDR(9) := False
             sdram.BA := 0
-            sdram.CSn := False
+            sdram.CSn.clearAll()
             sdram.RASn := False
             sdram.CASn := False
             sdram.WEn := False
@@ -396,7 +400,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
           is(ACTIVE) {
             sdram.ADDR := cmd.rowColumn.asBits
             sdram.BA := cmd.bank.asBits
-            sdram.CSn := False
+            sdram.CSn := cmd.cs
             sdram.RASn := False
             sdram.CASn := True
             sdram.WEn := True
@@ -408,7 +412,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
             sdram.DQ.write := cmd.data
             sdram.DQM := ~cmd.mask
             sdram.BA := cmd.bank.asBits
-            sdram.CSn := False
+            sdram.CSn := cmd.cs
             sdram.RASn := True
             sdram.CASn := False
             sdram.WEn := False
@@ -418,7 +422,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
             sdram.ADDR := cmd.rowColumn.asBits
             sdram.ADDR(10) := False
             sdram.BA := cmd.bank.asBits
-            sdram.CSn := False
+            sdram.CSn := cmd.cs
             sdram.RASn := True
             sdram.CASn := False
             sdram.WEn := True
@@ -426,7 +430,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
           is(PRECHARGE_SINGLE) {
             sdram.BA := cmd.bank.asBits
             sdram.ADDR(10) := False
-            sdram.CSn := False
+            sdram.CSn := cmd.cs
             sdram.RASn := False
             sdram.CASn := True
             sdram.WEn := False
