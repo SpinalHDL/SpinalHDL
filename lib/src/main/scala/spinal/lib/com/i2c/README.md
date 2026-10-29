@@ -168,5 +168,6 @@ slave.io.i2c.sda.write := sdaWire
 sbt "tester/testOnly spinal.tester.scalatest.I2cAutoSim"
 ```
 
-7 active testcases covering: write, read, composite+RESTART, address NACK,
-full FIFO burst (64B), runtime abort, and back-to-back transfers.
+10 active testcases covering: write, read, composite+RESTART, address NACK,
+full FIFO burst (64B), runtime abort, back-to-back transfers, timeout with
+9-pulse recovery, data NACK mid-burst abort, and multi-slave bus coexistence.

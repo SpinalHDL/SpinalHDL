@@ -196,6 +196,9 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val timerArmed = RegInit(False)
     val timerDone  = timerArmed && timer === U(0)
 
+    // 9-pulse recovery counter
+    val recovCnt   = Reg(UInt(4 bits)) init(0)
+
     // Global timer decrement
     when(timerArmed && timer =/= U(0)) { timer := timer - U(1) }
 
@@ -430,6 +433,33 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
       }
     }
 
+    // 9-pulse clock recovery (I2C spec §3.4.2: recover from bus hang)
+    val RECOV_LO: State = new State {
+      onEntry { timer := U(10); timerArmed := True }
+      whenIsActive {
+        sclDrive := False
+        sdaEn    := False
+        when(timerDone) { goto(RECOV_HI) }
+      }
+    }
+
+    val RECOV_HI: State = new State {
+      onEntry { timer := U(10); timerArmed := True }
+      whenIsActive {
+        sclDrive := True
+        sdaEn    := False
+        when(timerDone) {
+          when(recovCnt === U(1)) {
+            recovCnt := U(0)
+            goto(STOP0)  // after 9 pulses, issue STOP
+          } otherwise {
+            recovCnt := recovCnt - U(1)
+            goto(RECOV_LO)
+          }
+        }
+      }
+    }
+
     val STOP0: State = new State {
       onEntry { timer := U(5); timerArmed := True }
       whenIsActive {
@@ -473,13 +503,14 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
         status.errCode := U(3, 3 bits)
         status.busy    := False
         intr.fl(1)     := True
-        goto(STOP0)
+        recovCnt       := U(9)  // initiate 9-pulse recovery
+        goto(RECOV_LO)
       }
       when(abortReq) {
         status.busy    := False
         status.aborted := True
         intr.fl(1)     := True
-        goto(STOP0)
+        goto(STOP0)  // abort: no recovery needed (local request)
       }
     }
 
@@ -493,7 +524,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   io.irq := intr.irq
 
   // Expose internals for simulation
-  cfg.sampDiv.simPublic(); cfg.tLow.simPublic(); cfg.tHigh.simPublic(); cfg.tBuf.simPublic()
+  cfg.sampDiv.simPublic(); cfg.tLow.simPublic(); cfg.tHigh.simPublic(); cfg.tBuf.simPublic(); cfg.timeout.simPublic()
   cmd.addr.simPublic(); cmd.rw.simPublic(); cmd.phase2.simPublic(); cmd.nackLast.simPublic()
   cmd.len1.simPublic(); cmd.len2.simPublic(); cmd.trigger.simPublic()
   status.busy.simPublic(); status.errCode.simPublic(); status.aborted.simPublic()
