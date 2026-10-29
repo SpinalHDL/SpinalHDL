@@ -320,14 +320,14 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
         when(timerDone && sclFilt) {
           when(!driveSda) {
             when(isAckBit) {
-              ackBit := sdaFilt
+              ackBit := sdaFilt  // keep for observability
             } otherwise {
               rxByte(7 - bitPos(2 downto 0)) := sdaFilt
             }
           }
           when(isAckBit) {
             when(isAddrByte) {
-              when(ackBit) {
+              when(sdaFilt) {  // NACK = SDA High (use direct signal, not 1-cycle-delayed register)
                 status.errCode := U(1, 3 bits)
                 status.busy    := False
                 intr.fl(1)     := True
@@ -346,7 +346,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                 rxFifo.pushValid := True
                 rxFifo.pushData  := rxByte
               }
-              when(!curRw && ackBit) {
+              when(!curRw && sdaFilt) {  // Data NACK: use direct signal
                 status.errCode := U(2, 3 bits)
                 status.busy    := False
                 intr.fl(1)     := True
@@ -488,6 +488,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   cmd.addr.simPublic(); cmd.rw.simPublic(); cmd.phase2.simPublic(); cmd.nackLast.simPublic()
   cmd.len1.simPublic(); cmd.len2.simPublic(); cmd.trigger.simPublic()
   status.busy.simPublic(); status.errCode.simPublic(); status.aborted.simPublic()
+  abortReq.simPublic()
   txFifo.pushValid.simPublic(); txFifo.pushData.simPublic(); txFifo.popValid.simPublic()
   txFifo.head.simPublic(); txFifo.notEmpty.simPublic(); txFifo.cnt.simPublic()
   rxFifo.popValid.simPublic(); rxFifo.head.simPublic(); rxFifo.notEmpty.simPublic()

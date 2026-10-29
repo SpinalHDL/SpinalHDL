@@ -279,9 +279,9 @@ class I2cAutoSim extends AnyFunSuite {
       // Wait for completion (should abort quickly)
       waitForIdle(dut)
 
-      // Verify error: any non-zero errCode means abort occurred
+      // Verify error: errCode=1 means address NACK
       val err = dut.master.status.errCode.toInt
-      assert(err != 0, s"errCode=$err, expected non-zero (NACK abort)")
+      assert(err == 1, f"errCode=$err, expected 1 (address NACK)")
     }
   }
 
@@ -329,6 +329,59 @@ class I2cAutoSim extends AnyFunSuite {
         val val_i = dut.slave.ram.getBigInt(i).toInt
         assert(val_i == i, f"RAM[$i]=0x$val_i%02X, expected 0x${i}%02X")
       }
+    }
+  }
+
+  test("I2cAuto: abort during active transfer") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      // Configure master timing
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+
+      // Configure slave
+      dut.slave.cfg.sampDiv   #= 1
+      dut.slave.slaveAddr     #= 0x28
+      dut.slave.addrMatchEn   #= true
+      dut.slave.dataPtr       #= 0
+
+      cd.waitActiveEdge(10)
+
+      // Fill TX FIFO with many bytes (ensures long transfer)
+      for (i <- 0 until 32) {
+        pushTx(dut, i)
+      }
+
+      // Command: write 32 bytes
+      dut.master.cmd.addr     #= 0x28
+      dut.master.cmd.rw       #= false
+      dut.master.cmd.phase2   #= false
+      dut.master.cmd.nackLast #= false
+      dut.master.cmd.len1     #= 32
+      dut.master.cmd.len2     #= 0
+      cd.waitActiveEdge()
+      dut.master.cmd.trigger  #= true
+      cd.waitActiveEdge(3)
+      dut.master.cmd.trigger  #= false
+
+      // Wait a few bits into the transfer, then abort
+      cd.waitActiveEdge(200)  // ~4-5 bytes in
+      assert(dut.master.status.busy.toBoolean, "Transfer should be active before abort")
+
+      // Issue abort
+      dut.master.abortReq #= true
+      cd.waitActiveEdge(3)
+      dut.master.abortReq #= false
+
+      // Wait for STOP to complete
+      waitForIdle(dut)
+
+      // Verify: aborted flag set, not a normal error
+      assert(dut.master.status.aborted.toBoolean, "aborted flag should be set")
+      assert(!dut.master.status.busy.toBoolean, "busy should be cleared after abort")
     }
   }
 }
