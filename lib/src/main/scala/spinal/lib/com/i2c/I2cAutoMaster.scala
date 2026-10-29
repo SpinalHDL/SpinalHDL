@@ -331,7 +331,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                 status.errCode := U(1, 3 bits)
                 status.busy    := False
                 intr.fl(1)     := True
-                goto(STOP1)
+                goto(STOP0)
               } otherwise {
                 byteNum := U(1)
                 bitPos  := U(0)
@@ -350,7 +350,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                 status.errCode := U(2, 3 bits)
                 status.busy    := False
                 intr.fl(1)     := True
-                goto(STOP1)
+                goto(STOP0)
               } otherwise {
                 when(isLastByte) {
                   when(latHasP2 && phase === U(0)) {
@@ -368,7 +368,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                   } otherwise {
                     status.busy  := False
                     intr.fl(0)   := True
-                    goto(STOP1)
+                    goto(STOP0)
                   }
                 } otherwise {
                   byteNum := byteNum + U(1)
@@ -430,13 +430,22 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
       }
     }
 
+    val STOP0: State = new State {
+      onEntry { timer := U(5); timerArmed := True }
+      whenIsActive {
+        sclDrive := False  // drop SCL to let slave release SDA
+        sdaEn    := False
+        when(timerDone) { goto(STOP1) }
+      }
+    }
+
     val STOP1: State = new State {
       onEntry { timer := U(2); timerArmed := True }
       whenIsActive {
-        sclDrive := True
+        sclDrive := True   // SCL rises, master drives SDA Low
         sdaEn    := True
         sdaDrive := False
-        when(timerDone && sclFilt) { goto(STOP2) }
+        when(timerDone) { goto(STOP2) }
       }
     }
 
@@ -445,8 +454,8 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
       whenIsActive {
         sclDrive := True
         sdaEn    := True
-        sdaDrive := True
-        when(timerDone && sdaFilt) { goto(TBUF) }
+        sdaDrive := True   // SDA rises while SCL High = STOP
+        when(timerDone) { goto(TBUF) }
       }
     }
 
@@ -464,13 +473,13 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
         status.errCode := U(3, 3 bits)
         status.busy    := False
         intr.fl(1)     := True
-        goto(STOP1)
+        goto(STOP0)
       }
       when(abortReq) {
         status.busy    := False
         status.aborted := True
         intr.fl(1)     := True
-        goto(STOP1)
+        goto(STOP0)
       }
     }
 

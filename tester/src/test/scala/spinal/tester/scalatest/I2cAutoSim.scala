@@ -387,7 +387,7 @@ class I2cAutoSim extends AnyFunSuite {
 
   // TODO: Back-to-back transfer reveals data corruption on 2nd transfer (0x17 instead of 0xAA).
   // Requires waveform-level debugging (VCD dump) to identify root cause.
-  ignore("I2cAuto: back-to-back transfers") {
+  test("I2cAuto: back-to-back transfers") {
     runSim { dut =>
       val cd = dut.clockDomain
       dut.master.cfg.sampDiv  #= 1
