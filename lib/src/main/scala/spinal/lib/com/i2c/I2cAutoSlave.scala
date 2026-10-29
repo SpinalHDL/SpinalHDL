@@ -310,4 +310,5 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   addrMatchEn.simPublic()
   dataPtr.simPublic()
   ram.simPublic()
+  stretchReq.simPublic()
 }

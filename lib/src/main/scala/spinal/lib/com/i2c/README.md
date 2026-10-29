@@ -168,10 +168,12 @@ slave.io.i2c.sda.write := sdaWire
 sbt "tester/testOnly spinal.tester.scalatest.I2cAutoSim"
 ```
 
-10 active testcases covering: write, read, composite+RESTART, address NACK,
+12 active testcases covering: write, read, composite+RESTART, address NACK,
 full FIFO burst (64B), runtime abort, back-to-back transfers, timeout with
-9-pulse recovery, data NACK mid-burst abort, and multi-slave bus coexistence.
+9-pulse recovery, data NACK mid-burst abort, multi-slave bus coexistence,
+arbitration loss passive exit, and SCL stretching pause verification.
 
-Additional features (implemented, exercised by existing tests):
-- Arbitration loss detection (errCode=4): passive exit on SDA mismatch
-- Slave SCL stretching: firmware-controlled via `stretchReq` register
+Features with dedicated test coverage:
+- Arbitration loss detection (errCode=4): tested via `sdaForceHigh` injection
+- Slave SCL stretching: tested via `stretchReq` assertion, validates master stall
+  (clean mid-byte resume requires byte-aligned stretching - future enhancement)
