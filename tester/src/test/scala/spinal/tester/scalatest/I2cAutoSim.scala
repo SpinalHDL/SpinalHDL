@@ -34,6 +34,11 @@ class I2cAutoSim extends AnyFunSuite {
       support10bit = cfg.support10bit
     ))
 
+    // Tie off DMA inputs (not used in tests)
+    master.io.dmaTx.ready := False
+    master.io.dmaTx.data  := B(0)
+    master.io.dmaRx.ready := False
+
     // Test control: force SCL Low to simulate bus hang
     val sclForceLow = RegInit(False)
     sclForceLow.allowUnsetRegToAvoidLatch()
@@ -70,6 +75,11 @@ class I2cAutoSim extends AnyFunSuite {
     val master = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, timerWidth = 12))
     val slaveA = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = 64))
     val slaveB = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = 64))
+
+    // Tie off DMA inputs
+    master.io.dmaTx.ready := False
+    master.io.dmaTx.data  := B(0)
+    master.io.dmaRx.ready := False
 
     // SCL: master drives both slaves
     master.io.i2c.scl.read := master.io.i2c.scl.write
@@ -900,6 +910,59 @@ class I2cAutoSim extends AnyFunSuite {
         assert(rxVal == readData(i), f"RX[$i]=0x${rxVal}%02X exp 0x${readData(i)}%02X")
         dut.master.rxFifo.popValid #= false
         cd.waitActiveEdge()
+      }
+    }
+  }
+
+  test("I2cAuto: DMA write 4 bytes") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+      cd.forkStimulus(10 ns)
+
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+      dut.slave.cfg.sampDiv   #= 1
+      dut.slave.slaveAddr    #= 0x50
+      dut.slave.dataPtr      #= 0
+      cd.waitActiveEdge(10)
+
+      // Use DMA to push 4 bytes into TX FIFO (one-beat-per-cycle handshake)
+      val dmaData = Seq(0xCA, 0xFE, 0xBA, 0xBE)
+      for (d <- dmaData) {
+        dut.master.io.dmaTx.data  #= d
+        dut.master.io.dmaTx.ready #= true
+        cd.waitActiveEdge()  // Handshake: valid&&ready → push
+        dut.master.io.dmaTx.ready #= false
+        cd.waitActiveEdge()  // Deassert ready
+      }
+      cd.waitActiveEdge(2)
+
+      // Verify FIFO count
+      assert(dut.master.txFifo.cnt.toInt == 4, s"TX cnt=${dut.master.txFifo.cnt.toInt} exp 4")
+
+      // Trigger transfer
+      dut.master.cmd.addr    #= 0x50
+      dut.master.cmd.rw      #= false
+      dut.master.cmd.len1    #= 4
+      dut.master.cmd.trigger #= true
+      cd.waitActiveEdge(3)
+      dut.master.cmd.trigger #= false
+
+      // Wait for completion
+      var waited = 0
+      while (dut.master.status.busy.toBoolean && waited < 5000) {
+        cd.waitActiveEdge()
+        waited += 1
+      }
+      assert(!dut.master.status.busy.toBoolean, "Transfer timed out")
+      assert(dut.master.status.errCode.toInt == 0, s"err=${dut.master.status.errCode.toInt}")
+
+      // Verify slave RAM
+      for (i <- dmaData.indices) {
+        val v = dut.slave.ram.getBigInt(i).toInt
+        assert(v == dmaData(i), f"RAM[$i]=0x${v}%02X exp 0x${dmaData(i)}%02X")
       }
     }
   }

@@ -50,6 +50,17 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   val io = new Bundle {
     val i2c = master(I2c())
     val irq = out Bool()
+    // DMA handshaking (AXI4-Stream style valid/ready)
+    val dmaTx = new Bundle {
+      val valid = out Bool()   // FIFO has room
+      val ready = in  Bool()   // DMA has a byte
+      val data  = in  Bits(8 bits)
+    }
+    val dmaRx = new Bundle {
+      val valid = out Bool()   // FIFO has data
+      val ready = in  Bool()   // DMA accepts byte
+      val data  = out Bits(8 bits)
+    }
   }
 
   val fifoPtrW = log2Up(c.fifoDepth)
@@ -142,11 +153,25 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
   }
 
-  // Default: clear pulse signals (they are set to True for 1 cycle by FSM/bus)
+  // Default: clear pulse signals (they are set to True for 1 cycle by FSM/bus/DMA)
   txFifo.popValid  := False
   txFifo.pushValid := False
   rxFifo.popValid  := False
   rxFifo.pushValid := False
+
+  // === DMA wiring ===
+  // TX: DMA pushes bytes into TX FIFO (valid/ready handshake)
+  io.dmaTx.valid := txFifo.cnt =/= U(c.fifoDepth, (fifoPtrW + 1) bits) // not full
+  when(io.dmaTx.valid && io.dmaTx.ready) {
+    txFifo.pushValid := True
+    txFifo.pushData  := io.dmaTx.data
+  }
+  // RX: DMA pops bytes from RX FIFO (valid/ready handshake)
+  io.dmaRx.valid := rxFifo.cnt =/= U(0, (fifoPtrW + 1) bits) // not empty
+  io.dmaRx.data  := rxFifo.head
+  when(io.dmaRx.valid && io.dmaRx.ready) {
+    rxFifo.popValid := True
+  }
 
   /** Width of the address field in bits (7 or 10). */
   val addrW: Int = if (c.support10bit) 10 else 7
@@ -580,6 +605,8 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   txFifo.pushValid.simPublic(); txFifo.pushData.simPublic(); txFifo.popValid.simPublic()
   txFifo.head.simPublic(); txFifo.notEmpty.simPublic(); txFifo.cnt.simPublic()
   rxFifo.popValid.simPublic(); rxFifo.head.simPublic(); rxFifo.notEmpty.simPublic()
+  io.dmaTx.valid.simPublic(); io.dmaTx.ready.simPublic(); io.dmaTx.data.simPublic()
+  io.dmaRx.valid.simPublic(); io.dmaRx.ready.simPublic(); io.dmaRx.data.simPublic()
 
   // === Register map ===
   def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt): Area = new Area {
