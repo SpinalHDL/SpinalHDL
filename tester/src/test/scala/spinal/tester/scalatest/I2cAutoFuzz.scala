@@ -28,6 +28,16 @@ class I2cAutoFuzz extends AnyFunSuite {
     val sdaAnd = master.io.i2c.sda.write && slave.io.i2c.sda.read
     master.io.i2c.sda.read := sdaAnd
     slave.io.i2c.sda.write := sdaAnd
+
+    // Terminate register buses
+    val mRegAddr  = RegInit(B(0, 8 bits));  mRegAddr.simPublic(); mRegAddr.allowUnsetRegToAvoidLatch()
+    val mRegWdata = RegInit(B(0, 32 bits)); mRegWdata.simPublic(); mRegWdata.allowUnsetRegToAvoidLatch()
+    val mRegWe    = RegInit(False);          mRegWe.simPublic(); mRegWe.allowUnsetRegToAvoidLatch()
+    master.io.regBus.addr := mRegAddr; master.io.regBus.wdata := mRegWdata; master.io.regBus.wen := mRegWe; master.io.regBus.re := False
+    val sRegAddr  = RegInit(B(0, 8 bits));  sRegAddr.simPublic(); sRegAddr.allowUnsetRegToAvoidLatch()
+    val sRegWdata = RegInit(B(0, 32 bits)); sRegWdata.simPublic(); sRegWdata.allowUnsetRegToAvoidLatch()
+    val sRegWe    = RegInit(False);          sRegWe.simPublic(); sRegWe.allowUnsetRegToAvoidLatch()
+    slave.io.regBus.addr := sRegAddr; slave.io.regBus.wdata := sRegWdata; slave.io.regBus.wen := sRegWe; slave.io.regBus.re := False
   }
 
   // Exact same pattern as I2cAutoSim.pushTx
@@ -80,6 +90,24 @@ class I2cAutoFuzz extends AnyFunSuite {
     result.reverse
   }
 
+  // Helper: write a register via the register bus
+  def regWrite(dut: FuzzTop, isMaster: Boolean, addr: Int, data: Int): Unit = {
+    val cd = dut.clockDomain
+    if (isMaster) {
+      dut.mRegAddr  #= addr
+      dut.mRegWdata #= data
+      dut.mRegWe    #= true
+    } else {
+      dut.sRegAddr  #= addr
+      dut.sRegWdata #= data
+      dut.sRegWe    #= true
+    }
+    cd.waitActiveEdge()
+    if (isMaster) { dut.mRegWe #= false }
+    else { dut.sRegWe #= false }
+    cd.waitActiveEdge()
+  }
+
   test("I2cAuto fuzz: 100 random writes") {
     val rng = new Random(42L)
     var failures = 0
@@ -94,8 +122,7 @@ class I2cAutoFuzz extends AnyFunSuite {
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
+      regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 7) | 0x28))
       cd.waitActiveEdge(10)
 
       for (iter <- 1 to 100) {
@@ -103,7 +130,7 @@ class I2cAutoFuzz extends AnyFunSuite {
         val firstByte = rng.nextInt(256)
 
         // Reset slave pointer
-        dut.slave.dataPtr #= 0
+        regWrite(dut, isMaster = false, addr = 0x04, data = 0)
         cd.waitActiveEdge(5)
 
         // Push data: first byte is known, rest are random
@@ -166,8 +193,7 @@ class I2cAutoFuzz extends AnyFunSuite {
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
+      regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 7) | 0x28))
       cd.waitActiveEdge(10)
 
       for (iter <- 1 to 50) {
@@ -178,7 +204,7 @@ class I2cAutoFuzz extends AnyFunSuite {
         for (i <- 0 until 64) {
           dut.slave.ram.setBigInt(i, if (i == 0) expectedFirst else 0xFF)
         }
-        dut.slave.dataPtr #= 0
+        regWrite(dut, isMaster = false, addr = 0x04, data = 0)
         cd.waitActiveEdge(5)
 
         // Trigger read
@@ -239,8 +265,7 @@ class I2cAutoFuzz extends AnyFunSuite {
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
+      regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 7) | 0x28))
       cd.waitActiveEdge(10)
 
       for (iter <- 1 to 20) {
@@ -256,7 +281,7 @@ class I2cAutoFuzz extends AnyFunSuite {
           val v = if (i >= wLen && i < wLen + rLen) readExpect(i - wLen) else 0x00
           dut.slave.ram.setBigInt(i, v)
         }
-        dut.slave.dataPtr #= 0
+        regWrite(dut, isMaster = false, addr = 0x04, data = 0)
         cd.waitActiveEdge(5)
 
         // Push write data

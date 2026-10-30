@@ -24,6 +24,14 @@ import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
   */
 object I2cAutoSlave {
 
+  class RegBus extends Bundle {
+    val addr  = in Bits(8 bits)
+    val wdata = in Bits(32 bits)
+    val wen   = in Bool()
+    val rdata = out Bits(32 bits)
+    val re    = in Bool()
+  }
+
   case class Config(
     ramDepth   : Int    = 64,
     validAddrs : Seq[Int] = (0 until 64).toSeq,
@@ -43,6 +51,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     val i2c = slave(I2c())
     val irq = out Bool()
     val sclStretch = out Bool()  // Active when slave is stretching SCL
+    val regBus = new I2cAutoSlave.RegBus()
   }
 
   val ramAddrW = log2Up(c.ramDepth)
@@ -136,7 +145,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     for (i <- 0 until 2) { fl(i) clearWhen(clr(i)) }
   }
 
-  val statusErrNack = RegInit(False)
+  val statusErrNack = RegInit(False).allowUnsetRegToAvoidLatch
 
   // Helper: is the current pointer address valid?
   def ptrValid(p: UInt): Bool = {
@@ -301,50 +310,20 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   // === IRQ output ===
   io.irq := intr.irq
 
-  // === Register map ===
-  def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt): Area = new Area {
-    val bus = new BusSlaveFactoryAddressWrapper(busCtrl, baseAddress)
-
-    // 0x00 ADDR (width depends on support10bit)
-    bus.write(0x00,
-      0 -> slaveAddr,
-      addrW -> addrMatchEn
-    )
-
-    // 0x04 PTR
-    bus.drive(dataPtr, 0x04)
-
-    // 0x08 RAM indirect access
-    val ramAddr = bus.createReadWrite(UInt(ramAddrW bits), 0x08)
-    val ramData = bus.createReadWrite(Bits(8 bits), 0x08, ramAddrW)
-    bus.onWrite(0x08) {
-      ram.write(ramAddr, ramData)
+  // === Register map (internal, flat bus decoding) ===
+  io.regBus.rdata := B(0, 32 bits)
+  when(io.regBus.wen) {
+    switch(io.regBus.addr) {
+      is(B("h00")) {
+        slaveAddr   := io.regBus.wdata(addrW - 1 downto 0)
+      }
+      is(B("h04")) { dataPtr := io.regBus.wdata(ramAddrW - 1 downto 0).asUInt }
+      is(B("h08")) { ram.write(io.regBus.wdata(ramAddrW - 1 downto 0).asUInt, io.regBus.wdata(7 + ramAddrW downto ramAddrW)) }
     }
-    bus.read(ram.readAsync(ramAddr), 0x08, ramAddrW)
-
-    // 0x0C STATUS
-    bus.read(0x0C,
-      0 -> inFrame,
-      1 -> statusErrNack
-    )
-
-    // 0x10 INT_EN
-    bus.drive(intr.en, 0x10)
-
-    // 0x14 INT_FLAG
-    bus.read(intr.fl.asUInt, 0x14)
-
-    // 0x18 INT_CLR
-    val clr0 = bus.createWriteOnly(Bool(), 0x18, 0)
-    val clr1 = bus.createWriteOnly(Bool(), 0x18, 1)
-    intr.clr := B(clr1, clr0)
-
-    // 0x1C CFG_SAMPDIV
-    bus.drive(cfg.sampDiv, 0x1C)
-
-    // 0x20 CFG_TIMEOUT
-    bus.drive(cfg.timeout, 0x20)
   }
+
+
+
 
   // Expose internals for simulation
   cfg.sampDiv.simPublic()

@@ -32,6 +32,14 @@ import spinal.lib.fsm.{EntryPoint, State, StateMachine}
   */
 object I2cAutoMaster {
 
+  class RegBus extends Bundle {
+    val addr  = in Bits(8 bits)
+    val wdata = in Bits(32 bits)
+    val wen   = in Bool()
+    val rdata = out Bits(32 bits)
+    val re    = in Bool()
+  }
+
   case class Config(
     fifoDepth    : Int     = 64,
     support10bit : Boolean = false,
@@ -50,6 +58,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   val io = new Bundle {
     val i2c = master(I2c())
     val irq = out Bool()
+    val regBus = new I2cAutoMaster.RegBus()
   }
 
   val fifoPtrW = log2Up(c.fifoDepth)
@@ -581,56 +590,48 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   txFifo.head.simPublic(); txFifo.notEmpty.simPublic(); txFifo.cnt.simPublic()
   rxFifo.popValid.simPublic(); rxFifo.head.simPublic(); rxFifo.notEmpty.simPublic()
 
-  // === Register map ===
-  def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt): Area = new Area {
-    val bus = new BusSlaveFactoryAddressWrapper(busCtrl, baseAddress)
-
-    bus.write(0x00,
-      0   -> cmd.addr,
-      addrW -> cmd.rw,
-      addrW + 1 -> cmd.phase2,
-      addrW + 2 -> cmd.nackLast
-    )
-    bus.onWrite(0x00)(cmd.trigger := True)
-
-    bus.write(cmd.len1, 0x04)
-    bus.write(cmd.len2, 0x08)
-
-    val txData = bus.createWriteOnly(Bits(8 bits), 0x0C)
-    bus.onWrite(0x0C) {
-      txFifo.pushValid := True
-      txFifo.pushData  := txData
+  // === Register map (internal, flat bus decoding) ===
+  io.regBus.rdata := B(0, 32 bits)
+  when(io.regBus.wen) {
+    switch(io.regBus.addr) {
+      is(B("h00")) {
+        cmd.addr     := io.regBus.wdata(addrW - 1 downto 0)
+        cmd.rw       := io.regBus.wdata(addrW)
+        cmd.phase2   := io.regBus.wdata(addrW + 1)
+        cmd.nackLast := io.regBus.wdata(addrW + 2)
+        cmd.trigger  := True
+      }
+      is(B("h04")) { cmd.len1 := io.regBus.wdata(7 downto 0).asUInt }
+      is(B("h08")) { cmd.len2 := io.regBus.wdata(7 downto 0).asUInt }
+      is(B("h0C")) {
+        txFifo.pushValid := True
+        txFifo.pushData  := io.regBus.wdata(7 downto 0)
+      }
+      is(B("h18")) { intr.en := io.regBus.wdata(2 downto 0) }
+      is(B("h20")) { intr.clrIn := io.regBus.wdata(2 downto 0) }
+      is(B("h24")) { cfg.sampDiv := io.regBus.wdata(c.sampDivWidth - 1 downto 0).asUInt }
+      is(B("h28")) { cfg.timeout := io.regBus.wdata(19 downto 0).asUInt }
+      is(B("h2C")) { cfg.tLow    := io.regBus.wdata(c.timerWidth - 1 downto 0).asUInt }
+      is(B("h30")) { cfg.tHigh   := io.regBus.wdata(c.timerWidth - 1 downto 0).asUInt }
+      is(B("h34")) { cfg.tBuf    := io.regBus.wdata(c.timerWidth - 1 downto 0).asUInt }
+      is(B("h38")) { abortReq := io.regBus.wdata(0) }
     }
-
-    bus.read(rxFifo.head, 0x10)
-    bus.read(rxFifo.notEmpty, 0x10, 8)
-    bus.onRead(0x10)(rxFifo.popValid := True)
-
-    bus.read(0x14,
-      0 -> status.busy,
-      1 -> txFifo.notEmpty,
-      2 -> rxFifo.notEmpty,
-      3 -> status.errCode(0),
-      4 -> status.errCode(1),
-      5 -> status.errCode(2),
-      6 -> status.aborted
-    )
-
-    bus.drive(intr.en, 0x18)
-    bus.read(intr.fl.asUInt, 0x1C)
-
-    val clr0 = bus.createWriteOnly(Bool(), 0x20, 0)
-    val clr1 = bus.createWriteOnly(Bool(), 0x20, 1)
-    val clr2 = bus.createWriteOnly(Bool(), 0x20, 2)
-    intr.clrIn := B(clr2, clr1, clr0)
-
-    bus.drive(cfg.sampDiv, 0x24)
-    bus.drive(cfg.timeout, 0x28)
-    bus.drive(cfg.tLow, 0x2C)
-    bus.drive(cfg.tHigh, 0x30)
-    bus.drive(cfg.tBuf, 0x34)
-
-    val ctrlAb = bus.createWriteOnly(Bool(), 0x38, 0)
-    abortReq := ctrlAb
+  }
+  when(io.regBus.re) {
+    switch(io.regBus.addr) {
+      is(B("h10")) {
+        io.regBus.rdata(7 downto 0) := rxFifo.head
+        io.regBus.rdata(8) := rxFifo.notEmpty
+        rxFifo.popValid := True
+      }
+      is(B("h14")) {
+        io.regBus.rdata(0) := status.busy
+        io.regBus.rdata(1) := txFifo.notEmpty
+        io.regBus.rdata(2) := rxFifo.notEmpty
+        io.regBus.rdata(5 downto 3) := status.errCode.asBits
+        io.regBus.rdata(6) := status.aborted
+      }
+      is(B("h1C")) { io.regBus.rdata(2 downto 0) := intr.fl }
+    }
   }
 }

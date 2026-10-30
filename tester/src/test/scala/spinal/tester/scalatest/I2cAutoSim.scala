@@ -56,6 +56,24 @@ class I2cAutoSim extends AnyFunSuite {
     master.io.i2c.sda.read := sdaWire  // master sees combined (in)
     slave.io.i2c.sda.write := sdaWire  // slave sees combined (in)
 
+    // Register bus: drivable from test for realistic register-map access
+    val mRegAddr  = RegInit(B(0, 8 bits));  mRegAddr.simPublic(); mRegAddr.allowUnsetRegToAvoidLatch()
+    val mRegWdata = RegInit(B(0, 32 bits)); mRegWdata.simPublic(); mRegWdata.allowUnsetRegToAvoidLatch()
+    val mRegWe    = RegInit(False);          mRegWe.simPublic(); mRegWe.allowUnsetRegToAvoidLatch()
+    val mRegRe    = RegInit(False);          mRegRe.simPublic(); mRegRe.allowUnsetRegToAvoidLatch()
+    master.io.regBus.addr  := mRegAddr
+    master.io.regBus.wdata := mRegWdata
+    master.io.regBus.wen   := mRegWe
+    master.io.regBus.re    := mRegRe
+    val sRegAddr  = RegInit(B(0, 8 bits));  sRegAddr.simPublic(); sRegAddr.allowUnsetRegToAvoidLatch()
+    val sRegWdata = RegInit(B(0, 32 bits)); sRegWdata.simPublic(); sRegWdata.allowUnsetRegToAvoidLatch()
+    val sRegWe    = RegInit(False);          sRegWe.simPublic(); sRegWe.allowUnsetRegToAvoidLatch()
+    val sRegRe    = RegInit(False);          sRegRe.simPublic(); sRegRe.allowUnsetRegToAvoidLatch()
+    slave.io.regBus.addr  := sRegAddr
+    slave.io.regBus.wdata := sRegWdata
+    slave.io.regBus.wen   := sRegWe
+    slave.io.regBus.re    := sRegRe
+
     // Expose IRQs
     val io = new Bundle {
       val irqMaster = out Bool()
@@ -86,6 +104,20 @@ class I2cAutoSim extends AnyFunSuite {
     slaveB.sdaOut.simPublic()
     slaveA.sdaOut.simPublic()
 
+    // Register buses (drivable from test)
+    val mA = RegInit(B(0, 8 bits)); mA.simPublic(); mA.allowUnsetRegToAvoidLatch()
+    val mW = RegInit(B(0, 32 bits)); mW.simPublic(); mW.allowUnsetRegToAvoidLatch()
+    val mWe = RegInit(False); mWe.simPublic(); mWe.allowUnsetRegToAvoidLatch()
+    master.io.regBus.addr := mA; master.io.regBus.wdata := mW; master.io.regBus.wen := mWe; master.io.regBus.re := False
+    val sA = RegInit(B(0, 8 bits)); sA.simPublic(); sA.allowUnsetRegToAvoidLatch()
+    val sW = RegInit(B(0, 32 bits)); sW.simPublic(); sW.allowUnsetRegToAvoidLatch()
+    val sWe = RegInit(False); sWe.simPublic(); sWe.allowUnsetRegToAvoidLatch()
+    slaveA.io.regBus.addr := sA; slaveA.io.regBus.wdata := sW; slaveA.io.regBus.wen := sWe; slaveA.io.regBus.re := False
+    val bA = RegInit(B(0, 8 bits)); bA.simPublic(); bA.allowUnsetRegToAvoidLatch()
+    val bW = RegInit(B(0, 32 bits)); bW.simPublic(); bW.allowUnsetRegToAvoidLatch()
+    val bWe = RegInit(False); bWe.simPublic(); bWe.allowUnsetRegToAvoidLatch()
+    slaveB.io.regBus.addr := bA; slaveB.io.regBus.wdata := bW; slaveB.io.regBus.wen := bWe; slaveB.io.regBus.re := False
+
     val io = new Bundle {
       val irqMaster = out Bool()
     }
@@ -111,6 +143,24 @@ class I2cAutoSim extends AnyFunSuite {
     cd.waitActiveEdge()
   }
 
+  // Helper: write a register via the register bus (1-cycle pulse)
+  def regWrite(dut: TestTop, isMaster: Boolean, addr: Int, data: Int): Unit = {
+    val cd = dut.clockDomain
+    if (isMaster) {
+      dut.mRegAddr  #= addr
+      dut.mRegWdata #= data
+      dut.mRegWe    #= true
+    } else {
+      dut.sRegAddr  #= addr
+      dut.sRegWdata #= data
+      dut.sRegWe    #= true
+    }
+    cd.waitActiveEdge()
+    if (isMaster) { dut.mRegWe #= false }
+    else { dut.sRegWe #= false }
+    cd.waitActiveEdge()
+  }
+
   // Helper: wait until master is no longer busy
   def waitForIdle(dut: TestTop, maxCycles: Int = 200000): Unit = {
     val cd = dut.clockDomain
@@ -132,11 +182,10 @@ class I2cAutoSim extends AnyFunSuite {
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
 
-      // Configure slave
+      // Configure slave via register bus
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
-      dut.slave.dataPtr       #= 0
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)  // slaveAddr=0x28, matchEn=1
+      regWrite(dut, isMaster = false, addr = 0x04, data = 0)                // dataPtr=0
 
       cd.waitActiveEdge(10)
 
@@ -183,8 +232,7 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Configure slave
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
       dut.slave.dataPtr       #= 0
 
       // Pre-load slave RAM
@@ -236,8 +284,7 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Configure slave
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
       dut.slave.dataPtr       #= 0
 
       // Pre-load slave RAM
@@ -296,8 +343,7 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Configure slave with DIFFERENT address (won't match)
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x30  // slave listens on 0x30
-      dut.slave.addrMatchEn   #= true
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x30)
       dut.slave.dataPtr       #= 0
 
       cd.waitActiveEdge(10)
@@ -336,11 +382,10 @@ class I2cAutoSim extends AnyFunSuite {
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
 
-      // Configure slave
+      // Configure slave via register bus
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
-      dut.slave.dataPtr       #= 0
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)  // slaveAddr=0x28, matchEn=1
+      regWrite(dut, isMaster = false, addr = 0x04, data = 0)                // dataPtr=0
 
       cd.waitActiveEdge(10)
 
@@ -383,11 +428,10 @@ class I2cAutoSim extends AnyFunSuite {
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
 
-      // Configure slave
+      // Configure slave via register bus
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
-      dut.slave.dataPtr       #= 0
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)  // slaveAddr=0x28, matchEn=1
+      regWrite(dut, isMaster = false, addr = 0x04, data = 0)                // dataPtr=0
 
       cd.waitActiveEdge(10)
 
@@ -436,8 +480,7 @@ class I2cAutoSim extends AnyFunSuite {
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
       dut.slave.dataPtr       #= 0
       cd.waitActiveEdge(10)
 
@@ -490,13 +533,12 @@ class I2cAutoSim extends AnyFunSuite {
       dut.master.cfg.tLow     #= 20
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
-      dut.master.cfg.timeout  #= 50  // 50 cycles timeout
+      regWrite(dut, isMaster = true, addr = 0x28, data = 50)  // timeout=50 cycles
 
-      // Configure slave
+      // Configure slave via register bus
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
-      dut.slave.dataPtr       #= 0
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)  // slaveAddr=0x28, matchEn=1
+      regWrite(dut, isMaster = false, addr = 0x04, data = 0)                // dataPtr=0
 
       cd.waitActiveEdge(10)
 
@@ -548,8 +590,7 @@ class I2cAutoSim extends AnyFunSuite {
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
       dut.slave.dataPtr       #= 0
       cd.waitActiveEdge(10)
 
@@ -595,14 +636,24 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Configure slave A (target) and slave B (should stay silent)
       dut.slaveA.cfg.sampDiv   #= 1
-      dut.slaveA.slaveAddr     #= 0x28
-      dut.slaveA.addrMatchEn   #= true
-      dut.slaveA.dataPtr       #= 0
+      dut.sA #= 0x00; dut.sW #= ((1 << 7) | 0x28); dut.sWe #= true
+      cd.waitActiveEdge()
+      dut.sWe #= false
+      cd.waitActiveEdge()
+      dut.sA #= 0x04; dut.sW #= 0; dut.sWe #= true
+      cd.waitActiveEdge()
+      dut.sWe #= false
+      cd.waitActiveEdge()
 
       dut.slaveB.cfg.sampDiv   #= 1
-      dut.slaveB.slaveAddr     #= 0x30  // Different address
-      dut.slaveB.addrMatchEn   #= true
-      dut.slaveB.dataPtr       #= 0
+      dut.bA #= 0x00; dut.bW #= ((1 << 7) | 0x30); dut.bWe #= true
+      cd.waitActiveEdge()
+      dut.bWe #= false
+      cd.waitActiveEdge()
+      dut.bA #= 0x04; dut.bW #= 0; dut.bWe #= true
+      cd.waitActiveEdge()
+      dut.bWe #= false
+      cd.waitActiveEdge()
 
       cd.waitActiveEdge(10)
 
@@ -669,8 +720,7 @@ class I2cAutoSim extends AnyFunSuite {
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
       dut.slave.dataPtr       #= 0
       cd.waitActiveEdge(10)
 
@@ -718,8 +768,7 @@ class I2cAutoSim extends AnyFunSuite {
       dut.master.cfg.tHigh    #= 20
       dut.master.cfg.tBuf     #= 20
       dut.slave.cfg.sampDiv   #= 1
-      dut.slave.slaveAddr     #= 0x28
-      dut.slave.addrMatchEn   #= true
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
       dut.slave.dataPtr       #= 0
       cd.waitActiveEdge(10)
 
@@ -780,7 +829,7 @@ class I2cAutoSim extends AnyFunSuite {
       dut.slave.cfg.sampDiv   #= 1
 
       // 10-bit address: 0x345
-      dut.slave.slaveAddr #= 0x345
+      regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 10) | 0x345))
       dut.slave.dataPtr   #= 0
 
       cd.waitActiveEdge(10)
@@ -819,7 +868,7 @@ class I2cAutoSim extends AnyFunSuite {
       dut.slave.cfg.sampDiv   #= 1
 
       // 10-bit address: 0x1BC
-      dut.slave.slaveAddr #= 0x1BC
+      regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 10) | 0x1BC))
       dut.slave.dataPtr   #= 0
 
       // Pre-load RAM
@@ -862,7 +911,7 @@ class I2cAutoSim extends AnyFunSuite {
       dut.slave.cfg.sampDiv   #= 1
 
       // 10-bit address: 0x2AA
-      dut.slave.slaveAddr #= 0x2AA
+      regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 10) | 0x2AA))
       dut.slave.dataPtr   #= 0
 
       // Pre-load read data at offset 2
