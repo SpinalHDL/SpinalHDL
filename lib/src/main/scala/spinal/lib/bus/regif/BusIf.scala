@@ -8,6 +8,8 @@ import scala.collection.mutable.{HashMap, ListBuffer}
 
 trait BusIf extends BusIfBase {
   val bus: Bundle
+  /** Address space of this interface. Registers, FIFOs and RAMs must fit in it. */
+  val sizeMap: SizeMapping
 
   type B <: this.type
   private val SliceInsts = ListBuffer[RegSlice]()
@@ -97,7 +99,14 @@ trait BusIf extends BusIfBase {
   def addressUsed(addr: BigInt) = regAddressHistory.contains(addr)
   def getAddrMap = regAddressHistory.toList.map("0x" + _.hexString()) ++ regAddressMap.map(_.toString)
 
+  private def checkInSizeMap(sizemap: SizeMapping): Unit = {
+    if (sizemap.base < sizeMap.base || sizemap.end > sizeMap.end) {
+      SpinalError(s"${sizemap} exceeds the bus interface address space ${sizeMap}")
+    }
+  }
+
   private def attachAddr(addr: BigInt) = {
+    checkInSizeMap(SizeMapping(addr, wordAddressInc))
     val ret = regAddressMap.filter(t => (addr <= t.end) && (addr >= t.base))
     if (regAddressHistory.contains(addr)) {
       SpinalError(s"Address: ${addr.hexString(16)} already used before, check please!")
@@ -109,6 +118,7 @@ trait BusIf extends BusIfBase {
   }
 
   private def attachAddr(sizemap: SizeMapping) = {
+    checkInSizeMap(sizemap)
     val ret = regAddressMap.filter(_.overlap(sizemap))
     val t = regAddressHistory.filter(t => (t <= sizemap.end) && (t >= sizemap.base))
     if (!ret.isEmpty) {
