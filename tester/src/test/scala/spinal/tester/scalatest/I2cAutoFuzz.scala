@@ -21,6 +21,11 @@ class I2cAutoFuzz extends AnyFunSuite {
     val master = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, timerWidth = 12))
     val slave  = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = 64))
 
+    // Tie off DMA inputs
+    master.io.dmaTx.ready := False
+    master.io.dmaTx.data  := B(0)
+    master.io.dmaRx.ready := False
+
     val sclWire = master.io.i2c.scl.write && slave.io.i2c.scl.read
     master.io.i2c.scl.read := sclWire
     slave.io.i2c.scl.write := sclWire
