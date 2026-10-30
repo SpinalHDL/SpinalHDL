@@ -14,8 +14,10 @@ import scala.collection.mutable
 import scala.util.Random
 
 class SpinalSimBmbToApb3BridgeTester extends SpinalSimFunSuite{
-  test("test1") {
+  doTest("test1", false)
+  doTest("test2", false)
 
+  def doTest(name : String, pipelineBridge : Boolean) = test(name){
     val memInit = new Array[Byte](64 * 1024)
     Random.nextBytes(memInit)
 
@@ -24,9 +26,9 @@ class SpinalSimBmbToApb3BridgeTester extends SpinalSimFunSuite{
         apb3Config = Apb3Config(16, 32),
         bmbParameter = BmbToApb3Bridge.busCapabilities(addressWidth = 16, dataWidth = 32).copy(
           sourceWidthMax = 4,
-          contextWidthMax = 4
+          contextWidthMax = 4,
         ).toBmbParameter,
-        pipelineBridge = false
+        pipelineBridge = true
       )
     }.doSimUntilVoid("test") { dut =>
       Phase.boot()
