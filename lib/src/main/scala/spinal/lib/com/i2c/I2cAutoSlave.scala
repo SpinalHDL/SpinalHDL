@@ -88,10 +88,18 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   sdaRawPrev := sdaRaw
 
   // === Slave address & config ===
-  val slaveAddr = Reg(Bits(7 bits)) init(0)
+  val addrW: Int = if (c.support10bit) 10 else 7
+  val addrBytes: Int = if (c.support10bit) 2 else 1
+  val slaveAddr = Reg(Bits(addrW bits)) init(0)
   val addrMatchEn = RegInit(True)
   slaveAddr.allowUnsetRegToAvoidLatch
   addrMatchEn.allowUnsetRegToAvoidLatch
+
+  // 10-bit address: buffer upper 3 bits from first byte
+  val tenBitUpper = Reg(Bits(3 bits)) init(0)
+  val addrByteIdx = Reg(UInt(1 bits)) init(0)  // 0=first addr byte, 1=second
+  tenBitUpper.allowUnsetRegToAvoidLatch
+  addrByteIdx.allowUnsetRegToAvoidLatch
 
   // === Data pointer ===
   val dataPtr = Reg(UInt(ramAddrW bits)) init(0)
@@ -151,6 +159,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     hasStarted := False
     inAck      := False
     sdaOut     := True  // release during address phase
+    if (c.support10bit) { addrByteIdx := U(0) }
   }
 
   // STOP detection
@@ -168,7 +177,14 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
 
   // Independent wasAddressed latch: set on address match (own when-block)
   when(sclFall && inFrame && !hasStarted && bitPos === U(8)) {
-    wasAddressed := (rxAccum(7 downto 1) === slaveAddr)
+    if (c.support10bit) {
+      when(addrByteIdx === U(1)) {
+        val fullAddr = Cat(tenBitUpper, rxAccum(7 downto 1))
+        wasAddressed := (fullAddr === slaveAddr)
+      }
+    } else {
+      wasAddressed := (rxAccum(7 downto 1) === slaveAddr)
+    }
   }
 
   // SCL rising edge: sample SDA, advance bit position
@@ -198,16 +214,42 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     when(!hasStarted) {
       when(bitPos === U(8)) {
         // All 8 address bits received (SCL fell after 8th data bit)
-        // Decode address, prepare ACK, mark next SCL rise as ACK
-        val recvAddr = rxAccum(7 downto 1)
-        val recvRw   = rxAccum(0)
-        val matchNow = (recvAddr === slaveAddr)
-        isRead    := recvRw
-        addrValid := matchNow
-        hasStarted := True  // transition to data phase
-        inAck      := True  // next SCL rise is address ACK
-        bitPos     := U(0)  // will be used after ACK
-        sdaOut     := !(matchNow && addrMatchEn)
+        if (c.support10bit) {
+          when(addrByteIdx === U(0)) {
+            // First 10-bit address byte: buffer upper bits, ACK, wait for second
+            tenBitUpper := rxAccum(2 downto 0)  // A[9:7]
+            addrByteIdx := U(1)
+            inAck       := True
+            bitPos      := U(0)
+            rxAccum     := B(0)
+            sdaOut      := !addrMatchEn  // ACK if enabled, NACK if disabled
+          } otherwise {
+            // Second 10-bit address byte: full match
+            val fullAddr = Cat(tenBitUpper, rxAccum(7 downto 1))  // A[9:0]
+            val recvRw   = rxAccum(0)
+            val matchNow = (fullAddr === slaveAddr)
+            isRead    := recvRw
+            addrValid := matchNow
+            hasStarted := True
+            inAck      := True
+            bitPos     := U(0)
+            sdaOut     := !(matchNow && addrMatchEn)
+          }
+        } else {
+          // 7-bit: single address byte
+          val recvAddr = rxAccum(7 downto 1)
+          val recvRw   = rxAccum(0)
+          val matchNow = (recvAddr === slaveAddr)
+          isRead    := recvRw
+          addrValid := matchNow
+          hasStarted := True
+          inAck      := True
+          bitPos     := U(0)
+          sdaOut     := !(matchNow && addrMatchEn)
+        }
+      } otherwise {
+        // Between address bits: release SDA (master is driving data)
+        sdaOut := True
       }
     } otherwise {
       when(bitPos === U(8)) {
@@ -263,10 +305,10 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt): Area = new Area {
     val bus = new BusSlaveFactoryAddressWrapper(busCtrl, baseAddress)
 
-    // 0x00 ADDR
+    // 0x00 ADDR (width depends on support10bit)
     bus.write(0x00,
       0 -> slaveAddr,
-      7 -> addrMatchEn
+      addrW -> addrMatchEn
     )
 
     // 0x04 PTR
@@ -311,4 +353,12 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   dataPtr.simPublic()
   ram.simPublic()
   stretchReq.simPublic()
+  tenBitUpper.simPublic()
+  addrByteIdx.simPublic()
+  hasStarted.simPublic()
+  inFrame.simPublic()
+  sdaOut.simPublic()
+  bitPos.simPublic()
+  inAck.simPublic()
+  rxAccum.simPublic()
 }

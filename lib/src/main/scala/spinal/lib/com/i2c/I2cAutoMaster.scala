@@ -148,10 +148,15 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   rxFifo.popValid  := False
   rxFifo.pushValid := False
 
+  /** Width of the address field in bits (7 or 10). */
+  val addrW: Int = if (c.support10bit) 10 else 7
+  /** Number of address bytes on the bus (1 for 7-bit, 2 for 10-bit). */
+  val addrBytes: Int = if (c.support10bit) 2 else 1
+
   // === Command / Status ===
   val cmd = new Area {
     val trigger  = RegInit(False)
-    val addr     = Reg(Bits(7 bits)) init(0)
+    val addr     = Reg(Bits(addrW bits)) init(0)
     val rw       = RegInit(False)
     val phase2   = RegInit(False)
     val nackLast = RegInit(False)
@@ -218,25 +223,36 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val sclDrive = RegInit(True)
 
     // Latched params
-    val latAddr     = Reg(Bits(7 bits)) init(0)
+    val latAddr     = Reg(Bits(addrW bits)) init(0)
     val latRw       = RegInit(False)
     val latHasP2    = RegInit(False)
     val latNackLast = RegInit(False)
     val latLen2     = Reg(UInt(8 bits)) init(0)
 
     // Derived
-    val isAddrByte = byteNum === U(0)
-    val isAckBit   = bitPos === U(8)
-    val isLastByte = byteNum === curLen
+    val dataStart    = U(addrBytes, 8 bits)
+    val isAddrByte   = byteNum < dataStart
+    val isLastAddrByte = byteNum === U(addrBytes - 1, 8 bits)
+    val isAckBit     = bitPos === U(8)
+    val isLastByte   = byteNum === (dataStart - U(1)) + curLen
 
     val driveSda: Bool = Mux(isAckBit, curRw, !curRw)
 
+    // Address drive logic (compile-time selected to avoid out-of-bounds in 7-bit mode)
+    val addrDrive: Bool = if (c.support10bit) {
+      val tenBitByte0: Bool = Mux(bitPos(2 downto 0) < U(4), True,
+                                    Mux(bitPos(2 downto 0) === U(4), False,
+                                      Mux(bitPos(2 downto 0) === U(5), latAddr(9),
+                                        Mux(bitPos(2 downto 0) === U(6), latAddr(8), latAddr(7)))))
+      val tenBitByte1: Bool = Mux(bitPos(2 downto 0) === U(7), latRw, latAddr(6 - bitPos(2 downto 0)))
+      Mux(byteNum === U(0), tenBitByte0, tenBitByte1)
+    } else {
+      Mux(bitPos(2 downto 0) === U(7), latRw, latAddr(6 - bitPos(2 downto 0)))
+    }
+
     val sdaValue: Bool = Mux(isAckBit,
       Mux(latNackLast && isLastByte && !(latHasP2 && !curRw), True, False),
-      Mux(isAddrByte,
-        Mux(bitPos(2 downto 0) === U(7), latRw, latAddr(6 - bitPos(2 downto 0))),
-        txByte(7 - bitPos(2 downto 0))
-      )
+      Mux(isAddrByte, addrDrive, txByte(7 - bitPos(2 downto 0)))
     )
 
     // States
@@ -330,19 +346,33 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
           }
           when(isAckBit) {
             when(isAddrByte) {
-              when(sdaFilt) {  // NACK = SDA High (use direct signal, not 1-cycle-delayed register)
-                status.errCode := U(1, 3 bits)
-                status.busy    := False
-                intr.fl(1)     := True
-                goto(STOP0)
-              } otherwise {
-                byteNum := U(1)
-                bitPos  := U(0)
-                when(!curRw && curLen > U(0)) {
-                  txByte := txFifo.head
-                  txFifo.popValid := True
+              when(isLastAddrByte) {
+                when(sdaFilt) {  // NACK on last address byte
+                  status.errCode := U(1, 3 bits)
+                  status.busy    := False
+                  intr.fl(1)     := True
+                  goto(STOP0)
+                } otherwise {
+                  byteNum := dataStart
+                  bitPos  := U(0)
+                  when(!curRw && curLen > U(0)) {
+                    txByte := txFifo.head
+                    txFifo.popValid := True
+                  }
+                  goto(BIT_LOW)
                 }
-                goto(BIT_LOW)
+              } otherwise {
+                // Intermediate address byte (10-bit mode): ACK and continue
+                when(sdaFilt) {  // NACK on first addr byte
+                  status.errCode := U(1, 3 bits)
+                  status.busy    := False
+                  intr.fl(1)     := True
+                  goto(STOP0)
+                } otherwise {
+                  byteNum := byteNum + U(1)
+                  bitPos  := U(0)
+                  goto(BIT_LOW)
+                }
               }
             } otherwise {
               when(curRw) {
@@ -556,10 +586,10 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val bus = new BusSlaveFactoryAddressWrapper(busCtrl, baseAddress)
 
     bus.write(0x00,
-      0 -> cmd.addr,
-      7 -> cmd.rw,
-      8 -> cmd.phase2,
-      9 -> cmd.nackLast
+      0   -> cmd.addr,
+      addrW -> cmd.rw,
+      addrW + 1 -> cmd.phase2,
+      addrW + 2 -> cmd.nackLast
     )
     bus.onWrite(0x00)(cmd.trigger := True)
 

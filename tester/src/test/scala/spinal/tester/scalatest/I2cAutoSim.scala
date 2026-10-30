@@ -18,17 +18,20 @@ class I2cAutoSim extends AnyFunSuite {
   case class TestTopCfg(
     masterFifoDepth : Int = 64,
     slaveRamDepth   : Int = 64,
-    slaveValidAddrs : Option[Seq[Int]] = None
+    slaveValidAddrs : Option[Seq[Int]] = None,
+    support10bit    : Boolean = false
   )
 
   class TestTop(cfg: TestTopCfg = TestTopCfg()) extends Component {
     val master = new I2cAutoMaster(I2cAutoMaster.Config(
-      fifoDepth = cfg.masterFifoDepth,
-      timerWidth = 12
+      fifoDepth    = cfg.masterFifoDepth,
+      support10bit = cfg.support10bit,
+      timerWidth   = 12
     ))
     val slave  = new I2cAutoSlave(I2cAutoSlave.Config(
-      ramDepth   = cfg.slaveRamDepth,
-      validAddrs = cfg.slaveValidAddrs.getOrElse((0 until cfg.slaveRamDepth).toSeq)
+      ramDepth     = cfg.slaveRamDepth,
+      validAddrs   = cfg.slaveValidAddrs.getOrElse((0 until cfg.slaveRamDepth).toSeq),
+      support10bit = cfg.support10bit
     ))
 
     // Test control: force SCL Low to simulate bus hang
@@ -752,6 +755,152 @@ class I2cAutoSim extends AnyFunSuite {
       // The key assertion: master was demonstrably paused by the slave's SCL hold.
       // Clean resumption requires stretching between bytes (future enhancement);
       // here we validate the CORE mechanism: slave can hold SCL, master waits.
+    }
+  }
+
+  // ===================== 10-bit Address Tests =====================
+
+  def runSim10bit(body: TestTop => Unit): Unit = {
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new TestTop(TestTopCfg(support10bit = true))).doSim { dut =>
+        val cd = dut.clockDomain
+        cd.forkStimulus(10 ns)
+        body(dut)
+      }
+  }
+
+  test("I2cAuto 10-bit: write 4 bytes") {
+    runSim10bit { dut =>
+      val cd = dut.clockDomain
+
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+      dut.slave.cfg.sampDiv   #= 1
+
+      // 10-bit address: 0x345
+      dut.slave.slaveAddr #= 0x345
+      dut.slave.dataPtr   #= 0
+
+      cd.waitActiveEdge(10)
+
+      // Push 4 data bytes
+      val data = Array(0xDE, 0xAD, 0xBE, 0xEF)
+      for (d <- data) { pushTx(dut, d) }
+
+      // Trigger write
+      dut.master.cmd.addr    #= 0x345
+      dut.master.cmd.rw      #= false
+      dut.master.cmd.len1    #= 4
+      dut.master.cmd.trigger #= true
+      cd.waitActiveEdge(3)
+      dut.master.cmd.trigger #= false
+
+      waitForIdle(dut)
+
+      // Verify
+      assert(dut.master.status.errCode.toInt == 0, s"err=${dut.master.status.errCode.toInt}")
+      for (i <- data.indices) {
+        val ramVal = dut.slave.ram.getBigInt(i).toInt
+        assert(ramVal == data(i), f"RAM[$i]=0x${ramVal}%02X exp 0x${data(i)}%02X")
+      }
+    }
+  }
+
+  test("I2cAuto 10-bit: read 3 bytes") {
+    runSim10bit { dut =>
+      val cd = dut.clockDomain
+
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+      dut.slave.cfg.sampDiv   #= 1
+
+      // 10-bit address: 0x1BC
+      dut.slave.slaveAddr #= 0x1BC
+      dut.slave.dataPtr   #= 0
+
+      // Pre-load RAM
+      val data = Array(0x11, 0x22, 0x33)
+      for (i <- data.indices) { dut.slave.ram.setBigInt(i, data(i)) }
+
+      cd.waitActiveEdge(10)
+
+      // Trigger read
+      dut.master.cmd.addr     #= 0x1BC
+      dut.master.cmd.rw       #= true
+      dut.master.cmd.len1     #= 3
+      dut.master.cmd.nackLast #= true
+      dut.master.cmd.trigger  #= true
+      cd.waitActiveEdge(3)
+      dut.master.cmd.trigger  #= false
+
+      waitForIdle(dut)
+
+      // Read back
+      for (i <- data.indices) {
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        val rxVal = dut.master.rxFifo.head.toInt
+        assert(rxVal == data(i), f"RX[$i]=0x${rxVal}%02X exp 0x${data(i)}%02X")
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
+    }
+  }
+
+  test("I2cAuto 10-bit: composite write+read RESTART") {
+    runSim10bit { dut =>
+      val cd = dut.clockDomain
+
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+      dut.slave.cfg.sampDiv   #= 1
+
+      // 10-bit address: 0x2AA
+      dut.slave.slaveAddr #= 0x2AA
+      dut.slave.dataPtr   #= 0
+
+      // Pre-load read data at offset 2
+      val readData = Array(0xAA, 0xBB)
+      for (i <- readData.indices) { dut.slave.ram.setBigInt(2 + i, readData(i)) }
+
+      cd.waitActiveEdge(10)
+
+      // Push write data
+      val writeData = Array(0x11, 0x22)
+      for (d <- writeData) { pushTx(dut, d) }
+
+      // Trigger composite
+      dut.master.cmd.addr     #= 0x2AA
+      dut.master.cmd.rw       #= false
+      dut.master.cmd.len1     #= 2
+      dut.master.cmd.phase2   #= true
+      dut.master.cmd.len2     #= 2
+      dut.master.cmd.nackLast #= true
+      dut.master.cmd.trigger  #= true
+      cd.waitActiveEdge(3)
+      dut.master.cmd.trigger  #= false
+
+      waitForIdle(dut)
+
+      // Verify write phase
+      assert(dut.slave.ram.getBigInt(0).toInt == 0x11, s"RAM[0]=${dut.slave.ram.getBigInt(0).toInt}")
+      assert(dut.slave.ram.getBigInt(1).toInt == 0x22, s"RAM[1]=${dut.slave.ram.getBigInt(1).toInt}")
+
+      // Verify read phase
+      for (i <- readData.indices) {
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        val rxVal = dut.master.rxFifo.head.toInt
+        assert(rxVal == readData(i), f"RX[$i]=0x${rxVal}%02X exp 0x${readData(i)}%02X")
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
     }
   }
 }
