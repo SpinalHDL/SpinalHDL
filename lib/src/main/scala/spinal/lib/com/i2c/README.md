@@ -78,6 +78,22 @@ io.irq      : Bool           // Maskable interrupt output
 6. Collect RX data:   Pop bytes from RX_FIFO_DATA (for read transfers)
 ```
 
+### DMA Interface
+
+The master exposes AXI4-Stream style valid/ready handshaking for external
+DMA engines to refill/drain FIFOs without CPU involvement:
+
+```
+io.dmaTx: { valid(out), ready(in), data(in, 8 bits) }  // DMA → TX FIFO
+io.dmaRx: { valid(out), ready(in), data(out, 8 bits) } // RX FIFO → DMA
+```
+
+- `dmaTx.valid` = FIFO not full; assert `ready` + `data` to push a byte
+- `dmaRx.valid` = FIFO not empty; assert `ready` to pop a byte (`data` = head)
+- Handshake completes when `valid && ready` are both High on the same cycle
+
+---
+
 ### Composite Transfers (RESTART)
 
 Set `phase2=1` in CMD to perform an atomic write→RESTART→read:
@@ -182,9 +198,10 @@ slave.io.i2c.sda.write := sdaWire
 
 | Item | Status |
 |------|--------|
-| DMA interface | Deferred (manual FIFO push/pop only) |
+| DMA interface | Implemented (AXI4-Stream valid/ready on TX/RX FIFOs) |
 | SCL stretching (slave) | Partial (stretchReq stalls master; clean mid-byte resume TBD) |
-| Multi-slave isolation | Limited (non-matched slave still ACKs; SpinalHDL constraint) |
+| Multi-slave isolation | Limited (non-matched slave still enters data phase; SpinalHDL constraint) |
+| I2cAutoDemo Verilog gen | Broken (pre-existing BusSlaveFactory addr conflict at 0x08) |
 
 ## Testing
 
@@ -192,11 +209,11 @@ slave.io.i2c.sda.write := sdaWire
 sbt "tester/testOnly spinal.tester.scalatest.I2cAutoSim"
 ```
 
-15 active testcases covering: write, read, composite+RESTART, address NACK,
+16 active testcases covering: write, read, composite+RESTART, address NACK,
 full FIFO burst (64B), runtime abort, back-to-back transfers, timeout with
 9-pulse recovery, data NACK mid-burst abort, multi-slave bus coexistence,
-arbitration loss passive exit, SCL stretching pause verification, and
-10-bit address (write, read, composite).
+arbitration loss passive exit, SCL stretching pause verification, 10-bit
+address (write, read, composite), and DMA write.
 
 Features with dedicated test coverage:
 - Arbitration loss detection (errCode=4): tested via `sdaForceHigh` injection
