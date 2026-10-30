@@ -19,7 +19,8 @@ legacy `I2cSlave` + `driveI2cSlaveIo` stack (see ADR-0001).
 case class Config(
   fifoDepth  : Int = 64,   // TX and RX FIFO depth (power of 2)
   timerWidth : Int = 12,   // Width of timing counters
-  sampDivWidth: Int = 10   // Width of input filter divider
+  sampDivWidth: Int = 10,  // Width of input filter divider
+  support10bit: Boolean = false // Enable 10-bit address mode
 )
 ```
 
@@ -39,7 +40,7 @@ io.irq      : Bool           // Maskable interrupt output
 | 0x08 | CFG_T_LOW | RW | SCL Low period |
 | 0x0C | CFG_T_HIGH | RW | SCL High period |
 | 0x10 | CFG_T_BUF | RW | Setup/hold time |
-| 0x14 | CMD | WO | `{len2[7:0], len1[7:0], nackLast, phase2, rw, addr[6:0], trigger}` |
+| 0x14 | CMD | WO | `{len2[7:0], len1[7:0], nackLast, phase2, rw, addr[addrW-1:0], trigger}` (addrW=7 or 10) |
 | 0x18 | STATUS | RO | `{aborted, errCode[2:0], busy}` |
 | 0x1C | INTR_EN | RW | Interrupt enable mask [2:0] |
 | 0x20 | INTR_CLR | WO/W1C | Interrupt clear [2:0] |
@@ -99,7 +100,8 @@ TX FIFO: [pointer_byte]
 ```scala
 case class Config(
   ramDepth    : Int = 64,  // Data RAM depth (power of 2)
-  sampDivWidth: Int = 10
+  sampDivWidth: Int = 10,
+  support10bit: Boolean = false // Enable 10-bit address mode
 )
 ```
 
@@ -114,7 +116,7 @@ io.irq      : Bool      // Maskable interrupt output
 
 | Offset | Name | Access | Description |
 |--------|------|--------|-------------|
-| 0x00 | ADDR | RW | 7-bit slave address + match enable |
+| 0x00 | ADDR | RW | Slave address (7 or 10-bit) + match enable |
 | 0x04 | CFG_SAMPDIV | RW | Input filter sample divider |
 | 0x08 | DATA_PTR | RW | Current data pointer (auto-increments) |
 | 0x0C | INTR_EN | RW | Interrupt enable [1:0] |
@@ -135,6 +137,29 @@ io.irq      : Bool      // Maskable interrupt output
 |-----|------|---------|
 | 0 | TRANSFER_COMPLETE | STOP detected during active frame |
 | 1 | NACK_SENT | Slave NACKed (address mismatch or pointer overflow) |
+
+### 10-Bit Address Mode
+
+Set `support10bit = true` in both master and slave Config. The address field
+widens to 10 bits and the master transmits two address bytes:
+
+```
+Byte 0: 1 1 1 1 0 A[9] A[8] A[7]
+Byte 1: A[6] A[5] A[4] A[3] A[2] A[1] A[0] R/W
+```
+
+Example: Write 4 bytes to 10-bit address 0x345:
+```
+// Master
+master = new I2cAutoMaster(Config(support10bit = true))
+master.cmd.addr  #= 0x345   // 10-bit address
+master.cmd.rw    #= false
+master.cmd.len1  #= 4
+
+// Slave
+slave = new I2cAutoSlave(Config(support10bit = true))
+slave.slaveAddr  #= 0x345
+```
 
 ---
 
@@ -157,10 +182,9 @@ slave.io.i2c.sda.write := sdaWire
 
 | Item | Status |
 |------|--------|
-| 10-bit addresses | Parameter reserved, logic not implemented |
 | DMA interface | Deferred (manual FIFO push/pop only) |
-| SCL stretching (slave) | Not supported (slave never holds SCL Low) |
-| Arbitration loss (master) | Not detected (assumes single-master bus) |
+| SCL stretching (slave) | Partial (stretchReq stalls master; clean mid-byte resume TBD) |
+| Multi-slave isolation | Limited (non-matched slave still ACKs; SpinalHDL constraint) |
 
 ## Testing
 
@@ -168,10 +192,11 @@ slave.io.i2c.sda.write := sdaWire
 sbt "tester/testOnly spinal.tester.scalatest.I2cAutoSim"
 ```
 
-12 active testcases covering: write, read, composite+RESTART, address NACK,
+15 active testcases covering: write, read, composite+RESTART, address NACK,
 full FIFO burst (64B), runtime abort, back-to-back transfers, timeout with
 9-pulse recovery, data NACK mid-burst abort, multi-slave bus coexistence,
-arbitration loss passive exit, and SCL stretching pause verification.
+arbitration loss passive exit, SCL stretching pause verification, and
+10-bit address (write, read, composite).
 
 Features with dedicated test coverage:
 - Arbitration loss detection (errCode=4): tested via `sdaForceHigh` injection
