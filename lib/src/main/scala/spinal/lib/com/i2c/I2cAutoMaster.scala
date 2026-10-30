@@ -232,7 +232,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val driveSda: Bool = Mux(isAckBit, curRw, !curRw)
 
     val sdaValue: Bool = Mux(isAckBit,
-      Mux(latNackLast && isLastByte, True, False),
+      Mux(latNackLast && isLastByte && !(latHasP2 && !curRw), True, False),
       Mux(isAddrByte,
         Mux(bitPos(2 downto 0) === U(7), latRw, latAddr(6 - bitPos(2 downto 0))),
         txByte(7 - bitPos(2 downto 0))
