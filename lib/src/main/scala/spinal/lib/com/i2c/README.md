@@ -186,7 +186,8 @@ slave.io.i2c.sda.write := sdaWire
 |------|--------|
 | DMA interface | Deferred (manual FIFO push/pop only) |
 | SCL stretching (slave) | Partial (stretchReq stalls master; clean mid-byte resume TBD) |
-| Multi-slave isolation | Read data-phase isolated (gated by `wasAddressed`); write-phase ACK not yet fully isolated (non-matched slave may still ACK — harmless in write mode, no bus contention) |
+| Multi-slave isolation | Read + write data-phase both isolated (gated by `wasAddressed`); non-matched slaves release SDA in both directions |
+| Read-end STOP masking | Fixed: `masterNack` flag makes the slave release SDA after a master NACK, so it can no longer hold SDA Low through the STOP edge and desynchronize |
 | Verilog generation | Working (7-bit and 10-bit `SpinalVerilog` generate cleanly) |
 
 ## Testing

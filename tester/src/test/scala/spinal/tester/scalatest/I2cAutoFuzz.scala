@@ -240,8 +240,10 @@ class I2cAutoFuzz extends AnyFunSuite {
         resetBetweenIter(cd, dut)
       }
 
-      // Allow up to 2% flake rate (known filter/raw timing race in address sampling)
-      assert(failures <= 1, s"$failures/50 read iterations failed (tolerance: 1)")
+      // Root cause of the former ~1/50 flake was a slave-side STOP-mask bug
+      // (slave re-armed next data bit after master NACK, holding SDA Low
+      // through the STOP edge). Fixed via masterNack flag -> zero tolerance.
+      assert(failures == 0, s"$failures/50 read iterations failed")
     }
   }
 

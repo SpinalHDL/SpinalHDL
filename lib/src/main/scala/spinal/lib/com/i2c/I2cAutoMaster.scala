@@ -589,6 +589,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   txFifo.pushValid.simPublic(); txFifo.pushData.simPublic(); txFifo.popValid.simPublic()
   txFifo.head.simPublic(); txFifo.notEmpty.simPublic(); txFifo.cnt.simPublic()
   rxFifo.popValid.simPublic(); rxFifo.head.simPublic(); rxFifo.notEmpty.simPublic()
+  fsm.bitPos.simPublic(); fsm.byteNum.simPublic()
 
   // === Register map (internal, flat bus decoding) ===
   io.regBus.rdata := B(0, 32 bits)

@@ -124,6 +124,12 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   val addrValid = RegInit(False)
   val hasStarted = RegInit(False)  // True after address+ACK complete
   val inAck     = RegInit(False)  // True when next SCL rise is the ACK bit
+  // Set when the master NACKs a read byte: the slave must release SDA and
+  // wait for STOP. Without this, the slave re-arms the next data bit after
+  // the NACK; if that bit is Low it holds SDA Low through the master's STOP
+  // sequence, masking the STOP edge (open-drain) so the slave never exits
+  // the frame and desynchronizes on the next transfer.
+  val masterNack = RegInit(False)
 
   // === Response: what to drive on SDA ===
   // True = release (high-Z in open-drain), False = drive low
@@ -167,6 +173,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     addrValid  := False
     hasStarted := False
     inAck      := False
+    masterNack := False
     sdaOut     := True  // release during address phase
     if (c.support10bit) { addrByteIdx := U(0) }
   }
@@ -180,6 +187,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     hasStarted := False
     bitPos     := U(0)
     inAck      := False
+    masterNack := False
     sdaOut     := True
     wasAddressed := False
   }
@@ -283,7 +291,11 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
             dataPtr := dataPtr + U(1)
             sdaOut  := ram.readAsync(dataPtr)(7)
           } otherwise {
-            sdaOut := True
+            // Master NACKed: release SDA and stop driving data. The master
+            // will issue STOP; we must not hold SDA Low (would mask the
+            // STOP edge on the open-drain bus).
+            sdaOut     := True
+            masterNack := True
           }
         }
         inAck   := True  // next SCL rise is data ACK
@@ -291,7 +303,8 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
         rxAccum := B(0)
       } otherwise {
         // Setup SDA for next bit (during SCL low), gated by wasAddressed
-        when(isRead && !inAck && wasAddressed) {
+        // and masterNack (after a NACK the slave must release the bus).
+        when(isRead && !inAck && wasAddressed && !masterNack) {
           sdaOut := ram.readAsync(dataPtr)(7 - bitPos(2 downto 0))
         } otherwise {
           sdaOut := True
@@ -345,4 +358,5 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   inAck.simPublic()
   rxAccum.simPublic()
   wasAddressed.simPublic()
+  isRead.simPublic()
 }
