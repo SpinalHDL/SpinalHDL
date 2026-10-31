@@ -245,7 +245,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val isAckBit     = bitPos === U(8)
     val isLastByte   = byteNum === (dataStart - U(1)) + curLen
 
-    val driveSda: Bool = Mux(isAckBit, curRw, !curRw)
+    val driveSda: Bool = Mux(isAckBit, Mux(isAddrByte, False, curRw), isAddrByte || !curRw)
 
     // Address drive logic (compile-time selected to avoid out-of-bounds in 7-bit mode)
     val addrDrive: Bool = if (c.support10bit) {
@@ -253,10 +253,10 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                                     Mux(bitPos(2 downto 0) === U(4), False,
                                       Mux(bitPos(2 downto 0) === U(5), latAddr(9),
                                         Mux(bitPos(2 downto 0) === U(6), latAddr(8), latAddr(7)))))
-      val tenBitByte1: Bool = Mux(bitPos(2 downto 0) === U(7), latRw, latAddr(6 - bitPos(2 downto 0)))
+      val tenBitByte1: Bool = Mux(bitPos(2 downto 0) === U(7), curRw, latAddr(6 - bitPos(2 downto 0)))
       Mux(byteNum === U(0), tenBitByte0, tenBitByte1)
     } else {
-      Mux(bitPos(2 downto 0) === U(7), latRw, latAddr(6 - bitPos(2 downto 0)))
+      Mux(bitPos(2 downto 0) === U(7), curRw, latAddr(6 - bitPos(2 downto 0)))
     }
 
     val sdaValue: Bool = Mux(isAckBit,

@@ -186,8 +186,8 @@ slave.io.i2c.sda.write := sdaWire
 |------|--------|
 | DMA interface | Deferred (manual FIFO push/pop only) |
 | SCL stretching (slave) | Partial (stretchReq stalls master; clean mid-byte resume TBD) |
-| Multi-slave isolation | Limited (non-matched slave still enters data phase; SpinalHDL constraint) |
-| I2cAutoDemo Verilog gen | Broken (pre-existing BusSlaveFactory addr conflict at 0x08) |
+| Multi-slave isolation | Read data-phase isolated (gated by `wasAddressed`); write-phase ACK not yet fully isolated (non-matched slave may still ACK — harmless in write mode, no bus contention) |
+| Verilog generation | Working (7-bit and 10-bit `SpinalVerilog` generate cleanly) |
 
 ## Testing
 
@@ -195,11 +195,12 @@ slave.io.i2c.sda.write := sdaWire
 sbt "tester/testOnly spinal.tester.scalatest.I2cAutoSim"
 ```
 
-15 active testcases covering: write, read, composite+RESTART, address NACK,
-full FIFO burst (64B), runtime abort, back-to-back transfers, timeout with
-9-pulse recovery, data NACK mid-burst abort, multi-slave bus coexistence,
-arbitration loss passive exit, SCL stretching pause verification, and
-10-bit address (write, read, composite).
+15 deterministic tests in `I2cAutoSim` plus 2 fuzz tests in `I2cAutoFuzz`
+(100 random writes, 50 random reads) covering: write, read, composite+RESTART,
+address NACK, full FIFO burst (64B), runtime abort, back-to-back transfers,
+timeout with 9-pulse recovery, data NACK mid-burst abort, multi-slave bus
+coexistence, arbitration loss passive exit, SCL stretching pause verification,
+and 10-bit address (write, read, composite).
 
 Features with dedicated test coverage:
 - Arbitration loss detection (errCode=4): tested via `sdaForceHigh` injection

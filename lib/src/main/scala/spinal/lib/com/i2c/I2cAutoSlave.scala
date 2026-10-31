@@ -283,8 +283,8 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
         bitPos  := U(0)
         rxAccum := B(0)
       } otherwise {
-        // Setup SDA for next bit (during SCL low)
-        when(isRead && !inAck) {
+        // Setup SDA for next bit (during SCL low), gated by wasAddressed
+        when(isRead && !inAck && wasAddressed) {
           sdaOut := ram.readAsync(dataPtr)(7 - bitPos(2 downto 0))
         } otherwise {
           sdaOut := True
@@ -294,11 +294,8 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   }
 
   // Drive physical SDA output (what this slave contributes to the wire)
-  // TODO(multi-slave): Non-addressed slave still ACKs/drives SDA in data phase.
-  // Root cause: SpinalHDL multi-assignment conflict - any additional sdaOut
-  // override (Mux or separate when-block) breaks the main SCL handler elaboration.
-  // Workaround: use a separate I2cAutoSlave instance per address in SoC integration,
-  // or implement at the bus-arbitration level (gate the entire slave enable).
+  // Multi-slave isolation: data-phase SDA is gated by wasAddressed.
+  // Non-addressed slaves release SDA (High) during data phase.
   io.i2c.sda.read := sdaOut
   // SCL stretching: firmware can request to hold SCL Low
   val stretchReq = RegInit(False)  // Set by firmware to stretch, cleared on STOP or manually
@@ -340,4 +337,5 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   bitPos.simPublic()
   inAck.simPublic()
   rxAccum.simPublic()
+  wasAddressed.simPublic()
 }
