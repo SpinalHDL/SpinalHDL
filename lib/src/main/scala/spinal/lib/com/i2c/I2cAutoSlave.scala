@@ -264,12 +264,19 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
       when(bitPos === U(8)) {
         // Data byte complete (8 bits received)
         when(!isRead) {
-          // Write: store byte, advance pointer, prepare ACK
-          when(ptrValid(dataPtr)) {
-            ram.write(dataPtr, rxAccum)
+          // Write: store byte, advance pointer, prepare ACK.
+          // Multi-slave isolation: only the addressed slave drives the ACK;
+          // non-addressed slaves release SDA (cannot mask the addressed
+          // slave's NACK on the shared bus).
+          when(wasAddressed) {
+            when(ptrValid(dataPtr)) {
+              ram.write(dataPtr, rxAccum)
+            }
+            dataPtr := dataPtr + U(1)
+            sdaOut  := !ptrValid(dataPtr)
+          } otherwise {
+            sdaOut := True
           }
-          dataPtr := dataPtr + U(1)
-          sdaOut  := !ptrValid(dataPtr)
         } otherwise {
           // Read: check master's ACK/NACK
           when(!(io.i2c.sda.write)) {
