@@ -47,6 +47,7 @@ class I2cAutoSim extends AnyFunSuite {
     // Open-drain wire emulation via io.i2c ports:
     // SCL: open-drain AND of master and slave (slave can stretch)
     val sclWire = Mux(sclForceLow, False, master.io.i2c.scl.write && slave.io.i2c.scl.read)
+    sclWire.simPublic()
     master.io.i2c.scl.read := sclWire
     slave.io.i2c.scl.write := sclWire
 
@@ -786,24 +787,163 @@ class I2cAutoSim extends AnyFunSuite {
       cd.waitActiveEdge(10)
       dut.master.cmd.trigger  #= false
 
-      // After a few cycles, request SCL stretch (pause the bus)
-      cd.waitActiveEdge(50)
+      // Wait until the bus SCL is Low (stretch can only engage in the Low phase)
+      var w = 0
+      while (dut.sclWire.toBoolean && w < 2000) { cd.waitActiveEdge(1); w += 1 }
       assert(dut.master.status.busy.toBoolean, "Transfer should be active")
-      dut.slave.stretchReq #= true  // Slave holds SCL Low!
+
+      // Request SCL stretch: slave holds SCL Low
+      dut.slave.stretchReq #= true
+      cd.waitActiveEdge(5)
+      assert(dut.slave.stretchActive.toBoolean, "stretchActive should engage while SCL Low")
 
       // Verify master is stalled (still busy after many cycles - proves it's waiting)
       cd.waitActiveEdge(500)
       assert(dut.master.status.busy.toBoolean,
         "Master should be stalled during SCL stretch (waiting for SCL to go High)")
+      assert(!dut.sclWire.toBoolean, "SCL wire must stay Low while stretch is held")
 
-      // Release the stretch and let the transfer finish or abort
+      // Release the stretch and let the transfer finish
       dut.slave.stretchReq #= false
       waitForIdle(dut)
       cd.waitActiveEdge(20)
 
-      // The key assertion: master was demonstrably paused by the slave's SCL hold.
-      // Clean resumption requires stretching between bytes (future enhancement);
-      // here we validate the CORE mechanism: slave can hold SCL, master waits.
+      // Clean resumption: transfer completed without error and data is intact
+      assert(dut.master.status.errCode.toInt === 0, s"err=${dut.master.status.errCode.toInt}")
+      assert(dut.slave.ram.getBigInt(0).toInt == 0xAB, "RAM[0] mismatch after stretch")
+      assert(dut.slave.ram.getBigInt(1).toInt == 0xCD, "RAM[1] mismatch after stretch")
+    }
+  }
+
+  test("I2cAuto: SCL stretching mid-byte, clean resumption (write)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.slave.dataPtr       #= 0
+      cd.waitActiveEdge(10)
+
+      // 4-byte write
+      pushTx(dut, 0xA0); pushTx(dut, 0xB1); pushTx(dut, 0xC2); pushTx(dut, 0xD3)
+      dut.master.cmd.addr     #= 0x28
+      dut.master.cmd.rw       #= false
+      dut.master.cmd.phase2   #= false
+      dut.master.cmd.nackLast #= false
+      dut.master.cmd.len1     #= 4
+      dut.master.cmd.len2     #= 0
+      cd.waitActiveEdge()
+      dut.master.cmd.trigger  #= true
+      cd.waitActiveEdge(10)
+      dut.master.cmd.trigger  #= false
+
+      // Wait until MID-DATA-BYTE: past the address byte (byteNum>=1) and
+      // inside a data byte (bitPos 2..7), with SCL Low so the stretch can engage.
+      var w = 0
+      while (w < 8000 && !(
+        dut.master.status.busy.toBoolean &&
+        dut.master.fsm.byteNum.toInt >= 1 &&
+        dut.master.fsm.bitPos.toInt >= 2 &&
+        dut.master.fsm.bitPos.toInt < 8 &&
+        !dut.sclWire.toBoolean
+      )) { cd.waitActiveEdge(1); w += 1 }
+      assert(w < 8000, "timed out waiting for mid-byte SCL-Low window")
+      val stretchedByteNum = dut.master.fsm.byteNum.toInt
+      val stretchedBitPos  = dut.master.fsm.bitPos.toInt
+
+      // Hold the bus for a long stretch (>> one bit period)
+      dut.slave.stretchReq #= true
+      cd.waitActiveEdge(5)
+      assert(dut.slave.stretchActive.toBoolean, "stretch must engage")
+      cd.waitActiveEdge(400)
+      assert(dut.master.status.busy.toBoolean, "master must stall during mid-byte stretch")
+      assert(!dut.sclWire.toBoolean, "SCL must stay Low during stretch")
+      // Slave bit counter must be frozen in lockstep with the master
+      assert(dut.slave.bitPos.toInt == stretchedBitPos,
+        s"slave bitPos=${dut.slave.bitPos.toInt} != master $stretchedBitPos (lockstep broken)")
+
+      // Release mid-byte: the remainder of the transfer must complete cleanly
+      dut.slave.stretchReq #= false
+      waitForIdle(dut)
+      cd.waitActiveEdge(20)
+
+      assert(dut.master.status.errCode.toInt === 0, s"err=${dut.master.status.errCode.toInt} (stretched at byte=$stretchedByteNum bit=$stretchedBitPos)")
+      val exp = Array(0xA0, 0xB1, 0xC2, 0xD3)
+      for (i <- 0 until 4) {
+        val got = dut.slave.ram.getBigInt(i).toInt
+        assert(got == exp(i), s"RAM[$i]=0x${got}%02X expected 0x${exp(i)}%02X (stretch at byte=$stretchedByteNum bit=$stretchedBitPos)")
+      }
+    }
+  }
+
+  test("I2cAuto: SCL stretching mid-byte, clean resumption (read)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      dut.master.cfg.sampDiv  #= 1
+      dut.master.cfg.tLow     #= 20
+      dut.master.cfg.tHigh    #= 20
+      dut.master.cfg.tBuf     #= 20
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.slave.dataPtr       #= 0
+      dut.slave.ram.setBigInt(0, 0x5A)
+      dut.slave.ram.setBigInt(1, 0x3C)
+      dut.slave.ram.setBigInt(2, 0xE7)
+      dut.slave.ram.setBigInt(3, 0x19)
+      cd.waitActiveEdge(10)
+
+      // 4-byte read
+      dut.master.cmd.addr     #= 0x28
+      dut.master.cmd.rw       #= true
+      dut.master.cmd.phase2   #= false
+      dut.master.cmd.nackLast #= true
+      dut.master.cmd.len1     #= 4
+      dut.master.cmd.len2     #= 0
+      cd.waitActiveEdge()
+      dut.master.cmd.trigger  #= true
+      cd.waitActiveEdge(10)
+      dut.master.cmd.trigger  #= false
+
+      // Wait until mid-data-byte with SCL Low (slave is driving the current bit)
+      var w = 0
+      while (w < 8000 && !(
+        dut.master.status.busy.toBoolean &&
+        dut.master.fsm.byteNum.toInt >= 1 &&
+        dut.master.fsm.bitPos.toInt >= 2 &&
+        dut.master.fsm.bitPos.toInt < 8 &&
+        !dut.sclWire.toBoolean
+      )) { cd.waitActiveEdge(1); w += 1 }
+      assert(w < 8000, "timed out waiting for mid-byte SCL-Low window")
+      val stretchedByteNum = dut.master.fsm.byteNum.toInt
+      val stretchedBitPos  = dut.master.fsm.bitPos.toInt
+
+      // Stretch while the slave holds a data bit on SDA
+      dut.slave.stretchReq #= true
+      cd.waitActiveEdge(5)
+      assert(dut.slave.stretchActive.toBoolean, "stretch must engage")
+      cd.waitActiveEdge(400)
+      assert(dut.master.status.busy.toBoolean, "master must stall during mid-byte stretch")
+      assert(!dut.sclWire.toBoolean, "SCL must stay Low during stretch")
+
+      // Release mid-byte: remaining bits/bytes must be delivered intact
+      dut.slave.stretchReq #= false
+      waitForIdle(dut)
+      cd.waitActiveEdge(20)
+
+      assert(dut.master.status.errCode.toInt === 0, s"err=${dut.master.status.errCode.toInt} (stretched at byte=$stretchedByteNum bit=$stretchedBitPos)")
+      var rxValues = List.empty[Int]
+      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 4) {
+        rxValues ::= dut.master.rxFifo.head.toInt
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
+      assert(rxValues.reverse == List(0x5A, 0x3C, 0xE7, 0x19),
+        s"RX=${rxValues.reverse.map(v => f"0x$v%02X")} expected List(0x5A, 0x3C, 0xE7, 0x19) (stretch at byte=$stretchedByteNum bit=$stretchedBitPos)")
     }
   }
 

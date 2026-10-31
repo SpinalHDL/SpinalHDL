@@ -317,12 +317,27 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   // Multi-slave isolation: data-phase SDA is gated by wasAddressed.
   // Non-addressed slaves release SDA (High) during data phase.
   io.i2c.sda.read := sdaOut
-  // SCL stretching: firmware can request to hold SCL Low
+  // SCL stretching: firmware requests via stretchReq; the actual hold
+  // (stretchActive) is deferred to the SCL-Low phase. If stretchReq is
+  // asserted while SCL is High, engaging immediately would truncate the
+  // High window: the slave has already sampled the rising edge (bitPos
+  // advanced) but the master's timer-based bit completion (timerDone &&
+  // sclFilt) would be aborted, desynchronizing the two bit counters.
+  // Deferring to the next Low phase keeps every SCL edge seen by both
+  // sides identical, so mid-byte stretching resumes cleanly.
   val stretchReq = RegInit(False)  // Set by firmware to stretch, cleared on STOP or manually
   stretchReq.allowUnsetRegToAvoidLatch
   when(sdaRiseWhileSclHigh) { stretchReq := False }  // auto-clear on STOP
-  io.i2c.scl.read := !stretchReq
-  io.sclStretch := stretchReq
+  val stretchActive = RegInit(False)
+  when(!stretchReq) {
+    stretchActive := False
+  } otherwise {
+    // Engage only while the bus SCL is Low (hold it there until released)
+    when(!io.i2c.scl.write) { stretchActive := True }
+  }
+  stretchActive.simPublic()
+  io.i2c.scl.read := !stretchActive
+  io.sclStretch := stretchActive
 
   // === IRQ output ===
   io.irq := intr.irq

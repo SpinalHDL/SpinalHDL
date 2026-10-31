@@ -185,7 +185,7 @@ slave.io.i2c.sda.write := sdaWire
 | Item | Status |
 |------|--------|
 | DMA interface | Deferred (manual FIFO push/pop only) |
-| SCL stretching (slave) | Partial (stretchReq stalls master; clean mid-byte resume TBD) |
+| SCL stretching (slave) | Supported: `stretchReq` defers to the SCL-Low phase (`stretchActive`), so mid-byte stretching resumes cleanly without master/slave bit-counter desync (tested both directions) |
 | Multi-slave isolation | Read + write data-phase both isolated (gated by `wasAddressed`); non-matched slaves release SDA in both directions |
 | Read-end STOP masking | Fixed: `masterNack` flag makes the slave release SDA after a master NACK, so it can no longer hold SDA Low through the STOP edge and desynchronize |
 | Verilog generation | Working (7-bit and 10-bit `SpinalVerilog` generate cleanly) |
@@ -196,14 +196,18 @@ slave.io.i2c.sda.write := sdaWire
 sbt "tester/testOnly spinal.tester.scalatest.I2cAutoSim"
 ```
 
-15 deterministic tests in `I2cAutoSim` plus 2 fuzz tests in `I2cAutoFuzz`
+17 deterministic tests in `I2cAutoSim` plus 2 fuzz tests in `I2cAutoFuzz`
 (100 random writes, 50 random reads) covering: write, read, composite+RESTART,
 address NACK, full FIFO burst (64B), runtime abort, back-to-back transfers,
 timeout with 9-pulse recovery, data NACK mid-burst abort, multi-slave bus
-coexistence, arbitration loss passive exit, SCL stretching pause verification,
+coexistence, arbitration loss passive exit, SCL stretching (stall, mid-byte
+clean resumption in both write and read directions with data-integrity checks),
 and 10-bit address (write, read, composite).
 
 Features with dedicated test coverage:
 - Arbitration loss detection (errCode=4): tested via `sdaForceHigh` injection
-- Slave SCL stretching: tested via `stretchReq` assertion, validates master stall
-  (clean mid-byte resume requires byte-aligned stretching - future enhancement)
+- Slave SCL stretching: `stretchReq` is deferred to the SCL-Low phase so the
+  slave can never truncate an SCL-High window (which would desynchronize the
+  master's timer-based bit completion from the slave's edge-based sampling).
+  Mid-byte stretch + clean resumption verified with full data integrity in
+  both write and read directions.
