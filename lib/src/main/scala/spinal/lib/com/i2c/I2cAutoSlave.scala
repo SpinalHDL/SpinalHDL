@@ -3,8 +3,8 @@ package spinal.lib.com.i2c
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSourceParameter, BmbSlaveFactory}
-import spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSourceParameter}
+import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
 
 /**
   * Fully-automatic I2C slave controller.
@@ -12,9 +12,16 @@ import spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper
   * Self-contained: does NOT use I2cSlave internally. Implements its own
   * START/STOP detection, bit counting, and SDA driving.
   *
+  * The controller core is register-bus agnostic: it exposes the signals it
+  * needs ([[I2cAutoSlaveIo]]) and leaves register-map instantiation to
+  * [[I2cAutoSlave.driveFrom]], which binds a caller-supplied
+  * [[BusSlaveFactory]] to parent-side registers wired into the io. Any bus
+  * family whose slave factory extends BusSlaveFactory (Bmb, Apb3, TileLink, ...)
+  * can serve the same register map.
+  *
   * Register map (byte addresses, 32-bit data width; addrW = 7 or 10, ramAddrW = log2Up(ramDepth)):
   *   0x00  ADDR        RW: {matchEn[addrW], addr[addrW-1:0]}
-  *   0x04  PTR         RW: data pointer
+  *   0x04  PTR         RW: data pointer (write loads the HW counter; read returns the live value)
   *   0x08  RAM_IND     W:  indirect RAM write: addr[ramAddrW-1:0] @ bits[ramAddrW-1:0],
   *                         data[7:0] @ bits[ramAddrW+7:ramAddrW]
   *   0x0C  STATUS      R:  {errNack[1], inFrame[0]}
@@ -23,6 +30,7 @@ import spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper
   *   0x18  INT_CLR     W:  W1C
   *   0x1C  CFG_SAMPDIV W:  sampling window divider
   *   0x20  CFG_TIMEOUT W:  reserved (declared, unused in RTL)
+  *   0x24  STRETCH_REQ RW: SCL stretch request (auto-cleared on STOP)
   */
 object I2cAutoSlave {
 
@@ -40,33 +48,130 @@ object I2cAutoSlave {
   )
 
   def apply(c: Config = Config()): I2cAutoSlave = new I2cAutoSlave(c)
+
+  /**
+   * Instantiate the register map on a caller-supplied bus factory and wire it
+   * to the controller's io. Must be elaborated in a scope that can see both
+   * the factory's bus and the io (typically the parent component).
+   *
+   * Event registers (PTR load, RAM_IND write) are one-cycle pulses derived
+   * from bus write handshakes; value registers are plain registers. Pulse
+   * timing matches the legacy internal BmbSlaveFactory implementation.
+   */
+  def driveFrom(io: I2cAutoSlaveIo, busCtrl: BusSlaveFactory, baseAddress: BigInt): Unit = new Area {
+    import io._
+    val factory  = new BusSlaveFactoryAddressWrapper(busCtrl, baseAddress)
+    val addrW    = cfg.slaveAddr.getWidth
+    val ramAddrW = cfg.ptrVal.getWidth
+
+    // ADDR (0x00): {matchEn[addrW], addr[addrW-1:0]}
+    val addrReg    = Reg(Bits(addrW bits)) init(0)
+    val matchEnReg = RegInit(True)
+    factory.write(addrReg, 0x00, 0)
+    factory.write(matchEnReg, 0x00, addrW)
+    cfg.slaveAddr   := addrReg
+    cfg.addrMatchEn := matchEnReg
+
+    // PTR (0x04): value + one-cycle load pulse; live readback from the core
+    val ptrVal  = Reg(UInt(ramAddrW bits)) init(0)
+    val ptrLoad = RegInit(False)
+    factory.write(ptrVal, 0x04)
+    ptrLoad := False
+    factory.onWrite(0x04) { ptrLoad := True }
+    cfg.ptrVal  := ptrVal
+    cfg.ptrLoad := ptrLoad
+    factory.read(status.ptr, 0x04)
+
+    // RAM_IND (0x08): value + one-cycle write pulse
+    val ramWrAddr  = Reg(UInt(ramAddrW bits)) init(0)
+    val ramWrData  = Reg(Bits(8 bits)) init(0)
+    val ramWrValid = RegInit(False)
+    factory.write(ramWrAddr, 0x08, 0)
+    factory.write(ramWrData, 0x08, ramAddrW)
+    ramWrValid := False
+    factory.onWrite(0x08) { ramWrValid := True }
+    cfg.ramWrAddr  := ramWrAddr
+    cfg.ramWrData  := ramWrData
+    cfg.ramWrValid := ramWrValid
+
+    // STATUS (0x0C): {errNack[1], inFrame[0]}
+    factory.read(0x0C, 0 -> status.inFrame, 1 -> status.errNack)
+
+    // Interrupts
+    val intEn  = RegInit(B(0, 2 bits))
+    val intClr = RegInit(B(0, 2 bits))
+    factory.write(intEn, 0x10)
+    factory.read(intr.fl, 0x14)
+    factory.write(intClr, 0x18)
+    intr.en  := intEn
+    intr.clr := intClr
+
+    // Config
+    val sampDiv = Reg(UInt(cfg.sampDiv.getWidth bits)) init(0)
+    val timeout = Reg(UInt(20 bits)) init(0)
+    factory.write(sampDiv, 0x1C)
+    factory.write(timeout, 0x20)
+    cfg.sampDiv := sampDiv
+    cfg.timeout := timeout
+
+    // STRETCH_REQ (0x24): level, auto-cleared on STOP (pulse from the core)
+    val stretchReq = RegInit(False)
+    factory.readAndWrite(stretchReq, 0x24)
+    stretchReq.clearWhen(status.stretchClr)
+    cfg.stretchReq := stretchReq
+  }
+}
+
+/** Controller io: I2C pins, IRQ, SCL stretch, and the firmware-facing control/status signals bound by driveFrom. */
+case class I2cAutoSlaveIo(c: I2cAutoSlave.Config) extends Bundle {
+  val i2c = slave(I2c())
+  val irq = out Bool()
+  val sclStretch = out Bool()  // Active when slave is stretching SCL
+
+  val cfg = new Bundle {
+    val slaveAddr   = in Bits((if (c.support10bit) 10 else 7) bits)
+    val addrMatchEn = in Bool()
+    val ptrVal      = in UInt(log2Up(c.ramDepth) bits)  // PTR load value
+    val ptrLoad     = in Bool()                          // one-cycle load pulse
+    val ramWrAddr   = in UInt(log2Up(c.ramDepth) bits)
+    val ramWrData   = in Bits(8 bits)
+    val ramWrValid  = in Bool()                          // one-cycle RAM write pulse
+    val sampDiv     = in UInt(c.sampDivWidth bits)
+    val timeout     = in UInt(20 bits)                   // reserved (unused in RTL)
+    val stretchReq  = in Bool()                          // level: set by firmware, auto-cleared on STOP
+  }
+
+  val intr = new Bundle {
+    val en  = in Bits(2 bits)
+    val fl  = out Bits(2 bits)
+    val clr = in Bits(2 bits)  // W1C
+  }
+
+  val status = new Bundle {
+    val inFrame    = out Bool()
+    val errNack    = out Bool()
+    val ptr        = out UInt(log2Up(c.ramDepth) bits)  // live pointer readback
+    val stretchClr = out Bool()                          // one-cycle pulse on STOP (releases stretch)
+  }
+
+  /** Bind the register map to a bus factory (see [[I2cAutoSlave.driveFrom]]). */
+  def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt): Unit =
+    I2cAutoSlave.driveFrom(this, busCtrl, baseAddress)
 }
 
 class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
 
   import I2cAutoSlave.Config
 
-  val io = new Bundle {
-    val i2c = slave(I2c())
-    val irq = out Bool()
-    val sclStretch = out Bool()  // Active when slave is stretching SCL
-    val regBus = slave(Bmb(I2cAutoSlave.getBmbParameter()))
-  }
+  val io = I2cAutoSlaveIo(c)
 
   val ramAddrW = log2Up(c.ramDepth)
 
   // === Input filtering ===
-  val cfg = new Area {
-    val sampDiv = Reg(UInt(c.sampDivWidth bits)) init(0)
-    val timeout = Reg(UInt(20 bits)) init(0)
-    sampDiv.allowUnsetRegToAvoidLatch
-    timeout.allowUnsetRegToAvoidLatch
-  }
-
   val filterTick = new Area {
     val counter = Reg(UInt(c.sampDivWidth bits)) init(0)
     val tick    = counter === U(0)
-    counter := Mux(tick, cfg.sampDiv, counter - U(1))
+    counter := Mux(tick, io.cfg.sampDiv, counter - U(1))
   }
 
   val sclFilt = RegInit(True)
@@ -98,10 +203,6 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   // === Slave address & config ===
   val addrW: Int = if (c.support10bit) 10 else 7
   val addrBytes: Int = if (c.support10bit) 2 else 1
-  val slaveAddr = Reg(Bits(addrW bits)) init(0)
-  val addrMatchEn = RegInit(True)
-  slaveAddr.allowUnsetRegToAvoidLatch
-  addrMatchEn.allowUnsetRegToAvoidLatch
 
   // 10-bit address: buffer upper 3 bits from first byte
   val tenBitUpper = Reg(Bits(3 bits)) init(0)
@@ -109,11 +210,16 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   tenBitUpper.allowUnsetRegToAvoidLatch
   addrByteIdx.allowUnsetRegToAvoidLatch
 
-  // === Data pointer ===
+  // === Data pointer (hardware-owned; firmware loads via ptrLoad) ===
   val dataPtr = Reg(UInt(ramAddrW bits)) init(0)
 
   // === Internal RAM ===
   val ram = Mem(Bits(8 bits), c.ramDepth)
+
+  // Indirect RAM write (one-cycle pulse from the RAM_IND register)
+  when(io.cfg.ramWrValid) {
+    ram.write(io.cfg.ramWrAddr, io.cfg.ramWrData)
+  }
 
   // === Frame state ===
   val inFrame   = RegInit(False)
@@ -129,6 +235,13 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   // sequence, masking the STOP edge (open-drain) so the slave never exits
   // the frame and desynchronizes on the next transfer.
   val masterNack = RegInit(False)
+  // Set when a read data byte completes (sclFall, bitPos==8, isRead) and we
+  // have released SDA; the master's ACK/NACK for that byte is then sampled on
+  // the FOLLOWING sclRise (inAck), when the open-drain line is purely
+  // master-driven and stable. Sampling at the byte-complete fall itself would
+  // read the line while we are still driving our own last data bit, masking a
+  // master NACK (release) whenever that bit is Low.
+  val readAckPending = RegInit(False)
 
   // === Response: what to drive on SDA ===
   // True = release (high-Z in open-drain), False = drive low
@@ -141,14 +254,10 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
 
   // === Interrupts ===
   val intr = new Area {
-    val en  = RegInit(B(0, 2 bits))
-    val fl  = RegInit(B(0, 2 bits))
-    val clr = RegInit(B(0, 2 bits))
-    en.allowUnsetRegToAvoidLatch
-    clr.allowUnsetRegToAvoidLatch
-    val irq = (en & fl).orR
-    for (i <- 0 until 2) { fl(i) clearWhen(clr(i)) }
+    val fl = RegInit(B(0, 2 bits))
+    for (i <- 0 until 2) { fl(i) clearWhen(io.intr.clr(i)) }
   }
+  io.irq := (io.intr.en & intr.fl).orR
 
   val statusErrNack = RegInit(False).allowUnsetRegToAvoidLatch
 
@@ -173,6 +282,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     hasStarted := False
     inAck      := False
     masterNack := False
+    readAckPending := False
     statusErrNack := False
     sdaOut     := True  // release during address phase
     if (c.support10bit) { addrByteIdx := U(0) }
@@ -188,6 +298,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     bitPos     := U(0)
     inAck      := False
     masterNack := False
+    readAckPending := False
     sdaOut     := True
     wasAddressed := False
   }
@@ -197,17 +308,33 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     if (c.support10bit) {
       when(addrByteIdx === U(1)) {
         val fullAddr = Cat(tenBitUpper, rxAccum(7 downto 1))
-        wasAddressed := (fullAddr === slaveAddr)
+        wasAddressed := (fullAddr === io.cfg.slaveAddr)
       }
     } else {
-      wasAddressed := (rxAccum(7 downto 1) === slaveAddr)
+      wasAddressed := (rxAccum(7 downto 1) === io.cfg.slaveAddr)
     }
   }
 
   // SCL rising edge: sample SDA, advance bit position
   when(sclRise && inFrame) {
     when(inAck) {
-      // ACK bit: skip sampling, just clear the flag
+      // ACK bit. In read mode this is the master's data-ACK/NACK: we released
+      // SDA on the preceding fall, so the wire is purely master-driven and
+      // stable here. Sample it to decide whether to send the next byte.
+      when(readAckPending) {
+        when(io.i2c.sda.write) {
+          // High = master NACKed: release and stop driving data. The master
+          // will issue STOP; we must not hold SDA Low (would mask the STOP
+          // edge on the open-drain bus).
+          masterNack := True
+          sdaOut     := True
+        } otherwise {
+          // Low = master ACKed: advance to the next byte; the next sclFall
+          // (bitPos==0) drives the new MSB.
+          dataPtr := dataPtr + U(1)
+        }
+        readAckPending := False
+      }
       inAck  := False
       bitPos := U(0)
     } otherwise {
@@ -239,32 +366,32 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
             inAck       := True
             bitPos      := U(0)
             rxAccum     := B(0)
-            sdaOut      := !addrMatchEn  // ACK if enabled, NACK if disabled
+            sdaOut      := !io.cfg.addrMatchEn  // ACK if enabled, NACK if disabled
           } otherwise {
             // Second 10-bit address byte: full match
             val fullAddr = Cat(tenBitUpper, rxAccum(7 downto 1))  // A[9:0]
             val recvRw   = rxAccum(0)
-            val matchNow = (fullAddr === slaveAddr)
+            val matchNow = (fullAddr === io.cfg.slaveAddr)
             isRead    := recvRw
             addrValid := matchNow
             hasStarted := True
             inAck      := True
             bitPos     := U(0)
-            sdaOut     := !(matchNow && addrMatchEn)
-            when(!(matchNow && addrMatchEn)) { statusErrNack := True; intr.fl(1) := True }
+            sdaOut     := !(matchNow && io.cfg.addrMatchEn)
+            when(!(matchNow && io.cfg.addrMatchEn)) { statusErrNack := True; intr.fl(1) := True }
           }
         } else {
           // 7-bit: single address byte
           val recvAddr = rxAccum(7 downto 1)
           val recvRw   = rxAccum(0)
-          val matchNow = (recvAddr === slaveAddr)
+          val matchNow = (recvAddr === io.cfg.slaveAddr)
           isRead    := recvRw
           addrValid := matchNow
           hasStarted := True
           inAck      := True
           bitPos     := U(0)
-          sdaOut     := !(matchNow && addrMatchEn)
-          when(!(matchNow && addrMatchEn)) { statusErrNack := True; intr.fl(1) := True }
+          sdaOut     := !(matchNow && io.cfg.addrMatchEn)
+          when(!(matchNow && io.cfg.addrMatchEn)) { statusErrNack := True; intr.fl(1) := True }
         }
       } otherwise {
         // Between address bits: release SDA (master is driving data)
@@ -288,17 +415,12 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
             sdaOut := True
           }
         } otherwise {
-          // Read: check master's ACK/NACK
-          when(!(io.i2c.sda.write)) {
-            dataPtr := dataPtr + U(1)
-            sdaOut  := ram.readAsync(dataPtr)(7)
-          } otherwise {
-            // Master NACKed: release SDA and stop driving data. The master
-            // will issue STOP; we must not hold SDA Low (would mask the
-            // STOP edge on the open-drain bus).
-            sdaOut     := True
-            masterNack := True
-          }
+          // Read: release SDA NOW so the master's ACK/NACK is not masked by
+          // our own last data bit (open-drain AND). The actual sample is taken
+          // on the following sclRise (see readAckPending), when the line is
+          // purely master-driven and stable.
+          sdaOut         := True
+          readAckPending := True
         }
         inAck   := True  // next SCL rise is data ACK
         bitPos  := U(0)
@@ -315,23 +437,26 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     }
   }
 
+  // Firmware PTR load: registered after the HW increment above so it wins in
+  // the same cycle (matches the legacy register-write precedence).
+  when(io.cfg.ptrLoad) {
+    dataPtr := io.cfg.ptrVal
+  }
+
   // Drive physical SDA output (what this slave contributes to the wire)
   // Multi-slave isolation: data-phase SDA is gated by wasAddressed.
   // Non-addressed slaves release SDA (High) during data phase.
   io.i2c.sda.read := sdaOut
-  // SCL stretching: firmware requests via stretchReq; the actual hold
-  // (stretchActive) is deferred to the SCL-Low phase. If stretchReq is
-  // asserted while SCL is High, engaging immediately would truncate the
-  // High window: the slave has already sampled the rising edge (bitPos
-  // advanced) but the master's timer-based bit completion (timerDone &&
-  // sclFilt) would be aborted, desynchronizing the two bit counters.
-  // Deferring to the next Low phase keeps every SCL edge seen by both
-  // sides identical, so mid-byte stretching resumes cleanly.
-  val stretchReq = RegInit(False)  // Set by firmware to stretch, cleared on STOP or manually
-  stretchReq.allowUnsetRegToAvoidLatch
-  when(sdaRiseWhileSclHigh) { stretchReq := False }  // auto-clear on STOP
+  // SCL stretching: firmware requests via the STRETCH_REQ register; the
+  // actual hold (stretchActive) is deferred to the SCL-Low phase. If the
+  // request is asserted while SCL is High, engaging immediately would
+  // truncate the High window: the slave has already sampled the rising edge
+  // (bitPos advanced) but the master's timer-based bit completion
+  // (timerDone && sclFilt) would be aborted, desynchronizing the two bit
+  // counters. Deferring to the next Low phase keeps every SCL edge seen by
+  // both sides identical, so mid-byte stretching resumes cleanly.
   val stretchActive = RegInit(False)
-  when(!stretchReq) {
+  when(!io.cfg.stretchReq) {
     stretchActive := False
   } otherwise {
     // Engage only while the bus SCL is Low (hold it there until released)
@@ -341,43 +466,18 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   io.i2c.scl.read := !stretchActive
   io.sclStretch := stretchActive
 
-  // === IRQ output ===
-  io.irq := intr.irq
+  // Auto-clear pulse for the parent STRETCH_REQ register on STOP
+  io.status.stretchClr := sdaRiseWhileSclHigh
 
-  // === Register map (BmbSlaveFactory) ===
-  val regFactory = BmbSlaveFactory(io.regBus)
-
-  // ADDR (0x00)
-  regFactory.write(0x00, 0 -> slaveAddr, addrW -> addrMatchEn)
-  // PTR (0x04)
-  regFactory.write(dataPtr, 0x04)
-  // RAM indirect (0x08): stage fields combinationally, write at doWrite
-  val ramWrAddr = Bits(ramAddrW bits)
-  val ramWrData = Bits(8 bits)
-  ramWrAddr := B(0, ramAddrW bits)
-  ramWrData := B(0, 8 bits)
-  regFactory.write(0x08, 0 -> ramWrAddr, ramAddrW -> ramWrData)
-  regFactory.onWrite(0x08) { ram.write(ramWrAddr.asUInt, ramWrData) }
-  // STATUS (0x0C)
-  regFactory.read(0x0C, 0 -> inFrame, 1 -> statusErrNack)
-  // Interrupts
-  regFactory.write(intr.en, 0x10)
-  regFactory.read(intr.fl, 0x14)
-  regFactory.write(intr.clr, 0x18)
-  // Config
-  regFactory.write(cfg.sampDiv, 0x1C)
-  regFactory.write(cfg.timeout, 0x20)
-
-
-
+  // Forward status to the io
+  io.status.inFrame := inFrame
+  io.status.errNack := statusErrNack
+  io.status.ptr     := dataPtr
+  io.intr.fl        := intr.fl
 
   // Expose internals for simulation
-  cfg.sampDiv.simPublic()
-  slaveAddr.simPublic()
-  addrMatchEn.simPublic()
   dataPtr.simPublic()
   ram.simPublic()
-  stretchReq.simPublic()
   tenBitUpper.simPublic()
   addrByteIdx.simPublic()
   hasStarted.simPublic()

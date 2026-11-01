@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
 import spinal.lib._
-import spinal.lib.bus.bmb.Bmb
+import spinal.lib.bus.bmb.{Bmb, BmbSlaveFactory}
 import spinal.lib.com.i2c._
 import org.scalatest.funsuite.AnyFunSuite
 import scala.util.Random
@@ -12,9 +12,10 @@ import scala.util.Random
 /**
   * Randomized stress test for I2cAutoMaster + I2cAutoSlave.
   *
-  * Uses the proven pushTx pattern from I2cAutoSim. Each iteration performs
-  * a single transfer with random parameters, verifying completion and
-  * data integrity via spot-checks.
+  * Register maps are instantiated at the TOP level: each core's io is bound
+  * to a top-level Bmb slave port via driveFrom(BmbSlaveFactory). All firmware
+  * interaction goes through those register buses (bmbWrite), mirroring real
+  * software access.
   */
 class I2cAutoFuzz extends AnyFunSuite {
 
@@ -30,23 +31,46 @@ class I2cAutoFuzz extends AnyFunSuite {
     master.io.i2c.sda.read := sdaAnd
     slave.io.i2c.sda.write := sdaAnd
 
-    // Bmb register buses: mark signals for simulation access
-    bmbTieOff(master.io.regBus); bmbTieOff(slave.io.regBus)
-    bmbMark(master.io.regBus)
-    bmbMark(slave.io.regBus)
+    // Register maps: top-level Bmb slave ports + factories bound to the cores
+    val masterRegBus = spinal.lib.slave(Bmb(I2cAutoMaster.getBmbParameter()))
+    val slaveRegBus  = spinal.lib.slave(Bmb(I2cAutoSlave.getBmbParameter()))
+    val masterRegMap = BmbSlaveFactory(masterRegBus)
+    val slaveRegMap  = BmbSlaveFactory(slaveRegBus)
+    master.io.driveFrom(masterRegMap, 0)
+    slave.io.driveFrom(slaveRegMap, 0)
+
+    // Bmb register buses are top-level inputs: left undriven at elaboration;
+    // tests drive them via bmbWrite.
+    bmbMark(masterRegBus)
+    bmbMark(slaveRegBus)
   }
 
-  // Exact same pattern as I2cAutoSim.pushTx
+  // Push a byte via the TX_DATA register (real firmware path)
   def pushTx(cd: ClockDomain, dut: FuzzTop, data: Int): Unit = {
-    dut.master.txFifo.pushData #= data
-    dut.master.txFifo.pushValid #= true
-    cd.waitActiveEdge()
-    dut.master.txFifo.popValid #= false
-    cd.waitActiveEdge()
+    bmbWrite(dut.masterRegBus, 0x0C, data, cd)
+  }
+
+  // Issue a command via the LEN1/LEN2/CMD registers (atomic trigger)
+  def issueCmd(cd: ClockDomain, dut: FuzzTop, addr: Int, rw: Boolean,
+               phase2: Boolean = false, nackLast: Boolean = false,
+               len1: Int, len2: Int = 0): Unit = {
+    bmbWrite(dut.masterRegBus, 0x04, len1, cd)
+    bmbWrite(dut.masterRegBus, 0x08, len2, cd)
+    val data = (if (nackLast) 1 else 0) << 9 |
+               (if (phase2)   1 else 0) << 8 |
+               (if (rw)       1 else 0) << 7 |
+               addr
+    bmbWrite(dut.masterRegBus, 0x00, data, cd)
   }
 
   def waitForIdle(cd: ClockDomain, dut: FuzzTop, maxCycles: Int = 500000): Boolean = {
     var cycles = 0
+    // A CMD write produces a 1-cycle trigger pulse; busy rises 1-2 cycles AFTER the
+    // write handshake. Wait for the transfer to START before waiting for it to END.
+    while (!dut.master.status.busy.toBoolean && cycles < maxCycles) {
+      cd.waitActiveEdge()
+      cycles += 1
+    }
     while (dut.master.status.busy.toBoolean && cycles < maxCycles) {
       cd.waitActiveEdge()
       cycles += 1
@@ -130,7 +154,16 @@ class I2cAutoFuzz extends AnyFunSuite {
   // Helper: write a register via the Bmb register bus
   def regWrite(dut: FuzzTop, isMaster: Boolean, addr: Int, data: Int): Unit = {
     val cd = dut.clockDomain
-    bmbWrite(if (isMaster) dut.master.io.regBus else dut.slave.io.regBus, addr, data, cd)
+    bmbWrite(if (isMaster) dut.masterRegBus else dut.slaveRegBus, addr, data, cd)
+  }
+
+  // Configure master + slave timing via the register buses
+  def cfgTiming(cd: ClockDomain, dut: FuzzTop): Unit = {
+    regWrite(dut, isMaster = true,  addr = 0x24, data = 1)   // CFG_SAMPDIV
+    regWrite(dut, isMaster = true,  addr = 0x2C, data = 20)  // CFG_TLOW
+    regWrite(dut, isMaster = true,  addr = 0x30, data = 20)  // CFG_THIGH
+    regWrite(dut, isMaster = true,  addr = 0x34, data = 20)  // CFG_TBUF
+    regWrite(dut, isMaster = false, addr = 0x1C, data = 1)   // CFG_SAMPDIV
   }
 
   test("I2cAuto fuzz: 100 random writes") {
@@ -142,11 +175,7 @@ class I2cAutoFuzz extends AnyFunSuite {
       val cd = dut.clockDomain
       cd.forkStimulus(10 ns)
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      dut.slave.cfg.sampDiv   #= 1
+      cfgTiming(cd, dut)
       regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 7) | 0x28))
       cd.waitActiveEdge(10)
 
@@ -165,16 +194,7 @@ class I2cAutoFuzz extends AnyFunSuite {
         }
 
         // Trigger write
-        dut.master.cmd.addr     #= 0x28
-        dut.master.cmd.rw       #= false
-        dut.master.cmd.phase2   #= false
-        dut.master.cmd.nackLast #= false
-        dut.master.cmd.len1     #= len
-        dut.master.cmd.len2     #= 0
-        cd.waitActiveEdge()
-        dut.master.cmd.trigger  #= true
-        cd.waitActiveEdge(5)
-        dut.master.cmd.trigger  #= false
+        issueCmd(cd, dut, addr = 0x28, rw = false, len1 = len)
 
         // Wait
         val ok = waitForIdle(cd, dut)
@@ -213,11 +233,7 @@ class I2cAutoFuzz extends AnyFunSuite {
       val cd = dut.clockDomain
       cd.forkStimulus(10 ns)
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      dut.slave.cfg.sampDiv   #= 1
+      cfgTiming(cd, dut)
       regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 7) | 0x28))
       cd.waitActiveEdge(10)
 
@@ -233,16 +249,7 @@ class I2cAutoFuzz extends AnyFunSuite {
         cd.waitActiveEdge(5)
 
         // Trigger read
-        dut.master.cmd.addr     #= 0x28
-        dut.master.cmd.rw       #= true
-        dut.master.cmd.phase2   #= false
-        dut.master.cmd.nackLast #= true
-        dut.master.cmd.len1     #= len
-        dut.master.cmd.len2     #= 0
-        cd.waitActiveEdge()
-        dut.master.cmd.trigger  #= true
-        cd.waitActiveEdge(5)
-        dut.master.cmd.trigger  #= false
+        issueCmd(cd, dut, addr = 0x28, rw = true, nackLast = true, len1 = len)
 
         // Per-iteration failure tracking: one bad iteration counts as 1,
         // regardless of how many sub-checks (timeout/err/rx) it trips.
@@ -272,11 +279,10 @@ class I2cAutoFuzz extends AnyFunSuite {
     }
   }
 
-  // KNOWN LIMITATION: composite fuzz fails due to dataPtr inter-iteration
-  // state leak in SpinalSim (#= on active register unreliable). The RTL is
-  // correct (proven by I2cAutoSim composite test). Re-enable after
-  // switching to register-bus-based dataPtr reset.
-  ignore("I2cAuto fuzz: 20 random composite (write+read RESTART)") {
+  // Previously ignored due to dataPtr inter-iteration state leak from
+  // #=-poking an active register. Now the dataPtr reset goes through the
+  // register bus (proper PTR load pulse), so the test is re-enabled.
+  test("I2cAuto fuzz: 20 random composite (write+read RESTART)") {
     val rng = new Random(31415L)
     var failures = 0
 
@@ -285,11 +291,7 @@ class I2cAutoFuzz extends AnyFunSuite {
       val cd = dut.clockDomain
       cd.forkStimulus(10 ns)
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      dut.slave.cfg.sampDiv   #= 1
+      cfgTiming(cd, dut)
       regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 7) | 0x28))
       cd.waitActiveEdge(10)
 
@@ -315,16 +317,8 @@ class I2cAutoFuzz extends AnyFunSuite {
         }
 
         // Trigger composite
-        dut.master.cmd.addr     #= 0x28
-        dut.master.cmd.rw       #= false
-        dut.master.cmd.phase2   #= true
-        dut.master.cmd.nackLast #= true
-        dut.master.cmd.len1     #= wLen
-        dut.master.cmd.len2     #= rLen
-        cd.waitActiveEdge()
-        dut.master.cmd.trigger  #= true
-        cd.waitActiveEdge(5)
-        dut.master.cmd.trigger  #= false
+        issueCmd(cd, dut, addr = 0x28, rw = false, phase2 = true, nackLast = true,
+                 len1 = wLen, len2 = rLen)
 
         val ok = waitForIdle(cd, dut)
         if (!ok) {

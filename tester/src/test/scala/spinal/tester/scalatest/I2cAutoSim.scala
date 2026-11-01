@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
 import spinal.lib._
-import spinal.lib.bus.bmb.Bmb
+import spinal.lib.bus.bmb.{Bmb, BmbSlaveFactory}
 import spinal.lib.com.i2c._
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -13,6 +13,11 @@ import org.scalatest.funsuite.AnyFunSuite
   *
   * Connects master and slave via simulated open-drain interconnect
   * on the internal i2cBuf signals.
+  *
+  * Register maps are instantiated at the TOP level: each core's io is bound
+  * to a top-level Bmb slave port via driveFrom(BmbSlaveFactory). All firmware
+  * interaction in these tests goes through those register buses (bmbWrite),
+  * mirroring real software access.
   */
 class I2cAutoSim extends AnyFunSuite {
 
@@ -58,10 +63,18 @@ class I2cAutoSim extends AnyFunSuite {
     master.io.i2c.sda.read := sdaWire  // master sees combined (in)
     slave.io.i2c.sda.write := sdaWire  // slave sees combined (in)
 
-    // Bmb register buses: mark signals for simulation access
-    bmbTieOff(master.io.regBus); bmbTieOff(slave.io.regBus)
-    bmbMark(master.io.regBus)
-    bmbMark(slave.io.regBus)
+    // Register maps: top-level Bmb slave ports + factories bound to the cores
+    val masterRegBus = spinal.lib.slave(Bmb(I2cAutoMaster.getBmbParameter()))
+    val slaveRegBus  = spinal.lib.slave(Bmb(I2cAutoSlave.getBmbParameter()))
+    val masterRegMap = BmbSlaveFactory(masterRegBus)
+    val slaveRegMap  = BmbSlaveFactory(slaveRegBus)
+    master.io.driveFrom(masterRegMap, 0)
+    slave.io.driveFrom(slaveRegMap, 0)
+
+    // Bmb register buses are top-level inputs: left undriven at elaboration
+    // (defaults to 0 in Verilog/SpinalSim); tests drive them via bmbWrite.
+    bmbMark(masterRegBus)
+    bmbMark(slaveRegBus)
 
     // Expose IRQs
     val io = new Bundle {
@@ -70,6 +83,31 @@ class I2cAutoSim extends AnyFunSuite {
     }
     io.irqMaster := master.io.irq
     io.irqSlave  := slave.io.irq
+
+    // ---- Firmware-facing register helpers (exercise the real register path) ----
+    def addrW: Int = if (cfg.support10bit) 10 else 7
+
+    def regWriteMaster(addr: Int, data: Int): Unit = bmbWrite(masterRegBus, addr, data, clockDomain)
+    def regWriteSlave(addr: Int, data: Int): Unit  = bmbWrite(slaveRegBus, addr, data, clockDomain)
+
+    def cfgMasterTiming(): Unit = {
+      regWriteMaster(0x24, 1)   // CFG_SAMPDIV
+      regWriteMaster(0x2C, 20)  // CFG_TLOW
+      regWriteMaster(0x30, 20)  // CFG_THIGH
+      regWriteMaster(0x34, 20)  // CFG_TBUF
+    }
+
+    /** Pack and write the CMD register: fields + trigger land atomically. */
+    def issueCmd(addr: Int, rw: Boolean, phase2: Boolean = false, nackLast: Boolean = false,
+                 len1: Int, len2: Int = 0): Unit = {
+      regWriteMaster(0x04, len1)
+      regWriteMaster(0x08, len2)
+      val data = (if (nackLast) 1 else 0) << (addrW + 2) |
+                 (if (phase2)   1 else 0) << (addrW + 1) |
+                 (if (rw)       1 else 0) << addrW |
+                 addr
+      regWriteMaster(0x00, data)
+    }
   }
 
   /** Dual-slave topology: two slaves on the same bus with different addresses */
@@ -93,16 +131,48 @@ class I2cAutoSim extends AnyFunSuite {
     slaveB.sdaOut.simPublic()
     slaveA.sdaOut.simPublic()
 
-    // Bmb register buses: mark signals for simulation access
-    bmbTieOff(master.io.regBus); bmbTieOff(slaveA.io.regBus); bmbTieOff(slaveB.io.regBus)
-    bmbMark(master.io.regBus)
-    bmbMark(slaveA.io.regBus)
-    bmbMark(slaveB.io.regBus)
+    // Register maps: top-level Bmb slave ports + factories bound to the cores
+    val masterRegBus = spinal.lib.slave(Bmb(I2cAutoMaster.getBmbParameter()))
+    val slaveARegBus = spinal.lib.slave(Bmb(I2cAutoSlave.getBmbParameter()))
+    val slaveBRegBus = spinal.lib.slave(Bmb(I2cAutoSlave.getBmbParameter()))
+    val masterRegMap = BmbSlaveFactory(masterRegBus)
+    val slaveARegMap = BmbSlaveFactory(slaveARegBus)
+    val slaveBRegMap = BmbSlaveFactory(slaveBRegBus)
+    master.io.driveFrom(masterRegMap, 0)
+    slaveA.io.driveFrom(slaveARegMap, 0)
+    slaveB.io.driveFrom(slaveBRegMap, 0)
+
+    bmbMark(masterRegBus)
+    bmbMark(slaveARegBus)
+    bmbMark(slaveBRegBus)
 
     val io = new Bundle {
       val irqMaster = out Bool()
     }
     io.irqMaster := master.io.irq
+
+    // ---- Firmware-facing register helpers (7-bit address mode) ----
+    def addrW: Int = 7
+
+    def regWriteMaster(addr: Int, data: Int): Unit = bmbWrite(masterRegBus, addr, data, clockDomain)
+
+    def cfgMasterTiming(): Unit = {
+      regWriteMaster(0x24, 1)   // CFG_SAMPDIV
+      regWriteMaster(0x2C, 20)  // CFG_TLOW
+      regWriteMaster(0x30, 20)  // CFG_THIGH
+      regWriteMaster(0x34, 20)  // CFG_TBUF
+    }
+
+    def issueCmd(addr: Int, rw: Boolean, phase2: Boolean = false, nackLast: Boolean = false,
+                 len1: Int, len2: Int = 0): Unit = {
+      regWriteMaster(0x04, len1)
+      regWriteMaster(0x08, len2)
+      val data = (if (nackLast) 1 else 0) << (addrW + 2) |
+                 (if (phase2)   1 else 0) << (addrW + 1) |
+                 (if (rw)       1 else 0) << addrW |
+                 addr
+      regWriteMaster(0x00, data)
+    }
   }
 
   def runSim(body: TestTop => Unit): Unit = {
@@ -114,14 +184,9 @@ class I2cAutoSim extends AnyFunSuite {
       }
   }
 
-  // Helper: write a byte to master TX FIFO
+  // Helper: write a byte to master TX FIFO via the TX_DATA register
   def pushTx(dut: TestTop, data: Int): Unit = {
-    val cd = dut.clockDomain
-    dut.master.txFifo.pushData #= data
-    dut.master.txFifo.pushValid #= true
-    cd.waitActiveEdge()
-    dut.master.txFifo.popValid #= false
-    cd.waitActiveEdge()
+    dut.regWriteMaster(0x0C, data)
   }
 
   // Helper: tie Bmb input signals to defaults (elaboration needs drivers; tests override via #=)
@@ -144,14 +209,14 @@ class I2cAutoSim extends AnyFunSuite {
     bus.rsp.opcode.simPublic(); bus.rsp.data.simPublic()
   }
 
-  // Helper: full Bmb register write (handshake-complete)
+  // Helper: full Bmb register write (handshake-complete, full-word mask)
   def bmbWrite(bus: Bmb, addr: Int, data: Int, cd: ClockDomain): Unit = {
     bus.cmd.valid   #= true
     bus.cmd.opcode  #= 1   // Bmb WRITE
     bus.cmd.address #= addr
     bus.cmd.length  #= 0
     bus.cmd.data    #= data
-    bus.cmd.mask    #= 0xF
+    bus.cmd.mask    #= 0xF  // enable all 4 byte lanes of the 32-bit word
     bus.rsp.ready   #= true
     cd.waitActiveEdge()
     var c = 0
@@ -168,13 +233,19 @@ class I2cAutoSim extends AnyFunSuite {
   // Helper: write a register via the Bmb register bus
   def regWrite(dut: TestTop, isMaster: Boolean, addr: Int, data: Int): Unit = {
     val cd = dut.clockDomain
-    bmbWrite(if (isMaster) dut.master.io.regBus else dut.slave.io.regBus, addr, data, cd)
+    bmbWrite(if (isMaster) dut.masterRegBus else dut.slaveRegBus, addr, data, cd)
   }
 
   // Helper: wait until master is no longer busy
   def waitForIdle(dut: TestTop, maxCycles: Int = 200000): Unit = {
     val cd = dut.clockDomain
     var cycles = 0
+    // A CMD write produces a 1-cycle trigger pulse; busy rises 1-2 cycles AFTER the
+    // write handshake. Wait for the transfer to START before waiting for it to END.
+    while (!dut.master.status.busy.toBoolean && cycles < maxCycles) {
+      cd.waitActiveEdge()
+      cycles += 1
+    }
     while (dut.master.status.busy.toBoolean && cycles < maxCycles) {
       cd.waitActiveEdge()
       cycles += 1
@@ -182,20 +253,17 @@ class I2cAutoSim extends AnyFunSuite {
     assert(cycles < maxCycles, s"Timed out after $maxCycles cycles")
   }
 
+
   test("I2cAuto: basic write 3 bytes") {
     runSim { dut =>
       val cd = dut.clockDomain
+      cd.waitActiveEdge(5)
 
-      // Configure master timing
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-
-      // Configure slave via register bus
-      dut.slave.cfg.sampDiv   #= 1
+      // Configure master timing + slave via the register buses
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)                                // CFG_SAMPDIV
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)  // slaveAddr=0x28, matchEn=1
-      regWrite(dut, isMaster = false, addr = 0x04, data = 0)                // dataPtr=0
+      dut.regWriteSlave(0x04, 0)                                // PTR=0
 
       cd.waitActiveEdge(10)
 
@@ -205,45 +273,29 @@ class I2cAutoSim extends AnyFunSuite {
       pushTx(dut, 0xBE)
 
       // Issue command: write 3 bytes to addr 0x28
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 3
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(3)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 3)
 
       // Wait for completion
       waitForIdle(dut)
+      cd.waitActiveEdge(5)
 
       // Verify slave RAM
-      cd.waitActiveEdge(5)
       val ram0 = dut.slave.ram.getBigInt(0).toInt
       val ram1 = dut.slave.ram.getBigInt(1).toInt
       val ram2 = dut.slave.ram.getBigInt(2).toInt
       assert(ram0 == 0xDE, f"RAM[0]=0x$ram0%02X, expected 0xDE")
       assert(ram1 == 0xAD, f"RAM[1]=0x$ram1%02X, expected 0xAD")
-      assert(ram2 == 0xBE, f"RAM[2]=0x$ram2%02X, expected 0xBE")
-    }
+      assert(ram2 == 0xBE, f"RAM[2]=0x$ram2%02X, expected 0xBE")    }
   }
 
   test("I2cAuto: basic read 3 bytes") {
     runSim { dut =>
       val cd = dut.clockDomain
 
-      // Configure master timing
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-
-      // Configure slave
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
-      dut.slave.dataPtr       #= 0
+      dut.regWriteSlave(0x04, 0)
 
       // Pre-load slave RAM
       dut.slave.ram.setBigInt(0, 0x11)
@@ -253,16 +305,7 @@ class I2cAutoSim extends AnyFunSuite {
       cd.waitActiveEdge(10)
 
       // Command: read 3 bytes from addr 0x28
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= true   // read
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= true   // NACK last byte
-      dut.master.cmd.len1     #= 3
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(3)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = true, nackLast = true, len1 = 3)
 
       // Wait for completion
       waitForIdle(dut)
@@ -286,16 +329,10 @@ class I2cAutoSim extends AnyFunSuite {
     runSim { dut =>
       val cd = dut.clockDomain
 
-      // Configure master timing
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-
-      // Configure slave
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
-      dut.slave.dataPtr       #= 0
+      dut.regWriteSlave(0x04, 0)
 
       // Pre-load slave RAM
       dut.slave.ram.setBigInt(0, 0xAA)
@@ -308,16 +345,7 @@ class I2cAutoSim extends AnyFunSuite {
       pushTx(dut, 0x00)
 
       // Composite: write 1 byte, RESTART, read 2 bytes
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false   // phase 1 = write
-      dut.master.cmd.phase2   #= true    // enable composite
-      dut.master.cmd.nackLast #= true    // NACK last read byte
-      dut.master.cmd.len1     #= 1       // write 1 byte
-      dut.master.cmd.len2     #= 2       // read 2 bytes
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(3)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, phase2 = true, nackLast = true, len1 = 1, len2 = 2)
 
       // Wait for completion
       waitForIdle(dut)
@@ -341,20 +369,59 @@ class I2cAutoSim extends AnyFunSuite {
     }
   }
 
+  test("I2cAuto: read NACK then immediate next transfer (regression)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+
+      // Read phase will serve RAM[2], RAM[3]; last read byte 0x22 has LSB=0,
+      // the exact case where a slave still driving its last data bit masks the
+      // master's release-based NACK on the open-drain bus.
+      dut.slave.ram.setBigInt(2, 0x11)
+      dut.slave.ram.setBigInt(3, 0x22)
+
+      cd.waitActiveEdge(10)
+
+      // Transfer 1: write 2 bytes, RESTART, read 2 bytes (last byte NACKed)
+      pushTx(dut, 0x55)
+      pushTx(dut, 0x66)
+      dut.issueCmd(addr = 0x28, rw = false, phase2 = true, nackLast = true, len1 = 2, len2 = 2)
+      waitForIdle(dut)
+      // The STOP sequence (STOP0/1/2 + TBUF) runs after the master's busy drops;
+      // give the slave enough cycles to detect the STOP and exit the frame.
+      cd.waitActiveEdge(60)
+
+      assert(dut.master.status.errCode.toInt == 0, s"Transfer 1 err=${dut.master.status.errCode.toInt}")
+      var rxValues = List.empty[Int]
+      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 2) {
+        rxValues ::= dut.master.rxFifo.head.toInt
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
+      assert(rxValues.reverse == List(0x11, 0x22), s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0x11, 0x22)")
+
+      // Slave must have exited the frame and released SDA after the NACK+STOP
+      assert(!dut.slave.inFrame.toBoolean, "Slave still in frame after NACKed read + STOP")
+      assert(dut.slave.sdaOut.toBoolean, "Slave still driving SDA Low after NACKed read + STOP")
+
+    }
+  }
+
   test("I2cAuto: address NACK causes abort") {
     runSim { dut =>
       val cd = dut.clockDomain
 
-      // Configure master timing
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
       // Configure slave with DIFFERENT address (won't match)
-      dut.slave.cfg.sampDiv   #= 1
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x30)
-      dut.slave.dataPtr       #= 0
+      dut.regWriteSlave(0x04, 0)
 
       cd.waitActiveEdge(10)
 
@@ -362,16 +429,7 @@ class I2cAutoSim extends AnyFunSuite {
       pushTx(dut, 0x42)
 
       // Send to address 0x28 (slave is at 0x30, so NACK)
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 1
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(3)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 1)
 
       // Wait for completion (should abort quickly)
       waitForIdle(dut)
@@ -386,16 +444,10 @@ class I2cAutoSim extends AnyFunSuite {
     runSim { dut =>
       val cd = dut.clockDomain
 
-      // Configure master timing
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-
-      // Configure slave via register bus
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)  // slaveAddr=0x28, matchEn=1
-      regWrite(dut, isMaster = false, addr = 0x04, data = 0)                // dataPtr=0
+      dut.regWriteSlave(0x04, 0)                                            // dataPtr=0
 
       cd.waitActiveEdge(10)
 
@@ -405,16 +457,7 @@ class I2cAutoSim extends AnyFunSuite {
       }
 
       // Command: write 64 bytes
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 64
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(3)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 64)
 
       // Wait for completion
       waitForIdle(dut)
@@ -432,16 +475,10 @@ class I2cAutoSim extends AnyFunSuite {
     runSim { dut =>
       val cd = dut.clockDomain
 
-      // Configure master timing
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-
-      // Configure slave via register bus
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)  // slaveAddr=0x28, matchEn=1
-      regWrite(dut, isMaster = false, addr = 0x04, data = 0)                // dataPtr=0
+      dut.regWriteSlave(0x04, 0)                                            // dataPtr=0
 
       cd.waitActiveEdge(10)
 
@@ -451,25 +488,14 @@ class I2cAutoSim extends AnyFunSuite {
       }
 
       // Command: write 32 bytes
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 32
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(3)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 32)
 
       // Wait a few bits into the transfer, then abort
       cd.waitActiveEdge(200)  // ~4-5 bytes in
       assert(dut.master.status.busy.toBoolean, "Transfer should be active before abort")
 
-      // Issue abort
-      dut.master.abortReq #= true
-      cd.waitActiveEdge(3)
-      dut.master.abortReq #= false
+      // Issue abort via the CTRL register (self-clearing pulse)
+      dut.regWriteMaster(0x38, 1)
 
       // Wait for STOP to complete
       waitForIdle(dut)
@@ -485,48 +511,27 @@ class I2cAutoSim extends AnyFunSuite {
   test("I2cAuto: back-to-back transfers") {
     runSim { dut =>
       val cd = dut.clockDomain
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
-      dut.slave.dataPtr       #= 0
+      dut.regWriteSlave(0x04, 0)
       cd.waitActiveEdge(10)
 
       // Transfer 1
       pushTx(dut, 0x11)
       pushTx(dut, 0x22)
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 2
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(10)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 2)
       waitForIdle(dut)
       cd.waitActiveEdge(50)
       assert(dut.slave.ram.getBigInt(0).toInt == 0x11, "T1: RAM[0] mismatch")
       assert(dut.slave.ram.getBigInt(1).toInt == 0x22, "T1: RAM[1] mismatch")
 
       // Transfer 2
-      dut.slave.dataPtr #= 0
+      dut.regWriteSlave(0x04, 0)  // reset PTR
       cd.waitActiveEdge(10)
       pushTx(dut, 0xAA)
       pushTx(dut, 0xBB)
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 2
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(10)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 2)
       waitForIdle(dut)
       cd.waitActiveEdge(20)
       assert(dut.slave.ram.getBigInt(0).toInt == 0xAA, s"T2: RAM[0]=0x${dut.slave.ram.getBigInt(0).toInt}%02X")
@@ -539,32 +544,19 @@ class I2cAutoSim extends AnyFunSuite {
       val cd = dut.clockDomain
 
       // Configure master with short timeout for fast test
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      regWrite(dut, isMaster = true, addr = 0x28, data = 50)  // timeout=50 cycles
+      dut.cfgMasterTiming()
+      dut.regWriteMaster(0x28, 50)  // CFG_TIMEOUT=50 cycles
 
-      // Configure slave via register bus
-      dut.slave.cfg.sampDiv   #= 1
+      dut.regWriteSlave(0x1C, 1)
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)  // slaveAddr=0x28, matchEn=1
-      regWrite(dut, isMaster = false, addr = 0x04, data = 0)                // dataPtr=0
+      dut.regWriteSlave(0x04, 0)                                            // dataPtr=0
 
       cd.waitActiveEdge(10)
 
       // Start a write transfer
       pushTx(dut, 0x11)
       pushTx(dut, 0x22)
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 2
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(10)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 2)
 
       // Wait a few cycles into the transfer, then force SCL Low (simulate bus hang)
       cd.waitActiveEdge(50)
@@ -595,29 +587,17 @@ class I2cAutoSim extends AnyFunSuite {
       val cd = dut.clockDomain
       cd.forkStimulus(10 ns)
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
-      dut.slave.dataPtr       #= 0
+      dut.regWriteSlave(0x04, 0)
       cd.waitActiveEdge(10)
 
       // Try to write 3 bytes to a 2-valid-addr slave: 3rd byte should be NACKed
       pushTx(dut, 0x11)
       pushTx(dut, 0x22)
       pushTx(dut, 0x33)
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false  // Don't NACK last ourselves - let slave NACK us
-      dut.master.cmd.len1     #= 3
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(10)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 3)  // let the slave NACK the 3rd byte
 
       waitForIdle(dut)
       cd.waitActiveEdge(20)
@@ -639,62 +619,42 @@ class I2cAutoSim extends AnyFunSuite {
       cd.forkStimulus(10 ns)
 
       // Configure master
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
+      dut.cfgMasterTiming()
 
       // Configure slave A (target) and slave B (should stay silent)
-      dut.slaveA.cfg.sampDiv   #= 1
-      bmbWrite(dut.slaveA.io.regBus, 0x00, (1 << 7) | 0x28, cd)  // slaveAddr=0x28, matchEn=1
-      bmbWrite(dut.slaveA.io.regBus, 0x04, 0, cd)                // dataPtr=0
+      bmbWrite(dut.slaveARegBus, 0x1C, 1, cd)                     // CFG_SAMPDIV
+      bmbWrite(dut.slaveARegBus, 0x00, (1 << 7) | 0x28, cd)       // slaveAddr=0x28, matchEn=1
+      bmbWrite(dut.slaveARegBus, 0x04, 0, cd)                     // dataPtr=0
 
-      dut.slaveB.cfg.sampDiv   #= 1
-      bmbWrite(dut.slaveB.io.regBus, 0x00, (1 << 7) | 0x30, cd)  // slaveAddr=0x30, matchEn=1
-      bmbWrite(dut.slaveB.io.regBus, 0x04, 0, cd)                // dataPtr=0
+      bmbWrite(dut.slaveBRegBus, 0x1C, 1, cd)                     // CFG_SAMPDIV
+      bmbWrite(dut.slaveBRegBus, 0x00, (1 << 7) | 0x30, cd)       // slaveAddr=0x30, matchEn=1
+      bmbWrite(dut.slaveBRegBus, 0x04, 0, cd)                     // dataPtr=0
 
       cd.waitActiveEdge(10)
 
       // Write 2 bytes to slave A (addr 0x28)
-      dut.master.txFifo.pushData #= 0xDE
-      dut.master.txFifo.pushValid #= true
-      cd.waitActiveEdge()
-      dut.master.txFifo.popValid #= false
-      cd.waitActiveEdge()
-      dut.master.txFifo.pushData #= 0xAD
-      dut.master.txFifo.pushValid #= true
-      cd.waitActiveEdge()
-      dut.master.txFifo.popValid #= false
-      cd.waitActiveEdge()
+      bmbWrite(dut.masterRegBus, 0x0C, 0xDE, cd)
+      bmbWrite(dut.masterRegBus, 0x0C, 0xAD, cd)
 
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 2
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(10)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 2)
 
       // Monitor slave B's SDA output during the transfer
       // NOTE: In write mode, non-matching slave may ACK (SDA Low) which doesn't
       // cause contention (both agree on wire state). True contention would be
       // in read mode where both drive different data. We check the critical path:
       // slave A receives correct data and transfer completes without error.
+      // Wait for the transfer to start (absorbs the 1-cycle CMD trigger latency),
+      // then wait for completion.
       var cycles = 0
+      while (!dut.master.status.busy.toBoolean && cycles < 200000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
       while (dut.master.status.busy.toBoolean && cycles < 200000) {
         cd.waitActiveEdge()
         cycles += 1
       }
-      // Wait for idle
-      var idleCycles = 0
-      while (dut.master.status.busy.toBoolean && idleCycles < 200000) {
-        cd.waitActiveEdge()
-        idleCycles += 1
-      }
-      assert(idleCycles < 200000, "Timed out waiting for idle")
+      assert(cycles < 200000, "Timed out waiting for idle")
       cd.waitActiveEdge(20)
 
       // Transfer completed without error
@@ -713,28 +673,16 @@ class I2cAutoSim extends AnyFunSuite {
     runSim { dut =>
       val cd = dut.clockDomain
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
-      dut.slave.dataPtr       #= 0
+      dut.regWriteSlave(0x04, 0)
       cd.waitActiveEdge(10)
 
       // Start a write transfer
       pushTx(dut, 0x11)
       pushTx(dut, 0x22)
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 2
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(10)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 2)
 
       // Wait a few cycles into the transfer, then force SDA High (simulate arb loss)
       cd.waitActiveEdge(50)
@@ -761,36 +709,24 @@ class I2cAutoSim extends AnyFunSuite {
     runSim { dut =>
       val cd = dut.clockDomain
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
-      dut.slave.dataPtr       #= 0
+      dut.regWriteSlave(0x04, 0)
       cd.waitActiveEdge(10)
 
       // Start a write transfer
       pushTx(dut, 0xAB)
       pushTx(dut, 0xCD)
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 2
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(10)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 2)
 
       // Wait until the bus SCL is Low (stretch can only engage in the Low phase)
       var w = 0
       while (dut.sclWire.toBoolean && w < 2000) { cd.waitActiveEdge(1); w += 1 }
       assert(dut.master.status.busy.toBoolean, "Transfer should be active")
 
-      // Request SCL stretch: slave holds SCL Low
-      dut.slave.stretchReq #= true
+      // Request SCL stretch via the STRETCH_REQ register: slave holds SCL Low
+      dut.regWriteSlave(0x24, 1)
       cd.waitActiveEdge(5)
       assert(dut.slave.stretchActive.toBoolean, "stretchActive should engage while SCL Low")
 
@@ -800,8 +736,8 @@ class I2cAutoSim extends AnyFunSuite {
         "Master should be stalled during SCL stretch (waiting for SCL to go High)")
       assert(!dut.sclWire.toBoolean, "SCL wire must stay Low while stretch is held")
 
-      // Release the stretch and let the transfer finish
-      dut.slave.stretchReq #= false
+      // Release the stretch (write 0 to STRETCH_REQ) and let the transfer finish
+      dut.regWriteSlave(0x24, 0)
       waitForIdle(dut)
       cd.waitActiveEdge(20)
 
@@ -816,26 +752,14 @@ class I2cAutoSim extends AnyFunSuite {
     runSim { dut =>
       val cd = dut.clockDomain
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
+      dut.cfgMasterTiming()
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
-      dut.slave.dataPtr       #= 0
+      dut.regWriteSlave(0x04, 0)
       cd.waitActiveEdge(10)
 
       // 4-byte write
       pushTx(dut, 0xA0); pushTx(dut, 0xB1); pushTx(dut, 0xC2); pushTx(dut, 0xD3)
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= false
-      dut.master.cmd.len1     #= 4
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(10)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 4)
 
       // Wait until MID-DATA-BYTE: past the address byte (byteNum>=1) and
       // inside a data byte (bitPos 2..7), with SCL Low so the stretch can engage.
@@ -852,7 +776,7 @@ class I2cAutoSim extends AnyFunSuite {
       val stretchedBitPos  = dut.master.fsm.bitPos.toInt
 
       // Hold the bus for a long stretch (>> one bit period)
-      dut.slave.stretchReq #= true
+      dut.regWriteSlave(0x24, 1)
       cd.waitActiveEdge(5)
       assert(dut.slave.stretchActive.toBoolean, "stretch must engage")
       cd.waitActiveEdge(400)
@@ -863,7 +787,7 @@ class I2cAutoSim extends AnyFunSuite {
         s"slave bitPos=${dut.slave.bitPos.toInt} != master $stretchedBitPos (lockstep broken)")
 
       // Release mid-byte: the remainder of the transfer must complete cleanly
-      dut.slave.stretchReq #= false
+      dut.regWriteSlave(0x24, 0)
       waitForIdle(dut)
       cd.waitActiveEdge(20)
 
@@ -880,12 +804,9 @@ class I2cAutoSim extends AnyFunSuite {
     runSim { dut =>
       val cd = dut.clockDomain
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
+      dut.cfgMasterTiming()
       regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
-      dut.slave.dataPtr       #= 0
+      dut.regWriteSlave(0x04, 0)
       dut.slave.ram.setBigInt(0, 0x5A)
       dut.slave.ram.setBigInt(1, 0x3C)
       dut.slave.ram.setBigInt(2, 0xE7)
@@ -893,16 +814,7 @@ class I2cAutoSim extends AnyFunSuite {
       cd.waitActiveEdge(10)
 
       // 4-byte read
-      dut.master.cmd.addr     #= 0x28
-      dut.master.cmd.rw       #= true
-      dut.master.cmd.phase2   #= false
-      dut.master.cmd.nackLast #= true
-      dut.master.cmd.len1     #= 4
-      dut.master.cmd.len2     #= 0
-      cd.waitActiveEdge()
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(10)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x28, rw = true, nackLast = true, len1 = 4)
 
       // Wait until mid-data-byte with SCL Low (slave is driving the current bit)
       var w = 0
@@ -918,7 +830,7 @@ class I2cAutoSim extends AnyFunSuite {
       val stretchedBitPos  = dut.master.fsm.bitPos.toInt
 
       // Stretch while the slave holds a data bit on SDA
-      dut.slave.stretchReq #= true
+      dut.regWriteSlave(0x24, 1)
       cd.waitActiveEdge(5)
       assert(dut.slave.stretchActive.toBoolean, "stretch must engage")
       cd.waitActiveEdge(400)
@@ -926,7 +838,7 @@ class I2cAutoSim extends AnyFunSuite {
       assert(!dut.sclWire.toBoolean, "SCL must stay Low during stretch")
 
       // Release mid-byte: remaining bits/bytes must be delivered intact
-      dut.slave.stretchReq #= false
+      dut.regWriteSlave(0x24, 0)
       waitForIdle(dut)
       cd.waitActiveEdge(20)
 
@@ -959,15 +871,12 @@ class I2cAutoSim extends AnyFunSuite {
     runSim10bit { dut =>
       val cd = dut.clockDomain
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
 
       // 10-bit address: 0x345
       regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 10) | 0x345))
-      dut.slave.dataPtr   #= 0
+      dut.regWriteSlave(0x04, 0)
 
       cd.waitActiveEdge(10)
 
@@ -976,12 +885,7 @@ class I2cAutoSim extends AnyFunSuite {
       for (d <- data) { pushTx(dut, d) }
 
       // Trigger write
-      dut.master.cmd.addr    #= 0x345
-      dut.master.cmd.rw      #= false
-      dut.master.cmd.len1    #= 4
-      dut.master.cmd.trigger #= true
-      cd.waitActiveEdge(3)
-      dut.master.cmd.trigger #= false
+      dut.issueCmd(addr = 0x345, rw = false, len1 = 4)
 
       waitForIdle(dut)
 
@@ -998,15 +902,12 @@ class I2cAutoSim extends AnyFunSuite {
     runSim10bit { dut =>
       val cd = dut.clockDomain
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
 
       // 10-bit address: 0x1BC
       regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 10) | 0x1BC))
-      dut.slave.dataPtr   #= 0
+      dut.regWriteSlave(0x04, 0)
 
       // Pre-load RAM
       val data = Array(0x11, 0x22, 0x33)
@@ -1015,13 +916,7 @@ class I2cAutoSim extends AnyFunSuite {
       cd.waitActiveEdge(10)
 
       // Trigger read
-      dut.master.cmd.addr     #= 0x1BC
-      dut.master.cmd.rw       #= true
-      dut.master.cmd.len1     #= 3
-      dut.master.cmd.nackLast #= true
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(3)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x1BC, rw = true, nackLast = true, len1 = 3)
 
       waitForIdle(dut)
 
@@ -1041,15 +936,12 @@ class I2cAutoSim extends AnyFunSuite {
     runSim10bit { dut =>
       val cd = dut.clockDomain
 
-      dut.master.cfg.sampDiv  #= 1
-      dut.master.cfg.tLow     #= 20
-      dut.master.cfg.tHigh    #= 20
-      dut.master.cfg.tBuf     #= 20
-      dut.slave.cfg.sampDiv   #= 1
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
 
       // 10-bit address: 0x2AA
       regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 10) | 0x2AA))
-      dut.slave.dataPtr   #= 0
+      dut.regWriteSlave(0x04, 0)
 
       // Pre-load read data at offset 2
       val readData = Array(0xAA, 0xBB)
@@ -1062,15 +954,7 @@ class I2cAutoSim extends AnyFunSuite {
       for (d <- writeData) { pushTx(dut, d) }
 
       // Trigger composite
-      dut.master.cmd.addr     #= 0x2AA
-      dut.master.cmd.rw       #= false
-      dut.master.cmd.len1     #= 2
-      dut.master.cmd.phase2   #= true
-      dut.master.cmd.len2     #= 2
-      dut.master.cmd.nackLast #= true
-      dut.master.cmd.trigger  #= true
-      cd.waitActiveEdge(3)
-      dut.master.cmd.trigger  #= false
+      dut.issueCmd(addr = 0x2AA, rw = false, phase2 = true, nackLast = true, len1 = 2, len2 = 2)
 
       waitForIdle(dut)
 

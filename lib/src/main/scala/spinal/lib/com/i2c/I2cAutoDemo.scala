@@ -2,15 +2,16 @@ package spinal.lib.com.i2c
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.bmb.Bmb
+import spinal.lib.bus.bmb.{Bmb, BmbSlaveFactory}
 
 /**
   * Demo SoC-level wrapper: I2cAutoMaster + I2cAutoSlave.
   *
-  * Each controller's register map is served over an internal Bmb slave port
-  * (mapped by a [[spinal.lib.bus.bmb.BmbSlaveFactory]] inside the controller).
-  * In a real SoC the fabric would connect to those ports; here we tie them off
-  * so the demo focuses on I2C pin behaviour for SpinalVerilog generation.
+  * Each controller's register map is instantiated at this SoC level via
+  * [[I2cAutoMaster.driveFrom]] / [[I2cAutoSlave.driveFrom]] on a top-level
+  * Bmb slave port. In a real SoC the fabric would connect to those ports;
+  * here we tie them off so the demo focuses on I2C pin behaviour for
+  * SpinalVerilog generation.
   */
 class I2cAutoDemo extends Component {
 
@@ -36,18 +37,18 @@ class I2cAutoDemo extends Component {
   io.irqMaster := master.io.irq
   io.irqSlave  := slaveCtrl.io.irq
 
-  // Tie off Bmb register ports (no external fabric in this demo)
-  def tieOffBmb(bus: Bmb): Unit = {
-    bus.cmd.valid := False
-    bus.cmd.opcode := 0
-    bus.cmd.address := 0
-    bus.cmd.length := 0
-    bus.cmd.data := 0
-    bus.cmd.mask := 0
-    bus.rsp.ready := False
-  }
-  tieOffBmb(master.io.regBus)
-  tieOffBmb(slaveCtrl.io.regBus)
+  // Register map: top-level Bmb slave ports + factories bound to the cores
+  val masterParam = I2cAutoMaster.getBmbParameter()
+  val slaveParam  = I2cAutoSlave.getBmbParameter()
+  val masterRegBus = slave(Bmb(masterParam))
+  val slaveRegBus  = slave(Bmb(slaveParam))
+  val masterRegMap = BmbSlaveFactory(masterRegBus)
+  val slaveRegMap  = BmbSlaveFactory(slaveRegBus)
+  master.io.driveFrom(masterRegMap, 0)
+  slaveCtrl.io.driveFrom(slaveRegMap, 0)
+
+  // Note: the Bmb register ports are top-level inputs; in a real SoC the
+  // fabric connects to them. Left undriven here (focus on I2C pin behaviour).
 }
 
 /**
@@ -61,7 +62,7 @@ class I2cAutoDemo10bit extends Component {
     timerWidth   = 12
   ))
 
-  val slave = new I2cAutoSlave(I2cAutoSlave.Config(
+  val slaveCtrl = new I2cAutoSlave(I2cAutoSlave.Config(
     ramDepth     = 64,
     validAddrs   = (0 until 64).toSeq,
     support10bit = true
@@ -76,23 +77,23 @@ class I2cAutoDemo10bit extends Component {
   }
 
   io.i2cMaster  <> master.io.i2c
-  io.i2cSlave   <> slave.io.i2c
+  io.i2cSlave   <> slaveCtrl.io.i2c
   io.irqMaster  := master.io.irq
-  io.irqSlave   := slave.io.irq
-  io.sclStretch := slave.io.sclStretch
+  io.irqSlave   := slaveCtrl.io.irq
+  io.sclStretch := slaveCtrl.io.sclStretch
 
-  // Tie off Bmb register ports
-  def tieOffBmb(bus: Bmb): Unit = {
-    bus.cmd.valid := False
-    bus.cmd.opcode := 0
-    bus.cmd.address := 0
-    bus.cmd.length := 0
-    bus.cmd.data := 0
-    bus.cmd.mask := 0
-    bus.rsp.ready := False
-  }
-  tieOffBmb(master.io.regBus)
-  tieOffBmb(slave.io.regBus)
+  // Register map: top-level Bmb slave ports + factories bound to the cores
+  val masterParam = I2cAutoMaster.getBmbParameter()
+  val slaveParam  = I2cAutoSlave.getBmbParameter()
+  val masterRegBus = slave(Bmb(masterParam))
+  val slaveRegBus  = slave(Bmb(slaveParam))
+  val masterRegMap = BmbSlaveFactory(masterRegBus)
+  val slaveRegMap  = BmbSlaveFactory(slaveRegBus)
+  master.io.driveFrom(masterRegMap, 0)
+  slaveCtrl.io.driveFrom(slaveRegMap, 0)
+
+  // Note: the Bmb register ports are top-level inputs; in a real SoC the
+  // fabric connects to them. Left undriven here (focus on I2C pin behaviour).
 }
 
 object I2cAutoDemo {

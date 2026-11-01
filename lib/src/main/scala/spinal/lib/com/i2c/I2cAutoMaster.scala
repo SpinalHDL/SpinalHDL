@@ -3,8 +3,8 @@ package spinal.lib.com.i2c
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSourceParameter, BmbSlaveFactory}
-import spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSourceParameter}
+import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 
 /**
@@ -14,9 +14,16 @@ import spinal.lib.fsm.{EntryPoint, State, StateMachine}
   * autonomously generates START, address, data bytes, optional RESTART +
   * phase-2, and STOP. Completion or error is signalled via the IRQ output.
   *
+  * The controller core is register-bus agnostic: it exposes the signals it
+  * needs ([[I2cAutoMasterIo]]) and leaves register-map instantiation to
+  * [[I2cAutoMaster.driveFrom]], which binds a caller-supplied
+  * [[BusSlaveFactory]] to parent-side registers wired into the io. Any bus
+  * family whose slave factory extends BusSlaveFactory (Bmb, Apb3, TileLink, ...)
+  * can serve the same register map.
+  *
   * Register map (byte addresses, 32-bit data width; bit offsets shift with addrW=7/10):
   *   0x00  CMD          W: {nackLast[addrW+2], hasPhase2[addrW+1], rw[addrW], addr[addrW-1:0]}
-  *                       (fields + trigger land atomically on the Bmb write handshake)
+  *                       (fields + trigger land atomically on the bus write handshake)
   *   0x04  LEN1         W: phase-1 data byte count
   *   0x08  LEN2         W: phase-2 data byte count
   *   0x0C  TX_DATA      W: push one byte into TX FIFO
@@ -34,7 +41,7 @@ import spinal.lib.fsm.{EntryPoint, State, StateMachine}
   */
 object I2cAutoMaster {
 
-  /** Bmb parameter for the register bus: 8-bit address, 32-bit data, single source, masked writes. */
+  /** Parameter for a Bmb register bus serving this controller (8-bit address, 32-bit data). */
   def getBmbParameter(): BmbParameter = BmbAccessParameter(8, 32)
     .addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 3))
     .toBmbParameter()
@@ -48,35 +55,174 @@ object I2cAutoMaster {
   )
 
   def apply(c: Config = Config()): I2cAutoMaster = new I2cAutoMaster(c)
+
+  /**
+   * Instantiate the register map on a caller-supplied bus factory and wire it
+   * to the controller's io. Must be elaborated in a scope that can see both
+   * the factory's bus and the io (typically the parent component).
+   *
+   * Event registers (CMD trigger, TX_DATA push, RX_DATA pop, CTRL abort) are
+   * one-cycle pulses derived from bus write/read handshakes; value registers
+   * are plain registers. Pulse timing matches the legacy internal
+   * BmbSlaveFactory implementation (pulse high one cycle after the bus
+   * handshake).
+   */
+  def driveFrom(io: I2cAutoMasterIo, busCtrl: BusSlaveFactory, baseAddress: BigInt): Unit = new Area {
+    import io._
+    val factory = new BusSlaveFactoryAddressWrapper(busCtrl, baseAddress)
+    val addrW   = cmd.addr.getWidth
+
+    // CMD (0x00): fields + trigger. Field regs update at the write edge; the
+    // trigger pulse goes high the following cycle, so the FSM latches stable
+    // field values.
+    val cmdAddr     = Reg(Bits(addrW bits)) init(0)
+    val cmdRw       = RegInit(False)
+    val cmdPhase2   = RegInit(False)
+    val cmdNackLast = RegInit(False)
+    val cmdTrigger  = RegInit(False)
+    factory.write(cmdAddr, 0x00, 0)
+    factory.write(cmdRw, 0x00, addrW)
+    factory.write(cmdPhase2, 0x00, addrW + 1)
+    factory.write(cmdNackLast, 0x00, addrW + 2)
+    cmdTrigger := False
+    factory.onWrite(0x00) { cmdTrigger := True }
+    cmd.addr     := cmdAddr
+    cmd.rw       := cmdRw
+    cmd.phase2   := cmdPhase2
+    cmd.nackLast := cmdNackLast
+    cmd.trigger  := cmdTrigger
+
+    // LEN1 / LEN2
+    val len1 = Reg(UInt(8 bits)) init(0)
+    val len2 = Reg(UInt(8 bits)) init(0)
+    factory.write(len1, 0x04)
+    factory.write(len2, 0x08)
+    cmd.len1 := len1
+    cmd.len2 := len2
+
+    // TX_DATA (0x0C): push one byte into the TX FIFO
+    val txData = Reg(Bits(8 bits)) init(0)
+    val txPush = RegInit(False)
+    factory.write(txData, 0x0C)
+    txPush := False
+    factory.onWrite(0x0C) { txPush := True }
+    tx.data := txData
+    tx.push := txPush
+
+    // RX_DATA (0x10): pop-on-read. The read returns the pre-pop head
+    // combinationally; the pop pulse fires one cycle after the read.
+    factory.read(rx.head, 0x10, 0)
+    factory.read(rx.notEmpty, 0x10, 8)
+    val rxPop = RegInit(False)
+    rxPop := False
+    factory.onRead(0x10) { rxPop := True }
+    rx.pop := rxPop
+
+    // STATUS (0x14): {aborted[6], err[5:3], rxAvail[2], txAvail[1], busy[0]}
+    factory.read(0x14, 0 -> status.busy, 1 -> status.txAvail, 2 -> status.rxAvail,
+                 3 -> status.errCode, 6 -> status.aborted)
+
+    // Interrupts
+    val intEn  = RegInit(B(0, 3 bits))
+    val intClr = RegInit(B(0, 3 bits))
+    factory.write(intEn, 0x18)
+    factory.read(intr.fl, 0x1C)
+    factory.write(intClr, 0x20)
+    intr.en  := intEn
+    intr.clr := intClr
+
+    // Timing configuration
+    val sampDiv = Reg(UInt(cfg.sampDiv.getWidth bits)) init(0)
+    val timeout = Reg(UInt(20 bits)) init(0)
+    val tLow    = Reg(UInt(cfg.tLow.getWidth bits)) init(10)
+    val tHigh   = Reg(UInt(cfg.tHigh.getWidth bits)) init(10)
+    val tBuf    = Reg(UInt(cfg.tBuf.getWidth bits)) init(10)
+    factory.write(sampDiv, 0x24)
+    factory.write(timeout, 0x28)
+    factory.write(tLow, 0x2C)
+    factory.write(tHigh, 0x30)
+    factory.write(tBuf, 0x34)
+    cfg.sampDiv := sampDiv
+    cfg.timeout := timeout
+    cfg.tLow    := tLow
+    cfg.tHigh   := tHigh
+    cfg.tBuf    := tBuf
+
+    // CTRL (0x38): abort pulse
+    val abort = RegInit(False)
+    abort := False
+    factory.onWrite(0x38) { abort := True }
+    cfg.abort := abort
+  }
+}
+
+/** Controller io: I2C pins, IRQ, and the firmware-facing control/status signals bound by driveFrom. */
+case class I2cAutoMasterIo(c: I2cAutoMaster.Config) extends Bundle {
+  val i2c = master(I2c())
+  val irq = out Bool()
+
+  val cmd = new Bundle {
+    val addr     = in Bits((if (c.support10bit) 10 else 7) bits)
+    val rw       = in Bool()
+    val phase2   = in Bool()
+    val nackLast = in Bool()
+    val len1     = in UInt(8 bits)
+    val len2     = in UInt(8 bits)
+    val trigger  = in Bool()  // one-cycle pulse from the CMD register write
+  }
+
+  val tx = new Bundle {
+    val data = in Bits(8 bits)
+    val push = in Bool()  // one-cycle pulse from the TX_DATA register write
+  }
+
+  val rx = new Bundle {
+    val head     = out Bits(8 bits)  // pre-pop head
+    val notEmpty = out Bool()
+    val pop      = in Bool()  // one-cycle pulse from the RX_DATA register read
+  }
+
+  val status = new Bundle {
+    val busy    = out Bool()
+    val errCode = out UInt(3 bits)
+    val aborted = out Bool()
+    val txAvail = out Bool()
+    val rxAvail = out Bool()
+  }
+
+  val intr = new Bundle {
+    val en  = in Bits(3 bits)
+    val fl  = out Bits(3 bits)
+    val clr = in Bits(3 bits)  // W1C
+  }
+
+  val cfg = new Bundle {
+    val sampDiv = in UInt(c.sampDivWidth bits)
+    val timeout = in UInt(20 bits)
+    val tLow    = in UInt(c.timerWidth bits)
+    val tHigh   = in UInt(c.timerWidth bits)
+    val tBuf    = in UInt(c.timerWidth bits)
+    val abort   = in Bool()  // one-cycle pulse from the CTRL register write
+  }
+
+  /** Bind the register map to a bus factory (see [[I2cAutoMaster.driveFrom]]). */
+  def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt): Unit =
+    I2cAutoMaster.driveFrom(this, busCtrl, baseAddress)
 }
 
 class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
 
   import I2cAutoMaster.Config
 
-  val io = new Bundle {
-    val i2c = master(I2c())
-    val irq = out Bool()
-    val regBus = slave(Bmb(I2cAutoMaster.getBmbParameter()))
-  }
+  val io = I2cAutoMasterIo(c)
 
   val fifoPtrW = log2Up(c.fifoDepth)
-
-  // === Configuration registers ===
-  val cfg = new Area {
-    val sampDiv = Reg(UInt(c.sampDivWidth bits)) init(0)
-    val timeout = Reg(UInt(20 bits)) init(0)
-    val tLow    = Reg(UInt(c.timerWidth bits)) init(10)
-    val tHigh   = Reg(UInt(c.timerWidth bits)) init(10)
-    val tBuf    = Reg(UInt(c.timerWidth bits)) init(10)
-    List(sampDiv, timeout, tLow, tHigh, tBuf).foreach(_.allowUnsetRegToAvoidLatch)
-  }
 
   // === Input filtering ===
   val filterTick = new Area {
     val counter = Reg(UInt(c.sampDivWidth bits)) init(0)
     val tick    = counter === U(0)
-    counter := Mux(tick, cfg.sampDiv, counter - U(1))
+    counter := Mux(tick, io.cfg.sampDiv, counter - U(1))
   }
 
   val sclFilt = RegInit(True)
@@ -110,7 +256,6 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val cnt  = Reg(UInt((fifoPtrW + 1) bits)) init(0)
     val pushValid = RegInit(False)
     val pushData  = RegInit(B(0, 8 bits))
-    pushData.allowUnsetRegToAvoidLatch
     val popValid  = RegInit(False)
     val head      = mem.readAsync(rPtr)  // TX: combinational read
     val notEmpty  = cnt =/= U(0)
@@ -134,7 +279,6 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val cnt  = Reg(UInt((fifoPtrW + 1) bits)) init(0)
     val pushValid = RegInit(False)
     val pushData  = RegInit(B(0, 8 bits))
-    pushData.allowUnsetRegToAvoidLatch
     val popValid  = RegInit(False)
     val head      = mem.readAsync(rPtr)  // RX: combinational read
     val notEmpty  = cnt =/= U(0)
@@ -150,29 +294,21 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
   }
 
-  // Default: clear pulse signals (they are set to True for 1 cycle by FSM/bus)
+  // Wire the firmware-facing FIFO interface (driven by driveFrom-bound registers)
+  txFifo.pushValid := io.tx.push
+  txFifo.pushData  := io.tx.data
   txFifo.popValid  := False
-  txFifo.pushValid := False
-  rxFifo.popValid  := False
   rxFifo.pushValid := False
+  rxFifo.popValid  := io.rx.pop
+  io.rx.head       := rxFifo.head
+  io.rx.notEmpty   := rxFifo.notEmpty
 
   /** Width of the address field in bits (7 or 10). */
   val addrW: Int = if (c.support10bit) 10 else 7
   /** Number of address bytes on the bus (1 for 7-bit, 2 for 10-bit). */
   val addrBytes: Int = if (c.support10bit) 2 else 1
 
-  // === Command / Status ===
-  val cmd = new Area {
-    val trigger  = RegInit(False)
-    val addr     = Reg(Bits(addrW bits)) init(0)
-    val rw       = RegInit(False)
-    val phase2   = RegInit(False)
-    val nackLast = RegInit(False)
-    val len1     = Reg(UInt(8 bits)) init(0)
-    val len2     = Reg(UInt(8 bits)) init(0)
-    List(trigger, addr, rw, phase2, nackLast, len1, len2).foreach(_.allowUnsetRegToAvoidLatch)
-  }
-
+  // === Status ===
   val status = new Area {
     val busy    = RegInit(False)
     val errCode = RegInit(U(0, 3 bits))
@@ -184,22 +320,23 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   val sclEdge = sclFilt =/= sclPrev
   sclPrev := sclFilt
   when(sclEdge || !status.busy) {
-    timeoutCtr := cfg.timeout
+    timeoutCtr := io.cfg.timeout
   }
 
   // === Interrupt controller ===
   val intr = new Area {
-    val en = RegInit(B(0, 3 bits))
     val fl = RegInit(B(0, 3 bits))
-    val clrIn = RegInit(B(0, 3 bits))
-    val irq = (en & fl).orR
-    for (i <- 0 until 3) { fl(i) clearWhen(clrIn(i)) }
-    en.allowUnsetRegToAvoidLatch
-    clrIn.allowUnsetRegToAvoidLatch
+    for (i <- 0 until 3) { fl(i) clearWhen(io.intr.clr(i)) }
   }
+  io.irq := (io.intr.en & intr.fl).orR
 
-  val abortReq = RegInit(False)
-  abortReq.allowUnsetRegToAvoidLatch
+  // Forward internal status to the io
+  io.status.busy    := status.busy
+  io.status.errCode := status.errCode
+  io.status.aborted := status.aborted
+  io.status.txAvail := txFifo.notEmpty
+  io.status.rxAvail := rxFifo.notEmpty
+  io.intr.fl        := intr.fl
 
   // === Transfer FSM ===
   val fsm = new StateMachine {
@@ -266,22 +403,22 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     // States
     val IDLE: State = new State with EntryPoint {
       whenIsActive {
-        when(cmd.trigger) {
-          latAddr     := cmd.addr
-          latRw       := cmd.rw
-          latHasP2    := cmd.phase2
-          latNackLast := cmd.nackLast
-          latLen2     := cmd.len2
+        when(io.cmd.trigger) {
+          latAddr     := io.cmd.addr
+          latRw       := io.cmd.rw
+          latHasP2    := io.cmd.phase2
+          latNackLast := io.cmd.nackLast
+          latLen2     := io.cmd.len2
           phase   := U(0)
           byteNum := U(0)
           bitPos  := U(0)
-          curLen  := cmd.len1
-          curRw   := cmd.rw
+          curLen  := io.cmd.len1
+          curRw   := io.cmd.rw
           rxByte  := B(0)
           status.busy    := True
           status.errCode := U(0, 3 bits)
           status.aborted := False
-          timeoutCtr     := cfg.timeout
+          timeoutCtr     := io.cfg.timeout
           goto(START1)
         }
       }
@@ -308,7 +445,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val START3: State = new State {
-      onEntry { timer := cfg.tLow; timerArmed := True }
+      onEntry { timer := io.cfg.tLow; timerArmed := True }
       whenIsActive {
         sclDrive := False
         sdaEn    := True
@@ -318,7 +455,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val BIT_LOW: State = new State {
-      onEntry { timer := cfg.tLow; timerArmed := True }
+      onEntry { timer := io.cfg.tLow; timerArmed := True }
       whenIsActive {
         sclDrive := False
         when(driveSda) {
@@ -332,7 +469,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val BIT_HIGH: State = new State {
-      onEntry { timer := cfg.tHigh; timerArmed := True }
+      onEntry { timer := io.cfg.tHigh; timerArmed := True }
       whenIsActive {
         sclDrive := True
         when(driveSda) {
@@ -342,7 +479,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
           sdaEn := False
         }
         // Clock stretching: reload timer if SCL held low
-        when(!sclFilt) { timer := cfg.tHigh }
+        when(!sclFilt) { timer := io.cfg.tHigh }
 
         when(timerDone && sclFilt) {
           when(!driveSda) {
@@ -462,7 +599,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val RESTART3: State = new State {
-      onEntry { timer := cfg.tLow; timerArmed := True }
+      onEntry { timer := io.cfg.tLow; timerArmed := True }
       whenIsActive {
         sclDrive := False
         sdaEn    := True
@@ -502,7 +639,9 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
       onEntry { timer := U(5); timerArmed := True }
       whenIsActive {
         sclDrive := False  // drop SCL to let slave release SDA
-        sdaEn    := False
+        sdaEn    := True   // drive SDA Low (open-drain), NOT release:
+        sdaDrive := False  // SDA must be Low before SCL rises in STOP1, else the
+                           // SCL-rise + SDA-fall looks like a spurious START to the slave.
         when(timerDone) { goto(STOP1) }
       }
     }
@@ -528,7 +667,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val TBUF: State = new State {
-      onEntry { timer := cfg.tBuf; timerArmed := True }
+      onEntry { timer := io.cfg.tBuf; timerArmed := True }
       whenIsActive {
         sclDrive := True
         sdaEn    := False
@@ -562,7 +701,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
         recovCnt       := U(9)  // initiate 9-pulse recovery
         goto(RECOV_LO)
       }
-      when(abortReq) {
+      when(io.cfg.abort) {
         status.busy    := False
         status.aborted := True
         intr.fl(1)     := True
@@ -577,45 +716,10 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   io.i2c.scl.write := fsm.sclDrive
   io.i2c.sda.write := Mux(fsm.sdaEn, fsm.sdaDrive, True)
 
-  io.irq := intr.irq
-
   // Expose internals for simulation
-  cfg.sampDiv.simPublic(); cfg.tLow.simPublic(); cfg.tHigh.simPublic(); cfg.tBuf.simPublic(); cfg.timeout.simPublic()
-  cmd.addr.simPublic(); cmd.rw.simPublic(); cmd.phase2.simPublic(); cmd.nackLast.simPublic()
-  cmd.len1.simPublic(); cmd.len2.simPublic(); cmd.trigger.simPublic()
   status.busy.simPublic(); status.errCode.simPublic(); status.aborted.simPublic()
-  abortReq.simPublic()
   txFifo.pushValid.simPublic(); txFifo.pushData.simPublic(); txFifo.popValid.simPublic()
   txFifo.head.simPublic(); txFifo.notEmpty.simPublic(); txFifo.cnt.simPublic()
   rxFifo.popValid.simPublic(); rxFifo.head.simPublic(); rxFifo.notEmpty.simPublic()
   fsm.bitPos.simPublic(); fsm.byteNum.simPublic()
-
-  // === Register map (BmbSlaveFactory) ===
-  val regFactory = BmbSlaveFactory(io.regBus)
-
-  // CMD (0x00): fields + trigger land simultaneously at doWrite
-  regFactory.write(0x00, 0 -> cmd.addr, addrW -> cmd.rw, addrW + 1 -> cmd.phase2, addrW + 2 -> cmd.nackLast)
-  regFactory.onWrite(0x00) { cmd.trigger := True }
-  regFactory.write(cmd.len1, 0x04)
-  regFactory.write(cmd.len2, 0x08)
-  // TX FIFO push (0x0C)
-  regFactory.write(txFifo.pushData, 0x0C)
-  regFactory.onWrite(0x0C) { txFifo.pushValid := True }
-  // RX FIFO pop-on-read (0x10): head/notEmpty captured combinationally (pre-pop), pop fires at doRead
-  regFactory.read(rxFifo.head, 0x10, 0)
-  regFactory.read(rxFifo.notEmpty, 0x10, 8)
-  regFactory.onRead(0x10) { rxFifo.popValid := True }
-  // STATUS (0x14)
-  regFactory.read(0x14, 0 -> status.busy, 1 -> txFifo.notEmpty, 2 -> rxFifo.notEmpty, 3 -> status.errCode, 6 -> status.aborted)
-  // Interrupts
-  regFactory.write(intr.en, 0x18)
-  regFactory.write(intr.clrIn, 0x20)
-  regFactory.read(intr.fl, 0x1C)
-  // Timings
-  regFactory.write(cfg.sampDiv, 0x24)
-  regFactory.write(cfg.timeout, 0x28)
-  regFactory.write(cfg.tLow, 0x2C)
-  regFactory.write(cfg.tHigh, 0x30)
-  regFactory.write(cfg.tBuf, 0x34)
-  regFactory.onWrite(0x38) { abortReq := True }
 }
