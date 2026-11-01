@@ -3,7 +3,8 @@ package spinal.lib.com.i2c
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSourceParameter, BmbSlaveFactory}
+import spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper
 
 /**
   * Fully-automatic I2C slave controller.
@@ -11,26 +12,24 @@ import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
   * Self-contained: does NOT use I2cSlave internally. Implements its own
   * START/STOP detection, bit counting, and SDA driving.
   *
-  * Register map:
-  *   0x00  ADDR       RW: {matchEn[7], addr[6:0]}
-  *   0x04  PTR        RW: data pointer
-  *   0x08  RAM_BASE   R/W: indirect RAM access (addr[5:0] in bits[5:0], data[7:0] in bits[15:8])
-  *   0x0C  STATUS     R: {errNack[1], busy[0]}
-  *   0x10  INT_EN     RW: {rxComplete[0]}
-  *   0x14  INT_FLAG   R:  interrupt flags
-  *   0x18  INT_CLR    W:  W1C
-  *   0x1C  CFG_SAMPDIV W: sampling divider
-  *   0x20  CFG_TIMEOUT W: timeout (0=disabled)
+  * Register map (byte addresses, 32-bit data width; addrW = 7 or 10, ramAddrW = log2Up(ramDepth)):
+  *   0x00  ADDR        RW: {matchEn[addrW], addr[addrW-1:0]}
+  *   0x04  PTR         RW: data pointer
+  *   0x08  RAM_IND     W:  indirect RAM write: addr[ramAddrW-1:0] @ bits[ramAddrW-1:0],
+  *                         data[7:0] @ bits[ramAddrW+7:ramAddrW]
+  *   0x0C  STATUS      R:  {errNack[1], inFrame[0]}
+  *   0x10  INT_EN      RW: {rxComplete[0]}
+  *   0x14  INT_FLAG    R:  interrupt flags
+  *   0x18  INT_CLR     W:  W1C
+  *   0x1C  CFG_SAMPDIV W:  sampling window divider
+  *   0x20  CFG_TIMEOUT W:  reserved (declared, unused in RTL)
   */
 object I2cAutoSlave {
 
-  class RegBus extends Bundle {
-    val addr  = in Bits(8 bits)
-    val wdata = in Bits(32 bits)
-    val wen   = in Bool()
-    val rdata = out Bits(32 bits)
-    val re    = in Bool()
-  }
+  /** Bmb parameter for the register bus: 8-bit address, 32-bit data, single source, masked writes. */
+  def getBmbParameter(): BmbParameter = BmbAccessParameter(8, 32)
+    .addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 3))
+    .toBmbParameter()
 
   case class Config(
     ramDepth   : Int    = 64,
@@ -51,7 +50,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     val i2c = slave(I2c())
     val irq = out Bool()
     val sclStretch = out Bool()  // Active when slave is stretching SCL
-    val regBus = new I2cAutoSlave.RegBus()
+    val regBus = slave(Bmb(I2cAutoSlave.getBmbParameter()))
   }
 
   val ramAddrW = log2Up(c.ramDepth)
@@ -174,6 +173,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     hasStarted := False
     inAck      := False
     masterNack := False
+    statusErrNack := False
     sdaOut     := True  // release during address phase
     if (c.support10bit) { addrByteIdx := U(0) }
   }
@@ -251,6 +251,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
             inAck      := True
             bitPos     := U(0)
             sdaOut     := !(matchNow && addrMatchEn)
+            when(!(matchNow && addrMatchEn)) { statusErrNack := True; intr.fl(1) := True }
           }
         } else {
           // 7-bit: single address byte
@@ -263,6 +264,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
           inAck      := True
           bitPos     := U(0)
           sdaOut     := !(matchNow && addrMatchEn)
+          when(!(matchNow && addrMatchEn)) { statusErrNack := True; intr.fl(1) := True }
         }
       } otherwise {
         // Between address bits: release SDA (master is driving data)
@@ -342,17 +344,29 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   // === IRQ output ===
   io.irq := intr.irq
 
-  // === Register map (internal, flat bus decoding) ===
-  io.regBus.rdata := B(0, 32 bits)
-  when(io.regBus.wen) {
-    switch(io.regBus.addr) {
-      is(B("h00")) {
-        slaveAddr   := io.regBus.wdata(addrW - 1 downto 0)
-      }
-      is(B("h04")) { dataPtr := io.regBus.wdata(ramAddrW - 1 downto 0).asUInt }
-      is(B("h08")) { ram.write(io.regBus.wdata(ramAddrW - 1 downto 0).asUInt, io.regBus.wdata(7 + ramAddrW downto ramAddrW)) }
-    }
-  }
+  // === Register map (BmbSlaveFactory) ===
+  val regFactory = BmbSlaveFactory(io.regBus)
+
+  // ADDR (0x00)
+  regFactory.write(0x00, 0 -> slaveAddr, addrW -> addrMatchEn)
+  // PTR (0x04)
+  regFactory.write(dataPtr, 0x04)
+  // RAM indirect (0x08): stage fields combinationally, write at doWrite
+  val ramWrAddr = Bits(ramAddrW bits)
+  val ramWrData = Bits(8 bits)
+  ramWrAddr := B(0, ramAddrW bits)
+  ramWrData := B(0, 8 bits)
+  regFactory.write(0x08, 0 -> ramWrAddr, ramAddrW -> ramWrData)
+  regFactory.onWrite(0x08) { ram.write(ramWrAddr.asUInt, ramWrData) }
+  // STATUS (0x0C)
+  regFactory.read(0x0C, 0 -> inFrame, 1 -> statusErrNack)
+  // Interrupts
+  regFactory.write(intr.en, 0x10)
+  regFactory.read(intr.fl, 0x14)
+  regFactory.write(intr.clr, 0x18)
+  // Config
+  regFactory.write(cfg.sampDiv, 0x1C)
+  regFactory.write(cfg.timeout, 0x20)
 
 
 

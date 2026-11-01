@@ -27,28 +27,35 @@ case class Config(
 ### Port Summary
 
 ```
-io.i2c      : I2c()          // Standard I2C bus (scl, sda)
-io.irq      : Bool           // Maskable interrupt output
+io.i2c      : I2c()                    // Standard I2C bus (scl, sda)
+io.irq      : Bool                     // Maskable interrupt output
+io.regBus   : slave(Bmb(8, 32))        // 32-bit data / 8-bit address register bus
 ```
 
-### Register Map (via `driveFrom`)
+The register bus is a standard **Bmb** slave port. Internally the controller
+instantiates a `BmbSlaveFactory` and maps the register file onto it, so a SoC
+integrator simply connects a Bmb master (e.g. APB3/AXI4-Lite bridge) to
+`io.regBus`. Unmapped addresses return `rsp.opcode = ERROR`.
+
+### Register Map
 
 | Offset | Name | Access | Description |
 |--------|------|--------|-------------|
-| 0x00 | CFG_SAMPDIV | RW | Input filter sample divider |
-| 0x04 | CFG_TIMEOUT | RW | Bus hang timeout (cycles) |
-| 0x08 | CFG_T_LOW | RW | SCL Low period |
-| 0x0C | CFG_T_HIGH | RW | SCL High period |
-| 0x10 | CFG_T_BUF | RW | Setup/hold time |
-| 0x14 | CMD | WO | `{len2[7:0], len1[7:0], nackLast, phase2, rw, addr[addrW-1:0], trigger}` (addrW=7 or 10) |
-| 0x18 | STATUS | RO | `{aborted, errCode[2:0], busy}` |
-| 0x1C | INTR_EN | RW | Interrupt enable mask [2:0] |
-| 0x20 | INTR_CLR | WO/W1C | Interrupt clear [2:0] |
-| 0x24 | ABORT_REQ | WO | Request abort of active transfer |
-| 0x28 | TX_FIFO_DATA | WO | Push byte to TX FIFO |
-| 0x2C | TX_FIFO_CTRL | RO/WO | `{cnt[6:0], popValid}` |
-| 0x30 | RX_FIFO_DATA | RO | Pop byte from RX FIFO (head) |
-| 0x34 | RX_FIFO_CTRL | RO/WO | `{cnt[6:0], popValid}` |
+| 0x00 | CMD | WO | `{nackLast[addrW+2], phase2[addrW+1], rw[addrW], addr[addrW-1:0]}` — fields + trigger land atomically on the write handshake |
+| 0x04 | LEN1 | WO | Phase-1 data byte count |
+| 0x08 | LEN2 | WO | Phase-2 data byte count |
+| 0x0C | TX_DATA | WO | Push one byte into TX FIFO (`data[7:0]`) |
+| 0x10 | RX_DATA | RO | `{notEmpty[8], data[7:0]}` — pop-on-read |
+| 0x14 | STATUS | RO | `{aborted[6], errCode[5:3], rxAvail[2], txAvail[1], busy[0]}` |
+| 0x18 | INT_EN | RW | Interrupt enable mask [2:0] |
+| 0x1C | INT_FLAG | RO | Interrupt flags |
+| 0x20 | INT_CLR | W1C | Interrupt clear [2:0] |
+| 0x24 | CFG_SAMPDIV | WO | Input filter sample divider |
+| 0x28 | CFG_TIMEOUT | WO | Bus-hang timeout (0 = disabled) |
+| 0x2C | CFG_TLOW | WO | SCL Low period |
+| 0x30 | CFG_THIGH | WO | SCL High period |
+| 0x34 | CFG_TBUF | WO | Post-STOP idle time |
+| 0x38 | CTRL | WO | `{abrt[0]}` — abort active transfer |
 
 ### Interrupt Sources
 
@@ -102,28 +109,35 @@ TX FIFO: [pointer_byte]
 ```scala
 case class Config(
   ramDepth    : Int = 64,  // Data RAM depth (power of 2)
-  sampDivWidth: Int = 10,
-  support10bit: Boolean = false // Enable 10-bit address mode
+  validAddrs  : Seq[Int] = (0 until 64).toSeq, // Pointer values that are ACKed
+  support10bit: Boolean = false,               // Enable 10-bit address mode
+  sampWinSize : Int = 10,
+  sampDivWidth: Int = 10
 )
 ```
 
 ### Port Summary
 
 ```
-io.i2c      : I2c()     // Standard I2C bus
-io.irq      : Bool      // Maskable interrupt output
+io.i2c        : I2c()                    // Standard I2C bus (scl, sda)
+io.irq        : Bool                     // Maskable interrupt output
+io.sclStretch : Bool                     // Active while SCL is being stretched
+io.regBus     : slave(Bmb(8, 32))        // 32-bit data / 8-bit address register bus
 ```
 
-### Register Map (via `driveFrom`)
+### Register Map
 
 | Offset | Name | Access | Description |
 |--------|------|--------|-------------|
-| 0x00 | ADDR | RW | Slave address (7 or 10-bit) + match enable |
-| 0x04 | CFG_SAMPDIV | RW | Input filter sample divider |
-| 0x08 | DATA_PTR | RW | Current data pointer (auto-increments) |
-| 0x0C | INTR_EN | RW | Interrupt enable [1:0] |
-| 0x10 | INTR_CLR | WO/W1C | Interrupt clear [1:0] |
-| 0x14+ | RAM[n] | RW | Direct RAM access (dual-port with I2C) |
+| 0x00 | ADDR | RW | `{matchEn[addrW], addr[addrW-1:0]}` |
+| 0x04 | PTR | RW | Data pointer |
+| 0x08 | RAM_IND | WO | Indirect RAM write: `addr[ramAddrW-1:0]` @ bits[ramAddrW-1:0], `data[7:0]` @ bits[ramAddrW+7:ramAddrW] |
+| 0x0C | STATUS | RO | `{errNack[1], inFrame[0]}` |
+| 0x10 | INT_EN | RW | Interrupt enable [1:0] |
+| 0x14 | INT_FLAG | RO | Interrupt flags |
+| 0x18 | INT_CLR | W1C | Interrupt clear [1:0] |
+| 0x1C | CFG_SAMPDIV | WO | Sampling window divider |
+| 0x20 | CFG_TIMEOUT | WO | Reserved (unused in RTL) |
 
 ### Behavior
 
@@ -179,6 +193,27 @@ val sdaWire = master.io.i2c.sda.write && slave.io.i2c.sda.read
 master.io.i2c.sda.read := sdaWire
 slave.io.i2c.sda.write := sdaWire
 ```
+
+## Register-Bus Integration (Bmb)
+
+Both controllers expose `io.regBus` as a Bmb **slave** port (8-bit address,
+32-bit data, single source, masked writes). Connect any Bmb master from the
+fabric. The demo top ties the port off (`cmd.valid = 0`, `rsp.ready = 0`);
+in a real SoC, e.g.:
+
+```scala
+val apb = new Apb3(32, 8)
+apb <> bmbBridge.cmd   // or any Bmb master source
+master.io.regBus <> bmbBridge.slaves(0)
+slave.io.regBus  <> bmbBridge.slaves(1)
+```
+
+Key properties (guaranteed by the `BmbSlaveFactory` implementation):
+- **Atomic CMD trigger**: CMD fields and the implicit trigger pulse are both
+  applied at the same handshake edge — no separate GO bit, no race window.
+- **Pop-on-read RX_DATA**: the returned `data` is the FIFO head *before* the
+  pop takes effect.
+- **Error reporting**: unmapped addresses return `rsp.opcode = ERROR`.
 
 ## Known Limitations
 

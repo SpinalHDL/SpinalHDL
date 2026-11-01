@@ -3,7 +3,8 @@ package spinal.lib.com.i2c
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
-import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSourceParameter, BmbSlaveFactory}
+import spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 
 /**
@@ -13,8 +14,9 @@ import spinal.lib.fsm.{EntryPoint, State, StateMachine}
   * autonomously generates START, address, data bytes, optional RESTART +
   * phase-2, and STOP. Completion or error is signalled via the IRQ output.
   *
-  * Register map (byte addresses, 32-bit data width):
-  *   0x00  CMD          W: {nackLast[9], hasPhase2[8], rw[7], addr[6:0]}
+  * Register map (byte addresses, 32-bit data width; bit offsets shift with addrW=7/10):
+  *   0x00  CMD          W: {nackLast[addrW+2], hasPhase2[addrW+1], rw[addrW], addr[addrW-1:0]}
+  *                       (fields + trigger land atomically on the Bmb write handshake)
   *   0x04  LEN1         W: phase-1 data byte count
   *   0x08  LEN2         W: phase-2 data byte count
   *   0x0C  TX_DATA      W: push one byte into TX FIFO
@@ -32,13 +34,10 @@ import spinal.lib.fsm.{EntryPoint, State, StateMachine}
   */
 object I2cAutoMaster {
 
-  class RegBus extends Bundle {
-    val addr  = in Bits(8 bits)
-    val wdata = in Bits(32 bits)
-    val wen   = in Bool()
-    val rdata = out Bits(32 bits)
-    val re    = in Bool()
-  }
+  /** Bmb parameter for the register bus: 8-bit address, 32-bit data, single source, masked writes. */
+  def getBmbParameter(): BmbParameter = BmbAccessParameter(8, 32)
+    .addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 3))
+    .toBmbParameter()
 
   case class Config(
     fifoDepth    : Int     = 64,
@@ -58,7 +57,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   val io = new Bundle {
     val i2c = master(I2c())
     val irq = out Bool()
-    val regBus = new I2cAutoMaster.RegBus()
+    val regBus = slave(Bmb(I2cAutoMaster.getBmbParameter()))
   }
 
   val fifoPtrW = log2Up(c.fifoDepth)
@@ -591,48 +590,32 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   rxFifo.popValid.simPublic(); rxFifo.head.simPublic(); rxFifo.notEmpty.simPublic()
   fsm.bitPos.simPublic(); fsm.byteNum.simPublic()
 
-  // === Register map (internal, flat bus decoding) ===
-  io.regBus.rdata := B(0, 32 bits)
-  when(io.regBus.wen) {
-    switch(io.regBus.addr) {
-      is(B("h00")) {
-        cmd.addr     := io.regBus.wdata(addrW - 1 downto 0)
-        cmd.rw       := io.regBus.wdata(addrW)
-        cmd.phase2   := io.regBus.wdata(addrW + 1)
-        cmd.nackLast := io.regBus.wdata(addrW + 2)
-        cmd.trigger  := True
-      }
-      is(B("h04")) { cmd.len1 := io.regBus.wdata(7 downto 0).asUInt }
-      is(B("h08")) { cmd.len2 := io.regBus.wdata(7 downto 0).asUInt }
-      is(B("h0C")) {
-        txFifo.pushValid := True
-        txFifo.pushData  := io.regBus.wdata(7 downto 0)
-      }
-      is(B("h18")) { intr.en := io.regBus.wdata(2 downto 0) }
-      is(B("h20")) { intr.clrIn := io.regBus.wdata(2 downto 0) }
-      is(B("h24")) { cfg.sampDiv := io.regBus.wdata(c.sampDivWidth - 1 downto 0).asUInt }
-      is(B("h28")) { cfg.timeout := io.regBus.wdata(19 downto 0).asUInt }
-      is(B("h2C")) { cfg.tLow    := io.regBus.wdata(c.timerWidth - 1 downto 0).asUInt }
-      is(B("h30")) { cfg.tHigh   := io.regBus.wdata(c.timerWidth - 1 downto 0).asUInt }
-      is(B("h34")) { cfg.tBuf    := io.regBus.wdata(c.timerWidth - 1 downto 0).asUInt }
-      is(B("h38")) { abortReq := io.regBus.wdata(0) }
-    }
-  }
-  when(io.regBus.re) {
-    switch(io.regBus.addr) {
-      is(B("h10")) {
-        io.regBus.rdata(7 downto 0) := rxFifo.head
-        io.regBus.rdata(8) := rxFifo.notEmpty
-        rxFifo.popValid := True
-      }
-      is(B("h14")) {
-        io.regBus.rdata(0) := status.busy
-        io.regBus.rdata(1) := txFifo.notEmpty
-        io.regBus.rdata(2) := rxFifo.notEmpty
-        io.regBus.rdata(5 downto 3) := status.errCode.asBits
-        io.regBus.rdata(6) := status.aborted
-      }
-      is(B("h1C")) { io.regBus.rdata(2 downto 0) := intr.fl }
-    }
-  }
+  // === Register map (BmbSlaveFactory) ===
+  val regFactory = BmbSlaveFactory(io.regBus)
+
+  // CMD (0x00): fields + trigger land simultaneously at doWrite
+  regFactory.write(0x00, 0 -> cmd.addr, addrW -> cmd.rw, addrW + 1 -> cmd.phase2, addrW + 2 -> cmd.nackLast)
+  regFactory.onWrite(0x00) { cmd.trigger := True }
+  regFactory.write(cmd.len1, 0x04)
+  regFactory.write(cmd.len2, 0x08)
+  // TX FIFO push (0x0C)
+  regFactory.write(txFifo.pushData, 0x0C)
+  regFactory.onWrite(0x0C) { txFifo.pushValid := True }
+  // RX FIFO pop-on-read (0x10): head/notEmpty captured combinationally (pre-pop), pop fires at doRead
+  regFactory.read(rxFifo.head, 0x10, 0)
+  regFactory.read(rxFifo.notEmpty, 0x10, 8)
+  regFactory.onRead(0x10) { rxFifo.popValid := True }
+  // STATUS (0x14)
+  regFactory.read(0x14, 0 -> status.busy, 1 -> txFifo.notEmpty, 2 -> rxFifo.notEmpty, 3 -> status.errCode, 6 -> status.aborted)
+  // Interrupts
+  regFactory.write(intr.en, 0x18)
+  regFactory.write(intr.clrIn, 0x20)
+  regFactory.read(intr.fl, 0x1C)
+  // Timings
+  regFactory.write(cfg.sampDiv, 0x24)
+  regFactory.write(cfg.timeout, 0x28)
+  regFactory.write(cfg.tLow, 0x2C)
+  regFactory.write(cfg.tHigh, 0x30)
+  regFactory.write(cfg.tBuf, 0x34)
+  regFactory.onWrite(0x38) { abortReq := True }
 }

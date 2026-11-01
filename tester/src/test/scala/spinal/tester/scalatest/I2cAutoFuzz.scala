@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
 import spinal.lib._
+import spinal.lib.bus.bmb.Bmb
 import spinal.lib.com.i2c._
 import org.scalatest.funsuite.AnyFunSuite
 import scala.util.Random
@@ -29,15 +30,10 @@ class I2cAutoFuzz extends AnyFunSuite {
     master.io.i2c.sda.read := sdaAnd
     slave.io.i2c.sda.write := sdaAnd
 
-    // Terminate register buses
-    val mRegAddr  = RegInit(B(0, 8 bits));  mRegAddr.simPublic(); mRegAddr.allowUnsetRegToAvoidLatch()
-    val mRegWdata = RegInit(B(0, 32 bits)); mRegWdata.simPublic(); mRegWdata.allowUnsetRegToAvoidLatch()
-    val mRegWe    = RegInit(False);          mRegWe.simPublic(); mRegWe.allowUnsetRegToAvoidLatch()
-    master.io.regBus.addr := mRegAddr; master.io.regBus.wdata := mRegWdata; master.io.regBus.wen := mRegWe; master.io.regBus.re := False
-    val sRegAddr  = RegInit(B(0, 8 bits));  sRegAddr.simPublic(); sRegAddr.allowUnsetRegToAvoidLatch()
-    val sRegWdata = RegInit(B(0, 32 bits)); sRegWdata.simPublic(); sRegWdata.allowUnsetRegToAvoidLatch()
-    val sRegWe    = RegInit(False);          sRegWe.simPublic(); sRegWe.allowUnsetRegToAvoidLatch()
-    slave.io.regBus.addr := sRegAddr; slave.io.regBus.wdata := sRegWdata; slave.io.regBus.wen := sRegWe; slave.io.regBus.re := False
+    // Bmb register buses: mark signals for simulation access
+    bmbTieOff(master.io.regBus); bmbTieOff(slave.io.regBus)
+    bmbMark(master.io.regBus)
+    bmbMark(slave.io.regBus)
   }
 
   // Exact same pattern as I2cAutoSim.pushTx
@@ -90,22 +86,51 @@ class I2cAutoFuzz extends AnyFunSuite {
     result.reverse
   }
 
-  // Helper: write a register via the register bus
+  // Helper: tie Bmb input signals to defaults (elaboration needs drivers; tests override via #=)
+  def bmbTieOff(bus: Bmb): Unit = {
+    bus.cmd.valid   := False
+    bus.cmd.opcode  := 0
+    bus.cmd.address := 0
+    bus.cmd.length  := 0
+    bus.cmd.data    := 0
+    bus.cmd.mask    := 0
+    bus.rsp.ready   := False
+  }
+
+  // Helper: mark Bmb register-bus signals for simulation access
+  def bmbMark(bus: Bmb): Unit = {
+    bus.cmd.valid.simPublic(); bus.cmd.opcode.simPublic(); bus.cmd.address.simPublic()
+    bus.cmd.length.simPublic(); bus.cmd.data.simPublic(); bus.cmd.mask.simPublic()
+    bus.cmd.ready.simPublic()
+    bus.rsp.valid.simPublic(); bus.rsp.ready.simPublic()
+    bus.rsp.opcode.simPublic(); bus.rsp.data.simPublic()
+  }
+
+  // Helper: full Bmb register write (handshake-complete)
+  def bmbWrite(bus: Bmb, addr: Int, data: Int, cd: ClockDomain): Unit = {
+    bus.cmd.valid   #= true
+    bus.cmd.opcode  #= 1   // Bmb WRITE
+    bus.cmd.address #= addr
+    bus.cmd.length  #= 0
+    bus.cmd.data    #= data
+    bus.cmd.mask    #= 0xF
+    bus.rsp.ready   #= true
+    cd.waitActiveEdge()
+    var c = 0
+    while (!bus.cmd.ready.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
+    assert(c < 100, s"bmbWrite: cmd not ready (addr=0x${addr.toHexString})")
+    bus.cmd.valid   #= false
+    c = 0
+    while (!bus.rsp.valid.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
+    assert(c < 100, s"bmbWrite: no rsp (addr=0x${addr.toHexString})")
+    assert(bus.rsp.opcode.toInt === 0, s"bmbWrite: rsp error (addr=0x${addr.toHexString})")
+    bus.rsp.ready   #= false
+  }
+
+  // Helper: write a register via the Bmb register bus
   def regWrite(dut: FuzzTop, isMaster: Boolean, addr: Int, data: Int): Unit = {
     val cd = dut.clockDomain
-    if (isMaster) {
-      dut.mRegAddr  #= addr
-      dut.mRegWdata #= data
-      dut.mRegWe    #= true
-    } else {
-      dut.sRegAddr  #= addr
-      dut.sRegWdata #= data
-      dut.sRegWe    #= true
-    }
-    cd.waitActiveEdge()
-    if (isMaster) { dut.mRegWe #= false }
-    else { dut.sRegWe #= false }
-    cd.waitActiveEdge()
+    bmbWrite(if (isMaster) dut.master.io.regBus else dut.slave.io.regBus, addr, data, cd)
   }
 
   test("I2cAuto fuzz: 100 random writes") {

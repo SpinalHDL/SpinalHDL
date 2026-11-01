@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
 import spinal.lib._
+import spinal.lib.bus.bmb.Bmb
 import spinal.lib.com.i2c._
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -57,23 +58,10 @@ class I2cAutoSim extends AnyFunSuite {
     master.io.i2c.sda.read := sdaWire  // master sees combined (in)
     slave.io.i2c.sda.write := sdaWire  // slave sees combined (in)
 
-    // Register bus: drivable from test for realistic register-map access
-    val mRegAddr  = RegInit(B(0, 8 bits));  mRegAddr.simPublic(); mRegAddr.allowUnsetRegToAvoidLatch()
-    val mRegWdata = RegInit(B(0, 32 bits)); mRegWdata.simPublic(); mRegWdata.allowUnsetRegToAvoidLatch()
-    val mRegWe    = RegInit(False);          mRegWe.simPublic(); mRegWe.allowUnsetRegToAvoidLatch()
-    val mRegRe    = RegInit(False);          mRegRe.simPublic(); mRegRe.allowUnsetRegToAvoidLatch()
-    master.io.regBus.addr  := mRegAddr
-    master.io.regBus.wdata := mRegWdata
-    master.io.regBus.wen   := mRegWe
-    master.io.regBus.re    := mRegRe
-    val sRegAddr  = RegInit(B(0, 8 bits));  sRegAddr.simPublic(); sRegAddr.allowUnsetRegToAvoidLatch()
-    val sRegWdata = RegInit(B(0, 32 bits)); sRegWdata.simPublic(); sRegWdata.allowUnsetRegToAvoidLatch()
-    val sRegWe    = RegInit(False);          sRegWe.simPublic(); sRegWe.allowUnsetRegToAvoidLatch()
-    val sRegRe    = RegInit(False);          sRegRe.simPublic(); sRegRe.allowUnsetRegToAvoidLatch()
-    slave.io.regBus.addr  := sRegAddr
-    slave.io.regBus.wdata := sRegWdata
-    slave.io.regBus.wen   := sRegWe
-    slave.io.regBus.re    := sRegRe
+    // Bmb register buses: mark signals for simulation access
+    bmbTieOff(master.io.regBus); bmbTieOff(slave.io.regBus)
+    bmbMark(master.io.regBus)
+    bmbMark(slave.io.regBus)
 
     // Expose IRQs
     val io = new Bundle {
@@ -105,19 +93,11 @@ class I2cAutoSim extends AnyFunSuite {
     slaveB.sdaOut.simPublic()
     slaveA.sdaOut.simPublic()
 
-    // Register buses (drivable from test)
-    val mA = RegInit(B(0, 8 bits)); mA.simPublic(); mA.allowUnsetRegToAvoidLatch()
-    val mW = RegInit(B(0, 32 bits)); mW.simPublic(); mW.allowUnsetRegToAvoidLatch()
-    val mWe = RegInit(False); mWe.simPublic(); mWe.allowUnsetRegToAvoidLatch()
-    master.io.regBus.addr := mA; master.io.regBus.wdata := mW; master.io.regBus.wen := mWe; master.io.regBus.re := False
-    val sA = RegInit(B(0, 8 bits)); sA.simPublic(); sA.allowUnsetRegToAvoidLatch()
-    val sW = RegInit(B(0, 32 bits)); sW.simPublic(); sW.allowUnsetRegToAvoidLatch()
-    val sWe = RegInit(False); sWe.simPublic(); sWe.allowUnsetRegToAvoidLatch()
-    slaveA.io.regBus.addr := sA; slaveA.io.regBus.wdata := sW; slaveA.io.regBus.wen := sWe; slaveA.io.regBus.re := False
-    val bA = RegInit(B(0, 8 bits)); bA.simPublic(); bA.allowUnsetRegToAvoidLatch()
-    val bW = RegInit(B(0, 32 bits)); bW.simPublic(); bW.allowUnsetRegToAvoidLatch()
-    val bWe = RegInit(False); bWe.simPublic(); bWe.allowUnsetRegToAvoidLatch()
-    slaveB.io.regBus.addr := bA; slaveB.io.regBus.wdata := bW; slaveB.io.regBus.wen := bWe; slaveB.io.regBus.re := False
+    // Bmb register buses: mark signals for simulation access
+    bmbTieOff(master.io.regBus); bmbTieOff(slaveA.io.regBus); bmbTieOff(slaveB.io.regBus)
+    bmbMark(master.io.regBus)
+    bmbMark(slaveA.io.regBus)
+    bmbMark(slaveB.io.regBus)
 
     val io = new Bundle {
       val irqMaster = out Bool()
@@ -144,22 +124,51 @@ class I2cAutoSim extends AnyFunSuite {
     cd.waitActiveEdge()
   }
 
-  // Helper: write a register via the register bus (1-cycle pulse)
+  // Helper: tie Bmb input signals to defaults (elaboration needs drivers; tests override via #=)
+  def bmbTieOff(bus: Bmb): Unit = {
+    bus.cmd.valid   := False
+    bus.cmd.opcode  := 0
+    bus.cmd.address := 0
+    bus.cmd.length  := 0
+    bus.cmd.data    := 0
+    bus.cmd.mask    := 0
+    bus.rsp.ready   := False
+  }
+
+  // Helper: mark Bmb register-bus signals for simulation access
+  def bmbMark(bus: Bmb): Unit = {
+    bus.cmd.valid.simPublic(); bus.cmd.opcode.simPublic(); bus.cmd.address.simPublic()
+    bus.cmd.length.simPublic(); bus.cmd.data.simPublic(); bus.cmd.mask.simPublic()
+    bus.cmd.ready.simPublic()
+    bus.rsp.valid.simPublic(); bus.rsp.ready.simPublic()
+    bus.rsp.opcode.simPublic(); bus.rsp.data.simPublic()
+  }
+
+  // Helper: full Bmb register write (handshake-complete)
+  def bmbWrite(bus: Bmb, addr: Int, data: Int, cd: ClockDomain): Unit = {
+    bus.cmd.valid   #= true
+    bus.cmd.opcode  #= 1   // Bmb WRITE
+    bus.cmd.address #= addr
+    bus.cmd.length  #= 0
+    bus.cmd.data    #= data
+    bus.cmd.mask    #= 0xF
+    bus.rsp.ready   #= true
+    cd.waitActiveEdge()
+    var c = 0
+    while (!bus.cmd.ready.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
+    assert(c < 100, s"bmbWrite: cmd not ready (addr=0x${addr.toHexString})")
+    bus.cmd.valid   #= false
+    c = 0
+    while (!bus.rsp.valid.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
+    assert(c < 100, s"bmbWrite: no rsp (addr=0x${addr.toHexString})")
+    assert(bus.rsp.opcode.toInt === 0, s"bmbWrite: rsp error (addr=0x${addr.toHexString})")
+    bus.rsp.ready   #= false
+  }
+
+  // Helper: write a register via the Bmb register bus
   def regWrite(dut: TestTop, isMaster: Boolean, addr: Int, data: Int): Unit = {
     val cd = dut.clockDomain
-    if (isMaster) {
-      dut.mRegAddr  #= addr
-      dut.mRegWdata #= data
-      dut.mRegWe    #= true
-    } else {
-      dut.sRegAddr  #= addr
-      dut.sRegWdata #= data
-      dut.sRegWe    #= true
-    }
-    cd.waitActiveEdge()
-    if (isMaster) { dut.mRegWe #= false }
-    else { dut.sRegWe #= false }
-    cd.waitActiveEdge()
+    bmbWrite(if (isMaster) dut.master.io.regBus else dut.slave.io.regBus, addr, data, cd)
   }
 
   // Helper: wait until master is no longer busy
@@ -637,24 +646,12 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Configure slave A (target) and slave B (should stay silent)
       dut.slaveA.cfg.sampDiv   #= 1
-      dut.sA #= 0x00; dut.sW #= ((1 << 7) | 0x28); dut.sWe #= true
-      cd.waitActiveEdge()
-      dut.sWe #= false
-      cd.waitActiveEdge()
-      dut.sA #= 0x04; dut.sW #= 0; dut.sWe #= true
-      cd.waitActiveEdge()
-      dut.sWe #= false
-      cd.waitActiveEdge()
+      bmbWrite(dut.slaveA.io.regBus, 0x00, (1 << 7) | 0x28, cd)  // slaveAddr=0x28, matchEn=1
+      bmbWrite(dut.slaveA.io.regBus, 0x04, 0, cd)                // dataPtr=0
 
       dut.slaveB.cfg.sampDiv   #= 1
-      dut.bA #= 0x00; dut.bW #= ((1 << 7) | 0x30); dut.bWe #= true
-      cd.waitActiveEdge()
-      dut.bWe #= false
-      cd.waitActiveEdge()
-      dut.bA #= 0x04; dut.bW #= 0; dut.bWe #= true
-      cd.waitActiveEdge()
-      dut.bWe #= false
-      cd.waitActiveEdge()
+      bmbWrite(dut.slaveB.io.regBus, 0x00, (1 << 7) | 0x30, cd)  // slaveAddr=0x30, matchEn=1
+      bmbWrite(dut.slaveB.io.regBus, 0x04, 0, cd)                // dataPtr=0
 
       cd.waitActiveEdge(10)
 
