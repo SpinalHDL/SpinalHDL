@@ -34,9 +34,10 @@ import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
   */
 object I2cAutoSlave {
 
-  /** Bmb parameter for the register bus: 8-bit address, 32-bit data, single source, masked writes. */
+  /** Bmb parameter for the register bus: 8-bit address, 32-bit data, single source, masked writes,
+   *  single-beat only (lengthWidth=2 keeps allowBurst=false; BmbSlaveFactory forces rsp.last). */
   def getBmbParameter(): BmbParameter = BmbAccessParameter(8, 32)
-    .addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 3))
+    .addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 2))
     .toBmbParameter()
 
   case class Config(
