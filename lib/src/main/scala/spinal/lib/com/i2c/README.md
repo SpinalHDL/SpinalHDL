@@ -263,7 +263,7 @@ Key properties (guaranteed by the factory-side binding):
 | SCL stretching (slave) | Supported: `STRETCH_REQ` register (level, auto-cleared on STOP) defers to the SCL-Low phase (`stretchActive`), so mid-byte stretching resumes cleanly without master/slave bit-counter desync (tested both directions) |
 | Multi-slave isolation | Read + write data-phase both isolated (gated by `wasAddressed`); non-matched slaves release SDA in both directions |
 | Read-end STOP masking | Fixed: `masterNack` + `readAckPending` make the slave release SDA after a master NACK before the STOP edge, so it can no longer hold SDA Low through the STOP and desynchronize (regression-tested: "read NACK then immediate next transfer") |
-| Write-after-NACKed-read | Known: a write transfer issued immediately after a NACKed read can desynchronize (master TX bookkeeping + slave frame state); use STOP + new frame or leave a gap |
+| Composite phase-switch TX prefetch | Fixed: removed the phase-switch FIFO pop entirely — a write phase 2 prefetches its first byte at its own address ACK, and a read phase 2 needs no TX bytes. The old `!latRw` gating did a phantom pop on write→read composites (counter underflow, next write shifted). Related slave fix: `dataPtr` now advances on a NACKed read byte too (the byte was transferred either way), so a read→write composite writes to the correct slots. Regression-tested in both composite directions |
 | Verilog generation | Working (7-bit and 10-bit `SpinalVerilog` generate cleanly) |
 
 ## Testing

@@ -317,16 +317,18 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
       // SDA on the preceding fall, so the wire is purely master-driven and
       // stable here. Sample it to decide whether to send the next byte.
       when(readAckPending) {
+        // The byte was transferred either way (the master received it), so the
+        // pointer advances on ACK and NACK alike — symmetric with the write
+        // phase, which also increments unconditionally. Incrementing only on
+        // ACK made a following write phase (read->write composite) start one
+        // slot early after a NACKed last read byte.
+        dataPtr := dataPtr + U(1)
         when(io.i2c.sda.write) {
           // High = master NACKed: release and stop driving data. The master
-          // will issue STOP; we must not hold SDA Low (would mask the STOP
-          // edge on the open-drain bus).
+          // will issue STOP or RESTART; we must not hold SDA Low (would mask
+          // the STOP/START edge on the open-drain bus).
           masterNack := True
           sdaOut     := True
-        } otherwise {
-          // Low = master ACKed: advance to the next byte; the next sclFall
-          // (bitPos==0) drives the new MSB.
-          dataPtr := dataPtr + U(1)
         }
         readAckPending := False
       }

@@ -533,10 +533,13 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                     curLen  := latLen2
                     curRw   := !latRw
                     rxByte  := B(0)
-                    when(!latRw) {
-                      txByte := txFifo.head
-                      txFifo.popValid := True
-                    }
+                    // No TX prefetch here: if phase 2 is a write phase, its own
+                    // address-ACK pop (below, gated on !curRw) loads the first
+                    // byte; if phase 2 is a read phase, no TX bytes are needed.
+                    // (An earlier `when(!latRw)` pop did a phantom pop on
+                    // write->read composites, underflowing the FIFO counter and
+                    // shifting the next write's data; a `when(latRw)` variant
+                    // double-popped read->write composites. Both removed.)
                     goto(RESTART0)
                   } otherwise {
                     status.busy  := False

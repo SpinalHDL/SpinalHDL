@@ -412,6 +412,64 @@ class I2cAutoSim extends AnyFunSuite {
       assert(!dut.slave.inFrame.toBoolean, "Slave still in frame after NACKed read + STOP")
       assert(dut.slave.sdaOut.toBoolean, "Slave still driving SDA Low after NACKed read + STOP")
 
+      // Transfer 2: fresh write immediately after the composite.
+      // Regression guard for the phantom TX-FIFO pop at the phase switch
+      // (write->read composites used to underflow the FIFO counter and shift
+      // the next write's data by one byte).
+      dut.regWriteSlave(0x04, 0)
+      pushTx(dut, 0xAA)
+      pushTx(dut, 0xBB)
+      pushTx(dut, 0xCC)
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 3)
+      waitForIdle(dut)
+      assert(dut.master.status.errCode.toInt == 0, s"Transfer 2 err=${dut.master.status.errCode.toInt}")
+      assert(!dut.master.txFifo.notEmpty.toBoolean, s"TX FIFO not drained, cnt=${dut.master.txFifo.cnt.toInt}")
+      val ram0 = dut.slave.ram.getBigInt(0).toInt
+      val ram1 = dut.slave.ram.getBigInt(1).toInt
+      val ram2 = dut.slave.ram.getBigInt(2).toInt
+      assert(List(ram0, ram1, ram2) == List(0xAA, 0xBB, 0xCC),
+             s"RAM=${List(ram0, ram1, ram2).map(v => f"0x$v%02X")} (expected AA BB CC)")
+    }
+  }
+
+  test("I2cAuto: composite read+write RESTART (reverse direction)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+
+      // Phase 1 reads RAM[0..2], phase 2 writes RAM[3..5] (dataPtr auto-increments)
+      dut.slave.ram.setBigInt(0, 0x11)
+      dut.slave.ram.setBigInt(1, 0x22)
+      dut.slave.ram.setBigInt(2, 0x33)
+
+      cd.waitActiveEdge(10)
+
+      pushTx(dut, 0xAA)
+      pushTx(dut, 0xBB)
+      pushTx(dut, 0xCC)
+      dut.issueCmd(addr = 0x28, rw = true, phase2 = true, nackLast = true, len1 = 3, len2 = 3)
+      waitForIdle(dut)
+
+      assert(dut.master.status.errCode.toInt == 0, s"err=${dut.master.status.errCode.toInt}")
+      var rxValues = List.empty[Int]
+      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 3) {
+        rxValues ::= dut.master.rxFifo.head.toInt
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
+      assert(rxValues.reverse == List(0x11, 0x22, 0x33),
+             s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0x11, 0x22, 0x33)")
+      val ram3 = dut.slave.ram.getBigInt(3).toInt
+      val ram4 = dut.slave.ram.getBigInt(4).toInt
+      val ram5 = dut.slave.ram.getBigInt(5).toInt
+      assert(List(ram3, ram4, ram5) == List(0xAA, 0xBB, 0xCC),
+             s"RAM[3..5]=${List(ram3, ram4, ram5).map(v => f"0x$v%02X")} (expected AA BB CC)")
     }
   }
 
