@@ -265,6 +265,8 @@ Key properties (guaranteed by the factory-side binding):
 | Read-end STOP masking | Fixed: `masterNack` + `readAckPending` make the slave release SDA after a master NACK before the STOP edge, so it can no longer hold SDA Low through the STOP and desynchronize (regression-tested: "read NACK then immediate next transfer") |
 | Composite phase-switch TX prefetch | Fixed: removed the phase-switch FIFO pop entirely — a write phase 2 prefetches its first byte at its own address ACK, and a read phase 2 needs no TX bytes. The old `!latRw` gating did a phantom pop on write→read composites (counter underflow, next write shifted). Related slave fix: `dataPtr` now advances on a NACKed read byte too (the byte was transferred either way), so a read→write composite writes to the correct slots. Regression-tested in both composite directions |
 | Verilog generation | Working (7-bit and 10-bit `SpinalVerilog` generate cleanly) |
+| `readAsync` write-first warning | Benign: FIFO/RAM reads and writes never target the same address in the same cycle (see code comments at the `Mem` declarations) |
+| FIFO bounds | Simulation asserts catch TX/RX FIFO underflow (pop on empty) and overflow (push on full); unsynthesizable guards, active in sim only |
 
 ## Testing
 

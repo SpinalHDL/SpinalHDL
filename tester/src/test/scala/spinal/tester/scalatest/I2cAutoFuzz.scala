@@ -111,17 +111,6 @@ class I2cAutoFuzz extends AnyFunSuite {
     result.reverse
   }
 
-  // Helper: tie Bmb input signals to defaults (elaboration needs drivers; tests override via #=)
-  def bmbTieOff(bus: Bmb): Unit = {
-    bus.cmd.valid   := False
-    bus.cmd.opcode  := 0
-    bus.cmd.address := 0
-    bus.cmd.length  := 0
-    bus.cmd.data    := 0
-    bus.cmd.mask    := 0
-    bus.rsp.ready   := False
-  }
-
   // Helper: mark Bmb register-bus signals for simulation access
   def bmbMark(bus: Bmb): Unit = {
     bus.cmd.valid.simPublic(); bus.cmd.opcode.simPublic(); bus.cmd.address.simPublic()

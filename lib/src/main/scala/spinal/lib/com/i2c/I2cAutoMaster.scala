@@ -244,6 +244,10 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
 
 
   // === TX FIFO ===
+  // Note: `mem.readAsync` emits a "can only be write first into Verilog" warning
+  // at elaboration. Benign here: reads and writes never target the same address
+  // in the same cycle (rPtr advances synchronously with pop; head is consumed on
+  // the following cycle), so the same-cycle read/write ambiguity never bites.
   val txFifo = new Area {
     val mem  = Mem(Bits(8 bits), c.fifoDepth)
     val wPtr = Reg(UInt(fifoPtrW bits)) init(0)
@@ -264,6 +268,10 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
       rPtr := rPtr + 1
       cnt  := cnt - 1
     }
+    // Defensive bounds checks: an out-of-band pop/push (e.g. a bad FSM gate)
+    // would otherwise wrap cnt/rPtr silently. Caught instantly in simulation.
+    assert(!(popValid && cnt === U(0)), "txFifo underflow: pop on empty FIFO")
+    assert(!(pushValid && cnt === U(c.fifoDepth)), "txFifo overflow: push on full FIFO")
   }
 
   // === RX FIFO ===
@@ -287,6 +295,8 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
       rPtr := rPtr + 1
       cnt  := cnt - 1
     }
+    assert(!(popValid && cnt === U(0)), "rxFifo underflow: pop on empty FIFO")
+    assert(!(pushValid && cnt === U(c.fifoDepth)), "rxFifo overflow: push on full FIFO")
   }
 
   // Wire the firmware-facing FIFO interface (driven by driveFrom-bound registers)

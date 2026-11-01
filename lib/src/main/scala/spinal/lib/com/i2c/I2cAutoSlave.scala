@@ -209,6 +209,9 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
   val dataPtr = Reg(UInt(ramAddrW bits)) init(0)
 
   // === Internal RAM ===
+  // readAsync emits a benign "can only be write first into Verilog" warning:
+  // the indirect write (ramWrValid) and the read (dataPtr) never target the
+  // same address in the same cycle in this design.
   val ram = Mem(Bits(8 bits), c.ramDepth)
 
   // Indirect RAM write (one-cycle pulse from the RAM_IND register)

@@ -191,17 +191,6 @@ class I2cAutoSim extends AnyFunSuite {
     dut.regWriteMaster(0x0C, data)
   }
 
-  // Helper: tie Bmb input signals to defaults (elaboration needs drivers; tests override via #=)
-  def bmbTieOff(bus: Bmb): Unit = {
-    bus.cmd.valid   := False
-    bus.cmd.opcode  := 0
-    bus.cmd.address := 0
-    bus.cmd.length  := 0
-    bus.cmd.data    := 0
-    bus.cmd.mask    := 0
-    bus.rsp.ready   := False
-  }
-
   // Helper: mark Bmb register-bus signals for simulation access
   def bmbMark(bus: Bmb): Unit = {
     bus.cmd.valid.simPublic(); bus.cmd.opcode.simPublic(); bus.cmd.address.simPublic()
@@ -566,8 +555,6 @@ class I2cAutoSim extends AnyFunSuite {
     }
   }
 
-  // TODO: Back-to-back transfer reveals data corruption on 2nd transfer (0x17 instead of 0xAA).
-  // Requires waveform-level debugging (VCD dump) to identify root cause.
   test("I2cAuto: back-to-back transfers") {
     runSim { dut =>
       val cd = dut.clockDomain
@@ -1031,6 +1018,49 @@ class I2cAutoSim extends AnyFunSuite {
         dut.master.rxFifo.popValid #= false
         cd.waitActiveEdge()
       }
+    }
+  }
+
+  test("I2cAuto 10-bit: composite read+write RESTART (reverse direction)") {
+    runSim10bit { dut =>
+      val cd = dut.clockDomain
+
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+
+      // 10-bit address: 0x2AA
+      regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 10) | 0x2AA))
+      dut.regWriteSlave(0x04, 0)
+
+      // Phase 1 reads RAM[0..2], phase 2 writes RAM[3..5] (dataPtr auto-increments)
+      dut.slave.ram.setBigInt(0, 0x11)
+      dut.slave.ram.setBigInt(1, 0x22)
+      dut.slave.ram.setBigInt(2, 0x33)
+
+      cd.waitActiveEdge(10)
+
+      pushTx(dut, 0xAA)
+      pushTx(dut, 0xBB)
+      pushTx(dut, 0xCC)
+      dut.issueCmd(addr = 0x2AA, rw = true, phase2 = true, nackLast = true, len1 = 3, len2 = 3)
+      waitForIdle(dut)
+
+      assert(dut.master.status.errCode.toInt == 0, s"err=${dut.master.status.errCode.toInt}")
+      var rxValues = List.empty[Int]
+      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 3) {
+        rxValues ::= dut.master.rxFifo.head.toInt
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
+      assert(rxValues.reverse == List(0x11, 0x22, 0x33),
+             s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0x11, 0x22, 0x33)")
+      val ram3 = dut.slave.ram.getBigInt(3).toInt
+      val ram4 = dut.slave.ram.getBigInt(4).toInt
+      val ram5 = dut.slave.ram.getBigInt(5).toInt
+      assert(List(ram3, ram4, ram5) == List(0xAA, 0xBB, 0xCC),
+             s"RAM[3..5]=${List(ram3, ram4, ram5).map(v => f"0x$v%02X")} (expected AA BB CC)")
     }
   }
 
