@@ -1,6 +1,7 @@
-package spinal.lib.com.i2c
+package spinal.lib.com.i2c.demo
 
 import spinal.core._
+import spinal.lib.com.i2c.{I2c, I2cAutoMaster, I2cAutoSlave}
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbSourceParameter, BmbSlaveFactory}
 

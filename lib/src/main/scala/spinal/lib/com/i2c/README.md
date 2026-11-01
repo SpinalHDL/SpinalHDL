@@ -9,7 +9,9 @@ legacy `I2cSlave` + `driveI2cSlaveIo` stack (see ADR-0001).
 |-----------|------|------|
 | `I2cAutoMaster` | `I2cAutoMaster.scala` | FSM-driven master with TX/RX FIFOs |
 | `I2cAutoSlave` | `I2cAutoSlave.scala` | Slave with sparse RAM, dual-port access |
-| `I2cAutoDemo` | `I2cAutoDemo.scala` | Minimal top-level example |
+
+> Example top-levels (SpinalVerilog generation demos, 7-bit and 10-bit variants) live outside the library:
+> `tester/src/test/scala/spinal/lib/com/i2c/demo/I2cAutoDemo.scala`.
 
 ## I2cAutoMaster
 
