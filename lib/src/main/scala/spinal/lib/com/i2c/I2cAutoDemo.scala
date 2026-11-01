@@ -38,8 +38,8 @@ class I2cAutoDemo extends Component {
   io.irqSlave  := slaveCtrl.io.irq
 
   // Register map: top-level Bmb slave ports + factories bound to the cores
-  val masterParam = I2cAutoMaster.getBmbParameter()
-  val slaveParam  = I2cAutoSlave.getBmbParameter()
+  val masterParam = I2cAutoBmb.registerBusParameter
+  val slaveParam  = I2cAutoBmb.registerBusParameter
   val masterRegBus = slave(Bmb(masterParam))
   val slaveRegBus  = slave(Bmb(slaveParam))
   val masterRegMap = BmbSlaveFactory(masterRegBus)
@@ -83,8 +83,8 @@ class I2cAutoDemo10bit extends Component {
   io.sclStretch := slaveCtrl.io.sclStretch
 
   // Register map: top-level Bmb slave ports + factories bound to the cores
-  val masterParam = I2cAutoMaster.getBmbParameter()
-  val slaveParam  = I2cAutoSlave.getBmbParameter()
+  val masterParam = I2cAutoBmb.registerBusParameter
+  val slaveParam  = I2cAutoBmb.registerBusParameter
   val masterRegBus = slave(Bmb(masterParam))
   val slaveRegBus  = slave(Bmb(slaveParam))
   val masterRegMap = BmbSlaveFactory(masterRegBus)

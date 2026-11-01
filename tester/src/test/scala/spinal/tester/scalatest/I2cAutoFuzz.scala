@@ -32,8 +32,8 @@ class I2cAutoFuzz extends AnyFunSuite {
     slave.io.i2c.sda.write := sdaAnd
 
     // Register maps: top-level Bmb slave ports + factories bound to the cores
-    val masterRegBus = spinal.lib.slave(Bmb(I2cAutoMaster.getBmbParameter()))
-    val slaveRegBus  = spinal.lib.slave(Bmb(I2cAutoSlave.getBmbParameter()))
+    val masterRegBus = spinal.lib.slave(Bmb(I2cAutoBmb.registerBusParameter))
+    val slaveRegBus  = spinal.lib.slave(Bmb(I2cAutoBmb.registerBusParameter))
     val masterRegMap = BmbSlaveFactory(masterRegBus)
     val slaveRegMap  = BmbSlaveFactory(slaveRegBus)
     master.io.driveFrom(masterRegMap, 0)
