@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
 import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbSlaveFactory}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbSourceParameter, BmbSlaveFactory}
 import spinal.lib.com.i2c._
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -64,8 +64,9 @@ class I2cAutoSim extends AnyFunSuite {
     slave.io.i2c.sda.write := sdaWire  // slave sees combined (in)
 
     // Register maps: top-level Bmb slave ports + factories bound to the cores
-    val masterRegBus = spinal.lib.slave(Bmb(I2cAutoBmb.registerBusParameter))
-    val slaveRegBus  = spinal.lib.slave(Bmb(I2cAutoBmb.registerBusParameter))
+    val regBusParam = BmbAccessParameter(8, 32).addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 2)).toBmbParameter()
+    val masterRegBus = spinal.lib.slave(Bmb(regBusParam))
+    val slaveRegBus  = spinal.lib.slave(Bmb(regBusParam))
     val masterRegMap = BmbSlaveFactory(masterRegBus)
     val slaveRegMap  = BmbSlaveFactory(slaveRegBus)
     master.io.driveFrom(masterRegMap, 0)
@@ -132,9 +133,10 @@ class I2cAutoSim extends AnyFunSuite {
     slaveA.sdaOut.simPublic()
 
     // Register maps: top-level Bmb slave ports + factories bound to the cores
-    val masterRegBus = spinal.lib.slave(Bmb(I2cAutoBmb.registerBusParameter))
-    val slaveARegBus = spinal.lib.slave(Bmb(I2cAutoBmb.registerBusParameter))
-    val slaveBRegBus = spinal.lib.slave(Bmb(I2cAutoBmb.registerBusParameter))
+    val regBusParam = BmbAccessParameter(8, 32).addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 2)).toBmbParameter()
+    val masterRegBus = spinal.lib.slave(Bmb(regBusParam))
+    val slaveARegBus = spinal.lib.slave(Bmb(regBusParam))
+    val slaveBRegBus = spinal.lib.slave(Bmb(regBusParam))
     val masterRegMap = BmbSlaveFactory(masterRegBus)
     val slaveARegMap = BmbSlaveFactory(slaveARegBus)
     val slaveBRegMap = BmbSlaveFactory(slaveBRegBus)

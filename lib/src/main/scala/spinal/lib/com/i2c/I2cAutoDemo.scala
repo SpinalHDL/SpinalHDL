@@ -2,7 +2,7 @@ package spinal.lib.com.i2c
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbSlaveFactory}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbSourceParameter, BmbSlaveFactory}
 
 /**
   * Demo SoC-level wrapper: I2cAutoMaster + I2cAutoSlave.
@@ -38,10 +38,12 @@ class I2cAutoDemo extends Component {
   io.irqSlave  := slaveCtrl.io.irq
 
   // Register map: top-level Bmb slave ports + factories bound to the cores
-  val masterParam = I2cAutoBmb.registerBusParameter
-  val slaveParam  = I2cAutoBmb.registerBusParameter
-  val masterRegBus = slave(Bmb(masterParam))
-  val slaveRegBus  = slave(Bmb(slaveParam))
+  // Register-bus port geometry: this top's choice (single-beat; see ADR-0004)
+  val regBusParam = BmbAccessParameter(8, 32)
+    .addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 2))
+    .toBmbParameter()
+  val masterRegBus = slave(Bmb(regBusParam))
+  val slaveRegBus  = slave(Bmb(regBusParam))
   val masterRegMap = BmbSlaveFactory(masterRegBus)
   val slaveRegMap  = BmbSlaveFactory(slaveRegBus)
   master.io.driveFrom(masterRegMap, 0)
@@ -83,10 +85,12 @@ class I2cAutoDemo10bit extends Component {
   io.sclStretch := slaveCtrl.io.sclStretch
 
   // Register map: top-level Bmb slave ports + factories bound to the cores
-  val masterParam = I2cAutoBmb.registerBusParameter
-  val slaveParam  = I2cAutoBmb.registerBusParameter
-  val masterRegBus = slave(Bmb(masterParam))
-  val slaveRegBus  = slave(Bmb(slaveParam))
+  // Register-bus port geometry: this top's choice (single-beat; see ADR-0004)
+  val regBusParam = BmbAccessParameter(8, 32)
+    .addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 2))
+    .toBmbParameter()
+  val masterRegBus = slave(Bmb(regBusParam))
+  val slaveRegBus  = slave(Bmb(regBusParam))
   val masterRegMap = BmbSlaveFactory(masterRegBus)
   val slaveRegMap  = BmbSlaveFactory(slaveRegBus)
   master.io.driveFrom(masterRegMap, 0)
