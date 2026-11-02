@@ -164,6 +164,9 @@ object blackboxByteEnables extends MemBlackboxingPolicy {
   * @param memBlackBoxers list of phases that decide to blackbox memories, see
   *        [[addStandardMemBlackboxing()]] doc on how to modify the default
   *        [[blackboxOnlyIfRequested]] policy.
+  * @param memBitsMaskKind how a Mem with masked writes is emitted: [[MULTIPLE_RAM]] declares one
+  *        array per mask symbol, [[SINGLE_RAM]] keeps one array and writes each symbol as a part
+  *        select (the byte-enable inference style of most FPGA synthesis tools).
   * 
   * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Other%20language%20features/vhdl_generation.html#vhdl-and-verilog-generation VHDL and Verilog generation doc]]
   */
@@ -225,7 +228,8 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         var emitFullComponentBindings  : Boolean = true,
                         var reportIncludeSourceLocation: Boolean = false,
                         var reportSourceLocationFormat : String = SpinalConfig.defaultReportSourceLocationFormat,
-                        var svInterface                : Boolean = false
+                        var svInterface                : Boolean = false,
+                        memBitsMaskKind                : MemBitsMaskKind = MULTIPLE_RAM
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)

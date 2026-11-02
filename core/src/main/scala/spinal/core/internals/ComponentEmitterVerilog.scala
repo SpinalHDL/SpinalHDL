@@ -1223,7 +1223,7 @@ class ComponentEmitterVerilog(
     }
   }
 
-  var memBitsMaskKind: MemBitsMaskKind = MULTIPLE_RAM
+  var memBitsMaskKind: MemBitsMaskKind = spinalConfig.memBitsMaskKind
   val enumDebugStringList = ArrayBuffer[(SpinalEnumCraft[_ <: SpinalEnum], String, Int)]()
   val localEnums          = mutable.LinkedHashSet[(SpinalEnum, SpinalEnumEncoding)]()
   val randBoots = ArrayBuffer[BaseType]()
@@ -1323,7 +1323,7 @@ class ComponentEmitterVerilog(
 
 
           val withSymbols = memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1
-          for (i <- 0 until symbolCount) {
+          for (i <- 0 until (if (withSymbols) symbolCount else 1)) {
             val symbolPostfix = if (withSymbols) s"_symbol$i" else ""
             val builder = new mutable.StringBuilder()
             for ((value, index) <- mem.initialContent.zipWithIndex) {
@@ -1366,8 +1366,8 @@ class ComponentEmitterVerilog(
 initial begin
   for (verilogIndex = 0; verilogIndex < ${mem.wordCount}; verilogIndex = verilogIndex + 1)begin
 ${
-  if(symbolCount == 1){
-    emitReference(mem,false) + "[verilogIndex] = -1;"
+  if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1){
+    "    " + emitReference(mem,false) + "[verilogIndex] = -1;"
   }  else {
     (0 until symbolCount).map("    " + emitReference(mem,false)  + "_symbol" + _ + "[verilogIndex] = -1;").reduce(_ + "\n" +_)
   }}
@@ -1378,7 +1378,8 @@ end
 
     def emitWrite(b: StringBuilder, mem: Mem[_], writeEnable: String, address: Expression, data: Expression, mask: Expression with WidthProvider, symbolCount: Int, bitPerSymbole: Int, tab: String): Unit = {
 
-      if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
+      // A masked SINGLE_RAM write needs the per-symbol part selects below
+      if(symbolCount == 1) {
         val ramAssign = s"$tab  ${emitReference(mem, false)}[${emitExpression(address)}] <= ${emitExpression(data)};\n"
         var conds = if(writeEnable != null) List(writeEnable) else Nil
         if(mask != null)
@@ -1387,9 +1388,6 @@ end
         b ++= ramAssign
         if(conds.nonEmpty) b ++= s"${tab}end\n"
       } else {
-
-        def maskCount = mask.getWidth
-
         for(i <- 0 until symbolCount) {
           var conds = if(writeEnable != null) List(writeEnable) else Nil
           val range = s"[${(i + 1) * bitPerSymbole - 1} : ${i * bitPerSymbole}]"
@@ -1400,7 +1398,7 @@ end
           if(conds.nonEmpty)
             b ++= s"${tab}if(${conds.mkString(" && ")}) begin\n"
 
-          if (memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+          if (memBitsMaskKind == SINGLE_RAM)
             b ++= s"$tab  ${emitReference(mem, false)}[${emitExpression(address)}]$range <= ${emitExpression(data)}$range;\n"
           else
             b ++= s"$tab  ${emitReference(mem, false)}_symbol${i}[${emitExpression(address)}] <= ${emitExpression(data)}$range;\n"
