@@ -342,4 +342,137 @@ class I2cAutoFuzz extends AnyFunSuite {
       assert(failures == 0, s"$failures/20 composite iterations failed")
     }
   }
+
+  // Reverse-direction composite: READ first (len1), then RESTART, then WRITE (len2).
+  // Slave model: dataPtr starts at 0; the read phase streams RAM[0..rLen-1] and
+  // advances dataPtr; the write phase stores into RAM[rLen..rLen+wLen-1].
+  // Pins the phantom-pop / dataPtr-desync class in the read->write direction
+  // (the write->read direction is covered above).
+  test("I2cAuto fuzz: 20 random reverse composite (read+write RESTART)") {
+    val rng = new Random(2718L)
+    var failures = 0
+
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new FuzzTop()).doSim { dut =>
+      val cd = dut.clockDomain
+      cd.forkStimulus(10 ns)
+
+      cfgTiming(cd, dut)
+      regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 7) | 0x28))
+      cd.waitActiveEdge(10)
+
+      for (iter <- 1 to 20) {
+        val rLen = 1 + rng.nextInt(8)   // read 1-8 bytes (phase 1)
+        val wLen = 1 + rng.nextInt(8)   // write 1-8 bytes (phase 2)
+        val readExpect = (0 until rLen).map(_ => rng.nextInt(256))
+        val writeData  = (0 until wLen).map(_ => rng.nextInt(256))
+
+        // Pre-load read source at RAM[0..rLen-1]; poison the rest so a
+        // mis-framed read cannot accidentally match.
+        for (i <- 0 until 64) {
+          val v = if (i < rLen) readExpect(i) else 0xEE
+          dut.slave.ram.setBigInt(i, v)
+        }
+        regWrite(dut, isMaster = false, addr = 0x04, data = 0)
+        cd.waitActiveEdge(5)
+
+        // Push the write-phase data (consumed after the RESTART)
+        for (d <- writeData) {
+          pushTx(cd, dut, d)
+        }
+
+        // Trigger reverse composite: rw=true selects the read phase first
+        issueCmd(cd, dut, addr = 0x28, rw = true, phase2 = true, nackLast = true,
+                 len1 = rLen, len2 = wLen)
+
+        var bad = false
+        val ok = waitForIdle(cd, dut)
+        if (!ok) { bad = true; if (failures <= 3) println(s"  iter=$iter r=$rLen w=$wLen TIMEOUT") }
+
+        val err = dut.master.status.errCode.toInt
+        if (err != 0) { bad = true; if (failures <= 3) println(s"  iter=$iter r=$rLen w=$wLen ERR=$err") }
+
+        // Verify phase-1 read data
+        val rx = drainRx(cd, dut)
+        if (rx.size != rLen) {
+          bad = true
+          if (failures <= 5) println(s"  iter=$iter r=$rLen w=$wLen rxCount=${rx.size} exp=$rLen")
+        } else {
+          val mm = rx.zip(readExpect).count { case (a, b) => a != b }
+          if (mm > 0) {
+            bad = true
+            if (failures <= 5) println(s"  iter=$iter r=$rLen w=$wLen rxMM=$mm rx=${rx.take(3)} exp=${readExpect.take(3)}")
+          }
+        }
+
+        // Verify phase-2 write landed at RAM[rLen..rLen+wLen-1] (dataPtr continued)
+        for (i <- 0 until wLen) {
+          val got = dut.slave.ram.getBigInt(rLen + i).toInt
+          if (got != writeData(i)) {
+            bad = true
+            if (failures <= 5) println(s"  iter=$iter r=$rLen w=$wLen RAM[${rLen + i}]=0x${got}%02X exp=0x${writeData(i)}%02X")
+          }
+        }
+
+        if (bad) failures += 1
+        resetBetweenIter(cd, dut)
+      }
+
+      assert(failures == 0, s"$failures/20 reverse-composite iterations failed")
+    }
+  }
+
+  // Pure write transfers with the nackLast flag randomly toggled. In write mode
+  // the master receives no data bytes, so nackLast must be strictly inert -
+  // this pins that property and verifies the FULL payload (not just RAM[0]).
+  test("I2cAuto fuzz: 50 random writes, nackLast toggled") {
+    val rng = new Random(9973L)
+    var failures = 0
+
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new FuzzTop()).doSim { dut =>
+      val cd = dut.clockDomain
+      cd.forkStimulus(10 ns)
+
+      cfgTiming(cd, dut)
+      regWrite(dut, isMaster = false, addr = 0x00, data = ((1 << 7) | 0x28))
+      cd.waitActiveEdge(10)
+
+      for (iter <- 1 to 50) {
+        val len = 1 + rng.nextInt(16)
+        val nackLast = rng.nextBoolean()
+        val writeData = (0 until len).map(_ => rng.nextInt(256))
+
+        regWrite(dut, isMaster = false, addr = 0x04, data = 0)
+        cd.waitActiveEdge(5)
+
+        for (d <- writeData) {
+          pushTx(cd, dut, d)
+        }
+
+        issueCmd(cd, dut, addr = 0x28, rw = false, nackLast = nackLast, len1 = len)
+
+        var bad = false
+        val ok = waitForIdle(cd, dut)
+        if (!ok) { bad = true; if (failures <= 3) println(s"  iter=$iter len=$len nl=$nackLast TIMEOUT") }
+
+        val err = dut.master.status.errCode.toInt
+        if (err != 0) { bad = true; if (failures <= 3) println(s"  iter=$iter len=$len nl=$nackLast ERR=$err") }
+
+        // Full-payload verification
+        for (i <- 0 until len) {
+          val got = dut.slave.ram.getBigInt(i).toInt
+          if (got != writeData(i)) {
+            bad = true
+            if (failures <= 5) println(s"  iter=$iter len=$len nl=$nackLast RAM[$i]=0x${got}%02X exp=0x${writeData(i)}%02X")
+          }
+        }
+
+        if (bad) failures += 1
+        resetBetweenIter(cd, dut)
+      }
+
+      assert(failures == 0, s"$failures/50 nackLast-toggled write iterations failed")
+    }
+  }
 }

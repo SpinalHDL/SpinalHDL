@@ -903,6 +903,225 @@ class I2cAutoSim extends AnyFunSuite {
     }
   }
 
+  test("I2cAuto: composite write+read with SCL stretch in write phase") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      dut.cfgMasterTiming()
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      // Write phase: 2 bytes -> RAM[0..1]; read phase: 4 bytes <- RAM[2..5]
+      dut.slave.ram.setBigInt(2, 0x5A)
+      dut.slave.ram.setBigInt(3, 0x3C)
+      dut.slave.ram.setBigInt(4, 0xE7)
+      dut.slave.ram.setBigInt(5, 0x19)
+      cd.waitActiveEdge(10)
+
+      pushTx(dut, 0xAA); pushTx(dut, 0xBB)
+      dut.issueCmd(addr = 0x28, rw = false, phase2 = true, nackLast = true, len1 = 2, len2 = 4)
+
+      // Stretch mid-byte during the WRITE phase. slave.isRead discriminates the
+      // phase after the RESTART (master FSM state is not sim-public).
+      var w = 0
+      while (w < 8000 && !(
+        dut.master.status.busy.toBoolean &&
+        !dut.slave.isRead.toBoolean &&
+        dut.master.fsm.byteNum.toInt >= 1 &&
+        dut.master.fsm.bitPos.toInt >= 2 &&
+        dut.master.fsm.bitPos.toInt < 8 &&
+        !dut.sclWire.toBoolean
+      )) { cd.waitActiveEdge(1); w += 1 }
+      assert(w < 8000, "timed out waiting for write-phase mid-byte window")
+
+      dut.regWriteSlave(0x24, 1)
+      cd.waitActiveEdge(5)
+      assert(dut.slave.stretchActive.toBoolean, "stretch must engage")
+      cd.waitActiveEdge(400)
+      assert(dut.master.status.busy.toBoolean, "master must stall during stretch")
+      assert(!dut.sclWire.toBoolean, "SCL must stay Low during stretch")
+
+      // Release before the RESTART: the entire read phase must still execute
+      dut.regWriteSlave(0x24, 0)
+      waitForIdle(dut)
+      cd.waitActiveEdge(20)
+
+      assert(dut.master.status.errCode.toInt === 0, s"err=${dut.master.status.errCode.toInt}")
+      assert(dut.slave.ram.getBigInt(0).toInt == 0xAA, "RAM[0] mismatch after stretch")
+      assert(dut.slave.ram.getBigInt(1).toInt == 0xBB, "RAM[1] mismatch after stretch")
+      var rxValues = List.empty[Int]
+      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 4) {
+        rxValues ::= dut.master.rxFifo.head.toInt
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
+      assert(rxValues.reverse == List(0x5A, 0x3C, 0xE7, 0x19),
+        s"RX=${rxValues.reverse.map(v => f"0x$v%02X")} expected List(0x5A, 0x3C, 0xE7, 0x19)")
+    }
+  }
+
+  test("I2cAuto: composite write+read with SCL stretch in read phase") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      dut.cfgMasterTiming()
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      dut.slave.ram.setBigInt(2, 0x5A)
+      dut.slave.ram.setBigInt(3, 0x3C)
+      dut.slave.ram.setBigInt(4, 0xE7)
+      dut.slave.ram.setBigInt(5, 0x19)
+      cd.waitActiveEdge(10)
+
+      pushTx(dut, 0xAA); pushTx(dut, 0xBB)
+      dut.issueCmd(addr = 0x28, rw = false, phase2 = true, nackLast = true, len1 = 2, len2 = 4)
+
+      // Stretch mid-byte during the READ phase (slave driving data, post-RESTART)
+      var w = 0
+      while (w < 8000 && !(
+        dut.master.status.busy.toBoolean &&
+        dut.slave.isRead.toBoolean &&
+        dut.master.fsm.byteNum.toInt >= 1 &&
+        dut.master.fsm.bitPos.toInt >= 2 &&
+        dut.master.fsm.bitPos.toInt < 8 &&
+        !dut.sclWire.toBoolean
+      )) { cd.waitActiveEdge(1); w += 1 }
+      assert(w < 8000, "timed out waiting for read-phase mid-byte window")
+
+      dut.regWriteSlave(0x24, 1)
+      cd.waitActiveEdge(5)
+      assert(dut.slave.stretchActive.toBoolean, "stretch must engage")
+      cd.waitActiveEdge(400)
+      assert(dut.master.status.busy.toBoolean, "master must stall during stretch")
+      assert(!dut.sclWire.toBoolean, "SCL must stay Low during stretch")
+
+      // Release mid-read: remaining bytes + NACK + STOP must complete cleanly
+      dut.regWriteSlave(0x24, 0)
+      waitForIdle(dut)
+      cd.waitActiveEdge(20)
+
+      assert(dut.master.status.errCode.toInt === 0, s"err=${dut.master.status.errCode.toInt}")
+      assert(dut.slave.ram.getBigInt(0).toInt == 0xAA, "RAM[0] mismatch after stretch")
+      assert(dut.slave.ram.getBigInt(1).toInt == 0xBB, "RAM[1] mismatch after stretch")
+      var rxValues = List.empty[Int]
+      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 4) {
+        rxValues ::= dut.master.rxFifo.head.toInt
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
+      assert(rxValues.reverse == List(0x5A, 0x3C, 0xE7, 0x19),
+        s"RX=${rxValues.reverse.map(v => f"0x$v%02X")} expected List(0x5A, 0x3C, 0xE7, 0x19)")
+      // Slave must have exited the frame after the NACKed-read STOP
+      assert(!dut.slave.inFrame.toBoolean, "slave must exit frame after stretched composite read")
+    }
+  }
+
+  test("I2cAuto: composite write+read on multi-slave bus - non-addressed slave stays silent") {
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new TestTopDualSlave()).doSim { dut =>
+      val cd = dut.clockDomain
+      cd.forkStimulus(10 ns)
+
+      dut.cfgMasterTiming()
+      bmbWrite(dut.slaveARegBus, 0x1C, 1, cd)
+      bmbWrite(dut.slaveARegBus, 0x00, (1 << 7) | 0x28, cd)
+      bmbWrite(dut.slaveARegBus, 0x04, 0, cd)
+      bmbWrite(dut.slaveBRegBus, 0x1C, 1, cd)
+      bmbWrite(dut.slaveBRegBus, 0x00, (1 << 7) | 0x30, cd)
+      bmbWrite(dut.slaveBRegBus, 0x04, 0, cd)
+      // Poison slave B RAM so any accidental data-path write is detectable
+      for (i <- 0 until 64) { dut.slaveB.ram.setBigInt(i, 0xEE) }
+      // Read source for slave A: RAM[2..3] (write phase occupies RAM[0..1])
+      dut.slaveA.ram.setBigInt(2, 0x11)
+      dut.slaveA.ram.setBigInt(3, 0x22)
+      cd.waitActiveEdge(10)
+
+      bmbWrite(dut.masterRegBus, 0x0C, 0xAA, cd)
+      bmbWrite(dut.masterRegBus, 0x0C, 0xBB, cd)
+      dut.issueCmd(addr = 0x28, rw = false, phase2 = true, nackLast = true, len1 = 2, len2 = 2)
+
+      // Track whether slave B was ever addressed during the transfer
+      var bWasAddressed = false
+      var cycles = 0
+      while (!dut.master.status.busy.toBoolean && cycles < 200000) { cd.waitActiveEdge(); cycles += 1 }
+      while (dut.master.status.busy.toBoolean && cycles < 200000) {
+        if (dut.slaveB.wasAddressed.toBoolean) bWasAddressed = true
+        cd.waitActiveEdge(); cycles += 1
+      }
+      cd.waitActiveEdge(20)
+      if (dut.slaveB.wasAddressed.toBoolean) bWasAddressed = true
+      assert(cycles < 200000, "Timed out waiting for idle")
+
+      val err = dut.master.status.errCode.toInt
+      assert(err == 0, f"errCode=$err, expected 0")
+
+      // Slave A: write phase landed at RAM[0..1], read phase served RAM[2..3]
+      assert(dut.slaveA.ram.getBigInt(0).toInt == 0xAA, "A RAM[0]")
+      assert(dut.slaveA.ram.getBigInt(1).toInt == 0xBB, "A RAM[1]")
+      var rxValues = List.empty[Int]
+      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 2) {
+        rxValues ::= dut.master.rxFifo.head.toInt
+        dut.master.rxFifo.popValid #= true
+        cd.waitActiveEdge()
+        dut.master.rxFifo.popValid #= false
+        cd.waitActiveEdge()
+      }
+      assert(rxValues.reverse == List(0x11, 0x22), s"RX=${rxValues.reverse}")
+
+      // Slave B: never addressed (note: inFrame latches on START for ALL
+      // slaves; wasAddressed is the match-specific flag), RAM untouched
+      assert(!bWasAddressed, "slave B must never be addressed (incl. the RESTART address)")
+      for (i <- 0 until 4) {
+        assert(dut.slaveB.ram.getBigInt(i).toInt == 0xEE, s"B RAM[$i] touched")
+      }
+    }
+  }
+
+  test("I2cAuto: composite transfer hangs mid-phase -> timeout + clean unwind") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+
+      dut.cfgMasterTiming()
+      dut.regWriteMaster(0x28, 50)  // short timeout for fast test
+
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      cd.waitActiveEdge(10)
+
+      // Composite write(4)+read(2); hang the bus during the write phase.
+      // The master must unwind the PENDING PHASE-2 state on timeout (no hang,
+      // no stuck busy) - the composite-specific hazard vs the single-phase
+      // timeout test.
+      pushTx(dut, 0x11); pushTx(dut, 0x22); pushTx(dut, 0x33); pushTx(dut, 0x44)
+      dut.issueCmd(addr = 0x28, rw = false, phase2 = true, nackLast = true, len1 = 4, len2 = 2)
+
+      cd.waitActiveEdge(50)
+      assert(dut.master.status.busy.toBoolean, "Transfer should be active")
+      dut.sclForceLow #= true  // bus hang
+
+      var cycles = 0
+      while (dut.master.status.busy.toBoolean && cycles < 20000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
+      assert(cycles < 20000, "master hung after composite timeout (phase-2 state not unwound?)")
+      cd.waitActiveEdge(300)
+      dut.sclForceLow #= false
+      cd.waitActiveEdge(50)
+
+      val err = dut.master.status.errCode.toInt
+      assert(err == 3, f"errCode=$err, expected 3 (timeout)")
+      assert(!dut.master.status.busy.toBoolean, "busy should be clear after timeout")
+      // NOTE: slave is intentionally not asserted here - with SCL pinned Low the
+      // 9-pulse recovery cannot propagate to the slave, so it is left mid-frame
+      // (same scope as the existing single-phase timeout test).
+    }
+  }
+
   // ===================== 10-bit Address Tests =====================
 
   def runSim10bit(body: TestTop => Unit): Unit = {
