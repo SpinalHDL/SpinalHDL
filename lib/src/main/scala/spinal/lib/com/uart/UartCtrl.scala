@@ -46,7 +46,16 @@ class UartCtrlIo(g : UartCtrlGenerics) extends Bundle {
   val readBreak = out Bool()
 }
 
-
+/** An UART controller with control through registers
+  * 
+  * `this.io` of type [[UartCtrlIo]] gives access to signals to control the UART.
+  * 
+  * See `Tilelink/Apb3/Wishbone/AvalonMM/Bmb/UartCtrl` that implement memory mapping
+  * for various buses.
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Examples/Intermediates%20ones/uart.html spinal doc using it as example]]
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Examples/Advanced%20ones/memory_mapped_uart.html APB3 memory mapping example]]
+  */
 class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   val io = new UartCtrlIo(g)
   val tx = new UartCtrlTx(g)

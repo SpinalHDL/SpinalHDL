@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink._
-import spinal.lib.pipeline._
+import spinal.lib.misc.pipeline._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -170,25 +170,25 @@ class Hub(p : HubParameters) extends Component{
     val data = ubp.data()
   }
 
-  val FROM_C = Stageable(Bool())
-  val ADDRESS  = Stageable(ubp.address)
-//  val CAP  = Stageable(UInt(2 bits))
-  val SET_ID  = Stageable(UInt(setsRange.size bits))
-  val PROBE_ID  = Stageable(UInt(log2Up(probeCount) bits))
-  val SLOT_ALLOCATE = Stageable(Bool())
-  val SIZE  = Stageable(ubp.size)
-  val SOURCE  = Stageable(ubp.source)
-  val BUFFER_ID = Stageable(UInt(log2Up(aBufferCount) bits))
-  val PARTIAL_DATA = Stageable(Bool())
-  val WRITE_DATA = Stageable(Bool())
-  val READ_DATA = Stageable(Bool())
-  val LAST, FIRST = Stageable(Bool())
-  val PAYLOAD_C, PAYLOAD = Stageable(DataPayload())
-  val SLOT_ID = Stageable(UInt(log2Up(downPendingMax) bits))
-  val TO_DOWN = Stageable(Bool())
-  val FROM_NONE = Stageable(Bool())
-  val UNIQUE = Stageable(Bool())
-  val CONFLICT_CTX = Stageable(Bool())
+  val FROM_C = Payload(Bool())
+  val ADDRESS  = Payload(ubp.address)
+//  val CAP  = Payload(UInt(2 bits))
+  val SET_ID  = Payload(UInt(setsRange.size bits))
+  val PROBE_ID  = Payload(UInt(log2Up(probeCount) bits))
+  val SLOT_ALLOCATE = Payload(Bool())
+  val SIZE  = Payload(ubp.size)
+  val SOURCE  = Payload(ubp.source)
+  val BUFFER_ID = Payload(UInt(log2Up(aBufferCount) bits))
+  val PARTIAL_DATA = Payload(Bool())
+  val WRITE_DATA = Payload(Bool())
+  val READ_DATA = Payload(Bool())
+  val LAST, FIRST = Payload(Bool())
+  val PAYLOAD_C, PAYLOAD = Payload(DataPayload())
+  val SLOT_ID = Payload(UInt(log2Up(downPendingMax) bits))
+  val TO_DOWN = Payload(Bool())
+  val FROM_NONE = Payload(Bool())
+  val UNIQUE = Payload(Bool())
+  val CONFLICT_CTX = Payload(Bool())
 
   val initializer = new Area{
     val initCycles = p.sets
@@ -230,11 +230,9 @@ class Hub(p : HubParameters) extends Component{
     }
   }
 
-  val frontendA = new Pipeline{
-    val stages = newChained(2, Connection.M2S())
-
-    val PAYLOAD = Stageable(DataPayload())
-    val BUFFER_ID = Stageable(UInt(log2Up(aBufferCount) bits))
+  val frontendA = new StageCtrlPipeline{
+    val PAYLOAD = Payload(DataPayload())
+    val BUFFER_ID = Payload(UInt(log2Up(aBufferCount) bits))
 
     val buffer =  ubp.withDataA generate new Area{
       val ram = Mem.fill(aBufferCount*p.blockSize/p.unp.m.dataBytes)(DataPayload())
@@ -247,11 +245,9 @@ class Hub(p : HubParameters) extends Component{
       allocated := (allocated | set) & ~clear
     }
 
-    val spawn = new Area{
-      val stage = stages(0)
-      import stage._
-
-      driveFrom(io.up.a)
+    val spawnNode = ctrl(0)
+    val spawn = new spawnNode.Area{
+      up.arbitrateFrom(io.up.a)
       haltWhen(!initializer.done)
 
       val CMD = insert(io.up.a.payload.asNoData())
@@ -264,16 +260,16 @@ class Hub(p : HubParameters) extends Component{
       val dataSplit = ubp.withDataA generate new Area{
         val withBeats = io.up.a.payload.withBeats
         val hazard = withBeats && buffer.full
-        haltIt(hazard)
-        throwIt(!hazard && !LAST)
+        haltWhen(hazard)
+        throwWhen(!hazard && !LAST)
 
         val locked = RegInit(False) setWhen(buffer.write.valid)
         val lockedValue = RegNextWhen(buffer.firstFree, !locked)
         BUFFER_ID := locked ? lockedValue | buffer.firstFree
-        buffer.write.valid := valid && withBeats && !hazard
+        buffer.write.valid := up.valid && withBeats && !hazard
         buffer.write.address := BUFFER_ID @@ io.up.a.beatAddress(wordRange)
         buffer.write.data := PAYLOAD
-        when(isFiring && LAST && withBeats){
+        when(up.isFiring && LAST && withBeats){
           buffer.set(BUFFER_ID) := True
           buffer.source.onSel(BUFFER_ID)(_ := io.up.a.payload.source)
           locked := False
@@ -281,37 +277,34 @@ class Hub(p : HubParameters) extends Component{
       }
     }
 
-    val readConflicts = new Area{
-      val stage = stages(0)
-      import stage._
-
+    val readConflictsNode = ctrl(0)
+    val readConflicts = new readConflictsNode.Area{
       val readAddress = spawn.CMD.address(setsRange)
       val JUST_BUSY = insert(setsBusy.target.write.valid && setsBusy.target.write.address === readAddress)
       val JUST_FREE = insert(setsBusy.hit.write.valid && setsBusy.hit.write.address === readAddress)
     }
 
-    val checkConflicts = new Area{
-      val stage = stages(1)
-      import stage._
+    val checkConflictsNode = ctrl(1)
+    val checkConflicts = new checkConflictsNode.Area{
       import readConflicts._
 
       val hitPort = setsBusy.hit.mem.readSyncPort()
-      hitPort.cmd.valid := !stage.isStuck
+      hitPort.cmd.valid := !up.isValid || up.isMoving
       hitPort.cmd.payload := readAddress
       hitPort.writeFirstAndUpdate(setsBusy.hit.write)
 
       val targetPort = setsBusy.target.mem.readSyncPort()
-      targetPort.cmd.valid := !stage.isStuck
+      targetPort.cmd.valid := !up.isValid || up.isMoving
       targetPort.cmd.payload := readAddress
       targetPort.writeFirstAndUpdate(setsBusy.target.write)
 
       val hit    = hitPort.rsp
       val target = targetPort.rsp
       val hazard = hit =/= target
-      haltIt(hazard)
+      haltWhen(hazard)
 
       when(initializer.done) {
-        setsBusy.target.write.valid := isFiring
+        setsBusy.target.write.valid := up.isFiring
         setsBusy.target.write.address := spawn.CMD.address(setsRange)
         setsBusy.target.write.data := !target
       }
@@ -360,12 +353,12 @@ class Hub(p : HubParameters) extends Component{
   }
 
   val probe = new Area{
-    val isl = frontendA.stages.last
+    val isl = frontendA.last
     val push = Stream(ProbeCmd())
     val pushCmd = isl(frontendA.spawn.CMD)
     val isAcquire = Opcode.A.isAcquire(pushCmd.opcode)
-    push.valid := isl.isValid && !isl.internals.request.halts.orR
-    isl.haltIt(!push.ready)
+    push.valid := isl.isValid && !isl.requests.halts.orR
+    isl.haltWhen(!push.ready)
     push.ctx.opcode     := pushCmd.opcode
     push.ctx.address    := pushCmd.address
     push.ctx.toTrunk    := pushCmd.param =/= Param.Grow.NtoB
@@ -508,22 +501,19 @@ class Hub(p : HubParameters) extends Component{
       input.ready := !(hitBackend && !toBackend.ready) && !(hitUpD && !toUpD.ready)
     }
 
-    val wake = new Pipeline{
-      val stages = newChained(2, Connection.M2S())
-      val CTX = Stageable(new ProbeCtx())
+    val wake = new StageCtrlPipeline{
+      val CTX = Payload(new ProbeCtx())
       val toBackend = Stream(new ProbeCtxFull())
       val toUpD = cloneOf(io.up.d)
 
-      val insertion = new Area {
-        val stage = stages(0)
-        import stage._
-
+      val insertionNode = ctrl(0)
+      val insertion = new insertionNode.Area {
         val hits = slots.map(_.done).asBits
-        valid := hits.orR
-        val hitOh = OHMasking.roundRobinNext(hits, isFiring)
+        up.valid := hits.orR
+        val hitOh = OHMasking.roundRobinNext(hits, up.isFiring)
         val hitId = OHToUInt(hitOh)
         PROBE_ID := hitId
-        when(isFiring){
+        when(up.isFiring){
           slots.onMask(hitOh){ s =>
             s.fire := True
           }
@@ -532,11 +522,9 @@ class Hub(p : HubParameters) extends Component{
         UNIQUE := OhMux.or(hitOh, slots.map(_.unique))
       }
 
-      val ctxFetcher = new Area {
-        val stage = stages(1)
-        import stage._
-
-        stage(CTX) := ctxMem.readSync(insertion.hitId, !isStuck)
+      val ctxFetcherNode = ctrl(1)
+      val ctxFetcher = new ctxFetcherNode.Area {
+        CTX := ctxMem.readSync(insertion.hitId, !up.isValid || up.isMoving)
         val hitUpD = CTX.opcode === Opcode.A.ACQUIRE_PERM ||
                      CTX.opcode === Opcode.A.ACQUIRE_BLOCK && !FROM_NONE
 
@@ -568,31 +556,28 @@ class Hub(p : HubParameters) extends Component{
 
 
 
-  val backend = new Pipeline {
-    val stages = newChained(3, Connection.M2S())
-
-    val insertion = new Area{
-      val stage = stages(0)
-      import stage._
+  val backend = new StageCtrlPipeline {
+    val insertionNode = ctrl(0)
+    val insertion = new insertionNode.Area{
       val c = probe.rsp.toBackend
       val cProbeId = probe.rsp.toBackendProbeId
       val a = probe.wake.toBackend
 
-      val lockValid = RegInit(False) setWhen(valid) clearWhen(isFiring && LAST)
+      val lockValid = RegInit(False) setWhen(up.valid) clearWhen(up.isFiring && LAST)
       val lockSel = Reg(Bool())
       val selC = lockValid ? lockSel | c.valid
       lockSel := selC
 
 
       val counter = Reg(UInt(wordRange.size bits)) init(0)
-      when(isFiring){
+      when(up.isFiring){
         counter := counter + 1
         when(LAST){
           counter := 0
         }
       }
 
-      valid := selC ? c.valid | a.valid
+      up.valid := selC ? c.valid | a.valid
       FROM_C :=  selC
       when(selC){
         WRITE_DATA := c.withBeats
@@ -616,13 +601,13 @@ class Hub(p : HubParameters) extends Component{
       if(ubp.withDataA) BUFFER_ID := a.bufferId
       CONFLICT_CTX := a.conflictCtx
 
-      c.ready := isReady &&  selC
-      a.ready := isReady && !selC && LAST
+      c.ready := up.isReady &&  selC
+      a.ready := up.isReady && !selC && LAST
 
       PAYLOAD_C.data := c.data
       PAYLOAD_C.mask.setAll()
 
-      val first = RegNextWhen[Bool](LAST, isFiring) init(True)
+      val first = RegNextWhen[Bool](LAST, up.isFiring) init(True)
       FIRST := first
 
       val A_GET_PUT  = insert(Opcode.A.isGetPut(a.opcode))
@@ -633,32 +618,30 @@ class Hub(p : HubParameters) extends Component{
       TO_DOWN := WRITE_DATA | READ_DATA
       SLOT_ALLOCATE := TO_DOWN
 
-      io.backendOrdering.valid := isFiring && !FROM_C
+      io.backendOrdering.valid := up.isFiring && !FROM_C
       io.backendOrdering.debugId := a.debugId
       io.backendOrdering.bytes := (U(1) << a.size).resized
     }
 
     val aPayloadSyncRead = new Area{
-      val s0 = stages(0)
-      val s1 = stages(1)
+      val s0 = ctrl(0)
+      val s1 = ctrl(1)
       val wordAddress = s0(BUFFER_ID) @@ s0(ADDRESS)(wordRange)
 
       s1(PAYLOAD) := s1(PAYLOAD_C)
       if(ubp.withDataA) {
         when(!s1(FROM_C)){
-          s1(PAYLOAD) := frontendA.buffer.ram.readSync(wordAddress, !s1.isStuck)
+          s1(PAYLOAD) := frontendA.buffer.ram.readSync(wordAddress, !s1.up.isValid || s1.up.isMoving)
         }
-        when(s1.isFiring && s1(LAST) && !s1(FROM_C) && s1(WRITE_DATA)){
+        when(s1.up.isFiring && s1(LAST) && !s1(FROM_C) && s1(WRITE_DATA)){
           frontendA.buffer.clear(s1(BUFFER_ID)) := True
         }
       }
     }
 
-    val allocateSlot = new Area{
-      val stage = stages(0)
-      import stage._
-
-      val slotLock = RegNextWhen(!LAST, isFiring) init(False)
+    val allocateNode = ctrl(0)
+    val allocateSlot = new allocateNode.Area{
+      val slotLock = RegNextWhen(!LAST, up.isFiring) init(False)
       val slotReg = RegNextWhen(slots.freeId, !slotLock)
       SLOT_ID := slotLock ? slotReg | slots.freeId
       haltWhen(SLOT_ALLOCATE && slots.full)
@@ -675,8 +658,8 @@ class Hub(p : HubParameters) extends Component{
       c.isProbeData := insertion.C_IS_PROBE_DATA
       c.probeId     := PROBE_ID
 
-      slots.allocate := isFiring && SLOT_ALLOCATE && FIRST
-      slots.ctxWrite.valid := isFiring && SLOT_ALLOCATE
+      slots.allocate := up.isFiring && SLOT_ALLOCATE && FIRST
+      slots.ctxWrite.valid := up.isFiring && SLOT_ALLOCATE
       slots.ctxWrite.address := SLOT_ID
       slots.ctxWrite.data.assignDontCare()
       slots.ctxWrite.data(0) := FROM_C
@@ -689,11 +672,11 @@ class Hub(p : HubParameters) extends Component{
       assert(widthOf(c) < widthOf(slots.ctxWrite.data))
     }
 
-    val toDown = new Area{
-      val stage = stages.last
-      import stage._
+    /* The origianl pipeline is 3-stage, so this should be stage 2 instead of the use pipeline last stage */
+    val downNode = ctrl(2)
+    val toDown = new downNode.Area{
       haltWhen(TO_DOWN && !io.down.a.ready)
-      io.down.a.valid := valid && TO_DOWN
+      io.down.a.valid := up.valid && TO_DOWN
       io.down.a.opcode := WRITE_DATA ? (PARTIAL_DATA ? Opcode.A.PUT_PARTIAL_DATA | Opcode.A.PUT_FULL_DATA) | Opcode.A.GET
       io.down.a.param := 0
       io.down.a.source := SLOT_ID
@@ -704,31 +687,30 @@ class Hub(p : HubParameters) extends Component{
       io.down.a.corrupt := False
       io.down.a.debugId := DebugId.withPostfix(io.down.a.source)
 
-      val first = RegNextWhen[Bool](LAST, isFiring) init(True)
-      val base = RegNextWhen(ADDRESS(wordRange), isFiring && first)
+      val first = RegNextWhen[Bool](LAST, up.isFiring) init(True)
+      val base = RegNextWhen(ADDRESS(wordRange), up.isFiring && first)
       when(!first){
         io.down.a.address(wordRange) := base
       }
     }
   }
 
-  val downD = new Pipeline{
-    val stages = newChained(2, Connection.M2S())
-    val D_PAYLOAD = Stageable(io.down.d.payloadType)
-    val CTX = Stageable(slots.ctx.wordType)
+  val downD = new StageCtrlPipeline{
+    val D_PAYLOAD = Payload(io.down.d.payloadType)
+    val CTX = Payload(slots.ctx.wordType)
 
-    val insert = new Area{
-      val stage = stages.head
-      stage.driveFrom(io.down.d)
-      stage(D_PAYLOAD) := io.down.d
-      stage(LAST) := io.down.d.isLast()
+    val insertNode = ctrl(0)
+    val insert = new insertNode.Area{
+      up.arbitrateFrom(io.down.d)
+      D_PAYLOAD := io.down.d
+      LAST := io.down.d.isLast()
     }
 
     val ctxReadSync = new Area{
-      val s0 = stages(0)
-      val s1 = stages(1)
+      val s0 = ctrl(0)
+      val s1 = ctrl(1)
       val wordAddress = s0(D_PAYLOAD).source
-      s1(CTX) := slots.ctx.readSync(wordAddress, !s1.isStuck)
+      s1(CTX) := slots.ctx.readSync(wordAddress, !s1.up.isValid || s1.up.isMoving)
     }
 
     def decodeCtx(ctx : Bits) = new Area{
@@ -738,52 +720,45 @@ class Hub(p : HubParameters) extends Component{
       val hit = fromC ? (!c.isProbeData) | True
     }
 
-    val slotRelease = new Area{
-      val stage = stages(1)
-      import stage._
+    val slotNode = ctrl(1)
+    val slotRelease = new slotNode.Area{
       val ctx = decodeCtx(CTX)
 
-      val fired = RegInit(False) setWhen(isValid) clearWhen(isReady)
+      val fired = RegInit(False) setWhen(isValid) clearWhen(up.isReady)
 
-      slots.release.valid := valid && !fired && LAST
+      slots.release.valid := up.valid && !fired && LAST
       slots.release.payload := D_PAYLOAD.source
     }
 
-    val toSetsBusy = new Area{
-      val stage = stages(1)
-      import stage._
-
+    val busyNode = ctrl(1)
+    val toSetsBusy = new busyNode.Area{
       val ctx = decodeCtx(CTX)
-      val fired = RegInit(False) setWhen(setsBusy.hit.downD.fire) clearWhen(isReady)
+      val fired = RegInit(False) setWhen(setsBusy.hit.downD.fire) clearWhen(up.isReady)
       val hit = !ctx.fromC && ctx.a.getPut && LAST && !fired
 
-      setsBusy.hit.downD.valid := valid && hit
+      setsBusy.hit.downD.valid := up.valid && hit
       setsBusy.hit.downD.address := ctx.a.set
       setsBusy.hit.downD.data := ctx.a.conflictCtx
 
-      haltIt(hit && !setsBusy.hit.downD.ready)
+      haltWhen(hit && !setsBusy.hit.downD.ready)
     }
 
-    val toProbe = new Area{
-      val stage = stages(1)
-      import stage._
-
+    val probeNode = ctrl(1)
+    val toProbe = new probeNode.Area{
       val ctx = decodeCtx(CTX)
       val hit = ctx.fromC && ctx.c.isProbeData
-      val fired = RegInit(False) setWhen(probe.rsp.bypass.fire) clearWhen(isReady)
-      probe.rsp.bypass.valid := valid && hit && ! fired
+      val fired = RegInit(False) setWhen(probe.rsp.bypass.fire) clearWhen(up.isReady)
+      probe.rsp.bypass.valid := up.valid && hit && ! fired
       probe.rsp.bypass.payload := ctx.c.probeId
     }
 
-    val toUp = new Area{
-      val stage = stages(1)
-      import stage._
-
+    val upNode = ctrl(1)
+    val toUp = new upNode.Area{
       val upD = cloneOf(io.up.d)
 
       val ctx = decodeCtx(CTX)
       val hit = ctx.fromC ? (!ctx.c.isProbeData) | True
-      val fired = RegInit(False) setWhen(upD.fire) clearWhen(isReady)
+      val fired = RegInit(False) setWhen(upD.fire) clearWhen(up.isReady)
       upD.valid := isValid && hit && !fired
       upD.payload := D_PAYLOAD
       upD.param.removeAssignments() := 0
@@ -799,7 +774,7 @@ class Hub(p : HubParameters) extends Component{
           upD.param := ctx.a.toTrunk ? B(Param.Cap.toT, 3 bits) | B(Param.Cap.toB, 3 bits)
         }
       }
-      haltIt(!fired && hit && !upD.ready)
+      haltWhen(!fired && hit && !upD.ready)
     }
   }
 

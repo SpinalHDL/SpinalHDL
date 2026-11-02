@@ -57,7 +57,25 @@ class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
   }
 }
 
-object StreamDriver{
+object StreamDriver {
+  
+/** Drive a [[Stream]] with a callback, by default randomly.
+  * 
+  * Call the lambda when new data should be presented to the [[Stream]], the
+  * return value indicating if the data is valid. For example:
+  * 
+  * {{{
+  * val payloads = Queue(0xff, 0xab, 0x11)
+  * StreamDriver(dut.io.push, dut.clockDomain) { payload =>
+  *   if (payloads.nonEmpty) { payload.address #= payloads.dequeue(); true }
+  *   else false
+  * }
+  * }}}
+  * 
+  * See [[setFactor]] for the random behavior and how to change it.
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/stream.html#simulation-support  Simulation support documentation]]
+  */
   def apply[T <: Data](stream : Stream[T], clockDomain: ClockDomain)(driver : (T) => Boolean) = new StreamDriver(stream,clockDomain,driver)
 //  def apply[T <: Data](stream : Stream[T], clockDomain: ClockDomain)(driver : (T) => Unit) = new StreamDriver(stream,clockDomain,(x) => {driver(x); true})
 
@@ -72,6 +90,10 @@ object StreamDriver{
     (driver, cmdQueue)
   }
 
+  /** Create StreamDriver that iterate over the [[Iterable]] `els`.
+   * 
+   *  The type `E` of `els` should be `#=` assignable to `payload`
+   */
   def fromIterable[T <: Data, E](flow: Stream[T], clockDomain: ClockDomain, els: Iterable[E])
     (implicit ev: T => SimEquiv { type SimEquivT = E }): StreamDriver[T] = {
     val iter = els.iterator
@@ -86,7 +108,25 @@ object StreamDriver{
   }
 }
 
-class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var driver : (T) => Boolean){
+
+/** Drive a [[Stream]] with a callback, by default randomly.
+  * 
+  * Call the lambda when new data should be presented to the [[Stream]], the
+  * return value indicating if the data is valid. For example:
+  * 
+  * {{{
+  * val payloads = Queue(0xff, 0xab, 0x11)
+  * StreamDriver(dut.io.push, dut.clockDomain) { payload =>
+  *   if (payloads.nonEmpty) { payload.address #= payloads.dequeue(); true }
+  *   else false
+  * }
+  * }}}
+  * 
+  * See [[setFactor]] for the random behavior and how to change it.
+  * 
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/stream.html#simulation-support  Simulation support documentation]]
+  */
+class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var driver : (T) => Boolean) {
   implicit val _ = sm
   var transactionDelay : () => Int = () => {
     val x = simRandom.nextDouble()
@@ -94,7 +134,23 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
   }
 
   var factor = Option.empty[Float]
+
+  /** Set a fixed probability of executing the driver callback.
+    * 
+    * If not set, there is a new delay of `(x*x*10).toInt` clock cycles 
+    * (with `x = simRandom.nextDouble()`) between each callback. When set, 
+    * the callback is executed clock where `simRandom.nextFloat() < value`.
+    * This means that the callback is always executed with `value >= 1.0f`
+    * and never with `<= 0.0f`.
+    */
   def setFactor(value : Float) = factor = Some(value)
+
+  /** Set a periodic simulation step change of setFactor.
+    * 
+    * Each `period` simulation steps, execute `setFactor(simRandom.nextFloat())`,
+    * i.e. a new uniform probability that the driver callback is executed each
+    * clock sample.
+    */
   def setFactorPeriodically(period : Long) = periodically(period)(setFactor(simRandom.nextFloat()))
 
   //The  following commented threaded code is the equivalent to the following uncommented thread-less code (nearly)

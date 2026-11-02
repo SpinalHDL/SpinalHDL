@@ -27,13 +27,16 @@ package spinal.lib.bus.amba3.apb
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba4.axi.Axi4Priv
 
 
 case class Apb3Config(
   addressWidth  : Int,
   dataWidth     : Int,
   selWidth      : Int = 1,
-  useSlaveError : Boolean = true
+  useSlaveError : Boolean = true,
+  useStrb : Boolean = false,
+  useProt : Boolean = false
 ){
   def dataBytes = dataWidth/8
 }
@@ -55,12 +58,14 @@ case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
   val PENABLE    = Bool()
   val PREADY     = Bool()
   val PWRITE     = Bool()
+  val PSTRB      = config.useStrb generate Bits(config.dataBytes bits)
+  val PPROT      = config.useProt generate Bits(3 bits)
   val PWDATA     = Bits(config.dataWidth bits)
   val PRDATA     = Bits(config.dataWidth bits)
   val PSLVERROR  = if(config.useSlaveError) Bool() else null
 
   override def asMaster(): Unit = {
-    out(PADDR, PSEL, PENABLE, PWRITE, PWDATA)
+    out(PADDR, PSEL, PENABLE, PWRITE, PWDATA, PSTRB, PPROT)
     in(PREADY, PRDATA)
     if(config.useSlaveError) in(PSLVERROR)
   }
@@ -82,6 +87,9 @@ case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
     if(PSLVERROR != null) {
       this.PSLVERROR := (if (sink.PSLVERROR != null) sink.PSLVERROR else False)
     }
+
+    Axi4Priv.driveWeak[Bits](this, sink, this.PSTRB, sink.PSTRB, () => sink.PSTRB.getAllTrue, false, false)
+    Axi4Priv.driveWeak[Bits](this, sink, this.PPROT, sink.PPROT, () => B"000", false, false)
   }
 
   def m2sPipe(): Apb3 ={
@@ -94,6 +102,8 @@ case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
     this.PRDATA   := that.PRDATA
     this.PREADY   := that.PREADY && that.PENABLE && that.PSEL.orR
     if(PSLVERROR != null) { this.PSLVERROR := that.PSLVERROR }
+    if(PSTRB != null) { that.PSTRB := this.PSTRB }
+    if(PPROT != null) { that.PPROT := this.PPROT }
     that
   }
 

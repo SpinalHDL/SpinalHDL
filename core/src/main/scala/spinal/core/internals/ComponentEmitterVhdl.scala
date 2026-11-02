@@ -164,6 +164,10 @@ class ComponentEmitterVhdl(
             val name = component.localNamingScope.allocateName(portName)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
+          case s: MemReadAsyncWrite =>
+            val name = component.localNamingScope.allocateName(portName)
+            declarations ++= s"  signal $name : ${emitType(s)};\n"
+            wrappedExpressionToName(s) = name
           case s: MemWrite =>
         }
       })
@@ -1240,6 +1244,9 @@ class ComponentEmitterVhdl(
         b ++= s"${tab}if ${emitExpression(memReadWrite.chipSelect)} = '1' then\n"
         emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
         b ++= s"${tab}end if;\n"
+      case memReadAsyncWrite: MemReadAsyncWrite =>
+        if(memReadAsyncWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadAsyncWrite.mem} because of its mixed width ports")
+        emitWrite(b, memReadAsyncWrite.mem,s"${emitExpression(memReadAsyncWrite.writeEnable)} = '1'", memReadAsyncWrite.address, memReadAsyncWrite.data, memReadAsyncWrite.mask, memReadAsyncWrite.mem.getMemSymbolCount, memReadAsyncWrite.mem.getMemSymbolWidth(),tab)
     }
 
     val cdTasks = mutable.LinkedHashMap[ClockDomain, ArrayBuffer[MemPortStatement]]()
@@ -1281,6 +1288,20 @@ class ComponentEmitterVhdl(
             emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab)
           }
         }, null, tmpBuilder, memReadSync.clockDomain, false)
+      case memReadAsyncWrite: MemReadAsyncWrite  =>
+        if(memReadAsyncWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadAsyncWrite.mem} because of its mixed width ports")
+        if (memReadAsyncWrite.readUnderWrite != writeFirst) SpinalWarning(s"memReadAsyncWrite can only be write first into VHDL")
+        val symbolCount = memReadAsyncWrite.mem.getMemSymbolCount
+        if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+          tmpBuilder ++= s"  ${emitExpression(memReadAsyncWrite)} <= ${emitReference(memReadAsyncWrite.mem, false)}(to_integer(${emitExpression(memReadAsyncWrite.address)}));\n"
+        else
+          (0 until symbolCount).foreach(i => tmpBuilder  ++= s"  ${emitExpression(memReadAsyncWrite)}(${(i + 1) * symbolWidth - 1} downto ${i * symbolWidth}) <= ${emitReference(memReadAsyncWrite.mem, false)}_symbol$i(to_integer(${emitExpression(memReadAsyncWrite.address)}));\n")
+
+        emitClockedProcess((tab, b) => {
+          val symbolCount = memReadAsyncWrite.mem.getMemSymbolCount()
+          emitWrite(b, memReadAsyncWrite.mem,s"${emitExpression(memReadAsyncWrite.writeEnable)} = '1'", memReadAsyncWrite.address, memReadAsyncWrite.data, memReadAsyncWrite.mask, memReadAsyncWrite.mem.getMemSymbolCount, memReadAsyncWrite.mem.getMemSymbolWidth(),tab)
+        }, null, tmpBuilder, memReadAsyncWrite.clockDomain, false)
+
       case port: MemReadAsync  =>
         if(port.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${port.mem} because of its mixed width ports")
         if (port.readUnderWrite != writeFirst) SpinalWarning(s"memReadAsync can only be write first into VHDL")
@@ -1298,6 +1319,7 @@ class ComponentEmitterVhdl(
           case port: MemWrite     => emitPort(port, tab, b)
           case port: MemReadSync  => if(port.readUnderWrite != dontCare) emitPort(port, tab, b)
           case port: MemReadWrite => emitPort(port, tab, b)
+          case port: MemReadAsyncWrite => emitPort(port, tab, b)
         }
         emitClockedProcess(syncLogic, null, tmpBuilder, cd, false)
       }

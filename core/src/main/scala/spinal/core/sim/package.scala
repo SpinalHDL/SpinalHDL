@@ -40,11 +40,31 @@ package object sim {
   def SimConfig: SpinalSimConfig = new SpinalSimConfig()
 
   def killRandom(): Unit = {
-    val r = scala.util.Random.self
-    val field = r.getClass.getDeclaredField("seed")
-    field.setAccessible(true)
-    field.set(r, null)
+    val r = scala.util.Random
+    for(field <- r.getClass.getFields()){
+      field.setAccessible(true)
+      field.set(r, null)
+    }
   }
+
+  /** Returns a dedicated instance of scala.util.Random for the current simulation.
+    *
+    * There is one instance per simulation and its usage is deterministic with any 
+    * combination of sensitive, thread-full and thread-less API. 
+    * 
+    * This is because the simulation engine executes only one sim thread created
+    * by functions like [[sim.fork()]] at a time. The engine blocks/resumes them
+    * so there is never concurrent execution of test code.
+    * 
+    * Each simulation maintains its own `Random`, making it safe for concurrent
+    * simulations.
+    *
+    * The seed is set as an argument of `doSim()`. The default value is to take
+    * `.toInt` from the `SPINAL_SIM_SEED` environment variable, and if not
+    * present to use a random value as seed each time.
+    * 
+    * @see https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/engine.html
+    */
   def simRandom(implicit simManager: SimManager = sm) = simManager.random
   def sm = SimManagerContext.current.manager
 
@@ -312,7 +332,7 @@ package object sim {
   }
 
   // TODO enable deprecation
-  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.15.0")
+  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.16.0")
   def periodicaly(delay: Long)(body: => Unit): Unit = {
     periodically(delay)(body)
   }
@@ -326,7 +346,7 @@ package object sim {
   }
 
   // TODO enable deprecation
-  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.15.0")
+  //@deprecated("Use correctly spelled 'periodically' instead", since = "1.16.0")
   def periodicaly(delay : TimeNumber)(body: => Unit): Unit = {
     periodically(delay)(body)
   }
@@ -408,9 +428,9 @@ package object sim {
   implicit class SimDataPimper[T <: Data](bt: T) {
 
     def randomize(): Unit = bt.flattenForeach(_.randomize())
-    
+
     /** Set a signal inside the component’s hierarchy as accessible from the simulation.
-      * 
+      *
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#accessing-signals-inside-the-component-s-hierarchy section in simulation doc]]
       */
     def simPublic(): T = bt.addTag(SimPublic)
@@ -423,9 +443,9 @@ package object sim {
   implicit class SimMemPimper[T <: Data](mem: Mem[T]) {
     def setBigInt(address : Long, data : BigInt): Unit = sim.setBigInt(mem,address,data)
     def getBigInt(address : Long): BigInt = sim.getBigInt(mem,address)
-    
+
     /** Set a signal inside the component’s hierarchy as accessible from the simulation.
-      * 
+      *
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#accessing-signals-inside-the-component-s-hierarchy section in simulation doc]]
       */
     def simPublic(): Mem[T] = mem.addTag(SimPublic)
@@ -455,13 +475,13 @@ package object sim {
 
     // SimEquiv implementation
     type SimEquivT = Boolean
-    
+
     /** Assign a hardware ``Bool`` from an Scala ``Boolean``
       *
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
       */
     def #=(value: Boolean) = setLong(bt, if(value) 1 else 0)
-    
+
     def getSim(): SimEquivT = getLong(bt) != 0
 
     def toBoolean = getSim()
@@ -472,7 +492,7 @@ package object sim {
   // Several SimEquiv implementations needed since BitVector can correspond to several types
   implicit class SimEquivBitVectorLongPimper(bt: BitVector) extends SimEquiv {
     type SimEquivT = Long
-    
+
     /** Assign a hardware ``BitVector`` from an Scala ``Long``
       *
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
@@ -490,7 +510,7 @@ package object sim {
 
   implicit class SimEquivBitVectorBytesPimper(bt: BitVector) extends SimEquiv {
     type SimEquivT = Array[Byte]
-    
+
     /** Assign a hardware ``BitVector`` from an Scala ``Array[Byte]``
       *
       * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
@@ -543,7 +563,7 @@ package object sim {
       val signal = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
       def toInt = if(alwaysZero) 0 else manager.getInt(signal)
       def toLong = if(alwaysZero) 0 else manager.getLong(signal)
-      def toBigInt = if(alwaysZero) 0 else manager.getBigInt(signal)
+      def toBigInt = if(alwaysZero) BigInt(0) else manager.getBigInt(signal)
 
       /** Assign a hardware ``BitVector`` from an Scala ``Int``
         *
@@ -560,7 +580,7 @@ package object sim {
       /** Assign a hardware ``BitVector`` from an Scala ``Long``
         *
         * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Simulation/signal.html#read-and-write-signals Simulation documentation]]
-        */      
+        */
       def #=(value: Long) : Unit  = {
         if(alwaysZero) {
           assert(value == 0)
@@ -1025,13 +1045,22 @@ package object sim {
       }
     }
 
+    /** Wait one rising edge on the clock.
+      * 
+      * Note that the function is not sensitive to reset/softReset/clockEnable.
+      */
     def waitRisingEdge(): Unit = waitRisingEdge(1)
+
+    /** Wait `count` rising edges on the clock.
+      * 
+      * Note that count = 0 is legal, and the function is not sensitive to reset/softReset/clockEnable.
+      */
     def waitRisingEdge(count: Int): Unit ={
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)
       var last = manager.getLong(signal)
       var counter = 0
-      waitUntil{
+      waitUntil {
         val current = manager.getLong(signal)
         if(last == 0l && current == 1l)
           counter += 1
@@ -1045,7 +1074,7 @@ package object sim {
       val signal  = getSignal(manager, cd.clock)
       var last    = manager.getLong(signal)
 
-      waitUntil{
+      waitUntil {
         val current = manager.getLong(signal)
         val cond = last == 0l && current == 1l && condAnd
         last = current
@@ -1053,14 +1082,23 @@ package object sim {
       }
     }
 
+    /** Wait one falling edge on the clock.
+      *
+      * Note that the function is not sensitive to reset/softReset/clockEnable.
+      */
     def waitFallingEdge(): Unit = waitFallingEdge(1)
+
+    /** Wait `count` falling edges on the clock.
+      *
+      * Note that count = 0 is legal, and the function is not sensitive to reset/softReset/clockEnable.
+      */
     def waitFallingEdge(count: Int = 1): Unit = {
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
       var last    = manager.getLong(signal)
       var counter = 0
 
-      waitUntil{
+      waitUntil {
         val current = manager.getLong(signal)
         if(last == 1l && current == 0l)
           counter += 1
@@ -1074,7 +1112,7 @@ package object sim {
       val signal  = getSignal(manager, cd.clock)
       var last    = manager.getLong(signal)
 
-      waitUntil{
+      waitUntil {
         val current = manager.getLong(signal)
         val cond = last == 1l && current == 0l && condAnd
         last = current
@@ -1082,7 +1120,16 @@ package object sim {
       }
     }
 
+    /** Wait one edge on the clock specified by the ClockDomainConfig.
+      *
+      * Note that the function is not sensitive to reset/softReset/clockEnable.
+      */
     def waitActiveEdge(): Unit = waitActiveEdge(1)
+
+    /** Wait `count` edges on the clock specified by the ClockDomainConfig.
+      *
+      * Note that count = 0 is legal, and the function is not sensitive to reset/softReset/clockEnable.
+      */
     def waitActiveEdge(count: Int = 1): Unit = {
       if (cd.config.clockEdge == spinal.core.RISING) {
         waitRisingEdge(count)
@@ -1159,6 +1206,12 @@ package object sim {
       }
     }
 
+    /* Fork a simulation process to generate the `ClockDomain` stimulus (clock, reset, softReset, clockEnable signals).
+     * 
+     * The reset duration is 16 clock periods. The period is computed from
+     * `ClockDomain.frequency`. An odd period will be truncated by one to have
+     * a symmetrical clock.
+     */
     def forkStimulus() : Unit = {
       val hz = cd.frequency match {
         case ClockDomain.FixedFrequency(value) => value.toBigDecimal
@@ -1177,58 +1230,77 @@ package object sim {
       if(cd.hasSoftResetSignalSim) cd.deassertSoftReset()
       if(cd.hasClockEnableSignalSim) cd.deassertClockEnable()
       fork(doStimulus(period, resetCycles))
-      if(sleepDuration >= 0) sleep(sleepDuration) //This allows the doStimulus to give initial value to clock/reset before going further
+      if(sleepDuration >= 0) sleep(sleepDuration) // This allows the doStimulus to give initial value to clock/reset before going further
     }
 
+    /* Fork a simulation process to generate the `ClockDomain` stimulus (clock, reset, softReset, clockEnable signals).
+     * 
+     * The reset duration is 16 clock periods. The period is given as a number 
+     * of simulation time units. An odd period will be truncated by one to have
+     * a symmetrical clock.
+     */
     def forkStimulus(period: TimeNumber): Unit = {
       forkStimulus(timeToLong(period))
     }
 
+    /* Fork a simulation process to generate the `ClockDomain` stimulus (clock, reset, softReset, clockEnable signals).
+     * 
+     * The reset duration is 16 clock periods. The period is computed from `frequency.toTime`.
+     * An odd period will be truncated by one to have a symmetrical clock.
+     */
     def forkStimulus(frequency: HertzNumber): Unit = forkStimulus(frequency.toTime)
 
+    /* Fork a simulation process which will periodically print the simulation speed in kilo-cycles per real time second
+     * `printPeriod`` is in realtime seconds.
+     */
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) : Unit = SimSpeedPrinter(cd, printPeriod)
 
-    def onRisingEdges(block : => Unit): Unit ={
+    /** During simulation, execute the callback when the clock generates a edge */
+    def onRisingEdges(block : => Unit): Unit = {
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)
       var last = manager.getInt(signal)
-      forkSensitive{
+      forkSensitive {
         val current = manager.getInt(signal)
         if(last == 0 && current == 1) block
         last = current
       }
     }
 
-    def onFallingEdges(block : => Unit): Unit ={
+    /** During simulation, execute the callback when the clock generates a falling edge */
+    def onFallingEdges(block : => Unit): Unit = {
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)
       var last = manager.getInt(signal)
-      forkSensitive{
+      forkSensitive {
         val current = manager.getInt(signal)
         if(last == 1 && current == 0) block
         last = current
       }
     }
 
+    /** During simulation, execute the callback when the clock generates its configured edge */
     def onActiveEdges(block : => Unit): Unit = {
       if (cd.config.clockEdge == spinal.core.RISING) {
         onRisingEdges(block)
-      }else{
+      }else {
         onFallingEdges(block)
       }
     }
 
+    /** During simulation, execute the callback when the clock generates a rising or falling edge */
     def onEdges(block : => Unit): Unit ={
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)
       var last = manager.getInt(signal)
-      forkSensitive{
+      forkSensitive {
         val current = manager.getInt(signal)
         if(last != current) block
         last = current
       }
     }
 
+    /** During simulation, execute the callback each time the ClockDomain sample (active edge + reset off + clock enable on) */
     def onSamplings(body: => Unit): Unit = {
       val key = (SimStatics.onSamplings, cd)
       val context = SimManagerContext.current
@@ -1249,6 +1321,7 @@ package object sim {
       context.get[ArrayBuffer[() => Unit]](key) += (() => body)
     }
 
+    /** During simulation, execute the callback only once on the next ClockDomain sample (active edge + reset off + clock enable on) */
     def onNextSampling(body: => Unit): Unit = {
       val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1 else 0
       val manager = SimManagerContext.current.manager
@@ -1267,6 +1340,10 @@ package object sim {
       }
     }
 
+    /** During simulation, execute the callback each time the ClockDomain sample (active edge + reset off + clock enable on) and you
+      * you can stop it (forever) by letting the callback returning false.
+      * @see onSampling()
+      */
     def onSamplingWhile(body : => Boolean) : Unit = {
       val context = SimManagerContext.current
       val edgeValue = if (cd.config.clockEdge == spinal.core.RISING) 1 else 0

@@ -7,6 +7,7 @@ import spinal.lib._
 
 object Node{
   def apply() : Node = new Node
+  def apply(defaultKey: Any): Node = new Node(defaultKey)
 
   class OffsetApi(subKeys: Seq[Any], node: Node) {
     def apply[T <: Data](that: Payload[T]): Seq[T] = {
@@ -37,10 +38,10 @@ trait NodeBaseApi {
 
   /** Return the hardware signal for this [[Payload]] key at the point of this [[Node]] in the pipeline.*/
   def apply[T <: Data](key: Payload[T]): T
-  
+
   /** Return the hardware signal for this ([[Payload]], subKey) key at the point of this [[Node]] in the pipeline.
-    * 
-    * This eases the construction of multi-lane hardware. For instance, when you have a 
+    *
+    * This eases the construction of multi-lane hardware. For instance, when you have a
     * multi-issue CPU pipeline, you can use the lane `Int` id as secondary key.
     */
   def apply[T <: Data](key: Payload[T], subKey: Any): T = {
@@ -49,7 +50,7 @@ trait NodeBaseApi {
 
   /** Allows converting a list of key into values. ex : node(1 to 2)(MY_STAGEABLE) */
   def apply(subKey: Seq[Any]) : Node.OffsetApi
-  
+
   /** Return a new [[Payload]] which is connected to the given `Data` hardware signal starting from this Node in the pipeline. */
   def insert[T <: Data](that: T): Payload[T] = {
     val s = Payload(cloneOf(that))
@@ -73,10 +74,10 @@ trait NodeApi extends NodeBaseApi {
   def defaultKey : Any = null
 
   /** The signal which specifies if a transaction is present on the node.
-    * 
+    *
     * It is driven by the upstream. Once asserted, it must only be de-asserted the cycle after which
     * either both [[valid]] and [[ready]] or [[cancel]] are high. [[valid]] must not depend on [[ready]].
-    * 
+    *
     * Created on demand, thus it's important to use [[isValid]] to get the signal value.
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/Pipeline/introduction.html#node Node documentation]]
     */
@@ -86,17 +87,17 @@ trait NodeApi extends NodeBaseApi {
     *
     * It is driven by the downstream to create backpressure. The signal has no meaning when there
     * is no transaction ([[valid]] being deasserted).
-    * 
+    *
     * Created on demand, thus it's important to use [[isReady]] to get the signal value.
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/Pipeline/introduction.html#node Node documentation]]
     */
   def ready : Bool = getNode.ready
 
   /** The signal which specifies if the node’s transaction in being canceled from the pipeline.
-    * 
+    *
     * It is driven by the downstream. The signal has no meaning when there is no transaction
     * ([[valid]] being deasserted).
-    * 
+    *
     * Created on demand, thus it's important to use [[isReady]] to get the signal value.
     * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/Pipeline/introduction.html#node Node documentation]]
     */
@@ -115,20 +116,20 @@ trait NodeApi extends NodeBaseApi {
   }
 
   /** `True` when the current transaction is successfully moving forward (`isReady && !isRemoved`).
-    * 
+    *
     * Useful to validate state changes.
-    */ 
+    */
   def isFiring : Bool = {
     if (status.isFiring.isEmpty) status.isFiring = Some(ContextSwapper.outsideCondScopeData(Bool().setCompositeName(getNode, "isFiring")))
     status.isFiring.get
   }
 
-  /** True when it is the last cycle that the current transaction is present on this node. 
-    * 
-    * More precisely, `True` when the node transaction will not be present anymore on the node 
-    * (starting from the next cycle), either because downstream is ready to take the transaction, or 
+  /** True when it is the last cycle that the current transaction is present on this node.
+    *
+    * More precisely, `True` when the node transaction will not be present anymore on the node
+    * (starting from the next cycle), either because downstream is ready to take the transaction, or
     * because the transaction is canceled from the pipeline. (`valid && (ready || cancel)`).
-    * 
+    *
     * Useful to “reset” states.
     */
   def isMoving : Bool = {
@@ -138,7 +139,7 @@ trait NodeApi extends NodeBaseApi {
 
   /**
     * `True` when the node transaction is being cleaned up.
-    * 
+    *
     * Meaning that it will not appear anywhere in the pipeline in future cycles.
     * It is equivalent to `isValid && isCancel`.
     */
@@ -217,21 +218,21 @@ trait NodeApi extends NodeBaseApi {
   def toStream[T <: Data](con: (Node) => T): Stream[T] = {
     val newPayload = con(getNode)
     val that = Stream(cloneOf(newPayload))
-    that.payload := newPayload 
+    that.payload := newPayload
     arbitrateTo(that)
     that
   }
-  
+
   def toFlow[T <: Data](con: (Node) => T): Flow[T] = {
     val newPayload = con(getNode)
     val that = Flow(cloneOf(newPayload))
-    that.payload := newPayload 
+    that.payload := newPayload
     arbitrateTo(that)
     that
   }
 }
 
-class Node() extends Area with NodeApi {
+class Node(override val defaultKey: Any = null) extends Area with NodeApi {
   override def getNode: Node = this
 
   override def valid = {
@@ -296,12 +297,14 @@ class Node() extends Area with NodeApi {
     status.isCanceling.foreach(_ := status.isCancel.map(isValid && _).getOrElse(False))
   }
 
-  class Area(override val defaultKey : Any = null) extends spinal.core.Area with NodeApi {
+  class Area(override val defaultKey : Any = Node.this.defaultKey) extends spinal.core.Area with NodeApi {
     override def getNode: Node = Node.this
   }
 }
 
 
-class NodeMirror(node : Node) extends NodeApi {
+class NodeMirror(node : Node, override val defaultKey : Any) extends NodeApi {
+  def this(node: Node) = this(node, node.defaultKey)
+
   def getNode: Node = node
 }

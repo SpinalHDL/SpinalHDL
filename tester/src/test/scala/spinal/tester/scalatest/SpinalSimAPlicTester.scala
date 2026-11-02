@@ -58,7 +58,20 @@ case class APlicMSITestFiber(hartIds: Seq[Int], sourceIds: Seq[Int], guestIds: S
   val crossBar = tilelink.fabric.Node()
   crossBar << masterBus.node
 
-  val blocks = hartIds.map(hartId => for (guestId <- guestIds) yield new SxAIABlock(sourceIds, hartId, guestId))
+  val files = hartIds.map(hartId => guestIds.map { guestId =>
+    val file = new ImsicFile(hartId, guestId, sourceIds.size + 1)
+
+    file.interrupts.foreach(i => {
+      i.ie.simPublic()
+      i.ip.simPublic()
+    })
+    file.identity.simPublic()
+    file.result.simPublic()
+    file.trigger.simPublic()
+    file.threshold.simPublic().allowUnsetRegToAvoidLatch()
+
+    file
+  })
 
   val modes = ArrayBuffer[SpinalEnumElement[APlicSourceMode.type]]()
 
@@ -93,10 +106,10 @@ case class APlicMSITestFiber(hartIds: Seq[Int], sourceIds: Seq[Int], guestIds: S
     val imsic = TilelinkImsicTriggerFiber()
     imsic.node at 0x50000000 of access
 
-    for (hartBlock <- blocks) {
-      for (block <- hartBlock) {
-        val trigger = imsic.addImsicFileinfo(block.asImsicFileInfo())
-        val connector = SxAIABlockTrigger(block, trigger)
+    for (hartFile <- files) {
+      for (file <- hartFile) {
+        val trigger = imsic.addImsicFileinfo(file.asImsicFileInfo())
+        file.trigger << trigger
       }
     }
 
@@ -144,8 +157,9 @@ case class APlicMSITestFiber(hartIds: Seq[Int], sourceIds: Seq[Int], guestIds: S
   val io = new Bundle {
     val bus = slave(tilelink.Bus(masterBus.m2sParams.toNodeParameters().toBusParameter()))
     val sources = in Bits(sourceIds.size bits)
-    val ie = in Vec(blocks.map(hartBlock => Vec(hartBlock.map(block => Bits(block.interrupts.size bits)))))
-    val ip = out Vec(blocks.map(hartBlock => Vec(hartBlock.map(block => Bits(block.interrupts.size bits)))))
+    val ie = in Vec(files.map(hartFiles => Vec(hartFiles.map(file => Bits(file.interrupts.size bits)))))
+    val ip = out Vec(files.map(hartFiles => Vec(hartFiles.map(file => Bits(file.interrupts.size bits)))))
+    val identity = out Vec(files.map(hartFiles => Vec(hartFiles.map(file => UInt(file.idWidth bits)))))
     val rootTarget = out Bits(1 bits)
     val masterTarget = out Bits(hartIds.size bits)
     val slave0Target = out Bits(hartIds.size bits)
@@ -163,8 +177,14 @@ case class APlicMSITestFiber(hartIds: Seq[Int], sourceIds: Seq[Int], guestIds: S
   io.slave0Target := peripherals.slave0Target.map(_.flag).asBits()
   io.slave1Target := peripherals.slave1Target.map(_.flag).asBits()
 
-  io.ip := Vec(blocks.map(hartBlock => Vec(hartBlock.map(block => block.interrupts.map(_.ip).asBits()))))
-  Vec(blocks.map(hartBlock => Vec(hartBlock.map(block => block.interrupts.map(_.ie).asBits())))) := io.ie
+  io.ip := Vec(files.map(hartFiles => Vec(hartFiles.map(file => file.interrupts.map(_.ip).asBits()))))
+  io.identity := Vec(files.map(hartFiles => Vec(hartFiles.map(file => file.identity))))
+
+  files.zip(io.ie).foreach{case (hartFile, hartIe) => {
+    hartFile.zip(hartIe).foreach{case (file, ies) => {
+      file.interrupts.zipWithIndex.foreach{case (i, idx) => i.ie := ies(idx)}
+    }}
+  }}
 }
 
 case class APlicDirectTestFiber(hartIds: Seq[Int], sourceIds: Seq[Int], mode: InterruptMode = LEVEL_HIGH) extends Component {
@@ -793,7 +813,8 @@ class SpinalSimAPlicTester extends SpinalSimFunSuite {
         dut.io.sources #= BigInt("0", 16).setBit(sourceId - 1)
         dut.clockDomain.waitRisingEdge(4)
         assertBit(dut.io.ip(thisHartId)(thisGuestId).toBigInt, sourceId - 1, true, s"trigger target at ip($thisHartId)($thisGuestId)")
-        dut.blocks(thisHartId)(thisGuestId).interrupts(sourceId - 1).ip #= false
+        assert(dut.io.identity(thisHartId)(thisGuestId).toBigInt == sourceId, s"check trigger target identity at ip($thisHartId)($thisGuestId)")
+        dut.files(thisHartId)(thisGuestId).interrupts(sourceId - 1).ip #= false
       }
 
       dut.clockDomain.waitRisingEdge(100)
@@ -822,21 +843,21 @@ class SpinalSimAPlicTester extends SpinalSimFunSuite {
         dut.clockDomain.waitRisingEdge(4)
         assertBit(dut.io.ip(thisHartId)(thisGuestId).toBigInt, sourceId - 1, true, s"trigger ip($thisHartId)($thisGuestId)(${sourceId - 1}) by source(${sourceId-1}) when rectified_source = 1")
 
-        dut.blocks(thisHartId)(thisGuestId).interrupts(sourceId - 1).ip #= false
+        dut.files(thisHartId)(thisGuestId).interrupts(sourceId - 1).ip #= false
 
         // setipnum
         agent.putFullData(0, masterAddr + aplicmap.setipnumOffset, SimUInt32(sourceId))
         dut.clockDomain.waitRisingEdge(4)
         assertBit(dut.io.ip(thisHartId)(thisGuestId).toBigInt, sourceId - 1, true, s"trigger ip($thisHartId)($thisGuestId)(${sourceId - 1}) by setipnum when rectified_source = 1")
 
-        dut.blocks(thisHartId)(thisGuestId).interrupts(sourceId - 1).ip #= false
+        dut.files(thisHartId)(thisGuestId).interrupts(sourceId - 1).ip #= false
 
         // setipnum_le
         agent.putFullData(0, masterAddr + aplicmap.setipnum_leOffset, SimUInt32(sourceId))
         dut.clockDomain.waitRisingEdge(4)
         assertBit(dut.io.ip(thisHartId)(thisGuestId).toBigInt, sourceId - 1, true, s"trigger ip($thisHartId)($thisGuestId)(${sourceId - 1}) by setipnum_le when rectified_source = 1")
 
-        dut.blocks(thisHartId)(thisGuestId).interrupts(sourceId - 1).ip #= false
+        dut.files(thisHartId)(thisGuestId).interrupts(sourceId - 1).ip #= false
 
         // rectified_source = 0, can not trigger eip through setipnum
         dut.io.sources #= BigInt("0", 16)
@@ -880,7 +901,7 @@ class SpinalSimAPlicTester extends SpinalSimFunSuite {
         agent.putFullData(0, masterAddr + aplicmap.genmsiOffset, SimUInt32(randomHartid << 18 | sourceId))
         dut.clockDomain.waitRisingEdge(4)
         assertBit(dut.io.ip(randomHartid)(0).toBigInt, sourceId - 1, true, s"trigger ip($randomHartid)(0)(${sourceId - 1}) by genmsi")
-        dut.blocks(randomHartid)(0).interrupts(sourceId - 1).ip #= false
+        dut.files(randomHartid)(0).interrupts(sourceId - 1).ip #= false
       }
 
       dut.clockDomain.waitRisingEdge(100)
@@ -1029,64 +1050,6 @@ object APlicTestHelper {
     assert(data.testBit(id) == expect,
     s"\n  $name: check IO bit failed:\n  data = 0x${data.toString(16)}\n  bit index = $id\n  expected = $expect\n"
     )
-  }
-}
-
-case class SxAIAInterruptSource(sourceId: Int) extends Area {
-  val id = sourceId
-  val ie = RegInit(False)
-  val ip = RegInit(False)
-
-  val profile = new Area {
-    val en = RegInit(False)
-    val counter = Counter(32 bits, en && !ip)
-    val latency = counter.value
-
-    when (!en) {
-      counter.clear()
-    }
-
-    en.simPublic()
-    latency.simPublic()
-  }
-
-  ie.simPublic()
-  ip.simPublic()
-}
-
-case class SxAIABlock(sourceIds: Seq[Int], hartId: Int, guestId: Int) extends Area {
-  val interrupts = for (sourceId <- sourceIds) yield new SxAIAInterruptSource(sourceId)
-
-  def asImsicFileInfo(groupId: Int, groupHartId: Int): ImsicFileInfo = ImsicFileInfo(
-    hartId      = hartId,
-    guestId     = guestId,
-    sourceIds   = interrupts.map(_.id),
-    groupId     = groupId,
-    groupHartId = groupHartId
-  )
-
-  def asImsicFileInfo(hartPerGroup: Int = 0): ImsicFileInfo = {
-    val info = if (hartPerGroup == 0) {
-      asImsicFileInfo(
-        groupId     = 0,
-        groupHartId = hartId
-      )
-    } else {
-      asImsicFileInfo(
-        groupId     = hartId / hartPerGroup,
-        groupHartId = hartId % hartPerGroup
-      )
-    }
-
-    info
-  }
-}
-
-case class SxAIABlockTrigger(block: SxAIABlock, triggers: Bits) extends Area {
-  for ((interrupt, trigger) <- block.interrupts.zip(triggers.asBools)) {
-    when(trigger) {
-      interrupt.ip := True
-    }
   }
 }
 

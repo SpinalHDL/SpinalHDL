@@ -540,7 +540,7 @@ class RepeatabilityTester extends SpinalAnyFunSuite{
 
   test("UartGraph"){
     val dut = SpinalVerilog(new UartCtrl(UartCtrlGenerics())).toplevel
-    assert(GraphUtils.countNames(dut) == 94)
+    assert(GraphUtils.countNames(dut) == 98)
   }
 
 

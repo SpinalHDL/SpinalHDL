@@ -183,14 +183,17 @@ class MasterTester(val m : MasterSpec, val agent : MasterAgent){
               deniedOn(_.get){(address, bytes) =>
                 val d = agent.get(sourceId, address, bytes)
                 assert(d.denied)
+                assert(d.corrupt)
               }
               deniedOn(_.putPartial){(address, bytes) =>
                 val d = agent.putPartialData(sourceId, address, randomizedData(bytes), randomizedMask(bytes))
                 assert(d.denied)
+                assert(!d.corrupt)
               }
               deniedOn(_.putFull){(address, bytes) =>
                 val d = agent.putFullData(sourceId, address, randomizedData(bytes))
                 assert(d.denied)
+                assert(!d.corrupt)
               }
               deniedOn(_.acquireB){(address, bytes) =>
                 val b = agent.block.get(sourceId, address) match {

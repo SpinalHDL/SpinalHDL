@@ -86,13 +86,15 @@ class AxiLite4Bridge(p : NodeParameters) extends Component{
     io.down.r.ready := io.up.d.ready
     io.down.b.ready := io.up.d.ready || !lastB
     io.up.d.valid := io.down.r.valid || io.down.b.valid && lastB
-    io.up.d.opcode := pending.get.mux(Opcode.D.ACCESS_ACK_DATA(), Opcode.D.ACCESS_ACK())
+    val ackOpcode = pending.get.mux(Opcode.D.ACCESS_ACK_DATA(), Opcode.D.ACCESS_ACK())
+    val denied = !pending.get.mux(io.down.r.isOKAY(), io.down.b.isOKAY())
+    io.up.d.opcode := ackOpcode
     io.up.d.param := 0
     io.up.d.source := pending.source
     io.up.d.sink := 0
-    io.up.d.denied := !pending.get.mux(io.down.r.isOKAY(), io.down.b.isOKAY())
+    io.up.d.denied := denied
     io.up.d.data := io.down.r.data
-    io.up.d.corrupt := False
+    io.up.d.corrupt := denied && Opcode.D.isData(ackOpcode)
     io.up.d.size := pending.size
   }
 }

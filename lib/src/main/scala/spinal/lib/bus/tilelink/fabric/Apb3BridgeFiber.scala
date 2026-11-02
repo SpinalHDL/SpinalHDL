@@ -4,10 +4,11 @@ import spinal.core._
 import spinal.core.fiber._
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.tilelink
+import spinal.lib.bus.tilelink.Apb3BridgeConfig
 import spinal.lib.system.tag.{MemoryConnection, MemoryTransferTag}
 
 
-class Apb3BridgeFiber(var withAxi3 : Boolean = false) extends Area{
+class Apb3BridgeFiber(val c : Apb3BridgeConfig = Apb3BridgeConfig()) extends Area{
   val up = Node.slave()
   val down = new Handle[Apb3] with SpinalTagReady
 
@@ -23,10 +24,10 @@ class Apb3BridgeFiber(var withAxi3 : Boolean = false) extends Area{
   })
 
   val logic = Fiber build new Area{
-    up.m2s.supported load tilelink.Apb3Bridge.getSupported(up.m2s.proposed)
+    up.m2s.supported load tilelink.Apb3Bridge.getSupported(up.m2s.proposed, c)
     up.s2m.none()
 
-    val bridge = new tilelink.Apb3Bridge(up.bus.p.node)
+    val bridge = new tilelink.Apb3Bridge(up.bus.p.node, c)
     bridge.io.up << up.bus
     down.load(cloneOf(bridge.io.down))
     bridge.io.down >> down

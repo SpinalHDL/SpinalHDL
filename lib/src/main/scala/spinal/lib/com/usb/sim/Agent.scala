@@ -7,7 +7,6 @@ import spinal.lib.com.usb.phy._
 import spinal.sim.SimThread
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 import scala.collection.{Seq, mutable}
 
 
@@ -138,13 +137,13 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     var booleans = bytesToBoolean(buf)
     if(crcError){
       //      do {
-      val bit = Random.nextInt(booleans.size - 16) + 16
+      val bit = simRandom.nextInt(booleans.size - 16) + 16
       booleans(bit) ^= true
       //      } while(calcCrc(buf.tail,0x8005, 16, true) == 0x800D)
     }
     val stuffed = encodeStuffing(booleans).toArray
     if(stuffingError) {
-      val patchAt = if(stuffed.size <= 16) 8 else 8+Random.nextInt(stuffed.size-16)
+      val patchAt = if(stuffed.size <= 16) 8 else 8+simRandom.nextInt(stuffed.size-16)
       for(i <- 0 until 8){
         stuffed(patchAt + i) = true
       }
@@ -153,7 +152,7 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
 
     def rec(data : List[Boolean]): Unit ={
       if(data.isEmpty){
-        emitEop(Random.nextBoolean(), eopError, ls)
+        emitEop(simRandom.nextBoolean(), eopError, ls)
       } else {
         rx.enable = true
         rx.dm = !lowSpeed ^ data.head
@@ -191,7 +190,7 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
   def emitEop(extraBit : Boolean, error : Boolean, ls : Boolean): Unit ={
     if(extraBit){
       rx.enable = true
-      rx.dm = Random.nextBoolean()
+      rx.dm = simRandom.nextBoolean()
       rx.dp = !rx.dm
       delayed(randomBitTime(ls)){
         emitEop(false, error, ls)

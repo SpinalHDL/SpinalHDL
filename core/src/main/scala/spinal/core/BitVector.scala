@@ -505,9 +505,10 @@ abstract class BitVector extends BaseType with Widthable {
     this
   }
 
-  /** Set all bits */
+  /** Hardware assignment of all bits to `True` */
   override def setAll(): this.type
-  /** Clear all bits */
+  
+  /** Hardware assignment of all bits to `False` */
   override def clearAll(): this.type = {
     this := this.getZeroUnconstrained
     this

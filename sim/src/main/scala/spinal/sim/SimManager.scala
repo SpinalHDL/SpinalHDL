@@ -66,7 +66,12 @@ class SimFailureBackend() extends Exception ()
 class SimFailure(message : String) extends Exception (message)
 
 object SimManager{
-  var cpuAffinity = Random.nextInt(cpuCount)
+  var cpuAffinity = 0
+  try {
+    Random.nextInt(cpuCount)
+  } catch {
+    case e : Throwable => //In case Random is supressed
+  }
   lazy val cpuCount = {
     try {
       val systemInfo = new oshi.SystemInfo

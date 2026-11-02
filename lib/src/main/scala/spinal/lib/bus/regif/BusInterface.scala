@@ -9,6 +9,7 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.wishbone.Wishbone
 import spinal.lib.bus.bram.BRAM
 import spinal.lib.bus.localbus.{MemBus, MinBus}
+import spinal.lib.bus.tilelink
 import spinal.lib.bus.regif.BusIfAdapter.MinBusInterface
 
 object BusInterface {
@@ -51,4 +52,8 @@ object BusInterface {
   def apply(bus: MinBus, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = MinBusInterface(bus, sizeMap)(moduleName)
   def apply(bus: MinBus, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = MinBusInterface(bus, sizeMap, regPre)(moduleName)
   def apply(bus: MinBus, sizeMap: SizeMapping, regPre: String, withSecFireWall: Boolean)(implicit moduleName: ClassName): BusIf = MinBusInterface(bus, sizeMap, regPre, withSecFireWall)(moduleName)
+
+  def apply(bus: tilelink.Bus, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = TilelinkBusInterface(bus, sizeMap)(moduleName)
+  def apply(bus: tilelink.Bus, sizeMap: SizeMapping, regPre: String)(implicit moduleName: ClassName): BusIf = TilelinkBusInterface(bus, sizeMap, regPre)(moduleName)
+  def apply(bus: tilelink.Bus, sizeMap: SizeMapping, regPre: String, withSecFireWall: Boolean)(implicit moduleName: ClassName): BusIf = TilelinkBusInterface(bus, sizeMap, regPre, withSecFireWall)(moduleName)
 }

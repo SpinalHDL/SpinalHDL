@@ -6,7 +6,7 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.tilelink._
 import spinal.lib.fsm.{State, StateDelay, StateMachine}
 import spinal.lib.misc.Plru
-import spinal.lib.pipeline._
+import spinal.lib.misc.pipeline._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -190,10 +190,10 @@ class Cache(val p : CacheParam) extends Component {
   val coherentMasterCount = coherentMasters.size
   val coherentMasterToSource = coherentMasters.map(_.bSourceId)
 
-  val SET_ID = Stageable(UInt(log2Up(lockSets) bits))
-  val LOCK_CTX = Stageable(Bool())
-  val ADDRESS = Stageable(ubp.address)
-  val GS_ID = Stageable(UInt(log2Up(generalSlotCount) bits))
+  val SET_ID = Payload(UInt(log2Up(lockSets) bits))
+  val LOCK_CTX = Payload(Bool())
+  val ADDRESS = Payload(ubp.address)
+  val GS_ID = Payload(UInt(log2Up(generalSlotCount) bits))
 
   val emptyId = 0
   def isBlockEmpty(blockId : UInt) = blockId === emptyId
@@ -377,8 +377,8 @@ class Cache(val p : CacheParam) extends Component {
   }
 
 
-  val CTRL_CMD = Stageable(new CtrlCmd())
-  val BUFFER_A_ID = Stageable(UInt((if(ubp.withDataA) log2Up(aBufferCount).toInt else 0) bits))
+  val CTRL_CMD = Payload(new CtrlCmd())
+  val BUFFER_A_ID = Payload(UInt((if(ubp.withDataA) log2Up(aBufferCount).toInt else 0) bits))
 
 
 
@@ -777,14 +777,14 @@ class Cache(val p : CacheParam) extends Component {
   }
 
   // TODO check older way is allocated
-  val ctrl = new Pipeline{
-    val stages = newChained(3, Connection.M2S())
-    val inserterStage = stages(0)
-    val addressStage = stages(0)
-    val dataStage = stages(1)
-    val tagStage = stages(1)
-    val prepStage = stages(1)
-    val processStage = stages(2)
+  val ctrl = new StageCtrlPipeline{
+    val inserterStage = ctrl(0)
+    val addressStage = ctrl(0)
+    val dataStage = ctrl(1)
+    val tagStage = ctrl(1)
+    val prepStage = ctrl(1)
+    val processStage = ctrl(2)
+    val stages = List(inserterStage, dataStage, processStage)
 
     import CtrlOpcode._
 
@@ -795,11 +795,9 @@ class Cache(val p : CacheParam) extends Component {
       val fifo = StreamFifo(new CtrlCmd, ctrlLoopbackDepth, forFMax = true)
     }
 
-    val inserter = new Area {
-      import inserterStage._
-
+    val inserter = new inserterStage.Area {
       def hazardHalt(that : Stream[CtrlCmd]) = {
-        val hits = stages.tail.map(s => s.valid && s(CTRL_CMD).address(setsRange) === that.address(setsRange))
+        val hits = stages.tail.map(s => s.up.valid && s(CTRL_CMD).address(setsRange) === that.address(setsRange))
         that.haltWhen(hits.orR)
       }
 
@@ -860,30 +858,28 @@ class Cache(val p : CacheParam) extends Component {
         loopback.occupancy.increment()
       }
 
-      driveFrom(hazardHalt(arbiter.io.output))
+      up.arbitrateFrom(hazardHalt(arbiter.io.output))
       inserterStage(CTRL_CMD) := arbiter.io.output
 
       val SOURCE_OH = insert(B(coherentMasters.map(_.sourceHit(CTRL_CMD.source))))
     }
 
-    cache.tags.read.cmd.valid := addressStage.isFiring
+    cache.tags.read.cmd.valid := addressStage.up.isFiring
     cache.tags.read.cmd.payload := addressStage(CTRL_CMD).address(lineRange)
     val CACHE_TAGS = dataStage.insert(cache.tags.read.rsp)
 
-    cache.plru.read.cmd.valid := addressStage.isFiring
+    cache.plru.read.cmd.valid := addressStage.up.isFiring
     cache.plru.read.cmd.payload := addressStage(CTRL_CMD).address(setsRange)
     val CACHE_PLRU = dataStage.insert(cache.plru.read.rsp)
 
 
-    val tags = new Area{
-      import tagStage._
-      val read = tagStage(CACHE_TAGS)
+    val tags = new tagStage.Area{
+      val read = CACHE_TAGS
       val CACHE_HITS  = insert(read.map(t => t.loaded && t.tag === CTRL_CMD.address(tagRange)).asBits)
       val SOURCE_HITS = insert(read.map(t => (t.owners & inserter.SOURCE_OH).orR).asBits)
     }
 
-    val preCtrl = new Area{
-      import prepStage._
+    val preCtrl = new prepStage.Area{
       val PROBE_REGION = insert(p.coherentRegion(CTRL_CMD.address))
       val ALLOCATE_ON_MISS = insert(p.allocateOnMiss(CTRL_CMD.opcode, CTRL_CMD.source, CTRL_CMD.address, CTRL_CMD.size, CTRL_CMD.upParam)) //TODO
       val FROM_A = insert(List(GET(), PUT_FULL_DATA(), PUT_PARTIAL_DATA(), ACQUIRE_BLOCK(), ACQUIRE_PERM(), FLUSH()).sContains(CTRL_CMD.opcode))
@@ -908,22 +904,19 @@ class Cache(val p : CacheParam) extends Component {
       }
     }
 
-    val process = new Area {
-      import processStage._
-
-
+    val process = new processStage.Area {
       val redoUpA = False
       assert(!(isValid && redoUpA && !preCtrl.FROM_A))
-      throwIt(redoUpA)
+      throwWhen(redoUpA)
 
       redoUpA.setWhen(preCtrl.FROM_A && !CTRL_CMD.probed && preCtrl.GS_HIT) // TODO could be less pessimistic
 
 
       val stallIt = False
       assert(!(isValid && stallIt && preCtrl.FROM_A))
-      haltIt(stallIt)
+      haltWhen(stallIt)
 
-      val firstCycle = RegNext(!isStuck || stallIt) init (True)
+      val firstCycle = RegNext(!isValid || up.isReady || stallIt) init (True)
 
       val gsHitVictim = CTRL_CMD.opcode === RELEASE_DATA && (preCtrl.GS_HITS & B(gs.slots.map(_.pending.victimWrite))).orR
       stallIt setWhen(gsHitVictim)
@@ -946,16 +939,16 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
 
-      when(isFiring && preCtrl.FROM_A && askGs && !redoUpA){
+      when(up.isFiring && preCtrl.FROM_A && askGs && !redoUpA){
         loopback.occupancy.decrement()
       }
 
-//      val toProbe = forkStream(askProbe && !redoUpA).swapPayload(new ProbeCmd())
-      val toReadDown = forkStream(askReadDown && !redoUpA).swapPayload(new ReadDownCmd)
-      val toReadBackend = forkStream(askReadBackend && !redoUpA).swapPayload(new ReadBackendCmd)
-      val toWriteBackend = forkStream(askWriteBackend && !redoUpA && !stallIt).swapPayload(new WriteBackendCmd)
-      val toUpD = forkStream(askUpD && !redoUpA).swapPayload(io.up.d.payloadType)
-      val toOrdering = forkFlow(askOrdering && !redoUpA).swapPayload(io.ordering.ctrlProcess.payloadType)
+//      val toProbe = forkStream(enabled = askProbe && !redoUpA).swapPayload(new ProbeCmd())
+      val toReadDown = forkStream(enabled = askReadDown && !redoUpA).swapPayload(new ReadDownCmd)
+      val toReadBackend = forkStream(enabled = askReadBackend && !redoUpA).swapPayload(new ReadBackendCmd)
+      val toWriteBackend = forkStream(enabled = askWriteBackend && !redoUpA && !stallIt).swapPayload(new WriteBackendCmd)
+      val toUpD = forkStream(enabled = askUpD && !redoUpA).swapPayload(io.up.d.payloadType)
+      val toOrdering = forkFlow(enabled = askOrdering && !redoUpA).swapPayload(io.ordering.ctrlProcess.payloadType)
 
       val CACHE_HIT = insert(tags.CACHE_HITS.orR)
       val CACHE_HIT_WAY_ID = insert(OHToUInt(tags.CACHE_HITS))
@@ -1000,7 +993,7 @@ class Cache(val p : CacheParam) extends Component {
 
 
       val clearPrimary = False
-      val oldClearPrimary = RegNext(clearPrimary && isFiring && !isRemoved) init(False)
+      val oldClearPrimary = RegNext(clearPrimary && up.isFiring) init(False)
       val oldGsId = RegNext(gsId)
       when(oldClearPrimary) {
         gs.slots.onSel(oldGsId)(_.pending.primary := False)
@@ -1020,7 +1013,7 @@ class Cache(val p : CacheParam) extends Component {
       redoUpA setWhen(!CTRL_CMD.probed && preCtrl.FROM_A && !prober.cmd.ready && firstCycle)
       assert(!(isValid && redoUpA && !loopback.fifo.io.push.ready))
 
-      val doIt = isFiring && !isRemoved
+      val doIt = up.isFiring
 
       val olderWay = new Area{
         val plru = new Plru(cacheWays, false)
@@ -1034,7 +1027,7 @@ class Cache(val p : CacheParam) extends Component {
           plru.io.update.id := plru.io.evict.id
         }
 
-        cache.plru.write.valid clearWhen (!isFiring)
+        cache.plru.write.valid clearWhen (!up.isFiring)
         cache.plru.write.address := CTRL_CMD.address(setsRange)
         cache.plru.write.data := plru.io.update.state
 
@@ -1078,12 +1071,12 @@ class Cache(val p : CacheParam) extends Component {
             s.sourceId := CTRL_CMD.source
             if(withFlushBus) s.pending.flushBus := gsFlushBus
           }
-          when(isReady) {
+          when(up.isReady) {
             s.valid := True
           }
         }
       }
-      gotGs clearWhen (isFiring)
+      gotGs clearWhen (up.isFiring)
 
       toReadBackend.address := CTRL_CMD.address
       toReadBackend.size := CTRL_CMD.size
@@ -1118,7 +1111,7 @@ class Cache(val p : CacheParam) extends Component {
         toReadDown.size := log2Up(blockSize)
       }
 
-      val ctxDownDWritten = RegInit(False) setWhen (gs.ctxDownD.write.valid) clearWhen (isFiring)
+      val ctxDownDWritten = RegInit(False) setWhen (gs.ctxDownD.write.valid) clearWhen (up.isFiring)
       val ctxDownD = gs.ctxDownD.write
       ctxDownD.valid := isValid && askGs && !redoUpA && !stallIt && !ctxDownDWritten
       ctxDownD.address            := gsId
@@ -1240,7 +1233,7 @@ class Cache(val p : CacheParam) extends Component {
       }
 
       when(preCtrl.IS_RELEASE){
-        when(isFiring){
+        when(up.isFiring){
           for(s <- prober.slots){
             when(s.address === CTRL_CMD.address(blockRange)){
               when(preCtrl.WRITE_DATA) {
@@ -1396,6 +1389,8 @@ class Cache(val p : CacheParam) extends Component {
         askProbe := False
       }
     }
+
+    build()
   }
 
   val readDown = new Area {
@@ -1429,32 +1424,29 @@ class Cache(val p : CacheParam) extends Component {
   - writeBackend from writing cache
   - fromDownD from writing cache
    */
-  val readBackend = new Pipeline {
-    val stages = newChained(p.readProcessAt+1, Connection.M2S(collapse = true))
-    val inserterStage = stages(0)
-    val fetchStage = stages(0)
-    val readStage = stages(1)
-    val processStage = stages(p.readProcessAt)
+  val readBackend = new StageCtrlPipeline {
+    val inserterStage = ctrl(0)
+    val fetchStage = inserterStage
+    val readStage = ctrl(1)
+    val processStage = ctrl(p.readProcessAt)
 
-    val CMD = Stageable(new ReadBackendCmd())
+    val CMD = Payload(new ReadBackendCmd())
 
-    def victimAddress(stage : Stage) = stage(CMD).gsId @@ stage(CMD).address(wordRange)
+    def victimAddress(stage : CtrlApi) = stage(CMD).gsId @@ stage(CMD).address(wordRange)
 
-    val inserter = new Area {
-      import inserterStage._
-
-      val cmd = ctrl.process.toReadBackend.pipelined(m2s = true, s2m = true)
+    val inserter = new inserterStage.Area {
+      val cmd = Cache.this.ctrl.process.toReadBackend.pipelined(m2s = true, s2m = true)
       val counter = Reg(io.up.p.beat()) init (0)
       val LAST = insert(counter === sizeToBeatMinusOne(io.up.p, cmd.size))
       val FIRST = insert(counter === 0)
       val WRITE_FORK = insert(CMD.toWriteBackend && FIRST)
 
-      cmd.ready := isReady && LAST
-      valid := cmd.valid
+      cmd.ready := up.isReady && LAST
+      up.valid := cmd.valid
       inserterStage(CMD) := cmd.payload
       CMD.address.removeAssignments() := cmd.address | (counter << log2Up(p.dataBytes)).resized
 
-      when(isFiring) {
+      when(up.isFiring) {
         counter := counter + 1
         when(LAST) {
           counter := 0
@@ -1462,13 +1454,11 @@ class Cache(val p : CacheParam) extends Component {
       }
     }
 
-    val fetcher = new Area {
-      import fetchStage._
-
-      cache.data.upRead.valid := isFiring
+    val fetcher = new fetchStage.Area {
+      cache.data.upRead.valid := up.isFiring
       cache.data.upRead.payload := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
 
-      when(isFiring && CMD.toVictim && inserter.FIRST) {
+      when(up.isFiring && CMD.toVictim && inserter.FIRST) {
         gs.slots.onSel(CMD.gsId) { s =>
           s.pending.victimRead := False
         }
@@ -1477,12 +1467,10 @@ class Cache(val p : CacheParam) extends Component {
 
     val CACHED = readStage.insert(Vec(cache.data.banks.map(_.readed))) //May want KEEP attribute
 
-    val process = new Area {
-      import processStage._
-
+    val process = new processStage.Area {
       val DATA = insert(CACHED(CMD.address(log2Up(p.dataBytes), log2Up(cacheBanks) bits)))
 
-      val toUpDFork = forkStream(CMD.toUpD)
+      val toUpDFork = forkStream(enabled = CMD.toUpD)
       val toUpD = toUpDFork swapPayload io.up.d.payloadType()
       toUpD.opcode := CMD.upD.opcode
       toUpD.param := CMD.upD.param
@@ -1494,27 +1482,27 @@ class Cache(val p : CacheParam) extends Component {
       toUpD.corrupt := False
 
 
-      val toVictimFork = forkFlow(CMD.toVictim)
+      val toVictimFork = forkFlow(enabled = CMD.toVictim)
       victimBuffer.write.valid := toVictimFork.valid
       victimBuffer.write.address := victimAddress(processStage)
       victimBuffer.write.data := DATA
 
       val gsOh = UIntToOh(CMD.gsId, generalSlotCount)
 
-      when(isFiring && CMD.toVictim && inserter.FIRST) {
+      when(up.isFiring && CMD.toVictim && inserter.FIRST) {
         gs.slots.onMask(gsOh) { s =>
           s.pending.victimWrite := False
         }
       }
 
-      when(isFiring && inserter.LAST) {
+      when(up.isFiring && inserter.LAST) {
         when(CMD.toUpD) {
           gs.slots.onMask(gsOh)(_.pending.primary := False)
         }
       }
 
 
-      val toWriteBackendFork = forkStream(inserter.WRITE_FORK)
+      val toWriteBackendFork = forkStream(enabled = inserter.WRITE_FORK)
       val toWriteBackend = toWriteBackendFork.swapPayload(new WriteBackendCmd())
       toWriteBackend.fromUpA    := False
       toWriteBackend.fromUpC    := False
@@ -1531,16 +1519,17 @@ class Cache(val p : CacheParam) extends Component {
       toWriteBackend.evict      := True
       toWriteBackend.debugId    := 0
     }
+
+    build()
   }
 
-  val writeBackend = new Pipeline {
-    val stages = newChained(3, Connection.M2S())
-    val inserterStage = stages(0)
-    val fetchStage = stages(0)
-    val readStage = stages(1)
-    val processStage = stages(2)
+  val writeBackend = new StageCtrlPipeline {
+    val inserterStage = ctrl(0)
+    val fetchStage = ctrl(0)
+    val readStage = ctrl(1)
+    val processStage = ctrl(2)
 
-    val CMD = Stageable(new WriteBackendCmd())
+    val CMD = Payload(new WriteBackendCmd())
 
     // Put merge is used on upA put which trigger a cache line load
     val putMerges = ubp.withDataA generate new Area {
@@ -1566,10 +1555,8 @@ class Cache(val p : CacheParam) extends Component {
       cmd.evict := False
     }
 
-    val inserter = new Area {
-      import inserterStage._
-
-      val ctrlBuffered = ctrl.process.toWriteBackend
+    val inserter = new inserterStage.Area {
+      val ctrlBuffered = Cache.this.ctrl.process.toWriteBackend
       val fromReadBackend = readBackend.process.toWriteBackend.s2mPipe().queue(generalSlotCount).halfPipe()//TODO not that great for area
       val arbiterInputs = ArrayBuffer[Stream[WriteBackendCmd]]()
       arbiterInputs += ctrlBuffered
@@ -1585,14 +1572,14 @@ class Cache(val p : CacheParam) extends Component {
       val addressWord = cmd.address(wordRange)
       val IN_UP_A = insert(!CMD.fromUpC || counter >= addressWord && counter <= addressWord + upABeatsMinusOne)
 
-      cmd.ready := isReady && LAST
-      valid := cmd.valid
+      cmd.ready := up.isReady && LAST
+      up.valid := cmd.valid
       inserterStage(CMD) := cmd.payload
       val addressBase = cmd.address(refillRange) @@ cmd.address(refillRange.low-1 downto 0).andMask(!CMD.fromUpC)
       CMD.address.removeAssignments() := addressBase | (counter << log2Up(p.dataBytes)).resized
       val tlWord = insert(addressBase(wordRange))
 
-      when(isFiring) {
+      when(up.isFiring) {
         counter := counter + 1
         when(LAST) {
           counter := 0
@@ -1601,23 +1588,21 @@ class Cache(val p : CacheParam) extends Component {
     }
 
 
-    val fetch = new Area{
-      import fetchStage._
-
+    val fetch = new fetchStage.Area{
       if(ubp.withDataA) {
-        fromUpA.buffer.read.cmd.valid := fetchStage.isFiring
-        fromUpA.buffer.read.cmd.payload := fetchStage(CMD).bufferAId @@ fetchStage(CMD).address(wordRange)
-        when(isFiring && inserter.LAST && CMD.fromUpA) {
-          fromUpA.buffer.clear(fetchStage(CMD).bufferAId) := True
+        fromUpA.buffer.read.cmd.valid := up.isFiring
+        fromUpA.buffer.read.cmd.payload := CMD.bufferAId @@ CMD.address(wordRange)
+        when(up.isFiring && inserter.LAST && CMD.fromUpA) {
+          fromUpA.buffer.clear(CMD.bufferAId) := True
         }
       }
 
-      victimBuffer.read.cmd.valid := fetchStage.isFiring
-      victimBuffer.read.cmd.payload := fetchStage(CMD).gsId @@ fetchStage(CMD).address(wordRange)
+      victimBuffer.read.cmd.valid := up.isFiring
+      victimBuffer.read.cmd.payload := CMD.gsId @@ CMD.address(wordRange)
 
       val vh = readBackend.processStage
       val victimWrite = gs.slots.reader(CMD.gsId)(_.pending.victimWrite)
-      val victimWriteOnGoing = vh.valid &&
+      val victimWriteOnGoing = vh.up.valid &&
         vh(readBackend.CMD).toVictim &&
         readBackend.victimAddress(vh) === (CMD.gsId @@ CMD.address(wordRange))
       val victimHazard = CMD.evict && (victimWrite || victimWriteOnGoing)
@@ -1627,9 +1612,7 @@ class Cache(val p : CacheParam) extends Component {
     val BUFFER_A = ubp.withDataA generate readStage.insert(fromUpA.buffer.read.rsp)
     val VICTIM = readStage.insert(victimBuffer.read.rsp)
 
-    val process = new Area {
-      import processStage._
-
+    val process = new processStage.Area {
       val acMergeLogic = ubp.withDataA generate new Area {
         val aSplit = BUFFER_A.data.subdivideIn(8 bits)
         val cSplit = upCSplit.dataPop.payload.subdivideIn(8 bits)
@@ -1642,23 +1625,23 @@ class Cache(val p : CacheParam) extends Component {
         UP_MASK := BUFFER_A.mask
       }
       val hazardUpC = CMD.fromUpC && !upCSplit.dataPop.valid
-      upCSplit.dataPop.ready := CMD.fromUpC && isFiring
+      upCSplit.dataPop.ready := CMD.fromUpC && up.isFiring
 
 
       val vh = readBackend.fetchStage
       val victimRead = gs.slots.reader(CMD.gsId)(_.pending.victimRead)
-      val victimReadOnGoing = vh.valid &&
+      val victimReadOnGoing = vh.up.valid &&
         vh(readBackend.CMD).toVictim &&
         readBackend.victimAddress(vh) === (CMD.gsId @@ CMD.address(wordRange))
       val victimHazard = CMD.toCache && (victimRead || victimReadOnGoing)
 
-      val toCacheFork = forkStream(CMD.toCache)
+      val toCacheFork = forkStream(enabled = CMD.toCache)
       cache.data.upWrite.arbitrationFrom(toCacheFork.haltWhen(hazardUpC || victimHazard))
       cache.data.upWrite.address := CMD.wayId @@ CMD.address(setsRange.high downto wordRange.low)
       cache.data.upWrite.data := UP_DATA
       cache.data.upWrite.mask := UP_MASK
 
-      val toDownAFork = forkStream(CMD.toDownA)
+      val toDownAFork = forkStream(enabled = CMD.toDownA)
       val toDownA = toDownAFork.haltWhen(hazardUpC).swapPayload(io.down.a.payloadType)
       toDownA.opcode := (CMD.fromUpA && CMD.partialUpA).mux(Opcode.A.PUT_PARTIAL_DATA, Opcode.A.PUT_FULL_DATA)
       toDownA.param := 0
@@ -1681,7 +1664,7 @@ class Cache(val p : CacheParam) extends Component {
         ACCESS_ACK_DATA -> inserter.IN_UP_A,
         GRANT_DATA      -> True
       )
-      val toUpDFork = forkStream(needForkToUpD)
+      val toUpDFork = forkStream(enabled = needForkToUpD)
       val toUpD = toUpDFork.haltWhen(victimHazard || hazardUpC || CMD.toUpD === RELEASE_ACK && toCacheFork.isStall).swapPayload(io.up.d.payloadType)
       toUpD.opcode  := CMD.toUpD.muxDc(
         ACCESS_ACK      -> Opcode.D.ACCESS_ACK(),
@@ -1700,7 +1683,7 @@ class Cache(val p : CacheParam) extends Component {
 
       val toUpDBuffered = toUpD.stage() //Necessary to ensure release data is written to memory before notifying up D  (haltWhen (!isReady))
 
-      when(isFiring && inserter.LAST) {
+      when(up.isFiring && inserter.LAST) {
         when(CMD.toUpD =/= NONE) {
           gs.slots.onSel(CMD.gsId) { s =>
             s.pending.primary := False
@@ -1714,6 +1697,8 @@ class Cache(val p : CacheParam) extends Component {
       toOrdering.bytes := (U(1) << CMD.size).resized
       toOrdering >> io.ordering.writeBackend
     }
+
+    build()
   }
 
 
@@ -1725,19 +1710,16 @@ class Cache(val p : CacheParam) extends Component {
     io.down.a << arbiter.io.output
   }
 
-  val fromDownD = new Pipeline{
-    val stages = newChained(3, Connection.M2S())
-    val inserterStage = stages(0)
-    val fetchStage = stages(0)
-    val readStage = stages(1)
-    val preprocessStage = stages(1)
-    val processStage = stages(2)
+  val fromDownD = new StageCtrlPipeline{
+    val inserterStage = ctrl(0)
+    val fetchStage = ctrl(0)
+    val readStage = ctrl(1)
+    val preprocessStage = ctrl(1)
+    val processStage = ctrl(2)
 
-    val CTX = Stageable(new CtxDownD())
-    val inserter = new Area{
-      import inserterStage._
-
-      driveFrom(io.down.d)
+    val CTX = Payload(new CtxDownD())
+    val inserter = new inserterStage.Area{
+      up.arbitrateFrom(io.down.d)
       val CMD = insert(io.down.d.payload)
       val LAST = insert(io.down.d.isLast())
       val BEAT = insert(io.down.d.beatCounter())
@@ -1746,20 +1728,17 @@ class Cache(val p : CacheParam) extends Component {
     import inserter._
 
     val readPort = gs.ctxDownD.ram.readSyncPort()
-    readPort.cmd.valid := fetchStage.isFiring
+    readPort.cmd.valid := fetchStage.up.isFiring
     readPort.cmd.payload := fetchStage(CMD).source.resized
     readStage(CTX) := readPort.rsp
 
-    val preprocess = new Area{
-      import preprocessStage._
-
+    val preprocess = new preprocessStage.Area{
       val withData = insert(CMD.opcode === Opcode.D.ACCESS_ACK_DATA)
       val toUpDHead = insert(!withData || !CTX.toCache || (BEAT >= CTX.wordOffset && BEAT <= CTX.wordOffset + sizeToBeatMinusOne(io.down.p, CTX.size)))
     }
 
-    val process = new Area{
+    val process = new processStage.Area{
       import preprocess._
-      import processStage._
 
       val isVictim = CMD.source.msb
 
@@ -1768,7 +1747,7 @@ class Cache(val p : CacheParam) extends Component {
         val gsId = UInt(log2Up(generalSlotCount) bits)
         val last = Bool()
       }
-      val toCache = forkStream(!isVictim && CTX.toCache).swapPayload(ToCache())
+      val toCache = forkStream(enabled = !isVictim && CTX.toCache).swapPayload(ToCache())
       toCache.cmd.address := CTX.wayId @@ CTX.setId @@ BEAT
       toCache.cmd.data := CMD.data
       toCache.cmd.mask.setAll()
@@ -1778,7 +1757,7 @@ class Cache(val p : CacheParam) extends Component {
       val gsId = CMD.source.resize(log2Up(gs.slots.size))
       val vh = readBackend.fetchStage
       val victimRead = gs.slots.reader(gsId)(_.pending.victimWrite) //Here we pick victim write to be sure we don't create a dead lock
-      val victimOnGoing = vh.valid && vh(readBackend.CMD).toVictim && readBackend.victimAddress(vh) === (gsId @@ BEAT)
+      val victimOnGoing = vh.up.valid && vh(readBackend.CMD).toVictim && readBackend.victimAddress(vh) === (gsId @@ BEAT)
       val victimHazard = victimRead || victimOnGoing
 
       val toCacheBuffered = toCache.haltWhen(victimHazard).stage()
@@ -1792,7 +1771,7 @@ class Cache(val p : CacheParam) extends Component {
 
       //TODO handle refill while partial get to upD
 
-      val toUpDFork = forkStream(!isVictim && CTX.toUpD && toUpDHead)
+      val toUpDFork = forkStream(enabled = !isVictim && CTX.toUpD && toUpDHead)
       val toUpD = toUpDFork.haltWhen(toCache.valid && victimHazard).swapPayload(io.up.d.payloadType)
 
       toUpD.opcode  := CTX.acquire.mux(
@@ -1826,7 +1805,7 @@ class Cache(val p : CacheParam) extends Component {
         assert(!writeBackend.putMerges.push.isStall)
       }
 
-      when(isFiring && LAST) {
+      when(up.isFiring && LAST) {
         when(isVictim) {
           gs.slots.onSel(CMD.source.resized)(_.pending.victim := False)
         } otherwise {
@@ -1838,6 +1817,8 @@ class Cache(val p : CacheParam) extends Component {
         }
       }
     }
+
+    build()
   }
 
   val toUpD = new Area{
@@ -1874,11 +1855,6 @@ class Cache(val p : CacheParam) extends Component {
 
     io.flush.rsp <-< rsp //Ensure stable payload
   }
-
-  ctrl.build()
-  readBackend.build()
-  writeBackend.build()
-  fromDownD.build()
 
   when(!initializer.done) {
     cache.tags.write.valid := True

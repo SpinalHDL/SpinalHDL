@@ -11,11 +11,13 @@ import spinal.lib.system.tag._
 
 
 // TODO remove probe on IO regions
-class CacheFiber(withCtrl : Boolean = false) extends Area{
+class CacheFiber(withCtrl : Boolean = false, flushBusParam : FlushParam = null) extends Area{
   val ctrl = withCtrl generate fabric.Node.up()
   val interrupt = withCtrl generate InterruptNode.master().setAllowNoSlave()
   val up = Node.slave()
   val down = Node.master()
+  val withFlushBus = flushBusParam != null
+  val flush = withFlushBus generate FlushBus(flushBusParam)
 
   var parameter = CacheParam(
     unp = null, // Unknown yet
@@ -25,6 +27,7 @@ class CacheFiber(withCtrl : Boolean = false) extends Area{
     blockSize = -1, // Unknown yet
     probeCount = 4,
     aBufferCount = 4,
+    flushBusParam = flushBusParam,
     coherentRegion = null
   )
 
@@ -123,6 +126,10 @@ class CacheFiber(withCtrl : Boolean = false) extends Area{
     if (withCtrl) {
       cache.io.ctrl << ctrl.bus
       interrupt.flag := cache.io.interrupt
+    }
+    if (withFlushBus) {
+      cache.io.flush.cmd << flush.cmd
+      cache.io.flush.rsp >> flush.rsp
     }
     cache.io.up << up.bus
     cache.io.down >> down.bus

@@ -42,8 +42,9 @@ case class BusSlaveFactoryConfig(wordEndianness: Endianness = LITTLE){
 }
 
 
-/**
-  * Bus slave factory is a tool that provide an abstract and smooth way to define register bank
+/** Bus slave factory is a tool that provide an abstract and smooth way to define register bank
+  *
+  * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Libraries/bus_slave_factory.html Bus Slave Factory documentation]] 
   */
 trait BusSlaveFactory extends Area{
 
@@ -58,10 +59,10 @@ trait BusSlaveFactory extends Area{
   /** Return the data width of the bus */
   def busDataWidth: Int
 
-  /** Address incrementation used by the read and write multi words registers */
+  /** Address increment used by the read and write multi words registers */
   def wordAddressInc: Int = busDataWidth / 8
 
-  /** Set the endianness during write/read multiword */
+  /** Set the endianness during write/read multi-word */
   def setWordEndianness(value : Endianness) = setConfig(getConfig.copy(wordEndianness = value))
 
   def withOffset(offset : BigInt) = new BusSlaveFactoryAddressWrapper(this, offset)
@@ -436,6 +437,19 @@ trait BusSlaveFactory extends Area{
   }
 
   /**
+   * Emit on that a transaction when a write happen at address, by using data placed at bitOffset in the word.
+   * Block the write transaction until the transaction succeeds (stream becomes ready).
+   */
+  def createAndDriveStream[T <: Data](dataType       : T,
+                                      address        : BigInt,
+                                      bitOffset      : Int = 0,
+                                      documentation  : String = null): Stream[T] = {
+    val stream = Stream(dataType)
+    driveStream(stream, address, bitOffset, documentation)
+    stream
+  }
+
+  /**
     * Create multi-words write register of type dataType
     */
   def createWriteMultiWord[T <: Data](that: T, address: BigInt, documentation: String = null): T = {
@@ -561,7 +575,7 @@ trait BusSlaveFactory extends Area{
    * Emit on that a transaction when a write happen at address, by using data placed at bitOffset in the word.
    * Block the write transaction until the transaction succeeds (stream becomes ready).
    */
-  def driveStream[T <: Data](that: Stream[T], address: BigInt, bitOffset: Int = 0): Unit = {
+  def driveStream[T <: Data](that: Stream[T], address: BigInt, bitOffset: Int = 0, documentation: String = null): Unit = {
     val wordCount = (bitOffset + widthOf(that.payload) - 1) / busDataWidth + 1
     onWritePrimitive(SizeMapping(address, wordCount * wordAddressInc), haltSensitive = false, null) {
       when(!that.ready) {
@@ -569,7 +583,7 @@ trait BusSlaveFactory extends Area{
       }
     }
     val flow = Flow(that.payloadType())
-    driveFlow(flow, address, bitOffset, checkByteEnable = true)
+    driveFlow(flow, address, bitOffset, checkByteEnable = true, documentation = documentation)
     that << flow.toStream
   }
 

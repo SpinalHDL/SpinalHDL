@@ -201,6 +201,15 @@ class InterconnectTester extends AnyFunSuite{
     })
   }
 
+  test("MultiMap"){
+    testInterconnectAll(new Component{
+      val cpu = simpleMaster(readWrite)
+      val s0 = simpleSlave(12)
+
+      s0.node at OrMapping(List(SizeMapping(0x200, 0x100), SizeMapping(0x600, 0x100)))  of cpu.node
+    })
+  }
+
 
   test("ram") {
     testInterconnectAll(new Component {
