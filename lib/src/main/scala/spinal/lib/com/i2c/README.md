@@ -259,7 +259,7 @@ Key properties (guaranteed by the factory-side binding):
 
 | Item | Status |
 |------|--------|
-| DMA interface | Deferred (manual FIFO push/pop only) |
+| DMA interface | **Not implemented in this branch** (explicit scope decision, 2026-11-02): the data path is manual FIFO push/pop via `TX_DATA`/`RX_DATA` only; the 64B-FIFO + sparse-RAM model is the ceiling of this branch's data path. Supersedes the earlier "deferred" wording in ADR-0002 |
 | SCL stretching (slave) | Supported: `STRETCH_REQ` register (level, auto-cleared on STOP) defers to the SCL-Low phase (`stretchActive`), so mid-byte stretching resumes cleanly without master/slave bit-counter desync (tested both directions) |
 | Multi-slave isolation | Read + write data-phase both isolated (gated by `wasAddressed`); non-matched slaves release SDA in both directions |
 | Read-end STOP masking | Fixed: `masterNack` + `readAckPending` make the slave release SDA after a master NACK before the STOP edge, so it can no longer hold SDA Low through the STOP and desynchronize (regression-tested: "read NACK then immediate next transfer") |
