@@ -1083,7 +1083,7 @@ class ComponentEmitterVhdl(
     ""
   }
 
-  var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
+  var memBitsMaskKind : MemBitsMaskKind = spinalConfig.memBitsMaskKind
 
   def emitSignals(): Unit = {
     component.dslBody.walkDeclarations {
@@ -1162,7 +1162,8 @@ class ComponentEmitterVhdl(
 
 
     def emitWrite(b: StringBuilder, mem: Mem[_], writeEnable: String, address: Expression, data: Expression, mask: Expression with WidthProvider, symbolCount: Int, bitPerSymbole: Int, tab: String): Unit = {
-      if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
+      // A masked SINGLE_RAM write needs the per-symbol part selects below
+      if(symbolCount == 1) {
         val ramAssign = s"$tab${emitReference(mem, false)}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)};\n"
         var conds = if(writeEnable != null) List(writeEnable) else Nil
         if(mask != null)
