@@ -32,6 +32,7 @@ object IsInterface extends SpinalTag {}
   *
   */
 class Interface extends Bundle {
+  var isBlackBox = false
   var definitionName: String = this.getClass.getSimpleName
   var thisIsNotSVIF = false
   /** Set the definition name of the component */
