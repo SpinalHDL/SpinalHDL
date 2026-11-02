@@ -65,6 +65,8 @@ class JtagFsm(jtag: Jtag) extends Area {
     add(DR_PAUSE  , DR_EXIT2 , DR_PAUSE)
     add(DR_EXIT2  , DR_UPDATE, DR_SHIFT)
     add(DR_UPDATE , DR_SELECT, IDLE)
+
+    default(stateNext := RESET)
   }
 }
 
