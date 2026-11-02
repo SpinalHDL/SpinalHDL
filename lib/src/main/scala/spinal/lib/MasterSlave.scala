@@ -1,6 +1,8 @@
 package spinal.lib
 
-import spinal.core.{Data, HardType, IConnectable}
+import spinal.core.{Data, HardType, IConnectable, IODirection, IODirectionDeferred}
+import scala.collection.mutable.ArrayBuffer
+import spinal.core
 
 /** An interface that a `Bundle` can implement if it obeys to a master/slave topology.
   * @see [[https://spinalhdl.github.io/SpinalDoc-RTD/master/SpinalHDL/Data%20types/bundle.html#master-slave Bundle documentation]]
@@ -170,4 +172,45 @@ object slaveWithNull extends MS {
 @deprecated("Use apply or port instead: 'val b = master(maybeNull)' or 'val rgb = master port maybeNull'")
 object masterWithNull extends MS {
   override def applyIt[T <: IMasterSlave](that: T): T = if (that != null) master(that) else that
+}
+trait IMasterSlaveDirDeclare extends IMasterSlave {
+
+  /** Define the direction of ports during declaration. asMaster does not need to be manually derived.
+    * For example:
+    * ```scala
+    * case class TestInterface() extends Bundle with IMasterSlaveDirDeclare {
+    *    val testOut = out port Bool()
+    *    val testIn = in port Bool()
+    *    val testMaster = master port Stream(Bool())
+    *    val testSlave = slave port Stream(Bool())
+    *  }
+    *  ```
+    *
+    * The `in`/`out`/`inout` and `master`/`slave` members below shadow the
+    * homonymous global objects and expose the same declaration API; they only
+    * defer the direction until `asMaster()`/`asSlave()` is applied.
+    */
+  private val directions = ArrayBuffer.empty[() => Unit]
+
+  private def defer(f: () => Unit): Unit = directions += f
+
+  def in = new IODirectionDeferred(core.in, defer)
+  def out = new IODirectionDeferred(core.out, defer)
+  def inout = new IODirectionDeferred(core.inout, defer)
+
+  def master = new MS {
+    override protected def applyIt[T <: IMasterSlave](i: T): T = {
+      defer(() => spinal.lib.master(i))
+      i
+    }
+  }
+
+  def slave = new MS {
+    override protected def applyIt[T <: IMasterSlave](i: T): T = {
+      defer(() => spinal.lib.slave(i))
+      i
+    }
+  }
+
+  override final def asMaster(): Unit = directions.foreach(_())
 }

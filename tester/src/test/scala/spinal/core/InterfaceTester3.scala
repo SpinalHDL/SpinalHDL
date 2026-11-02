@@ -134,3 +134,103 @@ class BundleInIfTest2 extends SpinalAnyFunSuite{
     }
   }
 }
+object MyDirEnum extends SpinalEnum {
+  val a, b = newElement()
+}
+
+class IMasterSlaveDirDeclareTest extends SpinalAnyFunSuite {
+
+  test("IMasterSlaveDirDeclare directions") {
+    case class TestInterface() extends Bundle with IMasterSlaveDirDeclare {
+      // "spaceful" syntax
+      val spacefulOut = out port Bool()
+      val spacefulIn = in port Bool()
+      val spacefulMaster = master port Stream(Bool())
+      val spacefulSlave = slave port Stream(Bool())
+
+      // "braces" syntax
+      val bracesOut = out(Bool())
+      val bracesIn = in(Bool())
+      val bracesMaster = master(Stream(Bool()))
+      val bracesSlave = slave(Stream(Bool()))
+
+      // "short" syntax
+      val shortOut = out Bool ()
+      val shortIn = in UInt (8 bits)
+      val shortMaster = master Stream (Bool())
+      val shortSlave = slave Flow (Bool())
+
+      // factories and remaining overloads
+      val hardTypeIn = in port HardType(Bits(4 bits))
+      val hardTypeMaster = master port HardType(Stream(Bool()))
+      val enumOut = out port MyDirEnum
+      val clonedOut = out cloneOf (shortIn)
+      val vecOut = out port Vec(Bool(), 2)
+      val variadicA, variadicB = Bool()
+      out(variadicA, variadicB)
+    }
+
+    SpinalVerilog(new Component {
+      /** `o`/`i` are the directions seen from the master side, flipped for a slave */
+      def check(itf: TestInterface, asMaster: Boolean): Unit = {
+        val o = if (asMaster) out else in
+        val i = if (asMaster) in else out
+
+        assert(itf.spacefulOut.getDirection == o)
+        assert(itf.spacefulIn.getDirection == i)
+        assert(itf.bracesOut.getDirection == o)
+        assert(itf.bracesIn.getDirection == i)
+        assert(itf.shortOut.getDirection == o)
+        assert(itf.shortIn.getDirection == i)
+        assert(itf.hardTypeIn.getDirection == i)
+        assert(itf.enumOut.getDirection == o)
+        assert(itf.clonedOut.getDirection == o)
+        assert(itf.vecOut(0).getDirection == o)
+        assert(itf.variadicA.getDirection == o)
+        assert(itf.variadicB.getDirection == o)
+
+        for (m <- List(itf.spacefulMaster, itf.bracesMaster, itf.shortMaster, itf.hardTypeMaster)) {
+          assert(m.valid.getDirection == o)
+          assert(m.ready.getDirection == i)
+          assert(m.payload.getDirection == o)
+        }
+        for (s <- List(itf.spacefulSlave, itf.bracesSlave)) {
+          assert(s.valid.getDirection == i)
+          assert(s.ready.getDirection == o)
+          assert(s.payload.getDirection == i)
+        }
+        assert(itf.shortSlave.valid.getDirection == i)
+        assert(itf.shortSlave.payload.getDirection == i)
+      }
+
+      val withoutDir = TestInterface()
+      withoutDir.assignDontCareToUnasigned()
+      assert(withoutDir.spacefulOut.getDirection == null)
+
+      val masterInterface = master port TestInterface()
+      val slaveInterface = slave port TestInterface()
+      check(masterInterface, asMaster = true)
+      check(slaveInterface, asMaster = false)
+
+      slaveInterface <> masterInterface
+    })
+  }
+
+  test("IMasterSlaveDirDeclare inout") {
+    case class TestInterface() extends Bundle with IMasterSlaveDirDeclare {
+      val testOut = out port Bool()
+      val testInout = inout port Analog(Bool())
+    }
+    SpinalVerilog(new Component {
+      val masterInterface = master port TestInterface()
+      val slaveInterface = slave port TestInterface()
+
+      assert(masterInterface.testOut.getDirection == out)
+      assert(slaveInterface.testOut.getDirection == in)
+      assert(masterInterface.testInout.getDirection == inout)
+      assert(slaveInterface.testInout.getDirection == inout)
+
+      masterInterface.testOut := slaveInterface.testOut
+    })
+  }
+}
