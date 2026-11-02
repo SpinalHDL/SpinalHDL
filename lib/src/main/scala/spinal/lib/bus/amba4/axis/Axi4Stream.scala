@@ -8,13 +8,14 @@ import spinal.lib._
  * @param dataWidth Width of the bus in BYTES
  * @param idWidth Width of the ID field in bits
  * @param destWidth Width of the Destination field in bits
- * @param userWidth Width of the User field in bits
+ * @param userWidth Width of the User field in bits per byte lane
  * @param useStrb Use byte strobe bits
  * @param useKeep Use byte keep bits
  * @param useLast Use last bit
  * @param useId Use ID field, must specify idWidth
  * @param useDest Use Destination field, must specify destWidth
- * @param useUser Use User field, must specify userWidth
+ * @param useUser Use User field, must specify userWidth or beatUserWidth
+ * @param beatUserWidth Total width of the User field in bits for each beat, independent of the number of byte lanes
  */
 case class Axi4StreamConfig(dataWidth: Int,
                             idWidth:   Int = -1,
@@ -25,7 +26,16 @@ case class Axi4StreamConfig(dataWidth: Int,
                             useLast:   Boolean = false,
                             useId:     Boolean = false,
                             useDest:   Boolean = false,
-                            useUser:   Boolean = false)
+                            useUser:   Boolean = false,
+                            beatUserWidth: Int = -1) {
+  require(beatUserWidth == -1 || beatUserWidth > 0,
+    "Axi4Stream beatUserWidth must be -1 (unused) or positive")
+  require(userWidth <= 0 || beatUserWidth <= 0,
+    "Axi4Stream userWidth (bits per byte lane) and beatUserWidth (total bits per beat) are mutually exclusive")
+
+  def isUserPerByte: Boolean = beatUserWidth <= 0
+  def userBitsWidth: Int = if (isUserPerByte) userWidth * dataWidth else beatUserWidth
+}
 
 object Axi4Stream {
 
@@ -36,7 +46,7 @@ object Axi4Stream {
     val keep = (config.useKeep) generate Bits(config.dataWidth bit)
     val last = (config.useLast) generate Bool()
     val dest = (config.useDest) generate UInt(config.destWidth bit)
-    val user = (config.useUser) generate Bits(config.userWidth*config.dataWidth bit)
+    val user = (config.useUser) generate Bits(config.userBitsWidth bit)
 
     def isLast = if (this.last != null) this.last else False
 
@@ -50,8 +60,14 @@ object Axi4Stream {
             assert(that.config.idWidth <= this.config.idWidth, s"Axi4Stream $that directly drives stream $this with smaller ID width! (${that.config.idWidth} > ${this.config.idWidth})")
           if (that.config.useDest)
             assert(that.config.destWidth <= this.config.destWidth, s"Axi4Stream $that directly drives stream $this with smaller destination width! (${that.config.destWidth} > ${this.config.destWidth})")
-          if (that.config.useUser)
-            assert(that.config.userWidth <= this.config.userWidth, s"Axi4Stream $that directly drives stream $this with smaller user width! (${that.config.userWidth} > ${this.config.userWidth})")
+          if (that.config.useUser && this.config.useUser) {
+            assert(that.config.isUserPerByte == this.config.isUserPerByte,
+              s"Axi4Stream $that can't directly drive stream $this with a different TUSER association")
+            if (that.config.isUserPerByte)
+              assert(that.config.userWidth <= this.config.userWidth, s"Axi4Stream $that directly drives stream $this with smaller user width! (${that.config.userWidth} > ${this.config.userWidth})")
+            else
+              assert(that.config.userBitsWidth <= this.config.userBitsWidth, s"Axi4Stream $that directly drives stream $this with smaller user width! (${that.config.userBitsWidth} > ${this.config.userBitsWidth})")
+          }
 
           this.data := that.data.resized
           Axi4StreamBundlePriv.driveWeak(that,this,that.id,this.id, () => U(this.id.bitsRange -> false), allowResize = true, allowDrop = false)
@@ -65,16 +81,20 @@ object Axi4Stream {
             case (true, false) => B(this.user.bitsRange -> false)
             case (false, true) => LocatedPendingError(s"${that.user} can't drive $this because the corresponding sink signal does not exist")
             case (true, true) => {
-              val sourceSlices = that.user.subdivideIn(that.config.dataWidth slices)
-              val sinkSlices = this.user.subdivideIn(this.config.dataWidth slices)
-              val sourceSlicesPad = sourceSlices.padTo(sinkSlices.length, null)
-              sourceSlicesPad.zip(sinkSlices).foreach(pair => {
-                val (sourceSlice, sinkSlice) = pair
-                if (sourceSlice != null) {
-                  sinkSlice := sourceSlice.resized
-                } else
-                  sinkSlice := B(sinkSlice.bitsRange -> false)
-              })
+              if (that.config.isUserPerByte) {
+                val sourceSlices = that.user.subdivideIn(that.config.dataWidth slices)
+                val sinkSlices = this.user.subdivideIn(this.config.dataWidth slices)
+                val sourceSlicesPad = sourceSlices.padTo(sinkSlices.length, null)
+                sourceSlicesPad.zip(sinkSlices).foreach(pair => {
+                  val (sourceSlice, sinkSlice) = pair
+                  if (sourceSlice != null) {
+                    sinkSlice := sourceSlice.resized
+                  } else
+                    sinkSlice := B(sinkSlice.bitsRange -> false)
+                })
+              } else {
+                this.user := that.user.resized
+              }
             }
           }
         }
