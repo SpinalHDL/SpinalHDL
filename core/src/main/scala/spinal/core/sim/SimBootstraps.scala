@@ -467,6 +467,7 @@ object SpinalXSimBackend {
     val vconfig = new XSimBackendConfig()
     vconfig.rtlIncludeDirs  ++= rtl.rtlIncludeDirs
     vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths.map(new File(_).getAbsolutePath)
+    vconfig.ipTclSourcesPaths ++= rtl.ipTclSourcesPaths.map(new File(_).getAbsolutePath)
     vconfig.xciSourcesPaths   =  xciSourcesPaths
     vconfig.bdSourcesPaths    = bdSourcesPaths
     vconfig.toplevelName      = rtl.toplevelName
@@ -1030,10 +1031,12 @@ case class SpinalSimConfig(
     FileUtils.deleteQuietly(new File(s"${_workspacePath}/${_workspaceName}"))
     new File(s"${_workspacePath}/${_workspaceName}").mkdirs()
     new File(s"${_workspacePath}/${_workspaceName}/rtl").mkdirs()
+    new File(s"${_workspacePath}/${_workspaceName}/tcl").mkdirs()
 
     val compiledPath = new File(s"${_workspacePath}/${_workspaceName}")
 
     val rtlDir = new File(s"${_workspacePath}/${_workspaceName}/rtl")
+    val tclDir = new File(s"${_workspacePath}/${_workspaceName}/tcl")
     _testPath = _testPath.replace("$WORKSPACE", _workspacePath).replace("$COMPILED", _workspaceName)
     val wavePath = _testPath
 
@@ -1064,6 +1067,11 @@ case class SpinalSimConfig(
 
       val dst = new File(rtlDir.getAbsolutePath + "/" + src.getName)
       FileUtils.copyFileToDirectory(src, rtlDir)
+    }
+
+    report.ipTclSourcesPaths.foreach { srcPath =>
+      val src = new File(srcPath)
+      FileUtils.copyFileToDirectory(src, tclDir)
     }
 
     _backend match {

@@ -58,6 +58,26 @@ class BlackBoxImpl{
 }
 
 /**
+ * Trait to be mixed into a BlackBox to provide a Vivado TCL script for IP generation.
+ *
+ * Implementations are associated with the BlackBox <em>definition</em>, not with individual
+ * instances. Tooling that consumes this trait typically generates a single TCL script per
+ * {@code definitionName} and reuses that script for all instances of the same BlackBox/IP.
+ * As a consequence, the TCL content must not depend on per-instance state.
+ */
+trait VivadoIpTcl {
+  this: BlackBox =>
+  /**
+   * Returns the TCL script to create and configure the IP.
+   * The script should be responsible for creating the IP with the correct module name
+   * (which should match the BlackBox's definitionName). When multiple instances of the
+   * same IP (same {@code definitionName}) exist, this single script is shared by all of
+   * them.
+   */
+  def vivadoIpTcl(): String
+}
+
+/**
   * A blackbox allows the user to integrate an existing VHDL/Verilog component into the design by just specifying
   * the interfaces.
   *
