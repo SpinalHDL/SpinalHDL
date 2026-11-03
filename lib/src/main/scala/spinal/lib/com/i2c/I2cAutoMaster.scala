@@ -105,13 +105,13 @@ object I2cAutoMaster {
     tx.push := txPush
 
     // RX_DATA (0x10): pop-on-read. The read returns the pre-pop head
-    // combinationally; the pop pulse fires one cycle after the read.
+    // combinationally; the pop fires on the accepted-read cycle itself,
+    // gated on notEmpty. An empty-FIFO read is therefore a no-op (no
+    // underflow), and back-to-back reads advance one entry each (no
+    // duplicated head, no silently-swallowed entry).
     factory.read(rx.head, 0x10, 0)
     factory.read(rx.notEmpty, 0x10, 8)
-    val rxPop = RegInit(False)
-    rxPop := False
-    factory.onRead(0x10) { rxPop := True }
-    rx.pop := rxPop
+    rx.pop := factory.isReading(0x10) && rx.notEmpty
 
     // STATUS (0x14): {aborted[6], err[5:3], rxAvail[2], txAvail[1], busy[0]}
     factory.read(0x14, 0 -> status.busy, 1 -> status.txAvail, 2 -> status.rxAvail,
@@ -121,7 +121,13 @@ object I2cAutoMaster {
     val intEn  = RegInit(B(0, 3 bits))
     val intClr = RegInit(B(0, 3 bits))
     factory.write(intEn, 0x18)
+    factory.read(intEn, 0x18)  // INT_EN is documented RW: allow readback
     factory.read(intr.fl, 0x1C)
+    // INT_CLR is a W1C pulse: default to 0 every cycle; the register-map
+    // write materializes after this default (build runs in addPrePopTask),
+    // so the clear lasts exactly one cycle instead of sticking. A stuck
+    // clear would silently swallow every later occurrence of that flag.
+    intClr := B(0, 3 bits)
     factory.write(intClr, 0x20)
     intr.en  := intEn
     intr.clr := intClr
@@ -143,10 +149,14 @@ object I2cAutoMaster {
     cfg.tHigh   := tHigh
     cfg.tBuf    := tBuf
 
-    // CTRL (0x38): abort pulse
+    // CTRL (0x38): abort pulse. Fired only when the WRITTEN VALUE's bit0
+    // is 1 (nonStopWrite taps the bus write data combinationally), so a
+    // read-modify-write that leaves the bit clear does not abort the bus.
+    val ctrlAbBit = Bool()
+    factory.nonStopWrite(ctrlAbBit, 0)
     val abort = RegInit(False)
     abort := False
-    factory.onWrite(0x38) { abort := True }
+    factory.onWrite(0x38) { abort := ctrlAbBit }
     cfg.abort := abort
   }
 }
@@ -213,23 +223,34 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
 
   val fifoPtrW = log2Up(c.fifoDepth)
 
-  // === Input filtering ===
+  // === Input conditioning (#5, #6) ===
+  // Two-FF synchronization of the open-drain bus wires: they originate in an
+  // external clock domain (another chip's driver). Feeding raw metastable
+  // signals into history/edge logic is the classic multi-chip hazard.
+  // Precedent: I2cIoFilter in Misc.scala.
+  val sclSync = BufferCC(io.i2c.scl.read, 2)
+  val sdaSync = BufferCC(io.i2c.sda.read, 2)
+
   val filterTick = new Area {
     val counter = Reg(UInt(c.sampDivWidth bits)) init(0)
     val tick    = counter === U(0)
     counter := Mux(tick, io.cfg.sampDiv, counter - U(1))
   }
 
+  // Glitch filter: sliding-window history; the filtered value only updates
+  // when the ENTIRE window agrees (unanimous). The old condition
+  // (andR || orR) reduced to orR (any non-zero pattern), letting a
+  // single-sample glitch straight through. Windows start all-ones = released.
   val sclFilt = RegInit(True)
   val sdaFilt = RegInit(True)
-  val sclHist = RegInit(B(1, c.sampWinSize bits))
-  val sdaHist = RegInit(B(1, c.sampWinSize bits))
+  val sclHist = RegInit(~U(0, c.sampWinSize bits).asBits)
+  val sdaHist = RegInit(~U(0, c.sampWinSize bits).asBits)
 
   when(filterTick.tick) {
-    sclHist := Cat(io.i2c.scl.read, sclHist(c.sampWinSize - 2 downto 0))
-    sdaHist := Cat(io.i2c.sda.read, sdaHist(c.sampWinSize - 2 downto 0))
-    when(sclHist.andR || sclHist.orR) { sclFilt := io.i2c.scl.read }
-    when(sdaHist.andR || sdaHist.orR) { sdaFilt := io.i2c.sda.read }
+    sclHist := Cat(sclSync, sclHist(c.sampWinSize - 2 downto 0))
+    sdaHist := Cat(sdaSync, sdaHist(c.sampWinSize - 2 downto 0))
+    when(sclHist.andR || sclHist.nandR) { sclFilt := sclSync }
+    when(sdaHist.andR || sdaHist.nandR) { sdaFilt := sdaSync }
   }
 
   // === Timeout watchdog ===
@@ -354,11 +375,25 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     // 9-pulse recovery counter
     val recovCnt   = Reg(UInt(4 bits)) init(0)
 
+    // --- #10: START/STOP setup-hold segments derived from the bit timing ---
+    // The I2C spec's fixed START/STOP setup/hold times (>=0.6 us in Standard
+    // Mode, UM10204 Table 25) are approximated from the configured bit period:
+    // a full bit (tLow + tHigh) conservatively covers TSU:STA / THD:STA /
+    // TSU:STO / THD:STO; a quarter-low floor keeps the FSM snappy when tLow
+    // is tiny (simulation). Sum wraps at 2^timerWidth, which merely caps the
+    // segment at a plausible maximum.
+    val tSegFull = Mux((io.cfg.tLow +^ io.cfg.tHigh) === U(0), U(1, c.timerWidth bits),
+                       (io.cfg.tLow +^ io.cfg.tHigh).resize(c.timerWidth))
+    val tSegQ    = Mux(io.cfg.tLow >= U(4), io.cfg.tLow >> 2, U(1, c.timerWidth bits))
+
     // Global timer decrement
     when(timerArmed && timer =/= U(0)) { timer := timer - U(1) }
 
     val phase   = RegInit(U(0, 1 bits))
-    val byteNum = RegInit(U(0, 8 bits))
+    // 9 bits: 10-bit mode needs index 256 (final data byte when addrBytes=2
+    // and len=255), and a wider counter keeps a wrapped index from ever
+    // re-entering the address-byte range ([0, addrBytes-1]).
+    val byteNum = RegInit(U(0, 9 bits))
     val bitPos  = RegInit(U(0, 4 bits))
     val curLen  = RegInit(U(0, 8 bits))
     val curRw   = RegInit(False)
@@ -367,9 +402,21 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val rxByte = Reg(Bits(8 bits)) init(0)
     val ackBit = RegInit(False)
 
+    // Set on a successful transfer end; the COMPLETE interrupt and the busy
+    // deassertion are deferred to TBUF (bus truly idle), so firmware that
+    // polls busy / waits for the IRQ and then programs the next CMD finds
+    // the FSM back in IDLE and the command is not silently dropped.
+    val transferOk = RegInit(False)
+
     // Drive signals
     val sdaDrive = RegInit(True)
     val sdaEn    = RegInit(False)
+    // Combinational: True only while BIT_HIGH is active — the sole window
+    // where arbitration can be judged (we own a transmitted bit and SCL is
+    // High). STOP/RESTART sequences legitimately see residual slave ACK Low
+    // on SDA; judging there would false-trigger.
+    val inBitHigh = Bool()
+    inBitHigh := False
     val sclDrive = RegInit(True)
 
     // Latched params
@@ -380,7 +427,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val latLen2     = Reg(UInt(8 bits)) init(0)
 
     // Derived
-    val dataStart    = U(addrBytes, 8 bits)
+    val dataStart    = U(addrBytes, 9 bits)
     val isAddrByte   = byteNum < dataStart
     val isLastAddrByte = byteNum === U(addrBytes - 1, 8 bits)
     val isAckBit     = bitPos === U(8)
@@ -389,12 +436,16 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val driveSda: Bool = Mux(isAckBit, Mux(isAddrByte, False, curRw), isAddrByte || !curRw)
 
     // Address drive logic (compile-time selected to avoid out-of-bounds in 7-bit mode)
+    // 10-bit frame format per I2C spec (UM10204 §4.2.2 / IEC 60197):
+    //   byte 0: 1 1 1 1 0 A9 A8 R/W
+    //   byte 1: A7 A6 A5 A4 A3 A2 A1 A0
     val addrDrive: Bool = if (c.support10bit) {
-      val tenBitByte0: Bool = Mux(bitPos(2 downto 0) < U(4), True,
-                                    Mux(bitPos(2 downto 0) === U(4), False,
-                                      Mux(bitPos(2 downto 0) === U(5), latAddr(9),
-                                        Mux(bitPos(2 downto 0) === U(6), latAddr(8), latAddr(7)))))
-      val tenBitByte1: Bool = Mux(bitPos(2 downto 0) === U(7), curRw, latAddr(6 - bitPos(2 downto 0)))
+      val tenBitByte0: Bool = Mux(bitPos(2 downto 0) <= U(3), True,           // b7..b4 = 1111
+                                   Mux(bitPos(2 downto 0) === U(4), False,    // b3 = 0
+                                     Mux(bitPos(2 downto 0) === U(5), latAddr(9),  // b2 = A9
+                                       Mux(bitPos(2 downto 0) === U(6), latAddr(8), // b1 = A8
+                                           curRw))))                          // b0 = R/W
+      val tenBitByte1: Bool = latAddr(7 - bitPos(2 downto 0))                 // b7..b0 = A7..A0
       Mux(byteNum === U(0), tenBitByte0, tenBitByte1)
     } else {
       Mux(bitPos(2 downto 0) === U(7), curRw, latAddr(6 - bitPos(2 downto 0)))
@@ -420,6 +471,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
           curLen  := io.cmd.len1
           curRw   := io.cmd.rw
           rxByte  := B(0)
+          transferOk   := False
           status.busy    := True
           status.errCode := U(0, 3 bits)
           status.aborted := False
@@ -430,7 +482,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val START1: State = new State {
-      onEntry { timer := U(2); timerArmed := True }
+      onEntry { timer := tSegQ; timerArmed := True }
       whenIsActive {
         sclDrive := True
         sdaEn    := True
@@ -440,7 +492,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val START2: State = new State {
-      onEntry { timer := U(2); timerArmed := True }
+      onEntry { timer := tSegFull; timerArmed := True }
       whenIsActive {
         sclDrive := True
         sdaEn    := True
@@ -476,6 +528,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val BIT_HIGH: State = new State {
       onEntry { timer := io.cfg.tHigh; timerArmed := True }
       whenIsActive {
+        inBitHigh := True
         sclDrive := True
         when(driveSda) {
           sdaEn    := True
@@ -503,13 +556,38 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                   intr.fl(1)     := True
                   goto(STOP0)
                 } otherwise {
-                  byteNum := dataStart
-                  bitPos  := U(0)
-                  when(!curRw && curLen > U(0)) {
-                    txByte := txFifo.head
-                    txFifo.popValid := True
+                  when(curLen === U(0)) {
+                    // Zero-length phase: the address phase is the whole
+                    // transaction (e.g. pointer-only access). Completes
+                    // after the STOP sequence like any other transfer;
+                    // without this exit the FSM would walk into the data
+                    // phase with a last-byte index pointing at the address
+                    // byte and never terminate.
+                    when(latHasP2 && phase === U(0)) {
+                      // Phase 2 follows after a RESTART; its own address
+                      // phase decides completion (a zero-length phase 2
+                      // converges here with phase === U(1)).
+                      phase   := U(1)
+                      byteNum := U(0)
+                      bitPos  := U(0)
+                      curLen  := latLen2
+                      curRw   := !latRw
+                      rxByte  := B(0)
+                      goto(RESTART0)
+                    } otherwise {
+                      transferOk := True
+                      timeoutCtr := io.cfg.timeout  // disarm watchdog for the STOP tail
+                      goto(STOP0)
+                    }
+                  } otherwise {
+                    byteNum := dataStart
+                    bitPos  := U(0)
+                    when(!curRw && curLen > U(0)) {
+                      txByte := txFifo.head
+                      txFifo.popValid := True
+                    }
+                    goto(BIT_LOW)
                   }
-                  goto(BIT_LOW)
                 }
               } otherwise {
                 // Intermediate address byte (10-bit mode): ACK and continue
@@ -552,8 +630,11 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                     // double-popped read->write composites. Both removed.)
                     goto(RESTART0)
                   } otherwise {
-                    status.busy  := False
-                    intr.fl(0)   := True
+                    // Defer COMPLETE and the busy deassertion to TBUF
+                    // (see transferOk): the bus is still occupied by the
+                    // STOP sequence here.
+                    transferOk := True
+                    timeoutCtr := io.cfg.timeout  // disarm watchdog for the STOP tail
                     goto(STOP0)
                   }
                 } otherwise {
@@ -577,7 +658,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val RESTART0: State = new State {
-      onEntry { timer := U(5); timerArmed := True }
+      onEntry { timer := tSegQ; timerArmed := True }
       whenIsActive {
         sclDrive := False  // drop SCL to let slave release SDA
         sdaEn    := True
@@ -587,17 +668,21 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val RESTART1: State = new State {
-      onEntry { timer := U(5); timerArmed := True }
+      onEntry { timer := tSegQ; timerArmed := True }
       whenIsActive {
         sclDrive := True
         sdaEn    := True
         sdaDrive := True
-        when(timerDone) { goto(RESTART2) }
+        // Hold SCL High only once the bus is actually High: a stretching
+        // slave keeps the wire Low, and raising SDA while SCL is Low would
+        // not register as a Repeated START. Bounded by the global timeout
+        // watchdog (no SCL edges + busy => RECOV).
+        when(timerDone && sclFilt) { goto(RESTART2) }
       }
     }
 
     val RESTART2: State = new State {
-      onEntry { timer := U(5); timerArmed := True }
+      onEntry { timer := tSegFull; timerArmed := True }
       whenIsActive {
         sclDrive := True
         sdaEn    := True
@@ -618,7 +703,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
 
     // 9-pulse clock recovery (I2C spec §3.4.2: recover from bus hang)
     val RECOV_LO: State = new State {
-      onEntry { timer := U(10); timerArmed := True }
+      onEntry { timer := io.cfg.tLow; timerArmed := True }
       whenIsActive {
         sclDrive := False
         sdaEn    := False
@@ -627,7 +712,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val RECOV_HI: State = new State {
-      onEntry { timer := U(10); timerArmed := True }
+      onEntry { timer := io.cfg.tHigh; timerArmed := True }
       whenIsActive {
         sclDrive := True
         sdaEn    := False
@@ -644,7 +729,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val STOP0: State = new State {
-      onEntry { timer := U(5); timerArmed := True }
+      onEntry { timer := tSegFull; timerArmed := True }
       whenIsActive {
         sclDrive := False  // drop SCL to let slave release SDA
         sdaEn    := True   // drive SDA Low (open-drain), NOT release:
@@ -655,17 +740,20 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     }
 
     val STOP1: State = new State {
-      onEntry { timer := U(2); timerArmed := True }
+      onEntry { timer := tSegQ; timerArmed := True }
       whenIsActive {
         sclDrive := True   // SCL rises, master drives SDA Low
         sdaEn    := True
         sdaDrive := False
-        when(timerDone) { goto(STOP2) }
+        // Wait for the bus to actually be High before releasing SDA: if the
+        // slave stretched the last bit, the wire is still Low and SDA rising
+        // over Low is not a STOP. Bounded by the timeout watchdog.
+        when(timerDone && sclFilt) { goto(STOP2) }
       }
     }
 
     val STOP2: State = new State {
-      onEntry { timer := U(2); timerArmed := True }
+      onEntry { timer := tSegFull; timerArmed := True }
       whenIsActive {
         sclDrive := True
         sdaEn    := True
@@ -679,24 +767,38 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
       whenIsActive {
         sclDrive := True
         sdaEn    := False
-        when(timerDone) { goto(IDLE) }
+        when(timerDone) {
+          // Bus is now truly idle: raise COMPLETE and release busy.
+          when(transferOk) { intr.fl(0) := True }
+          transferOk  := False
+          status.busy := False
+          goto(IDLE)
+        }
       }
     }
 
     // Arbitration loss: passive exit (no STOP - we're no longer bus master)
     val ARB_LOSS: State = new State {
-      onEntry { timer := U(5); timerArmed := True }
+      onEntry { timer := tSegQ; timerArmed := True }
       whenIsActive {
-        sclDrive := False
+        sclDrive := True   // RELEASE SCL (open-drain): holding it Low here would
+                           // brick the bus for the winning master, which could
+                           // no longer clock the transfer until reset.
         sdaEn    := False  // release SDA immediately
         when(timerDone) { goto(IDLE) }
       }
     }
 
     always {
-      // Arbitration loss: actively driving SDA Low but raw bus reads High
-      // Require sdaEn=True to avoid false positive on entry cycle (sdaEn not yet updated)
-      when(status.busy && driveSda && sdaEn && !sdaDrive && io.i2c.sda.read) {
+      // Arbitration loss (UM10204 §3.1.10): we placed a '1' on SDA (sdaEn
+      // && sdaDrive => this controller drives the released/High level for a
+      // bit it owns) yet the bus reads Low — another master pulled it down.
+      // Judged only in the SCL-High sampling window (sclFilt) to skip
+      // setup-time transients. Read-phase data bits are exempt by construction:
+      // there sdaEn=False (the slave owns the bit), so a slave-driven Low is
+      // normal data, not a competitor. A Low on the master's own ACK/NACK
+      // placement (read-ACK NACK) is a genuine loss.
+      when(status.busy && inBitHigh && sdaEn && sdaDrive && sclFilt && !sdaSync) {
         status.errCode := U(4, 3 bits)
         status.busy    := False
         intr.fl(1)     := True

@@ -64,6 +64,8 @@ object I2cAutoSlave {
     val matchEnReg = RegInit(True)
     factory.write(addrReg, 0x00, 0)
     factory.write(matchEnReg, 0x00, addrW)
+    factory.read(addrReg, 0x00, 0)      // documented RW: allow readback
+    factory.read(matchEnReg, 0x00, addrW)
     cfg.slaveAddr   := addrReg
     cfg.addrMatchEn := matchEnReg
 
@@ -96,7 +98,12 @@ object I2cAutoSlave {
     val intEn  = RegInit(B(0, 2 bits))
     val intClr = RegInit(B(0, 2 bits))
     factory.write(intEn, 0x10)
+    factory.read(intEn, 0x10)  // INT_EN is documented RW: allow readback
     factory.read(intr.fl, 0x14)
+    // INT_CLR is a W1C pulse: default to 0 every cycle; the register-map
+    // write materializes after this default, so the clear lasts exactly one
+    // cycle instead of sticking.
+    intClr := B(0, 2 bits)
     factory.write(intClr, 0x18)
     intr.en  := intEn
     intr.clr := intClr
@@ -162,45 +169,55 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
 
   val ramAddrW = log2Up(c.ramDepth)
 
-  // === Input filtering ===
+  // === Input conditioning (#5, #6, #16) ===
   val filterTick = new Area {
     val counter = Reg(UInt(c.sampDivWidth bits)) init(0)
     val tick    = counter === U(0)
     counter := Mux(tick, io.cfg.sampDiv, counter - U(1))
   }
 
+  // Two-FF synchronization of the observed bus wires (external clock domain);
+  // the glitch filter updates only on a UNANIMOUS window (the old andR||orR
+  // reduced to orR — any non-zero pattern passed through). ALL protocol logic
+  // below consumes the filtered signals, never the raw pins.
+  val sclSync = BufferCC(io.i2c.scl.write, 2)
+  val sdaSync = BufferCC(io.i2c.sda.write, 2)
+
   val sclFilt = RegInit(True)
   val sdaFilt = RegInit(True)
-  val sclHist = RegInit(B(1, c.sampWinSize bits))
-  val sdaHist = RegInit(B(1, c.sampWinSize bits))
+  val sclHist = RegInit(~U(0, c.sampWinSize bits).asBits)
+  val sdaHist = RegInit(~U(0, c.sampWinSize bits).asBits)
 
   when(filterTick.tick) {
-    sclHist := Cat(io.i2c.scl.write, sclHist(c.sampWinSize - 2 downto 0))
-    sdaHist := Cat(io.i2c.sda.write, sdaHist(c.sampWinSize - 2 downto 0))
-    when(sclHist.andR || sclHist.orR) { sclFilt := io.i2c.scl.write }
-    when(sdaHist.andR || sdaHist.orR) { sdaFilt := io.i2c.sda.write }
+    sclHist := Cat(sclSync, sclHist(c.sampWinSize - 2 downto 0))
+    sdaHist := Cat(sdaSync, sdaHist(c.sampWinSize - 2 downto 0))
+    when(sclHist.andR || sclHist.nandR) { sclFilt := sclSync }
+    when(sdaHist.andR || sdaHist.nandR) { sdaFilt := sdaSync }
   }
 
-  // === Edge detection ===
-  // Raw edges for bit timing (zero delay)
-  val sclRawPrev = RegInit(True)
-  val sclRise = io.i2c.scl.write && !sclRawPrev
-  val sclFall = !io.i2c.scl.write && sclRawPrev
-  sclRawPrev := io.i2c.scl.write
+  // === Edge detection (filtered, #16) ===
+  val sclFiltPrev = RegInit(True)
+  val sclRise = sclFilt && !sclFiltPrev
+  val sclFall = !sclFilt && sclFiltPrev
+  sclFiltPrev := sclFilt
 
-  // START/STOP detection on RAW signals (fast enough for 2-cycle RESTART)
-  val sdaRaw = io.i2c.sda.write
-  val sdaRawPrev = RegInit(True)
-  val sdaFallWhileSclHigh = !sdaRaw && sdaRawPrev && io.i2c.scl.write  // START
-  val sdaRiseWhileSclHigh = sdaRaw && !sdaRawPrev && io.i2c.scl.write  // STOP
-  sdaRawPrev := sdaRaw
+  // START/STOP detection on filtered signals
+  val sdaFiltPrev = RegInit(True)
+  val sdaFallWhileSclHigh = !sdaFilt && sdaFiltPrev && sclFilt  // START
+  val sdaRiseWhileSclHigh = sdaFilt && !sdaFiltPrev && sclFilt  // STOP
+  sdaFiltPrev := sdaFilt
 
   // === Slave address & config ===
   val addrW: Int = if (c.support10bit) 10 else 7
   val addrBytes: Int = if (c.support10bit) 2 else 1
 
-  // 10-bit address: buffer upper 3 bits from first byte
-  val tenBitUpper = Reg(Bits(3 bits)) init(0)
+  // 10-bit address, standard format (UM10204 §4.2.2): byte0 = 11110 A9 A8 R/W,
+  // byte1 = A7..A0. A[9:8] and R/W are buffered from the first byte; the
+  // prefix guard rejects frames lacking the 11110 marker (e.g. 7-bit traffic
+  // on a shared bus).
+  val tenBitUpper = Reg(Bits(2 bits)) init(0)
+  val tenBitRw    = RegInit(False)
+  val tenBitPrefixOk = RegInit(False)
   val addrByteIdx = Reg(UInt(1 bits)) init(0)  // 0=first addr byte, 1=second
   tenBitUpper.allowUnsetRegToAvoidLatch
   addrByteIdx.allowUnsetRegToAvoidLatch
@@ -283,7 +300,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     readAckPending := False
     statusErrNack := False
     sdaOut     := True  // release during address phase
-    if (c.support10bit) { addrByteIdx := U(0) }
+    if (c.support10bit) { addrByteIdx := U(0); tenBitPrefixOk := False; tenBitRw := False }
   }
 
   // STOP detection
@@ -301,15 +318,19 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     wasAddressed := False
   }
 
-  // Independent wasAddressed latch: set on address match (own when-block)
+  // Independent wasAddressed latch: set on address match (own when-block).
+  // Requires addrMatchEn so a DISABLED instance whose address coincides with
+  // the selected one neither latches wasAddressed nor participates in the
+  // data phase (it NACKed the address; driving data would fight the
+  // addressed slave on the open-drain wire).
   when(sclFall && inFrame && !hasStarted && bitPos === U(8)) {
     if (c.support10bit) {
-      when(addrByteIdx === U(1)) {
-        val fullAddr = Cat(tenBitUpper, rxAccum(7 downto 1))
-        wasAddressed := (fullAddr === io.cfg.slaveAddr)
+      when(addrByteIdx === U(1) && tenBitPrefixOk) {
+        val fullAddr = Cat(tenBitUpper, rxAccum(7 downto 0))  // A[9:0]
+        wasAddressed := (fullAddr === io.cfg.slaveAddr) && io.cfg.addrMatchEn
       }
     } else {
-      wasAddressed := (rxAccum(7 downto 1) === io.cfg.slaveAddr)
+      wasAddressed := (rxAccum(7 downto 1) === io.cfg.slaveAddr) && io.cfg.addrMatchEn
     }
   }
 
@@ -326,7 +347,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
         // ACK made a following write phase (read->write composite) start one
         // slot early after a NACKed last read byte.
         dataPtr := dataPtr + U(1)
-        when(io.i2c.sda.write) {
+        when(sdaFilt) {
           // High = master NACKed: release and stop driving data. The master
           // will issue STOP or RESTART; we must not hold SDA Low (would mask
           // the STOP/START edge on the open-drain bus).
@@ -340,13 +361,13 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     } otherwise {
       when(!hasStarted) {
         // Receiving address byte
-        rxAccum(7 - bitPos(2 downto 0)) := io.i2c.sda.write
+        rxAccum(7 - bitPos(2 downto 0)) := sdaFilt
         bitPos := bitPos + U(1)
       } otherwise {
         // Data phase
         when(!isRead) {
           // Write: sample data bit
-          rxAccum(7 - bitPos(2 downto 0)) := io.i2c.sda.write
+          rxAccum(7 - bitPos(2 downto 0)) := sdaFilt
         }
         bitPos := bitPos + U(1)
       }
@@ -360,19 +381,25 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
         // All 8 address bits received (SCL fell after 8th data bit)
         if (c.support10bit) {
           when(addrByteIdx === U(0)) {
-            // First 10-bit address byte: buffer upper bits, ACK, wait for second
-            tenBitUpper := rxAccum(2 downto 0)  // A[9:7]
+            // First 10-bit address byte: standard format 11110 A9 A8 R/W.
+            // Validate the 11110 prefix before ACKing — a frame without it
+            // (e.g. 7-bit traffic on a shared bus) is not addressed to us.
+            // The NACK is deliberate but silent (no errNack/interrupt) to
+            // avoid interrupt storms on unrelated 7-bit frames.
+            val prefixOk = rxAccum(7 downto 3) === B"11110"
+            tenBitUpper    := rxAccum(2 downto 1)  // A[9:8]
+            tenBitRw       := rxAccum(0)           // R/W lives in byte 0
+            tenBitPrefixOk := prefixOk
             addrByteIdx := U(1)
             inAck       := True
             bitPos      := U(0)
             rxAccum     := B(0)
-            sdaOut      := !io.cfg.addrMatchEn  // ACK if enabled, NACK if disabled
+            sdaOut      := !(prefixOk && io.cfg.addrMatchEn)
           } otherwise {
-            // Second 10-bit address byte: full match
-            val fullAddr = Cat(tenBitUpper, rxAccum(7 downto 1))  // A[9:0]
-            val recvRw   = rxAccum(0)
+            // Second 10-bit address byte: A[7:0]; R/W was consumed in byte 0
+            val fullAddr = Cat(tenBitUpper, rxAccum(7 downto 0))  // A[9:0]
             val matchNow = (fullAddr === io.cfg.slaveAddr)
-            isRead    := recvRw
+            isRead    := tenBitRw
             addrValid := matchNow
             hasStarted := True
             inAck      := True
@@ -408,6 +435,11 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
           when(wasAddressed) {
             when(ptrValid(dataPtr)) {
               ram.write(dataPtr, rxAccum)
+            } otherwise {
+              // Sparse-RAM NACK: report it like any other NACK (STATUS.errNack
+              // + INT_FLAG[1]); previously the NACK was driven but silent.
+              statusErrNack := True
+              intr.fl(1)     := True
             }
             dataPtr := dataPtr + U(1)
             sdaOut  := !ptrValid(dataPtr)
@@ -415,12 +447,14 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
             sdaOut := True
           }
         } otherwise {
-          // Read: release SDA NOW so the master's ACK/NACK is not masked by
-          // our own last data bit (open-drain AND). The actual sample is taken
-          // on the following sclRise (see readAckPending), when the line is
-          // purely master-driven and stable.
-          sdaOut         := True
-          readAckPending := True
+          // Read: the ADDRESSED slave releases SDA so the master's ACK/NACK
+          // is not masked by our own last data bit (open-drain AND); the
+          // sample is taken on the following sclRise (see readAckPending).
+          // Non-addressed slaves must NOT arm readAckPending: arming it makes
+          // the next sclRise advance their dataPtr — silent pointer drift
+          // while another slave is being read.
+          sdaOut := True
+          when(wasAddressed) { readAckPending := True }
         }
         inAck   := True  // next SCL rise is data ACK
         bitPos  := U(0)
@@ -460,7 +494,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     stretchActive := False
   } otherwise {
     // Engage only while the bus SCL is Low (hold it there until released)
-    when(!io.i2c.scl.write) { stretchActive := True }
+    when(!sclFilt) { stretchActive := True }
   }
   stretchActive.simPublic()
   io.i2c.scl.read := !stretchActive
