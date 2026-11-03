@@ -36,4 +36,21 @@ case class Alignment(config: DfiConfig) extends Component {
   // implement the PHY parity-reporting handshake, so it idles at 0 (DDR4 CA parity itself is
   // generated in CAAlignment on dfi_parity, not here).
   if (config.useParityIn) io.output.status.parityIn.clearAll()
+
+  // DFI-level TRAINING INITIATION is out of scope for this controller: with useTrainingSignals
+  // the bundle carries the MC-side training outputs, but the MC never initiates DFI-level
+  // training here (boot training walks the ctrlmsg channel; legacy write leveling uses the
+  // separate io.dfiWrLvl port). Idle every MC-driven training output at 0 so the master
+  // interface is fully driven (same pattern as status.parityIn above). A future training
+  // initiator replaces these ties. The PHY-side inputs (req/resp/csN) are driven by the PHY
+  // or the testbench, not here.
+  if (config.useRdlvlEn)       io.output.rdTraining.rdlvlEn.clearAll()
+  if (config.useRdlvlGateEn)   io.output.rdTraining.rdlvlGateEn.clearAll()
+  if (config.useWrlvlEn)       io.output.wrTraining.wrlvlEn.clearAll()
+  if (config.useWrlvlStrobe)   io.output.wrTraining.wrlvlStrobe.clearAll()
+  if (config.useCalvlEn)       io.output.caTraining.calvlEn.clearAll()
+  if (config.useCalvlCapture)  io.output.caTraining.calvlCapture.clearAll()
+  if (config.useLvlPattern)    io.output.levelingTraining.lvlPattern.clearAll()
+  if (config.useLvlPeriodic)   io.output.levelingTraining.lvlPeriodic.clearAll()
+  if (config.usePhylvlReqCsN)  io.output.phyRequestedTraining.phylvlReqCsN.setAll()
 }
