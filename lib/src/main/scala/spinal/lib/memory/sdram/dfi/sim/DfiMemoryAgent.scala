@@ -156,6 +156,11 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     val ras = rasNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
     val cas = casNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
     val weN = weNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
+    // The command at phase cmdPhase only owns the [cmdPhase*width, (cmdPhase+1)*width) slice of the
+    // phase-concatenated address/bank buses; reading the whole bus would decode a shifted address for
+    // cmdPhase != 0.
+    val cmdAddr = (ctrl.address.toLong >> (cmdPhase * busConfig.addressWidth)) & ((1L << busConfig.addressWidth) - 1)
+    val cmdBank = (ctrl.bank.toLong >> (cmdPhase * busConfig.bankWidth)) & ((1L << busConfig.bankWidth) - 1)
     val wrEn = wr.wr.map(_.wrdataEn.toBoolean).toIndexedSeq
     val wrData = wr.wr.map(_.wrdata.toLong).toIndexedSeq
     val rdEn = rd.rden.map(_.toBoolean).toIndexedSeq
@@ -166,8 +171,8 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
       val write = enPerChip & ras & !cas & !weN
       val read = enPerChip & ras & !cas & weN
       if (active) {
-        rowAddrQueue.enqueue(ctrl.address.toLong)
-        bankQueue.enqueue(ctrl.bank.toLong)
+        rowAddrQueue.enqueue(cmdAddr)
+        bankQueue.enqueue(cmdBank)
       }
       if (rowAddrQueue.nonEmpty) {
         rowAddr = rowAddrQueue.dequeue()
@@ -177,7 +182,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
       }
       // write cmd
       if (write) {
-        columnAddr = ctrl.address.toLong & (1 << columnWidth) - 1
+        columnAddr = cmdAddr & (1 << columnWidth) - 1
         byteAddr =
           ((idPerChip << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
             busConfig.sdram.bytePerWord
@@ -192,7 +197,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
 
       // read cmd
       if (read) {
-        columnAddr = ctrl.address.toLong & (1 << columnWidth) - 1
+        columnAddr = cmdAddr & (1 << columnWidth) - 1
         byteAddr =
           ((idPerChip << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
             busConfig.sdram.bytePerWord
