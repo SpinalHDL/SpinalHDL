@@ -37,6 +37,10 @@ import spinal.lib.fsm.{EntryPoint, State, StateMachine}
   *   0x30  CFG_THIGH    W: SCL high period
   *   0x34  CFG_TBUF     W: post-STOP idle time
   *   0x38  CTRL         W: {abrt[0]}
+  *   0x3C  CMD_P2       RW: {valid[addrW], p2Addr[addrW-1:0]} — optional phase-2
+  *                       address: when phase2=1 and valid, phase 2 is addressed
+  *                       to p2Addr instead of repeating the phase-1 address
+  *                       (cross-slave RESTART). valid=0 keeps the legacy behaviour.
   */
 object I2cAutoMaster {
 
@@ -94,6 +98,16 @@ object I2cAutoMaster {
     factory.write(len2, 0x08)
     cmd.len1 := len1
     cmd.len2 := len2
+
+    // CMD_P2 (0x3C): optional phase-2 address {valid[addrW], p2Addr[addrW-1:0]}.
+    // Separate register (not part of the CMD word) so the packed CMD layout is
+    // unchanged; writing it does NOT trigger a transfer.
+    val cmdP2Addr      = Reg(Bits(addrW bits)) init(0)
+    val cmdP2AddrValid = RegInit(False)
+    factory.write(cmdP2Addr, 0x3C, 0)
+    factory.write(cmdP2AddrValid, 0x3C, addrW)
+    cmd.p2Addr      := cmdP2Addr
+    cmd.p2AddrValid := cmdP2AddrValid
 
     // TX_DATA (0x0C): push one byte into the TX FIFO
     val txData = Reg(Bits(8 bits)) init(0)
@@ -173,6 +187,8 @@ case class I2cAutoMasterIo(c: I2cAutoMaster.Config) extends Bundle {
     val nackLast = in Bool()
     val len1     = in UInt(8 bits)
     val len2     = in UInt(8 bits)
+    val p2Addr      = in Bits((if (c.support10bit) 10 else 7) bits)
+    val p2AddrValid = in Bool()
     val trigger  = in Bool()  // one-cycle pulse from the CMD register write
   }
 
@@ -315,7 +331,7 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   // === Status ===
   val status = new Area {
     val busy    = RegInit(False)
-    val errCode = RegInit(U(0, 3 bits))
+    val errCode = RegInit(U(0, 3 bits))  // 1=NACK 2=dataNACK 3=timeout 4=arbLoss 5=busyRejected
     val aborted = RegInit(False)
   }
 
@@ -344,6 +360,24 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   io.intr.fl        := intr.fl
 
   // === Transfer FSM ===
+  // §3.1.10 (UM10204): a master must not initiate a START while the bus is
+  // busy. Track external occupancy from the filtered wires while we are NOT
+  // driving (our own edges would otherwise feed back): a START sets busy,
+  // a STOP clears it. While status.busy (our own transfer owns the wires)
+  // the tracker is frozen.
+  val busBusyExt = RegInit(False)
+  // Armed only after the first accepted transfer: at power-up the wires can
+  // show a spurious SDA-fall-while-SCL-High transient (driver init) that
+  // would otherwise latch busBusyExt True forever and reject every CMD.
+  val busSeenOnce = RegInit(False)
+  val sdaPrev = RegNext(sdaFilt)
+  val extStart = sclFilt && sdaPrev && !sdaFilt
+  val extStop  = sclFilt && !sdaPrev && sdaFilt
+  when(!status.busy && busSeenOnce) {
+    when(extStart) { busBusyExt := True }
+    when(extStop)  { busBusyExt := False }
+  }
+
   val fsm = new StateMachine {
 
     // Timer with armed flag to avoid spurious timerDone on entry cycle
@@ -403,6 +437,8 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val latHasP2    = RegInit(False)
     val latNackLast = RegInit(False)
     val latLen2     = Reg(UInt(8 bits)) init(0)
+    val latP2Addr      = Reg(Bits(addrW bits)) init(0)
+    val latP2AddrValid = RegInit(False)
 
     // Derived
     val dataStart    = U(addrBytes, 9 bits)
@@ -417,16 +453,19 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     // 10-bit frame format per I2C spec (UM10204 §4.2.2 / IEC 60197):
     //   byte 0: 1 1 1 1 0 A9 A8 R/W
     //   byte 1: A7 A6 A5 A4 A3 A2 A1 A0
+    // Cross-slave RESTART (CMD_P2): phase 2 may address a different slave;
+    // p2AddrValid=0 repeats the phase-1 address (legacy behaviour).
+    val effAddr = Mux(phase === U(1) && latP2AddrValid, latP2Addr, latAddr)
     val addrDrive: Bool = if (c.support10bit) {
       val tenBitByte0: Bool = Mux(bitPos(2 downto 0) <= U(3), True,           // b7..b4 = 1111
                                    Mux(bitPos(2 downto 0) === U(4), False,    // b3 = 0
-                                     Mux(bitPos(2 downto 0) === U(5), latAddr(9),  // b2 = A9
-                                       Mux(bitPos(2 downto 0) === U(6), latAddr(8), // b1 = A8
+                                     Mux(bitPos(2 downto 0) === U(5), effAddr(9),  // b2 = A9
+                                       Mux(bitPos(2 downto 0) === U(6), effAddr(8), // b1 = A8
                                            curRw))))                          // b0 = R/W
-      val tenBitByte1: Bool = latAddr(7 - bitPos(2 downto 0))                 // b7..b0 = A7..A0
+      val tenBitByte1: Bool = effAddr(7 - bitPos(2 downto 0))                 // b7..b0 = A7..A0
       Mux(byteNum === U(0), tenBitByte0, tenBitByte1)
     } else {
-      Mux(bitPos(2 downto 0) === U(7), curRw, latAddr(6 - bitPos(2 downto 0)))
+      Mux(bitPos(2 downto 0) === U(7), curRw, effAddr(6 - bitPos(2 downto 0)))
     }
 
     val sdaValue: Bool = Mux(isAckBit,
@@ -437,12 +476,15 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     // States
     val IDLE: State = new State with EntryPoint {
       whenIsActive {
-        when(io.cmd.trigger) {
+        when(io.cmd.trigger && !busBusyExt) {
+          busSeenOnce := True  // arm external-bus tracker from now on
           latAddr     := io.cmd.addr
           latRw       := io.cmd.rw
           latHasP2    := io.cmd.phase2
           latNackLast := io.cmd.nackLast
           latLen2     := io.cmd.len2
+          latP2Addr      := io.cmd.p2Addr
+          latP2AddrValid := io.cmd.p2AddrValid
           phase   := U(0)
           byteNum := U(0)
           bitPos  := U(0)
@@ -568,17 +610,15 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                   }
                 }
               } otherwise {
-                // Intermediate address byte (10-bit mode): ACK and continue
-                when(sdaFilt) {  // NACK on first addr byte
-                  status.errCode := U(1, 3 bits)
-                  status.busy    := False
-                  intr.fl(1)     := True
-                  goto(STOP0)
-                } otherwise {
-                  byteNum := byteNum + U(1)
-                  bitPos  := U(0)
-                  goto(BIT_LOW)
-                }
+                // Intermediate address byte (10-bit mode): continue.
+                // §3.1.11 A1/A3: a read-direction header (R/W=1) is NOT
+                // acknowledged on this byte — the addressed slave answers
+                // the SECOND byte after Sr. Aborting here (as a NACK) broke
+                // every 10-bit read. The authoritative address ACK/NACK
+                // check stays on the LAST address byte below.
+                byteNum := byteNum + U(1)
+                bitPos  := U(0)
+                goto(BIT_LOW)
               }
             } otherwise {
               when(curRw) {
@@ -808,6 +848,17 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     rxStretch := inBitHigh && curRw && !isAddrByte && !rxFifo.io.push.ready
 
     this.build()
+  }
+
+  // Busy-reject (errCode=5): a CMD issued while the bus is occupied — by our
+  // own unfinished transfer (FSM not in IDLE, incl. the recovery tail)
+  // or by external START-without-STOP — is rejected with the error
+  // interrupt instead of being silently dropped (previous behaviour: a
+  // trigger arriving during the recovery tail vanished with no errCode and
+  // no interrupt).
+  when(io.cmd.trigger && (!fsm.isActive(fsm.IDLE) || busBusyExt)) {
+    status.errCode := U(5, 3 bits)
+    intr.fl(1)     := True
   }
 
   // Drive pins. While clock-stretching (rxStretch) we force SCL Low to stall

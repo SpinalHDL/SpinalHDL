@@ -334,7 +334,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
     }
   }
 
-  // SCL rising edge: sample SDA, advance bit position
+// SCL rising edge: sample SDA, advance bit position
   when(sclRise && inFrame) {
     when(inAck) {
       // ACK bit. In read mode this is the master's data-ACK/NACK: we released
@@ -382,11 +382,17 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
         if (c.support10bit) {
           when(addrByteIdx === U(0)) {
             // First 10-bit address byte: standard format 11110 A9 A8 R/W.
-            // Validate the 11110 prefix before ACKing — a frame without it
-            // (e.g. 7-bit traffic on a shared bus) is not addressed to us.
-            // The NACK is deliberate but silent (no errNack/interrupt) to
-            // avoid interrupt storms on unrelated 7-bit frames.
-            val prefixOk = rxAccum(7 downto 3) === B"11110"
+            // §3.1.11 A1: ACK the header only if it addresses US in WRITE
+            // direction — 11110 prefix, A[9:8] equal to our upper bits, R/W=0.
+            // A read-direction header (R/W=1) is answered on the SECOND byte
+            // after Sr (A3); ACKing it here would let every 10-bit slave on
+            // the bus grab the read. The NACK is deliberate but silent (no
+            // errNack/interrupt) to avoid interrupt storms on unrelated
+            // 7-bit frames or foreign 10-bit frames.
+            val prefixOk   = rxAccum(7 downto 3) === B"11110"
+            val upperMatch = rxAccum(2 downto 1) === io.cfg.slaveAddr(9 downto 8)
+            val hdrIsWrite = !rxAccum(0)
+            val ackHdr     = prefixOk && upperMatch && hdrIsWrite && io.cfg.addrMatchEn
             tenBitUpper    := rxAccum(2 downto 1)  // A[9:8]
             tenBitRw       := rxAccum(0)           // R/W lives in byte 0
             tenBitPrefixOk := prefixOk
@@ -394,7 +400,7 @@ class I2cAutoSlave(c: I2cAutoSlave.Config) extends Component {
             inAck       := True
             bitPos      := U(0)
             rxAccum     := B(0)
-            sdaOut      := !(prefixOk && io.cfg.addrMatchEn)
+            sdaOut      := !ackHdr
           } otherwise {
             // Second 10-bit address byte: A[7:0]; R/W was consumed in byte 0
             val fullAddr = Cat(tenBitUpper, rxAccum(7 downto 0))  // A[9:0]
