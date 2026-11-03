@@ -122,7 +122,7 @@ case class RdAlignment(config: DfiConfig) extends Component {
 
 case class WrAlignment(config: DfiConfig) extends Component {
   val io = new Bundle {
-    val inputCs = Vec(slave(Flow(DfiWrCs(config))), config.frequencyRatio)
+    val inputCs = config.useWrdataCsN generate Vec(slave(Flow(DfiWrCs(config))), config.frequencyRatio)
     val input = Vec(slave(Flow(DfiWrData(config))), config.frequencyRatio)
     val output = master(DfiWriteInterface(config))
   }

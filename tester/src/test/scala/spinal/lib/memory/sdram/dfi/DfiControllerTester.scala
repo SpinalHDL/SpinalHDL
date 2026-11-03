@@ -36,7 +36,8 @@ class DfiControllerTester extends SpinalAnyFunSuite {
       tPhyWrData: Int,
       chipSelectNumber: Int,
       rowWidth: Int,
-      addrMap: AddrMap
+      addrMap: AddrMap,
+      useCsN: Boolean = false
   ): Unit = {
     test(name) {
       // Deterministic test: derive a fixed seed from the test name and seed BOTH random sources
@@ -95,13 +96,13 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           val signalConfig = generation match {
             case SdramGeneration.DDR2 =>
               new DDR2SignalConfig(DfiFunctionConfig(), false) {
-                override val useWrdataCsN = false
-                override val useRddataCsN = false
+                override val useWrdataCsN = useCsN
+                override val useRddataCsN = useCsN
               }
             case _ =>
               new DDR3SignalConfig(DfiFunctionConfig(), false) {
-                override val useWrdataCsN = false
-                override val useRddataCsN = false
+                override val useWrdataCsN = useCsN
+                override val useRddataCsN = useCsN
               }
           }
           val dfiConfig: DfiConfig = DfiConfig(
@@ -266,7 +267,23 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           if (!drained) {
             println(s"[NOT-DRAINED] ${name}: drainC=$drainC pending=${bmbAgent.pendingCounter} rspQ=${bmbAgent.rspQueue.map(_.size).mkString(",")}")
           }
-          dut.clockDomain.waitSampling(10000)
+          // 刷新验证: 命令已停止,空闲期应触发 auto-refresh(prechargeAll → refresh)。
+          // 在 cmdPhase 相位采样 DFI 命令总线,断言观察到 refresh 编码。
+          // REFRESH (CmdTxd "b001", LSB-first assignFromBits): rasN=0, casN=0, weN=1。
+          var refreshCount = 0
+          val rCmdPhase = dut.dfiConfig.timeConfig.cmdPhase
+          val rCsNum = dut.dfiConfig.chipSelectNumber
+          val rIdleCs = (1L << rCsNum) - 1
+          for (_ <- 0 until 10000) {
+            dut.clockDomain.waitSampling()
+            val rRas = (dut.io.dfi.control.rasN.toLong >> rCmdPhase) & 1L
+            val rCas = (dut.io.dfi.control.casN.toLong >> rCmdPhase) & 1L
+            val rWe = (dut.io.dfi.control.weN.toLong >> rCmdPhase) & 1L
+            val rCs = (dut.io.dfi.control.csN.toLong >> (rCmdPhase * rCsNum)) & rIdleCs
+            if (rRas == 0 && rCas == 0 && rWe == 1 && rCs != rIdleCs) refreshCount += 1
+          }
+          println(s"[REFRESH] ${name}: refreshCount=$refreshCount")
+          assert(refreshCount > 0, s"${name}: no refresh command observed in idle window")
           println(s"[COUNT] ${name}: cmdWriteCount=$cmdWriteCount rspReadCount=$rspReadCount")
           simSuccess()
         }
@@ -288,4 +305,8 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   // (vii) cmdPhase != 0: command issued on a non-zero phase (phase-aligned read-data return)
   runDfiControllerTest("DfiController_DDR3_fr2_cmdPhase1", SdramGeneration.DDR3, 2, 1, 0, 2, 15, RowBankColumn)
   runDfiControllerTest("DfiController_DDR3_fr4_cmdPhase1", SdramGeneration.DDR3, 4, 1, 0, 2, 15, RowBankColumn)
+  // RowColumnBank is rejected at elaboration (assert in DfiController): the mapping interleaves
+  // burst-adjacent bits into the bank field, breaking the station's single-bank burst continuity.
+  // (ix) useWrdataCsN/useRddataCsN: exercises the wrCs/rdCs datapaths (DfiWrCs/DfiReadCs, WrAlignment/RdAlignment inputCs)
+  runDfiControllerTest("DfiController_DDR3_fr2_csN", SdramGeneration.DDR3, 2, 0, 0, 2, 15, RowBankColumn, useCsN = true)
 }

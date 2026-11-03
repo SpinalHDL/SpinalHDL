@@ -90,6 +90,7 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
     val task = slave(OpTasks(taskConfig, dfiConfig))
     val input = Vec(slave(Stream(Fragment(DfiRdData(dfiConfig)))), frequencyRatio)
     val rden = out Vec (Bool(), frequencyRatio)
+    val outputCs = dfiConfig.useRddataCsN generate Vec(master(Flow(DfiReadCs(dfiConfig))), frequencyRatio)
     val output = master(Flow(Fragment(TaskRsp(taskConfig, dfiConfig))))
   }
   val rspPipeline = new Area {
@@ -116,6 +117,20 @@ case class RdDataRxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
         io.rden(i) := History(rdensHistory(nextPhase)(delayCyc), 0 until (dfiConfig.beatCount), init = False).orR
       } else {
         io.rden(i) := History(rdensHistory(nextPhase)(delayCyc + 1), 0 until (dfiConfig.beatCount), init = False).orR
+      }
+    }
+
+    // dfi_rddata_cs_n 与 dfi_rddata_valid 对齐(不实现 tPhyRdCslat 独立延迟):
+    // 在读命令拍捕获 rank 选择并保持,直到下一个读命令覆盖。MakeTask 的 RTW 定时器保证
+    // 前一命令的 rddata 全部返回后才会发出下一命令,故保持窗口不会跨越命令边界。
+    val csHold = Reg(Bits(dfiConfig.chipSelectNumber bits)) init (Bits(dfiConfig.chipSelectNumber bits).setAll())
+    when(io.task.read) {
+      csHold := ~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber)
+    }
+    if (dfiConfig.useRddataCsN) {
+      for (i <- 0 until (frequencyRatio)) {
+        io.outputCs(i).valid := io.input(i).valid
+        io.outputCs(i).rdCs := csHold
       }
     }
 
@@ -169,8 +184,11 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   val timeConfig = dfiConfig.timeConfig
   val io = new Bundle {
     val write = in Bool ()
+    // 写命令的 rank 选择(低有效),与 write 标志同拍;无写命令时全 1(不选中任何 rank)
+    val cs = in Bits (dfiConfig.chipSelectNumber bits)
     val input = slave(Stream(TaskWriteData(dfiConfig)))
     val output = Vec(master(Flow(DfiWrData(dfiConfig))), frequencyRatio)
+    val outputCs = dfiConfig.useWrdataCsN generate Vec(master(Flow(DfiWrCs(dfiConfig))), frequencyRatio)
   }
   val delayCyc = timeConfig.tPhyWrLat / frequencyRatio
   val nextPhase = (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) % frequencyRatio
@@ -179,7 +197,17 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   val wrens = Vec(Bool(), frequencyRatio)
   val wrensHistory =
     Vec(Vec(Bool(), (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)
-
+  // dfi_wrdata_cs_n 与 dfi_wrdata_en 对齐(本控制器不实现 tPhyWrCsLat 独立延迟):
+  // rank 选择随写使能链同步延迟,空闲时保持全 1
+  val csHistory =
+    Vec(Vec(Bits(dfiConfig.chipSelectNumber bits), (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)
+  for (i <- 0 until (frequencyRatio)) {
+    csHistory(i) := History(
+      io.cs,
+      0 to (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 1,
+      init = Bits(dfiConfig.chipSelectNumber bits).setAll()
+    )
+  }
   def wrdataPhase(i: Int) = io.output(i)
   for (i <- 0 until (frequencyRatio)) {
     wrensHistory(i) := History(
@@ -214,6 +242,17 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
           (t + nextPhase) % frequencyRatio
         )(i)
       )
+    }
+  }
+  if (dfiConfig.useWrdataCsN) {
+    for (i <- 0 until (frequencyRatio)) {
+      if (i >= nextPhase) {
+        io.outputCs(i).valid := wrensHistory(nextPhase)(delayCyc)
+        io.outputCs(i).wrCs := csHistory(nextPhase)(delayCyc)
+      } else {
+        io.outputCs(i).valid := wrensHistory(nextPhase)(delayCyc + 1)
+        io.outputCs(i).wrCs := csHistory(nextPhase)(delayCyc + 1)
+      }
     }
   }
 }

@@ -84,14 +84,14 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   val columnBurstShift = log2Up(dfiConfig.transferPerBurst)
 
   readyForRefresh clearWhen (io.cmd.valid)
-  val columnBurstMask = (sdram.columnSize - 1) - (io.cmd.stationLengthMax - 1 << columnBurstShift)
+  val columnBurstMask = (sdram.columnSize - 1) - ((io.cmd.stationLengthMax - 1) << columnBurstShift)
   val station = new Area {
     val valid = RegInit(False)
     val status = Reg(Status())
     val address = Reg(BusAddress(dfiConfig))
     val write = Reg(Bool())
     val context = Reg(Bits(taskConfig.contextWidth bits))
-    val offset, offsetLast = Reg(UInt(io.cmd.stationLengthWidth bits))
+    val offset, offsetLast = Reg(UInt(io.cmd.stationLengthWidth + 1 bits))
 
     import status._
     allowPrecharge := True
@@ -163,14 +163,18 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   val loader = new Area {
     taskConstructor.input.ready := !station.valid
     val offset = taskConstructor.address.column(columnBurstShift, io.cmd.stationLengthWidth bits)
-    val offsetLast = offset + taskConstructor.input.length
+    val offsetLast = offset +^ taskConstructor.input.length
     // BmbAlignedSpliter guarantees sub-commands never cross a bytePerTaskMax-aligned boundary, so
-    // offset + length fits the station range. Make that invariant explicit: a violation here would
-    // otherwise wrap offsetLast and deadlock the station (last never reached).
-    assert(
-      offsetLast <= io.cmd.stationLengthMax - 1,
-      "SDRAM task bursts cross the station boundary: offset + length must fit in stationLengthWidth bits"
-    )
+    // offset + length fits the station range. Make that invariant explicit: with the +1-bit wide
+    // offsetLast, a violation is detected before any truncation can wrap the comparison.
+    // Gated on input.valid: the m2sPipe stage latches garbage payload while valid is low
+    // (collapsible bubble), and this combinatorial assertion would otherwise trip on those cycles.
+    when(taskConstructor.input.valid) {
+      assert(
+        offsetLast <= io.cmd.stationLengthMax - 1,
+        "SDRAM task bursts cross the station boundary: offset + length must fit in stationLengthWidth bits"
+      )
+    }
     val canSpawn = !station.valid
     // Insert taskConstructor into one free station
     when(taskConstructor.input.fire && canSpawn) {
@@ -180,7 +184,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
       station.address.assignUnassignedByName(taskConstructor.address)
       station.write := taskConstructor.input.write
       station.context := taskConstructor.input.context
-      station.offset := offset
+      station.offset := offset.resized
       station.offsetLast := offsetLast
     }
   }
