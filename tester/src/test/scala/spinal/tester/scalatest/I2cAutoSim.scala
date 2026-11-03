@@ -223,6 +223,17 @@ class I2cAutoSim extends AnyFunSuite {
       }
   }
 
+  // Variant of runSim with a configurable topology (for back-pressure tests that
+  // need e.g. a deeper slave RAM than the default 64).
+  def runSimWithCfg(cfg: TestTopCfg)(body: TestTop => Unit): Unit = {
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new TestTop(cfg)).doSim { dut =>
+        val cd = dut.clockDomain
+        cd.forkStimulus(10 ns)
+        body(dut)
+      }
+  }
+
   // Helper: write a byte to master TX FIFO via the TX_DATA register
   def pushTx(dut: TestTop, data: Int): Unit = {
     dut.regWriteMaster(0x0C, data)
@@ -364,11 +375,11 @@ class I2cAutoSim extends AnyFunSuite {
       // Drain RX FIFO
       cd.waitActiveEdge(5)
       var rxValues = List.empty[Int]
-      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 3) {
-        rxValues ::= dut.master.rxFifo.head.toInt
-        dut.master.rxFifo.popValid #= true
+      while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 3) {
+        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
       assert(rxValues.reverse == List(0x11, 0x22, 0x33),
@@ -408,11 +419,11 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Drain RX FIFO: should have 2 read bytes (from RAM[1], RAM[2])
       var rxValues = List.empty[Int]
-      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 3) {
-        rxValues ::= dut.master.rxFifo.head.toInt
-        dut.master.rxFifo.popValid #= true
+      while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 3) {
+        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
       assert(rxValues.reverse == List(0xBB, 0xCC),
@@ -448,11 +459,11 @@ class I2cAutoSim extends AnyFunSuite {
 
       assert(dut.master.status.errCode.toInt == 0, s"Transfer 1 err=${dut.master.status.errCode.toInt}")
       var rxValues = List.empty[Int]
-      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 2) {
-        rxValues ::= dut.master.rxFifo.head.toInt
-        dut.master.rxFifo.popValid #= true
+      while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 2) {
+        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
       assert(rxValues.reverse == List(0x11, 0x22), s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0x11, 0x22)")
@@ -472,7 +483,7 @@ class I2cAutoSim extends AnyFunSuite {
       dut.issueCmd(addr = 0x28, rw = false, len1 = 3)
       waitForIdle(dut)
       assert(dut.master.status.errCode.toInt == 0, s"Transfer 2 err=${dut.master.status.errCode.toInt}")
-      assert(!dut.master.txFifo.notEmpty.toBoolean, s"TX FIFO not drained, cnt=${dut.master.txFifo.cnt.toInt}")
+      assert(!dut.master.txFifo.io.pop.valid.toBoolean, s"TX FIFO not drained, cnt=${dut.master.txFifo.io.occupancy.toInt}")
       val ram0 = dut.slave.ram.getBigInt(0).toInt
       val ram1 = dut.slave.ram.getBigInt(1).toInt
       val ram2 = dut.slave.ram.getBigInt(2).toInt
@@ -537,11 +548,11 @@ class I2cAutoSim extends AnyFunSuite {
 
       assert(dut.master.status.errCode.toInt == 0, s"err=${dut.master.status.errCode.toInt}")
       var rxValues = List.empty[Int]
-      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 3) {
-        rxValues ::= dut.master.rxFifo.head.toInt
-        dut.master.rxFifo.popValid #= true
+      while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 3) {
+        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
       assert(rxValues.reverse == List(0x11, 0x22, 0x33),
@@ -990,11 +1001,11 @@ class I2cAutoSim extends AnyFunSuite {
 
       assert(dut.master.status.errCode.toInt === 0, s"err=${dut.master.status.errCode.toInt} (stretched at byte=$stretchedByteNum bit=$stretchedBitPos)")
       var rxValues = List.empty[Int]
-      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 4) {
-        rxValues ::= dut.master.rxFifo.head.toInt
-        dut.master.rxFifo.popValid #= true
+      while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 4) {
+        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
       assert(rxValues.reverse == List(0x5A, 0x3C, 0xE7, 0x19),
@@ -1048,11 +1059,11 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.slave.ram.getBigInt(0).toInt == 0xAA, "RAM[0] mismatch after stretch")
       assert(dut.slave.ram.getBigInt(1).toInt == 0xBB, "RAM[1] mismatch after stretch")
       var rxValues = List.empty[Int]
-      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 4) {
-        rxValues ::= dut.master.rxFifo.head.toInt
-        dut.master.rxFifo.popValid #= true
+      while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 4) {
+        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
       assert(rxValues.reverse == List(0x5A, 0x3C, 0xE7, 0x19),
@@ -1104,11 +1115,11 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.slave.ram.getBigInt(0).toInt == 0xAA, "RAM[0] mismatch after stretch")
       assert(dut.slave.ram.getBigInt(1).toInt == 0xBB, "RAM[1] mismatch after stretch")
       var rxValues = List.empty[Int]
-      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 4) {
-        rxValues ::= dut.master.rxFifo.head.toInt
-        dut.master.rxFifo.popValid #= true
+      while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 4) {
+        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
       assert(rxValues.reverse == List(0x5A, 0x3C, 0xE7, 0x19),
@@ -1161,11 +1172,11 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.slaveA.ram.getBigInt(0).toInt == 0xAA, "A RAM[0]")
       assert(dut.slaveA.ram.getBigInt(1).toInt == 0xBB, "A RAM[1]")
       var rxValues = List.empty[Int]
-      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 2) {
-        rxValues ::= dut.master.rxFifo.head.toInt
-        dut.master.rxFifo.popValid #= true
+      while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 2) {
+        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
       assert(rxValues.reverse == List(0x11, 0x22), s"RX=${rxValues.reverse}")
@@ -1297,11 +1308,11 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Read back
       for (i <- data.indices) {
-        dut.master.rxFifo.popValid #= true
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        val rxVal = dut.master.rxFifo.head.toInt
+        val rxVal = dut.master.rxFifo.io.pop.payload.toInt
         assert(rxVal == data(i), f"RX[$i]=0x${rxVal}%02X exp 0x${data(i)}%02X")
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
     }
@@ -1339,11 +1350,11 @@ class I2cAutoSim extends AnyFunSuite {
 
       // Verify read phase
       for (i <- readData.indices) {
-        dut.master.rxFifo.popValid #= true
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        val rxVal = dut.master.rxFifo.head.toInt
+        val rxVal = dut.master.rxFifo.io.pop.payload.toInt
         assert(rxVal == readData(i), f"RX[$i]=0x${rxVal}%02X exp 0x${readData(i)}%02X")
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
     }
@@ -1375,11 +1386,11 @@ class I2cAutoSim extends AnyFunSuite {
 
       assert(dut.master.status.errCode.toInt == 0, s"err=${dut.master.status.errCode.toInt}")
       var rxValues = List.empty[Int]
-      while (dut.master.rxFifo.notEmpty.toBoolean && rxValues.size < 3) {
-        rxValues ::= dut.master.rxFifo.head.toInt
-        dut.master.rxFifo.popValid #= true
+      while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 3) {
+        rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+        dut.master.rxPopIntent #= true
         cd.waitActiveEdge()
-        dut.master.rxFifo.popValid #= false
+        dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
       assert(rxValues.reverse == List(0x11, 0x22, 0x33),
@@ -1392,4 +1403,89 @@ class I2cAutoSim extends AnyFunSuite {
     }
   }
 
+  test("I2cAuto: TX FIFO full raises STATUS.txFull (firmware must poll before write)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+      cd.waitActiveEdge(5)
+      dut.cfgMasterTiming()
+
+      // Empty FIFO: txFull must be clear
+      var st = bmbRead(dut.masterRegBus, 0x14, cd)
+      assert(((st >> 7) & 1) == 0, s"STATUS.txFull unexpectedly set on empty FIFO (STATUS=0x${st}%08X)")
+
+      // Fill the TX FIFO to capacity (fifoDepth = 64) via the register path
+      var i = 0
+      while (i < 64) { pushTx(dut, (0xA0 + i) & 0xFF); i += 1 }
+      cd.waitActiveEdge(5)
+
+      // Now txFull must be set (this is what firmware polls before writing more)
+      st = bmbRead(dut.masterRegBus, 0x14, cd)
+      assert(((st >> 7) & 1) == 1, s"STATUS.txFull not set after filling 64-byte TX FIFO (STATUS=0x${st}%08X)")
+      assert(dut.master.txFifo.io.occupancy.toInt == 64, s"txFifo occupancy=${dut.master.txFifo.io.occupancy.toInt}, expected 64")
+    }
+  }
+
+  test("I2cAuto: RX FIFO full triggers clock-stretch, no data loss") {
+    runSimWithCfg(TestTopCfg(masterFifoDepth = 64, slaveRamDepth = 70)) { dut =>
+      val cd = dut.clockDomain
+      cd.waitActiveEdge(5)
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+
+      // Pre-load 70 distinct bytes into the slave RAM (0x10 .. 0x55)
+      var k = 0
+      while (k < 70) { dut.slave.ram.setBigInt(k, (0x10 + k) & 0xFF); k += 1 }
+      cd.waitActiveEdge(10)
+
+      // Read 70 bytes (MORE than the 64-deep RX FIFO) and do NOT drain during
+      // the transfer: the FIFO must fill and the master must clock-stretch.
+      dut.issueCmd(addr = 0x28, rw = true, nackLast = true, len1 = 70)
+
+      // Wait until the RX FIFO is full and we are still mid-transfer.
+      var waited = 0
+      while (!(dut.master.rxFifo.io.occupancy.toInt == 64 && dut.master.status.busy.toBoolean) && waited < 300000) {
+        cd.waitActiveEdge(); waited += 1
+      }
+      assert(waited < 300000, "RX FIFO never reached full while busy (stretch scenario not reached)")
+
+      // The master is now stuck (full FIFO, no drain): it must be holding SCL Low.
+      var sw = 0
+      while (!dut.master.rxStretchObs.toBoolean && sw < 5000) { cd.waitActiveEdge(); sw += 1 }
+      assert(dut.master.rxStretchObs.toBoolean, "Master did not engage RX clock-stretch while FIFO full")
+      assert(!dut.masterSclRelease.toBoolean, "SCL not held Low during RX clock-stretch")
+
+      // Drain 10 bytes to make room; the master should release the stretch and
+      // finish the remaining bytes.
+      var drained = 0
+      while (drained < 10) {
+        if (dut.master.rxFifo.io.pop.valid.toBoolean) {
+          dut.master.rxPopIntent #= true
+          cd.waitActiveEdge()
+          dut.master.rxPopIntent #= false
+          cd.waitActiveEdge()
+          drained += 1
+        } else cd.waitActiveEdge()
+      }
+
+      // Transfer should now complete.
+      waitForIdle(dut)
+
+      // Drain the rest and verify all remaining bytes arrived in order (no loss).
+      val rxValues = scala.collection.mutable.ArrayBuffer.empty[Int]
+      while (dut.master.rxFifo.io.pop.valid.toBoolean) {
+        rxValues += dut.master.rxFifo.io.pop.payload.toInt
+        dut.master.rxPopIntent #= true
+        cd.waitActiveEdge()
+        dut.master.rxPopIntent #= false
+        cd.waitActiveEdge()
+      }
+      // We drained the first 10 (0x10..0x19) above; the remaining 60 are 0x1A..0x55.
+      assert(rxValues.size == 60, s"expected 60 remaining bytes after 10 drained, got ${rxValues.size}")
+      val expected = (0 until 60).map(i => (0x1A + i) & 0xFF)
+      assert(rxValues.toList == expected,
+        s"RX mismatch after stretch recovery: got ${rxValues.take(8).map(v => f"0x$v%02X")}..., expected ${expected.take(8).map(v => f"0x$v%02X")}, sizes ${rxValues.size}/${expected.size}")
+    }
+  }
 }

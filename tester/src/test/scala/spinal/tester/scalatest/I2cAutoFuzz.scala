@@ -83,15 +83,15 @@ class I2cAutoFuzz extends AnyFunSuite {
 
   def resetBetweenIter(cd: ClockDomain, dut: FuzzTop): Unit = {
     // Drain RX FIFO
-    while (dut.master.rxFifo.notEmpty.toBoolean) {
-      dut.master.rxFifo.popValid #= true
+    while (dut.master.rxFifo.io.pop.valid.toBoolean) {
+      dut.master.rxPopIntent #= true
       cd.waitActiveEdge()
-      dut.master.rxFifo.popValid #= false
+      dut.master.rxPopIntent #= false
       cd.waitActiveEdge()
     }
     // Wait for TX FIFO to drain (master should have consumed all)
     var waitTx = 0
-    while (dut.master.txFifo.cnt.toInt > 0 && waitTx < 2000) {
+    while (dut.master.txFifo.io.occupancy.toInt > 0 && waitTx < 2000) {
       cd.waitActiveEdge()
       waitTx += 1
     }
@@ -101,11 +101,11 @@ class I2cAutoFuzz extends AnyFunSuite {
 
   def drainRx(cd: ClockDomain, dut: FuzzTop): List[Int] = {
     var result = List.empty[Int]
-    while (dut.master.rxFifo.notEmpty.toBoolean) {
-      result ::= dut.master.rxFifo.head.toInt
-      dut.master.rxFifo.popValid #= true
+    while (dut.master.rxFifo.io.pop.valid.toBoolean) {
+      result ::= dut.master.rxFifo.io.pop.payload.toInt
+      dut.master.rxPopIntent #= true
       cd.waitActiveEdge()
-      dut.master.rxFifo.popValid #= false
+      dut.master.rxPopIntent #= false
       cd.waitActiveEdge()
     }
     result.reverse

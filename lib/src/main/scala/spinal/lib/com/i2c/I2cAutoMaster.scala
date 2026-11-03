@@ -27,7 +27,7 @@ import spinal.lib.fsm.{EntryPoint, State, StateMachine}
   *   0x08  LEN2         W: phase-2 data byte count
   *   0x0C  TX_DATA      W: push one byte into TX FIFO
   *   0x10  RX_DATA      R: {valid[8], data[7:0]}
-  *   0x14  STATUS       R: {aborted[6], err[5:3], rxAvail[2], txAvail[1], busy[0]}
+  *   0x14  STATUS       R: {txFull[7], aborted[6], err[5:3], rxAvail[2], txAvail[1], busy[0]}
   *   0x18  INT_EN       RW: {rxNotEmpty[2], error[1], complete[0]}
   *   0x1C  INT_FLAG     R:  interrupt flags
   *   0x20  INT_CLR      W:  W1C interrupt flags
@@ -115,7 +115,7 @@ object I2cAutoMaster {
 
     // STATUS (0x14): {aborted[6], err[5:3], rxAvail[2], txAvail[1], busy[0]}
     factory.read(0x14, 0 -> status.busy, 1 -> status.txAvail, 2 -> status.rxAvail,
-                 3 -> status.errCode, 6 -> status.aborted)
+                 3 -> status.errCode, 6 -> status.aborted, 7 -> status.txFull)
 
     // Interrupts
     val intEn  = RegInit(B(0, 3 bits))
@@ -193,6 +193,7 @@ case class I2cAutoMasterIo(c: I2cAutoMaster.Config) extends Bundle {
     val aborted = out Bool()
     val txAvail = out Bool()
     val rxAvail = out Bool()
+    val txFull  = out Bool()
   }
 
   val intr = new Bundle {
@@ -220,8 +221,6 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   import I2cAutoMaster.Config
 
   val io = I2cAutoMasterIo(c)
-
-  val fifoPtrW = log2Up(c.fifoDepth)
 
   // === Input conditioning (#5, #6) ===
   // Two-FF synchronization of the open-drain bus wires: they originate in an
@@ -264,70 +263,49 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   }
 
 
-  // === TX FIFO ===
-  // Note: `mem.readAsync` emits a "can only be write first into Verilog" warning
-  // at elaboration. Benign here: reads and writes never target the same address
-  // in the same cycle (rPtr advances synchronously with pop; head is consumed on
-  // the following cycle), so the same-cycle read/write ambiguity never bites.
-  val txFifo = new Area {
-    val mem  = Mem(Bits(8 bits), c.fifoDepth)
-    val wPtr = Reg(UInt(fifoPtrW bits)) init(0)
-    val rPtr = Reg(UInt(fifoPtrW bits)) init(0)
-    val cnt  = Reg(UInt((fifoPtrW + 1) bits)) init(0)
-    val pushValid = RegInit(False)
-    val pushData  = RegInit(B(0, 8 bits))
-    val popValid  = RegInit(False)
-    val head      = mem.readAsync(rPtr)  // TX: combinational read
-    val notEmpty  = cnt =/= U(0)
+  // === TX / RX FIFOs ===
+  // Both FIFOs are now identical StreamFifo instances (the hand-rolled
+  // Mem/wPtr/rPtr/cnt duplication is gone). Push/pop are handshakes.
+  // latency = 0 enables the async read + bypass path, so pop.payload (the head)
+  // is combinationally available -- exactly like the old `mem.readAsync(rPtr)`
+  // peek that the FSM and the firmware both relied on.
+  val txFifo = StreamFifo(Bits(8 bits), c.fifoDepth, latency = 0)
+  val rxFifo = StreamFifo(Bits(8 bits), c.fifoDepth, latency = 0)
 
-    when(pushValid) {
-      mem.write(wPtr, pushData)
-      wPtr := wPtr + 1
-      cnt  := cnt + 1
-    }
-    when(popValid) {
-      rPtr := rPtr + 1
-      cnt  := cnt - 1
-    }
-    // Defensive bounds checks: an out-of-band pop/push (e.g. a bad FSM gate)
-    // would otherwise wrap cnt/rPtr silently. Caught instantly in simulation.
-    assert(!(popValid && cnt === U(0)), "txFifo underflow: pop on empty FIFO")
-    assert(!(pushValid && cnt === U(c.fifoDepth)), "txFifo overflow: push on full FIFO")
-  }
-
-  // === RX FIFO ===
-  val rxFifo = new Area {
-    val mem  = Mem(Bits(8 bits), c.fifoDepth)
-    val wPtr = Reg(UInt(fifoPtrW bits)) init(0)
-    val rPtr = Reg(UInt(fifoPtrW bits)) init(0)
-    val cnt  = Reg(UInt((fifoPtrW + 1) bits)) init(0)
-    val pushValid = RegInit(False)
-    val pushData  = RegInit(B(0, 8 bits))
-    val popValid  = RegInit(False)
-    val head      = mem.readAsync(rPtr)  // RX: combinational read
-    val notEmpty  = cnt =/= U(0)
-
-    when(pushValid) {
-      mem.write(wPtr, pushData)
-      wPtr := wPtr + 1
-      cnt  := cnt + 1
-    }
-    when(popValid) {
-      rPtr := rPtr + 1
-      cnt  := cnt - 1
-    }
-    assert(!(popValid && cnt === U(0)), "rxFifo underflow: pop on empty FIFO")
-    assert(!(pushValid && cnt === U(c.fifoDepth)), "rxFifo overflow: push on full FIFO")
-  }
+  // Pop/push intent registers: one-cycle pulses, mirroring the old registered
+  // popValid/pushValid the FSM drove. Kept registered (not combinational) so the
+  // head is sampled this cycle and the pointer/payload commit next cycle --
+  // preserving the existing 1-cycle pop timing (the "repeat-head" fix).
+  val txPopIntent  = RegInit(False)             // FSM -> txFifo pop
+  val rxPushIntent = RegInit(False)             // FSM -> rxFifo push
+  val rxPushData   = Reg(Bits(8 bits)) init(0)  // snapshot of rxByte at push time
+  val rxPopIntent  = RegInit(False)             // CSR (io.rx.pop) -> rxFifo pop
+  // Received-byte accumulator (hoisted out of the FSM so the rxFifo push
+  // payload can be driven from the wiring level below).
+  val rxByte       = Reg(Bits(8 bits)) init(0)
 
   // Wire the firmware-facing FIFO interface (driven by driveFrom-bound registers)
-  txFifo.pushValid := io.tx.push
-  txFifo.pushData  := io.tx.data
-  txFifo.popValid  := False
-  rxFifo.pushValid := False
-  rxFifo.popValid  := io.rx.pop
-  io.rx.head       := rxFifo.head
-  io.rx.notEmpty   := rxFifo.notEmpty
+  txFifo.io.push.valid   := io.tx.push
+  txFifo.io.push.payload := io.tx.data
+  txFifo.io.pop.ready    := txPopIntent
+  txPopIntent := False  // default; the FSM sets True transiently on each pop
+
+  rxFifo.io.push.valid   := rxPushIntent
+  rxFifo.io.push.payload := rxPushData
+  rxFifo.io.pop.ready    := rxPopIntent
+  rxPushIntent := False  // default; the FSM sets True transiently on each push
+  rxPopIntent  := io.rx.pop  // register-bus driven (simulation may #= override to drain)
+  io.rx.head       := rxFifo.io.pop.payload
+  io.rx.notEmpty   := rxFifo.io.pop.valid
+
+  // Loud over/underflow guards (kept per Q3). The handshake makes these
+  // structurally rare, but a bad FSM gate or a firmware push-while-full must
+  // still blow up loudly in simulation (the old cnt-based asserts, re-expressed
+  // against the handshake).
+  assert(!(io.tx.push   && !txFifo.io.push.ready), "txFifo overflow: push on full FIFO")
+  assert(!(txPopIntent  && !txFifo.io.pop.valid),  "txFifo underflow: pop on empty FIFO")
+  assert(!(rxPushIntent && !rxFifo.io.push.ready), "rxFifo overflow: push on full FIFO")
+  assert(!(rxPopIntent  && !rxFifo.io.pop.valid),  "rxFifo underflow: pop on empty FIFO")
 
   /** Width of the address field in bits (7 or 10). */
   val addrW: Int = if (c.support10bit) 10 else 7
@@ -360,8 +338,9 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
   io.status.busy    := status.busy
   io.status.errCode := status.errCode
   io.status.aborted := status.aborted
-  io.status.txAvail := txFifo.notEmpty
-  io.status.rxAvail := rxFifo.notEmpty
+  io.status.txAvail := txFifo.io.pop.valid
+  io.status.rxAvail := rxFifo.io.pop.valid
+  io.status.txFull  := !txFifo.io.push.ready  // Q5: firmware checks before writing TX_DATA
   io.intr.fl        := intr.fl
 
   // === Transfer FSM ===
@@ -399,7 +378,6 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
     val curRw   = RegInit(False)
 
     val txByte = Reg(Bits(8 bits)) init(0)
-    val rxByte = Reg(Bits(8 bits)) init(0)
     val ackBit = RegInit(False)
 
     // Set on a successful transfer end; the COMPLETE interrupt and the busy
@@ -583,8 +561,8 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                     byteNum := dataStart
                     bitPos  := U(0)
                     when(!curRw && curLen > U(0)) {
-                      txByte := txFifo.head
-                      txFifo.popValid := True
+                      txByte := txFifo.io.pop.payload
+                      txPopIntent := True
                     }
                     goto(BIT_LOW)
                   }
@@ -604,8 +582,8 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
               }
             } otherwise {
               when(curRw) {
-                rxFifo.pushValid := True
-                rxFifo.pushData  := rxByte
+                rxPushIntent := True
+                rxPushData   := rxByte
               }
               when(!curRw && sdaFilt) {  // Data NACK: use direct signal
                 status.errCode := U(2, 3 bits)
@@ -642,8 +620,8 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
                   bitPos  := U(0)
                   rxByte  := B(0)
                   when(!curRw) {
-                    txByte := txFifo.head
-                    txFifo.popValid := True
+                    txByte := txFifo.io.pop.payload
+                    txPopIntent := True
                   }
                   goto(BIT_LOW)
                 }
@@ -819,17 +797,38 @@ class I2cAutoMaster(c: I2cAutoMaster.Config) extends Component {
       }
     }
 
+    // RX clock-stretching (Q6a): while clocking out a received data bit and the
+    // RX FIFO is full, hold SCL Low to stall the bus (legal I2C clock
+    // stretching) until firmware drains the FIFO. `inBitHigh` is True only in
+    // BIT_HIGH, so this never touches the START/STOP/RESTART tails or the
+    // address phase. Holding SCL Low reuses the existing `when(!sclFilt)
+    // { timer := tHigh }` reload in BIT_HIGH, which freezes the advance (it
+    // requires sclFilt) while the wire is held Low.
+    val rxStretch = Bool()
+    rxStretch := inBitHigh && curRw && !isAddrByte && !rxFifo.io.push.ready
+
     this.build()
   }
 
-  // Drive pins
-  io.i2c.scl.write := fsm.sclDrive
+  // Drive pins. While clock-stretching (rxStretch) we force SCL Low to stall
+  // the bus; otherwise SCL follows the FSM drive intent.
+  io.i2c.scl.write := fsm.sclDrive && !fsm.rxStretch
   io.i2c.sda.write := Mux(fsm.sdaEn, fsm.sdaDrive, True)
+
+  // Keep the timeout watchdog alive during our own clock-stretch (SCL held
+  // Low, no edges): without this the watchdog would expire mid-stretch and
+  // falsely recover/abort a healthy transfer.
+  when(fsm.rxStretch) {
+    timeoutCtr := io.cfg.timeout
+  }
 
   // Expose internals for simulation
   status.busy.simPublic(); status.errCode.simPublic(); status.aborted.simPublic()
-  txFifo.pushValid.simPublic(); txFifo.pushData.simPublic(); txFifo.popValid.simPublic()
-  txFifo.head.simPublic(); txFifo.notEmpty.simPublic(); txFifo.cnt.simPublic()
-  rxFifo.popValid.simPublic(); rxFifo.head.simPublic(); rxFifo.notEmpty.simPublic()
+  io.status.txFull.simPublic()
+  txFifo.io.pop.valid.simPublic(); txFifo.io.pop.payload.simPublic(); txFifo.io.occupancy.simPublic()
+  rxFifo.io.pop.valid.simPublic(); rxFifo.io.pop.payload.simPublic(); rxFifo.io.occupancy.simPublic()
+  txPopIntent.simPublic(); rxPushIntent.simPublic(); rxPushData.simPublic(); rxPopIntent.simPublic()
   fsm.bitPos.simPublic(); fsm.byteNum.simPublic()
+  val rxStretchObs = fsm.rxStretch   // test/debug tap: RX clock-stretch condition
+  rxStretchObs.simPublic()
 }
