@@ -6,15 +6,30 @@ import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 
 case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: DfiConfig, addrMap: AddrMap)
     extends Component {
-  // Supported command-bus subset: this controller implements the fixed RAS/CAS/WE command encoding of
-  // DDR3 and below. Configs enabling the DDR4 command bus (cid / act_n / bg) or disabling the mandatory
-  // control signals are rejected here rather than failing with an obscure elaboration error.
+  // Supported command-bus subset: DDR3-and-below configs use the fixed RAS/CAS/WE encoding;
+  // DDR4 configs additionally enable the DDR4 command bus (act_n / bg / cid). Anything else is
+  // rejected here rather than failing with an obscure elaboration error.
+  val isDdr4 = dfiConfig.sdram.generation == SdramGeneration.DDR4
   assert(
-    !dfiConfig.signalConfig.useCid && !dfiConfig.signalConfig.useAckN && !dfiConfig.signalConfig.useBg &&
-      dfiConfig.signalConfig.useRasN && dfiConfig.signalConfig.useCasN && dfiConfig.signalConfig.useWeN &&
-      dfiConfig.signalConfig.useBank,
-    "DfiController supports only DDR3-and-below command buses: requires rasN/casN/weN/bank and rejects cid/act_n/bg"
+    dfiConfig.signalConfig.useRasN && dfiConfig.signalConfig.useCasN && dfiConfig.signalConfig.useWeN &&
+      dfiConfig.signalConfig.useBank &&
+      (if (isDdr4) dfiConfig.signalConfig.useAckN && dfiConfig.signalConfig.useBg && dfiConfig.signalConfig.useCid
+       else !dfiConfig.signalConfig.useCid && !dfiConfig.signalConfig.useAckN && !dfiConfig.signalConfig.useBg),
+    "DfiController supports DDR3-and-below buses (rasN/casN/weN/bank, no cid/act_n/bg) " +
+      "and DDR4 buses (with act_n/bg/cid)"
   )
+  // DDR4 needs the bank-group bits carved out of the flat bank index: bankWidth >= bgWidth + 1 (BA is non-empty).
+  if (isDdr4) {
+    assert(
+      dfiConfig.sdram.bankWidth >= dfiConfig.sdram.bgWidth + 1 && dfiConfig.sdram.bgWidth >= 1,
+      s"DDR4 requires bankWidth(${dfiConfig.sdram.bankWidth}) >= bgWidth(${dfiConfig.sdram.bgWidth}) + 1"
+    )
+    // A16/A15/A14 carry RA[15:13] on ACT; with rowWidth < 16 those pins are driven from bit 0 (V per spec).
+    assert(
+      dfiConfig.sdram.rowWidth >= 13,
+      s"DDR4 requires rowWidth >= 13 (RA[15:13] for the ACT A16/A15/A14 pins); got ${dfiConfig.sdram.rowWidth}"
+    )
+  }
   // The read-data phase alignment (RdAlignment) dynamically tracks the lane holding the first slice of
   // each burst, so any command phase in [0, frequencyRatio) is supported. The DfiMemoryAgent reference
   // model decodes the command at the configured phase and applies the same lane tracking.

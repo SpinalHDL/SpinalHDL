@@ -12,6 +12,7 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
   def cmdphase(i: Int) = io.cmd(i)
   def addrphase(i: Int) = io.address(i)
 
+  // ---- Legacy (DDR3 and below): fixed RAS/CAS/WE encoding, unchanged ----
   def ACTIVE: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b011").setName("ACTIVE")
   def WRITE: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b100").setName("WRITE")
   def READ: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b101").setName("READ")
@@ -37,48 +38,169 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
   io.address.foreach(_.valid.clear())
   io.address.foreach(_.address.clearAll())
   io.address.foreach(_.bank.clearAll())
+  if (dfiConfig.useBg) io.address.foreach(_.bg.clearAll())
 
-  when(active) {
-    cmdphase(dfiConfig.timeConfig.cmdPhase).valid.set()
-    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(ACTIVE)
-    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
-    addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
-    addrphase(dfiConfig.timeConfig.cmdPhase).address := ROW.resized
-  }
-  when(write) {
-    cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
-    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(WRITE)
-    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
-    addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
-    addrphase(dfiConfig.timeConfig.cmdPhase).address(COLUMNRange) := COLUMN
-    addrphase(dfiConfig.timeConfig.cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
-  }
-  when(read) {
-    cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
-    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(READ)
-    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
-    addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
-    addrphase(dfiConfig.timeConfig.cmdPhase).address(COLUMNRange) := COLUMN
-    addrphase(dfiConfig.timeConfig.cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
-  }
-  when(precharge) {
-    cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
-    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(PRECHARGE.setName("PRECHARGE"))
-    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
-    addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
-    addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).clear()
-  }
-  when(prechargeAll) {
-    cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
-    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(PRECHARGE.setName("PRECHARGEALL"))
-    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
-    addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).set()
+  if (dfiConfig.sdram.generation == SdramGeneration.DDR4) {
+    // ---- DDR4: JESD79-4B Table 17 on the DFI control bus ----
+    // Existing payload convention (verified against legacy encoders): in the 3-bit control nibble,
+    // bit0=weN, bit1=casN, bit2=rasN. DDR4 WR/RD/PRE/REF share the DDR3 RAS/CAS/WE encodings;
+    // ACT is flagged by actN=0, and the RAS_n/CAS_n/WE_n pins become A16/A15/A14 carrying the
+    // top row bits: A14=RA[13] -> weN, A15=RA[14] -> casN, A16=RA[15] -> rasN.
+    val csSel = ~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber)
+    // Flat bank index split at the exit: bg = bank[bankWidth-1 : dfiBankWidth], ba = bank[dfiBankWidth-1 : 0]
+    val bgBits = io.task.address.bank(dfiConfig.dfiBankWidth, dfiConfig.bankGroupWidth bits).asBits
+    val baBits = io.task.address.bank(0, dfiConfig.dfiBankWidth bits).asBits
+    // Top 3 row bits (RA[15:13]) for the ACT A16/A15/A14 pins
+    val rowHi = io.task.address.row >> (dfiConfig.sdram.rowWidth - 3)
 
-  }
-  when(refresh) {
-    cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
-    cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(REFRESH)
-    addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+    // cid stays 0: rank selection uses csN (one chip-select per rank); cid is an HBM-style
+    // alternative the PHY ignores in this topology. (payload.setAll() above would otherwise
+    // leave cid=1 on every command.)
+    when(active || write || read || precharge || prechargeAll || refresh || io.task.mrs || io.task.zq) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).cid := B(0, dfiConfig.chipIdWidth bits)
+    }
+
+    when(active) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      if (dfiConfig.useAckN) {
+        cmdphase(dfiConfig.timeConfig.cmdPhase).actN := False
+        cmdphase(dfiConfig.timeConfig.cmdPhase).weN := rowHi(0) // A14 = RA13
+        cmdphase(dfiConfig.timeConfig.cmdPhase).casN := rowHi(1) // A15 = RA14
+        cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := rowHi(2) // A16 = RA15
+      }
+      cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).bg := bgBits
+      addrphase(dfiConfig.timeConfig.cmdPhase).bank := baBits.resized
+      addrphase(dfiConfig.timeConfig.cmdPhase).address := ROW.resized
+    }
+    when(write) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
+      if (dfiConfig.useAckN) cmdphase(dfiConfig.timeConfig.cmdPhase).actN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).casN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := False // WR (Table 17): RAS=H CAS=H WE=L
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).bg := bgBits
+      addrphase(dfiConfig.timeConfig.cmdPhase).bank := baBits.resized
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(COLUMNRange) := COLUMN
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(AUTO_PRECHARGE_BIT).clear() // WR (no AP); WRA variant not generated by station
+    }
+    when(read) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
+      if (dfiConfig.useAckN) cmdphase(dfiConfig.timeConfig.cmdPhase).actN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).casN := False
+      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := True // RD: RAS=H CAS=L WE=H
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).bg := bgBits
+      addrphase(dfiConfig.timeConfig.cmdPhase).bank := baBits.resized
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(COLUMNRange) := COLUMN
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
+    }
+    when(precharge) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
+      if (dfiConfig.useAckN) cmdphase(dfiConfig.timeConfig.cmdPhase).actN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := False
+      cmdphase(dfiConfig.timeConfig.cmdPhase).casN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := False // PRE: RAS=L CAS=H WE=L
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).bg := bgBits
+      addrphase(dfiConfig.timeConfig.cmdPhase).bank := baBits.resized
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).clear() // A10=L: single bank
+    }
+    when(prechargeAll) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
+      if (dfiConfig.useAckN) cmdphase(dfiConfig.timeConfig.cmdPhase).actN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := False
+      cmdphase(dfiConfig.timeConfig.cmdPhase).casN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := False // PREA shares PRE encoding, A10=H
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).set()
+    }
+    when(refresh) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
+      if (dfiConfig.useAckN) cmdphase(dfiConfig.timeConfig.cmdPhase).actN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := False
+      cmdphase(dfiConfig.timeConfig.cmdPhase).casN := False
+      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := True // REF: RAS=L CAS=L WE=H
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+    }
+    when(io.task.mrs) {
+      // MRS: ACT_n=H, RAS_n=L, CAS_n=L, WE_n=L. MR select = {BG0, BA1:BA0} (flat bank[2:0]),
+      // OP code on A15:A0 (carried in the row field by the init sequencer).
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
+      if (dfiConfig.useAckN) cmdphase(dfiConfig.timeConfig.cmdPhase).actN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := False
+      cmdphase(dfiConfig.timeConfig.cmdPhase).casN := False
+      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := False
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).bg := bgBits
+      addrphase(dfiConfig.timeConfig.cmdPhase).bank := baBits.resized
+      addrphase(dfiConfig.timeConfig.cmdPhase).address := ROW.resized
+    }
+    when(io.task.zq) {
+      // ZQCL (Table 17): ACT_n=H RAS_n=H CAS_n=H WE_n=H, A10=H (long).
+      // Same nibble as NOP; A10=H is what makes it ZQCL (ZQCS is A10=L).
+      // Agent decodes identically: zqcl = actN && ras && cas && weN && a10.
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
+      if (dfiConfig.useAckN) cmdphase(dfiConfig.timeConfig.cmdPhase).actN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).casN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := True
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).set()
+    }
+  } else {
+    // ---- Legacy path: byte-for-byte the pre-DDR4 behavior ----
+    when(active) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(ACTIVE)
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
+      addrphase(dfiConfig.timeConfig.cmdPhase).address := ROW.resized
+    }
+    when(write) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(WRITE)
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(COLUMNRange) := COLUMN
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
+    }
+    when(read) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(READ)
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(COLUMNRange) := COLUMN
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(AUTO_PRECHARGE_BIT).clear()
+    }
+    when(precharge) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(PRECHARGE.setName("PRECHARGE"))
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).clear()
+    }
+    when(prechargeAll) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(PRECHARGE.setName("PRECHARGEALL"))
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).set()
+    }
+    when(refresh) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(REFRESH)
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+    }
   }
 }
 

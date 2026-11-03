@@ -72,6 +72,9 @@ case class RdAlignment(config: DfiConfig) extends Component {
 
   val rdDataTemp = Vec(Stream(Fragment(DfiRdData(config))), config.frequencyRatio)
   rdDataTemp.foreach(_.last.clear())
+  // DBI is not implemented at this stage: give the DDR4-only field an explicit
+  // don't-care so elaboration's no-driver check passes without faking a value.
+  if (config.useRddataDbiN) rdDataTemp.foreach(_.rdDataDbiN.assignDontCare())
   for (i <- 0 until (config.frequencyRatio)) {
     rdDataTemp(i).valid := dfiRd(i).rddataValid
     rdDataTemp(i).rdData.assignDontCare()

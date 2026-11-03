@@ -230,6 +230,9 @@ case class DfiConfig(
   val dataWidth = phyIoWidth
   val addressWidth = Math.max(sdram.columnWidth, sdram.rowWidth)
   val bankWidth = sdram.bankWidth
+  // DFI-side bank (BA) width: the flat task-level bank index minus the bank-group bits.
+  // Legacy generations have bgWidth == 0, so dfiBankWidth == bankWidth (behavior identical).
+  val dfiBankWidth = sdram.bankWidth - sdram.bgWidth
 
   val controlWidth = 1
   val bankGroupWidth = sdram.bgWidth

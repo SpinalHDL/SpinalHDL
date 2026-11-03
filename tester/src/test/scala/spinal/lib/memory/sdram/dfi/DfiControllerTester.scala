@@ -37,7 +37,11 @@ class DfiControllerTester extends SpinalAnyFunSuite {
       chipSelectNumber: Int,
       rowWidth: Int,
       addrMap: AddrMap,
-      useCsN: Boolean = false
+      useCsN: Boolean = false,
+      bgWidth: Int = 0,
+      cidWidth: Int = 0,
+      bankWidth: Int = 3,
+      sdramTiming: SdramTiming = null
   ): Unit = {
     test(name) {
       // Deterministic test: derive a fixed seed from the test name and seed BOTH random sources
@@ -55,7 +59,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
               dataBufferSize = 1024,
               rspBufferSize = 1024
             )
-          val sdramtime = SdramTiming(
+          val sdramtime = if (sdramTiming != null) sdramTiming else SdramTiming(
             generation = 3,
             RFC = 260,
             RAS = 38,
@@ -70,9 +74,9 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           )
           val sdram = SdramConfig(
             generation,
-            bgWidth = 0,
-            cidWidth = 0,
-            bankWidth = 3,
+            bgWidth = bgWidth,
+            cidWidth = cidWidth,
+            bankWidth = bankWidth,
             columnWidth = 10,
             rowWidth = rowWidth,
             dataWidth = 16,
@@ -96,6 +100,11 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           val signalConfig = generation match {
             case SdramGeneration.DDR2 =>
               new DDR2SignalConfig(DfiFunctionConfig(), false) {
+                override val useWrdataCsN = useCsN
+                override val useRddataCsN = useCsN
+              }
+            case SdramGeneration.DDR4 =>
+              new DDR4SignalConfig(DfiFunctionConfig(), false) {
                 override val useWrdataCsN = useCsN
                 override val useRddataCsN = useCsN
               }
@@ -309,4 +318,37 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   // burst-adjacent bits into the bank field, breaking the station's single-bank burst continuity.
   // (ix) useWrdataCsN/useRddataCsN: exercises the wrCs/rdCs datapaths (DfiWrCs/DfiReadCs, WrAlignment/RdAlignment inputCs)
   runDfiControllerTest("DfiController_DDR3_fr2_csN", SdramGeneration.DDR3, 2, 0, 0, 2, 15, RowBankColumn, useCsN = true)
+
+  // ===== DDR4 (JESD79-4B, 4 banks x 2 bank groups, BL8) =====
+  // Timing values: tRFC1(8Gb)=350ns, tRAS=34ns, tRP/tRCD=15ns, tWTR_L=8/tWTR_S=4,
+  // tRRD_L=5/tRRD_S=3, tFAW=35ns, tREFI=7800ns (REF_NS overrides the legacy per-row derivation).
+  val ddr4Timing = SdramTiming(
+    generation = 4,
+    RFC = 350,
+    RAS = 34,
+    RP = 15,
+    RCD = 15,
+    WTR = 8,
+    WTP = 0,
+    RTP = 8,
+    RRD = 5,
+    REF = 64000,
+    FAW = 35,
+    WTR_S = 4,
+    RRD_S = 3,
+    REF_NS = 7800
+  )
+  // DDR4 geometry: bankWidth=4 (flat: {bg,ba}), bgWidth=1, cidWidth=1, rowWidth=13
+  // (keeps byteAddressWidth + log2Up(cs) = 28+1 < 31 for the Int-based address generator).
+  def ddr4(name: String, fr: Int, phase: Int, map: AddrMap, csN: Boolean = false): Unit =
+    runDfiControllerTest(
+      name, SdramGeneration.DDR4, fr, phase, 0, 2, 13, map,
+      useCsN = csN, bgWidth = 1, cidWidth = 1, bankWidth = 4, sdramTiming = ddr4Timing
+    )
+  ddr4("DfiController_DDR4_fr2_RowBankColumn", 2, 0, RowBankColumn)
+  ddr4("DfiController_DDR4_fr2_BankRowColumn", 2, 0, BankRowColumn)
+  ddr4("DfiController_DDR4_fr2_cmdPhase1", 2, 1, RowBankColumn)
+  ddr4("DfiController_DDR4_fr4_cmdPhase0", 4, 0, RowBankColumn)
+  ddr4("DfiController_DDR4_fr4_cmdPhase1", 4, 1, RowBankColumn)
+  ddr4("DfiController_DDR4_fr2_csN", 2, 0, RowBankColumn, csN = true)
 }

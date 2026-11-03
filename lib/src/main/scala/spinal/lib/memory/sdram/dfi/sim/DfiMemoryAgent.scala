@@ -28,12 +28,21 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val bankWidth = busConfig.sdram.bankWidth
   val rowWidth = busConfig.sdram.rowWidth
   val columnWidth = busConfig.sdram.columnWidth
+  val isDdr4 = busConfig.sdram.generation == SdramGeneration.DDR4
+  val bgWidth = if (isDdr4) busConfig.sdram.bgWidth else 0
+  val dfiBankWidth = busConfig.dfiBankWidth
+  // DDR4 mode-register file: MR0..MR4 per rank (op code as written by MRS), plus flags.
+  val modeRegisters = mutable.Map[Int, mutable.Map[Int, Long]]() // rank -> (mrIndex -> op)
+  var zqclSeen = false
+  var initChecked = false
 
   val ckeProxy = ctrl.cke.simProxy()
   val csNProxy = ctrl.csN.simProxy()
   val rasNProxy = ctrl.rasN.simProxy()
   val casNProxy = ctrl.casN.simProxy()
   val weNProxy = ctrl.weN.simProxy()
+  val actNProxy = if (isDdr4) ctrl.actN.simProxy() else null
+  val bgProxy = if (isDdr4) ctrl.bg.simProxy() else null
 
   val rowAddrQueue = mutable.Queue[Long]()
   val bankQueue = mutable.Queue[Long]()
@@ -206,6 +215,10 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     }
   }
 
+  // Dual-path verification: monotonic cycle stamp for the exported command log.
+  var agentCycle = 0L
+  clockDomain.onSamplings { agentCycle += 1 }
+
   clockDomain.onSamplings {
     val cke = selectBit(ckeProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
     val csN = selectBit(csNProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
@@ -221,57 +234,161 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
     val wrData = wr.wr.map(_.wrdata.toLong).toIndexedSeq
     val rdEn = rd.rden.map(_.toBoolean).toIndexedSeq
 
-    for ((enPerChip, idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
-      // cmd and address
-      val active = enPerChip & !ras & cas & weN
-      val write = enPerChip & ras & !cas & !weN
-      val read = enPerChip & ras & !cas & weN
-      if (active) {
-        rowAddrQueue.enqueue(cmdAddr)
-        bankQueue.enqueue(cmdBank)
-      }
-      if (rowAddrQueue.nonEmpty) {
-        rowAddr = rowAddrQueue.dequeue()
-      }
-      if (bankQueue.nonEmpty) {
-        bank = bankQueue.dequeue()
-      }
-      // write cmd
-      if (write) {
-        columnAddr = cmdAddr & (1 << columnWidth) - 1
-        byteAddr =
-          ((idPerChip << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
-            busConfig.sdram.bytePerWord
-          )
-        for (beat <- 0 until (busConfig.beatCount)) {
-          for (i <- (0 until (busConfig.bytePerBeat)).reverse) {
-            wrAddrQueue.enqueue(byteAddr + beat * busConfig.bytePerBeat + i)
-          }
-        }
-        wrLatQueues.enqueue(busConfig.timeConfig.tPhyWrLat)
-        if (busConfig.signalConfig.useWrdataCsN) wrCsQueue.enqueue(idPerChip)
-      }
+    if (isDdr4) {
+      // ---- DDR4 decode (JESD79-4B Table 17, values are active-low pin states) ----
+      val actN = actNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
+      val cmdBg = (bgProxy.toBigInt.asInstanceOf[BigInt] >> (cmdPhase * bgWidth)) & ((1L << bgWidth) - 1)
+      val a10 = (cmdAddr >> 10) & 1L
+      // Flat bank index as the DUT's address map produced it: {bg, ba}
+      def flatBank(ba: Long): Long = ((cmdBg << dfiBankWidth) | (ba & ((1L << dfiBankWidth) - 1))).toLong
 
-      // read cmd
-      if (read) {
-        columnAddr = cmdAddr & (1 << columnWidth) - 1
-        byteAddr =
-          ((idPerChip << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
-            busConfig.sdram.bytePerWord
-          )
-        for (beat <- (0 until (busConfig.beatCount))) {
-          for (phase <- 0.until(phaseCount).reverse) {
-            for (j <- 0 until (busConfig.phyIoWidth / 8)) {
-              rdByteAddress = byteAddr + beat * busConfig.bytePerBeat + phase * busConfig.phyIoWidth / 8 + j
-              rdDataByte = getByteAsInt(rdByteAddress)
-              rdData |= BigInt(rdDataByte) << (j * 8)
-            }
-            rdDataQueue.enqueue(rdData)
-            rdData = 0
+      for ((enPerChip, idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
+        // All ras/cas/weN variables are the actual (active-low) pin states from Table 17.
+        val mrs = enPerChip && actN && !ras && !cas && !weN
+        val act = enPerChip && !actN
+        val wrCmd = enPerChip && actN && ras && cas && !weN
+        val rdCmd = enPerChip && actN && ras && !cas && weN
+        val preCmd = enPerChip && actN && !ras && cas && !weN
+        val refCmd = enPerChip && actN && !ras && !cas && weN
+        val zqcl = enPerChip && actN && ras && cas && weN && a10 == 1L
+
+        if (mrs) {
+          // MR select = {BG0, BA1:BA0}; the address field carries the OP code
+          val mrIndex = (((cmdBg >> 0) & 1L) << 2) | (cmdBank & 3L)
+          if (mrIndex != 7) { // 7 = RCW1, reserved
+            val rankMr = modeRegisters.getOrElseUpdate(idPerChip, mutable.Map())
+            rankMr(mrIndex.toInt) = cmdAddr
           }
         }
-        rdLatQueues.enqueue(busConfig.timeConfig.tRddataEn)
-        if (busConfig.signalConfig.useRddataCsN) rdCsQueue.enqueue(idPerChip)
+        if (zqcl) zqclSeen = true
+
+        // Dual-path verification: export every decoded DDR4 command so an independent
+        // decoder (Python, straight from JESD79-4B Table 17) can be diffed against it.
+        def hex(v: Long) = java.lang.Long.toHexString(v)
+        if (mrs) {
+          val mr = (((cmdBg >> 0) & 1L) << 2) | (cmdBank & 3L)
+          println(s"[AGENTCMD] $agentCycle MRS $mr ${hex(cmdAddr)}")
+        }
+        if (act) println(s"[AGENTCMD] $agentCycle ACT ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+        if (wrCmd) println(s"[AGENTCMD] $agentCycle WR ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+        if (rdCmd) println(s"[AGENTCMD] $agentCycle RD ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+        if (preCmd) {
+          // A10=H is PREA (all banks): the bank field is don't-care, export -1 so the
+          // independent decoder can match without comparing garbage bank bits.
+          if (a10 == 1L) println(s"[AGENTCMD] $agentCycle PRE -1 -1")
+          else println(s"[AGENTCMD] $agentCycle PRE ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+        }
+        if (refCmd) println(s"[AGENTCMD] $agentCycle REF -1 -1")
+        if (zqcl) println(s"[AGENTCMD] $agentCycle ZQCL -1 -1")
+
+        // Traffic before the init sequence (MRS file + ZQCL) is a controller bug: a DDR4 SDRAM
+        // ignores commands until its mode registers and ZQ calibration are set up.
+        if ((act || wrCmd || rdCmd) && !initChecked) {
+          assert(
+            modeRegisters.contains(idPerChip) && zqclSeen,
+            s"DDR4 rank $idPerChip saw ACT/WR/RD before MRS+ZQCL init completed"
+          )
+          initChecked = true
+        }
+
+        if (act) {
+          rowAddrQueue.enqueue(cmdAddr)
+          bankQueue.enqueue(flatBank(cmdBank))
+        }
+        if (rowAddrQueue.nonEmpty) rowAddr = rowAddrQueue.dequeue()
+        if (bankQueue.nonEmpty) bank = bankQueue.dequeue()
+
+        if (wrCmd) {
+          columnAddr = cmdAddr & ((1L << columnWidth) - 1)
+          byteAddr =
+            ((idPerChip << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
+              busConfig.sdram.bytePerWord
+            )
+          for (beat <- 0 until busConfig.beatCount) {
+            for (i <- (0 until busConfig.bytePerBeat).reverse) {
+              wrAddrQueue.enqueue(byteAddr + beat * busConfig.bytePerBeat + i)
+            }
+          }
+          wrLatQueues.enqueue(busConfig.timeConfig.tPhyWrLat)
+          if (busConfig.signalConfig.useWrdataCsN) wrCsQueue.enqueue(idPerChip)
+        }
+        if (rdCmd) {
+          columnAddr = cmdAddr & ((1L << columnWidth) - 1)
+          byteAddr =
+            ((idPerChip << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
+              busConfig.sdram.bytePerWord
+            )
+          for (beat <- 0 until busConfig.beatCount) {
+            for (phase <- 0 until phaseCount reverse) {
+              for (j <- 0 until busConfig.phyIoWidth / 8) {
+                rdByteAddress = byteAddr + beat * busConfig.bytePerBeat + phase * busConfig.phyIoWidth / 8 + j
+                rdDataByte = getByteAsInt(rdByteAddress)
+                rdData |= BigInt(rdDataByte) << (j * 8)
+              }
+              rdDataQueue.enqueue(rdData)
+              rdData = 0
+            }
+          }
+          rdLatQueues.enqueue(busConfig.timeConfig.tRddataEn)
+          if (busConfig.signalConfig.useRddataCsN) rdCsQueue.enqueue(idPerChip)
+        }
+        // preCmd/refCmd need no memory-side action (refresh/precharge don't move data);
+        // the testbench observes them on the bus directly.
+      }
+    } else {
+      // ---- Legacy decode: unchanged ----
+      for ((enPerChip, idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
+        // cmd and address
+        val active = enPerChip & !ras & cas & weN
+        val write = enPerChip & ras & !cas & !weN
+        val read = enPerChip & ras & !cas & weN
+        if (active) {
+          rowAddrQueue.enqueue(cmdAddr)
+          bankQueue.enqueue(cmdBank)
+        }
+        if (rowAddrQueue.nonEmpty) {
+          rowAddr = rowAddrQueue.dequeue()
+        }
+        if (bankQueue.nonEmpty) {
+          bank = bankQueue.dequeue()
+        }
+        // write cmd
+        if (write) {
+          columnAddr = cmdAddr & (1 << columnWidth) - 1
+          byteAddr =
+            ((idPerChip << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
+              busConfig.sdram.bytePerWord
+            )
+          for (beat <- 0 until (busConfig.beatCount)) {
+            for (i <- (0 until (busConfig.bytePerBeat)).reverse) {
+              wrAddrQueue.enqueue(byteAddr + beat * busConfig.bytePerBeat + i)
+            }
+          }
+          wrLatQueues.enqueue(busConfig.timeConfig.tPhyWrLat)
+          if (busConfig.signalConfig.useWrdataCsN) wrCsQueue.enqueue(idPerChip)
+        }
+
+        // read cmd
+        if (read) {
+          columnAddr = cmdAddr & (1 << columnWidth) - 1
+          byteAddr =
+            ((idPerChip << busConfig.sdram.wordAddressWidth) + (bank << (columnWidth + rowWidth)) + (rowAddr << columnWidth) + columnAddr) << log2Up(
+              busConfig.sdram.bytePerWord
+            )
+          for (beat <- (0 until (busConfig.beatCount))) {
+            for (phase <- 0.until(phaseCount).reverse) {
+              for (j <- 0 until (busConfig.phyIoWidth / 8)) {
+                rdByteAddress = byteAddr + beat * busConfig.bytePerBeat + phase * busConfig.phyIoWidth / 8 + j
+                rdDataByte = getByteAsInt(rdByteAddress)
+                rdData |= BigInt(rdDataByte) << (j * 8)
+              }
+              rdDataQueue.enqueue(rdData)
+              rdData = 0
+            }
+          }
+          rdLatQueues.enqueue(busConfig.timeConfig.tRddataEn)
+          if (busConfig.signalConfig.useRddataCsN) rdCsQueue.enqueue(idPerChip)
+        }
       }
     }
     writeDataRxd(wrEn, wrData)
