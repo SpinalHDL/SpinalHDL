@@ -131,6 +131,12 @@ case class OpTasks(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle 
   // the low bits of address.bank ({MRSEL2=BG0, MRSEL1:0=BA1:0} on DDR4, BA2:0 on legacy);
   // ZQ is the ZQCL command. Both stay False whenever no init table is configured.
   val mrs, zq = Bool()
+  // Init broadcast chip-select (active-low, one bit per rank). MakeTask drives an
+  // elaboration-time constant: all-ones outside the init window, all-selected (lows) for the
+  // whole init window. CmdTxd replaces its runtime csN one-hot decode with this mask while it
+  // is not all-ones, so init steps reach EVERY rank in the same cycle instead of whichever
+  // rank the (unreset) runtime cs latch held.
+  val initCsN = Bits(dfiConfig.chipSelectNumber bits)
 
   def init(): OpTasks = {
     val ret = RegNext(this).setCompositeName(this, "init", true)
@@ -142,6 +148,7 @@ case class OpTasks(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle 
     ret.refresh init (False)
     ret.mrs init (False)
     ret.zq init (False)
+    ret.initCsN init (Bits(dfiConfig.chipSelectNumber bits).setAll())
     ret
   }
 

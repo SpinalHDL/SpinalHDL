@@ -27,9 +27,19 @@ case class DfiTimeConfig(
     tPhyRdCslat: Int,
     // specify the desired alignment of the command to the
     // dfi_rddata_cs_n signal
-    tPhyRdCsGap: Int
+    tPhyRdCsGap: Int,
     // specify the additional delay it
     // requires between two consecutive commands that are targeting different chip selects.
+    // DFI 6.0.1 Table 48 ctrlmsg timing: tctrlmsg_resp = max cycles from dfi_ctrlmsg_req
+    // assertion to dfi_ctrlmsg_ack assertion (spec min 1), tctrlmsg_max = max cycles
+    // dfi_ctrlmsg_ack may stay asserted (MC-defined; this MC picks 16).
+    tCtrlMsgResp: Int = 1,
+    tCtrlMsgMax: Int = 16,
+    // P3 legacy write-leveling: MC-defined watchdog window (cycles) for the dfi_wrlvl_resp
+    // (wrLvlDone) rising edge after dfi_wrlvl_en assertion. No DFI timing parameter exists
+    // for this (the PHY delay-search length is PHY-internal); the MC only bounds a hung PHY
+    // — same record-and-expose flavor as tctrlmsg_resp, no retry.
+    tWrlvlResp: Int = 16
 ) {}
 
 case class DfiFunctionConfig(
@@ -124,6 +134,16 @@ class DfiSignalConfig(groupConfig: DfiFunctionConfig = DfiFunctionConfig(), useC
 
   val useError: Boolean = false
   val useErrorInfo: Boolean = false
+
+  // DFI 6.0.1 Table 12 ctrlmsg channel (dfi_ctrlmsg/dfi_ctrlmsg_data/dfi_ctrlmsg_req/
+  // dfi_ctrlmsg_ack): off by default — the four wires, the CtrlMsgArbiter and the trainBusy
+  // spawn/refresh gates exist only when this is set.
+  val useCtrlMsg: Boolean = false
+
+  // P3 legacy (DDR2/DDR3) write-leveling Stream handshake (dfi_wrlvl_en / dfi_wrlvl_resp MC
+  // window): off by default — the LegacyWrLvlHandshake component, the separate io.dfiWrLvl
+  // port and the trainBusy gates exist only when this is set.
+  val useLegacyWrLvl: Boolean = false
 
   val useStatusSignals = groupConfig.useStatusSignals
 
@@ -226,7 +246,12 @@ case class DfiConfig(
     // init-less exactly as before (no engine, no new bus drivers). Some(List(...)): the engine
     // plays those steps before any user traffic, for any generation whose CmdTxd can encode
     // MRS/ZQ (DDR3/DDR2 legacy path included).
-    initSteps: Option[List[SdramInitStep]] = None
+    initSteps: Option[List[SdramInitStep]] = None,
+    // P2 boot training orchestrator: after the init engine's initDone, auto-chain ZQCAL ->
+    // WRLVL through the ctrlmsg channel (CtrlMsgArbiter) and pulse bootTrainDone. Requires
+    // signalConfig.useCtrlMsg (the channel must exist). Default false = no BootTrainer, no
+    // wires, no gates — pre-bootTraining configs elaborate byte-identically.
+    bootTraining: Boolean = false
 ) {
   val frequencyRatio = timeConfig.frequencyRatio
   val dataRate = sdram.generation.dataRate

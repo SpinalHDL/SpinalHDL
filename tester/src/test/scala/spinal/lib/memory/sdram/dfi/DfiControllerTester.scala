@@ -48,9 +48,23 @@ class DfiControllerTester extends SpinalAnyFunSuite {
       idleCycles: Int = 10000,
       caParity: Boolean = false,
       injectParityError: Boolean = false,
-      initSteps: List[SdramInitStep] = Nil
+      initSteps: List[SdramInitStep] = Nil,
+      useCtrlMsg: Boolean = false,
+      ctrlMsgAckDelayCycles: Int = 0,
+      bootTraining: Boolean = false,
+      useLegacyWrLvl: Boolean = false,
+      wrLvlDoneDelayCycles: Int = 0,
+      tWrlvlResp: Int = 16
   ): Unit = {
     test(name) {
+      val ctrlMsgEnabled = useCtrlMsg
+      val bootEnabled = useCtrlMsg && bootTraining
+      val legacyWrLvlEnabled = useLegacyWrLvl
+      assert(!useCtrlMsg || generation == SdramGeneration.DDR4, "ctrlmsg training cases are DDR4-only")
+      assert(
+        !useLegacyWrLvl || generation == SdramGeneration.DDR2 || generation == SdramGeneration.DDR3,
+        "legacy write-leveling cases are DDR2/DDR3-only"
+      )
       // Deterministic test: derive a fixed seed from the test name and seed BOTH random sources
       // (the SpinalSim internal RNG via doSimUntilVoid, and the global scala.util.Random used by the
       // agent/memory/region allocator) so a failure is reproducible run-to-run.
@@ -102,7 +116,8 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             tPhyRdlat = 4,
             tPhyRdCsGap = 3,
             tPhyRdCslat = 0,
-            tPhyWrCsLat = 0
+            tPhyWrCsLat = 0,
+            tWrlvlResp = tWrlvlResp
           )
           val signalConfig = generation match {
             case SdramGeneration.DDR2 =>
@@ -117,11 +132,15 @@ class DfiControllerTester extends SpinalAnyFunSuite {
                 // DDR4 CA parity needs dfi_parity (MC out) + dfi_alert_n (DRAM in) present
                 override val useParityIn = caParity
                 override val useAlertN = caParity
+                // DFI 6.0.1 Table 12 ctrlmsg channel: four wires + arbiter + trainBusy gates
+                override val useCtrlMsg = ctrlMsgEnabled
               }
             case _ =>
               new DDR3SignalConfig(DfiFunctionConfig(), false) {
                 override val useWrdataCsN = useCsN
                 override val useRddataCsN = useCsN
+                // P3 legacy write-leveling Stream handshake (dfi_wrlvl_en / dfi_wrlvl_resp)
+                override val useLegacyWrLvl = legacyWrLvlEnabled
               }
           }
           val dfiConfig: DfiConfig = DfiConfig(
@@ -132,7 +151,8 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             sdram = sdram,
             ddr4ModeRegs =
               if (generation == SdramGeneration.DDR4) Ddr4ModeRegs(mr4 = mr4, mr5 = mr5) else Ddr4ModeRegs(),
-            initSteps = if (initSteps.isEmpty) None else Some(initSteps)
+            initSteps = if (initSteps.isEmpty) None else Some(initSteps),
+            bootTraining = bootTraining
           )
           val bmbp: BmbParameter = BmbParameter(
             addressWidth = sdram.byteAddressWidth + log2Up(dfiConfig.chipSelectNumber),
@@ -152,6 +172,37 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           // ALERT_n is DRAM-driven (DUT input): idle high until the agent pulls it low. Drive the
           // idle level immediately so the DUT never samples an undriven (0) input as an alert.
           if (caParity) dut.io.dfi.status.alertN #= (1 << dut.dfiConfig.frequencyRatio) - 1
+          // ctrlmsg trainReq is testbench-driven (DUT input): an undriven Flow valid reads as
+          // a random value in the simulator and would spuriously fire the arbiter every few
+          // cycles. Idle it low for the whole run; fireTrainReq pulses it exactly once.
+          if (ctrlMsgEnabled) {
+            dut.io.trainReq.valid #= false
+            dut.io.trainReq.msgCode #= 0
+            dut.io.trainReq.rank #= 0
+            // ctrlmsgAck is a DUT input the PHY agent only drives from its onSamplings callback,
+            // which applies writes one delta-cycle AFTER the rising-edge eval — so at the very
+            // first edges the DUT would sample Verilator's randReset(2) random t0 value (a t0
+            // ack=1 makes the arbiter latch acked inside the resp window and lets a late real
+            // ACK complete the handshake — the ctrlmsg_timeout full-suite flake). Drive the
+            // idle level here, before the first edge, same rule as trainReq/alertN above.
+            dut.io.dfiCtrlMsg.ctrlmsgAck #= false
+          }
+          if (legacyWrLvlEnabled) {
+            // Same t0 rules as the ctrlmsg block above: the trigger Flow and the agent-driven
+            // wrlvlResp are DUT inputs — an undriven valid reads random, and the agent only
+            // drives resp from onSamplings (one delta-cycle late), so pin both idle here,
+            // before the first edge.
+            dut.io.legacyWrLvlTrigger.valid #= false
+            dut.io.dfiWrLvl.wrlvlResp #= 0
+          }
+          // P2 boot-training enable: fired from t0 (BootTrainer latches it on the first
+          // sampling edge), dropped once the FSM has certainly seen it. The orchestrator
+          // then starts by itself at initDone — no further testbench stimulus.
+          if (bootEnabled) {
+            dut.io.bootTrainEnable.valid #= true
+            dut.clockDomain.waitSampling(4)
+            dut.io.bootTrainEnable.valid #= false
+          }
           val memorySize = 1 << dut.io.bmb.p.access.addressWidth
           val allowedWrites = mutable.HashMap[Long, Byte]()
           val allowedWritesStandby = mutable.HashMap[Long, Byte]()
@@ -197,7 +248,12 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           var rspReadCount = 0
           var rspReadBeats = 0L
           var cmdWriteCount = 0
-          val dfiMemoryAgent = new DfiMemoryAgent(dut.io.dfi, dut.clockDomain) {
+          val dfiMemoryAgent = new DfiMemoryAgent(
+            dut.io.dfi,
+            dut.clockDomain,
+            if (ctrlMsgEnabled) dut.io.dfiCtrlMsg else null,
+            if (legacyWrLvlEnabled) dut.io.dfiWrLvl else null
+          ) {
             override def writeNotification(address: Long, value: Byte): Unit = {
               val option = allowedWrites.get(address)
               assert(option.isDefined)
@@ -214,6 +270,11 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           // dropped and data flow is unaffected; the agent must still raise ALERT_n and the DUT
           // must latch caParityError (asserted after the run below).
           if (injectParityError) dfiMemoryAgent.parityCorruptCycle = 5000
+          // DFI 6.0.1 ctrlmsg: PHY ack latency knob (0 = within tctrlmsg_resp; a value beyond
+          // the DUT's resp window exercises the DUT timeout path).
+          dfiMemoryAgent.ctrlMsgAckDelayCycles = ctrlMsgAckDelayCycles
+          // P3 legacy write-leveling: PHY wrLvlDone latency knob (bounded by tWrlvlResp = 16).
+          dfiMemoryAgent.wrLvlDoneDelayCycles = wrLvlDoneDelayCycles
 
           val regions = BmbRegionAllocator(alignmentMinWidth = 6)
           var stopGenerating = false
@@ -262,6 +323,81 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           var dfiCmdCount = 0
           var bmbCmdFireCount = 0
           var c = 0
+          // ---- DFI 6.0.1 ctrlmsg training stimulus (useCtrlMsg configs only) ----
+          var trainDoneSeen = false
+          var trainReqFired = false
+          var trafficRspReadAtResume = 0L
+          // ---- P3 legacy write-leveling stimulus (useLegacyWrLvl configs only) ----
+          var wrLvlDoneSeen = false
+          var wrLvlTriggerFired = false
+          var wrLvlDoneAtCycle = -1
+          var wrLvlRspReadAtResume = 0L
+          // ---- P2 boot-training orchestrator observation (bootTraining configs only) ----
+          val bootMsgSeq = mutable.ArrayBuffer[Long]() // msg code at each dfi_ctrlmsg_req rise
+          var bootDonePulses = 0
+          var bootPrevReq = false
+          var bootHalted = false
+          var bootHaltedAtCycle = -1
+          var postHaltCmdCount = 0
+          var rspReadBeatsAtHalt = 0L
+          var rspReadBeatsAtBootDone = 0L
+          def fireTrainReq(msgCode: Int, rank: Int): Unit = {
+            // Quiesce the BMB master so the station is empty when the request lands: the
+            // agent's training-window ban is strict (any ACT/WR/RD between req rise and ack
+            // de-assert = controller bug, see DfiMemoryAgent). Then fire the request and
+            // re-open the master on the same cycle: with the DUT gates intact the backlog
+            // stalls at canSpawn (bus stays silent); without them it spawns within a few
+            // cycles and the agent fails the sim.
+            assert(!trainReqFired, "fireTrainReq called twice")
+            trainReqFired = true
+            stopGenerating = true
+            var drainWait = 0
+            while ((bmbAgent.pendingCounter != 0 || bmbAgent.rspQueue.exists(_.nonEmpty)) && drainWait < 100000) {
+              dut.clockDomain.waitSampling()
+              drainWait += 1
+            }
+            assert(
+              bmbAgent.pendingCounter == 0 && !bmbAgent.rspQueue.exists(_.nonEmpty),
+              "BMB traffic never drained before trainReq"
+            )
+            dut.clockDomain.waitSampling(16) // let the CmdTxd pipeline regs run dry
+            // Re-open BMB generation 6 cycles BEFORE firing trainReq: the incoming command
+            // then reaches the spawn point AFTER trainBusy rises (gate can hold it) but its
+            // ACT would still land INSIDE the training window if the gates were missing —
+            // the agent's traffic ban then fails the sim deterministically (counter-proof B).
+            stopGenerating = false
+            dut.clockDomain.waitSampling(6)
+            dut.io.trainReq.valid #= true
+            dut.io.trainReq.msgCode #= msgCode
+            dut.io.trainReq.rank #= rank
+            dut.clockDomain.waitSampling()
+            dut.io.trainReq.valid #= false
+            trafficRspReadAtResume = rspReadBeats
+          }
+          def fireLegacyWrLvl(): Unit = {
+            // Same quiesce-and-reopen recipe as fireTrainReq: the backlog command must sit at
+            // the spawn gate AFTER wrLvlBusy rises, so a missing/leaky gate spawns it inside
+            // the window and the agent's ban fails the sim (counter-proof hook).
+            assert(!wrLvlTriggerFired, "fireLegacyWrLvl called twice")
+            wrLvlTriggerFired = true
+            stopGenerating = true
+            var drainWait = 0
+            while ((bmbAgent.pendingCounter != 0 || bmbAgent.rspQueue.exists(_.nonEmpty)) && drainWait < 100000) {
+              dut.clockDomain.waitSampling()
+              drainWait += 1
+            }
+            assert(
+              bmbAgent.pendingCounter == 0 && !bmbAgent.rspQueue.exists(_.nonEmpty),
+              "BMB traffic never drained before the legacy wrLvl trigger"
+            )
+            dut.clockDomain.waitSampling(16) // let the CmdTxd pipeline regs run dry
+            stopGenerating = false
+            dut.clockDomain.waitSampling(6)
+            dut.io.legacyWrLvlTrigger.valid #= true
+            dut.clockDomain.waitSampling()
+            dut.io.legacyWrLvlTrigger.valid #= false
+            wrLvlRspReadAtResume = rspReadBeats
+          }
           while (c < 12000) {
             val ras = dut.io.dfi.control.rasN.toLong
             val cas = dut.io.dfi.control.casN.toLong
@@ -271,6 +407,57 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             else if (cas != idleMask) dfiCmdCount += 1
             else if (we != idleMask) dfiCmdCount += 1
             if (dut.io.bmb.cmd.valid.toBoolean && dut.io.bmb.cmd.ready.toBoolean) bmbCmdFireCount += 1
+            if (bootEnabled) {
+              val reqNow = dut.io.dfiCtrlMsg.ctrlmsgReq.toBoolean
+              if (reqNow && !bootPrevReq) bootMsgSeq += dut.io.dfiCtrlMsg.ctrlmsg.toLong
+              bootPrevReq = reqNow
+              if (dut.io.bootTrainDone.toBoolean) {
+                bootDonePulses += 1
+                rspReadBeatsAtBootDone = rspReadBeats
+              }
+              if (!bootHalted && dut.io.ctrlMsgError.toBoolean) bootHalted = true
+              if (bootHalted) {
+                if (bootHaltedAtCycle < 0) {
+                  bootHaltedAtCycle = c
+                  rspReadBeatsAtHalt = rspReadBeats
+                }
+                // Permanent-halt proof: after ctrlMsgError latches, ANY non-idle command-bus
+                // cycle (same detector as dfiCmdCount) is a scheduled command = traffic
+                // resumed = bug. (The BMB master self-throttles behind the frozen rsp queue,
+                // so the injected backlog stays parked in the adapter — rspReadBeats must
+                // also never move again.)
+                if ((ras != 0xffffffffL && ras != idleMask) || cas != idleMask || we != idleMask) postHaltCmdCount += 1
+              }
+            }
+            if (useCtrlMsg && !bootEnabled && c == 4000 && !trainReqFired) {
+              // Mid-run training: quiesce, fire one message, resume traffic immediately.
+              if (ctrlMsgAckDelayCycles > 0) fireTrainReq(CtrlMsgCode.ZQCAL, 0)
+              else fireTrainReq(CtrlMsgCode.WRLVL, 0)
+              var seen = 0
+              while (seen < 200 && !trainDoneSeen && !dut.io.ctrlMsgError.toBoolean) {
+                if (dut.io.trainDone.toBoolean) trainDoneSeen = true
+                dut.clockDomain.waitSampling()
+                seen += 1
+              }
+              if (ctrlMsgAckDelayCycles > 0) {
+                assert(!trainDoneSeen, "trainDone pulsed although the PHY never acknowledged")
+              } else {
+                assert(trainDoneSeen, s"trainDone never pulsed after WRLVL request (waited $seen cycles)")
+                assert(!dut.io.ctrlMsgError.toBoolean, "ctrlMsgError latched on the happy path")
+              }
+            }
+            if (legacyWrLvlEnabled && c == 4000 && !wrLvlTriggerFired) {
+              // Mid-run legacy write leveling: quiesce, fire the trigger, wait for done.
+              fireLegacyWrLvl()
+              var seen = 0
+              while (seen < 400 && !wrLvlDoneSeen && !dut.io.legacyWrLvlError.toBoolean) {
+                if (dut.io.legacyWrLvlDone.toBoolean) { wrLvlDoneSeen = true; wrLvlDoneAtCycle = (simTime() / 10).toInt }
+                dut.clockDomain.waitSampling()
+                seen += 1
+              }
+              assert(wrLvlDoneSeen, s"legacyWrLvlDone never pulsed after the trigger (waited $seen cycles)")
+              assert(!dut.io.legacyWrLvlError.toBoolean, "wrLvlError latched on the happy path")
+            }
             if (c % 2000 == 0) {
               println(
                 s"[T c=$c] bmb.valid=${dut.io.bmb.cmd.valid.toBoolean} bmb.ready=${dut.io.bmb.cmd.ready.toBoolean} " +
@@ -331,13 +518,27 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           // Init micro-program end-of-run checks (only for configs carrying an init table;
           // init-less legacy configs keep the agent's gate closed, so no new prints/asserts).
           if (initSteps.nonEmpty) {
-            println(s"[INIT] ${name}: mrsSeen=${dfiMemoryAgent.modeRegisters} zqSeen=${dfiMemoryAgent.zqclSeen}")
-            assert(
-              dfiMemoryAgent.modeRegisters.nonEmpty && dfiMemoryAgent.modeRegisters.values.exists(_.contains(0)),
-              s"${name}: init micro-program never wrote MR0"
-            )
-            if (generation == SdramGeneration.DDR3)
-              assert(dfiMemoryAgent.zqclSeen, s"${name}: DDR3 init must end with ZQCL (zqSeen=false)")
+            // Baseline evolution (approved): [INIT] exports one line PER RANK and every rank
+            // must have received the COMPLETE MRS file (last write per MR index wins) plus
+            // ZQCL when the preset has a ZQ step — not just whichever rank the old unreset cs
+            // latch happened to pick. This is the invariant the broadcast-cs init fix buys.
+            val mrsFile = initSteps
+              .filter(_.kind == SdramInitStep.MRS)
+              .foldLeft(Map.empty[Int, Int])((acc, s) => acc + (s.mrIndex -> s.opCode))
+            val hasZq = initSteps.exists(_.kind == SdramInitStep.ZQ)
+            for (r <- 0 until dut.dfiConfig.chipSelectNumber) {
+              val mr = dfiMemoryAgent.modeRegisters.getOrElse(r, mutable.Map[Int, Long]())
+              println(
+                s"[INIT] ${name}: rank$r mrs=${mr.map { case (k, v) => s"$k->0x${v.toHexString}" }.mkString(",")} zq=${dfiMemoryAgent.zqclSeenPerRank(r)}"
+              )
+              for ((mIdx, mOp) <- mrsFile) {
+                assert(
+                  mr.get(mIdx).contains(mOp.toLong),
+                  s"${name}: rank$r missing MRS mr$mIdx=0x${mOp.toHexString} (got ${mr.map { case (k, v) => s"$k->0x${v.toHexString}" }.mkString(",")})"
+                )
+              }
+              if (hasZq) assert(dfiMemoryAgent.zqclSeenPerRank(r), s"${name}: rank$r never received ZQCL")
+            }
             if (generation == SdramGeneration.DDR2)
               assert(!dfiMemoryAgent.zqclSeen, s"${name}: DDR2 init must not issue ZQCL (no ZQ in DDR2)")
           }
@@ -361,6 +562,100 @@ class DfiControllerTester extends SpinalAnyFunSuite {
                 s"${name}: ALERT_n raised without injected parity error (DUT parity generation bug)"
               )
               assert(!dut.caParityError.toBoolean, s"${name}: caParityError latched without any parity error")
+            }
+          }
+          // DFI 6.0.1 ctrlmsg end-of-run checks (only for ctrlmsg configs; inert otherwise).
+          if (useCtrlMsg && !bootEnabled) {
+            println(
+              s"[CTRLMSG] $name: reqCount=${dfiMemoryAgent.ctrlMsgReqCount} doneCount=${dfiMemoryAgent.ctrlMsgDoneCount} " +
+                s"ackSeen=${dfiMemoryAgent.ctrlMsgAckSeen} msg=0x${dfiMemoryAgent.ctrlMsgReqMsg.toHexString} " +
+                s"data=0x${dfiMemoryAgent.ctrlMsgReqData.toHexString} dut.ctrlMsgError=${dut.io.ctrlMsgError.toBoolean}"
+            )
+            if (ctrlMsgAckDelayCycles > 0) {
+              // Timeout case: the PHY acked beyond tctrlmsg_resp, so the DUT must have latched
+              // the sticky error, revoked dfi_ctrlmsg_req and never pulsed trainDone.
+              assert(dut.io.ctrlMsgError.toBoolean, s"$name: ctrlMsgError not latched after resp timeout (sticky register broken)")
+              assert(!dfiMemoryAgent.ctrlMsgAckSeen, s"$name: PHY acked although its delay exceeds the resp window")
+              assert(dfiMemoryAgent.ctrlMsgDoneCount == 0, s"$name: DONE seen on the timeout path")
+              assert(!trainDoneSeen, s"$name: trainDone pulsed on the timeout path")
+            } else {
+              // Happy case: full handshake (REQ -> ACK -> DONE), zero error, and normal read
+              // traffic resumed and completed after training.
+              assert(!dut.io.ctrlMsgError.toBoolean, s"$name: ctrlMsgError latched without an error path")
+              assert(
+                dfiMemoryAgent.ctrlMsgReqCount == 1 && dfiMemoryAgent.ctrlMsgDoneCount == 1 && dfiMemoryAgent.ctrlMsgAckSeen,
+                s"$name: ctrlmsg handshake incomplete"
+              )
+              assert(dfiMemoryAgent.ctrlMsgReqMsg == CtrlMsgCode.WRLVL, s"$name: REQ msg code was 0x${dfiMemoryAgent.ctrlMsgReqMsg.toHexString}, expected WRLVL")
+              // chipSelectNumber=2 here -> multi-rank Table 56 encoding: bit0=0, bit1=1 (no 3DS),
+              // bits[7:4]=rank(0) -> 0x0002.
+              assert(dfiMemoryAgent.ctrlMsgReqData == 0x0002, s"$name: ctrlmsg data was 0x${dfiMemoryAgent.ctrlMsgReqData.toHexString}, expected 0x0002 (Table 56 multi-rank)")
+              assert(rspReadBeats > trafficRspReadAtResume, s"$name: no read traffic after training (traffic did not resume)")
+            }
+          }
+          // P3 legacy write-leveling end-of-run checks (only for useLegacyWrLvl configs;
+          // inert otherwise). The [WRLVL] agent prints above recorded the handshake
+          // cycle-by-cycle: EN-RAISE -> RESP -> EN-DROP, and the ban window (level up) held
+          // with zero ACT/WR/RD leak cycles.
+          if (legacyWrLvlEnabled) {
+            println(
+              s"[WRLVL] $name: enRaise=${dfiMemoryAgent.wrLvlEnRaiseCycle} resp=${dfiMemoryAgent.wrLvlRespCycle} " +
+                s"dutDoneAt=$wrLvlDoneAtCycle reqCount=${dfiMemoryAgent.wrLvlReqCount} " +
+                s"respCount=${dfiMemoryAgent.wrLvlRespCount} dutError=${dut.io.legacyWrLvlError.toBoolean} " +
+                s"postResumeRspBeats=${rspReadBeats - wrLvlRspReadAtResume}"
+            )
+            assert(
+              dfiMemoryAgent.wrLvlReqCount == 1 && dfiMemoryAgent.wrLvlRespCount == 1,
+              s"$name: expected exactly one full wrLvl handshake, got req=${dfiMemoryAgent.wrLvlReqCount} resp=${dfiMemoryAgent.wrLvlRespCount}"
+            )
+            assert(!dut.io.legacyWrLvlError.toBoolean, s"$name: wrLvlError latched on the happy path")
+            assert(rspReadBeats > wrLvlRspReadAtResume, s"$name: no traffic after wrLvlDone (did not resume)")
+          }
+          // P2 boot-training orchestrator end-of-run checks (only for bootTraining configs).
+          if (bootEnabled) {
+            def seqStr = bootMsgSeq.map(v => f"0x$v%02x").mkString("->")
+            val postHaltRspBeats = rspReadBeats - rspReadBeatsAtHalt
+            println(
+              s"[BOOTTRAIN] $name: seq=$seqStr donePulses=$bootDonePulses " +
+                s"error=${dut.io.ctrlMsgError.toBoolean} haltedAt=$bootHaltedAtCycle postHaltCmd=$postHaltCmdCount " +
+                s"postHaltRspBeats=$postHaltRspBeats pending=${bmbAgent.pendingCounter} " +
+                s"agentReq=${dfiMemoryAgent.ctrlMsgReqCount} agentDone=${dfiMemoryAgent.ctrlMsgDoneCount}"
+            )
+            if (ctrlMsgAckDelayCycles > 0) {
+              // Timeout injection: the PHY never acks ZQCAL within tctrlmsg_resp -> sticky
+              // ctrlMsgError, MC permanently halted (no retry, no second message, no traffic),
+              // bootTrainDone never pulses, later BMB commands stay stalled.
+              assert(bootDonePulses == 0, s"$name: bootTrainDone pulsed on the timeout/halt path")
+              assert(dut.io.ctrlMsgError.toBoolean, s"$name: ctrlMsgError not latched on the boot training timeout")
+              assert(bootHalted, s"$name: halt window not entered")
+              assert(
+                bootMsgSeq == mutable.ArrayBuffer[Long](CtrlMsgCode.ZQCAL.toLong),
+                s"$name: expected a single ZQCAL request before halt, got $seqStr (retry?)"
+              )
+              assert(postHaltCmdCount == 0, s"$name: $postHaltCmdCount DFI command cycles after permanent halt (traffic not halted)")
+              assert(
+                postHaltRspBeats == 0,
+                s"$name: $postHaltRspBeats rsp beats completed after halt (traffic resumed on the timeout path)"
+              )
+              assert(
+                bmbAgent.pendingCounter > 0,
+                s"$name: no in-flight BMB command stuck at halt (injected business command was serviced?)"
+              )
+            } else {
+              // Happy path: ZQCAL -> WRLVL in that exact order (agent-side proof: the [CTRLMSG]
+              // REQ prints above show 0x07 before 0x04), exactly one bootTrainDone pulse, no
+              // error, and read traffic resumes after bootTrainDone and completes.
+              assert(
+                bootMsgSeq == mutable.ArrayBuffer[Long](CtrlMsgCode.ZQCAL.toLong, CtrlMsgCode.WRLVL.toLong),
+                s"$name: boot orchestration order must be ZQCAL->WRLVL, got $seqStr"
+              )
+              assert(bootDonePulses == 1, s"$name: bootTrainDone pulsed $bootDonePulses times, expected exactly 1")
+              assert(!dut.io.ctrlMsgError.toBoolean, s"$name: ctrlMsgError latched on the boot training happy path")
+              assert(
+                dfiMemoryAgent.ctrlMsgReqCount == 2 && dfiMemoryAgent.ctrlMsgDoneCount == 2,
+                s"$name: expected two full ctrlmsg handshakes, got req=${dfiMemoryAgent.ctrlMsgReqCount} done=${dfiMemoryAgent.ctrlMsgDoneCount}"
+              )
+              assert(rspReadBeats > rspReadBeatsAtBootDone, s"$name: no read traffic after bootTrainDone (traffic did not resume)")
             }
           }
           simSuccess()
@@ -421,14 +716,19 @@ class DfiControllerTester extends SpinalAnyFunSuite {
       refreshMinCount: Int = 1,
       idleCycles: Int = 10000,
       caParity: Boolean = false,
-      injectParityError: Boolean = false
+      injectParityError: Boolean = false,
+      useCtrlMsg: Boolean = false,
+      ctrlMsgAckDelayCycles: Int = 0,
+      bootTraining: Boolean = false
   ): Unit =
     runDfiControllerTest(
       name, SdramGeneration.DDR4, fr, phase, 0, 2, 13, map,
       useCsN = csN, bgWidth = 1, cidWidth = 1, bankWidth = 4,
       sdramTiming = if (timing != null) timing else ddr4Timing,
       mr5 = mr5, mr4 = mr4, refreshMinCount = refreshMinCount, idleCycles = idleCycles,
-      caParity = caParity, injectParityError = injectParityError
+      caParity = caParity, injectParityError = injectParityError,
+      useCtrlMsg = useCtrlMsg, ctrlMsgAckDelayCycles = ctrlMsgAckDelayCycles,
+      bootTraining = bootTraining
     )
   ddr4("DfiController_DDR4_fr2_RowBankColumn", 2, 0, RowBankColumn)
   ddr4("DfiController_DDR4_fr2_BankRowColumn", 2, 0, BankRowColumn)
@@ -446,6 +746,15 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   // Injection: the parity bit as seen at the DRAM is flipped on an idle cycle (cycle >= 5000);
   // the agent must raise ALERT_n and the DUT must latch caParityError, with data flow intact.
   ddr4("DfiController_DDR4_fr2_caparity_inject", 2, 0, RowBankColumn, mr5 = 0x0001, caParity = true, injectParityError = true)
+  // DFI 6.0.1 ctrlmsg training channel (Table 12/47/48), code 0x04 = Write Leveling (Table 55):
+  // driven mid-run while BMB traffic is quiesced; the agent acks within tctrlmsg_resp (delay 0),
+  // the training-window traffic ban must hold (spawn/refresh paused), trainDone pulses,
+  // ctrlMsgError stays low and normal read/write traffic resumes and completes afterwards.
+  ddr4("DfiController_DDR4_fr2_ctrlmsg_wrlvl", 2, 0, RowBankColumn, useCtrlMsg = true)
+  // Same channel, code 0x07 = ZQ Calibration; the PHY acks 8 cycles late (> tctrlmsg_resp = 1):
+  // the DUT must latch the sticky ctrlMsgError, revoke dfi_ctrlmsg_req and never pulse
+  // trainDone (record-and-expose, no retry — same policy as caParityError).
+  ddr4("DfiController_DDR4_fr2_ctrlmsg_timeout", 2, 0, RowBankColumn, useCtrlMsg = true, ctrlMsgAckDelayCycles = 8)
   // DDR4 temperature-controlled refresh 2x (JESD79-4B §4.8/§4.9.2, Table 24):
   // MR4 A3=1 (TCR enable) + A2=1 (extended temperature range) programs the DRAM for 2x; the
   // scheduler halves tREFI via SdramTiming.REF_RATE=2 (7800ns -> 3900ns) and carries
@@ -504,4 +813,40 @@ class DfiControllerTester extends SpinalAnyFunSuite {
       SdramInitStep(SdramInitStep.MRS, 1, 0x452 | 0x380, 8), // EMRS1 OCD default
       SdramInitStep(SdramInitStep.MRS, 1, 0x452, 8) // EMRS1 OCD exit
     ))
+
+  // ===== P2 boot training orchestrator (initDone -> ZQCAL -> WRLVL auto-chain) =====
+  // After the DDR4 init micro-program completes, the orchestrator injects ZQCAL then WRLVL
+  // through the ctrlmsg channel (agent-side order proof: the [CTRLMSG] REQ prints show 0x07
+  // before 0x04; DUT-side: the bootMsgSeq assert), pulses bootTrainDone exactly once and
+  // releases traffic. The BMB master generates from t0, so the queued backlog proves the
+  // spawn/refresh pause covers the whole orchestration window (the agent's training-window
+  // traffic ban double-checks every handshake).
+  ddr4("DfiController_DDR4_fr2_boottrain", 2, 0, RowBankColumn, useCtrlMsg = true, bootTraining = true)
+  // Timeout injection: the PHY stub acks 8 cycles late (> tctrlmsg_resp = 1), so the ZQCAL
+  // handshake fails: sticky ctrlMsgError, MC permanently halted (trainBusy never released,
+  // no retry, no second message), bootTrainDone never pulses, and later BMB commands stay
+  // stalled (zero DFI command cycles after the halt). The permanent halt also stops
+  // auto-refresh by design, so this case expects zero refreshes in the idle window.
+  ddr4("DfiController_DDR4_fr2_boottrain_timeout", 2, 0, RowBankColumn, useCtrlMsg = true,
+    bootTraining = true, ctrlMsgAckDelayCycles = 8, refreshMinCount = 0)
+
+  // ===== P3 legacy (DDR2/DDR3) write-leveling Stream handshake (MC side) =====
+  // The legacy transport (no ctrlmsg channel): after the DDR3 init micro-program, the
+  // testbench quiesces traffic, fires the trigger and the MC must raise dfi_wrlvl_en
+  // (wrLvlStart level), hold spawn/refresh paused for the whole window (the agent's ban
+  // fails the sim on ANY ACT/WR/RD while the level is up), consume the PHY's dfi_wrlvl_resp
+  // rising edge (PHY stub answers after wrLvlDoneDelayCycles = 8, inside tWrlvlResp = 16)
+  // and resume traffic. The [WRLVL] agent prints record the handshake cycle-by-cycle.
+  runDfiControllerTest("DfiController_DDR3_fr2_legacy_wrlvl", SdramGeneration.DDR3, 2, 0, 0, 2, 15, RowBankColumn,
+    initSteps = List(
+      SdramInitStep(SdramInitStep.MRS, 2, 0x200, 8),
+      SdramInitStep(SdramInitStep.MRS, 3, 0x000, 8),
+      SdramInitStep(SdramInitStep.MRS, 1, 0x000, 8),
+      SdramInitStep(SdramInitStep.MRS, 0, 0x310, 8),
+      SdramInitStep(SdramInitStep.ZQ, 0, 0, 512)
+    ),
+    // Window = tWrlvlResp(64) must comfortably exceed the BMB-to-ACT spawn pipeline lag
+    // (~10-18 cycles, measured) so the counter-proof's early-released backlog lands INSIDE
+    // the open window; the PHY answers at delay 32, well inside the watchdog.
+    useLegacyWrLvl = true, wrLvlDoneDelayCycles = 32, tWrlvlResp = 64)
 }
