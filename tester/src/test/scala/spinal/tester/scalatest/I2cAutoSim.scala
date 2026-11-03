@@ -19,25 +19,44 @@ import org.scalatest.funsuite.AnyFunSuite
   * interaction in these tests goes through those register buses (bmbWrite),
   * mirroring real software access.
   */
+
 class I2cAutoSim extends AnyFunSuite {
+  // Helper: assert the wire-level conformance guards stayed clean for a test.
+  // expectStarts/expectStops (-1 = skip) bind START/STOP edge counts, which
+  // catches malformed frame endings (double STOP, missing STOP, extra Sr).
+  def assertWireClean(dut: TestTop, expectStarts: Int = -1, expectStops: Int = -1): Unit = {
+    assert(dut.sdaViolCnt.toInt == 0,
+      s"sdaViolCnt=${dut.sdaViolCnt.toInt}: SDA toggled while SCL High outside START/STOP/RESTART windows (UM10204 §3.1.3)")
+    if (expectStarts >= 0) assert(dut.startCnt.toInt == expectStarts,
+      s"startCnt=${dut.startCnt.toInt}, expected $expectStarts")
+    if (expectStops >= 0) assert(dut.stopCnt.toInt == expectStops,
+      s"stopCnt=${dut.stopCnt.toInt}, expected $expectStops")
+  }
 
   case class TestTopCfg(
     masterFifoDepth : Int = 64,
     slaveRamDepth   : Int = 64,
     slaveValidAddrs : Option[Seq[Int]] = None,
-    support10bit    : Boolean = false
+    support10bit    : Boolean = false,
+    // Per-role overrides (None = follow support10bit). Needed for mixed
+    // topologies, e.g. a 7-bit master probing a 10-bit slave's reserved-
+    // prefix NACK behaviour.
+    masterSupport10bit: Option[Boolean] = None,
+    slaveSupport10bit : Option[Boolean] = None
   )
 
   class TestTop(cfg: TestTopCfg = TestTopCfg()) extends Component {
+    val master10 = cfg.masterSupport10bit.getOrElse(cfg.support10bit)
+    val slave10  = cfg.slaveSupport10bit.getOrElse(cfg.support10bit)
     val master = new I2cAutoMaster(I2cAutoMaster.Config(
       fifoDepth    = cfg.masterFifoDepth,
-      support10bit = cfg.support10bit,
+      support10bit = master10,
       timerWidth   = 12
     ))
     val slave  = new I2cAutoSlave(I2cAutoSlave.Config(
       ramDepth     = cfg.slaveRamDepth,
       validAddrs   = cfg.slaveValidAddrs.getOrElse((0 until cfg.slaveRamDepth).toSeq),
-      support10bit = cfg.support10bit
+      support10bit = slave10
     ))
 
     // Test control: force SCL Low to simulate bus hang
@@ -52,9 +71,17 @@ class I2cAutoSim extends AnyFunSuite {
     sdaForceLow.allowUnsetRegToAvoidLatch()
     sdaForceLow.simPublic()
 
+    // Test control: force SCL High for a single cycle to inject a glitch
+    // spike (glitch-immunity tests). Momentary only — holding it would fight
+    // the drivers and is not a legal bus event.
+    val sclForceHigh = RegInit(False)
+    sclForceHigh.allowUnsetRegToAvoidLatch()
+    sclForceHigh.simPublic()
+
     // Open-drain wire emulation via io.i2c ports:
     // SCL: open-drain AND of master and slave (slave can stretch)
-    val sclWire = Mux(sclForceLow, False, master.io.i2c.scl.write && slave.io.i2c.scl.read)
+    val sclWire = Mux(sclForceLow, False,
+      (master.io.i2c.scl.write && slave.io.i2c.scl.read) || sclForceHigh)
     sclWire.simPublic()
     master.io.i2c.scl.read := sclWire
     slave.io.i2c.scl.write := sclWire
@@ -74,10 +101,14 @@ class I2cAutoSim extends AnyFunSuite {
     // on rises n=0..7, ACK on n=8 (skipped), byte1[7..0] on n=9..16.
     val snifByte0 = Reg(Bits(8 bits)) init(0)
     val snifByte1 = Reg(Bits(8 bits)) init(0)
+    val snifAck0  = RegInit(True)  // SDA level at byte0 ACK slot (Low = ACKed)
+    val snifAck1  = RegInit(True)  // SDA level at byte1 ACK slot (Low = ACKed)
     val snifCnt   = Reg(UInt(5 bits)) init(0)
     val snifArmed = RegInit(False)
     snifByte0.simPublic()
     snifByte1.simPublic()
+    snifAck0.simPublic()
+    snifAck1.simPublic()
     val sdaWPrev = RegInit(True)
     val sclWPrev = RegInit(True)
     when(!sdaWire && sdaWPrev && sclWire) { snifArmed := True; snifCnt := U(0) }
@@ -85,13 +116,48 @@ class I2cAutoSim extends AnyFunSuite {
       when(snifArmed) {
         val n = snifCnt
         when(n < U(8)) { snifByte0((7 - n)(2 downto 0)) := sdaWire }
-        when(n > U(8)) { snifByte1((16 - n)(2 downto 0)) := sdaWire }
-        when(n === U(16)) { snifArmed := False }
+        when(n === U(8)) { snifAck0 := sdaWire }
+        when(n > U(8) && n < U(17)) { snifByte1((16 - n)(2 downto 0)) := sdaWire }
+        when(n === U(17)) { snifAck1 := sdaWire; snifArmed := False }
         snifCnt := snifCnt + U(1)
       }
     }
     sdaWPrev := sdaWire
     sclWPrev := sclWire
+
+    // ---- Wire-level conformance guards (UM10204 sec. 3.1.3 / 3.1.4) ----
+    // Derived PURELY FROM THE WIRES (independent oracle, no DUT internals):
+    //   START = SDA fall while SCL High; STOP = SDA rise while SCL High.
+    val sdaChanged = sdaWire =/= sdaWPrev
+    val wireStart = sdaChanged && sclWire && !sdaWire
+    val wireStop  = sdaChanged && sclWire && sdaWire
+    // START/STOP edge counters (golden-frame bookkeeping: a well-formed
+    // single transfer has exactly 1 START and 1 STOP; a Sr composite has 2).
+    val startCnt = Reg(UInt(8 bits)) init(0)
+    val stopCnt  = Reg(UInt(8 bits)) init(0)
+    startCnt.simPublic(); stopCnt.simPublic()
+    when(wireStart) { startCnt := startCnt + U(1) }
+    when(wireStop)  { stopCnt  := stopCnt + U(1) }
+    // §3.1.3: SDA must be stable while SCL is High; the ONLY legal SDA
+    // edges over SCL-High are the START / STOP (Sr = STOP+START) shapes,
+    // which are exactly wireStart / wireStop. Any other SDA edge over
+    // SCL-High is a conformance violation. (Checking the edge shape on
+    // the SAME cycle avoids the off-by-one a trailing suppression window
+    // would have for the edge cycle itself.)
+    // Forced injections (sdaForceLow) are testbench artifacts, not DUT
+    // behaviour. Armed only after the first wire START so a power-up wire
+    // transient can never count.
+    val violArmed = RegInit(False)
+    when(startCnt > U(0)) { violArmed := True }
+    val sdaViolCnt = Reg(UInt(8 bits)) init(0)
+    sdaViolCnt.simPublic()
+    when(sdaChanged && sclWire && !(wireStart || wireStop) && !sdaForceLow && violArmed) {
+      sdaViolCnt := sdaViolCnt + U(1)
+    }
+    // SCL rising-edge counter (recovery-pulse accounting).
+    val sclRiseCnt = Reg(UInt(16 bits)) init(0)
+    sclRiseCnt.simPublic()
+    when(sclWire && !sclWPrev) { sclRiseCnt := sclRiseCnt + U(1) }
 
     // Named observation taps: Verilator may mangle internal port-net names;
     // top-level aliases survive for the loser-release assertions.
@@ -149,10 +215,15 @@ class I2cAutoSim extends AnyFunSuite {
   }
 
   /** Dual-slave topology: two slaves on the same bus with different addresses */
-  class TestTopDualSlave extends Component {
-    val master = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, timerWidth = 12))
-    val slaveA = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = 64))
-    val slaveB = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = 64))
+  case class DualSlaveCfg(
+    support10bit: Boolean = false,
+    ramDepth: Int = 64
+  )
+
+  class TestTopDualSlave(cfg: DualSlaveCfg = DualSlaveCfg()) extends Component {
+    val master = new I2cAutoMaster(I2cAutoMaster.Config(fifoDepth = 64, support10bit = cfg.support10bit, timerWidth = 12))
+    val slaveA = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = cfg.ramDepth, support10bit = cfg.support10bit))
+    val slaveB = new I2cAutoSlave(I2cAutoSlave.Config(ramDepth = cfg.ramDepth, support10bit = cfg.support10bit))
 
     // SCL: master drives both slaves
     master.io.i2c.scl.read := master.io.i2c.scl.write
@@ -299,6 +370,15 @@ class I2cAutoSim extends AnyFunSuite {
   }
 
   // Helper: wait until master is no longer busy
+  def waitForIdleDual(dut: TestTopDualSlave, maxCycles: Int = 200000): Unit = {
+    var cycles = 0
+    while (dut.master.status.busy.toBoolean && cycles < maxCycles) {
+      dut.clockDomain.waitActiveEdge()
+      cycles += 1
+    }
+    assert(cycles < maxCycles, "dual-topology transfer never became idle")
+  }
+
   def waitForIdle(dut: TestTop, maxCycles: Int = 200000): Unit = {
     val cd = dut.clockDomain
     var cycles = 0
@@ -347,6 +427,13 @@ class I2cAutoSim extends AnyFunSuite {
       val ram2 = dut.slave.ram.getBigInt(2).toInt
       assert(ram0 == 0xDE, f"RAM[0]=0x$ram0%02X, expected 0xDE")
       assert(ram1 == 0xAD, f"RAM[1]=0x$ram1%02X, expected 0xAD")
+
+      // Golden vectors: the wire encoding of the address phase must match
+      // the canonical UM10204 form (addr 0x28, R/W=0, ACK, first data byte).
+      assert(dut.snifByte0.toInt == 0x50, f"snifByte0=0x${dut.snifByte0.toInt}%02X, expected 0x50 (addr 0x28, R/W=0)")
+      assert(!dut.snifAck0.toBoolean, "slave must ACK the address byte (SDA Low, UM10204 sec. 3.1.10)")
+      assert(dut.snifByte1.toInt == 0xDE, f"snifByte1=0x${dut.snifByte1.toInt}%02X, expected 0xDE (first data byte)")
+      assertWireClean(dut, expectStarts = 1, expectStops = 1)
       assert(ram2 == 0xBE, f"RAM[2]=0x$ram2%02X, expected 0xBE")    }
   }
 
@@ -384,6 +471,12 @@ class I2cAutoSim extends AnyFunSuite {
       }
       assert(rxValues.reverse == List(0x11, 0x22, 0x33),
         s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0x11, 0x22, 0x33)")
+      // Golden vectors: read-direction header (addr 0x28, R/W=1, ACK,
+      // first data byte driven by the SLAVE - independent of master logic).
+      assert(dut.snifByte0.toInt == 0x51, f"snifByte0=0x${dut.snifByte0.toInt}%02X, expected 0x51 (addr 0x28, R/W=1)")
+      assert(!dut.snifAck0.toBoolean, "slave must ACK the read header (SDA Low)")
+      assert(dut.snifByte1.toInt == 0x11, f"snifByte1=0x${dut.snifByte1.toInt}%02X, expected 0x11 (slave-driven data)")
+      assertWireClean(dut, expectStarts = 1, expectStops = 1)
     }
   }
 
@@ -428,6 +521,9 @@ class I2cAutoSim extends AnyFunSuite {
       }
       assert(rxValues.reverse == List(0xBB, 0xCC),
         s"RX=${rxValues.reverse.map(v => f"0x$v%02X")}, expected List(0xBB, 0xCC)")
+      // Frame topology: one initial START + one Sr (electrically a START)
+      // + exactly one terminating STOP.
+      assertWireClean(dut, expectStarts = 2, expectStops = 1)
     }
   }
 
@@ -713,15 +809,34 @@ class I2cAutoSim extends AnyFunSuite {
       assert(dut.master.status.busy.toBoolean, "Transfer should be active")
       dut.sclForceLow #= true  // Force SCL Low - bus hang!
 
-      // Wait for timeout to fire + 9-pulse recovery + STOP
+      // Wait for the timeout error to latch (fires <=2 cycles into the
+      // ~360-cycle recovery window), THEN release the clamp so the full
+      // 9-pulse sequence plays out on the LIVE wires (UM10204 §3.1.17).
       var cycles = 0
-      while (dut.master.status.busy.toBoolean && cycles < 20000) {
+      while (dut.master.status.errCode.toInt != 3 && cycles < 20000) {
         cd.waitActiveEdge()
         cycles += 1
       }
-      // Recovery takes ~9*(10+10) + STOP sequence ≈ 250 cycles
+      assert(cycles < 20000, "timeout errCode=3 never latched")
+      dut.sclForceLow #= false  // release clamp: recovery drives the real bus
+
+      // Observe recovery on the live wires: >=9 SCL rising edges, master's
+      // own SDA driver released (High) throughout, terminated by exactly one
+      // STOP (UM10204 §3.1.17: generate at least nine SCL pulses, then STOP).
+      val riseBefore = dut.sclRiseCnt.toInt
+      val stopBefore = dut.stopCnt.toInt
+      cycles = 0
+      while ((dut.sclRiseCnt.toInt - riseBefore) < 9 && cycles < 5000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
+      val rises = dut.sclRiseCnt.toInt - riseBefore
+      assert(rises >= 9, s"recovery emitted $rises SCL rising edges, expected >= 9 (UM10204 sec. 3.1.17)")
+      assert(dut.master.io.i2c.sda.write.toBoolean,
+        "master must release SDA (drive High) during recovery pulses")
       cd.waitActiveEdge(300)
-      dut.sclForceLow #= false  // Release the bus
+      assert(dut.stopCnt.toInt == stopBefore + 1,
+        s"recovery must terminate with exactly one STOP, stopCnt ${stopBefore}->${dut.stopCnt.toInt}")
 
       // Verify timeout error
       val err = dut.master.status.errCode.toInt
@@ -928,7 +1043,7 @@ class I2cAutoSim extends AnyFunSuite {
         dut.master.fsm.bitPos.toInt < 8 &&
         !dut.sclWire.toBoolean
       )) { cd.waitActiveEdge(1); w += 1 }
-      assert(w < 8000, "timed out waiting for mid-byte SCL-Low window")
+      assert(w < 8000, s"timed out waiting for mid-byte SCL-Low window (diag: busy=${dut.master.status.busy.toBoolean} byteNum=${dut.master.fsm.byteNum.toInt} bitPos=${dut.master.fsm.bitPos.toInt} err=${dut.master.status.errCode.toInt} scl=${dut.sclWire.toBoolean} sda=${dut.sdaWire.toBoolean} stretch=${dut.slave.stretchActive.toBoolean})")
       val stretchedByteNum = dut.master.fsm.byteNum.toInt
       val stretchedBitPos  = dut.master.fsm.bitPos.toInt
 
@@ -982,7 +1097,7 @@ class I2cAutoSim extends AnyFunSuite {
         dut.master.fsm.bitPos.toInt < 8 &&
         !dut.sclWire.toBoolean
       )) { cd.waitActiveEdge(1); w += 1 }
-      assert(w < 8000, "timed out waiting for mid-byte SCL-Low window")
+      assert(w < 8000, s"timed out waiting for mid-byte SCL-Low window (diag: busy=${dut.master.status.busy.toBoolean} byteNum=${dut.master.fsm.byteNum.toInt} bitPos=${dut.master.fsm.bitPos.toInt} err=${dut.master.status.errCode.toInt} scl=${dut.sclWire.toBoolean} sda=${dut.sdaWire.toBoolean} stretch=${dut.slave.stretchActive.toBoolean})")
       val stretchedByteNum = dut.master.fsm.byteNum.toInt
       val stretchedBitPos  = dut.master.fsm.bitPos.toInt
 
@@ -1315,6 +1430,15 @@ class I2cAutoSim extends AnyFunSuite {
         dut.master.rxPopIntent #= false
         cd.waitActiveEdge()
       }
+      // Golden vectors (UM10204 sec. 3.1.11 A1/A3): the read-direction
+      // 10-bit header is 11110 A9 A8 R/W=1 then A7..A0. NO slave may ACK
+      // the first byte in read direction (addressing happens on byte 2).
+      assert(dut.snifByte0.toInt == 0xF3, f"snifByte0=0x${dut.snifByte0.toInt}%02X, expected 0xF3 (11110 11 1)")
+      assert(dut.snifByte1.toInt == 0xBC, f"snifByte1=0x${dut.snifByte1.toInt}%02X, expected 0xBC (addr low byte)")
+      assert(dut.snifAck0.toBoolean,
+        "no slave may ACK the 10-bit read header byte0 (sec. 3.1.11 A3) - F1 guard")
+      assert(!dut.snifAck1.toBoolean, "addressed slave must ACK the second address byte (sec. 3.1.11 A2)")
+      assertWireClean(dut, expectStarts = 1, expectStops = 1)
     }
   }
 
@@ -1487,5 +1611,466 @@ class I2cAutoSim extends AnyFunSuite {
       assert(rxValues.toList == expected,
         s"RX mismatch after stretch recovery: got ${rxValues.take(8).map(v => f"0x$v%02X")}..., expected ${expected.take(8).map(v => f"0x$v%02X")}, sizes ${rxValues.size}/${expected.size}")
     }
+  }
+
+  // =====================================================================
+  // Gap-fill tests (added after UM10204 coverage audit 2026-11):
+  //  - errCode=5 busy-reject (G5: CMD during recovery tail was silently dropped)
+  //  - 10-bit dual-slave isolation incl. shared low byte (F1 killer asserts)
+  //  - 11111 reserved-prefix rejection seen through an independent 7-bit encoder
+  //  - slow-rate smokes at Standard / Fast / Fast-mode Plus rates (G7)
+  //  - glitch immunity of the 3-sample filter (G8)
+  //  - CMD_P2 cross-slave Sr (F3 functional + legacy repeat negative)
+  // =====================================================================
+
+  test("I2cAuto: CMD during active transfer rejected with errCode=5") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      cd.waitActiveEdge(10)
+
+      // Sanity: a short transfer completes cleanly (errCode=0 afterwards).
+      pushTx(dut, 0x01)
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 1)
+      waitForIdle(dut)
+      assert(dut.master.status.errCode.toInt == 0, "sanity transfer must complete cleanly")
+
+      // Long transfer, then a second CMD mid-flight: must be REJECTED
+      // (errCode=5), not queued and not silently swallowed.
+      for (i <- 0 until 16) { pushTx(dut, 0xA0 | i) }
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 16)
+      cd.waitActiveEdge(80)
+      assert(dut.master.status.busy.toBoolean, "transfer should be active")
+      pushTx(dut, 0xFF)
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 1)  // rejected: bus busy
+      waitForIdle(dut)
+
+      assert(dut.master.status.errCode.toInt == 5,
+        s"errCode=${dut.master.status.errCode.toInt}, expected 5 (BUSY_REJECTED)")
+      assert(!dut.master.status.busy.toBoolean, "busy should be clear")
+      // The busy transfer itself must have completed normally. Note: the
+      // slave write POINTER persists across transfers (realistic I2C
+      // pointer semantics, I2cAutoSlave dataPtr), so the sanity byte sits
+      // at RAM[0] and the 16-byte transfer lands at RAM[1..16].
+      assert(dut.slave.ram.getBigInt(0).toInt == 0x01,
+        "RAM[0] must retain the sanity byte (pointer persistence)")
+      for (i <- 0 until 16) {
+        val v = dut.slave.ram.getBigInt(1 + i).toInt
+        assert(v == (0xA0 | i), f"RAM[${1 + i}]=0x$v%02X, expected 0x${0xA0 | i}%02X")
+      }
+    }
+  }
+
+  test("I2cAuto: CMD during recovery tail rejected with errCode=5") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+      dut.cfgMasterTiming()
+      dut.regWriteMaster(0x28, 50)  // short timeout for fast test
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      cd.waitActiveEdge(10)
+
+      pushTx(dut, 0x11)
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 1)
+      cd.waitActiveEdge(50)
+      dut.sclForceLow #= true  // hang the bus
+
+      // Wait for the timeout to latch (recovery is now IN PROGRESS: FSM is in
+      // the RECOV states, busy already cleared). This is exactly the window
+      // where a firmware CMD used to vanish with no errCode (G5).
+      var cycles = 0
+      while (dut.master.status.errCode.toInt != 3 && cycles < 20000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
+      assert(cycles < 20000, "timeout never latched")
+      pushTx(dut, 0x22)
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 1)  // must be rejected
+
+      dut.sclForceLow #= false
+      var stops = 0
+      cycles = 0
+      while (stops < 1 && cycles < 5000) {
+        cd.waitActiveEdge()
+        stops = dut.stopCnt.toInt
+        cycles += 1
+      }
+      assert(stops >= 1, "recovery STOP never observed")
+      assert(dut.master.status.errCode.toInt == 5,
+        s"errCode=${dut.master.status.errCode.toInt}, expected 5 (BUSY_REJECTED, overwrites 3)")
+      assert(!dut.master.status.busy.toBoolean, "busy should be clear")
+    }
+  }
+
+  test("I2cAuto 10-bit dual slave: write A, B silent despite shared low byte") {
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new TestTopDualSlave(DualSlaveCfg(support10bit = true))).doSim { dut =>
+        val cd = dut.clockDomain
+        cd.forkStimulus(10 ns)
+        dut.cfgMasterTiming()
+        // A = 0x345 (upper 11), B = 0x145 (upper 01): SAME low byte 0x45.
+        // Under the pre-F1 bug (byte0 ACKed on 11110 prefix alone) B would
+        // ACK byte0, then match its low byte on byte1 and STORE the data.
+        bmbWrite(dut.slaveARegBus, 0x1C, 1, cd)
+        bmbWrite(dut.slaveARegBus, 0x00, (1 << 10) | 0x345, cd)
+        bmbWrite(dut.slaveARegBus, 0x04, 0, cd)
+        bmbWrite(dut.slaveBRegBus, 0x1C, 1, cd)
+        bmbWrite(dut.slaveBRegBus, 0x00, (1 << 10) | 0x145, cd)
+        bmbWrite(dut.slaveBRegBus, 0x04, 0, cd)
+        // Poison B's RAM so any stray store is visible.
+        for (i <- 0 until 64) { dut.slaveB.ram.setBigInt(i, 0xEE) }
+        cd.waitActiveEdge(10)
+
+        for (i <- 0 until 4) { bmbWrite(dut.masterRegBus, 0x0C, 0x40 + i, cd) }
+        // 10-bit CMD pack: {nackLast[12], phase2[11], rw[10], addr[9:0]}
+        bmbWrite(dut.masterRegBus, 0x04, 4, cd)   // LEN1
+        bmbWrite(dut.masterRegBus, 0x00, 0x345, cd) // write 0x345
+        cd.waitActiveEdge(2)
+
+        var bDroveLow = false
+        var cycles = 0
+        while (dut.master.status.busy.toBoolean && cycles < 200000) {
+          if (!dut.slaveB.sdaOut.toBoolean) { bDroveLow = true }
+          cd.waitActiveEdge()
+          cycles += 1
+        }
+        assert(cycles < 200000, "transfer never completed")
+        cd.waitActiveEdge(20)
+
+        assert(dut.master.status.errCode.toInt == 0,
+          s"errCode=${dut.master.status.errCode.toInt}, expected 0")
+        for (i <- 0 until 4) {
+          val v = dut.slaveA.ram.getBigInt(i).toInt
+          assert(v == 0x40 + i, f"A.RAM[$i]=0x$v%02X, expected 0x${0x40 + i}%02X")
+        }
+        assert(!bDroveLow, "slave B drove SDA Low during A's transfer (F1: byte0 over-ACK)")
+        assert(!dut.slaveB.wasAddressed.toBoolean, "slave B must not latch wasAddressed")
+        for (i <- 0 until 64) {
+          val v = dut.slaveB.ram.getBigInt(i).toInt
+          assert(v == 0xEE, f"B.RAM[$i]=0x$v%02X disturbed, expected 0xEE")
+        }
+      }
+  }
+
+  test("I2cAuto 10-bit dual slave: read A, B must never drive SDA Low") {
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new TestTopDualSlave(DualSlaveCfg(support10bit = true))).doSim { dut =>
+        val cd = dut.clockDomain
+        cd.forkStimulus(10 ns)
+        dut.cfgMasterTiming()
+        bmbWrite(dut.slaveARegBus, 0x1C, 1, cd)
+        bmbWrite(dut.slaveARegBus, 0x00, (1 << 10) | 0x345, cd)
+        bmbWrite(dut.slaveARegBus, 0x04, 0, cd)
+        bmbWrite(dut.slaveBRegBus, 0x1C, 1, cd)
+        bmbWrite(dut.slaveBRegBus, 0x00, (1 << 10) | 0x145, cd)
+        bmbWrite(dut.slaveBRegBus, 0x04, 0, cd)
+        for (i <- 0 until 64) { dut.slaveB.ram.setBigInt(i, 0xEE) }
+        dut.slaveA.ram.setBigInt(0, 0x11)
+        dut.slaveA.ram.setBigInt(1, 0x22)
+        dut.slaveA.ram.setBigInt(2, 0x33)
+        cd.waitActiveEdge(10)
+
+        // 10-bit READ of 3 bytes from A: {nackLast[12]=1, rw[10]=1, addr[9:0]}
+        bmbWrite(dut.masterRegBus, 0x04, 3, cd)
+        bmbWrite(dut.masterRegBus, 0x00, (1 << 12) | (1 << 10) | 0x345, cd)
+        cd.waitActiveEdge(2)
+
+        var bDroveLow = false
+        var cycles = 0
+        while (dut.master.status.busy.toBoolean && cycles < 200000) {
+          if (!dut.slaveB.sdaOut.toBoolean) { bDroveLow = true }
+          cd.waitActiveEdge()
+          cycles += 1
+        }
+        assert(cycles < 200000, "transfer never completed")
+        cd.waitActiveEdge(20)
+
+        assert(dut.master.status.errCode.toInt == 0,
+          s"errCode=${dut.master.status.errCode.toInt}, expected 0")
+        assert(!bDroveLow,
+          "slave B drove SDA Low during A's read (would contend on byte1 ACK or data)")
+        assert(!dut.slaveB.wasAddressed.toBoolean, "slave B must not latch wasAddressed")
+        // Drain the 3 bytes from the master RX FIFO.
+        val rx = (0 until 3).map { _ =>
+          dut.master.rxPopIntent #= true
+          cd.waitActiveEdge()
+          val v = dut.master.rxFifo.io.pop.payload.toInt
+          dut.master.rxPopIntent #= false
+          cd.waitActiveEdge()
+          v
+        }.toList
+        assert(rx == List(0x11, 0x22, 0x33), s"RX=$rx, expected List(0x11, 0x22, 0x33)")
+        for (i <- 0 until 64) {
+          val v = dut.slaveB.ram.getBigInt(i).toInt
+          assert(v == 0xEE, f"B.RAM[$i]=0x$v%02X disturbed, expected 0xEE")
+        }
+      }
+  }
+
+  test("I2cAuto 10-bit dual slave: write B, A silent despite shared low byte") {
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new TestTopDualSlave(DualSlaveCfg(support10bit = true))).doSim { dut =>
+        val cd = dut.clockDomain
+        cd.forkStimulus(10 ns)
+        dut.cfgMasterTiming()
+        bmbWrite(dut.slaveARegBus, 0x1C, 1, cd)
+        bmbWrite(dut.slaveARegBus, 0x00, (1 << 10) | 0x345, cd)
+        bmbWrite(dut.slaveARegBus, 0x04, 0, cd)
+        bmbWrite(dut.slaveBRegBus, 0x1C, 1, cd)
+        bmbWrite(dut.slaveBRegBus, 0x00, (1 << 10) | 0x145, cd)
+        bmbWrite(dut.slaveBRegBus, 0x04, 0, cd)
+        for (i <- 0 until 64) { dut.slaveA.ram.setBigInt(i, 0xEE) }
+        cd.waitActiveEdge(10)
+
+        for (i <- 0 until 2) { bmbWrite(dut.masterRegBus, 0x0C, 0xB0 + i, cd) }
+        bmbWrite(dut.masterRegBus, 0x04, 2, cd)
+        bmbWrite(dut.masterRegBus, 0x00, 0x145, cd)  // write 0x145 (=B)
+        cd.waitActiveEdge(2)
+
+        var aDroveLow = false
+        var cycles = 0
+        while (dut.master.status.busy.toBoolean && cycles < 200000) {
+          if (!dut.slaveA.sdaOut.toBoolean) { aDroveLow = true }
+          cd.waitActiveEdge()
+          cycles += 1
+        }
+        assert(cycles < 200000, "transfer never completed")
+        cd.waitActiveEdge(20)
+
+        assert(dut.master.status.errCode.toInt == 0,
+          s"errCode=${dut.master.status.errCode.toInt}, expected 0")
+        assert(dut.slaveB.ram.getBigInt(0).toInt == 0xB0, "B.RAM[0] wrong")
+        assert(dut.slaveB.ram.getBigInt(1).toInt == 0xB1, "B.RAM[1] wrong")
+        assert(!aDroveLow, "slave A drove SDA Low during B's transfer (byte0 over-ACK)")
+        assert(!dut.slaveA.wasAddressed.toBoolean, "slave A must not latch wasAddressed")
+        for (i <- 0 until 64) {
+          val v = dut.slaveA.ram.getBigInt(i).toInt
+          assert(v == 0xEE, f"A.RAM[$i]=0x$v%02X disturbed, expected 0xEE")
+        }
+      }
+  }
+
+  test("I2cAuto: 7-bit master writing reserved 0x7C is NACKed by 10-bit slave") {
+    // A 7-bit master writing address 0x7C puts 1111 1000 on the wire - the
+    // reserved 11111 prefix that 10-bit slaves must NOT respond to
+    // (UM10204 sec. 3.1.11). Observed through an INDEPENDENT encoder: the
+    // 7-bit master has no notion of 10-bit prefixes at all.
+    runSimWithCfg(TestTopCfg(slaveSupport10bit = Some(true))) { dut =>
+      val cd = dut.clockDomain
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 10) | 0x1BC)
+      dut.regWriteSlave(0x04, 0)
+      for (i <- 0 until 64) { dut.slave.ram.setBigInt(i, 0xEE) }
+      cd.waitActiveEdge(10)
+
+      pushTx(dut, 0x55)
+      dut.issueCmd(addr = 0x7C, rw = false, len1 = 1)
+      waitForIdle(dut)
+
+      assert(dut.master.status.errCode.toInt == 1,
+        s"errCode=${dut.master.status.errCode.toInt}, expected 1 (address NACK on 11111 prefix)")
+      assert(!dut.slave.wasAddressed.toBoolean, "10-bit slave must ignore the 11111 prefix")
+      // RAM poisoned so "untouched" is checked against a known pattern
+      // (Verilator leaves Mems uninitialized).
+      for (i <- 0 until 64) {
+        val v = dut.slave.ram.getBigInt(i).toInt
+        assert(v == 0xEE, f"slave RAM[$i]=0x$v%02X was disturbed, expected 0xEE")
+      }
+    }
+  }
+
+  test("I2cAuto: slow-rate smokes at Standard / Fast / Fast-mode Plus") {
+    // All other tests run at fSCL=2.5MHz, far ABOVE the spec envelope
+    // (G7). These exercise the timing engine + 3-sample filter at the real
+    // spec rates. CFG_TIMEOUT stays 0 (watchdog disabled) so the long
+    // transfers cannot collide with the timeout path.
+    runSim { dut =>
+      val cd = dut.clockDomain
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      cd.waitActiveEdge(10)
+
+      val rates = Seq(("standard 100kHz", 130, 60), ("fast 400kHz", 32, 16), ("fast+ 1MHz", 10, 10))
+      for ((label, tLow, tHigh) <- rates) {
+        dut.regWriteMaster(0x2C, tLow)
+        dut.regWriteMaster(0x30, tHigh)
+        cd.waitActiveEdge(10)
+        dut.regWriteSlave(0x04, 0)  // re-arm slave write pointer (persists across transfers)
+        cd.waitActiveEdge(5)
+
+        // Write 2 bytes
+        pushTx(dut, 0xAB)
+        pushTx(dut, 0xCD)
+        dut.issueCmd(addr = 0x28, rw = false, len1 = 2)
+        waitForIdle(dut)
+        assert(dut.master.status.errCode.toInt == 0, s"$label write: errCode=${dut.master.status.errCode.toInt}")
+        assert(dut.slave.ram.getBigInt(0).toInt == 0xAB, s"$label write: RAM[0]")
+        assert(dut.slave.ram.getBigInt(1).toInt == 0xCD, s"$label write: RAM[1]")
+
+        // Read 2 bytes back
+        dut.slave.ram.setBigInt(0, 0x5A)
+        dut.slave.ram.setBigInt(1, 0xA5)
+        dut.regWriteSlave(0x04, 0)  // re-arm dataPtr
+        dut.issueCmd(addr = 0x28, rw = true, nackLast = true, len1 = 2)
+        waitForIdle(dut)
+        assert(dut.master.status.errCode.toInt == 0, s"$label read: errCode=${dut.master.status.errCode.toInt}")
+        cd.waitActiveEdge(5)
+        val rx = (0 until 2).map { _ =>
+          dut.master.rxPopIntent #= true
+          cd.waitActiveEdge()
+          val v = dut.master.rxFifo.io.pop.payload.toInt
+          dut.master.rxPopIntent #= false
+          cd.waitActiveEdge()
+          v
+        }.toList
+        assert(rx == List(0x5A, 0xA5), s"$label read: RX=$rx")
+      }
+      assertWireClean(dut)
+    }
+  }
+
+  test("I2cAuto: 1-cycle SDA glitch during SCL-Low is absorbed by the filter") {
+    // Inject a 1-cycle SDA spike mid-transfer. The 3-sample unanimous filter
+    // must absorb it: no false bit, no false START/STOP, data intact (G8).
+    runSim { dut =>
+      val cd = dut.clockDomain
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      cd.waitActiveEdge(10)
+
+      for (i <- 0 until 4) { pushTx(dut, 0xC0 | i) }
+      dut.issueCmd(addr = 0x28, rw = false, len1 = 4)
+
+      // Wait until the bus is mid-transfer and SCL is Low (a legal window to
+      // perturb SDA without violating the stability rule).
+      var cycles = 0
+      while (!(dut.master.status.busy.toBoolean && !dut.sclWire.toBoolean) && cycles < 20000) {
+        cd.waitActiveEdge()
+        cycles += 1
+      }
+      assert(cycles < 20000, "never reached an SCL-Low window")
+      cd.waitActiveEdge(2)  // settle a couple of cycles into the Low window
+
+      // 1-cycle SDA spike (dominant Low), then release.
+      dut.sdaForceLow #= true
+      cd.waitActiveEdge()
+      dut.sdaForceLow #= false
+
+      waitForIdle(dut)
+      assert(dut.master.status.errCode.toInt == 0,
+        s"errCode=${dut.master.status.errCode.toInt}, expected 0 (glitch must be absorbed)")
+      for (i <- 0 until 4) {
+        val v = dut.slave.ram.getBigInt(i).toInt
+        assert(v == (0xC0 | i), f"RAM[$i]=0x$v%02X, expected 0x${0xC0 | i}%02X")
+      }
+      // Exactly one START and one STOP: the spike created no phantom edges.
+      assertWireClean(dut, expectStarts = 1, expectStops = 1)
+    }
+  }
+
+  test("I2cAuto: CMD_P2 routes phase-2 to a different slave (cross-slave Sr)") {
+    // F3 functional: composite write 1 byte (0xAA) to A (0x28), Sr, then READ
+    // 1 byte from B (0x30) selected via the CMD_P2 register. Phase 2 flips the
+    // R/W bit (existing composite semantics), so this is a write->read pair.
+    // Pre-F3, phase 2 re-sent the phase-1 address, so B could never be the
+    // continuation target.
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new TestTopDualSlave()).doSim { dut =>
+        val cd = dut.clockDomain
+        cd.forkStimulus(10 ns)
+        dut.cfgMasterTiming()
+        bmbWrite(dut.slaveARegBus, 0x1C, 1, cd)
+        bmbWrite(dut.slaveARegBus, 0x00, (1 << 7) | 0x28, cd)
+        bmbWrite(dut.slaveARegBus, 0x04, 0, cd)
+        bmbWrite(dut.slaveBRegBus, 0x1C, 1, cd)
+        bmbWrite(dut.slaveBRegBus, 0x00, (1 << 7) | 0x30, cd)
+        bmbWrite(dut.slaveBRegBus, 0x04, 0, cd)
+        dut.slaveB.ram.setBigInt(0, 0x77)  // phase-2 read source
+        cd.waitActiveEdge(10)
+
+        // CMD_P2 = {valid[7]=1, p2Addr[6:0]=0x30}
+        bmbWrite(dut.masterRegBus, 0x3C, (1 << 7) | 0x30, cd)
+        bmbWrite(dut.masterRegBus, 0x0C, 0xAA, cd)  // phase-1 write byte -> A
+        bmbWrite(dut.masterRegBus, 0x04, 1, cd)     // LEN1
+        bmbWrite(dut.masterRegBus, 0x08, 1, cd)     // LEN2
+        // CMD: {phase2[8]=1, rw[7]=0, addr[6:0]=0x28}
+        bmbWrite(dut.masterRegBus, 0x00, (1 << 8) | 0x28, cd)
+        cd.waitActiveEdge(2)
+
+        waitForIdleDual(dut)
+        assert(dut.master.status.errCode.toInt == 0,
+          s"errCode=${dut.master.status.errCode.toInt}, expected 0")
+        assert(dut.slaveA.ram.getBigInt(0).toInt == 0xAA, "A.RAM[0] must be 0xAA (phase-1 write)")
+        // Phase-2 read from B: master RX FIFO must hold B.RAM[0].
+        cd.waitActiveEdge(5)
+        var rxValues = List.empty[Int]
+        while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 1) {
+          rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+          dut.master.rxPopIntent #= true
+          cd.waitActiveEdge()
+          dut.master.rxPopIntent #= false
+          cd.waitActiveEdge()
+        }
+        assert(rxValues == List(0x77),
+          s"RX=${rxValues.map(v => f"0x$v%02X")}, expected List(0x77) read from B")
+        assert(dut.slaveB.ram.getBigInt(0).toInt == 0x77, "B.RAM[0] must be untouched by the read")
+      }
+  }
+
+  test("I2cAuto: CMD_P2 invalid falls back to legacy address repeat") {
+    // Negative: with p2AddrValid=0, phase 2 must repeat the phase-1 address
+    // (legacy behaviour preserved for existing firmware). Composite is
+    // write 0xAA to A, Sr, read 1 byte back from A (rw flipped) -> A.RAM[1].
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)))
+      .compile(new TestTopDualSlave()).doSim { dut =>
+        val cd = dut.clockDomain
+        cd.forkStimulus(10 ns)
+        dut.cfgMasterTiming()
+        bmbWrite(dut.slaveARegBus, 0x1C, 1, cd)
+        bmbWrite(dut.slaveARegBus, 0x00, (1 << 7) | 0x28, cd)
+        bmbWrite(dut.slaveARegBus, 0x04, 0, cd)
+        bmbWrite(dut.slaveBRegBus, 0x1C, 1, cd)
+        bmbWrite(dut.slaveBRegBus, 0x00, (1 << 7) | 0x30, cd)
+        bmbWrite(dut.slaveBRegBus, 0x04, 0, cd)
+        for (i <- 0 until 64) { dut.slaveB.ram.setBigInt(i, 0xEE) }
+        dut.slaveA.ram.setBigInt(1, 0x77)  // phase-2 read source (A dataPtr=1 after write)
+        cd.waitActiveEdge(10)
+
+        bmbWrite(dut.masterRegBus, 0x3C, 0x00, cd)  // p2AddrValid=0
+        bmbWrite(dut.masterRegBus, 0x0C, 0xAA, cd)
+        bmbWrite(dut.masterRegBus, 0x04, 1, cd)
+        bmbWrite(dut.masterRegBus, 0x08, 1, cd)
+        bmbWrite(dut.masterRegBus, 0x00, (1 << 8) | 0x28, cd)
+        cd.waitActiveEdge(2)
+
+        waitForIdleDual(dut)
+        assert(dut.master.status.errCode.toInt == 0,
+          s"errCode=${dut.master.status.errCode.toInt}, expected 0")
+        assert(dut.slaveA.ram.getBigInt(0).toInt == 0xAA, "A.RAM[0] must be 0xAA (phase-1 write)")
+        cd.waitActiveEdge(5)
+        var rxValues = List.empty[Int]
+        while (dut.master.rxFifo.io.pop.valid.toBoolean && rxValues.size < 1) {
+          rxValues ::= dut.master.rxFifo.io.pop.payload.toInt
+          dut.master.rxPopIntent #= true
+          cd.waitActiveEdge()
+          dut.master.rxPopIntent #= false
+          cd.waitActiveEdge()
+        }
+        assert(rxValues == List(0x77),
+          s"RX=${rxValues.map(v => f"0x$v%02X")}, expected List(0x77) read from A (address repeat)")
+        for (i <- 0 until 64) {
+          val v = dut.slaveB.ram.getBigInt(i).toInt
+          assert(v == 0xEE, f"B.RAM[$i]=0x$v%02X disturbed, expected 0xEE")
+        }
+      }
   }
 }
