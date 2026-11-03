@@ -37,6 +37,20 @@ case class Alignment(config: DfiConfig) extends Component {
   // generated in CAAlignment on dfi_parity, not here).
   if (config.useParityIn) io.output.status.parityIn.clearAll()
 
+  // DFI 6.0.1 management plane (status channel), minimal honest drive when useStatusSignals
+  // is set (ADR-0016 v1): this controller has no internal initialization state, so
+  // dfi_init_start is a single-cycle pulse at reset release (DFI Figure 6: the MC
+  // de-asserts reset along with dfi_init_start); dfi_freq_ratio is static; the unused
+  // low-power indications (data_byte_disable / dram_clk_disable) idle at 0.
+  if (config.useInitStart) {
+    val initStartPulse = RegInit(True)
+    initStartPulse := False
+    io.output.status.initStart := initStartPulse
+  }
+  if (config.useFreqRatio) io.output.status.freqRatio := U(config.frequencyRatio, 2 bits).asBits
+  if (config.useDataByteDisable) io.output.status.dataByteDisable.clearAll()
+  if (config.useStatusSignals) io.output.status.dramClkDisable.clearAll()
+
   // DFI-level TRAINING INITIATION is out of scope for this controller: with useTrainingSignals
   // the bundle carries the MC-side training outputs, but the MC never initiates DFI-level
   // training here (boot training walks the ctrlmsg channel; legacy write leveling uses the

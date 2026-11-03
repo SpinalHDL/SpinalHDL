@@ -124,9 +124,12 @@ case class SdramConfig(
   def tRTW = ddrRdLat + generation.burstLength / generation.dataRate + tWR
 
   /** Write recovery time (tWR) in MC clock cycles.
-    * Hardcoded approximation inherited from the legacy xdr controller (5ns + 1 cycle at 200MHz).
+    * Derived from the user-supplied sdramtime.WTP (ns) when non-zero; otherwise
+    * falls back to the JESD79-4B AC-table minimum of 15 ns (uniform across DDR4
+    * speeds; conservative for older generations, whose tWR may be smaller).
+    * (Was a hardcoded 6-cycle approximation that undershot the spec at >=DDR4-2400.)
     */
-  def tWR = 5 + 1
+  def tWR = if (sdramtime.WTP != 0) timeCycle(sdramtime.WTP, cycleTime_ns) else timeCycle(15, cycleTime_ns)
 
   def tRAS = timeCycle(sdramtime.RAS, cycleTime_ns)
 
