@@ -180,12 +180,17 @@ below with `io.driveFrom(busCtrl, baseAddress)`.
 ### 10-Bit Address Mode
 
 Set `support10bit = true` in both master and slave Config. The address field
-widens to 10 bits and the master transmits two address bytes:
+widens to 10 bits and the master transmits two address bytes in the standard
+I2C format (UM10204 §4.2.2 / IEC 60197):
 
 ```
-Byte 0: 1 1 1 1 0 A[9] A[8] A[7]
-Byte 1: A[6] A[5] A[4] A[3] A[2] A[1] A[0] R/W
+Byte 0: 1 1 1 1 0 A[9] A[8] R/W
+Byte 1: A[7] A[6] A[5] A[4] A[3] A[2] A[1] A[0]
 ```
+
+The slave validates the `11110` prefix on the first byte before ACKing; frames
+without it (e.g. 7-bit traffic on a shared bus) are NACKed silently (no
+error flag, no interrupt).
 
 Example: write 4 bytes to 10-bit address 0x345 (register writes through the
 bound bus):
