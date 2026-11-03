@@ -499,11 +499,11 @@ class DfiMemoryAgent(
         }
         val mrs = enPerChip && actN && !ras && !cas && !weN && !cmdDropped
         val act = enPerChip && !actN && !cmdDropped
-        val wrCmd = enPerChip && actN && ras && cas && !weN && !cmdDropped // WR (JESD79-4): (ras_n,cas_n,we_n)=(1,1,0)
+        val wrCmd = enPerChip && actN && ras && !cas && !weN && !cmdDropped // WR (JESD79-4B Table 16): (ras_n,cas_n,we_n)=(1,0,0), A10=L
         val rdCmd = enPerChip && actN && ras && !cas && weN && !cmdDropped
         val preCmd = enPerChip && actN && !ras && cas && !weN && !cmdDropped
         val refCmd = enPerChip && actN && !ras && !cas && weN && !cmdDropped
-        val zqcl = enPerChip && actN && ras && cas && weN && a10 == 1L && !cmdDropped
+        val zqcl = enPerChip && actN && ras && cas && !weN && a10 == 1L && !cmdDropped // ZQCL (Table 16): (1,1,0)+A10=H; (1,1,1) is NOP
 
         if (mrs) {
           // MR select = the flat {BG, BA} bank encoding, identical to ACT (JESD79-4B Table 16:
