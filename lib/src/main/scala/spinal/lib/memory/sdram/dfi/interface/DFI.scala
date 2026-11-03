@@ -17,9 +17,11 @@ case class DfiControlInterface(config: DfiConfig) extends Bundle with IMasterSla
   val cke = Bits(config.chipSelectNumber * config.frequencyRatio bits)
   val odt = config.useOdt generate Bits(config.chipSelectNumber * config.frequencyRatio bits)
   val resetN = config.useResetN generate Bits(config.chipSelectNumber * config.frequencyRatio bits)
+  // DDR4 CA parity (JESD79-4B §4.17): one even-parity bit per phase, driven with the command
+  val parity = config.useCaParity generate Bits(config.frequencyRatio bits)
 
   override def asMaster(): Unit = {
-    out(address, bank, rasN, casN, weN, csN, actN, bg, cid, cke, odt, resetN)
+    out(address, bank, rasN, casN, weN, csN, actN, bg, cid, cke, odt, resetN, parity)
   }
 }
 
@@ -29,6 +31,8 @@ case class DfiWr(config: DfiConfig) extends Bundle {
   val wrdataMask = Bits(config.dataWidth / 8 bits)
   // config.dramDataSlice must >= 8, or else config.dataWidth / 8 / config.dataEnableWidth < 1
   val wrdataCsN = config.useWrdataCsN generate Bits(config.chipSelectNumber bits)
+  // DDR4 DBI (JESD79-4B §4.11), active low: 0 = the byte on the wire is inverted
+  val wrdataDbiN = config.useWrDbi generate Bits(config.dbiWidth bits)
 }
 
 case class DfiWriteInterface(config: DfiConfig) extends Bundle with IMasterSlave {

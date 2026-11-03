@@ -201,6 +201,29 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
       cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(REFRESH)
       addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
     }
+    // Init ops (driven only while MakeTask's init engine plays its step table; always False
+    // for init-less configs, so init-less behavior is bit-identical to dev).
+    // MRS/EMRS: cmd {ras_n,cas_n,we_n} = 000 (Micron ddr3.v cmd table); MR/EMRS select on
+    // the bank field (BA2:0 = mrIndex, EMRS = BA1/2/3), OP code on the row/address field.
+    when(io.task.mrs) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(
+        (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b000").setName("MRS")
+      )
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
+      addrphase(dfiConfig.timeConfig.cmdPhase).address := ROW.resized
+    }
+    // ZQCL: cmd = 110 (ras_n=H, cas_n=H, we_n=L) + A10=H (long / all-bank calibration).
+    // DDR2 has no ZQ; its presets simply contain no ZQ step.
+    when(io.task.zq) {
+      cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(
+        (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b110").setName("ZQCL")
+      )
+      addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
+      addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).set()
+    }
   }
 }
 
@@ -331,6 +354,22 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
     )
   }
   def wrdataPhase(i: Int) = io.output(i)
+  // DDR4 DBI (JESD79-4B §4.11): per byte lane, more zeros than ones (ones < 4) -> transmit the
+  // inverted byte with DBI_n=0 (active low); otherwise the byte passes as-is with DBI_n=1. The
+  // DRAM re-inverts bytes whose DBI_n is low. The encoded data and DBI_n take exactly the same
+  // subdivide/reverse/shuffle (+RegNext) path as wrData so all three stay phase-aligned.
+  val dbiEncoded = if (dfiConfig.useWrDbi) new Area {
+    val data = Bits(dfiConfig.beatWidth bits)
+    val dbiN = Bits(dfiConfig.beatWidth / 8 bits)
+    for (j <- 0 until dfiConfig.beatWidth / 8) {
+      val b = io.input.payload.data(j * 8, 8 bits)
+      val invert = CountOne(b.asBools) < 4
+      data(j * 8, 8 bits) := Mux(invert, ~b, b)
+      dbiN(j) := !invert
+    }
+  } else null
+  val wrSrcData = if (dfiConfig.useWrDbi) dbiEncoded.data else io.input.payload.data
+  val wrSrcDbiN = if (dfiConfig.useWrDbi) dbiEncoded.dbiN else null
   for (i <- 0 until (frequencyRatio)) {
     wrensHistory(i) := History(
       wrens(i),
@@ -346,16 +385,20 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   for (i <- 0 until (frequencyRatio)) {
     if (i >= nextPhase) {
       wrdataPhase(i).valid := wrensHistory(nextPhase)(delayCyc)
-      wrdataPhase(i).wrData := Vec(io.input.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
+      wrdataPhase(i).wrData := Vec(wrSrcData.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
         (t + nextPhase) % frequencyRatio
       )(i)
       wrdataPhase(i).wrDataMask := Vec(io.input.payload.mask.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
         (t + nextPhase) % frequencyRatio
       )(i)
+      if (dfiConfig.useWrDbi)
+        wrdataPhase(i).wrDataDbiN := Vec(wrSrcDbiN.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
+          (t + nextPhase) % frequencyRatio
+        )(i)
     } else {
       wrdataPhase(i).valid := wrensHistory(nextPhase)(delayCyc + 1)
       wrdataPhase(i).wrData := RegNext(
-        Vec(io.input.payload.data.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
+        Vec(wrSrcData.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
           (t + nextPhase) % frequencyRatio
         )(i)
       )
@@ -364,6 +407,12 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
           (t + nextPhase) % frequencyRatio
         )(i)
       )
+      if (dfiConfig.useWrDbi)
+        wrdataPhase(i).wrDataDbiN := RegNext(
+          Vec(wrSrcDbiN.subdivideIn(frequencyRatio slices).reverse).shuffle(t =>
+            (t + nextPhase) % frequencyRatio
+          )(i)
+        )
     }
   }
   if (dfiConfig.useWrdataCsN) {

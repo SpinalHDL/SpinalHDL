@@ -5,7 +5,13 @@ import spinal.core.sim._
 import spinal.lib.sim.SparseMemory
 
 import scala.collection.mutable
-class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiReadInterface, clockDomain: ClockDomain) {
+class DfiMemoryAgent(
+    ctrl: DfiControlInterface,
+    wr: DfiWriteInterface,
+    rd: DfiReadInterface,
+    status: DfiStatusInterface,
+    clockDomain: ClockDomain
+) {
   val memory = SparseMemory()
 
   assert(
@@ -29,6 +35,9 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val rowWidth = busConfig.sdram.rowWidth
   val columnWidth = busConfig.sdram.columnWidth
   val isDdr4 = busConfig.sdram.generation == SdramGeneration.DDR4
+  // DDR4 DBI (JESD79-4B §4.11), decoded from MR5 A11/A12 by DfiConfig
+  val useWrDbi = busConfig.useWrDbi
+  val useRdDbi = busConfig.useRdDbi
   val bgWidth = if (isDdr4) busConfig.sdram.bgWidth else 0
   val dfiBankWidth = busConfig.dfiBankWidth
   // DDR4 mode-register file: MR0..MR4 per rank (op code as written by MRS), plus flags.
@@ -43,6 +52,19 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   val weNProxy = ctrl.weN.simProxy()
   val actNProxy = if (isDdr4) ctrl.actN.simProxy() else null
   val bgProxy = if (isDdr4) ctrl.bg.simProxy() else null
+  // DDR4 CA parity (JESD79-4B §4.17): the DRAM-side model recomputes even parity over the covered
+  // CA pins (ACT_n, RAS_n/A16, CAS_n/A15, WE_n/A14, A13..A0, BA, BG — NOT CKE/ODT/CS_n) from the
+  // bus at cmdPhase every cycle and compares with the DUT's dfi_parity. On a mismatch the DRAM
+  // IGNORES the command (no enqueue / no data movement) and pulls ALERT_n low for one cycle
+  // (tPAR_ALERT_ON simplified to 1 cycle). parityCorruptCycle simulates a corrupted parity bit
+  // arriving at the DRAM (wire-level error): the first idle (CS-all-high) cycle at/after that
+  // cycle sees its received parity flipped — the command bus itself stays intact, so no traffic
+  // is dropped and the alertN/DT-capture path is exercised without breaking data flow.
+  val useCaParity = busConfig.useCaParity
+  val parityProxy = if (useCaParity) ctrl.parity.simProxy() else null
+  val alertNProxy = if (useCaParity && status != null && status.alertN != null) status.alertN.simProxy() else null
+  var parityCorruptCycle = -1L
+  var alertLowCount = 0
 
   val rowAddrQueue = mutable.Queue[Long]()
   val bankQueue = mutable.Queue[Long]()
@@ -78,7 +100,7 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
   var rdCsVerifyTimeout = 0
 
   def this(bus: Dfi, clockDomain: ClockDomain) {
-    this(bus.control, bus.write, bus.read, clockDomain);
+    this(bus.control, bus.write, bus.read, bus.status, clockDomain);
   }
 
   def getByteAsInt(address: Long) = getByte(address).toInt & 0xff
@@ -120,8 +142,15 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
         writeValid = wrEnQueue.dequeue()
       }
       if (writeValid) {
+        // Read the whole per-phase DBI bitmap at once: bit slices of a Bits are not
+        // directly addressable as individual sim signals.
+        val dbiBits = if (useWrDbi) wr.wr(phase).wrdataDbiN.toInt else -1
         for (j <- 0.until(busConfig.phyIoWidth / 8).reverse) {
-          wrByteQueue.enqueue((wrData(phase) >> j * 8).toByte)
+          val byteVal = (wrData(phase) >> j * 8).toByte
+          // DDR4 write DBI (JESD79-4B §4.11): wrdata_dbi_n bit is active low, a 0 means the
+          // byte on the wire is inverted and the DRAM stores its complement.
+          val stored = if ((dbiBits & (1 << j)) == 0) (~byteVal).toByte else byteVal
+          wrByteQueue.enqueue(stored)
         }
         if (oneTakeDataCounter == oneTaskDataNumber) {
           for (i <- 0 until (busConfig.bytePerBurst)) {
@@ -195,7 +224,28 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
           if (i == rdValidPhase) {
             process.enqueue { (bigInt: BigInt) =>
               rd.rd(i).rddataValid #= true
-              rd.rd(i).rddata #= bigInt
+              if (useRdDbi) {
+                // DDR4 read DBI (JESD79-4B §4.11): a lane whose byte holds more zeros than
+                // ones (ones < 4) is driven inverted with rddata_dbi_n=0 (active low); other
+                // lanes pass as-is with 1. The DUT controller undoes the inversion.
+                var encoded = BigInt(0)
+                var dbiN = 0
+                for (j <- 0 until busConfig.dbiWidth) {
+                  val byte = ((bigInt >> (j * 8)) & 0xff).toInt
+                  val invert = Integer.bitCount(byte) < 4
+                  if (invert) {
+                    encoded |= BigInt((~byte) & 0xff) << (j * 8)
+                  } else {
+                    encoded |= BigInt(byte) << (j * 8)
+                    dbiN |= 1 << j
+                  }
+                }
+                rd.rd(i).rddata #= encoded
+                if (rd.rd(i).rddataDbiN != null) rd.rd(i).rddataDbiN #= dbiN
+              } else {
+                rd.rd(i).rddata #= bigInt
+                if (rd.rd(i).rddataDbiN != null) rd.rd(i).rddataDbiN #= (1 << busConfig.dbiWidth) - 1
+              }
             }
           }
         }
@@ -242,15 +292,51 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
       // Flat bank index as the DUT's address map produced it: {bg, ba}
       def flatBank(ba: Long): Long = ((cmdBg << dfiBankWidth) | (ba & ((1L << dfiBankWidth) - 1))).toLong
 
+      // ---- DDR4 CA parity check (DRAM-side model, see useCaParity comment above) ----
+      // Even parity: the parity bit equals the XOR of the covered pins, so pins+parity have an
+      // even count of ones. Expected parity is recomputed here from the cmdPhase bus slices,
+      // independently of the DUT's RTL XOR tree. Coverage: actN/ras/cas/weN + cid + bg + bank +
+      // address. Idle phases XOR to 0 (cid/addr/bank/bg idle 0, act_n/ras/cas/we idle 1).
+      var cmdDropped = false
+      if (useCaParity) {
+        val cidW = busConfig.chipIdWidth
+        val cidSlice = ((ctrl.cid.toBigInt.asInstanceOf[BigInt] >> (cmdPhase * cidW)) & ((BigInt(1) << cidW) - 1)).toInt
+        val bankSlice = (ctrl.bank.toLong >> (cmdPhase * bankWidth)) & ((1L << bankWidth) - 1)
+        var received = parityProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
+        if (parityCorruptCycle >= 0 && agentCycle >= parityCorruptCycle && csN.forall(b => b)) {
+          received = !received
+          parityCorruptCycle = -1
+          println(s"[CAPARITY] $agentCycle injected parity corruption on idle phase $cmdPhase")
+        }
+        val ones =
+          (if (actN) 1 else 0) + (if (ras) 1 else 0) + (if (cas) 1 else 0) + (if (weN) 1 else 0) +
+            Integer.bitCount(cidSlice) + Integer.bitCount(cmdBg.toInt) +
+            java.lang.Long.bitCount(bankSlice) + java.lang.Long.bitCount(cmdAddr)
+        val expected = (ones & 1) == 1 // parity bit completes pins+parity to an even count
+        if (received != expected) {
+          cmdDropped = true
+          alertNProxy #= 0 // ALERT_n low-active; tPAR_ALERT_ON simplified to 1 cycle
+          alertLowCount += 1
+          println(s"[CAPARITY] $agentCycle parity mismatch at phase $cmdPhase: received=$received expected=$expected -> ALERT_n")
+        } else {
+          alertNProxy #= (1 << phaseCount) - 1
+        }
+      }
+
       for ((enPerChip, idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
         // All ras/cas/weN variables are the actual (active-low) pin states from Table 17.
-        val mrs = enPerChip && actN && !ras && !cas && !weN
-        val act = enPerChip && !actN
-        val wrCmd = enPerChip && actN && ras && cas && !weN
-        val rdCmd = enPerChip && actN && ras && !cas && weN
-        val preCmd = enPerChip && actN && !ras && cas && !weN
-        val refCmd = enPerChip && actN && !ras && !cas && weN
-        val zqcl = enPerChip && actN && ras && cas && weN && a10 == 1L
+        // A parity error makes the DRAM ignore the whole command slot: every decode below is
+        // gated with !cmdDropped (mode registers are NOT written, no ACT/WR/RD is taken).
+        if (cmdDropped && enPerChip) {
+          println(s"[AGENTDROP] $agentCycle rank $idPerChip command ignored: CA parity error")
+        }
+        val mrs = enPerChip && actN && !ras && !cas && !weN && !cmdDropped
+        val act = enPerChip && !actN && !cmdDropped
+        val wrCmd = enPerChip && actN && ras && cas && !weN && !cmdDropped
+        val rdCmd = enPerChip && actN && ras && !cas && weN && !cmdDropped
+        val preCmd = enPerChip && actN && !ras && cas && !weN && !cmdDropped
+        val refCmd = enPerChip && actN && !ras && !cas && weN && !cmdDropped
+        val zqcl = enPerChip && actN && ras && cas && weN && a10 == 1L && !cmdDropped
 
         if (mrs) {
           // MR select = {BG0, BA1:BA0}; the address field carries the OP code
@@ -336,12 +422,39 @@ class DfiMemoryAgent(ctrl: DfiControlInterface, wr: DfiWriteInterface, rd: DfiRe
         // the testbench observes them on the bus directly.
       }
     } else {
-      // ---- Legacy decode: unchanged ----
+      // ---- Legacy decode ----
+      // Init awareness is gated on busConfig.initSteps: init-less configs (all dev-era legacy
+      // tests) see zero new decodes, asserts or prints — behavior identical to before.
+      val legacyInitAware = busConfig.initSteps.isDefined
+      // ZQCL rides A10 (0x400); only meaningful when a ZQ step exists (DDR2 presets have none).
+      val a10 = (cmdAddr >> 10) & 1L
       for ((enPerChip, idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
         // cmd and address
         val active = enPerChip & !ras & cas & weN
         val write = enPerChip & ras & !cas & !weN
         val read = enPerChip & ras & !cas & weN
+        if (legacyInitAware) {
+          // cmd pin encoding = Micron ddr3.v model (cmd = {ras_n, cas_n, we_n}, all active low):
+          // MRS/EMRS = 000 (bank = MR/EMRS number, address = OP code), ZQCL = 110 + A10=H.
+          val mrs = enPerChip && !ras && !cas && !weN
+          val zqcl = enPerChip && ras && cas && !weN && a10 == 1L
+          if (mrs) {
+            val rankMr = modeRegisters.getOrElseUpdate(idPerChip, mutable.Map())
+            rankMr(cmdBank.toInt) = cmdAddr
+          }
+          if (zqcl) zqclSeen = true
+          if (mrs) println(s"[AGENTCMD] $agentCycle MRS ${cmdBank.toInt} ${java.lang.Long.toHexString(cmdAddr)}")
+          if (zqcl) println(s"[AGENTCMD] $agentCycle ZQCL -1 -1")
+          // Traffic before the mode-register file is written (MR0 included) is a controller bug:
+          // an uninitialized SDRAM ignores commands. Checked once, at the first ACT/WR/RD.
+          if ((active || write || read) && !initChecked) {
+            assert(
+              modeRegisters.contains(idPerChip) && modeRegisters(idPerChip).contains(0),
+              s"legacy rank $idPerChip saw ACT/WR/RD before MRS(MR0) init completed"
+            )
+            initChecked = true
+          }
+        }
         if (active) {
           rowAddrQueue.enqueue(cmdAddr)
           bankQueue.enqueue(cmdBank)

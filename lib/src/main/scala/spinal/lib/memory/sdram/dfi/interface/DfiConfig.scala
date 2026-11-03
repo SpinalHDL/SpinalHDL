@@ -215,7 +215,18 @@ case class DfiConfig(
     dataSlice: Int,
     signalConfig: DfiSignalConfig,
     timeConfig: DfiTimeConfig,
-    sdram: SdramConfig
+    sdram: SdramConfig,
+    // DDR4 mode register file programmed at init; MR5 A12=Read DBI, A11=Write DBI,
+    // A10=Data Mask (JESD79-4B §4.11). This controller never drives DM (wrDataMask is a
+    // pass-through of the BMB mask, all-ones when unmapped), so no DM/DBI mutual-exclusion
+    // is enforced here: the integrator must not enable both at the SDRAM level.
+    ddr4ModeRegs: Ddr4ModeRegs = Ddr4ModeRegs(),
+    // Optional init micro-program (step table) for the generic SdramInitSequencer in MakeTask.
+    // None: DDR4 keeps its built-in Ddr4InitSequencer preset, every other generation runs
+    // init-less exactly as before (no engine, no new bus drivers). Some(List(...)): the engine
+    // plays those steps before any user traffic, for any generation whose CmdTxd can encode
+    // MRS/ZQ (DDR3/DDR2 legacy path included).
+    initSteps: Option[List[SdramInitStep]] = None
 ) {
   val frequencyRatio = timeConfig.frequencyRatio
   val dataRate = sdram.generation.dataRate
@@ -258,5 +269,26 @@ case class DfiConfig(
   val levelingPhyIFWidth = dataSlice
   val rankWidth = chipSelectNumber
   val errorNumber = dataSlice + 1
+
+  // NOTE ON GENERATION GATES: DBI_n and CA parity (PAR) are DDR4-era physical pins; DDR1/DDR2/DDR3
+  // SDRAMs have no such pins, so enabling these features on older generations would invent protocol
+  // behavior the silicon cannot honor. The generation checks below are protocol truth, NOT
+  // conservatism — do not relax them to signal-presence-only (legacy signalConfigs map
+  // useStatusSignals -> parityIn/alertN, which would silently turn the features on for DDR3).
+  // The generically reusable knob is the refresh scheduler (SdramTiming REF_NS/REF_RATE),
+  // which carries no generation gate.
+  // DDR4 DBI enable, decoded from MR5 (JESD79-4B §4.11): A12=Read DBI, A11=Write DBI.
+  // Read DBI additionally requires the rddata_dbi_n signal to exist in the signal set.
+  val useRdDbi =
+    sdram.generation == SdramGeneration.DDR4 && signalConfig.useRddataDbiN && ((ddr4ModeRegs.mr5 >> 12) & 1) == 1
+  val useWrDbi = sdram.generation == SdramGeneration.DDR4 && ((ddr4ModeRegs.mr5 >> 11) & 1) == 1
+
+  // DDR4 CA parity (JESD79-4B §4.17 / DFI 6.0.1 §4.3.1): the MC drives dfi_parity (even parity
+  // over ACT_n, RAS_n/A16, CAS_n/A15, WE_n/A14, A13..A0, BA, BG — NOT CKE/ODT/CS_n) in the same
+  // cycle as the command (tcapar_lat = 0, allowed by the spec). Any non-zero MR5.A2:A0 parity
+  // latency (PL4/5/6) means CA parity is enabled at the DRAM; the PL value itself only affects
+  // DRAM-internal timing and is not modeled on the MC side, so the signal-level useParity
+  // (dfi_parity_in + dfi_alert_n present) gates the feature here.
+  val useCaParity = sdram.generation == SdramGeneration.DDR4 && signalConfig.useParity
 
 }
