@@ -73,7 +73,7 @@ case class SdramConfig(
   def byteAddressWidth = bankWidth + columnWidth + rowWidth + log2Up(bytePerWord)
   def bytePerWord = dataWidth / 8
   def columnSize = 1 << columnWidth
-  def ddrStartdelay = 600000 / (1000 / ddrMHZ) // 600uS
+  def ddrStartDelay = 600000 / (1000 / ddrMHZ) // 600uS
 
   def tREF = (sdramtime.REF * ddrMHZ) / rowSize
   def rowSize = 1 << rowWidth

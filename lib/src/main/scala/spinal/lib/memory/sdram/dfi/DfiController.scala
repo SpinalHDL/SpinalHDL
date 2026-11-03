@@ -22,6 +22,20 @@ case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: Dfi
     dfiConfig.timeConfig.cmdPhase >= 0 && dfiConfig.timeConfig.cmdPhase < dfiConfig.frequencyRatio,
     "DfiController requires 0 <= cmdPhase < frequencyRatio"
   )
+  // A10 carries the auto-precharge (write/read) and all-banks (precharge) bit; the command encoder
+  // indexes it directly, so the command address bus must be at least 11 bits wide.
+  assert(
+    dfiConfig.addressWidth >= 11,
+    s"DfiController requires addressWidth >= 11 (A10 precharge bit); got ${dfiConfig.addressWidth}"
+  )
+  // RowColumnBank interleaves burst-adjacent bits (the low transferPerBurst word bits of the column
+  // stay low while the next burst-count bits map into the bank field), so consecutive bursts of one
+  // station span different banks. MakeTask's station tracks a single bank per task, so this mapping
+  // is rejected rather than failing with an obscure station-boundary assertion.
+  assert(
+    addrMap != RowColumnBank,
+    "DfiController does not support RowColumnBank address mapping: it breaks the station's single-bank burst continuity"
+  )
   val io = new Bundle {
     val bmb = slave(Bmb(bmbp))
     val dfi = master(Dfi(dfiConfig))
