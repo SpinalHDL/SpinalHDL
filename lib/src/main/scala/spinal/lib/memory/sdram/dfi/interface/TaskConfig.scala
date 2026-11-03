@@ -126,9 +126,10 @@ case class OpTasks(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Bundle 
   val address = BusAddress(dfiConfig)
   val context = Bits(taskConfig.contextWidth bits)
   val prechargeAll, refresh = Bool() // OH encoded
-  // DDR4-only ops: MRS writes the OP code held in address.row with the MR select in the
-  // low 3 bits of address.bank ({MRSEL2=BG0, MRSEL1:0=BA1:0}); ZQ is the ZQCL command.
-  // They stay False for every legacy generation, so legacy behavior is unchanged.
+  // Init ops, driven by MakeTask's step-table init engine while it plays DfiConfig.initSteps
+  // (DDR4/DDR3/DDR2 presets): MRS writes the OP code held in address.row with the MR select in
+  // the low bits of address.bank ({MRSEL2=BG0, MRSEL1:0=BA1:0} on DDR4, BA2:0 on legacy);
+  // ZQ is the ZQCL command. Both stay False whenever no init table is configured.
   val mrs, zq = Bool()
 
   def init(): OpTasks = {

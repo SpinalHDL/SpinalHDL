@@ -25,6 +25,7 @@ case class DfiAddr(config: DfiConfig) extends Bundle {
 case class DfiWrData(config: DfiConfig) extends Bundle {
   val wrData = Bits(config.dataWidth bits)
   val wrDataMask = Bits(config.dataWidth / 8 bits)
+  val wrDataDbiN = config.useWrDbi generate Bits(config.dbiWidth bits)
 }
 
 case class DfiWrCs(config: DfiConfig) extends Bundle {

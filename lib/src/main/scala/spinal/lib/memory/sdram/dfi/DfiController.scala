@@ -67,4 +67,14 @@ case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: Dfi
   val alignment = Alignment(dfiConfig)
   alignment.io.input <> control.io.output
   alignment.io.output <> io.dfi
+
+  // DDR4 CA parity (JESD79-4B §4.17): on a command-bus parity error the DRAM ignores the command
+  // and pulls ALERT_n low within tPAR_ALERT_ON. The MC records the event in a sticky register
+  // (record-and-expose only; no recovery protocol). The raw dfi_alert_n stays observable at the
+  // DFI boundary for the testbench.
+  val caParityError = if (dfiConfig.useCaParity) {
+    val seen = RegInit(False)
+    seen.setWhen(!io.dfi.status.alertN.andR) // alert_n is low-active: any low bit = alert
+    seen
+  } else null
 }
