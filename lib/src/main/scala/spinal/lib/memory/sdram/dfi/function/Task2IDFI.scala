@@ -51,8 +51,8 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
   io.address.foreach(_.bank.clearAll())
   if (dfiConfig.useBg) io.address.foreach(_.bg.clearAll())
 
-  if (dfiConfig.sdram.generation == SdramGeneration.DDR4) {
-    // ---- DDR4: JESD79-4B Table 17 on the DFI control bus ----
+  if (dfiConfig.sdram.generation.hasModernCmdBus) {
+    // ---- Modern command bus (currently DDR4): JESD79-4B Table 16 on the DFI control bus ----
     // Existing payload convention (verified against legacy encoders): in the 3-bit control nibble,
     // bit0=weN, bit1=casN, bit2=rasN. DDR4 WR/RD/PRE/REF share the DDR3 RAS/CAS/WE encodings;
     // ACT is flagged by actN=0, and the RAS_n/CAS_n/WE_n pins become A16/A15/A14 carrying the
@@ -90,7 +90,7 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
       if (dfiConfig.useAckN) cmdphase(dfiConfig.timeConfig.cmdPhase).actN := True
       cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := True
       cmdphase(dfiConfig.timeConfig.cmdPhase).casN := True
-      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := False // WR (Table 17): RAS=H CAS=H WE=L
+      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := False // WR (JESD79-4): ACT_n=H RAS_n=H CAS_n=H WE_n=L -> (ras_n,cas_n,we_n)=(1,1,0)
       addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
       addrphase(dfiConfig.timeConfig.cmdPhase).bg := bgBits
       addrphase(dfiConfig.timeConfig.cmdPhase).bank := baBits.resized
@@ -156,7 +156,7 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
       addrphase(dfiConfig.timeConfig.cmdPhase).address := ROW.resized
     }
     when(io.task.zq) {
-      // ZQCL (Table 17): ACT_n=H RAS_n=H CAS_n=H WE_n=H, A10=H (long).
+      // ZQCL (Table 16): ACT_n=H RAS_n=H CAS_n=H WE_n=H, A10=H (long).
       // Same nibble as NOP; A10=H is what makes it ZQCL (ZQCS is A10=L).
       // Agent decodes identically: zqcl = actN && ras && cas && weN && a10.
       cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True

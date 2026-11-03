@@ -11,7 +11,7 @@ class DfiMemoryAgent(
     rd: DfiReadInterface,
     status: DfiStatusInterface,
     clockDomain: ClockDomain,
-    // DFI 6.0.1 ctrlmsg four wires; null (all legacy callers) keeps the stub fully inert
+    // DFI 5.2 ctrlmsg four wires; null (all legacy callers) keeps the stub fully inert
     ctrlMsg: DfiCtrlMsgInterface = null,
     // P3 legacy write-leveling two wires; null keeps that stub fully inert
     wrLvl: DfiLegacyWrLvlInterface = null
@@ -38,11 +38,11 @@ class DfiMemoryAgent(
   val bankWidth = busConfig.sdram.bankWidth
   val rowWidth = busConfig.sdram.rowWidth
   val columnWidth = busConfig.sdram.columnWidth
-  val isDdr4 = busConfig.sdram.generation == SdramGeneration.DDR4
+  val modernCmdBus = busConfig.sdram.generation.hasModernCmdBus
   // DDR4 DBI (JESD79-4B §4.11), decoded from MR5 A11/A12 by DfiConfig
   val useWrDbi = busConfig.useWrDbi
   val useRdDbi = busConfig.useRdDbi
-  val bgWidth = if (isDdr4) busConfig.sdram.bgWidth else 0
+  val bgWidth = if (modernCmdBus) busConfig.sdram.bgWidth else 0
   val dfiBankWidth = busConfig.dfiBankWidth
   // DDR4 mode-register file: MR0..MR4 per rank (op code as written by MRS), plus flags.
   val modeRegisters = mutable.Map[Int, mutable.Map[Int, Long]]() // rank -> (mrIndex -> op)
@@ -57,8 +57,8 @@ class DfiMemoryAgent(
   val rasNProxy = ctrl.rasN.simProxy()
   val casNProxy = ctrl.casN.simProxy()
   val weNProxy = ctrl.weN.simProxy()
-  val actNProxy = if (isDdr4) ctrl.actN.simProxy() else null
-  val bgProxy = if (isDdr4) ctrl.bg.simProxy() else null
+  val actNProxy = if (modernCmdBus) ctrl.actN.simProxy() else null
+  val bgProxy = if (modernCmdBus) ctrl.bg.simProxy() else null
   // DDR4 CA parity (JESD79-4B §4.17): the DRAM-side model recomputes even parity over the covered
   // CA pins (ACT_n, RAS_n/A16, CAS_n/A15, WE_n/A14, A13..A0, BA, BG — NOT CKE/ODT/CS_n) from the
   // bus at cmdPhase every cycle and compares with the DUT's dfi_parity. On a mismatch the DRAM
@@ -106,7 +106,7 @@ class DfiMemoryAgent(
   val rdCsExpectQueue = mutable.Queue[Int]()
   var rdCsVerifyTimeout = 0
 
-  // ---- DFI 6.0.1 ctrlmsg PHY stub state (all inert unless the four wires were passed) ----
+  // ---- DFI 5.2 ctrlmsg PHY stub state (all inert unless the four wires were passed) ----
   val ctrlMsgStubEnabled = busConfig.signalConfig.useCtrlMsg && ctrlMsg != null
   val ctrlMsgReqProxy = if (ctrlMsgStubEnabled) ctrlMsg.ctrlmsgReq.simProxy() else null
   val ctrlMsgAckProxy = if (ctrlMsgStubEnabled) ctrlMsg.ctrlmsgAck.simProxy() else null
@@ -115,7 +115,7 @@ class DfiMemoryAgent(
   // 0 = ack immediately (within tctrlmsg_resp); set beyond the DUT's resp window to
   // exercise the DUT-side timeout (sticky ctrlMsgError, request revoked, no retry).
   var ctrlMsgAckDelayCycles = 0
-  // Ack hold time; must stay below tctrlmsg_max (DFI 6.0.1 Table 48).
+  // Ack hold time; must stay below tctrlmsg_max (DFI 5.2 Table 38).
   var ctrlMsgAckHoldCycles = 2
   var ctrlMsgReqPrev = false
   var ctrlMsgWaitingAck = false
@@ -335,7 +335,7 @@ class DfiMemoryAgent(
   clockDomain.onSamplings { agentCycle += 1 }
 
   clockDomain.onSamplings {
-    // ---- DFI 6.0.1 ctrlmsg PHY stub (gated: without the four wires this is dead code) ----
+    // ---- DFI 5.2 ctrlmsg PHY stub (gated: without the four wires this is dead code) ----
     // Reacts to dfi_ctrlmsg_req: logs REQ, asserts dfi_ctrlmsg_ack after
     // ctrlMsgAckDelayCycles cycles, holds it ctrlMsgAckHoldCycles cycles, de-asserts.
     // If the DUT revokes the request first (resp-timeout path) the pending ack is cancelled.
@@ -451,8 +451,8 @@ class DfiMemoryAgent(
     val wrData = wr.wr.map(_.wrdata.toLong).toIndexedSeq
     val rdEn = rd.rden.map(_.toBoolean).toIndexedSeq
 
-    if (isDdr4) {
-      // ---- DDR4 decode (JESD79-4B Table 17, values are active-low pin states) ----
+    if (modernCmdBus) {
+      // ---- Modern command bus decode (currently DDR4, JESD79-4B Table 16, active-low pin states) ----
       val actN = actNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
       val cmdBg = (bgProxy.toBigInt.asInstanceOf[BigInt] >> (cmdPhase * bgWidth)) & ((1L << bgWidth) - 1)
       val a10 = (cmdAddr >> 10) & 1L
@@ -491,7 +491,7 @@ class DfiMemoryAgent(
       }
 
       for ((enPerChip, idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
-        // All ras/cas/weN variables are the actual (active-low) pin states from Table 17.
+        // All ras/cas/weN variables are the actual (active-low) pin states from Table 16.
         // A parity error makes the DRAM ignore the whole command slot: every decode below is
         // gated with !cmdDropped (mode registers are NOT written, no ACT/WR/RD is taken).
         if (cmdDropped && enPerChip) {
@@ -499,15 +499,16 @@ class DfiMemoryAgent(
         }
         val mrs = enPerChip && actN && !ras && !cas && !weN && !cmdDropped
         val act = enPerChip && !actN && !cmdDropped
-        val wrCmd = enPerChip && actN && ras && cas && !weN && !cmdDropped
+        val wrCmd = enPerChip && actN && ras && cas && !weN && !cmdDropped // WR (JESD79-4): (ras_n,cas_n,we_n)=(1,1,0)
         val rdCmd = enPerChip && actN && ras && !cas && weN && !cmdDropped
         val preCmd = enPerChip && actN && !ras && cas && !weN && !cmdDropped
         val refCmd = enPerChip && actN && !ras && !cas && weN && !cmdDropped
         val zqcl = enPerChip && actN && ras && cas && weN && a10 == 1L && !cmdDropped
 
         if (mrs) {
-          // MR select = {BG0, BA1:BA0}; the address field carries the OP code
-          val mrIndex = (((cmdBg >> 0) & 1L) << 2) | (cmdBank & 3L)
+          // MR select = the flat {BG, BA} bank encoding, identical to ACT (JESD79-4B Table 16:
+          // MRS uses the same BG/BA pins); the address field carries the OP code.
+          val mrIndex = flatBank(cmdBank)
           if (mrIndex != 7) { // 7 = RCW1, reserved
             val rankMr = modeRegisters.getOrElseUpdate(idPerChip, mutable.Map())
             rankMr(mrIndex.toInt) = cmdAddr
@@ -516,10 +517,10 @@ class DfiMemoryAgent(
         if (zqcl) zqclSeenPerRank(idPerChip) = true
 
         // Dual-path verification: export every decoded DDR4 command (with its rank) so an
-        // independent decoder (Python, straight from JESD79-4B Table 17) can be diffed against it.
+        // independent decoder (Python, straight from JESD79-4B Table 16) can be diffed against it.
         def hex(v: Long) = java.lang.Long.toHexString(v)
         if (mrs) {
-          val mr = (((cmdBg >> 0) & 1L) << 2) | (cmdBank & 3L)
+          val mr = flatBank(cmdBank)
           println(s"[AGENTCMD] $agentCycle r$idPerChip MRS $mr ${hex(cmdAddr)}")
         }
         if (act) println(s"[AGENTCMD] $agentCycle r$idPerChip ACT ${flatBank(cmdBank)} ${hex(cmdAddr)}")
@@ -544,7 +545,7 @@ class DfiMemoryAgent(
           initChecked = true
         }
 
-        // DFI 6.0.1 ctrlmsg training window (see the stub above): no ACT/WR/RD may slip
+        // DFI 5.2 ctrlmsg training window (see the stub above): no ACT/WR/RD may slip
         // onto the command bus between dfi_ctrlmsg_req rise and dfi_ctrlmsg_ack de-assert.
         if (ctrlMsgBanActive && (act || wrCmd || rdCmd)) {
           simFailure(
@@ -598,9 +599,12 @@ class DfiMemoryAgent(
       }
     } else {
       // ---- Legacy decode ----
-      // Init awareness is gated on busConfig.initSteps: init-less configs (all dev-era legacy
-      // tests) see zero new decodes, asserts or prints — behavior identical to before.
-      val legacyInitAware = busConfig.initSteps.isDefined
+      // Init awareness mirrors the DUT's EFFECTIVE init (MakeTask: config-carried steps win,
+      // else the generation's built-in preset via SdramInitStep.defaultFor) — the init-aware
+      // decodes/asserts must be on exactly when the DUT actually plays an init micro-program.
+      val legacyInitAware = busConfig.initSteps
+        .getOrElse(SdramInitStep.defaultFor(busConfig.sdram.generation, busConfig.ddr4ModeRegs))
+        .nonEmpty
       // ZQCL rides A10 (0x400); only meaningful when a ZQ step exists (DDR2 presets have none).
       val a10 = (cmdAddr >> 10) & 1L
       for ((enPerChip, idPerChip) <- cke.zip(csN).map(t => t._1 && !t._2).zipWithIndex) {
@@ -629,7 +633,7 @@ class DfiMemoryAgent(
             )
             initChecked = true
           }
-          // DFI 6.0.1 ctrlmsg training window (DDR4 branch above for rationale).
+          // DFI 5.2 ctrlmsg training window (DDR4 branch above for rationale).
           if (ctrlMsgBanActive && (active || write || read)) {
             simFailure(
               s"[CTRLMSG] $agentCycle ACT/WR/RD during ctrlmsg training window (training did not pause traffic)"

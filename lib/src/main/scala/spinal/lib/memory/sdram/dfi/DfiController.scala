@@ -6,28 +6,36 @@ import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 
 case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: DfiConfig, addrMap: AddrMap)
     extends Component {
-  // Supported command-bus subset: DDR3-and-below configs use the fixed RAS/CAS/WE encoding;
-  // DDR4 configs additionally enable the DDR4 command bus (act_n / bg / cid). Anything else is
-  // rejected here rather than failing with an obscure elaboration error.
-  val isDdr4 = dfiConfig.sdram.generation == SdramGeneration.DDR4
+  // Command-bus regime (ADR-0002): the base bus (RAS_n/CAS_n/WE_n/BA) is always required; the
+  // modern command bus (ACT_n/BG/CID, DFI 5.2 §4.3) is a protocol fact of the generation
+  // (hasModernCmdBus) and must match what the signal set actually wires. Gated on the
+  // capability flag, not on generation identity. Anything inconsistent is rejected here
+  // rather than failing with an obscure elaboration error.
+  val modernCmdBus = dfiConfig.sdram.generation.hasModernCmdBus
   assert(
     dfiConfig.signalConfig.useRasN && dfiConfig.signalConfig.useCasN && dfiConfig.signalConfig.useWeN &&
-      dfiConfig.signalConfig.useBank &&
-      (if (isDdr4) dfiConfig.signalConfig.useAckN && dfiConfig.signalConfig.useBg && dfiConfig.signalConfig.useCid
-       else !dfiConfig.signalConfig.useCid && !dfiConfig.signalConfig.useAckN && !dfiConfig.signalConfig.useBg),
-    "DfiController supports DDR3-and-below buses (rasN/casN/weN/bank, no cid/act_n/bg) " +
-      "and DDR4 buses (with act_n/bg/cid)"
+      dfiConfig.signalConfig.useBank,
+    "DfiController requires the base command bus (rasN/casN/weN/bank) in the signal set"
   )
-  // DDR4 needs the bank-group bits carved out of the flat bank index: bankWidth >= bgWidth + 1 (BA is non-empty).
-  if (isDdr4) {
+  assert(
+    if (modernCmdBus)
+      dfiConfig.signalConfig.useAckN && dfiConfig.signalConfig.useBg && dfiConfig.signalConfig.useCid
+    else
+      !(dfiConfig.signalConfig.useAckN || dfiConfig.signalConfig.useBg || dfiConfig.signalConfig.useCid),
+    s"DfiController command-bus mismatch: hasModernCmdBus=$modernCmdBus but signal set wires " +
+      s"ackN=${dfiConfig.signalConfig.useAckN}, bg=${dfiConfig.signalConfig.useBg}, cid=${dfiConfig.signalConfig.useCid}"
+  )
+  // The modern command bus needs the bank-group bits carved out of the flat bank index:
+  // bankWidth >= bgWidth + 1 (BA is non-empty).
+  if (modernCmdBus) {
     assert(
       dfiConfig.sdram.bankWidth >= dfiConfig.sdram.bgWidth + 1 && dfiConfig.sdram.bgWidth >= 1,
-      s"DDR4 requires bankWidth(${dfiConfig.sdram.bankWidth}) >= bgWidth(${dfiConfig.sdram.bgWidth}) + 1"
+      s"Modern command bus requires bankWidth(${dfiConfig.sdram.bankWidth}) >= bgWidth(${dfiConfig.sdram.bgWidth}) + 1"
     )
     // A16/A15/A14 carry RA[15:13] on ACT; with rowWidth < 16 those pins are driven from bit 0 (V per spec).
     assert(
       dfiConfig.sdram.rowWidth >= 13,
-      s"DDR4 requires rowWidth >= 13 (RA[15:13] for the ACT A16/A15/A14 pins); got ${dfiConfig.sdram.rowWidth}"
+      s"Modern command bus requires rowWidth >= 13 (RA[15:13] for the ACT A16/A15/A14 pins); got ${dfiConfig.sdram.rowWidth}"
     )
   }
   // The read-data phase alignment (RdAlignment) dynamically tracks the lane holding the first slice of
@@ -54,7 +62,7 @@ case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: Dfi
   val io = new Bundle {
     val bmb = slave(Bmb(bmbp))
     val dfi = master(Dfi(dfiConfig))
-    // DFI 6.0.1 ctrlmsg training channel (Table 12): the upper layer / testbench drives one
+    // DFI 5.2 ctrlmsg training channel (Table 37): the upper layer / testbench drives one
     // message (CtrlMsgCode, e.g. WRLVL/ZQCAL) and observes completion / the sticky error.
     // The ports always exist (stable API); with useCtrlMsg off they are inert (trainDone
     // stuck low, ctrlMsgError stuck low, trainReq dangling-legal).
@@ -69,7 +77,7 @@ case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: Dfi
     val ctrlMsgError = dfiConfig.signalConfig.useCtrlMsg generate out(Bool())
     // Separate top-level ctrlmsg port (NOT a Dfi member): keeps the Dfi<>Dfi zip in
     // alignment.io.output <> io.dfi away from the arbiter-driven wires entirely. Gated by
-    // useCtrlMsg (DFI Table 12: all four wires Optional — absent entirely when off).
+    // useCtrlMsg (DFI Table 37: all four wires Optional — absent entirely when off).
     val dfiCtrlMsg = dfiConfig.signalConfig.useCtrlMsg generate master(DfiCtrlMsgInterface(dfiConfig))
     // P2 boot-training orchestrator ports (present only when useCtrlMsg && bootTraining):
     // bootTrainEnable = testbench enable (the orchestrator leaves IDLE only after it fires,
@@ -108,7 +116,7 @@ case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: Dfi
   alignment.io.input <> control.io.output
   alignment.io.output <> io.dfi
 
-  // DFI 6.0.1 ctrlmsg training channel (Table 12, all four wires Optional on both sides):
+  // DFI 5.2 ctrlmsg training channel (Table 37, all four wires Optional on both sides):
   // the arbiter drives dfi_ctrlmsg/dfi_ctrlmsg_data/dfi_ctrlmsg_req and watches
   // dfi_ctrlmsg_ack; while a handshake is in flight its trainBusy output pauses MakeTask
   // task-spawn/refresh globally. Instantiated only when useCtrlMsg is set — disabled

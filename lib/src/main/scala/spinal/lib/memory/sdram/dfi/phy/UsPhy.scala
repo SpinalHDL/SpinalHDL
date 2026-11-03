@@ -129,7 +129,7 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   //   read:  rddataDbiN comes from pads.dm_dbi_in (DRAM-driven DM during reads).
   // L2 (ADR-0013 rev.2): the command path honours ALL DFI phases — the
   // dramPhase alternation in Step 3 delivers phase i to DRAM cycle i of each
-  // DFI pair (DFI 6.0.1 §2.1: "The PHY must be able to accept a command on
+  // DFI pair (DFI 5.2 §2.1: "The PHY must be able to accept a command on
   // any and all phases"), so any cmdPhase in [0, frequencyRatio) is valid;
   // the MC asserts that range itself (DfiController). The former cmdPhase==0
   // restriction (rev.1, when only phase 0 reached the pins) is obsolete.
@@ -147,7 +147,7 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   val wlDelayOut = out(UInt(9 bits))   // observability: current ODELAYE3 delay counter (dramClk domain)
   val rdDelayOut = out(UInt(9 bits))   // observability: current read-leveling IDELAYE3 delay counter (dramClk domain)
 
-  // DFI 6.0.1 management plane (status channel), minimal v1 (ADR-0016): this PHY has no
+  // DFI 5.2 management plane (status channel), minimal v1 (ADR-0016): this PHY has no
   // internal initialization state (no MMCM lock wait, no internal training), so
   // dfi_init_complete is asserted as soon as the bundle exists; dfi_alert_n stays high
   // (no error source). dfi_init_start is accepted but has NO internal action - there is
@@ -162,8 +162,23 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   val physDqWidth    = cfg.sdram.dataWidth  // PHYSICAL DQ pin count (what the board wires)
   val nranks         = cfg.chipSelectNumber
   val byteLanes      = physDqWidth / 8      // number of DQ byte-lanes (physical)
-  // ADR-0004: SerDes multiplier auto-derived from generation (internal, not a param).
-  val serdesMult     = if (generation == SdramGeneration.DDR4) 4 else 2
+  // ADR-0004: SerDes multiplier = f(generation, rate) via the rate table (internal, not a
+  // param). Conservative floor: each generation runs ONE gear across its whole supported
+  // DFI-clock range (DDR4: 4x, DDR3/DDR2/SDR: 2x) — dropping to a lower multiplier at low
+  // rates is a board-level timing-closure concern, not this PHY's job. The rate dimension
+  // therefore enters through VALIDATION: a (generation, ddrMHZ) outside the table's
+  // coverage is an illegal combination and is rejected at elaboration. Bounds are
+  // conservative envelopes (hi = generation's max data rate / 2 = the FR1 DFI-clock ceiling),
+  // not the exact JEDEC rate grid; lo admits synthetic slow test clocks.
+  val serdesMult = {
+    val (lo, hi, mult) = generation match {
+      case SdramGeneration.DDR4 => (50, 1600, 4) // 1600 MHz = DDR4-3200 MT/s / 2
+      case _                    => (50, 1066, 2) // 1066 MHz = DDR3-2133 MT/s / 2 (legacy envelope)
+    }
+    require(cfg.sdram.ddrMHZ >= lo && cfg.sdram.ddrMHZ <= hi,
+      s"UsPhy: unsupported (generation, rate) combination: ddrMHZ=${cfg.sdram.ddrMHZ} MHz outside $lo-$hi MHz for this generation")
+    mult
+  }
   // SerDes DATA_WIDTH = 2 * fr (derived from DFI geometry: 2 DDR symbols/pin/phase * fr phases)
   val serdesDw       = 2 * frequencyRatio
 
@@ -184,7 +199,7 @@ case class UsPhy(cfg: DfiConfig) extends Component {
     val act_n   = out Bool()
     val bg      = out(Vec(Bool(), cfg.sdram.bgWidth))
     // Dedicated BA pins (ADR-0012 amendment, TC8): real DDR4 x16 silicons BG0/BA0/BA1
-    // as dedicated pins (JESD79-4B §2.8 / Table 17); A[12:0] carries the FULL row on
+    // as dedicated pins (JESD79-4B §2.8 / Table 16); A[12:0] carries the FULL row on
     // ACT, so BA must NOT be time-multiplexed onto the CA bus.
     val ba      = out(Vec(Bool(), cfg.dfiBankWidth))
     val cid     = out(Vec(Bool(), cfg.sdram.cidWidth))
@@ -231,7 +246,7 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   // packed per-phase DFI control vector (CAAlignment packs phase i into slice i).
   //
   // L2 (ADR-0013 rev.2): ONE DFI cycle spans fr DRAM cycles; DFI phase i MUST
-  // appear on the pins during DRAM cycle i of the pair (DFI 6.0.1 §2.1: "The
+  // appear on the pins during DRAM cycle i of the pair (DFI 5.2 §2.1: "The
   // PHY must be able to accept a command on any and all phases"; phase 1
   // aligns with the 2nd DRAM cycle). Holding phase 0 for the whole DFI cycle
   // makes every command decode TWICE at a rising-edge sampler — proven RED by

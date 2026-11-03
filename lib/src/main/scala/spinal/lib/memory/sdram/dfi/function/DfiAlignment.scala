@@ -8,6 +8,9 @@ case class CAAlignment(config: DfiConfig) extends Component {
     val cmd = Vec(slave(Flow(DfiCmd(config))), config.frequencyRatio)
     val address = Vec(slave(Flow(DfiAddr(config))), config.frequencyRatio)
     val cke = in Vec (Bits(config.chipSelectNumber bits), config.frequencyRatio)
+    // Per-phase, per-CS ODT-enable from the Alignment top level (derived there from the
+    // write/read data windows, which live in the sibling Wr/RdAlignment components).
+    val odtEn = config.useOdt generate in(Vec(Bits(config.chipSelectNumber bits), config.frequencyRatio))
     val output = master(DfiControlInterface(config))
   }
   // cke,reserN,odt
@@ -17,9 +20,15 @@ case class CAAlignment(config: DfiConfig) extends Component {
   // In general, the dfi_reset_n signal is defined as low at reset; however, in some cases it may be necessary
   // to hold dfi_reset_n high during initialization.
   if (config.useResetN) io.output.resetN.setAll()
-  // The MC generates dfi_odt (dfi_odt_pN in frequency ratio systems) based on the DRAM burst length including
-  // CRC data. With CRC enabled, the MC may need to extend ODT.
-  if (config.useOdt) io.output.odt.clearAll()
+  // dfi_odt (DFI 5.2 Table 37): the MC drives ODT in all phases, asserting for the CS whose
+  // data window is active (write or read) and parking elsewhere. The per-phase/per-CS enable
+  // is computed at the Alignment top level from the sibling Wr/RdAlignment windows and fed in
+  // via io.odtEn; this component just repacks it onto the phase-major dfi_odt bus.
+  if (config.useOdt) {
+    for (i <- 0 until config.frequencyRatio) {
+      io.output.odt(i * config.chipSelectNumber, config.chipSelectNumber bits) := io.odtEn(i)
+    }
+  }
 
   // cmd
   if (config.useAckN) io.output.actN := Bits(widthOf(io.output.actN) bits).setAll()

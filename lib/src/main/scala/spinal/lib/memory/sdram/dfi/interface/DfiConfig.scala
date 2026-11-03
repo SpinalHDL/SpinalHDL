@@ -30,7 +30,7 @@ case class DfiTimeConfig(
     tPhyRdCsGap: Int,
     // specify the additional delay it
     // requires between two consecutive commands that are targeting different chip selects.
-    // DFI 6.0.1 Table 48 ctrlmsg timing: tctrlmsg_resp = max cycles from dfi_ctrlmsg_req
+    // DFI 5.2 Table 38 ctrlmsg timing: tctrlmsg_resp = max cycles from dfi_ctrlmsg_req
     // assertion to dfi_ctrlmsg_ack assertion (spec min 1), tctrlmsg_max = max cycles
     // dfi_ctrlmsg_ack may stay asserted (MC-defined; this MC picks 16).
     tCtrlMsgResp: Int = 1,
@@ -135,7 +135,7 @@ class DfiSignalConfig(groupConfig: DfiFunctionConfig = DfiFunctionConfig(), useC
   val useError: Boolean = false
   val useErrorInfo: Boolean = false
 
-  // DFI 6.0.1 Table 12 ctrlmsg channel (dfi_ctrlmsg/dfi_ctrlmsg_data/dfi_ctrlmsg_req/
+  // DFI 5.2 Table 37 ctrlmsg channel (dfi_ctrlmsg/dfi_ctrlmsg_data/dfi_ctrlmsg_req/
   // dfi_ctrlmsg_ack): off by default — the four wires, the CtrlMsgArbiter and the trainBusy
   // spawn/refresh gates exist only when this is set.
   val useCtrlMsg: Boolean = false
@@ -295,25 +295,30 @@ case class DfiConfig(
   val rankWidth = chipSelectNumber
   val errorNumber = dataSlice + 1
 
-  // NOTE ON GENERATION GATES: DBI_n and CA parity (PAR) are DDR4-era physical pins; DDR1/DDR2/DDR3
-  // SDRAMs have no such pins, so enabling these features on older generations would invent protocol
-  // behavior the silicon cannot honor. The generation checks below are protocol truth, NOT
-  // conservatism — do not relax them to signal-presence-only (legacy signalConfigs map
-  // useStatusSignals -> parityIn/alertN, which would silently turn the features on for DDR3).
+  // NOTE ON CAPABILITY GATES (ADR-0002): DBI_n and CA parity (PAR) are physical-pin features
+  // that DDR1/DDR2/DDR3 SDRAMs do not have, so enabling them on older generations would invent
+  // protocol behavior the silicon cannot honor. The capability flags below (hasDbi / hasCaParity
+  // on SdramGeneration) are protocol truth, NOT conservatism — do not relax them to
+  // signal-presence-only (legacy signalConfigs map useStatusSignals -> parityIn/alertN, which
+  // would silently turn the features on for DDR3). This is a CAPABILITY GATE: the behavior
+  // shape is uniform, only the feature is on/off, so the capability flag is the correct key.
+  // Contrast IDENTITY SELECTION, where generation-specific payloads (init step tables)
+  // legitimately key on identity — but that knowledge is centralized in one named home
+  // (SdramInitStep.defaultFor), never scattered across builders.
   // The generically reusable knob is the refresh scheduler (SdramTiming REF_NS/REF_RATE),
   // which carries no generation gate.
-  // DDR4 DBI enable, decoded from MR5 (JESD79-4B §4.11): A12=Read DBI, A11=Write DBI.
+  // DBI enable, decoded from MR5 (JESD79-4B §4.11): A12=Read DBI, A11=Write DBI.
   // Read DBI additionally requires the rddata_dbi_n signal to exist in the signal set.
   val useRdDbi =
-    sdram.generation == SdramGeneration.DDR4 && signalConfig.useRddataDbiN && ((ddr4ModeRegs.mr5 >> 12) & 1) == 1
-  val useWrDbi = sdram.generation == SdramGeneration.DDR4 && ((ddr4ModeRegs.mr5 >> 11) & 1) == 1
+    sdram.generation.hasDbi && signalConfig.useRddataDbiN && ((ddr4ModeRegs.mr5 >> 12) & 1) == 1
+  val useWrDbi = sdram.generation.hasDbi && ((ddr4ModeRegs.mr5 >> 11) & 1) == 1
 
-  // DDR4 CA parity (JESD79-4B §4.17 / DFI 6.0.1 §4.3.1): the MC drives dfi_parity (even parity
+  // DDR4 CA parity (JESD79-4B §4.17 / DFI 5.2 §4.12): the MC drives dfi_parity (even parity
   // over ACT_n, RAS_n/A16, CAS_n/A15, WE_n/A14, A13..A0, BA, BG — NOT CKE/ODT/CS_n) in the same
   // cycle as the command (tcapar_lat = 0, allowed by the spec). Any non-zero MR5.A2:A0 parity
   // latency (PL4/5/6) means CA parity is enabled at the DRAM; the PL value itself only affects
   // DRAM-internal timing and is not modeled on the MC side, so the signal-level useParity
   // (dfi_parity_in + dfi_alert_n present) gates the feature here.
-  val useCaParity = sdram.generation == SdramGeneration.DDR4 && signalConfig.useParity
+  val useCaParity = sdram.generation.hasCaParity && signalConfig.useParity
 
 }

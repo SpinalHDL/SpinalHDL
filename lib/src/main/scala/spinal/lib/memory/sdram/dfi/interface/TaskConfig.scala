@@ -41,6 +41,12 @@ case class TaskTimingConfig(dfiConfig: DfiConfig) extends Bundle {
 
   def REF = time(dfiConfig.sdram.tREF)
 
+  // DFI 5.2 tphy_wrcsgap / tphy_rdcsgap are specified in DATA clocks; the scheduler reasons in
+  // MC cycles, so convert (round up). Consumed only when the multi-CS gap feature is enabled
+  // (chipSelectNumber >= 2 && gap > 0); otherwise the scheduler elaborates unchanged.
+  def tPhyWrCsGapMc = (dfiConfig.timeConfig.tPhyWrCsGap + dfiConfig.frequencyRatio - 1) / dfiConfig.frequencyRatio
+  def tPhyRdCsGapMc = (dfiConfig.timeConfig.tPhyRdCsGap + dfiConfig.frequencyRatio - 1) / dfiConfig.frequencyRatio
+
   def autoRefresh = True
 }
 

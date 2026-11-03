@@ -3,10 +3,10 @@ package spinal.lib.memory.sdram.dfi
 import spinal.core._
 import spinal.lib._
 
-/** DFI 6.0.1 Table 55 controller message codes. The channel itself (CtrlMsgArbiter) is
+/** DFI 5.2 Table 51 controller message codes. The channel itself (CtrlMsgArbiter) is
   * code-agnostic; only the two codes that have a driver today are wired to callers:
   * WRLVL and ZQCAL, both driven by the testbench through DfiController.io.trainReq.
-  * The remaining entries are placeholders kept for Table 55 completeness — no caller,
+  * The remaining entries are placeholders kept for Table 51 completeness — no caller,
   * no wiring, nothing invented (add the caller before wiring the code).
   */
 object CtrlMsgCode {
@@ -21,14 +21,14 @@ object CtrlMsgCode {
   val DQS_OSC = 0x08 // DQS Interval Oscillator
 }
 
-/** Payload of one MC->PHY controller message (DFI 6.0.1 Table 47): dfi_ctrlmsg carries the
-  * Table 55 message code, rank selects the target physical rank for dfi_ctrlmsg_data. */
+/** Payload of one MC->PHY controller message (DFI 5.2 Table 37): dfi_ctrlmsg carries the
+  * Table 51 message code, rank selects the target physical rank for dfi_ctrlmsg_data. */
 case class CtrlMsgReq() extends Bundle {
   val msgCode = UInt(8 bits)
   val rank = UInt(4 bits)
 }
 
-/** MC-side arbiter for the optional DFI 6.0.1 ctrlmsg training channel (Table 12: all four
+/** MC-side arbiter for the optional DFI 5.2 ctrlmsg training channel (Table 37: all four
   * wires are Optional on both sides). One message at a time:
   *   - idle + io.trainReq fires -> latch msg/data, assert dfi_ctrlmsg_req
   *   - wait dfi_ctrlmsg_ack within tctrlmsg_resp; no ack in the window -> latch the sticky
@@ -39,14 +39,14 @@ case class CtrlMsgReq() extends Bundle {
   *     completes on de-assert, no retry)
   *   - clean completion -> one-cycle io.trainDone pulse, back to idle
   * io.trainReq arriving while busy is ignored (no queueing — out of scope for this channel).
-  * dfi_ctrlmsg_data follows Table 56: bit0=0 + bits[7:4]=physical rank for multi-rank
+  * dfi_ctrlmsg_data follows §4.18: bit0=0 + bits[7:4]=physical rank for multi-rank
   * systems, bit0=1 (all physical ranks) in single-rank systems; bit1=1 (all logical ranks,
   * no 3DS in this controller). */
 case class CtrlMsgArbiter(dfiConfig: DfiConfig) extends Component {
   val tResp = dfiConfig.timeConfig.tCtrlMsgResp
   val tMax = dfiConfig.timeConfig.tCtrlMsgMax
-  assert(tResp >= 1, s"tctrlmsg_resp must be >= 1 (DFI 6.0.1 Table 48); got $tResp")
-  assert(tMax >= 1, s"tctrlmsg_max must be >= 1 (DFI 6.0.1 Table 48); got $tMax")
+  assert(tResp >= 1, s"tctrlmsg_resp must be >= 1 (DFI 5.2 Table 38); got $tResp")
+  assert(tMax >= 1, s"tctrlmsg_max must be >= 1 (DFI 5.2 Table 38); got $tMax")
 
   val io = new Bundle {
     val trainReq = slave(Flow(CtrlMsgReq()))

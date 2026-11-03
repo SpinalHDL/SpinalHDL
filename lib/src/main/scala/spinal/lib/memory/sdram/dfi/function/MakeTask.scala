@@ -29,6 +29,22 @@ object SdramInitStep {
   val ZQ = 1
   val PRE_ALL = 2
   val REF = 3
+
+  /** Built-in default init micro-program per generation — the SINGLE arbiter of "which
+    * generation ships with which preset". Deliberately keyed on generation IDENTITY: the
+    * preset payload (the per-gen MR layout) is generation-specific, so a capability flag
+    * would be the WRONG key here (a future DDR5 has a modern command bus but none of these
+    * MR tables). Adding a generation = one branch here, not a hunt through task builders.
+    * DDR3/DDR2 presets are dual-source verified (see Ddr3InitSequencer/Ddr2InitSequencer);
+    * SDR/MYDDR ship init-less (explicit DfiConfig.initSteps injection remains the escape
+    * hatch for any generation). */
+  def defaultFor(generation: SdramGeneration, modeRegs: Ddr4ModeRegs): List[SdramInitStep] =
+    generation match {
+      case SdramGeneration.DDR4 => Ddr4InitSequencer(modeRegs = modeRegs, tMrdCycles = 4, zqInitCycles = 512)
+      case SdramGeneration.DDR3 => Ddr3InitSequencer()
+      case SdramGeneration.DDR2 => Ddr2InitSequencer()
+      case _                     => Nil
+    }
 }
 
 case class SdramInitOp() extends Bundle {
@@ -98,6 +114,59 @@ object Ddr4InitSequencer {
   }
 }
 
+/** DDR3 preset step table (dual-source verified):
+  *  - source A: litedram (enjoy-digital/litedram master, litedram/init.py,
+  *    get_ddr3_phy_init_sequence, fetched 2026-11-01) — step ORDER and MR formulas;
+  *  - source B: in-repo Micron ddr3.v model (tester/src/test/python/spinal/SdramXdr/
+  *    Ddr3ModelTester/ddr3.v) — legacy command encodings (MRS/EMRS = RAS+CAS+WE, bank =
+  *    MR/EMRS number, OP on address; ZQCL = RAS+CAS+WE_n + A10);
+  *  - source C: DfiControllerTester "DfiController_DDR3_fr2_init" simulation (DfiMemoryAgent
+  *    reference model) — end-to-end proof the engine + consumer deliver this table on the bus.
+  * Order: MRS MR2 -> MR3 -> MR1 -> MR0 (DLL reset last) -> ZQCL. Fixed electrical defaults
+  * per litedram (CL=CWL=5, BL8, ODT RON=34 Ohm / RTT_NOM=60 Ohm); board-specific overrides
+  * go through DfiConfig.initSteps. waitCycles are simulation timeline knobs carried over from
+  * the validated tester preset, NOT protocol timings (real tMRD/tZQLA are enforced by the
+  * scheduler once traffic starts). */
+object Ddr3InitSequencer {
+  def apply(tMrdCycles: Int = 8, zqCalCycles: Int = 512): List[SdramInitStep] = List(
+    SdramInitStep(SdramInitStep.MRS, 2, 0x200, tMrdCycles), // CWL=5 (A3:0), RTT_WR=60 Ohm (A9)
+    SdramInitStep(SdramInitStep.MRS, 3, 0x000, tMrdCycles), // DLL enabled
+    SdramInitStep(SdramInitStep.MRS, 1, 0x006, tMrdCycles), // RON=34 Ohm (A1), RTT_NOM=60 Ohm (A2)
+    SdramInitStep(SdramInitStep.MRS, 0, 0x310, tMrdCycles), // BL8 (A1:0=00), CL5 (A4), WR5 (A9), DLL reset (A8)
+    SdramInitStep(SdramInitStep.ZQ, 0, 0, zqCalCycles)
+  )
+}
+
+/** DDR2 preset step table (dual-source verified):
+  *  - source A: litedram master litedram/init.py get_ddr2_phy_init_sequence — step ORDER and
+  *    MR formula mr = log2(bl) + (cl<<4) + ((wr-1)<<9), reset_dll = 1<<8, ocd = 7<<7;
+  *  - source B: in-repo Micron ddr2.v model (tester/src/test/python/spinal/SdramXdr/
+  *    Ddr2ModelTester/ddr2.v) — legacy command encodings;
+  *  - source C: DfiControllerTester "DfiController_DDR2_fr2_init" simulation.
+  * Order: PRE_ALL -> EMRS3 -> EMRS2 -> EMRS1 -> MRS (DLL reset) -> PRE_ALL -> REF x2 ->
+  * MRS -> EMRS1 (OCD default) -> EMRS1 (OCD exit). DDR2 HAS NO ZQCL STEP. Fixed defaults:
+  * BL4, CL5, WR=5 (conservative; litedram derives WR from timing via get_write_recovery +
+  * round_up_to_mr_value). DLL-reset step waits 256 (covers ~200 tDLL lock cycles). mrIndex
+  * 1/2/3 = EMRS1/2/3 (the consumer maps bank = MR/EMRS number). */
+object Ddr2InitSequencer {
+  def apply(tMrdCycles: Int = 8, dllLockCycles: Int = 256): List[SdramInitStep] = {
+    val mr0 = 0x452 // BL4 (A1), CL5 (A7:A4), WR5 ((5-1)<<9)
+    List(
+      SdramInitStep(SdramInitStep.PRE_ALL, 0, 0, tMrdCycles),
+      SdramInitStep(SdramInitStep.MRS, 3, 0x000, tMrdCycles), // EMRS3
+      SdramInitStep(SdramInitStep.MRS, 2, 0x000, tMrdCycles), // EMRS2
+      SdramInitStep(SdramInitStep.MRS, 1, 0x000, tMrdCycles), // EMRS1
+      SdramInitStep(SdramInitStep.MRS, 0, mr0 | 0x100, dllLockCycles), // MRS MR0 + DLL reset (A8)
+      SdramInitStep(SdramInitStep.PRE_ALL, 0, 0, tMrdCycles),
+      SdramInitStep(SdramInitStep.REF, 0, 0, tMrdCycles),
+      SdramInitStep(SdramInitStep.REF, 0, 0, tMrdCycles),
+      SdramInitStep(SdramInitStep.MRS, 0, mr0, tMrdCycles),
+      SdramInitStep(SdramInitStep.MRS, 1, 0x380, tMrdCycles), // EMRS1 OCD default (7<<7)
+      SdramInitStep(SdramInitStep.MRS, 1, 0x000, tMrdCycles) // EMRS1 OCD exit
+    )
+  }
+}
+
 case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrMap) extends Component {
   val io = new Bundle {
     val cmd = slave(Stream(TaskWrRdCmd(taskConfig, dfiConfig)))
@@ -121,15 +190,12 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   val readyForRefresh = True
   val sdram = dfiConfig.sdram
 
-  // Init hook: init micro-program = config-carried step table (DfiConfig.initSteps, e.g. the
-  // DDR3/DDR2 presets in the tester) if present; otherwise DDR4 falls back to its named
-  // preset (dev behavior, unchanged), every other generation runs init-less exactly as on
-  // dev (old tests bit-identical: no engine component is instantiated, initDone == True).
-  val initSeq: List[SdramInitStep] = dfiConfig.initSteps.getOrElse(
-    if (sdram.generation == SdramGeneration.DDR4)
-      Ddr4InitSequencer(modeRegs = dfiConfig.ddr4ModeRegs, tMrdCycles = 4, zqInitCycles = 512)
-    else Nil
-  )
+  // Init hook: config-carried step table wins (DfiConfig.initSteps, e.g. the DDR3/DDR2
+  // presets in the tester); otherwise the generation's built-in preset, arbitrated in one
+  // place (SdramInitStep.defaultFor). Generations without a preset run init-less exactly as
+  // before (no engine component is instantiated, initDone == True).
+  val initSeq: List[SdramInitStep] =
+    dfiConfig.initSteps.getOrElse(SdramInitStep.defaultFor(sdram.generation, dfiConfig.ddr4ModeRegs))
   val initEngine = if (initSeq.nonEmpty) SdramInitSequencer(initSeq, xprWaitCycles = 32) else null
   def initDone: Bool = if (initEngine != null) initEngine.io.done else True
   if (dfiConfig.signalConfig.useCtrlMsg && dfiConfig.bootTraining) io.initDoneOut := initDone
@@ -201,6 +267,38 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   def ccdBgBusy: Bool = if (CCD_BG != null) CCD_BG.busy else False
   val RTW = timing(io.output.read, timeConfig.RTW)
   val RP = timing(io.output.prechargeAll, timeConfig.RP + 1)
+  // --- DFI 5.2 multi-chip-select data-burst gap (tphy_wrcsgap / tphy_rdcsgap, Tables 16/19) ---
+  // When two consecutive same-direction column bursts target DIFFERENT chip-selects, the PHY
+  // needs an EXTRA tphy_wrcsgap/tphy_rdcsgap (data clocks) between the two data windows, on top
+  // of the back-to-back window length. The base window spacing is already enforced by the CCD
+  // timer; this adds ONLY the extra gap, active solely on a CS switch, so single-CS and gap==0
+  // configs elaborate bit-identically to before (zero regression). Command interval ==
+  // data-window interval (each window trails its command by the fixed tphy_wrdata/tphy_rdlat
+  // offset), so spacing the COMMANDS transitively satisfies the dfi_wrdata_cs / dfi_rddata_cs
+  // window gap the spec mandates.
+  val wrCsGap: Bool = if (dfiConfig.chipSelectNumber >= 2 && timeConfig.tPhyWrCsGapMc > 0) {
+    new Area {
+      val csWidth = log2Up(dfiConfig.chipSelectNumber)
+      val lastCs = Reg(UInt(csWidth bits)) init (U(0, csWidth bits))
+      val lastValid = RegInit(False)
+      // Counts the interval since the last issued write command (reload on every write).
+      val timer = timing(io.output.write, dfiConfig.beatCount + timeConfig.tPhyWrCsGapMc)
+      val switching = lastValid && (io.output.address.cs =/= lastCs)
+      when(io.output.write) { lastCs := io.output.address.cs; lastValid := True }
+      val busy = switching && timer.busy
+    }.busy
+  } else False
+  val rdCsGap: Bool = if (dfiConfig.chipSelectNumber >= 2 && timeConfig.tPhyRdCsGapMc > 0) {
+    new Area {
+      val csWidth = log2Up(dfiConfig.chipSelectNumber)
+      val lastCs = Reg(UInt(csWidth bits)) init (U(0, csWidth bits))
+      val lastValid = RegInit(False)
+      val timer = timing(io.output.read, dfiConfig.beatCount + timeConfig.tPhyRdCsGapMc)
+      val switching = lastValid && (io.output.address.cs =/= lastCs)
+      when(io.output.read) { lastCs := io.output.address.cs; lastValid := True }
+      val busy = switching && timer.busy
+    }.busy
+  } else False
   val FAW = sdram.generation.FAW generate new Area { // Can be optimized
     val trigger = io.output.active
     val ptr = RegInit(U"00")
@@ -249,8 +347,8 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     val status = Status()
     status.allowPrecharge := True
     status.allowActive := !RRD_busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
-    status.allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy
-    status.allowRead := !WTR_busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy
+    status.allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy && !wrCsGap
+    status.allowRead := !WTR_busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy && !rdCsGap
     status.bankHit := banksRow.readAsync(address.bank) === address.row
     status.bankActive := banks.map(_.active).read(address.bank)
     status.employ(address)
@@ -277,8 +375,8 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     import status._
     allowPrecharge := True
     allowActive := !RRD_busy && (if (sdram.generation.FAW) !FAW.busyNext else True)
-    allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy
-    allowRead := !WTR_busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy
+    allowWrite := !RTW.busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy && !wrCsGap
+    allowRead := !WTR_busy && (if (CCD != null) !CCD.busy else True) && !ccdBgBusy && !rdCsGap
     bankHit.init(False)
     bankActive.init(False)
     status.employ(address)
