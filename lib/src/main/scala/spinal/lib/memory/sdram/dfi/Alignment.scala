@@ -32,12 +32,32 @@ case class Alignment(config: DfiConfig) extends Component {
   rdAlignment.io.output <> io.output.read
   rdAlignment.io.phaseClear := False
 
+  // DFI 5.2 Table 37: the MC must drive dfi_odt in all phases. Assert ODT for the chip-select
+  // whose data window is active this phase (write or read), park (0) otherwise. Derived from
+  // the actual DFI-side window signals (wrdata_en / wrdata_cs_n, rddata_valid / rddata_cs_n)
+  // so the ODT waveform tracks the real data transfers. odt is phase-major
+  // (odt(i*csNum + cs)), matching UsPhy's phaseSel take/drop layout. First-order model: the
+  // 1-bit-per-CS bus only expresses on/off; receiver-side ODT tracking and MR-programmed RTT
+  // encoding are a stage-2 refinement.
+  if (config.useOdt) {
+    for (i <- 0 until config.frequencyRatio) {
+      val wrEn  = io.output.write.wr(i).wrdataEn
+      val rdVal = io.output.read.rd(i).rddataValid
+      val odtCs = Vec.tabulate(config.chipSelectNumber) { c =>
+        val wrHit = if (config.useWrdataCsN) wrEn && !io.output.write.wr(i).wrdataCsN(c) else wrEn
+        val rdHit = if (config.useRddataCsN) rdVal && !io.output.read.rdCs(i).rddataCsN(c) else rdVal
+        wrHit || rdHit
+      }
+      caAlignment.io.odtEn(i) := odtCs.asBits
+    }
+  }
+
   // dfi_parity_in (DFI status): MC-side CA-parity-enabled indication. This controller does not
   // implement the PHY parity-reporting handshake, so it idles at 0 (DDR4 CA parity itself is
   // generated in CAAlignment on dfi_parity, not here).
   if (config.useParityIn) io.output.status.parityIn.clearAll()
 
-  // DFI 6.0.1 management plane (status channel), minimal honest drive when useStatusSignals
+  // DFI 5.2 management plane (status channel), minimal honest drive when useStatusSignals
   // is set (ADR-0016 v1): this controller has no internal initialization state, so
   // dfi_init_start is a single-cycle pulse at reset release (DFI Figure 6: the MC
   // de-asserts reset along with dfi_init_start); dfi_freq_ratio is static; the unused

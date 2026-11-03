@@ -13,7 +13,21 @@ class SdramGeneration(
     // Bank-group aware CAS-to-CAS (tCCD) in nCK, JESD79-4B Table 34.
     // 0 => collapse to CCD (no bank groups): DDR/DDR2/DDR3 keep exactly the old single-value behavior.
     val ccdL: Int = 0,
-    val ccdS: Int = 0
+    val ccdS: Int = 0,
+    // --- Protocol capability flags (ADR-0002) ---------------------------------------------
+    // Consumers gate BEHAVIOR on these flags, never on `generation == SdramGeneration.XXX`
+    // identity. Identity remains the right key only for generation-SPECIFIC PAYLOADS (e.g. the
+    // DDR4 init step table), and that knowledge is centralized in one named home
+    // (SdramInitStep.defaultFor), not scattered across builders.
+    // Modern DFI command bus: ACT_n / BG / CID pins exist alongside RAS_n/CAS_n/WE_n
+    // (DFI 5.2 §4.3, JESD79-4B Table 16). All-or-nothing: the three wires appear together.
+    val hasModernCmdBus: Boolean = false,
+    // DBI (data bus inversion): physical pin-set feature, enabled via mode registers
+    // (JESD79-4B §4.11 MR5 A11/A12).
+    val hasDbi: Boolean = false,
+    // CA parity: the DRAM checks even parity over the CA pins (JESD79-4B §4.17 /
+    // DFI 5.2 §4.12).
+    val hasCaParity: Boolean = false
 ) {
   def tCCD_L = if (ccdL != 0) ccdL else CCD
   def tCCD_S = if (ccdS != 0) ccdS else CCD
@@ -68,7 +82,10 @@ object SdramGeneration {
     burstLength = 8,
     dataRate = 2,
     ccdL = 4,
-    ccdS = 2
+    ccdS = 2,
+    hasModernCmdBus = true,
+    hasDbi = true,
+    hasCaParity = true
   )
 }
 

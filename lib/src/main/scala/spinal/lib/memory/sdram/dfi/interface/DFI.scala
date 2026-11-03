@@ -165,7 +165,7 @@ case class DfiErrorInterface(config: DfiConfig) extends Bundle with IMasterSlave
   }
 }
 
-/** DFI 6.0.1 Table 12 MC-to-PHY message interface (all four wires Optional on both sides).
+/** DFI 5.2 Table 37 MC-to-PHY message interface (all four wires Optional on both sides).
   * MC perspective: dfi_ctrlmsg/dfi_ctrlmsg_data/dfi_ctrlmsg_req are driven by the MC,
   * dfi_ctrlmsg_ack comes back from the PHY. The bundle carries all four wires; it is the
   * Dfi bundle that gates the member itself on useCtrlMsg (needed so `alignment.io.output

@@ -10,8 +10,10 @@ import spinal.lib.memory.sdram.dfi._
   * on both sides match bit-for-bit. */
 object E2eMcGen {
   def main(args: Array[String]): Unit = {
-    // Optional arg: mr5 hex override (e.g. "0x1800" = write+read DBI enabled).
+    // Optional args: mr5 hex override (e.g. "0x1800" = write+read DBI enabled),
+    // sourceWidth (BMB source arbitration; 0 = single source, 1 = 2 sources).
     val mr5: Int = if (args.length >= 1) java.lang.Integer.decode(args(0)).toInt else 0
+    val srcW: Int = if (args.length >= 2) args(1).toInt else 0
 val sdramtime = SdramTiming(
       generation = 3, RFC = 260, RAS = 38, RP = 15, RCD = 15,
       WTR = 8, WTP = 0, RTP = 8, RRD = 6, REF = 64000, FAW = 35
@@ -48,7 +50,7 @@ val sdramtime = SdramTiming(
     val bmbp = BmbParameter(
       addressWidth = sdram.byteAddressWidth + log2Up(cfg.chipSelectNumber),
       dataWidth = cfg.beatWidth,
-      sourceWidth = 0, contextWidth = 2, lengthWidth = 10,
+      sourceWidth = srcW, contextWidth = 2, lengthWidth = 10,
       alignment = BmbParameter.BurstAlignement.WORD
     )
     SpinalVerilog(DfiController(bmbp, task, cfg, RowBankColumn))

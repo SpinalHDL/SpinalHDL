@@ -60,6 +60,14 @@ class DfiControllerTester extends SpinalAnyFunSuite {
       val ctrlMsgEnabled = useCtrlMsg
       val bootEnabled = useCtrlMsg && bootTraining
       val legacyWrLvlEnabled = useLegacyWrLvl
+      // Effective init = explicit injection wins, else the generation's built-in preset —
+      // mirrors the DUT (MakeTask: dfiConfig.initSteps.getOrElse(SdramInitStep.defaultFor(...)))
+      // so the [INIT] end-of-run checks validate the SAME table the DUT actually plays.
+      // Mode regs must match the DUT config below exactly (the preset's MRS ops are sourced
+      // from them), hence the shared val.
+      val ddr4ModeRegs = if (generation == SdramGeneration.DDR4) Ddr4ModeRegs(mr4 = mr4, mr5 = mr5) else Ddr4ModeRegs()
+      val effectiveInitSteps = if (initSteps.nonEmpty) initSteps
+                               else SdramInitStep.defaultFor(generation, ddr4ModeRegs)
       assert(!useCtrlMsg || generation == SdramGeneration.DDR4, "ctrlmsg training cases are DDR4-only")
       assert(
         !useLegacyWrLvl || generation == SdramGeneration.DDR2 || generation == SdramGeneration.DDR3,
@@ -132,7 +140,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
                 // DDR4 CA parity needs dfi_parity (MC out) + dfi_alert_n (DRAM in) present
                 override val useParityIn = caParity
                 override val useAlertN = caParity
-                // DFI 6.0.1 Table 12 ctrlmsg channel: four wires + arbiter + trainBusy gates
+                // DFI 5.2 Table 37 ctrlmsg channel: four wires + arbiter + trainBusy gates
                 override val useCtrlMsg = ctrlMsgEnabled
               }
             case _ =>
@@ -149,8 +157,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             signalConfig = signalConfig,
             timeConfig = timeConfig,
             sdram = sdram,
-            ddr4ModeRegs =
-              if (generation == SdramGeneration.DDR4) Ddr4ModeRegs(mr4 = mr4, mr5 = mr5) else Ddr4ModeRegs(),
+            ddr4ModeRegs = ddr4ModeRegs,
             initSteps = if (initSteps.isEmpty) None else Some(initSteps),
             bootTraining = bootTraining
           )
@@ -270,7 +277,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           // dropped and data flow is unaffected; the agent must still raise ALERT_n and the DUT
           // must latch caParityError (asserted after the run below).
           if (injectParityError) dfiMemoryAgent.parityCorruptCycle = 5000
-          // DFI 6.0.1 ctrlmsg: PHY ack latency knob (0 = within tctrlmsg_resp; a value beyond
+          // DFI 5.2 ctrlmsg: PHY ack latency knob (0 = within tctrlmsg_resp; a value beyond
           // the DUT's resp window exercises the DUT timeout path).
           dfiMemoryAgent.ctrlMsgAckDelayCycles = ctrlMsgAckDelayCycles
           // P3 legacy write-leveling: PHY wrLvlDone latency knob (bounded by tWrlvlResp = 16).
@@ -323,7 +330,27 @@ class DfiControllerTester extends SpinalAnyFunSuite {
           var dfiCmdCount = 0
           var bmbCmdFireCount = 0
           var c = 0
-          // ---- DFI 6.0.1 ctrlmsg training stimulus (useCtrlMsg configs only) ----
+          // ---- ODT + multi-CS write-gap verification monitors (scope-B) ----
+          // odt is a pure combinational function of the per-phase write/read data windows
+          // (wrdata_en/wrdata_cs_n, rddata_valid/rddata_cs_n), so the relation can be checked
+          // exactly every cycle. The write-gap monitor measures the min spacing between
+          // consecutive write commands at the command phase and compares it to the floor the
+          // scheduler must enforce when a CS switch is possible (multi-CS + gap>0).
+          val monCsNum = dut.dfiConfig.chipSelectNumber
+          val monFr = dut.dfiConfig.frequencyRatio
+          val monCsPhase = dut.dfiConfig.timeConfig.cmdPhase
+          val monUseOdt = dut.dfiConfig.signalConfig.useOdt
+          val monUseWrCsN = dut.dfiConfig.signalConfig.useWrdataCsN
+          val monUseRdCsN = dut.dfiConfig.signalConfig.useRddataCsN
+          var odtMismatchCycles = 0L
+          var odtAssertedCycles = 0L
+          val monBeatCount = dut.dfiConfig.beatCount
+          val monWrGapMc = (dut.dfiConfig.timeConfig.tPhyWrCsGap + monFr - 1) / monFr
+          var prevWriteCycle = -1
+          var prevWriteCs = -1
+          var writeSwitchCount = 0
+          var minWriteGap = Int.MaxValue
+          // ---- DFI 5.2 ctrlmsg training stimulus (useCtrlMsg configs only) ----
           var trainDoneSeen = false
           var trainReqFired = false
           var trafficRspReadAtResume = 0L
@@ -407,6 +434,50 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             else if (cas != idleMask) dfiCmdCount += 1
             else if (we != idleMask) dfiCmdCount += 1
             if (dut.io.bmb.cmd.valid.toBoolean && dut.io.bmb.cmd.ready.toBoolean) bmbCmdFireCount += 1
+            // ---- ODT monitor: assert the exact combinational relation, every cycle, all phases ----
+            if (monUseOdt) {
+              val odtAll = dut.io.dfi.control.odt.toLong
+              var odtHighThisCycle = false
+              var mp = 0
+              while (mp < monFr) {
+                val wrEn = dut.io.dfi.write.wr(mp).wrdataEn.toBoolean
+                val rdVal = dut.io.dfi.read.rd(mp).rddataValid.toBoolean
+                val wrCs = if (monUseWrCsN) dut.io.dfi.write.wr(mp).wrdataCsN.toLong else 0L
+                val rdCs = if (monUseRdCsN) dut.io.dfi.read.rdCs(mp).rddataCsN.toLong else 0L
+                var mc = 0
+                while (mc < monCsNum) {
+                  val sel = 1L << mc
+                  val wrHit = if (monUseWrCsN) wrEn && (wrCs & sel) == 0 else wrEn
+                  val rdHit = if (monUseRdCsN) rdVal && (rdCs & sel) == 0 else rdVal
+                  val exp = wrHit || rdHit
+                  val got = ((odtAll >> (mp * monCsNum + mc)) & 1L) != 0
+                  if (got) odtHighThisCycle = true
+                  if (got != exp) odtMismatchCycles += 1
+                  mc += 1
+                }
+                mp += 1
+              }
+              if (odtHighThisCycle) odtAssertedCycles += 1
+            }
+            // ---- write-command gap monitor (multi-CS only) ----
+            if (monCsNum >= 2) {
+              val rasP = (ras >> monCsPhase) & 1L
+              val casP = (cas >> monCsPhase) & 1L
+              val weP = (we >> monCsPhase) & 1L
+              // A write command is (ras_n, cas_n, we_n) = (1, 0, 0) at the command phase.
+              // The gap applies only between DIFFERENT-CS bursts, so measure spacing solely on
+              // CS switches (same-CS consecutive writes are legally only CCD-limited).
+              val csP = ((dut.io.dfi.control.csN.toLong >> (monCsPhase * monCsNum)) & ((1L << monCsNum) - 1)).toInt
+              if (rasP == 1 && casP == 0 && weP == 0) {
+                if (prevWriteCycle >= 0 && csP != prevWriteCs) {
+                  val g = c - prevWriteCycle
+                  if (g < minWriteGap) minWriteGap = g
+                  writeSwitchCount += 1
+                }
+                prevWriteCs = csP
+                prevWriteCycle = c
+              }
+            }
             if (bootEnabled) {
               val reqNow = dut.io.dfiCtrlMsg.ctrlmsgReq.toBoolean
               if (reqNow && !bootPrevReq) bootMsgSeq += dut.io.dfiCtrlMsg.ctrlmsg.toLong
@@ -514,18 +585,45 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             refreshCount >= refreshMinCount,
             s"${name}: expected >= $refreshMinCount refreshes in idle window, got $refreshCount"
           )
+          // ---- ODT verification (scope-B): ODT must track the data windows exactly ----
+          if (monUseOdt) {
+            println(s"[ODT] ${name}: odtAssertedCycles=$odtAssertedCycles odtMismatchCycles=$odtMismatchCycles")
+            assert(
+              odtMismatchCycles == 0,
+              s"$name: dfi_odt violated the data-window ODT relation on $odtMismatchCycles cycle(s)"
+            )
+            // ODT must actually engage when data traffic occurred (guards against a stuck-0 bus).
+            if (rspReadBeats > 0 || cmdWriteCount > 0) {
+              assert(
+                odtAssertedCycles > 0,
+                s"$name: dfi_odt never asserted although traffic occurred (possible stuck-0 ODT)"
+              )
+            }
+          }
+          // ---- multi-CS write-gap verification (scope-B) ----
+          if (monCsNum >= 2 && monWrGapMc > 0) {
+            val floor = monBeatCount + monWrGapMc - 1
+            println(s"[WRGAP] ${name}: csSwitches=$writeSwitchCount minSwitchGap=$minWriteGap floor=$floor (beatCount=$monBeatCount wrGapMc=$monWrGapMc)")
+            if (writeSwitchCount > 0) {
+              assert(
+                minWriteGap >= floor,
+                s"$name: CS-switch writes spaced $minWriteGap < floor $floor — multi-CS gap not honored"
+              )
+            }
+          }
           println(s"[COUNT] ${name}: cmdWriteCount=$cmdWriteCount rspReadCount=$rspReadCount")
-          // Init micro-program end-of-run checks (only for configs carrying an init table;
-          // init-less legacy configs keep the agent's gate closed, so no new prints/asserts).
-          if (initSteps.nonEmpty) {
+          // Init micro-program end-of-run checks (runs whenever the DUT plays an init
+          // micro-program — explicit injection OR built-in default; init-less generations
+          // like SDR/MYDDR keep the agent's gate closed, so no new prints/asserts).
+          if (effectiveInitSteps.nonEmpty) {
             // Baseline evolution (approved): [INIT] exports one line PER RANK and every rank
             // must have received the COMPLETE MRS file (last write per MR index wins) plus
             // ZQCL when the preset has a ZQ step — not just whichever rank the old unreset cs
             // latch happened to pick. This is the invariant the broadcast-cs init fix buys.
-            val mrsFile = initSteps
+            val mrsFile = effectiveInitSteps
               .filter(_.kind == SdramInitStep.MRS)
               .foldLeft(Map.empty[Int, Int])((acc, s) => acc + (s.mrIndex -> s.opCode))
-            val hasZq = initSteps.exists(_.kind == SdramInitStep.ZQ)
+            val hasZq = effectiveInitSteps.exists(_.kind == SdramInitStep.ZQ)
             for (r <- 0 until dut.dfiConfig.chipSelectNumber) {
               val mr = dfiMemoryAgent.modeRegisters.getOrElse(r, mutable.Map[Int, Long]())
               println(
@@ -564,7 +662,7 @@ class DfiControllerTester extends SpinalAnyFunSuite {
               assert(!dut.caParityError.toBoolean, s"${name}: caParityError latched without any parity error")
             }
           }
-          // DFI 6.0.1 ctrlmsg end-of-run checks (only for ctrlmsg configs; inert otherwise).
+          // DFI 5.2 ctrlmsg end-of-run checks (only for ctrlmsg configs; inert otherwise).
           if (useCtrlMsg && !bootEnabled) {
             println(
               s"[CTRLMSG] $name: reqCount=${dfiMemoryAgent.ctrlMsgReqCount} doneCount=${dfiMemoryAgent.ctrlMsgDoneCount} " +
@@ -587,9 +685,9 @@ class DfiControllerTester extends SpinalAnyFunSuite {
                 s"$name: ctrlmsg handshake incomplete"
               )
               assert(dfiMemoryAgent.ctrlMsgReqMsg == CtrlMsgCode.WRLVL, s"$name: REQ msg code was 0x${dfiMemoryAgent.ctrlMsgReqMsg.toHexString}, expected WRLVL")
-              // chipSelectNumber=2 here -> multi-rank Table 56 encoding: bit0=0, bit1=1 (no 3DS),
+              // chipSelectNumber=2 here -> multi-rank §4.18 encoding: bit0=0, bit1=1 (no 3DS),
               // bits[7:4]=rank(0) -> 0x0002.
-              assert(dfiMemoryAgent.ctrlMsgReqData == 0x0002, s"$name: ctrlmsg data was 0x${dfiMemoryAgent.ctrlMsgReqData.toHexString}, expected 0x0002 (Table 56 multi-rank)")
+              assert(dfiMemoryAgent.ctrlMsgReqData == 0x0002, s"$name: ctrlmsg data was 0x${dfiMemoryAgent.ctrlMsgReqData.toHexString}, expected 0x0002 (§4.18 multi-rank)")
               assert(rspReadBeats > trafficRspReadAtResume, s"$name: no read traffic after training (traffic did not resume)")
             }
           }
@@ -739,14 +837,14 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   // DDR4 DBI (MR5 A12=Read DBI, A11=Write DBI): MC inverts bytes with >4 zeros (dbi_n=0) on
   // writes and restores DRAM-inverted read bytes. The agent models both SDRAM behaviors.
   ddr4("DfiController_DDR4_fr2_dbi", 2, 0, RowBankColumn, mr5 = 0x1800)
-  // DDR4 CA parity (JESD79-4B §4.17, DFI 6.0.1 §4.3.1): MC drives even parity over the command
+  // DDR4 CA parity (JESD79-4B §4.17, DFI 5.2 §4.12): MC drives even parity over the command
   // bus, same cycle as the command (tcapar_lat=0). MR5.A2:A0=1 (PL4) = parity enabled, DBI off.
   // Happy path: the agent recomputes parity per phase and ignores + alerts on any mismatch.
   ddr4("DfiController_DDR4_fr2_caparity", 2, 0, RowBankColumn, mr5 = 0x0001, caParity = true)
   // Injection: the parity bit as seen at the DRAM is flipped on an idle cycle (cycle >= 5000);
   // the agent must raise ALERT_n and the DUT must latch caParityError, with data flow intact.
   ddr4("DfiController_DDR4_fr2_caparity_inject", 2, 0, RowBankColumn, mr5 = 0x0001, caParity = true, injectParityError = true)
-  // DFI 6.0.1 ctrlmsg training channel (Table 12/47/48), code 0x04 = Write Leveling (Table 55):
+  // DFI 5.2 ctrlmsg training channel (Table 37 signals / Table 38 timing), code 0x04 = Write Leveling (Table 51):
   // driven mid-run while BMB traffic is quiesced; the agent acks within tctrlmsg_resp (delay 0),
   // the training-window traffic ban must hold (spawn/refresh paused), trainDone pulses,
   // ctrlMsgError stays low and normal read/write traffic resumes and completes afterwards.
@@ -783,36 +881,17 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   runDfiControllerTest("DfiController_DDR2_fr2_ref_rate2", SdramGeneration.DDR2, 2, 0, 0, 2, 15,
     RowBankColumn, sdramTiming = ddr2TimingRefRate, refreshMinCount = 20, idleCycles = 20000)
 
-  // ===== DDR3/DDR2 init micro-programs (step-table engine presets) =====
-  // Protocol facts (dual-sourced: Micron ddr3.v cmd table in-repo + litedram/init.py sequences):
-  // legacy cmd encodings MRS/EMRS=000, ZQCL=110+A10; EMRS via BA=1/2/3, MRS via BA=0, OP on A.
-  // DDR3 init (litedram): MRS MR2 -> MR3 -> MR1 -> MR0(DLL reset) -> ZQCL.
-  // MR0=0x310: BL8, CL5, WR5, DLL reset (A8=0x100) per the litedram formula.
-  runDfiControllerTest("DfiController_DDR3_fr2_init", SdramGeneration.DDR3, 2, 0, 0, 2, 15, RowBankColumn,
-    initSteps = List(
-      SdramInitStep(SdramInitStep.MRS, 2, 0x200, 8),
-      SdramInitStep(SdramInitStep.MRS, 3, 0x000, 8),
-      SdramInitStep(SdramInitStep.MRS, 1, 0x000, 8),
-      SdramInitStep(SdramInitStep.MRS, 0, 0x310, 8),
-      SdramInitStep(SdramInitStep.ZQ, 0, 0, 512)
-    ))
-  // DDR2 init (litedram): PRE_ALL -> EMRS3 -> EMRS2 -> EMRS1 -> MRS(DLL reset) -> PRE_ALL ->
-  // REF -> REF -> MRS -> EMRS1 OCD default -> EMRS1 OCD exit. DDR2 has NO ZQ.
-  // MR0=0x552: BL4, CL5, WR2, DLL reset. DLL-reset step waits 256 (200 tDLL lock cycles).
-  runDfiControllerTest("DfiController_DDR2_fr2_init", SdramGeneration.DDR2, 2, 0, 0, 2, 15, RowBankColumn,
-    initSteps = List(
-      SdramInitStep(SdramInitStep.PRE_ALL, 0, 0, 8),
-      SdramInitStep(SdramInitStep.MRS, 3, 0x000, 8),
-      SdramInitStep(SdramInitStep.MRS, 2, 0x000, 8),
-      SdramInitStep(SdramInitStep.MRS, 1, 0x000, 8),
-      SdramInitStep(SdramInitStep.MRS, 0, 0x552, 256),
-      SdramInitStep(SdramInitStep.PRE_ALL, 0, 0, 8),
-      SdramInitStep(SdramInitStep.REF, 0, 0, 8),
-      SdramInitStep(SdramInitStep.REF, 0, 0, 8),
-      SdramInitStep(SdramInitStep.MRS, 0, 0x452, 8),
-      SdramInitStep(SdramInitStep.MRS, 1, 0x452 | 0x380, 8), // EMRS1 OCD default
-      SdramInitStep(SdramInitStep.MRS, 1, 0x452, 8) // EMRS1 OCD exit
-    ))
+  // ===== DDR3/DDR2 init micro-programs (BUILT-IN defaults via SdramInitStep.defaultFor) =====
+  // These tests pass NO explicit initSteps: the DUT and the agent both fall back to the
+  // generation's built-in preset (Ddr3InitSequencer / Ddr2InitSequencer in MakeTask.scala,
+  // dual-source verified against litedram master init.py + in-repo Micron models), and the
+  // [INIT] end-of-run checks validate the default path end-to-end.
+  // Protocol facts: legacy cmd encodings MRS/EMRS=000, ZQCL=110+A10; EMRS via BA=1/2/3,
+  // MRS via BA=0, OP on A. DDR3 (litedram): MRS MR2 -> MR3 -> MR1 -> MR0(DLL reset) -> ZQCL.
+  // DDR2 (litedram): PRE_ALL -> EMRS3 -> EMRS2 -> EMRS1 -> MRS(DLL reset) -> PRE_ALL ->
+  // REF x2 -> MRS -> EMRS1 OCD default -> EMRS1 OCD exit. DDR2 has NO ZQ.
+  runDfiControllerTest("DfiController_DDR3_fr2_init", SdramGeneration.DDR3, 2, 0, 0, 2, 15, RowBankColumn)
+  runDfiControllerTest("DfiController_DDR2_fr2_init", SdramGeneration.DDR2, 2, 0, 0, 2, 15, RowBankColumn)
 
   // ===== P2 boot training orchestrator (initDone -> ZQCAL -> WRLVL auto-chain) =====
   // After the DDR4 init micro-program completes, the orchestrator injects ZQCAL then WRLVL
@@ -838,13 +917,8 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   // rising edge (PHY stub answers after wrLvlDoneDelayCycles = 8, inside tWrlvlResp = 16)
   // and resume traffic. The [WRLVL] agent prints record the handshake cycle-by-cycle.
   runDfiControllerTest("DfiController_DDR3_fr2_legacy_wrlvl", SdramGeneration.DDR3, 2, 0, 0, 2, 15, RowBankColumn,
-    initSteps = List(
-      SdramInitStep(SdramInitStep.MRS, 2, 0x200, 8),
-      SdramInitStep(SdramInitStep.MRS, 3, 0x000, 8),
-      SdramInitStep(SdramInitStep.MRS, 1, 0x000, 8),
-      SdramInitStep(SdramInitStep.MRS, 0, 0x310, 8),
-      SdramInitStep(SdramInitStep.ZQ, 0, 0, 512)
-    ),
+    // Built-in DDR3 default init plays first (no explicit initSteps); the wrlvl trigger fires
+    // at a fixed cycle well after the init window completes.
     // Window = tWrlvlResp(64) must comfortably exceed the BMB-to-ACT spawn pipeline lag
     // (~10-18 cycles, measured) so the counter-proof's early-released backlog lands INSIDE
     // the open window; the PHY answers at delay 32, well inside the watchdog.
