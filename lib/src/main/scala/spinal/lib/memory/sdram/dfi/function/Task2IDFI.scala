@@ -12,12 +12,23 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
   def cmdphase(i: Int) = io.cmd(i)
   def addrphase(i: Int) = io.address(i)
 
+  // Rank one-hot decode (active-low), REPLACED by MakeTask's init broadcast mask during the
+  // init window: initCsN is all-ones at runtime (andR -> exact legacy single-rank latch cs),
+  // and the elaboration-time mask during init — csN(r) = mask(r) ? 0 : 1, so the runtime cs
+  // latch no longer decides which rank receives MRS/ZQCL/PRE_ALL/REF; every rank in the mask
+  // does, in the same cycle.
+  val csSel = Mux(
+    io.task.initCsN.andR,
+    ~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber),
+    io.task.initCsN
+  )
+
   // ---- Legacy (DDR3 and below): fixed RAS/CAS/WE encoding, unchanged ----
-  def ACTIVE: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b011").setName("ACTIVE")
-  def WRITE: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b100").setName("WRITE")
-  def READ: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b101").setName("READ")
-  def PRECHARGE: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b010")
-  def REFRESH: Bits = (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b001").setName("REFRESH")
+  def ACTIVE: Bits = (csSel ## B"b011").setName("ACTIVE")
+  def WRITE: Bits = (csSel ## B"b100").setName("WRITE")
+  def READ: Bits = (csSel ## B"b101").setName("READ")
+  def PRECHARGE: Bits = csSel ## B"b010"
+  def REFRESH: Bits = (csSel ## B"b001").setName("REFRESH")
 
   def AUTO_PRECHARGE_BIT = 10 // Disable auto precharge (auto close of row)
   def ALL_BANKS_BIT = 10 // Precharge all banks
@@ -46,7 +57,6 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
     // bit0=weN, bit1=casN, bit2=rasN. DDR4 WR/RD/PRE/REF share the DDR3 RAS/CAS/WE encodings;
     // ACT is flagged by actN=0, and the RAS_n/CAS_n/WE_n pins become A16/A15/A14 carrying the
     // top row bits: A14=RA[13] -> weN, A15=RA[14] -> casN, A16=RA[15] -> rasN.
-    val csSel = ~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber)
     // Flat bank index split at the exit: bg = bank[bankWidth-1 : dfiBankWidth], ba = bank[dfiBankWidth-1 : 0]
     val bgBits = io.task.address.bank(dfiConfig.dfiBankWidth, dfiConfig.bankGroupWidth bits).asBits
     val baBits = io.task.address.bank(0, dfiConfig.dfiBankWidth bits).asBits
@@ -208,7 +218,7 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
     when(io.task.mrs) {
       cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
       cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(
-        (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b000").setName("MRS")
+        (csSel ## B"b000").setName("MRS")
       )
       addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
       addrphase(dfiConfig.timeConfig.cmdPhase).bank := BANK.resized
@@ -219,7 +229,7 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
     when(io.task.zq) {
       cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
       cmdphase(dfiConfig.timeConfig.cmdPhase).payload.assignFromBits(
-        (~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber) ## B"b110").setName("ZQCL")
+        (csSel ## B"b110").setName("ZQCL")
       )
       addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
       addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).set()

@@ -165,6 +165,39 @@ case class DfiErrorInterface(config: DfiConfig) extends Bundle with IMasterSlave
   }
 }
 
+/** DFI 6.0.1 Table 12 MC-to-PHY message interface (all four wires Optional on both sides).
+  * MC perspective: dfi_ctrlmsg/dfi_ctrlmsg_data/dfi_ctrlmsg_req are driven by the MC,
+  * dfi_ctrlmsg_ack comes back from the PHY. The bundle carries all four wires; it is the
+  * Dfi bundle that gates the member itself on useCtrlMsg (needed so `alignment.io.output
+  * <> io.dfi` never auto-connects these MC-side-driven wires from the un-driven Alignment
+  * copy — that produced ASSIGNMENT OVERLAP with the arbiter wiring in DfiController). */
+case class DfiCtrlMsgInterface(config: DfiConfig) extends Bundle with IMasterSlave {
+  val ctrlmsg = Bits(8 bits)
+  val ctrlmsgData = Bits(16 bits)
+  val ctrlmsgReq = Bool()
+  val ctrlmsgAck = Bool()
+  override def asMaster(): Unit = {
+    out(ctrlmsg, ctrlmsgData, ctrlmsgReq)
+    in(ctrlmsgAck)
+  }
+}
+
+/** P3 legacy (DDR2/DDR3) write-leveling MC-side handshake wires. Separate top-level port (NOT
+  * a Dfi member) for the same reason as DfiCtrlMsgInterface: MC-driven wires inside the Dfi
+  * bundle get auto-connected by the Dfi<>Dfi zip in DfiController (alignment.io.output <>
+  * io.dfi) — ASSIGNMENT OVERLAP once the MC drives them too, silent NO DRIVER otherwise.
+  * wrLvlEn = dfi_wrlvl_en (the wrLvlStart level); wrlvlResp = dfi_wrlvl_resp (the wrLvlDone
+  * source). The full DFI write-training signal family stays declared in
+  * DfiWriteTrainingInterface; these are only the two wires the MC handshake touches. */
+case class DfiLegacyWrLvlInterface(config: DfiConfig) extends Bundle with IMasterSlave {
+  val wrLvlEn = Bool()
+  val wrlvlResp = Bits(config.writeLevelingResponseWidth bits)
+  override def asMaster(): Unit = {
+    out(wrLvlEn)
+    in(wrlvlResp)
+  }
+}
+
 case class Dfi(config: DfiConfig) extends Bundle with IMasterSlave {
   val control = DfiControlInterface(config)
   val write = DfiWriteInterface(config)
@@ -178,6 +211,12 @@ case class Dfi(config: DfiConfig) extends Bundle with IMasterSlave {
   val phyRequestedTraining = DfiPhyRequestedTrainingInterface(config)
   val lowPowerControl = DfiLowPowerControlInterface(config)
   val error = DfiErrorInterface(config)
+  // NOTE: the ctrlmsg channel is deliberately NOT a Dfi member. A bundle member here gets
+  // auto-connected by any Dfi<>Dfi zip (alignment.io.output <> io.dfi in DfiController),
+  // which either double-drives the MC-side wires from Alignment's un-driven copy
+  // (ASSIGNMENT OVERLAP) or — once Alignment drives its own copy — silently fails to
+  // propagate through the zip (NO DRIVER at the top level). It is a separate top-level
+  // port of DfiController instead (io.dfiCtrlMsg), driven only by CtrlMsgArbiter.
   override def asMaster(): Unit = {
     master(
       control,

@@ -10,7 +10,11 @@ class DfiMemoryAgent(
     wr: DfiWriteInterface,
     rd: DfiReadInterface,
     status: DfiStatusInterface,
-    clockDomain: ClockDomain
+    clockDomain: ClockDomain,
+    // DFI 6.0.1 ctrlmsg four wires; null (all legacy callers) keeps the stub fully inert
+    ctrlMsg: DfiCtrlMsgInterface = null,
+    // P3 legacy write-leveling two wires; null keeps that stub fully inert
+    wrLvl: DfiLegacyWrLvlInterface = null
 ) {
   val memory = SparseMemory()
 
@@ -42,7 +46,10 @@ class DfiMemoryAgent(
   val dfiBankWidth = busConfig.dfiBankWidth
   // DDR4 mode-register file: MR0..MR4 per rank (op code as written by MRS), plus flags.
   val modeRegisters = mutable.Map[Int, mutable.Map[Int, Long]]() // rank -> (mrIndex -> op)
-  var zqclSeen = false
+  // ZQCL observation per rank (broadcast-cs init must set it on EVERY rank); zqclSeen is the
+  // aggregate kept for existing consumers.
+  val zqclSeenPerRank = Array.fill(csCount)(false)
+  def zqclSeen: Boolean = zqclSeenPerRank.exists(_ == true)
   var initChecked = false
 
   val ckeProxy = ctrl.cke.simProxy()
@@ -99,8 +106,66 @@ class DfiMemoryAgent(
   val rdCsExpectQueue = mutable.Queue[Int]()
   var rdCsVerifyTimeout = 0
 
+  // ---- DFI 6.0.1 ctrlmsg PHY stub state (all inert unless the four wires were passed) ----
+  val ctrlMsgStubEnabled = busConfig.signalConfig.useCtrlMsg && ctrlMsg != null
+  val ctrlMsgReqProxy = if (ctrlMsgStubEnabled) ctrlMsg.ctrlmsgReq.simProxy() else null
+  val ctrlMsgAckProxy = if (ctrlMsgStubEnabled) ctrlMsg.ctrlmsgAck.simProxy() else null
+  val ctrlMsgMsgProxy = if (ctrlMsgStubEnabled) ctrlMsg.ctrlmsg.simProxy() else null
+  val ctrlMsgDataProxy = if (ctrlMsgStubEnabled) ctrlMsg.ctrlmsgData.simProxy() else null
+  // 0 = ack immediately (within tctrlmsg_resp); set beyond the DUT's resp window to
+  // exercise the DUT-side timeout (sticky ctrlMsgError, request revoked, no retry).
+  var ctrlMsgAckDelayCycles = 0
+  // Ack hold time; must stay below tctrlmsg_max (DFI 6.0.1 Table 48).
+  var ctrlMsgAckHoldCycles = 2
+  var ctrlMsgReqPrev = false
+  var ctrlMsgWaitingAck = false
+  var ctrlMsgAcked = false
+  var ctrlMsgAckTimer = 0
+  var ctrlMsgAckHold = 0
+  // Training-window traffic ban: from dfi_ctrlmsg_req rise to dfi_ctrlmsg_ack de-assert,
+  // any decoded ACT/WR/RD is a controller bug (training did not pause traffic).
+  var ctrlMsgBanActive = false
+  // The ack de-assert cycle itself is still inside the training window, so the ban is
+  // cleared one sampling AFTER the DONE/REQ-DROPPED event, not in the same callback.
+  var ctrlMsgBanClearPending = false
+  var ctrlMsgReqMsg = 0L
+  var ctrlMsgReqData = 0L
+  var ctrlMsgReqCount = 0
+  var ctrlMsgDoneCount = 0
+  var ctrlMsgAckSeen = false
+
+  // ---- P3 legacy write-leveling PHY stub state (all inert unless the two wires were passed) ----
+  val wrLvlStubEnabled = busConfig.signalConfig.useLegacyWrLvl && wrLvl != null
+  val wrLvlEnProxy = if (wrLvlStubEnabled) wrLvl.wrLvlEn.simProxy() else null
+  val wrlvlRespProxy = if (wrLvlStubEnabled) wrLvl.wrlvlResp.simProxy() else null
+  // 0 = raise the wrLvlDone response at the first sampling after wrLvlStart; larger values
+  // stretch the PHY delay-search window (still bounded by the DUT's tWrlvlResp watchdog).
+  var wrLvlDoneDelayCycles = 0
+  var wrLvlEnPrev = false
+  var wrLvlRespArmed = false // searching: will raise dfi_wrlvl_resp when the timer expires
+  var wrLvlRespTimer = 0
+  var wrLvlRespUp = false // dfi_wrlvl_resp currently driven (held while wrLvlStart is up)
+  // Training-window traffic ban: from dfi_wrlvl_en rise to one sampling after its fall, any
+  // decoded ACT/WR/RD is a controller bug (write leveling did not pause traffic).
+  var wrLvlBanActive = false
+  var wrLvlBanClearPending = false
+  var wrLvlEnRaiseCycle = -1L
+  var wrLvlRespCycle = -1L
+  var wrLvlReqCount = 0
+  var wrLvlRespCount = 0
+
   def this(bus: Dfi, clockDomain: ClockDomain) {
-    this(bus.control, bus.write, bus.read, bus.status, clockDomain);
+    // ctrlmsg is a separate top-level port (DfiController.io.dfiCtrlMsg), not a Dfi member:
+    // the 2-arg constructor has no channel to hook and runs the stub disabled.
+    this(bus.control, bus.write, bus.read, bus.status, clockDomain, null);
+  }
+
+  def this(bus: Dfi, clockDomain: ClockDomain, ctrlMsg: DfiCtrlMsgInterface) {
+    this(bus.control, bus.write, bus.read, bus.status, clockDomain, ctrlMsg);
+  }
+
+  def this(bus: Dfi, clockDomain: ClockDomain, ctrlMsg: DfiCtrlMsgInterface, wrLvl: DfiLegacyWrLvlInterface) {
+    this(bus.control, bus.write, bus.read, bus.status, clockDomain, ctrlMsg, wrLvl);
   }
 
   def getByteAsInt(address: Long) = getByte(address).toInt & 0xff
@@ -270,6 +335,108 @@ class DfiMemoryAgent(
   clockDomain.onSamplings { agentCycle += 1 }
 
   clockDomain.onSamplings {
+    // ---- DFI 6.0.1 ctrlmsg PHY stub (gated: without the four wires this is dead code) ----
+    // Reacts to dfi_ctrlmsg_req: logs REQ, asserts dfi_ctrlmsg_ack after
+    // ctrlMsgAckDelayCycles cycles, holds it ctrlMsgAckHoldCycles cycles, de-asserts.
+    // If the DUT revokes the request first (resp-timeout path) the pending ack is cancelled.
+    if (ctrlMsgStubEnabled) {
+      val cmReq = ctrlMsgReqProxy.toBoolean
+      // dfi_ctrlmsg_ack is agent-driven: without an explicit idle level it reads as a random
+      // value in the simulator until the first #= (a spurious early ack defeats the DUT's
+      // resp window). Pin it low until the stub asserts it; the testbench additionally drives
+      // it False from t0 (before the first rising edge) so the DUT never samples garbage.
+      // Note the write below lands one delta-cycle after this callback, i.e. the DUT's edge
+      // eval sees the PREVIOUS cycle's value — a constant False makes that lag harmless.
+      if (!ctrlMsgAcked) {
+        ctrlMsgAckProxy #= false
+        // Self-proof: while the stub believes the line idle (including every cycle of a
+        // delay>0 wait), the line must read back False — a stray writer or lost drive would
+        // otherwise resurface as the silent resp-window acked-latch flake.
+        assert(!ctrlMsgAckProxy.toBoolean, s"[CTRLMSG] $agentCycle ack line not idle while stub waits")
+      }
+      if (ctrlMsgBanClearPending) { ctrlMsgBanActive = false; ctrlMsgBanClearPending = false }
+      if (cmReq && !ctrlMsgReqPrev) {
+        ctrlMsgReqMsg = ctrlMsgMsgProxy.toLong
+        ctrlMsgReqData = ctrlMsgDataProxy.toLong
+        ctrlMsgReqCount += 1
+        ctrlMsgWaitingAck = true
+        ctrlMsgAcked = false
+        ctrlMsgAckTimer = ctrlMsgAckDelayCycles
+        ctrlMsgBanActive = true
+        println(f"[CTRLMSG] $agentCycle%d REQ msg=0x$ctrlMsgReqMsg%02x data=0x$ctrlMsgReqData%04x")
+      }
+      if (ctrlMsgWaitingAck) {
+        if (!cmReq) {
+          ctrlMsgWaitingAck = false
+          ctrlMsgBanClearPending = true
+          println(s"[CTRLMSG] $agentCycle REQ-DROPPED (DUT revoked request)")
+        } else if (!ctrlMsgAcked) {
+          if (ctrlMsgAckTimer == 0) {
+            ctrlMsgAckProxy #= true
+            ctrlMsgAcked = true
+            ctrlMsgAckHold = ctrlMsgAckHoldCycles
+            ctrlMsgAckSeen = true
+            println(s"[CTRLMSG] $agentCycle ACK")
+          } else {
+            ctrlMsgAckTimer -= 1
+          }
+        } else {
+          ctrlMsgAckHold -= 1
+          if (ctrlMsgAckHold == 0) {
+            ctrlMsgAckProxy #= false
+            ctrlMsgWaitingAck = false
+            ctrlMsgBanClearPending = true
+            ctrlMsgDoneCount += 1
+            println(s"[CTRLMSG] $agentCycle DONE")
+          }
+        }
+      }
+      ctrlMsgReqPrev = cmReq
+    }
+
+    // ---- P3 legacy write-leveling PHY stub (gated: without the two wires this is dead code) ----
+    // Reacts to dfi_wrlvl_en (the wrLvlStart LEVEL): raises dfi_wrlvl_resp after
+    // wrLvlDoneDelayCycles, holds it while the level is up, drops it one cycle after the MC
+    // releases the level (a pending response is cancelled when the MC revokes the level
+    // first — the PHY never reports into an aborted window, same rule as the ctrlmsg stub).
+    // The ban window tracks the LEVEL (the PHY-visible start), so a controller that releases
+    // traffic while the window is still open fails the sim below.
+    if (wrLvlStubEnabled) {
+      val en = wrLvlEnProxy.toBoolean
+      // dfi_wrlvl_resp is agent-driven: pin the idle level unless the stub holds it high
+      // (the write below lands one delta-cycle after this callback, harmless at a constant).
+      if (!wrLvlRespUp) wrlvlRespProxy #= 0
+      if (wrLvlBanClearPending) { wrLvlBanActive = false; wrLvlBanClearPending = false }
+      if (en && !wrLvlEnPrev) {
+        wrLvlReqCount += 1
+        wrLvlRespArmed = true
+        wrLvlRespTimer = wrLvlDoneDelayCycles
+        wrLvlBanActive = true
+        wrLvlEnRaiseCycle = agentCycle
+        println(s"[WRLVL] $agentCycle EN-RAISE (MC wrLvlStart, traffic window opens)")
+      } else if (!en && wrLvlEnPrev) {
+        wrLvlRespArmed = false
+        if (wrLvlRespUp) { wrlvlRespProxy #= 0; wrLvlRespUp = false }
+        wrLvlBanClearPending = true
+        println(s"[WRLVL] $agentCycle EN-DROP (MC released wrLvlStart, window closes next sampling)")
+      }
+      if (wrLvlRespArmed) {
+        if (!en) {
+          wrLvlRespArmed = false // MC revoked the level mid-search (DUT timeout path)
+        } else if (wrLvlRespTimer == 0) {
+          wrLvlRespArmed = false
+          wrLvlRespUp = true
+          wrlvlRespProxy #= (1 << busConfig.writeLevelingResponseWidth) - 1
+          wrLvlRespCycle = agentCycle
+          wrLvlRespCount += 1
+          println(s"[WRLVL] $agentCycle RESP (PHY wrLvlDone, all slices report)")
+        } else {
+          wrLvlRespTimer -= 1
+        }
+      }
+      wrLvlEnPrev = en
+    }
+
     val cke = selectBit(ckeProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
     val csN = selectBit(csNProxy.toBigInt.asInstanceOf[BigInt], cmdPhase, csCount)
     val ras = rasNProxy.toBigInt.asInstanceOf[BigInt].testBit(cmdPhase)
@@ -346,26 +513,26 @@ class DfiMemoryAgent(
             rankMr(mrIndex.toInt) = cmdAddr
           }
         }
-        if (zqcl) zqclSeen = true
+        if (zqcl) zqclSeenPerRank(idPerChip) = true
 
-        // Dual-path verification: export every decoded DDR4 command so an independent
-        // decoder (Python, straight from JESD79-4B Table 17) can be diffed against it.
+        // Dual-path verification: export every decoded DDR4 command (with its rank) so an
+        // independent decoder (Python, straight from JESD79-4B Table 17) can be diffed against it.
         def hex(v: Long) = java.lang.Long.toHexString(v)
         if (mrs) {
           val mr = (((cmdBg >> 0) & 1L) << 2) | (cmdBank & 3L)
-          println(s"[AGENTCMD] $agentCycle MRS $mr ${hex(cmdAddr)}")
+          println(s"[AGENTCMD] $agentCycle r$idPerChip MRS $mr ${hex(cmdAddr)}")
         }
-        if (act) println(s"[AGENTCMD] $agentCycle ACT ${flatBank(cmdBank)} ${hex(cmdAddr)}")
-        if (wrCmd) println(s"[AGENTCMD] $agentCycle WR ${flatBank(cmdBank)} ${hex(cmdAddr)}")
-        if (rdCmd) println(s"[AGENTCMD] $agentCycle RD ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+        if (act) println(s"[AGENTCMD] $agentCycle r$idPerChip ACT ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+        if (wrCmd) println(s"[AGENTCMD] $agentCycle r$idPerChip WR ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+        if (rdCmd) println(s"[AGENTCMD] $agentCycle r$idPerChip RD ${flatBank(cmdBank)} ${hex(cmdAddr)}")
         if (preCmd) {
           // A10=H is PREA (all banks): the bank field is don't-care, export -1 so the
           // independent decoder can match without comparing garbage bank bits.
-          if (a10 == 1L) println(s"[AGENTCMD] $agentCycle PRE -1 -1")
-          else println(s"[AGENTCMD] $agentCycle PRE ${flatBank(cmdBank)} ${hex(cmdAddr)}")
+          if (a10 == 1L) println(s"[AGENTCMD] $agentCycle r$idPerChip PRE -1 -1")
+          else println(s"[AGENTCMD] $agentCycle r$idPerChip PRE ${flatBank(cmdBank)} ${hex(cmdAddr)}")
         }
-        if (refCmd) println(s"[AGENTCMD] $agentCycle REF -1 -1")
-        if (zqcl) println(s"[AGENTCMD] $agentCycle ZQCL -1 -1")
+        if (refCmd) println(s"[AGENTCMD] $agentCycle r$idPerChip REF -1 -1")
+        if (zqcl) println(s"[AGENTCMD] $agentCycle r$idPerChip ZQCL -1 -1")
 
         // Traffic before the init sequence (MRS file + ZQCL) is a controller bug: a DDR4 SDRAM
         // ignores commands until its mode registers and ZQ calibration are set up.
@@ -375,6 +542,14 @@ class DfiMemoryAgent(
             s"DDR4 rank $idPerChip saw ACT/WR/RD before MRS+ZQCL init completed"
           )
           initChecked = true
+        }
+
+        // DFI 6.0.1 ctrlmsg training window (see the stub above): no ACT/WR/RD may slip
+        // onto the command bus between dfi_ctrlmsg_req rise and dfi_ctrlmsg_ack de-assert.
+        if (ctrlMsgBanActive && (act || wrCmd || rdCmd)) {
+          simFailure(
+            s"[CTRLMSG] $agentCycle ACT/WR/RD during ctrlmsg training window (training did not pause traffic)"
+          )
         }
 
         if (act) {
@@ -442,9 +617,9 @@ class DfiMemoryAgent(
             val rankMr = modeRegisters.getOrElseUpdate(idPerChip, mutable.Map())
             rankMr(cmdBank.toInt) = cmdAddr
           }
-          if (zqcl) zqclSeen = true
-          if (mrs) println(s"[AGENTCMD] $agentCycle MRS ${cmdBank.toInt} ${java.lang.Long.toHexString(cmdAddr)}")
-          if (zqcl) println(s"[AGENTCMD] $agentCycle ZQCL -1 -1")
+          if (zqcl) zqclSeenPerRank(idPerChip) = true
+          if (mrs) println(s"[AGENTCMD] $agentCycle r$idPerChip MRS ${cmdBank.toInt} ${java.lang.Long.toHexString(cmdAddr)}")
+          if (zqcl) println(s"[AGENTCMD] $agentCycle r$idPerChip ZQCL -1 -1")
           // Traffic before the mode-register file is written (MR0 included) is a controller bug:
           // an uninitialized SDRAM ignores commands. Checked once, at the first ACT/WR/RD.
           if ((active || write || read) && !initChecked) {
@@ -454,6 +629,25 @@ class DfiMemoryAgent(
             )
             initChecked = true
           }
+          // DFI 6.0.1 ctrlmsg training window (DDR4 branch above for rationale).
+          if (ctrlMsgBanActive && (active || write || read)) {
+            simFailure(
+              s"[CTRLMSG] $agentCycle ACT/WR/RD during ctrlmsg training window (training did not pause traffic)"
+            )
+          }
+        }
+        // P3 legacy write-leveling window (see the stub above): NO command may slip while
+        // dfi_wrlvl_en (wrLvlStart) is asserted — ACT/WR/RD, but also PRE/REF/MRS/ZQ: the
+        // DRAM is in leveling mode, any command is protocol-broken. (The spawn gate and the
+        // refresh gate share trainBlocked, so a premature busy release leaks PRE/REF first.)
+        val wlPre = enPerChip & !ras & cas & !weN
+        val wlRef = enPerChip & !ras & !cas & weN
+        val wlMrs = enPerChip & !ras & !cas & !weN
+        val wlZq = enPerChip & ras & cas & !weN
+        if (wrLvlBanActive && (active || write || read || wlPre || wlRef || wlMrs || wlZq)) {
+          simFailure(
+            s"[WRLVL] $agentCycle command during write-leveling window (training did not pause traffic)"
+          )
         }
         if (active) {
           rowAddrQueue.enqueue(cmdAddr)

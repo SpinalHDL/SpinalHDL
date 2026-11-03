@@ -104,8 +104,20 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     val halt = out Bool ()
     val writeDataToken = slave(Stream(Event))
     val output = master(OpTasks(taskConfig, dfiConfig))
+    // DFI ctrlmsg training / legacy write-leveling: while a training handshake is in flight,
+    // task spawning and refresh are paused globally (same gating pattern as initDone).
+    // Absent when both channels are disabled — every gate below then folds to its
+    // pre-training expression.
+    val trainBusy =
+      (dfiConfig.signalConfig.useCtrlMsg || dfiConfig.signalConfig.useLegacyWrLvl) generate in(Bool())
+    // initDone exported through the io boundary only for the boot-training orchestrator
+    // (BmbBridge forwards it to DfiController's BootTrainer). Reading the init engine's io
+    // from the GRANDPARENT would be a hierarchy violation; every other config has no port.
+    val initDoneOut = (dfiConfig.signalConfig.useCtrlMsg && dfiConfig.bootTraining) generate out(Bool())
   }
   val timeConfig = TaskTimingConfig(dfiConfig)
+  def trainBlocked: Bool =
+    if (dfiConfig.signalConfig.useCtrlMsg || dfiConfig.signalConfig.useLegacyWrLvl) io.trainBusy else False
   val readyForRefresh = True
   val sdram = dfiConfig.sdram
 
@@ -120,6 +132,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   )
   val initEngine = if (initSeq.nonEmpty) SdramInitSequencer(initSeq, xprWaitCycles = 32) else null
   def initDone: Bool = if (initEngine != null) initEngine.io.done else True
+  if (dfiConfig.signalConfig.useCtrlMsg && dfiConfig.bootTraining) io.initDoneOut := initDone
   val banksRow = Mem(UInt(dfiConfig.sdram.rowWidth bits), sdram.bankCount)
   val CCD =
     (dfiConfig.beatCount > 1) generate timing(
@@ -245,9 +258,11 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   }
   val columnBurstShift = log2Up(dfiConfig.transferPerBurst)
   // Defaults so every generation drives the DDR4-only op flags; the init override below
-  // (init-aware configs only) takes precedence during the power-up sequence.
+  // (init-aware configs only) takes precedence during the power-up sequence. initCsN idles
+  // all-ones (no rank selected by the broadcast path) outside the init window.
   io.output.mrs := False
   io.output.zq := False
+  io.output.initCsN.setAll()
 
   readyForRefresh clearWhen (io.cmd.valid)
   val columnBurstMask = (sdram.columnSize - 1) - ((io.cmd.stationLengthMax - 1) << columnBurstShift)
@@ -327,7 +342,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
 
   val selectedAddress = io.output.address
   val loader = new Area {
-    taskConstructor.input.ready := !station.valid && initDone
+    taskConstructor.input.ready := !station.valid && initDone && !trainBlocked
     val offset = taskConstructor.address.column(columnBurstShift, io.cmd.stationLengthWidth bits)
     val offsetLast = offset +^ taskConstructor.input.length
     // BmbAlignedSpliter guarantees sub-commands never cross a bytePerTaskMax-aligned boundary, so
@@ -341,7 +356,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
         "SDRAM task bursts cross the station boundary: offset + length must fit in stationLengthWidth bits"
       )
     }
-    val canSpawn = !station.valid && initDone
+    val canSpawn = !station.valid && initDone && !trainBlocked
     // Insert taskConstructor into one free station
     when(taskConstructor.input.fire && canSpawn) {
       station.valid := True
@@ -354,7 +369,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
       station.offsetLast := offsetLast
     }
   }
-  val askRefresh = refreshStream.valid && readyForRefresh && initDone
+  val askRefresh = refreshStream.valid && readyForRefresh && initDone && !trainBlocked
   when(station.doSomething) {
     banksRow.write(selectedAddress.bank, selectedAddress.row)
   }
@@ -391,6 +406,14 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
       io.output.active := False
       io.output.precharge := False
       io.output.last := True
+      // Init broadcast mask (elaboration-time constant, no runtime latch): every rank selected
+      // for the whole init window. DRAM chip-select is a low-active broadcast bus and init
+      // commands are rank-agnostic, so MRS/ZQCL/PRE_ALL/REF fan out to ALL ranks in the same
+      // cycle — the step table still plays exactly once (init duration unchanged), and which
+      // rank gets the program no longer depends on the unreset station cs latch (which used to
+      // flip per build: the cs-latch lottery). CmdTxd REPLACES its runtime cs decode with this
+      // mask for the window's duration; io.output.address.cs keeps its continuous assign.
+      io.output.initCsN.clearAll()
       when(op.valid) {
         switch(op.kind) {
           is(SdramInitStep.MRS) {
