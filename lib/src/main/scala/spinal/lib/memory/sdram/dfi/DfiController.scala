@@ -15,12 +15,12 @@ case class DfiController(bmbp: BmbParameter, task: TaskParameter, dfiConfig: Dfi
       dfiConfig.signalConfig.useBank,
     "DfiController supports only DDR3-and-below command buses: requires rasN/casN/weN/bank and rejects cid/act_n/bg"
   )
-  // The read-data phase alignment (RdAlignment) tracks beats starting at phase 0; issuing commands on a
-  // non-zero phase would misalign the returned read data (command and rden are cmdPhase-aware, the data
-  // alignment is not). Restrict until the alignment is reworked.
+  // The read-data phase alignment (RdAlignment) dynamically tracks the lane holding the first slice of
+  // each burst, so any command phase in [0, frequencyRatio) is supported. The DfiMemoryAgent reference
+  // model decodes the command at the configured phase and applies the same lane tracking.
   assert(
-    dfiConfig.timeConfig.cmdPhase == 0,
-    "DfiController read-data alignment only supports cmdPhase == 0"
+    dfiConfig.timeConfig.cmdPhase >= 0 && dfiConfig.timeConfig.cmdPhase < dfiConfig.frequencyRatio,
+    "DfiController requires 0 <= cmdPhase < frequencyRatio"
   )
   val io = new Bundle {
     val bmb = slave(Bmb(bmbp))
