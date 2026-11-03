@@ -71,6 +71,7 @@ values and event pulses. Any bus family whose slave factory extends
 | 0x30 | CFG_THIGH | WO | SCL High period |
 | 0x34 | CFG_TBUF | WO | Post-STOP idle time |
 | 0x38 | CTRL | WO | `{abrt[0]}` — abort active transfer |
+| 0x3C | CMD_P2 | RW | Phase-2 address for cross-slave RESTART composites: `{valid[addrW], p2Addr[addrW-1:0]}`. Writing never triggers a transfer. `valid=1`: phase 2 addresses `p2Addr`; `valid=0`: legacy behavior (phase 2 repeats the phase-1 address) |
 
 ### Interrupt Sources
 
@@ -272,6 +273,10 @@ Key properties (guaranteed by the factory-side binding):
 | Verilog generation | Working (7-bit and 10-bit `SpinalVerilog` generate cleanly) |
 | `readAsync` write-first warning | Benign: FIFO/RAM reads and writes never target the same address in the same cycle (see code comments at the `Mem` declarations) |
 | FIFO bounds | Simulation asserts catch TX/RX FIFO underflow (pop on empty) and overflow (push on full); unsynthesizable guards, active in sim only |
+| Pre-START bus-free check (UM10204 §3.1.8 AR-1) | Partial: the master rejects a CMD issued while it observes the external bus busy (`errCode=5` BUSY_REJECTED, tracked from START/STOP edges seen after the first accepted transfer). A late JOINER onto an already-active bus still has no re-synchronization path — a documented deviation |
+| 10-bit header acknowledgement (UM10204 §3.1.11 A1/A3) | Fixed: the slave ACKs the first header byte only when the `A9:A8` upper nibble matches its own address (previously it ACKed any `11110` prefix, letting one 10-bit slave swallow another slave's header); read-direction headers are not ACKed on byte 0 — the master proceeds and the authoritative NACK check sits on the last address byte |
+| Arbitration test topology | Detection is exercised by SDA-injection only; the suite has no dual-master topology, so the WINNER side (continuing unaware, no information lost) is untested |
+| Speed envelope | All tests run at `tLow=tHigh=20` @100 MHz (≈2.5 MHz SCL) plus the slow-rate smokes above; no test exercises the electrical (ns-voltage) budgets of Tables 9/10 — simulation is purely functional |
 
 ## Testing
 
@@ -279,18 +284,39 @@ Key properties (guaranteed by the factory-side binding):
 sbt "tester/testOnly spinal.tester.scalatest.I2cAutoSim spinal.tester.scalatest.I2cAutoFuzz"
 ```
 
-18 deterministic tests in `I2cAutoSim` plus 3 fuzz tests in `I2cAutoFuzz`
-(100 random writes, 50 random reads, 20 random composite write+read
-RESTARTs) covering: write, read, composite+RESTART, address NACK,
+37 deterministic tests in `I2cAutoSim` plus 5 fuzz tests in `I2cAutoFuzz`
+covering: write, read, composite+RESTART, address NACK,
 data NACK mid-burst abort, full-FIFO burst (64B), runtime abort, back-to-back
-transfers, timeout with 9-pulse recovery, multi-slave bus coexistence,
+transfers, timeout with 9-pulse recovery **observed on the live wire**
+(release the SCL clamp once `errCode=3` latches; assert >= 9 SCL rises, SDA
+released High, and exactly one trailing STOP), multi-slave bus coexistence,
 arbitration loss passive exit, SCL stretching (stall, mid-byte clean
 resumption in both write and read directions with data-integrity checks),
 read-NACK-then-next-transfer regression, and 10-bit address (write, read,
-composite).
+composite, dual-slave upper-byte isolation, `11111` reserved-prefix NACK).
+
+Additional specification-conformance coverage:
+- **Wire-level golden vectors**: the test-topology sniffer decodes the first
+  two on-wire bytes and their ACK bits; basic write/read assert the canonical
+  encodings (e.g. `0x50`/`0x51` for 7-bit addr `0x28` R/W, `0xF3`/`0xBC` for
+  10-bit `0x1BC`), defeating the loopback self-consistency trap
+- **§3.1.3 SDA-stability guard**: every test topology counts SDA edges taken
+  while SCL is High (legal START/STOP shapes excluded); `assertWireClean`
+  asserts zero violations plus exact START/STOP edge counts where meaningful
+- **Slow-rate smokes**: basic write+read at Std (`tLow/tHigh`=130/60),
+  Fast (32/16) and Fast-mode Plus (10/10 — deliberately stresses the
+  6-cycle filter window) timings
+- **Glitch immunity**: a 1-cycle SDA glitch during SCL-Low is absorbed by the
+  3-sample filter (data intact, no spurious START/STOP)
+- **Busy rejection (errCode=5)**: a CMD issued while a transfer is active or
+  while the external bus is busy (including during the 9-pulse recovery tail)
+  is rejected with `errCode=5` + `intr.fl(1)`, instead of being silently
+  swallowed
+- **Cross-slave RESTART routing**: `CMD_P2` (0x3C) routes phase 2 to a second
+  slave (write->Sr->read verified); `valid=0` preserves legacy address repeat
 
 Features with dedicated test coverage:
-- Arbitration loss detection (errCode=4): tested via `sdaForceHigh` injection
+- Arbitration loss detection (errCode=4): tested via `sdaForceLow` injection (a competing master pulling SDA Low while our master drives High)
 - Slave SCL stretching: `stretchReq` is deferred to the SCL-Low phase so the
   slave can never truncate an SCL-High window (which would desynchronize the
   master's timer-based bit completion from the slave's edge-based sampling).
