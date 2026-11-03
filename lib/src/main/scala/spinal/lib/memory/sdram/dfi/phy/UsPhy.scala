@@ -123,6 +123,12 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   require(cfg.frequencyRatio >= 2,
     s"UsPhy v1 requires frequencyRatio >= 2 (got ${cfg.frequencyRatio}); " +
     s"fr=1 would require OSERDES2 which is not supported.")
+  // L2 (ADR-0013 rev.2): the command path honours ALL DFI phases — the
+  // dramPhase alternation in Step 3 delivers phase i to DRAM cycle i of each
+  // DFI pair (DFI 6.0.1 §2.1: "The PHY must be able to accept a command on
+  // any and all phases"), so any cmdPhase in [0, frequencyRatio) is valid;
+  // the MC asserts that range itself (DfiController). The former cmdPhase==0
+  // restriction (rev.1, when only phase 0 reached the pins) is obsolete.
   // NOTE: UsPhy v1 does not implement DBI inversion logic. If DBI is enabled in config,
   // the DM/DBI pins are driven low (no inversion). Marked UNVERIFIED_ON_BOARD.
 
@@ -156,8 +162,18 @@ case class UsPhy(cfg: DfiConfig) extends Component {
     val cke     = out(Vec(Bool(), nranks))
     val cs_n    = out(Vec(Bool(), nranks))
     val ca      = out(Vec(Bool(), cfg.addressWidth))
+    // Command strobes (active-low). DDR4 distinguishes command TYPE by the
+    // RAS#/CAS#/WE#/ACT# combination, so these must reach the pins for any
+    // pin-level receiver (DRAM or behavioral model) to decode commands.
+    val ras_n = out Bool()
+    val cas_n = out Bool()
+    val we_n  = out Bool()
     val act_n   = out Bool()
     val bg      = out(Vec(Bool(), cfg.sdram.bgWidth))
+    // Dedicated BA pins (ADR-0012 amendment, TC8): real DDR4 x16 silicons BG0/BA0/BA1
+    // as dedicated pins (JESD79-4B §2.8 / Table 17); A[12:0] carries the FULL row on
+    // ACT, so BA must NOT be time-multiplexed onto the CA bus.
+    val ba      = out(Vec(Bool(), cfg.dfiBankWidth))
     val cid     = out(Vec(Bool(), cfg.sdram.cidWidth))
     val odt     = out(Vec(Bool(), nranks))
     val reset_n = out Bool()
@@ -189,25 +205,68 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   rst := !rst_n
   val rstSynced = RegNext(rst) init(True)
 
-  // ===========================================================================
-  // Step 3: DFI command -> parallel CA pins (per-phase pass-through) — ADR-0008
-  // ===========================================================================
-  // Phase 0 occupies the LOWEST (width / frequencyRatio) bits of each packed
-  // per-phase DFI control vector.
-  def phase0(bits: Bits): Bits = bits.take(bits.getWidth / frequencyRatio)
+  // DRAM clock domain (Step 3 phase alternation + Step 6 write leveling).
+  // NOTE: `cd { }` (block form) is required for domain switching — `import cd._`
+  // does NOT switch the clock domain and would leave the Regs in refclk.
+  val cd = ClockDomain(dramClk, rstSynced)
 
-  pads.ca := phase0(dfi.control.address).asBools
-  pads.cs_n := phase0(dfi.control.csN).asBools
-  pads.cke  := phase0(dfi.control.cke).asBools
-  if (cfg.useOdt) pads.odt := phase0(dfi.control.odt).asBools
+  // ===========================================================================
+  // Step 3: DFI command -> parallel CA/command pins (per-phase transmission) — ADR-0008
+  // ===========================================================================
+  // Phase i occupies bits [(i+1)*w-1 : i*w] (w = width/frequencyRatio) of each
+  // packed per-phase DFI control vector (CAAlignment packs phase i into slice i).
+  //
+  // L2 (ADR-0013 rev.2): ONE DFI cycle spans fr DRAM cycles; DFI phase i MUST
+  // appear on the pins during DRAM cycle i of the pair (DFI 6.0.1 §2.1: "The
+  // PHY must be able to accept a command on any and all phases"; phase 1
+  // aligns with the 2nd DRAM cycle). Holding phase 0 for the whole DFI cycle
+  // makes every command decode TWICE at a rising-edge sampler — proven RED by
+  // TC8 (UsPhy + Ddr4PinModel). Fix: dramPhase alternates at DRAM rate and
+  // selects the phase slice below. All phases are honoured, so any mc cmdPhase
+  // in [0, fr) is valid.
+  //
+  // What the MC owns (already met, verified in Task2IDFI/CAAlignment): command
+  // encoding (ADR-0008), NOP idle on non-command phases, CKE held on every
+  // phase. Pin setup/hold vs the CK rising edge remains a board/P&R attribute
+  // (ODDR/IODR alignment) — UNVERIFIED_ON_BOARD (ADR-0002).
+  //
+  // dramPhase = LSB of the within-pair DRAM cycle counter: False during phase
+  // 0's DRAM cycle, True during phase 1's. Free-running toggle in the dramClk
+  // domain; reset re-anchors it to False. Absolute alignment to the DFI
+  // vector-update edge is fixed by the DFI<->DRAM clock phase relation (DFI
+  // rising edge = DRAM CK falling edge, DFI spec convention) — a board/MMCM
+  // attribute; sim anchors it via the TB clock arrangement (TC8 header).
+  val dramPhase = cd { Reg(Bool()) init(False) }
+  cd { dramPhase := !dramPhase }
+
+  def phaseSel(bits: Bits): Bits = {
+    val w = bits.getWidth / frequencyRatio
+    Mux(dramPhase, bits.drop(w), bits.take(w))
+  }
+
+  pads.ca := phaseSel(dfi.control.address).asBools
+  // Dedicated bank pins: dfi.bank phase word = {1'b0 (zero-ext), ba[baW-1:0]} (MC
+  // convention, Task2IDFI: baBits.resized); dfi.bg carries BG separately. STATIC
+  // mapping — no time multiplexing (ADR-0012 amendment; TC8 proved A[2:0] mux
+  // corrupts RA[2:0] on ACT).
+  if (cfg.useBank) pads.ba := phaseSel(dfi.control.bank).take(cfg.dfiBankWidth).asBools
+  else pads.ba.foreach(_ := False)
+  // Command strobes: real DFI signals when enabled, High (=inactive) otherwise.
+  pads.ras_n := (if (cfg.useRasN) phaseSel(dfi.control.rasN)(0) else True)
+  pads.cas_n := (if (cfg.useCasN) phaseSel(dfi.control.casN)(0) else True)
+  pads.we_n  := (if (cfg.useWeN)  phaseSel(dfi.control.weN)(0)  else True)
+  pads.cs_n := phaseSel(dfi.control.csN).asBools
+  pads.cke  := phaseSel(dfi.control.cke).asBools
+  if (cfg.useOdt) pads.odt := phaseSel(dfi.control.odt).asBools
   else pads.odt.foreach(_ := False)
-  pads.act_n   := (if (cfg.useAckN) phase0(dfi.control.actN)(0) else True)
-  pads.reset_n := (if (cfg.useResetN) phase0(dfi.control.resetN)(0) else True)
-  pads.par     := (if (cfg.useCaParity) phase0(dfi.control.parity)(0) else False)
-  if (cfg.useBg) pads.bg := phase0(dfi.control.bg).asBools
+  pads.act_n   := (if (cfg.useAckN) phaseSel(dfi.control.actN)(0) else True)
+  pads.reset_n := (if (cfg.useResetN) phaseSel(dfi.control.resetN)(0) else True)
+  pads.par     := (if (cfg.useCaParity) phaseSel(dfi.control.parity)(0) else False)
+  if (cfg.useBg) pads.bg := phaseSel(dfi.control.bg).asBools
   else pads.bg.foreach(_ := False)
-  if (cfg.useCid) pads.cid := phase0(dfi.control.cid).asBools
+  if (cfg.useCid) pads.cid := phaseSel(dfi.control.cid).asBools
   else pads.cid.foreach(_ := False)
+
   // Clock out (skeleton: alias dramClk; real MMCM differential output at P&R).
   pads.ck_t    := dramClk
   pads.ck_c    := !dramClk
@@ -368,11 +427,8 @@ case class UsPhy(cfg: DfiConfig) extends Component {
   // numerically (counter drift small over 16 DQS periods for 8 straight
   // windows), never self-assigned constant-true.
   //
-  // NOTE: `cd { }` (block form) is required — `import cd._` does NOT switch
-  // the clock domain and leaves the Regs in refclk, where dqsToggle is
-  // constant-HIGH at every refclk edge and edge-detection never fires.
+  // NOTE: `cd` is defined in the reset section above (shared by Step 3 and Step 6).
   // ===========================================================================
-  val cd = ClockDomain(dramClk, rstSynced)
   val wb = cd {
     // Seed the delay line at MID-RANGE (256 of 0..511). Real write-leveling
     // trains from the centre of the adjustable range so it can correct in

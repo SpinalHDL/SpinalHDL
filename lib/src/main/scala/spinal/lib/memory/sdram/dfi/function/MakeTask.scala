@@ -317,8 +317,13 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     io.output.address.column := address.column | (offset << columnBurstShift).resized
     io.output.address.assignUnassignedByName(address)
     io.output.context := context
-    io.output.active := inputActive
-    io.output.precharge := inputPrecharge
+    // Gate ACT/PRE on the station being armed, exactly like write/read below. Ungated, the
+    // uninitialized bank-state registers (X at t=0) make inputActive/inputPrecharge X before
+    // the first command, and Verilog's if(X)=true turns that into a phantom ACT<->PRE storm
+    // on the DFI bus (latent in SpinalSim, whose when(X) does not fire; visible in xsim and
+    // as a power-on phantom command on real silicon, where FFs power up 0, not X).
+    io.output.active := inputActive & valid
+    io.output.precharge := inputPrecharge & valid
     io.output.write := doWrite & valid
     io.output.read := doRead & valid
     io.output.last := last
