@@ -251,9 +251,11 @@ class I2cAutoFuzz extends AnyFunSuite {
         if (err != 0) { bad = true; if (failures <= 3) println(s"  iter=$iter len=$len ERR=$err") }
 
         val rx = drainRx(cd, dut)
-        if (rx.isEmpty || rx.head != expectedFirst) {
+        // Full-payload check (#23): exact length, first byte = pattern seed,
+        // every remaining byte = 0xFF (the RAM fill for slots 1..63).
+        if (rx.size != len || rx.head != expectedFirst || rx.drop(1).exists(_ != 0xFF)) {
           bad = true
-          if (failures <= 5) println(s"  iter=$iter len=$len rx=${if (rx.isEmpty) "EMPTY" else f"0x${rx.head}%02X"} exp=0x${expectedFirst}%02X count=${rx.size}")
+          if (failures <= 5) println(s"  iter=$iter len=$len got=${rx.take(8).map(b => f"0x$b%02X").mkString(",")}... count=${rx.size} expHead=0x${expectedFirst}%02X")
         }
 
         if (bad) failures += 1

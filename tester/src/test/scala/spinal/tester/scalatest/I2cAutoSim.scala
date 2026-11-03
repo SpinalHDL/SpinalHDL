@@ -45,10 +45,12 @@ class I2cAutoSim extends AnyFunSuite {
     sclForceLow.allowUnsetRegToAvoidLatch()
     sclForceLow.simPublic()
 
-    // Test control: force SDA High to simulate arbitration loss (another master wins)
-    val sdaForceHigh = RegInit(False)
-    sdaForceHigh.allowUnsetRegToAvoidLatch()
-    sdaForceHigh.simPublic()
+    // Test control: force SDA Low to simulate a competing master winning
+    // arbitration. Open-drain physics: a competitor can only PULL the line
+    // Low, never force it High.
+    val sdaForceLow = RegInit(False)
+    sdaForceLow.allowUnsetRegToAvoidLatch()
+    sdaForceLow.simPublic()
 
     // Open-drain wire emulation via io.i2c ports:
     // SCL: open-drain AND of master and slave (slave can stretch)
@@ -57,11 +59,46 @@ class I2cAutoSim extends AnyFunSuite {
     master.io.i2c.scl.read := sclWire
     slave.io.i2c.scl.write := sclWire
 
-    // SDA: open-drain AND of both contributions, OR with force-high (arb loss sim)
+    // SDA: open-drain AND of both contributions; a competing master can only
+    // pull the wire Low (forcing High is physically impossible on open-drain).
     val sdaAnd = master.io.i2c.sda.write && slave.io.i2c.sda.read
-    val sdaWire = sdaAnd || sdaForceHigh
+    val sdaWire = sdaAnd && !sdaForceLow
+    sdaWire.simPublic()
     master.io.i2c.sda.read := sdaWire  // master sees combined (in)
     slave.io.i2c.sda.write := sdaWire  // slave sees combined (in)
+
+    // Wire-level address sniffer (10-bit format verification): on a START
+    // (SDA fall while SCL high) capture the address bits sampled on SCL
+    // RISING edges — SDA is stable during SCL High, while at the falling edge
+    // the master has already set up the NEXT bit. Wire sequence: byte0[7..0]
+    // on rises n=0..7, ACK on n=8 (skipped), byte1[7..0] on n=9..16.
+    val snifByte0 = Reg(Bits(8 bits)) init(0)
+    val snifByte1 = Reg(Bits(8 bits)) init(0)
+    val snifCnt   = Reg(UInt(5 bits)) init(0)
+    val snifArmed = RegInit(False)
+    snifByte0.simPublic()
+    snifByte1.simPublic()
+    val sdaWPrev = RegInit(True)
+    val sclWPrev = RegInit(True)
+    when(!sdaWire && sdaWPrev && sclWire) { snifArmed := True; snifCnt := U(0) }
+    when(sclWire && !sclWPrev) {
+      when(snifArmed) {
+        val n = snifCnt
+        when(n < U(8)) { snifByte0((7 - n)(2 downto 0)) := sdaWire }
+        when(n > U(8)) { snifByte1((16 - n)(2 downto 0)) := sdaWire }
+        when(n === U(16)) { snifArmed := False }
+        snifCnt := snifCnt + U(1)
+      }
+    }
+    sdaWPrev := sdaWire
+    sclWPrev := sclWire
+
+    // Named observation taps: Verilator may mangle internal port-net names;
+    // top-level aliases survive for the loser-release assertions.
+    val masterSclRelease = master.io.i2c.scl.write
+    val masterSdaRelease = master.io.i2c.sda.write
+    masterSclRelease.simPublic()
+    masterSdaRelease.simPublic()
 
     // Register maps: top-level Bmb slave ports + factories bound to the cores
     val regBusParam = BmbAccessParameter(8, 32).addSources(1, BmbSourceParameter(contextWidth = 0, lengthWidth = 2)).toBmbParameter()
@@ -219,6 +256,29 @@ class I2cAutoSim extends AnyFunSuite {
     assert(c < 100, s"bmbWrite: no rsp (addr=0x${addr.toHexString})")
     assert(bus.rsp.opcode.toInt === 0, s"bmbWrite: rsp error (addr=0x${addr.toHexString})")
     bus.rsp.ready   #= false
+  }
+
+  // Helper: full Bmb register read (handshake-complete), returns rsp.data
+  def bmbRead(bus: Bmb, addr: Int, cd: ClockDomain): Int = {
+    bus.cmd.valid   #= true
+    bus.cmd.opcode  #= 0   // Bmb READ
+    bus.cmd.address #= addr
+    bus.cmd.length  #= 0
+    bus.rsp.ready   #= true
+    cd.waitActiveEdge()
+    var c = 0
+    while (!bus.cmd.ready.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
+    assert(c < 100, s"bmbRead: cmd not ready (addr=0x${addr.toHexString})")
+    bus.cmd.valid   #= false
+    c = 0
+    var data = 0
+    while (!bus.rsp.valid.toBoolean && c < 100) { cd.waitActiveEdge(); c += 1 }
+    assert(c < 100, s"bmbRead: no rsp (addr=0x${addr.toHexString})")
+    assert(bus.rsp.opcode.toInt === 0, s"bmbRead: rsp error (addr=0x${addr.toHexString})")
+    data = bus.rsp.data.toInt
+    bus.rsp.ready   #= false
+    cd.waitActiveEdge()
+    data
   }
 
   // Helper: write a register via the Bmb register bus
@@ -418,6 +478,38 @@ class I2cAutoSim extends AnyFunSuite {
       val ram2 = dut.slave.ram.getBigInt(2).toInt
       assert(List(ram0, ram1, ram2) == List(0xAA, 0xBB, 0xCC),
              s"RAM=${List(ram0, ram1, ram2).map(v => f"0x$v%02X")} (expected AA BB CC)")
+    }
+  }
+
+  test("I2cAuto: back-to-back RX FIFO reads via register bus (regression #2)") {
+    runSim { dut =>
+      val cd = dut.clockDomain
+      dut.cfgMasterTiming()
+      dut.regWriteSlave(0x1C, 1)
+      regWrite(dut, isMaster = false, addr = 0x00, data = (1 << 7) | 0x28)
+      dut.regWriteSlave(0x04, 0)
+      dut.slave.ram.setBigInt(0, 0x11)
+      dut.slave.ram.setBigInt(1, 0x22)
+      dut.slave.ram.setBigInt(2, 0x33)
+      cd.waitActiveEdge(10)
+
+      // Fill the master RX FIFO with 3 bytes (last byte NACKed).
+      dut.issueCmd(addr = 0x28, rw = true, nackLast = true, len1 = 3)
+      waitForIdle(dut)
+      assert(dut.master.status.errCode.toInt == 0, s"err=${dut.master.status.errCode.toInt}")
+
+      // Regression for #2: the RX pop used to be registered one cycle AFTER
+      // the bus read, so back-to-back reads of RX_DATA returned the same head
+      // and shifted the whole FIFO. Reads spaced one cycle apart must each
+      // return the next distinct entry, and the FIFO must empty after 3 pops.
+      val v1 = bmbRead(dut.masterRegBus, 0x10, cd)
+      val v2 = bmbRead(dut.masterRegBus, 0x10, cd)
+      val v3 = bmbRead(dut.masterRegBus, 0x10, cd)
+      val v4 = bmbRead(dut.masterRegBus, 0x10, cd)
+      assert((v1 & 0xFF) == 0x11 && (v1 & 0x100) != 0, s"v1=0x${Integer.toHexString(v1)}")
+      assert((v2 & 0xFF) == 0x22 && (v2 & 0x100) != 0, s"v2=0x${Integer.toHexString(v2)}")
+      assert((v3 & 0xFF) == 0x33 && (v3 & 0x100) != 0, s"v3=0x${Integer.toHexString(v3)}")
+      assert((v4 & 0x100) == 0, s"FIFO should be empty after 3 pops, v4=0x${Integer.toHexString(v4)}")
     }
   }
 
@@ -731,10 +823,13 @@ class I2cAutoSim extends AnyFunSuite {
       pushTx(dut, 0x22)
       dut.issueCmd(addr = 0x28, rw = false, len1 = 2)
 
-      // Wait a few cycles into the transfer, then force SDA High (simulate arb loss)
+      // Inject a competing master mid-transfer: it pulls SDA Low while our
+      // master is placing a '1' on the bus (open-drain: the only way to win
+      // arbitration). Address 0x28 = 0b101000 carries '1' bits, so the loss
+      // is detected within the first few bits.
       cd.waitActiveEdge(50)
       assert(dut.master.status.busy.toBoolean, "Transfer should be active")
-      dut.sdaForceHigh #= true  // Another master pulls SDA High!
+      dut.sdaForceLow #= true  // Competing master drives SDA Low!
 
       // Wait for arb loss detection + passive exit
       var cycles = 0
@@ -743,12 +838,16 @@ class I2cAutoSim extends AnyFunSuite {
         cycles += 1
       }
       cd.waitActiveEdge(20)
-      dut.sdaForceHigh #= false
+      dut.sdaForceLow #= false
 
       // Verify arbitration loss error
       val err = dut.master.status.errCode.toInt
       assert(err == 4, f"errCode=$err, expected 4 (arbitration loss)")
       assert(!dut.master.status.busy.toBoolean, "busy should be clear")
+      // Loser releases both lines (passive exit, no STOP, no SCL hold-down):
+      // holding SCL Low after the loss would brick the bus for the winner.
+      assert(dut.masterSclRelease.toBoolean, "loser must release SCL")
+      assert(dut.masterSdaRelease.toBoolean, "loser must release SDA")
     }
   }
 
@@ -1154,6 +1253,16 @@ class I2cAutoSim extends AnyFunSuite {
       dut.issueCmd(addr = 0x345, rw = false, len1 = 4)
 
       waitForIdle(dut)
+
+      // Wire-level format check (standard 10-bit, UM10204 §4.2.2):
+      //   byte0 = 11110 A9 A8 R/W,  byte1 = A7..A0
+      val a = 0x345
+      val expectB0 = 0xF0 | (((a >> 8) & 0x3) << 1) | 0  // 11110 A9 A8 R/W, R/W = 0 (write)
+      val expectB1 = a & 0xFF  // byte 1 carries only A[7:0]
+      val b0 = dut.snifByte0.toInt
+      val b1 = dut.snifByte1.toInt
+      assert(b0 == expectB0, f"wire byte0=0x${b0}%02X, expected 0x${expectB0}%02X (11110 A9 A8 R/W)")
+      assert(b1 == expectB1, f"wire byte1=0x${b1}%02X, expected 0x${expectB1}%02X (A7..A0)")
 
       // Verify
       assert(dut.master.status.errCode.toInt == 0, s"err=${dut.master.status.errCode.toInt}")
