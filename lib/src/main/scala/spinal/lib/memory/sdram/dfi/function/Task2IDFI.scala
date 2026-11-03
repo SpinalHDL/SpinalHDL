@@ -54,14 +54,15 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
   if (dfiConfig.sdram.generation.hasModernCmdBus) {
     // ---- Modern command bus (currently DDR4): JESD79-4B Table 16 on the DFI control bus ----
     // Existing payload convention (verified against legacy encoders): in the 3-bit control nibble,
-    // bit0=weN, bit1=casN, bit2=rasN. DDR4 WR/RD/PRE/REF share the DDR3 RAS/CAS/WE encodings;
-    // ACT is flagged by actN=0, and the RAS_n/CAS_n/WE_n pins become A16/A15/A14 carrying the
-    // top row bits: A14=RA[13] -> weN, A15=RA[14] -> casN, A16=RA[15] -> rasN.
+    // bit0=weN, bit1=casN, bit2=rasN. DDR4 command encodings follow JESD79-4B Table 16 on the
+    // DFI control bus; ACT is flagged by actN=0, and per Table 16 NOTE 1 the RAS_n/A16,
+    // CAS_n/A15, WE_n/A14 pins then carry row bits RA[16] -> rasN, RA[15] -> casN, RA[14] -> weN.
     // Flat bank index split at the exit: bg = bank[bankWidth-1 : dfiBankWidth], ba = bank[dfiBankWidth-1 : 0]
     val bgBits = io.task.address.bank(dfiConfig.dfiBankWidth, dfiConfig.bankGroupWidth bits).asBits
     val baBits = io.task.address.bank(0, dfiConfig.dfiBankWidth bits).asBits
-    // Top 3 row bits (RA[15:13]) for the ACT A16/A15/A14 pins
-    val rowHi = io.task.address.row >> (dfiConfig.sdram.rowWidth - 3)
+    // Row bits for the ACT A16/A15/A14 pins (JESD79-4B Table 16 NOTE 1):
+    // A14 <- RA[14], A15 <- RA[15], A16 <- RA[16]; zero-extended beyond rowWidth.
+    val rowFull = io.task.address.row.resize(17)
 
     // cid stays 0: rank selection uses csN (one chip-select per rank); cid is an HBM-style
     // alternative the PHY ignores in this topology. (payload.setAll() above would otherwise
@@ -74,9 +75,9 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
       cmdphase(dfiConfig.timeConfig.cmdPhase).valid.set()
       if (dfiConfig.useAckN) {
         cmdphase(dfiConfig.timeConfig.cmdPhase).actN := False
-        cmdphase(dfiConfig.timeConfig.cmdPhase).weN := rowHi(0) // A14 = RA13
-        cmdphase(dfiConfig.timeConfig.cmdPhase).casN := rowHi(1) // A15 = RA14
-        cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := rowHi(2) // A16 = RA15
+        cmdphase(dfiConfig.timeConfig.cmdPhase).weN := rowFull(14) // A14 = RA14
+        cmdphase(dfiConfig.timeConfig.cmdPhase).casN := rowFull(15) // A15 = RA15
+        cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := rowFull(16) // A16 = RA16
       }
       cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
       addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
@@ -89,8 +90,8 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
       cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
       if (dfiConfig.useAckN) cmdphase(dfiConfig.timeConfig.cmdPhase).actN := True
       cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := True
-      cmdphase(dfiConfig.timeConfig.cmdPhase).casN := True
-      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := False // WR (JESD79-4): ACT_n=H RAS_n=H CAS_n=H WE_n=L -> (ras_n,cas_n,we_n)=(1,1,0)
+      cmdphase(dfiConfig.timeConfig.cmdPhase).casN := False
+      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := False // WR (JESD79-4B Table 16): ACT_n=H RAS_n=H CAS_n=L WE_n=L, A10=L
       addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
       addrphase(dfiConfig.timeConfig.cmdPhase).bg := bgBits
       addrphase(dfiConfig.timeConfig.cmdPhase).bank := baBits.resized
@@ -156,15 +157,15 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
       addrphase(dfiConfig.timeConfig.cmdPhase).address := ROW.resized
     }
     when(io.task.zq) {
-      // ZQCL (Table 16): ACT_n=H RAS_n=H CAS_n=H WE_n=H, A10=H (long).
-      // Same nibble as NOP; A10=H is what makes it ZQCL (ZQCS is A10=L).
-      // Agent decodes identically: zqcl = actN && ras && cas && weN && a10.
+      // ZQCL (JESD79-4B Table 16): ACT_n=H RAS_n=H CAS_n=H WE_n=L, A10=H (long).
+      // (1,1,1)+A10=H would be NOP — WE_n must be L. ZQCS differs only by A10=L.
+      // Agent decodes identically: zqcl = actN && ras && cas && !weN && a10.
       cmdphase(dfiConfig.timeConfig.cmdPhase).valid := True
       cmdphase(dfiConfig.timeConfig.cmdPhase).csN := csSel.asBits
       if (dfiConfig.useAckN) cmdphase(dfiConfig.timeConfig.cmdPhase).actN := True
       cmdphase(dfiConfig.timeConfig.cmdPhase).rasN := True
       cmdphase(dfiConfig.timeConfig.cmdPhase).casN := True
-      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := True
+      cmdphase(dfiConfig.timeConfig.cmdPhase).weN := False
       addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
       addrphase(dfiConfig.timeConfig.cmdPhase).address(ALL_BANKS_BIT).set()
     }
@@ -353,12 +354,15 @@ case class WrDataTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   val wrensHistory =
     Vec(Vec(Bool(), (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)
   // dfi_wrdata_cs_n 与 dfi_wrdata_en 对齐(本控制器不实现 tPhyWrCsLat 独立延迟):
-  // rank 选择随写使能链同步延迟,空闲时保持全 1
+  // rank 选择在写命令拍采样并保持整个突发窗口(与 wrens 的拉伸窗口一致),空闲时保持全 1。
+  // 直接对 1 拍的 io.cs 脉冲做 History 会在第 2..N 拍读到初始全 1(误 deselect)。
+  val csCapture = Reg(Bits(dfiConfig.chipSelectNumber bits)).init(Bits(dfiConfig.chipSelectNumber bits).setAll())
+  csCapture := Mux(io.write, io.cs, csCapture)
   val csHistory =
     Vec(Vec(Bits(dfiConfig.chipSelectNumber bits), (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 2), frequencyRatio)
   for (i <- 0 until (frequencyRatio)) {
     csHistory(i) := History(
-      io.cs,
+      csCapture,
       0 to (dfiConfig.timeConfig.cmdPhase + timeConfig.tPhyWrLat) / frequencyRatio + 1,
       init = Bits(dfiConfig.chipSelectNumber bits).setAll()
     )
