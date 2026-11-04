@@ -45,7 +45,7 @@ object DfiNetlistLint {
     "io_dfi_update_phyupdAck" -> Zero("the MC never accepts a PHY-initiated update, so it never acknowledges (DFI 5.2 sec. 4.9.2)"),
     "io_dfi_lowPowerControl_lpCtrlReq" -> Zero("no DFI low-power handshake: DRAM power-down / self-refresh entry is not implemented (no CKE path) (DFI 5.2 sec. 3.6, sec. 4.13)"),
     "io_dfi_lowPowerControl_lpDataReq" -> Zero("no DFI data-channel low-power request (DFI 5.2 sec. 3.6, sec. 4.13)"),
-    "io_dfi_lowPowerControl_lpWakeUp" -> Zero("no DRAM-side wake indication to report (DFI 5.2 sec. 3.6)"),
+    "io_dfi_lowPowerControl_lpWakeUp" -> Zero("no wake indication to report (DFI 5.2 sec. 3.6). NOTE: every producer of this net is a constant, so the whole chain constant-folds (Alignment.scala:106 clearAll, the Control payload) and the top-level port is left with a net driver that has no driver of its own: 2-state simulation reads 0, xsim reads X. Netlist artifact of a deep constant tie, tracked here, not an MC behaviour defect."),
     "io_dfi_status_initStart" -> Driven,
     "io_dfi_status_freqRatio" -> Const("<ratio code>", "dfi_cmd_freq_ratio / dfi_data_freq_ratio convey the ratio to the PHY (DFI 5.2 sec. 3.5.1, sec. 3.5.3): 1:1=00, 1:2=01, 1:4=10, 1:8=11. Constant per build, and it must be the code, not the ratio"),
     "io_dfi_status_parityIn" -> Zero("idle level: the MC has no parity to report into the PHY; its own CA-parity check is dfi_control_parity (JESD79-4B sec. 4.17, DFI 5.2 sec. 4.12)"),
