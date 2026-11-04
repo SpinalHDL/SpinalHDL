@@ -45,6 +45,13 @@ class DfiMemoryAgent(
   val bgWidth = if (modernCmdBus) busConfig.sdram.bgWidth else 0
   val dfiBankWidth = busConfig.dfiBankWidth
   // DDR4 mode-register file: MR0..MR4 per rank (op code as written by MRS), plus flags.
+  // DRAM-side AC-timing watchdog: consumes THIS agent's independent Table 16 decode and asserts
+  // the JESD79-4B sec. 4.19 minima/maxima derived from the SdramTiming ns fields. The test
+  // asserts `watchdog.clean`, so an AC violation fails the suite even when every in-DUT counter
+  // agrees with itself (the green-but-wrong pattern the conformance audit flagged).
+  val watchdog = new DfiTimingWatchdog(busConfig)
+  println("[TIMING] watchdog armed: " + watchdog.summary)
+
   val modeRegisters = mutable.Map[Int, mutable.Map[Int, Long]]() // rank -> (mrIndex -> op)
   // ZQCL observation per rank (broadcast-cs init must set it on EVERY rank); zqclSeen is the
   // aggregate kept for existing consumers.
@@ -515,6 +522,8 @@ class DfiMemoryAgent(
           }
         }
         if (zqcl) zqclSeenPerRank(idPerChip) = true
+        watchdog.observe(idPerChip, agentCycle, act, preCmd && a10 == 0L, preCmd && a10 == 1L,
+          wrCmd, rdCmd, refCmd, mrs, zqcl, flatBank(cmdBank).toInt, cmdBg.toInt)
 
         // Dual-path verification: export every decoded DDR4 command (with its rank) so an
         // independent decoder (Python, straight from JESD79-4B Table 16) can be diffed against it.

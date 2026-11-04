@@ -585,6 +585,12 @@ class DfiControllerTester extends SpinalAnyFunSuite {
             refreshCount >= refreshMinCount,
             s"${name}: expected >= $refreshMinCount refreshes in idle window, got $refreshCount"
           )
+          // ---- DRAM-side AC timing (tier 2): the reference model's own JESD79-4B checks ----
+          val wdViolations = dfiMemoryAgent.watchdog.violations
+          assert(wdViolations.isEmpty,
+            s"$name: the DRAM-side reference model observed ${wdViolations.size} JESD79-4B AC-timing violation(s) " +
+            "on the command stream the controller emitted (limits derived from the SdramTiming ns fields, " +
+            "not from dut.* knobs): " + wdViolations.take(8).mkString(" | "))
           // ---- ODT verification (scope-B): ODT must track the data windows exactly ----
           if (monUseOdt) {
             println(s"[ODT] ${name}: odtAssertedCycles=$odtAssertedCycles odtMismatchCycles=$odtMismatchCycles")
@@ -841,6 +847,10 @@ class DfiControllerTester extends SpinalAnyFunSuite {
   // DDR4 DBI (MR5 A12=Read DBI, A11=Write DBI): MC inverts bytes with >4 zeros (dbi_n=0) on
   // writes and restores DRAM-inverted read bytes. The agent models both SDRAM behaviors.
   ddr4("DfiController_DDR4_fr2_dbi", 2, 0, RowBankColumn, mr5 = 0x1800)
+  // DFI 5.2 sec. 3.5 supports 1:1 (dfi_cmd_freq_ratio = 'b00). The 1:1 ratio is where tCCD_S and
+  // the tREFI window are hardest to honour (one MC cycle == one DRAM cycle), so it is a required
+  // matrix cell, not an extra: no case ran fr=1 before.
+  ddr4("DfiController_DDR4_fr1_p0", 1, 0, RowBankColumn)
   // DDR4 CA parity (JESD79-4B §4.17, DFI 5.2 §4.12): MC drives even parity over the command
   // bus, same cycle as the command (tcapar_lat=0). MR5.A2:A0=1 (PL4) = parity enabled, DBI off.
   // Happy path: the agent recomputes parity per phase and ignores + alerts on any mismatch.

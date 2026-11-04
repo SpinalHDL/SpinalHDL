@@ -184,7 +184,8 @@ object Ddr4ModeRegGolden {
   */
 object Ddr4Cfg {
   def timing(rate: Int): SdramTiming = SdramTiming(
-    generation = 4, RFC = 260, RAS = 35, RP = 14, RCD = 14, WTR = 8, WTP = 0, RTP = 12, RRD = 6,
+    generation = 4, RFC = rate match { case 1 => 350; case 2 => 260; case _ => 160 }, // JESD79-4 8 Gb tRFC: 1x=350, 2x=260, 4x=160 ns
+    RAS = 35, RP = 14, RCD = 14, WTR = 8, WTP = 0, RTP = 12, RRD = 6,
     REF = 7800, FAW = 240,
     REF_NS = 7800, REF_RATE = rate)
 

@@ -81,8 +81,8 @@ object SdramGeneration {
     CCD = 4,
     burstLength = 8,
     dataRate = 2,
-    ccdL = 4,
-    ccdS = 2,
+    ccdL = 10, // JESD79-4B 8 Gb speed bin: tCCD_L >= 10 nCK (5 nCK only at >= 3200 MT/s, MR6)
+    ccdS = 8,  // JESD79-4B 8 Gb speed bin: tCCD_S >= 8 nCK (4 nCK at >= 3200 MT/s)
     hasModernCmdBus = true,
     hasDbi = true,
     hasCaParity = true

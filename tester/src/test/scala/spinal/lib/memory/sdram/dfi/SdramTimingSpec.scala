@@ -78,16 +78,18 @@ class SdramTimingSpec extends SpinalAnyFunSuite {
     Seq(1, 2, 4).foreach { fr =>
       val cfg = Ddr4Cfg(fr = fr, rate = 2)
       val g = golden(densityGb = 8, rateX = 2, tCKns = cfg.sdram.cycleTime_ns.toDouble)
-      // The scheduler reasons in MC cycles: TaskConfig.scala:40 time(tcyc, fr) = (tcyc+fr-1)/fr.
-      def mc(nck: Int) = cyc(nck, cfg.sdram.cycleTime_ns.toDouble) // nCK == DRAM cycles here
-      val ccdL = mc(g.tCCD_Lnck)
-      val ccdS = mc(g.tCCD_Snck)
+      // Units: the spec's tCCD_* are nCK == DRAM cycles; the scheduler window is in MC cycles
+      // (TaskConfig.scala:40 time(tcyc, fr) = (tcyc+fr-1)/fr), so the window is compared back in
+      // DRAM cycles: windowMc * fr >= tCCD_nCK.
+      def ccdMcToNck(mc: Int) = mc * fr
       assert(cfg.sdram.generation.tCCD_L >= g.tCCD_Lnck,
         s"tCCD_L: the generation table says ${cfg.sdram.generation.tCCD_L} nCK, JESD79-4 says >= ${g.tCCD_Lnck} nCK at 8 Gb (MR6 tCCD_L bits) — consecutive CAS_n to the SAME bank group")
       assert(cfg.sdram.generation.tCCD_S >= g.tCCD_Snck,
         s"tCCD_S: the generation table says ${cfg.sdram.generation.tCCD_S} nCK, JESD79-4 says >= ${g.tCCD_Snck} nCK (BL8) — consecutive CAS_n to DIFFERENT bank groups")
-      assert(cpdL(cfg) >= ccdL, s"the CCD_L scheduler window must be >= tCCD_L: ${cpdL(cfg)} MC vs $ccdL MC (fr=$fr)")
-      assert(cpdS(cfg) >= ccdS, s"the CCD_S scheduler window must be >= tCCD_S: ${cpdS(cfg)} MC vs $ccdS MC (fr=$fr)")
+      assert(ccdMcToNck(cpdL(cfg)) >= g.tCCD_Lnck,
+        s"the CCD_L scheduler window is ${cpdL(cfg)} MC = ${ccdMcToNck(cpdL(cfg))} nCK, JESD79-4 requires >= ${g.tCCD_Lnck} nCK (fr=$fr)")
+      assert(ccdMcToNck(cpdS(cfg)) >= g.tCCD_Snck,
+        s"the CCD_S scheduler window is ${cpdS(cfg)} MC = ${ccdMcToNck(cpdS(cfg))} nCK, JESD79-4 requires >= ${g.tCCD_Snck} nCK (fr=$fr)")
     }
   }
 
@@ -112,7 +114,8 @@ class SdramTimingSpec extends SpinalAnyFunSuite {
   test("the refresh scheduler period is tREFI in MC cycles and the init overheads are spec-derived") {
     Seq(1, 2, 4).foreach { fr =>
       val cfg = Ddr4Cfg(fr = fr, rate = 2)
-      val expectedRefMc = cyc(3900.0, cfg.sdram.cycleTime_ns.toDouble) // tREFI2 = 7800/2 ns
+      val tRefiDram = cyc(3900.0, cfg.sdram.cycleTime_ns.toDouble) // tREFI2 = 7800/2 ns, in DRAM cycles
+      val expectedRefMc = (tRefiDram + fr - 1) / fr
       assert(cfg.sdram.tREF == expectedRefMc * fr || cfg.sdram.tREF >= expectedRefMc * fr - (fr - 1),
         s"fr=$fr: tREF in DRAM cycles (${cfg.sdram.tREF}) must be the MC period ($expectedRefMc) x $fr")
       // The MC's period, in MC cycles, is the DUT's own conversion; assert the floor form so a
