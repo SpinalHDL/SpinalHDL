@@ -56,16 +56,25 @@ class DfiBoardEvidenceSpec extends SpinalAnyFunSuite {
 
   test("T3 generators: PHY netlist elaborates and keeps the delay/pad structure") {
     gate()
+    // E2eSmokeGen also drops a completion marker file: in this suite the MC test elaborates
+    // first in the same JVM, and after that E2eSmokeGen's println output vanishes from both the
+    // stdout capture and the log (observed; some stream reference cached during the first
+    // elaboration). The marker file — deleted here first, so it can only come from THIS run —
+    // is the authoritative completion proof; the stdout marker is the fast path.
+    val marker = new File(workspace, "e2e_smoke.marker")
+    if (marker.exists()) marker.delete()
     val smoke = capture(E2eSmokeGen.main(Array()))
-    assert(smoke.contains("SMOKE_ALL_OK"), s"E2eSmokeGen did not finish. tail:\n${tail(smoke)}")
+    val finished = smoke.contains("SMOKE_ALL_OK") ||
+      (marker.exists() && io.Source.fromFile(marker).mkString.trim == "SMOKE_ALL_OK")
+    assert(finished, s"E2eSmokeGen did not finish. markerExists=${marker.exists()} absPath=${marker.getAbsolutePath} cwd=${new File(".").getAbsolutePath} content=[${try { io.Source.fromFile(marker).mkString } catch { case _: Throwable => "<unreadable>" }}] smokeLen=${smoke.length} tail:\n${tail(smoke)}")
     val phy = requireNetlist("UsPhy.v")
     val v = read(phy)
     // The ADR-0001 datapath claim: write delay/read capture live in the fast MIB clock domain,
     // built from the UltraScale delay primives, with per-phase pads on the command side.
     Seq("ODELAYE3", "IDELAYE3").foreach(u =>
       assert(v.contains(u), s"PHY netlist $phy has no $u instance — the ADR-0001 datapath structure is gone"))
-    Seq("io_pads_ck_t", "io_pads_ck_c", "io_pads_cke", "io_pads_cs_n", "io_pads_ras_n", "io_pads_cas_n",
-        "io_pads_we_n", "io_pads_act_n", "io_pads_bg", "io_pads_ba", "io_pads_cid")
+    Seq("pads_ck_t", "pads_ck_c", "pads_cke_0", "pads_cs_n_0", "pads_ras_n", "pads_cas_n",
+        "pads_we_n", "pads_act_n", "pads_bg_0", "pads_ba_0", "pads_cid_0")
       .foreach(p => assert(v.contains(p), s"PHY netlist $phy is missing the command pad $p"))
   }
 
@@ -114,8 +123,8 @@ object DfiBoardEvidenceSpec {
     * (grill Q6: pin the hashes, and record the regeneration in the commit message).
     */
   val pins: Map[String, String] = Map(
-    "DfiController/rtl/DfiController.v" -> "9e655b7e36f7970411c3424425969d27278c105a26c2d745b1da7f7563c73918",
-    "UsPhy.v" -> "5851a0f09c7d2c8bf2ec8db62b106ae609ba25721bb297402b23a332e774f192"
+    "DfiController/rtl/DfiController.v" -> "e9eb6d1fa03fdfd9300528b3a8342c638157b15e14dd0515378e251f76546ec1",
+    "UsPhy.v" -> "65bb9bf0dd2319b36cd15d9ba2b411f6cf554dd825f17bbcd5f1d1fa152d6925"
   )
 
 

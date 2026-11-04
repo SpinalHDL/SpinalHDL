@@ -128,6 +128,14 @@ object E2eSmokeGen {
       SpinalVerilog(SpinalConfig(targetDirectory = base.getAbsolutePath, mode = Verilog))(UsPhy(mkCfg(16, 2, mr5 = 0x1800, useRddataDbiN = true)))
       println("SMOKE_positive_dbielaborates_OK")
       println("SMOKE_ALL_OK")
+      // Completion marker on disk: when DfiBoardEvidenceSpec runs this generator in-process
+      // after an earlier elaboration in the same JVM, println output can vanish from both the
+      // stdout capture and the log (observed; a stream reference cached during the first
+      // elaboration). File I/O is immune to stream redirection, so the marker file is the
+      // authoritative completion proof; the stdout marker stays for the board harness grep.
+      val marker = new java.io.File("simWorkspace", "e2e_smoke.marker")
+      java.nio.file.Files.createDirectories(marker.toPath.getParent)
+      java.nio.file.Files.writeString(marker.toPath, "SMOKE_ALL_OK")
     } finally {
       rmTree(base)
     }
