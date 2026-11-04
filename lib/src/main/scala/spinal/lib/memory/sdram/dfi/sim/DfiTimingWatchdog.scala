@@ -132,7 +132,11 @@ class DfiTimingWatchdog(cfg: DfiConfig, verbose: Boolean = sys.env.get("DFI_TIMI
     if (pre || preAll) {
       for (x <- (if (preAll) 0 until banks else Seq(b))) {
         val i = idx(rank, x)
-        if (lastAct(i) >= 0) {
+        // A PRE only constrains the row it actually closes. On a PRE_ALL sweep the banks
+        // whose rows were already closed (lastPre >= lastAct) must not be timed: timing
+        // them from their stale lastAct produces false tRAS max hits long after the row
+        // was properly closed (mirrors the open-row predicate used in the REF check below).
+        if (lastAct(i) >= 0 && lastPre(i) < lastAct(i)) {
           val held = cycle - lastAct(i)
           if (held < tRASmc) fail(cycle, s"tRAS min (ACT->PRE bank $x)", held, s">= $tRASmc MC cycles")
           if (held > tRASmaxmc) fail(cycle, s"tRAS max (ACT->PRE bank $x)", held, s"<= $tRASmaxmc MC cycles (9 x tREFI)")
