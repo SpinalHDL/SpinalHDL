@@ -2,6 +2,7 @@ package spinal.lib.memory.sdram.dfi
 
 import java.io.{File, PrintStream}
 import java.security.MessageDigest
+import spinal.lib.memory.sdram.dfi.phy.{E2eMcGen, E2eSmokeGen, UsPhyGen}
 import spinal.tester.code.SpinalAnyFunSuite
 
 /**
@@ -30,21 +31,34 @@ import spinal.tester.code.SpinalAnyFunSuite
 class DfiBoardEvidenceSpec extends SpinalAnyFunSuite {
   import DfiBoardEvidenceSpec._
 
+  /** Opt-in switch: cancelled (not silently skipped) when the env flag is absent. */
+  private def gate(): Unit =
+    if (!sys.env.get("DFI_BOARD_GATE").exists(v => v == "1" || v.equalsIgnoreCase("true")))
+      cancel("tier-3 gate is opt-in: set DFI_BOARD_GATE=1 (grill Q1/Q15: the CI job command stays unchanged)")
+
   test("T3 generators: MC end-to-end netlist elaborates and is structurally complete") {
-    gated("set DFI_BOARD_GATE=1 (needs a Vivado-capable host for the full tier; netlist generation runs anywhere)")
+    gate()
     val out = capture(E2eMcGen.main(Array()))
     assert(out.contains("GEN_MC_DONE"), s"E2eMcGen did not finish. tail:\n${tail(out)}")
-    val mc = requireNetlist("DfiController")
-    Seq("io_dfi_control_rasN", "io_dfi_control_csN", "io_dfi_control_cke", "io_dfi_control_odt",
-        "io_dfi_write_wr_0_wrdataEn", "io_dfi_read_rd_0_rddataValid", "io_dfiCtrlMsg_ctrlmsgReq")
-      .foreach(p => assert(read(mc).contains(p), s"MC netlist $mc is missing the DFI port $p"))
+    val mc = requireNetlist("DfiController/rtl/DfiController.v")
+    val v = read(mc)
+    // Only the channels E2eMcGen's config instantiates are checked: its signal config leaves the
+    // message, low-power, status, update and training groups out (lib/.../dfi/phy/E2eMcGen.scala),
+    // so demanding io_dfiCtrlMsg_* here greps for a bundle that does not exist. Full channel
+    // coverage is DfiNetlistLintSpec's job (all capabilities elaborated).
+    val channels = Seq("io_dfi_control_rasN", "io_dfi_control_csN", "io_dfi_control_cke",
+      "io_dfi_control_odt", "io_dfi_write_wr_0_wrdataEn", "io_dfi_read_rd_0_rddataValid")
+    channels.foreach(p => assert(v.contains(p), s"MC netlist $mc is missing the DFI port $p"))
+    val mcTied = channels.filter(p => isConstantDriver(v, p))
+    assert(mcTied.isEmpty, "the board MC ties a command/data channel to a constant:\n  " + mcTied.mkString("\n  "))
+    println(s"[T3] MC netlist $mc: ${channels.size} channels declared, none tied to a constant")
   }
 
   test("T3 generators: PHY netlist elaborates and keeps the delay/pad structure") {
-    gated("set DFI_BOARD_GATE=1")
+    gate()
     val smoke = capture(E2eSmokeGen.main(Array()))
     assert(smoke.contains("SMOKE_ALL_OK"), s"E2eSmokeGen did not finish. tail:\n${tail(smoke)}")
-    val phy = requireNetlist("UsPhy")
+    val phy = requireNetlist("UsPhy.v")
     val v = read(phy)
     // The ADR-0001 datapath claim: write delay/read capture live in the fast MIB clock domain,
     // built from the UltraScale delay primives, with per-phase pads on the command side.
@@ -56,10 +70,10 @@ class DfiBoardEvidenceSpec extends SpinalAnyFunSuite {
   }
 
   test("netlist digests match the pinned table (ADR-0019)") {
-    gated("set DFI_BOARD_GATE=1")
+    gate()
     // Make sure both netlists exist before hashing.
     if (!new File(s"$workspace/DfiController/rtl/DfiController.v").exists()) capture(E2eMcGen.main(Array()))
-    if (!new File(s"$workspace/UsPhy/rtl/UsPhy.v").exists()) capture(UsPhyGen.main(Array()))
+    if (!new File(s"$workspace/UsPhy.v").exists()) capture(UsPhyGen.main(Array()))
     val found = pins.map { case (rel, _) => rel -> sha256(new File(workspace, rel)) }
     if (updateMode) {
       println("[T3-PIN] paste this into DfiBoardEvidenceSpec.pins:")
@@ -74,15 +88,18 @@ class DfiBoardEvidenceSpec extends SpinalAnyFunSuite {
   }
 
   test("xsim evidence: every recorded case finished with done=1 and error=0") {
-    gated("set DFI_BOARD_GATE=1")
+    gate()
     val f = new File(evidenceTsv)
     if (!f.exists()) cancel(s"no xsim evidence at $evidenceTsv — run the board harness first (tier 3 is manual by design)")
-    val rows = io.Source.fromFile(f).getLines().filter(_.contains("\t")).toSeq
-    assert(rows.nonEmpty, s"$evidenceTsv has no rows")
+    // Harness row format: RESULT<TAB>case<TAB>rc=N<TAB>pass=yes|no<TAB>time<TAB>description
+    val rows = io.Source.fromFile(f).getLines().filter(_.startsWith("RESULT")).toSeq
+    assert(rows.nonEmpty, s"$evidenceTsv has no RESULT rows")
     val bad = rows.map(_.split("\t")).filter { r =>
-      !(r.exists(_.trim == "1") && r.exists(_.trim == "0")) // done, error
+      !r.exists(_.trim == "rc=0") || !r.exists(_.trim == "pass=yes")
     }
-    assert(bad.isEmpty, s"$evidenceTsv has cases that did not finish clean:\n  " + bad.map(_.mkString(" | ")).mkString("\n  "))
+    assert(bad.isEmpty, s"$evidenceTsv has cases that did not finish clean (need rc=0 and pass=yes):\n  " +
+      bad.map(_.mkString(" | ")).mkString("\n  "))
+    println(s"[T3] $evidenceTsv: ${rows.size} board cases, all rc=0 pass=yes")
   }
 }
 
@@ -97,39 +114,51 @@ object DfiBoardEvidenceSpec {
     * (grill Q6: pin the hashes, and record the regeneration in the commit message).
     */
   val pins: Map[String, String] = Map(
-    "DfiController/rtl/DfiController.v" -> "PENDING",
-    "UsPhy/rtl/UsPhy.v" -> "PENDING"
+    "DfiController/rtl/DfiController.v" -> "9e655b7e36f7970411c3424425969d27278c105a26c2d745b1da7f7563c73918",
+    "UsPhy.v" -> "5851a0f09c7d2c8bf2ec8db62b106ae609ba25721bb297402b23a332e774f192"
   )
 
-  def gated(why: => String): Unit =
-    if (!sys.env.get("DFI_BOARD_GATE").exists(v => v == "1" || v.equalsIgnoreCase("true")))
-      cancel("tier-3 gate is opt-in: " + why)
 
+
+  /** Scala `println` goes through `Console.out`; SpinalHDL's logger writes to `System.out`. */
   private def capture(run: => Unit): String = {
     val buf = new java.io.ByteArrayOutputStream()
-    val saved = System.out
+    val savedOut = System.out
+    val savedErr = System.err
     val ps = new PrintStream(buf, true, "UTF-8")
-    System.setOut(ps)
-    try run finally { ps.flush(); System.setOut(saved) }
+    System.setOut(ps); System.setErr(ps)
+    try Console.withOut(ps)(Console.withErr(ps)(run))
+    finally { ps.flush(); System.setOut(savedOut); System.setErr(savedErr) }
     buf.toString("UTF-8")
   }
 
   private def tail(s: String): String = s.split('\n').takeRight(12).mkString("\n")
+
+  /** True when every driver of `port` in `v` is a Verilog literal (i.e. a constant tie-off). */
+  private def isConstantDriver(v: String, port: String): Boolean = {
+    val q = java.util.regex.Pattern.quote(port)
+    val re = (raw"(?m)^\s*assign\s+" + q + raw"\s*=\s*([^;]+);").r
+    val lit = raw"(\d+'[bBoOdDhH][0-9a-fA-Fx_]+)|\(\d+'[bBoOdDhH][0-9a-fA-F_]+\)".r
+    val ds = re.findAllMatchIn(v).map(_.group(1).trim).toSeq
+    ds.nonEmpty && ds.forall(d => lit.pattern.matcher(d.replace(" ", "")).matches())
+  }
+  /** `top` is the path under ./simWorkspace, e.g. "UsPhy/rtl/UsPhy.v". */
   private def requireNetlist(top: String): File = {
-    val f = new File(s"$workspace/$top/rtl/$top.v")
+    val f = new File(s"$workspace/$top")
     assert(f.exists(), s"expected netlist $f was not generated")
     f
   }
   private def read(f: File): String = io.Source.fromFile(f).mkString
+  /**
+    * SHA-256 of the netlist **with the generation header removed**: SpinalHDL stamps the file
+    * with the library version and the generation date, so hashing the raw bytes would break the
+    * pin on any day it is regenerated. The logic body is what the board claims depend on.
+    */
   private def sha256(f: File): String = {
     assert(f.exists(), s"missing generated file ${f.getPath}")
-    val md = MessageDigest.getInstance("SHA-256")
-    val in = new java.io.FileInputStream(f)
-    try {
-      val chunk = new Array[Byte](65536)
-      var n = in.read(chunk)
-      while (n > 0) { md.update(chunk, 0, n); n = in.read(chunk) }
-    } finally in.close()
-    md.digest.map(b => f"$b%02x").mkString
+    val body = io.Source.fromFile(f).getLines()
+      .filterNot(l => l.trim.startsWith("//") || l.trim.startsWith("`timescale"))
+      .mkString("\n")
+    MessageDigest.getInstance("SHA-256").digest(body.getBytes("UTF-8")).map(b => f"$b%02x").mkString
   }
 }
