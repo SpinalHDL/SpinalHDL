@@ -187,7 +187,6 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   val timeConfig = TaskTimingConfig(dfiConfig)
   def trainBlocked: Bool =
     if (dfiConfig.signalConfig.useCtrlMsg || dfiConfig.signalConfig.useLegacyWrLvl) io.trainBusy else False
-  val readyForRefresh = True
   val sdram = dfiConfig.sdram
 
   // Init hook: config-carried step table wins (DfiConfig.initSteps, e.g. the DDR3/DDR2
@@ -357,7 +356,6 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     status.bankHit := banksRow.readAsync(address.bank) === address.row
     status.bankActive := banks.map(_.active).read(address.bank)
     status.employ(address)
-    readyForRefresh clearWhen (input.valid)
   }
   val columnBurstShift = log2Up(dfiConfig.transferPerBurst)
   // Defaults so every generation drives the DDR4-only op flags; the init override below
@@ -367,7 +365,6 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   io.output.zq := False
   io.output.initCsN.setAll()
 
-  readyForRefresh clearWhen (io.cmd.valid)
   val columnBurstMask = (sdram.columnSize - 1) - ((io.cmd.stationLengthMax - 1) << columnBurstShift)
   val station = new Area {
     val valid = RegInit(False)
@@ -440,7 +437,6 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
         valid := False
       }
     }
-    readyForRefresh clearWhen (valid)
   }
 
   val refreshStream = Event
@@ -449,8 +445,19 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   refresher.io.refresh <> refreshStream
 
   val selectedAddress = io.output.address
+  // True from the entry-decision cycle until the refresh FSM is back in idle (RFC tail done).
+  // Holds the taskConstructor pipe payload (ready=0) for the whole sequence: the halt freezes
+  // the upstream BMB, but a payload already parked in the m2sPipe at freeze time would
+  // otherwise spawn a station burst one cycle after entry — a straddling burst whose
+  // bank-state snapshot pre-dates the PRE_ALL keeps driving beats on the row PRE_ALL just
+  // closed, and the next task on that bank re-ACTs tRFC-tight after the REF (measured: ACT
+  // 22 MC after REF, tRFC floor 26). Holding the spawn until the FSM is idle makes the
+  // deferred burst take a FRESH snapshot (row closed -> ACT first) with the ACT
+  // structurally >= tRFC after the REF. Entry itself stays burst-boundary (askRefresh):
+  // the in-flight burst is done before entry, so nothing is torn.
+  val refreshSeqActive = Bool()
   val loader = new Area {
-    taskConstructor.input.ready := !station.valid && initDone && !trainBlocked
+    taskConstructor.input.ready := !station.valid && initDone && !trainBlocked && !refreshSeqActive
     val offset = taskConstructor.address.column(columnBurstShift, io.cmd.stationLengthWidth bits)
     val offsetLast = offset +^ taskConstructor.input.length
     // BmbAlignedSpliter guarantees sub-commands never cross a bytePerTaskMax-aligned boundary, so
@@ -464,7 +471,7 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
         "SDRAM task bursts cross the station boundary: offset + length must fit in stationLengthWidth bits"
       )
     }
-    val canSpawn = !station.valid && initDone && !trainBlocked
+    val canSpawn = !station.valid && initDone && !trainBlocked && !refreshSeqActive
     // Insert taskConstructor into one free station
     when(taskConstructor.input.fire && canSpawn) {
       station.valid := True
@@ -477,7 +484,27 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
       station.offsetLast := offsetLast
     }
   }
-  val askRefresh = refreshStream.valid && readyForRefresh && initDone && !trainBlocked
+  // Burst-boundary acceptance with halt-engaged entry. The upstream halt (refresher pending ->
+  // io.halt -> BmbBridge RegNext -> BMB haltWhen) FREEZES the taskConstructor pipe 2 cycles after
+  // pending rises. Gating the entry on that freeze being active (RegNext(RegNext(refreshStream.valid)))
+  // guarantees no command can spawn a station burst mid-sequence — closing the 1-cycle hole whose
+  // torn burst forced tRFC-violating re-ACTs. Crucially this gates on the pipe being FROZEN, not
+  // EMPTY: the station is only empty ~1 clk between back-to-back bursts, whereas the pipe is empty
+  // only on rare master pauses; a pipe-EMPTY entry term therefore waited ~60 MC for a pause and
+  // slipped the whole tREFI window. Frozen-but-nonempty is fine: the held command cannot fire.
+  // The entry lands on the next station-empty moment (in-flight burst done). Never the
+  // combinatorial "no traffic this cycle" flag: gating the sequence start on it stalls the
+  // sequence mid-flight whenever a beat arrives and slips the whole tREFI window.
+  val haltEngaged = RegNext(RegNext(refreshStream.valid))
+  // Require BOTH the live request and the engaged halt. haltEngaged lags the release by 2
+  // cycles: on a level-gate on haltEngaged alone the idle FSM would see askRefresh still high
+  // right after refreshStream.ready and RELAUNCH a spurious PRE_ALL/REF sequence. That spurious
+  // REF can collide with a freshly spawned burst's ACT on the same cycle, win the command
+  // arbitration and silently drop the ACT while the station's bank tracking still books the row
+  // open -> subsequent beats hit a closed row -> data corruption. Requiring refreshStream.valid
+  // (dropped by the ready pulse) closes the relaunch window; the haltEngaged term still enforces
+  // the frozen-pipe entry guarantee.
+  val askRefresh = refreshStream.valid && haltEngaged && !station.valid && initDone && !trainBlocked
   when(station.doSomething) {
     banksRow.write(selectedAddress.bank, selectedAddress.row)
   }
@@ -486,10 +513,18 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     val prechargeAllCmd = new State
     val refreshCmd = new State
     val refreshReady = new State
+    // Entry: burst-boundary acceptance (askRefresh): the sequence only starts when the
+    // station holds no burst. Mid-sequence: TIMER-ONLY gates — the sequence must advance on
+    // its own schedule, or traffic slipping in mid-flight slips the whole tREFI window
+    // (measured: 3735 MC REF->REF gaps when these gates carried the combinatorial
+    // "no traffic this cycle" flag). Nothing new can enter the station meanwhile: the
+    // refresher's pending flag halts the upstream BMB cmd path for the whole sequence
+    // (BmbBridge: RegNext(maketask.io.halt) <> bmbAdapter.io.halt -> haltWhen), so no ACT
+    // can land inside the PRE_ALL->REF window and no burst is ever torn.
     idle.whenIsActive(when(askRefresh) { goto(prechargeAllCmd) })
-    prechargeAllCmd.whenIsActive(when(RegNext(allowPrechargeAll) & askRefresh) { goto(refreshCmd) })
-    refreshCmd.whenIsActive(when(!RP.busy & askRefresh) { goto(refreshReady) })
-    refreshReady.whenIsActive(when(!RFC.busy & askRefresh) { goto(idle) })
+    prechargeAllCmd.whenIsActive(when(RegNext(allowPrechargeAll)) { goto(refreshCmd) })
+    refreshCmd.whenIsActive(when(!RP.busy) { goto(refreshReady) })
+    refreshReady.whenIsActive(when(!RFC.busy) { goto(idle) })
 
     prechargeAllCmd.onExit(io.output.prechargeAll := True)
     refreshCmd.onExit(io.output.refresh := True)
@@ -499,6 +534,10 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
   refreshStream.ready := False
   io.output.prechargeAll := False
   io.output.refresh := False
+  // askRefresh covers the entry-decision cycle (the FSM only leaves idle one cycle later);
+  // !fsm.isActive(fsm.idle) covers the rest of the sequence. Together they hold the pipe
+  // payload (see refreshSeqActive above) from entry until the RFC tail has elapsed.
+  refreshSeqActive := askRefresh || !fsm.isActive(fsm.idle)
 
   // Init override (step-table engine). While init runs, the normal command path is held off:
   // the station cannot spawn, the refresh FSM is gated, and active/precharge are forced low

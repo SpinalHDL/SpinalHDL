@@ -9,9 +9,17 @@ case class Refresher(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Compo
   }
   val timeConfig = TaskTimingConfig(dfiConfig)
   val value = Reg(UInt(taskConfig.taskParameter.refWidth bits)) init (0)
-  // tREFI pre-trigger margin: the counter counts down from REF, so the request must fire
-  // `margin` MC cycles early for the REF command itself to land inside the tREFI window.
-  val margin = timeConfig.RFC + 2
+  // tREFI pre-trigger margin, in DFI-clock units (the counter below ticks once per DFI clock, and
+  // the DRAM-side watchdog measures the REF->REF gap in the same DFI-clock units, where tREFI =
+  // 390 for this config). The counter reloads REF when value <= margin, so the hit period is
+  // REF - margin; the REF command then lands ~`service` DFI clocks after the hit, where
+  // `service` = (entry waits for the in-flight burst to drain, up to a burst length) + (FSM
+  // entry->REF, ~RP + a couple). The observed REF->REF gap is therefore (REF - margin) + service
+  // and JITTERS with the drain wait. If margin only covered the FSM dwell (RP + RFC) the baseline
+  // gap sat ~31 DFI clocks under tREFI and the drain jitter pushed it over -> tREFI violations.
+  // Adding an explicit drain-wait slack (+20) pulls the baseline gap down so the jitter stays
+  // inside tREFI. Refreshing a little more often than tREFI is always spec-safe (tREFI is a max).
+  val margin = timeConfig.RP + timeConfig.RFC + 20
   val hit = value <= U(margin, taskConfig.taskParameter.refWidth bits)
   value := value - 1
   // The refresh request is serviced by the MakeTask refresh FSM, which precharges every bank and
