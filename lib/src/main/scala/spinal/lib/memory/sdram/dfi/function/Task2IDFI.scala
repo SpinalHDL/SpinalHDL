@@ -152,8 +152,16 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
       cmdphase(dfiConfig.timeConfig.cmdPhase).casN := False
       cmdphase(dfiConfig.timeConfig.cmdPhase).weN := False
       addrphase(dfiConfig.timeConfig.cmdPhase).valid.set()
-      addrphase(dfiConfig.timeConfig.cmdPhase).bg := bgBits
-      addrphase(dfiConfig.timeConfig.cmdPhase).bank := baBits.resized
+      // The 3-bit Mode Register select is {BG0, BA1:BA0} (NOTE 3, sec. 3.3 steps 6-12; MakeTask
+      // drives task bank[2:0] = mrIndex). It is NOT the flat {BG, BA} bank index ACT/RD/WR use:
+      // reading bit 3 as BG0 drops MRSEL2, so MR4/MR5/MR6 land on MR0/MR1/MR2 on real silicon.
+      if (dfiConfig.useBg) {
+        addrphase(dfiConfig.timeConfig.cmdPhase).bg := io.task.address.bank(2 downto 2).asBits
+        addrphase(dfiConfig.timeConfig.cmdPhase).bank := io.task.address.bank(1 downto 0).asBits.resized
+      } else {
+        addrphase(dfiConfig.timeConfig.cmdPhase).bg := bgBits
+        addrphase(dfiConfig.timeConfig.cmdPhase).bank := baBits.resized
+      }
       addrphase(dfiConfig.timeConfig.cmdPhase).address := ROW.resized
     }
     when(io.task.zq) {

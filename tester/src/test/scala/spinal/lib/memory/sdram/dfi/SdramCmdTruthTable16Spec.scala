@@ -293,6 +293,7 @@ class SdramCmdTruthTable16Spec extends SpinalAnyFunSuite {
 
       Seq(0, 1).foreach { cs =>
         dut.io.task.address.cs #= cs
+        dut.io.task.precharge #= true // an op must be requested, or the station emits nothing
         dut.clockDomain.waitRisingEdge()
         val c = dut.io.cmd(0).payload
         assert(dut.io.cmd(0).valid.toBoolean, s"PRE cs=$cs: expected a valid command")
