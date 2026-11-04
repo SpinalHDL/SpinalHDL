@@ -513,9 +513,11 @@ class DfiMemoryAgent(
         val zqcl = enPerChip && actN && ras && cas && !weN && a10 == 1L && !cmdDropped // ZQCL (Table 16): (1,1,0)+A10=H; (1,1,1) is NOP
 
         if (mrs) {
-          // MR select = the flat {BG, BA} bank encoding, identical to ACT (JESD79-4B Table 16:
-          // MRS uses the same BG/BA pins); the address field carries the OP code.
-          val mrIndex = flatBank(cmdBank)
+          // MR select = MRSEL[2:0] = {BG0, BA1, BA0} (JESD79-4B NOTE 3, sec. 3.3): the BG/BA
+          // pins carry the MR number, NOT the flat data-bank index. BA2 and above are
+          // don't-care for MRS (the DUT pads them 0), so on geometries with a BA field wider
+          // than 2 bits the flat {BG, BA} concat misplaces BG0 (MR4/MR5 decoded as 8/9).
+          val mrIndex = ((cmdBg & 1L) << 2) | (cmdBank & 3L)
           if (mrIndex != 7) { // 7 = RCW1, reserved
             val rankMr = modeRegisters.getOrElseUpdate(idPerChip, mutable.Map())
             rankMr(mrIndex.toInt) = cmdAddr
@@ -529,7 +531,7 @@ class DfiMemoryAgent(
         // independent decoder (Python, straight from JESD79-4B Table 16) can be diffed against it.
         def hex(v: Long) = java.lang.Long.toHexString(v)
         if (mrs) {
-          val mr = flatBank(cmdBank)
+          val mr = ((cmdBg & 1L) << 2) | (cmdBank & 3L)
           println(s"[AGENTCMD] $agentCycle r$idPerChip MRS $mr ${hex(cmdAddr)}")
         }
         if (act) println(s"[AGENTCMD] $agentCycle r$idPerChip ACT ${flatBank(cmdBank)} ${hex(cmdAddr)}")
