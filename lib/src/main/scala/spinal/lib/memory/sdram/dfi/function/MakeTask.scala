@@ -262,7 +262,12 @@ case class MakeTask(taskConfig: TaskConfig, dfiConfig: DfiConfig, addrMap: AddrM
     }
     val sameGroup = lastBg === io.output.address.bank(dfiConfig.dfiBankWidth, dfiConfig.bankGroupWidth bits).asBits
     val timerL = timing(io.output.read || io.output.write, timeConfig.CCD_L)
-    val busy = lastValid && sameGroup && timerL.busy
+    // tCCD_S: consecutive column commands into DIFFERENT bank groups need their own spacing
+    // (JESD79-4B sec. 4.19, 8 nCK at 8 Gb). Only tCCD_L was gated; cross-group traffic fell back
+    // to the station's one-cycle block, i.e. 2 nCK at fr2 and 1 nCK at fr1.
+    val timerS = timing(io.output.read || io.output.write, timeConfig.CCD_S)
+    val busy = lastValid && (if (timeConfig.CCD_S >= timeConfig.CCD_L) timerS.busy
+                             else Mux(sameGroup, timerL.busy, timerS.busy))
   } else null
   def ccdBgBusy: Bool = if (CCD_BG != null) CCD_BG.busy else False
   val RTW = timing(io.output.read, timeConfig.RTW)
