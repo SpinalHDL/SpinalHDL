@@ -17,11 +17,19 @@ case class CmdTxd(taskConfig: TaskConfig, dfiConfig: DfiConfig) extends Componen
   // and the elaboration-time mask during init — csN(r) = mask(r) ? 0 : 1, so the runtime cs
   // latch no longer decides which rank receives MRS/ZQCL/PRE_ALL/REF; every rank in the mask
   // does, in the same cycle.
-  val csSel = Mux(
+  val csSelSingle = Mux(
     io.task.initCsN.andR,
     ~(B(1) << io.task.address.cs).resize(dfiConfig.chipSelectNumber),
     io.task.initCsN
   )
+  // REF must reach EVERY rank (synchronous refresh, JESD79-4B multi-rank). The single-rank
+  // decode above would steer a REF at the residual station cs latch, starving the other rank(s)
+  // of refresh: their per-rank REF->REF gap then balloons to multiples of the refresh period and
+  // breaches the per-rank tREFI window (the DRAM-side watchdog measures exactly that). Drive csN
+  // all-low (all ranks selected) for runtime REF; init-window REFs keep the init broadcast mask.
+  val csSel = Mux(io.task.refresh && io.task.initCsN.andR,
+    B(0, dfiConfig.chipSelectNumber bits),
+    csSelSingle)
 
   // ---- Legacy (DDR3 and below): fixed RAS/CAS/WE encoding, unchanged ----
   def ACTIVE: Bits = (csSel ## B"b011").setName("ACTIVE")
